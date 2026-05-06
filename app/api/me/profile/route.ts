@@ -101,12 +101,20 @@ function parsePatchBody(body: unknown): { ok: true; patch: Record<string, unknow
   const b = body as Record<string, unknown>;
   const patch: Record<string, unknown> = {};
 
+  // display_name(표시용 닉네임): 중복 허용, 자유 변경 가능
+  if ("display_name" in b) {
+    const n = String(b.display_name ?? "").trim();
+    if (n.length < 2) return { ok: false, error: "닉네임은 2자 이상으로 입력해 주세요." };
+    if (n.length > 20) return { ok: false, error: "닉네임은 20자 이내로 입력해 주세요." };
+    patch.display_name = n;
+  }
+
+  // 레거시 호환: nickname 업데이트 요청은 display_name 업데이트로 처리한다.
   if ("nickname" in b) {
     const n = String(b.nickname ?? "").trim();
-    if (!n) return { ok: false, error: "닉네임을 입력해 주세요." };
+    if (n.length < 2) return { ok: false, error: "닉네임은 2자 이상으로 입력해 주세요." };
     if (n.length > 20) return { ok: false, error: "닉네임은 20자 이내로 입력해 주세요." };
-    patch.nickname = n;
-    patch.display_name = n;
+    if (!("display_name" in patch)) patch.display_name = n;
   }
 
   if ("avatar_url" in b) {
@@ -257,10 +265,6 @@ export async function PATCH(req: NextRequest) {
   };
 
   const serviceSb = tryCreateSupabaseServiceClient();
-  const nickname = typeof parsed.patch.nickname === "string" ? parsed.patch.nickname.trim() : "";
-  if (serviceSb && nickname && (await isNicknameTaken(serviceSb, auth.userId, nickname))) {
-    return NextResponse.json({ ok: false, error: "이미 사용 중인 닉네임입니다" }, { status: 409 });
-  }
   if (serviceSb) {
     let attemptRow: Record<string, unknown> = row;
     let { data, error } = await serviceSb

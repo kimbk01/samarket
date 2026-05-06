@@ -4,6 +4,7 @@ import Link from "next/link";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
 import type { AdminReview } from "@/lib/types/admin-review";
 import { formatAdminReviewSelectedTags } from "@/lib/admin-reviews/admin-review-utils";
+import { formatAtUsername } from "@/lib/users/user-label";
 
 const PUBLIC_LABELS: Record<string, string> = {
   good: "좋아요",
@@ -42,10 +43,24 @@ export function AdminReviewTable({ reviews }: AdminReviewTableProps) {
                 </Link>
               </td>
               <td className="max-w-[80px] truncate px-3 py-2.5 text-sam-fg">
-                {r.sellerNickname ?? (r.role === "seller_to_buyer" ? r.reviewerNickname : r.targetNickname)}
+                <span className="block truncate">
+                  {r.sellerNickname ?? (r.role === "seller_to_buyer" ? r.reviewerNickname : r.targetNickname)}
+                </span>
+                {r.sellerUsername ? (
+                  <span className="mt-0.5 block truncate font-mono sam-text-xxs text-sam-muted tabular-nums">
+                    {formatAtUsername(r.sellerUsername)}
+                  </span>
+                ) : null}
               </td>
               <td className="max-w-[80px] truncate px-3 py-2.5 text-sam-fg">
-                {r.buyerNickname ?? (r.role === "buyer_to_seller" ? r.reviewerNickname : r.targetNickname)}
+                <span className="block truncate">
+                  {r.buyerNickname ?? (r.role === "buyer_to_seller" ? r.reviewerNickname : r.targetNickname)}
+                </span>
+                {r.buyerUsername ? (
+                  <span className="mt-0.5 block truncate font-mono sam-text-xxs text-sam-muted tabular-nums">
+                    {formatAtUsername(r.buyerUsername)}
+                  </span>
+                ) : null}
               </td>
               <td className="px-3 py-2.5 text-center text-sam-muted">Y</td>
               <td className="px-3 py-2.5 text-sam-muted">

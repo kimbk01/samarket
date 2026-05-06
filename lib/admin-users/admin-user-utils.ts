@@ -164,13 +164,25 @@ export function filterAndSortUsers(
     const q = searchQuery.trim().toLowerCase();
     list = list.filter((u) => {
       const matchNickname = u.nickname.toLowerCase().includes(q);
+      const matchDisplayName = String(u.displayName ?? "").toLowerCase().includes(q);
+      const matchUsername = String(u.username ?? "").toLowerCase().includes(q.replace(/^@/, ""));
       const matchEmail = (u.email ?? "").toLowerCase().includes(q);
       const matchId = u.id.toLowerCase().includes(q);
       const matchLogin = (u.loginUsername ?? "").toLowerCase().includes(q);
       const matchLoginIdentifier = (u.loginIdentifier ?? "").toLowerCase().includes(q);
       const matchPhone = (u.phone ?? "").toLowerCase().includes(q);
       const matchLocation = (u.location ?? "").toLowerCase().includes(q);
-      return matchNickname || matchEmail || matchId || matchLogin || matchLoginIdentifier || matchPhone || matchLocation;
+      return (
+        matchNickname ||
+        matchDisplayName ||
+        matchUsername ||
+        matchEmail ||
+        matchId ||
+        matchLogin ||
+        matchLoginIdentifier ||
+        matchPhone ||
+        matchLocation
+      );
     });
   }
 

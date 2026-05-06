@@ -6,6 +6,7 @@ import { PHILIFE_FB_CARD_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 type Props = {
   href?: string;
   title: string;
+  description?: string;
   icon?: ReactNode;
   /** 오른쪽 보조 텍스트(배지 등) */
   accessory?: ReactNode;
@@ -22,6 +23,7 @@ type Props = {
 export const MyPageMobileMenuRow = memo(function MyPageMobileMenuRow({
   href,
   title,
+  description,
   icon,
   accessory,
   tone = "default",
@@ -41,7 +43,14 @@ export const MyPageMobileMenuRow = memo(function MyPageMobileMenuRow({
   const inner = (
     <>
       {icon ? <span className="flex h-8 w-8 shrink-0 items-center justify-center text-sam-muted">{icon}</span> : null}
-      <span className={titleClass}>{title}</span>
+      <span className="min-w-0 flex-1">
+        <span className={`block truncate ${titleClass}`}>{title}</span>
+        {description?.trim() ? (
+          <span className="mt-0.5 block truncate text-[13px] font-normal leading-snug text-sam-muted">
+            {description.trim()}
+          </span>
+        ) : null}
+      </span>
       {accessory ? <span className="shrink-0 sam-text-body-secondary text-sam-muted">{accessory}</span> : null}
       <Chevron />
     </>

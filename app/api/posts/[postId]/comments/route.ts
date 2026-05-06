@@ -7,6 +7,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
+import { fetchPartnerDisplayFieldsMap } from "@/lib/chats/fetch-partner-display";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -39,10 +40,12 @@ export async function GET(
   const list = (rows ?? []) as { id: string; post_id: string; user_id: string; content: string; created_at: string }[];
   const uids = [...new Set(list.map((r) => String(r.user_id ?? "").trim()).filter(Boolean))];
   const nickMap = await fetchNicknamesForUserIds(sbAny, uids);
+  const partnerMap = await fetchPartnerDisplayFieldsMap(sbAny, uids);
   const comments = list.map((r) => ({
     ...r,
     user_id: String(r.user_id ?? "").trim(),
     authorNickname: nickMap.get(String(r.user_id ?? "").trim())?.trim() || "",
+    authorUsername: partnerMap.get(String(r.user_id ?? "").trim())?.partnerUsername ?? null,
   }));
   return NextResponse.json({ comments });
 }

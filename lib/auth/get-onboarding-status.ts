@@ -20,6 +20,7 @@ import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
  */
 export type OnboardingStatus = {
   profileExists: boolean;
+  usernameComplete: boolean;
   nicknameComplete: boolean;
   consentComplete: boolean;
   addressComplete: boolean;
@@ -30,6 +31,9 @@ export type OnboardingStatus = {
 
 type ProfileRowSubset = {
   id: string | null;
+  username: string | null;
+  username_confirmed: boolean | null;
+  display_name?: string | null;
   nickname: string | null;
   email: string | null;
   role: string | null;
@@ -56,7 +60,7 @@ async function loadProfileSubset(
   const { data, error } = await sb
     .from("profiles")
     .select(
-      "id,nickname,email,role,phone_verified,phone_verified_at,provider,auth_provider,terms_accepted_at,terms_version,privacy_accepted_at,privacy_version"
+      "id,username,username_confirmed,display_name,nickname,email,role,phone_verified,phone_verified_at,provider,auth_provider,terms_accepted_at,terms_version,privacy_accepted_at,privacy_version"
     )
     .eq("id", userId)
     .maybeSingle();
@@ -65,6 +69,9 @@ async function loadProfileSubset(
   const row = data as Record<string, unknown>;
   return {
     id: pickTrimmedString(row.id),
+    username: pickTrimmedString(row.username),
+    username_confirmed: row.username_confirmed === true,
+    display_name: pickTrimmedString(row.display_name),
     nickname: pickTrimmedString(row.nickname),
     email: pickTrimmedString(row.email),
     role: pickTrimmedString(row.role),
@@ -89,7 +96,8 @@ export async function getOnboardingStatus(
 ): Promise<OnboardingStatus> {
   const profile = await loadProfileSubset(sb, userId);
   const profileExists = profile?.id !== null && profile?.id !== undefined;
-  const nicknameComplete = Boolean(profile?.nickname && profile.nickname.length > 0);
+  const usernameComplete = Boolean(profile?.username && profile.username.length > 0 && profile.username_confirmed === true);
+  const nicknameComplete = Boolean(profile?.display_name && profile.display_name.length > 0);
   const consentComplete = hasStoreTermsConsent({
     terms_accepted_at: profile?.terms_accepted_at ?? null,
     terms_version: profile?.terms_version ?? null,
@@ -117,6 +125,7 @@ export async function getOnboardingStatus(
 
   return {
     profileExists,
+    usernameComplete,
     nicknameComplete,
     consentComplete,
     addressComplete,

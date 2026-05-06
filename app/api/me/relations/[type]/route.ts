@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
+import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -63,7 +64,7 @@ export async function GET(
   if (targetIds.length > 0) {
     const { data: profiles } = await sb
       .from("profiles")
-      .select("id, nickname, avatar_url, region_name")
+      .select("id, display_name, nickname, username, avatar_url, region_name")
       .in("id", targetIds);
     for (const row of (profiles ?? []) as Record<string, unknown>[]) {
       const id = String(row.id ?? "").trim();
@@ -78,7 +79,14 @@ export async function GET(
       id: String(row.id ?? ""),
       targetId,
       createdAt: String(row.created_at ?? ""),
-      nickname: typeof profile?.nickname === "string" ? profile.nickname : null,
+      nickname: (() => {
+        const displayName = typeof profile?.display_name === "string" ? profile.display_name : null;
+        const legacy = typeof profile?.nickname === "string" ? profile.nickname : null;
+        const username = typeof profile?.username === "string" ? profile.username : null;
+        const label = labelFromDisplayAndUsername(displayName ?? legacy, username).trim();
+        return label || legacy || null;
+      })(),
+      username: typeof profile?.username === "string" ? profile.username : null,
       avatarUrl: typeof profile?.avatar_url === "string" ? profile.avatar_url : null,
       regionName: typeof profile?.region_name === "string" ? profile.region_name : null,
     };

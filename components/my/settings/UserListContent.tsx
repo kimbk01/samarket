@@ -14,6 +14,7 @@ type UserRelationItem = {
   id: string;
   targetId: string;
   nickname: string | null;
+  username?: string | null;
   avatarUrl: string | null;
   regionName: string | null;
   createdAt: string;
@@ -123,6 +124,11 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
             <p className="truncate sam-text-body font-medium text-sam-fg">
               {item.nickname?.trim() || item.targetId}
             </p>
+            {item.username ? (
+              <p className="mt-0.5 truncate font-mono sam-text-xxs text-sam-muted tabular-nums">
+                @{item.username}
+              </p>
+            ) : null}
             <p className="mt-1 sam-text-helper text-sam-muted">
               {[item.regionName, formatDate(item.createdAt)].filter(Boolean).join(" · ") || item.targetId}
             </p>

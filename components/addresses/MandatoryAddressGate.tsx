@@ -22,6 +22,7 @@ function isGateExcludedPath(path: string): boolean {
   // 온보딩 단계는 별도 화면이 동일한 게이트 검사를 들고 있어 모달이 중복 표시되면 안 된다.
   if (path === "/onboarding/address" || path.startsWith("/onboarding/address/")) return true;
   if (path === "/onboarding/profile" || path.startsWith("/onboarding/profile/")) return true;
+  if (path === "/onboarding/username" || path.startsWith("/onboarding/username/")) return true;
   return false;
 }
 

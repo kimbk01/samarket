@@ -17,9 +17,15 @@ export type UpdateMyProfileResult =
 function syncCachesAfterProfileSave(payload: ProfileUpdatePayload): void {
   const cur = getCurrentUser();
   if (!cur) return;
-  const patch: { nickname?: string; avatar_url?: string | null } = {};
-  if (payload.nickname !== undefined) {
-    patch.nickname = (payload.nickname ?? cur.nickname)?.trim() || cur.nickname;
+  const patch: { nickname?: string; display_name?: string | null; avatar_url?: string | null } = {};
+  if (payload.display_name !== undefined) {
+    const next = (payload.display_name ?? cur.display_name ?? cur.nickname)?.trim() || cur.nickname;
+    patch.display_name = next;
+    patch.nickname = next;
+  } else if (payload.nickname !== undefined) {
+    const next = (payload.nickname ?? cur.display_name ?? cur.nickname)?.trim() || cur.nickname;
+    patch.display_name = next;
+    patch.nickname = next;
   }
   if (payload.avatar_url !== undefined) {
     patch.avatar_url = payload.avatar_url;

@@ -62,7 +62,7 @@ export function MessengerNewConversationSheet({
           />
           <SheetActionButton
             label="친구 추가"
-            helper="닉네임·아이디로 검색해 요청합니다."
+            helper="@아이디로 검색해 요청합니다."
             meta="2"
             onClick={() => {
               onClose();

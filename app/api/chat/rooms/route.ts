@@ -375,6 +375,36 @@ export async function GET(req: NextRequest) {
     partnerIdsEarly.length ? fetchNicknamesForUserIds(sbAny, partnerIdsEarly) : Promise.resolve(new Map<string, string>()),
   ]);
 
+  const identityByUserId = new Map<string, { username: string | null; displayName: string | null }>();
+  if (partnerIdsEarly.length > 0) {
+    const { data: profs } = await sbAny
+      .from("profiles")
+      .select("id, display_name, username")
+      .in("id", partnerIdsEarly);
+    for (const row of profs ?? []) {
+      const r = row as { id?: string; display_name?: string | null; username?: string | null };
+      const id = String(r.id ?? "").trim();
+      if (!id) continue;
+      identityByUserId.set(id, {
+        username: typeof r.username === "string" ? r.username.trim() || null : null,
+        displayName: typeof r.display_name === "string" ? r.display_name.trim() || null : null,
+      });
+    }
+    const missing = partnerIdsEarly.filter((id) => !identityByUserId.has(id));
+    if (missing.length > 0) {
+      const { data: tus } = await sbAny.from("test_users").select("id, display_name, username").in("id", missing);
+      for (const row of tus ?? []) {
+        const r = row as { id?: string; display_name?: string | null; username?: string | null };
+        const id = String(r.id ?? "").trim();
+        if (!id || identityByUserId.has(id)) continue;
+        identityByUserId.set(id, {
+          username: typeof r.username === "string" ? r.username.trim() || null : null,
+          displayName: typeof r.display_name === "string" ? r.display_name.trim() || null : null,
+        });
+      }
+    }
+  }
+
   const postMap = new Map((posts ?? []).map((p: Record<string, unknown>) => [p.id as string, p]));
 
   const authorIdsFromPosts = [
@@ -396,11 +426,14 @@ export async function GET(req: NextRequest) {
     const unreadCount = amISeller ? (r.unread_count_seller ?? 0) : (r.unread_count_buyer ?? 0);
     const partnerId = amISeller ? r.buyer_id : r.seller_id;
     const partnerNickname = nicknameByUserId.get(partnerId)?.trim() || partnerId.slice(0, 8);
+    const ident = identityByUserId.get(partnerId);
     return {
       id: r.id,
       productId: r.post_id,
       buyerId: r.buyer_id,
       sellerId: r.seller_id,
+      partnerUsername: ident?.username ?? null,
+      partnerDisplayName: ident?.displayName ?? null,
       partnerNickname,
       partnerAvatar: "",
       lastMessage: r.last_message_preview ?? "",
@@ -437,11 +470,14 @@ export async function GET(req: NextRequest) {
       lastReadMessageId: part?.last_read_message_id ?? null,
       lastMessageRowResolvable: lastMsgResolvable,
     });
+    const ident = identityByUserId.get(partnerId);
     return {
       id: r.id,
       productId: r.item_id ?? "",
       buyerId: r.buyer_id,
       sellerId: r.seller_id,
+      partnerUsername: ident?.username ?? null,
+      partnerDisplayName: ident?.displayName ?? null,
       partnerNickname: nicknameByUserId.get(partnerId)?.trim() || partnerId.slice(0, 8),
       partnerAvatar: "",
       lastMessage: r.last_message_preview ?? "",
@@ -478,6 +514,7 @@ export async function GET(req: NextRequest) {
     listFromStoreOrderRooms = soRoomRows.map((r) => {
       const amISeller = r.seller_id === userId;
       const partnerId = amISeller ? r.buyer_id : r.seller_id;
+      const ident = identityByUserId.get(partnerId);
       const part = partByRoomEarly.get(r.id) as { unread_count?: number } | undefined;
       const unreadCount = part?.unread_count ?? 0;
       const oid = r.store_order_id ?? "";
@@ -503,6 +540,8 @@ export async function GET(req: NextRequest) {
         productId: oid || r.id,
         buyerId: r.buyer_id,
         sellerId: r.seller_id,
+        partnerUsername: ident?.username ?? null,
+        partnerDisplayName: ident?.displayName ?? null,
         partnerNickname: nicknameByUserId.get(partnerId)?.trim() || partnerId.slice(0, 8),
         partnerAvatar: "",
         lastMessage: r.last_message_preview ?? "",

@@ -15,7 +15,7 @@ type VerificationPayload = {
   phone: string | null;
   phone_verified: boolean;
   phone_verification_status: string;
-  nickname: string;
+  display_name: string;
   help_text?: string;
   /** OAuth·이메일 가입과 동일 이용 조건 충족(관리자 수동 정식 회원 포함) */
   full_member_access_ok?: boolean;
@@ -26,7 +26,7 @@ type VerificationPayload = {
 export function PhoneVerificationRequestForm() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [nickname, setNickname] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [phoneDigits, setPhoneDigits] = useState("");
   const [status, setStatus] = useState<VerificationPayload | null>(null);
   const [otpCode, setOtpCode] = useState("");
@@ -49,7 +49,7 @@ export function PhoneVerificationRequestForm() {
         const verification = data.verification as VerificationPayload;
         setStatus(verification);
         setPhoneDigits(parsePhMobileInput(verification.phone ?? ""));
-        setNickname(verification.nickname ?? "");
+        setDisplayName(verification.display_name ?? "");
       } catch {
         if (!cancelled) setError("인증 상태를 불러오지 못했습니다.");
       } finally {
@@ -77,7 +77,7 @@ export function PhoneVerificationRequestForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ nickname, phone: norm }),
+        body: JSON.stringify({ display_name: displayName, phone: norm }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.ok) {
@@ -111,7 +111,7 @@ export function PhoneVerificationRequestForm() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ nickname, phone: norm, code: otpCode.trim() }),
+        body: JSON.stringify({ display_name: displayName, phone: norm, code: otpCode.trim() }),
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.ok) {
@@ -176,8 +176,8 @@ export function PhoneVerificationRequestForm() {
           <label className="block text-[13px] font-semibold text-sam-fg">닉네임</label>
           <input
             type="text"
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
             maxLength={20}
             required
             className="sam-input mt-1"

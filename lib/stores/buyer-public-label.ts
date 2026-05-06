@@ -1,15 +1,18 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
 
 /** 매장 오너 화면용 — UUID 대신 닉네임·사용자명 등 사람이 읽을 수 있는 구매자 표시 */
 export const BUYER_PUBLIC_LABEL_FALLBACK = "사마켓 회원";
 
-function labelFromNickUser(nickname: string | null | undefined, username: string | null | undefined): string {
-  const nick = typeof nickname === "string" ? nickname.trim() : "";
-  const user = typeof username === "string" ? username.trim() : "";
-  if (nick && user && nick.toLowerCase() !== user.toLowerCase()) {
-    return `${nick} (@${user})`;
-  }
-  return nick || user || "";
+function labelFromUserIdentity(
+  displayName: string | null | undefined,
+  legacyNickname: string | null | undefined,
+  username: string | null | undefined
+): string {
+  const label = labelFromDisplayAndUsername(displayName ?? legacyNickname ?? null, username ?? null).trim();
+  if (label) return label;
+  const fallback = (displayName ?? legacyNickname ?? username ?? "").trim();
+  return fallback;
 }
 
 /**
@@ -30,11 +33,18 @@ export async function mapBuyerUserIdsToPublicLabels(
     if (!out[id]) out[id] = t;
   };
 
-  const { data: profiles } = await sb.from("profiles").select("id, nickname, username").in("id", unique);
+  const { data: profiles } = await sb
+    .from("profiles")
+    .select("id, display_name, nickname, username")
+    .in("id", unique);
   for (const p of profiles ?? []) {
     const id = String((p as { id?: string }).id ?? "").trim();
-    const row = p as { nickname?: string | null; username?: string | null };
-    const label = labelFromNickUser(row.nickname, row.username);
+    const row = p as {
+      display_name?: string | null;
+      nickname?: string | null;
+      username?: string | null;
+    };
+    const label = labelFromUserIdentity(row.display_name, row.nickname, row.username);
     if (label) merge(id, label);
   }
 
@@ -47,7 +57,7 @@ export async function mapBuyerUserIdsToPublicLabels(
     for (const t of testUsers ?? []) {
       const id = String((t as { id?: string }).id ?? "").trim();
       const row = t as { display_name?: string | null; username?: string | null };
-      const label = labelFromNickUser(row.display_name, row.username);
+      const label = labelFromUserIdentity(row.display_name, null, row.username);
       if (label) merge(id, label);
     }
   }

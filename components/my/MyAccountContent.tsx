@@ -11,6 +11,7 @@ import type { ProfileRow } from "@/lib/profile/types";
 import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 import { hasFormalMemberContactVerification } from "@/lib/auth/member-access";
 import { deriveStoreMemberStatus, hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
+import { formatAtUsername, resolveDisplayName } from "@/lib/users/user-label";
 
 export function MyAccountContent() {
   const { t } = useI18n();
@@ -48,7 +49,8 @@ export function MyAccountContent() {
   const phoneVerificationStatus = (profile as ProfileRow & { phone_verification_status?: string })
     .phone_verification_status;
 
-  const displayNickname = profile.nickname?.trim() || t("account_nickname");
+  const displayNickname = resolveDisplayName(profile) || t("account_nickname");
+  const atUsername = formatAtUsername(profile.username ?? null);
   const contactFormal = hasFormalMemberContactVerification({
     phone_verified: profile.phone_verified || Boolean(profile.phone_verified_at),
     phone_verified_at: profile.phone_verified_at,
@@ -73,6 +75,9 @@ export function MyAccountContent() {
         </div>
         <div className="min-w-0 flex-1">
           <p className="sam-text-section-title font-semibold text-sam-fg">{displayNickname}</p>
+          {atUsername ? (
+            <p className="mt-0.5 truncate font-mono sam-text-xxs text-sam-muted tabular-nums">{atUsername}</p>
+          ) : null}
           <p className="mt-0.5 truncate sam-text-body-secondary text-sam-muted">{t("account_nickname_note")}</p>
           <Link href={MYPAGE_PROFILE_EDIT_HREF} className="mt-2 inline-block sam-text-body font-medium text-signature">
             {t("account_edit_profile")}
@@ -91,6 +96,10 @@ export function MyAccountContent() {
           <div>
             <dt className="text-sam-muted">{t("account_nickname")}</dt>
             <dd className="mt-0.5 text-sam-fg">{displayNickname}</dd>
+          </div>
+          <div>
+            <dt className="text-sam-muted">@아이디</dt>
+            <dd className="mt-0.5 font-mono text-sam-fg tabular-nums">{atUsername || "—"}</dd>
           </div>
           <div>
             <dt className="text-sam-muted">{t("account_email")}</dt>

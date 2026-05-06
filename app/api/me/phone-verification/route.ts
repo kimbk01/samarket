@@ -30,6 +30,7 @@ export async function GET() {
       phone: state.phone,
       phone_verified: state.phoneVerified,
       phone_verification_status: state.phoneVerificationStatus,
+      display_name: state.nickname,
       nickname: state.nickname,
       help_text: fullMemberAccessOk ? "" : STORE_PHONE_GATE_MESSAGE,
       /** Google·카카오·네이버·이메일 가입자의 이용 조건과 동일(관리자 수동 입력 포함) */

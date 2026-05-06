@@ -4,17 +4,17 @@ import { PH_MOBILE_PLACEHOLDER } from "@/lib/constants/philippines-contact";
 import { formatPhMobileDisplay, parsePhMobileInput } from "@/lib/utils/ph-mobile";
 
 export interface ProfileBasicFieldsProps {
-  nickname: string;
+  displayName: string;
   bio: string;
   phone: string;
   preferredLanguage: string;
   preferredCountry: string;
-  onNicknameChange: (v: string) => void;
+  onDisplayNameChange: (v: string) => void;
   onBioChange: (v: string) => void;
   onPhoneChange: (v: string) => void;
   onPreferredLanguageChange: (v: string) => void;
   onPreferredCountryChange: (v: string) => void;
-  errors?: { nickname?: string; phone?: string };
+  errors?: { displayName?: string; phone?: string };
 }
 
 const LANG_OPTIONS = [
@@ -30,12 +30,12 @@ const COUNTRY_OPTIONS = [
 ];
 
 export function ProfileBasicFields({
-  nickname,
+  displayName,
   bio,
   phone,
   preferredLanguage,
   preferredCountry,
-  onNicknameChange,
+  onDisplayNameChange,
   onBioChange,
   onPhoneChange,
   onPreferredLanguageChange,
@@ -52,13 +52,13 @@ export function ProfileBasicFields({
         <label className="text-[13px] font-semibold text-sam-fg">닉네임 *</label>
         <input
           type="text"
-          value={nickname}
-          onChange={(e) => onNicknameChange(e.target.value)}
+          value={displayName}
+          onChange={(e) => onDisplayNameChange(e.target.value)}
           placeholder="닉네임"
           className={inputClass}
         />
-        {errors.nickname && (
-          <p className="mt-0.5 sam-text-xxs text-red-600">{errors.nickname}</p>
+        {errors.displayName && (
+          <p className="mt-0.5 sam-text-xxs text-red-600">{errors.displayName}</p>
         )}
       </div>
       <div>

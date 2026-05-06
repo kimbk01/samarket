@@ -1,11 +1,17 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { PostWithMeta } from "@/lib/posts/schema";
+import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
 
 function labelFromProfileRow(row: Record<string, unknown>): string {
+  const displayName = typeof row.display_name === "string" ? row.display_name.trim() : "";
   const nick = typeof row.nickname === "string" ? row.nickname.trim() : "";
-  if (nick) return nick;
   const user = typeof row.username === "string" ? row.username.trim() : "";
-  return user;
+  return (
+    labelFromDisplayAndUsername(displayName || nick, user).trim() ||
+    displayName ||
+    nick ||
+    user
+  );
 }
 
 /**
@@ -27,7 +33,7 @@ export async function enrichPostsAuthorNicknamesFromProfiles(
   if (needIds.size === 0) return;
 
   const ids = [...needIds];
-  const { data, error } = await sb.from("profiles").select("id, nickname, username").in("id", ids);
+  const { data, error } = await sb.from("profiles").select("id, display_name, nickname, username").in("id", ids);
   if (error || !Array.isArray(data)) return;
 
   const map = new Map<string, string>();

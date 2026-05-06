@@ -20,6 +20,7 @@ import {
 } from "@/lib/chats/prewarm-chat-room-route";
 import { defaultTradeChatRoomHref } from "@/lib/chats/trade-chat-notification-href";
 import { useMessengerChatListUnread } from "@/lib/community-messenger/read/messenger-chat-list-unread-display";
+import { formatAtUsername } from "@/lib/users/user-label";
 
 interface ChatRoomCardProps {
   room: ChatRoom;
@@ -165,6 +166,11 @@ export function ChatRoomCard({ room, currentUserId, onRoomMutated, getRoomHref, 
             {room.lastMessageAt ? formatChatTime(room.lastMessageAt) : ""}
           </span>
         </div>
+        {room.partnerUsername ? (
+          <p className="mt-0.5 shrink-0 truncate font-mono sam-text-xxs text-sam-muted tabular-nums">
+            {formatAtUsername(room.partnerUsername)}
+          </p>
+        ) : null}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {rowPreview ? (
             <PostListPreviewColumn

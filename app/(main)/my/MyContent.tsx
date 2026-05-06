@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { MyPageData } from "@/lib/my/types";
 import { MyPageHeader } from "@/components/my/MyPageHeader";
 import { MyTopBanner } from "@/components/my/MyTopBanner";
@@ -21,16 +21,44 @@ import {
 } from "@/lib/my/mypage-info-hub";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 import { fetchProfileEnsureDeduped } from "@/lib/profile/ensure-profile-client";
+import {
+  dibayMyInfoPerfMark,
+  dibayMyInfoPerfMaybeLogTotal,
+  dibayMyInfoPerfNavClick,
+} from "@/lib/runtime/dibay-myinfo-perf";
 
 export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageData | null } = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const pathname = usePathname() ?? "";
   const recoveryTriggeredRef = useRef(false);
   const ensureRetriedRef = useRef(false);
   const infoHubOpen =
     searchParams.get(MYPAGE_INFO_HUB_SHEET_PARAM) === MYPAGE_INFO_HUB_SHEET_VALUE;
 
   const { data, loading, load, overviewCounts } = useMypageHubModel(initialMyPageData ?? undefined);
+
+  useEffect(() => {
+    if (!pathname) return;
+    dibayMyInfoPerfMark("route_start_ms", { pathname });
+  }, [pathname]);
+
+  useEffect(() => {
+    dibayMyInfoPerfMark("hydration_done_ms", { surface: "mypage_root" });
+  }, []);
+
+  useEffect(() => {
+    const handler = (ev: PointerEvent) => {
+      const target = ev.target as HTMLElement | null;
+      const a = target?.closest?.("a[href]") as HTMLAnchorElement | null;
+      const href = a?.getAttribute("href") ?? "";
+      if (!href) return;
+      if (!href.startsWith("/mypage") && !href.startsWith("/my")) return;
+      dibayMyInfoPerfNavClick(href);
+    };
+    window.addEventListener("pointerdown", handler, { capture: true });
+    return () => window.removeEventListener("pointerdown", handler, { capture: true } as any);
+  }, []);
 
   useEffect(() => {
     if (loading || recoveryTriggeredRef.current) return;
@@ -102,6 +130,20 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
     void load();
   }, [load]);
 
+  useEffect(() => {
+    if (loading) {
+      dibayMyInfoPerfMark("first_shell_visible_ms", { kind: "loading_shell" });
+      return;
+    }
+    if (data?.profile) {
+      dibayMyInfoPerfMark("rsc_done_ms", { hasProfile: true });
+      return;
+    }
+    if (data) {
+      dibayMyInfoPerfMark("rsc_done_ms", { hasProfile: false });
+    }
+  }, [loading, data]);
+
   if (loading) {
     return (
       <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
@@ -130,6 +172,13 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
 
   const { profile, banner, bannerHidden, mannerScore } = data;
   const showBanner = banner && !bannerHidden;
+
+  useEffect(() => {
+    if (profile) {
+      dibayMyInfoPerfMark("first_content_visible_ms", { surface: "mypage_root" });
+      dibayMyInfoPerfMaybeLogTotal({ surface: "mypage_root" });
+    }
+  }, [profile]);
 
   return (
     <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">

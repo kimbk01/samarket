@@ -135,11 +135,13 @@ import {
   CommunityMessengerRoomVisibility,
 } from "@/lib/community-messenger/types";
 import { derivePresenceFromDbRow } from "@/lib/community-messenger/presence/presence-policy";
+import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
 
 type SupabaseLike = ReturnType<typeof getSupabaseServer>;
 
 type ProfileRow = {
   id: string;
+  display_name?: string | null;
   nickname?: string | null;
   username?: string | null;
   avatar_url?: string | null;
@@ -641,7 +643,11 @@ async function filterDirectIncomingRowsForPolicy(
 }
 
 function profileLabel(row: ProfileRow | null | undefined, fallbackId: string): string {
-  return trimText(row?.nickname) || trimText(row?.username) || `회원 ${fallbackId.replace(/-/g, "").slice(0, 6)}`;
+  const display = trimText(row?.display_name) || trimText(row?.nickname);
+  const username = trimText(row?.username);
+  const label = labelFromDisplayAndUsername(display, username).trim();
+  if (label) return label;
+  return `회원 ${fallbackId.replace(/-/g, "").slice(0, 6)}`;
 }
 
 function directKeyFor(userA: string, userB: string): string {
@@ -919,7 +925,7 @@ async function fetchProfilesByIds(ids: string[]): Promise<Map<string, ProfileRow
   if (!sb) return new Map();
   const { data } = await (sb as any)
     .from("profiles")
-    .select("id, nickname, username, avatar_url, bio")
+    .select("id, display_name, nickname, username, avatar_url, bio")
     .in("id", unique);
   const map = new Map(((data ?? []) as ProfileRow[]).map((row) => [row.id, row]));
   const t = Date.now();
@@ -4465,14 +4471,15 @@ export async function searchCommunityMessengerUsers(
   userId: string,
   query: string
 ): Promise<CommunityMessengerProfileLite[]> {
-  const keyword = trimText(query);
+  const keywordRaw = trimText(query);
+  const keyword = keywordRaw.startsWith("@") ? keywordRaw.slice(1) : keywordRaw;
   if (!keyword) return [];
   const sb = getSupabaseOrNull();
   if (!sb) return [];
   const { data } = await (sb as any)
     .from("profiles")
     .select("id")
-    .or(`nickname.ilike.%${keyword}%,username.ilike.%${keyword}%`)
+    .ilike("username", keyword)
     .neq("id", userId)
     .limit(12);
   return hydrateProfiles(

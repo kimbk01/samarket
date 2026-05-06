@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   }
   const quota = await enforcePhoneVerificationCheckQuota(auth.userId);
   if (!quota.ok) return quota.response;
-  let body: { phone?: string; code?: string; nickname?: string };
+  let body: { phone?: string; code?: string; nickname?: string; display_name?: string };
   try {
     body = await req.json();
   } catch {
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   }
   const inputPhone = String(body.phone ?? "").trim();
   const code = String(body.code ?? "").trim();
-  const nickname = String(body.nickname ?? "").trim().slice(0, 20);
+  const displayName = String(body.display_name ?? body.nickname ?? "").trim().slice(0, 20);
   if (!code || code.length < 4) {
     return jsonError("인증번호를 입력해 주세요.", 400);
   }
@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
   const normalizedPhone = verified.data.phone;
   const now = new Date().toISOString();
   const patch: Record<string, unknown> = {
-    ...(nickname ? { nickname } : {}),
+    ...(displayName ? { display_name: displayName } : {}),
     phone_country_code: "+63",
     phone_number: normalizedPhone.replace(/^\+63/, ""),
     phone_verification_status: "verified",
@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
       phone: normalizedPhone,
       phone_verified: true,
       phone_verification_status: "verified",
-      nickname,
+      nickname: displayName,
       full_member_access_ok: true,
     },
   });

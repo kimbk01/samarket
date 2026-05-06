@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useRef, useState } from "react";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
+import { updateMyProfile } from "@/lib/profile/updateMyProfile";
 
 export interface ProfileImageFieldProps {
   avatarUrl: string | null;
@@ -36,6 +37,12 @@ export function ProfileImageField({ avatarUrl, onChangeUrl }: ProfileImageFieldP
       const data = (await res.json().catch(() => null)) as { ok?: boolean; url?: string; error?: string } | null;
       if (!res.ok || !data?.ok || !data.url) {
         setUploadError(data?.error || "업로드에 실패했습니다.");
+        return;
+      }
+      // 업로드만으로는 /mypage 등에서 반영되지 않으므로, avatar_url 을 즉시 저장까지 마친다.
+      const save = await updateMyProfile({ avatar_url: data.url });
+      if (!save.ok) {
+        setUploadError(save.error || "저장에 실패했습니다.");
         return;
       }
       invalidateMeProfileDedupedCache();
@@ -79,7 +86,26 @@ export function ProfileImageField({ avatarUrl, onChangeUrl }: ProfileImageFieldP
             <button
               type="button"
               className="text-sam-muted underline"
-              onClick={() => onChangeUrl(null)}
+              onClick={() => {
+                if (uploading) return;
+                setUploadError((prev) => (prev === null ? prev : null));
+                setUploading(true);
+                void (async () => {
+                  try {
+                    const save = await updateMyProfile({ avatar_url: null });
+                    if (!save.ok) {
+                      setUploadError(save.error || "저장에 실패했습니다.");
+                      return;
+                    }
+                    invalidateMeProfileDedupedCache();
+                    onChangeUrl(null);
+                  } catch {
+                    setUploadError("저장에 실패했습니다.");
+                  } finally {
+                    setUploading(false);
+                  }
+                })();
+              }}
               disabled={uploading}
             >
               제거

@@ -1,0 +1,77 @@
+"use client";
+
+import Image from "next/image";
+import Link from "next/link";
+import { Check } from "lucide-react";
+import { isSamarketDefaultAvatarUrl, withDefaultAvatar } from "@/lib/profile/default-avatar";
+import { MYINFO_SURFACE, MYINFO_TYPO } from "./myinfo-theme";
+
+export function MyInfoProfileCard({
+  avatarUrl,
+  displayName,
+  atUsername,
+  addressLine,
+  editHref,
+  rightMetaSlot,
+}: {
+  avatarUrl: string | null;
+  displayName: string;
+  atUsername?: string | null;
+  addressLine: string;
+  editHref: string;
+  rightMetaSlot?: React.ReactNode;
+}) {
+  const resolvedAvatar = withDefaultAvatar(avatarUrl);
+  const showCheckBadge = !isSamarketDefaultAvatarUrl(resolvedAvatar);
+
+  return (
+    <article className={`${MYINFO_SURFACE.card}`}>
+      <div className={`${MYINFO_SURFACE.cardPad} flex items-start gap-3`}>
+        <Link
+          href={editHref}
+          className="relative block h-[76px] w-[76px] shrink-0 overflow-hidden rounded-full bg-sam-primary-soft"
+          aria-label="프로필 이미지"
+        >
+          <Image
+            src={resolvedAvatar}
+            alt=""
+            fill
+            className="object-cover"
+            sizes="76px"
+          />
+          {showCheckBadge ? (
+            <span
+              className="absolute bottom-0 right-0 h-6 w-6 rounded-full border-2 border-white bg-[color:#1C8DB8]"
+              aria-hidden
+            >
+              <span className="flex h-full w-full items-center justify-center">
+                <Check className="h-4 w-4 text-white" strokeWidth={3} />
+              </span>
+            </span>
+          ) : null}
+        </Link>
+
+        <div className="min-w-0 flex-1">
+          <p className={`${MYINFO_TYPO.profileName} text-sam-fg`}>{displayName}</p>
+          {atUsername ? (
+            <p className="mt-0.5 truncate font-mono text-[12px] text-sam-muted tabular-nums">
+              {atUsername}
+            </p>
+          ) : null}
+          <p className={`mt-1 line-clamp-1 ${MYINFO_TYPO.subText}`}>{addressLine}</p>
+
+          <div className="mt-3 flex items-center gap-2">
+            <Link
+              href={editHref}
+              className="inline-flex min-h-[36px] items-center justify-center rounded-[10px] border border-sam-border bg-sam-surface px-3 text-[13px] font-semibold text-sam-fg hover:bg-sam-app"
+            >
+              프로필 수정
+            </Link>
+            {rightMetaSlot ? <div className="min-w-0 flex-1">{rightMetaSlot}</div> : null}
+          </div>
+        </div>
+      </div>
+    </article>
+  );
+}
+

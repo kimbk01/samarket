@@ -24,7 +24,7 @@ export function OnboardingProfileClient({ initialNickname }: { initialNickname: 
   );
   const target = next ?? POST_LOGIN_PATH;
 
-  const [nickname, setNickname] = useState(initialNickname.trim());
+  const [displayName, setDisplayName] = useState(initialNickname.trim());
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -39,10 +39,10 @@ export function OnboardingProfileClient({ initialNickname }: { initialNickname: 
           cache: "no-store",
         });
         if (!res.ok) return;
-        const json = (await res.json()) as { profile?: { nickname?: string | null } } | null;
-        const seed = (json?.profile?.nickname ?? "").trim();
+        const json = (await res.json()) as { profile?: { display_name?: string | null; nickname?: string | null } } | null;
+        const seed = (json?.profile?.display_name ?? json?.profile?.nickname ?? "").trim();
         if (!cancelled && seed.length > 0) {
-          setNickname(seed);
+          setDisplayName(seed);
         }
       } catch {
         /* 초기 닉네임 가져오기는 실패해도 폼은 동작 */
@@ -59,14 +59,14 @@ export function OnboardingProfileClient({ initialNickname }: { initialNickname: 
     return () => window.clearTimeout(t);
   }, [done, router, target]);
 
-  const trimmed = nickname.trim();
-  const isInvalid = trimmed.length === 0 || trimmed.length > 20;
+  const trimmed = displayName.trim();
+  const isInvalid = trimmed.length < 2 || trimmed.length > 20;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (submitting || done) return;
     if (isInvalid) {
-      setError("닉네임은 1~20자 이내로 입력해 주세요.");
+      setError("닉네임은 2~20자 이내로 입력해 주세요.");
       return;
     }
     setSubmitting(true);
@@ -76,7 +76,7 @@ export function OnboardingProfileClient({ initialNickname }: { initialNickname: 
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nickname: trimmed }),
+        body: JSON.stringify({ display_name: trimmed }),
       });
       const json = (await res.json().catch(() => null)) as
         | { ok?: boolean; error?: string }
@@ -110,8 +110,8 @@ export function OnboardingProfileClient({ initialNickname }: { initialNickname: 
           <span className="sam-text-helper text-sam-muted">닉네임</span>
           <input
             type="text"
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
             maxLength={20}
             disabled={submitting || done}
             className={Sam.input.base}

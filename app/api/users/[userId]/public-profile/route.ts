@@ -34,14 +34,18 @@ export async function GET(
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 
   const profileSelect =
-    "id, nickname, username, avatar_url, trust_score, manner_score, manner_temperature";
+    "id, display_name, nickname, username, avatar_url, trust_score, manner_score, manner_temperature";
   let { data: prof, error: profErr } = await sbAny.from("profiles").select(profileSelect).eq("id", userId).maybeSingle();
 
   if (
     profErr &&
     /column|does not exist|schema cache|Could not find/i.test(String(profErr.message ?? ""))
   ) {
-    const r2 = await sbAny.from("profiles").select("id, nickname, username, avatar_url").eq("id", userId).maybeSingle();
+    const r2 = await sbAny
+      .from("profiles")
+      .select("id, display_name, nickname, username, avatar_url")
+      .eq("id", userId)
+      .maybeSingle();
     prof = r2.data as typeof prof;
     profErr = r2.error;
   }

@@ -223,7 +223,10 @@ const AdminUserTableRow = memo(function AdminUserTableRow({
           </button>
         ) : null}
       </td>
-      <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 font-semibold text-[#101828]">{u.nickname}</td>
+      <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3">
+        <p className="font-semibold text-[#101828]">{u.displayName ?? u.nickname}</p>
+        <p className="mt-0.5 text-[11px] font-mono text-[#8a8d91]">{u.username ? `@${u.username}` : "-"}</p>
+      </td>
       <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-[#475467]">{u.email?.trim() || emptyCell}</td>
       <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-[#475467]">{u.phone?.trim() || emptyCell}</td>
       <td className="border-r border-[#e9edf3] whitespace-nowrap px-3 py-3 text-xs">

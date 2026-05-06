@@ -3,6 +3,7 @@
  */
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
 
 /** 비어 있지 않은 문자열만 (null·""·공백은 무시) */
 function nonEmptyString(v: unknown): string | undefined {
@@ -69,10 +70,18 @@ export async function fetchNicknamesForUserIds(
     if (metrics) metrics.profileSelect += 1;
     const { data: profile } = await sbAny
       .from("profiles")
-      .select("id, nickname, username")
+      .select("id, display_name, nickname, username")
       .eq("id", onlyId)
       .maybeSingle();
-    const profileName = profile ? nonEmptyString((profile as Record<string, unknown>).nickname) ?? nonEmptyString((profile as Record<string, unknown>).username) : undefined;
+    const profileRow = profile as Record<string, unknown> | null;
+    const display = profileRow ? nonEmptyString(profileRow.display_name) : undefined;
+    const legacy = profileRow ? nonEmptyString(profileRow.nickname) : undefined;
+    const uname = profileRow ? nonEmptyString(profileRow.username) : undefined;
+    const profileName =
+      labelFromDisplayAndUsername(display ?? legacy ?? null, uname ?? null) ||
+      display ||
+      legacy ||
+      uname;
     if (profileName) {
       map.set(onlyId, profileName);
       return map;
@@ -92,10 +101,20 @@ export async function fetchNicknamesForUserIds(
   }
 
   if (metrics) metrics.profileSelect += 1;
-  const { data: profiles } = await sbAny.from("profiles").select("id, nickname, username").in("id", ids);
+  const { data: profiles } = await sbAny
+    .from("profiles")
+    .select("id, display_name, nickname, username")
+    .in("id", ids);
   (profiles as Record<string, unknown>[] | null | undefined)?.forEach((p) => {
     const id = p.id as string;
-    const name = (p.nickname ?? p.username) as string;
+    const display = nonEmptyString(p.display_name);
+    const legacy = nonEmptyString(p.nickname);
+    const uname = nonEmptyString(p.username);
+    const name =
+      labelFromDisplayAndUsername(display ?? legacy ?? null, uname ?? null) ||
+      display ||
+      legacy ||
+      uname;
     if (id && name) map.set(id, String(name).trim());
   });
 

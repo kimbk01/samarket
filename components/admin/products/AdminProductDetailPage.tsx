@@ -93,7 +93,14 @@ export function AdminProductDetailPage({ productId }: AdminProductDetailPageProp
         <dl className="grid gap-1 sam-text-body">
           <div>
             <dt className="text-sam-muted">닉네임</dt>
-            <dd>{product.seller?.nickname ?? product.sellerId ?? "-"}</dd>
+            <dd>
+              <p className="text-sam-fg">{product.seller?.nickname ?? product.sellerId ?? "-"}</p>
+              {product.seller?.username ? (
+                <p className="mt-0.5 font-mono sam-text-xxs text-sam-muted tabular-nums">
+                  @{product.seller.username}
+                </p>
+              ) : null}
+            </dd>
           </div>
           <div>
             <dt className="text-sam-muted">ID</dt>

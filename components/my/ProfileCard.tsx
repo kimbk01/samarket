@@ -6,6 +6,7 @@ import type { ProfileRow } from "@/lib/profile/types";
 import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-location";
 import { ProfileStatRow } from "./ProfileStatRow";
 import { ProfileActionButtons } from "./ProfileActionButtons";
+import { formatAtUsername, resolveDisplayName } from "@/lib/users/user-label";
 
 function getMemberTypeLabel(profile: ProfileRow): string {
   if (profile.role === "admin" || profile.role === "super_admin") return "관리자";
@@ -25,6 +26,8 @@ export function ProfileCard({ profile, extraStat, isBusinessMember }: ProfileCar
   const memberLabel = getMemberTypeLabel(profile);
   const regionLines = resolveProfileLocationAddressLines(profile);
   const regionDisplay = regionLines.length > 0 ? regionLines.join("\n") : "지역 미설정";
+  const dn = resolveDisplayName(profile);
+  const at = formatAtUsername(profile.username ?? null);
 
   return (
     <div className="mx-auto max-w-[480px] rounded-ui-rect bg-sam-surface p-4 shadow-sm">
@@ -47,8 +50,13 @@ export function ProfileCard({ profile, extraStat, isBusinessMember }: ProfileCar
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="sam-text-body-lg font-semibold text-sam-fg">
-              {profile.nickname || "닉네임 없음"}
+              {dn || "닉네임 없음"}
             </span>
+            {at ? (
+              <span className="sam-text-helper text-sam-meta">
+                {at}
+              </span>
+            ) : null}
             <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 sam-text-xxs text-sam-muted">
               {memberLabel}
             </span>

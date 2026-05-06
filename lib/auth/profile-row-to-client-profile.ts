@@ -1,19 +1,16 @@
 import type { Profile } from "@/lib/types/profile";
 import type { ProfileRow } from "@/lib/profile/types";
 import { withDefaultAvatar } from "@/lib/profile/default-avatar";
+import { resolveDisplayName } from "@/lib/users/user-label";
 
 /** `/api/me/profile`·RLS 조회 결과를 앱 `Profile`(헤더·게이트) 형태로 맞춘다. */
 export function profileRowToClientProfile(row: ProfileRow): Profile {
-  const nick =
-    row.nickname?.trim() ||
-    row.display_name?.trim() ||
-    row.email?.split("@")[0]?.trim() ||
-    "User";
+  const nick = resolveDisplayName(row);
   const temp = row.trust_score ?? row.manner_score ?? 50;
   return {
     id: row.id,
     email: row.email ?? "",
-    display_name: row.display_name ?? nick,
+    display_name: row.display_name?.trim() || nick,
     nickname: nick,
     avatar_url: withDefaultAvatar(row.avatar_url),
     username: row.username ?? null,

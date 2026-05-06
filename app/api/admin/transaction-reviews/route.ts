@@ -3,7 +3,7 @@ import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
-import { batchNicknamesByUserIds } from "@/lib/admin-reviews/batch-nicknames-server";
+import { batchNicknamesByUserIds, batchUserIdentityByUserIds } from "@/lib/admin-reviews/batch-nicknames-server";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import {
   mapTransactionReviewRowToAdminReview,
@@ -56,7 +56,17 @@ export async function POST(req: NextRequest) {
     const { data: post } = await sbAny.from(POSTS_TABLE_READ).select(POST_TRADE_RELATION_SELECT).eq("id", r.product_id).maybeSingle();
     const postRow = (post as Record<string, unknown> | null) ?? undefined;
     const nick = await batchNicknamesByUserIds(sbAny, [r.reviewer_id, r.reviewee_id]);
+    const identityById = await batchUserIdentityByUserIds(sbAny, [r.reviewer_id, r.reviewee_id]);
     const review = mapTransactionReviewRowToAdminReview(r, postRow, nick);
+    review.reviewerUsername = identityById[r.reviewer_id]?.username ?? null;
+    review.reviewerDisplayName = identityById[r.reviewer_id]?.displayName ?? null;
+    review.targetUsername = identityById[r.reviewee_id]?.username ?? null;
+    review.targetDisplayName = identityById[r.reviewee_id]?.displayName ?? null;
+    const role = review.role;
+    const sellerId = role === "seller_to_buyer" ? r.reviewer_id : r.reviewee_id;
+    const buyerId = role === "buyer_to_seller" ? r.reviewer_id : r.reviewee_id;
+    review.sellerUsername = identityById[sellerId]?.username ?? null;
+    review.buyerUsername = identityById[buyerId]?.username ?? null;
     return NextResponse.json({ review });
   }
 
@@ -89,9 +99,21 @@ export async function POST(req: NextRequest) {
   }
 
   const nicknameById = await batchNicknamesByUserIds(sbAny, userIds);
+  const identityById = await batchUserIdentityByUserIds(sbAny, userIds);
   const reviews = list.map((r) =>
     mapTransactionReviewRowToAdminReview(r, postById.get(r.product_id), nicknameById)
   );
+  reviews.forEach((review) => {
+    review.reviewerUsername = identityById[review.reviewerId]?.username ?? null;
+    review.reviewerDisplayName = identityById[review.reviewerId]?.displayName ?? null;
+    review.targetUsername = identityById[review.targetUserId]?.username ?? null;
+    review.targetDisplayName = identityById[review.targetUserId]?.displayName ?? null;
+    const role = review.role;
+    const sellerId = role === "seller_to_buyer" ? review.reviewerId : review.targetUserId;
+    const buyerId = role === "buyer_to_seller" ? review.reviewerId : review.targetUserId;
+    review.sellerUsername = identityById[sellerId]?.username ?? null;
+    review.buyerUsername = identityById[buyerId]?.username ?? null;
+  });
 
   return NextResponse.json({ reviews });
 }

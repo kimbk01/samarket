@@ -358,7 +358,7 @@ export async function GET(
     supabase
       .from("profiles")
       .select(
-        "id, username, email, role, nickname, phone, phone_verified, phone_verified_at, phone_verification_status, member_status, verified_member_at, created_at, region_code, region_name, address_street_line, address_detail"
+        "id, username, email, role, display_name, nickname, phone, phone_verified, phone_verified_at, phone_verification_status, member_status, verified_member_at, created_at, region_code, region_name, address_street_line, address_detail"
       )
       .eq("id", rawId)
       .maybeSingle(),
@@ -405,7 +405,7 @@ export async function GET(
     username: (testUser?.username ?? profile?.username ?? null) as string | null,
     email: (profile?.email ?? null) as string | null,
     role,
-    display_name: (testUser?.display_name ?? profile?.nickname ?? null) as string | null,
+    display_name: (testUser?.display_name ?? profile?.display_name ?? profile?.nickname ?? null) as string | null,
     nickname: (profile?.nickname ?? testUser?.display_name ?? null) as string | null,
     contact_phone: (profile?.phone ?? testUser?.contact_phone ?? null) as string | null,
     contact_address: mergedContactAddress,

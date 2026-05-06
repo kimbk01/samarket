@@ -37,7 +37,7 @@ export type BusinessApplyProfileSeed = {
 };
 
 export interface BusinessApplyFormValues {
-  /** 신청자 닉네임 — 프로필과 다르게 수정 가능 */
+  /** 신청자 닉네임 — 프로필에서 가져오며 신청서에서 수정 불가 */
   applicantNickname: string;
   shopName: string;
   description: string;
@@ -223,13 +223,12 @@ export function BusinessApplyForm({
           <input
             type="text"
             value={values.applicantNickname}
-            onChange={(e) =>
-              setValues((v) => ({ ...v, applicantNickname: e.target.value }))
-            }
             required
             maxLength={20}
             className={OWNER_STORE_CONTROL_CLASS}
-            placeholder="프로필 닉네임과 같게 쓰거나 수정"
+            readOnly
+            aria-readonly="true"
+            placeholder="프로필 닉네임"
           />
         </div>
       </div>

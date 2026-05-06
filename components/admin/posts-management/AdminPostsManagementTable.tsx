@@ -197,7 +197,12 @@ export const AdminPostsManagementTable = forwardRef<
                   href={`/admin/users/${p.sellerId}`}
                   className="text-signature hover:underline"
                 >
-                  {p.seller?.nickname ?? p.sellerId ?? "-"}
+                  <span className="block">{p.seller?.nickname ?? p.sellerId ?? "-"}</span>
+                  {p.seller?.username ? (
+                    <span className="mt-0.5 block font-mono sam-text-xxs text-sam-muted tabular-nums">
+                      @{p.seller.username}
+                    </span>
+                  ) : null}
                 </Link>
               </td>
               <td className="px-3 py-2.5 text-sam-fg">

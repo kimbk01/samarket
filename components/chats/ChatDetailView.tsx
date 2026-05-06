@@ -123,6 +123,7 @@ import {
 } from "@/lib/chats/use-trade-chat-room-typing";
 import { TradeChatPresenceHeaderRow } from "@/components/chats/TradeChatPresenceHeaderRow";
 import { TradeChatCallHeaderButtons } from "@/components/chats/TradeChatCallHeaderButtons";
+import { formatAtUsername } from "@/lib/users/user-label";
 import {
   normalizeTradeChatCallPolicy,
   tradeChatCallPolicyAllowsVoice,
@@ -389,6 +390,10 @@ export function ChatDetailView({
   const partnerDisplayNickname = useMemo(
     () => room.partnerNickname?.trim() || t("common_partner"),
     [room.partnerNickname, t]
+  );
+  const partnerAtUsername = useMemo(
+    () => formatAtUsername(room.partnerUsername ?? null),
+    [room.partnerUsername]
   );
   const partnerDisplayAvatar = useMemo(
     () => room.partnerAvatar?.trim() || "",
@@ -2197,6 +2202,11 @@ export function ChatDetailView({
                     ) : (
                       <p className="truncate sam-text-body font-semibold text-sam-fg">{partnerDisplayNickname}</p>
                     )}
+                    {partnerAtUsername ? (
+                      <p className="mt-0.5 truncate font-mono sam-text-xxs text-sam-muted tabular-nums">
+                        {partnerAtUsername}
+                      </p>
+                    ) : null}
                     {isTradeProductPresenceRoom && tradePresenceMeta ? (
                       <>
                         <TradeChatPresenceHeaderRow

@@ -15,8 +15,12 @@ export interface AdminReview {
   productTitle: string;
   reviewerId: string;
   reviewerNickname: string;
+  reviewerUsername?: string | null;
+  reviewerDisplayName?: string | null;
   targetUserId: string;
   targetNickname: string;
+  targetUsername?: string | null;
+  targetDisplayName?: string | null;
   role: ReviewRole;
   rating: number;
   tags: string[];
@@ -38,6 +42,8 @@ export interface AdminReview {
   /** 판매자/구매자 표시용: reviewer가 판매자면 target이 구매자 */
   sellerNickname?: string;
   buyerNickname?: string;
+  sellerUsername?: string | null;
+  buyerUsername?: string | null;
 }
 
 export type ReviewModerationActionType =

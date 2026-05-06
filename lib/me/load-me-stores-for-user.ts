@@ -1,6 +1,7 @@
 import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
+import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
 
 const ME_STORE_SELECT =
   [
@@ -60,9 +61,16 @@ export async function loadMeStoresListForUser(
   const list = (data ?? []) as unknown as MeStoreRow[];
 
   let ownerApplicantFallback: string | null = null;
-  const { data: prof } = await supabase.from("profiles").select("nickname").eq("id", userId).maybeSingle();
-  const pn = typeof prof?.nickname === "string" ? prof.nickname.trim() : "";
-  if (pn) ownerApplicantFallback = pn;
+  const { data: prof } = await supabase
+    .from("profiles")
+    .select("display_name, nickname, username")
+    .eq("id", userId)
+    .maybeSingle();
+  const display = typeof (prof as any)?.display_name === "string" ? String((prof as any).display_name).trim() : "";
+  const legacy = typeof (prof as any)?.nickname === "string" ? String((prof as any).nickname).trim() : "";
+  const username = typeof (prof as any)?.username === "string" ? String((prof as any).username).trim() : "";
+  const label = labelFromDisplayAndUsername(display || legacy, username).trim();
+  if (label) ownerApplicantFallback = label;
 
   const nickFromCol = new Map<string, string>();
   const storeIds = list.map((s) => s.id);

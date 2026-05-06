@@ -112,6 +112,10 @@ export interface ChatRoom {
   productId: string;
   buyerId: string;
   sellerId: string;
+  /** 상대 고유 @아이디 (optional) */
+  partnerUsername?: string | null;
+  /** 상대 표시명 (optional) */
+  partnerDisplayName?: string | null;
   partnerNickname: string;
   partnerAvatar: string;
   /** 상대 profiles 기준 신뢰·거래 온도 배터리(0~100). trade/store 방 조회 시 설정 */

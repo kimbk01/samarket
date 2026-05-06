@@ -17,6 +17,10 @@ export function ProfileReadonlyFields({ profile }: ProfileReadonlyFieldsProps) {
       <p className="sam-text-helper font-medium text-sam-muted">읽기 전용</p>
       <div className="grid gap-2 sam-text-body">
         <div className="flex justify-between">
+          <span className="text-sam-muted">@아이디</span>
+          <span className="font-mono text-sam-fg tabular-nums">{profile.username ? `@${profile.username}` : "-"}</span>
+        </div>
+        <div className="flex justify-between">
           <span className="text-sam-muted">이메일</span>
           <span className="text-sam-fg">{profile.email ?? "-"}</span>
         </div>

@@ -8,6 +8,7 @@ import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables
 import type { Product } from "@/lib/types/product";
 import { normalizePostMeta } from "@/lib/posts/post-normalize";
 import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
+import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
 
 export interface AdminProductRow {
   id: string;
@@ -54,7 +55,8 @@ export interface ServiceMeta {
 
 function mapRowToProduct(
   row: AdminProductRow,
-  nicknameByUserId: Record<string, string>,
+  labelByUserId: Record<string, string>,
+  identityByUserId: Record<string, { display_name?: string | null; username?: string | null }>,
   categoryById?: Record<string, CategoryMeta>,
   serviceById?: Record<string, ServiceMeta>
 ): Product {
@@ -96,7 +98,9 @@ function mapRowToProduct(
     updatedAt: row.updated_at ?? row.created_at ?? now,
     seller: {
       id: userId,
-      nickname: String(nicknameByUserId[userId] ?? userId ?? "—"),
+      nickname: String(labelByUserId[userId] ?? userId ?? "—"),
+      display_name: identityByUserId[userId]?.display_name ?? null,
+      username: identityByUserId[userId]?.username ?? null,
       avatar: "",
       location,
     },
@@ -345,16 +349,49 @@ async function enrichPostsToProducts(
     serviceIds.length > 0 ? await loadServiceMetaByIds(client, serviceIds) : {};
 
   const userIds = [...new Set(list.map((r) => r.user_id ?? r.author_id).filter(Boolean))] as string[];
-  const nicknameByUserId: Record<string, string> = {};
+  const labelByUserId: Record<string, string> = {};
+  const identityByUserId: Record<string, { display_name?: string | null; username?: string | null }> = {};
 
   if (userIds.length > 0) {
-    const { data: users } = await client
-      .from("test_users")
-      .select("id, display_name, username")
-      .in("id", userIds);
-    if (Array.isArray(users)) {
-      users.forEach((u: { id: string; display_name?: string; username?: string }) => {
-        nicknameByUserId[u.id] = (u.display_name ?? u.username ?? u.id).trim() || u.id;
+    const [{ data: profileRows }, { data: testUserRows }] = await Promise.all([
+      client.from("profiles").select("id, display_name, nickname, username").in("id", userIds),
+      client.from("test_users").select("id, display_name, username").in("id", userIds),
+    ]);
+
+    if (Array.isArray(profileRows)) {
+      profileRows.forEach(
+        (u: { id: string; display_name?: string | null; nickname?: string | null; username?: string | null }) => {
+          const id = String(u.id ?? "").trim();
+          if (!id) return;
+          const display = typeof u.display_name === "string" ? u.display_name : null;
+          const uname = typeof u.username === "string" ? u.username : null;
+          if (!identityByUserId[id]) identityByUserId[id] = {};
+          identityByUserId[id] = { display_name: display, username: uname };
+          const legacy = typeof u.nickname === "string" ? u.nickname : null;
+          labelByUserId[id] =
+            labelFromDisplayAndUsername(display ?? legacy, uname) ||
+            (display ?? legacy ?? uname ?? id).trim() ||
+            id;
+        }
+      );
+    }
+
+    if (Array.isArray(testUserRows)) {
+      testUserRows.forEach((u: { id: string; display_name?: string | null; username?: string | null }) => {
+        const id = String(u.id ?? "").trim();
+        if (!id) return;
+        const display = typeof u.display_name === "string" ? u.display_name : null;
+        const uname = typeof u.username === "string" ? u.username : null;
+        if (!identityByUserId[id]) identityByUserId[id] = {};
+        // test_users only fills gaps — profiles wins when present
+        identityByUserId[id] = {
+          display_name: identityByUserId[id]?.display_name ?? display,
+          username: identityByUserId[id]?.username ?? uname,
+        };
+        if (!labelByUserId[id]) {
+          labelByUserId[id] =
+            labelFromDisplayAndUsername(display, uname) || (display ?? uname ?? id).trim() || id;
+        }
       });
     }
   }
@@ -424,7 +461,7 @@ async function enrichPostsToProducts(
   }
 
   return list.map((row) => {
-    const p = mapRowToProduct(row, nicknameByUserId, categoryById, serviceById);
+    const p = mapRowToProduct(row, labelByUserId, identityByUserId, categoryById, serviceById);
     const chatCount = chatCountByPostId[row.id];
     if (chatCount != null) p.chatCount = chatCount;
     const reportCount = reportCountByTarget[row.id];

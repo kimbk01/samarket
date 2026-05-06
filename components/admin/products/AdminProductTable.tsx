@@ -40,7 +40,14 @@ export function AdminProductTable({ products }: AdminProductTableProps) {
                 {p.title}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
-                {p.seller?.nickname ?? p.sellerId ?? "-"}
+                <div className="min-w-0">
+                  <p className="truncate">{p.seller?.nickname ?? p.sellerId ?? "-"}</p>
+                  {p.seller?.username ? (
+                    <p className="mt-0.5 truncate font-mono sam-text-xxs text-sam-muted tabular-nums">
+                      @{p.seller.username}
+                    </p>
+                  ) : null}
+                </div>
               </td>
               <td className="px-3 py-2.5">
                 <AdminStatusBadge status={p.status} />

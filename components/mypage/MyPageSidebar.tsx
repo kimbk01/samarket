@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-location";
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
 import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
+import { formatAtUsername, resolveDisplayName } from "@/lib/users/user-label";
 import { buildMyPageHref, MYPAGE_NAV } from "./mypage-nav";
 import { MYPAGE_TYPO } from "./mypage-typography";
 import type { MyPageTabId } from "./types";
@@ -26,8 +27,8 @@ export function MyPageSidebar({
     router.replace(buildMyPageHref(tab, section), { scroll: false });
   };
 
-  const displayName =
-    profile.nickname?.trim() || profile.email?.split("@")[0] || "내정보";
+  const displayName = resolveDisplayName(profile) || "내정보";
+  const atUsername = formatAtUsername(profile.username ?? null);
   const regionLine =
     resolveProfileLocationAddressLines(profile).join(" · ") || "지역 설정 필요";
 
@@ -36,6 +37,7 @@ export function MyPageSidebar({
       <div className="border-b border-sam-border px-3 py-3 sm:px-4">
         <div className="min-w-0">
           <p className={`truncate ${MYPAGE_TYPO.title}`}>{displayName}</p>
+          {atUsername ? <p className={`mt-0.5 truncate font-mono ${MYPAGE_TYPO.meta}`}>{atUsername}</p> : null}
           <p className={`mt-0.5 truncate ${MYPAGE_TYPO.meta}`}>{regionLine}</p>
           <div className="mt-1.5">
             <MannerBatteryDisplay

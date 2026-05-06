@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isRouteAdmin } from "@/lib/auth/is-route-admin";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,8 +54,13 @@ export async function GET(req: Request) {
 
   const [profsRes, nickRowsRes, permsRes] = await Promise.all([
     ownerIds.length > 0
-      ? sb.from("profiles").select("id, nickname").in("id", ownerIds)
-      : Promise.resolve({ data: null as { id: string; nickname: string | null }[] | null, error: null }),
+      ? sb.from("profiles").select("id, display_name, nickname, username").in("id", ownerIds)
+      : Promise.resolve({
+          data: null as
+            | { id: string; display_name: string | null; nickname: string | null; username: string | null }[]
+            | null,
+          error: null,
+        }),
     ids.length > 0
       ? sb.from("stores").select("id, applicant_nickname").in("id", ids)
       : Promise.resolve({ data: null as { id?: string; applicant_nickname?: string | null }[] | null, error: null }),
@@ -70,8 +76,11 @@ export async function GET(req: Request) {
   if (!profsRes.error && profsRes.data) {
     for (const p of profsRes.data) {
       const id = typeof p.id === "string" ? p.id : "";
-      const n = typeof p.nickname === "string" ? p.nickname.trim() : "";
-      if (id && n) nickByOwner.set(id, n);
+      const display = typeof (p as any).display_name === "string" ? String((p as any).display_name).trim() : "";
+      const legacy = typeof (p as any).nickname === "string" ? String((p as any).nickname).trim() : "";
+      const username = typeof (p as any).username === "string" ? String((p as any).username).trim() : "";
+      const label = labelFromDisplayAndUsername(display || legacy, username).trim();
+      if (id && label) nickByOwner.set(id, label);
     }
   }
 

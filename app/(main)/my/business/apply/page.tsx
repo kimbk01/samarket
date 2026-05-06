@@ -52,9 +52,9 @@ export default function BusinessApplyRoute() {
 
   const handleSubmit = async (values: BusinessApplyFormValues) => {
     setSubmitError(null);
-    const nick = values.applicantNickname.trim();
+    const nick = (profileSeed?.applicantNickname ?? values.applicantNickname).trim();
     if (!nick || nick.length > 20) {
-      setSubmitError("신청자 닉네임을 1~20자로 입력해 주세요.");
+      setSubmitError("프로필 닉네임을 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.");
       return;
     }
     const phoneRes = normalizeOptionalPhMobileDb(values.phone);
@@ -77,7 +77,7 @@ export default function BusinessApplyRoute() {
         headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({
-          applicantNickname: values.applicantNickname.trim(),
+          applicantNickname: nick,
           shopName: values.shopName,
           description: values.description,
           phone: phoneRes.value,

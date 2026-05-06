@@ -35,15 +35,15 @@ export async function POST(req: NextRequest) {
   }
   const quota = await enforcePhoneVerificationSendQuota(auth.userId);
   if (!quota.ok) return quota.response;
-  let body: { phone?: string; nickname?: string };
+  let body: { phone?: string; nickname?: string; display_name?: string };
   try {
     body = await req.json();
   } catch {
     return jsonError("invalid_json", 400);
   }
   const normalizedPhone = String(body.phone ?? "").trim();
-  const nickname = String(body.nickname ?? "").trim().slice(0, 20);
-  if (!nickname) {
+  const displayName = String(body.display_name ?? body.nickname ?? "").trim().slice(0, 20);
+  if (!displayName) {
     return jsonError("닉네임을 입력해 주세요.", 400);
   }
   const result = await sendPhoneOtpForUser(sb, auth.userId, normalizedPhone);
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
   const phone = result.data.phone;
   const now = new Date().toISOString();
   const { error } = await sb.from("profiles").update({
-    nickname,
+    display_name: displayName,
     phone,
     phone_country_code: "+63",
     phone_number: phone.replace(/^\+63/, ""),
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
       phone,
       phone_verified: false,
       phone_verification_status: "pending",
-      nickname,
+      nickname: displayName,
       help_text: STORE_PHONE_GATE_MESSAGE,
       full_member_access_ok: false,
     },

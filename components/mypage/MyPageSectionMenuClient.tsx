@@ -17,6 +17,7 @@ export function MyPageSectionMenuClient({ section }: { section: MyPageMobileSect
             <MyPageMobileMenuRow
               href={buildMypageItemHref(section.id, it.id)}
               title={it.label}
+              description={it.description}
               surface="card"
             />
           </li>

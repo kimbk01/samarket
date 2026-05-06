@@ -12,6 +12,7 @@ import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
 import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { hasFormalMemberContactVerification } from "@/lib/auth/member-access";
 import { withDefaultAvatar } from "@/lib/profile/default-avatar";
+import { formatAtUsername, resolveDisplayName } from "@/lib/users/user-label";
 
 export type AddressDefaultsFlags = {
   master: boolean;
@@ -50,7 +51,8 @@ export function MyProfileCard({
   const memberLabel = tt(getMemberTypeLabel(profile));
   const hasRegion = isProfileLocationComplete(profile);
   const regionDisplay = resolveProfileLocationAddressOneLine(profile).trim() || tt("미설정");
-  const displayName = profile.nickname || tt("닉네임 없음");
+  const displayName = resolveDisplayName(profile) || tt("닉네임 없음");
+  const at = formatAtUsername(profile.username ?? null);
   const pointsLabel = `${Math.max(0, Math.floor(Number(profile.points) || 0)).toLocaleString()}P`;
 
   const chips: { key: string; label: string; warn: boolean }[] = [];
@@ -98,6 +100,7 @@ export function MyProfileCard({
                   {memberLabel}
                 </span>
               </div>
+              {at ? <p className="mt-0.5 truncate sam-text-helper text-sam-meta">{at}</p> : null}
             </div>
             <Link
               href={editHref}

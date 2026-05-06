@@ -10,6 +10,7 @@ import {
   parseAdminDashboardTrendRpc,
 } from "@/lib/admin-dashboard/admin-dashboard-rpc-map";
 import { ADMIN_DASHBOARD_REPORT_REASON_LABELS } from "@/lib/admin-dashboard/report-reason-labels";
+import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
 import type {
   DashboardPayload,
   RecentChat,
@@ -28,10 +29,20 @@ function todayStartISO(now = new Date()): string {
 async function mapNicknamesFromProfiles(sbAny: any, ids: string[]): Promise<Map<string, string>> {
   const map = new Map<string, string>();
   if (!ids.length) return map;
-  const { data } = await sbAny.from("profiles").select("id, nickname, username").in("id", ids);
-  for (const u of (data ?? []) as { id: string; nickname?: string | null; username?: string | null }[]) {
+  const { data } = await sbAny
+    .from("profiles")
+    .select("id, display_name, nickname, username")
+    .in("id", ids);
+  for (const u of (data ?? []) as {
+    id: string;
+    display_name?: string | null;
+    nickname?: string | null;
+    username?: string | null;
+  }[]) {
     const id = String(u.id ?? "");
-    const label = String(u.nickname ?? u.username ?? id).trim() || id.slice(0, 8);
+    const base = (u.display_name ?? u.nickname ?? "").trim();
+    const uname = (u.username ?? "").trim();
+    const label = labelFromDisplayAndUsername(base || null, uname || null) || base || uname || id;
     map.set(id, label);
   }
   return map;
@@ -77,7 +88,7 @@ export async function buildAdminDashboardPayload(): Promise<DashboardPayload> {
       .limit(RECENT_LIMIT),
     sbAny
       .from("profiles")
-      .select("id, nickname, username, role, created_at, updated_at")
+      .select("id, display_name, nickname, username, role, created_at, updated_at")
       .order("created_at", { ascending: false })
       .limit(RECENT_LIMIT),
     sbAny
@@ -139,7 +150,13 @@ export async function buildAdminDashboardPayload(): Promise<DashboardPayload> {
           ? "premium"
           : "normal";
     const id = String(u.id ?? "");
-    const nickname = String(u.nickname ?? u.username ?? id).trim() || id.slice(0, 8);
+    const displayName = typeof u.display_name === "string" ? u.display_name : null;
+    const legacy = typeof u.nickname === "string" ? u.nickname : null;
+    const uname = typeof u.username === "string" ? u.username : null;
+    const nickname =
+      labelFromDisplayAndUsername(displayName ?? legacy, uname) ||
+      String(displayName ?? legacy ?? uname ?? id).trim() ||
+      id.slice(0, 8);
     const joinedAt =
       (typeof u.created_at === "string" && u.created_at) ||
       (typeof u.updated_at === "string" && u.updated_at) ||

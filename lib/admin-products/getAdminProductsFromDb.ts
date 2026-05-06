@@ -4,6 +4,7 @@ import { POSTS_TABLE_READ, POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables
 
 import { getSupabaseClient } from "@/lib/supabase/client";
 import type { Product } from "@/lib/types/product";
+import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
 import {
   fetchAdminPostsManagementProducts,
   type AdminPostsManagementFetchResult,
@@ -42,14 +43,29 @@ export async function getAdminProductByIdFromDb(productId: string): Promise<Prod
     if (error || !row) return null;
 
     const userId = row.user_id;
-    let nickname = userId;
+    let label = userId;
+    let username: string | null = null;
+    let displayName: string | null = null;
     if (userId) {
-      const { data: u } = await (supabase as any)
-        .from("test_users")
-        .select("display_name, username")
-        .eq("id", userId)
-        .maybeSingle();
-      if (u) nickname = (u.display_name ?? u.username ?? userId).trim() || userId;
+      const [{ data: profile }, { data: testUser }] = await Promise.all([
+        (supabase as any).from("profiles").select("display_name, nickname, username").eq("id", userId).maybeSingle(),
+        (supabase as any).from("test_users").select("display_name, username").eq("id", userId).maybeSingle(),
+      ]);
+
+      const pDisplay = typeof profile?.display_name === "string" ? profile.display_name : null;
+      const pLegacy = typeof profile?.nickname === "string" ? profile.nickname : null;
+      const pUsername = typeof profile?.username === "string" ? profile.username : null;
+      const tDisplay = typeof testUser?.display_name === "string" ? testUser.display_name : null;
+      const tUsername = typeof testUser?.username === "string" ? testUser.username : null;
+
+      displayName = (pDisplay ?? tDisplay)?.trim() || null;
+      username = (pUsername ?? tUsername)?.trim() || null;
+
+      const legacy = pLegacy?.trim() || null;
+      label =
+        labelFromDisplayAndUsername(displayName ?? legacy, username) ||
+        (displayName ?? legacy ?? username ?? userId).trim() ||
+        userId;
     }
 
     const location = [row.region, row.city].filter(Boolean).join(" ") || "";
@@ -72,7 +88,9 @@ export async function getAdminProductByIdFromDb(productId: string): Promise<Prod
       images: row.images ?? undefined,
       seller: {
         id: row.user_id,
-        nickname,
+        nickname: label,
+        display_name: displayName,
+        username,
         avatar: "",
         location,
       },

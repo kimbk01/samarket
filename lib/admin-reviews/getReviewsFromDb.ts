@@ -9,6 +9,7 @@ import {
   type TransactionReviewDbRow,
 } from "@/lib/admin-reviews/map-transaction-review-to-admin";
 import { POST_TRADE_RELATION_SELECT } from "@/lib/posts/post-query-select";
+import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
 
 const SELECT_FIELDS =
   "id, product_id, room_id, reviewer_id, reviewee_id, role_type, public_review_type, private_manner_score, private_tags, is_anonymous_negative, created_at, positive_tag_keys, negative_tag_keys, review_comment";
@@ -19,11 +20,13 @@ async function batchNicknamesClient(sb: ReturnType<typeof getSupabaseClient>, us
   if (!ids.length || !sb) return out;
   const s = sb as import("@supabase/supabase-js").SupabaseClient;
 
-  const { data: profiles } = await s.from("profiles").select("id, nickname, username").in("id", ids);
-  (profiles ?? []).forEach((p: { id: string; nickname?: string; username?: string }) => {
+  const { data: profiles } = await s.from("profiles").select("id, display_name, nickname, username").in("id", ids);
+  (profiles ?? []).forEach((p: { id: string; display_name?: string | null; nickname?: string | null; username?: string | null }) => {
     const id = String(p.id ?? "");
     if (!id) return;
-    const n = String(p.nickname ?? p.username ?? "").trim();
+    const base = (p.display_name ?? p.nickname ?? "").trim();
+    const uname = (p.username ?? "").trim();
+    const n = String(labelFromDisplayAndUsername(base || null, uname || null) || base || uname || "").trim();
     if (n) out[id] = n;
   });
 

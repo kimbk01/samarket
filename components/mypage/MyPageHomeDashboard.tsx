@@ -1,9 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
-import Link from "next/link";
 import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
 import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-location";
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
@@ -12,7 +10,6 @@ import {
   MYPAGE_PROFILE_EDIT_HREF,
   buildMypageSectionHref,
 } from "@/lib/mypage/mypage-mobile-nav-registry";
-import { MyPageMobileMenuRow } from "@/components/mypage/mobile/MyPageMobileMenuRow";
 import { MyPageAdminMenuEntry } from "@/components/mypage/MyPageAdminMenuEntry";
 import { useMyFavoriteCount } from "@/hooks/useMyFavoriteCount";
 import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
@@ -20,18 +17,48 @@ import { resolveUnifiedChatUnreadHintForDashboard } from "@/lib/notifications/sa
 import type { MyPageOverviewCounts } from "@/components/mypage/types";
 import type { ProfileRow } from "@/lib/profile/types";
 import type { MyPageHomeDashboardCounts } from "@/lib/my/types";
-import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 import {
   PHILIFE_FB_CARD_CLASS,
   PHILIFE_FEED_INSET_X_CLASS,
 } from "@/lib/philife/philife-flat-ui-classes";
 import { fetchMeStoreOrdersListDeduped } from "@/lib/stores/store-delivery-api-client";
 import { useRepresentativeAddressLine } from "@/hooks/use-representative-address-line";
+import { formatAtUsername, resolveDisplayName } from "@/lib/users/user-label";
+import { MyInfoProfileCard } from "@/components/mypage/myinfo/MyInfoProfileCard";
+import { MyInfoStatGrid } from "@/components/mypage/myinfo/MyInfoStatGrid";
+import { MyInfoMenuSection } from "@/components/mypage/myinfo/MyInfoMenuSection";
+import { MyInfoMenuItem } from "@/components/mypage/myinfo/MyInfoMenuItem";
+import {
+  Bell,
+  BookOpen,
+  CalendarDays,
+  CreditCard,
+  Globe,
+  Heart,
+  HelpCircle,
+  Languages,
+  MapPin,
+  MessageCircle,
+  Package,
+  ReceiptText,
+  Settings,
+  Shield,
+  ShoppingBag,
+  Store,
+  Truck,
+  UserRound,
+} from "lucide-react";
+import { MYINFO_SURFACE } from "@/components/mypage/myinfo/myinfo-theme";
+import { dibayMyInfoPerfMark, dibayMyInfoPerfMaybeLogTotal } from "@/lib/runtime/dibay-myinfo-perf";
 
 function formatCount(n: number | null | undefined): string {
   if (n == null || Number.isNaN(n)) return "—";
   if (n > 99) return "99+";
   return String(n);
+}
+
+function icon(el: ReactNode) {
+  return el;
 }
 
 export function MyPageHomeDashboard({
@@ -55,6 +82,7 @@ export function MyPageHomeDashboard({
   const [orderCount, setOrderCount] = useState<number | null>(() => homeDashboardCounts?.storeOrderCount ?? null);
   const [postCount, setPostCount] = useState<number | null>(() => homeDashboardCounts?.communityPostCount ?? null);
   const representativeAddress = useRepresentativeAddressLine();
+  const countsFetchScheduledRef = useRef(false);
 
   const viewerId = profile.id?.trim() ?? "";
 
@@ -70,15 +98,19 @@ export function MyPageHomeDashboard({
       setPostCount(homeDashboardCounts.communityPostCount);
       return;
     }
+    if (countsFetchScheduledRef.current) return;
+    countsFetchScheduledRef.current = true;
     let cancelled = false;
-    void (async () => {
+    const run = async () => {
       try {
+        dibayMyInfoPerfMark("api_start_ms", { api: "mypage_home_counts_fallback" });
         const [ordersWrapped, postsRes] = await Promise.all([
           fetchMeStoreOrdersListDeduped("?limit=100"),
           runSingleFlight("me:community-posts:limit=20", () =>
             fetch("/api/me/community-posts?limit=20", { credentials: "include", cache: "no-store" })
           ),
         ]);
+        dibayMyInfoPerfMark("api_done_ms", { api: "mypage_home_counts_fallback" });
         const oj =
           ordersWrapped.status >= 200 && ordersWrapped.status < 300
             ? (ordersWrapped.json as { ok?: boolean; orders?: unknown[] })
@@ -94,11 +126,45 @@ export function MyPageHomeDashboard({
           setPostCount(null);
         }
       }
-    })();
+    };
+
+    /**
+     * MI2: fallback count fetch must not compete with first visible paint.
+     * - schedule after hydration on an idle slice (or short delay fallback)
+     * - failure must never block UI
+     */
+    const schedule = () => {
+      if (cancelled) return;
+      void run();
+    };
+
+    const w = typeof window !== "undefined" ? (window as any) : null;
+    const idle: ((cb: () => void, opts?: { timeout?: number }) => number) | null =
+      w && typeof w.requestIdleCallback === "function" ? w.requestIdleCallback.bind(w) : null;
+    const cancelIdle: ((id: number) => void) | null =
+      w && typeof w.cancelIdleCallback === "function" ? w.cancelIdleCallback.bind(w) : null;
+
+    let idleId: number | null = null;
+    let t: ReturnType<typeof setTimeout> | null = null;
+
+    if (idle) {
+      idleId = idle(schedule, { timeout: 1200 });
+    } else {
+      t = setTimeout(schedule, 350);
+    }
+
     return () => {
       cancelled = true;
+      if (idleId != null && cancelIdle) cancelIdle(idleId);
+      if (t) clearTimeout(t);
     };
   }, [viewerId, homeDashboardCounts]);
+
+  useEffect(() => {
+    dibayMyInfoPerfMark("profile_card_visible_ms", { surface: "mypage_root" });
+    dibayMyInfoPerfMark("menu_visible_ms", { surface: "mypage_root" });
+    dibayMyInfoPerfMaybeLogTotal({ surface: "mypage_root" });
+  }, []);
 
   const profileRegionLine = resolveProfileLocationAddressLines(profile).join(" · ").trim();
   const representativeRegionLine =
@@ -107,14 +173,21 @@ export function MyPageHomeDashboard({
     profileRegionLine ||
     representativeRegionLine ||
     (representativeAddress.status === "loading" ? "대표 주소를 확인하는 중입니다" : "대표 지역을 설정해 주세요");
-  const displayName = profile.nickname?.trim() || "닉네임 없음";
+  const displayName = resolveDisplayName(profile) || "닉네임 없음";
+  const atUsername = formatAtUsername(profile.username ?? null);
 
-  const statRows = useMemo((): { label: string; value: string; href: string }[] => {
+  const statRows = useMemo((): { label: string; value: string; href: string; accent?: boolean }[] => {
     const activeTrade =
       overviewCounts.purchases != null && overviewCounts.sales != null
         ? Math.max(0, overviewCounts.purchases) + Math.max(0, overviewCounts.sales)
         : null;
     return [
+      {
+        label: "포인트",
+        value: profile.points != null ? String(profile.points) : "—",
+        href: "/mypage/points",
+        accent: true,
+      },
       {
         label: "진행중 거래",
         value: formatCount(activeTrade),
@@ -135,11 +208,6 @@ export function MyPageHomeDashboard({
         value: formatCount(favoriteCount ?? null),
         href: "/mypage/section/trade/favorites",
       },
-      {
-        label: "내가 쓴 글",
-        value: formatCount(postCount),
-        href: "/mypage/section/community/posts",
-      },
     ];
   }, [
     overviewCounts.purchases,
@@ -148,6 +216,7 @@ export function MyPageHomeDashboard({
     postCount,
     favoriteCount,
     ownerHub,
+    profile.points,
   ]);
 
   /** 거래 홈 `HomeProductList` — `PHILIFE_FEED_INSET_X` + 카드 간 `gap-1` 과 동일 축 */
@@ -155,71 +224,160 @@ export function MyPageHomeDashboard({
     <div className={`min-h-0 min-w-0 flex-1 ${PHILIFE_FEED_INSET_X_CLASS} pt-1 pb-1`}>
       {showBanner && bannerSlot ? <div className="mb-1 shrink-0">{bannerSlot}</div> : null}
 
-      <div className="flex min-h-0 min-w-0 flex-col gap-1">
-        <article className={`${PHILIFE_FB_CARD_CLASS} w-full min-w-0`}>
-          <div className="flex items-start gap-3 sam-card-pad">
-            <Link
-              href={MYPAGE_PROFILE_EDIT_HREF}
-              className="relative block h-[72px] w-[72px] shrink-0 overflow-hidden rounded-full bg-sam-primary-soft"
-              aria-label="프로필 이미지"
-            >
-              <Image src={withDefaultAvatar(profile.avatar_url)} alt="" fill className="object-cover" sizes="72px" />
-            </Link>
-            <div className="min-w-0 flex-1">
-              <p className="sam-text-profile-display leading-tight">{displayName}</p>
-              <p className="mt-1 sam-text-helper text-sam-muted">{regionLine}</p>
-              <div className="mt-2">
-                <MannerBatteryDisplay raw={mannerScore} size="sm" layout="inline" className="gap-1.5" />
-              </div>
-              <Link
-                href={MYPAGE_PROFILE_EDIT_HREF}
-                className="sam-btn sam-btn--outline sam-btn--sm mt-3"
-              >
-                프로필 수정
-              </Link>
+      <div className="flex min-h-0 min-w-0 flex-col gap-4">
+        <MyInfoProfileCard
+          avatarUrl={profile.avatar_url}
+          displayName={displayName}
+          atUsername={atUsername}
+          addressLine={regionLine}
+          editHref={MYPAGE_PROFILE_EDIT_HREF}
+          rightMetaSlot={
+            <div className="pt-1">
+              <MannerBatteryDisplay raw={mannerScore} size="sm" layout="inline" className="gap-1.5" />
             </div>
-          </div>
-        </article>
+          }
+        />
 
-        <h2 className="sam-text-section-title text-sam-fg pt-1">상태 요약</h2>
-        <div className="flex flex-col gap-1">
-          {statRows.map((row) => (
-            <Link
-              key={row.label}
-              href={row.href}
-              className={`block w-full min-w-0 no-underline ${PHILIFE_FB_CARD_CLASS} transition-colors active:bg-sam-surface-muted`}
-            >
-              <div className="flex min-h-[52px] items-center justify-between sam-card-pad sam-text-body">
-                <span className="font-medium text-sam-fg">{row.label}</span>
-                <span className="tabular-nums text-sam-muted">{row.value}</span>
-              </div>
-            </Link>
-          ))}
-        </div>
+        <MyInfoStatGrid title="요약" items={statRows} />
 
-        <h2 className="sam-text-section-title text-sam-fg pt-2">메뉴</h2>
-        <ul className="m-0 flex list-none flex-col gap-1 p-0">
-          {MYPAGE_MOBILE_NAV.map((sec) => (
-            <li key={sec.id} className="list-none">
-              <MyPageMobileMenuRow
-                href={buildMypageSectionHref(sec.id)}
-                title={sec.label}
-                surface="card"
-              />
-            </li>
-          ))}
-          <li className="list-none">
-            <MyPageMobileMenuRow
+        <div className="space-y-4">
+          <MyInfoMenuSection title="거래">
+            <MyInfoMenuItem
+              href="/mypage/section/trade/sales"
+              title="진행중 거래"
+              description="판매·구매 내역과 거래 상태를 확인합니다."
+              icon={icon(<Package className="h-[22px] w-[22px]" strokeWidth={2} />)}
+            />
+            <MyInfoMenuItem
+              href="/mypage/section/trade/favorites"
+              title="찜"
+              description="관심 상품과 다시 보고 싶은 글을 모아봅니다."
+              icon={icon(<Heart className="h-[22px] w-[22px]" strokeWidth={2} />)}
+            />
+            <MyInfoMenuItem
               href="/my/offers"
               title="내 가격 제안"
-              surface="card"
+              description="내가 보낸 가격 제안을 확인합니다."
+              icon={icon(<ReceiptText className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
-          </li>
+          </MyInfoMenuSection>
+
+          <MyInfoMenuSection title="커뮤니티">
+            <MyInfoMenuItem
+              href="/mypage/section/community/posts"
+              title="내가 쓴 글"
+              description="작성한 게시물을 최근순으로 확인합니다."
+              icon={icon(<BookOpen className="h-[22px] w-[22px]" strokeWidth={2} />)}
+            />
+            <MyInfoMenuItem
+              href="/mypage/section/community/comments"
+              title="댓글/활동"
+              description="내가 쓴 댓글과 활동을 확인합니다."
+              icon={icon(<MessageCircle className="h-[22px] w-[22px]" strokeWidth={2} />)}
+            />
+          </MyInfoMenuSection>
+
+          <MyInfoMenuSection title="매장 / 주문">
+            <MyInfoMenuItem
+              href="/mypage/section/store/manage"
+              title="내 상점 등록하기"
+              description="매장 등록 및 운영 화면으로 이동합니다."
+              icon={icon(<Store className="h-[22px] w-[22px]" strokeWidth={2} />)}
+            />
+            <MyInfoMenuItem
+              href="/mypage/section/store/orders"
+              title="주문내역"
+              description="주문 상태, 주문 채팅, 리뷰를 관리합니다."
+              icon={icon(<ShoppingBag className="h-[22px] w-[22px]" strokeWidth={2} />)}
+            />
+            <MyInfoMenuItem
+              href="/mypage/section/store/rider"
+              title="배달K 라이더"
+              description="라이더 관련 안내/진입을 확인합니다."
+              icon={icon(<Truck className="h-[22px] w-[22px]" strokeWidth={2} />)}
+            />
+          </MyInfoMenuSection>
+
+          <MyInfoMenuSection title="계정">
+            <MyInfoMenuItem
+              href="/mypage/addresses"
+              title="주소관리"
+              description="거래·생활·배달 주소를 관리합니다."
+              icon={icon(<MapPin className="h-[22px] w-[22px]" strokeWidth={2} />)}
+            />
+            <MyInfoMenuItem
+              href="/mypage/section/store/payment"
+              title="결제정보"
+              description="결제 및 포인트 정보를 확인합니다."
+              icon={icon(<CreditCard className="h-[22px] w-[22px]" strokeWidth={2} />)}
+            />
+            <MyInfoMenuItem
+              href="/mypage/section/settings/device-permissions"
+              title="개인/보안"
+              description="기기 권한과 보안 설정을 확인합니다."
+              icon={icon(<Shield className="h-[22px] w-[22px]" strokeWidth={2} />)}
+            />
+            <MyInfoMenuItem
+              href="/mypage/section/settings/notifications"
+              title="알림"
+              description="서비스·채팅 알림 설정을 관리합니다."
+              icon={icon(<Bell className="h-[22px] w-[22px]" strokeWidth={2} />)}
+            />
+            <MyInfoMenuItem
+              href="/mypage/section/settings/language"
+              title="언어 Language"
+              description="언어 설정을 변경합니다."
+              icon={icon(<Languages className="h-[22px] w-[22px]" strokeWidth={2} />)}
+            />
+            <MyInfoMenuItem
+              href="/mypage/section/settings/country"
+              title="지역/국가"
+              description="국가 설정을 변경합니다."
+              icon={icon(<Globe className="h-[22px] w-[22px]" strokeWidth={2} />)}
+            />
+            <MyInfoMenuItem
+              href="/mypage/settings"
+              title="설정"
+              description="시스템 및 서비스 설정을 관리합니다."
+              icon={icon(<Settings className="h-[22px] w-[22px]" strokeWidth={2} />)}
+            />
+          </MyInfoMenuSection>
+
+          <MyInfoMenuSection title="고객지원">
+            <MyInfoMenuItem
+              href="/mypage/section/settings/support"
+              title="고객센터"
+              description="문의 및 도움말을 확인합니다."
+              icon={icon(<HelpCircle className="h-[22px] w-[22px]" strokeWidth={2} />)}
+            />
+            <MyInfoMenuItem
+              href="/mypage/section/settings/notices"
+              title="공지사항"
+              description="운영 공지를 확인합니다."
+              icon={icon(<UserRound className="h-[22px] w-[22px]" strokeWidth={2} />)}
+            />
+            <MyInfoMenuItem
+              href="/mypage/section/settings/events"
+              title="이벤트"
+              description="진행 중인 이벤트를 확인합니다."
+              icon={icon(<CalendarDays className="h-[22px] w-[22px]" strokeWidth={2} />)}
+            />
+            <MyInfoMenuItem
+              href="/mypage/section/settings/terms"
+              title="이용약관"
+              description="약관 및 정책을 확인합니다."
+              icon={icon(<Shield className="h-[22px] w-[22px]" strokeWidth={2} />)}
+            />
+          </MyInfoMenuSection>
+
           <MyPageAdminMenuEntry asListItem />
-          <li className="list-none">
-            <LogoutActionTrigger variant="menu_row" surface="card" />
-          </li>
-        </ul>
+
+          <div className="pt-2">
+            <div className={`${MYINFO_SURFACE.card} overflow-hidden`}>
+              <LogoutActionTrigger variant="menu_row" surface="grouped" />
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

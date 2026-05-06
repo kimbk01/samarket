@@ -12,6 +12,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { chatProductSummaryFromPostRow } from "@/lib/chats/chat-product-from-post";
 import { POST_TRADE_RELATION_SELECT } from "@/lib/posts/post-query-select";
+import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
 
 export async function GET(_req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
@@ -69,15 +70,20 @@ export async function GET(_req: NextRequest) {
   }
 
   const nickById = new Map<string, string>();
+  const usernameById = new Map<string, string>();
   if (reviewerIds.length) {
     const { data: profiles } = await sbAny
       .from("profiles")
-      .select("id, nickname, username")
+      .select("id, display_name, nickname, username")
       .in("id", reviewerIds);
     (profiles ?? []).forEach((p: Record<string, unknown>) => {
       const id = String(p.id ?? "");
-      const n = String((p.nickname ?? p.username ?? "") as string).trim();
-      if (id && n) nickById.set(id, n);
+      const display = typeof p.display_name === "string" ? p.display_name : null;
+      const legacy = typeof p.nickname === "string" ? p.nickname : null;
+      const uname = typeof p.username === "string" ? p.username : null;
+      const label = labelFromDisplayAndUsername(display ?? legacy, uname).trim();
+      if (id && label) nickById.set(id, label);
+      if (id && uname && uname.trim()) usernameById.set(id, uname.trim());
     });
     const needTest = reviewerIds.filter((id) => !nickById.has(id));
     if (needTest.length) {
@@ -87,8 +93,11 @@ export async function GET(_req: NextRequest) {
         .in("id", needTest);
       (tus ?? []).forEach((t: Record<string, unknown>) => {
         const id = String(t.id ?? "");
-        const n = String((t.display_name ?? t.username ?? "") as string).trim();
-        if (id && n) nickById.set(id, n);
+        const display = typeof t.display_name === "string" ? t.display_name : null;
+        const uname = typeof t.username === "string" ? t.username : null;
+        const label = labelFromDisplayAndUsername(display, uname).trim() || String((t.display_name ?? t.username ?? "") as string).trim();
+        if (id && label) nickById.set(id, label);
+        if (id && uname && uname.trim()) usernameById.set(id, uname.trim());
       });
     }
   }
@@ -110,6 +119,7 @@ export async function GET(_req: NextRequest) {
       price: summary.price ?? 0,
       reviewerId: r.reviewer_id,
       reviewerNickname: nickById.get(r.reviewer_id) ?? r.reviewer_id.slice(0, 8) + "…",
+      reviewerUsername: usernameById.get(r.reviewer_id) ?? null,
       roleType: r.role_type,
       publicReviewType: pt,
       positiveTagKeys: Array.isArray(r.positive_tag_keys) ? r.positive_tag_keys : [],

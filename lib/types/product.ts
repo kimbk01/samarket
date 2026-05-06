@@ -16,6 +16,10 @@ export type ProductStatus =
 export interface ProductSeller {
   id: string;
   nickname: string;
+  /** Optional — new identity split */
+  username?: string | null;
+  /** Optional — new identity split */
+  display_name?: string | null;
   avatar: string;
   location: string;
   mannerTemp?: number;

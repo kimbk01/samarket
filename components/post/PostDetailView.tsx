@@ -92,6 +92,7 @@ import {
 } from "@/lib/runtime/samarket-runtime-debug";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { PHILIFE_FEED_INSET_X_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { formatAtUsername } from "@/lib/users/user-label";
 import {
   TRADE_WRITE_FB_SECTION,
   TRADE_WRITE_FB_BLOCK_TITLE,
@@ -438,6 +439,8 @@ const LOGIN_REDIRECT = "/mypage/account";
 type PostDetailSellerAuthor = {
   id: string;
   nickname: string | null;
+  username?: string | null;
+  display_name?: string | null;
   avatar_url: string | null;
   trustScore: number;
 };
@@ -449,7 +452,9 @@ function PostDetailSellerProfileRow({
   author: PostDetailSellerAuthor | null;
   regionLine: React.ReactNode;
 }) {
-  const label = author?.nickname?.trim() || "판매자";
+  const displayName = author?.display_name?.trim() || author?.nickname?.trim() || "판매자";
+  const atUsername = formatAtUsername(author?.username ?? null);
+  const label = displayName;
   const initial = label.charAt(0).toUpperCase() || "?";
   return (
     <div className="flex min-w-0 items-center justify-between gap-3">
@@ -462,7 +467,12 @@ function PostDetailSellerProfileRow({
           )}
         </div>
         <div className="min-w-0 flex-1">
-          <p className={TRADE_FB_DETAIL_SELLER_NAME}>{author?.nickname ?? "사용자"}</p>
+          <p className={TRADE_FB_DETAIL_SELLER_NAME}>{displayName}</p>
+          {atUsername ? (
+            <p className="mt-0.5 truncate font-mono sam-text-xxs text-sam-muted tabular-nums">
+              {atUsername}
+            </p>
+          ) : null}
           {regionLine}
         </div>
       </div>
@@ -817,6 +827,8 @@ export function PostDetailView({
       ? {
           id: sellerProfile.id,
           nickname: sellerProfile.nickname,
+          username: sellerProfile.username ?? null,
+          display_name: sellerProfile.display_name ?? null,
           avatar_url: sellerProfile.avatar_url,
           trustScore: sellerProfile.trustScore,
         }
@@ -1119,6 +1131,8 @@ export function PostDetailView({
       setAuthor({
         id: sellerProfile.id,
         nickname: sellerProfile.nickname,
+        username: sellerProfile.username ?? null,
+        display_name: sellerProfile.display_name ?? null,
         avatar_url: sellerProfile.avatar_url,
         trustScore: sellerProfile.trustScore,
       });
@@ -1143,6 +1157,8 @@ export function PostDetailView({
           setAuthor({
             id: data.profile.id,
             nickname: data.profile.nickname,
+            username: data.profile.username ?? null,
+            display_name: data.profile.display_name ?? null,
             avatar_url: data.profile.avatar_url,
             trustScore: data.profile.trustScore,
           });
@@ -1295,13 +1311,14 @@ export function PostDetailView({
         ? formatPrice(post.price, defaultCurrency)
         : "가격 문의";
     const sellerName = author?.nickname?.trim() || "판매자";
+    const sellerNameDisplay = author?.display_name?.trim() || sellerName;
     openCreateTradeChat(router, {
       productId: post.id,
       composePreview: {
         productTitle,
         productThumbnail,
         priceText,
-        sellerName,
+        sellerName: sellerNameDisplay,
       },
     });
   }, [

@@ -5,11 +5,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";
 import { resolveProfileTrustScore } from "@/lib/trust/profile-trust-display";
+import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
 
 export type PartnerDisplayFields = {
   partnerNickname: string;
   partnerAvatar: string;
   partnerTrustScore: number;
+  partnerUsername?: string | null;
+  partnerDisplayName?: string | null;
 };
 
 export async function fetchPartnerDisplayFieldsMap(
@@ -23,13 +26,15 @@ export async function fetchPartnerDisplayFieldsMap(
       partnerNickname: id.slice(0, 8),
       partnerAvatar: "",
       partnerTrustScore: resolveProfileTrustScore(null),
+      partnerUsername: null,
+      partnerDisplayName: null,
     });
   }
   if (ids.length === 0) return map;
 
   const { data: profiles } = await sbAny
     .from("profiles")
-    .select("id, nickname, username, avatar_url, trust_score, manner_score, manner_temperature")
+    .select("id, display_name, nickname, username, avatar_url, trust_score, manner_score, manner_temperature")
     .in("id", ids);
 
   const foundProfile = new Set<string>();
@@ -39,13 +44,22 @@ export async function fetchPartnerDisplayFieldsMap(
     if (!id) continue;
     foundProfile.add(id);
     const fb = id.slice(0, 8) || "?";
-    const nick = ((p.nickname ?? p.username ?? fb) as string).trim() || fb;
+    const username = typeof p.username === "string" && p.username.trim() ? p.username.trim() : null;
+    const displayName =
+      typeof p.display_name === "string" && p.display_name.trim() ? p.display_name.trim() : null;
+    const label =
+      labelFromDisplayAndUsername(
+        (p.display_name ?? p.nickname) as string | null | undefined,
+        p.username as string | null | undefined
+      ).trim() || fb;
     const av = p.avatar_url;
     const avatar = typeof av === "string" && av.trim() ? av.trim() : "";
     map.set(id, {
-      partnerNickname: nick,
+      partnerNickname: label,
       partnerAvatar: avatar,
       partnerTrustScore: resolveProfileTrustScore(p),
+      partnerUsername: username,
+      partnerDisplayName: displayName,
     });
   }
 
@@ -57,11 +71,16 @@ export async function fetchPartnerDisplayFieldsMap(
       const id = String(t.id ?? "");
       if (!id) continue;
       const fb = id.slice(0, 8) || "?";
+      const username = typeof t.username === "string" && t.username.trim() ? t.username.trim() : null;
+      const displayName =
+        typeof t.display_name === "string" && t.display_name.trim() ? t.display_name.trim() : null;
       const nick = ((t.display_name ?? t.username ?? fb) as string).trim() || fb;
       map.set(id, {
         partnerNickname: nick,
         partnerAvatar: "",
         partnerTrustScore: resolveProfileTrustScore(null),
+        partnerUsername: username,
+        partnerDisplayName: displayName,
       });
     }
   }

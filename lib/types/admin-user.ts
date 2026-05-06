@@ -21,6 +21,10 @@ export interface AdminUser {
   loginUsername?: string;
   /** 운영 목록 표시용 실제 로그인 식별값(SNS email/provider id/manual login_id) */
   loginIdentifier?: string;
+  /** profiles.username (@아이디, DB에는 @ 없이 저장) */
+  username?: string | null;
+  /** profiles.display_name (닉네임) */
+  displayName?: string | null;
   nickname: string;
   email?: string;
   avatar?: string;

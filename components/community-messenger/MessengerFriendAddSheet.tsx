@@ -47,7 +47,7 @@ const TAB_ORDER: MessengerFriendAddTab[] = ["id", "contacts", "invite"];
 function tabLabel(t: MessengerFriendAddTab): string {
   switch (t) {
     case "id":
-      return "ID · 닉네임";
+      return "@아이디";
     case "contacts":
       return "연락처";
     case "invite":
@@ -250,7 +250,7 @@ export function MessengerFriendAddSheet({
                     }
                   }}
                   maxLength={20}
-                  placeholder="닉네임 또는 아이디"
+                  placeholder="@아이디 (예: @samarket)"
                   autoCapitalize="none"
                   autoCorrect="off"
                   spellCheck={false}
@@ -258,7 +258,7 @@ export function MessengerFriendAddSheet({
                   style={{ color: "var(--messenger-text)" }}
                 />
                 <p className="mt-1.5 sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>
-                  검색 허용 사용자만 표시됩니다.
+                  @아이디로만 검색됩니다. (닉네임 검색 불가)
                 </p>
                 <button
                   type="button"

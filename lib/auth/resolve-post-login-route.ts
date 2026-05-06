@@ -44,6 +44,9 @@ export function resolvePostLoginRoute({
   if (!status.consentComplete) {
     return withNextSearchParam("/auth/consent", safeNext);
   }
+  if (!status.usernameComplete) {
+    return withNextSearchParam("/onboarding/username", safeNext);
+  }
   if (!status.profileComplete || !status.nicknameComplete) {
     return withNextSearchParam("/onboarding/profile", safeNext);
   }

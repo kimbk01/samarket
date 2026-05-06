@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-04-30 |
+| Last updated | 2026-05-06 |
 | Owner | (선택) |
 
 ---
@@ -79,6 +79,45 @@
 **판정:** **보류** — 구조 분리는 완료했지만, 사용자 체감(브라우저 상호작용 기준) 3회 반복 전/후 비교는 추가 필요.
 
 ---
+
+## 이번 라운드 (내정보: 라운드 MI1 — 내정보/하위 라우트 체감 계측 추가)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | 내정보(`/mypage`) 및 하위 메뉴 이동에서 **어디가 느린지(전환 vs RSC vs 클라 hydration vs API)** 분해 로그가 없어, 추측 기반 최적화 위험이 높았다. |
+| 측정 명령 | 브라우저 Dev 콘솔에서 `[dibay-myinfo-perf]` prefix 로그 확인. 동일 동작 3회(런2·런3 warm) 기록. |
+| 완료 기준 | `nav_click_ms → first_shell_visible_ms`, `→ profile_card_visible_ms`, `→ menu_visible_ms`, `→ first_content_visible_ms` 및 `api_*` 구간을 3회 반복으로 확보해 **가장 느린 지표 1개**를 확정한다. |
+| 수정 파일 | `lib/runtime/dibay-myinfo-perf.ts`, `app/(main)/my/MyContent.tsx`, `components/mypage/MyPageHomeDashboard.tsx`, `components/mypage/mobile/MyPageStackShell.tsx` |
+
+### 라운드 MI1 — 3회 측정(대기)
+
+| 구분 | Run1 | Run2 | Run3 | 평균 |
+|------|------|------|------|------|
+| `total_click_to_visible_ms` | — | — | — | — |
+
+**판정:** **보류** — 계측 추가 완료, 3회 측정 및 병목 1개 확정 전.
+
+---
+
+## 이번 라운드 (내정보: 라운드 MI2 — mypage_home_counts_fallback 첫 표시 블로킹 제거)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | 내정보 홈(`/mypage`) 진입 시 fallback count API(`mypage_home_counts_fallback`)가 첫 표시 타이밍과 경쟁해 체감상 “첫 화면이 늦게 뜨는 것처럼” 보일 수 있었다. |
+| 측정 명령 | 브라우저 Dev 콘솔에서 `[dibay-myinfo-perf]` 로그 확인. `/mypage` 진입 3회(런1 cold, 런2–3 warm)에서 `first_shell_visible_ms`, `profile_card_visible_ms`, `menu_visible_ms`, `api_done_ms`, `total_click_to_visible_ms` 확인. |
+| 완료 기준 | **첫 화면(셸/프로필/메뉴)**이 count fetch와 무관하게 즉시 표시되고, `total_click_to_visible_ms`가 기존 대비 **70% 이상 감소**해야 한다. count는 뒤에서 지연 갱신되어도 된다. |
+| 수정 파일 (1~2) | `components/mypage/MyPageHomeDashboard.tsx` |
+| 이번 조치 | `mypage_home_counts_fallback`를 **idle(또는 짧은 지연)에서 백그라운드 실행**하도록 스케줄링해, hydration 직후 첫 페인트/상호작용과 경쟁하지 않게 했다. 실패해도 UI를 막지 않고, 결과는 count state만 갱신한다. |
+
+### 라운드 MI2 — 측정(대기)
+
+| 구분 | Run1 | Run2 | Run3 | 평균 |
+|------|------|------|------|------|
+| `total_click_to_visible_ms` | — | — | — | — |
+| `api_done_ms` (`mypage_home_counts_fallback`) | — | — | — | — |
+
+**기준선(사용자 보고):** `total_click_to_visible_ms ≈ 13950ms`, `api_done_ms ≈ 15322ms`  
+**판정:** **보류** — 코드 수정 완료, 3회 전/후 측정 및 감소율 확인 필요.
 
 ## 이번 라운드 (최신: 라운드 W4 — Philife 댓글 API 선행 상세조회 제거)
 

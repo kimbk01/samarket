@@ -9,6 +9,7 @@ import {
   buildMypageItemHref,
 } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { hasFormalMemberContactVerification } from "@/lib/auth/member-access";
+import { formatAtUsername, resolveDisplayName } from "@/lib/users/user-label";
 
 type Props = Pick<
   MyPageConsoleProps,
@@ -42,7 +43,10 @@ export function AccountTab({
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
           <div className="space-y-2">
             <p className="sam-text-body font-semibold text-sam-fg">
-              {profile.nickname?.trim() || "닉네임 없음"}
+              {resolveDisplayName(profile) || "닉네임 없음"}
+            </p>
+            <p className="font-mono sam-text-xxs text-sam-muted tabular-nums">
+              {formatAtUsername((profile as { username?: string | null }).username)}
             </p>
             <p className="sam-text-helper text-sam-muted">{profile.email ?? "이메일 정보 없음"}</p>
             <p className="sam-text-helper text-sam-muted">
@@ -130,7 +134,10 @@ export function AccountTab({
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <div className="space-y-2">
           <p className="sam-text-body font-bold text-sam-fg">
-            {profile.nickname?.trim() || "닉네임 없음"}
+            {resolveDisplayName(profile) || "닉네임 없음"}
+          </p>
+          <p className="font-mono sam-text-xxs text-sam-muted tabular-nums">
+            {formatAtUsername((profile as { username?: string | null }).username)}
           </p>
           <p className="sam-text-helper text-sam-muted">
             {profile.email ?? "이메일 없음"}

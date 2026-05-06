@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { CHAT_ROOM_ID_IN_CHUNK_SIZE, chunkIds } from "@/lib/chats/chat-list-limits";
+import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
 
 export async function GET(req: NextRequest) {
   const admin = await requireAdminApiUser();
@@ -100,15 +101,29 @@ export async function GET(req: NextRequest) {
   const nickByUserId: Record<string, string> = {};
   if (userIds.length > 0) {
     const [{ data: profiles }, { data: testUsers }] = await Promise.all([
-      sbAny.from("profiles").select("id, nickname, username").in("id", userIds),
+      sbAny.from("profiles").select("id, display_name, nickname, username").in("id", userIds),
       sbAny.from("test_users").select("id, display_name, username").in("id", userIds),
     ]);
-    (profiles ?? []).forEach((p: { id: string; nickname?: string; username?: string }) => {
-      nickByUserId[p.id] = (p.nickname ?? p.username ?? p.id.slice(0, 8)) as string;
-    });
+    (profiles ?? []).forEach(
+      (p: { id: string; display_name?: string | null; nickname?: string | null; username?: string | null }) => {
+        const base = (p.display_name ?? p.nickname ?? "").trim();
+        const uname = (p.username ?? "").trim();
+        nickByUserId[p.id] =
+          labelFromDisplayAndUsername(base || null, uname || null) ||
+          base ||
+          uname ||
+          p.id.slice(0, 8);
+      }
+    );
     (testUsers ?? []).forEach((t: { id: string; display_name?: string; username?: string }) => {
       if (!nickByUserId[t.id]) {
-        nickByUserId[t.id] = (t.display_name ?? t.username ?? t.id.slice(0, 8)) as string;
+        const base = (t.display_name ?? "").trim();
+        const uname = (t.username ?? "").trim();
+        nickByUserId[t.id] =
+          labelFromDisplayAndUsername(base || null, uname || null) ||
+          base ||
+          uname ||
+          t.id.slice(0, 8);
       }
     });
   }

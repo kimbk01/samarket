@@ -14,6 +14,7 @@ type CommentRow = {
   created_at: string;
   parent_id?: string | null;
   authorNickname?: string;
+  authorUsername?: string | null;
 };
 
 const LOGIN_REDIRECT = "/mypage/account";
@@ -157,6 +158,7 @@ export function PostCommunityCommentsSection({
   const renderCommentRow = (c: CommentRow, opts: { isChild: boolean; allowReply: boolean }) => {
     const uid = c.user_id?.trim() ?? "";
     const label = c.authorNickname?.trim() || uid.slice(0, 8) || "사용자";
+    const atUsername = c.authorUsername ? `@${c.authorUsername}` : "";
     const isCommentMine = !!currentUserId && uid === currentUserId;
     const showReportBtn = showCommentReport && !!currentUserId && !isCommentMine;
 
@@ -174,6 +176,11 @@ export function PostCommunityCommentsSection({
               {label}
               {opts.isChild ? <span className={`ml-1 font-normal text-sky-700 ${Sam.text.xxs}`}>답글</span> : null}
             </p>
+            {atUsername ? (
+              <p className={`mt-0.5 truncate font-mono text-sam-muted tabular-nums ${Sam.text.xxs}`}>
+                {atUsername}
+              </p>
+            ) : null}
             <p className={`mt-1 whitespace-pre-wrap text-sam-fg ${Sam.text.body}`}>{c.content}</p>
             <p className={`mt-1 text-sam-meta ${Sam.text.xxs}`}>{formatTimeAgo(c.created_at)}</p>
           </div>

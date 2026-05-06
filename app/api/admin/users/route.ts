@@ -8,6 +8,7 @@ import { buildAddressListDetailLine, buildTradePublicLine } from "@/lib/addresse
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import type { AdminUser } from "@/lib/types/admin-user";
 import type { AdminAuthProvider, MemberType } from "@/lib/types/admin-user";
+import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -434,7 +435,12 @@ export async function GET(_req: NextRequest) {
       id: r.id,
       loginUsername: testUser?.username?.trim() || r.username?.trim() || undefined,
       loginIdentifier,
-      nickname: r.nickname?.trim() || r.display_name?.trim() || testUser?.display_name?.trim() || r.username?.trim() || r.id,
+      username: r.username?.trim() || null,
+      displayName: r.display_name?.trim() || r.nickname?.trim() || null,
+      nickname: labelFromDisplayAndUsername(
+        (r.display_name ?? r.nickname ?? testUser?.display_name ?? "").trim(),
+        (r.username ?? "").trim()
+      ) || (r.display_name?.trim() || r.nickname?.trim() || testUser?.display_name?.trim() || r.username?.trim() || r.id),
       email: pickString(authUser?.email) ?? r.email ?? undefined,
       authProvider,
       providerLabel: providerLabel(authProvider),
@@ -477,7 +483,9 @@ export async function GET(_req: NextRequest) {
         id: row.id,
         loginUsername: row.username?.trim() || undefined,
         loginIdentifier: row.username?.trim() || undefined,
-        nickname: row.display_name?.trim() || row.username?.trim() || row.id,
+        username: row.username?.trim() || null,
+        displayName: row.display_name?.trim() || null,
+        nickname: labelFromDisplayAndUsername(row.display_name?.trim() || "", row.username?.trim() || "") || row.display_name?.trim() || row.username?.trim() || row.id,
         authProvider: "manual",
         providerLabel: "Manual",
         phone: row.contact_phone?.trim() || undefined,
@@ -534,6 +542,8 @@ export async function GET(_req: NextRequest) {
       id,
       loginUsername: undefined,
       loginIdentifier,
+      username: null,
+      displayName: nicknameMeta || null,
       nickname: fallbackName,
       email: email || undefined,
       authProvider,

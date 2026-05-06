@@ -78,6 +78,7 @@ export type ProfileUpdatePayload = Partial<
   Pick<
     ProfileRow,
     | "nickname"
+    | "display_name"
     | "avatar_url"
     | "bio"
     | "region_code"

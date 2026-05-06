@@ -41,6 +41,7 @@ import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
 import type { UserSettingsRow } from "@/lib/types/settings-db";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { fetchMeStoreOrdersListDeduped } from "@/lib/stores/store-delivery-api-client";
+import { formatAtUsername, resolveDisplayName } from "@/lib/users/user-label";
 
 type MypageSectionId = "trade" | "board" | "store" | "account";
 type SettingsSheetKind =
@@ -290,7 +291,8 @@ export function MypageInstagramView({
     email: profile.email,
   });
 
-  const displayName = profile.nickname?.trim() || "닉네임 없음";
+  const displayName = resolveDisplayName(profile) || "닉네임 없음";
+  const atUsername = formatAtUsername(profile.username ?? null);
   const profileRegionComplete = isProfileLocationComplete(profile);
   const lifeNeighborhoodComplete = neighborhoodFromLife?.complete === true;
   const hasRegion = profileRegionComplete || lifeNeighborhoodComplete;
@@ -414,6 +416,11 @@ export function MypageInstagramView({
               <div className="flex flex-wrap items-center gap-2">
                 <span className="sam-text-page-title font-semibold text-foreground">{displayName}</span>
               </div>
+              {atUsername ? (
+                <p className="mt-1 truncate font-mono sam-text-xxs text-[var(--text-muted)] tabular-nums">
+                  {atUsername}
+                </p>
+              ) : null}
               <p
                 className={`mt-1 whitespace-pre-line sam-text-body-secondary ${
                   !hasRegion ? "text-amber-700 dark:text-amber-400" : "text-[var(--text-muted)]"

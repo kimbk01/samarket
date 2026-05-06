@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import type { Profile } from "@/lib/types/profile";
 import { MannerBatteryInline } from "@/components/trust/MannerBatteryDisplay";
+import { formatAtUsername, resolveDisplayName } from "@/lib/users/user-label";
 
 interface ProfileCardProps {
   profile: Profile | null;
@@ -48,8 +49,11 @@ export function ProfileCard({ profile }: ProfileCardProps) {
           </div>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <p className="sam-text-body font-medium text-foreground">{profile.nickname}</p>
+              <p className="sam-text-body font-medium text-foreground">{resolveDisplayName(profile)}</p>
             </div>
+            {formatAtUsername(profile.username ?? null) ? (
+              <p className="mt-0.5 truncate sam-text-helper text-sam-meta">{formatAtUsername(profile.username ?? null)}</p>
+            ) : null}
             <div className="mt-1">
               <MannerBatteryInline raw={profile.temperature} size="sm" />
             </div>

@@ -58,6 +58,7 @@ export interface MyReceivedReviewItem {
   price: number;
   reviewerId: string;
   reviewerNickname: string;
+  reviewerUsername?: string | null;
   roleType: string;
   publicReviewType: "good" | "normal" | "bad";
   positiveTagKeys: string[];
@@ -96,6 +97,11 @@ function ReceivedReviewCard({ it, currency }: { it: MyReceivedReviewItem; curren
             <p className="mt-0.5 truncate sam-text-helper text-sam-muted">
               {counterpartyLabel} {it.reviewerNickname}
             </p>
+            {it.reviewerUsername ? (
+              <p className="mt-0.5 truncate font-mono sam-text-xxs text-sam-muted tabular-nums">
+                @{it.reviewerUsername}
+              </p>
+            ) : null}
             <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
               <span className="rounded-ui-rect bg-signature/5 px-1.5 py-0.5 sam-text-xxs font-medium text-sam-fg">
                 {PUBLIC_LABELS[it.publicReviewType] ?? it.publicReviewType}

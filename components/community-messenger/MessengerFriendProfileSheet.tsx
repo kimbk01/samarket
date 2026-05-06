@@ -69,6 +69,7 @@ export function MessengerFriendProfileSheet({
   const avatarSrc = profile.avatarUrl ?? undefined;
   const initial = profile.label.trim().slice(0, 1) || "?";
   const statusLine = profile.subtitle?.trim() ?? "";
+  const atUsername = statusLine.startsWith("@") ? statusLine : "";
 
   const useFriendAddGate = Boolean(
     friendAddCta && onFriendAdd && onFriendCancelOutgoing && onFriendAcceptIncoming && onFriendRejectIncoming
@@ -93,8 +94,10 @@ export function MessengerFriendProfileSheet({
           <h2 id="messenger-friend-sheet-title" className="mt-2 sam-text-body-lg font-semibold text-ui-fg">
             {profile.label}
           </h2>
-          {statusLine ? <p className="mt-0.5 line-clamp-2 sam-text-helper text-ui-muted">{statusLine}</p> : null}
-          <p className="mt-1 font-mono sam-text-xxs text-ui-muted tabular-nums">ID {pid}</p>
+          {statusLine && !atUsername ? (
+            <p className="mt-0.5 line-clamp-2 sam-text-helper text-ui-muted">{statusLine}</p>
+          ) : null}
+          {atUsername ? <p className="mt-1 font-mono sam-text-xxs text-ui-muted tabular-nums">{atUsername}</p> : null}
           <div className="mt-2 flex flex-wrap items-center justify-center gap-1">
             {profile.isFriend ? <StatusChip label={MessengerFriendAddCtaLabels.friend} /> : null}
             {profile.isFavoriteFriend ? <StatusChip label="즐겨찾기" /> : null}

@@ -11,6 +11,7 @@ import type {
   AdminPostAdRow,
   PostAd,
 } from "@/lib/ads/types";
+import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
 
 /** 인메모리 `PostAd` → 목록 API 공통 행 */
 export function postAdToAdminRow(ad: PostAd): AdminPostAdRow {
@@ -201,10 +202,12 @@ export async function fetchActiveTopFixedAdFeedPostsFromDb(
 
   const nicknameById = new Map<string, string>();
   if (userIds.length) {
-    const { data: profs } = await sb.from("profiles").select("id, nickname, username").in("id", userIds);
-    for (const p of (profs ?? []) as { id?: string; nickname?: string | null; username?: string | null }[]) {
+    const { data: profs } = await sb.from("profiles").select("id, display_name, nickname, username").in("id", userIds);
+    for (const p of (profs ?? []) as { id?: string; display_name?: string | null; nickname?: string | null; username?: string | null }[]) {
       const id = String(p.id ?? "");
-      const label = String(p.nickname ?? p.username ?? "").trim() || id.slice(0, 8);
+      const base = String(p.display_name ?? p.nickname ?? "").trim();
+      const uname = String(p.username ?? "").trim();
+      const label = labelFromDisplayAndUsername(base || null, uname || null) || base || uname || id.slice(0, 8);
       nicknameById.set(id, label);
     }
   }

@@ -24,11 +24,16 @@ import { matchRegionCityFromFullAddress } from "@/lib/profile/match-region-from-
 import { consumeMapAddressPick } from "@/lib/map/map-address-pick-storage";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { fetchMeAddressesListSingleFlight } from "@/lib/addresses/address-list-client-cache";
+import { ProfileEditFormShell, ProfileEditSection } from "@/components/my/edit/ui/ProfileEditFormShell";
+import { ProfileAvatarEditor } from "@/components/my/edit/ui/ProfileAvatarEditor";
+import { ProfileReadOnlyInfoCard } from "@/components/my/edit/ui/ProfileReadOnlyInfoCard";
 
-function validate(p: { nickname: string }): { nickname?: string } {
-  const errors: { nickname?: string } = {};
-  if (!p.nickname?.trim()) errors.nickname = "닉네임을 입력해 주세요.";
-  if (p.nickname && p.nickname.length > 20) errors.nickname = "닉네임은 20자 이내로 입력해 주세요.";
+export const PROFILE_EDIT_FORM_ID = "dibay-profile-edit-form";
+
+function validate(p: { displayName: string }): { displayName?: string } {
+  const errors: { displayName?: string } = {};
+  if (!p.displayName?.trim()) errors.displayName = "닉네임을 입력해 주세요.";
+  if (p.displayName && p.displayName.length > 20) errors.displayName = "닉네임은 20자 이내로 입력해 주세요.";
   return errors;
 }
 
@@ -46,7 +51,7 @@ export function ProfileEditForm() {
     detail?: string;
   } | null>(null);
 
-  const [nickname, setNickname] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [bio, setBio] = useState("");
   const [mapLat, setMapLat] = useState<number | null>(null);
@@ -57,7 +62,7 @@ export function ProfileEditForm() {
   const [phone, setPhone] = useState("");
   const [preferredLanguage, setPreferredLanguage] = useState("ko");
   const [preferredCountry, setPreferredCountry] = useState("PH");
-  const [errors, setErrors] = useState<{ nickname?: string; phone?: string }>({});
+  const [errors, setErrors] = useState<{ displayName?: string; phone?: string }>({});
   const [addressList, setAddressList] = useState<UserAddressDTO[] | null>(null);
   const [addressListErr, setAddressListErr] = useState(false);
   const [phoneVerificationSettings, setPhoneVerificationSettings] = useState<{
@@ -155,7 +160,7 @@ export function ProfileEditForm() {
     }
 
     setProfile(merged);
-    setNickname(merged.nickname ?? "");
+    setDisplayName(merged.display_name ?? merged.nickname ?? "");
     setAvatarUrl(merged.avatar_url ?? null);
     setBio(merged.bio ?? "");
     setMapLat(merged.latitude ?? null);
@@ -182,7 +187,7 @@ export function ProfileEditForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
-    const err = validate({ nickname: nickname.trim() });
+    const err = validate({ displayName: displayName.trim() });
     const pr = normalizeOptionalPhMobileDb(phone);
     const nextErr = { ...err, ...(pr.ok ? {} : { phone: pr.error }) };
     setErrors(nextErr);
@@ -208,7 +213,7 @@ export function ProfileEditForm() {
     setSaving(true);
     setMessage(null);
     const payload: ProfileUpdatePayload = {
-      nickname: nickname.trim(),
+      display_name: displayName.trim(),
       avatar_url: avatarUrl ?? null,
       bio: bio.trim() || null,
       latitude: mapLat,
@@ -254,32 +259,47 @@ export function ProfileEditForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <ProfileImageField avatarUrl={avatarUrl} onChangeUrl={setAvatarUrl} />
-      <ProfileBasicFields
-        nickname={nickname}
-        bio={bio}
-        phone={phone}
-        preferredLanguage={preferredLanguage}
-        preferredCountry={preferredCountry}
-        onNicknameChange={setNickname}
-        onBioChange={setBio}
-        onPhoneChange={setPhone}
-        onPreferredLanguageChange={setPreferredLanguage}
-        onPreferredCountryChange={setPreferredCountry}
-        errors={errors}
-      />
-      <ProfileMapLocationBlock addresses={addressList} listError={addressListErr} />
-      <PhoneVerificationBox
-        snapshot={{
-          phone: profile.phone,
-          phone_verified: profile.phone_verified,
-          member_status: profile.member_status ?? null,
-          settings: phoneVerificationSettings ?? undefined,
-        }}
-        onRefreshProfile={load}
-      />
-      <ProfileReadonlyFields profile={profile} />
+    <form id={PROFILE_EDIT_FORM_ID} onSubmit={handleSubmit} className="space-y-0">
+      <ProfileEditFormShell>
+        <ProfileEditSection title="프로필 이미지" description="사진은 프로필과 채팅, 게시글에서 함께 사용됩니다.">
+          <ProfileAvatarEditor avatarUrl={avatarUrl} onChangeUrl={setAvatarUrl} />
+        </ProfileEditSection>
+
+        <ProfileEditSection title="기본 정보" description="닉네임과 상태, 연락처, 언어/국가를 관리합니다.">
+          <ProfileBasicFields
+            displayName={displayName}
+            bio={bio}
+            phone={phone}
+            preferredLanguage={preferredLanguage}
+            preferredCountry={preferredCountry}
+            onDisplayNameChange={setDisplayName}
+            onBioChange={setBio}
+            onPhoneChange={setPhone}
+            onPreferredLanguageChange={setPreferredLanguage}
+            onPreferredCountryChange={setPreferredCountry}
+            errors={errors}
+          />
+        </ProfileEditSection>
+
+        <ProfileEditSection title="주소" description="대표 주소/지역은 거래·배달·추천에 사용됩니다.">
+          <ProfileMapLocationBlock addresses={addressList} listError={addressListErr} />
+        </ProfileEditSection>
+
+        <ProfileEditSection title="전화번호 인증" description="필요 시 안내에 따라 인증을 진행해 주세요.">
+          <PhoneVerificationBox
+            snapshot={{
+              phone: profile.phone,
+              phone_verified: profile.phone_verified,
+              member_status: profile.member_status ?? null,
+              settings: phoneVerificationSettings ?? undefined,
+            }}
+            onRefreshProfile={load}
+          />
+        </ProfileEditSection>
+
+        <ProfileEditSection title="읽기 전용 정보" description="계정 식별과 인증 상태 정보입니다.">
+          <ProfileReadOnlyInfoCard profile={profile} />
+        </ProfileEditSection>
 
       {message ? (
         <div className="space-y-1.5">
@@ -298,21 +318,22 @@ export function ProfileEditForm() {
         </div>
       ) : null}
 
-      <div className="flex gap-3">
-        <Link
-          href="/my"
-          className="flex-1 rounded-ui-rect border border-sam-border py-2.5 text-center sam-text-body font-medium text-sam-fg"
-        >
-          취소
-        </Link>
-        <button
-          type="submit"
-          disabled={saving}
-          className="flex-1 rounded-ui-rect bg-signature py-2.5 sam-text-body font-medium text-white disabled:opacity-60"
-        >
-          {saving ? "저장 중…" : "저장"}
-        </button>
-      </div>
+        <div className="flex gap-3 pt-1">
+          <Link
+            href="/my"
+            className="flex-1 rounded-[12px] border border-sam-border py-3 text-center text-[15px] font-semibold text-sam-fg hover:bg-sam-app"
+          >
+            취소
+          </Link>
+          <button
+            type="submit"
+            disabled={saving}
+            className="flex-1 rounded-[12px] bg-[color:#1C8DB8] py-3 text-[15px] font-semibold text-white disabled:opacity-60"
+          >
+            {saving ? "저장 중…" : "저장"}
+          </button>
+        </div>
+      </ProfileEditFormShell>
     </form>
   );
 }
