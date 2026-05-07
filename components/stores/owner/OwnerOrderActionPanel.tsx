@@ -6,6 +6,7 @@ import { labelForOwnerTransition } from "@/lib/stores/store-order-process-criter
 import { patchOwnerOrderStatusRemote } from "@/lib/store-owner/owner-order-remote";
 import type { OwnerOrder } from "@/lib/store-owner/types";
 import { RejectOrderModal } from "./RejectOrderModal";
+import { dibayPerfBridgeOwnerStatusChange } from "@/lib/dibay/delivery-flow-perf";
 
 function btnClass(primary?: boolean) {
   return primary
@@ -36,6 +37,7 @@ export function OwnerOrderActionPanel({
 
   const patch = async (order_status: string) => {
     const label = labelForOwnerTransition(s, order_status, fulfillment);
+    dibayPerfBridgeOwnerStatusChange(order.id);
     setBusy(order_status);
     const r = await patchOwnerOrderStatusRemote(storeId, order.id, order_status);
     setBusy((prev) => (prev === null ? prev : null));

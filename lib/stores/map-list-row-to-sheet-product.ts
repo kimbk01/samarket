@@ -3,6 +3,7 @@
  * (단건 API 와 동일 필드면 보강 fetch 생략 가능)
  */
 import type { StoreDetailLike } from "@/lib/stores/store-public-page-hydrate";
+import { parseProductOptionsJson } from "@/lib/stores/product-line-options";
 
 export type SheetPublicProduct = {
   id: string;
@@ -20,6 +21,9 @@ export type SheetPublicProduct = {
   local_delivery_available: boolean | null;
   shipping_available: boolean | null;
   options_json?: unknown;
+  /** menus API 등에서 오며 시트 seed 표시용 — 단건 fetch 로 보강 */
+  has_options?: boolean;
+  options_summary?: string | null;
 };
 
 export type SheetPublicStore = {
@@ -52,6 +56,14 @@ export function mapListRowToSheetProduct(
   const max_order_qty =
     Number.isFinite(maxRaw) && maxRaw > 0 ? Math.max(min_order_qty, Math.floor(maxRaw)) : 99;
 
+  const groupsFromJson = parseProductOptionsJson(row.options_json);
+  const hasFromMenusFlag = row.has_options === true;
+  const has_options = hasFromMenusFlag || groupsFromJson.length > 0;
+  const options_summary =
+    row.options_summary != null && String(row.options_summary).trim()
+      ? String(row.options_summary).trim()
+      : null;
+
   const product: SheetPublicProduct = {
     id,
     title: String(row.title ?? ""),
@@ -69,6 +81,8 @@ export function mapListRowToSheetProduct(
       row.local_delivery_available != null ? !!row.local_delivery_available : null,
     shipping_available: row.shipping_available != null ? !!row.shipping_available : null,
     options_json: row.options_json,
+    has_options,
+    options_summary,
   };
 
   const pubStore: SheetPublicStore = {

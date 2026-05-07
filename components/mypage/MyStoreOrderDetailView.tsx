@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { CommerceCartHubHeaderRight } from "@/components/layout/CommerceCartHubHeaderRight";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
@@ -28,9 +28,24 @@ import type { CompletedOrderReorderPayload } from "@/lib/stores/apply-completed-
 import { StoreOrderReorderAgainButton } from "@/components/mypage/StoreOrderReorderAgainButton";
 import { StoreOrderMessengerDeepLink } from "@/components/stores/StoreOrderMessengerDeepLink";
 import { buildMessengerContextInputFromStoreOrderSnapshot } from "@/lib/community-messenger/store-order-messenger-context";
-import { fetchMeStoreOrderDetailDeduped, patchMeStoreOrder } from "@/lib/stores/store-delivery-api-client";
+import {
+  fetchMeStoreOrderDetailDeduped,
+  fetchMeStoreOrderEventsDeduped,
+  patchMeStoreOrder,
+} from "@/lib/stores/store-delivery-api-client";
+import {
+  clearStoreOrderDetailSeed,
+  getStoreOrderDetailSeed,
+  type StoreOrderDetailSeed,
+} from "@/lib/stores/store-order-detail-seed-cache";
 import { useSupabaseStoreOrderRowRealtime } from "@/hooks/useSupabaseStoreOrderRowRealtime";
 import { useSupabaseStoreOrderDeliveriesRealtime } from "@/hooks/useSupabaseStoreOrderDeliveriesRealtime";
+import {
+  dibayPerfMaybeEmitCustomerStatusAfterOwner,
+  dibayPerfOnOrderDetailVisible,
+  dibayPerfRecordOrderDetailSeedHydrated,
+  dibayPerfRecordOrderDetailSeedUsed,
+} from "@/lib/dibay/delivery-flow-perf";
 
 type ItemRow = {
   id: string;
@@ -41,6 +56,53 @@ type ItemRow = {
   subtotal: number;
   options_snapshot_json?: unknown;
 };
+
+type StoreOrderEventPublic = {
+  id: string;
+  actor_role: string;
+  event_type: string;
+  from_status: string | null;
+  to_status: string | null;
+  message: string | null;
+  created_at: string;
+  metadata?: Record<string, unknown> | null;
+};
+
+const STORE_ORDER_EVENT_LABEL_KO: Record<string, string> = {
+  order_created: "주문 생성",
+  order_accepted: "매장 접수",
+  order_rejected: "접수 거절",
+  order_preparing: "준비 중",
+  order_ready: "준비 완료·픽업 대기",
+  order_delivering: "배달 진행",
+  order_completed: "완료",
+  order_cancelled: "취소",
+  refund_requested: "환불 요청",
+  refund_approved: "환불 처리",
+  refund_rejected: "환불 거절",
+  system_note: "안내",
+  delivery_status_changed: "배달 진행",
+  order_payment_completed_buyer: "결제 완료",
+  order_payment_completed_owner: "매장 결제 확인",
+  order_payment_failed_buyer: "결제 실패",
+};
+
+function storeOrderEventActorLabelKo(role: string): string {
+  switch (role) {
+    case "buyer":
+      return "구매자";
+    case "owner":
+      return "매장";
+    case "rider":
+      return "라이더";
+    case "admin":
+      return "운영";
+    case "system":
+      return "시스템";
+    default:
+      return role;
+  }
+}
 
 type OrderDetail = {
   id: string;
@@ -226,8 +288,9 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
     : `/mypage/store-orders/${encodeURIComponent(orderId)}`;
   const reviewHref = `${orderBase}/review`;
 
-  const [state, setState] = useState<
+  type ViewState =
     | { kind: "loading" }
+    | { kind: "seed"; seed: StoreOrderDetailSeed }
     | { kind: "unauth" }
     | { kind: "not_found" }
     | { kind: "error"; message: string }
@@ -237,13 +300,31 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
         items: ItemRow[];
         review: { id: string; visible_to_public?: boolean } | null;
         can_submit_review: boolean;
-      }
-  >({ kind: "loading" });
+        /** 이벤트 원장 조회 성공 시만 채움 — 없으면 기존 타임라인만 사용 */
+        orderEvents?: StoreOrderEventPublic[];
+      };
+
+  const [state, setState] = useState<ViewState>({ kind: "loading" });
   const [cancelBusy, setCancelBusy] = useState(false);
   const [cancelErr, setCancelErr] = useState<string | null>(null);
   const [refundBusy, setRefundBusy] = useState(false);
   const [refundErr, setRefundErr] = useState<string | null>(null);
   const [refundReason, setRefundReason] = useState("");
+  const detailPerfOnceRef = useRef<string | null>(null);
+  const seedUsedOnceRef = useRef<string | null>(null);
+
+  useLayoutEffect(() => {
+    const oid = orderId.trim();
+    detailPerfOnceRef.current = null;
+    seedUsedOnceRef.current = null;
+    if (!oid) {
+      setState({ kind: "loading" });
+      return;
+    }
+    const hit = getStoreOrderDetailSeed(oid);
+    if (hit?.id === oid) setState({ kind: "seed", seed: hit });
+    else setState({ kind: "loading" });
+  }, [orderId]);
 
   const load = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent === true;
@@ -251,9 +332,17 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
       if (!silent) setState({ kind: "not_found" });
       return;
     }
-    if (!silent) setState({ kind: "loading" });
+    if (!silent) {
+      const seedHit = getStoreOrderDetailSeed(orderId);
+      if (seedHit?.id === orderId) setState({ kind: "seed", seed: seedHit });
+      else setState({ kind: "loading" });
+    }
     try {
-      const { status, json } = await fetchMeStoreOrderDetailDeduped(orderId);
+      const [detailRes, eventsRes] = await Promise.all([
+        fetchMeStoreOrderDetailDeduped(orderId),
+        fetchMeStoreOrderEventsDeduped(orderId),
+      ]);
+      const { status, json } = detailRes;
       const data = json as {
         ok?: boolean;
         error?: string;
@@ -267,27 +356,54 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
         return;
       }
       if (status === 404) {
+        clearStoreOrderDetailSeed(orderId);
         if (!silent) setState({ kind: "not_found" });
         return;
       }
       if (!data?.ok) {
         if (!silent) {
-          setState({
-            kind: "error",
-            message: typeof data?.error === "string" ? data.error : "load_failed",
+          setState((prev) => {
+            if (prev.kind === "seed" && prev.seed.id === orderId) return prev;
+            return {
+              kind: "error",
+              message: typeof data?.error === "string" ? data.error : "load_failed",
+            };
           });
         }
         return;
       }
-      setState({
-        kind: "ok",
-        order: data.order as OrderDetail,
-        items: (data.items ?? []) as ItemRow[],
-        review: (data.review ?? null) as { id: string } | null,
-        can_submit_review: !!data.can_submit_review,
+      const hadSeedCache = getStoreOrderDetailSeed(orderId) != null;
+      clearStoreOrderDetailSeed(orderId);
+      if (hadSeedCache) dibayPerfRecordOrderDetailSeedHydrated(orderId);
+
+      let orderEvents: StoreOrderEventPublic[] | undefined;
+      if (eventsRes.status === 200) {
+        const ej = eventsRes.json as { ok?: boolean; events?: unknown };
+        if (ej?.ok === true && Array.isArray(ej.events)) {
+          orderEvents = ej.events as StoreOrderEventPublic[];
+        }
+      }
+
+      setState((prev) => {
+        const prevOk = prev.kind === "ok" ? prev : null;
+        let nextEvents = orderEvents;
+        if (nextEvents == null && silent && prevOk?.orderEvents) {
+          nextEvents = prevOk.orderEvents;
+        }
+        return {
+          kind: "ok",
+          order: data.order as OrderDetail,
+          items: (data.items ?? []) as ItemRow[],
+          review: (data.review ?? null) as { id: string } | null,
+          can_submit_review: !!data.can_submit_review,
+          ...(nextEvents != null ? { orderEvents: nextEvents } : {}),
+        };
       });
+      dibayPerfMaybeEmitCustomerStatusAfterOwner(orderId);
     } catch {
-      if (!silent) setState({ kind: "error", message: "network_error" });
+      if (!silent) {
+        setState((prev) => (prev.kind === "seed" && prev.seed.id === orderId ? prev : { kind: "error", message: "network_error" }));
+      }
     }
   }, [orderId]);
 
@@ -306,6 +422,20 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
   }, [load]);
 
   useRefetchOnPageShowRestore(() => void load({ silent: true }));
+
+  useLayoutEffect(() => {
+    if (!orderId || (state.kind !== "ok" && state.kind !== "seed")) return;
+    if (detailPerfOnceRef.current === orderId) return;
+    detailPerfOnceRef.current = orderId;
+    dibayPerfOnOrderDetailVisible(orderId);
+  }, [state.kind, orderId]);
+
+  useLayoutEffect(() => {
+    if (state.kind !== "seed" || !orderId) return;
+    if (seedUsedOnceRef.current === orderId) return;
+    seedUsedOnceRef.current = orderId;
+    dibayPerfRecordOrderDetailSeedUsed(orderId);
+  }, [state.kind, orderId]);
 
   useLayoutEffect(() => {
     if (!ordersHub || !setMainTier1Extras) return;
@@ -373,6 +503,40 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
   if (state.kind === "loading") {
     return <p className="text-sm text-sam-muted">불러오는 중…</p>;
   }
+  if (state.kind === "seed") {
+    const seed = state.seed;
+    return (
+      <div className="space-y-4">
+        <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
+          <div className="flex flex-wrap justify-between gap-2">
+            <p className="sam-text-body font-semibold text-sam-fg">{seed.store_name || "매장"}</p>
+            <span className="text-xs text-sam-meta">{seed.order_no}</span>
+          </div>
+          <p className="mt-3 sam-text-helper text-sam-fg">
+            {ORDER_LABEL[seed.order_status] ?? seed.order_status} · 결제 금액{" "}
+            <span className="font-semibold">{formatMoneyPhp(seed.payment_amount)}</span>
+            {seed.total_amount !== seed.payment_amount ? (
+              <span className="text-sam-muted">
+                {" "}
+                (합계 {formatMoneyPhp(seed.total_amount)})
+              </span>
+            ) : null}
+          </p>
+          <p className="mt-2 sam-text-xxs text-sam-muted">
+            주문일 {new Date(seed.created_at).toLocaleString("ko-KR")}
+          </p>
+          <p className="mt-4 sam-text-helper text-sam-muted">주문 정보를 불러오는 중…</p>
+          <button
+            type="button"
+            onClick={() => void load()}
+            className="mt-3 text-sm text-signature underline"
+          >
+            다시 시도
+          </button>
+        </div>
+      </div>
+    );
+  }
   if (state.kind === "unauth") {
     return (
       <div className="space-y-3 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 text-sm text-sam-muted shadow-sm">
@@ -411,7 +575,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
     );
   }
 
-  const { order, items, review, can_submit_review } = state;
+  const { order, items, review, can_submit_review, orderEvents } = state;
   const reorderItems =
     order.order_status === "completed"
       ? items
@@ -604,6 +768,47 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
             orderStatus={order.order_status}
           />
         </div>
+        {orderEvents && orderEvents.length > 0 ? (
+          <div className="mt-6 border-t border-sam-border-soft pt-4">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-sam-meta">주문 기록</h3>
+            <ul className="mt-2 space-y-2">
+              {orderEvents.map((ev) => {
+                const meta =
+                  ev.metadata && typeof ev.metadata === "object"
+                    ? (ev.metadata as Record<string, unknown>)
+                    : null;
+                const autoCompleteCron =
+                  ev.event_type === "order_completed" &&
+                  meta?.source === "cron_store_orders_auto_complete";
+                return (
+                <li
+                  key={ev.id}
+                  className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2 sam-text-helper text-sam-fg"
+                >
+                  <div className="flex flex-wrap justify-between gap-1">
+                    <span className="font-medium">
+                      {STORE_ORDER_EVENT_LABEL_KO[ev.event_type] ?? ev.event_type}
+                      {autoCompleteCron ? " · 자동 구매확정" : ""}
+                    </span>
+                    <span className="text-sam-meta">
+                      {new Date(ev.created_at).toLocaleString("ko-KR")}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-sam-meta">
+                    {storeOrderEventActorLabelKo(ev.actor_role)}
+                    {ev.from_status || ev.to_status
+                      ? ` · ${ev.from_status ?? "—"} → ${ev.to_status ?? "—"}`
+                      : ""}
+                  </p>
+                  {ev.message?.trim() ? (
+                    <p className="mt-1 text-sam-fg">{ev.message.trim()}</p>
+                  ) : null}
+                </li>
+              );
+              })}
+            </ul>
+          </div>
+        ) : null}
       </div>
 
       <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">

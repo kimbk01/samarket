@@ -8,6 +8,10 @@ import {
   notifyStoreOwnerBuyerCancelled,
   notifyStoreOwnerRefundRequested,
 } from "@/lib/notifications/notify-store-commerce";
+import {
+  buildStoreOrderEventDedupeKey,
+  createStoreOrderEvent,
+} from "@/lib/stores/store-order-events";
 import { canBuyerRequestStoreRefund } from "@/lib/stores/order-status-transitions";
 import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -343,11 +347,34 @@ export async function PATCH(
       user_agent: rm.userAgent,
     });
 
-    void notifyStoreOwnerRefundRequested(sb, {
+    const refundEv = await createStoreOrderEvent(sb, {
+      orderId: oid,
+      storeId: order.store_id as string,
+      actorUserId: buyerId,
+      actorRole: "buyer",
+      eventType: "refund_requested",
+      fromStatus: order.order_status as string,
+      toStatus: "refund_requested",
+      dedupeKey: buildStoreOrderEventDedupeKey({
+        orderId: oid,
+        eventType: "refund_requested",
+        toStatus: "refund_requested",
+        actorUserId: buyerId,
+      }),
+      metadata: { reason: reason || undefined },
+    });
+    const refundNotify = {
       storeId: order.store_id as string,
       orderId: oid,
       orderNo: String(order.order_no ?? ""),
-    });
+    };
+    if (refundEv.ok) {
+      if (refundEv.inserted) {
+        void notifyStoreOwnerRefundRequested(sb, { ...refundNotify, storeOrderEventId: refundEv.row.id });
+      }
+    } else {
+      void notifyStoreOwnerRefundRequested(sb, refundNotify);
+    }
 
     try {
       const { data: stRow } = await sb
@@ -428,11 +455,34 @@ export async function PATCH(
     user_agent: rm.userAgent,
   });
 
-  void notifyStoreOwnerBuyerCancelled(sb, {
+  const cancelEv = await createStoreOrderEvent(sb, {
+    orderId: oid,
+    storeId: order.store_id as string,
+    actorUserId: buyerId,
+    actorRole: "buyer",
+    eventType: "order_cancelled",
+    fromStatus: order.order_status as string,
+    toStatus: "cancelled",
+    dedupeKey: buildStoreOrderEventDedupeKey({
+      orderId: oid,
+      eventType: "order_cancelled",
+      toStatus: "cancelled",
+      actorUserId: buyerId,
+    }),
+    metadata: { payment_status: "cancelled" },
+  });
+  const cancelNotify = {
     storeId: order.store_id as string,
     orderId: oid,
     orderNo: String(order.order_no ?? ""),
-  });
+  };
+  if (cancelEv.ok) {
+    if (cancelEv.inserted) {
+      void notifyStoreOwnerBuyerCancelled(sb, { ...cancelNotify, storeOrderEventId: cancelEv.row.id });
+    }
+  } else {
+    void notifyStoreOwnerBuyerCancelled(sb, cancelNotify);
+  }
 
   let cancelOwnerId: string | null = null;
   try {

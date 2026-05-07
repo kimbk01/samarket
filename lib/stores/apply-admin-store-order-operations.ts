@@ -2,9 +2,15 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { appendOrderChatStatusTransition } from "@/lib/order-chat/service";
 import {
+  notifyBuyerStoreRefundApproved,
   notifyBuyerStoreOrderOwnerStatus,
   notifyStoreOwnerRefundRequested,
 } from "@/lib/notifications/notify-store-commerce";
+import {
+  buildStoreOrderEventDedupeKey,
+  createStoreOrderEvent,
+  mapOrderStatusToEventType,
+} from "@/lib/stores/store-order-events";
 import { cancelScheduledSettlementForOrder } from "@/lib/stores/cancel-store-settlement";
 import { applyAdminStoreOrderRefund } from "@/lib/stores/apply-admin-store-order-refund";
 import {
@@ -119,13 +125,43 @@ export async function adminForceCancelStoreOrder(
     user_agent: audit.user_agent ?? null,
   });
 
-  void notifyBuyerStoreOrderOwnerStatus(sb, {
-    buyerUserId: order.buyer_user_id as string,
+  const cancelEt = mapOrderStatusToEventType("cancelled");
+  const cancelEv = await createStoreOrderEvent(sb, {
     orderId: oid,
-    orderNo: String(order.order_no ?? ""),
     storeId: sid,
-    nextStatus: "cancelled",
+    actorUserId: audit.adminUserId,
+    actorRole: "admin",
+    eventType: cancelEt,
+    fromStatus: os,
+    toStatus: "cancelled",
+    dedupeKey: buildStoreOrderEventDedupeKey({
+      orderId: oid,
+      eventType: cancelEt,
+      toStatus: "cancelled",
+      actorUserId: audit.adminUserId,
+    }),
+    metadata: { source: "admin_force_cancel" },
   });
+  if (cancelEv.ok) {
+    if (cancelEv.inserted) {
+      void notifyBuyerStoreOrderOwnerStatus(sb, {
+        buyerUserId: order.buyer_user_id as string,
+        orderId: oid,
+        orderNo: String(order.order_no ?? ""),
+        storeId: sid,
+        nextStatus: "cancelled",
+        storeOrderEventId: cancelEv.row.id,
+      });
+    }
+  } else {
+    void notifyBuyerStoreOrderOwnerStatus(sb, {
+      buyerUserId: order.buyer_user_id as string,
+      orderId: oid,
+      orderNo: String(order.order_no ?? ""),
+      storeId: sid,
+      nextStatus: "cancelled",
+    });
+  }
 
   try {
     await appendOrderChatStatusTransition(
@@ -199,11 +235,38 @@ export async function adminSetRefundRequestedStoreOrder(
     user_agent: audit.user_agent ?? null,
   });
 
-  void notifyStoreOwnerRefundRequested(sb, {
-    storeId: sid,
+  const refundReqEv = await createStoreOrderEvent(sb, {
     orderId: oid,
-    orderNo: String(order.order_no ?? ""),
+    storeId: sid,
+    actorUserId: audit.adminUserId,
+    actorRole: "admin",
+    eventType: "refund_requested",
+    fromStatus: os,
+    toStatus: "refund_requested",
+    dedupeKey: buildStoreOrderEventDedupeKey({
+      orderId: oid,
+      eventType: "refund_requested",
+      toStatus: "refund_requested",
+      actorUserId: audit.adminUserId,
+    }),
+    metadata: { source: "admin_set_refund_requested" },
   });
+  if (refundReqEv.ok) {
+    if (refundReqEv.inserted) {
+      void notifyStoreOwnerRefundRequested(sb, {
+        storeId: sid,
+        orderId: oid,
+        orderNo: String(order.order_no ?? ""),
+        storeOrderEventId: refundReqEv.row.id,
+      });
+    }
+  } else {
+    void notifyStoreOwnerRefundRequested(sb, {
+      storeId: sid,
+      orderId: oid,
+      orderNo: String(order.order_no ?? ""),
+    });
+  }
 
   try {
     await appendOrderChatStatusTransition(
@@ -319,6 +382,56 @@ export async function adminCompleteRefundStoreOrder(
     ip: audit.ip ?? null,
     user_agent: audit.user_agent ?? null,
   });
+
+  if (!res.already) {
+    const { data: ordRow } = await sb
+      .from("store_orders")
+      .select("store_id, buyer_user_id, order_no")
+      .eq("id", oid)
+      .maybeSingle();
+    if (ordRow) {
+      const sid = String((ordRow as { store_id?: string }).store_id ?? "").trim();
+      const buyerUid = String((ordRow as { buyer_user_id?: string }).buyer_user_id ?? "").trim();
+      if (sid) {
+        const refundOkEv = await createStoreOrderEvent(sb, {
+          orderId: oid,
+          storeId: sid,
+          actorUserId: audit.adminUserId,
+          actorRole: "admin",
+          eventType: "refund_approved",
+          fromStatus: "refund_requested",
+          toStatus: "refunded",
+          dedupeKey: buildStoreOrderEventDedupeKey({
+            orderId: oid,
+            eventType: "refund_approved",
+            toStatus: "refunded",
+            actorUserId: audit.adminUserId,
+          }),
+          metadata: { source: "admin_complete_refund" },
+        });
+        if (buyerUid) {
+          if (refundOkEv.ok) {
+            if (refundOkEv.inserted) {
+              void notifyBuyerStoreRefundApproved(sb, {
+                buyerUserId: buyerUid,
+                orderId: oid,
+                orderNo: String((ordRow as { order_no?: string }).order_no ?? ""),
+                storeId: sid,
+                storeOrderEventId: refundOkEv.row.id,
+              });
+            }
+          } else {
+            void notifyBuyerStoreRefundApproved(sb, {
+              buyerUserId: buyerUid,
+              orderId: oid,
+              orderNo: String((ordRow as { order_no?: string }).order_no ?? ""),
+              storeId: sid,
+            });
+          }
+        }
+      }
+    }
+  }
 
   const { data: row } = await sb.from("store_orders").select("store_id").eq("id", oid).maybeSingle();
   const sid = (row as { store_id?: string } | null)?.store_id;

@@ -10,6 +10,12 @@ const STORE_PRODUCT_PUBLIC_CACHE_TTL_MS = 15_000;
 const storeProductPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
 const STORE_REVIEWS_PUBLIC_CACHE_TTL_MS = 15_000;
 const storeReviewsPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
+const STORE_SUMMARY_PUBLIC_CACHE_TTL_MS = 15_000;
+const storeSummaryPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
+const STORE_MENUS_PUBLIC_CACHE_TTL_MS = 15_000;
+const storeMenusPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
+const STORE_REVIEWS_SUMMARY_CACHE_TTL_MS = 30_000;
+const storeReviewsSummaryCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
 const STORE_HUB_SUMMARY_CACHE_TTL_MS = 12_000;
 const storeHubSummaryCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
 
@@ -76,6 +82,93 @@ export function primeStorePublicCache(slug: string, response: StoreApiJsonRespon
     return;
   }
   storePublicCache.set(s, { expiresAt: Date.now() + STORE_PUBLIC_CACHE_TTL_MS, value });
+}
+
+/** RSC 등에서 `GET /api/stores/:slug/summary` 선조회 — Phase 2 클라 첫 fetch 합류용 */
+export function primeStoreSummaryCache(slug: string, response: StoreApiJsonResponse): void {
+  const s = trimSlug(slug);
+  if (!s) return;
+  const value = { status: response.status, json: response.json };
+  if (response.status !== 200) {
+    storeSummaryPublicCache.delete(s);
+    return;
+  }
+  storeSummaryPublicCache.set(s, { expiresAt: Date.now() + STORE_SUMMARY_PUBLIC_CACHE_TTL_MS, value });
+}
+
+/** GET /api/stores/:slug/summary — 매장 메타만 (메뉴 없음) */
+export async function fetchStoreSummaryDeduped(slug: string): Promise<StoreApiJsonResponse> {
+  const s = trimSlug(slug);
+  if (!s) return { status: 400, json: { ok: false } };
+  const cached = storeSummaryPublicCache.get(s);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { status: cached.value.status, json: cached.value.json };
+  }
+  return runSingleFlight(`stores:api:summary:${s}`, async () => {
+    const inFlightCached = storeSummaryPublicCache.get(s);
+    if (inFlightCached && inFlightCached.expiresAt > Date.now()) {
+      return { status: inFlightCached.value.status, json: inFlightCached.value.json };
+    }
+    const res = await fetch(`/api/stores/${encodeURIComponent(s)}/summary`, { cache: "no-store" });
+    const json = await res.json().catch(() => ({}));
+    const value = { status: res.status, json };
+    if (res.ok) {
+      storeSummaryPublicCache.set(s, { expiresAt: Date.now() + STORE_SUMMARY_PUBLIC_CACHE_TTL_MS, value });
+    } else {
+      storeSummaryPublicCache.delete(s);
+    }
+    return value;
+  });
+}
+
+/** GET /api/stores/:slug/menus — 메뉴 목록 (options_json 제외) */
+export async function fetchStoreMenusDeduped(slug: string): Promise<StoreApiJsonResponse> {
+  const s = trimSlug(slug);
+  if (!s) return { status: 400, json: { ok: false } };
+  const cached = storeMenusPublicCache.get(s);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { status: cached.value.status, json: cached.value.json };
+  }
+  return runSingleFlight(`stores:api:menus:${s}`, async () => {
+    const inFlightCached = storeMenusPublicCache.get(s);
+    if (inFlightCached && inFlightCached.expiresAt > Date.now()) {
+      return { status: inFlightCached.value.status, json: inFlightCached.value.json };
+    }
+    const res = await fetch(`/api/stores/${encodeURIComponent(s)}/menus`, { cache: "no-store" });
+    const json = await res.json().catch(() => ({}));
+    const value = { status: res.status, json };
+    if (res.ok) {
+      storeMenusPublicCache.set(s, { expiresAt: Date.now() + STORE_MENUS_PUBLIC_CACHE_TTL_MS, value });
+    } else {
+      storeMenusPublicCache.delete(s);
+    }
+    return value;
+  });
+}
+
+/** GET /api/stores/:slug/reviews-summary — 평균·최근 3건·분포 */
+export async function fetchStoreReviewsSummaryDeduped(slug: string): Promise<StoreApiJsonResponse> {
+  const s = trimSlug(slug);
+  if (!s) return { status: 400, json: { ok: false } };
+  const cached = storeReviewsSummaryCache.get(s);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { status: cached.value.status, json: cached.value.json };
+  }
+  return runSingleFlight(`stores:api:reviews-summary:${s}`, async () => {
+    const inFlightCached = storeReviewsSummaryCache.get(s);
+    if (inFlightCached && inFlightCached.expiresAt > Date.now()) {
+      return { status: inFlightCached.value.status, json: inFlightCached.value.json };
+    }
+    const res = await fetch(`/api/stores/${encodeURIComponent(s)}/reviews-summary`, { cache: "no-store" });
+    const json = await res.json().catch(() => ({}));
+    const value = { status: res.status, json };
+    if (res.ok) {
+      storeReviewsSummaryCache.set(s, { expiresAt: Date.now() + STORE_REVIEWS_SUMMARY_CACHE_TTL_MS, value });
+    } else {
+      storeReviewsSummaryCache.delete(s);
+    }
+    return value;
+  });
 }
 
 /** GET /api/stores/:slug — 매장 상세·스티키바·카트 진입 등 동시 마운트 시 합류 */
@@ -201,6 +294,8 @@ export async function fetchStoreFavoriteMutation(
   const s = trimSlug(slug);
   if (!s) return { status: 400, json: { ok: false } };
   storePublicCache.delete(s);
+  storeSummaryPublicCache.delete(s);
+  storeMenusPublicCache.delete(s);
   const res = await fetch(`/api/stores/${encodeURIComponent(s)}/favorite`, {
     method,
     credentials: "include",
@@ -215,6 +310,20 @@ export async function fetchMeStoreOrderDetailDeduped(orderId: string): Promise<S
   if (!id) return { status: 400, json: { ok: false } };
   return runSingleFlight(`me:store-order:detail:get:${id}`, async () => {
     const res = await fetch(`/api/me/store-orders/${encodeURIComponent(id)}`, {
+      credentials: "include",
+      cache: "no-store",
+    });
+    const json = await res.json().catch(() => ({}));
+    return { status: res.status, json };
+  });
+}
+
+/** GET /api/me/store-orders/:orderId/events — 주문 이벤트 원장(타임라인 보강) */
+export async function fetchMeStoreOrderEventsDeduped(orderId: string): Promise<StoreApiJsonResponse> {
+  const id = orderId.trim();
+  if (!id) return { status: 400, json: { ok: false } };
+  return runSingleFlight(`me:store-order:events:get:${id}`, async () => {
+    const res = await fetch(`/api/me/store-orders/${encodeURIComponent(id)}/events`, {
       credentials: "include",
       cache: "no-store",
     });

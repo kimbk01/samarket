@@ -3,9 +3,13 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
-import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContext";
+import {
+  type AddStoreCartLineInput,
+  useStoreCommerceCartOptional,
+} from "@/contexts/StoreCommerceCartContext";
+import { StoreCartOtherStoreConflictDialog } from "@/components/stores/StoreCartOtherStoreConflictDialog";
 import { sanitizeProductHtml } from "@/lib/html/sanitize-product-html";
 import { itemTypeShortLabel } from "@/lib/stores/group-store-products-by-menu";
 import { parseMediaUrlsJson } from "@/lib/stores/parse-media-urls-json";
@@ -34,6 +38,18 @@ import { resolveStoreFrontCommerceState } from "@/lib/stores/store-auto-hours";
 import { KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH } from "@/lib/chats/chat-channel-events";
 import { approximateDiscountPercent } from "@/lib/stores/store-product-pricing";
 import { fetchStoreProductPublicDeduped, postMeStoreOrder } from "@/lib/stores/store-delivery-api-client";
+import { generateStoreOrderClientKey } from "@/lib/stores/store-order-client-key";
+import {
+  buildStoreOrderDetailSeedFromPostSuccess,
+  setStoreOrderDetailSeed,
+} from "@/lib/stores/store-order-detail-seed-cache";
+import {
+  dibayPerfOnCartbarUpdated,
+  dibayPerfRecordAddToCartClick,
+  dibayPerfRecordCartBlockedByOtherStore,
+  dibayPerfRecordCartReplaceConfirm,
+  dibayPerfRecordCartReplaceDone,
+} from "@/lib/dibay/delivery-flow-perf";
 
 type PublicStore = {
   id: string;
@@ -129,6 +145,8 @@ export function StoreProductPublic({
   const [buyerNote, setBuyerNote] = useState("");
   const [buyerPhone, setBuyerPhone] = useState("");
   const [orderBusy, setOrderBusy] = useState(false);
+  const clientOrderKeyRef = useRef<string | null>(null);
+  const orderSubmitFlightRef = useRef(false);
   const [orderErr, setOrderErr] = useState<string | null>(null);
   const [orderOk, setOrderOk] = useState<string | null>(null);
   const [lastPlacedOrderId, setLastPlacedOrderId] = useState<string | null>(null);
@@ -136,6 +154,32 @@ export function StoreProductPublic({
   const [modifierWire, setModifierWire] = useState<ModifierSelectionsWire>({ pick: {}, qty: {} });
   const [lineMemo, setLineMemo] = useState("");
   const [hoursTick, setHoursTick] = useState(0);
+  const [cartConflictOpen, setCartConflictOpen] = useState(false);
+  const pendingCartLineRef = useRef<AddStoreCartLineInput | null>(null);
+
+  const cancelCartConflict = useCallback(() => {
+    pendingCartLineRef.current = null;
+    setCartConflictOpen(false);
+  }, []);
+
+  const confirmCartConflictReplace = useCallback(() => {
+    const line = pendingCartLineRef.current;
+    if (!line || !commerceCart) return;
+    dibayPerfRecordCartReplaceConfirm({ storeId: line.storeId });
+    dibayPerfRecordAddToCartClick(line.storeId);
+    const r = commerceCart.replaceWithLine(line);
+    dibayPerfRecordCartReplaceDone({ storeId: line.storeId });
+    pendingCartLineRef.current = null;
+    setCartConflictOpen(false);
+    if (!r.ok) {
+      setOrderErr("장바구니를 비운 뒤 담기에 실패했습니다.");
+      return;
+    }
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => dibayPerfOnCartbarUpdated(line.storeId));
+    });
+    setOrderOk(t("common_add_to_cart"));
+  }, [commerceCart, t]);
 
   useEffect(() => {
     void router.prefetch("/my/store-orders");
@@ -206,6 +250,24 @@ export function StoreProductPublic({
     () => validateModifierSelection(optionGroups, modifierWire, baseUnitPhp),
     [optionGroups, modifierWire, baseUnitPhp]
   );
+
+  const directOrderFingerprint = useMemo(() => {
+    if (!product?.id || !store?.id) return "";
+    return JSON.stringify({
+      store_id: store.id,
+      product_id: product.id,
+      qty,
+      fulfillment_type: fulfillment,
+      buyer_note: buyerNote.trim(),
+      buyer_phone: parsePhMobileInput(buyerPhone),
+      modifier_selections: modifierWire,
+      line_note: lineMemo.trim(),
+    });
+  }, [store?.id, product?.id, qty, fulfillment, buyerNote, buyerPhone, modifierWire, lineMemo]);
+
+  useEffect(() => {
+    clientOrderKeyRef.current = null;
+  }, [directOrderFingerprint]);
 
   const storeExtras = useMemo(
     () => parseCommerceExtrasFromHoursJson(store?.business_hours_json),
@@ -343,6 +405,7 @@ export function StoreProductPublic({
     const st = store;
     const pr = product;
     if (!st || !pr) return;
+    if (orderBusy || orderSubmitFlightRef.current) return;
     if (commerce.inBreak) {
       setOrderErr(
         t("common_break_time_order_blocked", { time: commerce.breakRangeLabel })
@@ -383,8 +446,13 @@ export function StoreProductPublic({
     }
     setOrderErr(null);
     setOrderOk(null);
+    orderSubmitFlightRef.current = true;
     setOrderBusy(true);
     try {
+      if (!clientOrderKeyRef.current) {
+        clientOrderKeyRef.current = generateStoreOrderClientKey();
+      }
+      const client_order_key = clientOrderKeyRef.current;
       const { status, json } = await postMeStoreOrder({
         store_id: st.id,
         items: [
@@ -401,13 +469,21 @@ export function StoreProductPublic({
         fulfillment_type: fulfillment,
         buyer_note: buyerNote.trim() || undefined,
         buyer_phone: parsePhMobileInput(buyerPhone) || undefined,
+        client_order_key,
       });
       if (status === 401) {
+        clientOrderKeyRef.current = null;
         setOrderErr(t("common_login_required"));
         return;
       }
-      const orderJ = json as { ok?: boolean; error?: string; order?: { id?: string; order_no?: string } };
+      const orderJ = json as {
+        ok?: boolean;
+        error?: string;
+        idempotent?: boolean;
+        order?: { id?: string; order_no?: string; payment_amount?: number };
+      };
       if (!orderJ?.ok) {
+        clientOrderKeyRef.current = null;
         const code = typeof orderJ.error === "string" ? orderJ.error : "order_failed";
         const msg =
           code === "insufficient_stock"
@@ -439,12 +515,36 @@ export function StoreProductPublic({
         return;
       }
       const placedId = typeof orderJ.order?.id === "string" ? orderJ.order.id : null;
+      const placedOrder = orderJ.order;
+      clientOrderKeyRef.current = null;
       if (placedId) {
-        void router.prefetch("/my/store-orders");
-        void router.prefetch(`/my/store-orders/${encodeURIComponent(placedId)}`);
-        void router.prefetch(`/my/store-orders/${encodeURIComponent(placedId)}/chat`);
+        try {
+          sessionStorage.setItem(`dibay:buyer_order_placed_wall:${placedId}`, String(Date.now()));
+        } catch {
+          /* ignore */
+        }
+        if (
+          placedOrder &&
+          typeof placedOrder.order_no === "string" &&
+          typeof placedOrder.payment_amount === "number"
+        ) {
+          setStoreOrderDetailSeed(
+            placedId,
+            buildStoreOrderDetailSeedFromPostSuccess({
+              orderId: placedId,
+              order_no: placedOrder.order_no,
+              payment_amount: placedOrder.payment_amount,
+              store_id: st.id,
+              store_name: st.store_name,
+              idempotent: orderJ.idempotent === true,
+            })
+          );
+        }
+        void router.prefetch("/orders");
+        void router.prefetch(`/orders/store/${encodeURIComponent(placedId)}`);
+        void router.prefetch(`/orders/store/${encodeURIComponent(placedId)}/chat`);
         window.dispatchEvent(new CustomEvent(KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH));
-        router.replace("/my/store-orders");
+        router.replace(`/orders/store/${encodeURIComponent(placedId)}`);
         return;
       }
       setOrderOk(`${t("notify_order_received_message")} ${orderJ.order?.order_no ?? ""}`.trim());
@@ -453,6 +553,7 @@ export function StoreProductPublic({
     } catch {
       setOrderErr(t("common_network_error_generic"));
     } finally {
+      orderSubmitFlightRef.current = false;
       setOrderBusy(false);
     }
   }
@@ -487,15 +588,6 @@ export function StoreProductPublic({
     }
     setOrderErr(null);
     setLastPlacedOrderId(null);
-    const others = commerceCart.otherBucketsExcluding(st.id);
-    if (others.length > 0) {
-      const o = others[0];
-      window.alert(
-        `다른 매장의 상품이 있습니다.\n${o.storeName} 장바구니를 주문하거나 비운 뒤 이 매장에서 담을 수 있어요.`
-      );
-      router.push(`/stores/${encodeURIComponent(o.storeSlug)}/cart`);
-      return;
-    }
     const tr = pr.track_inventory === true;
     const maxForCart = tr ? Math.min(maxQ, pr.stock_qty) : maxQ;
     const listBaseUnit = Math.floor(pr.price);
@@ -522,7 +614,8 @@ export function StoreProductPublic({
         );
       }
     }
-    commerceCart.addOrMergeLine({
+
+    const lineInput: AddStoreCartLineInput = {
       storeId: st.id,
       storeSlug: st.slug,
       storeName: st.store_name,
@@ -543,6 +636,26 @@ export function StoreProductPublic({
       shippingAvailable: !!pr.shipping_available,
       minOrderQty: minQ,
       maxOrderQty: maxForCart,
+    };
+
+    const addResult = commerceCart.addOrMergeLine(lineInput);
+    if (!addResult.ok && addResult.reason === "blocked_by_other_store") {
+      dibayPerfRecordCartBlockedByOtherStore({
+        existingStoreId: addResult.existingStoreId,
+        nextStoreId: addResult.nextStoreId,
+      });
+      pendingCartLineRef.current = lineInput;
+      setCartConflictOpen(true);
+      return;
+    }
+    if (!addResult.ok) {
+      setOrderErr("장바구니에 담을 수 없습니다.");
+      return;
+    }
+
+    dibayPerfRecordAddToCartClick(st.id);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => dibayPerfOnCartbarUpdated(st.id));
     });
     setOrderOk(t("common_add_to_cart"));
   }
@@ -991,6 +1104,12 @@ export function StoreProductPublic({
         onCartPreviewOpen={() =>
           router.push(`/stores/${encodeURIComponent(store.slug)}/cart`)
         }
+      />
+
+      <StoreCartOtherStoreConflictDialog
+        open={cartConflictOpen}
+        onCancel={cancelCartConflict}
+        onClearAndAdd={confirmCartConflictReplace}
       />
     </div>
   );

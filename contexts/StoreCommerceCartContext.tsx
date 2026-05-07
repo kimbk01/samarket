@@ -9,30 +9,19 @@ import React, {
   useState,
 } from "react";
 import type {
+  AddStoreCartLineInput,
+  StoreCartAddResult,
   StoreCommerceCartBucket,
   StoreCommerceCartLine,
   StoreCommerceCartSnapshotV1,
   StoreCommerceCartSnapshotV2,
 } from "@/lib/stores/store-commerce-cart-types";
-import { orderLineIdentityKey, wireFromLegacyPickOnly } from "@/lib/stores/product-line-options";
+import {
+  computeStoreCartAddOrMerge,
+  emptyCommerceCartV2,
+} from "@/lib/stores/store-commerce-cart-add-merge";
 
 const STORAGE_KEY = "kasama_store_commerce_cart_v1";
-
-function newLineId(): string {
-  return `ln_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-}
-
-function emptyV2(): StoreCommerceCartSnapshotV2 {
-  return { v: 2, carts: {} };
-}
-
-/**
- * 구버전·직렬화 누락 시 undefined → 수령 가능으로 간주(명시적 false만 불가).
- * 그렇지 않으면 장바구니에 수령 방식 버튼이 0개가 되어 주문 불가.
- */
-function effectiveModifierWire(l: StoreCommerceCartLine) {
-  return l.modifierWire ?? wireFromLegacyPickOnly(l.optionSelections);
-}
 
 function normalizeCommerceLineFlags(l: StoreCommerceCartLine): StoreCommerceCartLine {
   return {
@@ -63,7 +52,7 @@ function migrateToV2(raw: unknown): StoreCommerceCartSnapshotV2 | null {
   if (o.v === 1) {
     const v1 = raw as StoreCommerceCartSnapshotV1;
     if (typeof v1.storeId !== "string" || !Array.isArray(v1.lines)) return null;
-    if (v1.lines.length === 0) return emptyV2();
+    if (v1.lines.length === 0) return emptyCommerceCartV2();
     return normalizeSnapshotV2({
       v: 2,
       carts: {
@@ -103,28 +92,7 @@ function writeSnapshot(s: StoreCommerceCartSnapshotV2 | null) {
   }
 }
 
-export type AddStoreCartLineInput = {
-  storeId: string;
-  storeSlug: string;
-  storeName: string;
-  productId: string;
-  title: string;
-  thumbnailUrl: string | null;
-  qty: number;
-  unitPricePhp: number;
-  listUnitPricePhp?: number | null;
-  discountPercent?: number | null;
-  optionSelections: Record<string, string[]>;
-  /** 수량형 옵션 등 — 없으면 optionSelections 만 사용 */
-  modifierWire?: import("@/lib/stores/modifiers/types").ModifierSelectionsWire | null;
-  optionsSummary: string;
-  lineNote?: string | null;
-  pickupAvailable: boolean;
-  localDeliveryAvailable: boolean;
-  shippingAvailable: boolean;
-  minOrderQty: number;
-  maxOrderQty: number;
-};
+export type { AddStoreCartLineInput, StoreCartAddResult } from "@/lib/stores/store-commerce-cart-types";
 
 export type StoreCartBucketSummary = {
   storeId: string;
@@ -149,7 +117,9 @@ type Ctx = {
   totalItemCountAllStores: number;
   /** 이 매장 외에 담긴 버킷 (안내·허브용) */
   otherBucketsExcluding: (storeId: string) => StoreCartBucketSummary[];
-  addOrMergeLine: (input: AddStoreCartLineInput) => void;
+  addOrMergeLine: (input: AddStoreCartLineInput) => StoreCartAddResult;
+  /** 전체 비운 뒤 한 줄만 담기 — 다른 매장 교체 확인 후 호출 */
+  replaceWithLine: (input: AddStoreCartLineInput) => StoreCartAddResult;
   updateLineQuantity: (lineId: string, qty: number) => void;
   removeLine: (lineId: string) => void;
   clearStoreCart: (storeId: string) => void;
@@ -207,91 +177,25 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
     writeSnapshot(snapshot);
   }, [hydrated, snapshot]);
 
-  const addOrMergeLine = useCallback((input: AddStoreCartLineInput) => {
-    const q = Math.max(
-      input.minOrderQty,
-      Math.min(input.maxOrderQty, Math.floor(Number(input.qty)) || input.minOrderQty)
-    );
-    const wire =
-      input.modifierWire ??
-      wireFromLegacyPickOnly(input.optionSelections);
-    const identity = orderLineIdentityKey(input.productId, wire);
-
-    const newLine = (): StoreCommerceCartLine => ({
-      lineId: newLineId(),
-      productId: input.productId,
-      title: input.title,
-      thumbnailUrl: input.thumbnailUrl,
-      qty: q,
-      unitPricePhp: input.unitPricePhp,
-      listUnitPricePhp: input.listUnitPricePhp ?? null,
-      discountPercent: input.discountPercent ?? null,
-      modifierWire: input.modifierWire ?? null,
-      optionSelections: { ...wire.pick },
-      optionsSummary: input.optionsSummary,
-      lineNote: input.lineNote?.trim() || null,
-      pickupAvailable: input.pickupAvailable,
-      localDeliveryAvailable: input.localDeliveryAvailable,
-      shippingAvailable: input.shippingAvailable,
-      minOrderQty: input.minOrderQty,
-      maxOrderQty: input.maxOrderQty,
-    });
-
+  const addOrMergeLine = useCallback((input: AddStoreCartLineInput): StoreCartAddResult => {
+    let result!: StoreCartAddResult;
     setSnapshot((prev) => {
-      const base = prev ?? emptyV2();
-      const canonicId = normalizeStoreIdKey(input.storeId);
-      /** 한 번에 한 매장 장바구니만 — 다른 매장에 줄이 있으면 담기 무시(UI에서 안내·이동) */
-      for (const b of Object.values(base.carts)) {
-        if (normalizeStoreIdKey(b.storeId) === canonicId) continue;
-        if (bucketStats(b).itemCount > 0) return prev ?? base;
-      }
-      const cartKey =
-        Object.keys(base.carts).find(
-          (k) => normalizeStoreIdKey(base.carts[k]?.storeId) === canonicId
-        ) ?? canonicId;
-      const prevBucket = base.carts[cartKey];
-      const lines = prevBucket?.lines ?? [];
-
-      const idx = lines.findIndex(
-        (l) => orderLineIdentityKey(l.productId, effectiveModifierWire(l)) === identity
-      );
-      let nextLines: StoreCommerceCartLine[];
-      if (idx >= 0) {
-        const cur = lines[idx];
-        const curQ = lineQtyNumber(cur);
-        const nq = Math.min(cur.maxOrderQty, curQ + q);
-        nextLines = lines.map((l, i) =>
-          i === idx
-            ? {
-                ...cur,
-                qty: Math.max(cur.minOrderQty, nq),
-                listUnitPricePhp:
-                  cur.listUnitPricePhp ?? input.listUnitPricePhp ?? null,
-                discountPercent:
-                  cur.discountPercent ?? input.discountPercent ?? null,
-                pickupAvailable: input.pickupAvailable ?? cur.pickupAvailable,
-                localDeliveryAvailable:
-                  input.localDeliveryAvailable ?? cur.localDeliveryAvailable,
-                shippingAvailable: input.shippingAvailable ?? cur.shippingAvailable,
-              }
-            : l
-        );
-      } else {
-        nextLines = [...lines, newLine()];
-      }
-
-      const nextBucket: StoreCommerceCartBucket = {
-        storeId: canonicId || input.storeId,
-        storeSlug: input.storeSlug,
-        storeName: input.storeName,
-        lines: nextLines,
-      };
-
-      return {
-        v: 2,
-        carts: { ...base.carts, [cartKey]: nextBucket },
-      };
+      const base = prev ?? emptyCommerceCartV2();
+      const out = computeStoreCartAddOrMerge(base, input);
+      result = out.result;
+      return out.nextSnapshot;
     });
+    return result;
+  }, []);
+
+  const replaceWithLine = useCallback((input: AddStoreCartLineInput): StoreCartAddResult => {
+    let result!: StoreCartAddResult;
+    setSnapshot(() => {
+      const out = computeStoreCartAddOrMerge(emptyCommerceCartV2(), input);
+      result = out.result;
+      return out.nextSnapshot;
+    });
+    return result;
   }, []);
 
   const updateLineQuantity = useCallback((lineId: string, qty: number) => {
@@ -429,6 +333,7 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
       totalItemCountAllStores,
       otherBucketsExcluding,
       addOrMergeLine,
+      replaceWithLine,
       updateLineQuantity,
       removeLine,
       clearStoreCart,
@@ -439,6 +344,7 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
     hydrated,
     snapshot,
     addOrMergeLine,
+    replaceWithLine,
     updateLineQuantity,
     removeLine,
     clearStoreCart,

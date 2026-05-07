@@ -6,6 +6,10 @@ import {
   notifyStoreOwnerPaymentCompleted,
 } from "@/lib/notifications/notify-store-commerce";
 import { ensureStoreSettlementForPaidOrder } from "@/lib/stores/ensure-store-settlement";
+import {
+  buildStoreOrderPaymentEventDedupeKey,
+  createStoreOrderEvent,
+} from "@/lib/stores/store-order-events";
 
 export type RecordPaidOk = {
   ok: true;
@@ -92,19 +96,62 @@ export async function recordStoreOrderPaid(
         return { ok: false, error: uOnly.message, httpStatus: 500 };
       }
       await ensureStoreSettlementForPaidOrder(sb, oid);
-      void notifyStoreOwnerPaymentCompleted(sb, {
-        storeId: order.store_id as string,
+      const storeId = order.store_id as string;
+      const buyerEv = await createStoreOrderEvent(sb, {
         orderId: oid,
-        orderNo: String(order.order_no ?? ""),
-        paymentAmount: amount,
+        storeId,
+        actorUserId: null,
+        actorRole: "system",
+        eventType: "order_payment_completed_buyer",
+        fromStatus: "pending",
+        toStatus: "paid",
+        dedupeKey: buildStoreOrderPaymentEventDedupeKey(oid, "buyer_paid"),
+        metadata: { source: "record_store_order_paid", reconciled: true, audience: "buyer" },
       });
+      const ownerEv = await createStoreOrderEvent(sb, {
+        orderId: oid,
+        storeId,
+        actorUserId: null,
+        actorRole: "system",
+        eventType: "order_payment_completed_owner",
+        fromStatus: "pending",
+        toStatus: "paid",
+        dedupeKey: buildStoreOrderPaymentEventDedupeKey(oid, "owner_paid"),
+        metadata: { source: "record_store_order_paid", reconciled: true, audience: "owner" },
+      });
+      if (ownerEv.ok && ownerEv.inserted) {
+        void notifyStoreOwnerPaymentCompleted(sb, {
+          storeId,
+          orderId: oid,
+          orderNo: String(order.order_no ?? ""),
+          paymentAmount: amount,
+          storeOrderEventId: ownerEv.row.id,
+        });
+      }
+      if (!ownerEv.ok) {
+        void notifyStoreOwnerPaymentCompleted(sb, {
+          storeId,
+          orderId: oid,
+          orderNo: String(order.order_no ?? ""),
+          paymentAmount: amount,
+        });
+      }
       const buyerId = String((order as { buyer_user_id?: string }).buyer_user_id ?? "").trim();
-      if (buyerId) {
+      if (buyerId && buyerEv.ok && buyerEv.inserted) {
         void notifyBuyerStorePaymentCompleted(sb, {
           buyerUserId: buyerId,
           orderId: oid,
           orderNo: String(order.order_no ?? ""),
-          storeId: order.store_id as string,
+          storeId,
+          storeOrderEventId: buyerEv.row.id,
+        });
+      }
+      if (buyerId && !buyerEv.ok) {
+        void notifyBuyerStorePaymentCompleted(sb, {
+          buyerUserId: buyerId,
+          orderId: oid,
+          orderNo: String(order.order_no ?? ""),
+          storeId,
         });
       }
       void appendOrderChatPaymentCompletedLine(
@@ -133,19 +180,63 @@ export async function recordStoreOrderPaid(
   }
 
   await ensureStoreSettlementForPaidOrder(sb, oid);
-  void notifyStoreOwnerPaymentCompleted(sb, {
-    storeId: order.store_id as string,
+
+  const storeId = order.store_id as string;
+  const buyerEv = await createStoreOrderEvent(sb, {
     orderId: oid,
-    orderNo: String(order.order_no ?? ""),
-    paymentAmount: amount,
+    storeId,
+    actorUserId: null,
+    actorRole: "system",
+    eventType: "order_payment_completed_buyer",
+    fromStatus: "pending",
+    toStatus: "paid",
+    dedupeKey: buildStoreOrderPaymentEventDedupeKey(oid, "buyer_paid"),
+    metadata: { source: "record_store_order_paid", audience: "buyer" },
   });
+  const ownerEv = await createStoreOrderEvent(sb, {
+    orderId: oid,
+    storeId,
+    actorUserId: null,
+    actorRole: "system",
+    eventType: "order_payment_completed_owner",
+    fromStatus: "pending",
+    toStatus: "paid",
+    dedupeKey: buildStoreOrderPaymentEventDedupeKey(oid, "owner_paid"),
+    metadata: { source: "record_store_order_paid", audience: "owner" },
+  });
+  if (ownerEv.ok && ownerEv.inserted) {
+    void notifyStoreOwnerPaymentCompleted(sb, {
+      storeId,
+      orderId: oid,
+      orderNo: String(order.order_no ?? ""),
+      paymentAmount: amount,
+      storeOrderEventId: ownerEv.row.id,
+    });
+  }
+  if (!ownerEv.ok) {
+    void notifyStoreOwnerPaymentCompleted(sb, {
+      storeId,
+      orderId: oid,
+      orderNo: String(order.order_no ?? ""),
+      paymentAmount: amount,
+    });
+  }
   const buyerId = String((order as { buyer_user_id?: string }).buyer_user_id ?? "").trim();
-  if (buyerId) {
+  if (buyerId && buyerEv.ok && buyerEv.inserted) {
     void notifyBuyerStorePaymentCompleted(sb, {
       buyerUserId: buyerId,
       orderId: oid,
       orderNo: String(order.order_no ?? ""),
-      storeId: order.store_id as string,
+      storeId,
+      storeOrderEventId: buyerEv.row.id,
+    });
+  }
+  if (buyerId && !buyerEv.ok) {
+    void notifyBuyerStorePaymentCompleted(sb, {
+      buyerUserId: buyerId,
+      orderId: oid,
+      orderNo: String(order.order_no ?? ""),
+      storeId,
     });
   }
   void appendOrderChatPaymentCompletedLine(
@@ -195,11 +286,36 @@ export async function recordStoreOrderPaymentFailed(
   if (uErr) {
     return { ok: false, error: uErr.message, httpStatus: 500 };
   }
-  void notifyBuyerStorePaymentFailed(sb, {
-    buyerUserId: order.buyer_user_id as string,
+
+  const sid = order.store_id as string;
+  const failEv = await createStoreOrderEvent(sb, {
     orderId: oid,
-    orderNo: String(order.order_no ?? ""),
-    storeId: order.store_id as string,
+    storeId: sid,
+    actorUserId: null,
+    actorRole: "system",
+    eventType: "order_payment_failed_buyer",
+    fromStatus: "pending",
+    toStatus: "failed",
+    dedupeKey: buildStoreOrderPaymentEventDedupeKey(oid, "buyer_failed"),
+    metadata: { source: "record_store_order_payment_failed" },
   });
+  if (failEv.ok && failEv.inserted) {
+    void notifyBuyerStorePaymentFailed(sb, {
+      buyerUserId: order.buyer_user_id as string,
+      orderId: oid,
+      orderNo: String(order.order_no ?? ""),
+      storeId: sid,
+      storeOrderEventId: failEv.row.id,
+    });
+  }
+  if (!failEv.ok) {
+    void notifyBuyerStorePaymentFailed(sb, {
+      buyerUserId: order.buyer_user_id as string,
+      orderId: oid,
+      orderNo: String(order.order_no ?? ""),
+      storeId: sid,
+    });
+  }
+
   return { ok: true, payment_status: "failed" };
 }

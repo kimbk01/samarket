@@ -1,5 +1,6 @@
 import type {
   AddStoreCartLineInput,
+  StoreCartAddResult,
   StoreCartBucketSummary,
 } from "@/contexts/StoreCommerceCartContext";
 import {
@@ -31,7 +32,7 @@ export type CompletedOrderReorderPayload = {
 };
 
 export type ApplyOrderToCartDeps = {
-  addOrMergeLine: (input: AddStoreCartLineInput) => void;
+  addOrMergeLine: (input: AddStoreCartLineInput) => StoreCartAddResult;
   clearAllCarts: () => void;
   otherBucketsExcluding: (storeId: string) => StoreCartBucketSummary[];
   patchBucketMeta: (storeId: string, patch: { storeSlug?: string; storeName?: string }) => void;

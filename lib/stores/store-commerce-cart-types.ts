@@ -45,3 +45,38 @@ export type StoreCommerceCartSnapshotV2 = {
   v: 2;
   carts: Record<string, StoreCommerceCartBucket>;
 };
+
+/** 장바구니 담기 결과 — UI·교체 확인과 연동 */
+export type StoreCartAddResult =
+  | { ok: true; reason: "added" | "merged" }
+  | {
+      ok: false;
+      reason: "blocked_by_other_store";
+      existingStoreId: string;
+      nextStoreId: string;
+    }
+  | { ok: false; reason: "invalid_option" }
+  | { ok: false; reason: "sold_out" }
+  | { ok: false; reason: "closed_store" };
+
+export type AddStoreCartLineInput = {
+  storeId: string;
+  storeSlug: string;
+  storeName: string;
+  productId: string;
+  title: string;
+  thumbnailUrl: string | null;
+  qty: number;
+  unitPricePhp: number;
+  listUnitPricePhp?: number | null;
+  discountPercent?: number | null;
+  optionSelections: Record<string, string[]>;
+  modifierWire?: ModifierSelectionsWire | null;
+  optionsSummary: string;
+  lineNote?: string | null;
+  pickupAvailable: boolean;
+  localDeliveryAvailable: boolean;
+  shippingAvailable: boolean;
+  minOrderQty: number;
+  maxOrderQty: number;
+};

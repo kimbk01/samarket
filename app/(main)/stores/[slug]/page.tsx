@@ -1,9 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
-import { Suspense } from "react";
-import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { StoreDetailPublic } from "@/components/stores/StoreDetailPublic";
-import { fetchStorePublicInitialOnServer } from "@/lib/stores/fetch-store-public-server";
 import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
 
 export async function generateMetadata({
@@ -65,26 +62,13 @@ export async function generateMetadata({
   }
 }
 
-export default function StoreDetailPage({
-  params,
-}: {
-  params: Promise<{ slug: string }>;
-}) {
-  return (
-    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
-      <StoreDetailPageBody params={params} />
-    </Suspense>
-  );
-}
-
-async function StoreDetailPageBody({
+export default async function StoreDetailPage({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
   const safe = typeof slug === "string" ? slug : "";
-  const raw = await fetchStorePublicInitialOnServer(safe);
-  const initialApiResponse = raw != null ? { status: raw.status, json: raw.json } : null;
-  return <StoreDetailPublic key={safe} slug={safe} initialApiResponse={initialApiResponse} />;
+  /** 첫 페인트: 클라이언트에서 즉시 shell → `/api/stores/:slug` hydrate (서버 선조회 대기 제거) */
+  return <StoreDetailPublic key={safe} slug={safe} initialApiResponse={null} />;
 }

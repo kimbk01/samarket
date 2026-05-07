@@ -69,10 +69,14 @@ export function parseStoreDetailProducts(raw: unknown[]): StoreDetailProductCard
     const cat = embedCategoryName(o.store_product_categories as CatEmbed);
     const trackInv = o.track_inventory === true;
     let has_options = false;
-    try {
-      has_options = parseProductOptionsJson(o.options_json).length > 0;
-    } catch {
-      has_options = false;
+    if (typeof o.has_options === "boolean") {
+      has_options = o.has_options;
+    } else {
+      try {
+        has_options = parseProductOptionsJson(o.options_json).length > 0;
+      } catch {
+        has_options = false;
+      }
     }
     const minRaw = Number(o.min_order_qty);
     const maxRaw = Number(o.max_order_qty);

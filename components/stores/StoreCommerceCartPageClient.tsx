@@ -42,6 +42,18 @@ import {
   saveDeliveryAddressBook,
 } from "@/lib/store-commerce/delivery-address-book";
 import { KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH } from "@/lib/chats/chat-channel-events";
+import {
+  dibayPerfOnOrderApiDone,
+  dibayPerfOnOrderApiStart,
+  dibayPerfRecordOrderIdempotencyExistingHit,
+  dibayPerfRecordOrderIdempotencyKeyCreated,
+  dibayPerfRecordOrderSubmitClick,
+} from "@/lib/dibay/delivery-flow-perf";
+import { generateStoreOrderClientKey } from "@/lib/stores/store-order-client-key";
+import {
+  buildStoreOrderDetailSeedFromPostSuccess,
+  setStoreOrderDetailSeed,
+} from "@/lib/stores/store-order-detail-seed-cache";
 import { checkoutPaymentOptionsForCart } from "@/lib/stores/payment-methods-config";
 import {
   STORE_ADDRESS_DETAIL_LABEL,
@@ -154,6 +166,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const [buyerNote, setBuyerNote] = useState("");
   const [buyerPhone, setBuyerPhone] = useState("");
   const [busy, setBusy] = useState(false);
+  /** 동일 주문 시도 내 재전송·더블탭 멱등 키 (checkout 입력 변경 시 초기화) */
+  const clientOrderKeyRef = useRef<string | null>(null);
+  const orderSubmitFlightRef = useRef(false);
   const [err, setErr] = useState<string | null>(null);
   const [lastOrderId, setLastOrderId] = useState<string | null>(null);
   const [hoursTick, setHoursTick] = useState(0);
@@ -375,6 +390,46 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     () => getLocationLabelIfValid(region, city)?.trim() || freeSummaryLine.trim(),
     [region, city, freeSummaryLine]
   );
+
+  const orderSubmitFingerprint = useMemo(() => {
+    if (!store || !cart.snapshot) return "";
+    const bucket = Object.values(cart.snapshot.carts).find((b) => b.storeId === store.id);
+    const rawLines = bucket?.lines ?? [];
+    const lineParts = rawLines.map((l) => {
+      const wire = l.modifierWire ?? { pick: { ...l.optionSelections }, qty: {} };
+      return {
+        product_id: l.productId,
+        qty: l.qty,
+        modifier_selections: wire,
+        line_note: (l.lineNote ?? "").trim(),
+      };
+    });
+    return JSON.stringify({
+      store_id: store.id,
+      lines: lineParts,
+      fulfillment_type: fulfillment,
+      buyer_note: buyerNote.trim(),
+      buyer_phone: parsePhMobileInput(buyerPhone),
+      payment_method: selectedPaymentMethod,
+      delivery_address_summary: summaryForSubmit.trim(),
+      delivery_address_detail: addressDetail.trim(),
+      selected_address_id: selectedAddressId ?? "",
+    });
+  }, [
+    store?.id,
+    cart.snapshot,
+    fulfillment,
+    buyerNote,
+    buyerPhone,
+    selectedPaymentMethod,
+    summaryForSubmit,
+    addressDetail,
+    selectedAddressId,
+  ]);
+
+  useEffect(() => {
+    clientOrderKeyRef.current = null;
+  }, [orderSubmitFingerprint]);
 
   /** 배달 주문 시 지번·건물명 등(3자 이상) 또는 등록된 지역·동네 쌍 */
   const deliveryAddressReady = summaryForSubmit.trim().length >= 3;
@@ -636,6 +691,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
   async function submitOrder() {
     if (!store || lines.length === 0) return;
+    if (busy || orderSubmitFlightRef.current) return;
     if (frontCommerce && !frontCommerce.isOpenForCommerce) {
       setErr(
         frontCommerce.inBreak
@@ -711,8 +767,16 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
     setErr(null);
     setLastOrderId(null);
+    orderSubmitFlightRef.current = true;
     setBusy(true);
+    dibayPerfRecordOrderSubmitClick(store.id);
+    dibayPerfOnOrderApiStart(store.id);
     try {
+      if (!clientOrderKeyRef.current) {
+        clientOrderKeyRef.current = generateStoreOrderClientKey();
+        dibayPerfRecordOrderIdempotencyKeyCreated(store.id);
+      }
+      const client_order_key = clientOrderKeyRef.current;
       const { status, json } = await postMeStoreOrder({
         store_id: store.id,
         items: lines.map((l) => {
@@ -734,16 +798,29 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         payment_method: selectedPaymentMethod,
         delivery_address_summary: summaryForSubmit || undefined,
         delivery_address_detail: addressDetail.trim() || undefined,
+        client_order_key,
       });
       if (status === 401) {
+        clientOrderKeyRef.current = null;
+        dibayPerfOnOrderApiDone(store.id);
         if (redirectForBlockedAction(router, t("common_login_required"), pathname || `/stores/${storeSlug}/cart`)) {
           return;
         }
         setErr(t("common_login_required"));
         return;
       }
-      const orderJson = json as { ok?: boolean; error?: string; order?: { id?: string } };
+      const orderJson = json as {
+        ok?: boolean;
+        error?: string;
+        idempotent?: boolean;
+        order?: { id?: string; order_no?: string; payment_amount?: number };
+      };
+      dibayPerfOnOrderApiDone(store.id, typeof orderJson.order?.id === "string" ? orderJson.order.id : undefined);
+      if (orderJson?.ok === true && orderJson.idempotent === true) {
+        dibayPerfRecordOrderIdempotencyExistingHit(store.id);
+      }
       if (!orderJson?.ok) {
+        clientOrderKeyRef.current = null;
         const code = typeof orderJson.error === "string" ? orderJson.error : "order_failed";
         if (redirectForBlockedAction(router, code, pathname || `/stores/${storeSlug}/cart`)) {
           return;
@@ -770,6 +847,26 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         return;
       }
       const oid = typeof orderJson.order?.id === "string" ? orderJson.order.id : null;
+      clientOrderKeyRef.current = null;
+      const placed = orderJson.order;
+      if (
+        oid &&
+        placed &&
+        typeof placed.order_no === "string" &&
+        typeof placed.payment_amount === "number"
+      ) {
+        setStoreOrderDetailSeed(
+          oid,
+          buildStoreOrderDetailSeedFromPostSuccess({
+            orderId: oid,
+            order_no: placed.order_no,
+            payment_amount: placed.payment_amount,
+            store_id: store.id,
+            store_name: store.store_name,
+            idempotent: orderJson.idempotent === true,
+          })
+        );
+      }
       /* Context 비우기와 동시에 리렌더되면 lines===0이 lastOrderId보다 먼저 적용될 수 있음 → id 먼저 동기 반영 */
       flushSync(() => {
         setLastOrderId(oid);
@@ -777,6 +874,11 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       if (oid) setLastCheckoutOrderId(store.id, oid);
       cart.clearStoreCart(store.id);
       if (oid) {
+        try {
+          sessionStorage.setItem(`dibay:buyer_order_placed_wall:${oid}`, String(Date.now()));
+        } catch {
+          /* ignore */
+        }
         void router.prefetch("/orders");
         void router.prefetch(`/orders/store/${encodeURIComponent(oid)}`);
         void router.prefetch(`/orders/store/${encodeURIComponent(oid)}/chat`);
@@ -784,8 +886,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         router.replace(`/orders/store/${encodeURIComponent(oid)}`);
       }
     } catch {
+      dibayPerfOnOrderApiDone(store.id);
       setErr(t("common_network_error_generic"));
     } finally {
+      orderSubmitFlightRef.current = false;
       setBusy(false);
     }
   }

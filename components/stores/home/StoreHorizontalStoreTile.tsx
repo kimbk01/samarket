@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { StoreVerticalCardModel } from "@/components/stores/home/StoreVerticalDiscoveryCard";
 import { StoreCardFavoriteIcon } from "@/components/stores/home/StoreCardFavoriteIcon";
+import { dibayPerfRecordStoreCardNavigationIntent } from "@/lib/dibay/delivery-flow-perf";
 
 /** 인스타그램 탐색 느낌 — 고정 폭 가로 타일 (4:5 썸네일) */
 export function StoreHorizontalStoreTile({
@@ -30,7 +31,11 @@ export function StoreHorizontalStoreTile({
 
   return (
     <article className="w-[148px] shrink-0">
-      <Link href={storeHref} className="block">
+      <Link
+        href={storeHref}
+        className="block"
+        onClick={() => dibayPerfRecordStoreCardNavigationIntent(store.slug)}
+      >
         <div className="relative aspect-[4/5] w-full overflow-hidden rounded-ui-rect bg-sam-primary-soft ring-1 ring-black/[0.06]">
           {store.profileImageUrl ?
             <img src={store.profileImageUrl} alt="" className="h-full w-full object-cover" />

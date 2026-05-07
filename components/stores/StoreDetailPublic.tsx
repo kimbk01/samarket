@@ -2,21 +2,29 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
-import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContext";
+import {
+  type AddStoreCartLineInput,
+  useStoreCommerceCartOptional,
+} from "@/contexts/StoreCommerceCartContext";
+import { StoreCartOtherStoreConflictDialog } from "@/components/stores/StoreCartOtherStoreConflictDialog";
 import { StoreDetailBottomStrip } from "@/components/stores/StoreDetailBottomStrip";
 import type { StorePublicFulfillmentMode } from "@/components/stores/StoreDetailStorefrontPanel";
-import { StoreMenuCategoryChips } from "@/components/stores/StoreMenuCategoryChips";
-import { StoreMenuReviewFlowLink } from "@/components/stores/StoreMenuReviewFlowLink";
 import { StoreProductAddSheet } from "@/components/stores/StoreProductAddSheet";
-import { StorePublicMenuList } from "@/components/stores/StorePublicMenuList";
 import { StoreCartPreviewSheet } from "@/components/stores/store-order-detail/StoreCartPreviewSheet";
-import { StoreDetailOrderSkeleton } from "@/components/stores/store-order-detail/StoreDetailOrderSkeleton";
-import { StoreOrderHeroSummary } from "@/components/stores/store-order-detail/StoreOrderHeroSummary";
-import { StoreOrderNoticeStrip } from "@/components/stores/store-order-detail/StoreOrderNoticeStrip";
-import { StoreOrderStickyHeader } from "@/components/stores/store-order-detail/StoreOrderStickyHeader";
+import { StoreDetailQuickShell } from "@/components/stores/StoreDetailQuickShell";
+import { StoreDetailDeferredInfoSection } from "@/components/stores/store-detail/StoreDetailDeferredInfoSection";
+import { StoreDetailMenusSection } from "@/components/stores/store-detail/StoreDetailMenusSection";
+import { StoreDetailSummarySection } from "@/components/stores/store-detail/StoreDetailSummarySection";
 import {
   groupStoreProductsByMenuSection,
   parseStoreDetailProducts,
@@ -42,14 +50,33 @@ import { parseMediaUrlsJson } from "@/lib/stores/parse-media-urls-json";
 import { useOwnerManagementHref } from "@/lib/stores/use-owner-management-href";
 import { useStoreFavoriteToggle } from "@/lib/stores/use-store-favorite-toggle";
 import {
+  fetchStoreMenusDeduped,
   fetchStorePublicBySlugDeduped,
+  fetchStoreSummaryDeduped,
   primeStorePublicCache,
   type StoreApiJsonResponse,
 } from "@/lib/stores/store-delivery-api-client";
 import {
   getStorePublicInitialSnapshot,
+  hydrateStorePublicFromApiJson,
   storePublicProductRowsMap,
 } from "@/lib/stores/store-public-page-hydrate";
+import {
+  parseStoreMenusPayload,
+  parseStoreSummaryPayload,
+  type StoreMenusPayload,
+  type StoreSummaryPayload,
+} from "@/lib/stores/store-detail-split-types";
+import {
+  dibayPerfOnCartbarUpdated,
+  dibayPerfOnStoreDetailShellVisible,
+  dibayPerfOnStoreMenuVisible,
+  dibayPerfRecordAddToCartClick,
+  dibayPerfRecordCartBlockedByOtherStore,
+  dibayPerfRecordCartReplaceConfirm,
+  dibayPerfRecordCartReplaceDone,
+  dibayPerfRecordMenuItemOpenIntent,
+} from "@/lib/dibay/delivery-flow-perf";
 
 type StoreDetail = {
   id: string;
@@ -85,7 +112,6 @@ export function StoreDetailPublic({
   /** 서버에서 동일 API 선조회 — 첫 페인트·캐시 프라임·카트 진입 가속 */
   initialApiResponse?: StoreApiJsonResponse | null;
 }) {
-  const router = useRouter();
   const pathname = usePathname();
   const commerceCart = useStoreCommerceCartOptional();
   const decodedSlug = useMemo(() => decodeSlugSegment(slug), [slug]);
@@ -96,12 +122,13 @@ export function StoreDetailPublic({
   );
 
   const [store, setStore] = useState<StoreDetail | null>(() => initialSnap.store as StoreDetail | null);
-  const [products, setProducts] = useState<StoreDetailProductCard[]>(() => initialSnap.products);
+  const [products, setProducts] = useState(() => initialSnap.products);
   const [productRowsById, setProductRowsById] = useState<Record<string, Record<string, unknown>>>(
     () => initialSnap.productRowsById
   );
   const [canSell, setCanSell] = useState(() => initialSnap.canSell);
-  const [loading, setLoading] = useState(() => initialSnap.loading);
+  const [summaryLoading, setSummaryLoading] = useState(() => initialSnap.loading);
+  const [menusLoading, setMenusLoading] = useState(() => initialSnap.loading);
   const [dbOff, setDbOff] = useState(() => initialSnap.dbOff);
   const [activeMenuSection, setActiveMenuSection] = useState(0);
   const [openTick, setOpenTick] = useState(0);
@@ -114,15 +141,38 @@ export function StoreDetailPublic({
   const [cartPreviewOpen, setCartPreviewOpen] = useState(false);
   const [favoriteSeed, setFavoriteSeed] = useState(() => initialSnap.favoriteSeed);
   const [recentOrderCountMeta, setRecentOrderCountMeta] = useState(() => initialSnap.recentOrderCountMeta);
+  const [quickCartConflictOpen, setQuickCartConflictOpen] = useState(false);
+  const pendingQuickCartLineRef = useRef<AddStoreCartLineInput | null>(null);
 
   const scrollHeaderGate = useRef(false);
   const menuStickyMeasureRef = useRef<HTMLDivElement>(null);
   const [menuStickyStackPx, setMenuStickyStackPx] = useState(118);
+  const shellMarkedSlugRef = useRef<string | null>(null);
+  const menuMarkedStoreIdRef = useRef<string | null>(null);
+  const storeIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    storeIdRef.current = store?.id ?? null;
+  }, [store?.id]);
 
   const { viewerFavorited, favoriteBusy, toggleFavorite } = useStoreFavoriteToggle(
     decodedSlug,
     favoriteSeed
   );
+
+  useLayoutEffect(() => {
+    if (!store || summaryLoading) return;
+    if (shellMarkedSlugRef.current === decodedSlug) return;
+    shellMarkedSlugRef.current = decodedSlug;
+    dibayPerfOnStoreDetailShellVisible({ slug: decodedSlug });
+  }, [store, summaryLoading, decodedSlug]);
+
+  useLayoutEffect(() => {
+    if (!store?.id || menusLoading) return;
+    if (menuMarkedStoreIdRef.current === store.id) return;
+    menuMarkedStoreIdRef.current = store.id;
+    dibayPerfOnStoreMenuVisible({ slug: store.slug, storeId: store.id });
+  }, [store?.id, store?.slug, menusLoading]);
 
   const isSameStoreDetail = (a: StoreDetail | null, b: StoreDetail | null): boolean => {
     if (a === b) return true;
@@ -161,6 +211,192 @@ export function StoreDetailPublic({
     return true;
   };
 
+  const applyLegacyHydrate = useCallback((json: unknown) => {
+    const h = hydrateStorePublicFromApiJson(json);
+    setDbOff(h.dbOff);
+    if (h.dbOff) {
+      setStore(null);
+      setProducts([]);
+      setProductRowsById({});
+      setCanSell(false);
+      setFavoriteSeed({ viewerFavorited: false, favoriteCount: 0 });
+      setRecentOrderCountMeta(0);
+      return;
+    }
+    if (h.store) {
+      const nextStore = h.store as StoreDetail;
+      setStore((prev) => (isSameStoreDetail(prev, nextStore) ? prev : nextStore));
+      setProducts((prev) => (isSameProductCards(prev, h.products) ? prev : h.products));
+      setCanSell((prev) => (prev === h.canSell ? prev : h.canSell));
+      setFavoriteSeed(h.favoriteSeed);
+      setRecentOrderCountMeta(h.recentOrderCountMeta);
+      setProductRowsById(h.productRowsById);
+    } else {
+      setStore(null);
+      setProducts([]);
+      setProductRowsById({});
+      setCanSell(false);
+      setFavoriteSeed({ viewerFavorited: false, favoriteCount: 0 });
+      setRecentOrderCountMeta(0);
+    }
+  }, []);
+
+  const applySummaryPayload = useCallback((sumParsed: StoreSummaryPayload) => {
+    if (!sumParsed.store) return;
+    const nextStore = {
+      ...sumParsed.store,
+      lat: sumParsed.store.lat ?? null,
+      lng: sumParsed.store.lng ?? null,
+    } as StoreDetail;
+    setStore((prev) => (isSameStoreDetail(prev, nextStore) ? prev : nextStore));
+    setFavoriteSeed({
+      viewerFavorited: !!sumParsed.meta?.viewer_favorited,
+      favoriteCount: Number(sumParsed.meta?.favorite_count) || 0,
+    });
+    setRecentOrderCountMeta(Number(sumParsed.meta?.recent_order_count) || 0);
+    setDbOff(false);
+  }, []);
+
+  const applyMenusPayload = useCallback((menuParsed: StoreMenusPayload) => {
+    const raw = menuParsed.products ?? [];
+    const nextProducts = sortStoreDetailProductCardsForDisplay(parseStoreDetailProducts(raw));
+    setProducts((prev) => (isSameProductCards(prev, nextProducts) ? prev : nextProducts));
+    setProductRowsById(storePublicProductRowsMap(raw));
+    setCanSell((prev) => {
+      const next = !!menuParsed.meta?.canSell;
+      return prev === next ? prev : next;
+    });
+    setFavoriteSeed({
+      viewerFavorited: !!menuParsed.meta?.viewer_favorited,
+      favoriteCount: Number(menuParsed.meta?.favorite_count) || 0,
+    });
+    setRecentOrderCountMeta(Number(menuParsed.meta?.recent_order_count) || 0);
+  }, []);
+
+  const mergeLegacyProductsOnly = useCallback((json: unknown) => {
+    const h = hydrateStorePublicFromApiJson(json);
+    const sid = storeIdRef.current;
+    if (h.store && sid && String(h.store.id) === String(sid)) {
+      setProducts((prev) => (isSameProductCards(prev, h.products) ? prev : h.products));
+      setProductRowsById(h.productRowsById);
+      setCanSell((prev) => (prev === h.canSell ? prev : h.canSell));
+    } else if (h.store) {
+      applyLegacyHydrate(json);
+    } else {
+      setProducts([]);
+      setProductRowsById({});
+      setCanSell(false);
+    }
+  }, [applyLegacyHydrate]);
+
+  const loadSplitDetail = useCallback(async () => {
+    setSummaryLoading(true);
+    setMenusLoading(true);
+    setDbOff(false);
+
+    const sumP = fetchStoreSummaryDeduped(slug);
+    const menuP = fetchStoreMenusDeduped(slug);
+
+    const sumRes = await sumP;
+    const sumParsed = parseStoreSummaryPayload(sumRes.json);
+
+    if (sumParsed.meta?.source === "supabase_unconfigured") {
+      setDbOff(true);
+      setStore(null);
+      setProducts([]);
+      setProductRowsById({});
+      setCanSell(false);
+      setFavoriteSeed({ viewerFavorited: false, favoriteCount: 0 });
+      setRecentOrderCountMeta(0);
+      setSummaryLoading(false);
+      setMenusLoading(false);
+      return;
+    }
+
+    const summaryReady =
+      sumRes.status === 200 && sumParsed.ok === true && !!sumParsed.store && sumParsed.store.id;
+
+    if (!summaryReady) {
+      const leg = await fetchStorePublicBySlugDeduped(slug);
+      applyLegacyHydrate(leg.json);
+      setSummaryLoading(false);
+      setMenusLoading(false);
+      return;
+    }
+
+    applySummaryPayload(sumParsed);
+    setSummaryLoading(false);
+
+    const menuRes = await menuP;
+    const menuParsed = parseStoreMenusPayload(menuRes.json);
+
+    const menusReady =
+      menuRes.status === 200 &&
+      menuParsed.ok === true &&
+      menuParsed.meta?.source !== "supabase_unconfigured" &&
+      Array.isArray(menuParsed.products);
+
+    if (menusReady) {
+      applyMenusPayload(menuParsed);
+      setMenusLoading(false);
+      return;
+    }
+
+    try {
+      const leg = await fetchStorePublicBySlugDeduped(slug);
+      mergeLegacyProductsOnly(leg.json);
+    } catch {
+      setProducts([]);
+      setProductRowsById({});
+    }
+    setMenusLoading(false);
+  }, [slug, applyLegacyHydrate, applyMenusPayload, applySummaryPayload, mergeLegacyProductsOnly]);
+
+  const loadSplitDetailSilent = useCallback(async () => {
+    const sumP = fetchStoreSummaryDeduped(slug);
+    const menuP = fetchStoreMenusDeduped(slug);
+
+    const sumRes = await sumP;
+    const sumParsed = parseStoreSummaryPayload(sumRes.json);
+
+    if (sumParsed.meta?.source === "supabase_unconfigured") {
+      setDbOff(true);
+      return;
+    }
+
+    const summaryReady =
+      sumRes.status === 200 && sumParsed.ok === true && !!sumParsed.store && sumParsed.store.id;
+
+    if (!summaryReady) {
+      const leg = await fetchStorePublicBySlugDeduped(slug);
+      applyLegacyHydrate(leg.json);
+      return;
+    }
+
+    applySummaryPayload(sumParsed);
+
+    const menuRes = await menuP;
+    const menuParsed = parseStoreMenusPayload(menuRes.json);
+
+    const menusReady =
+      menuRes.status === 200 &&
+      menuParsed.ok === true &&
+      menuParsed.meta?.source !== "supabase_unconfigured" &&
+      Array.isArray(menuParsed.products);
+
+    if (menusReady) {
+      applyMenusPayload(menuParsed);
+      return;
+    }
+
+    try {
+      const leg = await fetchStorePublicBySlugDeduped(slug);
+      mergeLegacyProductsOnly(leg.json);
+    } catch {
+      /* noop */
+    }
+  }, [slug, applyLegacyHydrate, applyMenusPayload, applySummaryPayload, mergeLegacyProductsOnly]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const id = window.setInterval(() => setOpenTick((n) => n + 1), 60_000);
@@ -173,73 +409,14 @@ export function StoreDetailPublic({
     return () => window.clearTimeout(id);
   }, [toastMsg]);
 
-  const loadDetail = useCallback(
-    async (opts?: { silent?: boolean }) => {
-      const silent = !!opts?.silent;
-      if (!silent) setLoading(true);
-      try {
-        const { json } = await fetchStorePublicBySlugDeduped(slug);
-        const j = json as {
-          ok?: boolean;
-          store?: StoreDetail & { lat?: number | null; lng?: number | null; created_at?: string };
-          products?: unknown;
-          meta?: {
-            source?: string;
-            canSell?: boolean;
-            viewer_favorited?: boolean;
-            favorite_count?: unknown;
-            recent_order_count?: unknown;
-          };
-        };
-        const nextDbOff = j?.meta?.source === "supabase_unconfigured";
-        setDbOff((prev) => (prev === nextDbOff ? prev : nextDbOff));
-        if (j?.ok && j.store) {
-          const nextStore = {
-            ...j.store,
-            lat: j.store.lat ?? null,
-            lng: j.store.lng ?? null,
-          };
-          const nextProducts = sortStoreDetailProductCardsForDisplay(
-            Array.isArray(j.products) ? parseStoreDetailProducts(j.products) : []
-          );
-          const nextCanSell = !!j.meta?.canSell;
-          setStore((prev) => (isSameStoreDetail(prev, nextStore) ? prev : nextStore));
-          setProducts((prev) => (isSameProductCards(prev, nextProducts) ? prev : nextProducts));
-          setCanSell((prev) => (prev === nextCanSell ? prev : nextCanSell));
-          setFavoriteSeed({
-            viewerFavorited: !!j.meta?.viewer_favorited,
-            favoriteCount: Number(j.meta?.favorite_count) || 0,
-          });
-          setRecentOrderCountMeta(Number(j.meta?.recent_order_count) || 0);
-          setProductRowsById(storePublicProductRowsMap(j.products));
-        } else if (!silent) {
-          setStore(null);
-          setProducts([]);
-          setCanSell(false);
-          setProductRowsById({});
-        }
-      } catch {
-        if (!silent) {
-          setStore(null);
-          setProducts([]);
-          setCanSell(false);
-          setProductRowsById({});
-        }
-      } finally {
-        if (!silent) setLoading(false);
-      }
-    },
-    [slug]
-  );
-
   useLayoutEffect(() => {
     if (initialApiResponse?.status === 200) {
       primeStorePublicCache(slug, initialApiResponse);
     }
-    void loadDetail();
-  }, [slug, loadDetail, initialApiResponse]);
+    void loadSplitDetail();
+  }, [slug, loadSplitDetail, initialApiResponse]);
 
-  useRefetchOnPageShowRestore(() => void loadDetail({ silent: true }));
+  useRefetchOnPageShowRestore(() => void loadSplitDetailSilent());
 
   useEffect(() => {
     const onScroll = () => {
@@ -353,7 +530,7 @@ export function StoreDetailPublic({
   }, [store, fulfillmentMode]);
 
   useEffect(() => {
-    if (loading || !store) return;
+    if (summaryLoading || !store || menusLoading) return;
     const el = menuStickyMeasureRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
     const measure = () => {
@@ -366,7 +543,28 @@ export function StoreDetailPublic({
     const ro = new ResizeObserver(() => measure());
     ro.observe(el);
     return () => ro.disconnect();
-  }, [loading, store?.id, menuQuery]);
+  }, [summaryLoading, menusLoading, store?.id, menuQuery]);
+
+  const cancelQuickCartConflict = useCallback(() => {
+    pendingQuickCartLineRef.current = null;
+    setQuickCartConflictOpen(false);
+  }, []);
+
+  const confirmQuickCartReplace = useCallback(() => {
+    const line = pendingQuickCartLineRef.current;
+    if (!line || !commerceCart) return;
+    dibayPerfRecordCartReplaceConfirm({ storeId: line.storeId });
+    dibayPerfRecordAddToCartClick(line.storeId);
+    const r = commerceCart.replaceWithLine(line);
+    dibayPerfRecordCartReplaceDone({ storeId: line.storeId });
+    pendingQuickCartLineRef.current = null;
+    setQuickCartConflictOpen(false);
+    if (!r.ok) return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => dibayPerfOnCartbarUpdated(line.storeId));
+    });
+    setToastMsg(`${line.title} 담았어요`);
+  }, [commerceCart]);
 
   const quickAddFromCard = useCallback(
     (p: StoreDetailProductCard): boolean => {
@@ -374,15 +572,6 @@ export function StoreDetailPublic({
       if (commerce ? !commerce.isOpenForCommerce : false) return false;
       const soldOut = p.track_inventory && p.stock_qty <= 0;
       if (soldOut) return false;
-      const others = commerceCart.otherBucketsExcluding(store.id);
-      if (others.length > 0) {
-        const o = others[0];
-        window.alert(
-          `다른 매장의 상품이 있습니다.\n${o.storeName} 장바구니를 주문하거나 비운 뒤 이 매장에서 담을 수 있어요.`
-        );
-        router.push(`/stores/${encodeURIComponent(o.storeSlug)}/cart`);
-        return true;
-      }
       const hasDiscount =
         p.discount_price != null &&
         Number.isFinite(p.discount_price) &&
@@ -409,7 +598,7 @@ export function StoreDetailPublic({
       const maxForCart = p.track_inventory ? Math.min(maxQ, p.stock_qty) : maxQ;
       if (maxForCart < minQ) return false;
 
-      commerceCart.addOrMergeLine({
+      const lineInput: AddStoreCartLineInput = {
         storeId: store.id,
         storeSlug: store.slug,
         storeName: store.store_name,
@@ -430,11 +619,28 @@ export function StoreDetailPublic({
         shippingAvailable: !!p.shipping_available,
         minOrderQty: minQ,
         maxOrderQty: maxForCart,
+      };
+
+      const addResult = commerceCart.addOrMergeLine(lineInput);
+      if (!addResult.ok && addResult.reason === "blocked_by_other_store") {
+        dibayPerfRecordCartBlockedByOtherStore({
+          existingStoreId: addResult.existingStoreId,
+          nextStoreId: addResult.nextStoreId,
+        });
+        pendingQuickCartLineRef.current = lineInput;
+        setQuickCartConflictOpen(true);
+        return true;
+      }
+      if (!addResult.ok) return false;
+
+      dibayPerfRecordAddToCartClick(store.id);
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => dibayPerfOnCartbarUpdated(store.id));
       });
       setToastMsg(`${p.title} 담았어요`);
       return true;
     },
-    [commerceCart, store, commerce, router]
+    [commerceCart, store, commerce]
   );
 
   const onMenuSearchFocus = useCallback(() => {
@@ -477,6 +683,32 @@ export function StoreDetailPublic({
     })();
   }, [store]);
 
+  const shellShareClick = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const url = window.location.href;
+    const title =
+      decodedSlug
+        .replace(/-/g, " ")
+        .trim() || "매장";
+    void (async () => {
+      try {
+        if (navigator.share) {
+          await navigator.share({ title, text: title, url });
+        } else if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(url);
+          window.alert("링크를 복사했습니다.");
+        }
+      } catch {
+        /* noop */
+      }
+    })();
+  }, [decodedSlug]);
+
+  const onOpenProductSheet = useCallback((id: string) => {
+    dibayPerfRecordMenuItemOpenIntent();
+    setAddSheetProductId(id);
+  }, []);
+
   const sectionScrollMarginCss = useMemo(
     () =>
       `calc(env(safe-area-inset-top, 0px) + 56px + ${menuStickyStackPx}px + 10px)`,
@@ -490,8 +722,19 @@ export function StoreDetailPublic({
     </div>
   );
 
-  if (loading) {
-    return viewportShell(<StoreDetailOrderSkeleton />);
+  if (summaryLoading && !store) {
+    return viewportShell(
+      <StoreDetailQuickShell
+        slug={decodedSlug}
+        fallbackHref="/stores"
+        viewerFavorited={viewerFavorited}
+        favoriteBusy={favoriteBusy}
+        onFavoriteClick={() => void toggleFavorite()}
+        onMenuSearchFocus={() => {}}
+        onShareClick={shellShareClick}
+        onCartPreviewClick={() => {}}
+      />
+    );
   }
 
   if (!store) {
@@ -561,150 +804,71 @@ export function StoreDetailPublic({
 
   return viewportShell(
     <div className={`pb-[env(safe-area-inset-bottom,0px)] ${rootBottomPadClass}`}>
-      <StoreOrderStickyHeader
-        elevated={headerSolid}
+      <StoreDetailSummarySection
+        headerElevated={headerSolid}
         fallbackHref={fallbackHref}
-        storeSlug={store.slug}
-        storeName={store.store_name}
-        commerceCartStoreId={store.id}
+        store={store}
+        heroImageUrl={heroImageUrl}
+        recentOrderCount={recentOrderCountMeta}
+        deliveryMeta={deliveryMeta}
+        commerceExtras={commerceExtras}
+        deliveryAvailable={deliveryAvailable}
+        pickupAvailable={pickupAvailable}
+        isOpenForOrder={isOpen}
+        commerce={
+          commerce
+            ? {
+                breakConfigured: commerce.breakConfigured,
+                breakRangeLabel: commerce.breakRangeLabel,
+                inBreak: commerce.inBreak,
+              }
+            : null
+        }
+        fulfillmentMode={fulfillmentMode}
+        onFulfillmentChange={(mode) => writeStoreFulfillmentPref(store.slug, mode)}
+        ownerManagementHref={ownerManagementHref ?? undefined}
+        infoPath={infoPath}
+        reviewsHref={
+          Math.max(0, Math.floor(Number(store.review_count) || 0)) > 0
+            ? `${storeRootPath}/reviews`
+            : undefined
+        }
+        storeAddressLine={storeAddressLine || null}
         viewerFavorited={viewerFavorited}
         favoriteBusy={favoriteBusy}
         onFavoriteClick={() => void toggleFavorite()}
         onMenuSearchFocus={onMenuSearchFocus}
         onShareClick={onShareClick}
         onCartPreviewClick={() => setCartPreviewOpen(true)}
+        noticePreview={noticePreview}
+        commerceCartStoreId={store.id}
       />
 
-      <div>
-        <StoreOrderHeroSummary
-          storeName={store.store_name}
-          profileImageUrl={heroImageUrl}
-          ratingAvg={
-            store.rating_avg != null && Number.isFinite(Number(store.rating_avg))
-              ? Number(store.rating_avg)
-              : null
-          }
-          reviewCount={Number(store.review_count) || 0}
-          recentOrderCount={recentOrderCountMeta}
-          deliveryMeta={deliveryMeta}
-          commerceExtras={commerceExtras}
-          deliveryAvailable={deliveryAvailable}
-          pickupAvailable={pickupAvailable}
-          isOpenForOrder={isOpen}
-          commerce={
-            commerce
-              ? {
-                  breakConfigured: commerce.breakConfigured,
-                  breakRangeLabel: commerce.breakRangeLabel,
-                  inBreak: commerce.inBreak,
-                }
-              : null
-          }
-          fulfillmentMode={fulfillmentMode}
-          onFulfillmentChange={(mode) => writeStoreFulfillmentPref(store.slug, mode)}
-          ownerManagementHref={ownerManagementHref ?? undefined}
-          storeInfoHref={infoPath}
-          reviewsHref={
-            Math.max(0, Math.floor(Number(store.review_count) || 0)) > 0
-              ? `${storeRootPath}/reviews`
-              : undefined
-          }
-          addressLine={storeAddressLine || null}
-          viewerFavorited={viewerFavorited}
-          favoriteBusy={favoriteBusy}
-          onFavoriteClick={() => void toggleFavorite()}
-        />
-      </div>
+      <StoreDetailMenusSection
+        menusLoading={menusLoading}
+        menuStickyMeasureRef={menuStickyMeasureRef}
+        menuSearchOpen={menuSearchOpen}
+        menuQuery={menuQuery}
+        setMenuQuery={setMenuQuery}
+        setMenuSearchOpen={setMenuSearchOpen}
+        menuSectionsFiltered={menuSectionsFiltered}
+        activeMenuSection={activeMenuSection}
+        setActiveMenuSection={setActiveMenuSection}
+        scrollStoreSectionIntoView={scrollStoreSectionIntoView}
+        storeSlug={store.slug}
+        canSell={canSell}
+        sectionScrollMarginCss={sectionScrollMarginCss}
+        menuSelectBlocked={menuSelectBlocked}
+        menuSelectHint={menuSelectHint}
+        onOpenProductSheet={onOpenProductSheet}
+        onQuickAddProduct={quickAddFromCard}
+      />
 
-      {noticePreview ? (
-        <StoreOrderNoticeStrip
-          text={noticePreview}
-          href={infoPath}
-          storeName={store.store_name}
-          showCouponBadge={false}
-        />
-      ) : null}
-
-      <div id="store-menu-panel">
-        <div
-          ref={menuStickyMeasureRef}
-          className="sticky z-[40] border-b border-neutral-100 bg-white"
-          style={{
-            top: "calc(env(safe-area-inset-top, 0px) + 56px)",
-          }}
-        >
-          <label className="sr-only" htmlFor="store-menu-search">
-            메뉴 검색
-          </label>
-          {menuSearchOpen ? (
-            <div className="px-5 pb-2 pt-2">
-              <div className="flex h-[42px] items-center gap-2 rounded-full bg-[#F5F6F7] px-4">
-                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#777" strokeWidth="2" aria-hidden>
-                  <circle cx="11" cy="11" r="7" />
-                  <path strokeLinecap="round" d="M20 20l-3.5-3.5" />
-                </svg>
-                <input
-                  id="store-menu-search"
-                  type="search"
-                  enterKeyHint="search"
-                  placeholder="메뉴명을 검색해보세요"
-                  value={menuQuery}
-                  onChange={(e) => setMenuQuery(e.target.value)}
-                  className="min-w-0 flex-1 bg-transparent text-[14px] font-semibold text-neutral-900 outline-none placeholder:text-neutral-400"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMenuQuery("");
-                    setMenuSearchOpen(false);
-                  }}
-                  className="text-[13px] font-bold text-neutral-500"
-                >
-                  닫기
-                </button>
-              </div>
-            </div>
-          ) : null}
-          <StoreMenuCategoryChips
-            variant="orderDetail"
-            sections={menuSectionsFiltered.map((s) => ({ label: s.heading }))}
-            activeIndex={activeMenuSection}
-            omitTopBorder
-            plainBackground
-            showSearchButton
-            onSearchClick={() => {
-              setMenuSearchOpen(true);
-              window.setTimeout(() => document.getElementById("store-menu-search")?.focus(), 0);
-            }}
-            onSelect={(i) => {
-              setActiveMenuSection(i);
-              scrollStoreSectionIntoView(i);
-            }}
-          />
-        </div>
-
-        <StoreMenuReviewFlowLink
-          storeSlug={store.slug}
-          reviewCount={Number(store.review_count) || 0}
-          ratingAvg={
-            store.rating_avg != null && Number.isFinite(Number(store.rating_avg))
-              ? Number(store.rating_avg)
-              : null
-          }
-        />
-
-        <StorePublicMenuList
-          storeSlug={store.slug}
-          sections={menuSectionsFiltered}
-          canSell={canSell}
-          sectionDomId={(i) => `store-sec-${i}`}
-          sectionScrollMarginCss={sectionScrollMarginCss}
-          menuSelectBlocked={menuSelectBlocked}
-          menuSelectHint={menuSelectHint}
-          onOpenProduct={(id) => setAddSheetProductId(id)}
-          onQuickAddProduct={quickAddFromCard}
-        />
-      </div>
+      <StoreDetailDeferredInfoSection
+        storeSlug={store.slug}
+        storeRootPath={storeRootPath}
+        legacyReviewCount={Math.max(0, Math.floor(Number(store.review_count) || 0))}
+      />
 
       <div className="mt-6 px-4 pb-4 text-center">
         <Link
@@ -772,6 +936,12 @@ export function StoreDetailPublic({
           {toastMsg}
         </div>
       ) : null}
+
+      <StoreCartOtherStoreConflictDialog
+        open={quickCartConflictOpen}
+        onCancel={cancelQuickCartConflict}
+        onClearAndAdd={confirmQuickCartReplace}
+      />
     </div>
   );
 }

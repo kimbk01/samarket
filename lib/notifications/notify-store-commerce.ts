@@ -55,6 +55,8 @@ export async function notifyStoreOwnerNewOrder(
     paymentLabel?: string | null;
     /** 고객 요청 사항(요약) */
     buyerNote?: string | null;
+    /** 방금 삽입된 store_order_events 행 — 알림 인박스 DB 중복 방지 */
+    storeOrderEventId?: string | null;
   }
 ): Promise<void> {
   const sid = opts.storeId.trim();
@@ -82,11 +84,16 @@ export async function notifyStoreOwnerNewOrder(
   if (note) extras.push(nt(language, "notify_commerce_request_prefix", { note }));
   const extraSeg = extras.length ? ` · ${extras.join(" · ")}` : "";
 
+  const evTrim = (opts.storeOrderEventId ?? "").trim();
+  const dedupe = `commerce:owner:new_order:${oid}`;
+
   await appendUserNotification(sb, {
     user_id: ownerId,
     notification_type: "commerce",
     domain: "store",
     ref_id: oid,
+    ...(evTrim ? { store_order_event_id: evTrim } : {}),
+    dedupe_key: dedupe,
     title: nt(language, "notify_commerce_new_order_title"),
     body: name
       ? nt(language, "notify_commerce_new_order_body_named", {
@@ -116,6 +123,7 @@ export async function notifyStoreOwnerNewOrder(
       line_count: lines,
       ...(pay && pay !== "—" ? { payment_label: pay } : {}),
       ...(note ? { buyer_note_preview: note } : {}),
+      ...(evTrim ? { store_order_event_id: evTrim } : {}),
     },
   });
 }
@@ -128,6 +136,7 @@ export async function notifyBuyerStorePaymentCompleted(
     orderId: string;
     orderNo: string;
     storeId: string;
+    storeOrderEventId?: string | null;
   }
 ): Promise<void> {
   const bid = opts.buyerUserId.trim();
@@ -139,11 +148,16 @@ export async function notifyBuyerStorePaymentCompleted(
   const label = storeName || nt(language, "notify_commerce_store_fallback");
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
 
+  const evTrim = (opts.storeOrderEventId ?? "").trim();
+  const dedupe = `commerce:buyer:payment_ok:${oid}`;
+
   await appendUserNotification(sb, {
     user_id: bid,
     notification_type: "commerce",
     domain: "order",
     ref_id: oid,
+    ...(evTrim ? { store_order_event_id: evTrim } : {}),
+    dedupe_key: dedupe,
     title: nt(language, "notify_commerce_payment_done_title"),
     body: nt(language, "notify_commerce_payment_done_body", { store: label, orderNo }),
     link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,
@@ -152,6 +166,7 @@ export async function notifyBuyerStorePaymentCompleted(
       order_id: oid,
       order_no: orderNo,
       store_id: opts.storeId.trim(),
+      ...(evTrim ? { store_order_event_id: evTrim } : {}),
     },
   });
 }
@@ -165,6 +180,7 @@ export async function notifyStoreOwnerPaymentCompleted(
     orderNo: string;
     paymentAmount: number;
     storeName?: string;
+    storeOrderEventId?: string | null;
   }
 ): Promise<void> {
   const sid = opts.storeId.trim();
@@ -185,11 +201,16 @@ export async function notifyStoreOwnerPaymentCompleted(
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
   const amt = formatMoneyPhp(opts.paymentAmount);
 
+  const evTrim = (opts.storeOrderEventId ?? "").trim();
+  const dedupe = `commerce:owner:payment_ok:${oid}`;
+
   await appendUserNotification(sb, {
     user_id: ownerId,
     notification_type: "commerce",
     domain: "store",
     ref_id: oid,
+    ...(evTrim ? { store_order_event_id: evTrim } : {}),
+    dedupe_key: dedupe,
     title: nt(language, "notify_commerce_owner_payment_done_title"),
     body: name
       ? nt(language, "notify_commerce_owner_payment_done_body_named", {
@@ -211,6 +232,7 @@ export async function notifyStoreOwnerPaymentCompleted(
       store_id: sid,
       order_id: oid,
       order_no: orderNo,
+      ...(evTrim ? { store_order_event_id: evTrim } : {}),
     },
   });
 }
@@ -218,7 +240,13 @@ export async function notifyStoreOwnerPaymentCompleted(
 /** 구매자가 접수 전 취소 시 오너 */
 export async function notifyStoreOwnerBuyerCancelled(
   sb: SupabaseClient,
-  opts: { storeId: string; orderId: string; orderNo: string; storeName?: string }
+  opts: {
+    storeId: string;
+    orderId: string;
+    orderNo: string;
+    storeName?: string;
+    storeOrderEventId?: string | null;
+  }
 ): Promise<void> {
   const sid = opts.storeId.trim();
   const oid = opts.orderId.trim();
@@ -237,11 +265,16 @@ export async function notifyStoreOwnerBuyerCancelled(
   const name = (opts.storeName ?? (store.store_name as string) ?? "").trim();
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
 
+  const evTrim = (opts.storeOrderEventId ?? "").trim();
+  const dedupe = `commerce:owner:buyer_cancel:${oid}`;
+
   await appendUserNotification(sb, {
     user_id: ownerId,
     notification_type: "commerce",
     domain: "store",
     ref_id: oid,
+    ...(evTrim ? { store_order_event_id: evTrim } : {}),
+    dedupe_key: dedupe,
     title: nt(language, "notify_commerce_buyer_cancelled_title"),
     body: name
       ? nt(language, "notify_commerce_buyer_cancelled_body_named", { store: name, orderNo })
@@ -251,14 +284,26 @@ export async function notifyStoreOwnerBuyerCancelled(
       orderId: oid,
       ackOwnerNotifications: true,
     }),
-    meta: { kind: "store_order_buyer_cancelled", store_id: sid, order_id: oid, order_no: orderNo },
+    meta: {
+      kind: "store_order_buyer_cancelled",
+      store_id: sid,
+      order_id: oid,
+      order_no: orderNo,
+      ...(evTrim ? { store_order_event_id: evTrim } : {}),
+    },
   });
 }
 
 /** 구매자 환불 요청 시 매장 오너에게 인앱 알림 */
 export async function notifyStoreOwnerRefundRequested(
   sb: SupabaseClient,
-  opts: { storeId: string; orderId: string; orderNo: string; storeName?: string }
+  opts: {
+    storeId: string;
+    orderId: string;
+    orderNo: string;
+    storeName?: string;
+    storeOrderEventId?: string | null;
+  }
 ): Promise<void> {
   const sid = opts.storeId.trim();
   const oid = opts.orderId.trim();
@@ -277,11 +322,16 @@ export async function notifyStoreOwnerRefundRequested(
   const name = (opts.storeName ?? (store.store_name as string) ?? "").trim();
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
 
+  const evTrim = (opts.storeOrderEventId ?? "").trim();
+  const dedupe = `commerce:owner:refund_req:${oid}`;
+
   await appendUserNotification(sb, {
     user_id: ownerId,
     notification_type: "commerce",
     domain: "store",
     ref_id: oid,
+    ...(evTrim ? { store_order_event_id: evTrim } : {}),
+    dedupe_key: dedupe,
     title: nt(language, "notify_commerce_refund_requested_title"),
     body: name
       ? nt(language, "notify_commerce_refund_requested_body_named", { store: name, orderNo })
@@ -297,6 +347,7 @@ export async function notifyStoreOwnerRefundRequested(
       store_id: sid,
       order_id: oid,
       order_no: orderNo,
+      ...(evTrim ? { store_order_event_id: evTrim } : {}),
     },
   });
 }
@@ -369,6 +420,7 @@ export async function notifyBuyerStoreOrderOwnerStatus(
     orderNo: string;
     storeId: string;
     nextStatus: string;
+    storeOrderEventId?: string | null;
   }
 ): Promise<void> {
   const bid = opts.buyerUserId.trim();
@@ -383,11 +435,16 @@ export async function notifyBuyerStoreOrderOwnerStatus(
   const copy = buyerCopyForOwnerStatus(language, opts.nextStatus, label, orderNo);
   if (!copy) return;
 
+  const evTrim = (opts.storeOrderEventId ?? "").trim();
+  const dedupe = `commerce:buyer:owner_status:${oid}:${opts.nextStatus}`;
+
   await appendUserNotification(sb, {
     user_id: bid,
     notification_type: "commerce",
     domain: "order",
     ref_id: oid,
+    ...(evTrim ? { store_order_event_id: evTrim } : {}),
+    dedupe_key: dedupe,
     title: copy.title,
     body: copy.body,
     link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,
@@ -397,6 +454,7 @@ export async function notifyBuyerStoreOrderOwnerStatus(
       order_no: orderNo,
       store_id: opts.storeId.trim(),
       order_status: opts.nextStatus,
+      ...(evTrim ? { store_order_event_id: evTrim } : {}),
     },
   });
 }
@@ -404,7 +462,13 @@ export async function notifyBuyerStoreOrderOwnerStatus(
 /** 결제 실패(pending→failed) 시 구매자 */
 export async function notifyBuyerStorePaymentFailed(
   sb: SupabaseClient,
-  opts: { buyerUserId: string; orderId: string; orderNo: string; storeId: string }
+  opts: {
+    buyerUserId: string;
+    orderId: string;
+    orderNo: string;
+    storeId: string;
+    storeOrderEventId?: string | null;
+  }
 ): Promise<void> {
   const bid = opts.buyerUserId.trim();
   const oid = opts.orderId.trim();
@@ -415,22 +479,39 @@ export async function notifyBuyerStorePaymentFailed(
   const label = storeName || nt(language, "notify_commerce_store_fallback");
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
 
+  const evTrim = (opts.storeOrderEventId ?? "").trim();
+  const dedupe = `commerce:buyer:payment_failed:${oid}`;
+
   await appendUserNotification(sb, {
     user_id: bid,
     notification_type: "commerce",
     domain: "order",
     ref_id: oid,
+    ...(evTrim ? { store_order_event_id: evTrim } : {}),
+    dedupe_key: dedupe,
     title: nt(language, "notify_commerce_payment_failed_title"),
     body: nt(language, "notify_commerce_payment_failed_body", { store: label, orderNo }),
     link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,
-    meta: { kind: "store_order_payment_failed", order_id: oid, order_no: orderNo, store_id: opts.storeId },
+    meta: {
+      kind: "store_order_payment_failed",
+      order_id: oid,
+      order_no: orderNo,
+      store_id: opts.storeId,
+      ...(evTrim ? { store_order_event_id: evTrim } : {}),
+    },
   });
 }
 
 /** 관리자 환불 승인 후 구매자 */
 export async function notifyBuyerStoreRefundApproved(
   sb: SupabaseClient,
-  opts: { buyerUserId: string; orderId: string; orderNo: string; storeId: string }
+  opts: {
+    buyerUserId: string;
+    orderId: string;
+    orderNo: string;
+    storeId: string;
+    storeOrderEventId?: string | null;
+  }
 ): Promise<void> {
   const bid = opts.buyerUserId.trim();
   const oid = opts.orderId.trim();
@@ -441,22 +522,39 @@ export async function notifyBuyerStoreRefundApproved(
   const label = storeName || nt(language, "notify_commerce_store_fallback");
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
 
+  const evTrim = (opts.storeOrderEventId ?? "").trim();
+  const dedupe = `commerce:buyer:refund_ok:${oid}`;
+
   await appendUserNotification(sb, {
     user_id: bid,
     notification_type: "commerce",
     domain: "order",
     ref_id: oid,
+    ...(evTrim ? { store_order_event_id: evTrim } : {}),
+    dedupe_key: dedupe,
     title: nt(language, "notify_commerce_refund_processed_title"),
     body: nt(language, "notify_commerce_refund_processed_body", { store: label, orderNo }),
     link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,
-    meta: { kind: "store_order_refund_approved", order_id: oid, order_no: orderNo, store_id: opts.storeId },
+    meta: {
+      kind: "store_order_refund_approved",
+      order_id: oid,
+      order_no: orderNo,
+      store_id: opts.storeId,
+      ...(evTrim ? { store_order_event_id: evTrim } : {}),
+    },
   });
 }
 
 /** 크론 자동 구매확정 시 구매자 */
 export async function notifyBuyerStoreOrderAutoCompleted(
   sb: SupabaseClient,
-  opts: { buyerUserId: string; orderId: string; orderNo: string; storeId: string }
+  opts: {
+    buyerUserId: string;
+    orderId: string;
+    orderNo: string;
+    storeId: string;
+    storeOrderEventId?: string | null;
+  }
 ): Promise<void> {
   const bid = opts.buyerUserId.trim();
   const oid = opts.orderId.trim();
@@ -467,14 +565,25 @@ export async function notifyBuyerStoreOrderAutoCompleted(
   const label = storeName || nt(language, "notify_commerce_store_fallback");
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
 
+  const evTrim = (opts.storeOrderEventId ?? "").trim();
+  const dedupe = `commerce:buyer:auto_complete:${oid}`;
+
   await appendUserNotification(sb, {
     user_id: bid,
     notification_type: "commerce",
     domain: "order",
     ref_id: oid,
+    ...(evTrim ? { store_order_event_id: evTrim } : {}),
+    dedupe_key: dedupe,
     title: nt(language, "notify_commerce_auto_completed_title"),
     body: nt(language, "notify_commerce_auto_completed_body", { store: label, orderNo }),
     link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,
-    meta: { kind: "store_order_auto_completed", order_id: oid, order_no: orderNo, store_id: opts.storeId },
+    meta: {
+      kind: "store_order_auto_completed",
+      order_id: oid,
+      order_no: orderNo,
+      store_id: opts.storeId,
+      ...(evTrim ? { store_order_event_id: evTrim } : {}),
+    },
   });
 }

@@ -1,25 +1,34 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContext";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  type AddStoreCartLineInput,
+  useStoreCommerceCartOptional,
+} from "@/contexts/StoreCommerceCartContext";
+import { StoreCartOtherStoreConflictDialog } from "@/components/stores/StoreCartOtherStoreConflictDialog";
 import type { ModifierSelectionsWire } from "@/lib/stores/modifiers/types";
 import { StoreModifierPicker } from "@/components/stores/modifiers/StoreModifierPicker";
-import {
-  parseProductOptionsJson,
-  validateModifierSelection,
-} from "@/lib/stores/product-line-options";
+import { parseProductOptionsJson } from "@/lib/stores/product-line-options";
 import { approximateDiscountPercent } from "@/lib/stores/store-product-pricing";
 import { parseMediaUrlsJson } from "@/lib/stores/parse-media-urls-json";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { resolveStoreFrontCommerceState } from "@/lib/stores/store-auto-hours";
 import {
-  fetchStoreProductPublicDeduped,
   fetchStoreReviewsPublicDeduped,
 } from "@/lib/stores/store-delivery-api-client";
 import type { StoreDetailLike } from "@/lib/stores/store-public-page-hydrate";
 import { mapListRowToSheetProduct } from "@/lib/stores/map-list-row-to-sheet-product";
+import type { SheetPublicStore } from "@/lib/stores/map-list-row-to-sheet-product";
+import { calculateStoreProductBaseUnit } from "@/lib/stores/product-sheet/calculate-store-product-line-price";
+import { validateStoreProductRequiredOptions } from "@/lib/stores/product-sheet/validate-store-product-required-options";
+import { useStoreProductSheetDetail } from "@/lib/stores/product-sheet/use-store-product-sheet-detail";
+import { StoreProductSheetShell } from "@/components/stores/product-sheet/StoreProductSheetShell";
+import { StoreProductSheetHeader } from "@/components/stores/product-sheet/StoreProductSheetHeader";
+import {
+  StoreProductSheetBodySkeleton,
+  StoreProductSheetOptionsSkeleton,
+} from "@/components/stores/product-sheet/StoreProductSheetSkeleton";
 import {
   STORE_ORDER_BADGE_POPULAR,
   STORE_ORDER_BRAND,
@@ -27,57 +36,20 @@ import {
   STORE_ORDER_CTA_STEPPER,
   STORE_ORDER_TOUCH_BTN,
 } from "@/components/stores/store-order-detail/store-order-brand";
-import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
+import {
+  dibayPerfOnCartbarUpdated,
+  dibayPerfOnOptionPriceUpdated,
+  dibayPerfOnOptionSheetVisible,
+  dibayPerfRecordAddToCartClick,
+  dibayPerfRecordCartBlockedByOtherStore,
+  dibayPerfRecordCartReplaceConfirm,
+  dibayPerfRecordCartReplaceDone,
+  dibayPerfRecordModifierIntent,
+} from "@/lib/dibay/delivery-flow-perf";
 
-type PublicStore = {
-  id: string;
-  slug: string;
-  store_name: string;
-  business_hours_json?: unknown;
-  is_open?: boolean | null;
-  delivery_available?: boolean | null;
-  rating_avg?: number | null;
-  review_count?: number | null;
-  favorite_count?: number;
-  recent_order_count?: number;
-};
-
-type PublicProduct = {
-  id: string;
-  title: string;
-  summary: string | null;
-  price: number;
-  discount_price: number | null;
-  stock_qty: number;
-  track_inventory?: boolean | null;
-  min_order_qty: number | null;
-  max_order_qty: number | null;
-  thumbnail_url: string | null;
-  images_json?: unknown;
-  pickup_available: boolean | null;
-  local_delivery_available: boolean | null;
-  shipping_available: boolean | null;
-  options_json?: unknown;
-};
+type PublicStore = SheetPublicStore;
 
 type ReviewSnippet = { content: string; created_at: string; rating: number | null };
-
-function normalizeStoreSlugSegment(raw: string): string {
-  let s = raw.trim();
-  try {
-    s = decodeURIComponent(s);
-  } catch {
-    /* already decoded */
-  }
-  return s.normalize("NFC").trim();
-}
-
-function storeSlugsMatch(urlSlug: string, apiSlug: string): boolean {
-  const a = normalizeStoreSlugSegment(urlSlug);
-  const b = normalizeStoreSlugSegment(apiSlug);
-  if (a === b) return true;
-  return a.toLowerCase() === b.toLowerCase();
-}
 
 export function StoreProductAddSheet({
   productId,
@@ -91,7 +63,6 @@ export function StoreProductAddSheet({
 }: {
   productId: string | null;
   pageStoreSlug: string;
-  /** 목록 API 행 — 있으면 시트를 네트워크 완료 전에 그린 뒤 단건으로 보강 */
   prefetchedListRow?: Record<string, unknown> | null;
   sheetStoreContext?: {
     store: StoreDetailLike;
@@ -103,18 +74,60 @@ export function StoreProductAddSheet({
   commerceBlockedHint?: string;
   onAddedToCart?: () => void;
 }) {
-  const router = useRouter();
   const commerceCart = useStoreCommerceCartOptional();
-  const [loading, setLoading] = useState(false);
-  const [notFound, setNotFound] = useState(false);
-  const [product, setProduct] = useState<PublicProduct | null>(null);
-  const [store, setStore] = useState<PublicStore | null>(null);
+  const [otherStoreConflictOpen, setOtherStoreConflictOpen] = useState(false);
+  const pendingCartLineRef = useRef<AddStoreCartLineInput | null>(null);
+
+  const seedPair = useMemo(() => {
+    const row = prefetchedListRow ?? null;
+    const ctx = sheetStoreContext ?? null;
+    if (!row || !ctx?.store) return null;
+    return mapListRowToSheetProduct(row, ctx.store, {
+      favoriteCount: ctx.favoriteCount,
+      recentOrderCount: ctx.recentOrderCount,
+    });
+  }, [prefetchedListRow, sheetStoreContext]);
+
+  const hasSeed = seedPair != null;
+  const [retryTick, setRetryTick] = useState(0);
+  const bumpRetry = useCallback(() => setRetryTick((n) => n + 1), []);
+
+  const detail = useStoreProductSheetDetail({
+    productId,
+    pageStoreSlug,
+    hasSeed,
+    retryTick,
+    perfStoreId: sheetStoreContext?.store?.id,
+    onRetryIncrement: bumpRetry,
+  });
+
+  const slugBlocked = detail.slugBlocked;
+  const product = slugBlocked
+    ? null
+    : (detail.apiProduct ?? seedPair?.product ?? null);
+  const store = slugBlocked ? null : (detail.apiStore ?? seedPair?.store ?? null);
+
   const [qty, setQty] = useState(1);
   const [modifierWire, setModifierWire] = useState<ModifierSelectionsWire>({ pick: {}, qty: {} });
   const [sheetErr, setSheetErr] = useState<string | null>(null);
   const [hoursTick, setHoursTick] = useState(0);
   const [reviewSnippets, setReviewSnippets] = useState<ReviewSnippet[]>([]);
   const [lineNote, setLineNote] = useState("");
+  const priceInteractionRef = useRef<string | null>(null);
+  const sheetPerfOnceRef = useRef<string | null>(null);
+
+  useLayoutEffect(() => {
+    if (!productId) {
+      sheetPerfOnceRef.current = null;
+      return;
+    }
+    if (sheetPerfOnceRef.current === productId) return;
+    sheetPerfOnceRef.current = productId;
+    dibayPerfOnOptionSheetVisible({
+      storeId: sheetStoreContext?.store?.id,
+      productId,
+    });
+  }, [productId, sheetStoreContext?.store?.id]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -132,94 +145,33 @@ export function StoreProductAddSheet({
   }, [productId, onClose]);
 
   useEffect(() => {
-    if (!productId) {
-      setProduct(null);
-      setStore(null);
-      setNotFound(false);
-      setSheetErr(null);
-      setLineNote("");
-      setLoading(false);
-      return;
-    }
-
-    const row = prefetchedListRow ?? null;
-    const ctx = sheetStoreContext ?? null;
-    let mappedFromList: ReturnType<typeof mapListRowToSheetProduct> = null;
-    if (row && ctx?.store) {
-      mappedFromList = mapListRowToSheetProduct(row, ctx.store, {
-        favoriteCount: ctx.favoriteCount,
-        recentOrderCount: ctx.recentOrderCount,
-      });
-    }
-    const hadPrefetch = mappedFromList != null;
-
-    if (mappedFromList) {
-      const m = mappedFromList;
-      setProduct(m.product as PublicProduct);
-      setStore(m.store as PublicStore);
-      const p = m.product;
-      const minQ = Math.max(1, Number(p.min_order_qty) || 1);
-      setQty(minQ);
-      setModifierWire({ pick: {}, qty: {} });
-      setLineNote("");
-      setNotFound(false);
-      setSheetErr(null);
-      setLoading(false);
-    } else {
-      setLoading(true);
-      setNotFound(false);
-      setSheetErr(null);
-    }
-
-    let cancelled = false;
-    void (async () => {
-      try {
-        const { json } = await fetchStoreProductPublicDeduped(productId);
-        if (cancelled) return;
-        const pj = json as { ok?: boolean; product?: PublicProduct; store?: PublicStore };
-        if (!pj?.ok || !pj.product || !pj.store) {
-          if (!hadPrefetch) {
-            setNotFound(true);
-            setProduct(null);
-            setStore(null);
-          }
-          return;
-        }
-        const apiSlug = String(pj.store.slug ?? "");
-        if (!storeSlugsMatch(pageStoreSlug, apiSlug)) {
-          setNotFound(true);
-          setProduct(null);
-          setStore(null);
-          return;
-        }
-        setProduct(pj.product);
-        setStore(pj.store);
-        const p = pj.product;
-        const minQ = Math.max(1, Number(p.min_order_qty) || 1);
-        setQty(minQ);
-        setModifierWire({ pick: {}, qty: {} });
-        setLineNote("");
-        setNotFound(false);
-      } catch {
-        if (!cancelled && !hadPrefetch) {
-          setNotFound(true);
-          setProduct(null);
-          setStore(null);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [productId, pageStoreSlug, prefetchedListRow, sheetStoreContext]);
+    if (!product?.id) return;
+    const minQ = Math.max(1, Number(product.min_order_qty) || 1);
+    setQty(minQ);
+    setModifierWire({ pick: {}, qty: {} });
+    setLineNote("");
+    setSheetErr(null);
+  }, [product?.id]);
 
   const optionGroups = useMemo(
     () => (product ? parseProductOptionsJson(product.options_json) : []),
-    [product]
+    [product?.options_json]
   );
+
+  const mergedHasOptionsFlag = !!(product?.has_options);
+  const fetchResolvedOk = detail.phase === "ok";
+  const optionHydrationFailed =
+    mergedHasOptionsFlag &&
+    detail.phase === "error" &&
+    optionGroups.length === 0 &&
+    hasSeed;
+  const awaitingOptionHydration =
+    mergedHasOptionsFlag &&
+    optionGroups.length === 0 &&
+    !fetchResolvedOk &&
+    !optionHydrationFailed;
+
+  const optionsPriceReady = !awaitingOptionHydration && !optionHydrationFailed;
 
   const galleryUrls = useMemo(() => {
     if (!product) return [];
@@ -303,17 +255,10 @@ export function StoreProductAddSheet({
     });
   }, [product?.id, optionGroups]);
 
-  const baseUnit = product
-    ? product.discount_price != null &&
-      Number.isFinite(product.discount_price) &&
-      product.discount_price >= 0 &&
-      product.discount_price < product.price
-      ? product.discount_price
-      : product.price
-    : 0;
+  const baseUnit = product ? calculateStoreProductBaseUnit(product) : 0;
 
   const optionValidation = useMemo(
-    () => validateModifierSelection(optionGroups, modifierWire, baseUnit),
+    () => validateStoreProductRequiredOptions(optionGroups, modifierWire, baseUnit),
     [optionGroups, modifierWire, baseUnit]
   );
 
@@ -339,8 +284,67 @@ export function StoreProductAddSheet({
   }, [product, minQ, capQty]);
 
   const unitWithOptions =
-    product && optionValidation.ok ? baseUnit + optionValidation.unitDelta : baseUnit;
+    product && optionsPriceReady && optionValidation.ok
+      ? baseUnit + optionValidation.unitDelta
+      : baseUnit;
   const lineTotal = unitWithOptions * qty;
+
+  const setModifierWireTracked = useCallback(
+    (next: ModifierSelectionsWire | ((prev: ModifierSelectionsWire) => ModifierSelectionsWire)) => {
+      dibayPerfRecordModifierIntent(product?.id);
+      setModifierWire(next);
+    },
+    [product?.id]
+  );
+
+  useEffect(() => {
+    if (!productId) {
+      priceInteractionRef.current = null;
+      return;
+    }
+    const snap = JSON.stringify({ modifierWire, qty });
+    if (priceInteractionRef.current === null) {
+      priceInteractionRef.current = snap;
+      return;
+    }
+    if (priceInteractionRef.current === snap) return;
+    priceInteractionRef.current = snap;
+    dibayPerfOnOptionPriceUpdated({ storeId: store?.id, productId: product?.id });
+  }, [modifierWire, qty, productId, store?.id, product?.id]);
+
+  const canSubmitOptions =
+    !awaitingOptionHydration && !optionHydrationFailed && optionValidation.ok;
+
+  const cartBarBump = useCallback((storeId: string) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        dibayPerfOnCartbarUpdated(storeId);
+      });
+    });
+  }, []);
+
+  const cancelReplaceCart = useCallback(() => {
+    pendingCartLineRef.current = null;
+    setOtherStoreConflictOpen(false);
+  }, []);
+
+  const confirmReplaceCart = useCallback(() => {
+    const line = pendingCartLineRef.current;
+    if (!line || !commerceCart) return;
+    dibayPerfRecordCartReplaceConfirm({ storeId: line.storeId });
+    dibayPerfRecordAddToCartClick(line.storeId);
+    const r = commerceCart.replaceWithLine(line);
+    dibayPerfRecordCartReplaceDone({ storeId: line.storeId });
+    pendingCartLineRef.current = null;
+    setOtherStoreConflictOpen(false);
+    if (!r.ok) {
+      setSheetErr("장바구니를 비운 뒤 담기에 실패했습니다.");
+      return;
+    }
+    cartBarBump(line.storeId);
+    onAddedToCart?.();
+    onClose();
+  }, [commerceCart, cartBarBump, onAddedToCart, onClose]);
 
   function addToCart() {
     const st = store;
@@ -365,19 +369,10 @@ export function StoreProductAddSheet({
       return;
     }
     setSheetErr(null);
-    const others = commerceCart.otherBucketsExcluding(st.id);
-    if (others.length > 0) {
-      const o = others[0];
-      window.alert(
-        `다른 매장의 상품이 있습니다.\n${o.storeName} 장바구니를 주문하거나 비운 뒤 이 매장에서 담을 수 있어요.`
-      );
-      router.push(`/stores/${encodeURIComponent(o.storeSlug)}/cart`);
-      onClose();
-      return;
-    }
     const maxForCart = trackInv ? Math.min(maxQ, pr.stock_qty) : maxQ;
     const listBaseUnit = Math.floor(pr.price);
-    const listWithOptions = listBaseUnit + (optionValidation.ok ? optionValidation.unitDelta : 0);
+    const listWithOptions =
+      listBaseUnit + (optionValidation.ok ? optionValidation.unitDelta : 0);
     const hasLineDiscount =
       listWithOptions >= unitWithOptions + 1 && unitWithOptions >= 0 && listWithOptions > 0;
     const productHasBaseDiscount =
@@ -389,10 +384,7 @@ export function StoreProductAddSheet({
     let lineDiscountPct = 0;
     if (hasLineDiscount) {
       if (productHasBaseDiscount && pr.discount_price != null) {
-        lineDiscountPct = approximateDiscountPercent(
-          listBaseUnit,
-          Math.floor(pr.discount_price)
-        );
+        lineDiscountPct = approximateDiscountPercent(listBaseUnit, Math.floor(pr.discount_price));
       } else {
         lineDiscountPct = Math.max(
           0,
@@ -400,7 +392,8 @@ export function StoreProductAddSheet({
         );
       }
     }
-    commerceCart.addOrMergeLine({
+
+    const lineInput: AddStoreCartLineInput = {
       storeId: st.id,
       storeSlug: st.slug,
       storeName: st.store_name,
@@ -421,12 +414,35 @@ export function StoreProductAddSheet({
       shippingAvailable: !!pr.shipping_available,
       minOrderQty: minQ,
       maxOrderQty: maxForCart,
-    });
+    };
+
+    const addResult = commerceCart.addOrMergeLine(lineInput);
+    if (!addResult.ok && addResult.reason === "blocked_by_other_store") {
+      dibayPerfRecordCartBlockedByOtherStore({
+        existingStoreId: addResult.existingStoreId,
+        nextStoreId: addResult.nextStoreId,
+      });
+      pendingCartLineRef.current = lineInput;
+      setOtherStoreConflictOpen(true);
+      return;
+    }
+    if (!addResult.ok) {
+      setSheetErr("장바구니에 담을 수 없습니다.");
+      return;
+    }
+
+    dibayPerfRecordAddToCartClick(st.id);
+    cartBarBump(st.id);
     onAddedToCart?.();
     onClose();
   }
 
   if (!productId) return null;
+
+  const showFullLoadingBody = !product && detail.phase === "loading" && !hasSeed;
+  const showNotFound =
+    slugBlocked ||
+    (!product && !hasSeed && detail.phase !== "loading" && (detail.notFound || detail.phase === "error"));
 
   const ratingAvg = store ? Number(store.rating_avg) : NaN;
   const ratingLabel =
@@ -440,359 +456,359 @@ export function StoreProductAddSheet({
   const qtyPlusDisabled = qtyStepperDisabled || qty >= capQty;
 
   const hasOptionDelta =
-    optionValidation.ok && optionValidation.unitDelta !== 0;
-  const showListStrike =
-    product &&
-    Math.floor(product.price) !== Math.floor(baseUnit);
-  /** 단가×수량이 단순 중복이면 카드 안 합계 행 생략(하단 담기 버튼이 금액 표시) */
+    optionsPriceReady && optionValidation.ok && optionValidation.unitDelta !== 0;
+  const showListStrike = product && Math.floor(product.price) !== Math.floor(baseUnit);
   const showLineTotalInCard =
     qty > 1 || hasOptionDelta || (showListStrike && product !== null);
 
+  const headerTitle = product?.title ?? (showFullLoadingBody ? "불러오는 중…" : "메뉴 담기");
+
+  const ctaDisabled =
+    soldOut ||
+    orderBlocked ||
+    !canSubmitOptions ||
+    !commerceCart ||
+    capQty < minQ ||
+    awaitingOptionHydration ||
+    optionHydrationFailed;
+
+  const ctaLabel = awaitingOptionHydration
+    ? "옵션을 불러오는 중…"
+    : optionHydrationFailed
+      ? "옵션을 불러올 수 없음"
+      : `${formatMoneyPhp(lineTotal)} 담기`;
+
   return (
-    <div
-      className="pointer-events-none fixed inset-0 z-[100] flex items-end justify-center"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="store-add-sheet-title"
-    >
-      {/* 시트 바깥 탭·터치 시 닫힘 — 시각적 딤 없음 */}
-      <button
-        type="button"
-        className="pointer-events-auto absolute inset-0 cursor-default bg-transparent"
-        aria-label="시트 닫기"
-        tabIndex={-1}
-        onClick={onClose}
-      />
-      <div
-        className={`pointer-events-auto relative z-[1] mx-auto flex max-h-[min(92dvh,720px)] w-full min-w-0 flex-col overflow-hidden rounded-t-[18px] bg-white shadow-[0_-12px_40px_rgba(0,0,0,0.18)] ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}
-      >
-        <div className="flex shrink-0 flex-col border-b border-neutral-100 bg-white px-4 pb-2.5 pt-3">
-          <div
-            className="mx-auto mb-2 h-1 w-10 shrink-0 rounded-full bg-[#1C8DB8]/25"
-            aria-hidden
-          />
-          <div className="relative flex min-h-[36px] w-full items-center justify-center">
-            <h2
-              id="store-add-sheet-title"
-              className="line-clamp-1 px-10 text-center text-[16px] font-bold leading-tight tracking-[-0.02em] text-neutral-900"
-            >
-              {loading ? "불러오는 중…" : product && !notFound ? product.title : "메뉴 담기"}
-            </h2>
+    <>
+    <StoreProductSheetShell onBackdropClose={onClose}>
+      <StoreProductSheetHeader title={headerTitle} onClose={onClose} />
+
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-white [-webkit-overflow-scrolling:touch]">
+        {showNotFound ? (
+          <div className="px-4 py-10 text-center">
+            <p className="text-sm text-sam-muted">
+              {slugBlocked ? "이 매장의 메뉴가 아닙니다." : "상품을 불러올 수 없습니다."}
+            </p>
             <button
               type="button"
               onClick={onClose}
-              className={`absolute right-0 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-[18px] leading-none text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 ${STORE_ORDER_TOUCH_BTN}`}
-              aria-label="닫기"
+              className={`mt-4 text-sm font-medium text-[#1C8DB8] underline-offset-2 hover:underline ${STORE_ORDER_TOUCH_BTN}`}
             >
-              ✕
+              닫기
             </button>
           </div>
-        </div>
+        ) : showFullLoadingBody ? (
+          <StoreProductSheetBodySkeleton />
+        ) : product && store ? (
+          <div className="pb-3">
+            {orderBlocked ? (
+              <p className="mx-3 mt-3 rounded-ui-rect border border-amber-200/80 bg-amber-50 px-3 py-2.5 sam-text-helper font-medium leading-snug text-amber-950">
+                {commerceBlocked && commerceBlockedHint?.trim()
+                  ? commerceBlockedHint.trim()
+                  : sheetCommerce?.inBreak
+                    ? `준비중 · Break time: ${sheetCommerce.breakRangeLabel}. 쉬는 시간에는 담을 수 없습니다.`
+                    : "지금은 준비 중이라 담을 수 없습니다."}
+              </p>
+            ) : null}
+            {soldOut ? (
+              <p className="mx-3 mt-3 rounded-ui-rect bg-sam-border-soft/60 px-3 py-2 text-sm font-medium text-sam-fg">
+                품절
+              </p>
+            ) : null}
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-white [-webkit-overflow-scrolling:touch]">
-          {loading ? (
-            <p className="py-10 text-center text-sm text-sam-muted">불러오는 중…</p>
-          ) : notFound || !product || !store ? (
-            <div className="px-4 py-10 text-center">
-              <p className="text-sm text-sam-muted">상품을 불러올 수 없습니다.</p>
-              <button
-                type="button"
-                onClick={onClose}
-                className={`mt-4 text-sm font-medium text-[#1C8DB8] underline-offset-2 hover:underline ${STORE_ORDER_TOUCH_BTN}`}
-              >
-                닫기
-              </button>
+            <div className="relative aspect-[16/10] max-h-[200px] min-h-[160px] w-full overflow-hidden bg-neutral-100">
+              {galleryUrls[0] ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={galleryUrls[0]} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <div className="h-full w-full bg-neutral-100" />
+              )}
             </div>
-          ) : (
-            <div className="pb-3">
-              {orderBlocked ? (
-                <p className="mx-3 mt-3 rounded-ui-rect border border-amber-200/80 bg-amber-50 px-3 py-2.5 sam-text-helper font-medium leading-snug text-amber-950">
-                  {commerceBlocked && commerceBlockedHint?.trim()
-                    ? commerceBlockedHint.trim()
-                    : sheetCommerce?.inBreak
-                      ? `준비중 · Break time: ${sheetCommerce.breakRangeLabel}. 쉬는 시간에는 담을 수 없습니다.`
-                      : "지금은 준비 중이라 담을 수 없습니다."}
-                </p>
-              ) : null}
-              {soldOut ? (
-                <p className="mx-3 mt-3 rounded-ui-rect bg-sam-border-soft/60 px-3 py-2 text-sm font-medium text-sam-fg">
-                  품절
-                </p>
-              ) : null}
 
-              <div className="relative aspect-[16/10] max-h-[200px] min-h-[160px] w-full overflow-hidden bg-neutral-100">
+            <div className="bg-white px-4 pb-3 pt-3">
+              <div className={`mb-1.5 ${STORE_ORDER_BADGE_POPULAR}`}>인기</div>
+              <h3 className="text-[18px] font-extrabold leading-snug tracking-[-0.03em] text-neutral-900">
+                {product.title}
+              </h3>
+              <Link
+                href={`/stores/${encodeURIComponent(store.slug)}/p/${encodeURIComponent(product.id)}`}
+                className={`mt-1.5 inline-flex items-center text-[11px] font-semibold underline-offset-2 hover:underline ${STORE_ORDER_TOUCH_BTN}`}
+                style={{ color: STORE_ORDER_BRAND.accentSoftText }}
+                onClick={onClose}
+              >
+                메뉴 리뷰 {reviewCountDisp.toLocaleString("ko-KR")}개 ›
+              </Link>
+            </div>
+
+            <div className="hidden mx-3 mt-3 gap-3 rounded-ui-rect bg-sam-surface p-3 shadow-sm ring-1 ring-sam-border/70">
+              <div className="h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
                 {galleryUrls[0] ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={galleryUrls[0]} alt="" className="h-full w-full object-cover" />
+                  <img
+                    src={galleryUrls[0]}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
                 ) : (
-                  <div className="h-full w-full bg-neutral-100" />
+                  <div className="flex h-full w-full items-center justify-center sam-text-xxs text-sam-meta">
+                    이미지 없음
+                  </div>
                 )}
               </div>
-
-              <div className="bg-white px-4 pb-3 pt-3">
-                <div className={`mb-1.5 ${STORE_ORDER_BADGE_POPULAR}`}>인기</div>
-                <h3 className="text-[18px] font-extrabold leading-snug tracking-[-0.03em] text-neutral-900">
-                  {product.title}
-                </h3>
-                <Link
-                  href={`/stores/${encodeURIComponent(store.slug)}/p/${encodeURIComponent(product.id)}`}
-                  className={`mt-1.5 inline-flex items-center text-[11px] font-semibold underline-offset-2 hover:underline ${STORE_ORDER_TOUCH_BTN}`}
-                  style={{ color: STORE_ORDER_BRAND.accentSoftText }}
-                  onClick={onClose}
-                >
-                  메뉴 리뷰 {reviewCountDisp.toLocaleString("ko-KR")}개 ›
-                </Link>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-2">
+                  <h3 className="sam-text-body font-semibold leading-snug text-sam-fg">{product.title}</h3>
+                  <span className="shrink-0 rounded-full bg-sam-surface-muted px-2 py-0.5 sam-text-xxs font-medium text-sam-muted">
+                    찜 {favCount.toLocaleString("en-PH")}
+                  </span>
+                </div>
+                <div className="mt-1.5 flex flex-wrap items-baseline gap-2">
+                  {Math.floor(product.price) !== Math.floor(baseUnit) ? (
+                    <span className="sam-text-body-secondary text-sam-meta line-through">
+                      {formatMoneyPhp(Math.floor(product.price))}
+                    </span>
+                  ) : null}
+                  <span className="sam-text-page-title font-bold text-sam-fg">
+                    {formatMoneyPhp(Math.floor(baseUnit))}
+                  </span>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span className="inline-flex items-center rounded-full bg-sam-border-soft/70 px-2.5 py-0.5 sam-text-xxs font-medium text-sam-fg">
+                    ★ {ratingLabel ?? "—"} · 리뷰 {reviewCountDisp.toLocaleString("en-PH")}
+                  </span>
+                  <span className="inline-flex items-center rounded-full bg-sam-border-soft/70 px-2.5 py-0.5 sam-text-xxs font-medium text-sam-fg">
+                    주문 {orderCountDisp.toLocaleString("en-PH")}+
+                  </span>
+                </div>
               </div>
+            </div>
 
-              <div className="hidden mx-3 mt-3 gap-3 rounded-ui-rect bg-sam-surface p-3 shadow-sm ring-1 ring-sam-border/70">
-                <div className="h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
-                  {galleryUrls[0] ? (
+            {galleryUrls.length > 1 ? (
+              <div className="hidden mt-2 px-3">
+                <div className="flex gap-2 overflow-x-auto rounded-ui-rect bg-sam-surface p-2 shadow-sm ring-1 ring-sam-border/70 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  {galleryUrls.slice(1).map((url, i) => (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={galleryUrls[0]}
+                      key={`${url}-${i}`}
+                      src={url}
                       alt=""
-                      className="h-full w-full object-cover"
+                      className="h-14 w-14 shrink-0 rounded-ui-rect object-cover ring-1 ring-sam-border/80"
                     />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center sam-text-xxs text-sam-meta">
-                      이미지 없음
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="sam-text-body font-semibold leading-snug text-sam-fg">{product.title}</h3>
-                    <span className="shrink-0 rounded-full bg-sam-surface-muted px-2 py-0.5 sam-text-xxs font-medium text-sam-muted">
-                      찜 {favCount.toLocaleString("en-PH")}
-                    </span>
-                  </div>
-                  <div className="mt-1.5 flex flex-wrap items-baseline gap-2">
-                    {Math.floor(product.price) !== Math.floor(baseUnit) ? (
-                      <span className="sam-text-body-secondary text-sam-meta line-through">
-                        {formatMoneyPhp(Math.floor(product.price))}
-                      </span>
-                    ) : null}
-                    <span className="sam-text-page-title font-bold text-sam-fg">
-                      {formatMoneyPhp(Math.floor(baseUnit))}
-                    </span>
-                  </div>
-                  <div className="mt-2 flex flex-wrap gap-2">
-                    <span className="inline-flex items-center rounded-full bg-sam-border-soft/70 px-2.5 py-0.5 sam-text-xxs font-medium text-sam-fg">
-                      ★ {ratingLabel ?? "—"} · 리뷰 {reviewCountDisp.toLocaleString("en-PH")}
-                    </span>
-                    <span className="inline-flex items-center rounded-full bg-sam-border-soft/70 px-2.5 py-0.5 sam-text-xxs font-medium text-sam-fg">
-                      주문 {orderCountDisp.toLocaleString("en-PH")}+
-                    </span>
-                  </div>
+                  ))}
                 </div>
               </div>
+            ) : null}
 
-              {galleryUrls.length > 1 ? (
-                <div className="hidden mt-2 px-3">
-                  <div className="flex gap-2 overflow-x-auto rounded-ui-rect bg-sam-surface p-2 shadow-sm ring-1 ring-sam-border/70 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                    {galleryUrls.slice(1).map((url, i) => (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        key={`${url}-${i}`}
-                        src={url}
-                        alt=""
-                        className="h-14 w-14 shrink-0 rounded-ui-rect object-cover ring-1 ring-sam-border/80"
-                      />
-                    ))}
-                  </div>
+            {reviewSnippets.length > 0 ? (
+              <details className="hidden mx-3 mt-3 rounded-ui-rect border border-sam-border/80 bg-sam-surface shadow-sm">
+                <summary className="cursor-pointer px-3 py-2.5 sam-text-body-secondary font-semibold text-sam-fg">
+                  리뷰 미리보기 ({reviewSnippets.length})
+                </summary>
+                <div className="grid grid-cols-1 gap-2 border-t border-sam-border-soft px-3 pb-3 pt-2 sm:grid-cols-2">
+                  {reviewSnippets.map((r) => (
+                    <div
+                      key={`${r.created_at}-${r.content.slice(0, 12)}`}
+                      className="rounded-ui-rect bg-sam-app p-2.5 ring-1 ring-sam-border/60"
+                    >
+                      <p className="line-clamp-3 sam-text-helper leading-snug text-sam-fg">
+                        {r.rating != null && r.rating >= 4 ? "★ " : ""}
+                        {r.content}
+                      </p>
+                      <p className="mt-1.5 sam-text-xxs text-sam-muted">{r.created_at}</p>
+                    </div>
+                  ))}
                 </div>
-              ) : null}
+              </details>
+            ) : null}
 
-              {reviewSnippets.length > 0 ? (
-                <details className="hidden mx-3 mt-3 rounded-ui-rect border border-sam-border/80 bg-sam-surface shadow-sm">
-                  <summary className="cursor-pointer px-3 py-2.5 sam-text-body-secondary font-semibold text-sam-fg">
-                    리뷰 미리보기 ({reviewSnippets.length})
-                  </summary>
-                  <div className="grid grid-cols-1 gap-2 border-t border-sam-border-soft px-3 pb-3 pt-2 sm:grid-cols-2">
-                    {reviewSnippets.map((r) => (
-                      <div
-                        key={`${r.created_at}-${r.content.slice(0, 12)}`}
-                        className="rounded-ui-rect bg-sam-app p-2.5 ring-1 ring-sam-border/60"
-                      >
-                        <p className="line-clamp-3 sam-text-helper leading-snug text-sam-fg">
-                          {r.rating != null && r.rating >= 4 ? "★ " : ""}
-                          {r.content}
-                        </p>
-                        <p className="mt-1.5 sam-text-xxs text-sam-muted">{r.created_at}</p>
-                      </div>
-                    ))}
-                  </div>
-                </details>
-              ) : null}
+            {product.summary ? (
+              <p className="mx-4 mt-1 rounded-[10px] bg-neutral-50 px-3 py-2 text-[12px] font-medium leading-relaxed text-neutral-600">
+                {product.summary}
+              </p>
+            ) : null}
 
-              {product.summary ? (
-                <p className="mx-4 mt-1 rounded-[10px] bg-neutral-50 px-3 py-2 text-[12px] font-medium leading-relaxed text-neutral-600">
-                  {product.summary}
+            {mergedHasOptionsFlag && product.options_summary ? (
+              <p className="mx-4 mt-2 text-[12px] font-medium text-neutral-500">
+                {product.options_summary}
+              </p>
+            ) : null}
+
+            {awaitingOptionHydration ? (
+              <StoreProductSheetOptionsSkeleton />
+            ) : optionHydrationFailed ? (
+              <div className="border-t-[8px] border-[#EDEDED] px-4 py-6 text-center">
+                <p className="text-[13px] font-medium text-neutral-700">
+                  옵션 정보를 불러오지 못했습니다.
                 </p>
-              ) : null}
+                <button
+                  type="button"
+                  onClick={() => detail.retry()}
+                  className={`mt-3 text-[14px] font-bold text-[#1C8DB8] ${STORE_ORDER_TOUCH_BTN}`}
+                >
+                  다시 시도
+                </button>
+              </div>
+            ) : optionGroups.length > 0 ? (
+              <div className="border-t-[8px] border-[#EDEDED]">
+                <StoreModifierPicker
+                  groups={optionGroups}
+                  value={modifierWire}
+                  onChange={setModifierWireTracked}
+                  disabled={soldOut || orderBlocked}
+                  variant="sheet"
+                />
+              </div>
+            ) : null}
 
-              {optionGroups.length > 0 ? (
-                <div className="border-t-[8px] border-[#EDEDED]">
-                  <StoreModifierPicker
-                    groups={optionGroups}
-                    value={modifierWire}
-                    onChange={setModifierWire}
-                    disabled={soldOut || orderBlocked}
-                    variant="sheet"
-                  />
-                </div>
-              ) : null}
-
-              <div
-                className="border-t-[8px] border-[#EDEDED] px-4 py-4"
-                style={{ backgroundColor: STORE_ORDER_BRAND.frameGray }}
-              >
-                {hasOptionDelta ? (
-                  <>
-                    <div className="flex items-start justify-between gap-3">
-                      <span className="text-[12px] font-medium text-neutral-500">메뉴</span>
-                      <div className="text-right">
-                        {showListStrike ? (
-                          <span className="mr-2 text-[11px] font-medium tabular-nums text-neutral-400 line-through">
-                            {formatMoneyPhp(Math.floor(product.price))}
-                          </span>
-                        ) : null}
-                        <span className="text-[15px] font-bold tabular-nums text-neutral-900">
-                          {formatMoneyPhp(Math.floor(baseUnit))}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="mt-2 flex items-center justify-between text-[11px] font-medium">
-                      <span className="text-neutral-500">옵션 추가</span>
-                      <span className="tabular-nums font-semibold text-neutral-700">
-                        {optionValidation.unitDelta > 0 ? "+" : ""}
-                        {formatMoneyPhp(optionValidation.unitDelta)}
-                      </span>
-                    </div>
-                    <div className="mt-3 flex items-end justify-between border-t border-neutral-200/70 pt-3">
-                      <span className="text-[12px] font-bold text-neutral-800">1개당</span>
-                      <span className="text-[17px] font-extrabold tabular-nums tracking-tight text-neutral-900">
-                        {formatMoneyPhp(unitWithOptions)}
-                      </span>
-                    </div>
-                  </>
-                ) : (
+            <div
+              className="border-t-[8px] border-[#EDEDED] px-4 py-4"
+              style={{ backgroundColor: STORE_ORDER_BRAND.frameGray }}
+            >
+              {hasOptionDelta ? (
+                <>
                   <div className="flex items-start justify-between gap-3">
-                    <span className="pt-0.5 text-[12px] font-medium text-neutral-500">메뉴 금액</span>
+                    <span className="text-[12px] font-medium text-neutral-500">메뉴</span>
                     <div className="text-right">
                       {showListStrike ? (
                         <span className="mr-2 text-[11px] font-medium tabular-nums text-neutral-400 line-through">
                           {formatMoneyPhp(Math.floor(product.price))}
                         </span>
                       ) : null}
-                      <span className="text-[17px] font-extrabold tabular-nums tracking-tight text-neutral-900">
-                        {formatMoneyPhp(unitWithOptions)}
+                      <span className="text-[15px] font-bold tabular-nums text-neutral-900">
+                        {formatMoneyPhp(Math.floor(baseUnit))}
                       </span>
-                      <span className="ml-0.5 text-[11px] font-semibold text-neutral-500">/개</span>
                     </div>
                   </div>
-                )}
-
-                <div className="mt-4 flex items-center justify-between border-t border-neutral-200/70 pt-4">
-                  <span className="text-[13px] font-bold text-neutral-900">수량</span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      disabled={qtyMinusDisabled}
-                      onClick={() => setQty((q) => Math.max(minQ, q - 1))}
-                      className={`flex h-10 w-10 shrink-0 items-center justify-center text-lg font-bold leading-none ${STORE_ORDER_CTA_STEPPER}`}
-                      aria-label="수량 감소"
-                    >
-                      −
-                    </button>
-                    <span className="min-w-[2.25rem] text-center text-[16px] font-extrabold tabular-nums text-neutral-900">
-                      {qty}
+                  <div className="mt-2 flex items-center justify-between text-[11px] font-medium">
+                    <span className="text-neutral-500">옵션 추가</span>
+                    <span className="tabular-nums font-semibold text-neutral-700">
+                      {optionValidation.unitDelta > 0 ? "+" : ""}
+                      {formatMoneyPhp(optionValidation.unitDelta)}
                     </span>
-                    <button
-                      type="button"
-                      disabled={qtyPlusDisabled}
-                      onClick={() => setQty((q) => Math.min(capQty, q + 1))}
-                      className={`flex h-10 w-10 shrink-0 items-center justify-center text-lg font-bold leading-none ${STORE_ORDER_CTA_STEPPER}`}
-                      aria-label="수량 증가"
-                    >
-                      +
-                    </button>
+                  </div>
+                  <div className="mt-3 flex items-end justify-between border-t border-neutral-200/70 pt-3">
+                    <span className="text-[12px] font-bold text-neutral-800">1개당</span>
+                    <span className="text-[17px] font-extrabold tabular-nums tracking-tight text-neutral-900">
+                      {formatMoneyPhp(unitWithOptions)}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-start justify-between gap-3">
+                  <span className="pt-0.5 text-[12px] font-medium text-neutral-500">메뉴 금액</span>
+                  <div className="text-right">
+                    {showListStrike ? (
+                      <span className="mr-2 text-[11px] font-medium tabular-nums text-neutral-400 line-through">
+                        {formatMoneyPhp(Math.floor(product.price))}
+                      </span>
+                    ) : null}
+                    <span className="text-[17px] font-extrabold tabular-nums tracking-tight text-neutral-900">
+                      {formatMoneyPhp(unitWithOptions)}
+                    </span>
+                    <span className="ml-0.5 text-[11px] font-semibold text-neutral-500">/개</span>
                   </div>
                 </div>
+              )}
 
-                {showLineTotalInCard ? (
-                  <div className="mt-4 flex items-center justify-between border-t border-neutral-200/70 pt-4">
-                    <span className="text-[12px] font-semibold text-neutral-600">주문 합계</span>
-                    <span className="text-[17px] font-extrabold tabular-nums text-neutral-900">
-                      {formatMoneyPhp(lineTotal)}
-                    </span>
-                  </div>
-                ) : null}
+              <div className="mt-4 flex items-center justify-between border-t border-neutral-200/70 pt-4">
+                <span className="text-[13px] font-bold text-neutral-900">수량</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={qtyMinusDisabled}
+                    onClick={() => setQty((q) => Math.max(minQ, q - 1))}
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center text-lg font-bold leading-none ${STORE_ORDER_CTA_STEPPER}`}
+                    aria-label="수량 감소"
+                  >
+                    −
+                  </button>
+                  <span className="min-w-[2.25rem] text-center text-[16px] font-extrabold tabular-nums text-neutral-900">
+                    {qty}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={qtyPlusDisabled}
+                    onClick={() => setQty((q) => Math.min(capQty, q + 1))}
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center text-lg font-bold leading-none ${STORE_ORDER_CTA_STEPPER}`}
+                    aria-label="수량 증가"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
 
-              <div className="border-t border-neutral-100 bg-white px-4 py-3.5">
-                <label htmlFor="store-add-sheet-line-note" className="text-[12px] font-bold text-neutral-800">
-                  요청사항 <span className="font-medium text-neutral-500">(선택)</span>
-                </label>
-                <textarea
-                  id="store-add-sheet-line-note"
-                  rows={2}
-                  value={lineNote}
-                  onChange={(e) => setLineNote(e.target.value)}
-                  disabled={soldOut || orderBlocked}
-                  placeholder="예: 덜 맵게, 양파 빼주세요"
-                  className="mt-2 w-full resize-none rounded-[10px] border border-neutral-200 bg-white px-3 py-2 text-[13px] font-medium text-neutral-900 placeholder:text-neutral-400 focus:border-[#1C8DB8] focus:outline-none focus:ring-2 focus:ring-[#1C8DB8]/20 disabled:bg-neutral-100"
-                />
-              </div>
-
-              <p className="px-4 pb-3 pt-0">
-                <Link
-                  href={`/stores/${encodeURIComponent(store.slug)}/p/${encodeURIComponent(product.id)}`}
-                  className={`text-[11px] font-semibold hover:underline ${STORE_ORDER_TOUCH_BTN}`}
-                  style={{ color: STORE_ORDER_BRAND.accent }}
-                  onClick={onClose}
-                >
-                  전체 화면에서 보기
-                </Link>
-              </p>
-
-              {!optionValidation.ok ? (
-                <p className="mt-1 px-4 text-[11px] text-amber-800">옵션을 올바르게 선택해 주세요.</p>
-              ) : null}
-              {!commerceCart ? (
-                <p className="mt-1 px-4 pb-2 text-[11px] text-amber-800">
-                  장바구니를 사용할 수 없습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.
-                </p>
+              {showLineTotalInCard ? (
+                <div className="mt-4 flex items-center justify-between border-t border-neutral-200/70 pt-4">
+                  <span className="text-[12px] font-semibold text-neutral-600">주문 합계</span>
+                  <span className="text-[17px] font-extrabold tabular-nums text-neutral-900">
+                    {formatMoneyPhp(lineTotal)}
+                  </span>
+                </div>
               ) : null}
             </div>
-          )}
-        </div>
 
-        {!loading && !notFound && product && store ? (
-          <div
-            className="shrink-0 border-t border-neutral-100 bg-white px-4 pt-3 shadow-[0_-4px_16px_rgba(0,0,0,0.08)]"
-            style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))" }}
-          >
-            {sheetErr ? (
-              <p className="mb-2 text-center text-[11px] font-medium text-red-600">{sheetErr}</p>
+            <div className="border-t border-neutral-100 bg-white px-4 py-3.5">
+              <label htmlFor="store-add-sheet-line-note" className="text-[12px] font-bold text-neutral-800">
+                요청사항 <span className="font-medium text-neutral-500">(선택)</span>
+              </label>
+              <textarea
+                id="store-add-sheet-line-note"
+                rows={2}
+                value={lineNote}
+                onChange={(e) => setLineNote(e.target.value)}
+                disabled={soldOut || orderBlocked}
+                placeholder="예: 덜 맵게, 양파 빼주세요"
+                className="mt-2 w-full resize-none rounded-[10px] border border-neutral-200 bg-white px-3 py-2 text-[13px] font-medium text-neutral-900 placeholder:text-neutral-400 focus:border-[#1C8DB8] focus:outline-none focus:ring-2 focus:ring-[#1C8DB8]/20 disabled:bg-neutral-100"
+              />
+            </div>
+
+            <p className="px-4 pb-3 pt-0">
+              <Link
+                href={`/stores/${encodeURIComponent(store.slug)}/p/${encodeURIComponent(product.id)}`}
+                className={`text-[11px] font-semibold hover:underline ${STORE_ORDER_TOUCH_BTN}`}
+                style={{ color: STORE_ORDER_BRAND.accent }}
+                onClick={onClose}
+              >
+                전체 화면에서 보기
+              </Link>
+            </p>
+
+            {!optionValidation.ok && !awaitingOptionHydration && !optionHydrationFailed ? (
+              <p className="mt-1 px-4 text-[11px] text-amber-800">옵션을 올바르게 선택해 주세요.</p>
             ) : null}
-            <button
-              type="button"
-              disabled={
-                soldOut ||
-                orderBlocked ||
-                !optionValidation.ok ||
-                !commerceCart ||
-                capQty < minQ
-              }
-              onClick={addToCart}
-              className={`w-full py-3.5 text-[17px] leading-none ${STORE_ORDER_CTA_PRIMARY}`}
-            >
-              {formatMoneyPhp(lineTotal)} 담기
-            </button>
+            {!commerceCart ? (
+              <p className="mt-1 px-4 pb-2 text-[11px] text-amber-800">
+                장바구니를 사용할 수 없습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.
+              </p>
+            ) : null}
           </div>
         ) : null}
       </div>
-    </div>
+
+      {!showNotFound && !showFullLoadingBody && product && store ? (
+        <div
+          className="shrink-0 border-t border-neutral-100 bg-white px-4 pt-3 shadow-[0_-4px_16px_rgba(0,0,0,0.08)]"
+          style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))" }}
+        >
+          {sheetErr ? (
+            <p className="mb-2 text-center text-[11px] font-medium text-red-600">{sheetErr}</p>
+          ) : null}
+          <button
+            type="button"
+            disabled={ctaDisabled}
+            onClick={addToCart}
+            className={`w-full py-3.5 text-[17px] leading-none ${STORE_ORDER_CTA_PRIMARY}`}
+          >
+            {ctaLabel}
+          </button>
+        </div>
+      ) : null}
+    </StoreProductSheetShell>
+      <StoreCartOtherStoreConflictDialog
+        open={otherStoreConflictOpen}
+        onCancel={cancelReplaceCart}
+        onClearAndAdd={confirmReplaceCart}
+      />
+    </>
   );
 }

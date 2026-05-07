@@ -37,6 +37,8 @@ import { loadBuyerStoreOrdersHubSummary } from "@/lib/stores/load-buyer-store-or
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
 import { persistStoreOrderItemOptions } from "@/lib/stores/persist-store-order-item-options";
+import { normalizeStoreOrderClientKey } from "@/lib/stores/store-order-client-key";
+import { createStoreOrderEvent } from "@/lib/stores/store-order-events";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -75,6 +77,25 @@ async function restoreDecrementedStock(
 
 function makeOrderNo() {
   return `SO${Date.now()}${randomBytes(2).toString("hex")}`;
+}
+
+async function fetchExistingBuyerOrderByClientKey(
+  sb: SupabaseClient,
+  buyerUserId: string,
+  clientKey: string
+): Promise<{ id: string; order_no: string; payment_amount: number } | null> {
+  const { data, error } = await sb
+    .from("store_orders")
+    .select("id, order_no, payment_amount")
+    .eq("buyer_user_id", buyerUserId)
+    .eq("client_order_key", clientKey)
+    .maybeSingle();
+  if (error || !data?.id) return null;
+  return {
+    id: String(data.id),
+    order_no: String(data.order_no ?? ""),
+    payment_amount: Number(data.payment_amount ?? 0),
+  };
 }
 
 function normalizeOrderLineItem(
@@ -267,6 +288,8 @@ type PostBody = {
   /** 배달·택배 수령지 한 줄 */
   delivery_address_summary?: string;
   delivery_address_detail?: string;
+  /** 멱등 키 — 재전송·더블클릭 시 동일 주문 반환 */
+  client_order_key?: string;
 };
 
 /**
@@ -296,6 +319,18 @@ export async function POST(req: NextRequest) {
     body = await req.json();
   } catch {
     return NextResponse.json({ ok: false, error: "invalid_json" }, { status: 400 });
+  }
+
+  const normalizedClientKey = normalizeStoreOrderClientKey(body.client_order_key);
+  if (normalizedClientKey) {
+    const existingHit = await fetchExistingBuyerOrderByClientKey(sb, buyerId, normalizedClientKey);
+    if (existingHit) {
+      return NextResponse.json({
+        ok: true,
+        order: existingHit,
+        idempotent: true,
+      });
+    }
   }
 
   const storeId = String(body.store_id ?? "").trim();
@@ -552,32 +587,49 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const insertOrderPayload: Record<string, unknown> = {
+    order_no: orderNo,
+    buyer_user_id: buyerId,
+    store_id: storeId,
+    total_amount: Math.round(paymentGrandTotal),
+    discount_amount: 0,
+    payment_amount: Math.round(paymentGrandTotal),
+    delivery_fee_amount: Math.round(deliveryFeeAmount),
+    delivery_courier_label: deliveryCourierLabel,
+    payment_status: "paid",
+    order_status: "pending",
+    fulfillment_type: fulfillment,
+    buyer_note,
+    buyer_phone: buyer_phone_norm,
+    buyer_payment_method: paymentMethodRaw,
+    buyer_payment_method_detail,
+    delivery_address_summary,
+    delivery_address_detail,
+  };
+  if (normalizedClientKey) {
+    insertOrderPayload.client_order_key = normalizedClientKey;
+  }
+
   const { data: orderRow, error: oErr } = await sb
     .from("store_orders")
-    .insert({
-      order_no: orderNo,
-      buyer_user_id: buyerId,
-      store_id: storeId,
-      total_amount: Math.round(paymentGrandTotal),
-      discount_amount: 0,
-      payment_amount: Math.round(paymentGrandTotal),
-      delivery_fee_amount: Math.round(deliveryFeeAmount),
-      delivery_courier_label: deliveryCourierLabel,
-      payment_status: "paid",
-      order_status: "pending",
-      fulfillment_type: fulfillment,
-      buyer_note,
-      buyer_phone: buyer_phone_norm,
-      buyer_payment_method: paymentMethodRaw,
-      buyer_payment_method_detail,
-      delivery_address_summary,
-      delivery_address_detail,
-    })
+    .insert(insertOrderPayload as never)
     .select("id")
     .maybeSingle();
 
   if (oErr || !orderRow) {
     await restoreDecrementedStock(sb, stockRollback);
+    const pgCode = (oErr as { code?: string } | null)?.code;
+    if (normalizedClientKey && pgCode === "23505") {
+      const recovered = await fetchExistingBuyerOrderByClientKey(sb, buyerId, normalizedClientKey);
+      if (recovered) {
+        return NextResponse.json({
+          ok: true,
+          order: recovered,
+          idempotent: true,
+        });
+      }
+      return NextResponse.json({ ok: false, error: "order_idempotency_conflict" }, { status: 409 });
+    }
     console.error("[POST store-orders]", oErr);
     const raw = oErr?.message ?? "order_insert_failed";
     if (isStoreOrderStatusCheckViolation(raw)) {
@@ -645,7 +697,24 @@ export async function POST(req: NextRequest) {
     user_agent: rm.userAgent,
   });
 
-  void notifyStoreOwnerNewOrder(sb, {
+  const createdEv = await createStoreOrderEvent(sb, {
+    orderId,
+    storeId,
+    actorUserId: buyerId,
+    actorRole: "buyer",
+    eventType: "order_created",
+    fromStatus: null,
+    toStatus: "pending",
+    dedupeKey: `${orderId}:order_created`,
+    metadata: {
+      order_no: orderNo,
+      payment_amount: Math.round(paymentGrandTotal),
+      line_count: lines.length,
+      fulfillment_type: fulfillment,
+    },
+  });
+
+  const notifyOwnerPayload = {
     storeId,
     orderId,
     orderNo,
@@ -654,7 +723,15 @@ export async function POST(req: NextRequest) {
     storeName: (store.store_name as string) ?? undefined,
     paymentLabel: formatBuyerPaymentDisplay(paymentMethodRaw, buyer_payment_method_detail),
     buyerNote: buyer_note,
-  });
+  };
+  if (createdEv.ok) {
+    if (createdEv.inserted) {
+      void notifyStoreOwnerNewOrder(sb, { ...notifyOwnerPayload, storeOrderEventId: createdEv.row.id });
+    }
+  } else {
+    /** 이벤트 원장 삽입 실패 시에도 알림은 dedupe_key(order_id 기반)로 1회만 */
+    void notifyStoreOwnerNewOrder(sb, notifyOwnerPayload);
+  }
 
   try {
     const ens = await ensureOrderChatRoom(sb as SupabaseClient<any>, orderId);
@@ -679,5 +756,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     order: { id: orderId, order_no: orderNo, payment_amount: paymentGrandTotal },
+    idempotent: false,
   });
 }

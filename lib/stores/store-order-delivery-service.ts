@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { allowedDeliveryTransitions, isValidDeliveryStatus, type StoreOrderDeliveryStatus } from "@/lib/stores/store-order-delivery-status";
+import { createStoreOrderDeliveryLifecycleEvent } from "@/lib/stores/store-order-events";
 
 export type StoreOrderDeliveryRow = {
   order_id: string;
@@ -403,6 +404,21 @@ export async function adminPatchStoreOrderDelivery(
     user_agent: opts.user_agent ?? null,
   });
 
+  const nextDeliveryStatus =
+    safeTrim((updated as { delivery_status?: string }).delivery_status) || prev;
+  if (nextDeliveryStatus !== prev) {
+    void createStoreOrderDeliveryLifecycleEvent(sb, {
+      orderId: opts.orderId.trim(),
+      storeId: ensured.row.store_id,
+      actorRole: "admin",
+      actorUserId: opts.adminUserId,
+      milestone: "delivery_status",
+      fromDeliveryStatus: prev,
+      toDeliveryStatus: nextDeliveryStatus,
+      metadata: { source: "store_order.delivery.admin_patch" },
+    });
+  }
+
   return { ok: true, row: updated as unknown as StoreOrderDeliveryRow, previous_status: prev };
 }
 
@@ -526,6 +542,21 @@ export async function ownerPatchStoreOrderDelivery(
     ip: opts.ip ?? null,
     user_agent: opts.user_agent ?? null,
   });
+
+  const nextDeliveryOwner =
+    safeTrim((updated as { delivery_status?: string }).delivery_status) || prev;
+  if (nextDeliveryOwner !== prev) {
+    void createStoreOrderDeliveryLifecycleEvent(sb, {
+      orderId: opts.orderId.trim(),
+      storeId: guard.store_id,
+      actorRole: "owner",
+      actorUserId: opts.ownerUserId,
+      milestone: "delivery_status",
+      fromDeliveryStatus: prev,
+      toDeliveryStatus: nextDeliveryOwner,
+      metadata: { source: "store_order.delivery.owner_patch" },
+    });
+  }
 
   return { ok: true, row: updated as unknown as StoreOrderDeliveryRow, previous_status: prev };
 }
@@ -964,6 +995,48 @@ export async function riderPatchStoreOrderDelivery(
     ip: opts.ip ?? null,
     user_agent: opts.user_agent ?? null,
   });
+
+  const nextDs =
+    safeTrim((updated as { delivery_status?: string }).delivery_status) || prev;
+  const evCommon = {
+    orderId: oid,
+    storeId: guard.store_id,
+    actorRole: "rider" as const,
+    actorUserId: uid,
+    fromDeliveryStatus: prev,
+  };
+  const action = opts.action;
+  if (action.type === "accept") {
+    void createStoreOrderDeliveryLifecycleEvent(sb, {
+      ...evCommon,
+      milestone: "rider_accepted",
+      toDeliveryStatus: nextDs,
+    });
+  } else if (action.type === "decline") {
+    void createStoreOrderDeliveryLifecycleEvent(sb, {
+      ...evCommon,
+      milestone: "rider_declined",
+      toDeliveryStatus: nextDs,
+    });
+  } else if (action.type === "customer_arrived") {
+    void createStoreOrderDeliveryLifecycleEvent(sb, {
+      ...evCommon,
+      milestone: "customer_arrived",
+      toDeliveryStatus: nextDs,
+    });
+  } else if (action.type === "report_delivery_failure") {
+    void createStoreOrderDeliveryLifecycleEvent(sb, {
+      ...evCommon,
+      milestone: "failure_report",
+      toDeliveryStatus: nextDs,
+    });
+  } else if (action.type === "set_delivery_status") {
+    void createStoreOrderDeliveryLifecycleEvent(sb, {
+      ...evCommon,
+      milestone: "delivery_status",
+      toDeliveryStatus: safeTrim(action.delivery_status),
+    });
+  }
 
   return { ok: true, row: updated as unknown as StoreOrderDeliveryRow, previous_status: prev };
 }

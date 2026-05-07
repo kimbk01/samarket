@@ -7,6 +7,7 @@ import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import { StoreCardFavoriteIcon } from "@/components/stores/home/StoreCardFavoriteIcon";
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
+import { dibayPerfRecordStoreCardNavigationIntent } from "@/lib/dibay/delivery-flow-perf";
 
 export type StoreRowCardData = {
   slug: string;
@@ -189,6 +190,7 @@ export const StoreDeliveryRowCard = memo(function StoreDeliveryRowCard({ data }:
         onPointerEnter={prefetchStoreDetail}
         onFocus={prefetchStoreDetail}
         onTouchStart={prefetchStoreDetail}
+        onClick={() => dibayPerfRecordStoreCardNavigationIntent(data.slug)}
       >
         <div className="flex gap-2">
           <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[#E4E6EB] dark:bg-[#3A3B3C]">

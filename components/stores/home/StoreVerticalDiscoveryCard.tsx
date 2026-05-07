@@ -8,6 +8,7 @@ import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { StoreCardFavoriteIcon } from "./StoreCardFavoriteIcon";
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
+import { dibayPerfRecordStoreCardNavigationIntent } from "@/lib/dibay/delivery-flow-perf";
 
 function statusBadge(status: BrowseStoreListItem["status"]) {
   if (status === "open") {
@@ -151,6 +152,7 @@ export function StoreVerticalDiscoveryCard({
         onPointerEnter={prefetchStoreDetail}
         onFocus={prefetchStoreDetail}
         onTouchStart={prefetchStoreDetail}
+        onClick={() => dibayPerfRecordStoreCardNavigationIntent(store.slug)}
       >
         <div className="relative aspect-[5/3] w-full overflow-hidden bg-sam-surface-muted dark:bg-[#3A3B3C]">
           {store.profileImageUrl ?

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useOrderChatRoomRealtime } from "@/lib/order-chat/use-order-chat-room-realtime";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { ChatHubTopTabs } from "@/components/order-chat/ChatHubTopTabs";
@@ -24,6 +24,7 @@ import { KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH } from "@/lib/chats/chat-channel-
 import { createCommunityMessengerDeepLinkFromOrderChat } from "@/lib/community-messenger/order-chat-bridge";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { fetchOrderChatGetDeduped } from "@/lib/order-chat/fetch-order-chat-get-deduped";
+import { dibayPerfOnOrderChatRoomVisible } from "@/lib/dibay/delivery-flow-perf";
 
 type Snapshot = {
   room: OrderChatRoomPublic;
@@ -88,6 +89,14 @@ export function OrderChatRoomClient({
       : { kind: "loading" }
   );
   const [toast, setToast] = useState<string | null>(null);
+  const chatRoomPerfOnceRef = useRef<string | null>(null);
+
+  useLayoutEffect(() => {
+    if (state.kind !== "ready") return;
+    if (chatRoomPerfOnceRef.current === orderId) return;
+    chatRoomPerfOnceRef.current = orderId;
+    dibayPerfOnOrderChatRoomVisible(orderId);
+  }, [state.kind, orderId]);
 
   const load = useCallback(async () => {
     setState({ kind: "loading" });

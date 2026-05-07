@@ -1,17 +1,33 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { OwnerOrderCard } from "@/components/stores/owner/OwnerOrderCard";
 import { OwnerOrderStatusBadge } from "@/components/stores/owner/OwnerOrderStatusBadge";
 import { filterOwnerOrdersByTab } from "@/lib/store-owner/owner-order-filters";
-import { fetchOwnerOrdersRemote } from "@/lib/store-owner/owner-order-remote";
+import { fetchOwnerOrderRemote, fetchOwnerOrdersRemote } from "@/lib/store-owner/owner-order-remote";
 import type { OwnerOrder, OwnerOrderTab } from "@/lib/store-owner/types";
 import { useMeStoreBySlug } from "@/hooks/useMeStoreBySlug";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
+import {
+  dibayPerfOnOwnerOrdersVisible,
+  dibayPerfRecordOwnerOrderFullReloadFallback,
+  dibayPerfRecordOwnerOrderRowPatched,
+} from "@/lib/dibay/delivery-flow-perf";
+import { useOwnerStoreOrdersRealtime, sortOwnerOrdersDesc } from "@/hooks/stores/useOwnerStoreOrdersRealtime";
 
 type Props = {
   slug: string;
 };
+
+function mergeOwnerOrdersWithServer(prev: OwnerOrder[], server: OwnerOrder[]): OwnerOrder[] {
+  const byId = new Map(server.map((o) => [o.id, o]));
+  for (const o of prev) {
+    if (!byId.has(o.id)) byId.set(o.id, o);
+  }
+  return sortOwnerOrdersDesc([...byId.values()]);
+}
 
 export function OwnerOrdersPageClient({ slug }: Props) {
   const { state: gate } = useMeStoreBySlug(slug);
@@ -19,15 +35,66 @@ export function OwnerOrdersPageClient({ slug }: Props) {
   const [orders, setOrders] = useState<OwnerOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const ownerListPerfRef = useRef(false);
+  const [highlightIds, setHighlightIds] = useState<Set<string>>(() => new Set());
+  const highlightTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const storeId = gate.kind === "ok" ? gate.store.id : null;
   const storeName = gate.kind === "ok" ? gate.store.store_name : "";
   const safeSlug = decodeURIComponent(slug || "").trim();
 
-  const load = useCallback(async () => {
+  const scheduleHighlight = useCallback((id: string) => {
+    const oid = id.trim();
+    if (!oid) return;
+    setHighlightIds((prev) => new Set(prev).add(oid));
+    const prevT = highlightTimersRef.current.get(oid);
+    if (prevT) clearTimeout(prevT);
+    const t = setTimeout(() => {
+      highlightTimersRef.current.delete(oid);
+      setHighlightIds((prev) => {
+        const n = new Set(prev);
+        n.delete(oid);
+        return n;
+      });
+    }, 12_000);
+    highlightTimersRef.current.set(oid, t);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      for (const t of highlightTimersRef.current.values()) clearTimeout(t);
+      highlightTimersRef.current.clear();
+    };
+  }, []);
+
+  const enrichOrder = useCallback(
+    (orderId: string) => {
+      if (!storeId) return;
+      const oid = orderId.trim();
+      if (!oid) return;
+      void runSingleFlight(`owner:order-enrich:${storeId}:${oid}`, async () => {
+        const r = await fetchOwnerOrderRemote(storeId, oid, {
+          storeSlug: safeSlug,
+          storeName,
+        });
+        if (!r.ok) return;
+        setOrders((prev) => {
+          const idx = prev.findIndex((o) => o.id === oid);
+          if (idx < 0) return sortOwnerOrdersDesc([r.order, ...prev]);
+          const next = [...prev];
+          next[idx] = r.order;
+          return sortOwnerOrdersDesc(next);
+        });
+        dibayPerfRecordOwnerOrderRowPatched(storeId, oid);
+      });
+    },
+    [storeId, safeSlug, storeName]
+  );
+
+  const fetchOrdersOnce = useCallback(async (): Promise<void> => {
     if (!storeId) return;
-    setLoading((prev) => (prev ? prev : true));
-    setError((prev) => (prev === null ? prev : null));
+    setLoading(true);
+    setError(null);
     try {
       const r = await fetchOwnerOrdersRemote(storeId, { storeSlug: safeSlug, storeName });
       if (!r.ok) {
@@ -35,17 +102,46 @@ export function OwnerOrdersPageClient({ slug }: Props) {
         setOrders([]);
         return;
       }
-      setOrders(r.orders);
+      setOrders((prev) => mergeOwnerOrdersWithServer(prev, r.orders));
     } catch (e) {
       setError(e instanceof Error ? e.message : "load_failed");
     } finally {
-      setLoading((prev) => (prev ? false : prev));
+      setLoading(false);
     }
   }, [storeId, safeSlug, storeName]);
+
+  const load = useCallback(() => {
+    if (!storeId) return Promise.resolve();
+    return runSingleFlight(`owner:orders:list:${storeId}`, fetchOrdersOnce);
+  }, [storeId, fetchOrdersOnce]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useRefetchOnPageShowRestore(() => void load());
+
+  useOwnerStoreOrdersRealtime({
+    storeId,
+    storeSlug: safeSlug,
+    storeName,
+    enabled: gate.kind === "ok" && !!storeId,
+    debounceUpdateMs: 140,
+    setOrders,
+    requestOrderEnrich: enrichOrder,
+    onRealtimeInsert: scheduleHighlight,
+  });
+
+  useLayoutEffect(() => {
+    if (gate.kind !== "ok" || !storeId || loading) return;
+    if (ownerListPerfRef.current) return;
+    ownerListPerfRef.current = true;
+    dibayPerfOnOwnerOrdersVisible(storeId);
+  }, [gate.kind, storeId, loading]);
+
+  useEffect(() => {
+    ownerListPerfRef.current = false;
+  }, [safeSlug]);
 
   const filtered = useMemo(() => filterOwnerOrdersByTab(orders, tab), [orders, tab]);
 
@@ -87,7 +183,10 @@ export function OwnerOrdersPageClient({ slug }: Props) {
         <div className="text-sm text-sam-muted">주문을 확인하고 상태를 변경할 수 있습니다.</div>
         <button
           type="button"
-          onClick={() => void load()}
+          onClick={() => {
+            if (storeId) dibayPerfRecordOwnerOrderFullReloadFallback(storeId);
+            void load();
+          }}
           className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-xs font-bold text-sam-fg hover:bg-sam-app"
         >
           새로고침
@@ -131,7 +230,8 @@ export function OwnerOrdersPageClient({ slug }: Props) {
               storeId={gate.store.id}
               slug={safeSlug}
               order={o}
-              onActionDone={() => void load()}
+              highlight={highlightIds.has(o.id)}
+              onActionDone={() => enrichOrder(o.id)}
             />
           ))}
         </div>

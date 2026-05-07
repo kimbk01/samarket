@@ -19,11 +19,14 @@ export function OwnerOrderCard({
   storeId,
   slug,
   order,
+  highlight,
   onActionDone,
 }: {
   storeId: string;
   slug: string;
   order: OwnerOrder;
+  /** Realtime 신규 주문 등 짧은 강조 */
+  highlight?: boolean;
   onActionDone?: () => void | Promise<void>;
 }) {
   const detailHref = buildStoreOrdersHref({ storeId, orderId: order.id });
@@ -33,7 +36,11 @@ export function OwnerOrderCard({
       : { cls: "bg-teal-50 text-teal-900", text: "포장 픽업" };
 
   return (
-    <article className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
+    <article
+      className={`rounded-ui-rect bg-sam-surface p-4 shadow-sm ${
+        highlight ? "border-2 border-amber-400 ring-2 ring-amber-300/50" : "border border-sam-border"
+      }`}
+    >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="font-mono text-xs font-semibold text-sam-muted">{order.order_no}</p>
@@ -55,7 +62,9 @@ export function OwnerOrderCard({
         ) : null}
       </div>
 
-      <p className="mt-2 line-clamp-2 text-sm text-sam-muted">{menuSummary(order.items)}</p>
+      <p className="mt-2 line-clamp-2 text-sm text-sam-muted">
+        {order.items.length === 0 ? "주문 품목을 불러오는 중…" : menuSummary(order.items)}
+      </p>
       <p className="mt-2 text-lg font-bold text-sam-fg">{formatMoneyPhp(order.total_amount)}</p>
 
       <div className="mt-3 flex gap-2">

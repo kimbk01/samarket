@@ -4,6 +4,7 @@ import {
   appendOrderChatStatusTransition,
 } from "@/lib/order-chat/service";
 import { notifyBuyerStoreOrderOwnerStatus } from "@/lib/notifications/notify-store-commerce";
+import { createStoreOrderStatusEvent } from "@/lib/stores/store-order-events";
 import { cancelScheduledSettlementForOrder } from "@/lib/stores/cancel-store-settlement";
 import { loadCommerceSettings } from "@/lib/stores/load-commerce-settings";
 import { ensureStoreSettlementForCompletedOrder } from "@/lib/stores/ensure-store-settlement";
@@ -191,13 +192,38 @@ export async function applyStoreOrderStatusTransition(
     user_agent: opts.audit.user_agent ?? null,
   });
 
-  void notifyBuyerStoreOrderOwnerStatus(sb, {
-    buyerUserId: order.buyer_user_id as string,
+  const statusEv = await createStoreOrderStatusEvent(sb, {
     orderId: oid,
-    orderNo: String(order.order_no ?? ""),
     storeId: sid,
-    nextStatus,
+    fromStatus: current,
+    toStatus: nextStatus,
+    audit: {
+      actor_type: opts.audit.actor_type,
+      actor_id: opts.audit.actor_id,
+    },
   });
+
+  if (statusEv.ok) {
+    if (statusEv.inserted) {
+      void notifyBuyerStoreOrderOwnerStatus(sb, {
+        buyerUserId: order.buyer_user_id as string,
+        orderId: oid,
+        orderNo: String(order.order_no ?? ""),
+        storeId: sid,
+        nextStatus,
+        storeOrderEventId: statusEv.row.id,
+      });
+    }
+  } else {
+    /** 이벤트 원장 삽입 실패 시에도 알림은 dedupe_key(order_id+status 기반)로 1회만 */
+    void notifyBuyerStoreOrderOwnerStatus(sb, {
+      buyerUserId: order.buyer_user_id as string,
+      orderId: oid,
+      orderNo: String(order.order_no ?? ""),
+      storeId: sid,
+      nextStatus,
+    });
+  }
 
   try {
     await appendOrderChatStatusTransition(

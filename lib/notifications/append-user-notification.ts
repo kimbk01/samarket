@@ -31,6 +31,10 @@ export async function appendUserNotification(
     push_kind?: "chat" | "trade" | "delivery" | "community" | "notice" | "marketing" | "system" | null;
     image_url?: string | null;
     sender_id?: string | null;
+    /** 동일 수신자·키 알림 중복 삽입 방지 — 마이그레이션 미적용 시 재시도에서 생략 */
+    dedupe_key?: string | null;
+    /** store_order_events.id — 알림·원장 1:1 (마이그레이션 미적용 시 재시도에서 생략) */
+    store_order_event_id?: string | null;
   }
 ): Promise<boolean> {
   const uid = row.user_id.trim();
@@ -60,6 +64,10 @@ export async function appendUserNotification(
   if (row.push_kind) insert.push_kind = row.push_kind;
   if (row.image_url != null && String(row.image_url).trim()) insert.image_url = String(row.image_url).trim();
   if (row.sender_id != null && String(row.sender_id).trim()) insert.sender_id = String(row.sender_id).trim();
+  const dk = typeof row.dedupe_key === "string" ? row.dedupe_key.trim() : "";
+  if (dk) insert.dedupe_key = dk;
+  const evId = typeof row.store_order_event_id === "string" ? row.store_order_event_id.trim() : "";
+  if (evId) insert.store_order_event_id = evId;
 
   let { error } = await sb.from("notifications").insert(insert);
   if (
@@ -75,6 +83,44 @@ export async function appendUserNotification(
     const retry = await sb.from("notifications").insert(fallbackInsert);
     error = retry.error;
   }
+
+  const pgCode = (error as { code?: string } | null)?.code;
+  if (error && pgCode === "23505") {
+    return true;
+  }
+
+  if (
+    error &&
+    (error.message?.includes("dedupe_key") ||
+      error.message?.includes("store_order_event_id") ||
+      error.message?.includes("notifications_user_store_order_event_uidx") ||
+      error.message?.includes("notifications_user_dedupe_key_uidx"))
+  ) {
+    const fallbackDedupe = { ...insert };
+    delete fallbackDedupe.dedupe_key;
+    delete fallbackDedupe.store_order_event_id;
+    const retryDedupe = await sb.from("notifications").insert(fallbackDedupe);
+    let err2 = retryDedupe.error;
+    const code2 = (err2 as { code?: string } | null)?.code;
+    if (err2 && code2 === "23505") return true;
+    if (!err2) {
+      invalidateNotificationUnreadCountCache(uid);
+      void publishNotificationSideEffect(
+        {
+          user_id: uid,
+          notification_type: row.notification_type,
+          title: row.title,
+          body: row.body ?? null,
+          link_url: row.link_url ?? null,
+          meta: metaMerged,
+        },
+        sb
+      );
+      return true;
+    }
+    error = err2;
+  }
+
   if (!error) {
     invalidateNotificationUnreadCountCache(uid);
     void publishNotificationSideEffect(
@@ -99,6 +145,7 @@ export async function appendUserNotification(
   if (error.message?.includes("meta") && metaMerged != null) {
     delete insert.meta;
     const { error: e2 } = await sb.from("notifications").insert(insert);
+    if (e2 && (e2 as { code?: string }).code === "23505") return true;
     if (!e2) {
       invalidateNotificationUnreadCountCache(uid);
       void publishNotificationSideEffect(
@@ -124,14 +171,18 @@ export async function appendUserNotification(
     row.notification_type === "commerce" &&
     (error.message?.includes("check constraint") || error.message?.includes("violates check"))
   ) {
-    const { error: e3 } = await sb.from("notifications").insert({
+    const sysRow: Record<string, unknown> = {
       user_id: uid,
       notification_type: "system",
       title: row.title,
       body: row.body ?? null,
       link_url: row.link_url ?? null,
       is_read: false,
-    });
+    };
+    if (dk) sysRow.dedupe_key = dk;
+    if (evId) sysRow.store_order_event_id = evId;
+    const { error: e3 } = await sb.from("notifications").insert(sysRow);
+    if (e3 && (e3 as { code?: string }).code === "23505") return true;
     if (!e3) {
       invalidateNotificationUnreadCountCache(uid);
       void publishNotificationSideEffect(
@@ -161,6 +212,7 @@ export async function appendUserNotification(
     delete fallback.domain;
     delete fallback.ref_id;
     const { error: e4 } = await sb.from("notifications").insert(fallback);
+    if (e4 && (e4 as { code?: string }).code === "23505") return true;
     if (!e4) {
       invalidateNotificationUnreadCountCache(uid);
       void publishNotificationSideEffect(
