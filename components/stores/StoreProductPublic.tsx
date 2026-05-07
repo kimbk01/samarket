@@ -581,9 +581,10 @@ export function StoreProductPublic({
   })();
 
   const profileUrl = store.profile_image_url?.trim() || "";
+  const cartQtyThisStore = commerceCart?.hydrated ? commerceCart.getTotalQtyForStoreId(store.id) : 0;
 
   return (
-    <div className="min-h-screen bg-sam-app pb-28">
+    <div className={`min-h-screen bg-sam-app ${cartQtyThisStore > 0 ? "pb-28" : "pb-10"}`}>
       <header className={`${STORE_DETAIL_SUBHEADER_STICKY} flex items-center justify-center px-4 py-2.5`}>
         <h1 className="truncate text-center sam-text-body font-semibold text-sam-fg">{product.title}</h1>
       </header>

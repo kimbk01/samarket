@@ -14,7 +14,6 @@ import { approximateDiscountPercent } from "@/lib/stores/store-product-pricing";
 import { parseMediaUrlsJson } from "@/lib/stores/parse-media-urls-json";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { resolveStoreFrontCommerceState } from "@/lib/stores/store-auto-hours";
-import { STORE_DETAIL_GUTTER } from "@/lib/stores/store-detail-ui";
 import {
   fetchStoreProductPublicDeduped,
   fetchStoreReviewsPublicDeduped,
@@ -370,16 +369,15 @@ export function StoreProductAddSheet({
   const orderCountDisp = store ? Math.max(0, Math.floor(Number(store.recent_order_count) || 0)) : 0;
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex flex-col justify-end bg-sam-ink/45 backdrop-blur-[2px]"
-      role="dialog"
-      aria-modal
-    >
-      <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={onClose} />
-      <div
-        className={`flex w-full justify-center ${STORE_DETAIL_GUTTER} pb-[max(12px,env(safe-area-inset-bottom))]`}
-      >
-        <div className="flex max-h-[92vh] w-full max-w-lg flex-col overflow-hidden rounded-ui-rect bg-sam-surface shadow-2xl ring-1 ring-sam-border/10">
+    <div className="fixed inset-0 z-[100] bg-transparent" role="dialog" aria-modal>
+      <button
+        type="button"
+        className="absolute inset-0 z-0 cursor-default"
+        aria-label="닫기"
+        onClick={onClose}
+      />
+      <div className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center px-3 py-3 sm:px-4 sm:py-4 pt-[max(12px,env(safe-area-inset-top,0px))] pb-[max(12px,env(safe-area-inset-bottom,0px))]">
+        <div className="pointer-events-auto flex max-h-[min(92dvh,calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-24px))] w-full max-w-lg flex-col overflow-hidden rounded-ui-rect bg-sam-surface shadow-2xl ring-1 ring-sam-border/10">
         <div className="relative flex shrink-0 items-center justify-center border-b border-sam-border/80 bg-sam-surface px-10 py-3">
           <h2 className="line-clamp-2 text-center sam-text-body-lg font-bold leading-snug tracking-tight text-sam-fg">
             {loading ? "불러오는 중…" : product && !notFound ? product.title : "메뉴 담기"}

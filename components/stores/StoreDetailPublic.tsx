@@ -21,7 +21,10 @@ import {
   type StoreDetailProductCard,
 } from "@/lib/stores/group-store-products-by-menu";
 import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
-import { STORE_DETAIL_ROOT_BOTTOM_PADDING_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import {
+  STORE_DETAIL_ROOT_BOTTOM_PADDING_NO_STRIP_CLASS,
+  STORE_DETAIL_ROOT_BOTTOM_PADDING_WITH_CART_STRIP_CLASS,
+} from "@/lib/main-menu/bottom-nav-config";
 import {
   STORE_DETAIL_GUTTER,
   STORE_DETAIL_MENU_STICKY_TOP_CLASS,
@@ -395,6 +398,10 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
     commerceCart?.hydrated ? commerceCart.getSubtotalForStoreId(store.id) : 0;
   const cartQtyThisStore =
     commerceCart?.hydrated ? commerceCart.getTotalQtyForStoreId(store.id) : 0;
+  const rootBottomPadClass =
+    cartQtyThisStore > 0
+      ? STORE_DETAIL_ROOT_BOTTOM_PADDING_WITH_CART_STRIP_CLASS
+      : STORE_DETAIL_ROOT_BOTTOM_PADDING_NO_STRIP_CLASS;
 
   const menuSelectBlocked = commerce ? !commerce.isOpenForCommerce : false;
   const menuSelectHint =
@@ -407,7 +414,7 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
   const storeInfoHref = `/stores/${encodeURIComponent(store.slug)}/info`;
 
   return (
-    <div className={`${STORE_DETAIL_PAGE} ${STORE_DETAIL_ROOT_BOTTOM_PADDING_CLASS}`}>
+    <div className={`${STORE_DETAIL_PAGE} ${rootBottomPadClass}`}>
       <StoreDetailStorefrontPanel
         deliveryMeta={deliveryMeta}
         commerceExtras={commerceExtras}
@@ -505,20 +512,22 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
         </Link>
       </div>
 
-      <StoreDetailBottomStrip
-        slug={store.slug}
-        isOpen={isOpen}
-        deliveryAvailable={deliveryAvailable}
-        fulfillmentMode={fulfillmentMode}
-        cartTotalPhp={cartSubtotalThisStore}
-        cartQtyTotal={cartQtyThisStore}
-        minOrderPhp={commerceExtras.minOrderPhp}
-        closedDetail={
-          commerce?.inBreak && commerce.breakConfigured
-            ? `Break time: ${commerce.breakRangeLabel}`
-            : null
-        }
-      />
+      {addSheetProductId ? null : (
+        <StoreDetailBottomStrip
+          slug={store.slug}
+          isOpen={isOpen}
+          deliveryAvailable={deliveryAvailable}
+          fulfillmentMode={fulfillmentMode}
+          cartTotalPhp={cartSubtotalThisStore}
+          cartQtyTotal={cartQtyThisStore}
+          minOrderPhp={commerceExtras.minOrderPhp}
+          closedDetail={
+            commerce?.inBreak && commerce.breakConfigured
+              ? `Break time: ${commerce.breakRangeLabel}`
+              : null
+          }
+        />
+      )}
 
       <StoreProductAddSheet
         productId={addSheetProductId}
@@ -532,7 +541,12 @@ export function StoreDetailPublic({ slug }: { slug: string }) {
       {toastMsg ? (
         <div
           className="pointer-events-none fixed left-1/2 z-[32] max-w-[min(92vw,20rem)] -translate-x-1/2 rounded-ui-rect bg-sam-ink/92 px-4 py-2.5 text-center sam-text-body-secondary font-semibold text-white shadow-sam-elevated"
-          style={{ bottom: "max(88px, calc(env(safe-area-inset-bottom, 0px) + 72px))" }}
+          style={{
+            bottom:
+              cartQtyThisStore > 0
+                ? "max(88px, calc(env(safe-area-inset-bottom, 0px) + 72px))"
+                : "max(1rem, env(safe-area-inset-bottom, 0px))",
+          }}
           role="status"
         >
           {toastMsg}
