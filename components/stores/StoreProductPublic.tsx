@@ -981,9 +981,15 @@ export function StoreProductPublic({
         fulfillmentMode={fulfillment === "pickup" ? "pickup" : "local_delivery"}
         cartTotalPhp={commerceCart?.hydrated ? commerceCart.getSubtotalForStoreId(store.id) : 0}
         cartQtyTotal={commerceCart?.hydrated ? commerceCart.getTotalQtyForStoreId(store.id) : 0}
+        cartLineKindCount={
+          commerceCart?.hydrated ? commerceCart.getItemCountForStoreId(store.id) : 0
+        }
         minOrderPhp={storeExtras.minOrderPhp}
         closedDetail={
           commerce.inBreak && commerce.breakConfigured ? `Break time: ${commerce.breakRangeLabel}` : null
+        }
+        onCartPreviewOpen={() =>
+          router.push(`/stores/${encodeURIComponent(store.slug)}/cart`)
         }
       />
     </div>

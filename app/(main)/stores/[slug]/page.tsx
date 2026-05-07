@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { Suspense } from "react";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { StoreDetailPublic } from "@/components/stores/StoreDetailPublic";
+import { fetchStorePublicInitialOnServer } from "@/lib/stores/fetch-store-public-server";
 import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
 
 export async function generateMetadata({
@@ -83,5 +84,7 @@ async function StoreDetailPageBody({
 }) {
   const { slug } = await params;
   const safe = typeof slug === "string" ? slug : "";
-  return <StoreDetailPublic slug={safe} />;
+  const raw = await fetchStorePublicInitialOnServer(safe);
+  const initialApiResponse = raw != null ? { status: raw.status, json: raw.json } : null;
+  return <StoreDetailPublic key={safe} slug={safe} initialApiResponse={initialApiResponse} />;
 }

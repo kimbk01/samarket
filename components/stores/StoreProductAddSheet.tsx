@@ -18,6 +18,16 @@ import {
   fetchStoreProductPublicDeduped,
   fetchStoreReviewsPublicDeduped,
 } from "@/lib/stores/store-delivery-api-client";
+import type { StoreDetailLike } from "@/lib/stores/store-public-page-hydrate";
+import { mapListRowToSheetProduct } from "@/lib/stores/map-list-row-to-sheet-product";
+import {
+  STORE_ORDER_BADGE_POPULAR,
+  STORE_ORDER_BRAND,
+  STORE_ORDER_CTA_PRIMARY,
+  STORE_ORDER_CTA_STEPPER,
+  STORE_ORDER_TOUCH_BTN,
+} from "@/components/stores/store-order-detail/store-order-brand";
+import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
 
 type PublicStore = {
   id: string;
@@ -52,9 +62,6 @@ type PublicProduct = {
 
 type ReviewSnippet = { content: string; created_at: string; rating: number | null };
 
-/** Meta/Facebook primary (시트 전용, 앱 시그니처와 구분) */
-const SHEET_PRIMARY = "#1877F2";
-
 function normalizeStoreSlugSegment(raw: string): string {
   let s = raw.trim();
   try {
@@ -75,6 +82,8 @@ function storeSlugsMatch(urlSlug: string, apiSlug: string): boolean {
 export function StoreProductAddSheet({
   productId,
   pageStoreSlug,
+  prefetchedListRow,
+  sheetStoreContext,
   onClose,
   commerceBlocked,
   commerceBlockedHint,
@@ -82,6 +91,13 @@ export function StoreProductAddSheet({
 }: {
   productId: string | null;
   pageStoreSlug: string;
+  /** 목록 API 행 — 있으면 시트를 네트워크 완료 전에 그린 뒤 단건으로 보강 */
+  prefetchedListRow?: Record<string, unknown> | null;
+  sheetStoreContext?: {
+    store: StoreDetailLike;
+    favoriteCount: number;
+    recentOrderCount: number;
+  } | null;
   onClose: () => void;
   commerceBlocked: boolean;
   commerceBlockedHint?: string;
@@ -107,27 +123,66 @@ export function StoreProductAddSheet({
   }, []);
 
   useEffect(() => {
+    if (!productId) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [productId, onClose]);
+
+  useEffect(() => {
     if (!productId) {
       setProduct(null);
       setStore(null);
       setNotFound(false);
       setSheetErr(null);
       setLineNote("");
+      setLoading(false);
       return;
     }
-    let cancelled = false;
-    (async () => {
+
+    const row = prefetchedListRow ?? null;
+    const ctx = sheetStoreContext ?? null;
+    let mappedFromList: ReturnType<typeof mapListRowToSheetProduct> = null;
+    if (row && ctx?.store) {
+      mappedFromList = mapListRowToSheetProduct(row, ctx.store, {
+        favoriteCount: ctx.favoriteCount,
+        recentOrderCount: ctx.recentOrderCount,
+      });
+    }
+    const hadPrefetch = mappedFromList != null;
+
+    if (mappedFromList) {
+      const m = mappedFromList;
+      setProduct(m.product as PublicProduct);
+      setStore(m.store as PublicStore);
+      const p = m.product;
+      const minQ = Math.max(1, Number(p.min_order_qty) || 1);
+      setQty(minQ);
+      setModifierWire({ pick: {}, qty: {} });
+      setLineNote("");
+      setNotFound(false);
+      setSheetErr(null);
+      setLoading(false);
+    } else {
       setLoading(true);
       setNotFound(false);
       setSheetErr(null);
+    }
+
+    let cancelled = false;
+    void (async () => {
       try {
         const { json } = await fetchStoreProductPublicDeduped(productId);
         if (cancelled) return;
         const pj = json as { ok?: boolean; product?: PublicProduct; store?: PublicStore };
         if (!pj?.ok || !pj.product || !pj.store) {
-          setNotFound(true);
-          setProduct(null);
-          setStore(null);
+          if (!hadPrefetch) {
+            setNotFound(true);
+            setProduct(null);
+            setStore(null);
+          }
           return;
         }
         const apiSlug = String(pj.store.slug ?? "");
@@ -144,8 +199,9 @@ export function StoreProductAddSheet({
         setQty(minQ);
         setModifierWire({ pick: {}, qty: {} });
         setLineNote("");
+        setNotFound(false);
       } catch {
-        if (!cancelled) {
+        if (!cancelled && !hadPrefetch) {
           setNotFound(true);
           setProduct(null);
           setStore(null);
@@ -154,10 +210,11 @@ export function StoreProductAddSheet({
         if (!cancelled) setLoading(false);
       }
     })();
+
     return () => {
       cancelled = true;
     };
-  }, [productId, pageStoreSlug]);
+  }, [productId, pageStoreSlug, prefetchedListRow, sheetStoreContext]);
 
   const optionGroups = useMemo(
     () => (product ? parseProductOptionsJson(product.options_json) : []),
@@ -189,33 +246,43 @@ export function StoreProductAddSheet({
       return;
     }
     let cancelled = false;
-    (async () => {
-      try {
-        const { json } = await fetchStoreReviewsPublicDeduped(store.slug);
-        const rj = json as { ok?: boolean; reviews?: unknown[] };
-        if (!rj?.ok || !Array.isArray(rj.reviews)) return;
-        const pid = product.id;
-        const rows = rj.reviews as { content?: unknown; created_at?: unknown; rating?: unknown; product_id?: unknown }[];
-        const forProduct = rows.filter((r) => r.product_id === pid);
-        const pool = forProduct.length >= 2 ? forProduct : rows;
-        const top: ReviewSnippet[] = [];
-        for (const r of pool) {
-          const content = String(r.content ?? "").trim();
-          if (!content) continue;
-          const created = String(r.created_at ?? "");
-          const dateStr = created.slice(0, 10) || "—";
-          top.push({
-            content: content.length > 72 ? `${content.slice(0, 72)}…` : content,
-            created_at: dateStr,
-            rating: typeof r.rating === "number" && Number.isFinite(r.rating) ? r.rating : null,
-          });
-          if (top.length >= 2) break;
+    const slug = store.slug;
+    const pid = product.id;
+    const run = () => {
+      void (async () => {
+        try {
+          const { json } = await fetchStoreReviewsPublicDeduped(slug);
+          const rj = json as { ok?: boolean; reviews?: unknown[] };
+          if (!rj?.ok || !Array.isArray(rj.reviews)) return;
+          const rows = rj.reviews as {
+            content?: unknown;
+            created_at?: unknown;
+            rating?: unknown;
+            product_id?: unknown;
+          }[];
+          const forProduct = rows.filter((r) => r.product_id === pid);
+          const pool = forProduct.length >= 2 ? forProduct : rows;
+          const top: ReviewSnippet[] = [];
+          for (const r of pool) {
+            const content = String(r.content ?? "").trim();
+            if (!content) continue;
+            const created = String(r.created_at ?? "");
+            const dateStr = created.slice(0, 10) || "—";
+            top.push({
+              content: content.length > 72 ? `${content.slice(0, 72)}…` : content,
+              created_at: dateStr,
+              rating: typeof r.rating === "number" && Number.isFinite(r.rating) ? r.rating : null,
+            });
+            if (top.length >= 2) break;
+          }
+          if (!cancelled) setReviewSnippets(top);
+        } catch {
+          if (!cancelled) setReviewSnippets([]);
         }
-        if (!cancelled) setReviewSnippets(top);
-      } catch {
-        if (!cancelled) setReviewSnippets([]);
-      }
-    })();
+      })();
+    };
+    if (typeof queueMicrotask === "function") queueMicrotask(run);
+    else setTimeout(run, 0);
     return () => {
       cancelled = true;
     };
@@ -368,31 +435,61 @@ export function StoreProductAddSheet({
   const favCount = store ? Math.max(0, Math.floor(Number(store.favorite_count) || 0)) : 0;
   const orderCountDisp = store ? Math.max(0, Math.floor(Number(store.recent_order_count) || 0)) : 0;
 
+  const qtyStepperDisabled = soldOut || orderBlocked;
+  const qtyMinusDisabled = qtyStepperDisabled || qty <= minQ;
+  const qtyPlusDisabled = qtyStepperDisabled || qty >= capQty;
+
+  const hasOptionDelta =
+    optionValidation.ok && optionValidation.unitDelta !== 0;
+  const showListStrike =
+    product &&
+    Math.floor(product.price) !== Math.floor(baseUnit);
+  /** 단가×수량이 단순 중복이면 카드 안 합계 행 생략(하단 담기 버튼이 금액 표시) */
+  const showLineTotalInCard =
+    qty > 1 || hasOptionDelta || (showListStrike && product !== null);
+
   return (
-    <div className="fixed inset-0 z-[100] bg-transparent" role="dialog" aria-modal>
+    <div
+      className="pointer-events-none fixed inset-0 z-[100] flex items-end justify-center"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="store-add-sheet-title"
+    >
+      {/* 시트 바깥 탭·터치 시 닫힘 — 시각적 딤 없음 */}
       <button
         type="button"
-        className="absolute inset-0 z-0 cursor-default"
-        aria-label="닫기"
+        className="pointer-events-auto absolute inset-0 cursor-default bg-transparent"
+        aria-label="시트 닫기"
+        tabIndex={-1}
         onClick={onClose}
       />
-      <div className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center px-3 py-3 sm:px-4 sm:py-4 pt-[max(12px,env(safe-area-inset-top,0px))] pb-[max(12px,env(safe-area-inset-bottom,0px))]">
-        <div className="pointer-events-auto flex max-h-[min(92dvh,calc(100dvh-env(safe-area-inset-top,0px)-env(safe-area-inset-bottom,0px)-24px))] w-full max-w-lg flex-col overflow-hidden rounded-ui-rect bg-sam-surface shadow-2xl ring-1 ring-sam-border/10">
-        <div className="relative flex shrink-0 items-center justify-center border-b border-sam-border/80 bg-sam-surface px-10 py-3">
-          <h2 className="line-clamp-2 text-center sam-text-body-lg font-bold leading-snug tracking-tight text-sam-fg">
-            {loading ? "불러오는 중…" : product && !notFound ? product.title : "메뉴 담기"}
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="absolute right-2 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full sam-text-page-title leading-none text-sam-muted hover:bg-sam-surface-muted"
-            aria-label="닫기"
-          >
-            ✕
-          </button>
+      <div
+        className={`pointer-events-auto relative z-[1] mx-auto flex max-h-[min(92dvh,720px)] w-full min-w-0 flex-col overflow-hidden rounded-t-[18px] bg-white shadow-[0_-12px_40px_rgba(0,0,0,0.18)] ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}
+      >
+        <div className="flex shrink-0 flex-col border-b border-neutral-100 bg-white px-4 pb-2.5 pt-3">
+          <div
+            className="mx-auto mb-2 h-1 w-10 shrink-0 rounded-full bg-[#1C8DB8]/25"
+            aria-hidden
+          />
+          <div className="relative flex min-h-[36px] w-full items-center justify-center">
+            <h2
+              id="store-add-sheet-title"
+              className="line-clamp-1 px-10 text-center text-[16px] font-bold leading-tight tracking-[-0.02em] text-neutral-900"
+            >
+              {loading ? "불러오는 중…" : product && !notFound ? product.title : "메뉴 담기"}
+            </h2>
+            <button
+              type="button"
+              onClick={onClose}
+              className={`absolute right-0 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-[18px] leading-none text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900 ${STORE_ORDER_TOUCH_BTN}`}
+              aria-label="닫기"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-sam-app">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain bg-white [-webkit-overflow-scrolling:touch]">
           {loading ? (
             <p className="py-10 text-center text-sm text-sam-muted">불러오는 중…</p>
           ) : notFound || !product || !store ? (
@@ -401,13 +498,13 @@ export function StoreProductAddSheet({
               <button
                 type="button"
                 onClick={onClose}
-                className="mt-4 text-sm font-medium text-signature"
+                className={`mt-4 text-sm font-medium text-[#1C8DB8] underline-offset-2 hover:underline ${STORE_ORDER_TOUCH_BTN}`}
               >
                 닫기
               </button>
             </div>
           ) : (
-            <div className="pb-3 pt-1">
+            <div className="pb-3">
               {orderBlocked ? (
                 <p className="mx-3 mt-3 rounded-ui-rect border border-amber-200/80 bg-amber-50 px-3 py-2.5 sam-text-helper font-medium leading-snug text-amber-950">
                   {commerceBlocked && commerceBlockedHint?.trim()
@@ -423,7 +520,31 @@ export function StoreProductAddSheet({
                 </p>
               ) : null}
 
-              <div className="mx-3 mt-3 flex gap-3 rounded-ui-rect bg-sam-surface p-3 shadow-sm ring-1 ring-sam-border/70">
+              <div className="relative aspect-[16/10] max-h-[200px] min-h-[160px] w-full overflow-hidden bg-neutral-100">
+                {galleryUrls[0] ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={galleryUrls[0]} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full w-full bg-neutral-100" />
+                )}
+              </div>
+
+              <div className="bg-white px-4 pb-3 pt-3">
+                <div className={`mb-1.5 ${STORE_ORDER_BADGE_POPULAR}`}>인기</div>
+                <h3 className="text-[18px] font-extrabold leading-snug tracking-[-0.03em] text-neutral-900">
+                  {product.title}
+                </h3>
+                <Link
+                  href={`/stores/${encodeURIComponent(store.slug)}/p/${encodeURIComponent(product.id)}`}
+                  className={`mt-1.5 inline-flex items-center text-[11px] font-semibold underline-offset-2 hover:underline ${STORE_ORDER_TOUCH_BTN}`}
+                  style={{ color: STORE_ORDER_BRAND.accentSoftText }}
+                  onClick={onClose}
+                >
+                  메뉴 리뷰 {reviewCountDisp.toLocaleString("ko-KR")}개 ›
+                </Link>
+              </div>
+
+              <div className="hidden mx-3 mt-3 gap-3 rounded-ui-rect bg-sam-surface p-3 shadow-sm ring-1 ring-sam-border/70">
                 <div className="h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
                   {galleryUrls[0] ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -466,38 +587,8 @@ export function StoreProductAddSheet({
                 </div>
               </div>
 
-              <div className="mx-3 mt-3 space-y-1.5 rounded-ui-rect bg-sam-surface p-3 shadow-sm ring-1 ring-sam-border/70">
-                <div className="flex items-center justify-between sam-text-body-secondary text-sam-fg">
-                  <span>기본 단가</span>
-                  <span className="font-semibold tabular-nums text-sam-fg">
-                    {formatMoneyPhp(Math.floor(baseUnit))}
-                  </span>
-                </div>
-                {optionValidation.ok && optionValidation.unitDelta !== 0 ? (
-                  <div className="flex items-center justify-between sam-text-body-secondary text-sam-muted">
-                    <span>옵션 추가</span>
-                    <span className="font-semibold tabular-nums">
-                      {optionValidation.unitDelta > 0 ? "+" : ""}
-                      {formatMoneyPhp(optionValidation.unitDelta)}
-                    </span>
-                  </div>
-                ) : null}
-                <div className="flex items-center justify-between border-t border-sam-border-soft pt-2 sam-text-body-secondary font-semibold text-sam-fg">
-                  <span>1개당</span>
-                  <span className="tabular-nums">{formatMoneyPhp(unitWithOptions)}</span>
-                </div>
-                <div className="flex items-center justify-between sam-text-body-secondary text-sam-muted">
-                  <span>수량</span>
-                  <span className="font-medium tabular-nums">× {qty}</span>
-                </div>
-                <div className="flex items-center justify-between border-t border-sam-border pt-2 sam-text-body-lg font-bold text-sam-fg">
-                  <span>이 라인 합계</span>
-                  <span className="tabular-nums text-[#1877F2]">{formatMoneyPhp(lineTotal)}</span>
-                </div>
-              </div>
-
               {galleryUrls.length > 1 ? (
-                <div className="mt-2 px-3">
+                <div className="hidden mt-2 px-3">
                   <div className="flex gap-2 overflow-x-auto rounded-ui-rect bg-sam-surface p-2 shadow-sm ring-1 ring-sam-border/70 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                     {galleryUrls.slice(1).map((url, i) => (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -513,7 +604,7 @@ export function StoreProductAddSheet({
               ) : null}
 
               {reviewSnippets.length > 0 ? (
-                <details className="mx-3 mt-3 rounded-ui-rect border border-sam-border/80 bg-sam-surface shadow-sm">
+                <details className="hidden mx-3 mt-3 rounded-ui-rect border border-sam-border/80 bg-sam-surface shadow-sm">
                   <summary className="cursor-pointer px-3 py-2.5 sam-text-body-secondary font-semibold text-sam-fg">
                     리뷰 미리보기 ({reviewSnippets.length})
                   </summary>
@@ -535,17 +626,13 @@ export function StoreProductAddSheet({
               ) : null}
 
               {product.summary ? (
-                <p className="mx-3 mt-3 rounded-ui-rect bg-sam-surface px-3 py-2.5 sam-text-body-secondary leading-relaxed text-sam-muted shadow-sm ring-1 ring-sam-border/70">
+                <p className="mx-4 mt-1 rounded-[10px] bg-neutral-50 px-3 py-2 text-[12px] font-medium leading-relaxed text-neutral-600">
                   {product.summary}
                 </p>
               ) : null}
 
               {optionGroups.length > 0 ? (
-                <div className="mt-4 px-3">
-                  <p className="mb-1 px-0.5 sam-text-helper font-bold text-sam-fg">옵션 선택</p>
-                  <p className="mb-2 px-0.5 sam-text-helper text-sam-muted">
-                    필수 항목을 고르면 위 금액이 바로 바뀌어요.
-                  </p>
+                <div className="border-t-[8px] border-[#EDEDED]">
                   <StoreModifierPicker
                     groups={optionGroups}
                     value={modifierWire}
@@ -556,9 +643,96 @@ export function StoreProductAddSheet({
                 </div>
               ) : null}
 
-              <div className="mx-3 mt-3">
-                <label htmlFor="store-add-sheet-line-note" className="sam-text-helper font-semibold text-sam-fg">
-                  요청사항 (선택)
+              <div
+                className="border-t-[8px] border-[#EDEDED] px-4 py-4"
+                style={{ backgroundColor: STORE_ORDER_BRAND.frameGray }}
+              >
+                {hasOptionDelta ? (
+                  <>
+                    <div className="flex items-start justify-between gap-3">
+                      <span className="text-[12px] font-medium text-neutral-500">메뉴</span>
+                      <div className="text-right">
+                        {showListStrike ? (
+                          <span className="mr-2 text-[11px] font-medium tabular-nums text-neutral-400 line-through">
+                            {formatMoneyPhp(Math.floor(product.price))}
+                          </span>
+                        ) : null}
+                        <span className="text-[15px] font-bold tabular-nums text-neutral-900">
+                          {formatMoneyPhp(Math.floor(baseUnit))}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="mt-2 flex items-center justify-between text-[11px] font-medium">
+                      <span className="text-neutral-500">옵션 추가</span>
+                      <span className="tabular-nums font-semibold text-neutral-700">
+                        {optionValidation.unitDelta > 0 ? "+" : ""}
+                        {formatMoneyPhp(optionValidation.unitDelta)}
+                      </span>
+                    </div>
+                    <div className="mt-3 flex items-end justify-between border-t border-neutral-200/70 pt-3">
+                      <span className="text-[12px] font-bold text-neutral-800">1개당</span>
+                      <span className="text-[17px] font-extrabold tabular-nums tracking-tight text-neutral-900">
+                        {formatMoneyPhp(unitWithOptions)}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="pt-0.5 text-[12px] font-medium text-neutral-500">메뉴 금액</span>
+                    <div className="text-right">
+                      {showListStrike ? (
+                        <span className="mr-2 text-[11px] font-medium tabular-nums text-neutral-400 line-through">
+                          {formatMoneyPhp(Math.floor(product.price))}
+                        </span>
+                      ) : null}
+                      <span className="text-[17px] font-extrabold tabular-nums tracking-tight text-neutral-900">
+                        {formatMoneyPhp(unitWithOptions)}
+                      </span>
+                      <span className="ml-0.5 text-[11px] font-semibold text-neutral-500">/개</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="mt-4 flex items-center justify-between border-t border-neutral-200/70 pt-4">
+                  <span className="text-[13px] font-bold text-neutral-900">수량</span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={qtyMinusDisabled}
+                      onClick={() => setQty((q) => Math.max(minQ, q - 1))}
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center text-lg font-bold leading-none ${STORE_ORDER_CTA_STEPPER}`}
+                      aria-label="수량 감소"
+                    >
+                      −
+                    </button>
+                    <span className="min-w-[2.25rem] text-center text-[16px] font-extrabold tabular-nums text-neutral-900">
+                      {qty}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={qtyPlusDisabled}
+                      onClick={() => setQty((q) => Math.min(capQty, q + 1))}
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center text-lg font-bold leading-none ${STORE_ORDER_CTA_STEPPER}`}
+                      aria-label="수량 증가"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+
+                {showLineTotalInCard ? (
+                  <div className="mt-4 flex items-center justify-between border-t border-neutral-200/70 pt-4">
+                    <span className="text-[12px] font-semibold text-neutral-600">주문 합계</span>
+                    <span className="text-[17px] font-extrabold tabular-nums text-neutral-900">
+                      {formatMoneyPhp(lineTotal)}
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="border-t border-neutral-100 bg-white px-4 py-3.5">
+                <label htmlFor="store-add-sheet-line-note" className="text-[12px] font-bold text-neutral-800">
+                  요청사항 <span className="font-medium text-neutral-500">(선택)</span>
                 </label>
                 <textarea
                   id="store-add-sheet-line-note"
@@ -567,14 +741,15 @@ export function StoreProductAddSheet({
                   onChange={(e) => setLineNote(e.target.value)}
                   disabled={soldOut || orderBlocked}
                   placeholder="예: 덜 맵게, 양파 빼주세요"
-                  className="mt-1 w-full resize-none rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary text-sam-fg placeholder:text-sam-meta focus:border-[#1877F2] focus:outline-none focus:ring-2 focus:ring-[#1877F2]/20 disabled:bg-sam-surface-muted"
+                  className="mt-2 w-full resize-none rounded-[10px] border border-neutral-200 bg-white px-3 py-2 text-[13px] font-medium text-neutral-900 placeholder:text-neutral-400 focus:border-[#1C8DB8] focus:outline-none focus:ring-2 focus:ring-[#1C8DB8]/20 disabled:bg-neutral-100"
                 />
               </div>
 
-              <p className="mt-3 px-3 pb-1">
+              <p className="px-4 pb-3 pt-0">
                 <Link
                   href={`/stores/${encodeURIComponent(store.slug)}/p/${encodeURIComponent(product.id)}`}
-                  className="sam-text-helper font-semibold text-[#1877F2] hover:underline"
+                  className={`text-[11px] font-semibold hover:underline ${STORE_ORDER_TOUCH_BTN}`}
+                  style={{ color: STORE_ORDER_BRAND.accent }}
                   onClick={onClose}
                 >
                   전체 화면에서 보기
@@ -582,10 +757,10 @@ export function StoreProductAddSheet({
               </p>
 
               {!optionValidation.ok ? (
-                <p className="mt-2 px-3 text-xs text-amber-800">옵션을 올바르게 선택해 주세요.</p>
+                <p className="mt-1 px-4 text-[11px] text-amber-800">옵션을 올바르게 선택해 주세요.</p>
               ) : null}
               {!commerceCart ? (
-                <p className="mt-2 px-3 text-xs text-amber-800">
+                <p className="mt-1 px-4 pb-2 text-[11px] text-amber-800">
                   장바구니를 사용할 수 없습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.
                 </p>
               ) : null}
@@ -594,48 +769,29 @@ export function StoreProductAddSheet({
         </div>
 
         {!loading && !notFound && product && store ? (
-          <div className="shrink-0 border-t border-sam-border/80 bg-sam-surface px-3 pt-3">
-            {sheetErr ? <p className="mb-2 text-center text-xs text-red-600">{sheetErr}</p> : null}
-            <div className="flex items-stretch gap-2.5">
-              <div className="flex items-center gap-1 rounded-full bg-sam-surface-muted px-1 py-1">
-                <button
-                  type="button"
-                  disabled={qty <= minQ || soldOut || orderBlocked}
-                  onClick={() => setQty((q) => Math.max(minQ, q - 1))}
-                  className="flex h-9 w-9 items-center justify-center rounded-full text-lg leading-none text-sam-fg transition-colors hover:bg-sam-border-soft/80 disabled:opacity-40"
-                >
-                  −
-                </button>
-                <span className="min-w-[1.75rem] text-center sam-text-body-lg font-bold text-sam-fg">{qty}</span>
-                <button
-                  type="button"
-                  disabled={qty >= capQty || soldOut || orderBlocked}
-                  onClick={() => setQty((q) => Math.min(capQty, q + 1))}
-                  className="flex h-9 w-9 items-center justify-center rounded-full text-lg leading-none text-[#1877F2] transition-colors hover:bg-[#E7F3FF] disabled:opacity-40"
-                >
-                  +
-                </button>
-              </div>
-              <button
-                type="button"
-                disabled={
-                  soldOut ||
-                  orderBlocked ||
-                  !optionValidation.ok ||
-                  !commerceCart ||
-                  capQty < minQ
-                }
-                onClick={addToCart}
-                className="min-w-0 flex-1 rounded-ui-rect py-3 text-center sam-text-body font-bold leading-tight text-white shadow-sm transition-opacity hover:opacity-95 disabled:bg-sam-surface-muted"
-                style={{ backgroundColor: SHEET_PRIMARY }}
-              >
-                <span className="block">{formatMoneyPhp(lineTotal)} 담기</span>
-                <span className="mt-0.5 block sam-text-helper font-semibold text-white/90">장바구니에 추가</span>
-              </button>
-            </div>
+          <div
+            className="shrink-0 border-t border-neutral-100 bg-white px-4 pt-3 shadow-[0_-4px_16px_rgba(0,0,0,0.08)]"
+            style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))" }}
+          >
+            {sheetErr ? (
+              <p className="mb-2 text-center text-[11px] font-medium text-red-600">{sheetErr}</p>
+            ) : null}
+            <button
+              type="button"
+              disabled={
+                soldOut ||
+                orderBlocked ||
+                !optionValidation.ok ||
+                !commerceCart ||
+                capQty < minQ
+              }
+              onClick={addToCart}
+              className={`w-full py-3.5 text-[17px] leading-none ${STORE_ORDER_CTA_PRIMARY}`}
+            >
+              {formatMoneyPhp(lineTotal)} 담기
+            </button>
           </div>
         ) : null}
-        </div>
       </div>
     </div>
   );

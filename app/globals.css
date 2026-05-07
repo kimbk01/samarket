@@ -120,6 +120,23 @@ body {
   line-height: var(--sam-font-body-line);
 }
 
+/**
+ * `/stores/[slug]` 주문 메뉴 루트만 (`ConditionalAppShell` 이 `html` 에 클래스 토글).
+ * 문제였던 것은 색이 아니라 **뷰포트 세로 바운스**: 문서 전체가 아래로 늘어나며 위쪽에 빈 띠가 생김.
+ * `overscroll-behavior-y: none` 으로 네이티브 바운스를 끄고, 당김 피드백은 `useRubberBandAtDocumentTop` 만 사용.
+ * (`contain` 이 아닌 `none` — 스크롤 체이닝과 바운스만 차단, 별도 `background-attachment: fixed` 없음.)
+ */
+html.sam-store-order-hero-doc-root {
+  overscroll-behavior-y: none;
+  /** 보라 그라데이션 제거 — 데스크톱 가로에서 좌우만 색이 도는 현상 방지, 앱 캔버스와 동일 */
+  background: var(--sam-bg-app);
+}
+
+html.sam-store-order-hero-doc-root body {
+  overscroll-behavior-y: none;
+  background: transparent;
+}
+
 /* Pages Router/포털 루트(있을 때) — 캔버스는 --sam-bg-app 와 동일 */
 #__next,
 #root {

@@ -76,13 +76,27 @@ export function ConditionalAppShell({
   const bottomNavScrollHideEnabled =
     showBottomNavEffective && resolveBottomNavScrollHideEnabled(pathNoQuery, headerMessengerFromPhilife);
   const bottomNavHiddenByScroll = useBottomNavScrollHide(Boolean(bottomNavScrollHideEnabled));
+  const heroMenuSurface = f.isStoreOrderHeroMenuSurface;
+  /** 네이티브 오버스크롤이 비추는 문서 루트 배경 — `globals.css` 의 `.sam-store-order-hero-doc-root` */
+  useLayoutEffect(() => {
+    const cls = "sam-store-order-hero-doc-root";
+    const root = document.documentElement;
+    if (!heroMenuSurface) {
+      root.classList.remove(cls);
+      return;
+    }
+    root.classList.add(cls);
+    return () => root.classList.remove(cls);
+  }, [heroMenuSurface]);
   return (
     /**
      * `app-shell` (`app/app-shell.css`): `min-height: var(--app-height)` + flex column + overflow-x: clip.
      * `min-h-dvh` 는 호환을 위해 같이 둔다 — 동일 의미라 우선 순위 충돌 없음.
      * 메신저 방 분기(`f.isChatRoomDetail`)는 `useChatViewportResize` 가 셸 높이를 별도로 책임.
      */
-    <div className={`${f.appShellRootClass} app-shell min-h-dvh bg-sam-app`}>
+    <div
+      className={`${f.appShellRootClass} app-shell min-h-dvh bg-sam-app`}
+    >
       {f.mountPhilifeWarmPrefetch ? <PhilifeFeedWarmPrefetch /> : null}
       <MessagingGlobalChrome regionBarInLayout={regionBarInLayout} />
       <CallIncomingChrome />
@@ -90,7 +104,7 @@ export function ConditionalAppShell({
       {f.showRegionBar && <RegionBar />}
       {f.showOwnerLiteStoreBar ? <OwnerLiteStoreBar /> : null}
       <main
-        className={`${f.mainBottomClass} min-w-0 overflow-x-hidden bg-sam-app ${
+        className={`${f.mainBottomClass} min-w-0 overflow-x-hidden ${heroMenuSurface ? "bg-transparent" : "bg-sam-app"} ${
           f.isChatRoomDetail ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-y-hidden" : ""
         }`}
       >

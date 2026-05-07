@@ -3,9 +3,32 @@
 import { useCallback, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { StoreDetailSectionTitle } from "@/components/stores/StoreDetailSectionTitle";
+import { STORE_ORDER_BRAND } from "@/components/stores/store-order-detail/store-order-brand";
 import { STORE_DETAIL_CARD, STORE_DETAIL_GUTTER } from "@/lib/stores/store-detail-ui";
 import { fetchStoreReviewsPublicDeduped } from "@/lib/stores/store-delivery-api-client";
 import { Sam } from "@/lib/ui/sam-component-classes";
+
+function ReviewOrderDetailShimmer() {
+  const Bar = ({ className }: { className: string }) => (
+    <div
+      className={`animate-pulse bg-gradient-to-r from-neutral-200/80 via-neutral-100/90 to-neutral-200/80 bg-[length:200%_100%] ${className}`}
+      style={{ animationDuration: "1.2s" }}
+    />
+  );
+  return (
+    <>
+      <div className="rounded-[16px] bg-white p-4 shadow-sm ring-1 ring-neutral-100/80">
+        <Bar className="h-10 w-[4.5rem] rounded-[10px]" />
+        <Bar className="mt-4 h-3.5 max-w-[12rem] rounded" />
+        <Bar className="mt-6 h-2 w-full rounded-full" />
+        <Bar className="mt-2 h-2 w-[88%] rounded-full" />
+        <Bar className="mt-2 h-2 w-[72%] rounded-full" />
+      </div>
+      <Bar className="h-[112px] w-full rounded-[16px]" />
+      <Bar className="h-[112px] w-full rounded-[16px]" />
+    </>
+  );
+}
 
 type Review = {
   id: string;
@@ -22,9 +45,11 @@ type Review = {
 export function StoreReviewsSection({
   storeSlug,
   variant = "plain",
+  surface = "default",
 }: {
   storeSlug: string;
   variant?: "card" | "plain";
+  surface?: "default" | "orderDetail";
 }) {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [avg, setAvg] = useState<number | null>(null);
@@ -75,7 +100,10 @@ export function StoreReviewsSection({
     <div className={`${STORE_DETAIL_GUTTER} mt-3 ${STORE_DETAIL_CARD} space-y-3 p-4`}>{body}</div>
   );
 
-  const wrap = variant === "plain" ? wrapPlain : wrapCard;
+  const wrapOrderDetail = (body: ReactNode) => <div className="mt-3 space-y-3 pb-2">{body}</div>;
+
+  const wrap =
+    surface === "orderDetail" ? wrapOrderDetail : variant === "plain" ? wrapPlain : wrapCard;
 
   const ratingDist = useMemo(() => {
     const dist: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
@@ -124,7 +152,26 @@ export function StoreReviewsSection({
     return copied;
   }, [photoOnly, reviews, sortBy]);
 
+  const photoReviewThumbUrls = useMemo(() => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const r of reviews) {
+      const imgs = Array.isArray(r.image_urls) ? r.image_urls : [];
+      for (const raw of imgs) {
+        const u = String(raw).trim();
+        if (!u || seen.has(u)) continue;
+        seen.add(u);
+        out.push(u);
+        if (out.length >= 24) return out;
+      }
+    }
+    return out;
+  }, [reviews]);
+
   if (loading) {
+    if (surface === "orderDetail") {
+      return wrapOrderDetail(<ReviewOrderDetailShimmer />);
+    }
     return wrap(
       <>
         <StoreDetailSectionTitle level="h2">리뷰</StoreDetailSectionTitle>
@@ -134,6 +181,15 @@ export function StoreReviewsSection({
   }
 
   if (count === 0) {
+    if (surface === "orderDetail") {
+      return wrapOrderDetail(
+        <div className="rounded-[16px] bg-white px-4 py-10 text-center shadow-sm ring-1 ring-neutral-100/80">
+          <p className="text-[14px] leading-relaxed" style={{ color: STORE_ORDER_BRAND.secondary }}>
+            아직 등록된 리뷰가 없습니다.
+          </p>
+        </div>
+      );
+    }
     return wrap(
       <>
         <StoreDetailSectionTitle level="h2">리뷰</StoreDetailSectionTitle>
@@ -144,6 +200,177 @@ export function StoreReviewsSection({
         ) : (
           <p className={`${Sam.text.body} text-sam-muted`}>아직 등록된 리뷰가 없습니다.</p>
         )}
+      </>
+    );
+  }
+
+  if (surface === "orderDetail") {
+    return wrapOrderDetail(
+      <>
+        <div className="rounded-[16px] bg-white p-4 shadow-sm ring-1 ring-neutral-100/80">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-[22px] font-bold leading-none tabular-nums" style={{ color: STORE_ORDER_BRAND.title }}>
+                {avg != null ? avg.toFixed(1) : "—"}
+              </p>
+              <p className="mt-2 text-[12px] font-medium" style={{ color: STORE_ORDER_BRAND.secondary }}>
+                총 리뷰 {count.toLocaleString("ko-KR")}
+              </p>
+              <p className="mt-0.5 text-[12px]" style={{ color: STORE_ORDER_BRAND.secondary }}>
+                사장님 댓글 {ownerReplyCount.toLocaleString("ko-KR")}
+              </p>
+            </div>
+            <p className="text-[13px] font-semibold leading-none" style={{ color: STORE_ORDER_BRAND.star }}>
+              ★★★★★
+            </p>
+          </div>
+          <div className="mt-3 space-y-1.5">
+            {[5, 4, 3, 2, 1].map((star) => {
+              const n = ratingDist[star] ?? 0;
+              const pct = count > 0 ? Math.round((n / count) * 1000) / 10 : 0;
+              return (
+                <div key={star} className="flex items-center gap-2">
+                  <span
+                    className="w-5 text-[12px] font-semibold tabular-nums"
+                    style={{ color: STORE_ORDER_BRAND.title }}
+                  >
+                    {star}
+                  </span>
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-neutral-100">
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width: `${pct}%`, backgroundColor: STORE_ORDER_BRAND.star }}
+                    />
+                  </div>
+                  <span
+                    className="w-8 text-right text-[12px] tabular-nums"
+                    style={{ color: STORE_ORDER_BRAND.secondary }}
+                  >
+                    {n.toLocaleString("ko-KR")}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+          {photoReviewThumbUrls.length > 0 ? (
+            <div className="mt-4 border-t border-neutral-100 pt-3">
+              <p className="mb-2 text-[12px] font-bold" style={{ color: STORE_ORDER_BRAND.title }}>
+                사진 리뷰
+              </p>
+              <div className="flex gap-2 overflow-x-auto pb-0.5 [-webkit-overflow-scrolling:touch]">
+                {photoReviewThumbUrls.map((src) => (
+                  <div
+                    key={src}
+                    className="h-[68px] w-[68px] shrink-0 overflow-hidden rounded-[12px] ring-1 ring-neutral-100/90"
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt="" className="h-full w-full object-cover" />
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="flex items-center justify-between gap-2">
+          <label
+            className="inline-flex cursor-pointer items-center gap-2 text-[13px] font-semibold"
+            style={{ color: STORE_ORDER_BRAND.title }}
+          >
+            <input
+              type="checkbox"
+              className="h-4 w-4 rounded border-neutral-300"
+              style={{ accentColor: STORE_ORDER_BRAND.accent }}
+              checked={photoOnly}
+              onChange={(e) => setPhotoOnly(e.target.checked)}
+            />
+            사진 리뷰만
+          </label>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+            className="rounded-full border border-neutral-200 bg-white px-3 py-2 text-[13px] font-semibold outline-none"
+            style={{ color: STORE_ORDER_BRAND.title }}
+          >
+            <option value="recommended">추천순</option>
+            <option value="latest">최신순</option>
+            <option value="rating_desc">별점 높은순</option>
+            <option value="rating_asc">별점 낮은순</option>
+          </select>
+        </div>
+
+        {filteredReviews.length === 0 ? (
+          <div className="rounded-[16px] bg-white px-4 py-8 text-center shadow-sm ring-1 ring-neutral-100/80">
+            <p className="text-[13px] leading-relaxed" style={{ color: STORE_ORDER_BRAND.secondary }}>
+              조건에 맞는 리뷰가 없습니다.
+            </p>
+          </div>
+        ) : null}
+
+        <ul className="space-y-2.5">
+          {filteredReviews.map((r) => (
+            <li
+              key={r.id}
+              className="rounded-[16px] bg-white p-4 shadow-sm ring-1 ring-neutral-100/80"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <p
+                  className="min-w-0 truncate text-[13px] font-semibold leading-snug"
+                  style={{ color: STORE_ORDER_BRAND.title }}
+                >
+                  {r.buyer_public_label || "사마켓 회원"}
+                </p>
+                <p className="shrink-0 text-[12px] leading-snug tabular-nums" style={{ color: STORE_ORDER_BRAND.secondary }}>
+                  {new Date(r.created_at).toLocaleDateString("ko-KR")}
+                </p>
+              </div>
+              <p className="mt-1 text-[14px] font-medium leading-snug text-amber-500">
+                {"★".repeat(r.rating)}
+                {"☆".repeat(5 - r.rating)}
+              </p>
+              {r.image_urls && r.image_urls.length > 0 ? (
+                <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1">
+                  {r.image_urls.slice(0, 5).map((src) => (
+                    <div
+                      key={src}
+                      className="h-20 w-20 shrink-0 overflow-hidden rounded-[12px] ring-1 ring-neutral-100/90"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={src} alt="" className="h-full w-full object-cover" />
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+              <p
+                className="mt-2 whitespace-pre-wrap text-[13px] font-normal leading-relaxed"
+                style={{ color: STORE_ORDER_BRAND.title }}
+              >
+                {r.content}
+              </p>
+              {r.owner_reply_content?.trim() ? (
+                <div
+                  className="mt-3 rounded-[12px] px-3 py-2.5"
+                  style={{ backgroundColor: STORE_ORDER_BRAND.frameGray }}
+                >
+                  <p className="text-[12px] font-bold" style={{ color: STORE_ORDER_BRAND.title }}>
+                    사장님 댓글
+                  </p>
+                  <p
+                    className="mt-1 whitespace-pre-wrap text-[13px] leading-snug"
+                    style={{ color: STORE_ORDER_BRAND.secondary }}
+                  >
+                    {r.owner_reply_content.trim()}
+                  </p>
+                  {r.owner_reply_created_at ? (
+                    <p className="mt-1 text-right text-[12px] tabular-nums" style={{ color: STORE_ORDER_BRAND.muted }}>
+                      {new Date(r.owner_reply_created_at).toLocaleDateString("ko-KR")}
+                    </p>
+                  ) : null}
+                </div>
+              ) : null}
+            </li>
+          ))}
+        </ul>
       </>
     );
   }

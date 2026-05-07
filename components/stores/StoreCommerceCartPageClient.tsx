@@ -50,6 +50,7 @@ import {
   STORE_ADDRESS_STREET_PLACEHOLDER,
 } from "@/lib/stores/store-address-form-ui";
 import {
+  APP_MAIN_COLUMN_MAX_WIDTH_CLASS,
   APP_TIER1_BAR_INNER_ALIGNED_CLASS,
   APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS,
 } from "@/lib/ui/app-content-layout";
@@ -94,6 +95,48 @@ function deliveryEntryMatchesProfile(e: DeliveryAddressBookEntry, p: ProfileCont
     e.city === p.city &&
     e.freeSummaryLine.trim() === p.freeSummaryLine.trim() &&
     e.addressDetail.trim() === p.addressDetail.trim()
+  );
+}
+
+function CartTopBar({
+  cartCount,
+  onBack,
+}: {
+  cartCount: number;
+  onBack: () => void;
+}) {
+  return (
+    <div className={APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS}>
+      <div className="w-full border-b border-sam-border-soft bg-sam-surface">
+        <div className={APP_TIER1_BAR_INNER_ALIGNED_CLASS}>
+          <div className="relative flex h-12 items-center">
+            <button
+              type="button"
+              onClick={onBack}
+              aria-label="뒤로가기"
+              className="absolute left-0 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full text-sam-fg active:bg-black/[0.04]"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 18l-6-6 6-6" />
+              </svg>
+            </button>
+            <h1 className="mx-auto text-center sam-text-body-lg font-semibold text-sam-fg">장바구니</h1>
+            <button
+              type="button"
+              aria-label="친구 추가"
+              className="absolute right-0 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full text-sam-fg opacity-35 grayscale pointer-events-none"
+              disabled
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M20 8v6M23 11h-6" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -775,13 +818,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   if (lines.length === 0 && lastOrderId) {
     return (
       <div className="min-h-screen bg-sam-app pb-8">
-        <div className={APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS}>
-          <div className="w-full border-b border-sam-border-soft bg-sam-surface">
-            <div className={APP_TIER1_BAR_INNER_ALIGNED_CLASS}>
-              <h1 className="py-3 text-center sam-text-body-lg font-semibold text-sam-fg">장바구니</h1>
-            </div>
-          </div>
-        </div>
+        <CartTopBar cartCount={0} onBack={() => router.back()} />
         <div className="px-4 py-10 text-center">
           <p className="sam-text-body-lg font-semibold text-emerald-800">주문이 접수되었습니다.</p>
           <div className="mt-6 flex flex-col items-center gap-3">
@@ -815,15 +852,12 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   if (lines.length === 0) {
     return (
       <div className="min-h-screen bg-sam-app pb-8">
-        <div className={APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS}>
-          <div className="w-full border-b border-sam-border-soft bg-sam-surface">
-            <div className={APP_TIER1_BAR_INNER_ALIGNED_CLASS}>
-              <h1 className="py-3 text-center sam-text-body-lg font-semibold text-sam-fg">장바구니</h1>
-            </div>
+        <CartTopBar cartCount={0} onBack={() => router.back()} />
+        <div className="px-4 py-10">
+          <div className="text-center">
+            <p className="sam-text-body-lg font-semibold text-sam-fg">담은 메뉴가 없어요</p>
+            <p className="mt-1 sam-text-body text-sam-muted">{store.store_name} 다시 둘러볼까요?</p>
           </div>
-        </div>
-        <div className="px-4 py-6">
-          <p className="sam-text-body text-sam-muted">이 매장 장바구니가 비어 있습니다.</p>
           {otherBuckets.length > 0 ? (
             <div className="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-3 sam-text-body-secondary leading-relaxed text-amber-950">
               <p className="font-medium text-amber-950">
@@ -865,12 +899,12 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               </ul>
             </div>
           ) : null}
-          <div className="mt-6 flex flex-col gap-2">
+          <div className="mt-6 flex justify-center">
             <Link
               href={`/stores/${encodeURIComponent(store.slug)}`}
-              className="inline-block sam-text-body font-medium text-signature"
+              className="inline-flex h-11 min-w-[11.5rem] items-center justify-center rounded-full border border-sam-border bg-white px-6 sam-text-body font-semibold text-sam-fg shadow-sm active:bg-sam-app"
             >
-              매장으로 돌아가기
+              메뉴 보기
             </Link>
           </div>
         </div>
@@ -889,13 +923,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
   return (
     <div className="min-h-screen bg-sam-app pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
-      <div className={APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS}>
-        <div className="w-full border-b border-sam-border-soft bg-sam-surface">
-          <div className={APP_TIER1_BAR_INNER_ALIGNED_CLASS}>
-            <h1 className="py-3 text-center sam-text-body-lg font-semibold text-sam-fg">{t("common_cart")}</h1>
-          </div>
-        </div>
-      </div>
+      <CartTopBar cartCount={lines.length} onBack={() => router.back()} />
 
       <div className="mt-2 space-y-2 px-3">
         {lines.map((line) => {
@@ -915,7 +943,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           return (
             <div
               key={line.lineId}
-              className="flex gap-3 rounded border border-sam-border bg-sam-surface p-3 shadow-sm"
+              className="flex gap-3 rounded-[14px] border border-sam-border bg-white p-3 shadow-[0_1px_0_rgba(0,0,0,0.02)]"
             >
               <div className="relative h-16 w-16 shrink-0 overflow-visible">
                 {showDiscBadge ? (
@@ -923,7 +951,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                     {lineDiscPct}%
                   </span>
                 ) : null}
-                <div className="flex h-full w-full items-center justify-center overflow-hidden rounded bg-gradient-to-br from-sam-surface-muted to-sam-border-soft text-2xl text-sam-meta">
+                <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-[10px] bg-gradient-to-br from-sam-surface-muted to-sam-border-soft text-2xl text-sam-meta">
                   {line.thumbnailUrl?.trim() ? (
                     <img
                       src={line.thumbnailUrl.trim()}
@@ -936,9 +964,28 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 </div>
               </div>
               <div className="min-w-0 flex-1">
-                <p className="sam-text-body font-semibold text-sam-fg">{line.title}</p>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="min-w-0 sam-text-body font-semibold leading-snug text-sam-fg">
+                    {line.title}
+                  </p>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => cart.removeLine(line.lineId)}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sam-meta active:bg-black/[0.04] disabled:opacity-40"
+                    aria-label={t("common_delete")}
+                    title={t("common_delete")}
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 6V4h8v2" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 6l-1 16H6L5 6" />
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M10 11v6M14 11v6" />
+                    </svg>
+                  </button>
+                </div>
+
                 <p className="mt-0.5 sam-text-helper text-sam-muted">
-                  <span className="font-medium text-sam-muted">{t("common_option")}</span>{" "}
                   {line.optionsSummary?.trim() ? line.optionsSummary.trim() : t("common_none")}
                 </p>
                 {line.lineNote?.trim() ? (
@@ -946,69 +993,60 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                     <span className="font-medium">{t("common_request")}</span> {line.lineNote.trim()}
                   </p>
                 ) : null}
-                <div className="mt-1 flex flex-wrap items-baseline gap-2">
-                  <span className="text-sm font-bold text-sam-fg">
-                    {formatMoneyPhp(line.unitPricePhp)}
-                  </span>
-                  {listU != null && listU > line.unitPricePhp ? (
-                    <span className="text-xs font-normal text-sam-meta line-through">
-                      {formatMoneyPhp(listU)}
-                    </span>
-                  ) : null}
-                  <span className="text-xs text-sam-muted">× {line.qty}</span>
-                </div>
-                <div className="mt-1 flex flex-wrap items-baseline justify-end gap-2 border-t border-sam-border-soft pt-1.5">
-                  <span className="sam-text-xxs text-sam-muted">줄 합계</span>
+
+                <div className="mt-2 flex flex-wrap items-baseline gap-2">
+                  <span className="text-sm font-bold text-sam-fg">{formatMoneyPhp(lineTotal)}</span>
                   {lineListTotal != null && lineListTotal > lineTotal ? (
                     <span className="text-xs font-normal text-sam-meta line-through">
                       {formatMoneyPhp(lineListTotal)}
                     </span>
                   ) : null}
-                  <span className="sam-text-body font-bold text-sam-fg">{formatMoneyPhp(lineTotal)}</span>
                 </div>
-              </div>
-              <div className="flex shrink-0 flex-col items-end justify-end gap-2 self-end">
-                <div className="flex items-center gap-2">
+
+                <div className="mt-3 flex items-center justify-between gap-2">
                   <button
                     type="button"
-                    disabled={busy || line.qty <= line.minOrderQty}
-                    onClick={() => cart.updateLineQuantity(line.lineId, line.qty - 1)}
-                    className="flex h-9 w-9 items-center justify-center rounded border border-sam-border bg-sam-surface text-lg text-sam-fg disabled:opacity-40"
+                    disabled={busy}
+                    onClick={() =>
+                      router.push(
+                        `/stores/${encodeURIComponent(store.slug)}/products/${encodeURIComponent(line.productId)}`
+                      )
+                    }
+                    className="h-9 shrink-0 rounded-md border border-sam-border bg-white px-3 sam-text-helper font-semibold text-sam-fg shadow-sm active:bg-sam-app disabled:opacity-40"
                   >
-                    −
+                    옵션 변경
                   </button>
-                  <span className="min-w-[2rem] text-center sam-text-body font-semibold">{line.qty}</span>
-                  <button
-                    type="button"
-                    disabled={busy || line.qty >= line.maxOrderQty}
-                    onClick={() => cart.updateLineQuantity(line.lineId, line.qty + 1)}
-                    className="flex h-9 w-9 items-center justify-center rounded border border-sam-border bg-sam-surface text-lg text-sam-fg disabled:opacity-40"
-                  >
-                    +
-                  </button>
+                  <div className="flex h-9 shrink-0 items-center overflow-hidden rounded-md border border-sam-border bg-white shadow-sm">
+                    <button
+                      type="button"
+                      disabled={busy || line.qty <= line.minOrderQty}
+                      onClick={() => cart.updateLineQuantity(line.lineId, line.qty - 1)}
+                      className="flex h-full w-10 items-center justify-center text-[18px] font-medium text-sam-fg disabled:opacity-30"
+                      aria-label="수량 줄이기"
+                    >
+                      −
+                    </button>
+                    <span className="min-w-[2.25rem] text-center sam-text-body font-semibold tabular-nums text-sam-fg">
+                      {line.qty}
+                    </span>
+                    <button
+                      type="button"
+                      disabled={busy || line.qty >= line.maxOrderQty}
+                      onClick={() => cart.updateLineQuantity(line.lineId, line.qty + 1)}
+                      className="flex h-full w-10 items-center justify-center text-[18px] font-medium text-sam-fg disabled:opacity-30"
+                      aria-label="수량 늘리기"
+                    >
+                      +
+                    </button>
+                  </div>
                 </div>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={() => cart.removeLine(line.lineId)}
-                  className="sam-text-body-secondary font-medium text-red-600"
-                >
-                  {t("common_delete")}
-                </button>
               </div>
             </div>
           );
         })}
       </div>
 
-      <div className="mx-3 mt-2">
-        <Link
-          href={`/stores/${encodeURIComponent(store.slug)}`}
-          className="inline-flex w-full items-center justify-center rounded border border-sam-border bg-sam-surface py-3 sam-text-body font-semibold text-signature shadow-sm active:bg-sam-app"
-        >
-          {t("common_menu_more")}
-        </Link>
-      </div>
+      {/* 사용자 요청: 장바구니 내 메뉴 추천/추가 영역은 생략 가능 */}
 
       {otherBuckets.length > 0 ? (
         <div className="mx-3 mt-3 rounded border border-sam-border bg-sam-surface px-3 py-2.5 sam-text-helper text-sam-muted">
@@ -1387,17 +1425,24 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       </div>
 
       <div
-        className={`fixed bottom-0 left-0 right-0 z-50 border-t border-sam-border border-b border-sam-border bg-sam-app/95 px-4 py-3 shadow-[0_-2px_12px_rgba(0,0,0,0.05)] backdrop-blur-sm ${BOTTOM_NAV_STACK_ABOVE_CLASS}`}
+        className={`fixed bottom-0 left-0 right-0 z-50 border-t border-sam-border bg-white/95 px-4 py-3 shadow-[0_-2px_12px_rgba(0,0,0,0.06)] backdrop-blur-sm ${BOTTOM_NAV_STACK_ABOVE_CLASS}`}
         style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
       >
-        <button
-          type="button"
-          disabled={busy || !meetsMin || fulfillmentOptions.length === 0 || checkoutBlocked}
-          onClick={() => void submitOrder()}
-          className="sam-btn-primary w-full shadow-sm disabled:bg-sam-surface-muted disabled:text-sam-muted"
-        >
-          {busy ? t("common_processing") : t("common_order_action")}
-        </button>
+        <div className={`mx-auto flex w-full min-w-0 items-center gap-3 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}>
+          <div className="min-w-0 flex-1">
+            <p className="sam-text-page-title font-extrabold leading-none tabular-nums text-sam-fg">
+              {formatMoneyPhp(displayGrand)}
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={busy || !meetsMin || fulfillmentOptions.length === 0 || checkoutBlocked}
+            onClick={() => void submitOrder()}
+            className="inline-flex h-11 min-w-[11.5rem] touch-manipulation items-center justify-center rounded-[12px] bg-[#1C8DB8] px-5 sam-text-body font-extrabold text-white shadow-sm transition-all duration-150 hover:bg-[#197DA3] active:bg-[#166F92] active:scale-[0.98] disabled:bg-sam-surface-muted disabled:text-sam-muted disabled:active:scale-100"
+          >
+            {busy ? t("common_processing") : "가게배달 주문하기"}
+          </button>
+        </div>
       </div>
 
       {addressModalOpen ? (

@@ -14,22 +14,64 @@ export function StoreMenuCategoryChips({
   omitTopBorder = false,
   /** 부모가 스티키·배경을 잡은 경우 패딩만 사용 */
   plainBackground = false,
+  /** 주문 매장 상세 전용 칩(간격·색) */
+  variant = "default",
+  showSearchButton = false,
+  onSearchClick,
 }: {
   sections: { label: string }[];
   activeIndex: number;
   onSelect: (index: number) => void;
   omitTopBorder?: boolean;
   plainBackground?: boolean;
+  variant?: "default" | "orderDetail";
+  showSearchButton?: boolean;
+  onSearchClick?: () => void;
 }) {
   if (sections.length <= 1) return null;
 
+  const wrapPad =
+    variant === "orderDetail"
+      ? "px-0 py-1.5"
+      : plainBackground
+        ? "px-0 py-0"
+        : "bg-sam-surface px-4";
+
+  const borderCls =
+    variant === "orderDetail"
+      ? ""
+      : omitTopBorder || plainBackground
+        ? ""
+        : "border-t border-sam-border";
+
+  const scrollCls =
+    variant === "orderDetail"
+      ? "flex flex-nowrap gap-1.5 overflow-x-auto px-4 pb-1.5 [-webkit-overflow-scrolling:touch]"
+      : "sam-tabs sam-tabs--scroll -mx-4";
+
+  const chipCls = (on: boolean) =>
+    variant === "orderDetail"
+      ? `shrink-0 whitespace-nowrap rounded-full border px-[12px] text-[12px] font-bold transition-colors duration-[180ms] ${
+          on ? "h-[32px] border-neutral-900 bg-neutral-900 text-white" : "h-[32px] border-neutral-200 bg-white text-neutral-900"
+        }`
+      : `sam-tab ${on ? "sam-tab--active" : ""}`;
+
   return (
-    <div className={`${plainBackground ? "px-0 py-0" : "bg-sam-surface px-4"} ${omitTopBorder || plainBackground ? "" : "border-t border-sam-border"}`}>
-      <HorizontalDragScroll
-        className="sam-tabs sam-tabs--scroll -mx-4"
-        role="tablist"
-        aria-label="메뉴 카테고리"
-      >
+    <div className={`${wrapPad} ${borderCls}`}>
+      <HorizontalDragScroll className={scrollCls} role="tablist" aria-label="메뉴 카테고리">
+        {showSearchButton ? (
+          <button
+            type="button"
+            onClick={onSearchClick}
+            className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-900"
+            aria-label="메뉴 검색"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+              <circle cx="11" cy="11" r="7" />
+              <path strokeLinecap="round" d="M20 20l-3.5-3.5" />
+            </svg>
+          </button>
+        ) : null}
         {sections.map((s, i) => {
           const on = i === activeIndex;
           return (
@@ -39,7 +81,7 @@ export function StoreMenuCategoryChips({
               role="tab"
               aria-selected={on}
               onClick={() => onSelect(i)}
-              className={`sam-tab ${on ? "sam-tab--active" : ""}`}
+              className={chipCls(on)}
             >
               {s.label}
             </button>

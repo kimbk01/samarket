@@ -29,7 +29,7 @@ import { fetchStorePublicBySlugDeduped } from "@/lib/stores/store-delivery-api-c
 
 const STORE_GALLERY_DISPLAY_MAX = 16;
 
-type StoreInfoRow = {
+export type StoreInfoRow = {
   id: string;
   store_name: string;
   slug: string;
@@ -73,43 +73,75 @@ function formatTs(iso: string | undefined): string {
   return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString("ko-KR");
 }
 
-export function StoreDetailInfoPublic({ slug }: { slug: string }) {
-  const [store, setStore] = useState<StoreInfoRow | null>(null);
-  const [recentOrderCount, setRecentOrderCount] = useState(0);
-  const [loading, setLoading] = useState(true);
+function slugMatchesApiStore(slugParam: string, row: StoreInfoRow): boolean {
+  let a = slugParam.trim();
+  try {
+    a = decodeURIComponent(a);
+  } catch {
+    /* noop */
+  }
+  const b = (row.slug || "").trim();
+  return a === b || a.toLowerCase() === b.toLowerCase();
+}
 
-  const load = useCallback(async (opts?: { silent?: boolean }) => {
-    const silent = !!opts?.silent;
-    if (!silent) setLoading((prev) => (prev ? prev : true));
-    try {
-      const { json } = await fetchStorePublicBySlugDeduped(slug);
-      const j = json as {
-        ok?: boolean;
-        store?: StoreInfoRow;
-        meta?: { recent_order_count?: unknown };
-      };
-      if (j?.ok && j.store) {
-        setStore(j.store);
-        setRecentOrderCount(Number(j.meta?.recent_order_count) || 0);
-      } else {
+export function StoreDetailInfoPublic({
+  slug,
+  prefetchedStore = null,
+  prefetchedRecentOrderCount,
+  layoutVariant = "page",
+}: {
+  slug: string;
+  /** 매장 메뉴 탭 등 동일 응답 재사용 — 슬러그 일치 시 초기 로딩 스킵 */
+  prefetchedStore?: StoreInfoRow | null;
+  prefetchedRecentOrderCount?: number;
+  layoutVariant?: "page" | "embedded";
+}) {
+  const prefetchHit =
+    !!prefetchedStore && slugMatchesApiStore(slug, prefetchedStore);
+
+  const [store, setStore] = useState<StoreInfoRow | null>(() =>
+    prefetchHit ? prefetchedStore : null
+  );
+  const [recentOrderCount, setRecentOrderCount] = useState(() =>
+    prefetchHit ? Number(prefetchedRecentOrderCount) || 0 : 0
+  );
+  const [loading, setLoading] = useState(() => !prefetchHit);
+
+  const load = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      const silent = !!opts?.silent;
+      if (!silent) setLoading((prev) => (prev ? prev : true));
+      try {
+        const { json } = await fetchStorePublicBySlugDeduped(slug);
+        const j = json as {
+          ok?: boolean;
+          store?: StoreInfoRow;
+          meta?: { recent_order_count?: unknown };
+        };
+        if (j?.ok && j.store) {
+          setStore(j.store);
+          setRecentOrderCount(Number(j.meta?.recent_order_count) || 0);
+        } else {
+          if (!silent) {
+            setStore((prev) => (prev === null ? prev : null));
+            setRecentOrderCount(0);
+          }
+        }
+      } catch {
         if (!silent) {
           setStore((prev) => (prev === null ? prev : null));
           setRecentOrderCount(0);
         }
+      } finally {
+        if (!silent) setLoading((prev) => (prev ? false : prev));
       }
-    } catch {
-      if (!silent) {
-        setStore((prev) => (prev === null ? prev : null));
-        setRecentOrderCount(0);
-      }
-    } finally {
-      if (!silent) setLoading((prev) => (prev ? false : prev));
-    }
-  }, [slug]);
+    },
+    [slug]
+  );
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void load({ silent: prefetchHit });
+  }, [load, prefetchHit]);
 
   useRefetchOnPageShowRestore(() => void load({ silent: true }));
 
@@ -236,11 +268,19 @@ export function StoreDetailInfoPublic({ slug }: { slug: string }) {
       ? telHrefFromLoosePhPhone(store.phone) ?? `tel:${String(store.phone).replace(/\s/g, "")}`
       : null;
 
-  return (
-    <div className="min-h-screen bg-sam-surface pb-10">
+  const headerTitle =
+    layoutVariant === "embedded" ? null : (
       <div className={`${STORE_DETAIL_SUBHEADER_STICKY} px-4 py-2.5`}>
         <h2 className="text-center sam-text-body-lg font-bold text-sam-fg">가게 정보</h2>
       </div>
+    );
+
+  const outerCls =
+    layoutVariant === "embedded" ? "min-h-0 bg-white pb-8 pt-2" : "min-h-screen bg-sam-surface pb-10";
+
+  return (
+    <div className={outerCls}>
+      {headerTitle}
 
       {ownerManagementHref ? (
         <p className="border-b border-sam-border-soft px-4 py-2.5 text-center">

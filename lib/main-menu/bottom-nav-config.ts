@@ -156,13 +156,13 @@ export const VIEWPORT_HEIGHT_FULL_CLASS = "h-[100dvh] max-h-[100dvh]";
 export const STORE_DETAIL_ROOT_BOTTOM_PADDING_CLASS =
   "pb-[calc(8.5rem+env(safe-area-inset-bottom,0px))]";
 
-/** 매장 상세 메뉴: 카트 띠만 고정 시(전역/배달 하단 탭 없음 구간) 본문 하단 여백 */
+/** 매장 상세 메뉴: 활성 카트 띠(~92px)+safe 하단 여유 */
 export const STORE_DETAIL_ROOT_BOTTOM_PADDING_WITH_CART_STRIP_CLASS =
-  "pb-[calc(5.75rem+env(safe-area-inset-bottom,0px))]";
+  "pb-[calc(6.75rem+env(safe-area-inset-bottom,0px))]";
 
-/** 카트 비었을 때 — 고정 띠 없음 */
+/** 매장 상세 메뉴: 빈 카트 띠(~76px)+safe 하단 여유 */
 export const STORE_DETAIL_ROOT_BOTTOM_PADDING_NO_STRIP_CLASS =
-  "pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]";
+  "pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]";
 
 /**
  * 기본 테마 — 탭별 override 없을 때 사용.

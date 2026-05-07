@@ -7,6 +7,7 @@ import {
   isTradeFloatingMenuSurface,
 } from "@/lib/layout/mobile-top-tier1-rules";
 import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
+import { isStoresConsumerSlugMenuRoute } from "@/lib/stores/store-consumer-route";
 
 /** 통화 전용 라우트에서 수신 오버레이 억제 — `CallIncomingChrome` 등 경량 판별용 */
 export function resolveSuppressIncomingCallOverlay(pathname: string | null): boolean {
@@ -33,6 +34,8 @@ export function isMarketTradeFeedHubPath(pathname: string | null | undefined): b
 }
 
 export type ConditionalAppShellResolvedFlags = {
+  /** `/stores/[slug]` 주문 메뉴 루트 — 히어로 풀블리드·당김 배경과 셸 배경 일치 */
+  isStoreOrderHeroMenuSurface: boolean;
   isSettings: boolean;
   isLogout: boolean;
   isMyEdit: boolean;
@@ -85,6 +88,7 @@ export function resolveConditionalAppShellFlags(
   pathname: string | null,
   regionBarInLayout: boolean
 ): ConditionalAppShellResolvedFlags {
+  const isStoreOrderHeroMenuSurface = isStoresConsumerSlugMenuRoute(pathname);
   const topTier1RuleSet = getMobileTopTier1RuleSet(pathname);
   const isHome = pathname === "/" || pathname === "/philife";
   const isSettings = pathname?.startsWith("/my/settings") ?? false;
@@ -114,11 +118,16 @@ export function resolveConditionalAppShellFlags(
       pathname?.match(/^\/chats\/[^/]+$/) && pathname !== "/chats/new" && pathname !== "/chats/order"
     );
   const isAnyChatRoomDetail = isViewportLockedChatDetail || isCommunityMessengerCallPage;
+  /**
+   * 일반 뷰포트 셸 배경: `/stores/[slug]` 주문 메뉴 루트는 `ConditionalAppShell` 에서 히어로 동색 그라데이션을 준다.
+   * 여기서도 `bg-sam-app` 를 붙이면 Tailwind 유틸 우선순위가 꼬여 당김 시 배경이 어긋날 수 있다.
+   */
+  const appShellRootViewportDefaultClass = `min-h-[100dvh] min-w-0 max-w-full overflow-x-clip${isStoreOrderHeroMenuSurface ? "" : " bg-sam-app"}`;
   const appShellRootClass = isViewportLockedChatDetail
     ? topTier1RuleSet.showRegionBar
       ? "flex h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px))] max-h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px))] min-w-0 max-w-full flex-col overflow-hidden bg-sam-app"
       : "flex h-[100dvh] max-h-[100dvh] min-w-0 max-w-full flex-col overflow-hidden bg-sam-app"
-    : "min-h-[100dvh] min-w-0 max-w-full overflow-x-clip bg-sam-app";
+    : appShellRootViewportDefaultClass;
   const isChatRoomDetail = isAnyChatRoomDetail;
   const isSearch = pathname === "/search";
   const isServicesSection = pathname === "/services" || (pathname?.startsWith("/services/") ?? false);
@@ -223,6 +232,7 @@ export function resolveConditionalAppShellFlags(
           : "pb-4";
 
   return {
+    isStoreOrderHeroMenuSurface,
     // home(첫 진입)에서는 글로벌 realtime chrome을 기본으로 끈다(배지/사운드는 허브에서만).
     isSettings,
     isLogout,

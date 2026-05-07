@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { StoreCartEntrySwitch } from "@/components/stores/StoreCartEntrySwitch";
+import { fetchStorePublicInitialOnServer } from "@/lib/stores/fetch-store-public-server";
 
 export default function StoreCartPage({ params }: { params: Promise<{ slug: string }> }) {
   return (
@@ -13,9 +14,18 @@ export default function StoreCartPage({ params }: { params: Promise<{ slug: stri
 async function StoreCartPageBody({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const safe = typeof slug === "string" ? slug : "";
+  const raw = await fetchStorePublicInitialOnServer(safe);
+  const j = raw?.json as { ok?: boolean; store?: unknown } | undefined;
+  const verified = raw?.status === 200 && !!j?.ok && !!j?.store;
+  const initialApiForPrime = raw != null ? { status: raw.status, json: raw.json } : null;
   return (
     <div className="px-0 py-0">
-      <StoreCartEntrySwitch storeSlug={safe} />
+      <StoreCartEntrySwitch
+        key={safe}
+        storeSlug={safe}
+        initialVerifiedReal={verified}
+        initialApiForPrime={initialApiForPrime}
+      />
     </div>
   );
 }

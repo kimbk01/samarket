@@ -1,23 +1,38 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { StoreCommerceCartPageClient } from "@/components/stores/StoreCommerceCartPageClient";
 import { StoreCommerceCartEntryFallback } from "@/components/stores/StoreCommerceCartEntryFallback";
-import { fetchStorePublicBySlugDeduped } from "@/lib/stores/store-delivery-api-client";
+import {
+  fetchStorePublicBySlugDeduped,
+  primeStorePublicCache,
+  type StoreApiJsonResponse,
+} from "@/lib/stores/store-delivery-api-client";
 
 type EntryState =
   | { kind: "load" }
   | { kind: "real" }
   | { kind: "fallback"; hint: "network" | "missing" | "api" };
 
-export function StoreCartEntrySwitch({ storeSlug }: { storeSlug: string }) {
+export function StoreCartEntrySwitch({
+  storeSlug,
+  initialVerifiedReal,
+  initialApiForPrime,
+}: {
+  storeSlug: string;
+  /** 서버 선조회로 매장 존재 확인 시 로딩 스켈레톤 생략 */
+  initialVerifiedReal?: boolean;
+  initialApiForPrime?: StoreApiJsonResponse | null;
+}) {
   const normalizedSlug = useMemo(
     () => decodeURIComponent((storeSlug || "").trim()),
     [storeSlug]
   );
 
-  const [state, setState] = useState<EntryState>({ kind: "load" });
+  const [state, setState] = useState<EntryState>(() =>
+    initialVerifiedReal ? { kind: "real" } : { kind: "load" }
+  );
   const isSameEntryState = (a: EntryState, b: EntryState): boolean => {
     if (a.kind !== b.kind) return false;
     if (a.kind === "fallback" && b.kind === "fallback") return a.hint === b.hint;
@@ -61,9 +76,15 @@ export function StoreCartEntrySwitch({ storeSlug }: { storeSlug: string }) {
     [normalizedSlug]
   );
 
+  useLayoutEffect(() => {
+    if (initialApiForPrime?.status === 200) {
+      primeStorePublicCache(normalizedSlug, initialApiForPrime);
+    }
+  }, [normalizedSlug, initialApiForPrime]);
+
   useEffect(() => {
-    void detect();
-  }, [detect]);
+    void detect({ silent: !!initialVerifiedReal });
+  }, [detect, initialVerifiedReal]);
 
   useRefetchOnPageShowRestore(() => void detect({ silent: true }));
 

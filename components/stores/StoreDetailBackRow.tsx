@@ -13,9 +13,12 @@ type Variant = "back" | "close";
 export function StoreDetailBackLink({
   fallbackHref,
   variant = "back",
+  className,
 }: {
   fallbackHref: string;
   variant?: Variant;
+  /** 투명 헤더·히어로 위 등 — 기본은 text-sam-fg */
+  className?: string;
 }) {
   const router = useRouter();
   const label = variant === "close" ? "닫기" : "뒤로가기";
@@ -24,7 +27,10 @@ export function StoreDetailBackLink({
     <button
       type="button"
       onClick={() => runHistoryBackWithFallback(router, fallbackHref)}
-      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-sam-surface-muted/90 active:bg-sam-border-soft/80"
+      className={
+        className ??
+        "flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-sam-surface-muted/90 active:bg-sam-border-soft/80"
+      }
       aria-label={label}
     >
       {variant === "close" ? (

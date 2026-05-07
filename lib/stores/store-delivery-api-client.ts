@@ -63,6 +63,21 @@ function primeStoreHubSummaryCache(cacheKey: string, value: StoreApiJsonResponse
   });
 }
 
+/**
+ * 서버에서 받은 동일 페이로드를 주입 — 최초 클라 `fetchStorePublicBySlugDeduped` 가 네트워크 없이 캐시 히트.
+ * (RSC `fetchStorePublicInitialOnServer` 와 짝)
+ */
+export function primeStorePublicCache(slug: string, response: StoreApiJsonResponse): void {
+  const s = trimSlug(slug);
+  if (!s) return;
+  const value = { status: response.status, json: response.json };
+  if (response.status !== 200) {
+    storePublicCache.delete(s);
+    return;
+  }
+  storePublicCache.set(s, { expiresAt: Date.now() + STORE_PUBLIC_CACHE_TTL_MS, value });
+}
+
 /** GET /api/stores/:slug — 매장 상세·스티키바·카트 진입 등 동시 마운트 시 합류 */
 export async function fetchStorePublicBySlugDeduped(slug: string): Promise<StoreApiJsonResponse> {
   const s = trimSlug(slug);

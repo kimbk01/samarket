@@ -6,10 +6,6 @@ import { usePathname } from "next/navigation";
 import { StoreDetailBackLink } from "@/components/stores/StoreDetailBackRow";
 import { StoreDetailStickyTopRow } from "@/components/stores/StoreDetailStickyTopRow";
 import {
-  STORE_FAVORITE_CHANGED_EVENT,
-  type StoreFavoriteChangedDetail,
-} from "@/lib/stores/store-favorite-events";
-import {
   STORE_DETAIL_STICKY_HEADER,
   STORE_DETAIL_STICKY_TOP_SAFE,
 } from "@/lib/stores/store-detail-ui";
@@ -22,10 +18,8 @@ import {
   STORE_FULFILLMENT_PREF_CHANGED_EVENT,
   type StoreFulfillmentPrefChangedDetail,
 } from "@/lib/stores/store-fulfillment-pref";
-import {
-  fetchStoreFavoriteMutation,
-  fetchStorePublicBySlugDeduped,
-} from "@/lib/stores/store-delivery-api-client";
+import { fetchStorePublicBySlugDeduped } from "@/lib/stores/store-delivery-api-client";
+import { useStoreFavoriteToggle } from "@/lib/stores/use-store-favorite-toggle";
 
 type StoreHead = {
   id: string;
@@ -50,9 +44,11 @@ export function StoreSlugStickyBar({ slug }: { slug: string }) {
 
   const [store, setStore] = useState<StoreHead | null>(null);
   const [loading, setLoading] = useState(true);
-  const [viewerFavorited, setViewerFavorited] = useState(false);
-  const [favoriteBusy, setFavoriteBusy] = useState(false);
-  const [favoriteCount, setFavoriteCount] = useState(0);
+  const [favoriteSeed, setFavoriteSeed] = useState({ viewerFavorited: false, favoriteCount: 0 });
+  const { viewerFavorited, favoriteBusy, toggleFavorite, favoriteCount } = useStoreFavoriteToggle(
+    decoded,
+    favoriteSeed
+  );
   const [recentOrderCount, setRecentOrderCount] = useState(0);
   const [openTick, setOpenTick] = useState(0);
   const [fulfillmentMode, setFulfillmentMode] = useState<"pickup" | "local_delivery">("pickup");
@@ -74,8 +70,13 @@ export function StoreSlugStickyBar({ slug }: { slug: string }) {
 
   const storeRoot = `/stores/${encodeURIComponent(decoded)}`;
   const infoPath = `/stores/${encodeURIComponent(decoded)}/info`;
+  const reviewsPath = `${storeRoot}/reviews`;
   const fallbackHref =
-    pathname === infoPath || (pathname?.startsWith(`${infoPath}/`) ?? false) ? storeRoot : "/stores";
+    pathname === infoPath || (pathname?.startsWith(`${infoPath}/`) ?? false)
+      ? storeRoot
+      : pathname === reviewsPath || (pathname?.startsWith(`${reviewsPath}/`) ?? false)
+        ? storeRoot
+        : "/stores";
 
   const isStoreMenuRoot = pathname === storeRoot;
 
@@ -136,7 +137,9 @@ export function StoreSlugStickyBar({ slug }: { slug: string }) {
         if (!j?.ok || !j.store) {
           if (!silent) {
             setStore((prev) => (prev === null ? prev : null));
-            setFavoriteCount((prev) => (prev === 0 ? prev : 0));
+            setFavoriteSeed((prev) =>
+              prev.viewerFavorited === false && prev.favoriteCount === 0 ? prev : { viewerFavorited: false, favoriteCount: 0 }
+            );
             setRecentOrderCount((prev) => (prev === 0 ? prev : 0));
           }
         } else {
@@ -145,8 +148,11 @@ export function StoreSlugStickyBar({ slug }: { slug: string }) {
           const nextFavoriteCount = Number(j.meta?.favorite_count) || 0;
           const nextRecentOrderCount = Number(j.meta?.recent_order_count) || 0;
           setStore((prev) => (isSameStoreHead(prev, nextStore) ? prev : nextStore));
-          setViewerFavorited((prev) => (prev === nextViewerFavorited ? prev : nextViewerFavorited));
-          setFavoriteCount((prev) => (prev === nextFavoriteCount ? prev : nextFavoriteCount));
+          setFavoriteSeed((prev) =>
+            prev.viewerFavorited === nextViewerFavorited && prev.favoriteCount === nextFavoriteCount
+              ? prev
+              : { viewerFavorited: nextViewerFavorited, favoriteCount: nextFavoriteCount }
+          );
           setRecentOrderCount((prev) => (prev === nextRecentOrderCount ? prev : nextRecentOrderCount));
         }
       } catch {
@@ -163,69 +169,6 @@ export function StoreSlugStickyBar({ slug }: { slug: string }) {
   }, [loadSticky]);
 
   useRefetchOnPageShowRestore(() => void loadSticky({ silent: true }));
-
-  useEffect(() => {
-    const onFav = (e: Event) => {
-      const d = (e as CustomEvent<StoreFavoriteChangedDetail>).detail;
-      if (!d || d.slug !== decoded) return;
-      setFavoriteCount(Number(d.favorite_count) || 0);
-    };
-    window.addEventListener(STORE_FAVORITE_CHANGED_EVENT, onFav);
-    return () => window.removeEventListener(STORE_FAVORITE_CHANGED_EVENT, onFav);
-  }, [decoded]);
-
-  const toggleFavorite = useCallback(async () => {
-    if (favoriteBusy || !decoded) return;
-    const prevFavorited = viewerFavorited;
-    const prevFavoriteCount = favoriteCount;
-    const nextFavorited = !prevFavorited;
-    const nextFavoriteCount = Math.max(0, prevFavoriteCount + (nextFavorited ? 1 : -1));
-    setFavoriteBusy(true);
-    setViewerFavorited(nextFavorited);
-    setFavoriteCount(nextFavoriteCount);
-    window.dispatchEvent(
-      new CustomEvent<StoreFavoriteChangedDetail>(STORE_FAVORITE_CHANGED_EVENT, {
-        detail: { slug: decoded, favorited: nextFavorited, favorite_count: nextFavoriteCount },
-      })
-    );
-    try {
-      const method = prevFavorited ? "DELETE" : "POST";
-      const { status, json } = await fetchStoreFavoriteMutation(decoded, method);
-      if (status === 401) {
-        setViewerFavorited(prevFavorited);
-        setFavoriteCount(prevFavoriteCount);
-        window.dispatchEvent(
-          new CustomEvent<StoreFavoriteChangedDetail>(STORE_FAVORITE_CHANGED_EVENT, {
-            detail: { slug: decoded, favorited: prevFavorited, favorite_count: prevFavoriteCount },
-          })
-        );
-        window.alert("로그인이 필요합니다.");
-        return;
-      }
-      const favJ = json as { ok?: boolean; favorited?: boolean; favorite_count?: unknown };
-      if (!favJ?.ok) {
-        setViewerFavorited(prevFavorited);
-        setFavoriteCount(prevFavoriteCount);
-        window.dispatchEvent(
-          new CustomEvent<StoreFavoriteChangedDetail>(STORE_FAVORITE_CHANGED_EVENT, {
-            detail: { slug: decoded, favorited: prevFavorited, favorite_count: prevFavoriteCount },
-          })
-        );
-        return;
-      }
-      const favorited = !!favJ.favorited;
-      const favorite_count = Number(favJ.favorite_count) || 0;
-      setViewerFavorited(favorited);
-      setFavoriteCount(favorite_count);
-      window.dispatchEvent(
-        new CustomEvent<StoreFavoriteChangedDetail>(STORE_FAVORITE_CHANGED_EVENT, {
-          detail: { slug: decoded, favorited, favorite_count },
-        })
-      );
-    } finally {
-      setFavoriteBusy(false);
-    }
-  }, [favoriteBusy, viewerFavorited, decoded]);
 
   const locationSubtitle = store ? formatStoreLocationLine(store) : null;
 
@@ -302,7 +245,7 @@ export function StoreSlugStickyBar({ slug }: { slug: string }) {
             recentOrderCount={recentOrderCount}
             viewerFavorited={viewerFavorited}
             favoriteBusy={favoriteBusy}
-            onFavoriteClick={toggleFavorite}
+            onFavoriteClick={() => void toggleFavorite()}
             orderChrome={orderChrome}
           />
         )}
