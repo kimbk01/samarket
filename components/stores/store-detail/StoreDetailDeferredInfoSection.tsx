@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { fetchStoreReviewsSummaryDeduped } from "@/lib/stores/store-delivery-api-client";
@@ -17,11 +18,14 @@ export function StoreDetailDeferredInfoSection({
   storeSlug,
   storeRootPath,
   legacyReviewCount,
+  reviewTopSlot,
 }: {
   storeSlug: string;
   storeRootPath: string;
   /** 레거시 매장 행 기준 — 요약 API 실패 시 전체 리뷰 링크 노출 여부 */
   legacyReviewCount: number;
+  /** 리뷰 블록 위 — `review_top` 매장 공지 */
+  reviewTopSlot?: ReactNode;
 }) {
   const [phase, setPhase] = useState<"idle" | "loading" | "ready" | "failed">("idle");
   const [payload, setPayload] = useState<{
@@ -68,16 +72,21 @@ export function StoreDetailDeferredInfoSection({
 
   if (phase === "loading" || phase === "idle") {
     return (
-      <div className="mx-4 mt-4 rounded-[14px] border border-neutral-100 bg-neutral-50/80 px-4 py-3">
+      <>
+        {reviewTopSlot ? <div className="mx-4 mt-4">{reviewTopSlot}</div> : null}
+        <div className="mx-4 mt-4 rounded-[14px] border border-neutral-100 bg-neutral-50/80 px-4 py-3">
         <div className="h-4 w-24 animate-pulse rounded bg-neutral-200/90" />
         <div className="mt-2 h-3 w-full animate-pulse rounded bg-neutral-200/70" />
       </div>
+      </>
     );
   }
 
   if (phase === "failed") {
     return (
-      <div className="mx-4 mt-4 rounded-[14px] border border-dashed border-neutral-200 bg-white px-4 py-3 text-center">
+      <>
+        {reviewTopSlot ? <div className="mx-4 mt-4">{reviewTopSlot}</div> : null}
+        <div className="mx-4 mt-4 rounded-[14px] border border-dashed border-neutral-200 bg-white px-4 py-3 text-center">
         <p className="text-[12px] text-neutral-500">리뷰 요약을 불러오지 못했어요.</p>
         <button
           type="button"
@@ -94,12 +103,15 @@ export function StoreDetailDeferredInfoSection({
           </div>
         ) : null}
       </div>
+      </>
     );
   }
 
   if (!payload || payload.count <= 0) {
     return showFullLink ? (
-      <div className="mx-4 mt-4 rounded-[14px] border border-neutral-100 bg-white px-4 py-3 text-center">
+      <>
+        {reviewTopSlot ? <div className="mx-4 mt-4">{reviewTopSlot}</div> : null}
+        <div className="mx-4 mt-4 rounded-[14px] border border-neutral-100 bg-white px-4 py-3 text-center">
         <Link
           href={reviewsHref}
           className="text-[13px] font-semibold text-[#1C8DB8] underline underline-offset-2"
@@ -107,11 +119,16 @@ export function StoreDetailDeferredInfoSection({
           리뷰 보기
         </Link>
       </div>
+      </>
+    ) : reviewTopSlot ? (
+      <div className="mx-4 mt-4">{reviewTopSlot}</div>
     ) : null;
   }
 
   return (
-    <div className="mx-4 mt-4 rounded-[14px] border border-neutral-100 bg-white px-4 py-3 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+    <>
+      {reviewTopSlot ? <div className="mx-4 mt-4">{reviewTopSlot}</div> : null}
+      <div className="mx-4 mt-4 rounded-[14px] border border-neutral-100 bg-white px-4 py-3 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
       <div className="flex items-baseline justify-between gap-2">
         <div className="text-[15px] font-bold text-neutral-900">리뷰</div>
         <Link href={reviewsHref} className="shrink-0 text-[12px] font-semibold text-[#1C8DB8]">
@@ -150,5 +167,6 @@ export function StoreDetailDeferredInfoSection({
         </Link>
       </div>
     </div>
+    </>
   );
 }

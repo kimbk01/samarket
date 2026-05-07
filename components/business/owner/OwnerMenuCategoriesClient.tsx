@@ -167,8 +167,37 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
     }
   };
 
+  const countProductsInSection = useCallback(async (sectionId: string): Promise<number> => {
+    try {
+      const res = await fetch(`/api/me/stores/${encodeURIComponent(storeId)}/products`, {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        products?: Array<{ menu_section_id?: string | null; store_menu_sections?: unknown }>;
+      };
+      if (!j?.ok || !Array.isArray(j.products)) return 0;
+      return j.products.filter((p) => {
+        if (p.menu_section_id && String(p.menu_section_id) === sectionId) return true;
+        const emb = p.store_menu_sections;
+        if (!emb) return false;
+        const one = Array.isArray(emb) ? emb[0] : emb;
+        const id = one && typeof one === "object" && "id" in one ? String((one as { id?: string }).id ?? "") : "";
+        return id === sectionId;
+      }).length;
+    } catch {
+      return 0;
+    }
+  }, [storeId]);
+
   const deleteSection = async (s: Section) => {
-    if (!window.confirm(`「${s.name}」 카테고리를 삭제할까요? 속한 메뉴는 「기타」로 분류됩니다.`)) {
+    const n = await countProductsInSection(s.id);
+    if (n > 0) {
+      setError(`이 카테고리에 메뉴가 ${n}개 있습니다. 상품 관리에서 다른 카테고리로 옮긴 뒤 삭제해 주세요.`);
+      return;
+    }
+    if (!window.confirm(`「${s.name}」 카테고리를 삭제할까요?`)) {
       return;
     }
     setError(null);

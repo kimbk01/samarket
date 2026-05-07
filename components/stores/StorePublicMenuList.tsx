@@ -43,11 +43,16 @@ const StorePublicMenuRow = memo(function StorePublicMenuRow({
       ? p.discount_percent
       : approximateDiscountPercent(p.price, p.discount_price!)
     : 0;
-  const soldOut = p.track_inventory && p.stock_qty <= 0;
+  const statusSoldOut = p.product_status === "sold_out";
+  const stockSoldOut = p.track_inventory && p.stock_qty <= 0;
+  const soldOut = statusSoldOut || stockSoldOut;
   const typeLabel = itemTypeShortLabel(p.item_type);
   const thumbSrc = p.thumbnail_url?.trim() || "";
 
-  const openSheet = useCallback(() => onOpenProduct?.(p.id), [onOpenProduct, p.id]);
+  const openSheet = useCallback(() => {
+    if (soldOut) return;
+    onOpenProduct?.(p.id);
+  }, [onOpenProduct, p.id, soldOut]);
 
   const onAddPress = useCallback(
     (e: MouseEvent) => {
@@ -143,9 +148,24 @@ const StorePublicMenuRow = memo(function StorePublicMenuRow({
   if (onOpenProduct) {
     return (
       <div className={`${rowWrapClass} flex min-h-[102px] items-start gap-3`}>
-        <button type="button" onClick={openSheet} className="flex min-w-0 flex-1 text-left">
-          {textBlock}
-        </button>
+        {soldOut ? (
+          <div className="flex min-w-0 flex-1 cursor-not-allowed text-left" aria-disabled>
+            {textBlock}
+          </div>
+        ) : (
+          <button type="button" onClick={openSheet} className="flex min-w-0 flex-1 text-left">
+            {textBlock}
+          </button>
+        )}
+        {thumb}
+      </div>
+    );
+  }
+
+  if (soldOut) {
+    return (
+      <div className={`${rowWrapClass} flex min-h-[102px] cursor-not-allowed items-start gap-3`} aria-disabled>
+        {textBlock}
         {thumb}
       </div>
     );

@@ -52,6 +52,8 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<string>("all");
+  /** 전체·판매중·품절·숨김(초안 포함) — 카테고리 탭과 AND 필터 */
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "sold_out" | "hidden">("all");
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -131,11 +133,18 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
     if (tab !== "all") {
       list = list.filter((p) => sectionIdOf(p) === tab);
     }
+    if (statusFilter === "active") {
+      list = list.filter((p) => p.product_status === "active");
+    } else if (statusFilter === "sold_out") {
+      list = list.filter((p) => p.product_status === "sold_out");
+    } else if (statusFilter === "hidden") {
+      list = list.filter((p) => p.product_status === "hidden" || p.product_status === "draft");
+    }
     if (qy.length > 0) {
       list = list.filter((p) => (p.title ?? "").toLowerCase().includes(qy));
     }
     return list;
-  }, [products, tab, search]);
+  }, [products, tab, search, statusFilter]);
 
   const patchProduct = async (productId: string, body: Record<string, unknown>) => {
     setBusyId(productId);
@@ -173,6 +182,18 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
     } else {
       void patchProduct(p.id, { product_status: "hidden" });
     }
+  };
+
+  const onToggleSoldOut = (p: HubProduct) => {
+    if (p.product_status === "sold_out") {
+      void patchProduct(p.id, { product_status: "active" });
+      return;
+    }
+    if (p.product_status === "active") {
+      void patchProduct(p.id, { product_status: "sold_out" });
+      return;
+    }
+    setToast("빠른 품절은 「판매중」 또는 「품절」 상태에서만 전환할 수 있습니다.");
   };
 
   const onDelete = (p: HubProduct) => {
@@ -246,6 +267,29 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
       </div>
 
       <div className={`px-3 pt-3 ${OWNER_STORE_STACK_Y_CLASS}`}>
+        <div className="flex flex-wrap gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 shadow-sm">
+          <span className="w-full sam-text-xxs font-semibold uppercase tracking-wide text-sam-muted">상태</span>
+          {(
+            [
+              { id: "all" as const, label: "전체" },
+              { id: "active" as const, label: "판매중" },
+              { id: "sold_out" as const, label: "품절" },
+              { id: "hidden" as const, label: "숨김·초안" },
+            ] as const
+          ).map((s) => (
+            <button
+              key={s.id}
+              type="button"
+              onClick={() => setStatusFilter(s.id)}
+              className={`min-h-[40px] rounded-full px-3 py-1.5 sam-text-body-secondary font-medium ${
+                statusFilter === s.id ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-fg"
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+
         <div className="flex items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 shadow-sm">
           <svg
             className="h-5 w-5 shrink-0 text-sam-meta"
@@ -340,24 +384,50 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
                     <p className="min-w-0 flex-1 truncate sam-text-body font-semibold text-sam-fg">
                       {p.title}
                     </p>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <span className="sam-text-xxs text-sam-muted">노출</span>
-                      <button
-                        type="button"
-                        role="switch"
-                        aria-checked={listed}
-                        disabled={busy}
-                        onClick={() => onToggleListed(p, !listed)}
-                        className={`relative h-7 w-12 rounded-full transition focus-visible:outline focus-visible:ring-2 focus-visible:ring-signature disabled:opacity-50 ${
-                          listed ? "bg-emerald-500" : "bg-sam-border-soft"
-                        }`}
-                      >
-                        <span
-                          className={`absolute top-1 h-5 w-5 rounded-full bg-sam-surface shadow transition ${
-                            listed ? "left-6" : "left-1"
+                    <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
+                      <div className="flex items-center gap-2">
+                        <span className="sam-text-xxs text-sam-muted">품절</span>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={p.product_status === "sold_out"}
+                          disabled={busy || (!listed && p.product_status !== "sold_out")}
+                          title={
+                            p.product_status === "draft" || p.product_status === "hidden"
+                              ? "판매중으로 전환한 뒤 품절을 켤 수 있습니다"
+                              : "빠른 품절"
+                          }
+                          onClick={() => onToggleSoldOut(p)}
+                          className={`relative h-7 w-12 rounded-full transition focus-visible:outline focus-visible:ring-2 focus-visible:ring-amber-500 disabled:opacity-50 ${
+                            p.product_status === "sold_out" ? "bg-amber-500" : "bg-sam-border-soft"
                           }`}
-                        />
-                      </button>
+                        >
+                          <span
+                            className={`absolute top-1 h-5 w-5 rounded-full bg-sam-surface shadow transition ${
+                              p.product_status === "sold_out" ? "left-6" : "left-1"
+                            }`}
+                          />
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="sam-text-xxs text-sam-muted">노출</span>
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={listed}
+                          disabled={busy}
+                          onClick={() => onToggleListed(p, !listed)}
+                          className={`relative h-7 w-12 rounded-full transition focus-visible:outline focus-visible:ring-2 focus-visible:ring-signature disabled:opacity-50 ${
+                            listed ? "bg-emerald-500" : "bg-sam-border-soft"
+                          }`}
+                        >
+                          <span
+                            className={`absolute top-1 h-5 w-5 rounded-full bg-sam-surface shadow transition ${
+                              listed ? "left-6" : "left-1"
+                            }`}
+                          />
+                        </button>
+                      </div>
                     </div>
                   </div>
                   <div className="flex gap-3 p-3">

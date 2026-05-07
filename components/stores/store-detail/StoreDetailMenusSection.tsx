@@ -1,6 +1,6 @@
 "use client";
 
-import type { RefObject } from "react";
+import type { ReactNode, RefObject } from "react";
 import { StoreMenuCategoryChips } from "@/components/stores/StoreMenuCategoryChips";
 import { StorePublicMenuList } from "@/components/stores/StorePublicMenuList";
 import type {
@@ -27,6 +27,8 @@ export function StoreDetailMenusSection({
   menuSelectHint,
   onOpenProductSheet,
   onQuickAddProduct,
+  /** 스티키 카테고리 바로 아래 — `menu_top` 공지 등 */
+  menuTopSlot,
 }: {
   menusLoading: boolean;
   menuStickyMeasureRef: RefObject<HTMLDivElement | null>;
@@ -45,6 +47,7 @@ export function StoreDetailMenusSection({
   menuSelectHint?: string;
   onOpenProductSheet: (id: string) => void;
   onQuickAddProduct: (p: StoreDetailProductCard) => boolean;
+  menuTopSlot?: ReactNode;
 }) {
   return (
     <div id="store-menu-panel">
@@ -104,6 +107,10 @@ export function StoreDetailMenusSection({
           }}
         />
       </div>
+
+      {menuTopSlot ? (
+        <div className="border-b border-neutral-100 bg-white px-4 pb-2 pt-1">{menuTopSlot}</div>
+      ) : null}
 
       {menusLoading ? (
         <StoreDetailMenusSkeleton />

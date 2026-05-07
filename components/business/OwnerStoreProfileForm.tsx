@@ -841,10 +841,15 @@ export function OwnerStoreProfileForm({
               />
             </div>
             <div>
-              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">매장 창 공지 (선택)</label>
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
+                간단 공지 (레거시 · 선택)
+              </label>
               <p className="mb-2 sam-text-xxs leading-relaxed text-sam-muted">
-                고객 매장 화면에 위에서 아래 순으로 &quot;공지&quot; 라벨과 함께 표시됩니다. 공지가 없으면 아래 무료배달 기준만
-                amber 안내에 자동 표시됩니다.
+                영업 시간 JSON의 짧은 줄 공지입니다. 상단·메뉴·리뷰 등 <strong>위치별 공지</strong>는{" "}
+                <Link href="/my/business/notices" className="font-semibold text-signature underline underline-offset-2">
+                  공지 관리
+                </Link>
+                에서 등록하세요. 여기 공지가 없고 공지 관리에도 없을 때만 아래 무료배달 기준이 amber 안내에 표시됩니다.
               </p>
               {values.publicNotices.length === 0 ? (
                 <p className="mb-2 sam-text-helper text-sam-meta">등록된 공지가 없습니다.</p>

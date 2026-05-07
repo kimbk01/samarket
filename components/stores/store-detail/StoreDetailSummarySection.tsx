@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { StoreOrderHeroSummary } from "@/components/stores/store-order-detail/StoreOrderHeroSummary";
 import { StoreOrderNoticeStrip } from "@/components/stores/store-order-detail/StoreOrderNoticeStrip";
 import { StoreOrderStickyHeader } from "@/components/stores/store-order-detail/StoreOrderStickyHeader";
@@ -57,6 +58,8 @@ export function StoreDetailSummarySection({
   onShareClick,
   onCartPreviewClick,
   noticePreview,
+  bannersSlot,
+  storeManagedNoticesSlot,
   commerceCartStoreId,
 }: {
   headerElevated: boolean;
@@ -83,6 +86,10 @@ export function StoreDetailSummarySection({
   onShareClick: () => void;
   onCartPreviewClick: () => void;
   noticePreview: string;
+  /** 매장 배너(가로 스와이프) — summary 아래 */
+  bannersSlot?: ReactNode;
+  /** 매장 공지(store_notices placement=store_top) */
+  storeManagedNoticesSlot?: ReactNode;
   commerceCartStoreId: string;
 }) {
   return (
@@ -138,7 +145,9 @@ export function StoreDetailSummarySection({
         />
       </div>
 
-      {noticePreview ? (
+      {bannersSlot ? <div className="mt-2 px-4">{bannersSlot}</div> : null}
+
+      {noticePreview && !storeManagedNoticesSlot ? (
         <StoreOrderNoticeStrip
           text={noticePreview}
           href={infoPath}
@@ -146,6 +155,8 @@ export function StoreDetailSummarySection({
           showCouponBadge={false}
         />
       ) : null}
+
+      {storeManagedNoticesSlot ? <div className="mt-2 px-4">{storeManagedNoticesSlot}</div> : null}
     </>
   );
 }

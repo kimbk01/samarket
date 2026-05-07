@@ -355,6 +355,23 @@
   --ig-highlight: var(--sam-primary-soft);
 }
 
+/**
+ * 매장 사장님(owner) 전용 — `/my/business/*` 에서 `data-biz="1"` 로 스코프.
+ * 구매자 화면 `--sam-*` 는 변경하지 않고, 사장님앱 CTA/탭 강조만 `--biz-*` 로 분리.
+ */
+[data-biz="1"] {
+  --biz-primary: #1c8db8;
+  --biz-primary-hover: #178099;
+  --biz-primary-active: #146b8a;
+  --biz-primary-soft: color-mix(in srgb, #1c8db8 14%, #ffffff);
+  --biz-app-bg: #f6f7f9;
+  --biz-card-bg: #ffffff;
+  --biz-card-border: #e7eaef;
+  --biz-card-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  --biz-text: #1f2937;
+  --biz-text-muted: #667085;
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --app-bg: #12161d;
@@ -443,4 +460,29 @@
     --text-meta: var(--sam-text-muted);
     --ig-border: var(--sam-border-default);
   }
+
+  [data-biz="1"] {
+    --biz-app-bg: #12161d;
+    --biz-card-bg: #1a2029;
+    --biz-card-border: #2d3747;
+    --biz-card-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+    --biz-text: #eef2f7;
+    --biz-text-muted: #93a0b5;
+    --biz-primary-soft: color-mix(in srgb, #1c8db8 22%, var(--biz-card-bg));
+  }
+}
+
+/* 신규 주문 카드 — 약한 펄스(매장 오너 목록) */
+@keyframes owner-new-order-pulse {
+  0%,
+  100% {
+    box-shadow: var(--biz-card-shadow, 0 1px 3px rgba(15, 23, 42, 0.06)), 0 0 0 0 rgba(28, 141, 184, 0.28);
+  }
+  50% {
+    box-shadow: var(--biz-card-shadow, 0 1px 3px rgba(15, 23, 42, 0.06)), 0 0 0 10px rgba(28, 141, 184, 0);
+  }
+}
+
+.owner-new-order-pulse {
+  animation: owner-new-order-pulse 2.8s ease-in-out infinite;
 }

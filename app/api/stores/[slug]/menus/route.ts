@@ -74,7 +74,7 @@ export async function GET(
           "id, title, summary, price, discount_price, discount_percent, stock_qty, track_inventory, min_order_qty, max_order_qty, product_status, thumbnail_url, pickup_available, local_delivery_available, shipping_available, category_id, menu_section_id, item_type, is_featured, sort_order, options_json, store_menu_sections ( id, name, sort_order, is_hidden ), store_product_categories ( name, slug )"
         )
         .eq("store_id", storeId)
-        .eq("product_status", "active")
+        .in("product_status", ["active", "sold_out"])
         .order("is_featured", { ascending: false })
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: false })

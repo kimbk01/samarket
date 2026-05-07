@@ -958,6 +958,10 @@ export function OwnerProductForm({
                         </label>
                         <div>
                           <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">선택 방식</label>
+                          <p className="mb-1 sam-text-xxs leading-snug text-sam-muted">
+                            단일 선택은 라디오형(1개 필수), 복수는 체크박스형에 가깝게 동작합니다. 수량형은 스테퍼로
+                            개수를 고릅니다.
+                          </p>
                           <select
                             value={preset}
                             disabled={group.quantityMode}

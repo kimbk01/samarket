@@ -19,6 +19,8 @@ export function getBusinessAdminPageTitle(pathname: string): string | null {
   if (p === "/my/business/profile") return "매장 프로필";
   if (p === "/my/business/ops-status") return "운영 · 심사";
   if (p === "/my/business/reviews") return "리뷰 관리";
+  if (p === "/my/business/banners") return "배너 관리";
+  if (p === "/my/business/notices") return "공지 관리";
   if (p === "/my/business/settings") return "설정";
   if (p === "/my/business/edit") return "상점 정보";
   if (p === "/my/business/apply") return "매장 신청";

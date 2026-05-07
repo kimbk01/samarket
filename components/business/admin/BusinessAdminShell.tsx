@@ -213,7 +213,10 @@ export function BusinessAdminShell({ children }: { children: React.ReactNode }) 
 
   return (
     <BusinessAdminStoreProvider value={ctxValue}>
-      <div className="flex min-h-screen flex-col bg-sam-app lg:flex-row">
+      <div
+        data-biz="1"
+        className="flex min-h-screen flex-col bg-[var(--biz-app-bg)] lg:flex-row"
+      >
         {drawerOpen ? (
           <button
             type="button"
@@ -224,7 +227,7 @@ export function BusinessAdminShell({ children }: { children: React.ReactNode }) 
         ) : null}
 
         <aside
-          className={`fixed inset-y-0 left-0 z-50 flex w-[280px] max-w-[88vw] flex-col border-r border-sam-border bg-sam-surface shadow-xl transition-transform duration-200 lg:sticky lg:top-0 lg:z-0 lg:h-screen lg:max-w-none lg:w-[260px] lg:translate-x-0 lg:shadow-none ${
+          className={`fixed inset-y-0 left-0 z-50 flex w-[280px] max-w-[88vw] flex-col border-r border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] shadow-xl transition-transform duration-200 lg:sticky lg:top-0 lg:z-0 lg:h-screen lg:max-w-none lg:w-[260px] lg:translate-x-0 lg:shadow-none ${
             drawerOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
           }`}
         >
@@ -232,7 +235,7 @@ export function BusinessAdminShell({ children }: { children: React.ReactNode }) 
         </aside>
 
         <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-          <header className="sticky top-0 z-30 border-b border-sam-border bg-sam-surface/95 backdrop-blur-sm">
+          <header className="sticky top-0 z-30 border-b border-[var(--biz-card-border)] bg-[var(--biz-card-bg)]/95 backdrop-blur-sm">
             <div className="flex items-center gap-2 px-3 py-2.5 sm:px-4">
               <AppBackButton
                 backHref={adminBackFallbackHref}

@@ -34,6 +34,8 @@ export type StoreDetailProductCard = {
   /** 퀵 담기·시트와 동일한 수량 하한·상한 */
   min_order_qty: number;
   max_order_qty: number;
+  /** `sold_out` 등 — 구매자 목록 노출 시 담기 비활성 */
+  product_status: string;
 };
 
 type CatEmbed = { name?: string } | { name?: string }[] | null | undefined;
@@ -84,6 +86,10 @@ export function parseStoreDetailProducts(raw: unknown[]): StoreDetailProductCard
       Number.isFinite(minRaw) && minRaw > 0 ? Math.max(1, Math.floor(minRaw)) : 1;
     const max_order_qty =
       Number.isFinite(maxRaw) && maxRaw > 0 ? Math.max(min_order_qty, Math.floor(maxRaw)) : 99;
+    const productStatus =
+      typeof o.product_status === "string" && o.product_status.trim()
+        ? String(o.product_status).trim()
+        : "active";
     return {
       id: String(o.id ?? ""),
       title: String(o.title ?? ""),
@@ -105,6 +111,7 @@ export function parseStoreDetailProducts(raw: unknown[]): StoreDetailProductCard
       has_options,
       min_order_qty,
       max_order_qty,
+      product_status: productStatus,
     };
   });
 }

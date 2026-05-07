@@ -25,7 +25,12 @@ import {
 } from "@/lib/stores/store-address-form-ui";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { formatPhMobileDisplay, parsePhMobileInput, telHrefFromLoosePhPhone } from "@/lib/utils/ph-mobile";
-import { fetchStorePublicBySlugDeduped } from "@/lib/stores/store-delivery-api-client";
+import {
+  fetchStoreNoticesDeduped,
+  fetchStorePublicBySlugDeduped,
+} from "@/lib/stores/store-delivery-api-client";
+import type { StoreNoticePublicRow } from "@/lib/stores/store-banners-notices-public";
+import { StoreOwnerNoticeCards } from "@/components/stores/StoreOwnerNoticeCards";
 
 const STORE_GALLERY_DISPLAY_MAX = 16;
 
@@ -106,6 +111,7 @@ export function StoreDetailInfoPublic({
     prefetchHit ? Number(prefetchedRecentOrderCount) || 0 : 0
   );
   const [loading, setLoading] = useState(() => !prefetchHit);
+  const [infoTabNotices, setInfoTabNotices] = useState<StoreNoticePublicRow[]>([]);
 
   const load = useCallback(
     async (opts?: { silent?: boolean }) => {
@@ -142,6 +148,23 @@ export function StoreDetailInfoPublic({
   useEffect(() => {
     void load({ silent: prefetchHit });
   }, [load, prefetchHit]);
+
+  useEffect(() => {
+    const s = store?.slug?.trim();
+    if (!s) {
+      setInfoTabNotices([]);
+      return;
+    }
+    void (async () => {
+      const { status, json } = await fetchStoreNoticesDeduped(s);
+      const j = json as { ok?: boolean; notices?: StoreNoticePublicRow[] };
+      if (status !== 200 || !j?.ok || !Array.isArray(j.notices)) {
+        setInfoTabNotices([]);
+        return;
+      }
+      setInfoTabNotices(j.notices.filter((n) => n.placement === "info_tab"));
+    })();
+  }, [store?.slug]);
 
   useRefetchOnPageShowRestore(() => void load({ silent: true }));
 
@@ -278,9 +301,17 @@ export function StoreDetailInfoPublic({
   const outerCls =
     layoutVariant === "embedded" ? "min-h-0 bg-white pb-8 pt-2" : "min-h-screen bg-sam-surface pb-10";
 
+  const infoHrefBase = `/stores/${encodeURIComponent(store.slug)}/info`;
+
   return (
     <div className={outerCls}>
       {headerTitle}
+
+      {infoTabNotices.length > 0 ? (
+        <div className="px-4 pt-3">
+          <StoreOwnerNoticeCards notices={infoTabNotices} infoHrefBase={infoHrefBase} />
+        </div>
+      ) : null}
 
       {ownerManagementHref ? (
         <p className="border-b border-sam-border-soft px-4 py-2.5 text-center">

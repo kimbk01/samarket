@@ -58,6 +58,16 @@ export function buildBusinessAdminSidebar(ctx: MyBusinessNavContext): BusinessAd
           label: "카테고리",
           href: `/my/business/menu-categories?${q}`,
         },
+        {
+          label: "배너 관리",
+          href: `/my/business/banners?${q}`,
+          description: "매장 상단 배너",
+        },
+        {
+          label: "공지 관리",
+          href: `/my/business/notices?${q}`,
+          description: "위치별 공지",
+        },
       ],
     });
   }

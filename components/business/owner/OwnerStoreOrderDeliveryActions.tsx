@@ -1,24 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { allowedOrderTransitions } from "@/lib/stores/order-status-transitions";
 import {
   BUYER_ORDER_STATUS_LABEL,
   labelForOwnerTransition,
 } from "@/lib/stores/store-order-process-criteria";
 import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
+import { OwnerOrderAcceptSheet } from "@/components/business/owner/OwnerOrderAcceptSheet";
+import { OwnerOrderRejectSheet } from "@/components/business/owner/OwnerOrderRejectSheet";
 
 const BTN_PRIMARY =
-  "flex min-h-[3rem] min-w-0 flex-1 items-center justify-center rounded-ui-rect bg-signature px-2 py-2 text-center sam-text-body-secondary font-medium leading-snug text-white [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50 sm:min-h-[2.75rem] sm:min-w-[6rem] sm:px-2.5 sm:py-2 sm:sam-text-body";
+  "flex min-h-[52px] min-w-0 flex-1 items-center justify-center rounded-[14px] bg-[var(--biz-primary)] px-2 py-2 text-center text-[14px] font-semibold leading-snug text-white [overflow-wrap:anywhere] [word-break:break-word] shadow-sm transition hover:bg-[var(--biz-primary-hover)] active:bg-[var(--biz-primary-active)] disabled:opacity-50 sm:min-w-[6rem] sm:px-2.5 sm:py-2";
 const BTN_DANGER =
-  "flex min-h-[3rem] min-w-0 flex-1 items-center justify-center rounded-ui-rect border border-red-200 bg-sam-surface px-2 py-2 text-center sam-text-body-secondary font-medium leading-snug text-red-700 [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50 sm:min-h-[2.75rem] sm:min-w-[6rem] sm:px-2.5 sm:py-2 sm:sam-text-body";
+  "flex min-h-[52px] min-w-0 flex-1 items-center justify-center rounded-[14px] border border-red-200 bg-[var(--biz-card-bg)] px-2 py-2 text-center text-[14px] font-semibold leading-snug text-red-700 [overflow-wrap:anywhere] [word-break:break-word] shadow-sm disabled:opacity-50 sm:min-w-[6rem] sm:px-2.5 sm:py-2";
 const OC_SM =
   "sam-text-body-secondary font-normal leading-snug text-sam-muted [overflow-wrap:anywhere] [word-break:break-word]";
 
 const TB_BTN_PRIMARY =
-  "flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-ui-rect bg-signature px-2 py-1.5 text-center sam-text-helper font-semibold leading-snug text-white [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50";
+  "flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-[12px] bg-[var(--biz-primary)] px-2 py-1.5 text-center sam-text-helper font-semibold leading-snug text-white [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50";
 const TB_BTN_DANGER =
-  "flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-ui-rect border border-red-200 bg-sam-surface px-2 py-1.5 text-center sam-text-helper font-semibold leading-snug text-red-700 [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50";
+  "flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-[12px] border border-red-200 bg-[var(--biz-card-bg)] px-2 py-1.5 text-center sam-text-helper font-semibold leading-snug text-red-700 [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50";
 
 export type OwnerDeliveryOrderRef = {
   id: string;
@@ -35,8 +37,6 @@ export function ownerOrderHasTransitionButtons(order: OwnerDeliveryOrderRef): bo
   );
 }
 
-const PRESET_PREP_MINUTES = [10, 15, 20, 30, 40, 50, 60] as const;
-
 function formatPatchErr(code: string): string {
   switch (code) {
     case "prep_minutes_required":
@@ -50,145 +50,11 @@ function formatPatchErr(code: string): string {
   }
 }
 
-function OwnerAcceptPrepModal({
-  open,
-  busy,
-  onClose,
-  onConfirm,
-}: {
-  open: boolean;
-  busy: boolean;
-  onClose: () => void;
-  onConfirm: (minutes: number) => void;
-}) {
-  const [mode, setMode] = useState<"preset" | "custom">("preset");
-  const [presetPick, setPresetPick] = useState<number | null>(null);
-  const [customRaw, setCustomRaw] = useState("");
-
-  useEffect(() => {
-    if (!open) return;
-    setMode("preset");
-    setPresetPick(null);
-    setCustomRaw("");
-  }, [open]);
-
-  if (!open) return null;
-
-  const customNum = Math.floor(Number(customRaw.trim()));
-  let resolved = NaN;
-  if (mode === "preset") {
-    resolved = presetPick ?? NaN;
-  } else if (Number.isFinite(customNum)) {
-    resolved = customNum;
-  }
-  const valid = Number.isFinite(resolved) && resolved >= 1 && resolved <= 180;
-
-  return (
-    <div
-      className="fixed inset-0 z-[90] flex items-end justify-center bg-black/45 p-3 sm:items-center"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="owner-accept-prep-title"
-    >
-      <button
-        type="button"
-        className="absolute inset-0 cursor-default"
-        aria-label="닫기"
-        disabled={busy}
-        onClick={() => {
-          if (!busy) onClose();
-        }}
-      />
-      <div className="relative z-[1] w-full max-w-md rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-xl">
-        <h2 id="owner-accept-prep-title" className="sam-text-body font-semibold text-sam-fg">
-          예상 준비 시간
-        </h2>
-        <p className="mt-1 sam-text-helper leading-snug text-sam-muted">
-          접수 확인 후 고객 화면에 표시됩니다. 서버 시각 기준으로 안내 시간이 계산됩니다.
-        </p>
-
-        <div className="mt-3 flex flex-wrap gap-2">
-          {PRESET_PREP_MINUTES.map((m) => (
-            <button
-              key={m}
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                setMode("preset");
-                setPresetPick(m);
-              }}
-              className={`rounded-full border px-3 py-1.5 sam-text-helper font-medium ${
-                mode === "preset" && presetPick === m
-                  ? "border-signature bg-signature/10 text-signature"
-                  : "border-sam-border-soft bg-sam-app text-sam-fg"
-              }`}
-            >
-              {m}분
-            </button>
-          ))}
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              setMode("custom");
-              setPresetPick(null);
-            }}
-            className={`rounded-full border px-3 py-1.5 sam-text-helper font-medium ${
-              mode === "custom"
-                ? "border-signature bg-signature/10 text-signature"
-                : "border-sam-border-soft bg-sam-app text-sam-fg"
-            }`}
-          >
-            직접입력
-          </button>
-        </div>
-
-        {mode === "custom" ? (
-          <label className="mt-3 block">
-            <span className="sam-text-xxs font-medium text-sam-muted">분 (1–180)</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={180}
-              disabled={busy}
-              value={customRaw}
-              onChange={(e) => setCustomRaw(e.target.value)}
-              className="mt-1 w-full rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2 sam-text-body text-sam-fg"
-            />
-          </label>
-        ) : null}
-
-        <div className="mt-4 flex flex-row justify-end gap-2">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={onClose}
-            className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-4 py-2 sam-text-helper font-medium text-sam-fg"
-          >
-            취소
-          </button>
-          <button
-            type="button"
-            disabled={busy || !valid}
-            onClick={() => {
-              if (!valid) return;
-              onConfirm(Math.floor(resolved));
-            }}
-            className="rounded-ui-rect bg-signature px-4 py-2 sam-text-helper font-semibold text-white disabled:opacity-50"
-          >
-            {busy ? "처리 중…" : "접수 확인"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function usePatchOrder(storeId: string, order: OwnerDeliveryOrderRef, onUpdated: () => void) {
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [prepModalOpen, setPrepModalOpen] = useState(false);
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
 
   const patch = useCallback(
     async (status: string, extras?: { estimated_prep_minutes?: number }): Promise<boolean> => {
@@ -236,6 +102,10 @@ function usePatchOrder(storeId: string, order: OwnerDeliveryOrderRef, onUpdated:
         setPrepModalOpen(true);
         return;
       }
+      if (order.order_status === "pending" && s === "cancelled") {
+        setRejectModalOpen(true);
+        return;
+      }
       void patch(s);
     },
     [order.order_status, patch]
@@ -250,14 +120,27 @@ function usePatchOrder(storeId: string, order: OwnerDeliveryOrderRef, onUpdated:
     [patch]
   );
 
+  const confirmReject = useCallback(
+    (_reasonLabel: string) => {
+      void patch("cancelled").then((ok) => {
+        if (ok) setRejectModalOpen(false);
+      });
+    },
+    [patch]
+  );
+
   return {
     busy,
     err,
     prepModalOpen,
+    rejectModalOpen,
     closePrepModal: () => setPrepModalOpen(false),
+    closeRejectModal: () => setRejectModalOpen(false),
     onTransitionClick,
     confirmPrepAccept,
+    confirmReject,
     prepBusy: busy === "accepted",
+    rejectBusy: busy === "cancelled",
   };
 }
 
@@ -282,10 +165,14 @@ export function OwnerStoreOrderDeliveryActionsAside({
     busy,
     err,
     prepModalOpen,
+    rejectModalOpen,
     closePrepModal,
+    closeRejectModal,
     onTransitionClick,
     confirmPrepAccept,
+    confirmReject,
     prepBusy,
+    rejectBusy,
   } = usePatchOrder(storeId, order, onUpdated);
 
   if (!showTransitionButtons) return null;
@@ -319,11 +206,17 @@ export function OwnerStoreOrderDeliveryActionsAside({
           ))}
         </div>
       </div>
-      <OwnerAcceptPrepModal
+      <OwnerOrderAcceptSheet
         open={prepModalOpen}
         busy={prepBusy}
         onClose={closePrepModal}
         onConfirm={confirmPrepAccept}
+      />
+      <OwnerOrderRejectSheet
+        open={rejectModalOpen}
+        busy={rejectBusy}
+        onClose={closeRejectModal}
+        onConfirm={confirmReject}
       />
     </>
   );
@@ -348,10 +241,14 @@ export function OwnerStoreOrderDeliveryActionsDrawerSection({
     busy,
     err,
     prepModalOpen,
+    rejectModalOpen,
     closePrepModal,
+    closeRejectModal,
     onTransitionClick,
     confirmPrepAccept,
+    confirmReject,
     prepBusy,
+    rejectBusy,
   } = usePatchOrder(storeId, order, onUpdated);
 
   const noticeEl: ReactNode = useMemo(() => {
@@ -406,11 +303,17 @@ export function OwnerStoreOrderDeliveryActionsDrawerSection({
           </div>
         ) : null}
       </div>
-      <OwnerAcceptPrepModal
+      <OwnerOrderAcceptSheet
         open={prepModalOpen}
         busy={prepBusy}
         onClose={closePrepModal}
         onConfirm={confirmPrepAccept}
+      />
+      <OwnerOrderRejectSheet
+        open={rejectModalOpen}
+        busy={rejectBusy}
+        onClose={closeRejectModal}
+        onConfirm={confirmReject}
       />
     </>
   );
@@ -439,10 +342,14 @@ export function OwnerStoreOrderDeliveryActionsChatToolbar({
     busy,
     err,
     prepModalOpen,
+    rejectModalOpen,
     closePrepModal,
+    closeRejectModal,
     onTransitionClick,
     confirmPrepAccept,
+    confirmReject,
     prepBusy,
+    rejectBusy,
   } = usePatchOrder(storeId, order, onUpdated);
 
   const statusLabel = BUYER_ORDER_STATUS_LABEL[order.order_status] ?? order.order_status;
@@ -498,11 +405,17 @@ export function OwnerStoreOrderDeliveryActionsChatToolbar({
           </div>
         ) : null}
       </div>
-      <OwnerAcceptPrepModal
+      <OwnerOrderAcceptSheet
         open={prepModalOpen}
         busy={prepBusy}
         onClose={closePrepModal}
         onConfirm={confirmPrepAccept}
+      />
+      <OwnerOrderRejectSheet
+        open={rejectModalOpen}
+        busy={rejectBusy}
+        onClose={closeRejectModal}
+        onConfirm={confirmReject}
       />
     </>
   );

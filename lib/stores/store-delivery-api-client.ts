@@ -18,6 +18,10 @@ const STORE_REVIEWS_SUMMARY_CACHE_TTL_MS = 30_000;
 const storeReviewsSummaryCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
 const STORE_HUB_SUMMARY_CACHE_TTL_MS = 12_000;
 const storeHubSummaryCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
+const STORE_BANNERS_PUBLIC_CACHE_TTL_MS = 12_000;
+const storeBannersPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
+const STORE_NOTICES_PUBLIC_CACHE_TTL_MS = 12_000;
+const storeNoticesPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
 
 function trimSlug(slug: string): string {
   return slug.trim();
@@ -419,6 +423,64 @@ export async function fetchMeStoreOrdersHubSummaryDeduped(
     const json = await res.json().catch(() => ({}));
     const value = { status: res.status, json };
     primeStoreHubSummaryCache(cacheKey, value);
+    return value;
+  });
+}
+
+export function invalidateStoreBannersPublicCache(slug: string): void {
+  storeBannersPublicCache.delete(trimSlug(slug));
+}
+
+export function invalidateStoreNoticesPublicCache(slug: string): void {
+  storeNoticesPublicCache.delete(trimSlug(slug));
+}
+
+/** GET /api/stores/:slug/banners — 매장 배너(공개) */
+export async function fetchStoreBannersDeduped(slug: string): Promise<StoreApiJsonResponse> {
+  const s = trimSlug(slug);
+  if (!s) return { status: 400, json: { ok: false } };
+  const cached = storeBannersPublicCache.get(s);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { status: cached.value.status, json: cached.value.json };
+  }
+  return runSingleFlight(`stores:api:banners:${s}`, async () => {
+    const inFlightCached = storeBannersPublicCache.get(s);
+    if (inFlightCached && inFlightCached.expiresAt > Date.now()) {
+      return { status: inFlightCached.value.status, json: inFlightCached.value.json };
+    }
+    const res = await fetch(`/api/stores/${encodeURIComponent(s)}/banners`, { cache: "no-store" });
+    const json = await res.json().catch(() => ({}));
+    const value = { status: res.status, json };
+    if (res.ok) {
+      storeBannersPublicCache.set(s, { expiresAt: Date.now() + STORE_BANNERS_PUBLIC_CACHE_TTL_MS, value });
+    } else {
+      storeBannersPublicCache.delete(s);
+    }
+    return value;
+  });
+}
+
+/** GET /api/stores/:slug/notices — 매장 공지(공개, placement 포함 전체) */
+export async function fetchStoreNoticesDeduped(slug: string): Promise<StoreApiJsonResponse> {
+  const s = trimSlug(slug);
+  if (!s) return { status: 400, json: { ok: false } };
+  const cached = storeNoticesPublicCache.get(s);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { status: cached.value.status, json: cached.value.json };
+  }
+  return runSingleFlight(`stores:api:notices:${s}`, async () => {
+    const inFlightCached = storeNoticesPublicCache.get(s);
+    if (inFlightCached && inFlightCached.expiresAt > Date.now()) {
+      return { status: inFlightCached.value.status, json: inFlightCached.value.json };
+    }
+    const res = await fetch(`/api/stores/${encodeURIComponent(s)}/notices`, { cache: "no-store" });
+    const json = await res.json().catch(() => ({}));
+    const value = { status: res.status, json };
+    if (res.ok) {
+      storeNoticesPublicCache.set(s, { expiresAt: Date.now() + STORE_NOTICES_PUBLIC_CACHE_TTL_MS, value });
+    } else {
+      storeNoticesPublicCache.delete(s);
+    }
     return value;
   });
 }

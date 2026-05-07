@@ -14,6 +14,7 @@ import { BusinessDashboardKpiStrip, type DashboardKpi } from "@/components/busin
 import { BusinessDashboardPriorityCards } from "@/components/business/admin/dashboard/BusinessDashboardPriorityCards";
 import { BusinessDashboardOrderTimeline, type TimelineOrder } from "@/components/business/admin/dashboard/BusinessDashboardOrderTimeline";
 import { BusinessDashboardQuickRow } from "@/components/business/admin/dashboard/BusinessDashboardQuickRow";
+import { BusinessDashboardOwnerCardMenu } from "@/components/business/admin/dashboard/BusinessDashboardOwnerCardMenu";
 import { BusinessDashboardInsights } from "@/components/business/admin/dashboard/BusinessDashboardInsights";
 import { BusinessDashboardMobileBar } from "@/components/business/admin/dashboard/BusinessDashboardMobileBar";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
@@ -401,6 +402,13 @@ export function BusinessAdminDashboard({
         inquiriesHref={inquiriesHref}
         productsHubHref={productsHubHref}
         settlementsHref={settlementsHref}
+      />
+
+      <BusinessDashboardOwnerCardMenu
+        storeId={row.id}
+        canSell={canSell}
+        isVisible={row.is_visible === true}
+        badges={{ newOrders: kpi.newOrders, inProgress: kpi.inProgress }}
       />
 
       <BusinessDashboardPriorityCards cards={priorityCards} />

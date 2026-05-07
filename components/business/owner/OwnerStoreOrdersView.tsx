@@ -2,13 +2,22 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { playDeliveryOrderAlertDebounced } from "@/lib/business/delivery-order-alert-debounce";
 import { primeStoreOrderAlertAudio } from "@/lib/business/store-order-alert-sound";
 import { useSupabaseStoreOrdersRealtime } from "@/hooks/useSupabaseStoreOrdersRealtime";
 import { useSupabaseStoreOrderDeliveriesRealtime } from "@/hooks/useSupabaseStoreOrderDeliveriesRealtime";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
+import { buildStoreOrdersHref, type StoreOrderTabId } from "@/lib/business/store-orders-tab";
+import {
+  countOrdersMatchingTab,
+  orderMatchesOwnerMainTab,
+  parseOwnerOrderMainTab,
+  type OwnerOrderMainTab,
+} from "@/lib/business/owner-order-main-tab";
+import { OwnerOrderStatusTimeline } from "@/components/business/owner/OwnerOrderStatusTimeline";
+import { Biz } from "@/lib/ui/biz-component-classes";
 import {
   OwnerStoreOrderDeliveryActionsAside,
   ownerOrderCardNoticeFooter,
@@ -139,6 +148,21 @@ function deliveryStatusLabel(s: string | null | undefined): string | null {
   }
 }
 
+function startOfTodayMs(): number {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.getTime();
+}
+
+function completedAtMs(o: OrderRow): number {
+  const u = typeof o.updated_at === "string" ? o.updated_at.trim() : "";
+  if (u) {
+    const t = new Date(u).getTime();
+    if (Number.isFinite(t)) return t;
+  }
+  return new Date(o.created_at).getTime();
+}
+
 function ownerSlaBadgeLabel(o: OrderRow): string | null {
   const r = typeof o.sla_warning_reason === "string" ? o.sla_warning_reason.trim() : "";
   if (r === "pending_over_5m") return "주문 방치";
@@ -219,16 +243,24 @@ function OwnerOrderCard({
     fulfillment_type: order.fulfillment_type,
   });
 
+  const isNewPending = order.order_status === "pending";
+  const newPulse =
+    isNewPending && order.fulfillment_type !== "local_delivery"
+      ? `${Biz.newOrderAccent} owner-new-order-pulse rounded-[16px] border-[var(--biz-card-border)] bg-[var(--biz-card-bg)]`
+      : isNewPending && order.fulfillment_type === "local_delivery"
+        ? `${Biz.newOrderAccent} owner-new-order-pulse rounded-[16px] border-rose-200 bg-rose-50/30`
+        : "";
+
   return (
     <li
       id={`owner-order-${order.id}`}
-      className={`scroll-mt-[4.75rem] w-full min-w-0 overflow-hidden rounded-ui-rect border p-3 shadow-sm sm:p-4 ${
+      className={`scroll-mt-[4.75rem] w-full min-w-0 overflow-hidden rounded-[16px] border p-3 shadow-[var(--biz-card-shadow)] sm:p-4 ${
         order.order_status === "refund_requested"
           ? "border-amber-300 bg-amber-50/40"
-          : order.fulfillment_type === "local_delivery" && order.order_status === "pending"
-            ? "border-rose-200 bg-rose-50/30"
+          : isNewPending
+            ? newPulse
             : "border-sam-border-soft bg-sam-surface"
-      } ${isHighlight ? "ring-2 ring-signature ring-offset-2 ring-offset-sam-surface-muted" : ""}`}
+      } ${isHighlight ? "ring-2 ring-[var(--biz-primary)] ring-offset-2 ring-offset-[var(--biz-app-bg)]" : ""}`}
     >
       <div className="flex min-w-0 flex-nowrap items-start justify-between gap-2">
         <span className={`min-w-0 flex-1 break-all font-semibold ${OC_TX}`}>{order.order_no}</span>
@@ -264,6 +296,7 @@ function OwnerOrderCard({
         {FULFILL_LABEL[order.fulfillment_type] ?? order.fulfillment_type} ·{" "}
         {STATUS_LABEL[order.order_status] ?? order.order_status}
       </p>
+      <OwnerOrderStatusTimeline orderStatus={order.order_status} fulfillmentType={order.fulfillment_type} />
       <p className={`mt-1 ${OC_TX}`}>
         결제 {formatBuyerPaymentDisplay(order.buyer_payment_method, order.buyer_payment_method_detail)}
       </p>
@@ -462,10 +495,18 @@ function OwnerOrderCard({
   );
 }
 
+const OWNER_ORDER_TABS: Array<{ id: OwnerOrderMainTab; label: string }> = [
+  { id: "new", label: "신규" },
+  { id: "progress", label: "진행중" },
+  { id: "done", label: "완료" },
+  { id: "cancelled", label: "취소" },
+];
+
 export function OwnerStoreOrdersView() {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const tab = useMemo(() => parseOwnerOrderMainTab(searchParams.get("tab")), [searchParams]);
   const loginHref = "/login";
   const ownerNotifAckRef = useRef(false);
   const [chatModal, setChatModal] = useState<{
@@ -593,6 +634,37 @@ export function OwnerStoreOrdersView() {
   }, [load]);
 
   const highlightOrderId = searchParams.get("order_id")?.trim() ?? "";
+
+  const filteredOrders = useMemo(() => {
+    if (state.kind !== "ok") return [];
+    return state.orders.filter((o) => orderMatchesOwnerMainTab(o, tab));
+  }, [state, tab]);
+
+  const summaryCounts = useMemo(() => {
+    if (state.kind !== "ok") {
+      return { pending: 0, preparing: 0, delivering: 0, doneToday: 0 };
+    }
+    const t0 = startOfTodayMs();
+    let pending = 0;
+    let preparing = 0;
+    let delivering = 0;
+    let doneToday = 0;
+    for (const o of state.orders) {
+      if (o.order_status === "pending") pending += 1;
+      if (o.order_status === "preparing") preparing += 1;
+      if (o.order_status === "delivering" || o.order_status === "arrived") delivering += 1;
+      if (o.order_status === "completed" && completedAtMs(o) >= t0) doneToday += 1;
+    }
+    return { pending, preparing, delivering, doneToday };
+  }, [state]);
+
+  const tabBadges = useMemo(() => {
+    if (state.kind !== "ok") return { new: 0, progress: 0 };
+    return {
+      new: countOrdersMatchingTab(state.orders, "new"),
+      progress: countOrdersMatchingTab(state.orders, "progress"),
+    };
+  }, [state]);
 
   useEffect(() => {
     if (state.kind !== "ok") return;
@@ -728,6 +800,59 @@ export function OwnerStoreOrdersView() {
   } else {
     body = (
       <div className={OWNER_STORE_STACK_Y_CLASS}>
+        <div className="sticky top-0 z-10 -mx-1 mb-3 border-b border-[var(--biz-card-border)] bg-[var(--biz-app-bg)]/95 px-1 py-2 backdrop-blur-sm">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="rounded-[14px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-2 shadow-[var(--biz-card-shadow)]">
+              <p className="text-[11px] font-medium text-[var(--biz-text-muted)]">신규 주문</p>
+              <p className="text-[18px] font-bold tabular-nums text-[var(--biz-text)]">{summaryCounts.pending}</p>
+            </div>
+            <div className="rounded-[14px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-2 shadow-[var(--biz-card-shadow)]">
+              <p className="text-[11px] font-medium text-[var(--biz-text-muted)]">조리중</p>
+              <p className="text-[18px] font-bold tabular-nums text-[var(--biz-text)]">{summaryCounts.preparing}</p>
+            </div>
+            <div className="rounded-[14px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-2 shadow-[var(--biz-card-shadow)]">
+              <p className="text-[11px] font-medium text-[var(--biz-text-muted)]">배달중</p>
+              <p className="text-[18px] font-bold tabular-nums text-[var(--biz-text)]">{summaryCounts.delivering}</p>
+            </div>
+            <div className="rounded-[14px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-2 shadow-[var(--biz-card-shadow)]">
+              <p className="text-[11px] font-medium text-[var(--biz-text-muted)]">오늘 완료</p>
+              <p className="text-[18px] font-bold tabular-nums text-[var(--biz-primary)]">{summaryCounts.doneToday}</p>
+            </div>
+          </div>
+          <div className="mt-2 flex min-h-[48px] w-full flex-nowrap rounded-[14px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] p-1 shadow-sm">
+            {OWNER_ORDER_TABS.map((t) => {
+              const active = tab === t.id;
+              const badge =
+                t.id === "new" && tabBadges.new > 0
+                  ? tabBadges.new
+                  : t.id === "progress" && tabBadges.progress > 0
+                    ? tabBadges.progress
+                    : null;
+              return (
+                <Link
+                  key={t.id}
+                  href={buildStoreOrdersHref({ storeId: state.storeId, tab: t.id as StoreOrderTabId })}
+                  scroll={false}
+                  className={[
+                    Biz.tabBase,
+                    "relative flex min-h-[48px] flex-1 flex-col items-center justify-center rounded-[12px] px-1",
+                    active ? Biz.tabActive : "",
+                  ].join(" ")}
+                >
+                  <span className="flex items-center gap-1">
+                    {t.label}
+                    {badge != null ? (
+                      <span className="rounded-full bg-[var(--biz-primary-soft)] px-1.5 py-0.5 text-[11px] font-bold text-[var(--biz-primary)]">
+                        {badge > 99 ? "99+" : badge}
+                      </span>
+                    ) : null}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm text-sam-muted">{state.storeName}</p>
           <div className="flex flex-wrap items-center gap-2">
@@ -786,9 +911,14 @@ export function OwnerStoreOrdersView() {
             </Link>
           </div>
         </div>
+      ) : filteredOrders.length === 0 ? (
+        <div className="rounded-[16px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] p-6 text-[14px] text-[var(--biz-text-muted)] shadow-[var(--biz-card-shadow)]">
+          <p className="font-semibold text-[var(--biz-text)]">이 탭에 표시할 주문이 없습니다.</p>
+          <p className="mt-1">다른 탭을 선택해 보세요.</p>
+        </div>
       ) : (
         <ul className={`${OWNER_STORE_STACK_Y_CLASS} w-full min-w-0`}>
-          {state.orders.map((o) => (
+          {filteredOrders.map((o) => (
             <OwnerOrderCard
               key={o.id}
               storeId={state.storeId}

@@ -1,6 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { StoreOwnerBannerCarousel } from "@/components/stores/StoreOwnerBannerCarousel";
+import { StoreOwnerNoticeCards } from "@/components/stores/StoreOwnerNoticeCards";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -50,12 +52,15 @@ import { parseMediaUrlsJson } from "@/lib/stores/parse-media-urls-json";
 import { useOwnerManagementHref } from "@/lib/stores/use-owner-management-href";
 import { useStoreFavoriteToggle } from "@/lib/stores/use-store-favorite-toggle";
 import {
+  fetchStoreBannersDeduped,
   fetchStoreMenusDeduped,
+  fetchStoreNoticesDeduped,
   fetchStorePublicBySlugDeduped,
   fetchStoreSummaryDeduped,
   primeStorePublicCache,
   type StoreApiJsonResponse,
 } from "@/lib/stores/store-delivery-api-client";
+import type { StoreBannerPublicRow, StoreNoticePublicRow } from "@/lib/stores/store-banners-notices-public";
 import {
   getStorePublicInitialSnapshot,
   hydrateStorePublicFromApiJson,
@@ -143,6 +148,8 @@ export function StoreDetailPublic({
   const [recentOrderCountMeta, setRecentOrderCountMeta] = useState(() => initialSnap.recentOrderCountMeta);
   const [quickCartConflictOpen, setQuickCartConflictOpen] = useState(false);
   const pendingQuickCartLineRef = useRef<AddStoreCartLineInput | null>(null);
+  const [publicBanners, setPublicBanners] = useState<StoreBannerPublicRow[]>([]);
+  const [publicNotices, setPublicNotices] = useState<StoreNoticePublicRow[]>([]);
 
   const scrollHeaderGate = useRef(false);
   const menuStickyMeasureRef = useRef<HTMLDivElement>(null);
@@ -295,7 +302,6 @@ export function StoreDetailPublic({
     setDbOff(false);
 
     const sumP = fetchStoreSummaryDeduped(slug);
-    const menuP = fetchStoreMenusDeduped(slug);
 
     const sumRes = await sumP;
     const sumParsed = parseStoreSummaryPayload(sumRes.json);
@@ -308,6 +314,8 @@ export function StoreDetailPublic({
       setCanSell(false);
       setFavoriteSeed({ viewerFavorited: false, favoriteCount: 0 });
       setRecentOrderCountMeta(0);
+      setPublicBanners([]);
+      setPublicNotices([]);
       setSummaryLoading(false);
       setMenusLoading(false);
       return;
@@ -319,6 +327,8 @@ export function StoreDetailPublic({
     if (!summaryReady) {
       const leg = await fetchStorePublicBySlugDeduped(slug);
       applyLegacyHydrate(leg.json);
+      setPublicBanners([]);
+      setPublicNotices([]);
       setSummaryLoading(false);
       setMenusLoading(false);
       return;
@@ -327,7 +337,16 @@ export function StoreDetailPublic({
     applySummaryPayload(sumParsed);
     setSummaryLoading(false);
 
-    const menuRes = await menuP;
+    const menuP = fetchStoreMenusDeduped(slug);
+    const banP = fetchStoreBannersDeduped(slug);
+    const notP = fetchStoreNoticesDeduped(slug);
+    const [menuRes, banRes, notRes] = await Promise.all([menuP, banP, notP]);
+
+    const banJ = banRes.json as { ok?: boolean; banners?: StoreBannerPublicRow[] };
+    const notJ = notRes.json as { ok?: boolean; notices?: StoreNoticePublicRow[] };
+    setPublicBanners(banRes.status === 200 && banJ?.ok && Array.isArray(banJ.banners) ? banJ.banners : []);
+    setPublicNotices(notRes.status === 200 && notJ?.ok && Array.isArray(notJ.notices) ? notJ.notices : []);
+
     const menuParsed = parseStoreMenusPayload(menuRes.json);
 
     const menusReady =
@@ -354,13 +373,14 @@ export function StoreDetailPublic({
 
   const loadSplitDetailSilent = useCallback(async () => {
     const sumP = fetchStoreSummaryDeduped(slug);
-    const menuP = fetchStoreMenusDeduped(slug);
 
     const sumRes = await sumP;
     const sumParsed = parseStoreSummaryPayload(sumRes.json);
 
     if (sumParsed.meta?.source === "supabase_unconfigured") {
       setDbOff(true);
+      setPublicBanners([]);
+      setPublicNotices([]);
       return;
     }
 
@@ -370,12 +390,23 @@ export function StoreDetailPublic({
     if (!summaryReady) {
       const leg = await fetchStorePublicBySlugDeduped(slug);
       applyLegacyHydrate(leg.json);
+      setPublicBanners([]);
+      setPublicNotices([]);
       return;
     }
 
     applySummaryPayload(sumParsed);
 
-    const menuRes = await menuP;
+    const menuP = fetchStoreMenusDeduped(slug);
+    const banP = fetchStoreBannersDeduped(slug);
+    const notP = fetchStoreNoticesDeduped(slug);
+    const [menuRes, banRes, notRes] = await Promise.all([menuP, banP, notP]);
+
+    const banJ = banRes.json as { ok?: boolean; banners?: StoreBannerPublicRow[] };
+    const notJ = notRes.json as { ok?: boolean; notices?: StoreNoticePublicRow[] };
+    setPublicBanners(banRes.status === 200 && banJ?.ok && Array.isArray(banJ.banners) ? banJ.banners : []);
+    setPublicNotices(notRes.status === 200 && notJ?.ok && Array.isArray(notJ.notices) ? notJ.notices : []);
+
     const menuParsed = parseStoreMenusPayload(menuRes.json);
 
     const menusReady =
@@ -570,7 +601,8 @@ export function StoreDetailPublic({
     (p: StoreDetailProductCard): boolean => {
       if (!commerceCart?.hydrated || !store || p.has_options) return false;
       if (commerce ? !commerce.isOpenForCommerce : false) return false;
-      const soldOut = p.track_inventory && p.stock_qty <= 0;
+      const soldOut =
+        p.product_status === "sold_out" || (p.track_inventory && p.stock_qty <= 0);
       if (soldOut) return false;
       const hasDiscount =
         p.discount_price != null &&
@@ -715,6 +747,19 @@ export function StoreDetailPublic({
     [menuStickyStackPx]
   );
 
+  const storeTopNotices = useMemo(
+    () => publicNotices.filter((n) => n.placement === "store_top"),
+    [publicNotices]
+  );
+  const menuTopNotices = useMemo(
+    () => publicNotices.filter((n) => n.placement === "menu_top"),
+    [publicNotices]
+  );
+  const reviewTopNotices = useMemo(
+    () => publicNotices.filter((n) => n.placement === "review_top"),
+    [publicNotices]
+  );
+
   /** 메인 컬럼(`APP_MAIN_COLUMN`) 폭에 맞춤 — 가로·태블릿에서 좌우 인공 보라 띠(430 고정) 제거 */
   const viewportShell = (inner: ReactNode) => (
     <div className="w-full min-w-0 min-h-[100dvh] overflow-x-hidden bg-white [-webkit-overflow-scrolling:touch]">
@@ -842,6 +887,16 @@ export function StoreDetailPublic({
         onCartPreviewClick={() => setCartPreviewOpen(true)}
         noticePreview={noticePreview}
         commerceCartStoreId={store.id}
+        bannersSlot={
+          publicBanners.length > 0 ? (
+            <StoreOwnerBannerCarousel storeSlug={store.slug} banners={publicBanners} />
+          ) : undefined
+        }
+        storeManagedNoticesSlot={
+          storeTopNotices.length > 0 ? (
+            <StoreOwnerNoticeCards notices={storeTopNotices} infoHrefBase={infoPath} />
+          ) : undefined
+        }
       />
 
       <StoreDetailMenusSection
@@ -862,12 +917,22 @@ export function StoreDetailPublic({
         menuSelectHint={menuSelectHint}
         onOpenProductSheet={onOpenProductSheet}
         onQuickAddProduct={quickAddFromCard}
+        menuTopSlot={
+          menuTopNotices.length > 0 ? (
+            <StoreOwnerNoticeCards notices={menuTopNotices} infoHrefBase={infoPath} />
+          ) : undefined
+        }
       />
 
       <StoreDetailDeferredInfoSection
         storeSlug={store.slug}
         storeRootPath={storeRootPath}
         legacyReviewCount={Math.max(0, Math.floor(Number(store.review_count) || 0))}
+        reviewTopSlot={
+          reviewTopNotices.length > 0 ? (
+            <StoreOwnerNoticeCards notices={reviewTopNotices} infoHrefBase={infoPath} />
+          ) : undefined
+        }
       />
 
       <div className="mt-6 px-4 pb-4 text-center">
