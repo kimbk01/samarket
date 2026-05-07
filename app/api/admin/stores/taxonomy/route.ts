@@ -15,6 +15,7 @@ type StoreCategoryRow = {
   slug: string;
   sort_order: number;
   is_active: boolean;
+  image_url?: string | null;
 };
 
 type StoreTopicRow = {
@@ -24,6 +25,7 @@ type StoreTopicRow = {
   slug: string;
   sort_order: number;
   is_active: boolean;
+  image_url?: string | null;
 };
 
 export async function GET() {
@@ -36,11 +38,11 @@ export async function GET() {
   const [{ data: categories, error: cErr }, { data: topics, error: tErr }] = await Promise.all([
     sb
       .from("store_categories")
-      .select("id, name, slug, sort_order, is_active")
+      .select("id, name, slug, sort_order, is_active, image_url")
       .order("sort_order", { ascending: true }),
     sb
       .from("store_topics")
-      .select("id, store_category_id, name, slug, sort_order, is_active")
+      .select("id, store_category_id, name, slug, sort_order, is_active, image_url")
       .order("sort_order", { ascending: true }),
   ]);
 
@@ -73,8 +75,8 @@ export async function PATCH(req: Request) {
 
   const allowKeys =
     kind === "category"
-      ? new Set(["name", "sort_order", "is_active"])
-      : new Set(["name", "sort_order", "is_active", "store_category_id"]);
+      ? new Set(["name", "sort_order", "is_active", "image_url"])
+      : new Set(["name", "sort_order", "is_active", "store_category_id", "image_url"]);
   const safePatch: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(patch)) {
     if (!allowKeys.has(k)) continue;

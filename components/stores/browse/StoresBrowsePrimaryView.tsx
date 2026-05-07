@@ -229,6 +229,7 @@ export function StoresBrowsePrimaryView({
       nameKo: string;
       primarySlug: string;
       sortOrder: number;
+      imageUrl?: string | null;
     }[] = [];
     for (const t of sorted) {
       const sk = String(t.slug ?? "").trim().toLowerCase();
@@ -240,6 +241,7 @@ export function StoresBrowsePrimaryView({
         nameKo: t.name,
         primarySlug,
         sortOrder: t.sort_order,
+        imageUrl: typeof (t as any).image_url === "string" ? String((t as any).image_url).trim() || null : null,
       });
     }
     return out;
@@ -587,10 +589,11 @@ export function StoresBrowsePrimaryView({
                   {subs.map((s, idx) => {
                     const on = activeSub !== "all" && activeSub === s.slug;
                     const label = String((s as any).nameKo ?? (s as any).name ?? "").trim();
+                    const uploaded = typeof (s as any).imageUrl === "string" ? String((s as any).imageUrl).trim() : "";
                     const iconSrc =
                       isRestaurant ?
                         (RESTAURANT_SUB_ICON[String(s.slug ?? "").trim().toLowerCase()] ?? null)
-                      : storeSecondaryBrowseIconPath(primarySlug, idx + 1);
+                      : (uploaded || storeSecondaryBrowseIconPath(primarySlug, idx + 1));
                     return (
                       <Item
                         key={s.id}

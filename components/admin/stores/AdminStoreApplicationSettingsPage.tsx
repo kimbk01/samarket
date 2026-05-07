@@ -37,6 +37,7 @@ export function AdminStoreApplicationSettingsPage() {
   const [newCategorySlug, setNewCategorySlug] = useState("");
   const [newTopicName, setNewTopicName] = useState("");
   const [newTopicSlug, setNewTopicSlug] = useState("");
+  const [taxonomyImageUploading, setTaxonomyImageUploading] = useState<string | null>(null);
   const [riderLocationEnabled, setRiderLocationEnabled] = useState(false);
   const [riderLocationLoading, setRiderLocationLoading] = useState(false);
   const [riderLocationSaving, setRiderLocationSaving] = useState(false);
@@ -145,6 +146,37 @@ export function AdminStoreApplicationSettingsPage() {
       setTaxonomyLoading(false);
     }
   }, []);
+
+  const uploadTaxonomyImage = useCallback(
+    async (kind: "category" | "topic", id: string, file: File) => {
+      const key = `${kind}:${id}`;
+      setTaxonomyImageUploading(key);
+      try {
+        const fd = new FormData();
+        fd.append("kind", kind);
+        fd.append("id", id);
+        fd.append("file", file);
+        const res = await fetch("/api/admin/stores/taxonomy/upload-image", {
+          method: "POST",
+          credentials: "include",
+          body: fd,
+        });
+        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; message?: string; url?: string };
+        if (!res.ok || !j?.ok) {
+          window.alert(j.message ?? j.error ?? "이미지 업로드에 실패했습니다.");
+          return;
+        }
+        setMsg("이미지를 저장했습니다. /stores 에 반영됩니다.");
+        window.setTimeout(() => setMsg(null), 4000);
+        await reloadTaxonomy();
+      } catch {
+        window.alert("network_error");
+      } finally {
+        setTaxonomyImageUploading((prev) => (prev === key ? null : prev));
+      }
+    },
+    [reloadTaxonomy]
+  );
 
   const seedDefaults = useCallback(async () => {
     if (!window.confirm("기본 업종/세부 주제를 DB에 생성합니다. 계속할까요?")) return;
@@ -534,7 +566,8 @@ export function AdminStoreApplicationSettingsPage() {
                 </div>
 
                 <div className="mt-3 overflow-hidden rounded-ui-rect border border-sam-border">
-                  <div className="grid grid-cols-[minmax(0,1fr)_96px] gap-0 border-b border-sam-border bg-sam-app px-3 py-2 sam-text-helper font-semibold text-sam-muted">
+                  <div className="grid grid-cols-[40px_minmax(0,1fr)_128px] gap-0 border-b border-sam-border bg-sam-app px-3 py-2 sam-text-helper font-semibold text-sam-muted">
+                    <span>이미지</span>
                     <span>업종</span>
                     <span className="text-right">작업</span>
                   </div>
@@ -555,12 +588,30 @@ export function AdminStoreApplicationSettingsPage() {
                     ) : (
                       categories.map((c) => {
                         const isEditing = editingCategoryId === c.id && editingCategoryDraft != null;
+                        const uploadKey = `category:${c.id}`;
+                        const isUploading = taxonomyImageUploading === uploadKey;
                       return (
                         <li key={c.id} className="px-3 py-2">
                           <div className="flex items-start justify-between gap-2">
-                            <div className="min-w-0 flex-1">
+                            <div className="flex min-w-0 flex-1 gap-2">
+                              <div className="pt-0.5">
+                                {c.image_url ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={c.image_url}
+                                    alt=""
+                                    aria-hidden
+                                    className="h-9 w-9 rounded-ui-rect border border-sam-border object-cover"
+                                    loading="lazy"
+                                  />
+                                ) : (
+                                  <div className="flex h-9 w-9 items-center justify-center rounded-ui-rect border border-dashed border-sam-border bg-sam-app sam-text-xxs font-semibold text-sam-muted">
+                                    없음
+                                  </div>
+                                )}
+                              </div>
                               {isEditing ? (
-                                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
                                   <input
                                     value={editingCategoryDraft.name}
                                     onChange={(e) =>
@@ -612,6 +663,21 @@ export function AdminStoreApplicationSettingsPage() {
                                 </div>
                               ) : (
                                 <div className="flex items-center gap-2">
+                                  <label className="sam-text-helper font-semibold text-sam-muted underline">
+                                    <input
+                                      type="file"
+                                      accept="image/jpeg,image/png,image/webp"
+                                      className="sr-only"
+                                      disabled={isUploading}
+                                      onChange={(e) => {
+                                        const f = e.target.files?.[0];
+                                        e.target.value = "";
+                                        if (!f) return;
+                                        void uploadTaxonomyImage("category", c.id, f);
+                                      }}
+                                    />
+                                    {isUploading ? "업로드…" : c.image_url ? "이미지 변경" : "이미지 추가"}
+                                  </label>
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -708,7 +774,8 @@ export function AdminStoreApplicationSettingsPage() {
                 </div>
 
                 <div className="mt-3 overflow-hidden rounded-ui-rect border border-sam-border">
-                  <div className="grid grid-cols-[minmax(0,1fr)_96px] gap-0 border-b border-sam-border bg-sam-app px-3 py-2 sam-text-helper font-semibold text-sam-muted">
+                  <div className="grid grid-cols-[40px_minmax(0,1fr)_128px] gap-0 border-b border-sam-border bg-sam-app px-3 py-2 sam-text-helper font-semibold text-sam-muted">
+                    <span>이미지</span>
                     <span>하위 업종</span>
                     <span className="text-right">작업</span>
                   </div>
@@ -729,12 +796,30 @@ export function AdminStoreApplicationSettingsPage() {
                     ) : (
                       topicsForPicked.map((t) => {
                         const isEditing = editingTopicId === t.id && editingTopicDraft != null;
+                        const uploadKey = `topic:${t.id}`;
+                        const isUploading = taxonomyImageUploading === uploadKey;
                         return (
                           <li key={t.id} className="px-3 py-2">
                             <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0 flex-1">
+                              <div className="flex min-w-0 flex-1 gap-2">
+                                <div className="pt-0.5">
+                                  {t.image_url ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={t.image_url}
+                                      alt=""
+                                      aria-hidden
+                                      className="h-9 w-9 rounded-ui-rect border border-sam-border object-cover"
+                                      loading="lazy"
+                                    />
+                                  ) : (
+                                    <div className="flex h-9 w-9 items-center justify-center rounded-ui-rect border border-dashed border-sam-border bg-sam-app sam-text-xxs font-semibold text-sam-muted">
+                                      없음
+                                    </div>
+                                  )}
+                                </div>
                                 {isEditing ? (
-                                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                                  <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
                                     <input
                                       value={editingTopicDraft.name}
                                       onChange={(e) =>
@@ -785,6 +870,21 @@ export function AdminStoreApplicationSettingsPage() {
                                   </div>
                                 ) : (
                                   <div className="flex items-center gap-2">
+                                    <label className="sam-text-helper font-semibold text-sam-muted underline">
+                                      <input
+                                        type="file"
+                                        accept="image/jpeg,image/png,image/webp"
+                                        className="sr-only"
+                                        disabled={isUploading}
+                                        onChange={(e) => {
+                                          const f = e.target.files?.[0];
+                                          e.target.value = "";
+                                          if (!f) return;
+                                          void uploadTaxonomyImage("topic", t.id, f);
+                                        }}
+                                      />
+                                      {isUploading ? "업로드…" : t.image_url ? "이미지 변경" : "이미지 추가"}
+                                    </label>
                                     <button
                                       type="button"
                                       onClick={() => {

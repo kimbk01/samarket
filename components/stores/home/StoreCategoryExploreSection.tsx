@@ -251,7 +251,8 @@ export function StoreCategoryExploreSection({
               </span>
             </Link>
             {subs.map((s, idx) => {
-              const src = storeSecondaryBrowseIconPath(activeSlug, idx + 1);
+              const uploaded = typeof (s as any).image_url === "string" ? String((s as any).image_url).trim() : "";
+              const src = uploaded || storeSecondaryBrowseIconPath(activeSlug, idx + 1);
               const label = String((s as any).nameKo ?? (s as any).name ?? "").trim();
               return (
                 <Link
@@ -264,7 +265,7 @@ export function StoreCategoryExploreSection({
                     <img
                       src={src}
                       alt={label}
-                      className="mb-1 h-12 w-12 object-contain"
+                      className={`mb-1 h-12 w-12 ${uploaded ? "object-cover rounded-ui-rect" : "object-contain"}`}
                       loading="lazy"
                     />
                   ) : null}

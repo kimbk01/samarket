@@ -31,7 +31,7 @@ export async function GET(request: Request) {
   try {
     const { data: categories, error: cErr } = await sb
       .from("store_categories")
-      .select("id, name, slug, sort_order")
+      .select("id, name, slug, sort_order, image_url")
       .eq("is_active", true)
       .order("sort_order", { ascending: true });
 
@@ -47,7 +47,7 @@ export async function GET(request: Request) {
 
     const { data: topics, error: tErr } = await sb
       .from("store_topics")
-      .select("id, store_category_id, name, slug, sort_order")
+      .select("id, store_category_id, name, slug, sort_order, image_url")
       .eq("is_active", true)
       .order("sort_order", { ascending: true });
 
