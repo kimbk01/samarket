@@ -365,7 +365,6 @@ export function BusinessAdminDashboard({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="sam-text-helper font-medium text-sam-muted">매장 운영 센터</p>
-          <p className="sam-text-page-title font-bold text-sam-fg">지금 처리할 일을 먼저 확인하세요</p>
         </div>
         <button
           type="button"
@@ -378,13 +377,6 @@ export function BusinessAdminDashboard({
           새로고침
         </button>
       </div>
-
-      {row.approval_status === "approved" && !canSell ? (
-        <p className="rounded-ui-rect bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-900">
-          고객에게 판매 노출을 하려면 관리자 <strong>판매 승인</strong>이 필요합니다. 그 전에는 초안·숨김으로 상품을
-          준비해 두세요.
-        </p>
-      ) : null}
 
       {dashLoading ? <p className="sam-text-body text-sam-muted">대시보드 데이터 불러오는 중…</p> : null}
 

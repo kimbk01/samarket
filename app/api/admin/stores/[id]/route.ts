@@ -52,7 +52,7 @@ export async function PATCH(
 
   const { data: store, error: findErr } = await sb
     .from("stores")
-    .select("id, approval_status")
+    .select("id, approval_status, is_visible")
     .eq("id", id)
     .maybeSingle();
 
@@ -71,7 +71,8 @@ export async function PATCH(
     if (action === "approve_store") {
       patch = {
         approval_status: "approved",
-        is_visible: true,
+        // 승인 직후 기본은 "비노출"로 시작 (상품/프로필 준비 후 오너가 켜도록)
+        is_visible: false,
         approved_at: new Date().toISOString(),
         rejected_reason: null,
         revision_note: null,
@@ -98,7 +99,6 @@ export async function PATCH(
     } else if (action === "resume_store") {
       patch = {
         approval_status: "approved",
-        is_visible: true,
         suspended_reason: null,
       };
     }

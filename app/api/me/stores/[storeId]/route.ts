@@ -30,6 +30,8 @@ type PatchBody = {
   email?: string | null;
   website_url?: string | null;
   profile_image_url?: string | null;
+  /** 매장 공개 노출 여부 (오너가 직접 토글) */
+  is_visible?: boolean;
   is_open?: boolean;
   delivery_available?: boolean;
   pickup_available?: boolean;
@@ -256,6 +258,10 @@ export async function PATCH(
   if (body.website_url !== undefined) patch.website_url = trimOrNull(body.website_url);
   if (body.profile_image_url !== undefined) {
     patch.profile_image_url = body.profile_image_url === null ? null : trimOrNull(body.profile_image_url);
+  }
+  if (body.is_visible !== undefined) {
+    // 노출 토글은 승인 상태에서만 의미가 있으므로, blocked 상태는 위에서 차단됨.
+    patch.is_visible = Boolean(body.is_visible);
   }
   if (body.is_open !== undefined) {
     patch.is_open = Boolean(body.is_open);

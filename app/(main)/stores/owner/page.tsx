@@ -1,9 +1,8 @@
 import { Suspense } from "react";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
-import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { MyBusinessPage } from "@/components/business/MyBusinessPage";
+import { OwnerHubShell } from "@/components/business/owner/OwnerHubShell";
 import { loadMyBusinessServer } from "@/lib/business/load-my-business-server";
-import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 
 function firstQueryString(v: string | string[] | undefined): string | undefined {
   if (Array.isArray(v)) return v[0];
@@ -32,16 +31,8 @@ async function StoresOwnerHubBody({ searchParams }: PageProps) {
   const initialServerState = await loadMyBusinessServer(storeId);
 
   return (
-    <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
-      <MySubpageHeader
-        title="매장 운영"
-        subtitle="주문, 상품, 운영 상태, 정산 관리"
-        backHref="/mypage"
-        hideCtaStrip
-      />
-      <div className={`${APP_MAIN_TAB_SCROLL_BODY_CLASS} pt-2 pb-8`}>
-        <MyBusinessPage initialServerState={initialServerState} />
-      </div>
-    </div>
+    <OwnerHubShell>
+      <MyBusinessPage initialServerState={initialServerState} />
+    </OwnerHubShell>
   );
 }

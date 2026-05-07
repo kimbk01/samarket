@@ -27,14 +27,6 @@ export function buildBusinessAdminSidebar(ctx: MyBusinessNavContext): BusinessAd
   const sections: BusinessAdminSidebarSection[] = [];
 
   const opsItems: BusinessAdminSidebarItem[] = [{ label: "대시보드", href: OwnerRoutes.hub() }];
-  if (showOps && canSell) {
-    opsItems.push({
-      label: "주문 관리",
-      href: OwnerRoutes.orders(storeId),
-      badge: orderAlertsBadge > 0 ? orderAlertsBadge : undefined,
-      description: "신규·환불 요청·상태 변경",
-    });
-  }
   if (showOps) {
     opsItems.push({
       label: "채팅 · 문의",
@@ -43,6 +35,25 @@ export function buildBusinessAdminSidebar(ctx: MyBusinessNavContext): BusinessAd
     });
   }
   sections.push({ title: "운영", items: opsItems });
+
+  // 배달 운영(주문 중심) 섹션
+  if (approved) {
+    const deliveryItems: BusinessAdminSidebarItem[] = [];
+    if (showOps && canSell) {
+      deliveryItems.push({
+        label: "배달 주문",
+        href: OwnerRoutes.orders(storeId),
+        badge: orderAlertsBadge > 0 ? orderAlertsBadge : undefined,
+        description: "신규·환불 요청·상태 변경",
+      });
+    }
+    deliveryItems.push({
+      label: "배달 운영 설정",
+      href: OwnerRoutes.opsStatus(storeId),
+      description: "영업·배달·노출",
+    });
+    sections.push({ title: "배달", items: deliveryItems });
+  }
 
   if (approved) {
     sections.push({

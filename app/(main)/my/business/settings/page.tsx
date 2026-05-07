@@ -73,9 +73,68 @@ function MyBusinessSettingsPageInner() {
 
   const row = phase.row;
   const q = `storeId=${encodeURIComponent(row.id)}`;
+  const isApproved = row.approval_status === "approved";
+  const visible = row.is_visible === true;
+
+  const toggleVisible = useCallback(async () => {
+    if (!isApproved) return;
+    const next = !visible;
+    try {
+      const res = await fetch(`/api/me/stores/${row.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ is_visible: next }),
+      });
+      const json = (await res.json()) as { ok?: boolean; store?: StoreRow; error?: string };
+      if (!res.ok || !json?.ok) throw new Error(json?.error ?? `http_${res.status}`);
+      if (json.store?.id === row.id) {
+        setPhase({ kind: "ok", row: json.store });
+      } else {
+        await load();
+      }
+    } catch {
+      // fall back to refresh; keep UI simple
+      await load();
+    }
+  }, [isApproved, load, row.id, visible]);
 
   return (
     <div className={`${OWNER_STORE_STACK_Y_CLASS}`}>
+      <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
+        <h2 className="sam-text-body font-semibold text-sam-fg">매장 노출</h2>
+        <p className="mt-2 sam-text-body-secondary leading-relaxed text-sam-muted">
+          공개 매장 페이지(<code className="rounded bg-sam-surface-muted px-1 sam-text-helper">/stores/[slug]</code>)에
+          노출할지 설정합니다. 승인이 완료되어도 <strong className="font-semibold text-sam-fg">처음에는 비노출</strong>로
+          시작합니다.
+        </p>
+        <div className="mt-3 flex items-center justify-between gap-3 rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2">
+          <div className="min-w-0">
+            <p className="sam-text-body font-medium text-sam-fg">
+              {visible ? "노출됨 (Y)" : "비노출 (N)"}
+            </p>
+            <p className="sam-text-helper text-sam-muted">
+              {isApproved ? "원할 때 언제든 변경할 수 있어요." : "승인 완료 후에만 변경할 수 있어요."}
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={!isApproved}
+            onClick={() => void toggleVisible()}
+            className={[
+              "shrink-0 rounded-ui-rect px-3 py-2 sam-text-body font-medium",
+              isApproved
+                ? visible
+                  ? "border border-sam-border bg-sam-surface text-sam-fg"
+                  : "bg-signature text-white"
+                : "cursor-not-allowed border border-sam-border bg-sam-surface-muted text-sam-muted",
+            ].join(" ")}
+          >
+            {visible ? "비노출로 전환" : "노출로 전환"}
+          </button>
+        </div>
+      </section>
+
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
         <h2 className="sam-text-body font-semibold text-sam-fg">배달 신규 주문 알림음</h2>
         <p className="mt-2 sam-text-body-secondary leading-relaxed text-sam-muted">
