@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export type StoreBrowseSortId = "default" | "distance" | "rating" | "reviews" | "fast";
@@ -23,7 +22,7 @@ const SORTS: {
 ];
 
 const CHIP_BASE =
-  "shrink-0 rounded-full px-2.5 py-1 sam-text-xxs font-semibold transition-colors border";
+  "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold leading-none transition-colors border";
 const CHIP_OFF = "border-sam-border bg-sam-surface text-sam-muted";
 const CHIP_ON = "border-signature bg-signature text-white";
 
@@ -39,38 +38,25 @@ export function StoreListFilters({
 }) {
   const { t } = useI18n();
   return (
-    <div className="space-y-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-xxs font-bold uppercase tracking-wide text-sam-meta">{t("common_sort")}</span>
-        <div className="flex flex-wrap gap-1">
-          {SORTS.map(({ id, labelKey }) => {
-            const on = sort === id;
-            const disabled = id === "distance" && !hasGeo;
-            return (
-              <button
-                key={id}
-                type="button"
-                disabled={disabled}
-                title={disabled ? t("nav_store_geo_required_hint") : undefined}
-                onClick={() => {
-                  if (!disabled) onSortChange(id);
-                }}
-                className={`${CHIP_BASE} ${on ? CHIP_ON : CHIP_OFF} ${
-                  disabled ? "cursor-not-allowed opacity-45" : ""
-                }`}
-              >
-                {t(labelKey)}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-      <Link
-        href="/regions"
-        className="inline-flex items-center rounded-full border border-dashed border-sam-border bg-sam-surface px-2.5 py-1 sam-text-xxs font-semibold text-sam-fg active:bg-sam-app"
-      >
-        {t("nav_store_region_settings")}
-      </Link>
+    <div className="flex items-center gap-1 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {SORTS.map(({ id, labelKey }) => {
+        const on = sort === id;
+        const disabled = id === "distance" && !hasGeo;
+        return (
+          <button
+            key={id}
+            type="button"
+            disabled={disabled}
+            title={disabled ? t("nav_store_geo_required_hint") : undefined}
+            onClick={() => {
+              if (!disabled) onSortChange(id);
+            }}
+            className={`${CHIP_BASE} ${on ? CHIP_ON : CHIP_OFF} ${disabled ? "cursor-not-allowed opacity-45" : ""}`}
+          >
+            {t(labelKey)}
+          </button>
+        );
+      })}
     </div>
   );
 }

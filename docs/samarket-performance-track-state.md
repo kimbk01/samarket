@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-05-06 |
+| Last updated | 2026-05-07 |
 | Owner | (선택) |
 
 ---
@@ -56,6 +56,28 @@
 | 후속(트랙 X 후보) | `/post/[id]` 의 가장 큰 잔여 병목인 `loadTradeDetailRelatedBundle`(판매자 다른 글·유사 글·광고)을 본문 이후로 분리할지 검토한다. 이때는 기존 기능 회귀 없이 `related` 섹션만 지연/스트리밍하는 구조로 한 단계 더 쪼갠다. |
 
 **보조(도메인 순환·`performance-state.json`):** 2026-04-26 — `myinfo`로 남아 있던 **`PurchaseDetailView` 구매 상세 GET**을 비행 패턴(`fetch`만 합류·`clone` 파싱·`credentials`)으로 정리해 한 사이클을 코드까지 마감했다. `currentTarget`은 다음 순환 진입점으로 **`login`**을 유지한다.
+
+---
+
+## 이번 라운드 (스토어: 라운드 SB1 — browse 서브 탭 전환 즉시 반응/복귀)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | `/stores/browse/[primary]?sub=...` 전환에서 **선택 UI와 목록 표시가 네트워크 완료(특히 `/api/stores/browse`)에 종속**되어, 탭 선택·뒤로가기 복귀에서 “늦게 반응/늦게 뜸” 체감이 발생했다. (전환 시 `remoteRows`를 `undefined`로 비워 스켈레톤/빈 구간이 더 커짐) |
+| 측정 명령 | PowerShell `curl.exe -L -o NUL -s -w` 3회 — `http://192.168.100.7:3000/api/stores/browse?primary=restaurant&sub=western` (`time_starttransfer`, `time_total`) |
+| 완료 기준 | (1) 탭 선택은 즉시 하이라이트(언더라인) (2) 이미 본 sub는 캐시로 즉시 목록 복원 (3) warm(런2–3) 기준 `/api/stores/browse` `time_starttransfer` 역행 없이 감소 |
+| 수정 파일 (1~3) | `components/stores/browse/StoresBrowsePrimaryView.tsx` |
+| 이번 조치 | 1) sub 탭 선택을 **optimistic 상태로 즉시 반영**(router replace는 transition) 2) 목록 전환 시 `remoteRows`를 비우지 않고, **컨텍스트 키 기반 in-memory cache**로 이미 본 sub는 즉시 복원 3) 백그라운드 refresh는 silent로 수행 |
+
+### 라운드 SB1 — 3회 측정 (s)
+
+| 구분 | Run1 | Run2 | Run3 | warm 평균(Run2–3) |
+|------|------|------|------|------------------|
+| 수정 전 `/api/stores/browse` `starttransfer` | 1.676570 | 0.537931 | 0.550194 | **0.544063** |
+| 수정 후 `/api/stores/browse` `starttransfer` | 0.479330 | 0.400901 | 0.391940 | **0.396421** |
+
+**비교(헌장 warm 기준):** **0.544s → 0.396s (-0.148s)**. 단, UI “클릭→언더라인/목록 복원”은 브라우저 상호작용 계측이 추가로 필요하다.  
+**판정:** **보류** — 네트워크 지표는 개선 방향이지만(캐시/노이즈 가능), 체감 기준(클릭 즉시 반응/뒤로가기 복귀) 3회 반복 측정이 아직 없다.
 
 ---
 

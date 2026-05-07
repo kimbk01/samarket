@@ -131,10 +131,8 @@ export function StoreCategoryExploreSection({
                 role="tab"
                 aria-selected={on}
                 onClick={() => setPickedSlug((prev) => (prev === p.slug ? prev : p.slug))}
-                className={`flex w-[66px] shrink-0 snap-start flex-col items-center justify-center gap-1 rounded-sam-md px-1 py-1.5 transition-[transform,background-color,color] duration-150 will-change-transform active:scale-[0.97] ${
-                  on
-                    ? "bg-sam-surface-muted text-sam-fg dark:bg-[#3A3B3C] dark:text-[#E4E6EB]"
-                    : "text-sam-muted active:bg-sam-surface-muted dark:text-[#B0B3B8] dark:active:bg-[#4E4F50]"
+                className={`flex w-[58px] shrink-0 snap-start flex-col items-center justify-center gap-0.5 rounded-sam-md px-0.5 py-1.5 text-center transition-[transform,color] duration-150 will-change-transform active:scale-[0.97] ${
+                  on ? "text-sam-fg dark:text-[#E4E6EB]" : "text-sam-muted dark:text-[#B0B3B8]"
                 }`}
               >
                 {icon ? (
@@ -143,7 +141,7 @@ export function StoreCategoryExploreSection({
                     src={icon}
                     alt=""
                     aria-hidden
-                    className={`h-12 w-12 object-contain ${on ? "opacity-100" : "opacity-90"}`}
+                    className={`h-10 w-10 object-contain ${on ? "opacity-100" : "opacity-90"}`}
                     loading="lazy"
                   />
                 ) : (
@@ -175,6 +173,11 @@ export function StoreCategoryExploreSection({
                 >
                   {(p as any).nameKo ?? (p as any).name ?? ""}
                 </span>
+                <span
+                  className="mt-1 h-1 w-10 rounded-full"
+                  style={{ backgroundColor: on ? "#1C8DB8" : "transparent" }}
+                  aria-hidden
+                />
               </button>
             );
           })}

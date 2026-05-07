@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -8,6 +9,7 @@ import {
   useMemo,
   useRef,
   useState,
+  startTransition,
   type ReactNode,
 } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
@@ -34,7 +36,6 @@ import { StoreListFilters, type StoreBrowseSortId } from "./StoreListFilters";
 import { storesBrowsePath, storesBrowsePrimaryPath } from "./stores-browse-paths";
 import {
   STORE_CATEGORY_PILL_SCROLL,
-  storeCategoryPillClass,
 } from "@/components/stores/store-category-pill-styles";
 import {
   StoreDeliveryRowCard,
@@ -42,9 +43,23 @@ import {
   storeRowCardDataEqual,
   type StoreRowCardData,
 } from "@/components/stores/home/StoreDeliveryRowCard";
-import { StorePrimaryIndustrySwitcher } from "@/components/stores/home/StorePrimaryIndustrySwitcher";
 import { fetchStoresBrowseDeduped, fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
+import { storeSecondaryBrowseIconPath } from "@/lib/stores/store-secondary-browse-icons";
+
+const RESTAURANT_SUB_ICON: Record<string, string> = {
+  korean: "/icons/food/icon_0_1.png",
+  chinese: "/icons/food/icon_1_0.png",
+  japanese: "/icons/food/icon_1_1.png",
+  western: "/icons/food/icon_1_2.png",
+  pizza: "/icons/food/icon_1_2.png",
+  snack: "/icons/food/icon_1_3.png",
+  chicken: "/icons/food/icon_0_2.png",
+  lunchbox: "/icons/food/icon_2_0.png",
+  local: "/icons/food/icon_2_1.png",
+  dessert: "/icons/food/icon_2_2.png",
+  late_night: "/icons/food/icon_2_3.png",
+};
 
 function browseStableTieBreak(a: BrowseStoreListItem, b: BrowseStoreListItem): number {
   const bySlug = a.slug.localeCompare(b.slug);
@@ -145,6 +160,8 @@ export function StoresBrowsePrimaryView({
   primarySlug: string;
   initialSubSlug: string | null;
 }) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const industryVersion = useBrowseIndustryDatasetVersion();
   const regionCtx = useRegionOptional();
   const primaryRegion = regionCtx?.primaryRegion ?? null;
@@ -227,9 +244,17 @@ export function StoresBrowsePrimaryView({
     return out;
   }, [primarySlug, taxonomy, industryVersion]);
 
+  const [optimisticSub, setOptimisticSub] = useState<string | null>(null);
+  const lastTapPerfRef = useRef<{ sub: string; t0: number } | null>(null);
+  const lastNavPerfRef = useRef<{ sub: string; t0: number; kind: "tap" | "pop" } | null>(null);
+
   const trimmedBrowseSubParam = useMemo(
-    () => (typeof initialSubSlug === "string" ? initialSubSlug.trim().toLowerCase() : ""),
-    [initialSubSlug]
+    () => {
+      const sp = searchParams?.get("sub");
+      if (typeof sp === "string" && sp.trim()) return sp.trim().toLowerCase();
+      return typeof initialSubSlug === "string" ? initialSubSlug.trim().toLowerCase() : "";
+    },
+    [searchParams, initialSubSlug]
   );
 
   /** taxonomy 에 없는·비정상 sub 쿼리는 목록은 전체로 맞추고 칩도 「전체」와 일치시킴 */
@@ -240,9 +265,68 @@ export function StoresBrowsePrimaryView({
     return hit ? hit.slug : null;
   }, [trimmedBrowseSubParam, subs]);
 
-  const activeSub = matchedTopicSlug ?? "all";
+  useEffect(() => {
+    // URL/searchParams가 확정되면 optimistic 상태를 해제
+    setOptimisticSub(null);
+  }, [matchedTopicSlug, primarySlug]);
 
-  const allSubChipActive = matchedTopicSlug == null;
+  const activeSub = optimisticSub ?? (matchedTopicSlug ?? "all");
+
+  const allSubChipActive = activeSub === "all";
+
+  useEffect(() => {
+    // 탭 클릭 직후 "선택 표시"까지의 지연(대략 1~2 frame) 계측
+    const tap = lastTapPerfRef.current;
+    if (!tap) return;
+    if (activeSub !== tap.sub) return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const dt = Math.max(0, performance.now() - tap.t0);
+        // eslint-disable-next-line no-console
+        console.log("[dibay-store-browse-perf]", {
+          metric: "tap_to_active_underline_ms",
+          value_ms: Math.round(dt),
+          route: `/stores/browse/${primarySlug}`,
+          sub: tap.sub,
+          timestamp: Date.now(),
+        });
+      });
+    });
+    // 한 번만
+    lastTapPerfRef.current = null;
+  }, [activeSub, primarySlug]);
+
+  useEffect(() => {
+    // activeSub가 확정되면 "목록 표시"까지 계측 시작(탭/뒤로가기 둘 다)
+    const nav = lastNavPerfRef.current;
+    if (!nav) return;
+    if (nav.sub !== activeSub) return;
+    if (remoteRows === undefined) return;
+    requestAnimationFrame(() => {
+      const dt = Math.max(0, performance.now() - nav.t0);
+      // eslint-disable-next-line no-console
+      console.log("[dibay-store-browse-perf]", {
+        metric: nav.kind === "tap" ? "tap_to_list_visible_ms" : "pop_to_list_visible_ms",
+        value_ms: Math.round(dt),
+        route: `/stores/browse/${primarySlug}`,
+        sub: nav.sub,
+        list_len: Array.isArray(remoteRows) ? remoteRows.length : null,
+        timestamp: Date.now(),
+      });
+    });
+    lastNavPerfRef.current = null;
+  }, [activeSub, primarySlug, remoteRows]);
+
+  useEffect(() => {
+    // 뒤로가기(popstate) 복귀 계측
+    const onPop = () => {
+      const sp = searchParams?.get("sub");
+      const sub = typeof sp === "string" && sp.trim() ? sp.trim().toLowerCase() : "all";
+      lastNavPerfRef.current = { sub, t0: performance.now(), kind: "pop" };
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [searchParams]);
 
   const browseQuerySuffix = useMemo(() => {
     const r = primaryRegion?.regionId ? getRegionName(primaryRegion.regionId).trim() : "";
@@ -279,13 +363,15 @@ export function StoresBrowsePrimaryView({
   );
   const prevBrowseListContextKeyRef = useRef<string | null>(null);
   const browseHadListForContextRef = useRef(false);
+  const remoteCacheRef = useRef<
+    Map<string, { rows: BrowseStoreListItem[]; source: BrowseFeedMetaSource }>
+  >(new Map());
 
   const loadRemote = useCallback(
     async (opts?: { silent?: boolean }) => {
       const silent = !!opts?.silent;
       if (!silent) {
         setRemoteLoading((prev) => (prev ? prev : true));
-        setRemoteRows(undefined);
         setFeedSource((prev) => (prev === null ? prev : null));
       }
       try {
@@ -298,8 +384,11 @@ export function StoresBrowsePrimaryView({
         const src = j?.meta?.source;
         const okSources = src === "supabase" || src === "supabase_unconfigured";
         if (j?.ok && Array.isArray(j.stores) && okSources) {
-          setRemoteRows(j.stores as BrowseStoreListItem[]);
-          setFeedSource(src as BrowseFeedMetaSource);
+          const rows = j.stores as BrowseStoreListItem[];
+          const source = src as BrowseFeedMetaSource;
+          remoteCacheRef.current.set(browseListContextKey, { rows, source });
+          setRemoteRows(rows);
+          setFeedSource(source);
           browseHadListForContextRef.current = true;
         } else {
           setRemoteRows([]);
@@ -316,7 +405,7 @@ export function StoresBrowsePrimaryView({
         if (!silent) setRemoteLoading((prev) => (prev ? false : prev));
       }
     },
-    [activeSub, browseQuerySuffix]
+    [browseQuerySuffix, browseListContextKey]
   );
 
   useEffect(() => {
@@ -325,7 +414,14 @@ export function StoresBrowsePrimaryView({
       prevBrowseListContextKeyRef.current = browseListContextKey;
       browseHadListForContextRef.current = false;
     }
-    const silent = browseHadListForContextRef.current;
+    const cached = remoteCacheRef.current.get(browseListContextKey);
+    if (cached) {
+      setRemoteRows(cached.rows);
+      setFeedSource(cached.source);
+      setRemoteLoading(false);
+      browseHadListForContextRef.current = true;
+    }
+    const silent = !!cached || browseHadListForContextRef.current;
     void loadRemote({ silent });
   }, [loadRemote, browseListContextKey]);
 
@@ -406,48 +502,113 @@ export function StoresBrowsePrimaryView({
   const browseStickyBelow: ReactNode = useMemo(
     () => (
       <div className="border-b border-sam-border bg-[var(--sub-bg)]">
-        <div className={`${APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS} pb-2 pt-1`}>
-          <StorePrimaryIndustrySwitcher embeddedPrimarySlug={primarySlug} showHomeChip={false} />
-        </div>
-        <p
-          className={`${APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS} pb-1.5 sam-text-xxs leading-snug text-[var(--text-muted)]`}
-        >
-          다른 업종은 위 칩에서 바로 바꿀 수 있어요. 아래 정렬로 배달·거리·평점을 맞춰 보세요.
-        </p>
-        <p
-          className={`${APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS} pb-1.5 pt-0 sam-text-xxs leading-snug text-[var(--text-muted)]`}
-        >
-          {browseSubtitle}
-        </p>
-        <div className={`${APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS} pb-2`}>
-          <HorizontalDragScroll
-            className={STORE_CATEGORY_PILL_SCROLL}
-            style={{ WebkitOverflowScrolling: "touch" }}
-            aria-label="하위 업종"
-          >
-            <Link
-              href={storesBrowsePrimaryPath(primarySlug)}
-              scroll={false}
-              className={storeCategoryPillClass(allSubChipActive)}
+        <div className="bg-sam-surface dark:bg-[#242526]">
+          <div className={`${APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS} pb-1.5 pt-1`}>
+            <HorizontalDragScroll
+              className={`${STORE_CATEGORY_PILL_SCROLL} gap-0.5`}
+              style={{ WebkitOverflowScrolling: "touch" }}
+              aria-label="하위 업종"
             >
-              전체
-            </Link>
-            {subs.map((s) => {
-              const on = matchedTopicSlug !== null && matchedTopicSlug === s.slug;
-              return (
-                <Link
-                  key={s.id}
-                  href={storesBrowsePath(primarySlug, s.slug)}
-                  scroll={false}
-                  className={storeCategoryPillClass(on)}
+              {(() => {
+              const isRestaurant = primarySlug.trim().toLowerCase() === "restaurant";
+              const allIconSrc = isRestaurant ? "/icons/food/icon_0_0.png" : storeSecondaryBrowseIconPath(primarySlug, 0);
+
+              const baseItemClass =
+                "flex w-[54px] shrink-0 snap-start flex-col items-center justify-center gap-0.5 rounded-sam-md border border-transparent px-0.5 py-1.5 text-center transition-[transform,color] duration-150 will-change-transform active:scale-[0.97]";
+              const activeClass = "text-sam-fg dark:text-[#E4E6EB]";
+              const idleClass =
+                "text-sam-muted active:bg-sam-surface-muted dark:text-[#B0B3B8] dark:active:bg-[#4E4F50]";
+
+              const Item = ({
+                href,
+                on,
+                label,
+                iconSrc,
+                subValue,
+              }: {
+                href: string;
+                on: boolean;
+                label: string;
+                iconSrc: string | null;
+                subValue: string;
+              }) => (
+                <button
+                  type="button"
+                  data-sub={subValue}
+                  aria-current={on ? "page" : undefined}
+                  onClick={() => {
+                    if (on) return;
+                    const t0 = performance.now();
+                    lastTapPerfRef.current = { sub: subValue, t0 };
+                    lastNavPerfRef.current = { sub: subValue, t0, kind: "tap" };
+                    setOptimisticSub(subValue);
+                    startTransition(() => {
+                      // 뒤로가기 복귀 경로를 유지하기 위해 replace 대신 push
+                      router.push(href, { scroll: false });
+                    });
+                  }}
+                  className={`${baseItemClass} ${on ? activeClass : idleClass}`}
                 >
-                  {s.nameKo}
-                </Link>
+                  <span className="flex h-10 w-10 items-center justify-center" aria-hidden>
+                    {iconSrc ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={iconSrc}
+                        alt=""
+                        aria-hidden
+                        className={`h-10 w-10 object-contain ${on ? "opacity-100" : "opacity-90"}`}
+                        loading="lazy"
+                      />
+                    ) : (
+                      <span className="h-10 w-10 rounded-full bg-sam-surface-muted" aria-hidden />
+                    )}
+                  </span>
+                  <span className={`text-[12.5px] font-semibold leading-none tracking-[-0.01em] ${on ? "" : ""}`}>
+                    {label}
+                  </span>
+                  <span
+                    className="mt-1 h-1 w-10 rounded-full"
+                    style={{ backgroundColor: on ? "#1C8DB8" : "transparent" }}
+                    aria-hidden
+                  />
+                </button>
               );
-            })}
-          </HorizontalDragScroll>
+
+              return (
+                <>
+                  <Item
+                    href={storesBrowsePrimaryPath(primarySlug)}
+                    on={allSubChipActive}
+                    label="전체"
+                    iconSrc={allIconSrc}
+                    subValue="all"
+                  />
+                  {subs.map((s, idx) => {
+                    const on = activeSub !== "all" && activeSub === s.slug;
+                    const label = String((s as any).nameKo ?? (s as any).name ?? "").trim();
+                    const iconSrc =
+                      isRestaurant ?
+                        (RESTAURANT_SUB_ICON[String(s.slug ?? "").trim().toLowerCase()] ?? null)
+                      : storeSecondaryBrowseIconPath(primarySlug, idx + 1);
+                    return (
+                      <Item
+                        key={s.id}
+                        href={storesBrowsePath(primarySlug, s.slug)}
+                        on={on}
+                        label={label}
+                        iconSrc={iconSrc}
+                        subValue={s.slug}
+                      />
+                    );
+                  })}
+                </>
+              );
+            })()}
+            </HorizontalDragScroll>
+          </div>
+          <div className="h-px bg-sam-border dark:bg-[#3E4042]" aria-hidden />
         </div>
-        <div className={`${APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS} pb-2 pt-0.5`}>
+        <div className={`${APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS} pb-2 pt-2`}>
           <StoreListFilters sort={listSort} onSortChange={setListSort} hasGeo={hasGeo} />
         </div>
       </div>
