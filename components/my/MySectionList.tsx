@@ -12,7 +12,7 @@ const SECTION_ROUTES: Record<string, string> = {
   deals: "/mypage/trade/purchases",
   interests: MYPAGE_TRADE_FAVORITES_HREF,
   activity: "/my/reviews",
-  business: "/my/business",
+  business: "/stores/owner",
 };
 
 export interface MySectionListProps {

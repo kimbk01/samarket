@@ -37,10 +37,10 @@ export function resolveOwnerLiteStoreShortcuts(
 ): { primary: OwnerLiteStoreShortcut; secondary: OwnerLiteStoreShortcut } {
   const canSell = computeOwnerCanSell(ownerStore.sales_permission);
   const enc = encodeURIComponent(ownerStore.id);
-  const profileHref = `/my/business/profile?storeId=${enc}`;
-  const basicInfoHref = `/my/business/basic-info?storeId=${enc}`;
+  const profileHref = `/stores/owner/profile?storeId=${enc}`;
+  const basicInfoHref = `/stores/owner/basic-info?storeId=${enc}`;
   const orderHref = buildStoreOrdersHref({ storeId: ownerStore.id, tab: "new" });
-  const inquiryHref = `/my/business/inquiries?storeId=${enc}`;
+  const inquiryHref = `/stores/owner/inquiries?storeId=${enc}`;
   const safeStoreDeepLink = resolveSafeStoreDeepLink(ownerStore.id, b.storeDeepLink);
 
   const primaryHref =

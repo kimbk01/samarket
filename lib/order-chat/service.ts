@@ -738,13 +738,57 @@ export async function countOwnerOrderChatUnread(
   sb: SupabaseClient<any>,
   ownerUserId: string
 ): Promise<number> {
+  const uid = ownerUserId.trim();
+  if (!uid) return 0;
+
+  /**
+   * 병목 제거: owner의 room 수가 커질수록 `unread_count_owner` 전체 행을 내려받아 JS에서 sum 하는 O(n)
+   * payload/CPU가 커진다. 서버(route.ts)는 보통 service role로 호출하므로, DB에서 SUM 집계를 수행하는 RPC를 우선 사용.
+   *
+   * - 함수가 아직 없는 환경(마이그레이션 미적용)에서는 기존 방식으로 fallback 한다.
+   */
+  // 1) Prefer PostgREST aggregate when available (no DB migration required).
+  try {
+    const { data: agg, error: aggErr } = await sb
+      .from("order_chat_rooms")
+      // PostgREST aggregate syntax (may vary by backend); we keep this in a try/catch with fallback.
+      .select("unread_count_owner.sum()")
+      .eq("owner_user_id", uid)
+      .in("room_status", ["active", "admin_review"])
+      .limit(1);
+    if (!aggErr && Array.isArray(agg) && agg.length > 0) {
+      const row = agg[0] as Record<string, unknown>;
+      const v =
+        typeof row.sum === "number"
+          ? row.sum
+          : typeof row.unread_count_owner === "number"
+            ? row.unread_count_owner
+            : Number(Object.values(row)[0] ?? 0);
+      return Math.max(0, Math.floor(Number.isFinite(v) ? v : 0));
+    }
+  } catch {
+    // ignore and fallback
+  }
+
+  // 2) RPC fallback (optional; safe if migration exists in some envs).
+  try {
+    const rpc = await sb.rpc("sum_owner_order_chat_unread", { owner_user_id: uid });
+    if (!rpc.error) {
+      const v = Number(rpc.data ?? 0);
+      return Math.max(0, Math.floor(Number.isFinite(v) ? v : 0));
+    }
+  } catch {
+    // ignore and fallback
+  }
+
   const { data } = await sb
     .from("order_chat_rooms")
     .select("unread_count_owner")
-    .eq("owner_user_id", ownerUserId)
+    .eq("owner_user_id", uid)
     .in("room_status", ["active", "admin_review"]);
   return (data ?? []).reduce(
-    (sum, row) => sum + Math.max(0, Number((row as { unread_count_owner?: number }).unread_count_owner) || 0),
+    (sum, row) =>
+      sum + Math.max(0, Number((row as { unread_count_owner?: number }).unread_count_owner) || 0),
     0
   );
 }

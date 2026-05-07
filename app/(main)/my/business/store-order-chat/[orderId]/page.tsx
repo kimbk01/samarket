@@ -30,7 +30,7 @@ async function OwnerStoreOrderChatPageBody({
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-4 text-center text-sm text-sam-fg">
         <p>주문 ID가 없습니다.</p>
-        <Link href="/my/business" className="font-medium text-signature underline">
+        <Link href="/stores/owner" className="font-medium text-signature underline">
           매장 어드민
         </Link>
       </div>
@@ -64,7 +64,7 @@ async function OwnerStoreOrderChatPageBody({
         <p className="text-sm text-sam-fg">
           채팅을 불러오지 못했습니다.{` (${snap.error})`}
         </p>
-        <Link href="/my/business" className="text-sm font-medium text-signature underline">
+        <Link href="/stores/owner" className="text-sm font-medium text-signature underline">
           매장 어드민
         </Link>
       </div>

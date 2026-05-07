@@ -17,6 +17,10 @@ export const OWNER_STORE_FORM_HINT_CLASS = "mb-2 text-[12px] font-normal leading
 export const OWNER_STORE_CONTROL_CLASS =
   "sam-input w-full min-w-0 bg-white text-sam-fg";
 
+/** 신청 폼(필수 입력) — 시각적으로 “입력칸” 강조 */
+export const OWNER_STORE_CONTROL_REQUIRED_CLASS =
+  "sam-input w-full min-w-0 border border-signature/35 bg-sam-app text-sam-fg shadow-sm focus:border-signature focus:ring-2 focus:ring-signature/25";
+
 /** 상점 소개 등 — CONTROL과 동일 톤·모서리 */
 export const OWNER_STORE_TEXTAREA_CLASS = `${OWNER_STORE_CONTROL_CLASS} min-h-[4.75rem] resize-y`;
 

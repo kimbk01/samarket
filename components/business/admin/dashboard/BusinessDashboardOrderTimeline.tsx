@@ -79,7 +79,7 @@ export function BusinessDashboardOrderTimeline({
                 상세
               </Link>
               <Link
-                href={`/my/business/store-order-chat/${encodeURIComponent(o.id)}`}
+                href={`/stores/owner/order-chat/${encodeURIComponent(o.id)}`}
                 className="rounded-ui-rect bg-signature px-3 py-1.5 sam-text-helper font-medium text-white"
               >
                 채팅

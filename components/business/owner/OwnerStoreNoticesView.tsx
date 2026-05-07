@@ -198,7 +198,7 @@ export function OwnerStoreNoticesView() {
     <div className={`px-3 py-2 ${OWNER_STORE_STACK_Y_CLASS}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className={Biz.textTitle}>공지 관리</h1>
-        <Link href={`/my/business?${q}`} className={Biz.textMuted}>
+        <Link href={`/stores/owner?${q}`} className={Biz.textMuted}>
           ← 대시보드
         </Link>
       </div>

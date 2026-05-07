@@ -540,7 +540,7 @@ export function OwnerStoreProfileForm({
       <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-3 py-2.5 sam-text-helper leading-relaxed text-sam-muted">
         로고·매장명·연락처·위치·상세 주소·업종·세부 주제는{" "}
         <Link
-          href={`/my/business/basic-info?storeId=${encodeURIComponent(storeId)}`}
+          href={`/stores/owner/basic-info?storeId=${encodeURIComponent(storeId)}`}
           className="font-medium text-signature underline"
         >
           기본 정보
@@ -846,7 +846,7 @@ export function OwnerStoreProfileForm({
               </label>
               <p className="mb-2 sam-text-xxs leading-relaxed text-sam-muted">
                 영업 시간 JSON의 짧은 줄 공지입니다. 상단·메뉴·리뷰 등 <strong>위치별 공지</strong>는{" "}
-                <Link href="/my/business/notices" className="font-semibold text-signature underline underline-offset-2">
+                <Link href="/stores/owner/notices" className="font-semibold text-signature underline underline-offset-2">
                   공지 관리
                 </Link>
                 에서 등록하세요. 여기 공지가 없고 공지 관리에도 없을 때만 아래 무료배달 기준이 amber 안내에 표시됩니다.

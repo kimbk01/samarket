@@ -17,7 +17,7 @@ export default function BusinessEditRoute() {
     return (
       <div className="px-4 py-8 text-center sam-text-body text-sam-muted">
         상점 정보가 없습니다.
-        <Link href="/my/business" className="ml-1 text-signature">
+        <Link href="/stores/owner" className="ml-1 text-signature">
           내 상점으로
         </Link>
       </div>
@@ -36,7 +36,7 @@ export default function BusinessEditRoute() {
       addressDetail: values.addressDetail,
       category: values.category,
     });
-    router.push("/my/business");
+    router.push("/stores/owner");
   };
 
   return (

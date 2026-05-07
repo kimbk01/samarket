@@ -8,7 +8,7 @@ export const BROWSE_PRIMARY_INDUSTRIES: BrowsePrimaryIndustry[] = [
   { id: "p-cafe", slug: "cafe", nameKo: "카페", sortOrder: 40, symbol: "☕" },
   { id: "p-beauty", slug: "beauty", nameKo: "미용", sortOrder: 50, symbol: "💇" },
   { id: "p-academy", slug: "academy", nameKo: "학원", sortOrder: 60, symbol: "📚" },
-  { id: "p-life", slug: "life", nameKo: "생활서비스", sortOrder: 70, symbol: "🧹" },
+  { id: "p-life", slug: "life", nameKo: "서비스", sortOrder: 70, symbol: "🧹" },
 ];
 
 const sub = (

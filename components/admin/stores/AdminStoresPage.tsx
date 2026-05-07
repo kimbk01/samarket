@@ -1,14 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import {
-  AdminStoreReviewSheet,
-  ADMIN_STORE_APPROVAL_LABEL,
-  type AdminStoreReviewRow,
-  formatAdminStoreAddressOneLine,
-} from "@/components/admin/stores/AdminStoreReviewSheet";
+import { ADMIN_STORE_APPROVAL_LABEL, type AdminStoreReviewRow } from "@/components/admin/stores/admin-store-review-model";
 import { splitStoreDescriptionAndKakao } from "@/lib/stores/split-store-description-kakao";
+import { AdminStoreReviewSheet } from "@/components/admin/stores/AdminStoreReviewSheet";
+import { getSupabaseClient } from "@/lib/supabase/client";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 type SalesPerm = {
   allowed_to_sell?: boolean;
@@ -30,21 +28,7 @@ const STATUS_FILTER: { value: string; label: string }[] = [
   { value: "suspended", label: "정지" },
 ];
 
-function adminEmbedName(
-  v: { name?: string } | { name?: string }[] | null | undefined
-): string {
-  if (v == null) return "";
-  if (Array.isArray(v)) return (v[0]?.name ?? "").trim();
-  return (v.name ?? "").trim();
-}
-
-function adminDbTaxonomyLine(r: AdminStoreReviewRow): string {
-  const c = adminEmbedName(r.store_categories);
-  const t = adminEmbedName(r.store_topics);
-  if (c && t) return `${c} · ${t}`;
-  if (c) return c;
-  return (r.business_type ?? "").trim() || "—";
-}
+type AdminStoreCounts = Partial<Record<(typeof STATUS_FILTER)[number]["value"], number>>;
 
 function previewText(text: string | null | undefined, max = 56): string {
   const t = (text ?? "").replace(/\s+/g, " ").trim();
@@ -52,40 +36,29 @@ function previewText(text: string | null | undefined, max = 56): string {
   return t.length > max ? `${t.slice(0, max)}…` : t;
 }
 
-/** 관리자 테이블 액션 — Primary / Secondary / Warning / Danger CTA 정렬 */
-function ActionGroup({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <p className="mb-1.5 sam-text-xxs font-bold uppercase tracking-wide text-sam-muted">{title}</p>
-      <div className="flex flex-col gap-1.5">{children}</div>
-    </div>
-  );
-}
-
-const ctaBase =
-  "inline-flex w-full min-h-[2.25rem] shrink-0 items-center justify-center rounded-ui-rect px-3 py-2 text-center sam-text-helper font-semibold leading-tight transition disabled:pointer-events-none disabled:opacity-45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signature/40 focus-visible:ring-offset-1";
-
-const ctaPrimary = `${ctaBase} bg-signature text-white shadow-sm hover:bg-signature/90 active:bg-signature/95`;
-const ctaSecondary = `${ctaBase} border border-sam-border bg-sam-surface text-sam-fg shadow-sm hover:bg-sam-app active:bg-sam-surface-muted`;
-const ctaWarning = `${ctaBase} border border-amber-200 bg-amber-50 text-amber-950 hover:bg-amber-100/80 active:bg-amber-100`;
-const ctaDanger = `${ctaBase} border border-red-200 bg-sam-surface text-red-800 hover:bg-red-50 active:bg-red-100/80`;
-const ctaDangerSolid = `${ctaBase} border border-red-300 bg-red-600 text-white hover:bg-red-700 active:bg-red-800`;
-const ctaAccent = `${ctaBase} border border-signature/35 bg-signature/10 text-signature hover:bg-signature/15 active:bg-signature/20`;
-const ctaSales = `${ctaBase} border border-sam-primary-border bg-sam-primary text-white shadow-sm hover:bg-sam-primary-hover active:bg-sam-primary-active disabled:bg-sam-primary-disabled`;
-const ctaSalesOutline = `${ctaBase} border border-sam-primary-border bg-sam-primary-soft text-sam-primary hover:bg-sam-primary-soft-2`;
-const ctaOrange = `${ctaBase} border border-orange-200 bg-orange-50 text-orange-950 hover:bg-orange-100/80`;
-
 export function AdminStoresPage() {
   const [filter, setFilter] = useState("all");
   const [rows, setRows] = useState<AdminStoreRow[]>([]);
+  const [counts, setCounts] = useState<AdminStoreCounts>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [sheetStore, setSheetStore] = useState<AdminStoreReviewRow | null>(null);
+  const [sheetStore, setSheetStore] = useState<AdminStoreRow | null>(null);
+  const [searchText, setSearchText] = useState("");
+  const [realtimeBadge, setRealtimeBadge] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimeoutRef = useRef<number | null>(null);
+  const rtRefreshTimeoutRef = useRef<number | null>(null);
 
   const qs = useMemo(
-    () => (filter === "all" ? "" : `?status=${encodeURIComponent(filter)}`),
-    [filter]
+    () => {
+      const parts: string[] = [];
+      if (filter !== "all") parts.push(`status=${encodeURIComponent(filter)}`);
+      const q = searchText.trim();
+      if (q) parts.push(`q=${encodeURIComponent(q)}`);
+      return parts.length ? `?${parts.join("&")}` : "";
+    },
+    [filter, searchText]
   );
 
   const load = useCallback(async () => {
@@ -97,17 +70,30 @@ export function AdminStoresPage() {
       if (res.status === 403) {
         setError("관리자 권한이 없습니다.");
         setRows([]);
+        setCounts({});
         return;
       }
       if (!json?.ok) {
         setError(json?.error ?? "load_failed");
         setRows([]);
+        setCounts({});
+        setSheetStore(null);
         return;
       }
-      setRows(json.stores ?? []);
+      const nextRows = (json.stores ?? []) as AdminStoreRow[];
+      setRows(nextRows);
+      setCounts(typeof json.counts === "object" && json.counts ? (json.counts as AdminStoreCounts) : {});
+      setSheetStore((prev) => {
+        if (prev && nextRows.some((r) => r.id === prev.id)) {
+          return nextRows.find((r) => r.id === prev.id) ?? prev;
+        }
+        return prev;
+      });
     } catch {
       setError("network_error");
       setRows([]);
+      setCounts({});
+      setSheetStore(null);
     } finally {
       setLoading(false);
     }
@@ -115,6 +101,42 @@ export function AdminStoresPage() {
 
   useEffect(() => {
     void load();
+  }, [load]);
+
+  useEffect(() => {
+    const sb = getSupabaseClient();
+    if (!sb) return;
+
+    const scheduleRefresh = () => {
+      setRealtimeBadge(true);
+      if (toastTimeoutRef.current) window.clearTimeout(toastTimeoutRef.current);
+      setToast("새 매장 신청이 도착했습니다.");
+      toastTimeoutRef.current = window.setTimeout(() => {
+        toastTimeoutRef.current = null;
+        setToast(null);
+      }, 3500);
+
+      if (rtRefreshTimeoutRef.current) window.clearTimeout(rtRefreshTimeoutRef.current);
+      rtRefreshTimeoutRef.current = window.setTimeout(() => {
+        rtRefreshTimeoutRef.current = null;
+        void runSingleFlight("admin:stores:realtime-refresh", () => load());
+      }, 250);
+    };
+
+    const channel = sb
+      .channel("admin-stores-realtime")
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "stores" },
+        scheduleRefresh
+      )
+      .subscribe();
+
+    return () => {
+      if (toastTimeoutRef.current) window.clearTimeout(toastTimeoutRef.current);
+      if (rtRefreshTimeoutRef.current) window.clearTimeout(rtRefreshTimeoutRef.current);
+      void sb.removeChannel(channel);
+    };
   }, [load]);
 
   const runAction = async (storeId: string, body: Record<string, unknown>) => {
@@ -140,7 +162,23 @@ export function AdminStoresPage() {
     }
   };
 
-  const promptReason = (title: string) => window.prompt(title, "")?.trim() ?? "";
+  const statusBadgeClass = (status: string) => {
+    switch (status) {
+      case "approved":
+        return "bg-emerald-50 text-emerald-800 border-emerald-200";
+      case "rejected":
+        return "bg-red-50 text-red-800 border-red-200";
+      case "suspended":
+        return "bg-orange-50 text-orange-950 border-orange-200";
+      case "revision_requested":
+        return "bg-amber-50 text-amber-950 border-amber-200";
+      case "under_review":
+        return "bg-sky-50 text-sky-900 border-sky-200";
+      case "pending":
+      default:
+        return "bg-sam-app text-sam-muted border-sam-border";
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -148,6 +186,16 @@ export function AdminStoresPage() {
         <AdminStoreReviewSheet
           store={sheetStore}
           onClose={() => setSheetStore(null)}
+          onRunAction={(action, payload) => {
+            const id = sheetStore.id;
+            void runAction(id, {
+              action,
+              ...(payload?.reason ? { reason: payload.reason } : {}),
+              ...(payload?.enabled !== undefined ? { enabled: payload.enabled } : {}),
+              ...(payload?.store_name ? { store_name: payload.store_name } : {}),
+            });
+          }}
+          actionBusy={busyId === sheetStore.id}
           onSetOwnerIdentityEditable={(enabled) => {
             const id = sheetStore.id;
             void runAction(id, { action: "set_owner_identity_editable", enabled });
@@ -155,12 +203,29 @@ export function AdminStoresPage() {
           identityActionBusy={busyId === sheetStore.id}
         />
       ) : null}
-      <AdminPageHeader title="매장 심사 (커머스)" />
-      <p className="sam-text-body-secondary text-sam-muted">
-        DB <code className="rounded bg-sam-surface-muted px-1">stores</code> ·{" "}
-        <code className="rounded bg-sam-surface-muted px-1">store_sales_permissions</code> 연동. 매장 승인 후
-        판매 권한을 별도로 승인할 수 있습니다.
-      </p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <AdminPageHeader title="매장 심사 (커머스)" />
+          {toast ? (
+            <div className="mt-2 rounded-ui-rect border border-sky-200 bg-sky-50 px-3 py-2 sam-text-body-secondary text-sky-900">
+              {toast}
+            </div>
+          ) : null}
+        </div>
+        {realtimeBadge ? (
+          <button
+            type="button"
+            onClick={() => {
+              setRealtimeBadge(false);
+              void load();
+            }}
+            className="shrink-0 rounded-full border border-sky-200 bg-sky-50 px-3 py-2 sam-text-xxs font-bold text-sky-900 animate-pulse"
+            title="새 신청이 있습니다. 눌러서 새로고침"
+          >
+            NEW
+          </button>
+        ) : null}
+      </div>
 
       <div className="flex flex-wrap gap-2">
         {STATUS_FILTER.map((f) => (
@@ -174,7 +239,17 @@ export function AdminStoresPage() {
                 : "border border-sam-border bg-sam-surface text-sam-fg"
             }`}
           >
-            {f.label}
+            <span className="inline-flex items-center gap-2">
+              <span>{f.label}</span>
+              <span
+                className={`inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-2 py-0.5 sam-text-xxs font-bold ${
+                  filter === f.value ? "bg-white/15 text-white" : "bg-sam-app text-sam-muted"
+                }`}
+                aria-label={`${f.label} 수량`}
+              >
+                {Number.isFinite(Number(counts[f.value])) ? Number(counts[f.value]) : 0}
+              </span>
+            </span>
           </button>
         ))}
       </div>
@@ -192,267 +267,90 @@ export function AdminStoresPage() {
           매장이 없습니다.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
-          <table className="min-w-[1420px] w-full border-collapse text-left sam-text-body-secondary">
-            <thead className="border-b border-sam-border bg-sam-app sam-text-helper text-sam-muted">
-              <tr>
-                <th className="min-w-[180px] px-3 py-2 font-medium">매장</th>
-                <th className="min-w-[100px] max-w-[140px] px-3 py-2 font-medium">신청자</th>
-                <th className="min-w-[140px] max-w-[200px] px-3 py-2 font-medium">등록 ID</th>
-                <th className="min-w-[140px] px-3 py-2 font-medium">연락</th>
-                <th className="min-w-[168px] px-3 py-2 font-medium">업종 (DB)</th>
-                <th
-                  className="w-[4.5rem] min-w-[4.5rem] max-w-[4.5rem] whitespace-normal px-1 py-2 text-center align-bottom sam-text-xxs font-medium leading-tight"
-                  title="오너 기본 정보에서 매장명·업종·세부 주제 수정 허용 여부"
-                >
-                  식별
-                  <br />
-                  수정
-                </th>
-                <th className="min-w-[200px] px-3 py-2 font-medium">주소(신청)</th>
-                <th className="min-w-[140px] px-3 py-2 font-medium">소개</th>
-                <th className="min-w-[4.5rem] whitespace-nowrap px-2 py-2 font-medium">매장상태</th>
-                <th className="w-12 min-w-[3rem] px-2 py-2 font-medium">노출</th>
-                <th className="min-w-[7rem] px-2 py-2 font-medium">판매권한</th>
-                <th className="min-w-[5rem] px-2 py-2 font-medium">오너</th>
-                <th className="min-w-[15.5rem] w-[15.5rem] px-3 py-2 font-medium">관리 액션</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((r) => {
-                const sp = r.sales_permission;
-                const salesLabel = sp
-                  ? `${sp.sales_status}${sp.allowed_to_sell ? "·판매가능" : ""}`
-                  : "-";
-                const disabled = busyId === r.id;
-                const addressLine = formatAdminStoreAddressOneLine(r);
-                const { intro: introForList, kakao: kakaoForList } = splitStoreDescriptionAndKakao(
-                  r.description,
-                  r.kakao_id
-                );
-                return (
-                  <tr key={r.id} className="border-b border-sam-border-soft">
-                    <td className="px-3 py-2 align-top">
-                      <div className="font-medium text-sam-fg">{r.store_name}</div>
-                      <a
-                        href={`/stores/${encodeURIComponent(r.slug)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-0.5 inline-block sam-text-helper text-signature underline"
-                      >
-                        공개 페이지 열기 →
-                      </a>
-                      <button
-                        type="button"
-                        className="mt-1 block sam-text-helper font-medium text-signature hover:underline"
-                        onClick={() => setSheetStore(r)}
-                      >
-                        신청 정보 시트
-                      </button>
-                      {r.revision_note ? (
-                        <div className="mt-1 sam-text-xxs text-amber-800">보완: {r.revision_note}</div>
-                      ) : null}
-                      {r.rejected_reason ? (
-                        <div className="mt-1 sam-text-xxs text-red-700">반려: {r.rejected_reason}</div>
-                      ) : null}
-                    </td>
-                    <td className="max-w-[140px] px-3 py-2 align-top sam-text-helper text-sam-fg">
-                      {r.applicant_nickname?.trim() || (
-                        <span className="text-sam-meta">—</span>
-                      )}
-                    </td>
-                    <td className="max-w-[200px] px-3 py-2 align-top">
-                      <p className="break-all font-mono sam-text-helper leading-snug text-sam-fg">
-                        {r.slug}
-                      </p>
-                      <button
-                        type="button"
-                        className="mt-1 sam-text-xxs font-medium text-signature hover:underline"
-                        onClick={() => {
-                          void navigator.clipboard.writeText(r.slug).catch(() => {});
-                        }}
-                      >
-                        등록 ID 복사
-                      </button>
-                      <p className="mt-1 sam-text-xxs leading-snug text-sam-meta">
-                        신청 시 정한 URL용 식별자(slug). 매장 전용 로그인 ID는 추후 정리 예정.
-                      </p>
-                    </td>
-                    <td className="max-w-[160px] px-3 py-2 align-top sam-text-helper leading-snug text-sam-fg">
-                      <div>
-                        <span className="text-sam-muted">전화</span>{" "}
-                        {r.phone?.trim() ? (
-                          <span className="text-sam-fg">{r.phone.trim()}</span>
-                        ) : (
-                          <span className="text-sam-meta">—</span>
-                        )}
-                      </div>
-                      <div className="mt-1">
-                        <span className="text-sam-muted">카카오</span>{" "}
-                        {kakaoForList?.trim() ? (
-                          <span className="text-sam-fg">{kakaoForList.trim()}</span>
-                        ) : (
-                          <span className="text-sam-meta">—</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 align-top sam-text-helper leading-snug text-sam-fg break-words">
-                      {adminDbTaxonomyLine(r)}
-                    </td>
-                    <td className="px-2 py-2 align-middle text-center sam-text-helper text-sam-fg">
-                      {r.owner_can_edit_store_identity ? (
-                        <span className="font-medium text-green-800">허용</span>
-                      ) : (
-                        <span className="text-sam-muted">—</span>
-                      )}
-                    </td>
-                    <td className="max-w-[240px] px-3 py-2 align-top sam-text-helper leading-snug text-sam-fg">
-                      {addressLine}
-                    </td>
-                    <td className="max-w-[180px] px-3 py-2 align-top sam-text-helper text-sam-muted">
-                      {previewText(introForList)}
-                    </td>
-                    <td className="px-3 py-2 align-top text-sam-fg">
-                      {ADMIN_STORE_APPROVAL_LABEL[r.approval_status] ?? r.approval_status}
-                    </td>
-                    <td className="px-3 py-2 align-top">{r.is_visible ? "Y" : "N"}</td>
-                    <td className="px-3 py-2 align-top sam-text-helper text-sam-fg">{salesLabel}</td>
-                    <td className="px-3 py-2 align-top font-mono sam-text-xxs text-sam-muted">
-                      {r.owner_user_id.slice(0, 8)}…
-                    </td>
-                    <td className="px-3 py-2 align-top">
-                      <div className="flex min-w-0 flex-col gap-3">
-                        {r.approval_status === "suspended" ? (
-                          <ActionGroup title="매장 심사">
-                            <button
-                              type="button"
-                              disabled={disabled}
-                              className={ctaPrimary}
-                              onClick={() => void runAction(r.id, { action: "resume_store" })}
-                            >
-                              매장 재개 · 노출 복구
-                            </button>
-                          </ActionGroup>
-                        ) : r.approval_status !== "approved" ? (
-                          <ActionGroup title="매장 심사">
-                            <button
-                              type="button"
-                              disabled={disabled}
-                              className={ctaPrimary}
-                              onClick={() => void runAction(r.id, { action: "approve_store" })}
-                            >
-                              매장 승인
-                            </button>
-                            {r.approval_status === "pending" ||
-                            r.approval_status === "under_review" ||
-                            r.approval_status === "revision_requested" ? (
-                              <>
-                                <button
-                                  type="button"
-                                  disabled={disabled}
-                                  className={ctaWarning}
-                                  onClick={() => {
-                                    const note = promptReason("보완 요청 메모");
-                                    if (note) void runAction(r.id, { action: "request_revision", note });
-                                  }}
-                                >
-                                  보완 요청
-                                </button>
-                                <button
-                                  type="button"
-                                  disabled={disabled}
-                                  className={ctaDangerSolid}
-                                  onClick={() => {
-                                    const reason = promptReason("반려 사유");
-                                    if (reason) void runAction(r.id, { action: "reject_store", reason });
-                                  }}
-                                >
-                                  매장 반려
-                                </button>
-                              </>
-                            ) : null}
-                          </ActionGroup>
-                        ) : (
-                          <>
-                            <ActionGroup title="판매 권한">
-                              {sp?.sales_status !== "approved" ? (
-                                <>
-                                  <button
-                                    type="button"
-                                    disabled={disabled}
-                                    className={ctaSales}
-                                    onClick={() => void runAction(r.id, { action: "approve_sales" })}
-                                  >
-                                    판매 승인
-                                  </button>
-                                  <button
-                                    type="button"
-                                    disabled={disabled}
-                                    className={ctaSalesOutline}
-                                    onClick={() => {
-                                      const reason = promptReason("판매 거절 사유");
-                                      if (reason) void runAction(r.id, { action: "reject_sales", reason });
-                                    }}
-                                  >
-                                    판매 거절
-                                  </button>
-                                </>
-                              ) : (
-                                <button
-                                  type="button"
-                                  disabled={disabled}
-                                  className={ctaOrange}
-                                  onClick={() => {
-                                    const reason = promptReason("판매 정지 사유");
-                                    if (reason) void runAction(r.id, { action: "suspend_sales", reason });
-                                  }}
-                                >
-                                  판매 정지
-                                </button>
-                              )}
-                            </ActionGroup>
-                            <ActionGroup title="매장 운영">
-                              <button
-                                type="button"
-                                disabled={disabled}
-                                className={ctaAccent}
-                                onClick={() =>
-                                  void runAction(r.id, {
-                                    action: "set_owner_identity_editable",
-                                    enabled: !r.owner_can_edit_store_identity,
-                                  })
-                                }
-                                title={
-                                  r.owner_can_edit_store_identity
-                                    ? "기본 정보에서 매장명·업종 수정 불가로 되돌림"
-                                    : "기본 정보에서 매장명·업종·세부 주제 수정 허용"
-                                }
-                              >
-                                {r.owner_can_edit_store_identity
-                                  ? "식별 수정 허용 해제"
-                                  : "오너 식별 수정 허용"}
-                              </button>
-                              <button
-                                type="button"
-                                disabled={disabled}
-                                className={ctaDanger}
-                                onClick={() => {
-                                  const reason = promptReason("매장 정지 사유");
-                                  if (reason) void runAction(r.id, { action: "suspend_store", reason });
-                                }}
-                              >
-                                매장 정지
-                              </button>
-                            </ActionGroup>
-                          </>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface">
+          <div className="border-b border-sam-border-soft p-3">
+            <label className="sam-text-xxs font-bold uppercase tracking-wide text-sam-muted">검색</label>
+            <input
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+              placeholder="매장명 / @오너 / 전화 / 카카오 / slug"
+              className="mt-2 w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body-secondary text-sam-fg"
+            />
+            <p className="mt-2 sam-text-xxs text-sam-muted">{rows.length}건</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="min-w-[1120px] w-full border-collapse text-left sam-text-body-secondary">
+              <thead className="border-b border-sam-border bg-sam-app sam-text-helper text-sam-muted">
+                <tr>
+                  <th className="min-w-[220px] px-3 py-2 font-medium">매장</th>
+                  <th className="min-w-[120px] px-3 py-2 font-medium">상태</th>
+                  <th className="min-w-[80px] px-3 py-2 font-medium">노출</th>
+                  <th className="min-w-[160px] px-3 py-2 font-medium">등록 ID</th>
+                  <th className="min-w-[160px] px-3 py-2 font-medium">연락</th>
+                  <th className="min-w-[180px] px-3 py-2 font-medium">소개</th>
+                  <th className="min-w-[140px] px-3 py-2 font-medium">지역</th>
+                  <th className="min-w-[160px] px-3 py-2 font-medium">신청일</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => {
+                  const { intro: introForList, kakao: kakaoForList } = splitStoreDescriptionAndKakao(
+                    r.description,
+                    r.kakao_id
+                  );
+                  const ownerHandle = String((r as any).owner_handle ?? "").trim() || r.slug;
+                  const phoneLine = (r.phone ?? "").trim();
+                  const kakaoLine = (kakaoForList ?? "").trim();
+                  const contactLine = [phoneLine, kakaoLine].filter(Boolean).join(" · ") || "—";
+                  const regionLine = (() => {
+                    const reg = String((r as any).region ?? "").trim();
+                    const city = String((r as any).city ?? "").trim();
+                    return [reg, city].filter(Boolean).join(" · ") || "—";
+                  })();
+                  return (
+                    <tr
+                      key={r.id}
+                      className="border-b border-sam-border-soft hover:bg-sam-app cursor-pointer"
+                      onClick={() => setSheetStore(r)}
+                    >
+                      <td className="px-3 py-2 align-top">
+                        <div className="font-medium text-sam-fg">{(r.store_name ?? "").trim() || "(매장명 없음)"}</div>
+                        <div className="mt-1 font-mono sam-text-xxs text-sam-muted">{r.slug}</div>
+                      </td>
+                      <td className="px-3 py-2 align-top">
+                        <span
+                          className={`inline-flex items-center rounded-full border px-2 py-0.5 sam-text-xxs font-bold ${statusBadgeClass(
+                            r.approval_status
+                          )}`}
+                          title={r.approval_status}
+                        >
+                          {ADMIN_STORE_APPROVAL_LABEL[r.approval_status] ?? r.approval_status}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 align-top">
+                        <span
+                          className={`inline-flex items-center rounded-full border px-2 py-0.5 sam-text-xxs font-bold ${
+                            r.is_visible
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                              : "border-sam-border bg-sam-app text-sam-muted"
+                          }`}
+                        >
+                          {r.is_visible ? "Y" : "N"}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 align-top font-mono sam-text-xxs text-sam-fg break-all">{ownerHandle}</td>
+                      <td className="px-3 py-2 align-top sam-text-helper text-sam-fg">{contactLine}</td>
+                      <td className="px-3 py-2 align-top sam-text-helper text-sam-muted">{previewText(introForList, 84)}</td>
+                      <td className="px-3 py-2 align-top sam-text-helper text-sam-muted">{regionLine}</td>
+                      <td className="px-3 py-2 align-top sam-text-helper text-sam-muted">
+                        {new Date(r.created_at).toLocaleString("ko-KR")}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

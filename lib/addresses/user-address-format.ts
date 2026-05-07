@@ -274,13 +274,24 @@ export function buildAddressListDetailLine(a: UserAddressDTO, mainLine: string):
 
 export function buildDeliveryDetailLines(a: UserAddressDTO): string {
   const lines: string[] = [];
-  if (a.fullAddress?.trim()) {
-    lines.push(a.fullAddress.trim());
-  } else if (a.streetAddress?.trim()) {
-    lines.push(a.streetAddress.trim());
+  // Philippines-friendly order: unit/building first, then street/full address.
+  const unit = [a.unitFloorRoom, a.buildingName].filter((x) => x?.trim()).join(" ").trim();
+  if (unit) lines.push(unit);
+
+  const full = a.fullAddress?.trim() ?? "";
+  const street = a.streetAddress?.trim() ?? "";
+  const main = full || street;
+  if (main) {
+    // Avoid duplicating unit if it was already included in the full line.
+    if (!unit || !main.toLowerCase().includes(unit.toLowerCase())) {
+      lines.push(main);
+    }
+  } else {
+    const parts = [a.barangay, a.cityMunicipality, a.province]
+      .map((x) => x?.trim())
+      .filter((x) => x && !isDisplayNullish(x)) as string[];
+    if (parts.length) lines.push(parts.join(", "));
   }
-  const unit = [a.buildingName, a.unitFloorRoom].filter((x) => x?.trim()).join(" ");
-  if (unit.trim()) lines.push(unit.trim());
   if (a.landmark?.trim()) lines.push(`Landmark: ${a.landmark.trim()}`);
   return lines.join("\n");
 }
@@ -289,8 +300,16 @@ export function buildDeliveryDetailLines(a: UserAddressDTO): string {
  * 주소 관리 카드 본문 — **전체 주소** 한 줄 (헤더·거래 요약용 `buildTradePublicLine` 과 별개).
  */
 export function buildAddressManagementListPrimaryLine(a: UserAddressDTO): string {
-  const fa = a.fullAddress?.trim();
-  if (fa && !isDisplayNullish(fa)) return fa;
+  // Address management "full address" should follow PH convention:
+  // detail (unit/building) comes first, then street/full, then barangay/city/province as available.
+  const unit = [a.unitFloorRoom, a.buildingName].filter((x) => x?.trim()).join(" ").trim();
+  const fa = a.fullAddress?.trim() ?? "";
+  if (fa && !isDisplayNullish(fa)) {
+    if (unit && !fa.toLowerCase().includes(unit.toLowerCase())) {
+      return `${unit}, ${fa}`;
+    }
+    return fa;
+  }
   /** 상세(동·호)만 있을 때 `buildDeliveryDetailLines`를 먼저 쓰면 본문이 "444"처럼 잘못 잡힘 */
   const trade = buildTradePublicLine(a);
   if (trade !== "주소 미입력") return trade;

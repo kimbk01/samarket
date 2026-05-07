@@ -13,8 +13,8 @@ function isNavActive(href: string, pathname: string, searchParams: URLSearchPara
   if (href.startsWith("/stores/")) {
     return currentPath === targetPath;
   }
-  if (targetPath === "/my/business") {
-    return currentPath === "/my/business";
+  if (targetPath === "/stores/owner" || targetPath === "/my/business") {
+    return currentPath === "/stores/owner" || currentPath === "/my/business";
   }
   if (currentPath !== targetPath) return false;
   const tq = new URLSearchParams(rawQ);

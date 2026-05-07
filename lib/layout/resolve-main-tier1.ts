@@ -302,12 +302,15 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     return backMypage({ titleText: "프로필 수정", subtitle: "닉네임·사진·소개", showHubQuickActions: true });
   }
 
-  if (p === "/mypage/business" || /^\/mypage\/business\/.+/.test(p)) {
+  if (
+    p === "/stores/owner" || /^\/stores\/owner\/.+/.test(p) ||
+    p === "/mypage/business" || /^\/mypage\/business\/.+/.test(p)
+  ) {
     return backMypage({ titleText: "매장 운영", subtitle: "주문·상품·정산 관리", showHubQuickActions: true });
   }
 
-  if (p === "/my/business/apply") {
-    return { ...DEFAULT, backHref: "/my/business", titleText: "배달 입점 신청", showHubQuickActions: true };
+  if (p === "/stores/owner/apply" || p === "/my/business/apply") {
+    return { ...DEFAULT, backHref: "/stores/owner", titleText: "배달 입점 신청", showHubQuickActions: true };
   }
 
   if (p === "/my/recent-viewed") {

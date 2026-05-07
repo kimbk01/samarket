@@ -34,7 +34,7 @@ async function OwnerEditProductPageBody({
       <div className="min-h-screen bg-background px-4 py-8">
         <p className="sam-text-body text-sam-fg">
           주소에 <code className="rounded bg-sam-surface-muted px-1">storeId</code> 쿼리가 필요합니다.{" "}
-          <Link href="/my/business" className="font-medium text-signature underline">
+          <Link href="/stores/owner" className="font-medium text-signature underline">
             내 상점
           </Link>
           에서 「상품 등록」으로 들어가 상품을 선택해 주세요.

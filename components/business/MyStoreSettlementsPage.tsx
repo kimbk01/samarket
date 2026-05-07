@@ -167,7 +167,7 @@ export function MyStoreSettlementsPage() {
             {storeIdFilter ? (
               <li className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2 sam-text-helper text-sam-muted">
                 이 매장 정산만 표시 중입니다.{" "}
-                <Link href="/my/business/settlements" className="font-medium text-signature underline">
+                <Link href="/stores/owner/settlements" className="font-medium text-signature underline">
                   전체 매장 보기
                 </Link>
               </li>

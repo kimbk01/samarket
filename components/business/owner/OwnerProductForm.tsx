@@ -287,7 +287,7 @@ export function OwnerProductForm({
         setError(json?.error ?? "삭제 실패");
         return;
       }
-      router.push(`/my/business/products?storeId=${encodeURIComponent(storeId)}`);
+      router.push(`/stores/owner/products?storeId=${encodeURIComponent(storeId)}`);
     } catch {
       setError("network_error");
     } finally {
@@ -443,7 +443,7 @@ export function OwnerProductForm({
           return;
         }
       }
-      router.push(`/my/business/products?storeId=${encodeURIComponent(storeId)}`);
+      router.push(`/stores/owner/products?storeId=${encodeURIComponent(storeId)}`);
     } catch {
       setError("network_error");
     } finally {
@@ -451,10 +451,10 @@ export function OwnerProductForm({
     }
   };
 
-  const productsHubHref = `/my/business/products?storeId=${encodeURIComponent(storeId)}`;
-  const categoriesHref = `/my/business/menu-categories?storeId=${encodeURIComponent(storeId)}`;
+  const productsHubHref = `/stores/owner/products?storeId=${encodeURIComponent(storeId)}`;
+  const categoriesHref = `/stores/owner/menu-categories?storeId=${encodeURIComponent(storeId)}`;
   const ordersQuickHref = buildStoreOrdersHref({ storeId });
-  const dashboardHref = `/my/business?storeId=${encodeURIComponent(storeId)}`;
+  const dashboardHref = `/stores/owner?storeId=${encodeURIComponent(storeId)}`;
   const isHidden = values.product_status === "hidden";
   const isSoldOut = values.product_status === "sold_out";
   const isListed = values.product_status === "active";

@@ -13,6 +13,8 @@ const ME_STORE_SELECT =
     "delivery_available, pickup_available, reservation_available, visit_available",
     "approval_status, is_visible, rejected_reason, revision_note",
     "created_at, updated_at, approved_at",
+    // Optional column (older DBs might not have it). When present, it avoids an extra round-trip.
+    "applicant_nickname",
     "store_categories ( name, slug ), store_topics ( name, slug )",
   ].join(", ");
 
@@ -41,15 +43,33 @@ export async function loadMeStoresListForUser(
     return cached.value;
   }
 
-  const { data, error } = await supabase
-    .from("stores")
-    .select(ME_STORE_SELECT)
-    .eq("owner_user_id", userId)
-    .order("created_at", { ascending: false });
+  // Backward compatible: some environments may not have `stores.applicant_nickname`.
+  // Try with the column first to avoid an extra query; fall back to the legacy select if needed.
+  let data: unknown[] | null = null;
+  let error: { message?: string } | null = null;
+  {
+    const r = await supabase
+      .from("stores")
+      .select(ME_STORE_SELECT)
+      .eq("owner_user_id", userId)
+      .order("created_at", { ascending: false });
+    data = r.data as unknown[] | null;
+    error = (r.error as any) ?? null;
+    if (error && /applicant_nickname/i.test(String(error.message ?? "")) && /does not exist/i.test(String(error.message ?? ""))) {
+      const legacySelect = ME_STORE_SELECT.replace(/,\s*applicant_nickname\s*(?=,)/, "");
+      const r2 = await supabase
+        .from("stores")
+        .select(legacySelect)
+        .eq("owner_user_id", userId)
+        .order("created_at", { ascending: false });
+      data = r2.data as unknown[] | null;
+      error = (r2.error as any) ?? null;
+    }
+  }
 
   if (error) {
     console.error("[loadMeStoresListForUser]", error);
-    const failed = { ok: false, error: error.message } as const;
+    const failed = { ok: false, error: String(error.message ?? "db_error") } as const;
     meStoresServerCache.set(key, {
       value: failed,
       expiresAt: Date.now() + 3_000,
@@ -73,19 +93,10 @@ export async function loadMeStoresListForUser(
   if (label) ownerApplicantFallback = label;
 
   const nickFromCol = new Map<string, string>();
-  const storeIds = list.map((s) => s.id);
-  if (storeIds.length > 0) {
-    const { data: nickRows, error: nickErr } = await supabase
-      .from("stores")
-      .select("id, applicant_nickname")
-      .in("id", storeIds);
-    if (!nickErr && nickRows) {
-      for (const r of nickRows) {
-        const sid = String((r as { id?: string }).id ?? "");
-        const an = String((r as { applicant_nickname?: string | null }).applicant_nickname ?? "").trim();
-        if (sid && an) nickFromCol.set(sid, an);
-      }
-    }
+  for (const s of list) {
+    const sid = String((s as { id?: string }).id ?? "").trim();
+    const an = String((s as { applicant_nickname?: string | null }).applicant_nickname ?? "").trim();
+    if (sid && an) nickFromCol.set(sid, an);
   }
   const ids = list.map((s) => s.id);
   const permByStore: Record<string, { allowed_to_sell: boolean; sales_status: string }> = {};

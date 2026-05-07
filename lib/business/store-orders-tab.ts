@@ -69,7 +69,7 @@ export function orderMatchesStoreTab(
   }
 }
 
-/** 주문 관리 URL (대시보드·사이드바·알림 배지 등에서 공통 사용) */
+/** 주문 관리 URL (대시보드·사이드바·알림 배지 등에서 공통 사용) — 캐노니컬 `/stores/owner/orders`. */
 export function buildStoreOrdersHref(params: {
   storeId: string;
   tab?: StoreOrderTabId;
@@ -81,7 +81,7 @@ export function buildStoreOrdersHref(params: {
   if (params.tab && params.tab !== "all") p.set("tab", params.tab);
   if (params.orderId?.trim()) p.set("order_id", params.orderId.trim());
   if (params.ackOwnerNotifications) p.set("ack_owner_notifications", "1");
-  return `/my/business/store-orders?${p.toString()}`;
+  return `/stores/owner/orders?${p.toString()}`;
 }
 
 export const STORE_ORDER_TAB_CHIPS: Array<{ id: StoreOrderTabId; label: string }> = [

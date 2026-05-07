@@ -72,7 +72,7 @@ function MyBusinessProfilePageInner() {
         ) : phase.kind === "need_store_id" ? (
           <div className={`${OWNER_STORE_STACK_Y_CLASS} sam-text-body text-sam-muted`}>
             <p>수정할 매장을 지정할 수 없습니다.</p>
-            <Link href="/my/business" className="font-medium text-signature underline">
+            <Link href="/stores/owner" className="font-medium text-signature underline">
               내 매장으로
             </Link>
           </div>
@@ -83,7 +83,7 @@ function MyBusinessProfilePageInner() {
         ) : phase.kind === "not_found" ? (
           <div className={`${OWNER_STORE_STACK_Y_CLASS} sam-text-body text-sam-muted`}>
             <p>해당 매장을 찾을 수 없거나 내 매장이 아닙니다.</p>
-            <Link href="/my/business" className="font-medium text-signature underline">
+            <Link href="/stores/owner" className="font-medium text-signature underline">
               내 매장으로
             </Link>
           </div>
@@ -105,7 +105,7 @@ function MyBusinessProfilePageInner() {
               storeSlug={phase.row.slug}
               row={phase.row}
               onSaved={() => void load()}
-              onCancel={() => router.push("/my/business")}
+              onCancel={() => router.push("/stores/owner")}
             />
           </div>
         )}

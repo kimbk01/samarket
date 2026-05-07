@@ -33,9 +33,9 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
   const [saving, setSaving] = useState(false);
 
   const base = `/api/me/stores/${encodeURIComponent(storeId)}/menu-sections`;
-  const productsHubHref = `/my/business/products?storeId=${encodeURIComponent(storeId)}`;
+  const productsHubHref = `/stores/owner/products?storeId=${encodeURIComponent(storeId)}`;
   const ordersHref = buildStoreOrdersHref({ storeId });
-  const inquiriesHref = `/my/business/inquiries?storeId=${encodeURIComponent(storeId)}`;
+  const inquiriesHref = `/stores/owner/inquiries?storeId=${encodeURIComponent(storeId)}`;
 
   const load = useCallback(async () => {
     setLoading(true);

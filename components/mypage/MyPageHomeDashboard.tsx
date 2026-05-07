@@ -194,11 +194,6 @@ export function MyPageHomeDashboard({
         href: buildMypageSectionHref("trade"),
       },
       {
-        label: "주문",
-        value: formatCount(orderCount),
-        href: buildMypageSectionHref("store"),
-      },
-      {
         label: "안읽은 채팅",
         value: formatCount(resolveUnifiedChatUnreadHintForDashboard(ownerHub)),
         href: buildMypageSectionHref("messenger"),
@@ -274,27 +269,6 @@ export function MyPageHomeDashboard({
               title="댓글/활동"
               description="내가 쓴 댓글과 활동을 확인합니다."
               icon={icon(<MessageCircle className="h-[22px] w-[22px]" strokeWidth={2} />)}
-            />
-          </MyInfoMenuSection>
-
-          <MyInfoMenuSection title="매장 / 주문">
-            <MyInfoMenuItem
-              href="/mypage/section/store/manage"
-              title="내 상점 등록하기"
-              description="매장 등록 및 운영 화면으로 이동합니다."
-              icon={icon(<Store className="h-[22px] w-[22px]" strokeWidth={2} />)}
-            />
-            <MyInfoMenuItem
-              href="/mypage/section/store/orders"
-              title="주문내역"
-              description="주문 상태, 주문 채팅, 리뷰를 관리합니다."
-              icon={icon(<ShoppingBag className="h-[22px] w-[22px]" strokeWidth={2} />)}
-            />
-            <MyInfoMenuItem
-              href="/mypage/section/store/rider"
-              title="배달K 라이더"
-              description="라이더 관련 안내/진입을 확인합니다."
-              icon={icon(<Truck className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
           </MyInfoMenuSection>
 

@@ -39,6 +39,7 @@ import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts
 import { persistStoreOrderItemOptions } from "@/lib/stores/persist-store-order-item-options";
 import { normalizeStoreOrderClientKey } from "@/lib/stores/store-order-client-key";
 import { createStoreOrderEvent } from "@/lib/stores/store-order-events";
+import { normalizeStoreAddressPh } from "@/lib/stores/normalize-store-address-ph";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -288,6 +289,9 @@ type PostBody = {
   /** 배달·택배 수령지 한 줄 */
   delivery_address_summary?: string;
   delivery_address_detail?: string;
+  /** 지역 키(향후 배달 권역 기준) */
+  delivery_region?: string;
+  delivery_city?: string;
   /** 멱등 키 — 재전송·더블클릭 시 동일 주문 반환 */
   client_order_key?: string;
 };
@@ -561,8 +565,22 @@ export async function POST(req: NextRequest) {
   /** 주문자 배달·배송지(매장 주소와 별도). 픽업이면 비워도 됨 — 픽업 장소는 `stores` 주소로 안내 */
   const addrSummaryRaw = String(body.delivery_address_summary ?? "").trim();
   const addrDetailRaw = String(body.delivery_address_detail ?? "").trim();
-  const delivery_address_summary = addrSummaryRaw || null;
-  const delivery_address_detail = addrDetailRaw || null;
+  const delivery_region_raw = String(body.delivery_region ?? "").trim();
+  const delivery_city_raw = String(body.delivery_city ?? "").trim();
+
+  // 주문 주소 저장 규격 고정 (PH):
+  // - 지역(delivery_region/city)은 운영/권역 키
+  // - summary=주소1(도로/번지), detail=세부주소(호수/층/랜드마크)
+  const normDeliveryAddr = normalizeStoreAddressPh({
+    region: delivery_region_raw || null,
+    city: delivery_city_raw || null,
+    address1: addrSummaryRaw || null,
+    address2: addrDetailRaw || null,
+  });
+  const delivery_address_summary = normDeliveryAddr.address1;
+  const delivery_address_detail = normDeliveryAddr.address2;
+  const delivery_region = normDeliveryAddr.region;
+  const delivery_city = normDeliveryAddr.city;
   if (fulfillment === "local_delivery" || fulfillment === "shipping") {
     if (!buyer_phone_norm) {
       return NextResponse.json(
@@ -576,6 +594,16 @@ export async function POST(req: NextRequest) {
           ok: false,
           error: "delivery_address_required",
           message: "배달·배송 주소를 입력해 주세요.",
+        },
+        { status: 400 }
+      );
+    }
+    if (!delivery_region || !delivery_city) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "delivery_region_city_required",
+          message: "배달 지역(지역/도시)을 선택해 주세요.",
         },
         { status: 400 }
       );
@@ -605,6 +633,8 @@ export async function POST(req: NextRequest) {
     buyer_payment_method_detail,
     delivery_address_summary,
     delivery_address_detail,
+    delivery_region,
+    delivery_city,
   };
   if (normalizedClientKey) {
     insertOrderPayload.client_order_key = normalizedClientKey;

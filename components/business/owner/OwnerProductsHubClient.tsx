@@ -66,11 +66,11 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
 
   const q = `storeId=${encodeURIComponent(storeId)}`;
   const draftQ = canSell ? "" : "&draft=1";
-  const newProductBase = `/my/business/products/new?${q}${draftQ}`;
+  const newProductBase = `/stores/owner/products/new?${q}${draftQ}`;
   /** 특정 탭이면 해당 카테고리까지 URL로 넘김. 전체 탭은 등록 화면 상단에서 카테고리 선택 */
   const newProductHrefForTab =
     tab !== "all" ? `${newProductBase}&menuSectionId=${encodeURIComponent(tab)}` : newProductBase;
-  const categoriesHref = `/my/business/menu-categories?${q}`;
+  const categoriesHref = `/stores/owner/menu-categories?${q}`;
 
   const addProductCtaClass =
     "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full border border-signature/40 bg-signature px-4 py-2 sam-text-body-secondary font-semibold text-white shadow-sm transition hover:bg-signature/90 active:bg-signature/95";
@@ -202,7 +202,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
   };
 
   const ordersHref = buildStoreOrdersHref({ storeId });
-  const inquiriesHref = `/my/business/inquiries?storeId=${encodeURIComponent(storeId)}`;
+  const inquiriesHref = `/stores/owner/inquiries?storeId=${encodeURIComponent(storeId)}`;
 
   return (
     <div className="max-w-full overflow-x-hidden bg-sam-app pb-8">
@@ -220,7 +220,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
           문의
         </Link>
         <Link
-          href={`/my/business?storeId=${encodeURIComponent(storeId)}`}
+          href={`/stores/owner?storeId=${encodeURIComponent(storeId)}`}
           className="rounded-full border border-sam-border bg-[#F9FAFB] px-3 py-1.5 sam-text-helper font-semibold text-sam-fg"
         >
           운영 대시보드
@@ -374,7 +374,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
             {filtered.map((p) => {
               const listed = isActiveListed(p.product_status);
               const busy = busyId === p.id;
-              const editHref = `/my/business/products/${encodeURIComponent(p.id)}/edit?${q}`;
+              const editHref = `/stores/owner/products/${encodeURIComponent(p.id)}/edit?${q}`;
               return (
                 <li
                   key={p.id}

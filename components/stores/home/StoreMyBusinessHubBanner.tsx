@@ -74,7 +74,7 @@ export function StoreMyBusinessHubBanner({
         </div>
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
           <Link
-            href={`/my/business?${q}`}
+            href={`/stores/owner?${q}`}
             className="inline-flex items-center justify-center rounded-full bg-[#1877F2] px-4 py-2 sam-text-helper font-bold text-white active:opacity-90"
           >
             운영 센터

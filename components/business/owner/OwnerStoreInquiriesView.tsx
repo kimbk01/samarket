@@ -174,7 +174,7 @@ export function OwnerStoreInquiriesView() {
     return (
       <div className="rounded-ui-rect bg-sam-surface p-6 text-sm text-sam-muted shadow-sm">
         <p>등록된 매장이 없습니다.</p>
-        <Link href="/my/business/apply" className="mt-2 inline-block text-signature">
+        <Link href="/stores/owner/apply" className="mt-2 inline-block text-signature">
           매장 신청
         </Link>
       </div>

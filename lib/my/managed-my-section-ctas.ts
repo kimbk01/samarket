@@ -29,8 +29,8 @@ const BOARD_CTAS: ManagedMyCtaLink[] = [{ href: "/mypage/community-posts", label
 function storeSectionCtas(ownerStoreId?: string | null): ManagedMyCtaLink[] {
   const sid = ownerStoreId?.trim();
   const enc = sid ? encodeURIComponent(sid) : "";
-  const newOrdersHref = sid ? `/mypage/business/orders?storeId=${enc}` : "/mypage/business/orders";
-  const hubHref = sid ? `/mypage/business?storeId=${enc}` : "/mypage/business";
+  const newOrdersHref = sid ? `/stores/owner/orders?storeId=${enc}` : "/stores/owner/orders";
+  const hubHref = sid ? `/stores/owner?storeId=${enc}` : "/stores/owner";
 
   if (sid) {
     return [
@@ -44,7 +44,7 @@ function storeSectionCtas(ownerStoreId?: string | null): ManagedMyCtaLink[] {
     { href: newOrdersHref, label: "주문 접수" },
     { href: hubHref, label: "운영 허브" },
     { href: "/mypage/store-orders", label: "내 주문" },
-    { href: "/mypage/business/apply", label: "매장 신청" },
+    { href: "/stores/owner/apply", label: "매장 신청" },
   ];
 }
 

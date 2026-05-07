@@ -75,6 +75,11 @@
 | 4 | 뒤로가기·반복 진입이 빠르다 | [ ] |
 | 5 | 리스트 항목·CTA **선택 즉시** 반응한다 | [ ] |
 
+**최근 증거(완료 체크 아님):**
+- 라운드 **BZ1** — `/mypage/business?storeId=...` 진입에서 RSC가 상품 목록 쿼리를 선로딩하며 cold `time_starttransfer`가 **4.881s**까지 상승하던 병목을 제거. 수정 후 cold **0.286s**, warm 평균(런2–3) **0.117s**.
+- 라운드 **BZ2** — 내 매장 로드에서 “닉네임 보강용 2번째 stores 조회”를 제거해 warm 평균 `time_starttransfer` **0.1167s → 0.0590s**로 감소.
+(상세: `docs/samarket-performance-track-state.md` 참고)
+
 ---
 
 ## 관련 문서

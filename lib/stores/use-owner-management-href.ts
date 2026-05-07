@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 
 /**
- * 로그인 사용자가 해당 매장 소유자면 `/my/business?storeId=…` (내 상점 관리).
+ * 로그인 사용자가 해당 매장 소유자면 `/stores/owner?storeId=…` (내 상점 관리).
  * 서버는 `/api/me/stores`로만 판별 — 공개 API에 owner 플래그를 노출하지 않음.
  */
 export function useOwnerManagementHref(
@@ -35,7 +35,7 @@ export function useOwnerManagementHref(
           return;
         }
         const mine = json.stores.find((s) => s.id === store.id || s.slug === store.slug);
-        setHref(mine ? `/my/business?storeId=${encodeURIComponent(mine.id)}` : null);
+        setHref(mine ? `/stores/owner?storeId=${encodeURIComponent(mine.id)}` : null);
       } catch {
         if (!cancelled) setHref(null);
       }

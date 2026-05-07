@@ -115,7 +115,7 @@ export async function resolveOwnerHubBadgeStoreAttentionFromHubStore(
   orderAttention = Math.max(0, refund) + Math.max(0, pending);
   inquiryAttention = Math.max(0, openInq);
   if (inquiryAttention > 0) {
-    storeDeepLink = `/my/business/inquiries?storeId=${encodeURIComponent(hubStore.id)}`;
+    storeDeepLink = `/stores/owner/inquiries?storeId=${encodeURIComponent(hubStore.id)}`;
   } else if (orderAttention > 0) {
     storeDeepLink = buildStoreOrdersHref({ storeId: hubStore.id });
   } else if (storeOrderChatUnread > 0) {

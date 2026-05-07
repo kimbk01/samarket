@@ -76,7 +76,7 @@ export function OwnerOrderChatList({ slug, storeId }: { slug: string; storeId: s
             return (
               <li key={r.id}>
                 <Link
-                  href={`/my/business/store-order-chat/${encodeURIComponent(r.order_id)}`}
+                  href={`/stores/owner/order-chat/${encodeURIComponent(r.order_id)}`}
                   className="flex items-start justify-between gap-2 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm"
                 >
                   <div className="min-w-0">

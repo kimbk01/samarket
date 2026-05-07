@@ -12,5 +12,5 @@ export default function StoreOwnerOrdersPage() {
 }
 
 async function StoreOwnerOrdersPageBody() {
-  return redirect("/my/business/store-orders");
+  return redirect("/stores/owner/orders");
 }

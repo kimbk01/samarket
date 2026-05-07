@@ -155,7 +155,7 @@ export function StoreOrderSellerOrderPanel({
     void loadOrder();
   }, [open, loadOrder]);
 
-  /** 모달: `/my/business` 허브와 같은 메뉴 트리 (채팅 맥락의 storeId 기준) */
+  /** 모달: `/stores/owner` 허브와 같은 메뉴 트리 (채팅 맥락의 storeId 기준) */
   const businessNavGroups = useMemo(
     () =>
       buildMyBusinessNavGroups({
@@ -169,7 +169,7 @@ export function StoreOrderSellerOrderPanel({
     [storeId]
   );
 
-  const businessHubHref = `/my/business?storeId=${encodeURIComponent(storeId)}`;
+  const businessHubHref = `/stores/owner?storeId=${encodeURIComponent(storeId)}`;
 
   const handleSendSummary = useCallback(async () => {
     if (!orderSnap || sendBusy || sendSummaryDisabled) return;
@@ -298,7 +298,7 @@ export function StoreOrderSellerOrderPanel({
               내 상점
             </p>
             <p className="mb-2 sam-text-helper leading-snug text-muted">
-              <span className="font-mono sam-text-xxs text-muted">/my/business</span>
+              <span className="font-mono sam-text-xxs text-muted">/stores/owner</span>
               <span className="mx-1 text-sam-border">·</span>
               매장 관리 허브와 동일한 메뉴입니다.
             </p>

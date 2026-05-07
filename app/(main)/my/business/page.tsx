@@ -18,6 +18,6 @@ async function MyBusinessRouteBody({ searchParams }: PageProps) {
   const sp = await searchParams;
   const storeId = Array.isArray(sp.storeId) ? sp.storeId[0] : sp.storeId;
   return redirect(
-    storeId?.trim() ? `/mypage/business?storeId=${encodeURIComponent(storeId.trim())}` : "/mypage/business"
+    storeId?.trim() ? `/stores/owner?storeId=${encodeURIComponent(storeId.trim())}` : "/stores/owner"
   );
 }

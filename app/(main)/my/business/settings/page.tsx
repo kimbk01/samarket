@@ -57,7 +57,7 @@ function MyBusinessSettingsPageInner() {
     return (
       <div className={`${OWNER_STORE_STACK_Y_CLASS} sam-text-body text-sam-muted`}>
         <p>매장을 지정할 수 없습니다.</p>
-        <Link href="/my/business" className="font-medium text-signature underline">
+        <Link href="/stores/owner" className="font-medium text-signature underline">
           대시보드로
         </Link>
       </div>
@@ -90,7 +90,7 @@ function MyBusinessSettingsPageInner() {
         </p>
         <p className="mt-3 sam-text-body-secondary text-sam-muted">
           운영·심사 상태는{" "}
-          <Link href={`/my/business/ops-status?${q}`} className="font-medium text-signature underline">
+          <Link href={`/stores/owner/ops-status?${q}`} className="font-medium text-signature underline">
             운영 · 심사
           </Link>
           에서 확인할 수 있습니다.
@@ -99,7 +99,7 @@ function MyBusinessSettingsPageInner() {
 
       <section className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface p-4 sam-text-body-secondary text-sam-muted">
         주문 자동 처리·직원 권한 등은 준비 중입니다. 매장 프로필·영업 시간은{" "}
-        <Link href={`/my/business/profile?${q}`} className="font-medium text-signature underline">
+        <Link href={`/stores/owner/profile?${q}`} className="font-medium text-signature underline">
           매장 프로필
         </Link>
         에서 수정할 수 있습니다.

@@ -3,6 +3,7 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { normalizePhMobileDb, PH_LOCAL_MOBILE_RULE_MESSAGE_KO } from "@/lib/utils/ph-mobile";
+import { normalizeStoreAddressPh } from "@/lib/stores/normalize-store-address-ph";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -118,7 +119,7 @@ export async function PATCH(
 
   const { data: currentRow, error: curErr } = await sb
     .from("stores")
-    .select("store_category_id, store_topic_id")
+    .select("store_category_id, store_topic_id, region, city, district, address_line1, address_line2")
     .eq("id", sid)
     .maybeSingle();
 
@@ -229,9 +230,20 @@ export async function PATCH(
 
   if (body.region !== undefined) patch.region = trimOrNull(body.region);
   if (body.city !== undefined) patch.city = trimOrNull(body.city);
-  if (body.district !== undefined) patch.district = trimOrNull(body.district);
-  if (body.address_line1 !== undefined) patch.address_line1 = trimOrNull(body.address_line1);
-  if (body.address_line2 !== undefined) patch.address_line2 = trimOrNull(body.address_line2);
+
+  // Backward compatibility: historically district mirrored "주소1".
+  // If caller sends district only, treat it as address_line1 input.
+  const districtIn = body.district !== undefined ? trimOrNull(body.district) : undefined;
+  const address1In =
+    body.address_line1 !== undefined
+      ? trimOrNull(body.address_line1)
+      : districtIn !== undefined
+        ? districtIn
+        : undefined;
+  const address2In = body.address_line2 !== undefined ? trimOrNull(body.address_line2) : undefined;
+
+  if (address1In !== undefined) patch.address_line1 = address1In;
+  if (address2In !== undefined) patch.address_line2 = address2In;
   if (body.email !== undefined) {
     const et = trimOrNull(body.email);
     if (et === null) {
@@ -298,6 +310,41 @@ export async function PATCH(
       return NextResponse.json({ ok: false, error: "invalid_lng" }, { status: 400 });
     }
     patch.lng = ln;
+  }
+
+  // Address normalization (PH). Enforce a single canonical storage format.
+  const addressTouched =
+    body.region !== undefined ||
+    body.city !== undefined ||
+    body.district !== undefined ||
+    body.address_line1 !== undefined ||
+    body.address_line2 !== undefined;
+  if (addressTouched) {
+    const nextRegion =
+      patch.region !== undefined ? (patch.region as string | null) : (currentRow.region as string | null);
+    const nextCity =
+      patch.city !== undefined ? (patch.city as string | null) : (currentRow.city as string | null);
+    const nextA1 =
+      patch.address_line1 !== undefined
+        ? (patch.address_line1 as string | null)
+        : ((currentRow.address_line1 as string | null) ?? (currentRow.district as string | null));
+    const nextA2 =
+      patch.address_line2 !== undefined
+        ? (patch.address_line2 as string | null)
+        : (currentRow.address_line2 as string | null);
+
+    const norm = normalizeStoreAddressPh({
+      region: nextRegion,
+      city: nextCity,
+      address1: nextA1,
+      address2: nextA2,
+    });
+
+    patch.region = norm.region;
+    patch.city = norm.city;
+    patch.address_line1 = norm.address1;
+    patch.address_line2 = norm.address2;
+    patch.district = norm.address1;
   }
 
   const resolvedCategoryId =

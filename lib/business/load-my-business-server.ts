@@ -1,11 +1,9 @@
 import { cache } from "react";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
-import { loadMeStoresListForUser, loadStoreProductsForOwner } from "@/lib/me/load-me-stores-for-user";
+import { loadMeStoresListForUser } from "@/lib/me/load-me-stores-for-user";
 import {
-  dbStoreProductToBusinessProduct,
   dbStoreToBusinessProfile,
-  type StoreProductRow,
   type StoreRow,
 } from "@/lib/stores/db-store-mapper";
 import { pickPreferredOwnerStore } from "@/lib/stores/owner-lite-external-store";
@@ -43,13 +41,9 @@ export const loadMyBusinessServer = cache(async (preferredStoreId: string): Prom
   if (stores.length === 0) return { kind: "empty" };
 
   const row = pickStoreRow(stores, preferredStoreId);
-  let products: BusinessProduct[] = [];
-  if (row.approval_status === "approved") {
-    const pr = await loadStoreProductsForOwner(supabase, userId, row.id);
-    if (pr.ok) {
-      products = pr.products.map((p) => dbStoreProductToBusinessProduct(p as StoreProductRow, row.id));
-    }
-  }
+  // IMPORTANT (perf): do not block first RSC response on owner products list.
+  // The client (`MyBusinessPage.loadRemote`) loads products after hydration.
+  const products: BusinessProduct[] = [];
 
   const baseProfile = dbStoreToBusinessProfile(row);
   const profile: BusinessProfile = {

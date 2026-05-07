@@ -27,6 +27,7 @@ export function AdminStoreApplicationSettingsPage() {
     null
   );
   const [taxonomyLoading, setTaxonomyLoading] = useState(false);
+  const [taxonomySeeding, setTaxonomySeeding] = useState(false);
   const [pickedCategoryId, setPickedCategoryId] = useState<string>("");
   const [msg, setMsg] = useState<string | null>(null);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
@@ -181,11 +182,14 @@ export function AdminStoreApplicationSettingsPage() {
   const seedDefaults = useCallback(async () => {
     if (!window.confirm("기본 업종/세부 주제를 DB에 생성합니다. 계속할까요?")) return;
     setTaxonomyLoading(true);
+    setTaxonomySeeding(true);
     try {
       const res = await fetch("/api/admin/stores/taxonomy", {
         method: "POST",
         credentials: "include",
         cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ seed: true }),
       });
       const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
@@ -201,6 +205,7 @@ export function AdminStoreApplicationSettingsPage() {
       await reloadTaxonomy();
     } finally {
       setTaxonomyLoading(false);
+      setTaxonomySeeding(false);
     }
   }, [reloadTaxonomy]);
 
@@ -470,8 +475,8 @@ export function AdminStoreApplicationSettingsPage() {
               <li className="flex flex-wrap items-center gap-2">
                 <span className="text-green-600">✓</span>
                 <span>매장 신청</span>
-                <Link href="/my/business/apply" className="text-signature underline">
-                  /my/business/apply
+                <Link href="/stores/owner/apply" className="text-signature underline">
+                  /stores/owner/apply
                 </Link>
                 <span className="text-sam-muted">
                   — 1차·2차 업종 각각 선택, 슬러그는 아래 병합 목록과 동일. DB에 같은 slug 행이 있으면 신청 시
@@ -788,9 +793,10 @@ export function AdminStoreApplicationSettingsPage() {
                         <button
                           type="button"
                           onClick={() => void seedDefaults()}
+                          disabled={taxonomySeeding}
                           className="mt-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-semibold text-sam-fg"
                         >
-                          기본 2차 업종 생성(시드)
+                          {taxonomySeeding ? "생성 중…" : "기본 2차 업종 생성(시드)"}
                         </button>
                       </li>
                     ) : (

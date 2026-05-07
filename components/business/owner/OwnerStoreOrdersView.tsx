@@ -684,7 +684,7 @@ export function OwnerStoreOrdersView() {
           window.dispatchEvent(new Event(KASAMA_NOTIFICATIONS_UPDATED));
         }
         const oid = searchParams.get("order_id")?.trim();
-        const base = pathname ?? "/my/business/store-orders";
+        const base = pathname ?? "/stores/owner/orders";
         const qs = oid ? `?order_id=${encodeURIComponent(oid)}` : "";
         router.replace(`${base}${qs}`, { scroll: false });
       }
@@ -779,7 +779,7 @@ export function OwnerStoreOrdersView() {
     body = (
       <div className="rounded-ui-rect bg-sam-surface p-6 text-sm text-sam-muted shadow-sm">
         <p>등록된 매장이 없습니다.</p>
-        <Link href="/my/business/apply" className="mt-2 inline-block text-signature">
+        <Link href="/stores/owner/apply" className="mt-2 inline-block text-signature">
           매장 신청
         </Link>
       </div>
@@ -898,13 +898,13 @@ export function OwnerStoreOrdersView() {
           <p className="mt-1">매장 정보와 메뉴를 점검한 뒤 공유하면 첫 주문을 더 빨리 받을 수 있습니다.</p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Link
-              href={`/my/business?storeId=${encodeURIComponent(state.storeId)}`}
+              href={`/stores/owner?storeId=${encodeURIComponent(state.storeId)}`}
               className="inline-flex rounded-ui-rect bg-signature px-4 py-2 font-semibold text-white"
             >
               매장 운영 보기
             </Link>
             <Link
-              href={`/my/business/profile?storeId=${encodeURIComponent(state.storeId)}`}
+              href={`/stores/owner/profile?storeId=${encodeURIComponent(state.storeId)}`}
               className="inline-flex rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 font-medium text-sam-fg"
             >
               매장 정보 점검

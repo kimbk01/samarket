@@ -16,8 +16,9 @@ export function AddressRowCard(props: {
   /** 본문 탭 — 대표 주소로 지정(거래·동네·배달 기본) */
   onSetAsRepresentative?: () => void;
   busyId: string | null;
+  containerClassName?: string;
 }) {
-  const { row, onEdit, onDelete, onSetAsRepresentative, busyId: globalBusy } = props;
+  const { row, onEdit, onDelete, onSetAsRepresentative, busyId: globalBusy, containerClassName } = props;
   const rowBusy = globalBusy === row.id;
   const rawNick = row.nickname?.trim();
   const title =
@@ -31,7 +32,7 @@ export function AddressRowCard(props: {
   const detailLine = buildAddressListDetailLine(row, sub);
 
   return (
-    <li className="flex items-start gap-2 px-1 py-3.5 sm:gap-3 sm:px-2">
+    <li className={`flex items-start gap-2 px-1 py-3.5 sm:gap-3 sm:px-2 ${containerClassName ?? ""}`}>
       <button
         type="button"
         disabled={rowBusy}

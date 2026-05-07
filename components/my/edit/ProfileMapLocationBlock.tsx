@@ -1,6 +1,6 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { ADDRESS_LABEL_KO } from "@/components/addresses/address-labels";
 import { buildTradePublicLine, stripCountryFromAddressDisplayLine } from "@/lib/addresses/user-address-format";
@@ -51,6 +51,7 @@ function RepresentativeRow({ row }: { row: UserAddressDTO }) {
 /** 프로필 수정 — 주소록 요약 + 주소 관리 이동(지도 직행 아님) */
 export function ProfileMapLocationBlock({ addresses, listError }: Props) {
   const router = useRouter();
+  const pathname = usePathname();
   const sorted = addresses ? sortAddresses(addresses) : [];
   const representative = pickRepresentative(sorted);
 
@@ -90,7 +91,10 @@ export function ProfileMapLocationBlock({ addresses, listError }: Props) {
 
       <button
         type="button"
-        onClick={() => router.push("/mypage/addresses")}
+        onClick={() => {
+          const back = typeof pathname === "string" && pathname ? pathname : "/mypage";
+          router.push(`/mypage/addresses?returnTo=${encodeURIComponent(back + "#profile-address")}`);
+        }}
         className="w-full rounded-ui-rect border border-sam-border bg-ui-surface py-3.5 sam-text-body font-semibold text-ui-fg"
       >
         주소 관리

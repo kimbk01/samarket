@@ -1,7 +1,10 @@
 /**
  * 매장 관리 허브 고정 메뉴 — 실제 구현된 라우트만 연결, 나머지는 비활성 플레이스홀더.
  * 항목 추가·순서 변경은 이 파일의 `buildMyBusinessNavGroups`만 수정하면 됩니다.
+ *
+ * 모든 링크는 캐노니컬 `/stores/owner/*` 로 한 줄 통일한다(`OwnerRoutes`).
  */
+import { OwnerRoutes } from "@/lib/business/owner-routes";
 
 /** `MyBusinessNavList`에서 SVG로 매핑 */
 export type MyBusinessNavIcon =
@@ -49,11 +52,8 @@ export type MyBusinessNavContext = {
 
 export function buildMyBusinessNavGroups(ctx: MyBusinessNavContext): MyBusinessNavGroup[] {
   const { storeId, slug, approvalStatus, isVisible, canSell, orderAlertsBadge } = ctx;
-  const sid = encodeURIComponent(storeId);
   const approved = approvalStatus === "approved";
   const showOps = approved && isVisible;
-
-  const q = `storeId=${sid}`;
 
   const groups: MyBusinessNavGroup[] = [];
 
@@ -61,17 +61,17 @@ export function buildMyBusinessNavGroups(ctx: MyBusinessNavContext): MyBusinessN
     {
       label: "기본 정보",
       icon: "identity",
-      href: `/my/business/basic-info?${q}`,
+      href: OwnerRoutes.basicInfo(storeId),
     },
     {
       label: "매장 설정",
       icon: "building",
-      href: `/my/business/profile?${q}`,
+      href: OwnerRoutes.profile(storeId),
     },
     {
       label: "운영·심사 상태",
       icon: "ops_status",
-      href: `/my/business/ops-status?${q}`,
+      href: OwnerRoutes.opsStatus(storeId),
     },
   ];
   if (approved && isVisible && slug) {
@@ -89,7 +89,7 @@ export function buildMyBusinessNavGroups(ctx: MyBusinessNavContext): MyBusinessN
     orderItems.push({
       label: "주문 관리",
       icon: "orders",
-      href: `/my/business/store-orders?${q}`,
+      href: OwnerRoutes.orders(storeId),
       badge: orderAlertsBadge > 0 ? orderAlertsBadge : undefined,
     });
   }
@@ -97,12 +97,12 @@ export function buildMyBusinessNavGroups(ctx: MyBusinessNavContext): MyBusinessN
     orderItems.push({
       label: "받은 문의",
       icon: "inquiry",
-      href: `/my/business/inquiries?${q}`,
+      href: OwnerRoutes.inquiries(storeId),
     });
     orderItems.push({
       label: "정산 내역",
       icon: "settlement",
-      href: `/my/business/settlements?${q}`,
+      href: OwnerRoutes.settlements(storeId),
     });
   }
   if (orderItems.length > 0) {
@@ -114,12 +114,12 @@ export function buildMyBusinessNavGroups(ctx: MyBusinessNavContext): MyBusinessN
     menuItems.push({
       label: "카테고리",
       icon: "category",
-      href: `/my/business/menu-categories?${q}`,
+      href: OwnerRoutes.menuCategories(storeId),
     });
     menuItems.push({
       label: "상품 등록",
       icon: "product",
-      href: `/my/business/products?${q}`,
+      href: OwnerRoutes.products(storeId),
     });
   }
   if (menuItems.length > 0) {
@@ -128,14 +128,14 @@ export function buildMyBusinessNavGroups(ctx: MyBusinessNavContext): MyBusinessN
 
   const extra: MyBusinessNavItem[] = [
     { label: "직원 관리", icon: "staff", disabled: true, hint: "준비 중" },
-    { label: "리뷰 관리", icon: "review", href: `/my/business/reviews?${q}` },
+    { label: "리뷰 관리", icon: "review", href: OwnerRoutes.reviews(storeId) },
     { label: "광고·프로모션", icon: "promo", href: "/my/ads", hint: "노출·신청" },
   ];
   if (approved) {
     extra.unshift({
       label: "알림·운영 설정",
       icon: "settings",
-      href: `/my/business/settings?${q}`,
+      href: OwnerRoutes.settings(storeId),
       hint: "배달 알림음(전역)",
     });
   }

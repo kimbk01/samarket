@@ -47,37 +47,37 @@ export function BusinessDashboardOwnerCardMenu({
     {
       title: "메뉴 관리",
       desc: "상품·품절·노출",
-      href: `/my/business/products?${q}`,
+      href: `/stores/owner/products?${q}`,
       disabled: false,
     },
     {
       title: "배너 관리",
       desc: "매장 상단 배너",
-      href: `/my/business/banners?${q}`,
+      href: `/stores/owner/banners?${q}`,
       disabled: false,
     },
     {
       title: "공지 관리",
       desc: "위치별 공지",
-      href: `/my/business/notices?${q}`,
+      href: `/stores/owner/notices?${q}`,
       disabled: false,
     },
     {
       title: "리뷰 관리",
       desc: "고객 리뷰",
-      href: `/my/business/reviews?${q}`,
+      href: `/stores/owner/reviews?${q}`,
       disabled: false,
     },
     {
       title: "영업 정보",
       desc: "영업·배달·노출",
-      href: `/my/business/ops-status?${q}`,
+      href: `/stores/owner/ops-status?${q}`,
       disabled: false,
     },
     {
       title: "정산",
       desc: "정산 내역",
-      href: `/my/business/settlements?${q}`,
+      href: `/stores/owner/settlements?${q}`,
       disabled: !showOps,
     },
   ];

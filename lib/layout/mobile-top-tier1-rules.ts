@@ -75,10 +75,13 @@ function computeMobileTopTier1RuleSet(pathNoQuery: string): MobileTopTier1RuleSe
     isStoresSubpathExcludingRoot && !isStoresBrowsePath;
 
   /**
-   * `/my/business` 및 하위(매장 허브·설정 등)는 `TradePrimaryColumnStickyAppBar` 등 로컬 헤더만 씀.
-   * `startsWithPath(..., "/my/business/")` 는 접두어 끝 `/` 때문에 `/my/business//…` 만 매칭되어 프로필 등이 빠지던 버그가 있었음 → `/my/business` 기준.
+   * 매장 오너(`/stores/owner` · 옛 `/my/business`) 및 하위(매장 허브·설정 등)는 `TradePrimaryColumnStickyAppBar` 등 로컬 헤더만 씀.
+   * 접두어 끝 `/` 가 들어가면 `/my/business/…` 와 같이 정확 매칭이 빠지던 버그가 있었음 → 접두어는 슬래시 없이 비교한다.
    */
   const isMyBusinessOwnerHubSurface =
+    pathNoQuery === "/stores/owner" ||
+    (startsWithPath(pathNoQuery, "/stores/owner") &&
+      !pathNoQuery.startsWith("/stores/owner/apply")) ||
     pathNoQuery === "/my/business" ||
     (startsWithPath(pathNoQuery, "/my/business") &&
       !pathNoQuery.startsWith("/my/business/apply"));

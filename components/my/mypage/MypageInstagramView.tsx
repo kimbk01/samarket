@@ -325,12 +325,12 @@ export function MypageInstagramView({
   const addressesHref = "/mypage/addresses";
   const storeOrdersHref = "/mypage/store-orders";
   const businessHubHref = ownerHubStoreId?.trim()
-    ? `/mypage/business?storeId=${encodeURIComponent(ownerHubStoreId.trim())}`
-    : "/mypage/business";
+    ? `/stores/owner?storeId=${encodeURIComponent(ownerHubStoreId.trim())}`
+    : "/stores/owner";
   const ownerOrdersHref = ownerHubStoreId?.trim()
-    ? `/mypage/business/orders?storeId=${encodeURIComponent(ownerHubStoreId.trim())}`
-    : "/mypage/business/orders";
-  const businessApplyHref = "/mypage/business/apply";
+    ? `/stores/owner/orders?storeId=${encodeURIComponent(ownerHubStoreId.trim())}`
+    : "/stores/owner/orders";
+  const businessApplyHref = "/stores/owner/apply";
   const statusPills = [
     isBusinessMember ? "비즈 회원" : null,
     hasRegion ? "지역 완료" : "지역 설정 필요",
@@ -940,7 +940,7 @@ function AccountSection({
             onSuppressedNav={onBizBlocked}
           />
           <ActionRow
-            href={hasOwnerStore ? "/mypage/business/orders" : "/mypage/business/apply"}
+            href={hasOwnerStore ? "/stores/owner/orders" : "/stores/owner/apply"}
             label={hasOwnerStore ? "사장님 주문 관리" : "사업자 신청"}
           />
           {isAdmin ? <ActionRow href="/admin" label="관리자" /> : null}

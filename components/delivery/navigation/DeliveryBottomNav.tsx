@@ -33,9 +33,9 @@ function resolveEffectiveHref(item: DeliveryBottomNavItem, ownerStore: { id: str
 
   if (!item.requires_store_id) return item.href;
   if (ownerStore?.id) {
-    return "/my/business";
+    return "/stores/owner";
   }
-  return "/my/business/apply";
+  return "/stores/owner/apply";
 }
 
 export function DeliveryBottomNav({ initialItems }: { initialItems: DeliveryBottomNavItem[] }) {

@@ -1,43 +1,22 @@
-import { Suspense } from "react";
-import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
-import { MySubpageHeader } from "@/components/my/MySubpageHeader";
-import { MyBusinessPage } from "@/components/business/MyBusinessPage";
-import { loadMyBusinessServer } from "@/lib/business/load-my-business-server";
-import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import { redirect } from "next/navigation";
+
+type PageProps = {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+};
 
 function firstQueryString(v: string | string[] | undefined): string | undefined {
   if (Array.isArray(v)) return v[0];
   return v;
 }
 
-type PageProps = {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-};
-
-export default function MypageBusinessRoute({ searchParams }: PageProps) {
-  return (
-    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
-      <MypageBusinessRouteBody searchParams={searchParams} />
-    </Suspense>
-  );
-}
-
-async function MypageBusinessRouteBody({ searchParams }: PageProps) {
+/**
+ * 옛 매장 운영 허브 URL — 캐노니컬은 `/stores/owner`.
+ * 기존 북마크/외부 링크가 본 경로를 가리켜도 `storeId` 쿼리를 보존하여 새 허브로 이동시킨다.
+ */
+export default async function MypageBusinessRoute({ searchParams }: PageProps) {
   const sp = await searchParams;
   const storeId = firstQueryString(sp.storeId)?.trim() ?? "";
-  const initialServerState = await loadMyBusinessServer(storeId);
-
-  return (
-    <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
-      <MySubpageHeader
-        title="매장 운영"
-        subtitle="주문, 상품, 운영 상태, 정산 관리"
-        backHref="/mypage"
-        hideCtaStrip
-      />
-      <div className={`${APP_MAIN_TAB_SCROLL_BODY_CLASS} pt-2 pb-8`}>
-        <MyBusinessPage initialServerState={initialServerState} />
-      </div>
-    </div>
+  return redirect(
+    storeId ? `/stores/owner?storeId=${encodeURIComponent(storeId)}` : "/stores/owner"
   );
 }

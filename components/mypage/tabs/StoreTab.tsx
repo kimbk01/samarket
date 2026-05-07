@@ -14,11 +14,11 @@ export function StoreTab({
   storeAttentionSummary,
 }: Props & { section: string }) {
   const businessHref = ownerHubStoreId?.trim()
-    ? `/mypage/business?storeId=${encodeURIComponent(ownerHubStoreId.trim())}`
-    : "/mypage/business";
+    ? `/stores/owner?storeId=${encodeURIComponent(ownerHubStoreId.trim())}`
+    : "/stores/owner";
   const businessOrdersHref = ownerHubStoreId?.trim()
-    ? `/my/business/store-orders?storeId=${encodeURIComponent(ownerHubStoreId.trim())}`
-    : "/my/business/store-orders";
+    ? `/stores/owner/orders?storeId=${encodeURIComponent(ownerHubStoreId.trim())}`
+    : "/stores/owner/orders";
 
   if (section === "orders") {
     return (
@@ -86,7 +86,7 @@ export function StoreTab({
             { label: "내 주문", href: "/mypage/section/store/orders", caption: "구매자 기준 주문 관리" },
             {
               label: hasOwnerStore ? "사장님 주문 관리" : "매장 신청",
-              href: hasOwnerStore ? businessOrdersHref : "/mypage/business/apply",
+              href: hasOwnerStore ? businessOrdersHref : "/stores/owner/apply",
               caption: hasOwnerStore ? storeAttentionSummary ?? "매장 주문 처리" : "입점 신청으로 이동",
             },
           ]}
@@ -105,12 +105,12 @@ export function StoreTab({
           items={[
             {
               label: hasOwnerStore ? "매장 운영" : "매장 신청",
-              href: hasOwnerStore ? businessHref : "/mypage/business/apply",
+              href: hasOwnerStore ? businessHref : "/stores/owner/apply",
               caption: hasOwnerStore ? "내 상점 운영 콘솔" : "입점 신청으로 이동",
             },
             {
               label: hasOwnerStore ? "사장님 주문 관리" : "사업자 안내",
-              href: hasOwnerStore ? businessOrdersHref : "/mypage/business/apply",
+              href: hasOwnerStore ? businessOrdersHref : "/stores/owner/apply",
               caption: hasOwnerStore ? "매장 주문 처리" : "사업자 진입 안내",
             },
           ]}

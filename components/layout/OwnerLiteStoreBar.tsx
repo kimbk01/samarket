@@ -70,7 +70,7 @@ export function OwnerLiteStoreBar() {
             }}
           />
           <Link
-            href={`/my/business?storeId=${storeId}`}
+            href={`/stores/owner?storeId=${storeId}`}
             onClick={(e) => {
               if (openBlockedModalIfNeeded()) e.preventDefault();
             }}

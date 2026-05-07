@@ -60,10 +60,10 @@ export function StoreOwnerOpsSection({
     const sid = encodeURIComponent(ownerStore.id);
     const q = `storeId=${sid}`;
     return [
-      { label: "운영 센터", href: `/my/business?${q}` },
-      { label: "기본 정보", href: `/my/business/basic-info?${q}` },
-      { label: "매장 설정", href: `/my/business/profile?${q}` },
-      { label: "심사 상태", href: `/my/business/ops-status?${q}` },
+      { label: "운영 센터", href: `/stores/owner?${q}` },
+      { label: "기본 정보", href: `/stores/owner/basic-info?${q}` },
+      { label: "매장 설정", href: `/stores/owner/profile?${q}` },
+      { label: "심사 상태", href: `/stores/owner/ops-status?${q}` },
     ];
   }, [ownerStore, ownerOrderAttention]);
 
@@ -132,7 +132,7 @@ export function StoreOwnerOpsSection({
         <button
           type="button"
           onClick={() =>
-            goBusinessHubOrModal(`/my/business?storeId=${encodeURIComponent(ownerStore.id)}`)
+            goBusinessHubOrModal(`/stores/owner?storeId=${encodeURIComponent(ownerStore.id)}`)
           }
           className="shrink-0 rounded-full border border-violet-200 bg-violet-600/10 px-4 py-2 sam-text-xxs font-bold text-violet-950"
         >

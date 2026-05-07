@@ -800,7 +800,14 @@ export function BottomNav({
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
 
   const hideBottomNavShell =
-    isChatRoomDetail && !isCommunityMessengerRoomPathname(pathname ?? null);
+    (isChatRoomDetail && !isCommunityMessengerRoomPathname(pathname ?? null)) ||
+    // Owner business hub surfaces manage their own navigation/actions.
+    // Keep the global bottom nav hidden to avoid duplicated controls.
+    // Canonical owner surface is `/stores/owner/*`; legacy `/mypage/business`·`/my/business`
+    // 는 라우트 레벨에서 새 경로로 리다이렉트되지만 분기 안전망으로 함께 둔다.
+    (pathname?.startsWith("/stores/owner") ?? false) ||
+    (pathname?.startsWith("/mypage/business") ?? false) ||
+    (pathname?.startsWith("/my/business") ?? false);
 
   const outerClass = [
     BOTTOM_NAV_SHELL.outerClassName,

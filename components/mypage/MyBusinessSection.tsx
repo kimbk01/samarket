@@ -3,8 +3,8 @@
 import Link from "next/link";
 
 const ITEMS: { label: string; href: string; icon: React.ReactNode }[] = [
-  { label: "매장 등록 신청", href: "/my/business/apply", icon: <BuildingIcon /> },
-  { label: "매장 관리 (승인 후)", href: "/my/business", icon: <StoreManageIcon /> },
+  { label: "매장 등록 신청", href: "/stores/owner/apply", icon: <BuildingIcon /> },
+  { label: "매장 관리 (승인 후)", href: "/stores/owner", icon: <StoreManageIcon /> },
   { label: "광고", href: "/my/ads", icon: <MegaphoneIcon /> },
 ];
 

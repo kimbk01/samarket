@@ -219,7 +219,7 @@ export function StoreNearbyFeedSection({
       : null}
 
       <div className="flex flex-wrap gap-2">
-        <Link href="/my/business/apply" className={FB.primaryBtn}>
+        <Link href="/stores/owner/apply" className={FB.primaryBtn}>
           {ownerStore ? "매장 추가" : "매장 등록"}
         </Link>
         <Link href="/regions" className={FB.secondaryBtn}>
@@ -236,7 +236,7 @@ export function StoreNearbyFeedSection({
             <Link href="/stores#store-industry-explore" className={FB.secondaryBtn}>
               업종별 찾기
             </Link>
-            <Link href="/my/business/apply" className={FB.primaryBtn}>
+            <Link href="/stores/owner/apply" className={FB.primaryBtn}>
               등록하기
             </Link>
           </div>

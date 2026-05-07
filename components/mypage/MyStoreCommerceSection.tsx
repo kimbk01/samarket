@@ -72,7 +72,7 @@ export function MyStoreCommerceSection() {
         </p>
         <div className="mt-3 flex flex-col gap-2">
           <Link
-            href="/my/business/apply"
+            href="/stores/owner/apply"
             className="rounded-ui-rect border border-sam-border bg-sam-surface-muted py-3 text-center sam-text-body-secondary font-medium text-sam-fg"
           >
             매장 등록 신청
@@ -88,14 +88,14 @@ export function MyStoreCommerceSection() {
   const enc = primaryStoreId ? encodeURIComponent(primaryStoreId) : "";
   const ordersHref = primaryStoreId
     ? buildStoreOrdersHref({ storeId: primaryStoreId, tab: "new" })
-    : "/my/business/store-orders";
+    : "/stores/owner/orders";
   const inquiriesHref = primaryStoreId
-    ? `/my/business/inquiries?storeId=${enc}`
-    : "/my/business/inquiries";
-  const hubHref = primaryStoreId ? `/my/business?storeId=${enc}` : "/my/business";
+    ? `/stores/owner/inquiries?storeId=${enc}`
+    : "/stores/owner/inquiries";
+  const hubHref = primaryStoreId ? `/stores/owner?storeId=${enc}` : "/stores/owner";
   const productsHref = primaryStoreId
-    ? `/my/business/products?storeId=${enc}`
-    : "/my/business/products";
+    ? `/stores/owner/products?storeId=${enc}`
+    : "/stores/owner/products";
 
   return (
     <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
@@ -128,8 +128,8 @@ export function MyStoreCommerceSection() {
         <Link
           href={
             primaryStoreId
-              ? `/my/business/settlements?storeId=${encodeURIComponent(primaryStoreId)}`
-              : "/my/business/settlements"
+              ? `/stores/owner/settlements?storeId=${encodeURIComponent(primaryStoreId)}`
+              : "/stores/owner/settlements"
           }
           className="col-span-2 rounded-ui-rect border border-sam-border-soft bg-sam-surface-muted py-3 text-center sam-text-body-secondary font-medium text-sam-fg"
         >

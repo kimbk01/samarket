@@ -152,7 +152,7 @@ export async function POST(req: Request) {
   }
 
   // ---- Mode 1: seed defaults ----
-  // 1) categories upsert (slug 기준)
+  // 1) categories seed (slug 기준) — 기존 행은 절대 덮어쓰지 않음(관리자 커스터마이즈 보존)
   const categoriesPayload = BROWSE_PRIMARY_INDUSTRIES.map((c) => ({
     name: c.nameKo,
     slug: c.slug,
@@ -160,7 +160,10 @@ export async function POST(req: Request) {
     is_active: true,
   }));
 
-  const { error: upCatErr } = await sb.from("store_categories").upsert(categoriesPayload, { onConflict: "slug" });
+  const { error: upCatErr } = await sb.from("store_categories").upsert(categoriesPayload, {
+    onConflict: "slug",
+    ignoreDuplicates: true,
+  });
 
   if (upCatErr) {
     return NextResponse.json({ ok: false, error: upCatErr.message }, { status: 500 });
@@ -191,7 +194,11 @@ export async function POST(req: Request) {
     is_active: true,
   })).filter((t) => !!t.store_category_id);
 
-  const { error: upTopicErr } = await sb.from("store_topics").upsert(topicsPayload as any[], { onConflict: "slug" });
+  // 기존 토픽도 덮어쓰지 않음(이름/정렬/숨김 상태 유지)
+  const { error: upTopicErr } = await sb.from("store_topics").upsert(topicsPayload as any[], {
+    onConflict: "slug",
+    ignoreDuplicates: true,
+  });
 
   if (upTopicErr) {
     return NextResponse.json({ ok: false, error: upTopicErr.message }, { status: 500 });

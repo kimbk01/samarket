@@ -28,7 +28,7 @@ export function StoreMemberQuickActions({ activeStoreOrderCount = 0 }: { activeS
   }, [commerceCart]);
 
   const myBusinessHref =
-    !ownerLoading && ownerStores.length === 0 ? "/my/business/apply" : "/my/business";
+    !ownerLoading && ownerStores.length === 0 ? "/stores/owner/apply" : "/stores/owner";
   const prefetchHref = (href: string) => {
     const target = href.trim();
     if (!target.startsWith("/")) return;

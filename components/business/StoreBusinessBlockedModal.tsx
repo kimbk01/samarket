@@ -80,7 +80,7 @@ export function StoreBusinessBlockedModal({
           </button>
           {showProfile && firstStoreId ? (
             <Link
-              href={`/my/business/profile?storeId=${encodeURIComponent(firstStoreId)}`}
+              href={`/stores/owner/profile?storeId=${encodeURIComponent(firstStoreId)}`}
               onClick={onClose}
               className="rounded-ui-rect border border-signature/40 bg-signature/5 py-3 text-center sam-text-body font-medium text-signature active:opacity-90"
             >
@@ -89,7 +89,7 @@ export function StoreBusinessBlockedModal({
           ) : null}
           {showApply ? (
             <Link
-              href="/my/business/apply"
+              href="/stores/owner/apply"
               onClick={onClose}
               className="rounded-ui-rect border border-sam-border py-3 text-center sam-text-body font-medium text-sam-fg active:bg-sam-app"
             >

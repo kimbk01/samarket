@@ -6,7 +6,7 @@ import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-en
 interface SettingsAdminEntryProps {
   /** 플랫폼 관리자 — `/admin` */
   showAdmin: boolean;
-  /** 내 매장 소유 — `/my/business` (관리자와 별도) */
+  /** 내 매장 소유 — `/stores/owner` (관리자와 별도) */
   showStoreOwner: boolean;
 }
 
@@ -34,7 +34,7 @@ export function SettingsAdminEntry({ showAdmin, showStoreOwner }: SettingsAdminE
         {showStoreOwner ? (
           <button
             type="button"
-            onClick={() => goBusinessHubOrModal("/my/business")}
+            onClick={() => goBusinessHubOrModal("/stores/owner")}
             className="flex w-full items-center justify-between px-4 py-3 text-left sam-text-body font-medium text-sam-fg"
           >
             <span>매장 관리자 접속</span>

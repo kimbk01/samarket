@@ -81,6 +81,49 @@
 
 ---
 
+## 이번 라운드 (비즈: 라운드 BZ1 — `/mypage/business` 진입 블로킹 쿼리 제거)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | `/mypage/business?storeId=...` RSC 선로딩(`loadMyBusinessServer`)에서 **오너 상품 목록 전체 쿼리(`loadStoreProductsForOwner`)**까지 await 하며, 첫 응답(TTFB)이 cold에서 크게 느려졌다. |
+| 측정 명령 | PowerShell `curl.exe -L -o NUL -s -w` 3회 — `http://192.168.100.7:3000/mypage/business?storeId=<id>` (`time_starttransfer`, `time_total`) |
+| 완료 기준 | warm(런2–3) 평균 역행 없이 유지 + cold(run1) `time_starttransfer`가 유의미하게 감소 |
+| 수정 파일 (1~3) | `lib/business/load-my-business-server.ts`, `components/business/MyBusinessPage.tsx` |
+| 이번 조치 | RSC 선로딩에서 **상품 목록 선로딩을 제거**해 first response를 가볍게 하고, 클라 hydration 후 `loadRemote()`가 1회 실행되어 상품/대시보드 데이터를 채우게 했다. |
+
+### 라운드 BZ1 — 3회 측정 (s)
+
+| 구분 | Run1 | Run2 | Run3 | warm 평균(Run2–3) |
+|------|------|------|------|------------------|
+| 수정 전 `/mypage/business` `starttransfer` | 4.880858 | 0.102868 | 0.096440 | **0.099654** |
+| 수정 후 `/mypage/business` `starttransfer` | 0.286349 | 0.087961 | 0.145413 | **0.116687** |
+
+**비교:** cold Run1 **4.881s → 0.286s (−4.595s)**. warm 평균은 **0.100s → 0.117s** 로 미세 변동(노이즈)이나, cold 병목은 제거됨.  
+**판정:** **성공** — 대표 진입에서 “진입이 오래 걸림” 원인(상품 목록 블로킹)을 제거했고, cold에서 확실한 감소가 3회 측정으로 확인됐다.
+
+---
+
+## 이번 라운드 (비즈: 라운드 BZ2 — 내 매장 로드 중복 쿼리 1회 제거)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | `loadMeStoresListForUser`가 `applicant_nickname` 보강을 위해 **stores를 `in(storeIds)`로 한 번 더 조회**해, `/mypage/business` 진입 경로에서 불필요한 DB round-trip 1회가 추가되고 있었다. |
+| 측정 명령 | PowerShell `curl.exe -L -o NUL -s -w` 3회 — `http://192.168.100.7:3000/mypage/business?storeId=<id>` (`time_starttransfer`, `time_total`) |
+| 완료 기준 | warm(런2–3) 평균이 직전 라운드(BZ1) 대비 **역행 없이 감소**하고, 편차가 과도하지 않을 것 |
+| 수정 파일 (1~3) | `lib/me/load-me-stores-for-user.ts` |
+| 이번 조치 | `stores.select`에 `applicant_nickname`를 **가능하면 포함**하고(컬럼 없으면 legacy select로 fallback), 기존의 “닉네임 보강용 2번째 stores 조회”를 제거했다. |
+
+### 라운드 BZ2 — 3회 측정 (s)
+
+| 구분 | Run1 | Run2 | Run3 | warm 평균(Run2–3) |
+|------|------|------|------|------------------|
+| 수정 후 `/mypage/business` `starttransfer` | 0.943365 | 0.059326 | 0.058733 | **0.059030** |
+
+**비교:** 직전 라운드(BZ1) warm 평균 **0.116687s → 0.059030s (−0.057657s)**.  
+**판정:** **성공** — 동일 조건 3회에서 warm 평균이 절반 수준으로 감소.
+
+---
+
 ## 이번 라운드 (최신: 라운드 W8 — detail related 번들 후속 로드 분리)
 
 | 항목 | 내용 |

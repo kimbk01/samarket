@@ -32,6 +32,10 @@ const PATH_FETCH_PREFIXES = [
   "/mypage/trade/chat",
   "/philife",
   "/orders",
+  "/stores/owner/orders",
+  "/stores/owner/order-chat",
+  "/stores/owner/inquiries",
+  // 옛 경로(레거시 안전망) — 라우트 레벨 리다이렉트 직전에 일시적으로 매칭되는 경우 대비
   "/my/business/store-orders",
   "/my/business/store-order-chat",
   "/my/business/inquiries",

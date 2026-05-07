@@ -20,7 +20,7 @@ async function StoreOwnerNotificationsPageBody({ params }: PageProps) {
   const { slug } = await params;
   const safe = typeof slug === "string" ? slug : "";
   const storeId = await resolveStoreIdBySlug(safe);
-  const ordersHubHref = storeId ? buildStoreOrdersHref({ storeId }) : "/my/business/store-orders";
+  const ordersHubHref = storeId ? buildStoreOrdersHref({ storeId }) : "/stores/owner/orders";
 
   if (!storeId) {
     return (

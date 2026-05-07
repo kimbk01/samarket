@@ -75,7 +75,7 @@ export function OwnerOrderCard({
           상세보기
         </Link>
         <Link
-          href={`/my/business/store-order-chat/${encodeURIComponent(order.id)}`}
+          href={`/stores/owner/order-chat/${encodeURIComponent(order.id)}`}
           className="flex-1 rounded-ui-rect border border-sam-border bg-signature/5 py-2.5 text-center text-sm font-semibold text-sam-fg"
         >
           고객 문의

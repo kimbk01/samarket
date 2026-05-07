@@ -27,7 +27,7 @@ async function OwnerMenuLegacyRedirectPageBody({
       <div className="min-h-screen bg-background px-4 py-8">
         <p className="sam-text-body text-sam-fg">
           매장을 지정할 수 없습니다.{" "}
-          <Link href="/my/business" className="font-medium text-signature underline">
+          <Link href="/stores/owner" className="font-medium text-signature underline">
             내 상점
           </Link>
           에서 「상품 등록」을 눌러 주세요.
@@ -35,5 +35,5 @@ async function OwnerMenuLegacyRedirectPageBody({
       </div>
     );
   }
-  return redirect(`/my/business/products?storeId=${encodeURIComponent(storeId)}`);
+  return redirect(`/stores/owner/products?storeId=${encodeURIComponent(storeId)}`);
 }

@@ -1,4 +1,5 @@
 import type { MyBusinessNavContext } from "@/lib/business/my-business-nav";
+import { OwnerRoutes } from "@/lib/business/owner-routes";
 
 export type BusinessAdminSidebarItem = {
   label: string;
@@ -20,18 +21,16 @@ export type BusinessAdminSidebarSection = {
  */
 export function buildBusinessAdminSidebar(ctx: MyBusinessNavContext): BusinessAdminSidebarSection[] {
   const { storeId, slug, approvalStatus, isVisible, canSell, orderAlertsBadge } = ctx;
-  const sid = encodeURIComponent(storeId);
-  const q = `storeId=${sid}`;
   const approved = approvalStatus === "approved";
   const showOps = approved && isVisible;
 
   const sections: BusinessAdminSidebarSection[] = [];
 
-  const opsItems: BusinessAdminSidebarItem[] = [{ label: "대시보드", href: "/my/business" }];
+  const opsItems: BusinessAdminSidebarItem[] = [{ label: "대시보드", href: OwnerRoutes.hub() }];
   if (showOps && canSell) {
     opsItems.push({
       label: "주문 관리",
-      href: `/my/business/store-orders?${q}`,
+      href: OwnerRoutes.orders(storeId),
       badge: orderAlertsBadge > 0 ? orderAlertsBadge : undefined,
       description: "신규·환불 요청·상태 변경",
     });
@@ -39,7 +38,7 @@ export function buildBusinessAdminSidebar(ctx: MyBusinessNavContext): BusinessAd
   if (showOps) {
     opsItems.push({
       label: "채팅 · 문의",
-      href: `/my/business/inquiries?${q}`,
+      href: OwnerRoutes.inquiries(storeId),
       description: "매장 문의 답변",
     });
   }
@@ -51,21 +50,21 @@ export function buildBusinessAdminSidebar(ctx: MyBusinessNavContext): BusinessAd
       items: [
         {
           label: "상품 등록",
-          href: `/my/business/products?${q}`,
+          href: OwnerRoutes.products(storeId),
           description: "목록·노출·신규 등록",
         },
         {
           label: "카테고리",
-          href: `/my/business/menu-categories?${q}`,
+          href: OwnerRoutes.menuCategories(storeId),
         },
         {
           label: "배너 관리",
-          href: `/my/business/banners?${q}`,
+          href: OwnerRoutes.banners(storeId),
           description: "매장 상단 배너",
         },
         {
           label: "공지 관리",
-          href: `/my/business/notices?${q}`,
+          href: OwnerRoutes.notices(storeId),
           description: "위치별 공지",
         },
       ],
@@ -73,9 +72,9 @@ export function buildBusinessAdminSidebar(ctx: MyBusinessNavContext): BusinessAd
   }
 
   const storeItems: BusinessAdminSidebarItem[] = [
-    { label: "기본 정보", href: `/my/business/basic-info?${q}` },
-    { label: "매장 프로필", href: `/my/business/profile?${q}` },
-    { label: "운영 · 심사", href: `/my/business/ops-status?${q}` },
+    { label: "기본 정보", href: OwnerRoutes.basicInfo(storeId) },
+    { label: "매장 프로필", href: OwnerRoutes.profile(storeId) },
+    { label: "운영 · 심사", href: OwnerRoutes.opsStatus(storeId) },
   ];
   if (approved && isVisible && slug) {
     storeItems.push({
@@ -89,7 +88,7 @@ export function buildBusinessAdminSidebar(ctx: MyBusinessNavContext): BusinessAd
   if (showOps) {
     sections.push({
       title: "정산",
-      items: [{ label: "정산 내역", href: `/my/business/settlements?${q}` }],
+      items: [{ label: "정산 내역", href: OwnerRoutes.settlements(storeId) }],
     });
   }
 
@@ -109,7 +108,7 @@ export function buildBusinessAdminSidebar(ctx: MyBusinessNavContext): BusinessAd
     items: [
       {
         label: "알림 · 운영",
-        href: `/my/business/settings?${q}`,
+        href: OwnerRoutes.settings(storeId),
         description: "배달 알림음 안내(관리자 전역 설정)",
       },
     ],

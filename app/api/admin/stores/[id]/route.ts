@@ -11,6 +11,8 @@ type PatchBody = {
   note?: string;
   /** action === set_owner_identity_editable */
   enabled?: boolean;
+  /** action === set_store_name */
+  store_name?: string;
 };
 
 /**
@@ -118,6 +120,19 @@ export async function PATCH(
     if (idErr) {
       console.error("[admin/stores PATCH identity flag]", idErr);
       return NextResponse.json({ ok: false, error: idErr.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "set_store_name") {
+    const name = String(body.store_name ?? "").trim();
+    if (!name || name.length < 2) {
+      return NextResponse.json({ ok: false, error: "store_name_required" }, { status: 400 });
+    }
+    const { error: upErr } = await sb.from("stores").update({ store_name: name }).eq("id", id);
+    if (upErr) {
+      console.error("[admin/stores PATCH store_name]", upErr);
+      return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
     }
     return NextResponse.json({ ok: true });
   }

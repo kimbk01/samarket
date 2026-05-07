@@ -51,7 +51,7 @@ export function BusinessOperationalChecklistPending({
         <Step done={false}>
           <span className="font-medium">지금 할 수 있는 일: 프로필·이미지 입력</span>
           <Link
-            href={`/my/business/profile?storeId=${encodeURIComponent(storeId)}`}
+            href={`/stores/owner/profile?storeId=${encodeURIComponent(storeId)}`}
             className="mt-1 inline-block font-medium text-signature underline"
           >
             매장 프로필 열기 →
@@ -74,7 +74,7 @@ export function BusinessOperationalChecklistRevision({ storeId }: { storeId: str
         관리자 보완 요청 사항을 반영한 뒤, 다시 제출·심사를 기다려 주세요.
       </p>
       <Link
-        href={`/my/business/profile?storeId=${encodeURIComponent(storeId)}`}
+        href={`/stores/owner/profile?storeId=${encodeURIComponent(storeId)}`}
         className="mt-3 inline-flex rounded-ui-rect bg-signature px-4 py-2.5 sam-text-body font-medium text-white"
       >
         프로필에서 보완하기

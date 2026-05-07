@@ -18,6 +18,8 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status")?.trim();
+  const qRaw = searchParams.get("q")?.trim() ?? "";
+  const qText = qRaw.replace(/^@+/, "").trim();
 
   let q = sb
     .from("stores")
@@ -49,6 +51,7 @@ export async function GET(req: Request) {
   const list: AdminStoreListRow[] = Array.isArray(stores)
     ? (stores as unknown as AdminStoreListRow[])
     : [];
+
   const ids = list.map((s) => s.id);
   const ownerIds = [...new Set(list.map((s) => String(s.owner_user_id ?? "").trim()).filter(Boolean))];
 
@@ -73,6 +76,7 @@ export async function GET(req: Request) {
   ]);
 
   const nickByOwner = new Map<string, string>();
+  const usernameByOwner = new Map<string, string>();
   if (!profsRes.error && profsRes.data) {
     for (const p of profsRes.data) {
       const id = typeof p.id === "string" ? p.id : "";
@@ -81,6 +85,7 @@ export async function GET(req: Request) {
       const username = typeof (p as any).username === "string" ? String((p as any).username).trim() : "";
       const label = labelFromDisplayAndUsername(display || legacy, username).trim();
       if (id && label) nickByOwner.set(id, label);
+      if (id && username) usernameByOwner.set(id, username.replace(/^@+/, ""));
     }
   }
 
@@ -96,12 +101,51 @@ export async function GET(req: Request) {
   const listWithApplicant = list.map((s) => {
     const oid = String(s.owner_user_id ?? "").trim();
     const fromProfile = oid ? nickByOwner.get(oid) : undefined;
+    const ownerUsername = oid ? usernameByOwner.get(oid) : undefined;
     const fromCol = nickFromStoreCol.get(s.id);
+    const ownerHandle = ownerUsername ? `@${ownerUsername}` : null;
     return {
       ...s,
+      store_name: String((s as any).store_name ?? "").trim(),
       applicant_nickname: fromCol ?? fromProfile ?? null,
+      owner_username: ownerUsername ?? null,
+      owner_handle: ownerHandle,
     };
   });
+
+  const filteredListWithApplicant = qText
+    ? listWithApplicant.filter((s) => {
+        const qLower = qText.toLowerCase();
+        const handle = String((s as any).owner_handle ?? "").trim().toLowerCase().replace(/^@+/, "");
+        const storeName = String((s as any).store_name ?? "").trim().toLowerCase();
+        const slug = String((s as any).slug ?? "").trim().toLowerCase();
+        const phone = String((s as any).phone ?? "").trim().toLowerCase();
+        const kakao = String((s as any).kakao_id ?? "").trim().toLowerCase();
+        return (
+          storeName.includes(qLower) ||
+          slug.includes(qLower) ||
+          phone.includes(qLower) ||
+          kakao.includes(qLower) ||
+          handle.includes(qLower)
+        );
+      })
+    : listWithApplicant;
+
+  const statusCounts: Record<string, number> = {
+    all: filteredListWithApplicant.length,
+    pending: 0,
+    under_review: 0,
+    revision_requested: 0,
+    approved: 0,
+    rejected: 0,
+    suspended: 0,
+  };
+  for (const r of filteredListWithApplicant) {
+    const st = String((r as { approval_status?: unknown }).approval_status ?? "").trim();
+    if (st && Object.prototype.hasOwnProperty.call(statusCounts, st)) {
+      statusCounts[st] = (statusCounts[st] ?? 0) + 1;
+    }
+  }
 
   const permByStore: Record<string, Record<string, unknown>> = {};
   for (const p of permsRes.data ?? []) {
@@ -111,9 +155,10 @@ export async function GET(req: Request) {
 
   return NextResponse.json({
     ok: true,
-    stores: listWithApplicant.map((s) => ({
+    stores: filteredListWithApplicant.map((s) => ({
       ...s,
       sales_permission: permByStore[s.id] ?? null,
     })),
+    counts: statusCounts,
   });
 }

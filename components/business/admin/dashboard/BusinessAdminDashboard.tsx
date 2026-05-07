@@ -16,7 +16,6 @@ import { BusinessDashboardOrderTimeline, type TimelineOrder } from "@/components
 import { BusinessDashboardQuickRow } from "@/components/business/admin/dashboard/BusinessDashboardQuickRow";
 import { BusinessDashboardOwnerCardMenu } from "@/components/business/admin/dashboard/BusinessDashboardOwnerCardMenu";
 import { BusinessDashboardInsights } from "@/components/business/admin/dashboard/BusinessDashboardInsights";
-import { BusinessDashboardMobileBar } from "@/components/business/admin/dashboard/BusinessDashboardMobileBar";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
@@ -62,9 +61,9 @@ export function BusinessAdminDashboard({
 }) {
   const q = `storeId=${encodeURIComponent(row.id)}`;
   const ordersBaseHref = buildStoreOrdersHref({ storeId: row.id });
-  const inquiriesHref = `/my/business/inquiries?${q}`;
-  const productsHubHref = `/my/business/products?${q}`;
-  const settlementsHref = `/my/business/settlements?${q}`;
+  const inquiriesHref = `/stores/owner/inquiries?${q}`;
+  const productsHubHref = `/stores/owner/products?${q}`;
+  const settlementsHref = `/stores/owner/settlements?${q}`;
 
   const [orders, setOrders] = useState<TimelineOrder[]>([]);
   const [meta, setMeta] = useState({
@@ -327,7 +326,7 @@ export function BusinessAdminDashboard({
     cards.push({
       title: "운영 · 심사 상태",
       description: "공개 노출, 판매 승인, 배달 설정을 점검합니다.",
-      href: `/my/business/ops-status?${q}`,
+      href: `/stores/owner/ops-status?${q}`,
       tone: "default",
     });
 
@@ -350,10 +349,10 @@ export function BusinessAdminDashboard({
     () => [
       { label: "주문 관리", href: ordersBaseHref },
       { label: "상품 등록", href: productsHubHref },
-      { label: "카테고리", href: `/my/business/menu-categories?${q}` },
-      { label: "영업시간 · 휴무", href: `/my/business/profile?${q}` },
-      { label: "공지 · 소개", href: `/my/business/profile?${q}` },
-      { label: "배달 알림음 안내", href: `/my/business/settings?${q}` },
+      { label: "카테고리", href: `/stores/owner/menu-categories?${q}` },
+      { label: "영업시간 · 휴무", href: `/stores/owner/profile?${q}` },
+      { label: "공지 · 소개", href: `/stores/owner/profile?${q}` },
+      { label: "배달 알림음 안내", href: `/stores/owner/settings?${q}` },
       ...(row.slug && row.is_visible
         ? [{ label: "공개 페이지", href: `/stores/${encodeURIComponent(row.slug)}` }]
         : []),
@@ -363,13 +362,6 @@ export function BusinessAdminDashboard({
 
   return (
     <div className={`${OWNER_STORE_STACK_Y_CLASS} relative`}>
-      <BusinessDashboardMobileBar
-        storeOrdersHref={buildStoreOrdersHref({ storeId: row.id, tab: "new" })}
-        inquiriesHref={inquiriesHref}
-        orderBadge={orderAlertsBadge}
-        inquiryOpenCount={openInquiryCount}
-      />
-
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="sam-text-helper font-medium text-sam-muted">매장 운영 센터</p>
@@ -420,7 +412,7 @@ export function BusinessAdminDashboard({
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
         <BusinessOwnerOpsStrip row={row} profile={profile} canSell={canSell} />
         <Link
-          href={`/my/business/ops-status?${q}`}
+          href={`/stores/owner/ops-status?${q}`}
           className="mt-3 inline-block sam-text-body-secondary font-medium text-signature"
         >
           운영 상세 보기

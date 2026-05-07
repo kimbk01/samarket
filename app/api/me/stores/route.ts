@@ -5,6 +5,8 @@ import { loadMeStoresListForUser } from "@/lib/me/load-me-stores-for-user";
 import { makeStoreSlug } from "@/lib/stores/make-store-slug";
 import { isMissingStoresApplicantNicknameColumnError } from "@/lib/stores/stores-applicant-nickname-db";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
+import { normalizeStoreAddressPh } from "@/lib/stores/normalize-store-address-ph";
+import { RESERVED_STORE_SLUGS } from "@/lib/business/owner-routes";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,6 +45,8 @@ export async function GET() {
 type ApplyBody = {
   /** 신청자 닉네임 — 프로필과 별도로 수정 가능 */
   applicantNickname?: string;
+  /** 매장 ID(슬러그). URL `/stores/{slug}` 로 노출되며 중복 불가 */
+  storeSlug?: string;
   shopName?: string;
   description?: string;
   phone?: string;
@@ -91,11 +95,31 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "shopName_required" }, { status: 400 });
   }
 
+  const storeSlugRaw = String(body.storeSlug ?? "").trim().toLowerCase();
+  const storeSlug =
+    storeSlugRaw && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(storeSlugRaw) && storeSlugRaw.length >= 3 && storeSlugRaw.length <= 40
+      ? storeSlugRaw
+      : "";
+  if (!storeSlug) {
+    return NextResponse.json({ ok: false, error: "store_slug_required" }, { status: 400 });
+  }
+  /**
+   * 시스템 예약 슬러그(예: `owner` — `/stores/owner` 매장 운영 캐노니컬과 충돌) 거부.
+   * 정적 라우트가 동적 `[slug]` 보다 우선 매칭되어 사용자의 매장 페이지가 가려지는 것을 막는다.
+   */
+  if (RESERVED_STORE_SLUGS.has(storeSlug)) {
+    return NextResponse.json(
+      { ok: false, error: "store_slug_reserved" },
+      { status: 409 }
+    );
+  }
+
+  // 정책: 매장 신청은 계정당 1회만 허용 (상태와 무관)
+  // 이미 여러 건이 존재하는 환경이 있을 수 있으나, 신규 추가는 항상 차단한다.
   const { data: blockers, error: blockErr } = await supabase
     .from("stores")
     .select("id")
     .eq("owner_user_id", userId)
-    .in("approval_status", [...STORE_ACTIVE_PIPELINE_STATUSES])
     .limit(1);
 
   if (blockErr) {
@@ -183,10 +207,18 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  const regionRaw = String(body.region ?? "").trim();
+  const cityRaw = String(body.city ?? "").trim();
   const streetRaw = String(body.addressStreetLine ?? body.addressLabel ?? "").trim();
   const detailRaw = String(body.addressDetail ?? "").trim();
-  const street = streetRaw || null;
-  const detail = detailRaw || null;
+  const normAddr = normalizeStoreAddressPh({
+    region: regionRaw || null,
+    city: cityRaw || null,
+    address1: streetRaw || null,
+    address2: detailRaw || null,
+  });
+  const street = normAddr.address1;
+  const detail = normAddr.address2;
 
   /** business_hours_json 은 DB 기본 `{}` — 승인 후 매장 설정에서 영업·공지 등과 동일 스키마로 채움 */
   let insertPayload: Record<string, unknown> = {
@@ -199,8 +231,8 @@ export async function POST(req: NextRequest) {
     description,
     kakao_id: kakaoId,
     phone: phoneNorm.value,
-    region: String(body.region ?? "").trim() || null,
-    city: String(body.city ?? "").trim() || null,
+    region: normAddr.region,
+    city: normAddr.city,
     /** 피드·정렬 보조 — 주소 한 줄과 동기 */
     district: street,
     address_line1: street,
@@ -216,7 +248,7 @@ export async function POST(req: NextRequest) {
   let insErr: { code?: string; message: string } | null = null;
 
   for (let attempt = 0; attempt < 3; attempt++) {
-    const slug = makeStoreSlug(shopName);
+    const slug = storeSlug;
     let result = await supabase
       .from("stores")
       .insert({ ...insertPayload, slug })
@@ -250,6 +282,8 @@ export async function POST(req: NextRequest) {
       console.error("[POST /api/me/stores]", insErr);
       return NextResponse.json({ ok: false, error: insErr.message }, { status: 500 });
     }
+
+    break;
   }
 
   if (insErr || !inserted) {

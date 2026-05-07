@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
@@ -21,10 +21,12 @@ import {
   readCachedMeAddressList,
   writeCachedMeAddressList,
 } from "@/lib/addresses/address-list-client-cache";
+import { invalidateAddressDefaultsSnapshotCache } from "@/lib/addresses/fetch-address-defaults-client";
 
 export function AddressManagementClient({ embedded = false }: { embedded?: boolean } = {}) {
   const { tt } = useI18n();
   const pathname = usePathname();
+  const sp = useSearchParams();
   const router = useRouter();
   const [list, setList] = useState<UserAddressDTO[]>(() => readCachedMeAddressList() ?? []);
   const listRef = useRef<UserAddressDTO[]>([]);
@@ -35,6 +37,8 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   const [editorOpen, setEditorOpen] = useState(false);
   const [editorMode, setEditorMode] = useState<"create" | "edit">("create");
   const [editTarget, setEditTarget] = useState<UserAddressDTO | null>(null);
+  const [pickedId, setPickedId] = useState<string>("");
+  const [confirming, setConfirming] = useState(false);
   /** `/address/select` 에서 돌아올 때 sessionStorage 픽을 부모가 소비해 시트에 넘김 (시트가 닫힌 채 복귀하면 기존 useEffect(open) 만으로는 픽이 반영되지 않음) */
   const [mapBootstrap, setMapBootstrap] = useState<{
     latitude: number;
@@ -45,6 +49,24 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   const shouldShowMigrationHint =
     !!loadErr &&
     /(user_addresses|relation|schema cache|table_missing|마이그레이션)/i.test(loadErr);
+
+  const returnTo = useMemo(() => {
+    const raw = sp?.get("returnTo") ?? "";
+    const t = raw.trim();
+    if (!t) return "";
+    // allow only internal navigation
+    if (!t.startsWith("/")) return "";
+    if (t.startsWith("//")) return "";
+    return t;
+  }, [sp]);
+  const selectingForReturn = Boolean(returnTo);
+
+  useEffect(() => {
+    if (!selectingForReturn) return;
+    if (pickedId) return;
+    const master = list.find((a) => a.isDefaultMaster);
+    if (master?.id) setPickedId(master.id);
+  }, [selectingForReturn, list, pickedId]);
 
   useEffect(() => {
     if (!pathname || pathname.startsWith("/address/select")) return;
@@ -143,7 +165,11 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
     setEditTarget(null);
     writeMapAddressPickContext({ source: "create" });
     if (embedded) {
-      router.replace("/mypage/addresses");
+      const selfHref =
+        typeof window !== "undefined"
+          ? `${window.location.pathname}${window.location.search}`
+          : "/mypage/addresses";
+      router.replace(selfHref);
     }
     router.push("/address/select");
   }
@@ -182,6 +208,32 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
     }
   }
 
+  async function handleConfirm() {
+    if (confirming) return;
+    setConfirming(true);
+    try {
+      if (selectingForReturn) {
+        const id = pickedId || list.find((a) => a.isDefaultMaster)?.id || "";
+        if (!id) {
+          alert(tt("먼저 주소를 추가해 주세요."));
+          return;
+        }
+        await setAsRepresentative(id);
+      }
+      invalidateAddressDefaultsSnapshotCache();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent(SAMARKET_ADDRESSES_UPDATED_EVENT));
+      }
+      if (returnTo) {
+        router.push(returnTo);
+        return;
+      }
+      router.back();
+    } finally {
+      setConfirming(false);
+    }
+  }
+
   return (
     <div
       className={
@@ -189,7 +241,11 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
       }
     >
       {!embedded ? (
-        <MySubpageHeader title={tt("주소 관리")} backHref="/mypage" hideCtaStrip />
+        <MySubpageHeader
+          title={tt("주소 관리")}
+          backHref={returnTo || "/mypage"}
+          hideCtaStrip
+        />
       ) : null}
       {embedded ? (
         <div className="mx-auto max-w-none space-y-4 px-0 py-0 pb-0">
@@ -223,18 +279,37 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
                     key={row.id}
                     row={row}
                     busyId={busyId}
-                    onSetAsRepresentative={() => void setAsRepresentative(row.id)}
+                    onSetAsRepresentative={() =>
+                      selectingForReturn
+                        ? setPickedId(row.id)
+                        : void setAsRepresentative(row.id)
+                    }
                     onEdit={() => openEdit(row)}
                     onDelete={() => void removeRow(row.id)}
+                    containerClassName={
+                      selectingForReturn && pickedId === row.id
+                        ? "rounded-ui-rect bg-signature/10 ring-2 ring-signature/35"
+                        : ""
+                    }
                   />
                 ))}
               </ul>
             )}
           </div>
 
-          <button type="button" onClick={openCreate} className={ADDR_ADD_CTA}>
-            {tt("+ 주소 추가")}
-          </button>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={handleConfirm}
+              disabled={confirming || (selectingForReturn && list.length > 0 && !pickedId)}
+              className="w-full rounded-ui-rect bg-signature py-3.5 sam-text-body font-semibold text-white disabled:opacity-50"
+            >
+              {confirming ? tt("처리 중…") : tt("확인")}
+            </button>
+            <button type="button" onClick={openCreate} className={ADDR_ADD_CTA}>
+              {tt("+ 주소 추가")}
+            </button>
+          </div>
         </div>
       ) : (
         <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
@@ -269,18 +344,37 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
                       key={row.id}
                       row={row}
                       busyId={busyId}
-                      onSetAsRepresentative={() => void setAsRepresentative(row.id)}
+                      onSetAsRepresentative={() =>
+                        selectingForReturn
+                          ? setPickedId(row.id)
+                          : void setAsRepresentative(row.id)
+                      }
                       onEdit={() => openEdit(row)}
                       onDelete={() => void removeRow(row.id)}
+                      containerClassName={
+                        selectingForReturn && pickedId === row.id
+                          ? "rounded-ui-rect bg-signature/10 ring-2 ring-signature/35"
+                          : ""
+                      }
                     />
                   ))}
                 </ul>
               )}
             </div>
 
-            <button type="button" onClick={openCreate} className={ADDR_ADD_CTA}>
-              {tt("+ 주소 추가")}
-            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={handleConfirm}
+                disabled={confirming || (selectingForReturn && list.length > 0 && !pickedId)}
+                className="w-full rounded-ui-rect bg-signature py-3.5 sam-text-body font-semibold text-white disabled:opacity-50"
+              >
+                {confirming ? tt("처리 중…") : tt("확인")}
+              </button>
+              <button type="button" onClick={openCreate} className={ADDR_ADD_CTA}>
+                {tt("+ 주소 추가")}
+              </button>
+            </div>
           </div>
         </div>
       )}

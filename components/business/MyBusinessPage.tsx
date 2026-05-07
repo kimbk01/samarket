@@ -138,7 +138,16 @@ export function MyBusinessPage({
     }
   }, [preferredStoreId]);
 
-  const skipFirstRemoteRef = useRef(initialServerState != null);
+  const shouldSkipFirstRemote =
+    initialServerState != null &&
+    // If server seed didn't include products (perf), allow a client refresh once.
+    !(
+      initialServerState.kind === "remote" &&
+      initialServerState.row?.approval_status === "approved" &&
+      Array.isArray(initialServerState.products) &&
+      initialServerState.products.length === 0
+    );
+  const skipFirstRemoteRef = useRef(shouldSkipFirstRemote);
 
   useEffect(() => {
     if (skipFirstRemoteRef.current) {
@@ -282,7 +291,7 @@ export function MyBusinessPage({
         </div>
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
           <Link
-            href="/mypage/business/apply"
+            href="/stores/owner/apply"
             className="rounded-ui-rect border border-signature/30 bg-signature/5 px-4 py-4 sam-text-body font-semibold text-sam-fg shadow-sm"
           >
             매장 신청하기
@@ -313,7 +322,7 @@ export function MyBusinessPage({
             <p className="mt-2 whitespace-pre-wrap sam-text-body-secondary text-sam-fg">{profile.adminMemo}</p>
           ) : null}
           <Link
-            href={`/my/business/profile?${managementQuery}`}
+            href={`/stores/owner/profile?${managementQuery}`}
             className="mt-3 inline-block rounded-ui-rect bg-signature px-4 py-2.5 text-center sam-text-body font-medium text-white"
           >
             매장 프로필 보완하기
@@ -341,7 +350,7 @@ export function MyBusinessPage({
             {BUSINESS_STATUS_LABELS.pending}
           </span>
           <Link
-            href={`/my/business/profile?${managementQuery}`}
+            href={`/stores/owner/profile?${managementQuery}`}
             className="mt-3 inline-block rounded-ui-rect border border-sam-border px-4 py-2 sam-text-body font-medium text-sam-fg"
           >
             매장 프로필·이미지 입력
@@ -441,7 +450,7 @@ function MockBusinessBody({ profile }: { profile: BusinessProfile }) {
       <BusinessProfileView profile={profile} isOwner />
       <div className="flex justify-end">
         <Link
-          href="/my/business/edit"
+          href="/stores/owner/edit"
           className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-body font-medium text-sam-fg"
         >
           상점 정보 수정

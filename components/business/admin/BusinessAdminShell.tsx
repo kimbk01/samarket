@@ -18,6 +18,7 @@ import { OWNER_HUB_BADGE_DOT_CLASS } from "@/lib/chats/hub-badge-ui";
 import { BusinessAdminStoreProvider } from "@/components/business/admin/business-admin-store-context";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
+import { OwnerRoutes } from "@/lib/business/owner-routes";
 
 export function BusinessAdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "";
@@ -165,7 +166,7 @@ export function BusinessAdminShell({ children }: { children: React.ReactNode }) 
     );
   }
 
-  const adminBackFallbackHref = `/my/business?storeId=${encodeURIComponent(selectedRow.id)}`;
+  const adminBackFallbackHref = OwnerRoutes.hub(selectedRow.id);
 
   const sidebarBody = (
     <>

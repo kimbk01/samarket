@@ -109,6 +109,9 @@ export function resolveConditionalAppShellFlags(
   const isCommunityMessengerCallPage = Boolean(pathname?.match(/^\/community-messenger\/calls\/[^/]+$/));
   const suppressIncomingCallOverlay = resolveSuppressIncomingCallOverlay(pathname);
   const isAddressMapSelect = pathname === "/address/select";
+  /** 배달 탭에서 쓰는 내정보(매장/주문) 섹션 — 자체 메뉴를 가지므로 메인 하단 탭은 숨김 */
+  const isDeliveryMyInfoStoreSection =
+    pathname === "/mypage/section/store" || (pathname?.startsWith("/mypage/section/store/") ?? false);
   const isViewportLockedChatDetail =
     isMypageTradeChatRoom ||
     isCommunityMessengerRoom ||
@@ -177,6 +180,7 @@ export function resolveConditionalAppShellFlags(
     !isWritePage &&
     !suppressBottomNavForChatDetail &&
     !isDeliveryStoresSurface &&
+    !isDeliveryMyInfoStoreSection &&
     !isPostDetail &&
     !isProductDetail &&
     !isStoreProductDetail &&

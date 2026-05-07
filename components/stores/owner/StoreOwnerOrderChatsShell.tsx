@@ -85,7 +85,7 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
     if (state.kind === "ok") void loadRooms(state.storeId);
   });
 
-  const ordersHref = "/my/business/store-orders";
+  const ordersHref = "/stores/owner/orders";
   const orderChatsHref = "/my/store-orders";
   const loginHref = "/login";
 
@@ -123,7 +123,7 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
     return (
       <div className="min-h-screen bg-sam-app px-4 py-10 text-center text-sm text-sam-muted">
         이 주소의 매장을 찾을 수 없거나 권한이 없습니다.
-        <Link href="/my/business/store-orders" className="mt-4 block text-violet-700 underline">
+        <Link href="/stores/owner/orders" className="mt-4 block text-violet-700 underline">
           사업자 주문함
         </Link>
       </div>
@@ -166,7 +166,7 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
             {rooms.map((r) => (
               <li key={r.id}>
                 <Link
-                  href={`/my/business/store-order-chat/${encodeURIComponent(r.order_id)}`}
+                  href={`/stores/owner/order-chat/${encodeURIComponent(r.order_id)}`}
                   className="flex items-start justify-between gap-2 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm"
                 >
                   <div className="min-w-0">

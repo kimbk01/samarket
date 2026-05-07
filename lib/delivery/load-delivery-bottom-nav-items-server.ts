@@ -15,12 +15,15 @@ export type DeliveryBottomNavItem = {
   color: string;
 };
 
-/** 소유 매장이 있을 때만 클라이언트에서 합성 노출 (어드민 메뉴 편집 대상 아님). */
+/**
+ * 소유 매장이 있을 때만 클라이언트에서 합성 노출 (어드민 메뉴 편집 대상 아님).
+ * 캐노니컬 진입은 `/stores/owner` (옛 `/mypage/business`·`/my/business` 는 본 경로로 리다이렉트).
+ */
 export const DELIVERY_BOTTOM_NAV_OWNER_STORE_ITEM: DeliveryBottomNavItem = {
   id: "builtin_owner_store",
   label: "내매장",
   icon_key: "store",
-  href: "/my/business",
+  href: "/stores/owner",
   sort_order: 3,
   is_active: true,
   is_center: false,
@@ -87,7 +90,14 @@ function defaultDeliveryBottomNavItems(): DeliveryBottomNavItem[] {
 export function isDeliveryBottomNavBuiltinOwnerStoreItem(i: Pick<DeliveryBottomNavItem, "icon_key" | "href">): boolean {
   if (i.icon_key !== "store") return false;
   const h = String(i.href ?? "").trim();
-  return h === "/my/business" || h.startsWith("/my/business/");
+  return (
+    h === "/stores/owner" ||
+    h.startsWith("/stores/owner/") ||
+    h === "/mypage/business" ||
+    h.startsWith("/mypage/business/") ||
+    h === "/my/business" ||
+    h.startsWith("/my/business/")
+  );
 }
 
 function cloneItems(items: DeliveryBottomNavItem[]): DeliveryBottomNavItem[] {

@@ -47,7 +47,7 @@ export function peekFreshAddressDefaultsSnapshot(): AddressDefaultsSnapshot | nu
 }
 
 export async function fetchAddressDefaultsSnapshot(
-  opts?: { force?: boolean }
+  opts?: { force?: boolean; timeoutMs?: number }
 ): Promise<AddressDefaultsSnapshot | null> {
   if (opts?.force) {
     invalidateAddressDefaultsSnapshotCache();
@@ -58,10 +58,19 @@ export async function fetchAddressDefaultsSnapshot(
   }
   try {
     const snapshot = await runSingleFlight(ADDRESS_DEFAULTS_SNAPSHOT_FLIGHT, async () => {
-      const res = await fetch("/api/me/address-defaults", {
-        credentials: "include",
-        cache: "no-store",
-      });
+      const timeoutMs = Math.max(1_000, Number(opts?.timeoutMs ?? 8_000));
+      const ac = new AbortController();
+      const t = globalThis.setTimeout(() => ac.abort(), timeoutMs);
+      let res: Response;
+      try {
+        res = await fetch("/api/me/address-defaults", {
+          credentials: "include",
+          cache: "no-store",
+          signal: ac.signal,
+        });
+      } finally {
+        globalThis.clearTimeout(t);
+      }
       const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         defaults?: {

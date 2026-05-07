@@ -63,7 +63,7 @@ export function AdminStoreInquiriesPage() {
       <AdminPageHeader title="매장 문의 모니터링" />
       <p className="sam-text-body-secondary text-sam-muted">
         회원이 매장에 보낸 문의·오너 답변 상태를 조회합니다. 답변은 오너 화면(
-        <code className="rounded bg-sam-surface-muted px-1">/my/business/inquiries</code>)에서 처리합니다.
+        <code className="rounded bg-sam-surface-muted px-1">/stores/owner/inquiries</code>)에서 처리합니다.
       </p>
 
       {error ? (
