@@ -455,9 +455,12 @@ export function StoreDetailPublic({
       scrollHeaderGate.current = true;
       window.requestAnimationFrame(() => {
         scrollHeaderGate.current = false;
-        const y = window.scrollY;
         setHeaderSolid((prev) => {
-          const next = y > 52;
+          // 히어로 이미지가 끝나는 지점까지는 투명 헤더 유지.
+          // 이미지 하단이 헤더(약 56px) 아래로 내려오면 → 흰 헤더 + 검은 아이콘 전환.
+          const hero = document.getElementById("store-hero-media");
+          const headerH = 56; // h-14
+          const next = hero ? hero.getBoundingClientRect().bottom <= headerH : true;
           return prev === next ? prev : next;
         });
       });
@@ -850,7 +853,7 @@ export function StoreDetailPublic({
   return viewportShell(
     <div className={`pb-[env(safe-area-inset-bottom,0px)] ${rootBottomPadClass}`}>
       <StoreDetailSummarySection
-        headerElevated={headerSolid}
+        headerElevated={headerSolid || !heroImageUrl}
         fallbackHref={fallbackHref}
         store={store}
         heroImageUrl={heroImageUrl}

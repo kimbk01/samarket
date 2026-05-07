@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { StoreDetailBackLink } from "@/components/stores/StoreDetailBackRow";
 import {
   STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME,
@@ -39,6 +40,11 @@ export function StoreOrderStickyHeader({
   /** 빈 카트에서도 프리뷰 시트 열기용 — 카트 링크와 병행 */
   onCartPreviewClick: () => void;
 }) {
+  const [portalToBody, setPortalToBody] = useState(false);
+  useEffect(() => {
+    setPortalToBody(true);
+  }, []);
+
   const commerceCart = useStoreCommerceCartOptional();
   const cartLineKindCount =
     commerceCart?.hydrated && commerceCartStoreId
@@ -59,9 +65,9 @@ export function StoreOrderStickyHeader({
     [cartLineKindCount, onCartPreviewClick]
   );
 
-  return (
+  const header = (
     <header
-      className={`fixed left-0 right-0 top-0 z-[60] pt-[env(safe-area-inset-top,0px)] transition-[background-color,box-shadow,border-color] duration-[180ms] ease-out ${
+      className={`fixed inset-x-0 top-0 z-[60] pt-[env(safe-area-inset-top,0px)] transition-[background-color,box-shadow,border-color] duration-[180ms] ease-out ${
         elevated
           ? "border-b border-black/[0.06] bg-white shadow-[0_1px_0_rgba(0,0,0,0.04)]"
           : "border-b border-transparent bg-transparent"
@@ -72,7 +78,7 @@ export function StoreOrderStickyHeader({
           fallbackHref={fallbackHref}
           className={
             elevated
-              ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-neutral-800 hover:bg-black/[0.06] active:bg-black/[0.08]"
+              ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-neutral-900 hover:bg-black/[0.06] active:bg-black/[0.08]"
               : "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white drop-shadow hover:bg-white/15 active:bg-white/25"
           }
         />
@@ -88,7 +94,7 @@ export function StoreOrderStickyHeader({
         <div className="flex shrink-0 items-center gap-0.5">
           <button
             type="button"
-            className={`${iconBtn} ${elevated ? "text-neutral-700" : "text-white drop-shadow-sm"}`}
+            className={`${iconBtn} ${elevated ? "text-neutral-900" : "text-white drop-shadow-sm"}`}
             style={{ color: elevated ? undefined : "#fff" }}
             aria-label="메뉴 검색"
             onClick={onMenuSearchFocus}
@@ -100,7 +106,7 @@ export function StoreOrderStickyHeader({
           </button>
           <button
             type="button"
-            className={`${iconBtn} ${elevated ? "text-neutral-700" : "text-white drop-shadow-sm"}`}
+            className={`${iconBtn} ${elevated ? "text-neutral-900" : "text-white drop-shadow-sm"}`}
             aria-label="공유"
             onClick={onShareClick}
           >
@@ -127,7 +133,7 @@ export function StoreOrderStickyHeader({
           <Link
             href={cartHref}
             onClick={onCartPress}
-            className={`${iconBtn} relative ${elevated ? "text-neutral-700" : "text-white drop-shadow-sm"}`}
+            className={`${iconBtn} relative ${elevated ? "text-neutral-900" : "text-white drop-shadow-sm"}`}
             aria-label={
               cartLineKindCount > 0 ? `장바구니, 담긴 종류 ${cartLineKindCount}개` : "장바구니"
             }
@@ -143,4 +149,7 @@ export function StoreOrderStickyHeader({
       </div>
     </header>
   );
+
+  // Portal: 상위 레이아웃에 transform/스크롤 컨테이너가 있어도 viewport 상단 고정 유지
+  return portalToBody ? createPortal(header, document.body) : header;
 }

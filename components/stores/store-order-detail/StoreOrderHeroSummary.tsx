@@ -73,6 +73,7 @@ export function StoreOrderHeroSummary({
   viewerFavorited,
   favoriteBusy,
   onFavoriteClick,
+  collapseTopFulfillmentCard = false,
 }: {
   storeName: string;
   profileImageUrl: string | null;
@@ -99,6 +100,12 @@ export function StoreOrderHeroSummary({
   viewerFavorited: boolean;
   favoriteBusy: boolean;
   onFavoriteClick: () => void;
+  /**
+   * 히어로 이미지 상단 오버레이 UX:
+   * 스크롤로 헤더가 흰색(elevated) 상태가 되면, 큰 배달/픽업 카드 블록은 접어서
+   * 메뉴 영역이 바로 따라오게 한다.
+   */
+  collapseTopFulfillmentCard?: boolean;
 }) {
   /** 당김 시 레이아웃 높이 + 위로 이동을 같이 줘서 헤더 위 흰 빈 공간이 보이지 않게 함 */
   const { stretch: heroStretch, scale: heroRubberScale } = useRubberBandAtDocumentTop(120, {
@@ -168,7 +175,10 @@ export function StoreOrderHeroSummary({
             : undefined
         }
       >
-        <div className="relative w-full overflow-hidden bg-gradient-to-br from-[#1C8DB8]/88 via-[#197DA3]/82 to-[#0f766e]/78">
+        <div
+          id="store-hero-media"
+          className="relative w-full overflow-hidden bg-gradient-to-br from-[#1C8DB8]/88 via-[#197DA3]/82 to-[#0f766e]/78"
+        >
           <div
             className="relative w-full overflow-hidden"
             style={{
@@ -266,72 +276,77 @@ export function StoreOrderHeroSummary({
         </div>
       </div>
 
-      <div className="bg-white px-4 pb-2.5">
-        <div className="rounded-[12px] border border-neutral-200 bg-white shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
-          <div className="flex w-full items-center gap-1 rounded-t-[12px] bg-[#F3F4F6] p-0.5">
-          <button
-            type="button"
-            disabled={!deliveryAvailable}
-            onClick={() => onFulfillmentChange("local_delivery")}
-            className={`${segBase} ${fulfillmentMode === "local_delivery" ? segOn : segOff}`}
-          >
-            배달
-          </button>
-          <button
-            type="button"
-            disabled={!pickupAvailable}
-            onClick={() => onFulfillmentChange("pickup")}
-            className={`${segBase} ${fulfillmentMode === "pickup" ? segOn : segOff}`}
-          >
-            픽업
-          </button>
-          </div>
+      {collapseTopFulfillmentCard ? null : (
+        <div className="bg-white px-4 pb-2.5">
+          <div className="rounded-[12px] border border-neutral-200 bg-white shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
+            <div className="flex w-full items-center gap-1 rounded-t-[12px] bg-[#F3F4F6] p-0.5">
+              <button
+                type="button"
+                disabled={!deliveryAvailable}
+                onClick={() => onFulfillmentChange("local_delivery")}
+                className={`${segBase} ${fulfillmentMode === "local_delivery" ? segOn : segOff}`}
+              >
+                배달
+              </button>
+              <button
+                type="button"
+                disabled={!pickupAvailable}
+                onClick={() => onFulfillmentChange("pickup")}
+                className={`${segBase} ${fulfillmentMode === "pickup" ? segOn : segOff}`}
+              >
+                픽업
+              </button>
+            </div>
 
-          <div className="px-3 py-1.5">
-            {fulfillmentMode === "local_delivery" ? (
-              <>
-                <InfoRow label="최소주문" value={minDisplay} />
-                <InfoRow label="가게배달" value={timeDisplay} sub={deliverySub} />
-                <InfoRow label="배달팁" value={feeDisplay} />
-              </>
-            ) : (
-              <>
-                <InfoRow
-                  label="최소주문"
-                  value={
-                    commerceExtras.minOrderPhp != null && commerceExtras.minOrderPhp > 0
-                      ? minDisplay
-                      : "없음"
-                  }
-                />
-                <InfoRow label="픽업시간" value={`약 ${prepLine}`} />
-                {payFull ? <InfoRow label="결제방법" value={payFull} /> : null}
-                {addressDisp ? (
+            <div className="px-3 py-1.5">
+              {fulfillmentMode === "local_delivery" ? (
+                <>
+                  <InfoRow label="최소주문" value={minDisplay} />
+                  <InfoRow label="가게배달" value={timeDisplay} sub={deliverySub} />
+                  <InfoRow label="배달팁" value={feeDisplay} />
+                </>
+              ) : (
+                <>
                   <InfoRow
-                    label="위치안내"
-                    value={addressDisp}
-                    action={
-                      <Link href={storeInfoHref} className="shrink-0 rounded-full bg-neutral-100 px-2.5 py-1 text-[12px] font-bold text-neutral-800">
-                        지도보기
-                      </Link>
+                    label="최소주문"
+                    value={
+                      commerceExtras.minOrderPhp != null && commerceExtras.minOrderPhp > 0
+                        ? minDisplay
+                        : "없음"
                     }
                   />
-                ) : null}
-              </>
-            )}
+                  <InfoRow label="픽업시간" value={`약 ${prepLine}`} />
+                  {payFull ? <InfoRow label="결제방법" value={payFull} /> : null}
+                  {addressDisp ? (
+                    <InfoRow
+                      label="위치안내"
+                      value={addressDisp}
+                      action={
+                        <Link
+                          href={storeInfoHref}
+                          className="shrink-0 rounded-full bg-neutral-100 px-2.5 py-1 text-[12px] font-bold text-neutral-800"
+                        >
+                          지도보기
+                        </Link>
+                      }
+                    />
+                  ) : null}
+                </>
+              )}
+            </div>
+            {commerce?.breakConfigured ? (
+              <p className="border-t border-neutral-100 bg-amber-50 px-3.5 py-2 text-center text-[12px] font-bold text-amber-800">
+                Break {commerce.breakRangeLabel}
+              </p>
+            ) : null}
+            {deliveryMeta.deliveryNotice.trim() ? (
+              <p className="rounded-b-[12px] bg-[#EEF8FC] px-3.5 py-2 text-center text-[12px] font-bold text-neutral-800">
+                {deliveryMeta.deliveryNotice.trim()}
+              </p>
+            ) : null}
           </div>
-          {commerce?.breakConfigured ? (
-            <p className="border-t border-neutral-100 bg-amber-50 px-3.5 py-2 text-center text-[12px] font-bold text-amber-800">
-              Break {commerce.breakRangeLabel}
-            </p>
-          ) : null}
-          {deliveryMeta.deliveryNotice.trim() ? (
-            <p className="rounded-b-[12px] bg-[#EEF8FC] px-3.5 py-2 text-center text-[12px] font-bold text-neutral-800">
-              {deliveryMeta.deliveryNotice.trim()}
-            </p>
-          ) : null}
         </div>
-      </div>
+      )}
     </div>
   );
 }

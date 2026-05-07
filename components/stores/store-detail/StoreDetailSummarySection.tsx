@@ -112,6 +112,7 @@ export function StoreDetailSummarySection({
         <StoreOrderHeroSummary
           storeName={store.store_name}
           profileImageUrl={heroImageUrl}
+          collapseTopFulfillmentCard={headerElevated && !!heroImageUrl}
           ratingAvg={
             store.rating_avg != null && Number.isFinite(Number(store.rating_avg))
               ? Number(store.rating_avg)
