@@ -1,7 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
+import {
+  cmRenderAnalysisEnabled,
+  recordCmRenderImageDecodeSample,
+} from "@/lib/community-messenger/monitoring/cm-render-analysis";
+import { recordCmPolishAttachmentDecodeMs } from "@/lib/community-messenger/monitoring/cm-polish-analysis";
 
 const BUBBLE_MAX =
   "mx-auto w-full min-w-[140px] max-w-[min(62vw,280px)] sm:max-w-[min(62vw,320px)] md:max-w-[min(62vw,360px)]";
@@ -154,6 +159,11 @@ function SingleChatImage({
   isMine: boolean;
   onOpen: () => void;
 }) {
+  const imgDecodeStartRef = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    if (!cmRenderAnalysisEnabled()) return;
+    imgDecodeStartRef.current = typeof performance !== "undefined" ? performance.now() : null;
+  }, [src]);
   const [ar, setAr] = useState<number | null>(null);
   useEffect(() => {
     setAr((prev) => (prev == null ? prev : null));
@@ -167,7 +177,10 @@ function SingleChatImage({
         className="relative block w-full overflow-hidden rounded-[16px] border-0 bg-transparent text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--cm-room-primary)]"
         aria-label="사진 크게 보기"
       >
-        <div className="relative max-h-[360px] w-full overflow-hidden" style={{ aspectRatio: ratio }}>
+        <div
+          className="relative max-h-[360px] w-full overflow-hidden"
+          style={{ aspectRatio: ratio, contain: "layout" }}
+        >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={src}
@@ -179,6 +192,12 @@ function SingleChatImage({
               const el = e.currentTarget;
               const w = el.naturalWidth;
               const h = el.naturalHeight;
+              if (imgDecodeStartRef.current != null && typeof performance !== "undefined") {
+                const decodeMs = performance.now() - imgDecodeStartRef.current;
+                recordCmRenderImageDecodeSample(decodeMs);
+                recordCmPolishAttachmentDecodeMs(decodeMs);
+                imgDecodeStartRef.current = null;
+              }
               if (w > 0 && h > 0) {
                 const nextAr = w / h;
                 setAr((prev) => (prev === nextAr ? prev : nextAr));

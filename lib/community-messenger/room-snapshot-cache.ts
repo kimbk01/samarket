@@ -3,6 +3,7 @@ import type {
   CommunityMessengerRoomSnapshot,
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
+import { COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT } from "@/lib/community-messenger/types";
 import {
   communityMessengerRoomBootstrapPath,
   parseCommunityMessengerRoomSnapshotResponse,
@@ -14,8 +15,27 @@ const TTL_MS = 60_000;
 /** 방 스냅샷 메인 캐시 — LRU 상한 50 (접근 시 순서 bump, TTL 60s 유지) */
 const MAX_ENTRIES = 50;
 const entries = new Map<string, { snapshot: CommunityMessengerRoomSnapshot; at: number }>();
-/** 계측: 목록·호버 프리패치 — 방 클라 `createMessengerRoomBootstrapRefresh` GET 과 URL 로그에서 분리 */
-const ROOM_PREFETCH_QUERY = "?mode=lite&memberHydration=minimal&cmReqSrc=list_prefetch";
+/**
+ * 목록 프리패치 — 입장 차단 부트스트랩과 동일한 critical/instant 슬라이스로 정렬(네트워크 burst 는 큐·동시 2 로 제한).
+ */
+const ROOM_PREFETCH_QUERY = `?mode=instant&memberHydration=minimal&hydration=critical&cmReqSrc=list_prefetch&messages=${COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT}`;
+
+let lastPrefetchSuccessRoomId = "";
+let lastPrefetchSuccessAt = 0;
+
+/** 입장 직전에 프리패치가 성공해 캐시에 실렸다는 힌트(1회 소비) — `list_prefetch` critical GET 완료 시에만 true */
+export function consumePrefetchHitForRoom(roomId: string): boolean {
+  const id = String(roomId ?? "").trim();
+  if (!id || id !== lastPrefetchSuccessRoomId) return false;
+  if (Date.now() - lastPrefetchSuccessAt > 15_000) {
+    lastPrefetchSuccessRoomId = "";
+    lastPrefetchSuccessAt = 0;
+    return false;
+  }
+  lastPrefetchSuccessRoomId = "";
+  lastPrefetchSuccessAt = 0;
+  return true;
+}
 
 /** 목록 프리패치 TTL과 별개 — 같은 방 재입장 시 `consume` 으로 지워지지 않게 유지(메인 LRU 와 유사 규모) */
 const HOT_MAX = 55;
@@ -345,6 +365,8 @@ export async function prefetchCommunityMessengerRoomSnapshot(
       const json = await res.json().catch(() => null);
       const snap = parseCommunityMessengerRoomSnapshotResponse(json);
       if (res.ok && snap) {
+        lastPrefetchSuccessRoomId = key;
+        lastPrefetchSuccessAt = Date.now();
         primeRoomSnapshot(key, snap);
         primeHotRoomSnapshot(key, snap);
         return true;

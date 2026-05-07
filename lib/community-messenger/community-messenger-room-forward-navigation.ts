@@ -11,6 +11,7 @@ import {
 import { primeMessengerRoomEntrySnapshot } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 import { beginRouteEntryPerf, recordRouteEntryMetric } from "@/lib/runtime/samarket-runtime-debug";
+import { markCmRoomEntryForwardNavigation } from "@/lib/community-messenger/room/cm-room-entry-instrumentation";
 
 /** 클릭~라우팅 사이 스냅샷 GET 상한 — 포인터다운 프리패치가 거의 끝난 경우 짧게 합류(무한 대기 금지) */
 const ROOM_NAV_SNAPSHOT_LEAD_MS_MIN = 0;
@@ -53,6 +54,7 @@ export async function runCommunityMessengerRoomForwardNavigation(
   }
 
   beginRouteEntryPerf("messenger_room_entry", dest);
+  markCmRoomEntryForwardNavigation();
 
   if (!isRoomSnapshotFresh(id, vu)) {
     const leadMs = messengerRoomNavSnapshotLeadMs();

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { Dispatch, SetStateAction } from "react";
+import { getMessengerBackgroundHydrationScheduler } from "@/lib/community-messenger/background-hydration-scheduler";
 import { primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { communityMessengerRoomIsTrade } from "@/lib/community-messenger/messenger-room-domain";
 import type {
@@ -83,34 +84,43 @@ export function useTradeChatListMetaHydration(args: {
     const roomIds = missingKey.split(",").filter(Boolean);
     if (roomIds.length === 0) return;
 
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch("/api/community-messenger/trade-chat-list-meta", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ roomIds }),
-        });
-        const json = (await res.json().catch(() => ({}))) as {
-          ok?: boolean;
-          patches?: Array<{ roomId: string; contextMeta: CommunityMessengerRoomContextMetaV1 | null }>;
-        };
-        if (cancelled || !res.ok || !json.ok || !Array.isArray(json.patches)) return;
-        for (const id of roomIds) tradeMetaFetchAttemptedRef.current.add(id);
-        const toApply = json.patches.filter((p) => p.contextMeta != null);
-        if (toApply.length === 0) return;
-        setData((prev) => {
-          if (!prev) return prev;
-          return mergeTradeChatContextPatches(prev, toApply);
-        });
-      } catch {
-        /* ignore */
-      }
-    })();
+    let stale = false;
+    const dedupeKey = `trade-chat-list-meta:${missingKey}`;
+    getMessengerBackgroundHydrationScheduler().schedule({
+      id: dedupeKey,
+      dedupeKey,
+      priority: "low",
+      run: async (signal) => {
+        if (stale || signal.aborted) return;
+        try {
+          const res = await fetch("/api/community-messenger/trade-chat-list-meta", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ roomIds }),
+            signal,
+          });
+          const json = (await res.json().catch(() => ({}))) as {
+            ok?: boolean;
+            patches?: Array<{ roomId: string; contextMeta: CommunityMessengerRoomContextMetaV1 | null }>;
+          };
+          if (stale) return;
+          if (!res.ok || !json.ok || !Array.isArray(json.patches)) return;
+          for (const id of roomIds) tradeMetaFetchAttemptedRef.current.add(id);
+          const toApply = json.patches.filter((p) => p.contextMeta != null);
+          if (toApply.length === 0) return;
+          setData((prev) => {
+            if (!prev) return prev;
+            return mergeTradeChatContextPatches(prev, toApply);
+          });
+        } catch {
+          /* ignore */
+        }
+      },
+    });
 
     return () => {
-      cancelled = true;
+      stale = true;
     };
   }, [enabled, missingKey, setData, viewerUserId]);
 }

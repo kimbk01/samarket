@@ -364,8 +364,8 @@ export type CommunityMessengerRoomSnapshot = {
 /** `getCommunityMessengerRoomSnapshot` 초기 메시지 윈도 — 부트스트랩 API·가상 스크롤 `hasMore` 판단과 맞춤 */
 export const COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT = 30;
 
-/** 비-expand 부트스트랩 시드 기본 — 페이로드·스냅샷 ms 절감용(라우트 `effectiveDefaultLimit`와 동일 원천) */
-export const COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT = 12;
+/** 비-expand 부트스트랩 시드 기본 — 첫 페인트용 최근 메시지 슬라이스(~24). 라우트 `effectiveDefaultLimit`·critical clamp와 맞춘다. */
+export const COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT = 24;
 
 /** 그룹방 스냅샷에 실을 프로필(참가자) 상한 — 전원 하이드레이션 비용·응답 크기 완화 */
 export const COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MEMBER_CAP = 60;
@@ -460,7 +460,44 @@ export type CommunityMessengerManagedCallConnection = {
   callKind: CommunityMessengerCallKind;
 };
 
+/** `GET /api/community-messenger/bootstrap?tier=critical` — 리스트 첫 페인트용 최소 페이로드 */
+export type CommunityMessengerCriticalParticipantLabel = {
+  user_id: string;
+  label: string;
+  avatar_url: string | null;
+};
+
+export type CommunityMessengerCriticalRoomRow = {
+  room_id: string;
+  room_type: CommunityMessengerRoomType;
+  direct_key: string | null;
+  title: string;
+  avatar_url: string | null;
+  /** 예약 필드 — 현재는 서버가 항상 `avatar_url` 중심 */
+  avatar_ref: string | null;
+  last_message_preview: string;
+  last_message_at: string;
+  unread_count: number;
+  participant_labels_minimal: CommunityMessengerCriticalParticipantLabel[];
+  group_meta: {
+    member_count: number;
+    member_limit: number | null;
+    is_discoverable: boolean;
+    join_policy: CommunityMessengerRoomJoinPolicy;
+  } | null;
+};
+
+export type CommunityMessengerBootstrapCritical = {
+  tier: "critical";
+  me: CommunityMessengerProfileLite | null;
+  chats: CommunityMessengerCriticalRoomRow[];
+  groups: CommunityMessengerCriticalRoomRow[];
+  tabs: { chats: number; groups: number };
+};
+
 export type CommunityMessengerBootstrap = {
+  /** 클라 스테이징(critical-first) — 서버 계약 필드 아님 */
+  clientHydrationTier?: "critical" | "full";
   me: CommunityMessengerProfileLite | null;
   tabs: Record<CommunityMessengerTab, number>;
   friends: CommunityMessengerProfileLite[];

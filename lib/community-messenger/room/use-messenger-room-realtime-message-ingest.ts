@@ -41,6 +41,10 @@ import {
   cmReceiveLatencyNow,
 } from "@/lib/community-messenger/monitoring/cm-receive-latency";
 import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-log";
+import {
+  cmPolishAnalysisEnabled,
+  markCmPolishPeerRealtimeFlush,
+} from "@/lib/community-messenger/monitoring/cm-polish-analysis";
 
 export type MessengerRoomRealtimeMessageIngestArgs = {
   /** 라우트·액션 시트 등에 쓰는 URL 방 id (거래/레거시 id 일 수 있음) */
@@ -109,6 +113,17 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
     if (!snap) {
       pendingRealtimeRef.current.push(...batch);
       return;
+    }
+    const flushT0 = performance.now();
+    let lastPeerInsertIdForPolish: string | null = null;
+    {
+      const viewerP = snap.viewerUserId;
+      for (const event of batch) {
+        if (event.eventType !== "INSERT") continue;
+        const sid = event.message.senderId;
+        if (!sid || messengerUserIdsEqual(sid, viewerP)) continue;
+        lastPeerInsertIdForPolish = String(event.message.id ?? "").trim() || null;
+      }
     }
     const rid = streamRoomId?.trim();
     let insertFromOthers = 0;
@@ -190,6 +205,9 @@ export function useMessengerRoomRealtimeMessageIngest(args: MessengerRoomRealtim
       }
       return incomingToMerge.length > 0 ? mergeRoomMessages(cur, incomingToMerge) : cur;
     });
+    if (lastPeerInsertIdForPolish && cmPolishAnalysisEnabled()) {
+      markCmPolishPeerRealtimeFlush(lastPeerInsertIdForPolish, flushT0);
+    }
     const inserted = batch.filter((e) => e.eventType === "INSERT");
     if (inserted.length > 0 && snap) {
       const lastIns = inserted[inserted.length - 1]!;

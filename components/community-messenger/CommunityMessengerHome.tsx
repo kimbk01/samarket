@@ -60,6 +60,7 @@ import type {
 } from "@/lib/community-messenger/home/community-messenger-home-types";
 import { messengerHomeActionErrorMessage } from "@/lib/community-messenger/home/messenger-home-action-error-message";
 import { scoreKeywordMatch } from "@/lib/community-messenger/home/score-keyword-match";
+import { attachMessengerHydrationSchedulerSurface } from "@/lib/community-messenger/background-hydration-scheduler";
 import { primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { mergeBootstrapRoomSummaryIntoLists } from "@/lib/community-messenger/home/merge-bootstrap-room-summary-into-lists";
 import { useCommunityMessengerHomeRealtimeBootstrapList } from "@/lib/community-messenger/home/use-community-messenger-home-realtime-bootstrap-list";
@@ -252,6 +253,11 @@ export function CommunityMessengerHome({
     refresh,
     homeRealtimeGateOpen,
   } = useCommunityMessengerHomeBootstrap({ initialServerBootstrap, tRef });
+  /** 백그라운드 hydrate 스케줄러 표면 활성 — 언마운트 시 큐·실행 중 작업 정리 */
+  useEffect(() => {
+    attachMessengerHydrationSchedulerSurface(true);
+    return () => attachMessengerHydrationSchedulerSurface(false);
+  }, []);
   /** 초기 부트스트랩 HTTP 는 훅 내부 `refreshRef` 로 마운트당 1회만( `refresh` 함수 참조 변경으로 재요청 없음 ). */
   useTradeChatListMetaHydration({
     enabled: pillar === "trade" && Boolean(data?.me?.id),

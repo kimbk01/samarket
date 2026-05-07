@@ -13,8 +13,8 @@ export const CM_MARK_READ_VIEWPORT_BOTTOM_GAP_PX = 120;
 /** 스크롤·레이아웃 연속 변화 시 mark_read(cursor) 배치 — 요청 폭주 방지 */
 export const CM_MARK_READ_SCROLL_DEBOUNCE_MS = 350;
 
-/** 타임라인 `@tanstack/react-virtual` — 뷰포트 대비 대략 20~40개 DOM 노드(가시 + 오버스캔) 목표 */
-export const MESSENGER_TIMELINE_VIRTUAL_OVERSCAN = 10;
+/** 타임라인 `@tanstack/react-virtual` — 빠른 스크롤·append 시 빈 틈 완화(10→14) */
+export const MESSENGER_TIMELINE_VIRTUAL_OVERSCAN = 14;
 
 /** 초기 행 높이 추정(px). 실제 높이는 `measureElement` 로 보정 */
 export const MESSENGER_TIMELINE_VIRTUAL_ESTIMATE_PX = 96;

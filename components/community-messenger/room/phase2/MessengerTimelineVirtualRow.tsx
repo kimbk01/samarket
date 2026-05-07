@@ -19,6 +19,11 @@ import {
 } from "@/lib/community-messenger/message-actions/message-reply-policy";
 import type { MessengerRoomPhase2ViewModel } from "@/lib/community-messenger/room/phase2/messenger-room-phase2-view-model";
 import {
+  bumpMessengerTimelineAvatarRender,
+  bumpMessengerTimelineBubbleRender,
+  cmRenderAnalysisEnabled,
+} from "@/lib/community-messenger/monitoring/cm-render-analysis";
+import {
   TimelineViberInnerCallStub,
   TimelineViberInnerFile,
   TimelineViberInnerImage,
@@ -52,8 +57,8 @@ export type MessengerTimelineVirtualRowProps = {
   dayDividerLabel: string | null;
   peerAvatar: ReturnType<typeof communityMessengerMemberAvatar> | null;
   streamRoomId: string;
-  latestReadableMineMessageId: string | null;
-  peerHasReadMyLatestMessage: boolean;
+  /** 상대 읽음 표시 — 해당 행에만 변함 → 전 행 memo 깨짐 방지 */
+  mineUnreadBadgeVisible: boolean;
   timelineHighlightMessageId: string | null;
   messageActionItemId: string | null;
   callStubSheetItemId: string | null;
@@ -99,8 +104,7 @@ function messengerTimelineVirtualRowPropsAreEqual(
     a.dayDividerLabel === b.dayDividerLabel &&
     a.peerAvatar === b.peerAvatar &&
     a.streamRoomId === b.streamRoomId &&
-    a.latestReadableMineMessageId === b.latestReadableMineMessageId &&
-    a.peerHasReadMyLatestMessage === b.peerHasReadMyLatestMessage &&
+    a.mineUnreadBadgeVisible === b.mineUnreadBadgeVisible &&
     a.timelineHighlightMessageId === b.timelineHighlightMessageId &&
     a.messageActionItemId === b.messageActionItemId &&
     a.callStubSheetItemId === b.callStubSheetItemId &&
@@ -138,8 +142,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   dayDividerLabel,
   peerAvatar,
   streamRoomId,
-  latestReadableMineMessageId,
-  peerHasReadMyLatestMessage,
+  mineUnreadBadgeVisible,
   timelineHighlightMessageId,
   messageActionItemId,
   callStubSheetItemId,
@@ -161,6 +164,13 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   openCallStubOutgoingConfirm,
   tt,
 }: MessengerTimelineVirtualRowProps) {
+  if (cmRenderAnalysisEnabled()) {
+    bumpMessengerTimelineBubbleRender();
+    if (showPeerAvatar && peerAvatar) {
+      bumpMessengerTimelineAvatarRender();
+    }
+  }
+
   const bindMessageInteraction =
     item.messageType === "system"
       ? {}
@@ -424,19 +434,19 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
             ) : null}
 
             <div
-              className={`flex w-full min-w-0 max-w-[min(76vw,520px)] shrink-0 items-center gap-1.5 ${
+              className={`flex w-full min-w-0 max-w-[min(76vw,520px)] shrink-0 items-end gap-1.5 ${
                 item.isMine ? "flex-row justify-end" : "flex-row justify-start"
               }`}
             >
               {item.isMine ? (
                 <>
                   {showMessageTime ? (
-                    <span className="shrink-0 self-end pb-1 text-[11px] tabular-nums leading-none text-[#65676b]">
+                    <span className="shrink-0 pb-0.5 text-[11px] tabular-nums leading-none text-[#65676b]">
                       {formatTime(item.createdAt)}
                     </span>
                   ) : null}
-                  {latestReadableMineMessageId === item.id && !peerHasReadMyLatestMessage ? (
-                    <span className="shrink-0 self-end pb-1 text-[11px] leading-none text-[#65676b]">안읽음</span>
+                  {mineUnreadBadgeVisible ? (
+                    <span className="shrink-0 pb-0.5 text-[11px] leading-none text-[#65676b]">안읽음</span>
                   ) : null}
                   {renderBubbleStack(viberBubble)}
                 </>
@@ -444,7 +454,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
                 <>
                   {renderBubbleStack(viberBubble)}
                   {showMessageTime ? (
-                    <span className="shrink-0 self-end pb-1 text-[11px] tabular-nums leading-none text-[#65676b]">
+                    <span className="shrink-0 pb-0.5 text-[11px] tabular-nums leading-none text-[#65676b]">
                       {formatTime(item.createdAt)}
                     </span>
                   ) : null}

@@ -6,6 +6,22 @@ import { messengerRolloutUsesRoomScrollHints } from "@/lib/community-messenger/n
 import { useMessengerRoomReaderStateStore } from "@/lib/community-messenger/notifications/messenger-room-reader-state-store";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 import { MESSENGER_STICK_TO_BOTTOM_THRESHOLD_PX } from "@/lib/ui/messenger-chat-viewport-tuning";
+import {
+  cmPolishAnalysisEnabled,
+  consumeCmPolishSendClickToBubble,
+  disposeCmPolishImageLayoutShiftObserver,
+  ensureCmPolishImageLayoutShiftObserver,
+  logCmPolishAnalysis,
+  resetCmPolishAnalysisSession,
+} from "@/lib/community-messenger/monitoring/cm-polish-analysis";
+import {
+  cmScrollAnalysisEnabled,
+  disposeCmScrollLayoutShiftObserver,
+  ensureCmScrollLayoutShiftObserver,
+  getCmScrollLayoutShiftCount,
+  logCmScrollAnalysis,
+  resetCmScrollAnalysisSession,
+} from "@/lib/community-messenger/monitoring/cm-scroll-analysis";
 
 /**
  * @see docs/community-messenger-mobile-room-viewport.md
@@ -39,7 +55,7 @@ export function useMessengerRoomReaderScrollBottom({
   messageEndRef: RefObject<HTMLDivElement | null>;
   roomMessages: Array<CommunityMessengerMessage & { pending?: boolean }>;
 }): {
-  scrollMessengerToBottom: () => void;
+  scrollMessengerToBottom: (opts?: { reason?: string }) => void;
   updateStickToBottomFromScroll: () => void;
 } {
   /** 키보드·도크로 스크롤 박스 높이만 바뀔 때 하단 거리(px) 보존용 스냅샷 */
@@ -61,23 +77,60 @@ export function useMessengerRoomReaderScrollBottom({
     };
   }, [messagesViewportRef]);
 
-  const scrollMessengerToBottom = useCallback(() => {
-    const id = roomId?.trim();
-    if (id && messengerRolloutUsesRoomScrollHints()) {
-      useMessengerRoomReaderStateStore.getState().clearPendingNew(id);
-      useMessengerRoomReaderStateStore.getState().setScrollPosition(id, "at-bottom");
-    }
-    /** 한 프레임 1회 rAF — 이중 rAF 는 동일 16ms 예산에서 레이아웃 읽기·쓰기를 늘린다. */
-    window.requestAnimationFrame(() => {
-      const vp = messagesViewportRef.current;
-      if (vp) {
-        const sh = vp.scrollHeight;
-        vp.scrollTop = sh;
+  const scrollMessengerToBottom = useCallback(
+    (opts?: { reason?: string }) => {
+      const id = roomId?.trim();
+      if (id && messengerRolloutUsesRoomScrollHints()) {
+        useMessengerRoomReaderStateStore.getState().clearPendingNew(id);
+        useMessengerRoomReaderStateStore.getState().setScrollPosition(id, "at-bottom");
       }
-      messageEndRef.current?.scrollIntoView({ block: "end", behavior: "auto" });
-      syncScrollGeomFromViewport();
-    });
-  }, [roomId, syncScrollGeomFromViewport]);
+      const reason = opts?.reason ?? "explicit";
+      /** 한 프레임 1회 rAF — 이중 rAF 는 동일 16ms 예산에서 레이아웃 읽기·쓰기를 늘린다. */
+      window.requestAnimationFrame(() => {
+        const vp = messagesViewportRef.current;
+        let bottomDist = 0;
+        let jumpPx: number | null = null;
+        if (vp) {
+          const sh0 = vp.scrollHeight;
+          const st0 = vp.scrollTop;
+          const ch0 = vp.clientHeight;
+          bottomDist = Math.max(0, sh0 - st0 - ch0);
+          const t0 = typeof performance !== "undefined" ? performance.now() : 0;
+          const sh = vp.scrollHeight;
+          vp.scrollTop = sh;
+          const st1 = vp.scrollTop;
+          jumpPx = Math.abs(st1 - st0);
+          const adjustMs =
+            typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;
+          if (cmScrollAnalysisEnabled()) {
+            logCmScrollAnalysis({
+              append_scroll_adjust_ms: adjustMs,
+              layout_shift_after_append: getCmScrollLayoutShiftCount(),
+              bottom_distance_px: Math.round(bottomDist),
+              auto_scroll_triggered: true,
+              auto_scroll_reason: reason,
+              visible_window_jump_px: jumpPx,
+              room_id_suffix: id && id.length > 8 ? id.slice(-8) : id,
+            });
+          }
+        } else if (cmScrollAnalysisEnabled()) {
+          logCmScrollAnalysis({
+            append_scroll_adjust_ms: null,
+            bottom_distance_px: null,
+            auto_scroll_triggered: true,
+            auto_scroll_reason: reason,
+            room_id_suffix: id && id.length > 8 ? id.slice(-8) : id,
+          });
+        }
+        if (cmPolishAnalysisEnabled() && reason === "own_message_append") {
+          consumeCmPolishSendClickToBubble(jumpPx);
+        }
+        messageEndRef.current?.scrollIntoView({ block: "end", behavior: "auto" });
+        syncScrollGeomFromViewport();
+      });
+    },
+    [roomId, syncScrollGeomFromViewport]
+  );
 
   const updateStickToBottomFromScroll = useCallback(() => {
     const el = messagesViewportRef.current;
@@ -108,6 +161,16 @@ export function useMessengerRoomReaderScrollBottom({
   }, [roomId, activeSheet]);
 
   useLayoutEffect(() => {
+    if (cmScrollAnalysisEnabled()) {
+      resetCmScrollAnalysisSession();
+      disposeCmScrollLayoutShiftObserver();
+      ensureCmScrollLayoutShiftObserver();
+    }
+    if (cmPolishAnalysisEnabled()) {
+      resetCmPolishAnalysisSession();
+      disposeCmPolishImageLayoutShiftObserver();
+      ensureCmPolishImageLayoutShiftObserver();
+    }
     stickToBottomRef.current = true;
     const el = messagesViewportRef.current;
     if (!el) {
@@ -123,8 +186,14 @@ export function useMessengerRoomReaderScrollBottom({
   }, [roomId]);
 
   useEffect(() => {
+    const last = roomMessages[roomMessages.length - 1];
+    const isMine = Boolean(last?.isMine);
+    if (isMine) {
+      scrollMessengerToBottom({ reason: "own_message_append" });
+      return;
+    }
     if (stickToBottomRef.current) {
-      scrollMessengerToBottom();
+      scrollMessengerToBottom({ reason: "messages_changed_auto" });
     }
   }, [roomMessages, scrollMessengerToBottom]);
 
@@ -142,10 +211,12 @@ export function useMessengerRoomReaderScrollBottom({
       cancelAnimationFrame(rafId);
       /** ResizeObserver·vv 콜백당 스케줄 1회 rAF 로 레이아웃 스래시 완화 */
       rafId = requestAnimationFrame(() => {
+        const t0 = typeof performance !== "undefined" ? performance.now() : 0;
         const box = messagesViewportRef.current;
         if (!box || !lastScrollGeomRef.current.ready) return;
         const prev = lastScrollGeomRef.current;
         const distFromBottom = prev.sh - prev.st - prev.ch;
+        const stBefore = box.scrollTop;
         const sh = box.scrollHeight;
         const ch = box.clientHeight;
         const maxScroll = Math.max(0, sh - ch);
@@ -154,6 +225,26 @@ export function useMessengerRoomReaderScrollBottom({
         } else {
           const target = maxScroll - distFromBottom;
           box.scrollTop = Math.max(0, Math.min(maxScroll, target));
+        }
+        const stAfter = box.scrollTop;
+        const keyboardMs =
+          typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;
+        if (cmScrollAnalysisEnabled()) {
+          logCmScrollAnalysis({
+            keyboard_viewport_shift_ms: keyboardMs,
+            visible_window_jump_px: Math.round(Math.abs(stAfter - stBefore)),
+            auto_scroll_triggered: false,
+            auto_scroll_reason: "viewport_resize_restore",
+            bottom_distance_px: Math.round(distFromBottom),
+            room_id_suffix: roomId.trim().length > 8 ? roomId.trim().slice(-8) : roomId.trim(),
+          });
+        }
+        if (cmPolishAnalysisEnabled()) {
+          logCmPolishAnalysis({
+            keyboard_open_adjust_ms: keyboardMs,
+            message_append_jump_px: Math.round(Math.abs(stAfter - stBefore)),
+            room_id_suffix: roomId.trim().length > 8 ? roomId.trim().slice(-8) : roomId.trim(),
+          });
         }
         syncScrollGeomFromViewport();
       });

@@ -49,6 +49,7 @@ import {
 } from "@/lib/community-messenger/realtime/cm-rt-room-sub-log";
 import { acquireCommunityMessengerReadAckBroadcast } from "@/lib/community-messenger/realtime/cm-read-ack-broadcast-client";
 import { cmRtStableSubLog } from "@/lib/community-messenger/realtime/cm-rt-stable-sub-log";
+import { recordCmRoomEntryMilestone } from "@/lib/community-messenger/room/cm-room-entry-instrumentation";
 
 function messengerHomeRealtimeRoomIdsContentKey(ids: string[] | undefined): string {
   return [...new Set((ids ?? []).map((id) => normalizeCmRealtimeSubscribeRoomId(String(id))).filter(Boolean))].sort().join("\0");
@@ -496,6 +497,7 @@ export function useCommunityMessengerRoomRealtime(args: {
       bundle.listenersByRoom.set(roomKey, set);
     }
     set.add(listenerRef);
+    recordCmRoomEntryMilestone("realtime_ready_ms");
     bundle.notifyRoomListenersChanged?.();
     let idleOnFirstRoomListener = -1;
     if (bundle.channelSubscribed && set.size === 1) {

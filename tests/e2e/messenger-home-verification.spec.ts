@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 type Snap = {
-  bootstrapClientNetworkFetch: { lite: number; full: number; fresh: number };
+  bootstrapClientNetworkFetch: { lite: number; full: number; fresh: number; critical: number };
   bootstrapClientNetworkFetchTotal: number;
   homeSyncNetworkFetch: number;
   warmCallSiteInvocations: number;

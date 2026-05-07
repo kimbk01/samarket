@@ -31,6 +31,27 @@ import {
   sampleMessengerScrollFrameBudget,
 } from "@/lib/community-messenger/monitoring/messenger-frame-budget-trace";
 import { MessageReactionRosterSheet } from "@/components/community-messenger/room/message/MessageReactionRosterSheet";
+import {
+  beginCmRenderTimelineFrame,
+  cmRenderAnalysisEnsureSession,
+  cmRenderAnalysisEnabled,
+  deriveCmRoomRenderReason,
+  logCmRenderAnalysis,
+  recordCmRenderAnalysisReason,
+  recordCmRenderVisibleMessageCount,
+} from "@/lib/community-messenger/monitoring/cm-render-analysis";
+import {
+  cmPolishAnalysisEnabled,
+  getCmPolishImageLayoutShiftCount,
+  logCmPolishAnalysis,
+  takeCmPolishIncomingBubbleVisibleMs,
+} from "@/lib/community-messenger/monitoring/cm-polish-analysis";
+import {
+  cmScrollAnalysisEnabled,
+  drainCmScrollVirtualizerRecalcMs,
+  logCmScrollAnalysis,
+  recordCmScrollVirtualizerMeasure,
+} from "@/lib/community-messenger/monitoring/cm-scroll-analysis";
 
 function messengerTimelineCalendarDayKey(iso: string): string {
   const d = new Date(iso);
@@ -46,8 +67,21 @@ function messengerTimelineDayDividerLabel(iso: string): string {
 
 export const CommunityMessengerRoomPhase2MessageTimeline = memo(function CommunityMessengerRoomPhase2MessageTimeline() {
   const vm = useMessengerRoomPhase2View();
+  const timelineRenderStartRef = useRef(typeof performance !== "undefined" ? performance.now() : 0);
+  timelineRenderStartRef.current = typeof performance !== "undefined" ? performance.now() : 0;
+  const prevListSigRef = useRef<{ msgLen: number; unread: number; readId: string } | null>(null);
+  const prevTimelineMsgLenRef = useRef<number | null>(null);
   const vmRef = useRef(vm);
   vmRef.current = vm;
+
+  if (cmRenderAnalysisEnabled()) {
+    cmRenderAnalysisEnsureSession(vm.streamRoomId);
+    beginCmRenderTimelineFrame();
+  }
+  useEffect(() => {
+    prevTimelineMsgLenRef.current = null;
+    prevListSigRef.current = null;
+  }, [vm.streamRoomId]);
   const emptyTimelineRecoverTriedRef = useRef(false);
   const [imageLightbox, setImageLightbox] = useState<{
     urls: string[];
@@ -195,6 +229,34 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     vm.snapshot.readReceipt?.lastReadMessageCreatedAt,
   ]);
 
+  useLayoutEffect(() => {
+    if (!cmRenderAnalysisEnabled()) return;
+    const msgLen = vm.displayRoomMessages.length;
+    const unread = vm.snapshot.room.unreadCount ?? 0;
+    const readId = vm.snapshot.readReceipt?.lastReadMessageId?.trim() ?? "";
+    const nextSig = { msgLen, unread, readId };
+    const reason = deriveCmRoomRenderReason(prevListSigRef.current, nextSig);
+    prevListSigRef.current = nextSig;
+    recordCmRenderAnalysisReason(reason);
+    const visibleCount = vm.chatVirtualizer.getVirtualItems().length;
+    recordCmRenderVisibleMessageCount(visibleCount);
+    const prevLen = prevTimelineMsgLenRef.current;
+    prevTimelineMsgLenRef.current = msgLen;
+    let appended = false;
+    if (prevLen !== null && msgLen > prevLen) {
+      appended = true;
+    }
+    const listMs = Math.round(
+      (typeof performance !== "undefined" ? performance.now() : 0) - timelineRenderStartRef.current
+    );
+    logCmRenderAnalysis({
+      message_list_render_ms: listMs,
+      append_message_render_ms: appended ? listMs : null,
+      rerender_reason: reason,
+      visible_message_count: visibleCount,
+    });
+  }, [vm.displayRoomMessages.length, vm.snapshot.room.unreadCount, vm.snapshot.readReceipt?.lastReadMessageId, vm.streamRoomId]);
+
   /**
    * 스크롤은 초당 수십~수백 번 이벤트가 발생할 수 있어, state set 을 그대로 두면
    * 장시간 사용 시 렌더/GC 부담이 누적된다. rAF 로 1프레임 1회만 처리한다.
@@ -236,6 +298,48 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     runMessengerRoomOpenFrameBudgetTrace(vm.streamRoomId);
   }, [vm.streamRoomId]);
 
+  const timelineTailLen = vm.displayRoomMessages.length;
+  const timelineTailId =
+    timelineTailLen > 0 ? String(vm.displayRoomMessages[timelineTailLen - 1]?.id ?? "") : "";
+
+  /** realtime ingest flush 시작 → 타임라인 tail 레이아웃 커밋(상대 메시지일 때만 pending 매칭) */
+  useLayoutEffect(() => {
+    if (!cmPolishAnalysisEnabled()) return;
+    if (!timelineTailId) return;
+    const ms = takeCmPolishIncomingBubbleVisibleMs(timelineTailId);
+    if (ms == null) return;
+    logCmPolishAnalysis({
+      incoming_event_to_bubble_visible_ms: ms,
+      image_layout_shift_count: getCmPolishImageLayoutShiftCount(),
+      room_id_suffix: vm.streamRoomId.length > 8 ? vm.streamRoomId.slice(-8) : vm.streamRoomId,
+    });
+  }, [timelineTailLen, timelineTailId, vm.streamRoomId]);
+
+  /** 방 전환 직후 짧은 구간의 rAF 지터(전환 프레임 드랍 추정) */
+  useEffect(() => {
+    if (!cmPolishAnalysisEnabled()) return;
+    let frames = 0;
+    let drops = 0;
+    let last = performance.now();
+    let rid = 0;
+    const tick = () => {
+      const now = performance.now();
+      if (now - last > 22) drops += 1;
+      last = now;
+      frames += 1;
+      if (frames < 48) {
+        rid = requestAnimationFrame(tick);
+      } else {
+        logCmPolishAnalysis({
+          transition_frame_drop_count: drops,
+          room_id_suffix: vm.streamRoomId.length > 8 ? vm.streamRoomId.slice(-8) : vm.streamRoomId,
+        });
+      }
+    };
+    rid = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rid);
+  }, [vm.streamRoomId]);
+
   const scheduleScroll = useCallback(() => {
     if (scrollRafRef.current != null) return;
     scrollRafRef.current = window.requestAnimationFrame(() => {
@@ -257,6 +361,46 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     };
     return { peerAvatarFor };
   }, [vm.roomMembersDisplay]);
+
+  const virtualizerScrollTraceRafRef = useRef<number | null>(null);
+  const scheduleVirtualizerScrollTraceDrain = useCallback(() => {
+    if (!cmScrollAnalysisEnabled()) return;
+    if (virtualizerScrollTraceRafRef.current != null) return;
+    virtualizerScrollTraceRafRef.current = window.requestAnimationFrame(() => {
+      virtualizerScrollTraceRafRef.current = null;
+      const { virtualizer_recalc_ms, measure_calls } = drainCmScrollVirtualizerRecalcMs();
+      if (measure_calls <= 0 || virtualizer_recalc_ms == null) return;
+      logCmScrollAnalysis({
+        virtualizer_recalc_ms,
+        auto_scroll_triggered: false,
+        auto_scroll_reason: "virtualizer_measure_batch",
+        room_id_suffix: vm.streamRoomId.length > 8 ? vm.streamRoomId.slice(-8) : vm.streamRoomId,
+      });
+    });
+  }, [vm.streamRoomId]);
+
+  useEffect(() => {
+    return () => {
+      if (virtualizerScrollTraceRafRef.current != null) {
+        cancelAnimationFrame(virtualizerScrollTraceRafRef.current);
+        virtualizerScrollTraceRafRef.current = null;
+      }
+    };
+  }, []);
+
+  const measureWithScrollTrace = useCallback(
+    (el: HTMLElement | null) => {
+      if (!cmScrollAnalysisEnabled()) {
+        vm.chatVirtualizer.measureElement(el);
+        return;
+      }
+      const t0 = performance.now();
+      vm.chatVirtualizer.measureElement(el);
+      recordCmScrollVirtualizerMeasure(performance.now() - t0);
+      scheduleVirtualizerScrollTraceDrain();
+    },
+    [vm.chatVirtualizer, scheduleVirtualizerScrollTraceDrain]
+  );
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
@@ -366,6 +510,11 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                   item.messageType !== "system" &&
                   showPeerName;
                 const peerAvatar = !item.isMine ? messageRowPreamble.peerAvatarFor(item.senderId) : null;
+                const mineUnreadBadgeVisible =
+                  item.isMine &&
+                  item.messageType !== "system" &&
+                  latestReadableMineMessageId === item.id &&
+                  !peerHasReadMyLatestMessage;
                 const showMineClusterStart =
                   item.isMine &&
                   item.messageType !== "system" &&
@@ -392,10 +541,10 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                 const rowPaddingTopClass = isDayBoundary
                   ? "pt-4"
                   : showPeerName
-                    ? "pt-[14px]"
+                    ? "pt-3.5"
                     : prev
                       ? sameSenderCluster
-                        ? "pt-[3px]"
+                        ? "pt-1"
                         : "pt-3"
                       : "";
                 const showMessageTime =
@@ -420,7 +569,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     item={item}
                     virtualStart={virtualRow.start}
                     virtualIndex={virtualRow.index}
-                    measureElement={vm.chatVirtualizer.measureElement}
+                    measureElement={measureWithScrollTrace}
                     rowPaddingTopClass={rowPaddingTopClass}
                     showPeerName={showPeerName}
                     showPeerAvatar={showPeerAvatar}
@@ -429,8 +578,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     dayDividerLabel={dayDividerLabel}
                     peerAvatar={peerAvatar}
                     streamRoomId={vm.streamRoomId}
-                    latestReadableMineMessageId={latestReadableMineMessageId}
-                    peerHasReadMyLatestMessage={peerHasReadMyLatestMessage}
+                    mineUnreadBadgeVisible={mineUnreadBadgeVisible}
                     timelineHighlightMessageId={vm.timelineHighlightMessageId}
                     messageActionItemId={vm.messageActionItem?.item.id ?? null}
                     callStubSheetItemId={vm.callStubSheet?.item.id ?? null}

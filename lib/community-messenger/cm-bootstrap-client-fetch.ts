@@ -21,6 +21,8 @@ export type CommunityMessengerClientBootstrapMode = "lite" | "full" | "fresh";
 const flightKey = (mode: CommunityMessengerClientBootstrapMode) =>
   `community-messenger:client:bootstrap:${mode}`;
 
+const FLIGHT_CRITICAL = "community-messenger:client:bootstrap:critical";
+
 function readResponseSizeBytes(response: Response, requestUrl: string): number | null {
   const headerValue = Number(response.headers.get("content-length") ?? "");
   if (Number.isFinite(headerValue) && headerValue > 0) return headerValue;
@@ -119,4 +121,41 @@ export function fetchCommunityMessengerBootstrapClient(
   return runSingleFlight(flightKey(mode), async () => {
     return runFetch();
   });
+}
+
+/** 리스트 첫 페인트 전용 — full/lite 와 독립 단일 비행 */
+export function fetchCommunityMessengerBootstrapCriticalClient(opts: { signal?: AbortSignal } = {}): Promise<Response> {
+  const url = "/api/community-messenger/bootstrap?tier=critical";
+  const runFetch = async (signal?: AbortSignal): Promise<Response> => {
+    tryTrackFirstMenuListFetchStart();
+    bumpAppWidePerf("messenger_list_fetch_start");
+    beginMessengerBootstrapClientPhase("critical");
+    const t0 = performance.now();
+    recordMessengerHomeBootstrapClientNetworkFetch("critical");
+    const tNet0 = performance.now();
+    const res = await fetch(url, { cache: "no-store", credentials: "include", ...(signal ? { signal } : {}) });
+    recordAppWidePhaseLastMs("messenger_bootstrap_fetch_network_ms", Math.round(performance.now() - tNet0));
+    captureResponseSizeBytes(res, url);
+    bumpAppWidePerf("messenger_list_fetch_success");
+    const wallMs = Math.round(performance.now() - t0);
+    recordAppWidePhaseLastMs("messenger_list_fetch_ms", wallMs);
+    recordAppWidePhaseLastMs("messenger_bootstrap_fetch_wall_ms", wallMs);
+    tryTrackFirstMenuListFetchSuccess();
+    const paintT0 = t0;
+    queueMicrotask(() => {
+      if (typeof requestAnimationFrame !== "function") return;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const paintMs = Math.round(performance.now() - paintT0);
+          recordAppWidePhaseLastMs("messenger_list_to_paint_ms", paintMs);
+          recordAppWidePhaseLastMs("messenger_bootstrap_to_paint_ms", paintMs);
+        });
+      });
+    });
+    return res;
+  };
+  if (opts.signal) {
+    return runFetch(opts.signal);
+  }
+  return runSingleFlight(FLIGHT_CRITICAL, async () => runFetch());
 }

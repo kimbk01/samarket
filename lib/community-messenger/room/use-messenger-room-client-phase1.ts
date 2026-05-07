@@ -77,6 +77,14 @@ import {
   recordRouteEntryElapsedMetricOnce,
   recordRouteEntryMetric,
 } from "@/lib/runtime/samarket-runtime-debug";
+import {
+  attachMessengerRoomEntryHydrationSchedulerSurface,
+  cancelMessengerRoomEntryHydration,
+} from "@/lib/community-messenger/background-hydration-scheduler";
+import {
+  ensureCmRoomEntryRouteT0,
+  resetCmRoomEntryTraceSession,
+} from "@/lib/community-messenger/room/cm-room-entry-instrumentation";
 import { acquireCommunityMessengerReadAckBroadcast } from "@/lib/community-messenger/realtime/cm-read-ack-broadcast-client";
 import { useMessengerRoomBumpBroadcastSubscription } from "@/lib/community-messenger/room/use-messenger-room-bump-broadcast-subscription";
 import { useMessengerRoomCanonicalRouteReplaceEffect } from "@/lib/community-messenger/room/use-messenger-room-canonical-route-effect";
@@ -433,6 +441,16 @@ export function useMessengerRoomClientPhase1({
     roomId,
     silentBootstrapThrottleCoalesceTimerRef,
   });
+
+  useLayoutEffect(() => {
+    resetCmRoomEntryTraceSession(roomId);
+    cancelMessengerRoomEntryHydration("room_change");
+    ensureCmRoomEntryRouteT0();
+    attachMessengerRoomEntryHydrationSchedulerSurface(true);
+    return () => {
+      attachMessengerRoomEntryHydrationSchedulerSurface(false);
+    };
+  }, [roomId]);
 
   useMessengerRoomPhase1ViewerBootstrapDedupSync({
     snapshotViewerUserId: snapshot?.viewerUserId,

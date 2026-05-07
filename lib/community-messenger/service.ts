@@ -102,6 +102,7 @@ import {
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT,
   COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT,
   type CommunityMessengerBootstrap,
+  type CommunityMessengerBootstrapCritical,
   CommunityMessengerCallKind,
   type CommunityMessengerCallLogDisplayType,
   CommunityMessengerCallLog,
@@ -642,7 +643,7 @@ async function filterDirectIncomingRowsForPolicy(
   return out;
 }
 
-function profileLabel(row: ProfileRow | null | undefined, fallbackId: string): string {
+export function profileLabel(row: ProfileRow | null | undefined, fallbackId: string): string {
   const display = trimText(row?.display_name) || trimText(row?.nickname);
   const username = trimText(row?.username);
   const label = labelFromDisplayAndUsername(display, username).trim();
@@ -1281,7 +1282,7 @@ async function hydrateProfiles(
  * 통화 세션 매핑 전용 — `getViewerRelationSets` 생략(친구/팔로우 등 3쿼리)으로 발신·GET TTFB 를 줄인다.
  * 통화 UI는 표시명·아바타 중심이며 관계 뱃지는 불필요하다.
  */
-async function hydrateProfilesLabelsOnlyWithMap(
+export async function hydrateProfilesLabelsOnlyWithMap(
   viewerId: string,
   targetIds: string[],
   options?: { includeSelf?: boolean; prefetchedProfiles?: Map<string, ProfileRow> }
@@ -1431,33 +1432,78 @@ export async function listCommunityMessengerFriendRequests(
   return buildCommunityMessengerFriendRequestsFromProfileMap(userId, rows, profileMap);
 }
 
-async function listAcceptedFriendIds(userId: string): Promise<string[]> {
-  const result = new Set<string>();
+type CommunityFriendRequestAcceptedRow = {
+  requester_id?: string;
+  addressee_id?: string;
+  status?: string;
+  responded_at?: string | null;
+  created_at?: string;
+};
+
+/** 단일 SELECT — `listAcceptedFriendIds`·`fetchFriendshipAcceptedAtByPeerId`·부트스트랩 병렬 중복 왕복 방지 */
+async function fetchCommunityFriendRequestsAcceptedRowsForViewer(
+  userId: string
+): Promise<CommunityFriendRequestAcceptedRow[]> {
+  const rows: CommunityFriendRequestAcceptedRow[] = [];
   const sb = getSupabaseOrNull();
   if (sb) {
     const { data, error } = await (sb as any)
       .from("community_friend_requests")
-      .select("requester_id, addressee_id, status")
+      .select("requester_id, addressee_id, status, responded_at, created_at")
       .eq("status", "accepted")
       .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
     if (!error || !isMissingTableError(error)) {
-      for (const row of (data ?? []) as Array<{
-        requester_id?: string;
-        addressee_id?: string;
-      }>) {
-        const requesterId = trimText(row.requester_id);
-        const addresseeId = trimText(row.addressee_id);
-        const peerId = requesterId === userId ? addresseeId : requesterId;
-        if (peerId) result.add(peerId);
-      }
+      rows.push(...((data ?? []) as CommunityFriendRequestAcceptedRow[]));
     }
   }
   for (const row of getDevState().friendRequests) {
     if (row.status !== "accepted") continue;
-    const peerId = row.requester_id === userId ? row.addressee_id : row.requester_id;
+    rows.push({
+      requester_id: row.requester_id,
+      addressee_id: row.addressee_id,
+      status: row.status,
+      responded_at: row.responded_at,
+      created_at: row.created_at,
+    });
+  }
+  return rows;
+}
+
+function acceptedPeerIdsFromCommunityFriendRows(userId: string, rows: CommunityFriendRequestAcceptedRow[]): string[] {
+  const result = new Set<string>();
+  for (const row of rows) {
+    const requesterId = trimText(row.requester_id);
+    const addresseeId = trimText(row.addressee_id);
+    const peerId = requesterId === userId ? addresseeId : requesterId;
     if (peerId) result.add(peerId);
   }
   return [...result];
+}
+
+function friendshipAcceptedAtByPeerFromRows(
+  userId: string,
+  rows: CommunityFriendRequestAcceptedRow[]
+): Map<string, string> {
+  const map = new Map<string, string>();
+  const merge = (peerId: string, atRaw: string | null | undefined) => {
+    const at = trimText(atRaw);
+    if (!at || !peerId) return;
+    const prev = map.get(peerId);
+    if (!prev || Date.parse(at) > Date.parse(prev)) map.set(peerId, at);
+  };
+  for (const row of rows) {
+    const requesterId = trimText(row.requester_id);
+    const addresseeId = trimText(row.addressee_id);
+    const peerId = requesterId === userId ? addresseeId : requesterId;
+    const at = trimText(row.responded_at) || trimText(row.created_at);
+    merge(peerId, at);
+  }
+  return map;
+}
+
+async function listAcceptedFriendIds(userId: string): Promise<string[]> {
+  const rows = await fetchCommunityFriendRequestsAcceptedRowsForViewer(userId);
+  return acceptedPeerIdsFromCommunityFriendRows(userId, rows);
 }
 
 async function listFavoriteFriendIds(userId: string): Promise<string[]> {
@@ -1486,41 +1532,8 @@ async function listFavoriteFriendIds(userId: string): Promise<string[]> {
 
 /** 수락된 친구 관계마다 상대 peer → 수락 시각(가장 최근 값). `responded_at` 우선, 없으면 `created_at` */
 async function fetchFriendshipAcceptedAtByPeerId(userId: string): Promise<Map<string, string>> {
-  const map = new Map<string, string>();
-  const merge = (peerId: string, atRaw: string | null | undefined) => {
-    const at = trimText(atRaw);
-    if (!at || !peerId) return;
-    const prev = map.get(peerId);
-    if (!prev || Date.parse(at) > Date.parse(prev)) map.set(peerId, at);
-  };
-  const sb = getSupabaseOrNull();
-  if (sb) {
-    const { data, error } = await (sb as any)
-      .from("community_friend_requests")
-      .select("requester_id, addressee_id, status, responded_at, created_at")
-      .eq("status", "accepted")
-      .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
-    if (!error || !isMissingTableError(error)) {
-      for (const row of (data ?? []) as Array<{
-        requester_id?: string;
-        addressee_id?: string;
-        responded_at?: string | null;
-        created_at?: string;
-      }>) {
-        const requesterId = trimText(row.requester_id);
-        const addresseeId = trimText(row.addressee_id);
-        const peerId = requesterId === userId ? addresseeId : requesterId;
-        const at = trimText(row.responded_at) || trimText(row.created_at);
-        merge(peerId, at);
-      }
-    }
-  }
-  for (const row of getDevState().friendRequests) {
-    if (row.status !== "accepted") continue;
-    const peerId = row.requester_id === userId ? row.addressee_id : row.requester_id;
-    merge(peerId, row.responded_at ?? row.created_at);
-  }
-  return map;
+  const rows = await fetchCommunityFriendRequestsAcceptedRowsForViewer(userId);
+  return friendshipAcceptedAtByPeerFromRows(userId, rows);
 }
 
 async function listFollowingIds(userId: string, relationType: "neighbor_follow" | "blocked" | "hidden"): Promise<string[]> {
@@ -1664,7 +1677,7 @@ function buildRoomSummaryFromHydratedMembers(
   };
 }
 
-function buildParticipantsByRoomMap(
+export function buildParticipantsByRoomMap(
   participantRows: Array<ParticipantRow | DevParticipant>
 ): Map<string, Array<ParticipantRow | DevParticipant>> {
   const byRoomId = new Map<string, Array<ParticipantRow | DevParticipant>>();
@@ -1693,7 +1706,7 @@ function participantRowRoomId(p: ParticipantRow | DevParticipant): string {
   return "room_id" in p ? p.room_id : p.roomId;
 }
 
-function participantRowUserId(p: ParticipantRow | DevParticipant): string {
+export function participantRowUserId(p: ParticipantRow | DevParticipant): string {
   return trimText("user_id" in p ? p.user_id : p.userId) || "";
 }
 
@@ -1730,7 +1743,7 @@ function sortParticipantsForRoomMemberList<T extends ParticipantRow | DevPartici
 }
 
 /** 그룹방 부트스트랩: 방장·관리자 우선, 그다음 최근 가입 순 — 뷰어는 항상 슬라이스에 포함(캡·정렬로 누락되면 헤더·권한 UI가 깨짐) */
-function sliceGroupParticipantsForRoomBootstrap<T extends ParticipantRow | DevParticipant>(
+export function sliceGroupParticipantsForRoomBootstrap<T extends ParticipantRow | DevParticipant>(
   rows: T[],
   viewerUserId: string,
   cap: number
@@ -1767,7 +1780,7 @@ function callLogPeerUserId(row: CallRow | DevCall): string | null {
 }
 
 /** 이미 hydrateProfiles 로 채운 맵으로 방 요약만 조립 (부트스트랩 단일 하이드레이션용). */
-function summarizeRoomsBatchWithProfileMap(
+export function summarizeRoomsBatchWithProfileMap(
   userId: string,
   roomRows: Array<RoomRow | DevRoom>,
   roomProfileMap: Map<string, RoomProfileRow | DevRoomProfile>,
@@ -1822,7 +1835,7 @@ function sliceMessengerRoomsPayloadForHomeSyncCritical(
   };
 }
 
-type CommunityMessengerBootstrapRoomsDiagnostics = {
+export type CommunityMessengerBootstrapRoomsDiagnostics = {
   rounds: number;
   queryCount: number;
   metaChunkCount: number;
@@ -1846,7 +1859,7 @@ type CommunityMessengerBootstrapRoomsDiagnostics = {
   round3RoomProfileCount: number;
 };
 
-function createEmptyBootstrapRoomsDiagnostics(): CommunityMessengerBootstrapRoomsDiagnostics {
+export function createEmptyBootstrapRoomsDiagnostics(): CommunityMessengerBootstrapRoomsDiagnostics {
   return {
     rounds: 0,
     queryCount: 0,
@@ -1944,6 +1957,24 @@ export type CommunityMessengerBootstrapDiagnostics = {
   hasPerRoomNPlusOne: boolean;
   callsLogIncluded: boolean;
   discoverableIncluded: boolean;
+  /** `fetchMyRoomsPayload` 내부 PostgREST/RPC 왕복 추정(rooms diagnostics.queryCount) */
+  roomsPayloadDbRoundTrips: number;
+  /** 병렬 초기 묶음 — 수락 친구 행 단일 SELECT */
+  parallelAcceptedFriendsBundleMs: number;
+  parallelFavoriteFriendsMs: number;
+  parallelFollowingNeighborMs: number;
+  parallelFollowingHiddenMs: number;
+  parallelFollowingBlockedMs: number;
+  parallelFriendRequestsMs: number;
+  parallelDiscoverableFetchMs: number;
+  /** `fetchCallLogRowsOnly` 단독 */
+  callsLogRowsFetchMs: number;
+  parallelMeetingsForDiscoverableMs: number;
+  enrichTradeDirectKeysMs: number;
+  enrichTradeSellerHydrateMs: number;
+  enrichTradeMiddlePipelineMs: number;
+  /** `getCommunityMessengerBootstrap` 진입~반환 벽시계 (측정 전용) */
+  bootstrapMonolithWallMs: number;
 };
 
 /** 메신저 홈·부트스트랩에서 한 번에 실을 최대 방 수(최근 활동순). 초과분은 목록에서 제외(방 URL 직접 진입은 `getCommunityMessengerRoomSnapshot` 등 별도). */
@@ -1974,6 +2005,7 @@ type BootstrapRoomRowRpc = {
   last_message?: string | null;
   last_message_at?: string | null;
   last_message_type?: RoomRow["last_message_type"] | null;
+  direct_key?: string | null;
 };
 
 async function fetchBootstrapRoomIdsViaRpc(
@@ -2036,7 +2068,11 @@ async function fetchBootstrapRoomsViaRpc(
     if (isMissingRpcFunctionError(error) || isMissingTableError(error)) return null;
     throw error;
   }
-  const mapped = ((data ?? []) as BootstrapRoomRowRpc[]).map((row) => ({
+  const rawList = (data ?? []) as BootstrapRoomRowRpc[];
+  const rpcIncludesDirectKeyColumn =
+    rawList.length === 0 ||
+    Object.prototype.hasOwnProperty.call(rawList[0] as object, "direct_key");
+  const mapped = rawList.map((row) => ({
     id: String(row.id ?? ""),
     room_type: (row.room_type ?? "direct") as RoomRow["room_type"],
     room_status: (row.room_status ?? "active") as RoomRow["room_status"],
@@ -2045,14 +2081,20 @@ async function fetchBootstrapRoomsViaRpc(
     summary: row.summary ?? null,
     avatar_url: row.avatar_url ?? null,
     created_by: null,
+    direct_key:
+      row.direct_key != null && typeof row.direct_key === "string"
+        ? row.direct_key.trim() || null
+        : row.direct_key != null
+          ? String(row.direct_key).trim() || null
+          : null,
     last_message: row.last_message ?? null,
     last_message_at: row.last_message_at ?? null,
     last_message_type: (row.last_message_type ?? "text") as RoomRow["last_message_type"],
   }));
-  return attachDirectKeysToRoomRows(sb, mapped);
+  return rpcIncludesDirectKeyColumn ? mapped : attachDirectKeysToRoomRows(sb, mapped);
 }
 
-async function fetchMyRoomsPayload(
+export async function fetchMyRoomsPayload(
   userId: string,
   options?: {
     diagnostics?: CommunityMessengerBootstrapRoomsDiagnostics;
@@ -3513,7 +3555,22 @@ export async function getCommunityMessengerBootstrap(
     diagnostics.hasPerRoomNPlusOne = false;
     diagnostics.callsLogIncluded = !deferCallLog;
     diagnostics.discoverableIncluded = !skipDiscoverable;
+    diagnostics.roomsPayloadDbRoundTrips = 0;
+    diagnostics.parallelAcceptedFriendsBundleMs = 0;
+    diagnostics.parallelFavoriteFriendsMs = 0;
+    diagnostics.parallelFollowingNeighborMs = 0;
+    diagnostics.parallelFollowingHiddenMs = 0;
+    diagnostics.parallelFollowingBlockedMs = 0;
+    diagnostics.parallelFriendRequestsMs = 0;
+    diagnostics.parallelDiscoverableFetchMs = 0;
+    diagnostics.callsLogRowsFetchMs = 0;
+    diagnostics.parallelMeetingsForDiscoverableMs = 0;
+    diagnostics.enrichTradeDirectKeysMs = 0;
+    diagnostics.enrichTradeSellerHydrateMs = 0;
+    diagnostics.enrichTradeMiddlePipelineMs = 0;
+    diagnostics.bootstrapMonolithWallMs = 0;
   }
+  const tBootstrapMonolith0 = performance.now();
   const myPayloadPromise = (async () => {
     const tRooms = performance.now();
     const payload = await fetchMyRoomsPayload(userId, {
@@ -3541,6 +3598,7 @@ export async function getCommunityMessengerBootstrap(
       diagnostics.roomsQueryRound2RoomRowCount = myRoomsDiagnostics.round2RoomRowCount;
       diagnostics.roomsQueryRound2ParticipantRowCount = myRoomsDiagnostics.round2ParticipantRowCount;
       diagnostics.roomsQueryRound3RoomProfileCount = myRoomsDiagnostics.round3RoomProfileCount;
+      diagnostics.roomsPayloadDbRoundTrips = myRoomsDiagnostics.queryCount;
     }
     return payload;
   })();
@@ -3549,12 +3607,20 @@ export async function getCommunityMessengerBootstrap(
     : (async () => {
         const tCalls = performance.now();
         const rows = await fetchCallLogRowsOnly(userId);
-        diagnostics && (diagnostics.callsLogMs += Math.round(performance.now() - tCalls));
+        const elapsed = Math.round(performance.now() - tCalls);
+        diagnostics && (diagnostics.callsLogMs += elapsed);
+        diagnostics && (diagnostics.callsLogRowsFetchMs = elapsed);
         return rows;
       })();
+  const acceptedFriendRowsPromise = (async () => {
+    const t = performance.now();
+    const rows = await fetchCommunityFriendRequestsAcceptedRowsForViewer(userId);
+    diagnostics && (diagnostics.parallelAcceptedFriendsBundleMs = Math.round(performance.now() - t));
+    return rows;
+  })();
   const tParallelInitial = performance.now();
   const [
-    friendIds,
+    acceptedFriendRows,
     favoriteFriendIds,
     followingIds,
     hiddenIds,
@@ -3563,14 +3629,38 @@ export async function getCommunityMessengerBootstrap(
     myPayload,
     discState,
     callRows,
-    friendshipAcceptedAtByPeer,
   ] = await Promise.all([
-    listAcceptedFriendIds(userId),
-    listFavoriteFriendIds(userId),
-    listFollowingIds(userId, "neighbor_follow"),
-    listFollowingIds(userId, "hidden"),
-    listFollowingIds(userId, "blocked"),
-    listCommunityMessengerFriendRequestRows(userId),
+    acceptedFriendRowsPromise,
+    (async () => {
+      const t = performance.now();
+      const r = await listFavoriteFriendIds(userId);
+      diagnostics && (diagnostics.parallelFavoriteFriendsMs = Math.round(performance.now() - t));
+      return r;
+    })(),
+    (async () => {
+      const t = performance.now();
+      const r = await listFollowingIds(userId, "neighbor_follow");
+      diagnostics && (diagnostics.parallelFollowingNeighborMs = Math.round(performance.now() - t));
+      return r;
+    })(),
+    (async () => {
+      const t = performance.now();
+      const r = await listFollowingIds(userId, "hidden");
+      diagnostics && (diagnostics.parallelFollowingHiddenMs = Math.round(performance.now() - t));
+      return r;
+    })(),
+    (async () => {
+      const t = performance.now();
+      const r = await listFollowingIds(userId, "blocked");
+      diagnostics && (diagnostics.parallelFollowingBlockedMs = Math.round(performance.now() - t));
+      return r;
+    })(),
+    (async () => {
+      const t = performance.now();
+      const r = await listCommunityMessengerFriendRequestRows(userId);
+      diagnostics && (diagnostics.parallelFriendRequestsMs = Math.round(performance.now() - t));
+      return r;
+    })(),
     myPayloadPromise,
     skipDiscoverable
       ? Promise.resolve<DiscoverableOpenGroupsRawState>({
@@ -3580,10 +3670,16 @@ export async function getCommunityMessengerBootstrap(
           roomProfileMap: new Map(),
           joinedRoomIds: new Set(),
         })
-      : fetchDiscoverableOpenGroupsRawState(userId),
+      : (async () => {
+          const t = performance.now();
+          const r = await fetchDiscoverableOpenGroupsRawState(userId);
+          diagnostics && (diagnostics.parallelDiscoverableFetchMs = Math.round(performance.now() - t));
+          return r;
+        })(),
     callRowsPromise,
-    fetchFriendshipAcceptedAtByPeerId(userId),
   ]);
+  const friendIds = acceptedPeerIdsFromCommunityFriendRows(userId, acceptedFriendRows);
+  const friendshipAcceptedAtByPeer = friendshipAcceptedAtByPeerFromRows(userId, acceptedFriendRows);
   diagnostics && (diagnostics.parallelInitialWallMs = Math.round(performance.now() - tParallelInitial));
   if (isMinimalLiteBootstrap && diagnostics) {
     /** Lite 도 trade unread 병합·context enrich 를 쓰므로 full 과 동일 문구 */
@@ -3687,8 +3783,15 @@ export async function getCommunityMessengerBootstrap(
    */
   {
     const tTrade = performance.now();
-    await enrichTradeRoomContextMetaForBootstrap(userId, mySummaries);
+    await enrichTradeRoomContextMetaForBootstrap(userId, mySummaries, diagnostics);
     diagnostics && (diagnostics.tradeContextMs = Math.round(performance.now() - tTrade));
+    diagnostics &&
+      (diagnostics.enrichTradeMiddlePipelineMs = Math.max(
+        0,
+        diagnostics.tradeContextMs -
+          diagnostics.enrichTradeDirectKeysMs -
+          diagnostics.enrichTradeSellerHydrateMs
+      ));
     const sbBoot = getSupabaseOrNull();
     if (sbBoot) {
       const tUnread = performance.now();
@@ -3721,10 +3824,12 @@ export async function getCommunityMessengerBootstrap(
   if (discoverableRoomIds.length > 0) {
     const sbMeet = getSupabaseOrNull();
     if (sbMeet) {
+      const tMeet = performance.now();
       const { data: meetingRows } = await (sbMeet as any)
         .from("meetings")
         .select("id, community_messenger_room_id, region_text, category_text, platform_approval_status")
         .in("community_messenger_room_id", discoverableRoomIds);
+      diagnostics && (diagnostics.parallelMeetingsForDiscoverableMs = Math.round(performance.now() - tMeet));
       for (const row of (meetingRows ?? []) as Array<{
         id?: unknown;
         community_messenger_room_id?: unknown;
@@ -3842,8 +3947,39 @@ export async function getCommunityMessengerBootstrap(
       (diagnostics.tradeContextMs > 0 ? 2 : 0) +
       (diagnostics.unreadMs > 0 ? 3 : 0) +
       (shouldHydrateCallData && diagnostics.callsLogMs > 0 ? 3 : 0);
+    diagnostics.bootstrapMonolithWallMs = Math.round(performance.now() - tBootstrapMonolith0);
   }
   return deferCallLog ? { ...base, deferredCallLog: true as const } : base;
+}
+
+export async function getCommunityMessengerBootstrapCritical(userId: string): Promise<{
+  payload: CommunityMessengerBootstrapCritical;
+  criticalPayloadMs: number;
+  dbRoundTrips: number;
+  roomCount: number;
+  tierDiagnostics: import("@/lib/community-messenger/bootstrap/critical-stage").CommunityMessengerCriticalTierDiagnostics;
+}> {
+  const t0 = performance.now();
+  const { loadCommunityMessengerBootstrapCritical } = await import("@/lib/community-messenger/bootstrap/critical-stage");
+  const tierDiagnostics: import("@/lib/community-messenger/bootstrap/critical-stage").CommunityMessengerCriticalTierDiagnostics =
+    {
+      roomsQueryMs: 0,
+      participantsQueryMs: 0,
+      roomsPayloadDbRoundTrips: 0,
+      profilesMs: 0,
+      unreadMs: 0,
+      dbRoundTrips: 0,
+    };
+  const payload = await loadCommunityMessengerBootstrapCritical(userId, { diagnostics: tierDiagnostics });
+  const criticalPayloadMs = Math.round(performance.now() - t0);
+  const roomCount = payload.chats.length + payload.groups.length;
+  return {
+    payload,
+    criticalPayloadMs,
+    dbRoundTrips: tierDiagnostics.dbRoundTrips,
+    roomCount,
+    tierDiagnostics,
+  };
 }
 
 function tradeMessengerListThumbnailMissing(summary: CommunityMessengerRoomSummary): boolean {
@@ -4101,12 +4237,15 @@ async function hydrateTradeListSellerDisplayNamesForSummaries(
 
 async function enrichTradeRoomContextMetaForBootstrap(
   userId: string,
-  summaries: CommunityMessengerRoomSummary[]
+  summaries: CommunityMessengerRoomSummary[],
+  tradeDiag?: CommunityMessengerBootstrapDiagnostics
 ): Promise<void> {
   const sb = getSupabaseOrNull();
   if (!sb) return;
 
+  const tDirect = performance.now();
   await enrichTradeRoomContextMetaFromDirectKeys(userId, summaries);
+  tradeDiag && (tradeDiag.enrichTradeDirectKeysMs = Math.round(performance.now() - tDirect));
 
   /** Phase A: `summary` JSON(v1)에 `productChatId`가 있을 때 — 기존 경로 (direct_key 거래방은 제외: 원장은 Phase 0) */
   const targetsFromSummaryMeta = summaries.filter(
@@ -4447,15 +4586,18 @@ async function enrichTradeRoomContextMetaForBootstrap(
     }
   }
 
+  const tSeller = performance.now();
   await hydrateTradeListSellerDisplayNamesForSummaries(sb, summaries);
+  tradeDiag && (tradeDiag.enrichTradeSellerHydrateMs = Math.round(performance.now() - tSeller));
 }
 
 export async function listCommunityMessengerFriends(userId: string): Promise<CommunityMessengerProfileLite[]> {
-  const [friendIds, hiddenIds, friendshipAcceptedAtByPeer] = await Promise.all([
-    listAcceptedFriendIds(userId),
+  const [acceptedRows, hiddenIds] = await Promise.all([
+    fetchCommunityFriendRequestsAcceptedRowsForViewer(userId),
     listFollowingIds(userId, "hidden"),
-    fetchFriendshipAcceptedAtByPeerId(userId),
   ]);
+  const friendIds = acceptedPeerIdsFromCommunityFriendRows(userId, acceptedRows);
+  const friendshipAcceptedAtByPeer = friendshipAcceptedAtByPeerFromRows(userId, acceptedRows);
   const hiddenIdSet = new Set(hiddenIds);
   const profiles = await hydrateProfiles(
     userId,
@@ -6942,8 +7084,9 @@ function clampCommunityMessengerSnapshotMessageLimit(raw: unknown): number {
   return Math.min(COMMUNITY_MESSENGER_SNAPSHOT_MESSAGE_HARD_MAX, Math.max(1, n));
 }
 
-const COMMUNITY_MESSENGER_CRITICAL_MESSAGE_MIN = 8;
-const COMMUNITY_MESSENGER_CRITICAL_MESSAGE_MAX = 12;
+/** instant/critical 입장 — 카카오/텔레그램형 첫 타임라인 슬라이스(과대 페이로드 방지 상한 30) */
+const COMMUNITY_MESSENGER_CRITICAL_MESSAGE_MIN = 20;
+const COMMUNITY_MESSENGER_CRITICAL_MESSAGE_MAX = 30;
 
 function effectiveSnapshotMessageLimitForCache(options?: GetCommunityMessengerRoomSnapshotOptions): number {
   if (options?.snapshotTier === "silent_delta") return 0;

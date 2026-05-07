@@ -3,6 +3,7 @@ import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import {
   getCommunityMessengerBootstrap,
+  getCommunityMessengerBootstrapCritical,
   listCommunityMessengerCallLogs,
   type CommunityMessengerBootstrapDiagnostics,
 } from "@/lib/community-messenger/service";
@@ -12,6 +13,221 @@ import {
 } from "@/lib/community-messenger/monitoring/server-store";
 import type { MessengerBootstrapBreakdown } from "@/lib/community-messenger/monitoring/types";
 import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
+
+/** 1단계: `[cm-bootstrap-v2]` — 동작 변경 없이 관측만 (critical tier 분리 전) */
+function logCmBootstrapV2(params: {
+  diagnostics: CommunityMessengerBootstrapDiagnostics;
+  authMs: number;
+  routeTotalMs: number;
+  serializationMs: number;
+  payloadUtf8Bytes: number;
+  /** 라우트에서 `getCommunityMessengerBootstrap` 대기 구간(ms); critical 분리 전엔 곧 full monolith */
+  fullPayloadMs: number;
+}) {
+  const d = params.diagnostics;
+  const friendsQueryMs = d.parallelAcceptedFriendsBundleMs + d.parallelFavoriteFriendsMs;
+  const dbRoundTrips =
+    d.roomsPayloadDbRoundTrips +
+    6 +
+    (d.callsLogRowsFetchMs > 0 ? 2 : 0) +
+    1 +
+    (d.parallelMeetingsForDiscoverableMs > 0 ? 1 : 0) +
+    (d.parallelDiscoverableFetchMs > 0 ? 4 : 0);
+  const criticalPayloadMs = 0;
+  const tradeEnrichMs = d.tradeContextMs;
+  const stageEntries: Array<[string, number]> = [
+    ["auth_ms", params.authMs],
+    ["critical_payload_ms", criticalPayloadMs],
+    ["full_payload_ms", params.fullPayloadMs],
+    ["parallel_initial_wall_ms", d.parallelInitialWallMs],
+    ["rooms_query_ms", d.roomsQueryMs],
+    ["participants_query_ms", d.roomsQueryRound2ParticipantsMs],
+    ["profiles_query_ms", d.profilesMs],
+    ["unread_query_ms", d.unreadMs],
+    ["friends_query_ms", friendsQueryMs],
+    ["requests_query_ms", d.parallelFriendRequestsMs],
+    ["trade_enrich_ms", tradeEnrichMs],
+    ["serialization_ms", params.serializationMs],
+  ];
+  let worstStage = "";
+  let worstMs = -1;
+  for (const [name, ms] of stageEntries) {
+    if (ms > worstMs) {
+      worstMs = ms;
+      worstStage = name;
+    }
+  }
+  console.info(
+    "[cm-bootstrap-v2]",
+    JSON.stringify({
+      total_api_ms: params.routeTotalMs,
+      auth_ms: params.authMs,
+      critical_payload_ms: criticalPayloadMs,
+      full_payload_ms: params.fullPayloadMs,
+      parallel_initial_wall_ms: d.parallelInitialWallMs,
+      rooms_query_ms: d.roomsQueryMs,
+      participants_query_ms: d.roomsQueryRound2ParticipantsMs,
+      profiles_query_ms: d.profilesMs,
+      unread_query_ms: d.unreadMs,
+      friends_query_ms: friendsQueryMs,
+      requests_query_ms: d.parallelFriendRequestsMs,
+      trade_enrich_ms: tradeEnrichMs,
+      serialization_ms: params.serializationMs,
+      payload_kb: Math.round((params.payloadUtf8Bytes / 1024) * 1000) / 1000,
+      db_round_trips: dbRoundTrips,
+      room_count: d.roomCount,
+      worst_stage: worstStage,
+      worst_stage_ms: worstMs,
+    })
+  );
+}
+
+/** `tier=critical` — 리스트 첫 페인트 전용; trade 목록 enrich·친구 묶음 없음 */
+function logCmBootstrapV2Critical(params: {
+  diagnostics: import("@/lib/community-messenger/bootstrap/critical-stage").CommunityMessengerCriticalTierDiagnostics;
+  authMs: number;
+  routeTotalMs: number;
+  serializationMs: number;
+  payloadUtf8Bytes: number;
+  criticalPayloadMs: number;
+  dbRoundTrips: number;
+  roomCount: number;
+}) {
+  const d = params.diagnostics;
+  const stageEntries: Array<[string, number]> = [
+    ["auth_ms", params.authMs],
+    ["critical_payload_ms", params.criticalPayloadMs],
+    ["full_payload_ms", 0],
+    ["parallel_initial_wall_ms", 0],
+    ["rooms_query_ms", d.roomsQueryMs],
+    ["participants_query_ms", d.participantsQueryMs],
+    ["profiles_query_ms", d.profilesMs],
+    ["unread_query_ms", d.unreadMs],
+    ["friends_query_ms", 0],
+    ["requests_query_ms", 0],
+    ["trade_enrich_ms", 0],
+    ["serialization_ms", params.serializationMs],
+  ];
+  let worstStage = "";
+  let worstMs = -1;
+  for (const [name, ms] of stageEntries) {
+    if (ms > worstMs) {
+      worstMs = ms;
+      worstStage = name;
+    }
+  }
+  console.info(
+    "[cm-bootstrap-v2]",
+    JSON.stringify({
+      total_api_ms: params.routeTotalMs,
+      auth_ms: params.authMs,
+      critical_payload_ms: params.criticalPayloadMs,
+      full_payload_ms: 0,
+      parallel_initial_wall_ms: 0,
+      rooms_query_ms: d.roomsQueryMs,
+      participants_query_ms: d.participantsQueryMs,
+      profiles_query_ms: d.profilesMs,
+      unread_query_ms: d.unreadMs,
+      friends_query_ms: 0,
+      requests_query_ms: 0,
+      trade_enrich_ms: 0,
+      serialization_ms: params.serializationMs,
+      payload_kb: Math.round((params.payloadUtf8Bytes / 1024) * 1000) / 1000,
+      db_round_trips: params.dbRoundTrips,
+      room_count: params.roomCount,
+      worst_stage: worstStage,
+      worst_stage_ms: worstMs,
+    })
+  );
+}
+
+function logCmBootstrapBreakdown(params: {
+  diagnostics: CommunityMessengerBootstrapDiagnostics;
+  authMs: number;
+  routeTotalMs: number;
+  serializationMs: number;
+  jsonResponseMs: number;
+  payloadUtf8Bytes: number;
+  cacheHit: boolean;
+  mode: MessengerBootstrapBreakdown["mode"];
+}) {
+  const d = params.diagnostics;
+  const timingsValid = !params.cacheHit;
+  const messagesQueryMs = 0;
+  const enrichPresenceMs = 0;
+  const friendsQueryMs = d.parallelAcceptedFriendsBundleMs + d.parallelFavoriteFriendsMs;
+  const dbRoundTripsEstimate =
+    d.roomsPayloadDbRoundTrips +
+    6 +
+    (d.callsLogRowsFetchMs > 0 ? 2 : 0) +
+    1 +
+    (d.parallelMeetingsForDiscoverableMs > 0 ? 1 : 0) +
+    (d.parallelDiscoverableFetchMs > 0 ? 4 : 0);
+
+  const stageEntries: Array<[string, number]> = [
+    ["auth_ms", params.authMs],
+    ["parallel_initial_wall_ms", d.parallelInitialWallMs],
+    ["rooms_query_ms", d.roomsQueryMs],
+    ["messages_query_ms", messagesQueryMs],
+    ["participants_query_ms", d.roomsQueryRound2ParticipantsMs],
+    ["profiles_query_ms", d.profilesMs],
+    ["unread_query_ms", d.unreadMs],
+    ["requests_query_ms", d.parallelFriendRequestsMs],
+    ["friends_query_ms", friendsQueryMs],
+    ["enrich_trade_ms", d.tradeContextMs],
+    ["enrich_presence_ms", enrichPresenceMs],
+    ["serialization_ms", params.serializationMs],
+    ["json_response_ms", params.jsonResponseMs],
+  ];
+  let worstStage = "";
+  let worstMs = -1;
+  for (const [name, ms] of stageEntries) {
+    if (ms > worstMs) {
+      worstMs = ms;
+      worstStage = name;
+    }
+  }
+
+  console.info(
+    "[cm-bootstrap-breakdown]",
+    JSON.stringify({
+      total_api_ms: params.routeTotalMs,
+      auth_ms: params.authMs,
+      rooms_query_ms: d.roomsQueryMs,
+      messages_query_ms: messagesQueryMs,
+      participants_query_ms: d.roomsQueryRound2ParticipantsMs,
+      profiles_query_ms: d.profilesMs,
+      unread_query_ms: d.unreadMs,
+      requests_query_ms: d.parallelFriendRequestsMs,
+      friends_query_ms: friendsQueryMs,
+      enrich_trade_ms: d.tradeContextMs,
+      enrich_presence_ms: enrichPresenceMs,
+      serialization_ms: params.serializationMs,
+      json_response_ms: params.jsonResponseMs,
+      room_count: d.roomCount,
+      participant_count: d.participantCount,
+      message_count: 0,
+      payload_kb: Math.round((params.payloadUtf8Bytes / 1024) * 1000) / 1000,
+      db_round_trips_estimate: dbRoundTripsEstimate,
+      rooms_payload_db_round_trips: d.roomsPayloadDbRoundTrips,
+      parallel_initial_wall_ms: d.parallelInitialWallMs,
+      parallel_accepted_friends_ms: d.parallelAcceptedFriendsBundleMs,
+      parallel_favorite_ms: d.parallelFavoriteFriendsMs,
+      parallel_discoverable_ms: d.parallelDiscoverableFetchMs,
+      parallel_meetings_ms: d.parallelMeetingsForDiscoverableMs,
+      calls_log_rows_fetch_ms: d.callsLogRowsFetchMs,
+      enrich_trade_direct_keys_ms: d.enrichTradeDirectKeysMs,
+      enrich_trade_middle_ms: d.enrichTradeMiddlePipelineMs,
+      enrich_trade_seller_ms: d.enrichTradeSellerHydrateMs,
+      worst_stage: worstStage,
+      worst_stage_ms: worstMs,
+      timings_valid: timingsValid,
+      cache_hit: params.cacheHit,
+      mode: params.mode,
+      note: timingsValid ? undefined : "per-stage timings require cache miss or ?fresh=1",
+    })
+  );
+}
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -60,6 +276,51 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ ok: true, calls, tabs: { calls: calls.length } });
   }
 
+  if (request.nextUrl.searchParams.get("tier") === "critical") {
+    const critical = await getCommunityMessengerBootstrapCritical(auth.userId);
+    const routeTotalMsCritical = Math.round(performance.now() - t0);
+    recordMessengerApiTiming(
+      "GET /api/community-messenger/bootstrap?tier=critical",
+      routeTotalMsCritical,
+      200
+    );
+
+    const jsonBodyCritical = { ok: true as const, ...critical.payload };
+    const tSerCritical = performance.now();
+    const serializedCritical = JSON.stringify(jsonBodyCritical);
+    const serializationMsCritical = Math.round(performance.now() - tSerCritical);
+    const payloadUtf8BytesCritical = Buffer.byteLength(serializedCritical, "utf8");
+    const payloadKbCritical = Math.round((payloadUtf8BytesCritical / 1024) * 1000) / 1000;
+
+    logCmBootstrapV2Critical({
+      diagnostics: critical.tierDiagnostics,
+      authMs,
+      routeTotalMs: routeTotalMsCritical,
+      serializationMs: serializationMsCritical,
+      payloadUtf8Bytes: payloadUtf8BytesCritical,
+      criticalPayloadMs: critical.criticalPayloadMs,
+      dbRoundTrips: critical.dbRoundTrips,
+      roomCount: critical.roomCount,
+    });
+
+    if (payloadKbCritical > 150 || critical.dbRoundTrips > 8) {
+      console.warn(
+        "[cm-bootstrap-v2-warning]",
+        JSON.stringify({
+          tier: "critical",
+          payload_kb: payloadKbCritical,
+          db_round_trips: critical.dbRoundTrips,
+          limits: { payload_kb_max: 150, db_round_trips_max: 8 },
+        })
+      );
+    }
+
+    return new NextResponse(serializedCritical, {
+      status: 200,
+      headers: { "content-type": "application/json; charset=utf-8" },
+    });
+  }
+
   const fresh = request.nextUrl.searchParams.get("fresh") === "1";
   const lite = request.nextUrl.searchParams.get("lite") === "1";
   const mode: MessengerBootstrapBreakdown["mode"] = fresh ? "fresh" : lite ? "lite" : "full";
@@ -102,9 +363,25 @@ export async function GET(request: NextRequest) {
     hasPerRoomNPlusOne: false,
     callsLogIncluded: !lite,
     discoverableIncluded: !lite,
+    roomsPayloadDbRoundTrips: 0,
+    parallelAcceptedFriendsBundleMs: 0,
+    parallelFavoriteFriendsMs: 0,
+    parallelFollowingNeighborMs: 0,
+    parallelFollowingHiddenMs: 0,
+    parallelFollowingBlockedMs: 0,
+    parallelFriendRequestsMs: 0,
+    parallelDiscoverableFetchMs: 0,
+    callsLogRowsFetchMs: 0,
+    parallelMeetingsForDiscoverableMs: 0,
+    enrichTradeDirectKeysMs: 0,
+    enrichTradeSellerHydrateMs: 0,
+    enrichTradeMiddlePipelineMs: 0,
+    bootstrapMonolithWallMs: 0,
   };
   const cacheHit = Boolean(data) && !fresh;
+  let fullPayloadAwaitMs = 0;
   if (!data || fresh) {
+    const tFullPayload = performance.now();
     const existingInflight = bootstrapDiag ? null : communityMessengerBootstrapInflight.get(inflightKey);
     if (existingInflight) {
       data = await existingInflight;
@@ -124,6 +401,7 @@ export async function GET(request: NextRequest) {
         communityMessengerBootstrapInflight.delete(inflightKey);
       }
     }
+    fullPayloadAwaitMs = Math.round(performance.now() - tFullPayload);
     const afterFetch = Date.now();
     communityMessengerBootstrapCache.set(cacheKey, {
       payload: data,
@@ -174,9 +452,8 @@ export async function GET(request: NextRequest) {
     hasPerRoomNPlusOne: diagnostics.hasPerRoomNPlusOne,
   };
   if (bootstrapDiag) {
-    const tDiagJson = performance.now();
-    const diagResponse = NextResponse.json({
-      ok: true,
+    const diagBody = {
+      ok: true as const,
       bootstrap_diag: {
         messenger_bootstrap_route_total_ms: breakdown.routeTotalMs,
         messenger_bootstrap_auth_ms: breakdown.authMs,
@@ -217,8 +494,35 @@ export async function GET(request: NextRequest) {
         calls_log_included: breakdown.callsLogIncluded,
         discoverable_included: breakdown.discoverableIncluded,
       },
+    };
+    const tSer = performance.now();
+    const diagSerialized = JSON.stringify(diagBody);
+    const serializationMs = Math.round(performance.now() - tSer);
+    const payloadUtf8Bytes = Buffer.byteLength(diagSerialized, "utf8");
+    const tDiagJson = performance.now();
+    const diagResponse = new NextResponse(diagSerialized, {
+      status: 200,
+      headers: { "content-type": "application/json; charset=utf-8" },
     });
     breakdown.responseJsonMs = Math.round(performance.now() - tDiagJson);
+    logCmBootstrapV2({
+      diagnostics,
+      authMs,
+      routeTotalMs: breakdown.routeTotalMs,
+      serializationMs,
+      payloadUtf8Bytes,
+      fullPayloadMs: fullPayloadAwaitMs,
+    });
+    logCmBootstrapBreakdown({
+      diagnostics,
+      authMs,
+      routeTotalMs: breakdown.routeTotalMs,
+      serializationMs,
+      jsonResponseMs: breakdown.responseJsonMs,
+      payloadUtf8Bytes,
+      cacheHit,
+      mode,
+    });
     recordMessengerBootstrapBreakdown({
       capturedAt: breakdown.capturedAt,
       mode: breakdown.mode,
@@ -261,10 +565,36 @@ export async function GET(request: NextRequest) {
     });
     return diagResponse;
   }
+  const jsonBody = { ok: true as const, ...data };
+  const tSerMain = performance.now();
+  const serializedMain = JSON.stringify(jsonBody);
+  const serializationMsMain = Math.round(performance.now() - tSerMain);
+  const payloadUtf8BytesMain = Buffer.byteLength(serializedMain, "utf8");
   const tJson = performance.now();
-  const response = NextResponse.json({ ok: true, ...data });
+  const response = new NextResponse(serializedMain, {
+    status: 200,
+    headers: { "content-type": "application/json; charset=utf-8" },
+  });
   const responseJsonMs = Math.round(performance.now() - tJson);
   breakdown.responseJsonMs = responseJsonMs;
+  logCmBootstrapV2({
+    diagnostics,
+    authMs,
+    routeTotalMs: breakdown.routeTotalMs,
+    serializationMs: serializationMsMain,
+    payloadUtf8Bytes: payloadUtf8BytesMain,
+    fullPayloadMs: fullPayloadAwaitMs,
+  });
+  logCmBootstrapBreakdown({
+    diagnostics,
+    authMs,
+    routeTotalMs: breakdown.routeTotalMs,
+    serializationMs: serializationMsMain,
+    jsonResponseMs: responseJsonMs,
+    payloadUtf8Bytes: payloadUtf8BytesMain,
+    cacheHit,
+    mode,
+  });
   recordMessengerBootstrapBreakdown({
     capturedAt: breakdown.capturedAt,
     mode: breakdown.mode,

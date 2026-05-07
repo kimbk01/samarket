@@ -21,6 +21,7 @@ describe("messenger home verification counters (실행 횟수)", () => {
     forgetSingleFlight("community-messenger:client:bootstrap:lite");
     forgetSingleFlight("community-messenger:client:bootstrap:full");
     forgetSingleFlight("community-messenger:client:bootstrap:fresh");
+    forgetSingleFlight("community-messenger:client:bootstrap:critical");
     forgetSingleFlight("community-messenger:list-bootstrap-warm");
     forgetSingleFlight("community-messenger:home:silent:home_sync");
     vi.stubGlobal(
@@ -42,6 +43,7 @@ describe("messenger home verification counters (실행 횟수)", () => {
     forgetSingleFlight("community-messenger:client:bootstrap:lite");
     forgetSingleFlight("community-messenger:client:bootstrap:full");
     forgetSingleFlight("community-messenger:client:bootstrap:fresh");
+    forgetSingleFlight("community-messenger:client:bootstrap:critical");
     forgetSingleFlight("community-messenger:list-bootstrap-warm");
     forgetSingleFlight("community-messenger:home:silent:home_sync");
   });

@@ -35,17 +35,29 @@ function dedupeStrings(values: Iterable<string>): string[] {
 export async function enrichMessengerTradeUnreadWithLegacyTrade(
   sbAny: SupabaseClient<any>,
   viewerUserId: string,
-  summaries: CommunityMessengerRoomSummary[]
+  summaries: CommunityMessengerRoomSummary[],
+  /** 관측 전용 — 동작·합산 로직 불변 */
+  metrics?: { dbRoundTrips: number }
 ): Promise<void> {
   const uid = t(viewerUserId);
-  if (!uid || !summaries.length) return;
+  if (!uid || !summaries.length) {
+    if (metrics) metrics.dbRoundTrips = 0;
+    return;
+  }
 
   const tradeSummaries = summaries.filter((s) => s.contextMeta?.kind === "trade");
-  if (!tradeSummaries.length) return;
+  if (!tradeSummaries.length) {
+    if (metrics) metrics.dbRoundTrips = 0;
+    return;
+  }
 
   const cmRoomIds = dedupeStrings(tradeSummaries.map((s) => s.id));
-  if (!cmRoomIds.length) return;
+  if (!cmRoomIds.length) {
+    if (metrics) metrics.dbRoundTrips = 0;
+    return;
+  }
 
+  let dbRoundTrips = 0;
   const tChatRooms = performance.now();
   const { data: itemTradeRows, error: itErr } = await sbAny
     .from("chat_rooms")
@@ -57,8 +69,12 @@ export async function enrichMessengerTradeUnreadWithLegacyTrade(
     roomIdInCount: cmRoomIds.length,
     err: itErr ? String((itErr as { message?: unknown }).message ?? itErr) : null,
   });
+  dbRoundTrips += 1;
 
-  if (itErr) return;
+  if (itErr) {
+    if (metrics) metrics.dbRoundTrips = dbRoundTrips;
+    return;
+  }
 
   const itemTradeByCmRoomId = new Map<string, true>();
   for (const row of (itemTradeRows ?? []) as Array<{
@@ -87,6 +103,7 @@ export async function enrichMessengerTradeUnreadWithLegacyTrade(
       table: "product_chats",
       idInCount: productChatIds.length,
     });
+    dbRoundTrips += 1;
   }
 
   const pcById = new Map<
@@ -133,4 +150,6 @@ export async function enrichMessengerTradeUnreadWithLegacyTrade(
       s.unreadCount = merged;
     }
   }
+
+  if (metrics) metrics.dbRoundTrips = dbRoundTrips;
 }

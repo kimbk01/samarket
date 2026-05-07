@@ -62,6 +62,20 @@ import {
 } from "@/lib/runtime/samarket-runtime-debug";
 import { useMessengerRoomClientPhase1Context } from "@/lib/community-messenger/room/messenger-room-client-phase1-context";
 import {
+  recordCmRoomEntryMilestone,
+  tryEmitCmRoomEntryV2Log,
+} from "@/lib/community-messenger/room/cm-room-entry-instrumentation";
+import {
+  bumpCmPolishComposerRender,
+  cmPolishAnalysisEnabled,
+  logCmPolishAnalysis,
+  recordCmPolishSendClick,
+} from "@/lib/community-messenger/monitoring/cm-polish-analysis";
+import {
+  cmRenderAnalysisEnabled,
+  logCmRenderAnalysis,
+} from "@/lib/community-messenger/monitoring/cm-render-analysis";
+import {
   buildReplyPreviewSnapshot,
   formatReplyQuoteKakaoHeader,
 } from "@/lib/community-messenger/message-actions/message-reply-policy";
@@ -81,6 +95,10 @@ function isDomTextareaLikelyVisible(el: HTMLTextAreaElement): boolean {
 }
 
 export function CommunityMessengerRoomPhase2Composer() {
+  const composerRenderPassStartRef = useRef(typeof performance !== "undefined" ? performance.now() : 0);
+  composerRenderPassStartRef.current = typeof performance !== "undefined" ? performance.now() : 0;
+  if (cmPolishAnalysisEnabled()) bumpCmPolishComposerRender();
+  const lastComposerPerfLogRef = useRef(0);
   const vm = useMessengerRoomPhase2ComposerView();
   const {
     notifyComposerTextareaVisibleForSeededBootstrap,
@@ -108,6 +126,18 @@ export function CommunityMessengerRoomPhase2Composer() {
   }, [roomKey]);
 
   useLayoutEffect(() => {
+    if (!cmRenderAnalysisEnabled()) return;
+    const now = typeof performance !== "undefined" ? performance.now() : 0;
+    if (now - lastComposerPerfLogRef.current < 280) return;
+    lastComposerPerfLogRef.current = now;
+    const ms = Math.round(now - composerRenderPassStartRef.current);
+    logCmRenderAnalysis({
+      composer_render_ms: ms,
+      rerender_reason: "composer_commit",
+    });
+  });
+
+  useLayoutEffect(() => {
     if (!composerMountRecordedRef.current) {
       composerMountRecordedRef.current = true;
       recordRouteEntryElapsedMetric("messenger_room_entry", "composer_mount_ms");
@@ -117,6 +147,8 @@ export function CommunityMessengerRoomPhase2Composer() {
       if (seededSilentHoldReleasedRef.current) return;
       if (vm.voiceRecording) {
         seededSilentHoldReleasedRef.current = true;
+        recordCmRoomEntryMilestone("composer_visible_ms");
+        tryEmitCmRoomEntryV2Log(String(roomKey).trim());
         notifyComposerTextareaVisibleForSeededBootstrap();
         return;
       }
@@ -124,6 +156,8 @@ export function CommunityMessengerRoomPhase2Composer() {
       if (!ta || !isDomTextareaLikelyVisible(ta)) return;
       seededSilentHoldReleasedRef.current = true;
       recordRouteEntryElapsedMetricOnce("messenger_room_entry", "composer_textarea_visible_ms");
+      recordCmRoomEntryMilestone("composer_visible_ms");
+      tryEmitCmRoomEntryV2Log(String(phase1Snapshot?.room?.id ?? vm.snapshot.room.id ?? "").trim());
       notifyComposerTextareaVisibleForSeededBootstrap();
     };
     tryRelease();
@@ -164,6 +198,7 @@ export function CommunityMessengerRoomPhase2Composer() {
       return;
     }
     const text = draft.trim();
+    recordCmPolishSendClick();
     setDraft("");
     void vm.sendMessage(text);
   }, [draft, vm]);
@@ -299,12 +334,27 @@ export function CommunityMessengerRoomPhase2Composer() {
                   onFocus={(e) => {
                     useMessengerRoomUiStore.getState().setComposerFocused(true);
                     const ta = e.currentTarget;
-                    requestAnimationFrame(() => {
-                      try {
-                        ta.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" });
-                      } catch {
-                        ta.scrollIntoView({ block: "nearest" });
-                      }
+                    const t0 = typeof performance !== "undefined" ? performance.now() : 0;
+                    const skipScrollIntoView =
+                      isNarrowViewport && messengerKeyboardChromeOpen && keyboardOverlapSuppressed;
+                    window.requestAnimationFrame(() => {
+                      window.requestAnimationFrame(() => {
+                        if (cmPolishAnalysisEnabled() && typeof performance !== "undefined") {
+                          logCmPolishAnalysis({
+                            composer_focus_to_ready_ms: Math.round((performance.now() - t0) * 1000) / 1000,
+                            room_id_suffix:
+                              String(vm.snapshot.room.id ?? "").length > 8
+                                ? String(vm.snapshot.room.id).slice(-8)
+                                : String(vm.snapshot.room.id ?? ""),
+                          });
+                        }
+                        if (skipScrollIntoView) return;
+                        try {
+                          ta.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "auto" });
+                        } catch {
+                          ta.scrollIntoView({ block: "nearest" });
+                        }
+                      });
                     });
                   }}
                   onBlur={() => {

@@ -17,6 +17,11 @@ import {
   type CommunityMessengerRoomSnapshot,
 } from "@/lib/community-messenger/types";
 import { isUuidLikeString } from "@/lib/shared/uuid-string";
+import { recordCmRoomEntryMilestone } from "@/lib/community-messenger/room/cm-room-entry-instrumentation";
+import {
+  cmScrollAnalysisEnabled,
+  logCmScrollAnalysis,
+} from "@/lib/community-messenger/monitoring/cm-scroll-analysis";
 
 export type UseMessengerRoomLoadOlderMessagesFetchArgs = {
   roomId: string;
@@ -56,6 +61,7 @@ export function useMessengerRoomLoadOlderMessagesFetch({
 } {
   const inFlightBeforeIdRef = useRef<string | null>(null);
   const inFlightPromiseRef = useRef<Promise<void> | null>(null);
+  const deferredHistoryMilestoneRecordedRef = useRef(false);
 
   useEffect(() => {
     olderMessagesExhaustedRef.current = false;
@@ -63,6 +69,7 @@ export function useMessengerRoomLoadOlderMessagesFetch({
     setLoadingOlderMessages(false);
     inFlightBeforeIdRef.current = null;
     inFlightPromiseRef.current = null;
+    deferredHistoryMilestoneRecordedRef.current = false;
   }, [roomId]);
 
   useEffect(() => {
@@ -103,6 +110,7 @@ export function useMessengerRoomLoadOlderMessagesFetch({
     const run = async () => {
       const vp = messagesViewportRef.current;
       const prevScrollHeight = vp?.scrollHeight ?? 0;
+      const prevScrollTop = vp?.scrollTop ?? 0;
       setLoadingOlderMessages(true);
       try {
         const res = await fetch(
@@ -124,16 +132,35 @@ export function useMessengerRoomLoadOlderMessagesFetch({
           setHasMoreOlderMessages(false);
           return;
         }
+        if (!deferredHistoryMilestoneRecordedRef.current) {
+          deferredHistoryMilestoneRecordedRef.current = true;
+          recordCmRoomEntryMilestone("deferred_history_ms");
+        }
         setRoomMessages((prev) => mergeRoomMessages(prev, json.messages ?? []));
         if (!json.hasMore) {
           olderMessagesExhaustedRef.current = true;
         }
         setHasMoreOlderMessages(Boolean(json.hasMore));
         window.requestAnimationFrame(() => {
-          const el = messagesViewportRef.current;
-          if (el && prevScrollHeight > 0) {
-            el.scrollTop += el.scrollHeight - prevScrollHeight;
-          }
+          window.requestAnimationFrame(() => {
+            const el = messagesViewportRef.current;
+            if (!el || prevScrollHeight <= 0) return;
+            const t0 = performance.now();
+            const heightDelta = el.scrollHeight - prevScrollHeight;
+            const expectedTop = prevScrollTop + heightDelta;
+            el.scrollTop += heightDelta;
+            const restoreMs = performance.now() - t0;
+            const anchorErrPx = Math.round(Math.abs(el.scrollTop - expectedTop));
+            if (cmScrollAnalysisEnabled()) {
+              logCmScrollAnalysis({
+                prepend_scroll_restore_ms: Math.round(restoreMs * 1000) / 1000,
+                visible_window_jump_px: anchorErrPx,
+                auto_scroll_triggered: false,
+                auto_scroll_reason: "prepend_history_anchor",
+                room_id_suffix: apiRoomId.length > 8 ? apiRoomId.slice(-8) : apiRoomId,
+              });
+            }
+          });
         });
       } finally {
         setLoadingOlderMessages(false);

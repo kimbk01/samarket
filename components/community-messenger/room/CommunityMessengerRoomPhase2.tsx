@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { CommunityMessengerRoomShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import type { MessengerRoomPhase2ViewModel } from "@/lib/community-messenger/room/phase2/messenger-room-phase2-view-model";
@@ -35,6 +35,18 @@ import {
 import { useSearchParams } from "next/navigation";
 import { buildMessengerRoomListBackHref } from "@/lib/community-messenger/messenger-entry-origin";
 import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
+import {
+  recordCmRoomEntryMilestone,
+  tryEmitCmRoomEntryV2Log,
+} from "@/lib/community-messenger/room/cm-room-entry-instrumentation";
+import {
+  cmRenderAnalysisEnabled,
+  deriveCmRoomRenderReason,
+  disposeCmRenderAnalysisLayoutShiftObserver,
+  ensureCmRenderAnalysisLayoutShiftObserver,
+  logCmRenderAnalysis,
+  resetCmRenderAnalysisSession,
+} from "@/lib/community-messenger/monitoring/cm-render-analysis";
 import { useMessengerRoomAnimatedBack } from "@/components/community-messenger/room/MessengerRoomSwipeBackShell";
 import { messengerTradeViewerRoleFromContextMeta } from "@/lib/community-messenger/messenger-trade-viewer-role";
 
@@ -56,6 +68,9 @@ function CommunityMessengerRoomClientPhase2Main({
   narrowViewport,
   messengerKeyboardChromeOpen,
 }: CommunityMessengerRoomClientPhase2MainProps) {
+  const phase2RenderPassStartRef = useRef(typeof performance !== "undefined" ? performance.now() : 0);
+  phase2RenderPassStartRef.current = typeof performance !== "undefined" ? performance.now() : 0;
+  const phase2PrevSigRef = useRef<{ msgLen: number; unread: number; readId: string } | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   /** 셸 DOM 이 붙은 뒤에만 vv 변수 구독 — 첫 프레임에 ref 미부착으로 훅이 빠지는 경우 방지 @see docs/community-messenger-mobile-room-viewport.md */
   const [chatShellMounted, setChatShellMounted] = useState(false);
@@ -63,6 +78,10 @@ function CommunityMessengerRoomClientPhase2Main({
     rootRef.current = node;
     setChatShellMounted(Boolean(node));
   }, []);
+  useLayoutEffect(() => {
+    if (!chatShellMounted) return;
+    recordCmRoomEntryMilestone("room_shell_visible_ms");
+  }, [chatShellMounted]);
   useChatViewportResize({ enabled: narrowViewport && chatShellMounted, shellRef: rootRef });
   const phase2EnterRecordedRef = useRef(false);
   const roomStateCommitRecordedRef = useRef(false);
@@ -78,6 +97,43 @@ function CommunityMessengerRoomClientPhase2Main({
   const effectRunCountRef = useRef(0);
   renderCountRef.current += 1;
   recordRouteEntryMetric("messenger_room_entry", "phase2_rerender_count", Math.max(0, renderCountRef.current - 1));
+
+  useEffect(() => {
+    if (!cmRenderAnalysisEnabled()) return;
+    const rid = String(room.snapshot.room.id ?? "").trim();
+    if (!rid) return;
+    resetCmRenderAnalysisSession(rid);
+    ensureCmRenderAnalysisLayoutShiftObserver();
+    return () => {
+      disposeCmRenderAnalysisLayoutShiftObserver();
+    };
+  }, [room.snapshot.room.id]);
+
+  useLayoutEffect(() => {
+    if (!cmRenderAnalysisEnabled()) return;
+    const msgLen = room.displayRoomMessages.length;
+    const unread = room.snapshot.room.unreadCount ?? 0;
+    const readId = room.snapshot.readReceipt?.lastReadMessageId?.trim() ?? "";
+    const nextSig = { msgLen, unread, readId };
+    const reason = deriveCmRoomRenderReason(phase2PrevSigRef.current, nextSig);
+    phase2PrevSigRef.current = nextSig;
+    const ms = Math.round(
+      (typeof performance !== "undefined" ? performance.now() : 0) - phase2RenderPassStartRef.current
+    );
+    logCmRenderAnalysis({
+      room_render_ms: ms,
+      rerender_reason: reason,
+      visible_message_count: msgLen,
+    });
+  }, [
+    keyboardOverlapSuppressed,
+    messengerKeyboardChromeOpen,
+    room.displayRoomMessages.length,
+    room.snapshot.room.unreadCount,
+    room.snapshot.readReceipt?.lastReadMessageId,
+    room.snapshot.room.id,
+  ]);
+
   const view: MessengerRoomPhase2ViewModel = {
     ...room,
     snapshot: room.snapshot as CommunityMessengerRoomSnapshot,
@@ -242,6 +298,7 @@ function CommunityMessengerRoomClientPhase2Main({
     recordRouteEntryElapsedMetric("messenger_room_entry", "first_message_render_ms");
     recordRouteEntryMetric("messenger_room_entry", "initial_rendered_message_count", initialRenderedCount);
     recordRouteEntryFirstContentRender("messenger_room_entry");
+    recordCmRoomEntryMilestone("message_list_visible_ms");
     scheduleRouteEntryToPaint("messenger_room_entry");
   }, [room.chatVirtualizer, room.displayRoomMessages.length]);
 
@@ -261,7 +318,8 @@ function CommunityMessengerRoomClientPhase2Main({
     recordRouteEntryMetric("messenger_room_entry", "message_render_count", room.displayRoomMessages.length);
     recordRouteEntryMetric("messenger_room_entry", "image_attachment_count", room.photoMessageCount);
     recordRouteEntryFullRender("messenger_room_entry");
-  }, [room.displayRoomMessages.length, room.photoMessageCount, room.snapshot.messages.length]);
+    tryEmitCmRoomEntryV2Log(String(room.snapshot.room.id ?? "").trim());
+  }, [room.displayRoomMessages.length, room.photoMessageCount, room.snapshot.messages.length, room.snapshot.room.id]);
 
   useLayoutEffect(() => {
     effectRunCountRef.current += 1;

@@ -21,10 +21,22 @@ import {
 import {
   clearBootstrapCache,
   peekBootstrapCache,
+  peekMessengerBootstrapCritical,
+  peekMessengerBootstrapFull,
   primeBootstrapCache,
+  primeMessengerBootstrapCritical,
+  primeMessengerBootstrapFull,
+  primeMessengerBootstrapMinimal,
 } from "@/lib/community-messenger/bootstrap-cache";
+import { fetchCommunityMessengerBootstrapCriticalClient } from "@/lib/community-messenger/cm-bootstrap-client-fetch";
+import {
+  logCmBootstrapV2ClientFinalize,
+  markCmBootstrapV2ClientFlowAnchor,
+} from "@/lib/community-messenger/cm-bootstrap-v2-client-log";
+import { communityMessengerBootstrapFromCriticalPayload } from "@/lib/community-messenger/home/critical-bootstrap-to-partial";
 import type {
   CommunityMessengerBootstrap,
+  CommunityMessengerBootstrapCritical,
   CommunityMessengerCallLog,
   CommunityMessengerFriendRequest,
   CommunityMessengerRoomSummary,
@@ -33,6 +45,7 @@ import { mergeMessengerRoomSummaryForHomeSyncCriticalPatch } from "@/lib/communi
 import { finishSilentRefreshRound, tryEnterSilentRefreshRound } from "@/lib/http/silent-refresh-coalesce";
 import { cancelScheduledWhenBrowserIdle, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
 import { fetchCommunityMessengerBootstrapClient } from "@/lib/community-messenger/cm-bootstrap-client-fetch";
+import { getMessengerBackgroundHydrationScheduler } from "@/lib/community-messenger/background-hydration-scheduler";
 import { mergeDiscoverableGroupsFromOpenGroupsClient } from "@/lib/community-messenger/merge-discoverable-open-groups-client";
 import {
   recordMessengerBootstrapJsonParseComplete,
@@ -78,6 +91,47 @@ function mergeFriendRequestsKeepStaleOutgoing(
   });
   if (!extra.length) return server;
   return [...server, ...extra];
+}
+
+/** lite/full API JSON → 클라 `CommunityMessengerBootstrap` (deferred 단계 전용) */
+function messengerBootstrapFromLiteApiJson(
+  json: CommunityMessengerBootstrap & { ok?: boolean; deferredCallLog?: boolean }
+): CommunityMessengerBootstrap {
+  const deferred = Boolean(json.deferredCallLog);
+  return {
+    me: json.me ?? null,
+    tabs: {
+      friends: json.tabs?.friends ?? 0,
+      chats: json.tabs?.chats ?? 0,
+      groups: json.tabs?.groups ?? 0,
+      calls: json.tabs?.calls ?? 0,
+    },
+    friends: json.friends ?? [],
+    following: json.following ?? [],
+    hidden: json.hidden ?? [],
+    blocked: json.blocked ?? [],
+    requests: json.requests ?? [],
+    chats: json.chats ?? [],
+    groups: json.groups ?? [],
+    discoverableGroups: json.discoverableGroups ?? [],
+    calls: json.calls ?? [],
+    ...(deferred ? { deferredCallLog: true as const } : {}),
+    clientHydrationTier: "full",
+  };
+}
+
+function abortSignalAny(signals: AbortSignal[]): AbortSignal {
+  const alive = signals.filter(Boolean);
+  if (alive.length === 0) {
+    const c = new AbortController();
+    c.abort();
+    return c.signal;
+  }
+  const firstAborted = alive.find((s) => s.aborted);
+  if (firstAborted) return firstAborted;
+  const mergeFn = (AbortSignal as unknown as { any?: (s: AbortSignal[]) => AbortSignal }).any;
+  if (typeof mergeFn === "function") return mergeFn(alive);
+  return alive[0]!;
 }
 
 const STALE_CACHE_RESUME_SILENT_REFRESH_COOLDOWN_MS = 20_000;
@@ -135,7 +189,11 @@ export function useCommunityMessengerHomeBootstrap({
    * 캐시 시드는 마운트 직후 `useLayoutEffect` 에서만 적용한다.
    */
   const [data, setData] = useState<CommunityMessengerBootstrap | null>(() => initialServerBootstrap ?? null);
-  const [loading, setLoading] = useState(() => !Boolean(initialServerBootstrap));
+  const [loading, setLoading] = useState(() => {
+    if (initialServerBootstrap) return false;
+    if (peekMessengerBootstrapFull() || peekMessengerBootstrapCritical()) return false;
+    return true;
+  });
   /** RSC+로그인 시에도 바로 열어 `participants` Realtime 이 목록·뱃지와 동시에 움직이게 한다(닫아 두면 520ms+ 밀림). */
   const [homeRealtimeGateOpen, setHomeRealtimeGateOpen] = useState(
     () => Boolean(initialServerBootstrap?.me?.id) || !Boolean(initialServerBootstrap)
@@ -145,11 +203,18 @@ export function useCommunityMessengerHomeBootstrap({
 
   useLayoutEffect(() => {
     if (initialServerBootstrap) return;
-    const cached = peekBootstrapCache();
-    if (!cached) return;
-    setData(cached);
+    const fullCached = peekMessengerBootstrapFull();
+    if (fullCached) {
+      setData(fullCached);
+      setLoading(false);
+      if (fullCached.me?.id) setHomeRealtimeGateOpen(true);
+      return;
+    }
+    const critCached = peekMessengerBootstrapCritical();
+    if (!critCached) return;
+    setData(communityMessengerBootstrapFromCriticalPayload(critCached));
     setLoading(false);
-    if (cached.me?.id) setHomeRealtimeGateOpen(true);
+    if (critCached.me?.id) setHomeRealtimeGateOpen(true);
   }, [initialServerBootstrap]);
 
   useEffect(() => {
@@ -331,9 +396,13 @@ export function useCommunityMessengerHomeBootstrap({
     samarketMessengerHomeDebugEvent("messenger_home_refresh_start", { silent });
     let refreshDataOk = false;
     let bootstrapClientOk = false;
-    const stale = !silent ? peekBootstrapCache() : null;
+    const staleFullOnly = !silent ? peekMessengerBootstrapFull() : null;
+    const staleCritPayload = !silent ? peekMessengerBootstrapCritical() : null;
+    const stale: CommunityMessengerBootstrap | null =
+      staleFullOnly ??
+      (staleCritPayload ? communityMessengerBootstrapFromCriticalPayload(staleCritPayload) : null);
     const shouldBlock = !silent && !loadedRef.current && !stale;
-    const useLiteBootstrap = !silent && !stale && !loadedRef.current;
+    const useLiteBootstrapFallback = !silent && !stale && !loadedRef.current;
     if (stale) {
       setData(stale);
       setAuthRequired(false);
@@ -447,8 +516,18 @@ export function useCommunityMessengerHomeBootstrap({
                 return merged;
               });
               if ((next.discoverableGroups?.length ?? 0) === 0) {
-                scheduleWhenBrowserIdle(() => {
-                  void mergeDiscoverableGroupsFromOpenGroupsClient(setData, "fill_if_empty");
+                const schSf = getMessengerBackgroundHydrationScheduler();
+                const silentFbId = requestId;
+                window.setTimeout(() => {
+                  if (silentFbId !== refreshRequestIdRef.current) return;
+                  schSf.schedule({
+                    id: `messenger:silent-fallback:discover-fill:${silentFbId}`,
+                    dedupeKey: "messenger:silent-fallback:discover-fill",
+                    priority: "low",
+                    run: async () => {
+                      await mergeDiscoverableGroupsFromOpenGroupsClient(setData, "fill_if_empty");
+                    },
+                  });
                 }, 1800);
               }
             } else {
@@ -457,88 +536,286 @@ export function useCommunityMessengerHomeBootstrap({
           }
         }
       } else {
-        samarketMessengerHomeDebugEvent("messenger_home_bootstrap_start", {
-          mode: useLiteBootstrap ? "lite" : "full",
-        });
-        const res = await fetchCommunityMessengerBootstrapClient(useLiteBootstrap ? "lite" : "full", {
-          signal: controller.signal,
-        });
-        if (controller.signal.aborted || requestId !== refreshRequestIdRef.current) return;
-        const json = await parseBootstrapJson<CommunityMessengerBootstrap & {
-          ok?: boolean;
-          error?: string;
-        }>(res);
-        if (res.ok && json.ok) {
-          bootstrapClientOk = true;
-          refreshDataOk = true;
-          samarketMessengerHomeDebugEvent("messenger_home_bootstrap_success", {
-            mode: useLiteBootstrap ? "lite" : "full",
-          });
-          const deferred = Boolean((json as { deferredCallLog?: unknown }).deferredCallLog);
-          const next: CommunityMessengerBootstrap = {
-            me: json.me ?? null,
-            tabs: {
-              friends: json.tabs?.friends ?? 0,
-              chats: json.tabs?.chats ?? 0,
-              groups: json.tabs?.groups ?? 0,
-              calls: json.tabs?.calls ?? 0,
-            },
-            friends: json.friends ?? [],
-            following: json.following ?? [],
-            hidden: json.hidden ?? [],
-            blocked: json.blocked ?? [],
-            requests: json.requests ?? [],
-            chats: json.chats ?? [],
-            groups: json.groups ?? [],
-            discoverableGroups: json.discoverableGroups ?? [],
-            calls: json.calls ?? [],
-            ...(deferred ? { deferredCallLog: true as const } : {}),
+        /** 비-silent: critical-first → idle 에서 lite 보강 (첫 페인트 전 full 단일 await 제거) */
+        markCmBootstrapV2ClientFlowAnchor();
+        const shellVisibleAt = typeof performance !== "undefined" ? performance.now() : 0;
+
+        const scheduleDeferredLiteAndLog = (
+          criticalRequestStartAt: number,
+          criticalResponseAt: number,
+          roomListVisibleAt: number,
+          usedCachedSnapshot: boolean,
+          usedCriticalPayload: boolean
+        ) => {
+          const sch = getMessengerBackgroundHydrationScheduler();
+          const hydrateRequestId = requestId;
+
+          const armFollowUp = (delayMs: number, enqueue: () => void) => {
+            if (typeof window === "undefined") return;
+            window.setTimeout(() => {
+              if (hydrateRequestId !== refreshRequestIdRef.current) return;
+              enqueue();
+            }, delayMs);
           };
-          setAuthRequired(false);
-          setPageError(null);
-          setData((prev) => {
-            if (!prev) {
-              primeBootstrapCache(next);
-              return next;
-            }
-            const merged: CommunityMessengerBootstrap = {
-              ...next,
-              requests: mergeFriendRequestsKeepStaleOutgoing(prev, next.requests ?? []),
-            };
-            primeBootstrapCache(merged);
-            return merged;
+
+          sch.schedule({
+            id: `messenger:deferred-lite-bootstrap:${hydrateRequestId}`,
+            dedupeKey: "messenger:deferred-lite-bootstrap",
+            priority: "medium",
+            run: async (signal) => {
+              const deferredStartAt = typeof performance !== "undefined" ? performance.now() : 0;
+              let deferredFinishAt = deferredStartAt;
+              try {
+                samarketMessengerHomeDebugEvent("messenger_home_bootstrap_start", { mode: "lite" });
+                const mergedSignal = abortSignalAny([controller.signal, signal]);
+                const resLite = await fetchCommunityMessengerBootstrapClient("lite", {
+                  signal: mergedSignal,
+                });
+                if (controller.signal.aborted || requestId !== refreshRequestIdRef.current) return;
+                const jsonLite = await parseBootstrapJson<CommunityMessengerBootstrap & {
+                  ok?: boolean;
+                  error?: string;
+                  deferredCallLog?: boolean;
+                }>(resLite);
+                if (resLite.ok && jsonLite.ok) {
+                  bootstrapClientOk = true;
+                  refreshDataOk = true;
+                  samarketMessengerHomeDebugEvent("messenger_home_bootstrap_success", { mode: "lite" });
+                  const next = messengerBootstrapFromLiteApiJson(jsonLite);
+                  primeMessengerBootstrapMinimal(next);
+                  setAuthRequired(false);
+                  setPageError(null);
+                  setData((prev) => {
+                    const merged: CommunityMessengerBootstrap = {
+                      ...next,
+                      requests: mergeFriendRequestsKeepStaleOutgoing(prev ?? next, next.requests ?? []),
+                    };
+                    primeMessengerBootstrapFull(merged);
+                    return merged;
+                  });
+                  deferredFinishAt = typeof performance !== "undefined" ? performance.now() : 0;
+
+                  armFollowUp(250, () => {
+                    sch.schedule({
+                      id: `messenger:followup:silent-refresh:${hydrateRequestId}`,
+                      dedupeKey: "messenger:followup:silent-refresh",
+                      priority: "low",
+                      run: async () => {
+                        await refresh(true);
+                      },
+                    });
+                  });
+                  if (next.deferredCallLog) {
+                    armFollowUp(1200, () => {
+                      sch.schedule({
+                        id: `messenger:followup:calls-log:${hydrateRequestId}`,
+                        dedupeKey: "messenger:followup:calls-log",
+                        priority: "low",
+                        run: async () => {
+                          await mergeDeferredMessengerCallLogs();
+                        },
+                      });
+                    });
+                  }
+                  armFollowUp(1800, () => {
+                    sch.schedule({
+                      id: `messenger:followup:discoverable:${hydrateRequestId}`,
+                      dedupeKey: "messenger:followup:discoverable-open-groups",
+                      priority: "low",
+                      run: async () => {
+                        await mergeDiscoverableGroupsFromOpenGroupsClient(setData, "replace");
+                      },
+                    });
+                  });
+                } else {
+                  const unauthorized = resLite.status === 401 || resLite.status === 403;
+                  if (unauthorized) {
+                    clearBootstrapCache();
+                    setAuthRequired(true);
+                    setPageError(tRef.current("nav_messenger_login_required"));
+                    setData(null);
+                  } else {
+                    setAuthRequired(false);
+                    setPageError(tRef.current("nav_messenger_load_failed"));
+                    if (!stale) setData(null);
+                  }
+                }
+              } catch {
+                /* ignore */
+              } finally {
+                logCmBootstrapV2ClientFinalize({
+                  shellVisibleAt,
+                  criticalRequestStartAt,
+                  criticalResponseAt,
+                  roomListVisibleAt,
+                  deferredStartAt,
+                  deferredFinishAt,
+                  used_cached_snapshot: usedCachedSnapshot,
+                  used_critical_payload: usedCriticalPayload,
+                });
+              }
+            },
           });
-          if (useLiteBootstrap) {
-            scheduleWhenBrowserIdle(() => {
-              void refresh(true);
-            }, 250);
-          }
-          if (useLiteBootstrap && deferred) {
-            scheduleWhenBrowserIdle(() => {
-              void mergeDeferredMessengerCallLogs();
-            }, 1200);
-          }
-          if (useLiteBootstrap) {
-            scheduleWhenBrowserIdle(() => {
-              void mergeDiscoverableGroupsFromOpenGroupsClient(setData, "replace");
-            }, 1800);
-          } else if ((next.discoverableGroups?.length ?? 0) === 0) {
-            scheduleWhenBrowserIdle(() => {
-              void mergeDiscoverableGroupsFromOpenGroupsClient(setData, "fill_if_empty");
-            }, 1800);
-          }
+        };
+
+        if (staleFullOnly) {
+          scheduleDeferredLiteAndLog(shellVisibleAt, shellVisibleAt, shellVisibleAt, true, false);
+        } else if (staleCritPayload) {
+          scheduleDeferredLiteAndLog(shellVisibleAt, shellVisibleAt, shellVisibleAt, true, true);
         } else {
-          const unauthorized = res.status === 401 || res.status === 403;
-          if (unauthorized) {
-            clearBootstrapCache();
-            setAuthRequired(true);
-            setPageError(tRef.current("nav_messenger_login_required"));
-            setData(null);
-          } else {
-            setAuthRequired(false);
-            setPageError(tRef.current("nav_messenger_load_failed"));
-            if (!silent && !stale) {
-              setData(null);
+          try {
+            const criticalRequestStartAt = typeof performance !== "undefined" ? performance.now() : 0;
+            const resCrit = await fetchCommunityMessengerBootstrapCriticalClient({ signal: controller.signal });
+            const criticalResponseAt = typeof performance !== "undefined" ? performance.now() : 0;
+            if (controller.signal.aborted || requestId !== refreshRequestIdRef.current) return;
+            const jsonCrit = await parseBootstrapJson<
+              CommunityMessengerBootstrapCritical & { ok?: boolean; error?: string }
+            >(resCrit);
+            if (resCrit.ok && jsonCrit.ok && jsonCrit.tier === "critical") {
+              primeMessengerBootstrapCritical(jsonCrit);
+              const partial = communityMessengerBootstrapFromCriticalPayload(jsonCrit);
+              refreshDataOk = true;
+              setAuthRequired(false);
+              setPageError(null);
+              setData(partial);
+              if (partial.me?.id) setHomeRealtimeGateOpen(true);
+              const runDefer = (roomListVisibleAt: number) => {
+                scheduleDeferredLiteAndLog(
+                  criticalRequestStartAt,
+                  criticalResponseAt,
+                  roomListVisibleAt,
+                  false,
+                  true
+                );
+              };
+              if (typeof requestAnimationFrame === "function") {
+                requestAnimationFrame(() => {
+                  requestAnimationFrame(() => {
+                    runDefer(typeof performance !== "undefined" ? performance.now() : 0);
+                  });
+                });
+              } else {
+                runDefer(typeof performance !== "undefined" ? performance.now() : 0);
+              }
+            } else {
+              throw new Error("critical_bootstrap_not_ok");
+            }
+          } catch {
+            samarketMessengerHomeDebugEvent("messenger_home_bootstrap_start", {
+              mode: useLiteBootstrapFallback ? "lite" : "full",
+            });
+            const res = await fetchCommunityMessengerBootstrapClient(useLiteBootstrapFallback ? "lite" : "full", {
+              signal: controller.signal,
+            });
+            if (controller.signal.aborted || requestId !== refreshRequestIdRef.current) return;
+            const json = await parseBootstrapJson<CommunityMessengerBootstrap & {
+              ok?: boolean;
+              error?: string;
+              deferredCallLog?: boolean;
+            }>(res);
+            if (res.ok && json.ok) {
+              bootstrapClientOk = true;
+              refreshDataOk = true;
+              samarketMessengerHomeDebugEvent("messenger_home_bootstrap_success", {
+                mode: useLiteBootstrapFallback ? "lite" : "full",
+              });
+              const next = messengerBootstrapFromLiteApiJson(json);
+              setAuthRequired(false);
+              setPageError(null);
+              setData((prev) => {
+                if (!prev) {
+                  primeMessengerBootstrapFull(next);
+                  return next;
+                }
+                const merged: CommunityMessengerBootstrap = {
+                  ...next,
+                  requests: mergeFriendRequestsKeepStaleOutgoing(prev, next.requests ?? []),
+                };
+                primeMessengerBootstrapFull(merged);
+                return merged;
+              });
+              const fallbackLogAt = typeof performance !== "undefined" ? performance.now() : 0;
+              logCmBootstrapV2ClientFinalize({
+                shellVisibleAt,
+                criticalRequestStartAt: shellVisibleAt,
+                criticalResponseAt: fallbackLogAt,
+                roomListVisibleAt: fallbackLogAt,
+                deferredStartAt: fallbackLogAt,
+                deferredFinishAt: fallbackLogAt,
+                used_cached_snapshot: false,
+                used_critical_payload: false,
+              });
+              if (useLiteBootstrapFallback) {
+                const schFb = getMessengerBackgroundHydrationScheduler();
+                const fbId = requestId;
+                const armFb = (delayMs: number, enqueue: () => void) => {
+                  if (typeof window === "undefined") return;
+                  window.setTimeout(() => {
+                    if (fbId !== refreshRequestIdRef.current) return;
+                    enqueue();
+                  }, delayMs);
+                };
+                armFb(250, () => {
+                  schFb.schedule({
+                    id: `messenger:fallback:followup:silent:${fbId}`,
+                    dedupeKey: "messenger:followup:silent-refresh",
+                    priority: "low",
+                    run: async () => {
+                      await refresh(true);
+                    },
+                  });
+                });
+                if (next.deferredCallLog) {
+                  armFb(1200, () => {
+                    schFb.schedule({
+                      id: `messenger:fallback:followup:calls:${fbId}`,
+                      dedupeKey: "messenger:followup:calls-log",
+                      priority: "low",
+                      run: async () => {
+                        await mergeDeferredMessengerCallLogs();
+                      },
+                    });
+                  });
+                }
+                armFb(1800, () => {
+                  schFb.schedule({
+                    id: `messenger:fallback:followup:discover:${fbId}`,
+                    dedupeKey: "messenger:followup:discoverable-open-groups",
+                    priority: "low",
+                    run: async () => {
+                      await mergeDiscoverableGroupsFromOpenGroupsClient(setData, "replace");
+                    },
+                  });
+                });
+              } else if ((next.discoverableGroups?.length ?? 0) === 0) {
+                const schFill = getMessengerBackgroundHydrationScheduler();
+                const fillId = requestId;
+                window.setTimeout(() => {
+                  if (fillId !== refreshRequestIdRef.current) return;
+                  schFill.schedule({
+                    id: `messenger:fallback:discoverable-fill:${fillId}`,
+                    dedupeKey: "messenger:fallback:discoverable-fill",
+                    priority: "low",
+                    run: async () => {
+                      await mergeDiscoverableGroupsFromOpenGroupsClient(setData, "fill_if_empty");
+                    },
+                  });
+                }, 1800);
+              }
+            } else {
+              const unauthorized = res.status === 401 || res.status === 403;
+              if (unauthorized) {
+                clearBootstrapCache();
+                setAuthRequired(true);
+                setPageError(tRef.current("nav_messenger_login_required"));
+                setData(null);
+              } else {
+                setAuthRequired(false);
+                setPageError(tRef.current("nav_messenger_load_failed"));
+                if (!silent && !stale) {
+                  setData(null);
+                }
+              }
             }
           }
         }
@@ -588,14 +865,25 @@ export function useCommunityMessengerHomeBootstrap({
       setAuthRequired(false);
       setPageError(null);
       if (initialServerBootstrap.deferredCallLog) {
-        const idleId = scheduleWhenBrowserIdle(() => {
-          void mergeDeferredMessengerCallLogs();
+        const timer = window.setTimeout(() => {
+          getMessengerBackgroundHydrationScheduler().schedule({
+            id: "messenger:ssr-deferred:calls-log",
+            dedupeKey: "messenger:followup:calls-log",
+            priority: "low",
+            run: async () => {
+              await mergeDeferredMessengerCallLogs();
+            },
+          });
         }, 160);
-        return () => cancelScheduledWhenBrowserIdle(idleId);
+        return () => clearTimeout(timer);
       }
       return;
     }
-    const stale = peekBootstrapCache();
+    const staleFullPeek = peekMessengerBootstrapFull();
+    const staleCritPeek = peekMessengerBootstrapCritical();
+    const stale =
+      staleFullPeek ??
+      (staleCritPeek ? communityMessengerBootstrapFromCriticalPayload(staleCritPeek) : null);
     if (stale) {
       /**
        * 세션 복원 직후 재진입이 짧은 간격으로 반복될 때 stale hit마다 silent sync GET을 다시 열지 않게 한다.
@@ -604,13 +892,18 @@ export function useCommunityMessengerHomeBootstrap({
       if (Date.now() - lastStaleCacheResumeSilentRefreshAt < STALE_CACHE_RESUME_SILENT_REFRESH_COOLDOWN_MS) {
         return;
       }
-      const idleId = scheduleWhenBrowserIdle(() => {
+      const resumeTimer = window.setTimeout(() => {
         lastStaleCacheResumeSilentRefreshAt = Date.now();
-        void refreshRef.current(true);
+        getMessengerBackgroundHydrationScheduler().schedule({
+          id: `messenger:stale-resume-silent:${Date.now()}`,
+          dedupeKey: "messenger:stale-resume-silent",
+          priority: "medium",
+          run: async () => {
+            await refreshRef.current(true);
+          },
+        });
       }, 100);
-      return () => {
-        cancelScheduledWhenBrowserIdle(idleId);
-      };
+      return () => clearTimeout(resumeTimer);
     }
     void refreshRef.current();
   }, [initialServerBootstrap, mergeDeferredMessengerCallLogs]);

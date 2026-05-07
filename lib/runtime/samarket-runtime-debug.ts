@@ -313,7 +313,7 @@ export function getMessengerRenderPerfCounts(): Readonly<Record<string, number>>
 // 강제 검증용 — `runSingleFlight` 내부에서 실제로 실행된 네트워크만 집계
 // ---------------------------------------------------------------------------
 
-export type MessengerHomeBootstrapNetworkMode = "lite" | "full" | "fresh";
+export type MessengerHomeBootstrapNetworkMode = "lite" | "full" | "fresh" | "critical";
 
 export type RouteEntryPerfScope = "community_detail" | "messenger_room_entry" | "product_detail";
 
@@ -675,7 +675,7 @@ type MessengerHomeVerificationState = {
 };
 
 const messengerHomeVerification: MessengerHomeVerificationState = {
-  bootstrapClientNetworkFetch: { lite: 0, full: 0, fresh: 0 },
+  bootstrapClientNetworkFetch: { lite: 0, full: 0, fresh: 0, critical: 0 },
   homeSyncNetworkFetch: 0,
   warmCallSiteInvocations: 0,
   refreshInvocationTotal: 0,
@@ -690,7 +690,7 @@ const messengerHomeVerification: MessengerHomeVerificationState = {
 
 /** Vitest 등 — 브라우저 세션 없이 카운터만 초기화 */
 export function resetMessengerHomeVerificationStateForTests(): void {
-  messengerHomeVerification.bootstrapClientNetworkFetch = { lite: 0, full: 0, fresh: 0 };
+  messengerHomeVerification.bootstrapClientNetworkFetch = { lite: 0, full: 0, fresh: 0, critical: 0 };
   messengerHomeVerification.homeSyncNetworkFetch = 0;
   messengerHomeVerification.warmCallSiteInvocations = 0;
   messengerHomeVerification.refreshInvocationTotal = 0;
@@ -811,7 +811,7 @@ export function getMessengerHomeVerificationSnapshot(): Readonly<
 > {
   exposeMessengerHomeDebugApiToWindowOnce();
   const b = messengerHomeVerification.bootstrapClientNetworkFetch;
-  const total = b.lite + b.full + b.fresh;
+  const total = b.lite + b.full + b.fresh + b.critical;
   let realtimeStore: Record<string, unknown> | null = null;
   if (typeof window !== "undefined") {
     const peek = (window as unknown as { peekMessengerRealtimeStoreDebugSnapshot?: () => Record<string, unknown> })

@@ -19,6 +19,16 @@ import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-fligh
 import { finishSilentRefreshRound, tryEnterSilentRefreshRound } from "@/lib/http/silent-refresh-coalesce";
 import { cmCallIncomingTraceMaybeRoomBootstrap } from "@/lib/community-messenger/cm-call-debug";
 import { mergeCommunityMessengerSilentDeltaIntoSnapshot } from "@/lib/community-messenger/room/merge-community-messenger-silent-delta";
+import { COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT } from "@/lib/community-messenger/types";
+import { consumePrefetchHitForRoom } from "@/lib/community-messenger/room-snapshot-cache";
+import {
+  getMessengerRoomEntryHydrationScheduler,
+} from "@/lib/community-messenger/background-hydration-scheduler";
+import {
+  cmRoomEntryTraceEnabled,
+  logCmRoomEntryAnalysis,
+  setCmRoomEntryBootstrapMeta,
+} from "@/lib/community-messenger/room/cm-room-entry-instrumentation";
 
 const BOOTSTRAP_FETCH_BREAKDOWN =
   typeof process !== "undefined" &&
@@ -73,7 +83,7 @@ export function forgetMessengerRoomClientBootstrapFlights(opts: { roomId: string
   forgetSingleFlight(`cm-room-bootstrap:${uid}:${rid}:?mode=lite&memberHydration=minimal`);
   forgetSingleFlight(`cm-room-bootstrap:${uid}:${rid}:?mode=instant&memberHydration=minimal`);
   forgetSingleFlight(
-    `cm-room-bootstrap:${uid}:${rid}:?mode=instant&memberHydration=minimal&hydration=critical&cmReqSrc=room_client_block`
+    `cm-room-bootstrap:${uid}:${rid}:?mode=instant&memberHydration=minimal&hydration=critical&cmReqSrc=room_client_block&messages=${COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT}`
   );
   forgetSingleFlight(`cm-room-bootstrap:${uid}:${rid}:?snapshotTier=silent_delta&cmReqSrc=room_silent`);
   forgetSingleFlight(`cm-room-bootstrap:${uid}:${rid}:?memberHydration=minimal&snapshotTier=silent_delta&cmReqSrc=room_silent`);
@@ -151,15 +161,34 @@ export function createMessengerRoomBootstrapRefresh(
       if (primed) {
         setSnapshot(primed);
         setLoading(false);
+        if (cmRoomEntryTraceEnabled()) {
+          const prefetchHit = consumePrefetchHitForRoom(roomId);
+          const bytes = new TextEncoder().encode(JSON.stringify(primed)).length;
+          const kb = Math.round((bytes / 1024) * 10) / 10;
+          setCmRoomEntryBootstrapMeta({
+            payload_kb: kb,
+            used_prefetch: prefetchHit,
+            used_cached_snapshot: true,
+          });
+        }
         const delayMs = roomBootstrapSecondaryEnrichmentDelayMs();
         const scheduleSecondary = () => {
-          swrDeferredBootstrapTimerRef.current = window.setTimeout(() => {
-            swrDeferredBootstrapTimerRef.current = null;
-            void refresh(true, { forceSilentNetwork: true });
-          }, delayMs);
+          getMessengerRoomEntryHydrationScheduler().schedule({
+            id: `room_bootstrap_secondary:${roomId}`,
+            dedupeKey: `room_bootstrap_secondary:${roomId}`,
+            priority: "low",
+            run: async (signal) => {
+              await new Promise<void>((resolve) => {
+                const t = window.setTimeout(resolve, delayMs);
+                signal.addEventListener("abort", () => clearTimeout(t), { once: true });
+              });
+              if (signal.aborted) return;
+              await refresh(true, { forceSilentNetwork: true });
+            },
+          });
         };
         if (typeof window !== "undefined") {
-          /** 첫 페인트 이후에만 full 보강(즉시 full GET 금지) — ref 는 최종 setTimeout id 만 보관 */
+          /** 첫 페인트 이후에만 full 보강(즉시 full GET 금지) — rAF 2회 뒤 LOW 큐에 합류 */
           requestAnimationFrame(() => {
             requestAnimationFrame(() => {
               scheduleSecondary();
@@ -170,11 +199,11 @@ export function createMessengerRoomBootstrapRefresh(
         }
       } else {
       const tBoot = typeof performance !== "undefined" ? performance.now() : Date.now();
-      /** 첫 차단 네트워크는 항상 instant+critical(서버에서 trade/normalize/full 병렬 차단) */
+      /** 첫 차단 네트워크는 항상 instant+critical(서버에서 trade/normalize/full 병렬 차단) — 시드 슬라이스는 SEED_LIMIT 과 동일 */
       const BLOCKING_FIRST_BOOTSTRAP_Q =
-        "?mode=instant&memberHydration=minimal&hydration=critical&cmReqSrc=room_client_block";
+        `?mode=instant&memberHydration=minimal&hydration=critical&cmReqSrc=room_client_block&messages=${COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT}`;
       const INSTANT_LEGACY_Q =
-        "?mode=instant&memberHydration=minimal&hydration=critical&cmReqSrc=room_client_legacy";
+        `?mode=instant&memberHydration=minimal&hydration=critical&cmReqSrc=room_client_legacy&messages=${COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT}`;
       let bootstrapQueryWithSrc: string;
       let reqSrc: string;
       if (shouldBlock) {
@@ -337,6 +366,35 @@ export function createMessengerRoomBootstrapRefresh(
         const elapsed =
           typeof performance !== "undefined" ? Math.round(performance.now() - tBoot) : Math.round(Date.now() - tBoot);
         messengerMonitorRoomLoad(roomId, elapsed, { silent, cmReqSrc: reqSrc });
+        if (shouldBlock && roomRes.ok && snap && cmRoomEntryTraceEnabled()) {
+          const prefetchHit = consumePrefetchHitForRoom(roomId);
+          const sizeB = Number(roomRes.headers.get("x-samarket-response-size-bytes") ?? "");
+          const kb =
+            Number.isFinite(sizeB) && sizeB > 0 ? Math.round((sizeB / 1024) * 10) / 10 : 0;
+          setCmRoomEntryBootstrapMeta({
+            payload_kb: kb,
+            used_prefetch: prefetchHit,
+            used_cached_snapshot: false,
+          });
+          const srvSnap = Number(roomRes.headers.get("x-samarket-room-bootstrap-fetch-ms") ?? "");
+          const routeTot = Number(roomRes.headers.get("x-samarket-route-total-ms") ?? "");
+          const suf = roomId.trim();
+          logCmRoomEntryAnalysis({
+            phase: "blocking_bootstrap_response",
+            room_id_suffix: suf.length <= 8 ? suf : suf.slice(-8),
+            route_start_ms: null,
+            server_snapshot_ms: Number.isFinite(srvSnap) ? Math.round(srvSnap) : null,
+            server_route_total_ms: Number.isFinite(routeTot) ? Math.round(routeTot) : null,
+            client_hydrate_ms: clientTimings?.clientInnerSumMs ?? null,
+            room_shell_visible_ms: null,
+            message_list_visible_ms: null,
+            composer_visible_ms: null,
+            realtime_ready_ms: null,
+            deferred_hydrate_ms: null,
+            payload_kb: kb,
+            note: "UI 마일스톤은 [cm-room-entry-v2] — shell/list/composer/realtime 마운트 후",
+          });
+        }
         if (BOOTSTRAP_FETCH_BREAKDOWN && clientTimings) {
           const gap = elapsed - clientTimings.clientInnerSumMs;
           // eslint-disable-next-line no-console
