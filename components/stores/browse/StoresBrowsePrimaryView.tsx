@@ -21,7 +21,8 @@ import {
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
 import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContext";
 import { commerceCartHrefFromBuckets } from "@/lib/stores/store-commerce-cart-nav";
-import { APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
+import { PHILIFE_FEED_INSET_X_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { useRegionOptional } from "@/contexts/RegionContext";
 import { getRegionName } from "@/lib/regions/region-utils";
 import { REGIONS } from "@/lib/products/form-options";
@@ -503,7 +504,7 @@ export function StoresBrowsePrimaryView({
     () => (
       <div className="border-b border-sam-border bg-[var(--sub-bg)]">
         <div className="bg-sam-surface dark:bg-[#242526]">
-          <div className={`${APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS} pb-1.5 pt-1`}>
+          <div className={`${APP_MAIN_COLUMN_CLASS} ${PHILIFE_FEED_INSET_X_CLASS} pb-1.5 pt-1`}>
             <HorizontalDragScroll
               className={`${STORE_CATEGORY_PILL_SCROLL} gap-0.5`}
               style={{ WebkitOverflowScrolling: "touch" }}
@@ -608,7 +609,7 @@ export function StoresBrowsePrimaryView({
           </div>
           <div className="h-px bg-sam-border dark:bg-[#3E4042]" aria-hidden />
         </div>
-        <div className={`${APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS} pb-2 pt-2`}>
+        <div className={`${APP_MAIN_COLUMN_CLASS} ${PHILIFE_FEED_INSET_X_CLASS} pb-2 pt-2`}>
           <StoreListFilters sort={listSort} onSortChange={setListSort} hasGeo={hasGeo} />
         </div>
       </div>
@@ -623,7 +624,7 @@ export function StoresBrowsePrimaryView({
         tier1: {
           titleText: "업종",
           backHref: "/stores",
-          preferHistoryBack: true,
+          preferHistoryBack: false,
           ariaLabel: "이전 화면",
           showHubQuickActions: false,
           rightSlot: <StoresBrowseCartAction />,
@@ -636,7 +637,7 @@ export function StoresBrowsePrimaryView({
       tier1: {
         titleText: primary.nameKo,
         backHref: "/stores",
-        preferHistoryBack: true,
+        preferHistoryBack: false,
         ariaLabel: "이전 화면",
         showHubQuickActions: false,
         rightSlot: <StoresBrowseCartAction />,
@@ -656,7 +657,7 @@ export function StoresBrowsePrimaryView({
   if (!primary || subs.length === 0) {
     return (
       <div className="min-h-[40vh] pb-8">
-        <div className={`${APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS} pt-4`}>
+        <div className={`${APP_MAIN_COLUMN_CLASS} ${PHILIFE_FEED_INSET_X_CLASS} pt-4`}>
           <p className="text-sm text-sam-muted">존재하지 않는 업종입니다.</p>
           <Link href="/stores" className="mt-4 inline-block text-sm text-signature">
             매장 홈으로
@@ -668,7 +669,7 @@ export function StoresBrowsePrimaryView({
 
   return (
     <div className="min-h-[50vh] bg-sam-app pb-8 dark:bg-[#18191A]">
-      <section className={`${APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS} space-y-4 pt-2`}>
+      <section className={`${APP_MAIN_COLUMN_CLASS} ${PHILIFE_FEED_INSET_X_CLASS} space-y-4 pt-2`}>
         {remoteLoading && !listLoaded ?
           <p className="py-4 text-center text-sm text-sam-muted">실매장 연동 확인 중…</p>
         : null}

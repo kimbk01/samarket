@@ -3,7 +3,6 @@ import { headers } from "next/headers";
 import { Suspense } from "react";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { StoresBrowsePrimaryView } from "@/components/stores/browse/StoresBrowsePrimaryView";
-import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 
 interface PageProps {
   params: Promise<{ primary: string }>;
@@ -81,7 +80,7 @@ async function StoresBrowsePrimaryPageBody({ params, searchParams }: PageProps) 
   const safePrimary = typeof primary === "string" ? primary.trim().toLowerCase() : "";
 
   return (
-    <div className={`${APP_MAIN_GUTTER_X_CLASS} bg-sam-app py-3 dark:bg-[#18191A]`}>
+    <div className="bg-sam-app py-3 dark:bg-[#18191A]">
       <StoresBrowsePrimaryView primarySlug={safePrimary} initialSubSlug={sub} />
     </div>
   );

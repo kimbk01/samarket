@@ -15,7 +15,8 @@ export type BrowseStoreListItem = {
   deliveryAvailable: boolean;
   pickupAvailable: boolean;
   visitAvailable: boolean;
-  featuredItems: { productId: string; name: string; price: number }[];
+  reservationAvailable?: boolean;
+  featuredItems: { productId: string; name: string; price: number; imageUrl?: string | null }[];
   profileImageUrl: string | null;
   isFeatured: boolean;
   /** business_hours_json 확장 — 카드 요약 */

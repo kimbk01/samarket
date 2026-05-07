@@ -49,6 +49,7 @@ type ProductMini = {
   store_id: string;
   title: string;
   price: number;
+  thumbnail_url: string | null;
   is_featured: boolean | null;
   sort_order: number | null;
 };
@@ -414,12 +415,12 @@ export async function GET(req: Request) {
     rows = rows.slice(0, 60);
 
     const ids = rows.map((r) => r.id);
-    const featuredByStore = new Map<string, { productId: string; name: string; price: number }[]>();
+    const featuredByStore = new Map<string, { productId: string; name: string; price: number; imageUrl: string | null }[]>();
 
     if (ids.length > 0) {
       const { data: prods, error: pErr } = await supabase
         .from("store_products")
-        .select("id, store_id, title, price, is_featured, sort_order")
+        .select("id, store_id, title, price, thumbnail_url, is_featured, sort_order")
         .in("store_id", ids)
         .eq("product_status", "active");
 
@@ -441,10 +442,11 @@ export async function GET(req: Request) {
           });
           featuredByStore.set(
             storeId,
-            sorted.slice(0, 3).map((x) => ({
+            sorted.slice(0, 6).map((x) => ({
               productId: String(x.id),
               name: x.title,
               price: Number(x.price),
+              imageUrl: x.thumbnail_url?.trim() || null,
             }))
           );
         }
@@ -493,6 +495,7 @@ export async function GET(req: Request) {
         deliveryAvailable: !!r.delivery_available,
         pickupAvailable: r.pickup_available !== false,
         visitAvailable: r.visit_available !== false,
+        reservationAvailable: r.reservation_available !== false,
         featuredItems: featuredByStore.get(r.id) ?? [],
         profileImageUrl: r.profile_image_url,
         isFeatured: !!r.is_featured,

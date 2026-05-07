@@ -37,11 +37,11 @@ export const PHILIFE_PAGE_ROOT_CLASS = [
   "bg-sam-app text-sam-fg",
 ].join(" ");
 
-/** /philife·/market 공통 — 리스트 영역 좌우 인셋(가로) — `HomeContent`와 `PHILIFE_FEED_LIST` 정렬 */
-export const PHILIFE_FEED_INSET_X_CLASS = "px-2";
+/** /philife·/market 공통 — 좌 10px / 우 8px */
+export const PHILIFE_FEED_INSET_X_CLASS = "pl-[10px] pr-2";
 
 /** `PHILIFE_FEED_INSET_X_CLASS` 부모 안에서 가로 풀폭까지 늘리기(스티키 탭 등) */
-export const PHILIFE_FEED_INSET_NEG_X_CLASS = "-mx-2";
+export const PHILIFE_FEED_INSET_NEG_X_CLASS = "-ml-[10px] -mr-2";
 
 /**
  * Philife 2단 주제 — 알약 탭 한 줄.

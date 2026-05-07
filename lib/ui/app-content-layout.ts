@@ -12,12 +12,12 @@ export const APP_MAIN_COLUMN_MAX_WIDTH_CLASS =
 /** 메인 스크롤 영역 최대 폭 + 가운데 정렬 (태블릿·가로 모드에서 점진적으로 넓힘) */
 export const APP_MAIN_COLUMN_CLASS = `mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`;
 
-/** 본문·헤더 내부 좌우 여백 — 모바일 기준 16px 고정, 태블릿 이상만 점진 확장 */
-export const APP_MAIN_GUTTER_X_CLASS = "px-4 md:px-5";
+/** 본문·헤더 내부 좌우 여백 — 좌 10px / 우 8px */
+export const APP_MAIN_GUTTER_X_CLASS = "pl-[10px] pr-2";
 export const APP_MAIN_GUTTER_X_COMFY_CLASS = "px-4 md:px-6";
 
 /** 상위에 GUTTER_X가 있을 때 자식을 가로 풀폭으로 맞추기(스티키 바 등) */
-export const APP_MAIN_GUTTER_NEG_X_CLASS = "-mx-4 md:-mx-5";
+export const APP_MAIN_GUTTER_NEG_X_CLASS = "-ml-[10px] -mr-2";
 
 /**
  * 내정보 하위 페이지 본문 — 메인 컬럼 폭 + **거래 홈 피드와 동일** 가로 인셋(`PHILIFE_FEED_INSET_X`).
