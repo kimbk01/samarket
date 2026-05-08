@@ -7,7 +7,7 @@ create or replace function public.community_messenger_apply_unread_for_text_mess
 returns void
 language sql
 security definer
-set search_path = public
+set search_path = pg_catalog, public
 as $$
   update public.community_messenger_participants p
   set
@@ -25,4 +25,7 @@ $$;
 comment on function public.community_messenger_apply_unread_for_text_message(uuid, uuid, timestamptz) is
   'sendCommunityMessengerMessage: 발신자 unread 0·last_read, 수신자 unread+1 (기존 JS와 동일 의미)';
 
+revoke all on function public.community_messenger_apply_unread_for_text_message(uuid, uuid, timestamptz) from public;
+revoke execute on function public.community_messenger_apply_unread_for_text_message(uuid, uuid, timestamptz) from anon;
+revoke execute on function public.community_messenger_apply_unread_for_text_message(uuid, uuid, timestamptz) from authenticated;
 grant execute on function public.community_messenger_apply_unread_for_text_message(uuid, uuid, timestamptz) to service_role;
