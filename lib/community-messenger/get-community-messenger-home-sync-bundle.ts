@@ -12,7 +12,7 @@ import {
 } from "@/lib/community-messenger/service";
 import { homeSyncBreakdownEnabled, logHomeSyncBreakdown } from "@/lib/community-messenger/home-sync-breakdown-log";
 import { logMessengerPerfMs, messengerPerfStepsEnabled } from "@/lib/community-messenger/messenger-home-sync-perf-log";
-import type { HomeSyncTrace } from "@/lib/community-messenger/home-sync-trace";
+import { ms, type HomeSyncTrace } from "@/lib/community-messenger/home-sync-trace";
 
 /**
  * 홈 사일런트 갱신 — `GET /api/community-messenger/home-sync` 전용.
@@ -37,6 +37,16 @@ export async function getCommunityMessengerHomeSyncBundle(
       homeSyncSkipHeavyEnrich: true,
       trace: options?.trace,
     });
+    if (options?.trace?.token) {
+      const bundleTotalMs = performance.now() - tBundle;
+      const tradeMs = options.trace.deepSteps.tradeMetaEnrich?.totalMs ?? 0;
+      options.trace.deepSteps.bundleSteps = {
+        ...(options.trace.deepSteps.bundleSteps ?? {}),
+        bundleTotalMs: ms(bundleTotalMs),
+        tradeMetaEnrichTotalMs: ms(tradeMs),
+        outsideTradeEnrichMs: ms(Math.max(0, bundleTotalMs - tradeMs)),
+      };
+    }
     if (messengerPerfStepsEnabled()) {
       logMessengerPerfMs("home_sync_fetch", performance.now() - tBundle);
     }
@@ -52,6 +62,8 @@ export async function getCommunityMessengerHomeSyncBundle(
       friends: [],
     };
   }
+  let friendsFetchMs = 0;
+  let friendsRequestsFetchMs = 0;
   const tPar = performance.now();
   const [roomsBlock, requests, friends] = await Promise.all([
     listCommunityMessengerMyChatsAndGroups(userId, {
@@ -60,14 +72,38 @@ export async function getCommunityMessengerHomeSyncBundle(
       homeSyncSkipHeavyEnrich: true,
       trace: options?.trace,
     }),
-    listCommunityMessengerFriendRequests(userId),
-    listCommunityMessengerFriends(userId),
+    (async () => {
+      const tReq = performance.now();
+      const rows = await listCommunityMessengerFriendRequests(userId);
+      friendsRequestsFetchMs = performance.now() - tReq;
+      return rows;
+    })(),
+    (async () => {
+      const tFr = performance.now();
+      const rows = await listCommunityMessengerFriends(userId);
+      friendsFetchMs = performance.now() - tFr;
+      return rows;
+    })(),
   ]);
+  const bundleParallelWallMs = performance.now() - tPar;
+  if (options?.trace?.token) {
+    const bundleTotalMs = performance.now() - tBundle;
+    const tradeMs = options.trace.deepSteps.tradeMetaEnrich?.totalMs ?? 0;
+    options.trace.deepSteps.bundleSteps = {
+      ...(options.trace.deepSteps.bundleSteps ?? {}),
+      bundleTotalMs: ms(bundleTotalMs),
+      tradeMetaEnrichTotalMs: ms(tradeMs),
+      outsideTradeEnrichMs: ms(Math.max(0, bundleTotalMs - tradeMs)),
+      bundleParallelWallMs: ms(bundleParallelWallMs),
+      friendsFetchMs: ms(friendsFetchMs),
+      friendsRequestsFetchMs: ms(friendsRequestsFetchMs),
+    };
+  }
   if (messengerPerfStepsEnabled()) {
     logMessengerPerfMs("home_sync_fetch", performance.now() - tBundle);
   }
   if (homeSyncBreakdownEnabled()) {
-    logHomeSyncBreakdown("get_home_sync_bundle_full_parallel_wall_ms", performance.now() - tPar, {
+    logHomeSyncBreakdown("get_home_sync_bundle_full_parallel_wall_ms", bundleParallelWallMs, {
       tier: "full",
       paths: "roomsBlock + friendRequests + friends",
     });

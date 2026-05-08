@@ -14,6 +14,7 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { logHomeSyncBreakdown } from "@/lib/community-messenger/home-sync-breakdown-log";
+import { ms, type HomeSyncDeepStepsUnreadBadge, type HomeSyncTrace } from "@/lib/community-messenger/home-sync-trace";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 
 function t(value: unknown): string {
@@ -37,23 +38,56 @@ export async function enrichMessengerTradeUnreadWithLegacyTrade(
   viewerUserId: string,
   summaries: CommunityMessengerRoomSummary[],
   /** 관측 전용 — 동작·합산 로직 불변 */
-  metrics?: { dbRoundTrips: number }
+  metrics?: { dbRoundTrips: number },
+  /** dev home-sync trace — 동작 불변, `deepSteps.unreadHomeSyncSteps` 만 병합 */
+  homeSyncTrace?: HomeSyncTrace
 ): Promise<void> {
+  const patchUnread = (p: Partial<HomeSyncDeepStepsUnreadBadge>) => {
+    if (!homeSyncTrace?.token) return;
+    homeSyncTrace.deepSteps.unreadHomeSyncSteps = {
+      ...(homeSyncTrace.deepSteps.unreadHomeSyncSteps ?? {}),
+      ...p,
+    };
+  };
+
   const uid = t(viewerUserId);
+  if (homeSyncTrace?.token) {
+    const prev = homeSyncTrace.deepSteps.unreadHomeSyncSteps?.enrichInvocationCount ?? 0;
+    patchUnread({
+      enrichInvocationCount: prev + 1,
+      ownerHubBadgeMs: 0,
+      unreadCacheHit: null,
+    });
+  }
+
   if (!uid || !summaries.length) {
     if (metrics) metrics.dbRoundTrips = 0;
+    patchUnread({
+      legacyChatRoomsFetchMs: 0,
+      legacyProductChatsFetchMs: 0,
+      unreadSourceFetchMs: 0,
+      legacyTradeUnreadMs: 0,
+      badgeAttachCpuMs: 0,
+      roomIdDedupeMs: 0,
+    });
     return;
   }
 
+  const tDedupe = performance.now();
   const tradeSummaries = summaries.filter((s) => s.contextMeta?.kind === "trade");
-  if (!tradeSummaries.length) {
-    if (metrics) metrics.dbRoundTrips = 0;
-    return;
-  }
-
   const cmRoomIds = dedupeStrings(tradeSummaries.map((s) => s.id));
-  if (!cmRoomIds.length) {
+  const roomIdDedupeMs = performance.now() - tDedupe;
+  patchUnread({ roomIdDedupeMs: ms(roomIdDedupeMs) });
+
+  if (!tradeSummaries.length || !cmRoomIds.length) {
     if (metrics) metrics.dbRoundTrips = 0;
+    patchUnread({
+      legacyChatRoomsFetchMs: 0,
+      legacyProductChatsFetchMs: 0,
+      unreadSourceFetchMs: 0,
+      legacyTradeUnreadMs: 0,
+      badgeAttachCpuMs: 0,
+    });
     return;
   }
 
@@ -64,18 +98,27 @@ export async function enrichMessengerTradeUnreadWithLegacyTrade(
     .select("id, community_messenger_room_id")
     .eq("room_type", "item_trade")
     .in("community_messenger_room_id", cmRoomIds);
-  logHomeSyncBreakdown("legacy_trade_query_chat_rooms", performance.now() - tChatRooms, {
+  const legacyChatRoomsFetchMs = performance.now() - tChatRooms;
+  logHomeSyncBreakdown("legacy_trade_query_chat_rooms", legacyChatRoomsFetchMs, {
     table: "chat_rooms",
     roomIdInCount: cmRoomIds.length,
     err: itErr ? String((itErr as { message?: unknown }).message ?? itErr) : null,
   });
   dbRoundTrips += 1;
+  patchUnread({ legacyChatRoomsFetchMs: ms(legacyChatRoomsFetchMs) });
 
   if (itErr) {
     if (metrics) metrics.dbRoundTrips = dbRoundTrips;
+    patchUnread({
+      legacyProductChatsFetchMs: 0,
+      unreadSourceFetchMs: ms(legacyChatRoomsFetchMs),
+      legacyTradeUnreadMs: 0,
+      badgeAttachCpuMs: 0,
+    });
     return;
   }
 
+  const tMapItemTrade = performance.now();
   const itemTradeByCmRoomId = new Map<string, true>();
   for (const row of (itemTradeRows ?? []) as Array<{
     id?: unknown;
@@ -86,6 +129,7 @@ export async function enrichMessengerTradeUnreadWithLegacyTrade(
     if (!cmId || !id || itemTradeByCmRoomId.has(cmId)) continue;
     itemTradeByCmRoomId.set(cmId, true);
   }
+  const itemTradeMapCpuMs = performance.now() - tMapItemTrade;
 
   const productChatIds = dedupeStrings(
     tradeSummaries.map((s) => t(s.contextMeta?.productChatId)).filter(Boolean)
@@ -98,14 +142,20 @@ export async function enrichMessengerTradeUnreadWithLegacyTrade(
         .select("id, seller_id, buyer_id, unread_count_seller, unread_count_buyer")
         .in("id", productChatIds)
     : { data: [] as unknown[] };
+  const legacyProductChatsFetchMs = productChatIds.length ? performance.now() - tProductChats : 0;
   if (productChatIds.length) {
-    logHomeSyncBreakdown("legacy_trade_query_product_chats", performance.now() - tProductChats, {
+    logHomeSyncBreakdown("legacy_trade_query_product_chats", legacyProductChatsFetchMs, {
       table: "product_chats",
       idInCount: productChatIds.length,
     });
     dbRoundTrips += 1;
   }
+  patchUnread({
+    legacyProductChatsFetchMs: ms(legacyProductChatsFetchMs),
+    unreadSourceFetchMs: ms(legacyChatRoomsFetchMs + legacyProductChatsFetchMs),
+  });
 
+  const tMapPc = performance.now();
   const pcById = new Map<
     string,
     { seller_id: string; buyer_id: string; unreadSeller: number; unreadBuyer: number }
@@ -126,7 +176,10 @@ export async function enrichMessengerTradeUnreadWithLegacyTrade(
       unreadBuyer: Math.max(0, Math.floor(Number(row.unread_count_buyer ?? 0) || 0)),
     });
   }
+  const pcMapCpuMs = performance.now() - tMapPc;
+  patchUnread({ legacyTradeUnreadMs: ms(itemTradeMapCpuMs + pcMapCpuMs) });
 
+  const tAttach = performance.now();
   for (const s of tradeSummaries) {
     const cmU = Math.max(0, Math.floor(Number(s.unreadCount) || 0));
     const link = itemTradeByCmRoomId.get(s.id);
@@ -150,6 +203,7 @@ export async function enrichMessengerTradeUnreadWithLegacyTrade(
       s.unreadCount = merged;
     }
   }
+  patchUnread({ badgeAttachCpuMs: ms(performance.now() - tAttach) });
 
   if (metrics) metrics.dbRoundTrips = dbRoundTrips;
 }

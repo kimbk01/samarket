@@ -97,6 +97,22 @@ const CHAT_LISTING_STATE_BOX: Record<SellerListingState, string> = {
 };
 
 /**
+ * 메신저 거래 방 목록 contextMeta 등 — 목록은 상태 문자열(`itemStateLabel`)만 쓰므로
+ * `boxClass` 를 만들지 않는다. (`getChatListingBoxPresentation` 과 동일 라벨 규칙)
+ */
+export function getChatListingItemStateLabel(
+  sellerListingStateRaw: unknown,
+  postStatus: string | undefined
+): string {
+  const st = (postStatus ?? "active").toLowerCase();
+  if (st === "hidden" || st === "blinded" || st === "deleted") {
+    return st === "hidden" ? "숨김" : st === "blinded" ? "숨김" : "삭제됨";
+  }
+  const ls = normalizeSellerListingState(sellerListingStateRaw, postStatus);
+  return publicListingBadge(ls, postStatus).label;
+}
+
+/**
  * 채팅 상품 줄 — 거래 상태 박스용 라벨 + Tailwind 클래스
  * (숨김/삭제 등 글 상태는 배지 로직과 동일하게 처리)
  */

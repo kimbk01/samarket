@@ -10,7 +10,12 @@ import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/s
 import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import { messengerApiEdgeCacheHeaders } from "@/lib/http/messenger-api-edge-cache";
 import v8 from "v8";
-import { ms, type HomeSyncTrace } from "@/lib/community-messenger/home-sync-trace";
+import {
+  buildHomeSyncOutsideTradeStepBreakdown,
+  buildHomeSyncTradeMetaStepBreakdown,
+  ms,
+  type HomeSyncTrace,
+} from "@/lib/community-messenger/home-sync-trace";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,6 +59,8 @@ export async function GET(req: NextRequest) {
   });
   if (!rateLimit.ok) return rateLimit.response;
 
+  const tPostRateLimit = performance.now();
+
   const fresh = req.nextUrl.searchParams.get("fresh") === "1";
   const tierParam = req.nextUrl.searchParams.get("tier");
   const tier: "critical" | "full" = tierParam === "critical" ? "critical" : "full";
@@ -78,9 +85,22 @@ export async function GET(req: NextRequest) {
   const cacheKey = `${auth.userId}:${tier}:cap${COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP}f${COMMUNITY_MESSENGER_HOME_SYNC_FULL_ROOM_CAP}`;
   let bundle =
     enableInMemoryCache && !fresh ? communityMessengerHomeSyncCache.get(cacheKey)?.payload : undefined;
+
+  const tBeforeBundleResolution = performance.now();
+  let routeBundleAwaitMs = 0;
+  let routeDevDiagnosticsMs = 0;
+  if (trace) {
+    trace.deepSteps.bundleSteps = {
+      ...(trace.deepSteps.bundleSteps ?? {}),
+      routePreBundleMs: ms(tBeforeBundleResolution - tPostRateLimit),
+    };
+  }
+
   if (!bundle) {
     try {
+      const tAwaitStart = performance.now();
       bundle = await getCommunityMessengerHomeSyncBundle(auth.userId, tier, { trace });
+      routeBundleAwaitMs = performance.now() - tAwaitStart;
     } catch (e) {
       if (trace) {
         console.warn("[home-sync-skip]", { status: 500, reason: "bundle_error", token: trace.token });
@@ -104,17 +124,21 @@ export async function GET(req: NextRequest) {
   // [DEV] payload size log (approx) + heap logger for memory-restart triage.
   try {
     if (isDev) {
+      const tDiag = performance.now();
       const rooms = (bundle.chats?.length ?? 0) + (bundle.groups?.length ?? 0);
       const friends = bundle.friends?.length ?? 0;
       const requests = bundle.requests?.length ?? 0;
 
       // [home-sync-size] JSON length (KB)
+      const tJson = performance.now();
       const payloadBytes = JSON.stringify(bundle).length;
+      const jsonStringifyMs = performance.now() - tJson;
       console.warn("[home-sync-size]", {
         payloadKB: Math.round(payloadBytes / 1024),
         rooms,
         friends,
         requests,
+        jsonStringifyMs: Math.round(jsonStringifyMs),
       });
 
       console.warn("[home-sync-auth]", { authSessionMs: Math.round(authMs) });
@@ -134,6 +158,7 @@ export async function GET(req: NextRequest) {
           requests,
         });
       }
+      routeDevDiagnosticsMs = performance.now() - tDiag;
     }
   } catch {
     /* ignore */
@@ -151,6 +176,39 @@ export async function GET(req: NextRequest) {
         { key: "tradeMetaEnrich.categoryFetchMs", ms: ms(trade?.categoryFetchMs), file: "lib/community-messenger/service.ts" },
         { key: "tradeMetaEnrich.sellerProfileAttachMs", ms: ms(trade?.sellerProfileAttachMs), file: "lib/community-messenger/service.ts" },
         { key: "tradeMetaEnrich.cpuMergeMs", ms: ms(trade?.cpuMergeMs), file: "lib/community-messenger/service.ts" },
+        { key: "tradeMetaEnrich.directKeys.wallMs", ms: ms(trade?.directKeys?.wallMs), file: "lib/community-messenger/service.ts" },
+        { key: "tradeMetaEnrich.tradePcBridgeQueriesMs", ms: ms(trade?.tradePcBridgeQueriesMs), file: "lib/community-messenger/service.ts" },
+        { key: "tradeMetaEnrich.seedProductChatsMs", ms: ms(trade?.seedProductChatsMs), file: "lib/community-messenger/service.ts" },
+        { key: "tradeMetaEnrich.residualGapAfterCategoryMs", ms: ms(trade?.residualGapAfterCategoryMs), file: "lib/community-messenger/service.ts" },
+        { key: "tradeMetaEnrich.tradePcBridgeBreakdown.phaseDPairPcMs", ms: ms(trade?.tradePcBridgeBreakdown?.phaseDPairPcMs), file: "lib/community-messenger/service.ts" },
+        { key: "tradeMetaEnrich.tradePcBridgeBreakdown.phaseBPcByRoomMs", ms: ms(trade?.tradePcBridgeBreakdown?.phaseBPcByRoomMs), file: "lib/community-messenger/service.ts" },
+        { key: "tradeMetaEnrich.tradePcBridgeBreakdown.phaseCLedgerMs", ms: ms(trade?.tradePcBridgeBreakdown?.phaseCLedgerMs), file: "lib/community-messenger/service.ts" },
+        { key: "tradeMetaEnrich.tradePcBridgeBreakdown.phaseCPcCandidatesMs", ms: ms(trade?.tradePcBridgeBreakdown?.phaseCPcCandidatesMs), file: "lib/community-messenger/service.ts" },
+        { key: "tradeMetaEnrich.explainedComponentsDetail.phaseBSyncMapCpuMs", ms: ms(trade?.explainedComponentsDetail?.phaseBSyncMapCpuMs), file: "lib/community-messenger/service.ts" },
+        { key: "tradeMetaEnrich.explainedComponentsDetail.phaseCSyncLedgerMapCpuMs", ms: ms(trade?.explainedComponentsDetail?.phaseCSyncLedgerMapCpuMs), file: "lib/community-messenger/service.ts" },
+        { key: "tradeMetaEnrich.explainedComponentsDetail.phaseCSyncPcTripleCpuMs", ms: ms(trade?.explainedComponentsDetail?.phaseCSyncPcTripleCpuMs), file: "lib/community-messenger/service.ts" },
+        { key: "tradeMetaEnrich.explainedComponentsDetail.phaseAPrePostsSyncCpuMs", ms: ms(trade?.explainedComponentsDetail?.phaseAPrePostsSyncCpuMs), file: "lib/community-messenger/service.ts" },
+        {
+          key: "tradeMetaEnrich.explainedComponentsDetail.tradeEnrichPhaseTargetsPrepCpuMs",
+          ms: ms(trade?.explainedComponentsDetail?.tradeEnrichPhaseTargetsPrepCpuMs),
+          file: "lib/community-messenger/service.ts",
+        },
+        { key: "tradeMetaEnrich.explainedComponentsDetail.phaseDFinalMergeCpuMs", ms: ms(trade?.explainedComponentsDetail?.phaseDFinalMergeCpuMs), file: "lib/community-messenger/service.ts" },
+        {
+          key: "tradeMetaBuildFromPostDetail.messengerSnapshotCpuMs",
+          ms: ms(trace.deepSteps.tradeMetaBuildFromPostDetail?.messengerSnapshotCpuMs),
+          file: "lib/community-messenger/service.ts",
+        },
+        {
+          key: "tradeMetaBuildFromPostDetail.categoryMenuLabelCpuMs",
+          ms: ms(trace.deepSteps.tradeMetaBuildFromPostDetail?.categoryMenuLabelCpuMs),
+          file: "lib/community-messenger/service.ts",
+        },
+        {
+          key: "tradeMetaBuildFromPostDetail.headlineCpuMs",
+          ms: ms(trace.deepSteps.tradeMetaBuildFromPostDetail?.headlineCpuMs),
+          file: "lib/community-messenger/service.ts",
+        },
       ].filter((c) => c.ms > 0);
       candidates.sort((a, b) => b.ms - a.ms);
       const top = candidates[0];
@@ -158,13 +216,148 @@ export async function GET(req: NextRequest) {
         token: trace.token,
         authSessionMs: ms(trace.authSessionMs),
         participantsProfiles: participants ?? null,
+        tradeMetaBuildFromPostDetail: trace.deepSteps.tradeMetaBuildFromPostDetail ?? null,
         tradeMetaEnrich: trade ?? null,
+        tradeCategoryFetchMode: trade?.tradeCategoryFetchMode ?? null,
+        categoryDbSkipped: trade?.categoryDbSkipped ?? null,
+        explainedComponentsMs: trade?.explainedComponentsMs ?? null,
+        explainedPlusCategoryParallelMs: trade?.explainedPlusCategoryParallelMs ?? null,
+        residualGapAfterCategoryMs: trade?.residualGapAfterCategoryMs ?? null,
+        gapMs: trade?.gapMs ?? null,
+        explainedComponentsDetail: trade?.explainedComponentsDetail ?? null,
+        perfNote:
+          "trade enrich 계측 v7-16: category fetch counters→slice spread 제거·queryMs만 ms 후 참조로 trace 저장.",
         sellerProfileAttachBreakdown: trade?.sellerProfileAttach ?? null,
         topBottleneck: top ? { key: top.key, ms: Math.round(top.ms) } : null,
         fixCandidateFile: top?.file ?? null,
       });
     } catch {
       /* ignore */
+    }
+  }
+
+  const routeTotalMsVal = performance.now() - t0;
+  const routeHandlerMsVal = routeTotalMsVal - routeBundleAwaitMs;
+
+  if (trace) {
+    trace.deepSteps.bundleSteps = {
+      ...(trace.deepSteps.bundleSteps ?? {}),
+      routeBundleAwaitMs: ms(routeBundleAwaitMs),
+      routeDevDiagnosticsMs: ms(routeDevDiagnosticsMs),
+      routeTotalMs: ms(routeTotalMsVal),
+      routeHandlerMs: ms(routeHandlerMsVal),
+      routeOutsideBundleAwaitMs: ms(routeHandlerMsVal),
+    };
+    const bs = trace.deepSteps.bundleSteps;
+    const bottleneckCandidates: Array<[string, number]> = [
+      ["roomsFetchMs", bs.roomsFetchMs ?? 0],
+      ["roomSliceCpuMs", bs.roomSliceCpuMs ?? 0],
+      ["roomIdsDedupeMs", bs.roomIdsDedupeMs ?? 0],
+      ["participantsProfilesMs", bs.participantsProfilesMs ?? 0],
+      ["summarizeRoomsMs", bs.summarizeRoomsMs ?? 0],
+      ["unreadBadgeMs", bs.unreadBadgeMs ?? 0],
+      ["payloadBuildMs", bs.payloadBuildMs ?? 0],
+      ["friendsFetchMs", bs.friendsFetchMs ?? 0],
+      ["friendsRequestsFetchMs", bs.friendsRequestsFetchMs ?? 0],
+      ["routePreBundleMs", bs.routePreBundleMs ?? 0],
+      ["routeDevDiagnosticsMs", bs.routeDevDiagnosticsMs ?? 0],
+      ["routeHandlerMs", bs.routeHandlerMs ?? 0],
+    ];
+    let topOutside: { key: string; ms: number } | null = null;
+    for (const [key, v] of bottleneckCandidates) {
+      const rounded = ms(v);
+      if (!topOutside || rounded > topOutside.ms) topOutside = { key, ms: rounded };
+    }
+    console.warn("[home-sync-bundle-steps]", {
+      token: trace.token,
+      tier,
+      bundleTotalMs: bs.bundleTotalMs ?? 0,
+      tradeMetaEnrichTotalMs: bs.tradeMetaEnrichTotalMs ?? 0,
+      outsideTradeEnrichMs: bs.outsideTradeEnrichMs ?? 0,
+      roomsFetchMs: bs.roomsFetchMs ?? 0,
+      participantsProfilesMs: bs.participantsProfilesMs ?? 0,
+      friendsRequestsMs: bs.friendsRequestsFetchMs ?? 0,
+      friendsFetchMs: bs.friendsFetchMs ?? 0,
+      unreadBadgeMs: bs.unreadBadgeMs ?? 0,
+      payloadBuildMs: bs.payloadBuildMs ?? 0,
+      summarizeRoomsMs: bs.summarizeRoomsMs ?? 0,
+      roomSliceCpuMs: bs.roomSliceCpuMs ?? 0,
+      roomIdsDedupeMs: bs.roomIdsDedupeMs ?? 0,
+      listSplitFilterMs: bs.listSplitFilterMs ?? 0,
+      listMyChatsWallMs: bs.listMyChatsWallMs ?? 0,
+      bundleParallelWallMs: bs.bundleParallelWallMs ?? 0,
+      routePreBundleMs: bs.routePreBundleMs ?? 0,
+      routeBundleAwaitMs: bs.routeBundleAwaitMs ?? 0,
+      routeDevDiagnosticsMs: bs.routeDevDiagnosticsMs ?? 0,
+      routeHandlerMs: bs.routeHandlerMs ?? 0,
+      routeTotalMs: bs.routeTotalMs ?? 0,
+      topOutsideBottleneck: topOutside && topOutside.ms > 0 ? topOutside : null,
+    });
+
+    const tradeMeta = trace.deepSteps.tradeMetaEnrich;
+    if (tradeMeta) {
+      const tm = buildHomeSyncTradeMetaStepBreakdown(tradeMeta, trace.deepSteps.tradeMetaBuildFromPostDetail);
+      const tpfd = trace.deepSteps.tradePostsFetchDetail;
+      const split = trace.deepSteps.tradePostsResolvedSplit;
+      const lightDenom = split?.lightFetchPostIdsTotal ?? 0;
+      const imagesPatchPostIdRatio =
+        lightDenom > 0 ? Math.round(((split?.patchPostIdsTotal ?? 0) / lightDenom) * 1000) / 1000 : null;
+      console.warn("[home-sync-trade-meta-steps]", {
+        token: trace.token,
+        tier,
+        tradeMetaEnrichTotalMs: tm.tradeMetaEnrichTotalMs,
+        steps: tm.steps,
+        topTradeMetaBottleneck: tm.topTradeMetaBottleneck,
+        tradePostsQueryCount: tpfd?.queryCount ?? null,
+        tradePostsSchemaFallbackAttempts: tpfd?.fallbackAttemptCount ?? null,
+        tradePostsResolvedSplit: split ?? null,
+        imagesPatchPostIdRatio,
+      });
+    }
+    const ot = buildHomeSyncOutsideTradeStepBreakdown(bs);
+    console.warn("[home-sync-outside-trade-steps]", {
+      token: trace.token,
+      tier,
+      outsideTradeEnrichMs: ot.outsideTradeEnrichMs,
+      steps: ot.steps,
+      sumListedOutsideStepsMs: ot.sumListedOutsideStepsMs,
+      outsideRollupVsSumDeltaMs: ot.outsideRollupVsSumDeltaMs,
+      topOutsideTradeEnrichBottleneck: ot.topOutsideTradeEnrichBottleneck,
+    });
+
+    const ur = trace.deepSteps.unreadHomeSyncSteps;
+    if (isDev && ur) {
+      const inv = ur.enrichInvocationCount ?? 0;
+      const unreadDuplicateFetchCount = Math.max(0, inv - 1);
+      const unreadCandidates: Array<[string, number]> = [
+        ["unreadSourceFetchMs", ur.unreadSourceFetchMs ?? 0],
+        ["participantUnreadMs", ur.participantUnreadMs ?? 0],
+        ["legacyTradeUnreadMs", ur.legacyTradeUnreadMs ?? 0],
+        ["ownerHubBadgeMs", ur.ownerHubBadgeMs ?? 0],
+        ["badgeAttachCpuMs", ur.badgeAttachCpuMs ?? 0],
+        ["roomIdDedupeMs", ur.roomIdDedupeMs ?? 0],
+      ];
+      let topUnread: { key: string; ms: number } | null = null;
+      for (const [key, v] of unreadCandidates) {
+        const rounded = ms(v);
+        if (!topUnread || rounded > topUnread.ms) topUnread = { key, ms: rounded };
+      }
+      console.warn("[home-sync-unread-steps]", {
+        token: trace.token,
+        tier,
+        unreadBadgeMs: ur.unreadBadgeMs ?? 0,
+        unreadSourceFetchMs: ur.unreadSourceFetchMs ?? 0,
+        legacyChatRoomsFetchMs: ur.legacyChatRoomsFetchMs ?? 0,
+        legacyProductChatsFetchMs: ur.legacyProductChatsFetchMs ?? 0,
+        participantUnreadMs: ur.participantUnreadMs ?? 0,
+        legacyTradeUnreadMs: ur.legacyTradeUnreadMs ?? 0,
+        ownerHubBadgeMs: ur.ownerHubBadgeMs ?? 0,
+        roomIdDedupeMs: ur.roomIdDedupeMs ?? 0,
+        badgeAttachCpuMs: ur.badgeAttachCpuMs ?? 0,
+        unreadDuplicateFetchCount,
+        unreadCacheHit: ur.unreadCacheHit ?? null,
+        topUnreadBottleneck: topUnread && topUnread.ms > 0 ? topUnread : null,
+      });
     }
   }
 
