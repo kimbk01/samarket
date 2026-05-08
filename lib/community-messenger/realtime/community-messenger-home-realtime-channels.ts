@@ -25,6 +25,8 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
   userId: string;
   isCancelled: () => boolean;
   roomIdsFingerprint: string;
+  /** 진단: 메타 전용 바인드 vs rooms-in 청크 바인드 구분 */
+  channelBindRole: "home_meta" | "home_rooms_in";
   includeMeta?: boolean;
   /** `extraRoomIds`(거래·배달 리스트 visible) 개수 — 구독 집합 진단용 */
   visibleTradeRoomCount?: number;
@@ -39,6 +41,7 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
   const cancelled = args.isCancelled;
   cmRtStableSubLog("channel_rebind_start", {
     viewerUserId: args.userId,
+    channelBindRole: args.channelBindRole,
     fingerprintLength: args.roomIdsFingerprint.length,
     rebindCountBefore: messengerRealtimeGetHomeChannelPhysicalBindCount(),
   });
@@ -269,6 +272,7 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
 
   cmRtStableSubLog("channel_rebind_done", {
     viewerUserId: args.userId,
+    channelBindRole: args.channelBindRole,
     bindOrdinal,
     rebindCount: messengerRealtimeGetHomeChannelPhysicalBindCount(),
     subscribed_room_count: roomIds.length,

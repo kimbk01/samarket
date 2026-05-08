@@ -69,6 +69,8 @@ export type UseCommunityMessengerHomeRealtimeBootstrapListArgs = {
   roomIds: string[];
   /** 거래·배달 채팅 리스트 visible 행 방 id 만 (`roomIds` 와 합쳐 INSERT 필터) */
   extraRoomIds?: string[];
+  /** 홈 부트스트랩 로딩 — 빈 room 목록일 때 rooms-in 지연 판정 */
+  bootstrapListLoading: boolean;
   homeRealtimeGateOpen: boolean;
   refresh: (silent?: boolean) => Promise<void>;
   setData: Dispatch<SetStateAction<CommunityMessengerBootstrap | null>>;
@@ -82,6 +84,7 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
   userId,
   roomIds,
   extraRoomIds,
+  bootstrapListLoading,
   homeRealtimeGateOpen,
   refresh,
   setData,
@@ -427,6 +430,8 @@ export function useCommunityMessengerHomeRealtimeBootstrapList({
     userId: userId ?? null,
     roomIds,
     extraRoomIds,
+    deferEmptyRoomsWhileBootstrapLoading: true,
+    bootstrapListLoading,
     enabled: Boolean(userId) && homeRealtimeGateOpen,
     onRefresh: scheduleHomeRealtimeRefresh,
     onRealtimeMessageInsertBatch: applyRealtimeMessageListBatch,

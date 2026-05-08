@@ -8,6 +8,10 @@ import type { CommunityMessengerPresenceState } from "@/lib/community-messenger/
 import { useMessengerPresenceStore } from "@/lib/community-messenger/stores/useMessengerPresenceStore";
 import { deriveLivePresenceFromSignals, mergePresenceStates } from "@/lib/community-messenger/presence/presence-policy";
 import { recordRouteEntryElapsedMetric, recordRouteEntryMetric } from "@/lib/runtime/samarket-runtime-debug";
+import {
+  cmDebugTailUserId,
+  pushCmBrowserDebugEvent,
+} from "@/lib/community-messenger/realtime/cm-browser-debug-buffer";
 
 type PresencePayload = {
   userId?: unknown;
@@ -56,6 +60,34 @@ function clearPresenceHeartbeatTimer() {
   }
 }
 
+let lastPresenceHttpPostAt = 0;
+
+function logPresenceHttpFailure(kind: string, args: { status: number; bodySnippet: string; deltaMs: number; payloadNote?: string }) {
+  try {
+    // eslint-disable-next-line no-console -- presence 400/네트워크 진단
+    console.warn("[cm-presence-client]", {
+      kind,
+      ...args,
+      viewerUserIdNull: !runtimeUserId,
+      runtimeUserIdLen: runtimeUserId.length,
+    });
+  } catch {
+    /* ignore */
+  }
+  pushCmBrowserDebugEvent({
+    label: "cm-presence-client",
+    scope: null,
+    channelName: null,
+    reason: kind,
+    status: String(args.status),
+    bodySnippet: args.bodySnippet ? args.bodySnippet.slice(0, 2000) : null,
+    payload: { deltaMs: args.deltaMs, payloadNote: args.payloadNote ?? null },
+    stopSourceStack: null,
+    fingerprint: null,
+    userIdTail: cmDebugTailUserId(runtimeUserId),
+  });
+}
+
 function persistLastSeenSessionEnd(lastSeenAt: string) {
   if (typeof navigator === "undefined") return;
   const body = JSON.stringify({ lastSeenAt, sessionEnd: true });
@@ -69,21 +101,59 @@ function persistLastSeenSessionEnd(lastSeenAt: string) {
       body,
       keepalive: true,
       credentials: "include",
-    }).catch(() => {});
+    })
+      .then(async (res) => {
+        if (res.ok) return;
+        const bodySnippet = (await res.text().catch(() => "")).slice(0, 2000);
+        logPresenceHttpFailure("session_end_fetch_failed", {
+          status: res.status,
+          bodySnippet,
+          deltaMs: -1,
+          payloadNote: "sessionEnd:true",
+        });
+      })
+      .catch(() => {});
   }
 }
 
 function postPresenceHeartbeatHttp() {
+  const now = Date.now();
+  const deltaMs = lastPresenceHttpPostAt ? now - lastPresenceHttpPostAt : -1;
+  lastPresenceHttpPostAt = now;
+  if (deltaMs >= 0 && deltaMs < 90) {
+    try {
+      // eslint-disable-next-line no-console -- 연속 POST(중복/race) 힌트
+      console.warn("[cm-presence-client]", {
+        kind: "heartbeat_burst",
+        deltaMs,
+        runtimeUserIdLen: runtimeUserId.length,
+      });
+    } catch {
+      /* ignore */
+    }
+  }
+  const payload = {
+    lastPingAt: nowIso(),
+    lastActivityAt: new Date(lastActivityMs).toISOString(),
+    appVisibility: currentDocumentVisible() ? "foreground" : "background",
+  };
   void fetch("/api/community-messenger/presence", {
     method: "POST",
     credentials: "include",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      lastPingAt: nowIso(),
-      lastActivityAt: new Date(lastActivityMs).toISOString(),
-      appVisibility: currentDocumentVisible() ? "foreground" : "background",
-    }),
-  }).catch(() => {});
+    body: JSON.stringify(payload),
+  })
+    .then(async (res) => {
+      if (res.ok) return;
+      const bodySnippet = (await res.text().catch(() => "")).slice(0, 2000);
+      logPresenceHttpFailure("heartbeat_http_failed", {
+        status: res.status,
+        bodySnippet,
+        deltaMs,
+        payloadNote: JSON.stringify(payload),
+      });
+    })
+    .catch(() => {});
 }
 
 function parseIncomingState(raw: unknown): CommunityMessengerPresenceState {

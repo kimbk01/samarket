@@ -7355,20 +7355,24 @@ export async function updateCommunityMessengerRoomArchiveState(input: {
   return { ok: true };
 }
 
-export async function upsertCommunityMessengerPresenceSnapshot(input: {
-  userId: string;
-  lastSeenAt?: string | null;
-  lastPingAt?: string | null;
-  lastActivityAt?: string | null;
-  appVisibility?: string | null;
-  /** 탭/앱 종료 비콘 — DB에서 즉시 OFFLINE 처리 */
-  sessionEnd?: boolean;
-}): Promise<{ ok: boolean; error?: string; lastSeenAt?: string | null }> {
+export async function upsertCommunityMessengerPresenceSnapshot(
+  input: {
+    userId: string;
+    lastSeenAt?: string | null;
+    lastPingAt?: string | null;
+    lastActivityAt?: string | null;
+    appVisibility?: string | null;
+    /** 탭/앱 종료 비콘 — DB에서 즉시 OFFLINE 처리 */
+    sessionEnd?: boolean;
+  },
+  /** Route Handler 세션 클라이언트 우선 — 서비스 롤 미설정 환경에서도 RLS(self)로 heartbeat 가능 */
+  options?: { supabase?: SupabaseLike | null }
+): Promise<{ ok: boolean; error?: string; lastSeenAt?: string | null }> {
   const userId = trimText(input.userId);
   if (!userId) return { ok: false, error: "user_required" };
   const now = nowIso();
   const lastSeenAt = trimText(input.lastSeenAt) || now;
-  const sb = getSupabaseOrNull();
+  const sb = options?.supabase ?? getSupabaseOrNull();
   if (sb) {
     const sessionEnd = input.sessionEnd === true;
     const row = sessionEnd

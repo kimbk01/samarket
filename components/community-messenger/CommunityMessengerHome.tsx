@@ -1715,6 +1715,7 @@ export function CommunityMessengerHome({
     userId: data?.me?.id,
     roomIds: homeRouteRealtimeRoomIds,
     extraRoomIds: visiblePillarChatRoomIds,
+    bootstrapListLoading: loading,
     homeRealtimeGateOpen,
     refresh,
     setData,

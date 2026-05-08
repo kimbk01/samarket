@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  cmDebugUserIdTailFromChannelName,
+  pushCmBrowserDebugEvent,
+} from "@/lib/community-messenger/realtime/cm-browser-debug-buffer";
+
 /**
  * 커뮤니티 메신저 Realtime 1:1 동기화 근본 점검용 로그.
  * `NEXT_PUBLIC_CM_REALTIME_DEBUG=1` 일 때만 콘솔에 출력 — 기본 비활성.
@@ -58,11 +63,39 @@ export function cmRtLogSubscribe(args: {
   });
 }
 
-export function cmRtLogTeardown(args: { reason: string; channelName?: string; streamRoomId?: string }): void {
+export function cmRtLogTeardown(args: {
+  reason: string;
+  channelName?: string;
+  streamRoomId?: string;
+  /** `subscribeWithRetry.stop()` 호출 스택 — 채널 이름만으로는 부족할 때 원인 추적 */
+  stopSourceStack?: string | null;
+  /** 내부 teardown 분류(예: explicit_stop) */
+  teardownDetail?: string | null;
+}): void {
+  const ch = args.channelName ?? null;
+  if (ch?.startsWith("community-messenger")) {
+    pushCmBrowserDebugEvent({
+      label: "cm-rt-unsubscribe",
+      scope: null,
+      channelName: ch,
+      reason: args.reason ?? null,
+      status: null,
+      bodySnippet: args.teardownDetail ?? null,
+      payload: {
+        streamRoomId: args.streamRoomId ?? null,
+        teardownDetail: args.teardownDetail ?? null,
+      },
+      stopSourceStack: args.stopSourceStack ?? null,
+      fingerprint: null,
+      userIdTail: cmDebugUserIdTailFromChannelName(ch),
+    });
+  }
   out("unsubscribe", {
     reason: args.reason,
     channelName: args.channelName ?? null,
     streamRoomId: args.streamRoomId ?? null,
+    stopSourceStack: args.stopSourceStack ?? null,
+    teardownDetail: args.teardownDetail ?? null,
   });
 }
 

@@ -13,6 +13,12 @@ import {
 } from "@/lib/community-messenger/realtime/community-messenger-realtime-health";
 import { messengerMonitorRealtimeSubscriptionOutcome } from "@/lib/community-messenger/monitoring/client";
 import { syncSupabaseRealtimeAuthFromSession, waitForSupabaseRealtimeAuth } from "@/lib/supabase/wait-for-realtime-auth";
+import {
+  cmDebugUserIdTailFromChannelName,
+  pushCmBrowserDebugEvent,
+  recordCmRtLoopCreateForBuffer,
+  recordCmRtLoopStopForBuffer,
+} from "@/lib/community-messenger/realtime/cm-browser-debug-buffer";
 
 type SubscribeStatus = "SUBSCRIBED" | "TIMED_OUT" | "CHANNEL_ERROR" | "CLOSED";
 
@@ -87,6 +93,7 @@ function rtLoopDiagLog(args: {
   attempt?: number;
   waitMs?: number;
   expectedInternalClosed?: number;
+  stopSourceStack?: string | null;
 }): void {
   if (!devRtLoopDiagEnabled) return;
   if (!args.name.startsWith("community-messenger")) return;
@@ -97,7 +104,9 @@ function rtLoopDiagLog(args: {
   const active = rtLoopDiagActiveCountByName.get(args.name) ?? 0;
   // 너무 시끄럽지 않게: (1) 매우 짧은 간격 재발, 또는 (2) active가 2개 이상일 때만 출력.
   const shouldPrint = active >= 2 || (typeof dtMs === "number" && dtMs <= 2500);
-  if (!shouldPrint) return;
+  /** teardown 원인 추적은 항상 남긴다(스택 포함). */
+  const forcePrintStop = args.event === "stop";
+  if (!shouldPrint && !forcePrintStop) return;
   try {
     // eslint-disable-next-line no-console -- dev-only realtime loop diagnostics
     console.warn("[cm-rt-loop]", {
@@ -111,6 +120,7 @@ function rtLoopDiagLog(args: {
       dtMs,
       activeCount: active,
       expectedInternalClosed: typeof args.expectedInternalClosed === "number" ? args.expectedInternalClosed : null,
+      stopSourceStack: args.event === "stop" ? args.stopSourceStack ?? null : null,
     });
   } catch {
     /* ignore */
@@ -153,6 +163,22 @@ export function subscribeWithRetry(args: {
   let expectedInternalClosed = 0;
   const internalDecayTimers = new Set<ReturnType<typeof setTimeout>>();
   let channel: RealtimeChannel = args.build(args.sb.channel(args.name));
+
+  if (args.name.startsWith("community-messenger")) {
+    const counts = recordCmRtLoopCreateForBuffer(args.name);
+    pushCmBrowserDebugEvent({
+      label: "cm-rt-loop",
+      scope: args.scope,
+      channelName: args.name,
+      reason: counts.create > 1 ? "duplicate_instance_same_name" : "first_instance",
+      status: "create",
+      bodySnippet: null,
+      payload: { event: "create", createCount: counts.create, stopCount: counts.stop },
+      stopSourceStack: null,
+      fingerprint: null,
+      userIdTail: cmDebugUserIdTailFromChannelName(args.name),
+    });
+  }
 
   if (devRtLoopDiagEnabled) {
     const prev = rtLoopDiagActiveCountByName.get(args.name) ?? 0;
@@ -202,6 +228,12 @@ export function subscribeWithRetry(args: {
     expectedInternalClosed = 0;
     clearCommunityMessengerRealtimeScope(args.scope);
     markInternalChannelRecycle();
+    let stopSourceStack: string | null = null;
+    try {
+      stopSourceStack = new Error("subscribeWithRetry.stop").stack ?? null;
+    } catch {
+      stopSourceStack = null;
+    }
     rtLoopDiagBumpCounter(args.name, "stop");
     rtLoopDiagLog({
       event: "stop",
@@ -209,9 +241,28 @@ export function subscribeWithRetry(args: {
       scope: args.scope,
       reason: "explicit_stop",
       expectedInternalClosed,
+      stopSourceStack,
     });
-    if (isCommunityMessengerRealtimeDebugEnabled() && args.name.startsWith("community-messenger")) {
-      cmRtLogTeardown({ reason: "stop", channelName: args.name });
+    if (args.name.startsWith("community-messenger")) {
+      const counts = recordCmRtLoopStopForBuffer(args.name);
+      pushCmBrowserDebugEvent({
+        label: "cm-rt-loop",
+        scope: args.scope,
+        channelName: args.name,
+        reason: "explicit_stop",
+        status: "stop",
+        bodySnippet: null,
+        payload: { event: "stop", createCount: counts.create, stopCount: counts.stop },
+        stopSourceStack,
+        fingerprint: null,
+        userIdTail: cmDebugUserIdTailFromChannelName(args.name),
+      });
+      cmRtLogTeardown({
+        reason: "stop",
+        channelName: args.name,
+        stopSourceStack,
+        teardownDetail: "explicit_stop(removeChannel)",
+      });
     }
     try {
       void args.sb.removeChannel(channel);

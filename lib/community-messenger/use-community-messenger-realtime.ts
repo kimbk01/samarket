@@ -277,6 +277,7 @@ function createHomeRealtimeEntry(args: {
   roomIdsFingerprint: string;
   visibleTradeRoomCount?: number;
   includeMeta?: boolean;
+  channelBindRole: "home_meta" | "home_rooms_in";
 }): HomeRealtimeEntry {
   const sb = getSupabaseClient();
   const entry: HomeRealtimeEntry = {
@@ -303,6 +304,7 @@ function createHomeRealtimeEntry(args: {
       userId: args.userId,
       isCancelled: () => cancelled,
       roomIdsFingerprint: args.roomIdsFingerprint,
+      channelBindRole: args.channelBindRole,
       includeMeta: args.includeMeta,
       visibleTradeRoomCount: args.visibleTradeRoomCount,
       messageInsertHintRef: {
@@ -358,6 +360,10 @@ export function useCommunityMessengerHomeRealtime(args: {
   roomIds?: string[];
   /** 거래·배달 채팅 리스트 visible 행 방 id 만 — `roomIds` 와 합쳐 INSERT 필터 구성 */
   extraRoomIds?: string[];
+  /** 홈 목록 부트스트랩 로딩 중 + 아직 room id 가 하나도 없으면 rooms-in 구독 지연(빈 fingerprint 초기 바인드 방지) */
+  deferEmptyRoomsWhileBootstrapLoading?: boolean;
+  /** `useCommunityMessengerHomeBootstrap` 의 loading 과 동기 — defer 판정용 */
+  bootstrapListLoading?: boolean;
   enabled: boolean;
   onRefresh: () => void;
   onRealtimeMessageInsert?: (hint: CommunityMessengerHomeRealtimeMessageInsertHint) => void;
@@ -386,6 +392,41 @@ export function useCommunityMessengerHomeRealtime(args: {
   const visibleTradeRoomCountForBind =
     extraRoomIdsContentKey.length > 0 ? extraRoomIdsContentKey.split("\0").filter(Boolean).length : 0;
 
+  const deferEmptyWhileLoading = Boolean(args.deferEmptyRoomsWhileBootstrapLoading);
+  const bootstrapListLoading = Boolean(args.bootstrapListLoading);
+
+  /** 로딩 중 목록이 잠깐 비었을 때 rooms-in 을 마지막 알려진 집합으로 유지 */
+  const lastKnownNonEmptyRoomsFingerprintRef = useRef<string>("");
+  const deferringRoomsSubscriptionRef = useRef(false);
+
+  useEffect(() => {
+    lastKnownNonEmptyRoomsFingerprintRef.current = "";
+    deferringRoomsSubscriptionRef.current = false;
+  }, [args.userId]);
+
+  const roomsBindFingerprint = useMemo(() => {
+    if (mergedNormalizedRoomIds.length > 0) {
+      lastKnownNonEmptyRoomsFingerprintRef.current = roomIdsFingerprint;
+      return roomIdsFingerprint;
+    }
+    if (deferEmptyWhileLoading && bootstrapListLoading) {
+      const held = lastKnownNonEmptyRoomsFingerprintRef.current;
+      if (!held) return null;
+      return held;
+    }
+    lastKnownNonEmptyRoomsFingerprintRef.current = "";
+    return "";
+  }, [
+    bootstrapListLoading,
+    deferEmptyWhileLoading,
+    mergedNormalizedRoomIds.length,
+    roomIdsFingerprint,
+  ]);
+
+  useEffect(() => {
+    if (roomsBindFingerprint === null) deferringRoomsSubscriptionRef.current = true;
+  }, [roomsBindFingerprint]);
+
   const prevFingerprintRef = useRef<string | null>(null);
   const prevRoomKeyRef = useRef<string>("");
   const prevExtraKeyRef = useRef<string>("");
@@ -409,15 +450,23 @@ export function useCommunityMessengerHomeRealtime(args: {
       prevRoomKeyRef.current = rk;
       prevExtraKeyRef.current = ek;
       prevFingerprintRef.current = roomIdsFingerprint;
-      cmRtStableSubLog("fingerprint_changed", {
-        prevFingerprintLength: prev.length,
-        nextFingerprintLength: roomIdsFingerprint.length,
-        changedReason,
-        rebindCount: messengerRealtimeGetHomeChannelPhysicalBindCount(),
-        visible_trade_room_count: ek.length ? ek.split("\0").filter(Boolean).length : 0,
-      });
+
+      const suppressBootstrapFillNoise =
+        deferringRoomsSubscriptionRef.current && prev === "" && roomIdsFingerprint.length > 0;
+      if (suppressBootstrapFillNoise) deferringRoomsSubscriptionRef.current = false;
+
+      if (!suppressBootstrapFillNoise) {
+        cmRtStableSubLog("fingerprint_changed", {
+          viewerUserId: args.userId,
+          prevFingerprintLength: prev.length,
+          nextFingerprintLength: roomIdsFingerprint.length,
+          changedReason,
+          rebindCount: messengerRealtimeGetHomeChannelPhysicalBindCount(),
+          visible_trade_room_count: ek.length ? ek.split("\0").filter(Boolean).length : 0,
+        });
+      }
     }
-  }, [roomIdsFingerprint, roomIdsContentKey, extraRoomIdsContentKey]);
+  }, [roomIdsFingerprint, roomIdsContentKey, extraRoomIdsContentKey, args.userId]);
 
   useEffect(() => {
     listenerRef.current.onRefresh = args.onRefresh;
@@ -441,37 +490,44 @@ export function useCommunityMessengerHomeRealtime(args: {
         userId: args.userId,
         roomIdsFingerprint: "",
         includeMeta: true,
+        channelBindRole: "home_meta",
       });
       homeRealtimeMetaEntries.set(metaKey, metaEntry);
     }
 
-    const roomsKey = `${args.userId}:rooms:${roomIdsFingerprint}`;
-    let roomsEntry = homeRealtimeRoomsEntries.get(roomsKey);
-    if (!roomsEntry) {
-      roomsEntry = createHomeRealtimeEntry({
-        key: roomsKey,
-        userId: args.userId,
-        roomIdsFingerprint,
-        visibleTradeRoomCount: visibleTradeRoomCountForBind,
-        includeMeta: false,
-      });
-      homeRealtimeRoomsEntries.set(roomsKey, roomsEntry);
+    const bindFp = roomsBindFingerprint;
+    const roomsKey = bindFp !== null ? `${args.userId}:rooms:${bindFp}` : null;
+    let roomsEntry: HomeRealtimeEntry | null = null;
+    if (bindFp !== null && roomsKey) {
+      roomsEntry = homeRealtimeRoomsEntries.get(roomsKey) ?? null;
+      if (!roomsEntry) {
+        roomsEntry = createHomeRealtimeEntry({
+          key: roomsKey,
+          userId: args.userId,
+          roomIdsFingerprint: bindFp,
+          visibleTradeRoomCount: visibleTradeRoomCountForBind,
+          includeMeta: false,
+          channelBindRole: "home_rooms_in",
+        });
+        homeRealtimeRoomsEntries.set(roomsKey, roomsEntry);
+      }
     }
 
     samarketMessengerHomeDebugEvent("messenger_home_subscribe_create", {
-      key: roomsKey,
+      key: roomsKey ?? `${args.userId}:rooms:(deferred)`,
       metaKey,
-      roomsKey,
+      roomsKey: roomsKey ?? `${args.userId}:rooms:(deferred)`,
+      rooms_bind_deferred: bindFp === null,
     });
     metaEntry.listeners.add(listenerRef);
-    roomsEntry.listeners.add(listenerRef);
+    if (roomsEntry) roomsEntry.listeners.add(listenerRef);
     recordMessengerHomeRealtimeReactListenerGaugeDelta(1);
     pushMessengerHomeRealtimeMapProbe();
     return () => {
       samarketMessengerHomeDebugEvent("messenger_home_subscribe_cleanup", {
-        key: roomsKey,
+        key: roomsKey ?? `${args.userId}:rooms:(deferred)`,
         metaKey,
-        roomsKey,
+        roomsKey: roomsKey ?? `${args.userId}:rooms:(deferred)`,
       });
       const currentMeta = homeRealtimeMetaEntries.get(metaKey);
       if (currentMeta) {
@@ -479,15 +535,17 @@ export function useCommunityMessengerHomeRealtime(args: {
         if (currentMeta.listeners.size === 0) currentMeta.stop();
       }
 
-      const currentRooms = homeRealtimeRoomsEntries.get(roomsKey);
-      if (currentRooms) {
-        currentRooms.listeners.delete(listenerRef);
-        if (currentRooms.listeners.size === 0) currentRooms.stop();
+      if (roomsKey) {
+        const currentRooms = homeRealtimeRoomsEntries.get(roomsKey);
+        if (currentRooms) {
+          currentRooms.listeners.delete(listenerRef);
+          if (currentRooms.listeners.size === 0) currentRooms.stop();
+        }
       }
       recordMessengerHomeRealtimeReactListenerGaugeDelta(-1);
       pushMessengerHomeRealtimeMapProbe();
     };
-  }, [args.enabled, args.userId, roomIdsFingerprint]);
+  }, [args.enabled, args.userId, roomsBindFingerprint, visibleTradeRoomCountForBind]);
 }
 
 export function useCommunityMessengerRoomRealtime(args: {
