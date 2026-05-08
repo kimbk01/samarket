@@ -18,12 +18,21 @@ import {
   shouldAlertLatency,
   shouldAlertPacketLoss,
 } from "./thresholds";
+import v8 from "v8";
 
 const MAX_EVENTS = 400;
 const MAX_ALERTS = 80;
 const MAX_SESSION_IDS = 600;
+const MAX_API_ROUTES = 240;
+const MAX_AGG_KEYS = 600;
+const MAX_CLIENT_AGG_KEYS = 600;
+const MAX_OUTCOME_KEYS = 220;
+const MAX_FAILURE_RATIO_KEYS = 64;
 const RATIO_ALERT_COOLDOWN_MS = 90_000;
 const AGG_KEY = (e: MessengerMonitoringEvent) => `${e.category}:${e.metric}:${e.source}`;
+
+let lastDevMonitoringStoreLogAt = 0;
+let lastDevMonitoringHeapLogAt = 0;
 
 type Agg = { count: number; sum: number; last: number; lastAt: number };
 
@@ -90,6 +99,18 @@ function bumpAgg(map: Map<string, Agg>, key: string, value: number) {
   map.set(key, cur);
 }
 
+function trimMapOldest<K, V>(map: Map<K, V>, max: number) {
+  if (map.size <= max) return;
+  const overflow = map.size - max;
+  if (overflow <= 0) return;
+  const it = map.keys();
+  for (let i = 0; i < overflow; i++) {
+    const n = it.next();
+    if (n.done) break;
+    map.delete(n.value);
+  }
+}
+
 function bumpOutcome(store: Store, key: string, ok: boolean) {
   const cur = store.outcomes.get(key) ?? { ok: 0, fail: 0 };
   if (ok) cur.ok += 1;
@@ -130,6 +151,10 @@ function recomputeOutcomesFromEventWindow(store: Store) {
     ) {
       bumpOutcome(store, "call.signaling", event.labels.outcome === "ok");
     }
+  }
+
+  if (process.env.NODE_ENV === "development") {
+    trimMapOldest(store.outcomes, MAX_OUTCOME_KEYS);
   }
 }
 
@@ -190,9 +215,15 @@ export function recordMessengerMonitoringEvent(event: MessengerMonitoringEvent):
   const key = AGG_KEY(event);
   if (typeof event.value === "number" && (event.unit === "ms" || event.unit === undefined)) {
     bumpAgg(store.aggregates, key, event.value);
+    if (process.env.NODE_ENV === "development") {
+      trimMapOldest(store.aggregates, MAX_AGG_KEYS);
+    }
   }
   if (event.source === "client" && typeof event.value === "number") {
     bumpAgg(store.clientAggregates, key, event.value);
+    if (process.env.NODE_ENV === "development") {
+      trimMapOldest(store.clientAggregates, MAX_CLIENT_AGG_KEYS);
+    }
   }
 
   if (event.category === "call.connection" && event.metric === "first_connected" && event.labels?.sessionIdSuffix) {
@@ -227,6 +258,9 @@ export function recordMessengerMonitoringEvent(event: MessengerMonitoringEvent):
   }
   if (event.unit === "count" && event.category === "call.signaling" && event.metric === "signal_post" && event.labels?.outcome) {
     maybeFailureRatioAlert(store, "signalingFailureRate", "call.signaling", "call.signaling", "signal_post");
+  }
+  if (process.env.NODE_ENV === "development") {
+    trimMapOldest(store.lastFailureRatioAlertTs, MAX_FAILURE_RATIO_KEYS);
   }
 
   if (event.unit === "ms" && typeof event.value === "number") {
@@ -269,6 +303,7 @@ export function recordMessengerApiTiming(
     domain?: string;
   }
 ): void {
+  const isDev = process.env.NODE_ENV === "development";
   const category = options?.category ?? "api.community_messenger";
   const domain = options?.domain ?? MESSENGER_MONITORING_LABEL_DOMAIN.community;
   const store = getStore();
@@ -277,6 +312,40 @@ export function recordMessengerApiTiming(
   cur.sum += durationMs;
   cur.last = durationMs;
   store.apiByRoute.set(route, cur);
+  const beforeSize = store.apiByRoute.size;
+  if (isDev) {
+    trimMapOldest(store.apiByRoute, MAX_API_ROUTES);
+  }
+  const afterSize = store.apiByRoute.size;
+  const trimmed = isDev && afterSize < beforeSize;
+
+  if (isDev) {
+    const now = Date.now();
+    if ((trimmed || now - lastDevMonitoringStoreLogAt > 30_000) && afterSize > 0) {
+      lastDevMonitoringStoreLogAt = now;
+      console.warn("[dev-monitoring-store] apiByRoute size", {
+        apiByRouteSize: afterSize,
+        trimmed,
+      });
+    }
+    try {
+      const h = v8.getHeapStatistics();
+      const used = h.used_heap_size;
+      const limit = h.heap_size_limit || 1;
+      const ratio = used / limit;
+      if (ratio > 0.7 && now - lastDevMonitoringHeapLogAt > 10_000) {
+        lastDevMonitoringHeapLogAt = now;
+        console.warn("[dev-heap] monitoring-store high heap", {
+          heapUsedMB: Math.round(used / 1024 / 1024),
+          heapLimitMB: Math.round(limit / 1024 / 1024),
+          ratio: Math.round(ratio * 1000) / 1000,
+          apiByRouteSize: afterSize,
+        });
+      }
+    } catch {
+      /* ignore */
+    }
+  }
 
   recordMessengerMonitoringEvent({
     ts: Date.now(),

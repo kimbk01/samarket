@@ -9,6 +9,8 @@ import {
 import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/server-store";
 import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import { messengerApiEdgeCacheHeaders } from "@/lib/http/messenger-api-edge-cache";
+import v8 from "v8";
+import { ms, type HomeSyncTrace } from "@/lib/community-messenger/home-sync-trace";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,8 +32,18 @@ const communityMessengerHomeSyncCache = new Map<string, CommunityMessengerHomeSy
  */
 export async function GET(req: NextRequest) {
   const t0 = performance.now();
+  const isDev = process.env.NODE_ENV === "development";
+  const enableInMemoryCache = process.env.NODE_ENV === "production";
+  const tAuth = performance.now();
   const auth = await requireAuthenticatedUserId();
-  if (!auth.ok) return auth.response;
+  const authMs = performance.now() - tAuth;
+  if (!auth.ok) {
+    if (isDev) {
+      // 401/403 등은 병목 분석 대상에서 제외(로그로만 분리).
+      console.warn("[home-sync-skip]", { status: 401, reason: "unauthenticated" });
+    }
+    return auth.response;
+  }
 
   const rateLimit = await enforceRateLimit({
     key: `community-messenger:home-sync:${getRateLimitKey(req, auth.userId)}`,
@@ -46,19 +58,114 @@ export async function GET(req: NextRequest) {
   const tierParam = req.nextUrl.searchParams.get("tier");
   const tier: "critical" | "full" = tierParam === "critical" ? "critical" : "full";
   const now = Date.now();
-  pruneByExpiresAtAndMaxSize(communityMessengerHomeSyncCache, now, COMMUNITY_MESSENGER_HOME_SYNC_CACHE_MAX_ENTRIES);
+  const trace: HomeSyncTrace | undefined =
+    isDev && tier === "critical"
+      ? {
+          token: `home-sync:${Date.now().toString(36)}:${Math.random().toString(36).slice(2)}`,
+          authSessionMs: ms(authMs),
+          deepSteps: {},
+        }
+      : undefined;
+  if (enableInMemoryCache) {
+    pruneByExpiresAtAndMaxSize(
+      communityMessengerHomeSyncCache,
+      now,
+      COMMUNITY_MESSENGER_HOME_SYNC_CACHE_MAX_ENTRIES
+    );
+  }
 
   /** 상한·스킵 enrich 변경 시 캐시 오염 방지 — cap 버전을 키에 포함 */
   const cacheKey = `${auth.userId}:${tier}:cap${COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP}f${COMMUNITY_MESSENGER_HOME_SYNC_FULL_ROOM_CAP}`;
-  let bundle = !fresh ? communityMessengerHomeSyncCache.get(cacheKey)?.payload : undefined;
+  let bundle =
+    enableInMemoryCache && !fresh ? communityMessengerHomeSyncCache.get(cacheKey)?.payload : undefined;
   if (!bundle) {
-    bundle = await getCommunityMessengerHomeSyncBundle(auth.userId, tier);
+    try {
+      bundle = await getCommunityMessengerHomeSyncBundle(auth.userId, tier, { trace });
+    } catch (e) {
+      if (trace) {
+        console.warn("[home-sync-skip]", { status: 500, reason: "bundle_error", token: trace.token });
+      }
+      throw e;
+    }
     const tSet = Date.now();
-    communityMessengerHomeSyncCache.set(cacheKey, {
-      payload: bundle,
-      expiresAt: tSet + COMMUNITY_MESSENGER_HOME_SYNC_TTL_MS,
-    });
-    pruneByExpiresAtAndMaxSize(communityMessengerHomeSyncCache, tSet, COMMUNITY_MESSENGER_HOME_SYNC_CACHE_MAX_ENTRIES);
+    if (enableInMemoryCache) {
+      communityMessengerHomeSyncCache.set(cacheKey, {
+        payload: bundle,
+        expiresAt: tSet + COMMUNITY_MESSENGER_HOME_SYNC_TTL_MS,
+      });
+      pruneByExpiresAtAndMaxSize(
+        communityMessengerHomeSyncCache,
+        tSet,
+        COMMUNITY_MESSENGER_HOME_SYNC_CACHE_MAX_ENTRIES
+      );
+    }
+  }
+
+  // [DEV] payload size log (approx) + heap logger for memory-restart triage.
+  try {
+    if (isDev) {
+      const rooms = (bundle.chats?.length ?? 0) + (bundle.groups?.length ?? 0);
+      const friends = bundle.friends?.length ?? 0;
+      const requests = bundle.requests?.length ?? 0;
+
+      // [home-sync-size] JSON length (KB)
+      const payloadBytes = JSON.stringify(bundle).length;
+      console.warn("[home-sync-size]", {
+        payloadKB: Math.round(payloadBytes / 1024),
+        rooms,
+        friends,
+        requests,
+      });
+
+      console.warn("[home-sync-auth]", { authSessionMs: Math.round(authMs) });
+
+      // [dev-heap] only when heapUsed/heapLimit > 0.7
+      const h = v8.getHeapStatistics();
+      const used = h.used_heap_size;
+      const limit = h.heap_size_limit || 1;
+      const ratio = used / limit;
+      if (ratio > 0.7) {
+        console.warn("[dev-heap] home-sync high heap", {
+          heapUsedMB: Math.round(used / 1024 / 1024),
+          heapLimitMB: Math.round(limit / 1024 / 1024),
+          ratio: Math.round(ratio * 1000) / 1000,
+          rooms,
+          friends,
+          requests,
+        });
+      }
+    }
+  } catch {
+    /* ignore */
+  }
+
+  if (trace) {
+    try {
+      const participants = trace.deepSteps.participantsProfiles;
+      const trade = trace.deepSteps.tradeMetaEnrich;
+      const candidates: Array<{ key: string; ms: number; file: string }> = [
+        { key: "participantsProfiles.dbFetchMs", ms: ms(participants?.dbFetchMs), file: "lib/community-messenger/service.ts" },
+        { key: "participantsProfiles.profileMergeMs", ms: ms(participants?.profileMergeMs), file: "lib/community-messenger/service.ts" },
+        { key: "participantsProfiles.participantNormalizeMs", ms: ms(participants?.participantNormalizeMs), file: "lib/community-messenger/service.ts" },
+        { key: "tradeMetaEnrich.tradePostsFetchMs", ms: ms(trade?.tradePostsFetchMs), file: "lib/community-messenger/service.ts" },
+        { key: "tradeMetaEnrich.categoryFetchMs", ms: ms(trade?.categoryFetchMs), file: "lib/community-messenger/service.ts" },
+        { key: "tradeMetaEnrich.sellerProfileAttachMs", ms: ms(trade?.sellerProfileAttachMs), file: "lib/community-messenger/service.ts" },
+        { key: "tradeMetaEnrich.cpuMergeMs", ms: ms(trade?.cpuMergeMs), file: "lib/community-messenger/service.ts" },
+      ].filter((c) => c.ms > 0);
+      candidates.sort((a, b) => b.ms - a.ms);
+      const top = candidates[0];
+      console.warn("[home-sync-deep-steps]", {
+        token: trace.token,
+        authSessionMs: ms(trace.authSessionMs),
+        participantsProfiles: participants ?? null,
+        tradeMetaEnrich: trade ?? null,
+        sellerProfileAttachBreakdown: trade?.sellerProfileAttach ?? null,
+        topBottleneck: top ? { key: top.key, ms: Math.round(top.ms) } : null,
+        fixCandidateFile: top?.file ?? null,
+      });
+    } catch {
+      /* ignore */
+    }
   }
 
   recordMessengerApiTiming("GET /api/community-messenger/home-sync", Math.round(performance.now() - t0), 200);

@@ -88,15 +88,19 @@ type HomeRealtimeEntry = {
   stop: () => void;
 };
 
-const homeRealtimeEntries = new Map<string, HomeRealtimeEntry>();
+const homeRealtimeMetaEntries = new Map<string, HomeRealtimeEntry>();
+const homeRealtimeRoomsEntries = new Map<string, HomeRealtimeEntry>();
 const globalMessengerRoomBundleByViewer = new Map<string, GlobalMessengerRoomBundleEntry>();
 
 function pushMessengerHomeRealtimeMapProbe(): void {
   let listenerRefs = 0;
-  for (const e of homeRealtimeEntries.values()) {
+  for (const e of homeRealtimeMetaEntries.values()) {
     listenerRefs += e.listeners.size;
   }
-  publishMessengerHomeRealtimeMapSnapshot(homeRealtimeEntries.size, listenerRefs);
+  for (const e of homeRealtimeRoomsEntries.values()) {
+    listenerRefs += e.listeners.size;
+  }
+  publishMessengerHomeRealtimeMapSnapshot(homeRealtimeMetaEntries.size + homeRealtimeRoomsEntries.size, listenerRefs);
 }
 
 /** INSERT 힌트 폭주 시 한 프레임 작업량 상한 — 이후 큐는 다음 rAF에서 이어 처리 */
@@ -272,6 +276,7 @@ function createHomeRealtimeEntry(args: {
   userId: string;
   roomIdsFingerprint: string;
   visibleTradeRoomCount?: number;
+  includeMeta?: boolean;
 }): HomeRealtimeEntry {
   const sb = getSupabaseClient();
   const entry: HomeRealtimeEntry = {
@@ -298,6 +303,7 @@ function createHomeRealtimeEntry(args: {
       userId: args.userId,
       isCancelled: () => cancelled,
       roomIdsFingerprint: args.roomIdsFingerprint,
+      includeMeta: args.includeMeta,
       visibleTradeRoomCount: args.visibleTradeRoomCount,
       messageInsertHintRef: {
         current: (hint) => {
@@ -338,7 +344,8 @@ function createHomeRealtimeEntry(args: {
     }
     for (const item of channels) item.stop();
     channels.length = 0;
-    homeRealtimeEntries.delete(args.key);
+    homeRealtimeMetaEntries.delete(args.key);
+    homeRealtimeRoomsEntries.delete(args.key);
     pushMessengerHomeRealtimeMapProbe();
   };
 
@@ -426,29 +433,59 @@ export function useCommunityMessengerHomeRealtime(args: {
 
   useEffect(() => {
     if (!args.enabled || !args.userId) return;
-    const key = `${args.userId}:${roomIdsFingerprint}`;
-    let entry = homeRealtimeEntries.get(key);
-    if (!entry) {
-      entry = createHomeRealtimeEntry({
-        key,
+    const metaKey = `${args.userId}:meta`;
+    let metaEntry = homeRealtimeMetaEntries.get(metaKey);
+    if (!metaEntry) {
+      metaEntry = createHomeRealtimeEntry({
+        key: metaKey,
+        userId: args.userId,
+        roomIdsFingerprint: "",
+        includeMeta: true,
+      });
+      homeRealtimeMetaEntries.set(metaKey, metaEntry);
+    }
+
+    const roomsKey = `${args.userId}:rooms:${roomIdsFingerprint}`;
+    let roomsEntry = homeRealtimeRoomsEntries.get(roomsKey);
+    if (!roomsEntry) {
+      roomsEntry = createHomeRealtimeEntry({
+        key: roomsKey,
         userId: args.userId,
         roomIdsFingerprint,
         visibleTradeRoomCount: visibleTradeRoomCountForBind,
+        includeMeta: false,
       });
-      homeRealtimeEntries.set(key, entry);
+      homeRealtimeRoomsEntries.set(roomsKey, roomsEntry);
     }
-    samarketMessengerHomeDebugEvent("messenger_home_subscribe_create", { key });
-    entry.listeners.add(listenerRef);
+
+    samarketMessengerHomeDebugEvent("messenger_home_subscribe_create", {
+      key: roomsKey,
+      metaKey,
+      roomsKey,
+    });
+    metaEntry.listeners.add(listenerRef);
+    roomsEntry.listeners.add(listenerRef);
     recordMessengerHomeRealtimeReactListenerGaugeDelta(1);
     pushMessengerHomeRealtimeMapProbe();
     return () => {
-      samarketMessengerHomeDebugEvent("messenger_home_subscribe_cleanup", { key });
-      const current = homeRealtimeEntries.get(key);
-      if (!current) return;
-      current.listeners.delete(listenerRef);
+      samarketMessengerHomeDebugEvent("messenger_home_subscribe_cleanup", {
+        key: roomsKey,
+        metaKey,
+        roomsKey,
+      });
+      const currentMeta = homeRealtimeMetaEntries.get(metaKey);
+      if (currentMeta) {
+        currentMeta.listeners.delete(listenerRef);
+        if (currentMeta.listeners.size === 0) currentMeta.stop();
+      }
+
+      const currentRooms = homeRealtimeRoomsEntries.get(roomsKey);
+      if (currentRooms) {
+        currentRooms.listeners.delete(listenerRef);
+        if (currentRooms.listeners.size === 0) currentRooms.stop();
+      }
       recordMessengerHomeRealtimeReactListenerGaugeDelta(-1);
       pushMessengerHomeRealtimeMapProbe();
-      if (current.listeners.size === 0) current.stop();
     };
   }, [args.enabled, args.userId, roomIdsFingerprint]);
 }

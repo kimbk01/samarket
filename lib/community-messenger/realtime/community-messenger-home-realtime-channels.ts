@@ -25,6 +25,7 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
   userId: string;
   isCancelled: () => boolean;
   roomIdsFingerprint: string;
+  includeMeta?: boolean;
   /** `extraRoomIds`(거래·배달 리스트 visible) 개수 — 구독 집합 진단용 */
   visibleTradeRoomCount?: number;
   messageInsertHintRef: MutableRefObject<((hint: CommunityMessengerHomeRealtimeMessageInsertHint) => void) | undefined>;
@@ -52,139 +53,142 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
     roomCount: roomIds.length,
   });
 
-  const meta = subscribeWithRetry({
-    sb: args.sb,
-    name: `community-messenger-home:meta:${args.userId}`,
-    scope: `community-messenger-home:meta`,
-    isCancelled: cancelled,
-    onStatus: (status) => {
-      if (status === "SUBSCRIBED" && !cancelled()) refreshScheduler.schedule();
-    },
-    build: (channel) =>
-      channel
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "community_messenger_participants",
-            filter: `user_id=eq.${args.userId}`,
-          },
-          (payload) => {
-            if (!cancelled() && payload.new) {
-              const row = payload.new as Record<string, unknown>;
-              const roomId = typeof row.room_id === "string" ? row.room_id.trim() : "";
-              if (roomId) {
-                const unreadCount = Math.max(0, Number(row.unread_count ?? 0) || 0);
-                const lastReadAt = typeof row.last_read_at === "string" ? row.last_read_at : null;
-                const lastReadMessageId = typeof row.last_read_message_id === "string" ? row.last_read_message_id : null;
-                const participantUserId =
-                  typeof row.user_id === "string" ? row.user_id.trim() : String(row.user_id ?? "").trim() || null;
-                cmRtReadSyncLog("participant_update_received", {
-                  channelScope: "home_meta_self",
-                  roomId,
-                  participantUserId,
-                  unreadCount,
-                  lastReadAt,
-                  lastReadMessageId,
-                  viewerUserId: args.userId,
-                  isPeer: false,
-                });
-                args.participantUnreadDeltaRef.current?.({
-                  roomId,
-                  unreadCount,
-                  lastReadAt,
-                  lastReadMessageId,
-                });
-                return;
+  const includeMeta = args.includeMeta !== false;
+  if (includeMeta) {
+    const meta = subscribeWithRetry({
+      sb: args.sb,
+      name: `community-messenger-home:meta:${args.userId}`,
+      scope: `community-messenger-home:meta`,
+      isCancelled: cancelled,
+      onStatus: (status) => {
+        if (status === "SUBSCRIBED" && !cancelled()) refreshScheduler.schedule();
+      },
+      build: (channel) =>
+        channel
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "community_messenger_participants",
+              filter: `user_id=eq.${args.userId}`,
+            },
+            (payload) => {
+              if (!cancelled() && payload.new) {
+                const row = payload.new as Record<string, unknown>;
+                const roomId = typeof row.room_id === "string" ? row.room_id.trim() : "";
+                if (roomId) {
+                  const unreadCount = Math.max(0, Number(row.unread_count ?? 0) || 0);
+                  const lastReadAt = typeof row.last_read_at === "string" ? row.last_read_at : null;
+                  const lastReadMessageId = typeof row.last_read_message_id === "string" ? row.last_read_message_id : null;
+                  const participantUserId =
+                    typeof row.user_id === "string" ? row.user_id.trim() : String(row.user_id ?? "").trim() || null;
+                  cmRtReadSyncLog("participant_update_received", {
+                    channelScope: "home_meta_self",
+                    roomId,
+                    participantUserId,
+                    unreadCount,
+                    lastReadAt,
+                    lastReadMessageId,
+                    viewerUserId: args.userId,
+                    isPeer: false,
+                  });
+                  args.participantUnreadDeltaRef.current?.({
+                    roomId,
+                    unreadCount,
+                    lastReadAt,
+                    lastReadMessageId,
+                  });
+                  return;
+                }
               }
+              if (!cancelled()) refreshScheduler.schedule();
             }
-            if (!cancelled()) refreshScheduler.schedule();
-          }
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "community_friend_requests",
-            filter: `addressee_id=eq.${args.userId}`,
-          },
-          () => {
-            if (!cancelled()) refreshScheduler.schedule();
-          }
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "community_friend_requests",
-            filter: `requester_id=eq.${args.userId}`,
-          },
-          () => {
-            if (!cancelled()) refreshScheduler.schedule();
-          }
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "community_friend_favorites",
-            filter: `user_id=eq.${args.userId}`,
-          },
-          () => {
-            if (!cancelled()) refreshScheduler.schedule();
-          }
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "user_relationships",
-            filter: `user_id=eq.${args.userId}`,
-          },
-          () => {
-            if (!cancelled()) refreshScheduler.schedule();
-          }
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "community_messenger_call_logs",
-            filter: `caller_user_id=eq.${args.userId}`,
-          },
-          () => {
-            if (!cancelled()) refreshScheduler.schedule();
-          }
-        )
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "community_messenger_call_logs",
-            filter: `peer_user_id=eq.${args.userId}`,
-          },
-          () => {
-            if (!cancelled()) refreshScheduler.schedule();
-          }
-        ),
-  });
-  if (cancelled()) {
-    meta.stop();
-    return { channels, cancelSchedulers: () => refreshScheduler.cancel() };
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "community_friend_requests",
+              filter: `addressee_id=eq.${args.userId}`,
+            },
+            () => {
+              if (!cancelled()) refreshScheduler.schedule();
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "community_friend_requests",
+              filter: `requester_id=eq.${args.userId}`,
+            },
+            () => {
+              if (!cancelled()) refreshScheduler.schedule();
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "community_friend_favorites",
+              filter: `user_id=eq.${args.userId}`,
+            },
+            () => {
+              if (!cancelled()) refreshScheduler.schedule();
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "user_relationships",
+              filter: `user_id=eq.${args.userId}`,
+            },
+            () => {
+              if (!cancelled()) refreshScheduler.schedule();
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "community_messenger_call_logs",
+              filter: `caller_user_id=eq.${args.userId}`,
+            },
+            () => {
+              if (!cancelled()) refreshScheduler.schedule();
+            }
+          )
+          .on(
+            "postgres_changes",
+            {
+              event: "*",
+              schema: "public",
+              table: "community_messenger_call_logs",
+              filter: `peer_user_id=eq.${args.userId}`,
+            },
+            () => {
+              if (!cancelled()) refreshScheduler.schedule();
+            }
+          ),
+    });
+    if (cancelled()) {
+      meta.stop();
+      return { channels, cancelSchedulers: () => refreshScheduler.cancel() };
+    }
+    channels.push(meta);
+    cmRtReadSyncLog("subscribe_participants_channel", {
+      channelScope: "home_meta_self",
+      viewerUserId: args.userId,
+      filter: `community_messenger_participants.user_id=eq.${args.userId}`,
+    });
   }
-  channels.push(meta);
-  cmRtReadSyncLog("subscribe_participants_channel", {
-    channelScope: "home_meta_self",
-    viewerUserId: args.userId,
-    filter: `community_messenger_participants.user_id=eq.${args.userId}`,
-  });
 
   for (let offset = 0; offset < roomIds.length; offset += COMMUNITY_MESSENGER_HOME_ROOMS_IN_FILTER_MAX) {
     if (cancelled()) break;

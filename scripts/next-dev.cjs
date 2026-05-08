@@ -17,6 +17,21 @@ const path = require("path");
 
 const root = path.join(__dirname, "..");
 
+/**
+ * Next dev 서버는 heap 사용량이 제한의 80%를 넘으면 자동 재시작합니다.
+ * Windows 개발 환경에서 large repo + webpack HMR 시 쉽게 걸릴 수 있어,
+ * 명시 설정이 없으면 기본 heap을 넉넉히 올려 "리셋"을 방지합니다.
+ */
+function ensureDevHeapLimitMb(defaultMb) {
+  const raw = String(process.env.NODE_OPTIONS || "");
+  if (raw.includes("--max-old-space-size")) return;
+  const next = raw.length > 0 ? `${raw} --max-old-space-size=${defaultMb}` : `--max-old-space-size=${defaultMb}`;
+  process.env.NODE_OPTIONS = next;
+}
+
+// 4GB: 대부분의 dev 환경에서 안전한 기본값 (필요 시 NODE_OPTIONS로 override)
+ensureDevHeapLimitMb(4096);
+
 function readNextDistDirFromEnvFiles() {
   for (const name of [".env.local", ".env"]) {
     const p = path.join(root, name);

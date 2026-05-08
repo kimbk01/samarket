@@ -99,7 +99,6 @@ export function ConditionalAppShell({
     >
       {f.mountPhilifeWarmPrefetch ? <PhilifeFeedWarmPrefetch /> : null}
       <MessagingGlobalChrome regionBarInLayout={regionBarInLayout} />
-      <CallIncomingChrome />
       <WebConnectivityBanner />
       {f.showRegionBar && <RegionBar />}
       {f.showOwnerLiteStoreBar ? <OwnerLiteStoreBar /> : null}

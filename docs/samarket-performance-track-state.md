@@ -59,6 +59,27 @@
 
 ---
 
+## 이번 라운드 (메신저: 라운드 HS1 — home-sync trade posts fetch 폴백 체인 캐시)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | `GET /api/community-messenger/home-sync?tier=critical`에서 `tradeMetaEnrich.tradePostsFetchMs`가 크게 튀었고(예: **5244ms**), `posts` 조회(`fetchTradeChatListPostRowsByIds`)가 **스키마 호환을 위한 select 폴백 체인**을 매 요청 반복하며 **연속 DB 왕복**이 누적될 수 있었다. |
+| 측정 기준 | dev `tier=critical` 로그인 상태에서 `[home-sync-deep-steps]`의 `tradeMetaEnrich.tradePostsFetchMs` 및 라우트 로그 `render` 비교. |
+| 수정 파일 | `lib/community-messenger/service.ts` |
+| 수정 내용 | `fetchTradeChatListPostRowsByIds`에서 **성공한 select 문자열 1개를 프로세스 내 캐시**하여, 다음 호출부터 **posts 조회가 1회 쿼리로 고정**되게 했다(실패 시 캐시 리셋 후 폴백 재해석). 기능/응답 스키마 변경 없음. |
+
+### 라운드 HS1 — 계측(예시 3회, ms)
+
+| 구분 | Run1 | Run2 | Run3 | warm 평균(Run2–3) |
+|------|------|------|------|------------------|
+| `tradeMetaEnrich.tradePostsFetchMs` | **5244** | **3351** | **2292** | **2821.5** |
+
+**라우트 참고(예시):**
+- 수정 전: `GET /api/community-messenger/home-sync?tier=critical 200` render **13.1s**
+- 수정 후: 동일 endpoint render **10.3s**
+
+**판정(임시):** 코드 완료. 동일 조건 3회 측정/전후 비교는 다음 라운드에서 더 엄밀히(런1 cold 분리, warm 2회 고정) 수행.
+
 ## 이번 라운드 (스토어: 라운드 SB1 — browse 서브 탭 전환 즉시 반응/복귀)
 
 | 항목 | 내용 |

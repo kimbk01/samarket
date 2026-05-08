@@ -8,7 +8,6 @@ import {
 } from "@/lib/community-messenger/room/messenger-room-client-phase1-context";
 import { useMessengerRoomClientPhase1 } from "@/lib/community-messenger/room/use-messenger-room-client-phase1";
 import { recordRouteEntryElapsedMetricOnce } from "@/lib/runtime/samarket-runtime-debug";
-import { useCommunityMessengerPresenceRuntime } from "@/lib/community-messenger/realtime/presence/use-community-messenger-presence-runtime";
 import type { CommunityMessengerCallSession, CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { CommunityMessengerRoomClientPhase2 } from "@/components/community-messenger/room/CommunityMessengerRoomPhase2";
 import { MessengerRoomSwipeBackShell } from "@/components/community-messenger/room/MessengerRoomSwipeBackShell";
@@ -35,7 +34,6 @@ export function CommunityMessengerRoomClient(props: {
   recordRouteEntryElapsedMetricOnce("messenger_room_entry", "first_client_component_mount_ms");
   const phase1 = useMessengerRoomClientPhase1(props);
   const router = useRouter();
-  useCommunityMessengerPresenceRuntime(phase1.snapshot?.viewerUserId ?? props.initialServerSnapshot?.viewerUserId ?? null);
   useEffect(() => {
     const rid = phase1.roomId?.trim() ?? "";
     if (!rid) return;

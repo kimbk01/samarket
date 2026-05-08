@@ -23,7 +23,6 @@ import { WriteCategoryProvider } from "@/contexts/WriteCategoryContext";
 import { NotificationSurfaceProvider } from "@/contexts/NotificationSurfaceContext";
 import { TradePresenceActivityProvider } from "@/components/chats/TradePresenceActivityContext";
 import { TradeChatEntryCreatingOverlay } from "@/components/chats/TradeChatEntryCreatingOverlay";
-import { MainShellMessengerParticipantBridge } from "@/components/layout/MainShellMessengerParticipantBridge";
 import { MessengerBootstrapEarlyWarm } from "@/components/community-messenger/MessengerBootstrapEarlyWarm";
 import { PhilifeWriteBottomSheet } from "@/components/philife/PhilifeWriteBottomSheet";
 import { TradeWriteBottomSheet } from "@/components/trade/TradeWriteBottomSheet";
@@ -154,7 +153,6 @@ export function MainAppProviderTree({
           <FavoriteProvider>
             <NotificationSurfaceProvider>
               <GlobalIncomingFriendRequestHost enabled />
-              <MainShellMessengerParticipantBridge regionBarInLayout={true} />
               <WriteCategoryProvider>
                 <CategoryListHeaderProvider>
                   <StoreCommerceCartMaybeProvider>

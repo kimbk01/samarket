@@ -67,7 +67,6 @@ import { useCommunityMessengerHomeRealtimeBootstrapList } from "@/lib/community-
 import { useCommunityMessengerTradePostListingRealtime } from "@/lib/community-messenger/home/use-community-messenger-trade-post-listing-realtime";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
 import { requestMessengerHubBadgeResync } from "@/lib/community-messenger/notifications/messenger-notification-contract";
-import { useCommunityMessengerPresenceRuntime } from "@/lib/community-messenger/realtime/presence/use-community-messenger-presence-runtime";
 import { useCommunityMessengerHomeBootstrap } from "@/lib/community-messenger/home/use-community-messenger-home-bootstrap";
 import { useTradeChatListMetaHydration } from "@/lib/community-messenger/use-trade-chat-list-meta-hydration";
 import { mergeDiscoverableGroupsFromOpenGroupsClient } from "@/lib/community-messenger/merge-discoverable-open-groups-client";
@@ -265,7 +264,6 @@ export function CommunityMessengerHome({
     chats: data?.chats,
     setData,
   });
-  useCommunityMessengerPresenceRuntime(data?.me?.id ?? null);
   /** 발신 다이얼 `router.push` 동기 연타 방지 */
   const outgoingDialSyncGuardRef = useRef(false);
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();

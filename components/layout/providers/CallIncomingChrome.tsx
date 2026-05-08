@@ -17,13 +17,11 @@ const IncomingCallOverlay = dynamic(
  */
 export function CallIncomingChrome() {
   const pathname = usePathname();
-  if (resolveSuppressIncomingCallOverlay(pathname)) {
-    return null;
-  }
+  const suppressOverlay = resolveSuppressIncomingCallOverlay(pathname);
 
   return (
     <CallProvider>
-      <IncomingCallOverlay />
+      {suppressOverlay ? null : <IncomingCallOverlay />}
     </CallProvider>
   );
 }

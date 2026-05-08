@@ -16,6 +16,107 @@ import { syncSupabaseRealtimeAuthFromSession, waitForSupabaseRealtimeAuth } from
 
 type SubscribeStatus = "SUBSCRIBED" | "TIMED_OUT" | "CHANNEL_ERROR" | "CLOSED";
 
+const devRtLoopDiagEnabled =
+  typeof process !== "undefined" && process.env.NODE_ENV === "development";
+type RtLoopDiagEvent =
+  | "create"
+  | "attach_subscribe"
+  | "status_subscribed"
+  | "status_failed"
+  | "schedule_retry"
+  | "resubscribe"
+  | "stop";
+const rtLoopDiagLastAtByName = new Map<string, number>();
+const rtLoopDiagActiveCountByName = new Map<string, number>();
+const rtLoopDiagCountersByName = new Map<
+  string,
+  { create: number; stop: number; lastCreateAt: number | null; lastStopAt: number | null }
+>();
+let rtLoopDiagSummaryTimer: ReturnType<typeof setInterval> | null = null;
+
+function rtLoopDiagBumpCounter(name: string, kind: "create" | "stop"): void {
+  if (!devRtLoopDiagEnabled) return;
+  if (!name.startsWith("community-messenger")) return;
+  const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+  const row = rtLoopDiagCountersByName.get(name) ?? {
+    create: 0,
+    stop: 0,
+    lastCreateAt: null,
+    lastStopAt: null,
+  };
+  if (kind === "create") {
+    row.create += 1;
+    row.lastCreateAt = now;
+  } else {
+    row.stop += 1;
+    row.lastStopAt = now;
+  }
+  rtLoopDiagCountersByName.set(name, row);
+  if (!rtLoopDiagSummaryTimer) {
+    rtLoopDiagSummaryTimer = setInterval(() => {
+      // 상위 stop/create 반복 채널만 요약 출력 (5초마다)
+      const list = [...rtLoopDiagCountersByName.entries()]
+        .map(([k, v]) => ({ name: k, create: v.create, stop: v.stop }))
+        .filter((x) => x.create + x.stop > 0)
+        .sort((a, b) => b.stop - a.stop || b.create - a.create)
+        .slice(0, 6);
+      if (list.length === 0) return;
+      try {
+        const topText = list
+          .map((x) => `${x.stop} stop / ${x.create} create — ${x.name}`)
+          .join(" | ");
+        // eslint-disable-next-line no-console -- dev-only realtime loop summary
+        console.warn("[cm-rt-loop-summary]", {
+          top: list,
+          topText,
+          note: "counts since last reload; focus on highest stop/create",
+        });
+      } catch {
+        /* ignore */
+      }
+    }, 5000);
+  }
+}
+
+function rtLoopDiagLog(args: {
+  event: RtLoopDiagEvent;
+  name: string;
+  scope: string;
+  reason?: string;
+  status?: string;
+  attempt?: number;
+  waitMs?: number;
+  expectedInternalClosed?: number;
+}): void {
+  if (!devRtLoopDiagEnabled) return;
+  if (!args.name.startsWith("community-messenger")) return;
+  const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+  const prev = rtLoopDiagLastAtByName.get(args.name);
+  const dtMs = typeof prev === "number" ? Math.max(0, Math.round(now - prev)) : null;
+  rtLoopDiagLastAtByName.set(args.name, now);
+  const active = rtLoopDiagActiveCountByName.get(args.name) ?? 0;
+  // 너무 시끄럽지 않게: (1) 매우 짧은 간격 재발, 또는 (2) active가 2개 이상일 때만 출력.
+  const shouldPrint = active >= 2 || (typeof dtMs === "number" && dtMs <= 2500);
+  if (!shouldPrint) return;
+  try {
+    // eslint-disable-next-line no-console -- dev-only realtime loop diagnostics
+    console.warn("[cm-rt-loop]", {
+      event: args.event,
+      name: args.name,
+      scope: args.scope,
+      reason: args.reason ?? null,
+      status: args.status ?? null,
+      attempt: typeof args.attempt === "number" ? args.attempt : null,
+      waitMs: typeof args.waitMs === "number" ? Math.round(args.waitMs) : null,
+      dtMs,
+      activeCount: active,
+      expectedInternalClosed: typeof args.expectedInternalClosed === "number" ? args.expectedInternalClosed : null,
+    });
+  } catch {
+    /* ignore */
+  }
+}
+
 function isFailureStatus(status: string): status is Exclude<SubscribeStatus, "SUBSCRIBED"> {
   return status === "TIMED_OUT" || status === "CHANNEL_ERROR" || status === "CLOSED";
 }
@@ -53,6 +154,19 @@ export function subscribeWithRetry(args: {
   const internalDecayTimers = new Set<ReturnType<typeof setTimeout>>();
   let channel: RealtimeChannel = args.build(args.sb.channel(args.name));
 
+  if (devRtLoopDiagEnabled) {
+    const prev = rtLoopDiagActiveCountByName.get(args.name) ?? 0;
+    rtLoopDiagActiveCountByName.set(args.name, prev + 1);
+    rtLoopDiagBumpCounter(args.name, "create");
+    rtLoopDiagLog({
+      event: "create",
+      name: args.name,
+      scope: args.scope,
+      reason: prev > 0 ? "duplicate_instance_same_name" : "first_instance",
+      expectedInternalClosed,
+    });
+  }
+
   const clearTimer = () => {
     if (!timer) return;
     clearTimeout(timer);
@@ -88,6 +202,14 @@ export function subscribeWithRetry(args: {
     expectedInternalClosed = 0;
     clearCommunityMessengerRealtimeScope(args.scope);
     markInternalChannelRecycle();
+    rtLoopDiagBumpCounter(args.name, "stop");
+    rtLoopDiagLog({
+      event: "stop",
+      name: args.name,
+      scope: args.scope,
+      reason: "explicit_stop",
+      expectedInternalClosed,
+    });
     if (isCommunityMessengerRealtimeDebugEnabled() && args.name.startsWith("community-messenger")) {
       cmRtLogTeardown({ reason: "stop", channelName: args.name });
     }
@@ -96,12 +218,25 @@ export function subscribeWithRetry(args: {
     } catch {
       /* ignore */
     }
+    if (devRtLoopDiagEnabled) {
+      const prev = rtLoopDiagActiveCountByName.get(args.name) ?? 1;
+      const next = Math.max(0, prev - 1);
+      if (next <= 0) rtLoopDiagActiveCountByName.delete(args.name);
+      else rtLoopDiagActiveCountByName.set(args.name, next);
+    }
   };
 
   const resubscribe = () => {
     if (stopped || args.isCancelled()) return;
     clearTimer();
     markInternalChannelRecycle();
+    rtLoopDiagLog({
+      event: "resubscribe",
+      name: args.name,
+      scope: args.scope,
+      reason: "remove+recreate_channel",
+      expectedInternalClosed,
+    });
     try {
       void args.sb.removeChannel(channel);
     } catch {
@@ -115,6 +250,15 @@ export function subscribeWithRetry(args: {
     if (stopped || args.isCancelled()) return;
     const wait = nextBackoffMs(attempt);
     attempt += 1;
+    rtLoopDiagLog({
+      event: "schedule_retry",
+      name: args.name,
+      scope: args.scope,
+      status,
+      attempt,
+      waitMs: wait,
+      expectedInternalClosed,
+    });
     args.onAfterSubscribeFailure?.(status, attempt);
     timer = setTimeout(() => resubscribe(), wait);
   };
@@ -127,6 +271,14 @@ export function subscribeWithRetry(args: {
      */
     void (async () => {
       if (stopped || args.isCancelled()) return;
+      rtLoopDiagLog({
+        event: "attach_subscribe",
+        name: args.name,
+        scope: args.scope,
+        reason: attempt > 0 ? "retry_attach" : "initial_attach",
+        attempt,
+        expectedInternalClosed,
+      });
       /**
        * 초기 쿠키 복원 레이스에서 anon JWT로 붙지 않도록,
        * 짧은 상한으로 한 번 대기 후 세션 토큰을 다시 맞춘다.
@@ -155,6 +307,14 @@ export function subscribeWithRetry(args: {
               streamRoomId: args.logStreamRoomId,
             });
           }
+          rtLoopDiagLog({
+            event: "status_subscribed",
+            name: args.name,
+            scope: args.scope,
+            status,
+            reason: phase,
+            expectedInternalClosed,
+          });
           return;
         }
         if (isFailureStatus(status)) {
@@ -171,6 +331,14 @@ export function subscribeWithRetry(args: {
               streamRoomId: args.logStreamRoomId,
             });
           }
+          rtLoopDiagLog({
+            event: "status_failed",
+            name: args.name,
+            scope: args.scope,
+            status,
+            reason: intentionalTeardown ? "intentional" : phase,
+            expectedInternalClosed,
+          });
           if (intentionalTeardown) return;
           scheduleRetry(status);
         }

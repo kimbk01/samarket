@@ -84,26 +84,23 @@ export function useMessageNotificationBridge(
     surfaceRef.current = surface;
   }, [pathname, playback, router, surface]);
 
-  const navigateToCommunityRoom = useCallback(
-    (roomId: string) => {
-      const pathNow = pathname ?? "";
-      let fromQs: string | null = null;
-      if (typeof window !== "undefined") {
-        try {
-          fromQs = new URLSearchParams(window.location.search).get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY);
-        } catch {
-          fromQs = null;
-        }
+  const navigateToCommunityRoom = (roomId: string) => {
+    const pathNow = pathnameRef.current ?? "";
+    let fromQs: string | null = null;
+    if (typeof window !== "undefined") {
+      try {
+        fromQs = new URLSearchParams(window.location.search).get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY);
+      } catch {
+        fromQs = null;
       }
-      void runCommunityMessengerRoomForwardNavigation({
-        router: routerRef.current,
-        roomId,
-        listSource: messengerRoomListSourceFromPathname(pathNow),
-        fromEntryOrigin: fromQs,
-      });
-    },
-    [pathname]
-  );
+    }
+    void runCommunityMessengerRoomForwardNavigation({
+      router: routerRef.current,
+      roomId,
+      listSource: messengerRoomListSourceFromPathname(pathNow),
+      fromEntryOrigin: fromQs,
+    });
+  };
 
   useLayoutEffect(() => {
     if (!enabled) return;
@@ -314,5 +311,5 @@ export function useMessageNotificationBridge(
     return () => {
       sub.stop();
     };
-  }, [enabled, navigateToCommunityRoom, userId]);
+  }, [enabled, userId]);
 }

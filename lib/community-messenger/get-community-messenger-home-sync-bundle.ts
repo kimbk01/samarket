@@ -12,6 +12,7 @@ import {
 } from "@/lib/community-messenger/service";
 import { homeSyncBreakdownEnabled, logHomeSyncBreakdown } from "@/lib/community-messenger/home-sync-breakdown-log";
 import { logMessengerPerfMs, messengerPerfStepsEnabled } from "@/lib/community-messenger/messenger-home-sync-perf-log";
+import type { HomeSyncTrace } from "@/lib/community-messenger/home-sync-trace";
 
 /**
  * 홈 사일런트 갱신 — `GET /api/community-messenger/home-sync` 전용.
@@ -20,7 +21,8 @@ import { logMessengerPerfMs, messengerPerfStepsEnabled } from "@/lib/community-m
  */
 export async function getCommunityMessengerHomeSyncBundle(
   userId: string,
-  tier: "critical" | "full" = "full"
+  tier: "critical" | "full" = "full",
+  options?: { trace?: HomeSyncTrace }
 ): Promise<{
   chats: CommunityMessengerRoomSummary[];
   groups: CommunityMessengerRoomSummary[];
@@ -33,6 +35,7 @@ export async function getCommunityMessengerHomeSyncBundle(
       tier: "critical",
       roomListCap: COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP,
       homeSyncSkipHeavyEnrich: true,
+      trace: options?.trace,
     });
     if (messengerPerfStepsEnabled()) {
       logMessengerPerfMs("home_sync_fetch", performance.now() - tBundle);
@@ -55,6 +58,7 @@ export async function getCommunityMessengerHomeSyncBundle(
       tier: "full",
       roomListCap: COMMUNITY_MESSENGER_HOME_SYNC_FULL_ROOM_CAP,
       homeSyncSkipHeavyEnrich: true,
+      trace: options?.trace,
     }),
     listCommunityMessengerFriendRequests(userId),
     listCommunityMessengerFriends(userId),

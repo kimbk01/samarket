@@ -546,6 +546,11 @@ export function GlobalCommunityMessengerIncomingCall() {
   /** 폴링·가시성 핸들러에서 최신 `refresh`/`queueVisibilityRefreshBurst` 를 쓰되, effect 의존 배열은 `[userId]` 만 둔다(길이 불변·React 19 런타임 검증 통과). */
   const refreshRef = useRef(refresh);
   const queueVisibilityRefreshBurstRef = useRef(queueVisibilityRefreshBurst);
+  /** Realtime subscribe effect deps 축소용: 콜백은 ref로 최신화 */
+  const bumpIncomingListFastSyncRef = useRef<() => void>(() => undefined);
+  const handleCallTerminalEventRef = useRef(handleCallTerminalEvent);
+  const scheduleRealtimeIncomingRefreshRef = useRef<() => void>(() => undefined);
+  const syncIncomingRealtimeHealthRef = useRef<() => void>(() => undefined);
   const syncIncomingRealtimeHealth = useCallback(() => {
     const healthy = isCommunityMessengerRealtimeScopeHealthy(INCOMING_CALL_REALTIME_SCOPE, {
       silentAfterMs: INCOMING_CALL_REALTIME_SILENT_AFTER_MS,
@@ -556,6 +561,10 @@ export function GlobalCommunityMessengerIncomingCall() {
   useEffect(() => {
     refreshRef.current = refresh;
     queueVisibilityRefreshBurstRef.current = queueVisibilityRefreshBurst;
+    bumpIncomingListFastSyncRef.current = bumpIncomingListFastSync;
+    handleCallTerminalEventRef.current = handleCallTerminalEvent;
+    scheduleRealtimeIncomingRefreshRef.current = scheduleRealtimeIncomingRefresh;
+    syncIncomingRealtimeHealthRef.current = syncIncomingRealtimeHealth;
     syncIncomingRealtimeHealth();
   }, [refresh, queueVisibilityRefreshBurst, syncIncomingRealtimeHealth]);
 
@@ -901,7 +910,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       silentAfterMs: INCOMING_CALL_REALTIME_SILENT_AFTER_MS,
       onStatus: (status) => {
         void status;
-        syncIncomingRealtimeHealth();
+        syncIncomingRealtimeHealthRef.current();
       },
       /** 원격망에서 WS 재연결 실패 시에도 HTTP 로 수신 목록·종료 상태를 맞춤 */
       onAfterSubscribeFailure: () => {
@@ -937,7 +946,7 @@ export function GlobalCommunityMessengerIncomingCall() {
               }
               if (p.eventType === "UPDATE" && p.new && isTerminalIncomingCallStatus(p.new.status)) {
                 const nr = p.new;
-                handleCallTerminalEvent(
+                handleCallTerminalEventRef.current(
                   {
                     sessionId: typeof nr.id === "string" ? nr.id : "",
                     roomId: typeof nr.room_id === "string" ? nr.room_id : "",
@@ -950,7 +959,7 @@ export function GlobalCommunityMessengerIncomingCall() {
                 );
               }
               if (p.eventType === "DELETE" && p.old && typeof (p.old as { id?: unknown }).id === "string") {
-                handleCallTerminalEvent(
+                handleCallTerminalEventRef.current(
                   {
                     sessionId: String((p.old as { id: string }).id),
                     status: "cancelled",
@@ -1010,7 +1019,7 @@ export function GlobalCommunityMessengerIncomingCall() {
                   window.clearTimeout(realtimeDebounceTimerRef.current);
                   realtimeDebounceTimerRef.current = null;
                 }
-                bumpIncomingListFastSync();
+                bumpIncomingListFastSyncRef.current();
               } else if (leftRinging) {
                 /* 수락→active 등: 디바운스 대기 없이 목록·오버레이를 즉시 서버와 맞춤 */
                 if (realtimeDebounceTimerRef.current != null) {
@@ -1019,7 +1028,7 @@ export function GlobalCommunityMessengerIncomingCall() {
                 }
                 void refreshRef.current(true);
               } else {
-                scheduleRealtimeIncomingRefresh();
+                scheduleRealtimeIncomingRefreshRef.current();
               }
             }
           )
@@ -1041,7 +1050,7 @@ export function GlobalCommunityMessengerIncomingCall() {
               const rowMatch = sessionsRef.current.find(
                 (s) => s.id === sid || (typeof s.tmpSessionId === "string" && s.tmpSessionId.trim() === sid)
               );
-              handleCallTerminalEvent(
+              handleCallTerminalEventRef.current(
                 rowMatch
                   ? {
                       sessionId: rowMatch.id,
@@ -1071,7 +1080,7 @@ export function GlobalCommunityMessengerIncomingCall() {
             },
             () => {
               markRealtimeSignal();
-              scheduleRealtimeIncomingRefresh();
+              scheduleRealtimeIncomingRefreshRef.current();
             }
           ),
     });
@@ -1091,13 +1100,7 @@ export function GlobalCommunityMessengerIncomingCall() {
       incomingRealtimeOkRef.current = false;
       setIncomingRealtimeOk(false);
     };
-  }, [
-    bumpIncomingListFastSync,
-    handleCallTerminalEvent,
-    scheduleRealtimeIncomingRefresh,
-    syncIncomingRealtimeHealth,
-    userId,
-  ]);
+  }, [userId]);
 
   useEffect(() => {
     return () => {
