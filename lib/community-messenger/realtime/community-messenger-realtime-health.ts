@@ -99,9 +99,20 @@ export function isCommunityMessengerRealtimeScopeHealthy(
   const row = scopeHealthMap.get(scope);
   if (!row) return false;
   if (row.lastStatus !== "SUBSCRIBED" || row.subscribedAt == null) return false;
+  /**
+   * 「한 번도 payload 가 오지 않은 scope」는 silent 판정 대상에서 제외한다.
+   *
+   * 수신 통화(`community-messenger-incoming-call:*`)·친구 요청·알림 등
+   * **사건 기반 sparse channel** 은 사용자 액션이 없는 한 평시에 영원히 0 payload 가 정상이다.
+   * 첫 markSignal 이전까지는 SUBSCRIBED 만으로 health 를 판정해야,
+   * `[messenger:perf] silent_channel` 오탐(헌장 [근본 대책만] §「임계값만 가리는 구성 금지」)을 막는다.
+   *
+   * 첫 payload 이후에는 `lastSignalAt` 이 채워지므로 정상 silence 감시(WS 연결돼있는데 payload 끊김)가 의미를 갖는다.
+   */
+  if (row.lastSignalAt == null) return true;
   const now = Date.now();
   const silentAfterMs = Math.max(1_000, Math.floor(opts?.silentAfterMs ?? row.silentAfterMs ?? DEFAULT_SILENT_AFTER_MS));
-  const lastHealthyAt = row.lastSignalAt ?? row.lastHealthyAt ?? row.subscribedAt;
+  const lastHealthyAt = row.lastSignalAt;
   const silentForMs = Math.max(0, now - lastHealthyAt);
   if (silentForMs <= silentAfterMs) return true;
   if ((row.lastSilentAlertAt ?? 0) + SILENT_ALERT_MIN_GAP_MS <= now) {

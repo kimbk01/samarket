@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { NextRequest } from "next/server";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
+import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 
@@ -25,7 +26,7 @@ export function createSupabaseFromRequestForRead(
   url: string,
   anonKey: string
 ): SupabaseClient<any> {
-  const cookieSecure = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
+  const cookieSecure = cookieSecureFromNextRequest(request);
   return createServerClient<any>(url, anonKey, {
     cookieOptions: {
       path: "/",

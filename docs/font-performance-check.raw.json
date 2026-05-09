@@ -1,0 +1,511 @@
+{
+  "measuredAt": "2026-05-08T23:38:05.458Z",
+  "baseUrl": "http://localhost:3000",
+  "runs": 3,
+  "authMode": "fake-sb-cookie-proxy-pass",
+  "profile": "mobile 360x740 DPR3, cold browser context per page/run, waitUntil=domcontentloaded+networkidle+1500ms",
+  "constraints": [
+    "app/globals.css Pretendard dynamic subset import unchanged",
+    "No font replacement",
+    "No next/font/local conversion",
+    "No design/font-size changes"
+  ],
+  "summary": [
+    {
+      "label": "/home",
+      "finalUrls": [
+        "http://localhost:3000/home"
+      ],
+      "statusCodes": [
+        404
+      ],
+      "fcpMsMedian": 140,
+      "lcpMsMedian": 140,
+      "ttfbMsMedian": 68,
+      "fontRequestCountMedian": 0,
+      "fontTransferBytesMedian": 0,
+      "anyFontOnLcpCriticalPath": false,
+      "anyDuplicateWoff2": false,
+      "renderBlockingCssCountMedian": 1,
+      "runs": [
+        {
+          "page": "/home",
+          "run": 1,
+          "targetUrl": "http://localhost:3000/home",
+          "finalUrl": "http://localhost:3000/home",
+          "statusCode": 404,
+          "fcpMs": 2248,
+          "lcpMs": 2248,
+          "ttfbMs": 2161,
+          "fontRequestCount": 0,
+          "fontTransferBytes": 0,
+          "duplicateFontUrls": [],
+          "fontOnLcpCriticalPath": false,
+          "lcpElement": {
+            "tagName": "P",
+            "text": "주소가 잘못되었거나 페이지가 이동되었어요.",
+            "url": null,
+            "size": 4505
+          },
+          "fontResources": [],
+          "renderBlockingCssCount": 1,
+          "renderBlockingCss": [
+            {
+              "file": "layout.css?v=1778283241684",
+              "responseEndMs": 2204,
+              "transferBytes": 142598
+            }
+          ],
+          "fontNetworkResponses": []
+        },
+        {
+          "page": "/home",
+          "run": 2,
+          "targetUrl": "http://localhost:3000/home",
+          "finalUrl": "http://localhost:3000/home",
+          "statusCode": 404,
+          "fcpMs": 140,
+          "lcpMs": 140,
+          "ttfbMs": 68,
+          "fontRequestCount": 0,
+          "fontTransferBytes": 0,
+          "duplicateFontUrls": [],
+          "fontOnLcpCriticalPath": false,
+          "lcpElement": {
+            "tagName": "P",
+            "text": "주소가 잘못되었거나 페이지가 이동되었어요.",
+            "url": null,
+            "size": 4505
+          },
+          "fontResources": [],
+          "renderBlockingCssCount": 1,
+          "renderBlockingCss": [
+            {
+              "file": "layout.css?v=1778283248589",
+              "responseEndMs": 101,
+              "transferBytes": 142598
+            }
+          ],
+          "fontNetworkResponses": []
+        },
+        {
+          "page": "/home",
+          "run": 3,
+          "targetUrl": "http://localhost:3000/home",
+          "finalUrl": "http://localhost:3000/home",
+          "statusCode": 404,
+          "fcpMs": 128,
+          "lcpMs": 128,
+          "ttfbMs": 50,
+          "fontRequestCount": 0,
+          "fontTransferBytes": 0,
+          "duplicateFontUrls": [],
+          "fontOnLcpCriticalPath": false,
+          "lcpElement": {
+            "tagName": "P",
+            "text": "주소가 잘못되었거나 페이지가 이동되었어요.",
+            "url": null,
+            "size": 4505
+          },
+          "fontResources": [],
+          "renderBlockingCssCount": 1,
+          "renderBlockingCss": [
+            {
+              "file": "layout.css?v=1778283254966",
+              "responseEndMs": 81,
+              "transferBytes": 142598
+            }
+          ],
+          "fontNetworkResponses": []
+        }
+      ]
+    },
+    {
+      "label": "/stores",
+      "finalUrls": [
+        "http://localhost:3000/stores"
+      ],
+      "statusCodes": [
+        200
+      ],
+      "fcpMsMedian": 2836,
+      "lcpMsMedian": 3172,
+      "ttfbMsMedian": 2612,
+      "fontRequestCountMedian": 0,
+      "fontTransferBytesMedian": 0,
+      "anyFontOnLcpCriticalPath": false,
+      "anyDuplicateWoff2": false,
+      "renderBlockingCssCountMedian": 2,
+      "runs": [
+        {
+          "page": "/stores",
+          "run": 1,
+          "targetUrl": "http://localhost:3000/stores",
+          "finalUrl": "http://localhost:3000/stores",
+          "statusCode": 200,
+          "fcpMs": 2840,
+          "lcpMs": 3180,
+          "ttfbMs": 2717,
+          "fontRequestCount": 0,
+          "fontTransferBytes": 0,
+          "duplicateFontUrls": [],
+          "fontOnLcpCriticalPath": false,
+          "lcpElement": {
+            "tagName": "P",
+            "text": "식당·마트·생활까지 탭만 바꾸면 세부가 바뀌어요.",
+            "url": null,
+            "size": 4879
+          },
+          "fontResources": [],
+          "renderBlockingCssCount": 2,
+          "renderBlockingCss": [
+            {
+              "file": "layout.css?v=1778283263547",
+              "responseEndMs": 2786,
+              "transferBytes": 142598
+            },
+            {
+              "file": "layout.css?v=1778283263547",
+              "responseEndMs": 2749,
+              "transferBytes": 818
+            }
+          ],
+          "fontNetworkResponses": []
+        },
+        {
+          "page": "/stores",
+          "run": 2,
+          "targetUrl": "http://localhost:3000/stores",
+          "finalUrl": "http://localhost:3000/stores",
+          "statusCode": 200,
+          "fcpMs": 2836,
+          "lcpMs": 3172,
+          "ttfbMs": 2612,
+          "fontRequestCount": 0,
+          "fontTransferBytes": 0,
+          "duplicateFontUrls": [],
+          "fontOnLcpCriticalPath": false,
+          "lcpElement": {
+            "tagName": "P",
+            "text": "식당·마트·생활까지 탭만 바꾸면 세부가 바뀌어요.",
+            "url": null,
+            "size": 4879
+          },
+          "fontResources": [],
+          "renderBlockingCssCount": 2,
+          "renderBlockingCss": [
+            {
+              "file": "layout.css?v=1778283291346",
+              "responseEndMs": 2777,
+              "transferBytes": 142598
+            },
+            {
+              "file": "layout.css?v=1778283291346",
+              "responseEndMs": 2633,
+              "transferBytes": 818
+            }
+          ],
+          "fontNetworkResponses": []
+        },
+        {
+          "page": "/stores",
+          "run": 3,
+          "targetUrl": "http://localhost:3000/stores",
+          "finalUrl": "http://localhost:3000/stores",
+          "statusCode": 200,
+          "fcpMs": 668,
+          "lcpMs": 1388,
+          "ttfbMs": 569,
+          "fontRequestCount": 0,
+          "fontTransferBytes": 0,
+          "duplicateFontUrls": [],
+          "fontOnLcpCriticalPath": false,
+          "lcpElement": {
+            "tagName": "P",
+            "text": "식당·마트·생활까지 탭만 바꾸면 세부가 바뀌어요.",
+            "url": null,
+            "size": 4879
+          },
+          "fontResources": [],
+          "renderBlockingCssCount": 2,
+          "renderBlockingCss": [
+            {
+              "file": "layout.css?v=1778283317298",
+              "responseEndMs": 610,
+              "transferBytes": 142598
+            },
+            {
+              "file": "layout.css?v=1778283317298",
+              "responseEndMs": 580,
+              "transferBytes": 818
+            }
+          ],
+          "fontNetworkResponses": []
+        }
+      ]
+    },
+    {
+      "label": "/community-messenger",
+      "finalUrls": [
+        "http://localhost:3000/community-messenger"
+      ],
+      "statusCodes": [
+        200
+      ],
+      "fcpMsMedian": 6104,
+      "lcpMsMedian": 9968,
+      "ttfbMsMedian": 5452,
+      "fontRequestCountMedian": 0,
+      "fontTransferBytesMedian": 0,
+      "anyFontOnLcpCriticalPath": false,
+      "anyDuplicateWoff2": false,
+      "renderBlockingCssCountMedian": 3,
+      "runs": [
+        {
+          "page": "/community-messenger",
+          "run": 1,
+          "targetUrl": "http://localhost:3000/community-messenger",
+          "finalUrl": "http://localhost:3000/community-messenger",
+          "statusCode": 200,
+          "fcpMs": 2000,
+          "lcpMs": 5932,
+          "ttfbMs": 1896,
+          "fontRequestCount": 0,
+          "fontTransferBytes": 0,
+          "duplicateFontUrls": [],
+          "fontOnLcpCriticalPath": false,
+          "lcpElement": {
+            "tagName": "P",
+            "text": "로그인 후 메신저를 사용할 수 있습니다.",
+            "url": null,
+            "size": 3995
+          },
+          "fontResources": [],
+          "renderBlockingCssCount": 3,
+          "renderBlockingCss": [
+            {
+              "file": "layout.css?v=1778283344094",
+              "responseEndMs": 1933,
+              "transferBytes": 142598
+            },
+            {
+              "file": "layout.css?v=1778283344094",
+              "responseEndMs": 1911,
+              "transferBytes": 818
+            },
+            {
+              "file": "layout.css?v=1778283344094",
+              "responseEndMs": 1911,
+              "transferBytes": 1594
+            }
+          ],
+          "fontNetworkResponses": []
+        },
+        {
+          "page": "/community-messenger",
+          "run": 2,
+          "targetUrl": "http://localhost:3000/community-messenger",
+          "finalUrl": "http://localhost:3000/community-messenger",
+          "statusCode": 200,
+          "fcpMs": 33732,
+          "lcpMs": 33732,
+          "ttfbMs": 33220,
+          "fontRequestCount": 0,
+          "fontTransferBytes": 0,
+          "duplicateFontUrls": [],
+          "fontOnLcpCriticalPath": false,
+          "lcpElement": {
+            "tagName": "P",
+            "text": "친구 · 채팅 · 모임",
+            "url": null,
+            "size": 1492
+          },
+          "fontResources": [],
+          "renderBlockingCssCount": 3,
+          "renderBlockingCss": [
+            {
+              "file": "layout.css?v=1778283387421",
+              "responseEndMs": 33682,
+              "transferBytes": 142598
+            },
+            {
+              "file": "layout.css?v=1778283387421",
+              "responseEndMs": 33531,
+              "transferBytes": 818
+            },
+            {
+              "file": "layout.css?v=1778283387421",
+              "responseEndMs": 33561,
+              "transferBytes": 1594
+            }
+          ],
+          "fontNetworkResponses": []
+        },
+        {
+          "page": "/community-messenger",
+          "run": 3,
+          "targetUrl": "http://localhost:3000/community-messenger",
+          "finalUrl": "http://localhost:3000/community-messenger",
+          "statusCode": 200,
+          "fcpMs": 6104,
+          "lcpMs": 9968,
+          "ttfbMs": 5452,
+          "fontRequestCount": 0,
+          "fontTransferBytes": 0,
+          "duplicateFontUrls": [],
+          "fontOnLcpCriticalPath": false,
+          "lcpElement": {
+            "tagName": "P",
+            "text": "로그인 후 메신저를 사용할 수 있습니다.",
+            "url": null,
+            "size": 3995
+          },
+          "fontResources": [],
+          "renderBlockingCssCount": 3,
+          "renderBlockingCss": [
+            {
+              "file": "layout.css?v=1778283410772",
+              "responseEndMs": 6057,
+              "transferBytes": 142598
+            },
+            {
+              "file": "layout.css?v=1778283410772",
+              "responseEndMs": 5585,
+              "transferBytes": 818
+            },
+            {
+              "file": "layout.css?v=1778283410772",
+              "responseEndMs": 5586,
+              "transferBytes": 1594
+            }
+          ],
+          "fontNetworkResponses": []
+        }
+      ]
+    },
+    {
+      "label": "/mypage",
+      "finalUrls": [
+        "http://localhost:3000/mypage"
+      ],
+      "statusCodes": [
+        200
+      ],
+      "fcpMsMedian": 880,
+      "lcpMsMedian": 880,
+      "ttfbMsMedian": 667,
+      "fontRequestCountMedian": 0,
+      "fontTransferBytesMedian": 0,
+      "anyFontOnLcpCriticalPath": false,
+      "anyDuplicateWoff2": false,
+      "renderBlockingCssCountMedian": 2,
+      "runs": [
+        {
+          "page": "/mypage",
+          "run": 1,
+          "targetUrl": "http://localhost:3000/mypage",
+          "finalUrl": "http://localhost:3000/mypage",
+          "statusCode": 200,
+          "fcpMs": 3080,
+          "lcpMs": 3080,
+          "ttfbMs": 2949,
+          "fontRequestCount": 0,
+          "fontTransferBytes": 0,
+          "duplicateFontUrls": [],
+          "fontOnLcpCriticalPath": false,
+          "lcpElement": {
+            "tagName": "DIV",
+            "text": "내정보를 불러오는 중이에요.",
+            "url": null,
+            "size": 2873
+          },
+          "fontResources": [],
+          "renderBlockingCssCount": 2,
+          "renderBlockingCss": [
+            {
+              "file": "layout.css?v=1778283426953",
+              "responseEndMs": 3014,
+              "transferBytes": 142598
+            },
+            {
+              "file": "layout.css?v=1778283426953",
+              "responseEndMs": 2975,
+              "transferBytes": 818
+            }
+          ],
+          "fontNetworkResponses": []
+        },
+        {
+          "page": "/mypage",
+          "run": 2,
+          "targetUrl": "http://localhost:3000/mypage",
+          "finalUrl": "http://localhost:3000/mypage",
+          "statusCode": 200,
+          "fcpMs": 760,
+          "lcpMs": 760,
+          "ttfbMs": 667,
+          "fontRequestCount": 0,
+          "fontTransferBytes": 0,
+          "duplicateFontUrls": [],
+          "fontOnLcpCriticalPath": false,
+          "lcpElement": {
+            "tagName": "DIV",
+            "text": "내정보를 불러오는 중이에요.",
+            "url": null,
+            "size": 2873
+          },
+          "fontResources": [],
+          "renderBlockingCssCount": 2,
+          "renderBlockingCss": [
+            {
+              "file": "layout.css?v=1778283452954",
+              "responseEndMs": 702,
+              "transferBytes": 142598
+            },
+            {
+              "file": "layout.css?v=1778283452954",
+              "responseEndMs": 679,
+              "transferBytes": 818
+            }
+          ],
+          "fontNetworkResponses": []
+        },
+        {
+          "page": "/mypage",
+          "run": 3,
+          "targetUrl": "http://localhost:3000/mypage",
+          "finalUrl": "http://localhost:3000/mypage",
+          "statusCode": 200,
+          "fcpMs": 880,
+          "lcpMs": 880,
+          "ttfbMs": 471,
+          "fontRequestCount": 0,
+          "fontTransferBytes": 0,
+          "duplicateFontUrls": [],
+          "fontOnLcpCriticalPath": false,
+          "lcpElement": {
+            "tagName": "DIV",
+            "text": "내정보를 불러오는 중이에요.",
+            "url": null,
+            "size": 2873
+          },
+          "fontResources": [],
+          "renderBlockingCssCount": 2,
+          "renderBlockingCss": [
+            {
+              "file": "layout.css?v=1778283459781",
+              "responseEndMs": 811,
+              "transferBytes": 142598
+            },
+            {
+              "file": "layout.css?v=1778283459781",
+              "responseEndMs": 613,
+              "transferBytes": 818
+            }
+          ],
+          "fontNetworkResponses": []
+        }
+      ]
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { cookieSecureFromNextHeaders } from "@/lib/auth/cookie-secure-flag";
 
 export async function createSupabaseRouteHandlerClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
@@ -7,7 +8,7 @@ export async function createSupabaseRouteHandlerClient() {
   if (!url || !anon) return null;
 
   const cookieStore = await cookies();
-  const cookieSecure = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
+  const cookieSecure = await cookieSecureFromNextHeaders();
 
   return createServerClient(url, anon, {
     cookieOptions: {

@@ -21,6 +21,16 @@ const CM_DEBUG_CAP = 200;
 
 const rtLoopLifetimeByChannel = new Map<string, { create: number; stop: number }>();
 let summaryTimer: ReturnType<typeof setInterval> | null = null;
+/**
+ * 「루프 의심」판정 — `subscribe-with-retry` 와 동일 기준.
+ * `1 create / 0 stop`(정상 마운트)·`1 create / 1 stop`(정상 unmount) 은 버퍼에 요약을 남기지 않는다.
+ */
+const SUMMARY_IDLE_TICKS_TO_STOP = 6;
+let summaryIdleTickCount = 0;
+
+function isCmRtLoopSuspect(create: number, stop: number): boolean {
+  return create >= 2 || stop >= 2;
+}
 
 declare global {
   interface Window {
@@ -61,14 +71,28 @@ function ensureWindowHelpers(): void {
   }
 }
 
+function stopSummaryTimer(): void {
+  if (summaryTimer == null) return;
+  clearInterval(summaryTimer);
+  summaryTimer = null;
+  summaryIdleTickCount = 0;
+}
+
 function flushSummaryTick(): void {
   if (typeof window === "undefined") return;
   const list = [...rtLoopLifetimeByChannel.entries()]
     .map(([name, v]) => ({ name, create: v.create, stop: v.stop }))
-    .filter((x) => x.create + x.stop > 0)
+    .filter((x) => isCmRtLoopSuspect(x.create, x.stop))
     .sort((a, b) => b.stop - a.stop || b.create - a.create)
     .slice(0, 6);
-  if (list.length === 0) return;
+  if (list.length === 0) {
+    summaryIdleTickCount += 1;
+    if (summaryIdleTickCount >= SUMMARY_IDLE_TICKS_TO_STOP) {
+      stopSummaryTimer();
+    }
+    return;
+  }
+  summaryIdleTickCount = 0;
   const topText = list.map((x) => `${x.stop} stop / ${x.create} create — ${x.name}`).join(" | ");
   pushCmBrowserDebugEvent({
     label: "cm-rt-loop-summary",
@@ -86,6 +110,7 @@ function flushSummaryTick(): void {
 
 function ensureSummaryTimer(): void {
   if (typeof window === "undefined" || summaryTimer != null) return;
+  summaryIdleTickCount = 0;
   summaryTimer = setInterval(() => flushSummaryTick(), 5000);
 }
 
@@ -94,6 +119,7 @@ export function recordCmRtLoopCreateForBuffer(channelName: string): { create: nu
   const row = rtLoopLifetimeByChannel.get(channelName) ?? { create: 0, stop: 0 };
   row.create += 1;
   rtLoopLifetimeByChannel.set(channelName, row);
+  summaryIdleTickCount = 0;
   ensureSummaryTimer();
   return { create: row.create, stop: row.stop };
 }
@@ -103,6 +129,7 @@ export function recordCmRtLoopStopForBuffer(channelName: string): { create: numb
   const row = rtLoopLifetimeByChannel.get(channelName) ?? { create: 0, stop: 0 };
   row.stop += 1;
   rtLoopLifetimeByChannel.set(channelName, row);
+  summaryIdleTickCount = 0;
   ensureSummaryTimer();
   return { create: row.create, stop: row.stop };
 }

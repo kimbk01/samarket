@@ -4,6 +4,7 @@ import {
   buildNaverState,
   NAVER_OAUTH_STATE_COOKIE,
 } from "@/lib/auth/naver-oauth";
+import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 
 export const runtime = "nodejs";
@@ -26,7 +27,7 @@ export async function GET(req: NextRequest) {
   res.cookies.set(NAVER_OAUTH_STATE_COOKIE, state, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.VERCEL === "1" || process.env.NODE_ENV === "production",
+    secure: cookieSecureFromNextRequest(req),
     path: "/",
     maxAge: 60 * 10,
   });

@@ -102,8 +102,10 @@ function shouldBottomNavTapScrollOnlyNoNavigate(
 const BOTTOM_NAV_ITEM_TOUCH_CLASS =
   "touch-manipulation select-none [-webkit-tap-highlight-color:transparent] transition-[color,background-color,border-color,transform] duration-150 ease-out active:scale-[0.98]";
 
-function triggerLightTapFeedback(): void {
+/** 데스크톱 포인터는 사용자 제스처로 간주되지 않아 vibrate 가 막히며 콘솔 Intervention 이 난다 — 터치만. */
+function triggerLightTapFeedback(ev?: { pointerType?: string }): void {
   try {
+    if (ev && ev.pointerType !== "touch") return;
     if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
       navigator.vibrate(10);
     }
@@ -260,8 +262,8 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
           }
         }
       }}
-      onPointerDown={() => {
-        triggerLightTapFeedback();
+      onPointerDown={(e) => {
+        triggerLightTapFeedback(e);
         /** `beginMenuNavigation` 은 click 한 번만 — pointerDown+click 이중 호출 방지 */
         if (!isActive) {
           try {
@@ -286,7 +288,6 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
             e.preventDefault();
             return;
           }
-          triggerLightTapFeedback();
           beginMenuNavigation(effectiveHref);
           onNavigationIntent(tab.id);
           if (!isActive) {
@@ -451,8 +452,8 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
           }
         }
       }}
-      onPointerDown={() => {
-        triggerLightTapFeedback();
+      onPointerDown={(e) => {
+        triggerLightTapFeedback(e);
         if (!isActive) {
           try {
             void router.prefetch(tab.href);
@@ -475,7 +476,6 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
             e.preventDefault();
             return;
           }
-          triggerLightTapFeedback();
           beginMenuNavigation(tab.href);
           onNavigationIntent(tab.id);
           if (!isActive) {

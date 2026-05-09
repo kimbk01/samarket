@@ -39,6 +39,27 @@ const rtLoopDiagCountersByName = new Map<
   { create: number; stop: number; lastCreateAt: number | null; lastStopAt: number | null }
 >();
 let rtLoopDiagSummaryTimer: ReturnType<typeof setInterval> | null = null;
+/**
+ * 무활동 6틱(=30s) 동안 새로운 create/stop 가 없고 출력할 루프 후보가 없으면 타이머 정지.
+ * 다음 create/stop 발생 시 다시 살아난다.
+ */
+const RT_LOOP_DIAG_IDLE_TICKS_TO_STOP = 6;
+let rtLoopDiagIdleTickCount = 0;
+
+/**
+ * 「루프 의심」판정: 같은 채널 이름이 2번 이상 만들어졌거나(중복 인스턴스/재구독), 2번 이상 정리된 경우.
+ * `1 create / 0 stop`(정상 마운트), `1 create / 1 stop`(정상 hot-reload·unmount) 은 정상 상태이므로 노이즈가 되지 않게 제외.
+ */
+function isLoopSuspect(create: number, stop: number): boolean {
+  return create >= 2 || stop >= 2;
+}
+
+function stopRtLoopDiagSummaryTimer(): void {
+  if (rtLoopDiagSummaryTimer == null) return;
+  clearInterval(rtLoopDiagSummaryTimer);
+  rtLoopDiagSummaryTimer = null;
+  rtLoopDiagIdleTickCount = 0;
+}
 
 function rtLoopDiagBumpCounter(name: string, kind: "create" | "stop"): void {
   if (!devRtLoopDiagEnabled) return;
@@ -58,15 +79,22 @@ function rtLoopDiagBumpCounter(name: string, kind: "create" | "stop"): void {
     row.lastStopAt = now;
   }
   rtLoopDiagCountersByName.set(name, row);
+  rtLoopDiagIdleTickCount = 0;
   if (!rtLoopDiagSummaryTimer) {
     rtLoopDiagSummaryTimer = setInterval(() => {
-      // 상위 stop/create 반복 채널만 요약 출력 (5초마다)
       const list = [...rtLoopDiagCountersByName.entries()]
         .map(([k, v]) => ({ name: k, create: v.create, stop: v.stop }))
-        .filter((x) => x.create + x.stop > 0)
+        .filter((x) => isLoopSuspect(x.create, x.stop))
         .sort((a, b) => b.stop - a.stop || b.create - a.create)
         .slice(0, 6);
-      if (list.length === 0) return;
+      if (list.length === 0) {
+        rtLoopDiagIdleTickCount += 1;
+        if (rtLoopDiagIdleTickCount >= RT_LOOP_DIAG_IDLE_TICKS_TO_STOP) {
+          stopRtLoopDiagSummaryTimer();
+        }
+        return;
+      }
+      rtLoopDiagIdleTickCount = 0;
       try {
         const topText = list
           .map((x) => `${x.stop} stop / ${x.create} create — ${x.name}`)
@@ -83,6 +111,17 @@ function rtLoopDiagBumpCounter(name: string, kind: "create" | "stop"): void {
     }, 5000);
   }
 }
+
+/**
+ * 「루프 의심 이벤트」 — 진짜 재시도·재구독·실패 신호.
+ * 정상 마운트 시퀀스(`create` → `attach_subscribe` → `status_subscribed`) 는 같은 채널에서
+ * 수 ms 안에 차례로 일어나는 게 정상이므로 이 집합에 포함하지 않는다.
+ */
+const RT_LOOP_DIAG_SUSPECT_EVENTS = new Set<RtLoopDiagEvent>([
+  "status_failed",
+  "schedule_retry",
+  "resubscribe",
+]);
 
 function rtLoopDiagLog(args: {
   event: RtLoopDiagEvent;
@@ -102,11 +141,18 @@ function rtLoopDiagLog(args: {
   const dtMs = typeof prev === "number" ? Math.max(0, Math.round(now - prev)) : null;
   rtLoopDiagLastAtByName.set(args.name, now);
   const active = rtLoopDiagActiveCountByName.get(args.name) ?? 0;
-  // 너무 시끄럽지 않게: (1) 매우 짧은 간격 재발, 또는 (2) active가 2개 이상일 때만 출력.
-  const shouldPrint = active >= 2 || (typeof dtMs === "number" && dtMs <= 2500);
-  /** teardown 원인 추적은 항상 남긴다(스택 포함). */
-  const forcePrintStop = args.event === "stop";
-  if (!shouldPrint && !forcePrintStop) return;
+  /**
+   * 출력 정책 (헌장 [근본 대책만] §「임계값만 가리는 구성 금지」준수 — 단순 임계 완화가 아니라
+   * "정상 라이프사이클" 과 "루프 신호" 를 의미적으로 분리):
+   *   - 항상 출력: 재시도·재구독·실패·stop (실제 진단 가치)
+   *   - 정상 라이프사이클(`create`/`attach_subscribe`/`status_subscribed`): `active >= 2` 일 때만
+   *     (같은 이름 채널 2개 이상 동시 활성 — 중복 인스턴스 의심)
+   * dtMs 만으로는 정상 마운트도 항상 작아서 루프 판정에 쓸 수 없다.
+   */
+  const isSuspectEvent = RT_LOOP_DIAG_SUSPECT_EVENTS.has(args.event);
+  const isStop = args.event === "stop";
+  const shouldPrint = isSuspectEvent || isStop || active >= 2;
+  if (!shouldPrint) return;
   try {
     // eslint-disable-next-line no-console -- dev-only realtime loop diagnostics
     console.warn("[cm-rt-loop]", {
@@ -164,7 +210,12 @@ export function subscribeWithRetry(args: {
   const internalDecayTimers = new Set<ReturnType<typeof setTimeout>>();
   let channel: RealtimeChannel = args.build(args.sb.channel(args.name));
 
-  if (args.name.startsWith("community-messenger")) {
+  /**
+   * 진단(create-time) — prod hot path 무동작.
+   * dev 에서만 ring buffer 누적·active count·rtLoopDiag 출력.
+   * 헌장 §「근본 대책만」 — hot path direct logging 금지, 진단 가치는 dev 에서만 의미.
+   */
+  if (devRtLoopDiagEnabled && args.name.startsWith("community-messenger")) {
     const counts = recordCmRtLoopCreateForBuffer(args.name);
     pushCmBrowserDebugEvent({
       label: "cm-rt-loop",
@@ -228,22 +279,30 @@ export function subscribeWithRetry(args: {
     expectedInternalClosed = 0;
     clearCommunityMessengerRealtimeScope(args.scope);
     markInternalChannelRecycle();
-    let stopSourceStack: string | null = null;
-    try {
-      stopSourceStack = new Error("subscribeWithRetry.stop").stack ?? null;
-    } catch {
-      stopSourceStack = null;
-    }
-    rtLoopDiagBumpCounter(args.name, "stop");
-    rtLoopDiagLog({
-      event: "stop",
-      name: args.name,
-      scope: args.scope,
-      reason: "explicit_stop",
-      expectedInternalClosed,
-      stopSourceStack,
-    });
-    if (args.name.startsWith("community-messenger")) {
+    /**
+     * 진단(stop-time) — prod hot path 무동작.
+     * `new Error().stack` 의 V8 inspector 직렬화는 동기 비용이 크고,
+     * room transition 의 bundle 청크 stop 직렬 루프를 직접 늘린다(`global-messenger-room-bundle-channel.ts` 의
+     * `bindFilteredPostgresSubscriptions` 의 `for (const ch of channels) ch.stop()`).
+     * dev 에서만 stack 캡처 + ring buffer push + rtLoopDiag 출력. cmRtLogTeardown 은 ENV opt-in 시에만.
+     * 헌장 §「근본 대책만」·사용자 §「production hot path 진단 완전 skip」.
+     */
+    if (devRtLoopDiagEnabled && args.name.startsWith("community-messenger")) {
+      let stopSourceStack: string | null = null;
+      try {
+        stopSourceStack = new Error("subscribeWithRetry.stop").stack ?? null;
+      } catch {
+        stopSourceStack = null;
+      }
+      rtLoopDiagBumpCounter(args.name, "stop");
+      rtLoopDiagLog({
+        event: "stop",
+        name: args.name,
+        scope: args.scope,
+        reason: "explicit_stop",
+        expectedInternalClosed,
+        stopSourceStack,
+      });
       const counts = recordCmRtLoopStopForBuffer(args.name);
       pushCmBrowserDebugEvent({
         label: "cm-rt-loop",
@@ -257,12 +316,14 @@ export function subscribeWithRetry(args: {
         fingerprint: null,
         userIdTail: cmDebugUserIdTailFromChannelName(args.name),
       });
-      cmRtLogTeardown({
-        reason: "stop",
-        channelName: args.name,
-        stopSourceStack,
-        teardownDetail: "explicit_stop(removeChannel)",
-      });
+      if (isCommunityMessengerRealtimeDebugEnabled()) {
+        cmRtLogTeardown({
+          reason: "stop",
+          channelName: args.name,
+          stopSourceStack,
+          teardownDetail: "explicit_stop(removeChannel)",
+        });
+      }
     }
     try {
       void args.sb.removeChannel(channel);

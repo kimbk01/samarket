@@ -7,9 +7,11 @@ import {
   SESSION_REPLACED_CODE,
   SESSION_REPLACED_MESSAGE,
 } from "@/lib/auth/active-session-shared";
+import { cookieSecureFromNextHeaders } from "@/lib/auth/cookie-secure-flag";
 
-function isSecureCookie(): boolean {
-  return process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
+async function resolveCookieSecure(secure?: boolean): Promise<boolean> {
+  if (typeof secure === "boolean") return secure;
+  return cookieSecureFromNextHeaders();
 }
 
 export function createActiveSessionId(): string {
@@ -26,22 +28,29 @@ export async function readActiveSessionIdCookie(): Promise<string | null> {
   }
 }
 
-export function setActiveSessionCookie(response: NextResponse, sessionId: string): NextResponse {
+export async function setActiveSessionCookie(
+  response: NextResponse,
+  sessionId: string,
+  secure?: boolean
+): Promise<NextResponse> {
   response.cookies.set(ACTIVE_SESSION_COOKIE, sessionId, {
     httpOnly: true,
     sameSite: "lax",
-    secure: isSecureCookie(),
+    secure: await resolveCookieSecure(secure),
     path: "/",
     maxAge: 60 * 60 * 24 * 30,
   });
   return response;
 }
 
-export function clearActiveSessionCookie(response: NextResponse): NextResponse {
+export async function clearActiveSessionCookie(
+  response: NextResponse,
+  secure?: boolean
+): Promise<NextResponse> {
   response.cookies.set(ACTIVE_SESSION_COOKIE, "", {
     httpOnly: true,
     sameSite: "lax",
-    secure: isSecureCookie(),
+    secure: await resolveCookieSecure(secure),
     path: "/",
     maxAge: 0,
   });

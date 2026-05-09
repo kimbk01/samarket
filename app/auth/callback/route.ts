@@ -1,6 +1,7 @@
 import type { User } from "@supabase/supabase-js";
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
+import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { ensureUserProfile } from "@/lib/auth/ensure-user-profile";
@@ -44,7 +45,7 @@ export async function GET(req: NextRequest) {
    * (마지막에 새 `NextResponse.redirect`를 만들면 세션 쿠키가 유실되어 프록시가 /login 으로 보냄.)
    */
   let response = NextResponse.redirect(redirectUrl);
-  const cookieSecure = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
+  const cookieSecure = cookieSecureFromNextRequest(req);
   const supabase = createServerClient(url, anon, {
     cookieOptions: {
       path: "/",
@@ -155,6 +156,7 @@ export async function GET(req: NextRequest) {
         rotate: true,
         sessionMeta,
         loginIdentifier: user.email?.trim().toLowerCase() ?? null,
+        request: req,
       });
     }
   }

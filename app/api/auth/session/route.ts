@@ -6,6 +6,7 @@
  */
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
+import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import { jsonErrorWithRequest, jsonOkWithRequest } from "@/lib/http/api-route";
 
@@ -47,7 +48,7 @@ export async function GET(request: NextRequest) {
     request: { headers: request.headers },
   });
 
-  const cookieSecure = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
+  const cookieSecure = cookieSecureFromNextRequest(request);
   const supabase = createServerClient(url, anon, {
     cookieOptions: {
       path: "/",

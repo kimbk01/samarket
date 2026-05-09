@@ -1,5 +1,6 @@
-import { NextResponse } from "next/server";
+import { type NextRequest, NextResponse } from "next/server";
 import { clearActiveSessionCookie, readActiveSessionIdCookie } from "@/lib/auth/active-session";
+import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
 import { getCurrentProfile, requireAuth } from "@/lib/auth/server-guards";
 import { invalidateUserSessionRegistry } from "@/lib/auth/user-session-registry";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
@@ -8,7 +9,8 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function POST() {
+export async function POST(request: NextRequest) {
+  const cookieSecure = cookieSecureFromNextRequest(request);
   const routeSb = await createSupabaseRouteHandlerClient();
   if (!routeSb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
@@ -20,14 +22,14 @@ export async function POST() {
   } = await routeSb.auth.getUser();
   if (userError || !user?.id) {
     const response = NextResponse.json({ ok: true, already_logged_out: true });
-    clearActiveSessionCookie(response);
+    await clearActiveSessionCookie(response, cookieSecure);
     return response;
   }
 
   const auth = await requireAuth();
   if (!auth.ok) {
     const response = NextResponse.json({ ok: true, already_logged_out: true });
-    clearActiveSessionCookie(response);
+    await clearActiveSessionCookie(response, cookieSecure);
     return response;
   }
 
@@ -39,7 +41,7 @@ export async function POST() {
       // ignore
     }
     const response = NextResponse.json({ ok: true, degraded: "service_role_unconfigured" });
-    clearActiveSessionCookie(response);
+    await clearActiveSessionCookie(response, cookieSecure);
     return response;
   }
 
@@ -85,6 +87,6 @@ export async function POST() {
   }
 
   const response = NextResponse.json({ ok: true });
-  clearActiveSessionCookie(response);
+  await clearActiveSessionCookie(response, cookieSecure);
   return response;
 }

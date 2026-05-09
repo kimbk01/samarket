@@ -160,6 +160,7 @@ export async function GET(req: NextRequest) {
       rotate: true,
       sessionMeta,
       loginIdentifier: profile.email,
+      request: req,
     });
     return response;
   } catch (error) {

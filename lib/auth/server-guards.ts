@@ -1,5 +1,15 @@
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { readActiveSessionIdCookie, sessionReplacedResponse, setActiveSessionCookie, createActiveSessionId } from "@/lib/auth/active-session";
+import {
+  cookieSecureFromNextHeaders,
+  cookieSecureFromNextRequest,
+} from "@/lib/auth/cookie-secure-flag";
+import {
+  readActiveSessionIdCookie,
+  sessionReplacedResponse,
+  setActiveSessionCookie,
+  createActiveSessionId,
+} from "@/lib/auth/active-session";
 import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 import type { RequestSessionMeta } from "@/lib/auth/request-device-info";
 import { hasPhilippinePhoneVerification, STORE_PHONE_GATE_MESSAGE } from "@/lib/auth/store-member-policy";
@@ -115,7 +125,12 @@ export async function requireAdmin(
 export async function syncActiveSessionForUser(
   userId: string,
   response: NextResponse,
-  options?: { rotate?: boolean; sessionMeta?: RequestSessionMeta | null; loginIdentifier?: string | null }
+  options?: {
+    rotate?: boolean;
+    sessionMeta?: RequestSessionMeta | null;
+    loginIdentifier?: string | null;
+    request?: NextRequest | null;
+  }
 ): Promise<{ sessionId: string | null; profile: ProfileRow | null }> {
   const sb = tryCreateSupabaseServiceClient();
   const profile = sb ? await getCurrentProfile(userId) : await getCurrentProfile(userId);
@@ -138,8 +153,12 @@ export async function syncActiveSessionForUser(
     nextSessionId = createActiveSessionId();
   }
 
+  const cookieSecure = options?.request
+    ? cookieSecureFromNextRequest(options.request)
+    : await cookieSecureFromNextHeaders();
+
   if (!sb) {
-    setActiveSessionCookie(response, nextSessionId);
+    await setActiveSessionCookie(response, nextSessionId, cookieSecure);
     return {
       sessionId: nextSessionId,
       profile: {
@@ -184,7 +203,7 @@ export async function syncActiveSessionForUser(
   } catch {
     // Session registry is an enforcement layer; login/profile ensure must not fail because of registry drift.
   }
-  setActiveSessionCookie(response, nextSessionId);
+  await setActiveSessionCookie(response, nextSessionId, cookieSecure);
   return {
     sessionId: nextSessionId,
     profile: {

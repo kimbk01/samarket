@@ -114,6 +114,7 @@ export async function POST(request: NextRequest) {
         rotate: rotateSession,
         sessionMeta,
         loginIdentifier: state.authLoginEmail ?? state.email ?? null,
+        request,
       });
     } catch {
       // Profile ensure is the primary responsibility here.

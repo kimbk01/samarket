@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { isAdminRequireAuthEnabled } from "@/lib/auth/admin-policy";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
+import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 
 /**
@@ -132,7 +133,7 @@ export async function proxy(request: NextRequest) {
 
   let response = NextResponse.next({ request });
 
-  const cookieSecure = process.env.VERCEL === "1" || process.env.NODE_ENV === "production";
+  const cookieSecure = cookieSecureFromNextRequest(request);
   const supabase = createServerClient(supabaseEnv.url, supabaseEnv.anonKey, {
     cookieOptions: {
       path: "/",
