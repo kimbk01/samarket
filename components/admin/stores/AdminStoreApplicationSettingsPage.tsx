@@ -8,6 +8,7 @@ import { AdminGlobalAlertSoundSection } from "@/components/admin/stores/AdminGlo
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 import { invalidateStoreDeliveryAlertSoundCache } from "@/lib/business/store-order-alert-sound";
 import { bustOrderMatchAlertSoundCache } from "@/lib/notifications/play-order-match-alert";
+import { clearStoresTaxonomyClientCache } from "@/lib/stores/store-delivery-api-client";
 
 function slugifyLoose(raw: string): string {
   const t = raw
@@ -109,6 +110,7 @@ export function AdminStoreApplicationSettingsPage() {
             categories: j.categories as StoreTaxonomyCategory[],
             topics: j.topics as StoreTaxonomyTopic[],
           });
+          clearStoresTaxonomyClientCache();
           const first = (j.categories as StoreTaxonomyCategory[])[0];
           setPickedCategoryId((prev) => prev || first?.id || "");
         } else {
@@ -142,6 +144,7 @@ export function AdminStoreApplicationSettingsPage() {
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; categories?: unknown; topics?: unknown };
       if (res.ok && j?.ok && Array.isArray(j.categories) && Array.isArray(j.topics)) {
         setTaxonomy({ categories: j.categories as StoreTaxonomyCategory[], topics: j.topics as StoreTaxonomyTopic[] });
+        clearStoresTaxonomyClientCache();
       }
     } finally {
       setTaxonomyLoading(false);

@@ -19,6 +19,7 @@ import {
   shouldAlertPacketLoss,
 } from "./thresholds";
 import v8 from "v8";
+import { samarketDevMonitoringLogEnabled } from "@/lib/debug/samarket-server-trace-flags";
 import {
   cmRtHs4DiagnosisLog,
   cmRtHs4SessionRollupLog,
@@ -526,29 +527,35 @@ export function recordMessengerApiTiming(
 
   if (isDev) {
     const now = Date.now();
-    if ((trimmed || now - lastDevMonitoringStoreLogAt > 30_000) && afterSize > 0) {
+    if (
+      samarketDevMonitoringLogEnabled() &&
+      (trimmed || now - lastDevMonitoringStoreLogAt > 30_000) &&
+      afterSize > 0
+    ) {
       lastDevMonitoringStoreLogAt = now;
       console.warn("[dev-monitoring-store] apiByRoute size", {
         apiByRouteSize: afterSize,
         trimmed,
       });
     }
-    try {
-      const h = v8.getHeapStatistics();
-      const used = h.used_heap_size;
-      const limit = h.heap_size_limit || 1;
-      const ratio = used / limit;
-      if (ratio > 0.7 && now - lastDevMonitoringHeapLogAt > 10_000) {
-        lastDevMonitoringHeapLogAt = now;
-        console.warn("[dev-heap] monitoring-store high heap", {
-          heapUsedMB: Math.round(used / 1024 / 1024),
-          heapLimitMB: Math.round(limit / 1024 / 1024),
-          ratio: Math.round(ratio * 1000) / 1000,
-          apiByRouteSize: afterSize,
-        });
+    if (samarketDevMonitoringLogEnabled()) {
+      try {
+        const h = v8.getHeapStatistics();
+        const used = h.used_heap_size;
+        const limit = h.heap_size_limit || 1;
+        const ratio = used / limit;
+        if (ratio > 0.7 && now - lastDevMonitoringHeapLogAt > 10_000) {
+          lastDevMonitoringHeapLogAt = now;
+          console.warn("[dev-heap] monitoring-store high heap", {
+            heapUsedMB: Math.round(used / 1024 / 1024),
+            heapLimitMB: Math.round(limit / 1024 / 1024),
+            ratio: Math.round(ratio * 1000) / 1000,
+            apiByRouteSize: afterSize,
+          });
+        }
+      } catch {
+        /* ignore */
       }
-    } catch {
-      /* ignore */
     }
   }
 

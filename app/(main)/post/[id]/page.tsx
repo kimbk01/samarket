@@ -3,9 +3,10 @@ import { notFound } from "next/navigation";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
 import { withTimeout } from "@/lib/async/with-timeout";
 import { resolvePostsReadClientsForServerComponent } from "@/lib/supabase/resolve-posts-read-clients";
-/** RSC 상세: related 는 `getTradeDetailRelatedData` 로 병렬 포함·방 시드는 비포함. → trade-post-detail-chat-hot-path.mdc */
+/** RSC 상세: 본문·프로필은 `getItemDetailPageData` 1차 블록, related 는 Suspense 스트림(`PostDetailRelatedDeferredLoader`). */
 import { getItemDetailPageData } from "@/services/trade/trade-detail.service";
 import { PostDetailConfigError, PostDetailPageClient } from "./PostDetailPageClient";
+import { PostDetailRelatedDeferredLoader } from "./post-detail-related-deferred";
 
 /** 무한 스켈레톤 방지 — 상세 부트스트랩 상한 (운영 DB 지연 시에도 UI가 멈추지 않게) */
 const TRADE_DETAIL_LOAD_BUDGET_MS = 28_000;
@@ -49,7 +50,22 @@ export default async function PostDetailPage({ params }: { params: Promise<{ id:
         key={bundle.item.id}
         initialBundle={bundle}
         initialRouteTotalMs={Math.round(performance.now() - t0)}
-      />
+      >
+        {bundle.item.type !== "community" ? (
+          <Suspense
+            fallback={
+              <div className="border-t border-sam-border px-4 py-6 sam-text-body-secondary text-sam-muted">
+                관련 상품을 불러오는 중…
+              </div>
+            }
+          >
+            <PostDetailRelatedDeferredLoader
+              viewerUserId={viewerId}
+              preloadedItem={bundle.item}
+            />
+          </Suspense>
+        ) : null}
+      </PostDetailPageClient>
     </Suspense>
   );
 }

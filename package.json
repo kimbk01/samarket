@@ -29,6 +29,7 @@
     "lint:strict": "eslint . --max-warnings 0",
     "test": "vitest run",
     "verify:messenger-home": "vitest run lib/runtime/__tests__/messenger-home-verification-counters.test.ts",
+    "verify:parity-gates": "npm run verify:trade-hot-path-contract && npm run verify:messenger-home && npx tsc --noEmit",
     "e2e:ensure-aaaa-manual-auth": "node scripts/ensure-e2e-aaaa-manual-auth.mjs",
     "verify:messenger-render-perf": "PLAYWRIGHT_NO_WEBSERVER=1 playwright test tests/e2e/messenger-home-render-perf.spec.ts",
     "measure:nav-perf": "cross-env PLAYWRIGHT_NO_WEBSERVER=1 playwright test tests/e2e/nav-perf-idle-bottom-nav.spec.ts",

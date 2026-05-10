@@ -1,13 +1,18 @@
 /**
  * `GET /api/community-messenger/home-sync` 서버 지연 원인 분해용 로그.
- * 켜기: `SAMARKET_LOG_HOME_SYNC_BREAKDOWN=1` (서버 프로세스 env)
+ * 켜기: `SAMARKET_LOG_HOME_SYNC_BREAKDOWN=1` 또는 메신저 상세 콘솔 플래그
+ * (`SAMARKET_MESSENGER_TRACE_LOG=1` / `NEXT_PUBLIC_MESSENGER_PERF_TRACE=1`).
  *
- * 한 줄 요약: 동일 env 가 켜지면 라우트에서 **`[home-sync-breakdown]`** 도 함께 출력된다
- * (`total_ms`·`rooms_ms`·`unread_ms`·`profiles_ms`·`trade_ms`·`serialize_ms`·`payload_kb`·`duplicate_window_count`·`short_ttl_hit`).
+ * 한 줄 요약: 켜지면 라우트에서 **`[home-sync-breakdown]`** 도 함께 출력된다
+ * (`total_ms`·`rooms_ms`·`unread_ms`·…).
  */
 
+import { messengerVerboseTraceConsoleEnabled } from "@/lib/community-messenger/messenger-trace-console";
+
 export function homeSyncBreakdownEnabled(): boolean {
-  return process.env.SAMARKET_LOG_HOME_SYNC_BREAKDOWN === "1";
+  return (
+    process.env.SAMARKET_LOG_HOME_SYNC_BREAKDOWN === "1" || messengerVerboseTraceConsoleEnabled()
+  );
 }
 
 export function logHomeSyncBreakdown(
@@ -16,7 +21,8 @@ export function logHomeSyncBreakdown(
   extra?: Record<string, unknown>
 ): void {
   if (!homeSyncBreakdownEnabled()) return;
-  console.info(
+  // eslint-disable-next-line no-console -- gated breakdown
+  console.debug(
     "[home-sync:breakdown]",
     JSON.stringify({ phase, ms: Math.round(ms * 1000) / 1000, ...(extra ?? {}) })
   );
@@ -31,7 +37,8 @@ export function logHomeSyncBreakdownSummary(payload: {
   if (!homeSyncBreakdownEnabled()) return;
   const sorted = [...payload.rows].sort((a, b) => b.ms - a.ms);
   const slowest = sorted[0];
-  console.info(
+  // eslint-disable-next-line no-console -- gated breakdown
+  console.debug(
     "[home-sync:breakdown:summary]",
     JSON.stringify({
       tier: payload.tier,

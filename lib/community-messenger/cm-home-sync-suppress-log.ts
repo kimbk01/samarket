@@ -2,11 +2,11 @@
 
 /**
  * silent home-sync 재생·suppress 진단 — `[home-sync-suppress]`
- * dev 기본 / `localStorage samarket:debug:homeSyncSuppress=1`
+ * `NEXT_PUBLIC_MESSENGER_PERF_TRACE=1` 또는 `localStorage samarket:debug:homeSyncSuppress=1`
  */
 
 export function shouldLogHomeSyncSuppress(): boolean {
-  if (process.env.NODE_ENV === "development") return true;
+  if (typeof process !== "undefined" && process.env.NEXT_PUBLIC_MESSENGER_PERF_TRACE === "1") return true;
   if (typeof window === "undefined" || typeof window.localStorage === "undefined") return false;
   try {
     return window.localStorage.getItem("samarket:debug:homeSyncSuppress") === "1";
@@ -31,6 +31,6 @@ export function logHomeSyncSuppress(payload: {
   tier: "critical" | "full";
 }): void {
   if (!shouldLogHomeSyncSuppress()) return;
-  // eslint-disable-next-line no-console -- dev / opt-in 진단
-  console.warn("[home-sync-suppress]", payload);
+  // eslint-disable-next-line no-console -- gated suppress diagnostic
+  console.debug("[home-sync-suppress]", payload);
 }

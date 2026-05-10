@@ -7,6 +7,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
+import { resolveRouteHandlerUserIdFromSupabase } from "@/lib/auth/resolve-route-handler-user-id";
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import { jsonErrorWithRequest, jsonOkWithRequest } from "@/lib/http/api-route";
 
@@ -74,18 +75,12 @@ export async function GET(request: NextRequest) {
   });
 
   /**
-   * `getUser()` 는 만료 직후 **서버 쪽 refresh** 를 유발해 브라우저 `createBrowserClient` auto-refresh·
-   * `refreshSession()` 과 **동일 refresh token 경쟁**(`Already Used`)을 일으킬 수 있다.
-   * 이 라우트는 셸·SessionLostRedirect 의 가벼운 합류용이므로 **쿠키 기준 `getSession()`** 만 사용한다.
-   * (데이터 보호·JWT 재검증은 각 API Route 의 `getClaims`/`getUser` 경로가 담당)
+   * `getSession()` 뒤 `session.user` 를 쓰면 Supabase 가 **쿠키만 믿는 user** 경고를 낸다.
+   * `getUser()` 를 매 요청 1순위로 쓰면 만료 직후 **서버 refresh** 가 브라우저 auto-refresh 와 경쟁할 수 있다.
+   * → `getClaims()`(로컬 JWT) 우선·실패 시에만 `getUser()` — `resolveRouteHandlerUserIdFromSupabase`.
    */
-  const {
-    data: { session: authSession },
-    error: sessionReadError,
-  } = await supabase.auth.getSession();
-
-  const userId = authSession?.user?.id?.trim() ?? "";
-  if (sessionReadError || !userId) {
+  const userId = (await resolveRouteHandlerUserIdFromSupabase(supabase))?.trim() ?? "";
+  if (!userId) {
     const res = jsonErrorWithRequest(request, "로그인이 필요합니다.", 401, { authenticated: false });
     mergeAuthCookies(cookieCarrier, res);
     return res;

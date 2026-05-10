@@ -20,11 +20,11 @@ import {
 /**
  * 거래 상세 RSC 계약 — 재발 방지
  *
- * - 첫 응답(`getItemDetailPageData`): 본문·판매자 프로필·related(`getTradeDetailRelatedData`)·(조건부) 구매자 제안.
+ * - 첫 응답(`getItemDetailPageData`): 본문·판매자 프로필·(조건부) 구매자 제안까지 **직렬+병렬 1차 블록**에서 완료.
+ * - **related**(판매자 다른 글·유사·광고)는 **동일 페이지의 RSC `Suspense` 슬롯**에서 `getTradeDetailRelatedData` 로만 채운다(첫 바이트에서 related DB를 기다리지 않음). 클라 `/api/.../related` 단독 첫 페인트 금지 원칙은 동일.
  * - 거래방 시드·판매자 제안 RSC 선로드는 이 타입에 포함하지 않는다(핫패스 계약).
- * - related 는 본문과 **동일** `PostWithMeta` 스냅샷을 `preloadedItem` 으로 넘겨 중복 `loadPostDetailShared` 를 피한다  
- *   (두 번째 조회 실패 시 본문만 있고 related 만 빈 회귀 방지).
- * - `GET /api/posts/[postId]/related` 는 보조 — 상세 첫 화면은 RSC 번들을 신뢰한다.
+ * - related 슬롯은 본문과 **동일** `PostWithMeta` 를 `preloadedItem` 으로 넘겨 `loadPostDetailShared` 중복을 피한다.
+ * - `GET /api/posts/[postId]/related` 는 보조 — 상세 related 데이터는 RSC(스트림 슬롯 또는 번들)를 신뢰한다.
  *
  * 상세 규칙: `.cursor/rules/trade-post-detail-chat-hot-path.mdc`
  */
@@ -177,7 +177,8 @@ export async function getItemDetailPageData(
   }
 ): Promise<TradeItemDetailPageData | null> {
   // related 는 `loadTradeDetailRelatedBundle` 직접 호출 금지 — `getTradeDetailRelatedData` 로만 묶는다.
-  // 클라 `/api/.../related` 단독 의존은 탭·503·Strict 시 빈 화면 이슈가 있어, RSC 에서 동일 clients 로 병렬 채운다.
+  // 첫 응답: 본문+판매자+구매자 제안만 await — related 는 `app/(main)/post/[id]/page.tsx` 의 RSC Suspense 슬롯에서
+  // `getTradeDetailRelatedData` 로 스트리밍(클라 related 단독 의존 금지 계약 유지).
 
   const itemId = input.itemId.trim();
   if (!itemId) return null;
@@ -222,31 +223,19 @@ export async function getItemDetailPageData(
       })
     : Promise.resolve(null);
 
-  const relatedPromise = getTradeDetailRelatedData(clients, {
-    itemId: item.id,
-    viewerUserId: viewerId || null,
-    preloadedItem: item,
-  }).catch((err) => {
-    console.error("[getItemDetailPageData] getTradeDetailRelatedData", err);
-    return { sellerItems: [] as PostWithMeta[], similarItems: [] as PostWithMeta[], ads: [] as PostWithMeta[] };
-  });
-
-  const [sellerProfile, buyerOffersResult, relatedPack] = await Promise.all([
+  const [sellerProfile, buyerOffersResult] = await Promise.all([
     loadSellerPublicProfile(clients, sellerId),
     buyerOffersPromise,
-    relatedPromise,
   ]);
+
+  const rel = {
+    sellerItems: [] as PostWithMeta[],
+    similarItems: [] as PostWithMeta[],
+    ads: [] as PostWithMeta[],
+  };
 
   const initialViewerBuyerOffers =
     buyerOffersResult && buyerOffersResult.ok ? buyerOffersResult.value : undefined;
-
-  const rel =
-    relatedPack ??
-    ({ sellerItems: [], similarItems: [], ads: [] } as {
-      sellerItems: PostWithMeta[];
-      similarItems: PostWithMeta[];
-      ads: PostWithMeta[];
-    });
 
   return {
     item,

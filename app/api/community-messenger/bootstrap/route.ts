@@ -13,6 +13,7 @@ import {
 } from "@/lib/community-messenger/monitoring/server-store";
 import type { MessengerBootstrapBreakdown } from "@/lib/community-messenger/monitoring/types";
 import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
+import { messengerVerboseTraceConsoleEnabled } from "@/lib/community-messenger/messenger-trace-console";
 
 /** 1단계: `[cm-bootstrap-v2]` — 동작 변경 없이 관측만 (critical tier 분리 전) */
 function logCmBootstrapV2(params: {
@@ -24,6 +25,7 @@ function logCmBootstrapV2(params: {
   /** 라우트에서 `getCommunityMessengerBootstrap` 대기 구간(ms); critical 분리 전엔 곧 full monolith */
   fullPayloadMs: number;
 }) {
+  if (!messengerVerboseTraceConsoleEnabled()) return;
   const d = params.diagnostics;
   const friendsQueryMs = d.parallelAcceptedFriendsBundleMs + d.parallelFavoriteFriendsMs;
   const dbRoundTrips =
@@ -57,7 +59,8 @@ function logCmBootstrapV2(params: {
       worstStage = name;
     }
   }
-  console.info(
+  // eslint-disable-next-line no-console -- gated messenger trace
+  console.debug(
     "[cm-bootstrap-v2]",
     JSON.stringify({
       total_api_ms: params.routeTotalMs,
@@ -93,6 +96,7 @@ function logCmBootstrapV2Critical(params: {
   dbRoundTrips: number;
   roomCount: number;
 }) {
+  if (!messengerVerboseTraceConsoleEnabled()) return;
   const d = params.diagnostics;
   const stageEntries: Array<[string, number]> = [
     ["auth_ms", params.authMs],
@@ -118,7 +122,8 @@ function logCmBootstrapV2Critical(params: {
     }
   }
   const payloadKb = Math.round((params.payloadUtf8Bytes / 1024) * 1000) / 1000;
-  console.info(
+  // eslint-disable-next-line no-console -- gated messenger trace
+  console.debug(
     "[cm-bootstrap-v2]",
     JSON.stringify({
       total_api_ms: params.routeTotalMs,
@@ -161,6 +166,7 @@ function logCmBootstrapBreakdown(params: {
   cacheHit: boolean;
   mode: MessengerBootstrapBreakdown["mode"];
 }) {
+  if (!messengerVerboseTraceConsoleEnabled()) return;
   const d = params.diagnostics;
   const timingsValid = !params.cacheHit;
   const messagesQueryMs = 0;
@@ -198,7 +204,8 @@ function logCmBootstrapBreakdown(params: {
     }
   }
 
-  console.info(
+  // eslint-disable-next-line no-console -- gated messenger trace
+  console.debug(
     "[cm-bootstrap-breakdown]",
     JSON.stringify({
       total_api_ms: params.routeTotalMs,
@@ -313,8 +320,12 @@ export async function GET(request: NextRequest) {
       roomCount: critical.roomCount,
     });
 
-    if (payloadKbCritical > 150 || critical.dbRoundTrips > 8) {
-      console.warn(
+    if (
+      messengerVerboseTraceConsoleEnabled() &&
+      (payloadKbCritical > 150 || critical.dbRoundTrips > 8)
+    ) {
+      // eslint-disable-next-line no-console -- gated threshold diagnostic
+      console.debug(
         "[cm-bootstrap-v2-warning]",
         JSON.stringify({
           tier: "critical",

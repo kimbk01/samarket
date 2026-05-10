@@ -17,7 +17,8 @@
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { logHomeSyncBreakdown } from "@/lib/community-messenger/home-sync-breakdown-log";
-import { ms, type HomeSyncDeepStepsUnreadBadge, type HomeSyncTrace } from "@/lib/community-messenger/home-sync-trace";
+import { messengerVerboseTraceConsoleEnabled } from "@/lib/community-messenger/messenger-trace-console";
+import { homeSyncTraceMeterEnabled, ms, type HomeSyncDeepStepsUnreadBadge, type HomeSyncTrace } from "@/lib/community-messenger/home-sync-trace";
 import type { CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
 
 function t(value: unknown): string {
@@ -76,16 +77,18 @@ export async function enrichMessengerTradeUnreadWithLegacyTrade(
   homeSyncTrace?: HomeSyncTrace
 ): Promise<void> {
   const patchUnread = (p: Partial<HomeSyncDeepStepsUnreadBadge>) => {
-    if (!homeSyncTrace?.token) return;
-    homeSyncTrace.deepSteps.unreadHomeSyncSteps = {
-      ...(homeSyncTrace.deepSteps.unreadHomeSyncSteps ?? {}),
+    if (!homeSyncTraceMeterEnabled(homeSyncTrace)) return;
+    const tr = homeSyncTrace!;
+    tr.deepSteps.unreadHomeSyncSteps = {
+      ...(tr.deepSteps.unreadHomeSyncSteps ?? {}),
       ...p,
     };
   };
 
   const uid = t(viewerUserId);
-  if (homeSyncTrace?.token) {
-    const prev = homeSyncTrace.deepSteps.unreadHomeSyncSteps?.enrichInvocationCount ?? 0;
+  if (homeSyncTraceMeterEnabled(homeSyncTrace)) {
+    const tr = homeSyncTrace!;
+    const prev = tr.deepSteps.unreadHomeSyncSteps?.enrichInvocationCount ?? 0;
     patchUnread({
       enrichInvocationCount: prev + 1,
       ownerHubBadgeMs: 0,
@@ -188,8 +191,9 @@ export async function enrichMessengerTradeUnreadWithLegacyTrade(
       });
     }
   } catch (rpcCatch) {
-    if (process.env.NODE_ENV === "development") {
-      console.warn("[home-sync] HS5 unread RPC bundle failed — parallel REST fallback", rpcCatch);
+    if (process.env.NODE_ENV === "development" && messengerVerboseTraceConsoleEnabled()) {
+      // eslint-disable-next-line no-console -- gated HS5 fallback diagnostic
+      console.debug("[home-sync] HS5 unread RPC bundle failed — parallel REST fallback", rpcCatch);
     }
     usedRpcBundle = false;
   }

@@ -1,16 +1,21 @@
 /**
  * `GET …/home-sync?tier=full` 전용 한 줄 분해 — `[home-sync-full-analysis]`
  *
- * 켜기: `NODE_ENV=development` | `SAMARKET_LOG_HOME_SYNC_FULL_ANALYSIS=1` | `SAMARKET_LOG_HOME_SYNC_BREAKDOWN=1`
+ * 켜기: `SAMARKET_MESSENGER_TRACE_LOG=1` / `NEXT_PUBLIC_MESSENGER_PERF_TRACE=1` |
+ * `SAMARKET_LOG_HOME_SYNC_FULL_ANALYSIS=1` | `SAMARKET_LOG_HOME_SYNC_BREAKDOWN=1`
  */
 
 import { homeSyncBreakdownEnabled } from "@/lib/community-messenger/home-sync-breakdown-log";
+import {
+  messengerTraceConsoleDebug,
+  messengerVerboseTraceConsoleEnabled,
+} from "@/lib/community-messenger/messenger-trace-console";
 import { readHomeSyncFullVsCriticalGapMs } from "@/lib/community-messenger/home-sync-critical-route-snapshot";
 import { ms, type HomeSyncTrace } from "@/lib/community-messenger/home-sync-trace";
 
 export function homeSyncFullAnalysisEnabled(): boolean {
   return (
-    process.env.NODE_ENV === "development" ||
+    messengerVerboseTraceConsoleEnabled() ||
     process.env.SAMARKET_LOG_HOME_SYNC_FULL_ANALYSIS === "1" ||
     homeSyncBreakdownEnabled()
   );
@@ -55,7 +60,7 @@ export function logHomeSyncFullAnalysis(args: {
   const duplicate_trade_merge_count = trade?.duplicateTradeMergeCount ?? 0;
   const full_vs_critical_gap_ms = readHomeSyncFullVsCriticalGapMs(args.userId, args.routeTotalMs);
   try {
-    console.warn("[home-sync-full-analysis]", {
+    messengerTraceConsoleDebug("[home-sync-full-analysis]", {
       token: args.trace.token ?? null,
       tier: args.trace.tier ?? "full",
       trade_fetch_ms,

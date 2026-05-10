@@ -21,8 +21,18 @@ const PHILIFE_WARM_OUTER_DELAY_TRADE_MS = 900;
 const PHILIFE_WARM_OUTER_DELAY_DEFAULT_MS = 520;
 /** `scheduleWhenBrowserIdle` timeout — 과도한 대기 방지 */
 const PHILIFE_WARM_IDLE_TIMEOUT_MS = 650;
+/** 하단 탭 전환 직후에는 목적지 RSC·hydration·클라 fetch 를 먼저 끝낸다. */
+const PHILIFE_WARM_BOTTOM_NAV_QUIET_MS = 2_500;
 const warmedFeedAtByKey = new Map<string, number>();
 let lastPhilifeHrefPrefetchAt = 0;
+
+function remainingBottomNavQuietMs(): number {
+  if (typeof window === "undefined" || typeof performance === "undefined") return 0;
+  const last = (window as unknown as { __samarketLastBottomNavRouteIntentAt?: number })
+    .__samarketLastBottomNavRouteIntentAt;
+  if (typeof last !== "number" || !Number.isFinite(last)) return 0;
+  return Math.max(0, PHILIFE_WARM_BOTTOM_NAV_QUIET_MS - (performance.now() - last));
+}
 
 /**
  * /philife 가 아닐 때만 워밍 — 피드 화면 자체의 요청과 중복 최소화
@@ -57,19 +67,27 @@ export function PhilifeFeedWarmPrefetch() {
 
     const my = ++tickRef.current;
     let refreshIdleId = -1;
-    const outerDelayMs = (() => {
+    let warmTimer = -1;
+    const baseOuterDelayMs = (() => {
       const p0 = pathnameRef.current;
       const d = mainBottomNavPrefetchTriggerKey(p0 || null);
       return d === "trade" ? PHILIFE_WARM_OUTER_DELAY_TRADE_MS : PHILIFE_WARM_OUTER_DELAY_DEFAULT_MS;
     })();
-    const t = window.setTimeout(() => {
+
+    const runWarm = () => {
       if (tickRef.current !== my) return;
       const p = pathnameRef.current;
       if (!p || p === "/philife" || p.startsWith("/philife/")) return;
+      const quietRemaining = remainingBottomNavQuietMs();
+      if (quietRemaining > 0) {
+        warmTimer = window.setTimeout(runWarm, quietRemaining + 50);
+        return;
+      }
       refreshIdleId = scheduleWhenBrowserIdle(() => {
         if (document.visibilityState !== "visible") return;
         const p2 = pathnameRef.current;
         if (!p2 || p2 === "/philife" || p2.startsWith("/philife/")) return;
+        if (remainingBottomNavQuietMs() > 0) return;
         const now = Date.now();
         warmedFeedAtByKey.set(cacheKey, now);
         warmPhilifeNeighborhoodFeedByUrl(url, {
@@ -88,11 +106,16 @@ export function PhilifeFeedWarmPrefetch() {
           }
         }
       }, PHILIFE_WARM_IDLE_TIMEOUT_MS);
-    }, outerDelayMs);
+    };
+
+    warmTimer = window.setTimeout(
+      runWarm,
+      Math.max(baseOuterDelayMs, remainingBottomNavQuietMs())
+    );
 
     return () => {
       tickRef.current += 1;
-      window.clearTimeout(t);
+      window.clearTimeout(warmTimer);
       cancelScheduledWhenBrowserIdle(refreshIdleId);
     };
   }, [viewerSig, warmShellDomain, router]);

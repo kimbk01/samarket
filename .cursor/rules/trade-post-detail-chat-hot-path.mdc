@@ -3,12 +3,14 @@ description: 거래 목록→상세(/post)→채팅 체감 속도 — RSC/후속
 globs:
   - "**/trade-detail.service.ts"
   - "**/PostDetailPageClient.tsx"
+  - "**/post/**/page.tsx"
   - "**/PostDetailView.tsx"
   - "**/trade-chat-entry-navigation.ts"
   - "**/TradeChatComposeClient.tsx"
   - "**/api/posts/**/related/**"
   - "**/HomeProductList.tsx"
   - "**/PostListByCategory.tsx"
+  - "**/post/**/post-detail-related-deferred.tsx"
 alwaysApply: false
 ---
 
@@ -25,19 +27,23 @@ alwaysApply: false
 
 - `loadSellerPublicProfile`
 - 조건부 구매자 `listPriceOffers`
-- **`getTradeDetailRelatedData`** → `sellerItems`·`similarItems`·`ads` (페이지 첫 화면 신뢰 경로 — 본문과 **동일 `PostsReadClients`**)
+
+**`getTradeDetailRelatedData` / related 표시:**
+
+- **첫 RSC 페이로드**(`getItemDetailPageData`)에서는 related DB 를 **기다리지 않는다**(빈 배열). 실제 related 는 **동일 라우트의 `Suspense` 자식 RSC**에서 `getTradeDetailRelatedData` 만 호출해 스트리밍한다(클라 단독 첫 페인트 금지와 동치).
+- `getItemDetailPageData` 밖에서도 **`getTradeDetailRelatedData` 경유**만 허용 — `loadTradeDetailRelatedBundle` 직접 호출 금지.
 
 **금지(직접 호출·직렬 묶음):**
 
-- **`loadTradeDetailRelatedBundle` 를 이 함수 본문에서 직접 호출** (반드시 `getTradeDetailRelatedData` 경유)
+- 어디에서든 **`loadTradeDetailRelatedBundle` 를 `getTradeDetailRelatedData` 바깥에서 직접 호출**
 - `resolveViewerItemTradeRoom` (거래방 시드 — 클라 `GET /api/chat/item/room-id`)
 - `listSellerPriceOffersForProduct` RSC 선로드 (모달 `OfferListSeller` 가 fetch)
 
-**첫 응답 직렬 구간:** `loadPostDetailShared` 만 먼저 await — 그 다음 위 병렬 묶음.
+**첫 응답 직렬 구간:** `loadPostDetailShared` 만 먼저 await — 그 다음 `loadSellerPublicProfile`·`listPriceOffers` 병렬 묶음(related 제외).
 
 ## 2) 관련 상품 API — 보조
 
-- **`GET /api/posts/[postId]/related`** → `getTradeDetailRelatedData` — 재사용·외부 호출용. **상세 첫 페인트는 RSC 번들의 related 에 의존**한다 (클라 단독 fetch만으로 채우지 않음 — 환경·Strict 에서 빈 화면 위험).
+- **`GET /api/posts/[postId]/related`** → `getTradeDetailRelatedData` — 재사용·외부 호출용. **상세 related 데이터는 RSC**에서 채운다: 기본은 **`/post/[id]` 의 `Suspense` + `PostDetailRelatedDeferredLoader`** 가 `getTradeDetailRelatedData` 로 스트림(첫 본문 페인트는 related 를 기다리지 않음). 클라 단독으로만 첫 related 를 채우지 않는다.
 
 ## 3) 신규 채팅 진입 — `openCreateTradeChat`
 

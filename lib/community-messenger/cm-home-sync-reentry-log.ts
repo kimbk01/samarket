@@ -1,12 +1,12 @@
 "use client";
 
 /**
- * 클라이언트 `home-sync` 재진입·중복 진단 — 개발 기본 on,
- * 운영은 `localStorage.setItem("samarket:debug:homeSyncReentry","1")` 후 새로고침.
+ * 클라이언트 `home-sync` 재진입·중복 진단 — 기본 off.
+ * `NEXT_PUBLIC_MESSENGER_PERF_TRACE=1` 또는 `localStorage samarket:debug:homeSyncReentry=1`.
  */
 
 export function shouldLogHomeSyncReentry(): boolean {
-  if (process.env.NODE_ENV === "development") return true;
+  if (typeof process !== "undefined" && process.env.NEXT_PUBLIC_MESSENGER_PERF_TRACE === "1") return true;
   if (typeof window === "undefined" || typeof window.localStorage === "undefined") return false;
   try {
     return window.localStorage.getItem("samarket:debug:homeSyncReentry") === "1";
@@ -17,6 +17,6 @@ export function shouldLogHomeSyncReentry(): boolean {
 
 export function logHomeSyncReentry(payload: Record<string, unknown>): void {
   if (!shouldLogHomeSyncReentry()) return;
-  // eslint-disable-next-line no-console -- dev / opt-in localStorage 진단
-  console.info("[home-sync-reentry]", payload);
+  // eslint-disable-next-line no-console -- gated reentry diagnostic
+  console.debug("[home-sync-reentry]", payload);
 }

@@ -198,8 +198,16 @@ export type HomeSyncDeepStepsBundleSteps = {
   bundleParallelWallMs?: number;
   friendsFetchMs?: number;
   friendsRequestsFetchMs?: number;
+  /** in-process 5s TTL 캐시 히트 시 이전 miss 요청의 bundleSteps 일부를 재주입했음 */
+  bundleReplayFromProcessCache?: boolean;
+  /** 캐시 히트로 `listCommunityMessengerMyChatsAndGroups` 미실행 — 관측 전용 */
+  bundleListRebuildSkipReason?: string;
   /** rate limit 직후 ~ bundle await 시작 */
   routePreBundleMs?: number;
+  /** `requireAuthenticatedUserId` 벽시계(라우트 상단) */
+  routeAuthWallMs?: number;
+  /** `enforceRateLimit` 벽시계 */
+  routeRateLimitWallMs?: number;
   /** `await getCommunityMessengerHomeSyncBundle` 벽시계(프로덕션 캐시 히트 시 0) */
   routeBundleAwaitMs?: number;
   /** dev 블록(JSON.stringify 등) */
@@ -274,6 +282,8 @@ export type HomeSyncDeepStepsUnreadBadge = {
   unreadRpcPayloadBytesEstimate?: number;
   /** HS5-RPC-DEEP: 클라 RPC 벽시계 − 서버 rpc_total_ms (PostgREST·네트워크 등) */
   unreadRpcNetworkOverheadMs?: number;
+  /** 관측: 번들 재생·캐시 등으로 unread enrich 를 이 요청에서 다시 실행하지 않음 */
+  unreadSkipReason?: string;
 };
 
 export type HomeSyncTrace = {
@@ -312,19 +322,29 @@ export function ms(value: unknown): number {
   return Math.max(0, Math.round(n));
 }
 
+/**
+ * home-sync 서버 계측: `token` 비어 있어도 `tier` 가 critical/full 이면 deepSteps 를 채운다.
+ * (과거 prod critical 에서 `token: ""` 로 `trace?.token` 분기만 꺼지던 불일치 방지)
+ */
+export function homeSyncTraceMeterEnabled(trace: HomeSyncTrace | undefined | null): boolean {
+  if (!trace) return false;
+  return trace.tier === "critical" || trace.tier === "full";
+}
+
 export function bumpTradePostsResolvedSplitStats(
   trace: HomeSyncTrace | undefined,
   delta: Partial<HomeSyncDeepStepsTradePostsResolvedSplit>
 ): void {
-  if (!trace?.token) return;
-  const prev = trace.deepSteps.tradePostsResolvedSplit ?? {
+  if (!homeSyncTraceMeterEnabled(trace)) return;
+  const t = trace!;
+  const prev = t.deepSteps.tradePostsResolvedSplit ?? {
     resolvedLightSelectCalls: 0,
     resolvedImagesPatchCalls: 0,
     resolvedFatFallbackCalls: 0,
     patchPostIdsTotal: 0,
     lightFetchPostIdsTotal: 0,
   };
-  trace.deepSteps.tradePostsResolvedSplit = {
+  t.deepSteps.tradePostsResolvedSplit = {
     resolvedLightSelectCalls: prev.resolvedLightSelectCalls + (delta.resolvedLightSelectCalls ?? 0),
     resolvedImagesPatchCalls: prev.resolvedImagesPatchCalls + (delta.resolvedImagesPatchCalls ?? 0),
     resolvedFatFallbackCalls: prev.resolvedFatFallbackCalls + (delta.resolvedFatFallbackCalls ?? 0),

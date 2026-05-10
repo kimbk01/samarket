@@ -57,6 +57,7 @@ import {
   recordMessengerHomeRefreshInvocation,
   samarketMessengerHomeDebugEvent,
 } from "@/lib/runtime/samarket-runtime-debug";
+import { messengerVerboseTraceConsoleEnabled } from "@/lib/community-messenger/messenger-trace-console";
 
 /** critical 홈-sync 상단 블록 병합 — 서버 최근 순 · 로컬 나머지 유지 + 거래 `contextMeta` 역행 방지 */
 function mergeCriticalRoomPatchesIntoLists(
@@ -737,14 +738,18 @@ export function useCommunityMessengerHomeBootstrap({
               const hdrSer = resCrit.headers.get("x-samarket-critical-serialization-ms");
               const hdrRooms = resCrit.headers.get("x-samarket-critical-room-count");
               const critical_payload_kb = hdrKb != null && hdrKb !== "" ? Number(hdrKb) : null;
-              if (typeof window !== "undefined" && typeof performance !== "undefined") {
+              if (
+                typeof window !== "undefined" &&
+                typeof performance !== "undefined" &&
+                messengerVerboseTraceConsoleEnabled()
+              ) {
                 queueMicrotask(() => {
                   requestAnimationFrame(() => {
                     requestAnimationFrame(() => {
                       const critical_render_commit_ms = Math.round(performance.now() - tApplyCritEnd);
                       const critical_first_list_visible_ms = Math.round(performance.now() - criticalRequestStartAt);
-                      // eslint-disable-next-line no-console
-                      console.info(
+                      // eslint-disable-next-line no-console -- gated critical bootstrap client
+                      console.debug(
                         "[critical-bootstrap-client]",
                         JSON.stringify({
                           critical_fetch_ms,

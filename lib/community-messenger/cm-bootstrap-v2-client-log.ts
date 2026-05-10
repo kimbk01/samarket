@@ -1,5 +1,7 @@
 "use client";
 
+import { messengerVerboseTraceConsoleEnabled } from "@/lib/community-messenger/messenger-trace-console";
+
 /** `[cm-bootstrap-v2-client]` — critical-first 스테이징(ms). 기준은 `markCmBootstrapV2ClientFlowAnchor()` 시각 */
 
 let flowAnchorMs = 0;
@@ -24,7 +26,9 @@ export function logCmBootstrapV2ClientFinalize(payload: {
   used_cached_snapshot: boolean;
   used_critical_payload: boolean;
 }): void {
-  console.info(
+  if (!messengerVerboseTraceConsoleEnabled()) return;
+  // eslint-disable-next-line no-console -- gated client bootstrap staging
+  console.debug(
     "[cm-bootstrap-v2-client]",
     JSON.stringify({
       shell_visible_ms: msFromAnchor(payload.shellVisibleAt),

@@ -18,7 +18,10 @@ import {
 import {
   buildHomeSyncOutsideTradeStepBreakdown,
   buildHomeSyncTradeMetaStepBreakdown,
+  homeSyncTraceMeterEnabled,
   ms,
+  type HomeSyncDeepStepsBundleSteps,
+  type HomeSyncDeepStepsUnreadBadge,
   type HomeSyncTrace,
 } from "@/lib/community-messenger/home-sync-trace";
 import { recordHomeSyncCriticalRouteSnapshot } from "@/lib/community-messenger/home-sync-critical-route-snapshot";
@@ -26,6 +29,10 @@ import {
   homeSyncFullAnalysisEnabled,
   logHomeSyncFullAnalysis,
 } from "@/lib/community-messenger/home-sync-full-analysis-log";
+import {
+  messengerTraceConsoleDebug,
+  messengerVerboseTraceConsoleEnabled,
+} from "@/lib/community-messenger/messenger-trace-console";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,9 +41,57 @@ const COMMUNITY_MESSENGER_HOME_SYNC_TTL_MS = 5_000;
 /** 사용자당 1키이나 트래픽이 몰릴 때 프로세스 메모리가 비한정 증가하지 않게 */
 const COMMUNITY_MESSENGER_HOME_SYNC_CACHE_MAX_ENTRIES = 4_000;
 
+type HomeSyncRouteCacheTraceSnapshot = {
+  bundleStepsPartial: Partial<HomeSyncDeepStepsBundleSteps>;
+  unreadPartial: Partial<HomeSyncDeepStepsUnreadBadge>;
+  sourceToken: string;
+};
+
+function captureHomeSyncRouteCacheTraceSnapshot(trace: HomeSyncTrace): HomeSyncRouteCacheTraceSnapshot | undefined {
+  if (!homeSyncTraceMeterEnabled(trace)) return undefined;
+  const bs = trace.deepSteps.bundleSteps ?? {};
+  const ur = trace.deepSteps.unreadHomeSyncSteps ?? {};
+  return {
+    sourceToken: trace.token,
+    bundleStepsPartial: {
+      bundleTotalMs: bs.bundleTotalMs,
+      tradeMetaEnrichTotalMs: bs.tradeMetaEnrichTotalMs,
+      outsideTradeEnrichMs: bs.outsideTradeEnrichMs,
+      roomsFetchMs: bs.roomsFetchMs,
+      roomSliceCpuMs: bs.roomSliceCpuMs,
+      roomIdsDedupeMs: bs.roomIdsDedupeMs,
+      participantsProfilesMs: bs.participantsProfilesMs,
+      summarizeRoomsMs: bs.summarizeRoomsMs,
+      unreadBadgeMs: bs.unreadBadgeMs,
+      payloadBuildMs: bs.payloadBuildMs,
+      listSplitFilterMs: bs.listSplitFilterMs,
+      listMyChatsWallMs: bs.listMyChatsWallMs,
+      bundleParallelWallMs: bs.bundleParallelWallMs,
+      friendsFetchMs: bs.friendsFetchMs,
+      friendsRequestsFetchMs: bs.friendsRequestsFetchMs,
+    },
+    unreadPartial: { ...ur },
+  };
+}
+
+function mergeHomeSyncTraceFromRouteCache(trace: HomeSyncTrace, snap: HomeSyncRouteCacheTraceSnapshot): void {
+  trace.deepSteps.bundleSteps = {
+    ...(trace.deepSteps.bundleSteps ?? {}),
+    ...snap.bundleStepsPartial,
+    bundleReplayFromProcessCache: true,
+    bundleListRebuildSkipReason: "route_in_process_ttl_5s_cache",
+  };
+  trace.deepSteps.unreadHomeSyncSteps = {
+    ...(trace.deepSteps.unreadHomeSyncSteps ?? {}),
+    ...snap.unreadPartial,
+    unreadSkipReason: "replayed_from_route_in_process_ttl_cache",
+  };
+}
+
 type CommunityMessengerHomeSyncCacheEntry = {
   payload: Awaited<ReturnType<typeof getCommunityMessengerHomeSyncBundle>>;
   expiresAt: number;
+  traceSnapshot?: HomeSyncRouteCacheTraceSnapshot;
 };
 
 const communityMessengerHomeSyncCache = new Map<string, CommunityMessengerHomeSyncCacheEntry>();
@@ -55,11 +110,12 @@ export async function GET(req: NextRequest) {
   if (!auth.ok) {
     if (isDev) {
       // 401/403 등은 병목 분석 대상에서 제외(로그로만 분리).
-      console.warn("[home-sync-skip]", { status: 401, reason: "unauthenticated" });
+      messengerTraceConsoleDebug("[home-sync-skip]", { status: 401, reason: "unauthenticated" });
     }
     return auth.response;
   }
 
+  const tRate0 = performance.now();
   const rateLimit = await enforceRateLimit({
     key: `community-messenger:home-sync:${getRateLimitKey(req, auth.userId)}`,
     limit: 90,
@@ -70,24 +126,21 @@ export async function GET(req: NextRequest) {
   if (!rateLimit.ok) return rateLimit.response;
 
   const tPostRateLimit = performance.now();
+  const rateLimitWallMs = tPostRateLimit - tRate0;
 
   const fresh = req.nextUrl.searchParams.get("fresh") === "1";
   const tierParam = req.nextUrl.searchParams.get("tier");
   const tier: "critical" | "full" = tierParam === "critical" ? "critical" : "full";
   const now = Date.now();
   /**
-   * critical tier 에서는 **항상** trace 객체를 만들어 `tier` 마커를 service 단까지 전파한다.
-   * - dev: 기존처럼 token 도 채워 deepSteps 로그 활성.
-   * - prod: token 은 빈 문자열 → 기존 `trace?.token` 분기는 모두 비활성.
-   *   `tier === "critical"` 마커만 살아 있어 posts fallback probing 차단(HS2).
-   * - dev + full tier: bundleSteps·unread 세분을 위해 token 을 켠다(프로덕션 full 은 trace 없음 유지).
+   * critical tier: **항상** trace + 비어 있지 않은 `token` 으로 service `homeSyncTraceMeterEnabled` 계측이 켜지게 한다.
+   * (과거 prod 에서 `token: ""` 이면 bundleSteps·unread ms 가 전부 0으로 남던 불일치 방지)
+   * dev + full tier: bundleSteps·unread 세분(프로덕션 full 은 trace 없음 유지).
    */
   const trace: HomeSyncTrace | undefined =
     tier === "critical"
       ? {
-          token: isDev
-            ? `home-sync:${Date.now().toString(36)}:${Math.random().toString(36).slice(2)}`
-            : "",
+          token: `home-sync-crit:${Date.now().toString(36)}:${Math.random().toString(36).slice(2)}`,
           tier: "critical",
           authSessionMs: ms(authMs),
           deepSteps: {},
@@ -110,8 +163,9 @@ export async function GET(req: NextRequest) {
 
   /** 상한·스킵 enrich 변경 시 캐시 오염 방지 — cap 버전을 키에 포함 */
   const cacheKey = `${auth.userId}:${tier}:cap${COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP}f${COMMUNITY_MESSENGER_HOME_SYNC_FULL_ROOM_CAP}`;
-  let bundle =
-    enableInMemoryCache && !fresh ? communityMessengerHomeSyncCache.get(cacheKey)?.payload : undefined;
+  const cachedEntry: CommunityMessengerHomeSyncCacheEntry | undefined =
+    enableInMemoryCache && !fresh ? communityMessengerHomeSyncCache.get(cacheKey) : undefined;
+  let bundle = cachedEntry?.payload;
   /** 프로덕션 5s in-memory 캐시 히트 — 개발에서는 캐시 비활성이라 항상 false */
   const shortTtlHit = Boolean(bundle);
 
@@ -124,6 +178,8 @@ export async function GET(req: NextRequest) {
   if (trace) {
     trace.deepSteps.bundleSteps = {
       ...(trace.deepSteps.bundleSteps ?? {}),
+      routeAuthWallMs: ms(authMs),
+      routeRateLimitWallMs: ms(rateLimitWallMs),
       routePreBundleMs: ms(tBeforeBundleResolution - tPostRateLimit),
     };
   }
@@ -144,6 +200,7 @@ export async function GET(req: NextRequest) {
       communityMessengerHomeSyncCache.set(cacheKey, {
         payload: bundle,
         expiresAt: tSet + COMMUNITY_MESSENGER_HOME_SYNC_TTL_MS,
+        traceSnapshot: trace ? captureHomeSyncRouteCacheTraceSnapshot(trace) : undefined,
       });
       pruneByExpiresAtAndMaxSize(
         communityMessengerHomeSyncCache,
@@ -151,6 +208,8 @@ export async function GET(req: NextRequest) {
         COMMUNITY_MESSENGER_HOME_SYNC_CACHE_MAX_ENTRIES
       );
     }
+  } else if (trace && cachedEntry?.traceSnapshot) {
+    mergeHomeSyncTraceFromRouteCache(trace, cachedEntry.traceSnapshot);
   }
 
   // [DEV] payload size log (approx) + heap logger for memory-restart triage.
@@ -165,7 +224,7 @@ export async function GET(req: NextRequest) {
       const tJson = performance.now();
       devPayloadBytes = JSON.stringify(bundle).length;
       devPayloadSerializeMs = performance.now() - tJson;
-      console.warn("[home-sync-size]", {
+      messengerTraceConsoleDebug("[home-sync-size]", {
         payloadKB: Math.round(devPayloadBytes / 1024),
         rooms,
         friends,
@@ -173,7 +232,7 @@ export async function GET(req: NextRequest) {
         jsonStringifyMs: Math.round(devPayloadSerializeMs),
       });
 
-      console.warn("[home-sync-auth]", { authSessionMs: Math.round(authMs) });
+      messengerTraceConsoleDebug("[home-sync-auth]", { authSessionMs: Math.round(authMs) });
 
       // [dev-heap] only when heapUsed/heapLimit > 0.7
       const h = v8.getHeapStatistics();
@@ -181,7 +240,7 @@ export async function GET(req: NextRequest) {
       const limit = h.heap_size_limit || 1;
       const ratio = used / limit;
       if (ratio > 0.7) {
-        console.warn("[dev-heap] home-sync high heap", {
+        messengerTraceConsoleDebug("[dev-heap] home-sync high heap", {
           heapUsedMB: Math.round(used / 1024 / 1024),
           heapLimitMB: Math.round(limit / 1024 / 1024),
           ratio: Math.round(ratio * 1000) / 1000,
@@ -196,7 +255,7 @@ export async function GET(req: NextRequest) {
     /* ignore */
   }
 
-  if (trace) {
+  if (trace && messengerVerboseTraceConsoleEnabled()) {
     try {
       const participants = trace.deepSteps.participantsProfiles;
       const trade = trace.deepSteps.tradeMetaEnrich;
@@ -244,7 +303,7 @@ export async function GET(req: NextRequest) {
       ].filter((c) => c.ms > 0);
       candidates.sort((a, b) => b.ms - a.ms);
       const top = candidates[0];
-      console.warn("[home-sync-deep-steps]", {
+      messengerTraceConsoleDebug("[home-sync-deep-steps]", {
         token: trace.token,
         authSessionMs: ms(trace.authSessionMs),
         participantsProfiles: participants ?? null,
@@ -280,6 +339,55 @@ export async function GET(req: NextRequest) {
       routeHandlerMs: ms(routeHandlerMsVal),
       routeOutsideBundleAwaitMs: ms(routeHandlerMsVal),
     };
+    const bundleWallForGap = ms(trace.deepSteps.bundleSteps?.bundleTotalMs ?? 0);
+    const routeAwaitRounded = ms(routeBundleAwaitMs);
+    const gapAwaitVsBundle = Math.abs(routeAwaitRounded - bundleWallForGap);
+    if (homeSyncTraceMeterEnabled(trace) && gapAwaitVsBundle > 50 && messengerVerboseTraceConsoleEnabled()) {
+      try {
+        messengerTraceConsoleDebug("[home-sync-trace-gap]", {
+          token: trace.token,
+          tier,
+          short_ttl_hit: shortTtlHit,
+          routeBundleAwaitMs: routeAwaitRounded,
+          bundleTotalMs: bundleWallForGap,
+          gap_ms: gapAwaitVsBundle,
+          explain:
+            "routeBundleAwaitMs=getCommunityMessengerHomeSyncBundle await; bundleTotalMs=get-bundle wall. 큰 차이는 dev JSON·heap 진단, in-process TTL 캐시 재생, 또는 번들 rollup 이 await 이후에만 채워지는 경우를 의심.",
+        });
+      } catch {
+        /* ignore */
+      }
+    }
+    if (isDev && homeSyncTraceMeterEnabled(trace) && messengerVerboseTraceConsoleEnabled()) {
+      try {
+        const bs0 = trace.deepSteps.bundleSteps ?? {};
+        const wallSplitSample = {
+          note:
+            "동일 조건에서 3샘플을 비교해 route wall vs bundle wall 소비를 확인하세요.",
+          token: trace.token,
+          tier,
+          short_ttl_hit: shortTtlHit,
+          cache_source_token: cachedEntry?.traceSnapshot?.sourceToken ?? null,
+          route_total_ms: ms(routeTotalMsVal),
+          route_auth_ms: bs0.routeAuthWallMs ?? null,
+          route_rate_limit_ms: bs0.routeRateLimitWallMs ?? null,
+          route_pre_bundle_ms: bs0.routePreBundleMs ?? null,
+          route_bundle_await_ms: bs0.routeBundleAwaitMs ?? null,
+          route_dev_diagnostics_ms: bs0.routeDevDiagnosticsMs ?? null,
+          bundle_total_ms: bs0.bundleTotalMs ?? null,
+          rooms_fetch_ms: bs0.roomsFetchMs ?? null,
+          unread_badge_ms: bs0.unreadBadgeMs ?? null,
+          unread_skip_reason: trace.deepSteps.unreadHomeSyncSteps?.unreadSkipReason ?? null,
+          bundle_list_rebuild_skip: bs0.bundleListRebuildSkipReason ?? null,
+        };
+        messengerTraceConsoleDebug("[home-sync-route-wall-split]", {
+          total_samples: 3,
+          samples: [1, 2, 3].map((sample_index) => ({ sample_index, ...wallSplitSample })),
+        });
+      } catch {
+        /* ignore */
+      }
+    }
     const bs = trace.deepSteps.bundleSteps;
     const bottleneckCandidates: Array<[string, number]> = [
       ["roomsFetchMs", bs.roomsFetchMs ?? 0],
@@ -300,7 +408,7 @@ export async function GET(req: NextRequest) {
       const rounded = ms(v);
       if (!topOutside || rounded > topOutside.ms) topOutside = { key, ms: rounded };
     }
-    console.warn("[home-sync-bundle-steps]", {
+    messengerTraceConsoleDebug("[home-sync-bundle-steps]", {
       token: trace.token,
       tier,
       bundleTotalMs: bs.bundleTotalMs ?? 0,
@@ -324,6 +432,10 @@ export async function GET(req: NextRequest) {
       routeHandlerMs: bs.routeHandlerMs ?? 0,
       routeTotalMs: bs.routeTotalMs ?? 0,
       topOutsideBottleneck: topOutside && topOutside.ms > 0 ? topOutside : null,
+      bundle_replay_from_process_cache: bs.bundleReplayFromProcessCache ?? false,
+      bundle_list_rebuild_skip: bs.bundleListRebuildSkipReason ?? null,
+      route_auth_ms: bs.routeAuthWallMs ?? null,
+      route_rate_limit_ms: bs.routeRateLimitWallMs ?? null,
     });
 
     const tradeMeta = trace.deepSteps.tradeMetaEnrich;
@@ -334,7 +446,7 @@ export async function GET(req: NextRequest) {
       const lightDenom = split?.lightFetchPostIdsTotal ?? 0;
       const imagesPatchPostIdRatio =
         lightDenom > 0 ? Math.round(((split?.patchPostIdsTotal ?? 0) / lightDenom) * 1000) / 1000 : null;
-      console.warn("[home-sync-trade-meta-steps]", {
+      messengerTraceConsoleDebug("[home-sync-trade-meta-steps]", {
         token: trace.token,
         tier,
         tradeMetaEnrichTotalMs: tm.tradeMetaEnrichTotalMs,
@@ -347,7 +459,7 @@ export async function GET(req: NextRequest) {
       });
     }
     const ot = buildHomeSyncOutsideTradeStepBreakdown(bs);
-    console.warn("[home-sync-outside-trade-steps]", {
+    messengerTraceConsoleDebug("[home-sync-outside-trade-steps]", {
       token: trace.token,
       tier,
       outsideTradeEnrichMs: ot.outsideTradeEnrichMs,
@@ -376,7 +488,7 @@ export async function GET(req: NextRequest) {
         const rounded = ms(v);
         if (!topUnread || rounded > topUnread.ms) topUnread = { key, ms: rounded };
       }
-      console.warn("[home-sync-unread-steps]", {
+      messengerTraceConsoleDebug("[home-sync-unread-steps]", {
         token: trace.token,
         tier,
         unreadBadgeMs: ur.unreadBadgeMs ?? 0,
@@ -423,7 +535,7 @@ export async function GET(req: NextRequest) {
           ur.unreadLegacyFetchPath === "rpc_bundle" &&
           rpcWall > 250
         ) {
-          console.warn("[home-sync-fail] HS5 rpc bundle tail breakdown", {
+          messengerTraceConsoleDebug("[home-sync-fail] HS5 rpc bundle tail breakdown", {
             token: trace.token,
             unreadRpcBundleMs: rpcWall,
             unreadRpcTotalMs: ur.unreadRpcTotalMs ?? null,
@@ -440,7 +552,7 @@ export async function GET(req: NextRequest) {
           });
         }
         if (badgeMs > 250 || srcMs > 250) {
-          console.warn("[home-sync-fail] HS5 tail spike detected", {
+          messengerTraceConsoleDebug("[home-sync-fail] HS5 tail spike detected", {
             token: trace.token,
             unreadSlowestQuery: ur.unreadSlowestQuery ?? null,
             unreadMaxSingleQueryMs: ms(ur.unreadMaxSingleQueryMs ?? 0),
@@ -455,7 +567,7 @@ export async function GET(req: NextRequest) {
           });
         }
         if (eff > 1 || unreadDuplicateFetchCount > 0) {
-          console.warn("[home-sync-fail] HS5 unread target missed", {
+          messengerTraceConsoleDebug("[home-sync-fail] HS5 unread target missed", {
             token: trace.token,
             unreadBadgeMs: badgeMs,
             unreadSourceFetchMs: srcMs,
@@ -467,7 +579,7 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  const breakdownOneLine = isDev || homeSyncBreakdownEnabled();
+  const breakdownOneLine = homeSyncBreakdownEnabled();
   let homeSyncAnalysisSerializeMs = 0;
   let homeSyncAnalysisPayloadKb = 0;
   if (breakdownOneLine) {
@@ -489,7 +601,7 @@ export async function GET(req: NextRequest) {
       const unread_ms = ms(bs?.unreadBadgeMs ?? 0);
       const profiles_ms = ms(bs?.participantsProfilesMs ?? 0);
       const trade_ms = ms(bs?.tradeMetaEnrichTotalMs ?? tradeMeta?.totalMs ?? 0);
-      console.info("[home-sync-breakdown]", {
+      messengerTraceConsoleDebug("[home-sync-breakdown]", {
         total_ms: ms(performance.now() - t0),
         rooms_ms,
         unread_ms,

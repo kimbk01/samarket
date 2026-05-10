@@ -20,6 +20,7 @@ import {
   type NeighborhoodFeedExecuteResult,
 } from "@/lib/neighborhood/neighborhood-feed-short-ttl-server";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { samarketFeedTraceLogEnabled } from "@/lib/debug/samarket-server-trace-flags";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -201,7 +202,9 @@ export async function GET(req: NextRequest) {
           result_count: posts.length,
           duplicate_window_count: duplicateWindowCount,
         };
-        console.info("[philife-feed-api-steps]", apiSteps);
+        if (samarketFeedTraceLogEnabled()) {
+          console.info("[philife-feed-api-steps]", apiSteps);
+        }
         const topicsDiag = peekLastPhilifeTopicsColdMetrics();
         const topicsBreakdown =
           topicsDiag != null
@@ -253,7 +256,7 @@ export async function GET(req: NextRequest) {
     },
   });
 
-  if (process.env.NODE_ENV === "development") {
+  if (samarketFeedTraceLogEnabled()) {
     const m = peekNeighborhoodFeedShortTtlMetrics();
     const hit = outcome.source !== "network";
     console.info("[philife-feed-short-ttl]", {

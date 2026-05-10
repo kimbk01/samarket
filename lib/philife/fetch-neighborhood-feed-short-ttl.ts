@@ -6,6 +6,7 @@
  */
 
 import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
+import { samarketFeedTraceLogEnabled } from "@/lib/debug/samarket-server-trace-flags";
 
 const CLIENT_TTL_MS = 1200;
 
@@ -75,7 +76,7 @@ export async function fetchNeighborhoodFeedShortTtl(url: string, init?: RequestI
   const hit = completed.get(key);
   if (hit && hit.expiresAt > performance.now()) {
     clientMetrics.completed_ttl_hits += 1;
-    if (process.env.NODE_ENV === "development") {
+    if (samarketFeedTraceLogEnabled()) {
       // eslint-disable-next-line no-console
       console.info("[philife-feed-short-ttl]", {
         philife_feed_short_ttl_hit: true,
@@ -92,7 +93,7 @@ export async function fetchNeighborhoodFeedShortTtl(url: string, init?: RequestI
   const hadInflight = getSingleFlightPromise<Boxed>(fk) != null;
   if (hadInflight) {
     clientMetrics.inflight_wait_hits += 1;
-    if (process.env.NODE_ENV === "development") {
+    if (samarketFeedTraceLogEnabled()) {
       // eslint-disable-next-line no-console
       console.info("[philife-feed-short-ttl]", {
         philife_feed_short_ttl_hit: true,
@@ -103,7 +104,7 @@ export async function fetchNeighborhoodFeedShortTtl(url: string, init?: RequestI
         waited_inflight: true,
       });
     }
-  } else if (process.env.NODE_ENV === "development") {
+  } else if (samarketFeedTraceLogEnabled()) {
     // eslint-disable-next-line no-console
     console.info("[philife-feed-short-ttl]", {
       philife_feed_short_ttl_hit: false,

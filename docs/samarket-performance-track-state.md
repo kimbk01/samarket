@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-05-07 |
+| Last updated | 2026-05-10 |
 | Owner | (선택) |
 
 ---
@@ -14,7 +14,7 @@
 ## 현재 최종 목표 (한 줄)
 
 거래+커뮤니티 **당근마켓급** · 메신저 **카카오톡급** · 배달·서비스형 **배달의민족급**; 탭·리스트·전환 **선택 즉시 반응**. (UI 토큰·컴포넌트 시각 규격은 별도 관리.)  
-**체크시트·완료율 %:** [samarket-perf-domain-checksheet.md](./samarket-perf-domain-checksheet.md) — 항목 `[x]` = 완료, 라운드 수치만 바뀐 경우는 **트랙 상태(본 파일)**에만 기록.
+**체감 목표(당근·배민·카톡)로의 수렴 순서·게이트:** [samarket-parity-execution-order.md](./samarket-parity-execution-order.md) — **마스터 순서 0→5**, 속도 구조 표(A~H), 라운드 종료 시 최소 `npm run verify:parity-gates` 통과. 체크시트 `[x]`는 본 파일에서만·증거 후에 연다.
 
 ---
 
@@ -53,9 +53,165 @@
 | 이번 원인 1개 | 거래 대표 경로에서 **첫 화면에 꼭 필요하지 않은 데이터까지 첫 응답을 막고 있었다.** `/market` 기본 진입은 서버 시드가 비어 있어 캐시 미스 시 클라 `getPostsForHome` 완료 전까지 즉시 리스트가 뜨지 않았고, `/post/[id]` 상세는 클라 fallback 이 이미 있는 `room-id`·판매자 제안 시드까지 RSC `Promise.all` 에 묶여 첫 본문 응답이 늦어질 수 있었다. |
 | 이번 조치 | 1) `app/(main)/market/page.tsx` 에 `Suspense` + `MarketContentWithSeed` 를 넣어 `/market` 기본 진입(`tradeState=latest`)일 때는 셸을 즉시 보내면서도 `initialHomeTradeFeed` 를 RSC 스트리밍으로 주입하게 했다. 2) `lib/posts/home-posts-route-core.ts` 에 `resolveDefaultTradeHomePostsSeedForServerComponent()` 를 추가해 `/api/philife/posts` 와 같은 서버 캐시·favorites 정책으로 기본 거래 홈 목록 시드를 생성하게 했다. 3) `services/trade/trade-detail.service.ts` 에서 상세 첫 화면에 비핵심인 `resolveViewerItemTradeRoom`·판매자 제안 선로드를 RSC 크리티컬 경로에서 제거하고, 판매자 프로필도 주소 기본값 추가 조회 없이 최소 프로필만 먼저 반환하게 줄였다. |
 | 관측 포인트 | `/market` 은 기본 latest 진입에서 **클라 단독 fetch 전에 RSC 시드가 도착하는지**, `/post/[id]` 는 본문·판매자 블록보다 늦게 필요한 room-id / offer seed 가 첫 응답을 막지 않는지 확인. 로컬 `curl -L` 3회 스모크에서는 `/market` warm `time_starttransfer` 가 **55.7 / 65.9 / 77.3ms**, 샘플 `/post/<id>` 는 **cold 1616.9ms / warm 65.1ms / 53.3ms** 로 200 응답을 유지했다. |
-| 후속(트랙 X 후보) | `/post/[id]` 의 가장 큰 잔여 병목인 `loadTradeDetailRelatedBundle`(판매자 다른 글·유사 글·광고)을 본문 이후로 분리할지 검토한다. 이때는 기존 기능 회귀 없이 `related` 섹션만 지연/스트리밍하는 구조로 한 단계 더 쪼갠다. |
+| 후속(트랙 X 후보) | **거래 핫패스(마스터 순서 2) — 2026-05-10 마감:** 라운드 **P1** related `Suspense`·`getTradeDetailRelatedData` 단일 경유·`openCreateTradeChat` 비대기 `replace` 계약을 코드·`verify:trade-hot-path-contract` 로 재확인. `loadTradeDetailRelatedBundle` **내부** 쿼리·캐시 튜닝은 **별 라운드**(원인 1개)로 분리한다. |
 
 **보조(도메인 순환·`performance-state.json`):** 2026-04-26 — `myinfo`로 남아 있던 **`PurchaseDetailView` 구매 상세 GET**을 비행 패턴(`fetch`만 합류·`clone` 파싱·`credentials`)으로 정리해 한 사이클을 코드까지 마감했다. `currentTarget`은 다음 순환 진입점으로 **`login`**을 유지한다.
+
+---
+
+## 이번 라운드 (하단 탭: 라운드 BN1 — 비목적지 Philife warm quiet window)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | 하단 탭 클릭 직후 목적지와 무관한 **Philife background warm / bottom-nav idle prewarm** 이 같은 1.5s 창에 `/api/philife/neighborhood-feed` 를 실행해, 목적지 RSC·hydration·클라 fetch 와 경쟁했다. 콘솔 `[cm-rt-window-summary]` 는 dev 관측 로그라 주원인이 아니었다. |
+| 측정 명령 | 로컬 `npm run dev` 유지, Playwright 수동 스크립트로 `localStorage samarket:debug:navPerf=1`, fake dev Supabase cookie, `/market → /community-messenger → /stores → /mypage → /market` 3회. 공식 `npm run measure:nav-perf` 는 `/api/test-login` 410 비활성화로 로그인 게이트에서 실패. |
+| 수정 파일 (1~2) | `components/layout/BottomNav.tsx`, `components/community/PhilifeFeedWarmPrefetch.tsx` |
+| 이번 조치 | 하단 탭 pointer/key/click 의도 시각을 `window.__samarketLastBottomNavRouteIntentAt` 에 기록하고, **비목적지 background prefetch/warm** 만 2.5s quiet window 뒤로 미뤘다. 목적지 탭의 즉시 `router.prefetch`·`prewarmBottomNavTapTargetClientCache` 는 유지했다. |
+
+### 라운드 BN1 — 3회 측정 (ms)
+
+| 구분 | Run1 | Run2 | Run3 | 비고 |
+|------|------|------|------|------|
+| 수정 전 `/stores → /mypage` `slowestApiMs` | 1235 | 1157 | 704 | 모두 비목적지 `/api/philife/neighborhood-feed` |
+| 수정 후 `/stores → /mypage` `slowestApiMs` | 116 | 18 | 90 | `me/stores` 또는 notification, Philife feed 제외 |
+| 수정 전 `/stores → /mypage` `firstShellVisibleMs` | 275 | 300 | 222 | |
+| 수정 후 `/stores → /mypage` `firstShellVisibleMs` | 307 | 212 | 264 | warm 평균 동급, 경합 API 제거 |
+| 수정 전 `/community-messenger → /stores` `firstShellVisibleMs` | 3660 | 2760 | 212 | dev compile/prewarm 결측 변동 큼 |
+| 수정 후 `/community-messenger → /stores` `firstShellVisibleMs` | 1792 | 221 | 7284 | Run3 는 dev route prefetch 결측/compile성 튐으로 보류 |
+
+**비교:** 이번 원인인 “클릭 직후 비목적지 Philife feed 경합”은 `/stores → /mypage` 3회에서 제거됐다. 다만 `/community-messenger → /stores` 는 dev 서버 컴파일·prefetch 결측으로 Run3 7.284s 튐이 있어 전체 하단 탭 체감 성공으로 판정하지 않는다.  
+**판정:** **보류** — 단일 원인 제거 방향은 확인됐지만, 카카오톡/당근/배민급 전체 완료 체크에는 정상 로그인 계측과 prod-like 반복 측정이 더 필요하다.
+
+---
+
+## 이번 라운드 (하단 탭: 라운드 BN2 — `/stores` 목적지 동일 URL single-flight 복구)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | `/stores` 진입 직후 `StoreNearbyFeedSection`·buyer hub 가 `AbortSignal` 을 넘기는 경우, `fetchStoresHomeFeedDeduped` / `fetchMeStoreOrdersHubSummaryDeduped` 가 기존 `runSingleFlight` 경로를 우회했다. React dev 재마운트·빠른 마운트 경합에서 같은 목적지 URL 이 서버까지 중복 요청될 수 있었다. |
+| 측정 명령 | 로컬 `npm run dev` 유지, Playwright 수동 스크립트로 `localStorage samarket:debug:navPerf=1`, fake dev Supabase cookie, `/market` 30s 대기 후 `/stores` 클릭 3회. 공식 `npm run measure:nav-perf` 는 `/api/test-login` 410 비활성화로 사용하지 않음. |
+| 수정 파일 (1) | `lib/stores/store-delivery-api-client.ts` |
+| 이번 조치 | `AbortSignal` 호출자도 동일 `runSingleFlight` 네트워크 promise 에 합류하게 하고, abort 는 호출자 promise 만 `AbortError` 로 끊도록 분리했다. 응답 캐시·API 의미·목적지 prewarm 순서는 바꾸지 않았다. |
+
+### 라운드 BN2 — 3회 측정 (ms)
+
+| 구분 | Run1 | Run2 | Run3 | 비고 |
+|------|------|------|------|------|
+| 수정 전 `/market → /stores` `routeSettledMs` | 760 | 197 | 133 | 멀티초 route settle 튐은 이번 기준선에서 재현 안 됨 |
+| 수정 후 `/market → /stores` `routeSettledMs` | 492 | 185 | 93 | warm 기준 동급·소폭 감소 |
+| 수정 전 `/market → /stores` `firstShellVisibleMs` | 789 | 234 | 164 | |
+| 수정 후 `/market → /stores` `firstShellVisibleMs` | 511 | 202 | 115 | |
+| 수정 전 목적지 `home-feed?region=Quezon City` resource count | 1 | 2 | 2 | Run2/3 같은 URL 중복 |
+| 수정 후 목적지 `home-feed?region=Quezon City` resource count | 1 | 1 | 1 | 동일 URL 중복 제거 |
+
+**비교:** route settle 의 멀티초 튐은 이번 3회 기준선에서 재현되지 않아 route prefetch miss 를 원인으로 확정하지 않았다. 대신 목적지 클라 fan-out 안에서 같은 `/api/stores/home-feed?region=Quezon+City` 가 중복되는 구조를 제거했고, 수정 후 3회 모두 해당 URL 은 1회만 실행됐다.  
+**판정:** **성공(범위 한정)** — “목적지 동일 URL 중복 fetch” 단일 원인은 제거됐다. 다만 `/api/stores/taxonomy` 와 region feed 자체 지연(약 466~757ms)은 남아 있어 배달·서비스형 전체 완료 체크는 아직 켜지 않는다.
+
+---
+
+## 이번 라운드 (하단 탭: 라운드 BN3 — `/stores` 지역 피드 prewarm 키 정렬)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | `/stores` 목적지 pointerdown prewarm 이 기본 키(`/api/stores/home-feed`)만 데우고, 실제 마운트 키는 지역 suffix(`/api/stores/home-feed?region=Quezon+City`)라서 첫 화면 피드가 다시 네트워크를 탔다. |
+| 측정 명령 | 로컬 `npm run dev` 유지, Playwright 수동 스크립트로 `localStorage samarket:debug:navPerf=1`, fake dev Supabase cookie, `/market` 30s 대기 후 실제 포인터 down/up 으로 `/stores` 클릭 3회. |
+| 수정 파일 (2) | `components/layout/BottomNav.tsx`, `lib/main-menu/bottom-nav-tap-prewarm-data.ts` |
+| 이번 조치 | Stores 탭은 `RegionContext.primaryRegion` 으로 실제 `StoreNearbyFeedSection` 과 같은 `region`/`district` suffix 를 계산해 목적지 prewarm 에 넘긴다. prewarm 함수는 기본 피드와 지역 피드 suffix 를 함께 데울 수 있게 확장했다. 목적지 prewarm 은 앞당겼지만 비목적지 warm 은 BN1 quiet window 규칙을 유지한다. |
+
+### 라운드 BN3 — 3회 측정 (ms)
+
+| 구분 | Run1 | Run2 | Run3 | 비고 |
+|------|------|------|------|------|
+| 수정 전 pointer 미반영 측정 `/market → /stores` `routeSettledMs` | 206 | 199 | 128 | 기준선: 실제 포인터 prewarm 미사용 |
+| 수정 후 pointer 측정 `/market → /stores` `routeSettledMs` | 140 | 87 | 79 | warm 전환 안정 |
+| 수정 전 `firstShellVisibleMs` | 226 | 218 | 160 | |
+| 수정 후 `firstShellVisibleMs` | 161 | 104 | 98 | |
+| 수정 전 목적지 `home-feed?region=Quezon City` duration | 449 | 577 | 469 | 마운트 후 네트워크 대기 |
+| 수정 후 pointer prewarm `home-feed?region=Quezon City` duration | 522 | 468 | 349 | pointerdown 직후 시작 |
+| 수정 후 마운트 후 `home-feed?region=Quezon City` duration | 8 | 8 | 8 | 마운트 fetch 는 prewarm 결과/단일비행에 합류 |
+| 수정 후 `taxonomy` duration | 375 | 477 | 316 | BN4 서버 병렬화·BN5 클라 TTL/프리웜 참고 |
+
+**비교:** 실제 사용자 입력에 가까운 pointerdown 측정에서 지역 피드는 클릭 직후 먼저 시작되고, `/stores` 마운트 후 동일 키 fetch 는 3회 모두 8ms 로 즉시 끝났다. `routeSettledMs` 와 `firstShellVisibleMs` 도 warm 3회에서 100ms 안팎으로 안정됐다.  
+**판정:** **성공(범위 한정)** — “목적지 prewarm 키와 실제 마운트 키 불일치” 단일 원인은 제거됐다. taxonomy 축은 **BN4(서버)·BN5(클라)** 로 정리; dev 콜드·체크시트 전체 `[x]` 는 별도.
+
+---
+
+## 이번 라운드 (하단 탭·스토어: 라운드 BN4 — `/api/stores/taxonomy` DB 조회 병렬화)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | `GET /api/stores/taxonomy` 가 `store_categories` 조회를 await 한 뒤에야 `store_topics` 조회를 시작해, 두 Supabase 왕복이 **직렬**로 쌓였다. |
+| 측정 명령 | 로컬 `npm run dev` 유지, Playwright 수동 스크립트: `localStorage samarket:debug:navPerf=1`, fake dev cookie, `/market` 30s 대기 후 포인터 down/up 으로 `/stores` 3회. 동일 스크립트로 `slowestApiMs`·`PerformanceResourceTiming` 의 taxonomy duration 기록. |
+| 수정 파일 (1) | `app/api/stores/taxonomy/route.ts` |
+| 이번 조치 | 두 `from().select()` 를 **독립**이므로 `Promise.all` 로 동시에 시작해 벽시계 RTT 를 **max(두 구간)** 쪽으로 맞춘다. 응답 스키마·에러 분기(카테고리 500·토픽 missing 폴백)는 기존과 동일 순서로 처리한다. |
+
+### 라운드 BN4 — 3회 측정 (ms)
+
+| 구분 | Run1 | Run2 | Run3 | 비고 |
+|------|------|------|------|------|
+| 수정 전(BN3 기준) pointer `/market → /stores` `slowestApiMs` (taxonomy) | 375 | 477 | 316 | nav-perf slowest |
+| 수정 후 pointer 동일 조건 `slowestApiMs` (taxonomy) — 배치 A | 319 | 219 | 250 | 병렬화 직후 측정 |
+| 수정 후 동일 스크립트 한 번에 기록 — 배치 B | 330 | 245 | 460 | Run3 dev 경합·콜드 잔여 가능 |
+| 수정 후 `routeSettledMs` (배치 B) | 97 | 93 | 80 | |
+| 수정 후 `firstShellVisibleMs` (배치 B) | 115 | 111 | 99 | 배치 A 때는 미동시 기록 |
+
+**비교:** warm 3회에서 taxonomy 가 nav-perf slowest 일 때 **375/477/316** 대비 **319/219/250**(배치 A)·**330/245/460**(배치 B)로 하락·동급(배치 B Run3 는 dev 변동). 셸 지표는 배치 B 기준 **`firstShellVisibleMs` 99–115ms**, **`routeSettledMs` 80–97ms**. dev 첫 요청·컴파일 노이즈는 별도(첫 세션에서 taxonomy resource 1s+ 튐 가능).  
+**판정:** **성공(범위 한정)** — taxonomy 라우트의 직렬 DB 왕복 병목은 제거됐다. 배달·서비스형 체크시트 전체 `[x]` 는 아직 합의 전.
+
+---
+
+## 이번 라운드 (하단 탭·스토어: 라운드 BN5 — taxonomy 클라 TTL + Stores 탭 prewarm)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | `fetchStoresTaxonomyDeduped` 가 **single-flight 만** 있어 탭 재진입·다중 컴포넌트마다 **매번 네트워크**를 탔고, Stores 탭 prewarm 이 **home-feed·허브만** 데워 taxonomy 는 **마운트 시점까지** 대기했다. |
+| 측정 명령 | BN4 와 동일 조건에서 재측정 가능(선택). 구조 변경은 캐시 히트 시 **네트워크 0**·pointerdown 시 **조기 시작**. |
+| 수정 파일 | `lib/stores/store-delivery-api-client.ts`, `lib/main-menu/bottom-nav-tap-prewarm-data.ts`, `components/admin/stores/AdminStoreApplicationSettingsPage.tsx` |
+| 이번 조치 | 공개 taxonomy 에 **120s TTL** 메모리 캐시(HTTP **200** 응답만)·`runSingleFlight` 내 이중 히트.`isStoresTaxonomyClientCacheFresh` 로 prewarm 스킵.`prewarmBottomNavTapTargetClientCache("/stores")` 에 **`fetchStoresTaxonomyDeduped` fire-and-forget** 합류. 어드민 Stores 설정 **초기 로드·`reloadTaxonomy` 성공** 시 `clearStoresTaxonomyClientCache` 로 공개 캐시 무효화. |
+
+### 라운드 BN5 — 판정
+
+**비교:** BN4 가 서버 RTT(직렬 제거)를 줄였고, BN5 는 **동일 세션 재방문·탭 의도 직후** taxonomy 왕복을 줄인다.  
+**판정:** **성공(범위 한정)** — BN4 문서에 적어 둔 “클라 TTL·탭 프리웜” 잔여 후보를 코드로 반영했다. **prod-like 로그인 E2E·체크시트 `[x]`** 는 여전히 별도 합의·측정 대상이다.
+
+#### taxonomy 축 — 이후(선택)
+
+- 로그인·스테이징에서 nav-perf 3회 반복(로컬 fake cookie 와 분리).
+- TTL(120s)은 마스터 데이터 가정; 운영에서 변경 빈도가 높으면 상수만 조정.
+
+---
+
+## 이번 라운드 (하단 탭·셸: 라운드 S1 — 마스터 순서 1, idle·boot `/stores` prewarm 키 BN3 정렬)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | **idle·부트웜** 이 (a) `/stores` 에서 BN3 와 다른 prewarm 키를 쓸 수 있었고, (b) 메신저 href 가 탭 링크(`?from=`) 없이 `router.prefetch`·prewarm 되어 **탭 탭**과 RSC 키가 어긋날 수 있었다. |
+| 측정 명령 | `npm run verify:parity-gates` — nav-perf 3회는 후속(선택). |
+| 수정 파일 (1) | `components/layout/BottomNav.tsx` |
+| 이번 조치 | `lib/main-menu/bottom-nav-prewarm-href.ts` 의 `prewarmBottomNavTapHrefResolvingStoresRegion` 로 BN3·idle·부트·`AppSegmentTabs` 부트웜 공유. `pickMainBottomNavPrefetchHrefs`·세션 부트웜은 `resolveBottomNavTabProgrammaticPrefetchHref` 로 메신저 `?from=` 을 탭 링크와 동일하게 맞춤. |
+
+### 라운드 S1 — 판정
+
+**비교:** 구조상 idle·boot 경로가 pointerdown Stores 탭과 **동일 클라 피드 키**를 데운다.  
+**판정:** **성공(범위 한정)** — 마스터 순서 **1**(셸·탭·전환)의 D(탭 prewarm 일관성). 체크시트 `[x]` 는 미연.
+
+---
+
+## 이번 라운드 (거래 상세 RSC: 라운드 P1 — related `Suspense` 스트리밍)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | `getItemDetailPageData` 첫 `Promise.all` 이 **`getTradeDetailRelatedData`(→`loadTradeDetailRelatedBundle`)** 까지 기다려, 본문·판매자·CTA 첫 RSC 응답이 **related DB max** 에 묶일 수 있었다. |
+| 측정 명령 | `npm run verify:trade-hot-path-contract`, `npm run verify:parity-gates` — 동일 경로 3회 벽시계는 후속(선택). |
+| 수정 파일 | `services/trade/trade-detail.service.ts`, `app/(main)/post/[id]/page.tsx`, `app/(main)/post/[id]/post-detail-related-deferred.tsx`, `PostDetailPageClient.tsx`, `PostDetailView.tsx`, `.cursor/rules/trade-post-detail-chat-hot-path.mdc` |
+| 이번 조치 | 첫 블록은 `loadPostDetailShared` 직렬 후 **판매자 프로필·구매자 제안만** `Promise.all`. related 는 **자식 RSC** `PostDetailRelatedDeferredLoader` 가 `getTradeDetailRelatedData`+`preloadedItem` 로만 로드·`PostDetailPageClient` **children** 슬롯으로 `PostDetailView` 에 삽입. |
+
+### 라운드 P1 — 판정
+
+**비교:** 구조상 첫 응답에서 related 왕복 제거 — 체감·ms 는 환경별 후속 측정.  
+**판정:** **성공(범위 한정)** — 계약( `getTradeDetailRelatedData` 경유·클라 related 단독 첫 페인트 금지) 유지. 체크시트 §1 `[x]` 는 미연.
+
+**작업 스트림 마감(2026-05-10):** `trade-chat-entry-navigation.ts` 의 `openCreateTradeChat` 이 `router.replace(compose)` 만 수행하고 `createOrGetChatRoom` 을 await 하지 않음을 재확인. `getTradeDetailRelatedData` 외부에서 `loadTradeDetailRelatedBundle` 직접 호출 없음(`rg`·계약 스크립트). **이번 “거래 핫패스 마무리” 범위는 여기까지** — related 번들 내부 DB·캐시는 새 라운드 과제.
 
 ---
 

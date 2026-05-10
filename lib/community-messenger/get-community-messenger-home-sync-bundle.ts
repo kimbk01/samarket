@@ -12,7 +12,7 @@ import {
 } from "@/lib/community-messenger/service";
 import { homeSyncBreakdownEnabled, logHomeSyncBreakdown } from "@/lib/community-messenger/home-sync-breakdown-log";
 import { logMessengerPerfMs, messengerPerfStepsEnabled } from "@/lib/community-messenger/messenger-home-sync-perf-log";
-import { ms, type HomeSyncTrace } from "@/lib/community-messenger/home-sync-trace";
+import { homeSyncTraceMeterEnabled, ms, type HomeSyncTrace } from "@/lib/community-messenger/home-sync-trace";
 
 /**
  * 홈 사일런트 갱신 — `GET /api/community-messenger/home-sync` 전용.
@@ -37,11 +37,12 @@ export async function getCommunityMessengerHomeSyncBundle(
       homeSyncSkipHeavyEnrich: true,
       trace: options?.trace,
     });
-    if (options?.trace?.token) {
+    if (homeSyncTraceMeterEnabled(options?.trace)) {
       const bundleTotalMs = performance.now() - tBundle;
-      const tradeMs = options.trace.deepSteps.tradeMetaEnrich?.totalMs ?? 0;
-      options.trace.deepSteps.bundleSteps = {
-        ...(options.trace.deepSteps.bundleSteps ?? {}),
+      const tr = options!.trace!;
+      const tradeMs = tr.deepSteps.tradeMetaEnrich?.totalMs ?? 0;
+      tr.deepSteps.bundleSteps = {
+        ...(tr.deepSteps.bundleSteps ?? {}),
         bundleTotalMs: ms(bundleTotalMs),
         tradeMetaEnrichTotalMs: ms(tradeMs),
         outsideTradeEnrichMs: ms(Math.max(0, bundleTotalMs - tradeMs)),
@@ -86,11 +87,12 @@ export async function getCommunityMessengerHomeSyncBundle(
     })(),
   ]);
   const bundleParallelWallMs = performance.now() - tPar;
-  if (options?.trace?.token) {
+  if (homeSyncTraceMeterEnabled(options?.trace)) {
     const bundleTotalMs = performance.now() - tBundle;
-    const tradeMs = options.trace.deepSteps.tradeMetaEnrich?.totalMs ?? 0;
-    options.trace.deepSteps.bundleSteps = {
-      ...(options.trace.deepSteps.bundleSteps ?? {}),
+    const tr = options!.trace!;
+    const tradeMs = tr.deepSteps.tradeMetaEnrich?.totalMs ?? 0;
+    tr.deepSteps.bundleSteps = {
+      ...(tr.deepSteps.bundleSteps ?? {}),
       bundleTotalMs: ms(bundleTotalMs),
       tradeMetaEnrichTotalMs: ms(tradeMs),
       outsideTradeEnrichMs: ms(Math.max(0, bundleTotalMs - tradeMs)),

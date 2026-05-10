@@ -43,11 +43,16 @@ import {
   shouldRunBottomNavProgrammaticPrefetch,
 } from "@/lib/runtime/next-js-dev-client";
 import { prewarmBottomNavTapTargetClientCache } from "@/lib/main-menu/bottom-nav-tap-prewarm-data";
+import { prewarmBottomNavTapHrefResolvingStoresRegion } from "@/lib/main-menu/bottom-nav-prewarm-href";
 import { isCommunityMessengerRoomPathname } from "@/lib/layout/conditional-app-shell-flags";
 import { bumpMessengerRenderPerf, samarketRuntimeDebugLog } from "@/lib/runtime/samarket-runtime-debug";
 import { warmMessengerListBootstrapClient } from "@/lib/community-messenger/warm-messenger-list-bootstrap-client";
 import { mainBottomNavPrefetchTriggerKey } from "@/lib/main-menu/main-bottom-nav-prefetch-domain";
-import { isBottomNavTabActive, pickMainBottomNavPrefetchHrefs } from "@/lib/main-menu/main-bottom-nav-prefetch-pick";
+import {
+  isBottomNavTabActive,
+  pickMainBottomNavPrefetchHrefs,
+  resolveBottomNavTabProgrammaticPrefetchHref,
+} from "@/lib/main-menu/main-bottom-nav-prefetch-pick";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
   clientHasVerifiedContactForInteractive,
@@ -61,6 +66,7 @@ import {
   navPerfMarkBottomNavClickStart,
   navPerfSetOptimisticTotalMs,
 } from "@/lib/navigation/nav-perf-browser";
+import { useRegion } from "@/contexts/RegionContext";
 
 /** `/market` 에서만 push — 그 외 탭 간 이동은 replace(히스토리 누적·뒤로가기 꼬임 완화) */
 function mainTabLinkUsesReplace(pathname: string | null, targetHref: string): boolean {
@@ -108,6 +114,26 @@ function triggerLightTapFeedback(ev?: { pointerType?: string }): void {
   } catch {
     /* noop */
   }
+}
+
+declare global {
+  interface Window {
+    __samarketLastBottomNavRouteIntentAt?: number;
+  }
+}
+
+function markBottomNavRouteIntentForBackgroundWarm(): void {
+  if (typeof window === "undefined" || typeof performance === "undefined") return;
+  window.__samarketLastBottomNavRouteIntentAt = performance.now();
+}
+
+const BOTTOM_NAV_BACKGROUND_PREFETCH_QUIET_MS = 2_500;
+
+function remainingBottomNavBackgroundPrefetchQuietMs(): number {
+  if (typeof window === "undefined" || typeof performance === "undefined") return 0;
+  const last = window.__samarketLastBottomNavRouteIntentAt;
+  if (typeof last !== "number" || !Number.isFinite(last)) return 0;
+  return Math.max(0, BOTTOM_NAV_BACKGROUND_PREFETCH_QUIET_MS - (performance.now() - last));
 }
 
 const BottomNavHubBadgeDot = memo(function BottomNavHubBadgeDot({ count }: { count: number }) {
@@ -248,6 +274,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
         triggerLightTapFeedback(e);
         /** `beginMenuNavigation` 은 click 한 번만 — pointerDown+click 이중 호출 방지 */
         if (!isActive) {
+          markBottomNavRouteIntentForBackgroundWarm();
           try {
             void router.prefetch(effectiveHref);
           } catch {
@@ -271,6 +298,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
             return;
           }
           const navClickT0 = performance.now();
+          markBottomNavRouteIntentForBackgroundWarm();
           navPerfMarkBottomNavClickStart(navClickT0);
           beginMenuNavigation(effectiveHref);
           onNavigationIntent(tab.id);
@@ -299,6 +327,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
           return;
         }
         const navClickT0 = performance.now();
+        markBottomNavRouteIntentForBackgroundWarm();
         navPerfMarkBottomNavClickStart(navClickT0);
         beginMenuNavigation(effectiveHref);
         onNavigationIntent(tab.id);
@@ -331,6 +360,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   const { tt, t } = useI18n();
   const router = useRouter();
   const ownerStore = useOwnerLitePreferredStoreRow();
+  const { primaryRegion } = useRegion();
   const tabBadgeCount = useOwnerHubBadgeTabUnreadCount("stores");
   const _storeDeepLink = useOwnerHubBadgeStoreDeepLink();
   const isActive =
@@ -341,6 +371,9 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   const iconSize = tab.iconSizeClass ?? BOTTOM_NAV_THEME.iconSizeClass;
 
   const storesTabOwnerLite = !!ownerStore;
+  const prewarmStoresTabClientCache = useCallback(() => {
+    prewarmBottomNavTapHrefResolvingStoresRegion(tab.href, primaryRegion);
+  }, [primaryRegion, tab.href]);
 
   const inactiveSurface =
     isActive || !storesTabOwnerLite
@@ -393,7 +426,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
             /* noop */
           }
           try {
-            prewarmBottomNavTapTargetClientCache(tab.href);
+            prewarmStoresTabClientCache();
           } catch {
             /* noop */
           }
@@ -407,7 +440,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
             /* noop */
           }
           try {
-            prewarmBottomNavTapTargetClientCache(tab.href);
+            prewarmStoresTabClientCache();
           } catch {
             /* noop */
           }
@@ -421,7 +454,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
             /* noop */
           }
           try {
-            prewarmBottomNavTapTargetClientCache(tab.href);
+            prewarmStoresTabClientCache();
           } catch {
             /* noop */
           }
@@ -430,13 +463,14 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
       onPointerDown={(e) => {
         triggerLightTapFeedback(e);
         if (!isActive) {
+          markBottomNavRouteIntentForBackgroundWarm();
           try {
             void router.prefetch(tab.href);
           } catch {
             /* noop */
           }
           try {
-            prewarmBottomNavTapTargetClientCache(tab.href);
+            prewarmStoresTabClientCache();
           } catch {
             /* noop */
           }
@@ -452,6 +486,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
             return;
           }
           const navClickT0 = performance.now();
+          markBottomNavRouteIntentForBackgroundWarm();
           navPerfMarkBottomNavClickStart(navClickT0);
           beginMenuNavigation(tab.href);
           onNavigationIntent(tab.id);
@@ -463,7 +498,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
               /* noop */
             }
             try {
-              prewarmBottomNavTapTargetClientCache(tab.href);
+              prewarmStoresTabClientCache();
             } catch {
               /* noop */
             }
@@ -480,6 +515,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
           return;
         }
         const navClickT0 = performance.now();
+        markBottomNavRouteIntentForBackgroundWarm();
         navPerfMarkBottomNavClickStart(navClickT0);
         beginMenuNavigation(tab.href);
         onNavigationIntent(tab.id);
@@ -533,6 +569,11 @@ export function BottomNav({
     () => mainBottomNavPrefetchTriggerKey(pathname ?? null),
     [pathname]
   );
+  const { primaryRegion } = useRegion();
+  const primaryRegionRef = useRef(primaryRegion);
+  useLayoutEffect(() => {
+    primaryRegionRef.current = primaryRegion;
+  }, [primaryRegion]);
   const searchParams = useSearchParams();
   const navSearch = searchParams.toString();
   const router = useRouter();
@@ -628,13 +669,21 @@ export function BottomNav({
 
         const scheduleNext = (nextIdx: number) => {
           if (nextIdx >= hrefs.length) return;
+          const quietMs = remainingBottomNavBackgroundPrefetchQuietMs();
           chainTimers.push(
-            window.setTimeout(() => runPrefetchAt(nextIdx), BOTTOM_NAV_PREFETCH_SPREAD_MS)
+            window.setTimeout(() => runPrefetchAt(nextIdx), Math.max(BOTTOM_NAV_PREFETCH_SPREAD_MS, quietMs))
           );
         };
 
         const runPrefetchAt = (idx: number) => {
           if (cancelled || idx >= hrefs.length) return;
+          const quietMs = remainingBottomNavBackgroundPrefetchQuietMs();
+          if (quietMs > 0) {
+            chainTimers.push(
+              window.setTimeout(() => runPrefetchAt(idx), quietMs + BOTTOM_NAV_PREFETCH_SPREAD_MS)
+            );
+            return;
+          }
           const href = hrefs[idx];
           try {
             samarketRuntimeDebugLog("bottom-nav-prefetch", "router.prefetch", {
@@ -651,7 +700,7 @@ export function BottomNav({
             }
             /** idle 프리페치 사이클에서도 클라 데이터 캐시를 함께 데워 RSC·DATA 캐시 분리 미스 방지 */
             try {
-              prewarmBottomNavTapTargetClientCache(href);
+              prewarmBottomNavTapHrefResolvingStoresRegion(href, primaryRegionRef.current);
             } catch {
               /* noop */
             }
@@ -692,8 +741,9 @@ export function BottomNav({
     } catch {
       /* ignore storage failures */
     }
+    const at = pathnameForPrefetchRef.current;
     const hrefs = tabsRef.current
-      .map((tab) => tab.href)
+      .map((tab) => resolveBottomNavTabProgrammaticPrefetchHref(tab, at))
       .filter((href, idx, arr) => arr.indexOf(href) === idx)
       .slice(0, 5);
     if (hrefs.length === 0) return;
@@ -706,9 +756,24 @@ export function BottomNav({
         chainTimers.push(
           window.setTimeout(() => {
             if (cancelled) return;
+            const quietMs = remainingBottomNavBackgroundPrefetchQuietMs();
+            if (quietMs > 0) {
+              chainTimers.push(
+                window.setTimeout(() => {
+                  if (cancelled) return;
+                  try {
+                    routerRef.current.prefetch(href);
+                    prewarmBottomNavTapHrefResolvingStoresRegion(href, primaryRegionRef.current);
+                  } catch {
+                    /* noop */
+                  }
+                }, quietMs + BOTTOM_NAV_PREFETCH_SPREAD_MS)
+              );
+              return;
+            }
             try {
               routerRef.current.prefetch(href);
-              prewarmBottomNavTapTargetClientCache(href);
+              prewarmBottomNavTapHrefResolvingStoresRegion(href, primaryRegionRef.current);
             } catch {
               /* noop */
             }

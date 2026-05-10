@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { OPEN_RECEIVED_OFFERS_SEARCH_PARAM } from "@/lib/notifications/resolve-notification-inbox-href";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ChatRoomSource } from "@/lib/types/chat";
@@ -754,6 +754,8 @@ interface PostDetailViewProps {
     similarItems: PostWithMeta[];
     ads: PostWithMeta[];
   };
+  /** RSC `Suspense` 슬롯 — related 를 본문 이후 스트리밍할 때(거래 상세 핫패스). */
+  relatedSectionsSlot?: ReactNode;
   /** RSC에서 시드 — 동일 세션이면 `room-id` GET 생략 */
   viewerTradeRoomBootstrap?: {
     viewerUserId: string;
@@ -774,6 +776,7 @@ export function PostDetailView({
   post,
   sellerProfile = null,
   related,
+  relatedSectionsSlot,
   viewerTradeRoomBootstrap,
   initialRouteTotalMs,
   serverViewerUserId,
@@ -1960,13 +1963,15 @@ export function PostDetailView({
             ) : null}
           </section>
 
-          {related ? (
-            <PostDetailRelatedSections
-              sellerItems={related.sellerItems}
-              similarItems={related.similarItems}
-              ads={related.ads}
-            />
-          ) : null}
+          {relatedSectionsSlot
+            ? relatedSectionsSlot
+            : related ? (
+                <PostDetailRelatedSections
+                  sellerItems={related.sellerItems}
+                  similarItems={related.similarItems}
+                  ads={related.ads}
+                />
+              ) : null}
 
           {post.type === "community" ? (
             <div className={POST_DETAIL_COMMUNITY_CARD_CLASS}>
@@ -2253,13 +2258,15 @@ export function PostDetailView({
           ) : null}
         </section>
 
-        {related ? (
-          <PostDetailRelatedSections
-            sellerItems={related.sellerItems}
-            similarItems={related.similarItems}
-            ads={related.ads}
-          />
-        ) : null}
+        {relatedSectionsSlot
+          ? relatedSectionsSlot
+          : related ? (
+              <PostDetailRelatedSections
+                sellerItems={related.sellerItems}
+                similarItems={related.similarItems}
+                ads={related.ads}
+              />
+            ) : null}
 
         {post.type === "community" ? (
           <div className={POST_DETAIL_COMMUNITY_CARD_CLASS}>

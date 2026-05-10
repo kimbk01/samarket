@@ -38,7 +38,9 @@ import {
   logHomeSyncBreakdown,
   logHomeSyncBreakdownSummary,
 } from "@/lib/community-messenger/home-sync-breakdown-log";
+import { samarketMessengerTraceLogEnabled } from "@/lib/debug/samarket-server-trace-flags";
 import { logMessengerPerfMs, messengerPerfStepsEnabled } from "@/lib/community-messenger/messenger-home-sync-perf-log";
+import { messengerVerboseTraceConsoleEnabled } from "@/lib/community-messenger/messenger-trace-console";
 import type {
   HomeSyncDeepStepsCategoryFetchDetail,
   HomeSyncDeepStepsTradeDirectKeys,
@@ -47,7 +49,7 @@ import type {
   HomeSyncDeepStepsTradePostsFetchDetail,
   HomeSyncTrace,
 } from "@/lib/community-messenger/home-sync-trace";
-import { ms } from "@/lib/community-messenger/home-sync-trace";
+import { homeSyncTraceMeterEnabled, ms } from "@/lib/community-messenger/home-sync-trace";
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
 import { extractPostThumbnailPathFromPostRow } from "@/lib/community-messenger/trade-chat-list/post-thumbnail-path";
 import {
@@ -1297,7 +1299,7 @@ export async function hydrateProfilesLabelsOnlyWithMap(
   options?: { includeSelf?: boolean; prefetchedProfiles?: Map<string, ProfileRow>; trace?: HomeSyncTrace }
 ): Promise<{ members: CommunityMessengerProfileLite[]; profileMap: Map<string, ProfileRow> }> {
   const trace = options?.trace;
-  const deepSteps = Boolean(trace?.token);
+  const deepSteps = homeSyncTraceMeterEnabled(trace);
   const tTop = deepSteps ? performance.now() : 0;
   const includeSelf = options?.includeSelf === true;
   const tDedupe = deepSteps ? performance.now() : 0;
@@ -3013,7 +3015,7 @@ export async function listCommunityMessengerMyChatsAndGroups(
       participantsProfilesMs
     );
   }
-  const participantUnreadPerf = options?.trace?.token ? { participantUnreadCpuMs: 0 } : undefined;
+  const participantUnreadPerf = homeSyncTraceMeterEnabled(options?.trace) ? { participantUnreadCpuMs: 0 } : undefined;
   const tSummarize = performance.now();
   const mySummaries = summarizeRoomsBatchWithProfileMap(
     userId,
@@ -3024,9 +3026,10 @@ export async function listCommunityMessengerMyChatsAndGroups(
     participantUnreadPerf
   );
   const summarizeMs = performance.now() - tSummarize;
-  if (options?.trace?.token && participantUnreadPerf) {
-    options.trace.deepSteps.unreadHomeSyncSteps = {
-      ...(options.trace.deepSteps.unreadHomeSyncSteps ?? {}),
+  if (homeSyncTraceMeterEnabled(options?.trace) && participantUnreadPerf) {
+    const tr = options!.trace!;
+    tr.deepSteps.unreadHomeSyncSteps = {
+      ...(tr.deepSteps.unreadHomeSyncSteps ?? {}),
       participantUnreadMs: ms(participantUnreadPerf.participantUnreadCpuMs),
     };
   }
@@ -3058,9 +3061,10 @@ export async function listCommunityMessengerMyChatsAndGroups(
       () => {}
     );
     unreadBadgeMs = performance.now() - tLeg;
-    if (options?.trace?.token) {
-      options.trace.deepSteps.unreadHomeSyncSteps = {
-        ...(options.trace.deepSteps.unreadHomeSyncSteps ?? {}),
+    if (homeSyncTraceMeterEnabled(options?.trace)) {
+      const tr = options!.trace!;
+      tr.deepSteps.unreadHomeSyncSteps = {
+        ...(tr.deepSteps.unreadHomeSyncSteps ?? {}),
         unreadBadgeMs: ms(unreadBadgeMs),
       };
     }
@@ -3099,10 +3103,11 @@ export async function listCommunityMessengerMyChatsAndGroups(
   const listSplitFilterMs = performance.now() - tSplitLists;
   const payloadBuildMs = ms(roomIdsMs + roomSliceCpuMs + summarizeMs + listSplitFilterMs);
 
-  if (options?.trace?.token) {
+  if (homeSyncTraceMeterEnabled(options?.trace)) {
+    const listTrace = options!.trace!;
     const listWall = performance.now() - tListTop;
-    const prev = options.trace.deepSteps.bundleSteps;
-    options.trace.deepSteps.bundleSteps = {
+    const prev = listTrace.deepSteps.bundleSteps;
+    listTrace.deepSteps.bundleSteps = {
       ...(prev ?? {}),
       roomsFetchMs: ms(fetchMyRoomsMs),
       roomSliceCpuMs: ms(roomSliceCpuMs),
@@ -4208,7 +4213,7 @@ async function enrichTradeRoomContextMetaFromDirectKeys(
     shared.directKeysPrefetchedPosts = undefined;
   }
 
-  const deepSteps = Boolean(shared?.trace?.token);
+  const deepSteps = homeSyncTraceMeterEnabled(shared?.trace);
   const tDirectWall = deepSteps ? performance.now() : 0;
 
   const pcIdsFromKey: string[] = [];
@@ -4243,7 +4248,7 @@ async function enrichTradeRoomContextMetaFromDirectKeys(
       if (!megaErr && megaData != null) {
         const bundleRpcMsRaw = performance.now() - tMega;
         const parsedRoot = parseHomeSyncCriticalMegaBundleRpcPayload(megaData);
-        if (!parsedRoot && process.env.NODE_ENV === "development") {
+        if (!parsedRoot && process.env.NODE_ENV === "development" && messengerVerboseTraceConsoleEnabled()) {
           console.warn(
             "[home-sync-fail] HS3 FINAL directKeys still multi-RTT — mega_bundle_parse_failed"
           );
@@ -4296,7 +4301,7 @@ async function enrichTradeRoomContextMetaFromDirectKeys(
         const megaIntegrityOk = ledgerPcOk && ledgerCrOk && postsOk;
         const allPostIdsMega = dedupeIds([...postByIdMega.keys()]);
 
-        if (!megaIntegrityOk && process.env.NODE_ENV === "development") {
+        if (!megaIntegrityOk && process.env.NODE_ENV === "development" && messengerVerboseTraceConsoleEnabled()) {
           console.warn(
             "[home-sync-fail] HS3 FINAL directKeys still multi-RTT — mega_bundle_incomplete",
             {
@@ -4367,7 +4372,7 @@ async function enrichTradeRoomContextMetaFromDirectKeys(
             sellerListingStateRaw: post?.seller_listing_state,
             postStatus: (post?.status as string | undefined) ?? null,
             thumbnailUrl: firstPostThumbnailForMessengerTradeList(post),
-            tradeMetaBuildTrace: shared?.trace?.token ? shared.trace : undefined,
+            tradeMetaBuildTrace: homeSyncTraceMeterEnabled(shared?.trace) ? shared!.trace : undefined,
           });
         };
         for (const s of targets) {
@@ -4393,7 +4398,12 @@ async function enrichTradeRoomContextMetaFromDirectKeys(
           Math.round(bundleRpcMsRaw + postsFetchMsMega + categoryEnsureMsMega - wallMsEndMega)
         );
 
-        if (process.env.NODE_ENV === "development" && deepSteps && shared.trace?.tier === "critical") {
+        if (
+          process.env.NODE_ENV === "development" &&
+          messengerVerboseTraceConsoleEnabled() &&
+          deepSteps &&
+          shared.trace?.tier === "critical"
+        ) {
           if (wallMsEndMega > 350) {
             console.warn("[home-sync-fail] HS3 directKeys target missed", {
               directKeys_wallMs: Math.round(wallMsEndMega),
@@ -4430,7 +4440,7 @@ async function enrichTradeRoomContextMetaFromDirectKeys(
         }
       }
     } catch (megaCatch) {
-      if (process.env.NODE_ENV === "development") {
+      if (process.env.NODE_ENV === "development" && messengerVerboseTraceConsoleEnabled()) {
         console.warn(
           "[home-sync] home_sync_direct_keys_critical_bundle failed — legacy directKeys path",
           megaCatch
@@ -4506,7 +4516,7 @@ async function enrichTradeRoomContextMetaFromDirectKeys(
       } catch (bundleRpcErr) {
         usedItemTradeLedgerBundleRpc = false;
         itemTradeLedgerBundleRpcMs = 0;
-        if (process.env.NODE_ENV === "development") {
+        if (process.env.NODE_ENV === "development" && messengerVerboseTraceConsoleEnabled()) {
           console.warn(
             "[home-sync] home_sync_direct_keys_item_trade_rows unavailable — legacy chat_rooms + pcCandidates split",
             bundleRpcErr
@@ -4643,7 +4653,7 @@ async function enrichTradeRoomContextMetaFromDirectKeys(
       sellerListingStateRaw: post?.seller_listing_state,
       postStatus: (post?.status as string | undefined) ?? null,
       thumbnailUrl: firstPostThumbnailForMessengerTradeList(post),
-      tradeMetaBuildTrace: shared?.trace?.token ? shared.trace : undefined,
+      tradeMetaBuildTrace: homeSyncTraceMeterEnabled(shared?.trace) ? shared!.trace : undefined,
     });
   };
 
@@ -4666,7 +4676,12 @@ async function enrichTradeRoomContextMetaFromDirectKeys(
 
   const wallMsEndRaw = performance.now() - tDirectWall;
 
-  if (process.env.NODE_ENV === "development" && deepSteps && shared?.trace?.tier === "critical") {
+  if (
+    process.env.NODE_ENV === "development" &&
+    messengerVerboseTraceConsoleEnabled() &&
+    deepSteps &&
+    shared?.trace?.tier === "critical"
+  ) {
     const tpfd = shared.trace.deepSteps?.tradePostsFetchDetail;
     const miss350 = wallMsEndRaw > 350;
     const missPcCandSum =
@@ -4802,7 +4817,7 @@ async function hydrateTradeListSellerDisplayNamesForSummaries(
   trace?: HomeSyncTrace,
   opts?: { warmPcMapPromise?: Promise<Map<string, { seller_id: string; post_id: string }>> | null }
 ): Promise<void> {
-  const deepSteps = Boolean(trace?.token);
+  const deepSteps = homeSyncTraceMeterEnabled(trace);
   const tTop = deepSteps ? performance.now() : 0;
   const tradeRows = summaries.filter((s) => s.contextMeta?.kind === "trade");
   if (!tradeRows.length) return;
@@ -4928,7 +4943,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
   const sb = getSupabaseOrNull();
   if (!sb) return;
 
-  const deepSteps = Boolean(trace?.token);
+  const deepSteps = homeSyncTraceMeterEnabled(trace);
   const tTop = deepSteps ? performance.now() : 0;
   let tradePostsFetchMs = 0;
   let categoryFetchMs = 0;
@@ -5174,7 +5189,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
           sellerListingStateRaw: post?.seller_listing_state,
           postStatus: (post?.status as string | undefined) ?? null,
           thumbnailUrl: firstPostThumbnailForMessengerTradeList(post as Record<string, unknown>),
-          tradeMetaBuildTrace: trace?.token ? trace : undefined,
+          tradeMetaBuildTrace: homeSyncTraceMeterEnabled(trace) ? trace : undefined,
         });
       }
       if (deepSteps) cpuMergeMs += performance.now() - tCpuA;
@@ -5246,7 +5261,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
           sellerListingStateRaw: post?.seller_listing_state,
           postStatus: (post?.status as string | undefined) ?? null,
           thumbnailUrl: firstPostThumbnailForMessengerTradeList(post as Record<string, unknown>),
-          tradeMetaBuildTrace: trace?.token ? trace : undefined,
+          tradeMetaBuildTrace: homeSyncTraceMeterEnabled(trace) ? trace : undefined,
         });
         touchTradeRoomMeta(s.id);
         s.contextMeta = nextMeta;
@@ -5254,6 +5269,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
         if (
           typeof process !== "undefined" &&
           process.env.NODE_ENV === "development" &&
+          samarketMessengerTraceLogEnabled() &&
           hydrateCheckLoggedOnce === false
         ) {
           hydrateCheckLoggedOnce = true;
@@ -5372,7 +5388,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
           sellerListingStateRaw: post?.seller_listing_state,
           postStatus: (post?.status as string | undefined) ?? null,
           thumbnailUrl: firstPostThumbnailForMessengerTradeList(post as Record<string, unknown>),
-          tradeMetaBuildTrace: trace?.token ? trace : undefined,
+          tradeMetaBuildTrace: homeSyncTraceMeterEnabled(trace) ? trace : undefined,
         });
       }
       if (deepSteps) cpuMergeMs += performance.now() - tCpuC;
@@ -5502,7 +5518,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
           sellerListingStateRaw: post?.seller_listing_state,
           postStatus: (post?.status as string | undefined) ?? null,
           thumbnailUrl: firstPostThumbnailForMessengerTradeList(post as Record<string, unknown>),
-          tradeMetaBuildTrace: trace?.token ? trace : undefined,
+          tradeMetaBuildTrace: homeSyncTraceMeterEnabled(trace) ? trace : undefined,
         });
       }
       if (deepSteps) phaseDFinalMergeCpuMs += performance.now() - tCpuD;
@@ -5645,18 +5661,20 @@ async function enrichTradeRoomContextMetaForBootstrap(
       phaseDFinalMergeCpuMs +
       tradeEnrichPhaseTargetsPrepCpuMs +
       phaseASeedMissProductChatsMs;
-    console.info("[trade-enrich-breakdown]", {
-      trade_query_count: tradePostsDetail?.queryCount ?? 0,
-      fallback_attempt_count: postFb + catFb,
-      schema_detect_ms: ms(tradePostsDetail?.schemaColdDetectWallMs ?? 0),
-      trade_posts_fetch_ms: postsFm,
-      trade_merge_ms: cpuM,
-      trade_cpu_ms: ms(tradeCpuFromBuilderMs + tradePhaseCpuMs),
-      trade_payload_kb: Math.round(tradePayloadBytes / 1024),
-      duplicate_trade_keys: duplicateTradeRoomApplies,
-      trade_meta_enrich_total_ms: totalRounded,
-      tier: trace.tier ?? null,
-    });
+    if (samarketMessengerTraceLogEnabled()) {
+      console.info("[trade-enrich-breakdown]", {
+        trade_query_count: tradePostsDetail?.queryCount ?? 0,
+        fallback_attempt_count: postFb + catFb,
+        schema_detect_ms: ms(tradePostsDetail?.schemaColdDetectWallMs ?? 0),
+        trade_posts_fetch_ms: postsFm,
+        trade_merge_ms: cpuM,
+        trade_cpu_ms: ms(tradeCpuFromBuilderMs + tradePhaseCpuMs),
+        trade_payload_kb: Math.round(tradePayloadBytes / 1024),
+        duplicate_trade_keys: duplicateTradeRoomApplies,
+        trade_meta_enrich_total_ms: totalRounded,
+        tier: trace.tier ?? null,
+      });
+    }
     trace.deepSteps.tradeMetaEnrich = {
       tradePostsFetchMs: ms(tradePostsFetchMs),
       tradePostsDetail,
@@ -8003,13 +8021,14 @@ function mergeHomeSyncTradePostsFetchDetail(
     schemaColdDetectWallMs?: number;
   }
 ) {
-  if (!trace?.token) return;
+  if (!homeSyncTraceMeterEnabled(trace)) return;
+  const tr = trace!;
   const sel = detail.usedSelect;
   const colCount =
     typeof sel === "string" && sel.trim()
       ? sel.split(",").map((s) => s.trim()).filter(Boolean).length
       : 0;
-  const prev = trace.deepSteps.tradePostsFetchDetail;
+  const prev = tr.deepSteps.tradePostsFetchDetail;
   if (!prev) {
     detail.postIdsCount = ms(detail.postIdsCount);
     detail.postIdsDedupeCount = ms(detail.postIdsDedupeCount);
@@ -8023,7 +8042,7 @@ function mergeHomeSyncTradePostsFetchDetail(
         detail.schemaColdDetectWallMs
       );
     }
-    trace.deepSteps.tradePostsFetchDetail = detail as HomeSyncDeepStepsTradePostsFetchDetail;
+    tr.deepSteps.tradePostsFetchDetail = detail as HomeSyncDeepStepsTradePostsFetchDetail;
     return;
   }
   prev.postIdsCount = ms(prev.postIdsCount + detail.postIdsCount);
@@ -8050,7 +8069,7 @@ async function fetchTradeChatListPostRowsByIds(
   postIds: string[],
   trace?: HomeSyncTrace
 ): Promise<Map<string, Record<string, unknown>>> {
-  const deepSteps = Boolean(trace?.token);
+  const deepSteps = homeSyncTraceMeterEnabled(trace);
   const ids = dedupeIds(postIds);
   if (!ids.length) return new Map();
   const detail = deepSteps
@@ -8199,10 +8218,11 @@ function appendHomeSyncTradeMetaBuildFromPostDetail(
   trace: HomeSyncTrace | undefined,
   delta: HomeSyncDeepStepsTradeMetaBuildFromPostDetail
 ) {
-  if (!trace?.token) return;
-  const prev = trace.deepSteps.tradeMetaBuildFromPostDetail;
+  if (!homeSyncTraceMeterEnabled(trace)) return;
+  const tr = trace!;
+  const prev = tr.deepSteps.tradeMetaBuildFromPostDetail;
   if (!prev) {
-    trace.deepSteps.tradeMetaBuildFromPostDetail = delta;
+    tr.deepSteps.tradeMetaBuildFromPostDetail = delta;
     return;
   }
   prev.calls = ms(prev.calls + delta.calls);
@@ -8249,7 +8269,7 @@ function buildTradeMessengerListContextMetaFromLoadedPost(args: {
       listDisplayStringsAlreadyNormalized: true,
     });
 
-  if (!trace?.token) {
+  if (!homeSyncTraceMeterEnabled(trace)) {
     const pcl = tradeChatProductCategoryDisplayName(post, args.categoryById);
     const productTitle = tradePostHeadlineForMessengerList(post) || "제목 없음";
     const categoryMenuLabel = tradeChatCategoryMenuLabelForPost(post, args.categoryById);
@@ -8279,10 +8299,11 @@ function buildTradeMessengerListContextMetaFromLoadedPost(args: {
 }
 
 function appendHomeSyncCategoryFetchDetail(trace: HomeSyncTrace | undefined, delta: HomeSyncDeepStepsCategoryFetchDetail) {
-  if (!trace?.token) return;
-  const prev = trace.deepSteps.categoryFetchDetail;
+  if (!homeSyncTraceMeterEnabled(trace)) return;
+  const tr = trace!;
+  const prev = tr.deepSteps.categoryFetchDetail;
   if (!prev) {
-    trace.deepSteps.categoryFetchDetail = delta;
+    tr.deepSteps.categoryFetchDetail = delta;
     return;
   }
   prev.categoryCacheHitCount = ms(prev.categoryCacheHitCount + delta.categoryCacheHitCount);
@@ -8322,7 +8343,7 @@ class TradeCategoryMetaRequestLoader {
   }
 
   async ensureForPosts(posts: Iterable<Record<string, unknown>>): Promise<void> {
-    const deepSteps = Boolean(this.trace?.token);
+    const deepSteps = homeSyncTraceMeterEnabled(this.trace);
     const postList = [...posts];
     const canonicalIds = dedupeIds(postList.map((post) => tradePostCategoryId(post)));
     if (!canonicalIds.length) return;
@@ -8477,7 +8498,8 @@ class TradeCategoryMetaRequestLoader {
             table === "trade_categories" &&
             typeof process !== "undefined" &&
             process.env.NODE_ENV === "development" &&
-            this.trace?.token
+            messengerVerboseTraceConsoleEnabled() &&
+            homeSyncTraceMeterEnabled(this.trace)
           ) {
             try {
               const anyTrace = this.trace as { __cmTradeCategoriesFallbackLogCount?: number };
@@ -8490,7 +8512,7 @@ class TradeCategoryMetaRequestLoader {
                 const err = (res as { error?: unknown }).error ?? null;
                 // eslint-disable-next-line no-console -- dev-only diagnostic for fallback failure reason
                 console.warn("[home-sync-category-fallback]", {
-                  token: this.trace.token,
+                  token: this.trace!.token,
                   table,
                   attemptedSelect: sel,
                   failedAttemptIndex: attemptIndex,

@@ -1,12 +1,12 @@
 "use client";
 
 /**
- * 거래 상세 클라 — related 는 RSC `initialBundle` 에 실림 (`getTradeDetailRelatedData` 병렬).
+ * 거래 상세 클라 — related 는 RSC `Suspense` 슬롯(`PostDetailRelatedDeferredLoader` → `getTradeDetailRelatedData`)으로 스트림.
  *
  * `.cursor/rules/trade-post-detail-chat-hot-path.mdc`
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import type { PostWithMeta } from "@/lib/posts/schema";
@@ -38,6 +38,7 @@ type ListingFieldsSnapshot = {
 type Props = {
   initialBundle: TradeItemDetailPageData;
   initialRouteTotalMs?: number;
+  children?: ReactNode;
 };
 
 const tradeDetailListingFieldsCache = new Map<string, ListingFieldsSnapshot>();
@@ -87,7 +88,7 @@ function applyListingFieldsRow(prev: PostWithMeta, row: ApiPostRow, id: string):
 /**
  * 상세 본문은 RSC에서 이미 로드 — 클라이언트는 가시성·포커스 시 목록 필드만 보정.
  */
-export function PostDetailPageClient({ initialBundle, initialRouteTotalMs }: Props) {
+export function PostDetailPageClient({ initialBundle, initialRouteTotalMs, children }: Props) {
   const id = initialBundle.item.id;
   const [post, setPost] = useState<PostWithMeta>(initialBundle.item);
   const related = useMemo(
@@ -98,6 +99,7 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs }: Pro
     }),
     [initialBundle.sellerItems, initialBundle.similarItems, initialBundle.ads]
   );
+  const hasRelatedSlot = Boolean(children);
   const lastListingFieldsRefreshAtRef = useRef(0);
 
   useEffect(() => {
@@ -159,7 +161,8 @@ export function PostDetailPageClient({ initialBundle, initialRouteTotalMs }: Pro
       <PostDetailView
         post={post}
         sellerProfile={initialBundle.sellerProfile ?? null}
-        related={related}
+        related={hasRelatedSlot ? undefined : related}
+        relatedSectionsSlot={hasRelatedSlot ? children : undefined}
         viewerTradeRoomBootstrap={initialBundle.viewerTradeRoomBootstrap}
         initialRouteTotalMs={initialRouteTotalMs}
         serverViewerUserId={

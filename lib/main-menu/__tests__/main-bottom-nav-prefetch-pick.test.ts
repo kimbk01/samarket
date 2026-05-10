@@ -48,7 +48,9 @@ describe("pickMainBottomNavPrefetchHrefs", () => {
     expect(hrefs.every((h) => !isBottomNavTabActive("/philife/x", h))).toBe(true);
     expect(hrefs).toContain("/market");
     expect(hrefs).toContain("/stores");
-    expect(hrefs).toContain("/community-messenger?section=chats");
+    expect(hrefs.some((h) => h.startsWith("/community-messenger") && h.includes("section=chats") && h.includes("from=community"))).toBe(
+      true
+    );
     expect(hrefs).toContain("/mypage");
     expect(hrefs).not.toContain("/philife");
   });
@@ -57,6 +59,11 @@ describe("pickMainBottomNavPrefetchHrefs", () => {
     const hrefs = pickMainBottomNavPrefetchHrefs("/market/list", BOTTOM_NAV_ITEMS);
     expect(hrefs).not.toContain("/market");
     expect(hrefs.length).toBeLessThanOrEqual(MAIN_BOTTOM_NAV_PREFETCH_MAX);
+  });
+
+  it("거래 표면 idle 후보의 메신저 href 는 탭 링크와 동일하게 from=trade", () => {
+    const hrefs = pickMainBottomNavPrefetchHrefs("/market/list", BOTTOM_NAV_ITEMS);
+    expect(hrefs.some((h) => h.includes("/community-messenger") && h.includes("from=trade"))).toBe(true);
   });
 
   it("동일 href 중복 탭이 있어도 seen 으로 한 번만", () => {

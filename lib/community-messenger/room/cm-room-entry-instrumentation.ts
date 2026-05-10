@@ -1,6 +1,6 @@
 /**
  * Room entry perf — unread/read ack/realtime 의미 변경 없이 **측정·로그만** 담당.
- * 켜기: `NEXT_PUBLIC_MESSENGER_PERF_TRACE_ROOM_ENTRY=1` (클라 번들에 포함됨).
+ * 켜기: `NEXT_PUBLIC_MESSENGER_PERF_TRACE_ROOM_ENTRY=1` 또는 `NEXT_PUBLIC_MESSENGER_PERF_TRACE=1` (클라 번들).
  */
 
 const MILESTONE_KEYS = [
@@ -25,7 +25,8 @@ export function cmRoomEntryTraceEnabled(): boolean {
     return (
       typeof process !== "undefined" &&
       typeof process.env !== "undefined" &&
-      process.env.NEXT_PUBLIC_MESSENGER_PERF_TRACE_ROOM_ENTRY === "1"
+      (process.env.NEXT_PUBLIC_MESSENGER_PERF_TRACE_ROOM_ENTRY === "1" ||
+        process.env.NEXT_PUBLIC_MESSENGER_PERF_TRACE === "1")
     );
   } catch {
     return false;
@@ -80,8 +81,8 @@ export function setCmRoomEntryBootstrapMeta(meta: {
 
 export function logCmRoomEntryAnalysis(payload: Record<string, unknown>): void {
   if (!cmRoomEntryTraceEnabled()) return;
-  if (typeof console !== "undefined" && typeof console.info === "function") {
-    console.info("[cm-room-entry-analysis]", JSON.stringify(payload));
+  if (typeof console !== "undefined" && typeof console.debug === "function") {
+    console.debug("[cm-room-entry-analysis]", JSON.stringify(payload));
   }
 }
 
@@ -92,7 +93,7 @@ export function tryEmitCmRoomEntryV2Log(roomId: string): void {
   if (!cmRoomEntryTraceEnabled()) return;
   const id = String(roomId ?? "").trim();
   if (!id || v2EmittedForRoom === id) return;
-  if (typeof console === "undefined" || typeof console.info !== "function") return;
+  if (typeof console === "undefined" || typeof console.debug !== "function") return;
   v2EmittedForRoom = id;
   const body = {
     room_id_suffix: id.length <= 8 ? id : id.slice(-8),
@@ -105,5 +106,6 @@ export function tryEmitCmRoomEntryV2Log(roomId: string): void {
     used_prefetch: lastUsedPrefetch,
     used_cached_snapshot: lastUsedCachedSnapshot,
   };
-  console.info("[cm-room-entry-v2]", JSON.stringify(body));
+  // eslint-disable-next-line no-console -- gated room entry v2
+  console.debug("[cm-room-entry-v2]", JSON.stringify(body));
 }

@@ -24,7 +24,11 @@ import {
 } from "@/lib/posts/getPostsByCategory";
 import { isCachedTradeFeedFresh } from "@/lib/posts/trade-feed-client-cache";
 import { prewarmStoreHomeFeedClientCache } from "@/lib/stores/store-home-feed-client-cache";
-import { fetchMeStoreOrdersHubSummaryDeduped } from "@/lib/stores/store-delivery-api-client";
+import {
+  fetchMeStoreOrdersHubSummaryDeduped,
+  fetchStoresTaxonomyDeduped,
+  isStoresTaxonomyClientCacheFresh,
+} from "@/lib/stores/store-delivery-api-client";
 import {
   buildPhilifeNeighborhoodFeedClientUrl,
   NEIGHBORHOOD_FEED_PAGE_SIZE,
@@ -44,6 +48,10 @@ import { fetchMeProfileDeduped, isMeProfileCacheFresh } from "@/lib/profile/fetc
 
 const PHILIFE_TAB_PREWARM_COOLDOWN_MS = 12_000;
 const philifeTabPrewarmAt = new Map<string, number>();
+
+type BottomNavTapPrewarmOptions = {
+  storeHomeFeedSuffixes?: readonly string[];
+};
 
 function canRunPhilifeTabPrewarm(key: string): boolean {
   const now = Date.now();
@@ -114,7 +122,10 @@ function decodeSegment(raw: string): string {
   }
 }
 
-export function prewarmBottomNavTapTargetClientCache(href: string): void {
+export function prewarmBottomNavTapTargetClientCache(
+  href: string,
+  opts: BottomNavTapPrewarmOptions = {}
+): void {
   if (typeof window === "undefined") return;
   if (!href || typeof href !== "string") return;
   const path = (href.split("?")[0] ?? "").trim();
@@ -146,9 +157,17 @@ export function prewarmBottomNavTapTargetClientCache(href: string): void {
   }
 
   if (path === "/stores") {
-    void prewarmStoreHomeFeedClientCache("").catch(() => {
-      /* stores 홈 기본 피드 prewarm 실패는 무시 (마운트 시 단일비행 합류) */
-    });
+    const feedSuffixes = Array.from(new Set(["", ...(opts.storeHomeFeedSuffixes ?? [])]));
+    for (const suffix of feedSuffixes) {
+      void prewarmStoreHomeFeedClientCache(suffix).catch(() => {
+        /* stores 홈 피드 prewarm 실패는 무시 (마운트 시 단일비행 합류) */
+      });
+    }
+    if (!isStoresTaxonomyClientCacheFresh()) {
+      void fetchStoresTaxonomyDeduped().catch(() => {
+        /* taxonomy prewarm 실패 무시 — 마운트 시 동일 single-flight·TTL 합류 */
+      });
+    }
     void fetchMeStoreOrdersHubSummaryDeduped().catch(() => {
       /* 비로그인/권한 없음 포함 허브 요약 실패 무시 */
     });
@@ -195,7 +214,7 @@ export function prewarmBottomNavTapTargetClientCache(href: string): void {
    * 현재 범위:
    * - 거래(/market 계열)
    * - 필라이프(/philife 글로벌·토픽 옵션)
-   * - 스토어(/stores 기본 피드, 허브 요약)
+   * - 스토어(/stores 기본 피드·taxonomy, 허브 요약)
    * - 메신저(/community-messenger lite bootstrap)
    * - 내정보(/mypage 프로필)
    */

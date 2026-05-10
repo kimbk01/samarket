@@ -29,11 +29,22 @@ export async function GET(request: Request) {
   }
 
   try {
-    const { data: categories, error: cErr } = await sb
-      .from("store_categories")
-      .select("id, name, slug, sort_order, image_url")
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true });
+    // CONTRACT: categories / topics 는 서로 독립 — 직렬 await 는 벽시계 RTT 2배.
+    // 병렬 조회로 `/stores` 첫 페인트에서 taxonomy 가 slowest 가 되는 구간을 줄인다.
+    const [catResult, topicResult] = await Promise.all([
+      sb
+        .from("store_categories")
+        .select("id, name, slug, sort_order, image_url")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true }),
+      sb
+        .from("store_topics")
+        .select("id, store_category_id, name, slug, sort_order, image_url")
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true }),
+    ]);
+
+    const { data: categories, error: cErr } = catResult;
 
     if (cErr) {
       console.error("[GET /api/stores/taxonomy] categories", cErr);
@@ -45,11 +56,7 @@ export async function GET(request: Request) {
 
     const catList = (categories ?? []) as StoreTaxonomyCategory[];
 
-    const { data: topics, error: tErr } = await sb
-      .from("store_topics")
-      .select("id, store_category_id, name, slug, sort_order, image_url")
-      .eq("is_active", true)
-      .order("sort_order", { ascending: true });
+    const { data: topics, error: tErr } = topicResult;
 
     if (tErr) {
       const msg = String(tErr.message ?? "");

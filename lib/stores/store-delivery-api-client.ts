@@ -22,6 +22,10 @@ const STORE_BANNERS_PUBLIC_CACHE_TTL_MS = 12_000;
 const storeBannersPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
 const STORE_NOTICES_PUBLIC_CACHE_TTL_MS = 12_000;
 const storeNoticesPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
+/** 공개 taxonomy(마스터) — 어드민 `/api/admin/...` 와 별도. 재진입·다중 컴포넌트 마운트 왕복 억제 */
+const STORE_TAXONOMY_PUBLIC_CACHE_TTL_MS = 120_000;
+const STORE_TAXONOMY_PUBLIC_CACHE_KEY = "_taxonomy";
+const storeTaxonomyPublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
 
 function trimSlug(slug: string): string {
   return slug.trim();
@@ -33,6 +37,29 @@ type StoreHubSummaryCacheSnapshot = {
   value: StoreApiJsonResponse | null;
   isFresh: boolean;
 };
+
+function abortError(): DOMException {
+  return new DOMException("Aborted", "AbortError");
+}
+
+function withAbortSignal<T>(promise: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return promise;
+  if (signal.aborted) return Promise.reject(abortError());
+  return new Promise<T>((resolve, reject) => {
+    const onAbort = () => reject(abortError());
+    signal.addEventListener("abort", onAbort, { once: true });
+    promise.then(
+      (value) => {
+        signal.removeEventListener("abort", onAbort);
+        resolve(value);
+      },
+      (error: unknown) => {
+        signal.removeEventListener("abort", onAbort);
+        reject(error);
+      }
+    );
+  });
+}
 
 function readStoreHubSummaryCache(cacheKey: string): StoreHubSummaryCacheSnapshot {
   const hit = storeHubSummaryCache.get(cacheKey);
@@ -250,12 +277,37 @@ export async function fetchStoreReviewsPublicDeduped(storeSlug: string): Promise
   });
 }
 
-/** GET /api/stores/taxonomy */
+export function isStoresTaxonomyClientCacheFresh(): boolean {
+  const hit = storeTaxonomyPublicCache.get(STORE_TAXONOMY_PUBLIC_CACHE_KEY);
+  return !!hit && hit.expiresAt > Date.now();
+}
+
+/** 어드민이 공개 taxonomy 를 바꾼 직후 등 — 다음 `fetchStoresTaxonomyDeduped` 가 네트워크를 탄다 */
+export function clearStoresTaxonomyClientCache(): void {
+  storeTaxonomyPublicCache.delete(STORE_TAXONOMY_PUBLIC_CACHE_KEY);
+}
+
+/** GET /api/stores/taxonomy — TTL + `runSingleFlight`(다른 스토어 공개 GET 과 동일 패턴) */
 export async function fetchStoresTaxonomyDeduped(): Promise<StoreApiJsonResponse> {
+  const k = STORE_TAXONOMY_PUBLIC_CACHE_KEY;
+  const cached = storeTaxonomyPublicCache.get(k);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { status: cached.value.status, json: cached.value.json };
+  }
   return runSingleFlight("stores:api:taxonomy", async () => {
+    const inflightCached = storeTaxonomyPublicCache.get(k);
+    if (inflightCached && inflightCached.expiresAt > Date.now()) {
+      return { status: inflightCached.value.status, json: inflightCached.value.json };
+    }
     const res = await fetch("/api/stores/taxonomy", { cache: "no-store" });
     const json = await res.json().catch(() => ({}));
-    return { status: res.status, json };
+    const value = { status: res.status, json };
+    if (res.ok && res.status === 200) {
+      storeTaxonomyPublicCache.set(k, { expiresAt: Date.now() + STORE_TAXONOMY_PUBLIC_CACHE_TTL_MS, value });
+    } else {
+      storeTaxonomyPublicCache.delete(k);
+    }
+    return value;
   });
 }
 
@@ -275,19 +327,12 @@ export async function fetchStoresHomeFeedDeduped(
   opts: { signal?: AbortSignal } = {}
 ): Promise<StoreApiJsonResponse> {
   const suffix = pathAndQuery.startsWith("?") ? pathAndQuery : pathAndQuery ? `?${pathAndQuery}` : "";
-  if (opts.signal) {
-    const res = await fetch(`/api/stores/home-feed${suffix}`, {
-      cache: "no-store",
-      signal: opts.signal,
-    });
-    const json = await res.json().catch(() => ({}));
-    return { status: res.status, json };
-  }
-  return runSingleFlight(`stores:api:home-feed:${suffix}`, async () => {
+  const flight = runSingleFlight(`stores:api:home-feed:${suffix}`, async () => {
     const res = await fetch(`/api/stores/home-feed${suffix}`, { cache: "no-store" });
     const json = await res.json().catch(() => ({}));
     return { status: res.status, json };
   });
+  return withAbortSignal(flight, opts.signal);
 }
 
 /** POST/DELETE /api/stores/:slug/favorite — 변이(단일 비행 불필요), 호출부 일원화용 */
@@ -400,18 +445,7 @@ export async function fetchMeStoreOrdersHubSummaryDeduped(
   if (cached) {
     return { status: cached.status, json: cached.json };
   }
-  if (opts.signal) {
-    const res = await fetch("/api/me/store-orders?hub_summary=1", {
-      credentials: "include",
-      cache: "no-store",
-      signal: opts.signal,
-    });
-    const json = await res.json().catch(() => ({}));
-    const value = { status: res.status, json };
-    primeStoreHubSummaryCache(cacheKey, value);
-    return value;
-  }
-  return runSingleFlight("me:store-orders:hub-summary:get", async () => {
+  const flight = runSingleFlight("me:store-orders:hub-summary:get", async () => {
     const inFlightCached = peekStoreHubSummaryCache(cacheKey);
     if (inFlightCached) {
       return { status: inFlightCached.status, json: inFlightCached.json };
@@ -425,6 +459,7 @@ export async function fetchMeStoreOrdersHubSummaryDeduped(
     primeStoreHubSummaryCache(cacheKey, value);
     return value;
   });
+  return withAbortSignal(flight, opts.signal);
 }
 
 export function invalidateStoreBannersPublicCache(slug: string): void {

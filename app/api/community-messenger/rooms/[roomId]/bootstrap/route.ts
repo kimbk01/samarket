@@ -22,6 +22,7 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getOrCreateRequestId } from "@/lib/http/api-route";
 import { SAMARKET_REQUEST_ID_HEADER } from "@/lib/http/request-id";
 import { messengerApiEdgeCacheHeaders } from "@/lib/http/messenger-api-edge-cache";
+import { samarketMessengerTraceLogEnabled } from "@/lib/debug/samarket-server-trace-flags";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -62,7 +63,7 @@ export async function GET(
   const cmReqSrcBucket = classifyCommunityMessengerRoomBootstrapCmReqSrc(cmReqSrcRaw);
 
   const trace = process.env.MESSENGER_PERF_TRACE_BOOTSTRAP === "1";
-  const tierLog = trace || process.env.NODE_ENV === "development";
+  const tierLog = trace || samarketMessengerTraceLogEnabled();
 
   const readPort = createSupabaseCommunityMessengerReadPort();
   const t0 = performance.now();
@@ -115,7 +116,8 @@ export async function GET(
         snapFetchMs: snapMs,
         cacheHit,
       };
-      console.info("[cm-bootstrap-tier]", JSON.stringify(payload));
+      // eslint-disable-next-line no-console -- gated room bootstrap tier diagnostic
+      console.debug("[cm-bootstrap-tier]", JSON.stringify(payload));
       if (cmReqSrcBucket === "room_silent") {
         const violated = Object.entries(payload).some(
           ([k, v]) =>
@@ -245,7 +247,8 @@ export async function GET(
     const includeExitSnapshot = (d.tradeExitSnapshotBootstrapParallelMs ?? 0) > 0;
     const includeActiveCall = (d.normalizeTimelineActiveCallEndMs ?? 0) > 0;
     const includePresence = (d.normalizeTimelinePresenceEndMs ?? 0) > 0;
-    console.info(
+    // eslint-disable-next-line no-console -- gated room bootstrap tier diagnostic
+    console.debug(
       "[cm-bootstrap-tier]",
       JSON.stringify({
         roomId: roomKey,

@@ -1,4 +1,19 @@
 import { BOTTOM_NAV_ITEMS, type BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
+import { bottomNavMessengerHrefWithOrigin } from "@/lib/community-messenger/messenger-entry-origin";
+
+/**
+ * 프로그램적 `router.prefetch`·클라 prewarm 에 쓰는 href — 탭 링크(`BottomNavTab*`) 과 동일 규칙.
+ * - 메신저: 현재 경로 기준 `?from=` 부착 (`BottomNavTabStandard` 의 `effectiveHref` 와 정합)
+ */
+export function resolveBottomNavTabProgrammaticPrefetchHref(
+  tab: BottomNavItemConfig,
+  pathname: string | null
+): string {
+  if (tab.id === "chat") {
+    return bottomNavMessengerHrefWithOrigin(tab.href, pathname);
+  }
+  return tab.href;
+}
 
 /**
  * 하단 탭 활성 판정 — `BottomNav` 링크·프리페치 후보 제외에 동일 규칙을 쓴다.
@@ -50,7 +65,7 @@ export function pickMainBottomNavPrefetchHrefs(
   };
 
   for (const tab of list) {
-    push(tab.href);
+    push(resolveBottomNavTabProgrammaticPrefetchHref(tab, pathname));
     if (out.length >= MAIN_BOTTOM_NAV_PREFETCH_MAX) break;
   }
 

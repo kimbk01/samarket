@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { isConstrainedNetwork } from "@/lib/ui/network-policy";
-import { prewarmBottomNavTapTargetClientCache } from "@/lib/main-menu/bottom-nav-tap-prewarm-data";
+import { prewarmBottomNavTapHrefResolvingStoresRegion } from "@/lib/main-menu/bottom-nav-prewarm-href";
+import { useRegion } from "@/contexts/RegionContext";
 
 export type AppSegmentTabItem = {
   key: string;
@@ -29,6 +30,11 @@ export type AppSegmentTabsProps = {
 export function AppSegmentTabs({ tabs, className, scroll = false }: AppSegmentTabsProps) {
   const router = useRouter();
   const pathname = usePathname() ?? "";
+  const { primaryRegion } = useRegion();
+  const primaryRegionRef = useRef(primaryRegion);
+  useLayoutEffect(() => {
+    primaryRegionRef.current = primaryRegion;
+  }, [primaryRegion]);
   const norm = pathname.split("?")[0] ?? "";
   const prefetchAtRef = useRef<Record<string, number>>({});
 
@@ -60,7 +66,7 @@ export function AppSegmentTabs({ tabs, className, scroll = false }: AppSegmentTa
     for (const href of warmTargets) {
       try {
         void router.prefetch(href);
-        prewarmBottomNavTapTargetClientCache(href);
+        prewarmBottomNavTapHrefResolvingStoresRegion(href, primaryRegionRef.current);
       } catch {
         /* noop */
       }

@@ -29,6 +29,7 @@ import {
   applyRoomSummaryPatched,
 } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { recordRouteEntryElapsedMetric, recordRouteEntryMetric } from "@/lib/runtime/samarket-runtime-debug";
+import { messengerVerboseTraceConsoleEnabled } from "@/lib/community-messenger/messenger-trace-console";
 import type {
   CommunityMessengerMessage,
   CommunityMessengerRoomSnapshot,
@@ -75,7 +76,9 @@ function isMessagesViewportShowingThreadTail(root: HTMLElement | null, bottomGap
 }
 
 export const ROOM_OPEN_ALIGN_TRACE =
-  typeof process !== "undefined" && process.env.NEXT_PUBLIC_MESSENGER_PERF_TRACE_ROOM_OPEN_ALIGN === "1";
+  typeof process !== "undefined" &&
+  (process.env.NEXT_PUBLIC_MESSENGER_PERF_TRACE_ROOM_OPEN_ALIGN === "1" ||
+    process.env.NEXT_PUBLIC_MESSENGER_PERF_TRACE === "1");
 
 export type RoomOpenAlignTraceExtra = {
   phase?: string;
@@ -126,8 +129,8 @@ export function traceRoomOpenAlignChain(
       const afterFrame1 = Math.round(performance.now() - tAnchor);
       requestAnimationFrame(() => {
         const afterFrame2 = Math.round(performance.now() - tAnchor);
-        // eslint-disable-next-line no-console
-        console.info("[room_open_align:after]", {
+        // eslint-disable-next-line no-console -- gated room open align
+        console.debug("[room_open_align:after]", {
           phase: extra?.phase ?? source,
           source,
           roomIdSuffix: roomId.slice(-8),
@@ -229,9 +232,9 @@ function debugRoomReadAck(payload: {
   serverOk?: boolean;
   elapsedMs?: number;
 }): void {
-  if (process.env.NODE_ENV === "production") return;
-  // eslint-disable-next-line no-console
-  console.info("[cm-read-ack]", payload);
+  if (!messengerVerboseTraceConsoleEnabled()) return;
+  // eslint-disable-next-line no-console -- gated read-ack diagnostic
+  console.debug("[cm-read-ack]", payload);
 }
 
 /**
