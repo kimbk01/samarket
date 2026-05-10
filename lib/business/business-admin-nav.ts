@@ -16,6 +16,32 @@ export type BusinessAdminSidebarSection = {
   items: BusinessAdminSidebarItem[];
 };
 
+/** 허브 메뉴·사이드바 공통 — 활성 행 판별 */
+export function isBusinessAdminNavHrefActive(
+  href: string,
+  pathname: string,
+  searchParams: URLSearchParams,
+): boolean {
+  const [path, rawQ = ""] = href.split("?");
+  const norm = (v: string) => v.replace(/\/+$/, "") || "/";
+  const targetPath = norm(path);
+  const currentPath = norm(pathname);
+
+  if (href.startsWith("/stores/")) {
+    return currentPath === targetPath;
+  }
+  if (targetPath === "/stores/owner" || targetPath === "/my/business") {
+    return currentPath === "/stores/owner" || currentPath === "/my/business";
+  }
+  if (currentPath !== targetPath) return false;
+  const tq = new URLSearchParams(rawQ);
+  const tSid = tq.get("storeId");
+  if (tSid) {
+    return searchParams.get("storeId") === tSid;
+  }
+  return true;
+}
+
 /**
  * 매장 어드민 좌측 네비 — `buildMyBusinessNavGroups`와 동일한 노출 조건을 유지합니다.
  */

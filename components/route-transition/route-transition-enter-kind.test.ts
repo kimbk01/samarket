@@ -59,6 +59,43 @@ describe("computeRouteTransitionEnterKind", () => {
     });
     expect(k).toBe("none");
   });
+
+  it("stores owner hub to child uses rtl-forward (우→좌)", () => {
+    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
+    const k = computeRouteTransitionEnterKind("/stores/owner", "/stores/owner/orders", {
+      popstateBack: false,
+      lastForwardAxisRef,
+    });
+    expect(k).toBe("rtl-forward");
+    expect(lastForwardAxisRef.current).toBe("rtl");
+  });
+
+  it("stores owner child to hub uses ltr-back without popstate (좌→우)", () => {
+    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
+    const k = computeRouteTransitionEnterKind("/stores/owner/orders", "/stores/owner", {
+      popstateBack: false,
+      lastForwardAxisRef,
+    });
+    expect(k).toBe("ltr-back");
+  });
+
+  it("leaving stores owner stack to non-stack uses ltr-back", () => {
+    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
+    const k = computeRouteTransitionEnterKind("/stores/owner/orders", "/philife", {
+      popstateBack: false,
+      lastForwardAxisRef,
+    });
+    expect(k).toBe("ltr-back");
+  });
+
+  it("stores owner apply path is excluded from stack slide rules", () => {
+    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
+    const k = computeRouteTransitionEnterKind("/stores", "/stores/owner/apply", {
+      popstateBack: false,
+      lastForwardAxisRef,
+    });
+    expect(k).toBe("subtle");
+  });
 });
 
 describe("computeRouteTransitionEnterKind with dynamic resolver", () => {

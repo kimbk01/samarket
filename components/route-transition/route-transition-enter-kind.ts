@@ -15,6 +15,26 @@ function isMypageStoreSectionPath(path: string | null | undefined): boolean {
   return p === "/mypage/section/store" || p.startsWith("/mypage/section/store/");
 }
 
+/** `/stores/owner` 허브 및 하위 운영 경로 — 신청(`/stores/owner/apply`)은 제외 */
+function isStoresOwnerStackPath(path: string | null | undefined): boolean {
+  const p = normalizePathKey(path);
+  if (p === "/stores/owner") return true;
+  if (p.startsWith("/stores/owner/")) {
+    if (p === "/stores/owner/apply" || p.startsWith("/stores/owner/apply/")) return false;
+    return true;
+  }
+  return false;
+}
+
+function storesOwnerStackDepth(path: string | null | undefined): number {
+  const p = normalizePathKey(path);
+  if (!isStoresOwnerStackPath(p)) return -1;
+  if (p === "/stores/owner") return 0;
+  const rest = p.slice("/stores/owner".length).replace(/^\//, "");
+  if (!rest) return 0;
+  return rest.split("/").filter(Boolean).length;
+}
+
 function syncLastForwardAxisAfterKind(
   kind: RouteTransitionEnterKind,
   ref: MutableRefObject<"ltr" | "rtl" | null>
@@ -52,6 +72,29 @@ export function computeRouteTransitionEnterKind(
     kind = "none";
   } else if (shouldSuppressMessengerRoomMainShellSlide(prevPath, nextPath)) {
     kind = "none";
+  } else if (isStoresOwnerStackPath(prevPath) && !isStoresOwnerStackPath(nextPath)) {
+    /** 매장 운영 스택에서 탭 밖으로 나갈 때 — 좌→우 퇴장 */
+    kind = "ltr-back";
+  } else if (isStoresOwnerStackPath(nextPath)) {
+    /** 매장 운영 스택 진입·내부 이동 — 우→좌, 뒤로(popstate)는 좌→우 */
+    if (opts.popstateBack) {
+      kind = "ltr-back";
+    } else if (!isStoresOwnerStackPath(prevPath)) {
+      kind = "rtl-forward";
+      opts.lastForwardAxisRef.current = "rtl";
+    } else {
+      const dPrev = storesOwnerStackDepth(prevPath);
+      const dNext = storesOwnerStackDepth(nextPath);
+      if (dNext > dPrev) {
+        kind = "rtl-forward";
+        opts.lastForwardAxisRef.current = "rtl";
+      } else if (dNext < dPrev) {
+        kind = "ltr-back";
+      } else {
+        kind = "rtl-forward";
+        opts.lastForwardAxisRef.current = "rtl";
+      }
+    }
   } else if (opts.popstateBack && isMypageStoreSectionPath(prevPath)) {
     /**
      * `/mypage/section/store` 트리: 뒤로가기는 항상 좌→우.

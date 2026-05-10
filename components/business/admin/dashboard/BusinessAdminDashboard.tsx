@@ -14,7 +14,6 @@ import { BusinessDashboardKpiStrip, type DashboardKpi } from "@/components/busin
 import { BusinessDashboardPriorityCards } from "@/components/business/admin/dashboard/BusinessDashboardPriorityCards";
 import { BusinessDashboardOrderTimeline, type TimelineOrder } from "@/components/business/admin/dashboard/BusinessDashboardOrderTimeline";
 import { BusinessDashboardQuickRow } from "@/components/business/admin/dashboard/BusinessDashboardQuickRow";
-import { BusinessDashboardOwnerCardMenu } from "@/components/business/admin/dashboard/BusinessDashboardOwnerCardMenu";
 import { BusinessDashboardInsights } from "@/components/business/admin/dashboard/BusinessDashboardInsights";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -364,7 +363,7 @@ export function BusinessAdminDashboard({
     <div className={`${OWNER_STORE_STACK_Y_CLASS} relative`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="sam-text-helper font-medium text-sam-muted">매장 운영 센터</p>
+          <p className="sam-text-helper font-medium text-sam-muted">지표·주문·문의 요약</p>
         </div>
         <button
           type="button"
@@ -386,13 +385,6 @@ export function BusinessAdminDashboard({
         inquiriesHref={inquiriesHref}
         productsHubHref={productsHubHref}
         settlementsHref={settlementsHref}
-      />
-
-      <BusinessDashboardOwnerCardMenu
-        storeId={row.id}
-        canSell={canSell}
-        isVisible={row.is_visible === true}
-        badges={{ newOrders: kpi.newOrders, inProgress: kpi.inProgress }}
       />
 
       <BusinessDashboardPriorityCards cards={priorityCards} />

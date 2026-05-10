@@ -16,8 +16,7 @@ import { BusinessStatusBadge } from "@/components/business/admin/BusinessStatusB
 import { useOwnerCommerceNotificationUnreadCount } from "@/hooks/useOwnerCommerceNotificationUnreadCount";
 import { OWNER_HUB_BADGE_DOT_CLASS } from "@/lib/chats/hub-badge-ui";
 import { BusinessAdminStoreProvider } from "@/components/business/admin/business-admin-store-context";
-import { AppBackButton } from "@/components/navigation/AppBackButton";
-import { BodyPortal } from "@/components/layout/BodyPortal";
+import { StoresOwnerStackHeader } from "@/components/business/owner/StoresOwnerStackHeader";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 
@@ -169,6 +168,57 @@ export function BusinessAdminShell({ children }: { children: React.ReactNode }) 
 
   const adminBackFallbackHref = OwnerRoutes.hub(selectedRow.id);
 
+  const headerRightSlot = (
+    <>
+      <Link
+        href={buildStoreOrdersHref({
+          storeId: selectedRow.id,
+          ackOwnerNotifications: true,
+        })}
+        className="relative flex h-10 w-10 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
+        aria-label="배달 주문 알림"
+      >
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+          />
+        </svg>
+        {ownerCommerceUnread != null && ownerCommerceUnread > 0 ? (
+          <span className={`${OWNER_HUB_BADGE_DOT_CLASS} ring-sam-surface/80`}>
+            {ownerCommerceUnread > 99 ? "99+" : ownerCommerceUnread}
+          </span>
+        ) : null}
+      </Link>
+      {publicStoreHref ?
+        <Link
+          href={publicStoreHref}
+          className="flex h-10 w-10 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
+          aria-label="고객 매장 페이지"
+        >
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+            />
+          </svg>
+        </Link>
+      : null}
+      <button
+        type="button"
+        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted lg:hidden"
+        aria-label="메뉴 열기"
+        onClick={() => setDrawerOpen((v) => !v)}
+      >
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+      </button>
+    </>
+  );
+
   const sidebarBody = (
     <>
       <div className="border-b border-sam-border-soft px-3 py-4">
@@ -240,84 +290,14 @@ export function BusinessAdminShell({ children }: { children: React.ReactNode }) 
         </aside>
 
         <div className="flex min-h-screen min-w-0 flex-1 flex-col">
-          <BodyPortal>
-            <header className="fixed inset-x-0 top-0 z-[55] border-b border-[var(--biz-card-border)] bg-[var(--biz-card-bg)]/95 pt-[env(safe-area-inset-top,0px)] backdrop-blur-sm lg:left-[260px] lg:right-0">
-              <div className="mx-auto flex h-14 w-full min-w-0 max-w-6xl items-center gap-2 px-3 sm:px-4">
-                <AppBackButton
-                  backHref={adminBackFallbackHref}
-                  ariaLabel="이전 화면으로"
-                />
-                <div className="min-w-0 flex-1 lg:hidden">
-                  {pageTitle ? (
-                    <h1 className="truncate sam-text-body-lg font-semibold leading-tight text-sam-fg">
-                      {pageTitle}
-                    </h1>
-                  ) : (
-                    <h1 className="truncate sam-text-body-lg font-semibold leading-tight text-sam-fg">
-                      운영 대시보드
-                    </h1>
-                  )}
-                  <p className="truncate sam-text-xxs leading-tight text-sam-muted">{shopName}</p>
-                </div>
-                <div className="hidden min-w-0 flex-1 items-baseline gap-3 lg:flex">
-                  {pageTitle ? (
-                    <h1 className="sam-text-page-title font-semibold text-sam-fg">{pageTitle}</h1>
-                  ) : (
-                    <h1 className="sam-text-page-title font-semibold text-sam-fg">운영 대시보드</h1>
-                  )}
-                  <span className="sam-text-body-secondary text-sam-muted">{shopName}</span>
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
-                  <Link
-                    href={buildStoreOrdersHref({
-                      storeId: selectedRow.id,
-                      ackOwnerNotifications: true,
-                    })}
-                    className="relative flex h-10 w-10 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
-                    aria-label="배달 주문 알림"
-                  >
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-                      />
-                    </svg>
-                    {ownerCommerceUnread != null && ownerCommerceUnread > 0 ? (
-                      <span className={`${OWNER_HUB_BADGE_DOT_CLASS} ring-sam-surface/80`}>
-                        {ownerCommerceUnread > 99 ? "99+" : ownerCommerceUnread}
-                      </span>
-                    ) : null}
-                  </Link>
-                  {publicStoreHref ? (
-                    <Link
-                      href={publicStoreHref}
-                      className="flex h-10 w-10 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
-                      aria-label="고객 매장 페이지"
-                    >
-                      <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                        />
-                      </svg>
-                    </Link>
-                  ) : null}
-                  <button
-                    type="button"
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted lg:hidden"
-                    aria-label="메뉴 열기"
-                    onClick={() => setDrawerOpen((v) => !v)}
-                  >
-                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </header>
-          </BodyPortal>
+          <StoresOwnerStackHeader
+            variant="admin"
+            backHref={adminBackFallbackHref}
+            shopName={shopName}
+            pageTitle={pageTitle}
+            rightSlot={headerRightSlot}
+            desktopInsetLeft
+          />
 
           <main className="mx-auto w-full max-w-6xl flex-1 px-3 pb-[calc(5rem+env(safe-area-inset-bottom,0px))] pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] sm:px-4 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem+1rem)] lg:pb-8">
             {children}

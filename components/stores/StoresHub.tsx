@@ -20,9 +20,7 @@ import type {
 } from "@/components/stores/home/StoreOrderDashboardSection";
 import { StoreCategoryExploreSection } from "@/components/stores/home/StoreCategoryExploreSection";
 import { StoreNearbyFeedSection } from "@/components/stores/home/StoreNearbyFeedSection";
-import { StoreHubSearchStrip } from "@/components/stores/home/StoreHubSearchStrip";
 import { StorePromoHeroBanner } from "@/components/stores/home/StorePromoHeroBanner";
-import { StoreMemberQuickActions } from "@/components/stores/home/StoreMemberQuickActions";
 import { StoreHubMyZoneSection } from "@/components/stores/home/StoreHubMyZoneSection";
 import { StoreMyBusinessHubBanner } from "@/components/stores/home/StoreMyBusinessHubBanner";
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
@@ -185,9 +183,6 @@ export function StoresHub() {
     };
   }, []);
 
-  const activeStoreOrderBadge =
-    buyerOrderSummary.kind === "ready" ? buyerOrderSummary.activeOrders : 0;
-
   const ownerQuickLink =
     ownerStore ?
       <StoresHubOwnerOperChip ownerStore={ownerStore} breakdown={ownerHubBreakdown} />
@@ -195,8 +190,6 @@ export function StoresHub() {
 
   return (
     <div className={`min-h-[50vh] space-y-3 ${FB.canvas}`}>
-      <StoreMemberQuickActions activeStoreOrderCount={activeStoreOrderBadge} />
-
       <StoreMyBusinessHubBanner loading={ownerStoresLoading} ownerStores={ownerStores} />
 
       <StoreCategoryExploreSection headerTrailing={ownerQuickLink} />

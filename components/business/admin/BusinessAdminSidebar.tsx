@@ -3,27 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import type { BusinessAdminSidebarSection } from "@/lib/business/business-admin-nav";
-
-function isNavActive(href: string, pathname: string, searchParams: URLSearchParams): boolean {
-  const [path, rawQ = ""] = href.split("?");
-  const norm = (v: string) => v.replace(/\/+$/, "") || "/";
-  const targetPath = norm(path);
-  const currentPath = norm(pathname);
-
-  if (href.startsWith("/stores/")) {
-    return currentPath === targetPath;
-  }
-  if (targetPath === "/stores/owner" || targetPath === "/my/business") {
-    return currentPath === "/stores/owner" || currentPath === "/my/business";
-  }
-  if (currentPath !== targetPath) return false;
-  const tq = new URLSearchParams(rawQ);
-  const tSid = tq.get("storeId");
-  if (tSid) {
-    return searchParams.get("storeId") === tSid;
-  }
-  return true;
-}
+import { isBusinessAdminNavHrefActive } from "@/lib/business/business-admin-nav";
 
 export function BusinessAdminSidebar({
   sections,
@@ -45,7 +25,7 @@ export function BusinessAdminSidebar({
           <p className="px-3 sam-text-xxs font-bold uppercase tracking-wide text-sam-meta">{section.title}</p>
           <ul className="mt-1.5 space-y-0.5">
             {section.items.map((item) => {
-              const active = isNavActive(item.href, pathname, searchParams);
+              const active = isBusinessAdminNavHrefActive(item.href, pathname, searchParams);
               const isExternal = item.href.startsWith("/stores/");
               const common =
                 "flex items-center justify-between gap-2 rounded-ui-rect px-3 py-2.5 sam-text-body font-medium transition-colors";
