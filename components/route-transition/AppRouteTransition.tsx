@@ -40,11 +40,18 @@ export function AppRouteTransition({ children, overlay, contentStretchClass = "m
     }
 
     const kind: RouteTransitionEnterKind = kindRef.current;
+    /**
+     * 디버그 노출 — DevTools 에서 `data-route-transition-kind` 로 어떤 방향이 결정됐는지 확인 가능.
+     * 5탭(/philife · /market · /stores · /community-messenger · /mypage) 어디서든 값이 비면
+     * canonical 매핑이 누락된 것이므로 `route-transition-config.ts` 를 봐야 한다.
+     */
+    el.dataset.routeTransitionKind = kind;
     const cls = routeTransitionClassForKind(kind);
     if (!cls) {
       return;
     }
 
+    /** reflow 후 raf 1프레임 미루어 transform from 값이 첫 paint 에 잡히도록 한다. */
     void el.offsetWidth;
     const raf = requestAnimationFrame(() => {
       hostRef.current?.classList.add(cls);

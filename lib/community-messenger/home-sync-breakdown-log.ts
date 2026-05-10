@@ -1,6 +1,9 @@
 /**
  * `GET /api/community-messenger/home-sync` 서버 지연 원인 분해용 로그.
  * 켜기: `SAMARKET_LOG_HOME_SYNC_BREAKDOWN=1` (서버 프로세스 env)
+ *
+ * 한 줄 요약: 동일 env 가 켜지면 라우트에서 **`[home-sync-breakdown]`** 도 함께 출력된다
+ * (`total_ms`·`rooms_ms`·`unread_ms`·`profiles_ms`·`trade_ms`·`serialize_ms`·`payload_kb`·`duplicate_window_count`·`short_ttl_hit`).
  */
 
 export function homeSyncBreakdownEnabled(): boolean {

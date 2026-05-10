@@ -12,6 +12,12 @@ import {
   type ReactNode,
 } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
+import { isSamarketNavPerfConsoleEnabled } from "@/lib/debug/samarket-client-console-flags";
+import {
+  navPerfFinalizeBottomNavNavigation,
+  navPerfMarkInitialHydrated,
+  type BottomNavPerfPendingSlice,
+} from "@/lib/navigation/nav-perf-browser";
 
 export type MenuNavigationSource =
   | "bottom-nav"
@@ -144,6 +150,11 @@ export function LatestMenuNavigationProvider({ children }: { children: ReactNode
   const latestNavigationIdRef = useRef(0);
   const [latestNavigationId, setLatestNavigationId] = useState(0);
   const [pendingMenuIntent, setPendingMenuIntent] = useState<MenuNavigationIntent | null>(null);
+  const navPerfBottomNavRef = useRef<BottomNavPerfPendingSlice | null>(null);
+
+  useEffect(() => {
+    navPerfMarkInitialHydrated();
+  }, []);
 
   const beginMenuNavigation = useCallback(
     (
@@ -151,6 +162,7 @@ export function LatestMenuNavigationProvider({ children }: { children: ReactNode
       source: MenuNavigationSource = "bottom-nav",
       options?: BeginMenuNavigationOptions
     ) => {
+      const perfStart = performance.now();
       const parsed = parseMenuNavigationHref(href);
       const nextIntent: MenuNavigationIntent = {
         id: latestNavigationIdRef.current + 1,
@@ -164,9 +176,46 @@ export function LatestMenuNavigationProvider({ children }: { children: ReactNode
       latestNavigationIdRef.current = nextIntent.id;
       setLatestNavigationId(nextIntent.id);
       setPendingMenuIntent(nextIntent);
+      const intentCommitMs = Math.round(performance.now() - perfStart);
+
+      if (source === "bottom-nav" && process.env.NODE_ENV === "development" && isSamarketNavPerfConsoleEnabled()) {
+        const fromPath = pathname ?? "";
+        const wallTs = Date.now();
+        const clickStart =
+          typeof window !== "undefined" && window.__navPerfLastClickStart != null
+            ? window.__navPerfLastClickStart
+            : perfStart;
+        const idlePreview =
+          typeof window !== "undefined" &&
+          window.__navPerfLastRouteSettledPerfNow != null &&
+          window.__navPerfLastClickStart != null
+            ? Math.round(window.__navPerfLastClickStart - window.__navPerfLastRouteSettledPerfNow)
+            : null;
+        navPerfBottomNavRef.current = {
+          intentId: nextIntent.id,
+          wallTs,
+          clickStart,
+          perfIntentEnter: perfStart,
+          fromPath,
+          toPath: nextIntent.href,
+          intentCommitMs,
+        };
+        console.debug("[nav-perf]", {
+          phase: "intent_sync",
+          fromPath,
+          toPath: nextIntent.href,
+          clickTs: wallTs,
+          idleBeforeClickMsPreview: idlePreview,
+          clickToIntentMs: Math.round(perfStart - clickStart),
+          intentCommitMs,
+          routePushStartMs: null,
+          note: "브라우저 콘솔 전용 — 서버 터미널 미출력. window.__navPerfDump()",
+        });
+      }
+
       return nextIntent;
     },
-    []
+    [pathname]
   );
 
   const cancelPendingMenuNavigation = useCallback((id?: number) => {
@@ -180,6 +229,30 @@ export function LatestMenuNavigationProvider({ children }: { children: ReactNode
   useEffect(() => {
     if (!pendingMenuIntent) return;
     if (!isMenuIntentResolvedByLocation(pendingMenuIntent, pathname, currentSearch)) return;
+
+    const b = navPerfBottomNavRef.current;
+    if (
+      pendingMenuIntent.source === "bottom-nav" &&
+      process.env.NODE_ENV === "development" &&
+      isSamarketNavPerfConsoleEnabled() &&
+      b &&
+      b.intentId === pendingMenuIntent.id
+    ) {
+      b.routeSettledPerfNow = performance.now();
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          const slice = navPerfBottomNavRef.current;
+          if (!slice || slice.intentId !== pendingMenuIntent.id) return;
+          const shellMs = Math.round(performance.now() - slice.clickStart);
+          navPerfFinalizeBottomNavNavigation({
+            ...slice,
+            firstShellPaintApproxMs: shellMs,
+          });
+          navPerfBottomNavRef.current = null;
+        });
+      });
+    }
+
     setPendingMenuIntent((prev) => (prev?.id === pendingMenuIntent.id ? null : prev));
   }, [pendingMenuIntent, pathname, currentSearch]);
 

@@ -1,5 +1,5 @@
 /**
- * community_list_* 분해 계측 실측 — sessionStorage samarket:debug:runtime=1
+ * community_list_* 분해 계측 실측 — sessionStorage `samarket:debug:runtime=1`, localStorage `samarket:debug:philifeFeedPerf=1`
  * PLAYWRIGHT_NO_WEBSERVER=1 E2E_TEST_USERNAME=… E2E_TEST_PASSWORD=… npx playwright test tests/e2e/philife-community-perf-breakdown.spec.ts
  */
 import { test, expect } from "@playwright/test";
@@ -117,6 +117,7 @@ test.describe("Philife community perf breakdown", () => {
     await context.addInitScript(() => {
       try {
         sessionStorage.setItem("samarket:debug:runtime", "1");
+        window.localStorage.setItem("samarket:debug:philifeFeedPerf", "1");
       } catch {
         /* ignore */
       }

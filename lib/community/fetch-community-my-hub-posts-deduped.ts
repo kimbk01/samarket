@@ -1,3 +1,4 @@
+import { fetchNeighborhoodFeedShortTtl } from "@/lib/philife/fetch-neighborhood-feed-short-ttl";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import { buildPhilifeNeighborhoodFeedClientUrl } from "@/lib/philife/neighborhood-feed-client-url";
@@ -43,7 +44,7 @@ export function fetchCommunityMyHubPostsDeduped(userId: string): Promise<Communi
       limit: 30,
       offset: 0,
     });
-    const res = await fetch(url, { cache: "default" });
+    const res = await fetchNeighborhoodFeedShortTtl(url, { cache: "default" });
     const json = (await res.json().catch(() => ({}))) as CommunityMyHubPostsJson;
     const result: CommunityMyHubPostsResult = { status: res.status, json };
     if (res.ok || res.status === 401 || res.status === 503) {

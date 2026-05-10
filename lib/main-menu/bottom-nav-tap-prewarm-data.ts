@@ -30,6 +30,7 @@ import {
   NEIGHBORHOOD_FEED_PAGE_SIZE,
   PHILIFE_GLOBAL_FEED_SESSION_KEY,
 } from "@/lib/philife/neighborhood-feed-client-url";
+import { fetchNeighborhoodFeedShortTtl } from "@/lib/philife/fetch-neighborhood-feed-short-ttl";
 import { writePhilifeFeedCache, philifeFeedViewerSig } from "@/lib/community/philife-feed-session-cache";
 import {
   fetchPhilifeNeighborhoodTopicOptions,
@@ -69,7 +70,7 @@ function prewarmPhilifeGlobalFeedVariant(
   });
   const flightKey = `philife:tab-prewarm:${viewerSig}:${category}:${sort}`;
   void runSingleFlight(flightKey, () =>
-    fetch(url, {
+    fetchNeighborhoodFeedShortTtl(url, {
       credentials: "include",
       ...(personalized ? { cache: "no-store" as RequestCache } : {}),
     })

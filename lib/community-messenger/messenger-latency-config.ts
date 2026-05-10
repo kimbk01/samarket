@@ -29,6 +29,54 @@ export const MESSENGER_HOME_META_DEBOUNCE_MS = readPublicEnvMs(
   3000
 );
 
+/**
+ * silent `GET …/home-sync?tier=critical` — 직전 성공 응답 재생(네트워크 생략) 최대 유효 ms.
+ * 짧은 route 왕복에서 동일 세션 목록 재요청을 줄인다.
+ */
+export const MESSENGER_HOME_SILENT_SYNC_CRITICAL_REPLAY_TTL_MS = readPublicEnvMs(
+  "NEXT_PUBLIC_MESSENGER_HOME_SILENT_CRITICAL_REPLAY_TTL_MS",
+  2000,
+  800,
+  8000
+);
+
+/**
+ * silent `GET …/home-sync` (full) — friends/requests 포함 재생 TTL.
+ */
+export const MESSENGER_HOME_SILENT_SYNC_FULL_REPLAY_TTL_MS = readPublicEnvMs(
+  "NEXT_PUBLIC_MESSENGER_HOME_SILENT_FULL_REPLAY_TTL_MS",
+  4000,
+  2000,
+  12000
+);
+
+/** pathname 전환 직후 이 ms 안이면 최근 성공 스냅샷이 있을 때 네트워크 대신 재생 */
+export const MESSENGER_HOME_SILENT_SYNC_ROUTE_STABILIZE_MS = readPublicEnvMs(
+  "NEXT_PUBLIC_MESSENGER_HOME_SILENT_ROUTE_STABILIZE_MS",
+  550,
+  200,
+  2000
+);
+
+/** 동일 pathname 으로 이탈 후 복귀한 짧은 왕복에서 재생 우선(왕복 간격 상한) */
+export const MESSENGER_HOME_SILENT_SYNC_PATH_ROUNDTRIP_DEBOUNCE_MS = readPublicEnvMs(
+  "NEXT_PUBLIC_MESSENGER_HOME_SILENT_PATH_ROUNDTRIP_MS",
+  2200,
+  800,
+  8000
+);
+
+/**
+ * 홈 meta / rooms-in Supabase 채널: 마지막 React 리스너가 빠진 뒤 **즉시 stop 하지 않고** 이 ms 후에
+ * 물리 teardown(grace keepalive). 권장 3–8s. (Realtime 제거 아님)
+ */
+export const MESSENGER_HOME_REALTIME_DEFERRED_PHYSICAL_STOP_GRACE_MS = readPublicEnvMs(
+  "NEXT_PUBLIC_MESSENGER_HOME_RT_DEFERRED_STOP_GRACE_MS",
+  6000,
+  3000,
+  8000
+);
+
 /** 방: 참가자·방 설정 메타 (메시지 INSERT 는 별도 콜백으로 즉시) */
 export const MESSENGER_ROOM_META_DEBOUNCE_MS = readPublicEnvMs(
   "NEXT_PUBLIC_MESSENGER_ROOM_META_DEBOUNCE_MS",

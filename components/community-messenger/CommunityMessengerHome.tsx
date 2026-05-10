@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -13,13 +14,13 @@ import {
 } from "react";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { CommunityMessengerHeaderActions } from "@/components/community-messenger/CommunityMessengerHeaderActions";
-import { CommunityMessengerHomeBottomNav } from "@/components/community-messenger/CommunityMessengerHomeBottomNav";
 import { CommunityMessengerHomeListPane } from "@/components/community-messenger/CommunityMessengerHomeListPane";
 import { DiscoverableOpenGroupCard } from "@/components/community-messenger/home/DiscoverableOpenGroupCard";
 import { MeetingJoinPreviewFullScreen } from "@/components/community-messenger/meetings/MeetingJoinPreviewFullScreen";
 import { MessengerHomeFabPlusIcon } from "@/components/community-messenger/home/MessengerHomeFabPlusIcon";
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import { MessengerHomeMainSections } from "@/components/community-messenger/MessengerHomeMainSections";
+import { MessengerPrimarySectionNav } from "@/components/community-messenger/MessengerPrimarySectionNav";
 import type { MessengerFriendAddTab } from "@/components/community-messenger/MessengerFriendAddSheet";
 import {
   MessengerChatRoomActionSheet,
@@ -61,6 +62,10 @@ import type {
 import { messengerHomeActionErrorMessage } from "@/lib/community-messenger/home/messenger-home-action-error-message";
 import { scoreKeywordMatch } from "@/lib/community-messenger/home/score-keyword-match";
 import { attachMessengerHydrationSchedulerSurface } from "@/lib/community-messenger/background-hydration-scheduler";
+import {
+  markMessengerShellVisible,
+  resetMessengerAppShellFastPathClock,
+} from "@/lib/community-messenger/app-shell-fast-path-log";
 import { primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { mergeBootstrapRoomSummaryIntoLists } from "@/lib/community-messenger/home/merge-bootstrap-room-summary-into-lists";
 import { useCommunityMessengerHomeRealtimeBootstrapList } from "@/lib/community-messenger/home/use-community-messenger-home-realtime-bootstrap-list";
@@ -192,6 +197,10 @@ import {
   normalizeCmRealtimeSubscribeRoomId,
 } from "@/lib/community-messenger/realtime/cm-rt-room-sub-log";
 import { cmRtStableSubLog } from "@/lib/community-messenger/realtime/cm-rt-stable-sub-log";
+import {
+  cmRtHs4DiagnosisLog,
+  cmRtHs4FingerprintDigest,
+} from "@/lib/community-messenger/realtime/cm-rt-hs4-diagnosis";
 import { resolveCommunityMessengerRoomIdFromChatRow } from "@/lib/community-messenger/realtime/resolve-community-messenger-room-id-from-chat-row";
 
 type CommunityMessengerHomeOverlayKind =
@@ -245,6 +254,7 @@ export function CommunityMessengerHome({
     data,
     setData,
     loading,
+    listAwaitingCritical,
     authRequired,
     setAuthRequired,
     pageError,
@@ -252,6 +262,10 @@ export function CommunityMessengerHome({
     refresh,
     homeRealtimeGateOpen,
   } = useCommunityMessengerHomeBootstrap({ initialServerBootstrap, tRef });
+  useLayoutEffect(() => {
+    markMessengerShellVisible();
+    return () => resetMessengerAppShellFastPathClock();
+  }, []);
   /** 백그라운드 hydrate 스케줄러 표면 활성 — 언마운트 시 큐·실행 중 작업 정리 */
   useEffect(() => {
     attachMessengerHydrationSchedulerSurface(true);
@@ -1205,7 +1219,11 @@ export function CommunityMessengerHome({
     [data?.me?.id, refresh, setData]
   );
 
-  useFriendRequestNotificationRealtime(data?.me?.id ?? null, Boolean(!loading && !authRequired && data?.me?.id), onFriendRequestNotif);
+  useFriendRequestNotificationRealtime(
+    data?.me?.id ?? null,
+    Boolean(homeRealtimeGateOpen && !authRequired && data?.me?.id),
+    onFriendRequestNotif
+  );
 
   const toggleFavoriteFriend = useCallback(
     async (friendUserId: string) => {
@@ -1697,7 +1715,17 @@ export function CommunityMessengerHome({
       .filter(Boolean);
     const sortedUnique = [...new Set(ids)].sort();
     const fp = sortedUnique.join("\0");
-    if (fp === visiblePillarChatRoomIdsFingerprintRef.current) return;
+    if (fp === visiblePillarChatRoomIdsFingerprintRef.current) {
+      return;
+    }
+    cmRtHs4DiagnosisLog("pillar_visible_room_fp_changed", {
+      pillar,
+      mainSection,
+      reason: "set_visible_pillar_chat_room_ids",
+      ...cmRtHs4FingerprintDigest(fp),
+      prevFp: cmRtHs4FingerprintDigest(visiblePillarChatRoomIdsFingerprintRef.current),
+      rowCount: primaryListItems.length,
+    });
     visiblePillarChatRoomIdsFingerprintRef.current = fp;
     setVisiblePillarChatRoomIds(sortedUnique);
   }, [pillar, mainSection, primaryListItems]);
@@ -1715,7 +1743,7 @@ export function CommunityMessengerHome({
     userId: data?.me?.id,
     roomIds: homeRouteRealtimeRoomIds,
     extraRoomIds: visiblePillarChatRoomIds,
-    bootstrapListLoading: loading,
+    bootstrapListLoading: listAwaitingCritical,
     homeRealtimeGateOpen,
     refresh,
     setData,
@@ -2506,8 +2534,20 @@ export function CommunityMessengerHome({
           </div>
         </header>
       ) : null}
+      {/**
+       * 메신저 1차 섹션 탭 — 친구·채팅·모임·보관함.
+       * 5탭 통합 BottomNav 와 다른 레벨이라 충돌 없음.
+       * sticky 로 두어 리스트 스크롤 시에도 진입점이 보이게 한다.
+       */}
+      <div
+        data-cm-home-primary-nav
+        className="sticky top-0 z-20 bg-[color:var(--messenger-bg,#ffffff)]/95 backdrop-blur-[8px]"
+      >
+        <MessengerPrimarySectionNav value={mainSection} onChange={onPrimarySectionChange} />
+      </div>
       <CommunityMessengerHomeListPane
         loading={loading}
+        listPlaceholder={listAwaitingCritical}
         authRequired={authRequired}
         data={data}
         actionError={actionError}
@@ -2564,8 +2604,6 @@ export function CommunityMessengerHome({
         entryOriginQuery={entryOriginQuery}
         chatListVisual={pillar === "trade" ? "trade" : "default"}
       />
-
-      <CommunityMessengerHomeBottomNav value={mainSection} onSelect={onPrimarySectionChange} />
 
       {outgoingCallConfirm ? (
         <MessengerOutgoingCallConfirmDialog
@@ -3250,7 +3288,7 @@ export function CommunityMessengerHome({
         />
       ) : null}
 
-      {!loading && !authRequired ? (
+      {!listAwaitingCritical && !authRequired ? (
         <button
           type="button"
           onClick={() => (mainSection === "friends" ? setFriendManagerOpen(true) : openHomeOverlay("composer"))}

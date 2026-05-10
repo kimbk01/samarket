@@ -55,6 +55,8 @@ import {
   NEIGHBORHOOD_FEED_PAGE_SIZE,
   PHILIFE_GLOBAL_FEED_SESSION_KEY,
 } from "@/lib/philife/neighborhood-feed-client-url";
+import { fetchNeighborhoodFeedShortTtl } from "@/lib/philife/fetch-neighborhood-feed-short-ttl";
+import { isSamarketPhilifeFeedPerfDiagEnabled } from "@/lib/debug/samarket-client-console-flags";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
   bumpAppWidePerf,
@@ -89,7 +91,8 @@ function philifePerfDiagEnabled(): boolean {
   return (
     process.env.NODE_ENV === "development" &&
     typeof window !== "undefined" &&
-    window.location.pathname === "/philife"
+    window.location.pathname === "/philife" &&
+    isSamarketPhilifeFeedPerfDiagEnabled()
   );
 }
 
@@ -618,7 +621,7 @@ export function CommunityFeed({
         });
         const personalized = neighborOnly || viewerSig !== "_anon";
         const tFetchStart = performance.now();
-        const res = await fetch(url, {
+        const res = await fetchNeighborhoodFeedShortTtl(url, {
           credentials: "include",
           signal: controller.signal,
           priority: "high",
@@ -1001,7 +1004,7 @@ export function CommunityFeed({
       const personalized = neighborOnly || viewerSig !== "_anon";
       void runSingleFlight(`community-feed:intent-prefetch:${prefetchKey}`, async () => {
         try {
-          const res = await fetch(url, {
+          const res = await fetchNeighborhoodFeedShortTtl(url, {
             credentials: "include",
             priority: "high",
             ...(personalized ? { cache: "no-store" as RequestCache } : {}),
@@ -1215,7 +1218,7 @@ export function CommunityFeed({
         const personalized = neighborOnly || viewerSig !== "_anon";
         void runSingleFlight(`community-feed:adjacent-prefetch:${prefetchKey}`, async () => {
           try {
-            const res = await fetch(url, {
+            const res = await fetchNeighborhoodFeedShortTtl(url, {
               credentials: "include",
               priority: "low",
               ...(personalized ? { cache: "no-store" as RequestCache } : {}),

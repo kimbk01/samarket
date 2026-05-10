@@ -1,0 +1,33 @@
+---
+description: 변경·성능·핫패스 작업 시 오류·누락·중복·병목 더블체크
+alwaysApply: true
+---
+
+# 더블체크 (항시)
+
+코드 수정·리뷰·성능 라운드 종료 전에 아래를 **한 번 더** 훑는다.
+
+## 오류 (Errors)
+
+- `tsc` / 해당 도메인 검증 스크립트(예: `verify:trade-hot-path-contract`)가 요구되면 실행했는가.
+- 새 분기·조기 `return`에서 trace·metrics·에러 로그가 **불일치·미갱신**으로 남지 않는가.
+- 비동기 `Promise.all`에서 한쪽 실패 시 다른 쪽 결과 사용·폐기가 의도와 맞는가.
+
+## 누락 (Omissions)
+
+- 계약 문서·`.mdc`·모듈 **CONTRACT / DO NOT** 주석과 충돌 없는가.
+- 관측 필드: 짝이 되는 로그·trace 필드가 **한쪽만** 빠지지 않았는가(예: 한 쿼리만 `err` 로그).
+- prod/critical 마커(`trace.tier` 등) 전파가 끊기지 않았는가.
+
+## 중복 (Duplicates)
+
+- 동일 요청·동일 키 집합에 **불필요한 이중 fetch·이중 enrich** 없는가.
+- 클라/서버 **single-flight**·캐시 키와 어긋난 중복 호출 없는가.
+
+## 병목 (Bottlenecks)
+
+- 직렬 `await`가 **독립 쿼리**에 남아 있지 않은가(병렬 후보인지).
+- 벽시계 지표가 **합산과 max** 중 무엇을 의미하는지 trace 주석·필드명과 일치하는가.
+- 성능 라운드면 `docs/samarket-performance-track-state.md`·헌장 절차와 **종료 트랙·측정**을 맞췄는가.
+
+요약: **실행 경로 → 관측 → 의미론·계약** 순으로 재점검한다.

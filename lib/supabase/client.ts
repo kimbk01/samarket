@@ -5,6 +5,7 @@
  */
 import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { logAuthClientCreated, logAuthSessionChanged } from "@/lib/supabase/auth-refresh-telemetry";
 let client: SupabaseClient | null = null;
 
 export function getSupabaseClient(): SupabaseClient | null {
@@ -18,6 +19,7 @@ export function getSupabaseClient(): SupabaseClient | null {
     );
   }
   if (!client) {
+    logAuthClientCreated();
     /** 배포(HTTPS)에서는 secure 쿠키·WSS Realtime — 로컬 http 에서만 secure: false */
     const secure = window.location.protocol === "https:";
     client = createBrowserClient(url, key, {
@@ -40,6 +42,7 @@ export function getSupabaseClient(): SupabaseClient | null {
       if (t) void sb.realtime.setAuth(t);
     });
     sb.auth.onAuthStateChange((event, session) => {
+      logAuthSessionChanged(event);
       const t = session?.access_token ?? null;
       if (t) {
         void sb.realtime.setAuth(t);

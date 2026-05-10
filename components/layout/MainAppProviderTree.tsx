@@ -36,6 +36,7 @@ import { TradeTabCategoriesServerPrime } from "@/components/layout/TradeTabCateg
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import { LatestMenuNavigationProvider } from "@/contexts/LatestMenuNavigationContext";
+import { MainBottomNavTabsProvider } from "@/contexts/MainBottomNavTabsContext";
 import { DiBaYNotificationOnboardingGate } from "@/components/notifications/DiBaYNotificationOnboardingGate";
 import { DevicePermissionUiHost } from "@/components/permissions/DevicePermissionUiHost";
 
@@ -140,6 +141,7 @@ export function MainAppProviderTree({
     <RegionProvider>
       <MypageInfoHubPanelProvider>
         <LatestMenuNavigationProvider>
+         <MainBottomNavTabsProvider initialTabs={initialMainBottomNavItems ?? null}>
           <TradeTabCategoriesServerPrime initialCategories={initialTradeTabCategories ?? null} />
           <AppWideRuntimePerfHooks />
           <SessionLostRedirect />
@@ -192,6 +194,7 @@ export function MainAppProviderTree({
               </WriteCategoryProvider>
             </NotificationSurfaceProvider>
           </FavoriteProvider>
+         </MainBottomNavTabsProvider>
         </LatestMenuNavigationProvider>
       </MypageInfoHubPanelProvider>
     </RegionProvider>

@@ -16,6 +16,10 @@ import {
   normalizeCmRealtimeSubscribeRoomId,
 } from "@/lib/community-messenger/realtime/cm-rt-room-sub-log";
 import { cmRtStableSubLog } from "@/lib/community-messenger/realtime/cm-rt-stable-sub-log";
+import {
+  cmRtHs4DiagnosisLog,
+  cmRtHs4FingerprintDigest,
+} from "@/lib/community-messenger/realtime/cm-rt-hs4-diagnosis";
 
 /** Supabase postgres_changes `in` 필터는 값 최대 100개 — URL·엔진 한도 여유를 두고 청크 분할 */
 export const COMMUNITY_MESSENGER_HOME_ROOMS_IN_FILTER_MAX = 90;
@@ -50,6 +54,15 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
     : [];
   const bindOrdinal = messengerRealtimeBumpHomeChannelPhysicalBindCount();
   messengerRealtimeRecordSubscribedMessageRoomIds(roomIds);
+  cmRtHs4DiagnosisLog("home_channels_bind_batch_start", {
+    channelBindRole: args.channelBindRole,
+    bindOrdinal,
+    roomChunkCount: roomIds.length,
+    visibleTradeRoomCount: args.visibleTradeRoomCount ?? 0,
+    viewerUserIdTail: args.userId.length > 8 ? args.userId.slice(-8) : args.userId,
+    ...cmRtHs4FingerprintDigest(args.roomIdsFingerprint),
+    physicalBindCountNow: messengerRealtimeGetHomeChannelPhysicalBindCount(),
+  });
   cmRtRoomSubLog("subscribed_message_room_ids", {
     viewerUserId: args.userId,
     roomIds,
@@ -63,6 +76,11 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
       name: `community-messenger-home:meta:${args.userId}`,
       scope: `community-messenger-home:meta`,
       isCancelled: cancelled,
+      hs4Context: {
+        fingerprint: args.roomIdsFingerprint,
+        channelBindRole: args.channelBindRole,
+        bindOrdinal,
+      },
       onStatus: (status) => {
         if (status === "SUBSCRIBED" && !cancelled()) refreshScheduler.schedule();
       },
@@ -203,6 +221,12 @@ export function bindCommunityMessengerHomeRealtimeChannels(args: {
       name: `community-messenger-home:rooms-in:${args.userId}:${offset}`,
       scope: `community-messenger-home:rooms-in`,
       isCancelled: cancelled,
+      hs4Context: {
+        fingerprint: args.roomIdsFingerprint,
+        channelBindRole: args.channelBindRole,
+        chunkOffset: offset,
+        bindOrdinal,
+      },
       onStatus: (status) => {
         if (status === "SUBSCRIBED" && !cancelled()) refreshScheduler.schedule();
       },

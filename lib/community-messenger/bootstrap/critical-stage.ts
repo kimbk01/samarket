@@ -39,6 +39,12 @@ export type CommunityMessengerCriticalTierDiagnostics = {
   roomsPayloadDbRoundTrips: number;
   profilesMs: number;
   unreadMs: number;
+  /** `summarizeRoomsBatchWithProfileMap` + `mapRows` CPU (critical 전용) */
+  criticalCpuMergeMs: number;
+  /** `fetchMyRoomsPayload` 의 `community_messenger_room_profiles` 라운드 생략 시 true */
+  criticalSkippedRoomProfiles: boolean;
+  /** `fetchMyRoomsPayload` 가 반환한 `byRoomId` 재사용으로 `buildParticipantsByRoomMap` 생략 */
+  criticalReusedPayloadByRoomId: boolean;
   /** `fetchMyRoomsPayload` queryCount + `profiles` 배치(≤1) + 레거시 거래 미읽음 병합 쿼리 */
   dbRoundTrips: number;
 };
@@ -68,14 +74,16 @@ function stripMeForCritical(me: CommunityMessengerProfileLite | undefined): Comm
   };
 }
 
+type ParticipantIdRow = Parameters<typeof participantRowUserId>[0];
+
 function participantLabelsForRoom(
-  participantsForRoom: Array<{ user_id?: string; userId?: string }>,
+  participantsForRoom: ParticipantIdRow[],
   profileById: Map<string, CommunityMessengerProfileLite>
 ): CommunityMessengerCriticalParticipantLabel[] {
   const out: CommunityMessengerCriticalParticipantLabel[] = [];
   const seen = new Set<string>();
   for (const p of participantsForRoom) {
-    const uid = participantRowUserId(p as Parameters<typeof participantRowUserId>[0]);
+    const uid = participantRowUserId(p);
     if (!uid || seen.has(uid)) continue;
     seen.add(uid);
     const prof = profileById.get(uid);
@@ -126,7 +134,8 @@ export async function loadCommunityMessengerBootstrapCritical(
   const tRooms = performance.now();
   const myPayload = await fetchMyRoomsPayload(userId, {
     diagnostics: roomsDiag,
-    includeRoomProfiles: true,
+    /** critical JSON 은 `summaryToCriticalRow` 가 peer 라벨·방 메타만 쓰고 room-scoped alias 행은 생략 가능(글로벌 라벨 hydrate 로 동일 표면) */
+    includeRoomProfiles: false,
     roomLimit: COMMUNITY_MESSENGER_BOOTSTRAP_CRITICAL_ROOM_CAP,
   });
   const roomsQueryMs = Math.round(performance.now() - tRooms);
@@ -134,10 +143,15 @@ export async function loadCommunityMessengerBootstrapCritical(
     diagnostics.roomsQueryMs = roomsQueryMs;
     diagnostics.participantsQueryMs = roomsDiag.round2ParticipantsMs;
     diagnostics.roomsPayloadDbRoundTrips = roomsDiag.queryCount;
+    diagnostics.criticalSkippedRoomProfiles = true;
   }
 
-  const byRoomId = buildParticipantsByRoomMap(myPayload.participantRows);
-  const hydrateIds = new Set<string>([userId]);
+  const byRoomId = myPayload.byRoomId ?? buildParticipantsByRoomMap(myPayload.participantRows);
+  if (diagnostics) {
+    diagnostics.criticalReusedPayloadByRoomId = myPayload.byRoomId != null;
+  }
+
+  const participantSliceByRoom = new Map<string, ParticipantIdRow[]>();
   for (const room of myPayload.roomRows) {
     const parts = byRoomId.get(room.id) ?? [];
     const rt = roomRowType(room);
@@ -145,6 +159,12 @@ export async function loadCommunityMessengerBootstrapCritical(
       rt === "direct"
         ? parts
         : sliceGroupParticipantsForRoomBootstrap(parts, userId, CRITICAL_PARTICIPANT_LABEL_SLICE).rows;
+    participantSliceByRoom.set(room.id, sliceRows);
+  }
+
+  const hydrateIds = new Set<string>([userId]);
+  for (const room of myPayload.roomRows) {
+    const sliceRows = participantSliceByRoom.get(room.id) ?? [];
     for (const p of sliceRows) {
       const uid = participantRowUserId(p);
       if (uid) hydrateIds.add(uid);
@@ -155,10 +175,14 @@ export async function loadCommunityMessengerBootstrapCritical(
   const uniqueProfileTargets = dedupeStringIds(Array.from(hydrateIds));
   const profileDbRoundTrips = uniqueProfileTargets.length > 0 && sbProfile ? 1 : 0;
 
-  const tProf = performance.now();
+  const tHydrate0 = performance.now();
   const { members } = await hydrateProfilesLabelsOnlyWithMap(userId, Array.from(hydrateIds), { includeSelf: true });
   const profileById = new Map(members.map((m) => [m.id, m]));
+  if (diagnostics) {
+    diagnostics.profilesMs = Math.round(performance.now() - tHydrate0);
+  }
 
+  const tSummarize0 = performance.now();
   const mySummaries = summarizeRoomsBatchWithProfileMap(
     userId,
     myPayload.roomRows,
@@ -166,11 +190,7 @@ export async function loadCommunityMessengerBootstrapCritical(
     byRoomId,
     profileById
   );
-
-  const profilesMs = Math.round(performance.now() - tProf);
-  if (diagnostics) {
-    diagnostics.profilesMs = profilesMs;
-  }
+  const tAfterSummarize = performance.now();
 
   const sbBoot = getSupabaseOrNull();
 
@@ -191,28 +211,31 @@ export async function loadCommunityMessengerBootstrapCritical(
       roomsDiag.queryCount + profileDbRoundTrips + enrichUnreadMetrics.dbRoundTrips;
   }
 
+  const tMapCpu0 = performance.now();
   const chats = mySummaries.filter((room) => room.roomType === "direct");
   const groups = mySummaries.filter((room) => isCommunityMessengerGroupRoomType(room.roomType));
 
   const mapRows = (summaries: CommunityMessengerRoomSummary[]): CommunityMessengerCriticalRoomRow[] =>
     summaries.map((summary) => {
-      const parts = byRoomId.get(summary.id) ?? [];
-      const rt = summary.roomType;
-      const sliceParticipants =
-        rt === "direct"
-          ? parts
-          : sliceGroupParticipantsForRoomBootstrap(parts, userId, CRITICAL_PARTICIPANT_LABEL_SLICE).rows;
+      const sliceParticipants = participantSliceByRoom.get(summary.id) ?? [];
       const labels = participantLabelsForRoom(sliceParticipants, profileById);
       return summaryToCriticalRow(summary, labels);
     });
 
   const me = stripMeForCritical(profileById.get(userId));
+  const chatsRows = mapRows(chats);
+  const groupsRows = mapRows(groups);
+  if (diagnostics) {
+    const summarizeCpuMs = Math.round(tAfterSummarize - tSummarize0);
+    const mapCpuMs = Math.round(performance.now() - tMapCpu0);
+    diagnostics.criticalCpuMergeMs = summarizeCpuMs + mapCpuMs;
+  }
 
   return {
     tier: "critical",
     me,
-    chats: mapRows(chats),
-    groups: mapRows(groups),
+    chats: chatsRows,
+    groups: groupsRows,
     tabs: { chats: chats.length, groups: groups.length },
   };
 }

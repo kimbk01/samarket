@@ -54,7 +54,14 @@ const INBOX_PUSH_KIND_PARAMS = new Set([
  * GET ?owner_store_id=UUID → 해당 매장의 오너 매장주문(commerce·meta.kind) 알림만 (최대 200건)
  */
 export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
   const userId = await getRouteUserId();
+
+  /** 비로그인: 미읽음 개수만 요청할 때는 401 대신 0 — 헤더/폴링이 세션 전에 닿는 노이즈 제거 */
+  if (searchParams.get("unread_count_only") === "1" && !userId) {
+    return NextResponse.json({ ok: true, unread_count: 0 });
+  }
+
   if (!userId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
@@ -65,7 +72,6 @@ export async function GET(req: NextRequest) {
   }
   const sbx = sb;
 
-  const { searchParams } = new URL(req.url);
   if (searchParams.get("unread_count_only") === "1") {
     const excludeOwner = searchParams.get("exclude_owner_store_commerce") === "1";
     const excludeBuyerStore = searchParams.get("exclude_buyer_store_commerce") === "1";

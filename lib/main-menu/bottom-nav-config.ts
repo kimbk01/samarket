@@ -94,21 +94,19 @@ export function areBottomNavItemConfigsEqual(
 }
 
 /**
- * 바 전체 — 바깥 래퍼(고정·safe-area) + 안쪽 캡슐(진한 배경·하단만 라운드).
+ * 바 전체 — 바깥 래퍼(고정·safe-area) + 흰색 floating card plane.
  *
- * 단일 소스: `app/app-shell.css` 의 `--app-bottom-nav-height: 4rem`.
- * `heightClass` 의 `min-h-[4rem]` 과 반드시 같은 값을 유지한다 — 바뀔 때 두 곳을 같이 수정.
+ * 단일 소스: `app/app-shell.css` 의 `--app-bottom-nav-height: 3.5rem`.
+ * `heightClass` 의 `h-[3.5rem]` 과 반드시 같은 값을 유지한다 — 바뀔 때 두 곳을 같이 수정.
  * outer 의 `pb-[env(safe-area-inset-bottom,0px)]` 는 홈 인디케이터(iOS) 회피용. 제거 금지.
  */
 export const BOTTOM_NAV_SHELL = {
-  /** 기기 좌우 끝까지 — 가로 패딩 없음, 하단 safe-area 는 외곽에서만 책임 */
-  outerClassName:
-    "fixed bottom-0 left-0 right-0 z-30 w-full pb-[env(safe-area-inset-bottom,0px)] pt-0 pointer-events-none",
-  /** 정보형 하단 탭 — 밝은 서피스, 얇은 보더, 과장 없는 그림자 */
-  innerBarClassName:
-    "pointer-events-auto flex w-full min-w-0 flex-col overflow-hidden border-t border-sam-border bg-sam-surface/95 text-sam-fg antialiased shadow-[0_-4px_18px_rgba(15,23,42,0.08)] backdrop-blur-[16px]",
-  /** 탭 한 줄 최소 높이 — `--app-bottom-nav-height` (4rem) 와 동기 */
-  heightClass: "min-h-[4rem]",
+  /** 기기 좌우 끝까지 — 하단 safe-area 는 외곽에서만 책임, active floating icon 때문에 overflow visible */
+  outerClassName: "app-bottom-nav-shell",
+  /** 첨부 이미지형 흰색 floating card plane */
+  innerBarClassName: "app-bottom-nav-plane",
+  /** 탭 한 줄 높이 — `--app-bottom-nav-height` (3.5rem) 와 동기 */
+  heightClass: "h-[3.5rem]",
 } as const;
 
 /** 하단 탭바 기준색(그라데이션 중간 톤) — 배지 링 등 */
@@ -121,7 +119,7 @@ export const BOTTOM_NAV_BADGE_RING_CLASS = "ring-sam-surface";
  * 탭 셸(`BOTTOM_NAV_SHELL`)과 반드시 같은 식을 쓴다.
  */
 export const BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS =
-  "bottom-[calc(4rem+env(safe-area-inset-bottom,0px))]";
+  "bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))]";
 
 /**
  * 메인 하단 탭 바로 위에 고정 띠를 둘 때 사용 (`BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS` 와 동일).
@@ -141,7 +139,7 @@ export const MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS =
  * 채팅방 등 `pb-0` 본문 + `100dvh` 직접 쓰면 탭에 가려지므로 이 값으로 줄인다.
  */
 export const VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS =
-  "h-[calc(100dvh-4rem-env(safe-area-inset-bottom,0px))] max-h-[calc(100dvh-4rem-env(safe-area-inset-bottom,0px))]";
+  "h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom,0px))] max-h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom,0px))]";
 
 /**
  * 하단 탭이 없는 전체 화면(채팅 상세·통화 등)용 뷰포트 높이.
@@ -169,18 +167,18 @@ export const STORE_DETAIL_ROOT_BOTTOM_PADDING_NO_STRIP_CLASS =
  * Tailwind 임의 값(bg-[#…])도 가능.
  */
 export const BOTTOM_NAV_THEME = {
-  iconSizeClass: "h-5 w-5",
-  iconActiveClass: "text-sam-primary",
-  iconInactiveClass: "text-sam-muted",
-  labelActiveClass: "font-semibold tracking-normal text-sam-fg",
-  labelInactiveClass: "font-medium tracking-normal text-sam-muted",
-  labelSizeClass: "sam-text-xxs",
+  iconSizeClass: "app-bottom-nav-icon-svg",
+  iconActiveClass: "text-[#1C8DB8]",
+  iconInactiveClass: "text-[#b8bec8]",
+  labelActiveClass: "font-semibold tracking-[-0.01em] text-[#1C8DB8]",
+  labelInactiveClass: "font-medium tracking-[-0.01em] text-[#b8bec8]",
+  labelSizeClass: "text-[11px] leading-none",
 } as const;
 
 /** 플로팅 + 버튼이 탭바 위에 오도록 여백 (BottomNav 높이와 맞출 것) */
 export const BOTTOM_NAV_FAB_LAYOUT = {
   /** 탭 본체 + safe + 여유 — 플로팅 원과 겹침 완화 */
-  bottomOffsetClass: "bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))]",
+  bottomOffsetClass: "bottom-[calc(5rem+env(safe-area-inset-bottom,0px))]",
   /** 퀵메뉴는 좌측(본문 컬럼 기준) */
   leftOffsetClass: "left-4",
   /** 우측 플로팅 퀵 레일에서 글쓰기 퀵메뉴 열 때 */
@@ -192,7 +190,7 @@ export const BOTTOM_NAV_FAB_LAYOUT = {
  * `WriteLauncher` 를 같은 위치에 맞출 때 사용.
  */
 export const HOME_TRADE_HUB_FLOAT_BOTTOM_CLASS =
-  "bottom-[calc(4rem+env(safe-area-inset-bottom,0px)+10px)]";
+  "bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px)+10px)]";
 
 /** 다이얼 보조 버튼(로열 블루 원) — 글쓰기 행·런처 닫기 버튼 공통 */
 export const HOME_TRADE_HUB_SUB_FAB_BUTTON_CLASS =

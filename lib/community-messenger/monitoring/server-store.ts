@@ -19,6 +19,11 @@ import {
   shouldAlertPacketLoss,
 } from "./thresholds";
 import v8 from "v8";
+import {
+  cmRtHs4DiagnosisLog,
+  cmRtHs4SessionRollupLog,
+  cmRtHs4DiagnosisEnabled,
+} from "@/lib/community-messenger/realtime/cm-rt-hs4-diagnosis";
 
 const MAX_EVENTS = 400;
 const MAX_ALERTS = 80;
@@ -31,7 +36,16 @@ const MAX_FAILURE_RATIO_KEYS = 64;
 const RATIO_ALERT_COOLDOWN_MS = 90_000;
 const AGG_KEY = (e: MessengerMonitoringEvent) => `${e.category}:${e.metric}:${e.source}`;
 
+/** HS4-1: 세션 미해결 initial error 가 창 끝까지 남으면 stale 로만 최종 실패 처리 */
+const CHANNEL_SUBSCRIBE_SESSION_STALE_MS = Number(process.env.CM_RT_HS4_SESSION_STALE_MS ?? 120_000);
+
+/** Raw Supabase 채널 상태 콜백 단위 집계 (기존 realtime.subscription 과 동일 분모) */
+const OUTCOME_CHANNEL_SUBSCRIBE_CALLBACK = "realtime.subscription:channel_subscribe_callback";
+/** 구독 시도 세션(복구 성공 vs 최종 실패) — transient initial + retry 성공 은 recovered 로 최종 실패에서 제외 */
+const OUTCOME_CHANNEL_SUBSCRIBE_SESSION_FINAL = "realtime.subscription:channel_subscribe_session_final";
+
 let lastDevMonitoringStoreLogAt = 0;
+let lastSessionRollupLogAt = 0;
 let lastDevMonitoringHeapLogAt = 0;
 
 type Agg = { count: number; sum: number; last: number; lastAt: number };
@@ -118,6 +132,133 @@ function bumpOutcome(store: Store, key: string, ok: boolean) {
   store.outcomes.set(key, cur);
 }
 
+/** scope + 채널명 + bindOrdinal — 동일 물리 채널 재바인드 상관 */
+function buildChannelSubscribeSessionKey(labels: Record<string, string>): string {
+  const scope = (labels.scope ?? "").trim();
+  const cn = (labels.hs4_channelName ?? "").trim();
+  const ord = (labels.hs4_bindOrdinal ?? "").trim();
+  return `${scope}\u001f${cn}\u001f${ord}`;
+}
+
+/** 세션 최종 실패 집계에서 제외(클라 라벨 확장 전까지는 대부분 0) */
+function shouldExcludeFromSubscribeSessionFinal(labels: Record<string, string>): boolean {
+  if (labels.hs4_excludeSessionFinal === "1") return true;
+  if (labels.hs4_explicitStop === "1") return true;
+  if (labels.hs4_expectedInternalClosed === "1") return true;
+  return false;
+}
+
+function computeSubscribeSessionRollupFromEvents(
+  events: MessengerMonitoringEvent[],
+  nowMs: number
+): {
+  callbackOk: number;
+  callbackFail: number;
+  sessionFinalOk: number;
+  sessionFinalFail: number;
+  recoveredSessionCount: number;
+  unrecoveredFailureCount: number;
+  cleanInitialOkSessions: number;
+  stalePendingFinalFailures: number;
+  retryStepFailures: number;
+  explicitStopExcluded: number;
+  expectedClosedExcluded: number;
+  pendingUnresolvedSessionKeys: number;
+  rawCallbackFailureRatio: number;
+  sessionFinalFailureRatio: number;
+} {
+  const subscribeEvents = events
+    .filter(
+      (e) =>
+        e.unit === "count" &&
+        e.category === "realtime.subscription" &&
+        e.metric === "channel_subscribe" &&
+        e.labels?.outcome
+    )
+    .sort((a, b) => a.ts - b.ts);
+
+  let callbackOk = 0;
+  let callbackFail = 0;
+
+  const pending = new Map<string, number>();
+  let recoveredSessionCount = 0;
+  let cleanInitialOkSessions = 0;
+  let retryStepFailures = 0;
+  let stalePendingFinalFailures = 0;
+  let explicitStopExcluded = 0;
+  let expectedClosedExcluded = 0;
+
+  const maxTs =
+    subscribeEvents.length > 0 ? Math.max(...subscribeEvents.map((e) => e.ts)) : nowMs;
+
+  for (const e of subscribeEvents) {
+    const labels = e.labels ?? {};
+    const outcomeOk = labels.outcome === "ok";
+    if (outcomeOk) callbackOk++;
+    else callbackFail++;
+
+    if (shouldExcludeFromSubscribeSessionFinal(labels)) {
+      if (labels.hs4_explicitStop === "1") explicitStopExcluded++;
+      if (labels.hs4_expectedInternalClosed === "1") expectedClosedExcluded++;
+      continue;
+    }
+
+    const phase = (labels.attemptPhase ?? "").trim();
+    const status = (labels.status ?? "").trim();
+    const key = buildChannelSubscribeSessionKey(labels);
+
+    if (phase === "initial") {
+      if (!outcomeOk) {
+        pending.set(key, e.ts);
+      } else {
+        pending.delete(key);
+        cleanInitialOkSessions++;
+      }
+    } else if (phase === "retry") {
+      if (outcomeOk && status === "SUBSCRIBED") {
+        if (pending.has(key)) {
+          recoveredSessionCount++;
+          pending.delete(key);
+        }
+      } else if (!outcomeOk) {
+        retryStepFailures++;
+        pending.delete(key);
+      }
+    }
+  }
+
+  for (const [key, ts] of [...pending.entries()]) {
+    if (maxTs - ts > CHANNEL_SUBSCRIBE_SESSION_STALE_MS) {
+      stalePendingFinalFailures++;
+      pending.delete(key);
+    }
+  }
+
+  const unrecoveredFailureCount = retryStepFailures + stalePendingFinalFailures;
+  const sessionFinalOk = cleanInitialOkSessions + recoveredSessionCount;
+  const sessionFinalFail = unrecoveredFailureCount;
+
+  const cbDenom = callbackOk + callbackFail;
+  const sfDenom = sessionFinalOk + sessionFinalFail;
+
+  return {
+    callbackOk,
+    callbackFail,
+    sessionFinalOk,
+    sessionFinalFail,
+    recoveredSessionCount,
+    unrecoveredFailureCount,
+    cleanInitialOkSessions,
+    stalePendingFinalFailures,
+    retryStepFailures,
+    explicitStopExcluded,
+    expectedClosedExcluded,
+    pendingUnresolvedSessionKeys: pending.size,
+    rawCallbackFailureRatio: cbDenom ? callbackFail / cbDenom : 0,
+    sessionFinalFailureRatio: sfDenom ? sessionFinalFail / sfDenom : 0,
+  };
+}
+
 function recomputeOutcomesFromEventWindow(store: Store) {
   store.outcomes.clear();
   for (const event of store.events) {
@@ -153,14 +294,51 @@ function recomputeOutcomesFromEventWindow(store: Store) {
     }
   }
 
+  const rollup = computeSubscribeSessionRollupFromEvents(store.events, Date.now());
+  store.outcomes.set(OUTCOME_CHANNEL_SUBSCRIBE_CALLBACK, {
+    ok: rollup.callbackOk,
+    fail: rollup.callbackFail,
+  });
+  store.outcomes.set(OUTCOME_CHANNEL_SUBSCRIBE_SESSION_FINAL, {
+    ok: rollup.sessionFinalOk,
+    fail: rollup.sessionFinalFail,
+  });
+
   if (process.env.NODE_ENV === "development") {
     trimMapOldest(store.outcomes, MAX_OUTCOME_KEYS);
+  }
+
+  if (rollup.callbackOk + rollup.callbackFail > 0 && cmRtHs4DiagnosisEnabled()) {
+    const now = Date.now();
+    if (now - lastSessionRollupLogAt >= 12_000) {
+      lastSessionRollupLogAt = now;
+      cmRtHs4SessionRollupLog({
+        rawCallbackFailureRatio: rollup.rawCallbackFailureRatio,
+        sessionFinalFailureRatio: rollup.sessionFinalFailureRatio,
+        recoveredInitialFailureCount: rollup.recoveredSessionCount,
+        recoveredSessionCount: rollup.recoveredSessionCount,
+        unrecoveredFailureCount: rollup.unrecoveredFailureCount,
+        retryStepFailures: rollup.retryStepFailures,
+        stalePendingFinalFailures: rollup.stalePendingFinalFailures,
+        explicitStopCount: rollup.explicitStopExcluded,
+        expectedClosedCount: rollup.expectedClosedExcluded,
+        pendingUnresolvedSessionKeys: rollup.pendingUnresolvedSessionKeys,
+        sessionCountResolved: rollup.sessionFinalOk + rollup.sessionFinalFail,
+        callbackOk: rollup.callbackOk,
+        callbackFail: rollup.callbackFail,
+        sessionFinalOk: rollup.sessionFinalOk,
+        sessionFinalFail: rollup.sessionFinalFail,
+      });
+    }
   }
 }
 
 function maybeFailureRatioAlert(
   store: Store,
-  kind: "subscriptionFailureRate" | "signalingFailureRate",
+  kind:
+    | "subscriptionFailureRate"
+    | "subscriptionSessionFinalFailureRate"
+    | "signalingFailureRate",
   outcomeKey: string,
   category: MessengerMonitoringEvent["category"],
   metric: string
@@ -174,9 +352,9 @@ function maybeFailureRatioAlert(
   if (Date.now() - last < RATIO_ALERT_COOLDOWN_MS) return;
   store.lastFailureRatioAlertTs.set(kind, Date.now());
   const thr =
-    kind === "subscriptionFailureRate"
-      ? MESSENGER_PERF_THRESHOLDS.subscriptionFailRateCritical
-      : MESSENGER_PERF_THRESHOLDS.signalingFailRateCritical;
+    kind === "signalingFailureRate"
+      ? MESSENGER_PERF_THRESHOLDS.signalingFailRateCritical
+      : MESSENGER_PERF_THRESHOLDS.subscriptionFailRateCritical;
   pushAlert(
     store,
     buildFailureRateAlert(category, metric, rate, thr, { outcomeKey })
@@ -209,6 +387,20 @@ export function recordMessengerMonitoringEvent(event: MessengerMonitoringEvent):
   store.events.push(event);
   if (store.events.length > MAX_EVENTS) {
     store.events.splice(0, store.events.length - MAX_EVENTS);
+  }
+  if (
+    event.unit === "count" &&
+    event.category === "realtime.subscription" &&
+    event.metric === "channel_subscribe"
+  ) {
+    cmRtHs4DiagnosisLog("monitoring_store_channel_subscribe_ingest", {
+      source: event.source ?? "unknown",
+      outcome: event.labels?.outcome ?? "",
+      attemptPhase: event.labels?.attemptPhase ?? "",
+      scope: event.labels?.scope ?? "",
+      status: event.labels?.status ?? "",
+      labels: event.labels ?? {},
+    });
   }
   recomputeOutcomesFromEventWindow(store);
 
@@ -252,9 +444,22 @@ export function recordMessengerMonitoringEvent(event: MessengerMonitoringEvent):
     const phase =
       typeof event.labels.attemptPhase === "string" ? event.labels.attemptPhase.trim() : "";
     if (phase !== "retry") {
-      const key = phase ? `realtime.subscription:phase:${phase}` : "realtime.subscription";
-      maybeFailureRatioAlert(store, "subscriptionFailureRate", key, "realtime.subscription", "channel_subscribe");
+      const phaseOutcomeKey = phase ? `realtime.subscription:phase:${phase}` : "realtime.subscription";
+      maybeFailureRatioAlert(
+        store,
+        "subscriptionFailureRate",
+        phaseOutcomeKey,
+        "realtime.subscription",
+        "channel_subscribe_callback_failure_ratio"
+      );
     }
+    maybeFailureRatioAlert(
+      store,
+      "subscriptionSessionFinalFailureRate",
+      OUTCOME_CHANNEL_SUBSCRIBE_SESSION_FINAL,
+      "realtime.subscription",
+      "channel_subscribe_session_final_failure_ratio"
+    );
   }
   if (event.unit === "count" && event.category === "call.signaling" && event.metric === "signal_post" && event.labels?.outcome) {
     maybeFailureRatioAlert(store, "signalingFailureRate", "call.signaling", "call.signaling", "signal_post");
@@ -623,7 +828,7 @@ function buildSloDigest(
     const rate = sub.fail / (sub.ok + sub.fail);
     rows.push({
       id: "subscription_fail_rate",
-      label: "Realtime 채널 구독 실패율(초기 시도 기준)",
+      label: "Realtime 구독 초기 시도 실패율·raw 콜백 (phase:initial)",
       unit: "ratio",
       target: ratioRef.subscriptionFailureRate.target,
       warning: ratioRef.subscriptionFailureRate.warning,
@@ -632,6 +837,40 @@ function buildSloDigest(
       observedLast: rate,
       sampleCount: sub.ok + sub.fail,
       sourceHint: "realtime.subscription:phase:initial",
+    });
+  }
+
+  const cb = store.outcomes.get(OUTCOME_CHANNEL_SUBSCRIBE_CALLBACK);
+  if (cb && cb.ok + cb.fail > 0) {
+    const rate = cb.fail / (cb.ok + cb.fail);
+    rows.push({
+      id: "subscription_callback_fail_rate",
+      label: "Realtime channel_subscribe 콜백 실패율(모든 시도·HS4 raw)",
+      unit: "ratio",
+      target: ratioRef.subscriptionFailureRate.target,
+      warning: ratioRef.subscriptionFailureRate.warning,
+      critical: ratioRef.subscriptionFailureRate.critical,
+      observedAvg: rate,
+      observedLast: rate,
+      sampleCount: cb.ok + cb.fail,
+      sourceHint: OUTCOME_CHANNEL_SUBSCRIBE_CALLBACK,
+    });
+  }
+
+  const sess = store.outcomes.get(OUTCOME_CHANNEL_SUBSCRIBE_SESSION_FINAL);
+  if (sess && sess.ok + sess.fail > 0) {
+    const rate = sess.fail / (sess.ok + sess.fail);
+    rows.push({
+      id: "subscription_session_final_fail_rate",
+      label: "Realtime 구독 세션 최종 실패율(recovered transient 제외)",
+      unit: "ratio",
+      target: ratioRef.subscriptionSessionFinalFailureRate.target,
+      warning: ratioRef.subscriptionSessionFinalFailureRate.warning,
+      critical: ratioRef.subscriptionSessionFinalFailureRate.critical,
+      observedAvg: rate,
+      observedLast: rate,
+      sampleCount: sess.ok + sess.fail,
+      sourceHint: OUTCOME_CHANNEL_SUBSCRIBE_SESSION_FINAL,
     });
   }
 

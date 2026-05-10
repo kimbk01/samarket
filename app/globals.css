@@ -1,6 +1,7 @@
 /* 토큰 → Tailwind 순서 고정 (변수는 design-tokens.css·app-shell.css 에서만 정의) */
 @import "./design-tokens.css";
 @import "./app-shell.css";
+@import "./app-bottom-nav.css";
 @import "../node_modules/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 @import "../node_modules/tailwindcss";
 @import "./samarket-components.css";
@@ -427,11 +428,16 @@ a,
   }
 }
 
-/* 메인 셸 canonical 라우트 전환 — translate3d 만, forward 240ms / back 220ms */
+/**
+ * 메인 셸 canonical 라우트 전환 — 5탭 어느 진입에서도 보이도록 명확한 translate + 미세 fade.
+ * - forward: 새 페이지가 화면 밖에서 들어오며 덮음.
+ * - back(popstate): 동일 키프레임 재사용(역방향 axis).
+ * - subtle: 같은 pillar 안 sub navigation — 짧은 페이드만.
+ */
 @keyframes main-shell-route-enter-ltr-kf {
   from {
-    transform: translate3d(-18%, 0, 0);
-    opacity: 0.98;
+    transform: translate3d(-100%, 0, 0);
+    opacity: 0.94;
   }
   to {
     transform: translate3d(0, 0, 0);
@@ -442,7 +448,7 @@ a,
 @keyframes main-shell-route-enter-rtl-kf {
   from {
     transform: translate3d(100%, 0, 0);
-    opacity: 0.98;
+    opacity: 0.94;
   }
   to {
     transform: translate3d(0, 0, 0);
@@ -452,13 +458,17 @@ a,
 
 @keyframes main-shell-route-enter-subtle-kf {
   from {
-    opacity: 0.98;
+    opacity: 0.96;
   }
   to {
     opacity: 1;
   }
 }
 
+/**
+ * Duration 단일 정책: forward/back 모두 200ms, subtle 만 150ms.
+ * 사용자 의도: "메뉴 순서가 변경시 동일 속도(200ms)로 좌측/우측 슬라이드 적용".
+ */
 .main-shell-route-enter-ltr-forward {
   backface-visibility: hidden;
   will-change: transform;
@@ -486,7 +496,7 @@ a,
 .main-shell-route-enter-subtle {
   backface-visibility: hidden;
   will-change: opacity;
-  animation: main-shell-route-enter-subtle-kf 200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: main-shell-route-enter-subtle-kf 150ms cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {

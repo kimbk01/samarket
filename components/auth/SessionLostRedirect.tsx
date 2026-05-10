@@ -9,6 +9,7 @@ import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { fetchAuthSessionNoStore } from "@/lib/auth/fetch-auth-session-client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { runBrowserAuthRefreshDeduped } from "@/lib/supabase/auth-refresh-telemetry";
 
 const SESSION_CHECK_COOLDOWN_MS = 10_000;
 /** 라우트 전환 직후 쿠키·RSC 타이밍 레이스로 `/api/auth/session` 이 일시 401일 수 있음 — 즉시 검사하지 않음 */
@@ -98,7 +99,7 @@ export function SessionLostRedirect() {
             if (attempt < SESSION_UNAUTH_MAX_ATTEMPTS - 1) {
               const sb = getSupabaseClient();
               try {
-                await sb?.auth.refreshSession();
+                if (sb) await runBrowserAuthRefreshDeduped(sb, "session_lost_redirect");
               } catch {
                 /* ignore */
               }

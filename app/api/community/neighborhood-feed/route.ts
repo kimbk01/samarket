@@ -10,6 +10,15 @@ import {
 } from "@/lib/neighborhood/philife-neighborhood-topics";
 import { normalizeFeedSort } from "@/lib/community-feed/constants";
 import { listNeighborhoodFeed } from "@/lib/neighborhood/queries";
+import {
+  neighborhoodFeedDedupeUrlKey,
+  recordNeighborhoodFeedCompletion,
+} from "@/lib/neighborhood/neighborhood-feed-duplicate-window";
+import {
+  peekNeighborhoodFeedShortTtlMetrics,
+  runNeighborhoodFeedWithShortTtl,
+  type NeighborhoodFeedExecuteResult,
+} from "@/lib/neighborhood/neighborhood-feed-short-ttl-server";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 export const runtime = "nodejs";
@@ -109,98 +118,167 @@ export async function GET(req: NextRequest) {
     return normalizeFeedSort(sortRaw || undefined);
   })();
 
-  const listQueryKey = [
-    "community:neighborhood-feed:list",
-    viewerUserId ?? "anon",
-    globalFeed ? "global" : "local",
-    globalFeed ? "all" : locationId ?? "none",
-    category ?? "all",
-    authorId ?? "all",
-    neighborOnly ? "neighbor-only" : "all-users",
-    String(offset),
-    String(limit),
-    feedSort,
-  ].join(":");
-  const listResult = await runSingleFlight(listQueryKey, async () =>
-    listNeighborhoodFeed({
-      ...(globalFeed ? { allLocations: true as const } : { locationId: locationId! }),
-      category: category ?? undefined,
-      authorUserId: authorId,
-      offset,
-      limit,
-      viewerUserId,
-      neighborOnly,
-      feedSort,
-      topics,
-    })
-  );
-  const { posts, hasMore, dbScannedCount, pagingOffsetAdvance, serverCommunityPerf } = listResult;
+  const dedupeKey = neighborhoodFeedDedupeUrlKey(req.nextUrl.pathname, req.nextUrl.searchParams);
+  const cacheKey = `${viewerUserId ?? "anon"}::${dedupeKey}`;
 
-  const body = {
-    ok: true as const,
-    locationId: globalFeed ? null : locationId,
-    posts,
-    hasMore,
-    nextOffset: hasMore ? offset + pagingOffsetAdvance : null,
-    /** SQL·랭크 페이지 진행에 쓰인 건수 — 클라이언트 `nextOffset` 은 `pagingOffsetAdvance` 기준 */
-    dbPageLength: pagingOffsetAdvance,
-    pagingOffsetAdvance,
-  };
+  const outcome = await runNeighborhoodFeedWithShortTtl({
+    cacheKey,
+    ttlMs: 1200,
+    execute: async (): Promise<NeighborhoodFeedExecuteResult> => {
+      const listQueryKey = [
+        "community:neighborhood-feed:list",
+        viewerUserId ?? "anon",
+        globalFeed ? "global" : "local",
+        globalFeed ? "all" : locationId ?? "none",
+        category ?? "all",
+        authorId ?? "all",
+        neighborOnly ? "neighbor-only" : "all-users",
+        String(offset),
+        String(limit),
+        feedSort,
+      ].join(":");
+      const listResult = await runSingleFlight(listQueryKey, async () =>
+        listNeighborhoodFeed({
+          ...(globalFeed ? { allLocations: true as const } : { locationId: locationId! }),
+          category: category ?? undefined,
+          authorUserId: authorId,
+          offset,
+          limit,
+          viewerUserId,
+          neighborOnly,
+          feedSort,
+          topics,
+        })
+      );
+      const { posts, hasMore, pagingOffsetAdvance, serverCommunityPerf } = listResult;
 
-  const headers = new Headers();
-  /**
-   * 비로그인·비개인화 요청만 짧게 캐시 — 로그인 시 차단 필터가 있어 동일 URL이라도 응답이 달라질 수 있음.
-   * 워밍·탭 왕복 시 브라우저 재검증으로 RTT 절감.
-   */
-  if (!neighborOnly && !authorId && !viewerUserId) {
-    headers.set("Cache-Control", "private, max-age=15, stale-while-revalidate=120");
-  }
+      const perf = serverCommunityPerf;
+      const queryMs = perf
+        ? Math.round(perf.main_query_filter_prepare_ms + perf.main_query_db_ms)
+        : 0;
+      const normalizeMs = perf ? Math.round(perf.main_query_postprocess_ms) : 0;
+      const enrichMs = perf ? Math.round(perf.community_query_related_ms) : 0;
+
+      const body = {
+        ok: true as const,
+        locationId: globalFeed ? null : locationId,
+        posts,
+        hasMore,
+        nextOffset: hasMore ? offset + pagingOffsetAdvance : null,
+        dbPageLength: pagingOffsetAdvance,
+        pagingOffsetAdvance,
+      };
+
+      const headers = new Headers();
+      if (!neighborOnly && !authorId && !viewerUserId) {
+        headers.set("Cache-Control", "private, max-age=15, stale-while-revalidate=120");
+      }
+
+      if (process.env.NODE_ENV === "development") {
+        let responseJsonMs = 0;
+        const tJson = performance.now();
+        let serializedUtf8Bytes = 0;
+        try {
+          const jsonText = JSON.stringify(body);
+          serializedUtf8Bytes = Buffer.byteLength(jsonText, "utf8");
+        } catch {
+          /* ignore */
+        }
+        responseJsonMs = performance.now() - tJson;
+        const community_route_total_ms = Math.round(performance.now() - tRoute0);
+        const duplicateWindowCount = recordNeighborhoodFeedCompletion(dedupeKey);
+        const payloadKb =
+          serializedUtf8Bytes > 0 ? Math.round((serializedUtf8Bytes / 1024) * 1000) / 1000 : 0;
+        const serializeMsRounded = Math.round(responseJsonMs * 100) / 100;
+        const apiSteps = {
+          total_ms: community_route_total_ms,
+          auth_ms: Math.round(authResolveMs),
+          query_ms: queryMs,
+          normalize_ms: normalizeMs,
+          enrich_ms: enrichMs,
+          serialize_ms: serializeMsRounded,
+          payload_kb: payloadKb,
+          result_count: posts.length,
+          duplicate_window_count: duplicateWindowCount,
+        };
+        console.info("[philife-feed-api-steps]", apiSteps);
+        const topicsDiag = peekLastPhilifeTopicsColdMetrics();
+        const topicsBreakdown =
+          topicsDiag != null
+            ? {
+                topics_cache_hit: topicsDiag.topics_cache_hit,
+                section_slug_candidate: topicsDiag.section_slug_candidate,
+                resolved_slug: topicsDiag.resolved_slug,
+                section_id_lookup_skipped: topicsDiag.section_id_lookup_skipped,
+                community_topics_query_rounds: topicsDiag.community_topics_query_rounds,
+                topics_settings_lookup_ms: topicsDiag.topics_settings_lookup_ms,
+                topics_section_resolve_ms: topicsDiag.topics_section_resolve_ms,
+                topics_topics_query_ms: topicsDiag.topics_topics_query_ms,
+                topics_topics_fallback_ms: topicsDiag.topics_topics_fallback_ms,
+                topics_total_ms: topicsDiag.topics_total_ms,
+                topics_unified_rpc: topicsDiag.topics_unified_rpc === true,
+                topics_outer_vs_inner_delta_ms: topicsDiag.topics_cache_hit
+                  ? 0
+                  : Math.max(0, Math.round(topicsResolveMs) - topicsDiag.topics_total_ms),
+              }
+            : {};
+        headers.set(
+          COMMUNITY_FEED_PERF_HEADER,
+          JSON.stringify({
+            community_route_total_ms,
+            community_auth_resolve_ms: Math.round(authResolveMs),
+            community_topics_resolve_ms: Math.round(topicsResolveMs),
+            community_location_ensure_ms: Math.round(locationEnsureMs),
+            community_response_json_ms: serializeMsRounded,
+            philife_feed_payload_kb: payloadKb,
+            philife_feed_duplicate_window_count: duplicateWindowCount,
+            philife_feed_dedupe_key: dedupeKey,
+            philife_feed_result_transform_ms: perf ? Math.round(perf.community_result_transform_ms) : null,
+            philife_feed_steps_ms: {
+              query_ms: queryMs,
+              normalize_ms: normalizeMs,
+              enrich_ms: enrichMs,
+            },
+            global_feed: globalFeed,
+            ...topicsBreakdown,
+            ...(serverCommunityPerf ?? {}),
+          })
+        );
+      }
+
+      return {
+        body: body as unknown as Record<string, unknown>,
+        headers,
+      };
+    },
+  });
 
   if (process.env.NODE_ENV === "development") {
-    let responseJsonMs = 0;
-    const tJson = performance.now();
-    try {
-      JSON.stringify(body);
-    } catch {
-      /* ignore */
-    }
-    responseJsonMs = performance.now() - tJson;
-    const community_route_total_ms = Math.round(performance.now() - tRoute0);
-    const topicsDiag = peekLastPhilifeTopicsColdMetrics();
-    const topicsBreakdown =
-      topicsDiag != null
-        ? {
-            topics_cache_hit: topicsDiag.topics_cache_hit,
-            section_slug_candidate: topicsDiag.section_slug_candidate,
-            resolved_slug: topicsDiag.resolved_slug,
-            section_id_lookup_skipped: topicsDiag.section_id_lookup_skipped,
-            community_topics_query_rounds: topicsDiag.community_topics_query_rounds,
-            topics_settings_lookup_ms: topicsDiag.topics_settings_lookup_ms,
-            topics_section_resolve_ms: topicsDiag.topics_section_resolve_ms,
-            topics_topics_query_ms: topicsDiag.topics_topics_query_ms,
-            topics_topics_fallback_ms: topicsDiag.topics_topics_fallback_ms,
-            topics_total_ms: topicsDiag.topics_total_ms,
-            topics_unified_rpc: topicsDiag.topics_unified_rpc === true,
-            /** `runSingleFlight` 대기 등으로 `community_topics_resolve_ms` 가 `topics_total_ms` 보다 클 때 */
-            topics_outer_vs_inner_delta_ms: topicsDiag.topics_cache_hit
-              ? 0
-              : Math.max(0, Math.round(topicsResolveMs) - topicsDiag.topics_total_ms),
-          }
-        : {};
-    headers.set(
-      COMMUNITY_FEED_PERF_HEADER,
-      JSON.stringify({
-        community_route_total_ms,
-        community_auth_resolve_ms: Math.round(authResolveMs),
-        community_topics_resolve_ms: Math.round(topicsResolveMs),
-        community_location_ensure_ms: Math.round(locationEnsureMs),
-        community_response_json_ms: Math.round(responseJsonMs),
-        global_feed: globalFeed,
-        ...topicsBreakdown,
-        ...(serverCommunityPerf ?? {}),
-      })
-    );
+    const m = peekNeighborhoodFeedShortTtlMetrics();
+    const hit = outcome.source !== "network";
+    console.info("[philife-feed-short-ttl]", {
+      philife_feed_short_ttl_hit: hit,
+      philife_feed_short_ttl_miss: !hit,
+      philife_feed_reused_response: hit,
+      philife_feed_network_fetch: outcome.source === "network",
+      source: outcome.source,
+      server_metrics: m,
+    });
   }
 
-  return NextResponse.json(body, { headers });
+  if (outcome.source !== "network") {
+    const raw = outcome.headers.get(COMMUNITY_FEED_PERF_HEADER);
+    if (raw) {
+      try {
+        const parsed = JSON.parse(raw) as Record<string, unknown>;
+        parsed.community_route_total_ms = Math.round(performance.now() - tRoute0);
+        parsed.philife_feed_short_ttl_served = outcome.source;
+        outcome.headers.set(COMMUNITY_FEED_PERF_HEADER, JSON.stringify(parsed));
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
+  return NextResponse.json(outcome.body, { headers: outcome.headers });
 }

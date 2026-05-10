@@ -55,6 +55,8 @@ export const MESSENGER_PERF_REFERENCE_FRAME_MS = { target: 16, warning: 22, crit
 export const MESSENGER_PERF_REFERENCE_RATIOS = {
   reconnectSessionRate: { target: 0.01, warning: 0.03, critical: 0.05 },
   subscriptionFailureRate: { target: 0.001, warning: 0.01, critical: 0.05 },
+  /** initial/retry 콜백 단위 raw 비율과 동일 참조 — 알림 키만 분리 */
+  subscriptionSessionFinalFailureRate: { target: 0.001, warning: 0.01, critical: 0.05 },
   signalingFailureRate: { target: 0.001, warning: 0.01, critical: 0.05 },
 } as const;
 
@@ -194,7 +196,7 @@ export function shouldAlertFailureRate(kind: keyof typeof MESSENGER_PERF_REFEREN
   const critical =
     kind === "reconnectSessionRate"
       ? MESSENGER_PERF_THRESHOLDS.reconnectSessionRateCritical
-      : kind === "subscriptionFailureRate"
+      : kind === "subscriptionFailureRate" || kind === "subscriptionSessionFinalFailureRate"
         ? MESSENGER_PERF_THRESHOLDS.subscriptionFailRateCritical
         : MESSENGER_PERF_THRESHOLDS.signalingFailRateCritical;
   return failRate >= critical;

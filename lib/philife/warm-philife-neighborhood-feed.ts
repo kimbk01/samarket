@@ -1,3 +1,5 @@
+import { fetchNeighborhoodFeedShortTtl } from "@/lib/philife/fetch-neighborhood-feed-short-ttl";
+
 /**
  * 홈·거래 등 다른 탭에 있을 때 동네 피드 API를 낮은 우선순위로 선요청해,
  * 커뮤니티 탭 진입 시 DNS·TLS·응답이 이미 워밍된 상태에 가깝게 만듦.
@@ -22,7 +24,7 @@ export function warmPhilifeNeighborhoodFeedByUrl(
   lastWarmedAt = now;
 
   const run = () => {
-    void fetch(feedUrl, {
+    void fetchNeighborhoodFeedShortTtl(feedUrl, {
       credentials: "include",
       priority: "low",
       ...(opts?.noStore ? { cache: "no-store" as RequestCache } : {}),

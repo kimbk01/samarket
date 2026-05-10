@@ -15,13 +15,13 @@ alwaysApply: false
 1. **메인 하단 탭(`BottomNav`) 노출은 `resolveConditionalAppShellFlags` 한 곳으로만 결정한다.**  
    `suppressBottomNavForChatDetail` ↔ `showBottomNav` 경로 규칙이다.
    - **`isChatRoomDetail`** (예: `/community-messenger/rooms/[roomId]`, 레거시 `/chats/[id]` 등): 메인 탭 **비표시**.
-   - **`isCommunityMessengerSurface`** (허브 `/community-messenger`, 목록·친구·거래채팅 필터 등): 메인 탭 **비표시** — 하단 내비는 **`CommunityMessengerHomeBottomNav`** 만 사용한다.
+   - **메신저 허브 `/community-messenger`** (목록·친구·거래채팅 필터 등): 메인 탭 **표시** — 하단 내비는 전역 통합 **`BottomNav`** 만 사용한다.
 
 2. **키보드·입력 포커스·visualViewport 추정은 메인 탭 노출과 분리한다.**  
    방 내부에서는 `composerFocused`, `useMessengerTradeKeyboardChrome`, safe-area·inset만 조정하고, **`BottomNav` 마운트 여부를 Zustand·Phase 이펙트로 덮어쓰지 않는다.**  
    (과거 `messengerSuppressBottomNavForKeyboard` + 조건부 숨김은 **이중 권한**으로 로딩·동기화 중 탭 잔류·입력 가림을 재발시켰다.)
 
-3. **메신저 방 상세 분류**는 `isCommunityMessengerRoomPathname` 등과 함께 확인한다. 허브와 방 모두 메인 `BottomNav`는 끈다.
+3. **메신저 방 상세 분류**는 `isCommunityMessengerRoomPathname` 등과 함께 확인한다. 허브는 전역 `BottomNav`를 쓰고, 방·통화 상세는 메인 `BottomNav`를 끈다.
 
 ## 수정 시 체크
 

@@ -3050,6 +3050,10 @@ export async function listCommunityMessengerMyChatsAndGroups(
   let unreadBadgeMs = 0;
   if (sbList) {
     const tLeg = performance.now();
+    /**
+     * HS5: critical 도 **거래 줄 unread**는 탭/스토어 배지와 맞추기 위해 레거시 소스가 필요(문서화된 계약).
+     * 병합을 유예(defer)하면 첫 페인트 뱃지·읽음 표시가 어긋날 수 있어 home-sync critical 에서는 defer 하지 않는다.
+     */
     await enrichMessengerTradeUnreadWithLegacyTrade(sbList as any, userId, mySummaries, undefined, options?.trace).catch(
       () => {}
     );
@@ -4088,6 +4092,9 @@ export async function getCommunityMessengerBootstrapCritical(userId: string): Pr
       roomsPayloadDbRoundTrips: 0,
       profilesMs: 0,
       unreadMs: 0,
+      criticalCpuMergeMs: 0,
+      criticalSkippedRoomProfiles: false,
+      criticalReusedPayloadByRoomId: false,
       dbRoundTrips: 0,
     };
   const payload = await loadCommunityMessengerBootstrapCritical(userId, { diagnostics: tierDiagnostics });
@@ -4152,7 +4159,33 @@ type TradeEnrichBootstrapSharedCtx = {
     getMergedMap(): Map<string, TradeChatCategoryMetaLike>;
   };
   fetchPostsCached: (idsRaw: string[]) => Promise<Map<string, Record<string, unknown>>>;
+  /** HS3-FINAL: mega-RPC jsonb 응답을 객체로 정규화(문자열 JSON · 형식 오류 시 null). */
+  directKeysPrefetchedPosts?: Map<string, Record<string, unknown>>;
 };
+
+function parseHomeSyncCriticalMegaBundleRpcPayload(raw: unknown): {
+  itemLedger: Array<Record<string, unknown>>;
+  tradePcFromKey: Array<Record<string, unknown>>;
+  posts: Array<Record<string, unknown>>;
+} | null {
+  let v: unknown = raw;
+  if (typeof v === "string") {
+    try {
+      v = JSON.parse(v) as unknown;
+    } catch {
+      return null;
+    }
+  }
+  if (!v || typeof v !== "object" || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  const arr = (x: unknown): Array<Record<string, unknown>> =>
+    Array.isArray(x) ? (x as Array<Record<string, unknown>>) : [];
+  return {
+    itemLedger: arr(o.itemLedger),
+    tradePcFromKey: arr(o.tradePcFromKey),
+    posts: arr(o.posts),
+  };
+}
 
 /**
  * 거래 메신저 방의 **원장 키(`direct_key`)** 로만 상품·썸네일을 맞춘다.
@@ -4171,6 +4204,10 @@ async function enrichTradeRoomContextMetaFromDirectKeys(
   );
   if (!targets.length) return;
 
+  if (shared) {
+    shared.directKeysPrefetchedPosts = undefined;
+  }
+
   const deepSteps = Boolean(shared?.trace?.token);
   const tDirectWall = deepSteps ? performance.now() : 0;
 
@@ -4186,65 +4223,319 @@ async function enrichTradeRoomContextMetaFromDirectKeys(
     else itemTradeRoomIds.push(p.itemTradeChatRoomId);
   }
 
+  /** HS3-FINAL: critical 전용 — ledger + posts 를 단일 RPC 로 묶어 클라이언트 RTT 1회로 한다. */
+  if (
+    shared?.trace?.tier === "critical" &&
+    sb &&
+    shared.fetchPostsCached &&
+    shared.categoryLoader &&
+    (pcIdsFromKey.length > 0 || itemTradeRoomIds.length > 0)
+  ) {
+    const tMega = performance.now();
+    try {
+      const { data: megaData, error: megaErr } = await (sb as any).rpc(
+        "home_sync_direct_keys_critical_bundle",
+        {
+          p_item_room_ids: dedupeIds(itemTradeRoomIds),
+          p_trade_pc_ids: dedupeIds(pcIdsFromKey),
+        }
+      );
+      if (!megaErr && megaData != null) {
+        const bundleRpcMsRaw = performance.now() - tMega;
+        const parsedRoot = parseHomeSyncCriticalMegaBundleRpcPayload(megaData);
+        if (!parsedRoot && process.env.NODE_ENV === "development") {
+          console.warn(
+            "[home-sync-fail] HS3 FINAL directKeys still multi-RTT — mega_bundle_parse_failed"
+          );
+        }
+        if (parsedRoot) {
+        const root = parsedRoot;
+        const pcByIdMega = new Map<string, { post_id: string; seller_id: string; buyer_id: string }>();
+        for (const row of root.tradePcFromKey) {
+          const id = trimText(row.id);
+          const postId = trimText(row.post_id);
+          const sellerId = trimText(row.seller_id);
+          const buyerId = trimText(row.buyer_id);
+          if (!id || !postId || !sellerId || !buyerId) continue;
+          pcByIdMega.set(id, { post_id: postId, seller_id: sellerId, buyer_id: buyerId });
+        }
+        const crByIdMega = new Map<string, { item_id: string; seller_id: string; buyer_id: string }>();
+        const pcIdByTripleMega = new Map<string, string>();
+        for (const row of root.itemLedger) {
+          const rid = trimText(row.room_id);
+          const itemId = trimText(row.item_id);
+          const sellerId = trimText(row.seller_id);
+          const buyerId = trimText(row.buyer_id);
+          if (!rid || !itemId || !sellerId || !buyerId) continue;
+          crByIdMega.set(rid, { item_id: itemId, seller_id: sellerId, buyer_id: buyerId });
+          const pcRowId = trimText(row.pc_id);
+          const pcPostId = trimText(row.pc_post_id);
+          const pcSellerId = trimText(row.pc_seller_id);
+          const pcBuyerId = trimText(row.pc_buyer_id);
+          if (pcRowId && pcPostId && pcSellerId && pcBuyerId) {
+            const k = `${pcPostId}\t${pcSellerId}\t${pcBuyerId}`;
+            if (!pcIdByTripleMega.has(k)) pcIdByTripleMega.set(k, pcRowId);
+          }
+        }
+        const postByIdMega = new Map<string, Record<string, unknown>>();
+        for (const p of root.posts) {
+          const id = trimText((p as { id?: unknown }).id);
+          if (id) postByIdMega.set(id, p as Record<string, unknown>);
+        }
+        const wantedPc = dedupeIds(pcIdsFromKey);
+        const wantedRooms = dedupeIds(itemTradeRoomIds);
+        const ledgerPcOk = wantedPc.every((id) => pcByIdMega.has(id));
+        const ledgerCrOk = wantedRooms.every((id) => crByIdMega.has(id));
+        const expectedPostIds = dedupeIds([
+          ...[...pcByIdMega.values()].map((v) => v.post_id),
+          ...[...crByIdMega.values()].map((v) => v.item_id),
+        ]);
+        const postsOk =
+          expectedPostIds.length === 0 ||
+          expectedPostIds.every((pid) => postByIdMega.has(pid));
+        const megaIntegrityOk = ledgerPcOk && ledgerCrOk && postsOk;
+        const allPostIdsMega = dedupeIds([...postByIdMega.keys()]);
+
+        if (!megaIntegrityOk && process.env.NODE_ENV === "development") {
+          console.warn(
+            "[home-sync-fail] HS3 FINAL directKeys still multi-RTT — mega_bundle_incomplete",
+            {
+              ledgerPcOk,
+              ledgerCrOk,
+              postsOk,
+              wantedPcCount: wantedPc.length,
+              pcRowCount: pcByIdMega.size,
+              wantedRoomsCount: wantedRooms.length,
+              crRowCount: crByIdMega.size,
+              expectedPostIdsCount: expectedPostIds.length,
+              postRowCount: postByIdMega.size,
+            }
+          );
+        }
+
+        if (megaIntegrityOk && allPostIdsMega.length > 0) {
+        shared.directKeysPrefetchedPosts = postByIdMega;
+        const tPostsWall = performance.now();
+        const postByIdResolved = await shared.fetchPostsCached(allPostIdsMega);
+        const postsFetchMsMega = performance.now() - tPostsWall;
+        const postsStartAfterMsMega = tPostsWall - tDirectWall;
+        if (shared.trace) {
+          mergeHomeSyncTradePostsFetchDetail(shared.trace, {
+            postIdsCount: allPostIdsMega.length,
+            postIdsDedupeCount: allPostIdsMega.length,
+            queryCount: 1,
+            cacheHit: true,
+            usedSelect: TRADE_CHAT_LIST_POST_SELECT_CRITICAL,
+            selectColumnCount: TRADE_CHAT_LIST_POST_SELECT_CRITICAL.split(",")
+              .map((s) => s.trim())
+              .filter(Boolean).length,
+            fallbackAttemptCount: 0,
+            fallbackFailedCount: 0,
+            queryMsTotal: 0,
+          });
+        }
+        const tCat0 = performance.now();
+        await shared.categoryLoader.ensureForPosts(postByIdResolved.values());
+        const categoryByIdMega = shared.categoryLoader.getMergedMap();
+        const categoryEnsureMsMega = performance.now() - tCat0;
+
+        const applyMega = (
+          summary: CommunityMessengerRoomSummary,
+          productChatIdForMeta: string,
+          postId: string,
+          sellerId: string,
+          buyerId: string
+        ) => {
+          const post = postByIdResolved.get(postId);
+          const priceRaw = post?.price;
+          const price =
+            typeof priceRaw === "number" && Number.isFinite(priceRaw)
+              ? priceRaw
+              : priceRaw != null
+                ? Number(priceRaw)
+                : null;
+          const currency = tradePostCurrencyCodeOrPhp(post as Record<string, unknown> | null | undefined);
+          const role: "seller" | "buyer" = userId === sellerId ? "seller" : "buyer";
+          summary.contextMeta = buildTradeMessengerListContextMetaFromLoadedPost({
+            productChatId: productChatIdForMeta,
+            postId,
+            post: post as Record<string, unknown> | null | undefined,
+            price: price != null && !Number.isNaN(price) ? price : null,
+            currency,
+            role,
+            categoryById: categoryByIdMega,
+            sellerListingStateRaw: post?.seller_listing_state,
+            postStatus: (post?.status as string | undefined) ?? null,
+            thumbnailUrl: firstPostThumbnailForMessengerTradeList(post),
+            tradeMetaBuildTrace: shared?.trace?.token ? shared.trace : undefined,
+          });
+        };
+        for (const s of targets) {
+          const parsed = roomToParsed.get(s.id);
+          if (!parsed) continue;
+          if (parsed.kind === "trade_pc") {
+            const pc = pcByIdMega.get(parsed.productChatId);
+            if (!pc?.post_id) continue;
+            applyMega(s, parsed.productChatId, pc.post_id, pc.seller_id, pc.buyer_id);
+            continue;
+          }
+          const cr = crByIdMega.get(parsed.itemTradeChatRoomId);
+          if (!cr?.item_id) continue;
+          const tripleKey = `${cr.item_id}\t${cr.seller_id}\t${cr.buyer_id}`;
+          const resolvedPc = trimText(pcIdByTripleMega.get(tripleKey));
+          const pcidForMeta = resolvedPc || parsed.itemTradeChatRoomId;
+          applyMega(s, pcidForMeta, cr.item_id, cr.seller_id, cr.buyer_id);
+        }
+
+        const wallMsEndMega = performance.now() - tDirectWall;
+        const parallelEfficiencyMsRaw = Math.max(
+          0,
+          Math.round(bundleRpcMsRaw + postsFetchMsMega + categoryEnsureMsMega - wallMsEndMega)
+        );
+
+        if (process.env.NODE_ENV === "development" && deepSteps && shared.trace?.tier === "critical") {
+          if (wallMsEndMega > 350) {
+            console.warn("[home-sync-fail] HS3 directKeys target missed", {
+              directKeys_wallMs: Math.round(wallMsEndMega),
+              bundleRpcMs: Math.round(bundleRpcMsRaw),
+              effectiveRttCount: 1,
+            });
+          }
+        }
+
+        if (deepSteps && shared.trace) {
+          shared.trace.deepSteps.tradeDirectKeysDetail = {
+            wallMs: ms(wallMsEndMega),
+            pcFromKeyQueryMs: 0,
+            chatRoomsQueryMs: 0,
+            pcCandidatesQueryMs: 0,
+            postsFetchMs: ms(postsFetchMsMega),
+            categoryEnsureMs: ms(categoryEnsureMsMega),
+            bundleRpcMs: ms(bundleRpcMsRaw),
+            phase1WallMs: 0,
+            phase2WallMs: 0,
+            postsStartAfterMs: ms(postsStartAfterMsMega),
+            pcCandidatesStartAfterMs: 0,
+            categoryAfterPostsMs: ms(categoryEnsureMsMega),
+            phaseDependencyReason: "critical_mega_bundle_rpc",
+            effectiveRttCount: 1,
+            parallelEfficiencyMs: ms(parallelEfficiencyMsRaw),
+          };
+        }
+        if (shared) {
+          shared.directKeysPrefetchedPosts = undefined;
+        }
+        return;
+        }
+        }
+      }
+    } catch (megaCatch) {
+      if (process.env.NODE_ENV === "development") {
+        console.warn(
+          "[home-sync] home_sync_direct_keys_critical_bundle failed — legacy directKeys path",
+          megaCatch
+        );
+      }
+    }
+    if (shared) {
+      shared.directKeysPrefetchedPosts = undefined;
+    }
+  }
+
   const pcById = new Map<string, { post_id: string; seller_id: string; buyer_id: string }>();
   let pcFromKeyQueryMs = 0;
-  if (pcIdsFromKey.length) {
-    const tQ = deepSteps ? performance.now() : 0;
-    const { data: pcs } = await (sb as any)
-      .from("product_chats")
-      .select("id, post_id, seller_id, buyer_id")
-      .in("id", dedupeIds(pcIdsFromKey));
-    if (deepSteps) pcFromKeyQueryMs = performance.now() - tQ;
-    for (const row of (pcs ?? []) as Array<Record<string, unknown>>) {
-      const id = trimText(row.id);
-      const postId = trimText(row.post_id);
-      const sellerId = trimText(row.seller_id);
-      const buyerId = trimText(row.buyer_id);
-      if (!id || !postId || !sellerId || !buyerId) continue;
-      pcById.set(id, { post_id: postId, seller_id: sellerId, buyer_id: buyerId });
-    }
-  }
-
   const crById = new Map<string, { item_id: string; seller_id: string; buyer_id: string }>();
   let chatRoomsQueryMs = 0;
-  if (itemTradeRoomIds.length) {
-    const tQ = deepSteps ? performance.now() : 0;
-    const { data: crs } = await (sb as any)
-      .from("chat_rooms")
-      .select("id, item_id, seller_id, buyer_id")
-      .eq("room_type", "item_trade")
-      .in("id", dedupeIds(itemTradeRoomIds));
-    if (deepSteps) chatRoomsQueryMs = performance.now() - tQ;
-    for (const row of (crs ?? []) as Array<Record<string, unknown>>) {
-      const id = trimText(row.id);
-      const itemId = trimText(row.item_id);
-      const sellerId = trimText(row.seller_id);
-      const buyerId = trimText(row.buyer_id);
-      if (!id || !itemId || !sellerId || !buyerId) continue;
-      crById.set(id, { item_id: itemId, seller_id: sellerId, buyer_id: buyerId });
-    }
-  }
+
+  const pcIdByTriple = new Map<string, string>();
+  let itemTradeLedgerBundleRpcMs = 0;
+  let usedItemTradeLedgerBundleRpc = false;
+
+  const tDirectKeysPhase1Start = deepSteps ? performance.now() : 0;
+  /** tDirectWall 대비 · RPC 또는 legacy pcCandidates SQL 시작 시각(단일 소스) */
+  let pcCandidatesStartAfterMsRaw = 0;
+
+  /** HS3 / HS3-RETRY: trade_pc · trade_item 입력이 분리되어 Phase1 에서 병렬. item_trade 는 번들 RPC 로 chat+pc 후보 1RTT. */
+  await Promise.all([
+    (async () => {
+      if (!pcIdsFromKey.length) return;
+      const tQ = deepSteps ? performance.now() : 0;
+      const { data: pcs } = await (sb as any)
+        .from("product_chats")
+        .select("id, post_id, seller_id, buyer_id")
+        .in("id", dedupeIds(pcIdsFromKey));
+      if (deepSteps) pcFromKeyQueryMs = performance.now() - tQ;
+      for (const row of (pcs ?? []) as Array<Record<string, unknown>>) {
+        const id = trimText(row.id);
+        const postId = trimText(row.post_id);
+        const sellerId = trimText(row.seller_id);
+        const buyerId = trimText(row.buyer_id);
+        if (!id || !postId || !sellerId || !buyerId) continue;
+        pcById.set(id, { post_id: postId, seller_id: sellerId, buyer_id: buyerId });
+      }
+    })(),
+    (async () => {
+      if (!itemTradeRoomIds.length) return;
+      pcCandidatesStartAfterMsRaw = deepSteps ? performance.now() - tDirectWall : 0;
+      const tRpc0 = deepSteps ? performance.now() : 0;
+      try {
+        const { data: bundleRows, error: bundleErr } = await (sb as any).rpc(
+          "home_sync_direct_keys_item_trade_rows",
+          { p_room_ids: dedupeIds(itemTradeRoomIds) }
+        );
+        if (bundleErr) throw bundleErr;
+        if (deepSteps) itemTradeLedgerBundleRpcMs = performance.now() - tRpc0;
+        usedItemTradeLedgerBundleRpc = true;
+        chatRoomsQueryMs = itemTradeLedgerBundleRpcMs;
+        for (const row of (bundleRows ?? []) as Array<Record<string, unknown>>) {
+          const rid = trimText(row.room_id);
+          const itemId = trimText(row.item_id);
+          const sellerId = trimText(row.seller_id);
+          const buyerId = trimText(row.buyer_id);
+          if (!rid || !itemId || !sellerId || !buyerId) continue;
+          crById.set(rid, { item_id: itemId, seller_id: sellerId, buyer_id: buyerId });
+          const pcRowId = trimText(row.pc_id);
+          const pcPostId = trimText(row.pc_post_id);
+          const pcSellerId = trimText(row.pc_seller_id);
+          const pcBuyerId = trimText(row.pc_buyer_id);
+          if (pcRowId && pcPostId && pcSellerId && pcBuyerId) {
+            const k = `${pcPostId}\t${pcSellerId}\t${pcBuyerId}`;
+            if (!pcIdByTriple.has(k)) pcIdByTriple.set(k, pcRowId);
+          }
+        }
+      } catch (bundleRpcErr) {
+        usedItemTradeLedgerBundleRpc = false;
+        itemTradeLedgerBundleRpcMs = 0;
+        if (process.env.NODE_ENV === "development") {
+          console.warn(
+            "[home-sync] home_sync_direct_keys_item_trade_rows unavailable — legacy chat_rooms + pcCandidates split",
+            bundleRpcErr
+          );
+        }
+        const tQ = deepSteps ? performance.now() : 0;
+        const { data: crs } = await (sb as any)
+          .from("chat_rooms")
+          .select("id, item_id, seller_id, buyer_id")
+          .eq("room_type", "item_trade")
+          .in("id", dedupeIds(itemTradeRoomIds));
+        if (deepSteps) chatRoomsQueryMs = performance.now() - tQ;
+        for (const row of (crs ?? []) as Array<Record<string, unknown>>) {
+          const id = trimText(row.id);
+          const itemId = trimText(row.item_id);
+          const sellerId = trimText(row.seller_id);
+          const buyerId = trimText(row.buyer_id);
+          if (!id || !itemId || !sellerId || !buyerId) continue;
+          crById.set(id, { item_id: itemId, seller_id: sellerId, buyer_id: buyerId });
+        }
+      }
+    })(),
+  ]);
+
+  const tAfterDirectKeysPhase1 = deepSteps ? performance.now() : 0;
+  const phase1WallMsRaw = deepSteps ? tAfterDirectKeysPhase1 - tDirectKeysPhase1Start : 0;
 
   const postIdsFromCr = dedupeIds([...crById.values()].map((v) => v.item_id).filter(Boolean));
-  const pcIdByTriple = new Map<string, string>();
   let pcCandidatesQueryMs = 0;
-  if (postIdsFromCr.length) {
-    const tQ = deepSteps ? performance.now() : 0;
-    const { data: pcCandidates } = await (sb as any)
-      .from("product_chats")
-      .select("id, post_id, seller_id, buyer_id")
-      .in("post_id", postIdsFromCr);
-    if (deepSteps) pcCandidatesQueryMs = performance.now() - tQ;
-    for (const row of (pcCandidates ?? []) as Array<Record<string, unknown>>) {
-      const pid = trimText(row.post_id);
-      const sid = trimText(row.seller_id);
-      const bid = trimText(row.buyer_id);
-      const id = trimText(row.id);
-      if (!pid || !sid || !bid || !id) continue;
-      const k = `${pid}\t${sid}\t${bid}`;
-      if (!pcIdByTriple.has(k)) pcIdByTriple.set(k, id);
-    }
-  }
 
   const allPostIds = dedupeIds([
     ...[...pcById.values()].map((v) => v.post_id),
@@ -4258,22 +4549,71 @@ async function enrichTradeRoomContextMetaFromDirectKeys(
   let postById: Map<string, Record<string, unknown>>;
   let categoryById: Map<string, TradeChatCategoryMetaLike>;
 
+  const tDirectKeysPhase2Start = deepSteps ? performance.now() : 0;
+  let postsStartAfterMsRaw = deepSteps ? performance.now() - tDirectWall : 0;
+
+  /** HS3: posts 는 Phase1 맵만으로 postIds 확정. 번들 RPC 사용 시 pcCandidates 별도 쿼리 생략. */
+  await Promise.all([
+    (async () => {
+      if (usedItemTradeLedgerBundleRpc || !postIdsFromCr.length) return;
+      pcCandidatesStartAfterMsRaw = deepSteps ? performance.now() - tDirectWall : 0;
+      const tQ = deepSteps ? performance.now() : 0;
+      const { data: pcCandidates } = await (sb as any)
+        .from("product_chats")
+        .select("id, post_id, seller_id, buyer_id")
+        .in("post_id", postIdsFromCr);
+      if (deepSteps) pcCandidatesQueryMs = performance.now() - tQ;
+      for (const row of (pcCandidates ?? []) as Array<Record<string, unknown>>) {
+        const pid = trimText(row.post_id);
+        const sid = trimText(row.seller_id);
+        const bid = trimText(row.buyer_id);
+        const id = trimText(row.id);
+        if (!pid || !sid || !bid || !id) continue;
+        const k = `${pid}\t${sid}\t${bid}`;
+        if (!pcIdByTriple.has(k)) pcIdByTriple.set(k, id);
+      }
+    })(),
+    (async () => {
+      postsStartAfterMsRaw = deepSteps ? performance.now() - tDirectWall : 0;
+      if (shared) {
+        const tP = deepSteps ? performance.now() : 0;
+        postById = await shared.fetchPostsCached(allPostIds);
+        if (deepSteps) postsFetchMs = performance.now() - tP;
+      } else {
+        const tP = deepSteps ? performance.now() : 0;
+        /**
+         * HS2: 본 분기는 `shared` 미전달 standalone 호출용 fallback path.
+         * 현재 호출처는 1곳(라인 4650)이며 항상 `shared` 와 함께 호출하므로 사실상 미사용.
+         * critical tier 마커는 위 `if (shared)` 경로의 `fetchPostsCached` → `fetchTradeChatListPostRowsByIds(.., trace)` 로 전파된다.
+         */
+        postById = await fetchTradeChatListPostRowsByIds(sb, allPostIds);
+        if (deepSteps) postsFetchMs = performance.now() - tP;
+      }
+    })(),
+  ]);
+
+  const tAfterDirectKeysPhase2 = deepSteps ? performance.now() : 0;
+  const phase2WallMsRaw = deepSteps ? tAfterDirectKeysPhase2 - tDirectKeysPhase2Start : 0;
+
   if (shared) {
-    const tP = deepSteps ? performance.now() : 0;
-    postById = await shared.fetchPostsCached(allPostIds);
-    if (deepSteps) postsFetchMs = performance.now() - tP;
-    const tC = deepSteps ? performance.now() : 0;
-    await shared.categoryLoader.ensureForPosts(postById.values());
+    const tC0 = deepSteps ? performance.now() : 0;
+    await shared.categoryLoader.ensureForPosts(postById!.values());
     categoryById = shared.categoryLoader.getMergedMap();
-    if (deepSteps) categoryEnsureMs = performance.now() - tC;
+    if (deepSteps) categoryEnsureMs = performance.now() - tC0;
   } else {
-    const tP = deepSteps ? performance.now() : 0;
-    postById = await fetchTradeChatListPostRowsByIds(sb, allPostIds);
-    if (deepSteps) postsFetchMs = performance.now() - tP;
-    const tC = deepSteps ? performance.now() : 0;
-    categoryById = await loadTradeChatCategoryMetaByPostRows(sb, postById.values());
-    if (deepSteps) categoryEnsureMs = performance.now() - tC;
+    const tC0 = deepSteps ? performance.now() : 0;
+    categoryById = await loadTradeChatCategoryMetaByPostRows(sb, postById!.values());
+    if (deepSteps) categoryEnsureMs = performance.now() - tC0;
   }
+
+  const categoryAfterPostsMsRaw = deepSteps ? categoryEnsureMs : 0;
+
+  const serialQueryPartsOnly =
+    pcFromKeyQueryMs + chatRoomsQueryMs + pcCandidatesQueryMs + postsFetchMs;
+  const effectiveParallelGainMsRaw = Math.max(
+    0,
+    Math.round(serialQueryPartsOnly - phase1WallMsRaw - phase2WallMsRaw)
+  );
 
   const applyForPost = (
     summary: CommunityMessengerRoomSummary,
@@ -4324,14 +4664,68 @@ async function enrichTradeRoomContextMetaFromDirectKeys(
     applyForPost(s, pcidForMeta, cr.item_id, cr.seller_id, cr.buyer_id);
   }
 
+  const wallMsEndRaw = performance.now() - tDirectWall;
+
+  if (process.env.NODE_ENV === "development" && deepSteps && shared?.trace?.tier === "critical") {
+    const tpfd = shared.trace.deepSteps?.tradePostsFetchDetail;
+    const miss350 = wallMsEndRaw > 350;
+    const missPcCandSum =
+      pcCandidatesQueryMs > 0 && wallMsEndRaw >= postsFetchMs + pcCandidatesQueryMs * 0.8;
+    const badFallback = (tpfd?.fallbackAttemptCount ?? 0) > 0;
+    const badQueryCount = (tpfd?.queryCount ?? 0) > 1;
+    if (miss350 || missPcCandSum || badFallback || badQueryCount) {
+      console.warn("[home-sync-fail] HS3 directKeys target missed", {
+        directKeys_wallMs: Math.round(wallMsEndRaw),
+        directKeys_chatRoomsQueryMs: Math.round(chatRoomsQueryMs),
+        directKeys_pcCandidatesQueryMs: Math.round(pcCandidatesQueryMs),
+        directKeys_postsFetchMs: Math.round(postsFetchMs),
+        phase1WallMs: Math.round(phase1WallMsRaw),
+        phase2WallMs: Math.round(phase2WallMsRaw),
+        postsStartAfterMs: Math.round(postsStartAfterMsRaw),
+        pcCandidatesStartAfterMs: Math.round(pcCandidatesStartAfterMsRaw),
+        categoryAfterPostsMs: Math.round(categoryAfterPostsMsRaw),
+        itemTradeLedgerBundleRpcMs: Math.round(itemTradeLedgerBundleRpcMs),
+        usedItemTradeLedgerBundleRpc,
+        fallbackAttemptCount: tpfd?.fallbackAttemptCount ?? null,
+        tradePostsQueryCount: tpfd?.queryCount ?? null,
+      });
+    }
+    if (
+      shared.trace?.tier === "critical" &&
+      phase1WallMsRaw > 5 &&
+      phase2WallMsRaw > 5 &&
+      wallMsEndRaw > 350
+    ) {
+      console.warn("[home-sync-fail] HS3 FINAL directKeys still multi-RTT", {
+        directKeys_wallMs: Math.round(wallMsEndRaw),
+        phase1WallMs: Math.round(phase1WallMsRaw),
+        phase2WallMs: Math.round(phase2WallMsRaw),
+        directKeys_effectiveRttCount: 2,
+      });
+    }
+  }
+
   if (deepSteps && shared?.trace) {
     const detail: HomeSyncDeepStepsTradeDirectKeys = {
-      wallMs: ms(performance.now() - tDirectWall),
+      wallMs: ms(wallMsEndRaw),
       pcFromKeyQueryMs: ms(pcFromKeyQueryMs),
       chatRoomsQueryMs: ms(chatRoomsQueryMs),
       pcCandidatesQueryMs: ms(pcCandidatesQueryMs),
       postsFetchMs: ms(postsFetchMs),
       categoryEnsureMs: ms(categoryEnsureMs),
+      ...(itemTradeLedgerBundleRpcMs > 0 ? { itemTradeLedgerBundleRpcMs: ms(itemTradeLedgerBundleRpcMs) } : {}),
+      ...(phase1WallMsRaw > 0 ? { phase1WallMs: ms(phase1WallMsRaw) } : {}),
+      ...(phase2WallMsRaw > 0 ? { phase2WallMs: ms(phase2WallMsRaw) } : {}),
+      ...(postsStartAfterMsRaw > 0 ? { postsStartAfterMs: ms(postsStartAfterMsRaw) } : {}),
+      ...(pcCandidatesStartAfterMsRaw > 0 ? { pcCandidatesStartAfterMs: ms(pcCandidatesStartAfterMsRaw) } : {}),
+      ...(categoryAfterPostsMsRaw > 0 ? { categoryAfterPostsMs: ms(categoryAfterPostsMsRaw) } : {}),
+      ...(effectiveParallelGainMsRaw > 0 ? { effectiveParallelGainMs: ms(effectiveParallelGainMsRaw) } : {}),
+      ...(shared.trace?.tier === "critical"
+        ? {
+            effectiveRttCount: 2,
+            phaseDependencyReason: "legacy_parallel_phase1_then_phase2_posts_pcCand",
+          }
+        : {}),
     };
     shared.trace.deepSteps.tradeDirectKeysDetail = detail;
   }
@@ -4458,8 +4852,14 @@ async function hydrateTradeListSellerDisplayNamesForSummaries(
       .filter(Boolean)
   );
   const tPostsFetch = deepSteps ? performance.now() : 0;
+  /**
+   * HS2: seller profile attach 단계의 posts 보충 조회도 critical 마커 전파.
+   * (critical tier 라면 fixed select 1회 — fallback chain 진입 금지)
+   */
   const postById =
-    postIdsNeedingAuthor.length > 0 ? await fetchTradeChatListPostRowsByIds(sb, postIdsNeedingAuthor) : new Map();
+    postIdsNeedingAuthor.length > 0
+      ? await fetchTradeChatListPostRowsByIds(sb, postIdsNeedingAuthor, trace)
+      : new Map();
   const postsFetchMs = deepSteps ? performance.now() - tPostsFetch : 0;
 
   const roomToSellerId = new Map<string, string>();
@@ -4547,6 +4947,15 @@ async function enrichTradeRoomContextMetaForBootstrap(
   let phaseAPrePostsSyncCpuMs = 0;
   let tradeEnrichPhaseTargetsPrepCpuMs = 0;
   let phaseDFinalMergeCpuMs = 0;
+  /** 동일 방에 trade contextMeta 재할당 횟수(진단) — 의미 변경 없음 */
+  let duplicateTradeRoomApplies = 0;
+  const tradeRoomMetaPassSet = new Set<string>();
+  const touchTradeRoomMeta = (roomId: string) => {
+    const r = trimText(roomId);
+    if (!r || !deepSteps) return;
+    if (tradeRoomMetaPassSet.has(r)) duplicateTradeRoomApplies += 1;
+    tradeRoomMetaPassSet.add(r);
+  };
 
   const categoryLoader = new TradeCategoryMetaRequestLoader(
     sb,
@@ -4558,14 +4967,27 @@ async function enrichTradeRoomContextMetaForBootstrap(
   // 요청 스코프 posts 캐시: Phase A/B/C/D에서 같은 postId를 중복 조회하지 않게 한다.
   // (응답/기능 동일, tradePostsFetchMs만 타겟)
   const postRowCacheById = new Map<string, Record<string, unknown>>();
-  const fetchPostsCached = async (
+  const enrichBootstrapCtx: TradeEnrichBootstrapSharedCtx = {
+    trace,
+    categoryLoader,
+    directKeysPrefetchedPosts: undefined,
+    fetchPostsCached: async () => new Map(),
+  };
+  enrichBootstrapCtx.fetchPostsCached = async (
     idsRaw: string[]
   ): Promise<Map<string, Record<string, unknown>>> => {
     const ids = dedupeIds(idsRaw);
     if (!ids.length) return new Map();
     const missing: string[] = [];
     const out = new Map<string, Record<string, unknown>>();
+    const pref = enrichBootstrapCtx.directKeysPrefetchedPosts;
     for (const id of ids) {
+      const seeded = pref?.get(id);
+      if (seeded) {
+        postRowCacheById.set(id, seeded);
+        out.set(id, seeded);
+        continue;
+      }
       const hit = postRowCacheById.get(id);
       if (hit) out.set(id, hit);
       else missing.push(id);
@@ -4581,11 +5003,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
   };
 
   const tDirect = performance.now();
-  await enrichTradeRoomContextMetaFromDirectKeys(userId, summaries, {
-    trace,
-    categoryLoader,
-    fetchPostsCached,
-  });
+  await enrichTradeRoomContextMetaFromDirectKeys(userId, summaries, enrichBootstrapCtx);
   tradeDiag && (tradeDiag.enrichTradeDirectKeysMs = Math.round(performance.now() - tDirect));
 
   const tPrepSeedIds = deepSteps ? performance.now() : 0;
@@ -4600,20 +5018,95 @@ async function enrichTradeRoomContextMetaForBootstrap(
   const seedPcById = await fetchSeedProductChatsForTradeEnrich(sb as any, tradeSeedPcIds, seedMsRef);
   const sellerPcWarmPromise = Promise.resolve(warmSellerPcMapFromSeed(seedPcById));
 
-  /** Phase A: `summary` JSON(v1)에 `productChatId`가 있을 때 — 기존 경로 (direct_key 거래방은 제외: 원장은 Phase 0) */
-  const tPrepPhaseA = deepSteps ? performance.now() : 0;
-  const targetsFromSummaryMeta = summaries.filter(
+  /**
+   * Phase B/C 선행 브리지(시드 + summaries 만으로 결정) — Phase A 와 **병렬**로 RTT 겹침.
+   * Phase A 가 summary `productChatId` 로 메타를 먼저 채워도, 여기서 쓰는 `tradeMessengerListThumbnailMissing`
+   * 판정은 동일 summaries 스냅샷 기준이라 결과·의미는 기존 직렬 순서와 동일하다.
+   */
+  const tPrepBridgeParallel = deepSteps ? performance.now() : 0;
+  const roomLinkedTargets = summaries.filter(
     (s) =>
-      s.contextMeta?.kind === "trade" &&
-      Boolean(s.contextMeta.productChatId?.trim()) &&
-      !isMessengerAuthoritativeTradeDirectKey(s.messengerDirectKey)
+      s.roomType === "direct" &&
+      (tradeMessengerListThumbnailMissing(s) || tradeMessengerTradeListMetaNeedsPcHydration(s))
   );
-  const productChatIds =
-    targetsFromSummaryMeta.length > 0
-      ? dedupeIds(targetsFromSummaryMeta.map((s) => s.contextMeta?.productChatId?.trim() ?? "").filter(Boolean))
-      : [];
-  if (deepSteps) tradeEnrichPhaseTargetsPrepCpuMs += performance.now() - tPrepPhaseA;
-  if (targetsFromSummaryMeta.length && productChatIds.length) {
+  const roomIdsForPcLookup = dedupeIds(roomLinkedTargets.map((s) => s.id));
+  const roomIdsForPcLookupSet = new Set(roomIdsForPcLookup);
+  const pcByMessengerRoomId = new Map<string, { pcid: string; postId: string; sellerId: string; buyerId: string }>();
+  for (const [pcid, row] of seedPcById) {
+    const rid = trimText(row.community_messenger_room_id ?? "");
+    if (!rid || !roomIdsForPcLookupSet.has(rid)) continue;
+    if (!pcByMessengerRoomId.has(rid)) {
+      pcByMessengerRoomId.set(rid, {
+        pcid,
+        postId: row.post_id,
+        sellerId: row.seller_id,
+        buyerId: row.buyer_id,
+      });
+    }
+  }
+  const roomIdsStillNeedingPcByRoom = roomIdsForPcLookup.filter((rid) => !pcByMessengerRoomId.has(rid));
+  const roomIdsLedgerSuperset = dedupeIds(
+    summaries.filter((s) => s.roomType === "direct" && tradeMessengerListThumbnailMissing(s)).map((s) => s.id)
+  );
+  if (deepSteps) tradeEnrichPhaseTargetsPrepCpuMs += performance.now() - tPrepBridgeParallel;
+
+  let ledgerRowsSpeculative: Array<Record<string, unknown>> = [];
+  let pcRowsByRoom: Array<Record<string, unknown>> = [];
+  const needsBridgeBQuery = roomIdsStillNeedingPcByRoom.length > 0;
+  const needsLedgerPrefetch = roomIdsLedgerSuperset.length > 0;
+  const bridgeLedgerPromise = (async (): Promise<void> => {
+    if (!(needsBridgeBQuery || needsLedgerPrefetch)) return;
+    const tParallelBcLedger = deepSteps ? performance.now() : 0;
+    let innerBridgeBMs = 0;
+    let innerLedgerMs = 0;
+    const sbAny = sb as any;
+    const [pcRows, ledgerRows] = await Promise.all([
+      (async (): Promise<Array<Record<string, unknown>>> => {
+        if (!needsBridgeBQuery) return [];
+        const t0 = performance.now();
+        const { data } = await sbAny
+          .from("product_chats")
+          .select("id, post_id, seller_id, buyer_id, community_messenger_room_id")
+          .in("community_messenger_room_id", roomIdsStillNeedingPcByRoom);
+        innerBridgeBMs = performance.now() - t0;
+        return ((data ?? []) as Array<Record<string, unknown>>);
+      })(),
+      (async (): Promise<Array<Record<string, unknown>>> => {
+        if (!needsLedgerPrefetch) return [];
+        const t0 = performance.now();
+        const { data } = await sbAny
+          .from("chat_rooms")
+          .select("id, item_id, seller_id, buyer_id, community_messenger_room_id")
+          .eq("room_type", "item_trade")
+          .in("community_messenger_room_id", roomIdsLedgerSuperset);
+        innerLedgerMs = performance.now() - t0;
+        return ((data ?? []) as Array<Record<string, unknown>>);
+      })(),
+    ]);
+    pcRowsByRoom = pcRows;
+    ledgerRowsSpeculative = ledgerRows;
+    if (deepSteps) {
+      bridgePhaseBcLedgerParallelWallMs = performance.now() - tParallelBcLedger;
+      bridgePhaseBPcByRoomMs = innerBridgeBMs;
+      bridgePhaseCLedgerMs = innerLedgerMs;
+    }
+  })();
+
+  const phaseAParallelPromise = (async (): Promise<void> => {
+    /** Phase A: `summary` JSON(v1)에 `productChatId`가 있을 때 — 기존 경로 (direct_key 거래방은 제외: 원장은 Phase 0) */
+    const tPrepPhaseA = deepSteps ? performance.now() : 0;
+    const targetsFromSummaryMeta = summaries.filter(
+      (s) =>
+        s.contextMeta?.kind === "trade" &&
+        Boolean(s.contextMeta.productChatId?.trim()) &&
+        !isMessengerAuthoritativeTradeDirectKey(s.messengerDirectKey)
+    );
+    const productChatIds =
+      targetsFromSummaryMeta.length > 0
+        ? dedupeIds(targetsFromSummaryMeta.map((s) => s.contextMeta?.productChatId?.trim() ?? "").filter(Boolean))
+        : [];
+    if (deepSteps) tradeEnrichPhaseTargetsPrepCpuMs += performance.now() - tPrepPhaseA;
+    if (targetsFromSummaryMeta.length && productChatIds.length) {
       const byPcId = new Map<string, { postId: string; sellerId: string; buyerId: string }>();
       const missingSeedPcIds: string[] = [];
       const tPhaseASeedLookup = deepSteps ? performance.now() : 0;
@@ -4648,7 +5141,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
       const postIds = dedupeIds([...byPcId.values()].map((v) => v.postId));
       if (deepSteps) phaseAPrePostsSyncCpuMs += performance.now() - tPhaseAPostIds;
       const tPostsA = deepSteps ? performance.now() : 0;
-      const postById = await fetchPostsCached(postIds);
+      const postById = await enrichBootstrapCtx.fetchPostsCached(postIds);
       if (deepSteps) tradePostsFetchMs += performance.now() - tPostsA;
       const tCatA = deepSteps ? performance.now() : 0;
       await Promise.all([
@@ -4669,6 +5162,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
           typeof priceRaw === "number" && Number.isFinite(priceRaw) ? priceRaw : priceRaw != null ? Number(priceRaw) : null;
         const currency = tradePostCurrencyCodeOrPhp(post as Record<string, unknown> | null | undefined);
         const role: "seller" | "buyer" = userId === pc.sellerId ? "seller" : "buyer";
+        touchTradeRoomMeta(s.id);
         s.contextMeta = buildTradeMessengerListContextMetaFromLoadedPost({
           productChatId: pcid,
           postId: pc.postId,
@@ -4684,81 +5178,18 @@ async function enrichTradeRoomContextMetaForBootstrap(
         });
       }
       if (deepSteps) cpuMergeMs += performance.now() - tCpuA;
-  }
+    }
+  })();
+
+  await Promise.all([phaseAParallelPromise, bridgeLedgerPromise]);
 
   /**
    * Phase B: `product_chats.community_messenger_room_id` 로 연결된 CM 방 → posts 썸네일·제목·카테고리.
-   * 썸네일만 있고 headline 이 "거래"·postId 비어 있음 등이면(브리지 덮어쓰기·구 summary) 동일 경로로 재보강한다.
+   * (위에서 product_chats·chat_rooms 선조회를 Phase A 와 병렬 완료 — 여기서는 병합·posts fetch 만)
    *
    * Phase B `product_chats` 와 Phase C 선행 `chat_rooms`(ledger) 조회는 RTT 를 겹치기 위해 Promise.all 로 묶는다.
    * Ledger 는 Phase B 이전의「썸네일 미비 direct 방」id 상한으로 선조회하고, Phase C 에서 post-B `stillNeedThumb` 로 필터한다.
    */
-  const tPrepPhaseB = deepSteps ? performance.now() : 0;
-  const roomLinkedTargets = summaries.filter(
-    (s) =>
-      s.roomType === "direct" &&
-      (tradeMessengerListThumbnailMissing(s) || tradeMessengerTradeListMetaNeedsPcHydration(s))
-  );
-  const roomIdsForPcLookup = dedupeIds(roomLinkedTargets.map((s) => s.id));
-  const roomIdsForPcLookupSet = new Set(roomIdsForPcLookup);
-  const pcByMessengerRoomId = new Map<string, { pcid: string; postId: string; sellerId: string; buyerId: string }>();
-  for (const [pcid, row] of seedPcById) {
-    const rid = trimText(row.community_messenger_room_id ?? "");
-    if (!rid || !roomIdsForPcLookupSet.has(rid)) continue;
-    if (!pcByMessengerRoomId.has(rid)) {
-      pcByMessengerRoomId.set(rid, {
-        pcid,
-        postId: row.post_id,
-        sellerId: row.seller_id,
-        buyerId: row.buyer_id,
-      });
-    }
-  }
-  const roomIdsStillNeedingPcByRoom = roomIdsForPcLookup.filter((rid) => !pcByMessengerRoomId.has(rid));
-  const roomIdsLedgerSuperset = dedupeIds(
-    summaries.filter((s) => s.roomType === "direct" && tradeMessengerListThumbnailMissing(s)).map((s) => s.id)
-  );
-  if (deepSteps) tradeEnrichPhaseTargetsPrepCpuMs += performance.now() - tPrepPhaseB;
-
-  let ledgerRowsSpeculative: Array<Record<string, unknown>> = [];
-  let pcRowsByRoom: Array<Record<string, unknown>> = [];
-  const needsBridgeBQuery = roomIdsStillNeedingPcByRoom.length > 0;
-  const needsLedgerPrefetch = roomIdsLedgerSuperset.length > 0;
-  if (needsBridgeBQuery || needsLedgerPrefetch) {
-    const tParallelBcLedger = deepSteps ? performance.now() : 0;
-    let innerBridgeBMs = 0;
-    let innerLedgerMs = 0;
-    const sbAny = sb as any;
-    [pcRowsByRoom, ledgerRowsSpeculative] = await Promise.all([
-      (async (): Promise<Array<Record<string, unknown>>> => {
-        if (!needsBridgeBQuery) return [];
-        const t0 = performance.now();
-        const { data } = await sbAny
-          .from("product_chats")
-          .select("id, post_id, seller_id, buyer_id, community_messenger_room_id")
-          .in("community_messenger_room_id", roomIdsStillNeedingPcByRoom);
-        innerBridgeBMs = performance.now() - t0;
-        return ((data ?? []) as Array<Record<string, unknown>>);
-      })(),
-      (async (): Promise<Array<Record<string, unknown>>> => {
-        if (!needsLedgerPrefetch) return [];
-        const t0 = performance.now();
-        const { data } = await sbAny
-          .from("chat_rooms")
-          .select("id, item_id, seller_id, buyer_id, community_messenger_room_id")
-          .eq("room_type", "item_trade")
-          .in("community_messenger_room_id", roomIdsLedgerSuperset);
-        innerLedgerMs = performance.now() - t0;
-        return ((data ?? []) as Array<Record<string, unknown>>);
-      })(),
-    ]);
-    if (deepSteps) {
-      bridgePhaseBcLedgerParallelWallMs = performance.now() - tParallelBcLedger;
-      bridgePhaseBPcByRoomMs = innerBridgeBMs;
-      bridgePhaseCLedgerMs = innerLedgerMs;
-    }
-  }
-
   if (roomIdsForPcLookup.length || pcRowsByRoom.length) {
     const tSyncB = deepSteps ? performance.now() : 0;
     for (const row of pcRowsByRoom as Array<{
@@ -4782,7 +5213,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
     if (pcByMessengerRoomId.size) {
       const postIdsB = dedupeIds([...pcByMessengerRoomId.values()].map((v) => v.postId));
       const tPostsB = deepSteps ? performance.now() : 0;
-      const postByIdB = await fetchPostsCached(postIdsB);
+      const postByIdB = await enrichBootstrapCtx.fetchPostsCached(postIdsB);
       if (deepSteps) tradePostsFetchMs += performance.now() - tPostsB;
       const tCatB = deepSteps ? performance.now() : 0;
       await Promise.all([
@@ -4817,6 +5248,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
           thumbnailUrl: firstPostThumbnailForMessengerTradeList(post as Record<string, unknown>),
           tradeMetaBuildTrace: trace?.token ? trace : undefined,
         });
+        touchTradeRoomMeta(s.id);
         s.contextMeta = nextMeta;
 
         if (
@@ -4882,7 +5314,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
     if (crByRoomId.size) {
       const postIdsLedger = dedupeIds([...crByRoomId.values()].map((v) => v.postId));
       const tPostsC = deepSteps ? performance.now() : 0;
-      const postLedgerById = await fetchPostsCached(postIdsLedger);
+      const postLedgerById = await enrichBootstrapCtx.fetchPostsCached(postIdsLedger);
       if (deepSteps) tradePostsFetchMs += performance.now() - tPostsC;
       const tCatC = deepSteps ? performance.now() : 0;
       await Promise.all([
@@ -4928,6 +5360,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
           typeof priceRaw === "number" && Number.isFinite(priceRaw) ? priceRaw : priceRaw != null ? Number(priceRaw) : null;
         const currency = tradePostCurrencyCodeOrPhp(post as Record<string, unknown> | null | undefined);
         const role: "seller" | "buyer" = userId === cr.sellerId ? "seller" : "buyer";
+        touchTradeRoomMeta(s.id);
         s.contextMeta = buildTradeMessengerListContextMetaFromLoadedPost({
           productChatId: pcidForMeta,
           postId: cr.postId,
@@ -5034,7 +5467,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
 
     if (postIdsPair.length) {
       const tPostsD = deepSteps ? performance.now() : 0;
-      const postPairById = await fetchPostsCached(postIdsPair);
+      const postPairById = await enrichBootstrapCtx.fetchPostsCached(postIdsPair);
       if (deepSteps) tradePostsFetchMs += performance.now() - tPostsD;
       const tCatD = deepSteps ? performance.now() : 0;
       await Promise.all([
@@ -5057,6 +5490,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
           typeof priceRaw === "number" && Number.isFinite(priceRaw) ? priceRaw : priceRaw != null ? Number(priceRaw) : null;
         const currency = tradePostCurrencyCodeOrPhp(post as Record<string, unknown> | null | undefined);
         const role: "seller" | "buyer" = userId === pc.sellerId ? "seller" : "buyer";
+        touchTradeRoomMeta(s.id);
         s.contextMeta = buildTradeMessengerListContextMetaFromLoadedPost({
           productChatId: pc.id,
           postId: pc.postId,
@@ -5184,6 +5618,45 @@ async function enrichTradeRoomContextMetaForBootstrap(
         tradePostsDetail?.queryMsTotal ?? 0
       );
     }
+    const catFb = Number(categoryDetail?.selectFallbackAttemptCount ?? 0);
+    const postFb = Number(tradePostsDetail?.fallbackAttemptCount ?? 0);
+    let tradePayloadBytes = 0;
+    for (const s of summaries) {
+      if (s.contextMeta?.kind === "trade") {
+        try {
+          tradePayloadBytes += JSON.stringify(s.contextMeta).length;
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    const tmb = trace.deepSteps.tradeMetaBuildFromPostDetail;
+    const tradeCpuFromBuilderMs =
+      (tmb?.productCategoryDisplayCpuMs ?? 0) +
+      (tmb?.headlineCpuMs ?? 0) +
+      (tmb?.categoryMenuLabelCpuMs ?? 0) +
+      (tmb?.messengerSnapshotCpuMs ?? 0);
+    const tradePhaseCpuMs =
+      phaseAPrePostsSyncCpuMs +
+      phaseBSyncMapCpuMs +
+      phaseCSyncLedgerMapCpuMs +
+      phaseCSyncPcTripleCpuMs +
+      phaseDPeerIndexCpuMs +
+      phaseDFinalMergeCpuMs +
+      tradeEnrichPhaseTargetsPrepCpuMs +
+      phaseASeedMissProductChatsMs;
+    console.info("[trade-enrich-breakdown]", {
+      trade_query_count: tradePostsDetail?.queryCount ?? 0,
+      fallback_attempt_count: postFb + catFb,
+      schema_detect_ms: ms(tradePostsDetail?.schemaColdDetectWallMs ?? 0),
+      trade_posts_fetch_ms: postsFm,
+      trade_merge_ms: cpuM,
+      trade_cpu_ms: ms(tradeCpuFromBuilderMs + tradePhaseCpuMs),
+      trade_payload_kb: Math.round(tradePayloadBytes / 1024),
+      duplicate_trade_keys: duplicateTradeRoomApplies,
+      trade_meta_enrich_total_ms: totalRounded,
+      tier: trace.tier ?? null,
+    });
     trace.deepSteps.tradeMetaEnrich = {
       tradePostsFetchMs: ms(tradePostsFetchMs),
       tradePostsDetail,
@@ -5196,6 +5669,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
       rooms: ms(summaries.length),
       tradeCategoryFetchMode: fetchMode,
       categoryDbSkipped,
+      duplicateTradeMergeCount: duplicateTradeRoomApplies,
       seedProductChatsMs: ms(seedMsRef?.ms ?? 0),
       directKeys: trace.deepSteps.tradeDirectKeysDetail,
       tradePcBridgeBreakdown: {
@@ -7447,13 +7921,35 @@ const TRADE_CHAT_LIST_POST_SELECT_LEGACY =
   "id, title, price, images, thumbnail_url, status, seller_listing_state";
 
 /**
+ * **critical tier 전용 고정 select** — schema fallback probing 금지.
+ *
+ * 운영 DB 마이그레이션으로 보장된 컬럼만 포함:
+ * - `id, title, price, status, seller_listing_state, images, thumbnail_url`: LEGACY 셋(모든 환경 보장)
+ * - `trade_category_id`: posts FK, 모든 EXTENDED select 에 포함
+ * - `trade_type`: 마이그레이션 `20260703140000_posts_trade_job_job_applications.sql` 의
+ *   `ADD COLUMN IF NOT EXISTS trade_type text NOT NULL DEFAULT 'product'` 로 보장
+ * - `user_id`: posts.user_id (작성자 FK), 모든 EXTENDED 에 포함
+ *
+ * 사용자 명시 critical 컬럼 셋(`meta` 제외, `images`+`thumbnail_url` 둘 다 포함 —
+ * `extractPostThumbnailPathFromPostRow` 가 thumbnail_url 우선·images[0] 폴백을 쓰므로 둘 다 필요).
+ *
+ * **HS2 핵심**: 실패 시 fallback 진입 금지. dev warn 출력 후 빈 Map 반환.
+ * 운영 DB 가 이 컬럼 셋을 만족하지 못하면 즉시 알람을 받고 마이그레이션을 점검하라.
+ */
+const TRADE_CHAT_LIST_POST_SELECT_CRITICAL =
+  "id, title, price, images, thumbnail_url, status, seller_listing_state, trade_category_id, trade_type, user_id";
+
+/**
  * posts 스키마는 배포·마이그레이션 상태에 따라 컬럼이 다를 수 있어
- * 위 select 문자열을 순차로 폴백한다.
+ * 위 select 문자열을 순차로 폴백한다 — **full tier 만**.
  *
  * `tradePostsFetchMs` 병목에서 "폴백 체인 자체"가 매 요청 반복되면 왕복이 누적되므로,
  * 성공한 select 문자열을 프로세스 내에 캐시해 다음 호출부터 1회 쿼리로 고정한다.
  *
  * (기능/응답 스키마 변경 없음 — select 후보 중 하나를 선택하는 로직만 캐시)
+ *
+ * **CONTRACT (HS2)**: critical tier(`trace?.tier === "critical"`) 는 절대 이 체인에 진입하지 않는다.
+ * 진입했다면 `[home-sync-fail] critical fallback forbidden` 가 출력된다.
  */
 let resolvedTradeChatListPostSelect: string | null = null;
 /** 동일 프로세스에서 컬럼 부족 등으로 실패한 select 후보 — 재시도하지 않음 */
@@ -7504,6 +8000,7 @@ function mergeHomeSyncTradePostsFetchDetail(
     fallbackAttemptCount: number;
     fallbackFailedCount: number;
     queryMsTotal: number;
+    schemaColdDetectWallMs?: number;
   }
 ) {
   if (!trace?.token) return;
@@ -7521,6 +8018,11 @@ function mergeHomeSyncTradePostsFetchDetail(
     detail.fallbackAttemptCount = ms(detail.fallbackAttemptCount);
     detail.fallbackFailedCount = ms(detail.fallbackFailedCount);
     detail.queryMsTotal = ms(detail.queryMsTotal);
+    if (detail.schemaColdDetectWallMs != null) {
+      (detail as HomeSyncDeepStepsTradePostsFetchDetail).schemaColdDetectWallMs = ms(
+        detail.schemaColdDetectWallMs
+      );
+    }
     trace.deepSteps.tradePostsFetchDetail = detail as HomeSyncDeepStepsTradePostsFetchDetail;
     return;
   }
@@ -7533,6 +8035,9 @@ function mergeHomeSyncTradePostsFetchDetail(
   prev.fallbackAttemptCount = ms(prev.fallbackAttemptCount + detail.fallbackAttemptCount);
   prev.fallbackFailedCount = ms(prev.fallbackFailedCount + detail.fallbackFailedCount);
   prev.queryMsTotal = ms(prev.queryMsTotal + detail.queryMsTotal);
+  if (detail.schemaColdDetectWallMs != null) {
+    prev.schemaColdDetectWallMs = ms((prev.schemaColdDetectWallMs ?? 0) + detail.schemaColdDetectWallMs);
+  }
 }
 
 const TRADE_CHAT_CATEGORY_META_CACHE_TTL_MS = 5 * 60_000;
@@ -7572,7 +8077,50 @@ async function fetchTradeChatListPostRowsByIds(
     return res;
   };
 
-  // Warm path: 프로세스에 고정된 스키마면 게이트 밖 단일 RTT (critical warm 다발 호출 핵심)
+  /**
+   * **HS2 critical tier path** — fixed select 1회만, fallback probing 절대 금지.
+   *
+   * `route.ts` 가 `tier === "critical"` 일 때 항상 `trace.tier = "critical"` 를 채워준다(prod 포함).
+   * 여기서 `trace?.tier === "critical"` 면 schema 후보 체인을 건너뛰고 `_CRITICAL` select 1회만 시도.
+   *
+   * 실패 시:
+   *   - dev console.warn (`[home-sync-fail] critical fixed select failed ...`) 로 어떤 컬럼이
+   *     누락됐는지 즉시 노출.
+   *   - 빈 Map 반환(또는 부분 데이터). full tier fallback 으로 "조용히 보강" 하지 않는다.
+   *     운영 DB schema 가 이 컬럼 셋을 만족하지 못하면 마이그레이션 누락이므로 알람 대상.
+   *   - critical 첫 시도 실패해도 fallback chain 진입 금지 (사용자 절대 원칙 1·2·3·4·7·8).
+   */
+  if (trace?.tier === "critical") {
+    const res = await trySelect(TRADE_CHAT_LIST_POST_SELECT_CRITICAL);
+    const ok = tradeChatListPostSelectSchemaOk(res);
+    if (detail) {
+      detail.cacheHit = false;
+      detail.usedSelect = TRADE_CHAT_LIST_POST_SELECT_CRITICAL;
+      // critical 은 정의상 fallbackAttemptCount/fallbackFailedCount 가 0 이어야 한다.
+    }
+    if (deepSteps && trace && detail) mergeHomeSyncTradePostsFetchDetail(trace, detail);
+    if (!ok) {
+      const err = (res as { error?: { message?: string; code?: string } } | null)?.error;
+      if (process.env.NODE_ENV !== "production") {
+        console.warn(
+          "[home-sync-fail] critical fixed select failed — schema column mismatch on posts",
+          {
+            select: TRADE_CHAT_LIST_POST_SELECT_CRITICAL,
+            postIds: ids.length,
+            pgCode: err?.code ?? null,
+            message: err?.message ?? null,
+            hint: "운영 DB 마이그레이션을 점검하라. critical tier 는 fallback 으로 조용히 보강하지 않는다.",
+          }
+        );
+      }
+      return new Map<string, Record<string, unknown>>();
+    }
+    return new Map<string, Record<string, unknown>>(
+      ((res.data ?? []) as Record<string, unknown>[]).map((p) => [trimText(p.id), p])
+    );
+  }
+
+  // Warm path: 프로세스에 고정된 스키마면 게이트 밖 단일 RTT (full tier 다발 호출 핵심)
   if (resolvedTradeChatListPostSelect) {
     const res = await trySelect(resolvedTradeChatListPostSelect);
     if (tradeChatListPostSelectSchemaOk(res)) {
@@ -7588,6 +8136,11 @@ async function fetchTradeChatListPostRowsByIds(
     resolvedTradeChatListPostSelect = null;
   }
 
+  /**
+   * **HS2 invariant**: critical tier(`trace?.tier === "critical"`) 는 위 critical 분기에서
+   * 반드시 return 됐어야 한다. 여기 도달했다면 critical 가 아님 — TS narrow 로 자명.
+   * (별도 dev assertion 불필요 — 타입 시스템이 이미 보장)
+   */
   const coldPack = await withTradeChatListPostSchemaGate(async () => {
     if (resolvedTradeChatListPostSelect) {
       const hit = await trySelect(resolvedTradeChatListPostSelect);
@@ -7595,12 +8148,14 @@ async function fetchTradeChatListPostRowsByIds(
         return {
           rows: (hit.data ?? []) as Record<string, unknown>[],
           usedSel: resolvedTradeChatListPostSelect as string,
+          schemaColdWallMs: 0,
         };
       }
       resolvedTradeChatListPostSelect = null;
     }
 
     let lastRows: Record<string, unknown>[] = [];
+    const tCand = deepSteps && detail ? performance.now() : 0;
     for (const sel of TRADE_CHAT_LIST_POST_SELECT_CANDIDATES) {
       if (rejectedTradeChatListPostSelects.has(sel)) continue;
 
@@ -7609,18 +8164,29 @@ async function fetchTradeChatListPostRowsByIds(
       lastRows = ((attempt.data ?? []) as Record<string, unknown>[]) ?? [];
       if (tradeChatListPostSelectSchemaOk(attempt)) {
         resolvedTradeChatListPostSelect = sel;
-        return { rows: lastRows, usedSel: sel };
+        return {
+          rows: lastRows,
+          usedSel: sel,
+          schemaColdWallMs: tCand ? performance.now() - tCand : 0,
+        };
       }
       rejectedTradeChatListPostSelects.add(sel);
       if (detail) detail.fallbackFailedCount += 1;
     }
 
-    return { rows: lastRows, usedSel: null as string | null };
+    return {
+      rows: lastRows,
+      usedSel: null as string | null,
+      schemaColdWallMs: tCand ? performance.now() - tCand : 0,
+    };
   });
 
   if (detail) {
     detail.cacheHit = false;
     if (coldPack.usedSel) detail.usedSelect = coldPack.usedSel;
+    if (coldPack.schemaColdWallMs > 0) {
+      (detail as { schemaColdDetectWallMs?: number }).schemaColdDetectWallMs = coldPack.schemaColdWallMs;
+    }
   }
   if (deepSteps && trace && detail) mergeHomeSyncTradePostsFetchDetail(trace, detail);
 
@@ -7891,7 +8457,13 @@ class TradeCategoryMetaRequestLoader {
       }
       const candidates =
         table === "trade_categories"
-          ? ["id, name, label, key", "id, name, slug, icon_key", "id, name, slug, icon"]
+          ? [
+              /** 로컬/레거시 DB 에서 자주 없는 컬럼(`label`, `icon_key`) 뒤로 — 실패 RTT 누적 방지 */
+              "id, name, slug, icon",
+              "id, name, slug",
+              "id, name, label, key",
+              "id, name, slug, icon_key",
+            ]
           : ["id, name, label, key", "id, name, label, key, slug, icon_key", "id, name, label, key, slug, icon"];
       let attemptIndex = 0;
       for (const sel of candidates) {

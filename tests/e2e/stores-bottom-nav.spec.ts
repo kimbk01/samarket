@@ -52,22 +52,23 @@ async function ensureAuthenticatedForStores(page: Page, baseURL: string | undefi
   await expect(page).not.toHaveURL(/\/login/);
 }
 
-test.describe("stores delivery bottom nav (smoke)", () => {
-  test("/stores — 배달 전용 네비 노출, 전역 BottomNav 없음", async ({ page, baseURL }) => {
+test.describe("stores unified bottom nav (smoke)", () => {
+  test("/stores — 전역 BottomNav 노출, 배달 전용 네비 없음", async ({ page, baseURL }) => {
     await ensureAuthenticatedForStores(page, baseURL);
 
-    await expect(deliveryBottomNavLocator(page)).toBeVisible({ timeout: 25_000 });
-    await expect(globalBottomNavLocator(page)).toHaveCount(0);
+    await expect(globalBottomNavLocator(page)).toBeVisible({ timeout: 25_000 });
+    await expect(deliveryBottomNavLocator(page)).toHaveCount(0);
   });
 
-  test("/stores/cart — 배달 전용 네비 노출", async ({ page, baseURL }) => {
+  test("/stores/cart — 전역 BottomNav 노출, 배달 전용 네비 없음", async ({ page, baseURL }) => {
     await ensureAuthenticatedForStores(page, baseURL);
 
     await page.goto(`${playwrightOrigin(baseURL)}/stores/cart`, {
       waitUntil: "domcontentloaded",
       timeout: 90_000,
     });
-    await expect(deliveryBottomNavLocator(page)).toBeVisible({ timeout: 25_000 });
+    await expect(globalBottomNavLocator(page)).toBeVisible({ timeout: 25_000 });
+    await expect(deliveryBottomNavLocator(page)).toHaveCount(0);
   });
 
   test("/home — 배달 전용 네비 없음 (라우트 없으면 스킵)", async ({ page, baseURL }) => {
@@ -107,14 +108,14 @@ test.describe("stores delivery bottom nav (smoke)", () => {
     await expect(deliveryBottomNavLocator(page)).toHaveCount(0);
   });
 
-  test("/stores — 가운데 홈 버튼 → /philife", async ({ page, baseURL }) => {
+  test("/stores — 커뮤니티 탭 → /philife", async ({ page, baseURL }) => {
     await ensureAuthenticatedForStores(page, baseURL);
 
-    const nav = deliveryBottomNavLocator(page);
+    const nav = globalBottomNavLocator(page);
     await expect(nav).toBeVisible({ timeout: 25_000 });
-    const centerHome = nav.getByRole("link", { name: "홈", exact: true });
-    await expect(centerHome).toBeVisible();
-    await centerHome.click();
+    const community = nav.locator('a[href="/philife"]').first();
+    await expect(community).toBeVisible();
+    await community.click();
     await expect(page).toHaveURL(/\/philife(?:\/|\?|$)/, { timeout: 20_000 });
   });
 });

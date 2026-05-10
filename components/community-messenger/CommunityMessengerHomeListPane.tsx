@@ -31,6 +31,8 @@ import type {
 
 type Props = {
   loading: boolean;
+  /** critical 전 리스트 영역 스켈레톤 — `loading`(데이터 있는 새로고침 오버레이)과 분리 */
+  listPlaceholder?: boolean;
   authRequired: boolean;
   data: CommunityMessengerBootstrap | null;
   actionError: string | null;
@@ -99,8 +101,9 @@ export function CommunityMessengerHomeListPane(props: Props) {
   tryTrackFirstMenuListRender();
   const frameRef = useRef<HTMLDivElement | null>(null);
   const canRenderList = !props.authRequired && Boolean(props.data);
+  const listHold = Boolean(props.listPlaceholder);
   const showRefreshingOverlay = props.loading && canRenderList;
-  const showCompactSkeleton = props.loading && !canRenderList;
+  const showCompactSkeleton = (props.loading || listHold) && !canRenderList && !props.authRequired;
 
   useLayoutEffect(() => {
     if (!canRenderList || !props.data) return;
@@ -251,7 +254,7 @@ export function CommunityMessengerHomeListPane(props: Props) {
         </section>
       ) : null}
 
-      {!props.loading && !props.authRequired && !props.data ? (
+      {!props.loading && !listHold && !props.authRequired && !props.data ? (
         <section
           className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-8 text-center shadow-[var(--messenger-shadow-soft)]"
           style={{ color: "var(--messenger-text)" }}

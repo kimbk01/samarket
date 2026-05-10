@@ -10,12 +10,22 @@ import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/s
 import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import { messengerApiEdgeCacheHeaders } from "@/lib/http/messenger-api-edge-cache";
 import v8 from "v8";
+import { homeSyncBreakdownEnabled } from "@/lib/community-messenger/home-sync-breakdown-log";
+import {
+  homeSyncRequestDedupeKey,
+  recordHomeSyncCompletion,
+} from "@/lib/community-messenger/home-sync-duplicate-window";
 import {
   buildHomeSyncOutsideTradeStepBreakdown,
   buildHomeSyncTradeMetaStepBreakdown,
   ms,
   type HomeSyncTrace,
 } from "@/lib/community-messenger/home-sync-trace";
+import { recordHomeSyncCriticalRouteSnapshot } from "@/lib/community-messenger/home-sync-critical-route-snapshot";
+import {
+  homeSyncFullAnalysisEnabled,
+  logHomeSyncFullAnalysis,
+} from "@/lib/community-messenger/home-sync-full-analysis-log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -65,14 +75,31 @@ export async function GET(req: NextRequest) {
   const tierParam = req.nextUrl.searchParams.get("tier");
   const tier: "critical" | "full" = tierParam === "critical" ? "critical" : "full";
   const now = Date.now();
+  /**
+   * critical tier 에서는 **항상** trace 객체를 만들어 `tier` 마커를 service 단까지 전파한다.
+   * - dev: 기존처럼 token 도 채워 deepSteps 로그 활성.
+   * - prod: token 은 빈 문자열 → 기존 `trace?.token` 분기는 모두 비활성.
+   *   `tier === "critical"` 마커만 살아 있어 posts fallback probing 차단(HS2).
+   * - dev + full tier: bundleSteps·unread 세분을 위해 token 을 켠다(프로덕션 full 은 trace 없음 유지).
+   */
   const trace: HomeSyncTrace | undefined =
-    isDev && tier === "critical"
+    tier === "critical"
       ? {
-          token: `home-sync:${Date.now().toString(36)}:${Math.random().toString(36).slice(2)}`,
+          token: isDev
+            ? `home-sync:${Date.now().toString(36)}:${Math.random().toString(36).slice(2)}`
+            : "",
+          tier: "critical",
           authSessionMs: ms(authMs),
           deepSteps: {},
         }
-      : undefined;
+      : isDev
+        ? {
+            token: `home-sync-full:${Date.now().toString(36)}:${Math.random().toString(36).slice(2)}`,
+            tier: "full",
+            authSessionMs: ms(authMs),
+            deepSteps: {},
+          }
+        : undefined;
   if (enableInMemoryCache) {
     pruneByExpiresAtAndMaxSize(
       communityMessengerHomeSyncCache,
@@ -85,10 +112,15 @@ export async function GET(req: NextRequest) {
   const cacheKey = `${auth.userId}:${tier}:cap${COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP}f${COMMUNITY_MESSENGER_HOME_SYNC_FULL_ROOM_CAP}`;
   let bundle =
     enableInMemoryCache && !fresh ? communityMessengerHomeSyncCache.get(cacheKey)?.payload : undefined;
+  /** 프로덕션 5s in-memory 캐시 히트 — 개발에서는 캐시 비활성이라 항상 false */
+  const shortTtlHit = Boolean(bundle);
 
   const tBeforeBundleResolution = performance.now();
   let routeBundleAwaitMs = 0;
   let routeDevDiagnosticsMs = 0;
+  /** dev: `[home-sync-breakdown]` 에서 재사용해 이중 JSON.stringify 방지 */
+  let devPayloadBytes = 0;
+  let devPayloadSerializeMs = 0;
   if (trace) {
     trace.deepSteps.bundleSteps = {
       ...(trace.deepSteps.bundleSteps ?? {}),
@@ -131,14 +163,14 @@ export async function GET(req: NextRequest) {
 
       // [home-sync-size] JSON length (KB)
       const tJson = performance.now();
-      const payloadBytes = JSON.stringify(bundle).length;
-      const jsonStringifyMs = performance.now() - tJson;
+      devPayloadBytes = JSON.stringify(bundle).length;
+      devPayloadSerializeMs = performance.now() - tJson;
       console.warn("[home-sync-size]", {
-        payloadKB: Math.round(payloadBytes / 1024),
+        payloadKB: Math.round(devPayloadBytes / 1024),
         rooms,
         friends,
         requests,
-        jsonStringifyMs: Math.round(jsonStringifyMs),
+        jsonStringifyMs: Math.round(devPayloadSerializeMs),
       });
 
       console.warn("[home-sync-auth]", { authSessionMs: Math.round(authMs) });
@@ -331,6 +363,8 @@ export async function GET(req: NextRequest) {
       const unreadDuplicateFetchCount = Math.max(0, inv - 1);
       const unreadCandidates: Array<[string, number]> = [
         ["unreadSourceFetchMs", ur.unreadSourceFetchMs ?? 0],
+        ["legacyChatRoomsFetchMs", ur.legacyChatRoomsFetchMs ?? 0],
+        ["legacyProductChatsFetchMs", ur.legacyProductChatsFetchMs ?? 0],
         ["participantUnreadMs", ur.participantUnreadMs ?? 0],
         ["legacyTradeUnreadMs", ur.legacyTradeUnreadMs ?? 0],
         ["ownerHubBadgeMs", ur.ownerHubBadgeMs ?? 0],
@@ -349,15 +383,165 @@ export async function GET(req: NextRequest) {
         unreadSourceFetchMs: ur.unreadSourceFetchMs ?? 0,
         legacyChatRoomsFetchMs: ur.legacyChatRoomsFetchMs ?? 0,
         legacyProductChatsFetchMs: ur.legacyProductChatsFetchMs ?? 0,
+        unreadParallelWallMs: ur.unreadParallelWallMs ?? ur.unreadSourceFetchMs ?? 0,
+        unreadEffectiveRttCount: ur.unreadEffectiveRttCount ?? null,
+        unreadLegacyFetchPath: ur.unreadLegacyFetchPath ?? null,
+        unreadRpcBundleMs: ur.unreadRpcBundleMs ?? null,
+        unreadRpcTotalMs: ur.unreadRpcTotalMs ?? null,
+        unreadRpcChatRoomsMs: ur.unreadRpcChatRoomsMs ?? null,
+        unreadRpcProductChatsMs: ur.unreadRpcProductChatsMs ?? null,
+        unreadRpcMergeMs: ur.unreadRpcMergeMs ?? null,
+        unreadRpcJsonBuildMs: ur.unreadRpcJsonBuildMs ?? null,
+        unreadRpcRowsFetched: ur.unreadRpcRowsFetched ?? null,
+        unreadRpcPayloadBytesEstimate: ur.unreadRpcPayloadBytesEstimate ?? null,
+        unreadRpcNetworkOverheadMs: ur.unreadRpcNetworkOverheadMs ?? null,
+        unreadRoomIdsCount: ur.unreadRoomIdsCount ?? null,
+        unreadProductChatIdsCount: ur.unreadProductChatIdsCount ?? null,
+        unreadRowsFetched: ur.unreadRowsFetched ?? null,
+        unreadMaxSingleQueryMs: ur.unreadMaxSingleQueryMs ?? null,
+        unreadSlowestQuery: ur.unreadSlowestQuery ?? null,
+        unreadPayloadBytesEstimate: ur.unreadPayloadBytesEstimate ?? null,
         participantUnreadMs: ur.participantUnreadMs ?? 0,
         legacyTradeUnreadMs: ur.legacyTradeUnreadMs ?? 0,
+        unreadMergeCpuMs: ur.unreadMergeCpuMs ?? null,
         ownerHubBadgeMs: ur.ownerHubBadgeMs ?? 0,
         roomIdDedupeMs: ur.roomIdDedupeMs ?? 0,
         badgeAttachCpuMs: ur.badgeAttachCpuMs ?? 0,
+        unreadAttachCpuMs: ur.unreadAttachCpuMs ?? null,
         unreadDuplicateFetchCount,
         unreadCacheHit: ur.unreadCacheHit ?? null,
         topUnreadBottleneck: topUnread && topUnread.ms > 0 ? topUnread : null,
+        routeTotalMs: trace.deepSteps.bundleSteps?.routeTotalMs ?? null,
       });
+
+      if (tier === "critical") {
+        const eff = ur.unreadEffectiveRttCount ?? 0;
+        const badgeMs = ms(ur.unreadBadgeMs ?? 0);
+        const srcMs = ms(ur.unreadSourceFetchMs ?? 0);
+        const rpcWall = ms(ur.unreadRpcBundleMs ?? 0);
+        if (
+          ur.unreadLegacyFetchPath === "rpc_bundle" &&
+          rpcWall > 250
+        ) {
+          console.warn("[home-sync-fail] HS5 rpc bundle tail breakdown", {
+            token: trace.token,
+            unreadRpcBundleMs: rpcWall,
+            unreadRpcTotalMs: ur.unreadRpcTotalMs ?? null,
+            unreadRpcChatRoomsMs: ur.unreadRpcChatRoomsMs ?? null,
+            unreadRpcProductChatsMs: ur.unreadRpcProductChatsMs ?? null,
+            unreadRpcMergeMs: ur.unreadRpcMergeMs ?? null,
+            unreadRpcJsonBuildMs: ur.unreadRpcJsonBuildMs ?? null,
+            unreadRpcRowsFetched: ur.unreadRpcRowsFetched ?? null,
+            unreadRpcPayloadBytesEstimate: ur.unreadRpcPayloadBytesEstimate ?? null,
+            unreadRpcNetworkOverheadMs: ur.unreadRpcNetworkOverheadMs ?? null,
+            unreadSlowestQuery: ur.unreadSlowestQuery ?? null,
+            unreadMaxSingleQueryMs: ms(ur.unreadMaxSingleQueryMs ?? 0),
+            routeTotalMs: trace.deepSteps.bundleSteps?.routeTotalMs ?? null,
+          });
+        }
+        if (badgeMs > 250 || srcMs > 250) {
+          console.warn("[home-sync-fail] HS5 tail spike detected", {
+            token: trace.token,
+            unreadSlowestQuery: ur.unreadSlowestQuery ?? null,
+            unreadMaxSingleQueryMs: ms(ur.unreadMaxSingleQueryMs ?? 0),
+            unreadRoomIdsCount: ur.unreadRoomIdsCount ?? null,
+            unreadProductChatIdsCount: ur.unreadProductChatIdsCount ?? null,
+            unreadAttachCpuMs: ms(ur.unreadAttachCpuMs ?? 0),
+            unreadMergeCpuMs: ms(ur.unreadMergeCpuMs ?? 0),
+            unreadPayloadBytesEstimate: ur.unreadPayloadBytesEstimate ?? null,
+            unreadBadgeMs: badgeMs,
+            unreadSourceFetchMs: srcMs,
+            unreadLegacyFetchPath: ur.unreadLegacyFetchPath ?? null,
+          });
+        }
+        if (eff > 1 || unreadDuplicateFetchCount > 0) {
+          console.warn("[home-sync-fail] HS5 unread target missed", {
+            token: trace.token,
+            unreadBadgeMs: badgeMs,
+            unreadSourceFetchMs: srcMs,
+            unreadEffectiveRttCount: eff,
+            unreadDuplicateFetchCount,
+          });
+        }
+      }
+    }
+  }
+
+  const breakdownOneLine = isDev || homeSyncBreakdownEnabled();
+  let homeSyncAnalysisSerializeMs = 0;
+  let homeSyncAnalysisPayloadKb = 0;
+  if (breakdownOneLine) {
+    try {
+      let payloadBytes = devPayloadBytes;
+      let serializeMs = devPayloadSerializeMs;
+      if (!isDev) {
+        const tSer = performance.now();
+        payloadBytes = JSON.stringify(bundle).length;
+        serializeMs = performance.now() - tSer;
+      }
+      homeSyncAnalysisSerializeMs = serializeMs;
+      homeSyncAnalysisPayloadKb = Math.round(payloadBytes / 1024);
+      const duplicateDedupeKey = `${auth.userId}|${homeSyncRequestDedupeKey(req.nextUrl.pathname, req.nextUrl.searchParams)}`;
+      const duplicate_window_count = recordHomeSyncCompletion(duplicateDedupeKey);
+      const bs = trace?.deepSteps?.bundleSteps;
+      const tradeMeta = trace?.deepSteps?.tradeMetaEnrich;
+      const rooms_ms = ms(bs?.roomsFetchMs ?? 0);
+      const unread_ms = ms(bs?.unreadBadgeMs ?? 0);
+      const profiles_ms = ms(bs?.participantsProfilesMs ?? 0);
+      const trade_ms = ms(bs?.tradeMetaEnrichTotalMs ?? tradeMeta?.totalMs ?? 0);
+      console.info("[home-sync-breakdown]", {
+        total_ms: ms(performance.now() - t0),
+        rooms_ms,
+        unread_ms,
+        profiles_ms,
+        trade_ms,
+        serialize_ms: ms(serializeMs),
+        payload_kb: Math.round(payloadBytes / 1024),
+        duplicate_window_count,
+        short_ttl_hit: shortTtlHit,
+        tier,
+        fresh,
+        routeBundleAwaitMs: ms(routeBundleAwaitMs),
+        bundleTotalMs: bs?.bundleTotalMs ?? null,
+        listMyChatsWallMs: bs?.listMyChatsWallMs ?? null,
+      });
+    } catch {
+      /* ignore */
+    }
+  } else if (tier === "full" && trace && homeSyncFullAnalysisEnabled()) {
+    try {
+      const tSer = performance.now();
+      const pb = JSON.stringify(bundle).length;
+      homeSyncAnalysisSerializeMs = performance.now() - tSer;
+      homeSyncAnalysisPayloadKb = Math.round(pb / 1024);
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (trace && tier === "critical") {
+    try {
+      recordHomeSyncCriticalRouteSnapshot(
+        auth.userId,
+        ms(routeTotalMsVal),
+        trace.deepSteps.bundleSteps?.bundleTotalMs != null ? ms(trace.deepSteps.bundleSteps.bundleTotalMs) : null
+      );
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (trace && tier === "full" && homeSyncFullAnalysisEnabled()) {
+    try {
+      logHomeSyncFullAnalysis({
+        userId: auth.userId,
+        trace,
+        routeTotalMs: ms(routeTotalMsVal),
+        serializeMs: homeSyncAnalysisSerializeMs,
+        payloadKb: homeSyncAnalysisPayloadKb,
+      });
+    } catch {
+      /* ignore */
     }
   }
 

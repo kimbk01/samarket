@@ -43,8 +43,13 @@ import type {
 } from "@/lib/community-messenger/types";
 import { mergeMessengerRoomSummaryForHomeSyncCriticalPatch } from "@/lib/community-messenger/merge-critical-home-sync-room-summary";
 import { finishSilentRefreshRound, tryEnterSilentRefreshRound } from "@/lib/http/silent-refresh-coalesce";
-import { cancelScheduledWhenBrowserIdle, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
+import { isLikelyFetchAbortError, logFetchClientTelemetry } from "@/lib/http/fetch-client-telemetry";
 import { fetchCommunityMessengerBootstrapClient } from "@/lib/community-messenger/cm-bootstrap-client-fetch";
+import {
+  logMessengerCriticalDone,
+  logMessengerDeferredDone,
+  logMessengerDeferredStart,
+} from "@/lib/community-messenger/app-shell-fast-path-log";
 import { getMessengerBackgroundHydrationScheduler } from "@/lib/community-messenger/background-hydration-scheduler";
 import { mergeDiscoverableGroupsFromOpenGroupsClient } from "@/lib/community-messenger/merge-discoverable-open-groups-client";
 import {
@@ -91,6 +96,16 @@ function mergeFriendRequestsKeepStaleOutgoing(
   });
   if (!extra.length) return server;
   return [...server, ...extra];
+}
+
+/** lite/full·open-groups 보강 — 셸 페인트 이후 `requestIdleCallback`(폴백 `setTimeout`) */
+function scheduleMessengerDeferredOnIdle(run: () => void): void {
+  if (typeof window === "undefined") return;
+  if (typeof requestIdleCallback === "function") {
+    requestIdleCallback(() => run(), { timeout: 2000 });
+  } else {
+    window.setTimeout(run, 0);
+  }
 }
 
 /** lite/full API JSON → 클라 `CommunityMessengerBootstrap` (deferred 단계 전용) */
@@ -147,6 +162,8 @@ export type UseCommunityMessengerHomeBootstrapResult = {
   data: CommunityMessengerBootstrap | null;
   setData: Dispatch<SetStateAction<CommunityMessengerBootstrap | null>>;
   loading: boolean;
+  /** critical 이전·진행 중 리스트 영역 스켈레톤 — 셸·탭은 막지 않음(APP-SHELL-FAST-PATH) */
+  listAwaitingCritical: boolean;
   authRequired: boolean;
   setAuthRequired: Dispatch<SetStateAction<boolean>>;
   pageError: string | null;
@@ -184,19 +201,19 @@ export function useCommunityMessengerHomeBootstrap({
   const silentFullSupplementTimerRef = useRef<number | null>(null);
 
   /**
-   * 초기 state 는 서버와 동일해야 한다 — `peekBootstrapCache()` 는 클라 sessionStorage 만 읽어
+   * 초기 state 는 서버와 동일해야 한다 — `peekMessengerBootstrap*` 는 클라 sessionStorage 만 읽어
    * SSR 시 null·CSR 첫 렌더에 데이터가 생기며 `MessengerHomeMainSections` 트리가 달라져 하이드레이션 오류가 난다.
-   * 캐시 시드는 마운트 직후 `useLayoutEffect` 에서만 적용한다.
+   * `listAwaitingCritical` 은 useLayoutEffect 에서 peek 적용 시 즉시 해제한다(APP-SHELL-FAST-PATH).
    */
   const [data, setData] = useState<CommunityMessengerBootstrap | null>(() => initialServerBootstrap ?? null);
-  const [loading, setLoading] = useState(() => {
-    if (initialServerBootstrap) return false;
-    if (peekMessengerBootstrapFull() || peekMessengerBootstrapCritical()) return false;
-    return true;
-  });
-  /** RSC+로그인 시에도 바로 열어 `participants` Realtime 이 목록·뱃지와 동시에 움직이게 한다(닫아 두면 520ms+ 밀림). */
+  /** 목록 새로고침 오버레이만 — 첫 critical 대기는 `listAwaitingCritical` */
+  const [loading, setLoading] = useState(false);
+  const [listAwaitingCritical, setListAwaitingCritical] = useState(
+    () => !initialServerBootstrap
+  );
+  /** critical 페이로드 수신 후 idle 에서 연다 — 구독 attach 를 셸 직후와 분리 */
   const [homeRealtimeGateOpen, setHomeRealtimeGateOpen] = useState(
-    () => Boolean(initialServerBootstrap?.me?.id) || !Boolean(initialServerBootstrap)
+    () => Boolean(initialServerBootstrap?.me?.id)
   );
   const [authRequired, setAuthRequired] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
@@ -207,14 +224,14 @@ export function useCommunityMessengerHomeBootstrap({
     if (fullCached) {
       setData(fullCached);
       setLoading(false);
-      if (fullCached.me?.id) setHomeRealtimeGateOpen(true);
+      setListAwaitingCritical(false);
       return;
     }
     const critCached = peekMessengerBootstrapCritical();
     if (!critCached) return;
     setData(communityMessengerBootstrapFromCriticalPayload(critCached));
     setLoading(false);
-    if (critCached.me?.id) setHomeRealtimeGateOpen(true);
+    setListAwaitingCritical(false);
   }, [initialServerBootstrap]);
 
   useEffect(() => {
@@ -408,7 +425,7 @@ export function useCommunityMessengerHomeBootstrap({
       setAuthRequired(false);
       setPageError(null);
     }
-    if (shouldBlock) setLoading(true);
+    if (!silent && stale) setLoading(true);
     try {
       if (silent) {
         const tHomeSyncFetch0 = typeof performance !== "undefined" ? performance.now() : null;
@@ -464,6 +481,7 @@ export function useCommunityMessengerHomeBootstrap({
             setAuthRequired(true);
             setPageError(tRef.current("nav_messenger_login_required"));
             setData(null);
+            setListAwaitingCritical(false);
           } else {
             if (Date.now() < silentFallbackFullBackoffUntilRef.current) {
               return;
@@ -558,11 +576,13 @@ export function useCommunityMessengerHomeBootstrap({
             }, delayMs);
           };
 
-          sch.schedule({
+          scheduleMessengerDeferredOnIdle(() => {
+            sch.schedule({
             id: `messenger:deferred-lite-bootstrap:${hydrateRequestId}`,
             dedupeKey: "messenger:deferred-lite-bootstrap",
             priority: "medium",
             run: async (signal) => {
+              logMessengerDeferredStart();
               const deferredStartAt = typeof performance !== "undefined" ? performance.now() : 0;
               let deferredFinishAt = deferredStartAt;
               try {
@@ -634,10 +654,14 @@ export function useCommunityMessengerHomeBootstrap({
                     setAuthRequired(true);
                     setPageError(tRef.current("nav_messenger_login_required"));
                     setData(null);
+                    setListAwaitingCritical(false);
                   } else {
                     setAuthRequired(false);
                     setPageError(tRef.current("nav_messenger_load_failed"));
-                    if (!stale) setData(null);
+                    if (!stale) {
+                      setData(null);
+                      setListAwaitingCritical(false);
+                    }
                   }
                 }
               } catch {
@@ -653,8 +677,10 @@ export function useCommunityMessengerHomeBootstrap({
                   used_cached_snapshot: usedCachedSnapshot,
                   used_critical_payload: usedCriticalPayload,
                 });
+                logMessengerDeferredDone();
               }
             },
+          });
           });
         };
 
@@ -667,36 +693,86 @@ export function useCommunityMessengerHomeBootstrap({
             const criticalRequestStartAt = typeof performance !== "undefined" ? performance.now() : 0;
             const resCrit = await fetchCommunityMessengerBootstrapCriticalClient({ signal: controller.signal });
             const criticalResponseAt = typeof performance !== "undefined" ? performance.now() : 0;
-            if (controller.signal.aborted || requestId !== refreshRequestIdRef.current) return;
+            const critical_fetch_ms =
+              typeof performance !== "undefined" ? Math.round(criticalResponseAt - criticalRequestStartAt) : 0;
+            if (controller.signal.aborted) {
+              logFetchClientTelemetry("fetch_abort", {
+                fetch_abort_url: "/api/community-messenger/bootstrap?tier=critical",
+                fetch_abort_reason: "signal_aborted",
+                fetch_abort_after_route_change: true,
+              });
+              return;
+            }
+            if (requestId !== refreshRequestIdRef.current) {
+              logFetchClientTelemetry("stale_response_ignored", {
+                stale_response_ignored: true,
+                fetch_abort_after_route_change: true,
+                stage: "after_critical_fetch",
+                request_id: requestId,
+                current_id: refreshRequestIdRef.current,
+              });
+              return;
+            }
+            const tParseCrit0 = typeof performance !== "undefined" ? performance.now() : 0;
             const jsonCrit = await parseBootstrapJson<
               CommunityMessengerBootstrapCritical & { ok?: boolean; error?: string }
             >(resCrit);
+            const critical_json_parse_ms =
+              typeof performance !== "undefined" ? Math.round(performance.now() - tParseCrit0) : 0;
             if (resCrit.ok && jsonCrit.ok && jsonCrit.tier === "critical") {
+              const tApplyCrit0 = typeof performance !== "undefined" ? performance.now() : 0;
               primeMessengerBootstrapCritical(jsonCrit);
               const partial = communityMessengerBootstrapFromCriticalPayload(jsonCrit);
               refreshDataOk = true;
               setAuthRequired(false);
               setPageError(null);
               setData(partial);
-              if (partial.me?.id) setHomeRealtimeGateOpen(true);
-              const runDefer = (roomListVisibleAt: number) => {
-                scheduleDeferredLiteAndLog(
-                  criticalRequestStartAt,
-                  criticalResponseAt,
-                  roomListVisibleAt,
-                  false,
-                  true
-                );
-              };
-              if (typeof requestAnimationFrame === "function") {
-                requestAnimationFrame(() => {
+              setListAwaitingCritical(false);
+              const critical_state_apply_ms =
+                typeof performance !== "undefined" ? Math.round(performance.now() - tApplyCrit0) : 0;
+              logMessengerCriticalDone();
+              const tApplyCritEnd = typeof performance !== "undefined" ? performance.now() : 0;
+              const hdrKb = resCrit.headers.get("x-samarket-critical-payload-kb");
+              const hdrRoute = resCrit.headers.get("x-samarket-critical-route-ms");
+              const hdrSer = resCrit.headers.get("x-samarket-critical-serialization-ms");
+              const hdrRooms = resCrit.headers.get("x-samarket-critical-room-count");
+              const critical_payload_kb = hdrKb != null && hdrKb !== "" ? Number(hdrKb) : null;
+              if (typeof window !== "undefined" && typeof performance !== "undefined") {
+                queueMicrotask(() => {
                   requestAnimationFrame(() => {
-                    runDefer(typeof performance !== "undefined" ? performance.now() : 0);
+                    requestAnimationFrame(() => {
+                      const critical_render_commit_ms = Math.round(performance.now() - tApplyCritEnd);
+                      const critical_first_list_visible_ms = Math.round(performance.now() - criticalRequestStartAt);
+                      // eslint-disable-next-line no-console
+                      console.info(
+                        "[critical-bootstrap-client]",
+                        JSON.stringify({
+                          critical_fetch_ms,
+                          critical_json_parse_ms,
+                          critical_state_apply_ms,
+                          critical_first_list_visible_ms,
+                          critical_render_commit_ms,
+                          critical_payload_kb: Number.isFinite(critical_payload_kb) ? critical_payload_kb : null,
+                          critical_server_route_ms:
+                            hdrRoute != null && hdrRoute !== "" ? Number(hdrRoute) : null,
+                          critical_server_serialization_ms:
+                            hdrSer != null && hdrSer !== "" ? Number(hdrSer) : null,
+                          critical_server_room_count:
+                            hdrRooms != null && hdrRooms !== "" ? Number(hdrRooms) : null,
+                          tier: "critical",
+                        })
+                      );
+                    });
                   });
                 });
-              } else {
-                runDefer(typeof performance !== "undefined" ? performance.now() : 0);
               }
+              scheduleDeferredLiteAndLog(
+                criticalRequestStartAt,
+                criticalResponseAt,
+                typeof performance !== "undefined" ? performance.now() : 0,
+                false,
+                true
+              );
             } else {
               throw new Error("critical_bootstrap_not_ok");
             }
@@ -720,6 +796,8 @@ export function useCommunityMessengerHomeBootstrap({
                 mode: useLiteBootstrapFallback ? "lite" : "full",
               });
               const next = messengerBootstrapFromLiteApiJson(json);
+              setListAwaitingCritical(false);
+              logMessengerCriticalDone();
               setAuthRequired(false);
               setPageError(null);
               setData((prev) => {
@@ -809,11 +887,13 @@ export function useCommunityMessengerHomeBootstrap({
                 setAuthRequired(true);
                 setPageError(tRef.current("nav_messenger_login_required"));
                 setData(null);
+                setListAwaitingCritical(false);
               } else {
                 setAuthRequired(false);
                 setPageError(tRef.current("nav_messenger_load_failed"));
                 if (!silent && !stale) {
                   setData(null);
+                  setListAwaitingCritical(false);
                 }
               }
             }
@@ -822,6 +902,19 @@ export function useCommunityMessengerHomeBootstrap({
       }
     } catch (error) {
       if (error instanceof DOMException && error.name === "AbortError") {
+        logFetchClientTelemetry("fetch_abort", {
+          fetch_abort_url: "messenger_home_refresh",
+          fetch_abort_reason: "AbortError",
+          fetch_abort_after_route_change: true,
+        });
+        return;
+      }
+      if (isLikelyFetchAbortError(error, controller.signal)) {
+        logFetchClientTelemetry("fetch_abort", {
+          fetch_abort_url: "messenger_home_refresh",
+          fetch_abort_reason: error instanceof Error ? error.message : "unknown",
+          fetch_abort_after_route_change: true,
+        });
         return;
       }
       if (!silent) {
@@ -829,6 +922,7 @@ export function useCommunityMessengerHomeBootstrap({
         setPageError(tRef.current("nav_messenger_load_failed"));
         if (!stale) {
           setData(null);
+          setListAwaitingCritical(false);
         }
       }
     } finally {
@@ -848,7 +942,12 @@ export function useCommunityMessengerHomeBootstrap({
         void refresh(true);
       });
       loadedRef.current = true;
-      if (shouldBlock) setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
+      if (shouldBlock) {
+        setListAwaitingCritical(false);
+      }
     }
     // tRef.current 만 읽음 — 언어 전환 시에도 동일 refresh 인스턴스 유지
     // eslint-disable-next-line react-hooks/exhaustive-deps -- tRef 안정 참조
@@ -865,7 +964,7 @@ export function useCommunityMessengerHomeBootstrap({
       setAuthRequired(false);
       setPageError(null);
       if (initialServerBootstrap.deferredCallLog) {
-        const timer = window.setTimeout(() => {
+        scheduleMessengerDeferredOnIdle(() => {
           getMessengerBackgroundHydrationScheduler().schedule({
             id: "messenger:ssr-deferred:calls-log",
             dedupeKey: "messenger:followup:calls-log",
@@ -874,8 +973,8 @@ export function useCommunityMessengerHomeBootstrap({
               await mergeDeferredMessengerCallLogs();
             },
           });
-        }, 160);
-        return () => clearTimeout(timer);
+        });
+        return;
       }
       return;
     }
@@ -892,7 +991,9 @@ export function useCommunityMessengerHomeBootstrap({
       if (Date.now() - lastStaleCacheResumeSilentRefreshAt < STALE_CACHE_RESUME_SILENT_REFRESH_COOLDOWN_MS) {
         return;
       }
-      const resumeTimer = window.setTimeout(() => {
+      let ricId: number | undefined;
+      let resumeTimer: number | undefined;
+      const runResume = () => {
         lastStaleCacheResumeSilentRefreshAt = Date.now();
         getMessengerBackgroundHydrationScheduler().schedule({
           id: `messenger:stale-resume-silent:${Date.now()}`,
@@ -902,25 +1003,53 @@ export function useCommunityMessengerHomeBootstrap({
             await refreshRef.current(true);
           },
         });
-      }, 100);
-      return () => clearTimeout(resumeTimer);
+      };
+      if (typeof requestIdleCallback === "function") {
+        ricId = requestIdleCallback(runResume, { timeout: 1500 });
+      } else {
+        resumeTimer = window.setTimeout(runResume, 100);
+      }
+      return () => {
+        if (ricId !== undefined && typeof cancelIdleCallback === "function") {
+          cancelIdleCallback(ricId);
+        }
+        if (resumeTimer !== undefined) window.clearTimeout(resumeTimer);
+      };
     }
     void refreshRef.current();
   }, [initialServerBootstrap, mergeDeferredMessengerCallLogs]);
 
-  /** 과거 520ms 지연은 목록·홈 Realtime·알림 브리지와 하단 탭 배지가 서로 어긋나는 체감만 키움 — idle 한 틱으로만 연다. */
+  /** critical 이후 idle 에서 홈 Realtime·버스 attach — 셸·목록 먼저 */
   useEffect(() => {
     if (homeRealtimeGateOpen) return;
-    const idleId = scheduleWhenBrowserIdle(() => {
+    const me = data?.me?.id?.trim();
+    if (!me) return;
+    let cancelled = false;
+    const open = () => {
+      if (cancelled) return;
       setHomeRealtimeGateOpen(true);
-    }, 0);
-    return () => cancelScheduledWhenBrowserIdle(idleId);
-  }, [homeRealtimeGateOpen]);
+    };
+    let ricHandle: number | undefined;
+    let timeoutId: number | undefined;
+    if (typeof requestIdleCallback === "function") {
+      ricHandle = requestIdleCallback(open, { timeout: 1200 });
+    } else {
+      timeoutId = window.setTimeout(open, 0);
+    }
+    return () => {
+      cancelled = true;
+      if (ricHandle !== undefined && typeof cancelIdleCallback === "function") {
+        cancelIdleCallback(ricHandle);
+      }
+      if (timeoutId !== undefined) window.clearTimeout(timeoutId);
+    };
+  }, [homeRealtimeGateOpen, data?.me?.id]);
 
   return {
     data,
     setData,
     loading,
+    listAwaitingCritical,
     authRequired,
     setAuthRequired,
     pageError,

@@ -49,7 +49,14 @@ import {
 } from "@/lib/community-messenger/realtime/cm-rt-room-sub-log";
 import { acquireCommunityMessengerReadAckBroadcast } from "@/lib/community-messenger/realtime/cm-read-ack-broadcast-client";
 import { cmRtStableSubLog } from "@/lib/community-messenger/realtime/cm-rt-stable-sub-log";
+import {
+  cmRtHs4DiagnosisLog,
+  cmRtHs4FingerprintDigest,
+} from "@/lib/community-messenger/realtime/cm-rt-hs4-diagnosis";
 import { recordCmRoomEntryMilestone } from "@/lib/community-messenger/room/cm-room-entry-instrumentation";
+import { MESSENGER_HOME_REALTIME_DEFERRED_PHYSICAL_STOP_GRACE_MS } from "@/lib/community-messenger/messenger-latency-config";
+import { logCmRtLifecycleFix } from "@/lib/community-messenger/realtime/cm-rt-lifecycle-fix-log";
+import { logCmRtGrace } from "@/lib/community-messenger/realtime/cm-rt-grace-log";
 
 function messengerHomeRealtimeRoomIdsContentKey(ids: string[] | undefined): string {
   return [...new Set((ids ?? []).map((id) => normalizeCmRealtimeSubscribeRoomId(String(id))).filter(Boolean))].sort().join("\0");
@@ -91,6 +98,62 @@ type HomeRealtimeEntry = {
 const homeRealtimeMetaEntries = new Map<string, HomeRealtimeEntry>();
 const homeRealtimeRoomsEntries = new Map<string, HomeRealtimeEntry>();
 const globalMessengerRoomBundleByViewer = new Map<string, GlobalMessengerRoomBundleEntry>();
+
+/** 마지막 리스너 이탈 후 `MESSENGER_HOME_REALTIME_DEFERRED_PHYSICAL_STOP_GRACE_MS` 경과 시 `entry.stop()` */
+const homeMetaDeferredPhysicalStopByKey = new Map<string, ReturnType<typeof setTimeout>>();
+const homeRoomsDeferredPhysicalStopByKey = new Map<string, ReturnType<typeof setTimeout>>();
+
+function clearMessengerHomeDeferredPhysicalStop(kind: "meta" | "rooms", mapKey: string): boolean {
+  const m = kind === "meta" ? homeMetaDeferredPhysicalStopByKey : homeRoomsDeferredPhysicalStopByKey;
+  const t = m.get(mapKey);
+  if (t == null) return false;
+  clearTimeout(t);
+  m.delete(mapKey);
+  return true;
+}
+
+function deferredStopKindForMapKey(mapKey: string): "meta" | "rooms" {
+  return mapKey.includes(":rooms:") ? "rooms" : "meta";
+}
+
+function clearMessengerHomeDeferredPhysicalStopForAnyKey(mapKey: string): void {
+  clearMessengerHomeDeferredPhysicalStop(deferredStopKindForMapKey(mapKey), mapKey);
+}
+
+function scheduleMessengerHomeDeferredPhysicalStop(args: {
+  kind: "meta" | "rooms";
+  mapKey: string;
+  channelName: string;
+  graceMs: number;
+  reason: string;
+}): void {
+  clearMessengerHomeDeferredPhysicalStop(args.kind, args.mapKey);
+  const map = args.kind === "meta" ? homeMetaDeferredPhysicalStopByKey : homeRoomsDeferredPhysicalStopByKey;
+  const timer = setTimeout(() => {
+    map.delete(args.mapKey);
+    const entryMap = args.kind === "meta" ? homeRealtimeMetaEntries : homeRealtimeRoomsEntries;
+    const entry = entryMap.get(args.mapKey);
+    if (!entry || entry.listeners.size > 0) return;
+    const phys = messengerRealtimeGetHomeChannelPhysicalBindCount();
+    logCmRtGrace({
+      action: "final_stop",
+      grace_ms: args.graceMs,
+      channelName: args.channelName,
+      had_existing_subscription: phys > 0,
+      same_fingerprint: null,
+    });
+    entry.stop();
+  }, args.graceMs);
+  map.set(args.mapKey, timer);
+  const physNow = messengerRealtimeGetHomeChannelPhysicalBindCount();
+  logCmRtGrace({
+    action: "defer_stop",
+    grace_ms: args.graceMs,
+    channelName: args.channelName,
+    had_existing_subscription: physNow > 0,
+    same_fingerprint: null,
+  });
+}
 
 function pushMessengerHomeRealtimeMapProbe(): void {
   let listenerRefs = 0;
@@ -298,6 +361,14 @@ function createHomeRealtimeEntry(args: {
   const bindHomeChannels = () => {
     if (cancelled || homeBound) return;
     homeBound = true;
+    cmRtHs4DiagnosisLog("home_realtime_auth_bridge_ready_bind", {
+      channelBindRole: args.channelBindRole,
+      entryStorageKey: args.key,
+      ...cmRtHs4FingerprintDigest(args.roomIdsFingerprint),
+      includeMeta: args.includeMeta !== false,
+      visibleTradeRoomCount: args.visibleTradeRoomCount ?? null,
+      physicalBindCountBeforeBind: messengerRealtimeGetHomeChannelPhysicalBindCount(),
+    });
     releaseReadAckBroadcast = acquireCommunityMessengerReadAckBroadcast(args.userId);
     const { channels: next, cancelSchedulers: cancel } = bindCommunityMessengerHomeRealtimeChannels({
       sb,
@@ -328,6 +399,7 @@ function createHomeRealtimeEntry(args: {
   });
 
   entry.stop = () => {
+    clearMessengerHomeDeferredPhysicalStopForAnyKey(args.key);
     cancelled = true;
     if (entry.insertBatchRafId != null) {
       cancelAnimationFrame(entry.insertBatchRafId);
@@ -392,6 +464,9 @@ export function useCommunityMessengerHomeRealtime(args: {
   const visibleTradeRoomCountForBind =
     extraRoomIdsContentKey.length > 0 ? extraRoomIdsContentKey.split("\0").filter(Boolean).length : 0;
 
+  /** `visibleTradeRoomCountForBind` 는 HS4/안정 로그용 — postgres 필터는 `roomIdsFingerprint` 만 사용. effect deps 에 넣으면 fingerprint 불변에도 리스너 detach 가 반복된다. */
+  const prevRoomsBindFingerprintForLifecycleLogRef = useRef<string | null>(null);
+
   const deferEmptyWhileLoading = Boolean(args.deferEmptyRoomsWhileBootstrapLoading);
   const bootstrapListLoading = Boolean(args.bootstrapListLoading);
 
@@ -402,6 +477,7 @@ export function useCommunityMessengerHomeRealtime(args: {
   useEffect(() => {
     lastKnownNonEmptyRoomsFingerprintRef.current = "";
     deferringRoomsSubscriptionRef.current = false;
+    prevRoomsBindFingerprintForLifecycleLogRef.current = null;
   }, [args.userId]);
 
   const roomsBindFingerprint = useMemo(() => {
@@ -464,6 +540,13 @@ export function useCommunityMessengerHomeRealtime(args: {
           rebindCount: messengerRealtimeGetHomeChannelPhysicalBindCount(),
           visible_trade_room_count: ek.length ? ek.split("\0").filter(Boolean).length : 0,
         });
+        cmRtHs4DiagnosisLog("home_room_fingerprint_changed", {
+          viewerUserIdTail: args.userId && args.userId.length > 8 ? args.userId.slice(-8) : args.userId,
+          changedReason,
+          prevFp: cmRtHs4FingerprintDigest(prev),
+          nextFp: cmRtHs4FingerprintDigest(roomIdsFingerprint),
+          suppressBootstrapFillNoise: false,
+        });
       }
     }
   }, [roomIdsFingerprint, roomIdsContentKey, extraRoomIdsContentKey, args.userId]);
@@ -482,8 +565,50 @@ export function useCommunityMessengerHomeRealtime(args: {
 
   useEffect(() => {
     if (!args.enabled || !args.userId) return;
+    const graceMs = MESSENGER_HOME_REALTIME_DEFERRED_PHYSICAL_STOP_GRACE_MS;
     const metaKey = `${args.userId}:meta`;
+
+    const hadDeferredMeta = clearMessengerHomeDeferredPhysicalStop("meta", metaKey);
+    if (hadDeferredMeta) {
+      logCmRtGrace({
+        action: "cancel_stop",
+        grace_ms: graceMs,
+        channelName: `community-messenger-home:meta:${args.userId}`,
+        had_existing_subscription: messengerRealtimeGetHomeChannelPhysicalBindCount() > 0,
+        same_fingerprint: null,
+      });
+    }
+
+    const bindFp = roomsBindFingerprint;
+    const roomsKey = bindFp !== null ? `${args.userId}:rooms:${bindFp}` : null;
+
+    let hadDeferredRooms = false;
+    if (roomsKey) {
+      hadDeferredRooms = clearMessengerHomeDeferredPhysicalStop("rooms", roomsKey);
+      if (hadDeferredRooms) {
+        logCmRtGrace({
+          action: "cancel_stop",
+          grace_ms: graceMs,
+          channelName: `community-messenger-home:rooms-in:${args.userId}`,
+          had_existing_subscription: messengerRealtimeGetHomeChannelPhysicalBindCount() > 0,
+          same_fingerprint:
+            bindFp !== null &&
+            prevRoomsBindFingerprintForLifecycleLogRef.current !== null &&
+            prevRoomsBindFingerprintForLifecycleLogRef.current === bindFp,
+        });
+      }
+    }
+
+    const sameRoomsFingerprint =
+      bindFp !== null &&
+      prevRoomsBindFingerprintForLifecycleLogRef.current !== null &&
+      prevRoomsBindFingerprintForLifecycleLogRef.current === bindFp;
+    if (bindFp !== null) {
+      prevRoomsBindFingerprintForLifecycleLogRef.current = bindFp;
+    }
+
     let metaEntry = homeRealtimeMetaEntries.get(metaKey);
+    const metaCreated = !metaEntry;
     if (!metaEntry) {
       metaEntry = createHomeRealtimeEntry({
         key: metaKey,
@@ -495,11 +620,11 @@ export function useCommunityMessengerHomeRealtime(args: {
       homeRealtimeMetaEntries.set(metaKey, metaEntry);
     }
 
-    const bindFp = roomsBindFingerprint;
-    const roomsKey = bindFp !== null ? `${args.userId}:rooms:${bindFp}` : null;
     let roomsEntry: HomeRealtimeEntry | null = null;
+    let roomsCreated = false;
     if (bindFp !== null && roomsKey) {
       roomsEntry = homeRealtimeRoomsEntries.get(roomsKey) ?? null;
+      roomsCreated = !roomsEntry;
       if (!roomsEntry) {
         roomsEntry = createHomeRealtimeEntry({
           key: roomsKey,
@@ -513,6 +638,8 @@ export function useCommunityMessengerHomeRealtime(args: {
       }
     }
 
+    const roomsHadPeersBefore = roomsEntry != null && roomsEntry.listeners.size > 0;
+    const metaHadPeers = metaEntry.listeners.size > 0;
     samarketMessengerHomeDebugEvent("messenger_home_subscribe_create", {
       key: roomsKey ?? `${args.userId}:rooms:(deferred)`,
       metaKey,
@@ -521,6 +648,69 @@ export function useCommunityMessengerHomeRealtime(args: {
     });
     metaEntry.listeners.add(listenerRef);
     if (roomsEntry) roomsEntry.listeners.add(listenerRef);
+    const physAfter = messengerRealtimeGetHomeChannelPhysicalBindCount();
+    if (metaCreated) {
+      logCmRtLifecycleFix({
+        action: "create",
+        channelName: `community-messenger-home:meta:${args.userId}`,
+        reason: "first_meta_entry",
+        had_existing_subscription: physAfter > 0,
+        active_count: physAfter,
+        listener_count: metaEntry.listeners.size,
+      });
+    } else {
+      logCmRtLifecycleFix({
+        action: "reuse",
+        channelName: `community-messenger-home:meta:${args.userId}`,
+        reason: metaHadPeers ? "additional_listener" : "rejoin_within_grace_or_same_route",
+        had_existing_subscription: physAfter > 0,
+        active_count: physAfter,
+        listener_count: metaEntry.listeners.size,
+      });
+      if (!metaHadPeers) {
+        logCmRtGrace({
+          action: "reuse_existing",
+          grace_ms: graceMs,
+          channelName: `community-messenger-home:meta:${args.userId}`,
+          had_existing_subscription: physAfter > 0,
+          same_fingerprint: null,
+        });
+      }
+    }
+
+    if (roomsKey && roomsEntry) {
+      if (roomsCreated) {
+        logCmRtLifecycleFix({
+          action: "create",
+          channelName: `community-messenger-home:rooms-in:${args.userId}`,
+          reason: "first_rooms_entry_for_fingerprint",
+          same_fingerprint: sameRoomsFingerprint,
+          had_existing_subscription: physAfter > 0,
+          active_count: physAfter,
+          listener_count: roomsEntry.listeners.size,
+        });
+      } else {
+        logCmRtLifecycleFix({
+          action: "reuse",
+          channelName: `community-messenger-home:rooms-in:${args.userId}`,
+          reason: roomsHadPeersBefore ? "additional_listener" : "rejoin_within_grace_or_same_route",
+          same_fingerprint: sameRoomsFingerprint,
+          had_existing_subscription: physAfter > 0,
+          active_count: physAfter,
+          listener_count: roomsEntry.listeners.size,
+        });
+        if (!roomsHadPeersBefore) {
+          logCmRtGrace({
+            action: "reuse_existing",
+            grace_ms: graceMs,
+            channelName: `community-messenger-home:rooms-in:${args.userId}`,
+            same_fingerprint: sameRoomsFingerprint,
+            had_existing_subscription: physAfter > 0,
+          });
+        }
+      }
+    }
+
     recordMessengerHomeRealtimeReactListenerGaugeDelta(1);
     pushMessengerHomeRealtimeMapProbe();
     return () => {
@@ -532,20 +722,37 @@ export function useCommunityMessengerHomeRealtime(args: {
       const currentMeta = homeRealtimeMetaEntries.get(metaKey);
       if (currentMeta) {
         currentMeta.listeners.delete(listenerRef);
-        if (currentMeta.listeners.size === 0) currentMeta.stop();
+        if (currentMeta.listeners.size === 0) {
+          scheduleMessengerHomeDeferredPhysicalStop({
+            kind: "meta",
+            mapKey: metaKey,
+            channelName: `community-messenger-home:meta:${args.userId}`,
+            graceMs,
+            reason: "last_home_realtime_listener_removed",
+          });
+        }
       }
 
       if (roomsKey) {
         const currentRooms = homeRealtimeRoomsEntries.get(roomsKey);
         if (currentRooms) {
           currentRooms.listeners.delete(listenerRef);
-          if (currentRooms.listeners.size === 0) currentRooms.stop();
+          if (currentRooms.listeners.size === 0) {
+            scheduleMessengerHomeDeferredPhysicalStop({
+              kind: "rooms",
+              mapKey: roomsKey,
+              channelName: `community-messenger-home:rooms-in:${args.userId}`,
+              graceMs,
+              reason: "last_home_realtime_listener_removed",
+            });
+          }
         }
       }
       recordMessengerHomeRealtimeReactListenerGaugeDelta(-1);
       pushMessengerHomeRealtimeMapProbe();
     };
-  }, [args.enabled, args.userId, roomsBindFingerprint, visibleTradeRoomCountForBind]);
+    /** `visibleTradeRoomCountForBind` 는 deps 에서 제외(위 주석). */
+  }, [args.enabled, args.userId, roomsBindFingerprint]);
 }
 
 export function useCommunityMessengerRoomRealtime(args: {

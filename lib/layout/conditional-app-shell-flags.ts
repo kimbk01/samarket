@@ -102,8 +102,14 @@ export function resolveConditionalAppShellFlags(
   const isProductDetail = Boolean(pathname?.match(/^\/products\/[^/]+$/));
   const isStoreProductDetail = Boolean(pathname?.match(/^\/stores\/[^/]+\/p\/[^/]+$/));
   const isStoreSection = pathname === "/stores" || (pathname?.startsWith("/stores/") ?? false);
-  /** 배달(/stores) 전용 하단 네비는 별도 — 전역 BottomNav와 중복 방지용 */
-  const isDeliveryStoresSurface = isStoreSection;
+  const normalizedStorePath = (pathname ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "";
+  const isStoresHubBottomNavSurface =
+    normalizedStorePath === "/stores" ||
+    normalizedStorePath === "/stores/cart" ||
+    normalizedStorePath === "/stores/search" ||
+    normalizedStorePath.startsWith("/stores/browse/");
+  /** 배달(/stores) 허브도 전역 통합 BottomNav를 쓴다. 상세·주문 플로우만 아래 별도 조건으로 숨긴다. */
+  const isStoreCheckoutOrDetailFlow = isStoreSection && !isStoresHubBottomNavSurface;
   const isMypageTradeChatRoom = Boolean(pathname?.match(/^\/mypage\/trade\/chat\/[^/]+$/));
   const isCommunityMessengerRoom = isCommunityMessengerRoomPathname(pathname);
   const isCommunityMessengerCallPage = Boolean(pathname?.match(/^\/community-messenger\/calls\/[^/]+$/));
@@ -168,19 +174,18 @@ export function resolveConditionalAppShellFlags(
     !isTradeFloatingSurface &&
     !isTradeMeetSpotPickRoute;
   /**
-   * 채팅 상세·메신저 전역에서 메인 BottomNav 숨김 — 단일 권한 (재발 방지).
+   * 채팅 상세에서 메인 BottomNav 숨김 — 단일 권한 (재발 방지).
    * - 방·통화·레거시 `/chats/:id` 등: `isChatRoomDetail`
-   * - 메신저 허브(`/community-messenger` 목록·친구·거래채팅 필터 등): `isCommunityMessengerSurface` — 하단은 `CommunityMessengerHomeBottomNav` 전용
+   * - 메신저 허브(`/community-messenger` 목록·친구·거래채팅 필터 등): 전역 통합 `BottomNav`
    * 키보드·composer inset 과 분리. `.cursor/rules/chat-detail-bottom-nav-authority.mdc`
    */
-  const suppressBottomNavForChatDetail = isChatRoomDetail || isCommunityMessengerSurface;
-  /** 메인 하단 탭 — 메신저·채팅 상세 제외 서피스만 */
+  const suppressBottomNavForChatDetail = isChatRoomDetail;
+  /** 메인 하단 탭 — 5대 허브 통합, 채팅/주문/상세 플로우 제외 */
   const showBottomNav =
     !hideBarAndFloat &&
     !isWritePage &&
     !suppressBottomNavForChatDetail &&
-    !isDeliveryStoresSurface &&
-    !isDeliveryMyInfoStoreSection &&
+    !isStoreCheckoutOrDetailFlow &&
     !isPostDetail &&
     !isProductDetail &&
     !isStoreProductDetail &&

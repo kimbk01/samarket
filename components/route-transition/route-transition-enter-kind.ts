@@ -4,6 +4,7 @@ import {
   shouldSuppressMessengerRoomMainShellSlide,
   type RouteTransitionEnterKind,
 } from "@/components/route-transition/route-transition-config";
+import type { CanonicalNavIndexResolver } from "@/lib/main-menu/canonical-nav-index-resolver";
 
 function normalizePathKey(path: string | null | undefined): string {
   return String(path ?? "").split("?")[0]?.trim() ?? "";
@@ -37,8 +38,14 @@ export function computeRouteTransitionEnterKind(
   opts: {
     popstateBack: boolean;
     lastForwardAxisRef: MutableRefObject<"ltr" | "rtl" | null>;
+    /**
+     * 동적 인덱스 resolver — admin(`/admin/menus/main-bottom-nav`)에서 변경한 5탭(+ `custom_*`)
+     * **현재 순서**를 기반으로 인덱스를 계산한다. 미지정 시 정적 fallback(`resolveCanonicalNavIndex`).
+     */
+    resolveIndex?: CanonicalNavIndexResolver;
   }
 ): RouteTransitionEnterKind {
+  const resolveIndex: CanonicalNavIndexResolver = opts.resolveIndex ?? resolveCanonicalNavIndex;
   let kind: RouteTransitionEnterKind;
 
   if (prevPath === nextPath) {
@@ -60,8 +67,8 @@ export function computeRouteTransitionEnterKind(
     // forward axis 를 명시해 이후 popstate back 방향도 안정적으로 맞춘다.
     opts.lastForwardAxisRef.current = "rtl";
   } else {
-    const ixPrev = resolveCanonicalNavIndex(prevPath);
-    const ixNext = resolveCanonicalNavIndex(nextPath);
+    const ixPrev = resolveIndex(prevPath);
+    const ixNext = resolveIndex(nextPath);
 
     if (ixPrev === null || ixNext === null) {
       kind = "none";
@@ -71,10 +78,18 @@ export function computeRouteTransitionEnterKind(
       const axis = opts.lastForwardAxisRef.current;
       if (axis === "ltr") kind = "rtl-back";
       else if (axis === "rtl") kind = "ltr-back";
-      else kind = ixNext > ixPrev ? "ltr-back" : "rtl-back";
+      else kind = ixNext > ixPrev ? "rtl-back" : "ltr-back";
     } else if (ixNext > ixPrev) {
+      /**
+       * 활성보다 **오른쪽** 메뉴 선택 → 새 페이지가 화면 **왼쪽 밖**에서 들어와 오른쪽으로(좌→우) 덮음.
+       * 사용자 의도: "오른쪽 메뉴 선택시 새 화면이 왼쪽에서 들어옴".
+       */
       kind = "ltr-forward";
     } else {
+      /**
+       * 활성보다 **왼쪽** 메뉴 선택 → 새 페이지가 화면 **오른쪽 밖**에서 들어와 왼쪽으로(우→좌) 덮음.
+       * 사용자 의도: "좌측 메뉴 선택시 새 화면이 오른쪽에서 밀고 들어옴".
+       */
       kind = "rtl-forward";
     }
   }

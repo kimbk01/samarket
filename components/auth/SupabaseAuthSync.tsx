@@ -125,12 +125,12 @@ export function SupabaseAuthSync() {
     let initialHydrateCancel: (() => void) | null = null;
     if (typeof requestAnimationFrame === "function" && typeof cancelAnimationFrame === "function") {
       const rafId = requestAnimationFrame(() => {
-        void hydrateProfileCacheFromSessionDeduped(sb);
+        void hydrateProfileCacheFromSessionDeduped(sb).catch(() => {});
       });
       initialHydrateCancel = () => cancelAnimationFrame(rafId);
     } else {
       const idleId = scheduleWhenBrowserIdle(() => {
-        void hydrateProfileCacheFromSessionDeduped(sb);
+        void hydrateProfileCacheFromSessionDeduped(sb).catch(() => {});
       }, 240);
       initialHydrateCancel = () => cancelScheduledWhenBrowserIdle(idleId);
     }
@@ -146,7 +146,7 @@ export function SupabaseAuthSync() {
           clearSignedOutClientCaches();
         } else {
           invalidateMeProfileDedupedCache();
-          void hydrateProfileCacheFromSessionDeduped(sb);
+          void hydrateProfileCacheFromSessionDeduped(sb).catch(() => {});
         }
         return;
       }
@@ -155,7 +155,7 @@ export function SupabaseAuthSync() {
       }
       /** 이전 탭·401 캐시 등으로 GET /api/me/profile 이 오래된 결과를 쓰지 않도록 */
       invalidateMeProfileDedupedCache();
-      void hydrateProfileCacheFromSessionDeduped(sb);
+      void hydrateProfileCacheFromSessionDeduped(sb).catch(() => {});
     });
 
     return () => {

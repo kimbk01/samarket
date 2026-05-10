@@ -103,6 +103,7 @@ function logCmBootstrapV2Critical(params: {
     ["participants_query_ms", d.participantsQueryMs],
     ["profiles_query_ms", d.profilesMs],
     ["unread_query_ms", d.unreadMs],
+    ["critical_cpu_merge_ms", d.criticalCpuMergeMs],
     ["friends_query_ms", 0],
     ["requests_query_ms", 0],
     ["trade_enrich_ms", 0],
@@ -116,6 +117,7 @@ function logCmBootstrapV2Critical(params: {
       worstStage = name;
     }
   }
+  const payloadKb = Math.round((params.payloadUtf8Bytes / 1024) * 1000) / 1000;
   console.info(
     "[cm-bootstrap-v2]",
     JSON.stringify({
@@ -132,7 +134,15 @@ function logCmBootstrapV2Critical(params: {
       requests_query_ms: 0,
       trade_enrich_ms: 0,
       serialization_ms: params.serializationMs,
-      payload_kb: Math.round((params.payloadUtf8Bytes / 1024) * 1000) / 1000,
+      payload_kb: payloadKb,
+      critical_rooms_query_ms: d.roomsQueryMs,
+      critical_participants_ms: d.participantsQueryMs,
+      critical_profiles_ms: d.profilesMs,
+      critical_unread_ms: d.unreadMs,
+      critical_cpu_merge_ms: d.criticalCpuMergeMs,
+      critical_payload_kb: payloadKb,
+      critical_skipped_room_profiles: d.criticalSkippedRoomProfiles,
+      critical_reused_payload_by_room_id: d.criticalReusedPayloadByRoomId,
       db_round_trips: params.dbRoundTrips,
       room_count: params.roomCount,
       worst_stage: worstStage,
@@ -317,7 +327,14 @@ export async function GET(request: NextRequest) {
 
     return new NextResponse(serializedCritical, {
       status: 200,
-      headers: { "content-type": "application/json; charset=utf-8" },
+      headers: {
+        "content-type": "application/json; charset=utf-8",
+        /** 클라이언트 `critical-bootstrap-client` 관측 — 동작·페이로드 불변 */
+        "x-samarket-critical-payload-kb": String(payloadKbCritical),
+        "x-samarket-critical-route-ms": String(routeTotalMsCritical),
+        "x-samarket-critical-serialization-ms": String(serializationMsCritical),
+        "x-samarket-critical-room-count": String(critical.roomCount),
+      },
     });
   }
 

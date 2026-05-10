@@ -4,6 +4,8 @@
  * 켜기: `sessionStorage.setItem("samarket:debug:runtime", "1")` 후 새로고침.
  * 끄기: `sessionStorage.removeItem("samarket:debug:runtime")`.
  *
+ * 별도 콘솔 게이트: `[nav-perf]`·Philife perf-diag 는 `lib/debug/samarket-client-console-flags.ts`.
+ *
  * 메신저 홈 계측 카운터: `getMessengerHomeDebugCounts()` — 디버그 여부와 무관하게 누적(세션 단위).
  */
 
@@ -173,11 +175,11 @@ export function recordAppWidePhaseLastMs(phaseKey: string, ms: number): void {
       /* quota / private mode */
     }
   }
-  if (process.env.NODE_ENV === "development" && phaseKey.startsWith("community_list_") && typeof console !== "undefined" && typeof console.debug === "function") {
+  if (samarketRuntimeDebugEnabled() && phaseKey.startsWith("community_list_") && typeof console !== "undefined" && typeof console.debug === "function") {
     console.debug("[samarket-runtime-debug:phase]", {
       phaseKey,
       ms,
-      runtimeDebugOn: samarketRuntimeDebugEnabled(),
+      runtimeDebugOn: true,
       storeKeys: Object.keys(appWidePhaseLastMsStore()),
     });
   }
@@ -657,6 +659,8 @@ type MessengerHomeVerificationState = {
   bootstrapClientNetworkFetch: Record<MessengerHomeBootstrapNetworkMode, number>;
   /** `GET /api/community-messenger/home-sync` 팩토리 실행 횟수 */
   homeSyncNetworkFetch: number;
+  /** TTL·pathname suppress 로 **합성 Response** 만 반환한 횟수(네트워크 미개방) */
+  homeSyncReplaySyntheticReturns: number;
   /** `warmMessengerListBootstrapClient()` 호출(사이트 진입) — 네트워크와 별개 */
   warmCallSiteInvocations: number;
   /** `refresh()` 진입(맨 앞 — early return 포함 전부) */
@@ -677,6 +681,7 @@ type MessengerHomeVerificationState = {
 const messengerHomeVerification: MessengerHomeVerificationState = {
   bootstrapClientNetworkFetch: { lite: 0, full: 0, fresh: 0, critical: 0 },
   homeSyncNetworkFetch: 0,
+  homeSyncReplaySyntheticReturns: 0,
   warmCallSiteInvocations: 0,
   refreshInvocationTotal: 0,
   refreshInvocationSilent: 0,
@@ -692,6 +697,7 @@ const messengerHomeVerification: MessengerHomeVerificationState = {
 export function resetMessengerHomeVerificationStateForTests(): void {
   messengerHomeVerification.bootstrapClientNetworkFetch = { lite: 0, full: 0, fresh: 0, critical: 0 };
   messengerHomeVerification.homeSyncNetworkFetch = 0;
+  messengerHomeVerification.homeSyncReplaySyntheticReturns = 0;
   messengerHomeVerification.warmCallSiteInvocations = 0;
   messengerHomeVerification.refreshInvocationTotal = 0;
   messengerHomeVerification.refreshInvocationSilent = 0;
@@ -764,6 +770,12 @@ export function recordMessengerHomeBootstrapClientNetworkFetch(mode: MessengerHo
 export function recordMessengerHomeHomeSyncNetworkFetch(): void {
   exposeMessengerHomeDebugApiToWindowOnce();
   messengerHomeVerification.homeSyncNetworkFetch += 1;
+}
+
+export function recordMessengerHomeHomeSyncReplaySyntheticReturn(_reason?: string): void {
+  void _reason;
+  exposeMessengerHomeDebugApiToWindowOnce();
+  messengerHomeVerification.homeSyncReplaySyntheticReturns += 1;
 }
 
 export function recordMessengerHomeWarmCallSiteInvocation(): void {

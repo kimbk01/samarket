@@ -16,9 +16,7 @@ import { createPortal } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
-  areBottomNavItemConfigsEqual,
   BOTTOM_NAV_BADGE_RING_CLASS,
-  BOTTOM_NAV_ITEMS,
   BOTTOM_NAV_SHELL,
   BOTTOM_NAV_THEME,
   type BottomNavIconKey,
@@ -29,17 +27,11 @@ import {
   useOwnerHubBadgeTabUnreadCount,
 } from "@/lib/chats/use-owner-hub-badge-total";
 import { OWNER_HUB_BADGE_DOT_CLASS } from "@/lib/chats/hub-badge-ui";
-import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import {
   useOwnerLiteHasPreferredStore,
   useOwnerLitePreferredStoreRow,
 } from "@/lib/stores/use-owner-lite-store";
-import {
-  fetchMainBottomNavDeduped,
-  MAIN_BOTTOM_NAV_LS_REV_KEY,
-  primeMainBottomNavDedupedCache,
-} from "@/lib/app/fetch-main-bottom-nav-deduped";
-import { KASAMA_MAIN_BOTTOM_NAV_UPDATED } from "@/lib/chats/chat-channel-events";
+import { useMainBottomNavTabs } from "@/contexts/MainBottomNavTabsContext";
 import { cancelScheduledWhenBrowserIdle, isConstrainedNetwork, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
 import {
   BOTTOM_NAV_PREFETCH_IDLE_DELAY_MS,
@@ -65,6 +57,10 @@ import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-
 import { scrollAppShellToTop } from "@/lib/layout/scroll-app-shell-to-top";
 import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 import { bottomNavMessengerHrefWithOrigin } from "@/lib/community-messenger/messenger-entry-origin";
+import {
+  navPerfMarkBottomNavClickStart,
+  navPerfSetOptimisticTotalMs,
+} from "@/lib/navigation/nav-perf-browser";
 
 /** `/market` 에서만 push — 그 외 탭 간 이동은 replace(히스토리 누적·뒤로가기 꼬임 완화) */
 function mainTabLinkUsesReplace(pathname: string | null, targetHref: string): boolean {
@@ -100,7 +96,7 @@ function shouldBottomNavTapScrollOnlyNoNavigate(
 }
 
 const BOTTOM_NAV_ITEM_TOUCH_CLASS =
-  "touch-manipulation select-none [-webkit-tap-highlight-color:transparent] transition-[color,background-color,border-color,transform] duration-150 ease-out active:scale-[0.98]";
+  "touch-manipulation select-none [-webkit-tap-highlight-color:transparent]";
 
 /** 데스크톱 포인터는 사용자 제스처로 간주되지 않아 vibrate 가 막히며 콘솔 Intervention 이 난다 — 터치만. */
 function triggerLightTapFeedback(ev?: { pointerType?: string }): void {
@@ -117,7 +113,7 @@ function triggerLightTapFeedback(ev?: { pointerType?: string }): void {
 const BottomNavHubBadgeDot = memo(function BottomNavHubBadgeDot({ count }: { count: number }) {
   if (count <= 0) return null;
   return (
-    <span className={`${OWNER_HUB_BADGE_DOT_CLASS} ${BOTTOM_NAV_BADGE_RING_CLASS}`}>
+    <span className={`bottom-nav-hub-badge ${OWNER_HUB_BADGE_DOT_CLASS} ${BOTTOM_NAV_BADGE_RING_CLASS}`}>
       {count > 99 ? "99+" : count}
     </span>
   );
@@ -161,18 +157,6 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
       ? tab.id === pendingActiveTabId
       : isBottomNavTabActive(pathname, tab.href);
   const Icon = TAB_ICONS[tab.icon];
-  const iconActive = tab.iconActiveClass ?? BOTTOM_NAV_THEME.iconActiveClass;
-  const iconInactive = tab.iconInactiveClass ?? BOTTOM_NAV_THEME.iconInactiveClass;
-  const labelSize = tab.labelSizeClass ?? BOTTOM_NAV_THEME.labelSizeClass;
-  const labelFontFam = tab.labelFontFamilyClass ?? "";
-  const labelActive =
-    [labelSize, labelFontFam, tab.labelActiveClass ?? BOTTOM_NAV_THEME.labelActiveClass, tab.labelActiveExtraClass]
-      .filter(Boolean)
-      .join(" ");
-  const labelInactive =
-    [labelSize, labelFontFam, tab.labelInactiveClass ?? BOTTOM_NAV_THEME.labelInactiveClass, tab.labelInactiveExtraClass]
-      .filter(Boolean)
-      .join(" ");
   const iconSize = tab.iconSizeClass ?? BOTTOM_NAV_THEME.iconSizeClass;
 
   /** 메신저 탭: 현재 표면(커뮤니티·거래·배달)에 맞춰 `?from=` 부착 — 상단 헤더 진입과 동일 출처 규칙 */
@@ -182,11 +166,8 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
   );
 
   const className = [
-    "group relative flex min-h-0 flex-1 flex-col items-center justify-center",
-    "gap-1 border-t-2 px-1 pb-2 pt-2",
+    "app-bottom-nav-item group",
     BOTTOM_NAV_ITEM_TOUCH_CLASS,
-    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sam-primary/35 rounded-sam-sm",
-    isActive ? "border-sam-primary bg-sam-primary-soft/50" : "border-transparent bg-transparent active:bg-sam-surface-muted",
     hasOwnerStore && !isActive ? "opacity-95" : "",
   ]
     .filter(Boolean)
@@ -199,13 +180,13 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
 
   const inner = (
     <>
-      <div className="relative flex h-6 w-full shrink-0 items-center justify-center">
-        <span className={`relative inline-flex ${isActive ? iconActive : iconInactive}`}>
+      <div className="app-bottom-nav-icon-slot">
+        <span className="app-bottom-nav-inline-icon" key={isActive ? "on" : "off"}>
           <Icon className={iconSize} />
           <BottomNavHubBadgeDot count={tabBadgeCount} />
         </span>
       </div>
-      <span className={isActive ? labelActive : labelInactive} suppressHydrationWarning>
+      <span className={`app-bottom-nav-label ${tab.labelFontFamilyClass ?? ""}`} suppressHydrationWarning>
         {tab.labelKey ? t(tab.labelKey) : tt(tab.label)}
       </span>
     </>
@@ -218,6 +199,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
       replace={mainTabLinkUsesReplace(pathname ?? null, effectiveHref)}
       scroll={false}
       className={className}
+      data-active={isActive ? "true" : "false"}
       aria-label={ariaLbl}
       aria-current={isActive ? "page" : undefined}
       onPointerEnter={() => {
@@ -288,8 +270,11 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
             e.preventDefault();
             return;
           }
+          const navClickT0 = performance.now();
+          navPerfMarkBottomNavClickStart(navClickT0);
           beginMenuNavigation(effectiveHref);
           onNavigationIntent(tab.id);
+          navPerfSetOptimisticTotalMs(performance.now() - navClickT0);
           if (!isActive) {
             try {
               void router.prefetch(effectiveHref);
@@ -313,8 +298,11 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
           e.preventDefault();
           return;
         }
+        const navClickT0 = performance.now();
+        navPerfMarkBottomNavClickStart(navClickT0);
         beginMenuNavigation(effectiveHref);
         onNavigationIntent(tab.id);
+        navPerfSetOptimisticTotalMs(performance.now() - navClickT0);
         onBottomNavTabActivate(pathname, navSearch, effectiveHref, e);
       }}
     >
@@ -350,18 +338,6 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
       ? tab.id === pendingActiveTabId
       : isBottomNavTabActive(pathname, tab.href);
   const Icon = TAB_ICONS.stores;
-  const iconActive = tab.iconActiveClass ?? BOTTOM_NAV_THEME.iconActiveClass;
-  const iconInactive = tab.iconInactiveClass ?? BOTTOM_NAV_THEME.iconInactiveClass;
-  const labelSize = tab.labelSizeClass ?? BOTTOM_NAV_THEME.labelSizeClass;
-  const labelFontFam = tab.labelFontFamilyClass ?? "";
-  const labelActive =
-    [labelSize, labelFontFam, tab.labelActiveClass ?? BOTTOM_NAV_THEME.labelActiveClass, tab.labelActiveExtraClass]
-      .filter(Boolean)
-      .join(" ");
-  const labelInactive =
-    [labelSize, labelFontFam, tab.labelInactiveClass ?? BOTTOM_NAV_THEME.labelInactiveClass, tab.labelInactiveExtraClass]
-      .filter(Boolean)
-      .join(" ");
   const iconSize = tab.iconSizeClass ?? BOTTOM_NAV_THEME.iconSizeClass;
 
   const storesTabOwnerLite = !!ownerStore;
@@ -371,11 +347,9 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
       ? ""
       : "bg-transparent";
   const className = [
-    "group relative flex min-h-0 flex-1 flex-col items-center justify-center",
-    "gap-1 border-t-2 px-1 pb-2 pt-2",
+    "app-bottom-nav-item group",
     BOTTOM_NAV_ITEM_TOUCH_CLASS,
-    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sam-primary/35 rounded-sam-sm",
-    isActive ? "border-sam-primary bg-sam-primary-soft/50" : inactiveSurface ? inactiveSurface : "border-transparent bg-transparent active:bg-sam-surface-muted",
+    inactiveSurface,
   ]
     .filter(Boolean)
     .join(" ");
@@ -389,13 +363,13 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
 
   const inner = (
     <>
-      <div className="relative flex h-6 w-full shrink-0 items-center justify-center">
-        <span className={`relative inline-flex ${isActive ? iconActive : iconInactive}`}>
+      <div className="app-bottom-nav-icon-slot">
+        <span className="app-bottom-nav-inline-icon" key={isActive ? "on" : "off"}>
           <Icon className={iconSize} />
           <BottomNavHubBadgeDot count={tabBadgeCount} />
         </span>
       </div>
-      <span className={isActive ? labelActive : labelInactive} suppressHydrationWarning>
+      <span className={`app-bottom-nav-label ${tab.labelFontFamilyClass ?? ""}`} suppressHydrationWarning>
         {tab.labelKey ? t(tab.labelKey) : tt(tab.label)}
       </span>
     </>
@@ -408,6 +382,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
       replace={mainTabLinkUsesReplace(pathname ?? null, tab.href)}
       scroll={false}
       className={className}
+      data-active={isActive ? "true" : "false"}
       aria-label={ariaLbl}
       aria-current={isActive ? "page" : undefined}
       onPointerEnter={() => {
@@ -476,8 +451,11 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
             e.preventDefault();
             return;
           }
+          const navClickT0 = performance.now();
+          navPerfMarkBottomNavClickStart(navClickT0);
           beginMenuNavigation(tab.href);
           onNavigationIntent(tab.id);
+          navPerfSetOptimisticTotalMs(performance.now() - navClickT0);
           if (!isActive) {
             try {
               void router.prefetch(tab.href);
@@ -501,8 +479,11 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
           e.preventDefault();
           return;
         }
+        const navClickT0 = performance.now();
+        navPerfMarkBottomNavClickStart(navClickT0);
         beginMenuNavigation(tab.href);
         onNavigationIntent(tab.id);
+        navPerfSetOptimisticTotalMs(performance.now() - navClickT0);
         onBottomNavTabActivate(pathname, navSearch, tab.href, e);
       }}
     >
@@ -531,11 +512,16 @@ export function BottomNav({
   bodyPortal = false,
   extraOuterClassName = "",
 }: {
+  /**
+   * SSR hydrate 호환을 위해 시그니처 유지 — 실제 탭 단일 소스는
+   * `MainBottomNavTabsProvider` 가 `(main)/layout.tsx` 의 동일한 server payload 로 mount 된다.
+   */
   initialTabs?: BottomNavItemConfig[] | null;
   /** `transform` 이 걸린 조상 밖(뷰포트 `fixed`) — 필라이프 헤더 메신저 슬라이드 스택 */
   bodyPortal?: boolean;
   extraOuterClassName?: string;
 }) {
+  void initialTabs;
   bumpMessengerRenderPerf("messenger_bottom_nav_render");
   const pathname = usePathname();
   /** idle 프리페치 콜백 시점의 최신 경로 — effect deps 는 도메인 키만 쓰므로 클로저 pathname 고착 방지 */
@@ -556,9 +542,11 @@ export function BottomNav({
   useLayoutEffect(() => {
     routerRef.current = router;
   }, [router]);
-  const [tabs, setTabs] = useState<BottomNavItemConfig[]>(() =>
-    initialTabs && initialTabs.length > 0 ? initialTabs.map((tab) => ({ ...tab })) : [...BOTTOM_NAV_ITEMS]
-  );
+  /**
+   * 탭 단일 소스: `MainBottomNavTabsProvider`. admin 변경·storage 동기화·관리자 이탈 강제 재조회는
+   * 해당 Provider 가 담당하므로 여기서는 읽기만. (`initialTabs` prop 은 SSR hydrate 호환을 위해 시그니처 유지.)
+   */
+  const tabs = useMainBottomNavTabs();
   const [pendingActiveTabId, setPendingActiveTabId] = useState<string | null>(null);
   const tabsRef = useRef(tabs);
   /** 브라우저 `window.setTimeout` id — `@types/node` 의 `ReturnType<typeof setTimeout>` 과 분리 */
@@ -567,12 +555,6 @@ export function BottomNav({
   useEffect(() => {
     tabsRef.current = tabs;
   }, [tabs]);
-  useLayoutEffect(() => {
-    if (!initialTabs || initialTabs.length <= 0) return;
-    primeMainBottomNavDedupedCache(initialTabs);
-    setTabs((prev) => (areBottomNavItemConfigsEqual(prev, initialTabs) ? prev : initialTabs.map((tab) => ({ ...tab }))));
-  }, [initialTabs]);
-  const prevPathnameForNavRef = useRef<string | null>(null);
   const isChatRoomDetail =
     (pathname?.match(/^\/community-messenger\/rooms\/[^/]+\/?$/) ?? false) ||
     (pathname?.match(/^\/chats\/[^/]+\/?$/) ?? false) ||
@@ -603,53 +585,6 @@ export function BottomNav({
     },
     [beginMenuNavigation]
   );
-
-  const applyMainBottomNavItems = useCallback(async (force: boolean) => {
-    try {
-      const { ok, items } = await fetchMainBottomNavDeduped({ force });
-      if (!ok || !items?.length) return;
-      setTabs((prev) => (areBottomNavItemConfigsEqual(prev, items) ? prev : items));
-    } catch {
-      /* 코드 기본 탭 유지 */
-    }
-  }, []);
-
-  /**
-   * 하단 탭 설정: 최초 마운트 1회 + 관리자(/admin/*) 이탈 시 강제 재조회.
-   * (경로만 바뀔 때마다 호출하면 TTL 캐시 히트여도 불필요한 setState·작업이 반복됨)
-   */
-  useEffect(() => {
-    const cur = pathname ?? "";
-    const prev = prevPathnameForNavRef.current;
-    prevPathnameForNavRef.current = cur;
-    const leftAdminSurface =
-      Boolean(prev && cur) && (prev?.startsWith("/admin") ?? false) && !cur.startsWith("/admin");
-    if (leftAdminSurface) {
-      void applyMainBottomNavItems(true);
-      return;
-    }
-    if (prev !== null) return;
-    if (initialTabs && initialTabs.length > 0) return;
-    void applyMainBottomNavItems(false);
-  }, [pathname, applyMainBottomNavItems, initialTabs]);
-
-  useEffect(() => {
-    const onRemoteUpdate = () => void applyMainBottomNavItems(true);
-    const onStorage = (e: StorageEvent) => {
-      if (e.key !== MAIN_BOTTOM_NAV_LS_REV_KEY || e.newValue == null) return;
-      void applyMainBottomNavItems(true);
-    };
-    if (typeof window !== "undefined") {
-      window.addEventListener(KASAMA_MAIN_BOTTOM_NAV_UPDATED, onRemoteUpdate);
-      window.addEventListener("storage", onStorage);
-    }
-    return () => {
-      if (typeof window !== "undefined") {
-        window.removeEventListener(KASAMA_MAIN_BOTTOM_NAV_UPDATED, onRemoteUpdate);
-        window.removeEventListener("storage", onStorage);
-      }
-    };
-  }, [applyMainBottomNavItems]);
 
   useEffect(() => {
     const prev = lastPathnameForPendingRef.current;
@@ -822,7 +757,7 @@ export function BottomNav({
   const nav = (
     <nav className={outerClass} aria-label="주요 메뉴">
       <div className={`${BOTTOM_NAV_SHELL.innerBarClassName} ${BOTTOM_NAV_SHELL.heightClass}`}>
-        <div className={`${APP_MAIN_COLUMN_CLASS} flex h-full min-h-0 min-w-0 max-w-full flex-1 items-center px-2 sm:px-3`}>
+        <div className="app-bottom-nav-grid">
           {tabs.map((tab) => {
             const guardNav = () => {
               const targetHref =

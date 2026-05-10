@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { clearBootstrapCache, primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { fetchCommunityMessengerBootstrapClient } from "@/lib/community-messenger/cm-bootstrap-client-fetch";
-import { fetchCommunityMessengerHomeSilentLists } from "@/lib/community-messenger/cm-home-silent-lists-fetch";
+import {
+  fetchCommunityMessengerHomeSilentLists,
+  resetCommunityMessengerHomeSilentListsClientStateForTests,
+} from "@/lib/community-messenger/cm-home-silent-lists-fetch";
 import { warmMessengerListBootstrapClient } from "@/lib/community-messenger/warm-messenger-list-bootstrap-client";
 import { forgetSingleFlight } from "@/lib/http/run-single-flight";
 import {
@@ -24,6 +27,9 @@ describe("messenger home verification counters (실행 횟수)", () => {
     forgetSingleFlight("community-messenger:client:bootstrap:critical");
     forgetSingleFlight("community-messenger:list-bootstrap-warm");
     forgetSingleFlight("community-messenger:home:silent:home_sync");
+    forgetSingleFlight("community-messenger:home:silent:home_sync:critical");
+    forgetSingleFlight("community-messenger:home:silent:home_sync:full");
+    resetCommunityMessengerHomeSilentListsClientStateForTests();
     vi.stubGlobal(
       "fetch",
       vi.fn(() =>
@@ -46,6 +52,9 @@ describe("messenger home verification counters (실행 횟수)", () => {
     forgetSingleFlight("community-messenger:client:bootstrap:critical");
     forgetSingleFlight("community-messenger:list-bootstrap-warm");
     forgetSingleFlight("community-messenger:home:silent:home_sync");
+    forgetSingleFlight("community-messenger:home:silent:home_sync:critical");
+    forgetSingleFlight("community-messenger:home:silent:home_sync:full");
+    resetCommunityMessengerHomeSilentListsClientStateForTests();
   });
 
   it("동일 모드 bootstrap: 동시 2호출 → 네트워크 팩토리 1회(lite)", async () => {
@@ -139,6 +148,40 @@ describe("messenger home verification counters (실행 횟수)", () => {
     await Promise.all([fetchCommunityMessengerHomeSilentLists(), fetchCommunityMessengerHomeSilentLists()]);
     const snap = getMessengerHomeVerificationSnapshot();
     expect(snap.homeSyncNetworkFetch).toBe(1);
+  });
+
+  it("home-sync: full tier TTL 내 직렬 호출 → 네트워크 1회·합성 재생 1회", async () => {
+    vi.useFakeTimers();
+    const first = fetchCommunityMessengerHomeSilentLists({ tier: "full" });
+    await vi.runAllTimersAsync();
+    await first;
+    expect(getMessengerHomeVerificationSnapshot().homeSyncNetworkFetch).toBe(1);
+    expect(getMessengerHomeVerificationSnapshot().homeSyncReplaySyntheticReturns).toBe(0);
+    vi.advanceTimersByTime(1500);
+    const second = fetchCommunityMessengerHomeSilentLists({ tier: "full" });
+    await vi.runAllTimersAsync();
+    await second;
+    expect(getMessengerHomeVerificationSnapshot().homeSyncNetworkFetch).toBe(1);
+    expect(getMessengerHomeVerificationSnapshot().homeSyncReplaySyntheticReturns).toBe(1);
+    vi.advanceTimersByTime(5000);
+    const third = fetchCommunityMessengerHomeSilentLists({ tier: "full" });
+    await vi.runAllTimersAsync();
+    await third;
+    expect(getMessengerHomeVerificationSnapshot().homeSyncNetworkFetch).toBe(2);
+    vi.useRealTimers();
+  });
+
+  it("home-sync: forceNetwork 는 TTL 재생을 쓰지 않는다", async () => {
+    vi.useFakeTimers();
+    await fetchCommunityMessengerHomeSilentLists({ tier: "full" });
+    await vi.runAllTimersAsync();
+    expect(getMessengerHomeVerificationSnapshot().homeSyncNetworkFetch).toBe(1);
+    vi.advanceTimersByTime(500);
+    await fetchCommunityMessengerHomeSilentLists({ tier: "full", forceNetwork: true });
+    await vi.runAllTimersAsync();
+    expect(getMessengerHomeVerificationSnapshot().homeSyncNetworkFetch).toBe(2);
+    expect(getMessengerHomeVerificationSnapshot().homeSyncReplaySyntheticReturns).toBe(0);
+    vi.useRealTimers();
   });
 
   it("refresh invocation 카운터(수동): silent 2 + nonSilent 1 = total 3", () => {

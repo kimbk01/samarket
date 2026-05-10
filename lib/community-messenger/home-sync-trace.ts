@@ -16,6 +16,26 @@ export type HomeSyncDeepStepsTradeDirectKeys = {
   pcCandidatesQueryMs: number;
   postsFetchMs: number;
   categoryEnsureMs: number;
+  /** HS3-RETRY: item_trade chat_rooms + pc 후보를 단일 RPC로 묶은 경우 전용 RTT */
+  itemTradeLedgerBundleRpcMs?: number;
+  /** HS3-FINAL: critical mega RPC (ledger + posts 한 왕복) */
+  bundleRpcMs?: number;
+  phase1WallMs?: number;
+  phase2WallMs?: number;
+  /** tDirectWall 기준 posts fetch 시작까지 */
+  postsStartAfterMs?: number;
+  /** tDirectWall 기준 pc 후보 SQL/RPC 시작까지 */
+  pcCandidatesStartAfterMs?: number;
+  /** posts 로드 완료 후 category ensure 벽시계 */
+  categoryAfterPostsMs?: number;
+  /** 개별 쿼리 ms 합산 대비 phase 벽시계로 추정한 중복 제거 이득(참고) */
+  effectiveParallelGainMs?: number;
+  /** HS3-FINAL: 직렬 의존 설명(로그·재발 방지) */
+  phaseDependencyReason?: string;
+  /** HS3-FINAL: 클라이언트 왕복으로 계산한 유효 RTT 개수(목표 1) */
+  effectiveRttCount?: number;
+  /** HS3-FINAL: 다중 RTT 제거로 절약한 벽시계 추정 */
+  parallelEfficiencyMs?: number;
 };
 
 export type HomeSyncDeepStepsTradePcBridgeBreakdown = {
@@ -78,6 +98,8 @@ export type HomeSyncDeepStepsTradeMetaEnrich = {
   rooms: number;
   /** `enrichTradeRoomContextMetaForBootstrap` 에 전달된 카테고리 조회 모드(critical = fallback_only) */
   tradeCategoryFetchMode?: "full" | "fallback_only";
+  /** 동일 trade 방 메타 재적용(merge pass) 횟수 — `[home-sync-full-analysis]` */
+  duplicateTradeMergeCount?: number;
   /** true 이면 trade_categories/categories DB 조회를 스킵하고 포스트 필드 폴백만 사용 */
   categoryDbSkipped?: boolean;
   /** 요약 trade 방의 `productChatId` 묶음에 대한 seed `product_chats` 조회(Phase A·seller warm 공유, direct_keys 이후 1회) */
@@ -106,6 +128,8 @@ export type HomeSyncDeepStepsTradePostsFetchDetail = {
   fallbackAttemptCount: number;
   fallbackFailedCount: number;
   queryMsTotal: number;
+  /** full tier: `TRADE_CHAT_LIST_POST_SELECT_CANDIDATES` 콜드 체인 벽시계(프로세스 resolved 1RTT·critical 경로 제외) */
+  schemaColdDetectWallMs?: number;
 };
 
 /** dev: resolved posts select 경로에서 images 분리 조회·fat 폴백 횟수(요청 단위 누적) */
@@ -191,7 +215,7 @@ export type HomeSyncDeepStepsBundleSteps = {
 export type HomeSyncDeepStepsUnreadBadge = {
   /** `enrichMessengerTradeUnreadWithLegacyTrade` await 벽시계 — 서비스에서 설정 */
   unreadBadgeMs: number;
-  /** 레거시 경로 DB 왕복 합 (`legacyChatRoomsFetchMs` + `legacyProductChatsFetchMs`) */
+  /** HS5: 레거시 `chat_rooms`·`product_chats` 병렬 페치 구간 벽시계(구 직렬 합과 비교용) */
   unreadSourceFetchMs: number;
   legacyChatRoomsFetchMs: number;
   legacyProductChatsFetchMs: number;
@@ -207,14 +231,63 @@ export type HomeSyncDeepStepsUnreadBadge = {
   badgeAttachCpuMs: number;
   /** 같은 요청에서 `enrichMessengerTradeUnreadWithLegacyTrade` 가 2회 이상이면 1 이상 */
   unreadDuplicateFetchCount: number;
+  /** HS5: `chat_rooms`·`product_chats` 레거시 소스 페치 병렬 구간 벽시계 */
+  unreadParallelWallMs?: number;
+  /**
+   * HS5: 레거시 unread 소스 페치 유효 RTT 수(직렬 2 → 병렬 세그먼트 1).
+   * PostgREST 동시 요청 2개이나 클라이언트 관점 벽시계는 단일 병렬 월로 합산한다.
+   */
+  unreadEffectiveRttCount?: number;
   /** Supabase/PostgREST 캐시는 미계측 — 항상 null */
   unreadCacheHit: boolean | null;
   /** dev 전용: 이 요청에서 enrich 호출 횟수(home-sync trace 전달 시만 증가) */
   enrichInvocationCount?: number;
+  /** HS5-RETRY: 거래 방 CM id 수 (dedupe 후) */
+  unreadRoomIdsCount?: number;
+  /** HS5-RETRY: productChatId 후보 수 (dedupe 후) */
+  unreadProductChatIdsCount?: number;
+  /** HS5-RETRY: DB 에서 가져온 chat_rooms + product_chats 행 수 합 */
+  unreadRowsFetched?: number;
+  /** HS5-RETRY: 요약에 unread 반영 루프 CPU */
+  unreadAttachCpuMs?: number;
+  /** HS5-RETRY: 행 → 맵 구축 CPU (item_trade 링크 맵 + pcById) */
+  unreadMergeCpuMs?: number;
+  /** HS5-RETRY: 레거시 소스 단일 왕복 중 최대 구간 ms (parallel 이면 두 쿼리 중 max, RPC 이면 bundle 벽시계) */
+  unreadMaxSingleQueryMs?: number;
+  /** HS5-RETRY: unreadMaxSingleQueryMs 에 해당하는 소스 라벨 */
+  unreadSlowestQuery?: string;
+  /** HS5-RETRY: 페이로드 크기 추정(바이트 근사, 관측 전용) */
+  unreadPayloadBytesEstimate?: number;
+  /** HS5-RETRY: DB 읽기 경로 — 단일 RPC 번들 vs 병렬 REST 폴백 */
+  unreadLegacyFetchPath?: "rpc_bundle" | "parallel_rest";
+  /** HS5-RETRY: `home_sync_hs5_unread_legacy_bundle` 단일 호출 벽시계 */
+  unreadRpcBundleMs?: number;
+  /** HS5-RPC-DEEP: RPC 본문 `_hs5RpcDebug.rpc_total_ms` (서버 함수 벽시계) */
+  unreadRpcTotalMs?: number;
+  unreadRpcChatRoomsMs?: number;
+  unreadRpcProductChatsMs?: number;
+  unreadRpcMergeMs?: number;
+  unreadRpcJsonBuildMs?: number;
+  /** HS5-RPC-DEEP: `_hs5RpcDebug` 행 수 합 */
+  unreadRpcRowsFetched?: number;
+  /** HS5-RPC-DEEP: 서버 행 수 기준 근사 바이트 */
+  unreadRpcPayloadBytesEstimate?: number;
+  /** HS5-RPC-DEEP: 클라 RPC 벽시계 − 서버 rpc_total_ms (PostgREST·네트워크 등) */
+  unreadRpcNetworkOverheadMs?: number;
 };
 
 export type HomeSyncTrace = {
   token: string;
+  /**
+   * 라우트 진입 tier — `?tier=critical|full`.
+   *
+   * **critical 차단 권한**: `service.ts` 의 `fetchTradeChatListPostRowsByIds` 가 이 값을 보고
+   * critical tier 에서는 schema fallback probing 을 **금지**한다(fixed select 1회만).
+   * `token` 은 dev 에서만 채워지지만 `tier` 는 prod 도 포함하여 **항상** 채워야 한다.
+   *
+   * (필드 추가 사유: HS2 — 원인 1개 = posts fallback chain 6RTT 가 critical 에 그대로 살아있던 구조)
+   */
+  tier?: "critical" | "full";
   /** `requireAuthenticatedUserId()` wall time (route-level) */
   authSessionMs: number;
   deepSteps: {
@@ -310,6 +383,20 @@ export function buildHomeSyncTradeMetaStepBreakdown(
     pushStepMs(steps, "directKeys_pcCandidatesQueryMs", dk.pcCandidatesQueryMs);
     pushStepMs(steps, "directKeys_postsFetchMs", dk.postsFetchMs);
     pushStepMs(steps, "directKeys_categoryEnsureMs", dk.categoryEnsureMs);
+    pushStepMs(steps, "directKeys_itemTradeLedgerBundleRpcMs", dk.itemTradeLedgerBundleRpcMs);
+    pushStepMs(steps, "directKeys_bundleRpcMs", dk.bundleRpcMs);
+    pushStepMs(steps, "directKeys_phase1WallMs", dk.phase1WallMs);
+    pushStepMs(steps, "directKeys_phase2WallMs", dk.phase2WallMs);
+    pushStepMs(steps, "directKeys_postsStartAfterMs", dk.postsStartAfterMs);
+    pushStepMs(steps, "directKeys_pcCandidatesStartAfterMs", dk.pcCandidatesStartAfterMs);
+    pushStepMs(steps, "directKeys_categoryAfterPostsMs", dk.categoryAfterPostsMs);
+    pushStepMs(steps, "directKeys_effectiveParallelGainMs", dk.effectiveParallelGainMs);
+    if (dk.effectiveRttCount != null && dk.effectiveRttCount > 0) {
+      steps["directKeys_effectiveRttCount"] = dk.effectiveRttCount;
+    }
+    if (dk.parallelEfficiencyMs != null && ms(dk.parallelEfficiencyMs) > 0) {
+      pushStepMs(steps, "directKeys_parallelEfficiencyMs", dk.parallelEfficiencyMs);
+    }
   }
 
   const br = trade.tradePcBridgeBreakdown;
