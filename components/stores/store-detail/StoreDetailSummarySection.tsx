@@ -7,6 +7,7 @@ import { StoreOrderStickyHeader } from "@/components/stores/store-order-detail/S
 import type { StorePublicFulfillmentMode } from "@/components/stores/StoreDetailStorefrontPanel";
 import type { StoreDeliveryMeta } from "@/lib/stores/store-detail-meta";
 import type { CommerceExtrasFromHours } from "@/lib/stores/store-commerce-extras";
+import type { StoreDetailDirectionsTarget } from "@/lib/stores/google-maps-store-links";
 
 type CommerceSnap = {
   breakConfigured: boolean;
@@ -51,6 +52,7 @@ export function StoreDetailSummarySection({
   infoPath,
   reviewsHref,
   storeAddressLine,
+  directions,
   viewerFavorited,
   favoriteBusy,
   onFavoriteClick,
@@ -79,6 +81,8 @@ export function StoreDetailSummarySection({
   infoPath: string;
   reviewsHref?: string;
   storeAddressLine: string | null;
+  /** 픽업 위치안내 — 탭 시 내 위치(origin) + 매장(destination) 구글 길찾기 */
+  directions: StoreDetailDirectionsTarget | null;
   viewerFavorited: boolean;
   favoriteBusy: boolean;
   onFavoriteClick: () => void | Promise<void>;
@@ -140,6 +144,7 @@ export function StoreDetailSummarySection({
           storeInfoHref={infoPath}
           reviewsHref={reviewsHref}
           addressLine={storeAddressLine || null}
+          directions={directions}
           viewerFavorited={viewerFavorited}
           favoriteBusy={favoriteBusy}
           onFavoriteClick={onFavoriteClick}

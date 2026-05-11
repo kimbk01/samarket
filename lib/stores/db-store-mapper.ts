@@ -1,7 +1,11 @@
 import type { BusinessProfile, BusinessProfileStatus } from "@/lib/types/business";
 import type { BusinessProduct } from "@/lib/types/business";
 import { splitStoreDescriptionAndKakao } from "@/lib/stores/split-store-description-kakao";
-import { formatStoreDetailAddressLine } from "@/lib/stores/store-location-label";
+import {
+  formatStoreAddressDetailOnly,
+  formatStoreAddressStreetDisplay,
+  formatStoreDetailAddressLine,
+} from "@/lib/stores/store-location-label";
 
 type RelEmbed = { name: string; slug: string } | { name: string; slug: string }[] | null;
 
@@ -69,6 +73,11 @@ export function dbStoreToBusinessProfile(row: StoreRow): BusinessProfile {
   const topicName = embedName(row.store_topics ?? null);
   const categoryLine =
     catName && topicName ? `${catName} · ${topicName}` : catName ?? row.business_type ?? "";
+  const addressParts = {
+    district: row.district,
+    address_line1: row.address_line1,
+    address_line2: row.address_line2,
+  };
   return {
     id: row.id,
     ownerUserId: row.owner_user_id,
@@ -82,13 +91,9 @@ export function dbStoreToBusinessProfile(row: StoreRow): BusinessProfile {
     region: row.region ?? "",
     city: row.city ?? "",
     barangay: row.district ?? "",
-    addressStreetLine: row.address_line1 ?? "",
-    addressDetail: row.address_line2 ?? "",
-    addressLabel: formatStoreDetailAddressLine({
-      district: row.district,
-      address_line1: row.address_line1,
-      address_line2: row.address_line2,
-    }),
+    addressStreetLine: formatStoreAddressStreetDisplay(addressParts),
+    addressDetail: formatStoreAddressDetailOnly(row.address_line2),
+    addressLabel: formatStoreDetailAddressLine(addressParts),
     category: categoryLine || row.business_type || "",
     storeCategoryName: catName,
     storeTopicName: topicName,

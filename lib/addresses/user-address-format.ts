@@ -1,4 +1,5 @@
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
+import { formatPhDetailThenStreetFromParts } from "@/lib/stores/store-location-label";
 import { getLocationLabelIfValid, REGIONS } from "@/lib/products/form-options";
 
 /**
@@ -298,21 +299,32 @@ export function buildDeliveryDetailLines(a: UserAddressDTO): string {
 
 /**
  * 주소 관리 카드 본문 — **전체 주소** 한 줄 (헤더·거래 요약용 `buildTradePublicLine` 과 별개).
+ * 매장 `위치안내`와 **동일**하게 `formatPhDetailThenStreetFromParts` 로 상세·구글가로·바랑가이 dedupe.
  */
 export function buildAddressManagementListPrimaryLine(a: UserAddressDTO): string {
-  // Address management "full address" should follow PH convention:
-  // detail (unit/building) comes first, then street/full, then barangay/city/province as available.
   const unit = [a.unitFloorRoom, a.buildingName].filter((x) => x?.trim()).join(" ").trim();
   const fa = a.fullAddress?.trim() ?? "";
   if (fa && !isDisplayNullish(fa)) {
-    if (unit && !fa.toLowerCase().includes(unit.toLowerCase())) {
-      return `${unit}, ${fa}`;
-    }
-    return fa;
+    const unitInFa = unit.length > 0 && fa.toLowerCase().includes(unit.toLowerCase());
+    const barOrDist = a.barangay?.trim() || a.district?.trim() || null;
+    return formatPhDetailThenStreetFromParts({
+      address_line1: fa,
+      address_line2: unitInFa ? null : unit || null,
+      district: barOrDist,
+    });
   }
-  /** 상세(동·호)만 있을 때 `buildDeliveryDetailLines`를 먼저 쓰면 본문이 "444"처럼 잘못 잡힘 */
   const trade = buildTradePublicLine(a);
   if (trade !== "주소 미입력") return trade;
+  const street = (a.streetAddress ?? "").trim();
+  if (street) {
+    const unitInStreet = unit.length > 0 && street.toLowerCase().includes(unit.toLowerCase());
+    const barOrDist = a.barangay?.trim() || a.district?.trim() || null;
+    return formatPhDetailThenStreetFromParts({
+      address_line1: street,
+      address_line2: unitInStreet ? null : unit || null,
+      district: barOrDist,
+    });
+  }
   const detail = buildDeliveryDetailLines(a).trim();
   if (detail) return detail.replace(/\n/g, ", ");
   return trade;

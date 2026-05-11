@@ -37,6 +37,7 @@ import {
   STORE_DETAIL_ROOT_BOTTOM_PADDING_NO_STRIP_CLASS,
   STORE_DETAIL_ROOT_BOTTOM_PADDING_WITH_CART_STRIP_CLASS,
 } from "@/lib/main-menu/bottom-nav-config";
+import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
 import { decodeSlugSegment } from "@/lib/stores/store-consumer-route";
 import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
 import { resolveStoreFrontCommerceState } from "@/lib/stores/store-auto-hours";
@@ -839,16 +840,32 @@ export function StoreDetailPublic({
     "";
   const storeGalleryUrls = parseMediaUrlsJson(store.gallery_images_json, 8);
   const heroImageUrl = storeGalleryUrls[0] || store.profile_image_url;
-  const storeAddressLine = [
-    store.region,
-    store.city,
-    store.district,
-    store.address_line1,
-    store.address_line2,
-  ]
-    .map((x) => String(x ?? "").trim())
-    .filter(Boolean)
-    .join(" ");
+  const storeAddressLines = formatStorePickupAddressLines({
+    region: store.region,
+    city: store.city,
+    district: store.district,
+    address_line1: store.address_line1,
+    address_line2: store.address_line2,
+  });
+  const storeAddressLine = storeAddressLines.length > 0 ? storeAddressLines.join(" · ") : "";
+  const la = typeof store.lat === "number" ? store.lat : Number(store.lat);
+  const ln = typeof store.lng === "number" ? store.lng : Number(store.lng);
+  const hasStoreCoords = Number.isFinite(la) && Number.isFinite(ln);
+  const directionsQueryFallback =
+    storeAddressLine.trim() ||
+    [store.address_line1, store.address_line2]
+      .map((x) => (typeof x === "string" ? x.replace(/\s*[\n\r]+\s*/g, ", ").trim() : ""))
+      .filter(Boolean)
+      .join(", ")
+      .trim() ||
+    null;
+  const directions =
+    hasStoreCoords || directionsQueryFallback
+      ? {
+          destinationCoords: hasStoreCoords ? { lat: la, lng: ln } : null,
+          destinationQuery: hasStoreCoords ? null : directionsQueryFallback,
+        }
+      : null;
 
   return viewportShell(
     <div className={`pb-[env(safe-area-inset-bottom,0px)] ${rootBottomPadClass}`}>
@@ -882,6 +899,7 @@ export function StoreDetailPublic({
             : undefined
         }
         storeAddressLine={storeAddressLine || null}
+        directions={directions}
         viewerFavorited={viewerFavorited}
         favoriteBusy={favoriteBusy}
         onFavoriteClick={() => void toggleFavorite()}

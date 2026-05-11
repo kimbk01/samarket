@@ -23,6 +23,7 @@ import {
   STORE_ADDRESS_DETAIL_LABEL,
   STORE_ADDRESS_STREET_LABEL,
 } from "@/lib/stores/store-address-form-ui";
+import { openGoogleMapsDrivingDirectionsFromUserTo } from "@/lib/stores/google-maps-store-links";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { formatPhMobileDisplay, parsePhMobileInput, telHrefFromLoosePhPhone } from "@/lib/utils/ph-mobile";
 import {
@@ -224,24 +225,37 @@ export function StoreDetailInfoPublic({
   );
 
   const clipboardAddress = useMemo(() => {
-    const parts = [regionLabel, neighborhoodLabel, addressStreetDisplay, addressDetailOnly]
+    /** 필리핀 표기: 상세(동·호) → 가로·district → 동네 → 메트로·지역 */
+    const parts = [addressDetailOnly, addressStreetDisplay, neighborhoodLabel, regionLabel]
       .map((x) => (typeof x === "string" ? x.trim() : ""))
       .filter(Boolean);
     return parts.join(" · ");
   }, [regionLabel, neighborhoodLabel, addressStreetDisplay, addressDetailOnly]);
+
+  const canOpenDirections = useMemo(() => {
+    if (!store) return false;
+    const la = typeof store.lat === "number" ? store.lat : Number(store.lat);
+    const ln = typeof store.lng === "number" ? store.lng : Number(store.lng);
+    if (Number.isFinite(la) && Number.isFinite(ln)) return true;
+    return clipboardAddress.trim().length > 0;
+  }, [store, clipboardAddress]);
 
   const copyAddress = () => {
     if (!clipboardAddress) return;
     void navigator.clipboard.writeText(clipboardAddress);
   };
 
-  const mapsHref = useMemo(() => {
-    if (!store?.lat || !store?.lng) return null;
-    const la = Number(store.lat);
-    const ln = Number(store.lng);
-    if (!Number.isFinite(la) || !Number.isFinite(ln)) return null;
-    return `https://www.google.com/maps/dir/?api=1&destination=${la},${ln}`;
-  }, [store?.lat, store?.lng]);
+  const openDirections = useCallback(() => {
+    if (!store) return;
+    const la = typeof store.lat === "number" ? store.lat : Number(store.lat);
+    const ln = typeof store.lng === "number" ? store.lng : Number(store.lng);
+    if (Number.isFinite(la) && Number.isFinite(ln)) {
+      openGoogleMapsDrivingDirectionsFromUserTo({ kind: "coords", lat: la, lng: ln });
+      return;
+    }
+    if (clipboardAddress.trim())
+      openGoogleMapsDrivingDirectionsFromUserTo({ kind: "query", text: clipboardAddress.trim() });
+  }, [store, clipboardAddress]);
 
   const mapEmbedSrc = useMemo(() => {
     if (!store?.lat || !store?.lng) return null;
@@ -391,12 +405,12 @@ export function StoreDetailInfoPublic({
             <dd className="min-w-0 flex-1 space-y-2 sam-text-body leading-relaxed text-sam-fg">
               <div className="space-y-1.5">
                 <div className="flex gap-2">
-                  <span className="w-11 shrink-0 sam-text-body-secondary text-sam-meta">지역</span>
-                  <span className="min-w-0 font-medium">{regionLabel ?? "—"}</span>
-                </div>
-                <div className="flex gap-2">
-                  <span className="w-11 shrink-0 sam-text-body-secondary text-sam-meta">동네</span>
-                  <span className="min-w-0 font-medium">{neighborhoodLabel ?? "—"}</span>
+                  <span className="w-[7rem] shrink-0 pt-0.5 sam-text-helper leading-snug text-sam-meta">
+                    {STORE_ADDRESS_DETAIL_LABEL}
+                  </span>
+                  <span className="min-w-0">
+                    {addressDetailOnly ? addressDetailOnly : "—"}
+                  </span>
                 </div>
                 <div className="flex gap-2">
                   <span className="w-[7rem] shrink-0 pt-0.5 sam-text-helper leading-snug text-sam-meta">
@@ -407,32 +421,33 @@ export function StoreDetailInfoPublic({
                   </span>
                 </div>
                 <div className="flex gap-2">
-                  <span className="w-[7rem] shrink-0 pt-0.5 sam-text-helper leading-snug text-sam-meta">
-                    {STORE_ADDRESS_DETAIL_LABEL}
-                  </span>
-                  <span className="min-w-0">
-                    {addressDetailOnly ? addressDetailOnly : "—"}
-                  </span>
+                  <span className="w-11 shrink-0 sam-text-body-secondary text-sam-meta">동네</span>
+                  <span className="min-w-0 font-medium">{neighborhoodLabel ?? "—"}</span>
+                </div>
+                <div className="flex gap-2">
+                  <span className="w-11 shrink-0 sam-text-body-secondary text-sam-meta">지역</span>
+                  <span className="min-w-0 font-medium">{regionLabel ?? "—"}</span>
                 </div>
               </div>
-              {clipboardAddress ? (
+              {clipboardAddress || canOpenDirections ? (
                 <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    onClick={copyAddress}
-                    className="rounded-ui-rect border border-sam-border bg-sam-app px-2.5 py-1.5 sam-text-helper font-semibold text-sam-fg active:bg-sam-surface-muted"
-                  >
-                    주소 복사
-                  </button>
-                  {mapsHref ? (
-                    <a
-                      href={mapsHref}
-                      target="_blank"
-                      rel="noreferrer"
+                  {clipboardAddress ? (
+                    <button
+                      type="button"
+                      onClick={copyAddress}
+                      className="rounded-ui-rect border border-sam-border bg-sam-app px-2.5 py-1.5 sam-text-helper font-semibold text-sam-fg active:bg-sam-surface-muted"
+                    >
+                      주소 복사
+                    </button>
+                  ) : null}
+                  {canOpenDirections ? (
+                    <button
+                      type="button"
+                      onClick={openDirections}
                       className="rounded-ui-rect border border-sam-border bg-sam-app px-2.5 py-1.5 sam-text-helper font-semibold text-sam-fg active:bg-sam-surface-muted"
                     >
                       길찾기
-                    </a>
+                    </button>
                   ) : null}
                 </div>
               ) : null}

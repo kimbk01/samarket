@@ -55,43 +55,199 @@ export function formatStoreLocationLine(parts: {
   return `${regionRow.name} · ${cityRow.name}`;
 }
 
-/** 복사용: 상세 주소( district / address_line* 중복 제거 ) */
+function cleanAddressText(v: unknown): string {
+  return typeof v === "string" ? v.replace(/\s+/g, " ").trim() : "";
+}
+
+/** 비교용 정규화 — 표기는 건드리지 않고, 중복 판별에만 사용한다. */
+function normAddrDedupKey(s: string): string {
+  return cleanAddressText(s)
+    .toLowerCase()
+    .replace(/[.,，·]/g, " ")
+    .replace(/\bstr\.?\b/g, " street ")
+    .replace(/\bst\.?\b/g, " street ")
+    .replace(/\bstreet\b/g, " street ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isStreetLike(s: string): boolean {
+  const t = cleanAddressText(s);
+  if (!t) return false;
+  return (
+    /\b(st\.?|street|ave\.?|avenue|rd\.?|road|blvd|drive|dr\.?|lane|ln\.?)\b/i.test(t) ||
+    /^\d+\s+\S+/.test(t)
+  );
+}
+
+function isShortDetailLike(s: string, locationKeys: Set<string>): boolean {
+  const t = cleanAddressText(s);
+  const k = normAddrDedupKey(t);
+  if (!t || !k || locationKeys.has(k)) return false;
+  if (isStreetLike(t) || /[,，]/.test(t)) return false;
+  if (/^\d{1,6}[a-zA-Z]?$/.test(t)) return true;
+  return t.length <= 18 && /^[a-zA-Z0-9가-힣\s#./-]+$/.test(t);
+}
+
+function splitAddressFragments(raw: string | null | undefined): string[] {
+  const t = typeof raw === "string" ? raw.trim() : "";
+  if (!t) return [];
+  const rows = t
+    .replace(/\r\n?/g, "\n")
+    .split(/[\n|;／]+/)
+    .map((x) => cleanAddressText(x))
+    .filter(Boolean);
+
+  const out: string[] = [];
+  for (const row of rows) {
+    const commaParts = row
+      .split(/[,，]+/)
+      .map((x) => cleanAddressText(x))
+      .filter(Boolean);
+    const last = commaParts[commaParts.length - 1] ?? "";
+    if (commaParts.length >= 3 || (commaParts.length >= 2 && /^\d{1,6}[a-zA-Z]?$/.test(last))) {
+      out.push(...commaParts);
+      continue;
+    }
+    out.push(row);
+  }
+
+  return out.flatMap((x) =>
+    x
+      .split(/\s+(?=\d+\s+\S+\s+(?:st\.?|street|ave\.?|avenue|rd\.?|road)\b)/i)
+      .map((p) => cleanAddressText(p))
+      .filter(Boolean)
+  );
+}
+
+function removeDetailToken(segment: string, detail: string): string {
+  const s = cleanAddressText(segment);
+  const d = cleanAddressText(detail);
+  if (!s || !d) return s;
+  if (normAddrDedupKey(s) === normAddrDedupKey(d)) return "";
+  const escaped = d.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return cleanAddressText(s.replace(new RegExp(String.raw`(^|[\s,，])${escaped}(?=$|[\s,，])`, "gi"), " "));
+}
+
+function keyContains(a: string, b: string): boolean {
+  const ka = normAddrDedupKey(a);
+  const kb = normAddrDedupKey(b);
+  return !!ka && !!kb && (ka === kb || ka.includes(kb) || kb.includes(ka));
+}
+
+function displayAddressScore(s: string): number {
+  let score = cleanAddressText(s).length;
+  if (/\bstreet\b/i.test(s)) score += 20;
+  if (/\bst\.?\b/i.test(s)) score -= 5;
+  return score;
+}
+
+/**
+ * 주소 조각에서 동일·포함 관계인 조각은 한 번만 남긴다.
+ * 예: `718 Paterno St` + `718 Paterno Street` 는 긴 표기만 유지.
+ */
+export function dedupeAddressSegmentList(segments: string[]): string[] {
+  const out: string[] = [];
+  for (const raw of segments) {
+    const seg = cleanAddressText(raw);
+    if (!seg) continue;
+    const existingIdx = out.findIndex((x) => keyContains(x, seg));
+    if (existingIdx < 0) {
+      out.push(seg);
+      continue;
+    }
+    if (displayAddressScore(seg) > displayAddressScore(out[existingIdx]!)) {
+      out[existingIdx] = seg;
+    }
+  }
+  return out;
+}
+
+function locationKeySet(parts: {
+  region?: string | null;
+  city?: string | null;
+  district?: string | null;
+}): Set<string> {
+  return new Set(
+    [parts.region, parts.city, parts.district]
+      .flatMap((x) => splitAddressFragments(x))
+      .map((x) => normAddrDedupKey(x))
+      .filter(Boolean)
+  );
+}
+
+function buildStoreAddressDisplay(parts: {
+  region?: string | null;
+  city?: string | null;
+  district?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+}): { detail: string; body: string; full: string } {
+  const locKeys = locationKeySet(parts);
+  const line1 = splitAddressFragments(parts.address_line1);
+  const line2 = splitAddressFragments(parts.address_line2);
+  const district = splitAddressFragments(parts.district);
+  const all = [...line1, ...line2, ...district];
+
+  const detail =
+    [...line2].reverse().find((x) => isShortDetailLike(x, locKeys)) ??
+    (line2.length === 1 && isShortDetailLike(line2[0]!, locKeys) ? line2[0]! : "");
+
+  const bodyCandidates = all
+    .map((x) => (detail ? removeDetailToken(x, detail) : cleanAddressText(x)))
+    .filter((x) => x && (!detail || normAddrDedupKey(x) !== normAddrDedupKey(detail)))
+    .filter((x) => !isShortDetailLike(x, locKeys) || isStreetLike(x));
+  const body = dedupeAddressSegmentList(bodyCandidates).join(" ").replace(/\s+/g, " ").trim();
+  const full = [detail, body].filter(Boolean).join(", ");
+  return { detail, body, full };
+}
+
+/**
+ * 필리핀 표시 주소 — 모든 저장 필드를 다시 분해해 `상세, 가로/동네` 한 줄로 만든다.
+ * `address_line2` 가 전체 주소를 품은 오저장도 이 경로에서 새로 조립한다.
+ */
+export function formatPhDetailThenStreetFromParts(parts: {
+  district?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+}): string {
+  return buildStoreAddressDisplay(parts).full;
+}
+
+/** 복사용·픽업 상세 — `formatPhDetailThenStreetFromParts` 별칭 */
 export function formatStoreDetailAddressLine(parts: {
   district?: string | null;
   address_line1?: string | null;
   address_line2?: string | null;
 }): string {
-  const a1 = typeof parts.address_line1 === "string" ? parts.address_line1.trim() : "";
-  const a2 = typeof parts.address_line2 === "string" ? parts.address_line2.trim() : "";
-  const d = typeof parts.district === "string" ? parts.district.trim() : "";
-  const chunks: string[] = [];
-  if (d && d !== a1) chunks.push(d);
-  if (a1) chunks.push(a1);
-  if (a2) chunks.push(a2);
-  if (chunks.length === 0 && d) chunks.push(d);
-  return chunks.join(", ");
+  return formatPhDetailThenStreetFromParts(parts);
 }
 
-/**
- * 매장 창 표시: 주소 한 줄 — `address_line1` 우선, 구형 `district`만 있을 때는 그대로.
- * (신규 저장은 district ≈ line1 동기)
- */
+/** 매장 정보 화면의 가로 주소 한 줄. */
 export function formatStoreAddressStreetDisplay(parts: {
   district?: string | null;
   address_line1?: string | null;
+  address_line2?: string | null;
 }): string {
-  const a1 = typeof parts.address_line1 === "string" ? parts.address_line1.trim() : "";
-  const d = typeof parts.district === "string" ? parts.district.trim() : "";
-  if (d && a1 && d === a1) return a1;
-  if (d && a1) return `${d}, ${a1}`;
-  return a1 || d || "";
+  return buildStoreAddressDisplay(parts).body;
 }
 
 export function formatStoreAddressDetailOnly(address_line2?: string | null): string {
-  return typeof address_line2 === "string" ? address_line2.trim() : "";
+  const fragments = splitAddressFragments(address_line2);
+  return [...fragments].reverse().find((x) => isShortDetailLike(x, new Set())) ?? "";
 }
 
-/** 픽업·매장 안내용 — 등록된 매장 영업 주소(지역 한 줄 + 상세 지번 등) */
+function locationCatalogLineRedundantWithDetail(loc: string, detailJoined: string): boolean {
+  const nd = normAddrDedupKey(detailJoined);
+  if (!nd) return false;
+  return loc
+    .split("·")
+    .map((x) => normAddrDedupKey(x))
+    .filter(Boolean)
+    .every((p) => nd.includes(p));
+}
+
+/** 픽업·매장 안내용 — 상세이 있으면 앞에, 없으면 가로/지역만 한 줄. */
 export function formatStorePickupAddressLines(parts: {
   region?: string | null;
   city?: string | null;
@@ -99,10 +255,10 @@ export function formatStorePickupAddressLines(parts: {
   address_line1?: string | null;
   address_line2?: string | null;
 }): string[] {
-  const lines: string[] = [];
   const loc = formatStoreLocationLine(parts);
-  if (loc) lines.push(loc);
-  const rest = formatStoreDetailAddressLine(parts);
-  if (rest) lines.push(rest);
-  return lines;
+  const detail = buildStoreAddressDisplay(parts).full;
+  if (!loc) return detail ? [detail] : [];
+  if (!detail) return [loc];
+  if (locationCatalogLineRedundantWithDetail(loc, detail)) return [detail];
+  return [`${detail}, ${loc}`];
 }

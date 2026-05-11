@@ -26,6 +26,10 @@ import { BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS } from "@/lib/main-menu/bottom
 import { APP_MAIN_COLUMN_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 import { STORE_LOCATION_SECTION_HINT_STORE_PUBLIC } from "@/lib/stores/store-address-form-ui";
 import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
+import {
+  formatStoreAddressDetailOnly,
+  formatStoreAddressStreetDisplay,
+} from "@/lib/stores/store-location-label";
 
 function resolveRegionCityIds(regionRaw: string, cityRaw: string): { rid: string; cid: string } {
   const rn = regionRaw.trim();
@@ -60,10 +64,12 @@ function storeEmbedName(rel: StoreRelEmbed): string {
 
 function rowToBasicValues(row: StoreRow): BasicValues {
   const { intro, kakao } = splitStoreDescriptionAndKakao(row.description, row.kakao_id ?? null);
-  const a1 = (row.address_line1 ?? "").trim();
-  const d = (row.district ?? "").trim();
-  const street = a1 || d;
-  const detail = (row.address_line2 ?? "").trim();
+  const street = formatStoreAddressStreetDisplay({
+    district: row.district,
+    address_line1: row.address_line1,
+    address_line2: row.address_line2,
+  });
+  const detail = formatStoreAddressDetailOnly(row.address_line2);
   return {
     shopName: row.store_name ?? "",
     description: intro ?? "",

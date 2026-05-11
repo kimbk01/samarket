@@ -1,5 +1,7 @@
 "use client";
 
+import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
+
 export type AdminStoreReviewRow = {
   id: string;
   store_name: string;
@@ -45,11 +47,13 @@ export const ADMIN_STORE_APPROVAL_LABEL: Record<string, string> = {
 
 /** 신청 폼 기준: 주소 한 줄이 district·address_line1에 동기 저장 */
 export function formatAdminStoreAddressOneLine(r: AdminStoreReviewRow): string {
-  const d = (r.district ?? "").trim();
-  const a1 = (r.address_line1 ?? "").trim();
-  const a2 = (r.address_line2 ?? "").trim();
-  const detail = d && a1 && d === a1 ? d : [d, a1].filter(Boolean).join(" ");
-  const parts = [r.region, r.city, detail, a2].map((x) => (x ?? "").trim()).filter(Boolean);
-  return parts.length ? parts.join(" ") : "—";
+  const lines = formatStorePickupAddressLines({
+    region: r.region,
+    city: r.city,
+    district: r.district,
+    address_line1: r.address_line1,
+    address_line2: r.address_line2,
+  });
+  return lines.join(" · ").trim() || "—";
 }
 

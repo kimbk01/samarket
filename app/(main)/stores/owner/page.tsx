@@ -15,24 +15,21 @@ type PageProps = {
 
 /**
  * `/stores/owner` — 매장 오너 허브(캐노니컬).
- * 옛 `/mypage/business`, `/my/business` 인덱스는 본 경로로 리다이렉트된다.
+ * `OwnerHubShell` 은 `loadMyBusinessServer` 와 분리해 첫 페인트·헤더·메뉴 뼈대가 먼저 내려가도록 한다.
  */
 export default function StoresOwnerHubRoute({ searchParams }: PageProps) {
   return (
-    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
-      <StoresOwnerHubBody searchParams={searchParams} />
-    </Suspense>
+    <OwnerHubShell>
+      <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
+        <StoresOwnerHubDeferredBody searchParams={searchParams} />
+      </Suspense>
+    </OwnerHubShell>
   );
 }
 
-async function StoresOwnerHubBody({ searchParams }: PageProps) {
+async function StoresOwnerHubDeferredBody({ searchParams }: PageProps) {
   const sp = await searchParams;
   const storeId = firstQueryString(sp.storeId)?.trim() ?? "";
   const initialServerState = await loadMyBusinessServer(storeId);
-
-  return (
-    <OwnerHubShell>
-      <MyBusinessPage initialServerState={initialServerState} />
-    </OwnerHubShell>
-  );
+  return <MyBusinessPage initialServerState={initialServerState} />;
 }

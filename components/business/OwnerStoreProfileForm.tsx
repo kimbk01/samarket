@@ -19,6 +19,10 @@ import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { coerceBusinessHoursRecord } from "@/lib/stores/coerce-business-hours-json";
 import { readPublicNoticesFromBusinessRecord } from "@/lib/stores/store-detail-meta";
 import {
+  formatStoreAddressDetailOnly,
+  formatStoreAddressStreetDisplay,
+} from "@/lib/stores/store-location-label";
+import {
   formatPaymentMethodsDisplayLine,
   paymentMethodsConfigPayload,
   readPaymentMethodsFormValues,
@@ -135,10 +139,12 @@ function hasPersistedPublicCommerceDetail(v: OwnerStoreProfileFormValues): boole
 
 function rowToFormValues(row: StoreRow): OwnerStoreProfileFormValues {
   const { intro, kakao } = splitStoreDescriptionAndKakao(row.description, row.kakao_id ?? null);
-  const a1 = (row.address_line1 ?? "").trim();
-  const d = (row.district ?? "").trim();
-  const street = a1 || d;
-  const detail = (row.address_line2 ?? "").trim();
+  const street = formatStoreAddressStreetDisplay({
+    district: row.district,
+    address_line1: row.address_line1,
+    address_line2: row.address_line2,
+  });
+  const detail = formatStoreAddressDetailOnly(row.address_line2);
   const lat = row.lat != null && Number.isFinite(Number(row.lat)) ? String(row.lat) : "";
   const lng = row.lng != null && Number.isFinite(Number(row.lng)) ? String(row.lng) : "";
   const br = readBreakHoursFormFields(row.business_hours_json);

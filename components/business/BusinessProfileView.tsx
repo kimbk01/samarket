@@ -11,8 +11,7 @@ interface BusinessProfileViewProps {
 export function BusinessProfileView({ profile, isOwner }: BusinessProfileViewProps) {
   const street = (profile.addressStreetLine ?? "").trim();
   const detail = (profile.addressDetail ?? "").trim();
-  const legacyLine =
-    !street && !detail ? (profile.addressLabel ?? "").trim() : "";
+  const fullAddress = (profile.addressLabel ?? "").trim();
 
   return (
     <div className="space-y-4">
@@ -28,8 +27,8 @@ export function BusinessProfileView({ profile, isOwner }: BusinessProfileViewPro
             <h1 className="sam-text-page-title font-semibold text-sam-fg">
               {profile.shopName}
             </h1>
-            {legacyLine ? (
-              <p className="mt-0.5 sam-text-body-secondary text-sam-muted">{legacyLine}</p>
+            {fullAddress ? (
+              <p className="mt-0.5 sam-text-body-secondary text-sam-muted">{fullAddress}</p>
             ) : street || detail ? (
               <>
                 {street ? (

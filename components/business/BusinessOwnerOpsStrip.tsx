@@ -30,7 +30,7 @@ export function BusinessOwnerOpsStrip({
 }) {
   const approval = row.approval_status ?? "";
   const sales = row.sales_permission?.sales_status ?? "pending";
-  const visible = row.is_visible !== false;
+  const visible = row.is_visible === true;
 
   return (
     <section

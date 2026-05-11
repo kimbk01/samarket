@@ -10,12 +10,11 @@ const ON_BADGE = "#0f6a8a";
 const ON_BADGE_BG = "rgba(28, 141, 184, 0.14)";
 const ON_BORDER = "#157aa0";
 
-/** `stores.is_open` — null/미설정은 영업 중(기존 `!== false` 와 동일). 문자열 "false" 등은 parse 로 처리 */
-function isStoreOpen(row: StoreRow): boolean {
-  return parsePostgresBool(row.is_open, true);
-}
-
-export function BusinessAdminOpenToggle({
+/**
+ * `stores.is_visible` — 동네 매장 목록·탭·공개 매장 URL 노출 여부.
+ * 관리자 승인 시 기본 false (`approve_store`); 배달 운영 설정과 동일 PATCH.
+ */
+export function BusinessAdminVisibleToggle({
   row,
   onUpdated,
 }: {
@@ -24,19 +23,19 @@ export function BusinessAdminOpenToggle({
 }) {
   const [busy, setBusy] = useState(false);
   const [pendingUi, setPendingUi] = useState<boolean | null>(null);
-  const isOpen = isStoreOpen(row);
+  const isVisible = parsePostgresBool(row.is_visible, false);
   const disabled = busy || String(row.approval_status) !== "approved";
 
-  const shownOpen = pendingUi !== null ? pendingUi : isOpen;
+  const shownVisible = pendingUi !== null ? pendingUi : isVisible;
 
   useEffect(() => {
     if (pendingUi === null) return;
-    if (isOpen === pendingUi) setPendingUi(null);
-  }, [isOpen, pendingUi]);
+    if (isVisible === pendingUi) setPendingUi(null);
+  }, [isVisible, pendingUi]);
 
-  const applyOpen = useCallback(
+  const applyVisible = useCallback(
     async (next: boolean): Promise<boolean> => {
-      if (next === isOpen && pendingUi === null) return true;
+      if (next === isVisible && pendingUi === null) return true;
       setBusy(true);
       setPendingUi(next);
       try {
@@ -44,7 +43,7 @@ export function BusinessAdminOpenToggle({
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ is_open: next }),
+          body: JSON.stringify({ is_visible: next }),
         });
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean };
         if (!j?.ok) {
@@ -61,31 +60,31 @@ export function BusinessAdminOpenToggle({
         setBusy(false);
       }
     },
-    [isOpen, onUpdated, row.id]
+    [isVisible, onUpdated, row.id]
   );
 
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-      <span className="sam-text-helper font-semibold text-sam-fg">영업</span>
+      <span className="sam-text-helper font-semibold text-sam-fg">노출</span>
       <StoreOpsOnOffSwitch
-        checked={shownOpen}
+        checked={shownVisible}
         disabled={disabled}
-        onCheckedChange={applyOpen}
-        ariaLabel={shownOpen ? "영업 끄기: 주문 접수 중지" : "영업 켜기: 주문 접수 시작"}
+        onCheckedChange={applyVisible}
+        ariaLabel={shownVisible ? "노출 끄기: 매장 목록·탭에서 숨김" : "노출 켜기: 매장 목록·탭에 표시"}
       />
       <span
         className={`min-w-[2.75rem] rounded-md border px-2 py-0.5 text-center sam-text-xxs font-bold uppercase tracking-wide ${
-          shownOpen ? "" : "bg-sam-app text-sam-muted"
+          shownVisible ? "" : "bg-sam-app text-sam-muted"
         }`}
         style={
-          shownOpen
+          shownVisible
             ? { color: ON_BADGE, backgroundColor: ON_BADGE_BG, borderColor: ON_BORDER }
             : { borderColor: "var(--sam-border-soft, #e5e7eb)" }
         }
       >
-        {shownOpen ? "ON" : "OFF"}
+        {shownVisible ? "ON" : "OFF"}
       </span>
-      <span className="sam-text-xxs text-sam-muted">{shownOpen ? "주문 접수" : "접수 중지"}</span>
+      <span className="sam-text-xxs text-sam-muted">{shownVisible ? "목록·탭 표시" : "목록·탭 숨김"}</span>
     </div>
   );
 }

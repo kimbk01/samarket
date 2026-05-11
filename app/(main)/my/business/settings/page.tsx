@@ -104,9 +104,10 @@ function MyBusinessSettingsPageInner() {
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
         <h2 className="sam-text-body font-semibold text-sam-fg">매장 노출</h2>
         <p className="mt-2 sam-text-body-secondary leading-relaxed text-sam-muted">
-          공개 매장 페이지(<code className="rounded bg-sam-surface-muted px-1 sam-text-helper">/stores/[slug]</code>)에
-          노출할지 설정합니다. 승인이 완료되어도 <strong className="font-semibold text-sam-fg">처음에는 비노출</strong>로
-          시작합니다.
+          동네 매장 목록·탭과 공개 매장 페이지(
+          <code className="rounded bg-sam-surface-muted px-1 sam-text-helper">/stores/[slug]</code>)에 표시할지
+          설정합니다. 승인이 완료되어도 <strong className="font-semibold text-sam-fg">처음에는 비노출</strong>로
+          시작합니다. 운영 허브 상단의 「노출」스위치와 동일합니다.
         </p>
         <div className="mt-3 flex items-center justify-between gap-3 rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2">
           <div className="min-w-0">

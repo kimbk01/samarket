@@ -27,20 +27,6 @@ function dash(v: string | null | undefined): string {
   return t || "—";
 }
 
-function joinComma(parts: Array<string | null | undefined>): string {
-  return parts
-    .map((x) => (x ?? "").trim())
-    .filter((x) => x && x.toLowerCase() !== "null" && x.toLowerCase() !== "undefined")
-    .join(", ");
-}
-
-function includesToken(haystack: string, needle: string): boolean {
-  const h = haystack.trim().toLowerCase();
-  const n = needle.trim().toLowerCase();
-  if (!h || !n) return false;
-  return h.includes(n);
-}
-
 function normalizeAddress1ForStore(streetRaw: string, city: string, region: string): string {
   let s = streetRaw.trim();
   if (!s) return s;
@@ -415,23 +401,7 @@ export function AdminStoreReviewPanel({
             label="전체주소"
             value={
               <span className="font-medium text-sam-fg">
-                {(() => {
-                  const city = (store.city ?? "").trim();
-                  const region = (store.region ?? "").trim();
-                  const street = normalizeAddress1ForStore(String(store.address_line1 ?? ""), city, region);
-                  const detail = String(store.address_line2 ?? "").trim();
-                  const cleanDetail = normalizeDetailForStore(street, detail, city, region);
-                  // PH convention: detail → address1 → city → region
-                  const base = joinComma([cleanDetail, street]);
-                  const extraCity = city && base && !includesToken(base, city) ? city : "";
-                  const extraRegion =
-                    region &&
-                    ((base && !includesToken(base, region)) || (extraCity && !includesToken(extraCity, region)))
-                      ? region
-                      : "";
-                  const line = joinComma([cleanDetail, street, extraCity, extraRegion]);
-                  return line || "—";
-                })()}
+                {formatAdminStoreAddressOneLine(store)}
               </span>
             }
           />

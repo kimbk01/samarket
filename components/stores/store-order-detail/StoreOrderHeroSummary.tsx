@@ -3,13 +3,17 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import { useRubberBandAtDocumentTop } from "@/lib/ui/use-rubber-band-at-document-top";
 import type { StorePublicFulfillmentMode } from "@/components/stores/StoreDetailStorefrontPanel";
 import { STORE_ORDER_BRAND } from "@/components/stores/store-order-detail/store-order-brand";
 import type { CommerceExtrasFromHours } from "@/lib/stores/store-commerce-extras";
 import { type StoreDeliveryMeta } from "@/lib/stores/store-detail-meta";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import {
+  openGoogleMapsDrivingDirectionsFromUserTo,
+  type StoreDetailDirectionsTarget,
+} from "@/lib/stores/google-maps-store-links";
 
 function InfoRow({
   label,
@@ -27,7 +31,7 @@ function InfoRow({
       <div className="font-bold text-neutral-900">{label}</div>
       <div className="min-w-0">
         <div className="flex min-w-0 items-start justify-between gap-2">
-          <p className="min-w-0 whitespace-pre-wrap break-words font-bold text-neutral-900">{value}</p>
+          <p className="min-w-0 whitespace-normal break-words font-bold text-neutral-900">{value}</p>
           {action}
         </div>
         {sub ? (
@@ -70,6 +74,7 @@ export function StoreOrderHeroSummary({
   storeInfoHref,
   reviewsHref,
   addressLine,
+  directions,
   viewerFavorited,
   favoriteBusy,
   onFavoriteClick,
@@ -97,6 +102,8 @@ export function StoreOrderHeroSummary({
   /** 리뷰가 있을 때만 전달 · 평점/리뷰 행을 탭 가능한 진입점으로 바꿈 */
   reviewsHref?: string | null;
   addressLine?: string | null;
+  /** 탭 시 geolocation origin + 매장 destination — `lib/stores/google-maps-store-links` */
+  directions: StoreDetailDirectionsTarget | null;
   viewerFavorited: boolean;
   favoriteBusy: boolean;
   onFavoriteClick: () => void;
@@ -149,6 +156,17 @@ export function StoreOrderHeroSummary({
 
   const payFull = deliveryMeta.paymentMethodsLine?.trim() || null;
   const addressDisp = addressLine?.trim() || null;
+
+  const onDirectionsClick = useCallback(() => {
+    if (!directions) return;
+    if (directions.destinationCoords) {
+      const { lat, lng } = directions.destinationCoords;
+      openGoogleMapsDrivingDirectionsFromUserTo({ kind: "coords", lat, lng });
+      return;
+    }
+    const q = directions.destinationQuery?.replace(/\s+/g, " ").trim();
+    if (q) openGoogleMapsDrivingDirectionsFromUserTo({ kind: "query", text: q });
+  }, [directions]);
   const deliverySub =
     commerceExtras.deliveryFeePhp === 0
       ? "배달팁 무료 적용 중"
@@ -322,12 +340,16 @@ export function StoreOrderHeroSummary({
                       label="위치안내"
                       value={addressDisp}
                       action={
-                        <Link
-                          href={storeInfoHref}
-                          className="shrink-0 rounded-full bg-neutral-100 px-2.5 py-1 text-[12px] font-bold text-neutral-800"
-                        >
-                          지도보기
-                        </Link>
+                        directions ? (
+                          <button
+                            type="button"
+                            onClick={onDirectionsClick}
+                            aria-label="구글 지도에서 내 위치에서 이 매장까지 길찾기"
+                            className="shrink-0 rounded-full bg-neutral-100 px-2.5 py-1 text-[12px] font-bold text-neutral-800 touch-manipulation"
+                          >
+                            길찾기
+                          </button>
+                        ) : null
                       }
                     />
                   ) : null}

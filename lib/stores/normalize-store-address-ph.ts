@@ -37,6 +37,39 @@ function stripTailToken(line: string, token: string): string {
   return stripLeadingTrailingCommaSpace(s);
 }
 
+/** `token,` 또는 `token ` 로 시작하는 중복 제거(상세가 가로 줄 앞에 붙은 경우) */
+function stripHeadToken(line: string, token: string): string {
+  let s = line.trim();
+  const t = token.trim();
+  if (!s || !t) return s;
+  const re = new RegExp(String.raw`^${escapeRegExp(t)}(?:\s*,|\s+)`, "i");
+  while (re.test(s)) s = s.replace(re, "").trim();
+  return stripLeadingTrailingCommaSpace(s);
+}
+
+/**
+ * 구글/지도에서 고른 **가로 줄**에 `address_line2`(동·호·층 등)가 앞·뒤에 또 붙어 있으면 제거.
+ * 표시 규칙: **상세는 항상 line2**, 가로는 구글 선택 주소만.
+ */
+export function stripStoreDetailFromGoogleStreetLine(
+  street: string | null | undefined,
+  detail: string | null | undefined
+): string | null {
+  const s = trimOrNull(street);
+  const d = trimOrNull(detail);
+  if (!s || !d) return s;
+  let out = s;
+  let prev = "";
+  while (prev !== out) {
+    prev = out;
+    out = stripTailToken(out, d);
+    out = stripHeadToken(out, d);
+    out = stripEmbeddedToken(out, d);
+    out = stripLeadingTrailingCommaSpace(out);
+  }
+  return trimOrNull(out);
+}
+
 function stripEmbeddedToken(line: string, token: string): string {
   let s = line.trim();
   const t = token.trim();
@@ -53,11 +86,13 @@ function stripEmbeddedToken(line: string, token: string): string {
  * Store address normalization (PH convention)
  * - "region/city" are treated as the authoritative delivery-area keys
  * - "address1" MUST NOT contain city/region suffix
+ * - "address1" MUST NOT duplicate "address2" at start/end (Google full line + separate detail field)
  * - "address2" MUST NOT contain address1 nor city/region tokens
  */
 export function normalizeStoreAddressPh(input: NormalizeStoreAddressInput): NormalizeStoreAddressOutput {
   const region = trimOrNull(input.region);
   const city = trimOrNull(input.city);
+  const address2Raw = trimOrNull(input.address2);
 
   // Address1: strip trailing city/region tokens
   let address1 = trimOrNull(input.address1);
@@ -67,8 +102,13 @@ export function normalizeStoreAddressPh(input: NormalizeStoreAddressInput): Norm
     address1 = stripLeadingTrailingCommaSpace(address1);
   }
 
+  /** 구글 선택 주소 끝·앞에 상세(동·호)가 중복 저장된 경우 제거 */
+  if (address1 && address2Raw) {
+    address1 = stripStoreDetailFromGoogleStreetLine(address1, address2Raw);
+  }
+
   // Address2: strip embedded city/region + address1 duplication
-  let address2 = trimOrNull(input.address2);
+  let address2 = address2Raw;
   if (address2) {
     if (address1) {
       const idx = address2.toLowerCase().indexOf(address1.toLowerCase());

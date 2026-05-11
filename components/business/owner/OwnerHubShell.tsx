@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
@@ -10,15 +10,32 @@ import { buildBusinessAdminSidebar } from "@/lib/business/business-admin-nav";
 import { OwnerHubMainMenu } from "@/components/business/owner/OwnerHubMainMenu";
 import { StoresOwnerStackHeader } from "@/components/business/owner/StoresOwnerStackHeader";
 import { BusinessAdminOpenToggle } from "@/components/business/admin/BusinessAdminOpenToggle";
+import { BusinessAdminVisibleToggle } from "@/components/business/admin/BusinessAdminVisibleToggle";
 import { BusinessStatusBadge } from "@/components/business/admin/BusinessStatusBadge";
+import { OwnerHubStoreAvatar } from "@/components/business/owner/OwnerHubStoreAvatar";
 import { OWNER_HUB_BADGE_DOT_CLASS } from "@/lib/chats/hub-badge-ui";
 import { useOwnerCommerceNotificationUnreadCount } from "@/hooks/useOwnerCommerceNotificationUnreadCount";
 import { storeRowCanSell } from "@/lib/business/store-can-sell";
 import { fetchStoreOrderCountsDeduped } from "@/lib/business/fetch-store-order-counts-deduped";
+import { parsePostgresBool } from "@/lib/community-feed/parse-postgres-bool";
+import {
+  fetchStoreBannersDeduped,
+  fetchStoreMenusDeduped,
+  fetchStoreNoticesDeduped,
+  fetchStorePublicBySlugDeduped,
+  fetchStoreSummaryDeduped,
+} from "@/lib/stores/store-delivery-api-client";
+
+const MY_STORE_BTN_BASE =
+  "shrink-0 inline-flex select-none touch-manipulation items-center justify-center rounded-ui-rect border px-2.5 py-1.5 sam-text-xxs font-semibold shadow-sm transition-[transform,background-color,border-color,box-shadow] duration-100 ease-out";
+
+const MY_STORE_BTN_PRESS =
+  "active:scale-[0.96] active:bg-[#1C8DB8]/30 active:border-[#106180] active:shadow-[inset_0_2px_6px_rgba(0,0,0,0.14)]";
 
 export function OwnerHubShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() ?? "/stores/owner";
   const searchParams = useSearchParams();
+  const router = useRouter();
   const storeIdParam = searchParams.get("storeId")?.trim() ?? "";
 
   const [stores, setStores] = useState<StoreRow[] | null>(null);
@@ -100,7 +117,6 @@ export function OwnerHubShell({ children }: { children: React.ReactNode }) {
   }, [orderCountsStoreId]);
 
   const shopName = selectedRow?.store_name?.trim() || "매장";
-  const shopInitial = shopName.slice(0, 1) || "샵";
   const ownerCommerceUnread = useOwnerCommerceNotificationUnreadCount();
 
   const navCtx = useMemo(() => {
@@ -127,6 +143,36 @@ export function OwnerHubShell({ children }: { children: React.ReactNode }) {
   const sections = useMemo(() => buildBusinessAdminSidebar(navCtx), [navCtx]);
 
   const showInlineOwnerNav = Boolean(selectedRow);
+
+  const storeSlug = (selectedRow?.slug ?? "").trim();
+  const storeApproved = selectedRow != null && String(selectedRow.approval_status) === "approved";
+  const storePublicVisible = selectedRow != null && parsePostgresBool(selectedRow.is_visible, false);
+  /** 고객용 `/stores/[slug]` — `GET /api/stores/[slug]`·`getApprovedStoreBySlug` 와 동일 조건 */
+  const myStoreCustomerHref =
+    storeApproved && storePublicVisible && storeSlug.length > 0
+      ? `/stores/${encodeURIComponent(storeSlug)}`
+      : null;
+
+  useEffect(() => {
+    if (!myStoreCustomerHref) return;
+    try {
+      router.prefetch(myStoreCustomerHref);
+    } catch {
+      /* noop */
+    }
+  }, [myStoreCustomerHref, router]);
+
+  /** 고객 매장 상세 첫 요청이 캐시 히트되도록 — `StoreDetailPublic` 의 split API 와 동일 키 */
+  useEffect(() => {
+    if (!myStoreCustomerHref || !storeSlug) return;
+    void Promise.all([
+      fetchStoreSummaryDeduped(storeSlug),
+      fetchStoreMenusDeduped(storeSlug),
+      fetchStorePublicBySlugDeduped(storeSlug),
+      fetchStoreBannersDeduped(storeSlug),
+      fetchStoreNoticesDeduped(storeSlug),
+    ]).catch(() => {});
+  }, [myStoreCustomerHref, storeSlug]);
 
   return (
     <div className="min-h-screen min-w-0 bg-sam-app">
@@ -168,22 +214,49 @@ export function OwnerHubShell({ children }: { children: React.ReactNode }) {
                 매장 운영 메뉴
               </h2>
               <div className="border-b border-sam-border-soft px-3 py-4">
-                <div className="flex items-center gap-3">
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#f9ce34,#ee2a7b,#6228d7)] sam-text-body font-semibold text-white">
-                    {shopInitial}
-                  </span>
-                  <div className="min-w-0">
-                    <p className="truncate sam-text-body font-semibold text-sam-fg">{shopName}</p>
-                    <p className="sam-text-xxs text-sam-muted">매장 운영 센터</p>
+                <div className="flex items-start gap-3">
+                  <OwnerHubStoreAvatar profileImageUrl={selectedRow?.profile_image_url} shopName={shopName} />
+                  <div className="flex min-w-0 flex-1 items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate sam-text-body font-semibold text-sam-fg">{shopName}</p>
+                      <p className="sam-text-xxs text-sam-muted">매장 운영 센터</p>
+                    </div>
+                    {storeSlug.length > 0 ?
+                      myStoreCustomerHref ?
+                        <Link
+                          prefetch
+                          href={myStoreCustomerHref}
+                          aria-label="나의매장 — 고객 매장 페이지로 이동"
+                          className={`${MY_STORE_BTN_BASE} ${MY_STORE_BTN_PRESS} border-[#157aa0] bg-[#1C8DB8]/12 text-[#0f6a8a] hover:bg-[#1C8DB8]/20`}
+                        >
+                          나의매장
+                        </Link>
+                      : <span
+                          className={`${MY_STORE_BTN_BASE} cursor-not-allowed border-sam-border-soft bg-sam-surface-muted text-sam-muted`}
+                          title={
+                            !storeApproved ?
+                              "매장 심사 승인 후 고객 매장 페이지로 이동할 수 있어요."
+                            : "고객 매장 페이지는 아래 「노출」을 켠 뒤 이동할 수 있어요."
+                          }
+                        >
+                          나의매장
+                        </span>
+                    : null}
                   </div>
                 </div>
-                <div className="mt-3 flex flex-wrap items-center gap-2">
-                  {selectedRow?.is_visible === true ?
-                    <BusinessStatusBadge tone="success">공개중</BusinessStatusBadge>
-                  : <BusinessStatusBadge tone="muted">비공개</BusinessStatusBadge>}
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
                   {selectedRow && String(selectedRow.approval_status) === "approved" ?
-                    <BusinessAdminOpenToggle row={selectedRow} onUpdated={() => void reloadStores()} />
-                  : <BusinessStatusBadge tone="warning">심사·준비</BusinessStatusBadge>}
+                    <>
+                      <BusinessAdminVisibleToggle row={selectedRow} onUpdated={() => void reloadStores()} />
+                      <BusinessAdminOpenToggle row={selectedRow} onUpdated={() => void reloadStores()} />
+                    </>
+                  : <>
+                      {selectedRow?.is_visible === true ?
+                        <BusinessStatusBadge tone="success">공개중</BusinessStatusBadge>
+                      : <BusinessStatusBadge tone="muted">비공개</BusinessStatusBadge>}
+                      <BusinessStatusBadge tone="warning">심사·준비</BusinessStatusBadge>
+                    </>
+                  }
                 </div>
               </div>
               <div className="px-1 py-3">

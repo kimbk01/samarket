@@ -12,11 +12,13 @@ import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { pickPreferredOwnerStore } from "@/lib/stores/owner-lite-external-store";
 import { BusinessAdminSidebar } from "@/components/business/admin/BusinessAdminSidebar";
 import { BusinessAdminOpenToggle } from "@/components/business/admin/BusinessAdminOpenToggle";
+import { BusinessAdminVisibleToggle } from "@/components/business/admin/BusinessAdminVisibleToggle";
 import { BusinessStatusBadge } from "@/components/business/admin/BusinessStatusBadge";
 import { useOwnerCommerceNotificationUnreadCount } from "@/hooks/useOwnerCommerceNotificationUnreadCount";
 import { OWNER_HUB_BADGE_DOT_CLASS } from "@/lib/chats/hub-badge-ui";
 import { BusinessAdminStoreProvider } from "@/components/business/admin/business-admin-store-context";
 import { StoresOwnerStackHeader } from "@/components/business/owner/StoresOwnerStackHeader";
+import { OwnerHubStoreAvatar } from "@/components/business/owner/OwnerHubStoreAvatar";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 
@@ -125,7 +127,6 @@ export function BusinessAdminShell({ children }: { children: React.ReactNode }) 
   const sections = useMemo(() => buildBusinessAdminSidebar(navCtx), [navCtx]);
   const pageTitle = getBusinessAdminPageTitle(pathname);
   const shopName = selectedRow?.store_name?.trim() || "매장";
-  const shopInitial = shopName.slice(0, 1) || "샵";
   const publicStoreHref =
     selectedRow &&
     String(selectedRow.approval_status) === "approved" &&
@@ -223,24 +224,27 @@ export function BusinessAdminShell({ children }: { children: React.ReactNode }) 
     <>
       <div className="border-b border-sam-border-soft px-3 py-4">
         <div className="flex items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[linear-gradient(135deg,#f9ce34,#ee2a7b,#6228d7)] sam-text-body font-semibold text-white">
-            {shopInitial}
-          </span>
+          <OwnerHubStoreAvatar profileImageUrl={selectedRow.profile_image_url} shopName={shopName} />
           <div className="min-w-0">
             <p className="truncate sam-text-body font-semibold text-sam-fg">{shopName}</p>
             <p className="sam-text-xxs text-sam-muted">매장 운영 센터</p>
           </div>
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {selectedRow.is_visible === true ? (
-            <BusinessStatusBadge tone="success">공개중</BusinessStatusBadge>
-          ) : (
-            <BusinessStatusBadge tone="muted">비공개</BusinessStatusBadge>
-          )}
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
           {String(selectedRow.approval_status) === "approved" ? (
-            <BusinessAdminOpenToggle row={selectedRow} onUpdated={() => void reloadStores()} />
+            <>
+              <BusinessAdminVisibleToggle row={selectedRow} onUpdated={() => void reloadStores()} />
+              <BusinessAdminOpenToggle row={selectedRow} onUpdated={() => void reloadStores()} />
+            </>
           ) : (
-            <BusinessStatusBadge tone="warning">심사·준비</BusinessStatusBadge>
+            <>
+              {selectedRow.is_visible === true ? (
+                <BusinessStatusBadge tone="success">공개중</BusinessStatusBadge>
+              ) : (
+                <BusinessStatusBadge tone="muted">비공개</BusinessStatusBadge>
+              )}
+              <BusinessStatusBadge tone="warning">심사·준비</BusinessStatusBadge>
+            </>
           )}
         </div>
       </div>
