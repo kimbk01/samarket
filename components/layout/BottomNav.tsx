@@ -46,7 +46,7 @@ import { prewarmBottomNavTapTargetClientCache } from "@/lib/main-menu/bottom-nav
 import { prewarmBottomNavTapHrefResolvingStoresRegion } from "@/lib/main-menu/bottom-nav-prewarm-href";
 import { isCommunityMessengerRoomPathname } from "@/lib/layout/conditional-app-shell-flags";
 import { bumpMessengerRenderPerf, samarketRuntimeDebugLog } from "@/lib/runtime/samarket-runtime-debug";
-import { warmMessengerListBootstrapClient } from "@/lib/community-messenger/warm-messenger-list-bootstrap-client";
+import { scheduleWarmMessengerListBootstrapClient } from "@/lib/community-messenger/warm-messenger-list-bootstrap-client-loader";
 import { mainBottomNavPrefetchTriggerKey } from "@/lib/main-menu/main-bottom-nav-prefetch-domain";
 import {
   isBottomNavTabActive,
@@ -696,7 +696,7 @@ export function BottomNav({
             routerRef.current.prefetch(href);
             const pathOnly = (href.split("?")[0] ?? "").replace(/\/+$/, "") || "/";
             if (pathOnly === "/community-messenger") {
-              warmMessengerListBootstrapClient();
+              scheduleWarmMessengerListBootstrapClient();
             }
             /** idle 프리페치 사이클에서도 클라 데이터 캐시를 함께 데워 RSC·DATA 캐시 분리 미스 방지 */
             try {

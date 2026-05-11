@@ -43,7 +43,7 @@ import {
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import { buildFeedChipsFromPhilifeTopicOptionsJson } from "@/lib/philife/philife-feed-chips-from-topic-options";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
-import { warmMessengerListBootstrapClient } from "@/lib/community-messenger/warm-messenger-list-bootstrap-client";
+import { scheduleWarmMessengerListBootstrapClient } from "@/lib/community-messenger/warm-messenger-list-bootstrap-client-loader";
 import { fetchMeProfileDeduped, isMeProfileCacheFresh } from "@/lib/profile/fetch-me-profile-deduped";
 
 const PHILIFE_TAB_PREWARM_COOLDOWN_MS = 12_000;
@@ -198,7 +198,7 @@ export function prewarmBottomNavTapTargetClientCache(
   }
 
   if (path === "/community-messenger") {
-    warmMessengerListBootstrapClient();
+    scheduleWarmMessengerListBootstrapClient();
     return;
   }
 

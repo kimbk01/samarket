@@ -16,12 +16,17 @@
 | `next.config.js` `experimental` | `staleTimes`, `optimizePackageImports`, **`webpackMemoryOptimizations: true`** 병합 |
 | `proxy` | Next 16 `proxy.ts` — 세션·리다이렉트 (별도 Node 힙과 무관한 요청당 비용) |
 | `tsconfig.json` include | `.next/dev/types/**/*.ts` — dev 타입 생성물 의존 (`tsc`는 dev 빌드 후 필요) |
+| `[dev-memory-watch]` 끄기 | **`SAMARKET_DEV_MEMORY_WATCH=0`** (또는 `false` / `off`) — `instrumentation`에서 모듈 로드 생략 |
+| `[dev-memory-watch]` 간격·첫 지연 | 선택: **`SAMARKET_DEV_MEMORY_WATCH_MS`**, **`SAMARKET_DEV_MEMORY_WATCH_STARTUP_DELAY_MS`** (§2) |
 
 ## 2단계: 개발 메모리 로그
 
 - 진입: 프로젝트 루트 `instrumentation.ts` → development 일 때만 `lib/dev/instrumentation-dev-memory-watch.ts` 를 dynamic import (Edge 번들이 `process.memoryUsage` 를 정적으로 끌어오지 않도록 분리).
-- 조건: `NODE_ENV === "development"` 일 때만 `setInterval` 30초
-- 형식: `[dev-memory-watch] rss=… heapUsed=… heapTotal=… external=…`
+- 조건: `NODE_ENV === "development"` 일 때만 타이머 등록. **`SAMARKET_DEV_MEMORY_WATCH=0|false|off`** 이면 **로드·타이머 없음**.
+- 간격: 기본 **30초** — `SAMARKET_DEV_MEMORY_WATCH_MS` (밀리초, 최소 5000, 최대 600000).
+- 첫 샘플: 기본 **2.5초 지연** (`Ready` 직후에 가깝게 맞춤). `SAMARKET_DEV_MEMORY_WATCH_STARTUP_DELAY_MS` 로 조정(0~120000). **0**이면 `queueMicrotask` 직후 1회 + 주기.
+- 중복: `register()` 이중 호출 시에도 **타이머 1세트**만 (`globalThis.__samarketDevMemoryWatchStarted`).
+- 형식: `[dev-memory-watch] phase=startup-delayed|startup|interval rss=…(…MiB) heapUsed=… heapTotal=… external=…`
 - 운영: `register()` 초기에 `NODE_ENV !== "development"` 이면 즉시 반환 — **타이머 없음**
 
 ## 3단계: 운영 런타임 분리 테스트 절차

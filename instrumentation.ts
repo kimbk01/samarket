@@ -5,6 +5,8 @@
 export async function register() {
   if (process.env.NODE_ENV !== "development") return;
   if (process.env.NEXT_RUNTIME === "edge") return;
+  const v = process.env.SAMARKET_DEV_MEMORY_WATCH?.trim().toLowerCase();
+  if (v === "0" || v === "false" || v === "off") return;
 
   const { registerDevMemoryWatch } = await import("./lib/dev/instrumentation-dev-memory-watch");
   registerDevMemoryWatch();
