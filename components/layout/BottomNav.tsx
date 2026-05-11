@@ -801,11 +801,7 @@ export function BottomNav({
 
   const hideBottomNavShell =
     (isChatRoomDetail && !isCommunityMessengerRoomPathname(pathname ?? null)) ||
-    // Owner business hub surfaces manage their own navigation/actions.
-    // Keep the global bottom nav hidden to avoid duplicated controls.
-    // Canonical owner surface is `/stores/owner/*`; legacy `/mypage/business`·`/my/business`
-    // 는 라우트 레벨에서 새 경로로 리다이렉트되지만 분기 안전망으로 함께 둔다.
-    (pathname?.startsWith("/stores/owner") ?? false) ||
+    // `/stores/owner/*` 는 전역 하단 탭 표시(`resolveConditionalAppShellFlags` 와 동일).
     (pathname?.startsWith("/mypage/business") ?? false) ||
     (pathname?.startsWith("/my/business") ?? false);
 

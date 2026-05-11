@@ -1,5 +1,5 @@
 import type { MyBusinessNavContext } from "@/lib/business/my-business-nav";
-import { OwnerRoutes, ownerHubDashboardHref } from "@/lib/business/owner-routes";
+import { OwnerRoutes } from "@/lib/business/owner-routes";
 
 export type BusinessAdminSidebarItem = {
   label: string;
@@ -27,7 +27,8 @@ export function isBusinessAdminNavHrefActive(
   const targetPath = norm(path);
   const currentPath = norm(pathname);
 
-  const isHubPath = (p: string) => p === "/stores/owner" || p === "/my/business";
+  const isHubPath = (p: string) =>
+    p === "/stores/owner" || p === "/my/business" || p === "/mypage/business";
   const pathsMatch =
     targetPath === currentPath || (isHubPath(targetPath) && isHubPath(currentPath));
 
@@ -52,7 +53,12 @@ export function buildBusinessAdminSidebar(ctx: MyBusinessNavContext): BusinessAd
   const sections: BusinessAdminSidebarSection[] = [];
 
   const opsItems: BusinessAdminSidebarItem[] = [
-    { label: "대시보드", href: ownerHubDashboardHref(storeId), description: "지표·주문·문의 요약" },
+    { label: "대시보드", href: OwnerRoutes.hub(storeId), description: "지표·주문·문의 요약" },
+    {
+      label: "매장 설정",
+      href: OwnerRoutes.profile(storeId),
+      description: "영업시간·배달·갤러리·서비스 형태",
+    },
   ];
   if (showOps) {
     opsItems.push({

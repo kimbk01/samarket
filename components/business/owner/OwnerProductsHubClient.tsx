@@ -121,6 +121,13 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
     void loadAll();
   }, [loadAll]);
 
+  /** 카테고리가 삭제되거나 목록이 바뀌어 선택 탭이 없어지면 전체 상품 보기로 복귀 */
+  useEffect(() => {
+    if (tab !== "all" && !sections.some((s) => s.id === tab)) {
+      setTab("all");
+    }
+  }, [sections, tab]);
+
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 3200);
@@ -241,20 +248,12 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
           </Link>
-          <button
-            type="button"
-            onClick={() => setTab("all")}
-            className={`shrink-0 rounded-full px-3 py-1.5 sam-text-body-secondary font-medium ${
-              tab === "all" ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-fg"
-            }`}
-          >
-            전체
-          </button>
           {sections.map((s) => (
             <button
               key={s.id}
               type="button"
-              onClick={() => setTab(s.id)}
+              title={tab === s.id ? "한 번 더 누르면 모든 카테고리 상품을 봅니다" : undefined}
+              onClick={() => setTab((prev) => (prev === s.id ? "all" : s.id))}
               className={`max-w-[200px] shrink-0 truncate rounded-full px-3 py-1.5 sam-text-body-secondary font-medium ${
                 tab === s.id ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-fg"
               }`}
@@ -333,14 +332,16 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
           </Link>
         </div>
 
-        <p className="sam-text-helper leading-relaxed text-sam-muted">
-          상단 탭 줄의 <span className="font-semibold text-sam-fg">+</span>는{" "}
-          <strong className="font-medium text-sam-fg">카테고리 추가</strong>입니다. 카테고리가 없으면{" "}
-          <Link href={categoriesHref} className="font-medium text-signature underline">
-            카테고리 관리
-          </Link>
-          에서 먼저 만드세요.
-        </p>
+        {sections.length === 0 ? (
+          <p className="sam-text-helper leading-relaxed text-sam-muted">
+            상단 탭 줄의 <span className="font-semibold text-sam-fg">+</span>는{" "}
+            <strong className="font-medium text-sam-fg">카테고리 추가</strong>입니다. 카테고리가 없으면{" "}
+            <Link href={categoriesHref} className="font-medium text-signature underline">
+              카테고리 관리
+            </Link>
+            에서 먼저 만드세요.
+          </p>
+        ) : null}
 
         {toast ? (
           <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-900">
@@ -356,15 +357,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
             className={`rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-10 text-center sam-text-body text-sam-muted`}
           >
             {products.length === 0 ? (
-              <>
-                <p>등록된 상품이 없습니다.</p>
-                <Link href={newProductHrefForTab} className={`${addProductCtaClass} mt-3`}>
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-                  </svg>
-                  신규 등록
-                </Link>
-              </>
+              <p>등록된 상품이 없습니다.</p>
             ) : (
               <p>조건에 맞는 상품이 없습니다.</p>
             )}

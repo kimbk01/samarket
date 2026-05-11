@@ -4,11 +4,10 @@ import { validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { revalidateStoreConsumerPathsBySlug } from "@/lib/stores/revalidate-store-consumer-paths";
+import { coerceStoreBannerLink } from "@/lib/stores/store-banner-link";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const LINK_TYPES = new Set(["none", "product", "notice", "coupon"]);
 
 async function resolveSlug(sb: ReturnType<typeof tryGetSupabaseForStores>, storeId: string): Promise<string | null> {
   if (!sb) return null;
@@ -75,24 +74,35 @@ export async function POST(req: NextRequest, context: { params: Promise<{ storeI
   const image_url = typeof body.image_url === "string" ? body.image_url.trim() : "";
   if (!image_url) return NextResponse.json({ ok: false, error: "image_url_required" }, { status: 400 });
 
-  const link_type = typeof body.link_type === "string" && LINK_TYPES.has(body.link_type) ? body.link_type : "none";
-  const link_target_id =
-    body.link_target_id == null || body.link_target_id === ""
-      ? null
-      : String(body.link_target_id).trim() || null;
-
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
 
   const gate = await getStoreIfOwner(sb, userId, sid);
   if (!gate.ok) return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
 
+  const ltRaw = typeof body.link_type === "string" ? body.link_type : "none";
+  const coerced = coerceStoreBannerLink(ltRaw, body.link_target_id);
+  if (!coerced.ok) {
+    return NextResponse.json({ ok: false, error: coerced.error }, { status: 400 });
+  }
+  const { link_type, link_target_id } = coerced;
+
   if (link_type === "product" && link_target_id) {
-    const { data: pr } = await sb.from("store_products").select("id").eq("id", link_target_id).eq("store_id", sid).maybeSingle();
+    const { data: pr } = await sb
+      .from("store_products")
+      .select("id")
+      .eq("id", link_target_id)
+      .eq("store_id", sid)
+      .maybeSingle();
     if (!pr) return NextResponse.json({ ok: false, error: "invalid_link_target" }, { status: 400 });
   }
   if (link_type === "notice" && link_target_id) {
-    const { data: no } = await sb.from("store_notices").select("id").eq("id", link_target_id).eq("store_id", sid).maybeSingle();
+    const { data: no } = await sb
+      .from("store_notices")
+      .select("id")
+      .eq("id", link_target_id)
+      .eq("store_id", sid)
+      .maybeSingle();
     if (!no) return NextResponse.json({ ok: false, error: "invalid_link_target" }, { status: 400 });
   }
 

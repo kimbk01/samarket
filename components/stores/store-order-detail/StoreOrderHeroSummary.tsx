@@ -79,6 +79,8 @@ export function StoreOrderHeroSummary({
   favoriteBusy,
   onFavoriteClick,
   collapseTopFulfillmentCard = false,
+  /** 사장님 `store_banners` — 있으면 상단 히어로(#store-hero-media)에 노출(갤러리 커버 대체) */
+  heroBannerSlot,
 }: {
   storeName: string;
   profileImageUrl: string | null;
@@ -113,6 +115,7 @@ export function StoreOrderHeroSummary({
    * 메뉴 영역이 바로 따라오게 한다.
    */
   collapseTopFulfillmentCard?: boolean;
+  heroBannerSlot?: ReactNode;
 }) {
   /** 당김 시 레이아웃 높이 + 위로 이동을 같이 줘서 헤더 위 흰 빈 공간이 보이지 않게 함 */
   const { stretch: heroStretch, scale: heroRubberScale } = useRubberBandAtDocumentTop(120, {
@@ -120,6 +123,13 @@ export function StoreOrderHeroSummary({
   });
   const heroRubberPx = Math.max(0, heroStretch);
   const img = profileImageUrl?.trim() || "";
+
+  /** 당김으로 히어로 높이가 늘 때 검은 여백 대신 이미지가 같이 확대되도록(최소 1 + stretch/기준높이) */
+  const HERO_BASE_MIN_PX = 208;
+  const heroBannerPullScale = useMemo(() => {
+    const pullComp = heroRubberPx > 0 ? 1 + heroRubberPx / HERO_BASE_MIN_PX : 1;
+    return Math.min(2.25, Math.max(heroRubberScale, pullComp));
+  }, [heroRubberPx, heroRubberScale]);
 
   const prepLine = useMemo(() => commerceExtras.estPrepLabel, [commerceExtras.estPrepLabel]);
 
@@ -195,7 +205,11 @@ export function StoreOrderHeroSummary({
       >
         <div
           id="store-hero-media"
-          className="relative w-full overflow-hidden bg-gradient-to-br from-[#1C8DB8]/88 via-[#197DA3]/82 to-[#0f766e]/78"
+          className={
+            heroBannerSlot
+              ? "relative w-full overflow-hidden bg-[#15181b]"
+              : "relative w-full overflow-hidden bg-gradient-to-br from-[#1C8DB8]/88 via-[#197DA3]/82 to-[#0f766e]/78"
+          }
         >
           <div
             className="relative w-full overflow-hidden"
@@ -204,18 +218,30 @@ export function StoreOrderHeroSummary({
               minHeight: `${208 + heroRubberPx}px`,
             }}
           >
-          {img ? (
-            <div
-              className="absolute inset-0 will-change-transform"
-              style={{
-                transform: `translateY(${-heroRubberPx * 0.15}px) scale(${heroRubberScale})`,
-                transformOrigin: "center top",
-              }}
-            >
-              <Image src={img} alt="" fill className="object-cover" sizes="100vw" priority />
-              <div className="absolute inset-0 bg-black/[0.14]" aria-hidden />
-            </div>
-          ) : null}
+            {heroBannerSlot ? (
+              <div className="absolute inset-0 z-[2] overflow-hidden">
+                <div
+                  className="absolute inset-0 will-change-[transform]"
+                  style={{
+                    transform: `translateY(${-heroRubberPx * 0.12}px) scale(${heroBannerPullScale})`,
+                    transformOrigin: "50% 0%",
+                  }}
+                >
+                  <div className="absolute inset-0 overflow-hidden">{heroBannerSlot}</div>
+                </div>
+              </div>
+            ) : img ? (
+              <div
+                className="absolute inset-0 will-change-transform"
+                style={{
+                  transform: `translateY(${-heroRubberPx * 0.15}px) scale(${heroRubberScale})`,
+                  transformOrigin: "center top",
+                }}
+              >
+                <Image src={img} alt="" fill className="object-cover" sizes="100vw" priority />
+                <div className="absolute inset-0 bg-black/[0.14]" aria-hidden />
+              </div>
+            ) : null}
           </div>
         </div>
       </div>

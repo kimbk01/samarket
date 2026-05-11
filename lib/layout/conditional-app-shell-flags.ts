@@ -103,13 +103,17 @@ export function resolveConditionalAppShellFlags(
   const isStoreProductDetail = Boolean(pathname?.match(/^\/stores\/[^/]+\/p\/[^/]+$/));
   const isStoreSection = pathname === "/stores" || (pathname?.startsWith("/stores/") ?? false);
   const normalizedStorePath = (pathname ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "";
+  /** 매장 오너 운영 센터 — 소비자 매장 플로우와 분리해 전역 하단 탭·본문 패딩을 허브와 동일하게 둔다. */
+  const isStoreOwnerAdminRoute =
+    normalizedStorePath === "/stores/owner" || normalizedStorePath.startsWith("/stores/owner/");
   const isStoresHubBottomNavSurface =
     normalizedStorePath === "/stores" ||
     normalizedStorePath === "/stores/cart" ||
     normalizedStorePath === "/stores/search" ||
     normalizedStorePath.startsWith("/stores/browse/");
   /** 배달(/stores) 허브도 전역 통합 BottomNav를 쓴다. 상세·주문 플로우만 아래 별도 조건으로 숨긴다. */
-  const isStoreCheckoutOrDetailFlow = isStoreSection && !isStoresHubBottomNavSurface;
+  const isStoreCheckoutOrDetailFlow =
+    isStoreSection && !isStoresHubBottomNavSurface && !isStoreOwnerAdminRoute;
   const isMypageTradeChatRoom = Boolean(pathname?.match(/^\/mypage\/trade\/chat\/[^/]+$/));
   const isCommunityMessengerRoom = isCommunityMessengerRoomPathname(pathname);
   const isCommunityMessengerCallPage = Boolean(pathname?.match(/^\/community-messenger\/calls\/[^/]+$/));

@@ -164,7 +164,7 @@
   /* -------------------------------------------------------------------------- */
 
   .sam-btn {
-    @apply inline-flex min-h-[length:var(--sam-button-min-height)] min-w-0 items-center justify-center gap-2 rounded-sam-md border px-4 transition-[background-color,border-color,color,opacity,filter] duration-150;
+    @apply inline-flex min-h-[length:var(--sam-button-min-height)] min-w-0 touch-manipulation select-none items-center justify-center gap-2 rounded-sam-md border px-4 transition-[background-color,border-color,color,opacity,filter] duration-150;
     font-size: var(--sm-font-button);
     font-weight: var(--sam-fw-medium);
     box-shadow: var(--sam-shadow-none);
@@ -202,6 +202,10 @@
     @apply border-sam-danger/15 bg-sam-danger-soft text-sam-danger;
   }
 
+  .sam-btn--danger:not(:disabled):active {
+    filter: brightness(0.95);
+  }
+
   .sam-btn--outline {
     @apply border-sam-border bg-sam-surface text-sam-fg;
   }
@@ -237,7 +241,7 @@
 
   /* 단일 클래스 (레거시 / 빠른 사용) */
   .sam-btn-primary {
-    @apply inline-flex min-h-[length:var(--sam-button-min-height)] min-w-0 items-center justify-center gap-2 rounded-sam-md border border-transparent bg-sam-primary px-4 text-sam-on-primary transition-[background-color,opacity] duration-150;
+    @apply inline-flex min-h-[length:var(--sam-button-min-height)] min-w-0 touch-manipulation select-none items-center justify-center gap-2 rounded-sam-md border border-transparent bg-sam-primary px-4 text-sam-on-primary transition-[background-color,opacity] duration-150;
     font-size: var(--sm-font-button);
     font-weight: var(--sam-fw-medium);
   }
@@ -251,7 +255,7 @@
   }
 
   .sam-btn-secondary {
-    @apply inline-flex min-h-[length:var(--sam-button-min-height)] min-w-0 items-center justify-center gap-2 rounded-sam-md border border-sam-primary-border bg-sam-primary-soft px-4 text-sam-primary transition-[filter,opacity] duration-150;
+    @apply inline-flex min-h-[length:var(--sam-button-min-height)] min-w-0 touch-manipulation select-none items-center justify-center gap-2 rounded-sam-md border border-sam-primary-border bg-sam-primary-soft px-4 text-sam-primary transition-[filter,opacity] duration-150;
     font-size: var(--sm-font-button);
     font-weight: var(--sam-fw-medium);
   }
@@ -265,7 +269,7 @@
   }
 
   .sam-btn-ghost {
-    @apply inline-flex min-h-[length:var(--sam-button-min-height)] min-w-0 items-center justify-center gap-2 rounded-sam-md border border-transparent bg-transparent px-4 text-sam-fg transition-colors duration-150;
+    @apply inline-flex min-h-[length:var(--sam-button-min-height)] min-w-0 touch-manipulation select-none items-center justify-center gap-2 rounded-sam-md border border-transparent bg-transparent px-4 text-sam-fg transition-colors duration-150;
     font-size: var(--sm-font-button);
     font-weight: var(--sam-fw-medium);
   }
@@ -275,13 +279,17 @@
   }
 
   .sam-btn-danger {
-    @apply inline-flex min-h-[length:var(--sam-button-min-height)] min-w-0 items-center justify-center gap-2 rounded-sam-md border border-sam-danger/15 bg-sam-danger-soft px-4 text-sam-danger transition-opacity duration-150;
+    @apply inline-flex min-h-[length:var(--sam-button-min-height)] min-w-0 touch-manipulation select-none items-center justify-center gap-2 rounded-sam-md border border-sam-danger/15 bg-sam-danger-soft px-4 text-sam-danger transition-opacity duration-150;
     font-size: var(--sm-font-button);
     font-weight: var(--sam-fw-medium);
   }
 
   .sam-btn-danger:disabled {
     @apply cursor-not-allowed opacity-45;
+  }
+
+  .sam-btn-danger:not(:disabled):active {
+    filter: brightness(0.95);
   }
 
   /* -------------------------------------------------------------------------- */
@@ -403,6 +411,9 @@
     font-size: var(--sm-font-tab);
     font-weight: var(--sam-fw-medium);
     color: var(--sam-text-secondary);
+    touch-action: manipulation;
+    -webkit-user-select: none;
+    user-select: none;
     transition:
       color 150ms,
       opacity 150ms;
@@ -428,6 +439,10 @@
 
   .sam-tab:disabled {
     @apply opacity-40;
+  }
+
+  .sam-tab:not(:disabled):active {
+    opacity: 0.88;
   }
 
   /** 가로 스크롤 2단 탭 — 시각은 `.sam-tab` 과 동일(밑줄 활성), 폭만 내용 기준 */

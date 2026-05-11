@@ -90,7 +90,7 @@ export function StoreDetailSummarySection({
   onShareClick: () => void;
   onCartPreviewClick: () => void;
   noticePreview: string;
-  /** 매장 배너(가로 스와이프) — summary 아래 */
+  /** 매장 배너(store_banners) — 상단 히어로 영역에 노출 */
   bannersSlot?: ReactNode;
   /** 매장 공지(store_notices placement=store_top) */
   storeManagedNoticesSlot?: ReactNode;
@@ -116,7 +116,11 @@ export function StoreDetailSummarySection({
         <StoreOrderHeroSummary
           storeName={store.store_name}
           profileImageUrl={heroImageUrl}
-          collapseTopFulfillmentCard={headerElevated && !!heroImageUrl}
+          collapseTopFulfillmentCard={
+            headerElevated &&
+            (!!(heroImageUrl && heroImageUrl.trim()) || Boolean(bannersSlot))
+          }
+          heroBannerSlot={bannersSlot}
           ratingAvg={
             store.rating_avg != null && Number.isFinite(Number(store.rating_avg))
               ? Number(store.rating_avg)
@@ -150,8 +154,6 @@ export function StoreDetailSummarySection({
           onFavoriteClick={onFavoriteClick}
         />
       </div>
-
-      {bannersSlot ? <div className="mt-2 px-4">{bannersSlot}</div> : null}
 
       {noticePreview && !storeManagedNoticesSlot ? (
         <StoreOrderNoticeStrip

@@ -1,51 +1,46 @@
 "use client";
 
 import Link from "next/link";
+import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useSupabaseStoreOrdersRealtime } from "@/hooks/useSupabaseStoreOrdersRealtime";
 import { playDeliveryOrderAlertDebounced } from "@/lib/business/delivery-order-alert-debounce";
 import { primeStoreOrderAlertAudio } from "@/lib/business/store-order-alert-sound";
 import { fetchStoreOrdersListDeduped } from "@/lib/stores/fetch-store-orders-list-deduped";
-import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import type { BusinessProduct, BusinessProfile } from "@/lib/types/business";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
-import { BusinessOwnerOpsStrip } from "@/components/business/BusinessOwnerOpsStrip";
 import { BusinessDashboardKpiStrip, type DashboardKpi } from "@/components/business/admin/dashboard/BusinessDashboardKpiStrip";
-import { BusinessDashboardPriorityCards } from "@/components/business/admin/dashboard/BusinessDashboardPriorityCards";
 import { BusinessDashboardOrderTimeline, type TimelineOrder } from "@/components/business/admin/dashboard/BusinessDashboardOrderTimeline";
 import { BusinessDashboardQuickRow } from "@/components/business/admin/dashboard/BusinessDashboardQuickRow";
-import { BusinessDashboardInsights } from "@/components/business/admin/dashboard/BusinessDashboardInsights";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { usePullToRefreshAtDocumentTop } from "@/lib/ui/use-pull-to-refresh-document-top";
 
 type InquiryRow = { id: string; status: string };
-
-type SettlementRow = {
-  store_id: string;
-  settlement_status: string;
-  settlement_amount: number;
-};
 
 function isTerminalOrderStatus(s: string): boolean {
   return s === "completed" || s === "cancelled" || s === "refunded";
 }
 
-function startOfTodayMs(): number {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-}
-
-function startOfDayMs(daysAgo: number): number {
-  const d = new Date();
-  d.setDate(d.getDate() - daysAgo);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
+function KpiSkeleton() {
+  return (
+    <div className="rounded-ui-rect border border-sam-border bg-sam-border p-px shadow-sm">
+      <div className="grid grid-cols-2 gap-px sm:grid-cols-3 xl:grid-cols-6">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="min-h-[5.25rem] bg-sam-surface px-2.5 py-2.5 sm:min-h-[5.75rem] sm:px-3">
+            <div className="h-3 w-14 animate-pulse rounded bg-sam-border-soft" />
+            <div className="mt-2 h-7 w-10 animate-pulse rounded bg-sam-border-soft" />
+            <div className="mt-1.5 h-3 w-16 animate-pulse rounded bg-sam-border-soft" />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 }
 
 export function BusinessAdminDashboard({
   row,
-  profile,
+  profile: _profile,
   products,
   canSell,
   orderAlertsBadge,
@@ -62,7 +57,6 @@ export function BusinessAdminDashboard({
   const ordersBaseHref = buildStoreOrdersHref({ storeId: row.id });
   const inquiriesHref = `/stores/owner/inquiries?${q}`;
   const productsHubHref = `/stores/owner/products?${q}`;
-  const settlementsHref = `/stores/owner/settlements?${q}`;
 
   const [orders, setOrders] = useState<TimelineOrder[]>([]);
   const [meta, setMeta] = useState({
@@ -71,7 +65,6 @@ export function BusinessAdminDashboard({
     pending_delivery: 0,
   });
   const [inquiries, setInquiries] = useState<InquiryRow[]>([]);
-  const [settlements, setSettlements] = useState<SettlementRow[]>([]);
   const [dashLoading, setDashLoading] = useState(true);
 
   const alertStoreIdRef = useRef<string | null>(null);
@@ -94,13 +87,10 @@ export function BusinessAdminDashboard({
     const silent = opts?.silent === true;
     if (!silent) setDashLoading(true);
     try {
-      const [oj, ir, sr] = await Promise.all([
+      const [oj, ir] = await Promise.all([
         fetchStoreOrdersListDeduped(row.id),
         runSingleFlight(`me:stores:${row.id}:inquiries:get`, () =>
           fetch(`/api/me/stores/${encodeURIComponent(row.id)}/inquiries`, { credentials: "include" })
-        ),
-        runSingleFlight("me:store-settlements:get", () =>
-          fetch("/api/me/store-settlements", { credentials: "include" })
         ),
       ]);
       const ordersJson = oj.json as {
@@ -126,15 +116,9 @@ export function BusinessAdminDashboard({
 
       const ij = await ir.json().catch(() => ({}));
       setInquiries(ij?.ok && Array.isArray(ij.inquiries) ? (ij.inquiries as InquiryRow[]) : []);
-
-      const sj = await sr.json().catch(() => ({}));
-      const allSettlements: SettlementRow[] =
-        sj?.ok && Array.isArray(sj.settlements) ? (sj.settlements as SettlementRow[]) : [];
-      setSettlements(allSettlements.filter((s) => s.store_id === row.id));
     } catch {
       setOrders([]);
       setInquiries([]);
-      setSettlements([]);
     } finally {
       if (!silent) setDashLoading(false);
     }
@@ -157,6 +141,12 @@ export function BusinessAdminDashboard({
     return () => window.clearInterval(id);
   }, [loadDashboard]);
 
+  const handlePullRefresh = useCallback(async () => {
+    await Promise.all([loadRemote(), loadDashboard({ silent: true })]);
+  }, [loadRemote, loadDashboard]);
+
+  const { pullPx, refreshing, willReleaseRefresh } = usePullToRefreshAtDocumentTop(handlePullRefresh);
+
   const openInquiryCount = useMemo(
     () => inquiries.filter((r) => r.status === "open").length,
     [inquiries]
@@ -167,251 +157,217 @@ export function BusinessAdminDashboard({
     [products]
   );
 
+  const refundRequestedTotal = useMemo(() => {
+    const inSample = orders.filter((o) => o.order_status === "refund_requested").length;
+    /** API `meta.refund_requested_count`는 전체 원장 기준(목록 100건 제한과 무관). 목록과 교차해 최소한 샘플 내 건도 반영 */
+    return Math.max(meta.refund_requested, inSample);
+  }, [orders, meta.refund_requested]);
+
   const kpi: DashboardKpi = useMemo(() => {
-    const t0 = startOfTodayMs();
-    const t7 = startOfDayMs(7);
-    let todaySales = 0;
-    let weekSales = 0;
     let inProgress = 0;
-    let cancelWeek = 0;
-    let denomWeek = 0;
+    let todaySales = 0;
+    const t0 = new Date();
+    t0.setHours(0, 0, 0, 0);
+    const t0ms = t0.getTime();
 
     for (const o of orders) {
       const ts = new Date(o.created_at).getTime();
       const pay = Math.round(Number(o.payment_amount) || 0);
-      if (o.order_status === "completed") {
-        if (ts >= t0) todaySales += pay;
-        if (ts >= t7) weekSales += pay;
+      if (o.order_status === "completed" && ts >= t0ms) {
+        todaySales += pay;
       }
-      if (ts >= t7) {
-        denomWeek += 1;
-        if (o.order_status === "cancelled") cancelWeek += 1;
-      }
-      if (!isTerminalOrderStatus(o.order_status) && o.order_status !== "pending") {
+      if (
+        !isTerminalOrderStatus(o.order_status) &&
+        o.order_status !== "pending" &&
+        o.order_status !== "refund_requested"
+      ) {
         inProgress += 1;
       }
     }
 
-    let settlementPending = 0;
-    let settlementPaid = 0;
-    let settlementHeld = 0;
-    for (const s of settlements) {
-      const amt = Math.round(Number(s.settlement_amount) || 0);
-      if (s.settlement_status === "scheduled" || s.settlement_status === "processing") {
-        settlementPending += amt;
-      } else if (s.settlement_status === "paid") {
-        settlementPaid += amt;
-      } else if (s.settlement_status === "held") {
-        settlementHeld += amt;
-      }
-    }
-
-    const cancelRatePercent = denomWeek > 0 ? Math.round((cancelWeek / denomWeek) * 100) : 0;
-
     return {
       newOrders: meta.pending_accept,
       inProgress,
+      refundRequested: refundRequestedTotal,
       openInquiries: openInquiryCount,
       todaySalesPhp: todaySales,
-      settlementPendingPhp: settlementPending,
       soldOutProducts,
     };
-  }, [orders, meta.pending_accept, openInquiryCount, soldOutProducts, settlements]);
+  }, [orders, meta.pending_accept, refundRequestedTotal, openInquiryCount, soldOutProducts]);
 
   const timelineOrders = useMemo(() => orders.slice(0, 8), [orders]);
 
-  const insights = useMemo(() => {
-    const t0 = startOfTodayMs();
-    const t7 = startOfDayMs(7);
-    let todaySales = 0;
-    let weekSales = 0;
-    let cancelWeek = 0;
-    let denomWeek = 0;
-    for (const o of orders) {
-      const ts = new Date(o.created_at).getTime();
-      const pay = Math.round(Number(o.payment_amount) || 0);
-      if (o.order_status === "completed") {
-        if (ts >= t0) todaySales += pay;
-        if (ts >= t7) weekSales += pay;
-      }
-      if (ts >= t7) {
-        denomWeek += 1;
-        if (o.order_status === "cancelled") cancelWeek += 1;
-      }
-    }
-    let settlementScheduled = 0;
-    let settlementPaid = 0;
-    let settlementHeld = 0;
-    for (const s of settlements) {
-      const amt = Math.round(Number(s.settlement_amount) || 0);
-      if (s.settlement_status === "scheduled" || s.settlement_status === "processing") {
-        settlementScheduled += amt;
-      } else if (s.settlement_status === "paid") {
-        settlementPaid += amt;
-      } else if (s.settlement_status === "held") {
-        settlementHeld += amt;
-      }
-    }
-    return {
-      todaySalesPhp: todaySales,
-      weekSalesPhp: weekSales,
-      cancelCount: cancelWeek,
-      cancelRatePercent: denomWeek > 0 ? Math.round((cancelWeek / denomWeek) * 100) : 0,
-      settlementScheduledPhp: settlementScheduled,
-      settlementPaidPhp: settlementPaid,
-      settlementHeldPhp: settlementHeld,
-    };
-  }, [orders, settlements]);
+  const quickLinks = useMemo(
+    () => [
+      { label: "주문 관리", href: ordersBaseHref },
+      { label: "채팅 · 문의", href: inquiriesHref },
+      { label: "상품 등록", href: productsHubHref },
+      { label: "카테고리", href: `/stores/owner/menu-categories?${q}` },
+      { label: "매장 설정", href: `/stores/owner/profile?${q}` },
+      { label: "알림 · 운영", href: `/stores/owner/settings?${q}` },
+    ],
+    [q, productsHubHref, ordersBaseHref, inquiriesHref]
+  );
 
-  const priorityCards = useMemo(() => {
-    const cards: Array<{
-      title: string;
-      description: string;
-      href: string;
-      badge?: string;
-      tone?: "default" | "accent" | "danger" | "warning";
-    }> = [];
-
-    if (canSell && row.is_visible) {
-      cards.push({
-        title: "신규 · 환불 요청 주문",
-        description: "접수 대기·환불 요청을 바로 확인하고 상태를 바꿉니다.",
+  const alertChips = useMemo(() => {
+    const chips: Array<{ label: string; href: string; tone: "neutral" | "amber" | "rose" | "signature" }> = [];
+    if (canSell && row.is_visible && orderAlertsBadge > 0) {
+      chips.push({
+        label: `처리 필요 주문 ${orderAlertsBadge > 99 ? "99+" : orderAlertsBadge}건`,
         href: buildStoreOrdersHref({ storeId: row.id, tab: "new" }),
-        badge: orderAlertsBadge > 0 ? String(orderAlertsBadge > 99 ? "99+" : orderAlertsBadge) : undefined,
-        tone: orderAlertsBadge > 0 ? "accent" : "default",
+        tone: "signature",
       });
     }
-
-    if (meta.refund_requested > 0) {
-      cards.push({
-        title: "환불 처리 대기",
-        description: "구매자 환불 요청 건이 있습니다. 주문 상세에서 상태를 확인하세요.",
-        href: buildStoreOrdersHref({ storeId: row.id, tab: "refund" }),
-        badge: String(meta.refund_requested),
-        tone: "warning",
-      });
-    }
-
     if (meta.pending_delivery > 0) {
-      cards.push({
-        title: "배달 접수 대기",
-        description: "배달 주문이 대기 중입니다. 픽업·배송 단계를 진행해 주세요.",
+      chips.push({
+        label: `배달 대기 ${meta.pending_delivery}건`,
         href: buildStoreOrdersHref({ storeId: row.id, tab: "new" }),
-        badge: String(meta.pending_delivery),
-        tone: "danger",
+        tone: "rose",
       });
     }
-
     if (openInquiryCount > 0) {
-      cards.push({
-        title: "미응답 문의",
-        description: "고객 문의에 답변이 필요합니다.",
+      chips.push({
+        label: `미응답 문의 ${openInquiryCount}건`,
         href: inquiriesHref,
-        badge: String(openInquiryCount),
-        tone: "accent",
+        tone: "neutral",
       });
     }
-
     if (soldOutProducts > 0) {
-      cards.push({
-        title: "품절 메뉴",
-        description: "품절 표시된 상품을 확인하고 재고를 정리하세요.",
+      chips.push({
+        label: `품절 ${soldOutProducts}건`,
         href: productsHubHref,
-        badge: String(soldOutProducts),
-        tone: "warning",
+        tone: "amber",
       });
     }
-
-    cards.push({
-      title: "운영 · 심사 상태",
-      description: "공개 노출, 판매 승인, 배달 설정을 점검합니다.",
-      href: `/stores/owner/ops-status?${q}`,
-      tone: "default",
-    });
-
-    return cards;
+    return chips;
   }, [
     canSell,
     row.is_visible,
     orderAlertsBadge,
-    meta.refund_requested,
     meta.pending_delivery,
     openInquiryCount,
     soldOutProducts,
     row.id,
     inquiriesHref,
     productsHubHref,
-    q,
   ]);
 
-  const quickLinks = useMemo(
-    () => [
-      { label: "주문 관리", href: ordersBaseHref },
-      { label: "상품 등록", href: productsHubHref },
-      { label: "카테고리", href: `/stores/owner/menu-categories?${q}` },
-      { label: "영업시간 · 휴무", href: `/stores/owner/profile?${q}` },
-      { label: "공지 · 소개", href: `/stores/owner/profile?${q}` },
-      { label: "배달 알림음 안내", href: `/stores/owner/settings?${q}` },
-      ...(row.slug && row.is_visible
-        ? [{ label: "공개 페이지", href: `/stores/${encodeURIComponent(row.slug)}` }]
-        : []),
-    ],
-    [q, productsHubHref, ordersBaseHref, row.slug, row.is_visible]
-  );
+  const chipClass = (tone: (typeof alertChips)[0]["tone"]) => {
+    if (tone === "signature")
+      return "border-signature/40 bg-signature/10 text-signature hover:bg-signature/15";
+    if (tone === "amber") return "border-amber-200 bg-amber-50 text-amber-950 hover:bg-amber-100/90";
+    if (tone === "rose") return "border-rose-200 bg-rose-50 text-rose-950 hover:bg-rose-100/90";
+    return "border-sam-border bg-sam-surface-muted text-sam-fg hover:bg-sam-app";
+  };
 
   return (
-    <div className={`${OWNER_STORE_STACK_Y_CLASS} relative`}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="sam-text-helper font-medium text-sam-muted">지표·주문·문의 요약</p>
-        </div>
-        <button
-          type="button"
-          onClick={() => {
-            void loadRemote();
-            void loadDashboard();
+    <div className="relative">
+      {(refreshing || pullPx > 6) && (
+        <div
+          aria-live="polite"
+          className="pointer-events-none absolute inset-x-0 z-10 flex justify-center"
+          style={{
+            top: "-0.125rem",
+            transform: `translateY(${Math.min(pullPx, 56)}px)`,
           }}
-          className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg"
         >
-          새로고침
-        </button>
-      </div>
+          <div className="flex items-center gap-2 rounded-full border border-sam-border-soft bg-sam-surface/95 px-3 py-1.5 shadow-sm backdrop-blur-sm">
+            {refreshing ?
+              <>
+                <Loader2 className="h-4 w-4 shrink-0 animate-spin text-sam-muted" aria-hidden />
+                <span className="sam-text-xxs font-semibold text-sam-muted">불러오는 중…</span>
+              </>
+            : <span className="sam-text-xxs font-semibold text-sam-fg">
+                {willReleaseRefresh ? "놓으면 새로고침" : "아래로 당겨 새로고침"}
+              </span>}
+          </div>
+        </div>
+      )}
 
-      {dashLoading ? <p className="sam-text-body text-sam-muted">대시보드 데이터 불러오는 중…</p> : null}
-
-      <BusinessDashboardKpiStrip
-        kpi={kpi}
-        ordersBaseHref={ordersBaseHref}
-        inquiriesHref={inquiriesHref}
-        productsHubHref={productsHubHref}
-        settlementsHref={settlementsHref}
-      />
-
-      <BusinessDashboardPriorityCards cards={priorityCards} />
-
-      <BusinessDashboardOrderTimeline storeId={row.id} orders={timelineOrders} />
-
-      <BusinessDashboardQuickRow links={quickLinks} />
-
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
-        <BusinessOwnerOpsStrip row={row} profile={profile} canSell={canSell} />
-        <Link
-          href={`/stores/owner/ops-status?${q}`}
-          className="mt-3 inline-block sam-text-body-secondary font-medium text-signature"
+      <div
+        className="space-y-2"
+        style={{
+          transform: pullPx > 0 ? `translateY(${pullPx}px)` : undefined,
+          transition: pullPx === 0 ? "transform 0.2s ease-out" : undefined,
+        }}
+      >
+        <section
+          className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm"
+          aria-labelledby="owner-dash-order-status"
         >
-          운영 상세 보기
-        </Link>
-      </div>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sam-border-soft bg-sam-app/50 px-3 py-2 sm:px-4">
+          <h2 id="owner-dash-order-status" className="sam-text-body font-bold text-sam-fg">
+            주문 현황
+          </h2>
+          <Link
+            href={ordersBaseHref}
+            className="sam-text-body-secondary font-semibold text-signature hover:underline"
+          >
+            주문 관리
+          </Link>
+        </div>
+        <div className="space-y-2 p-3 sm:p-4">
+          {dashLoading ?
+            <KpiSkeleton />
+          : <BusinessDashboardKpiStrip
+              kpi={kpi}
+              ordersBaseHref={ordersBaseHref}
+              inquiriesHref={inquiriesHref}
+              productsHubHref={productsHubHref}
+              orderAlertsBadge={orderAlertsBadge}
+            />
+          }
+          {alertChips.length > 0 ?
+            <div className="flex flex-wrap gap-2" role="list" aria-label="즉시 확인">
+              {alertChips.map((c) => (
+                <Link
+                  key={c.href + c.label}
+                  href={c.href}
+                  role="listitem"
+                  className={`rounded-full border px-3 py-1.5 sam-text-xxs font-semibold transition ${chipClass(c.tone)}`}
+                >
+                  {c.label}
+                </Link>
+              ))}
+            </div>
+          : null}
+        </div>
+        </section>
 
-      <BusinessDashboardInsights
-        todaySalesPhp={insights.todaySalesPhp}
-        weekSalesPhp={insights.weekSalesPhp}
-        cancelCount={insights.cancelCount}
-        cancelRatePercent={insights.cancelRatePercent}
-        settlementScheduledPhp={insights.settlementScheduledPhp}
-        settlementPaidPhp={insights.settlementPaidPhp}
-        settlementHeldPhp={insights.settlementHeldPhp}
-      />
+        <section
+          className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm"
+          aria-labelledby="owner-dash-recent-orders"
+        >
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sam-border-soft bg-sam-app/50 px-3 py-2 sm:px-4">
+          <h2 id="owner-dash-recent-orders" className="sam-text-body font-bold text-sam-fg">
+            최근 주문
+          </h2>
+          <Link
+            href={ordersBaseHref}
+            className="sam-text-body-secondary font-semibold text-signature hover:underline"
+          >
+            전체 보기
+          </Link>
+        </div>
+        <div className="p-2 sm:p-3">
+          <BusinessDashboardOrderTimeline storeId={row.id} orders={timelineOrders} />
+        </div>
+        </section>
+
+        <section
+          className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm"
+          aria-labelledby="owner-dash-shortcuts"
+        >
+        <div className="border-b border-sam-border-soft bg-sam-app/50 px-3 py-2 sm:px-4">
+          <h2 id="owner-dash-shortcuts" className="sam-text-body font-bold text-sam-fg">
+            바로가기
+          </h2>
+        </div>
+        <div className="p-3 sm:p-4">
+          <BusinessDashboardQuickRow links={quickLinks} />
+        </div>
+        </section>
+      </div>
     </div>
   );
 }

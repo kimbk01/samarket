@@ -50,6 +50,32 @@ function MyBusinessSettingsPageInner() {
     void load();
   }, [load]);
 
+  const toggleVisible = useCallback(async () => {
+    if (phase.kind !== "ok") return;
+    const row = phase.row;
+    const okApproved = row.approval_status === "approved";
+    const currentlyVisible = row.is_visible === true;
+    if (!okApproved) return;
+    const next = !currentlyVisible;
+    try {
+      const res = await fetch(`/api/me/stores/${row.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ is_visible: next }),
+      });
+      const json = (await res.json()) as { ok?: boolean; store?: StoreRow; error?: string };
+      if (!res.ok || !json?.ok) throw new Error(json?.error ?? `http_${res.status}`);
+      if (json.store?.id === row.id) {
+        setPhase({ kind: "ok", row: json.store });
+      } else {
+        await load();
+      }
+    } catch {
+      await load();
+    }
+  }, [phase, load]);
+
   if (phase.kind === "loading") {
     return <p className="sam-text-body text-sam-muted">불러오는 중…</p>;
   }
@@ -75,29 +101,6 @@ function MyBusinessSettingsPageInner() {
   const q = `storeId=${encodeURIComponent(row.id)}`;
   const isApproved = row.approval_status === "approved";
   const visible = row.is_visible === true;
-
-  const toggleVisible = useCallback(async () => {
-    if (!isApproved) return;
-    const next = !visible;
-    try {
-      const res = await fetch(`/api/me/stores/${row.id}`, {
-        method: "PATCH",
-        headers: { "content-type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({ is_visible: next }),
-      });
-      const json = (await res.json()) as { ok?: boolean; store?: StoreRow; error?: string };
-      if (!res.ok || !json?.ok) throw new Error(json?.error ?? `http_${res.status}`);
-      if (json.store?.id === row.id) {
-        setPhase({ kind: "ok", row: json.store });
-      } else {
-        await load();
-      }
-    } catch {
-      // fall back to refresh; keep UI simple
-      await load();
-    }
-  }, [isApproved, load, row.id, visible]);
 
   return (
     <div className={`${OWNER_STORE_STACK_Y_CLASS}`}>

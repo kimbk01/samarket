@@ -4,11 +4,10 @@ import { validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { revalidateStoreConsumerPathsBySlug } from "@/lib/stores/revalidate-store-consumer-paths";
+import { coerceStoreBannerLink, STORE_BANNER_LINK_TYPES } from "@/lib/stores/store-banner-link";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const LINK_TYPES = new Set(["none", "product", "notice", "coupon"]);
 
 async function resolveSlug(sb: ReturnType<typeof tryGetSupabaseForStores>, storeId: string): Promise<string | null> {
   if (!sb) return null;
@@ -46,7 +45,7 @@ export async function PATCH(
 
   const { data: existing, error: findErr } = await sb
     .from("store_banners")
-    .select("id")
+    .select("id, link_type, link_target_id")
     .eq("id", bid)
     .eq("store_id", sid)
     .maybeSingle();
@@ -68,7 +67,7 @@ export async function PATCH(
   }
   if (body.link_type !== undefined) {
     const lt = String(body.link_type).trim();
-    if (!LINK_TYPES.has(lt)) return NextResponse.json({ ok: false, error: "invalid_link_type" }, { status: 400 });
+    if (!STORE_BANNER_LINK_TYPES.has(lt)) return NextResponse.json({ ok: false, error: "invalid_link_type" }, { status: 400 });
     patch.link_type = lt;
   }
   if (body.link_target_id !== undefined) {
@@ -89,15 +88,42 @@ export async function PATCH(
     patch.end_at = typeof body.end_at === "string" && body.end_at.trim() ? body.end_at.trim() : null;
   }
 
-  const nextLt = (patch.link_type as string | undefined) ?? undefined;
-  const targetId = (patch.link_target_id as string | null | undefined) ?? undefined;
-  if (nextLt === "product" && targetId) {
-    const { data: pr } = await sb.from("store_products").select("id").eq("id", targetId).eq("store_id", sid).maybeSingle();
+  type ExistingRow = { id: string; link_type: string; link_target_id: string | null };
+  const ex = existing as ExistingRow;
+  const mergedLt = (patch.link_type as string | undefined) ?? ex.link_type;
+  const mergedTargetRaw =
+    patch.link_target_id !== undefined ? (patch.link_target_id as string | null) : ex.link_target_id;
+
+  const coerced = coerceStoreBannerLink(mergedLt, mergedTargetRaw);
+  if (!coerced.ok) {
+    return NextResponse.json({ ok: false, error: coerced.error }, { status: 400 });
+  }
+  const { link_type: canonLt, link_target_id: canonTgt } = coerced;
+
+  if (canonLt === "product" && canonTgt) {
+    const { data: pr } = await sb
+      .from("store_products")
+      .select("id")
+      .eq("id", canonTgt)
+      .eq("store_id", sid)
+      .maybeSingle();
     if (!pr) return NextResponse.json({ ok: false, error: "invalid_link_target" }, { status: 400 });
   }
-  if (nextLt === "notice" && targetId) {
-    const { data: no } = await sb.from("store_notices").select("id").eq("id", targetId).eq("store_id", sid).maybeSingle();
+  if (canonLt === "notice" && canonTgt) {
+    const { data: no } = await sb
+      .from("store_notices")
+      .select("id")
+      .eq("id", canonTgt)
+      .eq("store_id", sid)
+      .maybeSingle();
     if (!no) return NextResponse.json({ ok: false, error: "invalid_link_target" }, { status: 400 });
+  }
+
+  const linkFieldsInBody = body.link_type !== undefined || body.link_target_id !== undefined;
+  const linkCanonChanged = canonLt !== ex.link_type || canonTgt !== (ex.link_target_id ?? null);
+  if (linkFieldsInBody || linkCanonChanged) {
+    patch.link_type = canonLt;
+    patch.link_target_id = canonTgt;
   }
 
   if (Object.keys(patch).length === 0) {

@@ -10,8 +10,9 @@ import {
   Megaphone,
   MessageCircle,
   Package,
+  Sparkles,
+  Settings,
   Settings2,
-  ShoppingBag,
   Store,
   Truck,
   Wallet,
@@ -19,6 +20,7 @@ import {
 
 const LABEL_ICON: Record<string, LucideIcon> = {
   대시보드: LayoutDashboard,
+  "매장 설정": Settings,
   "채팅 · 문의": MessageCircle,
   "배달 주문": Truck,
   "배달 운영 설정": Settings2,
@@ -31,7 +33,7 @@ const LABEL_ICON: Record<string, LucideIcon> = {
   "운영 · 심사": ClipboardCheck,
   "공개 매장 페이지": ExternalLink,
   "정산 내역": Wallet,
-  "광고 · 프로모션": Megaphone,
+  "광고 · 프로모션": Sparkles,
   "알림 · 운영": Bell,
 };
 

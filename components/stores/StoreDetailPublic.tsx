@@ -457,8 +457,7 @@ export function StoreDetailPublic({
       window.requestAnimationFrame(() => {
         scrollHeaderGate.current = false;
         setHeaderSolid((prev) => {
-          // 히어로 이미지가 끝나는 지점까지는 투명 헤더 유지.
-          // 이미지 하단이 헤더(약 56px) 아래로 내려오면 → 흰 헤더 + 검은 아이콘 전환.
+          // 히어로(커버·배너) 하단이 헤더(약 56px) 아래로 지나가면 → 흰 배경 + 검은 아이콘
           const hero = document.getElementById("store-hero-media");
           const headerH = 56; // h-14
           const next = hero ? hero.getBoundingClientRect().bottom <= headerH : true;
@@ -469,7 +468,7 @@ export function StoreDetailPublic({
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  }, [publicBanners.length, store?.slug]);
 
   const ownerManagementHref = useOwnerManagementHref(
     store ? { id: store.id, slug: store.slug } : null
@@ -840,6 +839,8 @@ export function StoreDetailPublic({
     "";
   const storeGalleryUrls = parseMediaUrlsJson(store.gallery_images_json, 8);
   const heroImageUrl = storeGalleryUrls[0] || store.profile_image_url;
+  const heroVisualForHeader =
+    Boolean(String(heroImageUrl ?? "").trim()) || publicBanners.length > 0;
   const storeAddressLines = formatStorePickupAddressLines({
     region: store.region,
     city: store.city,
@@ -870,7 +871,7 @@ export function StoreDetailPublic({
   return viewportShell(
     <div className={`pb-[env(safe-area-inset-bottom,0px)] ${rootBottomPadClass}`}>
       <StoreDetailSummarySection
-        headerElevated={headerSolid || !heroImageUrl}
+        headerElevated={headerSolid || !heroVisualForHeader}
         fallbackHref={fallbackHref}
         store={store}
         heroImageUrl={heroImageUrl}
@@ -910,7 +911,7 @@ export function StoreDetailPublic({
         commerceCartStoreId={store.id}
         bannersSlot={
           publicBanners.length > 0 ? (
-            <StoreOwnerBannerCarousel storeSlug={store.slug} banners={publicBanners} />
+            <StoreOwnerBannerCarousel storeSlug={store.slug} banners={publicBanners} variant="hero" />
           ) : undefined
         }
         storeManagedNoticesSlot={

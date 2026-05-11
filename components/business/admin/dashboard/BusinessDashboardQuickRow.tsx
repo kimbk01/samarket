@@ -8,19 +8,16 @@ export function BusinessDashboardQuickRow({
   links: { label: string; href: string }[];
 }) {
   return (
-    <section className="space-y-2">
-      <h2 className="sam-text-body font-semibold text-sam-fg">빠른 실행</h2>
-      <div className="flex flex-wrap gap-2">
-        {links.map((l) => (
-          <Link
-            key={l.href + l.label}
-            href={l.href}
-            className="rounded-full border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg shadow-sm hover:border-signature/30 hover:bg-signature/5"
-          >
-            {l.label}
-          </Link>
-        ))}
-      </div>
-    </section>
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+      {links.map((l) => (
+        <Link
+          key={l.href + l.label}
+          href={l.href}
+          className="flex min-h-[3rem] w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-2.5 text-center sam-text-body-secondary font-semibold leading-snug text-sam-fg shadow-sm transition hover:border-signature/35 hover:bg-signature/[0.04]"
+        >
+          {l.label}
+        </Link>
+      ))}
+    </div>
   );
 }

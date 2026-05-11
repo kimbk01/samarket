@@ -8,9 +8,9 @@ import { formatPrice } from "@/lib/utils/format";
 export type DashboardKpi = {
   newOrders: number;
   inProgress: number;
+  refundRequested: number;
   openInquiries: number;
   todaySalesPhp: number;
-  settlementPendingPhp: number;
   soldOutProducts: number;
 };
 
@@ -19,72 +19,94 @@ export function BusinessDashboardKpiStrip({
   ordersBaseHref,
   inquiriesHref,
   productsHubHref,
-  settlementsHref,
+  orderAlertsBadge = 0,
 }: {
   kpi: DashboardKpi;
-  /** `/my/business/store-orders?storeId=…` 형태 */
   ordersBaseHref: string;
   inquiriesHref: string;
   productsHubHref: string;
-  settlementsHref: string;
+  orderAlertsBadge?: number;
 }) {
   const currency = useMemo(() => getAppSettings().defaultCurrency ?? "KRW", []);
 
   const withOrderTab = (tab: string) =>
     tab === "all" ? ordersBaseHref : `${ordersBaseHref}&tab=${encodeURIComponent(tab)}`;
 
-  const cells = [
+  const cells: Array<{
+    key: string;
+    label: string;
+    value: string;
+    sub: string;
+    href: string;
+    emphasize?: boolean;
+  }> = [
     {
+      key: "new",
       label: "신규 주문",
       value: String(kpi.newOrders),
-      hint: "접수 대기",
+      sub: "접수 대기",
       href: withOrderTab("new"),
+      emphasize: orderAlertsBadge > 0,
     },
     {
+      key: "progress",
       label: "진행 중",
       value: String(kpi.inProgress),
-      hint: "처리 중",
+      sub: "배달·조리",
       href: withOrderTab("progress"),
     },
     {
-      label: "미응답 문의",
-      value: String(kpi.openInquiries),
-      hint: "답변 필요",
-      href: inquiriesHref,
+      key: "refund",
+      label: "환불 요청",
+      value: String(kpi.refundRequested),
+      sub: "처리 필요",
+      href: withOrderTab("refund"),
+      emphasize: kpi.refundRequested > 0,
     },
     {
+      key: "inquiry",
+      label: "미응답 문의",
+      value: String(kpi.openInquiries),
+      sub: "답변 필요",
+      href: inquiriesHref,
+      emphasize: kpi.openInquiries > 0,
+    },
+    {
+      key: "sales",
       label: "오늘 매출",
       value: formatPrice(Math.round(kpi.todaySalesPhp), currency),
-      hint: "완료 기준",
+      sub: "완료 기준",
       href: withOrderTab("done"),
     },
     {
-      label: "정산 예정",
-      value: formatPrice(Math.round(kpi.settlementPendingPhp), currency),
-      hint: "플랫폼 정산",
-      href: settlementsHref,
-    },
-    {
-      label: "품절 상품",
+      key: "soldout",
+      label: "품절",
       value: String(kpi.soldOutProducts),
-      hint: "재고 확인",
+      sub: "상품",
       href: productsHubHref,
+      emphasize: kpi.soldOutProducts > 0,
     },
   ];
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-6">
-      {cells.map((c) => (
-        <Link
-          key={c.label}
-          href={c.href}
-          className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 shadow-sm transition hover:border-signature/30 hover:bg-signature/[0.03]"
-        >
-          <p className="sam-text-xxs font-medium text-sam-muted">{c.label}</p>
-          <p className="mt-1 text-lg font-bold text-sam-fg">{c.value}</p>
-          <p className="mt-0.5 sam-text-xxs text-sam-meta">{c.hint}</p>
-        </Link>
-      ))}
+    <div className="rounded-ui-rect border border-sam-border bg-sam-border p-px shadow-sm">
+      <div className="grid grid-cols-2 gap-px sm:grid-cols-3 xl:grid-cols-6">
+        {cells.map((c) => (
+          <Link
+            key={c.key}
+            href={c.href}
+            className={`flex min-h-[5.25rem] flex-col justify-center bg-sam-surface px-2.5 py-2.5 transition sm:min-h-[5.75rem] sm:px-3 ${
+              c.emphasize ? "ring-2 ring-inset ring-signature/35 hover:bg-signature/[0.06]" : "hover:bg-sam-app"
+            }`}
+          >
+            <span className="sam-text-xxs font-semibold uppercase tracking-wide text-sam-meta">{c.label}</span>
+            <span className="mt-1 tabular-nums text-xl font-bold leading-none tracking-tight text-sam-fg sm:text-2xl">
+              {c.value}
+            </span>
+            <span className="mt-0.5 sam-text-xxs text-sam-muted">{c.sub}</span>
+          </Link>
+        ))}
+      </div>
     </div>
   );
 }

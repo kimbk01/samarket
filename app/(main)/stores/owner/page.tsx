@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { MyBusinessPage } from "@/components/business/MyBusinessPage";
-import { OwnerHubShell } from "@/components/business/owner/OwnerHubShell";
 import { loadMyBusinessServer } from "@/lib/business/load-my-business-server";
 
 function firstQueryString(v: string | string[] | undefined): string | undefined {
@@ -14,16 +13,14 @@ type PageProps = {
 };
 
 /**
- * `/stores/owner` — 매장 오너 허브(캐노니컬).
- * `OwnerHubShell` 은 `loadMyBusinessServer` 와 분리해 첫 페인트·헤더·메뉴 뼈대가 먼저 내려가도록 한다.
+ * `/stores/owner` — 매장 오너 허브(캐노니컬). 레이아웃의 `BusinessAdminShell`(`entry="hub"`)이 헤더·사이드바를 담당한다.
+ * `loadMyBusinessServer` 로 본문(대시보드)만 suspense.
  */
 export default function StoresOwnerHubRoute({ searchParams }: PageProps) {
   return (
-    <OwnerHubShell>
-      <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
-        <StoresOwnerHubDeferredBody searchParams={searchParams} />
-      </Suspense>
-    </OwnerHubShell>
+    <Suspense fallback={<MainFeedRouteLoading rows={5} />}>
+      <StoresOwnerHubDeferredBody searchParams={searchParams} />
+    </Suspense>
   );
 }
 

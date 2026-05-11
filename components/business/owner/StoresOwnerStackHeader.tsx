@@ -15,7 +15,7 @@ export function StoresOwnerStackHeader({
   desktopInsetLeft = false,
 }: {
   variant: "hub" | "admin";
-  backHref: string;
+  backHref?: string;
   backAriaLabel?: string;
   shopName: string;
   hubSubtitle?: string;
@@ -34,8 +34,14 @@ export function StoresOwnerStackHeader({
           desktopInsetLeft ? "lg:left-[260px] lg:right-0" : ""
         }`}
       >
-        <div className="mx-auto flex h-14 w-full min-w-0 max-w-6xl items-center gap-2 px-3 sm:px-4">
-          <AppBackButton backHref={backHref} ariaLabel={backAriaLabel} />
+        <div className="flex h-14 w-full min-w-0 items-center gap-2 pl-[max(0.75rem,env(safe-area-inset-left,0px))] pr-[max(0.75rem,env(safe-area-inset-right,0px))] sm:pl-[max(1rem,env(safe-area-inset-left,0px))] sm:pr-[max(1rem,env(safe-area-inset-right,0px))]">
+          {variant === "hub" ?
+            backHref ?
+              <AppBackButton backHref={backHref} ariaLabel={backAriaLabel} />
+            : <div className="h-10 w-10 shrink-0" aria-hidden />
+          : backHref ?
+            <AppBackButton backHref={backHref} ariaLabel={backAriaLabel} />
+          : null}
           {variant === "hub" ?
             <>
               <div className="min-w-0 flex-1">
