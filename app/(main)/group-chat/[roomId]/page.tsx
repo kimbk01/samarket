@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { GroupChatRoomClient } from "@/components/group-chat/GroupChatRoomClient";
-import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
+import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { loadGroupChatBootstrapForUser } from "@/lib/group-chat/load-group-chat-bootstrap-server";
 
 async function GroupChatRoomPageBody({ paramsPromise }: { paramsPromise: Promise<{ roomId: string }> }) {

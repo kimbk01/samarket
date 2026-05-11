@@ -44,6 +44,9 @@ _env*.local
 /_curl_body.txt
 /_dev*.pid
 
+# dev benchmark tee logs (see docs/dev-runtime-benchmark-protocol.md)
+/benchmark-runs/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

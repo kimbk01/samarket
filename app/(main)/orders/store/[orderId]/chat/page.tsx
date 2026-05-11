@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { OrderChatRoomClient } from "@/components/order-chat/OrderChatRoomClient";
-import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
+import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { loadOrderChatSnapshotForPage } from "@/lib/order-chat/load-order-chat-snapshot-for-page";
 import { ORDER_CHAT_SNAPSHOT_BOOTSTRAP_MESSAGE_LIMIT } from "@/lib/order-chat/types";
 

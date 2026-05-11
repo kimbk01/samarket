@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
  * `authenticated`: 쿠키·세션으로 식별된 사용자가 있으면 true (클라 `getCurrentUser()`와 별개)
  */
 import { NextResponse } from "next/server";
-import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
+import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import {
   mapPostRowsToTradeList,

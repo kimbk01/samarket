@@ -3,7 +3,7 @@
  * 응답은 `segment` 외 필드만으로도 `mergeOwnerHubBadgeUnreadAndStore` 입력으로 사용 가능.
  */
 import { NextResponse } from "next/server";
-import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
+import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { buildOwnerHubBadgeUnreadSegment } from "@/lib/chats/build-owner-hub-badge-payload";

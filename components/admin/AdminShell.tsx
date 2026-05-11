@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -7,8 +8,13 @@ import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminTestSwitcher } from "@/components/admin/AdminTestSwitcher";
 import { AdminNotificationBell } from "@/components/admin/order-notifications/AdminNotificationBell";
 import { AdminShellToolbar } from "@/components/admin/AdminShellToolbar";
-import { AdminLanguageToggle } from "@/components/admin/AdminLanguageToggle";
 import { readSidebarExpanded } from "@/lib/admin-ui-prefs";
+
+/** Shell 레이아웃·권한 불변 — 언어 토글(설정/프로필 서브그래프)만 별도 청크로 분리. */
+const AdminLanguageToggleLazy = dynamic(
+  () => import("@/components/admin/AdminLanguageToggle").then((m) => m.AdminLanguageToggle),
+  { ssr: false }
+);
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const { t } = useI18n();
@@ -31,7 +37,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               sidebarExpanded={sidebarExpanded}
               onSidebarExpandedChange={setSidebarExpanded}
             />
-            <AdminLanguageToggle />
+            <AdminLanguageToggleLazy />
             <AdminNotificationBell />
             <AdminTestSwitcher />
             <Link

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
+import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { ensureLocationId } from "@/lib/neighborhood/ensure-location";
 import { coalesceNeighborhoodLocationInput } from "@/lib/neighborhood/coalesce-location-input";

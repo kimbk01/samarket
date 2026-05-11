@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
  * Query: itemId (세션)
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
+import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { resolveViewerItemTradeRoom } from "@/lib/chats/resolve-viewer-item-trade-room";
 import { resolveServiceSupabaseForApi } from "@/lib/supabase/resolve-service-supabase-for-api";
 import { postAuthorUserId } from "@/lib/chats/resolve-author-nickname";

@@ -4,7 +4,7 @@
  * 응답: { [postId]: boolean }
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
+import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
 export const runtime = "nodejs";

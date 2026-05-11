@@ -4,7 +4,7 @@
  * `includePosts=1` 이면 첫 페이지 글은 `fetchTradeFeedPage` — `docs/trade-market-feed-contract.md`.
  */
 import { NextRequest } from "next/server";
-import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
+import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { jsonError, jsonOk } from "@/lib/http/api-route";
 import { resolvePostsReadClients } from "@/lib/supabase/resolve-posts-read-clients";
 import { loadMarketBootstrapPayload } from "@/lib/market/load-market-bootstrap-payload";

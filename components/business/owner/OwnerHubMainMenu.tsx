@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ChevronRight } from "lucide-react";
 import type { BusinessAdminSidebarSection } from "@/lib/business/business-admin-nav";
 import { isBusinessAdminNavHrefActive } from "@/lib/business/business-admin-nav";
+import { OWNER_HUB_DASHBOARD_QP } from "@/lib/business/owner-routes";
+import { useOwnerHubDashboardPanel } from "@/components/business/owner/owner-hub-dashboard-panel-context";
 import { resolveOwnerHubMenuIcon } from "@/lib/business/owner-hub-menu-icons";
 import { MYINFO_SURFACE, MYINFO_TYPO } from "@/components/mypage/myinfo/myinfo-theme";
 import { MyInfoMenuSection } from "@/components/mypage/myinfo/MyInfoMenuSection";
@@ -24,14 +26,29 @@ function OwnerHubMenuRow({
   searchParams: ReturnType<typeof useSearchParams>;
   badge?: number;
 }) {
+  const panel = useOwnerHubDashboardPanel();
+  const router = useRouter();
   const active = isBusinessAdminNavHrefActive(href, pathname, searchParams);
   const Icon = resolveOwnerHubMenuIcon(title);
 
   const rowTone = active ? "bg-[#E7F3FF]" : "bg-transparent";
 
+  const onDashboardClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (title !== "대시보드") return;
+    e.preventDefault();
+    if (panel) {
+      panel.openDashboard();
+      return;
+    }
+    const next = new URLSearchParams(searchParams.toString());
+    next.set(OWNER_HUB_DASHBOARD_QP, "1");
+    router.push(`/stores/owner?${next.toString()}`);
+  };
+
   return (
     <Link
       href={href}
+      onClick={onDashboardClick}
       className={`flex ${MYINFO_SURFACE.row} w-full min-w-0 items-center gap-3 px-4 py-3 transition-[transform,background-color,opacity] duration-100 hover:bg-sam-app active:scale-[0.99] active:opacity-95 ${rowTone}`}
       aria-current={active ? "page" : undefined}
     >

@@ -1,8 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
-import type { BusinessAdminSidebarSection } from "@/lib/business/business-admin-nav";
+import { useRouter, useSearchParams } from "next/navigation";
+import type {
+  BusinessAdminSidebarItem,
+  BusinessAdminSidebarSection,
+} from "@/lib/business/business-admin-nav";
 import { isBusinessAdminNavHrefActive } from "@/lib/business/business-admin-nav";
 
 export function BusinessAdminSidebar({
@@ -17,6 +20,18 @@ export function BusinessAdminSidebar({
   className?: string;
 }) {
   const searchParams = useSearchParams();
+  const router = useRouter();
+
+  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, item: BusinessAdminSidebarItem) => {
+    /* Drawer 닫기와 레이아웃 전환(hub)이 겹치면 Link 기본 동작이 끊기는 경우가 있어 대시보드만 명시 이동 */
+    if (item.label === "대시보드") {
+      e.preventDefault();
+      router.push(item.href);
+      queueMicrotask(() => onNavigate?.());
+      return;
+    }
+    onNavigate?.();
+  };
 
   return (
     <nav className={`flex flex-col gap-6 ${className}`} aria-label="매장 어드민 메뉴">
@@ -43,7 +58,11 @@ export function BusinessAdminSidebar({
               if (isExternal) {
                 return (
                   <li key={item.label + item.href}>
-                    <Link href={item.href} className={`${common} ${activeCls}`} onClick={onNavigate}>
+                    <Link
+                      href={item.href}
+                      className={`${common} ${activeCls}`}
+                      onClick={(e) => handleNavClick(e, item)}
+                    >
                       {inner}
                     </Link>
                   </li>
@@ -51,7 +70,12 @@ export function BusinessAdminSidebar({
               }
               return (
                 <li key={item.label + item.href}>
-                  <Link href={item.href} className={`${common} ${activeCls}`} onClick={onNavigate} aria-current={active ? "page" : undefined}>
+                  <Link
+                    href={item.href}
+                    className={`${common} ${activeCls}`}
+                    onClick={(e) => handleNavClick(e, item)}
+                    aria-current={active ? "page" : undefined}
+                  >
                     {inner}
                   </Link>
                 </li>

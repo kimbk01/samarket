@@ -4,7 +4,6 @@ import { cookies, headers } from "next/headers";
 import { SupabaseAuthSync } from "@/components/auth/SupabaseAuthSync";
 import { AppLanguageProvider } from "@/components/i18n/AppLanguageProvider";
 import { CallIncomingChrome } from "@/components/layout/providers/CallIncomingChrome";
-import { CommunityMessengerPresenceRuntimeChrome } from "@/components/layout/providers/CommunityMessengerPresenceRuntimeChrome";
 import { MainShellMessengerParticipantBridge } from "@/components/layout/MainShellMessengerParticipantBridge";
 import {
   APP_LANGUAGE_COOKIE,
@@ -83,7 +82,6 @@ export default async function RootLayout({
         <AppLanguageProvider initialLanguage={initialLanguage}>
           <SupabaseAuthSync />
           <CallIncomingChrome />
-          <CommunityMessengerPresenceRuntimeChrome />
           <MainShellMessengerParticipantBridge regionBarInLayout={true} />
           {children}
         </AppLanguageProvider>

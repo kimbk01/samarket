@@ -19,7 +19,7 @@ function responseHeaders(authenticated: boolean): HeadersInit {
 }
 
 export async function GET(req: NextRequest) {
-  const { getOptionalAuthenticatedUserId } = await import("@/lib/auth/api-session");
+  const { getOptionalAuthenticatedUserId } = await import("@/lib/auth/get-optional-authenticated-user-id");
   /** 한 요청에서 favorites·Cache-Control 이 동일 세션을 쓰도록 선확정 — `resolveHomePostsGetData` 끝에서 세션을 다시 열지 않음 */
   const viewerUserId = await getOptionalAuthenticatedUserId();
   const homeDiag =

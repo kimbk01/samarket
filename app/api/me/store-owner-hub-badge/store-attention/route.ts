@@ -2,7 +2,7 @@
  * 허브 배지 2차 세그먼트: 매장 허브 접수·환불·문의 + 허브 기준 storeDeepLink(주문채팅 분기는 내부에서 재집계).
  */
 import { NextResponse } from "next/server";
-import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
+import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {

@@ -31,6 +31,7 @@ import { storeRowCanSell } from "@/lib/business/store-can-sell";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { fetchStoreOrderCountsDeduped } from "@/lib/business/fetch-store-order-counts-deduped";
 import { BusinessAdminDashboard } from "@/components/business/admin/dashboard/BusinessAdminDashboard";
+import { OwnerHubDashboardExpandable } from "@/components/business/owner/OwnerHubDashboardExpandable";
 import type { MyBusinessServerInitial } from "@/lib/business/load-my-business-server";
 
 type LoadState =
@@ -388,14 +389,16 @@ export function MyBusinessPage({
   }
 
   return (
-    <BusinessAdminDashboard
-      row={row}
-      profile={profile}
-      products={products}
-      canSell={canSell}
-      orderAlertsBadge={orderAlertsBadge}
-      loadRemote={loadRemote}
-    />
+    <OwnerHubDashboardExpandable>
+      <BusinessAdminDashboard
+        row={row}
+        profile={profile}
+        products={products}
+        canSell={canSell}
+        orderAlertsBadge={orderAlertsBadge}
+        loadRemote={loadRemote}
+      />
+    </OwnerHubDashboardExpandable>
   );
 }
 

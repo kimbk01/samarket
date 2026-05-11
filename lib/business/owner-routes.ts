@@ -14,6 +14,20 @@
 
 export const OWNER_ROUTES_BASE = "/stores/owner";
 
+/** 허브 운영 대시보드 전체 화면 패널 — 쿼리와 동기화 */
+export const OWNER_HUB_DASHBOARD_QP = "hubDashboard";
+
+/** 쿼리스트링에 키·값 추가(기존 동일 키 덮어씀) */
+export function appendOwnerRouteSearchParam(href: string, key: string, value: string): string {
+  const qi = href.indexOf("?");
+  const path = qi >= 0 ? href.slice(0, qi) : href;
+  const raw = qi >= 0 ? href.slice(qi + 1) : "";
+  const sp = new URLSearchParams(raw);
+  sp.set(key, value);
+  const s = sp.toString();
+  return s ? `${path}?${s}` : path;
+}
+
 function withStoreId(path: string, storeId?: string | null): string {
   const sid = (storeId ?? "").trim();
   if (!sid) return path;
@@ -43,6 +57,11 @@ export const OwnerRoutes = {
   notices: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/notices`, storeId),
   reviews: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/reviews`, storeId),
 } as const;
+
+/** 허브에서 대시보드 패널을 바로 연 상태의 URL */
+export function ownerHubDashboardHref(storeId?: string | null): string {
+  return appendOwnerRouteSearchParam(OwnerRoutes.hub(storeId), OWNER_HUB_DASHBOARD_QP, "1");
+}
 
 /**
  * 옛 `/my/business[/...]` · `/mypage/business[/...]` 경로 → `/stores/owner[/...]` 로 매핑.

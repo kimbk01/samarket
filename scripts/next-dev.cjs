@@ -19,18 +19,46 @@ const root = path.join(__dirname, "..");
 
 /**
  * Next dev 서버는 heap 사용량이 제한의 80%를 넘으면 자동 재시작합니다.
- * Windows 개발 환경에서 large repo + webpack HMR 시 쉽게 걸릴 수 있어,
- * 명시 설정이 없으면 기본 heap을 넉넉히 올려 "리셋"을 방지합니다.
+ * - 이미 NODE_OPTIONS 에 `--max-old-space-size` 가 있으면 절대 덮어쓰지 않음.
+ * - 없으면 기본 4096MB (8GB RAM 환경 친화). 16GB+ 에서만 SAMARKET_DEV_HEAP_MB=8192 등으로 명시 권장.
  */
-function ensureDevHeapLimitMb(defaultMb) {
+function parseHeapMbFromNodeOptions() {
   const raw = String(process.env.NODE_OPTIONS || "");
-  if (raw.includes("--max-old-space-size")) return;
-  const next = raw.length > 0 ? `${raw} --max-old-space-size=${defaultMb}` : `--max-old-space-size=${defaultMb}`;
-  process.env.NODE_OPTIONS = next;
+  const m = raw.match(/--max-old-space-size=(\d+)/);
+  return m ? Number(m[1]) : null;
 }
 
-// 4GB: 대부분의 dev 환경에서 안전한 기본값 (필요 시 NODE_OPTIONS로 override)
-ensureDevHeapLimitMb(4096);
+function ensureDevHeapLimitMb() {
+  if (parseHeapMbFromNodeOptions() != null) return;
+
+  let mb = 4096;
+  const explicit = process.env.SAMARKET_DEV_HEAP_MB?.trim();
+  if (explicit) {
+    const n = Number(explicit);
+    if (Number.isFinite(n) && n > 0) {
+      mb = Math.min(8192, Math.max(512, Math.floor(n)));
+    }
+  }
+
+  const raw = String(process.env.NODE_OPTIONS || "");
+  const chunk = `--max-old-space-size=${mb}`;
+  process.env.NODE_OPTIONS = raw.length > 0 ? `${raw} ${chunk}` : chunk;
+}
+
+function printDevHeapBanner() {
+  const mb = parseHeapMbFromNodeOptions();
+  const explicit = process.env.SAMARKET_DEV_HEAP_MB?.trim();
+  let hint = "";
+  if (explicit && mb != null) {
+    hint = ` (from SAMARKET_DEV_HEAP_MB=${explicit})`;
+  } else if (mb === 4096 && !explicit) {
+    hint = " (default; set SAMARKET_DEV_HEAP_MB=8192 on 16GB+ if needed)";
+  }
+  console.log(`[samarket] Node heap --max-old-space-size: ${mb ?? "?"} MB${hint}`);
+}
+
+ensureDevHeapLimitMb();
+printDevHeapBanner();
 
 function readNextDistDirFromEnvFiles() {
   for (const name of [".env.local", ".env"]) {

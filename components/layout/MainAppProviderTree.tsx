@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
+import { StoreCommerceCartRuntimeBoundary } from "@/components/layout/providers/StoreCommerceCartRuntimeBoundary";
 import { bumpAppWidePerf, recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
 import { SessionLostRedirect } from "@/components/auth/SessionLostRedirect";
 import { AuthComplianceRedirect } from "@/components/auth/AuthComplianceRedirect";
@@ -18,14 +19,10 @@ import { MypageInfoHubPanelProvider, useMypageInfoHubPanel } from "@/contexts/My
 import { CategoryListHeaderProvider } from "@/contexts/CategoryListHeaderContext";
 import { FavoriteProvider } from "@/contexts/FavoriteContext";
 import { RegionProvider } from "@/contexts/RegionContext";
-import { StoreCommerceCartProvider } from "@/contexts/StoreCommerceCartContext";
 import { WriteCategoryProvider } from "@/contexts/WriteCategoryContext";
 import { NotificationSurfaceProvider } from "@/contexts/NotificationSurfaceContext";
 import { TradePresenceActivityProvider } from "@/components/chats/TradePresenceActivityContext";
 import { TradeChatEntryCreatingOverlay } from "@/components/chats/TradeChatEntryCreatingOverlay";
-import { MessengerBootstrapEarlyWarm } from "@/components/community-messenger/MessengerBootstrapEarlyWarm";
-import { PhilifeWriteBottomSheet } from "@/components/philife/PhilifeWriteBottomSheet";
-import { TradeWriteBottomSheet } from "@/components/trade/TradeWriteBottomSheet";
 import { PhilifeMessengerFromHeaderStack } from "@/components/philife/PhilifeMessengerFromHeaderStack";
 import { PhilifeHeaderMessengerStackProvider } from "@/contexts/PhilifeHeaderMessengerStackContext";
 import { TradeHeaderTradeHistoryStackProvider } from "@/contexts/TradeHeaderTradeHistoryStackContext";
@@ -48,18 +45,22 @@ const GlobalIncomingFriendRequestHost = dynamic(
   { ssr: false }
 );
 
+/** Provider 트리·순서 불변 — Philife 글쓰기 시트 UI만 별도 청크로 분리 (giant graph 완화). */
+const PhilifeWriteBottomSheetLazy = dynamic(
+  () =>
+    import("@/components/philife/PhilifeWriteBottomSheet").then((mod) => mod.PhilifeWriteBottomSheet),
+  { ssr: false }
+);
+
+/** Provider 트리·순서 불변 — 거래 글쓰기 시트 UI만 별도 청크로 분리 (giant graph 완화). */
+const TradeWriteBottomSheetLazy = dynamic(
+  () =>
+    import("@/components/trade/TradeWriteBottomSheet").then((mod) => mod.TradeWriteBottomSheet),
+  { ssr: false }
+);
+
 const INFO_HUB_PANEL_PUSH_WIDTH = "min(88vw, 30rem)";
 const INFO_HUB_PANEL_PUSH_TRANSITION = "transform 580ms cubic-bezier(0.2, 0.65, 0.25, 1)";
-
-/** 매장·마이(재주문 등)에서만 장바구니 컨텍스트 마운트 — `/philife` 등에서는 localStorage hydrate effect 비용 생략 */
-function StoreCommerceCartMaybeProvider({ children }: { children: ReactNode }) {
-  const pathname = usePathname() ?? "";
-  const mountCart = pathname.startsWith("/stores") || pathname.startsWith("/mypage");
-  if (!mountCart) {
-    return <>{children}</>;
-  }
-  return <StoreCommerceCartProvider>{children}</StoreCommerceCartProvider>;
-}
 
 function AppWideRuntimePerfHooks() {
   const bootstrapRafRef = useRef<{ a: number; b: number }>({ a: 0, b: 0 });
@@ -146,7 +147,6 @@ export function MainAppProviderTree({
           <AppWideRuntimePerfHooks />
           <SessionLostRedirect />
           <AuthComplianceRedirect />
-          <MessengerBootstrapEarlyWarm />
           <OwnerHubBadgeRuntime />
           <MandatoryAddressGate />
           <PhoneVerificationRequiredDialog />
@@ -157,7 +157,7 @@ export function MainAppProviderTree({
               <GlobalIncomingFriendRequestHost enabled />
               <WriteCategoryProvider>
                 <CategoryListHeaderProvider>
-                  <StoreCommerceCartMaybeProvider>
+                  <StoreCommerceCartRuntimeBoundary>
                     <PhilifeWriteSheetProvider>
                       <TradeWriteSheetProvider>
                         <PhilifeHeaderMessengerStackProvider>
@@ -181,15 +181,15 @@ export function MainAppProviderTree({
                                   </div>
                                 </MainShellPushLayer>
                                 <TradeChatEntryCreatingOverlay />
-                                <PhilifeWriteBottomSheet />
-                                <TradeWriteBottomSheet />
+                                <PhilifeWriteBottomSheetLazy />
+                                <TradeWriteBottomSheetLazy />
                               </TradePresenceActivityProvider>
                             </MainTier1ChromeProvider>
                           </TradeHeaderTradeHistoryStackProvider>
                         </PhilifeHeaderMessengerStackProvider>
                       </TradeWriteSheetProvider>
                     </PhilifeWriteSheetProvider>
-                  </StoreCommerceCartMaybeProvider>
+                  </StoreCommerceCartRuntimeBoundary>
                 </CategoryListHeaderProvider>
               </WriteCategoryProvider>
             </NotificationSurfaceProvider>

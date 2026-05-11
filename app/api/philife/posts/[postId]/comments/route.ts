@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
+import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { listNeighborhoodComments } from "@/lib/neighborhood/queries";
 import { resolveCanonicalCommunityPostId } from "@/lib/community-feed/queries";
 import { jsonError, jsonOk } from "@/lib/http/api-route";

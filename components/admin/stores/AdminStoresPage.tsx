@@ -1,12 +1,19 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { ADMIN_STORE_APPROVAL_LABEL, type AdminStoreReviewRow } from "@/components/admin/stores/admin-store-review-model";
 import { splitStoreDescriptionAndKakao } from "@/lib/stores/split-store-description-kakao";
-import { AdminStoreReviewSheet } from "@/components/admin/stores/AdminStoreReviewSheet";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+
+/** Realtime·목록·권한 불변 — 심사 시트 UI만 별도 청크 (admin/stores cold graph 완화). */
+const AdminStoreReviewSheetLazy = dynamic(
+  () =>
+    import("@/components/admin/stores/AdminStoreReviewSheet").then((m) => m.AdminStoreReviewSheet),
+  { ssr: false }
+);
 
 type SalesPerm = {
   allowed_to_sell?: boolean;
@@ -183,7 +190,7 @@ export function AdminStoresPage() {
   return (
     <div className="space-y-4">
       {sheetStore ? (
-        <AdminStoreReviewSheet
+        <AdminStoreReviewSheetLazy
           store={sheetStore}
           onClose={() => setSheetStore(null)}
           onRunAction={(action, payload) => {

@@ -10,7 +10,7 @@
  * 세그먼트(동일 집계 로직 분리): `.../unreads`, `.../store-attention`
  */
 import { NextResponse } from "next/server";
-import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
+import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getCachedOwnerHubBadge } from "@/lib/chats/owner-hub-badge-cache";

@@ -1,4 +1,4 @@
-import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
+import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { isSameUserId, normalizeUserIdForCompare } from "@/lib/auth/same-user-id";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { getMeetingDetail } from "@/lib/neighborhood/queries";

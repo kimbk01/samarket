@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { CommunityPostCard } from "@/components/community/CommunityPostCard";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
-import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
+import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { listCommunityPostsForUser } from "@/lib/community-feed/queries";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import { PHILIFE_FB_CARD_CLASS } from "@/lib/philife/philife-flat-ui-classes";

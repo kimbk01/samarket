@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getOptionalAuthenticatedUserId } from "@/lib/auth/api-session";
+import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { requireAdmin, requireAuth, validateActiveSession } from "@/lib/auth/server-guards";
 
 export async function requireAdminApiUser(): Promise<

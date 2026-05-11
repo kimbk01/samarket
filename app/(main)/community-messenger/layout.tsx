@@ -2,10 +2,14 @@ import "@/app/messenger-view-transitions.css";
 import { CommunityMessengerMediaPreflight } from "@/components/community-messenger/CommunityMessengerMediaPreflight";
 import { CommunityMessengerRoomClientPrefetch } from "@/components/community-messenger/CommunityMessengerRoomClientPrefetch";
 import { MessengerSnackbarHost } from "@/components/community-messenger/MessengerSnackbarHost";
+import { CommunityMessengerPresenceRuntimeChrome } from "@/components/layout/providers/CommunityMessengerPresenceRuntimeChrome";
+import { MessengerBootstrapEarlyWarm } from "@/components/community-messenger/MessengerBootstrapEarlyWarm";
 
 export default function CommunityMessengerLayout({ children }: { children: React.ReactNode }) {
   return (
     <>
+      <CommunityMessengerPresenceRuntimeChrome />
+      <MessengerBootstrapEarlyWarm />
       <CommunityMessengerRoomClientPrefetch />
       <CommunityMessengerMediaPreflight />
       <MessengerSnackbarHost />

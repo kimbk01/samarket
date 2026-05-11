@@ -9,6 +9,8 @@
     "dev:next": "next dev",
     "dev:turbo": "node scripts/next-dev.cjs --turbo",
     "dev:webpack": "next dev --webpack",
+    "dev:compare:turbo": "next dev --turbo",
+    "dev:compare:webpack": "next dev --webpack",
     "clean": "node scripts/clean-next.cjs",
     "verify:routes": "node scripts/verify-app-routes.cjs",
     "verify:trade-hot-path-contract": "node scripts/verify-trade-hot-path-contract.cjs",

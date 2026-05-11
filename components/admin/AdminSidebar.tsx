@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
 import { usePathname } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
@@ -25,7 +26,7 @@ export function AdminSidebar() {
   const pathname = usePathname();
   const currentPath = pathname ?? "";
   const role = toMenuRole(getAdminRole());
-  const menu = filterMenuByRole(adminMenu, role);
+  const menu = useMemo(() => filterMenuByRole(adminMenu, role), [role]);
 
   return (
     <aside className="sticky top-0 z-30 flex h-screen max-h-screen w-56 min-w-[14rem] shrink-0 flex-col border-r border-sam-border bg-sam-surface">

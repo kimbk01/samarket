@@ -3,7 +3,6 @@
 import dynamic from "next/dynamic";
 import { Suspense, useLayoutEffect, useMemo, useRef } from "react";
 import { usePathname } from "next/navigation";
-import { HomeTradeHubFloatingBar } from "@/components/home/HomeTradeHubFloatingBar";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
 import { usePhilifeHeaderMessengerStack } from "@/contexts/PhilifeHeaderMessengerStackContext";
@@ -18,13 +17,10 @@ import {
   type MainBottomNavPrefetchDomain,
 } from "@/lib/main-menu/main-bottom-nav-prefetch-domain";
 import { scrollAppShellToTopAfterShellNavigation } from "@/lib/layout/scroll-app-shell-to-top";
-import { CallIncomingChrome } from "@/components/layout/providers/CallIncomingChrome";
 import { MessagingGlobalChrome } from "@/components/layout/providers/MessagingGlobalChrome";
 import { RegionBar } from "./RegionBar";
 import { BottomNav } from "./BottomNav";
 import { MainShellTabContentTransition } from "./MainShellTabContentTransition";
-import { FloatingAddButton } from "./FloatingAddButton";
-import { OwnerLiteStoreBar } from "./OwnerLiteStoreBar";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 
 const PhilifeFeedWarmPrefetch = dynamic(
@@ -33,6 +29,21 @@ const PhilifeFeedWarmPrefetch = dynamic(
 );
 const WebConnectivityBanner = dynamic(
   () => import("@/components/layout/WebConnectivityBanner").then((mod) => mod.WebConnectivityBanner),
+  { ssr: false }
+);
+/** 거래 허브 FAB 서브그래프만 별도 청크 — 표시 조건·DOM 위치는 기존과 동일. */
+const HomeTradeHubFloatingBarLazy = dynamic(
+  () => import("@/components/home/HomeTradeHubFloatingBar").then((m) => m.HomeTradeHubFloatingBar),
+  { ssr: false }
+);
+/** 오너 라이트 상단 바 서브그래프만 별도 청크 — 표시 조건·DOM 위치·모달 계약 동일. */
+const OwnerLiteStoreBarLazy = dynamic(
+  () => import("@/components/layout/OwnerLiteStoreBar").then((m) => m.OwnerLiteStoreBar),
+  { ssr: false }
+);
+/** 글로벌 FAB(+ 글쓰기) 서브그래프만 별도 청크 — `f.showFloat`·DOM 위치 동일. */
+const FloatingAddButtonLazy = dynamic(
+  () => import("@/components/layout/FloatingAddButton").then((m) => m.FloatingAddButton),
   { ssr: false }
 );
 
@@ -101,7 +112,7 @@ export function ConditionalAppShell({
       <MessagingGlobalChrome regionBarInLayout={regionBarInLayout} />
       <WebConnectivityBanner />
       {f.showRegionBar && <RegionBar />}
-      {f.showOwnerLiteStoreBar ? <OwnerLiteStoreBar /> : null}
+      {f.showOwnerLiteStoreBar ? <OwnerLiteStoreBarLazy /> : null}
       <main
         className={`${f.mainBottomClass} min-w-0 overflow-x-hidden ${heroMenuSurface ? "bg-transparent" : "bg-sam-app"} ${
           f.isChatRoomDetail ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-y-hidden" : ""
@@ -143,8 +154,8 @@ export function ConditionalAppShell({
           />
         </Suspense>
       ) : null}
-      {showBottomNavEffective && f.showHomeTradeHubFloatingBar ? <HomeTradeHubFloatingBar /> : null}
-      {f.showFloat && <FloatingAddButton />}
+      {showBottomNavEffective && f.showHomeTradeHubFloatingBar ? <HomeTradeHubFloatingBarLazy /> : null}
+      {f.showFloat && <FloatingAddButtonLazy />}
     </div>
   );
 }
