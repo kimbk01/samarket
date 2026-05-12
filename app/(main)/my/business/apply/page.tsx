@@ -10,6 +10,7 @@ import {
 import { getMyProfile } from "@/lib/profile/getMyProfile";
 import { decodeProfileAppLocationPair } from "@/lib/profile/profile-location";
 import { parsePhMobileInput } from "@/lib/utils/ph-mobile";
+import { StoresOwnerStackHeader } from "@/components/business/owner/StoresOwnerStackHeader";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 import {
@@ -195,16 +196,20 @@ export default function BusinessApplyRoute() {
   };
 
   return (
-    <div className="min-h-screen min-w-0 max-w-[100vw] overflow-x-hidden bg-[#f0f2f5]">
-      <div className="bg-[#1C8DB8]">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-4">
-          <h1 className="sam-text-body-lg font-bold text-white">배달 입점 신청</h1>
-        </div>
-      </div>
-      <div className={`mx-auto max-w-4xl px-4 py-4 ${OWNER_STORE_STACK_Y_CLASS}`}>
-
+    <div className="min-w-0 max-w-[100vw] overflow-x-hidden">
+      <StoresOwnerStackHeader
+        variant="admin"
+        backHref="/stores/owner"
+        backAriaLabel="매장 운영으로"
+        pageTitle="배달 입점 신청"
+        shopName="매장 운영 센터"
+        rightSlot={<span className="inline-flex h-10 min-w-[2.5rem] shrink-0" aria-hidden />}
+      />
+      <div
+        className={`mx-auto max-w-4xl px-3 pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] pb-4 sm:px-4 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem+1rem)] ${OWNER_STORE_STACK_Y_CLASS}`}
+      >
         {existingLoading ? (
-          <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body-secondary text-sam-muted shadow-sm">
+          <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-3 sam-text-body-secondary text-sam-muted shadow-sm">
             신청 상태 확인 중…
           </div>
         ) : existingStore ? (
@@ -222,20 +227,20 @@ export default function BusinessApplyRoute() {
         ) : null}
 
         {submitError ? (
-          <div className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800 shadow-sm">{submitError}</div>
+          <div className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800 shadow-sm">
+            {submitError}
+          </div>
         ) : null}
         {!existingStore ? (
-          <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
-            <BusinessApplyForm
-              profileSeed={profileSeed}
-              computedStoreSlug={computedStoreSlug}
-              onSubmit={(v) => void handleSubmit(v)}
-              submitLabel={submitting ? "제출 중…" : "신청하기"}
-              disabled={submitting}
-            />
-          </div>
+          <BusinessApplyForm
+            profileSeed={profileSeed}
+            computedStoreSlug={computedStoreSlug}
+            onSubmit={(v) => void handleSubmit(v)}
+            submitLabel={submitting ? "제출 중…" : "신청하기"}
+            disabled={submitting}
+          />
         ) : (
-          <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body-secondary text-sam-muted shadow-sm">
+          <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-3 sam-text-body-secondary text-sam-muted shadow-sm">
             신청이 진행 중인 동안에는 추가 신청을 할 수 없습니다.
           </div>
         )}

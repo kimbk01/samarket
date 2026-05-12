@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { OwnerStoreProfileForm } from "@/components/business/OwnerStoreProfileForm";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
@@ -18,7 +18,6 @@ type Phase =
   | { kind: "ok"; row: StoreRow };
 
 function MyBusinessProfilePageInner() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const storeIdParam = searchParams.get("storeId")?.trim() ?? "";
 
@@ -66,7 +65,7 @@ function MyBusinessProfilePageInner() {
 
   return (
     <div className="max-w-full overflow-x-hidden">
-      <div className="mx-auto min-w-0 max-w-4xl overflow-x-hidden py-1">
+      <div className="mx-auto min-w-0 max-w-4xl overflow-x-hidden py-0">
         {phase.kind === "loading" ? (
           <p className="sam-text-body text-sam-muted">불러오는 중…</p>
         ) : phase.kind === "need_store_id" ? (
@@ -99,13 +98,12 @@ function MyBusinessProfilePageInner() {
             </button>
           </div>
         ) : (
-          <div className={`max-w-full min-w-0 ${OWNER_STORE_STACK_Y_CLASS} pb-36 sm:pb-32`}>
+          <div className={`max-w-full min-w-0 ${OWNER_STORE_STACK_Y_CLASS}`}>
             <OwnerStoreProfileForm
               storeId={phase.row.id}
               storeSlug={phase.row.slug}
               row={phase.row}
-              onSaved={() => router.push("/stores/owner")}
-              onCancel={() => router.push("/stores/owner")}
+              onSaved={() => void load()}
             />
           </div>
         )}

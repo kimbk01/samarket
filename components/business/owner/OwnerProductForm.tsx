@@ -31,6 +31,7 @@ import {
   type OptionGroupForm,
   type OptionRowForm,
 } from "@/lib/stores/owner-product-options-json";
+import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
 
 type FormValues = {
   title: string;
@@ -179,6 +180,7 @@ export function OwnerProductForm({
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [menuSections, setMenuSections] = useState<
     { id: string; name: string; is_hidden?: boolean }[]
@@ -270,9 +272,8 @@ export function OwnerProductForm({
     }
   };
 
-  const handleDeleteProduct = async () => {
+  const performDeleteProduct = async () => {
     if (mode !== "edit" || !productId) return;
-    if (!window.confirm("상품을 삭제(숨김)할까요? 목록에서 사라집니다.")) return;
     setDeleting(true);
     setError(null);
     try {
@@ -833,7 +834,7 @@ export function OwnerProductForm({
               <button
                 type="button"
                 disabled={saving || deleting}
-                onClick={() => void handleDeleteProduct()}
+                onClick={() => setDeleteConfirmOpen(true)}
                 className="w-full rounded-ui-rect border border-red-200 bg-red-50 py-3 sam-text-body font-medium text-red-800 disabled:opacity-50"
               >
                 {deleting ? "처리 중…" : "상품 삭제(목록에서 제거)"}
@@ -1209,6 +1210,24 @@ export function OwnerProductForm({
           {saving ? "저장 중…" : "저장"}
         </button>
       </div>
+
+      <OwnerStoreAdminConfirmModal
+        open={deleteConfirmOpen}
+        titleId="owner-product-delete-title"
+        title="상품 삭제"
+        description="상품을 삭제(숨김)할까요? 목록에서 사라집니다."
+        cancelLabel="취소"
+        confirmLabel="삭제"
+        confirmBusyLabel="처리 중…"
+        busy={deleting}
+        disableActions={deleting || saving}
+        confirmTone="danger"
+        onCancel={() => setDeleteConfirmOpen(false)}
+        onConfirm={async () => {
+          setDeleteConfirmOpen(false);
+          await performDeleteProduct();
+        }}
+      />
     </div>
   );
 }

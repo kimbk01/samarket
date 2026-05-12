@@ -29,6 +29,8 @@ export type StoreRowCardData = {
   reservationAvailable: boolean;
   minOrderLabel: string | null;
   estPrepLabel: string;
+  /** 목록·피드 API가 채운 합산 ETA (`약 …`) — 없으면 estPrepLabel 기반 표시 */
+  etaLabel?: string | null;
   deliveryFeeLabel: string | null;
   distanceKm: number | null;
   menuPreview: string | null;
@@ -65,6 +67,7 @@ export function storeRowCardDataEqual(a: StoreRowCardData, b: StoreRowCardData):
     a.reservationAvailable === b.reservationAvailable &&
     a.minOrderLabel === b.minOrderLabel &&
     a.estPrepLabel === b.estPrepLabel &&
+    (a.etaLabel ?? "") === (b.etaLabel ?? "") &&
     a.deliveryFeeLabel === b.deliveryFeeLabel &&
     a.distanceKm === b.distanceKm &&
     a.menuPreview === b.menuPreview &&
@@ -113,6 +116,7 @@ export function homeFeedToRowCard(s: StoreHomeFeedItem): StoreRowCardData {
     reservationAvailable: false,
     minOrderLabel: s.minOrderLabel,
     estPrepLabel: s.estPrepLabel,
+    etaLabel: s.etaLabel,
     deliveryFeeLabel: s.deliveryFeeLabel,
     distanceKm: s.distanceKm,
     menuPreview: menuPreview?.trim() || null,
@@ -151,6 +155,7 @@ export function browseItemToRowCard(s: BrowseStoreListItem): StoreRowCardData {
     reservationAvailable: !!s.reservationAvailable,
     minOrderLabel: s.minOrderLabel ?? null,
     estPrepLabel: s.estPrepLabel ?? "20~40분",
+    etaLabel: s.etaLabel,
     deliveryFeeLabel: s.deliveryFeeLabel ?? null,
     distanceKm: s.distanceKm ?? null,
     menuPreview: menuPreview?.trim() || null,
@@ -183,7 +188,9 @@ export const StoreDeliveryRowCard = memo(function StoreDeliveryRowCard({ data }:
 
   const hasFreeDelivery = data.deliveryAvailable && data.deliveryFeeLabel === "₱0";
   const hasDiscountHint = data.isFeatured;
-  const timeLabel = data.estPrepLabel?.trim() ? `약 ${data.estPrepLabel.trim()}` : null;
+  const timeLabel =
+    data.etaLabel?.trim() ||
+    (data.estPrepLabel?.trim() ? `약 ${data.estPrepLabel.trim()}` : null);
   const minOrderShort = data.minOrderLabel?.replace(/^최소주문\s*/g, "")?.trim() || null;
 
   const featuredMenuImages = data.featuredItems

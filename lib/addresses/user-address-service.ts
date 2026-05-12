@@ -131,6 +131,14 @@ export async function getUserAddressDefaults(
   };
 }
 
+/**
+ * 배달 ETA·checkout 자동 채움에 쓸 주소 한 건.
+ * 배달 전용 기본(`is_default_delivery`)이 없어도 대표·거래·생활 기본 순으로 동일 사용자 좌표를 쓴다.
+ */
+export function pickAddressRowForDeliveryRouting(defs: UserAddressDefaultsDTO): UserAddressDTO | null {
+  return defs.delivery ?? defs.master ?? defs.trade ?? defs.life ?? null;
+}
+
 /** 거래 글 `region`/`city` 일괄 수정 등 — `TradeDefaultLocationBlock` 과 동일 우선순위 */
 export type BulkRegionPatchResolvedLocation = {
   regionId: string;

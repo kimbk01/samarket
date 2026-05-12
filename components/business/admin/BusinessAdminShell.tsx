@@ -29,6 +29,11 @@ import {
   fetchStoreSummaryDeduped,
 } from "@/lib/stores/store-delivery-api-client";
 import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
+import {
+  emitOwnerBasicInfoLeave,
+  getOwnerBasicInfoDirty,
+  isOwnerStoreAdminDirtyGuardPath,
+} from "@/lib/business/owner-basic-info-guard";
 import { setStoreOwnerMainBottomNavSuppressed } from "@/lib/business/store-owner-main-bottom-nav-suppress";
 import { useIsMobileViewport } from "@/hooks/use-is-mobile-viewport";
 import { ChevronRight } from "lucide-react";
@@ -57,7 +62,13 @@ export function BusinessAdminShell({
 
   const ownerMainBottomPad = useMemo(() => {
     const f = resolveConditionalAppShellFlags(pathname, false);
-    return f.showBottomNav ? "pb-4 sm:pb-5 lg:pb-6" : "pb-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:pb-8";
+    const p = pathname.split("?")[0]?.replace(/\/+$/, "") ?? "";
+    const isStoreOwnerAdminSubroute = p.startsWith("/stores/owner/");
+    if (f.showBottomNav) return "pb-4 sm:pb-5 lg:pb-6";
+    if (isStoreOwnerAdminSubroute) {
+      return "pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] sm:pb-3 md:pb-4 lg:pb-6";
+    }
+    return "pb-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:pb-8";
   }, [pathname]);
 
   const reloadStores = useCallback(async () => {
@@ -214,6 +225,24 @@ export function BusinessAdminShell({
     };
   }, [isMobile, mobileMenuOpen]);
 
+  /**
+   * 모바일 전용(`useIsMobileViewport` = Tailwind `md` 미만): 드로어 열림 시 html/body 스크롤 잠금.
+   * 태블릿·데스크톱(`md`+)에서는 이 effect 가 early-return 하며 레이아웃도 `aside`에 `max-md:` 만 적용한다.
+   */
+  useEffect(() => {
+    if (!isMobile || !mobileMenuOpen) return;
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtml = html.style.overflow;
+    const prevBody = body.style.overflow;
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    return () => {
+      html.style.overflow = prevHtml;
+      body.style.overflow = prevBody;
+    };
+  }, [isMobile, mobileMenuOpen]);
+
   const hubPartialHeaderRight =
     storeIdParam.length > 0 ?
       <Link
@@ -238,6 +267,22 @@ export function BusinessAdminShell({
         ) : null}
       </Link>
     : null;
+
+  const adminHeaderBackHref = useMemo(() => {
+    if (isHub || !selectedRow) return undefined;
+    return `/stores/owner?storeId=${encodeURIComponent(selectedRow.id)}`;
+  }, [isHub, selectedRow]);
+
+  const basicInfoBackIntercept = useCallback(() => {
+    if (!isOwnerStoreAdminDirtyGuardPath(pathname)) return false;
+    if (!getOwnerBasicInfoDirty()) return false;
+    const sid = selectedRow?.id ?? storeIdParam;
+    const href =
+      adminHeaderBackHref ??
+      (sid ? `/stores/owner?storeId=${encodeURIComponent(sid)}` : "/stores/owner");
+    emitOwnerBasicInfoLeave({ href, kind: "back" });
+    return true;
+  }, [pathname, adminHeaderBackHref, selectedRow?.id, storeIdParam]);
 
   if (!isHub) {
     if (loadErr && (!stores || stores.length === 0)) {
@@ -275,7 +320,7 @@ export function BusinessAdminShell({
           rightSlot={<div className="flex shrink-0 items-center gap-1">{hubPartialHeaderRight}</div>}
         />
         <main
-          className={`mx-auto w-full max-w-6xl min-w-0 px-3 pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] sm:px-4 ${ownerMainBottomPad}`}
+          className={`mx-auto w-full max-w-6xl min-w-0 bg-[var(--biz-app-bg)] px-3 pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] sm:px-4 ${ownerMainBottomPad}`}
         >
           {children}
         </main>
@@ -290,10 +335,6 @@ export function BusinessAdminShell({
       </div>
     );
   }
-
-  /** 대시보드(`/stores/owner`, hub)만 뒤로가기 숨김 — 세부 페이지는 운영 대시보드로 복귀 */
-  const adminHeaderBackHref =
-    isHub ? undefined : `/stores/owner?storeId=${encodeURIComponent(selectedRow.id)}`;
 
   const headerRightSlot = (
     <>
@@ -379,18 +420,25 @@ export function BusinessAdminShell({
           )}
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto px-1 py-3">
+      <div className="flex-1 overflow-y-auto px-1 py-3 max-md:min-h-0 max-md:overscroll-y-contain max-md:[-webkit-overflow-scrolling:touch]">
         <BusinessAdminSidebar
           sections={sections}
           pathname={pathname}
           onNavigate={() => setMobileMenuOpen(false)}
+          onDirtyNavBlocked={() => setMobileMenuOpen(false)}
         />
       </div>
       <div className="border-t border-sam-border-soft p-3">
         <Link
           href="/my"
           className="block rounded-ui-rect px-3 py-2 sam-text-body font-medium text-sam-fg hover:bg-sam-app"
-          onClick={() => setMobileMenuOpen(false)}
+          onClick={(e) => {
+            if (isOwnerStoreAdminDirtyGuardPath(pathname) && getOwnerBasicInfoDirty()) {
+              e.preventDefault();
+              emitOwnerBasicInfoLeave({ href: "/my", kind: "sidebar" });
+            }
+            setMobileMenuOpen(false);
+          }}
         >
           ← 내 정보(홈)
         </Link>
@@ -398,9 +446,10 @@ export function BusinessAdminShell({
     </>
   );
 
+  /** 모바일(`max-md`): 오버레이 드로어 + 뷰포트 높이·내부 스크롤. `md`+: 기존 sticky 우측 패널(태블릿·가로). */
   const asideClassName = [
     "flex flex-col border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] transition-[transform,width] duration-200 ease-out",
-    "max-md:fixed max-md:inset-y-0 max-md:right-0 max-md:z-[60] max-md:w-[280px] max-md:max-w-[88vw] max-md:border-l max-md:shadow-xl",
+    "max-md:min-h-0 max-md:overflow-hidden max-md:fixed max-md:inset-y-0 max-md:right-0 max-md:z-[60] max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:w-[280px] max-md:max-w-[88vw] max-md:border-l max-md:shadow-xl",
     mobileMenuOpen ? "max-md:translate-x-0" : "max-md:translate-x-full",
     "md:relative md:shrink-0 md:z-0 md:h-screen md:sticky md:top-0 md:border-l md:shadow-none md:max-w-none",
     desktopSidebarOpen ? "md:w-[260px]" : "md:w-0 md:min-w-0 md:overflow-hidden md:border-transparent",
@@ -443,10 +492,11 @@ export function BusinessAdminShell({
           {sidebarBody}
         </aside>
 
-        <div className="flex min-h-screen min-w-0 flex-1 flex-col md:border-r md:border-sam-border-soft">
+        <div className="flex min-h-screen min-w-0 flex-1 flex-col bg-[var(--biz-app-bg)] md:border-r md:border-sam-border-soft">
           <StoresOwnerStackHeader
             variant="admin"
             backHref={adminHeaderBackHref}
+            backIntercept={basicInfoBackIntercept}
             backAriaLabel="운영 대시보드로"
             shopName={shopName}
             pageTitle={pageTitle}
@@ -454,7 +504,7 @@ export function BusinessAdminShell({
           />
 
           <main
-            className={`mx-auto w-full max-w-6xl flex-1 px-3 pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] sm:px-4 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem+1rem)] ${ownerMainBottomPad}`}
+            className={`mx-auto w-full max-w-6xl bg-[var(--biz-app-bg)] px-3 pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] sm:px-4 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem+1rem)] ${ownerMainBottomPad}`}
           >
             {children}
           </main>

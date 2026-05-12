@@ -54,6 +54,8 @@ export type StoreVerticalCardModel = Pick<
 > & {
   /** 홈 피드 전용 — km */
   distanceKm?: number | null;
+  /** `약 …` 합산 ETA — 없으면 estPrepLabel만 표시 */
+  etaLabel?: string | null;
 };
 
 export function browseItemToVerticalModel(store: BrowseStoreListItem): StoreVerticalCardModel {
@@ -74,6 +76,7 @@ export function browseItemToVerticalModel(store: BrowseStoreListItem): StoreVert
     profileImageUrl: store.profileImageUrl,
     isFeatured: store.isFeatured,
     estPrepLabel: store.estPrepLabel ?? "20~40분",
+    etaLabel: store.etaLabel,
     deliveryFeeLabel: store.deliveryFeeLabel ?? null,
     distanceKm: store.distanceKm ?? null,
   };
@@ -97,6 +100,7 @@ export function homeFeedItemToVerticalModel(store: StoreHomeFeedItem): StoreVert
     profileImageUrl: store.profileImageUrl,
     isFeatured: store.isFeatured,
     estPrepLabel: store.estPrepLabel,
+    etaLabel: store.etaLabel,
     deliveryFeeLabel: store.deliveryFeeLabel,
     distanceKm: store.distanceKm,
   };
@@ -207,7 +211,9 @@ export function StoreVerticalDiscoveryCard({
             {distLabel ?
               <span className="font-semibold text-[#1877F2] dark:text-[#4599FF]">{distLabel}</span>
             : null}
-            <span>예상 {store.estPrepLabel}</span>
+            {store.etaLabel?.trim() ?
+              <span>{store.etaLabel}</span>
+            : <span>예상 {store.estPrepLabel}</span>}
             {store.deliveryFeeLabel ?
               <span>배달 {store.deliveryFeeLabel}</span>
             : store.deliveryAvailable ?

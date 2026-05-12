@@ -54,3 +54,46 @@ export const OWNER_STORE_CONTROL_COMPACT_BLOCK_CLASS =
 /** 영업시간 시각 선택 버튼 */
 export const OWNER_STORE_TIME_BLOCK_BUTTON_CLASS =
   "sam-btn-secondary flex w-full min-w-0 items-center justify-center bg-white text-sam-fg";
+
+/**
+ * 매장 설정(프로필) 입력 테두리 — `app/samarket-components.css` 의
+ * `.sam-input.owner-store-profile-field-edge` / `.sam-select.owner-store-profile-field-edge` 와 짝.
+ */
+export const OWNER_STORE_PROFILE_FIELD_EDGE_CLASS = "owner-store-profile-field-edge";
+
+/**
+ * 프로필 폼 — 필드 라벨(입력 위 한 줄).
+ */
+export const OWNER_STORE_PROFILE_FIELD_LABEL_CLASS =
+  "mb-2.5 block text-[13px] font-semibold leading-snug text-sam-fg";
+
+/**
+ * 프로필 폼 — 영업시간 등 묶음 패널(본문 안 서브 구역).
+ */
+export const OWNER_STORE_PROFILE_INNER_PANEL_CLASS =
+  "space-y-4 rounded-ui-rect border border-sam-border-soft bg-sam-app/60 px-4 py-4 ring-1 ring-inset ring-sam-primary/[0.06] sm:px-4 sm:py-4";
+
+/**
+ * 프로필 상세 — 항목(라벨+입력) 단위 구역.
+ */
+export const OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS =
+  "overflow-hidden rounded-ui-rect border border-sam-border bg-white px-4 pb-4 pt-0 ring-1 ring-inset ring-sam-primary/[0.07]";
+
+/**
+ * `OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS` 안 첫 줄 제목 — 섹션 카드 헤더와 동일 #DBEDF5.
+ */
+export const OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS =
+  "-mx-4 mb-3 block rounded-t-ui-rect border-b border-sam-border-soft bg-[#dbedf5] px-4 py-2.5 text-[13px] font-semibold leading-snug text-sam-fg";
+
+/** 매장 설정(프로필) — 단일행 시간 선택 등 입력과 동일 톤 */
+export const OWNER_STORE_PROFILE_TIME_BUTTON_CLASS =
+  `sam-input flex w-full min-w-0 items-center justify-center ${OWNER_STORE_PROFILE_FIELD_EDGE_CLASS} text-sam-fg`;
+
+export const OWNER_STORE_PROFILE_CONTROL_CLASS =
+  `${OWNER_STORE_CONTROL_COMPACT_CLASS} ${OWNER_STORE_PROFILE_FIELD_EDGE_CLASS}`;
+
+export const OWNER_STORE_PROFILE_SELECT_CLASS =
+  `${OWNER_STORE_SELECT_CLASS} ${OWNER_STORE_PROFILE_FIELD_EDGE_CLASS}`;
+
+export const OWNER_STORE_PROFILE_TEXTAREA_BLOCK_CLASS =
+  `${OWNER_STORE_CONTROL_COMPACT_BLOCK_CLASS} min-h-[4rem] w-full resize-y ${OWNER_STORE_PROFILE_FIELD_EDGE_CLASS}`;

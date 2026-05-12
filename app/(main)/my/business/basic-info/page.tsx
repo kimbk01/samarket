@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { OwnerStoreBasicInfoForm } from "@/components/business/OwnerStoreBasicInfoForm";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
@@ -18,7 +18,6 @@ type Phase =
   | { kind: "ok"; row: StoreRow };
 
 function MyBusinessBasicInfoPageInner() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const storeIdParam = searchParams.get("storeId")?.trim() ?? "";
 
@@ -103,7 +102,6 @@ function MyBusinessBasicInfoPageInner() {
             storeId={phase.row.id}
             row={phase.row}
             onSaved={() => void load()}
-            onCancel={() => router.push("/stores/owner")}
           />
         )}
       </div>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { BodyPortal } from "@/components/layout/BodyPortal";
+import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
 import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
 import { BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
@@ -48,6 +49,8 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
   const [sortOrder, setSortOrder] = useState("0");
   const [isHidden, setIsHidden] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<Section | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
 
   const base = `/api/me/stores/${encodeURIComponent(storeId)}/menu-sections`;
   const productsHubHref = `/stores/owner/products?storeId=${encodeURIComponent(storeId)}`;
@@ -208,15 +211,16 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
     }
   }, [storeId]);
 
-  const deleteSection = async (s: Section) => {
+  const askDeleteSection = async (s: Section) => {
     const n = await countProductsInSection(s.id);
     if (n > 0) {
       setError(`이 카테고리에 메뉴가 ${n}개 있습니다. 상품 관리에서 다른 카테고리로 옮긴 뒤 삭제해 주세요.`);
       return;
     }
-    if (!window.confirm(`「${s.name}」 카테고리를 삭제할까요?`)) {
-      return;
-    }
+    setDeleteTarget(s);
+  };
+
+  const performDeleteSection = async (s: Section) => {
     setError(null);
     try {
       const res = await fetch(`${base}/${encodeURIComponent(s.id)}`, {
@@ -447,7 +451,7 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => void deleteSection(s)}
+                  onClick={() => void askDeleteSection(s)}
                   className={`${Sam.btn.dangerCombo} ${Sam.btn.sm} shrink-0`}
                 >
                   삭제
@@ -457,6 +461,31 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
           </ul>
         )}
       </div>
+
+      <OwnerStoreAdminConfirmModal
+        open={deleteTarget != null}
+        titleId="owner-menu-categories-delete-title"
+        title="카테고리 삭제"
+        description={deleteTarget ? `「${deleteTarget.name}」 카테고리를 삭제할까요?` : undefined}
+        cancelLabel="취소"
+        confirmLabel="삭제"
+        confirmBusyLabel="삭제 중…"
+        busy={deleteBusy}
+        disableActions={deleteBusy}
+        confirmTone="danger"
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={async () => {
+          if (!deleteTarget) return;
+          const s = deleteTarget;
+          setDeleteTarget(null);
+          setDeleteBusy(true);
+          try {
+            await performDeleteSection(s);
+          } finally {
+            setDeleteBusy(false);
+          }
+        }}
+      />
     </div>
   );
 }

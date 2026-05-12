@@ -327,6 +327,54 @@
     @apply bg-sam-surface;
   }
 
+  /**
+   * 매장 설정(프로필) 입력 — primary 톤 테두리·여백 확보, 포커스 링 없음.
+   * `lib/business/owner-store-stack.ts` 의 `OWNER_STORE_PROFILE_FIELD_EDGE_CLASS` 와 짝.
+   */
+  .sam-input.owner-store-profile-field-edge {
+    border-style: solid !important;
+    border-width: 1px !important;
+    border-color: color-mix(in srgb, var(--sam-primary) 28%, var(--sam-border-default)) !important;
+    background-color: #ffffff !important;
+    box-shadow: none !important;
+    padding-left: 18px !important;
+    padding-right: 18px !important;
+    padding-top: 15px !important;
+    padding-bottom: 15px !important;
+  }
+
+  .sam-select.owner-store-profile-field-edge {
+    border-style: solid !important;
+    border-width: 1px !important;
+    border-color: color-mix(in srgb, var(--sam-primary) 28%, var(--sam-border-default)) !important;
+    background-color: #ffffff !important;
+    box-shadow: none !important;
+    padding-left: 18px !important;
+    padding-right: 2.5rem !important;
+    padding-top: 15px !important;
+    padding-bottom: 15px !important;
+  }
+
+  .sam-input.owner-store-profile-field-edge:focus {
+    border-color: color-mix(in srgb, var(--sam-primary) 48%, var(--sam-border-default)) !important;
+    background-color: #ffffff !important;
+    box-shadow: none !important;
+    outline: none !important;
+  }
+
+  .sam-select.owner-store-profile-field-edge:focus {
+    border-color: color-mix(in srgb, var(--sam-primary) 48%, var(--sam-border-default)) !important;
+    background-color: #ffffff !important;
+    box-shadow: none !important;
+    outline: none !important;
+  }
+
+  /** 매장 어드민 카드 섹션 — 헤더 배경 통일 (#DBEDF5) */
+  .owner-store-admin-dash-section__header {
+    background-color: #dbedf5;
+    border-bottom: 1px solid var(--sam-border-soft);
+  }
+
   /* 레거시 별칭 (= sam-input sam-input--soft) */
   .sam-input-surface-soft {
     @apply w-full rounded-sam-md border border-sam-border bg-sam-surface-muted text-sam-fg outline-none transition-[border-color,box-shadow,background-color] duration-150;

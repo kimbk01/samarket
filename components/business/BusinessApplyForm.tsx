@@ -9,27 +9,22 @@ import {
 } from "@/lib/stores/browse-mock/queries";
 import { useBrowseIndustryDatasetVersion } from "@/lib/stores/browse-mock/use-browse-industry-dataset-version";
 import { REGIONS } from "@/lib/products/form-options";
+import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import {
-  OWNER_STORE_CONTROL_CLASS,
-  OWNER_STORE_CONTROL_REQUIRED_CLASS,
-  OWNER_STORE_FIELD_LABEL_CLASS,
   OWNER_STORE_FORM_GRID_2_CLASS,
   OWNER_STORE_FORM_HINT_CLASS,
-  OWNER_STORE_FORM_LEAD_CLASS,
-  OWNER_STORE_SELECT_CLASS,
+  OWNER_STORE_PROFILE_CONTROL_CLASS,
+  OWNER_STORE_PROFILE_FIELD_LABEL_CLASS,
+  OWNER_STORE_PROFILE_SELECT_CLASS,
+  OWNER_STORE_PROFILE_TEXTAREA_BLOCK_CLASS,
   OWNER_STORE_STACK_Y_CLASS,
-  OWNER_STORE_TEXTAREA_CLASS,
 } from "@/lib/business/owner-store-stack";
 import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
-import {
-  buildTradePublicLine,
-  stripCountryFromAddressDisplayLine,
-} from "@/lib/addresses/user-address-format";
-import { inferAppLocationIdsFromUserAddress } from "@/lib/addresses/infer-app-location-from-user-address";
-import Link from "next/link";
+import { deriveStoreAddressFieldsFromUserAddressMaster } from "@/lib/business/derive-store-address-from-user-address-master";
+import { OwnerAddressBookSnapshotCard } from "@/components/business/OwnerAddressBookSnapshotCard";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 
 /** `/my/business/apply` — 프로필에서 한 번만 폼에 주입 */
@@ -105,7 +100,6 @@ export function BusinessApplyForm({
   profileSeed = null,
   computedStoreSlug = "",
 }: BusinessApplyFormProps) {
-  const FB_PRIMARY = "#1C8DB8";
   const industryVersion = useBrowseIndustryDatasetVersion();
   const [taxonomy, setTaxonomy] = useState<{ categories: StoreTaxonomyCategory[]; topics: StoreTaxonomyTopic[] } | null>(
     null
@@ -201,46 +195,16 @@ export function BusinessApplyForm({
           return;
         }
         setAddressDefault(master);
-        const inferred = inferAppLocationIdsFromUserAddress(master);
-        if (inferred?.regionId && inferred?.cityId) {
-          const r = REGIONS.find((x) => x.id === inferred.regionId);
-          const c = r?.cities.find((x) => x.id === inferred.cityId);
-          const stripTail = (line: string, parts: Array<string | null | undefined>) => {
-            let s = line.trim();
-            const uniq = parts
-              .map((x) => (x ?? "").trim())
-              .filter(Boolean)
-              .filter((x, i, a) => a.findIndex((y) => y.toLowerCase() === x.toLowerCase()) === i);
-            for (const token of uniq) {
-              const re = new RegExp(String.raw`(?:,\s*|\s+)${token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\s*$`, "i");
-              while (re.test(s)) s = s.replace(re, "").trim();
-            }
-            return s.trim();
-          };
-          // Store application uses:
-          // - addressStreetLine: street/full address only (no unit/building duplication)
-          // - addressDetail: unit/building + landmark (detail first is handled at display time)
-          const streetRaw =
-            (master.fullAddress ?? "").trim() ||
-            (master.streetAddress ?? "").trim() ||
-            buildTradePublicLine(master);
-          const streetNoCountry = stripCountryFromAddressDisplayLine(streetRaw, master.countryName).trim();
-          const summary = stripTail(streetNoCountry, [c?.name, r?.name]).trim();
-          const unit = [master.unitFloorRoom, master.buildingName]
-            .map((x) => (x ?? "").trim())
-            .filter(Boolean)
-            .join(" ")
-            .trim();
-          const landmark = (master.landmark ?? "").trim();
-          const detail = [unit, landmark ? `Landmark: ${landmark}` : ""].filter(Boolean).join("\n").trim();
-          setRegionId(inferred.regionId);
-          setCityId(inferred.cityId);
+        const derived = deriveStoreAddressFieldsFromUserAddressMaster(master);
+        if (derived) {
+          setRegionId(derived.regionId);
+          setCityId(derived.cityId);
           setValues((v) => ({
             ...v,
-            region: r?.name ?? v.region,
-            city: c?.name ?? v.city,
-            addressStreetLine: summary || v.addressStreetLine,
-            addressDetail: detail || v.addressDetail,
+            region: derived.regionName || v.region,
+            city: derived.cityName || v.city,
+            addressStreetLine: derived.addressStreetLine || v.addressStreetLine,
+            addressDetail: derived.addressDetail || v.addressDetail,
           }));
         }
       } catch {
@@ -316,119 +280,102 @@ export function BusinessApplyForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className={OWNER_STORE_STACK_Y_CLASS}>
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 shadow-sm">
+    <form id="business-apply-form" onSubmit={handleSubmit} className={OWNER_STORE_STACK_Y_CLASS}>
+      <OwnerStoreAdminDashSection title="신청·계정">
         <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
           <div className="min-w-0">
-            <label className={OWNER_STORE_FIELD_LABEL_CLASS}>매장 ID</label>
+            <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>매장 ID</label>
             <input
               type="text"
               value={ownerHandle || ""}
               readOnly
               aria-readonly="true"
-              className={`${OWNER_STORE_CONTROL_CLASS} bg-sam-app font-mono focus:border-[${FB_PRIMARY}] focus:ring-2 focus:ring-[${FB_PRIMARY}]/20`}
+              className={`${OWNER_STORE_PROFILE_CONTROL_CLASS} bg-sam-app font-mono`}
             />
           </div>
           <div className="min-w-0">
-            <label className={OWNER_STORE_FIELD_LABEL_CLASS}>신청자</label>
+            <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>신청자</label>
             <input
               type="text"
               value={values.applicantNickname}
-              className={OWNER_STORE_CONTROL_CLASS}
+              className={`${OWNER_STORE_PROFILE_CONTROL_CLASS} bg-sam-app`}
               readOnly
               aria-readonly="true"
             />
           </div>
         </div>
-      </div>
-      <div>
-        <label className={OWNER_STORE_FIELD_LABEL_CLASS}>
-          상점 이름 *
-        </label>
-        <input
-          type="text"
-          value={values.shopName}
-          onChange={(e) =>
-            setValues((v) => ({ ...v, shopName: e.target.value }))
-          }
-          required
-          className={OWNER_STORE_CONTROL_REQUIRED_CLASS}
-          placeholder="상점 이름을 입력하세요"
-        />
-      </div>
-      <div>
-        <label className={OWNER_STORE_FIELD_LABEL_CLASS}>
-          상점 소개
-        </label>
-        <textarea
-          value={values.description}
-          onChange={(e) =>
-            setValues((v) => ({ ...v, description: e.target.value }))
-          }
-          rows={3}
-          className={`${OWNER_STORE_TEXTAREA_CLASS} border border-signature/20 bg-sam-app shadow-sm focus:border-signature focus:ring-2 focus:ring-signature/25`}
-          placeholder="상점을 소개해 주세요"
-        />
-      </div>
-      <div>
-        <label className={OWNER_STORE_FIELD_LABEL_CLASS}>
-          연락처
-        </label>
-        <input
-          type="tel"
-          inputMode="numeric"
-          autoComplete="tel"
-          maxLength={17}
-          value={formatPhMobileDisplay(values.phone)}
-          onChange={(e) =>
-            setValues((v) => ({ ...v, phone: parsePhMobileInput(e.target.value) }))
-          }
-          className={OWNER_STORE_CONTROL_REQUIRED_CLASS}
-          placeholder={PH_MOBILE_PLACEHOLDER}
-        />
-      </div>
-      <div>
-        <label className={OWNER_STORE_FIELD_LABEL_CLASS}>
-          카카오톡 ID (선택)
-        </label>
-        <input
-          type="text"
-          value={values.kakaoId}
-          onChange={(e) =>
-            setValues((v) => ({ ...v, kakaoId: e.target.value }))
-          }
-          className={`${OWNER_STORE_CONTROL_CLASS} border border-signature/20 bg-sam-app shadow-sm focus:border-signature focus:ring-2 focus:ring-signature/25`}
-          placeholder="연락 가능한 카카오 ID"
-        />
-      </div>
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3">
-        <p className="sam-text-body-secondary font-semibold text-sam-fg">주소 (내정보 · 주소록)</p>
-        <p className="mt-1 sam-text-helper text-sam-muted">
-          {addressReady
-            ? addressDefault?.id
-              ? stripCountryFromAddressDisplayLine(buildTradePublicLine(addressDefault), addressDefault.countryName) || "—"
-              : "대표 주소가 없습니다. 주소록에서 대표 주소를 먼저 설정해 주세요."
-            : "불러오는 중…"}
-        </p>
-        <div className="mt-2 flex flex-wrap gap-2">
-          <Link
-            href="/mypage/addresses?returnTo=%2Fmy%2Fbusiness%2Fapply"
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-helper font-semibold text-sam-fg hover:bg-sam-app"
-          >
-            주소록 열기
-          </Link>
+      </OwnerStoreAdminDashSection>
+
+      <OwnerStoreAdminDashSection title="상점 정보">
+        <div>
+          <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>상점 이름 *</label>
+          <input
+            type="text"
+            value={values.shopName}
+            onChange={(e) => setValues((v) => ({ ...v, shopName: e.target.value }))}
+            required
+            className={OWNER_STORE_PROFILE_CONTROL_CLASS}
+            placeholder="상점 이름을 입력하세요"
+          />
         </div>
-      </div>
-      <div>
+        <div>
+          <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>상점 소개</label>
+          <textarea
+            value={values.description}
+            onChange={(e) => setValues((v) => ({ ...v, description: e.target.value }))}
+            rows={3}
+            className={OWNER_STORE_PROFILE_TEXTAREA_BLOCK_CLASS}
+            placeholder="상점을 소개해 주세요"
+          />
+        </div>
+      </OwnerStoreAdminDashSection>
+
+      <OwnerStoreAdminDashSection title="연락처">
+        <div>
+          <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>전화번호 *</label>
+          <input
+            type="tel"
+            inputMode="numeric"
+            autoComplete="tel"
+            maxLength={17}
+            value={formatPhMobileDisplay(values.phone)}
+            onChange={(e) =>
+              setValues((v) => ({ ...v, phone: parsePhMobileInput(e.target.value) }))
+            }
+            required
+            className={OWNER_STORE_PROFILE_CONTROL_CLASS}
+            placeholder={PH_MOBILE_PLACEHOLDER}
+          />
+        </div>
+        <div>
+          <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>카카오톡 ID (선택)</label>
+          <input
+            type="text"
+            value={values.kakaoId}
+            onChange={(e) => setValues((v) => ({ ...v, kakaoId: e.target.value }))}
+            className={OWNER_STORE_PROFILE_CONTROL_CLASS}
+            placeholder="연락 가능한 카카오 ID"
+          />
+        </div>
+      </OwnerStoreAdminDashSection>
+
+      <OwnerStoreAdminDashSection title="픽업·배달 주소 (내정보 · 주소록)">
+        <OwnerAddressBookSnapshotCard
+          returnToPath="/stores/owner/apply"
+          addressReady={addressReady}
+          addressDefault={addressDefault}
+          bare
+        />
+      </OwnerStoreAdminDashSection>
+
+      <OwnerStoreAdminDashSection title="업종 분류">
         <p className={OWNER_STORE_FORM_HINT_CLASS}>
           어드민 «매장 설정»·<span className="font-medium text-sam-muted">/stores</span> 와 같은 1·2차
           업종입니다. 1차 선택 후 세부(예: 한식·중식)를 고르세요.
         </p>
         <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
           <div className="min-w-0">
-            <label className={OWNER_STORE_FIELD_LABEL_CLASS}>
-              1차 업종
-            </label>
+            <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>1차 업종</label>
             <select
               value={values.categoryPrimarySlug}
               onChange={(e) => {
@@ -438,7 +385,9 @@ export function BusinessApplyForm({
                     ? (() => {
                         const cat = taxonomy.categories.find((c) => c.slug === slug);
                         if (!cat) return [];
-                        return taxonomy.topics.filter((t) => t.store_category_id === cat.id).map((t) => ({ slug: t.slug }));
+                        return taxonomy.topics
+                          .filter((t) => t.store_category_id === cat.id)
+                          .map((t) => ({ slug: t.slug }));
                       })()
                     : listBrowseSubIndustries(slug);
                 setValues((v) => ({
@@ -448,7 +397,7 @@ export function BusinessApplyForm({
                 }));
               }}
               required
-              className={OWNER_STORE_SELECT_CLASS}
+              className={OWNER_STORE_PROFILE_SELECT_CLASS}
             >
               {primaries.length === 0 ? (
                 <option value="">목록 없음</option>
@@ -462,17 +411,13 @@ export function BusinessApplyForm({
             </select>
           </div>
           <div className="min-w-0">
-            <label className={OWNER_STORE_FIELD_LABEL_CLASS}>
-              2차 업종 (세부)
-            </label>
+            <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>2차 업종 (세부)</label>
             <select
               value={values.categorySubSlug}
-              onChange={(e) =>
-                setValues((v) => ({ ...v, categorySubSlug: e.target.value }))
-              }
+              onChange={(e) => setValues((v) => ({ ...v, categorySubSlug: e.target.value }))}
               required
               disabled={subOptions.length === 0}
-              className={OWNER_STORE_SELECT_CLASS}
+              className={OWNER_STORE_PROFILE_SELECT_CLASS}
             >
               {subOptions.length === 0 ? (
                 <option value="">먼저 1차를 선택</option>
@@ -486,14 +431,17 @@ export function BusinessApplyForm({
             </select>
           </div>
         </div>
-      </div>
-      <button
-        type="submit"
-        disabled={disabled || !computedStoreSlug.trim() || !addressDefault?.id}
-        className="w-full rounded-ui-rect bg-[#1C8DB8] py-3 sam-text-body font-semibold text-white shadow-sm hover:bg-[#197fa5] active:bg-[#157292] disabled:opacity-50"
-      >
-        {submitLabel}
-      </button>
+      </OwnerStoreAdminDashSection>
+
+      <OwnerStoreAdminDashSection title="신청 제출">
+        <button
+          type="submit"
+          disabled={disabled || !computedStoreSlug.trim() || !addressDefault?.id}
+          className="min-h-[44px] w-full rounded-ui-rect bg-signature py-3 sam-text-body font-semibold text-white shadow-sm hover:opacity-95 active:opacity-90 disabled:opacity-50"
+        >
+          {submitLabel}
+        </button>
+      </OwnerStoreAdminDashSection>
     </form>
   );
 }

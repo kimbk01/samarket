@@ -55,6 +55,11 @@ export function buildBusinessAdminSidebar(ctx: MyBusinessNavContext): BusinessAd
   const opsItems: BusinessAdminSidebarItem[] = [
     { label: "대시보드", href: OwnerRoutes.hub(storeId), description: "지표·주문·문의 요약" },
     {
+      label: "기본 정보",
+      href: OwnerRoutes.basicInfo(storeId),
+      description: "대표 이미지·이름·소개·연락처·위치",
+    },
+    {
       label: "매장 설정",
       href: OwnerRoutes.profile(storeId),
       description: "영업시간·배달·갤러리·서비스 형태",
@@ -115,10 +120,7 @@ export function buildBusinessAdminSidebar(ctx: MyBusinessNavContext): BusinessAd
     });
   }
 
-  const storeItems: BusinessAdminSidebarItem[] = [
-    { label: "기본 정보", href: OwnerRoutes.basicInfo(storeId) },
-    { label: "운영 · 심사", href: OwnerRoutes.opsStatus(storeId) },
-  ];
+  const storeItems: BusinessAdminSidebarItem[] = [{ label: "운영 · 심사", href: OwnerRoutes.opsStatus(storeId) }];
   if (approved && isVisible && slug) {
     storeItems.push({
       label: "공개 매장 페이지",

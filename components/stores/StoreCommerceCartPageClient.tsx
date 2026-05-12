@@ -27,7 +27,7 @@ import {
   isCompletePhMobile,
   parsePhMobileInput,
 } from "@/lib/utils/ph-mobile";
-import { fetchStorePublicBySlugDeduped, postMeStoreOrder } from "@/lib/stores/store-delivery-api-client";
+import { fetchStorePublicBySlugDeduped, fetchStoreDeliveryEtaDeduped, postMeStoreOrder } from "@/lib/stores/store-delivery-api-client";
 import { BOTTOM_NAV_STACK_ABOVE_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import {
   clearLastCheckoutOrderId,
@@ -94,6 +94,7 @@ type StoreHead = {
 };
 
 type ProfileContactSnap = {
+  userAddressId?: string | null;
   phone: string;
   region: string;
   city: string;
@@ -171,6 +172,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const orderSubmitFlightRef = useRef(false);
   const [err, setErr] = useState<string | null>(null);
   const [lastOrderId, setLastOrderId] = useState<string | null>(null);
+  const [deliveryEtaLabel, setDeliveryEtaLabel] = useState<string | null>(null);
+  const deliveryEtaFetchGenRef = useRef(0);
   const [hoursTick, setHoursTick] = useState(0);
   const [profileSnap, setProfileSnap] = useState<ProfileContactSnap | null>(null);
   const [checkoutContactReady, setCheckoutContactReady] = useState(false);
@@ -391,6 +394,14 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     [region, city, freeSummaryLine]
   );
 
+  const deliveryUserAddressIdForSubmit = useMemo(() => {
+    if (fulfillment !== "local_delivery") return null;
+    if (selectedAddressId === PROFILE_DELIVERY_SELECTION_ID) {
+      return profileSnap?.userAddressId?.trim() || null;
+    }
+    return selectedAddressId?.trim() || null;
+  }, [fulfillment, selectedAddressId, profileSnap?.userAddressId]);
+
   const orderSubmitFingerprint = useMemo(() => {
     if (!store || !cart.snapshot) return "";
     const bucket = Object.values(cart.snapshot.carts).find((b) => b.storeId === store.id);
@@ -431,6 +442,33 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     clientOrderKeyRef.current = null;
   }, [orderSubmitFingerprint]);
 
+  useEffect(() => {
+    if (!storeSlug.trim() || fulfillment !== "local_delivery") {
+      setDeliveryEtaLabel(null);
+      return;
+    }
+    const aid = deliveryUserAddressIdForSubmit;
+    if (!aid) {
+      setDeliveryEtaLabel(null);
+      return;
+    }
+    const gen = ++deliveryEtaFetchGenRef.current;
+    void (async () => {
+      try {
+        const { status, json } = await fetchStoreDeliveryEtaDeduped(storeSlug, aid);
+        if (gen !== deliveryEtaFetchGenRef.current) return;
+        if (status !== 200) {
+          setDeliveryEtaLabel(null);
+          return;
+        }
+        const j = json as { ok?: boolean; etaLabel?: string };
+        setDeliveryEtaLabel(typeof j.etaLabel === "string" ? j.etaLabel : null);
+      } catch {
+        if (gen === deliveryEtaFetchGenRef.current) setDeliveryEtaLabel(null);
+      }
+    })();
+  }, [storeSlug, fulfillment, deliveryUserAddressIdForSubmit]);
+
   /** 배달 주문 시 지번·건물명 등(3자 이상) 또는 등록된 지역·동네 쌍 */
   const deliveryAddressReady = summaryForSubmit.trim().length >= 3;
 
@@ -469,6 +507,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       if (dd?.user_address_id) {
         const phoneDigits = parsePhMobileInput(dd.phone ?? json.contact_phone ?? "");
         const snap: ProfileContactSnap = {
+          userAddressId: dd.user_address_id,
           phone: phoneDigits,
           region: dd.app_region_id ?? "",
           city: dd.app_city_id ?? "",
@@ -501,6 +540,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         }
       }
       const snap: ProfileContactSnap = {
+        userAddressId: null,
         phone: phoneDigits,
         region: nextRegion,
         city: nextCity,
@@ -798,6 +838,15 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         payment_method: selectedPaymentMethod,
         delivery_address_summary: summaryForSubmit || undefined,
         delivery_address_detail: addressDetail.trim() || undefined,
+        ...(fulfillment === "local_delivery" || fulfillment === "shipping" ?
+          {
+            delivery_region: region.trim() || undefined,
+            delivery_city: city.trim() || undefined,
+          }
+        : {}),
+        ...(fulfillment === "local_delivery" && deliveryUserAddressIdForSubmit ?
+          { delivery_user_address_id: deliveryUserAddressIdForSubmit }
+        : {}),
         client_order_key,
       });
       if (status === 401) {
@@ -1490,6 +1539,12 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               <p className="mt-2 sam-text-xxs leading-snug text-amber-800">
                 마이페이지 주소가 비어 있거나 너무 짧습니다. 프로필에서 입력을 마치거나 배송지 추가로 주소를
                 넣어 주세요.
+              </p>
+            ) : null}
+            {fulfillment === "local_delivery" && deliveryEtaLabel ? (
+              <p className="mt-2 sam-text-xxs font-semibold leading-snug text-sam-fg">
+                예상 도착(참고): {deliveryEtaLabel}
+                <span className="ml-1 font-normal text-sam-muted">오토바이 경로 기준</span>
               </p>
             ) : null}
             </div>

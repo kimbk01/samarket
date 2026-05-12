@@ -15,6 +15,9 @@ export type StoreHomeFeedItem = {
   /** 최소주문금액(페소) — 없으면 null */
   minOrderLabel: string | null;
   estPrepLabel: string;
+  prepMinutes: number | null;
+  rideMinutes: number | null;
+  etaLabel: string;
   deliveryFeeLabel: string | null;
   distanceKm: number | null;
   featuredItems: { productId: string; name: string; price: number }[];

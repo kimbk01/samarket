@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRubberBandAtDocumentTop } from "@/lib/ui/use-rubber-band-at-document-top";
 import type { StorePublicFulfillmentMode } from "@/components/stores/StoreDetailStorefrontPanel";
 import { STORE_ORDER_BRAND } from "@/components/stores/store-order-detail/store-order-brand";
@@ -14,6 +14,7 @@ import {
   openGoogleMapsDrivingDirectionsFromUserTo,
   type StoreDetailDirectionsTarget,
 } from "@/lib/stores/google-maps-store-links";
+import { fetchStoreDeliveryEtaDeduped } from "@/lib/stores/store-delivery-api-client";
 
 function InfoRow({
   label,
@@ -27,8 +28,8 @@ function InfoRow({
   action?: ReactNode;
 }) {
   return (
-    <div className="grid grid-cols-[4.25rem_1fr] gap-2 py-1.5 text-[12px] leading-snug">
-      <div className="font-bold text-neutral-900">{label}</div>
+    <div className="grid max-w-full grid-cols-[max-content_1fr] gap-x-2.5 gap-y-0 py-1.5 text-[12px] leading-snug">
+      <div className="shrink-0 whitespace-nowrap font-bold text-neutral-900">{label}</div>
       <div className="min-w-0">
         <div className="flex min-w-0 items-start justify-between gap-2">
           <p className="min-w-0 whitespace-normal break-words font-bold text-neutral-900">{value}</p>
@@ -56,6 +57,24 @@ function formatOrderCount(n: number): string {
   return String(Math.floor(n));
 }
 
+function formatHeroDistanceKm(km: number | null | undefined): string {
+  if (km == null || !Number.isFinite(km)) return "—";
+  if (km < 1) return `${Math.round(km * 1000)}m`;
+  return `${km.toFixed(1)}km`;
+}
+
+type HeroDeliveryEtaPack = {
+  prepMinutes: number | null;
+  rideMinutes: number | null;
+  /** Google Routes matrix, TWO_WHEELER(실패 시 DRIVE) 경로 길이 */
+  routeDistanceKm: number | null;
+};
+
+function parseEtaNumber(v: unknown): number | null {
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  return null;
+}
+
 export function StoreOrderHeroSummary({
   storeName,
   profileImageUrl,
@@ -81,6 +100,8 @@ export function StoreOrderHeroSummary({
   collapseTopFulfillmentCard = false,
   /** 사장님 `store_banners` — 있으면 상단 히어로(#store-hero-media)에 노출(갤러리 커버 대체) */
   heroBannerSlot,
+  /** 설정 시 대표 배달 주소로 `/api/stores/…/delivery-eta` 조회 → 조리·배달(오토바이 경로)·경로 거리 표시 */
+  storeSlug,
 }: {
   storeName: string;
   profileImageUrl: string | null;
@@ -116,6 +137,7 @@ export function StoreOrderHeroSummary({
    */
   collapseTopFulfillmentCard?: boolean;
   heroBannerSlot?: ReactNode;
+  storeSlug?: string | null;
 }) {
   /** 당김 시 레이아웃 높이 + 위로 이동을 같이 줘서 헤더 위 흰 빈 공간이 보이지 않게 함 */
   const { stretch: heroStretch, scale: heroRubberScale } = useRubberBandAtDocumentTop(120, {
@@ -130,6 +152,61 @@ export function StoreOrderHeroSummary({
     const pullComp = heroRubberPx > 0 ? 1 + heroRubberPx / HERO_BASE_MIN_PX : 1;
     return Math.min(2.25, Math.max(heroRubberScale, pullComp));
   }, [heroRubberPx, heroRubberScale]);
+
+  const [heroDeliveryEta, setHeroDeliveryEta] = useState<HeroDeliveryEtaPack | null>(null);
+
+  useEffect(() => {
+    const slug = storeSlug?.trim();
+    if (!slug || !deliveryAvailable) {
+      setHeroDeliveryEta(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const contactRes = await fetch("/api/me/checkout-contact", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const contactJson = (await contactRes.json().catch(() => ({}))) as {
+          ok?: boolean;
+          default_delivery?: { user_address_id?: string };
+        };
+        if (cancelled) return;
+        const aid = contactJson?.default_delivery?.user_address_id?.trim();
+        if (!aid) {
+          setHeroDeliveryEta(null);
+          return;
+        }
+        const { status, json } = await fetchStoreDeliveryEtaDeduped(slug, aid);
+        if (cancelled) return;
+        if (status !== 200) {
+          setHeroDeliveryEta(null);
+          return;
+        }
+        const j = json as {
+          ok?: boolean;
+          prepMinutes?: unknown;
+          rideMinutes?: unknown;
+          routeDistanceKm?: unknown;
+        };
+        if (j.ok !== true) {
+          setHeroDeliveryEta(null);
+          return;
+        }
+        setHeroDeliveryEta({
+          prepMinutes: parseEtaNumber(j.prepMinutes),
+          rideMinutes: parseEtaNumber(j.rideMinutes),
+          routeDistanceKm: parseEtaNumber(j.routeDistanceKm),
+        });
+      } catch {
+        if (!cancelled) setHeroDeliveryEta(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [storeSlug, deliveryAvailable]);
 
   const prepLine = useMemo(() => commerceExtras.estPrepLabel, [commerceExtras.estPrepLabel]);
 
@@ -155,11 +232,24 @@ export function StoreOrderHeroSummary({
     return "없음";
   }, [commerceExtras.minOrderPhp]);
 
-  const timeDisplay = useMemo(() => {
-    const avg = deliveryMeta.avgDeliveryTimeLabel?.trim();
-    if (avg) return avg;
-    return prepLine;
-  }, [deliveryMeta.avgDeliveryTimeLabel, prepLine]);
+  const heroPrepDisplay = useMemo(() => {
+    const p = heroDeliveryEta?.prepMinutes ?? commerceExtras.prepMinutes;
+    if (p != null && Number.isFinite(p)) return `약 ${Math.round(p)}분`;
+    const t = commerceExtras.estPrepLabel?.trim();
+    if (t) return t.startsWith("약") ? t : `약 ${t}`;
+    return "—";
+  }, [heroDeliveryEta?.prepMinutes, commerceExtras.prepMinutes, commerceExtras.estPrepLabel]);
+
+  const heroRideDisplay = useMemo(() => {
+    const r = heroDeliveryEta?.rideMinutes;
+    if (r != null && Number.isFinite(r)) return `약 ${Math.round(r)}분`;
+    return "—";
+  }, [heroDeliveryEta?.rideMinutes]);
+
+  const heroDistDisplay = useMemo(
+    () => formatHeroDistanceKm(heroDeliveryEta?.routeDistanceKm),
+    [heroDeliveryEta?.routeDistanceKm]
+  );
 
   const ratingLabel =
     ratingAvg != null && Number.isFinite(Number(ratingAvg)) ? Number(ratingAvg).toFixed(1) : "—";
@@ -346,8 +436,10 @@ export function StoreOrderHeroSummary({
               {fulfillmentMode === "local_delivery" ? (
                 <>
                   <InfoRow label="최소주문" value={minDisplay} />
-                  <InfoRow label="가게배달" value={timeDisplay} sub={deliverySub} />
-                  <InfoRow label="배달팁" value={feeDisplay} />
+                  <InfoRow label="조리 시간" value={heroPrepDisplay} />
+                  <InfoRow label="배달 시간" value={heroRideDisplay} />
+                  <InfoRow label="경로 거리" value={heroDistDisplay} />
+                  <InfoRow label="배달팁" value={feeDisplay} sub={deliverySub} />
                 </>
               ) : (
                 <>

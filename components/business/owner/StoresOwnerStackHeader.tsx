@@ -7,6 +7,7 @@ import { AppBackButton } from "@/components/navigation/AppBackButton";
 export function StoresOwnerStackHeader({
   variant,
   backHref,
+  backIntercept,
   backAriaLabel = "이전 화면으로",
   shopName,
   hubSubtitle = "매장 운영 센터",
@@ -16,6 +17,8 @@ export function StoresOwnerStackHeader({
 }: {
   variant: "hub" | "admin";
   backHref?: string;
+  /** admin + backHref: true면 뒤로가기 동작을 하지 않음(가드에서 이탈 확인 등). */
+  backIntercept?: () => boolean;
   backAriaLabel?: string;
   shopName: string;
   hubSubtitle?: string;
@@ -40,7 +43,12 @@ export function StoresOwnerStackHeader({
               <AppBackButton backHref={backHref} ariaLabel={backAriaLabel} />
             : <div className="h-10 w-10 shrink-0" aria-hidden />
           : backHref ?
-            <AppBackButton backHref={backHref} ariaLabel={backAriaLabel} />
+            <AppBackButton
+              backHref={backHref}
+              interceptBack={backIntercept}
+              preferHistoryBack={false}
+              ariaLabel={backAriaLabel}
+            />
           : null}
           {variant === "hub" ?
             <>

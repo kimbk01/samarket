@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { districtRank, haversineKm } from "@/lib/geo/haversine-km";
+import { fetchRideMinutesByStoreId } from "@/lib/geo/google-routes-two-wheeler-matrix";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
 import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
+import { buildStoreDeliveryEtaLabel } from "@/lib/stores/store-delivery-eta-label";
 import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -272,6 +274,14 @@ export async function GET(req: Request) {
       }
     }
 
+    let rideById = new Map<string, number | null>();
+    if (userLat != null && userLng != null && rows.length > 0) {
+      rideById = await fetchRideMinutesByStoreId({
+        user: { lat: userLat, lng: userLng },
+        stores: rows.map((r) => ({ id: r.id, lat: r.lat, lng: r.lng })),
+      });
+    }
+
     const stores: StoreHomeFeedItem[] = rows.map((r) => {
       const cat = embedOne(r.store_categories as RelOne | RelOne[] | null | undefined);
       const openNow = resolveStoreFrontOpen(r.business_hours_json, r.is_open);
@@ -291,6 +301,10 @@ export async function GET(req: Request) {
 
       const regionLabel = formatStoreLocationLine(r) ?? "위치 미등록";
 
+      const rideRaw = rideById.get(r.id) ?? null;
+      const rideMinutes = r.delivery_available ? rideRaw : null;
+      const etaLabel = buildStoreDeliveryEtaLabel(extras, rideMinutes);
+
       return {
         id: r.id,
         slug: r.slug,
@@ -306,6 +320,9 @@ export async function GET(req: Request) {
         pickupAvailable: r.pickup_available !== false,
         minOrderLabel,
         estPrepLabel: extras.estPrepLabel,
+        prepMinutes: extras.prepMinutes,
+        rideMinutes,
+        etaLabel,
         deliveryFeeLabel,
         distanceKm,
         featuredItems: featuredByStore.get(r.id) ?? [],

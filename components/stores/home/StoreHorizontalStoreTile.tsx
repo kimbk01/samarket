@@ -66,7 +66,9 @@ export function StoreHorizontalStoreTile({
               <span className="text-sam-meta">· {distLabel}</span>
             : null}
           </div>
-          <p className="mt-0.5 truncate sam-text-xxs text-sam-meta">{store.estPrepLabel}</p>
+          <p className="mt-0.5 truncate sam-text-xxs text-sam-meta">
+            {store.etaLabel?.trim() || store.estPrepLabel}
+          </p>
         </div>
       </Link>
     </article>

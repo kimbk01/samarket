@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
+import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
 import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
 import { useCallback, useEffect, useState } from "react";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -47,6 +48,7 @@ export function OwnerStoreInquiriesView() {
   >({ kind: "loading" });
   const [draftById, setDraftById] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [closeConfirmId, setCloseConfirmId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setState({ kind: "loading" });
@@ -130,9 +132,8 @@ export function OwnerStoreInquiriesView() {
     }
   }
 
-  async function closeThread(id: string) {
+  async function performCloseThread(id: string) {
     if (state.kind !== "ok") return;
-    if (!window.confirm("이 문의를 종료할까요?")) return;
     setBusyId(id);
     try {
       await fetch(
@@ -237,7 +238,7 @@ export function OwnerStoreInquiriesView() {
                     <button
                       type="button"
                       disabled={busyId !== null}
-                      onClick={() => void closeThread(r.id)}
+                      onClick={() => setCloseConfirmId(r.id)}
                       className="rounded-ui-rect border border-sam-border px-4 py-2 text-sm text-sam-fg"
                     >
                       종료
@@ -249,6 +250,26 @@ export function OwnerStoreInquiriesView() {
           ))}
         </ul>
       )}
+
+      <OwnerStoreAdminConfirmModal
+        open={closeConfirmId != null && state.kind === "ok"}
+        titleId="owner-store-inquiries-close-title"
+        title="문의 종료"
+        description="이 문의를 종료할까요?"
+        cancelLabel="취소"
+        confirmLabel="종료"
+        confirmBusyLabel="처리 중…"
+        busy={closeConfirmId != null && busyId === closeConfirmId}
+        disableActions={busyId !== null}
+        confirmTone="danger"
+        onCancel={() => setCloseConfirmId(null)}
+        onConfirm={async () => {
+          if (!closeConfirmId || state.kind !== "ok") return;
+          const id = closeConfirmId;
+          setCloseConfirmId(null);
+          await performCloseThread(id);
+        }}
+      />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
 import { useBusinessAdminStore } from "@/components/business/admin/business-admin-store-context";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
+import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
 import { storeRowCanSell } from "@/lib/business/store-can-sell";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { getAppSettings } from "@/lib/app-settings";
@@ -57,6 +58,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
   const [search, setSearch] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<HubProduct | null>(null);
 
   const canSell = useMemo(() => {
     const r = adminStore?.storeRow;
@@ -203,9 +205,8 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
     setToast("빠른 품절은 「판매중」 또는 「품절」 상태에서만 전환할 수 있습니다.");
   };
 
-  const onDelete = (p: HubProduct) => {
-    if (!window.confirm(`「${p.title}」을(를) 삭제(목록에서 제거)할까요?`)) return;
-    void patchProduct(p.id, { product_status: "deleted" });
+  const onDeleteClick = (p: HubProduct) => {
+    setDeleteTarget(p);
   };
 
   const ordersHref = buildStoreOrdersHref({ storeId });
@@ -474,7 +475,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
                     <button
                       type="button"
                       disabled={busy}
-                      onClick={() => onDelete(p)}
+                      onClick={() => onDeleteClick(p)}
                       className="inline-flex items-center gap-1 rounded-ui-rect border border-red-100 bg-red-50 px-3 py-1.5 sam-text-body-secondary font-medium text-red-700 disabled:opacity-50"
                     >
                       <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -494,6 +495,28 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
           </ul>
         )}
       </div>
+
+      <OwnerStoreAdminConfirmModal
+        open={deleteTarget != null}
+        titleId="owner-products-hub-delete-title"
+        title="상품 삭제"
+        description={
+          deleteTarget ? `「${deleteTarget.title}」을(를) 삭제(목록에서 제거)할까요?` : undefined
+        }
+        cancelLabel="취소"
+        confirmLabel="삭제"
+        confirmBusyLabel="처리 중…"
+        busy={deleteTarget != null && busyId === deleteTarget.id}
+        disableActions={busyId !== null}
+        confirmTone="danger"
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={async () => {
+          if (!deleteTarget) return;
+          const p = deleteTarget;
+          setDeleteTarget(null);
+          await patchProduct(p.id, { product_status: "deleted" });
+        }}
+      />
     </div>
   );
 }

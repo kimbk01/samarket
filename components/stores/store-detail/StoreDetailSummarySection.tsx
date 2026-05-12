@@ -152,6 +152,7 @@ export function StoreDetailSummarySection({
           viewerFavorited={viewerFavorited}
           favoriteBusy={favoriteBusy}
           onFavoriteClick={onFavoriteClick}
+          storeSlug={store.slug}
         />
       </div>
 

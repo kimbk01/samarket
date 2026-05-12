@@ -40,6 +40,7 @@ import { persistStoreOrderItemOptions } from "@/lib/stores/persist-store-order-i
 import { normalizeStoreOrderClientKey } from "@/lib/stores/store-order-client-key";
 import { createStoreOrderEvent } from "@/lib/stores/store-order-events";
 import { normalizeStoreAddressPh } from "@/lib/stores/normalize-store-address-ph";
+import { computeStoreOrderCheckoutEtaSnapshot } from "@/lib/stores/compute-store-order-checkout-eta-snapshot";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -292,6 +293,8 @@ type PostBody = {
   /** 지역 키(향후 배달 권역 기준) */
   delivery_region?: string;
   delivery_city?: string;
+  /** `user_addresses.id` — ETA 스냅샷·라우팅용(본인 주소만) */
+  delivery_user_address_id?: string;
   /** 멱등 키 — 재전송·더블클릭 시 동일 주문 반환 */
   client_order_key?: string;
 };
@@ -352,7 +355,7 @@ export async function POST(req: NextRequest) {
   const { data: store, error: sErr } = await sb
     .from("stores")
     .select(
-      "id, owner_user_id, approval_status, is_visible, store_name, is_open, business_hours_json, pickup_available, delivery_available"
+      "id, owner_user_id, approval_status, is_visible, store_name, is_open, business_hours_json, pickup_available, delivery_available, lat, lng"
     )
     .eq("id", storeId)
     .maybeSingle();
@@ -615,6 +618,23 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const storeRow = store as { lat?: number | null; lng?: number | null };
+  const storeLat =
+    storeRow.lat != null && Number.isFinite(Number(storeRow.lat)) ? Number(storeRow.lat) : null;
+  const storeLng =
+    storeRow.lng != null && Number.isFinite(Number(storeRow.lng)) ? Number(storeRow.lng) : null;
+  const deliveryUserAddressId = String(body.delivery_user_address_id ?? "").trim() || null;
+
+  const etaSnapshot = await computeStoreOrderCheckoutEtaSnapshot({
+    sb,
+    buyerUserId: buyerId,
+    fulfillment,
+    deliveryUserAddressId,
+    storeLat,
+    storeLng,
+    business_hours_json: store.business_hours_json,
+  });
+
   const insertOrderPayload: Record<string, unknown> = {
     order_no: orderNo,
     buyer_user_id: buyerId,
@@ -635,6 +655,7 @@ export async function POST(req: NextRequest) {
     delivery_address_detail,
     delivery_region,
     delivery_city,
+    ...etaSnapshot,
   };
   if (normalizedClientKey) {
     insertOrderPayload.client_order_key = normalizedClientKey;

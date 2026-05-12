@@ -3,7 +3,10 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import type { CheckoutDeliveryPayload } from "@/lib/addresses/user-address-format";
 import { toCheckoutDeliveryPayload } from "@/lib/addresses/user-address-format";
-import { getUserAddressDefaults } from "@/lib/addresses/user-address-service";
+import {
+  getUserAddressDefaults,
+  pickAddressRowForDeliveryRouting,
+} from "@/lib/addresses/user-address-service";
 import { resolveProfileLocationAddressOneLine } from "@/lib/profile/profile-location";
 
 export const runtime = "nodejs";
@@ -11,7 +14,7 @@ export const dynamic = "force-dynamic";
 
 /**
  * 매장 장바구니 등에서 자동 채움용.
- * 정책: 주문자(배달) 주소는 `user_addresses` 기본 배달지·프로필 주소를 우선하고,
+ * 정책: `user_addresses` 에서 **배달 기본 → 대표 → 거래 → 생활** 순으로 한 건을 `default_delivery` 로 내리고,
  * `test_users.contact_*` 는 그다음(개발·테스트 보조). 매장 영업 주소와 혼동하지 않는다.
  */
 export async function GET() {
@@ -46,9 +49,10 @@ export async function GET() {
   let default_delivery: CheckoutDeliveryPayload | null = null;
   try {
     const defs = await getUserAddressDefaults(sb, uid);
-    if (defs.delivery) {
-      default_delivery = toCheckoutDeliveryPayload(defs.delivery);
-      const dp = defs.delivery.phoneNumber?.trim() ?? "";
+    const deliveryRow = pickAddressRowForDeliveryRouting(defs);
+    if (deliveryRow) {
+      default_delivery = toCheckoutDeliveryPayload(deliveryRow);
+      const dp = deliveryRow.phoneNumber?.trim() ?? "";
       if (!contact_phone && dp) contact_phone = dp;
     }
   } catch {

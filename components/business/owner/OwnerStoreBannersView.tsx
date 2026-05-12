@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
+import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
 import { Biz } from "@/lib/ui/biz-component-classes";
 import { invalidateStoreBannersPublicCache } from "@/lib/stores/store-delivery-api-client";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
@@ -84,6 +85,7 @@ export function OwnerStoreBannersView() {
     | null
   >(null);
   const [busy, setBusy] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const bannerFileRef = useRef<HTMLInputElement | null>(null);
   const [linkPick, setLinkPick] = useState<{ notices: LinkPickRow[]; loading: boolean }>({
     notices: [],
@@ -281,8 +283,7 @@ export function OwnerStoreBannersView() {
     }
   };
 
-  const deleteBanner = async (id: string) => {
-    if (!window.confirm("이 배너를 삭제할까요?")) return;
+  const performDeleteBanner = async (id: string) => {
     const sid = resolvedStoreId.trim();
     setBusy(true);
     try {
@@ -365,7 +366,12 @@ export function OwnerStoreBannersView() {
                   >
                     수정
                   </button>
-                  <button type="button" disabled={busy} onClick={() => void deleteBanner(b.id)} className={Biz.btnOutline}>
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setDeleteConfirmId(b.id)}
+                    className={Biz.btnOutline}
+                  >
                     삭제
                   </button>
                 </div>
@@ -626,6 +632,26 @@ export function OwnerStoreBannersView() {
           </div>
         </div>
       ) : null}
+
+      <OwnerStoreAdminConfirmModal
+        open={deleteConfirmId != null}
+        titleId="owner-store-banners-delete-title"
+        title="배너 삭제"
+        description="이 배너를 삭제할까요?"
+        cancelLabel="취소"
+        confirmLabel="삭제"
+        confirmBusyLabel="삭제 중…"
+        busy={busy}
+        disableActions={busy}
+        confirmTone="danger"
+        onCancel={() => setDeleteConfirmId(null)}
+        onConfirm={async () => {
+          if (!deleteConfirmId) return;
+          const id = deleteConfirmId;
+          setDeleteConfirmId(null);
+          await performDeleteBanner(id);
+        }}
+      />
     </div>
   );
 }

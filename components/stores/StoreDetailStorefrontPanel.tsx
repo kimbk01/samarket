@@ -91,9 +91,6 @@ export function StoreDetailStorefrontPanel({
 
   const payFull = deliveryMeta.paymentMethodsLine?.trim() || "매장에 문의해 주세요.";
   const courier = commerceExtras.deliveryCourierLabel?.trim();
-  const showAvgDel =
-    deliveryMeta.avgDeliveryTimeLabel.trim() &&
-    deliveryMeta.avgDeliveryTimeLabel.trim() !== commerceExtras.estPrepLabel.trim();
 
   return (
     <section
@@ -178,8 +175,11 @@ export function StoreDetailStorefrontPanel({
             <span className="whitespace-pre-wrap break-words">{payFull}</span>
           </DetailRow>
           <DetailRow label="조리·준비 안내">{commerceExtras.estPrepLabel}</DetailRow>
-          {showAvgDel ? (
-            <DetailRow label="배달 소요 안내(참고)">{deliveryMeta.avgDeliveryTimeLabel.trim()}</DetailRow>
+          {deliveryAvailable ? (
+            <DetailRow label="배달 소요(추정)">
+              고객 배달 주소 좌표가 있으면 앱에서 매장까지 오토바이 경로 기준으로 배달 구간을 자동 추정해,
+              조리 시간과 합산한 예상 시간을 목록·장바구니에 표시합니다.
+            </DetailRow>
           ) : null}
 
           <div className="pt-1">

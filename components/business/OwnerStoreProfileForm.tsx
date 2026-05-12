@@ -1,22 +1,32 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  OWNER_STORE_CONTROL_COMPACT_BLOCK_CLASS,
-  OWNER_STORE_CONTROL_COMPACT_CLASS,
   OWNER_STORE_FORM_GRID_2_CLASS,
-  OWNER_STORE_SELECT_CLASS,
-  OWNER_STORE_STACK_Y_CLASS,
-  OWNER_STORE_TIME_BLOCK_BUTTON_CLASS,
+  OWNER_STORE_PROFILE_CONTROL_CLASS,
+  OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS,
+  OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS,
+  OWNER_STORE_PROFILE_FIELD_EDGE_CLASS,
+  OWNER_STORE_PROFILE_FIELD_LABEL_CLASS,
+  OWNER_STORE_PROFILE_INNER_PANEL_CLASS,
+  OWNER_STORE_PROFILE_SELECT_CLASS,
+  OWNER_STORE_PROFILE_TEXTAREA_BLOCK_CLASS,
+  OWNER_STORE_PROFILE_TIME_BUTTON_CLASS,
 } from "@/lib/business/owner-store-stack";
-import { usePathname } from "next/navigation";
+import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
+import { OwnerStoreAdminLeavePromptModal } from "@/components/business/owner/OwnerStoreAdminLeavePromptModal";
+import { usePathname, useRouter } from "next/navigation";
 import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { parsePhMobileInput } from "@/lib/utils/ph-mobile";
 import { splitStoreDescriptionAndKakao } from "@/lib/stores/split-store-description-kakao";
 import { parseMediaUrlsJson } from "@/lib/stores/parse-media-urls-json";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { coerceBusinessHoursRecord } from "@/lib/stores/coerce-business-hours-json";
+import {
+  clampStorePrepMinutes,
+  parsePrepMinutesLegacyFromEstPrepLabel,
+} from "@/lib/stores/store-commerce-extras";
 import { readPublicNoticesFromBusinessRecord } from "@/lib/stores/store-detail-meta";
 import {
   formatStoreAddressDetailOnly,
@@ -34,8 +44,18 @@ import {
   STORE_AUTO_TIMEZONE_OPTIONS,
 } from "@/lib/stores/store-auto-hours";
 import { TumblerTimePickerDialog } from "@/components/ui/TumblerTimePickerDialog";
-import { BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { BodyPortal } from "@/components/layout/BodyPortal";
+import {
+  BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS,
+  BOTTOM_NAV_SHELL,
+} from "@/lib/main-menu/bottom-nav-config";
 import { APP_MAIN_COLUMN_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
+import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
+import {
+  OWNER_BASIC_INFO_LEAVE_EVENT,
+  setOwnerBasicInfoDirty,
+  type OwnerBasicInfoLeaveDetail,
+} from "@/lib/business/owner-basic-info-guard";
 import { formatHHmm12hLabel } from "@/lib/utils/tumbler-time";
 const GALLERY_MAX = 16;
 
@@ -53,17 +73,24 @@ function readPublicCommerceFields(raw: unknown) {
     String(o[a] ?? o[b] ?? "")
       .trim()
       .replace(/\r\n/g, "\n");
+  const prepFromJson = intStrFromJson(o, "prep_time_minutes", "prepTimeMinutes");
+  const estLegacy = s("est_prep_label", "estPrepLabel");
+  const prepTimeMinutes =
+    prepFromJson ||
+    (() => {
+      const parsed = estLegacy ? parsePrepMinutesLegacyFromEstPrepLabel(estLegacy) : null;
+      return parsed != null ? String(parsed) : "";
+    })();
   return {
     hoursNote,
     publicNotices: readPublicNoticesFromBusinessRecord(raw),
     freeDeliveryOverPhp: intStrFromJson(o, "free_delivery_over_php", "freeDeliveryOverPhp"),
     deliveryNotice: s("delivery_notice", "deliveryNotice"),
-    avgDeliveryTime: s("avg_delivery_time", "avgDeliveryTime"),
     avgChatResponse: s("avg_chat_response", "avgChatResponse"),
     minOrderPhp: intStrFromJson(o, "min_order_php", "minOrderPhp"),
     deliveryFeePhp: intStrFromJson(o, "delivery_fee_php", "deliveryFeePhp"),
     deliveryCourierLabel: s("delivery_courier_label", "deliveryCourierLabel"),
-    estPrepLabel: s("est_prep_label", "estPrepLabel"),
+    prepTimeMinutes,
   };
 }
 
@@ -98,7 +125,8 @@ export type OwnerStoreProfileFormValues = {
   publicNotices: string[];
   freeDeliveryOverPhp: string;
   deliveryNotice: string;
-  avgDeliveryTime: string;
+  /** 조리·준비 예상 시간(분) — `business_hours_json.prep_time_minutes` */
+  prepTimeMinutes: string;
   /** 쉬는 시간 — 체크 시에만 시간 UI·저장 */
   breakHoursEnabled: boolean;
   breakHoursStart: string;
@@ -108,7 +136,6 @@ export type OwnerStoreProfileFormValues = {
   deliveryFeePhp: string;
   /** 배달 업체·수단 안내(청구 금액 미포함) */
   deliveryCourierLabel: string;
-  estPrepLabel: string;
   latStr: string;
   lngStr: string;
   galleryUrls: string[];
@@ -131,9 +158,8 @@ function hasPersistedPublicCommerceDetail(v: OwnerStoreProfileFormValues): boole
   if (v.freeDeliveryOverPhp.trim()) return true;
   if (v.publicNotices.some((t) => t.trim())) return true;
   if (v.deliveryNotice.trim()) return true;
-  if (v.avgDeliveryTime.trim()) return true;
   if (v.avgChatResponse.trim()) return true;
-  if (v.estPrepLabel.trim()) return true;
+  if (v.prepTimeMinutes.trim()) return true;
   return false;
 }
 
@@ -179,6 +205,10 @@ function rowToFormValues(row: StoreRow): OwnerStoreProfileFormValues {
   };
 }
 
+function serializeProfileSnapshot(v: OwnerStoreProfileFormValues): string {
+  return JSON.stringify(v);
+}
+
 /** 매장 관리 저장분 = 매장 창 표시와 동일 JSON (`public_notices` 등). */
 function buildBusinessHoursJson(
   row: StoreRow,
@@ -201,6 +231,8 @@ function buildBusinessHoursJson(
     "freeDeliveryOverPhp",
     "delivery_notice",
     "deliveryNotice",
+    "prep_time_minutes",
+    "prepTimeMinutes",
     "avg_delivery_time",
     "avgDeliveryTime",
     "break_time",
@@ -248,8 +280,15 @@ function buildBusinessHoursJson(
   }
   const dn = values.deliveryNotice.trim();
   if (dn) prev.delivery_notice = dn;
-  const ad = values.avgDeliveryTime.trim();
-  if (ad) prev.avg_delivery_time = ad;
+  const pmRaw = values.prepTimeMinutes.trim();
+  if (pmRaw) {
+    const n = Math.round(Number(pmRaw));
+    if (Number.isFinite(n) && n > 0) {
+      const c = clampStorePrepMinutes(n);
+      prev.prep_time_minutes = c;
+      prev.est_prep_label = `${c}분`;
+    }
+  }
   if (values.breakHoursEnabled) {
     const bs = normalizeHHMM(values.breakHoursStart.trim());
     const be = normalizeHHMM(values.breakHoursEnd.trim());
@@ -272,8 +311,6 @@ function buildBusinessHoursJson(
   }
   const dc = values.deliveryCourierLabel.trim();
   if (dc) prev.delivery_courier_label = dc;
-  const est = values.estPrepLabel.trim();
-  if (est) prev.est_prep_label = est;
 
   const tz = (values.autoHoursTz || "Asia/Manila").trim() || "Asia/Manila";
   const o = normalizeHHMM(values.autoHoursOpen.trim());
@@ -294,7 +331,6 @@ interface OwnerStoreProfileFormProps {
   storeSlug: string;
   row: StoreRow;
   onSaved: () => void;
-  onCancel: () => void;
   /** 폼에서 배달·픽업 토글 시 하단 요약(저장 전)과 맞추기 */
   onServiceDraftChange?: (d: { deliveryAvailable: boolean; pickupAvailable: boolean }) => void;
 }
@@ -323,24 +359,23 @@ function patchErrorToUserMessage(code: string): string | null {
 
 export function OwnerStoreProfileForm({
   storeId,
-  storeSlug,
+  storeSlug: _storeSlug,
   row,
   onSaved,
-  onCancel,
   onServiceDraftChange,
 }: OwnerStoreProfileFormProps) {
+  const router = useRouter();
   const pathname = usePathname();
   const hideAppBottomNav =
     (pathname?.startsWith("/my/settings") ?? false) ||
     pathname === "/my/logout" ||
     isProfileEditPath(pathname);
-  /** `/stores/owner/*` 세부는 메인 BottomNav 없음 — 액션 바는 항상 화면 하단에 붙인다 */
-  const onStoresOwnerAdminSubroute = pathname?.startsWith("/stores/owner/") === true;
-  const dockAboveBottomNav =
-    !hideAppBottomNav && (pathname?.startsWith("/my") ?? false) && !onStoresOwnerAdminSubroute;
-
-  const stickyActionBarSurfaceClass =
-    "border-t border-sam-border-soft bg-sam-surface/95 shadow-[0_-8px_32px_rgba(15,23,42,0.08)] backdrop-blur-md supports-[backdrop-filter]:bg-sam-surface/90";
+  const shellFlags = useMemo(
+    () => resolveConditionalAppShellFlags(pathname ?? "", false),
+    [pathname]
+  );
+  const dockActionBarAboveMainBottomNav =
+    !hideAppBottomNav && shellFlags.showBottomNav;
 
   const [values, setValues] = useState<OwnerStoreProfileFormValues>(() => rowToFormValues(row));
   const [publicCommerceDetailOpen, setPublicCommerceDetailOpen] = useState(() =>
@@ -352,12 +387,48 @@ export function OwnerStoreProfileForm({
   const [timePickerTarget, setTimePickerTarget] = useState<
     "open" | "close" | "breakOpen" | "breakClose" | null
   >(null);
+  const [baselineSnapshot, setBaselineSnapshot] = useState<string | null>(null);
+  const [leavePrompt, setLeavePrompt] = useState<OwnerBasicInfoLeaveDetail | null>(null);
+  const [leaveSaving, setLeaveSaving] = useState(false);
+
+  const valuesRef = useRef(values);
+  valuesRef.current = values;
 
   useEffect(() => {
     const next = rowToFormValues(row);
     setValues(next);
     setPublicCommerceDetailOpen(hasPersistedPublicCommerceDetail(next));
+    queueMicrotask(() => {
+      setBaselineSnapshot(serializeProfileSnapshot(next));
+    });
   }, [row]);
+
+  const isDirty =
+    baselineSnapshot != null &&
+    serializeProfileSnapshot(valuesRef.current) !== baselineSnapshot;
+
+  useEffect(() => {
+    setOwnerBasicInfoDirty(isDirty);
+    return () => setOwnerBasicInfoDirty(false);
+  }, [isDirty]);
+
+  useEffect(() => {
+    const onLeave = (ev: Event) => {
+      const detail = (ev as CustomEvent<OwnerBasicInfoLeaveDetail>).detail;
+      if (detail?.href) setLeavePrompt(detail);
+    };
+    window.addEventListener(OWNER_BASIC_INFO_LEAVE_EVENT, onLeave);
+    return () => window.removeEventListener(OWNER_BASIC_INFO_LEAVE_EVENT, onLeave);
+  }, []);
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const fn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", fn);
+    return () => window.removeEventListener("beforeunload", fn);
+  }, [isDirty]);
 
   useEffect(() => {
     onServiceDraftChange?.({
@@ -402,21 +473,29 @@ export function OwnerStoreProfileForm({
     }
   };
 
-  const saveStoreProfile = async () => {
+  const revertToSaved = useCallback(() => {
+    setError(null);
+    const next = rowToFormValues(row);
+    setValues(next);
+    setPublicCommerceDetailOpen(hasPersistedPublicCommerceDetail(next));
+    setBaselineSnapshot(serializeProfileSnapshot(next));
+  }, [row]);
+
+  const runSave = async (): Promise<boolean> => {
     try {
       setError(null);
       const business_hours_json = buildBusinessHoursJson(row, values);
       const gallery_images_json = values.galleryUrls.map((u) => u.trim()).filter(Boolean);
       if (gallery_images_json.length > GALLERY_MAX) {
         setError(`갤러리 이미지는 최대 ${GALLERY_MAX}장까지입니다.`);
-        return;
+        return false;
       }
       {
         const o = normalizeHHMM(values.autoHoursOpen.trim());
         const c = normalizeHHMM(values.autoHoursClose.trim());
         if (!o || !c || o === c) {
           setError("매장 창 영업시간: 시작·종료를 HH:mm(예: 09:00, 22:00)로 입력해 주세요.");
-          return;
+          return false;
         }
       }
       if (values.breakHoursEnabled) {
@@ -424,7 +503,7 @@ export function OwnerStoreProfileForm({
         const be = normalizeHHMM(values.breakHoursEnd.trim());
         if (!bs || !be || bs === be) {
           setError("쉬는 시간: 시작·종료를 모두 선택해 주세요.");
-          return;
+          return false;
         }
       }
       setSubmitting(true);
@@ -445,7 +524,7 @@ export function OwnerStoreProfileForm({
         const j = await res.json().catch(() => ({}));
         if (res.status === 401) {
           setError("로그인이 필요합니다.");
-          return;
+          return false;
         }
         if (!j?.ok || !j?.store) {
           const code = typeof j?.error === "string" ? j.error : "";
@@ -455,20 +534,51 @@ export function OwnerStoreProfileForm({
               ? "저장 응답이 올바르지 않습니다. 목록을 새로고침해 변경 여부를 확인해 주세요."
               : mapped ?? (code ? code : "저장에 실패했습니다.")
           );
-          return;
+          return false;
         }
         onSaved();
+        return true;
       } catch {
         setError("네트워크 오류가 발생했습니다.");
+        return false;
       } finally {
         setSubmitting(false);
       }
     } catch (err) {
-      console.error("[OwnerStoreProfileForm] saveStoreProfile", err);
+      console.error("[OwnerStoreProfileForm] runSave", err);
       setError("저장 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.");
       setSubmitting(false);
+      return false;
     }
   };
+
+  const saveStoreProfile = async () => {
+    await runSave();
+  };
+
+  const confirmLeaveWithSave = async () => {
+    if (!leavePrompt) return;
+    setLeaveSaving(true);
+    try {
+      const ok = await runSave();
+      if (ok) {
+        const href = leavePrompt.href;
+        setLeavePrompt(null);
+        router.push(href);
+      }
+    } finally {
+      setLeaveSaving(false);
+    }
+  };
+
+  /** 모달 «취소»: 편집 폐기 후 뒤로/사이드바가 요청한 경로로 이동 */
+  const confirmLeaveDiscard = useCallback(() => {
+    if (!leavePrompt) return;
+    const href = leavePrompt.href;
+    setLeavePrompt(null);
+    revertToSaved();
+    router.push(href);
+  }, [leavePrompt, revertToSaved, router]);
 
   const timePickerValue =
     timePickerTarget === "close"
@@ -499,61 +609,36 @@ export function OwnerStoreProfileForm({
     return n ? formatHHmm12hLabel(n) : "없음";
   })();
 
-  const actionBarInner = (
-    <>
-      {error ? (
-        <div
-          className="mb-2 max-h-24 overflow-y-auto rounded-ui-rect border border-red-100 bg-red-50 px-3 py-2 sam-text-helper leading-snug text-red-800"
-          role="alert"
-        >
-          {error}
-        </div>
-      ) : null}
-      <div className="flex min-w-0 flex-row gap-2">
-        <button
-          type="button"
-          onClick={onCancel}
-          className="min-h-[48px] min-w-0 flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body font-medium text-sam-fg shadow-sm"
-        >
-          취소
-        </button>
-        <button
-          type="submit"
-          form="owner-store-profile-form"
-          disabled={submitting}
-          className="min-h-[48px] min-w-0 flex-1 rounded-ui-rect bg-signature px-3 py-3 sam-text-body font-medium text-white shadow-sm disabled:opacity-50"
-        >
-          {submitting ? "저장 중…" : "확인"}
-        </button>
-      </div>
-    </>
-  );
-
   return (
     <>
-    <form
-      id="owner-store-profile-form"
-      noValidate
-      onSubmit={(e) => {
-        e.preventDefault();
-        void saveStoreProfile();
-      }}
-      className={`max-w-full min-w-0 ${OWNER_STORE_STACK_Y_CLASS} pb-[calc(6.75rem+env(safe-area-inset-bottom,0px))] sm:pb-[calc(7.25rem+env(safe-area-inset-bottom,0px))]`}
-    >
-      <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-3 py-2 sam-text-helper text-sam-muted">
-        로고·매장명·연락처·주소 등은{" "}
-        <Link
-          href={`/stores/owner/basic-info?storeId=${encodeURIComponent(storeId)}`}
-          className="font-medium text-signature underline"
-        >
-          기본 정보
-        </Link>
-        에서 수정합니다.
-      </p>
+      <form
+        id="owner-store-profile-form"
+        noValidate
+        onSubmit={(e) => {
+          e.preventDefault();
+          void saveStoreProfile();
+        }}
+        className={`max-w-full min-w-0 space-y-3 sm:space-y-4 ${
+          isDirty
+            ? "pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))]"
+            : "pb-0"
+        }`}
+      >
+      <OwnerStoreAdminDashSection title="편집 안내">
+        <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app/50 px-3 py-2.5 sam-text-xxs leading-snug text-sam-fg">
+          로고·매장명·연락처·주소 등은{" "}
+          <Link
+            href={`/stores/owner/basic-info?storeId=${encodeURIComponent(storeId)}`}
+            className="font-semibold text-sam-primary underline underline-offset-2"
+          >
+            기본 정보
+          </Link>
+          에서 수정합니다.
+        </div>
+      </OwnerStoreAdminDashSection>
 
-      <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-3">
-        <h3 className="sam-text-body font-semibold text-sam-fg">서비스 형태</h3>
-        <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 sam-text-body text-sam-fg">
+      <OwnerStoreAdminDashSection title="서비스 형태">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 sam-text-body text-sam-fg">
           <label className="flex cursor-pointer items-center gap-2">
             <input
               id="svc-delivery"
@@ -575,24 +660,23 @@ export function OwnerStoreProfileForm({
             <span>포장·픽업 가능</span>
           </label>
         </div>
-      </div>
+      </OwnerStoreAdminDashSection>
 
-      <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-3">
-        <h3 className="sam-text-body font-semibold text-sam-fg">신규 주문 알림음 (배달)</h3>
-        <p className="mt-1 sam-text-helper text-sam-muted">
-          알림음은 관리자 <span className="font-medium text-sam-fg">매장 신청 설정</span>에서 지정합니다. 미설정 시 짧은 비프음이 재생됩니다.
+      <OwnerStoreAdminDashSection title="신규 주문 알림음 (배달)">
+        <p className="sam-text-helper text-sam-muted">
+          알림음은 관리자 <span className="font-medium text-sam-fg">매장 신청 설정</span>에서 지정합니다. 미설정 시 짧은
+          비프음이 재생됩니다.
         </p>
-      </div>
+      </OwnerStoreAdminDashSection>
 
-      <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-3">
-        <h3 className="sam-text-body font-semibold text-sam-fg">매장 창 영업시간 (현지 시각)</h3>
-        <div className="mt-3 space-y-3 rounded-ui-rect border border-sam-border-soft bg-sam-app/80 px-3 py-3">
+      <OwnerStoreAdminDashSection title="매장 창 영업시간 (현지 시각)">
+        <div className={OWNER_STORE_PROFILE_INNER_PANEL_CLASS}>
           <div>
-            <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">현지 타임존</label>
+            <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>현지 타임존</label>
             <select
               value={values.autoHoursTz}
               onChange={(e) => setValues((v) => ({ ...v, autoHoursTz: e.target.value }))}
-              className={OWNER_STORE_SELECT_CLASS}
+              className={OWNER_STORE_PROFILE_SELECT_CLASS}
             >
               {STORE_AUTO_TIMEZONE_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -601,29 +685,36 @@ export function OwnerStoreProfileForm({
               ))}
             </select>
           </div>
-          <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
-            <div className="min-w-0">
-              <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">시작</span>
-              <button
-                type="button"
-                onClick={() => setTimePickerTarget("open")}
-                className={OWNER_STORE_TIME_BLOCK_BUTTON_CLASS}
-              >
-                {formatHHmm12hLabel(values.autoHoursOpen)}
-              </button>
-            </div>
-            <div className="min-w-0">
-              <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">종료</span>
-              <button
-                type="button"
-                onClick={() => setTimePickerTarget("close")}
-                className={OWNER_STORE_TIME_BLOCK_BUTTON_CLASS}
-              >
-                {formatHHmm12hLabel(values.autoHoursClose)}
-              </button>
+
+          <div>
+            <p className="mb-2.5 text-[11px] font-semibold uppercase tracking-wide text-sam-muted">
+              영업 시간 (시작·종료)
+            </p>
+            <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
+              <div className="min-w-0">
+                <span className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>시작</span>
+                <button
+                  type="button"
+                  onClick={() => setTimePickerTarget("open")}
+                  className={OWNER_STORE_PROFILE_TIME_BUTTON_CLASS}
+                >
+                  {formatHHmm12hLabel(values.autoHoursOpen)}
+                </button>
+              </div>
+              <div className="min-w-0">
+                <span className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>종료</span>
+                <button
+                  type="button"
+                  onClick={() => setTimePickerTarget("close")}
+                  className={OWNER_STORE_PROFILE_TIME_BUTTON_CLASS}
+                >
+                  {formatHHmm12hLabel(values.autoHoursClose)}
+                </button>
+              </div>
             </div>
           </div>
-          <div className="mt-4 border-t border-sam-border/90 pt-4">
+
+          <div className="border-t border-sam-border-soft pt-4">
             <label className="flex cursor-pointer items-start gap-2">
               <input
                 type="checkbox"
@@ -642,67 +733,63 @@ export function OwnerStoreProfileForm({
                 className="mt-0.5 h-4 w-4 shrink-0 rounded border-sam-border text-signature"
               />
               <span>
-                <span className="sam-text-body-secondary font-medium text-sam-fg">쉬는 시간 사용</span>
+                <span className="text-[13px] font-semibold text-sam-fg">쉬는 시간 사용</span>
               </span>
             </label>
-            {values.breakHoursEnabled ? (
-              <>
-                <div className={`mt-3 ${OWNER_STORE_FORM_GRID_2_CLASS}`}>
-                  <div className="min-w-0">
-                    <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">시작</span>
-                    <button
-                      type="button"
-                      onClick={() => setTimePickerTarget("breakOpen")}
-                      className={OWNER_STORE_TIME_BLOCK_BUTTON_CLASS}
-                    >
-                      {breakStartLabel}
-                    </button>
-                  </div>
-                  <div className="min-w-0">
-                    <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">종료</span>
-                    <button
-                      type="button"
-                      onClick={() => setTimePickerTarget("breakClose")}
-                      className={OWNER_STORE_TIME_BLOCK_BUTTON_CLASS}
-                    >
-                      {breakEndLabel}
-                    </button>
-                  </div>
+            {values.breakHoursEnabled ?
+              <div className={`mt-3 ${OWNER_STORE_FORM_GRID_2_CLASS}`}>
+                <div className="min-w-0">
+                  <span className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>시작</span>
+                  <button
+                    type="button"
+                    onClick={() => setTimePickerTarget("breakOpen")}
+                    className={OWNER_STORE_PROFILE_TIME_BUTTON_CLASS}
+                  >
+                    {breakStartLabel}
+                  </button>
                 </div>
-              </>
-            ) : null}
+                <div className="min-w-0">
+                  <span className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>종료</span>
+                  <button
+                    type="button"
+                    onClick={() => setTimePickerTarget("breakClose")}
+                    className={OWNER_STORE_PROFILE_TIME_BUTTON_CLASS}
+                  >
+                    {breakEndLabel}
+                  </button>
+                </div>
+              </div>
+            : null}
+          </div>
+
+          <div className="flex items-start gap-2 rounded-ui-rect border border-sam-primary/20 bg-sam-primary-soft/40 px-3 py-3">
+            <input
+              id="temp-closed"
+              type="checkbox"
+              checked={!values.isOpen}
+              onChange={(e) => setValues((v) => ({ ...v, isOpen: !e.target.checked }))}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-sam-border text-signature"
+            />
+            <label htmlFor="temp-closed" className="sam-text-body-secondary leading-snug text-sam-fg">
+              <span className="font-medium">임시 휴무 (매장 창에 항상 준비중)</span>
+            </label>
+          </div>
+
+          <div>
+            <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>안내 메모 (선택)</label>
+            <input
+              type="text"
+              value={values.hoursNote}
+              onChange={(e) => setValues((v) => ({ ...v, hoursNote: e.target.value }))}
+              placeholder="예: 연중무휴 · 일요일 휴무"
+              className={OWNER_STORE_PROFILE_CONTROL_CLASS}
+            />
           </div>
         </div>
-        <div className="mt-3 flex items-start gap-2 rounded-ui-rect border border-amber-100 bg-amber-50/50 px-3 py-2.5">
-          <input
-            id="temp-closed"
-            type="checkbox"
-            checked={!values.isOpen}
-            onChange={(e) => setValues((v) => ({ ...v, isOpen: !e.target.checked }))}
-            className="mt-0.5 h-4 w-4 shrink-0 rounded border-sam-border text-signature"
-          />
-          <label htmlFor="temp-closed" className="sam-text-body-secondary leading-snug text-sam-fg">
-            <span className="font-medium">임시 휴무 (매장 창에 항상 준비중)</span>
-          </label>
-        </div>
-        <label className="mb-1 mt-3 block sam-text-body-secondary font-medium text-sam-fg">안내 메모 (선택)</label>
-        <input
-          type="text"
-          value={values.hoursNote}
-          onChange={(e) => setValues((v) => ({ ...v, hoursNote: e.target.value }))}
-          placeholder="예: 연중무휴 · 일요일 휴무"
-          className={OWNER_STORE_CONTROL_COMPACT_CLASS}
-        />
-      </div>
+      </OwnerStoreAdminDashSection>
 
-      <div
-        className={`rounded-ui-rect border px-3 py-3 ${
-          publicCommerceDetailOpen
-            ? "border-amber-100 bg-amber-50/40"
-            : "border-sam-border bg-sam-app/90"
-        }`}
-      >
-        <label className="flex cursor-pointer items-start gap-2.5">
+      <OwnerStoreAdminDashSection title="공개 페이지 — 배달·결제·안내">
+        <label className="flex cursor-pointer items-start gap-2.5 rounded-ui-rect border border-sam-border-soft bg-sam-app/40 px-3 py-2.5">
           <input
             type="checkbox"
             checked={publicCommerceDetailOpen}
@@ -710,14 +797,14 @@ export function OwnerStoreProfileForm({
             className="mt-0.5 h-4 w-4 shrink-0 rounded border-sam-border text-signature"
           />
           <span className="min-w-0">
-            <span className="sam-text-body font-semibold text-sam-fg">공개 페이지 — 배달·결제·안내</span>
+            <span className="sam-text-body-secondary font-medium text-sam-fg">상세 항목 펼치기</span>
           </span>
         </label>
         {publicCommerceDetailOpen ? (
-          <div className="mt-3 space-y-3 border-t border-amber-200/60 pt-3">
+          <div className="mt-4 space-y-4 border-t border-sam-border-soft pt-4">
             <div>
-              <span className="mb-2 block sam-text-body-secondary font-medium text-sam-fg">결제 방법 안내</span>
-              <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 sam-text-body text-sam-fg">
+              <span className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>결제 방법 안내</span>
+              <div className="rounded-ui-rect border border-sam-primary/18 bg-sam-primary-soft/30 px-3 py-3 sam-text-body text-sam-fg">
                 <div className="flex flex-nowrap items-center gap-x-3 gap-y-0 overflow-x-auto py-0.5 [scrollbar-width:thin] sm:gap-x-5">
                   <label className="flex shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap">
                     <input
@@ -764,37 +851,37 @@ export function OwnerStoreProfileForm({
                     onChange={(e) => setValues((v) => ({ ...v, payMethodOtherText: e.target.value }))}
                     disabled={!values.payMethodOtherEnabled}
                     placeholder="기타 입력"
-                    className={`min-w-[8rem] max-w-[14rem] flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 sam-text-body-secondary text-sam-fg disabled:bg-sam-app disabled:text-sam-meta sm:min-w-[12rem] sm:max-w-none sm:flex-[1_1_12rem]`}
+                    className={`sam-input min-w-[8rem] max-w-[14rem] flex-1 sam-text-body-secondary text-sam-fg disabled:bg-sam-app disabled:text-sam-meta sm:min-w-[12rem] sm:max-w-none sm:flex-[1_1_12rem] ${OWNER_STORE_PROFILE_FIELD_EDGE_CLASS}`}
                   />
                 </div>
               </div>
             </div>
-            <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
-              <div>
-                <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">최소 주문 (₱, 숫자)</label>
+            <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
+              <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
+                <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>최소 주문 (₱, 숫자)</label>
                 <input
                   type="text"
                   inputMode="numeric"
                   value={values.minOrderPhp}
                   onChange={(e) => setValues((v) => ({ ...v, minOrderPhp: e.target.value }))}
                   placeholder="0 이면 0₱ 표시"
-                  className={OWNER_STORE_CONTROL_COMPACT_CLASS}
+                  className={OWNER_STORE_PROFILE_CONTROL_CLASS}
                 />
               </div>
-              <div>
-                <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">예상 배달비 (₱, 숫자)</label>
+              <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
+                <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>예상 배달비 (₱, 숫자)</label>
                 <input
                   type="text"
                   inputMode="numeric"
                   value={values.deliveryFeePhp}
                   onChange={(e) => setValues((v) => ({ ...v, deliveryFeePhp: e.target.value }))}
                   placeholder="비우면 배달 시 ‘문의’로 표시"
-                  className={OWNER_STORE_CONTROL_COMPACT_CLASS}
+                  className={OWNER_STORE_PROFILE_CONTROL_CLASS}
                 />
               </div>
             </div>
-            <div>
-              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
+            <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
+              <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>
                 배달 업체·수단 (안내 전용, 결제 금액에 포함되지 않음)
               </label>
               <input
@@ -802,11 +889,11 @@ export function OwnerStoreProfileForm({
                 value={values.deliveryCourierLabel}
                 onChange={(e) => setValues((v) => ({ ...v, deliveryCourierLabel: e.target.value }))}
                 placeholder="예: Grab, 매장 직원 배달 등"
-                className={OWNER_STORE_CONTROL_COMPACT_CLASS}
+                className={OWNER_STORE_PROFILE_CONTROL_CLASS}
               />
             </div>
-            <div>
-              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
+            <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
+              <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>
                 무료배달 기준 (₱, 숫자)
               </label>
               <input
@@ -815,18 +902,18 @@ export function OwnerStoreProfileForm({
                 value={values.freeDeliveryOverPhp}
                 onChange={(e) => setValues((v) => ({ ...v, freeDeliveryOverPhp: e.target.value }))}
                 placeholder="예: 2000 — 상품 합계 이상이면 배달 청구 배달비 0·매장 창 안내에 반영"
-                className={OWNER_STORE_CONTROL_COMPACT_CLASS}
+                className={OWNER_STORE_PROFILE_CONTROL_CLASS}
               />
             </div>
-            <div>
-              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
+            <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
+              <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>
                 간단 공지 (레거시 · 선택)
               </label>
               <p className="mb-2 sam-text-xxs text-sam-muted">
                 위치별 공지는{" "}
                 <Link
                   href={`/stores/owner/notices?storeId=${encodeURIComponent(storeId)}`}
-                  className="font-semibold text-signature underline underline-offset-2"
+                  className="font-semibold text-sam-primary underline underline-offset-2"
                 >
                   공지 관리
                 </Link>
@@ -849,7 +936,7 @@ export function OwnerStoreProfileForm({
                         }
                         rows={2}
                         placeholder={`공지 내용 ${i + 1}`}
-                        className={`min-w-0 flex-1 ${OWNER_STORE_CONTROL_COMPACT_BLOCK_CLASS}`}
+                        className={`min-w-0 flex-1 ${OWNER_STORE_PROFILE_TEXTAREA_BLOCK_CLASS}`}
                       />
                       <button
                         type="button"
@@ -875,56 +962,51 @@ export function OwnerStoreProfileForm({
                 공지 추가
               </button>
             </div>
-            <div>
-              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">배달비·지역 상세 (메뉴 탭 접기 안내)</label>
+            <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
+              <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>배달비·지역 상세 (메뉴 탭 접기 안내)</label>
               <textarea
                 value={values.deliveryNotice}
                 onChange={(e) => setValues((v) => ({ ...v, deliveryNotice: e.target.value }))}
                 rows={4}
                 placeholder="지역별 배달비, 유의사항 등 여러 줄 입력 가능"
-                className={OWNER_STORE_CONTROL_COMPACT_CLASS}
+                className={OWNER_STORE_PROFILE_CONTROL_CLASS}
               />
             </div>
-            <div>
-              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">예상 배달 소요</label>
+            <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
+              <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>예상 조리·준비 시간 (분)</label>
               <input
-                type="text"
-                value={values.avgDeliveryTime}
-                onChange={(e) => setValues((v) => ({ ...v, avgDeliveryTime: e.target.value }))}
-                placeholder="예: 44-52분"
-                className={OWNER_STORE_CONTROL_COMPACT_CLASS}
+                type="number"
+                min={1}
+                max={180}
+                inputMode="numeric"
+                value={values.prepTimeMinutes}
+                onChange={(e) => setValues((v) => ({ ...v, prepTimeMinutes: e.target.value }))}
+                placeholder="예: 25 — 목록·주문 예상 시간에 더해집니다"
+                className={OWNER_STORE_PROFILE_CONTROL_CLASS}
               />
+              <p className="mt-1.5 sam-text-helper text-sam-meta">
+                배달 구간(오토바이) 소요는 고객 위치 기준으로 자동 추정됩니다. 수동 &quot;배달 소요&quot; 입력은 사용하지 않습니다.
+              </p>
             </div>
-            <div>
-              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">평균 채팅 응답 (가게정보)</label>
+            <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
+              <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>평균 채팅 응답 (가게정보)</label>
               <input
                 type="text"
                 value={values.avgChatResponse}
                 onChange={(e) => setValues((v) => ({ ...v, avgChatResponse: e.target.value }))}
                 placeholder="예: 1분 이내"
-                className={OWNER_STORE_CONTROL_COMPACT_CLASS}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">예상 준비 시간 라벨 (내부 안내용)</label>
-              <input
-                type="text"
-                value={values.estPrepLabel}
-                onChange={(e) => setValues((v) => ({ ...v, estPrepLabel: e.target.value }))}
-                placeholder="예: 20~40분 — 일부 UI·주문 흐름에서 참고"
-                className={OWNER_STORE_CONTROL_COMPACT_CLASS}
+                className={OWNER_STORE_PROFILE_CONTROL_CLASS}
               />
             </div>
           </div>
         ) : null}
-      </div>
+      </OwnerStoreAdminDashSection>
 
-      <div className="max-w-full min-w-0 rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-3">
-        <h3 className="sam-text-body font-semibold text-sam-fg">갤러리 이미지 (전단지·소개 사진)</h3>
-        <p className="mt-1 sam-text-helper text-sam-muted">
+      <OwnerStoreAdminDashSection title="갤러리 이미지 (전단지·소개 사진)">
+        <p className="sam-text-helper text-sam-muted">
           가게정보「전단지·소개」에 표시됩니다. 최대 {GALLERY_MAX}장, 파일 업로드만 가능합니다.
         </p>
-        <div className="mt-3 flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2">
           <label className="inline-flex min-h-[44px] min-w-0 cursor-pointer items-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg disabled:cursor-not-allowed disabled:opacity-50">
             <input
               type="file"
@@ -943,7 +1025,7 @@ export function OwnerStoreProfileForm({
             {values.galleryUrls.filter((u) => u.trim()).length}/{GALLERY_MAX}장
           </span>
         </div>
-        <ul className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+        <ul className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
           {values.galleryUrls.filter((u) => u.trim()).length === 0 ? (
             <li className="col-span-full sam-text-body-secondary text-sam-meta">
               등록된 이미지가 없습니다. 위에서 파일을 선택해 추가하세요.
@@ -980,42 +1062,81 @@ export function OwnerStoreProfileForm({
             })
           )}
         </ul>
-      </div>
+      </OwnerStoreAdminDashSection>
     </form>
 
-    {dockAboveBottomNav ? (
-      <div
-        className={`pointer-events-auto fixed inset-x-0 z-[80] ${BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS} ${stickyActionBarSurfaceClass} pt-3 ${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} box-border w-full min-w-0 max-w-full`}
-      >
-        {actionBarInner}
-      </div>
-    ) : (
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[80]">
-        <div
-          className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} pointer-events-auto box-border w-full min-w-0 max-w-full ${stickyActionBarSurfaceClass} px-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pt-3`}
-        >
-          {actionBarInner}
-        </div>
-      </div>
-    )}
-    <TumblerTimePickerDialog
-      open={timePickerTarget !== null}
-      title={timePickerTitle}
-      valueHHmm={timePickerValue}
-      onClose={() => setTimePickerTarget(null)}
-      onConfirm={(hhmm24) => {
-        const n = normalizeHHMM(hhmm24) ?? hhmm24;
-        if (timePickerTarget === "close") {
-          setValues((v) => ({ ...v, autoHoursClose: n }));
-        } else if (timePickerTarget === "open") {
-          setValues((v) => ({ ...v, autoHoursOpen: n }));
-        } else if (timePickerTarget === "breakOpen") {
-          setValues((v) => ({ ...v, breakHoursStart: n }));
-        } else if (timePickerTarget === "breakClose") {
-          setValues((v) => ({ ...v, breakHoursEnd: n }));
-        }
-      }}
-    />
+      {isDirty ?
+        <BodyPortal>
+          <footer
+            role="contentinfo"
+            aria-label="매장 설정 저장"
+            className={`pointer-events-none fixed inset-x-0 z-[54] border-t border-sam-border bg-sam-surface/95 backdrop-blur-md supports-[backdrop-filter]:bg-sam-surface/88 ${
+              dockActionBarAboveMainBottomNav
+                ? BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS
+                : "bottom-0 pb-[env(safe-area-inset-bottom,0px)]"
+            }`}
+          >
+            <div
+              className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} pointer-events-auto mx-auto w-full min-w-0 max-w-full`}
+            >
+              {error ?
+                <div
+                  className="max-h-20 overflow-y-auto border-b border-red-100 bg-red-50 px-3 py-1.5 sam-text-xxs leading-snug text-red-800"
+                  role="alert"
+                >
+                  {error}
+                </div>
+              : null}
+              <div className="flex min-w-0 divide-x divide-sam-border">
+                <button
+                  type="button"
+                  onClick={revertToSaved}
+                  disabled={submitting || !!uploading || leaveSaving}
+                  className={`${BOTTOM_NAV_SHELL.heightClass} min-w-0 flex-1 rounded-none border-0 bg-sam-surface px-2 sam-text-body font-medium text-signature disabled:opacity-50`}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  form="owner-store-profile-form"
+                  disabled={submitting || !!uploading || leaveSaving}
+                  className={`${BOTTOM_NAV_SHELL.heightClass} min-w-0 flex-1 rounded-none border-0 bg-signature px-2 sam-text-body font-medium text-white disabled:opacity-50`}
+                >
+                  {submitting ? "저장 중…" : "저장"}
+                </button>
+              </div>
+            </div>
+          </footer>
+        </BodyPortal>
+      : null}
+
+      <OwnerStoreAdminLeavePromptModal
+        open={leavePrompt != null}
+        titleId="owner-store-profile-leave-title"
+        leaveSaving={leaveSaving}
+        disableActions={leaveSaving || submitting || !!uploading}
+        onDiscard={confirmLeaveDiscard}
+        onConfirmSave={confirmLeaveWithSave}
+      />
+
+      <TumblerTimePickerDialog
+        open={timePickerTarget !== null}
+        title={timePickerTitle}
+        valueHHmm={timePickerValue}
+        onClose={() => setTimePickerTarget(null)}
+        onConfirm={(hhmm24) => {
+          const n = normalizeHHMM(hhmm24) ?? hhmm24;
+          if (timePickerTarget === "close") {
+            setValues((v) => ({ ...v, autoHoursClose: n }));
+          } else if (timePickerTarget === "open") {
+            setValues((v) => ({ ...v, autoHoursOpen: n }));
+          } else if (timePickerTarget === "breakOpen") {
+            setValues((v) => ({ ...v, breakHoursStart: n }));
+          } else if (timePickerTarget === "breakClose") {
+            setValues((v) => ({ ...v, breakHoursEnd: n }));
+          }
+        }}
+      />
     </>
   );
 }

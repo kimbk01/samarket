@@ -44,6 +44,11 @@ type AppBackButtonProps = {
   /** 이전 경로로 돌아간 뒤에도 URL이 같으면 이동할 폴백(예: 목록). */
   backHref?: string;
   /**
+   * true를 반환하면 뒤로가기/폴백 이동을 하지 않습니다(호출 측에서 가로채기).
+   * 예: 매장 기본 정보 미저장 이탈 확인.
+   */
+  interceptBack?: () => boolean;
+  /**
    * false이고 backHref가 있으면 항상 해당 경로로 Link 이동(고정).
    * 그 외(backHref만 주거나 true)는 이전 페이지 우선 후 backHref 폴백.
    */
@@ -63,6 +68,7 @@ const defaultToneClass = "text-sam-fg";
 
 export function AppBackButton({
   backHref,
+  interceptBack,
   preferHistoryBack,
   onBack,
   className,
@@ -81,6 +87,9 @@ export function AppBackButton({
         className={mergedClass}
         aria-label={resolvedAriaLabel}
         scroll={false}
+        onClick={(e) => {
+          if (interceptBack?.()) e.preventDefault();
+        }}
       >
         <AppBackIcon className={iconClassName} />
       </Link>
@@ -92,6 +101,7 @@ export function AppBackButton({
       <button
         type="button"
         onClick={() => {
+          if (interceptBack?.()) return;
           runHistoryBackWithFallback(router, backHref);
         }}
         className={mergedClass}
@@ -105,7 +115,10 @@ export function AppBackButton({
   return (
     <button
       type="button"
-      onClick={() => (onBack ? onBack() : runHistoryBackWithFallback(router))}
+      onClick={() => {
+        if (interceptBack?.()) return;
+        onBack ? onBack() : runHistoryBackWithFallback(router);
+      }}
       className={mergedClass}
       aria-label={resolvedAriaLabel}
     >

@@ -8,6 +8,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 - 메인 사용자 UI 페이지는 **`app/(main)/`** 아래 둡니다. `(…)` 는 라우트 그룹이라 **URL 에 이름이 붙지 않습니다** (`/philife` 등 유지).
 - **`app/_anything`** 로 묶지 마세요. Next.js `normalizeAppPath` 는 `_` 접두를 URL 에서 빼지 않아 **`/_anything/...` 로 열리고 기존 경로는 404** 가 됩니다.
 - 구조 확인: `npm run verify:routes`
+- **매장 사장님 운영 UI(섹션 카드·하단 저장/취소)** 참조·동일 적용: `.cursor/rules/samarket-store-admin-ui-shell.mdc` — 사용자가 **「매장 어드민 UI 적용」** 등으로 지시하면 해당 규칙을 읽고 `OwnerStoreProfileForm` / `OwnerStoreBasicInfoForm` 과 같은 셸을 맞춘다.
 
 ## 거래 글쓰기(임시저장·이어쓰기)
 

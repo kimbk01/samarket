@@ -99,7 +99,7 @@ function sortBrowseStores(
         const pa = a.deliveryAvailable ? 0 : 1;
         const pb = b.deliveryAvailable ? 0 : 1;
         if (pa !== pb) return pa - pb;
-        const prep = a.estPrepLabel.localeCompare(b.estPrepLabel, "ko");
+        const prep = (a.etaLabel ?? a.estPrepLabel).localeCompare(b.etaLabel ?? b.estPrepLabel, "ko");
         return prep !== 0 ? prep : browseStableTieBreak(a, b);
       });
     default:
