@@ -140,6 +140,15 @@ export function OwnerOrderDetail({
               <div>
                 <dt className="text-sam-muted">배달 주소</dt>
                 <dd className="mt-1 text-sam-fg">{order.delivery_address ?? "—"}</dd>
+                {order.checkout_eta_summary?.trim() ? (
+                  <div className="mt-3 space-y-1">
+                    <p className="text-sam-muted">배달 거리·시간(참고)</p>
+                    <p className="text-sam-fg">{order.checkout_eta_summary.trim()}</p>
+                    <p className="sam-text-xxs text-sam-muted">
+                      주문자·매장 주소가 바뀌면 자동으로 다시 계산됩니다. 실제 소요는 교통·매장 상황에 따라 달라질 수 있습니다.
+                    </p>
+                  </div>
+                ) : null}
                 {order.delivery_courier_label?.trim() ? (
                   <div className="mt-3">
                     <dt className="text-sam-muted">배달 업체(안내)</dt>

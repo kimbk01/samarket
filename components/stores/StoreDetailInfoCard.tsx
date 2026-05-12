@@ -119,10 +119,10 @@ export function StoreDetailInfoCard({
             </span>
           ) : null}
           <span className="inline-flex items-center rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1 sam-text-helper font-medium text-sam-fg">
-            {deliveryAvailable ? "배달" : "배달 불가"}
+            {deliveryAvailable ? "배달 가능" : "배달 불가"}
           </span>
           <span className="inline-flex items-center rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1 sam-text-helper font-medium text-sam-fg">
-            {pickupAvailable ? "포장·픽업" : "픽업 불가"}
+            {pickupAvailable ? "포장·픽업 가능" : "픽업 불가"}
           </span>
         </div>
       </div>

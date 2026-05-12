@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
-import { ADDRESS_LABEL_KO } from "@/components/addresses/address-labels";
+import { UserAddressDesignationTitle } from "@/components/addresses/UserAddressDesignationTitle";
 import { useRegion } from "@/contexts/RegionContext";
 import { useRepresentativeAddressLine } from "@/hooks/use-representative-address-line";
 import { buildAddressManagementListPrimaryLine } from "@/lib/addresses/user-address-format";
@@ -354,9 +354,10 @@ export function PhilifeHeaderAddressMenuButton({
                           </span>
                           <span className="min-w-0 flex-1">
                             <span className="flex items-center gap-1.5">
-                              <span className="text-[12px] font-semibold text-neutral-700">
-                                {row.nickname?.trim() || ADDRESS_LABEL_KO[row.labelType]}
-                              </span>
+                              <UserAddressDesignationTitle
+                                row={row}
+                                className="text-[12px] font-semibold text-neutral-700"
+                              />
                               {isActive ? (
                                 <span className="rounded-full bg-sam-primary-soft px-1.5 py-[1px] text-[11px] font-medium text-sam-primary">
                                   현재

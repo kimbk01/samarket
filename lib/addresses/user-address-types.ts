@@ -8,6 +8,8 @@ export type UserAddressDTO = {
   id: string;
   userId: string;
   labelType: UserAddressLabelType;
+  /** `labelType === "shop"` 일 때 연결된 `stores.id` */
+  linkedStoreId: string | null;
   nickname: string | null;
   recipientName: string | null;
   phoneNumber: string | null;
@@ -23,6 +25,11 @@ export type UserAddressDTO = {
   landmark: string | null;
   latitude: number | null;
   longitude: number | null;
+  placeId: string | null;
+  formattedAddress: string | null;
+  roadAddress: string | null;
+  detailAddress: string | null;
+  deliveryNote: string | null;
   fullAddress: string | null;
   neighborhoodName: string | null;
   appRegionId: string | null;
@@ -36,6 +43,7 @@ export type UserAddressDTO = {
   isDefaultDelivery: boolean;
   isActive: boolean;
   sortOrder: number;
+  lastUsedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -49,6 +57,7 @@ export type UserAddressDefaultsDTO = {
 
 export type UserAddressWritePayload = {
   labelType: UserAddressLabelType;
+  linkedStoreId?: string | null;
   nickname?: string | null;
   recipientName?: string | null;
   phoneNumber?: string | null;
@@ -64,6 +73,11 @@ export type UserAddressWritePayload = {
   landmark?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  placeId?: string | null;
+  formattedAddress?: string | null;
+  roadAddress?: string | null;
+  detailAddress?: string | null;
+  deliveryNote?: string | null;
   fullAddress?: string | null;
   neighborhoodName?: string | null;
   appRegionId?: string | null;
@@ -76,4 +90,5 @@ export type UserAddressWritePayload = {
   isDefaultTrade?: boolean;
   isDefaultDelivery?: boolean;
   sortOrder?: number;
+  lastUsedAt?: string | null;
 };

@@ -40,6 +40,7 @@ import {
 } from "@/lib/stores/store-order-detail-seed-cache";
 import { useSupabaseStoreOrderRowRealtime } from "@/hooks/useSupabaseStoreOrderRowRealtime";
 import { useSupabaseStoreOrderDeliveriesRealtime } from "@/hooks/useSupabaseStoreOrderDeliveriesRealtime";
+import { formatStoreOrderCheckoutEtaSummary } from "@/lib/stores/format-store-order-checkout-display";
 import {
   dibayPerfMaybeEmitCustomerStatusAfterOwner,
   dibayPerfOnOrderDetailVisible,
@@ -151,6 +152,8 @@ type OrderDetail = {
   sla_warning_reason?: string | null;
   sla_warning_at?: string | null;
   needs_admin_attention?: boolean | null;
+  checkout_eta_minutes?: number | null;
+  checkout_route_distance_meters?: number | null;
 };
 
 
@@ -845,6 +848,20 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
               {order.delivery_address_detail?.trim() ? (
                 <p className="sam-text-body-secondary text-sam-muted">{order.delivery_address_detail.trim()}</p>
               ) : null}
+              {(() => {
+                const line = formatStoreOrderCheckoutEtaSummary({
+                  checkout_eta_minutes: order.checkout_eta_minutes,
+                  checkout_route_distance_meters: order.checkout_route_distance_meters,
+                });
+                return line ?
+                    <p
+                      className="mt-2 sam-text-body-secondary text-sam-muted"
+                      title="주소·매장 위치 변경 시 자동 갱신된 참고 값입니다."
+                    >
+                      {line}
+                    </p>
+                  : null;
+              })()}
             </div>
           ) : (
             <p className="mt-1.5 text-sm text-amber-800">등록된 배달 주소가 없습니다.</p>

@@ -24,6 +24,7 @@ import {
   patchMeStoreOrder,
 } from "@/lib/stores/store-delivery-api-client";
 import { useSupabaseBuyerStoreOrdersRealtime } from "@/hooks/useSupabaseBuyerStoreOrdersRealtime";
+import { formatStoreOrderCheckoutEtaSummary } from "@/lib/stores/format-store-order-checkout-display";
 
 type ItemRow = {
   id: string;
@@ -56,6 +57,8 @@ type OrderRow = {
   store_profile_image_url?: string | null;
   order_chat_unread_count?: number;
   community_messenger_room_id?: string | null;
+  checkout_eta_minutes?: number | null;
+  checkout_route_distance_meters?: number | null;
 };
 
 function buyerStoreOrderChatHref(args: { embedded: boolean; orderId: string }): string {
@@ -305,6 +308,19 @@ function MyStoreOrderCard({
               <p className={`mt-2 sam-text-body-secondary leading-snug sm:text-sm ${FB_MUTED}`}>
                 {statusUserLine(o.order_status)}
               </p>
+              {delivery
+                ? (() => {
+                    const line = formatStoreOrderCheckoutEtaSummary({
+                      checkout_eta_minutes: o.checkout_eta_minutes,
+                      checkout_route_distance_meters: o.checkout_route_distance_meters,
+                    });
+                    return line ?
+                        <p className={`mt-2 sam-text-body-secondary leading-snug sm:text-sm ${FB_MUTED}`}>
+                          {line}
+                        </p>
+                      : null;
+                  })()
+                : null}
               {(o.order_status === "ready_for_pickup" ||
                 o.order_status === "delivering" ||
                 o.order_status === "arrived") &&

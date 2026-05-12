@@ -218,6 +218,10 @@ function tradePublicLineFromAppLocationIds(a: UserAddressDTO): string | null {
  * 목록 회색 줄·상단 헤더 — **체크한 구간**(세부~시). `fullAddress` 우선 파싱, 없으면 필드·지역 ID.
  */
 export function buildTradePublicLine(a: UserAddressDTO): string {
+  const road = a.roadAddress?.trim() || a.formattedAddress?.trim();
+  if (road && !isDisplayNullish(road)) {
+    return stripCountryFromAddressDisplayLine(road, a.countryName);
+  }
   const fa = a.fullAddress?.trim();
   if (fa && !isDisplayNullish(fa)) {
     const parsed = parseFullAddressThroughCityLine(fa);
@@ -260,26 +264,44 @@ export function buildTradePublicLine(a: UserAddressDTO): string {
 /**
  * 주소 관리 목록 등 — 본문(`mainLine`) 아래에 붙일 상세(건물명·동·호).
  * 이미 본문 문자열에 포함된 경우는 중복이므로 생략합니다.
+ * `detailAddress`·`unitFloorRoom`·`buildingName`에 동일 문자열이 여러 번 들어가면(매장 스냅샷 등) **첫 한 번**만 남깁니다.
  */
 export function buildAddressListDetailLine(a: UserAddressDTO, mainLine: string): string | null {
-  const parts = [a.buildingName, a.unitFloorRoom]
-    .map((x) => x?.trim())
-    .filter((x) => x && !isDisplayNullish(x));
-  const line = parts.join(" ").trim();
-  if (!line) return null;
   const ml = mainLine.trim().toLowerCase();
-  const ll = line.toLowerCase();
-  if (ml.includes(ll)) return null;
+  const raw = [a.detailAddress, a.unitFloorRoom, a.buildingName]
+    .map((x) => x?.trim())
+    .filter((x) => x && !isDisplayNullish(x)) as string[];
+
+  const seen = new Set<string>();
+  const deduped: string[] = [];
+  for (const p of raw) {
+    const pl = p.toLowerCase();
+    if (seen.has(pl)) continue;
+    seen.add(pl);
+    deduped.push(p);
+  }
+
+  const parts = deduped.filter((p) => {
+    const pl = p.toLowerCase();
+    if (!pl) return false;
+    return !ml.includes(pl);
+  });
+
+  if (!parts.length) return null;
+  const line = parts.join(" · ").trim();
+  if (!line) return null;
+  if (ml.includes(line.toLowerCase())) return null;
   return line;
 }
 
 export function buildDeliveryDetailLines(a: UserAddressDTO): string {
   const lines: string[] = [];
+  if (a.detailAddress?.trim()) lines.push(a.detailAddress.trim());
   // Philippines-friendly order: unit/building first, then street/full address.
   const unit = [a.unitFloorRoom, a.buildingName].filter((x) => x?.trim()).join(" ").trim();
-  if (unit) lines.push(unit);
+  if (unit && !lines.some((x) => x.toLowerCase().includes(unit.toLowerCase()))) lines.push(unit);
 
-  const full = a.fullAddress?.trim() ?? "";
+  const full = a.formattedAddress?.trim() || a.fullAddress?.trim() || "";
   const street = a.streetAddress?.trim() ?? "";
   const main = full || street;
   if (main) {
@@ -303,7 +325,7 @@ export function buildDeliveryDetailLines(a: UserAddressDTO): string {
  */
 export function buildAddressManagementListPrimaryLine(a: UserAddressDTO): string {
   const unit = [a.unitFloorRoom, a.buildingName].filter((x) => x?.trim()).join(" ").trim();
-  const fa = a.fullAddress?.trim() ?? "";
+  const fa = a.formattedAddress?.trim() || a.fullAddress?.trim() || "";
   if (fa && !isDisplayNullish(fa)) {
     const unitInFa = unit.length > 0 && fa.toLowerCase().includes(unit.toLowerCase());
     const barOrDist = a.barangay?.trim() || a.district?.trim() || null;
@@ -332,22 +354,30 @@ export function buildAddressManagementListPrimaryLine(a: UserAddressDTO): string
 
 export type CheckoutDeliveryPayload = {
   user_address_id: string;
+  place_id: string | null;
   recipient_name: string | null;
   phone: string | null;
   app_region_id: string | null;
   app_city_id: string | null;
   summary_line: string;
   address_detail: string;
+  delivery_note: string | null;
+  latitude: number | null;
+  longitude: number | null;
 };
 
 export function toCheckoutDeliveryPayload(a: UserAddressDTO): CheckoutDeliveryPayload {
   return {
     user_address_id: a.id,
+    place_id: a.placeId,
     recipient_name: a.recipientName,
     phone: a.phoneNumber,
     app_region_id: a.appRegionId,
     app_city_id: a.appCityId,
     summary_line: buildTradePublicLine(a),
-    address_detail: buildDeliveryDetailLines(a),
+    address_detail: a.detailAddress?.trim() || buildDeliveryDetailLines(a),
+    delivery_note: a.deliveryNote,
+    latitude: a.latitude,
+    longitude: a.longitude,
   };
 }

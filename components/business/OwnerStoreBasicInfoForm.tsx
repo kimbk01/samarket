@@ -553,6 +553,8 @@ export function OwnerStoreBasicInfoForm({
       };
       const ml = manualMapLat.trim();
       const mn = manualMapLng.trim();
+      let resolvedLat: number | null = null;
+      let resolvedLng: number | null = null;
       if (ml || mn) {
         if (!ml || !mn) {
           setError("지도 좌표는 위도·경도를 함께 입력하거나 둘 다 비워 두세요.");
@@ -566,8 +568,20 @@ export function OwnerStoreBasicInfoForm({
           setSubmitting(false);
           return false;
         }
-        basicInfoPatch.lat = la;
-        basicInfoPatch.lng = ln;
+        resolvedLat = la;
+        resolvedLng = ln;
+      } else if (addressDefault?.id) {
+        /** 수동 좌표 비움: 카드 거리·ETA가 주소록과 어긋나지 않도록 대표 주소록 핀을 매장 좌표로 동기화 */
+        const dlat = parseFiniteLatitude(addressDefault.latitude);
+        const dlng = parseFiniteLongitude(addressDefault.longitude);
+        if (dlat != null && dlng != null) {
+          resolvedLat = dlat;
+          resolvedLng = dlng;
+        }
+      }
+      if (resolvedLat != null && resolvedLng != null) {
+        basicInfoPatch.lat = resolvedLat;
+        basicInfoPatch.lng = resolvedLng;
       }
       if (identityEditable) {
         basicInfoPatch.store_name = values.shopName.trim();

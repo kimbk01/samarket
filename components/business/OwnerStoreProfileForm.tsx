@@ -25,7 +25,9 @@ import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { coerceBusinessHoursRecord } from "@/lib/stores/coerce-business-hours-json";
 import {
   clampStorePrepMinutes,
+  parseCommerceExtrasFromHoursJson,
   parsePrepMinutesLegacyFromEstPrepLabel,
+  type StoreDeliveryFeeMode,
 } from "@/lib/stores/store-commerce-extras";
 import { readPublicNoticesFromBusinessRecord } from "@/lib/stores/store-detail-meta";
 import {
@@ -57,6 +59,7 @@ import {
   type OwnerBasicInfoLeaveDetail,
 } from "@/lib/business/owner-basic-info-guard";
 import { formatHHmm12hLabel } from "@/lib/utils/tumbler-time";
+import { formatPriceInput } from "@/lib/utils/format";
 const GALLERY_MAX = 16;
 
 function intStrFromJson(o: Record<string, unknown>, snake: string, camel: string): string {
@@ -81,15 +84,31 @@ function readPublicCommerceFields(raw: unknown) {
       const parsed = estLegacy ? parsePrepMinutesLegacyFromEstPrepLabel(estLegacy) : null;
       return parsed != null ? String(parsed) : "";
     })();
+  const minRaw = intStrFromJson(o, "min_order_php", "minOrderPhp");
+  const extras = parseCommerceExtrasFromHoursJson(o);
+  const deliveryFeeMode: StoreDeliveryFeeMode =
+    extras.deliveryFeeMode === "courier"
+      ? "courier"
+      : extras.deliveryFeeMode === "self_free_promo"
+        ? "self_free_promo"
+        : "self";
+  /** 모드와 무관: JSON에 남아 있으면 폼에 채워 두어 방식 전환 시에도 이전 입력이 보이게 한다 */
+  const freeRaw = intStrFromJson(o, "free_delivery_over_php", "freeDeliveryOverPhp");
   return {
     hoursNote,
     publicNotices: readPublicNoticesFromBusinessRecord(raw),
-    freeDeliveryOverPhp: intStrFromJson(o, "free_delivery_over_php", "freeDeliveryOverPhp"),
+    freeDeliveryOverPhp: freeRaw ? formatPriceInput(freeRaw) : "",
     deliveryNotice: s("delivery_notice", "deliveryNotice"),
     avgChatResponse: s("avg_chat_response", "avgChatResponse"),
-    minOrderPhp: intStrFromJson(o, "min_order_php", "minOrderPhp"),
-    deliveryFeePhp: intStrFromJson(o, "delivery_fee_php", "deliveryFeePhp"),
-    deliveryCourierLabel: s("delivery_courier_label", "deliveryCourierLabel"),
+    minOrderPhp: minRaw ? formatPriceInput(minRaw) : "",
+    deliveryFeeMode,
+    deliveryFeePhp:
+      extras.deliveryFeePhp != null ? formatPriceInput(String(extras.deliveryFeePhp)) : "",
+    deliveryFeeStrikeReferencePhp:
+      extras.deliveryFeeStrikeReferencePhp != null
+        ? formatPriceInput(String(extras.deliveryFeeStrikeReferencePhp))
+        : "",
+    deliveryCourierLabel: (extras.deliveryCourierLabel ?? "").trim(),
     prepTimeMinutes,
   };
 }
@@ -133,8 +152,11 @@ export type OwnerStoreProfileFormValues = {
   breakHoursEnd: string;
   avgChatResponse: string;
   minOrderPhp: string;
+  /** 자체배달(앱 청구) vs 배달업체(착불·앱 미청구) — 상호 배타 */
+  deliveryFeeMode: StoreDeliveryFeeMode;
   deliveryFeePhp: string;
-  /** 배달 업체·수단 안내(청구 금액 미포함) */
+  /** self_free_promo: 목록 취소선용 원래 배달비(필수) */
+  deliveryFeeStrikeReferencePhp: string;
   deliveryCourierLabel: string;
   latStr: string;
   lngStr: string;
@@ -154,6 +176,7 @@ function hasPersistedPublicCommerceDetail(v: OwnerStoreProfileFormValues): boole
   }
   if (v.minOrderPhp.trim()) return true;
   if (v.deliveryFeePhp.trim()) return true;
+  if (v.deliveryFeeStrikeReferencePhp.trim()) return true;
   if (v.deliveryCourierLabel.trim()) return true;
   if (v.freeDeliveryOverPhp.trim()) return true;
   if (v.publicNotices.some((t) => t.trim())) return true;
@@ -245,6 +268,10 @@ function buildBusinessHoursJson(
     "minOrderPhp",
     "delivery_fee_php",
     "deliveryFeePhp",
+    "delivery_fee_mode",
+    "deliveryFeeMode",
+    "delivery_fee_strike_reference_php",
+    "deliveryFeeStrikeReferencePhp",
     "delivery_courier_label",
     "deliveryCourierLabel",
     "est_prep_label",
@@ -273,10 +300,12 @@ function buildBusinessHoursJson(
     prev.public_notices = notices;
     prev.promo_banner = notices[0];
   }
-  const fo = values.freeDeliveryOverPhp.trim();
-  if (fo) {
-    const x = Math.round(Number(fo));
-    if (Number.isFinite(x) && x > 0) prev.free_delivery_over_php = x;
+  if (values.deliveryFeeMode === "self") {
+    const fo = values.freeDeliveryOverPhp.replace(/\D/g, "").trim();
+    if (fo) {
+      const x = Math.round(Number(fo));
+      if (Number.isFinite(x) && x > 0) prev.free_delivery_over_php = x;
+    }
   }
   const dn = values.deliveryNotice.trim();
   if (dn) prev.delivery_notice = dn;
@@ -299,18 +328,30 @@ function buildBusinessHoursJson(
   }
   const ch = values.avgChatResponse.trim();
   if (ch) prev.avg_chat_response = ch;
-  const mo = values.minOrderPhp.trim();
+  const mo = values.minOrderPhp.replace(/\D/g, "").trim();
   if (mo) {
     const x = Math.round(Number(mo));
     if (Number.isFinite(x) && x >= 0) prev.min_order_php = x;
   }
-  const df = values.deliveryFeePhp.trim();
-  if (df) {
-    const x = Math.round(Number(df));
-    if (Number.isFinite(x) && x >= 0) prev.delivery_fee_php = x;
+  if (values.deliveryFeeMode === "self") {
+    prev.delivery_fee_mode = "self";
+    const df = values.deliveryFeePhp.replace(/\D/g, "").trim();
+    if (df !== "") {
+      const x = Math.round(Number(df));
+      if (Number.isFinite(x) && x >= 0) prev.delivery_fee_php = x;
+    }
+  } else if (values.deliveryFeeMode === "self_free_promo") {
+    prev.delivery_fee_mode = "self_free_promo";
+    const sr = values.deliveryFeeStrikeReferencePhp.replace(/\D/g, "").trim();
+    if (sr !== "") {
+      const x = Math.round(Number(sr));
+      if (Number.isFinite(x) && x > 0) prev.delivery_fee_strike_reference_php = x;
+    }
+  } else {
+    prev.delivery_fee_mode = "courier";
+    const dc = values.deliveryCourierLabel.trim();
+    if (dc) prev.delivery_courier_label = dc;
   }
-  const dc = values.deliveryCourierLabel.trim();
-  if (dc) prev.delivery_courier_label = dc;
 
   const tz = (values.autoHoursTz || "Asia/Manila").trim() || "Asia/Manila";
   const o = normalizeHHMM(values.autoHoursOpen.trim());
@@ -503,6 +544,18 @@ export function OwnerStoreProfileForm({
         const be = normalizeHHMM(values.breakHoursEnd.trim());
         if (!bs || !be || bs === be) {
           setError("쉬는 시간: 시작·종료를 모두 선택해 주세요.");
+          return false;
+        }
+      }
+      if (values.deliveryFeeMode === "courier" && !values.deliveryCourierLabel.trim()) {
+        setError("배달 업체(착불)를 선택한 경우 업체명·수단을 입력해 주세요.");
+        return false;
+      }
+      if (values.deliveryFeeMode === "self_free_promo") {
+        const sr = values.deliveryFeeStrikeReferencePhp.replace(/\D/g, "").trim();
+        const x = sr ? Math.round(Number(sr)) : NaN;
+        if (!Number.isFinite(x) || x <= 0) {
+          setError("배달비 무료 적용 중: 취소선에 표시할 원래 배달비를 1₱ 이상 입력해 주세요.");
           return false;
         }
       }
@@ -863,48 +916,140 @@ export function OwnerStoreProfileForm({
                   type="text"
                   inputMode="numeric"
                   value={values.minOrderPhp}
-                  onChange={(e) => setValues((v) => ({ ...v, minOrderPhp: e.target.value }))}
+                  onChange={(e) =>
+                    setValues((v) => ({ ...v, minOrderPhp: formatPriceInput(e.target.value) }))
+                  }
                   placeholder="0 이면 0₱ 표시"
                   className={OWNER_STORE_PROFILE_CONTROL_CLASS}
                 />
               </div>
+            </div>
+            <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
+              <span className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>배달 방식</span>
+              <p className="mb-2 sam-text-xxs text-sam-muted">
+                자체배달은 앱 결제에 배달비가 포함됩니다. 배달 업체는 고객 착불입니다.
+              </p>
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-x-4 sm:gap-y-2">
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="radio"
+                    name={`delivery-fee-mode-${storeId}`}
+                    checked={values.deliveryFeeMode === "self"}
+                    onChange={() =>
+                      setValues((v) => ({
+                        ...v,
+                        deliveryFeeMode: "self",
+                      }))
+                    }
+                    className="h-4 w-4 border-sam-border text-signature"
+                  />
+                  <span>자체배달(유료)</span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="radio"
+                    name={`delivery-fee-mode-${storeId}`}
+                    checked={values.deliveryFeeMode === "self_free_promo"}
+                    onChange={() =>
+                      setValues((v) => ({
+                        ...v,
+                        deliveryFeeMode: "self_free_promo",
+                      }))
+                    }
+                    className="h-4 w-4 border-sam-border text-signature"
+                  />
+                  <span>배달비 무료 적용 중</span>
+                </label>
+                <label className="flex cursor-pointer items-center gap-2">
+                  <input
+                    type="radio"
+                    name={`delivery-fee-mode-${storeId}`}
+                    checked={values.deliveryFeeMode === "courier"}
+                    onChange={() =>
+                      setValues((v) => ({
+                        ...v,
+                        deliveryFeeMode: "courier",
+                      }))
+                    }
+                    className="h-4 w-4 border-sam-border text-signature"
+                  />
+                  <span>배달 업체(착불)</span>
+                </label>
+              </div>
+            </div>
+            {values.deliveryFeeMode === "self" ? (
               <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
-                <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>예상 배달비 (₱, 숫자)</label>
+                <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>
+                  배달비 (₱, 앱 결제 합계에 포함)
+                </label>
                 <input
                   type="text"
                   inputMode="numeric"
                   value={values.deliveryFeePhp}
-                  onChange={(e) => setValues((v) => ({ ...v, deliveryFeePhp: e.target.value }))}
+                  onChange={(e) =>
+                    setValues((v) => ({ ...v, deliveryFeePhp: formatPriceInput(e.target.value) }))
+                  }
                   placeholder="비우면 배달 시 ‘문의’로 표시"
                   className={OWNER_STORE_PROFILE_CONTROL_CLASS}
                 />
               </div>
-            </div>
-            <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
-              <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>
-                배달 업체·수단 (안내 전용, 결제 금액에 포함되지 않음)
-              </label>
-              <input
-                type="text"
-                value={values.deliveryCourierLabel}
-                onChange={(e) => setValues((v) => ({ ...v, deliveryCourierLabel: e.target.value }))}
-                placeholder="예: Grab, 매장 직원 배달 등"
-                className={OWNER_STORE_PROFILE_CONTROL_CLASS}
-              />
-            </div>
-            <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
-              <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>
-                무료배달 기준 (₱, 숫자)
-              </label>
-              <input
-                type="text"
-                inputMode="numeric"
-                value={values.freeDeliveryOverPhp}
-                onChange={(e) => setValues((v) => ({ ...v, freeDeliveryOverPhp: e.target.value }))}
-                placeholder="예: 2000 — 상품 합계 이상이면 배달 청구 배달비 0·매장 창 안내에 반영"
-                className={OWNER_STORE_PROFILE_CONTROL_CLASS}
-              />
-            </div>
+            ) : null}
+            {values.deliveryFeeMode === "self_free_promo" ? (
+              <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
+                <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>
+                  원래 배달비 (₱, 목록·상세 취소선)
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={values.deliveryFeeStrikeReferencePhp}
+                  onChange={(e) =>
+                    setValues((v) => ({
+                      ...v,
+                      deliveryFeeStrikeReferencePhp: formatPriceInput(e.target.value),
+                    }))
+                  }
+                  placeholder="1 이상 — 실제 청구는 0₱"
+                  className={OWNER_STORE_PROFILE_CONTROL_CLASS}
+                />
+              </div>
+            ) : null}
+            {values.deliveryFeeMode === "courier" ? (
+              <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
+                <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>
+                  배달 업체·수단 (고객 착불 안내)
+                </label>
+                <input
+                  type="text"
+                  value={values.deliveryCourierLabel}
+                  onChange={(e) =>
+                    setValues((v) => ({ ...v, deliveryCourierLabel: e.target.value }))
+                  }
+                  placeholder="예: 라라무브"
+                  className={OWNER_STORE_PROFILE_CONTROL_CLASS}
+                />
+              </div>
+            ) : null}
+            {values.deliveryFeeMode === "self" ? (
+              <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
+                <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>
+                  무료배달 기준 (₱, 숫자)
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  value={values.freeDeliveryOverPhp}
+                  onChange={(e) =>
+                    setValues((v) => ({
+                      ...v,
+                      freeDeliveryOverPhp: formatPriceInput(e.target.value),
+                    }))
+                  }
+                  placeholder="예: 2000 — 상품 합계 이상이면 배달 청구 배달비 0·매장 창 안내에 반영"
+                  className={OWNER_STORE_PROFILE_CONTROL_CLASS}
+                />
+              </div>
+            ) : null}
             <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
               <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>
                 간단 공지 (레거시 · 선택)

@@ -177,7 +177,7 @@ export function StoresBrowsePrimaryView({
   const [feedSource, setFeedSource] = useState<BrowseFeedMetaSource>(null);
   const [remoteLoading, setRemoteLoading] = useState(true);
   const [listSort, setListSort] = useState<StoreBrowseSortId>("default");
-  /** browse `user_lat`/`user_lng` — Routes matrix(조리+배달·경로 거리)용 */
+  /** browse `user_lat`/`user_lng` — 주소 기본→프로필→GPS 순으로 matrix ETA·직선 거리 */
   const [browseUserGeo, setBrowseUserGeo] = useState<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
@@ -473,7 +473,7 @@ export function StoresBrowsePrimaryView({
 
   useRefetchOnPageShowRestore(() => void loadRemote({ silent: true }));
 
-  /** browse 목록: `user_lat`/`user_lng` 쿼리(브라우저 위치 허용 시)로 거리 정렬·matrix ETA 가능 */
+  /** browse 목록: `user_lat`/`user_lng`(주소록 우선)로 거리 정렬·matrix ETA */
   const hasGeo = browseUserGeo != null;
   const listLoaded = remoteRows !== undefined;
   const useRemoteList = listLoaded && remoteRows.length > 0;

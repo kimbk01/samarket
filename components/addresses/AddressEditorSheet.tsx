@@ -1,64 +1,44 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { UserAddressDTO, UserAddressLabelType } from "@/lib/addresses/user-address-types";
 import { normalizeOptionalPhMobileDb, parsePhMobileInput } from "@/lib/utils/ph-mobile";
 import { writeMapAddressPickContext } from "@/lib/map/map-address-pick-storage";
 import { normalizeAddressNicknameKey } from "@/lib/addresses/address-nickname-key";
-import { nextAutoUnspecifiedNickname } from "@/lib/addresses/unspecified-address-nickname";
+import { encodeShopAddressNickname } from "@/lib/addresses/shop-address-nickname";
+import { fetchPlacePredictionsPh, type PlacePredictionRow } from "@/lib/map/fetch-place-predictions-ph";
+import { PLACE_FIELDS_POI_FULL } from "@/lib/map/places-new-api";
+import { fetchPlaceDetailsAsLegacyPlaceResultCached } from "@/lib/addresses/google-place-details-client-cache";
+import { parsePhFromGooglePlaceResult } from "@/lib/addresses/ph-google-place-address-components";
+import { formatPhDeliveryStreetSummary } from "@/lib/addresses/ph-address-display";
+import { stripCountryFromAddressDisplayLine } from "@/lib/addresses/user-address-format";
+import { AddressSummaryMapPreview } from "@/components/addresses/AddressSummaryMapPreview";
+import { AddressFineTuneSheet } from "@/components/addresses/AddressFineTuneSheet";
+import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import type { ReverseGeocodePhResult } from "@/lib/addresses/reverse-geocode-ph-client";
+import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import type { StoreRow } from "@/lib/stores/db-store-mapper";
+import {
+  ADDRESS_PRESET_NICKNAME_HOME,
+  ADDRESS_PRESET_NICKNAME_OFFICE,
+} from "@/components/addresses/address-labels";
+import { UserAddressDesignationTitle } from "@/components/addresses/UserAddressDesignationTitle";
+import {
+  decodeLocationOnlyAddressNicknameId,
+  encodeLocationOnlyAddressNickname,
+  isLocationOnlyAddressNickname,
+} from "@/lib/addresses/location-only-address-nickname";
+
 type Mode = "create" | "edit";
 
-/**
- * 작은 위치 미리보기 — Google Static Maps 는 Maps Static API·리퍼러 허용이 필요해 로컬에서 자주 깨짐.
- * 실패 시 OpenStreetMap 정적 타일(키 불필요)로 폴백.
- */
-function AddressMapThumb({ lat, lng, sizePx = 72 }: { lat: number; lng: number; sizePx?: number }) {
-  const gkey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim();
-  const apiSize = Math.min(640, Math.max(128, Math.round(sizePx * 2)));
-  const mapDim = `${apiSize}x${apiSize}`;
-  const candidates = useMemo(() => {
-    const q = [
-      ...(gkey
-        ? [
-            `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=17&size=${mapDim}&scale=2&maptype=roadmap&markers=color:red%7C${lat},${lng}&key=${gkey}`,
-          ]
-        : []),
-      `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=17&size=${mapDim}&maptype=mapnik&markers=${lat},${lng},lightblue1`,
-    ];
-    return q;
-  }, [gkey, lat, lng, mapDim]);
+type LabelPreset = null | "home" | "shop" | "office" | "custom";
 
-  const [i, setI] = useState(0);
-  const src = candidates[i];
-
-  if (!src || i >= candidates.length) {
-    return (
-      <div
-        className="flex shrink-0 items-center justify-center rounded-ui-rect bg-sam-surface-muted sam-text-xxs text-sam-meta"
-        style={{ width: sizePx, height: sizePx }}
-        aria-hidden
-      >
-        지도
-      </div>
-    );
-  }
-
-  return (
-    // eslint-disable-next-line @next/next/no-img-element -- 외부 정적 지도 URL
-    <img
-      key={i}
-      src={src}
-      alt=""
-      width={sizePx}
-      height={sizePx}
-      className="shrink-0 rounded-ui-rect object-cover bg-sam-surface-muted"
-      style={{ width: sizePx, height: sizePx }}
-      loading="lazy"
-      decoding="async"
-      onError={() => setI((x) => x + 1)}
-    />
-  );
+function deriveLabelPresetFromDto(row: UserAddressDTO): LabelPreset {
+  if (row.labelType === "shop") return "shop";
+  if (row.labelType === "office") return "office";
+  if (row.labelType === "other") return "custom";
+  return "home";
 }
 
 export function AddressEditorSheet(props: {
@@ -76,13 +56,23 @@ export function AddressEditorSheet(props: {
   onSaved: () => void;
   /** 중복 지정 주소 검사용(현재 사용자 주소 목록) */
   allAddresses?: UserAddressDTO[];
+  /** 전체 페이지 편집(목록과 분리) — 기본은 모달 */
+  layout?: "modal" | "page";
 }) {
-  const { open, mode, initial, mapBootstrap = null, onClose, onSaved, allAddresses = [] } = props;
+  const {
+    open,
+    mode,
+    initial,
+    mapBootstrap = null,
+    onClose,
+    onSaved,
+    allAddresses = [],
+    layout = "modal",
+  } = props;
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  const [labelType, setLabelType] = useState<UserAddressLabelType>("home");
   const [nickname, setNickname] = useState("");
   const [recipientName, setRecipientName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
@@ -96,8 +86,18 @@ export function AddressEditorSheet(props: {
   const [landmark, setLandmark] = useState("");
   const [latitude, setLatitude] = useState<number | null>(null);
   const [longitude, setLongitude] = useState<number | null>(null);
+  const [placeId, setPlaceId] = useState("");
+  const [formattedAddress, setFormattedAddress] = useState("");
+  const [roadAddress, setRoadAddress] = useState("");
   const [fullAddress, setFullAddress] = useState("");
+  const [deliveryNote, setDeliveryNote] = useState("");
   const [neighborhoodName, setNeighborhoodName] = useState("");
+  const [buildingName, setBuildingName] = useState("");
+  const [fineTuneOpen, setFineTuneOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [predictions, setPredictions] = useState<PlacePredictionRow[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [resolvingPlaceId, setResolvingPlaceId] = useState<string | null>(null);
   const [useLife, setUseLife] = useState(true);
   const [useTrade, setUseTrade] = useState(true);
   const [useDel, setUseDel] = useState(true);
@@ -106,12 +106,63 @@ export function AddressEditorSheet(props: {
   const [defTrade, setDefTrade] = useState(false);
   const [defDel, setDefDel] = useState(false);
 
+  const [labelPreset, setLabelPreset] = useState<LabelPreset>(null);
+  const [selectedStoreId, setSelectedStoreId] = useState("");
+  const [meStores, setMeStores] = useState<StoreRow[]>([]);
+  const [meStoresLoading, setMeStoresLoading] = useState(false);
+  const [shopListErr, setShopListErr] = useState<string | null>(null);
+  const [replaceConflictRow, setReplaceConflictRow] = useState<UserAddressDTO | null>(null);
+  const [detailAttempted, setDetailAttempted] = useState(false);
+
+  /**
+   * 예측 선택 후 `setSearch`로 검색창이 긴 확정 주소로 바뀌면, 같은 문자열로 자동완성 effect가
+   * 다시 돌아 목록이 재등장하는(이중 선택처럼 보이는) 루프가 생긴다. 확정 직후의 검색문과
+   * 일치할 때는 자동완성을 건너뛴다 — 사용자가 검색어를 바꾸면 다시 조회된다.
+   */
+  const selectionAnchorSearchRef = useRef<string | null>(null);
+
+  const applyStoreRow = useCallback((row: StoreRow) => {
+    const la = row.lat != null ? Number(row.lat) : NaN;
+    const ln = row.lng != null ? Number(row.lng) : NaN;
+    setLatitude(Number.isFinite(la) ? la : null);
+    setLongitude(Number.isFinite(ln) ? ln : null);
+    setPlaceId((row.place_id ?? "").trim());
+    const fmt = (row.formatted_address ?? "").trim();
+    const line1 = (row.address_line1 ?? "").trim();
+    setFormattedAddress(fmt || line1);
+    setRoadAddress(line1 || fmt);
+    setFullAddress(fmt || line1);
+    setStreetAddress(line1);
+    setUnitFloorRoom((row.detail_address ?? "").trim());
+    setRegion((row.region ?? "").trim());
+    setCity((row.city ?? "").trim());
+    setBarangay("");
+    setCityMunicipality(((row.district ?? row.city) ?? "").trim());
+    setProvince("");
+    setBuildingName((row.store_name ?? "").trim());
+    const anchor = (fmt || line1).trim();
+    setSearch(anchor);
+    selectionAnchorSearchRef.current = anchor.length >= 2 ? anchor : null;
+    if (!(row.place_id ?? "").trim()) {
+      setErr("이 매장은 지도 주소(place)가 등록되어 있지 않아요. 매장 기본 정보에서 지도를 먼저 등록해 주세요.");
+    } else {
+      setErr(null);
+    }
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     setErr(null);
+    setReplaceConflictRow(null);
+    setDetailAttempted(false);
+    setShopListErr(null);
+    selectionAnchorSearchRef.current = null;
     if (mode === "edit" && initial) {
-      setLabelType(initial.labelType);
-      setNickname(initial.nickname ?? "");
+      setLabelPreset(deriveLabelPresetFromDto(initial));
+      setSelectedStoreId(initial.linkedStoreId?.trim() ?? "");
+      setNickname(
+        isLocationOnlyAddressNickname(initial.nickname) ? "" : (initial.nickname ?? ""),
+      );
       setRecipientName(initial.recipientName ?? "");
       setPhoneNumber(parsePhMobileInput(initial.phoneNumber ?? ""));
       setRegion(initial.appRegionId ?? "");
@@ -127,15 +178,30 @@ export function AddressEditorSheet(props: {
         setUnitFloorRoom(initial.unitFloorRoom ?? "");
       }
       setLandmark(initial.landmark ?? "");
+      setBuildingName(initial.buildingName ?? "");
       if (mapBootstrap) {
         setLatitude(mapBootstrap.latitude);
         setLongitude(mapBootstrap.longitude);
         setFullAddress(mapBootstrap.fullAddress.trim());
+        setFormattedAddress(mapBootstrap.fullAddress.trim());
+        setRoadAddress(mapBootstrap.fullAddress.trim());
         setUnitFloorRoom((mapBootstrap.addressDetail ?? "").trim());
       } else {
         setLatitude(initial.latitude ?? null);
         setLongitude(initial.longitude ?? null);
-        setFullAddress(initial.fullAddress ?? "");
+        setPlaceId(initial.placeId ?? "");
+        setFormattedAddress(initial.formattedAddress ?? initial.fullAddress ?? "");
+        setRoadAddress(initial.roadAddress ?? initial.streetAddress ?? "");
+        setFullAddress(initial.fullAddress ?? initial.formattedAddress ?? "");
+        setUnitFloorRoom(initial.detailAddress ?? initial.unitFloorRoom ?? "");
+      }
+      setDeliveryNote(initial.deliveryNote ?? "");
+      {
+        const anchor = (initial.roadAddress ?? initial.formattedAddress ?? initial.fullAddress ?? "").trim();
+        setSearch(anchor);
+        if ((initial.placeId ?? "").trim() && anchor.length >= 2) {
+          selectionAnchorSearchRef.current = anchor;
+        }
       }
       setNeighborhoodName(initial.neighborhoodName ?? "");
       setUseLife(initial.useForLife);
@@ -145,8 +211,10 @@ export function AddressEditorSheet(props: {
       setDefLife(false);
       setDefTrade(false);
       setDefDel(false);
+      setFineTuneOpen(false);
     } else if (mode === "create") {
-      setLabelType("home");
+      setLabelPreset(null);
+      setSelectedStoreId("");
       setNickname("");
       setRecipientName("");
       setPhoneNumber("");
@@ -158,15 +226,29 @@ export function AddressEditorSheet(props: {
       setStreetAddress("");
       setUnitFloorRoom("");
       setLandmark("");
+      setBuildingName("");
       if (mapBootstrap) {
         setLatitude(mapBootstrap.latitude);
         setLongitude(mapBootstrap.longitude);
         setFullAddress(mapBootstrap.fullAddress.trim());
+        setFormattedAddress(mapBootstrap.fullAddress.trim());
+        setRoadAddress(mapBootstrap.fullAddress.trim());
         setUnitFloorRoom((mapBootstrap.addressDetail ?? "").trim());
       } else {
         setLatitude(null);
         setLongitude(null);
+        setPlaceId("");
+        setFormattedAddress("");
+        setRoadAddress("");
         setFullAddress("");
+      }
+      setDeliveryNote("");
+      if (mapBootstrap?.fullAddress?.trim()) {
+        const a = mapBootstrap.fullAddress.trim();
+        setSearch(a);
+        selectionAnchorSearchRef.current = a.length >= 2 ? a : null;
+      } else {
+        setSearch("");
       }
       setNeighborhoodName("");
       setUseLife(true);
@@ -176,42 +258,240 @@ export function AddressEditorSheet(props: {
       setDefLife(false);
       setDefTrade(false);
       setDefDel(false);
+      setFineTuneOpen(false);
     }
   }, [open, mode, initial, mapBootstrap]);
 
-  if (!open) return null;
+  useEffect(() => {
+    if (!open) return;
+    const q = search.trim();
+    if (q.length < 2) {
+      selectionAnchorSearchRef.current = null;
+      setPredictions([]);
+      setSearching(false);
+      return;
+    }
+    if (
+      latitude != null &&
+      longitude != null &&
+      selectionAnchorSearchRef.current != null &&
+      q === selectionAnchorSearchRef.current
+    ) {
+      setPredictions([]);
+      setSearching(false);
+      return;
+    }
+    let cancelled = false;
+    setSearching(true);
+    const t = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const rows = await fetchPlacePredictionsPh(q);
+          if (!cancelled) setPredictions(rows);
+        } catch {
+          if (!cancelled) setPredictions([]);
+        } finally {
+          if (!cancelled) setSearching(false);
+        }
+      })();
+    }, 350);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [open, search, latitude, longitude]);
 
-  async function submit() {
+  useEffect(() => {
+    if (!open || labelPreset !== "shop") return;
+    let cancelled = false;
+    void (async () => {
+      setMeStoresLoading(true);
+      setShopListErr(null);
+      try {
+        const res = await fetch("/api/me/stores", { credentials: "include" });
+        const j = (await res.json()) as { ok?: boolean; stores?: StoreRow[]; error?: string };
+        if (!res.ok || !j.ok) {
+          throw new Error(typeof j.error === "string" ? j.error : "매장 목록을 불러오지 못했습니다.");
+        }
+        if (!cancelled) setMeStores(Array.isArray(j.stores) ? j.stores : []);
+      } catch (e) {
+        if (!cancelled) {
+          setShopListErr(e instanceof Error ? e.message : "오류가 났습니다.");
+          setMeStores([]);
+        }
+      } finally {
+        if (!cancelled) setMeStoresLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open, labelPreset]);
+
+  const applyFineTuneResult = useCallback((r: ReverseGeocodePhResult) => {
+    if (!r.placeId) return;
+    setLatitude(r.latitude);
+    setLongitude(r.longitude);
+    setPlaceId(r.placeId);
+    setFormattedAddress(r.formattedAddress);
+    setFullAddress(r.formattedAddress);
+    setRoadAddress(r.formattedAddress);
+    const ph = r.parsed;
+    const headLine = r.formattedAddress.split(",")[0]?.trim() ?? "";
+    setStreetAddress(ph.routeLine || headLine);
+    setBarangay(ph.barangay ?? "");
+    setCityMunicipality(ph.cityMunicipality ?? "");
+    setProvince(ph.province ?? "");
+    setNeighborhoodName(ph.neighborhood ?? "");
+    setBuildingName(ph.buildingOrPlaceHeadline ?? "");
+    const s = r.formattedAddress.trim();
+    setSearch(s);
+    selectionAnchorSearchRef.current = s.length >= 2 ? s : null;
+  }, []);
+
+  const streetPreview = useMemo(() => {
+    return formatPhDeliveryStreetSummary({
+      countryCode: "PH",
+      countryName: "Philippines",
+      roadAddress: roadAddress || null,
+      formattedAddress: formattedAddress || null,
+      fullAddress: fullAddress || null,
+    } as UserAddressDTO);
+  }, [roadAddress, formattedAddress, fullAddress]);
+
+  const adminPreview = useMemo(
+    () => [barangay, cityMunicipality, province].map((x) => x.trim()).filter(Boolean).join(", "),
+    [barangay, cityMunicipality, province],
+  );
+
+  async function selectPrediction(row: PlacePredictionRow) {
+    if (!row.placeId.trim()) return;
+    setResolvingPlaceId(row.placeId);
+    setErr(null);
+    try {
+      const detail = await fetchPlaceDetailsAsLegacyPlaceResultCached(row.placeId, PLACE_FIELDS_POI_FULL);
+      const loc = detail?.geometry?.location;
+      const lat = typeof loc?.lat === "function" ? loc.lat() : null;
+      const lng = typeof loc?.lng === "function" ? loc.lng() : null;
+      const formatted = (detail?.formatted_address ?? row.description ?? "").trim();
+      if (!formatted || lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng)) {
+        setErr("장소 좌표를 확인할 수 없습니다. 다른 검색 결과를 선택해 주세요.");
+        return;
+      }
+      const ph = parsePhFromGooglePlaceResult(detail);
+      const label = (row.description || formatted).trim();
+      selectionAnchorSearchRef.current = label.length >= 2 ? label : null;
+      setPlaceId(row.placeId);
+      setFormattedAddress(formatted);
+      setRoadAddress(row.description || formatted);
+      setFullAddress(formatted);
+      setStreetAddress(ph.routeLine || row.mainText || formatted);
+      setBarangay(ph.barangay ?? "");
+      setCityMunicipality(ph.cityMunicipality ?? "");
+      setProvince(ph.province ?? "");
+      setNeighborhoodName(ph.neighborhood ?? "");
+      setBuildingName(ph.buildingOrPlaceHeadline ?? "");
+      setLatitude(lat);
+      setLongitude(lng);
+      setPredictions([]);
+      setSearch(label);
+      setFineTuneOpen(false);
+      window.setTimeout(() => {
+        document.getElementById("addr-editor-detail")?.focus();
+      }, 0);
+    } finally {
+      setResolvingPlaceId(null);
+    }
+  }
+
+  async function saveAddress(opts?: { skipDupCheck?: boolean }) {
     setBusy(true);
     setErr(null);
+    setDetailAttempted(true);
     const ph = normalizeOptionalPhMobileDb(phoneNumber);
     if (!ph.ok) {
       setErr(ph.error);
       setBusy(false);
       return;
     }
-    const siblingRows = allAddresses.filter((a) => !(mode === "edit" && initial?.id === a.id));
-    const resolvedName = nickname.trim()
-      ? nickname.trim()
-      : nextAutoUnspecifiedNickname(siblingRows.map((a) => a.nickname ?? ""));
-    const nameKey = normalizeAddressNicknameKey(resolvedName);
-    const dup = siblingRows.some(
-      (a) => normalizeAddressNicknameKey(a.nickname ?? "") === nameKey,
-    );
-    if (dup) {
-      setErr("이미 같은 지정 주소가 있어요.");
+    if (!labelPreset) {
+      setErr("지정 주소 유형을 선택해 주세요.");
       setBusy(false);
       return;
     }
+    if (
+      labelPreset === "custom" &&
+      !nickname.trim() &&
+      !(mode === "edit" && initial && isLocationOnlyAddressNickname(initial.nickname))
+    ) {
+      setErr("직접 입력 이름을 적어 주세요.");
+      setBusy(false);
+      return;
+    }
+    if (labelPreset === "shop" && !selectedStoreId.trim()) {
+      setErr("매장을 선택해 주세요.");
+      setBusy(false);
+      return;
+    }
+    if (labelPreset === "custom") {
+      const reservedId = decodeLocationOnlyAddressNicknameId(nickname.trim());
+      if (reservedId != null) {
+        const allowedSelf = mode === "edit" && initial && reservedId === initial.id.trim();
+        if (!allowedSelf) {
+          setErr("사용할 수 없는 이름입니다.");
+          setBusy(false);
+          return;
+        }
+      }
+    }
+
+    const siblingRows = allAddresses.filter((a) => !(mode === "edit" && initial?.id === a.id));
+
+    const resolvedNickname =
+      labelPreset === "home"
+        ? ADDRESS_PRESET_NICKNAME_HOME
+        : labelPreset === "office"
+          ? ADDRESS_PRESET_NICKNAME_OFFICE
+          : labelPreset === "shop"
+            ? encodeShopAddressNickname(selectedStoreId)
+            : nickname.trim() ||
+              (mode === "edit" && initial && isLocationOnlyAddressNickname(initial.nickname)
+                ? encodeLocationOnlyAddressNickname(initial.id)
+                : "");
+
+    if (!opts?.skipDupCheck) {
+      const nameKey = normalizeAddressNicknameKey(resolvedNickname);
+      const conflict = siblingRows.find((a) => normalizeAddressNicknameKey(a.nickname ?? "") === nameKey);
+      if (conflict) {
+        setReplaceConflictRow(conflict);
+        setBusy(false);
+        return;
+      }
+    }
+
+    const submitLabelType: UserAddressLabelType =
+      labelPreset === "custom" ? "other" : labelPreset === "shop" ? "shop" : labelPreset === "office" ? "office" : "home";
+
     try {
-      if (latitude == null || longitude == null || !fullAddress.trim()) {
-        setErr("지도에서 위치를 선택해 주세요.");
+      if (!placeId.trim()) {
+        setErr("검색 결과에서 주소를 선택해 주세요.");
+        setBusy(false);
+        return;
+      }
+      if (latitude == null || longitude == null || !formattedAddress.trim()) {
+        setErr("장소 좌표를 확인할 수 없습니다. 다시 검색해 주세요.");
+        setBusy(false);
+        return;
+      }
+      if (!unitFloorRoom.trim()) {
+        setErr("상세주소를 입력해 주세요.");
         setBusy(false);
         return;
       }
       const body = {
-        labelType,
-        nickname: resolvedName,
+        labelType: submitLabelType,
+        linkedStoreId: submitLabelType === "shop" ? selectedStoreId.trim() : null,
+        nickname: resolvedNickname,
         recipientName: recipientName.trim() || null,
         phoneNumber: ph.value,
         appRegionId: region.trim() || null,
@@ -220,12 +500,17 @@ export function AddressEditorSheet(props: {
         cityMunicipality: cityMunicipality.trim() || null,
         province: province.trim() || null,
         streetAddress: streetAddress.trim() || null,
-        buildingName: null,
+        buildingName: buildingName.trim() || null,
         unitFloorRoom: unitFloorRoom.trim() || null,
         landmark: landmark.trim() || null,
         latitude,
         longitude,
-        fullAddress: fullAddress.trim() || null,
+        placeId: placeId.trim(),
+        formattedAddress: formattedAddress.trim(),
+        roadAddress: roadAddress.trim() || formattedAddress.trim(),
+        detailAddress: unitFloorRoom.trim(),
+        deliveryNote: deliveryNote.trim() || null,
+        fullAddress: formattedAddress.trim() || fullAddress.trim() || null,
         neighborhoodName: neighborhoodName.trim() || null,
         useForLife: useLife,
         useForTrade: useTrade,
@@ -254,129 +539,300 @@ export function AddressEditorSheet(props: {
     }
   }
 
+  async function confirmReplaceAndSave() {
+    if (!replaceConflictRow) return;
+    const id = replaceConflictRow.id;
+    setErr(null);
+    setBusy(true);
+    try {
+      const d = await fetch(`/api/me/addresses/${id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          labelType: "other",
+          linkedStoreId: null,
+          nickname: encodeLocationOnlyAddressNickname(id),
+        }),
+      });
+      const j = (await d.json()) as { ok?: boolean; error?: string };
+      if (!d.ok || !j.ok) {
+        setErr(typeof j.error === "string" ? j.error : "기존 주소의 지정만 해제하지 못했어요.");
+        return;
+      }
+      setReplaceConflictRow(null);
+      await saveAddress({ skipDupCheck: true });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const fieldLabelClass = "mb-1.5 block text-[12px] font-semibold leading-4 text-sam-muted";
   const fieldInputClass =
     "w-full rounded-lg border border-sam-border bg-sam-app px-3 py-2.5 sam-text-body text-sam-fg outline-none transition-shadow placeholder:text-sam-muted focus-visible:border-sam-primary focus-visible:ring-2 focus-visible:ring-sam-primary/20";
+  const chipBase =
+    "shrink-0 whitespace-nowrap rounded-xl border px-3 py-2.5 sam-text-body font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sam-primary/30";
+  const chipOff = "border-sam-border bg-sam-app text-sam-fg hover:border-sam-primary/40";
+  const chipOn = "border-sam-primary bg-sam-primary text-white";
 
-  return (
-    <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4 sm:p-6"
-      role="presentation"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
-      <div
-        className="flex max-h-[min(88dvh,640px)] w-full max-w-md min-w-0 flex-col overflow-hidden rounded-2xl bg-sam-surface text-sam-fg shadow-[0_4px_24px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.06]"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="addr-editor-title"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex shrink-0 items-center justify-between border-b border-sam-border px-4 py-3">
-          <h2 id="addr-editor-title" className="text-[17px] font-bold leading-6 tracking-tight text-sam-fg">
-            주소상세
-          </h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex h-9 w-9 items-center justify-center rounded-full text-sam-muted transition-colors hover:bg-sam-app hover:text-sam-fg"
-            aria-label="닫기"
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
-              <path
-                d="M6 6l12 12M18 6L6 18"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
+  if (!open) return null;
+
+  const pageTitle = mode === "edit" ? "주소 수정" : "주소 추가";
+  const saveLabel = layout === "page" ? "이 주소 저장" : "저장";
+  const detailViol = detailAttempted && latitude != null && longitude != null && !unitFloorRoom.trim();
+  const geoReady = latitude != null && longitude != null && !!formattedAddress.trim();
+  const saveDisabled =
+    busy ||
+    !labelPreset ||
+    (labelPreset === "shop" && !selectedStoreId.trim()) ||
+    (labelPreset === "custom" &&
+      !nickname.trim() &&
+      !(mode === "edit" && initial && isLocationOnlyAddressNickname(initial.nickname))) ||
+    !geoReady;
+
+  const editorScrollBody = (
+    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+          <div>
+            <span className={fieldLabelClass}>지정 주소</span>
+            <p className="mb-2 sam-text-xxs leading-snug text-sam-muted">
+              우리집·매장·회사·직접 입력 중 하나를 고른 뒤 저장할 수 있어요.
+            </p>
+            <div className="-mx-1 flex min-w-0 flex-nowrap gap-2 overflow-x-auto px-1 pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+              <button
+                type="button"
+                onClick={() => {
+                  setLabelPreset("home");
+                  setSelectedStoreId("");
+                  setErr(null);
+                }}
+                className={`${chipBase} ${labelPreset === "home" ? chipOn : chipOff}`}
+              >
+                우리집
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLabelPreset("shop");
+                  setErr(null);
+                }}
+                className={`${chipBase} ${labelPreset === "shop" ? chipOn : chipOff}`}
+              >
+                매장
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLabelPreset("office");
+                  setSelectedStoreId("");
+                  setErr(null);
+                }}
+                className={`${chipBase} ${labelPreset === "office" ? chipOn : chipOff}`}
+              >
+                회사
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLabelPreset("custom");
+                  setSelectedStoreId("");
+                  setErr(null);
+                }}
+                className={`${chipBase} ${labelPreset === "custom" ? chipOn : chipOff}`}
+              >
+                직접 입력
+              </button>
+            </div>
+            {!labelPreset ? (
+              <p className="mt-2 sam-text-helper font-medium text-sam-danger">유형을 선택해 주세요.</p>
+            ) : null}
+          </div>
+
+          {labelPreset === "shop" ? (
+            <div className="space-y-2">
+              <span className={fieldLabelClass}>연결 매장</span>
+              {meStoresLoading ? (
+                <p className="sam-text-helper text-sam-muted">매장 목록을 불러오는 중…</p>
+              ) : null}
+              {shopListErr ? <p className="sam-text-helper text-sam-danger">{shopListErr}</p> : null}
+              {!meStoresLoading && !shopListErr && meStores.length === 0 ? (
+                <p className="sam-text-body-secondary leading-relaxed text-sam-danger">
+                  등록·승인된 매장이 없습니다. 스토어에서 매장을 등록한 뒤 다시 시도해 주세요.
+                </p>
+              ) : !meStoresLoading && meStores.length > 0 ? (
+                <select
+                  value={selectedStoreId}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    setSelectedStoreId(id);
+                    setErr(null);
+                    const row = meStores.find((s) => s.id === id);
+                    if (row) applyStoreRow(row);
+                  }}
+                  className={fieldInputClass}
+                  aria-label="연결할 매장 선택"
+                >
+                  <option value="">매장을 선택해 주세요</option>
+                  {meStores.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {(s.slug || s.store_name || s.id).trim()}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+            </div>
+          ) : null}
+
+          {labelPreset === "custom" ? (
+            <div>
+              <label htmlFor="addr-editor-nick-custom" className={fieldLabelClass}>
+                직접 입력 이름
+              </label>
+              <input
+                id="addr-editor-nick-custom"
+                value={nickname}
+                onChange={(e) => {
+                  setNickname(e.target.value);
+                  setErr(null);
+                }}
+                placeholder="예: 본가, 작업실"
+                autoComplete="off"
+                className={fieldInputClass}
               />
-            </svg>
-          </button>
-        </div>
+            </div>
+          ) : null}
 
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+          <div>
+            <label htmlFor="addr-editor-search" className={fieldLabelClass}>
+              주소 검색
+            </label>
+            <input
+              id="addr-editor-search"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setErr(null);
+              }}
+              placeholder="Building, mall, street, barangay (English OK)"
+              autoComplete="off"
+              className={fieldInputClass}
+            />
+            {searching ? (
+              <p className="mt-2 sam-text-helper text-sam-muted">검색 중…</p>
+            ) : predictions.length > 0 ? (
+              <ul className="mt-2 overflow-hidden rounded-lg border border-sam-border bg-sam-surface">
+                {predictions.map((p) => (
+                  <li key={p.placeId} className="border-b border-sam-border last:border-b-0">
+                    <button
+                      type="button"
+                      onClick={() => void selectPrediction(p)}
+                      disabled={resolvingPlaceId === p.placeId}
+                      className="block w-full px-3 py-2.5 text-left hover:bg-sam-app disabled:opacity-60"
+                    >
+                      <span className="block sam-text-body font-semibold text-sam-fg">{p.mainText}</span>
+                      <span className="mt-0.5 block sam-text-helper text-sam-muted">
+                        {p.secondaryText || p.description}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
           {latitude != null && longitude != null ? (
             <>
               <div>
-                <label htmlFor="addr-editor-nick" className={fieldLabelClass}>
-                  지정 주소 이름
-                </label>
-                <input
-                  id="addr-editor-nick"
-                  value={nickname}
-                  onChange={(e) => {
-                    setNickname(e.target.value);
-                    setErr(null);
-                  }}
-                  placeholder="예: 집, 회사 (비우면 자동)"
-                  autoComplete="off"
-                  className={fieldInputClass}
-                />
-              </div>
-              <div>
-                <span className={fieldLabelClass}>지도에서 고른 위치</span>
-                <p className="rounded-lg border border-sam-border bg-sam-app px-3 py-2.5 sam-text-body leading-relaxed text-sam-fg">
-                  {fullAddress.trim() || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`}
+                <span className={fieldLabelClass}>선택한 장소 요약</span>
+                <p className="mb-2 sam-text-xxs leading-snug text-sam-muted">
+                  왼쪽 지도를 탭하면 작은 창에서 핀을 옮기고, 그 위치 기준으로 건물명·도로 주소를 다시 맞출 수 있어요.
                 </p>
+                <div className="flex gap-3 rounded-lg border border-sam-border bg-sam-app px-3 py-2.5">
+                  <div className="relative shrink-0">
+                    <AddressSummaryMapPreview lat={latitude} lng={longitude} sizePx={72} />
+                    <button
+                      type="button"
+                      className="absolute inset-0 rounded-ui-rect bg-transparent transition-colors hover:bg-black/[0.06] active:bg-black/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sam-primary/35"
+                      aria-label="위치 미세 조정 열기"
+                      onClick={() => setFineTuneOpen(true)}
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1 space-y-1">
+                    {buildingName.trim() ? (
+                      <p className="sam-text-body font-semibold leading-snug text-sam-fg">{buildingName.trim()}</p>
+                    ) : null}
+                    <p className="sam-text-body-secondary leading-relaxed text-sam-fg">
+                      {streetPreview ||
+                        stripCountryFromAddressDisplayLine(
+                          (formattedAddress || fullAddress).trim(),
+                          "Philippines",
+                        ) ||
+                        `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`}
+                    </p>
+                    {adminPreview ? (
+                      <p className="sam-text-helper text-sam-muted">{adminPreview}</p>
+                    ) : null}
+                  </div>
+                </div>
               </div>
               <div>
                 <label htmlFor="addr-editor-detail" className={fieldLabelClass}>
-                  상세주소
+                  상세주소 (필수) — Unit / Block / Lot / Floor
                 </label>
                 <input
                   id="addr-editor-detail"
                   value={unitFloorRoom}
                   onChange={(e) => setUnitFloorRoom(e.target.value)}
-                  placeholder="지번, 건물명, 동·호 등"
+                  placeholder="예: Tower 2, 12F, Unit 1204 / Block 5 Lot 12"
                   autoComplete="off"
-                  className={fieldInputClass}
+                  aria-invalid={detailViol}
+                  className={`${fieldInputClass} ${detailViol ? "border-sam-danger focus-visible:border-sam-danger focus-visible:ring-sam-danger/25" : ""}`}
                 />
+                {detailViol ? (
+                  <p className="mt-1.5 sam-text-helper font-medium text-sam-danger">상세주소를 입력해 주세요.</p>
+                ) : null}
               </div>
-              <div className="flex justify-center overflow-hidden rounded-lg border border-sam-border bg-sam-app">
-                <AddressMapThumb lat={latitude} lng={longitude} sizePx={200} />
+              <div>
+                <label htmlFor="addr-editor-note" className={fieldLabelClass}>
+                  배달 요청사항
+                </label>
+                <textarea
+                  id="addr-editor-note"
+                  value={deliveryNote}
+                  onChange={(e) => setDeliveryNote(e.target.value)}
+                  placeholder="예: 문 앞에 놓아 주세요"
+                  rows={2}
+                  autoComplete="off"
+                  className={`${fieldInputClass} min-h-[4.5rem] resize-y`}
+                />
               </div>
             </>
           ) : (
             <>
               <div>
-                <label htmlFor="addr-editor-nick-empty" className={fieldLabelClass}>
-                  지정 주소 이름
-                </label>
-                <input
-                  id="addr-editor-nick-empty"
-                  value={nickname}
-                  onChange={(e) => {
-                    setNickname(e.target.value);
-                    setErr(null);
-                  }}
-                  placeholder="예: 집, 회사 (비우면 자동)"
-                  autoComplete="off"
-                  className={fieldInputClass}
-                />
-              </div>
-              <div>
                 <label htmlFor="addr-editor-detail-empty" className={fieldLabelClass}>
-                  상세주소
+                  상세주소 (검색 후 입력)
                 </label>
                 <input
                   id="addr-editor-detail-empty"
                   value={unitFloorRoom}
                   onChange={(e) => setUnitFloorRoom(e.target.value)}
-                  placeholder="지번, 건물명, 동·호 등"
+                  placeholder="먼저 아래에서 장소를 고른 뒤 Unit/Block/Lot을 입력합니다"
                   autoComplete="off"
+                  disabled
                   className={fieldInputClass}
                 />
               </div>
               <p className="rounded-lg border border-dashed border-sam-border bg-sam-app/60 px-3 py-2.5 text-center sam-text-body-secondary text-sam-muted">
-                위치를 저장하려면 아래「위치 선택」에서 지도를 열어 주세요.
+                위 검색창에서 건물·몰·도로·바랑가이를 검색한 뒤 결과를 선택해 주세요.
               </p>
             </>
           )}
         </div>
+  );
 
-        <div className="shrink-0 space-y-2 border-t border-sam-border bg-sam-app/40 px-4 py-3 safe-area-pb">
+  const editorFooter = (
+    <div className="shrink-0 space-y-2 border-t border-sam-border bg-sam-app/40 px-4 py-3 safe-area-pb">
           {err ? <p className="text-center sam-text-body-secondary font-medium text-sam-danger">{err}</p> : null}
-          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <p className="text-center sam-text-xxs text-sam-muted">
             <button
               type="button"
               onClick={() => {
@@ -387,21 +843,148 @@ export function AddressEditorSheet(props: {
                 );
                 router.push("/address/select");
               }}
-              className="w-full rounded-lg border border-sam-border bg-sam-surface py-2.5 sam-text-body font-semibold text-sam-fg shadow-sm transition-colors hover:bg-sam-app sm:w-auto sm:min-w-[100px] sm:px-4"
+              className="font-semibold text-sam-primary underline-offset-2 hover:underline"
             >
-              위치 선택
+              전체 지도에서 처음 고르기
+            </button>
+          </p>
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              disabled={saveDisabled}
+              onClick={() => void saveAddress()}
+              className="w-full rounded-lg bg-sam-primary py-2.5 sam-text-body font-semibold text-white shadow-sm transition-opacity hover:bg-sam-primary-hover disabled:opacity-40 sm:ml-auto sm:w-auto sm:min-w-[112px] sm:px-5"
+            >
+              {busy ? "저장 중…" : saveLabel}
+            </button>
+          </div>
+        </div>
+  );
+
+  const replaceConflictModal =
+    replaceConflictRow && open ? (
+      <div
+        className="fixed inset-0 z-[95] flex items-center justify-center bg-black/55 p-4"
+        role="presentation"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) setReplaceConflictRow(null);
+        }}
+      >
+        <div
+          className="w-full max-w-sm rounded-2xl border border-sam-border bg-sam-surface p-4 text-sam-fg shadow-xl"
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="addr-replace-title"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h3 id="addr-replace-title" className="text-[17px] font-bold leading-6">
+            같은 이름의 지정 주소가 있어요
+          </h3>
+          <p className="mt-2 sam-text-body-secondary leading-relaxed text-sam-fg">
+            같은 지정 이름은 하나만 둘 수 있어요. 아래 주소는 삭제하지 않고 지정만 해제해 지도 핀만 보이게 바꾼 뒤, 지금
+            주소를 저장할까요?
+          </p>
+          <div className="mt-3 rounded-lg border border-sam-border bg-sam-app px-3 py-2.5">
+            <div className="flex min-h-[1.25em] items-center sam-text-body font-semibold text-sam-fg">
+              <UserAddressDesignationTitle row={replaceConflictRow} />
+            </div>
+            <p className="mt-1 line-clamp-3 sam-text-helper text-sam-muted">
+              {replaceConflictRow.formattedAddress ?? replaceConflictRow.fullAddress ?? "—"}
+            </p>
+          </div>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setReplaceConflictRow(null)}
+              className="w-full rounded-lg border border-sam-border bg-sam-app py-2.5 sam-text-body font-semibold text-sam-fg sm:w-auto sm:px-4"
+            >
+              취소
             </button>
             <button
               type="button"
               disabled={busy}
-              onClick={() => void submit()}
-              className="w-full rounded-lg bg-sam-primary py-2.5 sam-text-body font-semibold text-white shadow-sm transition-opacity hover:bg-sam-primary-hover disabled:opacity-40 sm:w-auto sm:min-w-[112px] sm:px-5"
+              onClick={() => void confirmReplaceAndSave()}
+              className="w-full rounded-lg bg-sam-primary py-2.5 sam-text-body font-semibold text-white sm:w-auto sm:px-4"
             >
-              {busy ? "저장 중…" : "저장"}
+              {busy ? "처리 중…" : "지정 해제 후 계속"}
             </button>
           </div>
         </div>
       </div>
-    </div>
+    ) : null;
+
+  const fineTuneLayer =
+    fineTuneOpen && latitude != null && longitude != null ? (
+      <AddressFineTuneSheet
+        open={fineTuneOpen}
+        latitude={latitude}
+        longitude={longitude}
+        onClose={() => setFineTuneOpen(false)}
+        onApply={applyFineTuneResult}
+      />
+    ) : null;
+
+  if (layout === "page") {
+    return (
+      <>
+        <div className="flex min-h-screen w-full min-w-0 max-w-[100dvw] flex-col overflow-x-clip bg-sam-app">
+          <MySubpageHeader title={pageTitle} backHref="/mypage/addresses" hideCtaStrip />
+          <div className={`${APP_MAIN_TAB_SCROLL_BODY_CLASS} flex min-h-0 flex-1 flex-col`}>
+            <div className="mx-auto flex min-h-0 w-full max-w-md min-w-0 flex-1 flex-col">
+              {editorScrollBody}
+              {editorFooter}
+            </div>
+          </div>
+        </div>
+        {fineTuneLayer}
+        {replaceConflictModal}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div
+        className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 p-4 sm:p-6"
+        role="presentation"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
+        <div
+          className="flex max-h-[min(88dvh,640px)] w-full max-w-md min-w-0 flex-col overflow-hidden rounded-2xl bg-sam-surface text-sam-fg shadow-[0_4px_24px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.06]"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="addr-editor-title"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex shrink-0 items-center justify-between border-b border-sam-border px-4 py-3">
+            <h2 id="addr-editor-title" className="text-[17px] font-bold leading-6 tracking-tight text-sam-fg">
+              주소상세
+            </h2>
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex h-9 w-9 items-center justify-center rounded-full text-sam-muted transition-colors hover:bg-sam-app hover:text-sam-fg"
+              aria-label="닫기"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
+                <path
+                  d="M6 6l12 12M18 6L6 18"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </button>
+          </div>
+          {editorScrollBody}
+          {editorFooter}
+        </div>
+      </div>
+      {fineTuneLayer}
+      {replaceConflictModal}
+    </>
   );
 }

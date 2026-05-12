@@ -1,5 +1,6 @@
 import { mapApiOrderToOwnerOrder, type ApiStoreOrderRow } from "./map-api-order-to-owner";
 import type { OwnerOrder, OwnerOrderStatus } from "./types";
+import { formatStoreOrderCheckoutEtaSummary } from "@/lib/stores/format-store-order-checkout-display";
 
 const OWNER_STATUSES = new Set<string>([
   "pending",
@@ -57,6 +58,15 @@ export function realtimeRecordToApiRow(record: Record<string, unknown>): ApiStor
     created_at: String(record.created_at ?? new Date().toISOString()),
     auto_complete_at:
       typeof record.auto_complete_at === "string" ? record.auto_complete_at : null,
+    checkout_eta_minutes:
+      record.checkout_eta_minutes != null && Number.isFinite(Number(record.checkout_eta_minutes))
+        ? Math.round(Number(record.checkout_eta_minutes))
+        : null,
+    checkout_route_distance_meters:
+      record.checkout_route_distance_meters != null &&
+      Number.isFinite(Number(record.checkout_route_distance_meters))
+        ? Math.round(Number(record.checkout_route_distance_meters))
+        : null,
     community_messenger_room_id:
       typeof record.community_messenger_room_id === "string"
         ? record.community_messenger_room_id
@@ -172,6 +182,40 @@ export function mergeRealtimeRecordIntoOwnerOrder(
   if (dcl !== (prev.delivery_courier_label ?? "") && (dcl || prev.delivery_courier_label)) {
     next.delivery_courier_label = dcl || null;
     changed = true;
+  }
+
+  if (record.checkout_eta_minutes !== undefined || record.checkout_route_distance_meters !== undefined) {
+    let em = prev.checkout_eta_minutes ?? null;
+    let dm = prev.checkout_route_distance_meters ?? null;
+    if (record.checkout_eta_minutes !== undefined) {
+      em =
+        record.checkout_eta_minutes != null && Number.isFinite(Number(record.checkout_eta_minutes))
+          ? Math.round(Number(record.checkout_eta_minutes))
+          : null;
+    }
+    if (record.checkout_route_distance_meters !== undefined) {
+      dm =
+        record.checkout_route_distance_meters != null &&
+        Number.isFinite(Number(record.checkout_route_distance_meters))
+          ? Math.round(Number(record.checkout_route_distance_meters))
+          : null;
+    }
+    if (em !== prev.checkout_eta_minutes) {
+      next.checkout_eta_minutes = em;
+      changed = true;
+    }
+    if (dm !== prev.checkout_route_distance_meters) {
+      next.checkout_route_distance_meters = dm;
+      changed = true;
+    }
+    const sum = formatStoreOrderCheckoutEtaSummary({
+      checkout_eta_minutes: em,
+      checkout_route_distance_meters: dm,
+    });
+    if (sum !== (prev.checkout_eta_summary ?? null)) {
+      next.checkout_eta_summary = sum;
+      changed = true;
+    }
   }
 
   if (nu && nu !== prev.updated_at) {

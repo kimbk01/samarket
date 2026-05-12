@@ -93,3 +93,13 @@ export function saveDeliveryAddressBook(
     /* quota */
   }
 }
+
+/** 장바구니 전용 구 주소록 제거(1회 마이그레이션·서버 주소만 사용) 시 호출 */
+export function clearDeliveryAddressBookStorage(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    /* quota */
+  }
+}

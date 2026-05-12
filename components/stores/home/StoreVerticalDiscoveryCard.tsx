@@ -51,9 +51,13 @@ export type StoreVerticalCardModel = Pick<
   | "isFeatured"
   | "estPrepLabel"
   | "deliveryFeeLabel"
+  | "deliveryFeeStrikePhp"
+  | "paymentMethodsLine"
 > & {
   /** 홈 피드 전용 — km */
   distanceKm?: number | null;
+  routeDistanceKm?: number | null;
+  straightDistanceKm?: number | null;
   /** `약 …` 합산 ETA — 없으면 estPrepLabel만 표시 */
   etaLabel?: string | null;
 };
@@ -78,7 +82,11 @@ export function browseItemToVerticalModel(store: BrowseStoreListItem): StoreVert
     estPrepLabel: store.estPrepLabel ?? "20~40분",
     etaLabel: store.etaLabel,
     deliveryFeeLabel: store.deliveryFeeLabel ?? null,
+    deliveryFeeStrikePhp: store.deliveryFeeStrikePhp ?? null,
+    paymentMethodsLine: store.paymentMethodsLine ?? "",
     distanceKm: store.distanceKm ?? null,
+    routeDistanceKm: store.routeDistanceKm ?? null,
+    straightDistanceKm: store.straightDistanceKm ?? null,
   };
 }
 
@@ -102,7 +110,11 @@ export function homeFeedItemToVerticalModel(store: StoreHomeFeedItem): StoreVert
     estPrepLabel: store.estPrepLabel,
     etaLabel: store.etaLabel,
     deliveryFeeLabel: store.deliveryFeeLabel,
+    deliveryFeeStrikePhp: store.deliveryFeeStrikePhp ?? null,
+    paymentMethodsLine: store.paymentMethodsLine ?? "",
     distanceKm: store.distanceKm,
+    routeDistanceKm: store.routeDistanceKm ?? null,
+    straightDistanceKm: store.straightDistanceKm ?? null,
   };
 }
 
@@ -117,8 +129,8 @@ export function StoreVerticalDiscoveryCard({
   const router = useRouter();
   const prefetchedAtRef = useRef<Record<string, number>>({});
   const flags = [
-    store.deliveryAvailable ? "배달" : null,
-    store.pickupAvailable ? "픽업" : null,
+    store.deliveryAvailable ? "배달가능" : null,
+    store.pickupAvailable ? "픽업가능" : null,
     store.visitAvailable ? "방문" : null,
   ].filter(Boolean);
 
@@ -214,8 +226,19 @@ export function StoreVerticalDiscoveryCard({
             {store.etaLabel?.trim() ?
               <span>{store.etaLabel}</span>
             : <span>예상 {store.estPrepLabel}</span>}
-            {store.deliveryFeeLabel ?
-              <span>배달 {store.deliveryFeeLabel}</span>
+            {store.deliveryFeeLabel === "배달비 무료 적용 중" ?
+              <span className="inline-flex flex-wrap items-center gap-1">
+                <span className="text-[13px] font-semibold text-[#2563EB] dark:text-[#8AB4FF]">
+                  {store.deliveryFeeLabel}
+                </span>
+                {store.deliveryFeeStrikePhp != null && store.deliveryFeeStrikePhp > 0 ?
+                  <span className="text-[13px] font-medium text-[#9CA3AF] line-through dark:text-[#6B7280]">
+                    {formatMoneyPhp(store.deliveryFeeStrikePhp)}
+                  </span>
+                : null}
+              </span>
+            : store.deliveryFeeLabel ?
+              <span>{store.deliveryFeeLabel}</span>
             : store.deliveryAvailable ?
               <span>배달비 매장별</span>
             : null}
@@ -234,6 +257,15 @@ export function StoreVerticalDiscoveryCard({
                 </span>
               ))}
             </div>
+          : null}
+
+          {store.paymentMethodsLine?.trim() ?
+            <p
+              className="line-clamp-2 sam-text-xxs font-medium leading-snug text-[#6B7280] dark:text-[#9AA3AD]"
+              title={store.paymentMethodsLine}
+            >
+              <span className="font-semibold text-[#4B5563] dark:text-[#B8C0CA]">결제</span> · {store.paymentMethodsLine}
+            </p>
           : null}
         </div>
       </Link>

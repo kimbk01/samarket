@@ -9,6 +9,7 @@ const ME_STORE_SELECT =
     "store_category_id, store_topic_id",
     "description, kakao_id, phone, email, website_url",
     "region, city, district, address_line1, address_line2, lat, lng",
+    "place_id, formatted_address, detail_address",
     "profile_image_url, business_hours_json, gallery_images_json, is_open",
     "delivery_available, pickup_available, reservation_available, visit_available",
     "approval_status, is_visible, rejected_reason, revision_note",

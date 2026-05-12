@@ -993,10 +993,30 @@ export function StoreProductPublic({
               {fulfillment === "local_delivery" ? (
                 <div className="flex justify-between">
                   <span className="text-sam-muted">배달비</span>
-                  <span className="font-semibold">{formatMoneyPhp(deliveryFeeLine)}</span>
+                  <span className="text-right font-semibold">
+                    {storeExtras.deliveryFeeMode === "courier" ?
+                      storeExtras.deliveryCourierLabel?.trim() ?
+                        `착불 · ${storeExtras.deliveryCourierLabel.trim()}`
+                      : "착불"
+                    : storeExtras.deliveryFeeMode === "self_free_promo" ?
+                      <span className="inline-flex flex-col items-end gap-0.5">
+                        <span className="inline-flex flex-wrap items-center justify-end gap-1.5">
+                          <span className="text-[13px] font-semibold text-[#2563EB]">배달비 무료 적용 중</span>
+                          {storeExtras.deliveryFeeStrikeReferencePhp != null &&
+                          storeExtras.deliveryFeeStrikeReferencePhp > 0 ? (
+                            <span className="text-[13px] font-medium text-sam-meta line-through">
+                              {formatMoneyPhp(storeExtras.deliveryFeeStrikeReferencePhp)}
+                            </span>
+                          ) : null}
+                        </span>
+                        <span className="tabular-nums">{formatMoneyPhp(deliveryFeeLine)}</span>
+                      </span>
+                    : formatMoneyPhp(deliveryFeeLine)}
+                  </span>
                 </div>
               ) : null}
               {fulfillment === "local_delivery" &&
+              storeExtras.deliveryFeeMode === "self" &&
               deliveryFeeLine === 0 &&
               storeExtras.deliveryFeePhp != null &&
               storeExtras.deliveryFeePhp > 0 &&
@@ -1005,11 +1025,6 @@ export function StoreProductPublic({
               lineSubtotalPhp >= storeExtras.freeDeliveryOverPhp ? (
                 <p className="sam-text-xxs text-emerald-800">
                   무료배달 기준({formatMoneyPhp(storeExtras.freeDeliveryOverPhp)} 이상) 충족으로 배달비 면제
-                </p>
-              ) : null}
-              {fulfillment === "local_delivery" && storeExtras.deliveryCourierLabel?.trim() ? (
-                <p className="sam-text-xxs leading-snug text-sam-muted">
-                  배달 업체(안내): {storeExtras.deliveryCourierLabel.trim()} · 청구 금액에 포함되지 않음
                 </p>
               ) : null}
               <div className="flex justify-between border-t border-sam-border pt-1.5 sam-text-body font-bold text-sam-fg">

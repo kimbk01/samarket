@@ -8,6 +8,7 @@
 import { coerceBusinessHoursRecord } from "@/lib/stores/coerce-business-hours-json";
 import { paymentMethodsLineFromBusinessRecord } from "@/lib/stores/payment-methods-config";
 import { normalizeHHMM } from "@/lib/stores/store-auto-hours";
+import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
 
 /**
  * `매일 09:00–22:00 (Asia/Manila)` 등 → UI용 `09:00–22:00` 만.
@@ -37,6 +38,13 @@ export function readPublicNoticesFromBusinessRecord(raw: unknown): string[] {
   return legacy ? [legacy] : [];
 }
 
+/** 고객 화면 공통 — `business_hours_json`에서 결제 안내 한 줄(비어 있으면 안내용 기본문구) */
+export function resolvePublicPaymentMethodsLine(raw: unknown): string {
+  const o = coerceBusinessHoursRecord(raw);
+  const pay = paymentMethodsLineFromBusinessRecord(o).trim();
+  return pay || "GCash · 만나서 결제 등 (매장 확인)";
+}
+
 /**
  * 공개 매장 상세 — business_hours_json 확장 필드 (없으면 기본값)
  * 오너 폼에 입력 UI가 없어도 JSON으로 넣으면 반영됩니다.
@@ -61,7 +69,6 @@ export function parseStoreDeliveryMeta(
   const o = coerceBusinessHoursRecord(raw);
   const weekdays = String(o.weekdays ?? "").trim();
   const dh = String(o.delivery_hours ?? o.deliveryHours ?? "").trim();
-  const pay = paymentMethodsLineFromBusinessRecord(o);
   const publicNotices = readPublicNoticesFromBusinessRecord(raw);
   const notice = String(o.delivery_notice ?? o.deliveryNotice ?? "").trim();
   const avgDel = String(o.avg_delivery_time ?? o.avgDeliveryTime ?? "").trim();
@@ -86,13 +93,21 @@ export function parseStoreDeliveryMeta(
   if (!br) br = String(o.break_time ?? o.breakTime ?? "").trim();
   const chat = String(o.avg_chat_response ?? o.avgChatResponse ?? "").trim();
   const freeRaw = Number(o.free_delivery_over_php ?? o.freeDeliveryOverPhp);
+  const commerce = parseCommerceExtrasFromHoursJson(raw);
+  /** self_free_promo는 무료배달 임계 미사용 — JSON에 남은 레거시 키도 표시·배너에 반영하지 않음 */
+  const freeDeliveryOverPhp =
+    commerce.deliveryFeeMode === "self_free_promo"
+      ? null
+      : Number.isFinite(freeRaw) && freeRaw > 0
+        ? Math.round(freeRaw)
+        : null;
 
   return {
     weekdaysLine: weekdays || fallbackWeekdays,
     deliveryHoursLine: dh || weekdays || fallbackWeekdays,
-    paymentMethodsLine: pay || "GCash · 만나서 결제 등 (매장 확인)",
+    paymentMethodsLine: resolvePublicPaymentMethodsLine(raw),
     publicNotices,
-    freeDeliveryOverPhp: Number.isFinite(freeRaw) && freeRaw > 0 ? Math.round(freeRaw) : null,
+    freeDeliveryOverPhp,
     deliveryNotice: notice,
     avgDeliveryTimeLabel: avgDel || "30~50분",
     breakTimeLabel: br || "없음",

@@ -25,13 +25,22 @@ export type BrowseStoreListItem = {
   prepMinutes: number | null;
   /**
    * Google 라우트(오토바이·폴백) 구간 분 — ETA `배달 약 …분` 용.
-   * 목록 **거리 표시**는 `distanceKm`(직선)만 사용한다.
+   * 목록 **거리 표시**는 경로 거리 우선, 실패 시 직선거리 fallback.
    */
   rideMinutes: number | null;
   /** 카드 시간 줄 — browse 에서는 `buildBrowseStoreListEtaLabel` 결과 */
   etaLabel: string;
+  /** browse/home-feed: `배달비 …` 주 문구 — 없으면 null */
   deliveryFeeLabel: string | null;
+  /** self_free_promo: 취소선용 원래 배달비(페소) */
+  deliveryFeeStrikePhp: number | null;
+  /** `payment_methods`·`payment_methods_config` 기반 결제 안내 한 줄 */
+  paymentMethodsLine: string;
   minOrderLabel: string | null;
-  /** 요청에 user_lat/user_lng 있을 때만 */
+  /** 카드 표시 거리(km): 경로 거리 우선, Routes 실패 시 직선거리 */
   distanceKm?: number | null;
+  /** 요청에 user_lat/user_lng 있을 때만 계산되는 직선거리(km) */
+  straightDistanceKm?: number | null;
+  /** Routes API 경로 거리(km) */
+  routeDistanceKm?: number | null;
 };

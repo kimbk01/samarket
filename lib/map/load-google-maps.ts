@@ -1,4 +1,8 @@
 import { importLibrary, setOptions } from "@googlemaps/js-api-loader";
+import {
+  GOOGLE_MAPS_ADDRESS_LANGUAGE,
+  GOOGLE_MAPS_ADDRESS_REGION,
+} from "@/lib/map/google-maps-address-locale";
 
 let loadPromise: Promise<void> | null = null;
 
@@ -13,6 +17,8 @@ export function loadGoogleMaps(): Promise<void> {
     setOptions({
       key,
       v: "weekly",
+      language: GOOGLE_MAPS_ADDRESS_LANGUAGE,
+      region: GOOGLE_MAPS_ADDRESS_REGION,
       libraries: ["marker", "places", "geocoding", "geometry"],
     });
     loadPromise = (async () => {

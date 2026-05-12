@@ -100,8 +100,12 @@ async function postRouteMatrixManyOriginsOneDest(
   if (!Array.isArray(rows)) return out;
 
   for (const row of rows) {
-    const oi = row.originIndex;
-    if (typeof oi !== "number" || oi < 0 || oi >= n) continue;
+    let oi = row.originIndex;
+    if (typeof oi !== "number" || !Number.isFinite(oi)) {
+      /** 일부 응답은 단일 origin일 때 `originIndex`를 생략한다 — 0으로 간주 */
+      oi = n === 1 ? 0 : NaN;
+    }
+    if (!Number.isFinite(oi) || oi < 0 || oi >= n) continue;
     if (row.status?.code && row.status.code !== 0) {
       out[oi] = empty();
       continue;
@@ -163,8 +167,12 @@ async function postRouteMatrix(
   if (!Array.isArray(rows)) return out;
 
   for (const row of rows) {
-    const di = row.destinationIndex;
-    if (typeof di !== "number" || di < 0 || di >= n) continue;
+    let di = row.destinationIndex;
+    if (typeof di !== "number" || !Number.isFinite(di)) {
+      /** 단일 destination일 때 `destinationIndex` 생략 → 0 */
+      di = n === 1 ? 0 : NaN;
+    }
+    if (!Number.isFinite(di) || di < 0 || di >= n) continue;
     if (row.status?.code && row.status.code !== 0) {
       out[di] = empty();
       continue;

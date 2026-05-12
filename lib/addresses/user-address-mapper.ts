@@ -34,6 +34,7 @@ export function rowToUserAddressDTO(row: Row): UserAddressDTO {
     id: String(row.id ?? ""),
     userId: String(row.user_id ?? ""),
     labelType: parseLabel(row.label_type),
+    linkedStoreId: str(row.linked_store_id),
     nickname: str(row.nickname),
     recipientName: str(row.recipient_name),
     phoneNumber: str(row.phone_number),
@@ -49,6 +50,11 @@ export function rowToUserAddressDTO(row: Row): UserAddressDTO {
     landmark: str(row.landmark),
     latitude: num(row.latitude),
     longitude: num(row.longitude),
+    placeId: str(row.place_id),
+    formattedAddress: str(row.formatted_address),
+    roadAddress: str(row.road_address),
+    detailAddress: str(row.detail_address),
+    deliveryNote: str(row.delivery_note),
     fullAddress: str(row.full_address),
     neighborhoodName: str(row.neighborhood_name),
     appRegionId: str(row.app_region_id),
@@ -62,6 +68,7 @@ export function rowToUserAddressDTO(row: Row): UserAddressDTO {
     isDefaultDelivery: bool(row.is_default_delivery, false),
     isActive: bool(row.is_active, true),
     sortOrder: Math.floor(Number(row.sort_order) || 0),
+    lastUsedAt: str(row.last_used_at),
     createdAt: String(row.created_at ?? ""),
     updatedAt: String(row.updated_at ?? ""),
   };
@@ -74,6 +81,7 @@ export function payloadToInsertRow(
   return {
     user_id: userId,
     label_type: p.labelType,
+    linked_store_id: p.labelType === "shop" ? (p.linkedStoreId?.trim() || null) : null,
     nickname: p.nickname ?? null,
     recipient_name: p.recipientName ?? null,
     phone_number: p.phoneNumber ?? null,
@@ -89,6 +97,11 @@ export function payloadToInsertRow(
     landmark: p.landmark ?? null,
     latitude: p.latitude ?? null,
     longitude: p.longitude ?? null,
+    place_id: p.placeId ?? null,
+    formatted_address: p.formattedAddress ?? p.fullAddress ?? null,
+    road_address: p.roadAddress ?? p.streetAddress ?? null,
+    detail_address: p.detailAddress ?? p.unitFloorRoom ?? null,
+    delivery_note: p.deliveryNote ?? null,
     full_address: p.fullAddress ?? null,
     neighborhood_name: p.neighborhoodName ?? null,
     app_region_id: p.appRegionId ?? null,
@@ -101,7 +114,48 @@ export function payloadToInsertRow(
     is_default_trade: p.isDefaultTrade ?? false,
     is_default_delivery: p.isDefaultDelivery ?? false,
     sort_order: p.sortOrder ?? 0,
+    last_used_at: p.lastUsedAt ?? null,
     is_active: true,
+  };
+}
+
+export function userAddressDtoToWritePayload(d: import("@/lib/addresses/user-address-types").UserAddressDTO): import("@/lib/addresses/user-address-types").UserAddressWritePayload {
+  return {
+    labelType: d.labelType,
+    linkedStoreId: d.linkedStoreId,
+    nickname: d.nickname,
+    recipientName: d.recipientName,
+    phoneNumber: d.phoneNumber,
+    countryCode: d.countryCode,
+    countryName: d.countryName,
+    province: d.province,
+    cityMunicipality: d.cityMunicipality,
+    barangay: d.barangay,
+    district: d.district,
+    streetAddress: d.streetAddress,
+    buildingName: d.buildingName,
+    unitFloorRoom: d.unitFloorRoom,
+    landmark: d.landmark,
+    latitude: d.latitude,
+    longitude: d.longitude,
+    placeId: d.placeId,
+    formattedAddress: d.formattedAddress,
+    roadAddress: d.roadAddress,
+    detailAddress: d.detailAddress,
+    deliveryNote: d.deliveryNote,
+    fullAddress: d.fullAddress,
+    neighborhoodName: d.neighborhoodName,
+    appRegionId: d.appRegionId,
+    appCityId: d.appCityId,
+    useForLife: d.useForLife,
+    useForTrade: d.useForTrade,
+    useForDelivery: d.useForDelivery,
+    isDefaultMaster: d.isDefaultMaster,
+    isDefaultLife: d.isDefaultLife,
+    isDefaultTrade: d.isDefaultTrade,
+    isDefaultDelivery: d.isDefaultDelivery,
+    sortOrder: d.sortOrder,
+    lastUsedAt: d.lastUsedAt,
   };
 }
 
@@ -110,6 +164,10 @@ export function payloadToUpdatePatch(
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   if (p.labelType !== undefined) out.label_type = p.labelType;
+  if (p.labelType !== undefined && p.labelType !== "shop") {
+    out.linked_store_id = null;
+  }
+  if (p.linkedStoreId !== undefined) out.linked_store_id = p.linkedStoreId?.trim() || null;
   if (p.nickname !== undefined) out.nickname = p.nickname;
   if (p.recipientName !== undefined) out.recipient_name = p.recipientName;
   if (p.phoneNumber !== undefined) out.phone_number = p.phoneNumber;
@@ -125,6 +183,11 @@ export function payloadToUpdatePatch(
   if (p.landmark !== undefined) out.landmark = p.landmark;
   if (p.latitude !== undefined) out.latitude = p.latitude;
   if (p.longitude !== undefined) out.longitude = p.longitude;
+  if (p.placeId !== undefined) out.place_id = p.placeId;
+  if (p.formattedAddress !== undefined) out.formatted_address = p.formattedAddress;
+  if (p.roadAddress !== undefined) out.road_address = p.roadAddress;
+  if (p.detailAddress !== undefined) out.detail_address = p.detailAddress;
+  if (p.deliveryNote !== undefined) out.delivery_note = p.deliveryNote;
   if (p.fullAddress !== undefined) out.full_address = p.fullAddress;
   if (p.neighborhoodName !== undefined) out.neighborhood_name = p.neighborhoodName;
   if (p.appRegionId !== undefined) out.app_region_id = p.appRegionId;
@@ -137,5 +200,6 @@ export function payloadToUpdatePatch(
   if (p.isDefaultTrade !== undefined) out.is_default_trade = p.isDefaultTrade;
   if (p.isDefaultDelivery !== undefined) out.is_default_delivery = p.isDefaultDelivery;
   if (p.sortOrder !== undefined) out.sort_order = p.sortOrder;
+  if (p.lastUsedAt !== undefined) out.last_used_at = p.lastUsedAt;
   return out;
 }

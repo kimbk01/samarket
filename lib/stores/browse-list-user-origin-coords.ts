@@ -1,19 +1,23 @@
 /**
  * `/api/stores/browse?user_lat=&user_lng=` 용 사용자 기준 좌표.
  *
- * 순서 (확실한 폴백 — HTTP LAN 에서 GPS 가 막혀도 동작):
- * 1. `navigator.geolocation` — **secure context** 일 때만 시도(타임아웃으로 첫 페인트 지연 방지).
- * 2. `GET /api/me/address-defaults` — 배달 기본 → 대표 → 거래 → 생활 중 첫 유효 좌표.
- * 3. `GET /api/me/profile`(dedupe) — `profiles.latitude` / `longitude`.
+ * 우선순위 (저장된 주소를 먼저 — 계정·기기 간 목록 거리/ETA 일치):
+ * 1. `GET /api/me/address-defaults` — `pickAddressRowForDeliveryRouting` 과 동일.
+ * 2. `GET /api/me/profile`(dedupe) — `profiles.latitude` / `longitude`.
+ * 3. `navigator.geolocation` — secure context 일 때만.
  */
+
+import { pickAddressRowForDeliveryRouting } from "@/lib/addresses/user-address-service";
+import type { UserAddressDefaultsDTO } from "@/lib/addresses/user-address-types";
+import { parseFiniteLatitude, parseFiniteLongitude } from "@/lib/geo/parse-finite-geographic-coord";
 
 export type BrowseListUserOriginCoords = { lat: number; lng: number };
 
 function parseLatLng(lat: unknown, lng: unknown): BrowseListUserOriginCoords | null {
-  const a = Number(lat);
-  const b = Number(lng);
-  if (Number.isFinite(a) && Number.isFinite(b)) return { lat: a, lng: b };
-  return null;
+  const a = parseFiniteLatitude(lat);
+  const b = parseFiniteLongitude(lng);
+  if (a == null || b == null) return null;
+  return { lat: a, lng: b };
 }
 
 function browserAllowsGeolocationProbe(): boolean {
@@ -36,19 +40,12 @@ export function tryBrowserGeolocation(): Promise<BrowseListUserOriginCoords | nu
   });
 }
 
-import type { UserAddressDefaultsDTO, UserAddressDTO } from "@/lib/addresses/user-address-types";
-
-/** `pickAddressRowForDeliveryRouting` 과 동일 순서 — browse 클라는 서비스 모듈 전체 import 를 피한다. */
-function pickAddressRowForBrowseOrigin(defs: UserAddressDefaultsDTO): UserAddressDTO | null {
-  return defs.delivery ?? defs.master ?? defs.trade ?? defs.life ?? null;
-}
-
 export async function tryCoordsFromAddressDefaults(): Promise<BrowseListUserOriginCoords | null> {
   try {
     const res = await fetch("/api/me/address-defaults", { credentials: "include", cache: "no-store" });
     const j = (await res.json()) as { ok?: boolean; defaults?: unknown };
     if (!j?.ok || j.defaults == null || typeof j.defaults !== "object") return null;
-    const row = pickAddressRowForBrowseOrigin(j.defaults as UserAddressDefaultsDTO);
+    const row = pickAddressRowForDeliveryRouting(j.defaults as UserAddressDefaultsDTO);
     if (!row) return null;
     return parseLatLng(row.latitude, row.longitude);
   } catch {
@@ -71,11 +68,15 @@ export async function tryCoordsFromMeProfile(): Promise<BrowseListUserOriginCoor
 
 /**
  * browse 목록 API 에 붙일 `user_lat` / `user_lng` 한 벌.
+ * 주소록·프로필에 저장된 좌표를 먼저 써 계정 간·기기 간에 같은 주소면 같은 기준점이 되도록 한다.
+ * (HTTPS 에서 GPS 를 먼저 쓰면 기기 위치 편차로 km/분이 갈라질 수 있음)
  */
 export async function resolveBrowseListUserOriginCoords(): Promise<BrowseListUserOriginCoords | null> {
-  const g = await tryBrowserGeolocation();
-  if (g) return g;
   const a = await tryCoordsFromAddressDefaults();
   if (a) return a;
-  return await tryCoordsFromMeProfile();
+  const p = await tryCoordsFromMeProfile();
+  if (p) return p;
+  const g = await tryBrowserGeolocation();
+  if (g) return g;
+  return null;
 }

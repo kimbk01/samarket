@@ -4,6 +4,7 @@ import {
   payloadToInsertRow,
   payloadToUpdatePatch,
   rowToUserAddressDTO,
+  userAddressDtoToWritePayload,
 } from "@/lib/addresses/user-address-mapper";
 import type {
   UserAddressDTO,
@@ -11,10 +12,17 @@ import type {
   UserAddressWritePayload,
 } from "@/lib/addresses/user-address-types";
 import { normalizeAddressNicknameKey } from "@/lib/addresses/address-nickname-key";
+import { decodeLocationOnlyAddressNicknameId } from "@/lib/addresses/location-only-address-nickname";
 import { decodeProfileAppLocationPair } from "@/lib/profile/profile-location";
+import { validatePlacesAddressPayload } from "@/lib/addresses/address-api-validation";
+import {
+  resolveUserAddressWritePayloadForShop,
+  shouldApplyShopSnapshotToUpdatePatch,
+  shopResolvedToAddressPatch,
+} from "@/lib/addresses/resolve-user-address-shop-write";
 
 const SEL =
-  "id,user_id,label_type,nickname,recipient_name,phone_number,country_code,country_name,province,city_municipality,barangay,district,street_address,building_name,unit_floor_room,landmark,latitude,longitude,full_address,neighborhood_name,app_region_id,app_city_id,use_for_life,use_for_trade,use_for_delivery,is_default_master,is_default_life,is_default_trade,is_default_delivery,is_active,sort_order,created_at,updated_at";
+  "id,user_id,label_type,linked_store_id,nickname,recipient_name,phone_number,country_code,country_name,province,city_municipality,barangay,district,street_address,building_name,unit_floor_room,landmark,latitude,longitude,place_id,formatted_address,road_address,detail_address,delivery_note,full_address,neighborhood_name,app_region_id,app_city_id,use_for_life,use_for_trade,use_for_delivery,is_default_master,is_default_life,is_default_trade,is_default_delivery,is_active,sort_order,last_used_at,created_at,updated_at";
 
 function sortAddressList(rows: UserAddressDTO[]): UserAddressDTO[] {
   return [...rows].sort((a, b) => {
@@ -25,6 +33,9 @@ function sortAddressList(rows: UserAddressDTO[]): UserAddressDTO[] {
       (x.isDefaultDelivery ? 0 : 0.25);
     const d = score(a) - score(b);
     if (d !== 0) return d;
+    const au = a.lastUsedAt ? new Date(a.lastUsedAt).getTime() : 0;
+    const bu = b.lastUsedAt ? new Date(b.lastUsedAt).getTime() : 0;
+    if (bu !== au) return bu - au;
     return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
   });
 }
@@ -216,6 +227,13 @@ async function assertAddressNicknameUnique(
   if (!key) {
     throw new Error("주소 이름을 입력 하세요");
   }
+  const locOnlyForRow = decodeLocationOnlyAddressNicknameId(display);
+  if (locOnlyForRow != null) {
+    const selfId = excludeAddressId?.trim() ?? "";
+    if (!selfId || locOnlyForRow !== selfId) {
+      throw new Error("예약된 주소 이름 형식입니다. 다른 이름을 입력해 주세요.");
+    }
+  }
   const { data, error } = await sb
     .from("user_addresses")
     .select("id,nickname")
@@ -354,6 +372,71 @@ export async function syncProfileRegionFromLifeDefault(
     .eq("id", userId);
 }
 
+export async function markUserAddressUsed(
+  sb: SupabaseClient<any>,
+  userId: string,
+  id: string,
+): Promise<void> {
+  const { error } = await sb
+    .from("user_addresses")
+    .update({ last_used_at: new Date().toISOString() })
+    .eq("id", id)
+    .eq("user_id", userId)
+    .eq("is_active", true);
+  if (error) throw new Error(error.message);
+}
+
+export async function setUserAddressAsDefault(
+  sb: SupabaseClient<any>,
+  userId: string,
+  id: string,
+  opts?: { master?: boolean; life?: boolean; trade?: boolean; delivery?: boolean },
+): Promise<UserAddressDTO> {
+  const { data: exists, error: e0 } = await sb
+    .from("user_addresses")
+    .select("id")
+    .eq("id", id)
+    .eq("user_id", userId)
+    .eq("is_active", true)
+    .maybeSingle();
+  if (e0) throw new Error(e0.message);
+  if (!exists) throw new Error("주소를 찾을 수 없습니다.");
+
+  const next = {
+    master: opts?.master !== false,
+    life: opts?.life !== false,
+    trade: opts?.trade !== false,
+    delivery: opts?.delivery !== false,
+  };
+  const patch: Record<string, boolean> = {};
+  if (next.master) {
+    await clearDefaultColumn(sb, userId, "is_default_master");
+    patch.is_default_master = true;
+  }
+  if (next.life) {
+    await clearDefaultColumn(sb, userId, "is_default_life");
+    patch.is_default_life = true;
+  }
+  if (next.trade) {
+    await clearDefaultColumn(sb, userId, "is_default_trade");
+    patch.is_default_trade = true;
+  }
+  if (next.delivery) {
+    await clearDefaultColumn(sb, userId, "is_default_delivery");
+    patch.is_default_delivery = true;
+  }
+  const { data, error } = await sb
+    .from("user_addresses")
+    .update(patch)
+    .eq("id", id)
+    .eq("user_id", userId)
+    .select(SEL)
+    .single();
+  if (error || !data) throw new Error(error?.message ?? "update_failed");
+  await syncProfileRegionFromLifeDefault(sb, userId);
+  return rowToUserAddressDTO(data as Record<string, unknown>);
+}
+
 export type { CheckoutDeliveryPayload } from "@/lib/addresses/user-address-format";
 export { buildTradePublicLine, buildDeliveryDetailLines, toCheckoutDeliveryPayload } from "@/lib/addresses/user-address-format";
 
@@ -365,8 +448,13 @@ export async function createUserAddress(
   if (!p.useForLife && !p.useForTrade && !p.useForDelivery) {
     throw new Error("생활·거래·배달 중 최소 한 가지 용도를 선택해 주세요.");
   }
-  const displayNick = await assertAddressNicknameUnique(sb, userId, p.nickname ?? "");
-  const pWithNick: UserAddressWritePayload = { ...p, nickname: displayNick };
+  const resolved = await resolveUserAddressWritePayloadForShop(sb, userId, p);
+  const invalid = validatePlacesAddressPayload(resolved);
+  if (invalid) {
+    throw new Error(invalid);
+  }
+  const displayNick = await assertAddressNicknameUnique(sb, userId, resolved.nickname ?? "");
+  const pWithNick: UserAddressWritePayload = { ...resolved, nickname: displayNick };
   const row = payloadToInsertRow(userId, pWithNick);
   const { data, error } = await sb.from("user_addresses").insert(row).select(SEL).single();
   if (error) throw new Error(error.message);
@@ -384,16 +472,50 @@ export async function updateUserAddress(
   id: string,
   p: Partial<UserAddressWritePayload>
 ): Promise<UserAddressDTO> {
+  const { data: ex, error: e0 } = await sb.from("user_addresses").select(SEL).eq("id", id).eq("user_id", userId).single();
+  if (e0 || !ex) throw new Error(e0?.message ?? "not found");
+  const dto = rowToUserAddressDTO(ex as Record<string, unknown>);
+  const base = userAddressDtoToWritePayload(dto);
+  const mergedFull: UserAddressWritePayload = { ...base, ...p };
+  const resolved = await resolveUserAddressWritePayloadForShop(sb, userId, mergedFull, id);
+
   let merged: Partial<UserAddressWritePayload> = { ...p };
-  if (p.nickname !== undefined) {
-    const displayNick = await assertAddressNicknameUnique(sb, userId, String(p.nickname), id);
+  if (resolved.labelType === "shop" && shouldApplyShopSnapshotToUpdatePatch(p, dto)) {
+    merged = { ...p, ...shopResolvedToAddressPatch(resolved) };
+  }
+  if (p.labelType !== undefined && p.labelType !== "shop") {
+    merged = { ...merged, linkedStoreId: null };
+  }
+
+  if (merged.nickname !== undefined) {
+    const displayNick = await assertAddressNicknameUnique(sb, userId, String(merged.nickname), id);
+    merged = { ...merged, nickname: displayNick };
+  } else if (resolved.labelType === "shop" && shouldApplyShopSnapshotToUpdatePatch(p, dto) && resolved.nickname) {
+    const displayNick = await assertAddressNicknameUnique(sb, userId, String(resolved.nickname), id);
     merged = { ...merged, nickname: displayNick };
   }
+
   const patch = payloadToUpdatePatch(merged);
   delete patch.is_default_master;
   delete patch.is_default_life;
   delete patch.is_default_trade;
   delete patch.is_default_delivery;
+
+  const touchesGeo =
+    "place_id" in patch ||
+    "latitude" in patch ||
+    "longitude" in patch ||
+    "formatted_address" in patch ||
+    "road_address" in patch ||
+    "full_address" in patch ||
+    "detail_address" in patch ||
+    "unit_floor_room" in patch;
+  if (touchesGeo) {
+    const candidate = { ...base, ...merged } as UserAddressWritePayload;
+    const inv = validatePlacesAddressPayload(candidate);
+    if (inv) throw new Error(inv);
+  }
+
   if (Object.keys(patch).length > 0) {
     const { error } = await sb.from("user_addresses").update(patch).eq("id", id).eq("user_id", userId);
     if (error) throw new Error(error.message);

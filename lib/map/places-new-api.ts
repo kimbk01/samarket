@@ -6,6 +6,10 @@
  */
 
 import { loadGoogleMaps } from "@/lib/map/load-google-maps";
+import {
+  GOOGLE_MAPS_ADDRESS_LANGUAGE,
+  GOOGLE_MAPS_ADDRESS_REGION,
+} from "@/lib/map/google-maps-address-locale";
 
 /** getDetails 필드 힌트 — 레거시 `fields` 로 매핑한다 */
 export const PLACE_FIELDS_DISPLAY_DETAIL = [
@@ -140,13 +144,21 @@ export async function fetchPlaceDetailsAsLegacyPlaceResult(
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt > 0) await sleep(90 + attempt * 70);
     const place = await new Promise<google.maps.places.PlaceResult | null>((resolve) => {
-      service.getDetails({ placeId: id, fields }, (result, status) => {
-        if (status === google.maps.places.PlacesServiceStatus.OK && result) {
-          resolve(result);
-          return;
-        }
-        resolve(null);
-      });
+      service.getDetails(
+        {
+          placeId: id,
+          fields,
+          language: GOOGLE_MAPS_ADDRESS_LANGUAGE,
+          region: GOOGLE_MAPS_ADDRESS_REGION,
+        },
+        (result, status) => {
+          if (status === google.maps.places.PlacesServiceStatus.OK && result) {
+            resolve(result);
+            return;
+          }
+          resolve(null);
+        },
+      );
     });
     if (place) return place;
   }

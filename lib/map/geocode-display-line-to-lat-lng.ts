@@ -1,4 +1,5 @@
 import { loadGoogleMaps } from "@/lib/map/load-google-maps";
+import { GOOGLE_MAPS_ADDRESS_LANGUAGE } from "@/lib/map/google-maps-address-locale";
 
 /** Google Geocoder 1건 결과 — 핀 이동·`place_id` 보존용 */
 export type GeocodeDisplayLineResult = {
@@ -28,9 +29,13 @@ export async function geocodeDisplayLineToLatLng(addressLine: string): Promise<G
       });
     });
 
-  let results = await tryGeocode({ address: line, componentRestrictions: { country: "ph" } });
+  let results = await tryGeocode({
+    address: line,
+    componentRestrictions: { country: "ph" },
+    language: GOOGLE_MAPS_ADDRESS_LANGUAGE,
+  });
   if (!results) {
-    results = await tryGeocode({ address: line });
+    results = await tryGeocode({ address: line, language: GOOGLE_MAPS_ADDRESS_LANGUAGE });
   }
   const first = results?.[0];
   const loc = first?.geometry?.location;

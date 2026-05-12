@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { memo, useRef } from "react";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
+import { formatMoneyPhp } from "@/lib/utils/format";
 import { dibayPerfRecordStoreCardNavigationIntent } from "@/lib/dibay/delivery-flow-perf";
 
 type StoreFeaturedCardItem = {
@@ -32,9 +33,15 @@ export type StoreRowCardData = {
   /** 목록·피드 API가 채운 합산 ETA (`약 …`) — 없으면 estPrepLabel 기반 표시 */
   etaLabel?: string | null;
   deliveryFeeLabel: string | null;
-  /** 직선 거리(km) — 정렬·browse 빨간 핀 거리·픽업형 카드용 */
+  /** self_free_promo: 취소선 금액(페소) */
+  deliveryFeeStrikePhp: number | null;
+  /** `payment_methods`·`payment_methods_config` 기반 결제 안내 한 줄 */
+  paymentMethodsLine: string;
+  /** 표시 거리(km) — 경로 거리 우선, 실패 시 직선거리 */
   distanceKm: number | null;
-  /** browse 목록: 사용자 기준 좌표가 있을 때 직선 거리를 빨간 핀으로 표시 */
+  routeDistanceKm?: number | null;
+  straightDistanceKm?: number | null;
+  /** Routes 실패로 직선거리 fallback 일 때만 빨간 핀으로 표시 */
   showStraightLineMapPin?: boolean;
   menuPreview: string | null;
   profileImageUrl: string | null;
@@ -72,7 +79,11 @@ export function storeRowCardDataEqual(a: StoreRowCardData, b: StoreRowCardData):
     a.estPrepLabel === b.estPrepLabel &&
     (a.etaLabel ?? "") === (b.etaLabel ?? "") &&
     a.deliveryFeeLabel === b.deliveryFeeLabel &&
+    a.deliveryFeeStrikePhp === b.deliveryFeeStrikePhp &&
+    a.paymentMethodsLine === b.paymentMethodsLine &&
     a.distanceKm === b.distanceKm &&
+    (a.routeDistanceKm ?? null) === (b.routeDistanceKm ?? null) &&
+    (a.straightDistanceKm ?? null) === (b.straightDistanceKm ?? null) &&
     a.showStraightLineMapPin === b.showStraightLineMapPin &&
     a.menuPreview === b.menuPreview &&
     a.profileImageUrl === b.profileImageUrl &&
@@ -137,7 +148,11 @@ export function homeFeedToRowCard(s: StoreHomeFeedItem): StoreRowCardData {
     estPrepLabel: s.estPrepLabel,
     etaLabel: s.etaLabel,
     deliveryFeeLabel: s.deliveryFeeLabel,
+    deliveryFeeStrikePhp: s.deliveryFeeStrikePhp ?? null,
+    paymentMethodsLine: s.paymentMethodsLine ?? "",
     distanceKm: s.distanceKm,
+    routeDistanceKm: s.routeDistanceKm ?? null,
+    straightDistanceKm: s.straightDistanceKm ?? null,
     menuPreview: menuPreview?.trim() || null,
     profileImageUrl: s.profileImageUrl,
     featuredItems: s.featuredItems.map((x) => ({
@@ -176,9 +191,16 @@ export function browseItemToRowCard(s: BrowseStoreListItem): StoreRowCardData {
     estPrepLabel: s.estPrepLabel ?? "20~40분",
     etaLabel: s.etaLabel,
     deliveryFeeLabel: s.deliveryFeeLabel ?? null,
+    deliveryFeeStrikePhp: s.deliveryFeeStrikePhp ?? null,
+    paymentMethodsLine: s.paymentMethodsLine ?? "",
     distanceKm: s.distanceKm ?? null,
+    routeDistanceKm: s.routeDistanceKm ?? null,
+    straightDistanceKm: s.straightDistanceKm ?? null,
     showStraightLineMapPin:
-      s.distanceKm != null && Number.isFinite(s.distanceKm as number) && (s.distanceKm as number) >= 0,
+      s.routeDistanceKm == null &&
+      s.distanceKm != null &&
+      Number.isFinite(s.distanceKm as number) &&
+      (s.distanceKm as number) >= 0,
     menuPreview: menuPreview?.trim() || null,
     profileImageUrl: s.profileImageUrl,
     featuredItems: s.featuredItems.map((x) => ({
@@ -209,7 +231,9 @@ export const StoreDeliveryRowCard = memo(function StoreDeliveryRowCard({ data }:
   const showBrowseStraightPin = data.showStraightLineMapPin === true && !!d;
   const showPinHaversine = !showBrowseStraightPin && d;
 
-  const hasFreeDelivery = data.deliveryAvailable && data.deliveryFeeLabel === "₱0";
+  const hasFreeDelivery =
+    data.deliveryAvailable &&
+    (data.deliveryFeeLabel === "배달비 무료" || data.deliveryFeeLabel === "배달비 무료 적용 중");
   const hasDiscountHint = data.isFeatured;
   const timeLabel =
     data.etaLabel?.trim() ||
@@ -219,21 +243,24 @@ export const StoreDeliveryRowCard = memo(function StoreDeliveryRowCard({ data }:
   const featuredMenuImages = data.featuredItems
     .filter((x) => typeof x.imageUrl === "string" && x.imageUrl.trim().length > 0)
     .slice(0, 6);
+  /** 서비스 형태(DB 플래그)와 배달비·프로모 뱃지를 분리 — 배달 방식(유료/무료적용/착불)과 무관하게 노출 */
+  const serviceBadgeClass =
+    "bg-[#F3F4F6] text-[#4B5563] dark:bg-[#2A2C2E] dark:text-[#B8C0CA]";
   const badgeLabels: { label: string; className: string }[] = [];
+  if (data.deliveryAvailable) {
+    badgeLabels.push({ label: "배달가능", className: serviceBadgeClass });
+  }
+  if (data.pickupAvailable) {
+    badgeLabels.push({ label: "픽업가능", className: serviceBadgeClass });
+  }
   if (hasFreeDelivery) {
-    badgeLabels.push({ label: "배민클럽", className: "bg-[#DDF8EE] text-[#0C7B63]" });
+    badgeLabels.push({ label: "무료배달", className: "bg-[#DDF8EE] text-[#0C7B63]" });
   }
   if (hasDiscountHint) {
     badgeLabels.push({ label: "즉시할인", className: "bg-[#EFE7FF] text-[#6D28D9]" });
   }
-  if (data.pickupAvailable) {
-    badgeLabels.push({ label: "픽업가능", className: "bg-[#F3F4F6] text-[#4B5563]" });
-  }
   if (data.reservationAvailable) {
-    badgeLabels.push({ label: "예약가능", className: "bg-[#F3F4F6] text-[#4B5563]" });
-  }
-  if (badgeLabels.length === 0 && data.deliveryAvailable) {
-    badgeLabels.push({ label: "배달", className: "bg-[#EEF2FF] text-[#4338CA]" });
+    badgeLabels.push({ label: "예약가능", className: serviceBadgeClass });
   }
 
   return (
@@ -336,20 +363,22 @@ export const StoreDeliveryRowCard = memo(function StoreDeliveryRowCard({ data }:
                 </span>
               </h3>
               <p className="mt-1 line-clamp-1 text-[13px] font-medium leading-snug text-[#374151] dark:text-[#C7CDD4]">
-                {hasFreeDelivery ?
-                  <>
-                    배달팁{" "}
-                    <span className="font-bold text-[#2563EB] dark:text-[#8AB4FF]">무료</span>
-                    {" "}적용 중
-                  </>
-                : data.deliveryAvailable && data.deliveryFeeLabel ?
-                  <>
-                    배달팁{" "}
-                    <span className="font-semibold text-[#111] dark:text-[#F3F4F6]">{data.deliveryFeeLabel}</span>
-                  </>
-                : data.deliveryAvailable ?
-                  "배달팁 매장별"
-                : "배달 불가"}
+                {!data.deliveryAvailable ?
+                  "배달 불가"
+                : data.deliveryFeeLabel === "배달비 무료 적용 중" ?
+                  <span className="inline-flex flex-wrap items-center gap-1.5">
+                    <span className="font-semibold text-[#2563EB] dark:text-[#8AB4FF]">
+                      {data.deliveryFeeLabel}
+                    </span>
+                    {data.deliveryFeeStrikePhp != null && data.deliveryFeeStrikePhp > 0 ?
+                      <span className="text-[13px] font-medium text-[#9CA3AF] line-through dark:text-[#6B7280]">
+                        {formatMoneyPhp(data.deliveryFeeStrikePhp)}
+                      </span>
+                    : null}
+                  </span>
+                : data.deliveryFeeLabel ?
+                  <span className="font-semibold text-[#111] dark:text-[#F3F4F6]">{data.deliveryFeeLabel}</span>
+                : "배달비 매장별"}
               </p>
               <div className="mt-1 flex min-w-0 items-center gap-1 overflow-hidden text-[12.5px] leading-snug text-[#666] dark:text-[#9AA3AD]">
                 {timeLabel ? (
@@ -383,7 +412,10 @@ export const StoreDeliveryRowCard = memo(function StoreDeliveryRowCard({ data }:
                     <span>{d}</span>
                   </span>
                 ) : showPinHaversine ? (
-                  <span className="inline-flex shrink-0 items-center gap-1 font-medium">
+                  <span
+                    className="inline-flex shrink-0 items-center gap-1 font-medium"
+                    title={data.routeDistanceKm != null ? "경로 거리" : "직선 거리"}
+                  >
                     <svg className="h-3.5 w-3.5 opacity-70" viewBox="0 0 24 24" fill="none" aria-hidden>
                       <path
                         d="M12 21s7-5.1 7-11a7 7 0 1 0-14 0c0 5.9 7 11 7 11Z"
@@ -422,6 +454,15 @@ export const StoreDeliveryRowCard = memo(function StoreDeliveryRowCard({ data }:
                   </span>
                 ))}
               </div>
+              {data.paymentMethodsLine?.trim() ?
+                <p
+                  className="mt-1 line-clamp-2 text-[12px] font-medium leading-snug text-[#6B7280] dark:text-[#9AA3AD]"
+                  title={data.paymentMethodsLine}
+                >
+                  <span className="font-semibold text-[#4B5563] dark:text-[#B8C0CA]">결제</span> ·{" "}
+                  {data.paymentMethodsLine}
+                </p>
+              : null}
             </div>
           </div>
         </div>

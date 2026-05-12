@@ -1,33 +1,31 @@
 import { NextResponse } from "next/server";
 import { districtRank, haversineKm } from "@/lib/geo/haversine-km";
-import { fetchRideMinutesByStoreId } from "@/lib/geo/google-routes-two-wheeler-matrix";
+import { fetchRouteLegMetricsByStoreId, type RouteLegMetrics } from "@/lib/geo/google-routes-two-wheeler-matrix";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
-import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
+import { formatStoreBrowseDeliveryFeeLine, formatStoreBrowseDeliveryFeeStrikePhp, parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
 import { buildStoreDeliveryEtaLabel } from "@/lib/stores/store-delivery-eta-label";
 import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { resolvePublicPaymentMethodsLine } from "@/lib/stores/store-detail-meta";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import {
+  buildStoreHomeFeedCacheKey,
+  getStoreHomeFeedCache,
+  setStoreHomeFeedCache,
+} from "@/lib/stores/store-home-feed-server-cache";
+import {
+  isSameDeliveryAddressForList,
+  loadOwnerDefaultAddressByUserId,
+  resolveStoreListDeliveryOrigin,
+  resolveEffectiveStoreRouteAddress,
+} from "@/lib/stores/store-list-delivery-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const STORE_HOME_FEED_SERVER_CACHE_TTL_MS = 20_000;
-const STORE_HOME_FEED_HTTP_CACHE_CONTROL = "public, max-age=10, s-maxage=20, stale-while-revalidate=40";
-
-type StoreHomeFeedServerCacheEntry = {
-  payload: {
-    ok: true;
-    stores: StoreHomeFeedItem[];
-    meta: {
-      source: "supabase";
-      sorted_by: string;
-    };
-  };
-  expiresAt: number;
-};
-
-const storeHomeFeedServerCache = new Map<string, StoreHomeFeedServerCacheEntry>();
+/** 사용자 좌표·ETA가 들어가므로 공유 캐시·CDN에 맡기지 않는다 */
+const STORE_HOME_FEED_HTTP_CACHE_CONTROL = "private, no-store";
 
 function parseSearchQ(raw: string | null): string | null {
   if (raw == null) return null;
@@ -39,32 +37,6 @@ function parseSearchQ(raw: string | null): string | null {
     .replace(/\s+/g, " ")
     .trim();
   return t.length >= 2 ? t : null;
-}
-
-function parseCoord(v: string | null): number | null {
-  if (v == null || !v.trim()) return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
-
-function normalizeCoordForCache(value: number | null): string {
-  return value == null ? "" : value.toFixed(3);
-}
-
-function buildStoreHomeFeedCacheKey(input: {
-  region: string | null;
-  district: string | null;
-  searchQ: string | null;
-  userLat: number | null;
-  userLng: number | null;
-}): string {
-  return [
-    input.region ?? "",
-    input.district ?? "",
-    input.searchQ ?? "",
-    normalizeCoordForCache(input.userLat),
-    normalizeCoordForCache(input.userLng),
-  ].join("|");
 }
 
 type RelOne = { slug: string; name: string };
@@ -85,11 +57,17 @@ type ProductMini = {
 
 type FeedRow = {
   id: string;
+  owner_user_id?: string | null;
   store_name: string;
   slug: string;
   region: string | null;
   city: string | null;
   district: string | null;
+  place_id?: string | null;
+  formatted_address?: string | null;
+  detail_address?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
   lat: number | null;
   lng: number | null;
   profile_image_url: string | null;
@@ -126,25 +104,21 @@ export async function GET(req: Request) {
   const region = searchParams.get("region")?.trim() || null;
   const district = searchParams.get("district")?.trim() || null;
   const searchQ = parseSearchQ(searchParams.get("q"));
-  const userLat = parseCoord(searchParams.get("user_lat"));
-  const userLng = parseCoord(searchParams.get("user_lng"));
+  const origin = await resolveStoreListDeliveryOrigin(supabase, searchParams);
+  const userLat = origin.lat;
+  const userLng = origin.lng;
   const cacheKey = buildStoreHomeFeedCacheKey({
     region,
     district,
     searchQ,
     userLat,
     userLng,
+    originKey: origin.cacheKeyPart,
   });
 
-  for (const [key, entry] of storeHomeFeedServerCache) {
-    if (entry.expiresAt <= Date.now()) {
-      storeHomeFeedServerCache.delete(key);
-    }
-  }
-
-  const cached = storeHomeFeedServerCache.get(cacheKey);
-  if (cached && cached.expiresAt > Date.now()) {
-    return NextResponse.json(cached.payload, {
+  const cached = getStoreHomeFeedCache(cacheKey);
+  if (cached) {
+    return NextResponse.json(cached, {
       headers: { "Cache-Control": STORE_HOME_FEED_HTTP_CACHE_CONTROL },
     });
   }
@@ -155,11 +129,17 @@ export async function GET(req: Request) {
       .select(
         `
         id,
+        owner_user_id,
         store_name,
         slug,
         region,
         city,
         district,
+        place_id,
+        formatted_address,
+        detail_address,
+        address_line1,
+        address_line2,
         lat,
         lng,
         profile_image_url,
@@ -205,6 +185,16 @@ export async function GET(req: Request) {
         store_categories: embedOne(o.store_categories),
       };
     });
+    const ownerDefaults = await loadOwnerDefaultAddressByUserId(
+      supabase,
+      rows.map((r) => String(r.owner_user_id ?? "")),
+    );
+    const effectiveById = new Map(
+      rows.map((r) => [
+        r.id,
+        resolveEffectiveStoreRouteAddress(r, ownerDefaults.get(String(r.owner_user_id ?? "").trim())),
+      ]),
+    );
 
     const byFeaturedDistrictRating = (a: FeedRow, b: FeedRow) => {
       const dr = districtRank(a.district, district) - districtRank(b.district, district);
@@ -223,8 +213,10 @@ export async function GET(req: Request) {
         if (dr !== 0) return dr;
         const feat = Number(!!b.is_featured) - Number(!!a.is_featured);
         if (feat !== 0) return feat;
-        const da = haversineKm(userLat, userLng, a.lat, a.lng);
-        const db = haversineKm(userLat, userLng, b.lat, b.lng);
+        const ea = effectiveById.get(a.id) ?? a;
+        const eb = effectiveById.get(b.id) ?? b;
+        const da = haversineKm(userLat, userLng, ea.lat, ea.lng);
+        const db = haversineKm(userLat, userLng, eb.lat, eb.lng);
         if (da != null && db != null && da !== db) return da - db;
         if (da != null && db == null) return -1;
         if (da == null && db != null) return 1;
@@ -274,11 +266,14 @@ export async function GET(req: Request) {
       }
     }
 
-    let rideById = new Map<string, number | null>();
+    let legById = new Map<string, RouteLegMetrics>();
     if (userLat != null && userLng != null && rows.length > 0) {
-      rideById = await fetchRideMinutesByStoreId({
+      legById = await fetchRouteLegMetricsByStoreId({
         user: { lat: userLat, lng: userLng },
-        stores: rows.map((r) => ({ id: r.id, lat: r.lat, lng: r.lng })),
+        stores: rows.map((r) => {
+          const effective = effectiveById.get(r.id) ?? r;
+          return { id: r.id, lat: effective.lat, lng: effective.lng };
+        }),
       });
     }
 
@@ -286,9 +281,13 @@ export async function GET(req: Request) {
       const cat = embedOne(r.store_categories as RelOne | RelOne[] | null | undefined);
       const openNow = resolveStoreFrontOpen(r.business_hours_json, r.is_open);
       const extras = parseCommerceExtrasFromHoursJson(r.business_hours_json);
-      const fee = extras.deliveryFeePhp;
-      const deliveryFeeLabel =
-        fee != null && Number.isFinite(fee) && r.delivery_available ? formatMoneyPhp(fee) : null;
+      const deliveryFeeLabel = formatStoreBrowseDeliveryFeeLine(extras, {
+        deliveryAvailable: !!r.delivery_available,
+      });
+      const deliveryFeeStrikePhp = formatStoreBrowseDeliveryFeeStrikePhp(extras, {
+        deliveryAvailable: !!r.delivery_available,
+      });
+      const paymentMethodsLine = resolvePublicPaymentMethodsLine(r.business_hours_json);
 
       const minPhp = extras.minOrderPhp;
       const minOrderLabel =
@@ -296,12 +295,22 @@ export async function GET(req: Request) {
 
       let distanceKm: number | null = null;
       if (userLat != null && userLng != null) {
-        distanceKm = haversineKm(userLat, userLng, r.lat, r.lng);
+        const effective = effectiveById.get(r.id) ?? r;
+        distanceKm = haversineKm(userLat, userLng, effective.lat, effective.lng);
       }
 
       const regionLabel = formatStoreLocationLine(r) ?? "위치 미등록";
 
-      const rideRaw = rideById.get(r.id) ?? null;
+      const leg = legById.get(r.id) ?? { rideMinutes: null, routeDistanceMeters: null };
+      const effective = effectiveById.get(r.id) ?? r;
+      const isSameAddress = isSameDeliveryAddressForList(origin, effective);
+      const routeDistanceKm =
+        isSameAddress ? 0
+        : leg.routeDistanceMeters != null && Number.isFinite(leg.routeDistanceMeters)
+          ? leg.routeDistanceMeters / 1000
+          : null;
+      const displayDistanceKm = routeDistanceKm ?? distanceKm;
+      const rideRaw = isSameAddress ? 0 : leg.rideMinutes;
       const rideMinutes = r.delivery_available ? rideRaw : null;
       const etaLabel = buildStoreDeliveryEtaLabel(extras, rideMinutes);
 
@@ -324,7 +333,11 @@ export async function GET(req: Request) {
         rideMinutes,
         etaLabel,
         deliveryFeeLabel,
-        distanceKm,
+        deliveryFeeStrikePhp,
+        paymentMethodsLine,
+        distanceKm: displayDistanceKm,
+        straightDistanceKm: distanceKm,
+        routeDistanceKm,
         featuredItems: featuredByStore.get(r.id) ?? [],
         profileImageUrl: r.profile_image_url,
         isFeatured: !!r.is_featured,
@@ -349,12 +362,11 @@ export async function GET(req: Request) {
           userLat != null && userLng != null
             ? "open_delivery_featured_distance_rating"
             : "open_delivery_featured_rating",
+        origin_source: origin.source,
+        origin_address_id: origin.addressId,
       },
     };
-    storeHomeFeedServerCache.set(cacheKey, {
-      payload,
-      expiresAt: Date.now() + STORE_HOME_FEED_SERVER_CACHE_TTL_MS,
-    });
+    setStoreHomeFeedCache(cacheKey, payload);
     return NextResponse.json(payload, {
       headers: { "Cache-Control": STORE_HOME_FEED_HTTP_CACHE_CONTROL },
     });

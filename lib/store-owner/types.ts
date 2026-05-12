@@ -83,4 +83,8 @@ export interface OwnerOrder {
   fulfillment_type?: string;
   /** 동네배달 안내(청구 금액 미포함) */
   delivery_courier_label?: string | null;
+  checkout_eta_minutes?: number | null;
+  checkout_route_distance_meters?: number | null;
+  /** 체크아웃 ETA·경로 거리 요약 (주소·매장 좌표 갱신 시 서버 재계산) */
+  checkout_eta_summary?: string | null;
 }

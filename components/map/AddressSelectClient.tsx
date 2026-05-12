@@ -12,6 +12,7 @@ import {
   fetchPlaceDetailsAsLegacyPlaceResult,
   searchNearbyAsLegacyPlaceResults,
 } from "@/lib/map/places-new-api";
+import { GOOGLE_MAPS_ADDRESS_LANGUAGE } from "@/lib/map/google-maps-address-locale";
 import {
   buildPhFriendlyAddress,
   pickNearestEstablishmentByDistance,
@@ -78,7 +79,7 @@ function useReverseGeocode(marker: LatLng): { text: string; busy: boolean } {
         if (cancelled) return;
         setBusy(true);
         const geocoder = new google.maps.Geocoder();
-        geocoder.geocode({ location: marker }, (results, status) => {
+        geocoder.geocode({ location: marker, language: GOOGLE_MAPS_ADDRESS_LANGUAGE }, (results, status) => {
           if (cancelled) return;
           if (status !== "OK" || !results?.[0]) {
             setBusy(false);

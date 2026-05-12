@@ -14,7 +14,6 @@ import {
   resolveChargedDeliveryFeePhp,
 } from "@/lib/stores/store-commerce-extras";
 import { resolveStoreFrontCommerceState } from "@/lib/stores/store-auto-hours";
-import { LocationSelector } from "@/components/write/shared/LocationSelector";
 import { PH_LOCAL_09_PLACEHOLDER } from "@/lib/constants/philippines-contact";
 import {
   getLocationLabelIfValid,
@@ -34,12 +33,12 @@ import {
   getLastCheckoutOrderId,
   setLastCheckoutOrderId,
 } from "@/lib/store-commerce/last-checkout-order-session";
-import type { DeliveryAddressBookEntry } from "@/lib/store-commerce/delivery-address-book";
 import {
+  clearDeliveryAddressBookStorage,
   loadDeliveryAddressBook,
-  newDeliveryAddressId,
+  parseUserAddressIdFromDeliverySelection,
   PROFILE_DELIVERY_SELECTION_ID,
-  saveDeliveryAddressBook,
+  userAddressDeliverySelectionId,
 } from "@/lib/store-commerce/delivery-address-book";
 import { KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH } from "@/lib/chats/chat-channel-events";
 import {
@@ -56,10 +55,7 @@ import {
 } from "@/lib/stores/store-order-detail-seed-cache";
 import { checkoutPaymentOptionsForCart } from "@/lib/stores/payment-methods-config";
 import {
-  STORE_ADDRESS_DETAIL_LABEL,
   STORE_ADDRESS_STREET_LABEL,
-  STORE_ADDRESS_STREET_HINT,
-  STORE_ADDRESS_STREET_PLACEHOLDER,
 } from "@/lib/stores/store-address-form-ui";
 import {
   APP_MAIN_COLUMN_MAX_WIDTH_CLASS,
@@ -73,6 +69,13 @@ import {
 } from "@/lib/stores/store-fulfillment-pref";
 import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
+import {
+  getUserAddressDesignationPlainText,
+  UserAddressDesignationTitle,
+} from "@/components/addresses/UserAddressDesignationTitle";
+import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
+import { formatPhDeliveryBlockForCheckout } from "@/lib/addresses/ph-address-display";
+import { fetchMeAddressesListSingleFlight } from "@/lib/addresses/address-list-client-cache";
 
 type Fulfillment = "pickup" | "local_delivery" | "shipping";
 
@@ -101,15 +104,6 @@ type ProfileContactSnap = {
   freeSummaryLine: string;
   addressDetail: string;
 };
-
-function deliveryEntryMatchesProfile(e: DeliveryAddressBookEntry, p: ProfileContactSnap): boolean {
-  return (
-    e.region === p.region &&
-    e.city === p.city &&
-    e.freeSummaryLine.trim() === p.freeSummaryLine.trim() &&
-    e.addressDetail.trim() === p.addressDetail.trim()
-  );
-}
 
 function CartTopBar({
   cartCount,
@@ -179,15 +173,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const [checkoutContactReady, setCheckoutContactReady] = useState(false);
   const checkoutContactFetchGenRef = useRef(0);
 
-  const [addressBook, setAddressBook] = useState<DeliveryAddressBookEntry[]>([]);
+  const [savedAddresses, setSavedAddresses] = useState<UserAddressDTO[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [addressBookHydrated, setAddressBookHydrated] = useState(false);
-  const [addressModalOpen, setAddressModalOpen] = useState(false);
-  const [modalRegion, setModalRegion] = useState("");
-  const [modalCity, setModalCity] = useState("");
-  const [modalFreeLine, setModalFreeLine] = useState("");
-  const [modalDetail, setModalDetail] = useState("");
-  const [modalLocationError, setModalLocationError] = useState<string | undefined>();
+  const [legacyLsNoticeCount, setLegacyLsNoticeCount] = useState(0);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("cod");
 
   useEffect(() => {
@@ -333,16 +322,26 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   }, [cart.hydrated, store?.id, lines.length]);
 
   useEffect(() => {
-    const { entries, selectedId } = loadDeliveryAddressBook();
-    setAddressBook(entries);
-    setSelectedAddressId(selectedId);
+    const { entries } = loadDeliveryAddressBook();
+    if (entries.length > 0) {
+      setLegacyLsNoticeCount(entries.length);
+      clearDeliveryAddressBookStorage();
+    }
     setAddressBookHydrated(true);
   }, []);
 
+  const loadSavedAddressesForCheckout = useCallback(async () => {
+    try {
+      const result = await fetchMeAddressesListSingleFlight();
+      if (result.ok) setSavedAddresses(result.rows);
+    } catch {
+      setSavedAddresses([]);
+    }
+  }, []);
+
   useEffect(() => {
-    if (!addressBookHydrated) return;
-    saveDeliveryAddressBook(addressBook, selectedAddressId);
-  }, [addressBook, selectedAddressId, addressBookHydrated]);
+    void loadSavedAddressesForCheckout();
+  }, [loadSavedAddressesForCheckout]);
 
   const profileAddressSummary = useMemo(() => {
     if (!profileSnap) return "";
@@ -374,15 +373,20 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         addressDetail: profileSnap.addressDetail,
       };
     }
-    const e = addressBook.find((x) => x.id === selectedAddressId);
-    if (!e) return null;
-    return {
-      region: e.region,
-      city: e.city,
-      freeSummaryLine: e.freeSummaryLine,
-      addressDetail: e.addressDetail,
-    };
-  }, [selectedAddressId, profileSnap, addressBook]);
+    const savedId = parseUserAddressIdFromDeliverySelection(selectedAddressId);
+    if (savedId) {
+      const row = savedAddresses.find((x) => x.id === savedId);
+      if (row) {
+        return {
+          region: row.appRegionId ?? "",
+          city: row.appCityId ?? "",
+          freeSummaryLine: row.roadAddress ?? row.formattedAddress ?? row.fullAddress ?? "",
+          addressDetail: row.detailAddress ?? row.unitFloorRoom ?? "",
+        };
+      }
+    }
+    return null;
+  }, [selectedAddressId, profileSnap, savedAddresses]);
 
   const region = resolvedDelivery?.region ?? "";
   const city = resolvedDelivery?.city ?? "";
@@ -399,7 +403,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     if (selectedAddressId === PROFILE_DELIVERY_SELECTION_ID) {
       return profileSnap?.userAddressId?.trim() || null;
     }
-    return selectedAddressId?.trim() || null;
+    return parseUserAddressIdFromDeliverySelection(selectedAddressId);
   }, [fulfillment, selectedAddressId, profileSnap?.userAddressId]);
 
   const orderSubmitFingerprint = useMemo(() => {
@@ -453,24 +457,30 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       return;
     }
     const gen = ++deliveryEtaFetchGenRef.current;
-    void (async () => {
-      try {
-        const { status, json } = await fetchStoreDeliveryEtaDeduped(storeSlug, aid);
-        if (gen !== deliveryEtaFetchGenRef.current) return;
-        if (status !== 200) {
-          setDeliveryEtaLabel(null);
-          return;
+    const t = window.setTimeout(() => {
+      void (async () => {
+        try {
+          const { status, json } = await fetchStoreDeliveryEtaDeduped(storeSlug, aid);
+          if (gen !== deliveryEtaFetchGenRef.current) return;
+          if (status !== 200) {
+            setDeliveryEtaLabel(null);
+            return;
+          }
+          const j = json as { ok?: boolean; etaLabel?: string };
+          setDeliveryEtaLabel(typeof j.etaLabel === "string" ? j.etaLabel : null);
+        } catch {
+          if (gen === deliveryEtaFetchGenRef.current) setDeliveryEtaLabel(null);
         }
-        const j = json as { ok?: boolean; etaLabel?: string };
-        setDeliveryEtaLabel(typeof j.etaLabel === "string" ? j.etaLabel : null);
-      } catch {
-        if (gen === deliveryEtaFetchGenRef.current) setDeliveryEtaLabel(null);
-      }
-    })();
+      })();
+    }, 320);
+    return () => window.clearTimeout(t);
   }, [storeSlug, fulfillment, deliveryUserAddressIdForSubmit]);
 
-  /** 배달 주문 시 지번·건물명 등(3자 이상) 또는 등록된 지역·동네 쌍 */
-  const deliveryAddressReady = summaryForSubmit.trim().length >= 3;
+  /** 배달: 저장 주소 + 프로필 기본 배달만. 장바구니 전용 localStorage 주소는 제거됨 */
+  const deliveryAddressReady =
+    fulfillment === "local_delivery"
+      ? Boolean(deliveryUserAddressIdForSubmit) && summaryForSubmit.trim().length >= 3
+      : summaryForSubmit.trim().length >= 3;
 
   /** 장바구니 카드: 공백 없이 `09000000000` 형태 */
   const formattedPhoneDisplay = useMemo(() => {
@@ -567,27 +577,30 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
   }, [fetchCheckoutContact]);
 
-  /** 예전에 주소록에 복사해 둔 마이페이지 주소와 동일한 항목 제거(중복 방지) */
   useEffect(() => {
-    if (!addressBookHydrated || !profileSnap) return;
-    setAddressBook((prev) => {
-      const next = prev.filter((e) => !deliveryEntryMatchesProfile(e, profileSnap));
-      return next.length === prev.length ? prev : next;
-    });
-  }, [addressBookHydrated, profileSnap]);
+    const onAddressesUpdated = () => void loadSavedAddressesForCheckout();
+    window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+    return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
+  }, [loadSavedAddressesForCheckout]);
 
-  /** 선택 id가 사라졌거나 유효하지 않으면 마이페이지 주소 또는 첫 추가 항목으로 보정 */
   useEffect(() => {
     if (!addressBookHydrated) return;
     setSelectedAddressId((sel) => {
       if (sel === PROFILE_DELIVERY_SELECTION_ID && profileSnap) return sel;
-      if (sel && addressBook.some((e) => e.id === sel)) return sel;
+      if (
+        parseUserAddressIdFromDeliverySelection(sel) &&
+        savedAddresses.some((x) => userAddressDeliverySelectionId(x.id) === sel)
+      ) {
+        return sel;
+      }
       if (profileDeliveryReady && profileSnap) return PROFILE_DELIVERY_SELECTION_ID;
-      if (addressBook[0]?.id) return addressBook[0].id;
+      const deliveryDefault =
+        savedAddresses.find((x) => x.isDefaultDelivery || x.isDefaultMaster) ?? savedAddresses[0];
+      if (deliveryDefault?.id) return userAddressDeliverySelectionId(deliveryDefault.id);
       if (profileSnap) return PROFILE_DELIVERY_SELECTION_ID;
       return null;
     });
-  }, [addressBookHydrated, addressBook, profileDeliveryReady, profileSnap]);
+  }, [addressBookHydrated, profileDeliveryReady, profileSnap, savedAddresses]);
 
   useEffect(() => {
     if (!store) return;
@@ -652,8 +665,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       : 0;
 
   const freeDeliveryThresholdPhp = commerce.freeDeliveryOverPhp;
+  /** 유료 자체배달 + 임계만: self_free_promo는 모드가 달라 여기 도달하지 않음 */
   const showFreeDeliveryProgress =
     fulfillment === "local_delivery" &&
+    commerce.deliveryFeeMode === "self" &&
     freeDeliveryThresholdPhp != null &&
     freeDeliveryThresholdPhp > 0;
   const freeDeliveryProgressPct = showFreeDeliveryProgress
@@ -668,66 +683,6 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   }, [store, hoursTick]);
 
   const checkoutBlocked = frontCommerce != null && !frontCommerce.isOpenForCommerce;
-
-  function removeDeliveryAddress(id: string) {
-    setAddressBook((prev) => {
-      const next = prev.filter((e) => e.id !== id);
-      setSelectedAddressId((sel) => {
-        if (sel !== id) return sel;
-        if (profileSnap) return PROFILE_DELIVERY_SELECTION_ID;
-        return next[0]?.id ?? null;
-      });
-      return next;
-    });
-  }
-
-  function openAddressModalAdd() {
-    setModalRegion("");
-    setModalCity("");
-    setModalFreeLine("");
-    setModalDetail("");
-    setModalLocationError(undefined);
-    setAddressModalOpen(true);
-  }
-
-  function closeAddressModal() {
-    setAddressModalOpen((prev) => (prev ? false : prev));
-    setModalLocationError(undefined);
-  }
-
-  function saveAddressModal() {
-    if (modalRegion && !modalCity) {
-      setModalLocationError("동네까지 선택해 주세요.");
-      return;
-    }
-    const modalSummary =
-      getLocationLabelIfValid(modalRegion, modalCity)?.trim() || modalFreeLine.trim();
-    if (modalSummary.length < 3) {
-      setModalLocationError(
-        `지역·동네를 선택하거나 ${STORE_ADDRESS_STREET_LABEL}(3자 이상)을 입력해 주세요.`
-      );
-      return;
-    }
-    const newId = newDeliveryAddressId();
-    setAddressBook((prev) => {
-      const slotNum = prev.length + (profileSnap ? 2 : 1);
-      const label = `배달주소 ${slotNum}`;
-      return [
-        ...prev,
-        {
-          id: newId,
-          label,
-          region: modalRegion,
-          city: modalCity,
-          freeSummaryLine: modalFreeLine,
-          addressDetail: modalDetail,
-        },
-      ];
-    });
-    setSelectedAddressId(newId);
-    setModalLocationError(undefined);
-    setAddressModalOpen((prev) => (prev ? false : prev));
-  }
 
   async function submitOrder() {
     if (!store || lines.length === 0) return;
@@ -772,9 +727,13 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       );
       return;
     }
+    if (fulfillment === "local_delivery" && !deliveryUserAddressIdForSubmit) {
+      setErr("배달: 저장된 주소를 선택해 주세요. 주소 관리를 통해 검색 주소를 저장한 뒤 주문할 수 있습니다.");
+      return;
+    }
     if (needsAddressAndPhone && !deliveryAddressReady) {
       setErr(
-        `배달: 선택한 배달주소에 지역·동네 또는 ${STORE_ADDRESS_STREET_LABEL}(3자 이상)이 필요합니다. 삭제 후 다시 추가하거나 다른 배달주소를 선택해 주세요.`
+        `배달: 선택한 배달주소에 지역·동네 또는 ${STORE_ADDRESS_STREET_LABEL}(3자 이상)이 필요합니다. 다른 배달주소를 선택하거나 마이페이지에서 주소를 저장해 주세요.`
       );
       return;
     }
@@ -896,6 +855,12 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         return;
       }
       const oid = typeof orderJson.order?.id === "string" ? orderJson.order.id : null;
+      if (fulfillment === "local_delivery" && deliveryUserAddressIdForSubmit) {
+        void fetch(`/api/me/addresses/${encodeURIComponent(deliveryUserAddressIdForSubmit)}/mark-used`, {
+          method: "POST",
+          credentials: "include",
+        });
+      }
       clientOrderKeyRef.current = null;
       const placed = orderJson.order;
       if (
@@ -1234,9 +1199,26 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               <div className="flex justify-between gap-3">
                 <dt className="text-sam-muted">예상배달비</dt>
                 <dd className="shrink-0 text-right font-semibold tabular-nums text-sam-fg">
-                  {fulfillment === "local_delivery"
-                    ? formatMoneyPhp(deliveryFeeForCheckout)
-                    : formatMoneyPhp(0)}
+                  {fulfillment !== "local_delivery" ?
+                    formatMoneyPhp(0)
+                  : commerce.deliveryFeeMode === "courier" ?
+                    commerce.deliveryCourierLabel?.trim() ?
+                      `착불 · ${commerce.deliveryCourierLabel.trim()}`
+                    : "착불"
+                  : commerce.deliveryFeeMode === "self_free_promo" ?
+                    <span className="inline-flex flex-col items-end gap-0.5">
+                      <span className="inline-flex flex-wrap items-center justify-end gap-1.5">
+                        <span className="text-[13px] font-semibold text-[#2563EB]">배달비 무료 적용 중</span>
+                        {commerce.deliveryFeeStrikeReferencePhp != null &&
+                        commerce.deliveryFeeStrikeReferencePhp > 0 ? (
+                          <span className="text-[13px] font-medium text-sam-meta line-through">
+                            {formatMoneyPhp(commerce.deliveryFeeStrikeReferencePhp)}
+                          </span>
+                        ) : null}
+                      </span>
+                      <span>{formatMoneyPhp(deliveryFeeForCheckout)}</span>
+                    </span>
+                  : formatMoneyPhp(deliveryFeeForCheckout)}
                 </dd>
               </div>
             </dl>
@@ -1435,10 +1417,21 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                   <p className="sam-text-helper text-sam-muted">배달 주소 정보를 불러오는 중입니다…</p>
                 </li>
               ) : null}
-              {checkoutContactReady && !profileSnap && addressBook.length === 0 ? (
+              {checkoutContactReady && !profileSnap && savedAddresses.length === 0 ? (
                 <li className="rounded border border-amber-100 bg-amber-50/60 p-3">
                   <p className="sam-text-helper leading-snug text-amber-950">
                     로그인하면 마이페이지에 저장한 배달 주소를 여기서 선택할 수 있습니다.
+                  </p>
+                </li>
+              ) : null}
+              {checkoutContactReady && legacyLsNoticeCount > 0 ? (
+                <li className="rounded border border-sky-100 bg-sky-50/75 p-3">
+                  <p className="sam-text-helper leading-snug text-sky-950">
+                    예전 장바구니에만 있던 배송지 {legacyLsNoticeCount}건은 저장되지 않습니다.{" "}
+                    <Link href="/mypage/addresses" className="font-semibold text-signature underline">
+                      주소 관리
+                    </Link>
+                    에서 Google 검색 주소를 저장한 뒤 다시 선택해 주세요.
                   </p>
                 </li>
               ) : null}
@@ -1466,7 +1459,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                       </p>
                       <p className="mt-1 whitespace-pre-wrap sam-text-helper font-normal leading-relaxed text-sam-fg">
                         {profileAddressBodyText ||
-                          "마이페이지에 저장된 배달 주소가 없습니다. 프로필에서 입력하거나 아래 배송지 추가를 이용해 주세요."}
+                          "마이페이지에 저장된 배달 주소가 없습니다. 프로필에서 입력하거나 주소 관리에서 저장 주소를 추가하세요."}
                       </p>
                       {!profileDeliveryReady && profileAddressBodyText ? (
                         <p className="mt-1.5 sam-text-xxs leading-snug text-amber-800">
@@ -1477,68 +1470,67 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                   </div>
                 </li>
               ) : null}
-              {addressBook.map((e, idx) => {
-                const slotLabel = `배달주소 ${idx + 1 + (profileSnap ? 1 : 0)}`;
-                const sum =
-                  getLocationLabelIfValid(e.region, e.city)?.trim() || e.freeSummaryLine.trim();
-                const body = [sum, e.addressDetail.trim()].filter(Boolean).join("\n");
-                const isSel = e.id === selectedAddressId;
-                return (
-                  <li
-                    key={e.id}
-                    className={`rounded border p-3 ${
-                      isSel ? "border-signature bg-signature/5 ring-1 ring-signature/30" : "border-sam-border bg-sam-surface"
-                    }`}
-                  >
-                    <div className="flex items-start gap-2">
-                      <input
-                        type="radio"
-                        name="cart-delivery-addr"
-                        className="mt-1"
-                        checked={isSel}
-                        onChange={() => setSelectedAddressId(e.id)}
-                        aria-label={`${slotLabel} 선택`}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <p className="sam-text-body-secondary font-bold text-sam-fg">{slotLabel}</p>
-                        <p className="mt-1 whitespace-pre-wrap sam-text-helper font-normal leading-relaxed text-sam-fg">
-                          {body || "—"}
-                        </p>
+              {savedAddresses
+                .filter((a) => a.id !== profileSnap?.userAddressId)
+                .map((a, idx) => {
+                  const selectionId = userAddressDeliverySelectionId(a.id);
+                  const body = formatPhDeliveryBlockForCheckout(a);
+                  const isSel = selectedAddressId === selectionId;
+                  return (
+                    <li
+                      key={a.id}
+                      className={`rounded border p-3 ${
+                        isSel ? "border-signature bg-signature/5 ring-1 ring-signature/30" : "border-sam-border bg-sam-surface"
+                      }`}
+                    >
+                      <div className="flex items-start gap-2">
+                        <input
+                          type="radio"
+                          name="cart-delivery-addr"
+                          className="mt-1"
+                          checked={isSel}
+                          onChange={() => setSelectedAddressId(selectionId)}
+                          aria-label={`${getUserAddressDesignationPlainText(a)}, 저장 주소 ${idx + 1} 선택`}
+                        />
+                        <div className="min-w-0 flex-1">
+                          <div className="flex min-h-[1.25em] items-center gap-1">
+                            <UserAddressDesignationTitle
+                              row={a}
+                              className="sam-text-body-secondary font-bold text-sam-fg"
+                            />
+                          </div>
+                          <p className="mt-0.5 sam-text-xxs font-medium text-sam-muted">
+                            내정보 · 주소 관리
+                          </p>
+                          <p className="mt-1 whitespace-pre-wrap sam-text-helper font-normal leading-relaxed text-sam-fg">
+                            {body || "—"}
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex shrink-0 flex-col gap-1">
-                        <button
-                          type="button"
-                          disabled={busy}
-                          onClick={() => removeDeliveryAddress(e.id)}
-                          className="rounded border border-red-200 px-2 py-1 sam-text-xxs font-semibold text-red-700"
-                        >
-                          삭제
-                        </button>
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
+                    </li>
+                  );
+                })}
             </ul>
             <div className="mt-3 flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={openAddressModalAdd}
-                className="rounded border border-signature bg-sam-surface px-3 py-2 sam-text-body-secondary font-bold text-signature shadow-sm"
+              <Link
+                href="/mypage/addresses"
+                className="inline-flex items-center rounded border border-signature bg-sam-surface px-3 py-2 sam-text-body-secondary font-bold text-signature shadow-sm"
               >
-                + 배송지 추가
-              </button>
+                주소 관리에서 저장
+              </Link>
             </div>
-            {!deliveryAddressReady && checkoutContactReady && (profileSnap || addressBook.length > 0) ? (
+            {!deliveryAddressReady && checkoutContactReady && (profileSnap || savedAddresses.length > 0) ? (
               <p className="mt-2 sam-text-xxs leading-snug text-amber-800">
                 선택한 배송지 내용을 확인해 주세요. 지역·동네 또는 {STORE_ADDRESS_STREET_LABEL}이 필요합니다.
               </p>
             ) : null}
-            {checkoutContactReady && profileSnap && !profileDeliveryReady && addressBook.length === 0 ? (
+            {checkoutContactReady && profileSnap && !profileDeliveryReady && savedAddresses.length === 0 ? (
               <p className="mt-2 sam-text-xxs leading-snug text-amber-800">
-                마이페이지 주소가 비어 있거나 너무 짧습니다. 프로필에서 입력을 마치거나 배송지 추가로 주소를
-                넣어 주세요.
+                마이페이지 주소가 비어 있거나 너무 짧습니다. 프로필에서 입력을 마치거나{" "}
+                <Link href="/mypage/addresses" className="font-semibold underline">
+                  주소 관리
+                </Link>
+                에서 저장 주소를 추가해 주세요.
               </p>
             ) : null}
             {fulfillment === "local_delivery" && deliveryEtaLabel ? (
@@ -1603,114 +1595,6 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           </button>
         </div>
       </div>
-
-      {addressModalOpen ? (
-        <div
-          className="fixed inset-0 z-[200] flex items-end justify-center bg-black/50 sm:items-center sm:p-4"
-          role="presentation"
-          onClick={() => {
-            if (!busy) closeAddressModal();
-          }}
-        >
-          <div
-            className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-t-ui-rect border border-sam-border bg-sam-surface p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_8px_24px_rgba(31,36,48,0.14)] sm:rounded-ui-rect sm:p-5"
-            role="dialog"
-            aria-modal
-            aria-labelledby="cart-addr-modal-title"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 id="cart-addr-modal-title" className="text-[16px] font-bold leading-[1.35] text-sam-fg">
-              {`${t("common_delivery_label")}지 추가`}
-            </h2>
-            <p className="mt-1 sam-text-helper leading-snug text-sam-muted">
-              저장하면 목록에 배달주소 {addressBook.length + (profileSnap ? 2 : 1)}로 추가됩니다. 라디오로
-              이번 주문에 쓸 주소를
-              고를 수 있습니다.
-            </p>
-            <div className="mt-4 space-y-4">
-              <LocationSelector
-                embedded
-                showRequired
-                region={modalRegion}
-                city={modalCity}
-                onRegionChange={(id) => {
-                  setModalRegion(id);
-                  setModalCity("");
-                  setModalLocationError(undefined);
-                }}
-                onCityChange={(id) => {
-                  setModalCity(id);
-                  setModalLocationError(undefined);
-                }}
-                label={t("common_location")}
-              />
-              <div className="space-y-2">
-                <p className="sam-text-helper leading-snug text-sam-muted">{STORE_ADDRESS_STREET_HINT}</p>
-                <div className="grid grid-cols-2 gap-2 sm:gap-3">
-                  <div className="min-w-0">
-                    <label
-                      htmlFor="cart-modal-addr-line"
-                      className="block sam-text-helper font-medium text-sam-muted"
-                    >
-                      {STORE_ADDRESS_STREET_LABEL}
-                    </label>
-                    <input
-                      id="cart-modal-addr-line"
-                      type="text"
-                      autoComplete="street-address"
-                      value={modalFreeLine}
-                      disabled={busy}
-                      onChange={(e) => setModalFreeLine(e.target.value)}
-                      placeholder={STORE_ADDRESS_STREET_PLACEHOLDER}
-                      className="sam-input mt-1.5"
-                      maxLength={300}
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <label
-                      htmlFor="cart-modal-addr-detail"
-                      className="block sam-text-helper font-medium text-sam-muted"
-                    >
-                      {STORE_ADDRESS_DETAIL_LABEL}
-                    </label>
-                    <input
-                      id="cart-modal-addr-detail"
-                      type="text"
-                      autoComplete="address-line2"
-                      value={modalDetail}
-                      disabled={busy}
-                      onChange={(e) => setModalDetail(e.target.value)}
-                      className="sam-input mt-1.5"
-                      maxLength={500}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-            {modalLocationError ? (
-              <p className="mt-3 sam-text-body-secondary text-red-600">{modalLocationError}</p>
-            ) : null}
-            <div className="mt-5 flex gap-2 border-t border-sam-border-soft pt-4">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={closeAddressModal}
-                className="sam-btn-secondary flex-1"
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={saveAddressModal}
-                className="sam-btn-primary flex-1"
-              >
-                저장
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 }

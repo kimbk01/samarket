@@ -1,5 +1,6 @@
 import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
 import { formatPhMobileDisplay, parsePhMobileInput, telHrefFromPhDb09 } from "@/lib/utils/ph-mobile";
+import { formatStoreOrderCheckoutEtaSummary } from "@/lib/stores/format-store-order-checkout-display";
 import type { OwnerOrder, OwnerOrderItem, OwnerOrderStatus, OwnerOrderType } from "./types";
 
 type ApiOrderItem = {
@@ -30,6 +31,8 @@ export type ApiStoreOrderRow = {
   delivery_address_detail?: string | null;
   created_at: string;
   auto_complete_at?: string | null;
+  checkout_eta_minutes?: number | null;
+  checkout_route_distance_meters?: number | null;
   /** store_orders FK — 주문↔메신저 연결 후 설정 */
   community_messenger_room_id?: string | null;
   items?: ApiOrderItem[];
@@ -81,6 +84,16 @@ export function mapApiOrderToOwnerOrder(
         ? row.buyer_phone.trim()
         : "—";
 
+  const etaM =
+    row.checkout_eta_minutes != null && Number.isFinite(Number(row.checkout_eta_minutes))
+      ? Math.round(Number(row.checkout_eta_minutes))
+      : null;
+  const distM =
+    row.checkout_route_distance_meters != null &&
+    Number.isFinite(Number(row.checkout_route_distance_meters))
+      ? Math.round(Number(row.checkout_route_distance_meters))
+      : null;
+
   return {
     id: row.id,
     order_no: row.order_no,
@@ -115,5 +128,11 @@ export function mapApiOrderToOwnerOrder(
     buyer_payment_method_detail: row.buyer_payment_method_detail?.trim() || null,
     fulfillment_type: String(row.fulfillment_type ?? "pickup"),
     community_messenger_room_id: row.community_messenger_room_id?.trim() || null,
+    checkout_eta_minutes: etaM,
+    checkout_route_distance_meters: distM,
+    checkout_eta_summary: formatStoreOrderCheckoutEtaSummary({
+      checkout_eta_minutes: etaM,
+      checkout_route_distance_meters: distM,
+    }),
   };
 }

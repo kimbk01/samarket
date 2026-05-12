@@ -8,6 +8,7 @@ import {
   searchNearbyAsLegacyPlaceResults,
 } from "@/lib/map/places-new-api";
 import { loadGoogleMaps } from "@/lib/map/load-google-maps";
+import { GOOGLE_MAPS_ADDRESS_LANGUAGE } from "@/lib/map/google-maps-address-locale";
 
 /** 근처 POI 후보 — `establishment` 만이 아닌 상점·시설 유형 포함 */
 const NEARBY_POI_TYPES = new Set([
@@ -137,7 +138,7 @@ async function geocodeAtLocation(
   marker: google.maps.LatLngLiteral
 ): Promise<{ results: google.maps.GeocoderResult[]; status: google.maps.GeocoderStatus }> {
   return new Promise((resolve) => {
-    geocoder.geocode({ location: marker }, (results, status) => {
+    geocoder.geocode({ location: marker, language: GOOGLE_MAPS_ADDRESS_LANGUAGE }, (results, status) => {
       resolve({ results: results ?? [], status });
     });
   });

@@ -5,23 +5,25 @@ import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
-import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
+import { formatStoreBrowseDeliveryFeeLine, formatStoreBrowseDeliveryFeeStrikePhp, parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
 import { buildBrowseStoreListEtaLabel } from "@/lib/stores/store-delivery-eta-label";
+import { resolvePublicPaymentMethodsLine } from "@/lib/stores/store-detail-meta";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import {
+  isSameDeliveryAddressForList,
+  loadOwnerDefaultAddressByUserId,
+  resolveStoreListDeliveryOrigin,
+  resolveEffectiveStoreRouteAddress,
+} from "@/lib/stores/store-list-delivery-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const STORE_BROWSE_HTTP_CACHE_CONTROL = "public, max-age=15, s-maxage=30, stale-while-revalidate=60";
-
-function parseCoord(v: string | null): number | null {
-  if (v == null || !v.trim()) return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-}
+const STORE_BROWSE_HTTP_CACHE_CONTROL = "private, no-store";
 
 type StoreBrowseRow = {
   id: string;
+  owner_user_id?: string | null;
   store_name: string;
   slug: string;
   description: string | null;
@@ -37,6 +39,11 @@ type StoreBrowseRow = {
   visit_available: boolean | null;
   reservation_available: boolean | null;
   is_featured: boolean | null;
+  place_id?: string | null;
+  formatted_address?: string | null;
+  detail_address?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
   lat: number | null;
   lng: number | null;
   business_hours_json: unknown;
@@ -108,6 +115,7 @@ function sanitizeForIlikeFragment(s: string): string {
 
 const STORE_ROW_CORE_FIELDS = `
         id,
+        owner_user_id,
         store_name,
         slug,
         description,
@@ -123,6 +131,11 @@ const STORE_ROW_CORE_FIELDS = `
         visit_available,
         reservation_available,
         is_featured,
+        place_id,
+        formatted_address,
+        detail_address,
+        address_line1,
+        address_line2,
         lat,
         lng,
         business_hours_json,
@@ -195,8 +208,9 @@ export async function GET(req: Request) {
   const wantsAllSubs = subRaw === "" || subRaw === "all";
   const sub = wantsAllSubs ? "all" : subRaw;
   const district = searchParams.get("district")?.trim() || null;
-  const userLat = parseCoord(searchParams.get("user_lat"));
-  const userLng = parseCoord(searchParams.get("user_lng"));
+  const origin = await resolveStoreListDeliveryOrigin(supabase, searchParams);
+  const userLat = origin.lat;
+  const userLng = origin.lng;
 
   if (!primary) {
     return NextResponse.json(
@@ -376,6 +390,16 @@ export async function GET(req: Request) {
         rows.push(o);
       }
     }
+    const ownerDefaults = await loadOwnerDefaultAddressByUserId(
+      supabase,
+      rows.map((r) => String(r.owner_user_id ?? "")),
+    );
+    const effectiveById = new Map(
+      rows.map((r) => [
+        r.id,
+        resolveEffectiveStoreRouteAddress(r, ownerDefaults.get(String(r.owner_user_id ?? "").trim())),
+      ]),
+    );
 
     const stableSlug = (a: StoreBrowseRow, b: StoreBrowseRow) =>
       String(a.slug ?? "").localeCompare(String(b.slug ?? ""));
@@ -403,8 +427,10 @@ export async function GET(req: Request) {
         if (dr !== 0) return dr;
         const feat = Number(!!b.is_featured) - Number(!!a.is_featured);
         if (feat !== 0) return feat;
-        const da = haversineKm(userLat, userLng, a.lat, a.lng);
-        const db = haversineKm(userLat, userLng, b.lat, b.lng);
+        const ea = effectiveById.get(a.id) ?? a;
+        const eb = effectiveById.get(b.id) ?? b;
+        const da = haversineKm(userLat, userLng, ea.lat, ea.lng);
+        const db = haversineKm(userLat, userLng, eb.lat, eb.lng);
         if (da != null && db != null && da !== db) return da - db;
         if (da != null && db == null) return -1;
         if (da == null && db != null) return 1;
@@ -459,7 +485,10 @@ export async function GET(req: Request) {
     if (userLat != null && userLng != null && rows.length > 0) {
       legById = await fetchRouteLegMetricsByStoreId({
         user: { lat: userLat, lng: userLng },
-        stores: rows.map((r) => ({ id: r.id, lat: r.lat, lng: r.lng })),
+        stores: rows.map((r) => {
+          const effective = effectiveById.get(r.id) ?? r;
+          return { id: r.id, lat: effective.lat, lng: effective.lng };
+        }),
       });
     }
 
@@ -474,9 +503,13 @@ export async function GET(req: Request) {
       const status: BrowseStoreListItem["status"] = openNow ? "open" : "preparing";
       const regionLabel = formatStoreLocationLine(r) ?? "위치 미등록";
       const extras = parseCommerceExtrasFromHoursJson(r.business_hours_json);
-      const fee = extras.deliveryFeePhp;
-      const deliveryFeeLabel =
-        fee != null && Number.isFinite(fee) && r.delivery_available ? formatMoneyPhp(fee) : null;
+      const deliveryFeeLabel = formatStoreBrowseDeliveryFeeLine(extras, {
+        deliveryAvailable: !!r.delivery_available,
+      });
+      const deliveryFeeStrikePhp = formatStoreBrowseDeliveryFeeStrikePhp(extras, {
+        deliveryAvailable: !!r.delivery_available,
+      });
+      const paymentMethodsLine = resolvePublicPaymentMethodsLine(r.business_hours_json);
 
       const minPhp = extras.minOrderPhp;
       const minOrderLabel =
@@ -484,11 +517,20 @@ export async function GET(req: Request) {
 
       let distanceKm: number | null = null;
       if (userLat != null && userLng != null) {
-        distanceKm = haversineKm(userLat, userLng, r.lat, r.lng);
+        const effective = effectiveById.get(r.id) ?? r;
+        distanceKm = haversineKm(userLat, userLng, effective.lat, effective.lng);
       }
 
       const leg = legById.get(r.id) ?? { rideMinutes: null, routeDistanceMeters: null };
-      const rideRaw = leg.rideMinutes;
+      const effective = effectiveById.get(r.id) ?? r;
+      const isSameAddress = isSameDeliveryAddressForList(origin, effective);
+      const routeDistanceKm =
+        isSameAddress ? 0
+        : leg.routeDistanceMeters != null && Number.isFinite(leg.routeDistanceMeters)
+          ? leg.routeDistanceMeters / 1000
+          : null;
+      const displayDistanceKm = routeDistanceKm ?? distanceKm;
+      const rideRaw = isSameAddress ? 0 : leg.rideMinutes;
       const rideMinutes = r.delivery_available ? rideRaw : null;
       const routeCtx = userLat != null && userLng != null;
       const etaLabel = buildBrowseStoreListEtaLabel(extras, rideMinutes, {
@@ -523,8 +565,12 @@ export async function GET(req: Request) {
         rideMinutes,
         etaLabel,
         deliveryFeeLabel,
+        deliveryFeeStrikePhp,
+        paymentMethodsLine,
         minOrderLabel,
-        distanceKm,
+        distanceKm: displayDistanceKm,
+        straightDistanceKm: distanceKm,
+        routeDistanceKm,
       };
     });
 
@@ -541,6 +587,8 @@ export async function GET(req: Request) {
             userLat != null && userLng != null
               ? "district_featured_distance_rating"
               : "district_featured_rating",
+          origin_source: origin.source,
+          origin_address_id: origin.addressId,
         },
       },
       { headers: { "Cache-Control": STORE_BROWSE_HTTP_CACHE_CONTROL } }

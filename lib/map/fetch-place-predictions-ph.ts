@@ -1,4 +1,8 @@
 import { loadGoogleMaps } from "@/lib/map/load-google-maps";
+import {
+  GOOGLE_MAPS_ADDRESS_LANGUAGE,
+  GOOGLE_MAPS_ADDRESS_REGION,
+} from "@/lib/map/google-maps-address-locale";
 
 export type PlacePredictionRow = {
   placeId: string;
@@ -29,6 +33,8 @@ export async function fetchPlacePredictionsPh(input: string): Promise<PlacePredi
       {
         input: q,
         componentRestrictions: { country: "ph" },
+        language: GOOGLE_MAPS_ADDRESS_LANGUAGE,
+        region: GOOGLE_MAPS_ADDRESS_REGION,
       },
       (predictions, status) => {
         if (status !== google.maps.places.PlacesServiceStatus.OK || !predictions?.length) {

@@ -34,6 +34,7 @@ import { fetchStoreOrdersListDeduped } from "@/lib/stores/fetch-store-orders-lis
 import { OwnerStoreOrderChatModal } from "@/components/business/owner/OwnerStoreOrderChatModal";
 import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
 import { BUYER_PUBLIC_LABEL_FALLBACK } from "@/lib/stores/buyer-public-label";
+import { formatStoreOrderCheckoutEtaSummary } from "@/lib/stores/format-store-order-checkout-display";
 
 /** 주문 카드 본문 — 매장 관리 폼과 동일 계열(14px 라벨/본문) */
 const OC_LBL = "sam-text-body font-medium leading-snug text-sam-muted";
@@ -83,6 +84,8 @@ type OrderRow = {
   sla_warning_reason?: string | null;
   sla_warning_at?: string | null;
   needs_admin_attention?: boolean | null;
+  checkout_eta_minutes?: number | null;
+  checkout_route_distance_meters?: number | null;
   delivery?: {
     order_id: string;
     rider_id: string | null;
@@ -444,6 +447,17 @@ function OwnerOrderCard({
               .filter(Boolean)
               .join("\n")}
           </p>
+          {(() => {
+            const line = formatStoreOrderCheckoutEtaSummary({
+              checkout_eta_minutes: order.checkout_eta_minutes,
+              checkout_route_distance_meters: order.checkout_route_distance_meters,
+            });
+            return line ?
+                <p className={`mt-2 ${OC_TX_SM}`} title="고객 주소·매장 위치 변경 시 자동 갱신">
+                  {line}
+                </p>
+              : null;
+          })()}
         </div>
       ) : null}
       {order.buyer_note?.trim() ? (

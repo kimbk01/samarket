@@ -8,7 +8,10 @@ import {
   compactStoreHoursRangeForDisplay,
   type StoreDeliveryMeta,
 } from "@/lib/stores/store-detail-meta";
-import type { CommerceExtrasFromHours } from "@/lib/stores/store-commerce-extras";
+import {
+  formatStoreStorefrontDeliveryFeeLine,
+  type CommerceExtrasFromHours,
+} from "@/lib/stores/store-commerce-extras";
 import { StorePublicNoticesList } from "@/components/stores/StorePublicNoticesList";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
@@ -61,12 +64,25 @@ export function StoreDetailStorefrontPanel({
     return "최소 없음";
   }, [commerceExtras.minOrderPhp]);
 
-  const feeLine = useMemo(() => {
-    if (!deliveryAvailable) return "배달 불가";
-    const f = commerceExtras.deliveryFeePhp;
-    if (f != null && f >= 0) return `배달 ${formatMoneyPhp(f)}`;
-    return "배달비 문의";
-  }, [commerceExtras.deliveryFeePhp, deliveryAvailable]);
+  const feeLine = useMemo(
+    () => formatStoreStorefrontDeliveryFeeLine(commerceExtras, { deliveryAvailable }),
+    [commerceExtras, deliveryAvailable]
+  );
+
+  const feeSummaryInline = useMemo(() => {
+    if (!deliveryAvailable || commerceExtras.deliveryFeeMode !== "self_free_promo") {
+      return <span>{feeLine}</span>;
+    }
+    const strike = commerceExtras.deliveryFeeStrikeReferencePhp;
+    return (
+      <span className="inline-flex flex-wrap items-center gap-1">
+        <span className="font-semibold text-[#2563EB]">배달비 무료 적용 중</span>
+        {strike != null && strike > 0 ? (
+          <span className="text-sam-meta line-through">{formatMoneyPhp(strike)}</span>
+        ) : null}
+      </span>
+    );
+  }, [commerceExtras, deliveryAvailable, feeLine]);
 
   const prepLine = useMemo(() => `준비 ${commerceExtras.estPrepLabel}`, [commerceExtras.estPrepLabel]);
 
@@ -90,7 +106,6 @@ export function StoreDetailStorefrontPanel({
   }, [deliveryMeta.deliveryHoursLine, deliveryMeta.weekdaysLine]);
 
   const payFull = deliveryMeta.paymentMethodsLine?.trim() || "매장에 문의해 주세요.";
-  const courier = commerceExtras.deliveryCourierLabel?.trim();
 
   return (
     <section
@@ -118,7 +133,7 @@ export function StoreDetailStorefrontPanel({
           <span className="text-sam-meta" aria-hidden>
             |
           </span>
-          <span>{feeLine}</span>
+          <span>{feeSummaryInline}</span>
           <span className="text-sam-meta" aria-hidden>
             |
           </span>
@@ -183,15 +198,17 @@ export function StoreDetailStorefrontPanel({
           ) : null}
 
           <div className="pt-1">
-            <StoreDetailPromoBanner
-              freeOverPhp={deliveryMeta.freeDeliveryOverPhp}
-              customText=""
-              embedded
-            />
+            {commerceExtras.deliveryFeeMode !== "self_free_promo" ? (
+              <StoreDetailPromoBanner
+                freeOverPhp={deliveryMeta.freeDeliveryOverPhp}
+                customText=""
+                embedded
+              />
+            ) : null}
           </div>
-          {deliveryAvailable && courier ? (
+          {deliveryAvailable && commerceExtras.deliveryFeeMode === "courier" && commerceExtras.deliveryCourierLabel ? (
             <p className="mt-2 sam-text-helper text-sam-muted">
-              <span className="font-semibold text-sam-fg">배달 담당</span> · {courier}
+              <span className="font-semibold text-sam-fg">배달 담당(착불)</span> · {commerceExtras.deliveryCourierLabel}
             </p>
           ) : null}
 

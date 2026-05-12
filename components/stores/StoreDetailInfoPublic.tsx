@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { coerceBusinessHoursRecord } from "@/lib/stores/coerce-business-hours-json";
-import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
+import { formatStoreDetailDeliveryFeeValue, parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
 import { StorePublicNoticesList } from "@/components/stores/StorePublicNoticesList";
 import {
   compactStoreHoursRangeForDisplay,
@@ -480,13 +480,23 @@ export function StoreDetailInfoPublic({
               </dd>
             </div>
           ) : null}
-          {deliveryAvailable &&
-          commerceExtras.deliveryFeePhp != null &&
-          commerceExtras.deliveryFeePhp >= 0 ? (
+          {deliveryAvailable ? (
             <div className="flex gap-3 border-b border-sam-border-soft py-3.5">
               <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">배달비(안내)</dt>
               <dd className="sam-text-body font-semibold text-sam-fg">
-                {formatMoneyPhp(commerceExtras.deliveryFeePhp)}
+                {commerceExtras.deliveryFeeMode === "self_free_promo" ? (
+                  <span className="inline-flex flex-wrap items-center gap-1.5">
+                    <span className="font-semibold text-[#2563EB] dark:text-[#8AB4FF]">배달비 무료 적용 중</span>
+                    {commerceExtras.deliveryFeeStrikeReferencePhp != null &&
+                    commerceExtras.deliveryFeeStrikeReferencePhp > 0 ? (
+                      <span className="font-medium text-sam-meta line-through">
+                        {formatMoneyPhp(commerceExtras.deliveryFeeStrikeReferencePhp)}
+                      </span>
+                    ) : null}
+                  </span>
+                ) : (
+                  formatStoreDetailDeliveryFeeValue(commerceExtras, { deliveryAvailable: true })
+                )}
               </dd>
             </div>
           ) : null}

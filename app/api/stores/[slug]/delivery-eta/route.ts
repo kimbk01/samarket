@@ -7,15 +7,53 @@ import {
 } from "@/lib/stores/get-approved-store-by-slug";
 import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
 import { buildStoreDeliveryEtaLabel } from "@/lib/stores/store-delivery-eta-label";
-import { fetchTwoWheelerRouteMetricsStoresToUser } from "@/lib/geo/google-routes-two-wheeler-matrix";
 import {
   parseFiniteLatitude,
   parseFiniteLongitude,
 } from "@/lib/geo/parse-finite-geographic-coord";
 import { devConsoleWarn } from "@/lib/dev/dev-console-warn";
+import { fetchDeliveryRouteSingleLeg } from "@/lib/geo/google-routes-single-leg";
+import { haversineKm } from "@/lib/geo/haversine-km";
+import {
+  isSameDeliveryAddressForList,
+  loadOwnerDefaultAddressByUserId,
+  normalizeDeliveryAddressIdentity,
+  resolveEffectiveStoreRouteAddress,
+  type StoreListDeliveryOrigin,
+} from "@/lib/stores/store-list-delivery-origin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+/** 동일 매장·저장 주소·좌표에 대한 짧은 메모리 캐시 (Routes 왕복 감소) */
+const DELIVERY_ETA_SERVER_CACHE_TTL_MS = 12_000;
+const deliveryEtaOkCache = new Map<string, { expiresAt: number; body: Record<string, unknown> }>();
+
+function roundCoordKey(n: number): number {
+  return Math.round(n * 1e5) / 1e5;
+}
+
+type EtaOkBody = {
+  ok: true;
+  prepMinutes: number | null;
+  straightDistanceKm: number | null;
+  straightDistanceMeters: number | null;
+  rideMinutes: number | null;
+  routeDistanceMeters: number | null;
+  routeDistanceKm: number | null;
+  travelModeUsed: string | null;
+  fallbackUsed: boolean;
+  etaLabel: string;
+};
+
+/** 스키마 정렬: camelCase + 하위 호환 snake_case alias */
+function deliveryEtaOkJson(body: EtaOkBody & Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...body,
+    travel_mode_used: body.travelModeUsed,
+    fallback_used: body.fallbackUsed,
+  };
+}
 
 const INCLUDE_COORD_DEBUG_JSON = process.env.NODE_ENV === "development";
 
@@ -64,8 +102,10 @@ export async function GET(
 
   const { searchParams } = new URL(req.url);
   const deliveryUserAddressId = String(searchParams.get("delivery_user_address_id") ?? "").trim();
-  if (!deliveryUserAddressId) {
-    return NextResponse.json({ ok: false, error: "delivery_user_address_id_required" }, { status: 400 });
+  const explicitLat = parseFiniteLatitude(searchParams.get("lat"));
+  const explicitLng = parseFiniteLongitude(searchParams.get("lng"));
+  if (!deliveryUserAddressId && (explicitLat == null || explicitLng == null)) {
+    return NextResponse.json({ ok: false, error: "delivery_user_address_id_or_lat_lng_required" }, { status: 400 });
   }
 
   const sb = tryGetSupabaseForStores();
@@ -83,31 +123,88 @@ export async function GET(
 
   const store = storeRes.store as {
     id?: string;
+    owner_user_id?: unknown;
+    place_id?: unknown;
+    formatted_address?: unknown;
+    detail_address?: unknown;
+    address_line1?: unknown;
+    address_line2?: unknown;
     lat?: unknown;
     lng?: unknown;
     delivery_available?: boolean | null;
     business_hours_json?: unknown;
   };
+  const ownerDefaults = await loadOwnerDefaultAddressByUserId(sb, [String(store.owner_user_id ?? "")]);
+  const effectiveStore = resolveEffectiveStoreRouteAddress(
+    store,
+    ownerDefaults.get(String(store.owner_user_id ?? "").trim()),
+  );
 
   if (!store.delivery_available) {
     return NextResponse.json({ ok: false, error: "delivery_not_available" }, { status: 400 });
   }
 
-  const { data: row, error } = await sb
-    .from("user_addresses")
-    .select("user_id, latitude, longitude")
-    .eq("id", deliveryUserAddressId)
-    .maybeSingle();
+  let rawUlat: unknown = explicitLat;
+  let rawUlng: unknown = explicitLng;
+  if (deliveryUserAddressId) {
+    const { data: row, error } = await sb
+      .from("user_addresses")
+      .select("id, user_id, place_id, formatted_address, road_address, full_address, detail_address, unit_floor_room, latitude, longitude")
+      .eq("id", deliveryUserAddressId)
+      .maybeSingle();
 
-  if (error || !row || String((row as { user_id?: string }).user_id ?? "") !== buyerId) {
-    return NextResponse.json({ ok: false, error: "address_not_found" }, { status: 404 });
+    if (error || !row || String((row as { user_id?: string }).user_id ?? "") !== buyerId) {
+      return NextResponse.json({ ok: false, error: "address_not_found" }, { status: 404 });
+    }
+    const addrRow = row as {
+      id?: unknown;
+      place_id?: unknown;
+      formatted_address?: unknown;
+      road_address?: unknown;
+      full_address?: unknown;
+      detail_address?: unknown;
+      unit_floor_room?: unknown;
+      latitude?: unknown;
+      longitude?: unknown;
+    };
+    rawUlat = addrRow.latitude;
+    rawUlng = addrRow.longitude;
+    const sameOrigin: StoreListDeliveryOrigin = {
+      source: "saved_address",
+      userId: buyerId,
+      addressId: String(addrRow.id ?? "").trim() || deliveryUserAddressId,
+      placeId: String(addrRow.place_id ?? "").trim() || null,
+      lat: parseFiniteLatitude(rawUlat),
+      lng: parseFiniteLongitude(rawUlng),
+      addressIdentity: normalizeDeliveryAddressIdentity(
+        addrRow.formatted_address,
+        addrRow.road_address,
+        addrRow.full_address,
+        addrRow.detail_address,
+        addrRow.unit_floor_room,
+      ),
+      cacheKeyPart: "",
+    };
+    if (isSameDeliveryAddressForList(sameOrigin, effectiveStore)) {
+      const extras = parseCommerceExtrasFromHoursJson(store.business_hours_json);
+      return NextResponse.json(
+        deliveryEtaOkJson({
+          ok: true,
+          prepMinutes: extras.prepMinutes,
+          straightDistanceKm: 0,
+          straightDistanceMeters: 0,
+          rideMinutes: 0,
+          routeDistanceMeters: 0,
+          routeDistanceKm: 0,
+          travelModeUsed: null,
+          fallbackUsed: false,
+          etaLabel: buildStoreDeliveryEtaLabel(extras, 0),
+        }),
+      );
+    }
   }
-
-  const addrRow = row as { latitude?: unknown; longitude?: unknown };
-  const rawUlat = addrRow.latitude;
-  const rawUlng = addrRow.longitude;
-  const rawSlat = store.lat;
-  const rawSlng = store.lng;
+  const rawSlat = effectiveStore.lat;
+  const rawSlng = effectiveStore.lng;
 
   const debugFlags = coordDebugFlags({
     storeLat: rawSlat,
@@ -135,29 +232,68 @@ export async function GET(
   const slng = parseFiniteLongitude(rawSlng);
   const extras = parseCommerceExtrasFromHoursJson(store.business_hours_json);
   const coordsOk = ulat != null && ulng != null && slat != null && slng != null;
+  const straightDistanceKm = coordsOk ? haversineKm(slat!, slng!, ulat, ulng) : null;
+  const straightDistanceMeters =
+    straightDistanceKm != null && Number.isFinite(straightDistanceKm)
+      ? Math.round(straightDistanceKm * 1000)
+      : null;
 
   if (!coordsOk) {
     devConsoleWarn(
       "[delivery-eta] skipping Google Routes (incomplete coordinates) → ok:true, rideMinutes:null, routeDistanceKm:null",
       { slug: decoded, storeId: store.id ?? null, ...debugFlags }
     );
-    return NextResponse.json({
-      ok: true,
-      prepMinutes: extras.prepMinutes,
-      rideMinutes: null,
-      routeDistanceMeters: null,
-      routeDistanceKm: null,
-      etaLabel: buildStoreDeliveryEtaLabel(extras, null),
-      ...maybeCoordDebug(debugFlags),
-    });
+    return NextResponse.json(
+      deliveryEtaOkJson({
+        ok: true,
+        prepMinutes: extras.prepMinutes,
+        straightDistanceKm,
+        straightDistanceMeters,
+        rideMinutes: null,
+        routeDistanceMeters: null,
+        routeDistanceKm: null,
+        travelModeUsed: null,
+        fallbackUsed: true,
+        etaLabel: buildStoreDeliveryEtaLabel(extras, null),
+        ...maybeCoordDebug(debugFlags),
+      }),
+    );
   }
 
   const origin = { lat: slat, lng: slng };
   const dest = { lat: ulat, lng: ulng };
 
-  const [leg] = await fetchTwoWheelerRouteMetricsStoresToUser([origin], dest);
-  const rideMinutes = leg?.rideMinutes ?? null;
-  const routeDistanceMeters = leg?.routeDistanceMeters ?? null;
+  if (straightDistanceMeters != null && straightDistanceMeters <= 30) {
+    return NextResponse.json(
+      deliveryEtaOkJson({
+        ok: true,
+        prepMinutes: extras.prepMinutes,
+        straightDistanceKm: 0,
+        straightDistanceMeters: 0,
+        rideMinutes: 0,
+        routeDistanceMeters: 0,
+        routeDistanceKm: 0,
+        travelModeUsed: null,
+        fallbackUsed: false,
+        etaLabel: buildStoreDeliveryEtaLabel(extras, 0),
+      }),
+    );
+  }
+
+  const cacheKey =
+    deliveryUserAddressId && store.id
+      ? `eta:${buyerId}:${String(store.id)}:${deliveryUserAddressId}:${roundCoordKey(slat!)}:${roundCoordKey(slng!)}:${roundCoordKey(ulat)}:${roundCoordKey(ulng)}`
+      : null;
+  if (cacheKey) {
+    const hit = deliveryEtaOkCache.get(cacheKey);
+    if (hit && hit.expiresAt > Date.now()) {
+      return NextResponse.json(hit.body);
+    }
+  }
+
+  const leg = await fetchDeliveryRouteSingleLeg(origin, dest);
+  const rideMinutes = leg.rideMinutes ?? null;
+  const routeDistanceMeters = leg.routeDistanceMeters ?? null;
   const routeDistanceKm =
     routeDistanceMeters != null && Number.isFinite(routeDistanceMeters)
       ? routeDistanceMeters / 1000
@@ -171,12 +307,20 @@ export async function GET(
     );
   }
 
-  return NextResponse.json({
+  const payload = deliveryEtaOkJson({
     ok: true,
     prepMinutes: extras.prepMinutes,
+    straightDistanceKm,
+    straightDistanceMeters,
     rideMinutes,
     routeDistanceMeters,
     routeDistanceKm,
+    travelModeUsed: leg.travelModeUsed,
+    fallbackUsed: leg.fallbackUsed,
     etaLabel,
   });
+  if (cacheKey) {
+    deliveryEtaOkCache.set(cacheKey, { expiresAt: Date.now() + DELIVERY_ETA_SERVER_CACHE_TTL_MS, body: payload });
+  }
+  return NextResponse.json(payload);
 }

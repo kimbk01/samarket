@@ -28,12 +28,8 @@ export function writeMapAddressPick(input: {
   }
 }
 
-/** 한 번 읽고 제거 — 주소 시트가 결과를 폼에 반영할 때 사용 */
-export function consumeMapAddressPick(): Omit<MapAddressPickPayload, "savedAt"> | null {
-  if (typeof sessionStorage === "undefined") return null;
-  const raw = sessionStorage.getItem(MAP_ADDRESS_PICK_STORAGE_KEY);
+function parseMapAddressPickPayload(raw: string | null): Omit<MapAddressPickPayload, "savedAt"> | null {
   if (!raw) return null;
-  sessionStorage.removeItem(MAP_ADDRESS_PICK_STORAGE_KEY);
   try {
     const j = JSON.parse(raw) as MapAddressPickPayload;
     if (typeof j.latitude !== "number" || typeof j.longitude !== "number" || !Number.isFinite(j.latitude) || !Number.isFinite(j.longitude)) {
@@ -41,8 +37,7 @@ export function consumeMapAddressPick(): Omit<MapAddressPickPayload, "savedAt"> 
     }
     const fullAddress = typeof j.fullAddress === "string" ? j.fullAddress.trim() : "";
     const rawDetail = (j as { addressDetail?: unknown }).addressDetail;
-    const detail =
-      typeof rawDetail === "string" ? rawDetail.trim() : undefined;
+    const detail = typeof rawDetail === "string" ? rawDetail.trim() : undefined;
     return {
       latitude: j.latitude,
       longitude: j.longitude,
@@ -52,6 +47,21 @@ export function consumeMapAddressPick(): Omit<MapAddressPickPayload, "savedAt"> 
   } catch {
     return null;
   }
+}
+
+/** 읽기만 — 목록에서 편집 페이지로 넘길 때 소비는 편집 쪽에서 한 번만 한다 */
+export function peekMapAddressPick(): Omit<MapAddressPickPayload, "savedAt"> | null {
+  if (typeof sessionStorage === "undefined") return null;
+  return parseMapAddressPickPayload(sessionStorage.getItem(MAP_ADDRESS_PICK_STORAGE_KEY));
+}
+
+/** 한 번 읽고 제거 — 주소 시트가 결과를 폼에 반영할 때 사용 */
+export function consumeMapAddressPick(): Omit<MapAddressPickPayload, "savedAt"> | null {
+  if (typeof sessionStorage === "undefined") return null;
+  const raw = sessionStorage.getItem(MAP_ADDRESS_PICK_STORAGE_KEY);
+  if (!raw) return null;
+  sessionStorage.removeItem(MAP_ADDRESS_PICK_STORAGE_KEY);
+  return parseMapAddressPickPayload(raw);
 }
 
 /** 주소 시트에서 지도로 갈 때만 기록 — 복귀 시 생성/수정 모드 복원 */
@@ -70,14 +80,8 @@ export function writeMapAddressPickContext(ctx: MapAddressPickContextWrite): voi
   }
 }
 
-/** 지도 복귀 후 한 번 읽고 제거. 기록이 없으면 생성 플로우로 간주 */
-export function consumeMapAddressPickContext():
-  | { source: "create" }
-  | { source: "edit"; addressId: string } {
-  if (typeof sessionStorage === "undefined") return { source: "create" };
-  const raw = sessionStorage.getItem(MAP_ADDRESS_PICK_CONTEXT_KEY);
+function parseMapAddressPickContextRaw(raw: string | null): { source: "create" } | { source: "edit"; addressId: string } {
   if (!raw) return { source: "create" };
-  sessionStorage.removeItem(MAP_ADDRESS_PICK_CONTEXT_KEY);
   try {
     const j = JSON.parse(raw) as { source?: string; addressId?: string };
     if (j.source === "edit" && typeof j.addressId === "string" && j.addressId.length > 0) {
@@ -87,6 +91,22 @@ export function consumeMapAddressPickContext():
     /* ignore */
   }
   return { source: "create" };
+}
+
+export function peekMapAddressPickContext(): { source: "create" } | { source: "edit"; addressId: string } {
+  if (typeof sessionStorage === "undefined") return { source: "create" };
+  return parseMapAddressPickContextRaw(sessionStorage.getItem(MAP_ADDRESS_PICK_CONTEXT_KEY));
+}
+
+/** 지도 복귀 후 한 번 읽고 제거. 기록이 없으면 생성 플로우로 간주 */
+export function consumeMapAddressPickContext():
+  | { source: "create" }
+  | { source: "edit"; addressId: string } {
+  if (typeof sessionStorage === "undefined") return { source: "create" };
+  const raw = sessionStorage.getItem(MAP_ADDRESS_PICK_CONTEXT_KEY);
+  if (!raw) return { source: "create" };
+  sessionStorage.removeItem(MAP_ADDRESS_PICK_CONTEXT_KEY);
+  return parseMapAddressPickContextRaw(raw);
 }
 
 const RECENT_KEY = "samarket:map_address_recent_v1";

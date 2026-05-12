@@ -1,12 +1,16 @@
 "use client";
 
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
-import { ADDRESS_LABEL_KO } from "@/components/addresses/address-labels";
+import {
+  getUserAddressDesignationPlainText,
+  UserAddressDesignationTitle,
+} from "@/components/addresses/UserAddressDesignationTitle";
 import {
   buildAddressListDetailLine,
   buildAddressManagementListPrimaryLine,
   stripCountryFromAddressDisplayLine,
 } from "@/lib/addresses/user-address-format";
+import { formatPhAddressCardOneLine, formatPhAddressCardOneLinePlain } from "@/lib/addresses/ph-address-display";
 import { ADDR_BODY, ADDR_ROW_TITLE } from "@/lib/ui/address-flow-viber";
 
 export function AddressRowCard(props: {
@@ -20,16 +24,17 @@ export function AddressRowCard(props: {
 }) {
   const { row, onEdit, onDelete, onSetAsRepresentative, busyId: globalBusy, containerClassName } = props;
   const rowBusy = globalBusy === row.id;
-  const rawNick = row.nickname?.trim();
-  const title =
-    rawNick && rawNick.toLowerCase() !== "null" && rawNick.toLowerCase() !== "undefined"
-      ? rawNick
-      : ADDRESS_LABEL_KO[row.labelType];
-  const sub = stripCountryFromAddressDisplayLine(
-    buildAddressManagementListPrimaryLine(row),
-    row.countryName,
-  );
-  const detailLine = buildAddressListDetailLine(row, sub);
+  const titlePlain = getUserAddressDesignationPlainText(row);
+  const isPh = (row.countryCode ?? "PH").trim().toUpperCase() === "PH";
+  const phOne = isPh ? formatPhAddressCardOneLine(row) : null;
+
+  const sub = isPh
+    ? formatPhAddressCardOneLinePlain(row)
+    : stripCountryFromAddressDisplayLine(
+        buildAddressManagementListPrimaryLine(row),
+        row.countryName,
+      );
+  const detailLine = isPh ? null : buildAddressListDetailLine(row, sub);
 
   return (
     <li className={`flex items-start gap-2 px-1 py-3.5 sm:gap-3 sm:px-2 ${containerClassName ?? ""}`}>
@@ -40,12 +45,12 @@ export function AddressRowCard(props: {
         className="min-w-0 flex-1 rounded-sam-sm px-0 py-0 pr-1 text-left disabled:opacity-50 sm:pr-0"
         aria-label={
           row.isDefaultMaster
-            ? `${title}, 현재 대표 주소, ${sub}${detailLine ? `, 상세주소 ${detailLine}` : ""}`
-            : `${title}, 탭하면 대표 주소로 지정, ${sub}${detailLine ? `, 상세주소 ${detailLine}` : ""}`
+            ? `${titlePlain}, 현재 대표 주소, ${sub}${detailLine ? `, 상세주소 ${detailLine}` : ""}`
+            : `${titlePlain}, 탭하면 대표 주소로 지정, ${sub}${detailLine ? `, 상세주소 ${detailLine}` : ""}`
         }
       >
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className={ADDR_ROW_TITLE}>{title}</span>
+          <UserAddressDesignationTitle row={row} className={ADDR_ROW_TITLE} />
           {row.isDefaultMaster ? (
             <span className="rounded-full bg-sam-primary px-2 py-0.5 sam-text-xxs font-bold text-white">
               대표
@@ -54,12 +59,25 @@ export function AddressRowCard(props: {
             <span className="sam-text-xxs font-medium text-sam-muted">탭하여 대표</span>
           )}
         </div>
-        <p className={`mt-0.5 ${ADDR_BODY} sam-text-body-secondary`}>{sub || "—"}</p>
+        <p className={`mt-0.5 ${ADDR_BODY} sam-text-body-secondary`}>
+          {isPh && phOne ? (
+            <>
+              {phOne.gatePrefix ? (
+                <strong className="font-bold text-sam-fg">{phOne.gatePrefix}</strong>
+              ) : null}
+              {phOne.gatePrefix && phOne.streetBody ? <span className="text-sam-fg">, </span> : null}
+              {phOne.streetBody ? <span className="text-sam-fg">{phOne.streetBody}</span> : null}
+              {!phOne.gatePrefix && !phOne.streetBody ? "—" : null}
+            </>
+          ) : (
+            sub || "—"
+          )}
+        </p>
         {detailLine ? (
           <div className="mt-2 flex min-w-0 max-w-full flex-nowrap items-end gap-2">
             <span className="shrink-0 pb-0.5 sam-text-helper font-semibold text-sam-primary">상세주소</span>
             <span
-              className="min-w-0 flex-1 border-b border-sam-primary-border/55 pb-0.5 text-left sam-text-body-secondary text-sam-fg"
+              className="min-w-0 flex-1 border-b border-sam-primary-border/55 pb-0.5 text-left sam-text-body font-bold text-sam-fg"
               translate="no"
             >
               {detailLine}

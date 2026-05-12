@@ -7,6 +7,7 @@ import { fetchOwnerOrderRemote } from "@/lib/store-owner/owner-order-remote";
 import type { OwnerOrder } from "@/lib/store-owner/types";
 import { useMeStoreBySlug } from "@/hooks/useMeStoreBySlug";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
+import { useSupabaseStoreOrderRowRealtime } from "@/hooks/useSupabaseStoreOrderRowRealtime";
 
 export function OwnerOrderDetailPageClient({ slug, orderId }: { slug: string; orderId: string }) {
   const { state: gate } = useMeStoreBySlug(slug);
@@ -45,6 +46,11 @@ export function OwnerOrderDetailPageClient({ slug, orderId }: { slug: string; or
   useEffect(() => {
     void load();
   }, [load]);
+
+  useSupabaseStoreOrderRowRealtime(storeId && safeOrderId ? safeOrderId : null, {
+    debounceMs: 380,
+    onChange: () => void load(),
+  });
 
   if (gate.kind === "loading" || gate.kind === "idle") {
     return (

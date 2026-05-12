@@ -41,6 +41,7 @@ import { normalizeStoreOrderClientKey } from "@/lib/stores/store-order-client-ke
 import { createStoreOrderEvent } from "@/lib/stores/store-order-events";
 import { normalizeStoreAddressPh } from "@/lib/stores/normalize-store-address-ph";
 import { computeStoreOrderCheckoutEtaSnapshot } from "@/lib/stores/compute-store-order-checkout-eta-snapshot";
+import { markUserAddressUsed } from "@/lib/addresses/user-address-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -147,7 +148,7 @@ export async function GET(req: NextRequest) {
   const { data: orders, error } = await sb
     .from("store_orders")
     .select(
-      "id, order_no, store_id, total_amount, payment_amount, payment_status, order_status, fulfillment_type, buyer_note, buyer_phone, buyer_payment_method, buyer_payment_method_detail, delivery_address_summary, delivery_address_detail, created_at, auto_complete_at, community_messenger_room_id, estimated_prep_minutes, estimated_ready_at, accepted_at, sla_warning_level, sla_warning_reason, sla_warning_at, needs_admin_attention"
+      "id, order_no, store_id, total_amount, payment_amount, payment_status, order_status, fulfillment_type, buyer_note, buyer_phone, buyer_payment_method, buyer_payment_method_detail, delivery_address_summary, delivery_address_detail, delivery_user_address_id, delivery_place_id, delivery_formatted_address, delivery_detail_address, delivery_note, delivery_latitude, delivery_longitude, created_at, auto_complete_at, community_messenger_room_id, estimated_prep_minutes, estimated_ready_at, accepted_at, sla_warning_level, sla_warning_reason, sla_warning_at, needs_admin_attention, checkout_prep_minutes, checkout_ride_minutes, checkout_eta_minutes, checkout_eta_computed_at, checkout_route_distance_meters, checkout_straight_distance_meters"
     )
     .eq("buyer_user_id", buyerId)
     .order("created_at", { ascending: false })
@@ -295,8 +296,18 @@ type PostBody = {
   delivery_city?: string;
   /** `user_addresses.id` — ETA 스냅샷·라우팅용(본인 주소만) */
   delivery_user_address_id?: string;
+  delivery_note?: string;
   /** 멱등 키 — 재전송·더블클릭 시 동일 주문 반환 */
   client_order_key?: string;
+};
+
+type DeliveryAddressOrderSnapshot = {
+  place_id?: string | null;
+  formatted_address?: string | null;
+  detail_address?: string | null;
+  delivery_note?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
 };
 
 /**
@@ -625,6 +636,39 @@ export async function POST(req: NextRequest) {
     storeRow.lng != null && Number.isFinite(Number(storeRow.lng)) ? Number(storeRow.lng) : null;
   const deliveryUserAddressId = String(body.delivery_user_address_id ?? "").trim() || null;
 
+  let deliveryAddressSnapshot: DeliveryAddressOrderSnapshot | null = null;
+
+  if (fulfillment === "local_delivery" && !deliveryUserAddressId) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "delivery_user_address_required",
+        message: "저장된 배달 주소를 선택해 주세요.",
+      },
+      { status: 400 }
+    );
+  }
+
+  if (fulfillment === "local_delivery" && deliveryUserAddressId) {
+    const { data: ownAddr, error: ownAddrErr } = await sb
+      .from("user_addresses")
+      .select("id, place_id, formatted_address, detail_address, delivery_note, latitude, longitude")
+      .eq("id", deliveryUserAddressId)
+      .eq("user_id", buyerId)
+      .maybeSingle();
+    if (ownAddrErr || !ownAddr) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "delivery_user_address_invalid",
+          message: "선택한 배달 주소를 찾을 수 없거나 본인 주소가 아닙니다.",
+        },
+        { status: 400 }
+      );
+    }
+    deliveryAddressSnapshot = ownAddr as DeliveryAddressOrderSnapshot;
+  }
+
   const etaSnapshot = await computeStoreOrderCheckoutEtaSnapshot({
     sb,
     buyerUserId: buyerId,
@@ -655,10 +699,19 @@ export async function POST(req: NextRequest) {
     delivery_address_detail,
     delivery_region,
     delivery_city,
+    delivery_place_id: deliveryAddressSnapshot?.place_id ?? null,
+    delivery_formatted_address: deliveryAddressSnapshot?.formatted_address ?? delivery_address_summary,
+    delivery_detail_address: deliveryAddressSnapshot?.detail_address ?? delivery_address_detail,
+    delivery_note: String(body.delivery_note ?? deliveryAddressSnapshot?.delivery_note ?? "").trim() || null,
+    delivery_latitude: deliveryAddressSnapshot?.latitude ?? null,
+    delivery_longitude: deliveryAddressSnapshot?.longitude ?? null,
     ...etaSnapshot,
   };
   if (normalizedClientKey) {
     insertOrderPayload.client_order_key = normalizedClientKey;
+  }
+  if (deliveryUserAddressId) {
+    insertOrderPayload.delivery_user_address_id = deliveryUserAddressId;
   }
 
   const { data: orderRow, error: oErr } = await sb
@@ -700,6 +753,9 @@ export async function POST(req: NextRequest) {
   }
 
   const orderId = orderRow.id as string;
+  if (deliveryUserAddressId) {
+    await markUserAddressUsed(sb, buyerId, deliveryUserAddressId);
+  }
 
   for (const line of lines) {
     const { data: itemRow, error: iErr } = await sb

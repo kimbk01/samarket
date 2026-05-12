@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged } from "@/lib/stores/sync-store-orders-checkout-geo";
+import { clearStoreHomeFeedServerCache } from "@/lib/stores/store-home-feed-server-cache";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { normalizePhMobileDb, PH_LOCAL_MOBILE_RULE_MESSAGE_KO } from "@/lib/utils/ph-mobile";
 import { normalizeStoreAddressPh } from "@/lib/stores/normalize-store-address-ph";
@@ -47,6 +49,9 @@ type PatchBody = {
   gallery_images_json?: unknown[] | null;
   lat?: number | null;
   lng?: number | null;
+  place_id?: string | null;
+  formatted_address?: string | null;
+  detail_address?: string | null;
 };
 
 function trimOrNull(v: unknown): string | null {
@@ -246,6 +251,9 @@ export async function PATCH(
 
   if (address1In !== undefined) patch.address_line1 = address1In;
   if (address2In !== undefined) patch.address_line2 = address2In;
+  if (body.place_id !== undefined) patch.place_id = trimOrNull(body.place_id);
+  if (body.formatted_address !== undefined) patch.formatted_address = trimOrNull(body.formatted_address);
+  if (body.detail_address !== undefined) patch.detail_address = trimOrNull(body.detail_address);
   if (body.email !== undefined) {
     const et = trimOrNull(body.email);
     if (et === null) {
@@ -378,7 +386,7 @@ export async function PATCH(
         "id, owner_user_id, store_name, slug, business_type, owner_can_edit_store_identity",
         "store_category_id, store_topic_id",
         "description, kakao_id, phone, email, website_url",
-        "region, city, district, address_line1, address_line2, lat, lng",
+        "region, city, district, address_line1, address_line2, place_id, formatted_address, detail_address, lat, lng",
         "profile_image_url, business_hours_json, gallery_images_json, is_open",
         "delivery_available, pickup_available, reservation_available, visit_available",
         "approval_status, is_visible, rejected_reason, revision_note",
@@ -396,6 +404,16 @@ export async function PATCH(
   if (!updated) {
     console.error("[PATCH /api/me/stores/storeId] update returned no row", sid);
     return NextResponse.json({ ok: false, error: "update_no_row" }, { status: 500 });
+  }
+
+  clearStoreHomeFeedServerCache();
+
+  if ("lat" in patch || "lng" in patch) {
+    const store_orders_checkout_geo_sync = await refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged(
+      sb as never,
+      sid
+    );
+    return NextResponse.json({ ok: true, store: updated, store_orders_checkout_geo_sync });
   }
 
   return NextResponse.json({ ok: true, store: updated });

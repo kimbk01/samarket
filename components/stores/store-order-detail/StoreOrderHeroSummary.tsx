@@ -7,7 +7,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRubberBandAtDocumentTop } from "@/lib/ui/use-rubber-band-at-document-top";
 import type { StorePublicFulfillmentMode } from "@/components/stores/StoreDetailStorefrontPanel";
 import { STORE_ORDER_BRAND } from "@/components/stores/store-order-detail/store-order-brand";
-import type { CommerceExtrasFromHours } from "@/lib/stores/store-commerce-extras";
+import {
+  formatStoreDetailDeliveryFeeValue,
+  type CommerceExtrasFromHours,
+} from "@/lib/stores/store-commerce-extras";
 import { type StoreDeliveryMeta } from "@/lib/stores/store-detail-meta";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import {
@@ -23,7 +26,7 @@ function InfoRow({
   action,
 }: {
   label: string;
-  value: string;
+  value: ReactNode;
   sub?: string | null;
   action?: ReactNode;
 }) {
@@ -210,21 +213,23 @@ export function StoreOrderHeroSummary({
 
   const prepLine = useMemo(() => commerceExtras.estPrepLabel, [commerceExtras.estPrepLabel]);
 
-  const feeDisplay = useMemo(() => {
-    if (!deliveryAvailable) return "배달 불가";
-    const f = commerceExtras.deliveryFeePhp;
-    if (f != null && f === 0) {
-      if (
-        deliveryMeta.freeDeliveryOverPhp != null &&
-        deliveryMeta.freeDeliveryOverPhp > 0
-      ) {
-        return "무료배달";
-      }
-      return `${formatMoneyPhp(0)} 배달`;
+  const feeDisplay = useMemo((): ReactNode => {
+    if (!deliveryAvailable) {
+      return formatStoreDetailDeliveryFeeValue(commerceExtras, { deliveryAvailable });
     }
-    if (f != null && f >= 0) return formatMoneyPhp(f);
-    return "배달비 문의";
-  }, [deliveryAvailable, commerceExtras.deliveryFeePhp, deliveryMeta.freeDeliveryOverPhp]);
+    if (commerceExtras.deliveryFeeMode === "self_free_promo") {
+      const strike = commerceExtras.deliveryFeeStrikeReferencePhp;
+      return (
+        <span className="inline-flex flex-wrap items-center gap-1.5">
+          <span className="font-bold text-[#2563EB]">배달비 무료 적용 중</span>
+          {strike != null && strike > 0 ? (
+            <span className="font-bold text-neutral-400 line-through">{formatMoneyPhp(strike)}</span>
+          ) : null}
+        </span>
+      );
+    }
+    return formatStoreDetailDeliveryFeeValue(commerceExtras, { deliveryAvailable });
+  }, [commerceExtras, deliveryAvailable]);
 
   const minDisplay = useMemo(() => {
     const m = commerceExtras.minOrderPhp;
@@ -267,12 +272,30 @@ export function StoreOrderHeroSummary({
     const q = directions.destinationQuery?.replace(/\s+/g, " ").trim();
     if (q) openGoogleMapsDrivingDirectionsFromUserTo({ kind: "query", text: q });
   }, [directions]);
-  const deliverySub =
-    commerceExtras.deliveryFeePhp === 0
-      ? "배달팁 무료 적용 중"
-      : deliveryMeta.freeDeliveryOverPhp != null && deliveryMeta.freeDeliveryOverPhp > 0
-        ? `${formatMoneyPhp(deliveryMeta.freeDeliveryOverPhp)} 이상 무료배달`
-        : null;
+  const deliverySub = useMemo(() => {
+    if (!deliveryAvailable) return null;
+    if (commerceExtras.deliveryFeeMode === "courier") {
+      return "앱 결제 금액에 포함되지 않습니다(착불)";
+    }
+    if (commerceExtras.deliveryFeeMode === "self_free_promo") {
+      return "앱 청구 배달비 0₱";
+    }
+    if (commerceExtras.deliveryFeePhp === 0) {
+      if (deliveryMeta.freeDeliveryOverPhp != null && deliveryMeta.freeDeliveryOverPhp > 0) {
+        return "배달비 무료 적용 중";
+      }
+      return null;
+    }
+    if (deliveryMeta.freeDeliveryOverPhp != null && deliveryMeta.freeDeliveryOverPhp > 0) {
+      return `${formatMoneyPhp(deliveryMeta.freeDeliveryOverPhp)} 이상 무료배달`;
+    }
+    return null;
+  }, [
+    deliveryAvailable,
+    commerceExtras.deliveryFeeMode,
+    commerceExtras.deliveryFeePhp,
+    deliveryMeta.freeDeliveryOverPhp,
+  ]);
 
   const segBase =
     "min-w-0 flex-1 rounded-full px-3 py-1.5 text-[12px] font-bold transition-colors duration-[180ms] disabled:cursor-not-allowed disabled:opacity-40";
@@ -439,7 +462,8 @@ export function StoreOrderHeroSummary({
                   <InfoRow label="조리 시간" value={heroPrepDisplay} />
                   <InfoRow label="배달 시간" value={heroRideDisplay} />
                   <InfoRow label="경로 거리" value={heroDistDisplay} />
-                  <InfoRow label="배달팁" value={feeDisplay} sub={deliverySub} />
+                  <InfoRow label="배달비" value={feeDisplay} sub={deliverySub} />
+                  {payFull ? <InfoRow label="결제방법" value={payFull} /> : null}
                 </>
               ) : (
                 <>

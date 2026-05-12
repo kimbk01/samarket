@@ -11,7 +11,7 @@ import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/Mandato
 import {
   consumeMapAddressPick,
   consumeMapAddressPickContext,
-  writeMapAddressPickContext,
+  peekMapAddressPick,
 } from "@/lib/map/map-address-pick-storage";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
 import { ADDR_ADD_CTA, ADDR_LIST_CARD } from "@/lib/ui/address-flow-viber";
@@ -70,6 +70,16 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
 
   useEffect(() => {
     if (!pathname || pathname.startsWith("/address/select")) return;
+    if (pathname.startsWith("/mypage/addresses/edit")) return;
+
+    if (!embedded) {
+      if (!pathname.startsWith("/mypage/addresses")) return;
+      if (peekMapAddressPick()) {
+        router.replace("/mypage/addresses/edit?map=1");
+      }
+      return;
+    }
+
     const pick = consumeMapAddressPick();
     const ctx = consumeMapAddressPickContext();
     if (!pick) return;
@@ -116,7 +126,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
     }
 
     applyMapPickAsCreate();
-  }, [pathname, list]);
+  }, [pathname, list, embedded, router]);
 
   const load = useCallback(async () => {
     setLoadErr(null);
@@ -160,21 +170,21 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   }
 
   function openCreate() {
+    if (!embedded) {
+      router.push("/mypage/addresses/edit");
+      return;
+    }
     setMapBootstrap(null);
     setEditorMode("create");
     setEditTarget(null);
-    writeMapAddressPickContext({ source: "create" });
-    if (embedded) {
-      const selfHref =
-        typeof window !== "undefined"
-          ? `${window.location.pathname}${window.location.search}`
-          : "/mypage/addresses";
-      router.replace(selfHref);
-    }
-    router.push("/address/select");
+    setEditorOpen(true);
   }
 
   function openEdit(row: UserAddressDTO) {
+    if (!embedded) {
+      router.push(`/mypage/addresses/edit?id=${encodeURIComponent(row.id)}`);
+      return;
+    }
     setMapBootstrap(null);
     setEditorMode("edit");
     setEditTarget(row);
@@ -379,18 +389,23 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
         </div>
       )}
 
-      <AddressEditorSheet
-        open={editorOpen}
-        mode={editorMode}
-        initial={editTarget}
-        mapBootstrap={mapBootstrap}
-        allAddresses={list}
-        onClose={() => {
-          setEditorOpen(false);
-          setMapBootstrap(null);
-        }}
-        onSaved={() => void load()}
-      />
+      {embedded ? (
+        <AddressEditorSheet
+          open={editorOpen}
+          mode={editorMode}
+          initial={editTarget}
+          mapBootstrap={mapBootstrap}
+          allAddresses={list}
+          onClose={() => {
+            setEditorOpen(false);
+            setMapBootstrap(null);
+          }}
+          onSaved={() => {
+            invalidateAddressDefaultsSnapshotCache();
+            void load();
+          }}
+        />
+      ) : null}
     </div>
   );
 }

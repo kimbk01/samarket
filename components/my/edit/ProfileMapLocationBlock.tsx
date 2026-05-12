@@ -2,8 +2,9 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
-import { ADDRESS_LABEL_KO } from "@/components/addresses/address-labels";
+import { UserAddressDesignationTitle } from "@/components/addresses/UserAddressDesignationTitle";
 import { buildTradePublicLine, stripCountryFromAddressDisplayLine } from "@/lib/addresses/user-address-format";
+import { formatPhAddressCardOneLine, formatPhAddressCardOneLinePlain } from "@/lib/addresses/ph-address-display";
 import { PROFILE_ADDRESS_SECTION_TITLE } from "@/lib/stores/store-address-form-ui";
 import { OWNER_STORE_FORM_LEAD_CLASS } from "@/lib/business/owner-store-stack";
 
@@ -27,22 +28,34 @@ function pickRepresentative(rows: UserAddressDTO[]): UserAddressDTO | null {
 }
 
 function RepresentativeRow({ row }: { row: UserAddressDTO }) {
-  const nick = row.nickname?.trim();
-  const title =
-    nick && nick.toLowerCase() !== "null" && nick.toLowerCase() !== "undefined"
-      ? nick
-      : ADDRESS_LABEL_KO[row.labelType];
-  const sub = stripCountryFromAddressDisplayLine(buildTradePublicLine(row), row.countryName);
+  const isPh = (row.countryCode ?? "PH").trim().toUpperCase() === "PH";
+  const repPh = isPh ? formatPhAddressCardOneLine(row) : null;
+  const sub = isPh
+    ? formatPhAddressCardOneLinePlain(row)
+    : stripCountryFromAddressDisplayLine(buildTradePublicLine(row), row.countryName);
   return (
     <li className="flex items-start gap-2 px-3 py-3">
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
-          <span className="sam-text-body font-semibold text-ui-fg">{title}</span>
+          <UserAddressDesignationTitle row={row} className="sam-text-body font-semibold text-ui-fg" />
           <span className="rounded-full bg-signature/10 px-2 py-0.5 sam-text-xxs font-semibold text-signature">
             대표
           </span>
         </div>
-        <p className="mt-0.5 sam-text-body-secondary leading-snug text-ui-muted">{sub || "—"}</p>
+        <p className="mt-0.5 sam-text-body-secondary leading-snug text-ui-muted">
+          {isPh && repPh ? (
+            <>
+              {repPh.gatePrefix ? (
+                <strong className="font-bold text-ui-fg">{repPh.gatePrefix}</strong>
+              ) : null}
+              {repPh.gatePrefix && repPh.streetBody ? <span className="text-ui-fg">, </span> : null}
+              {repPh.streetBody ? <span>{repPh.streetBody}</span> : null}
+              {!repPh.gatePrefix && !repPh.streetBody ? "—" : null}
+            </>
+          ) : (
+            sub || "—"
+          )}
+        </p>
       </div>
     </li>
   );
