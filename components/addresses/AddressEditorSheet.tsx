@@ -1,10 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import type { UserAddressDTO, UserAddressLabelType } from "@/lib/addresses/user-address-types";
 import { normalizeOptionalPhMobileDb, parsePhMobileInput } from "@/lib/utils/ph-mobile";
-import { writeMapAddressPickContext } from "@/lib/map/map-address-pick-storage";
 import { normalizeAddressNicknameKey } from "@/lib/addresses/address-nickname-key";
 import { encodeShopAddressNickname } from "@/lib/addresses/shop-address-nickname";
 import { fetchPlacePredictionsPh, type PlacePredictionRow } from "@/lib/map/fetch-place-predictions-ph";
@@ -29,6 +27,8 @@ import {
   encodeLocationOnlyAddressNickname,
   isLocationOnlyAddressNickname,
 } from "@/lib/addresses/location-only-address-nickname";
+import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
+import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 
 type Mode = "create" | "edit";
 
@@ -69,7 +69,6 @@ export function AddressEditorSheet(props: {
     allAddresses = [],
     layout = "modal",
   } = props;
-  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -590,11 +589,17 @@ export function AddressEditorSheet(props: {
       !(mode === "edit" && initial && isLocationOnlyAddressNickname(initial.nickname))) ||
     !geoReady;
 
+  const scrollShellClass =
+    layout === "page"
+      ? "w-full min-w-0 overflow-y-auto"
+      : "min-h-0 w-full max-h-[min(52dvh,400px)] overflow-y-auto px-3 sm:max-h-[min(62dvh,480px)] sm:px-4";
+
   const editorScrollBody = (
-    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4">
+    <div className={scrollShellClass}>
+      <div className={OWNER_STORE_STACK_Y_CLASS}>
+        <OwnerStoreAdminDashSection title="지정 주소">
           <div>
-            <span className={fieldLabelClass}>지정 주소</span>
-            <p className="mb-2 sam-text-xxs leading-snug text-sam-muted">
+            <p className="mb-3 sam-text-xxs leading-snug text-sam-muted sm:mb-3.5">
               우리집·매장·회사·직접 입력 중 하나를 고른 뒤 저장할 수 있어요.
             </p>
             <div className="-mx-1 flex min-w-0 flex-nowrap gap-2 overflow-x-auto px-1 pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
@@ -700,10 +705,12 @@ export function AddressEditorSheet(props: {
               />
             </div>
           ) : null}
+        </OwnerStoreAdminDashSection>
 
+        <OwnerStoreAdminDashSection title="주소 검색">
           <div>
             <label htmlFor="addr-editor-search" className={fieldLabelClass}>
-              주소 검색
+              검색어
             </label>
             <input
               id="addr-editor-search"
@@ -713,7 +720,8 @@ export function AddressEditorSheet(props: {
                 setErr(null);
               }}
               placeholder="Building, mall, street, barangay (English OK)"
-              autoComplete="off"
+              autoComplete="street-address"
+              enterKeyHint="search"
               className={fieldInputClass}
             />
             {searching ? (
@@ -726,7 +734,7 @@ export function AddressEditorSheet(props: {
                       type="button"
                       onClick={() => void selectPrediction(p)}
                       disabled={resolvingPlaceId === p.placeId}
-                      className="block w-full px-3 py-2.5 text-left hover:bg-sam-app disabled:opacity-60"
+                      className="block min-h-[44px] w-full px-3 py-2.5 text-left hover:bg-sam-app disabled:opacity-60"
                     >
                       <span className="block sam-text-body font-semibold text-sam-fg">{p.mainText}</span>
                       <span className="mt-0.5 block sam-text-helper text-sam-muted">
@@ -738,6 +746,9 @@ export function AddressEditorSheet(props: {
               </ul>
             ) : null}
           </div>
+        </OwnerStoreAdminDashSection>
+
+        <OwnerStoreAdminDashSection title="상세 주소 · 배달 안내">
           {latitude != null && longitude != null ? (
             <>
               <div>
@@ -782,7 +793,7 @@ export function AddressEditorSheet(props: {
                   value={unitFloorRoom}
                   onChange={(e) => setUnitFloorRoom(e.target.value)}
                   placeholder="예: Tower 2, 12F, Unit 1204 / Block 5 Lot 12"
-                  autoComplete="off"
+                  autoComplete="address-line2"
                   aria-invalid={detailViol}
                   className={`${fieldInputClass} ${detailViol ? "border-sam-danger focus-visible:border-sam-danger focus-visible:ring-sam-danger/25" : ""}`}
                 />
@@ -815,7 +826,7 @@ export function AddressEditorSheet(props: {
                   id="addr-editor-detail-empty"
                   value={unitFloorRoom}
                   onChange={(e) => setUnitFloorRoom(e.target.value)}
-                  placeholder="먼저 아래에서 장소를 고른 뒤 Unit/Block/Lot을 입력합니다"
+                  placeholder="위에서 검색 결과를 고른 뒤 Unit / Block / Lot을 입력합니다"
                   autoComplete="off"
                   disabled
                   className={fieldInputClass}
@@ -826,39 +837,29 @@ export function AddressEditorSheet(props: {
               </p>
             </>
           )}
-        </div>
+        </OwnerStoreAdminDashSection>
+      </div>
+    </div>
   );
 
   const editorFooter = (
-    <div className="shrink-0 space-y-2 border-t border-sam-border bg-sam-app/40 px-4 py-3 safe-area-pb">
-          {err ? <p className="text-center sam-text-body-secondary font-medium text-sam-danger">{err}</p> : null}
-          <p className="text-center sam-text-xxs text-sam-muted">
-            <button
-              type="button"
-              onClick={() => {
-                writeMapAddressPickContext(
-                  mode === "edit" && initial?.id
-                    ? { source: "edit", addressId: initial.id }
-                    : { source: "create" },
-                );
-                router.push("/address/select");
-              }}
-              className="font-semibold text-sam-primary underline-offset-2 hover:underline"
-            >
-              전체 지도에서 처음 고르기
-            </button>
-          </p>
-          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-            <button
-              type="button"
-              disabled={saveDisabled}
-              onClick={() => void saveAddress()}
-              className="w-full rounded-lg bg-sam-primary py-2.5 sam-text-body font-semibold text-white shadow-sm transition-opacity hover:bg-sam-primary-hover disabled:opacity-40 sm:ml-auto sm:w-auto sm:min-w-[112px] sm:px-5"
-            >
-              {busy ? "저장 중…" : saveLabel}
-            </button>
-          </div>
-        </div>
+    <div
+      className={`shrink-0 space-y-2 border-t border-sam-border bg-sam-app/40 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] pt-3 ${
+        layout === "page" ? "w-full min-w-0" : "px-3 sm:px-4"
+      }`}
+    >
+      {err ? <p className="text-center sam-text-body-secondary font-medium text-sam-danger">{err}</p> : null}
+      <div className="flex flex-col gap-2">
+        <button
+          type="button"
+          disabled={saveDisabled}
+          onClick={() => void saveAddress()}
+          className="min-h-[44px] w-full rounded-lg bg-sam-primary py-2.5 sam-text-body font-semibold text-white shadow-sm transition-opacity hover:bg-sam-primary-hover disabled:opacity-40 sm:min-h-[48px]"
+        >
+          {busy ? "저장 중…" : saveLabel}
+        </button>
+      </div>
+    </div>
   );
 
   const replaceConflictModal =
@@ -930,11 +931,9 @@ export function AddressEditorSheet(props: {
       <>
         <div className="flex min-h-screen w-full min-w-0 max-w-[100dvw] flex-col overflow-x-clip bg-sam-app">
           <MySubpageHeader title={pageTitle} backHref="/mypage/addresses" hideCtaStrip />
-          <div className={`${APP_MAIN_TAB_SCROLL_BODY_CLASS} flex min-h-0 flex-1 flex-col`}>
-            <div className="mx-auto flex min-h-0 w-full max-w-md min-w-0 flex-1 flex-col">
-              {editorScrollBody}
-              {editorFooter}
-            </div>
+          <div className={`${APP_MAIN_TAB_SCROLL_BODY_CLASS} min-h-0 flex-1 overflow-y-auto`}>
+            {editorScrollBody}
+            {editorFooter}
           </div>
         </div>
         {fineTuneLayer}
