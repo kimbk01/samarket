@@ -29,6 +29,7 @@ import {
   fetchStoreSummaryDeduped,
 } from "@/lib/stores/store-delivery-api-client";
 import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
+import { setStoreOwnerMainBottomNavSuppressed } from "@/lib/business/store-owner-main-bottom-nav-suppress";
 import { useIsMobileViewport } from "@/hooks/use-is-mobile-viewport";
 import { ChevronRight } from "lucide-react";
 
@@ -204,6 +205,15 @@ export function BusinessAdminShell({
     ]).catch(() => {});
   }, [prefetchCustomerHref, prefetchSlug]);
 
+  /** 모바일 햄버거로 운영 사이드 드로어가 열리면 전역 BottomNav 가 겹치지 않게 숨김 */
+  useEffect(() => {
+    const open = isMobile && mobileMenuOpen;
+    setStoreOwnerMainBottomNavSuppressed(open);
+    return () => {
+      setStoreOwnerMainBottomNavSuppressed(false);
+    };
+  }, [isMobile, mobileMenuOpen]);
+
   const hubPartialHeaderRight =
     storeIdParam.length > 0 ?
       <Link
@@ -280,6 +290,10 @@ export function BusinessAdminShell({
       </div>
     );
   }
+
+  /** 대시보드(`/stores/owner`, hub)만 뒤로가기 숨김 — 세부 페이지는 운영 대시보드로 복귀 */
+  const adminHeaderBackHref =
+    isHub ? undefined : `/stores/owner?storeId=${encodeURIComponent(selectedRow.id)}`;
 
   const headerRightSlot = (
     <>
@@ -432,6 +446,8 @@ export function BusinessAdminShell({
         <div className="flex min-h-screen min-w-0 flex-1 flex-col md:border-r md:border-sam-border-soft">
           <StoresOwnerStackHeader
             variant="admin"
+            backHref={adminHeaderBackHref}
+            backAriaLabel="운영 대시보드로"
             shopName={shopName}
             pageTitle={pageTitle}
             rightSlot={headerRightSlot}

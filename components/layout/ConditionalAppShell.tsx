@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Suspense, useLayoutEffect, useMemo, useRef } from "react";
+import { Suspense, useLayoutEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
@@ -17,6 +17,11 @@ import {
   type MainBottomNavPrefetchDomain,
 } from "@/lib/main-menu/main-bottom-nav-prefetch-domain";
 import { scrollAppShellToTopAfterShellNavigation } from "@/lib/layout/scroll-app-shell-to-top";
+import { logDevSafeModeProbeOnce } from "@/lib/dev/is-dev-safe-mode";
+import {
+  getStoreOwnerMainBottomNavSuppressed,
+  subscribeStoreOwnerMainBottomNavSuppressed,
+} from "@/lib/business/store-owner-main-bottom-nav-suppress";
 import { MessagingGlobalChrome } from "@/components/layout/providers/MessagingGlobalChrome";
 import { RegionBar } from "./RegionBar";
 import { BottomNav } from "./BottomNav";
@@ -58,6 +63,9 @@ export function ConditionalAppShell({
   initialMainBottomNavItems?: BottomNavItemConfig[] | null;
 }) {
   const pathname = usePathname();
+  useLayoutEffect(() => {
+    logDevSafeModeProbeOnce("client");
+  }, []);
   /** 하단 탭 전환(커뮤니티↔거래↔배달↔내정보 등) 시 별도 도메인으로 바뀌면 본문 스크롤 위치가 남지 않게 한다 */
   const prevBottomNavPrefetchDomainRef = useRef<MainBottomNavPrefetchDomain | null>(null);
   useLayoutEffect(() => {
@@ -77,13 +85,27 @@ export function ConditionalAppShell({
     () => resolveConditionalAppShellFlags(pathname, regionBarInLayout),
     [pathname, regionBarInLayout]
   );
+  const storeOwnerFlyoutSuppressesBottomNav = useSyncExternalStore(
+    subscribeStoreOwnerMainBottomNavSuppressed,
+    getStoreOwnerMainBottomNavSuppressed,
+    () => false
+  );
+  const mainBottomClassLive = useMemo(() => {
+    if (!storeOwnerFlyoutSuppressesBottomNav) return f.mainBottomClass;
+    if (f.isChatRoomDetail || f.isCommunityMessengerSurface || f.isTradeMeetSpotPickRoute) {
+      return f.mainBottomClass;
+    }
+    return "pb-4";
+  }, [storeOwnerFlyoutSuppressesBottomNav, f]);
   const { isOpen: headerMessengerFromPhilife } = usePhilifeHeaderMessengerStack();
   const pathNoQuery = pathname?.split("?")[0] ?? "";
   const isMessengerStackSurface = isMessengerFromHeaderStackSurface(pathNoQuery);
   const showBottomNavBase = f.showBottomNav;
   /** 헤더 메신저 풀스택이 열리면 본문과 함께 밀리지 않도록 탭 숨김 — `/philife`·거래(`/market*`) 동일 */
   const showBottomNavEffective =
-    showBottomNavBase && !(isMessengerStackSurface && headerMessengerFromPhilife);
+    showBottomNavBase &&
+    !(isMessengerStackSurface && headerMessengerFromPhilife) &&
+    !storeOwnerFlyoutSuppressesBottomNav;
   const bottomNavScrollHideEnabled =
     showBottomNavEffective && resolveBottomNavScrollHideEnabled(pathNoQuery, headerMessengerFromPhilife);
   const bottomNavHiddenByScroll = useBottomNavScrollHide(Boolean(bottomNavScrollHideEnabled));
@@ -114,7 +136,7 @@ export function ConditionalAppShell({
       {f.showRegionBar && <RegionBar />}
       {f.showOwnerLiteStoreBar ? <OwnerLiteStoreBarLazy /> : null}
       <main
-        className={`${f.mainBottomClass} min-w-0 overflow-x-hidden ${heroMenuSurface ? "bg-transparent" : "bg-sam-app"} ${
+        className={`${mainBottomClassLive} min-w-0 overflow-x-hidden ${heroMenuSurface ? "bg-transparent" : "bg-sam-app"} ${
           f.isChatRoomDetail ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-y-hidden" : ""
         }`}
       >

@@ -12,8 +12,9 @@ import {
   cancelScheduledWhenBrowserIdle,
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
-import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
-import { fetchProfileEnsureDeduped } from "@/lib/profile/ensure-profile-client";
+import { invalidateMeProfileDedupedCache, fetchMeProfileDeduped } from "@/lib/profile/fetch-me-profile-deduped";
+import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
+import type { ProfileRow } from "@/lib/profile/types";
 import { clearBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { resetMessengerNotificationSurfacesAfterSignOut } from "@/lib/community-messenger/notifications/messenger-notification-surfaces-reset";
 import { bumpAppWidePerf, recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
@@ -30,9 +31,8 @@ function clearSignedOutClientCaches(): void {
 }
 
 /**
- * 세션 + 서버 ensure(profiles DB)로 프로필 캐시를 맞춤.
- * - ensure 응답의 avatar_url 이 profiles 테이블 기준(업로드 사진 유지)
- * - 세션 메타만 쓰면(OAuth/Google picture만 반영) 저장한 프로필 사진이 사라지는 문제가 난다.
+ * 세션 + 서버 `GET /api/me/profile`(단일 파이프라인)으로 프로필 캐시를 맞춤.
+ * - DB `avatar_url` 이 세션 메타만 쓸 때 덮어씌워지는 문제 방지
  */
 async function hydrateProfileCacheFromSession(sb: SupabaseClient) {
   bumpAppWidePerf("profile_resolve_start");
@@ -60,28 +60,10 @@ async function hydrateProfileCacheFromSession(sb: SupabaseClient) {
     if (!user) return;
     let nextProfile = userToProfile(user);
     try {
-      const res = await fetchProfileEnsureDeduped();
-      const data = (await res.json().catch(() => null)) as
-        | {
-            ok?: boolean;
-            profile?: {
-              id: string;
-              email: string;
-              nickname: string;
-              avatar_url?: string | null;
-              username?: string | null;
-              role?: string;
-              member_type?: string;
-              phone?: string | null;
-              phone_verified?: boolean;
-              phone_verification_status?: string;
-              auth_provider?: string | null;
-              temperature?: number;
-            };
-          }
-        | null;
-      if (res.ok && data?.ok && data.profile) {
-        const p = data.profile;
+      const { status, json } = await fetchMeProfileDeduped();
+      const data = json as { ok?: boolean; profile?: ProfileRow } | null;
+      if (status === 200 && data?.ok && data.profile) {
+        const p = profileRowToClientProfile(data.profile);
         nextProfile = {
           ...nextProfile,
           ...p,

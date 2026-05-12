@@ -12,6 +12,8 @@ import {
   cmDebugTailUserId,
   pushCmBrowserDebugEvent,
 } from "@/lib/community-messenger/realtime/cm-browser-debug-buffer";
+import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
+import { runDevSafeSingleFlight } from "@/lib/dev/dev-safe-dedupe";
 
 type PresencePayload = {
   userId?: unknown;
@@ -88,6 +90,12 @@ function logPresenceHttpFailure(kind: string, args: { status: number; bodySnippe
   });
 }
 
+function isTerminalPresencePostBody(body: Record<string, unknown>): boolean {
+  if (body.sessionEnd === true) return true;
+  if (body.appVisibility === "background") return true;
+  return false;
+}
+
 function persistLastSeenSessionEnd(lastSeenAt: string) {
   if (typeof navigator === "undefined") return;
   const body = JSON.stringify({ lastSeenAt, sessionEnd: true });
@@ -136,15 +144,16 @@ function postPresenceHeartbeatHttp() {
     lastPingAt: nowIso(),
     lastActivityAt: new Date(lastActivityMs).toISOString(),
     appVisibility: currentDocumentVisible() ? "foreground" : "background",
-  };
-  void fetch("/api/community-messenger/presence", {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  })
-    .then(async (res) => {
-      if (res.ok) return;
+  } as const;
+  const bodyObj = payload as unknown as Record<string, unknown>;
+  const postOnce = () =>
+    fetch("/api/community-messenger/presence", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    }).then(async (res) => {
+      if (res.ok) return true;
       const bodySnippet = (await res.text().catch(() => "")).slice(0, 2000);
       logPresenceHttpFailure("heartbeat_http_failed", {
         status: res.status,
@@ -152,8 +161,19 @@ function postPresenceHeartbeatHttp() {
         deltaMs,
         payloadNote: JSON.stringify(payload),
       });
-    })
-    .catch(() => {});
+      return false;
+    });
+
+  if (!isDevSafeMode() || isTerminalPresencePostBody(bodyObj)) {
+    void postOnce().catch(() => {});
+    return;
+  }
+
+  const surface = payload.appVisibility === "foreground" ? "heartbeat-fg" : "heartbeat-bg";
+  const dedupeKey = `${runtimeUserId}|cm-presence|${surface}`;
+  void runDevSafeSingleFlight(dedupeKey, 90_000, () => postOnce(), {
+    onlyCacheIf: (ok) => ok === true,
+  }).catch(() => {});
 }
 
 function parseIncomingState(raw: unknown): CommunityMessengerPresenceState {

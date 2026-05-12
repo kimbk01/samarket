@@ -85,6 +85,7 @@ import {
   ensureCmRoomEntryRouteT0,
   resetCmRoomEntryTraceSession,
 } from "@/lib/community-messenger/room/cm-room-entry-instrumentation";
+import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import { acquireCommunityMessengerReadAckBroadcast } from "@/lib/community-messenger/realtime/cm-read-ack-broadcast-client";
 import { useMessengerRoomBumpBroadcastSubscription } from "@/lib/community-messenger/room/use-messenger-room-bump-broadcast-subscription";
 import { useMessengerRoomCanonicalRouteReplaceEffect } from "@/lib/community-messenger/room/use-messenger-room-canonical-route-effect";
@@ -554,6 +555,9 @@ export function useMessengerRoomClientPhase1({
 
   const refresh = useCallback(
     async (silent?: boolean, opts?: { forceSilentNetwork?: boolean }) => {
+      if (silent === true && isDevSafeMode() && !opts?.forceSilentNetwork) {
+        return;
+      }
       if (silent === true && !opts?.forceSilentNetwork) {
         if (seededRoomEntryRef.current && releaseSeededFirstSilentHoldRef.current) {
           await seededFirstSilentHoldPromiseRef.current;

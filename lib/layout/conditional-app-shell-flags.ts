@@ -106,6 +106,8 @@ export function resolveConditionalAppShellFlags(
   /** 매장 오너 운영 센터 — 소비자 매장 플로우와 분리해 전역 하단 탭·본문 패딩을 허브와 동일하게 둔다. */
   const isStoreOwnerAdminRoute =
     normalizedStorePath === "/stores/owner" || normalizedStorePath.startsWith("/stores/owner/");
+  /** 메인 `BottomNav` — `/stores/owner` 운영 대시보드에만 표시, `/stores/owner/*` 세부·신청 등은 숨김 */
+  const suppressBottomNavForStoreOwnerAdminSubroutes = normalizedStorePath.startsWith("/stores/owner/");
   const isStoresHubBottomNavSurface =
     normalizedStorePath === "/stores" ||
     normalizedStorePath === "/stores/cart" ||
@@ -195,7 +197,8 @@ export function resolveConditionalAppShellFlags(
     !isStoreProductDetail &&
     /** `/products/new`, `/products/.../edit` — 폼 하단 고정 저장·취소와 z-index 충돌 방지(글쓰기와 동일) */
     !isPersonalProductComposerPage &&
-    !isTradeMeetSpotPickRoute;
+    !isTradeMeetSpotPickRoute &&
+    !suppressBottomNavForStoreOwnerAdminSubroutes;
   const showRegionBarComputed = !regionBarInLayout && !hideRegionBar;
   const showOwnerLiteStoreBar =
     showBottomNav &&

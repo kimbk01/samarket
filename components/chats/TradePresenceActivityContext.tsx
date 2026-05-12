@@ -7,6 +7,7 @@ import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { useTradeActivityCoordinator } from "@/lib/chats/use-trade-activity-coordinator";
 import { useTradeMultiTabVisibilityOr } from "@/lib/chats/use-trade-multi-tab-visibility-or";
 import { TRADE_PRESENCE_HEARTBEAT_INTERVAL_MS } from "@/lib/chats/trade-presence-policy";
+import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import {
   shouldRunTradePresenceHttpHeartbeat,
   TRADE_PRESENCE_HEARTBEAT_SUPPRESSED_TAIL_MS,
@@ -72,7 +73,7 @@ export function TradePresenceActivityProvider({ children }: { children: ReactNod
 
   // deps 에 `pathname` 을 넣지 않음 — `pathnameRef` 로만 읽어 라우트 전환마다 타이머·리스너를 재생성하지 않음
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || isDevSafeMode()) return;
     const postHeartbeat = () => {
       void (async () => {
         try {

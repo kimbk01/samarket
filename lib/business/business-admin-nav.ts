@@ -117,7 +117,6 @@ export function buildBusinessAdminSidebar(ctx: MyBusinessNavContext): BusinessAd
 
   const storeItems: BusinessAdminSidebarItem[] = [
     { label: "기본 정보", href: OwnerRoutes.basicInfo(storeId) },
-    { label: "매장 프로필", href: OwnerRoutes.profile(storeId) },
     { label: "운영 · 심사", href: OwnerRoutes.opsStatus(storeId) },
   ];
   if (approved && isVisible && slug) {

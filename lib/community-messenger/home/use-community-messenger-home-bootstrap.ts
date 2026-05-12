@@ -58,6 +58,7 @@ import {
   samarketMessengerHomeDebugEvent,
 } from "@/lib/runtime/samarket-runtime-debug";
 import { messengerVerboseTraceConsoleEnabled } from "@/lib/community-messenger/messenger-trace-console";
+import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 
 /** critical 홈-sync 상단 블록 병합 — 서버 최근 순 · 로컬 나머지 유지 + 거래 `contextMeta` 역행 방지 */
 function mergeCriticalRoomPatchesIntoLists(
@@ -376,6 +377,7 @@ export function useCommunityMessengerHomeBootstrap({
 
   const refresh = useCallback(async (silent = false) => {
     recordMessengerHomeRefreshInvocation(silent);
+    if (silent && isDevSafeMode()) return;
     if (silent) {
       const now = Date.now();
       if (now < silentBackoffUntilRef.current) return;
@@ -566,6 +568,7 @@ export function useCommunityMessengerHomeBootstrap({
           usedCachedSnapshot: boolean,
           usedCriticalPayload: boolean
         ) => {
+          if (isDevSafeMode()) return;
           const sch = getMessengerBackgroundHydrationScheduler();
           const hydrateRequestId = requestId;
 
@@ -968,7 +971,7 @@ export function useCommunityMessengerHomeBootstrap({
       loadedRef.current = true;
       setAuthRequired(false);
       setPageError(null);
-      if (initialServerBootstrap.deferredCallLog) {
+      if (initialServerBootstrap.deferredCallLog && !isDevSafeMode()) {
         scheduleMessengerDeferredOnIdle(() => {
           getMessengerBackgroundHydrationScheduler().schedule({
             id: "messenger:ssr-deferred:calls-log",
@@ -989,6 +992,9 @@ export function useCommunityMessengerHomeBootstrap({
       staleFullPeek ??
       (staleCritPeek ? communityMessengerBootstrapFromCriticalPayload(staleCritPeek) : null);
     if (stale) {
+      if (isDevSafeMode()) {
+        return;
+      }
       /**
        * 세션 복원 직후 재진입이 짧은 간격으로 반복될 때 stale hit마다 silent sync GET을 다시 열지 않게 한다.
        * 같은 탭에서 최근 silent sync를 이미 예약/실행했다면 이번 라운드는 캐시만 사용한다.

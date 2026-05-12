@@ -104,7 +104,7 @@ function MyBusinessProfilePageInner() {
               storeId={phase.row.id}
               storeSlug={phase.row.slug}
               row={phase.row}
-              onSaved={() => void load()}
+              onSaved={() => router.push("/stores/owner")}
               onCancel={() => router.push("/stores/owner")}
             />
           </div>

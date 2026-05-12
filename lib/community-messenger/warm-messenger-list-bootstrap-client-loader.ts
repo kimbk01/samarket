@@ -1,5 +1,7 @@
 "use client";
 
+import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
+
 /**
  * `warm-messenger-list-bootstrap-client` 는 `cm-bootstrap-client-fetch` 등 굵은 그래프를 끌므로,
  * BottomNav·tap-prewarm 경로에서는 **정적 import 대신** 이 로더의 `import()` 단일 Promise 로만 당긴다.
@@ -19,6 +21,7 @@ function getWarmMessengerListBootstrapModule(): Promise<WarmMessengerListBootstr
 /** `warmMessengerListBootstrapClient()` 와 동일 호출 의미 — 모듈 평가만 청크 로드 뒤로 미룸 */
 export function scheduleWarmMessengerListBootstrapClient(): void {
   if (typeof window === "undefined") return;
+  if (isDevSafeMode()) return;
   void getWarmMessengerListBootstrapModule().then((mod) => {
     mod.warmMessengerListBootstrapClient();
   });

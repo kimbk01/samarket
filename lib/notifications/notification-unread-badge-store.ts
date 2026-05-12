@@ -7,6 +7,7 @@ import {
   NOTIFICATION_SYNC_POLL_MS,
 } from "@/lib/notifications/notification-events";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 
 function createNotificationUnreadBadgeStore(fetchUrl: string) {
   let snap: number | null = null;
@@ -82,6 +83,7 @@ function createNotificationUnreadBadgeStore(fetchUrl: string) {
   }
 
   function armPoll() {
+    if (isDevSafeMode()) return;
     if (pollInterval != null) return;
     if (unauthorizedPaused) return;
     pollInterval = setInterval(() => {

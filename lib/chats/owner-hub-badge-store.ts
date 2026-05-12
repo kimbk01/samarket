@@ -25,6 +25,8 @@ import {
   subscribeTabLeader,
 } from "@/lib/runtime/leader-tab-coordinator";
 import { samarketRuntimeDebugLog } from "@/lib/runtime/samarket-runtime-debug";
+import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
+import { runDevSafeSingleFlight } from "@/lib/dev/dev-safe-dedupe";
 
 const PATH_FETCH_PREFIXES = [
   "/chats",
@@ -174,7 +176,60 @@ function teardownOwnerHubLeaderAndSync() {
   ownerHubSyncBc = null;
 }
 
-export function fetchOwnerHubBadgeNow(force = false): Promise<void> {
+export type FetchOwnerHubBadgeNowOptions = {
+  /** dev-safe: 허브 GET 장주기 스로틀(plain 45s / cmFresh 15s)을 끔 — 명시 새로고침·버튼 등 */
+  skipDevCmFreshDedupe?: boolean;
+  /** 서버 `hubBadgeBypass=1` — dev-safe 에서 cmFresh 시 짧은 캐시 우회(읽음 직후 등) */
+  serverHubBadgeBypass?: boolean;
+};
+
+function hubBadgeLeaderFetchUrl(force: boolean, serverHubBadgeBypass?: boolean): string {
+  if (!force) return "/api/me/store-owner-hub-badge";
+  const q = new URLSearchParams();
+  q.set("cmFresh", "1");
+  if (serverHubBadgeBypass) q.set("hubBadgeBypass", "1");
+  return `/api/me/store-owner-hub-badge?${q.toString()}`;
+}
+
+function fetchOwnerHubBadgeLeaderNetwork(force: boolean, opts?: FetchOwnerHubBadgeNowOptions): Promise<boolean> {
+  const now = Date.now();
+  if (!force && now - lastFetchStartedAt < MIN_FETCH_GAP_MS) {
+    const inFlight = getSingleFlightPromise<void>(HUB_BADGE_FLIGHT_KEY);
+    if (inFlight) {
+      return inFlight.then(() => false);
+    }
+    return Promise.resolve(false);
+  }
+  if (force && now - lastFetchStartedAt < MIN_FORCE_FETCH_GAP_MS) {
+    const inFlight = getSingleFlightPromise<void>(HUB_BADGE_FLIGHT_KEY);
+    if (inFlight) return inFlight.then(() => false);
+    /** 진행 중 비행이 없으면 이전 구현은 fetch 를 통째로 건너뛰어 메신저 연속 unread 시 탭 배지가 최대 1.6초 이상 밀릴 수 있음 */
+  }
+
+  lastFetchStartedAt = now;
+
+  return runSingleFlight(HUB_BADGE_FLIGHT_KEY, async (): Promise<boolean> => {
+    try {
+      const res = await fetch(hubBadgeLeaderFetchUrl(force, opts?.serverHubBadgeBypass), {
+        credentials: "include",
+        cache: "no-store",
+      });
+      const data = res.ok ? await res.json() : null;
+      samarketRuntimeDebugLog("owner-hub-badge", "leader HTTP fetch completed", { ok: res.ok });
+      applyFromNetwork(data);
+      broadcastOwnerHubBadgeSnapshot(data);
+      lastFetchCompletedAt = Date.now();
+      return res.ok;
+    } catch {
+      applyFromNetwork(null);
+      broadcastOwnerHubBadgeSnapshot(null);
+      lastFetchCompletedAt = Date.now();
+      return false;
+    }
+  });
+}
+
+export function fetchOwnerHubBadgeNow(force = false, opts?: FetchOwnerHubBadgeNowOptions): Promise<void> {
   if (typeof window === "undefined") {
     return Promise.resolve();
   }
@@ -185,37 +240,15 @@ export function fetchOwnerHubBadgeNow(force = false): Promise<void> {
     return Promise.resolve();
   }
 
-  const now = Date.now();
-  if (!force && now - lastFetchStartedAt < MIN_FETCH_GAP_MS) {
-    const inFlight = getSingleFlightPromise<void>(HUB_BADGE_FLIGHT_KEY);
-    return inFlight ?? Promise.resolve();
-  }
-  if (force && now - lastFetchStartedAt < MIN_FORCE_FETCH_GAP_MS) {
-    const inFlight = getSingleFlightPromise<void>(HUB_BADGE_FLIGHT_KEY);
-    if (inFlight) return inFlight;
-    /** 진행 중 비행이 없으면 이전 구현은 fetch 를 통째로 건너뛰어 메신저 연속 unread 시 탭 배지가 최대 1.6초 이상 밀릴 수 있음 */
+  if (isDevSafeMode() && !opts?.skipDevCmFreshDedupe) {
+    const k = force ? "owner-hub-badge:cmFresh" : "owner-hub-badge:plain";
+    const ttl = force ? 15_000 : 45_000;
+    return runDevSafeSingleFlight(k, ttl, () => fetchOwnerHubBadgeLeaderNetwork(force, opts), {
+      onlyCacheIf: (ok) => ok === true,
+    }).then(() => undefined);
   }
 
-  lastFetchStartedAt = now;
-
-  return runSingleFlight(HUB_BADGE_FLIGHT_KEY, async () => {
-    try {
-      /** `force` 시 `cmFresh=1` 로 서버 10s 짧은 캐시를 건너뛰어 메신저 Realtime·목록과 탭 배지가 엇갈리지 않게 한다. */
-      const res = await fetch(force ? "/api/me/store-owner-hub-badge?cmFresh=1" : "/api/me/store-owner-hub-badge", {
-        credentials: "include",
-        cache: "no-store",
-      });
-      const data = res.ok ? await res.json() : null;
-      samarketRuntimeDebugLog("owner-hub-badge", "leader HTTP fetch completed", { ok: res.ok });
-      applyFromNetwork(data);
-      broadcastOwnerHubBadgeSnapshot(data);
-      lastFetchCompletedAt = Date.now();
-    } catch {
-      applyFromNetwork(null);
-      broadcastOwnerHubBadgeSnapshot(null);
-      lastFetchCompletedAt = Date.now();
-    }
-  });
+  return fetchOwnerHubBadgeLeaderNetwork(force, opts).then(() => undefined);
 }
 
 function onTradeUnreadUpdated() {
@@ -270,7 +303,7 @@ function onOwnerHubRefresh(ev?: Event) {
       detail.key === "room_phase2_mark_read";
     if (immediateFresh) {
       lastMessengerParticipantForceRefreshAt = Date.now();
-      void fetchOwnerHubBadgeNow(true);
+      void fetchOwnerHubBadgeNow(true, { skipDevCmFreshDedupe: true, serverHubBadgeBypass: true });
       return;
     }
     scheduleMessengerParticipantHubBadgeRefresh();
@@ -295,6 +328,13 @@ function scheduleEventDrivenOwnerHubRefresh() {
 
 function onVisibility() {
   if (typeof document === "undefined") return;
+  if (isDevSafeMode()) {
+    if (pollInterval) {
+      clearInterval(pollInterval);
+      pollInterval = null;
+    }
+    return;
+  }
   if (document.visibilityState === "visible") {
     if (Date.now() - lastFetchStartedAt >= MIN_VISIBILITY_FETCH_GAP_MS) {
       void fetchOwnerHubBadgeNow();
@@ -356,6 +396,10 @@ function startHub() {
   if (hubStarted) return;
   hubStarted = true;
   attachGlobalEventsOnce();
+  if (isDevSafeMode()) {
+    void fetchOwnerHubBadgeNow(false);
+    return;
+  }
   if (initialHydrateIdleId != null) {
     cancelScheduledWhenBrowserIdle(initialHydrateIdleId);
     initialHydrateIdleId = null;

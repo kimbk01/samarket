@@ -193,11 +193,13 @@ export async function fetchProfileRowSafe(
 
   const tryLists = [SELECT_FULL, SELECT_MID, SELECT_MEMBER, SELECT_LEGACY];
   let row: Record<string, unknown> | null = null;
+  let usedSelectList = "";
 
   for (const list of tryLists) {
     const { data, error } = await selectProfileRaw(sb, uid, list);
     if (!error && data) {
       row = data;
+      usedSelectList = list;
       break;
     }
     if (error && !isProfileSelectSchemaError(error.message)) {
@@ -207,6 +209,8 @@ export async function fetchProfileRowSafe(
 
   if (!row) return null;
 
-  row = await mergeOptionalFields(sb, uid, row);
+  if (usedSelectList !== SELECT_FULL) {
+    row = await mergeOptionalFields(sb, uid, row);
+  }
   return toProfileRow(uid, row);
 }

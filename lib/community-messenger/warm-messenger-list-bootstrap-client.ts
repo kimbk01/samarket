@@ -8,6 +8,7 @@ import {
   recordMessengerHomeWarmCallSiteInvocation,
   samarketMessengerHomeDebugEvent,
 } from "@/lib/runtime/samarket-runtime-debug";
+import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 
 /**
  * 하단 탭 `router.prefetch("/community-messenger")` 직후 등 — lite 부트스트랩을 한 번 받아
@@ -16,6 +17,7 @@ import {
  */
 export function warmMessengerListBootstrapClient(): void {
   if (typeof window === "undefined") return;
+  if (isDevSafeMode()) return;
   if (isBootstrapCacheFresh()) {
     samarketMessengerHomeDebugEvent("messenger_home_warm_skip_cached");
     return;

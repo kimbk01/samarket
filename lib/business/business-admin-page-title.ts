@@ -39,7 +39,7 @@ export function getBusinessAdminPageTitle(pathname: string): string | null {
     return "상품 수정";
   if (matchAny("/products")) return "상품 등록";
   if (matchAny("/basic-info")) return "기본 정보";
-  if (matchAny("/profile")) return "매장 프로필";
+  if (matchAny("/profile")) return "매장 설정";
   if (matchAny("/ops-status")) return "운영 · 심사";
   if (matchAny("/reviews")) return "리뷰 관리";
   if (matchAny("/banners")) return "배너 관리";

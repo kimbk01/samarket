@@ -1,5 +1,5 @@
 import { AdminDashboardPage } from "@/components/admin/dashboard/AdminDashboardPage";
-import { buildAdminDashboardPayload } from "@/lib/admin-dashboard/build-admin-dashboard-payload";
+import { getCachedAdminDashboardPayloadForDevSafe } from "@/lib/admin-dashboard/build-admin-dashboard-payload-dev-cache";
 import { getOptionalAdminUserId } from "@/lib/admin/require-admin-api";
 
 export default async function AdminPage() {
@@ -7,7 +7,7 @@ export default async function AdminPage() {
   const adminId = await getOptionalAdminUserId();
   if (adminId) {
     try {
-      initialDashboardPayload = await buildAdminDashboardPayload();
+      initialDashboardPayload = await getCachedAdminDashboardPayloadForDevSafe(adminId);
     } catch {
       initialDashboardPayload = null;
     }

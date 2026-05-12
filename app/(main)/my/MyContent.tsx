@@ -20,7 +20,7 @@ import {
   MYPAGE_MAIN_HREF,
 } from "@/lib/my/mypage-info-hub";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
-import { fetchProfileEnsureDeduped } from "@/lib/profile/ensure-profile-client";
+import { fetchMeProfileDeduped } from "@/lib/profile/fetch-me-profile-deduped";
 import {
   dibayMyInfoPerfMark,
   dibayMyInfoPerfMaybeLogTotal,
@@ -65,15 +65,14 @@ export function MyContent({ initialMyPageData }: { initialMyPageData?: MyPageDat
     if (data?.profile) return;
     /**
      * 세션은 있으나 `profiles` 행이 비어 있는 첫 진입을 자동 회복.
-     * `/api/auth/profile/ensure` 의 3단(full → minimal → id-only) fallback 으로
-     * 행이 만들어지면, 메인 데이터를 다시 로드해 화면을 정상화한다.
-     * (production · service_role 미설정 환경 모두에서 작동)
+     * `GET /api/me/profile` 단일 파이프라인(`runMeProfileReadPipeline`)으로 행이 만들어지면
+     * 메인 데이터를 다시 로드해 화면을 정상화한다.
      */
     if (data && !data.profile && !ensureRetriedRef.current) {
       ensureRetriedRef.current = true;
       (async () => {
         try {
-          await fetchProfileEnsureDeduped();
+          await fetchMeProfileDeduped();
           invalidateMeProfileDedupedCache();
           await load({ silent: true });
         } catch {

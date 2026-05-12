@@ -801,7 +801,7 @@ export function BottomNav({
 
   const hideBottomNavShell =
     (isChatRoomDetail && !isCommunityMessengerRoomPathname(pathname ?? null)) ||
-    // `/stores/owner/*` 는 전역 하단 탭 표시(`resolveConditionalAppShellFlags` 와 동일).
+    // 옛 `/mypage/business`·`/my/business` — 전역 하단 탭 숨김. `/stores/owner` 대시보드만 탭 표시·하위는 `resolveConditionalAppShellFlags`.
     (pathname?.startsWith("/mypage/business") ?? false) ||
     (pathname?.startsWith("/my/business") ?? false);
 

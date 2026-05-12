@@ -192,6 +192,9 @@ if (process.platform === "win32" && !winFastRequested && !turboRequested) {
   console.log(
     "[samarket] Windows Webpack 안정 모드(poll 2.5s). 여전히 UNKNOWN(-4094)이면 백신 제외·동기화 폴더 밖에 저장소 두기  |  빠른 빌드: dev:fast (필요 시 NEXT_WEBPACK_NO_POLL=1)"
   );
+  console.log(
+    "[samarket] 첫 API·페이지마다 'Compiling …' 수 초는 개발 모드 정상입니다. 체감: npm run dev:fast 또는 npm run dev:turbo — 프로필은 GET /api/me/profile 단일 서버 파이프라인으로 정리됨."
+  );
 } else if (process.platform === "win32" && winFastRequested) {
   delete process.env.NEXT_WEBPACK_WIN_SERIAL;
   delete process.env.NEXT_WEBPACK_MEMORY_CACHE;

@@ -405,8 +405,8 @@ function LoginPageContent() {
       }
 
       /**
-       * 프록시는 Supabase JWT 쿠키만으로 통과한다. `/api/auth/profile/ensure` 는 루트
-       * `SupabaseAuthSync` 가 진입 직후 호출해 맞춘다 — 로그인 화면에서 ensure 를 기다리지 않는다.
+       * 프록시는 Supabase JWT 쿠키만으로 통과한다. `GET /api/me/profile` 은 루트
+       * `SupabaseAuthSync` 가 진입 직후 호출해 맞춘다 — 로그인 화면에서 프로필 로드를 기다리지 않는다.
        */
       recordAppWidePhaseLastMs(
         "login_until_navigation_ms",

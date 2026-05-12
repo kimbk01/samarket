@@ -60,6 +60,12 @@ const nextConfig = {
   /** Vercel 빌드 시 클라이언트에서도 Preview/Production 구분 (deploy-surface.ts) */
   env: {
     NEXT_PUBLIC_VERCEL_ENV: process.env.VERCEL_ENV ?? "",
+    /** Dev Stability Pack — 클라 번들 인라인용. `DEV_SAFE_MODE` 또는 `NEXT_PUBLIC_DEV_SAFE_MODE` 어느 쪽이든 1이면 1 */
+    NEXT_PUBLIC_DEV_SAFE_MODE:
+      process.env.NODE_ENV === "development" &&
+      (process.env.DEV_SAFE_MODE === "1" || process.env.NEXT_PUBLIC_DEV_SAFE_MODE === "1")
+        ? "1"
+        : "0",
   },
   images: {
     remotePatterns: [

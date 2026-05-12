@@ -90,6 +90,8 @@ import {
   INCOMING_CALL_BACKUP_HTTP_POLL_SUPPRESSED_TAIL_MS,
   shouldRunIncomingCallBackupHttpPoll,
 } from "@/lib/layout/incoming-call-backup-poll-policy";
+import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
+import { runDevSafeSingleFlight } from "@/lib/dev/dev-safe-dedupe";
 
 const INCOMING_CALL_TIER = getPublicDeployTier();
 const INCOMING_CALL_FETCH_FLIGHT_KEY = "community-messenger:incoming-calls:directOnly";
@@ -109,6 +111,8 @@ const INCOMING_REMOTE_HARD_CLEAR_KEEP_MS = 120_000;
 /** 터미널 직후 목록 GET: 쿨다운·진행 중 단일 비행을 우회해 stale 응답에 묶이지 않게 함 */
 type IncomingCallsRefreshOpts = {
   incomingTerminalListSync?: boolean;
+  /** dev-safe: 수신 목록 GET 장주기 스로틀 무시 — 거절/수락 실패 후 정합 등 */
+  bypassDevSafeIncomingThrottle?: boolean;
 };
 
 function pruneDismissedIncomingSessionIds(dismissedAtBySessionId: Map<string, number>) {
@@ -295,56 +299,64 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, []);
 
   const refresh = useCallback(async (force = false, opts?: IncomingCallsRefreshOpts) => {
-    const now = Date.now();
-    const bypassCooldown = force || Boolean(opts?.incomingTerminalListSync);
-    if (!bypassCooldown && now - lastRefreshAtRef.current < MESSENGER_INCOMING_CALL_REFRESH_COOLDOWN_MS) {
+    const exec = async () => {
+      const now = Date.now();
+      const bypassCooldown = force || Boolean(opts?.incomingTerminalListSync);
+      if (!bypassCooldown && now - lastRefreshAtRef.current < MESSENGER_INCOMING_CALL_REFRESH_COOLDOWN_MS) {
+        return;
+      }
+      if (opts?.incomingTerminalListSync) {
+        forgetSingleFlight(INCOMING_CALL_FETCH_FLIGHT_KEY);
+      }
+      try {
+        const res = await runSingleFlight(INCOMING_CALL_FETCH_FLIGHT_KEY, () =>
+          fetch("/api/community-messenger/calls/sessions/incoming?directOnly=1", {
+            cache: "no-store",
+            credentials: "include",
+          })
+        );
+        const json = (await res.clone().json().catch(() => ({}))) as {
+          ok?: boolean;
+          sessions?: CommunityMessengerCallSession[];
+        };
+        if (res.status === 401 || res.status === 403) {
+          setSessions([]);
+          setIncomingListError(t("nav_messenger_login_required"));
+          return;
+        }
+        if (res.ok && json.ok) {
+          const serverList = json.sessions ?? [];
+          setSessions((prev) =>
+            mergeIncomingCallSessionsAfterFetch(
+              viewerUserIdRef.current,
+              serverList,
+              prev,
+              dismissedIncomingSessionsAtRef.current,
+              hardClearedIncomingSessionsAtRef.current
+            )
+          );
+          setIncomingListError(null);
+          setSessionActionError(null);
+          return;
+        }
+        setIncomingListError(
+          json && typeof json === "object" && "error" in json && typeof (json as { error?: unknown }).error === "string"
+            ? `${MESSENGER_CALL_USER_MSG.incomingListFailed} (${(json as { error: string }).error})`
+            : MESSENGER_CALL_USER_MSG.incomingListFailed
+        );
+        /* 네트워크/서버 오류 시 기존 수신 목록 유지 — 잠깐의 실패로 UI 가 사라지지 않게 */
+      } catch {
+        setIncomingListError(`${MESSENGER_CALL_USER_MSG.incomingListFailed} ${MESSENGER_CALL_USER_MSG.networkOrServer}`);
+      } finally {
+        lastRefreshAtRef.current = Date.now();
+      }
+    };
+
+    if (isDevSafeMode() && !opts?.bypassDevSafeIncomingThrottle) {
+      await runDevSafeSingleFlight("cm:incoming-calls:sessions:get", 120_000, exec);
       return;
     }
-    if (opts?.incomingTerminalListSync) {
-      forgetSingleFlight(INCOMING_CALL_FETCH_FLIGHT_KEY);
-    }
-    try {
-      const res = await runSingleFlight(INCOMING_CALL_FETCH_FLIGHT_KEY, () =>
-        fetch("/api/community-messenger/calls/sessions/incoming?directOnly=1", {
-          cache: "no-store",
-          credentials: "include",
-        })
-      );
-      const json = (await res.clone().json().catch(() => ({}))) as {
-        ok?: boolean;
-        sessions?: CommunityMessengerCallSession[];
-      };
-      if (res.status === 401 || res.status === 403) {
-        setSessions([]);
-        setIncomingListError(t("nav_messenger_login_required"));
-        return;
-      }
-      if (res.ok && json.ok) {
-        const serverList = json.sessions ?? [];
-        setSessions((prev) =>
-          mergeIncomingCallSessionsAfterFetch(
-            viewerUserIdRef.current,
-            serverList,
-            prev,
-            dismissedIncomingSessionsAtRef.current,
-            hardClearedIncomingSessionsAtRef.current
-          )
-        );
-        setIncomingListError(null);
-        setSessionActionError(null);
-        return;
-      }
-      setIncomingListError(
-        json && typeof json === "object" && "error" in json && typeof (json as { error?: unknown }).error === "string"
-          ? `${MESSENGER_CALL_USER_MSG.incomingListFailed} (${(json as { error: string }).error})`
-          : MESSENGER_CALL_USER_MSG.incomingListFailed
-      );
-      /* 네트워크/서버 오류 시 기존 수신 목록 유지 — 잠깐의 실패로 UI 가 사라지지 않게 */
-    } catch {
-      setIncomingListError(`${MESSENGER_CALL_USER_MSG.incomingListFailed} ${MESSENGER_CALL_USER_MSG.networkOrServer}`);
-    } finally {
-      lastRefreshAtRef.current = Date.now();
-    }
+    await exec();
   }, [t]);
 
   /** 탭 복귀·포커스: 짧은 2회 확인(레이트 리밋·서버 부하 완화). */
@@ -1330,12 +1342,12 @@ export function GlobalCommunityMessengerIncomingCall() {
           dismissedIncomingSessionsAtRef.current.delete(sessionId);
           setSessionActionError(MESSENGER_CALL_USER_MSG.sessionRejectFailed);
         }
-        await refresh(true, { incomingTerminalListSync: true });
+        await refresh(true, { incomingTerminalListSync: true, bypassDevSafeIncomingThrottle: true });
         return;
       }
       setSessionActionError(null);
       setMinimizedSessionId((prev) => (prev === sessionId ? null : prev));
-      await refresh(true, { incomingTerminalListSync: true });
+      await refresh(true, { incomingTerminalListSync: true, bypassDevSafeIncomingThrottle: true });
     } finally {
       setBusyId(null);
     }
@@ -1368,7 +1380,7 @@ export function GlobalCommunityMessengerIncomingCall() {
             }
           );
           if (!patchJson.ok || !patchJson.session) {
-            await refresh(true);
+            await refresh(true, { bypassDevSafeIncomingThrottle: true });
             setSessionActionError(MESSENGER_CALL_USER_MSG.sessionActionFailed);
             return;
           }
@@ -1406,7 +1418,7 @@ export function GlobalCommunityMessengerIncomingCall() {
               { variant: "error" }
             );
           }
-          void refresh(true);
+          void refresh(true, { bypassDevSafeIncomingThrottle: true });
         } finally {
           setBusyId(null);
         }

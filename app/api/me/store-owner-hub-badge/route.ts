@@ -15,12 +15,20 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getCachedOwnerHubBadge } from "@/lib/chats/owner-hub-badge-cache";
 import { buildOwnerHubBadgePayloadMerged } from "@/lib/chats/build-owner-hub-badge-payload";
+import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
+import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  const bypassShortCache = new URL(request.url).searchParams.get("cmFresh") === "1";
+  const t0 = devPerfNow();
+  const url = new URL(request.url);
+  const cmFresh = url.searchParams.get("cmFresh") === "1";
+  const hubBadgeBypass = url.searchParams.get("hubBadgeBypass") === "1";
+  /** prod: cmFresh → 짧은 캐시 bypass. dev-safe: cmFresh 만으로는 bypass 안 함 — `hubBadgeBypass=1` 필요 */
+  const bypassShortCache = cmFresh && (!isDevSafeMode() || hubBadgeBypass);
+
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) {
     if (process.env.NODE_ENV === "production") {
@@ -42,7 +50,9 @@ export async function GET(request: Request) {
     });
   }
 
+  const auth0 = devPerfNow();
   const userId = await getOptionalAuthenticatedUserId();
+  const authMs = devPerfNow() - auth0;
   if (!userId) {
     return NextResponse.json({
       ok: true,
@@ -61,11 +71,28 @@ export async function GET(request: Request) {
 
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 
+  const stores0 = devPerfNow();
   const storesSb = tryGetSupabaseForStores();
+  const storesClientMs = devPerfNow() - stores0;
 
+  const build0 = devPerfNow();
   const payload = bypassShortCache
     ? await buildOwnerHubBadgePayloadMerged(sbAny, storesSb, userId)
     : await getCachedOwnerHubBadge(userId, async () => buildOwnerHubBadgePayloadMerged(sbAny, storesSb, userId));
+  const badgeAggregateMs = devPerfNow() - build0;
+
+  logDevApiPerf("/api/me/store-owner-hub-badge", {
+    auth_session_ms: Math.round(authMs),
+    store_query_ms: Math.round(storesClientMs),
+    badge_query_ms: Math.round(badgeAggregateMs),
+    profile_query_ms: 0,
+    supabase_query_ms: Math.round(badgeAggregateMs),
+    payload_build_ms: Math.round(badgeAggregateMs),
+    total_route_ms: Math.round(devPerfNow() - t0),
+    cmFresh: cmFresh ? 1 : 0,
+    hubBadgeBypass: hubBadgeBypass ? 1 : 0,
+    bypass_short_cache: bypassShortCache ? 1 : 0,
+  });
 
   return NextResponse.json(payload);
 }

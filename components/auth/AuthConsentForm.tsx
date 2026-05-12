@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useState } from "react";
-import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
-import { fetchProfileEnsureDeduped } from "@/lib/profile/ensure-profile-client";
+import { invalidateMeProfileDedupedCache, fetchMeProfileDeduped } from "@/lib/profile/fetch-me-profile-deduped";
+import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
 import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import type { Profile } from "@/lib/types/profile";
+import type { ProfileRow } from "@/lib/profile/types";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 
 export function AuthConsentForm() {
@@ -42,37 +42,20 @@ export function AuthConsentForm() {
       }
       invalidateMeProfileDedupedCache();
       try {
-        const resEnsure = await fetchProfileEnsureDeduped();
-        const raw = (await resEnsure.json().catch(() => null)) as {
-          ok?: boolean;
-          profile?: Partial<Profile> & { id?: string };
-        } | null;
-        if (resEnsure.ok && raw?.ok && raw.profile?.id) {
-          const p = raw.profile;
+        const { status, json } = await fetchMeProfileDeduped();
+        const raw = json as { ok?: boolean; profile?: ProfileRow } | null;
+        if (status === 200 && raw?.ok && raw.profile?.id) {
+          const fromDb = profileRowToClientProfile(raw.profile);
           const prev = getCurrentUser();
-          const ensuredId = typeof p.id === "string" ? p.id : "";
-          if (!ensuredId) {
-            return;
-          }
-          const merged: Profile = {
-            ...(prev ?? {
-              id: ensuredId,
-              email: "",
-              nickname: "회원",
-              avatar_url: null,
-              temperature: 50,
-            }),
-            ...p,
-            id: ensuredId,
-            email: typeof p.email === "string" ? p.email : prev?.email ?? "",
-            nickname: typeof p.nickname === "string" ? p.nickname : prev?.nickname ?? "회원",
-            avatar_url: p.avatar_url ?? prev?.avatar_url ?? null,
-            temperature: typeof p.temperature === "number" ? p.temperature : prev?.temperature ?? 50,
-          };
-          setSupabaseProfileCache(merged);
+          setSupabaseProfileCache({
+            ...(prev ?? fromDb),
+            ...fromDb,
+            avatar_url: fromDb.avatar_url ?? prev?.avatar_url ?? null,
+            temperature: fromDb.temperature ?? prev?.temperature ?? 50,
+          });
         }
       } catch {
-        /* 캐시 갱신 실패는 다음 세션/ensure 에 위임 */
+        /* 캐시 갱신 실패는 다음 GET 에 위임 */
       }
       router.replace(next);
     } catch {

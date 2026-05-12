@@ -334,8 +334,13 @@ export function OwnerStoreProfileForm({
     (pathname?.startsWith("/my/settings") ?? false) ||
     pathname === "/my/logout" ||
     isProfileEditPath(pathname);
+  /** `/stores/owner/*` 세부는 메인 BottomNav 없음 — 액션 바는 항상 화면 하단에 붙인다 */
+  const onStoresOwnerAdminSubroute = pathname?.startsWith("/stores/owner/") === true;
   const dockAboveBottomNav =
-    !hideAppBottomNav && (pathname?.startsWith("/my") ?? false);
+    !hideAppBottomNav && (pathname?.startsWith("/my") ?? false) && !onStoresOwnerAdminSubroute;
+
+  const stickyActionBarSurfaceClass =
+    "border-t border-sam-border-soft bg-sam-surface/95 shadow-[0_-8px_32px_rgba(15,23,42,0.08)] backdrop-blur-md supports-[backdrop-filter]:bg-sam-surface/90";
 
   const [values, setValues] = useState<OwnerStoreProfileFormValues>(() => rowToFormValues(row));
   const [publicCommerceDetailOpen, setPublicCommerceDetailOpen] = useState(() =>
@@ -421,14 +426,6 @@ export function OwnerStoreProfileForm({
           setError("쉬는 시간: 시작·종료를 모두 선택해 주세요.");
           return;
         }
-      }
-      if (
-        typeof window !== "undefined" &&
-        !window.confirm(
-          "이 화면의 매장 설정(영업시간·휴무·배달 안내·갤러리·서비스 형태 등)만 저장합니다. 계속할까요?"
-        )
-      ) {
-        return;
       }
       setSubmitting(true);
       try {
@@ -526,7 +523,7 @@ export function OwnerStoreProfileForm({
           disabled={submitting}
           className="min-h-[48px] min-w-0 flex-1 rounded-ui-rect bg-signature px-3 py-3 sam-text-body font-medium text-white shadow-sm disabled:opacity-50"
         >
-          {submitting ? "저장 중…" : "저장"}
+          {submitting ? "저장 중…" : "확인"}
         </button>
       </div>
     </>
@@ -543,8 +540,8 @@ export function OwnerStoreProfileForm({
       }}
       className={`max-w-full min-w-0 ${OWNER_STORE_STACK_Y_CLASS} pb-[calc(6.75rem+env(safe-area-inset-bottom,0px))] sm:pb-[calc(7.25rem+env(safe-area-inset-bottom,0px))]`}
     >
-      <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-3 py-2.5 sam-text-helper leading-relaxed text-sam-muted">
-        로고·매장명·연락처·위치·상세 주소·업종·세부 주제는{" "}
+      <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-3 py-2 sam-text-helper text-sam-muted">
+        로고·매장명·연락처·주소 등은{" "}
         <Link
           href={`/stores/owner/basic-info?storeId=${encodeURIComponent(storeId)}`}
           className="font-medium text-signature underline"
@@ -556,9 +553,6 @@ export function OwnerStoreProfileForm({
 
       <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-3">
         <h3 className="sam-text-body font-semibold text-sam-fg">서비스 형태</h3>
-        <p className="mt-1 sam-text-helper text-sam-muted">
-          매장 상세 화면 상단의 배달·포장·픽업 안내 뱃지와 동일하게 반영됩니다.
-        </p>
         <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 sam-text-body text-sam-fg">
           <label className="flex cursor-pointer items-center gap-2">
             <input
@@ -583,21 +577,15 @@ export function OwnerStoreProfileForm({
         </div>
       </div>
 
-      <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app/80 px-3 py-3">
+      <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-3">
         <h3 className="sam-text-body font-semibold text-sam-fg">신규 주문 알림음 (배달)</h3>
-        <p className="mt-1 sam-text-helper leading-relaxed text-sam-muted">
-          모든 매장에 동일하게 적용됩니다. 소리 파일은 관리자{" "}
-          <span className="font-medium text-sam-fg">매장 신청 설정</span>(<code className="rounded bg-sam-surface px-1 sam-text-xxs">/admin/stores/application-settings</code>
-          )의「매장 알림음 (배달 신규 주문)」에서 설정합니다. 미설정 시 짧은 비프음이 재생됩니다.
+        <p className="mt-1 sam-text-helper text-sam-muted">
+          알림음은 관리자 <span className="font-medium text-sam-fg">매장 신청 설정</span>에서 지정합니다. 미설정 시 짧은 비프음이 재생됩니다.
         </p>
       </div>
 
       <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-3">
         <h3 className="sam-text-body font-semibold text-sam-fg">매장 창 영업시간 (현지 시각)</h3>
-        <p className="mt-1 sam-text-helper leading-relaxed text-sam-muted">
-          매장 목록·상세·가게정보에 &quot;매일 시작–종료 (타임존)&quot; 안내가 올라가고, 현지 시각이 그
-          구간 안이면 영업중·밖이면 준비중으로 바뀝니다.
-        </p>
         <div className="mt-3 space-y-3 rounded-ui-rect border border-sam-border-soft bg-sam-app/80 px-3 py-3">
           <div>
             <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">현지 타임존</label>
@@ -635,9 +623,6 @@ export function OwnerStoreProfileForm({
               </button>
             </div>
           </div>
-          <p className="sam-text-xxs leading-relaxed text-sam-muted">
-            종료가 시작보다 이르면(예: 22:00–06:00) 밤부터 다음 날 아침까지 한 번에 영업으로 봅니다.
-          </p>
           <div className="mt-4 border-t border-sam-border/90 pt-4">
             <label className="flex cursor-pointer items-start gap-2">
               <input
@@ -658,9 +643,6 @@ export function OwnerStoreProfileForm({
               />
               <span>
                 <span className="sam-text-body-secondary font-medium text-sam-fg">쉬는 시간 사용</span>
-                <span className="mt-0.5 block sam-text-xxs font-normal leading-relaxed text-sam-muted">
-                  켜면 매장 창에 Break time이 표시되고, 해당 시간대에는 메뉴를 담을 수 없습니다.
-                </span>
               </span>
             </label>
             {values.breakHoursEnabled ? (
@@ -701,9 +683,6 @@ export function OwnerStoreProfileForm({
           />
           <label htmlFor="temp-closed" className="sam-text-body-secondary leading-snug text-sam-fg">
             <span className="font-medium">임시 휴무 (매장 창에 항상 준비중)</span>
-            <span className="mt-0.5 block sam-text-helper font-normal text-sam-muted">
-              켜 두면 위 영업 시간 안이어도 고객 화면에는 준비중으로만 보입니다.
-            </span>
           </label>
         </div>
         <label className="mb-1 mt-3 block sam-text-body-secondary font-medium text-sam-fg">안내 메모 (선택)</label>
@@ -732,9 +711,6 @@ export function OwnerStoreProfileForm({
           />
           <span className="min-w-0">
             <span className="sam-text-body font-semibold text-sam-fg">공개 페이지 — 배달·결제·안내</span>
-            <span className="mt-0.5 block sam-text-helper font-normal leading-relaxed text-sam-muted">
-              최소주문·결제수단·배달비·프로모 문구 등 고객 매장 화면에 쓰입니다. 체크하면 입력란이 열립니다.
-            </span>
           </span>
         </label>
         {publicCommerceDetailOpen ? (
@@ -792,10 +768,6 @@ export function OwnerStoreProfileForm({
                   />
                 </div>
               </div>
-              <p className="mt-1.5 sam-text-xxs leading-snug text-sam-muted">
-                체크한 수단만 장바구니 주문 화면에 표시됩니다. 기타는 입력한 문구가 그대로 고객에게 보이고, 주문에도
-                저장됩니다.
-              </p>
             </div>
             <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
               <div>
@@ -850,12 +822,15 @@ export function OwnerStoreProfileForm({
               <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
                 간단 공지 (레거시 · 선택)
               </label>
-              <p className="mb-2 sam-text-xxs leading-relaxed text-sam-muted">
-                영업 시간 JSON의 짧은 줄 공지입니다. 상단·메뉴·리뷰 등 <strong>위치별 공지</strong>는{" "}
-                <Link href="/stores/owner/notices" className="font-semibold text-signature underline underline-offset-2">
+              <p className="mb-2 sam-text-xxs text-sam-muted">
+                위치별 공지는{" "}
+                <Link
+                  href={`/stores/owner/notices?storeId=${encodeURIComponent(storeId)}`}
+                  className="font-semibold text-signature underline underline-offset-2"
+                >
                   공지 관리
                 </Link>
-                에서 등록하세요. 여기 공지가 없고 공지 관리에도 없을 때만 아래 무료배달 기준이 amber 안내에 표시됩니다.
+                에서 등록합니다.
               </p>
               {values.publicNotices.length === 0 ? (
                 <p className="mb-2 sam-text-helper text-sam-meta">등록된 공지가 없습니다.</p>
@@ -946,9 +921,8 @@ export function OwnerStoreProfileForm({
 
       <div className="max-w-full min-w-0 rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-3">
         <h3 className="sam-text-body font-semibold text-sam-fg">갤러리 이미지 (전단지·소개 사진)</h3>
-        <p className="mt-1 break-words sam-text-helper leading-relaxed text-sam-muted">
-          매장 <strong>메인 상단에는 표시되지 않습니다</strong>. 고객은 「가게정보」→「전단지·소개」에서 봅니다.
-          사진은 파일 업로드로만 추가합니다(최대 {GALLERY_MAX}장). Storage에 올라간 뒤 저장 시 함께 반영됩니다.
+        <p className="mt-1 sam-text-helper text-sam-muted">
+          가게정보「전단지·소개」에 표시됩니다. 최대 {GALLERY_MAX}장, 파일 업로드만 가능합니다.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <label className="inline-flex min-h-[44px] min-w-0 cursor-pointer items-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg disabled:cursor-not-allowed disabled:opacity-50">
@@ -983,7 +957,6 @@ export function OwnerStoreProfileForm({
                   key={`${i}-${u.slice(0, 48)}`}
                   className="relative aspect-square min-w-0 overflow-hidden rounded-ui-rect border border-sam-border bg-sam-app"
                 >
-                  { }
                   <img
                     src={u}
                     alt=""
@@ -1012,14 +985,14 @@ export function OwnerStoreProfileForm({
 
     {dockAboveBottomNav ? (
       <div
-        className={`pointer-events-auto fixed inset-x-0 z-30 ${BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS} ${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} box-border w-full min-w-0 max-w-full bg-sam-surface`}
+        className={`pointer-events-auto fixed inset-x-0 z-[80] ${BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS} ${stickyActionBarSurfaceClass} pt-3 ${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} box-border w-full min-w-0 max-w-full`}
       >
         {actionBarInner}
       </div>
     ) : (
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]">
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-[80]">
         <div
-          className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} pointer-events-auto box-border w-full min-w-0 max-w-full`}
+          className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} pointer-events-auto box-border w-full min-w-0 max-w-full ${stickyActionBarSurfaceClass} px-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pt-3`}
         >
           {actionBarInner}
         </div>

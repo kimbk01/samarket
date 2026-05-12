@@ -4,6 +4,7 @@ import { isAdminRequireAuthEnabled } from "@/lib/auth/admin-policy";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
+import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
 
 /**
  * 앱 UI(HTML·RSC) — 미로그인 시 /login 으로만 진입 가능.
@@ -84,6 +85,19 @@ function respondServerMisconfigured(message: string): NextResponse {
 
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+  const tProxy0 = devPerfNow();
+  let proxyAuthMs = 0;
+  const shouldLogProxyPerf =
+    process.env.NODE_ENV === "development" &&
+    (pathname === "/mypage" ||
+      pathname.startsWith("/mypage/") ||
+      pathname === "/stores/owner" ||
+      pathname.startsWith("/stores/owner/") ||
+      pathname.startsWith("/stores/browse/") ||
+      pathname === "/community-messenger" ||
+      pathname.startsWith("/community-messenger/") ||
+      pathname === "/admin" ||
+      pathname.startsWith("/admin/"));
 
   if (pathname === "/test-signup" || pathname.startsWith("/test-signup/")) {
     const u = request.nextUrl.clone();
@@ -167,21 +181,63 @@ export async function proxy(request: NextRequest) {
    * - 예외 → 일시 실패 → 통과
    */
   try {
+    const gu0 = devPerfNow();
     const {
       data: { user },
       error,
     } = await supabase.auth.getUser();
+    proxyAuthMs = devPerfNow() - gu0;
 
     if (user?.id) {
+      if (shouldLogProxyPerf) {
+        logDevApiPerf(
+          "proxy.ts",
+          {
+            auth_session_ms: Math.round(proxyAuthMs),
+            total_route_ms: Math.round(devPerfNow() - tProxy0),
+          },
+          { pathname }
+        );
+      }
       return preventAuthPageCache(response);
     }
 
     if (!error) {
+      if (shouldLogProxyPerf) {
+        logDevApiPerf(
+          "proxy.ts",
+          {
+            auth_session_ms: Math.round(proxyAuthMs),
+            total_route_ms: Math.round(devPerfNow() - tProxy0),
+          },
+          { pathname, redirect_login: 1 }
+        );
+      }
       return redirectToLogin(request);
     }
 
+    if (shouldLogProxyPerf) {
+      logDevApiPerf(
+        "proxy.ts",
+        {
+          auth_session_ms: Math.round(proxyAuthMs),
+          total_route_ms: Math.round(devPerfNow() - tProxy0),
+        },
+        { pathname, fail_open: 1 }
+      );
+    }
     return preventAuthPageCache(response);
   } catch {
+    if (shouldLogProxyPerf) {
+      logDevApiPerf(
+        "proxy.ts",
+        {
+          auth_session_ms: Math.round(proxyAuthMs),
+          total_route_ms: Math.round(devPerfNow() - tProxy0),
+        },
+        { pathname, fail_open: 1, exception: 1 }
+      );
+    }
     return preventAuthPageCache(response);
   }
 }

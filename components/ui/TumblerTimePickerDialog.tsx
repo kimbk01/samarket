@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { BodyPortal } from "@/components/layout/BodyPortal";
 import { hhmm24ToWheelParts, wheelPartsToHHmm24 } from "@/lib/utils/tumbler-time";
 
 const ROW_PX = 40;
@@ -152,19 +153,20 @@ export function TumblerTimePickerDialog({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/45 px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="tumbler-time-title"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
+    <BodyPortal>
       <div
-        className="max-h-[min(90dvh,520px)] w-full max-w-[340px] overflow-hidden rounded-ui-rect bg-sam-surface shadow-xl"
-        onClick={(e) => e.stopPropagation()}
+        className="fixed inset-0 z-[200] flex items-center justify-center bg-transparent px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="tumbler-time-title"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
       >
+        <div
+          className="max-h-[min(90dvh,520px)] w-full max-w-[340px] overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-2xl ring-1 ring-black/5"
+          onClick={(e) => e.stopPropagation()}
+        >
         <div className="border-b border-sky-200/80 px-4 py-3">
           <h2 id="tumbler-time-title" className="sam-text-body font-medium text-sky-500">
             {title}
@@ -205,6 +207,7 @@ export function TumblerTimePickerDialog({
           </button>
         </div>
       </div>
-    </div>
+      </div>
+    </BodyPortal>
   );
 }

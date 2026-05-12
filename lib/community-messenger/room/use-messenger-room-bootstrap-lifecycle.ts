@@ -4,6 +4,7 @@ import { useEffect, type MutableRefObject } from "react";
 import { peekRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { consumeCommunityMessengerRoomNavTap } from "@/lib/community-messenger/room-nav-timing";
+import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 
 type Args = {
   roomId: string;
@@ -47,6 +48,9 @@ export function useMessengerRoomBootstrapLifecycle({
         return;
       }
       if (initialServerSnapshot.bootstrapEnrichmentPending === true) {
+        if (isDevSafeMode()) {
+          return;
+        }
         const delayMs = 100 + Math.floor(Math.random() * 101);
         const t =
           typeof window !== "undefined"
@@ -59,7 +63,9 @@ export function useMessengerRoomBootstrapLifecycle({
         };
       }
       if (initialServerSnapshot.membersDeferred === true) {
-        void refresh(true);
+        if (!isDevSafeMode()) {
+          void refresh(true);
+        }
       }
       return;
     }

@@ -1,15 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { buildRequestSessionMeta } from "@/lib/auth/request-device-info";
+import { syncActiveSessionForUser } from "@/lib/auth/server-guards";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import type { ProfileUpdatePayload } from "@/lib/profile/types";
-import { ensureProfileForUserId } from "@/lib/profile/ensure-profile-for-user-id";
-import { fetchProfileRowSafe } from "@/lib/profile/fetch-profile-row-safe";
+import { runMeProfileReadPipeline } from "@/lib/profile/me-profile-read-pipeline";
+import { peekMeProfileGetRouteCache, setMeProfileGetRouteCache } from "@/lib/profile/me-profile-get-route-cache";
+import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
 import { normalizeAppLanguage } from "@/lib/i18n/config";
 import { isValidPhilippinesMobilePhone, normalizePhilippinesPhoneNumber } from "@/lib/phone/philippines-phone";
-import { ensureAuthProfileRow } from "@/lib/auth/member-access";
-
-export const runtime = "nodejs";
+import { enforceProfileEnsureQuota } from "@/lib/security/rate-limit-presets";
+import { clearMeProfileGetRouteCache } from "@/lib/profile/me-profile-get-route-cache";
 export const dynamic = "force-dynamic";
 
 /** 회원 프로필 위치 — `user_addresses`·매장 주소를 이 핸들러에서 수정하지 않음. @see `lib/addresses/address-source-architecture.ts` */
@@ -187,65 +189,122 @@ function parsePatchBody(body: unknown): { ok: true; patch: Record<string, unknow
   return { ok: true, patch };
 }
 
-/** 테스트 로그인(쿠키)은 브라우저 Supabase 세션이 없어 RLS update/select 가 동작하지 않음 — 서비스 롤 또는 동일 JWT 세션으로만 처리 */
-export async function GET() {
+/**
+ * 내 프로필 조회 — `runMeProfileReadPipeline` 단일 경로(SNS 식별·행 보장) + 활성 세션 동기.
+ * 클라이언트 세션 하이드레이션은 `GET` 만 사용한다(`POST /api/auth/profile/ensure` 는 하위 호환·특수 옵션용).
+ */
+export async function GET(request: NextRequest) {
+  const tRoute0 = devPerfNow();
+  const auth0 = devPerfNow();
   const auth = await requireAuthenticatedUserId();
+  const requireAuthMs = devPerfNow() - auth0;
   if (!auth.ok) return auth.response;
 
-  const serviceSb = tryCreateSupabaseServiceClient();
-  if (serviceSb) {
-    let profile = await fetchProfileRowSafe(serviceSb, auth.userId);
-    if (!profile) {
-      profile = await ensureProfileForUserId(serviceSb, auth.userId);
+  const quota0 = devPerfNow();
+  const ensureRl = await enforceProfileEnsureQuota(auth.userId);
+  const quotaMs = devPerfNow() - quota0;
+  if (!ensureRl.ok) return ensureRl.response;
+
+  const cached = peekMeProfileGetRouteCache(auth.userId);
+  if (cached !== undefined) {
+    const res = NextResponse.json({ ok: true, profile: cached });
+    const sync0 = devPerfNow();
+    if (cached) {
+      try {
+        await syncActiveSessionForUser(auth.userId, res, {
+          rotate: false,
+          sessionMeta: buildRequestSessionMeta(request),
+          loginIdentifier: cached.auth_login_email ?? cached.email ?? null,
+          request,
+        });
+      } catch {
+        /* 세션 쿠키 동기 실패는 본문 응답에 영향 없음 — 기존 POST ensure 와 동일 */
+      }
     }
-    return NextResponse.json({ ok: true, profile });
+    const syncSessionMs = devPerfNow() - sync0;
+    logDevApiPerf("/api/me/profile", {
+      auth_session_ms: Math.round(requireAuthMs),
+      profile_query_ms: 0,
+      store_query_ms: 0,
+      badge_query_ms: 0,
+      supabase_query_ms: 0,
+      payload_build_ms: 0,
+      quota_ms: Math.round(quotaMs),
+      sync_session_ms: Math.round(syncSessionMs),
+      total_route_ms: Math.round(devPerfNow() - tRoute0),
+      route_client_ms: 0,
+      get_user_ms: 0,
+      profile_pipeline_ms: 0,
+      dev_profile_cache_hit: 1,
+    });
+    return res;
   }
 
+  const client0 = devPerfNow();
   const routeSb = await createSupabaseRouteHandlerClient();
+  const routeClientMs = devPerfNow() - client0;
   if (!routeSb) {
     return serviceUnavailable("Supabase 가 설정되지 않았습니다.");
   }
+
+  const getUser0 = devPerfNow();
   const {
     data: { user },
   } = await routeSb.auth.getUser();
-  if (!user?.id || user.id !== auth.userId) {
-    return serviceUnavailable(
-      "아이디 로그인(테스트)으로 저장·조회하려면 서버에 SUPABASE_SERVICE_ROLE_KEY 가 필요합니다."
-    );
-  }
-  let profile = await fetchProfileRowSafe(routeSb, auth.userId);
-  if (!profile) {
-    /**
-     * 1순위: service_role 로 강력하게 보정.
-     * 2순위(production 에 service key 없을 때): 본인 쿠키 클라이언트로 INSERT-only.
-     *   - `guard_profiles_self_update` 트리거는 UPDATE 에만 걸리므로 신규 INSERT 는 허용
-     *   - RLS `profiles_insert_own_or_admin` 의 `id = auth.uid()` 도 통과
-     *   - `ensureAuthProfileRow` 는 첫 시도 실패 시 id-only 수준의 minimal fallback 으로 강하한다
-     */
-    const svc = tryCreateSupabaseServiceClient();
-    if (svc) {
-      try {
-        await ensureAuthProfileRow(svc, user);
-      } catch {
-        await ensureProfileForUserId(svc, auth.userId);
-      }
-      profile = await fetchProfileRowSafe(routeSb, auth.userId);
-      if (!profile) profile = await fetchProfileRowSafe(svc, auth.userId);
-    } else {
-      try {
-        await ensureAuthProfileRow(routeSb, user);
-      } catch {
-        // INSERT-only 도 막혔다면 다음 GET 에서 다시 시도하도록 한 다음, 우선 null 반환
-      }
-      profile = await fetchProfileRowSafe(routeSb, auth.userId);
+  const getUserMs = devPerfNow() - getUser0;
+  const supabaseUser = user?.id === auth.userId ? user : null;
+
+  const serviceSb = tryCreateSupabaseServiceClient();
+  const pipe0 = devPerfNow();
+  const profile = await runMeProfileReadPipeline({
+    authUserId: auth.userId,
+    supabaseUser,
+    routeSb,
+    serviceSb,
+  });
+  const profilePipelineMs = devPerfNow() - pipe0;
+
+  setMeProfileGetRouteCache(auth.userId, profile);
+
+  const res = NextResponse.json({ ok: true, profile });
+  const sync0 = devPerfNow();
+  if (profile) {
+    try {
+      await syncActiveSessionForUser(auth.userId, res, {
+        rotate: false,
+        sessionMeta: buildRequestSessionMeta(request),
+        loginIdentifier: profile.auth_login_email ?? profile.email ?? null,
+        request,
+      });
+    } catch {
+      /* 세션 쿠키 동기 실패는 본문 응답에 영향 없음 — 기존 POST ensure 와 동일 */
     }
   }
-  return NextResponse.json({ ok: true, profile });
+  const syncSessionMs = devPerfNow() - sync0;
+
+  logDevApiPerf("/api/me/profile", {
+    auth_session_ms: Math.round(requireAuthMs),
+    route_client_ms: Math.round(routeClientMs),
+    get_user_ms: Math.round(getUserMs),
+    profile_pipeline_ms: Math.round(profilePipelineMs),
+    quota_ms: Math.round(quotaMs),
+    sync_session_ms: Math.round(syncSessionMs),
+    supabase_query_ms: Math.round(profilePipelineMs),
+    profile_query_ms: Math.round(profilePipelineMs),
+    store_query_ms: 0,
+    badge_query_ms: 0,
+    payload_build_ms: Math.round(profilePipelineMs),
+    total_route_ms: Math.round(devPerfNow() - tRoute0),
+    dev_profile_cache_hit: 0,
+  });
+  return res;
 }
 
 export async function PATCH(req: NextRequest) {
   const auth = await requireAuthenticatedUserId();
   if (!auth.ok) return auth.response;
+
+  clearMeProfileGetRouteCache(auth.userId);
 
   let raw: unknown;
   try {

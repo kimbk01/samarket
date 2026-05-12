@@ -3,17 +3,21 @@ import { buildRequestSessionMeta } from "@/lib/auth/request-device-info";
 import { syncActiveSessionForUser } from "@/lib/auth/server-guards";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import { ensureAuthProfileRow } from "@/lib/auth/member-access";
-import { ensureUserProfile } from "@/lib/auth/ensure-user-profile";
-import { ensureProfileForUserId } from "@/lib/profile/ensure-profile-for-user-id";
-import type { ProfileRow } from "@/lib/profile/types";
-import { withDefaultAvatar } from "@/lib/profile/default-avatar";
+import {
+  profileRowToEnsureApiPayload,
+  runMeProfileReadPipeline,
+} from "@/lib/profile/me-profile-read-pipeline";
 import { jsonError, jsonOk, safeErrorMessage } from "@/lib/http/api-route";
 import { enforceProfileEnsureQuota } from "@/lib/security/rate-limit-presets";
+import { clearMeProfileGetRouteCache } from "@/lib/profile/me-profile-get-route-cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * 하위 호환·특수 옵션(`rotate_session=1`)용.
+ * 일반 세션 하이드레이션은 **`GET /api/me/profile` 단일 경로**만 쓴다(`runMeProfileReadPipeline`).
+ */
 export async function POST(request: NextRequest) {
   const routeSb = await createSupabaseRouteHandlerClient();
   if (!routeSb) {
@@ -30,95 +34,33 @@ export async function POST(request: NextRequest) {
   const ensureRl = await enforceProfileEnsureQuota(user.id);
   if (!ensureRl.ok) return ensureRl.response;
 
-  /**
-   * service_role 이 있으면 트리거·제약을 안정적으로 통과하고,
-   * 없으면 본인 쿠키 클라이언트의 INSERT-only fallback 으로 최소 프로필 행을 보장한다.
-   */
+  clearMeProfileGetRouteCache(user.id);
+
   const serviceSb = tryCreateSupabaseServiceClient();
-  const writeSb = serviceSb ?? routeSb;
 
   try {
-    /**
-     * 신규 단일 진입점 — id 우선 → provider+provider_user_id → email 폴백.
-     * 충돌 후보가 발견돼도 자동 병합하지 않고 (운영자 검토 대상) 흐름은 그대로 진행.
-     */
-    try {
-      const outcome = await ensureUserProfile(writeSb, user);
-      if (outcome.duplicateWarning && process.env.NODE_ENV !== "production") {
-        console.warn("[api/auth/profile/ensure] duplicate profile candidate detected", {
-          userId: user.id,
-          candidates: outcome.duplicateCandidates,
-        });
-      }
-    } catch {
-      /* ensureUserProfile 실패는 아래 ensureAuthProfileRow 폴백이 보강한다 */
+    const row = await runMeProfileReadPipeline({
+      authUserId: user.id,
+      supabaseUser: user,
+      routeSb,
+      serviceSb,
+    });
+    if (!row) {
+      return jsonError("프로필 동기화에 실패했습니다.", 500, { code: "profile_ensure_failed" });
     }
-    const state = await ensureAuthProfileRow(writeSb, user).catch(async () => {
-      const fallback = serviceSb ? await ensureProfileForUserId(serviceSb, user.id) : null;
-      if (!fallback) throw new Error("profile_ensure_failed");
-      const row = fallback as ProfileRow;
-      return {
-        userId: row.id,
-        email: row.email ?? null,
-        username: row.username ?? null,
-        nickname: row.nickname ?? "user",
-        avatarUrl: withDefaultAvatar(row.avatar_url ?? null),
-        role: row.role ?? "user",
-        memberType: row.member_type ?? "normal",
-        status: row.status ?? "sns_pending",
-        phone: row.phone ?? null,
-        phoneCountryCode: row.phone_country_code ?? "+63",
-        phoneNumber: row.phone_number ?? null,
-        phoneVerified: row.phone_verified === true,
-        phoneVerifiedAt: row.phone_verified_at ?? null,
-        phoneVerificationStatus: row.phone_verification_status ?? "unverified",
-        authLoginEmail: row.auth_login_email ?? row.email ?? null,
-        authProvider: row.auth_provider ?? null,
-        provider: row.provider ?? null,
-        termsAcceptedAt: row.terms_accepted_at ?? null,
-        termsVersion: row.terms_version ?? null,
-        privacyAcceptedAt: row.privacy_accepted_at ?? null,
-        privacyVersion: row.privacy_version ?? null,
-      };
-    });
-    const response = jsonOk({
-      profile: {
-        id: state.userId,
-        email: state.email ?? "",
-        display_name: state.nickname,
-        nickname: state.nickname,
-        avatar_url: withDefaultAvatar(state.avatarUrl),
-        username: state.username,
-        role: state.role,
-        status: state.status,
-        member_type: state.memberType,
-        phone: state.phone,
-        phone_country_code: state.phoneCountryCode ?? "+63",
-        phone_number: state.phoneNumber ?? null,
-        phone_verified: state.phoneVerified,
-        phone_verified_at: state.phoneVerifiedAt ?? null,
-        phone_verification_status: state.phoneVerificationStatus,
-        provider: state.provider ?? state.authProvider ?? null,
-        auth_provider: state.authProvider,
-        temperature: 50,
-        terms_accepted_at: state.termsAcceptedAt ?? null,
-        terms_version: state.termsVersion ?? null,
-        privacy_accepted_at: state.privacyAcceptedAt ?? null,
-        privacy_version: state.privacyVersion ?? null,
-      },
-    });
+
+    const response = jsonOk({ profile: profileRowToEnsureApiPayload(row) });
     const rotateSession = request.nextUrl.searchParams.get("rotate_session") === "1";
     const sessionMeta = buildRequestSessionMeta(request);
     try {
       await syncActiveSessionForUser(user.id, response, {
         rotate: rotateSession,
         sessionMeta,
-        loginIdentifier: state.authLoginEmail ?? state.email ?? null,
+        loginIdentifier: row.auth_login_email ?? row.email ?? null,
         request,
       });
     } catch {
-      // Profile ensure is the primary responsibility here.
-      // Session registry/cookie sync failures are handled by follow-up session checks and should not return 500.
+      /* 기존 ensure 와 동일 — 세션 레지스트리 실패로 500 을 내지 않음 */
     }
     return response;
   } catch (error) {

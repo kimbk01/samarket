@@ -3,6 +3,7 @@
 import type { MessengerWebRtcDiagnosticsSample } from "./webrtc-stats";
 import type { MessengerMonitoringEvent } from "./types";
 import { logMessengerAlertDev, logMessengerMonitoringDev } from "./logger";
+import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import { buildThresholdAlert, shouldAlertLatency, shouldAlertPacketLoss } from "./thresholds";
 
 const FLUSH_BATCH = 24;
@@ -17,6 +18,7 @@ function roomSuffix(roomId: string): string {
 }
 
 export function messengerMonitorRecord(partial: Omit<MessengerMonitoringEvent, "ts" | "source"> & { ts?: number }): void {
+  if (isDevSafeMode()) return;
   const event: MessengerMonitoringEvent = {
     ...partial,
     ts: partial.ts ?? Date.now(),
@@ -59,6 +61,10 @@ function scheduleFlush() {
 }
 
 export async function flushMessengerMonitorQueue(): Promise<void> {
+  if (isDevSafeMode()) {
+    queue = [];
+    return;
+  }
   if (queue.length === 0 || typeof window === "undefined") return;
   const batch = queue;
   queue = [];
