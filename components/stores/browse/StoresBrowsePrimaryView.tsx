@@ -47,6 +47,9 @@ import {
 import { fetchStoresBrowseDeduped, fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 import { storeSecondaryBrowseIconPath } from "@/lib/stores/store-secondary-browse-icons";
+import { resolveBrowseListUserOriginCoords } from "@/lib/stores/browse-list-user-origin-coords";
+import { ME_PROFILE_CACHE_INVALIDATED_EVENT } from "@/lib/profile/fetch-me-profile-deduped";
+import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 
 const RESTAURANT_SUB_ICON: Record<string, string> = {
   korean: "/icons/food/icon_0_1.png",
@@ -174,6 +177,31 @@ export function StoresBrowsePrimaryView({
   const [feedSource, setFeedSource] = useState<BrowseFeedMetaSource>(null);
   const [remoteLoading, setRemoteLoading] = useState(true);
   const [listSort, setListSort] = useState<StoreBrowseSortId>("default");
+  /** browse `user_lat`/`user_lng` — Routes matrix(조리+배달·경로 거리)용 */
+  const [browseUserGeo, setBrowseUserGeo] = useState<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let cancelled = false;
+    let seq = 0;
+    const run = () => {
+      const my = ++seq;
+      void (async () => {
+        const c = await resolveBrowseListUserOriginCoords();
+        if (cancelled || my !== seq) return;
+        setBrowseUserGeo(c);
+      })();
+    };
+    run();
+    const onRefresh = () => run();
+    window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onRefresh);
+    window.addEventListener(ME_PROFILE_CACHE_INVALIDATED_EVENT, onRefresh);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onRefresh);
+      window.removeEventListener(ME_PROFILE_CACHE_INVALIDATED_EVENT, onRefresh);
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -344,6 +372,14 @@ export function StoresBrowsePrimaryView({
     if (r) q.set("region", r);
     if (cityLabel) q.set("city", cityLabel);
     if (d) q.set("district", d);
+    if (
+      browseUserGeo &&
+      Number.isFinite(browseUserGeo.lat) &&
+      Number.isFinite(browseUserGeo.lng)
+    ) {
+      q.set("user_lat", String(browseUserGeo.lat));
+      q.set("user_lng", String(browseUserGeo.lng));
+    }
     return q.toString();
   }, [
     primarySlug,
@@ -351,6 +387,8 @@ export function StoresBrowsePrimaryView({
     primaryRegion?.regionId,
     primaryRegion?.cityId,
     primaryRegion?.barangay,
+    browseUserGeo?.lat,
+    browseUserGeo?.lng,
   ]);
 
   const browseListContextKey = useMemo(
@@ -361,8 +399,9 @@ export function StoresBrowsePrimaryView({
         primaryRegion?.regionId ?? "",
         primaryRegion?.cityId ?? "",
         primaryRegion?.barangay ?? "",
+        browseUserGeo ? `${browseUserGeo.lat.toFixed(4)},${browseUserGeo.lng.toFixed(4)}` : "",
       ].join("|"),
-    [primarySlug, activeSub, primaryRegion?.regionId, primaryRegion?.cityId, primaryRegion?.barangay]
+    [primarySlug, activeSub, primaryRegion?.regionId, primaryRegion?.cityId, primaryRegion?.barangay, browseUserGeo]
   );
   const prevBrowseListContextKeyRef = useRef<string | null>(null);
   const browseHadListForContextRef = useRef(false);
@@ -434,8 +473,8 @@ export function StoresBrowsePrimaryView({
 
   useRefetchOnPageShowRestore(() => void loadRemote({ silent: true }));
 
-  /** 위치는 사용자가「현재 위치」등으로 명시 요청할 때만 채움 — 마운트 시 자동 GPS 없음 */
-  const hasGeo = false;
+  /** browse 목록: `user_lat`/`user_lng` 쿼리(브라우저 위치 허용 시)로 거리 정렬·matrix ETA 가능 */
+  const hasGeo = browseUserGeo != null;
   const listLoaded = remoteRows !== undefined;
   const useRemoteList = listLoaded && remoteRows.length > 0;
   const sortedRemoteRows = useMemo(() => {

@@ -242,8 +242,12 @@ export async function fetchTwoWheelerRideMinutesStoresToUser(
   return metrics.map((m) => m.rideMinutes);
 }
 
-type RideCacheEntry = { expiresAt: number; minutes: number | null };
-const rideMinutesCache = new Map<string, RideCacheEntry>();
+type LegCacheEntry = {
+  expiresAt: number;
+  rideMinutes: number | null;
+  routeDistanceMeters: number | null;
+};
+const routeLegCache = new Map<string, LegCacheEntry>();
 const RIDE_CACHE_TTL_MS = 45_000;
 
 function rideCacheKey(origin: LatLng, dest: LatLng): string {
@@ -255,13 +259,13 @@ function rideCacheKey(origin: LatLng, dest: LatLng): string {
 }
 
 /**
- * 매장 id별 라이딩 분. 캐시(TTL) + 배치 요청.
+ * 매장 id별 matrix 구간(분 + 경로 m). 캐시(TTL) + 배치 요청.
  */
-export async function fetchRideMinutesByStoreId(args: {
+export async function fetchRouteLegMetricsByStoreId(args: {
   user: LatLng;
   stores: { id: string; lat: number | null; lng: number | null }[];
-}): Promise<Map<string, number | null>> {
-  const result = new Map<string, number | null>();
+}): Promise<Map<string, RouteLegMetrics>> {
+  const result = new Map<string, RouteLegMetrics>();
   const pending: { id: string; lat: number; lng: number }[] = [];
   const now = Date.now();
 
@@ -269,14 +273,14 @@ export async function fetchRideMinutesByStoreId(args: {
     const lat = s.lat;
     const lng = s.lng;
     if (lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng)) {
-      result.set(s.id, null);
+      result.set(s.id, { rideMinutes: null, routeDistanceMeters: null });
       continue;
     }
     const store = { lat, lng };
     const ck = rideCacheKey(store, args.user);
-    const hit = rideMinutesCache.get(ck);
+    const hit = routeLegCache.get(ck);
     if (hit && hit.expiresAt > now) {
-      result.set(s.id, hit.minutes);
+      result.set(s.id, { rideMinutes: hit.rideMinutes, routeDistanceMeters: hit.routeDistanceMeters });
       continue;
     }
     pending.push({ id: s.id, lat, lng });
@@ -285,17 +289,34 @@ export async function fetchRideMinutesByStoreId(args: {
   if (pending.length === 0) return result;
 
   const storeCoords = pending.map((p) => ({ lat: p.lat, lng: p.lng }));
-  const minutesArr = (await fetchTwoWheelerRouteMetricsStoresToUser(storeCoords, args.user)).map(
-    (m) => m.rideMinutes
-  );
+  const metrics = await fetchTwoWheelerRouteMetricsStoresToUser(storeCoords, args.user);
 
   for (let i = 0; i < pending.length; i++) {
     const p = pending[i];
-    const m = minutesArr[i] ?? null;
+    const m = metrics[i] ?? { rideMinutes: null, routeDistanceMeters: null };
     result.set(p.id, m);
     const ck = rideCacheKey({ lat: p.lat, lng: p.lng }, args.user);
-    rideMinutesCache.set(ck, { expiresAt: now + RIDE_CACHE_TTL_MS, minutes: m });
+    routeLegCache.set(ck, {
+      expiresAt: now + RIDE_CACHE_TTL_MS,
+      rideMinutes: m.rideMinutes,
+      routeDistanceMeters: m.routeDistanceMeters,
+    });
   }
 
   return result;
+}
+
+/**
+ * 매장 id별 라이딩 분만 — `fetchRouteLegMetricsByStoreId` 와 동일 캐시·요청.
+ */
+export async function fetchRideMinutesByStoreId(args: {
+  user: LatLng;
+  stores: { id: string; lat: number | null; lng: number | null }[];
+}): Promise<Map<string, number | null>> {
+  const full = await fetchRouteLegMetricsByStoreId(args);
+  const out = new Map<string, number | null>();
+  for (const [id, leg] of full) {
+    out.set(id, leg.rideMinutes);
+  }
+  return out;
 }

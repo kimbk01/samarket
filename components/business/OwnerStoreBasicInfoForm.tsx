@@ -41,6 +41,10 @@ import { APP_MAIN_COLUMN_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-con
 import { STORE_LOCATION_SECTION_HINT_STORE_PUBLIC } from "@/lib/stores/store-address-form-ui";
 import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
 import {
+  parseFiniteLatitude,
+  parseFiniteLongitude,
+} from "@/lib/geo/parse-finite-geographic-coord";
+import {
   formatStoreAddressDetailOnly,
   formatStoreAddressStreetDisplay,
 } from "@/lib/stores/store-location-label";
@@ -239,6 +243,9 @@ export function OwnerStoreBasicInfoForm({
   const [submitting, setSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** 매장 `lat`/`lng` 직접 보정 — delivery-eta·Routes 용 */
+  const [manualMapLat, setManualMapLat] = useState("");
+  const [manualMapLng, setManualMapLng] = useState("");
   const profileFileInputRef = useRef<HTMLInputElement>(null);
   const [addressDefault, setAddressDefault] = useState<UserAddressDTO | null>(null);
   const [addressReady, setAddressReady] = useState(false);
@@ -246,6 +253,11 @@ export function OwnerStoreBasicInfoForm({
 
   const useDbTaxonomy = Boolean(
     taxonomy && taxonomy.categories.length > 0 && taxonomy.topics.length > 0
+  );
+
+  const storeMapCoordsOk = useMemo(
+    () => parseFiniteLatitude(row.lat) != null && parseFiniteLongitude(row.lng) != null,
+    [row.lat, row.lng]
   );
 
   const topicsForCategory = useMemo(() => {
@@ -312,6 +324,13 @@ export function OwnerStoreBasicInfoForm({
       primaryIndustryNames.includes(v.category) ? v : { ...v, category: primaryIndustryNames[0]! }
     );
   }, [primaryIndustryNames, taxonomy, identityEditable]);
+
+  useEffect(() => {
+    const la = parseFiniteLatitude(row.lat);
+    const ln = parseFiniteLongitude(row.lng);
+    setManualMapLat(la != null ? String(la) : "");
+    setManualMapLng(ln != null ? String(ln) : "");
+  }, [row.id, row.lat, row.lng]);
 
   useEffect(() => {
     let cancelled = false;
@@ -532,6 +551,24 @@ export function OwnerStoreBasicInfoForm({
         website_url: values.websiteUrl.trim() || null,
         profile_image_url: values.profileImageUrl.trim() || null,
       };
+      const ml = manualMapLat.trim();
+      const mn = manualMapLng.trim();
+      if (ml || mn) {
+        if (!ml || !mn) {
+          setError("지도 좌표는 위도·경도를 함께 입력하거나 둘 다 비워 두세요.");
+          setSubmitting(false);
+          return false;
+        }
+        const la = parseFiniteLatitude(ml);
+        const ln = parseFiniteLongitude(mn);
+        if (la == null || ln == null) {
+          setError("위도(-90~90)·경도(-180~180) 숫자 형식을 확인해 주세요.");
+          setSubmitting(false);
+          return false;
+        }
+        basicInfoPatch.lat = la;
+        basicInfoPatch.lng = ln;
+      }
       if (identityEditable) {
         basicInfoPatch.store_name = values.shopName.trim();
         basicInfoPatch.business_type = useDbTaxonomy
@@ -776,6 +813,42 @@ export function OwnerStoreBasicInfoForm({
 
         <OwnerStoreAdminDashSection title="매장 위치">
           <div className="space-y-4">
+            {!storeMapCoordsOk ? (
+              <div className="rounded-ui-rect border border-amber-200 bg-amber-50/90 px-3 py-2.5 sam-text-helper text-amber-950 dark:border-amber-800/60 dark:bg-amber-950/30 dark:text-amber-100">
+                <p className="font-semibold">좌표 미설정</p>
+                <p className="mt-1 leading-relaxed">
+                  배달 예상 시간·경로 거리는 매장의 지도 좌표(<code className="rounded bg-amber-100/80 px-1 dark:bg-amber-900/50">stores.lat</code> /{" "}
+                  <code className="rounded bg-amber-100/80 px-1 dark:bg-amber-900/50">lng</code>)가 있어야 계산됩니다. WGS84 위도·경도를 입력한 뒤
+                  저장하세요.
+                </p>
+                <div className={`mt-3 ${OWNER_STORE_FORM_GRID_2_CLASS}`}>
+                  <div className="min-w-0">
+                    <label className="mb-1 block font-medium text-amber-900 dark:text-amber-50">위도 (lat)</label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      autoComplete="off"
+                      value={manualMapLat}
+                      onChange={(e) => setManualMapLat(e.target.value)}
+                      className={OWNER_STORE_CONTROL_CLASS}
+                      placeholder="예: 14.5995"
+                    />
+                  </div>
+                  <div className="min-w-0">
+                    <label className="mb-1 block font-medium text-amber-900 dark:text-amber-50">경도 (lng)</label>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      autoComplete="off"
+                      value={manualMapLng}
+                      onChange={(e) => setManualMapLng(e.target.value)}
+                      className={OWNER_STORE_CONTROL_CLASS}
+                      placeholder="예: 120.9842"
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : null}
             <div className="overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-app/30">
               <div className="border-b border-sam-border-soft bg-sam-app/70 px-3 py-2">
                 <p className="sam-text-body-secondary font-bold text-sam-fg">주소록</p>

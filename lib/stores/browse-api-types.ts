@@ -23,9 +23,12 @@ export type BrowseStoreListItem = {
   estPrepLabel: string;
   /** 조리 분(파서 기준). 목록 ETA 합산에 사용 */
   prepMinutes: number | null;
-  /** Google 라우트(오토바이·폴백) 구간 분 — `user_lat`/`user_lng` 없거나 실패 시 null */
+  /**
+   * Google 라우트(오토바이·폴백) 구간 분 — ETA `배달 약 …분` 용.
+   * 목록 **거리 표시**는 `distanceKm`(직선)만 사용한다.
+   */
   rideMinutes: number | null;
-  /** 카드 시간 줄 — `조리+라이딩` 또는 조리만 */
+  /** 카드 시간 줄 — browse 에서는 `buildBrowseStoreListEtaLabel` 결과 */
   etaLabel: string;
   deliveryFeeLabel: string | null;
   minOrderLabel: string | null;

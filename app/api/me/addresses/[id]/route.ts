@@ -4,18 +4,10 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import type { UserAddressWritePayload } from "@/lib/addresses/user-address-types";
 import { deleteUserAddress, updateUserAddress } from "@/lib/addresses/user-address-service";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
+import { parseFiniteGeographicCoord } from "@/lib/geo/parse-finite-geographic-coord";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-function parseCoord(v: unknown): number | null {
-  if (typeof v === "number" && Number.isFinite(v)) return v;
-  if (typeof v === "string" && v.trim()) {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : null;
-  }
-  return null;
-}
 
 function parsePatch(body: unknown): Partial<UserAddressWritePayload> | null {
   if (!body || typeof body !== "object") return null;
@@ -51,8 +43,8 @@ function parsePatch(body: unknown): Partial<UserAddressWritePayload> | null {
     out.unitFloorRoom = String(o.unitFloorRoom ?? o.unit_floor_room ?? "") || null;
   }
   if (o.landmark !== undefined) out.landmark = str("landmark") ?? null;
-  if (o.latitude !== undefined) out.latitude = parseCoord(o.latitude);
-  if (o.longitude !== undefined) out.longitude = parseCoord(o.longitude);
+  if (o.latitude !== undefined) out.latitude = parseFiniteGeographicCoord(o.latitude);
+  if (o.longitude !== undefined) out.longitude = parseFiniteGeographicCoord(o.longitude);
   if (o.fullAddress !== undefined || o.full_address !== undefined) {
     out.fullAddress = String(o.fullAddress ?? o.full_address ?? "") || null;
   }

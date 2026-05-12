@@ -4,6 +4,7 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import type { UserAddressWritePayload } from "@/lib/addresses/user-address-types";
 import { createUserAddress, listUserAddresses } from "@/lib/addresses/user-address-service";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
+import { parseFiniteGeographicCoord } from "@/lib/geo/parse-finite-geographic-coord";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,15 +19,6 @@ function normalizeAddressApiErrorMessage(error: unknown): string {
     return "user_addresses_table_missing";
   }
   return raw;
-}
-
-function parseCoord(v: unknown): number | null {
-  if (typeof v === "number" && Number.isFinite(v)) return v;
-  if (typeof v === "string" && v.trim()) {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : null;
-  }
-  return null;
 }
 
 function parsePayload(body: unknown): UserAddressWritePayload | null {
@@ -49,8 +41,8 @@ function parsePayload(body: unknown): UserAddressWritePayload | null {
     buildingName: o.buildingName != null ? String(o.buildingName) : null,
     unitFloorRoom: o.unitFloorRoom != null ? String(o.unitFloorRoom) : null,
     landmark: o.landmark != null ? String(o.landmark) : null,
-    latitude: parseCoord(o.latitude),
-    longitude: parseCoord(o.longitude),
+    latitude: parseFiniteGeographicCoord(o.latitude),
+    longitude: parseFiniteGeographicCoord(o.longitude),
     fullAddress: o.fullAddress != null ? String(o.fullAddress) : null,
     neighborhoodName: o.neighborhoodName != null ? String(o.neighborhoodName) : null,
     appRegionId: o.appRegionId != null ? String(o.appRegionId) : null,

@@ -4,6 +4,10 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { normalizePhMobileDb, PH_LOCAL_MOBILE_RULE_MESSAGE_KO } from "@/lib/utils/ph-mobile";
 import { normalizeStoreAddressPh } from "@/lib/stores/normalize-store-address-ph";
+import {
+  parseFiniteLatitude,
+  parseFiniteLongitude,
+} from "@/lib/geo/parse-finite-geographic-coord";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,18 +57,14 @@ function trimOrNull(v: unknown): string | null {
 
 function parseLat(v: unknown): number | null | "invalid" {
   if (v === null || v === undefined || v === "") return null;
-  const n = typeof v === "number" ? v : Number(String(v).trim());
-  if (!Number.isFinite(n)) return "invalid";
-  if (n < -90 || n > 90) return "invalid";
-  return n;
+  const n = parseFiniteLatitude(v);
+  return n == null ? "invalid" : n;
 }
 
 function parseLng(v: unknown): number | null | "invalid" {
   if (v === null || v === undefined || v === "") return null;
-  const n = typeof v === "number" ? v : Number(String(v).trim());
-  if (!Number.isFinite(n)) return "invalid";
-  if (n < -180 || n > 180) return "invalid";
-  return n;
+  const n = parseFiniteLongitude(v);
+  return n == null ? "invalid" : n;
 }
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;

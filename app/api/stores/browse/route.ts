@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
 import { districtRank, haversineKm } from "@/lib/geo/haversine-km";
-import { fetchRideMinutesByStoreId } from "@/lib/geo/google-routes-two-wheeler-matrix";
+import { fetchRouteLegMetricsByStoreId, type RouteLegMetrics } from "@/lib/geo/google-routes-two-wheeler-matrix";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
 import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
-import { buildStoreDeliveryEtaLabel } from "@/lib/stores/store-delivery-eta-label";
+import { buildBrowseStoreListEtaLabel } from "@/lib/stores/store-delivery-eta-label";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
 export const runtime = "nodejs";
@@ -455,9 +455,9 @@ export async function GET(req: Request) {
       }
     }
 
-    let rideById = new Map<string, number | null>();
+    let legById = new Map<string, RouteLegMetrics>();
     if (userLat != null && userLng != null && rows.length > 0) {
-      rideById = await fetchRideMinutesByStoreId({
+      legById = await fetchRouteLegMetricsByStoreId({
         user: { lat: userLat, lng: userLng },
         stores: rows.map((r) => ({ id: r.id, lat: r.lat, lng: r.lng })),
       });
@@ -487,9 +487,14 @@ export async function GET(req: Request) {
         distanceKm = haversineKm(userLat, userLng, r.lat, r.lng);
       }
 
-      const rideRaw = rideById.get(r.id) ?? null;
+      const leg = legById.get(r.id) ?? { rideMinutes: null, routeDistanceMeters: null };
+      const rideRaw = leg.rideMinutes;
       const rideMinutes = r.delivery_available ? rideRaw : null;
-      const etaLabel = buildStoreDeliveryEtaLabel(extras, rideMinutes);
+      const routeCtx = userLat != null && userLng != null;
+      const etaLabel = buildBrowseStoreListEtaLabel(extras, rideMinutes, {
+        deliveryAvailable: !!r.delivery_available,
+        routeContextPresent: routeCtx,
+      });
 
       return {
         id: r.id,

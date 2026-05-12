@@ -23,6 +23,10 @@ export const STORE_SELECT_SUMMARY =
 /** `/menus`·`reviews-summary` 등 store id 만 필요할 때 */
 export const STORE_SELECT_ID_SLUG_GATE = "id, slug, approval_status, is_visible";
 
+/** `GET /api/stores/[slug]/delivery-eta` — 승인·가시 gate + 배달 ETA 에 필요한 컬럼만 */
+export const STORE_DELIVERY_ETA_SELECT =
+  "id, slug, lat, lng, delivery_available, business_hours_json, approval_status, is_visible";
+
 export type ApprovedStoreLookupResult =
   | { ok: true; store: Record<string, unknown> }
   | { ok: false; reason: "not_found" }

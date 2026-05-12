@@ -32,7 +32,10 @@ export type StoreRowCardData = {
   /** 목록·피드 API가 채운 합산 ETA (`약 …`) — 없으면 estPrepLabel 기반 표시 */
   etaLabel?: string | null;
   deliveryFeeLabel: string | null;
+  /** 직선 거리(km) — 정렬·browse 빨간 핀 거리·픽업형 카드용 */
   distanceKm: number | null;
+  /** browse 목록: 사용자 기준 좌표가 있을 때 직선 거리를 빨간 핀으로 표시 */
+  showStraightLineMapPin?: boolean;
   menuPreview: string | null;
   profileImageUrl: string | null;
   featuredItems: StoreFeaturedCardItem[];
@@ -70,6 +73,7 @@ export function storeRowCardDataEqual(a: StoreRowCardData, b: StoreRowCardData):
     (a.etaLabel ?? "") === (b.etaLabel ?? "") &&
     a.deliveryFeeLabel === b.deliveryFeeLabel &&
     a.distanceKm === b.distanceKm &&
+    a.showStraightLineMapPin === b.showStraightLineMapPin &&
     a.menuPreview === b.menuPreview &&
     a.profileImageUrl === b.profileImageUrl &&
     featuredEqual &&
@@ -86,6 +90,21 @@ function reviewLabel(n: number) {
 function distLabel(km: number | null | undefined) {
   if (km == null || !Number.isFinite(km)) return null;
   return km < 1 ? `${Math.round(km * 1000)}m` : `${km.toFixed(1)}km`;
+}
+
+/** browse 직선 거리 줄 — 빨간 위치 핀 */
+function BrowseListStraightDistancePinIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 32 42" width={13} height={17} aria-hidden>
+      <path
+        d="M16 38C8 24 4 20 4 14a12 12 0 1 1 24 0c0 6-4 10-12 24z"
+        fill="#E53935"
+        stroke="#B71C1C"
+        strokeWidth="0.7"
+      />
+      <circle cx="16" cy="14" r="4.2" fill="white" />
+    </svg>
+  );
 }
 
 function priceLabel(php: number) {
@@ -158,6 +177,8 @@ export function browseItemToRowCard(s: BrowseStoreListItem): StoreRowCardData {
     etaLabel: s.etaLabel,
     deliveryFeeLabel: s.deliveryFeeLabel ?? null,
     distanceKm: s.distanceKm ?? null,
+    showStraightLineMapPin:
+      s.distanceKm != null && Number.isFinite(s.distanceKm as number) && (s.distanceKm as number) >= 0,
     menuPreview: menuPreview?.trim() || null,
     profileImageUrl: s.profileImageUrl,
     featuredItems: s.featuredItems.map((x) => ({
@@ -185,6 +206,8 @@ export const StoreDeliveryRowCard = memo(function StoreDeliveryRowCard({ data }:
     void router.prefetch(href);
   };
   const d = distLabel(data.distanceKm);
+  const showBrowseStraightPin = data.showStraightLineMapPin === true && !!d;
+  const showPinHaversine = !showBrowseStraightPin && d;
 
   const hasFreeDelivery = data.deliveryAvailable && data.deliveryFeeLabel === "₱0";
   const hasDiscountHint = data.isFeatured;
@@ -350,8 +373,16 @@ export const StoreDeliveryRowCard = memo(function StoreDeliveryRowCard({ data }:
                     <span className="truncate">{timeLabel}</span>
                   </span>
                 ) : null}
-                {timeLabel && d ? <span className="shrink-0 text-[#9CA3AF]">·</span> : null}
-                {d ? (
+                {timeLabel && (showBrowseStraightPin || showPinHaversine) ? <span className="shrink-0 text-[#9CA3AF]">·</span> : null}
+                {showBrowseStraightPin ? (
+                  <span
+                    className="inline-flex shrink-0 items-center gap-0.5 font-medium text-[#4B5563] dark:text-[#B8C0CA]"
+                    title="직선 거리"
+                  >
+                    <BrowseListStraightDistancePinIcon className="shrink-0" />
+                    <span>{d}</span>
+                  </span>
+                ) : showPinHaversine ? (
                   <span className="inline-flex shrink-0 items-center gap-1 font-medium">
                     <svg className="h-3.5 w-3.5 opacity-70" viewBox="0 0 24 24" fill="none" aria-hidden>
                       <path
@@ -372,7 +403,9 @@ export const StoreDeliveryRowCard = memo(function StoreDeliveryRowCard({ data }:
                     {d}
                   </span>
                 ) : null}
-                {(timeLabel || d) && minOrderShort ? <span className="shrink-0 text-[#9CA3AF]">·</span> : null}
+                {(timeLabel || showBrowseStraightPin || showPinHaversine) && minOrderShort ? (
+                  <span className="shrink-0 text-[#9CA3AF]">·</span>
+                ) : null}
                 {minOrderShort ? (
                   <span className="min-w-0 truncate font-normal">
                     최소주문 <span className="font-medium text-[#4B5563] dark:text-[#B8C0CA]">{minOrderShort}</span>

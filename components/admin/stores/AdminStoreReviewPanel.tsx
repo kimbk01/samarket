@@ -13,6 +13,10 @@ import {
   type AdminStoreReviewRow,
   formatAdminStoreAddressOneLine,
 } from "@/components/admin/stores/admin-store-review-model";
+import {
+  parseFiniteLatitude,
+  parseFiniteLongitude,
+} from "@/lib/geo/parse-finite-geographic-coord";
 
 function embedRelationName(
   v: { name?: string } | { name?: string }[] | null | undefined
@@ -405,7 +409,25 @@ export function AdminStoreReviewPanel({
               </span>
             }
           />
-          <Field label="좌표" value={store.lat != null && store.lng != null ? `${store.lat}, ${store.lng}` : "—"} />
+          <Field
+            label="지도 좌표 (delivery-eta)"
+            value={(() => {
+              const la = parseFiniteLatitude(store.lat);
+              const ln = parseFiniteLongitude(store.lng);
+              if (la != null && ln != null) {
+                return (
+                  <span className="font-mono sam-text-xxs text-sam-fg">
+                    {la}, {ln}
+                  </span>
+                );
+              }
+              return (
+                <span className="font-medium text-amber-800 dark:text-amber-200">
+                  좌표 미설정 (배달 ETA·Routes 불가)
+                </span>
+              );
+            })()}
+          />
         </ReviewSection>
 
         <ReviewSection title="업종">
