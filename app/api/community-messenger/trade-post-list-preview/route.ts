@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
-import { tradePostHeadlineForMessengerList } from "@/lib/community-messenger/trade-chat-list/trade-post-row-fields";
 import { POSTS_TABLE_WRITE } from "@/lib/posts/posts-db-tables";
-import { getSupabaseServer } from "@/lib/chat/supabase-server";
-import { formatPrice } from "@/lib/utils/format";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -61,6 +58,12 @@ export async function GET(req: NextRequest) {
     code: "community_messenger_trade_post_list_preview_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;
+
+  const [{ getSupabaseServer }, { tradePostHeadlineForMessengerList }, { formatPrice }] = await Promise.all([
+    import("@/lib/chat/supabase-server"),
+    import("@/lib/community-messenger/trade-chat-list/trade-post-row-fields"),
+    import("@/lib/utils/format"),
+  ]);
 
   const postId = req.nextUrl.searchParams.get("postId")?.trim() ?? "";
   if (!postId) {

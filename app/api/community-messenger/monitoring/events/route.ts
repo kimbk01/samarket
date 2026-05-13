@@ -1,7 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey, jsonErrorWithRequest, jsonOkWithRequest } from "@/lib/http/api-route";
-import { ingestClientMessengerEvents } from "@/lib/community-messenger/monitoring/server-store";
 import type { MessengerMonitoringEvent } from "@/lib/community-messenger/monitoring/types";
 
 export const runtime = "nodejs";
@@ -33,6 +32,7 @@ export async function POST(req: NextRequest) {
     return jsonErrorWithRequest(req, "events_required", 400);
   }
   const events = raw.events.slice(0, MAX_BATCH).filter(isClientEvent) as MessengerMonitoringEvent[];
+  const { ingestClientMessengerEvents } = await import("@/lib/community-messenger/monitoring/server-store-record");
   ingestClientMessengerEvents(events);
   return jsonOkWithRequest(req, { accepted: events.length });
 }

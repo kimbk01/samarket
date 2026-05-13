@@ -1,25 +1,34 @@
 import type { RealtimeChannel, SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-log";
-import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 
-/** dev-safe: roomId+viewer+lastReadMessageId 기준 1.5~2.5s 내 중복 broadcast 억제 */
+/** roomId+viewer+lastReadMessageId 기준 짧은 TTL 내 중복 broadcast 억제(prod 포함) */
 const readAckDedupUntil = new Map<string, number>();
 const readAckDedupInFlight = new Set<string>();
 
-function readAckDevDedupTtlMs(roomId: string): number {
+function readAckDedupTtlMs(roomId: string): number {
   let h = 0;
   for (let i = 0; i < roomId.length; i++) h = ((h * 31) ^ roomId.charCodeAt(i)) >>> 0;
   return 1500 + (h % 1001);
 }
 
-function readAckDevDedupKey(roomId: string, viewerUserId: string, lastReadMessageId: string | null): string {
-  return `${roomId}\0${viewerUserId}\0${lastReadMessageId ?? ""}`;
+function normalizeReadAckMessageId(id: string | null | undefined): string {
+  if (id == null) return "";
+  return id.trim().toLowerCase();
+}
+
+function readAckDedupKey(roomId: string, viewerUserId: string, lastReadMessageId: string | null): string {
+  return `${roomId}\0${viewerUserId}\0${normalizeReadAckMessageId(lastReadMessageId)}`;
 }
 
 /** 클라이언트 `cm-read-ack-broadcast-client.ts` 와 동일 토픽 — 서비스 롤 전용 발행 */
 export const CM_READ_ACK_CHANNEL_NAME = "cm_read_ack";
 export const CM_READ_ACK_BROADCAST_EVENT = "read_ack";
+
+export type PublishCommunityMessengerReadAckResult = {
+  sent: boolean;
+  deduped: boolean;
+};
 
 function waitForChannelSubscribed(sb: SupabaseClient<any>, ch: RealtimeChannel, timeoutMs: number): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -62,41 +71,41 @@ export async function publishCommunityMessengerReadAckFromServer(args: {
   readerUserId: string;
   lastReadMessageId: string | null;
   lastReadAt: string | null;
-}): Promise<void> {
+}): Promise<PublishCommunityMessengerReadAckResult> {
   let sb: SupabaseClient<any>;
   try {
     sb = getSupabaseServer();
   } catch {
-    return;
+    return { sent: false, deduped: false };
   }
   const roomId = args.roomId.trim();
   const readerUserId = args.readerUserId.trim();
-  if (!roomId || !readerUserId) return;
+  if (!roomId || !readerUserId) return { sent: false, deduped: false };
 
-  const dedupKey = readAckDevDedupKey(roomId, readerUserId, args.lastReadMessageId);
+  const dedupKey = readAckDedupKey(roomId, readerUserId, args.lastReadMessageId);
   const nowMs = Date.now();
-  if (isDevSafeMode()) {
-    const until = readAckDedupUntil.get(dedupKey);
-    if (until !== undefined && nowMs < until) {
-      cmRtReadSyncLog("read_ack_broadcast_deduped", {
-        roomId,
-        viewerUserId: readerUserId,
-        lastReadMessageId: args.lastReadMessageId,
-        lastReadAt: args.lastReadAt,
-      });
-      return;
-    }
-    if (readAckDedupInFlight.has(dedupKey)) {
-      cmRtReadSyncLog("read_ack_broadcast_deduped", {
-        roomId,
-        viewerUserId: readerUserId,
-        lastReadMessageId: args.lastReadMessageId,
-        lastReadAt: args.lastReadAt,
-      });
-      return;
-    }
-    readAckDedupInFlight.add(dedupKey);
+  const until = readAckDedupUntil.get(dedupKey);
+  if (until !== undefined && nowMs < until) {
+    cmRtReadSyncLog("read_ack_broadcast_deduped", {
+      roomId,
+      viewerUserId: readerUserId,
+      lastReadMessageId: args.lastReadMessageId,
+      lastReadAt: args.lastReadAt,
+      ignoredReason: "ttl_dedup",
+    });
+    return { sent: false, deduped: true };
   }
+  if (readAckDedupInFlight.has(dedupKey)) {
+    cmRtReadSyncLog("read_ack_broadcast_deduped", {
+      roomId,
+      viewerUserId: readerUserId,
+      lastReadMessageId: args.lastReadMessageId,
+      lastReadAt: args.lastReadAt,
+      ignoredReason: "inflight_dedup",
+    });
+    return { sent: false, deduped: true };
+  }
+  readAckDedupInFlight.add(dedupKey);
 
   const ch = sb.channel(CM_READ_ACK_CHANNEL_NAME, { config: { broadcast: { ack: false } } });
   try {
@@ -117,19 +126,17 @@ export async function publishCommunityMessengerReadAckFromServer(args: {
       lastReadMessageId: args.lastReadMessageId,
       lastReadAt: args.lastReadAt,
     });
-    if (isDevSafeMode()) {
-      readAckDedupUntil.set(dedupKey, Date.now() + readAckDevDedupTtlMs(roomId));
-    }
+    readAckDedupUntil.set(dedupKey, Date.now() + readAckDedupTtlMs(roomId));
+    return { sent: true, deduped: false };
   } catch {
     /* Realtime 미설정·타임아웃 — HTTP 스냅샷으로 수렴 */
+    return { sent: false, deduped: false };
   } finally {
     try {
       void sb.removeChannel(ch);
     } catch {
       /* ignore */
     }
-    if (isDevSafeMode()) {
-      readAckDedupInFlight.delete(dedupKey);
-    }
+    readAckDedupInFlight.delete(dedupKey);
   }
 }

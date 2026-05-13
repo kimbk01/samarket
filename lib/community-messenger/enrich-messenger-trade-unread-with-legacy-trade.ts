@@ -67,92 +67,59 @@ type Hs5RpcDebugPayload = {
   rpc_product_rows_count?: unknown;
 };
 
-export async function enrichMessengerTradeUnreadWithLegacyTrade(
+const HS5_LEGACY_ROW_CACHE_TTL_MS = 2500;
+const HS5_LEGACY_ROW_CACHE_MAX_KEYS = 500;
+
+type Hs5LegacyLoadResult = {
+  itemTradeRows: unknown[];
+  pcRows: unknown[];
+  itErr: unknown | null;
+  usedRpcBundle: boolean;
+  dbRoundTrips: number;
+  legacyChatRoomsFetchMs: number;
+  legacyProductChatsFetchMs: number;
+  unreadLegacyFetchPath: "rpc_bundle" | "parallel_rest";
+  unreadRpcBundleMs: number;
+  rpcDbgPayload?: Hs5RpcDebugPayload;
+};
+
+const hs5LegacyRowCache = new Map<string, { exp: number; payload: Hs5LegacyLoadResult }>();
+const hs5LegacyInflight = new Map<string, Promise<Hs5LegacyLoadResult>>();
+
+function pruneHs5LegacyRowCache(now: number): void {
+  if (hs5LegacyRowCache.size <= HS5_LEGACY_ROW_CACHE_MAX_KEYS) return;
+  for (const [k, v] of hs5LegacyRowCache) {
+    if (v.exp < now || hs5LegacyRowCache.size <= HS5_LEGACY_ROW_CACHE_MAX_KEYS * 0.75) hs5LegacyRowCache.delete(k);
+  }
+}
+
+/** CM room id·PC id·요약 직전 participant unread — 짧은 TTL 내 HS5 행 재사용 키 */
+function fingerprintHs5LegacyRows(uid: string, tradeSummaries: CommunityMessengerRoomSummary[]): string {
+  const roomIds = [...new Set(tradeSummaries.map((s) => t(s.id)).filter(Boolean))].sort();
+  const pcIds = [
+    ...new Set(tradeSummaries.map((s) => t(s.contextMeta?.productChatId)).filter(Boolean)),
+  ].sort();
+  const unreadSig = tradeSummaries
+    .map((s) => `${t(s.id)}:${Math.max(0, Math.floor(Number(s.unreadCount) || 0))}`)
+    .sort()
+    .join("|");
+  return `${uid}\0${roomIds.join(",")}\0${pcIds.join(",")}\0${unreadSig}`;
+}
+
+async function loadHs5LegacyRowsUncached(
   sbAny: SupabaseClient<any>,
-  viewerUserId: string,
-  summaries: CommunityMessengerRoomSummary[],
-  /** 관측 전용 — 동작·합산 로직 불변 */
-  metrics?: { dbRoundTrips: number },
-  /** dev home-sync trace — 동작 불변, `deepSteps.unreadHomeSyncSteps` 만 병합 */
-  homeSyncTrace?: HomeSyncTrace
-): Promise<void> {
-  const patchUnread = (p: Partial<HomeSyncDeepStepsUnreadBadge>) => {
-    if (!homeSyncTraceMeterEnabled(homeSyncTrace)) return;
-    const tr = homeSyncTrace!;
-    tr.deepSteps.unreadHomeSyncSteps = {
-      ...(tr.deepSteps.unreadHomeSyncSteps ?? {}),
-      ...p,
-    };
-  };
-
-  const uid = t(viewerUserId);
-  if (homeSyncTraceMeterEnabled(homeSyncTrace)) {
-    const tr = homeSyncTrace!;
-    const prev = tr.deepSteps.unreadHomeSyncSteps?.enrichInvocationCount ?? 0;
-    patchUnread({
-      enrichInvocationCount: prev + 1,
-      ownerHubBadgeMs: 0,
-      unreadCacheHit: null,
-    });
-  }
-
-  if (!uid || !summaries.length) {
-    if (metrics) metrics.dbRoundTrips = 0;
-    patchUnread({
-      legacyChatRoomsFetchMs: 0,
-      legacyProductChatsFetchMs: 0,
-      unreadSourceFetchMs: 0,
-      unreadParallelWallMs: 0,
-      unreadEffectiveRttCount: 0,
-      legacyTradeUnreadMs: 0,
-      badgeAttachCpuMs: 0,
-      roomIdDedupeMs: 0,
-    });
-    return;
-  }
-
-  const tDedupe = performance.now();
-  const tradeSummaries = summaries.filter((s) => s.contextMeta?.kind === "trade");
-  const cmRoomIds = dedupeStrings(tradeSummaries.map((s) => s.id));
-  const roomIdDedupeMs = performance.now() - tDedupe;
-  patchUnread({ roomIdDedupeMs: ms(roomIdDedupeMs) });
-
-  if (!tradeSummaries.length || !cmRoomIds.length) {
-    if (metrics) metrics.dbRoundTrips = 0;
-    patchUnread({
-      legacyChatRoomsFetchMs: 0,
-      legacyProductChatsFetchMs: 0,
-      unreadSourceFetchMs: 0,
-      unreadParallelWallMs: 0,
-      unreadEffectiveRttCount: 0,
-      legacyTradeUnreadMs: 0,
-      badgeAttachCpuMs: 0,
-    });
-    return;
-  }
-
-  let dbRoundTrips = 0;
-
-  const productChatIds = dedupeStrings(
-    tradeSummaries.map((s) => t(s.contextMeta?.productChatId)).filter(Boolean)
-  );
-
-  patchUnread({
-    unreadRoomIdsCount: cmRoomIds.length,
-    unreadProductChatIdsCount: productChatIds.length,
-  });
-
+  cmRoomIds: string[],
+  productChatIds: string[]
+): Promise<Hs5LegacyLoadResult> {
   let itemTradeRows: unknown[] = [];
   let pcRows: unknown[] = [];
-  let itErr: unknown = null;
+  let itErr: unknown | null = null;
   let legacyChatRoomsFetchMs = 0;
   let legacyProductChatsFetchMs = 0;
   let unreadLegacyFetchPath: "rpc_bundle" | "parallel_rest" = "parallel_rest";
   let unreadRpcBundleMs = 0;
-  /** HS5-RPC-DEEP: 서버 `_hs5RpcDebug` — 패치 구간에서만 유효 */
   let rpcDbgPayload: Hs5RpcDebugPayload | undefined;
-
-  const tWall = performance.now();
+  let dbRoundTrips = 0;
   let usedRpcBundle = false;
 
   try {
@@ -250,6 +217,185 @@ export async function enrichMessengerTradeUnreadWithLegacyTrade(
     }
   }
 
+  return {
+    itemTradeRows,
+    pcRows,
+    itErr,
+    usedRpcBundle,
+    dbRoundTrips,
+    legacyChatRoomsFetchMs,
+    legacyProductChatsFetchMs,
+    unreadLegacyFetchPath,
+    unreadRpcBundleMs,
+    rpcDbgPayload,
+  };
+}
+
+export async function enrichMessengerTradeUnreadWithLegacyTrade(
+  sbAny: SupabaseClient<any>,
+  viewerUserId: string,
+  summaries: CommunityMessengerRoomSummary[],
+  /** 관측 전용 — 동작·합산 로직 불변 */
+  metrics?: { dbRoundTrips: number },
+  /** dev home-sync trace — 동작 불변, `deepSteps.unreadHomeSyncSteps` 만 병합 */
+  homeSyncTrace?: HomeSyncTrace
+): Promise<void> {
+  const patchUnread = (p: Partial<HomeSyncDeepStepsUnreadBadge>) => {
+    if (!homeSyncTraceMeterEnabled(homeSyncTrace)) return;
+    const tr = homeSyncTrace!;
+    tr.deepSteps.unreadHomeSyncSteps = {
+      ...(tr.deepSteps.unreadHomeSyncSteps ?? {}),
+      ...p,
+    };
+  };
+
+  const uid = t(viewerUserId);
+  if (homeSyncTraceMeterEnabled(homeSyncTrace)) {
+    const tr = homeSyncTrace!;
+    const prev = tr.deepSteps.unreadHomeSyncSteps?.enrichInvocationCount ?? 0;
+    patchUnread({
+      enrichInvocationCount: prev + 1,
+      ownerHubBadgeMs: 0,
+      unreadCacheHit: null,
+    });
+  }
+
+  if (!uid || !summaries.length) {
+    if (metrics) metrics.dbRoundTrips = 0;
+    patchUnread({
+      legacyChatRoomsFetchMs: 0,
+      legacyProductChatsFetchMs: 0,
+      unreadSourceFetchMs: 0,
+      unreadParallelWallMs: 0,
+      unreadEffectiveRttCount: 0,
+      legacyTradeUnreadMs: 0,
+      badgeAttachCpuMs: 0,
+      roomIdDedupeMs: 0,
+      unreadQueryCount: 0,
+    });
+    return;
+  }
+
+  const tDedupe = performance.now();
+  const tradeSummaries = summaries.filter((s) => s.contextMeta?.kind === "trade");
+  const cmRoomIds = dedupeStrings(tradeSummaries.map((s) => s.id));
+  const roomIdDedupeMs = performance.now() - tDedupe;
+  patchUnread({ roomIdDedupeMs: ms(roomIdDedupeMs) });
+
+  if (!tradeSummaries.length || !cmRoomIds.length) {
+    if (metrics) metrics.dbRoundTrips = 0;
+    patchUnread({
+      legacyChatRoomsFetchMs: 0,
+      legacyProductChatsFetchMs: 0,
+      unreadSourceFetchMs: 0,
+      unreadParallelWallMs: 0,
+      unreadEffectiveRttCount: 0,
+      legacyTradeUnreadMs: 0,
+      badgeAttachCpuMs: 0,
+      unreadQueryCount: 0,
+    });
+    return;
+  }
+
+  const productChatIds = dedupeStrings(
+    tradeSummaries.map((s) => t(s.contextMeta?.productChatId)).filter(Boolean)
+  );
+
+  patchUnread({
+    unreadRoomIdsCount: cmRoomIds.length,
+    unreadProductChatIdsCount: productChatIds.length,
+    unreadBootstrapTradeRoomRowsBeforeDedupe: tradeSummaries.length,
+    unreadBootstrapDuplicateRooms: Math.max(0, tradeSummaries.length - cmRoomIds.length),
+    unreadBootstrapRoomCount: cmRoomIds.length,
+  });
+
+  const fp = fingerprintHs5LegacyRows(uid, tradeSummaries);
+  const tWall = performance.now();
+  let unreadBootstrapParallelWaitMsNum = 0;
+  let unreadBootstrapCacheHit: 0 | 1 = 0;
+  let unreadBootstrapCacheMissReason: string | undefined;
+  let unreadBootstrapSkipReason: string | undefined;
+
+  let itemTradeRows: unknown[] = [];
+  let pcRows: unknown[] = [];
+  let itErr: unknown | null = null;
+  let legacyChatRoomsFetchMs = 0;
+  let legacyProductChatsFetchMs = 0;
+  let unreadLegacyFetchPath: "rpc_bundle" | "parallel_rest" = "parallel_rest";
+  let unreadRpcBundleMs = 0;
+  let rpcDbgPayload: Hs5RpcDebugPayload | undefined;
+  let dbRoundTrips = 0;
+  let usedRpcBundle = false;
+
+  const clock = Date.now();
+  const cached = hs5LegacyRowCache.get(fp);
+  if (cached && cached.exp >= clock) {
+    const pay = cached.payload;
+    itemTradeRows = pay.itemTradeRows;
+    pcRows = pay.pcRows;
+    itErr = pay.itErr;
+    usedRpcBundle = pay.usedRpcBundle;
+    dbRoundTrips = 0;
+    legacyChatRoomsFetchMs = 0;
+    legacyProductChatsFetchMs = 0;
+    unreadLegacyFetchPath = pay.unreadLegacyFetchPath;
+    unreadRpcBundleMs = 0;
+    rpcDbgPayload = undefined;
+    unreadBootstrapCacheHit = 1;
+    unreadBootstrapSkipReason = "hs5_row_ttl_cache";
+  } else {
+    const existingFlight = hs5LegacyInflight.get(fp);
+    if (existingFlight) {
+      unreadBootstrapCacheMissReason = "inflight_join";
+      const tJoin = performance.now();
+      const got = await existingFlight;
+      unreadBootstrapParallelWaitMsNum = performance.now() - tJoin;
+      itemTradeRows = got.itemTradeRows;
+      pcRows = got.pcRows;
+      itErr = got.itErr;
+      usedRpcBundle = got.usedRpcBundle;
+      dbRoundTrips = got.dbRoundTrips;
+      legacyChatRoomsFetchMs = got.legacyChatRoomsFetchMs;
+      legacyProductChatsFetchMs = got.legacyProductChatsFetchMs;
+      unreadLegacyFetchPath = got.unreadLegacyFetchPath;
+      unreadRpcBundleMs = got.unreadRpcBundleMs;
+      rpcDbgPayload = got.rpcDbgPayload;
+    } else {
+      unreadBootstrapCacheMissReason = "cold_or_ttl_expired";
+      const flight = (async (): Promise<Hs5LegacyLoadResult> => {
+        const got = await loadHs5LegacyRowsUncached(sbAny, cmRoomIds, productChatIds);
+        if (!got.itErr) {
+          hs5LegacyRowCache.set(fp, {
+            exp: Date.now() + HS5_LEGACY_ROW_CACHE_TTL_MS,
+            payload: {
+              ...got,
+              itemTradeRows: [...got.itemTradeRows],
+              pcRows: [...got.pcRows],
+            },
+          });
+          pruneHs5LegacyRowCache(Date.now());
+        }
+        return got;
+      })();
+      hs5LegacyInflight.set(fp, flight);
+      try {
+        const got = await flight;
+        itemTradeRows = got.itemTradeRows;
+        pcRows = got.pcRows;
+        itErr = got.itErr;
+        usedRpcBundle = got.usedRpcBundle;
+        dbRoundTrips = got.dbRoundTrips;
+        legacyChatRoomsFetchMs = got.legacyChatRoomsFetchMs;
+        legacyProductChatsFetchMs = got.legacyProductChatsFetchMs;
+        unreadLegacyFetchPath = got.unreadLegacyFetchPath;
+        unreadRpcBundleMs = got.unreadRpcBundleMs;
+        rpcDbgPayload = got.rpcDbgPayload;
+      } finally {
+        hs5LegacyInflight.delete(fp);
+      }
+    }
+  }
+
   const unreadParallelWallMs = performance.now() - tWall;
 
   const cMs = legacyChatRoomsFetchMs;
@@ -294,6 +440,7 @@ export async function enrichMessengerTradeUnreadWithLegacyTrade(
     unreadRpcBundleMs: ms(unreadRpcBundleMs),
     unreadMaxSingleQueryMs: ms(unreadMaxSingleQueryMs),
     unreadSlowestQuery,
+    unreadQueryCount: dbRoundTrips,
     ...(rpcDbgPayload
       ? (() => {
           const tot = readHs5RpcDebugNumber(rpcDbgPayload.rpc_total_ms);
@@ -314,6 +461,13 @@ export async function enrichMessengerTradeUnreadWithLegacyTrade(
           };
         })()
       : {}),
+    unreadBootstrapCacheHit,
+    unreadBootstrapCacheMissReason,
+    unreadBootstrapSkipReason,
+    unreadBootstrapParallelWaitMs: ms(unreadBootstrapParallelWaitMsNum),
+    unreadBootstrapRowsFetchMs: ms(unreadBootstrapCacheHit ? 0 : unreadParallelWallMs),
+    unreadBootstrapCountQueryMs: 0,
+    unreadBootstrapQueryCount: dbRoundTrips,
   });
 
   if (itErr) {
@@ -323,6 +477,7 @@ export async function enrichMessengerTradeUnreadWithLegacyTrade(
       badgeAttachCpuMs: 0,
       unreadMergeCpuMs: 0,
       unreadAttachCpuMs: 0,
+      unreadQueryCount: dbRoundTrips,
     });
     return;
   }
@@ -391,11 +546,27 @@ export async function enrichMessengerTradeUnreadWithLegacyTrade(
   }
   const unreadAttachCpuMs = performance.now() - tAttach;
   const rowsFetched = itemTradeRows.length + pcRows.length;
+  const cpuMergeBootstrap = unreadMergeCpuMs + unreadAttachCpuMs + roomIdDedupeMs;
+  const rowsFetchWall = unreadBootstrapCacheHit ? 0 : unreadParallelWallMs;
+  const bootBottleneckCandidates: Array<[string, number]> = [
+    ["unread_bootstrap_rows_fetch", rowsFetchWall],
+    ["unread_bootstrap_cpu_merge", cpuMergeBootstrap],
+    ["unread_bootstrap_inflight_wait", unreadBootstrapParallelWaitMsNum],
+  ];
+  let bootTop = bootBottleneckCandidates[0];
+  for (const c of bootBottleneckCandidates) {
+    if (c[1] > bootTop[1]) bootTop = c;
+  }
   patchUnread({
     badgeAttachCpuMs: ms(unreadAttachCpuMs),
     unreadAttachCpuMs: ms(unreadAttachCpuMs),
     unreadRowsFetched: rowsFetched,
     unreadPayloadBytesEstimate: estimateUnreadPayloadBytesApprox(itemTradeRows.length, pcRows.length),
+    unreadQueryCount: dbRoundTrips,
+    unreadBootstrapCpuMergeMs: ms(cpuMergeBootstrap),
+    unreadBootstrapRowsFetchMs: ms(rowsFetchWall),
+    unreadBootstrapCountQueryMs: 0,
+    unreadBootstrapTopBottleneck: bootTop[0],
   });
 
   if (metrics) metrics.dbRoundTrips = dbRoundTrips;

@@ -1,6 +1,5 @@
 import type { NextResponse } from "next/server";
 import { jsonError } from "@/lib/http/api-route";
-import { resolveCommunityMessengerCanonicalRoomIdForUser } from "@/lib/community-messenger/service";
 
 export type MessengerRoomCanonicalResult =
   | { ok: true; canonicalRoomId: string; rawRouteRoomId: string }
@@ -18,6 +17,7 @@ export async function messengerRoomCanonicalOrJsonError(
   if (!raw) {
     return { ok: false, response: jsonError("roomId가 필요합니다.", 400) };
   }
+  const { resolveCommunityMessengerCanonicalRoomIdForUser } = await import("@/lib/community-messenger/service");
   const resolved = await resolveCommunityMessengerCanonicalRoomIdForUser(userId, raw);
   if (!resolved.ok) {
     if (resolved.error === "bad_request") {

@@ -8,14 +8,6 @@ import {
   jsonOk,
   parseJsonBody,
 } from "@/lib/http/api-route";
-import {
-  listCommunityMessengerRoomMessagesAfter,
-  listCommunityMessengerRoomMessagesBefore,
-  sendCommunityMessengerMessage,
-} from "@/lib/community-messenger/service";
-import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/server-store";
-import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
-import { publishMessengerRoomBumpAfterMutation } from "@/lib/community-messenger/server/publish-messenger-room-bump";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { pruneByAtMaxAgeAndMaxSize } from "@/lib/http/memory-map-prune";
 
@@ -45,6 +37,12 @@ export async function GET(
   });
   if (!rateLimit.ok) return rateLimit.response;
 
+  const { messengerRoomCanonicalOrJsonError } = await import(
+    "@/lib/community-messenger/server/messenger-room-canonical-resolve-api"
+  );
+
+  const { recordMessengerApiTiming } = await import("@/lib/community-messenger/monitoring/messenger-api-route-timing");
+
   const { roomId: rawRoomId } = await params;
   const canon = await messengerRoomCanonicalOrJsonError(auth.userId, String(rawRoomId ?? "").trim());
   if (!canon.ok) {
@@ -61,11 +59,12 @@ export async function GET(
   const limit = rawLimit ? Math.floor(Number(rawLimit)) : undefined;
 
   if (after) {
+    const cm = await import("@/lib/community-messenger/service");
     const afterKey = `community-messenger:messages:after:${auth.userId}:${canonicalRoomId}:${after}:${
       Number.isFinite(limit) ? String(limit) : "default"
     }`;
     const result = await runSingleFlight(afterKey, async () =>
-      listCommunityMessengerRoomMessagesAfter({
+      cm.listCommunityMessengerRoomMessagesAfter({
         userId: auth.userId,
         roomId: canonicalRoomId,
         afterMessageId: after,
@@ -92,11 +91,12 @@ export async function GET(
   if (!before) {
     return jsonError("before(메시지 id) 또는 after(메시지 id)가 필요합니다.", 400);
   }
+  const cm = await import("@/lib/community-messenger/service");
   const beforeKey = `community-messenger:messages:before:${auth.userId}:${canonicalRoomId}:${before}:${
     Number.isFinite(limit) ? String(limit) : "default"
   }`;
   const result = await runSingleFlight(beforeKey, async () =>
-    listCommunityMessengerRoomMessagesBefore({
+    cm.listCommunityMessengerRoomMessagesBefore({
       userId: auth.userId,
       roomId: canonicalRoomId,
       beforeMessageId: before,
@@ -141,6 +141,10 @@ export async function POST(
   ]);
   if (!parsed.ok) return parsed.response;
   if (!rateLimit.ok) return rateLimit.response;
+  const { messengerRoomCanonicalOrJsonError } = await import(
+    "@/lib/community-messenger/server/messenger-room-canonical-resolve-api"
+  );
+  const { recordMessengerApiTiming } = await import("@/lib/community-messenger/monitoring/messenger-api-route-timing");
   const body = parsed.value;
 
   const { roomId: rawRoomId } = routeParams;
@@ -168,7 +172,8 @@ export async function POST(
     return cached.res.ok ? jsonOk(cached.res) : jsonError(cached.res.error ?? "메시지 전송에 실패했습니다.", 400, cached.res);
   }
   const result = await runSingleFlight(key, async () => {
-    const r = await sendCommunityMessengerMessage({
+    const cm = await import("@/lib/community-messenger/service");
+    const r = await cm.sendCommunityMessengerMessage({
       userId: auth.userId,
       roomId: canonicalRoomId,
       content,
@@ -197,6 +202,9 @@ export async function POST(
      * INSERT 직후 동일 요청에서 bump 를 끝내면 상대 화면·Realtime 보강이 앞당겨진다(발신 RTT 소폭 증가).
      */
     try {
+      const { publishMessengerRoomBumpAfterMutation } = await import(
+        "@/lib/community-messenger/server/publish-messenger-room-bump"
+      );
       await publishMessengerRoomBumpAfterMutation(bumpArgs);
     } catch {
       /* best-effort: 수신측은 Postgres Realtime·재요청으로 정합 */

@@ -1,18 +1,223 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
+import { requireAuthenticatedUserId, getOptionalRouteHandlerCookieAuth } from "@/lib/auth/api-session";
 import { buildRequestSessionMeta } from "@/lib/auth/request-device-info";
-import { syncActiveSessionForUser } from "@/lib/auth/server-guards";
+import {
+  ME_PROFILE_GET_SESSION_TOUCH_THROTTLE_SEC,
+  syncActiveSessionForUser,
+  type SyncSessionTelemetry,
+} from "@/lib/auth/server-guards";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
-import type { ProfileUpdatePayload } from "@/lib/profile/types";
-import { runMeProfileReadPipeline } from "@/lib/profile/me-profile-read-pipeline";
+import type { ProfileRow, ProfileUpdatePayload } from "@/lib/profile/types";
+import {
+  createEmptyMeProfilePipelinePerf,
+  runMeProfileReadPipeline,
+  type MeProfilePipelinePerf,
+} from "@/lib/profile/me-profile-read-pipeline";
 import { peekMeProfileGetRouteCache, setMeProfileGetRouteCache } from "@/lib/profile/me-profile-get-route-cache";
+import {
+  clearMeProfileResponseCachesForUser,
+  ME_PROFILE_RESPONSE_CACHE_TTL_MS,
+  peekMeProfileGetResponseCacheDetailed,
+  setMeProfileGetResponseCache,
+} from "@/lib/profile/me-profile-get-response-cache";
+import { createEmptyProfileFetchMetrics, type ProfileFetchMetrics } from "@/lib/profile/fetch-profile-row-safe";
 import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
 import { normalizeAppLanguage } from "@/lib/i18n/config";
 import { isValidPhilippinesMobilePhone, normalizePhilippinesPhoneNumber } from "@/lib/phone/philippines-phone";
 import { enforceProfileEnsureQuota } from "@/lib/security/rate-limit-presets";
 import { clearMeProfileGetRouteCache } from "@/lib/profile/me-profile-get-route-cache";
+import { jsonError } from "@/lib/http/api-route";
 export const dynamic = "force-dynamic";
+
+/**
+ * GET /api/me/profile — 동일 userId 동시 요청이 `runMeProfileReadPipeline` 을 한 번만 타도록 (userId 키 분리, 실패 응답은 캐시하지 않음).
+ * @see `PROFILE_ROUTE_PIPELINE_COALESCE_MS` — `[dev-api-perf]` 의 `profile_cache_ttl_ms` 설계 상한
+ */
+type MeProfilePipelineFlight = {
+  profile: ProfileRow | null;
+  profilePipelineMs: number;
+  profileFetchMetrics: ProfileFetchMetrics;
+  pipelineStepMs: MeProfilePipelinePerf;
+};
+const ME_PROFILE_PIPELINE_INFLIGHT = new Map<string, Promise<MeProfilePipelineFlight>>();
+const PROFILE_ROUTE_PIPELINE_COALESCE_MS = 1500;
+
+function buildProfilePipelineStepsJson(perf: MeProfilePipelinePerf): string {
+  return JSON.stringify({
+    ensure_user_profile_ms: perf.ensure_user_profile_ms,
+    ensure_profile_total_ms: perf.ensure_profile_total_ms,
+    ensure_profile_existing_check_ms: perf.ensure_profile_existing_check_ms,
+    ensure_profile_auth_row_check_ms: perf.ensure_profile_auth_row_check_ms,
+    ensure_profile_insert_ms: perf.ensure_profile_insert_ms,
+    ensure_profile_upsert_ms: perf.ensure_profile_upsert_ms,
+    ensure_profile_update_ms: perf.ensure_profile_update_ms,
+    ensure_profile_rpc_ms: perf.ensure_profile_rpc_ms,
+    ensure_profile_policy_or_rls_wait_ms: perf.ensure_profile_policy_or_rls_wait_ms,
+    profile_row_fetch_ms: perf.profile_row_fetch_ms,
+    profile_row_normalize_ms: perf.profile_row_normalize_ms,
+    profile_row_fallback_ms: perf.profile_row_fallback_ms,
+    profile_pipeline_total_ms: perf.pipeline_total_ms,
+  });
+}
+
+function extractEnsureProfileNumericPhases(perf: MeProfilePipelinePerf): Record<string, number> {
+  return {
+    ensure_profile_total_ms: Math.round(perf.ensure_profile_total_ms),
+    ensure_profile_existing_check_ms: Math.round(perf.ensure_profile_existing_check_ms),
+    ensure_profile_auth_row_check_ms: Math.round(perf.ensure_profile_auth_row_check_ms),
+    ensure_profile_insert_ms: Math.round(perf.ensure_profile_insert_ms),
+    ensure_profile_upsert_ms: Math.round(perf.ensure_profile_upsert_ms),
+    ensure_profile_update_ms: Math.round(perf.ensure_profile_update_ms),
+    ensure_profile_rpc_ms: Math.round(perf.ensure_profile_rpc_ms),
+    ensure_profile_policy_or_rls_wait_ms: Math.round(perf.ensure_profile_policy_or_rls_wait_ms),
+    ensure_profile_attempt_count: perf.ensure_profile_attempt_count,
+    ensure_profile_write_executed: perf.ensure_profile_write_executed,
+    ensure_profile_read_executed: perf.ensure_profile_read_executed,
+  };
+}
+
+function ensureProfileDiagForDevPerf(perf: MeProfilePipelinePerf): Record<string, string | number> {
+  const o: Record<string, string | number> = {};
+  if (perf.ensure_profile_patch_keys != null) o.ensure_profile_patch_keys = perf.ensure_profile_patch_keys;
+  if (perf.ensure_profile_patch_count != null) o.ensure_profile_patch_count = perf.ensure_profile_patch_count;
+  if (perf.ensure_profile_provider_persist_reason != null) {
+    o.ensure_profile_provider_persist_reason = perf.ensure_profile_provider_persist_reason;
+  }
+  if (perf.ensure_profile_normalize_mismatch != null) {
+    o.ensure_profile_normalize_mismatch = perf.ensure_profile_normalize_mismatch;
+  }
+  if (perf.ensure_profile_skipped_fields != null) o.ensure_profile_skipped_fields = perf.ensure_profile_skipped_fields;
+  if (perf.ensure_profile_provider_existing_provider != null) {
+    o.ensure_profile_provider_existing_provider = perf.ensure_profile_provider_existing_provider;
+  }
+  if (perf.ensure_profile_provider_existing_auth_provider != null) {
+    o.ensure_profile_provider_existing_auth_provider = perf.ensure_profile_provider_existing_auth_provider;
+  }
+  if (perf.ensure_profile_provider_existing_provider_user_id != null) {
+    o.ensure_profile_provider_existing_provider_user_id = perf.ensure_profile_provider_existing_provider_user_id;
+  }
+  if (perf.ensure_profile_provider_next_provider != null) {
+    o.ensure_profile_provider_next_provider = perf.ensure_profile_provider_next_provider;
+  }
+  if (perf.ensure_profile_provider_next_auth_provider != null) {
+    o.ensure_profile_provider_next_auth_provider = perf.ensure_profile_provider_next_auth_provider;
+  }
+  if (perf.ensure_profile_provider_next_provider_user_id != null) {
+    o.ensure_profile_provider_next_provider_user_id = perf.ensure_profile_provider_next_provider_user_id;
+  }
+  if (perf.ensure_profile_provider_noop_skip != null) {
+    o.ensure_profile_provider_noop_skip = perf.ensure_profile_provider_noop_skip;
+  }
+  if (perf.ensure_profile_patch_count_after != null) {
+    o.ensure_profile_patch_count_after = perf.ensure_profile_patch_count_after;
+  }
+  return o;
+}
+
+function slowestProfilePipelineStep(perf: MeProfilePipelinePerf): { step: string; ms: number } {
+  const pairs: [string, number][] = [
+    ["ensure_user_profile", perf.ensure_user_profile_ms],
+    ["ensure_profile_total", perf.ensure_profile_total_ms],
+    ["profile_row_fetch", perf.profile_row_fetch_ms],
+    ["profile_row_normalize", perf.profile_row_normalize_ms],
+    ["profile_row_fallback", perf.profile_row_fallback_ms],
+  ];
+  let best: { step: string; ms: number } = { step: "none", ms: 0 };
+  for (const [step, ms] of pairs) {
+    if (ms > best.ms) best = { step, ms };
+  }
+  return best;
+}
+
+function emptySyncTelemetry(): SyncSessionTelemetry {
+  return {
+    sync_profiles_update_skipped: 1,
+    sync_profiles_update_executed: 0,
+    sync_registry_sync_skipped: 1,
+    sync_registry_sync_executed: 0,
+    sync_touch_reason: "unset",
+    sync_last_login_age_ms: -1,
+    sync_same_session_id: 0,
+    sync_same_device_info: 0,
+    sync_write_policy: "unset",
+    sync_profile_write_throttle_ms: 0,
+    sync_registry_write_throttle_ms: 0,
+    sync_profile_write_due: 0,
+    sync_registry_write_due: 0,
+    sync_profile_write_skipped_reason: "unset",
+    sync_registry_write_skipped_reason: "unset",
+  };
+}
+
+/** `[dev-api-perf]` phases 숫자 필드 — bottleneck 후보에 포함 가능 */
+function syncTelemetryPerfNumbers(tel: SyncSessionTelemetry): Record<string, number> {
+  return {
+    sync_profile_write_throttle_ms: tel.sync_profile_write_throttle_ms,
+    sync_registry_write_throttle_ms: tel.sync_registry_write_throttle_ms,
+    sync_profile_write_due: tel.sync_profile_write_due,
+    sync_registry_write_due: tel.sync_registry_write_due,
+  };
+}
+
+function syncTelemetryPerfExtras(tel: SyncSessionTelemetry): Record<string, string> {
+  return {
+    sync_write_policy: tel.sync_write_policy,
+    sync_profile_write_skipped_reason: tel.sync_profile_write_skipped_reason,
+    sync_registry_write_skipped_reason: tel.sync_registry_write_skipped_reason,
+  };
+}
+
+/** 핸들러 내부에서 관측 가능한 구간 중 최대 1개 — compile 은 포함하지 않음 */
+function computeTopProfileBottleneck(
+  totalRouteMs: number,
+  parts: Record<string, number>
+): { top_profile_bottleneck: string; top_profile_bottleneck_ms: number; top_profile_bottleneck_percent: number } {
+  let top = "none";
+  let topMs = 0;
+  for (const [k, v] of Object.entries(parts)) {
+    const n = Number(v);
+    if (!Number.isFinite(n) || n < 0) continue;
+    if (n > topMs) {
+      topMs = n;
+      top = k;
+    }
+  }
+  const denom = totalRouteMs > 0 ? totalRouteMs : topMs > 0 ? topMs : 1;
+  const pct = Math.round((topMs / denom) * 100);
+  return {
+    top_profile_bottleneck: top,
+    top_profile_bottleneck_ms: Math.round(topMs),
+    top_profile_bottleneck_percent: pct,
+  };
+}
+
+/** `[dev-api-perf]` — 핸들러 내부 구간 TOP1 (webpack compile 제외) */
+function finalizeMeProfileGetPerfLog(
+  phases: Record<string, number>,
+  extras: Record<string, string | number | boolean | null | undefined>
+): void {
+  const total = phases.total_route_ms ?? 0;
+  const top = computeTopProfileBottleneck(total, {
+    auth_session_ms: phases.auth_session_ms ?? 0,
+    quota_ms: phases.quota_ms ?? 0,
+    get_user_ms: phases.get_user_ms ?? 0,
+    profile_pipeline_ms: phases.profile_pipeline_ms ?? 0,
+    sync_session_ms: phases.sync_session_ms ?? 0,
+    json_payload_serialize_probe_ms: phases.json_payload_serialize_probe_ms ?? 0,
+    api_render_ms: phases.api_render_ms ?? 0,
+    profile_response_cache_lookup_ms: phases.profile_response_cache_lookup_ms ?? 0,
+    profile_response_cache_store_ms: phases.profile_response_cache_store_ms ?? 0,
+    profile_fetch_total_ms: phases.profile_fetch_total_ms ?? 0,
+    ensure_profile_total_ms: phases.ensure_profile_total_ms ?? 0,
+  });
+  logDevApiPerf("/api/me/profile", phases, {
+    ...extras,
+    top_profile_bottleneck: top.top_profile_bottleneck,
+    top_profile_bottleneck_ms: top.top_profile_bottleneck_ms,
+    top_profile_bottleneck_percent: top.top_profile_bottleneck_percent,
+  });
+}
 
 /** 회원 프로필 위치 — `user_addresses`·매장 주소를 이 핸들러에서 수정하지 않음. @see `lib/addresses/address-source-architecture.ts` */
 
@@ -195,86 +400,333 @@ function parsePatchBody(body: unknown): { ok: true; patch: Record<string, unknow
  */
 export async function GET(request: NextRequest) {
   const tRoute0 = devPerfNow();
+  const mode: "full" | "lite" = request.nextUrl.searchParams.get("lite") === "1" ? "lite" : "full";
+
   const auth0 = devPerfNow();
-  const auth = await requireAuthenticatedUserId();
+  const cookieAuth = await getOptionalRouteHandlerCookieAuth();
   const requireAuthMs = devPerfNow() - auth0;
-  if (!auth.ok) return auth.response;
+  if (!cookieAuth.userId) {
+    return jsonError("로그인이 필요합니다.", 401, { authenticated: false });
+  }
+  const userId = cookieAuth.userId;
 
   const quota0 = devPerfNow();
-  const ensureRl = await enforceProfileEnsureQuota(auth.userId);
+  const ensureRl = await enforceProfileEnsureQuota(userId);
   const quotaMs = devPerfNow() - quota0;
   if (!ensureRl.ok) return ensureRl.response;
 
-  const cached = peekMeProfileGetRouteCache(auth.userId);
+  const tRespPeek0 = devPerfNow();
+  const responseCachePeek = peekMeProfileGetResponseCacheDetailed(userId, mode);
+  const profile_response_cache_lookup_ms = Math.round(devPerfNow() - tRespPeek0);
+  const profileResponseCacheBypassReason = responseCachePeek.hit ? "" : responseCachePeek.reason;
+  const profileResponseCacheKey = responseCachePeek.cache_key;
+
+  if (responseCachePeek.hit) {
+    const responseCacheAgeMs = Math.round(Date.now() - responseCachePeek.storedAt);
+    const syncTel = emptySyncTelemetry();
+    const body = { ok: true, profile: responseCachePeek.profile };
+    let json_payload_serialize_probe_ms = 0;
+    if (process.env.NODE_ENV === "development") {
+      const j0 = devPerfNow();
+      JSON.stringify(body);
+      json_payload_serialize_probe_ms = Math.round(devPerfNow() - j0);
+    }
+    const r0 = devPerfNow();
+    const res = NextResponse.json(body);
+    const api_render_ms = Math.round(devPerfNow() - r0);
+    const syncPhase: Partial<
+      Record<
+        "sync_prefetch_profile_ms" | "sync_profiles_update_ms" | "sync_registry_ms" | "sync_cookie_ms",
+        number
+      >
+    > = {};
+    const sync0 = devPerfNow();
+    try {
+      await syncActiveSessionForUser(userId, res, {
+        rotate: false,
+        sessionMeta: buildRequestSessionMeta(request),
+        loginIdentifier: responseCachePeek.profile.auth_login_email ?? responseCachePeek.profile.email ?? null,
+        request,
+        existingProfile: responseCachePeek.profile,
+        touchProfileThrottleSeconds: ME_PROFILE_GET_SESSION_TOUCH_THROTTLE_SEC,
+        devSyncPhaseMs: syncPhase,
+        syncTelemetry: syncTel,
+      });
+    } catch {
+      /* 세션 쿠키 동기 실패는 본문 응답에 영향 없음 */
+    }
+    const syncSessionMs = devPerfNow() - sync0;
+    const emptyPerf = createEmptyMeProfilePipelinePerf();
+    const total_route_ms = Math.round(devPerfNow() - tRoute0);
+    finalizeMeProfileGetPerfLog(
+      {
+        auth_session_ms: Math.round(requireAuthMs),
+        profile_query_ms: 0,
+        store_query_ms: 0,
+        badge_query_ms: 0,
+        supabase_query_ms: 0,
+        payload_build_ms: 0,
+        quota_ms: Math.round(quotaMs),
+        sync_session_ms: Math.round(syncSessionMs),
+        total_route_ms,
+        api_total_wall_ms: total_route_ms,
+        api_handler_only_ms: Math.max(0, total_route_ms - Math.round(requireAuthMs) - Math.round(quotaMs)),
+        api_compile_ms: 0,
+        api_render_ms,
+        next_dev_compile_detected: 0,
+        route_client_ms: 0,
+        get_user_ms: 0,
+        profile_pipeline_ms: 0,
+        profile_pipeline_total_ms: 0,
+        dev_profile_cache_hit: 0,
+        profile_singleflight_hit: 0,
+        profile_cache_ttl_ms: PROFILE_ROUTE_PIPELINE_COALESCE_MS,
+        get_user_call_count: 0,
+        profile_query_call_count: 0,
+        profile_response_cache_hit: 1,
+        profile_response_cache_ttl_ms: ME_PROFILE_RESPONSE_CACHE_TTL_MS,
+        profile_response_cache_age_ms: responseCacheAgeMs,
+        profile_response_cache_lookup_ms,
+        profile_response_cache_store_ms: 0,
+        json_payload_serialize_probe_ms,
+        sync_prefetch_profile_ms: Math.round(syncPhase.sync_prefetch_profile_ms ?? 0),
+        sync_profiles_update_ms: Math.round(syncPhase.sync_profiles_update_ms ?? 0),
+        sync_registry_ms: Math.round(syncPhase.sync_registry_ms ?? 0),
+        sync_cookie_ms: Math.round(syncPhase.sync_cookie_ms ?? 0),
+        sync_profiles_update_skipped: syncTel.sync_profiles_update_skipped,
+        sync_profiles_update_executed: syncTel.sync_profiles_update_executed,
+        sync_registry_sync_skipped: syncTel.sync_registry_sync_skipped,
+        sync_registry_sync_executed: syncTel.sync_registry_sync_executed,
+        sync_last_login_age_ms: syncTel.sync_last_login_age_ms,
+        sync_same_session_id: syncTel.sync_same_session_id,
+        sync_same_device_info: syncTel.sync_same_device_info,
+        ...syncTelemetryPerfNumbers(syncTel),
+        profile_fetch_attempt_count: 0,
+        profile_fetch_fallback_count: 0,
+        profile_fetch_total_ms: 0,
+        ...extractEnsureProfileNumericPhases(emptyPerf),
+      },
+      {
+        profile_select_columns: "(response_route_cache)",
+        profile_pipeline_steps: buildProfilePipelineStepsJson(emptyPerf),
+        slowest_profile_step: "none",
+        slowest_profile_step_ms: 0,
+        profile_response_cache_reason: "hit",
+        profile_response_cache_key: profileResponseCacheKey,
+        profile_response_cache_bypass_reason: profileResponseCacheBypassReason,
+        sync_touch_reason: syncTel.sync_touch_reason,
+        ...syncTelemetryPerfExtras(syncTel),
+        profile_fetch_mode: mode,
+        ensure_profile_result: emptyPerf.ensure_profile_result || "n/a",
+        compile_vs_render_note:
+          "route_handler_does_not_measure_webpack_compile_ms; compare_total_route_ms_dev_vs_npm_start",
+      },
+    );
+    return res;
+  }
+
+  const cached = mode === "lite" ? undefined : peekMeProfileGetRouteCache(userId);
   if (cached !== undefined) {
-    const res = NextResponse.json({ ok: true, profile: cached });
+    const body = { ok: true, profile: cached };
+    let json_payload_serialize_probe_ms = 0;
+    if (process.env.NODE_ENV === "development") {
+      const j0 = devPerfNow();
+      JSON.stringify(body);
+      json_payload_serialize_probe_ms = Math.round(devPerfNow() - j0);
+    }
+    const r0 = devPerfNow();
+    const res = NextResponse.json(body);
+    const api_render_ms = Math.round(devPerfNow() - r0);
+    const syncTel = emptySyncTelemetry();
+    const syncPhase: Partial<
+      Record<
+        "sync_prefetch_profile_ms" | "sync_profiles_update_ms" | "sync_registry_ms" | "sync_cookie_ms",
+        number
+      >
+    > = {};
     const sync0 = devPerfNow();
     if (cached) {
       try {
-        await syncActiveSessionForUser(auth.userId, res, {
+        await syncActiveSessionForUser(userId, res, {
           rotate: false,
           sessionMeta: buildRequestSessionMeta(request),
           loginIdentifier: cached.auth_login_email ?? cached.email ?? null,
           request,
+          existingProfile: cached,
+          touchProfileThrottleSeconds: ME_PROFILE_GET_SESSION_TOUCH_THROTTLE_SEC,
+          devSyncPhaseMs: syncPhase,
+          syncTelemetry: syncTel,
         });
       } catch {
         /* 세션 쿠키 동기 실패는 본문 응답에 영향 없음 — 기존 POST ensure 와 동일 */
       }
     }
     const syncSessionMs = devPerfNow() - sync0;
-    logDevApiPerf("/api/me/profile", {
-      auth_session_ms: Math.round(requireAuthMs),
-      profile_query_ms: 0,
-      store_query_ms: 0,
-      badge_query_ms: 0,
-      supabase_query_ms: 0,
-      payload_build_ms: 0,
-      quota_ms: Math.round(quotaMs),
-      sync_session_ms: Math.round(syncSessionMs),
-      total_route_ms: Math.round(devPerfNow() - tRoute0),
-      route_client_ms: 0,
-      get_user_ms: 0,
-      profile_pipeline_ms: 0,
-      dev_profile_cache_hit: 1,
-    });
+    const emptyPerf = createEmptyMeProfilePipelinePerf();
+    const total_route_ms = Math.round(devPerfNow() - tRoute0);
+    finalizeMeProfileGetPerfLog(
+      {
+        auth_session_ms: Math.round(requireAuthMs),
+        profile_query_ms: 0,
+        store_query_ms: 0,
+        badge_query_ms: 0,
+        supabase_query_ms: 0,
+        payload_build_ms: 0,
+        quota_ms: Math.round(quotaMs),
+        sync_session_ms: Math.round(syncSessionMs),
+        total_route_ms,
+        api_total_wall_ms: total_route_ms,
+        api_handler_only_ms: Math.max(0, total_route_ms - Math.round(requireAuthMs) - Math.round(quotaMs)),
+        api_compile_ms: 0,
+        api_render_ms,
+        next_dev_compile_detected: 0,
+        route_client_ms: 0,
+        get_user_ms: 0,
+        profile_pipeline_ms: 0,
+        profile_pipeline_total_ms: 0,
+        dev_profile_cache_hit: 1,
+        profile_singleflight_hit: 0,
+        profile_cache_ttl_ms: PROFILE_ROUTE_PIPELINE_COALESCE_MS,
+        get_user_call_count: 0,
+        profile_query_call_count: 0,
+        profile_response_cache_hit: 0,
+        profile_response_cache_ttl_ms: ME_PROFILE_RESPONSE_CACHE_TTL_MS,
+        profile_response_cache_age_ms: 0,
+        profile_response_cache_lookup_ms,
+        profile_response_cache_store_ms: 0,
+        json_payload_serialize_probe_ms,
+        sync_prefetch_profile_ms: Math.round(syncPhase.sync_prefetch_profile_ms ?? 0),
+        sync_profiles_update_ms: Math.round(syncPhase.sync_profiles_update_ms ?? 0),
+        sync_registry_ms: Math.round(syncPhase.sync_registry_ms ?? 0),
+        sync_cookie_ms: Math.round(syncPhase.sync_cookie_ms ?? 0),
+        sync_profiles_update_skipped: syncTel.sync_profiles_update_skipped,
+        sync_profiles_update_executed: syncTel.sync_profiles_update_executed,
+        sync_registry_sync_skipped: syncTel.sync_registry_sync_skipped,
+        sync_registry_sync_executed: syncTel.sync_registry_sync_executed,
+        sync_last_login_age_ms: syncTel.sync_last_login_age_ms,
+        sync_same_session_id: syncTel.sync_same_session_id,
+        sync_same_device_info: syncTel.sync_same_device_info,
+        ...syncTelemetryPerfNumbers(syncTel),
+        profile_fetch_attempt_count: 0,
+        profile_fetch_fallback_count: 0,
+        profile_fetch_total_ms: 0,
+        ...extractEnsureProfileNumericPhases(emptyPerf),
+      },
+      {
+        profile_select_columns: "(dev_route_cache)",
+        profile_pipeline_steps: buildProfilePipelineStepsJson(emptyPerf),
+        slowest_profile_step: "none",
+        slowest_profile_step_ms: 0,
+        profile_response_cache_reason: "bypass_dev_route_cache_branch",
+        profile_response_cache_key: profileResponseCacheKey,
+        profile_response_cache_bypass_reason: profileResponseCacheBypassReason || "n/a",
+        sync_touch_reason: syncTel.sync_touch_reason,
+        ...syncTelemetryPerfExtras(syncTel),
+        profile_fetch_mode: mode,
+        ensure_profile_result: emptyPerf.ensure_profile_result || "n/a",
+        compile_vs_render_note:
+          "route_handler_does_not_measure_webpack_compile_ms; compare_total_route_ms_dev_vs_npm_start",
+      },
+    );
     return res;
   }
 
-  const client0 = devPerfNow();
-  const routeSb = await createSupabaseRouteHandlerClient();
-  const routeClientMs = devPerfNow() - client0;
-  if (!routeSb) {
+  if (!cookieAuth.supabase) {
     return serviceUnavailable("Supabase 가 설정되지 않았습니다.");
   }
 
-  const getUser0 = devPerfNow();
-  const {
-    data: { user },
-  } = await routeSb.auth.getUser();
-  const getUserMs = devPerfNow() - getUser0;
-  const supabaseUser = user?.id === auth.userId ? user : null;
+  let getUserCallCount = 0;
+  let getUserMs = 0;
+  let supabaseUser = cookieAuth.user;
+  if (cookieAuth.claimsOnly) {
+    const g0 = devPerfNow();
+    const {
+      data: { user },
+    } = await cookieAuth.supabase.auth.getUser();
+    getUserMs = devPerfNow() - g0;
+    getUserCallCount = 1;
+    supabaseUser = user?.id === userId ? user : null;
+  } else {
+    getUserCallCount = cookieAuth.user ? 1 : 0;
+  }
 
   const serviceSb = tryCreateSupabaseServiceClient();
-  const pipe0 = devPerfNow();
-  const profile = await runMeProfileReadPipeline({
-    authUserId: auth.userId,
-    supabaseUser,
-    routeSb,
-    serviceSb,
-  });
-  const profilePipelineMs = devPerfNow() - pipe0;
+  const pipelineFlightKey = `${userId.trim()}\0${mode}`;
+  let profileSingleflightHit = 0;
+  const existingFlight = ME_PROFILE_PIPELINE_INFLIGHT.get(pipelineFlightKey);
+  let flightPromise: Promise<MeProfilePipelineFlight>;
+  if (existingFlight) {
+    profileSingleflightHit = 1;
+    flightPromise = existingFlight;
+  } else {
+    flightPromise = (async (): Promise<MeProfilePipelineFlight> => {
+      const profileFetchMetrics = createEmptyProfileFetchMetrics();
+      const pipelineStepMs = createEmptyMeProfilePipelinePerf();
+      const pipe0 = devPerfNow();
+      const profile = await runMeProfileReadPipeline({
+        authUserId: userId,
+        supabaseUser,
+        routeSb: cookieAuth.supabase!,
+        serviceSb,
+        profileFetchMetrics,
+        profileSelectMode: mode,
+        pipelineStepMs,
+      });
+      return {
+        profile,
+        profilePipelineMs: devPerfNow() - pipe0,
+        profileFetchMetrics,
+        pipelineStepMs,
+      };
+    })();
+    ME_PROFILE_PIPELINE_INFLIGHT.set(pipelineFlightKey, flightPromise);
+    void flightPromise.finally(() => {
+      ME_PROFILE_PIPELINE_INFLIGHT.delete(pipelineFlightKey);
+    });
+  }
 
-  setMeProfileGetRouteCache(auth.userId, profile);
+  const flight = await flightPromise;
+  const { profile, profilePipelineMs, profileFetchMetrics, pipelineStepMs } = flight;
 
-  const res = NextResponse.json({ ok: true, profile });
+  if (mode === "full") {
+    setMeProfileGetRouteCache(userId, profile);
+  }
+  let profile_response_cache_store_ms = 0;
+  if (profile) {
+    const st0 = devPerfNow();
+    setMeProfileGetResponseCache(userId, mode, profile);
+    profile_response_cache_store_ms = Math.round(devPerfNow() - st0);
+  }
+
+  const syncTelMain = emptySyncTelemetry();
+  const body = { ok: true, profile };
+  let json_payload_serialize_probe_ms = 0;
+  if (process.env.NODE_ENV === "development") {
+    const j0 = devPerfNow();
+    JSON.stringify(body);
+    json_payload_serialize_probe_ms = Math.round(devPerfNow() - j0);
+  }
+  const r0 = devPerfNow();
+  const res = NextResponse.json(body);
+  const api_render_ms = Math.round(devPerfNow() - r0);
+  const syncPhase: Partial<
+    Record<
+      "sync_prefetch_profile_ms" | "sync_profiles_update_ms" | "sync_registry_ms" | "sync_cookie_ms",
+      number
+    >
+  > = {};
   const sync0 = devPerfNow();
   if (profile) {
     try {
-      await syncActiveSessionForUser(auth.userId, res, {
+      await syncActiveSessionForUser(userId, res, {
         rotate: false,
         sessionMeta: buildRequestSessionMeta(request),
         loginIdentifier: profile.auth_login_email ?? profile.email ?? null,
         request,
+        existingProfile: profile,
+        touchProfileThrottleSeconds: ME_PROFILE_GET_SESSION_TOUCH_THROTTLE_SEC,
+        devSyncPhaseMs: syncPhase,
+        syncTelemetry: syncTelMain,
       });
     } catch {
       /* 세션 쿠키 동기 실패는 본문 응답에 영향 없음 — 기존 POST ensure 와 동일 */
@@ -282,21 +734,98 @@ export async function GET(request: NextRequest) {
   }
   const syncSessionMs = devPerfNow() - sync0;
 
-  logDevApiPerf("/api/me/profile", {
-    auth_session_ms: Math.round(requireAuthMs),
-    route_client_ms: Math.round(routeClientMs),
-    get_user_ms: Math.round(getUserMs),
-    profile_pipeline_ms: Math.round(profilePipelineMs),
-    quota_ms: Math.round(quotaMs),
-    sync_session_ms: Math.round(syncSessionMs),
-    supabase_query_ms: Math.round(profilePipelineMs),
-    profile_query_ms: Math.round(profilePipelineMs),
-    store_query_ms: 0,
-    badge_query_ms: 0,
-    payload_build_ms: Math.round(profilePipelineMs),
-    total_route_ms: Math.round(devPerfNow() - tRoute0),
-    dev_profile_cache_hit: 0,
-  });
+  const m = profileFetchMetrics;
+  const selCols =
+    m.profileSelectColumns.trim() || (profile ? "(pipeline_no_fetch_metrics)" : "(null)");
+
+  const slow = slowestProfilePipelineStep(pipelineStepMs);
+
+  const total_route_ms = Math.round(devPerfNow() - tRoute0);
+  finalizeMeProfileGetPerfLog(
+    {
+      auth_session_ms: Math.round(requireAuthMs),
+      route_client_ms: 0,
+      get_user_ms: Math.round(getUserMs),
+      profile_pipeline_ms: Math.round(profilePipelineMs),
+      profile_pipeline_total_ms: Math.round(pipelineStepMs.pipeline_total_ms),
+      quota_ms: Math.round(quotaMs),
+      sync_session_ms: Math.round(syncSessionMs),
+      supabase_query_ms: Math.round(profilePipelineMs),
+      profile_query_ms: Math.round(profilePipelineMs),
+      store_query_ms: 0,
+      badge_query_ms: 0,
+      payload_build_ms: Math.round(profilePipelineMs),
+      total_route_ms,
+      api_total_wall_ms: total_route_ms,
+      api_handler_only_ms: Math.max(0, total_route_ms - Math.round(requireAuthMs) - Math.round(quotaMs)),
+      api_compile_ms: 0,
+      api_render_ms,
+      next_dev_compile_detected: 0,
+      dev_profile_cache_hit: 0,
+      profile_singleflight_hit: profileSingleflightHit,
+      profile_cache_ttl_ms: PROFILE_ROUTE_PIPELINE_COALESCE_MS,
+      get_user_call_count: getUserCallCount,
+      profile_query_call_count: m.profileQueryCallCount,
+      profile_response_cache_hit: 0,
+      profile_response_cache_ttl_ms: ME_PROFILE_RESPONSE_CACHE_TTL_MS,
+      profile_response_cache_age_ms: 0,
+      profile_response_cache_lookup_ms,
+      profile_response_cache_store_ms,
+      json_payload_serialize_probe_ms,
+      ensure_user_profile_ms: Math.round(pipelineStepMs.ensure_user_profile_ms),
+      ...extractEnsureProfileNumericPhases(pipelineStepMs),
+      profile_row_fetch_ms: Math.round(pipelineStepMs.profile_row_fetch_ms),
+      profile_row_normalize_ms: Math.round(pipelineStepMs.profile_row_normalize_ms),
+      profile_row_fallback_ms: Math.round(pipelineStepMs.profile_row_fallback_ms),
+      profile_quota_ms: Math.round(pipelineStepMs.profile_quota_ms),
+      profile_session_sync_ms: Math.round(pipelineStepMs.profile_session_sync_ms),
+      profile_payload_build_ms: Math.round(pipelineStepMs.profile_payload_build_ms),
+      profile_extra_store_badge_ms: Math.round(pipelineStepMs.profile_extra_store_badge_ms),
+      profile_extra_settings_ms: Math.round(pipelineStepMs.profile_extra_settings_ms),
+      profile_rls_or_postgrest_wait_ms: Math.round(pipelineStepMs.profile_rls_or_postgrest_wait_ms),
+      sync_prefetch_profile_ms: Math.round(syncPhase.sync_prefetch_profile_ms ?? 0),
+      sync_profiles_update_ms: Math.round(syncPhase.sync_profiles_update_ms ?? 0),
+      sync_registry_ms: Math.round(syncPhase.sync_registry_ms ?? 0),
+      sync_cookie_ms: Math.round(syncPhase.sync_cookie_ms ?? 0),
+      sync_profiles_update_skipped: syncTelMain.sync_profiles_update_skipped,
+      sync_profiles_update_executed: syncTelMain.sync_profiles_update_executed,
+      sync_registry_sync_skipped: syncTelMain.sync_registry_sync_skipped,
+      sync_registry_sync_executed: syncTelMain.sync_registry_sync_executed,
+      sync_last_login_age_ms: syncTelMain.sync_last_login_age_ms,
+      sync_same_session_id: syncTelMain.sync_same_session_id,
+      sync_same_device_info: syncTelMain.sync_same_device_info,
+      ...syncTelemetryPerfNumbers(syncTelMain),
+      profile_fetch_attempt_count: m.profile_fetch_attempt_count,
+      profile_fetch_fallback_count: m.profile_fetch_fallback_count,
+      profile_fetch_schema_retry_count: m.profile_fetch_schema_retry_count,
+      profile_fetch_total_ms: Math.round(m.profile_fetch_total_ms),
+      profile_fetch_first_success_ms: Math.round(m.profile_fetch_first_success_ms),
+      profile_fetch_last_attempt_ms: Math.round(m.profile_fetch_last_attempt_ms),
+    },
+    {
+      profile_select_columns: selCols,
+      profile_pipeline_steps: buildProfilePipelineStepsJson(pipelineStepMs),
+      slowest_profile_step: slow.step,
+      slowest_profile_step_ms: Math.round(slow.ms),
+      profile_response_cache_reason: "miss_pipeline_branch",
+      profile_response_cache_key: profileResponseCacheKey,
+      profile_response_cache_bypass_reason: profileResponseCacheBypassReason || "n/a",
+      sync_touch_reason: profile ? syncTelMain.sync_touch_reason : "no_profile_after_pipeline",
+      ...syncTelemetryPerfExtras(syncTelMain),
+      profile_fetch_mode: mode,
+      profile_fetch_last_schema_error_snippet: m.profile_fetch_last_schema_error_snippet || "",
+      profile_fetch_first_attempt_ok:
+        m.profile_fetch_attempt_count === 1 &&
+        m.profile_fetch_fallback_count === 0 &&
+        m.profile_fetch_schema_retry_count === 0
+          ? "yes"
+          : "no",
+      compile_vs_render_note:
+        "route_handler_does_not_measure_webpack_compile_ms; compare_total_route_ms_dev_vs_npm_start",
+      ensure_profile_result: pipelineStepMs.ensure_profile_result || "n/a",
+      ...ensureProfileDiagForDevPerf(pipelineStepMs),
+    },
+  );
   return res;
 }
 
@@ -305,6 +834,7 @@ export async function PATCH(req: NextRequest) {
   if (!auth.ok) return auth.response;
 
   clearMeProfileGetRouteCache(auth.userId);
+  clearMeProfileResponseCachesForUser(auth.userId);
 
   let raw: unknown;
   try {

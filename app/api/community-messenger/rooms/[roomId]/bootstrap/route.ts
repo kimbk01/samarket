@@ -15,7 +15,8 @@ import {
   classifyCommunityMessengerRoomBootstrapCmReqSrc,
   communityMessengerRoomBootstrapApiTimingRouteKey,
 } from "@/lib/community-messenger/messenger-room-bootstrap";
-import { recordMessengerApiTiming, recordMessengerMonitoringEvent } from "@/lib/community-messenger/monitoring/server-store";
+import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/messenger-api-route-timing";
+import { recordMessengerMonitoringEvent } from "@/lib/community-messenger/monitoring/server-store-record";
 import { getCachedRoomBootstrap, setCachedRoomBootstrap } from "@/lib/community-messenger/server/room-bootstrap-route-cache";
 import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { runSingleFlight } from "@/lib/http/run-single-flight";

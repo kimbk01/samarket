@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
-import { extractPostThumbnailPathFromPostRow } from "@/lib/community-messenger/trade-chat-list/post-thumbnail-path";
 import { POSTS_TABLE_READ } from "@/lib/posts/posts-db-tables";
-import { resolvePostImagePublicUrl } from "@/lib/posts/resolve-post-image-public-url";
-import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,6 +22,13 @@ export async function GET(req: NextRequest) {
     code: "community_messenger_trade_post_thumb_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;
+
+  const [{ getSupabaseServer }, { extractPostThumbnailPathFromPostRow }, { resolvePostImagePublicUrl }] =
+    await Promise.all([
+      import("@/lib/chat/supabase-server"),
+      import("@/lib/community-messenger/trade-chat-list/post-thumbnail-path"),
+      import("@/lib/posts/resolve-post-image-public-url"),
+    ]);
 
   const postId = req.nextUrl.searchParams.get("postId")?.trim() ?? "";
   if (!postId) {

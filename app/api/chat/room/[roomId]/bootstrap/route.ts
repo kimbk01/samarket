@@ -4,9 +4,6 @@ import {
   inferMessengerDomainFromChatRoom,
   MESSENGER_MONITORING_LABEL_DOMAIN,
 } from "@/lib/chat-domain/messenger-domains";
-import { loadTradeChatRoomBootstrap } from "@/lib/chat-domain/use-cases/trade-chat-bootstrap";
-import { buildTradeChatBootstrapParticipants } from "@/lib/chats/trade-chat-bootstrap-extras";
-import { createTradeChatReadAdapter } from "@/lib/chats/server/trade-chat-read-adapter";
 import type { TradeChatBootstrapPhase } from "@/lib/chat-domain/ports/trade-chat-read";
 import type { ChatRoomSource } from "@/lib/types/chat";
 import { parseRoomId } from "@/lib/validate-params";
@@ -32,6 +29,16 @@ export async function GET(
 
   const phaseRaw = req.nextUrl.searchParams.get("phase")?.trim().toLowerCase();
   const bootstrapPhase: TradeChatBootstrapPhase = phaseRaw === "lite" ? "lite" : "full";
+
+  const [
+    { loadTradeChatRoomBootstrap },
+    { buildTradeChatBootstrapParticipants },
+    { createTradeChatReadAdapter },
+  ] = await Promise.all([
+    import("@/lib/chat-domain/use-cases/trade-chat-bootstrap"),
+    import("@/lib/chats/trade-chat-bootstrap-extras"),
+    import("@/lib/chats/server/trade-chat-read-adapter"),
+  ]);
 
   const startedAt = Date.now();
   const port = createTradeChatReadAdapter();

@@ -56,6 +56,8 @@ export interface ProfileRow {
   preferred_country: string;
   /** 정책 기준 공급자. 구버전 호환용 `auth_provider` 도 함께 유지한다. */
   provider?: string | null;
+  /** SNS sub 등 — `ensureUserProfile`·중복 탐지에 사용(스키마 마이그레이션 전환기간 호환) */
+  provider_user_id?: string | null;
   auth_provider: string | null;
   active_session_id?: string | null;
   last_login_at?: string | null;

@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getOrCreateRequestId, getRateLimitKey, withRequestIdHeaders } from "@/lib/http/api-route";
-import {
-  getCommunityMessengerPresenceSnapshotsByUserIds,
-  upsertCommunityMessengerPresenceSnapshot,
-} from "@/lib/community-messenger/service";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 
 export const runtime = "nodejs";
@@ -19,6 +15,7 @@ export async function GET(req: NextRequest) {
   if (ids.length === 0) {
     return NextResponse.json({ ok: true, snapshots: [] });
   }
+  const { getCommunityMessengerPresenceSnapshotsByUserIds } = await import("@/lib/community-messenger/service");
   const snapshots = await getCommunityMessengerPresenceSnapshotsByUserIds(ids);
   return NextResponse.json({
     ok: true,
@@ -100,6 +97,7 @@ export async function POST(req: NextRequest) {
   };
 
   const routeSb = await createSupabaseRouteHandlerClient();
+  const { upsertCommunityMessengerPresenceSnapshot } = await import("@/lib/community-messenger/service");
   const result = await upsertCommunityMessengerPresenceSnapshot(
     {
       userId: auth.userId,

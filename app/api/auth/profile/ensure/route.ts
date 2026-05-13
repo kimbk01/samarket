@@ -10,6 +10,7 @@ import {
 import { jsonError, jsonOk, safeErrorMessage } from "@/lib/http/api-route";
 import { enforceProfileEnsureQuota } from "@/lib/security/rate-limit-presets";
 import { clearMeProfileGetRouteCache } from "@/lib/profile/me-profile-get-route-cache";
+import { clearMeProfileResponseCachesForUser } from "@/lib/profile/me-profile-get-response-cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,6 +36,7 @@ export async function POST(request: NextRequest) {
   if (!ensureRl.ok) return ensureRl.response;
 
   clearMeProfileGetRouteCache(user.id);
+  clearMeProfileResponseCachesForUser(user.id);
 
   const serviceSb = tryCreateSupabaseServiceClient();
 

@@ -6,6 +6,8 @@ import type {
 import {
   COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP,
   COMMUNITY_MESSENGER_HOME_SYNC_FULL_ROOM_CAP,
+} from "@/lib/community-messenger/home-sync-room-caps";
+import {
   listCommunityMessengerFriendRequests,
   listCommunityMessengerFriends,
   listCommunityMessengerMyChatsAndGroups,
@@ -120,3 +122,5 @@ export async function getCommunityMessengerHomeSyncBundle(
     friends,
   };
 }
+
+export type CommunityMessengerHomeSyncBundlePayload = Awaited<ReturnType<typeof getCommunityMessengerHomeSyncBundle>>;

@@ -7,7 +7,9 @@ export {
   getOptionalAuthenticatedUserId,
   getOptionalAuthenticatedUserIdPreferSession,
   getOptionalAuthenticatedUserIdStrict,
+  getOptionalRouteHandlerCookieAuth,
 } from "@/lib/auth/get-optional-authenticated-user-id";
+export type { RouteHandlerCookieAuth } from "@/lib/auth/get-optional-authenticated-user-id";
 export {
   requireAuthenticatedUserId,
   requireAuthenticatedUserIdPreferSession,

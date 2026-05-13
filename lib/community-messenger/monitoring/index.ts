@@ -15,12 +15,13 @@ export {
   MESSENGER_PERF_REFERENCE_ROOM_OPEN_MS,
   MESSENGER_PERF_THRESHOLDS,
 } from "./thresholds";
+export { getMessengerMonitoringSummary } from "./server-store-summary";
 export {
-  getMessengerMonitoringSummary,
   ingestClientMessengerEvents,
-  recordMessengerApiTiming,
+  recordMessengerBootstrapBreakdown,
   recordMessengerMonitoringEvent,
-} from "./server-store";
+} from "./server-store-record";
+export { recordMessengerApiTiming } from "./messenger-api-route-timing";
 export { measureMessengerDb } from "./measure-server";
 export { collectMessengerWebRtcDiagnostics, estimateInboundPacketLossPercent } from "./webrtc-stats";
 export type { MessengerWebRtcDiagnosticsSample } from "./webrtc-stats";

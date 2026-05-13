@@ -18,7 +18,7 @@ import {
   listCommunityMessengerMyChatsAndGroups,
   syncStoreOrderCommunityMessengerRoomId,
 } from "@/lib/community-messenger/service";
-import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/server-store";
+import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/messenger-api-route-timing";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

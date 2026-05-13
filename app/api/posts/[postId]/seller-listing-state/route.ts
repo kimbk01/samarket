@@ -27,7 +27,7 @@ import {
 } from "@/lib/trade/insert-seller-listing-change-system-messages";
 import type { TradeListingThreadNotice } from "@/lib/trade/trade-listing-thread-notice";
 import { publishTradePostListingUpdateFromServer } from "@/lib/trade/trade-post-listing-broadcast-server";
-import { recordMessengerMonitoringEvent } from "@/lib/community-messenger/monitoring/server-store";
+import { recordMessengerMonitoringEvent } from "@/lib/community-messenger/monitoring/server-store-record";
 
 const ALLOWED: SellerListingState[] = ["inquiry", "negotiating", "reserved", "completed"];
 

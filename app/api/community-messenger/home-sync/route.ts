@@ -1,15 +1,14 @@
 import { NextRequest } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey, jsonOkWithRequest } from "@/lib/http/api-route";
-import { getCommunityMessengerHomeSyncBundle } from "@/lib/community-messenger/get-community-messenger-home-sync-bundle";
+import type { CommunityMessengerHomeSyncBundlePayload } from "@/lib/community-messenger/get-community-messenger-home-sync-bundle";
 import {
   COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP,
   COMMUNITY_MESSENGER_HOME_SYNC_FULL_ROOM_CAP,
-} from "@/lib/community-messenger/service";
-import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/server-store";
+} from "@/lib/community-messenger/home-sync-room-caps";
+import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/messenger-api-route-timing";
 import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import { messengerApiEdgeCacheHeaders } from "@/lib/http/messenger-api-edge-cache";
-import v8 from "v8";
 import { homeSyncBreakdownEnabled } from "@/lib/community-messenger/home-sync-breakdown-log";
 import {
   homeSyncRequestDedupeKey,
@@ -19,6 +18,7 @@ import {
   buildHomeSyncOutsideTradeStepBreakdown,
   buildHomeSyncTradeMetaStepBreakdown,
   homeSyncTraceMeterEnabled,
+  mergeHomeSyncDeepStepsAfterSingleflightJoin,
   ms,
   type HomeSyncDeepStepsBundleSteps,
   type HomeSyncDeepStepsUnreadBadge,
@@ -33,6 +33,11 @@ import {
   messengerTraceConsoleDebug,
   messengerVerboseTraceConsoleEnabled,
 } from "@/lib/community-messenger/messenger-trace-console";
+import {
+  homeSyncDeepTraceLogEnabled,
+  logHomeSyncDeepTrace,
+} from "@/lib/community-messenger/home-sync-deep-trace-log";
+import { emitHomeSyncRuntimeProfile } from "@/lib/community-messenger/home-sync-runtime-profile";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -66,6 +71,7 @@ function captureHomeSyncRouteCacheTraceSnapshot(trace: HomeSyncTrace): HomeSyncR
       payloadBuildMs: bs.payloadBuildMs,
       listSplitFilterMs: bs.listSplitFilterMs,
       listMyChatsWallMs: bs.listMyChatsWallMs,
+      roomsRound2RoomsDbFetchMs: bs.roomsRound2RoomsDbFetchMs,
       bundleParallelWallMs: bs.bundleParallelWallMs,
       friendsFetchMs: bs.friendsFetchMs,
       friendsRequestsFetchMs: bs.friendsRequestsFetchMs,
@@ -89,12 +95,20 @@ function mergeHomeSyncTraceFromRouteCache(trace: HomeSyncTrace, snap: HomeSyncRo
 }
 
 type CommunityMessengerHomeSyncCacheEntry = {
-  payload: Awaited<ReturnType<typeof getCommunityMessengerHomeSyncBundle>>;
+  payload: CommunityMessengerHomeSyncBundlePayload;
   expiresAt: number;
   traceSnapshot?: HomeSyncRouteCacheTraceSnapshot;
 };
 
 const communityMessengerHomeSyncCache = new Map<string, CommunityMessengerHomeSyncCacheEntry>();
+
+type HomeSyncInflightEntry = {
+  promise: Promise<CommunityMessengerHomeSyncBundlePayload>;
+  leaderTrace: HomeSyncTrace | undefined;
+};
+
+/** 동일 사용자·tier·cap 키로 동시에 들어온 요청이 홈 sync 번들을 한 번만 실행 */
+const communityMessengerHomeSyncInflight = new Map<string, HomeSyncInflightEntry>();
 
 /**
  * 홈 사일런트 갱신 전용 — `rooms` + `friend-requests` + `friends` 를 한 HTTP 왕복으로 묶어
@@ -103,7 +117,8 @@ const communityMessengerHomeSyncCache = new Map<string, CommunityMessengerHomeSy
 export async function GET(req: NextRequest) {
   const t0 = performance.now();
   const isDev = process.env.NODE_ENV === "development";
-  const enableInMemoryCache = process.env.NODE_ENV === "production";
+  /** 짧은 TTL in-process 캐시 — dev 포함 기본 ON, `SAMARKET_HOME_SYNC_DISABLE_ROUTE_CACHE=1` 로만 끔 */
+  const enableInMemoryCache = process.env.SAMARKET_HOME_SYNC_DISABLE_ROUTE_CACHE !== "1";
   const tAuth = performance.now();
   const auth = await requireAuthenticatedUserId();
   const authMs = performance.now() - tAuth;
@@ -163,11 +178,21 @@ export async function GET(req: NextRequest) {
 
   /** 상한·스킵 enrich 변경 시 캐시 오염 방지 — cap 버전을 키에 포함 */
   const cacheKey = `${auth.userId}:${tier}:cap${COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP}f${COMMUNITY_MESSENGER_HOME_SYNC_FULL_ROOM_CAP}`;
+  const duplicateDedupeKey = `${auth.userId}|${homeSyncRequestDedupeKey(req.nextUrl.pathname, req.nextUrl.searchParams)}`;
+  /** 번들 miss + in-flight 합류 시 `home_sync_cache_reason` 등에 사용 */
+  let homeSyncSingleflightJoined = false;
+  const tCacheLookup = performance.now();
   const cachedEntry: CommunityMessengerHomeSyncCacheEntry | undefined =
     enableInMemoryCache && !fresh ? communityMessengerHomeSyncCache.get(cacheKey) : undefined;
+  const homeSyncCacheLookupMs = performance.now() - tCacheLookup;
   let bundle = cachedEntry?.payload;
-  /** 프로덕션 5s in-memory 캐시 히트 — 개발에서는 캐시 비활성이라 항상 false */
+  /** 5s in-process 라우트 캐시 히트 — `SAMARKET_HOME_SYNC_DISABLE_ROUTE_CACHE=1` 이면 비활성 */
   const shortTtlHit = Boolean(bundle);
+  const homeSyncCacheApproxAgeMs =
+    shortTtlHit && cachedEntry
+      ? Math.max(0, now - (cachedEntry.expiresAt - COMMUNITY_MESSENGER_HOME_SYNC_TTL_MS))
+      : null;
+  let homeSyncCacheStoreMs = 0;
 
   const tBeforeBundleResolution = performance.now();
   let routeBundleAwaitMs = 0;
@@ -186,9 +211,36 @@ export async function GET(req: NextRequest) {
 
   if (!bundle) {
     try {
+      const inflightEntry = communityMessengerHomeSyncInflight.get(cacheKey);
       const tAwaitStart = performance.now();
-      bundle = await getCommunityMessengerHomeSyncBundle(auth.userId, tier, { trace });
+      const joinedSingleflight = Boolean(inflightEntry);
+      if (joinedSingleflight) homeSyncSingleflightJoined = true;
+      let flight: Promise<CommunityMessengerHomeSyncBundlePayload>;
+      if (inflightEntry) {
+        flight = inflightEntry.promise;
+      } else {
+        const { getCommunityMessengerHomeSyncBundle } = await import(
+          "@/lib/community-messenger/get-community-messenger-home-sync-bundle"
+        );
+        const leaderTrace = trace;
+        const started = getCommunityMessengerHomeSyncBundle(auth.userId, tier, { trace: leaderTrace });
+        const wrapped = started.finally(() => {
+          const cur = communityMessengerHomeSyncInflight.get(cacheKey);
+          if (cur?.promise === wrapped) {
+            communityMessengerHomeSyncInflight.delete(cacheKey);
+          }
+        });
+        communityMessengerHomeSyncInflight.set(cacheKey, {
+          promise: wrapped,
+          leaderTrace,
+        });
+        flight = wrapped;
+      }
+      bundle = await flight;
       routeBundleAwaitMs = performance.now() - tAwaitStart;
+      if (joinedSingleflight && trace && inflightEntry?.leaderTrace) {
+        mergeHomeSyncDeepStepsAfterSingleflightJoin(trace, inflightEntry.leaderTrace, routeBundleAwaitMs);
+      }
     } catch (e) {
       if (trace) {
         console.warn("[home-sync-skip]", { status: 500, reason: "bundle_error", token: trace.token });
@@ -197,11 +249,13 @@ export async function GET(req: NextRequest) {
     }
     const tSet = Date.now();
     if (enableInMemoryCache) {
+      const tStore0 = performance.now();
       communityMessengerHomeSyncCache.set(cacheKey, {
         payload: bundle,
         expiresAt: tSet + COMMUNITY_MESSENGER_HOME_SYNC_TTL_MS,
         traceSnapshot: trace ? captureHomeSyncRouteCacheTraceSnapshot(trace) : undefined,
       });
+      homeSyncCacheStoreMs = performance.now() - tStore0;
       pruneByExpiresAtAndMaxSize(
         communityMessengerHomeSyncCache,
         tSet,
@@ -212,9 +266,9 @@ export async function GET(req: NextRequest) {
     mergeHomeSyncTraceFromRouteCache(trace, cachedEntry.traceSnapshot);
   }
 
-  // [DEV] payload size log (approx) + heap logger for memory-restart triage.
+  // [DEV] payload size + heap — 상세 트레이스 켠 경우에만(매 요청 JSON.stringify 제거로 라우트 벽시계 절감)
   try {
-    if (isDev) {
+    if (isDev && messengerVerboseTraceConsoleEnabled()) {
       const tDiag = performance.now();
       const rooms = (bundle.chats?.length ?? 0) + (bundle.groups?.length ?? 0);
       const friends = bundle.friends?.length ?? 0;
@@ -234,8 +288,9 @@ export async function GET(req: NextRequest) {
 
       messengerTraceConsoleDebug("[home-sync-auth]", { authSessionMs: Math.round(authMs) });
 
-      // [dev-heap] only when heapUsed/heapLimit > 0.7
-      const h = v8.getHeapStatistics();
+      // [dev-heap] only when heapUsed/heapLimit > 0.7 — `node:v8` 는 cold compile 그래프에서 분리(동적 import)
+      const { getHeapStatistics } = await import("node:v8");
+      const h = getHeapStatistics();
       const used = h.used_heap_size;
       const limit = h.heap_size_limit || 1;
       const ratio = used / limit;
@@ -526,6 +581,27 @@ export async function GET(req: NextRequest) {
         routeTotalMs: trace.deepSteps.bundleSteps?.routeTotalMs ?? null,
       });
 
+      messengerTraceConsoleDebug("[home-sync-unread-bootstrap]", {
+        token: trace.token,
+        tier,
+        unread_bootstrap_list_room_count: ur.unreadBootstrapListRoomCount ?? null,
+        unread_bootstrap_list_duplicate_id_rows: ur.unreadBootstrapListDuplicateIdRows ?? null,
+        unread_bootstrap_trade_room_rows: ur.unreadBootstrapTradeRoomRowsBeforeDedupe ?? null,
+        unread_bootstrap_duplicate_rooms: ur.unreadBootstrapDuplicateRooms ?? null,
+        unread_bootstrap_room_count: ur.unreadBootstrapRoomCount ?? null,
+        unread_bootstrap_query_count: ur.unreadBootstrapQueryCount ?? ur.unreadQueryCount ?? null,
+        unread_bootstrap_cache_hit: ur.unreadBootstrapCacheHit ?? null,
+        unread_bootstrap_cache_miss_reason: ur.unreadBootstrapCacheMissReason ?? null,
+        unread_bootstrap_skip_reason: ur.unreadBootstrapSkipReason ?? ur.unreadSkipReason ?? null,
+        unread_bootstrap_rows_fetched: ur.unreadRowsFetched ?? null,
+        unread_bootstrap_count_query_ms: ur.unreadBootstrapCountQueryMs ?? 0,
+        unread_bootstrap_rows_fetch_ms: ur.unreadBootstrapRowsFetchMs ?? 0,
+        unread_bootstrap_cpu_merge_ms: ur.unreadBootstrapCpuMergeMs ?? 0,
+        unread_bootstrap_parallel_wait_ms: ur.unreadBootstrapParallelWaitMs ?? 0,
+        unread_bootstrap_top_bottleneck: ur.unreadBootstrapTopBottleneck ?? null,
+        unread_badge_ms: ur.unreadBadgeMs ?? 0,
+      });
+
       if (tier === "critical") {
         const eff = ur.unreadEffectiveRttCount ?? 0;
         const badgeMs = ms(ur.unreadBadgeMs ?? 0);
@@ -577,7 +653,25 @@ export async function GET(req: NextRequest) {
         }
       }
     }
+
+    try {
+      emitHomeSyncRuntimeProfile({
+        trace,
+        tier,
+        fresh,
+        enableInMemoryCache,
+        shortTtlHit,
+        singleflightJoined: homeSyncSingleflightJoined,
+        routeTotalWallMs: performance.now() - t0,
+        routeBundleAwaitMs,
+        routeDevDiagnosticsMs,
+      });
+    } catch {
+      /* ignore */
+    }
   }
+
+  const duplicateWindowCount = recordHomeSyncCompletion(duplicateDedupeKey);
 
   const breakdownOneLine = homeSyncBreakdownEnabled();
   let homeSyncAnalysisSerializeMs = 0;
@@ -586,15 +680,13 @@ export async function GET(req: NextRequest) {
     try {
       let payloadBytes = devPayloadBytes;
       let serializeMs = devPayloadSerializeMs;
-      if (!isDev) {
+      if (!payloadBytes) {
         const tSer = performance.now();
         payloadBytes = JSON.stringify(bundle).length;
         serializeMs = performance.now() - tSer;
       }
       homeSyncAnalysisSerializeMs = serializeMs;
       homeSyncAnalysisPayloadKb = Math.round(payloadBytes / 1024);
-      const duplicateDedupeKey = `${auth.userId}|${homeSyncRequestDedupeKey(req.nextUrl.pathname, req.nextUrl.searchParams)}`;
-      const duplicate_window_count = recordHomeSyncCompletion(duplicateDedupeKey);
       const bs = trace?.deepSteps?.bundleSteps;
       const tradeMeta = trace?.deepSteps?.tradeMetaEnrich;
       const rooms_ms = ms(bs?.roomsFetchMs ?? 0);
@@ -609,7 +701,7 @@ export async function GET(req: NextRequest) {
         trade_ms,
         serialize_ms: ms(serializeMs),
         payload_kb: Math.round(payloadBytes / 1024),
-        duplicate_window_count,
+        duplicate_window_count: duplicateWindowCount,
         short_ttl_hit: shortTtlHit,
         tier,
         fresh,
@@ -651,6 +743,32 @@ export async function GET(req: NextRequest) {
         routeTotalMs: ms(routeTotalMsVal),
         serializeMs: homeSyncAnalysisSerializeMs,
         payloadKb: homeSyncAnalysisPayloadKb,
+      });
+    } catch {
+      /* ignore */
+    }
+  }
+
+  if (trace && homeSyncDeepTraceLogEnabled()) {
+    try {
+      logHomeSyncDeepTrace({
+        trace,
+        routeTotalMs: routeTotalMsVal,
+        routeBundleAwaitMs,
+        routeDevDiagnosticsMs,
+        devJsonSerializeMs: devPayloadSerializeMs,
+        duplicateWindowCount,
+        cache: {
+          hit: shortTtlHit,
+          fresh,
+          cacheKey,
+          /** in-process 5s TTL (dev·prod 공통, env 로만 비활성) */
+          prodCacheEnabled: enableInMemoryCache,
+          lookupMs: homeSyncCacheLookupMs,
+          storeMs: homeSyncCacheStoreMs,
+          ttlMs: COMMUNITY_MESSENGER_HOME_SYNC_TTL_MS,
+          approximateAgeMs: homeSyncCacheApproxAgeMs,
+        },
       });
     } catch {
       /* ignore */

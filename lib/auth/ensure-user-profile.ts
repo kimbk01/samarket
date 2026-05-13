@@ -1,5 +1,7 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
+import type { ProfileRow } from "@/lib/profile/types";
 import { ensureAuthProfileRow } from "@/lib/auth/member-access";
+import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 
 /**
  * SNS 로그인 후 회원 식별·중복 방지 단일 진입점.
@@ -32,6 +34,72 @@ export interface EnsureUserProfileOutcome {
   duplicateCandidates?: string[];
 }
 
+export type EnsureUserProfileResultKind =
+  | "existing_found"
+  | "created"
+  | "updated"
+  | "skipped"
+  | "failed"
+  | "";
+
+/** `[dev-api-perf]` — `ensureUserProfile` 내부 분해 (GET /api/me/profile 합산용) */
+export type EnsureUserProfileMetrics = {
+  ensure_profile_total_ms: number;
+  ensure_profile_existing_check_ms: number;
+  ensure_profile_auth_row_check_ms: number;
+  ensure_profile_insert_ms: number;
+  ensure_profile_upsert_ms: number;
+  ensure_profile_update_ms: number;
+  ensure_profile_rpc_ms: number;
+  ensure_profile_policy_or_rls_wait_ms: number;
+  ensure_profile_result: EnsureUserProfileResultKind;
+  ensure_profile_attempt_count: number;
+  ensure_profile_write_executed: 0 | 1;
+  ensure_profile_read_executed: 0 | 1;
+  /** `[dev-api-perf]` — provider PATCH 가 생략·실행될 때만 채움 */
+  ensure_profile_patch_keys?: string;
+  ensure_profile_patch_count?: number;
+  ensure_profile_provider_persist_reason?: string;
+  ensure_profile_normalize_mismatch?: 0 | 1;
+  ensure_profile_skipped_fields?: string;
+  /** `persistProviderIdentityIfMissing` — DB/다음 패치 비교(진단·noop 판별) */
+  ensure_profile_provider_existing_provider?: string;
+  ensure_profile_provider_existing_auth_provider?: string;
+  ensure_profile_provider_existing_provider_user_id?: string;
+  ensure_profile_provider_next_provider?: string;
+  ensure_profile_provider_next_auth_provider?: string;
+  ensure_profile_provider_next_provider_user_id?: string;
+  ensure_profile_provider_noop_skip?: 0 | 1;
+  /** noop skip 시 0, 실제 PATCH 직전 컬럼 수 */
+  ensure_profile_patch_count_after?: number;
+};
+
+export function createEnsureUserProfileMetrics(): EnsureUserProfileMetrics {
+  return {
+    ensure_profile_total_ms: 0,
+    ensure_profile_existing_check_ms: 0,
+    ensure_profile_auth_row_check_ms: 0,
+    ensure_profile_insert_ms: 0,
+    ensure_profile_upsert_ms: 0,
+    ensure_profile_update_ms: 0,
+    ensure_profile_rpc_ms: 0,
+    ensure_profile_policy_or_rls_wait_ms: 0,
+    ensure_profile_result: "",
+    ensure_profile_attempt_count: 0,
+    ensure_profile_write_executed: 0,
+    ensure_profile_read_executed: 0,
+  };
+}
+
+export type EnsureUserProfileOptions = {
+  metrics?: EnsureUserProfileMetrics;
+  /**
+   * 이미 읽은 `profiles` 행(예: `fetchProfileRowSafe` 직후) — id 일치·정상 행이면
+   * `ensureAuthProfileRow` 등 heavy 경로를 생략한다.
+   */
+  existingProfileRow?: ProfileRow | null;
+};
+
 type IdentityHit = {
   provider: string | null;
   providerUserId: string | null;
@@ -51,6 +119,27 @@ function pickStr(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const trimmed = value.trim();
   return trimmed ? trimmed : null;
+}
+
+function readProviderUserIdFromRow(row: ProfileRow): string | null {
+  const raw = (row as ProfileRow & { provider_user_id?: unknown }).provider_user_id;
+  return pickStr(raw);
+}
+
+/**
+ * GET /api/me/profile 등 — 이미 `profiles` 행이 있을 때 `ensureAuthProfileRow` 생략 가능 여부.
+ * (신규·빈 행·삭제·정지는 heavy 경로로 보낸다.)
+ */
+export function meProfileEnsureFastPathEligible(row: ProfileRow, user: User): boolean {
+  if (!row || row.id !== user.id) return false;
+  if (pickStr(row.deleted_at)) return false;
+  const ms = (row.member_status ?? "").trim().toLowerCase();
+  if (!ms || ms === "deleted" || ms === "suspended") return false;
+  const st = (row.status ?? "").trim().toLowerCase();
+  if (st === "blocked" || st === "deleted") return false;
+  if (!pickStr(row.nickname)) return false;
+  if (!pickStr(row.email) && !pickStr(user.email)) return false;
+  return true;
 }
 
 function readIdentityFromUser(user: User): IdentityHit {
@@ -88,9 +177,7 @@ async function tryFindExistingProfileId(
     .eq("id", userId)
     .maybeSingle();
   if (error || !data) return null;
-  return typeof (data as { id: unknown }).id === "string"
-    ? (data as { id: string }).id
-    : null;
+  return typeof (data as { id: unknown }).id === "string" ? (data as { id: string }).id : null;
 }
 
 async function findCandidateIdsByProviderPair(
@@ -132,12 +219,74 @@ async function findCandidateIdsByEmail(
     .filter(Boolean);
 }
 
+/** provider·provider_user_id·auth_provider 가 이미 auth identity 와 동일하면 PATCH 불필요 */
+function providerIdentityFullyMatchesRow(row: ProfileRow, identity: IdentityHit): boolean {
+  if (!identity.provider || !identity.providerUserId) return true;
+  const idProv = identity.provider.toLowerCase();
+  const rowProv = pickStr(row.provider)?.toLowerCase() ?? "";
+  const rowAuth = pickStr((row as ProfileRow & { auth_provider?: unknown }).auth_provider)?.toLowerCase() ?? "";
+  const rowUid = readProviderUserIdFromRow(row);
+  if (rowUid !== identity.providerUserId) return false;
+  if (rowProv !== idProv) return false;
+  if (!rowAuth) return false;
+  if (rowAuth !== idProv) return false;
+  return true;
+}
+
 async function persistProviderIdentityIfMissing(
   sb: SupabaseClient,
   userId: string,
-  identity: IdentityHit
+  identity: IdentityHit,
+  opts?: { existingProfileRow?: ProfileRow | null; metrics?: EnsureUserProfileMetrics }
 ): Promise<void> {
   if (!identity.provider || !identity.providerUserId) return;
+  const row = opts?.existingProfileRow;
+  const metrics = opts?.metrics;
+  const np = identity.provider.toLowerCase();
+  const nuid = identity.providerUserId;
+  if (metrics) {
+    metrics.ensure_profile_provider_next_provider = np;
+    metrics.ensure_profile_provider_next_auth_provider = np;
+    metrics.ensure_profile_provider_next_provider_user_id = nuid;
+  }
+  if (row && metrics) {
+    const exP = pickStr(row.provider)?.toLowerCase() ?? "";
+    const exA = pickStr((row as ProfileRow & { auth_provider?: unknown }).auth_provider)?.toLowerCase() ?? "";
+    const exU = readProviderUserIdFromRow(row) ?? "";
+    metrics.ensure_profile_provider_existing_provider = exP || "(empty)";
+    metrics.ensure_profile_provider_existing_auth_provider = exA || "(empty)";
+    metrics.ensure_profile_provider_existing_provider_user_id = exU || "(empty)";
+    if (exP === np && exU === nuid && exA === np) {
+      metrics.ensure_profile_provider_persist_reason = "identity_already_matches";
+      metrics.ensure_profile_patch_keys = "none";
+      metrics.ensure_profile_patch_count = 0;
+      metrics.ensure_profile_patch_count_after = 0;
+      metrics.ensure_profile_provider_noop_skip = 1;
+      metrics.ensure_profile_skipped_fields = "provider,auth_provider,provider_user_id";
+      return;
+    }
+  }
+  if (row && providerIdentityFullyMatchesRow(row, identity)) {
+    if (metrics) {
+      metrics.ensure_profile_provider_persist_reason = "identity_already_matches";
+      metrics.ensure_profile_patch_keys = "none";
+      metrics.ensure_profile_patch_count = 0;
+      metrics.ensure_profile_patch_count_after = 0;
+      metrics.ensure_profile_provider_noop_skip = 1;
+      metrics.ensure_profile_skipped_fields = "provider,auth_provider,provider_user_id";
+    }
+    return;
+  }
+  if (row && metrics) {
+    const rp = pickStr(row.provider)?.toLowerCase() ?? "";
+    if (rp && rp !== identity.provider.toLowerCase()) {
+      metrics.ensure_profile_normalize_mismatch = 1;
+    } else {
+      metrics.ensure_profile_normalize_mismatch = 0;
+    }
+    metrics.ensure_profile_provider_persist_reason = "fill_missing_or_partial_identity";
+    metrics.ensure_profile_provider_noop_skip = 0;
+  }
   /**
    * `provider_user_id` 컬럼은 별도 마이그레이션에서 추가됐다. 컬럼이 없는 환경에서는
    * update 가 실패해도 호출 흐름을 막지 않는다(어떤 환경에서도 로그인은 성공해야 함).
@@ -146,11 +295,31 @@ async function persistProviderIdentityIfMissing(
   patch.provider = identity.provider;
   patch.auth_provider = identity.provider;
   patch.provider_user_id = identity.providerUserId;
+  if (metrics) {
+    metrics.ensure_profile_patch_keys = Object.keys(patch).join(",");
+    metrics.ensure_profile_patch_count = Object.keys(patch).length;
+    metrics.ensure_profile_patch_count_after = Object.keys(patch).length;
+  }
   await sb
     .from("profiles")
     .update(patch)
     .eq("id", userId)
     .then(() => undefined, () => undefined);
+}
+
+function bumpAttempt(metrics: EnsureUserProfileMetrics | undefined) {
+  if (!metrics) return;
+  metrics.ensure_profile_attempt_count += 1;
+}
+
+function markRead(metrics: EnsureUserProfileMetrics | undefined) {
+  if (!metrics) return;
+  metrics.ensure_profile_read_executed = 1;
+}
+
+function markWrite(metrics: EnsureUserProfileMetrics | undefined) {
+  if (!metrics) return;
+  metrics.ensure_profile_write_executed = 1;
 }
 
 /**
@@ -160,19 +329,50 @@ async function persistProviderIdentityIfMissing(
  */
 export async function ensureUserProfile(
   sb: SupabaseClient,
-  user: User
+  user: User,
+  options?: EnsureUserProfileOptions
 ): Promise<EnsureUserProfileOutcome> {
-  if (!user || typeof user.id !== "string" || !user.id) {
-    return { profile: null, created: false, linked: false };
+  const metrics = options?.metrics;
+  const tAll0 = devPerfNow();
+  try {
+    if (!user || typeof user.id !== "string" || !user.id) {
+      if (metrics) metrics.ensure_profile_result = "skipped";
+      return { profile: null, created: false, linked: false };
+    }
+    return await ensureUserProfileCore(sb, user, options, metrics);
+  } finally {
+    if (metrics) metrics.ensure_profile_total_ms = Math.round(devPerfNow() - tAll0);
   }
+}
+
+async function ensureUserProfileCore(
+  sb: SupabaseClient,
+  user: User,
+  options: EnsureUserProfileOptions | undefined,
+  metrics: EnsureUserProfileMetrics | undefined
+): Promise<EnsureUserProfileOutcome> {
+  const identity = readIdentityFromUser(user);
 
   /** 1) auth.users.id 로 기존 profiles 조회 — 있으면 그대로 사용. (절대 새 행 생성 금지) */
-  const existingId = await tryFindExistingProfileId(sb, user.id);
-  const identity = readIdentityFromUser(user);
+  const tExisting0 = devPerfNow();
+  let existingId: string | null = null;
+  if (options?.existingProfileRow && options.existingProfileRow.id === user.id) {
+    existingId = user.id;
+  } else {
+    bumpAttempt(metrics);
+    markRead(metrics);
+    existingId = await tryFindExistingProfileId(sb, user.id);
+  }
+  if (metrics) {
+    metrics.ensure_profile_existing_check_ms += Math.round(devPerfNow() - tExisting0);
+  }
 
   let duplicateWarning = false;
   let duplicateCandidates: string[] = [];
   /** 2~3) provider+provider_user_id / email 검사 — 다른 id 의 행이 있으면 자동 연결 금지 → 경고. */
+  const tAuth0 = devPerfNow();
+  bumpAttempt(metrics);
+  markRead(metrics);
   const providerCandidates = await findCandidateIdsByProviderPair(
     sb,
     identity.provider,
@@ -185,6 +385,8 @@ export async function ensureUserProfile(
     }
   }
   if (!existingId && pickStr(user.email)) {
+    bumpAttempt(metrics);
+    markRead(metrics);
     const emailCandidates = await findCandidateIdsByEmail(sb, user.email ?? null);
     for (const cid of emailCandidates) {
       if (cid && cid !== user.id) {
@@ -194,21 +396,83 @@ export async function ensureUserProfile(
     }
   }
   duplicateCandidates = Array.from(new Set(duplicateCandidates));
+  if (metrics) {
+    metrics.ensure_profile_auth_row_check_ms += Math.round(devPerfNow() - tAuth0);
+  }
+
+  /** GET /api/me/profile: 이미 정상 행을 읽었으면 heavy ensure 생략 */
+  if (
+    existingId &&
+    options?.existingProfileRow &&
+    options.existingProfileRow.id === user.id &&
+    meProfileEnsureFastPathEligible(options.existingProfileRow, user)
+  ) {
+    const row = options.existingProfileRow;
+    const needsProviderPersist =
+      Boolean(identity.provider && identity.providerUserId) && !providerIdentityFullyMatchesRow(row, identity);
+    if (needsProviderPersist) {
+      const tu0 = devPerfNow();
+      bumpAttempt(metrics);
+      await persistProviderIdentityIfMissing(sb, user.id, identity, { existingProfileRow: row, metrics });
+      if (metrics) {
+        metrics.ensure_profile_update_ms += Math.round(devPerfNow() - tu0);
+        if (metrics.ensure_profile_patch_count && metrics.ensure_profile_patch_count > 0) {
+          markWrite(metrics);
+        }
+      }
+    } else if (metrics && identity.provider && identity.providerUserId) {
+      metrics.ensure_profile_provider_persist_reason = "identity_already_matches";
+      metrics.ensure_profile_patch_keys = "none";
+      metrics.ensure_profile_patch_count = 0;
+    }
+    if (metrics) {
+      metrics.ensure_profile_result = metrics.ensure_profile_write_executed ? "updated" : "skipped";
+    }
+    return {
+      profile: { id: user.id },
+      created: false,
+      linked: true,
+      duplicateWarning: duplicateWarning || undefined,
+      duplicateCandidates: duplicateWarning ? duplicateCandidates : undefined,
+    };
+  }
 
   if (existingId) {
     /**
      * provider/provider_user_id 컬럼만 비어 있는 기존 회원에게 식별값을 채워두면
      * 다음 로그인부터는 별도 조회 없이 매칭되고 진단 SQL 도 정확히 동작한다.
      */
-    await persistProviderIdentityIfMissing(sb, user.id, identity);
+    if (identity.provider && identity.providerUserId) {
+      const tp0 = devPerfNow();
+      bumpAttempt(metrics);
+      await persistProviderIdentityIfMissing(sb, user.id, identity, { metrics });
+      if (metrics) {
+        metrics.ensure_profile_update_ms += Math.round(devPerfNow() - tp0);
+        if (metrics.ensure_profile_patch_count && metrics.ensure_profile_patch_count > 0) {
+          markWrite(metrics);
+        }
+      }
+    }
     /**
      * 기존 회원이라도 누락 컬럼(닉네임/email/avatar 등) 보강은 `ensureAuthProfileRow`
      * 가 안전하게 처리한다 (이미 검증된 update 경로).
      */
+    const tEn0 = devPerfNow();
+    bumpAttempt(metrics);
+    markRead(metrics);
     try {
       await ensureAuthProfileRow(sb, user);
+      if (metrics) {
+        metrics.ensure_profile_update_ms += Math.round(devPerfNow() - tEn0);
+      }
     } catch {
+      if (metrics) {
+        metrics.ensure_profile_update_ms += Math.round(devPerfNow() - tEn0);
+      }
       /* enrichment 실패는 로그인 흐름을 막지 않는다 */
+    }
+    if (metrics) {
+      metrics.ensure_profile_result = "existing_found";
     }
     return {
       profile: { id: user.id },
@@ -224,15 +488,42 @@ export async function ensureUserProfile(
    * `ensureAuthProfileRow` 는 select-then-upsert(`onConflict: id`) 구조라
    * 동일 호출이 동시에 들어와도 `profiles.id` 단일 행만 보장된다.
    */
+  const tCreate0 = devPerfNow();
+  bumpAttempt(metrics);
+  markRead(metrics);
   try {
     await ensureAuthProfileRow(sb, user);
+    if (metrics) {
+      metrics.ensure_profile_upsert_ms += Math.round(devPerfNow() - tCreate0);
+      markWrite(metrics);
+    }
   } catch {
+    if (metrics) {
+      metrics.ensure_profile_upsert_ms += Math.round(devPerfNow() - tCreate0);
+    }
     /* DB 제약/트리거 실패 시도 보장하지 못함 — 호출 측에서 클라이언트 ensure 폴백 */
   }
-  await persistProviderIdentityIfMissing(sb, user.id, identity);
+  if (identity.provider && identity.providerUserId) {
+    const tp2 = devPerfNow();
+    bumpAttempt(metrics);
+    await persistProviderIdentityIfMissing(sb, user.id, identity, { metrics });
+    if (metrics) {
+      metrics.ensure_profile_update_ms += Math.round(devPerfNow() - tp2);
+      if (metrics.ensure_profile_patch_count && metrics.ensure_profile_patch_count > 0) {
+        markWrite(metrics);
+      }
+    }
+  }
 
   /** 생성 직후 검증 — 행이 정말 만들어졌는지 한번 더 확인 */
+  const tv0 = devPerfNow();
+  bumpAttempt(metrics);
+  markRead(metrics);
   const verifyId = await tryFindExistingProfileId(sb, user.id);
+  if (metrics) {
+    metrics.ensure_profile_insert_ms += Math.round(devPerfNow() - tv0);
+    metrics.ensure_profile_result = verifyId ? "created" : "failed";
+  }
   return {
     profile: verifyId ? { id: verifyId } : null,
     created: !!verifyId,

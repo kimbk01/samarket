@@ -31,7 +31,7 @@ import {
 } from "@/lib/http/api-route";
 import { loadIntegratedChatRoomMessageRowsForUser } from "@/lib/chats/server/load-chat-room-messages";
 import { MESSENGER_MONITORING_LABEL_DOMAIN } from "@/lib/chat-domain/messenger-domains";
-import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/server-store";
+import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/messenger-api-route-timing";
 import { syncPostInquiryNegotiatingFromItemTradeChats } from "@/lib/trade/maybe-auto-promote-trade-listing-negotiating";
 
 const TRADE_CHAT_GET_MESSAGES_ROUTE = "GET /api/chat/rooms/[roomId]/messages";

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
-import { getMessengerMonitoringSummary } from "@/lib/community-messenger/monitoring/server-store";
+import { getMessengerMonitoringSummary } from "@/lib/community-messenger/monitoring/server-store-summary";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

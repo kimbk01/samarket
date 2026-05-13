@@ -4,8 +4,6 @@
  * 응답: { [postId]: boolean }
  */
 import { NextRequest, NextResponse } from "next/server";
-import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
-import { getSupabaseServer } from "@/lib/chat/supabase-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,7 +11,6 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const postIdsParam = searchParams.get("postIds")?.trim() ?? "";
-  const userId = (await getOptionalAuthenticatedUserId()) ?? "";
 
   const postIds = postIdsParam
     ? [...new Set(postIdsParam.split(",").map((s) => s.trim()).filter(Boolean))]
@@ -21,20 +18,21 @@ export async function GET(req: NextRequest) {
 
   const empty = Object.fromEntries(postIds.map((id) => [id, false]));
 
-  if (!userId || postIds.length === 0) {
+  if (postIds.length === 0) {
     return NextResponse.json(empty);
   }
 
-  let sb: ReturnType<typeof getSupabaseServer>;
-  try {
-    sb = getSupabaseServer();
-  } catch {
+  const { getOptionalAuthenticatedUserId } = await import("@/lib/auth/get-optional-authenticated-user-id");
+  const userId = (await getOptionalAuthenticatedUserId()) ?? "";
+
+  if (!userId) {
     return NextResponse.json(empty);
   }
 
-  const sbAny = sb;
-
   try {
+    const { getSupabaseServer } = await import("@/lib/chat/supabase-server");
+    const sbAny = getSupabaseServer();
+
     const { data, error } = await sbAny
       .from("favorites")
       .select("post_id")

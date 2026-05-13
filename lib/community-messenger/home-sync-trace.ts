@@ -36,6 +36,126 @@ export type HomeSyncDeepStepsTradeDirectKeys = {
   effectiveRttCount?: number;
   /** HS3-FINAL: 다중 RTT 제거로 절약한 벽시계 추정 */
   parallelEfficiencyMs?: number;
+  /** mega/legacy 공통 — apply 루프·맵 구축 등 orchestration 진단(perf) */
+  direct_keys_duplicate_merge_count?: number;
+  direct_keys_map_rebuild_count?: number;
+  direct_keys_duplicate_normalize_count?: number;
+  direct_keys_bridge_attach_iterations?: number;
+  direct_keys_category_attach_iterations?: number;
+  direct_keys_object_spread_count?: number;
+  direct_keys_hot_cpu_loop?: number;
+  direct_keys_hidden_sequential_wait_ms?: number;
+  direct_keys_lookup_rebuild_count?: number;
+  direct_keys_apply_loop_ms?: number;
+  direct_keys_lookup_rebuild_count_after?: number;
+  direct_keys_map_rebuild_count_after?: number;
+  /** mega/legacy — 스냅샷·singleflight 진단(응답 shape 무관) */
+  direct_keys_cache_key?: string;
+  direct_keys_normalized_cache_key?: string;
+  direct_keys_cache_reason?: string;
+  direct_keys_singleflight_key?: string;
+  direct_keys_singleflight_join_count?: number;
+  direct_keys_cache_ttl_ms?: number;
+  direct_keys_cache_store_ms?: number;
+  direct_keys_cache_lookup_ms?: number;
+  direct_keys_bridge_cache_hit_after?: boolean;
+  direct_keys_category_cache_hit_after?: boolean;
+  direct_keys_category_batch_singleflight_joins?: number;
+  direct_keys_mega_map_sync_ms?: number;
+  direct_keys_mega_inflight_or_rpc_wait_ms?: number;
+  direct_keys_lookup_reuse_hit?: boolean;
+  direct_keys_lookup_cpu_ms?: number;
+  direct_keys_normalize_cpu_ms?: number;
+  direct_keys_key_build_cpu_ms?: number;
+  /** mega RPC 응답 파싱 후 무결성 실패 시 legacy 로 폴백하기 직전(계측만) */
+  mega_bundle_integrity_ok?: boolean;
+  mega_bundle_integrity_ledger_pc_ok?: boolean;
+  mega_bundle_integrity_ledger_cr_ok?: boolean;
+  mega_bundle_integrity_posts_ok?: boolean;
+};
+
+/**
+ * `POST trade-chat-list-meta` 전용 — `enrichTradeRoomContextMetaFromDirectKeys` 내부 RTT·CPU 분해.
+ * 응답·메타 의미 변경 없음(perf 로그만).
+ */
+export type HomeSyncDeepStepsTradeDirectKeysListMetaBreakdown = {
+  direct_keys_total_ms: number;
+  direct_keys_path: "mega_bundle" | "legacy_parallel" | "early_exit";
+  direct_keys_post_ids_count: number;
+  direct_keys_room_ids_count: number;
+  direct_keys_trade_pc_ids_count: number;
+  direct_keys_item_trade_room_ids_count: number;
+  direct_keys_fetch_posts_ms: number;
+  /** mega `home_sync_direct_keys_critical_bundle` 또는 legacy item_trade RPC/chat_rooms */
+  direct_keys_fetch_bridge_ms: number;
+  /** `product_chats` by id + legacy pcCandidates( post_id in ) */
+  direct_keys_fetch_product_chat_ms: number;
+  direct_keys_fetch_category_ms: number;
+  /** direct keys 경로에서 seller 프로필 조회 없음 — 0 고정 */
+  direct_keys_fetch_seller_ms: number;
+  /** 요청 스코프 postRowCache 조회만(미세) — 현재 0 */
+  direct_keys_cache_lookup_ms: number;
+  direct_keys_cache_hit_count: number;
+  direct_keys_cache_miss_count: number;
+  direct_keys_query_count: number;
+  /** Phase1·Phase2 각각 `Promise.all` 벽시계 합(병렬 블록 총 대기) */
+  direct_keys_parallel_wait_ms: number;
+  direct_keys_cpu_ms: number;
+  direct_keys_top_bottleneck: string;
+  direct_keys_top_bottleneck_ms: number;
+  direct_keys_top_bottleneck_percent: number;
+  /** `tradePostCategoryId` 기준 슬롯 수(빈 id 제외) */
+  direct_keys_category_ids_count: number;
+  direct_keys_unique_category_ids_count: number;
+  direct_keys_duplicate_category_ids_count: number;
+  /** `trade_pc` direct key 슬롯 + `item_trade` room 슬롯 합(파싱 직후 배열 길이 기준) */
+  direct_keys_bridge_ids_count: number;
+  direct_keys_unique_bridge_ids_count: number;
+  direct_keys_duplicate_bridge_ids_count: number;
+  /** 직전 category ensure 에서 categories/trade_categories RTT 없음(모듈·요청 로더 적중) */
+  direct_keys_category_cache_hit: boolean;
+  /** legacy item_trade ledger 경로(RPC 또는 chat_rooms 폴백)가 짧은 TTL 스냅샷 적중 */
+  direct_keys_bridge_cache_hit: boolean;
+  /** `tradePostsFetchDetail.cacheHit` 스냅샷(해당 direct_keys 구간) */
+  direct_keys_posts_row_cache_hit: boolean;
+  direct_keys_posts_row_cache_miss: number;
+  /** Phase1 bridge·product_chats(in id) 스냅샷 single-flight 합류 여부 */
+  direct_keys_singleflight_hit: boolean;
+  /** direct_keys orchestration 진단(perf 전용) */
+  direct_keys_duplicate_merge_count?: number;
+  direct_keys_map_rebuild_count?: number;
+  direct_keys_duplicate_normalize_count?: number;
+  direct_keys_bridge_attach_iterations?: number;
+  direct_keys_category_attach_iterations?: number;
+  direct_keys_object_spread_count?: number;
+  direct_keys_hot_cpu_loop?: number;
+  direct_keys_hidden_sequential_wait_ms?: number;
+  direct_keys_lookup_rebuild_count?: number;
+  direct_keys_apply_loop_ms?: number;
+  direct_keys_lookup_rebuild_count_after?: number;
+  direct_keys_map_rebuild_count_after?: number;
+  direct_keys_cache_key?: string;
+  direct_keys_normalized_cache_key?: string;
+  direct_keys_cache_reason?: string;
+  direct_keys_singleflight_key?: string;
+  direct_keys_singleflight_join_count?: number;
+  direct_keys_cache_ttl_ms?: number;
+  direct_keys_cache_store_ms?: number;
+  direct_keys_bridge_cache_hit_after?: boolean;
+  direct_keys_category_cache_hit_after?: boolean;
+  direct_keys_category_batch_singleflight_joins?: number;
+  /** mega 번들: 맵 prune·캐시 키 해석 등 동기 구간(ms) — RPC·inflight 대기 제외 */
+  direct_keys_mega_map_sync_ms?: number;
+  /** mega 번들: inflight 합류 또는 RPC 리더 대기 벽시계 */
+  direct_keys_mega_inflight_or_rpc_wait_ms?: number;
+  /** mega row cache hit 또는 bundle inflight 합류 */
+  direct_keys_lookup_reuse_hit?: boolean;
+  /** `dedupeIds`+stable key 문자열 구축 CPU 근사 */
+  direct_keys_key_build_cpu_ms?: number;
+  /** mega 진입 직전 id 정규화·중복 제거 CPU 근사 */
+  direct_keys_normalize_cpu_ms?: number;
+  /** mega `direct_keys_mega_map_sync_ms` 와 동일 스케일의 동기 lookup CPU 별칭 */
+  direct_keys_lookup_cpu_ms?: number;
 };
 
 export type HomeSyncDeepStepsTradePcBridgeBreakdown = {
@@ -116,6 +236,25 @@ export type HomeSyncDeepStepsTradeMetaEnrich = {
   /** dev: totalMs − explainedComponentsMs (미계측·중복·병렬 오차 탐지). 음수 가능 */
   gapMs?: number;
   explainedComponentsDetail?: HomeSyncDeepStepsTradeMetaExplainedComponentsDetail;
+  /** home-sync / bootstrap 관측 — 응답 shape 불변 */
+  tradeMetaCacheHit?: boolean;
+  /** `tradeMetaCacheHit` 이 false 일 때만 의미 있는 짧은 이유 코드 */
+  tradeMetaCacheMissReason?: string | null;
+  /** 동일 요청 내 trade 요약 `id` 중복 행 수(입력 관측) */
+  tradeMetaDuplicateRoomCount?: number;
+  /** 동일 요청 내 trade `postId` 중복 개수(입력 관측) */
+  tradeMetaDuplicatePostCount?: number;
+  /** `sellerProfileAttach` 기준 trade 행 수 대비 고유 seller id 수 차이(근사, 0 이상) */
+  tradeMetaDuplicateSellerCount?: number;
+  /** Phase A(`phaseAParallelPromise`) + bridge/ledger 선행 `Promise.all` 벽시계 */
+  tradeMetaParallelWaitMs?: number;
+  /** posts + categories + trade_categories + bridge 보조(peer pair 시 +2) 누적 추정 */
+  tradeMetaQueryCount?: number;
+  /** trade enrich 전용 single-flight — 현재 미구현, false 예약 */
+  tradeMetaSingleflightHit?: boolean;
+  /** `direct_keys`·`seed_product_chats`·`category_fetch` 등 부분 중 최대 1축 */
+  tradeMetaTopBottleneck?: string;
+  tradeMetaTopBottleneckMs?: number;
 };
 
 export type HomeSyncDeepStepsTradePostsFetchDetail = {
@@ -158,6 +297,48 @@ export type HomeSyncDeepStepsCategoryFetchDetail = {
   };
   /** fetchMode 가 fallback_only 일 때 DB 카테고리 테이블을 조회하지 않음 */
   dbSkipped?: boolean;
+  /** `categories`/`trade_categories` 배치 조회 singleflight 조인 횟수(요청 누적) */
+  category_singleflight_join_count?: number;
+  /** 조인 경로에서 스킵한 id 슬롯 수 근사(정렬·중복 제거 후 in 리스트 길이 합) */
+  category_duplicate_fetch_count?: number;
+  /** 마지막 배치의 진단 키(잘림) — 로그용 */
+  category_cache_key?: string;
+  /** 정렬·정규화된 in 키 — singleflight·모듈 캐시 키 스페이스와 정합 */
+  normalized_category_cache_key?: string;
+  category_singleflight_key?: string;
+  /** `module_hit` | `db_leader` | `singleflight_join` | `mixed` 등 */
+  category_cache_reason?: string;
+  category_cache_lookup_ms?: number;
+  category_cache_store_ms?: number;
+  /** 요청 끝 관점: 마지막 ensure 구간에서 DB in(...) 없음 */
+  category_cache_hit_after?: boolean;
+  /** `tradePostCategoryId` 정렬·dedupe CPU (DB 직전) */
+  category_normalize_cpu_ms?: number;
+  /** 모듈 TTL·miss 집합 구축 벽시계(네트워크 제외) */
+  category_lookup_wall_ms?: number;
+  /** 마지막 배치에서 `fetchTable` singleflight 조인이 1회 이상 */
+  category_singleflight_hit?: boolean;
+  /** 배치 스냅샷 복구 또는 singleflight 조인으로 DB 왕복을 줄인 경우 */
+  category_lookup_reuse_hit?: boolean;
+  /** 동일 post 목록에서 중복된 category id 슬롯 수(스캔 − unique) */
+  category_duplicate_attach_count?: number;
+  /** 프로세스 모듈 TTL·배치 복구 후 hit 카운트가 1 이상 */
+  category_process_cache_hit?: boolean;
+  /** 로더 상태에서 이미 resolved 된 trade/legacy id 재스캔 스킵 발생 */
+  category_request_local_hit?: boolean;
+  category_request_local_trade_skips?: number;
+  category_request_local_legacy_skips?: number;
+  /** `categoriesMs`+`tradeCategoriesMs` — PostgREST in(...) 벽시계 합 */
+  category_query_wall_ms?: number;
+  /** 현재는 `category_query_wall_ms` 와 동일 합산(추후 분리 시 덮어씀) */
+  category_postgrest_wait_ms?: number;
+  category_network_wait_ms?: number;
+  /** mergeRows + 배치 스냅샷 적용 CPU 근사 */
+  category_attach_cpu_ms?: number;
+  /** JSON/직렬화 미분리 시 0 */
+  category_serialize_ms?: number;
+  /** 모듈 TTL write 행 수·리더 SELECT·singleflight 조인 요약 */
+  category_cache_store_reason?: string;
 };
 
 export type HomeSyncDeepStepsSellerProfileAttachBreakdown = {
@@ -194,6 +375,8 @@ export type HomeSyncDeepStepsBundleSteps = {
   payloadBuildMs: number;
   listSplitFilterMs: number;
   listMyChatsWallMs: number;
+  /** `fetchMyRoomsPayload` round2 — `community_messenger_rooms` last_message_at chunk 조회 벽시계 */
+  roomsRound2RoomsDbFetchMs?: number;
   /** `getCommunityMessengerHomeSyncBundle` 내 Promise.all 벽시계(full) */
   bundleParallelWallMs?: number;
   friendsFetchMs?: number;
@@ -206,6 +389,8 @@ export type HomeSyncDeepStepsBundleSteps = {
   routePreBundleMs?: number;
   /** `requireAuthenticatedUserId` 벽시계(라우트 상단) */
   routeAuthWallMs?: number;
+  /** 동일 cacheKey 로 이미 진행 중인 번들을 await 한 벽시계(첫 요청은 0에 가깝고, 합류 요청은 대기분) */
+  homeSyncSingleflightJoinWaitMs?: number;
   /** `enforceRateLimit` 벽시계 */
   routeRateLimitWallMs?: number;
   /** `await getCommunityMessengerHomeSyncBundle` 벽시계(프로덕션 캐시 히트 시 0) */
@@ -282,8 +467,39 @@ export type HomeSyncDeepStepsUnreadBadge = {
   unreadRpcPayloadBytesEstimate?: number;
   /** HS5-RPC-DEEP: 클라 RPC 벽시계 − 서버 rpc_total_ms (PostgREST·네트워크 등) */
   unreadRpcNetworkOverheadMs?: number;
+  /** 레거시 unread 소스 페치에 해당하는 DB 왕복 수(1=RPC bundle, 2=parallel REST 등) */
+  unreadQueryCount?: number;
   /** 관측: 번들 재생·캐시 등으로 unread enrich 를 이 요청에서 다시 실행하지 않음 */
   unreadSkipReason?: string;
+
+  /** `listCommunityMessengerMyChatsAndGroups` 전체 요약 행 수(home-sync unread 축 관측) */
+  unreadBootstrapListRoomCount?: number;
+  /** 목록 `id` 중복 행 수(원시 − unique) */
+  unreadBootstrapListDuplicateIdRows?: number;
+  /** HS5 직전 거래 맥락 요약 행 수 */
+  unreadBootstrapTradeRoomRowsBeforeDedupe?: number;
+  /** dedupe 후 CM room id 수 (= HS5 `p_cm_room_ids` 길이) */
+  unreadBootstrapRoomCount?: number;
+  /** `dedupeStrings` 로 제거된 중복 CM room id 개수 */
+  unreadBootstrapDuplicateRooms?: number;
+  /** HS5 네트워크 왕복 수(캐시·inflight 히트 시 0) */
+  unreadBootstrapQueryCount?: number;
+  /** HS5 행 TTL 캐시 히트(프로세스 내) */
+  unreadBootstrapCacheHit?: 0 | 1;
+  /** 캐시 미스 시 이유 — `ttl_expired` | `cold` | `inflight_join` | `rpc_error` 등 */
+  unreadBootstrapCacheMissReason?: string;
+  /** 캐시·스킵 적용 시(히트면 설명) */
+  unreadBootstrapSkipReason?: string;
+  /** 단독 COUNT(*) 경로 없음 — 0 고정 */
+  unreadBootstrapCountQueryMs?: number;
+  /** 레거시 소스 페치 벽시계(캐시 히트 0) */
+  unreadBootstrapRowsFetchMs?: number;
+  /** 맵 구축+attach CPU 합산 */
+  unreadBootstrapCpuMergeMs?: number;
+  /** 동일 fingerprint inflight 대기 벽시계 */
+  unreadBootstrapParallelWaitMs?: number;
+  /** rows fetch vs merge vs attach vs dedupe 중 최대 구간 라벨 */
+  unreadBootstrapTopBottleneck?: string;
 };
 
 export type HomeSyncTrace = {
@@ -308,11 +524,104 @@ export type HomeSyncTrace = {
     tradePostsFetchDetail?: HomeSyncDeepStepsTradePostsFetchDetail;
     tradePostsResolvedSplit?: HomeSyncDeepStepsTradePostsResolvedSplit;
     tradeDirectKeysDetail?: HomeSyncDeepStepsTradeDirectKeys;
+    /** `token: trade-chat-list-meta` — direct keys 단계 세부(HS3 mega vs legacy) */
+    tradeDirectKeysListMetaBreakdown?: HomeSyncDeepStepsTradeDirectKeysListMetaBreakdown;
     tradeMetaBuildFromPostDetail?: HomeSyncDeepStepsTradeMetaBuildFromPostDetail;
     /** route·번들·목록 단계가 순차 병합 — 로그 직전까지 부분 필드만 있어도 됨 */
     bundleSteps?: Partial<HomeSyncDeepStepsBundleSteps>;
     /** dev: unread 세분(참가자 unread CPU는 summarize, 레거시는 enrich 내부) */
     unreadHomeSyncSteps?: Partial<HomeSyncDeepStepsUnreadBadge>;
+    /**
+     * `POST trade-chat-list-meta` 전용 — `enrichTradeRoomContextMetaForBootstrap` 내부 **직렬 구간** 벽시계.
+     * Phase B/C/D 안의 `categoryLoader.ensureForPosts` 는 해당 phase_ms 에 **포함**(중복 합산 금지).
+     */
+    tradeListMetaEnrichBootstrapBreakdown?: {
+      enrich_direct_keys_ms: number;
+      enrich_seed_product_chats_ms: number;
+      /** `await Promise.all(phaseAParallelPromise, bridgeLedgerPromise, categoryParallelPrimePromise)` 벽시계 */
+      enrich_phase_a_bridge_parallel_ms: number;
+      /** 동일 벽시계 — 로그·대시보드 별칭 */
+      enrich_parallel_wait_ms: number;
+      enrich_phase_b_ms: number;
+      enrich_phase_c_ms: number;
+      enrich_phase_d_ms: number;
+      /** `hydrateTradeListSellerDisplayNamesForSummaries` 전체 벽시계 */
+      enrich_seller_display_hydrate_wall_ms: number;
+      /** `fetchPostsCached` 누적(tradePostsFetchMs 변수와 동일 스케일) */
+      enrich_load_post_ms: number;
+      enrich_category_fetch_wall_ms: number;
+      /** Phase D `product_chats` 쌍 조회(Promise.all 2쿼리) 벽시계 */
+      enrich_partner_fetch_ms: number;
+      /** `fetchSeedProductChatsForTradeEnrich` 시드 조회 벽시계(seedMsRef 와 동일 목적) */
+      enrich_trade_state_ms: number;
+      enrich_cpu_merge_tracked_ms: number;
+      enrich_query_count_approx: number;
+      /** 직렬 구간 합 대비 `tradeMetaEnrich.totalMs` 잔차(병렬·CPU·미계측) */
+      enrich_gap_ms: number;
+      enrich_top_bottleneck: string;
+      enrich_top_bottleneck_ms: number;
+      enrich_top_bottleneck_percent: number;
+      /** trade-chat-list-meta 오케스트레이션 — room 순회·병합 진단(응답 shape 무관) */
+      orchestration_summaries_total?: number;
+      orchestration_room_loop_count?: number;
+      orchestration_duplicate_room_loop_count?: number;
+      orchestration_merge_iteration_count?: number;
+      orchestration_map_rebuild_count?: number;
+      orchestration_phase_b_iterations?: number;
+      orchestration_phase_c_iterations?: number;
+      orchestration_phase_b_naive_summaries_scan?: number;
+      orchestration_phase_c_naive_summaries_scan?: number;
+      orchestration_phase_d_iterations?: number;
+      orchestration_phase_transition_wait_ms?: number;
+      orchestration_direct_keys_merge_ms?: number;
+      orchestration_patch_merge_ms?: number;
+      orchestration_summary_merge_ms?: number;
+      orchestration_trade_state_merge_ms?: number;
+      orchestration_duplicate_normalize_count?: number;
+      orchestration_cpu_hot_loop?: number;
+      orchestration_room_loop_count_after?: number;
+      orchestration_duplicate_room_loop_count_after?: number;
+      orchestration_map_rebuild_count_after?: number;
+      orchestration_phase_b_naive_summaries_scan_after?: number;
+      orchestration_phase_c_naive_summaries_scan_after?: number;
+      orchestration_phase_transition_wait_ms_after?: number;
+      /** Phase B/C/D 각각에서 실제 메타 쓰기가 있었으면 1(최대 3) */
+      orchestration_attach_pass_count?: number;
+      /** B+C 를 동일「파동」으로 묶은 뒤의 파동 수(최대 2: hydrate + D) */
+      orchestration_attach_pass_count_after?: number;
+      /** 유효 할당 루프 합(B+C+D) — 순회 스캔 길이 대비 */
+      orchestration_summary_scan_after?: number;
+      orchestration_duplicate_loop_after?: number;
+      orchestration_parallel_wait_after?: number;
+      orchestration_attach_merge_ms?: number;
+      orchestration_lookup_reuse_hit?: boolean;
+      /** `Promise.all(phaseA, bridge, categoryPrime)` 의존 수 — category prime 비활성 시 2 */
+      enrich_parallel_dependency_count?: number;
+      /** 병렬 블록에서 지배적 대기 원인 라벨(관측) */
+      enrich_parallel_blocking_group?: string;
+      /** Phase A+bridge 와 겹친 category prime(`ensureForPosts`) 벽시계 */
+      enrich_category_prime_parallel_ms?: number;
+      enrich_parallel_blocking_group_after?: string;
+      enrich_parallel_wait_after?: number;
+      enrich_dependency_count_after?: number;
+      enrich_attach_network_wait_ms?: number;
+      enrich_attach_cpu_ms?: number;
+    };
+    /** `token: trade-chat-list-meta` — seller hydrate·`fetchProfilesByIds` row cache·single-flight 관측 */
+    tradeListMetaProfileHydrateStats?: {
+      trade_meta_profile_ids_count: number;
+      trade_meta_unique_profile_ids_count: number;
+      trade_meta_duplicate_profile_ids_count: number;
+      trade_meta_seller_ids_count: number;
+      trade_meta_unique_seller_ids_count: number;
+      trade_meta_profile_cache_hit: boolean;
+      trade_meta_seller_cache_hit: boolean;
+      trade_meta_profiles_fetch_row_cache_hits: number;
+      trade_meta_profiles_fetch_row_cache_misses: number;
+      trade_meta_profile_fetch_singleflight_hit: boolean;
+      trade_meta_profiles_fetch_top_bottleneck: string;
+      trade_meta_seller_hydrate_top_bottleneck: string;
+    };
   };
 };
 
@@ -329,6 +638,31 @@ export function ms(value: unknown): number {
 export function homeSyncTraceMeterEnabled(trace: HomeSyncTrace | undefined | null): boolean {
   if (!trace) return false;
   return trace.tier === "critical" || trace.tier === "full";
+}
+
+/**
+ * 동일 `cacheKey` single-flight 합류 요청이 리더와 **다른 trace 인스턴스**를 쓸 때,
+ * 번들 계측은 리더 trace에만 쌓이므로 합류자 trace에 `deepSteps` 를 복제한다.
+ * (리더·합류자 각각의 라우트 상단 `route*` ms 는 합류자 쪽 값을 유지)
+ */
+export function mergeHomeSyncDeepStepsAfterSingleflightJoin(
+  joiner: HomeSyncTrace,
+  leader: HomeSyncTrace,
+  joinBundleAwaitMs: number
+): void {
+  if (!homeSyncTraceMeterEnabled(joiner) || !homeSyncTraceMeterEnabled(leader)) return;
+  const preserved = {
+    routeAuthWallMs: joiner.deepSteps.bundleSteps?.routeAuthWallMs,
+    routeRateLimitWallMs: joiner.deepSteps.bundleSteps?.routeRateLimitWallMs,
+    routePreBundleMs: joiner.deepSteps.bundleSteps?.routePreBundleMs,
+  };
+  joiner.deepSteps = structuredClone(leader.deepSteps);
+  joiner.deepSteps.bundleSteps = {
+    ...(joiner.deepSteps.bundleSteps ?? {}),
+    ...preserved,
+    homeSyncSingleflightJoinWaitMs: ms(joinBundleAwaitMs),
+    routeBundleAwaitMs: ms(joinBundleAwaitMs),
+  };
 }
 
 export function bumpTradePostsResolvedSplitStats(

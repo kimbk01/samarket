@@ -1,5 +1,5 @@
 import { after } from "next/server";
-import { recordMessengerMonitoringEvent } from "@/lib/community-messenger/monitoring/server-store";
+import { recordMessengerMonitoringEvent } from "@/lib/community-messenger/monitoring/server-store-record";
 
 function roomIdSuffix(rid: string): string {
   const t = rid.trim();

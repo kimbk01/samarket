@@ -1,16 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
-import {
-  getCommunityMessengerBootstrap,
-  getCommunityMessengerBootstrapCritical,
-  listCommunityMessengerCallLogs,
-  type CommunityMessengerBootstrapDiagnostics,
-} from "@/lib/community-messenger/service";
-import {
-  recordMessengerApiTiming,
-  recordMessengerBootstrapBreakdown,
-} from "@/lib/community-messenger/monitoring/server-store";
+import type { CommunityMessengerBootstrap } from "@/lib/community-messenger/types";
+import type { CommunityMessengerBootstrapDiagnostics } from "@/lib/community-messenger/service";
 import type { MessengerBootstrapBreakdown } from "@/lib/community-messenger/monitoring/types";
 import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import { messengerVerboseTraceConsoleEnabled } from "@/lib/community-messenger/messenger-trace-console";
@@ -254,15 +246,12 @@ const COMMUNITY_MESSENGER_BOOTSTRAP_TTL_MS = 8_000;
 const COMMUNITY_MESSENGER_BOOTSTRAP_CACHE_MAX_ENTRIES = 500;
 
 type CommunityMessengerBootstrapCacheEntry = {
-  payload: Awaited<ReturnType<typeof getCommunityMessengerBootstrap>>;
+  payload: CommunityMessengerBootstrap;
   expiresAt: number;
 };
 
 const communityMessengerBootstrapCache = new Map<string, CommunityMessengerBootstrapCacheEntry>();
-const communityMessengerBootstrapInflight = new Map<
-  string,
-  Promise<Awaited<ReturnType<typeof getCommunityMessengerBootstrap>>>
->();
+const communityMessengerBootstrapInflight = new Map<string, Promise<CommunityMessengerBootstrap>>();
 
 export async function GET(request: NextRequest) {
   const t0 = performance.now();
@@ -280,6 +269,19 @@ export async function GET(request: NextRequest) {
     code: "community_messenger_bootstrap_rate_limited",
   });
   if (!rateLimit.ok) return rateLimit.response;
+
+  const [svc, timing, storeRec] = await Promise.all([
+    import("@/lib/community-messenger/service"),
+    import("@/lib/community-messenger/monitoring/messenger-api-route-timing"),
+    import("@/lib/community-messenger/monitoring/server-store-record"),
+  ]);
+  const {
+    getCommunityMessengerBootstrap,
+    getCommunityMessengerBootstrapCritical,
+    listCommunityMessengerCallLogs,
+  } = svc;
+  const { recordMessengerApiTiming } = timing;
+  const { recordMessengerBootstrapBreakdown } = storeRec;
 
   /** 첫 페인트 이후 통화 기록만 합류 — `listCommunityMessengerCallLogs` 단일 경로 */
   if (request.nextUrl.searchParams.get("callsLog") === "1") {

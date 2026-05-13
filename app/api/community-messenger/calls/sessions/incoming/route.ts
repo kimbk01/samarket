@@ -1,7 +1,6 @@
 import type { NextRequest } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey, jsonOk } from "@/lib/http/api-route";
-import { listIncomingCommunityMessengerCallSessions } from "@/lib/community-messenger/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,6 +23,7 @@ export async function GET(request: NextRequest) {
   if (!rateLimit.ok) return rateLimit.response;
 
   const directOnly = request.nextUrl.searchParams.get("directOnly") === "1";
+  const { listIncomingCommunityMessengerCallSessions } = await import("@/lib/community-messenger/service");
   const sessions = await listIncomingCommunityMessengerCallSessions(auth.userId, { directOnly });
   return jsonOk({ sessions });
 }

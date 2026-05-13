@@ -4,7 +4,6 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
-import { loadChatRoomDetailForUser } from "@/lib/chats/server/load-chat-room-detail";
 import { parseRoomId } from "@/lib/validate-params";
 
 export const runtime = "nodejs";
@@ -22,6 +21,7 @@ export async function GET(
   if (!roomId) {
     return NextResponse.json({ error: "roomId 형식이 올바르지 않습니다." }, { status: 400 });
   }
+  const { loadChatRoomDetailForUser } = await import("@/lib/chats/server/load-chat-room-detail");
   const result = await loadChatRoomDetailForUser({
     roomId,
     userId: auth.userId,

@@ -1,5 +1,5 @@
 import { MESSENGER_MONITORING_LABEL_DOMAIN } from "@/lib/chat-domain/messenger-domains";
-import { recordMessengerMonitoringEvent } from "./server-store";
+import { recordMessengerMonitoringEvent } from "./server-store-record";
 
 /** 서비스 함수 한 구간(DB 포함) 측정 — 성공/실패 모두 기록 */
 export async function measureMessengerDb<T>(

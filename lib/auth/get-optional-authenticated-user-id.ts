@@ -1,14 +1,23 @@
 import { createHash } from "node:crypto";
 import { headers } from "next/headers";
-import { resolveRouteHandlerUserIdFromSupabase } from "@/lib/auth/resolve-route-handler-user-id";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
+import { resolveRouteHandlerAuthFromSupabase } from "@/lib/auth/resolve-route-handler-user-id";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
+
+/** `getOptionalRouteHandlerCookieAuth` / `getOptionalAuthenticatedUserId` 공통 합류 결과 */
+export type RouteHandlerCookieAuth = {
+  userId: string | null;
+  user: User | null;
+  claimsOnly: boolean;
+  supabase: SupabaseClient | null;
+};
 
 /**
  * 동일 HTTP 요청·동일 쿠키로 `getOptionalAuthenticatedUserId` 가 동시에 여러 번 호출될 때
  * JWT 해석(`getClaims`/`getUser`)·클라이언트 생성을 **한 번만** 수행하도록 합류.
  * 키: `Cookie` 헤더 SHA-256 — 서버 부하·중복 Auth 호출 감소.
  */
-const AUTH_USER_ID_INFLIGHT = new Map<string, Promise<string | null>>();
+const AUTH_COOKIE_AUTH_INFLIGHT = new Map<string, Promise<RouteHandlerCookieAuth>>();
 
 function inflightKeyFromCookieHeader(cookieHeader: string): string {
   if (!cookieHeader) return "∅";
@@ -18,9 +27,9 @@ function inflightKeyFromCookieHeader(cookieHeader: string): string {
 /**
  * Supabase 세션(쿠키)에서 사용자 ID.
  * 요청 본문/쿼리의 userId는 신뢰하지 않음.
- * JWT 식별은 `resolveRouteHandlerUserIdFromSupabase` — `getClaims()` 로컬 검증 우선, 필요 시만 `getUser()`.
+ * JWT 식별은 `resolveRouteHandlerAuthFromSupabase` — `getClaims()` 로컬 검증 우선, 필요 시만 `getUser()`.
  */
-export async function getOptionalAuthenticatedUserId(): Promise<string | null> {
+export async function getOptionalRouteHandlerCookieAuth(): Promise<RouteHandlerCookieAuth> {
   let cookieHeader = "";
   try {
     cookieHeader = (await headers()).get("cookie") ?? "";
@@ -29,31 +38,42 @@ export async function getOptionalAuthenticatedUserId(): Promise<string | null> {
   }
   const key = inflightKeyFromCookieHeader(cookieHeader);
 
-  const existing = AUTH_USER_ID_INFLIGHT.get(key);
+  const existing = AUTH_COOKIE_AUTH_INFLIGHT.get(key);
   if (existing) return existing;
 
-  let resolveFn!: (v: string | null) => void;
-  const p = new Promise<string | null>((resolve) => {
+  let resolveFn!: (v: RouteHandlerCookieAuth) => void;
+  const p = new Promise<RouteHandlerCookieAuth>((resolve) => {
     resolveFn = resolve;
   });
-  AUTH_USER_ID_INFLIGHT.set(key, p);
+  AUTH_COOKIE_AUTH_INFLIGHT.set(key, p);
 
   void (async () => {
     try {
       const supabase = await createSupabaseRouteHandlerClient();
       if (!supabase) {
-        resolveFn(null);
+        resolveFn({ userId: null, user: null, claimsOnly: false, supabase: null });
         return;
       }
-      resolveFn(await resolveRouteHandlerUserIdFromSupabase(supabase));
+      const r = await resolveRouteHandlerAuthFromSupabase(supabase);
+      resolveFn({
+        userId: r.userId,
+        user: r.user,
+        claimsOnly: r.claimsOnly,
+        supabase,
+      });
     } catch {
-      resolveFn(null);
+      resolveFn({ userId: null, user: null, claimsOnly: false, supabase: null });
     } finally {
-      AUTH_USER_ID_INFLIGHT.delete(key);
+      AUTH_COOKIE_AUTH_INFLIGHT.delete(key);
     }
   })();
 
   return p;
+}
+
+export async function getOptionalAuthenticatedUserId(): Promise<string | null> {
+  const r = await getOptionalRouteHandlerCookieAuth();
+  return r.userId;
 }
 
 /** @deprecated 기본 `getOptionalAuthenticatedUserId` 가 세션 우선. 레거시 import 호환용. */

@@ -3,11 +3,10 @@
  * dev-safe 에서만 완료 응답 10s 메모리 재사용.
  */
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
+import type { TradeChatListMetaComputeResult } from "@/lib/community-messenger/trade-chat-list-meta-dedupe-types";
 
 const DEV_TTL_MS = 10_000;
 const MAX_KEYS = 80;
-
-type Patch = { roomId: string; contextMeta: unknown };
 
 function cacheKey(userId: string, roomIds: string[]): string {
   const u = userId.trim();
@@ -15,8 +14,8 @@ function cacheKey(userId: string, roomIds: string[]): string {
   return `${u}\0${ids.join(",")}`;
 }
 
-const devValue = new Map<string, { expiresAt: number; value: Patch[] }>();
-const inflight = new Map<string, Promise<Patch[]>>();
+const devValue = new Map<string, { expiresAt: number; value: TradeChatListMetaComputeResult }>();
+const inflight = new Map<string, Promise<TradeChatListMetaComputeResult>>();
 
 function pruneDev(): void {
   const now = Date.now();
@@ -33,8 +32,8 @@ function pruneDev(): void {
 export async function runTradeChatListMetaWithDedupe(
   userId: string,
   roomIds: string[],
-  compute: () => Promise<Patch[]>
-): Promise<Patch[]> {
+  compute: () => Promise<TradeChatListMetaComputeResult>
+): Promise<TradeChatListMetaComputeResult> {
   const key = cacheKey(userId, roomIds);
   const now = Date.now();
 
@@ -42,7 +41,13 @@ export async function runTradeChatListMetaWithDedupe(
     pruneDev();
     const hit = devValue.get(key);
     if (hit && hit.expiresAt > now) {
-      return hit.value;
+      return {
+        patches: hit.value.patches,
+        perf: {
+          ...hit.value.perf,
+          trade_chat_meta_dev_ttl_cache_hit: true,
+        },
+      };
     }
   }
 

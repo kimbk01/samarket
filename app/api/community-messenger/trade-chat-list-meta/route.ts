@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
-import { hydrateTradeChatListContextMetaForRoomIds } from "@/lib/community-messenger/service";
 import { runTradeChatListMetaWithDedupe } from "@/lib/community-messenger/trade-chat-list-meta-route-cache";
 import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
 
@@ -47,11 +46,13 @@ export async function POST(req: NextRequest) {
   }
 
   const hydrate0 = devPerfNow();
-  const patches = await runTradeChatListMetaWithDedupe(auth.userId, roomIds, () =>
+  const { hydrateTradeChatListContextMetaForRoomIds } = await import("@/lib/community-messenger/service");
+  const { patches, perf } = await runTradeChatListMetaWithDedupe(auth.userId, roomIds, () =>
     hydrateTradeChatListContextMetaForRoomIds(auth.userId, roomIds)
   );
   const hydrateMs = devPerfNow() - hydrate0;
 
+  const metaTotal = typeof perf.trade_chat_meta_total_ms === "number" ? perf.trade_chat_meta_total_ms : Math.round(hydrateMs);
   logDevApiPerf("/api/community-messenger/trade-chat-list-meta", {
     auth_session_ms: Math.round(authMs),
     rate_limit_ms: Math.round(rateLimitMs),
@@ -62,6 +63,9 @@ export async function POST(req: NextRequest) {
     payload_build_ms: Math.round(hydrateMs),
     total_route_ms: Math.round(devPerfNow() - t0),
     room_count: roomIds.length,
+    trade_chat_meta_total_ms: metaTotal,
+    trade_chat_meta_hydrate_wall_ms: Math.round(hydrateMs),
+    ...perf,
   });
 
   return NextResponse.json({ ok: true, patches });

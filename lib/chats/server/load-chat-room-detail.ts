@@ -16,17 +16,8 @@ import {
   fetchPostRowForChatViaProductChatsPair,
   type FetchPostRowForChatDiagnostics,
 } from "@/lib/chats/post-select-compat";
-import { ensureStoreOrderChatRoomAccessForUser } from "@/lib/chat/store-order-chat-db";
-import {
-  fetchItemTradeAdminSuspended,
-  resolveAdminChatSuspension,
-} from "@/lib/chat/chat-room-admin-suspend";
-import { fetchBuyerReviewSubmitted } from "@/lib/mypage/buyer-review-flag";
+import { resolveAdminChatSuspension } from "@/lib/chat/chat-room-admin-suspend";
 import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
-import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
-import { applyBuyerAutoConfirmForRoom } from "@/lib/trade/apply-buyer-auto-confirm";
-import { applyProductChatTimeTransitions } from "@/lib/trade/apply-product-chat-time-transitions";
-import { reservedBuyerIdFromPost } from "@/lib/trade/reserved-item-chat";
 import {
   inferMessengerDomainFromChatRoom,
   type MessengerDomain,
@@ -37,6 +28,22 @@ import { getChatServiceRoleSupabase } from "./service-role-supabase";
 import { parseRoomId } from "@/lib/validate-params";
 import { computeItemTradeUnreadCount } from "@/lib/chats/server/compute-item-trade-unread";
 import { pruneByAtMaxAgeAndMaxSize } from "@/lib/http/memory-map-prune";
+
+/** `reserved-item-chat` 와 동일 규칙 — 해당 모듈 정적 import(추가 그래프) 회피 */
+function reservedBuyerIdFromPostLocal(post: Record<string, unknown> | null | undefined): string | null {
+  const v = post?.reserved_buyer_id;
+  return typeof v === "string" && v.trim() ? v.trim() : null;
+}
+
+async function loadBuyerReviewSubmittedForProductChat(
+  sbAny: SupabaseClient<any>,
+  productChatRoomId: string | null | undefined,
+  viewerUserId: string,
+  buyerId: string
+): Promise<boolean> {
+  const { fetchBuyerReviewSubmitted } = await import("@/lib/mypage/buyer-review-flag");
+  return fetchBuyerReviewSubmitted(sbAny, productChatRoomId, viewerUserId, buyerId);
+}
 
 type RoomDetailCacheEntry = { at: number; payload: ChatRoom };
 const ROOM_DETAIL_CACHE_TTL_MS = 2500;
@@ -202,7 +209,7 @@ function tradeFieldsFromRows(
     tradeFlowStatus: (productChatRow?.trade_flow_status as string) ?? "chatting",
     chatMode: (productChatRow?.chat_mode as string) ?? "open",
     soldBuyerId: (post?.sold_buyer_id as string) ?? null,
-    reservedBuyerId: reservedBuyerIdFromPost(post ?? undefined),
+    reservedBuyerId: reservedBuyerIdFromPostLocal(post ?? undefined),
     buyerConfirmSource: (productChatRow?.buyer_confirm_source as string) ?? null,
     communityMessengerRoomId: trimMessengerRoomId(productChatRow?.community_messenger_room_id),
   };
@@ -221,6 +228,10 @@ function scheduleProductChatTransitionsIfCooldownAllows(
   tradeTransitionCooldownByProductChatId.set(productChatId, now);
   void (async () => {
     try {
+      const [{ applyBuyerAutoConfirmForRoom }, { applyProductChatTimeTransitions }] = await Promise.all([
+        import("@/lib/trade/apply-buyer-auto-confirm"),
+        import("@/lib/trade/apply-product-chat-time-transitions"),
+      ]);
       await applyBuyerAutoConfirmForRoom(sbAny, productChatId);
       await applyProductChatTimeTransitions(sbAny, productChatId);
     } catch {
@@ -398,7 +409,7 @@ export async function loadChatRoomDetailForUser(input: {
         const buyerReviewPromiseCr =
           detailScope === "entry"
             ? Promise.resolve(false)
-            : fetchBuyerReviewSubmitted(
+            : loadBuyerReviewSubmittedForProductChat(
                 sbAny,
                 (tradeExtras.productChatRoomId as string | null) ?? (r.id as string),
                 input.userId,
@@ -535,7 +546,7 @@ export async function loadChatRoomDetailForUser(input: {
     const buyerReviewPromisePc =
       detailScope === "entry"
         ? Promise.resolve(false)
-        : fetchBuyerReviewSubmitted(
+        : loadBuyerReviewSubmittedForProductChat(
             sbAny,
             (tradeExtrasPc.productChatRoomId as string | null) ?? (r.id as string),
             input.userId,
@@ -545,7 +556,9 @@ export async function loadChatRoomDetailForUser(input: {
     const [partnerMapPc, buyerReviewSubmittedPc, adminChatSuspendedPc] = await Promise.all([
       fetchPartnerDisplayFieldsMap(sbAny, batchIdsPc),
       buyerReviewPromisePc,
-      fetchItemTradeAdminSuspended(sbAny, String(r.post_id), String(r.seller_id), String(r.buyer_id)),
+      import("@/lib/chat/chat-room-admin-suspend").then((m) =>
+        m.fetchItemTradeAdminSuspended(sbAny, String(r.post_id), String(r.seller_id), String(r.buyer_id))
+      ),
     ]);
     const partnerDispPc = partnerDisplayFromMap(partnerMapPc, partnerId, partnerId.slice(0, 8));
     const partnerNickname = partnerDispPc.partnerNickname;
@@ -645,6 +658,7 @@ export async function loadChatRoomDetailForUser(input: {
   const roomType = crAny.room_type ?? "";
 
   if (roomType === "store_order") {
+    const { ensureStoreOrderChatRoomAccessForUser } = await import("@/lib/chat/store-order-chat-db");
     const crSo = cr as {
       id: string;
       seller_id: string | null;
@@ -697,6 +711,7 @@ export async function loadChatRoomDetailForUser(input: {
           ? `${sn} · 주문 ${(ordRow as { order_no: string }).order_no}`
           : `주문 ${(ordRow as { order_no: string }).order_no}`;
       }
+      const { BUYER_ORDER_STATUS_LABEL } = await import("@/lib/stores/store-order-process-criteria");
       const statusLabel =
         ordRow && typeof (ordRow as { order_status?: string }).order_status === "string"
           ? BUYER_ORDER_STATUS_LABEL[(ordRow as { order_status: string }).order_status] ??
@@ -908,7 +923,7 @@ export async function loadChatRoomDetailForUser(input: {
   const buyerReviewSubmittedFb =
     detailScope === "entry"
       ? false
-      : await fetchBuyerReviewSubmitted(
+      : await loadBuyerReviewSubmittedForProductChat(
           sbAny,
           pcIdForReview,
           input.userId,
