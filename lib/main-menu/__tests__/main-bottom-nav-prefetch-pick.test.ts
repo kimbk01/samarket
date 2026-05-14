@@ -66,6 +66,11 @@ describe("pickMainBottomNavPrefetchHrefs", () => {
     expect(hrefs.some((h) => h.includes("/community-messenger") && h.includes("from=trade"))).toBe(true);
   });
 
+  it("메신저 셸에서는 교차 탭 idle 프리페치 생략(미사용 preload·네트워크 경쟁 완화)", () => {
+    expect(pickMainBottomNavPrefetchHrefs("/community-messenger/trade-chats", BOTTOM_NAV_ITEMS)).toEqual([]);
+    expect(pickMainBottomNavPrefetchHrefs("/community-messenger?section=chats", BOTTOM_NAV_ITEMS)).toEqual([]);
+  });
+
   it("동일 href 중복 탭이 있어도 seen 으로 한 번만", () => {
     const dupTabs = [
       { id: "a", href: "/market", label: "H", icon: "trade" as const },

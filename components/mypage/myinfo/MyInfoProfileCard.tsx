@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { Check, MapPin } from "lucide-react";
 import { isSamarketDefaultAvatarUrl, withDefaultAvatar } from "@/lib/profile/default-avatar";
 import { MYINFO_SURFACE, MYINFO_TYPO } from "./myinfo-theme";
 
@@ -11,6 +11,7 @@ export function MyInfoProfileCard({
   displayName,
   atUsername,
   addressLine,
+  addressHref,
   editHref,
   rightMetaSlot,
 }: {
@@ -18,6 +19,7 @@ export function MyInfoProfileCard({
   displayName: string;
   atUsername?: string | null;
   addressLine: string;
+  addressHref?: string;
   editHref: string;
   rightMetaSlot?: React.ReactNode;
 }) {
@@ -52,13 +54,29 @@ export function MyInfoProfileCard({
         </Link>
 
         <div className="min-w-0 flex-1">
-          <p className={`${MYINFO_TYPO.profileName} text-sam-fg`}>{displayName}</p>
-          {atUsername ? (
-            <p className="mt-0.5 truncate font-mono text-[12px] text-sam-muted tabular-nums">
-              {atUsername}
+          <div className="flex min-w-0 items-baseline gap-1.5">
+            <p className={`${MYINFO_TYPO.profileName} min-w-0 truncate text-sam-fg`}>{displayName}</p>
+            {atUsername ? (
+              <span className="min-w-0 truncate font-mono text-[12px] text-sam-muted tabular-nums">
+                {atUsername}
+              </span>
+            ) : null}
+          </div>
+          {addressHref ? (
+            <Link
+              href={addressHref}
+              className="mt-1 flex items-start gap-1.5 rounded-[8px] py-0.5 pr-1 text-[11px] leading-snug text-sam-muted hover:text-signature"
+              aria-label="주소 관리로 이동"
+            >
+              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-signature" strokeWidth={2} aria-hidden />
+              <span className="min-w-0 whitespace-normal break-words leading-snug">{addressLine}</span>
+            </Link>
+          ) : (
+            <p className="mt-1 flex items-start gap-1.5 text-[11px] leading-snug text-sam-muted">
+              <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-signature" strokeWidth={2} aria-hidden />
+              <span className="min-w-0 whitespace-normal break-words leading-snug">{addressLine}</span>
             </p>
-          ) : null}
-          <p className={`mt-1 line-clamp-1 ${MYINFO_TYPO.subText}`}>{addressLine}</p>
+          )}
 
           <div className="mt-3 flex items-center gap-2">
             <Link

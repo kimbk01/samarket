@@ -758,7 +758,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     return (
       <Link
         ref={prefetchAttach}
-        prefetch
+        prefetch={false}
         href={roomHref}
         onPointerDown={() => {
           kickRoomNavPrefetchOnPointerDown();

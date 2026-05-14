@@ -2,6 +2,15 @@ import { BOTTOM_NAV_ITEMS, type BottomNavItemConfig } from "@/lib/main-menu/bott
 import { bottomNavMessengerHrefWithOrigin } from "@/lib/community-messenger/messenger-entry-origin";
 
 /**
+ * `/community-messenger` 셸 — 교차 탭 RSC idle 프리페치 생략 판별용(미사용 preload·현재 화면과 네트워크 경쟁 완화).
+ */
+export function isMainBottomNavMessengerShellPathname(pathname: string | null): boolean {
+  const raw = (pathname ?? "").split("?")[0]?.trim() ?? "";
+  const p = raw.replace(/\/+$/, "") || "/";
+  return p === "/community-messenger" || p.startsWith("/community-messenger/");
+}
+
+/**
  * 프로그램적 `router.prefetch`·클라 prewarm 에 쓰는 href — 탭 링크(`BottomNavTab*`) 과 동일 규칙.
  * - 메신저: 현재 경로 기준 `?from=` 부착 (`BottomNavTabStandard` 의 `effectiveHref` 와 정합)
  */
@@ -52,6 +61,8 @@ export function pickMainBottomNavPrefetchHrefs(
   pathname: string | null,
   tabs: readonly BottomNavItemConfig[]
 ): string[] {
+  if (isMainBottomNavMessengerShellPathname(pathname)) return [];
+
   const list = tabs.length > 0 ? tabs : BOTTOM_NAV_ITEMS;
   const out: string[] = [];
   const seen = new Set<string>();

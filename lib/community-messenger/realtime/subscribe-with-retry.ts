@@ -588,6 +588,31 @@ export function subscribeWithRetry(args: {
             previousChannelStatusForHs4 = status;
             return;
           }
+          /**
+           * 동일 `channelName` 에 `subscribeWithRetry` 인스턴스가 2개 이상 겹칠 때(홈 리바인드·중복 마운트 등),
+           * 한쪽의 `removeChannel`/재구독이 다른 인스턴스에 `CLOSED` 를 밀어 넣을 수 있다.
+           * `expectedInternalClosed` 토큰만으로는 커버되지 않아 **가짜 initial 실패**로 집계되어
+           * `channel_subscribe_callback_failure_ratio` 가 부풀 수 있다. TIMED_OUT/CHANNEL_ERROR 와 분리한다.
+           */
+          if (status === "CLOSED" && activeNow > 1) {
+            cmRtHs4DiagnosisLog("subscribe_closed_skipped", {
+              scope: args.scope,
+              channelName: args.name,
+              status,
+              reason: "duplicate_instance_peer_teardown",
+              attemptPhase: attempt > 0 ? "retry" : "initial",
+              attemptNo: attempt,
+              elapsedMs: elapsedAttachMs,
+              previousChannelState: previousChannelStatusForHs4,
+              expectedInternalClosed,
+              activeCount: activeNow,
+            });
+            previousChannelStatusForHs4 = status;
+            if (!intentionalTeardown) {
+              scheduleRetry(status);
+            }
+            return;
+          }
           const attemptNoAtOutcome = attempt;
           const phase = attempt > 0 ? "retry" : "initial";
           messengerMonitorRealtimeSubscriptionOutcome(args.scope, false, status, {

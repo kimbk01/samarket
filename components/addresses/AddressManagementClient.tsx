@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
+import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { AddressRowCard } from "@/components/addresses/AddressRowCard";
 import { AddressEditorSheet } from "@/components/addresses/AddressEditorSheet";
@@ -39,6 +40,8 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   const [editTarget, setEditTarget] = useState<UserAddressDTO | null>(null);
   const [pickedId, setPickedId] = useState<string>("");
   const [confirming, setConfirming] = useState(false);
+  /** 승인 매장 id → 표시명 (`Store Address` 뱃지·헤더 `매장 · …` 에 사용) */
+  const [approvedStoresById, setApprovedStoresById] = useState<ReadonlyMap<string, string>>(() => new Map());
   /** `/address/select` 에서 돌아올 때 sessionStorage 픽을 부모가 소비해 시트에 넘김 (시트가 닫힌 채 복귀하면 기존 useEffect(open) 만으로는 픽이 반영되지 않음) */
   const [mapBootstrap, setMapBootstrap] = useState<{
     latitude: number;
@@ -60,6 +63,18 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
     return t;
   }, [sp]);
   const selectingForReturn = Boolean(returnTo);
+  const linkedStoreIdsInList = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          list
+            .filter((row) => row.labelType === "shop")
+            .map((row) => row.linkedStoreId?.trim() ?? "")
+            .filter(Boolean),
+        ),
+      ),
+    [list],
+  );
 
   useEffect(() => {
     if (!selectingForReturn) return;
@@ -152,6 +167,34 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    if (linkedStoreIdsInList.length === 0) {
+      setApprovedStoresById(new Map());
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/me/stores", { credentials: "include" });
+        const j = (await res.json()) as { ok?: boolean; stores?: StoreRow[] };
+        if (!res.ok || !j.ok || !Array.isArray(j.stores)) return;
+        const m = new Map<string, string>();
+        for (const store of j.stores) {
+          if (store.approval_status !== "approved") continue;
+          const id = store.id.trim();
+          const name = (store.store_name ?? "").trim();
+          if (id) m.set(id, name || id);
+        }
+        if (!cancelled) setApprovedStoresById(m);
+      } catch {
+        if (!cancelled) setApprovedStoresById(new Map());
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [linkedStoreIdsInList]);
 
   async function removeRow(id: string) {
     if (!confirm(tt("이 주소를 삭제할까요?"))) return;
@@ -289,6 +332,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
                     key={row.id}
                     row={row}
                     busyId={busyId}
+                    approvedStoresById={approvedStoresById}
                     onSetAsRepresentative={() =>
                       selectingForReturn
                         ? setPickedId(row.id)
@@ -354,6 +398,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
                       key={row.id}
                       row={row}
                       busyId={busyId}
+                      approvedStoresById={approvedStoresById}
                       onSetAsRepresentative={() =>
                         selectingForReturn
                           ? setPickedId(row.id)

@@ -22,7 +22,7 @@ import {
   PHILIFE_FEED_INSET_X_CLASS,
 } from "@/lib/philife/philife-flat-ui-classes";
 import { fetchMeStoreOrdersListDeduped } from "@/lib/stores/store-delivery-api-client";
-import { useRepresentativeAddressLine } from "@/hooks/use-representative-address-line";
+import { useRepresentativeFullAddressLine } from "@/hooks/use-representative-address-line";
 import { formatAtUsername, resolveDisplayName } from "@/lib/users/user-label";
 import { MyInfoProfileCard } from "@/components/mypage/myinfo/MyInfoProfileCard";
 import { MyInfoStatGrid } from "@/components/mypage/myinfo/MyInfoStatGrid";
@@ -81,7 +81,7 @@ export function MyPageHomeDashboard({
   const ownerHub = useOwnerHubBadgeBreakdown();
   const [orderCount, setOrderCount] = useState<number | null>(() => homeDashboardCounts?.storeOrderCount ?? null);
   const [postCount, setPostCount] = useState<number | null>(() => homeDashboardCounts?.communityPostCount ?? null);
-  const representativeAddress = useRepresentativeAddressLine();
+  const representativeAddress = useRepresentativeFullAddressLine();
   const countsFetchScheduledRef = useRef(false);
 
   const viewerId = profile.id?.trim() ?? "";
@@ -166,13 +166,13 @@ export function MyPageHomeDashboard({
     dibayMyInfoPerfMaybeLogTotal({ surface: "mypage_root" });
   }, []);
 
-  const profileRegionLine = resolveProfileLocationAddressLines(profile).join(" · ").trim();
-  const representativeRegionLine =
+  const profileAddressLine = resolveProfileLocationAddressLines(profile).join(" · ").trim();
+  const representativeFullAddressLine =
     representativeAddress.status === "ready" ? (representativeAddress.line ?? "").trim() : "";
   const regionLine =
-    profileRegionLine ||
-    representativeRegionLine ||
-    (representativeAddress.status === "loading" ? "대표 주소를 확인하는 중입니다" : "대표 지역을 설정해 주세요");
+    representativeFullAddressLine ||
+    profileAddressLine ||
+    (representativeAddress.status === "loading" ? "대표 주소를 확인하는 중입니다" : "대표 주소를 설정해 주세요");
   const displayName = resolveDisplayName(profile) || "닉네임 없음";
   const atUsername = formatAtUsername(profile.username ?? null);
 
@@ -230,6 +230,7 @@ export function MyPageHomeDashboard({
           displayName={displayName}
           atUsername={atUsername}
           addressLine={regionLine}
+          addressHref="/mypage/addresses"
           editHref={MYPAGE_PROFILE_EDIT_HREF}
           rightMetaSlot={
             <div className="pt-1">

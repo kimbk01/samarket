@@ -2,7 +2,8 @@
 @import "./design-tokens.css";
 @import "./app-shell.css";
 @import "./app-bottom-nav.css";
-@import "../node_modules/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
+/* 단일 VF 파일 — dynamic-subset 은 다수 @font-face 로 Firefox "name records are not sorted"·preload 노이즈 유발 */
+@import "../node_modules/pretendard/dist/web/variable/pretendardvariable.css";
 @import "../node_modules/tailwindcss";
 @import "./samarket-components.css";
 

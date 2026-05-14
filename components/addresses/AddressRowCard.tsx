@@ -21,20 +21,36 @@ export function AddressRowCard(props: {
   onSetAsRepresentative?: () => void;
   busyId: string | null;
   containerClassName?: string;
+  /** 승인 매장 id → `store_name` (Store Address 뱃지·매장 줄 제목용) */
+  approvedStoresById?: ReadonlyMap<string, string>;
 }) {
-  const { row, onEdit, onDelete, onSetAsRepresentative, busyId: globalBusy, containerClassName } = props;
+  const { row, onEdit, onDelete, onSetAsRepresentative, busyId: globalBusy, containerClassName, approvedStoresById } = props;
   const rowBusy = globalBusy === row.id;
-  const titlePlain = getUserAddressDesignationPlainText(row);
   const isPh = (row.countryCode ?? "PH").trim().toUpperCase() === "PH";
-  const phOne = isPh ? formatPhAddressCardOneLine(row) : null;
+  const linkedStoreId = row.linkedStoreId?.trim() ?? "";
+  const samarketStoreDisplayName =
+    row.labelType === "shop" && linkedStoreId
+      ? (approvedStoresById?.get(linkedStoreId)?.trim() ?? "")
+      : "";
+  const isStoreAddress =
+    row.labelType === "shop" && !!linkedStoreId && (approvedStoresById?.has(linkedStoreId) ?? false);
+
+  const phOpts = {
+    suppressGateBuildingIfMatchesSamarketStore: samarketStoreDisplayName || null,
+  };
+  const phOne = isPh ? formatPhAddressCardOneLine(row, phOpts) : null;
 
   const sub = isPh
-    ? formatPhAddressCardOneLinePlain(row)
+    ? formatPhAddressCardOneLinePlain(row, phOpts)
     : stripCountryFromAddressDisplayLine(
         buildAddressManagementListPrimaryLine(row),
         row.countryName,
       );
   const detailLine = isPh ? null : buildAddressListDetailLine(row, sub);
+
+  const titlePlain = getUserAddressDesignationPlainText(row, {
+    linkedSamarketStoreDisplayName: samarketStoreDisplayName || null,
+  });
 
   return (
     <li className={`flex items-start gap-2 px-1 py-3.5 sm:gap-3 sm:px-2 ${containerClassName ?? ""}`}>
@@ -50,14 +66,23 @@ export function AddressRowCard(props: {
         }
       >
         <div className="flex flex-wrap items-center gap-1.5">
-          <UserAddressDesignationTitle row={row} className={ADDR_ROW_TITLE} />
+          <UserAddressDesignationTitle
+            row={row}
+            className={ADDR_ROW_TITLE}
+            linkedSamarketStoreDisplayName={samarketStoreDisplayName || null}
+          />
           {row.isDefaultMaster ? (
             <span className="rounded-full bg-sam-primary px-2 py-0.5 sam-text-xxs font-bold text-white">
-              대표
+              Default Address
             </span>
           ) : (
             <span className="sam-text-xxs font-medium text-sam-muted">탭하여 대표</span>
           )}
+          {isStoreAddress ? (
+            <span className="rounded-full border border-sam-primary-border bg-sam-primary-soft px-2 py-0.5 sam-text-xxs font-bold text-sam-primary">
+              Store Address
+            </span>
+          ) : null}
         </div>
         <p className={`mt-0.5 ${ADDR_BODY} sam-text-body-secondary`}>
           {isPh && phOne ? (

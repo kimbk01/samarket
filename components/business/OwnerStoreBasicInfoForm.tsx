@@ -216,14 +216,6 @@ export function OwnerStoreBasicInfoForm({
     [industryVersion]
   );
 
-  const saveConfirmDescription = useMemo(
-    () =>
-      identityEditable
-        ? "기본 정보(로고·매장명·소개·연락처·위치·상세 주소·업종 등)를 저장합니다. 계속할까요?"
-        : "로고·소개·연락처·위치·상세 주소만 저장합니다. 매장 이름·1차·2차 업종은 DB에 고정되어 있으며, 관리자가 허용한 경우에만 수정할 수 있습니다. 계속할까요?",
-    [identityEditable]
-  );
-
   const [values, setValues] = useState<BasicValues>(() => rowToBasicValues(row));
   const [regionId, setRegionId] = useState("");
   const [cityId, setCityId] = useState("");
@@ -292,6 +284,37 @@ export function OwnerStoreBasicInfoForm({
   const isDirty =
     baselineSnapshot != null &&
     serializeFormSnapshot(liveFormSnapRef.current) !== baselineSnapshot;
+
+  const savedRegionCity = useMemo(
+    () => resolveRegionCityIds(row.region ?? "", row.city ?? ""),
+    [row.region, row.city],
+  );
+
+  const storeAddressWillChange = useMemo(() => {
+    const saved = rowToBasicValues(row);
+    const savedLat = parseFiniteLatitude(row.lat);
+    const savedLng = parseFiniteLongitude(row.lng);
+    const nextLat = manualMapLat.trim() ? parseFiniteLatitude(manualMapLat) : null;
+    const nextLng = manualMapLng.trim() ? parseFiniteLongitude(manualMapLng) : null;
+    return (
+      values.addressStreetLine.trim() !== saved.addressStreetLine.trim() ||
+      values.addressDetail.trim() !== saved.addressDetail.trim() ||
+      regionId.trim() !== savedRegionCity.rid ||
+      cityId.trim() !== savedRegionCity.cid ||
+      nextLat !== savedLat ||
+      nextLng !== savedLng
+    );
+  }, [row, values.addressStreetLine, values.addressDetail, regionId, cityId, savedRegionCity, manualMapLat, manualMapLng]);
+
+  const saveConfirmDescription = useMemo(() => {
+    const base = identityEditable
+      ? "기본 정보(로고·매장명·소개·연락처·위치·상세 주소·업종 등)를 저장합니다."
+      : "로고·소개·연락처·위치·상세 주소만 저장합니다. 매장 이름·1차·2차 업종은 DB에 고정되어 있으며, 관리자가 허용한 경우에만 수정할 수 있습니다.";
+    const addressNotice = storeAddressWillChange
+      ? " 매장 주소/좌표 변경은 상단 매장 주소 표시와 주문자 거리·시간 계산 기준에 반영됩니다."
+      : "";
+    return `${base}${addressNotice} 계속할까요?`;
+  }, [identityEditable, storeAddressWillChange]);
 
   useEffect(() => {
     setOwnerBasicInfoDirty(isDirty);

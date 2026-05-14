@@ -40,7 +40,7 @@ function sortAddressList(rows: UserAddressDTO[]): UserAddressDTO[] {
   });
 }
 
-/** 대표가 하나도 없으면 목록의 첫 번째(등록 순) 주소를 대표·생활·거래·배달 기본으로 통일 */
+/** 대표가 하나도 없으면 매장 주소를 우선 기본으로, 없으면 목록의 첫 번째 주소를 대표·생활·거래·배달 기본으로 통일 */
 async function assignFirstRowAsFullDefaultIfNoMaster(
   sb: SupabaseClient<any>,
   userId: string,
@@ -48,6 +48,9 @@ async function assignFirstRowAsFullDefaultIfNoMaster(
 ): Promise<void> {
   if (list.length === 0 || list.some((x) => x.isDefaultMaster)) return;
   const ordered = [...list].sort((a, b) => {
+    const storeA = a.labelType === "shop" && !!a.linkedStoreId?.trim();
+    const storeB = b.labelType === "shop" && !!b.linkedStoreId?.trim();
+    if (storeA !== storeB) return storeA ? -1 : 1;
     if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
     return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
   });

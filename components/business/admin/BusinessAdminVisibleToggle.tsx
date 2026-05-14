@@ -6,10 +6,6 @@ import { invalidateMeStoresListDedupedCache } from "@/lib/me/fetch-me-stores-ded
 import { StoreOpsOnOffSwitch } from "@/components/business/admin/StoreOpsOnOffSwitch";
 import { parsePostgresBool } from "@/lib/community-feed/parse-postgres-bool";
 
-const ON_BADGE = "#0f6a8a";
-const ON_BADGE_BG = "rgba(28, 141, 184, 0.14)";
-const ON_BORDER = "#157aa0";
-
 /**
  * `stores.is_visible` — 동네 매장 목록·탭·공개 매장 URL 노출 여부.
  * 관리자 승인 시 기본 false (`approve_store`); 배달 운영 설정과 동일 PATCH.
@@ -64,7 +60,7 @@ export function BusinessAdminVisibleToggle({
   );
 
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+    <div className="flex shrink-0 items-center gap-2">
       <span className="sam-text-helper font-semibold text-sam-fg">노출</span>
       <StoreOpsOnOffSwitch
         checked={shownVisible}
@@ -72,19 +68,6 @@ export function BusinessAdminVisibleToggle({
         onCheckedChange={applyVisible}
         ariaLabel={shownVisible ? "노출 끄기: 매장 목록·탭에서 숨김" : "노출 켜기: 매장 목록·탭에 표시"}
       />
-      <span
-        className={`min-w-[2.75rem] rounded-md border px-2 py-0.5 text-center sam-text-xxs font-bold uppercase tracking-wide ${
-          shownVisible ? "" : "bg-sam-app text-sam-muted"
-        }`}
-        style={
-          shownVisible
-            ? { color: ON_BADGE, backgroundColor: ON_BADGE_BG, borderColor: ON_BORDER }
-            : { borderColor: "var(--sam-border-soft, #e5e7eb)" }
-        }
-      >
-        {shownVisible ? "ON" : "OFF"}
-      </span>
-      <span className="sam-text-xxs text-sam-muted">{shownVisible ? "목록·탭 표시" : "목록·탭 숨김"}</span>
     </div>
   );
 }

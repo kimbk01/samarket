@@ -9,7 +9,7 @@ import { fetchPlacePredictionsPh, type PlacePredictionRow } from "@/lib/map/fetc
 import { PLACE_FIELDS_POI_FULL } from "@/lib/map/places-new-api";
 import { fetchPlaceDetailsAsLegacyPlaceResultCached } from "@/lib/addresses/google-place-details-client-cache";
 import { parsePhFromGooglePlaceResult } from "@/lib/addresses/ph-google-place-address-components";
-import { formatPhDeliveryStreetSummary } from "@/lib/addresses/ph-address-display";
+import { formatPhDeliveryStreetSummary, formatPhAddressCardOneLinePlain } from "@/lib/addresses/ph-address-display";
 import { stripCountryFromAddressDisplayLine } from "@/lib/addresses/user-address-format";
 import { AddressSummaryMapPreview } from "@/components/addresses/AddressSummaryMapPreview";
 import { AddressFineTuneSheet } from "@/components/addresses/AddressFineTuneSheet";
@@ -33,6 +33,8 @@ import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 type Mode = "create" | "edit";
 
 type LabelPreset = null | "home" | "shop" | "office" | "custom";
+
+const STORE_ADDRESS_PERMISSION_MESSAGE = "승인된 매장 오너만 Store Address를 등록할 수 있습니다.";
 
 function deriveLabelPresetFromDto(row: UserAddressDTO): LabelPreset {
   if (row.labelType === "shop") return "shop";
@@ -110,7 +112,10 @@ export function AddressEditorSheet(props: {
   const [meStores, setMeStores] = useState<StoreRow[]>([]);
   const [meStoresLoading, setMeStoresLoading] = useState(false);
   const [shopListErr, setShopListErr] = useState<string | null>(null);
-  const [replaceConflictRow, setReplaceConflictRow] = useState<UserAddressDTO | null>(null);
+  const [preflightSave, setPreflightSave] = useState<{
+    conflict: UserAddressDTO | null;
+    includeStoreLinkNotice: boolean;
+  } | null>(null);
   const [detailAttempted, setDetailAttempted] = useState(false);
 
   /**
@@ -138,7 +143,8 @@ export function AddressEditorSheet(props: {
     setBarangay("");
     setCityMunicipality(((row.district ?? row.city) ?? "").trim());
     setProvince("");
-    setBuildingName((row.store_name ?? "").trim());
+    /** `building_name`(DB)은 지도 POI 전용. 매장 표시명은 `linkedStoreId`·별도 UI로만 노출한다. */
+    setBuildingName("");
     const anchor = (fmt || line1).trim();
     setSearch(anchor);
     selectionAnchorSearchRef.current = anchor.length >= 2 ? anchor : null;
@@ -152,7 +158,7 @@ export function AddressEditorSheet(props: {
   useEffect(() => {
     if (!open) return;
     setErr(null);
-    setReplaceConflictRow(null);
+    setPreflightSave(null);
     setDetailAttempted(false);
     setShopListErr(null);
     selectionAnchorSearchRef.current = null;
@@ -170,11 +176,14 @@ export function AddressEditorSheet(props: {
       setCityMunicipality(initial.cityMunicipality ?? "");
       setProvince(initial.province ?? "");
       {
-        const b = (initial.buildingName ?? "").trim();
-        const s = (initial.streetAddress ?? "").trim();
-        const merged = b && s ? `${b} ${s}`.trim() : b || s;
-        setStreetAddress(merged);
-        setUnitFloorRoom(initial.unitFloorRoom ?? "");
+        if (initial.labelType === "shop") {
+          setStreetAddress((initial.streetAddress ?? "").trim());
+        } else {
+          const b = (initial.buildingName ?? "").trim();
+          const s = (initial.streetAddress ?? "").trim();
+          const merged = b && s ? `${b} ${s}`.trim() : b || s;
+          setStreetAddress(merged);
+        }
       }
       setLandmark(initial.landmark ?? "");
       setBuildingName(initial.buildingName ?? "");
@@ -301,7 +310,7 @@ export function AddressEditorSheet(props: {
   }, [open, search, latitude, longitude]);
 
   useEffect(() => {
-    if (!open || labelPreset !== "shop") return;
+    if (!open) return;
     let cancelled = false;
     void (async () => {
       setMeStoresLoading(true);
@@ -312,7 +321,10 @@ export function AddressEditorSheet(props: {
         if (!res.ok || !j.ok) {
           throw new Error(typeof j.error === "string" ? j.error : "매장 목록을 불러오지 못했습니다.");
         }
-        if (!cancelled) setMeStores(Array.isArray(j.stores) ? j.stores : []);
+        const approvedStores = Array.isArray(j.stores)
+          ? j.stores.filter((store) => store.approval_status === "approved")
+          : [];
+        if (!cancelled) setMeStores(approvedStores);
       } catch (e) {
         if (!cancelled) {
           setShopListErr(e instanceof Error ? e.message : "오류가 났습니다.");
@@ -325,7 +337,7 @@ export function AddressEditorSheet(props: {
     return () => {
       cancelled = true;
     };
-  }, [open, labelPreset]);
+  }, [open]);
 
   const applyFineTuneResult = useCallback((r: ReverseGeocodePhResult) => {
     if (!r.placeId) return;
@@ -343,6 +355,7 @@ export function AddressEditorSheet(props: {
     setProvince(ph.province ?? "");
     setNeighborhoodName(ph.neighborhood ?? "");
     setBuildingName(ph.buildingOrPlaceHeadline ?? "");
+    setUnitFloorRoom("");
     const s = r.formattedAddress.trim();
     setSearch(s);
     selectionAnchorSearchRef.current = s.length >= 2 ? s : null;
@@ -357,11 +370,6 @@ export function AddressEditorSheet(props: {
       fullAddress: fullAddress || null,
     } as UserAddressDTO);
   }, [roadAddress, formattedAddress, fullAddress]);
-
-  const adminPreview = useMemo(
-    () => [barangay, cityMunicipality, province].map((x) => x.trim()).filter(Boolean).join(", "),
-    [barangay, cityMunicipality, province],
-  );
 
   async function selectPrediction(row: PlacePredictionRow) {
     if (!row.placeId.trim()) return;
@@ -392,6 +400,7 @@ export function AddressEditorSheet(props: {
       setBuildingName(ph.buildingOrPlaceHeadline ?? "");
       setLatitude(lat);
       setLongitude(lng);
+      setUnitFloorRoom("");
       setPredictions([]);
       setSearch(label);
       setFineTuneOpen(false);
@@ -403,7 +412,7 @@ export function AddressEditorSheet(props: {
     }
   }
 
-  async function saveAddress(opts?: { skipDupCheck?: boolean }) {
+  async function saveAddress(opts?: { skipDupCheck?: boolean; skipShopAck?: boolean }) {
     setBusy(true);
     setErr(null);
     setDetailAttempted(true);
@@ -429,6 +438,11 @@ export function AddressEditorSheet(props: {
     }
     if (labelPreset === "shop" && !selectedStoreId.trim()) {
       setErr("매장을 선택해 주세요.");
+      setBusy(false);
+      return;
+    }
+    if (labelPreset === "shop" && !meStores.some((store) => store.id === selectedStoreId.trim())) {
+      setErr(STORE_ADDRESS_PERMISSION_MESSAGE);
       setBusy(false);
       return;
     }
@@ -458,16 +472,6 @@ export function AddressEditorSheet(props: {
                 ? encodeLocationOnlyAddressNickname(initial.id)
                 : "");
 
-    if (!opts?.skipDupCheck) {
-      const nameKey = normalizeAddressNicknameKey(resolvedNickname);
-      const conflict = siblingRows.find((a) => normalizeAddressNicknameKey(a.nickname ?? "") === nameKey);
-      if (conflict) {
-        setReplaceConflictRow(conflict);
-        setBusy(false);
-        return;
-      }
-    }
-
     const submitLabelType: UserAddressLabelType =
       labelPreset === "custom" ? "other" : labelPreset === "shop" ? "shop" : labelPreset === "office" ? "office" : "home";
 
@@ -486,6 +490,27 @@ export function AddressEditorSheet(props: {
         setErr("상세주소를 입력해 주세요.");
         setBusy(false);
         return;
+      }
+
+      const needsStoreLinkNotice =
+        labelPreset === "shop" &&
+        !opts?.skipShopAck &&
+        (mode === "create" ||
+          initial?.labelType !== "shop" ||
+          (initial?.linkedStoreId?.trim() ?? "") !== selectedStoreId.trim());
+
+      if (!opts?.skipDupCheck) {
+        const nameKey = normalizeAddressNicknameKey(resolvedNickname);
+        const conflict =
+          siblingRows.find((a) => normalizeAddressNicknameKey(a.nickname ?? "") === nameKey) ?? null;
+        if (conflict || needsStoreLinkNotice) {
+          setPreflightSave({
+            conflict,
+            includeStoreLinkNotice: needsStoreLinkNotice,
+          });
+          setBusy(false);
+          return;
+        }
       }
       const body = {
         labelType: submitLabelType,
@@ -538,32 +563,38 @@ export function AddressEditorSheet(props: {
     }
   }
 
-  async function confirmReplaceAndSave() {
-    if (!replaceConflictRow) return;
-    const id = replaceConflictRow.id;
+  async function confirmPreflightSave() {
+    const pending = preflightSave;
+    if (!pending) return;
+    setPreflightSave(null);
     setErr(null);
-    setBusy(true);
-    try {
-      const d = await fetch(`/api/me/addresses/${id}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          labelType: "other",
-          linkedStoreId: null,
-          nickname: encodeLocationOnlyAddressNickname(id),
-        }),
-      });
-      const j = (await d.json()) as { ok?: boolean; error?: string };
-      if (!d.ok || !j.ok) {
-        setErr(typeof j.error === "string" ? j.error : "기존 주소의 지정만 해제하지 못했어요.");
-        return;
+
+    if (pending.conflict) {
+      const id = pending.conflict.id;
+      setBusy(true);
+      try {
+        const d = await fetch(`/api/me/addresses/${id}`, {
+          method: "PATCH",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            labelType: "other",
+            linkedStoreId: null,
+            nickname: encodeLocationOnlyAddressNickname(id),
+          }),
+        });
+        const j = (await d.json()) as { ok?: boolean; error?: string };
+        if (!d.ok || !j.ok) {
+          setErr(typeof j.error === "string" ? j.error : "기존 주소의 지정만 해제하지 못했어요.");
+          setBusy(false);
+          return;
+        }
+      } finally {
+        setBusy(false);
       }
-      setReplaceConflictRow(null);
-      await saveAddress({ skipDupCheck: true });
-    } finally {
-      setBusy(false);
     }
+
+    await saveAddress({ skipDupCheck: true, skipShopAck: true });
   }
 
   const fieldLabelClass = "mb-1.5 block text-[12px] font-semibold leading-4 text-sam-muted";
@@ -588,6 +619,10 @@ export function AddressEditorSheet(props: {
       !nickname.trim() &&
       !(mode === "edit" && initial && isLocationOnlyAddressNickname(initial.nickname))) ||
     !geoReady;
+  const hasApprovedStoreAddressSource = meStores.length > 0;
+  const selectedStoreDisplayName = (
+    meStores.find((store) => store.id.trim() === selectedStoreId.trim())?.store_name ?? ""
+  ).trim();
 
   const scrollShellClass =
     layout === "page"
@@ -600,7 +635,7 @@ export function AddressEditorSheet(props: {
         <OwnerStoreAdminDashSection title="지정 주소">
           <div>
             <p className="mb-3 sam-text-xxs leading-snug text-sam-muted sm:mb-3.5">
-              우리집·매장·회사·직접 입력 중 하나를 고른 뒤 저장할 수 있어요.
+              우리집·회사·직접 입력 중 하나를 고른 뒤 저장할 수 있어요.
             </p>
             <div className="-mx-1 flex min-w-0 flex-nowrap gap-2 overflow-x-auto px-1 pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <button
@@ -614,16 +649,18 @@ export function AddressEditorSheet(props: {
               >
                 우리집
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setLabelPreset("shop");
-                  setErr(null);
-                }}
-                className={`${chipBase} ${labelPreset === "shop" ? chipOn : chipOff}`}
-              >
-                매장
-              </button>
+              {hasApprovedStoreAddressSource ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLabelPreset("shop");
+                    setErr(null);
+                  }}
+                  className={`${chipBase} ${labelPreset === "shop" ? chipOn : chipOff}`}
+                >
+                  매장
+                </button>
+              ) : null}
               <button
                 type="button"
                 onClick={() => {
@@ -650,6 +687,11 @@ export function AddressEditorSheet(props: {
             {!labelPreset ? (
               <p className="mt-2 sam-text-helper font-medium text-sam-danger">유형을 선택해 주세요.</p>
             ) : null}
+            {!meStoresLoading && !hasApprovedStoreAddressSource ? (
+              <p className="mt-2 sam-text-helper font-medium text-sam-muted">
+                {STORE_ADDRESS_PERMISSION_MESSAGE}
+              </p>
+            ) : null}
           </div>
 
           {labelPreset === "shop" ? (
@@ -658,10 +700,13 @@ export function AddressEditorSheet(props: {
               {meStoresLoading ? (
                 <p className="sam-text-helper text-sam-muted">매장 목록을 불러오는 중…</p>
               ) : null}
+              <p className="sam-text-helper leading-relaxed text-sam-muted">
+                선택한 매장 ID로 Store Address를 연결합니다. 실제 매장 위치와 주문자 거리/시간 기준은 매장 기본 정보의 주소를 사용합니다.
+              </p>
               {shopListErr ? <p className="sam-text-helper text-sam-danger">{shopListErr}</p> : null}
               {!meStoresLoading && !shopListErr && meStores.length === 0 ? (
                 <p className="sam-text-body-secondary leading-relaxed text-sam-danger">
-                  등록·승인된 매장이 없습니다. 스토어에서 매장을 등록한 뒤 다시 시도해 주세요.
+                  {STORE_ADDRESS_PERMISSION_MESSAGE}
                 </p>
               ) : !meStoresLoading && meStores.length > 0 ? (
                 <select
@@ -715,6 +760,15 @@ export function AddressEditorSheet(props: {
             <input
               id="addr-editor-search"
               value={search}
+              onFocus={() => {
+                if (!search.trim()) return;
+                selectionAnchorSearchRef.current = null;
+                setSearch("");
+                setPredictions([]);
+                setSearching(false);
+                setErr(null);
+                setUnitFloorRoom("");
+              }}
               onChange={(e) => {
                 setSearch(e.target.value);
                 setErr(null);
@@ -778,9 +832,6 @@ export function AddressEditorSheet(props: {
                         ) ||
                         `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`}
                     </p>
-                    {adminPreview ? (
-                      <p className="sam-text-helper text-sam-muted">{adminPreview}</p>
-                    ) : null}
                   </div>
                 </div>
               </div>
@@ -862,42 +913,74 @@ export function AddressEditorSheet(props: {
     </div>
   );
 
-  const replaceConflictModal =
-    replaceConflictRow && open ? (
+  const preflightConflictRow = preflightSave?.conflict ?? null;
+  const preflightConflictSamarketName =
+    preflightConflictRow?.labelType === "shop"
+      ? (meStores.find((store) => store.id.trim() === (preflightConflictRow.linkedStoreId ?? "").trim())?.store_name ?? "")
+          .trim() || null
+      : null;
+
+  const preflightSaveModal =
+    preflightSave && open ? (
       <div
         className="fixed inset-0 z-[95] flex items-center justify-center bg-black/55 p-4"
         role="presentation"
         onClick={(e) => {
-          if (e.target === e.currentTarget) setReplaceConflictRow(null);
+          if (e.target === e.currentTarget && !busy) setPreflightSave(null);
         }}
       >
         <div
           className="w-full max-w-sm rounded-2xl border border-sam-border bg-sam-surface p-4 text-sam-fg shadow-xl"
           role="alertdialog"
           aria-modal="true"
-          aria-labelledby="addr-replace-title"
+          aria-labelledby="addr-preflight-title"
           onClick={(e) => e.stopPropagation()}
         >
-          <h3 id="addr-replace-title" className="text-[17px] font-bold leading-6">
-            같은 이름의 지정 주소가 있어요
+          <h3 id="addr-preflight-title" className="text-[17px] font-bold leading-6">
+            저장 확인
           </h3>
-          <p className="mt-2 sam-text-body-secondary leading-relaxed text-sam-fg">
-            같은 지정 이름은 하나만 둘 수 있어요. 아래 주소는 삭제하지 않고 지정만 해제해 지도 핀만 보이게 바꾼 뒤, 지금
-            주소를 저장할까요?
-          </p>
-          <div className="mt-3 rounded-lg border border-sam-border bg-sam-app px-3 py-2.5">
-            <div className="flex min-h-[1.25em] items-center sam-text-body font-semibold text-sam-fg">
-              <UserAddressDesignationTitle row={replaceConflictRow} />
+          {preflightSave.includeStoreLinkNotice ? (
+            <div className="mt-2 space-y-1 sam-text-body-secondary leading-relaxed text-sam-fg">
+              <p>
+                선택한 매장에 Store Address를 연결합니다. 지도에서 고른 위치는 매장 주소·주문자 거리·시간 계산에 반영될 수
+                있습니다.
+              </p>
+              {selectedStoreDisplayName ? (
+                <p>
+                  <span className="font-semibold text-sam-fg">연결 매장(프로필) 이름</span>{" "}
+                  <span translate="no">{selectedStoreDisplayName}</span>
+                  <span className="text-sam-muted"> · 검색창에 적힌 상호와 다를 수 있습니다.</span>
+                </p>
+              ) : null}
             </div>
-            <p className="mt-1 line-clamp-3 sam-text-helper text-sam-muted">
-              {replaceConflictRow.formattedAddress ?? replaceConflictRow.fullAddress ?? "—"}
-            </p>
-          </div>
+          ) : null}
+          {preflightSave.conflict ? (
+            <>
+              <p className="mt-2 sam-text-body-secondary leading-relaxed text-sam-fg">
+                같은 지정 이름은 하나만 둘 수 있어요. 아래 주소는 삭제하지 않고 지정만 해제한 뒤, 지금 주소를 저장합니다.
+              </p>
+              <div className="mt-3 rounded-lg border border-sam-border bg-sam-app px-3 py-2.5">
+                <div className="flex min-h-[1.25em] items-center sam-text-body font-semibold text-sam-fg">
+                  <UserAddressDesignationTitle
+                    row={preflightSave.conflict}
+                    linkedSamarketStoreDisplayName={preflightConflictSamarketName}
+                  />
+                </div>
+                <p className="mt-1 line-clamp-3 sam-text-helper text-sam-muted" translate="no">
+                  {(preflightSave.conflict.countryCode ?? "PH").trim().toUpperCase() === "PH"
+                    ? formatPhAddressCardOneLinePlain(preflightSave.conflict, {
+                        suppressGateBuildingIfMatchesSamarketStore: preflightConflictSamarketName,
+                      })
+                    : preflightSave.conflict.formattedAddress ?? preflightSave.conflict.fullAddress ?? "—"}
+                </p>
+              </div>
+            </>
+          ) : null}
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:justify-end">
             <button
               type="button"
               disabled={busy}
-              onClick={() => setReplaceConflictRow(null)}
+              onClick={() => !busy && setPreflightSave(null)}
               className="w-full rounded-lg border border-sam-border bg-sam-app py-2.5 sam-text-body font-semibold text-sam-fg sm:w-auto sm:px-4"
             >
               취소
@@ -905,10 +988,10 @@ export function AddressEditorSheet(props: {
             <button
               type="button"
               disabled={busy}
-              onClick={() => void confirmReplaceAndSave()}
+              onClick={() => void confirmPreflightSave()}
               className="w-full rounded-lg bg-sam-primary py-2.5 sam-text-body font-semibold text-white sm:w-auto sm:px-4"
             >
-              {busy ? "처리 중…" : "지정 해제 후 계속"}
+              {busy ? "처리 중…" : preflightSave.conflict ? "지정 해제 후 저장" : "저장"}
             </button>
           </div>
         </div>
@@ -937,7 +1020,7 @@ export function AddressEditorSheet(props: {
           </div>
         </div>
         {fineTuneLayer}
-        {replaceConflictModal}
+        {preflightSaveModal}
       </>
     );
   }
@@ -983,7 +1066,7 @@ export function AddressEditorSheet(props: {
         </div>
       </div>
       {fineTuneLayer}
-      {replaceConflictModal}
+      {preflightSaveModal}
     </>
   );
 }

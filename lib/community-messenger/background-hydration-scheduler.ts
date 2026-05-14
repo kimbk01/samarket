@@ -28,7 +28,14 @@ export type MessengerHydrationTaskSpec = {
 
 type QueuedTask = MessengerHydrationTaskSpec & { enqueuedAt: number };
 
+function isMessengerHydrationSchedulerDebugEnabled(): boolean {
+  return (
+    typeof process !== "undefined" && process.env.NEXT_PUBLIC_MESSENGER_DEBUG_HYDRATION === "1"
+  );
+}
+
 function logHydrationScheduler(payload: Record<string, unknown>): void {
+  if (!isMessengerHydrationSchedulerDebugEnabled()) return;
   console.info("[cm-hydration-scheduler]", JSON.stringify(payload));
 }
 

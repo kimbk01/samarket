@@ -6,10 +6,6 @@ import { invalidateMeStoresListDedupedCache } from "@/lib/me/fetch-me-stores-ded
 import { StoreOpsOnOffSwitch } from "@/components/business/admin/StoreOpsOnOffSwitch";
 import { parsePostgresBool } from "@/lib/community-feed/parse-postgres-bool";
 
-const ON_BADGE = "#0f6a8a";
-const ON_BADGE_BG = "rgba(28, 141, 184, 0.14)";
-const ON_BORDER = "#157aa0";
-
 /** `stores.is_open` — null/미설정은 영업 중(기존 `!== false` 와 동일). 문자열 "false" 등은 parse 로 처리 */
 function isStoreOpen(row: StoreRow): boolean {
   return parsePostgresBool(row.is_open, true);
@@ -65,7 +61,7 @@ export function BusinessAdminOpenToggle({
   );
 
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+    <div className="flex shrink-0 items-center gap-2">
       <span className="sam-text-helper font-semibold text-sam-fg">영업</span>
       <StoreOpsOnOffSwitch
         checked={shownOpen}
@@ -73,19 +69,6 @@ export function BusinessAdminOpenToggle({
         onCheckedChange={applyOpen}
         ariaLabel={shownOpen ? "영업 끄기: 주문 접수 중지" : "영업 켜기: 주문 접수 시작"}
       />
-      <span
-        className={`min-w-[2.75rem] rounded-md border px-2 py-0.5 text-center sam-text-xxs font-bold uppercase tracking-wide ${
-          shownOpen ? "" : "bg-sam-app text-sam-muted"
-        }`}
-        style={
-          shownOpen
-            ? { color: ON_BADGE, backgroundColor: ON_BADGE_BG, borderColor: ON_BORDER }
-            : { borderColor: "var(--sam-border-soft, #e5e7eb)" }
-        }
-      >
-        {shownOpen ? "ON" : "OFF"}
-      </span>
-      <span className="sam-text-xxs text-sam-muted">{shownOpen ? "주문 접수" : "접수 중지"}</span>
     </div>
   );
 }

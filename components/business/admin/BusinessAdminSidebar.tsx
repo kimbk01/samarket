@@ -55,11 +55,14 @@ export function BusinessAdminSidebar({
   };
 
   return (
-    <nav className={`flex flex-col gap-3 ${className}`} aria-label="매장 어드민 메뉴">
+    <nav
+      className={`flex flex-col gap-3 bg-[var(--biz-card-bg)] ${className}`}
+      aria-label="매장 어드민 메뉴"
+    >
       {sections.map((section) => (
         <section
           key={section.title}
-          className="rounded-ui-rect border border-sam-border-soft bg-sam-surface/70 p-1.5 shadow-sm dark:bg-sam-surface/30"
+          className="rounded-ui-rect border border-sam-border-soft bg-[var(--biz-card-bg)] p-1.5 shadow-sm"
           aria-labelledby={`biz-admin-nav-${section.title}`}
         >
           <h2

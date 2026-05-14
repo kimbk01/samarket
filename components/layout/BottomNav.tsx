@@ -50,6 +50,7 @@ import { scheduleWarmMessengerListBootstrapClient } from "@/lib/community-messen
 import { mainBottomNavPrefetchTriggerKey } from "@/lib/main-menu/main-bottom-nav-prefetch-domain";
 import {
   isBottomNavTabActive,
+  isMainBottomNavMessengerShellPathname,
   pickMainBottomNavPrefetchHrefs,
   resolveBottomNavTabProgrammaticPrefetchHref,
 } from "@/lib/main-menu/main-bottom-nav-prefetch-pick";
@@ -221,7 +222,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
   return (
     <Link
       href={effectiveHref}
-      prefetch={shouldEnableNextLinkPrefetchOnMainNav()}
+      prefetch={shouldEnableNextLinkPrefetchOnMainNav() && !isMainBottomNavMessengerShellPathname(pathname)}
       replace={mainTabLinkUsesReplace(pathname ?? null, effectiveHref)}
       scroll={false}
       className={className}
@@ -411,7 +412,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   return (
     <Link
       href={tab.href}
-      prefetch={shouldEnableNextLinkPrefetchOnMainNav()}
+      prefetch={shouldEnableNextLinkPrefetchOnMainNav() && !isMainBottomNavMessengerShellPathname(pathname)}
       replace={mainTabLinkUsesReplace(pathname ?? null, tab.href)}
       scroll={false}
       className={className}
@@ -742,6 +743,7 @@ export function BottomNav({
       /* ignore storage failures */
     }
     const at = pathnameForPrefetchRef.current;
+    if (isMainBottomNavMessengerShellPathname(at)) return;
     const hrefs = tabsRef.current
       .map((tab) => resolveBottomNavTabProgrammaticPrefetchHref(tab, at))
       .filter((href, idx, arr) => arr.indexOf(href) === idx)

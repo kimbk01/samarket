@@ -18,6 +18,8 @@ const notoSansKr = Noto_Sans_KR({
   subsets: ["latin", "latin-ext"],
   variable: "--font-noto-sans-kr",
   display: "swap",
+  /** 본문은 Pretendard Variable 우선 — Noto 선로딩이 미사용 preload 경고를 자주 낸다 */
+  preload: false,
 });
 
 export const metadata: Metadata = {

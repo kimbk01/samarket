@@ -33,6 +33,50 @@ export function dedupePhCommaDuplicateHead(s: string): string {
   return t;
 }
 
+function normDedupComparable(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[.,，·]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** `Ave` vs `Avenue` 두 덩어리가 연달아 붙은 경우(one comma segment 안) 접기 */
+function duplicatedStreetSpans(a: string, b: string): boolean {
+  const na = normDedupComparable(a);
+  const nb = normDedupComparable(b);
+  if (!na || !nb || na.length < 12 || nb.length < 12) return false;
+  return na === nb || na.includes(nb) || nb.includes(na);
+}
+
+function dedupeAdjacentRepeatedStreetPhraseSingle(seg: string): string {
+  const words = seg.split(/\s+/).filter(Boolean);
+  const n = words.length;
+  if (n < 10) return seg;
+  const maxSpan = Math.min(Math.floor(n / 2), 52);
+  for (let span = maxSpan; span >= 5; span--) {
+    const first = words.slice(0, span).join(" ");
+    const w2 = words.slice(span, span + span);
+    if (w2.length !== span) continue;
+    const second = w2.join(" ");
+    if (!duplicatedStreetSpans(first, second)) continue;
+    const merged = [...words.slice(0, span), ...words.slice(span + span)];
+    return dedupeAdjacentRepeatedStreetPhraseSingle(merged.join(" "));
+  }
+  return seg;
+}
+
+/** 콤마 구간별로 동일·약칭 반복 거리 줄 축약 (예: `… Ave … Avenue …`). */
+export function dedupeAdjacentRepeatedStreetPhrase(line: string): string {
+  const t = line.trim();
+  if (!t) return t;
+  return t
+    .split(",")
+    .map((p) => dedupeAdjacentRepeatedStreetPhraseSingle(p.trim()))
+    .filter(Boolean)
+    .join(", ");
+}
+
 function stripOuterEmDashAdminSuffix(line: string, admin: string): string {
   const a = admin.trim();
   if (!a) return line.trim();
@@ -62,24 +106,53 @@ function stripTrailingCommaAdminSuffix(line: string, admin: string): string {
 export function stripPhAddressCardStreetCore(row: UserAddressDTO): string {
   if (!isPhRow(row)) return "";
   const admin = formatPhDeliveryAdminLine(row);
+  /** 구글 전체 한 줄 우선 — `roadAddress`만 먼저 쓰면 파싱 단편(예: `LOWER GROUND`)만 남아 카드가 잘린다. */
   const raw =
-    row.roadAddress?.trim() || row.formattedAddress?.trim() || row.fullAddress?.trim() || "";
+    row.formattedAddress?.trim() ||
+    row.fullAddress?.trim() ||
+    row.roadAddress?.trim() ||
+    row.streetAddress?.trim() ||
+    "";
   let core = raw ? stripCountryFromAddressDisplayLine(raw, row.countryName) : "";
   core = stripOuterEmDashAdminSuffix(core, admin);
   core = stripTrailingCommaAdminSuffix(core, admin);
+  core = dedupeAdjacentRepeatedStreetPhrase(core);
   return dedupePhCommaDuplicateHead(core);
 }
+
+export type FormatPhAddressCardOneLineOpts = {
+  /**
+   * `labelType === "shop"` 이고 예전 버그로 `building_name` 에 매장 표시명이 들어간 경우,
+   * 본문 gate 에 POI 역할 건물명과 같은 문자열을 다시 붙이지 않는다.
+   */
+  suppressGateBuildingIfMatchesSamarketStore?: string | null;
+};
 
 /**
  * PH 주소 카드 한 줄 규칙 — `상세(동·호·기타), 도로·포맷…` (「상세주소」제목 없음). 행정 줄은 붙이지 않음.
  * `unitFloorRoom` → `detailAddress` → `buildingName` 순으로 앞에 붙이되, 도로 줄 앞머리와 중복이면 생략.
  */
-export function formatPhAddressCardOneLine(row: UserAddressDTO): { gatePrefix: string; streetBody: string } {
+export function formatPhAddressCardOneLine(
+  row: UserAddressDTO,
+  opts?: FormatPhAddressCardOneLineOpts | null,
+): { gatePrefix: string; streetBody: string } {
   if (!isPhRow(row)) return { gatePrefix: "", streetBody: "" };
   const core = stripPhAddressCardStreetCore(row);
-  const gateOrder = [row.unitFloorRoom, row.detailAddress, row.buildingName]
-    .map((x) => x?.trim())
-    .filter((x) => x && x.toLowerCase() !== "null" && x.toLowerCase() !== "undefined") as string[];
+  const building = row.buildingName?.trim();
+  const storeHead = opts?.suppressGateBuildingIfMatchesSamarketStore?.trim() ?? "";
+  const includeBuildingGate =
+    !!building &&
+    building.toLowerCase() !== "null" &&
+    building.toLowerCase() !== "undefined" &&
+    !(row.labelType === "shop" && storeHead && building.toLowerCase() === storeHead.toLowerCase());
+
+  const gateOrder = (
+    [
+      row.unitFloorRoom?.trim(),
+      row.detailAddress?.trim(),
+      includeBuildingGate ? building : null,
+    ] as Array<string | null | undefined>
+  ).filter((x): x is string => !!x && x.toLowerCase() !== "null" && x.toLowerCase() !== "undefined") as string[];
   const seen = new Set<string>();
   const gates: string[] = [];
   const cl = core.toLowerCase();
@@ -93,8 +166,8 @@ export function formatPhAddressCardOneLine(row: UserAddressDTO): { gatePrefix: s
   return { gatePrefix: gates.join(", ").trim(), streetBody: core };
 }
 
-export function formatPhAddressCardOneLinePlain(row: UserAddressDTO): string {
-  const { gatePrefix, streetBody } = formatPhAddressCardOneLine(row);
+export function formatPhAddressCardOneLinePlain(row: UserAddressDTO, opts?: FormatPhAddressCardOneLineOpts | null): string {
+  const { gatePrefix, streetBody } = formatPhAddressCardOneLine(row, opts);
   if (gatePrefix && streetBody) return `${gatePrefix}, ${streetBody}`;
   return gatePrefix || streetBody || "—";
 }
