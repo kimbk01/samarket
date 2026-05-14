@@ -190,13 +190,13 @@ export function OwnerStoreNoticesView() {
   };
 
   if (!resolvedStoreId) {
-    return <p className="px-3 sam-text-body text-sam-muted">매장을 불러오는 중…</p>;
+    return <p className="sam-text-body text-sam-muted">매장을 불러오는 중…</p>;
   }
 
   const q = `storeId=${encodeURIComponent(resolvedStoreId)}`;
 
   return (
-    <div className={`px-3 py-2 ${OWNER_STORE_STACK_Y_CLASS}`}>
+    <div className={`py-2 ${OWNER_STORE_STACK_Y_CLASS}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className={Biz.textTitle}>공지 관리</h1>
         <Link href={`/stores/owner?${q}`} className={Biz.textMuted}>

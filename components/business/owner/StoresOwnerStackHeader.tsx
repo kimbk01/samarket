@@ -7,6 +7,7 @@ import { AppBackButton } from "@/components/navigation/AppBackButton";
 export function StoresOwnerStackHeader({
   variant,
   backHref,
+  backPreferHistory = true,
   backIntercept,
   backAriaLabel = "이전 화면으로",
   shopName,
@@ -17,6 +18,8 @@ export function StoresOwnerStackHeader({
 }: {
   variant: "hub" | "admin";
   backHref?: string;
+  /** admin: true(기본) — 히스토리 뒤로 우선, 막히면 backHref 폴백. false면 backHref로만 이동(고정 링크) */
+  backPreferHistory?: boolean;
   /** admin + backHref: true면 뒤로가기 동작을 하지 않음(가드에서 이탈 확인 등). */
   backIntercept?: () => boolean;
   backAriaLabel?: string;
@@ -46,7 +49,7 @@ export function StoresOwnerStackHeader({
             <AppBackButton
               backHref={backHref}
               interceptBack={backIntercept}
-              preferHistoryBack={false}
+              preferHistoryBack={backPreferHistory}
               ariaLabel={backAriaLabel}
             />
           : null}

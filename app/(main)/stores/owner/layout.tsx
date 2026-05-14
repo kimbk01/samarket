@@ -9,7 +9,7 @@ import { BusinessAdminShell } from "@/components/business/admin/BusinessAdminShe
  *
  * 분기:
  * - `/stores/owner`            허브 — `BusinessAdminShell` (`entry="hub"`, 심사 전·매장 없음도 본문 유지)
- * - `/stores/owner/apply`      신청 폼 — 고정 상단 `StoresOwnerStackHeader`(뒤로 → `/stores/owner`), 본문은 `biz-app-bg`·섹션 카드 톤
+ * - `/stores/owner/apply`      신청 폼 — 상단 `StoresOwnerStackHeader`(히스토리 뒤로 우선, 없으면 `/stores/owner`), 본문은 `biz-app-bg`·섹션 카드 톤
  * - 나머지 `/stores/owner/*`   `StoreBusinessGuard` + `BusinessAdminShell` (좌측 사이드바)
  *
  * 옛 `/my/business/*`, `/mypage/business/*` 는 모두 본 경로로 리다이렉트된다(`/stores/owner` 단일 진입).

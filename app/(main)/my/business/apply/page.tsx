@@ -200,13 +200,13 @@ export default function BusinessApplyRoute() {
       <StoresOwnerStackHeader
         variant="admin"
         backHref="/stores/owner"
-        backAriaLabel="매장 운영으로"
+        backAriaLabel="이전 화면으로"
         pageTitle="배달 입점 신청"
         shopName="매장 운영 센터"
         rightSlot={<span className="inline-flex h-10 min-w-[2.5rem] shrink-0" aria-hidden />}
       />
       <div
-        className={`mx-auto max-w-4xl px-3 pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] pb-4 sm:px-4 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem+1rem)] ${OWNER_STORE_STACK_Y_CLASS}`}
+        className={`mx-auto max-w-4xl px-2 pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] pb-4 sm:px-2 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem+1rem)] ${OWNER_STORE_STACK_Y_CLASS}`}
       >
         {existingLoading ? (
           <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-3 sam-text-body-secondary text-sam-muted shadow-sm">

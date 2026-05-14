@@ -64,7 +64,6 @@ type ProductRow = {
   store_id: string;
   title: string;
   summary: string | null;
-  description_html?: string | null;
   price: number;
   discount_price: number | null;
   thumbnail_url: string | null;
@@ -132,11 +131,11 @@ export async function searchDeliveryDomain(input: {
   });
   console.log("[delivery-search] menus query", {
     table: "store_products",
-    select: "id, store_id, title, summary, description_html, price, discount_price, thumbnail_url, item_type",
+    select: "id, store_id, title, summary, price, discount_price, thumbnail_url, item_type",
     where: {
       product_status: "active",
       local_delivery_available: true,
-      ilike_any: ["title", "summary", "description_html"],
+      ilike_any: ["title", "summary"],
     },
     pattern: pat,
     note: "menus are store_products filtered + stores approval/is_visible/delivery_available join (2-step)",
@@ -176,10 +175,10 @@ export async function searchDeliveryDomain(input: {
 
   const productsQuery = sb
     .from("store_products")
-    .select("id, store_id, title, summary, description_html, price, discount_price, thumbnail_url, item_type")
+    .select("id, store_id, title, summary, price, discount_price, thumbnail_url, item_type")
     .eq("product_status", "active")
     .eq("local_delivery_available", true)
-    .or([`title.ilike."${pat}"`, `summary.ilike."${pat}"`, `description_html.ilike."${pat}"`].join(","))
+    .or([`title.ilike."${pat}"`, `summary.ilike."${pat}"`].join(","))
     .order("is_featured", { ascending: false })
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false })

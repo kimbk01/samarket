@@ -10,7 +10,6 @@ import {
   useStoreCommerceCartOptional,
 } from "@/contexts/StoreCommerceCartContext";
 import { StoreCartOtherStoreConflictDialog } from "@/components/stores/StoreCartOtherStoreConflictDialog";
-import { sanitizeProductHtml } from "@/lib/html/sanitize-product-html";
 import { itemTypeShortLabel } from "@/lib/stores/group-store-products-by-menu";
 import { parseMediaUrlsJson } from "@/lib/stores/parse-media-urls-json";
 import type { ModifierSelectionsWire } from "@/lib/stores/modifiers/types";
@@ -105,7 +104,6 @@ type PublicProduct = {
   id: string;
   title: string;
   summary: string | null;
-  description_html: string | null;
   price: number;
   discount_price: number | null;
   discount_percent?: number | null;
@@ -339,10 +337,6 @@ export function StoreProductPublic({
   }, [loadProductPage]);
 
   useRefetchOnPageShowRestore(() => void loadProductPage({ silent: true }));
-
-  const safeHtml = product?.description_html
-    ? sanitizeProductHtml(product.description_html)
-    : "";
 
   if (loading) {
     return (
@@ -765,8 +759,8 @@ export function StoreProductPublic({
         ) : null}
         <div className="border-b border-sam-border-soft px-4 py-4">
           <p className="text-lg font-semibold text-sam-fg">{product.title}</p>
-          {product.summary && safeHtml ? (
-            <p className="mt-1 text-sm text-sam-muted">{product.summary}</p>
+          {product.summary?.trim() ? (
+            <p className="mt-1 text-sm text-sam-muted">{product.summary.trim()}</p>
           ) : null}
           <p className="mt-3 text-xl font-bold text-sam-fg">{formatMoneyPhp(unitWithOptions)}</p>
           {hasBaseDiscount ? (
@@ -796,21 +790,6 @@ export function StoreProductPublic({
           </p>
         </div>
       </div>
-
-      {safeHtml ? (
-        <div className="mt-2 border-t border-sam-border-soft bg-sam-surface px-4 py-4">
-          <h2 className="text-sm font-semibold text-sam-fg">{t("common_detail_description")}</h2>
-          <div
-            className="mt-2 max-w-none sam-text-body leading-relaxed text-sam-fg [&_img]:max-w-full [&_p]:my-2"
-            dangerouslySetInnerHTML={{ __html: safeHtml }}
-          />
-        </div>
-      ) : product.summary?.trim() ? (
-        <div className="mt-2 border-t border-sam-border-soft bg-sam-surface px-4 py-4">
-          <h2 className="text-sm font-semibold text-sam-fg">{t("common_detail_description")}</h2>
-          <p className="mt-2 sam-text-body leading-relaxed text-sam-fg">{product.summary.trim()}</p>
-        </div>
-      ) : null}
 
       <div className="mx-4 mt-4 space-y-4 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
         {commerce.breakConfigured ? (

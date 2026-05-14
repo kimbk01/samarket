@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
-import { sanitizeProductHtml } from "@/lib/html/sanitize-product-html";
 import {
   canOwnerSellProducts,
   getStoreIfOwner,
@@ -51,7 +50,7 @@ export async function GET(
     .from("store_products")
     .select(
       [
-        "id, store_id, title, summary, description_html, price, discount_price, discount_percent, stock_qty, track_inventory",
+        "id, store_id, title, summary, price, discount_price, discount_percent, stock_qty, track_inventory",
         "thumbnail_url, product_status, pickup_available, local_delivery_available, shipping_available",
         "category_id, menu_section_id, item_type, is_featured, sort_order",
         "created_at, updated_at",
@@ -76,7 +75,6 @@ export async function GET(
 type CreateBody = {
   title?: string;
   summary?: string;
-  description_html?: string;
   price?: number;
   discount_price?: number | null;
   stock_qty?: number;
@@ -183,8 +181,6 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "sales_not_approved" }, { status: 403 });
   }
 
-  const descRaw = String(body.description_html ?? "").trim();
-
   let category_id: string | null = null;
   if (body.category_id != null) {
     const cid = String(body.category_id).trim();
@@ -202,24 +198,36 @@ export async function POST(
     }
   }
 
-  let menu_section_id: string | null = null;
-  if (body.menu_section_id !== undefined && body.menu_section_id !== null) {
-    const mid = String(body.menu_section_id).trim();
-    if (mid) {
-      const { data: sec, error: secErr } = await supabase
-        .from("store_menu_sections")
-        .select("id")
-        .eq("id", mid)
-        .eq("store_id", sid)
-        .maybeSingle();
-      if (secErr && /column|does not exist|schema cache/i.test(String(secErr.message))) {
-        return NextResponse.json({ ok: false, error: "migration_pending" }, { status: 503 });
-      }
-      if (!sec) {
-        return NextResponse.json({ ok: false, error: "invalid_menu_section_id" }, { status: 400 });
-      }
-      menu_section_id = mid;
-    }
+  const rawMenuSection =
+    body.menu_section_id !== undefined && body.menu_section_id !== null
+      ? String(body.menu_section_id).trim()
+      : "";
+  const menu_section_id: string | null = rawMenuSection ? rawMenuSection : null;
+
+  const { data: storeMenuSectionRows, error: storeMenuSecErr } = await supabase
+    .from("store_menu_sections")
+    .select("id")
+    .eq("store_id", sid);
+
+  if (
+    storeMenuSecErr &&
+    /column|does not exist|schema cache/i.test(String(storeMenuSecErr.message))
+  ) {
+    return NextResponse.json({ ok: false, error: "migration_pending" }, { status: 503 });
+  }
+
+  const storeMenuSectionIds = new Set(
+    (storeMenuSectionRows ?? []).map((r) => String((r as { id: string }).id))
+  );
+
+  if (storeMenuSectionIds.size === 0) {
+    return NextResponse.json({ ok: false, error: "menu_sections_required" }, { status: 400 });
+  }
+  if (!menu_section_id) {
+    return NextResponse.json({ ok: false, error: "menu_section_id_required" }, { status: 400 });
+  }
+  if (!storeMenuSectionIds.has(menu_section_id)) {
+    return NextResponse.json({ ok: false, error: "invalid_menu_section_id" }, { status: 400 });
   }
 
   const itemRaw = String(body.item_type ?? "product").trim();
@@ -240,7 +248,7 @@ export async function POST(
     store_id: sid,
     title,
     summary: String(body.summary ?? "").trim() || null,
-    description_html: descRaw ? sanitizeProductHtml(descRaw) : null,
+    description_html: null,
     price: priceFloored,
     discount_price: discount,
     discount_percent,

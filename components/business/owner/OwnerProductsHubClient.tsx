@@ -2,20 +2,19 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
 import { useBusinessAdminStore } from "@/components/business/admin/business-admin-store-context";
-import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
 import { storeRowCanSell } from "@/lib/business/store-can-sell";
-import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { getAppSettings } from "@/lib/app-settings";
 import { getCurrencyUnitLabel } from "@/lib/utils/format";
+import { Sam } from "@/lib/ui/sam-component-classes";
 
 type Section = { id: string; name: string; sort_order?: number; is_hidden?: boolean };
 
 type HubProduct = {
   id: string;
   title: string;
+  summary?: string | null;
   price: number;
   discount_price?: number | null;
   thumbnail_url?: string | null;
@@ -23,6 +22,15 @@ type HubProduct = {
   menu_section_id?: string | null;
   store_menu_sections?: Section | Section[] | null;
 };
+
+const INTRO_PREVIEW_LEN = 96;
+
+/** 목록 한 줄 소개: 요약(summary)만 사용 */
+function oneLineProductIntro(p: HubProduct): string {
+  const sum = typeof p.summary === "string" ? p.summary.trim() : "";
+  if (!sum) return "";
+  return sum.length > INTRO_PREVIEW_LEN ? `${sum.slice(0, INTRO_PREVIEW_LEN)}…` : sum;
+}
 
 function sectionIdOf(p: HubProduct): string | null {
   if (p.menu_section_id) return String(p.menu_section_id);
@@ -44,7 +52,29 @@ function isActiveListed(status: string): boolean {
   return status === "active";
 }
 
-/** 매장 상품 목록·노출·신규 등록 진입 — 구 메뉴 관리 화면과 동일 기능 */
+/** 카테고리 = 1차(크기·시그니처), 상태 = 2차(작고 중립) — 동일 알약 톤만 쓰지 않음 */
+const OWNER_HUB_FILTER_SCROLL_ROW =
+  "flex snap-x snap-proximity flex-nowrap items-center gap-2 overflow-x-auto py-1 pl-0.5 pr-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+
+function ownerHubCategoryPillClass(active: boolean): string {
+  return [
+    "snap-start shrink-0 touch-manipulation whitespace-nowrap rounded-full border px-3.5 py-2 sam-text-body-secondary font-semibold leading-none transition-[color,background-color,border-color,transform] active:scale-[0.98]",
+    active
+      ? "border-signature bg-signature text-white shadow-sm"
+      : "border-transparent bg-sam-surface text-sam-fg shadow-sm ring-1 ring-sam-border/50",
+  ].join(" ");
+}
+
+function ownerHubStatusPillClass(active: boolean): string {
+  return [
+    "snap-start shrink-0 touch-manipulation whitespace-nowrap rounded-full border px-2.5 py-1 sam-text-xxs font-semibold leading-none transition-[color,background-color,border-color,transform] active:scale-[0.98]",
+    active
+      ? "border-sam-ink bg-sam-ink text-white shadow-sm"
+      : "border-transparent bg-sam-surface/95 text-sam-muted shadow-sm ring-1 ring-sam-border/40",
+  ].join(" ");
+}
+
+/** 매장 상품 목록·노출·신규 등록 진입 — 구 카테고리·상품 관리 화면과 동일 기능 */
 export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
   const adminStore = useBusinessAdminStore();
   const priceUnit = useMemo(() => getCurrencyUnitLabel(getAppSettings().defaultCurrency), []);
@@ -73,9 +103,6 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
   const newProductHrefForTab =
     tab !== "all" ? `${newProductBase}&menuSectionId=${encodeURIComponent(tab)}` : newProductBase;
   const categoriesHref = `/stores/owner/menu-categories?${q}`;
-
-  const addProductCtaClass =
-    "inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full border border-signature/40 bg-signature px-4 py-2 sam-text-body-secondary font-semibold text-white shadow-sm transition hover:bg-signature/90 active:bg-signature/95";
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -150,7 +177,10 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
       list = list.filter((p) => p.product_status === "hidden" || p.product_status === "draft");
     }
     if (qy.length > 0) {
-      list = list.filter((p) => (p.title ?? "").toLowerCase().includes(qy));
+      list = list.filter((p) => {
+        const blob = [p.title ?? "", p.summary ?? "", oneLineProductIntro(p)].join(" ").toLowerCase();
+        return blob.includes(qy);
+      });
     }
     return list;
   }, [products, tab, search, statusFilter]);
@@ -209,69 +239,60 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
     setDeleteTarget(p);
   };
 
-  const ordersHref = buildStoreOrdersHref({ storeId });
-  const inquiriesHref = `/stores/owner/inquiries?storeId=${encodeURIComponent(storeId)}`;
+  const hubTopActionClass =
+    "min-h-11 flex-1 touch-manipulation select-none rounded-ui-rect px-3 py-2.5 text-center sam-text-body-secondary font-semibold no-underline transition-[transform,opacity] active:scale-[0.99] active:opacity-90";
 
   return (
     <div className="max-w-full overflow-x-hidden bg-sam-app pb-8">
-      <div className="flex flex-wrap gap-2 border-b border-sam-border-soft bg-sam-surface px-3 py-2">
-        <Link
-          href={ordersHref}
-          className="rounded-full border border-sam-border bg-[#F9FAFB] px-3 py-1.5 sam-text-helper font-semibold text-sam-fg"
-        >
-          주문 관리
+      <div className="flex gap-2 border-b border-sam-border-soft bg-sam-surface px-0 py-2.5">
+        <Link href={categoriesHref} className={`${Sam.btn.outlineCombo} ${hubTopActionClass}`}>
+          카테고리추가
         </Link>
-        <Link
-          href={inquiriesHref}
-          className="rounded-full border border-sam-border bg-[#F9FAFB] px-3 py-1.5 sam-text-helper font-semibold text-sam-fg"
-        >
-          문의
-        </Link>
-        <Link
-          href={`/stores/owner?storeId=${encodeURIComponent(storeId)}`}
-          className="rounded-full border border-sam-border bg-[#F9FAFB] px-3 py-1.5 sam-text-helper font-semibold text-sam-fg"
-        >
-          운영 대시보드
+        <Link href={newProductHrefForTab} className={`${Sam.btn.primaryCombo} ${hubTopActionClass} !text-white`}>
+          상품 등록
         </Link>
       </div>
-      <div className="sticky top-0 z-10 border-b border-sam-border-soft bg-sam-surface shadow-sm">
-        <HorizontalDragScroll
-          className="flex items-center gap-2 overflow-x-auto px-2 py-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          aria-label="상품 카테고리 탭"
-        >
-          <Link
-            href={categoriesHref}
-            className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-sam-border bg-[#F9FAFB] text-signature"
-            aria-label="카테고리 추가"
-            title="카테고리 추가"
+
+      <section
+        className="sticky top-0 z-10 border-b border-sam-border-soft bg-gradient-to-b from-sam-surface-muted to-sam-surface-muted/90 px-0 pt-2 pb-2 backdrop-blur-[6px]"
+        aria-label="카테고리 및 상품 상태 필터"
+      >
+        <p className="mb-1 sam-text-xxs font-medium text-sam-meta">카테고리</p>
+        <nav className={OWNER_HUB_FILTER_SCROLL_ROW} aria-label="상품 카테고리" role="tablist">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "all"}
+            onClick={() => setTab("all")}
+            className={ownerHubCategoryPillClass(tab === "all")}
           >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-          </Link>
+            전체
+          </button>
           {sections.map((s) => (
             <button
               key={s.id}
               type="button"
-              title={tab === s.id ? "한 번 더 누르면 모든 카테고리 상품을 봅니다" : undefined}
-              onClick={() => setTab((prev) => (prev === s.id ? "all" : s.id))}
-              className={`max-w-[200px] shrink-0 truncate rounded-full px-3 py-1.5 sam-text-body-secondary font-medium ${
-                tab === s.id ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-fg"
-              }`}
+              role="tab"
+              aria-selected={tab === s.id}
+              onClick={() => setTab(s.id)}
+              className={`max-w-[min(220px,82vw)] truncate ${ownerHubCategoryPillClass(tab === s.id)}`}
             >
               {s.name}
               {s.is_hidden ? " · 숨김" : ""}
             </button>
           ))}
-        </HorizontalDragScroll>
-      </div>
-
-      <div className={`px-3 pt-3 ${OWNER_STORE_STACK_Y_CLASS}`}>
-        <div className="flex flex-wrap gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 shadow-sm">
-          <span className="w-full sam-text-xxs font-semibold uppercase tracking-wide text-sam-muted">상태</span>
+        </nav>
+        <p className="mb-1 mt-2 border-t border-sam-border/40 pt-2 sam-text-xxs font-medium text-sam-meta">
+          목록 필터
+        </p>
+        <div
+          className={OWNER_HUB_FILTER_SCROLL_ROW}
+          role="group"
+          aria-label="목록에 보일 상품 상태"
+        >
           {(
             [
-              { id: "all" as const, label: "전체" },
+              { id: "all" as const, label: "모든 상태" },
               { id: "active" as const, label: "판매중" },
               { id: "sold_out" as const, label: "품절" },
               { id: "hidden" as const, label: "숨김·초안" },
@@ -281,16 +302,16 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
               key={s.id}
               type="button"
               onClick={() => setStatusFilter(s.id)}
-              className={`min-h-[40px] rounded-full px-3 py-1.5 sam-text-body-secondary font-medium ${
-                statusFilter === s.id ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-fg"
-              }`}
+              className={ownerHubStatusPillClass(statusFilter === s.id)}
             >
               {s.label}
             </button>
           ))}
         </div>
+      </section>
 
-        <div className="flex items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 shadow-sm">
+      <div className="space-y-2 px-0 pt-2 pb-1">
+        <div className="flex items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 shadow-sm">
           <svg
             className="h-5 w-5 shrink-0 text-sam-meta"
             fill="none"
@@ -312,35 +333,14 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
           />
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 shadow-sm">
-          <div className="min-w-0 flex-1">
-            <p className="sam-text-helper font-semibold text-sam-fg">
-              {tab === "all" ? "새 상품 등록" : `「${sections.find((s) => s.id === tab)?.name ?? "카테고리"}」에 추가`}
-            </p>
-            <p className="mt-0.5 sam-text-xxs leading-snug text-sam-muted">
-              {tab === "all"
-                ? sections.length > 0
-                  ? "등록 화면 맨 위에서 카테고리를 선택한 뒤 입력·저장하면 해당 탭에 표시됩니다."
-                  : "먼저 카테고리를 만든 뒤 등록하세요."
-                : "저장하면 이 탭에 바로 나타납니다."}
-            </p>
-          </div>
-          <Link href={newProductHrefForTab} className={addProductCtaClass}>
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-            신규 등록
-          </Link>
-        </div>
-
         {sections.length === 0 ? (
           <p className="sam-text-helper leading-relaxed text-sam-muted">
-            상단 탭 줄의 <span className="font-semibold text-sam-fg">+</span>는{" "}
-            <strong className="font-medium text-sam-fg">카테고리 추가</strong>입니다. 카테고리가 없으면{" "}
+            <strong className="font-medium text-sam-fg">카테고리추가</strong>로 카테고리를 만든 뒤 상품을
+            등록하세요. 이미 만든 카테고리는{" "}
             <Link href={categoriesHref} className="font-medium text-signature underline">
               카테고리 관리
             </Link>
-            에서 먼저 만드세요.
+            에서도 수정할 수 있습니다.
           </p>
         ) : null}
 
@@ -355,7 +355,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
           <p className="sam-text-body text-sam-muted">불러오는 중…</p>
         ) : filtered.length === 0 ? (
           <div
-            className={`rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-10 text-center sam-text-body text-sam-muted`}
+            className={`rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-6 text-center sam-text-body-secondary text-sam-muted`}
           >
             {products.length === 0 ? (
               <p>등록된 상품이 없습니다.</p>
@@ -364,23 +364,66 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
             )}
           </div>
         ) : (
-          <ul className="space-y-3">
+          <ul className="space-y-2">
             {filtered.map((p) => {
               const listed = isActiveListed(p.product_status);
               const busy = busyId === p.id;
               const editHref = `/stores/owner/products/${encodeURIComponent(p.id)}/edit?${q}`;
+              const intro = oneLineProductIntro(p);
+              const statusLabel =
+                p.product_status === "draft"
+                  ? "초안"
+                  : p.product_status === "hidden"
+                    ? "숨김"
+                    : p.product_status !== "active" && p.product_status !== "sold_out"
+                      ? p.product_status
+                      : null;
               return (
                 <li
                   key={p.id}
                   className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm"
                 >
-                  <div className="flex items-start justify-between gap-2 border-b border-sam-border-soft px-3 py-2">
-                    <p className="min-w-0 flex-1 truncate sam-text-body font-semibold text-sam-fg">
-                      {p.title}
-                    </p>
-                    <div className="flex shrink-0 flex-col items-end gap-2 sm:flex-row sm:items-center">
-                      <div className="flex items-center gap-2">
-                        <span className="sam-text-xxs text-sam-muted">품절</span>
+                  <div className="flex gap-2 px-2 py-1.5">
+                    {/** 정사각 썸네일 80×80px — img 프리플라이트(height:auto) 무력화 후 object-cover로 상하좌우 꽉 참 */}
+                    <div className="relative size-20 shrink-0 overflow-hidden rounded-md bg-sam-surface-muted">
+                      {p.thumbnail_url ? (
+                        <img
+                          src={p.thumbnail_url}
+                          alt=""
+                          className="pointer-events-none absolute inset-0 block !h-full !w-full max-w-none object-cover object-center select-none"
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center px-0.5 text-center sam-text-xxs leading-tight text-sam-meta">
+                          없음
+                        </div>
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate sam-text-body-secondary font-semibold leading-tight text-sam-fg">
+                        {p.title}
+                      </p>
+                      {intro ? (
+                        <p className="mt-0.5 truncate sam-text-xxs leading-snug text-sam-muted" title={intro}>
+                          {intro}
+                        </p>
+                      ) : null}
+                      <div className="mt-0.5 flex flex-wrap items-baseline gap-x-1.5 gap-y-0">
+                        <span className="sam-text-body-secondary font-semibold tabular-nums text-sam-fg">
+                          {displayPrice(p).toLocaleString()}
+                          <span className="ml-0.5 sam-text-xxs font-normal text-sam-muted">{priceUnit}</span>
+                        </span>
+                        {statusLabel ? (
+                          <span className="sam-text-xxs text-sam-muted">· {statusLabel}</span>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex min-h-8 w-full flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-sam-border-soft px-2 py-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex items-center gap-0.5">
+                        <span className="whitespace-nowrap sam-text-xxs text-sam-muted">품절</span>
                         <button
                           type="button"
                           role="switch"
@@ -392,102 +435,69 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
                               : "빠른 품절"
                           }
                           onClick={() => onToggleSoldOut(p)}
-                          className={`relative h-7 w-12 rounded-full transition focus-visible:outline focus-visible:ring-2 focus-visible:ring-amber-500 disabled:opacity-50 ${
+                          className={`relative h-6 w-11 shrink-0 rounded-full transition focus-visible:outline focus-visible:ring-2 focus-visible:ring-amber-500 disabled:opacity-50 ${
                             p.product_status === "sold_out" ? "bg-amber-500" : "bg-sam-border-soft"
                           }`}
                         >
                           <span
-                            className={`absolute top-1 h-5 w-5 rounded-full bg-sam-surface shadow transition ${
+                            className={`absolute top-1 h-4 w-4 rounded-full bg-sam-surface shadow transition ${
                               p.product_status === "sold_out" ? "left-6" : "left-1"
                             }`}
                           />
                         </button>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <span className="sam-text-xxs text-sam-muted">노출</span>
+                      <div className="flex items-center gap-0.5">
+                        <span className="whitespace-nowrap sam-text-xxs text-sam-muted">노출</span>
                         <button
                           type="button"
                           role="switch"
                           aria-checked={listed}
                           disabled={busy}
                           onClick={() => onToggleListed(p, !listed)}
-                          className={`relative h-7 w-12 rounded-full transition focus-visible:outline focus-visible:ring-2 focus-visible:ring-signature disabled:opacity-50 ${
+                          className={`relative h-6 w-11 shrink-0 rounded-full transition focus-visible:outline focus-visible:ring-2 focus-visible:ring-signature disabled:opacity-50 ${
                             listed ? "bg-emerald-500" : "bg-sam-border-soft"
                           }`}
                         >
                           <span
-                            className={`absolute top-1 h-5 w-5 rounded-full bg-sam-surface shadow transition ${
+                            className={`absolute top-1 h-4 w-4 rounded-full bg-sam-surface shadow transition ${
                               listed ? "left-6" : "left-1"
                             }`}
                           />
                         </button>
                       </div>
                     </div>
-                  </div>
-                  <div className="flex gap-3 p-3">
-                    <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
-                      {p.thumbnail_url ? (
-                        <img
-                          src={p.thumbnail_url}
-                          alt=""
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center sam-text-xxs text-sam-meta">
-                          이미지 없음
-                        </div>
-                      )}
+                    <div className="ml-auto flex shrink-0 items-center gap-1.5">
+                      <Link
+                        href={editHref}
+                        className="inline-flex min-h-8 items-center gap-0.5 rounded-md border border-sam-border bg-sam-surface px-2 py-0.5 sam-text-xxs font-medium text-signature"
+                      >
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                          />
+                        </svg>
+                        수정
+                      </Link>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => onDeleteClick(p)}
+                        className="inline-flex min-h-8 items-center gap-0.5 rounded-md border border-red-100 bg-red-50 px-2 py-0.5 sam-text-xxs font-medium text-red-700 disabled:opacity-50"
+                      >
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                          />
+                        </svg>
+                        삭제
+                      </button>
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="sam-text-page-title font-semibold text-sam-fg">
-                        {displayPrice(p).toLocaleString()}
-                        <span className="ml-1 sam-text-body-secondary font-normal text-sam-muted">{priceUnit}</span>
-                      </p>
-                      {p.product_status !== "active" ? (
-                        <p className="mt-0.5 sam-text-xxs text-sam-muted">
-                          상태:{" "}
-                          {p.product_status === "draft"
-                            ? "초안"
-                            : p.product_status === "hidden"
-                              ? "숨김"
-                              : p.product_status === "sold_out"
-                                ? "품절"
-                                : p.product_status}
-                        </p>
-                      ) : null}
-                    </div>
-                  </div>
-                  <div className="flex justify-end gap-2 border-t border-sam-border-soft px-3 py-2">
-                    <Link
-                      href={editHref}
-                      className="inline-flex items-center gap-1 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary font-medium text-signature"
-                    >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
-                        />
-                      </svg>
-                      수정
-                    </Link>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => onDeleteClick(p)}
-                      className="inline-flex items-center gap-1 rounded-ui-rect border border-red-100 bg-red-50 px-3 py-1.5 sam-text-body-secondary font-medium text-red-700 disabled:opacity-50"
-                    >
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                      삭제
-                    </button>
                   </div>
                 </li>
               );

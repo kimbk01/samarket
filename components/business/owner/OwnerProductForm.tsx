@@ -1,13 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
-  OWNER_STORE_CONTROL_CLASS,
-  OWNER_STORE_CONTROL_COMPACT_CLASS,
   OWNER_STORE_FORM_GRID_2_CLASS,
-  OWNER_STORE_SELECT_CLASS,
+  OWNER_STORE_PROFILE_CONTROL_CLASS,
+  OWNER_STORE_PROFILE_FIELD_LABEL_CLASS,
+  OWNER_STORE_PROFILE_SELECT_CLASS,
 } from "@/lib/business/owner-store-stack";
 import { getAppSettings } from "@/lib/app-settings";
 import {
@@ -31,11 +31,19 @@ import {
   type OptionRowForm,
 } from "@/lib/stores/owner-product-options-json";
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
+import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
+import { OwnerStoreMenuSectionPicker } from "@/components/business/owner/OwnerStoreMenuSectionPicker";
+import { BodyPortal } from "@/components/layout/BodyPortal";
+import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
+import {
+  BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS,
+  BOTTOM_NAV_SHELL,
+} from "@/lib/main-menu/bottom-nav-config";
+import { APP_MAIN_COLUMN_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 
 type FormValues = {
   title: string;
   summary: string;
-  description_html: string;
   /** 숫자만 (콤마 없이 저장, 표시는 천단위) */
   price: string;
   /** 0–100 정수만, 표시는 숫자만 */
@@ -79,24 +87,36 @@ function presetMinMax(key: OptionPresetKey): { minSelect: string; maxSelect: str
   }
 }
 
-/** 배달앱형 섹션 카드 */
-function BaeminSectionCard({
-  title,
-  children,
-  className = "",
-}: {
-  title: string;
-  children: ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={`overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm ${className}`}>
-      <div className="border-b border-sam-border-soft px-4 py-3">
-        <h2 className="sam-text-body font-semibold text-sam-fg">{title}</h2>
-      </div>
-      <div className="py-3">{children}</div>
-    </div>
-  );
+function serializeProductFormSnapshot(v: FormValues): string {
+  return JSON.stringify({
+    title: v.title,
+    summary: v.summary,
+    price: v.price,
+    discount_percent: v.discount_percent,
+    stock_qty: v.stock_qty,
+    track_inventory: v.track_inventory,
+    product_status: v.product_status,
+    thumbnail_url: v.thumbnail_url,
+    menu_section_id: v.menu_section_id,
+    is_featured: v.is_featured,
+    sort_order: v.sort_order,
+    optionGroups: v.optionGroups.map((g) => ({
+      i: g.groupLocalId,
+      n: g.nameKo,
+      d: g.description,
+      s: g.sortOrder,
+      q: g.quantityMode,
+      min: g.minSelect,
+      max: g.maxSelect,
+      o: g.options.map((o) => ({
+        id: o.id,
+        n: o.name,
+        p: o.priceDelta,
+        so: o.soldOut,
+        def: o.defaultSelected,
+      })),
+    })),
+  });
 }
 
 function StatusToggleRow({
@@ -111,7 +131,7 @@ function StatusToggleRow({
   onToggle: () => void;
 }) {
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-sam-border-soft px-4 py-2.5 last:border-0">
+    <div className="flex items-center justify-between gap-3 border-b border-sam-border-soft py-2 last:border-0">
       <span className="sam-text-body text-sam-fg">{label}</span>
       <button
         type="button"
@@ -139,7 +159,6 @@ function initialValues(defaultDraft: boolean): FormValues {
   return {
     title: "",
     summary: "",
-    description_html: "",
     price: "",
     discount_percent: "",
     stock_qty: "0",
@@ -170,6 +189,11 @@ export function OwnerProductForm({
   initialMenuSectionId?: string;
 }) {
   const router = useRouter();
+  const pathname = usePathname() ?? "";
+  const dockActionBarAboveMainBottomNav = useMemo(
+    () => resolveConditionalAppShellFlags(pathname, false).showBottomNav,
+    [pathname]
+  );
   const priceUnit = useMemo(() => getCurrencyUnitLabel(getAppSettings().defaultCurrency), []);
   const [values, setValues] = useState<FormValues>(() => ({
     ...initialValues(defaultDraft),
@@ -180,12 +204,20 @@ export function OwnerProductForm({
   const [uploading, setUploading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [categoryGateModal, setCategoryGateModal] = useState<"no_sections" | "pick_required" | null>(
+    null
+  );
   const [error, setError] = useState<string | null>(null);
+  const [baselineSnapshot, setBaselineSnapshot] = useState<string | null>(null);
   const [menuSections, setMenuSections] = useState<
     { id: string; name: string; is_hidden?: boolean }[]
   >([]);
   const [formTab, setFormTab] = useState<"basic" | "options" | "language">("basic");
   const categoryStripRef = useRef<HTMLDivElement | null>(null);
+  const menuSectionSelectRef = useRef<HTMLButtonElement | null>(null);
+  const menuSectionSelectId = useId();
+  const valuesRef = useRef(values);
+  valuesRef.current = values;
 
   const previewCurrency = useMemo(() => getAppSettings().defaultCurrency, []);
   const saleAfterDiscount = useMemo(() => {
@@ -222,14 +254,13 @@ export function OwnerProductForm({
     void refreshMenuSections();
   }, [refreshMenuSections]);
 
-  /** 신규 등록: URL로 넘어온 카테고리 id가 목록에 없으면 비움 */
+  /** 등록·수정: 목록에 없는 menu_section_id면 비움 (삭제된 구역·잘못된 URL 등) */
   useEffect(() => {
-    if (mode !== "new") return;
     const sid = values.menu_section_id.trim();
     if (!sid || menuSections.length === 0) return;
     if (menuSections.some((s) => s.id === sid)) return;
     setValues((v) => ({ ...v, menu_section_id: "" }));
-  }, [mode, menuSections, values.menu_section_id]);
+  }, [menuSections, values.menu_section_id]);
 
   /** 카테고리가 하나뿐이면 신규 등록 시 자동 선택(URL 미지정 시) */
   useEffect(() => {
@@ -237,6 +268,15 @@ export function OwnerProductForm({
     if (initialMenuSectionId.trim()) return;
     setValues((v) => (v.menu_section_id.trim() ? v : { ...v, menu_section_id: menuSections[0]!.id }));
   }, [mode, menuSections, initialMenuSectionId]);
+
+  /** 신규: 카테고리 목록 갱신 후 한 틱 뒤 기준선 동기화(자동 카테고리 선택 등 반영) */
+  useEffect(() => {
+    if (mode !== "new") return;
+    const t = window.setTimeout(() => {
+      setBaselineSnapshot(serializeProductFormSnapshot(valuesRef.current));
+    }, 0);
+    return () => window.clearTimeout(t);
+  }, [mode, menuSections]);
 
   const onPickThumbnail = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -318,10 +358,9 @@ export function OwnerProductForm({
         const apx = approximateDiscountPercent(priceNum, Math.floor(Number(p.discount_price)));
         if (apx > 0) discPctStr = String(apx);
       }
-      setValues({
+      const next: FormValues = {
         title: String(p.title ?? ""),
         summary: String(p.summary ?? ""),
-        description_html: String(p.description_html ?? ""),
         price: String(priceNum || ""),
         discount_percent: discPctStr,
         stock_qty: String(p.stock_qty ?? 0),
@@ -332,7 +371,9 @@ export function OwnerProductForm({
         is_featured: !!p.is_featured,
         sort_order: String(p.sort_order ?? 0),
         optionGroups: optionsJsonToFormGroups(p.options_json ?? []),
-      });
+      };
+      setValues(next);
+      setBaselineSnapshot(serializeProductFormSnapshot(next));
     } catch {
       setError("network_error");
     } finally {
@@ -354,19 +395,16 @@ export function OwnerProductForm({
       setSaving(false);
       return;
     }
-    if (mode === "new" && menuSections.length > 0 && !values.menu_section_id.trim()) {
-      const line =
-        "상품이 노출될 카테고리를 화면 상단에서 선택해 주세요.";
-      setError(line);
+    if (menuSections.length === 0) {
+      setError("먼저 카테고리 관리에서 메뉴 구역을 추가해 주세요.");
+      setCategoryGateModal("no_sections");
       setSaving(false);
-      if (typeof window !== "undefined") {
-        window.alert(
-          `${line}\n\n맨 위「카테고리 (필수)」줄에서 분류 칩을 한 번 눌러 선택한 뒤 다시 저장해 주세요.`
-        );
-        requestAnimationFrame(() => {
-          categoryStripRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-        });
-      }
+      return;
+    }
+    if (!values.menu_section_id.trim()) {
+      setError("저장하려면 카테고리를 선택해 주세요.");
+      setCategoryGateModal("pick_required");
+      setSaving(false);
       return;
     }
     const pctRaw = values.discount_percent.replace(/\D/g, "");
@@ -386,7 +424,6 @@ export function OwnerProductForm({
     const payloadCore = {
       title: values.title.trim(),
       summary: values.summary.trim() || undefined,
-      description_html: values.description_html.trim() || undefined,
       price,
       discount_percent,
       stock_qty: values.track_inventory ? stock : 0,
@@ -421,8 +458,23 @@ export function OwnerProductForm({
               ? "판매 승인이 필요합니다. 관리자에게 판매 권한 승인을 요청하세요."
               : json?.error === "migration_pending"
                 ? "DB 마이그레이션(store_menu_sections)을 적용한 뒤 다시 시도해 주세요."
-                : json?.error ?? "등록 실패"
+                : json?.error === "menu_sections_required"
+                  ? "먼저 카테고리 관리에서 메뉴 구역을 추가한 뒤 등록해 주세요."
+                  : json?.error === "menu_section_id_required"
+                    ? "저장하려면 카테고리를 선택해 주세요."
+                    : json?.error === "invalid_menu_section_id"
+                      ? "선택한 카테고리가 없거나 매장에 속하지 않습니다. 다시 선택해 주세요."
+                      : json?.error ?? "등록 실패"
           );
+          if (
+            json?.error === "menu_sections_required" ||
+            json?.error === "menu_section_id_required" ||
+            json?.error === "invalid_menu_section_id"
+          ) {
+            setCategoryGateModal(
+              json?.error === "menu_sections_required" ? "no_sections" : "pick_required"
+            );
+          }
           return;
         }
       } else if (productId) {
@@ -438,8 +490,23 @@ export function OwnerProductForm({
           setError(
             json?.error === "migration_pending"
               ? "DB 마이그레이션(store_menu_sections)을 적용한 뒤 다시 시도해 주세요."
-              : json?.error ?? "저장 실패"
+              : json?.error === "menu_sections_required"
+                ? "먼저 카테고리 관리에서 메뉴 구역을 추가한 뒤 저장해 주세요."
+                : json?.error === "menu_section_id_required"
+                  ? "저장하려면 카테고리를 선택해 주세요."
+                  : json?.error === "invalid_menu_section_id"
+                    ? "선택한 카테고리가 없거나 매장에 속하지 않습니다. 다시 선택해 주세요."
+                    : json?.error ?? "저장 실패"
           );
+          if (
+            json?.error === "menu_sections_required" ||
+            json?.error === "menu_section_id_required" ||
+            json?.error === "invalid_menu_section_id"
+          ) {
+            setCategoryGateModal(
+              json?.error === "menu_sections_required" ? "no_sections" : "pick_required"
+            );
+          }
           return;
         }
       }
@@ -455,6 +522,32 @@ export function OwnerProductForm({
   const categoriesHref = `/stores/owner/menu-categories?storeId=${encodeURIComponent(storeId)}`;
   const ordersQuickHref = buildStoreOrdersHref({ storeId });
   const dashboardHref = `/stores/owner?storeId=${encodeURIComponent(storeId)}`;
+  const isDirty =
+    baselineSnapshot != null && serializeProductFormSnapshot(values) !== baselineSnapshot;
+
+  const revertToSaved = useCallback(async () => {
+    setError(null);
+    if (mode === "edit" && productId) {
+      await load();
+      return;
+    }
+    const next: FormValues = {
+      ...initialValues(defaultDraft),
+      menu_section_id: initialMenuSectionId.trim(),
+    };
+    setValues(next);
+    setBaselineSnapshot(serializeProductFormSnapshot(next));
+  }, [mode, productId, defaultDraft, initialMenuSectionId, load]);
+
+  useEffect(() => {
+    if (!isDirty) return;
+    const fn = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+    };
+    window.addEventListener("beforeunload", fn);
+    return () => window.removeEventListener("beforeunload", fn);
+  }, [isDirty]);
+
   const isHidden = values.product_status === "hidden";
   const isSoldOut = values.product_status === "sold_out";
   const isListed = values.product_status === "active";
@@ -467,79 +560,37 @@ export function OwnerProductForm({
     );
   }
 
-  const idTrim = values.menu_section_id.trim();
-
   return (
-    <div className="flex flex-col bg-sam-app">
+    <div className="flex min-h-0 flex-col bg-[var(--biz-app-bg)]">
       <div className="sticky top-0 z-20 shrink-0 border-b border-sam-border bg-sam-surface shadow-sm">
         <div
           ref={categoryStripRef}
-          className="border-t border-sam-border-soft bg-sam-surface px-2 py-2"
-          role="tablist"
+          className="border-t border-sam-border-soft bg-sam-surface px-2 py-1.5"
+          role="group"
           aria-label="등록 카테고리"
         >
-          <p className="mb-1.5 px-1 sam-text-xxs font-medium uppercase tracking-wide text-sam-meta">
-            {menuSections.length > 0 ? "카테고리 (필수 · 상품 목록과 동일)" : "카테고리"}
-          </p>
-          <div className="-mx-1 flex gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {menuSections.length === 0 || mode === "edit" ? (
-              <button
-                type="button"
-                role="tab"
-                aria-selected={idTrim === ""}
-                onClick={() => setValues((v) => ({ ...v, menu_section_id: "" }))}
-                className={`shrink-0 rounded-full px-3 py-1.5 sam-text-body-secondary font-medium ${
-                  idTrim === "" ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-fg"
-                }`}
-              >
-                기타
-              </button>
-            ) : null}
-            {menuSections.map((s) => {
-              const on = values.menu_section_id === s.id;
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={on}
-                  onClick={() => setValues((v) => ({ ...v, menu_section_id: s.id }))}
-                  className={`max-w-[220px] shrink-0 truncate rounded-full px-3 py-1.5 sam-text-body-secondary font-medium ${
-                    on ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-fg"
-                  }`}
-                >
-                  {s.name}
-                  {s.is_hidden ? " ·숨김" : ""}
-                </button>
-              );
-            })}
-          </div>
-          <p className="mt-1.5 px-1 sam-text-xxs text-sam-muted">
-            {menuSections.length > 0 ? (
-              <>
-                카테고리를 고르지 않으면 저장할 수 없습니다. 새 카테고리는{" "}
-                <Link href={categoriesHref} className="font-medium text-signature underline">
-                  카테고리 관리
-                </Link>
-                에서 만듭니다.
-              </>
-            ) : (
-              <>
-                카테고리가 없으면 「기타」로 저장됩니다. 탭으로 나누려면{" "}
-                <Link href={categoriesHref} className="font-medium text-signature underline">
-                  카테고리 관리
-                </Link>
-                를 이용하세요.
-              </>
-            )}
-          </p>
+          <label
+            htmlFor={menuSectionSelectId}
+            className="mb-1 block px-0.5 sam-text-xxs font-medium uppercase tracking-wide text-sam-meta"
+          >
+            {menuSections.length > 0 ? "카테고리 (필수)" : "카테고리"}
+          </label>
+          <OwnerStoreMenuSectionPicker
+            ref={menuSectionSelectRef}
+            id={menuSectionSelectId}
+            sections={menuSections}
+            value={menuSections.length === 0 ? "" : values.menu_section_id}
+            onChange={(sectionId) => setValues((v) => ({ ...v, menu_section_id: sectionId }))}
+            triggerClassName={OWNER_STORE_PROFILE_SELECT_CLASS}
+            categoriesHref={categoriesHref}
+          />
         </div>
 
         <nav className="flex border-t border-sam-border-soft px-2">
           <button
             type="button"
             onClick={() => setFormTab("basic")}
-            className={`min-w-0 flex-1 border-b-2 py-2.5 sam-text-body-secondary font-medium transition ${
+            className={`min-w-0 flex-1 border-b-2 py-2 sam-text-body-secondary font-medium transition ${
               formTab === "basic" ? "border-signature text-signature" : "border-transparent text-sam-muted"
             }`}
           >
@@ -548,7 +599,7 @@ export function OwnerProductForm({
           <button
             type="button"
             onClick={() => setFormTab("options")}
-            className={`min-w-0 flex-1 border-b-2 py-2.5 sam-text-body-secondary font-medium transition ${
+            className={`min-w-0 flex-1 border-b-2 py-2 sam-text-body-secondary font-medium transition ${
               formTab === "options" ? "border-signature text-signature" : "border-transparent text-sam-muted"
             }`}
           >
@@ -557,7 +608,7 @@ export function OwnerProductForm({
           <button
             type="button"
             onClick={() => setFormTab("language")}
-            className={`min-w-0 flex-1 border-b-2 py-2.5 sam-text-body-secondary font-medium transition ${
+            className={`min-w-0 flex-1 border-b-2 py-2 sam-text-body-secondary font-medium transition ${
               formTab === "language" ? "border-signature text-signature" : "border-transparent text-sam-muted"
             }`}
           >
@@ -569,15 +620,19 @@ export function OwnerProductForm({
       <form
         id="owner-product-form"
         onSubmit={(e) => void handleSubmit(e)}
-        className="min-w-0 space-y-[18px] px-4 py-4"
+        className={`min-w-0 space-y-2 px-0 py-2 ${
+          isDirty ? "pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))]" : "pb-4"
+        }`}
       >
         {error ? (
-          <div className="rounded-ui-rect bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800">{error}</div>
+          <div className="rounded-ui-rect bg-red-50 px-2 py-1.5 sam-text-body-secondary text-red-800">
+            {error}
+          </div>
         ) : null}
 
         {formTab === "basic" ? (
           <>
-            <BaeminSectionCard title="지금 주문 · 노출">
+            <OwnerStoreAdminDashSection pad="narrow" title="지금 주문 · 노출">
               <StatusToggleRow
                 label="지금 주문 가능"
                 checked={isListed}
@@ -609,21 +664,21 @@ export function OwnerProductForm({
                   }))
                 }
               />
-            </BaeminSectionCard>
+            </OwnerStoreAdminDashSection>
 
-            <BaeminSectionCard title="필수정보">
-              <div className="space-y-3 px-4">
+            <OwnerStoreAdminDashSection pad="narrow" title="필수정보">
+              <div className="space-y-2">
                 <div>
-                  <label className="mb-1 block sam-text-body font-medium text-sam-fg">상품명</label>
+                  <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>상품명</label>
                   <input
                     required
                     value={values.title}
                     onChange={(e) => setValues((v) => ({ ...v, title: e.target.value }))}
-                    className={OWNER_STORE_CONTROL_CLASS}
+                    className={OWNER_STORE_PROFILE_CONTROL_CLASS}
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block sam-text-body font-medium text-sam-fg">
+                  <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>
                     기본 가격 ({priceUnit}) *
                   </label>
                   <input
@@ -633,21 +688,17 @@ export function OwnerProductForm({
                     onChange={(e) =>
                       setValues((v) => ({ ...v, price: e.target.value.replace(/\D/g, "") }))
                     }
-                    className={OWNER_STORE_CONTROL_CLASS}
+                    className={OWNER_STORE_PROFILE_CONTROL_CLASS}
                     placeholder="0"
                   />
                 </div>
-                <p className="sam-text-helper leading-relaxed text-sam-muted">
-                  <strong className="font-medium text-sam-fg">카테고리</strong>는 화면 상단 칩에서만
-                  지정합니다. (메뉴 분류·중복 선택 없음)
-                </p>
               </div>
-            </BaeminSectionCard>
+            </OwnerStoreAdminDashSection>
 
-            <BaeminSectionCard title="할인">
-              <div className="space-y-3 px-4">
+            <OwnerStoreAdminDashSection pad="narrow" title="할인">
+              <div className="space-y-2">
                 <div>
-                  <label className="mb-1 block sam-text-body font-medium text-sam-fg">할인율 (%)</label>
+                  <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>할인율 (%)</label>
                   <div className="flex items-center gap-2">
                     <input
                       inputMode="numeric"
@@ -658,14 +709,14 @@ export function OwnerProductForm({
                           discount_percent: e.target.value.replace(/\D/g, "").slice(0, 3),
                         }))
                       }
-                      className={`${OWNER_STORE_CONTROL_CLASS} max-w-[120px]`}
+                      className={`${OWNER_STORE_PROFILE_CONTROL_CLASS} max-w-[120px]`}
                       placeholder="0"
                       maxLength={3}
                     />
                     <span className="sam-text-body font-semibold text-sam-fg">%</span>
                   </div>
                 </div>
-                <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2">
+                <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-2 py-1.5">
                   <p className="sam-text-helper text-sam-muted">
                     할인 적용가(주문 단가)
                     {saleAfterDiscount != null ? (
@@ -681,10 +732,10 @@ export function OwnerProductForm({
                   </p>
                 </div>
               </div>
-            </BaeminSectionCard>
+            </OwnerStoreAdminDashSection>
 
-            <BaeminSectionCard title="재고 · 정렬 · 한 줄 설명">
-              <div className="space-y-3 px-4">
+            <OwnerStoreAdminDashSection pad="narrow" title="재고 · 정렬 · 한 줄 설명">
+              <div className="space-y-2">
                 <div>
                   <p className="mb-2 sam-text-body-secondary font-medium text-sam-fg">재고 관리</p>
                   <div className="flex gap-2">
@@ -719,43 +770,43 @@ export function OwnerProductForm({
                 </div>
                 {values.track_inventory ? (
                   <div>
-                    <label className="mb-1 block sam-text-body font-medium text-sam-fg">재고 수량</label>
+                    <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>재고 수량</label>
                     <input
                       inputMode="numeric"
                       value={formatPriceInput(values.stock_qty)}
                       onChange={(e) =>
                         setValues((v) => ({ ...v, stock_qty: e.target.value.replace(/\D/g, "") }))
                       }
-                      className={OWNER_STORE_CONTROL_CLASS}
+                      className={OWNER_STORE_PROFILE_CONTROL_CLASS}
                       placeholder="0"
                     />
                   </div>
                 ) : null}
                 <div>
-                  <label className="mb-1 block sam-text-body font-medium text-sam-fg">목록 정렬</label>
+                  <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>목록 정렬</label>
                   <p className="mb-1 sam-text-xxs text-sam-muted">숫자가 작을수록 위쪽</p>
                   <input
                     inputMode="numeric"
                     value={values.sort_order}
                     onChange={(e) => setValues((v) => ({ ...v, sort_order: e.target.value }))}
-                    className={OWNER_STORE_CONTROL_CLASS}
+                    className={OWNER_STORE_PROFILE_CONTROL_CLASS}
                     placeholder="0"
                   />
                 </div>
                 <div className="min-w-0">
-                  <label className="mb-1 block sam-text-body font-medium text-sam-fg">한 줄 설명</label>
+                  <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>한 줄 설명</label>
                   <input
                     value={values.summary}
                     onChange={(e) => setValues((v) => ({ ...v, summary: e.target.value }))}
-                    className={OWNER_STORE_CONTROL_CLASS}
+                    className={OWNER_STORE_PROFILE_CONTROL_CLASS}
                     placeholder="목록에 보이는 짧은 설명"
                   />
                 </div>
               </div>
-            </BaeminSectionCard>
+            </OwnerStoreAdminDashSection>
 
-            <BaeminSectionCard title="상품 이미지">
-              <div className="space-y-3 px-4">
+            <OwnerStoreAdminDashSection pad="narrow" title="상품 이미지">
+              <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
                   <label className="cursor-pointer rounded-full border border-sam-border bg-sam-surface px-4 py-2 sam-text-body-secondary font-medium text-sam-fg">
                     {uploading ? "업로드 중…" : "이미지 선택"}
@@ -802,56 +853,45 @@ export function OwnerProductForm({
                   </p>
                 )}
               </div>
-            </BaeminSectionCard>
+            </OwnerStoreAdminDashSection>
 
-            <BaeminSectionCard title="상품 소개">
-              <div className="px-4">
-                <label className="sr-only">상품 소개</label>
-                <textarea
-                  rows={4}
-                  value={values.description_html}
-                  onChange={(e) => setValues((v) => ({ ...v, description_html: e.target.value }))}
-                  className={OWNER_STORE_CONTROL_CLASS}
-                  placeholder="예) 공기밥 2, 라면사리 별도 (HTML 가능)"
-                />
-              </div>
-            </BaeminSectionCard>
-
-            <BaeminSectionCard title="대표 상품 (실물)">
-              <p className="border-b border-sam-border-soft px-4 pb-2 sam-text-helper leading-relaxed text-sam-muted">
+            <OwnerStoreAdminDashSection pad="narrow" title="사장님 추천 (실물)">
+              <p className="border-b border-sam-border-soft pb-2 sam-text-helper leading-relaxed text-sam-muted">
                 이 화면은 <strong className="font-medium text-sam-fg">실물 상품</strong> 기준입니다. 픽업·배달·택배
                 여부는 매장 기본 정보·설정에서 다룹니다.
               </p>
               <StatusToggleRow
-                label="대표 상품으로 강조 노출"
+                label="목록에 사장님 추천 뱃지로 강조 노출"
                 checked={values.is_featured}
                 onToggle={() => setValues((v) => ({ ...v, is_featured: !v.is_featured }))}
               />
-            </BaeminSectionCard>
+            </OwnerStoreAdminDashSection>
 
             {mode === "edit" && productId ? (
-              <button
-                type="button"
-                disabled={saving || deleting}
-                onClick={() => setDeleteConfirmOpen(true)}
-                className="w-full rounded-ui-rect border border-red-200 bg-red-50 py-3 sam-text-body font-medium text-red-800 disabled:opacity-50"
-              >
-                {deleting ? "처리 중…" : "상품 삭제(목록에서 제거)"}
-              </button>
+              <div className="px-2">
+                <button
+                  type="button"
+                  disabled={saving || deleting}
+                  onClick={() => setDeleteConfirmOpen(true)}
+                  className="w-full rounded-ui-rect border border-red-200 bg-red-50 py-2.5 sam-text-body font-medium text-red-800 disabled:opacity-50"
+                >
+                  {deleting ? "처리 중…" : "상품 삭제(목록에서 제거)"}
+                </button>
+              </div>
             ) : null}
           </>
         ) : null}
 
         {formTab === "options" ? (
-          <div className="space-y-4">
-            <p className="px-1 sam-text-helper leading-relaxed text-sam-muted">
+          <div className="space-y-2 px-2">
+            <p className="sam-text-helper leading-relaxed text-sam-muted">
               이 상품만의 옵션(맵기·토핑 등)을 여기서만 만듭니다. 저장하면 이 상품의{" "}
               <code className="rounded bg-sam-surface-muted px-0.5 sam-text-xxs">options_json</code>에만 반영되며,
               다른 메뉴와 따로 관리됩니다.
             </p>
 
             {values.optionGroups.length === 0 ? (
-              <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-10 text-center">
+              <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-6 text-center">
                 <p className="sam-text-body-secondary text-sam-muted">옵션이 없습니다</p>
                 <button
                   type="button"
@@ -865,7 +905,7 @@ export function OwnerProductForm({
                 </button>
               </div>
             ) : (
-              <ul className="space-y-4">
+              <ul className="space-y-2">
                 {values.optionGroups.map((group, gi) => {
                   const preset = optionGroupPresetKey(group);
                   return (
@@ -886,7 +926,7 @@ export function OwnerProductForm({
                       >
                         ×
                       </button>
-                      <div className="space-y-3 p-4 pr-12">
+                      <div className="space-y-2 p-3 pr-12">
                         <div>
                           <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
                             옵션 그룹명
@@ -901,7 +941,7 @@ export function OwnerProductForm({
                               })
                             }
                             placeholder="예) 매운맛 정도"
-                            className={OWNER_STORE_CONTROL_COMPACT_CLASS}
+                            className={OWNER_STORE_PROFILE_CONTROL_CLASS}
                           />
                         </div>
                         <div>
@@ -915,7 +955,7 @@ export function OwnerProductForm({
                                 return { ...v, optionGroups: next };
                               })
                             }
-                            className={OWNER_STORE_CONTROL_COMPACT_CLASS}
+                            className={OWNER_STORE_PROFILE_CONTROL_CLASS}
                             placeholder="고객에게 보이는 안내"
                           />
                         </div>
@@ -931,7 +971,7 @@ export function OwnerProductForm({
                                 return { ...v, optionGroups: next };
                               })
                             }
-                            className={`${OWNER_STORE_CONTROL_COMPACT_CLASS} max-w-[100px]`}
+                            className={`${OWNER_STORE_PROFILE_CONTROL_CLASS} max-w-[100px]`}
                           />
                           <p className="mt-0.5 sam-text-xxs text-sam-muted">숫자가 작을수록 먼저 표시</p>
                         </div>
@@ -977,7 +1017,7 @@ export function OwnerProductForm({
                                 return { ...prev, optionGroups: next };
                               });
                             }}
-                            className={OWNER_STORE_SELECT_CLASS}
+                            className={OWNER_STORE_PROFILE_SELECT_CLASS}
                           >
                             <option value="1-1">단일 선택 (1개 필수)</option>
                             <option value="0-99">복수 (선택 없음~여러 개)</option>
@@ -1000,7 +1040,7 @@ export function OwnerProductForm({
                                     return { ...v, optionGroups: next };
                                   })
                                 }
-                                className={OWNER_STORE_CONTROL_COMPACT_CLASS}
+                                className={OWNER_STORE_PROFILE_CONTROL_CLASS}
                               />
                             </div>
                             <div>
@@ -1015,7 +1055,7 @@ export function OwnerProductForm({
                                     return { ...v, optionGroups: next };
                                   })
                                 }
-                                className={OWNER_STORE_CONTROL_COMPACT_CLASS}
+                                className={OWNER_STORE_PROFILE_CONTROL_CLASS}
                               />
                             </div>
                           </div>
@@ -1164,49 +1204,87 @@ export function OwnerProductForm({
         ) : null}
 
         {formTab === "language" ? (
-          <BaeminSectionCard title="언어">
-            <div className="px-4 py-4 text-center sam-text-body leading-relaxed text-sam-muted">
-              상품명·옵션·소개의 다국어 입력은 추후 지원 예정입니다.
+          <OwnerStoreAdminDashSection pad="narrow" title="언어">
+            <div className="py-2 text-center sam-text-body leading-relaxed text-sam-muted">
+              상품명·옵션·한 줄 설명의 다국어 입력은 추후 지원 예정입니다.
             </div>
-          </BaeminSectionCard>
+          </OwnerStoreAdminDashSection>
         ) : null}
+
+        <OwnerStoreAdminDashSection pad="narrow" title="바로가기">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <Link
+              href={productsHubHref}
+              className="flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 text-center sam-text-body-secondary font-semibold text-sam-fg"
+            >
+              상품 목록
+            </Link>
+            <Link
+              href={ordersQuickHref}
+              className="flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 text-center sam-text-body-secondary font-semibold text-sam-fg"
+            >
+              주문
+            </Link>
+            <Link
+              href={categoriesHref}
+              className="flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 text-center sam-text-body-secondary font-semibold text-sam-fg"
+            >
+              카테고리
+            </Link>
+            <Link
+              href={dashboardHref}
+              className="flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 text-center sam-text-body-secondary font-semibold text-sam-fg"
+            >
+              대시보드
+            </Link>
+          </div>
+        </OwnerStoreAdminDashSection>
       </form>
-      <footer className="shrink-0 border-t border-sam-border bg-sam-surface px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
-        <div className="mb-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <Link
-            href={productsHubHref}
-            className="flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 text-center sam-text-body-secondary font-semibold text-sam-fg"
+
+      {isDirty ? (
+        <BodyPortal>
+          <footer
+            role="contentinfo"
+            aria-label="상품 저장"
+            className={`pointer-events-none fixed inset-x-0 z-[54] border-t border-sam-border bg-sam-surface/95 backdrop-blur-md supports-[backdrop-filter]:bg-sam-surface/88 ${
+              dockActionBarAboveMainBottomNav
+                ? BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS
+                : "bottom-0 pb-[env(safe-area-inset-bottom,0px)]"
+            }`}
           >
-            메뉴 관리
-          </Link>
-          <Link
-            href={ordersQuickHref}
-            className="flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 text-center sam-text-body-secondary font-semibold text-sam-fg"
-          >
-            주문
-          </Link>
-          <Link
-            href={categoriesHref}
-            className="flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 text-center sam-text-body-secondary font-semibold text-sam-fg"
-          >
-            카테고리
-          </Link>
-          <Link
-            href={dashboardHref}
-            className="flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 text-center sam-text-body-secondary font-semibold text-sam-fg"
-          >
-            대시보드
-          </Link>
-        </div>
-        <button
-          type="submit"
-          form="owner-product-form"
-          disabled={saving || deleting}
-          className="w-full rounded-ui-rect bg-signature py-3.5 sam-text-body-lg font-semibold text-white disabled:opacity-50"
-        >
-          {saving ? "저장 중…" : "저장"}
-        </button>
-      </footer>
+            <div
+              className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} pointer-events-auto mx-auto w-full min-w-0 max-w-full`}
+            >
+              {error ? (
+                <div
+                  className="max-h-20 overflow-y-auto border-b border-red-100 bg-red-50 px-3 py-1.5 sam-text-xxs leading-snug text-red-800"
+                  role="alert"
+                >
+                  {error}
+                </div>
+              ) : null}
+              <div className="flex min-w-0 divide-x divide-sam-border">
+                <button
+                  type="button"
+                  onClick={() => void revertToSaved()}
+                  disabled={saving || deleting || uploading}
+                  className={`${BOTTOM_NAV_SHELL.heightClass} min-w-0 flex-1 rounded-none border-0 bg-sam-surface px-2 sam-text-body font-medium text-signature disabled:opacity-50`}
+                >
+                  취소
+                </button>
+                <button
+                  type="submit"
+                  form="owner-product-form"
+                  disabled={saving || deleting || uploading}
+                  className={`${BOTTOM_NAV_SHELL.heightClass} min-w-0 flex-1 rounded-none border-0 bg-signature px-2 sam-text-body font-medium text-white disabled:opacity-50`}
+                >
+                  {saving ? "저장 중…" : "저장"}
+                </button>
+              </div>
+            </div>
+          </footer>
+        </BodyPortal>
+      ) : null}
 
       <OwnerStoreAdminConfirmModal
         open={deleteConfirmOpen}
@@ -1223,6 +1301,43 @@ export function OwnerProductForm({
         onConfirm={async () => {
           setDeleteConfirmOpen(false);
           await performDeleteProduct();
+        }}
+      />
+      <OwnerStoreAdminConfirmModal
+        open={categoryGateModal === "no_sections"}
+        titleId="owner-product-category-no-sections-title"
+        title="카테고리가 필요합니다"
+        description={
+          "상품을 등록·저장하려면 먼저 카테고리 관리에서 메뉴 구역을 한 개 이상 만든 뒤,\n" +
+          "이 화면 상단에서 선택해야 합니다."
+        }
+        cancelLabel="닫기"
+        confirmLabel="카테고리 관리"
+        confirmTone="primary"
+        onCancel={() => setCategoryGateModal(null)}
+        onConfirm={async () => {
+          setCategoryGateModal(null);
+          router.push(categoriesHref);
+        }}
+      />
+      <OwnerStoreAdminConfirmModal
+        open={categoryGateModal === "pick_required"}
+        titleId="owner-product-category-pick-required-title"
+        title="카테고리를 선택해 주세요"
+        description={
+          "저장하려면 화면 상단의 카테고리(메뉴 구역) 드롭다운에서\n" +
+          "노출할 구역을 선택한 뒤 다시 저장해 주세요."
+        }
+        cancelLabel="닫기"
+        confirmLabel="카테고리로 이동"
+        confirmTone="primary"
+        onCancel={() => setCategoryGateModal(null)}
+        onConfirm={async () => {
+          setCategoryGateModal(null);
+          requestAnimationFrame(() => {
+            categoryStripRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+            menuSectionSelectRef.current?.focus();
+          });
         }}
       />
     </div>

@@ -7,8 +7,8 @@ export type BusinessAdminStoreContextValue = {
   storeRow: StoreRow | null;
   reloadStores: () => Promise<void>;
   /**
-   * 운영 헤더 뒤로(고정 `backHref` 링크) 직전에 호출. `true`를 반환하면 기본 이동을 막는다.
-   * 예: 카테고리 편집 화면에서 목록으로만 돌아가기.
+   * 운영 헤더 뒤로(히스토리·폴백 이동) 직전에 호출. `true`를 반환하면 기본 이동을 막는다.
+   * 예: 기본 정보 미저장 이탈 확인, 카테고리 편집 가드.
    */
   registerOwnerAdminHeaderBackIntercept: (handler: (() => boolean) | null) => void;
 };

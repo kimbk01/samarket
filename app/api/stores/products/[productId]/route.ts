@@ -38,7 +38,7 @@ export async function GET(
     .from("store_products")
     .select(
       [
-        "id, store_id, title, summary, description_html, price, discount_price, discount_percent, stock_qty, track_inventory",
+        "id, store_id, title, summary, price, discount_price, discount_percent, stock_qty, track_inventory",
         "min_order_qty, max_order_qty, thumbnail_url, images_json, options_json",
         "pickup_available, local_delivery_available, shipping_available",
         "category_id, menu_section_id, item_type, is_featured, sort_order, created_at",

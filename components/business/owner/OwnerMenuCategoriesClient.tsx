@@ -411,7 +411,7 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
             aria-label="카테고리 편집 저장"
             className={`pointer-events-auto fixed inset-x-0 z-[120] border-t border-sam-border bg-sam-surface shadow-[0_-4px_12px_rgba(0,0,0,0.08)] ${bottomActionBarPositionClass} lg:left-[260px]`}
           >
-            <div className="mx-auto flex w-full max-w-6xl gap-2 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] sm:px-4">
+            <div className="mx-auto flex w-full max-w-6xl gap-2 px-2 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] sm:px-2">
               <button
                 type="button"
                 disabled={saving}
@@ -437,7 +437,7 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
 
   return (
     <div className="max-w-full overflow-x-hidden bg-sam-app pb-8">
-      <div className="flex flex-wrap gap-2 border-b border-sam-border-soft bg-sam-surface px-3 py-2">
+      <div className="flex flex-wrap gap-2 border-b border-sam-border-soft bg-sam-surface px-0 py-2">
         <Link
           href={productsHubHref}
           className={`${Sam.btn.outlineCombo} ${Sam.btn.pill} ${Sam.btn.sm} no-underline font-semibold text-sam-fg`}
@@ -457,7 +457,7 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
           문의
         </Link>
       </div>
-      <div className="space-y-3 px-3 py-2">
+      <div className="space-y-3 px-0 py-2">
         <div className="flex min-w-0 items-center justify-between gap-4">
           <button
             type="button"

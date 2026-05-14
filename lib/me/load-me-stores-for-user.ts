@@ -133,7 +133,7 @@ export async function loadMeStoresListForUser(
 }
 
 const OWNER_PRODUCT_SELECT = [
-  "id, store_id, title, summary, description_html, price, discount_price, discount_percent, stock_qty, track_inventory",
+  "id, store_id, title, summary, price, discount_price, discount_percent, stock_qty, track_inventory",
   "thumbnail_url, product_status, pickup_available, local_delivery_available, shipping_available",
   "category_id, menu_section_id, item_type, is_featured, sort_order",
   "created_at, updated_at",

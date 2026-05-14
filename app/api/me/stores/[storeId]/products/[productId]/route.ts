@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
-import { sanitizeProductHtml } from "@/lib/html/sanitize-product-html";
 import {
   canOwnerSellProducts,
   getStoreIfOwner,
@@ -26,7 +25,7 @@ async function loadProductForOwner(
     .from("store_products")
     .select(
       [
-        "id, store_id, title, summary, description_html, price, discount_price, discount_percent, stock_qty, track_inventory",
+        "id, store_id, title, summary, price, discount_price, discount_percent, stock_qty, track_inventory",
         "thumbnail_url, product_status, pickup_available, local_delivery_available, shipping_available",
         "category_id, menu_section_id, item_type, is_featured, sort_order, options_json",
         "created_at, updated_at",
@@ -81,7 +80,6 @@ export async function GET(
 type PatchBody = {
   title?: string;
   summary?: string | null;
-  description_html?: string | null;
   price?: number;
   discount_price?: number | null;
   discount_percent?: number | null;
@@ -158,10 +156,6 @@ export async function PATCH(
     patch.title = t;
   }
   if (body.summary !== undefined) patch.summary = body.summary ? String(body.summary).trim() : null;
-  if (body.description_html !== undefined) {
-    const raw = body.description_html ? String(body.description_html).trim() : "";
-    patch.description_html = raw ? sanitizeProductHtml(raw) : null;
-  }
   if (body.price !== undefined) {
     const price = Number(body.price);
     if (!Number.isFinite(price) || price < 0) {
@@ -257,23 +251,30 @@ export async function PATCH(
   }
 
   if (body.menu_section_id !== undefined) {
-    if (body.menu_section_id === null || body.menu_section_id === "") {
+    const { data: sectionRows, error: secListErr } = await sb
+      .from("store_menu_sections")
+      .select("id")
+      .eq("store_id", sid);
+    if (secListErr && /column|does not exist|schema cache/i.test(String(secListErr.message))) {
+      return NextResponse.json({ ok: false, error: "migration_pending" }, { status: 503 });
+    }
+    const sectionIds = new Set(
+      (sectionRows ?? []).map((r) => String((r as { id: string }).id))
+    );
+    const raw =
+      body.menu_section_id === null || body.menu_section_id === ""
+        ? ""
+        : String(body.menu_section_id).trim();
+    if (!raw) {
+      if (sectionIds.size > 0) {
+        return NextResponse.json({ ok: false, error: "menu_section_id_required" }, { status: 400 });
+      }
       patch.menu_section_id = null;
     } else {
-      const mid = String(body.menu_section_id).trim();
-      const { data: sec, error: secErr } = await sb
-        .from("store_menu_sections")
-        .select("id")
-        .eq("id", mid)
-        .eq("store_id", sid)
-        .maybeSingle();
-      if (secErr && /column|does not exist|schema cache/i.test(String(secErr.message))) {
-        return NextResponse.json({ ok: false, error: "migration_pending" }, { status: 503 });
-      }
-      if (!sec) {
+      if (!sectionIds.has(raw)) {
         return NextResponse.json({ ok: false, error: "invalid_menu_section_id" }, { status: 400 });
       }
-      patch.menu_section_id = mid;
+      patch.menu_section_id = raw;
     }
   }
 

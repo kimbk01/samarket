@@ -307,7 +307,8 @@ export function BusinessAdminShell({
 
   const adminHeaderBackHref = useMemo(() => {
     if (isHub || !selectedRow) return undefined;
-    return `/stores/owner?storeId=${encodeURIComponent(selectedRow.id)}`;
+    const sid = selectedRow.id;
+    return `/stores/owner?storeId=${encodeURIComponent(sid)}`;
   }, [isHub, selectedRow]);
 
   const basicInfoBackIntercept = useCallback(() => {
@@ -376,7 +377,7 @@ export function BusinessAdminShell({
           rightSlot={<div className="flex shrink-0 items-center gap-1">{hubPartialHeaderRight}</div>}
         />
         <main
-          className={`mx-auto w-full max-w-6xl min-w-0 bg-[var(--biz-app-bg)] px-3 pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] sm:px-4 ${ownerMainBottomPad}`}
+          className={`mx-auto w-full max-w-6xl min-w-0 bg-[var(--biz-app-bg)] px-2 pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] sm:px-2 ${ownerMainBottomPad}`}
         >
           {children}
         </main>
@@ -606,17 +607,17 @@ export function BusinessAdminShell({
             variant="admin"
             backHref={adminHeaderBackHref}
             backIntercept={combinedAdminHeaderBackIntercept}
-            backAriaLabel="운영 대시보드로"
+            backAriaLabel="이전 화면으로"
             shopName={shopName}
             pageTitle={pageTitle}
             rightSlot={headerRightSlot}
           />
 
-          <main
-            className={`mx-auto w-full max-w-6xl bg-[var(--biz-app-bg)] px-3 pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] sm:px-4 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem+1rem)] ${ownerMainBottomPad}`}
-          >
-            {children}
-          </main>
+        <main
+          className={`mx-auto w-full max-w-6xl bg-[var(--biz-app-bg)] px-2 pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] sm:px-2 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem+1rem)] ${ownerMainBottomPad}`}
+        >
+          {children}
+        </main>
         </div>
       </div>
     </BusinessAdminStoreProvider>
