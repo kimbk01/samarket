@@ -468,7 +468,14 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     deliveryEtaPreviewAbortRef.current = ac;
     setDeliveryEtaBusy(true);
     try {
-      const { status, json } = await fetchStoreDeliveryEtaDeduped(storeSlug, aid, { signal: ac.signal });
+      const { status, json } = await fetchStoreDeliveryEtaDeduped(storeSlug, aid, {
+        signal: ac.signal,
+        trace: {
+          component: "StoreCommerceCartPageClient",
+          reason: "delivery_eta_preview",
+          triggeredBy: "user_click",
+        },
+      });
       if (ac.signal.aborted) return;
       if (status !== 200) {
         setDeliveryEtaLabel(null);

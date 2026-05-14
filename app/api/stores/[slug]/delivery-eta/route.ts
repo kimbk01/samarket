@@ -13,7 +13,10 @@ import {
 } from "@/lib/geo/parse-finite-geographic-coord";
 import { devConsoleWarn } from "@/lib/dev/dev-console-warn";
 import { fetchDeliveryRouteSingleLeg } from "@/lib/geo/google-routes-single-leg";
-import { isGoogleRoutesApiGloballyDisabled } from "@/lib/geo/google-routes-client";
+import {
+  getGoogleRoutesComputeLegRequestSegment,
+  isGoogleRoutesApiGloballyDisabled,
+} from "@/lib/geo/google-routes-client";
 import { haversineKm } from "@/lib/geo/haversine-km";
 import {
   isSameDeliveryAddressForList,
@@ -26,8 +29,8 @@ import {
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** 동일 매장·저장 주소·좌표에 대한 짧은 메모리 캐시 (Routes 왕복 감소) */
-const DELIVERY_ETA_SERVER_CACHE_TTL_MS = 120_000;
+/** 동일 매장·저장 주소·좌표에 대한 메모리 캐시 (Routes 왕복 감소) */
+const DELIVERY_ETA_SERVER_CACHE_TTL_MS = 15 * 60 * 1000;
 const deliveryEtaOkCache = new Map<string, { expiresAt: number; body: Record<string, unknown> }>();
 const deliveryEtaOkInflight = new Map<string, Promise<Record<string, unknown>>>();
 
@@ -46,6 +49,7 @@ type EtaOkBody = {
   travelModeUsed: string | null;
   fallbackUsed: boolean;
   etaLabel: string;
+  disabled?: boolean;
   /** 좌표 누락·비활성 등 — Google 호출 없음일 때 구분 */
   reason?: string | null;
 };
@@ -287,11 +291,12 @@ export async function GET(
     );
   }
 
+  const routesSeg = getGoogleRoutesComputeLegRequestSegment();
   const cacheKey =
     store.id
       ? deliveryUserAddressId.trim().length > 0
-        ? `eta:${buyerId}:${String(store.id)}:addr:${deliveryUserAddressId}:${roundCoordKey(slat!)}:${roundCoordKey(slng!)}:${roundCoordKey(ulat)}:${roundCoordKey(ulng)}`
-        : `eta:${buyerId}:${String(store.id)}:ll:${roundCoordKey(slat!)}:${roundCoordKey(slng!)}:${roundCoordKey(ulat)}:${roundCoordKey(ulng)}`
+        ? `eta:${buyerId}:${String(store.id)}:addr:${deliveryUserAddressId}:${roundCoordKey(slat!)}:${roundCoordKey(slng!)}:${roundCoordKey(ulat)}:${roundCoordKey(ulng)}:${routesSeg}`
+        : `eta:${buyerId}:${String(store.id)}:ll:${roundCoordKey(slat!)}:${roundCoordKey(slng!)}:${roundCoordKey(ulat)}:${roundCoordKey(ulng)}:${routesSeg}`
       : null;
   if (cacheKey) {
     const hit = deliveryEtaOkCache.get(cacheKey);
@@ -309,6 +314,9 @@ export async function GET(
     const leg = await fetchDeliveryRouteSingleLeg(origin, dest, {
       source: "delivery-eta",
       reason: deliveryUserAddressId.trim().length > 0 ? "saved_address" : "explicit_lat_lng",
+      pathname: "/api/stores/[slug]/delivery-eta",
+      component: "delivery-eta-route",
+      triggeredBy: deliveryUserAddressId.trim().length > 0 ? "saved_address_eta_request" : "explicit_lat_lng_eta_request",
     });
     const rideMinutes = leg.rideMinutes ?? null;
     const routeDistanceMeters = leg.routeDistanceMeters ?? null;
@@ -326,7 +334,7 @@ export async function GET(
     }
 
     let reason: string | null = null;
-    if (leg.skipReason === "disabled_by_env") reason = "routes_disabled";
+    if (leg.skipReason === "disabled_by_env") reason = "google_routes_disabled";
     else if (leg.skipReason === "missing_api_key") reason = "missing_routes_api_key";
     else if (leg.skipReason === "invalid_coords") reason = "invalid_coords";
     else if (leg.skipReason === "near_origin") reason = "near_origin";
@@ -343,6 +351,7 @@ export async function GET(
       travelModeUsed: leg.travelModeUsed,
       fallbackUsed: leg.fallbackUsed,
       etaLabel,
+      disabled: leg.skipReason === "disabled_by_env" ? true : undefined,
       reason,
     });
   };

@@ -473,7 +473,7 @@ export function StoresBrowsePrimaryView({
 
   useRefetchOnPageShowRestore(() => void loadRemote({ silent: true }));
 
-  /** browse 목록: `user_lat`/`user_lng`(주소록 우선)로 거리 정렬·matrix ETA */
+  /** browse 목록: `user_lat`/`user_lng`(주소록 우선)로 직선거리 정렬만 수행 — matrix ETA 금지 */
   const hasGeo = browseUserGeo != null;
   const listLoaded = remoteRows !== undefined;
   const useRemoteList = listLoaded && remoteRows.length > 0;

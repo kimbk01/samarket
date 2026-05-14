@@ -47,14 +47,16 @@ function embedCategoryName(v: CatEmbed): string | null {
   return v.name?.trim() || null;
 }
 
-function embedMenuSection(v: MenuEmbed): { name: string | null; sort: number } {
-  if (v == null) return { name: null, sort: 9999 };
+function embedMenuSection(v: MenuEmbed): { name: string | null; sort: number; hasEmbed: boolean } {
+  if (v == null) return { name: null, sort: 9999, hasEmbed: false };
   const o = Array.isArray(v) ? v[0] : v;
-  if (!o || typeof o !== "object") return { name: null, sort: 9999 };
+  if (!o || typeof o !== "object") return { name: null, sort: 9999, hasEmbed: false };
   const r = o as Record<string, unknown>;
   const name = typeof r.name === "string" ? r.name.trim() || null : null;
   const so = Number(r.sort_order);
-  return { name, sort: Number.isFinite(so) ? so : 9999 };
+  const sort = Number.isFinite(so) ? so : 9999;
+  /** FK 조인 행이 오면 이름이 비어도 sort_order 로 구역 순서를 유지한다 */
+  return { name, sort, hasEmbed: true };
 }
 
 export function parseStoreDetailProducts(raw: unknown[]): StoreDetailProductCard[] {
@@ -107,7 +109,7 @@ export function parseStoreDetailProducts(raw: unknown[]): StoreDetailProductCard
       is_featured: !!o.is_featured,
       item_type: o.item_type != null ? String(o.item_type) : null,
       categoryName: menu.name ?? cat,
-      menuSectionSort: menu.name ? menu.sort : 9999,
+      menuSectionSort: menu.hasEmbed ? menu.sort : 9999,
       has_options,
       min_order_qty,
       max_order_qty,
@@ -125,13 +127,26 @@ export function sortStoreDetailProductCardsForDisplay(cards: StoreDetailProductC
   });
 }
 
-export type MenuSection = { heading: string; items: StoreDetailProductCard[] };
+export type MenuSection = {
+  heading: string;
+  /** 목록 블록 상단 제목(없으면 heading). 상단 칩은 heading 유지 */
+  listHeading?: string;
+  items: StoreDetailProductCard[];
+};
 
 const UNCATEGORIZED = "기타 메뉴";
 
+function minMenuSectionSort(items: StoreDetailProductCard[]): number {
+  let m = Infinity;
+  for (const p of items) {
+    if (p.menuSectionSort < m) m = p.menuSectionSort;
+  }
+  return Number.isFinite(m) ? m : 9999;
+}
+
 /**
- * API가 이미 대표·sort_order 순으로 정렬해 두었다고 가정하고,
- * 첫 등장 순서대로 섹션 헤더를 만든다. 미분류는 마지막으로 보낸다.
+ * 비대표 상품을 구역명(메뉴 구역 → 상품 카테고리 → 기타)으로 묶고,
+ * 구역은 `menuSectionSort` 최솟값 기준으로 정렬한다. 미분류는 마지막.
  */
 export function groupStoreProductsByMenuSection(
   products: StoreDetailProductCard[]
@@ -152,6 +167,13 @@ export function groupStoreProductsByMenuSection(
   }
 
   const restHeadings = sectionOrder.filter((h) => h !== UNCATEGORIZED);
+  restHeadings.sort((a, b) => {
+    const da = minMenuSectionSort(bySection.get(a) ?? []);
+    const db = minMenuSectionSort(bySection.get(b) ?? []);
+    if (da !== db) return da - db;
+    return a.localeCompare(b, "ko");
+  });
+
   const sections: MenuSection[] = restHeadings.map((heading) => ({
     heading,
     items: bySection.get(heading) ?? [],
@@ -160,7 +182,14 @@ export function groupStoreProductsByMenuSection(
     sections.push({ heading: UNCATEGORIZED, items: bySection.get(UNCATEGORIZED)! });
   }
   if (featured.length > 0) {
-    return [{ heading: "인기", items: featured }, ...sections];
+    return [
+      {
+        heading: "인기",
+        listHeading: "가장 인기 있는 메뉴",
+        items: featured,
+      },
+      ...sections,
+    ];
   }
   return sections;
 }

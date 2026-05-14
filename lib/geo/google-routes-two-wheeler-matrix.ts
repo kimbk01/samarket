@@ -11,13 +11,77 @@ import { getGoogleRoutesServerApiKey, isGoogleRoutesApiGloballyDisabled } from "
 
 /** 개발 기본 권장: 목록 묶음 matrix 호출 차단 */
 export function isGoogleRoutesMatrixDisabled(): boolean {
-  return process.env.GOOGLE_ROUTES_MATRIX_DISABLED?.trim() === "1";
+  const raw = process.env.GOOGLE_ROUTES_MATRIX_DISABLED?.trim();
+  if (raw === "0") return false;
+  if (raw === "1") return true;
+  return process.env.NODE_ENV === "development";
+}
+
+function matrixEnvFlagEnabled(name: string): boolean {
+  const raw = process.env[name]?.trim().toLowerCase();
+  return raw === "1" || raw === "true" || raw === "yes";
+}
+
+function matrixTravelMode(): "TWO_WHEELER" | "DRIVE" {
+  const requested = process.env.GOOGLE_ROUTES_TRAVEL_MODE?.trim().toUpperCase();
+  if (requested === "TWO_WHEELER" && matrixEnvFlagEnabled("GOOGLE_ROUTES_ALLOW_TWO_WHEELER")) {
+    return "TWO_WHEELER";
+  }
+  return "DRIVE";
+}
+
+function matrixSkuCandidate(travelMode: "TWO_WHEELER" | "DRIVE"): "essentials" | "enterprise" {
+  return travelMode === "TWO_WHEELER" ? "enterprise" : "essentials";
+}
+
+function googleMatrixSkippedLog(reason: string, caller: string): void {
+  if (process.env.NODE_ENV !== "development") return;
+  try {
+    console.info("[GOOGLE_CALL_SKIPPED]", JSON.stringify({
+      reason,
+      caller,
+      duplicateKey: null,
+      timestamp: new Date().toISOString(),
+    }));
+  } catch {
+    /* noop */
+  }
 }
 
 function devLogMatrixExpensiveCall(source: string, fields: Record<string, unknown>): void {
   if (process.env.NODE_ENV !== "development") return;
   try {
     console.info("[routes-api:matrix] expensive_call", JSON.stringify({ source, ...fields }));
+  } catch {
+    /* noop */
+  }
+}
+
+/** Matrix는 `res.ok` + JSON 파싱 성공 후에만 출력 — 네트워크 실패 시 billable 오탐 방지 */
+function googleMatrixBillableCallLog(
+  source: string,
+  fields: { travelMode: "TWO_WHEELER" | "DRIVE"; origins?: number; destinations?: number }
+): void {
+  if (process.env.NODE_ENV !== "development") return;
+  try {
+    console.info(
+      "[GOOGLE_BILLABLE_CALL]",
+      JSON.stringify({
+        api: "routes_matrix",
+        skuCandidate: matrixSkuCandidate(fields.travelMode),
+        travelMode: fields.travelMode,
+        routingPreference: null,
+        fieldMask: "originIndex,destinationIndex,duration,distanceMeters,status,condition",
+        caller: source,
+        pathname: source,
+        duplicateKey: null,
+        cacheHit: false,
+        inflightHit: false,
+        origins: fields.origins ?? null,
+        destinations: fields.destinations ?? null,
+        timestamp: new Date().toISOString(),
+      })
+    );
   } catch {
     /* noop */
   }
@@ -81,15 +145,20 @@ async function postRouteMatrixManyOriginsOneDest(
   const n = origins.length;
   const empty = (): RouteLegMetrics => ({ rideMinutes: null, routeDistanceMeters: null });
   const out: RouteLegMetrics[] = Array.from({ length: n }, empty);
-  if (isGoogleRoutesApiGloballyDisabled() || isGoogleRoutesMatrixDisabled() || n === 0) return out;
+  if (isGoogleRoutesApiGloballyDisabled() || isGoogleRoutesMatrixDisabled() || n === 0) {
+    if (n > 0) googleMatrixSkippedLog("matrix_disabled", "postRouteMatrixManyOriginsOneDest");
+    return out;
+  }
   const key = getGoogleRoutesServerApiKey();
-  if (!key) return out;
+  if (!key) {
+    googleMatrixSkippedLog("missing_api_key", "postRouteMatrixManyOriginsOneDest");
+    return out;
+  }
 
   const body = {
     origins: origins.map(waypointFromLatLng),
     destinations: [waypointFromLatLng(destination)],
     travelMode,
-    routingPreference: "TRAFFIC_AWARE",
   };
 
   devLogMatrixExpensiveCall("postRouteMatrixManyOriginsOneDest", { origins: n, travelMode });
@@ -120,6 +189,12 @@ async function postRouteMatrixManyOriginsOneDest(
   }
   if (!Array.isArray(rows)) return out;
 
+  googleMatrixBillableCallLog("postRouteMatrixManyOriginsOneDest", {
+    travelMode,
+    origins: n,
+    destinations: 1,
+  });
+
   for (const row of rows) {
     let oi = row.originIndex;
     if (typeof oi !== "number" || !Number.isFinite(oi)) {
@@ -149,15 +224,20 @@ async function postRouteMatrix(
   const n = destinations.length;
   const empty = (): RouteLegMetrics => ({ rideMinutes: null, routeDistanceMeters: null });
   const out: RouteLegMetrics[] = Array.from({ length: n }, empty);
-  if (isGoogleRoutesApiGloballyDisabled() || isGoogleRoutesMatrixDisabled() || n === 0) return out;
+  if (isGoogleRoutesApiGloballyDisabled() || isGoogleRoutesMatrixDisabled() || n === 0) {
+    if (n > 0) googleMatrixSkippedLog("matrix_disabled", "postRouteMatrix");
+    return out;
+  }
   const key = getGoogleRoutesServerApiKey();
-  if (!key) return out;
+  if (!key) {
+    googleMatrixSkippedLog("missing_api_key", "postRouteMatrix");
+    return out;
+  }
 
   const body = {
     origins: [waypointFromLatLng(origin)],
     destinations: destinations.map(waypointFromLatLng),
     travelMode,
-    routingPreference: "TRAFFIC_AWARE",
   };
 
   devLogMatrixExpensiveCall("postRouteMatrix", { destinations: n, travelMode });
@@ -189,6 +269,12 @@ async function postRouteMatrix(
     return out;
   }
   if (!Array.isArray(rows)) return out;
+
+  googleMatrixBillableCallLog("postRouteMatrix", {
+    travelMode,
+    origins: 1,
+    destinations: n,
+  });
 
   for (const row of rows) {
     let di = row.destinationIndex;
@@ -233,10 +319,7 @@ export async function fetchTwoWheelerRouteMetricsMatrix(
   const merged: RouteLegMetrics[] = [];
   for (let i = 0; i < n; i += MAX_WAYPOINTS_PER_REQUEST) {
     const chunk = destinations.slice(i, i + MAX_WAYPOINTS_PER_REQUEST);
-    let part = await postRouteMatrix(origin, chunk, "TWO_WHEELER");
-    if (part.length > 0 && part.every((x) => x.rideMinutes == null)) {
-      part = await postRouteMatrix(origin, chunk, "DRIVE");
-    }
+    const part = await postRouteMatrix(origin, chunk, matrixTravelMode());
     merged.push(...part);
   }
   return merged;
@@ -254,10 +337,7 @@ export async function fetchTwoWheelerRouteMetricsStoresToUser(
   const merged: RouteLegMetrics[] = [];
   for (let i = 0; i < n; i += MAX_WAYPOINTS_PER_REQUEST) {
     const chunk = storeCoords.slice(i, i + MAX_WAYPOINTS_PER_REQUEST);
-    let part = await postRouteMatrixManyOriginsOneDest(chunk, user, "TWO_WHEELER");
-    if (part.length > 0 && part.every((x) => x.rideMinutes == null)) {
-      part = await postRouteMatrixManyOriginsOneDest(chunk, user, "DRIVE");
-    }
+    const part = await postRouteMatrixManyOriginsOneDest(chunk, user, matrixTravelMode());
     merged.push(...part);
   }
   return merged;
@@ -280,14 +360,25 @@ type LegCacheEntry = {
   routeDistanceMeters: number | null;
 };
 const routeLegCache = new Map<string, LegCacheEntry>();
-const RIDE_CACHE_TTL_MS = 45_000;
+const routeBatchInflight = new Map<string, Promise<Map<string, RouteLegMetrics>>>();
+const RIDE_CACHE_TTL_MS = 15 * 60 * 1000;
 
 function rideCacheKey(origin: LatLng, dest: LatLng): string {
   const oLat = origin.lat.toFixed(4);
   const oLng = origin.lng.toFixed(4);
   const dLat = dest.lat.toFixed(4);
   const dLng = dest.lng.toFixed(4);
-  return `${oLat},${oLng}|${dLat},${dLng}`;
+  /** computeRoutes용 traffic 플래그와 무관 — matrix body는 travelMode만 사용 */
+  return `${oLat},${oLng}|${dLat},${dLng}|${matrixTravelMode()}`;
+}
+
+function rideBatchInflightKey(user: LatLng, pending: { id: string; lat: number; lng: number }[]): string {
+  const userKey = `${user.lat.toFixed(4)},${user.lng.toFixed(4)}`;
+  const legs = pending
+    .map((p) => `${p.id}:${rideCacheKey({ lat: p.lat, lng: p.lng }, user)}`)
+    .sort()
+    .join(";");
+  return `${matrixTravelMode()}|${userKey}|${legs}`;
 }
 
 /**
@@ -320,20 +411,38 @@ export async function fetchRouteLegMetricsByStoreId(args: {
 
   if (pending.length === 0) return result;
 
-  const storeCoords = pending.map((p) => ({ lat: p.lat, lng: p.lng }));
-  const metrics = await fetchTwoWheelerRouteMetricsStoresToUser(storeCoords, args.user);
-
-  for (let i = 0; i < pending.length; i++) {
-    const p = pending[i];
-    const m = metrics[i] ?? { rideMinutes: null, routeDistanceMeters: null };
-    result.set(p.id, m);
-    const ck = rideCacheKey({ lat: p.lat, lng: p.lng }, args.user);
-    routeLegCache.set(ck, {
-      expiresAt: now + RIDE_CACHE_TTL_MS,
-      rideMinutes: m.rideMinutes,
-      routeDistanceMeters: m.routeDistanceMeters,
-    });
+  const batchKey = rideBatchInflightKey(args.user, pending);
+  const existingBatch = routeBatchInflight.get(batchKey);
+  if (existingBatch) {
+    const joined = await existingBatch;
+    for (const [id, leg] of joined) result.set(id, leg);
+    return result;
   }
+
+  const batchFlight = (async () => {
+    const out = new Map<string, RouteLegMetrics>();
+    const storeCoords = pending.map((p) => ({ lat: p.lat, lng: p.lng }));
+    const metrics = await fetchTwoWheelerRouteMetricsStoresToUser(storeCoords, args.user);
+
+    for (let i = 0; i < pending.length; i++) {
+      const p = pending[i];
+      const m = metrics[i] ?? { rideMinutes: null, routeDistanceMeters: null };
+      out.set(p.id, m);
+      const ck = rideCacheKey({ lat: p.lat, lng: p.lng }, args.user);
+      routeLegCache.set(ck, {
+        expiresAt: now + RIDE_CACHE_TTL_MS,
+        rideMinutes: m.rideMinutes,
+        routeDistanceMeters: m.routeDistanceMeters,
+      });
+    }
+    return out;
+  })().finally(() => {
+    routeBatchInflight.delete(batchKey);
+  });
+  routeBatchInflight.set(batchKey, batchFlight);
+
+  const fresh = await batchFlight;
+  for (const [id, leg] of fresh) result.set(id, leg);
 
   return result;
 }

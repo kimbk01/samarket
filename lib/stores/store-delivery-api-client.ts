@@ -2,7 +2,7 @@
  * 배달·매장(스토어 커머스) 클라이언트 API — 동일 URL 동시 요청 합류(runSingleFlight).
  * 컴포넌트에 `fetch("/api/stores/...")` 를 흩뿌리지 않고 한곳에서 유지한다.
  */
-import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
 
 const STORE_PUBLIC_CACHE_TTL_MS = 15_000;
 const storePublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
@@ -32,6 +32,39 @@ function trimSlug(slug: string): string {
 }
 
 export type StoreApiJsonResponse = { status: number; json: unknown };
+
+function routesTraceClientLog(fields: {
+  pathname: string;
+  component: string;
+  reason: string;
+  triggeredBy: string;
+  duplicateKey: string;
+  cacheHit: boolean;
+  event: string;
+}): void {
+  if (process.env.NODE_ENV !== "development" || typeof window === "undefined") return;
+  try {
+    console.info(
+      "[ROUTES_TRACE]",
+      JSON.stringify({
+        pathname: fields.pathname,
+        component: fields.component,
+        reason: fields.reason,
+        origin: null,
+        destination: null,
+        triggeredBy: fields.triggeredBy,
+        duplicateKey: fields.duplicateKey,
+        cacheHit: fields.cacheHit,
+        devMode: true,
+        timestamp: new Date().toISOString(),
+        event: fields.event,
+        travelMode: null,
+      })
+    );
+  } catch {
+    /* noop */
+  }
+}
 
 type StoreHubSummaryCacheSnapshot = {
   value: StoreApiJsonResponse | null;
@@ -414,13 +447,30 @@ export async function deleteMeStoreOrder(orderId: string): Promise<StoreApiJsonR
 export async function fetchStoreDeliveryEtaDeduped(
   slug: string,
   deliveryUserAddressId: string,
-  opts?: { signal?: AbortSignal }
+  opts?: {
+    signal?: AbortSignal;
+    trace?: { component?: string; reason?: string; triggeredBy?: string; pathname?: string };
+  }
 ): Promise<StoreApiJsonResponse> {
   const s = slug.trim();
   const id = deliveryUserAddressId.trim();
   if (!s || !id) return { status: 400, json: { ok: false } };
   const qs = new URLSearchParams({ delivery_user_address_id: id }).toString();
-  const flight = runSingleFlight(`stores:delivery-eta:${s}:${id}`, async () => {
+  const flightKey = `stores:delivery-eta:${s}:${id}`;
+  const pathname =
+    opts?.trace?.pathname ??
+    (typeof window !== "undefined" ? window.location.pathname : "/api/stores/[slug]/delivery-eta");
+  const existing = getSingleFlightPromise<StoreApiJsonResponse>(flightKey);
+  routesTraceClientLog({
+    pathname,
+    component: opts?.trace?.component ?? "fetchStoreDeliveryEtaDeduped",
+    reason: opts?.trace?.reason ?? "delivery_eta_client_fetch",
+    triggeredBy: opts?.trace?.triggeredBy ?? "unknown",
+    duplicateKey: flightKey,
+    cacheHit: Boolean(existing),
+    event: existing ? "client_inflight_hit" : "client_fetch_start",
+  });
+  const flight = runSingleFlight(flightKey, async () => {
     const res = await fetch(`/api/stores/${encodeURIComponent(s)}/delivery-eta?${qs}`, {
       credentials: "include",
       cache: "no-store",

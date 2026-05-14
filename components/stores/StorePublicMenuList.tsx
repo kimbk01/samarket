@@ -259,9 +259,9 @@ export function StorePublicMenuList({
         >
           <div className={sectionIndex === 0 ? "pt-3.5" : "pt-4.5"}>
             <h3 className="text-[16px] font-extrabold tracking-[-0.02em] text-neutral-900">
-              {sectionIndex === 0 && /인기/.test(section.heading) ? "가장 인기 있는 메뉴" : section.heading}
+              {section.listHeading ?? section.heading}
             </h3>
-            {sectionIndex === 0 && /인기/.test(section.heading) ? (
+            {section.listHeading && section.heading === "인기" ? (
               <p className="mt-0.5 text-[12px] font-medium text-neutral-500">
                 한 달간 주문수가 많고 만족도가 높은 메뉴예요.
               </p>

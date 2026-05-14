@@ -10,7 +10,6 @@ import {
   OWNER_STORE_SELECT_CLASS,
 } from "@/lib/business/owner-store-stack";
 import { getAppSettings } from "@/lib/app-settings";
-import { BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import {
   formatPrice,
   formatPriceInput,
@@ -471,8 +470,8 @@ export function OwnerProductForm({
   const idTrim = values.menu_section_id.trim();
 
   return (
-    <div className="bg-sam-app pb-[calc(8.75rem+env(safe-area-inset-bottom,0px))]">
-      <div className="sticky top-0 z-20 border-b border-sam-border bg-sam-surface shadow-sm">
+    <div className="flex flex-col bg-sam-app">
+      <div className="sticky top-0 z-20 shrink-0 border-b border-sam-border bg-sam-surface shadow-sm">
         <div
           ref={categoryStripRef}
           className="border-t border-sam-border-soft bg-sam-surface px-2 py-2"
@@ -570,7 +569,7 @@ export function OwnerProductForm({
       <form
         id="owner-product-form"
         onSubmit={(e) => void handleSubmit(e)}
-        className="space-y-[18px] px-4 py-4"
+        className="min-w-0 space-y-[18px] px-4 py-4"
       >
         {error ? (
           <div className="rounded-ui-rect bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800">{error}</div>
@@ -1172,9 +1171,7 @@ export function OwnerProductForm({
           </BaeminSectionCard>
         ) : null}
       </form>
-      <div
-        className={`fixed left-0 right-0 z-30 border-t border-sam-border bg-sam-surface p-3 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] ${BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS}`}
-      >
+      <footer className="shrink-0 border-t border-sam-border bg-sam-surface px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] shadow-[0_-2px_10px_rgba(0,0,0,0.05)]">
         <div className="mb-2 grid grid-cols-2 gap-2 sm:grid-cols-4">
           <Link
             href={productsHubHref}
@@ -1209,7 +1206,7 @@ export function OwnerProductForm({
         >
           {saving ? "저장 중…" : "저장"}
         </button>
-      </div>
+      </footer>
 
       <OwnerStoreAdminConfirmModal
         open={deleteConfirmOpen}
