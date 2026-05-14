@@ -12,6 +12,7 @@ import { Sam } from "@/lib/ui/sam-component-classes";
 import { samTier1HeaderIconMicro } from "@/lib/ui/tier1-header-icon";
 import { StoreMenuCategorySortableList } from "@/components/business/owner/StoreMenuCategorySortableList";
 import { useBusinessAdminStore } from "@/components/business/admin/business-admin-store-context";
+import type { OwnerRscMenuSection } from "@/lib/stores/owner/load-owner-store-read-bootstrap";
 
 type Section = {
   id: string;
@@ -26,7 +27,15 @@ type EditorTab = "basic" | "language";
 const SWITCH_PRESS =
   "touch-manipulation select-none transition-[transform,opacity] duration-150 active:scale-[0.98] active:opacity-90";
 
-export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
+export function OwnerMenuCategoriesClient({
+  storeId,
+  initialSections,
+  rscBootstrapError,
+}: {
+  storeId: string;
+  initialSections?: OwnerRscMenuSection[];
+  rscBootstrapError?: string;
+}) {
   const pathname = usePathname() ?? "";
   /** `ConditionalAppShell` 과 동일한 하단 탭 노출 여부 — 고정 액션 바 오프셋에만 사용 */
   const { showBottomNav } = useMemo(
@@ -37,9 +46,26 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
   const editScrollBottomPaddingClass = showBottomNav
     ? "pb-[calc(8.75rem+env(safe-area-inset-bottom,0px))]"
     : "pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]";
-  const [sections, setSections] = useState<Section[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [sections, setSections] = useState<Section[]>(() =>
+    (initialSections ?? []).map((s) => ({
+      id: s.id,
+      name: s.name,
+      sort_order: s.sort_order,
+      description: s.description,
+      is_hidden: s.is_hidden,
+    }))
+  );
+  const [loading, setLoading] = useState(() => initialSections === undefined);
+  const [error, setError] = useState<string | null>(() => {
+    if (!rscBootstrapError) return null;
+    if (rscBootstrapError === "session_invalid") {
+      return "로그인 세션을 확인할 수 없습니다. 새로고침 후 다시 시도해 주세요.";
+    }
+    if (rscBootstrapError === "supabase_unconfigured") {
+      return "매장 서비스 설정이 완료되지 않았습니다.";
+    }
+    return rscBootstrapError;
+  });
   const [screen, setScreen] = useState<"list" | "edit">("list");
   const [editingId, setEditingId] = useState<string | "new" | null>(null);
   const [editorTab, setEditorTab] = useState<EditorTab>("basic");
@@ -91,8 +117,8 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
   }, [base]);
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    void load(initialSections ? { silent: true } : {});
+  }, [initialSections, load]);
 
   const openNew = useCallback(() => {
     setEditingId("new");

@@ -7,6 +7,7 @@ import {
   getStoreIfOwner,
 } from "@/lib/stores/owner-product-gate";
 import { parseProductOptionsJsonField } from "@/lib/stores/parse-product-options-json";
+import { validateOwnerOptionsJsonPayload } from "@/lib/stores/owner-product-options-validate";
 import { discountPriceFromPercent } from "@/lib/stores/store-product-pricing";
 
 export const runtime = "nodejs";
@@ -241,7 +242,14 @@ export async function POST(
     if (!parsed.ok) {
       return NextResponse.json({ ok: false, error: "invalid_options_json" }, { status: 400 });
     }
-    options_json = parsed.value;
+    const optCheck = validateOwnerOptionsJsonPayload(parsed.value);
+    if (!optCheck.ok) {
+      return NextResponse.json(
+        { ok: false, error: optCheck.error, message: optCheck.message },
+        { status: 400 }
+      );
+    }
+    options_json = optCheck.value;
   }
 
   const row = {

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { OwnerProductsHubClient } from "@/components/business/owner/OwnerProductsHubClient";
+import { loadOwnerProductsHubBootstrap } from "@/lib/stores/owner/load-owner-store-read-bootstrap";
 
 export default function OwnerProductsHubPage({
   searchParams,
@@ -35,5 +36,22 @@ async function OwnerProductsHubPageBody({
       </div>
     );
   }
-  return <OwnerProductsHubClient storeId={storeId} />;
+  const bootstrap = await loadOwnerProductsHubBootstrap(storeId);
+  if (!bootstrap.ok) {
+    return (
+      <OwnerProductsHubClient
+        key={storeId}
+        storeId={storeId}
+        rscBootstrapError={bootstrap.error}
+      />
+    );
+  }
+  return (
+    <OwnerProductsHubClient
+      key={storeId}
+      storeId={storeId}
+      initialSections={bootstrap.sections}
+      initialProducts={bootstrap.products}
+    />
+  );
 }

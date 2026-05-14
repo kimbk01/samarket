@@ -87,8 +87,11 @@ export function MyBusinessPage({
     playDeliveryOrderAlertDebounced(alertStoreIdRef.current);
   }, []);
 
-  const loadRemote = useCallback(async () => {
-    setState({ kind: "loading" });
+  const loadRemote = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
+    if (!silent) {
+      setState({ kind: "loading" });
+    }
     try {
       const { status, json: rawStores } = await fetchMeStoresListDeduped();
       const json = rawStores as { ok?: boolean; error?: string; stores?: StoreRow[] };
@@ -148,10 +151,22 @@ export function MyBusinessPage({
       initialServerState.products.length === 0
     );
   const skipFirstRemoteRef = useRef(shouldSkipFirstRemote);
+  /** 서버가 상품 배열을 비워 둔 승인 매장: 첫 페치만 무음으로(전체 화면 '불러오는 중' 없이 목록만 채움) */
+  const deferredProductsHydrateRef = useRef(
+    initialServerState?.kind === "remote" &&
+      initialServerState.row?.approval_status === "approved" &&
+      Array.isArray(initialServerState.products) &&
+      initialServerState.products.length === 0
+  );
 
   useEffect(() => {
     if (skipFirstRemoteRef.current) {
       skipFirstRemoteRef.current = false;
+      return;
+    }
+    if (deferredProductsHydrateRef.current) {
+      deferredProductsHydrateRef.current = false;
+      void loadRemote({ silent: true });
       return;
     }
     void loadRemote();

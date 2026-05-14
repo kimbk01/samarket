@@ -53,6 +53,13 @@ function preventAuthPageCache(res: NextResponse): NextResponse {
   return res;
 }
 
+function finalizeOwnerDocResponse(res: NextResponse, pathname: string): NextResponse {
+  if (pathname === "/stores/owner" || pathname.startsWith("/stores/owner/")) {
+    res.headers.set("x-sam-owner-path", pathname);
+  }
+  return preventAuthPageCache(res);
+}
+
 /**
  * 미인증 시 `/login` 으로 보낸다.
  * 원래 가려던 *내부* 경로가 안전(`sanitizeNextPath`)하면 `?next=` 로 보존해
@@ -199,7 +206,7 @@ export async function proxy(request: NextRequest) {
           { pathname }
         );
       }
-      return preventAuthPageCache(response);
+      return finalizeOwnerDocResponse(response, pathname);
     }
 
     if (!error) {
@@ -226,7 +233,7 @@ export async function proxy(request: NextRequest) {
         { pathname, fail_open: 1 }
       );
     }
-    return preventAuthPageCache(response);
+    return finalizeOwnerDocResponse(response, pathname);
   } catch {
     if (shouldLogProxyPerf) {
       logDevApiPerf(
@@ -238,7 +245,7 @@ export async function proxy(request: NextRequest) {
         { pathname, fail_open: 1, exception: 1 }
       );
     }
-    return preventAuthPageCache(response);
+    return finalizeOwnerDocResponse(response, pathname);
   }
 }
 

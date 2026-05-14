@@ -1,20 +1,18 @@
 import { cache } from "react";
-import { getRouteUserId } from "@/lib/auth/get-route-user-id";
-import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
-import { loadMeStoresListForUser } from "@/lib/me/load-me-stores-for-user";
 import {
   dbStoreToBusinessProfile,
   type StoreRow,
 } from "@/lib/stores/db-store-mapper";
 import { pickPreferredOwnerStore } from "@/lib/stores/owner-lite-external-store";
 import type { BusinessProduct, BusinessProfile } from "@/lib/types/business";
+import { loadOwnerStoresPackCached } from "@/lib/me/load-owner-stores-pack-cached";
 
 export type MyBusinessServerInitial =
   | { kind: "unauth" }
   | { kind: "config" }
   | { kind: "error"; message: string }
   | { kind: "empty" }
-  | { kind: "remote"; row: StoreRow; profile: BusinessProfile; products: BusinessProduct[] };
+  | { kind: "remote"; row: StoreRow; profile: BusinessProfile; products: BusinessProduct[]; stores: StoreRow[] };
 
 function pickStoreRow(stores: StoreRow[], preferredStoreId: string): StoreRow {
   const preferred = preferredStoreId.trim();
@@ -24,20 +22,17 @@ function pickStoreRow(stores: StoreRow[], preferredStoreId: string): StoreRow {
 
 /**
  * `/my/business` RSC 선로딩 — `MyBusinessPage.loadRemote` 와 동일 분기(상품은 승인 매장만).
+ * 매장 목록은 `loadOwnerStoresPackCached` 단일 비행(레이아웃·본문 공유).
  */
 export const loadMyBusinessServer = cache(async (preferredStoreId: string): Promise<MyBusinessServerInitial> => {
-  const userId = await getRouteUserId();
-  if (!userId) return { kind: "unauth" };
-
-  const supabase = tryGetSupabaseForStores();
-  if (!supabase) return { kind: "config" };
-
-  const pack = await loadMeStoresListForUser(supabase, userId);
-  if (!pack.ok) {
-    return { kind: "error", message: pack.error };
+  const packAll = await loadOwnerStoresPackCached();
+  if (!packAll.ok) {
+    if ("kind" in packAll && packAll.kind === "unauth") return { kind: "unauth" };
+    if ("kind" in packAll && packAll.kind === "config") return { kind: "config" };
+    return { kind: "error", message: "error" in packAll ? packAll.error : "load_failed" };
   }
 
-  const stores = pack.stores;
+  const stores = packAll.stores;
   if (stores.length === 0) return { kind: "empty" };
 
   const row = pickStoreRow(stores, preferredStoreId);
@@ -51,5 +46,5 @@ export const loadMyBusinessServer = cache(async (preferredStoreId: string): Prom
     productCount: products.length,
   };
 
-  return { kind: "remote", row, profile, products };
+  return { kind: "remote", row, profile, products, stores };
 });

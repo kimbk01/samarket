@@ -22,22 +22,6 @@ function isTerminalOrderStatus(s: string): boolean {
   return s === "completed" || s === "cancelled" || s === "refunded";
 }
 
-function KpiSkeleton() {
-  return (
-    <div className="rounded-ui-rect border border-sam-border bg-sam-border p-px shadow-sm">
-      <div className="grid grid-cols-2 gap-px sm:grid-cols-3 xl:grid-cols-6">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="min-h-[5.25rem] bg-sam-surface px-2.5 py-2.5 sm:min-h-[5.75rem] sm:px-3">
-            <div className="h-3 w-14 animate-pulse rounded bg-sam-border-soft" />
-            <div className="mt-2 h-7 w-10 animate-pulse rounded bg-sam-border-soft" />
-            <div className="mt-1.5 h-3 w-16 animate-pulse rounded bg-sam-border-soft" />
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export function BusinessAdminDashboard({
   row,
   profile: _profile,
@@ -65,7 +49,6 @@ export function BusinessAdminDashboard({
     pending_delivery: 0,
   });
   const [inquiries, setInquiries] = useState<InquiryRow[]>([]);
-  const [dashLoading, setDashLoading] = useState(true);
 
   const alertStoreIdRef = useRef<string | null>(null);
   useLayoutEffect(() => {
@@ -83,9 +66,7 @@ export function BusinessAdminDashboard({
     playDeliveryOrderAlertDebounced(alertStoreIdRef.current);
   }, []);
 
-  const loadDashboard = useCallback(async (opts?: { silent?: boolean }) => {
-    const silent = opts?.silent === true;
-    if (!silent) setDashLoading(true);
+  const loadDashboard = useCallback(async (_opts?: { silent?: boolean }) => {
     try {
       const [oj, ir] = await Promise.all([
         fetchStoreOrdersListDeduped(row.id),
@@ -119,8 +100,6 @@ export function BusinessAdminDashboard({
     } catch {
       setOrders([]);
       setInquiries([]);
-    } finally {
-      if (!silent) setDashLoading(false);
     }
   }, [row.id]);
 
@@ -131,7 +110,7 @@ export function BusinessAdminDashboard({
   });
 
   useEffect(() => {
-    void loadDashboard();
+    void loadDashboard({ silent: true });
   }, [loadDashboard]);
 
   useEffect(() => {
@@ -307,16 +286,13 @@ export function BusinessAdminDashboard({
           </Link>
         </div>
         <div className="space-y-2 p-3 sm:p-4">
-          {dashLoading ?
-            <KpiSkeleton />
-          : <BusinessDashboardKpiStrip
-              kpi={kpi}
-              ordersBaseHref={ordersBaseHref}
-              inquiriesHref={inquiriesHref}
-              productsHubHref={productsHubHref}
-              orderAlertsBadge={orderAlertsBadge}
-            />
-          }
+          <BusinessDashboardKpiStrip
+            kpi={kpi}
+            ordersBaseHref={ordersBaseHref}
+            inquiriesHref={inquiriesHref}
+            productsHubHref={productsHubHref}
+            orderAlertsBadge={orderAlertsBadge}
+          />
           {alertChips.length > 0 ?
             <div className="flex flex-wrap gap-2" role="list" aria-label="즉시 확인">
               {alertChips.map((c) => (

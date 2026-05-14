@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { OwnerMenuCategoriesClient } from "@/components/business/owner/OwnerMenuCategoriesClient";
+import { loadOwnerMenuSectionsForRsc } from "@/lib/stores/owner/load-owner-store-read-bootstrap";
 
 export default function MenuCategoriesPage({
   searchParams,
@@ -35,5 +36,9 @@ async function MenuCategoriesPageBody({
       </div>
     );
   }
-  return <OwnerMenuCategoriesClient storeId={storeId} />;
+  const sec = await loadOwnerMenuSectionsForRsc(storeId);
+  if (!sec.ok) {
+    return <OwnerMenuCategoriesClient key={storeId} storeId={storeId} rscBootstrapError={sec.error} />;
+  }
+  return <OwnerMenuCategoriesClient key={storeId} storeId={storeId} initialSections={sec.sections} />;
 }

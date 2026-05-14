@@ -8,6 +8,10 @@ import { storeRowCanSell } from "@/lib/business/store-can-sell";
 import { getAppSettings } from "@/lib/app-settings";
 import { getCurrencyUnitLabel } from "@/lib/utils/format";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import {
+  readOwnerProductsHubSessionCache,
+  writeOwnerProductsHubSessionCache,
+} from "@/lib/business/owner-products-hub-session-cache";
 
 type Section = { id: string; name: string; sort_order?: number; is_hidden?: boolean };
 
@@ -74,14 +78,55 @@ function ownerHubStatusPillClass(active: boolean): string {
   ].join(" ");
 }
 
-/** 매장 상품 목록·노출·신규 등록 진입 — 구 카테고리·상품 관리 화면과 동일 기능 */
-export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
+import type { OwnerRscHubProduct, OwnerRscMenuSection } from "@/lib/stores/owner/load-owner-store-read-bootstrap";
+
+/** 매장 상품 목록·노출·신규 등록 진입 — RSC `initial*` 으로 첫 페인트부터 데이터 표시 */
+export function OwnerProductsHubClient({
+  storeId,
+  initialSections,
+  initialProducts,
+  rscBootstrapError,
+}: {
+  storeId: string;
+  initialSections?: OwnerRscMenuSection[];
+  initialProducts?: OwnerRscHubProduct[];
+  /** RSC 부트스트랩 실패 시 클라에서 API 재시도 */
+  rscBootstrapError?: string;
+}) {
+  const hasRscPayload = initialSections != null && initialProducts != null;
+
   const adminStore = useBusinessAdminStore();
   const priceUnit = useMemo(() => getCurrencyUnitLabel(getAppSettings().defaultCurrency), []);
-  const [sections, setSections] = useState<Section[]>([]);
-  const [products, setProducts] = useState<HubProduct[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [sections, setSections] = useState<Section[]>(() => {
+    if (hasRscPayload) {
+      return initialSections.map((s) => ({
+        id: s.id,
+        name: s.name,
+        sort_order: s.sort_order,
+        is_hidden: s.is_hidden,
+      }));
+    }
+    return (readOwnerProductsHubSessionCache(storeId)?.sections ?? []) as Section[];
+  });
+  const [products, setProducts] = useState<HubProduct[]>(() => {
+    if (hasRscPayload) return initialProducts as HubProduct[];
+    return (readOwnerProductsHubSessionCache(storeId)?.products ?? []) as HubProduct[];
+  });
+  const [loading, setLoading] = useState(() => {
+    if (hasRscPayload) return false;
+    if (rscBootstrapError) return true;
+    return readOwnerProductsHubSessionCache(storeId) == null;
+  });
+  const [error, setError] = useState<string | null>(() => {
+    if (!rscBootstrapError) return null;
+    if (rscBootstrapError === "session_invalid") {
+      return "로그인 세션을 확인할 수 없습니다. 새로고침 후 다시 시도해 주세요.";
+    }
+    if (rscBootstrapError === "supabase_unconfigured") {
+      return "매장 서비스 설정이 완료되지 않았습니다.";
+    }
+    return rscBootstrapError;
+  });
   const [tab, setTab] = useState<string>("all");
   /** 전체·판매중·품절·숨김(초안 포함) — 카테고리 탭과 AND 필터 */
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "sold_out" | "hidden">("all");
@@ -104,8 +149,8 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
     tab !== "all" ? `${newProductBase}&menuSectionId=${encodeURIComponent(tab)}` : newProductBase;
   const categoriesHref = `/stores/owner/menu-categories?${q}`;
 
-  const loadAll = useCallback(async () => {
-    setLoading(true);
+  const loadAll = useCallback(async (opts?: { silent?: boolean }) => {
+    if (!opts?.silent) setLoading(true);
     setError(null);
     try {
       const [secRes, prodRes] = await Promise.all([
@@ -120,35 +165,46 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
       ]);
       const sj = await secRes.json().catch(() => ({}));
       const pj = await prodRes.json().catch(() => ({}));
+      let nextProducts: HubProduct[] = [];
+      let nextSections: Section[] = [];
       if (!pj?.ok) {
         setError(typeof pj?.error === "string" ? pj.error : "상품 목록을 불러오지 못했습니다.");
         setProducts([]);
+        nextProducts = [];
       } else {
-        setProducts((pj.products ?? []) as HubProduct[]);
+        nextProducts = (pj.products ?? []) as HubProduct[];
+        setProducts(nextProducts);
       }
       if (sj?.ok && Array.isArray(sj.sections)) {
-        setSections(
-          sj.sections.map((s: Section) => ({
-            id: String(s.id),
-            name: String(s.name ?? ""),
-            sort_order: Number(s.sort_order) || 0,
-            is_hidden: s.is_hidden === true,
-          }))
-        );
+        nextSections = sj.sections.map((s: Section) => ({
+          id: String(s.id),
+          name: String(s.name ?? ""),
+          sort_order: Number(s.sort_order) || 0,
+          is_hidden: s.is_hidden === true,
+        }));
+        setSections(nextSections);
       } else {
         setSections([]);
+        nextSections = [];
+      }
+      if (pj?.ok) {
+        writeOwnerProductsHubSessionCache(storeId, nextSections, nextProducts);
       }
     } catch {
-      setError("network_error");
-      setProducts([]);
+      if (!opts?.silent) {
+        setError("network_error");
+        setProducts([]);
+      }
     } finally {
-      setLoading(false);
+      if (!opts?.silent) setLoading(false);
     }
   }, [storeId]);
 
   useEffect(() => {
-    void loadAll();
-  }, [loadAll]);
+    const clientCached = readOwnerProductsHubSessionCache(storeId) != null;
+    const silent = hasRscPayload || clientCached;
+    void loadAll(silent ? { silent: true } : undefined);
+  }, [hasRscPayload, loadAll, storeId]);
 
   /** 카테고리가 삭제되거나 목록이 바뀌어 선택 탭이 없어지면 전체 상품 보기로 복귀 */
   useEffect(() => {
@@ -207,7 +263,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
         }
         return;
       }
-      await loadAll();
+      await loadAll({ silent: true });
     } catch {
       setError("network_error");
     } finally {
@@ -243,7 +299,7 @@ export function OwnerProductsHubClient({ storeId }: { storeId: string }) {
     "min-h-11 flex-1 touch-manipulation select-none rounded-ui-rect px-3 py-2.5 text-center sam-text-body-secondary font-semibold no-underline transition-[transform,opacity] active:scale-[0.99] active:opacity-90";
 
   return (
-    <div className="max-w-full overflow-x-hidden bg-sam-app pb-8">
+    <div className="max-w-full overflow-x-hidden bg-sam-app pb-[max(0px,env(safe-area-inset-bottom,0px))]">
       <div className="flex gap-2 border-b border-sam-border-soft bg-sam-surface px-0 py-2.5">
         <Link href={categoriesHref} className={`${Sam.btn.outlineCombo} ${hubTopActionClass}`}>
           카테고리추가

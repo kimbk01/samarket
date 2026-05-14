@@ -3,6 +3,7 @@
  * (매장 관리 허브 vs 주문 목록 등)
  */
 import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
+import type { StoreRow } from "@/lib/stores/db-store-mapper";
 
 export type MeStoresListResult = {
   status: number;
@@ -14,6 +15,36 @@ const TTL_MS = 22_000;
 const FLIGHT_KEY = "me:stores:list" as const;
 
 let cached: { expiresAt: number; value: MeStoresListResult } | null = null;
+
+/**
+ * RSC `loadMyBusinessServer` 등에서 이미 확보한 매장 목록을 클라이언트 캐시에 넣는다.
+ * `BusinessAdminShell` 첫 `fetchMeStoresListDeduped` 가 GET 을 다시 치지 않게 하여 허브 진입 왕복을 1회 줄인다.
+ */
+export function seedMeStoresListClientCacheFromStores(stores: StoreRow[]): void {
+  if (!Array.isArray(stores) || stores.length === 0) return;
+  const now = Date.now();
+  const result: MeStoresListResult = {
+    status: 200,
+    json: { ok: true, stores },
+  };
+  cached = { value: result, expiresAt: now + TTL_MS };
+}
+
+/** TTL 유효한 캐시만 — `BusinessAdminShell`·`StoreBusinessGuard` 첫 페인트 동기 시드용 */
+export function peekMeStoresListClientCache(): MeStoresListResult | null {
+  const now = Date.now();
+  dropExpiredMeStoresCache(now);
+  if (cached && cached.expiresAt > now) return cached.value;
+  return null;
+}
+
+/** `GET /api/me/stores` 200 본문에서 `stores` 배열만 추출 */
+export function parseStoreRowsFromMeStoresJson(json: unknown): StoreRow[] | null {
+  if (!json || typeof json !== "object") return null;
+  const j = json as { ok?: unknown; stores?: unknown };
+  if (j.ok !== true || !Array.isArray(j.stores)) return null;
+  return j.stores as StoreRow[];
+}
 
 function dropExpiredMeStoresCache(now: number): void {
   if (cached && cached.expiresAt <= now) cached = null;

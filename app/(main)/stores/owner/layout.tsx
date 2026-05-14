@@ -1,39 +1,30 @@
-"use client";
-
-import { usePathname } from "next/navigation";
-import { StoreBusinessGuard } from "@/components/business/StoreBusinessGuard";
-import { BusinessAdminShell } from "@/components/business/admin/BusinessAdminShell";
+import { headers } from "next/headers";
+import { OwnerHubMeStoresCacheSeed } from "@/components/business/owner/OwnerHubMeStoresCacheSeed";
+import { loadOwnerStoresPackCached } from "@/lib/me/load-owner-stores-pack-cached";
+import { StoresOwnerLayoutClient } from "./StoresOwnerLayoutClient";
 
 /**
- * `/stores/owner/*` 캐노니컬 매장 운영 셸.
- *
- * 분기:
- * - `/stores/owner`            허브 — `BusinessAdminShell` (`entry="hub"`, 심사 전·매장 없음도 본문 유지)
- * - `/stores/owner/apply`      신청 폼 — 상단 `StoresOwnerStackHeader`(히스토리 뒤로 우선, 없으면 `/stores/owner`), 본문은 `biz-app-bg`·섹션 카드 톤
- * - 나머지 `/stores/owner/*`   `StoreBusinessGuard` + `BusinessAdminShell` (좌측 사이드바)
- *
- * 옛 `/my/business/*`, `/mypage/business/*` 는 모두 본 경로로 리다이렉트된다(`/stores/owner` 단일 진입).
+ * `/stores/owner/*` — 서버에서 매장 목록을 한 번 읽어 클라 `fetchMeStoresListDeduped` 캐시에 시드한다.
+ * 이후 `StoreBusinessGuard`·`BusinessAdminShell` 의 첫 GET 이 캐시 히트로 떨어져 왕복을 없앤다.
+ * (`x-sam-owner-path` 는 `proxy.ts` 가 설정)
  */
-export default function StoresOwnerLayout({ children }: { children: React.ReactNode }) {
-  const pathname = (usePathname() ?? "").replace(/\/+$/, "") || "/";
-  const isApply = pathname.startsWith("/stores/owner/apply");
-  const isHub = pathname === "/stores/owner";
+export default async function StoresOwnerLayout({ children }: { children: React.ReactNode }) {
+  const h = await headers();
+  const ownerPath = h.get("x-sam-owner-path") ?? "";
+  const skipServerStores = ownerPath.startsWith("/stores/owner/apply");
 
-  if (isApply) {
-    return (
-      <div className="min-h-screen bg-[var(--biz-app-bg)] pb-[max(0.5rem,env(safe-area-inset-bottom,0px))]">
-        {children}
-      </div>
-    );
-  }
-
-  if (isHub) {
-    return <BusinessAdminShell entry="hub">{children}</BusinessAdminShell>;
+  let seedStores: import("@/lib/stores/db-store-mapper").StoreRow[] | null = null;
+  if (!skipServerStores) {
+    const pack = await loadOwnerStoresPackCached();
+    if (pack.ok && pack.stores.length > 0) {
+      seedStores = pack.stores;
+    }
   }
 
   return (
-    <StoreBusinessGuard>
-      <BusinessAdminShell>{children}</BusinessAdminShell>
-    </StoreBusinessGuard>
+    <>
+      {seedStores ? <OwnerHubMeStoresCacheSeed stores={seedStores} /> : null}
+      <StoresOwnerLayoutClient>{children}</StoresOwnerLayoutClient>
+    </>
   );
 }

@@ -8,7 +8,11 @@ import { buildBusinessAdminSidebar } from "@/lib/business/business-admin-nav";
 import { getBusinessAdminPageTitle } from "@/lib/business/business-admin-page-title";
 import { storeRowCanSell } from "@/lib/business/store-can-sell";
 import { fetchStoreOrderCountsDeduped } from "@/lib/business/fetch-store-order-counts-deduped";
-import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
+import {
+  fetchMeStoresListDeduped,
+  peekMeStoresListClientCache,
+  parseStoreRowsFromMeStoresJson,
+} from "@/lib/me/fetch-me-stores-deduped";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { readCachedMeAddressList } from "@/lib/addresses/address-list-client-cache";
@@ -39,6 +43,12 @@ import { setStoreOwnerMainBottomNavSuppressed } from "@/lib/business/store-owner
 import { useIsMobileViewport } from "@/hooks/use-is-mobile-viewport";
 import { ChevronRight, MapPin } from "lucide-react";
 
+function readInitialStoresFromMeListCache(): StoreRow[] | null {
+  const peek = peekMeStoresListClientCache();
+  if (!peek || peek.status !== 200) return null;
+  return parseStoreRowsFromMeStoresJson(peek.json);
+}
+
 export function BusinessAdminShell({
   children,
   entry = "guarded",
@@ -52,7 +62,7 @@ export function BusinessAdminShell({
   const searchParams = useSearchParams();
   const storeIdParam = searchParams.get("storeId")?.trim() ?? "";
 
-  const [stores, setStores] = useState<StoreRow[] | null>(null);
+  const [stores, setStores] = useState<StoreRow[] | null>(() => readInitialStoresFromMeListCache());
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   /** md 이상: 우측 도킹 패널 — 기본 펼침, 접으면 본문 전폭 */
@@ -79,6 +89,29 @@ export function BusinessAdminShell({
     }
     return "pb-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:pb-8";
   }, [pathname]);
+
+  /** 상품 목록 허브 — 하단 탭 없음, 과한 main pb·클라 pb-8 중복 제거 대상 */
+  const isOwnerStoreProductsHubRoute = useMemo(() => {
+    const p = pathname.split("?")[0]?.replace(/\/+$/, "") ?? "";
+    return p === "/stores/owner/products" || p === "/my/business/products";
+  }, [pathname]);
+
+  /** 상품 등록·편집: 본문 스크롤 + 하단 액션 분리를 위해 main 열 높이를 뷰포트에 맞춘다 */
+  const isOwnerStoreProductComposerRoute = useMemo(() => {
+    const p = pathname.split("?")[0]?.replace(/\/+$/, "") ?? "";
+    return (
+      p === "/stores/owner/products/new" ||
+      /^\/stores\/owner\/products\/[^/]+\/edit$/.test(p) ||
+      p === "/my/business/products/new" ||
+      /^\/my\/business\/products\/[^/]+\/edit$/.test(p)
+    );
+  }, [pathname]);
+
+  /** 상품 작성·목록 허브: 하단 고정 UI 없음 — main 과패딩으로 짜투리 공간이 생기지 않게 */
+  const ownerMainBottomPadForChildren = useMemo(() => {
+    if (isOwnerStoreProductComposerRoute || isOwnerStoreProductsHubRoute) return "pb-0";
+    return ownerMainBottomPad;
+  }, [isOwnerStoreProductComposerRoute, isOwnerStoreProductsHubRoute, ownerMainBottomPad]);
 
   const reloadStores = useCallback(async () => {
     try {
@@ -594,7 +627,14 @@ export function BusinessAdminShell({
           document.body
         )
       : null}
-      <div data-biz="1" className="flex min-h-screen min-w-0 flex-col bg-[var(--biz-app-bg)] md:flex-row-reverse">
+      <div
+        data-biz="1"
+        className={`flex min-w-0 flex-col bg-[var(--biz-app-bg)] md:flex-row-reverse ${
+          isOwnerStoreProductComposerRoute
+            ? "h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden"
+            : "min-h-screen"
+        }`}
+      >
         {!mobileOwnerDrawerPortaled ?
           <>
             {mobileOwnerOverlay}
@@ -602,7 +642,11 @@ export function BusinessAdminShell({
           </>
         : null}
 
-        <div className="flex min-h-screen min-w-0 flex-1 flex-col bg-[var(--biz-app-bg)] md:border-r md:border-sam-border-soft">
+        <div
+          className={`flex min-w-0 flex-1 flex-col bg-[var(--biz-app-bg)] md:border-r md:border-sam-border-soft ${
+            isOwnerStoreProductComposerRoute ? "min-h-0 overflow-hidden" : "min-h-screen"
+          }`}
+        >
           <StoresOwnerStackHeader
             variant="admin"
             backHref={adminHeaderBackHref}
@@ -614,7 +658,9 @@ export function BusinessAdminShell({
           />
 
         <main
-          className={`mx-auto w-full max-w-6xl bg-[var(--biz-app-bg)] px-2 pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] sm:px-2 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem+1rem)] ${ownerMainBottomPad}`}
+          className={`mx-auto w-full max-w-6xl min-w-0 bg-[var(--biz-app-bg)] px-2 pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] sm:px-2 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem+1rem)] ${ownerMainBottomPadForChildren}${
+            isOwnerStoreProductComposerRoute ? " flex min-h-0 flex-1 flex-col overflow-hidden" : ""
+          }`}
         >
           {children}
         </main>

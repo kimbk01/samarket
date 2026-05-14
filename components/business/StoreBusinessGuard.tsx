@@ -8,6 +8,7 @@ import { getOwnerStoreGateState } from "@/lib/stores/store-admin-access";
 import {
   fetchMeStoresListDeduped,
   invalidateMeStoresListDedupedCache,
+  peekMeStoresListClientCache,
 } from "@/lib/me/fetch-me-stores-deduped";
 import { StoreBusinessBlockedModal } from "@/components/business/StoreBusinessBlockedModal";
 
@@ -32,33 +33,47 @@ type ResolvedPhase =
 
 type Phase = { kind: "loading" } | ResolvedPhase;
 
+function resolvedPhaseFromStoresApi(status: number, raw: unknown): ResolvedPhase {
+  const json = raw as {
+    ok?: boolean;
+    error?: string;
+    stores?: MeStore[];
+  };
+  if (status === 401) {
+    return { kind: "unauth" };
+  }
+  if (status === 503 && json?.error === "supabase_unconfigured") {
+    return { kind: "config" };
+  }
+  if (!json?.ok) {
+    return {
+      kind: "error",
+      message: typeof json?.error === "string" ? json.error : "load_failed",
+    };
+  }
+  const stores = (json.stores ?? []) as MeStore[];
+  const gate = getOwnerStoreGateState(stores);
+  if (gate.kind === "approved") {
+    return { kind: "ok" };
+  }
+  const firstStoreId = stores[0]?.id;
+  return { kind: "blocked", state: gate, firstStoreId };
+}
+
+function resolvedPhaseFromPeek(): ResolvedPhase | null {
+  const peek = peekMeStoresListClientCache();
+  if (!peek) return null;
+  try {
+    return resolvedPhaseFromStoresApi(peek.status, peek.json);
+  } catch {
+    return null;
+  }
+}
+
 async function resolveStoreBusinessPhase(): Promise<ResolvedPhase> {
   try {
     const { status, json: raw } = await fetchMeStoresListDeduped();
-    const json = raw as {
-      ok?: boolean;
-      error?: string;
-      stores?: MeStore[];
-    };
-    if (status === 401) {
-      return { kind: "unauth" };
-    }
-    if (status === 503 && json?.error === "supabase_unconfigured") {
-      return { kind: "config" };
-    }
-    if (!json?.ok) {
-      return {
-        kind: "error",
-        message: typeof json?.error === "string" ? json.error : "load_failed",
-      };
-    }
-    const stores = (json.stores ?? []) as MeStore[];
-    const gate = getOwnerStoreGateState(stores);
-    if (gate.kind === "approved") {
-      return { kind: "ok" };
-    }
-    const firstStoreId = stores[0]?.id;
-    return { kind: "blocked", state: gate, firstStoreId };
+    return resolvedPhaseFromStoresApi(status, raw);
   } catch {
     return { kind: "error", message: "network_error" };
   }
@@ -66,9 +81,10 @@ async function resolveStoreBusinessPhase(): Promise<ResolvedPhase> {
 
 export function StoreBusinessGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const [phase, setPhase] = useState<Phase>({ kind: "loading" });
+  const [phase, setPhase] = useState<Phase>(() => resolvedPhaseFromPeek() ?? { kind: "loading" });
 
   useEffect(() => {
+    if (phase.kind !== "loading") return;
     let cancelled = false;
     void resolveStoreBusinessPhase().then((p) => {
       if (!cancelled) setPhase(p);
@@ -76,12 +92,11 @@ export function StoreBusinessGuard({ children }: { children: React.ReactNode }) 
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [phase.kind]);
 
   const retry = () => {
     invalidateMeStoresListDedupedCache();
     setPhase({ kind: "loading" });
-    void resolveStoreBusinessPhase().then(setPhase);
   };
 
   if (phase.kind === "loading") {
