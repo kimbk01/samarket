@@ -44,18 +44,36 @@ export function AdminStoreApplicationSettingsPage() {
   const [riderLocationLoading, setRiderLocationLoading] = useState(false);
   const [riderLocationSaving, setRiderLocationSaving] = useState(false);
   const [riderLocationError, setRiderLocationError] = useState<string | null>(null);
+  const [rideTimeSourceSaved, setRideTimeSourceSaved] = useState<"store" | "google">("store");
+  const [rideTimeSourceDraft, setRideTimeSourceDraft] = useState<"store" | "google">("store");
+  const [rideTimeSourceSaving, setRideTimeSourceSaving] = useState(false);
+  const [rideTimeSourceError, setRideTimeSourceError] = useState<string | null>(null);
+
+  const rideTimeSourceDirty = useMemo(
+    () => rideTimeSourceDraft !== rideTimeSourceSaved,
+    [rideTimeSourceDraft, rideTimeSourceSaved]
+  );
 
   const loadRiderLocationSetting = useCallback(async () => {
     setRiderLocationLoading(true);
     setRiderLocationError(null);
+    setRideTimeSourceError(null);
     try {
       const res = await fetch("/api/admin/delivery/settings", { credentials: "include" });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; rider_location_enabled?: unknown };
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        rider_location_enabled?: unknown;
+        ride_time_source?: unknown;
+      };
       if (!res.ok || !j?.ok) {
         setRiderLocationError(typeof j?.error === "string" ? j.error : `HTTP ${res.status}`);
         return;
       }
       setRiderLocationEnabled(j.rider_location_enabled === true);
+      const src = j.ride_time_source === "google" ? "google" : "store";
+      setRideTimeSourceSaved(src);
+      setRideTimeSourceDraft(src);
     } catch {
       setRiderLocationError("network_error");
     } finally {
@@ -73,12 +91,21 @@ export function AdminStoreApplicationSettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rider_location_enabled: next }),
       });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; rider_location_enabled?: unknown };
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        rider_location_enabled?: unknown;
+        ride_time_source?: unknown;
+      };
       if (!res.ok || !j?.ok) {
         setRiderLocationError(typeof j?.error === "string" ? j.error : `HTTP ${res.status}`);
         return;
       }
       setRiderLocationEnabled(j.rider_location_enabled === true);
+      if (j.ride_time_source === "google" || j.ride_time_source === "store") {
+        setRideTimeSourceSaved(j.ride_time_source);
+        setRideTimeSourceDraft(j.ride_time_source);
+      }
       setMsg("저장했습니다.");
       window.setTimeout(() => setMsg(null), 2800);
     } catch {
@@ -87,6 +114,38 @@ export function AdminStoreApplicationSettingsPage() {
       setRiderLocationSaving(false);
     }
   }, []);
+
+  const commitRideTimeSource = useCallback(async () => {
+    const next = rideTimeSourceDraft;
+    setRideTimeSourceSaving(true);
+    setRideTimeSourceError(null);
+    try {
+      const res = await fetch("/api/admin/delivery/settings", {
+        method: "PUT",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ride_time_source: next }),
+      });
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        ride_time_source?: unknown;
+      };
+      if (!res.ok || !j?.ok) {
+        setRideTimeSourceError(typeof j?.error === "string" ? j.error : `HTTP ${res.status}`);
+        return;
+      }
+      const src = j.ride_time_source === "google" ? "google" : "store";
+      setRideTimeSourceSaved(src);
+      setRideTimeSourceDraft(src);
+      setMsg("배달 시간 소스를 저장했습니다.");
+      window.setTimeout(() => setMsg(null), 2800);
+    } catch {
+      setRideTimeSourceError("network_error");
+    } finally {
+      setRideTimeSourceSaving(false);
+    }
+  }, [rideTimeSourceDraft]);
 
   useEffect(() => {
     void loadRiderLocationSetting();
@@ -472,6 +531,81 @@ export function AdminStoreApplicationSettingsPage() {
 
       {activeMenu === "stores" ? (
         <>
+          <section className="mt-6 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
+            <h2 className="sam-text-body font-semibold text-sam-fg">배달 시간 표시</h2>
+            <p className="mt-1 sam-text-helper text-sam-muted">
+              목록·상세·체크아웃에서 배달 구간(오토바이) 시간을 <strong className="text-sam-fg">구글 Routes 추정</strong>으로
+              쓸지, <strong className="text-sam-fg">매장이 입력한 수기 문구</strong>로 쓸지 전역에서 정합니다. 기본은 매장
+              수기이며, 이 경우 Google Routes 호출을 하지 않습니다.
+            </p>
+            <p className="mt-1 sam-text-helper text-sam-muted">
+              라디오로 선택한 뒤 <strong className="text-sam-fg">저장</strong>을 눌러야 DB에 반영됩니다.
+            </p>
+            <p className="mt-1 sam-text-xxs text-sam-meta">
+              <code className="rounded bg-sam-surface-muted px-1">admin_settings.delivery_ride_time_source</code>
+            </p>
+            {rideTimeSourceError ? (
+              <p className="mt-2 sam-text-body-secondary text-red-700">({rideTimeSourceError})</p>
+            ) : null}
+            <fieldset className="mt-3 space-y-2" disabled={riderLocationLoading || rideTimeSourceSaving}>
+              <legend className="sr-only">배달 시간 소스</legend>
+              <label className="flex cursor-pointer items-start gap-2 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
+                <input
+                  type="radio"
+                  name="ride_time_source"
+                  className="mt-1"
+                  checked={rideTimeSourceDraft === "store"}
+                  onChange={() => setRideTimeSourceDraft("store")}
+                />
+                <span>
+                  <span className="font-semibold text-sam-fg">매장 설정</span>
+                  <span className="mt-0.5 block sam-text-helper text-sam-muted">
+                    매장 프로필의 수기 배달 시간 문구를 사용합니다. (비어 있으면 목록 등에서 배달 슬롯은 &quot;—&quot;)
+                  </span>
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-start gap-2 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
+                <input
+                  type="radio"
+                  name="ride_time_source"
+                  className="mt-1"
+                  checked={rideTimeSourceDraft === "google"}
+                  onChange={() => setRideTimeSourceDraft("google")}
+                />
+                <span>
+                  <span className="font-semibold text-sam-fg">구글 설정</span>
+                  <span className="mt-0.5 block sam-text-helper text-sam-muted">
+                    Google Routes API로 거리·소요 시간을 추정합니다. (API 비용·지연 발생 가능)
+                  </span>
+                </span>
+              </label>
+            </fieldset>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={riderLocationLoading || rideTimeSourceSaving || !rideTimeSourceDirty}
+                onClick={() => void commitRideTimeSource()}
+                className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body-secondary font-semibold text-white disabled:opacity-50"
+              >
+                {rideTimeSourceSaving ? "저장 중…" : "저장"}
+              </button>
+              <button
+                type="button"
+                disabled={riderLocationLoading || rideTimeSourceSaving || !rideTimeSourceDirty}
+                onClick={() => setRideTimeSourceDraft(rideTimeSourceSaved)}
+                className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-semibold text-sam-fg disabled:opacity-50"
+              >
+                선택 취소
+              </button>
+              <span className="sam-text-helper text-sam-muted">
+                현재 저장값: {rideTimeSourceSaved === "google" ? "구글 설정" : "매장 설정"}
+              </span>
+            </div>
+            <p className="mt-2 sam-text-helper text-sam-muted">
+              {rideTimeSourceSaving ? "저장 중…" : riderLocationLoading ? "불러오는 중…" : null}
+            </p>
+          </section>
+
           <section className="mt-6 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
             <h2 className="sam-text-body font-semibold text-sam-fg">연동 여부</h2>
             <ul className="mt-3 space-y-2 sam-text-body-secondary text-sam-fg">

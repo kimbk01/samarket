@@ -66,6 +66,8 @@ export function BusinessAdminShell({
   const [ownerBizDrawerPortalReady, setOwnerBizDrawerPortalReady] = useState(false);
   const [orderAlertsBadge, setOrderAlertsBadge] = useState(0);
   const isMobile = useIsMobileViewport();
+  /** 서브 화면(예: 메뉴 카테고리 편집)이 운영 헤더 뒤로가기를 가로챌 때 */
+  const ownerHeaderBackInterceptRef = useRef<(() => boolean) | null>(null);
 
   const ownerMainBottomPad = useMemo(() => {
     const f = resolveConditionalAppShellFlags(pathname, false);
@@ -214,15 +216,6 @@ export function BusinessAdminShell({
       : null;
   const ownerCommerceUnread = useOwnerCommerceNotificationUnreadCount();
 
-  const ctxValue = useMemo(
-    () => ({
-      storeRow: selectedRow,
-      reloadStores,
-    }),
-    [selectedRow, reloadStores]
-  );
-
-  /** 모바일 햄버거로 운영 사이드 드로어가 열리면 전역 BottomNav 가 겹치지 않게 숨김 */
   useEffect(() => {
     const open = isMobile && mobileMenuOpen;
     setStoreOwnerMainBottomNavSuppressed(open);
@@ -327,6 +320,25 @@ export function BusinessAdminShell({
     emitOwnerBasicInfoLeave({ href, kind: "back" });
     return true;
   }, [pathname, adminHeaderBackHref, selectedRow?.id, storeIdParam]);
+
+  const registerOwnerAdminHeaderBackIntercept = useCallback((fn: (() => boolean) | null) => {
+    ownerHeaderBackInterceptRef.current = fn;
+  }, []);
+
+  const combinedAdminHeaderBackIntercept = useCallback(() => {
+    if (basicInfoBackIntercept()) return true;
+    const fn = ownerHeaderBackInterceptRef.current;
+    return fn ? fn() : false;
+  }, [basicInfoBackIntercept]);
+
+  const ctxValue = useMemo(
+    () => ({
+      storeRow: selectedRow,
+      reloadStores,
+      registerOwnerAdminHeaderBackIntercept,
+    }),
+    [selectedRow, reloadStores, registerOwnerAdminHeaderBackIntercept]
+  );
 
   if (!isHub) {
     if (loadErr && (!stores || stores.length === 0)) {
@@ -593,7 +605,7 @@ export function BusinessAdminShell({
           <StoresOwnerStackHeader
             variant="admin"
             backHref={adminHeaderBackHref}
-            backIntercept={basicInfoBackIntercept}
+            backIntercept={combinedAdminHeaderBackIntercept}
             backAriaLabel="운영 대시보드로"
             shopName={shopName}
             pageTitle={pageTitle}

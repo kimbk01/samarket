@@ -84,7 +84,8 @@ export function StoreOrderHeroSummary({
   collapseTopFulfillmentCard = false,
   /** 사장님 `store_banners` — 있으면 상단 히어로(#store-hero-media)에 노출(갤러리 커버 대체) */
   heroBannerSlot,
-  /** 배민식 비용: 상세 히어로에서 Routes 자동 호출 없음 — `commerceExtras` 조리 안내만 */
+  /** 배달 가능일 때 히어로「배달 시간」표시 — 전역 store 수기 / google `delivery-eta` 등 상위에서 전달 */
+  deliveryTimeDisplay = "—",
   storeSlug: _storeSlug,
 }: {
   storeName: string;
@@ -121,6 +122,8 @@ export function StoreOrderHeroSummary({
    */
   collapseTopFulfillmentCard?: boolean;
   heroBannerSlot?: ReactNode;
+  /** 히어로 배달 시간 한 줄 */
+  deliveryTimeDisplay?: string;
   storeSlug?: string | null;
 }) {
   /** 당김 시 레이아웃 높이 + 위로 이동을 같이 줘서 헤더 위 흰 빈 공간이 보이지 않게 함 */
@@ -171,7 +174,7 @@ export function StoreOrderHeroSummary({
     return "—";
   }, [commerceExtras.prepMinutes, commerceExtras.estPrepLabel]);
 
-  const heroRideDisplay = useMemo(() => "—", []);
+  const heroRideDisplay = deliveryTimeDisplay.trim() ? deliveryTimeDisplay : "—";
 
   const heroDistDisplay = useMemo(() => "—", []);
 

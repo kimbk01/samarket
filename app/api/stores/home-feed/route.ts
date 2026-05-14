@@ -4,9 +4,10 @@ import { devLogRoutesSkipped } from "@/lib/geo/google-routes-client";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
 import { formatStoreBrowseDeliveryFeeLine, formatStoreBrowseDeliveryFeeStrikePhp, parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
-import { buildStoreDeliveryEtaLabel } from "@/lib/stores/store-delivery-eta-label";
+import { buildBrowseStoreListEtaLabel } from "@/lib/stores/store-delivery-eta-label";
 import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { loadDeliveryRideTimeSource } from "@/lib/delivery/delivery-ops-settings";
 import { resolvePublicPaymentMethodsLine } from "@/lib/stores/store-detail-meta";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import {
@@ -104,7 +105,10 @@ export async function GET(req: Request) {
   const region = searchParams.get("region")?.trim() || null;
   const district = searchParams.get("district")?.trim() || null;
   const searchQ = parseSearchQ(searchParams.get("q"));
-  const origin = await resolveStoreListDeliveryOrigin(supabase, searchParams);
+  const [origin, deliveryRideTimeSource] = await Promise.all([
+    resolveStoreListDeliveryOrigin(supabase, searchParams),
+    loadDeliveryRideTimeSource(supabase),
+  ]);
   const userLat = origin.lat;
   const userLng = origin.lng;
   const cacheKey = buildStoreHomeFeedCacheKey({
@@ -114,6 +118,7 @@ export async function GET(req: Request) {
     userLat,
     userLng,
     originKey: origin.cacheKeyPart,
+    deliveryRideTimeSource,
   });
 
   const cached = getStoreHomeFeedCache(cacheKey);
@@ -299,7 +304,14 @@ export async function GET(req: Request) {
       const displayDistanceKm = isSameAddress ? 0 : distanceKm;
       const rideRaw = isSameAddress ? 0 : null;
       const rideMinutes = r.delivery_available ? rideRaw : null;
-      const etaLabel = buildStoreDeliveryEtaLabel(extras, rideMinutes);
+      const routeCtx = userLat != null && userLng != null;
+      const manualForEta =
+        deliveryRideTimeSource === "store" ? extras.deliveryRideDisplayManual : null;
+      const etaLabel = buildBrowseStoreListEtaLabel(extras, rideMinutes, {
+        deliveryAvailable: !!r.delivery_available,
+        routeContextPresent: routeCtx,
+        manualRideDisplay: manualForEta,
+      });
 
       return {
         id: r.id,

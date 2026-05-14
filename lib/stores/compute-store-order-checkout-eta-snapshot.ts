@@ -3,6 +3,7 @@ import { clampStorePrepMinutes, parseCommerceExtrasFromHoursJson } from "@/lib/s
 import { parseFiniteLatitude, parseFiniteLongitude } from "@/lib/geo/parse-finite-geographic-coord";
 import { routeLegMetricsStorePinToUserPin } from "@/lib/stores/store-order-checkout-route-metrics";
 import { haversineKm } from "@/lib/geo/haversine-km";
+import { loadDeliveryRideTimeSource } from "@/lib/delivery/delivery-ops-settings";
 
 export type StoreOrderCheckoutEtaSnapshot = {
   checkout_prep_minutes: number | null;
@@ -58,11 +59,14 @@ export async function computeStoreOrderCheckoutEtaSnapshot(opts: {
     return { checkout_prep_minutes, ...emptyRide };
   }
 
-  const { data: row, error } = await opts.sb
-    .from("user_addresses")
-    .select("user_id, latitude, longitude")
-    .eq("id", addrId)
-    .maybeSingle();
+  const [{ data: row, error }, rideTimeSource] = await Promise.all([
+    opts.sb
+      .from("user_addresses")
+      .select("user_id, latitude, longitude")
+      .eq("id", addrId)
+      .maybeSingle(),
+    loadDeliveryRideTimeSource(opts.sb),
+  ]);
 
   if (error || !row) {
     return { checkout_prep_minutes, ...emptyRide };
@@ -80,11 +84,13 @@ export async function computeStoreOrderCheckoutEtaSnapshot(opts: {
     return { checkout_prep_minutes, ...emptyRide };
   }
 
+  const skipRoutes = opts.skipGoogleRoutes === true || rideTimeSource === "store";
+
   const straightKm = haversineKm(slat, slng, ulat, ulng);
   const checkout_straight_distance_meters =
     straightKm != null && Number.isFinite(straightKm) && straightKm >= 0 ? Math.round(straightKm * 1000) : null;
 
-  if (opts.skipGoogleRoutes === true) {
+  if (skipRoutes === true) {
     return {
       checkout_prep_minutes,
       checkout_ride_minutes: null,

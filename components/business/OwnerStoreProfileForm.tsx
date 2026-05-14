@@ -109,6 +109,9 @@ function readPublicCommerceFields(raw: unknown) {
         ? formatPriceInput(String(extras.deliveryFeeStrikeReferencePhp))
         : "",
     deliveryCourierLabel: (extras.deliveryCourierLabel ?? "").trim(),
+    deliveryRideDisplayManual: String(o.delivery_ride_display_manual ?? o.deliveryRideDisplayManual ?? "")
+      .trim()
+      .slice(0, 80),
     prepTimeMinutes,
   };
 }
@@ -158,6 +161,8 @@ export type OwnerStoreProfileFormValues = {
   /** self_free_promo: 목록 취소선용 원래 배달비(필수) */
   deliveryFeeStrikeReferencePhp: string;
   deliveryCourierLabel: string;
+  /** 전역 매장 수기 모드일 때 목록·ETA 배달 구간 문구 — `delivery_ride_display_manual` */
+  deliveryRideDisplayManual: string;
   latStr: string;
   lngStr: string;
   galleryUrls: string[];
@@ -178,6 +183,7 @@ function hasPersistedPublicCommerceDetail(v: OwnerStoreProfileFormValues): boole
   if (v.deliveryFeePhp.trim()) return true;
   if (v.deliveryFeeStrikeReferencePhp.trim()) return true;
   if (v.deliveryCourierLabel.trim()) return true;
+  if (v.deliveryRideDisplayManual.trim()) return true;
   if (v.freeDeliveryOverPhp.trim()) return true;
   if (v.publicNotices.some((t) => t.trim())) return true;
   if (v.deliveryNotice.trim()) return true;
@@ -274,6 +280,8 @@ function buildBusinessHoursJson(
     "deliveryFeeStrikeReferencePhp",
     "delivery_courier_label",
     "deliveryCourierLabel",
+    "delivery_ride_display_manual",
+    "deliveryRideDisplayManual",
     "est_prep_label",
     "estPrepLabel",
     "auto_business_hours",
@@ -318,6 +326,8 @@ function buildBusinessHoursJson(
       prev.est_prep_label = `${c}분`;
     }
   }
+  const drm = values.deliveryRideDisplayManual.trim().slice(0, 80);
+  if (drm) prev.delivery_ride_display_manual = drm;
   if (values.breakHoursEnabled) {
     const bs = normalizeHHMM(values.breakHoursStart.trim());
     const be = normalizeHHMM(values.breakHoursEnd.trim());
@@ -431,6 +441,7 @@ export function OwnerStoreProfileForm({
   const [baselineSnapshot, setBaselineSnapshot] = useState<string | null>(null);
   const [leavePrompt, setLeavePrompt] = useState<OwnerBasicInfoLeaveDetail | null>(null);
   const [leaveSaving, setLeaveSaving] = useState(false);
+  const [globalRideTimeSource, setGlobalRideTimeSource] = useState<"store" | "google" | null>(null);
 
   const valuesRef = useRef(values);
   valuesRef.current = values;
@@ -477,6 +488,23 @@ export function OwnerStoreProfileForm({
       pickupAvailable: values.pickupAvailable,
     });
   }, [values.deliveryAvailable, values.pickupAvailable, onServiceDraftChange]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/app/delivery-ride-time-source", { cache: "no-store" });
+        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; source?: unknown };
+        if (cancelled) return;
+        setGlobalRideTimeSource(j.source === "google" ? "google" : "store");
+      } catch {
+        if (!cancelled) setGlobalRideTimeSource("store");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const uploadGalleryImage = async (file: File) => {
     setUploading("gallery");
@@ -1130,9 +1158,40 @@ export function OwnerStoreProfileForm({
                 className={OWNER_STORE_PROFILE_CONTROL_CLASS}
               />
               <p className="mt-1.5 sam-text-helper text-sam-meta">
-                배달 구간(오토바이) 소요는 고객 위치 기준으로 자동 추정됩니다. 수동 &quot;배달 소요&quot; 입력은 사용하지 않습니다.
+                {globalRideTimeSource === "google" ? (
+                  <>
+                    배달 구간(오토바이) 소요는 고객 위치 기준으로 <strong className="text-sam-fg">구글 경로</strong>로
+                    자동 추정됩니다.
+                  </>
+                ) : globalRideTimeSource === "store" ? (
+                  <>
+                    운영 정책상 배달 구간은 아래 <strong className="text-sam-fg">수기 배달 시간</strong> 문구로
+                    표시됩니다. (고객 앱에서 구글 Routes 호출 없음)
+                  </>
+                ) : (
+                  "배달 시간 표시 방식을 불러오는 중…"
+                )}
               </p>
             </div>
+            {globalRideTimeSource === "store" ? (
+              <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
+                <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>배달 시간 (수기, 최대 80자)</label>
+                <input
+                  type="text"
+                  maxLength={80}
+                  value={values.deliveryRideDisplayManual}
+                  onChange={(e) =>
+                    setValues((v) => ({ ...v, deliveryRideDisplayManual: e.target.value.slice(0, 80) }))
+                  }
+                  placeholder='예: 30~45분, 지역에 따라 상이'
+                  className={OWNER_STORE_PROFILE_CONTROL_CLASS}
+                />
+                <p className="mt-1.5 sam-text-helper text-sam-meta">
+                  목록·상세·배달 예상에 &quot;조리 … · 배달 …&quot; 형태로 붙습니다. 비우면 배달 칸은 대시(—)로
+                  둡니다.
+                </p>
+              </div>
+            ) : null}
             <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
               <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>평균 채팅 응답 (가게정보)</label>
               <input

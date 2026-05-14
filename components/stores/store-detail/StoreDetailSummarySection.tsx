@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { StoreOrderHeroSummary } from "@/components/stores/store-order-detail/StoreOrderHeroSummary";
 import { StoreOrderNoticeStrip } from "@/components/stores/store-order-detail/StoreOrderNoticeStrip";
 import { StoreOrderStickyHeader } from "@/components/stores/store-order-detail/StoreOrderStickyHeader";
@@ -8,6 +9,7 @@ import type { StorePublicFulfillmentMode } from "@/components/stores/StoreDetail
 import type { StoreDeliveryMeta } from "@/lib/stores/store-detail-meta";
 import type { CommerceExtrasFromHours } from "@/lib/stores/store-commerce-extras";
 import type { StoreDetailDirectionsTarget } from "@/lib/stores/google-maps-store-links";
+import { fetchStoreDeliveryEtaDeduped } from "@/lib/stores/store-delivery-api-client";
 
 type CommerceSnap = {
   breakConfigured: boolean;
@@ -96,6 +98,76 @@ export function StoreDetailSummarySection({
   storeManagedNoticesSlot?: ReactNode;
   commerceCartStoreId: string;
 }) {
+  const [rideSource, setRideSource] = useState<"store" | "google" | null>(null);
+  const [heroDeliveryTimeDisplay, setHeroDeliveryTimeDisplay] = useState<string>("—");
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/app/delivery-ride-time-source", { cache: "no-store" });
+        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; source?: unknown };
+        if (cancelled) return;
+        setRideSource(j.source === "google" ? "google" : "store");
+      } catch {
+        if (!cancelled) setRideSource("store");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (rideSource == null) return;
+    if (!deliveryAvailable) {
+      setHeroDeliveryTimeDisplay("—");
+      return;
+    }
+    if (rideSource === "store") {
+      const m = commerceExtras.deliveryRideDisplayManual?.trim();
+      setHeroDeliveryTimeDisplay(m && m.length > 0 ? m : "—");
+      return;
+    }
+
+    let cancelled = false;
+    setHeroDeliveryTimeDisplay("—");
+    const slug = String(store.slug ?? "").trim();
+    if (!slug) return;
+
+    void (async () => {
+      try {
+        const cr = await fetch("/api/me/checkout-contact", { credentials: "include", cache: "no-store" });
+        const cj = (await cr.json().catch(() => ({}))) as {
+          ok?: boolean;
+          default_delivery?: { user_address_id?: string | null } | null;
+        };
+        if (cancelled || !cj?.ok) return;
+        const aid = String(cj.default_delivery?.user_address_id ?? "").trim();
+        if (!aid) return;
+        const { status, json } = await fetchStoreDeliveryEtaDeduped(slug, aid, {
+          trace: {
+            component: "StoreDetailSummarySection",
+            reason: "store_detail_hero_eta",
+            triggeredBy: "summary_mount",
+            pathname: "/stores/[slug]",
+          },
+        });
+        if (cancelled || status !== 200) return;
+        const ej = json as { ok?: boolean; etaLabel?: string };
+        if (ej?.ok === true && typeof ej.etaLabel === "string" && ej.etaLabel.trim()) {
+          setHeroDeliveryTimeDisplay(ej.etaLabel.trim());
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [rideSource, deliveryAvailable, store.slug, commerceExtras.deliveryRideDisplayManual]);
+
   return (
     <>
       <StoreOrderStickyHeader
@@ -153,6 +225,7 @@ export function StoreDetailSummarySection({
           favoriteBusy={favoriteBusy}
           onFavoriteClick={onFavoriteClick}
           storeSlug={store.slug}
+          deliveryTimeDisplay={heroDeliveryTimeDisplay}
         />
       </div>
 

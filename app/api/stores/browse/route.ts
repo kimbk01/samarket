@@ -7,6 +7,7 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
 import { formatStoreBrowseDeliveryFeeLine, formatStoreBrowseDeliveryFeeStrikePhp, parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
 import { buildBrowseStoreListEtaLabel } from "@/lib/stores/store-delivery-eta-label";
+import { loadDeliveryRideTimeSource } from "@/lib/delivery/delivery-ops-settings";
 import { resolvePublicPaymentMethodsLine } from "@/lib/stores/store-detail-meta";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import {
@@ -361,9 +362,10 @@ export async function GET(req: Request) {
           .limit(160)
       : null;
 
-    const [{ data: rawRows, error }, orphanRes] = await Promise.all([
+    const [{ data: rawRows, error }, orphanRes, deliveryRideTimeSource] = await Promise.all([
       mainQ,
       orphanQ ?? Promise.resolve({ data: [] as unknown[], error: null }),
+      loadDeliveryRideTimeSource(supabase),
     ]);
 
     if (error) {
@@ -521,9 +523,12 @@ export async function GET(req: Request) {
       const rideRaw = isSameAddress ? 0 : null;
       const rideMinutes = r.delivery_available ? rideRaw : null;
       const routeCtx = userLat != null && userLng != null;
+      const manualForEta =
+        deliveryRideTimeSource === "store" ? extras.deliveryRideDisplayManual : null;
       const etaLabel = buildBrowseStoreListEtaLabel(extras, rideMinutes, {
         deliveryAvailable: !!r.delivery_available,
         routeContextPresent: routeCtx,
+        manualRideDisplay: manualForEta,
       });
 
       return {

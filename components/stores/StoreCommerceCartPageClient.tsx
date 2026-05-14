@@ -13,6 +13,7 @@ import {
   parseCommerceExtrasFromHoursJson,
   resolveChargedDeliveryFeePhp,
 } from "@/lib/stores/store-commerce-extras";
+import { buildStoreDeliveryEtaLabelWithManualRide } from "@/lib/stores/store-delivery-eta-label";
 import { resolveStoreFrontCommerceState } from "@/lib/stores/store-auto-hours";
 import { PH_LOCAL_09_PLACEHOLDER } from "@/lib/constants/philippines-contact";
 import {
@@ -168,6 +169,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const [lastOrderId, setLastOrderId] = useState<string | null>(null);
   const [deliveryEtaLabel, setDeliveryEtaLabel] = useState<string | null>(null);
   const [deliveryEtaBusy, setDeliveryEtaBusy] = useState(false);
+  const [globalRideTimeSource, setGlobalRideTimeSource] = useState<"store" | "google" | null>(null);
   const deliveryEtaLastOkKeyRef = useRef<string | null>(null);
   const deliveryEtaPreviewAbortRef = useRef<AbortController | null>(null);
   const [hoursTick, setHoursTick] = useState(0);
@@ -253,6 +255,11 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     () => parseCommerceExtrasFromHoursJson(store?.business_hours_json),
     [store?.business_hours_json]
   );
+
+  const storeModeStaticEtaLabel = useMemo(() => {
+    if (globalRideTimeSource !== "store") return null;
+    return buildStoreDeliveryEtaLabelWithManualRide(commerce, commerce.deliveryRideDisplayManual);
+  }, [globalRideTimeSource, commerce]);
 
   const checkoutPaymentOptions = useMemo(() => {
     if (!store) return [];
@@ -456,7 +463,25 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     deliveryEtaLastOkKeyRef.current = null;
   }, [storeSlug, fulfillment, deliveryUserAddressIdForSubmit]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/app/delivery-ride-time-source", { cache: "no-store" });
+        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; source?: unknown };
+        if (cancelled) return;
+        setGlobalRideTimeSource(j.source === "google" ? "google" : "store");
+      } catch {
+        if (!cancelled) setGlobalRideTimeSource("store");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const loadDeliveryEtaPreview = useCallback(async () => {
+    if (!globalRideTimeSource || globalRideTimeSource !== "google") return;
     const slug = storeSlug.trim();
     if (!slug || fulfillment !== "local_delivery") return;
     const aid = deliveryUserAddressIdForSubmit?.trim();
@@ -490,7 +515,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     } finally {
       if (!ac.signal.aborted) setDeliveryEtaBusy(false);
     }
-  }, [storeSlug, fulfillment, deliveryUserAddressIdForSubmit]);
+  }, [storeSlug, fulfillment, deliveryUserAddressIdForSubmit, globalRideTimeSource]);
 
   /** 배달: 저장 주소 + 프로필 기본 배달만. 장바구니 전용 localStorage 주소는 제거됨 */
   const deliveryAddressReady =
@@ -1551,7 +1576,18 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             ) : null}
             {fulfillment === "local_delivery" && deliveryAddressReady ? (
               <div className="mt-2">
-                {deliveryEtaLabel ? (
+                {globalRideTimeSource === "store" ? (
+                  storeModeStaticEtaLabel && storeModeStaticEtaLabel.trim() ? (
+                    <p className="sam-text-xxs font-semibold leading-snug text-sam-fg">
+                      예상 도착(참고): {storeModeStaticEtaLabel}
+                      <span className="ml-1 font-normal text-sam-muted">매장 입력·조리 안내 기준</span>
+                    </p>
+                  ) : (
+                    <p className="sam-text-xxs leading-snug text-sam-muted">
+                      매장 설정에서 수기 배달 시간을 입력하면 여기에 표시됩니다.
+                    </p>
+                  )
+                ) : deliveryEtaLabel ? (
                   <p className="sam-text-xxs font-semibold leading-snug text-sam-fg">
                     예상 도착(참고): {deliveryEtaLabel}
                     <span className="ml-1 font-normal text-sam-muted">오토바이 경로 기준</span>

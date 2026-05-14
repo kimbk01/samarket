@@ -10,6 +10,8 @@ import { BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS } from "@/lib/main-menu/bottom
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { samTier1HeaderIconMicro } from "@/lib/ui/tier1-header-icon";
+import { StoreMenuCategorySortableList } from "@/components/business/owner/StoreMenuCategorySortableList";
+import { useBusinessAdminStore } from "@/components/business/admin/business-admin-store-context";
 
 type Section = {
   id: string;
@@ -20,9 +22,6 @@ type Section = {
 };
 
 type EditorTab = "basic" | "language";
-
-const LIST_ROW_PRESS =
-  "touch-manipulation select-none rounded-ui-rect transition-colors duration-150 active:bg-sam-surface-muted";
 
 const SWITCH_PRESS =
   "touch-manipulation select-none transition-[transform,opacity] duration-150 active:scale-[0.98] active:opacity-90";
@@ -51,14 +50,16 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
   const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Section | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [reorderBusy, setReorderBusy] = useState(false);
 
   const base = `/api/me/stores/${encodeURIComponent(storeId)}/menu-sections`;
   const productsHubHref = `/stores/owner/products?storeId=${encodeURIComponent(storeId)}`;
   const ordersHref = buildStoreOrdersHref({ storeId });
   const inquiriesHref = `/stores/owner/inquiries?storeId=${encodeURIComponent(storeId)}`;
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const res = await fetch(base, { credentials: "include", cache: "no-store" });
@@ -85,7 +86,7 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
       setError("network_error");
       setSections([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [base]);
 
@@ -93,7 +94,7 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
     void load();
   }, [load]);
 
-  const openNew = () => {
+  const openNew = useCallback(() => {
     setEditingId("new");
     setEditorTab("basic");
     setName("");
@@ -102,9 +103,9 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
     setIsHidden(false);
     setScreen("edit");
     setError(null);
-  };
+  }, [sections.length]);
 
-  const openEdit = (s: Section) => {
+  const openEdit = useCallback((s: Section) => {
     setEditingId(s.id);
     setEditorTab("basic");
     setName(s.name);
@@ -113,13 +114,34 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
     setIsHidden(s.is_hidden);
     setScreen("edit");
     setError(null);
-  };
+  }, []);
 
-  const backToList = () => {
+  const closeEditToListOnly = useCallback(() => {
     setScreen("list");
     setEditingId(null);
-    void load();
-  };
+    setError(null);
+  }, []);
+
+  const backToListAfterSave = useCallback(async () => {
+    closeEditToListOnly();
+    await load({ silent: true });
+  }, [closeEditToListOnly, load]);
+
+  const registerOwnerAdminHeaderBackIntercept =
+    useBusinessAdminStore()?.registerOwnerAdminHeaderBackIntercept;
+
+  useEffect(() => {
+    if (!registerOwnerAdminHeaderBackIntercept) return;
+    if (screen !== "edit") {
+      registerOwnerAdminHeaderBackIntercept(null);
+      return;
+    }
+    registerOwnerAdminHeaderBackIntercept(() => {
+      closeEditToListOnly();
+      return true;
+    });
+    return () => registerOwnerAdminHeaderBackIntercept(null);
+  }, [screen, registerOwnerAdminHeaderBackIntercept, closeEditToListOnly]);
 
   const saveEditor = async () => {
     const n = name.trim();
@@ -179,7 +201,7 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
           return;
         }
       }
-      backToList();
+      await backToListAfterSave();
     } catch {
       setError("network_error");
     } finally {
@@ -211,14 +233,58 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
     }
   }, [storeId]);
 
-  const askDeleteSection = async (s: Section) => {
+  const askDeleteSection = useCallback(async (s: Section) => {
     const n = await countProductsInSection(s.id);
     if (n > 0) {
       setError(`이 카테고리에 메뉴가 ${n}개 있습니다. 상품 관리에서 다른 카테고리로 옮긴 뒤 삭제해 주세요.`);
       return;
     }
     setDeleteTarget(s);
-  };
+  }, [countProductsInSection]);
+
+  const requestDeleteCategory = useCallback(
+    (s: Section) => {
+      void askDeleteSection(s);
+    },
+    [askDeleteSection]
+  );
+
+  const commitSectionOrder = useCallback(async (ordered: Section[]) => {
+    let previous: Section[] = [];
+    setSections((prev) => {
+      previous = prev;
+      return ordered;
+    });
+    setReorderBusy(true);
+    setError(null);
+    try {
+      const results = await Promise.all(
+        ordered.map((sec, idx) =>
+          fetch(`${base}/${encodeURIComponent(sec.id)}`, {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sort_order: idx }),
+          }).then(async (res) => ({ res, j: (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string } }))
+        )
+      );
+      const bad = results.find((r) => !r.res.ok || !r.j?.ok);
+      if (bad) {
+        setSections(previous);
+        const msg =
+          typeof bad.j?.error === "string" ? bad.j.error : "순서 저장에 실패했습니다.";
+        setError(msg);
+        window.alert(msg);
+        return;
+      }
+    } catch {
+      setSections(previous);
+      setError("network_error");
+      window.alert("네트워크 오류로 순서를 저장하지 못했습니다.");
+    } finally {
+      setReorderBusy(false);
+    }
+  }, [base]);
 
   const performDeleteSection = async (s: Section) => {
     setError(null);
@@ -232,7 +298,7 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
         setError(typeof j?.error === "string" ? j.error : "삭제 실패");
         return;
       }
-      await load();
+      await load({ silent: true });
     } catch {
       setError("network_error");
     }
@@ -349,8 +415,8 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
               <button
                 type="button"
                 disabled={saving}
-                onClick={() => backToList()}
-                className="min-h-12 flex-1 touch-manipulation select-none rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body-lg font-semibold text-sam-muted shadow-sm transition hover:bg-sam-surface-muted hover:text-sam-fg active:bg-sam-border-soft disabled:opacity-45"
+                onClick={() => closeEditToListOnly()}
+                className="min-h-12 flex-1 touch-manipulation select-none rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body-lg font-semibold text-sam-muted shadow-sm transition-[transform,opacity,background-color] duration-150 hover:bg-sam-surface-muted hover:text-sam-fg active:scale-[0.99] active:bg-sam-border-soft active:opacity-90 disabled:opacity-45"
               >
                 취소
               </button>
@@ -358,7 +424,7 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
                 type="button"
                 disabled={saving || editorTab !== "basic"}
                 onClick={() => void saveEditor()}
-                className="min-h-12 flex-1 touch-manipulation select-none rounded-ui-rect border border-transparent bg-signature px-4 py-3 sam-text-body-lg font-semibold !text-white shadow-sm transition hover:bg-signature/90 active:bg-signature/95 disabled:opacity-45"
+                className="min-h-12 flex-1 touch-manipulation select-none rounded-ui-rect border border-transparent bg-signature px-4 py-3 sam-text-body-lg font-semibold !text-white shadow-sm transition-[transform,opacity,background-color] duration-150 hover:bg-signature/90 active:scale-[0.99] active:bg-signature/95 disabled:opacity-45"
               >
                 {saving ? "처리 중…" : "확인"}
               </button>
@@ -411,7 +477,8 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
           </Link>
         </div>
         <p className="sam-text-body-secondary leading-relaxed text-sam-muted">
-          카테고리를 만든 뒤 상품 등록 화면에서 탭으로 나누어 등록하세요.
+          카테고리를 만든 뒤 상품 등록 화면에서 탭으로 나누어 등록하세요. 왼쪽 줄 세 개 아이콘을 잡고 위·아래로
+          드래그하면 순서를 바꿀 수 있습니다.
         </p>
 
         {error ? <p className="sam-text-body-secondary text-red-600">{error}</p> : null}
@@ -430,35 +497,13 @@ export function OwnerMenuCategoriesClient({ storeId }: { storeId: string }) {
             </button>
           </div>
         ) : (
-          <ul className="space-y-2">
-            {sections.map((s) => (
-              <li
-                key={s.id}
-                className="flex items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3 shadow-sm"
-              >
-                <button
-                  type="button"
-                  onClick={() => openEdit(s)}
-                  className={`min-w-0 flex-1 text-left ${LIST_ROW_PRESS}`}
-                >
-                  <p className="truncate sam-text-body font-semibold text-sam-fg">{s.name}</p>
-                  <p className="sam-text-helper text-sam-muted">
-                    정렬 {s.sort_order}
-                    {s.is_hidden ? (
-                      <span className="ml-2 rounded bg-sam-border-soft px-1.5 py-0.5 text-sam-fg">숨김</span>
-                    ) : null}
-                  </p>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => void askDeleteSection(s)}
-                  className={`${Sam.btn.dangerCombo} ${Sam.btn.sm} shrink-0`}
-                >
-                  삭제
-                </button>
-              </li>
-            ))}
-          </ul>
+          <StoreMenuCategorySortableList
+            items={sections}
+            disabled={reorderBusy || loading}
+            onCommitOrder={commitSectionOrder}
+            onEdit={openEdit}
+            onDelete={requestDeleteCategory}
+          />
         )}
       </div>
 

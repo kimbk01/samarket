@@ -18,7 +18,14 @@ export type CommerceExtrasFromHours = {
   prepMinutes: number | null;
   /** 카드·요약용 조리 라벨(레거시 호환: `est_prep_label` 또는 prep 분에서 파생) */
   estPrepLabel: string;
+  /**
+   * 전역 `delivery_ride_time_source=store` 일 때 목록·ETA에 쓰는 수기 배달 구간 문구.
+   * `business_hours_json.delivery_ride_display_manual`
+   */
+  deliveryRideDisplayManual: string | null;
 };
+
+const DELIVERY_RIDE_DISPLAY_MANUAL_MAX = 80;
 
 const PREP_MINUTES_CLAMP = { min: 1, max: 180 } as const;
 
@@ -83,6 +90,7 @@ export function parseCommerceExtrasFromHoursJson(raw: unknown): CommerceExtrasFr
     deliveryFeeStrikeReferencePhp: null,
     prepMinutes: null,
     estPrepLabel: "20~40분",
+    deliveryRideDisplayManual: null,
   };
   if (raw == null || typeof raw !== "object" || Array.isArray(raw)) return base;
   const o = raw as Record<string, unknown>;
@@ -100,6 +108,10 @@ export function parseCommerceExtrasFromHoursJson(raw: unknown): CommerceExtrasFr
   }
   const estPrepLabel =
     prepMinutes != null ? `${prepMinutes}분` : prepLabelRaw || base.estPrepLabel;
+
+  const manualRideRaw = String(o.delivery_ride_display_manual ?? o.deliveryRideDisplayManual ?? "").trim();
+  const deliveryRideDisplayManual =
+    manualRideRaw.length > 0 ? manualRideRaw.slice(0, DELIVERY_RIDE_DISPLAY_MANUAL_MAX) : null;
 
   const feeRounded =
     Number.isFinite(feeRaw) && feeRaw >= 0 ? Math.round(feeRaw) : null;
@@ -164,6 +176,7 @@ export function parseCommerceExtrasFromHoursJson(raw: unknown): CommerceExtrasFr
     deliveryFeeStrikeReferencePhp,
     prepMinutes,
     estPrepLabel,
+    deliveryRideDisplayManual,
   };
 }
 

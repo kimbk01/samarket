@@ -7,6 +7,7 @@ import {
   parsePrepMinutesLegacyFromEstPrepLabel,
   resolveChargedDeliveryFeePhp,
 } from "../store-commerce-extras";
+import { buildBrowseStoreListEtaLabel } from "../store-delivery-eta-label";
 
 describe("parsePrepMinutesLegacyFromEstPrepLabel", () => {
   it("range uses midpoint", () => {
@@ -29,6 +30,13 @@ describe("parseCommerceExtrasFromHoursJson", () => {
     const x = parseCommerceExtrasFromHoursJson({ prep_time_minutes: 42, est_prep_label: "99분" });
     expect(x.prepMinutes).toBe(42);
     expect(x.estPrepLabel).toBe("42분");
+  });
+
+  it("reads delivery_ride_display_manual with cap", () => {
+    const long = "a".repeat(100);
+    const x = parseCommerceExtrasFromHoursJson({ delivery_ride_display_manual: long });
+    expect(x.deliveryRideDisplayManual?.length).toBe(80);
+    expect(x.deliveryRideDisplayManual?.startsWith("aaa")).toBe(true);
   });
 
   it("explicit courier clears fee", () => {
@@ -109,5 +117,17 @@ describe("formatStoreBrowseDeliveryFeeLine", () => {
       "배달비 무료 적용 중"
     );
     expect(formatStoreBrowseDeliveryFeeStrikePhp(promo, { deliveryAvailable: true })).toBe(100);
+  });
+});
+
+describe("buildBrowseStoreListEtaLabel", () => {
+  it("shows manual delivery slot when route context present", () => {
+    const extras = parseCommerceExtrasFromHoursJson({ prep_time_minutes: 20 });
+    const label = buildBrowseStoreListEtaLabel(extras, null, {
+      deliveryAvailable: true,
+      routeContextPresent: true,
+      manualRideDisplay: "30분 안팎",
+    });
+    expect(label).toBe("조리 약 20분 · 배달 30분 안팎");
   });
 });
