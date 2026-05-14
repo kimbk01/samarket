@@ -410,23 +410,26 @@ export async function deleteMeStoreOrder(orderId: string): Promise<StoreApiJsonR
   return { status: res.status, json };
 }
 
-/** GET `/api/stores/:slug/delivery-eta` — 장바구니 배달 ETA 프리뷰 */
+/** GET `/api/stores/:slug/delivery-eta` — 장바구니 배달 ETA 프리뷰(명시 호출 권장) */
 export async function fetchStoreDeliveryEtaDeduped(
   slug: string,
-  deliveryUserAddressId: string
+  deliveryUserAddressId: string,
+  opts?: { signal?: AbortSignal }
 ): Promise<StoreApiJsonResponse> {
   const s = slug.trim();
   const id = deliveryUserAddressId.trim();
   if (!s || !id) return { status: 400, json: { ok: false } };
   const qs = new URLSearchParams({ delivery_user_address_id: id }).toString();
-  return runSingleFlight(`stores:delivery-eta:${s}:${id}`, async () => {
+  const flight = runSingleFlight(`stores:delivery-eta:${s}:${id}`, async () => {
     const res = await fetch(`/api/stores/${encodeURIComponent(s)}/delivery-eta?${qs}`, {
       credentials: "include",
       cache: "no-store",
+      signal: opts?.signal,
     });
     const json = await res.json().catch(() => ({}));
     return { status: res.status, json };
   });
+  return withAbortSignal(flight, opts?.signal);
 }
 
 /** POST /api/me/store-orders (주문 생성) */

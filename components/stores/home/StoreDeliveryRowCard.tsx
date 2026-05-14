@@ -196,11 +196,8 @@ export function browseItemToRowCard(s: BrowseStoreListItem): StoreRowCardData {
     distanceKm: s.distanceKm ?? null,
     routeDistanceKm: s.routeDistanceKm ?? null,
     straightDistanceKm: s.straightDistanceKm ?? null,
-    showStraightLineMapPin:
-      s.routeDistanceKm == null &&
-      s.distanceKm != null &&
-      Number.isFinite(s.distanceKm as number) &&
-      (s.distanceKm as number) >= 0,
+    /** browse 목록은 Routes 미사용 — 직선 거리만이므로 “경로 실패” 빨간 핀 비표시 */
+    showStraightLineMapPin: false,
     menuPreview: menuPreview?.trim() || null,
     profileImageUrl: s.profileImageUrl,
     featuredItems: s.featuredItems.map((x) => ({
@@ -414,7 +411,7 @@ export const StoreDeliveryRowCard = memo(function StoreDeliveryRowCard({ data }:
                 ) : showPinHaversine ? (
                   <span
                     className="inline-flex shrink-0 items-center gap-1 font-medium"
-                    title={data.routeDistanceKm != null ? "경로 거리" : "직선 거리"}
+                    title="직선 거리"
                   >
                     <svg className="h-3.5 w-3.5 opacity-70" viewBox="0 0 24 24" fill="none" aria-hidden>
                       <path

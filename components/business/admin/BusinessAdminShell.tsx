@@ -532,14 +532,15 @@ export function BusinessAdminShell({
     : null;
   const ownerAdminAside = (
     <aside className={asideClassName}>
-          <div className="flex items-start justify-between gap-2 border-b border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-2 md:hidden">
+          {/** 모바일 드로어 상단 — `StoresOwnerStackHeader` 와 동일 `h-14`, 주소는 최대 2줄 + 말줄임 */}
+          <div className="flex h-14 min-h-14 max-h-14 shrink-0 items-center justify-between gap-2 overflow-hidden border-b border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-0 md:hidden">
             {sidebarAddressLabel ? (
               <div
-                className="flex min-w-0 flex-1 items-start gap-1.5 py-1 sam-text-xxs font-medium leading-snug text-sam-muted"
+                className="flex h-full min-h-0 min-w-0 flex-1 items-center gap-1.5 overflow-hidden pr-1 sam-text-xxs font-medium leading-tight text-sam-muted"
                 title={sidebarAddressLabel}
               >
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-signature" strokeWidth={2} aria-hidden />
-                <span className="min-w-0 whitespace-normal break-words">{sidebarAddressLabel}</span>
+                <MapPin className="h-4 w-4 shrink-0 text-signature" strokeWidth={2} aria-hidden />
+                <span className="min-w-0 flex-1 break-words line-clamp-2">{sidebarAddressLabel}</span>
               </div>
             ) : (
               <span className="min-w-0 flex-1" aria-hidden />

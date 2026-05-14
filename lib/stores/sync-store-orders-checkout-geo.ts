@@ -109,6 +109,7 @@ async function buildLocalDeliveryGeoPatchFromUserAddressDto(
     storeLat: lat,
     storeLng: lng,
     business_hours_json: store.business_hours_json,
+    skipGoogleRoutes: true,
   });
 
   return {

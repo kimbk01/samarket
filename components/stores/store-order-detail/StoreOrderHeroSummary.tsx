@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo } from "react";
 import { useRubberBandAtDocumentTop } from "@/lib/ui/use-rubber-band-at-document-top";
 import type { StorePublicFulfillmentMode } from "@/components/stores/StoreDetailStorefrontPanel";
 import { STORE_ORDER_BRAND } from "@/components/stores/store-order-detail/store-order-brand";
@@ -17,7 +17,6 @@ import {
   openGoogleMapsDrivingDirectionsFromUserTo,
   type StoreDetailDirectionsTarget,
 } from "@/lib/stores/google-maps-store-links";
-import { fetchStoreDeliveryEtaDeduped } from "@/lib/stores/store-delivery-api-client";
 
 function InfoRow({
   label,
@@ -60,24 +59,6 @@ function formatOrderCount(n: number): string {
   return String(Math.floor(n));
 }
 
-function formatHeroDistanceKm(km: number | null | undefined): string {
-  if (km == null || !Number.isFinite(km)) return "—";
-  if (km < 1) return `${Math.round(km * 1000)}m`;
-  return `${km.toFixed(1)}km`;
-}
-
-type HeroDeliveryEtaPack = {
-  prepMinutes: number | null;
-  rideMinutes: number | null;
-  /** Google Routes matrix, TWO_WHEELER(실패 시 DRIVE) 경로 길이 */
-  routeDistanceKm: number | null;
-};
-
-function parseEtaNumber(v: unknown): number | null {
-  if (typeof v === "number" && Number.isFinite(v)) return v;
-  return null;
-}
-
 export function StoreOrderHeroSummary({
   storeName,
   profileImageUrl,
@@ -103,8 +84,8 @@ export function StoreOrderHeroSummary({
   collapseTopFulfillmentCard = false,
   /** 사장님 `store_banners` — 있으면 상단 히어로(#store-hero-media)에 노출(갤러리 커버 대체) */
   heroBannerSlot,
-  /** 설정 시 대표 배달 주소로 `/api/stores/…/delivery-eta` 조회 → 조리·배달(오토바이 경로)·경로 거리 표시 */
-  storeSlug,
+  /** 배민식 비용: 상세 히어로에서 Routes 자동 호출 없음 — `commerceExtras` 조리 안내만 */
+  storeSlug: _storeSlug,
 }: {
   storeName: string;
   profileImageUrl: string | null;
@@ -156,61 +137,6 @@ export function StoreOrderHeroSummary({
     return Math.min(2.25, Math.max(heroRubberScale, pullComp));
   }, [heroRubberPx, heroRubberScale]);
 
-  const [heroDeliveryEta, setHeroDeliveryEta] = useState<HeroDeliveryEtaPack | null>(null);
-
-  useEffect(() => {
-    const slug = storeSlug?.trim();
-    if (!slug || !deliveryAvailable) {
-      setHeroDeliveryEta(null);
-      return;
-    }
-    let cancelled = false;
-    void (async () => {
-      try {
-        const contactRes = await fetch("/api/me/checkout-contact", {
-          credentials: "include",
-          cache: "no-store",
-        });
-        const contactJson = (await contactRes.json().catch(() => ({}))) as {
-          ok?: boolean;
-          default_delivery?: { user_address_id?: string };
-        };
-        if (cancelled) return;
-        const aid = contactJson?.default_delivery?.user_address_id?.trim();
-        if (!aid) {
-          setHeroDeliveryEta(null);
-          return;
-        }
-        const { status, json } = await fetchStoreDeliveryEtaDeduped(slug, aid);
-        if (cancelled) return;
-        if (status !== 200) {
-          setHeroDeliveryEta(null);
-          return;
-        }
-        const j = json as {
-          ok?: boolean;
-          prepMinutes?: unknown;
-          rideMinutes?: unknown;
-          routeDistanceKm?: unknown;
-        };
-        if (j.ok !== true) {
-          setHeroDeliveryEta(null);
-          return;
-        }
-        setHeroDeliveryEta({
-          prepMinutes: parseEtaNumber(j.prepMinutes),
-          rideMinutes: parseEtaNumber(j.rideMinutes),
-          routeDistanceKm: parseEtaNumber(j.routeDistanceKm),
-        });
-      } catch {
-        if (!cancelled) setHeroDeliveryEta(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [storeSlug, deliveryAvailable]);
-
   const prepLine = useMemo(() => commerceExtras.estPrepLabel, [commerceExtras.estPrepLabel]);
 
   const feeDisplay = useMemo((): ReactNode => {
@@ -238,23 +164,16 @@ export function StoreOrderHeroSummary({
   }, [commerceExtras.minOrderPhp]);
 
   const heroPrepDisplay = useMemo(() => {
-    const p = heroDeliveryEta?.prepMinutes ?? commerceExtras.prepMinutes;
+    const p = commerceExtras.prepMinutes;
     if (p != null && Number.isFinite(p)) return `약 ${Math.round(p)}분`;
     const t = commerceExtras.estPrepLabel?.trim();
     if (t) return t.startsWith("약") ? t : `약 ${t}`;
     return "—";
-  }, [heroDeliveryEta?.prepMinutes, commerceExtras.prepMinutes, commerceExtras.estPrepLabel]);
+  }, [commerceExtras.prepMinutes, commerceExtras.estPrepLabel]);
 
-  const heroRideDisplay = useMemo(() => {
-    const r = heroDeliveryEta?.rideMinutes;
-    if (r != null && Number.isFinite(r)) return `약 ${Math.round(r)}분`;
-    return "—";
-  }, [heroDeliveryEta?.rideMinutes]);
+  const heroRideDisplay = useMemo(() => "—", []);
 
-  const heroDistDisplay = useMemo(
-    () => formatHeroDistanceKm(heroDeliveryEta?.routeDistanceKm),
-    [heroDeliveryEta?.routeDistanceKm]
-  );
+  const heroDistDisplay = useMemo(() => "—", []);
 
   const ratingLabel =
     ratingAvg != null && Number.isFinite(Number(ratingAvg)) ? Number(ratingAvg).toFixed(1) : "—";

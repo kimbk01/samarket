@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { districtRank, haversineKm } from "@/lib/geo/haversine-km";
-import { fetchRouteLegMetricsByStoreId, type RouteLegMetrics } from "@/lib/geo/google-routes-two-wheeler-matrix";
+import { devLogRoutesSkipped } from "@/lib/geo/google-routes-client";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
 import { formatStoreBrowseDeliveryFeeLine, formatStoreBrowseDeliveryFeeStrikePhp, parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
@@ -228,6 +228,10 @@ export async function GET(req: Request) {
 
     rows = rows.slice(0, 48);
 
+    if (process.env.NODE_ENV === "development" && userLat != null && userLng != null && rows.length > 0) {
+      devLogRoutesSkipped("list_screen_disabled", "api/stores/home-feed");
+    }
+
     const ids = rows.map((r) => r.id);
     const featuredByStore = new Map<string, { productId: string; name: string; price: number }[]>();
 
@@ -266,17 +270,6 @@ export async function GET(req: Request) {
       }
     }
 
-    let legById = new Map<string, RouteLegMetrics>();
-    if (userLat != null && userLng != null && rows.length > 0) {
-      legById = await fetchRouteLegMetricsByStoreId({
-        user: { lat: userLat, lng: userLng },
-        stores: rows.map((r) => {
-          const effective = effectiveById.get(r.id) ?? r;
-          return { id: r.id, lat: effective.lat, lng: effective.lng };
-        }),
-      });
-    }
-
     const stores: StoreHomeFeedItem[] = rows.map((r) => {
       const cat = embedOne(r.store_categories as RelOne | RelOne[] | null | undefined);
       const openNow = resolveStoreFrontOpen(r.business_hours_json, r.is_open);
@@ -301,16 +294,10 @@ export async function GET(req: Request) {
 
       const regionLabel = formatStoreLocationLine(r) ?? "위치 미등록";
 
-      const leg = legById.get(r.id) ?? { rideMinutes: null, routeDistanceMeters: null };
       const effective = effectiveById.get(r.id) ?? r;
       const isSameAddress = isSameDeliveryAddressForList(origin, effective);
-      const routeDistanceKm =
-        isSameAddress ? 0
-        : leg.routeDistanceMeters != null && Number.isFinite(leg.routeDistanceMeters)
-          ? leg.routeDistanceMeters / 1000
-          : null;
-      const displayDistanceKm = routeDistanceKm ?? distanceKm;
-      const rideRaw = isSameAddress ? 0 : leg.rideMinutes;
+      const displayDistanceKm = isSameAddress ? 0 : distanceKm;
+      const rideRaw = isSameAddress ? 0 : null;
       const rideMinutes = r.delivery_available ? rideRaw : null;
       const etaLabel = buildStoreDeliveryEtaLabel(extras, rideMinutes);
 
@@ -337,7 +324,6 @@ export async function GET(req: Request) {
         paymentMethodsLine,
         distanceKm: displayDistanceKm,
         straightDistanceKm: distanceKm,
-        routeDistanceKm,
         featuredItems: featuredByStore.get(r.id) ?? [],
         profileImageUrl: r.profile_image_url,
         isFeatured: !!r.is_featured,

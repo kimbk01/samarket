@@ -9,7 +9,7 @@ export type StoreOrderCheckoutEtaSnapshot = {
   checkout_ride_minutes: number | null;
   checkout_eta_minutes: number | null;
   checkout_eta_computed_at: string | null;
-  /** Routes matrix 거리(m) — ride 분과 동일 응답 */
+  /** Routes `computeRoutes` 거리(m) — ride 분과 동일 출처 */
   checkout_route_distance_meters: number | null;
   checkout_straight_distance_meters: number | null;
 };
@@ -41,6 +41,8 @@ export async function computeStoreOrderCheckoutEtaSnapshot(opts: {
   storeLat: number | null;
   storeLng: number | null;
   business_hours_json: unknown;
+  /** true면 주소 동기화 등 — Google Routes 호출 없이 직선거리만 채움 */
+  skipGoogleRoutes?: boolean;
 }): Promise<StoreOrderCheckoutEtaSnapshot> {
   const extras = parseCommerceExtrasFromHoursJson(opts.business_hours_json);
   const prepRaw = extras.prepMinutes;
@@ -78,14 +80,26 @@ export async function computeStoreOrderCheckoutEtaSnapshot(opts: {
     return { checkout_prep_minutes, ...emptyRide };
   }
 
+  const straightKm = haversineKm(slat, slng, ulat, ulng);
+  const checkout_straight_distance_meters =
+    straightKm != null && Number.isFinite(straightKm) && straightKm >= 0 ? Math.round(straightKm * 1000) : null;
+
+  if (opts.skipGoogleRoutes === true) {
+    return {
+      checkout_prep_minutes,
+      checkout_ride_minutes: null,
+      checkout_eta_minutes: null,
+      checkout_eta_computed_at: null,
+      checkout_route_distance_meters: null,
+      checkout_straight_distance_meters,
+    };
+  }
+
   const m = await routeLegMetricsStorePinToUserPin({ lat: slat, lng: slng }, { lat: ulat, lng: ulng });
   const checkout_ride_minutes = m.rideMinutes ?? null;
   const dm = m.routeDistanceMeters;
   const checkout_route_distance_meters =
     dm != null && Number.isFinite(dm) && dm >= 0 ? Math.round(dm) : null;
-  const straightKm = haversineKm(slat, slng, ulat, ulng);
-  const checkout_straight_distance_meters =
-    straightKm != null && Number.isFinite(straightKm) && straightKm >= 0 ? Math.round(straightKm * 1000) : null;
   const prep = prepRaw != null ? clampStorePrepMinutes(prepRaw) : 25;
   const checkout_eta_minutes = checkout_ride_minutes != null ? prep + checkout_ride_minutes : null;
   const checkout_eta_computed_at =

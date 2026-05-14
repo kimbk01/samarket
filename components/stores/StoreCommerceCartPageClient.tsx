@@ -167,7 +167,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const [err, setErr] = useState<string | null>(null);
   const [lastOrderId, setLastOrderId] = useState<string | null>(null);
   const [deliveryEtaLabel, setDeliveryEtaLabel] = useState<string | null>(null);
-  const deliveryEtaFetchGenRef = useRef(0);
+  const [deliveryEtaBusy, setDeliveryEtaBusy] = useState(false);
+  const deliveryEtaLastOkKeyRef = useRef<string | null>(null);
+  const deliveryEtaPreviewAbortRef = useRef<AbortController | null>(null);
   const [hoursTick, setHoursTick] = useState(0);
   const [profileSnap, setProfileSnap] = useState<ProfileContactSnap | null>(null);
   const [checkoutContactReady, setCheckoutContactReady] = useState(false);
@@ -447,33 +449,40 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   }, [orderSubmitFingerprint]);
 
   useEffect(() => {
-    if (!storeSlug.trim() || fulfillment !== "local_delivery") {
+    deliveryEtaPreviewAbortRef.current?.abort();
+    deliveryEtaPreviewAbortRef.current = null;
+    setDeliveryEtaLabel(null);
+    setDeliveryEtaBusy(false);
+    deliveryEtaLastOkKeyRef.current = null;
+  }, [storeSlug, fulfillment, deliveryUserAddressIdForSubmit]);
+
+  const loadDeliveryEtaPreview = useCallback(async () => {
+    const slug = storeSlug.trim();
+    if (!slug || fulfillment !== "local_delivery") return;
+    const aid = deliveryUserAddressIdForSubmit?.trim();
+    if (!aid) return;
+    const dedupeKey = `${slug}|${aid}`;
+    if (deliveryEtaLastOkKeyRef.current === dedupeKey) return;
+    deliveryEtaPreviewAbortRef.current?.abort();
+    const ac = new AbortController();
+    deliveryEtaPreviewAbortRef.current = ac;
+    setDeliveryEtaBusy(true);
+    try {
+      const { status, json } = await fetchStoreDeliveryEtaDeduped(storeSlug, aid, { signal: ac.signal });
+      if (ac.signal.aborted) return;
+      if (status !== 200) {
+        setDeliveryEtaLabel(null);
+        return;
+      }
+      const j = json as { ok?: boolean; etaLabel?: string };
+      setDeliveryEtaLabel(typeof j.etaLabel === "string" ? j.etaLabel : null);
+      if (j.ok === true) deliveryEtaLastOkKeyRef.current = dedupeKey;
+    } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
       setDeliveryEtaLabel(null);
-      return;
+    } finally {
+      if (!ac.signal.aborted) setDeliveryEtaBusy(false);
     }
-    const aid = deliveryUserAddressIdForSubmit;
-    if (!aid) {
-      setDeliveryEtaLabel(null);
-      return;
-    }
-    const gen = ++deliveryEtaFetchGenRef.current;
-    const t = window.setTimeout(() => {
-      void (async () => {
-        try {
-          const { status, json } = await fetchStoreDeliveryEtaDeduped(storeSlug, aid);
-          if (gen !== deliveryEtaFetchGenRef.current) return;
-          if (status !== 200) {
-            setDeliveryEtaLabel(null);
-            return;
-          }
-          const j = json as { ok?: boolean; etaLabel?: string };
-          setDeliveryEtaLabel(typeof j.etaLabel === "string" ? j.etaLabel : null);
-        } catch {
-          if (gen === deliveryEtaFetchGenRef.current) setDeliveryEtaLabel(null);
-        }
-      })();
-    }, 320);
-    return () => window.clearTimeout(t);
   }, [storeSlug, fulfillment, deliveryUserAddressIdForSubmit]);
 
   /** 배달: 저장 주소 + 프로필 기본 배달만. 장바구니 전용 localStorage 주소는 제거됨 */
@@ -1533,11 +1542,24 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 에서 저장 주소를 추가해 주세요.
               </p>
             ) : null}
-            {fulfillment === "local_delivery" && deliveryEtaLabel ? (
-              <p className="mt-2 sam-text-xxs font-semibold leading-snug text-sam-fg">
-                예상 도착(참고): {deliveryEtaLabel}
-                <span className="ml-1 font-normal text-sam-muted">오토바이 경로 기준</span>
-              </p>
+            {fulfillment === "local_delivery" && deliveryAddressReady ? (
+              <div className="mt-2">
+                {deliveryEtaLabel ? (
+                  <p className="sam-text-xxs font-semibold leading-snug text-sam-fg">
+                    예상 도착(참고): {deliveryEtaLabel}
+                    <span className="ml-1 font-normal text-sam-muted">오토바이 경로 기준</span>
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={busy || deliveryEtaBusy}
+                    onClick={() => void loadDeliveryEtaPreview()}
+                    className="sam-text-xxs font-semibold leading-snug text-sam-fg underline decoration-sam-muted underline-offset-2 disabled:opacity-50"
+                  >
+                    예상 도착(참고) 확인
+                  </button>
+                )}
+              </div>
             ) : null}
             </div>
           ) : null}

@@ -24,8 +24,8 @@ export type BrowseStoreListItem = {
   /** 조리 분(파서 기준). 목록 ETA 합산에 사용 */
   prepMinutes: number | null;
   /**
-   * Google 라우트(오토바이·폴백) 구간 분 — ETA `배달 약 …분` 용.
-   * 목록 **거리 표시**는 경로 거리 우선, 실패 시 직선거리 fallback.
+   * Google 라우트 구간 분 — 목록 API에서는 항상 null(조리·기본 안내만).
+   * 상세·주문 등에서만 채울 수 있음.
    */
   rideMinutes: number | null;
   /** 카드 시간 줄 — browse 에서는 `buildBrowseStoreListEtaLabel` 결과 */
@@ -37,10 +37,10 @@ export type BrowseStoreListItem = {
   /** `payment_methods`·`payment_methods_config` 기반 결제 안내 한 줄 */
   paymentMethodsLine: string;
   minOrderLabel: string | null;
-  /** 카드 표시 거리(km): 경로 거리 우선, Routes 실패 시 직선거리 */
+  /** 카드 표시 거리(km): browse/home-feed 는 haversine 직선만 */
   distanceKm?: number | null;
-  /** 요청에 user_lat/user_lng 있을 때만 계산되는 직선거리(km) */
+  /** 직선거리(km) — user_lat/lng 있을 때 */
   straightDistanceKm?: number | null;
-  /** Routes API 경로 거리(km) */
+  /** @deprecated 목록 API에서 미포함. 주문·상세 전용. */
   routeDistanceKm?: number | null;
 };

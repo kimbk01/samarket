@@ -1,9 +1,27 @@
 /**
  * Google Routes API — `computeRouteMatrix` (다수 origin→1 destination 또는 1 origin→다수 destination).
- * 서버 전용 키: `GOOGLE_MAPS_ROUTES_API_KEY`
+ * 서버 전용 키: `GOOGLE_MAPS_SERVER_API_KEY` 또는 레거시 `GOOGLE_MAPS_ROUTES_API_KEY`
+ *
+ * 목록·홈 피드에서는 호출하지 않는다(비용). 주문 직전 등 단일 구간은 `google-routes-client` 사용.
  *
  * @see https://developers.google.com/maps/documentation/routes/compute_route_matrix
  */
+
+import { getGoogleRoutesServerApiKey, isGoogleRoutesApiGloballyDisabled } from "@/lib/geo/google-routes-client";
+
+/** 개발 기본 권장: 목록 묶음 matrix 호출 차단 */
+export function isGoogleRoutesMatrixDisabled(): boolean {
+  return process.env.GOOGLE_ROUTES_MATRIX_DISABLED?.trim() === "1";
+}
+
+function devLogMatrixExpensiveCall(source: string, fields: Record<string, unknown>): void {
+  if (process.env.NODE_ENV !== "development") return;
+  try {
+    console.info("[routes-api:matrix] expensive_call", JSON.stringify({ source, ...fields }));
+  } catch {
+    /* noop */
+  }
+}
 
 const ROUTE_MATRIX_URL = "https://routes.googleapis.com/distanceMatrix/v2:computeRouteMatrix";
 const REQUEST_TIMEOUT_MS = 12_000;
@@ -63,8 +81,9 @@ async function postRouteMatrixManyOriginsOneDest(
   const n = origins.length;
   const empty = (): RouteLegMetrics => ({ rideMinutes: null, routeDistanceMeters: null });
   const out: RouteLegMetrics[] = Array.from({ length: n }, empty);
-  const key = process.env.GOOGLE_MAPS_ROUTES_API_KEY?.trim();
-  if (!key || n === 0) return out;
+  if (isGoogleRoutesApiGloballyDisabled() || isGoogleRoutesMatrixDisabled() || n === 0) return out;
+  const key = getGoogleRoutesServerApiKey();
+  if (!key) return out;
 
   const body = {
     origins: origins.map(waypointFromLatLng),
@@ -72,6 +91,8 @@ async function postRouteMatrixManyOriginsOneDest(
     travelMode,
     routingPreference: "TRAFFIC_AWARE",
   };
+
+  devLogMatrixExpensiveCall("postRouteMatrixManyOriginsOneDest", { origins: n, travelMode });
 
   let res: Response;
   try {
@@ -128,8 +149,9 @@ async function postRouteMatrix(
   const n = destinations.length;
   const empty = (): RouteLegMetrics => ({ rideMinutes: null, routeDistanceMeters: null });
   const out: RouteLegMetrics[] = Array.from({ length: n }, empty);
-  const key = process.env.GOOGLE_MAPS_ROUTES_API_KEY?.trim();
-  if (!key || n === 0) return out;
+  if (isGoogleRoutesApiGloballyDisabled() || isGoogleRoutesMatrixDisabled() || n === 0) return out;
+  const key = getGoogleRoutesServerApiKey();
+  if (!key) return out;
 
   const body = {
     origins: [waypointFromLatLng(origin)],
@@ -137,6 +159,8 @@ async function postRouteMatrix(
     travelMode,
     routingPreference: "TRAFFIC_AWARE",
   };
+
+  devLogMatrixExpensiveCall("postRouteMatrix", { destinations: n, travelMode });
 
   let res: Response;
   try {

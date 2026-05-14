@@ -13,6 +13,7 @@ import {
 } from "@/lib/geo/parse-finite-geographic-coord";
 import { devConsoleWarn } from "@/lib/dev/dev-console-warn";
 import { fetchDeliveryRouteSingleLeg } from "@/lib/geo/google-routes-single-leg";
+import { isGoogleRoutesApiGloballyDisabled } from "@/lib/geo/google-routes-client";
 import { haversineKm } from "@/lib/geo/haversine-km";
 import {
   isSameDeliveryAddressForList,
@@ -26,8 +27,9 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /** 동일 매장·저장 주소·좌표에 대한 짧은 메모리 캐시 (Routes 왕복 감소) */
-const DELIVERY_ETA_SERVER_CACHE_TTL_MS = 12_000;
+const DELIVERY_ETA_SERVER_CACHE_TTL_MS = 120_000;
 const deliveryEtaOkCache = new Map<string, { expiresAt: number; body: Record<string, unknown> }>();
+const deliveryEtaOkInflight = new Map<string, Promise<Record<string, unknown>>>();
 
 function roundCoordKey(n: number): number {
   return Math.round(n * 1e5) / 1e5;
@@ -44,6 +46,8 @@ type EtaOkBody = {
   travelModeUsed: string | null;
   fallbackUsed: boolean;
   etaLabel: string;
+  /** 좌표 누락·비활성 등 — Google 호출 없음일 때 구분 */
+  reason?: string | null;
 };
 
 /** 스키마 정렬: camelCase + 하위 호환 snake_case alias */
@@ -199,6 +203,7 @@ export async function GET(
           travelModeUsed: null,
           fallbackUsed: false,
           etaLabel: buildStoreDeliveryEtaLabel(extras, 0),
+          reason: "same_address",
         }),
       );
     }
@@ -255,6 +260,7 @@ export async function GET(
         travelModeUsed: null,
         fallbackUsed: true,
         etaLabel: buildStoreDeliveryEtaLabel(extras, null),
+        reason: "missing_coords",
         ...maybeCoordDebug(debugFlags),
       }),
     );
@@ -276,51 +282,83 @@ export async function GET(
         travelModeUsed: null,
         fallbackUsed: false,
         etaLabel: buildStoreDeliveryEtaLabel(extras, 0),
+        reason: "near_origin",
       }),
     );
   }
 
   const cacheKey =
-    deliveryUserAddressId && store.id
-      ? `eta:${buyerId}:${String(store.id)}:${deliveryUserAddressId}:${roundCoordKey(slat!)}:${roundCoordKey(slng!)}:${roundCoordKey(ulat)}:${roundCoordKey(ulng)}`
+    store.id
+      ? deliveryUserAddressId.trim().length > 0
+        ? `eta:${buyerId}:${String(store.id)}:addr:${deliveryUserAddressId}:${roundCoordKey(slat!)}:${roundCoordKey(slng!)}:${roundCoordKey(ulat)}:${roundCoordKey(ulng)}`
+        : `eta:${buyerId}:${String(store.id)}:ll:${roundCoordKey(slat!)}:${roundCoordKey(slng!)}:${roundCoordKey(ulat)}:${roundCoordKey(ulng)}`
       : null;
   if (cacheKey) {
     const hit = deliveryEtaOkCache.get(cacheKey);
     if (hit && hit.expiresAt > Date.now()) {
       return NextResponse.json(hit.body);
     }
+    const infl = deliveryEtaOkInflight.get(cacheKey);
+    if (infl) {
+      const body = await infl;
+      return NextResponse.json(body);
+    }
   }
 
-  const leg = await fetchDeliveryRouteSingleLeg(origin, dest);
-  const rideMinutes = leg.rideMinutes ?? null;
-  const routeDistanceMeters = leg.routeDistanceMeters ?? null;
-  const routeDistanceKm =
-    routeDistanceMeters != null && Number.isFinite(routeDistanceMeters)
-      ? routeDistanceMeters / 1000
-      : null;
-  const etaLabel = buildStoreDeliveryEtaLabel(extras, rideMinutes);
+  const computePayload = async (): Promise<Record<string, unknown>> => {
+    const leg = await fetchDeliveryRouteSingleLeg(origin, dest, {
+      source: "delivery-eta",
+      reason: deliveryUserAddressId.trim().length > 0 ? "saved_address" : "explicit_lat_lng",
+    });
+    const rideMinutes = leg.rideMinutes ?? null;
+    const routeDistanceMeters = leg.routeDistanceMeters ?? null;
+    const routeDistanceKm =
+      routeDistanceMeters != null && Number.isFinite(routeDistanceMeters)
+        ? routeDistanceMeters / 1000
+        : null;
+    const etaLabel = buildStoreDeliveryEtaLabel(extras, rideMinutes);
 
-  if (rideMinutes == null && routeDistanceMeters == null) {
-    devConsoleWarn(
-      "[delivery-eta] Routes matrix returned null leg (coordinates were valid). Check GOOGLE_MAPS_ROUTES_API_KEY, Routes API billing, and server key restrictions.",
-      { slug: decoded, storeId: store.id ?? null }
-    );
-  }
+    if (rideMinutes == null && routeDistanceMeters == null) {
+      devConsoleWarn(
+        "[delivery-eta] Routes computeRoutes returned empty leg (coordinates were valid). Check GOOGLE_MAPS_SERVER_API_KEY / GOOGLE_MAPS_ROUTES_API_KEY, Routes API billing, and server key restrictions.",
+        { slug: decoded, storeId: store.id ?? null, routesDisabled: isGoogleRoutesApiGloballyDisabled() }
+      );
+    }
 
-  const payload = deliveryEtaOkJson({
-    ok: true,
-    prepMinutes: extras.prepMinutes,
-    straightDistanceKm,
-    straightDistanceMeters,
-    rideMinutes,
-    routeDistanceMeters,
-    routeDistanceKm,
-    travelModeUsed: leg.travelModeUsed,
-    fallbackUsed: leg.fallbackUsed,
-    etaLabel,
-  });
+    let reason: string | null = null;
+    if (leg.skipReason === "disabled_by_env") reason = "routes_disabled";
+    else if (leg.skipReason === "missing_api_key") reason = "missing_routes_api_key";
+    else if (leg.skipReason === "invalid_coords") reason = "invalid_coords";
+    else if (leg.skipReason === "near_origin") reason = "near_origin";
+    else if (rideMinutes == null && routeDistanceMeters == null) reason = "routes_empty";
+
+    return deliveryEtaOkJson({
+      ok: true,
+      prepMinutes: extras.prepMinutes,
+      straightDistanceKm,
+      straightDistanceMeters,
+      rideMinutes,
+      routeDistanceMeters,
+      routeDistanceKm,
+      travelModeUsed: leg.travelModeUsed,
+      fallbackUsed: leg.fallbackUsed,
+      etaLabel,
+      reason,
+    });
+  };
+
+  let payload: Record<string, unknown>;
   if (cacheKey) {
+    const p = computePayload();
+    deliveryEtaOkInflight.set(cacheKey, p);
+    try {
+      payload = await p;
+    } finally {
+      deliveryEtaOkInflight.delete(cacheKey);
+    }
     deliveryEtaOkCache.set(cacheKey, { expiresAt: Date.now() + DELIVERY_ETA_SERVER_CACHE_TTL_MS, body: payload });
+  } else {
+    payload = await computePayload();
   }
   return NextResponse.json(payload);
 }

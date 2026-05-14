@@ -24,9 +24,10 @@ export type StoreHomeFeedItem = {
   deliveryFeeStrikePhp: number | null;
   /** 매장 결제 안내 한 줄 */
   paymentMethodsLine: string;
-  /** 카드 표시 거리(km): 경로 거리 우선, Routes 실패 시 직선거리 */
+  /** 카드 표시 거리(km): home-feed 는 haversine 직선만 */
   distanceKm: number | null;
   straightDistanceKm?: number | null;
+  /** @deprecated home-feed 응답에서 미포함. 주문·상세 전용. */
   routeDistanceKm?: number | null;
   featuredItems: { productId: string; name: string; price: number }[];
   profileImageUrl: string | null;
