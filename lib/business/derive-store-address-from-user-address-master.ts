@@ -29,8 +29,8 @@ function stripTail(line: string, parts: Array<string | null | undefined>) {
 }
 
 /**
- * 대표 주소(`user_addresses` master) → 매장 신청·기본 정보에 쓰는 지역 ID·이름·가로/상세 줄.
- * `BusinessApplyForm` 과 동일 규칙.
+ * 주소록 `UserAddressDTO` → 매장 기본 정보에 쓰는 지역 ID·이름·가로/상세 줄.
+ * (과거 이름 `…FromUserAddressMaster` — 대표 전용이 아니라 **매장 연결 주소**에도 동일 규칙 적용)
  */
 export function deriveStoreAddressFieldsFromUserAddressMaster(
   master: UserAddressDTO | null | undefined

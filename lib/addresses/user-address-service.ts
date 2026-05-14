@@ -40,7 +40,47 @@ function sortAddressList(rows: UserAddressDTO[]): UserAddressDTO[] {
   });
 }
 
-/** 대표가 하나도 없으면 매장 주소를 우선 기본으로, 없으면 목록의 첫 번째 주소를 대표·생활·거래·배달 기본으로 통일 */
+/** `labelType === shop` 이고 매장에 연결된 행 — 대표(마스터) 자동 지정 후보에서 제외한다. */
+function isLinkedSamarketStoreAddressRow(dto: {
+  labelType: UserAddressDTO["labelType"];
+  linkedStoreId?: string | null;
+}): boolean {
+  return dto.labelType === "shop" && Boolean(String(dto.linkedStoreId ?? "").trim());
+}
+
+/** 일반(비매장연결) 주소가 하나라도 있으면 true — 매장만으로는 대표를 빼앗지 않도록 판별 */
+async function userHasNonStoreLinkedAddress(sb: SupabaseClient<any>, userId: string): Promise<boolean> {
+  const { data, error } = await sb
+    .from("user_addresses")
+    .select("label_type,linked_store_id")
+    .eq("user_id", userId)
+    .eq("is_active", true);
+  if (error) throw new Error(error.message);
+  for (const r of data ?? []) {
+    const row = r as Record<string, unknown>;
+    const lt = String(row.label_type ?? "");
+    const lid = String(row.linked_store_id ?? "").trim();
+    const isStore = lt === "shop" && Boolean(lid);
+    if (!isStore) return true;
+  }
+  return false;
+}
+
+const ERR_STORE_CANNOT_BE_MASTER =
+  "매장 연결 주소는 대표 주소로 둘 수 없어요. 우리집·회사 등 일반 주소를 대표로 지정해 주세요.";
+
+async function assertStoreAddressNotForcedAsMasterWhenGeneralExists(
+  sb: SupabaseClient<any>,
+  userId: string,
+  dto: { labelType: UserAddressDTO["labelType"]; linkedStoreId?: string | null },
+): Promise<void> {
+  if (!isLinkedSamarketStoreAddressRow(dto)) return;
+  if (await userHasNonStoreLinkedAddress(sb, userId)) {
+    throw new Error(ERR_STORE_CANNOT_BE_MASTER);
+  }
+}
+
+/** 대표가 하나도 없으면 매장 연결 주소보다 일반 주소를 우선해 대표·생활·거래·배달 기본으로 통일 (매장만 있으면 그중 첫 행) */
 async function assignFirstRowAsFullDefaultIfNoMaster(
   sb: SupabaseClient<any>,
   userId: string,
@@ -48,9 +88,9 @@ async function assignFirstRowAsFullDefaultIfNoMaster(
 ): Promise<void> {
   if (list.length === 0 || list.some((x) => x.isDefaultMaster)) return;
   const ordered = [...list].sort((a, b) => {
-    const storeA = a.labelType === "shop" && !!a.linkedStoreId?.trim();
-    const storeB = b.labelType === "shop" && !!b.linkedStoreId?.trim();
-    if (storeA !== storeB) return storeA ? -1 : 1;
+    const storeA = isLinkedSamarketStoreAddressRow(a);
+    const storeB = isLinkedSamarketStoreAddressRow(b);
+    if (storeA !== storeB) return storeA ? 1 : -1;
     if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
     return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
   });
@@ -73,6 +113,42 @@ async function assignFirstRowAsFullDefaultIfNoMaster(
   await syncProfileRegionFromLifeDefault(sb, userId);
 }
 
+/** 매장 연결 행이 대표인데 일반 주소가 있으면 대표·기본 플래그를 일반 주소 한 건으로 옮긴다(과거 자동 우선 로직으로 꼬인 데이터 보정). */
+async function repairStoreLinkedMasterWhenGeneralAddressExists(
+  sb: SupabaseClient<any>,
+  userId: string,
+  list: UserAddressDTO[],
+): Promise<boolean> {
+  const master = list.find((x) => x.isDefaultMaster);
+  if (!master) return false;
+  if (!isLinkedSamarketStoreAddressRow(master)) return false;
+  if (!(await userHasNonStoreLinkedAddress(sb, userId))) return false;
+  const nonStore = list.filter((a) => !isLinkedSamarketStoreAddressRow(a));
+  if (nonStore.length === 0) return false;
+  const ordered = [...nonStore].sort((a, b) => {
+    if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+    return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+  });
+  const pick = ordered[0];
+  await clearDefaultColumn(sb, userId, "is_default_master");
+  await clearDefaultColumn(sb, userId, "is_default_life");
+  await clearDefaultColumn(sb, userId, "is_default_trade");
+  await clearDefaultColumn(sb, userId, "is_default_delivery");
+  const { error } = await sb
+    .from("user_addresses")
+    .update({
+      is_default_master: true,
+      is_default_life: true,
+      is_default_trade: true,
+      is_default_delivery: true,
+    })
+    .eq("id", pick.id)
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+  await syncProfileRegionFromLifeDefault(sb, userId);
+  return true;
+}
+
 export async function listUserAddresses(
   sb: SupabaseClient<any>,
   userId: string
@@ -85,6 +161,16 @@ export async function listUserAddresses(
     .order("updated_at", { ascending: false });
   if (error) throw new Error(error.message);
   let list = sortAddressList((data ?? []).map((r) => rowToUserAddressDTO(r as Record<string, unknown>)));
+  if (await repairStoreLinkedMasterWhenGeneralAddressExists(sb, userId, list)) {
+    const { data: dataR, error: eR } = await sb
+      .from("user_addresses")
+      .select(SEL)
+      .eq("user_id", userId)
+      .eq("is_active", true)
+      .order("updated_at", { ascending: false });
+    if (eR) throw new Error(eR.message);
+    list = sortAddressList((dataR ?? []).map((r) => rowToUserAddressDTO(r as Record<string, unknown>)));
+  }
   if (list.length > 0 && !list.some((x) => x.isDefaultMaster)) {
     await assignFirstRowAsFullDefaultIfNoMaster(sb, userId, list);
     const { data: data2, error: e2 } = await sb
@@ -397,13 +483,14 @@ export async function setUserAddressAsDefault(
 ): Promise<UserAddressDTO> {
   const { data: exists, error: e0 } = await sb
     .from("user_addresses")
-    .select("id")
+    .select("id,label_type,linked_store_id")
     .eq("id", id)
     .eq("user_id", userId)
     .eq("is_active", true)
     .maybeSingle();
   if (e0) throw new Error(e0.message);
   if (!exists) throw new Error("주소를 찾을 수 없습니다.");
+  const targetPick = rowToUserAddressDTO(exists as Record<string, unknown>);
 
   const next = {
     master: opts?.master !== false,
@@ -411,6 +498,9 @@ export async function setUserAddressAsDefault(
     trade: opts?.trade !== false,
     delivery: opts?.delivery !== false,
   };
+  if (next.master) {
+    await assertStoreAddressNotForcedAsMasterWhenGeneralExists(sb, userId, targetPick);
+  }
   const patch: Record<string, boolean> = {};
   if (next.master) {
     await clearDefaultColumn(sb, userId, "is_default_master");
@@ -481,6 +571,10 @@ export async function updateUserAddress(
   const base = userAddressDtoToWritePayload(dto);
   const mergedFull: UserAddressWritePayload = { ...base, ...p };
   const resolved = await resolveUserAddressWritePayloadForShop(sb, userId, mergedFull, id);
+
+  if (p.isDefaultMaster === true) {
+    await assertStoreAddressNotForcedAsMasterWhenGeneralExists(sb, userId, resolved);
+  }
 
   let merged: Partial<UserAddressWritePayload> = { ...p };
   if (resolved.labelType === "shop" && shouldApplyShopSnapshotToUpdatePatch(p, dto)) {

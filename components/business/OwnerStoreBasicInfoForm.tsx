@@ -10,9 +10,14 @@ import {
   parsePhMobileInput,
 } from "@/lib/utils/ph-mobile";
 import { REGIONS } from "@/lib/products/form-options";
-import { fetchAddressDefaultsSnapshot } from "@/lib/addresses/fetch-address-defaults-client";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
+import {
+  describeMeAddressesListFailure,
+  fetchMeAddressesListSingleFlight,
+  invalidateMeAddressesListClientCache,
+} from "@/lib/addresses/address-list-client-cache";
 import { deriveStoreAddressFieldsFromUserAddressMaster } from "@/lib/business/derive-store-address-from-user-address-master";
+import { pickUserAddressLinkedToStore } from "@/lib/business/pick-user-address-linked-to-store";
 import { OwnerAddressBookSnapshotCard } from "@/components/business/OwnerAddressBookSnapshotCard";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { BodyPortal } from "@/components/layout/BodyPortal";
@@ -59,6 +64,16 @@ function resolveRegionCityIds(regionRaw: string, cityRaw: string): { rid: string
   if (!r) return { rid: "", cid: "" };
   const c = r.cities.find((x) => x.id === cn) ?? r.cities.find((x) => x.name === cn);
   return { rid: r.id, cid: c?.id ?? "" };
+}
+
+/** 더티 판정 — 주소록 매장 행 좌표만 바뀐 경우도 잡는다 */
+function storeLinkedGeoFingerprint(addr: UserAddressDTO | null): string {
+  if (!addr?.id) return "";
+  const la = addr.latitude;
+  const ln = addr.longitude;
+  const lat = typeof la === "number" && Number.isFinite(la) ? String(la) : "";
+  const lng = typeof ln === "number" && Number.isFinite(ln) ? String(ln) : "";
+  return `${addr.id}|${lat}|${lng}|${(addr.updatedAt ?? "").trim()}`;
 }
 
 type BasicValues = {
@@ -118,9 +133,22 @@ function serializeFormSnapshot(input: {
   storeTopicId: string;
   identityEditable: boolean;
   useDbTaxonomy: boolean;
+  manualMapLat: string;
+  manualMapLng: string;
+  storeLinkedGeoFingerprint: string;
 }): string {
-  const { values, regionId, cityId, storeCategoryId, storeTopicId, identityEditable, useDbTaxonomy } =
-    input;
+  const {
+    values,
+    regionId,
+    cityId,
+    storeCategoryId,
+    storeTopicId,
+    identityEditable,
+    useDbTaxonomy,
+    manualMapLat,
+    manualMapLng,
+    storeLinkedGeoFingerprint,
+  } = input;
   const phoneDigits = parsePhMobileInput(values.phone);
   const emailDigits = parsePhMobileInput(values.email);
   const payload = {
@@ -138,6 +166,9 @@ function serializeFormSnapshot(input: {
     cityId: cityId.trim(),
     storeCategoryId: identityEditable && useDbTaxonomy ? storeCategoryId.trim() : "",
     storeTopicId: identityEditable && useDbTaxonomy ? storeTopicId.trim() : "",
+    manualMapLat: manualMapLat.trim(),
+    manualMapLng: manualMapLng.trim(),
+    storeLinkedGeoFingerprint: storeLinkedGeoFingerprint.trim(),
   };
   return JSON.stringify(payload);
 }
@@ -239,8 +270,9 @@ export function OwnerStoreBasicInfoForm({
   const [manualMapLat, setManualMapLat] = useState("");
   const [manualMapLng, setManualMapLng] = useState("");
   const profileFileInputRef = useRef<HTMLInputElement>(null);
-  const [addressDefault, setAddressDefault] = useState<UserAddressDTO | null>(null);
+  const [storeLinkedUserAddress, setStoreLinkedUserAddress] = useState<UserAddressDTO | null>(null);
   const [addressReady, setAddressReady] = useState(false);
+  const [addressBookListError, setAddressBookListError] = useState<string | null>(null);
   const addressLoadSeqRef = useRef(0);
 
   const useDbTaxonomy = Boolean(
@@ -265,6 +297,9 @@ export function OwnerStoreBasicInfoForm({
     storeTopicId,
     identityEditable,
     useDbTaxonomy,
+    manualMapLat,
+    manualMapLng,
+    storeLinkedGeoFingerprint: storeLinkedGeoFingerprint(storeLinkedUserAddress),
   });
   liveFormSnapRef.current = {
     values,
@@ -274,6 +309,9 @@ export function OwnerStoreBasicInfoForm({
     storeTopicId,
     identityEditable,
     useDbTaxonomy,
+    manualMapLat,
+    manualMapLng,
+    storeLinkedGeoFingerprint: storeLinkedGeoFingerprint(storeLinkedUserAddress),
   };
 
   const [baselineSnapshot, setBaselineSnapshot] = useState<string | null>(null);
@@ -296,15 +334,36 @@ export function OwnerStoreBasicInfoForm({
     const savedLng = parseFiniteLongitude(row.lng);
     const nextLat = manualMapLat.trim() ? parseFiniteLatitude(manualMapLat) : null;
     const nextLng = manualMapLng.trim() ? parseFiniteLongitude(manualMapLng) : null;
+    const linkedLat = storeLinkedUserAddress ? parseFiniteLatitude(storeLinkedUserAddress.latitude) : null;
+    const linkedLng = storeLinkedUserAddress ? parseFiniteLongitude(storeLinkedUserAddress.longitude) : null;
+    const manualEmpty = !manualMapLat.trim() && !manualMapLng.trim();
+    const linkedPinDiffersFromStore =
+      manualEmpty &&
+      linkedLat != null &&
+      linkedLng != null &&
+      savedLat != null &&
+      savedLng != null &&
+      (linkedLat !== savedLat || linkedLng !== savedLng);
     return (
       values.addressStreetLine.trim() !== saved.addressStreetLine.trim() ||
       values.addressDetail.trim() !== saved.addressDetail.trim() ||
       regionId.trim() !== savedRegionCity.rid ||
       cityId.trim() !== savedRegionCity.cid ||
       nextLat !== savedLat ||
-      nextLng !== savedLng
+      nextLng !== savedLng ||
+      linkedPinDiffersFromStore
     );
-  }, [row, values.addressStreetLine, values.addressDetail, regionId, cityId, savedRegionCity, manualMapLat, manualMapLng]);
+  }, [
+    row,
+    values.addressStreetLine,
+    values.addressDetail,
+    regionId,
+    cityId,
+    savedRegionCity,
+    manualMapLat,
+    manualMapLng,
+    storeLinkedUserAddress,
+  ]);
 
   const saveConfirmDescription = useMemo(() => {
     const base = identityEditable
@@ -410,42 +469,61 @@ export function OwnerStoreBasicInfoForm({
     setCityId(cid);
   }, [row]);
 
+  /** DB `row` 갱신 직후에도 주소록 매장 연결 행이 있으면 그 지역·가로줄을 다시 덮어쓴다 */
+  useEffect(() => {
+    if (!storeLinkedUserAddress?.id) return;
+    const derived = deriveStoreAddressFieldsFromUserAddressMaster(storeLinkedUserAddress);
+    if (!derived) return;
+    setRegionId(derived.regionId);
+    setCityId(derived.cityId);
+    setValues((v) => ({
+      ...v,
+      addressStreetLine: derived.addressStreetLine || v.addressStreetLine,
+      addressDetail: derived.addressDetail || v.addressDetail,
+    }));
+  }, [row, storeLinkedUserAddress]);
+
   useEffect(() => {
     let cancelled = false;
+    let focusDebounce: number | null = null;
     const load = async (opts?: { force?: boolean }) => {
       const seq = ++addressLoadSeqRef.current;
       setAddressReady(false);
+      setAddressBookListError(null);
+      if (opts?.force) {
+        invalidateMeAddressesListClientCache();
+      }
       try {
-        const snap = await fetchAddressDefaultsSnapshot({
-          timeoutMs: 8_000,
-          force: Boolean(opts?.force),
-        });
+        const listResult = await fetchMeAddressesListSingleFlight();
         if (cancelled || seq !== addressLoadSeqRef.current) return;
-        const master = (snap?.ok && snap.defaults ? (snap.defaults.master as UserAddressDTO | null) : null) ?? null;
-        if (!master?.id) {
-          setAddressDefault(null);
-          return;
-        }
-        setAddressDefault(master);
-        const derived = deriveStoreAddressFieldsFromUserAddressMaster(master);
-        if (derived) {
-          setRegionId(derived.regionId);
-          setCityId(derived.cityId);
-          setValues((v) => ({
-            ...v,
-            addressStreetLine: derived.addressStreetLine || v.addressStreetLine,
-            addressDetail: derived.addressDetail || v.addressDetail,
-          }));
+        if (!listResult.ok) {
+          setAddressBookListError(
+            describeMeAddressesListFailure(listResult, "주소 목록을 불러오지 못했어요."),
+          );
+          setStoreLinkedUserAddress(null);
+        } else {
+          setAddressBookListError(null);
+          const linked = pickUserAddressLinkedToStore(storeId, listResult.rows);
+          setStoreLinkedUserAddress(linked);
         }
       } catch {
-        if (!cancelled && seq === addressLoadSeqRef.current) setAddressDefault(null);
+        if (!cancelled && seq === addressLoadSeqRef.current) {
+          setStoreLinkedUserAddress(null);
+          setAddressBookListError("주소 목록을 불러오지 못했어요.");
+        }
       } finally {
         if (!cancelled && seq === addressLoadSeqRef.current) setAddressReady(true);
       }
     };
 
     void load({ force: true });
-    const onFocus = () => void load({ force: true });
+    const onFocus = () => {
+      if (focusDebounce != null) window.clearTimeout(focusDebounce);
+      focusDebounce = window.setTimeout(() => {
+        focusDebounce = null;
+        void load({ force: true });
+      }, 450);
+    };
     const onVisibility = () => {
       if (document.visibilityState === "visible") void load({ force: true });
     };
@@ -455,11 +533,12 @@ export function OwnerStoreBasicInfoForm({
     window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressUpdated);
     return () => {
       cancelled = true;
+      if (focusDebounce != null) window.clearTimeout(focusDebounce);
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibility);
       window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressUpdated);
     };
-  }, []);
+  }, [storeId]);
 
   useEffect(() => {
     if (!addressReady || taxonomyLoading) return;
@@ -504,25 +583,49 @@ export function OwnerStoreBasicInfoForm({
   const revertToSaved = useCallback(() => {
     setError(null);
     const nextValues = rowToBasicValues(row);
-    setValues(nextValues);
     const { rid, cid } = resolveRegionCityIds(row.region ?? "", row.city ?? "");
-    setRegionId(rid);
-    setCityId(cid);
+    let mergedValues = nextValues;
+    let mergedRid = rid;
+    let mergedCid = cid;
+    if (storeLinkedUserAddress?.id) {
+      const d = deriveStoreAddressFieldsFromUserAddressMaster(storeLinkedUserAddress);
+      if (d) {
+        mergedRid = d.regionId;
+        mergedCid = d.cityId;
+        mergedValues = {
+          ...nextValues,
+          addressStreetLine: d.addressStreetLine || nextValues.addressStreetLine,
+          addressDetail: d.addressDetail || nextValues.addressDetail,
+        };
+      }
+    }
+    setValues(mergedValues);
+    setRegionId(mergedRid);
+    setCityId(mergedCid);
     const derived = deriveStoreTopicIdsFromRow(row, taxonomy);
     setStoreCategoryId(derived.categoryId);
     setStoreTopicId(derived.topicId);
+    const la = parseFiniteLatitude(row.lat);
+    const ln = parseFiniteLongitude(row.lng);
+    const nextManualLat = la != null ? String(la) : "";
+    const nextManualLng = ln != null ? String(ln) : "";
+    setManualMapLat(nextManualLat);
+    setManualMapLng(nextManualLng);
     setBaselineSnapshot(
       serializeFormSnapshot({
-        values: nextValues,
-        regionId: rid,
-        cityId: cid,
+        values: mergedValues,
+        regionId: mergedRid,
+        cityId: mergedCid,
         storeCategoryId: derived.categoryId,
         storeTopicId: derived.topicId,
         identityEditable,
         useDbTaxonomy,
-      })
+        manualMapLat: nextManualLat,
+        manualMapLng: nextManualLng,
+        storeLinkedGeoFingerprint: storeLinkedGeoFingerprint(storeLinkedUserAddress),
+      }),
     );
-  }, [row, taxonomy, identityEditable, useDbTaxonomy]);
+  }, [row, taxonomy, identityEditable, useDbTaxonomy, storeLinkedUserAddress]);
 
   const runSave = async (options?: { skipPrompt?: boolean }): Promise<boolean> => {
     setError(null);
@@ -593,10 +696,10 @@ export function OwnerStoreBasicInfoForm({
         }
         resolvedLat = la;
         resolvedLng = ln;
-      } else if (addressDefault?.id) {
-        /** 수동 좌표 비움: 카드 거리·ETA가 주소록과 어긋나지 않도록 대표 주소록 핀을 매장 좌표로 동기화 */
-        const dlat = parseFiniteLatitude(addressDefault.latitude);
-        const dlng = parseFiniteLongitude(addressDefault.longitude);
+      } else if (storeLinkedUserAddress?.id) {
+        /** 수동 좌표 비움: 주문자 배달 ETA·거리가 주소록 「매장」연결 주소 핀과 일치하도록 동기화 */
+        const dlat = parseFiniteLatitude(storeLinkedUserAddress.latitude);
+        const dlng = parseFiniteLongitude(storeLinkedUserAddress.longitude);
         if (dlat != null && dlng != null) {
           resolvedLat = dlat;
           resolvedLng = dlng;
@@ -855,8 +958,8 @@ export function OwnerStoreBasicInfoForm({
                 <p className="font-semibold">좌표 미설정</p>
                 <p className="mt-1 leading-relaxed">
                   배달 예상 시간·경로 거리는 매장의 지도 좌표(<code className="rounded bg-amber-100/80 px-1 dark:bg-amber-900/50">stores.lat</code> /{" "}
-                  <code className="rounded bg-amber-100/80 px-1 dark:bg-amber-900/50">lng</code>)가 있어야 계산됩니다. WGS84 위도·경도를 입력한 뒤
-                  저장하세요.
+                  <code className="rounded bg-amber-100/80 px-1 dark:bg-amber-900/50">lng</code>)가 있어야 계산됩니다. 주소록에서 이 매장에 연결된 「매장」유형 주소를 저장하면 그 좌표로
+                  동기화되고, 없으면 아래 WGS84 위도·경도를 직접 입력한 뒤 저장하세요.
                 </p>
                 <div className={`mt-3 ${OWNER_STORE_FORM_GRID_2_CLASS}`}>
                   <div className="min-w-0">
@@ -893,14 +996,16 @@ export function OwnerStoreBasicInfoForm({
               <div className="p-3 sm:p-4">
                 <OwnerAddressBookSnapshotCard
                   bare
+                  snapshotMode="store_linked"
                   returnToPath={`/stores/owner/basic-info?storeId=${encodeURIComponent(storeId)}`}
                   addressReady={addressReady}
-                  addressDefault={addressDefault}
+                  addressDefault={storeLinkedUserAddress}
+                  listError={addressBookListError}
                 />
               </div>
             </div>
 
-            {addressReady && !addressDefault?.id ? (
+            {addressReady && !storeLinkedUserAddress?.id ? (
               <div className="overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-app/30">
                 <div className="border-b border-sam-border-soft bg-sam-app/70 px-3 py-2">
                   <p className="sam-text-body-secondary font-bold text-sam-fg">직접 입력</p>

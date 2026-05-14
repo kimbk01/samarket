@@ -3,7 +3,7 @@
  */
 
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
 
 const KEY = "samarket:me-addresses-list-cache:v1";
 const ADDRESSES_SINGLE_FLIGHT_KEY = "me:addresses:list";
@@ -57,6 +57,11 @@ export function describeMeAddressesListFailure(result: MeAddressesListFetchResul
     return "네트워크 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.";
   }
   return (typeof result.error === "string" && result.error ? result.error : fallback);
+}
+
+/** 주소 목록 단일 비행 무효화 — 주소 저장·삭제 직후 강제 재조회용 */
+export function invalidateMeAddressesListClientCache(): void {
+  forgetSingleFlight(ADDRESSES_SINGLE_FLIGHT_KEY);
 }
 
 export function fetchMeAddressesListSingleFlight(): Promise<MeAddressesListFetchResult> {

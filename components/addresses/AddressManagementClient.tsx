@@ -333,10 +333,12 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
                     row={row}
                     busyId={busyId}
                     approvedStoresById={approvedStoresById}
-                    onSetAsRepresentative={() =>
+                    onSetAsRepresentative={
                       selectingForReturn
-                        ? setPickedId(row.id)
-                        : void setAsRepresentative(row.id)
+                        ? () => setPickedId(row.id)
+                        : row.labelType === "shop" && (row.linkedStoreId?.trim() ?? "")
+                          ? undefined
+                          : () => void setAsRepresentative(row.id)
                     }
                     onEdit={() => openEdit(row)}
                     onDelete={() => void removeRow(row.id)}
@@ -399,10 +401,12 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
                       row={row}
                       busyId={busyId}
                       approvedStoresById={approvedStoresById}
-                      onSetAsRepresentative={() =>
+                      onSetAsRepresentative={
                         selectingForReturn
-                          ? setPickedId(row.id)
-                          : void setAsRepresentative(row.id)
+                          ? () => setPickedId(row.id)
+                          : row.labelType === "shop" && (row.linkedStoreId?.trim() ?? "")
+                            ? undefined
+                            : () => void setAsRepresentative(row.id)
                       }
                       onEdit={() => openEdit(row)}
                       onDelete={() => void removeRow(row.id)}
