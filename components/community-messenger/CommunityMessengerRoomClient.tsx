@@ -7,7 +7,11 @@ import {
   noteCmRoomTimingSubtreeMount,
   scheduleCmRoomEntryTimingSessionCleanup,
 } from "@/lib/community-messenger/room/cm-room-entry-timing-session";
-import { noteCmRoomSubtreeClientMount } from "@/lib/community-messenger/room/cm-room-subtree-stability";
+import {
+  noteCmRoomSubtreeClientMount,
+  registerCmRoomSubtreeReactLifecycle,
+  shouldBlockCmRoomStrictEffectReRun,
+} from "@/lib/community-messenger/room/cm-room-subtree-stability";
 import { useCmRoomOpeningOverlayStore } from "@/lib/community-messenger/room/cm-room-opening-overlay-store";
 import { MessengerRoomGroupCallShell } from "@/lib/community-messenger/room/MessengerRoomGroupCallShell";
 import {
@@ -46,12 +50,16 @@ export function CommunityMessengerRoomClient(props: {
     if (!rid) return;
     useCmRoomOpeningOverlayStore.getState().noteRouteMounted(rid);
   }, [props.roomId]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const rid = props.roomId?.trim() ?? "";
     if (!rid) return;
-    noteCmRoomSubtreeClientMount(rid, getActiveCmRoomEntrySessionId());
-    noteCmRoomTimingSubtreeMount(rid);
+    const unregisterSubtree = registerCmRoomSubtreeReactLifecycle(rid);
+    if (!shouldBlockCmRoomStrictEffectReRun(rid, "room_client_subtree_mount")) {
+      noteCmRoomSubtreeClientMount(rid, getActiveCmRoomEntrySessionId());
+      noteCmRoomTimingSubtreeMount(rid);
+    }
     return () => {
+      unregisterSubtree();
       scheduleCmRoomEntryTimingSessionCleanup(rid, "room_client_unmount");
     };
   }, [props.roomId]);

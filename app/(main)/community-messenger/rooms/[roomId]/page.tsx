@@ -55,7 +55,6 @@ async function CommunityMessengerRoomPageLoaded({
       <MessengerRoomPageClientEntryProbe />
       <MessengerRoomRouteEntryMountProbe stage="page" />
       <CommunityMessengerRoomClient
-        key={rid}
         roomId={rid}
         initialCallAction={callAction}
         initialCallSessionId={sessionId}

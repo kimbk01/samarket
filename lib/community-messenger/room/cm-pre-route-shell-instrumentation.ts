@@ -7,8 +7,13 @@ import {
   getActiveCmRoomEntrySessionRoomId,
   markCmRoomTimingMetricRecorded,
 } from "@/lib/community-messenger/room/cm-room-entry-timing-session";
+import {
+  finalizeCmRoomEntryComposerFrameVisibleMs,
+  finalizeCmRoomEntryShellVisibleMs,
+} from "@/lib/community-messenger/room/cm-room-entry-instrumentation";
 import { recordRoomEntryStage } from "@/lib/community-messenger/room/cm-room-entry-timing";
 import { useCmRoomOpeningOverlayStore } from "@/lib/community-messenger/room/cm-room-opening-overlay-store";
+import { cmMessengerPerfVerboseLog } from "@/lib/community-messenger/room/cm-messenger-perf-verbose-log";
 
 let preRouteShellFinalLogged = false;
 
@@ -43,8 +48,9 @@ export function emitCmPreRouteShellOverlayVisibleLog(): void {
   if (!session) return;
   markCmRoomTimingMetricRecorded("pre_route_shell");
   recordRoomEntryStage("shell");
-  // eslint-disable-next-line no-console -- pre-route shell diagnostics
-  console.log("[cm-pre-route-shell]", payload);
+  finalizeCmRoomEntryShellVisibleMs(roomId, true);
+  finalizeCmRoomEntryComposerFrameVisibleMs(roomId, true);
+  cmMessengerPerfVerboseLog("[cm-pre-route-shell]", payload);
 }
 
 export function tryEmitCmPreRouteShellFinalLog(): void {
@@ -56,8 +62,7 @@ export function tryEmitCmPreRouteShellFinalLog(): void {
   const roomId = String(payload.roomId ?? "").trim();
   if (!getActiveCmRoomEntrySessionRoomId() || getActiveCmRoomEntrySessionRoomId() !== roomId) return;
   preRouteShellFinalLogged = true;
-  // eslint-disable-next-line no-console -- pre-route shell final diagnostics
-  console.log("[cm-pre-route-shell]", payload);
+  cmMessengerPerfVerboseLog("[cm-pre-route-shell]", payload);
 }
 
 export function resetCmPreRouteShellInstrumentationForTests(): void {

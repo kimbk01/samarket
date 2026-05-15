@@ -66,11 +66,16 @@ import { consumePrefetchHitForRoom } from "@/lib/community-messenger/room-snapsh
 import {
   getMessengerRoomEntryHydrationScheduler,
 } from "@/lib/community-messenger/background-hydration-scheduler";
+import { noteCmColdEntryBootstrapCompleted } from "@/lib/community-messenger/room/cm-cold-entry-path";
 import {
   cmRoomEntryTraceEnabled,
   logCmRoomEntryAnalysis,
   setCmRoomEntryBootstrapMeta,
 } from "@/lib/community-messenger/room/cm-room-entry-instrumentation";
+import {
+  warnCmPerfRegressionReentryForegroundFetch,
+  warnCmPerfRegressionRoomClientLegacy,
+} from "@/lib/community-messenger/room/cm-messenger-perf-regression-guard";
 
 const BOOTSTRAP_FETCH_BREAKDOWN =
   typeof process !== "undefined" &&
@@ -97,6 +102,17 @@ function logBootstrapFetchBreakdownTable(payload: Record<string, string | number
   if (typeof console.table === "function") {
     console.table(rows);
   }
+}
+
+function logCmRoomReentryZeroFetchWithRegression(
+  payload: Parameters<typeof logCmRoomReentryZeroFetch>[0]
+): void {
+  logCmRoomReentryZeroFetch(payload);
+  warnCmPerfRegressionReentryForegroundFetch(payload.roomId, {
+    foreground_fetch_skipped: payload.foreground_fetch_skipped,
+    used_cached_snapshot: payload.used_cached_snapshot,
+    snapshot_age_ms: payload.snapshot_age_ms,
+  });
 }
 
 export type MessengerRoomBootstrapRefreshDeps = {
@@ -275,7 +291,7 @@ export function createMessengerRoomBootstrapRefresh(
     if (silent && !hardRefresh) {
       const silentSkip = shouldSkipSilentBootstrap(roomId, opts?.forceSilentNetwork === true);
       if (silentSkip.skip) {
-        logCmRoomReentryZeroFetch({
+        logCmRoomReentryZeroFetchWithRegression({
           roomId,
           used_cached_snapshot: Boolean(peekSnapEarly),
           foreground_fetch_skipped: false,
@@ -317,6 +333,7 @@ export function createMessengerRoomBootstrapRefresh(
             used_prefetch: prefetchHit,
             used_cached_snapshot: true,
           });
+          noteCmColdEntryBootstrapCompleted(roomId, false);
         }
         const delayMs = roomBootstrapSecondaryEnrichmentDelayMs();
         const scheduleSecondary = () => {
@@ -344,7 +361,7 @@ export function createMessengerRoomBootstrapRefresh(
         };
         if (cacheFresh5s) {
           touchCmRoomForegroundLockFromSnapshot(roomId, primed);
-          logCmRoomReentryZeroFetch({
+          logCmRoomReentryZeroFetchWithRegression({
             roomId,
             used_cached_snapshot: true,
             foreground_fetch_skipped: true,
@@ -397,7 +414,7 @@ export function createMessengerRoomBootstrapRefresh(
             setLoading(false);
             touchCmRoomForegroundLockFromSnapshot(roomId, fg.reuseSnapshot);
           }
-          logCmRoomReentryZeroFetch({
+          logCmRoomReentryZeroFetchWithRegression({
             roomId,
             used_cached_snapshot: Boolean(fg.reuseSnapshot),
             foreground_fetch_skipped: true,
@@ -413,6 +430,13 @@ export function createMessengerRoomBootstrapRefresh(
         reqSrc = fg.reqSrc;
         bootstrapQueryWithSrc = fg.reqSrc === "room_client_block" ? BLOCKING_FIRST_BOOTSTRAP_Q : INSTANT_LEGACY_Q;
         shouldBlock = fg.reqSrc === "room_client_block";
+        if (fg.reqSrc === "room_client_legacy") {
+          warnCmPerfRegressionRoomClientLegacy(roomId, {
+            reason: fg.reason,
+            decision: "proceed",
+            trigger_reason: opts?.triggerReason ?? null,
+          });
+        }
         markCmRoomForegroundBootstrapInflight(roomId, fg.reqSrc);
       } else {
         reqSrc = "room_silent";
@@ -759,6 +783,7 @@ export function createMessengerRoomBootstrapRefresh(
             used_prefetch: prefetchHit,
             used_cached_snapshot: false,
           });
+          noteCmColdEntryBootstrapCompleted(roomId, true);
           const srvSnap = Number(roomRes.headers.get("x-samarket-room-bootstrap-fetch-ms") ?? "");
           const routeTot = Number(roomRes.headers.get("x-samarket-route-total-ms") ?? "");
           const suf = roomId.trim();

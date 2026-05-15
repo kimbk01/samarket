@@ -64,6 +64,7 @@ import {
 import {
   noteCmRoomSubtreeAttach,
   shouldBlockCmRoomStrictEffectReRun,
+  shouldSkipCmRoomSubtreeSurfaceAttach,
 } from "@/lib/community-messenger/room/cm-room-subtree-stability";
 
 const CM_ROOM_ENTRY_INITIAL_VIEWPORT_ROWS = 10;
@@ -118,8 +119,15 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
 
   useLayoutEffect(() => {
     if (hydrationPass < 2) return;
-    noteCmRoomSubtreeAttach(vm.streamRoomId, "viewport");
-    measureCmPassRenderCommit(2, timelineRenderStartRef.current);
+    if (
+      !shouldSkipCmRoomSubtreeSurfaceAttach(vm.streamRoomId, "viewport") &&
+      !shouldBlockCmRoomStrictEffectReRun(vm.streamRoomId, "viewport_attach")
+    ) {
+      noteCmRoomSubtreeAttach(vm.streamRoomId, "viewport");
+    }
+    if (!shouldBlockCmRoomStrictEffectReRun(vm.streamRoomId, "viewport_pass2_measure")) {
+      measureCmPassRenderCommit(2, timelineRenderStartRef.current);
+    }
   }, [hydrationPass, vm.streamRoomId]);
 
   const noteViewportVisible = useCallback(

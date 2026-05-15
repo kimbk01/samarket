@@ -36,6 +36,7 @@ import { useSearchParams } from "next/navigation";
 import { buildMessengerRoomListBackHref } from "@/lib/community-messenger/messenger-entry-origin";
 import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
 import {
+  finalizeCmRoomEntryShellVisibleMs,
   recordCmRoomEntryMilestone,
   tryEmitCmRoomEntryV2Log,
 } from "@/lib/community-messenger/room/cm-room-entry-instrumentation";
@@ -79,6 +80,7 @@ import {
   bumpCmRoomHydrationPassFromPersisted,
   shouldBlockCmRoomStrictEffectReRun,
   shouldSkipCmRoomHydrationPassSchedule,
+  shouldSkipCmRoomSubtreeSurfaceAttach,
 } from "@/lib/community-messenger/room/cm-room-subtree-stability";
 
 type MessengerRoomPhase2Controller = ReturnType<typeof useMessengerRoomPhase2Controller>;
@@ -118,12 +120,14 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
   useLayoutEffect(() => {
     const rid = roomIdStable;
     if (!rid) return;
-    noteCmRoomSubtreeAttach(rid, "shell");
+    if (!shouldSkipCmRoomSubtreeSurfaceAttach(rid, "shell")) {
+      noteCmRoomSubtreeAttach(rid, "shell");
+    }
     const logPass1 = !shouldBlockCmRoomStrictEffectReRun(rid, "pass1_shell_milestone");
     if (logPass1) {
       useCmRoomOpeningOverlayStore.getState().noteHydrationComplete(rid);
       useCmRoomOpeningOverlayStore.getState().beginHandoff(rid);
-      recordCmRoomEntryMilestone("room_shell_visible_ms");
+      finalizeCmRoomEntryShellVisibleMs(rid, false);
       measureCmPassRenderCommit(1, phase2RenderPassStartRef.current);
       const renderMs = Math.round(performance.now() - phase2RenderPassStartRef.current);
       logCmRenderRoomEntry({
@@ -444,31 +448,32 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
           <MessengerRoomPhase2HeaderProvider value={headerView}>
             <CommunityMessengerRoomPhase2Header />
           </MessengerRoomPhase2HeaderProvider>
-          {hydrationPass >= 2 ? (
-            <>
-              <CommunityMessengerRoomPhase2MessageTimeline />
-              <CommunityMessengerRoomPhase2MessageOverlays />
-            </>
-          ) : (
+          <div
+            className={hydrationPass >= 2 ? "contents" : "hidden min-h-0 flex-1"}
+            aria-hidden={hydrationPass < 2}
+            data-cm-room-viewport-persistent=""
+          >
+            <CommunityMessengerRoomPhase2MessageTimeline />
+            <CommunityMessengerRoomPhase2MessageOverlays />
+          </div>
+          {hydrationPass < 2 ? (
             <div
               className="min-h-0 flex-1 bg-[color:var(--cm-room-chat-bg)]"
               aria-hidden
               data-cm-room-viewport-placeholder
             />
-          )}
+          ) : null}
           <CommunityMessengerRoomPhase2AttachmentsAndTrade />
           <MessengerRoomPhase2ComposerProvider value={composerView}>
             <CommunityMessengerRoomPhase2Composer onPass1ComposerReady={noteCmRoomPass1ComposerMs} />
           </MessengerRoomPhase2ComposerProvider>
-          {hydrationPass >= 3 ? (
-            <>
-              <CommunityMessengerRoomPhase2RoomSheets />
-              <CommunityMessengerRoomPhase2MemberActionModal />
-              <MessengerRoomPhase2CallProvider value={callView}>
-                <CommunityMessengerRoomPhase2CallLayer />
-              </MessengerRoomPhase2CallProvider>
-            </>
-          ) : null}
+          <div className={hydrationPass >= 3 ? "contents" : "hidden"} aria-hidden={hydrationPass < 3} data-cm-room-pass3-persistent="">
+            <CommunityMessengerRoomPhase2RoomSheets />
+            <CommunityMessengerRoomPhase2MemberActionModal />
+            <MessengerRoomPhase2CallProvider value={callView}>
+              <CommunityMessengerRoomPhase2CallLayer />
+            </MessengerRoomPhase2CallProvider>
+          </div>
         </div>
         </CmRoomPhase2HydrationProvider>
       </MessengerRoomPhase2ViewProvider>

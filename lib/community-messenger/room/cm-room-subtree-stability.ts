@@ -1,7 +1,13 @@
 "use client";
 
+import { warnCmPerfRegressionSubtreeRemounted } from "@/lib/community-messenger/room/cm-messenger-perf-regression-guard";
+import { cmMessengerPerfVerboseLog } from "@/lib/community-messenger/room/cm-messenger-perf-verbose-log";
+
 /** same-room subtree·hydration·effect 재실행 억제 (Strict Mode dev 포함) */
 export const CM_ROOM_SUBTREE_REUSE_TTL_MS = 15_000;
+const CM_ROOM_STRICT_UNMOUNT_REUSE_MS = 800;
+
+type CmRoomSubtreeSurface = "shell" | "viewport" | "composer";
 
 type CmRoomSubtreeRoomState = {
   roomId: string;
@@ -11,6 +17,12 @@ type CmRoomSubtreeRoomState = {
   shellAttached: boolean;
   viewportAttached: boolean;
   composerAttached: boolean;
+  shellAttachMountGen: number;
+  viewportAttachMountGen: number;
+  composerAttachMountGen: number;
+  reactMountGen: number;
+  lastReactMountAt: number;
+  lastReactUnmountAt: number;
   lastAttachAt: number;
   strictDoubleInvokeBlocked: number;
   effectResetBlocked: number;
@@ -30,6 +42,70 @@ function isDevStrictModeLikely(): boolean {
 
 function guardKey(roomId: string, effectKey: string): string {
   return `${roomId}::${effectKey}`;
+}
+
+function getSurfaceAttached(row: CmRoomSubtreeRoomState, surface: CmRoomSubtreeSurface): boolean {
+  if (surface === "shell") return row.shellAttached;
+  if (surface === "viewport") return row.viewportAttached;
+  return row.composerAttached;
+}
+
+function setSurfaceAttached(row: CmRoomSubtreeRoomState, surface: CmRoomSubtreeSurface, attached: boolean): void {
+  if (surface === "shell") row.shellAttached = attached;
+  else if (surface === "viewport") row.viewportAttached = attached;
+  else row.composerAttached = attached;
+}
+
+function getSurfaceAttachMountGen(row: CmRoomSubtreeRoomState, surface: CmRoomSubtreeSurface): number {
+  if (surface === "shell") return row.shellAttachMountGen;
+  if (surface === "viewport") return row.viewportAttachMountGen;
+  return row.composerAttachMountGen;
+}
+
+function setSurfaceAttachMountGen(row: CmRoomSubtreeRoomState, surface: CmRoomSubtreeSurface, gen: number): void {
+  if (surface === "shell") row.shellAttachMountGen = gen;
+  else if (surface === "viewport") row.viewportAttachMountGen = gen;
+  else row.composerAttachMountGen = gen;
+}
+
+function createRoomRow(roomId: string, sessionId: string, now: number): CmRoomSubtreeRoomState {
+  return {
+    roomId,
+    sessionId,
+    hydrationPass: 1,
+    entryPassAdvanced: false,
+    shellAttached: false,
+    viewportAttached: false,
+    composerAttached: false,
+    shellAttachMountGen: 0,
+    viewportAttachMountGen: 0,
+    composerAttachMountGen: 0,
+    reactMountGen: 0,
+    lastReactMountAt: 0,
+    lastReactUnmountAt: 0,
+    lastAttachAt: now,
+    strictDoubleInvokeBlocked: 0,
+    effectResetBlocked: 0,
+  };
+}
+
+function getOrRefreshRoomRow(roomId: string, sessionId = ""): CmRoomSubtreeRoomState {
+  const id = String(roomId ?? "").trim();
+  const now = perfNow();
+  let row = roomStateById.get(id);
+  const expired = row != null && now - row.lastAttachAt > CM_ROOM_SUBTREE_REUSE_TTL_MS;
+  if (!row || expired) {
+    row = createRoomRow(id, sessionId, now);
+    roomStateById.set(id, row);
+  }
+  if (sessionId) row.sessionId = sessionId;
+  row.lastAttachAt = now;
+  return row;
+}
+
+function isStrictReactRemount(row: CmRoomSubtreeRoomState): boolean {
+  if (row.lastReactUnmountAt <= 0) return false;
+  return perfNow() - row.lastReactUnmountAt < CM_ROOM_STRICT_UNMOUNT_REUSE_MS;
 }
 
 export function getCmRoomSubtreeHydrationPass(roomId: string): number {
@@ -62,11 +138,9 @@ export function isCmRoomSubtreeEntryPassAdvanced(roomId: string): boolean {
 export function markCmRoomSubtreeEntryPassAdvanced(roomId: string): void {
   const id = String(roomId ?? "").trim();
   if (!id) return;
-  const row = roomStateById.get(id);
-  if (row) {
-    row.entryPassAdvanced = true;
-    row.lastAttachAt = perfNow();
-  }
+  const row = getOrRefreshRoomRow(id);
+  row.entryPassAdvanced = true;
+  row.lastAttachAt = perfNow();
 }
 
 export function shouldSkipCmRoomHydrationPassSchedule(roomId: string, targetPass: number): boolean {
@@ -93,9 +167,12 @@ export function shouldBlockCmRoomStrictEffectReRun(roomId: string, effectKey: st
   const key = guardKey(id, effectKey);
   const last = strictEffectGuard.get(key) ?? 0;
   const now = perfNow();
-  if (now - last < 800) {
+  if (now - last < CM_ROOM_STRICT_UNMOUNT_REUSE_MS) {
     const row = roomStateById.get(id);
-    if (row) row.strictDoubleInvokeBlocked += 1;
+    if (row) {
+      row.strictDoubleInvokeBlocked += 1;
+      row.effectResetBlocked += 1;
+    }
     logCmRoomSubtreeStability({
       roomId: id,
       subtreeReused: true,
@@ -111,6 +188,14 @@ export function shouldBlockCmRoomStrictEffectReRun(roomId: string, effectKey: st
   return false;
 }
 
+export function isCmRoomSubtreeStrictDoubleInvoke(roomId: string): boolean {
+  const id = String(roomId ?? "").trim();
+  if (!id) return false;
+  const row = roomStateById.get(id);
+  if (!row) return false;
+  return isStrictReactRemount(row) || row.strictDoubleInvokeBlocked > 0;
+}
+
 export function logCmRoomSubtreeStability(payload: {
   roomId: string;
   subtreeReused: boolean;
@@ -120,54 +205,98 @@ export function logCmRoomSubtreeStability(payload: {
   strictDoubleInvokeBlocked: boolean;
   effectResetBlocked: boolean;
 }): void {
-  // eslint-disable-next-line no-console -- subtree stability diagnostics
-  console.log("[cm-room-subtree-stability]", payload);
+  const subtreeRemounted =
+    payload.shellRemounted || payload.viewportRemounted || payload.composerRemounted;
+  if (subtreeRemounted) {
+    const surface = payload.composerRemounted
+      ? "composer"
+      : payload.viewportRemounted
+        ? "viewport"
+        : "shell";
+    warnCmPerfRegressionSubtreeRemounted(payload.roomId, {
+      surface,
+      subtreeRemounted: true,
+      strictDoubleInvokeBlocked: payload.strictDoubleInvokeBlocked,
+    });
+  }
+  cmMessengerPerfVerboseLog("[cm-room-subtree-stability]", {
+    ...payload,
+    subtreeRemounted,
+  });
+}
+
+/** React room client mount — Strict Mode 재마운트 시 attach 플래그 유지 */
+export function noteCmRoomSubtreeReactMount(roomId: string): void {
+  const id = String(roomId ?? "").trim();
+  if (!id) return;
+  const now = perfNow();
+  const row = getOrRefreshRoomRow(id);
+  const strictReuse = isStrictReactRemount(row);
+  if (strictReuse) {
+    row.strictDoubleInvokeBlocked += 1;
+    row.effectResetBlocked += 1;
+  } else if (row.reactMountGen > 0) {
+    setSurfaceAttached(row, "shell", false);
+    setSurfaceAttached(row, "viewport", false);
+    setSurfaceAttached(row, "composer", false);
+    setSurfaceAttachMountGen(row, "shell", 0);
+    setSurfaceAttachMountGen(row, "viewport", 0);
+    setSurfaceAttachMountGen(row, "composer", 0);
+  }
+  row.reactMountGen += 1;
+  row.lastReactMountAt = now;
+}
+
+export function noteCmRoomSubtreeReactUnmount(roomId: string): void {
+  const id = String(roomId ?? "").trim();
+  if (!id) return;
+  const row = roomStateById.get(id);
+  if (!row) return;
+  row.lastReactUnmountAt = perfNow();
+}
+
+/** 동일 React mount generation 에서 surface attach 로그·side-effect 1회만 */
+export function shouldSkipCmRoomSubtreeSurfaceAttach(roomId: string, surface: CmRoomSubtreeSurface): boolean {
+  const id = String(roomId ?? "").trim();
+  if (!id) return false;
+  const row = roomStateById.get(id);
+  if (!row) return false;
+  if (perfNow() - row.lastAttachAt > CM_ROOM_SUBTREE_REUSE_TTL_MS) return false;
+  if (!getSurfaceAttached(row, surface)) return false;
+  return getSurfaceAttachMountGen(row, surface) >= row.reactMountGen;
 }
 
 export function noteCmRoomSubtreeAttach(
   roomId: string,
-  surface: "shell" | "viewport" | "composer",
+  surface: CmRoomSubtreeSurface,
   sessionId = ""
 ): {
   reused: boolean;
   remounted: boolean;
+  strictDoubleInvoke: boolean;
 } {
   const id = String(roomId ?? "").trim();
-  if (!id) return { reused: false, remounted: false };
-  const now = perfNow();
-  let row = roomStateById.get(id);
-  const expired = row != null && now - row.lastAttachAt > CM_ROOM_SUBTREE_REUSE_TTL_MS;
-  if (!row || expired) {
-    row = {
-      roomId: id,
-      sessionId,
-      hydrationPass: 1,
-      entryPassAdvanced: false,
-      shellAttached: false,
-      viewportAttached: false,
-      composerAttached: false,
-      lastAttachAt: now,
-      strictDoubleInvokeBlocked: 0,
-      effectResetBlocked: 0,
+  if (!id) return { reused: false, remounted: false, strictDoubleInvoke: false };
+
+  if (shouldSkipCmRoomSubtreeSurfaceAttach(id, surface)) {
+    const row = roomStateById.get(id)!;
+    return {
+      reused: true,
+      remounted: false,
+      strictDoubleInvoke: isStrictReactRemount(row) || row.strictDoubleInvokeBlocked > 0,
     };
-    roomStateById.set(id, row);
   }
-  if (sessionId) row.sessionId = sessionId;
-  row.lastAttachAt = now;
 
-  const wasAttached =
-    surface === "shell"
-      ? row.shellAttached
-      : surface === "viewport"
-        ? row.viewportAttached
-        : row.composerAttached;
+  const row = getOrRefreshRoomRow(id, sessionId);
+  const strictDoubleInvoke = isStrictReactRemount(row) || row.strictDoubleInvokeBlocked > 0;
+  const wasAttached = getSurfaceAttached(row, surface);
+  const prevAttachGen = getSurfaceAttachMountGen(row, surface);
+  const remounted =
+    wasAttached && row.reactMountGen > 0 && (prevAttachGen < row.reactMountGen || strictDoubleInvoke);
+  const subtreeReused = remounted && (strictDoubleInvoke || perfNow() - row.lastAttachAt <= CM_ROOM_SUBTREE_REUSE_TTL_MS);
 
-  if (surface === "shell") row.shellAttached = true;
-  if (surface === "viewport") row.viewportAttached = true;
-  if (surface === "composer") row.composerAttached = true;
-
-  const remounted = wasAttached;
-  const subtreeReused = wasAttached && !expired;
+  setSurfaceAttached(row, surface, true);
+  setSurfaceAttachMountGen(row, surface, row.reactMountGen);
 
   logCmRoomSubtreeStability({
     roomId: id,
@@ -175,11 +304,11 @@ export function noteCmRoomSubtreeAttach(
     shellRemounted: surface === "shell" && remounted,
     viewportRemounted: surface === "viewport" && remounted,
     composerRemounted: surface === "composer" && remounted,
-    strictDoubleInvokeBlocked: row.strictDoubleInvokeBlocked > 0,
-    effectResetBlocked: row.effectResetBlocked > 0,
+    strictDoubleInvokeBlocked: strictDoubleInvoke,
+    effectResetBlocked: strictDoubleInvoke,
   });
 
-  return { reused: subtreeReused, remounted };
+  return { reused: subtreeReused, remounted, strictDoubleInvoke };
 }
 
 export function noteCmRoomSubtreeClientMount(roomId: string, sessionId: string): void {
@@ -187,6 +316,16 @@ export function noteCmRoomSubtreeClientMount(roomId: string, sessionId: string):
   if (!id) return;
   globalAttachSeq.n += 1;
   noteCmRoomSubtreeAttach(id, "shell", sessionId);
+}
+
+/** room client mount/unmount — Strict Mode 에서 attach·session 유지 */
+export function registerCmRoomSubtreeReactLifecycle(roomId: string): () => void {
+  const id = String(roomId ?? "").trim();
+  if (!id) return () => undefined;
+  noteCmRoomSubtreeReactMount(id);
+  return () => {
+    noteCmRoomSubtreeReactUnmount(id);
+  };
 }
 
 export function clearCmRoomSubtreeState(roomId: string): void {

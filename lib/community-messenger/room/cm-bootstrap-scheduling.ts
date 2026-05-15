@@ -2,11 +2,12 @@
 
 import type { CmBootstrapTier } from "@/lib/community-messenger/room/cm-bootstrap-orchestration";
 import { cmDevHmrFlags } from "@/lib/community-messenger/dev/cm-event-loop-dev";
+import {
+  CM_BOOTSTRAP_SNAPSHOT_REUSE_TTL_MS,
+  CM_ROOM_PREFETCH_COOLDOWN_MS,
+} from "@/lib/community-messenger/room/cm-bootstrap-constants";
 
-/** 목록 prefetch 최소 간격 — hover/visible 폭주 차단 */
-export const CM_ROOM_PREFETCH_COOLDOWN_MS = 5_000;
-/** 방 bootstrap snapshot reuse (fetch skip) */
-export const CM_BOOTSTRAP_SNAPSHOT_REUSE_TTL_MS = 5_000;
+export { CM_BOOTSTRAP_SNAPSHOT_REUSE_TTL_MS, CM_ROOM_PREFETCH_COOLDOWN_MS };
 
 export type CmBootstrapTriggerSource =
   | "prefetch"

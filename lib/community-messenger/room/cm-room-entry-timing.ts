@@ -4,9 +4,9 @@ import {
   emitCmDevNoiseImpact,
   resetCmDevNoiseImpactSession,
 } from "@/lib/community-messenger/dev/cm-dev-noise-impact";
+import { cmDevHmrFlags } from "@/lib/community-messenger/dev/cm-event-loop-dev";
 import { resetCmRoomPassInstrumentationForTests } from "@/lib/community-messenger/room/cm-room-pass-instrumentation";
 import { resetCmPreRouteShellInstrumentationForTests } from "@/lib/community-messenger/room/cm-pre-route-shell-instrumentation";
-import { cmDevHmrFlags } from "@/lib/community-messenger/dev/cm-event-loop-dev";
 import {
   acquireCmRoomEntryTimingSession,
   clearCmRoomEntryTimingSession,
@@ -21,6 +21,7 @@ import {
   resetCmRoomEntryTimingSessionForTests,
   CM_ROOM_ENTRY_TAP_TTL_MS,
 } from "@/lib/community-messenger/room/cm-room-entry-timing-session";
+import { cmMessengerPerfVerboseLog } from "@/lib/community-messenger/room/cm-messenger-perf-verbose-log";
 
 export { CM_ROOM_ENTRY_TAP_TTL_MS as CM_ROOM_TAP_TTL_MS };
 export const CM_ROOM_ENTRY_QUIET_WINDOW_MS = 500;
@@ -41,8 +42,7 @@ function perfNow(): number {
 function logQuietWindowStarted(): void {
   if (quietWindowStartedLogged || getCmRoomEntrySessionTapT0() <= 0) return;
   quietWindowStartedLogged = true;
-  // eslint-disable-next-line no-console -- quiet window diagnostics
-  console.log("[cm-room-entry-quiet-window]", {
+  cmMessengerPerfVerboseLog("[cm-room-entry-quiet-window]", {
     sessionId: getActiveCmRoomEntrySessionId(),
     started: true,
     ended: false,
@@ -55,8 +55,7 @@ function logQuietWindowStarted(): void {
 function logQuietWindowEnded(): void {
   if (quietWindowEndedLogged || getCmRoomEntrySessionTapT0() <= 0) return;
   quietWindowEndedLogged = true;
-  // eslint-disable-next-line no-console -- quiet window diagnostics
-  console.log("[cm-room-entry-quiet-window]", {
+  cmMessengerPerfVerboseLog("[cm-room-entry-quiet-window]", {
     sessionId: getActiveCmRoomEntrySessionId(),
     started: true,
     ended: true,
@@ -192,8 +191,7 @@ export function tryEmitRoomEntryStageLog(): void {
     s.stageLogEmitted = true;
   });
   if (!session?.stageLogEmitted || !roomEntryStageLogReady(session.stages)) return;
-  // eslint-disable-next-line no-console -- room entry stage diagnostics
-  console.log("[cm-room-entry-stage]", {
+  cmMessengerPerfVerboseLog("[cm-room-entry-stage]", {
     roomId,
     sessionId,
     shell_ms: session.stages.shell,
@@ -222,8 +220,7 @@ export function tryEmitRoomEntryTimingV2(roomId: string): void {
       : usedRouteT0Fallback
         ? 0
         : null;
-  // eslint-disable-next-line no-console -- room entry timing v2
-  console.log("[cm-room-entry-timing-v2]", {
+  cmMessengerPerfVerboseLog("[cm-room-entry-timing-v2]", {
     roomId: id,
     sessionId: session.sessionId,
     roomTapT0_exists: true,

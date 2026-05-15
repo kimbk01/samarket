@@ -8,6 +8,7 @@ import {
   type ReactNode,
   memo,
   useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -54,7 +55,8 @@ import {
 import { useMatchMaxWidthMd } from "@/lib/ui/use-match-max-width";
 import { isLikelyIosWebKit } from "@/lib/ui/is-likely-ios-webkit";
 import { useCommunityMessengerRoomTypingPublisher } from "@/lib/community-messenger/realtime/typing/use-community-messenger-room-typing";
-import { scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
+import { cmMessengerPerfVerboseLog } from "@/lib/community-messenger/room/cm-messenger-perf-verbose-log";
+import { cancelScheduledWhenBrowserIdle, scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
 import {
   notifyChatInputCommitForPerf,
   notifyChatInputKeydownForPerf,
@@ -64,12 +66,14 @@ import {
 } from "@/lib/runtime/samarket-runtime-debug";
 import { useMessengerRoomClientPhase1Context } from "@/lib/community-messenger/room/messenger-room-client-phase1-context";
 import {
-  recordCmRoomEntryMilestone,
-  tryEmitCmRoomEntryV2Log,
+  finalizeCmRoomEntryComposerFrameVisibleMs,
+  getCmRoomEntryBootstrapMeta,
+  isCmRoomEntryMilestoneFinalized,
 } from "@/lib/community-messenger/room/cm-room-entry-instrumentation";
 import {
   noteCmRoomSubtreeAttach,
   shouldBlockCmRoomStrictEffectReRun,
+  shouldSkipCmRoomSubtreeSurfaceAttach,
 } from "@/lib/community-messenger/room/cm-room-subtree-stability";
 import {
   bumpCmPolishComposerRender,
@@ -121,17 +125,28 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
   const roomKey = vm.snapshot.room.id;
   const [draft, setDraft] = useState("");
   const composerMountRecordedRef = useRef(false);
+  const composerFrameFinalizedRef = useRef(false);
   const composerFrameLoggedRef = useRef(false);
   const composerEffectCountRef = useRef(0);
   const seededSilentHoldReleasedRef = useRef(false);
   const [typingPublisherEnabled, setTypingPublisherEnabled] = useState(false);
+  const [composerHeavyEnabled, setComposerHeavyEnabled] = useState(false);
+
+  useLayoutEffect(() => {
+    setComposerHeavyEnabled(false);
+    const idleId = scheduleWhenBrowserIdle(() => setComposerHeavyEnabled(true), 0);
+    return () => {
+      cancelScheduledWhenBrowserIdle(idleId);
+    };
+  }, [roomKey]);
 
   /** 방 전환·답장 주입·전송 실패 복원 등 — Phase1 `message` 가 바뀌면 draft 에 반영(타이핑은 draft 만 갱신). */
   useLayoutEffect(() => {
+    if (!composerHeavyEnabled) return;
     composerEffectCountRef.current += 1;
     recordRouteEntryMetric("messenger_room_entry", "composer_use_layout_effect_count", composerEffectCountRef.current);
     setDraft(vm.message);
-  }, [roomKey, vm.message]);
+  }, [roomKey, vm.message, composerHeavyEnabled]);
 
   useLayoutEffect(() => {
     seededSilentHoldReleasedRef.current = false;
@@ -153,15 +168,14 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     const frameMs = Math.round(
       (typeof performance !== "undefined" ? performance.now() : 0) - composerRenderPassStartRef.current
     );
-    // eslint-disable-next-line no-console -- composer fast frame diagnostics
-    console.log("[cm-composer-fast-frame]", {
+    cmMessengerPerfVerboseLog("[cm-composer-fast-frame]", {
       frame_visible_ms: frameMs,
       heavy_features_deferred: true,
     });
   }, [roomKey]);
 
-  useLayoutEffect(() => {
-    if (!cmRenderAnalysisEnabled()) return;
+  useEffect(() => {
+    if (!composerHeavyEnabled || !cmRenderAnalysisEnabled()) return;
     const now = typeof performance !== "undefined" ? performance.now() : 0;
     if (now - lastComposerPerfLogRef.current < 280) return;
     lastComposerPerfLogRef.current = now;
@@ -170,23 +184,35 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
       composer_render_ms: ms,
       rerender_reason: "composer_commit",
     });
-  });
+  }, [composerHeavyEnabled, roomKey]);
 
   useLayoutEffect(() => {
-    if (shouldBlockCmRoomStrictEffectReRun(String(roomKey).trim(), "composer_visible")) return;
+    const rid = String(roomKey).trim();
+    if (!rid || composerFrameFinalizedRef.current) return;
+    if (shouldBlockCmRoomStrictEffectReRun(rid, "composer_frame_finalize")) return;
+    composerFrameFinalizedRef.current = true;
     if (!composerMountRecordedRef.current) {
       composerMountRecordedRef.current = true;
-      noteCmRoomSubtreeAttach(String(roomKey).trim(), "composer");
+      if (!shouldSkipCmRoomSubtreeSurfaceAttach(rid, "composer")) {
+        noteCmRoomSubtreeAttach(rid, "composer");
+      }
       recordRouteEntryElapsedMetric("messenger_room_entry", "composer_mount_ms");
     }
+    const meta = getCmRoomEntryBootstrapMeta();
+    if (!isCmRoomEntryMilestoneFinalized("composer_visible_ms")) {
+      finalizeCmRoomEntryComposerFrameVisibleMs(rid, !meta.used_cached_snapshot);
+    }
+    onPass1ComposerReady?.();
+  }, [roomKey, onPass1ComposerReady]);
+
+  useLayoutEffect(() => {
+    const rid = String(roomKey).trim();
+    if (shouldBlockCmRoomStrictEffectReRun(rid, "composer_textarea_hydrate")) return;
     if (seededSilentHoldReleasedRef.current) return;
     const tryRelease = () => {
       if (seededSilentHoldReleasedRef.current) return;
       if (vm.voiceRecording) {
         seededSilentHoldReleasedRef.current = true;
-        recordCmRoomEntryMilestone("composer_visible_ms");
-        onPass1ComposerReady?.();
-        tryEmitCmRoomEntryV2Log(String(roomKey).trim());
         notifyComposerTextareaVisibleForSeededBootstrap();
         return;
       }
@@ -194,9 +220,6 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
       if (!ta || !isDomTextareaLikelyVisible(ta)) return;
       seededSilentHoldReleasedRef.current = true;
       recordRouteEntryElapsedMetricOnce("messenger_room_entry", "composer_textarea_visible_ms");
-      recordCmRoomEntryMilestone("composer_visible_ms");
-      onPass1ComposerReady?.();
-      tryEmitCmRoomEntryV2Log(String(phase1Snapshot?.room?.id ?? vm.snapshot.room.id ?? "").trim());
       notifyComposerTextareaVisibleForSeededBootstrap();
     };
     tryRelease();
@@ -205,14 +228,11 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
     return () => cancelAnimationFrame(raf);
   }, [
     roomKey,
-    phase1Loading,
-    phase1Snapshot,
     vm.voiceRecording,
     vm.busy,
     vm.roomUnavailable,
     notifyComposerTextareaVisibleForSeededBootstrap,
     vm.composerTextareaRef,
-    onPass1ComposerReady,
   ]);
   useCommunityMessengerRoomTypingPublisher({
     roomId: typingPublisherEnabled ? vm.snapshot.room.id : null,
@@ -244,7 +264,10 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
   }, [draft, vm]);
 
   const { keyboardOverlapSuppressed, messengerKeyboardChromeOpen } = useMessengerRoomMobileViewport();
-  const keyboardInsetPx = useMobileKeyboardInset({ disableOverlapEstimate: keyboardOverlapSuppressed });
+  const keyboardInsetPx = useMobileKeyboardInset({
+    enabled: composerHeavyEnabled,
+    disableOverlapEstimate: keyboardOverlapSuppressed,
+  });
   const isNarrowViewport = useMatchMaxWidthMd();
   /** 일반·그룹·오픈 포함 — 키보드 크롬 시 입력 줄 높이·여백 통일 */
   const messengerComposerDense = Boolean(

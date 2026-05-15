@@ -2,11 +2,12 @@
 
 import type { CmBootstrapTier } from "@/lib/community-messenger/room/cm-bootstrap-orchestration";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
-import { CM_BOOTSTRAP_SNAPSHOT_REUSE_TTL_MS } from "@/lib/community-messenger/room/cm-bootstrap-scheduling";
+import { CM_BOOTSTRAP_SNAPSHOT_REUSE_TTL_MS } from "@/lib/community-messenger/room/cm-bootstrap-constants";
 import {
   getRoomSnapshotCacheAgeMs,
   isRoomSnapshotFreshWithin,
 } from "@/lib/community-messenger/room-snapshot-cache";
+import { cmMessengerPerfVerboseLog } from "@/lib/community-messenger/room/cm-messenger-perf-verbose-log";
 
 export const CM_FOREGROUND_BOOTSTRAP_REUSE_MS = CM_BOOTSTRAP_SNAPSHOT_REUSE_TTL_MS;
 
@@ -155,8 +156,7 @@ function logCmRoomBootstrapLock(payload: {
   lifecycle_force_block: boolean;
   hard_refresh: boolean;
 }): void {
-  // eslint-disable-next-line no-console -- foreground bootstrap lock diagnostics
-  console.log("[cm-room-bootstrap-lock]", payload);
+  cmMessengerPerfVerboseLog("[cm-room-bootstrap-lock]", payload);
 }
 
 export function logCmRoomReentryZeroFetch(payload: {
@@ -167,13 +167,11 @@ export function logCmRoomReentryZeroFetch(payload: {
   silent_fetch_skipped: boolean;
   snapshot_age_ms: number | null;
 }): void {
-  // eslint-disable-next-line no-console -- re-entry zero fetch diagnostics
-  console.log("[cm-room-reentry-zero-fetch]", payload);
+  cmMessengerPerfVerboseLog("[cm-room-reentry-zero-fetch]", payload);
 }
 
 export function logCmPrefetchSkip(payload: { roomId: string; reason: string }): void {
-  // eslint-disable-next-line no-console -- prefetch skip diagnostics
-  console.log("[cm-prefetch-skip]", payload);
+  cmMessengerPerfVerboseLog("[cm-prefetch-skip]", payload);
 }
 
 export function logCmLegacyBootstrapSkip(payload: {
@@ -183,8 +181,7 @@ export function logCmLegacyBootstrapSkip(payload: {
   has_local_snapshot: boolean;
   has_prefetch_snapshot: boolean;
 }): void {
-  // eslint-disable-next-line no-console -- legacy skip diagnostics
-  console.log("[cm-legacy-bootstrap-skip]", payload);
+  cmMessengerPerfVerboseLog("[cm-legacy-bootstrap-skip]", payload);
 }
 
 export function evaluateCmRoomForegroundBootstrap(input: {

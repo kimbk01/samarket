@@ -2,7 +2,8 @@
 
 운영·개발 공통으로 사용하는 **체크리스트**. 집계는 기본 **p95**; 클라이언트·네트워크 포함 지표는 별도 표기.
 
-**관련:** [messenger-production-slo.md](./messenger-production-slo.md) (env·알림), [messenger-bootstrap-and-payload-limits.md](./messenger-bootstrap-and-payload-limits.md) (코드 한도).
+**관련:** [messenger-production-slo.md](./messenger-production-slo.md) (env·알림), [messenger-bootstrap-and-payload-limits.md](./messenger-bootstrap-and-payload-limits.md) (코드 한도).  
+**구조 lock · 베이스라인:** [messenger-performance-architecture.md](./messenger-performance-architecture.md), [messenger-performance-baseline.md](./messenger-performance-baseline.md).
 
 ### 운영 슬리버 (warm · 네이티브급 체감)
 

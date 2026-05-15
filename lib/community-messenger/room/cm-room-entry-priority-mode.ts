@@ -12,6 +12,7 @@ import {
   isCmRoomEntryQuietWindowActive,
   markRoomTapAtClick,
 } from "@/lib/community-messenger/room/cm-room-entry-timing";
+import { cmMessengerPerfVerboseLog } from "@/lib/community-messenger/room/cm-messenger-perf-verbose-log";
 
 export const CM_ROOM_ENTRY_PRIORITY_DURATION_MS = 1500;
 export const CM_ROOM_ENTRY_HOME_SYNC_DEFER_MS = CM_ROOM_ENTRY_PRIORITY_DURATION_MS;
@@ -225,8 +226,7 @@ export function shouldDeferBackgroundHydrationPriority(priority: HydrationPriori
 }
 
 export function logCmRoomEntryPriorityMode(payload: Record<string, unknown>): void {
-  // eslint-disable-next-line no-console -- room entry priority diagnostics
-  console.log("[cm-room-entry-priority-mode]", payload);
+  cmMessengerPerfVerboseLog("[cm-room-entry-priority-mode]", payload);
 }
 
 export function logCmHomeSyncDeferredByRoomEntry(payload: {
@@ -235,17 +235,14 @@ export function logCmHomeSyncDeferredByRoomEntry(payload: {
   merge_deferred: boolean;
   resume_after_ms: number;
 }): void {
-  // eslint-disable-next-line no-console -- home-sync defer diagnostics
-  console.log("[cm-home-sync-deferred-by-room-entry]", payload);
+  cmMessengerPerfVerboseLog("[cm-home-sync-deferred-by-room-entry]", payload);
 }
 
 export function logCmRoomBootstrapPatchOnly(payload: Record<string, unknown>): void {
-  // eslint-disable-next-line no-console -- bootstrap patch-only diagnostics
-  console.log("[cm-room-bootstrap-patch-only]", payload);
+  cmMessengerPerfVerboseLog("[cm-room-bootstrap-patch-only]", payload);
 }
 
 export function logCmRenderRoomEntry(payload: Record<string, unknown>): void {
   if (shouldDeferBackgroundAnalytics()) return;
-  // eslint-disable-next-line no-console -- room entry render diagnostics
-  console.log("[cm-render-room-entry]", payload);
+  cmMessengerPerfVerboseLog("[cm-render-room-entry]", payload);
 }

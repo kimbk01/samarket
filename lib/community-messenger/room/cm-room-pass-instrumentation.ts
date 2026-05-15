@@ -8,8 +8,14 @@ import {
   msSinceSessionTap,
   hasCmRoomEntryTimingSession,
 } from "@/lib/community-messenger/room/cm-room-entry-timing-session";
+import {
+  finalizeCmRoomEntryComposerFrameVisibleMs,
+  finalizeCmRoomEntryShellVisibleMs,
+  getCmRoomEntryMilestoneMs,
+} from "@/lib/community-messenger/room/cm-room-entry-instrumentation";
 import { recordRoomEntryStage } from "@/lib/community-messenger/room/cm-room-entry-timing";
 import { useCmRoomOpeningOverlayStore } from "@/lib/community-messenger/room/cm-room-opening-overlay-store";
+import { cmMessengerPerfVerboseLog } from "@/lib/community-messenger/room/cm-messenger-perf-verbose-log";
 
 let pass1HeaderMs = 0;
 let pass1ComposerMs = 0;
@@ -41,8 +47,7 @@ export function logCmPassRender(payload: {
   const roomId = getActiveCmRoomEntrySessionRoomId();
   const sessionId = getActiveCmRoomEntrySessionId();
   if (!roomId || !sessionId) return;
-  // eslint-disable-next-line no-console -- pass render wall diagnostics
-  console.log("[cm-pass-render]", {
+  cmMessengerPerfVerboseLog("[cm-pass-render]", {
     roomId,
     sessionId,
     pass: payload.pass,
@@ -62,8 +67,9 @@ export function emitCmRoomPass0ShellLog(roomId: string): void {
   markCmRoomTimingMetricRecorded("pass0_shell");
   const shellVisibleMs = msSinceSessionTap(session.sessionId) ?? 0;
   recordRoomEntryStage("shell");
-  // eslint-disable-next-line no-console -- pass0 shell diagnostics
-  console.log("[cm-room-pass0-shell]", {
+  finalizeCmRoomEntryShellVisibleMs(id, false);
+  finalizeCmRoomEntryComposerFrameVisibleMs(id, false);
+  cmMessengerPerfVerboseLog("[cm-room-pass0-shell]", {
     roomId: id,
     sessionId: session.sessionId,
     shell_visible_ms: shellVisibleMs,
@@ -85,7 +91,7 @@ export function noteCmRoomPass1ComposerMs(): void {
   const roomId = getActiveCmRoomEntrySessionRoomId();
   if (!roomId || pass1ComposerMs > 0) return;
   if (!hasCmRoomEntryTimingSession(roomId)) return;
-  pass1ComposerMs = msSinceSessionTap() ?? 0;
+  pass1ComposerMs = getCmRoomEntryMilestoneMs("composer_visible_ms") ?? msSinceSessionTap() ?? 0;
   recordRoomEntryStage("composer");
   tryEmitCmRoomPass1HeaderComposerLog();
 }
@@ -96,8 +102,7 @@ function tryEmitCmRoomPass1HeaderComposerLog(): void {
   const session = assertCmRoomTimingEmit({ roomId, metric: "pass1_header_composer" });
   if (!session) return;
   markCmRoomTimingMetricRecorded("pass1_header_composer");
-  // eslint-disable-next-line no-console -- pass1 chrome diagnostics
-  console.log("[cm-room-pass1-header-composer]", {
+  cmMessengerPerfVerboseLog("[cm-room-pass1-header-composer]", {
     roomId,
     sessionId: session.sessionId,
     header_ms: pass1HeaderMs,
@@ -125,8 +130,7 @@ export function emitCmRoomPass2ViewportLog(payload: {
     recordRoomEntryStage("message_seed");
   }
   recordRoomEntryStage("message_viewport");
-  // eslint-disable-next-line no-console -- pass2 viewport diagnostics
-  console.log("[cm-room-pass2-viewport]", {
+  cmMessengerPerfVerboseLog("[cm-room-pass2-viewport]", {
     roomId,
     sessionId: session.sessionId,
     viewport_visible_ms: viewportVisibleMs,

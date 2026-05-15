@@ -1,7 +1,12 @@
 "use client";
 
 import { useCmRoomOpeningOverlayStore } from "@/lib/community-messenger/room/cm-room-opening-overlay-store";
-import { noteCmRoomSubtreeAttach } from "@/lib/community-messenger/room/cm-room-subtree-stability";
+import { warnCmPerfRegressionSubtreeRemounted } from "@/lib/community-messenger/room/cm-messenger-perf-regression-guard";
+import { cmMessengerPerfVerboseLog } from "@/lib/community-messenger/room/cm-messenger-perf-verbose-log";
+import {
+  isCmRoomSubtreeStrictDoubleInvoke,
+  noteCmRoomSubtreeAttach,
+} from "@/lib/community-messenger/room/cm-room-subtree-stability";
 
 /** emit age / tap 기준 stale (sanitize) */
 export const CM_ROOM_ENTRY_TAP_TTL_MS = 3000;
@@ -119,8 +124,7 @@ function resolveSession(roomId?: string): CmRoomEntryTimingSession | null {
 }
 
 function logTimingSession(session: CmRoomEntryTimingSession): void {
-  // eslint-disable-next-line no-console -- timing session diagnostics
-  console.log("[cm-room-timing-session]", {
+  cmMessengerPerfVerboseLog("[cm-room-timing-session]", {
     roomId: session.roomId,
     sessionId: session.sessionId,
     status: session.status,
@@ -141,8 +145,7 @@ function logTimingStaleDrop(payload: {
   age_ms: number | null;
   reason: string;
 }): void {
-  // eslint-disable-next-line no-console -- stale timing drop diagnostics
-  console.log("[cm-timing-stale-drop]", payload);
+  cmMessengerPerfVerboseLog("[cm-timing-stale-drop]", payload);
 }
 
 function logSessionReuse(payload: {
@@ -152,8 +155,7 @@ function logSessionReuse(payload: {
   reused: boolean;
   sessionAgeMs: number;
 }): void {
-  // eslint-disable-next-line no-console -- session reuse diagnostics
-  console.log("[cm-room-session-reuse]", payload);
+  cmMessengerPerfVerboseLog("[cm-room-session-reuse]", payload);
 }
 
 export function logCmRoomRemountDetect(payload: {
@@ -166,8 +168,17 @@ export function logCmRoomRemountDetect(payload: {
   effectReset?: boolean;
   strictModeDoubleRun?: boolean;
 }): void {
-  // eslint-disable-next-line no-console -- remount diagnostics
-  console.log("[cm-room-remount-detect]", payload);
+  if (!payload.strictModeDoubleRun) {
+    warnCmPerfRegressionSubtreeRemounted(payload.roomId, {
+      surface: "shell",
+      subtreeRemounted: true,
+      strictDoubleInvokeBlocked: false,
+    });
+  }
+  cmMessengerPerfVerboseLog("[cm-room-remount-detect]", {
+    ...payload,
+    subtreeRemounted: !payload.strictModeDoubleRun,
+  });
 }
 
 function dropEmit(
@@ -354,8 +365,9 @@ export function noteCmRoomTimingSubtreeMount(roomId: string): void {
   const prevSessionId = prev?.sessionId ?? null;
   const { sessionId, created } = acquireCmRoomEntryTimingSession(id, "subtree_mount");
   if (!created && prevSessionId && prevSessionId === sessionId) {
-    const { reused, remounted } = noteCmRoomSubtreeAttach(id, "shell", sessionId);
-    if (remounted && !reused) {
+    const { reused, remounted, strictDoubleInvoke } = noteCmRoomSubtreeAttach(id, "shell", sessionId);
+    const strictModeDoubleRun = strictDoubleInvoke || isCmRoomSubtreeStrictDoubleInvoke(id);
+    if (remounted && !reused && !strictModeDoubleRun) {
       logCmRoomRemountDetect({
         roomId: id,
         previousSessionId: prevSessionId,
