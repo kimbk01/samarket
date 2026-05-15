@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { notifyCmTradeDockLayoutChange } from "@/lib/community-messenger/room/cm-trade-dock-layout";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChatProductSummary } from "@/components/chats/ChatProductSummary";
 import { TradeFlowBanner } from "@/components/trade/TradeFlowBanner";
@@ -41,6 +42,8 @@ type Props = {
   onTradeMetaChanged?: () => void;
   /** 모바일 키보드 크롬 — 단계 접기·상품 카드 숨김 */
   keyboardCompact?: boolean;
+  /** 메신저 셸: 헤더 아래(legacy) vs 입력란 바로 위 */
+  dockPlacement?: "belowHeader" | "aboveComposer";
 };
 
 /**
@@ -52,6 +55,7 @@ export function CommunityMessengerTradeProcessSection({
   initialTradeChatRoom = null,
   onTradeMetaChanged,
   keyboardCompact = false,
+  dockPlacement = "belowHeader",
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -293,6 +297,11 @@ export function CommunityMessengerTradeProcessSection({
     if (pathname) router.replace(pathname, { scroll: false });
   }, [searchParams, room, canOpenReview, viewerUserId, pathname, router]);
 
+  useLayoutEffect(() => {
+    if (!room) return;
+    notifyCmTradeDockLayoutChange("trade_dock_content");
+  }, [room, keyboardCompact, loading]);
+
   if (loading) {
     return (
       <div className="border-b border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-2.5 sam-text-helper text-[color:var(--cm-room-text-muted)]">
@@ -309,8 +318,18 @@ export function CommunityMessengerTradeProcessSection({
     );
   }
 
+  const dockBorderClass =
+    dockPlacement === "aboveComposer"
+      ? "border-t border-[color:var(--cm-room-divider)]"
+      : "border-b border-[color:var(--cm-room-divider)]";
+
   return (
-    <div data-cm-trade-dock className="shrink-0 border-b border-[color:var(--cm-room-divider)]">
+    <div
+      data-cm-trade-dock
+      data-cm-trade-dock-placement={dockPlacement}
+      data-cm-trade-dock-collapsed={keyboardCompact ? "true" : undefined}
+      className={`shrink-0 bg-[color:var(--cm-room-header-bg)] ${dockBorderClass}`}
+    >
       <TradeFlowBanner
         room={room}
         currentUserId={viewerUserId}
@@ -328,6 +347,7 @@ export function CommunityMessengerTradeProcessSection({
         productStatusOverride={displayProductStatus}
         sellerListingControlsEnabled
         layoutVariant={keyboardCompact ? "keyboardCompact" : "default"}
+        onDiagramExpandedChange={() => notifyCmTradeDockLayoutChange("diagram_expand")}
       />
       {room.product && !keyboardCompact ? (
         <div className="border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-1.5">

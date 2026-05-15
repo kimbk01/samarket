@@ -12,6 +12,10 @@ import {
   normalizeOwnerProductDetailImageUrls,
   parseThumbnailDimensions,
 } from "@/lib/stores/owner-product-images";
+import {
+  countOwnerRecommendedProducts,
+  OWNER_RECOMMENDED_MENU_MAX,
+} from "@/lib/stores/owner-recommended-menu-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -404,6 +408,29 @@ export async function PATCH(
       );
     }
     patch.options_json = optCheck.value;
+  }
+
+  const prevOwnerRec =
+    typeof productRow.is_owner_recommended === "boolean"
+      ? !!productRow.is_owner_recommended
+      : productRow.is_featured === true;
+  const nextOwnerRec =
+    patch.is_owner_recommended !== undefined
+      ? !!patch.is_owner_recommended
+      : prevOwnerRec;
+
+  if (nextOwnerRec && !prevOwnerRec) {
+    const cnt = await countOwnerRecommendedProducts(sb, sid, pid);
+    if (cnt >= OWNER_RECOMMENDED_MENU_MAX) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "owner_recommended_limit",
+          message: "사장님 추천 메뉴는 최대 6개까지 지정할 수 있습니다.",
+        },
+        { status: 400 }
+      );
+    }
   }
 
   const mergedThumb =

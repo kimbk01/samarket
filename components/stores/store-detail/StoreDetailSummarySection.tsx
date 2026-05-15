@@ -10,6 +10,8 @@ import type { StoreDeliveryMeta } from "@/lib/stores/store-detail-meta";
 import type { CommerceExtrasFromHours } from "@/lib/stores/store-commerce-extras";
 import type { StoreDetailDirectionsTarget } from "@/lib/stores/google-maps-store-links";
 import { fetchStoreDeliveryEtaDeduped } from "@/lib/stores/store-delivery-api-client";
+import { StoreHeader } from "@/components/stores/detail/StoreHeader";
+import { StoreNoticeBar } from "@/components/stores/detail/StoreNoticeBar";
 
 type CommerceSnap = {
   breakConfigured: boolean;
@@ -170,75 +172,81 @@ export function StoreDetailSummarySection({
 
   return (
     <>
-      <StoreOrderStickyHeader
-        elevated={headerElevated}
-        fallbackHref={fallbackHref}
-        storeSlug={store.slug}
-        storeName={store.store_name}
-        commerceCartStoreId={commerceCartStoreId}
-        viewerFavorited={viewerFavorited}
-        favoriteBusy={favoriteBusy}
-        onFavoriteClick={onFavoriteClick}
-        onMenuSearchFocus={onMenuSearchFocus}
-        onShareClick={onShareClick}
-        onCartPreviewClick={onCartPreviewClick}
+      <StoreHeader
+        sticky={
+          <StoreOrderStickyHeader
+            elevated={headerElevated}
+            fallbackHref={fallbackHref}
+            storeSlug={store.slug}
+            storeName={store.store_name}
+            commerceCartStoreId={commerceCartStoreId}
+            viewerFavorited={viewerFavorited}
+            favoriteBusy={favoriteBusy}
+            onFavoriteClick={onFavoriteClick}
+            onMenuSearchFocus={onMenuSearchFocus}
+            onShareClick={onShareClick}
+            onCartPreviewClick={onCartPreviewClick}
+          />
+        }
+        hero={
+          <StoreOrderHeroSummary
+            storeName={store.store_name}
+            profileImageUrl={heroImageUrl}
+            collapseTopFulfillmentCard={
+              headerElevated &&
+              (!!(heroImageUrl && heroImageUrl.trim()) || Boolean(bannersSlot))
+            }
+            heroBannerSlot={bannersSlot}
+            ratingAvg={
+              store.rating_avg != null && Number.isFinite(Number(store.rating_avg))
+                ? Number(store.rating_avg)
+                : null
+            }
+            reviewCount={Number(store.review_count) || 0}
+            recentOrderCount={recentOrderCount}
+            deliveryMeta={deliveryMeta}
+            commerceExtras={commerceExtras}
+            deliveryAvailable={deliveryAvailable}
+            pickupAvailable={pickupAvailable}
+            isOpenForOrder={isOpenForOrder}
+            commerce={
+              commerce
+                ? {
+                    breakConfigured: commerce.breakConfigured,
+                    breakRangeLabel: commerce.breakRangeLabel,
+                    inBreak: commerce.inBreak,
+                  }
+                : null
+            }
+            fulfillmentMode={fulfillmentMode}
+            onFulfillmentChange={onFulfillmentChange}
+            ownerManagementHref={ownerManagementHref}
+            storeInfoHref={infoPath}
+            reviewsHref={reviewsHref}
+            addressLine={storeAddressLine || null}
+            directions={directions}
+            viewerFavorited={viewerFavorited}
+            favoriteBusy={favoriteBusy}
+            onFavoriteClick={onFavoriteClick}
+            storeSlug={store.slug}
+            deliveryTimeDisplay={heroDeliveryTimeDisplay}
+          />
+        }
       />
 
-      <div>
-        <StoreOrderHeroSummary
-          storeName={store.store_name}
-          profileImageUrl={heroImageUrl}
-          collapseTopFulfillmentCard={
-            headerElevated &&
-            (!!(heroImageUrl && heroImageUrl.trim()) || Boolean(bannersSlot))
-          }
-          heroBannerSlot={bannersSlot}
-          ratingAvg={
-            store.rating_avg != null && Number.isFinite(Number(store.rating_avg))
-              ? Number(store.rating_avg)
-              : null
-          }
-          reviewCount={Number(store.review_count) || 0}
-          recentOrderCount={recentOrderCount}
-          deliveryMeta={deliveryMeta}
-          commerceExtras={commerceExtras}
-          deliveryAvailable={deliveryAvailable}
-          pickupAvailable={pickupAvailable}
-          isOpenForOrder={isOpenForOrder}
-          commerce={
-            commerce
-              ? {
-                  breakConfigured: commerce.breakConfigured,
-                  breakRangeLabel: commerce.breakRangeLabel,
-                  inBreak: commerce.inBreak,
-                }
-              : null
-          }
-          fulfillmentMode={fulfillmentMode}
-          onFulfillmentChange={onFulfillmentChange}
-          ownerManagementHref={ownerManagementHref}
-          storeInfoHref={infoPath}
-          reviewsHref={reviewsHref}
-          addressLine={storeAddressLine || null}
-          directions={directions}
-          viewerFavorited={viewerFavorited}
-          favoriteBusy={favoriteBusy}
-          onFavoriteClick={onFavoriteClick}
-          storeSlug={store.slug}
-          deliveryTimeDisplay={heroDeliveryTimeDisplay}
-        />
-      </div>
-
-      {noticePreview && !storeManagedNoticesSlot ? (
-        <StoreOrderNoticeStrip
-          text={noticePreview}
-          href={infoPath}
-          storeName={store.store_name}
-          showCouponBadge={false}
-        />
-      ) : null}
-
-      {storeManagedNoticesSlot ? <div className="mt-2 px-4">{storeManagedNoticesSlot}</div> : null}
+      <StoreNoticeBar
+        legacyStrip={
+          noticePreview && !storeManagedNoticesSlot ? (
+            <StoreOrderNoticeStrip
+              text={noticePreview}
+              href={infoPath}
+              storeName={store.store_name}
+              showCouponBadge={false}
+            />
+          ) : undefined
+        }
+        managedSlot={storeManagedNoticesSlot}
+      />
     </>
   );
 }

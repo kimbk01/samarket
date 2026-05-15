@@ -32,6 +32,8 @@ export type StoreDetailProductCard = {
   is_representative: boolean;
   item_type: string | null;
   categoryName: string | null;
+  /** store_menu_sections.id — 메뉴 그룹 키 */
+  menu_section_id: string | null;
   /** 매장 전용 메뉴 구역 정렬용 (낮을수록 먼저) */
   menuSectionSort: number;
   /** 같은 메뉴 구역 내 정렬 */
@@ -43,10 +45,16 @@ export type StoreDetailProductCard = {
   max_order_qty: number;
   /** `sold_out` 등 — 구매자 목록 노출 시 담기 비활성 */
   product_status: string;
+  /** 인기 메뉴 섹션 전용(1-based). 목록 카드에는 보통 비움 */
+  popular_rank?: number | null;
 };
 
 type CatEmbed = { name?: string } | { name?: string }[] | null | undefined;
-type MenuEmbed = { name?: string; sort_order?: number } | { name?: string; sort_order?: number }[] | null | undefined;
+type MenuEmbed =
+  | { id?: unknown; name?: string; sort_order?: number }
+  | { id?: unknown; name?: string; sort_order?: number }[]
+  | null
+  | undefined;
 
 function embedCategoryName(v: CatEmbed): string | null {
   if (v == null) return null;
@@ -54,16 +62,27 @@ function embedCategoryName(v: CatEmbed): string | null {
   return v.name?.trim() || null;
 }
 
-function embedMenuSection(v: MenuEmbed): { name: string | null; sort: number; hasEmbed: boolean } {
-  if (v == null) return { name: null, sort: 9999, hasEmbed: false };
+function embedMenuSection(v: MenuEmbed): {
+  id: string | null;
+  name: string | null;
+  sort: number;
+  hasEmbed: boolean;
+} {
+  if (v == null) return { id: null, name: null, sort: 9999, hasEmbed: false };
   const o = Array.isArray(v) ? v[0] : v;
-  if (!o || typeof o !== "object") return { name: null, sort: 9999, hasEmbed: false };
+  if (!o || typeof o !== "object") return { id: null, name: null, sort: 9999, hasEmbed: false };
   const r = o as Record<string, unknown>;
   const name = typeof r.name === "string" ? r.name.trim() || null : null;
+  const rawId = r.id;
+  const id =
+    typeof rawId === "string" && rawId.trim()
+      ? rawId.trim()
+      : rawId != null
+        ? String(rawId).trim() || null
+        : null;
   const so = Number(r.sort_order);
   const sort = Number.isFinite(so) ? so : 9999;
-  /** FK 조인 행이 오면 이름이 비어도 sort_order 로 구역 순서를 유지한다 */
-  return { name, sort, hasEmbed: true };
+  return { id, name, sort, hasEmbed: true };
 }
 
 export function parseStoreDetailProducts(raw: unknown[]): StoreDetailProductCard[] {
@@ -105,6 +124,19 @@ export function parseStoreDetailProducts(raw: unknown[]): StoreDetailProductCard
     const ownerRec =
       typeof o.is_owner_recommended === "boolean" ? !!o.is_owner_recommended : legacyFeatured;
     const representative = typeof o.is_representative === "boolean" ? !!o.is_representative : false;
+    const rawSectionFk =
+      typeof o.menu_section_id === "string" && o.menu_section_id.trim()
+        ? o.menu_section_id.trim()
+        : o.menu_section_id != null
+          ? String(o.menu_section_id).trim()
+          : "";
+    const menu_section_id =
+      rawSectionFk.length > 0 ? rawSectionFk : menu.id && menu.id.length > 0 ? menu.id : null;
+    const prRaw = o.popular_rank;
+    const popular_rank =
+      prRaw != null && Number.isFinite(Number(prRaw)) && Number(prRaw) > 0
+        ? Math.floor(Number(prRaw))
+        : null;
     return {
       id: String(o.id ?? ""),
       title: String(o.title ?? ""),
@@ -124,12 +156,14 @@ export function parseStoreDetailProducts(raw: unknown[]): StoreDetailProductCard
       is_representative: representative,
       item_type: o.item_type != null ? String(o.item_type) : null,
       categoryName: menu.name ?? cat,
+      menu_section_id,
       menuSectionSort: menu.hasEmbed ? menu.sort : 9999,
       sort_order,
       has_options,
       min_order_qty,
       max_order_qty,
       product_status: productStatus,
+      popular_rank,
     };
   });
 }
@@ -147,10 +181,15 @@ export type MenuSection = {
   heading: string;
   /** 목록 블록 상단 제목(없으면 heading). 상단 칩은 heading 유지 */
   listHeading?: string;
+  /** 메뉴 그룹 id (없으면 기타) */
+  sectionId?: string | null;
+  /** 칩/서버 categories.display_order 정렬용 */
+  displayOrder?: number;
   items: StoreDetailProductCard[];
 };
 
 const UNCATEGORIZED = "기타 메뉴";
+const UNCATEGORIZED_KEY = "__uncategorized__";
 
 function minMenuSectionSort(items: StoreDetailProductCard[]): number {
   let m = Infinity;
@@ -160,6 +199,10 @@ function minMenuSectionSort(items: StoreDetailProductCard[]): number {
   return Number.isFinite(m) ? m : 9999;
 }
 
+export function cardIsMenuSoldOut(p: StoreDetailProductCard): boolean {
+  return p.product_status === "sold_out" || (p.track_inventory && p.stock_qty <= 0);
+}
+
 function sortItemsInCategory(items: StoreDetailProductCard[]): StoreDetailProductCard[] {
   return [...items].sort((a, b) => {
     if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
@@ -167,7 +210,58 @@ function sortItemsInCategory(items: StoreDetailProductCard[]): StoreDetailProduc
   });
 }
 
-/** 사장님 추천·대표 플래그 상단 섹션(카테고리와 id 중복 허용) */
+function sortSectionItemsForSoldOutPolicy(
+  items: StoreDetailProductCard[],
+  soldOutBottom: boolean
+): StoreDetailProductCard[] {
+  const base = sortItemsInCategory(items);
+  if (!soldOutBottom) return base;
+  const inStock = base.filter((p) => !cardIsMenuSoldOut(p));
+  const sold = base.filter((p) => cardIsMenuSoldOut(p));
+  return [...inStock, ...sold];
+}
+
+/** 추천메뉴 스트립: 인기 순서 우선 → 부족 시 사장님 추천만 보충, 최대 5, 중복 없음 */
+export const RECOMMENDED_MENU_STRIP_MAX = 5;
+
+export function buildRecommendedStripProductIds(
+  popularOrderedIds: string[],
+  cards: StoreDetailProductCard[],
+  maxItems = RECOMMENDED_MENU_STRIP_MAX
+): string[] {
+  const cap = maxItems <= 0 ? RECOMMENDED_MENU_STRIP_MAX : Math.min(RECOMMENDED_MENU_STRIP_MAX, Math.floor(maxItems));
+  const byId = new Map(cards.map((c) => [c.id, c]));
+  const out: string[] = [];
+  const seen = new Set<string>();
+
+  for (const rawId of popularOrderedIds) {
+    if (out.length >= cap) break;
+    const id = String(rawId ?? "").trim();
+    if (!id) continue;
+    const c = byId.get(id);
+    if (!c) continue;
+    if (seen.has(c.id)) continue;
+    seen.add(c.id);
+    out.push(c.id);
+  }
+
+  const ownerPool = cards
+    .filter((p) => p.is_owner_recommended && !seen.has(p.id))
+    .sort((a, b) => {
+      if (a.sort_order !== b.sort_order) return a.sort_order - b.sort_order;
+      return a.title.localeCompare(b.title, "ko");
+    });
+
+  for (const p of ownerPool) {
+    if (out.length >= cap) break;
+    seen.add(p.id);
+    out.push(p.id);
+  }
+
+  return out;
+}
+
+/** 사장님 추천·대표 플래그 상단 섹션(레거시) — 신규 스트립은 buildRecommendedStripProductIds */
 export function sliceRecommendedMenuProducts(
   cards: StoreDetailProductCard[],
   maxItems: number
@@ -197,8 +291,74 @@ export function slicePopularMenuProducts(
 }
 
 /**
+ * 메뉴 그룹(`menu_section_id`) 기준 — 동일 product row 한 번만 포함.
+ * `soldOutBottom`: 품절을 구역 내 하단으로.
+ */
+export function groupStoreProductsByMenuSectionModel(
+  products: StoreDetailProductCard[],
+  soldOutBottom: boolean
+): MenuSection[] {
+  type Acc = {
+    items: StoreDetailProductCard[];
+    minSort: number;
+    heading: string;
+    sectionId: string | null;
+  };
+  const byKey = new Map<string, Acc>();
+
+  for (const p of products) {
+    const key =
+      p.menu_section_id && p.menu_section_id.length > 0 ? p.menu_section_id : UNCATEGORIZED_KEY;
+    if (!byKey.has(key)) {
+      byKey.set(key, {
+        items: [],
+        minSort: p.menuSectionSort,
+        heading: (p.categoryName && p.categoryName.trim()) || UNCATEGORIZED,
+        sectionId: key === UNCATEGORIZED_KEY ? null : key,
+      });
+    }
+    const acc = byKey.get(key)!;
+    acc.items.push(p);
+    if (p.menuSectionSort < acc.minSort) acc.minSort = p.menuSectionSort;
+    if (p.categoryName && p.categoryName.trim()) acc.heading = p.categoryName.trim();
+  }
+
+  const keys = [...byKey.keys()].filter((k) => k !== UNCATEGORIZED_KEY);
+  keys.sort((a, b) => {
+    const da = byKey.get(a)!.minSort;
+    const db = byKey.get(b)!.minSort;
+    if (da !== db) return da - db;
+    return a.localeCompare(b);
+  });
+
+  const sections: MenuSection[] = keys.map((k) => {
+    const acc = byKey.get(k)!;
+    return {
+      heading: acc.heading,
+      sectionId: acc.sectionId,
+      displayOrder: acc.minSort,
+      items: sortSectionItemsForSoldOutPolicy(acc.items, soldOutBottom),
+    };
+  });
+
+  if (byKey.has(UNCATEGORIZED_KEY)) {
+    const acc = byKey.get(UNCATEGORIZED_KEY)!;
+    if (acc.items.length > 0) {
+      sections.push({
+        heading: acc.heading,
+        sectionId: null,
+        displayOrder: acc.minSort,
+        items: sortSectionItemsForSoldOutPolicy(acc.items, soldOutBottom),
+      });
+    }
+  }
+
+  return sections;
+}
+
+/**
  * 실제 메뉴 구역(카테고리)만 — 추천/인기와 무관하게 **전체** 상품을 한 번씩만 포함.
- * (배민식: 추천·인기는 별도 섹션에서만 중복 노출)
+ * @deprecated 메뉴 그룹 id 기준은 `groupStoreProductsByMenuSectionModel` 사용
  */
 export function groupStoreProductsByMenuSection(products: StoreDetailProductCard[]): MenuSection[] {
   const sectionOrder: string[] = [];

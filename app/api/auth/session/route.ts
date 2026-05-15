@@ -8,8 +8,15 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
 import { resolveRouteHandlerUserIdFromSupabase } from "@/lib/auth/resolve-route-handler-user-id";
-import { validateActiveSession } from "@/lib/auth/server-guards";
+import { readActiveSessionIdCookie } from "@/lib/auth/active-session";
+import { validateActiveSessionLight } from "@/lib/auth/server-guards";
+import {
+  peekAuthSessionValidatedOk,
+  setAuthSessionValidatedOk,
+} from "@/lib/auth/auth-session-response-cache";
 import { jsonErrorWithRequest, jsonOkWithRequest } from "@/lib/http/api-route";
+import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
+import { logRoutePerf } from "@/lib/http/route-perf-log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -35,6 +42,7 @@ function mergeAuthCookies(from: NextResponse, to: NextResponse): void {
 }
 
 export async function GET(request: NextRequest) {
+  const tRoute0 = devPerfNow();
   if (!requestHasSupabaseAuthCookies(request)) {
     return jsonErrorWithRequest(request, "로그인이 필요합니다.", 401, { authenticated: false });
   }
@@ -79,20 +87,41 @@ export async function GET(request: NextRequest) {
    * `getUser()` 를 매 요청 1순위로 쓰면 만료 직후 **서버 refresh** 가 브라우저 auto-refresh 와 경쟁할 수 있다.
    * → `getClaims()`(로컬 JWT) 우선·실패 시에만 `getUser()` — `resolveRouteHandlerUserIdFromSupabase`.
    */
+  const auth0 = devPerfNow();
   const userId = (await resolveRouteHandlerUserIdFromSupabase(supabase))?.trim() ?? "";
+  const authMs = devPerfNow() - auth0;
   if (!userId) {
     const res = jsonErrorWithRequest(request, "로그인이 필요합니다.", 401, { authenticated: false });
     mergeAuthCookies(cookieCarrier, res);
     return res;
   }
 
-  const validated = await validateActiveSession(userId);
-  if (!validated.ok) {
-    mergeAuthCookies(cookieCarrier, validated.response);
-    return validated.response;
+  const sessionFp = ((await readActiveSessionIdCookie()) ?? "").trim() || "∅";
+  const cacheKey = `${userId}:${sessionFp}`;
+  const cacheHit = peekAuthSessionValidatedOk(userId, sessionFp) ? 1 : 0;
+
+  let dbMs = 0;
+  if (!cacheHit) {
+    const db0 = devPerfNow();
+    const validated = await validateActiveSessionLight(userId);
+    dbMs = devPerfNow() - db0;
+    if (!validated.ok) {
+      mergeAuthCookies(cookieCarrier, validated.response);
+      return validated.response;
+    }
+    setAuthSessionValidatedOk(userId, sessionFp);
   }
 
   const res = jsonOkWithRequest(request, { authenticated: true });
   mergeAuthCookies(cookieCarrier, res);
+  const totalMs = Math.round(devPerfNow() - tRoute0);
+  logRoutePerf({
+    route: "/api/auth/session",
+    total_ms: totalMs,
+    db_ms: Math.round(dbMs),
+    cache_hit: cacheHit,
+    auth_ms: Math.round(authMs),
+    serialize_ms: 0,
+  });
   return res;
 }

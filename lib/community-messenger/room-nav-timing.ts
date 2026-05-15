@@ -1,4 +1,5 @@
 import { messengerMonitorRecord } from "@/lib/community-messenger/monitoring/client";
+import { getRoomTapT0, markRoomTapAtClick } from "@/lib/community-messenger/room/cm-room-entry-timing";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
 
 const STORAGE_KEY = "samarket:cm:room_nav_t0.v1";
@@ -33,6 +34,7 @@ export function markCommunityMessengerRoomNavTap(roomId: string): void {
   if (typeof window === "undefined") return;
   const id = String(roomId ?? "").trim();
   if (!id) return;
+  markRoomTapAtClick(id);
   const row: Row = { at: nowMs(), roomId: id };
   try {
     sessionStorage.setItem(STORAGE_KEY, JSON.stringify(row));
@@ -61,7 +63,11 @@ export function consumeCommunityMessengerRoomNavTap(roomId: string): number | nu
     /* ignore */
   }
   if (!row || row.roomId !== id) return null;
-  const dt = Math.round(nowMs() - row.at);
+  const tapT0 = getRoomTapT0();
+  const dt =
+    tapT0 > 0 && row.roomId === id
+      ? Math.round(nowMs() - tapT0)
+      : Math.round(nowMs() - row.at);
   if (!Number.isFinite(dt) || dt < 0 || dt > TTL_MS) return null;
   const roomIdSuffix = id.length <= 8 ? id : id.slice(-8);
   logClientPerf("messenger-room.enter", { phase: "tap_to_mount", ms: dt, roomIdSuffix });

@@ -186,6 +186,13 @@ function messageIdAlreadyApplied(roomId: string, messageId: string): boolean {
   return false;
 }
 
+/** 동일 탭 bus·rAF 배치 중복 적용 차단(마킹 없음) */
+export function messengerIncomingMessageAlreadyTracked(roomId: string, messageId: string): boolean {
+  if (!messageId) return false;
+  const set = seenIncomingMessageIdsByRoom.get(roomId.toLowerCase());
+  return Boolean(set?.has(messageId));
+}
+
 function mergeMessages(
   prev: CommunityMessengerMessage[],
   nextMessage: CommunityMessengerMessage
@@ -416,6 +423,9 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
         });
       const incomingMessageId = String(explicitMessage?.id ?? fallbackMessage?.id ?? "").trim();
       const duplicate = incomingMessageId ? messageIdAlreadyApplied(rid, incomingMessageId) : false;
+      if (duplicate) {
+        return state;
+      }
       const senderId =
         explicitMessage?.senderId ??
         (typeof input.messageRow?.sender_id === "string" ? input.messageRow.sender_id.trim() : null);

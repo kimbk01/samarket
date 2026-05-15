@@ -3,6 +3,8 @@
 import type { MessengerWebRtcDiagnosticsSample } from "./webrtc-stats";
 import type { MessengerMonitoringEvent } from "./types";
 import { logMessengerAlertDev, logMessengerMonitoringDev } from "./logger";
+import { cmProdParityModeEnabled } from "@/lib/community-messenger/dev/cm-event-loop-dev";
+import { shouldDeferMessengerMonitoringFlush } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import { buildThresholdAlert, shouldAlertLatency, shouldAlertPacketLoss } from "./thresholds";
 
@@ -18,7 +20,7 @@ function roomSuffix(roomId: string): string {
 }
 
 export function messengerMonitorRecord(partial: Omit<MessengerMonitoringEvent, "ts" | "source"> & { ts?: number }): void {
-  if (isDevSafeMode()) return;
+  if (isDevSafeMode() || cmProdParityModeEnabled()) return;
   const event: MessengerMonitoringEvent = {
     ...partial,
     ts: partial.ts ?? Date.now(),
@@ -61,8 +63,12 @@ function scheduleFlush() {
 }
 
 export async function flushMessengerMonitorQueue(): Promise<void> {
-  if (isDevSafeMode()) {
+  if (isDevSafeMode() || cmProdParityModeEnabled()) {
     queue = [];
+    return;
+  }
+  if (shouldDeferMessengerMonitoringFlush()) {
+    scheduleFlush();
     return;
   }
   if (queue.length === 0 || typeof window === "undefined") return;

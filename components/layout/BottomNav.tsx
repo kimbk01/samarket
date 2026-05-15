@@ -44,6 +44,7 @@ import {
 } from "@/lib/runtime/next-js-dev-client";
 import { prewarmBottomNavTapTargetClientCache } from "@/lib/main-menu/bottom-nav-tap-prewarm-data";
 import { prewarmBottomNavTapHrefResolvingStoresRegion } from "@/lib/main-menu/bottom-nav-prewarm-href";
+import { shouldDeferUnreadBadgeRepaint } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
 import { isCommunityMessengerRoomPathname } from "@/lib/layout/conditional-app-shell-flags";
 import { bumpMessengerRenderPerf, samarketRuntimeDebugLog } from "@/lib/runtime/samarket-runtime-debug";
 import { scheduleWarmMessengerListBootstrapClient } from "@/lib/community-messenger/warm-messenger-list-bootstrap-client-loader";
@@ -559,7 +560,9 @@ export function BottomNav({
   extraOuterClassName?: string;
 }) {
   void initialTabs;
-  bumpMessengerRenderPerf("messenger_bottom_nav_render");
+  if (!shouldDeferUnreadBadgeRepaint()) {
+    bumpMessengerRenderPerf("messenger_bottom_nav_render");
+  }
   const pathname = usePathname();
   /** idle 프리페치 콜백 시점의 최신 경로 — effect deps 는 도메인 키만 쓰므로 클로저 pathname 고착 방지 */
   const pathnameForPrefetchRef = useRef<string | null>(pathname ?? null);

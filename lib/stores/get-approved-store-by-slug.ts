@@ -23,6 +23,10 @@ export const STORE_SELECT_SUMMARY =
 /** `/menus`·`reviews-summary` 등 store id 만 필요할 때 */
 export const STORE_SELECT_ID_SLUG_GATE = "id, slug, approval_status, is_visible";
 
+/** `GET /api/stores/[slug]/menus` — 공개 store 블록 + 품절 정렬 플래그 */
+export const STORE_SELECT_MENUS_STORE =
+  "id, slug, store_name, approval_status, is_visible, menu_sold_out_bottom";
+
 /** `GET /api/stores/[slug]/delivery-eta` — 승인·가시 gate + 배달 ETA 에 필요한 컬럼만 */
 export const STORE_DELIVERY_ETA_SELECT =
   "id, owner_user_id, slug, place_id, formatted_address, detail_address, address_line1, address_line2, lat, lng, delivery_available, business_hours_json, approval_status, is_visible";

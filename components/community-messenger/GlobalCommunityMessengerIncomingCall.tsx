@@ -32,7 +32,7 @@ import { getCurrentUser, getCurrentUserIdForDb } from "@/lib/auth/get-current-us
 import type { CommunityMessengerCallKind, CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { playNotificationSound } from "@/lib/notifications/play-notification-sound";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
+import { acquireIncomingCallRealtimeSubscription } from "@/lib/community-messenger/realtime/cm-incoming-call-realtime-holder";
 import { isCommunityMessengerRealtimeScopeHealthy } from "@/lib/community-messenger/realtime/community-messenger-realtime-health";
 import { CommunityMessengerIncomingCallOverlay } from "@/components/messenger/call/CallOverlay";
 import { IncomingCallBanner } from "@/components/messenger/call/IncomingCallBanner";
@@ -914,7 +914,7 @@ export function GlobalCommunityMessengerIncomingCall() {
     incomingRealtimeOkRef.current = false;
     setIncomingRealtimeOk(false);
     let markRealtimeSignal = () => {};
-    const sub = subscribeWithRetry({
+    const sub = acquireIncomingCallRealtimeSubscription({
       sb,
       name: `community-messenger-incoming-call:${userId}`,
       scope: INCOMING_CALL_REALTIME_SCOPE,

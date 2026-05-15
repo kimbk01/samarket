@@ -19,6 +19,7 @@ import { markCommunityMessengerRoomNavTap } from "@/lib/community-messenger/room
 import { cmReceiveBadgeLog } from "@/lib/community-messenger/read/cm-receive-badge-log";
 import { cmReadUiLog } from "@/lib/community-messenger/read/cm-read-ui-log";
 import { primeMessengerRoomEntrySnapshot } from "@/lib/community-messenger/stores/messenger-realtime-store";
+import { shouldFreezeRoomListSubtree } from "@/lib/community-messenger/room/cm-room-list-render-pause";
 import { bumpMessengerRenderPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { useMessengerLongPress } from "@/lib/community-messenger/use-messenger-long-press";
 import {
@@ -54,6 +55,7 @@ import {
   normalizeMessengerRealtimeRoomId,
   useMessengerRealtimeStore,
 } from "@/lib/community-messenger/stores/messenger-realtime-store";
+import { useCmDevRenderTrace } from "@/lib/community-messenger/dev/cm-event-loop-dev";
 
 const ACTION_W = 78;
 const DRAG_START_X = 16;
@@ -122,8 +124,11 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   onResetTransientUi,
   listVisual = "default",
 }: Props) {
+  useCmDevRenderTrace("MessengerChatListItem");
   const onLeaveRoom = onLeaveRoomProp ?? (() => {});
-  bumpMessengerRenderPerf("messenger_room_row_render");
+  if (!shouldFreezeRoomListSubtree()) {
+    bumpMessengerRenderPerf("messenger_room_row_render");
+  }
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();

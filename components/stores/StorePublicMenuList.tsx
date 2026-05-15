@@ -50,9 +50,8 @@ const StorePublicMenuRow = memo(function StorePublicMenuRow({
   const thumbSrc = p.thumbnail_url?.trim() || "";
 
   const openSheet = useCallback(() => {
-    if (soldOut) return;
     onOpenProduct?.(p.id);
-  }, [onOpenProduct, p.id, soldOut]);
+  }, [onOpenProduct, p.id]);
 
   const onAddPress = useCallback(
     (e: MouseEvent) => {
@@ -153,15 +152,9 @@ const StorePublicMenuRow = memo(function StorePublicMenuRow({
   if (onOpenProduct) {
     return (
       <div className={`${rowWrapClass} flex min-h-[102px] items-start gap-3`}>
-        {soldOut ? (
-          <div className="flex min-w-0 flex-1 cursor-not-allowed text-left" aria-disabled>
-            {textBlock}
-          </div>
-        ) : (
-          <button type="button" onClick={openSheet} className="flex min-w-0 flex-1 text-left">
-            {textBlock}
-          </button>
-        )}
+        <button type="button" onClick={openSheet} className="flex min-w-0 flex-1 text-left">
+          {textBlock}
+        </button>
         {thumb}
       </div>
     );

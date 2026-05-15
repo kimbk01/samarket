@@ -1,3 +1,6 @@
+import { cmProdParityModeEnabled } from "@/lib/community-messenger/dev/cm-event-loop-dev";
+import { entryTimingT0 } from "@/lib/community-messenger/room/cm-room-entry-timing";
+
 /**
  * Room entry perf — unread/read ack/realtime 의미 변경 없이 **측정·로그만** 담당.
  * 켜기: `NEXT_PUBLIC_MESSENGER_PERF_TRACE_ROOM_ENTRY=1` 또는 `NEXT_PUBLIC_MESSENGER_PERF_TRACE=1` (클라 번들).
@@ -21,6 +24,7 @@ let lastUsedCachedSnapshot = false;
 let v2EmittedForRoom: string | null = null;
 
 export function cmRoomEntryTraceEnabled(): boolean {
+  if (cmProdParityModeEnabled()) return false;
   try {
     return (
       typeof process !== "undefined" &&
@@ -62,10 +66,10 @@ export function resetCmRoomEntryTraceSession(roomId: string): void {
 
 export function recordCmRoomEntryMilestone(key: MilestoneKey): void {
   if (!cmRoomEntryTraceEnabled()) return;
-  if (routeT0Perf <= 0) ensureCmRoomEntryRouteT0();
-  if (routeT0Perf <= 0 || typeof performance === "undefined") return;
+  const t0 = entryTimingT0() || (routeT0Perf > 0 ? routeT0Perf : ensureCmRoomEntryRouteT0());
+  if (t0 <= 0 || typeof performance === "undefined") return;
   if (milestones[key] != null) return;
-  milestones[key] = Math.round(performance.now() - routeT0Perf);
+  milestones[key] = Math.round(performance.now() - t0);
 }
 
 export function setCmRoomEntryBootstrapMeta(meta: {

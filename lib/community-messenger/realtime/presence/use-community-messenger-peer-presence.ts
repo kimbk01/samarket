@@ -6,6 +6,7 @@ import { messengerMonitorRecord } from "@/lib/community-messenger/monitoring/cli
 import { fetchCommunityMessengerPresenceSnapshotClient } from "@/lib/community-messenger/realtime/presence/fetch-community-messenger-presence-snapshot-client";
 import { isCommunityMessengerRealtimeScopeHealthy } from "@/lib/community-messenger/realtime/community-messenger-realtime-health";
 import { useMessengerPresenceStore } from "@/lib/community-messenger/stores/useMessengerPresenceStore";
+import { isCmRoomEntryPriorityModeActive } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
 
 const PRESENCE_RUNTIME_SCOPE = "community-messenger:presence-runtime";
 
@@ -19,6 +20,8 @@ export function useCommunityMessengerPeerPresence(
     if (!id) return;
     if (isCommunityMessengerRealtimeScopeHealthy(PRESENCE_RUNTIME_SCOPE)) return;
     let cancelled = false;
+    const runFetch = () => {
+      if (cancelled || isCmRoomEntryPriorityModeActive()) return;
     const t0 = typeof performance !== "undefined" ? performance.now() : Date.now();
     void fetchCommunityMessengerPresenceSnapshotClient(id).then((snapshot) => {
       if (cancelled || !snapshot) return;
@@ -36,6 +39,16 @@ export function useCommunityMessengerPeerPresence(
         updatedAt: snapshot.lastSeenAt ?? null,
       });
     });
+    };
+    if (isCmRoomEntryPriorityModeActive()) {
+      const deferMs = 1500;
+      const t = window.setTimeout(runFetch, deferMs);
+      return () => {
+        cancelled = true;
+        clearTimeout(t);
+      };
+    }
+    runFetch();
     return () => {
       cancelled = true;
     };

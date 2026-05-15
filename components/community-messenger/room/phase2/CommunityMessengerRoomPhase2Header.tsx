@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { memo, useLayoutEffect, useMemo } from "react";
 import { useSearchParams } from "next/navigation";
 import { BackIcon, MoreIcon } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { useMessengerRoomPhase2HeaderView } from "@/components/community-messenger/room/phase2/messenger-room-phase2-header-context";
@@ -16,14 +16,25 @@ import { Search } from "lucide-react";
 import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
 import { useMessengerRoomAnimatedBack } from "@/components/community-messenger/room/MessengerRoomSwipeBackShell";
+import { noteCmRoomPass1HeaderMs } from "@/lib/community-messenger/room/cm-room-pass-instrumentation";
+import { useCmRoomPhase2HydrationPass } from "@/lib/community-messenger/room/cm-room-phase2-hydration-context";
 
-export function CommunityMessengerRoomPhase2Header() {
+export const CommunityMessengerRoomPhase2Header = memo(function CommunityMessengerRoomPhase2Header() {
   const vm = useMessengerRoomPhase2HeaderView();
+  const hydrationPass = useCmRoomPhase2HydrationPass();
+  useLayoutEffect(() => {
+    noteCmRoomPass1HeaderMs();
+  }, [vm.snapshot.room.id]);
   const searchParams = useSearchParams();
   const requestAnimatedBack = useMessengerRoomAnimatedBack();
-  const peerPresence = useCommunityMessengerPeerPresence(vm.snapshot.room.peerUserId ?? null, vm.snapshot.peerPresence ?? null);
+  const bindPresenceAndTyping = hydrationPass >= 2;
+  const peerPresence = useCommunityMessengerPeerPresence(
+    bindPresenceAndTyping ? vm.snapshot.room.peerUserId ?? null : null,
+    bindPresenceAndTyping ? (vm.snapshot.peerPresence ?? null) : null
+  );
   /** 1:1 은 0/1, 그룹·오픈은 동시에 입력 중인 다른 참가자 수 */
   const typingPeerCount = useMessengerTypingStore((state) => {
+    if (!bindPresenceAndTyping) return 0;
     const roomId = vm.snapshot.room.id.trim().toLowerCase();
     const viewerId = vm.snapshot.viewerUserId ?? "";
     const now = Date.now();
@@ -106,7 +117,7 @@ export function CommunityMessengerRoomPhase2Header() {
                 </div>
               )}
             </div>
-            {vm.snapshot.room.roomType === "direct" && peerPresence ? (
+            {bindPresenceAndTyping && vm.snapshot.room.roomType === "direct" && peerPresence ? (
               <CommunityMessengerPresenceDot state={peerPresence.state} />
             ) : null}
           </div>
@@ -153,4 +164,4 @@ export function CommunityMessengerRoomPhase2Header() {
       </MessengerHeader>
     </>
   );
-}
+});

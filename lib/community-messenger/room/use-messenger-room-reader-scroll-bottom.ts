@@ -85,8 +85,7 @@ export function useMessengerRoomReaderScrollBottom({
         useMessengerRoomReaderStateStore.getState().setScrollPosition(id, "at-bottom");
       }
       const reason = opts?.reason ?? "explicit";
-      /** 한 프레임 1회 rAF — 이중 rAF 는 동일 16ms 예산에서 레이아웃 읽기·쓰기를 늘린다. */
-      window.requestAnimationFrame(() => {
+      const runScroll = () => {
         const vp = messagesViewportRef.current;
         let bottomDist = 0;
         let jumpPx: number | null = null;
@@ -127,9 +126,14 @@ export function useMessengerRoomReaderScrollBottom({
         }
         messageEndRef.current?.scrollIntoView({ block: "end", behavior: "auto" });
         syncScrollGeomFromViewport();
-      });
+      };
+      if (typeof requestAnimationFrame === "function") {
+        requestAnimationFrame(() => requestAnimationFrame(runScroll));
+      } else {
+        runScroll();
+      }
     },
-    [roomId, syncScrollGeomFromViewport]
+    [roomId, messageEndRef, messagesViewportRef, syncScrollGeomFromViewport]
   );
 
   const updateStickToBottomFromScroll = useCallback(() => {
@@ -220,7 +224,12 @@ export function useMessengerRoomReaderScrollBottom({
         const sh = box.scrollHeight;
         const ch = box.clientHeight;
         const maxScroll = Math.max(0, sh - ch);
-        if (stickToBottomRef.current) {
+        const viewportShrunk = ch < prev.ch - 6;
+        const wasNearBottom = distFromBottom < 140;
+        if (stickToBottomRef.current || (viewportShrunk && wasNearBottom)) {
+          if (viewportShrunk && wasNearBottom) {
+            stickToBottomRef.current = true;
+          }
           box.scrollTop = maxScroll;
         } else {
           const target = maxScroll - distFromBottom;

@@ -6,7 +6,9 @@ import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/me
 import type { CommunityMessengerMessage, CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import { isUuidLikeString } from "@/lib/shared/uuid-string";
 
-export type MessengerRoomBootstrapRefresh = (silent?: boolean) => Promise<void>;
+import type { MessengerRoomBootstrapRefreshFn } from "@/lib/community-messenger/room/use-messenger-room-bootstrap-lifecycle";
+
+export type MessengerRoomBootstrapRefresh = MessengerRoomBootstrapRefreshFn;
 
 /**
  * 탭 복귀·bump 후 증분 동기화: `after=` 페이지 및 단건 GET 재시도.
@@ -124,7 +126,7 @@ export function useMessengerRoomRemoteCatchup({
         const ok = await catchUpNewerMessages();
         if (ok) return;
       }
-      void refresh(true);
+      void refresh(true, { triggerReason: "realtime_bump_catchup" });
     },
     [catchUpNewerMessages, refresh, tryMergeSingleMessageFromBump]
   );

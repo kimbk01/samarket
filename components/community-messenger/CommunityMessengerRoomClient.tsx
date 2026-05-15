@@ -1,7 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { useEffect, useLayoutEffect, useMemo } from "react";
+import {
+  getActiveCmRoomEntrySessionId,
+  noteCmRoomTimingSubtreeMount,
+  scheduleCmRoomEntryTimingSessionCleanup,
+} from "@/lib/community-messenger/room/cm-room-entry-timing-session";
+import { noteCmRoomSubtreeClientMount } from "@/lib/community-messenger/room/cm-room-subtree-stability";
+import { useCmRoomOpeningOverlayStore } from "@/lib/community-messenger/room/cm-room-opening-overlay-store";
 import { MessengerRoomGroupCallShell } from "@/lib/community-messenger/room/MessengerRoomGroupCallShell";
 import {
   MessengerRoomClientPhase1Context,
@@ -34,6 +41,20 @@ export function CommunityMessengerRoomClient(props: {
   recordRouteEntryElapsedMetricOnce("messenger_room_entry", "first_client_component_mount_ms");
   const phase1 = useMessengerRoomClientPhase1(props);
   const router = useRouter();
+  useLayoutEffect(() => {
+    const rid = props.roomId?.trim() ?? "";
+    if (!rid) return;
+    useCmRoomOpeningOverlayStore.getState().noteRouteMounted(rid);
+  }, [props.roomId]);
+  useEffect(() => {
+    const rid = props.roomId?.trim() ?? "";
+    if (!rid) return;
+    noteCmRoomSubtreeClientMount(rid, getActiveCmRoomEntrySessionId());
+    noteCmRoomTimingSubtreeMount(rid);
+    return () => {
+      scheduleCmRoomEntryTimingSessionCleanup(rid, "room_client_unmount");
+    };
+  }, [props.roomId]);
   useEffect(() => {
     const rid = phase1.roomId?.trim() ?? "";
     if (!rid) return;

@@ -84,6 +84,8 @@ type BasicValues = {
   email: string;
   websiteUrl: string;
   profileImageUrl: string;
+  /** 공개 메뉴판에서 품절을 섹션 하단으로 정렬 */
+  menuSoldOutBottom: boolean;
   addressStreetLine: string;
   addressDetail: string;
   /** DB 분류 미사용 시 임시 업종(표시용) */
@@ -159,6 +161,7 @@ function serializeFormSnapshot(input: {
     email: emailDigits,
     websiteUrl: values.websiteUrl.trim(),
     profileImageUrl: values.profileImageUrl.trim(),
+    menuSoldOutBottom: values.menuSoldOutBottom,
     addressStreetLine: values.addressStreetLine.trim(),
     addressDetail: values.addressDetail.trim(),
     category: values.category.trim(),
@@ -189,6 +192,7 @@ function rowToBasicValues(row: StoreRow): BasicValues {
     email: parsePhMobileInput(row.email ?? ""),
     websiteUrl: row.website_url ?? "",
     profileImageUrl: row.profile_image_url ?? "",
+    menuSoldOutBottom: row.menu_sold_out_bottom === true,
     addressStreetLine: street,
     addressDetail: detail,
     category: row.business_type ?? "",
@@ -676,6 +680,7 @@ export function OwnerStoreBasicInfoForm({
         email: gcashDb,
         website_url: values.websiteUrl.trim() || null,
         profile_image_url: values.profileImageUrl.trim() || null,
+        menu_sold_out_bottom: values.menuSoldOutBottom,
       };
       const ml = manualMapLat.trim();
       const mn = manualMapLng.trim();
@@ -877,6 +882,26 @@ export function OwnerStoreBasicInfoForm({
           />
         </div>
 
+        </OwnerStoreAdminDashSection>
+
+        <OwnerStoreAdminDashSection title="공개 메뉴판">
+          <div className="flex cursor-pointer items-start gap-2.5 rounded-ui-rect border border-sam-border-soft bg-sam-app/40 px-3 py-2.5">
+            <input
+              id={`basic-menu-sold-out-bottom-${storeId}`}
+              type="checkbox"
+              checked={values.menuSoldOutBottom}
+              onChange={(e) => setValues((v) => ({ ...v, menuSoldOutBottom: e.target.checked }))}
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-sam-border text-signature"
+            />
+            <label htmlFor={`basic-menu-sold-out-bottom-${storeId}`} className="min-w-0 leading-snug">
+              <span className="sam-text-body-secondary font-medium text-sam-fg">
+                품절 메뉴를 카테고리 맨 아래로 모으기
+              </span>
+              <span className="mt-0.5 block sam-text-xxs text-sam-muted">
+                끄면 품절 포함 기존 순서를 유지합니다. 매장 창 화면에서도 같은 값으로 저장됩니다.
+              </span>
+            </label>
+          </div>
         </OwnerStoreAdminDashSection>
 
         <OwnerStoreAdminDashSection title="연락처 · 결제 표기">

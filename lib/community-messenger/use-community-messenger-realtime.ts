@@ -57,6 +57,7 @@ import { recordCmRoomEntryMilestone } from "@/lib/community-messenger/room/cm-ro
 import { MESSENGER_HOME_REALTIME_DEFERRED_PHYSICAL_STOP_GRACE_MS } from "@/lib/community-messenger/messenger-latency-config";
 import { logCmRtLifecycleFix } from "@/lib/community-messenger/realtime/cm-rt-lifecycle-fix-log";
 import { logCmRtGrace } from "@/lib/community-messenger/realtime/cm-rt-grace-log";
+import { useCmDevRenderTrace } from "@/lib/community-messenger/dev/cm-event-loop-dev";
 
 function messengerHomeRealtimeRoomIdsContentKey(ids: string[] | undefined): string {
   return [...new Set((ids ?? []).map((id) => normalizeCmRealtimeSubscribeRoomId(String(id))).filter(Boolean))].sort().join("\0");
@@ -89,9 +90,12 @@ type RoomRealtimeListener = {
 };
 
 type HomeRealtimeEntry = {
+  viewerUserId: string;
   listeners: Set<MutableRefObject<HomeRealtimeListener>>;
   insertHintBatchQueue: CommunityMessengerHomeRealtimeMessageInsertHint[];
   insertBatchRafId: number | null;
+  participantUnreadBatchQueue: CommunityMessengerHomeRealtimeParticipantUnreadHint[];
+  participantUnreadBatchRafId: number | null;
   stop: () => void;
 };
 
@@ -189,10 +193,40 @@ function flushHomeMessageInsertBatch(entry: HomeRealtimeEntry): void {
     const single = listener.current.onRealtimeMessageInsert;
     if (single) for (const h of batch) single(h);
   }
+  const viewer = entry.viewerUserId.trim();
+  if (viewer) {
+    for (const hint of batch) {
+      const roomRaw = String(hint.roomId ?? "").trim();
+      if (!roomRaw) continue;
+      postCommunityMessengerBusEvent({
+        type: "cm.room.incoming_message",
+        roomId: roomRaw,
+        viewerUserId: viewer,
+        messageRow: hint.newRecord,
+        at: Date.now(),
+      });
+    }
+  }
   if (entry.insertHintBatchQueue.length > 0) {
     entry.insertBatchRafId = requestAnimationFrame(() => {
       entry.insertBatchRafId = null;
       flushHomeMessageInsertBatch(entry);
+    });
+  }
+}
+
+function flushHomeParticipantUnreadBatch(entry: HomeRealtimeEntry): void {
+  const batch = entry.participantUnreadBatchQueue.splice(0, HOME_REALTIME_MESSAGE_INSERT_FLUSH_MAX_BATCH);
+  if (batch.length === 0) return;
+  for (const listener of entry.listeners) {
+    for (const hint of batch) {
+      listener.current.onParticipantUnreadDelta?.(hint);
+    }
+  }
+  if (entry.participantUnreadBatchQueue.length > 0) {
+    entry.participantUnreadBatchRafId = requestAnimationFrame(() => {
+      entry.participantUnreadBatchRafId = null;
+      flushHomeParticipantUnreadBatch(entry);
     });
   }
 }
@@ -209,14 +243,17 @@ function enqueueHomeMessageInsertForEntry(
   });
 }
 
-function emitHomeParticipantUnread(
+function enqueueHomeParticipantUnreadForEntry(
   entry: HomeRealtimeEntry,
   hint: CommunityMessengerHomeRealtimeParticipantUnreadHint
 ): void {
   clearMessengerRealtimeLocalUnreadForRoom(hint.roomId);
-  for (const listener of entry.listeners) {
-    listener.current.onParticipantUnreadDelta?.(hint);
-  }
+  entry.participantUnreadBatchQueue.push(hint);
+  if (entry.participantUnreadBatchRafId != null) return;
+  entry.participantUnreadBatchRafId = requestAnimationFrame(() => {
+    entry.participantUnreadBatchRafId = null;
+    flushHomeParticipantUnreadBatch(entry);
+  });
 }
 
 function notifyMessengerHomeRealtimeMessageInsert(args: {
@@ -283,29 +320,6 @@ function notifyMessengerHomeRealtimeMessageInsert(args: {
     ...(createdAt ? { db_message_created_at: createdAt } : null),
   });
 
-  cmReceiveLatencyMark(latencyKey, { receiver_store_apply_start_ms: cmReceiveLatencyNow() });
-  applyIncomingMessageEvent({
-    viewerUserId: viewer,
-    roomId: roomRaw,
-    messageRow: row,
-  });
-  cmReceiveLatencyMark(latencyKey, { receiver_store_apply_done_ms: cmReceiveLatencyNow() });
-  cmRtReadSyncLog("message_insert_apply_to_list", {
-    roomId: roomRaw,
-    messageId: messageId || null,
-    senderId: sender || null,
-    viewerUserId: viewer,
-    routeRoomId,
-    activeRoomId,
-  });
-  postCommunityMessengerBusEvent({
-    type: "cm.room.incoming_message",
-    roomId: roomRaw,
-    viewerUserId: viewer,
-    messageRow: row,
-    at: Date.now(),
-  });
-
   const focused = getMessengerRealtimeFocusedRoomIdNorm();
   /** 동일 방 + 포그라운드(+창 포커스)일 때만 낙관 bump·톤·허브 resync 생략 — 백그라운드 동일 방은 배지·알림 유지 */
   const foreground =
@@ -344,9 +358,12 @@ function createHomeRealtimeEntry(args: {
 }): HomeRealtimeEntry {
   const sb = getSupabaseClient();
   const entry: HomeRealtimeEntry = {
+    viewerUserId: args.userId,
     listeners: new Set(),
     insertHintBatchQueue: [],
     insertBatchRafId: null,
+    participantUnreadBatchQueue: [],
+    participantUnreadBatchRafId: null,
     stop: () => undefined,
   };
   if (!sb) return entry;
@@ -384,7 +401,7 @@ function createHomeRealtimeEntry(args: {
           enqueueHomeMessageInsertForEntry(entry, hint);
         },
       },
-      participantUnreadDeltaRef: { current: (hint) => emitHomeParticipantUnread(entry, hint) },
+      participantUnreadDeltaRef: { current: (hint) => enqueueHomeParticipantUnreadForEntry(entry, hint) },
       onRefreshRef: { current: () => emitHomeRefresh(entry) },
     });
     cancelSchedulers = cancel;
@@ -405,7 +422,12 @@ function createHomeRealtimeEntry(args: {
       cancelAnimationFrame(entry.insertBatchRafId);
       entry.insertBatchRafId = null;
     }
+    if (entry.participantUnreadBatchRafId != null) {
+      cancelAnimationFrame(entry.participantUnreadBatchRafId);
+      entry.participantUnreadBatchRafId = null;
+    }
     entry.insertHintBatchQueue.length = 0;
+    entry.participantUnreadBatchQueue.length = 0;
     authBridgeCleanup?.();
     authBridgeCleanup = null;
     cancelSchedulers?.();
@@ -442,6 +464,7 @@ export function useCommunityMessengerHomeRealtime(args: {
   onRealtimeMessageInsertBatch?: (hints: CommunityMessengerHomeRealtimeMessageInsertHint[]) => void;
   onParticipantUnreadDelta?: (hint: CommunityMessengerHomeRealtimeParticipantUnreadHint) => void;
 }) {
+  useCmDevRenderTrace("useCommunityMessengerHomeRealtime");
   const listenerRef = useRef<HomeRealtimeListener>({
     onRefresh: args.onRefresh,
     onRealtimeMessageInsert: args.onRealtimeMessageInsert,

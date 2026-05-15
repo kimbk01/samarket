@@ -374,6 +374,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
     <div
       data-index={virtualIndex}
       ref={measureElement}
+      data-cm-timeline-message-row=""
       id={`cm-room-msg-${item.id}`}
       className={`absolute left-0 top-0 flex w-full flex-col scroll-mt-24 ${rowPaddingTopClass} pb-1 ${
         item.messageType === "system" ? "items-center" : ""

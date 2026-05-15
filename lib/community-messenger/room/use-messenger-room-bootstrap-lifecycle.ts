@@ -1,15 +1,24 @@
 "use client";
 
 import { useEffect, type MutableRefObject } from "react";
-import { peekRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
+import {
+  isRoomSnapshotFreshWithin,
+  peekRoomSnapshot,
+} from "@/lib/community-messenger/room-snapshot-cache";
+import { CM_FOREGROUND_BOOTSTRAP_REUSE_MS } from "@/lib/community-messenger/room/cm-room-bootstrap-lock";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
-import { consumeCommunityMessengerRoomNavTap } from "@/lib/community-messenger/room-nav-timing";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
+import { cmStrictEffectRunProbe } from "@/lib/community-messenger/room/cm-bootstrap-scheduling";
+
+export type MessengerRoomBootstrapRefreshFn = (
+  silent?: boolean,
+  opts?: { forceSilentNetwork?: boolean; triggerReason?: string; forceForegroundBlock?: boolean }
+) => Promise<void>;
 
 type Args = {
   roomId: string;
   initialServerSnapshot: CommunityMessengerRoomSnapshot | null | undefined;
-  refresh: (silent?: boolean) => Promise<void>;
+  refresh: MessengerRoomBootstrapRefreshFn;
   loadedRef: MutableRefObject<boolean>;
   setRoomReadyForRealtime: (open: boolean) => void;
 };
@@ -26,14 +35,13 @@ export function useMessengerRoomBootstrapLifecycle({
   setRoomReadyForRealtime,
 }: Args): void {
   useEffect(() => {
+    cmStrictEffectRunProbe("useMessengerRoomBootstrapLifecycle", roomId);
     // Local-first / server-seeded 방은 Realtime 을 가능한 빨리 연다.
     // (초기 HTTP 부트스트랩 완료까지 기다리면 체감 진입이 느려진다.)
     const viewerGuess = initialServerSnapshot?.viewerUserId?.trim() ?? "";
     const warmFromCache = peekRoomSnapshot(roomId, viewerGuess || undefined) ?? null;
     const warmSnapshot = initialServerSnapshot ?? warmFromCache;
     setRoomReadyForRealtime(Boolean(warmSnapshot) || loadedRef.current);
-    // 탭→방 컴포넌트 마운트 지연 측정(멈칫/라우팅 스케줄링 병목 확인)
-    consumeCommunityMessengerRoomNavTap(roomId);
     if (initialServerSnapshot) {
       loadedRef.current = true;
       setRoomReadyForRealtime(true);
@@ -55,7 +63,7 @@ export function useMessengerRoomBootstrapLifecycle({
         const t =
           typeof window !== "undefined"
             ? window.setTimeout(() => {
-                void refresh(true);
+                void refresh(true, { triggerReason: "bootstrap_enrichment_pending" });
               }, delayMs)
             : 0;
         return () => {
@@ -64,13 +72,19 @@ export function useMessengerRoomBootstrapLifecycle({
       }
       if (initialServerSnapshot.membersDeferred === true) {
         if (!isDevSafeMode()) {
-          void refresh(true);
+          void refresh(true, { triggerReason: "members_deferred" });
         }
       }
       return;
     }
-    /** 시드 없는 진입: 차단 부트스트랩 즉시 — `runSingleFlight`·IndexedDB 시드는 refresh 내부에서 처리 */
-    void refresh(Boolean(loadedRef.current));
+    const cacheFresh =
+      Boolean(warmFromCache) &&
+      isRoomSnapshotFreshWithin(roomId, CM_FOREGROUND_BOOTSTRAP_REUSE_MS, viewerGuess || null);
+    /** 재진입(5s 캐시): foreground block 생략 — refresh 내부 lock·zero-fetch */
+    void refresh(false, {
+      triggerReason: cacheFresh ? "lifecycle_reentry" : "lifecycle_blocking_first",
+      forceForegroundBlock: !cacheFresh,
+    });
     // `initialServerSnapshot` 은 RSC 재실행마다 새 참조일 수 있어 deps 에 넣지 않음. 방 전환은 `roomId` 로 마운트 분리.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- initialServerSnapshot 의도적 제외(위 주석)
   }, [refresh, roomId, setRoomReadyForRealtime]);

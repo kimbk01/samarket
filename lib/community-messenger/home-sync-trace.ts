@@ -363,6 +363,8 @@ export type HomeSyncDeepStepsSellerProfileAttachBreakdown = {
 export type HomeSyncDeepStepsBundleSteps = {
   bundleTotalMs: number;
   tradeMetaEnrichTotalMs: number;
+  /** home-sync: `enrichTradeRoomContextMetaForBootstrap` 를 응답 전에 실행하지 않음 */
+  tradeMetaDeferred?: boolean;
   /** bundle 벽시계 − trade enrich (RPC·프로필 hydrate·summarize·legacy unread 등) */
   outsideTradeEnrichMs: number;
   roomsFetchMs: number;
@@ -377,6 +379,10 @@ export type HomeSyncDeepStepsBundleSteps = {
   listMyChatsWallMs: number;
   /** `fetchMyRoomsPayload` round2 — `community_messenger_rooms` last_message_at chunk 조회 벽시계 */
   roomsRound2RoomsDbFetchMs?: number;
+  /** critical in-process rooms payload TTL(2s) hit */
+  homeSyncCriticalRoomsCacheHit?: number;
+  /** critical: `hydrateProfilesLabelsOnly` ‖ `prefetchHs5LegacyUnreadRows` 벽시계 */
+  homeSyncHs5HydrateUnreadParallelWallMs?: number;
   /** `getCommunityMessengerHomeSyncBundle` 내 Promise.all 벽시계(full) */
   bundleParallelWallMs?: number;
   friendsFetchMs?: number;
@@ -433,6 +439,8 @@ export type HomeSyncDeepStepsUnreadBadge = {
   unreadEffectiveRttCount?: number;
   /** Supabase/PostgREST 캐시는 미계측 — 항상 null */
   unreadCacheHit: boolean | null;
+  /** critical HS5: hydrate 와 unread RPC prefetch 병렬 벽시계 */
+  unreadHs5PrefetchParallelWithHydrateMs?: number;
   /** dev 전용: 이 요청에서 enrich 호출 횟수(home-sync trace 전달 시만 증가) */
   enrichInvocationCount?: number;
   /** HS5-RETRY: 거래 방 CM id 수 (dedupe 후) */
@@ -561,6 +569,8 @@ export type HomeSyncTrace = {
       enrich_top_bottleneck: string;
       enrich_top_bottleneck_ms: number;
       enrich_top_bottleneck_percent: number;
+      /** 1 = direct_keys 만 적용 후 조기 반환(trade-chat-list-meta ultra-light) */
+      trade_list_meta_ultra_light?: number;
       /** trade-chat-list-meta 오케스트레이션 — room 순회·병합 진단(응답 shape 무관) */
       orchestration_summaries_total?: number;
       orchestration_room_loop_count?: number;

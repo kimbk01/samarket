@@ -58,7 +58,13 @@ import {
   samarketMessengerHomeDebugEvent,
 } from "@/lib/runtime/samarket-runtime-debug";
 import { messengerVerboseTraceConsoleEnabled } from "@/lib/community-messenger/messenger-trace-console";
+import { useCmDevRenderTrace } from "@/lib/community-messenger/dev/cm-event-loop-dev";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
+import {
+  deferHomeSyncMerge,
+  shouldDeferDuringRoomEntryQuiet,
+  shouldDeferHomeSyncStart,
+} from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
 
 /** critical 홈-sync 상단 블록 병합 — 서버 최근 순 · 로컬 나머지 유지 + 거래 `contextMeta` 역행 방지 */
 function mergeCriticalRoomPatchesIntoLists(
@@ -182,6 +188,7 @@ export function useCommunityMessengerHomeBootstrap({
   initialServerBootstrap,
   tRef,
 }: UseCommunityMessengerHomeBootstrapArgs): UseCommunityMessengerHomeBootstrapResult {
+  useCmDevRenderTrace("useCommunityMessengerHomeBootstrap");
   const loadedRef = useRef(false);
   const silentRefreshBusyRef = useRef(false);
   const silentRefreshAgainRef = useRef(false);
@@ -312,6 +319,7 @@ export function useCommunityMessengerHomeBootstrap({
       },
       roomMode: "replace" | "critical_patch" = "replace"
     ) => {
+      const apply = () => {
       setData((prev) => {
         const tUiAlign0 = typeof performance !== "undefined" ? performance.now() : null;
         try {
@@ -362,6 +370,10 @@ export function useCommunityMessengerHomeBootstrap({
           }
         }
       });
+      };
+      const run = () => deferHomeSyncMerge(apply);
+      if (shouldDeferDuringRoomEntryQuiet(run)) return;
+      run();
     },
     []
   );
@@ -431,6 +443,10 @@ export function useCommunityMessengerHomeBootstrap({
     if (!silent && stale) setLoading(true);
     try {
       if (silent) {
+        if (shouldDeferHomeSyncStart()) {
+          finishSilentRefreshRound(silent, silentRefreshBusyRef, silentRefreshAgainRef, () => {});
+          return;
+        }
         const tHomeSyncFetch0 = typeof performance !== "undefined" ? performance.now() : null;
         const { res, json } = await fetchCommunityMessengerHomeSilentLists({
           signal: controller.signal,

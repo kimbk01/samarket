@@ -13,12 +13,54 @@ import {
   recordRouteEntryJsonParseComplete,
   recordRouteEntryRouteTotalMs,
 } from "@/lib/runtime/samarket-runtime-debug";
-import { consumeRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
+import {
+  consumeRoomSnapshot,
+  getRoomSnapshotCacheAgeMs,
+  isRoomSnapshotFreshWithin,
+  peekRoomSnapshot,
+} from "@/lib/community-messenger/room-snapshot-cache";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
-import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
+import { forgetSingleFlight, getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
+import { resolveCmRoomBootstrapFetchPriority, runCmBootstrapNetworkWork } from "@/lib/community-messenger/dev/cm-event-loop-dev";
+import {
+  CM_BOOTSTRAP_SNAPSHOT_REUSE_TTL_MS,
+  markCmBootstrapFetchResolve,
+  markCmBootstrapFetchScheduled,
+  normalizeCmBootstrapTriggerSource,
+  recordCmBootstrapTriggerChain,
+  releaseCmBootstrapRoomLock,
+  tryAcquireCmBootstrapRoomLock,
+} from "@/lib/community-messenger/room/cm-bootstrap-scheduling";
+import {
+  evaluateCmRoomForegroundBootstrap,
+  isHardForegroundRefresh,
+  logCmRoomReentryZeroFetch,
+  markCmRoomForegroundBootstrapFailure,
+  markCmRoomForegroundBootstrapInflight,
+  markCmRoomForegroundBootstrapSuccess,
+  markCmRoomSilentBootstrapSuccess,
+  releaseCmRoomForegroundBootstrapInflight,
+  shouldSkipSilentBootstrap,
+  touchCmRoomForegroundLockFromSnapshot,
+  type CmForegroundBootstrapSource,
+} from "@/lib/community-messenger/room/cm-room-bootstrap-lock";
+import {
+  bootstrapTierFromQuery,
+  CM_BOOTSTRAP_DEBOUNCE_MS,
+  evaluateCmBootstrapGate,
+  logCmBootstrapTrigger,
+  noteCmBootstrapCompleted,
+  scheduleCmBootstrapDebounceRetry,
+  type CmBootstrapTier,
+} from "@/lib/community-messenger/room/cm-bootstrap-orchestration";
 import { finishSilentRefreshRound, tryEnterSilentRefreshRound } from "@/lib/http/silent-refresh-coalesce";
 import { cmCallIncomingTraceMaybeRoomBootstrap } from "@/lib/community-messenger/cm-call-debug";
 import { mergeCommunityMessengerSilentDeltaIntoSnapshot } from "@/lib/community-messenger/room/merge-community-messenger-silent-delta";
+import { mergeCommunityMessengerForegroundBootstrapIntoSnapshot } from "@/lib/community-messenger/room/merge-community-messenger-foreground-bootstrap";
+import {
+  isCmRoomEntryPriorityModeActive,
+  logCmRoomBootstrapPatchOnly,
+} from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
 import { COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT } from "@/lib/community-messenger/types";
 import { consumePrefetchHitForRoom } from "@/lib/community-messenger/room-snapshot-cache";
 import {
@@ -93,9 +135,18 @@ export function forgetMessengerRoomClientBootstrapFlights(opts: { roomId: string
  * 메신저 방 HTTP 부트스트랩 갱신 — `CommunityMessengerRoomClient` 와 동일 동작(프라임·single-flight).
  * 컴포넌트 밖 두어 리렌더마다 콜백 본문 재생성 범위를 줄인다.
  */
+type BootstrapFlightResult = {
+  roomRes: Response;
+  snap: CommunityMessengerRoomSnapshot | null;
+  clientTimings: { clientInnerSumMs: number };
+};
+
 export function createMessengerRoomBootstrapRefresh(
   deps: MessengerRoomBootstrapRefreshDeps
-): (silent?: boolean, opts?: { forceSilentNetwork?: boolean }) => Promise<void> {
+): (
+  silent?: boolean,
+  opts?: { forceSilentNetwork?: boolean; triggerReason?: string; forceForegroundBlock?: boolean }
+) => Promise<void> {
   /** 시드 직후 동일 silent·동일 flightKey 가 연속으로 겹칠 때(againRef 등) 짧은 창에서 한 번만 네트워크를 연다. */
   const silentSameKeyCoalesceRef = { key: "", at: 0 };
   const {
@@ -122,19 +173,76 @@ export function createMessengerRoomBootstrapRefresh(
    */
   const coalesceTimerRef = silentBootstrapThrottleCoalesceTimerRef;
 
+  function applyBootstrapFlightResult(args: {
+    roomRes: Response;
+    snap: CommunityMessengerRoomSnapshot | null;
+    clientTimings: { clientInnerSumMs: number };
+    silent: boolean;
+    shouldBlock: boolean;
+    bootstrapQueryWithSrc: string;
+    reqSrc: string;
+    bootstrapTierHdr: string;
+    tBoot: number;
+  }): void {
+    const { roomRes, snap, clientTimings, silent, shouldBlock, bootstrapQueryWithSrc, reqSrc, bootstrapTierHdr, tBoot } =
+      args;
+    if (roomRes.ok && snap) {
+      if (silent && bootstrapTierHdr === "silent_delta") {
+        setSnapshot((prev) => {
+          if (prev) return mergeCommunityMessengerSilentDeltaIntoSnapshot(prev, snap);
+          if (typeof console !== "undefined") {
+            console.warn("[cm-room-bootstrap] silent_delta applied without prior snapshot");
+          }
+          return snap;
+        });
+      } else {
+        setSnapshot((prev) => {
+          if (prev && snap && !prev.clientShellPlaceholder) {
+            const patched = mergeCommunityMessengerForegroundBootstrapIntoSnapshot(prev, snap);
+            logCmRoomBootstrapPatchOnly({
+              roomId,
+              patched_messages: (snap.messages?.length ?? 0) > 0,
+              patched_members: (snap.members?.length ?? 0) > 0,
+              full_remount: false,
+              cmReqSrc: reqSrc,
+            });
+            return patched;
+          }
+          return snap;
+        });
+      }
+      const usedMinimalMemberHydration =
+        shouldBlock || bootstrapQueryWithSrc.includes("memberHydration=minimal");
+      if (usedMinimalMemberHydration) {
+        deferredMemberBootstrapRef.current = true;
+      }
+      const elapsed =
+        typeof performance !== "undefined" ? Math.round(performance.now() - tBoot) : Math.round(Date.now() - tBoot);
+      messengerMonitorRoomLoad(roomId, elapsed, { silent, cmReqSrc: reqSrc });
+    } else if (!silent) {
+      setSnapshot(null);
+    }
+  }
+
   async function refresh(
     silent = false,
-    opts?: { /** 상대 읽음 커서 등 — 220ms 동일 키 스킵 없이 반드시 네트워크 */ forceSilentNetwork?: boolean }
+    opts?: {
+      /** 상대 읽음 커서 등 — debounce 없이 반드시 네트워크 */
+      forceSilentNetwork?: boolean;
+      triggerReason?: string;
+      /** lifecycle 첫 차단 — loadedRef·IndexedDB 와 무관하게 block 1회만 */
+      forceForegroundBlock?: boolean;
+    }
   ): Promise<void> {
     if (silent) {
       const now = Date.now();
       if (now < silentBackoffUntil) return;
-      if (!opts?.forceSilentNetwork && now - lastSilentRefreshAt < 420) {
+      if (!opts?.forceSilentNetwork && now - lastSilentRefreshAt < CM_BOOTSTRAP_DEBOUNCE_MS) {
         if (coalesceTimerRef.current != null) clearTimeout(coalesceTimerRef.current);
         coalesceTimerRef.current = setTimeout(() => {
           coalesceTimerRef.current = null;
-          void refresh(true);
-        }, Math.max(1, 420 - (Date.now() - lastSilentRefreshAt)));
+          void refresh(true, { ...opts, triggerReason: opts?.triggerReason ?? "silent_coalesce_timer" });
+        }, Math.max(1, CM_BOOTSTRAP_DEBOUNCE_MS - (Date.now() - lastSilentRefreshAt)));
         return;
       }
       if (coalesceTimerRef.current != null) {
@@ -146,17 +254,56 @@ export function createMessengerRoomBootstrapRefresh(
     if (!tryEnterSilentRefreshRound(silent, silentRoomRefreshBusyRef, silentRoomRefreshAgainRef)) {
       return;
     }
+    const viewerIdForCache = viewerBootstrapDedupRef.current.trim() || null;
+    const peekSnapEarly = peekRoomSnapshot(roomId, viewerIdForCache);
+    const hardRefresh = isHardForegroundRefresh({
+      triggerReason: opts?.triggerReason,
+      forceSilentNetwork: opts?.forceSilentNetwork,
+      peekSnapshot: peekSnapEarly,
+    });
+    if (
+      silent &&
+      isCmRoomEntryPriorityModeActive() &&
+      !opts?.forceSilentNetwork &&
+      (opts?.triggerReason?.includes("realtime") ?? false)
+    ) {
+      finishSilentRefreshRound(silent, silentRoomRefreshBusyRef, silentRoomRefreshAgainRef, () => {});
+      loadedRef.current = true;
+      setRoomReadyForRealtime(true);
+      return;
+    }
+    if (silent && !hardRefresh) {
+      const silentSkip = shouldSkipSilentBootstrap(roomId, opts?.forceSilentNetwork === true);
+      if (silentSkip.skip) {
+        logCmRoomReentryZeroFetch({
+          roomId,
+          used_cached_snapshot: Boolean(peekSnapEarly),
+          foreground_fetch_skipped: false,
+          silent_fetch_scheduled: false,
+          silent_fetch_skipped: true,
+          snapshot_age_ms: silentSkip.snapshotAgeMs,
+        });
+        finishSilentRefreshRound(silent, silentRoomRefreshBusyRef, silentRoomRefreshAgainRef, () => {});
+        loadedRef.current = true;
+        setRoomReadyForRealtime(true);
+        return;
+      }
+    }
     if (!silent && swrDeferredBootstrapTimerRef.current) {
       clearTimeout(swrDeferredBootstrapTimerRef.current);
       swrDeferredBootstrapTimerRef.current = null;
     }
+    const cacheFresh5s =
+      !silent &&
+      isRoomSnapshotFreshWithin(roomId, CM_BOOTSTRAP_SNAPSHOT_REUSE_TTL_MS, viewerIdForCache);
     const primed =
       !silent &&
-      consumeRoomSnapshot(
-        roomId,
-        viewerBootstrapDedupRef.current.trim() ? viewerBootstrapDedupRef.current.trim() : null
-      );
-    const shouldBlock = !silent && !loadedRef.current && !primed;
+      (cacheFresh5s && peekSnapEarly
+        ? peekSnapEarly
+        : consumeRoomSnapshot(roomId, viewerIdForCache));
+    const forceForegroundBlock =
+      opts?.forceForegroundBlock === true || opts?.triggerReason === "lifecycle_blocking_first";
+    let shouldBlock = !silent && (forceForegroundBlock || (!loadedRef.current && !primed));
     try {
       if (primed) {
         setSnapshot(primed);
@@ -183,10 +330,33 @@ export function createMessengerRoomBootstrapRefresh(
                 signal.addEventListener("abort", () => clearTimeout(t), { once: true });
               });
               if (signal.aborted) return;
-              await refresh(true, { forceSilentNetwork: true });
+              const secondaryFresh = isRoomSnapshotFreshWithin(
+                roomId,
+                CM_BOOTSTRAP_SNAPSHOT_REUSE_TTL_MS,
+                viewerIdForCache
+              );
+              if (secondaryFresh) return;
+              await refresh(true, {
+                triggerReason: "room_bootstrap_secondary_idle",
+              });
             },
           });
         };
+        if (cacheFresh5s) {
+          touchCmRoomForegroundLockFromSnapshot(roomId, primed);
+          logCmRoomReentryZeroFetch({
+            roomId,
+            used_cached_snapshot: true,
+            foreground_fetch_skipped: true,
+            silent_fetch_scheduled: false,
+            silent_fetch_skipped: true,
+            snapshot_age_ms: getRoomSnapshotCacheAgeMs(roomId, viewerIdForCache),
+          });
+          loadedRef.current = true;
+          setRoomReadyForRealtime(true);
+          setLoading(false);
+          return;
+        }
         if (typeof window !== "undefined") {
           /** 첫 페인트 이후에만 full 보강(즉시 full GET 금지) — rAF 2회 뒤 LOW 큐에 합류 */
           requestAnimationFrame(() => {
@@ -206,10 +376,45 @@ export function createMessengerRoomBootstrapRefresh(
         `?mode=instant&memberHydration=minimal&hydration=critical&cmReqSrc=room_client_legacy&messages=${COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT}`;
       let bootstrapQueryWithSrc: string;
       let reqSrc: string;
-      if (shouldBlock) {
-        bootstrapQueryWithSrc = BLOCKING_FIRST_BOOTSTRAP_Q;
-        reqSrc = "room_client_block";
-      } else if (silent) {
+      const peekSnap = peekSnapEarly ?? peekRoomSnapshot(roomId, viewerIdForCache);
+      const hasPrefetchSnapshot = cacheFresh5s;
+
+      if (!silent) {
+        const fg = evaluateCmRoomForegroundBootstrap({
+          roomId,
+          triggerReason: opts?.triggerReason,
+          forceBlock: forceForegroundBlock,
+          requestedLegacy: !forceForegroundBlock,
+          hasLocalSnapshot: Boolean(peekSnap),
+          hasPrefetchSnapshot,
+          peekSnapshot: peekSnap,
+          hardRefresh,
+          viewerUserId: viewerIdForCache,
+        });
+        if (fg.action === "skip") {
+          if (fg.reuseSnapshot) {
+            setSnapshot(fg.reuseSnapshot);
+            setLoading(false);
+            touchCmRoomForegroundLockFromSnapshot(roomId, fg.reuseSnapshot);
+          }
+          logCmRoomReentryZeroFetch({
+            roomId,
+            used_cached_snapshot: Boolean(fg.reuseSnapshot),
+            foreground_fetch_skipped: true,
+            silent_fetch_scheduled: false,
+            silent_fetch_skipped: shouldSkipSilentBootstrap(roomId, false).skip,
+            snapshot_age_ms: getRoomSnapshotCacheAgeMs(roomId, viewerIdForCache),
+          });
+          loadedRef.current = true;
+          setRoomReadyForRealtime(true);
+          finishSilentRefreshRound(silent, silentRoomRefreshBusyRef, silentRoomRefreshAgainRef, () => {});
+          return;
+        }
+        reqSrc = fg.reqSrc;
+        bootstrapQueryWithSrc = fg.reqSrc === "room_client_block" ? BLOCKING_FIRST_BOOTSTRAP_Q : INSTANT_LEGACY_Q;
+        shouldBlock = fg.reqSrc === "room_client_block";
+        markCmRoomForegroundBootstrapInflight(roomId, fg.reqSrc);
+      } else {
         reqSrc = "room_silent";
         /** 사일런트: `silent_delta` — 방·내 참가자 포인터만; 프로필·통화·presence·trade enrich 없음. 거래 카드는 `fetchChatRoomDetailApi` 등으로 후속. */
         bootstrapQueryWithSrc = opts?.forceSilentNetwork
@@ -219,17 +424,128 @@ export function createMessengerRoomBootstrapRefresh(
           : deferredMemberBootstrapRef.current
             ? "?memberHydration=minimal&snapshotTier=silent_delta&cmReqSrc=room_silent"
             : "?snapshotTier=silent_delta&cmReqSrc=room_silent";
-      } else {
-        reqSrc = "room_client_legacy";
-        bootstrapQueryWithSrc = INSTANT_LEGACY_Q;
       }
       const viewer = viewerBootstrapDedupRef.current.trim() || "anon";
       const flightKey = `cm-room-bootstrap:${viewer}:${roomId}:${bootstrapQueryWithSrc}`;
+      const tier: CmBootstrapTier = bootstrapTierFromQuery(bootstrapQueryWithSrc);
+      const triggerReason =
+        opts?.triggerReason ??
+        (silent
+          ? opts?.forceSilentNetwork
+            ? "silent_force_network"
+            : "silent"
+          : shouldBlock
+            ? "blocking_first"
+            : "legacy");
+      const triggerSource = normalizeCmBootstrapTriggerSource(triggerReason);
+      const gate = evaluateCmBootstrapGate({
+        roomId,
+        tier,
+        flightKey,
+        forceNetwork: opts?.forceSilentNetwork === true,
+      });
+      recordCmBootstrapTriggerChain({
+        trigger_source: triggerSource,
+        roomId,
+        tier,
+        inflight_existing: gate.inflightExisting,
+        deduped: gate.skippedReason === "stale_reuse",
+        debounced: gate.debounced,
+        skipped_reason: gate.skippedReason,
+      });
+      logCmBootstrapTrigger({
+        reason: triggerReason,
+        roomId,
+        tier,
+        since_last_bootstrap_ms: gate.sinceLastBootstrapMs,
+        inflight_existing: gate.inflightExisting,
+        debounced: gate.debounced,
+        skipped_reason: gate.skippedReason,
+        flight_key: flightKey.length > 120 ? `${flightKey.slice(0, 120)}…` : flightKey,
+      });
+      if (
+        silent &&
+        loadedRef.current &&
+        !opts?.forceSilentNetwork &&
+        tier === "silent_delta" &&
+        isRoomSnapshotFreshWithin(
+          roomId,
+          CM_BOOTSTRAP_SNAPSHOT_REUSE_TTL_MS,
+          viewerBootstrapDedupRef.current.trim() || null
+        )
+      ) {
+        recordCmBootstrapTriggerChain({
+          trigger_source: triggerSource,
+          roomId,
+          tier,
+          skipped_reason: "local_snapshot_sufficient",
+          deduped: true,
+        });
+        finishSilentRefreshRound(silent, silentRoomRefreshBusyRef, silentRoomRefreshAgainRef, () => {});
+        loadedRef.current = true;
+        setRoomReadyForRealtime(true);
+        return;
+      }
+      if (!gate.proceed) {
+        if (!silent) {
+          releaseCmRoomForegroundBootstrapInflight(roomId);
+        }
+        if (gate.skippedReason === "stale_reuse" && gate.staleEntry) {
+          const stale = gate.staleEntry;
+          applyBootstrapFlightResult({
+            roomRes: new Response(null, { status: 200 }),
+            snap: stale.snap,
+            clientTimings: { clientInnerSumMs: 0 },
+            silent,
+            shouldBlock,
+            bootstrapQueryWithSrc,
+            reqSrc,
+            bootstrapTierHdr: stale.bootstrapTierHdr,
+            tBoot: typeof performance !== "undefined" ? performance.now() : Date.now(),
+          });
+        } else if (gate.skippedReason === "inflight_join") {
+          const inflight = getSingleFlightPromise<BootstrapFlightResult>(flightKey);
+          if (inflight) {
+            const joined = await inflight;
+            applyBootstrapFlightResult({
+              roomRes: joined.roomRes,
+              snap: joined.snap,
+              clientTimings: joined.clientTimings,
+              silent,
+              shouldBlock,
+              bootstrapQueryWithSrc,
+              reqSrc,
+              bootstrapTierHdr: joined.roomRes.headers.get("x-samarket-bootstrap-tier") ?? tier,
+              tBoot: typeof performance !== "undefined" ? performance.now() : Date.now(),
+            });
+          }
+        } else if (gate.skippedReason === "debounced") {
+          const waitMs = Math.max(
+            1,
+            CM_BOOTSTRAP_DEBOUNCE_MS - (gate.sinceLastBootstrapMs ?? CM_BOOTSTRAP_DEBOUNCE_MS)
+          );
+          scheduleCmBootstrapDebounceRetry({
+            roomId,
+            tier,
+            delayMs: waitMs,
+            run: () => {
+              void refresh(silent, { ...opts, triggerReason: "debounced_retry" });
+            },
+          });
+        }
+        finishSilentRefreshRound(silent, silentRoomRefreshBusyRef, silentRoomRefreshAgainRef, () => {
+          void refresh(true, { triggerReason: "silent_refresh_round_again" });
+        });
+        loadedRef.current = true;
+        if (shouldBlock) setLoading(false);
+        setRoomReadyForRealtime(true);
+        return;
+      }
       if (silent && loadedRef.current && !opts?.forceSilentNetwork) {
         const now = Date.now();
         if (
           silentSameKeyCoalesceRef.key === flightKey &&
-          now - silentSameKeyCoalesceRef.at < 220
+          now - silentSameKeyCoalesceRef.at < CM_BOOTSTRAP_DEBOUNCE_MS
         ) {
           finishSilentRefreshRound(true, silentRoomRefreshBusyRef, silentRoomRefreshAgainRef, () => {});
           return;
@@ -241,131 +557,198 @@ export function createMessengerRoomBootstrapRefresh(
         silentSameKeyCoalesceRef.key = "";
         silentSameKeyCoalesceRef.at = 0;
       }
-      const flightResult = await runSingleFlight(flightKey, async () => {
-        const tFetch = typeof performance !== "undefined" ? performance.now() : Date.now();
-        if (shouldBlock) {
-          recordRouteEntryElapsedMetric("messenger_room_entry", "room_bootstrap_request_start_ms");
-        }
-        cmCallIncomingTraceMaybeRoomBootstrap(roomId, "start");
-        if (shouldBlock && typeof console !== "undefined") {
-          const suf = roomId.trim();
-          console.info("[cm-room-bootstrap] blocking_fetch_start", {
-            perfNow: typeof performance !== "undefined" ? performance.now() : Date.now(),
-            roomIdSuffix: suf.length <= 8 ? suf : suf.slice(-8),
-            cmReqSrc: reqSrc,
-          });
-        }
-        const res = await fetch(`${communityMessengerRoomBootstrapPath(roomId)}${bootstrapQueryWithSrc}`, {
-          cache: "default",
-          credentials: "include",
-        });
-        const tAfterHeaders = typeof performance !== "undefined" ? performance.now() : Date.now();
-        const fetchToHeadersMs =
-          typeof performance !== "undefined" ? tAfterHeaders - tFetch : Date.now() - (tFetch as number);
-        const bodyText = await res.text();
-        const tAfterBody = typeof performance !== "undefined" ? performance.now() : Date.now();
-        const responseBodyReadMs =
-          typeof performance !== "undefined" ? tAfterBody - tAfterHeaders : Date.now() - (tAfterHeaders as number);
-        const clientWireMs = fetchToHeadersMs + responseBodyReadMs;
-        const fetchElapsed = Math.round(clientWireMs);
-        if (shouldBlock) {
-          recordRouteEntryElapsedMetric("messenger_room_entry", "room_bootstrap_response_end_ms");
-        }
-        recordRouteEntryFetchNetworkMs("messenger_room_entry", fetchElapsed);
-        const serverRouteTotal = Number(res.headers.get("x-samarket-route-total-ms") ?? "");
-        const serverSnapshotMs = Number(res.headers.get("x-samarket-room-bootstrap-fetch-ms") ?? "");
-        const sizeBytes = Number(res.headers.get("x-samarket-response-size-bytes") ?? "");
-        recordRouteEntryRouteTotalMs("messenger_room_entry", serverRouteTotal);
-        recordRouteEntryMetric("messenger_room_entry", "response_size_bytes", sizeBytes);
-        recordRouteEntryMetric("messenger_room_entry", "room_bootstrap_fetch_ms", serverSnapshotMs);
-        recordRouteEntryMetric("messenger_room_entry", "messages_fetch_ms", Number(res.headers.get("x-samarket-messages-fetch-ms") ?? ""));
-        recordRouteEntryMetric(
-          "messenger_room_entry",
-          "participants_profiles_fetch_ms",
-          Number(res.headers.get("x-samarket-participants-profiles-fetch-ms") ?? "")
-        );
-        recordRouteEntryMetric("messenger_room_entry", "normalize_merge_ms", Number(res.headers.get("x-samarket-normalize-merge-ms") ?? ""));
-        if (res.status === 429) {
-          const ra = res.headers.get("Retry-After");
-          const sec = Math.min(120, Math.max(1, Number.parseInt(ra ?? "", 10) || 5));
-          silentBackoffUntil = Date.now() + sec * 1000;
-        }
-        const tJson0 = typeof performance !== "undefined" ? performance.now() : Date.now();
-        let raw: unknown = null;
-        try {
-          raw = JSON.parse(bodyText) as unknown;
-        } catch {
-          raw = null;
-        }
-        const tAfterJson = typeof performance !== "undefined" ? performance.now() : Date.now();
-        const jsonParseMsNum =
-          typeof performance !== "undefined" ? Math.round(tAfterJson - tJson0) : Math.round(Date.now() - (tJson0 as number));
-        const tSnap0 = typeof performance !== "undefined" ? performance.now() : Date.now();
-        const snap = parseCommunityMessengerRoomSnapshotResponse(raw);
-        const snapshotParseMsNum =
-          typeof performance !== "undefined" ? Math.round(performance.now() - tSnap0) : Math.round(Date.now() - (tSnap0 as number));
-        cmCallIncomingTraceMaybeRoomBootstrap(roomId, "done");
-        if (shouldBlock) {
-          recordRouteEntryElapsedMetric("messenger_room_entry", "room_bootstrap_json_parse_complete_ms");
-          recordRouteEntryJsonParseComplete("messenger_room_entry");
-        }
-        const clientInnerSumMs =
-          Math.round(fetchToHeadersMs) + Math.round(responseBodyReadMs) + jsonParseMsNum + snapshotParseMsNum;
-        if (BOOTSTRAP_FETCH_BREAKDOWN) {
-          const { kb, tier } = Number.isFinite(sizeBytes) && sizeBytes > 0 ? payloadSizeTierKb(sizeBytes) : { kb: 0, tier: "ok" as const };
-          const h = (k: string) => Number(res.headers.get(k) ?? "");
-          logBootstrapFetchBreakdownTable({
-            "0_server_route_total_ms (header)": serverRouteTotal,
-            "1_server_room_snapshot_ms (header)": serverSnapshotMs,
-            "2_participants_sql_ms": h("x-samarket-participants-sql-ms"),
-            "3_room_profiles_map_ms": h("x-samarket-room-profiles-map-ms"),
-            "4_hydrate_labels_ms": h("x-samarket-hydrate-labels-ms"),
-            "5_trade_detail_bootstrap_parallel_ms": h("x-samarket-trade-detail-bootstrap-parallel-ms"),
-            "6_trade_exit_snapshot_parallel_ms": h("x-samarket-trade-exit-snapshot-parallel-ms"),
-            "7_peer_read_cursor_ms": h("x-samarket-peer-read-cursor-ms"),
-            "8_participants_profiles_bundle_ms (header)": h("x-samarket-participants-profiles-fetch-ms"),
-            "9_trade_detail_normalize_ms": h("x-samarket-trade-detail-normalize-ms"),
-            "10_summary_build_ms": h("x-samarket-summary-build-ms"),
-            "11_members_map_ms": h("x-samarket-members-map-ms"),
-            "12_messages_pipeline_prep_ms": h("x-samarket-messages-pipeline-prep-ms"),
-            "13_messages_map_cpu_ms": h("x-samarket-messages-map-cpu-ms"),
-            "14_normalize_merge_ms (header sum)": h("x-samarket-normalize-merge-ms"),
-            A_client_fetch_to_headers_ms: Math.round(fetchToHeadersMs),
-            B_client_body_read_ms: Math.round(responseBodyReadMs),
-            C_client_json_parse_ms: jsonParseMsNum,
-            D_client_snapshot_parse_ms: snapshotParseMsNum,
-            E_client_wire_plus_parse_ms: clientInnerSumMs,
-            F_payload_kb: kb,
-            G_payload_rule: tier === "ok" ? "ok <50KB" : tier === "review" ? "review ≥50KB" : "problem ≥100KB",
-          });
-        }
-        return { roomRes: res, snap, clientTimings: { clientInnerSumMs } };
+      const fetchPriority = resolveCmRoomBootstrapFetchPriority({
+        silent,
+        shouldBlock,
+        forceSilentNetwork: opts?.forceSilentNetwork,
+        loaded: loadedRef.current,
       });
+      const scheduledDelayMs = fetchPriority === "idle" ? 480 : 0;
+      const lock = tryAcquireCmBootstrapRoomLock(roomId, shouldBlock);
+      if (lock.dropped) {
+        recordCmBootstrapTriggerChain({
+          trigger_source: triggerSource,
+          roomId,
+          tier,
+          dropped: true,
+          inflight_existing: true,
+          skipped_reason: "room_lock_busy",
+        });
+        finishSilentRefreshRound(silent, silentRoomRefreshBusyRef, silentRoomRefreshAgainRef, () => {});
+        return;
+      }
+      let flightResult: BootstrapFlightResult;
+      try {
+        flightResult = await new Promise<BootstrapFlightResult>((resolveFlight, rejectFlight) => {
+        const executeFetch = async () => {
+          markCmBootstrapFetchScheduled(roomId, scheduledDelayMs);
+          try {
+            const result = await runSingleFlight(flightKey, async () => {
+              const tFetch = typeof performance !== "undefined" ? performance.now() : Date.now();
+              if (shouldBlock) {
+                recordRouteEntryElapsedMetric("messenger_room_entry", "room_bootstrap_request_start_ms");
+              }
+              cmCallIncomingTraceMaybeRoomBootstrap(roomId, "start");
+              if (shouldBlock && typeof console !== "undefined") {
+                const suf = roomId.trim();
+                console.info("[cm-room-bootstrap] blocking_fetch_start", {
+                  perfNow: typeof performance !== "undefined" ? performance.now() : Date.now(),
+                  roomIdSuffix: suf.length <= 8 ? suf : suf.slice(-8),
+                  cmReqSrc: reqSrc,
+                });
+              }
+              const res = await fetch(`${communityMessengerRoomBootstrapPath(roomId)}${bootstrapQueryWithSrc}`, {
+                cache: "default",
+                credentials: "include",
+              });
+              markCmBootstrapFetchResolve(roomId);
+              const tAfterHeaders = typeof performance !== "undefined" ? performance.now() : Date.now();
+              const fetchToHeadersMs =
+                typeof performance !== "undefined" ? tAfterHeaders - tFetch : Date.now() - (tFetch as number);
+              const bodyText = await res.text();
+              const tAfterBody = typeof performance !== "undefined" ? performance.now() : Date.now();
+              const responseBodyReadMs =
+                typeof performance !== "undefined" ? tAfterBody - tAfterHeaders : Date.now() - (tAfterHeaders as number);
+              const clientWireMs = fetchToHeadersMs + responseBodyReadMs;
+              const fetchElapsed = Math.round(clientWireMs);
+              if (shouldBlock) {
+                recordRouteEntryElapsedMetric("messenger_room_entry", "room_bootstrap_response_end_ms");
+              }
+              recordRouteEntryFetchNetworkMs("messenger_room_entry", fetchElapsed);
+              const serverRouteTotal = Number(res.headers.get("x-samarket-route-total-ms") ?? "");
+              const serverSnapshotMs = Number(res.headers.get("x-samarket-room-bootstrap-fetch-ms") ?? "");
+              const sizeBytes = Number(res.headers.get("x-samarket-response-size-bytes") ?? "");
+              recordRouteEntryRouteTotalMs("messenger_room_entry", serverRouteTotal);
+              recordRouteEntryMetric("messenger_room_entry", "response_size_bytes", sizeBytes);
+              recordRouteEntryMetric("messenger_room_entry", "room_bootstrap_fetch_ms", serverSnapshotMs);
+              recordRouteEntryMetric(
+                "messenger_room_entry",
+                "messages_fetch_ms",
+                Number(res.headers.get("x-samarket-messages-fetch-ms") ?? "")
+              );
+              recordRouteEntryMetric(
+                "messenger_room_entry",
+                "participants_profiles_fetch_ms",
+                Number(res.headers.get("x-samarket-participants-profiles-fetch-ms") ?? "")
+              );
+              recordRouteEntryMetric(
+                "messenger_room_entry",
+                "normalize_merge_ms",
+                Number(res.headers.get("x-samarket-normalize-merge-ms") ?? "")
+              );
+              if (res.status === 429) {
+                const ra = res.headers.get("Retry-After");
+                const sec = Math.min(120, Math.max(1, Number.parseInt(ra ?? "", 10) || 5));
+                silentBackoffUntil = Date.now() + sec * 1000;
+              }
+              const tJson0 = typeof performance !== "undefined" ? performance.now() : Date.now();
+              let raw: unknown = null;
+              try {
+                raw = JSON.parse(bodyText) as unknown;
+              } catch {
+                raw = null;
+              }
+              const tAfterJson = typeof performance !== "undefined" ? performance.now() : Date.now();
+              const jsonParseMsNum =
+                typeof performance !== "undefined"
+                  ? Math.round(tAfterJson - tJson0)
+                  : Math.round(Date.now() - (tJson0 as number));
+              const tSnap0 = typeof performance !== "undefined" ? performance.now() : Date.now();
+              const snap = parseCommunityMessengerRoomSnapshotResponse(raw);
+              const snapshotParseMsNum =
+                typeof performance !== "undefined"
+                  ? Math.round(performance.now() - tSnap0)
+                  : Math.round(Date.now() - (tSnap0 as number));
+              cmCallIncomingTraceMaybeRoomBootstrap(roomId, "done");
+              if (shouldBlock) {
+                recordRouteEntryElapsedMetric("messenger_room_entry", "room_bootstrap_json_parse_complete_ms");
+                recordRouteEntryJsonParseComplete("messenger_room_entry");
+              }
+              const clientInnerSumMs =
+                Math.round(fetchToHeadersMs) +
+                Math.round(responseBodyReadMs) +
+                jsonParseMsNum +
+                snapshotParseMsNum;
+              if (BOOTSTRAP_FETCH_BREAKDOWN) {
+                const { kb, tier } =
+                  Number.isFinite(sizeBytes) && sizeBytes > 0
+                    ? payloadSizeTierKb(sizeBytes)
+                    : { kb: 0, tier: "ok" as const };
+                const h = (k: string) => Number(res.headers.get(k) ?? "");
+                logBootstrapFetchBreakdownTable({
+                  "0_server_route_total_ms (header)": serverRouteTotal,
+                  "1_server_room_snapshot_ms (header)": serverSnapshotMs,
+                  "2_participants_sql_ms": h("x-samarket-participants-sql-ms"),
+                  "3_room_profiles_map_ms": h("x-samarket-room-profiles-map-ms"),
+                  "4_hydrate_labels_ms": h("x-samarket-hydrate-labels-ms"),
+                  "5_trade_detail_bootstrap_parallel_ms": h("x-samarket-trade-detail-bootstrap-parallel-ms"),
+                  "6_trade_exit_snapshot_parallel_ms": h("x-samarket-trade-exit-snapshot-parallel-ms"),
+                  "7_peer_read_cursor_ms": h("x-samarket-peer-read-cursor-ms"),
+                  "8_participants_profiles_bundle_ms (header)": h("x-samarket-participants-profiles-fetch-ms"),
+                  "9_trade_detail_normalize_ms": h("x-samarket-trade-detail-normalize-ms"),
+                  "10_summary_build_ms": h("x-samarket-summary-build-ms"),
+                  "11_members_map_ms": h("x-samarket-members-map-ms"),
+                  "12_messages_pipeline_prep_ms": h("x-samarket-messages-pipeline-prep-ms"),
+                  "13_messages_map_cpu_ms": h("x-samarket-messages-map-cpu-ms"),
+                  "14_normalize_merge_ms (header sum)": h("x-samarket-normalize-merge-ms"),
+                  A_client_fetch_to_headers_ms: Math.round(fetchToHeadersMs),
+                  B_client_body_read_ms: Math.round(responseBodyReadMs),
+                  C_client_json_parse_ms: jsonParseMsNum,
+                  D_client_snapshot_parse_ms: snapshotParseMsNum,
+                  E_client_wire_plus_parse_ms: clientInnerSumMs,
+                  F_payload_kb: kb,
+                  G_payload_rule:
+                    tier === "ok" ? "ok <50KB" : tier === "review" ? "review ≥50KB" : "problem ≥100KB",
+                });
+              }
+              return { roomRes: res, snap, clientTimings: { clientInnerSumMs } };
+            });
+            resolveFlight(result);
+          } catch (err) {
+            rejectFlight(err);
+          }
+        };
+        runCmBootstrapNetworkWork(fetchPriority, executeFetch);
+      });
+      } finally {
+        releaseCmBootstrapRoomLock(roomId);
+        if (!silent) {
+          releaseCmRoomForegroundBootstrapInflight(roomId);
+        }
+      }
       const roomRes = flightResult.roomRes;
       const snap = flightResult.snap;
       const clientTimings = flightResult.clientTimings;
       const bootstrapTierHdr = roomRes.headers.get("x-samarket-bootstrap-tier") ?? "";
       if (roomRes.ok && snap) {
-        if (silent && bootstrapTierHdr === "silent_delta") {
-          setSnapshot((prev) => {
-            if (prev) return mergeCommunityMessengerSilentDeltaIntoSnapshot(prev, snap);
-            if (typeof console !== "undefined") {
-              console.warn("[cm-room-bootstrap] silent_delta applied without prior snapshot");
-            }
-            return snap;
+        noteCmBootstrapCompleted({ roomId, tier, flightKey, snap, bootstrapTierHdr });
+        if (!silent) {
+          markCmRoomForegroundBootstrapSuccess({
+            roomId,
+            snap,
+            tier,
+            reqSrc: reqSrc as CmForegroundBootstrapSource,
           });
         } else {
-          setSnapshot(snap);
+          markCmRoomSilentBootstrapSuccess(roomId);
         }
-        const usedMinimalMemberHydration =
-          shouldBlock || bootstrapQueryWithSrc.includes("memberHydration=minimal");
-        if (usedMinimalMemberHydration) {
-          // minimal members 로 시작했으면 멤버 전원 로드는 members sheet에서만.
-          deferredMemberBootstrapRef.current = true;
-        }
+      } else if (!silent) {
+        markCmRoomForegroundBootstrapFailure(roomId, reqSrc as CmForegroundBootstrapSource);
+      }
+      applyBootstrapFlightResult({
+        roomRes,
+        snap,
+        clientTimings,
+        silent,
+        shouldBlock,
+        bootstrapQueryWithSrc,
+        reqSrc,
+        bootstrapTierHdr,
+        tBoot,
+      });
+      if (roomRes.ok && snap) {
         const elapsed =
           typeof performance !== "undefined" ? Math.round(performance.now() - tBoot) : Math.round(Date.now() - tBoot);
-        messengerMonitorRoomLoad(roomId, elapsed, { silent, cmReqSrc: reqSrc });
         if (shouldBlock && roomRes.ok && snap && cmRoomEntryTraceEnabled()) {
           const prefetchHit = consumePrefetchHitForRoom(roomId);
           const sizeB = Number(roomRes.headers.get("x-samarket-response-size-bytes") ?? "");
@@ -417,9 +800,6 @@ export function createMessengerRoomBootstrapRefresh(
             roomIdSuffix: suf.length <= 8 ? suf : suf.slice(-8),
           });
         }
-      } else if (!silent) {
-        // 사일런트 갱신 실패 시 스냅샷을 비우면 Realtime·목록이 끊긴다.
-        setSnapshot(null);
       }
       }
     } finally {

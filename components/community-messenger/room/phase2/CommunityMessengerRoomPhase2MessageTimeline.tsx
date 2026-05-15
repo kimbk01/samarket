@@ -52,6 +52,29 @@ import {
   logCmScrollAnalysis,
   recordCmScrollVirtualizerMeasure,
 } from "@/lib/community-messenger/monitoring/cm-scroll-analysis";
+import { useCmRoomPhase2HydrationPass } from "@/lib/community-messenger/room/cm-room-phase2-hydration-context";
+import {
+  emitCmRoomPass2ViewportLog,
+  measureCmPassRenderCommit,
+} from "@/lib/community-messenger/room/cm-room-pass-instrumentation";
+import {
+  hasCmRoomEntryTimingSession,
+  registerCmRoomTimingPendingCleanup,
+} from "@/lib/community-messenger/room/cm-room-entry-timing-session";
+import {
+  noteCmRoomSubtreeAttach,
+  shouldBlockCmRoomStrictEffectReRun,
+} from "@/lib/community-messenger/room/cm-room-subtree-stability";
+
+const CM_ROOM_ENTRY_INITIAL_VIEWPORT_ROWS = 10;
+
+function selectTimelineVirtualRows<T extends { index: number }>(items: T[], hydrationPass: number): T[] {
+  if (items.length === 0 || hydrationPass < 2) return items;
+  if (hydrationPass >= 3) return items;
+  const cap = CM_ROOM_ENTRY_INITIAL_VIEWPORT_ROWS;
+  if (items.length <= cap) return items;
+  return items.slice(-cap);
+}
 
 function messengerTimelineCalendarDayKey(iso: string): string {
   const d = new Date(iso);
@@ -67,6 +90,11 @@ function messengerTimelineDayDividerLabel(iso: string): string {
 
 export const CommunityMessengerRoomPhase2MessageTimeline = memo(function CommunityMessengerRoomPhase2MessageTimeline() {
   const vm = useMessengerRoomPhase2View();
+  const hydrationPass = useCmRoomPhase2HydrationPass();
+  const viewportPaintRecordedRef = useRef(false);
+  const pass2FirstRowProbeAttachedRef = useRef(false);
+  const viewportIoRef = useRef<IntersectionObserver | null>(null);
+  const hasTradeDock = Boolean(vm.showMessengerTradeProcessDock);
   const timelineRenderStartRef = useRef(typeof performance !== "undefined" ? performance.now() : 0);
   timelineRenderStartRef.current = typeof performance !== "undefined" ? performance.now() : 0;
   const prevListSigRef = useRef<{ msgLen: number; unread: number; readId: string } | null>(null);
@@ -79,9 +107,49 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     beginCmRenderTimelineFrame();
   }
   useEffect(() => {
+    if (shouldBlockCmRoomStrictEffectReRun(vm.streamRoomId, "timeline_room_reset")) return;
     prevTimelineMsgLenRef.current = null;
     prevListSigRef.current = null;
+    viewportPaintRecordedRef.current = false;
+    pass2FirstRowProbeAttachedRef.current = false;
+    viewportIoRef.current?.disconnect();
+    viewportIoRef.current = null;
   }, [vm.streamRoomId]);
+
+  useLayoutEffect(() => {
+    if (hydrationPass < 2) return;
+    noteCmRoomSubtreeAttach(vm.streamRoomId, "viewport");
+    measureCmPassRenderCommit(2, timelineRenderStartRef.current);
+  }, [hydrationPass, vm.streamRoomId]);
+
+  const noteViewportVisible = useCallback(
+    (payload: {
+      visible_rows: number;
+      empty_room: boolean;
+      first_row_rendered: boolean;
+    }) => {
+      if (viewportPaintRecordedRef.current) return;
+      if (!hasCmRoomEntryTimingSession(vm.streamRoomId)) return;
+      viewportPaintRecordedRef.current = true;
+      viewportIoRef.current?.disconnect();
+      viewportIoRef.current = null;
+      const totalRows = vm.displayRoomMessages.length;
+      const capped =
+        hydrationPass < 3 && totalRows > CM_ROOM_ENTRY_INITIAL_VIEWPORT_ROWS
+          ? CM_ROOM_ENTRY_INITIAL_VIEWPORT_ROWS
+          : totalRows;
+      emitCmRoomPass2ViewportLog({
+        visible_rows: payload.visible_rows,
+        empty_room: payload.empty_room,
+        virtualized: totalRows > capped,
+        first_row_rendered: payload.first_row_rendered,
+        idle_remaining_rows: Math.max(0, totalRows - payload.visible_rows),
+        network_waited: false,
+      });
+    },
+    [hydrationPass, vm.displayRoomMessages.length, vm.streamRoomId]
+  );
+
   const emptyTimelineRecoverTriedRef = useRef(false);
   const [imageLightbox, setImageLightbox] = useState<{
     urls: string[];
@@ -122,7 +190,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     }
     if (emptyTimelineRecoverTriedRef.current) return;
     emptyTimelineRecoverTriedRef.current = true;
-    void vm.refresh(false);
+    void vm.refresh(true, { triggerReason: "empty_timeline_recover" });
   }, [shouldRecoverEmptyTimeline, vm]);
 
   /**
@@ -350,6 +418,132 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
   }, [onScroll]);
 
   /** 가상 행 map 직전: 동일 sender `members.find` 반복을 줄이기 위한 아바타 캐시. cluster 간격 ms 는 가시 행에서만 `item`/`prev`로 계산한다. */
+  const cappedVirtualRows = useMemo(
+    () => selectTimelineVirtualRows(vm.chatVirtualizer.getVirtualItems(), hydrationPass),
+    [vm.chatVirtualizer, hydrationPass, vm.displayRoomMessages.length]
+  );
+
+  const attachPass2FirstRowProbe = useCallback(
+    (rowEl: HTMLElement | null) => {
+      if (!rowEl || hydrationPass < 2 || viewportPaintRecordedRef.current) return;
+      if (pass2FirstRowProbeAttachedRef.current) return;
+      pass2FirstRowProbeAttachedRef.current = true;
+      const root = vm.messagesViewportRef.current;
+      if (!root) return;
+
+      const emitFromRow = () => {
+        if (viewportPaintRecordedRef.current) return;
+        const rootRect = root.getBoundingClientRect();
+        const rowRect = rowEl.getBoundingClientRect();
+        const intersects =
+          rowRect.height > 0 && rowRect.bottom > rootRect.top && rowRect.top < rootRect.bottom;
+        if (!intersects) return;
+        const visibleCount = selectTimelineVirtualRows(
+          vm.chatVirtualizer.getVirtualItems(),
+          hydrationPass
+        ).length;
+        noteViewportVisible({
+          visible_rows: Math.max(1, visibleCount),
+          empty_room: false,
+          first_row_rendered: true,
+        });
+      };
+
+      if (typeof IntersectionObserver === "undefined") {
+        emitFromRow();
+        return;
+      }
+      viewportIoRef.current?.disconnect();
+      const obs = new IntersectionObserver(
+        (entries) => {
+          for (const entry of entries) {
+            if (!entry.isIntersecting) continue;
+            emitFromRow();
+            obs.disconnect();
+            if (viewportIoRef.current === obs) viewportIoRef.current = null;
+            break;
+          }
+        },
+        { root, threshold: 0.01 }
+      );
+      viewportIoRef.current = obs;
+      obs.observe(rowEl);
+    },
+    [hydrationPass, noteViewportVisible, vm.chatVirtualizer, vm.messagesViewportRef]
+  );
+
+  useLayoutEffect(() => {
+    if (hydrationPass < 2 || viewportPaintRecordedRef.current) return;
+    if (!hasCmRoomEntryTimingSession(vm.streamRoomId)) return;
+    const root = vm.messagesViewportRef.current;
+    if (!root) return;
+
+    if (vm.displayRoomMessages.length === 0) {
+      noteViewportVisible({ visible_rows: 0, empty_room: true, first_row_rendered: false });
+      return;
+    }
+
+    if (cappedVirtualRows.length <= 0) return;
+
+    let raf = 0;
+    raf = window.requestAnimationFrame(() => {
+      if (viewportPaintRecordedRef.current || !hasCmRoomEntryTimingSession(vm.streamRoomId)) return;
+      const count = cappedVirtualRows.length;
+      if (count <= 0) return;
+      const firstRow = root.querySelector("[data-cm-timeline-message-row]");
+      if (firstRow instanceof HTMLElement) {
+        attachPass2FirstRowProbe(firstRow);
+        return;
+      }
+      noteViewportVisible({
+        visible_rows: count,
+        empty_room: false,
+        first_row_rendered: count > 0,
+      });
+    });
+    const unregister = registerCmRoomTimingPendingCleanup(() => {
+      if (raf) window.cancelAnimationFrame(raf);
+      viewportIoRef.current?.disconnect();
+      viewportIoRef.current = null;
+    });
+    return () => {
+      unregister();
+      if (raf) window.cancelAnimationFrame(raf);
+    };
+  }, [
+    attachPass2FirstRowProbe,
+    cappedVirtualRows.length,
+    hydrationPass,
+    noteViewportVisible,
+    vm.displayRoomMessages.length,
+    vm.messagesViewportRef,
+    vm.streamRoomId,
+  ]);
+
+  useEffect(() => {
+    if (hydrationPass < 2 || viewportPaintRecordedRef.current) return;
+    if (vm.displayRoomMessages.length === 0) return;
+    if (!hasCmRoomEntryTimingSession(vm.streamRoomId)) return;
+    let timeout = 0;
+    timeout = window.setTimeout(() => {
+      if (viewportPaintRecordedRef.current || !hasCmRoomEntryTimingSession(vm.streamRoomId)) return;
+      const items = selectTimelineVirtualRows(vm.chatVirtualizer.getVirtualItems(), hydrationPass);
+      if (items.length <= 0) return;
+      noteViewportVisible({
+        visible_rows: items.length,
+        empty_room: false,
+        first_row_rendered: false,
+      });
+    }, 480);
+    const unregister = registerCmRoomTimingPendingCleanup(() => {
+      if (timeout) window.clearTimeout(timeout);
+    });
+    return () => {
+      unregister();
+      if (timeout) window.clearTimeout(timeout);
+    };
+  }, [hydrationPass, noteViewportVisible, vm.chatVirtualizer, vm.displayRoomMessages.length, vm.streamRoomId]);
+
   const messageRowPreamble = useMemo(() => {
     const avatarBySenderId = new Map<string, ReturnType<typeof communityMessengerMemberAvatar>>();
     const peerAvatarFor = (senderId: string | null | undefined) => {
@@ -407,13 +601,20 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
       <div
         ref={vm.messagesViewportRef}
         data-cm-line-timeline
+        data-cm-message-viewport=""
         className="relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[color:var(--cm-room-chat-bg)]"
         style={{
-          scrollPaddingBottom: "var(--chat-composer-height, 0px)",
+          scrollPaddingBottom: hasTradeDock
+            ? "var(--cm-timeline-trade-anchor-padding, 6px)"
+            : "var(--chat-composer-height, 0px)",
         }}
         onScroll={scheduleScroll}
       >
-        <main className="mx-auto w-full max-w-[760px] space-y-2.5 px-3 py-3 pb-[76px] sm:px-4">
+        <main
+          className={`mx-auto w-full max-w-[760px] space-y-2.5 px-3 py-3 sm:px-4 ${
+            hasTradeDock ? "pb-1.5" : "pb-[76px]"
+          }`}
+        >
           {!communityMessengerRoomIsGloballyUsable(vm.snapshot.room) ? (
             <div className="rounded-[12px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-2.5 sam-text-helper leading-snug text-[color:var(--cm-room-text)]">
               {vm.snapshot.room.roomStatus === "blocked"
@@ -470,7 +671,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
           ) : null}
           {vm.displayRoomMessages.length ? (
             <div className="relative w-full" style={{ height: vm.chatVirtualizer.getTotalSize() }}>
-              {vm.chatVirtualizer.getVirtualItems().map((virtualRow) => {
+              {cappedVirtualRows.map((virtualRow, cappedMapIndex) => {
                 const index = virtualRow.index;
                 const item = vm.displayRoomMessages[index];
                 if (!item) return null;
@@ -569,7 +770,14 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     item={item}
                     virtualStart={virtualRow.start}
                     virtualIndex={virtualRow.index}
-                    measureElement={measureWithScrollTrace}
+                    measureElement={
+                      cappedMapIndex === 0
+                        ? (el) => {
+                            measureWithScrollTrace(el);
+                            attachPass2FirstRowProbe(el);
+                          }
+                        : measureWithScrollTrace
+                    }
                     rowPaddingTopClass={rowPaddingTopClass}
                     showPeerName={showPeerName}
                     showPeerAvatar={showPeerAvatar}

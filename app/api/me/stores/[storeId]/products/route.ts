@@ -13,6 +13,10 @@ import {
   normalizeOwnerProductDetailImageUrls,
   parseThumbnailDimensions,
 } from "@/lib/stores/owner-product-images";
+import {
+  countOwnerRecommendedProducts,
+  OWNER_RECOMMENDED_MENU_MAX,
+} from "@/lib/stores/owner-recommended-menu-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -306,6 +310,20 @@ export async function POST(
   const ownerRec = hasNewMenuFlags ? !!body.is_owner_recommended : !!body.is_featured;
   const rep = hasNewMenuFlags ? !!body.is_representative : false;
   const is_featured = ownerRec || rep;
+
+  if (ownerRec) {
+    const cnt = await countOwnerRecommendedProducts(supabase, sid);
+    if (cnt >= OWNER_RECOMMENDED_MENU_MAX) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "owner_recommended_limit",
+          message: "사장님 추천 메뉴는 최대 6개까지 지정할 수 있습니다.",
+        },
+        { status: 400 }
+      );
+    }
+  }
 
   const row = {
     store_id: sid,

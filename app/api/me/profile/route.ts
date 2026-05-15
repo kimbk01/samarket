@@ -27,7 +27,14 @@ import { normalizeAppLanguage } from "@/lib/i18n/config";
 import { isValidPhilippinesMobilePhone, normalizePhilippinesPhoneNumber } from "@/lib/phone/philippines-phone";
 import { enforceProfileEnsureQuota } from "@/lib/security/rate-limit-presets";
 import { clearMeProfileGetRouteCache } from "@/lib/profile/me-profile-get-route-cache";
+import {
+  clearProfileResponseCacheForUser,
+  peekProfileResponseCache,
+  PROFILE_RESPONSE_CACHE_TTL_MS as PROFILE_PROD_RESPONSE_CACHE_TTL_MS,
+  setProfileResponseCache,
+} from "@/lib/profile/profile-response-cache";
 import { jsonError } from "@/lib/http/api-route";
+import { logRoutePerf } from "@/lib/http/route-perf-log";
 export const dynamic = "force-dynamic";
 
 /**
@@ -415,6 +422,124 @@ export async function GET(request: NextRequest) {
   const quotaMs = devPerfNow() - quota0;
   if (!ensureRl.ok) return ensureRl.response;
 
+  const tProdPeek0 = devPerfNow();
+  const prodProfilePeek = peekProfileResponseCache(userId, mode);
+  const prod_profile_response_cache_lookup_ms = Math.round(devPerfNow() - tProdPeek0);
+
+  if (prodProfilePeek.hit) {
+    const responseCacheAgeMs = Math.round(Date.now() - prodProfilePeek.storedAt);
+    const syncTel = emptySyncTelemetry();
+    const body = { ok: true, profile: prodProfilePeek.profile };
+    let json_payload_serialize_probe_ms = 0;
+    if (process.env.NODE_ENV === "development") {
+      const j0 = devPerfNow();
+      JSON.stringify(body);
+      json_payload_serialize_probe_ms = Math.round(devPerfNow() - j0);
+    }
+    const r0 = devPerfNow();
+    const res = NextResponse.json(body);
+    const api_render_ms = Math.round(devPerfNow() - r0);
+    const syncPhase: Partial<
+      Record<
+        "sync_prefetch_profile_ms" | "sync_profiles_update_ms" | "sync_registry_ms" | "sync_cookie_ms",
+        number
+      >
+    > = {};
+    const sync0 = devPerfNow();
+    try {
+      await syncActiveSessionForUser(userId, res, {
+        rotate: false,
+        sessionMeta: buildRequestSessionMeta(request),
+        loginIdentifier: prodProfilePeek.profile.auth_login_email ?? prodProfilePeek.profile.email ?? null,
+        request,
+        existingProfile: prodProfilePeek.profile,
+        touchProfileThrottleSeconds: ME_PROFILE_GET_SESSION_TOUCH_THROTTLE_SEC,
+        devSyncPhaseMs: syncPhase,
+        syncTelemetry: syncTel,
+        deferBlockingDbWrites: true,
+      });
+    } catch {
+      /* 세션 쿠키 동기 실패는 본문 응답에 영향 없음 */
+    }
+    const syncSessionMs = devPerfNow() - sync0;
+    const emptyPerf = createEmptyMeProfilePipelinePerf();
+    const total_route_ms = Math.round(devPerfNow() - tRoute0);
+    logRoutePerf({
+      route: "/api/me/profile",
+      total_ms: total_route_ms,
+      db_ms: 0,
+      cache_hit: 1,
+      auth_ms: Math.round(requireAuthMs),
+      serialize_ms: json_payload_serialize_probe_ms,
+        prod_profile_response_cache_lookup_ms,
+    });
+    finalizeMeProfileGetPerfLog(
+      {
+        auth_session_ms: Math.round(requireAuthMs),
+        profile_query_ms: 0,
+        store_query_ms: 0,
+        badge_query_ms: 0,
+        supabase_query_ms: 0,
+        payload_build_ms: 0,
+        quota_ms: Math.round(quotaMs),
+        sync_session_ms: Math.round(syncSessionMs),
+        total_route_ms,
+        api_total_wall_ms: total_route_ms,
+        api_handler_only_ms: Math.max(0, total_route_ms - Math.round(requireAuthMs) - Math.round(quotaMs)),
+        api_compile_ms: 0,
+        api_render_ms,
+        next_dev_compile_detected: 0,
+        route_client_ms: 0,
+        get_user_ms: 0,
+        profile_pipeline_ms: 0,
+        profile_pipeline_total_ms: 0,
+        dev_profile_cache_hit: 0,
+        profile_singleflight_hit: 0,
+        profile_cache_ttl_ms: PROFILE_ROUTE_PIPELINE_COALESCE_MS,
+        get_user_call_count: 0,
+        profile_query_call_count: 0,
+        profile_response_cache_hit: 1,
+        profile_response_cache_ttl_ms: PROFILE_PROD_RESPONSE_CACHE_TTL_MS,
+        profile_response_cache_age_ms: responseCacheAgeMs,
+        profile_response_cache_lookup_ms: prod_profile_response_cache_lookup_ms,
+        profile_response_cache_store_ms: 0,
+        json_payload_serialize_probe_ms,
+        sync_prefetch_profile_ms: Math.round(syncPhase.sync_prefetch_profile_ms ?? 0),
+        sync_profiles_update_ms: Math.round(syncPhase.sync_profiles_update_ms ?? 0),
+        sync_registry_ms: Math.round(syncPhase.sync_registry_ms ?? 0),
+        sync_cookie_ms: Math.round(syncPhase.sync_cookie_ms ?? 0),
+        sync_profiles_update_skipped: syncTel.sync_profiles_update_skipped,
+        sync_profiles_update_executed: syncTel.sync_profiles_update_executed,
+        sync_registry_sync_skipped: syncTel.sync_registry_sync_skipped,
+        sync_registry_sync_executed: syncTel.sync_registry_sync_executed,
+        sync_last_login_age_ms: syncTel.sync_last_login_age_ms,
+        sync_same_session_id: syncTel.sync_same_session_id,
+        sync_same_device_info: syncTel.sync_same_device_info,
+        ...syncTelemetryPerfNumbers(syncTel),
+        profile_fetch_attempt_count: 0,
+        profile_fetch_fallback_count: 0,
+        profile_fetch_total_ms: 0,
+        ...extractEnsureProfileNumericPhases(emptyPerf),
+      },
+      {
+        profile_select_columns: "(profile_response_cache_prod)",
+        profile_pipeline_steps: buildProfilePipelineStepsJson(emptyPerf),
+        slowest_profile_step: "none",
+        slowest_profile_step_ms: 0,
+        profile_response_cache_reason: "hit_prod_ttl",
+        profile_response_cache_key: prodProfilePeek.cache_key,
+        profile_response_cache_bypass_reason: "",
+        sync_touch_reason: syncTel.sync_touch_reason,
+        ...syncTelemetryPerfExtras(syncTel),
+        profile_fetch_mode: mode,
+        ensure_profile_result: emptyPerf.ensure_profile_result || "n/a",
+        compile_vs_render_note:
+          "route_handler_does_not_measure_webpack_compile_ms; compare_total_route_ms_dev_vs_npm_start",
+      },
+    );
+    return res;
+  }
+
   const tRespPeek0 = devPerfNow();
   const responseCachePeek = peekMeProfileGetResponseCacheDetailed(userId, mode);
   const profile_response_cache_lookup_ms = Math.round(devPerfNow() - tRespPeek0);
@@ -451,6 +576,7 @@ export async function GET(request: NextRequest) {
         touchProfileThrottleSeconds: ME_PROFILE_GET_SESSION_TOUCH_THROTTLE_SEC,
         devSyncPhaseMs: syncPhase,
         syncTelemetry: syncTel,
+        deferBlockingDbWrites: true,
       });
     } catch {
       /* 세션 쿠키 동기 실패는 본문 응답에 영향 없음 */
@@ -458,6 +584,15 @@ export async function GET(request: NextRequest) {
     const syncSessionMs = devPerfNow() - sync0;
     const emptyPerf = createEmptyMeProfilePipelinePerf();
     const total_route_ms = Math.round(devPerfNow() - tRoute0);
+    setProfileResponseCache(userId, mode, responseCachePeek.profile);
+    logRoutePerf({
+      route: "/api/me/profile",
+      total_ms: total_route_ms,
+      db_ms: 0,
+      cache_hit: 1,
+      auth_ms: Math.round(requireAuthMs),
+      serialize_ms: json_payload_serialize_probe_ms,
+    });
     finalizeMeProfileGetPerfLog(
       {
         auth_session_ms: Math.round(requireAuthMs),
@@ -556,6 +691,7 @@ export async function GET(request: NextRequest) {
           touchProfileThrottleSeconds: ME_PROFILE_GET_SESSION_TOUCH_THROTTLE_SEC,
           devSyncPhaseMs: syncPhase,
           syncTelemetry: syncTel,
+          deferBlockingDbWrites: true,
         });
       } catch {
         /* 세션 쿠키 동기 실패는 본문 응답에 영향 없음 — 기존 POST ensure 와 동일 */
@@ -564,6 +700,17 @@ export async function GET(request: NextRequest) {
     const syncSessionMs = devPerfNow() - sync0;
     const emptyPerf = createEmptyMeProfilePipelinePerf();
     const total_route_ms = Math.round(devPerfNow() - tRoute0);
+    if (cached) {
+      setProfileResponseCache(userId, mode, cached);
+    }
+    logRoutePerf({
+      route: "/api/me/profile",
+      total_ms: total_route_ms,
+      db_ms: 0,
+      cache_hit: cached ? 1 : 0,
+      auth_ms: Math.round(requireAuthMs),
+      serialize_ms: json_payload_serialize_probe_ms,
+    });
     finalizeMeProfileGetPerfLog(
       {
         auth_session_ms: Math.round(requireAuthMs),
@@ -727,6 +874,7 @@ export async function GET(request: NextRequest) {
         touchProfileThrottleSeconds: ME_PROFILE_GET_SESSION_TOUCH_THROTTLE_SEC,
         devSyncPhaseMs: syncPhase,
         syncTelemetry: syncTelMain,
+        deferBlockingDbWrites: true,
       });
     } catch {
       /* 세션 쿠키 동기 실패는 본문 응답에 영향 없음 — 기존 POST ensure 와 동일 */
@@ -741,6 +889,17 @@ export async function GET(request: NextRequest) {
   const slow = slowestProfilePipelineStep(pipelineStepMs);
 
   const total_route_ms = Math.round(devPerfNow() - tRoute0);
+  if (profile) {
+    setProfileResponseCache(userId, mode, profile);
+  }
+  logRoutePerf({
+    route: "/api/me/profile",
+    total_ms: total_route_ms,
+    db_ms: Math.round(profilePipelineMs),
+    cache_hit: 0,
+    auth_ms: Math.round(requireAuthMs),
+    serialize_ms: json_payload_serialize_probe_ms,
+  });
   finalizeMeProfileGetPerfLog(
     {
       auth_session_ms: Math.round(requireAuthMs),
@@ -835,6 +994,7 @@ export async function PATCH(req: NextRequest) {
 
   clearMeProfileGetRouteCache(auth.userId);
   clearMeProfileResponseCachesForUser(auth.userId);
+  clearProfileResponseCacheForUser(auth.userId);
 
   let raw: unknown;
   try {

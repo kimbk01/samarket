@@ -36,12 +36,14 @@ type UseChatViewportResizeOptions = {
  * - `--chat-viewport-height` 레이아웃 상 보이는 세로 길이(px)
  * - `--chat-keyboard-height` 하단 키보드·가림 영역 추정(px)
  * - `--chat-composer-height` `[data-cm-composer]` 높이(px)
+ * - `--chat-trade-dock-height` `[data-cm-trade-dock]` 높이(px) — 타임라인 하단 앵커
  * - `--chat-safe-bottom` `env(safe-area-inset-bottom)` 측정(px) — 레이아웃 수식용; footer의 env()와 중복 적용하지 않도록 주의
  */
 const CHAT_VIEWPORT_CSS_VARS = [
   "--chat-viewport-height",
   "--chat-keyboard-height",
   "--chat-composer-height",
+  "--chat-trade-dock-height",
   "--chat-safe-bottom",
 ] as const;
 
@@ -54,7 +56,9 @@ export function useChatViewportResize(opts: UseChatViewportResizeOptions): void 
     if (!shell) return;
 
     let composerObserver: ResizeObserver | null = null;
+    let tradeDockObserver: ResizeObserver | null = null;
     let composerEl: HTMLElement | null = null;
+    let tradeDockEl: HTMLElement | null = null;
     /** 매 sync마다 DOM 프로브하지 않음 — 회전·해제 시에만 갱신 */
     let safeBottomPx = readSafeAreaInsetBottomPx();
 
@@ -70,8 +74,21 @@ export function useChatViewportResize(opts: UseChatViewportResizeOptions): void 
       }
     };
 
+    const applyTradeDockObserver = () => {
+      const next = shell.querySelector<HTMLElement>("[data-cm-trade-dock]");
+      if (next === tradeDockEl) return;
+      tradeDockObserver?.disconnect();
+      tradeDockEl = next;
+      tradeDockObserver = null;
+      if (next && typeof ResizeObserver !== "undefined") {
+        tradeDockObserver = new ResizeObserver(() => sync());
+        tradeDockObserver.observe(next);
+      }
+    };
+
     const sync = () => {
       applyComposerObserver();
+      applyTradeDockObserver();
 
       const vv = window.visualViewport;
       const shellInset = readSamarketShellKeyboardBottomInsetCssPx();
@@ -100,10 +117,13 @@ export function useChatViewportResize(opts: UseChatViewportResizeOptions): void 
 
       const composer = shell.querySelector<HTMLElement>("[data-cm-composer]");
       const composerH = composer?.offsetHeight ?? 0;
+      const tradeDock = shell.querySelector<HTMLElement>("[data-cm-trade-dock]");
+      const tradeDockH = tradeDock?.offsetHeight ?? 0;
 
       shell.style.setProperty("--chat-viewport-height", `${layoutVisibleCssPx}px`);
       shell.style.setProperty("--chat-keyboard-height", `${keyboardCssPx}px`);
       shell.style.setProperty("--chat-composer-height", `${composerH}px`);
+      shell.style.setProperty("--chat-trade-dock-height", `${tradeDockH}px`);
       shell.style.setProperty("--chat-safe-bottom", `${safeBottomPx}px`);
     };
 
@@ -150,6 +170,7 @@ export function useChatViewportResize(opts: UseChatViewportResizeOptions): void 
       window.removeEventListener("resize", onWin);
       unsubShell();
       composerObserver?.disconnect();
+      tradeDockObserver?.disconnect();
       for (const key of CHAT_VIEWPORT_CSS_VARS) {
         shell.style.removeProperty(key);
       }

@@ -29,7 +29,6 @@ import {
   StoreProductSheetOptionsSkeleton,
 } from "@/components/stores/product-sheet/StoreProductSheetSkeleton";
 import {
-  STORE_ORDER_BADGE_POPULAR,
   STORE_ORDER_BRAND,
   STORE_ORDER_CTA_PRIMARY,
   STORE_ORDER_CTA_STEPPER,
@@ -254,7 +253,8 @@ export function StoreProductAddSheet({
     commerceBlocked || (sheetCommerce != null && !sheetCommerce.isOpenForCommerce);
 
   const trackInv = product?.track_inventory === true;
-  const soldOut = !!(product && trackInv && product.stock_qty <= 0);
+  const statusSoldOut = product?.product_status === "sold_out";
+  const soldOut = !!(product && (statusSoldOut || (trackInv && product.stock_qty <= 0)));
 
   const minQ = product ? Math.max(1, Number(product.min_order_qty) || 1) : 1;
   const maxQ = product ? Math.max(minQ, Number(product.max_order_qty) || 99) : 99;
@@ -508,7 +508,6 @@ export function StoreProductAddSheet({
             </div>
 
             <div className="bg-white px-4 pb-3 pt-3">
-              <div className={`mb-1.5 ${STORE_ORDER_BADGE_POPULAR}`}>인기</div>
               <h3 className="text-[18px] font-extrabold leading-snug tracking-[-0.03em] text-neutral-900">
                 {product.title}
               </h3>

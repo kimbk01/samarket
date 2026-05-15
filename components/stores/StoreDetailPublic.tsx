@@ -28,9 +28,10 @@ import { StoreDetailDeferredInfoSection } from "@/components/stores/store-detail
 import { StoreDetailMenusSection } from "@/components/stores/store-detail/StoreDetailMenusSection";
 import { StoreDetailSummarySection } from "@/components/stores/store-detail/StoreDetailSummarySection";
 import {
-  groupStoreProductsByMenuSection,
+  buildRecommendedStripProductIds,
+  groupStoreProductsByMenuSectionModel,
   parseStoreDetailProducts,
-  sliceRecommendedMenuProducts,
+  RECOMMENDED_MENU_STRIP_MAX,
   sortStoreDetailProductCardsForDisplay,
   type StoreDetailProductCard,
 } from "@/lib/stores/group-store-products-by-menu";
@@ -154,6 +155,7 @@ export function StoreDetailPublic({
   const pendingQuickCartLineRef = useRef<AddStoreCartLineInput | null>(null);
   const [publicBanners, setPublicBanners] = useState<StoreBannerPublicRow[]>([]);
   const [publicNotices, setPublicNotices] = useState<StoreNoticePublicRow[]>([]);
+  const [menuSoldOutBottom, setMenuSoldOutBottom] = useState(false);
 
   const scrollHeaderGate = useRef(false);
   const menuStickyMeasureRef = useRef<HTMLDivElement>(null);
@@ -220,7 +222,9 @@ export function StoreDetailPublic({
         a.is_featured !== b.is_featured ||
         a.is_owner_recommended !== b.is_owner_recommended ||
         a.is_representative !== b.is_representative ||
-        a.sort_order !== b.sort_order
+        a.sort_order !== b.sort_order ||
+        (a.menu_section_id ?? "") !== (b.menu_section_id ?? "") ||
+        (a.popular_rank ?? null) !== (b.popular_rank ?? null)
       ) {
         return false;
       }
@@ -240,6 +244,7 @@ export function StoreDetailPublic({
       setCanSell(false);
       setFavoriteSeed({ viewerFavorited: false, favoriteCount: 0 });
       setRecentOrderCountMeta(0);
+      setMenuSoldOutBottom(false);
       return;
     }
     if (h.store) {
@@ -252,6 +257,7 @@ export function StoreDetailPublic({
       setFavoriteSeed(h.favoriteSeed);
       setRecentOrderCountMeta(h.recentOrderCountMeta);
       setProductRowsById(h.productRowsById);
+      setMenuSoldOutBottom(false);
     } else {
       setStore(null);
       setProducts([]);
@@ -261,6 +267,7 @@ export function StoreDetailPublic({
       setCanSell(false);
       setFavoriteSeed({ viewerFavorited: false, favoriteCount: 0 });
       setRecentOrderCountMeta(0);
+      setMenuSoldOutBottom(false);
     }
   }, []);
 
@@ -283,15 +290,46 @@ export function StoreDetailPublic({
   const applyMenusPayload = useCallback((menuParsed: StoreMenusPayload) => {
     const raw = menuParsed.products ?? [];
     const nextProducts = sortStoreDetailProductCardsForDisplay(parseStoreDetailProducts(raw));
-    setProducts((prev) => (isSameProductCards(prev, nextProducts) ? prev : nextProducts));
     setProductRowsById(storePublicProductRowsMap(raw));
+    const popIds = Array.isArray(menuParsed.popularProductIds) ? menuParsed.popularProductIds : [];
+    const stripCap = Math.min(
+      RECOMMENDED_MENU_STRIP_MAX,
+      Math.max(
+        1,
+        Math.floor(Number(menuParsed.meta?.popular_menu?.recommended_max)) || RECOMMENDED_MENU_STRIP_MAX
+      )
+    );
+    const recIds =
+      Array.isArray(menuParsed.recommendedProductIds) && menuParsed.recommendedProductIds.length > 0
+        ? menuParsed.recommendedProductIds
+        : buildRecommendedStripProductIds(popIds, nextProducts, stripCap);
+
     const byId = new Map(nextProducts.map((c) => [c.id, c]));
-    const recCap = Number(menuParsed.meta?.popular_menu?.recommended_max);
-    const recMax = Number.isFinite(recCap) && recCap > 0 ? Math.floor(recCap) : 10;
-    const recIds = Array.isArray(menuParsed.recommendedProductIds)
-      ? menuParsed.recommendedProductIds
-      : sliceRecommendedMenuProducts(nextProducts, recMax).map((c) => c.id);
-    const nextRec = recIds.map((id) => byId.get(id)).filter(Boolean) as StoreDetailProductCard[];
+
+    const nextPop = popIds
+      .map((id) => byId.get(id))
+      .filter(Boolean)
+      .map((c, i) => ({ ...(c as StoreDetailProductCard), popular_rank: i + 1 }));
+
+    const popularRankById = new Map(nextPop.map((c) => [c.id, c.popular_rank ?? 0]));
+    const nextProductsRanked = nextProducts.map((p) => {
+      const r = popularRankById.get(p.id);
+      return r != null && r > 0 ? { ...p, popular_rank: r } : { ...p, popular_rank: p.popular_rank ?? null };
+    });
+
+    setProducts((prev) => (isSameProductCards(prev, nextProductsRanked) ? prev : nextProductsRanked));
+
+    const byIdRanked = new Map(nextProductsRanked.map((c) => [c.id, c]));
+
+    const nextRec = recIds
+      .map((id) => {
+        const c = byIdRanked.get(id);
+        if (!c) return null;
+        const r = popularRankById.get(id);
+        return r != null && r > 0 ? { ...c, popular_rank: r } : { ...c, popular_rank: c.popular_rank ?? null };
+      })
+      .filter(Boolean) as StoreDetailProductCard[];
+
     setRecommendedMenuCards((prev) => {
       if (
         prev.length === nextRec.length &&
@@ -301,10 +339,14 @@ export function StoreDetailPublic({
       }
       return nextRec;
     });
-    const popIds = Array.isArray(menuParsed.popularProductIds) ? menuParsed.popularProductIds : [];
-    const nextPop = popIds.map((id) => byId.get(id)).filter(Boolean) as StoreDetailProductCard[];
     setPopularMenuCards((prev) => {
-      if (prev.length === nextPop.length && prev.every((p, i) => p.id === nextPop[i]?.id)) {
+      if (
+        prev.length === nextPop.length &&
+        prev.every(
+          (p, i) =>
+            p.id === nextPop[i]?.id && (p.popular_rank ?? 0) === (nextPop[i]?.popular_rank ?? 0)
+        )
+      ) {
         return prev;
       }
       return nextPop;
@@ -318,6 +360,10 @@ export function StoreDetailPublic({
       favoriteCount: Number(menuParsed.meta?.favorite_count) || 0,
     });
     setRecentOrderCountMeta(Number(menuParsed.meta?.recent_order_count) || 0);
+    const sob =
+      menuParsed.meta?.menu_sold_out_bottom === true ||
+      menuParsed.store?.menu_sold_out_bottom === true;
+    setMenuSoldOutBottom((prev) => (prev === sob ? prev : sob));
   }, []);
 
   const mergeLegacyProductsOnly = useCallback((json: unknown) => {
@@ -328,6 +374,7 @@ export function StoreDetailPublic({
       setRecommendedMenuCards([]);
       setPopularMenuCards([]);
       setProductRowsById(h.productRowsById);
+      setMenuSoldOutBottom(false);
       setCanSell((prev) => (prev === h.canSell ? prev : h.canSell));
     } else if (h.store) {
       applyLegacyHydrate(json);
@@ -337,6 +384,7 @@ export function StoreDetailPublic({
       setPopularMenuCards([]);
       setProductRowsById({});
       setCanSell(false);
+      setMenuSoldOutBottom(false);
     }
   }, [applyLegacyHydrate]);
 
@@ -368,6 +416,7 @@ export function StoreDetailPublic({
       setRecentOrderCountMeta(0);
       setPublicBanners([]);
       setPublicNotices([]);
+      setMenuSoldOutBottom(false);
       setSummaryLoading(false);
       setMenusLoading(false);
       return;
@@ -556,7 +605,10 @@ export function StoreDetailPublic({
     return false;
   }, [menusLoading, products.length, store?.slug, decodedSlug]);
 
-  const menuSections = useMemo(() => groupStoreProductsByMenuSection(products), [products]);
+  const menuSections = useMemo(
+    () => groupStoreProductsByMenuSectionModel(products, menuSoldOutBottom),
+    [products, menuSoldOutBottom]
+  );
 
   const menuSectionsFiltered = useMemo(() => {
     const q = menuQuery.trim().toLowerCase();

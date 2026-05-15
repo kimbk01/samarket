@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { headers } from "next/headers";
+import { cache } from "react";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { resolveRouteHandlerAuthFromSupabase } from "@/lib/auth/resolve-route-handler-user-id";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
@@ -28,8 +29,10 @@ function inflightKeyFromCookieHeader(cookieHeader: string): string {
  * Supabase 세션(쿠키)에서 사용자 ID.
  * 요청 본문/쿼리의 userId는 신뢰하지 않음.
  * JWT 식별은 `resolveRouteHandlerAuthFromSupabase` — `getClaims()` 로컬 검증 우선, 필요 시만 `getUser()`.
+ *
+ * `React.cache` — 동일 서버 요청 내 병렬 호출에서 한 번만 실행.
  */
-export async function getOptionalRouteHandlerCookieAuth(): Promise<RouteHandlerCookieAuth> {
+async function resolveRouteHandlerCookieAuthOnce(): Promise<RouteHandlerCookieAuth> {
   let cookieHeader = "";
   try {
     cookieHeader = (await headers()).get("cookie") ?? "";
@@ -41,35 +44,31 @@ export async function getOptionalRouteHandlerCookieAuth(): Promise<RouteHandlerC
   const existing = AUTH_COOKIE_AUTH_INFLIGHT.get(key);
   if (existing) return existing;
 
-  let resolveFn!: (v: RouteHandlerCookieAuth) => void;
-  const p = new Promise<RouteHandlerCookieAuth>((resolve) => {
-    resolveFn = resolve;
-  });
-  AUTH_COOKIE_AUTH_INFLIGHT.set(key, p);
-
-  void (async () => {
+  const p = (async (): Promise<RouteHandlerCookieAuth> => {
     try {
       const supabase = await createSupabaseRouteHandlerClient();
       if (!supabase) {
-        resolveFn({ userId: null, user: null, claimsOnly: false, supabase: null });
-        return;
+        return { userId: null, user: null, claimsOnly: false, supabase: null };
       }
       const r = await resolveRouteHandlerAuthFromSupabase(supabase);
-      resolveFn({
+      return {
         userId: r.userId,
         user: r.user,
         claimsOnly: r.claimsOnly,
         supabase,
-      });
+      };
     } catch {
-      resolveFn({ userId: null, user: null, claimsOnly: false, supabase: null });
+      return { userId: null, user: null, claimsOnly: false, supabase: null };
     } finally {
       AUTH_COOKIE_AUTH_INFLIGHT.delete(key);
     }
   })();
 
+  AUTH_COOKIE_AUTH_INFLIGHT.set(key, p);
   return p;
 }
+
+export const getOptionalRouteHandlerCookieAuth = cache(resolveRouteHandlerCookieAuthOnce);
 
 export async function getOptionalAuthenticatedUserId(): Promise<string | null> {
   const r = await getOptionalRouteHandlerCookieAuth();

@@ -20,6 +20,7 @@ import { MessengerChatListItem } from "@/components/community-messenger/Messenge
 import { FlatListContainer } from "@/components/community-messenger/line-ui";
 import { MessengerChatFilterSheet } from "@/components/community-messenger/MessengerChatFilterSheet";
 import { MessengerPillarSummaryRow } from "@/components/community-messenger/MessengerPillarSummaryRow";
+import { CmReactCommitProbe, useCmDevRenderTrace } from "@/lib/community-messenger/dev/cm-event-loop-dev";
 
 /** `measureElement`로 보정 — 행+`space-y-1.5` 간격을 대략 반영 */
 const MESSENGER_CHAT_LIST_VIRTUAL_THRESHOLD = 16;
@@ -124,6 +125,7 @@ function MessengerRoomRows({
   onResetTransientUi,
   chatListVisual = "default",
 }: MessengerRoomRowsProps) {
+  useCmDevRenderTrace("RoomList");
   const rowEstimatePx = chatListVisual === "trade" ? 78 : MESSENGER_CHAT_LIST_ROW_ESTIMATE_PX;
   const rowVirtualizer = useVirtualizer({
     count: useVirtual ? items.length : 0,
@@ -136,6 +138,7 @@ function MessengerRoomRows({
 
   if (!useVirtual) {
     return (
+      <CmReactCommitProbe id="RoomList">
       <FlatListContainer>
         {items.map((item) => (
           <MessengerChatListItem
@@ -159,10 +162,12 @@ function MessengerRoomRows({
           />
         ))}
       </FlatListContainer>
+      </CmReactCommitProbe>
     );
   }
 
   return (
+    <CmReactCommitProbe id="RoomList">
     <FlatListContainer className="relative" role="list" style={{ height: rowVirtualizer.getTotalSize() }}>
       {rowVirtualizer.getVirtualItems().map((vi) => {
         const item = items[vi.index]!;
@@ -197,6 +202,7 @@ function MessengerRoomRows({
         );
       })}
     </FlatListContainer>
+    </CmReactCommitProbe>
   );
 }
 

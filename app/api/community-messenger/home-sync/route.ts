@@ -33,6 +33,7 @@ import {
   messengerTraceConsoleDebug,
   messengerVerboseTraceConsoleEnabled,
 } from "@/lib/community-messenger/messenger-trace-console";
+import { logPerfMeasurementContext } from "@/lib/http/perf-measurement-context";
 import {
   homeSyncDeepTraceLogEnabled,
   logHomeSyncDeepTrace,
@@ -146,6 +147,12 @@ export async function GET(req: NextRequest) {
   const fresh = req.nextUrl.searchParams.get("fresh") === "1";
   const tierParam = req.nextUrl.searchParams.get("tier");
   const tier: "critical" | "full" = tierParam === "critical" ? "critical" : "full";
+  /** 서버 터미널 전용 — 브라우저 DevTools Console 아님. 매 요청 1줄로 라우트 진입 확인 */
+  console.log("[home-sync-request]", {
+    tier,
+    fresh: fresh ? 1 : 0,
+    user_id_prefix: auth.userId.slice(0, 8),
+  });
   const now = Date.now();
   /**
    * critical tier: **항상** trace + 비어 있지 않은 `token` 으로 service `homeSyncTraceMeterEnabled` 계측이 켜지게 한다.
@@ -775,6 +782,100 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  recordMessengerApiTiming("GET /api/community-messenger/home-sync", Math.round(performance.now() - t0), 200);
-  return jsonOkWithRequest(req, bundle, { headers: messengerApiEdgeCacheHeaders() });
+  const routeTotalMs = Math.round(performance.now() - t0);
+  const roomsCount = (bundle.chats?.length ?? 0) + (bundle.groups?.length ?? 0);
+  let payloadKb = 0;
+  try {
+    payloadKb = Math.round(JSON.stringify(bundle).length / 1024);
+  } catch {
+    /* ignore */
+  }
+  const bsLog = trace?.deepSteps?.bundleSteps;
+  const criticalMs = shortTtlHit
+    ? Math.round(routeTotalMs)
+    : ms(bsLog?.listMyChatsWallMs ?? bsLog?.bundleTotalMs ?? routeBundleAwaitMs);
+  const deferredMs = ms(bsLog?.tradeMetaEnrichTotalMs ?? 0);
+  const tradeMetaDeferred = Boolean(bsLog?.tradeMetaDeferred);
+  const unreadCacheHit =
+    trace?.deepSteps?.unreadHomeSyncSteps?.unreadCacheHit === true ||
+    trace?.deepSteps?.unreadHomeSyncSteps?.unreadBootstrapCacheHit === 1
+      ? 1
+      : 0;
+  const roomsCacheHit = bsLog?.homeSyncCriticalRoomsCacheHit === 1 ? 1 : 0;
+  const routeCacheDisabledEnv = process.env.SAMARKET_HOME_SYNC_DISABLE_ROUTE_CACHE === "1";
+  const perfPayload = {
+    tier,
+    log_kind: shortTtlHit ? ("cache_hit" as const) : ("critical" as const),
+    cache_hit: shortTtlHit ? 1 : 0,
+    critical_ms: criticalMs,
+    deferred_ms: deferredMs,
+    trade_meta_deferred: tradeMetaDeferred,
+    trade_meta_blocking_ms: deferredMs,
+    payload_kb: payloadKb,
+    rooms_count: roomsCount,
+    route_bundle_await_ms: ms(routeBundleAwaitMs),
+    rooms_fetch_ms: ms(bsLog?.roomsFetchMs ?? 0),
+    unread_badge_ms: ms(bsLog?.unreadBadgeMs ?? 0),
+    last_message_ms: ms(bsLog?.roomsRound2RoomsDbFetchMs ?? 0),
+    rooms_cache_hit: roomsCacheHit,
+    unread_cache_hit: unreadCacheHit,
+    route_cache_disabled_env: routeCacheDisabledEnv,
+    route_total_ms: routeTotalMs,
+  };
+  if (tier === "critical" && trace) {
+    let heapUsedMb: number | null = null;
+    let rssMb: number | null = null;
+    try {
+      const mu = process.memoryUsage();
+      heapUsedMb = Math.round(mu.heapUsed / 1024 / 1024);
+      rssMb = Math.round(mu.rss / 1024 / 1024);
+    } catch {
+      /* ignore */
+    }
+    console.log("[home-sync-hs5-after]", {
+      total_ms: routeTotalMs,
+      rooms_fetch_ms: ms(bsLog?.roomsFetchMs ?? 0),
+      unread_ms: ms(bsLog?.unreadBadgeMs ?? 0),
+      last_message_ms: ms(bsLog?.roomsRound2RoomsDbFetchMs ?? 0),
+      route_bundle_await_ms: ms(routeBundleAwaitMs),
+      rooms_cache_hit: roomsCacheHit,
+      unread_cache_hit: unreadCacheHit,
+      room_count: roomsCount,
+      payload_kb: payloadKb,
+      heap_used_mb: heapUsedMb,
+      rss_mb: rssMb,
+      route_cache_disabled_env: routeCacheDisabledEnv,
+    });
+  }
+  /** `home-sync` 로 검색하면 항상 1줄 — cache miss·hit 구분은 `log_kind` */
+  console.log("[home-sync-perf]", perfPayload);
+  logPerfMeasurementContext({
+    route: "/api/community-messenger/home-sync",
+    server_handler_ms: routeTotalMs,
+    extras: { ...perfPayload, log_channel: "home-sync-perf" },
+  });
+  if (shortTtlHit) {
+    console.log("[home-sync-cache-hit]", perfPayload);
+  } else {
+    console.log("[home-sync-critical]", perfPayload);
+    if (tradeMetaDeferred) {
+      console.log("[home-sync-deferred]", {
+        tier,
+        trade_meta_deferred: true,
+        critical_ms: criticalMs,
+        rooms_count: roomsCount,
+      });
+    }
+  }
+
+  recordMessengerApiTiming("GET /api/community-messenger/home-sync", routeTotalMs, 200);
+  const perfHeaders: Record<string, string> = {
+    "x-samarket-home-sync-log-kind": perfPayload.log_kind,
+    "x-samarket-home-sync-critical-ms": String(criticalMs),
+    "x-samarket-home-sync-trade-meta-deferred": tradeMetaDeferred ? "1" : "0",
+    "x-samarket-home-sync-cache-hit": shortTtlHit ? "1" : "0",
+  };
+  return jsonOkWithRequest(req, bundle, {
+    headers: { ...messengerApiEdgeCacheHeaders(), ...perfHeaders },
+  });
 }

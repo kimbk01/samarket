@@ -24,6 +24,8 @@ export type SheetPublicProduct = {
   /** menus API 등에서 오며 시트 seed 표시용 — 단건 fetch 로 보강 */
   has_options?: boolean;
   options_summary?: string | null;
+  /** menus/list row — 품절 시트 UX */
+  product_status?: string | null;
 };
 
 export type SheetPublicStore = {
@@ -83,6 +85,10 @@ export function mapListRowToSheetProduct(
     options_json: row.options_json,
     has_options,
     options_summary,
+    product_status:
+      typeof row.product_status === "string" && row.product_status.trim()
+        ? String(row.product_status).trim()
+        : null,
   };
 
   const pubStore: SheetPublicStore = {

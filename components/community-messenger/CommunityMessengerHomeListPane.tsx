@@ -7,7 +7,8 @@ import {
   recordMessengerBootstrapFullListRender,
   tryTrackFirstMenuListRender,
 } from "@/lib/runtime/samarket-runtime-debug";
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, type ReactElement } from "react";
+import { shouldFreezeRoomListSubtree } from "@/lib/community-messenger/room/cm-room-list-render-pause";
 import { CommunityMessengerHomeShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
 import type { MessengerChatListVisual, MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import { MessengerHomeMainSections } from "@/components/community-messenger/MessengerHomeMainSections";
@@ -97,15 +98,16 @@ type Props = {
 };
 
 export function CommunityMessengerHomeListPane(props: Props) {
-  bumpMessengerRenderPerf("messenger_home_list_render");
-  tryTrackFirstMenuListRender();
+  const frozenTreeRef = useRef<ReactElement | null>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
+  const listFrozen = shouldFreezeRoomListSubtree();
   const canRenderList = !props.authRequired && Boolean(props.data);
   const listHold = Boolean(props.listPlaceholder);
   const showRefreshingOverlay = props.loading && canRenderList;
   const showCompactSkeleton = (props.loading || listHold) && !canRenderList && !props.authRequired;
 
   useLayoutEffect(() => {
+    if (listFrozen) return;
     if (!canRenderList || !props.data) return;
     const frame = frameRef.current;
     if (!frame) return;
@@ -139,9 +141,24 @@ export function CommunityMessengerHomeListPane(props: Props) {
       cancelAnimationFrame(raf1);
       cancelAnimationFrame(raf2);
     };
-  }, [canRenderList, props.data, props.primaryListItems.length]);
+  }, [listFrozen, canRenderList, props.data, props.primaryListItems.length]);
 
-  return (
+  if (listFrozen) {
+    if (frozenTreeRef.current) return frozenTreeRef.current;
+    return (
+      <div
+        className="relative min-h-[56dvh]"
+        data-cm-home-frame="true"
+        data-cm-home-frozen="true"
+        aria-hidden
+      />
+    );
+  }
+
+  bumpMessengerRenderPerf("messenger_home_list_render");
+  tryTrackFirstMenuListRender();
+
+  const tree = (
     <>
       <div
         ref={frameRef}
@@ -276,4 +293,6 @@ export function CommunityMessengerHomeListPane(props: Props) {
       ) : null}
     </>
   );
+  frozenTreeRef.current = tree;
+  return tree;
 }

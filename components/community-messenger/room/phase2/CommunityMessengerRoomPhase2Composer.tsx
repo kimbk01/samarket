@@ -6,6 +6,7 @@ import {
   type MouseEvent as ReactMouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
+  memo,
   useCallback,
   useLayoutEffect,
   useRef,
@@ -53,6 +54,7 @@ import {
 import { useMatchMaxWidthMd } from "@/lib/ui/use-match-max-width";
 import { isLikelyIosWebKit } from "@/lib/ui/is-likely-ios-webkit";
 import { useCommunityMessengerRoomTypingPublisher } from "@/lib/community-messenger/realtime/typing/use-community-messenger-room-typing";
+import { scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
 import {
   notifyChatInputCommitForPerf,
   notifyChatInputKeydownForPerf,
@@ -65,6 +67,10 @@ import {
   recordCmRoomEntryMilestone,
   tryEmitCmRoomEntryV2Log,
 } from "@/lib/community-messenger/room/cm-room-entry-instrumentation";
+import {
+  noteCmRoomSubtreeAttach,
+  shouldBlockCmRoomStrictEffectReRun,
+} from "@/lib/community-messenger/room/cm-room-subtree-stability";
 import {
   bumpCmPolishComposerRender,
   cmPolishAnalysisEnabled,
@@ -94,7 +100,11 @@ function isDomTextareaLikelyVisible(el: HTMLTextAreaElement): boolean {
   return el.offsetWidth > 0 && el.offsetHeight > 0;
 }
 
-export function CommunityMessengerRoomPhase2Composer() {
+export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMessengerRoomPhase2Composer({
+  onPass1ComposerReady,
+}: {
+  onPass1ComposerReady?: () => void;
+}) {
   const composerRenderPassStartRef = useRef(typeof performance !== "undefined" ? performance.now() : 0);
   composerRenderPassStartRef.current = typeof performance !== "undefined" ? performance.now() : 0;
   if (cmPolishAnalysisEnabled()) bumpCmPolishComposerRender();
@@ -111,8 +121,10 @@ export function CommunityMessengerRoomPhase2Composer() {
   const roomKey = vm.snapshot.room.id;
   const [draft, setDraft] = useState("");
   const composerMountRecordedRef = useRef(false);
+  const composerFrameLoggedRef = useRef(false);
   const composerEffectCountRef = useRef(0);
   const seededSilentHoldReleasedRef = useRef(false);
+  const [typingPublisherEnabled, setTypingPublisherEnabled] = useState(false);
 
   /** 방 전환·답장 주입·전송 실패 복원 등 — Phase1 `message` 가 바뀌면 draft 에 반영(타이핑은 draft 만 갱신). */
   useLayoutEffect(() => {
@@ -123,6 +135,29 @@ export function CommunityMessengerRoomPhase2Composer() {
 
   useLayoutEffect(() => {
     seededSilentHoldReleasedRef.current = false;
+    setTypingPublisherEnabled(false);
+    const t =
+      typeof window !== "undefined"
+        ? window.setTimeout(() => {
+            scheduleWhenBrowserIdle(() => setTypingPublisherEnabled(true), 600);
+          }, 0)
+        : 0;
+    return () => {
+      if (t !== 0) clearTimeout(t);
+    };
+  }, [roomKey]);
+
+  useLayoutEffect(() => {
+    if (composerFrameLoggedRef.current) return;
+    composerFrameLoggedRef.current = true;
+    const frameMs = Math.round(
+      (typeof performance !== "undefined" ? performance.now() : 0) - composerRenderPassStartRef.current
+    );
+    // eslint-disable-next-line no-console -- composer fast frame diagnostics
+    console.log("[cm-composer-fast-frame]", {
+      frame_visible_ms: frameMs,
+      heavy_features_deferred: true,
+    });
   }, [roomKey]);
 
   useLayoutEffect(() => {
@@ -138,8 +173,10 @@ export function CommunityMessengerRoomPhase2Composer() {
   });
 
   useLayoutEffect(() => {
+    if (shouldBlockCmRoomStrictEffectReRun(String(roomKey).trim(), "composer_visible")) return;
     if (!composerMountRecordedRef.current) {
       composerMountRecordedRef.current = true;
+      noteCmRoomSubtreeAttach(String(roomKey).trim(), "composer");
       recordRouteEntryElapsedMetric("messenger_room_entry", "composer_mount_ms");
     }
     if (seededSilentHoldReleasedRef.current) return;
@@ -148,6 +185,7 @@ export function CommunityMessengerRoomPhase2Composer() {
       if (vm.voiceRecording) {
         seededSilentHoldReleasedRef.current = true;
         recordCmRoomEntryMilestone("composer_visible_ms");
+        onPass1ComposerReady?.();
         tryEmitCmRoomEntryV2Log(String(roomKey).trim());
         notifyComposerTextareaVisibleForSeededBootstrap();
         return;
@@ -157,6 +195,7 @@ export function CommunityMessengerRoomPhase2Composer() {
       seededSilentHoldReleasedRef.current = true;
       recordRouteEntryElapsedMetricOnce("messenger_room_entry", "composer_textarea_visible_ms");
       recordCmRoomEntryMilestone("composer_visible_ms");
+      onPass1ComposerReady?.();
       tryEmitCmRoomEntryV2Log(String(phase1Snapshot?.room?.id ?? vm.snapshot.room.id ?? "").trim());
       notifyComposerTextareaVisibleForSeededBootstrap();
     };
@@ -173,11 +212,12 @@ export function CommunityMessengerRoomPhase2Composer() {
     vm.roomUnavailable,
     notifyComposerTextareaVisibleForSeededBootstrap,
     vm.composerTextareaRef,
+    onPass1ComposerReady,
   ]);
   useCommunityMessengerRoomTypingPublisher({
-    roomId: vm.snapshot.room.id,
-    viewerUserId: vm.snapshot.viewerUserId,
-    draft,
+    roomId: typingPublisherEnabled ? vm.snapshot.room.id : null,
+    viewerUserId: typingPublisherEnabled ? vm.snapshot.viewerUserId : null,
+    draft: typingPublisherEnabled ? draft : "",
   });
 
   const globallyUsable = vm.snapshot ? communityMessengerRoomIsGloballyUsable(vm.snapshot.room) : false;
@@ -492,4 +532,4 @@ export function CommunityMessengerRoomPhase2Composer() {
       </footer>
     </>
   );
-}
+});

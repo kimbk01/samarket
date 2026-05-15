@@ -7,6 +7,8 @@
  * unread/badge/realtime 의미는 바꾸지 않고 **실행 시점·동시성**만 제어한다.
  */
 
+import { shouldDeferBackgroundHydrationPriority } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
+
 export type HydrationPriorityLevel = "high" | "medium" | "low";
 
 const PRIORITY_RANK: Record<HydrationPriorityLevel, number> = {
@@ -174,6 +176,7 @@ export class MessengerBackgroundHydrationScheduler {
 
   /** hidden 이면 LOW dequeue 금지 */
   private mayStartPriority(p: HydrationPriorityLevel): boolean {
+    if (shouldDeferBackgroundHydrationPriority(p)) return false;
     if (typeof document !== "undefined" && document.hidden && p === "low") {
       return false;
     }

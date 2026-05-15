@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { CommunityMessengerRoomShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
 import type { CommunityMessengerRoomSnapshot } from "@/lib/community-messenger/types";
 import type { MessengerRoomPhase2ViewModel } from "@/lib/community-messenger/room/phase2/messenger-room-phase2-view-model";
@@ -49,6 +49,37 @@ import {
 } from "@/lib/community-messenger/monitoring/cm-render-analysis";
 import { useMessengerRoomAnimatedBack } from "@/components/community-messenger/room/MessengerRoomSwipeBackShell";
 import { messengerTradeViewerRoleFromContextMeta } from "@/lib/community-messenger/messenger-trade-viewer-role";
+import { CmReactCommitProbe, useCmDevRenderTrace, useCmStrictModeEffectProbe } from "@/lib/community-messenger/dev/cm-event-loop-dev";
+import { logCmRenderRoomEntry } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
+import {
+  CmRoomPhase2HydrationProvider,
+  type CmRoomPhase2HydrationPass,
+} from "@/lib/community-messenger/room/cm-room-phase2-hydration-context";
+import { notifyCmTradeDockLayoutChange } from "@/lib/community-messenger/room/cm-trade-dock-layout";
+import {
+  measureCmPassRenderCommit,
+  noteCmRoomPass1ComposerMs,
+} from "@/lib/community-messenger/room/cm-room-pass-instrumentation";
+import {
+  scheduleCmRoomPass1ToPass2,
+  scheduleCmRoomPass2IdleExpand,
+} from "@/lib/community-messenger/room/cm-room-pass-scheduler";
+import { useMessengerRoomClientPhase1Context } from "@/lib/community-messenger/room/messenger-room-client-phase1-context";
+import { CommunityMessengerRoomPass0Shell } from "@/components/community-messenger/room/CommunityMessengerRoomPass0Shell";
+import {
+  shouldSkipInRoutePass0ForPreRouteOverlay,
+  useCmRoomOpeningOverlayStore,
+} from "@/lib/community-messenger/room/cm-room-opening-overlay-store";
+import {
+  getCmRoomSubtreeHydrationPass,
+  isCmRoomSubtreeEntryPassAdvanced,
+  markCmRoomSubtreeEntryPassAdvanced,
+  noteCmRoomSubtreeAttach,
+  setCmRoomSubtreeHydrationPass,
+  bumpCmRoomHydrationPassFromPersisted,
+  shouldBlockCmRoomStrictEffectReRun,
+  shouldSkipCmRoomHydrationPassSchedule,
+} from "@/lib/community-messenger/room/cm-room-subtree-stability";
 
 type MessengerRoomPhase2Controller = ReturnType<typeof useMessengerRoomPhase2Controller>;
 
@@ -57,31 +88,84 @@ type CommunityMessengerRoomClientPhase2MainProps = {
     snapshot: NonNullable<MessengerRoomPhase2Controller["snapshot"]>;
   };
   keyboardOverlapSuppressed: boolean;
-  /** 좁은 화면: visualViewport 기반 CSS 변수·셸 높이 */
+  /** 좁�? ?�면: visualViewport 기반 CSS 변?�·셸 ?�이 */
   narrowViewport: boolean;
   messengerKeyboardChromeOpen: boolean;
 };
 
-function CommunityMessengerRoomClientPhase2Main({
+const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerRoomClientPhase2Main({
   room,
   keyboardOverlapSuppressed,
   narrowViewport,
   messengerKeyboardChromeOpen,
 }: CommunityMessengerRoomClientPhase2MainProps) {
+  useCmDevRenderTrace("MessengerShell");
+  useCmStrictModeEffectProbe("MessengerShell");
   const phase2RenderPassStartRef = useRef(typeof performance !== "undefined" ? performance.now() : 0);
   phase2RenderPassStartRef.current = typeof performance !== "undefined" ? performance.now() : 0;
   const phase2PrevSigRef = useRef<{ msgLen: number; unread: number; readId: string } | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
-  /** 셸 DOM 이 붙은 뒤에만 vv 변수 구독 — 첫 프레임에 ref 미부착으로 훅이 빠지는 경우 방지 @see docs/community-messenger-mobile-room-viewport.md */
+  /** ??DOM ??붙�? ?�에�?vv 변??구독 ??�??�레?�에 ref 미�?착으�??�이 빠�???경우 방�? @see docs/community-messenger-mobile-room-viewport.md */
   const [chatShellMounted, setChatShellMounted] = useState(false);
+  const roomIdStable = String(room.snapshot.room.id ?? "").trim();
+  const [hydrationPass, setHydrationPass] = useState<CmRoomPhase2HydrationPass>(() =>
+    getCmRoomSubtreeHydrationPass(roomIdStable) as CmRoomPhase2HydrationPass
+  );
   const setMessengerShellRef = useCallback((node: HTMLDivElement | null) => {
     rootRef.current = node;
     setChatShellMounted(Boolean(node));
   }, []);
   useLayoutEffect(() => {
-    if (!chatShellMounted) return;
-    recordCmRoomEntryMilestone("room_shell_visible_ms");
-  }, [chatShellMounted]);
+    const rid = roomIdStable;
+    if (!rid) return;
+    noteCmRoomSubtreeAttach(rid, "shell");
+    const logPass1 = !shouldBlockCmRoomStrictEffectReRun(rid, "pass1_shell_milestone");
+    if (logPass1) {
+      useCmRoomOpeningOverlayStore.getState().noteHydrationComplete(rid);
+      useCmRoomOpeningOverlayStore.getState().beginHandoff(rid);
+      recordCmRoomEntryMilestone("room_shell_visible_ms");
+      measureCmPassRenderCommit(1, phase2RenderPassStartRef.current);
+      const renderMs = Math.round(performance.now() - phase2RenderPassStartRef.current);
+      logCmRenderRoomEntry({
+        component: "MessengerShell",
+        render_ms: renderMs,
+        commit_ms: renderMs,
+        visible: true,
+        deferred: false,
+      });
+    }
+    const persisted = bumpCmRoomHydrationPassFromPersisted(rid, hydrationPass);
+    if (persisted >= 2) {
+      setHydrationPass(persisted as CmRoomPhase2HydrationPass);
+      return;
+    }
+    if (shouldSkipCmRoomHydrationPassSchedule(rid, 2)) return;
+    return scheduleCmRoomPass1ToPass2(() => {
+      setHydrationPass(2);
+      setCmRoomSubtreeHydrationPass(rid, 2);
+    });
+  }, [hydrationPass, roomIdStable]);
+
+  useEffect(() => {
+    if (hydrationPass < 2) return;
+    const rid = roomIdStable;
+    if (!rid) return;
+    const persisted = bumpCmRoomHydrationPassFromPersisted(rid, hydrationPass);
+    if (persisted >= 3) {
+      setHydrationPass(3);
+      return;
+    }
+    if (shouldSkipCmRoomHydrationPassSchedule(rid, 3)) return;
+    return scheduleCmRoomPass2IdleExpand(() => {
+      setHydrationPass(3);
+      setCmRoomSubtreeHydrationPass(rid, 3);
+    }, 400);
+  }, [hydrationPass, roomIdStable]);
+
+  useLayoutEffect(() => {
+    if (hydrationPass < 3) return;
+    notifyCmTradeDockLayoutChange("phase2_trade_dock_mounted");
+  }, [hydrationPass, roomIdStable]);
   useChatViewportResize({ enabled: narrowViewport && chatShellMounted, shellRef: rootRef });
   const phase2EnterRecordedRef = useRef(false);
   const roomStateCommitRecordedRef = useRef(false);
@@ -339,10 +423,12 @@ function CommunityMessengerRoomClientPhase2Main({
       value={{ keyboardOverlapSuppressed, messengerKeyboardChromeOpen }}
     >
       <MessengerRoomPhase2ViewProvider value={view}>
+        <CmRoomPhase2HydrationProvider pass={hydrationPass}>
         <div
           ref={setMessengerShellRef}
           data-messenger-shell
           data-cm-room
+          data-cm-room-hydration-pass={hydrationPass}
           data-trade-viewer-role={tradeViewerRole ?? undefined}
           className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[color:var(--cm-room-page-bg)] text-[color:var(--cm-room-text)]"
           style={
@@ -358,24 +444,39 @@ function CommunityMessengerRoomClientPhase2Main({
           <MessengerRoomPhase2HeaderProvider value={headerView}>
             <CommunityMessengerRoomPhase2Header />
           </MessengerRoomPhase2HeaderProvider>
+          {hydrationPass >= 2 ? (
+            <>
+              <CommunityMessengerRoomPhase2MessageTimeline />
+              <CommunityMessengerRoomPhase2MessageOverlays />
+            </>
+          ) : (
+            <div
+              className="min-h-0 flex-1 bg-[color:var(--cm-room-chat-bg)]"
+              aria-hidden
+              data-cm-room-viewport-placeholder
+            />
+          )}
           <CommunityMessengerRoomPhase2AttachmentsAndTrade />
-          <CommunityMessengerRoomPhase2MessageTimeline />
-          <CommunityMessengerRoomPhase2MessageOverlays />
           <MessengerRoomPhase2ComposerProvider value={composerView}>
-            <CommunityMessengerRoomPhase2Composer />
+            <CommunityMessengerRoomPhase2Composer onPass1ComposerReady={noteCmRoomPass1ComposerMs} />
           </MessengerRoomPhase2ComposerProvider>
-          <CommunityMessengerRoomPhase2RoomSheets />
-          <CommunityMessengerRoomPhase2MemberActionModal />
-          <MessengerRoomPhase2CallProvider value={callView}>
-            <CommunityMessengerRoomPhase2CallLayer />
-          </MessengerRoomPhase2CallProvider>
+          {hydrationPass >= 3 ? (
+            <>
+              <CommunityMessengerRoomPhase2RoomSheets />
+              <CommunityMessengerRoomPhase2MemberActionModal />
+              <MessengerRoomPhase2CallProvider value={callView}>
+                <CommunityMessengerRoomPhase2CallLayer />
+              </MessengerRoomPhase2CallProvider>
+            </>
+          ) : null}
         </div>
+        </CmRoomPhase2HydrationProvider>
       </MessengerRoomPhase2ViewProvider>
     </MessengerRoomMobileViewportProvider>
   );
-}
+});
 
-export function CommunityMessengerRoomClientPhase2() {
+const CommunityMessengerRoomClientPhase2Hydrated = memo(function CommunityMessengerRoomClientPhase2Hydrated() {
   const room = useMessengerRoomPhase2Controller();
   const searchParams = useSearchParams();
   useCommunityMessengerRoomTypingRuntime({
@@ -385,10 +486,7 @@ export function CommunityMessengerRoomClientPhase2() {
   });
   const isNarrowViewport = useMatchMaxWidthMd();
   const requestAnimatedBack = useMessengerRoomAnimatedBack();
-  /** 모바일 셸이 vv 변수로 높이를 잡으므로 하단 탭·별도 키보드 inset 이중 보정 억제 */
   const keyboardOverlapSuppressed = Boolean(isNarrowViewport);
-
-  /** 일반·그룹·오픈·거래 1:1 등 모든 메신저 방 — 좁은 화면에서 키보드 크롬 추정(`ConditionalAppShell` 하단 탭은 방 경로에서 항상 숨김) */
   const messengerKeyboardChromeEnabled = isNarrowViewport && Boolean(room.snapshot);
   const composerFocused = useMessengerUIStore((s) => s.composerFocused);
   const { keyboardChromeOpen: messengerKeyboardChromeOpen } = useMessengerTradeKeyboardChrome({
@@ -429,5 +527,57 @@ export function CommunityMessengerRoomClientPhase2() {
       narrowViewport={isNarrowViewport}
       messengerKeyboardChromeOpen={messengerKeyboardChromeOpen}
     />
+  );
+});
+
+export function CommunityMessengerRoomClientPhase2() {
+  const phase1 = useMessengerRoomClientPhase1Context();
+  const isNarrowViewport = useMatchMaxWidthMd();
+  const roomId = phase1.roomId?.trim() ?? "";
+  const [entryPass, setEntryPass] = useState(() => {
+    if (isCmRoomSubtreeEntryPassAdvanced(roomId)) return 1;
+    return shouldSkipInRoutePass0ForPreRouteOverlay(roomId) ? 1 : 0;
+  });
+  const prevEntryRoomRef = useRef(roomId);
+
+  useEffect(() => {
+    if (shouldBlockCmRoomStrictEffectReRun(roomId, "entry_pass_reset")) return;
+    if (prevEntryRoomRef.current === roomId) return;
+    prevEntryRoomRef.current = roomId;
+    if (isCmRoomSubtreeEntryPassAdvanced(roomId)) {
+      setEntryPass(1);
+      return;
+    }
+    setEntryPass(shouldSkipInRoutePass0ForPreRouteOverlay(roomId) ? 1 : 0);
+  }, [roomId]);
+
+  const advanceFromPass0 = useCallback(() => {
+    if (roomId) markCmRoomSubtreeEntryPassAdvanced(roomId);
+    setEntryPass(1);
+  }, [roomId]);
+
+  return (
+    <div className="relative flex min-h-0 min-w-0 flex-1 flex-col">
+      <div
+        className={
+          entryPass < 1
+            ? "pointer-events-none invisible absolute inset-0 z-0 flex min-h-0 min-w-0 flex-col"
+            : "flex min-h-0 min-w-0 flex-1 flex-col"
+        }
+        aria-hidden={entryPass < 1}
+        data-cm-room-phase2-persistent=""
+      >
+        <CommunityMessengerRoomClientPhase2Hydrated />
+      </div>
+      {entryPass === 0 && roomId ? (
+        <div className="absolute inset-0 z-10 flex min-h-0 min-w-0 flex-1 flex-col">
+          <CommunityMessengerRoomPass0Shell
+            roomId={roomId}
+            narrowViewport={isNarrowViewport}
+            onAdvance={advanceFromPass0}
+          />
+        </div>
+      ) : null}
+    </div>
   );
 }

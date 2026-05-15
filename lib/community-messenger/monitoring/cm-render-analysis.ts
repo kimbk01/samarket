@@ -3,10 +3,13 @@
  * `NEXT_PUBLIC_MESSENGER_PERF_TRACE_CM_RENDER=1` 일 때만 활성.
  */
 
+import { cmProdParityModeEnabled } from "@/lib/community-messenger/dev/cm-event-loop-dev";
+
 let layoutShiftObserver: PerformanceObserver | null = null;
 let layoutShiftSessionCount = 0;
 
 export function cmRenderAnalysisEnabled(): boolean {
+  if (cmProdParityModeEnabled()) return false;
   try {
     return (
       typeof process !== "undefined" &&

@@ -30,6 +30,8 @@ interface TradeFlowBannerProps {
   sellerListingControlsEnabled?: boolean;
   /** 모바일 키보드 시 단계 UI를 한 줄로 접었다가 펼침 */
   layoutVariant?: "default" | "keyboardCompact";
+  /** 단계 다이어그램 펼침·접힘 — 타임라인 하단 앵커 */
+  onDiagramExpandedChange?: (expanded: boolean) => void;
 }
 
 export function TradeFlowBanner({
@@ -48,10 +50,15 @@ export function TradeFlowBanner({
   productStatusOverride = null,
   sellerListingControlsEnabled = true,
   layoutVariant = "default",
+  onDiagramExpandedChange,
 }: TradeFlowBannerProps) {
   const [loading, setLoading] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [diagramExpanded, setDiagramExpanded] = useState(false);
+
+  useEffect(() => {
+    onDiagramExpandedChange?.(diagramExpanded);
+  }, [diagramExpanded, onDiagramExpandedChange]);
   const dismissStorageKey = `${DISMISS_KEY_PREFIX}${effectiveProductChatId}`;
   const [actionsDismissed, setActionsDismissed] = useState(false);
 

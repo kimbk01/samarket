@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { onCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
+import type { MessengerRoomBootstrapRefreshFn } from "@/lib/community-messenger/room/use-messenger-room-bootstrap-lifecycle";
 
 /**
  * 통화 종료 후 탭 복귀 시 스냅샷 정합, 멀티탭에서 동일 방 메시지 시 증분 catch-up.
@@ -16,7 +17,7 @@ export function useMessengerRoomVisibilityBusCatchup({
   roomId: string;
   streamRoomId: string;
   catchUpNewerMessages: () => Promise<boolean>;
-  refresh: (silent?: boolean) => Promise<void>;
+  refresh: MessengerRoomBootstrapRefreshFn;
 }): void {
   /** 통화 종료 직후 다른 탭에서 돌아올 때 스냅샷(activeCall)이 잠깐 옛값이면 배너가 남는 경우 완화 */
   useEffect(() => {
@@ -29,7 +30,7 @@ export function useMessengerRoomVisibilityBusCatchup({
       void (async () => {
         const merged = await catchUpNewerMessages();
         if (!merged) {
-          void refresh(true);
+          void refresh(true, { triggerReason: "visibilitychange" });
         }
       })();
     };
@@ -58,7 +59,7 @@ export function useMessengerRoomVisibilityBusCatchup({
       void (async () => {
         const merged = await catchUpNewerMessages();
         if (!merged) {
-          void refresh(true);
+          void refresh(true, { triggerReason: "realtime_bus" });
         }
       })();
     });

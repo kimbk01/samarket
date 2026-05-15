@@ -11,7 +11,7 @@ const ME_STORE_SELECT =
     "region, city, district, address_line1, address_line2, lat, lng",
     "place_id, formatted_address, detail_address",
     "profile_image_url, business_hours_json, gallery_images_json, is_open",
-    "delivery_available, pickup_available, reservation_available, visit_available",
+    "delivery_available, pickup_available, reservation_available, visit_available, menu_sold_out_bottom",
     "approval_status, is_visible, rejected_reason, revision_note",
     "created_at, updated_at, approved_at",
     // Optional column (older DBs might not have it). When present, it avoids an extra round-trip.
@@ -65,6 +65,16 @@ export async function loadMeStoresListForUser(
         .order("created_at", { ascending: false });
       data = r2.data as unknown[] | null;
       error = (r2.error as any) ?? null;
+    }
+    if (error && /menu_sold_out_bottom/i.test(String(error.message ?? "")) && /does not exist/i.test(String(error.message ?? ""))) {
+      const legacySelect = ME_STORE_SELECT.replace(/,\s*menu_sold_out_bottom\s*(?=,)/, "");
+      const r3 = await supabase
+        .from("stores")
+        .select(legacySelect)
+        .eq("owner_user_id", userId)
+        .order("created_at", { ascending: false });
+      data = r3.data as unknown[] | null;
+      error = (r3.error as any) ?? null;
     }
   }
 

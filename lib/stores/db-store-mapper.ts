@@ -34,6 +34,8 @@ export type StoreRow = {
   website_url?: string | null;
   is_open?: boolean | null;
   delivery_available?: boolean | null;
+  /** 품절 메뉴를 카테고리 하단으로 모을지 — `stores.menu_sold_out_bottom` */
+  menu_sold_out_bottom?: boolean | null;
   pickup_available?: boolean | null;
   reservation_available?: boolean | null;
   visit_available?: boolean | null;

@@ -13,10 +13,11 @@ import { NextResponse } from "next/server";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
-import { getCachedOwnerHubBadge } from "@/lib/chats/owner-hub-badge-cache";
+import { getCachedOwnerHubBadge, peekOwnerHubBadgeCacheHit } from "@/lib/chats/owner-hub-badge-cache";
 import { buildOwnerHubBadgePayloadMerged } from "@/lib/chats/build-owner-hub-badge-payload";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
+import { logRoutePerf } from "@/lib/http/route-perf-log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,7 +30,13 @@ export async function GET(request: Request) {
   /** prod: cmFresh → 짧은 캐시 bypass. dev-safe: cmFresh 만으로는 bypass 안 함 — `hubBadgeBypass=1` 필요 */
   const bypassShortCache = cmFresh && (!isDevSafeMode() || hubBadgeBypass);
 
-  const sb = tryCreateSupabaseServiceClient();
+  const parallel0 = devPerfNow();
+  const [sb, userId] = await Promise.all([
+    Promise.resolve(tryCreateSupabaseServiceClient()),
+    getOptionalAuthenticatedUserId(),
+  ]);
+  const authMs = Math.round(devPerfNow() - parallel0);
+
   if (!sb) {
     if (process.env.NODE_ENV === "production") {
       console.error("[store-owner-hub-badge] NEXT_PUBLIC_SUPABASE_URL 또는 SUPABASE_SERVICE_ROLE_KEY 미설정");
@@ -50,9 +57,6 @@ export async function GET(request: Request) {
     });
   }
 
-  const auth0 = devPerfNow();
-  const userId = await getOptionalAuthenticatedUserId();
-  const authMs = devPerfNow() - auth0;
   if (!userId) {
     return NextResponse.json({
       ok: true,
@@ -75,14 +79,26 @@ export async function GET(request: Request) {
   const storesSb = tryGetSupabaseForStores();
   const storesClientMs = devPerfNow() - stores0;
 
+  const hubMemoryHitBefore = !bypassShortCache && peekOwnerHubBadgeCacheHit(userId);
   const build0 = devPerfNow();
   const payload = bypassShortCache
     ? await buildOwnerHubBadgePayloadMerged(sbAny, storesSb, userId)
     : await getCachedOwnerHubBadge(userId, async () => buildOwnerHubBadgePayloadMerged(sbAny, storesSb, userId));
   const badgeAggregateMs = devPerfNow() - build0;
 
+  const totalRouteMs = Math.round(devPerfNow() - t0);
+  logRoutePerf({
+    route: "/api/me/store-owner-hub-badge",
+    total_ms: totalRouteMs,
+    db_ms: Math.round(badgeAggregateMs),
+    cache_hit: bypassShortCache ? 0 : hubMemoryHitBefore ? 1 : 0,
+    auth_ms: authMs,
+    serialize_ms: 0,
+    store_query_ms: Math.round(storesClientMs),
+  });
+
   logDevApiPerf("/api/me/store-owner-hub-badge", {
-    auth_session_ms: Math.round(authMs),
+    auth_session_ms: authMs,
     store_query_ms: Math.round(storesClientMs),
     badge_query_ms: Math.round(badgeAggregateMs),
     profile_query_ms: 0,

@@ -202,6 +202,7 @@ import {
   cmRtHs4FingerprintDigest,
 } from "@/lib/community-messenger/realtime/cm-rt-hs4-diagnosis";
 import { resolveCommunityMessengerRoomIdFromChatRow } from "@/lib/community-messenger/realtime/resolve-community-messenger-room-id-from-chat-row";
+import { useCmDevRenderTrace, useCmStrictModeEffectProbe } from "@/lib/community-messenger/dev/cm-event-loop-dev";
 
 type CommunityMessengerHomeOverlayKind =
   | "composer"
@@ -239,6 +240,8 @@ export function CommunityMessengerHome({
   fromPhilifeHeaderStack?: boolean;
   pillar?: "trade" | "delivery" | null;
 }) {
+  useCmDevRenderTrace("CommunityMessengerHome");
+  useCmStrictModeEffectProbe("CommunityMessengerHome");
   bumpMessengerRenderPerf("messenger_home_render");
   const { t } = useI18n();
   const router = useRouter();
@@ -272,8 +275,9 @@ export function CommunityMessengerHome({
     return () => attachMessengerHydrationSchedulerSurface(false);
   }, []);
   /** 초기 부트스트랩 HTTP 는 훅 내부 `refreshRef` 로 마운트당 1회만( `refresh` 함수 참조 변경으로 재요청 없음 ). */
+  /** home-sync critical 은 trade meta 를 defer — 목록·거래 탭 모두 silent `trade-chat-list-meta` 보강 */
   useTradeChatListMetaHydration({
-    enabled: pillar === "trade" && Boolean(data?.me?.id),
+    enabled: Boolean(data?.me?.id),
     viewerUserId: data?.me?.id ?? null,
     chats: data?.chats,
     setData,

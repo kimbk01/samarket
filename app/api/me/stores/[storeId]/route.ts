@@ -40,6 +40,8 @@ type PatchBody = {
   is_visible?: boolean;
   is_open?: boolean;
   delivery_available?: boolean;
+  /** 공개 메뉴판에서 품절을 섹션 하단으로 정렬 */
+  menu_sold_out_bottom?: boolean;
   pickup_available?: boolean;
   reservation_available?: boolean;
   visit_available?: boolean;
@@ -277,6 +279,9 @@ export async function PATCH(
   if (body.delivery_available !== undefined) {
     patch.delivery_available = Boolean(body.delivery_available);
   }
+  if (body.menu_sold_out_bottom !== undefined) {
+    patch.menu_sold_out_bottom = Boolean(body.menu_sold_out_bottom);
+  }
   if (body.pickup_available !== undefined) {
     patch.pickup_available = Boolean(body.pickup_available);
   }
@@ -388,7 +393,7 @@ export async function PATCH(
         "description, kakao_id, phone, email, website_url",
         "region, city, district, address_line1, address_line2, place_id, formatted_address, detail_address, lat, lng",
         "profile_image_url, business_hours_json, gallery_images_json, is_open",
-        "delivery_available, pickup_available, reservation_available, visit_available",
+        "delivery_available, pickup_available, reservation_available, visit_available, menu_sold_out_bottom",
         "approval_status, is_visible, rejected_reason, revision_note",
         "created_at, updated_at, approved_at",
         "store_categories ( name, slug ), store_topics ( name, slug )",

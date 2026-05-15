@@ -16,6 +16,9 @@ import {
   resolveStoreListDeliveryOrigin,
   resolveEffectiveStoreRouteAddress,
 } from "@/lib/stores/store-list-delivery-origin";
+import { browseListCacheKey, peekStoresBrowseCache, setStoresBrowseCache } from "@/lib/stores/stores-browse-response-cache";
+import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
+import { logRoutePerf } from "@/lib/http/route-perf-log";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -190,6 +193,7 @@ function mapBrowseEmbedRows(raw: unknown[]): StoreBrowseRow[] {
  * ?user_lat= & ?user_lng= — 거리 보조 정렬
  */
 export async function GET(req: Request) {
+  const tRoute0 = devPerfNow();
   const supabase = tryGetSupabaseForStores();
   if (!supabase) {
     return NextResponse.json(
@@ -209,7 +213,9 @@ export async function GET(req: Request) {
   const wantsAllSubs = subRaw === "" || subRaw === "all";
   const sub = wantsAllSubs ? "all" : subRaw;
   const district = searchParams.get("district")?.trim() || null;
+  const originProbe0 = devPerfNow();
   const origin = await resolveStoreListDeliveryOrigin(supabase, searchParams);
+  const originMs = devPerfNow() - originProbe0;
   const userLat = origin.lat;
   const userLng = origin.lng;
 
@@ -221,6 +227,26 @@ export async function GET(req: Request) {
   }
 
   try {
+    const browseCacheKey = browseListCacheKey({
+      primary,
+      sub,
+      district: district ?? "",
+      originPart: origin.cacheKeyPart,
+    });
+    const cachedBrowse = peekStoresBrowseCache(browseCacheKey);
+    if (cachedBrowse != null) {
+      logRoutePerf({
+        route: "/api/stores/browse",
+        total_ms: Math.round(devPerfNow() - tRoute0),
+        db_ms: 0,
+        cache_hit: 1,
+        auth_ms: Math.round(originMs),
+        serialize_ms: 0,
+      });
+      return NextResponse.json(cachedBrowse, { headers: { "Cache-Control": STORE_BROWSE_HTTP_CACHE_CONTROL } });
+    }
+
+    const dbWall0 = devPerfNow();
     /**
      * region/city/district 쿼리 파라미터는 districtRank·거리 정렬에만 사용.
      * 업종은 `store_category_id` / `store_topic_id` 직접 필터 (PostgREST !inner 임베드 미신뢰).
@@ -423,16 +449,21 @@ export async function GET(req: Request) {
       return stableId(a, b);
     };
 
+    let distById: Map<string, number | null> | null = null;
     if (userLat != null && userLng != null) {
+      const distMap = new Map<string, number | null>();
+      for (const r of rows) {
+        const ea = effectiveById.get(r.id) ?? r;
+        distMap.set(r.id, haversineKm(userLat, userLng, ea.lat, ea.lng));
+      }
+      distById = distMap;
       rows = [...rows].sort((a, b) => {
         const dr = districtRank(a.district, district) - districtRank(b.district, district);
         if (dr !== 0) return dr;
         const feat = Number(!!b.is_featured) - Number(!!a.is_featured);
         if (feat !== 0) return feat;
-        const ea = effectiveById.get(a.id) ?? a;
-        const eb = effectiveById.get(b.id) ?? b;
-        const da = haversineKm(userLat, userLng, ea.lat, ea.lng);
-        const db = haversineKm(userLat, userLng, eb.lat, eb.lng);
+        const da = distMap.get(a.id) ?? null;
+        const db = distMap.get(b.id) ?? null;
         if (da != null && db != null && da !== db) return da - db;
         if (da != null && db == null) return -1;
         if (da == null && db != null) return 1;
@@ -487,6 +518,8 @@ export async function GET(req: Request) {
       }
     }
 
+    const dbMs = devPerfNow() - dbWall0;
+
     const stores: BrowseStoreListItem[] = rows.map((r) => {
       const cat = r.store_categories;
       const top = r.store_topics;
@@ -511,9 +544,8 @@ export async function GET(req: Request) {
         minPhp != null && Number.isFinite(minPhp) && minPhp > 0 ? `최소주문 ${formatMoneyPhp(minPhp)}` : null;
 
       let distanceKm: number | null = null;
-      if (userLat != null && userLng != null) {
-        const effective = effectiveById.get(r.id) ?? r;
-        distanceKm = haversineKm(userLat, userLng, effective.lat, effective.lng);
+      if (distById) {
+        distanceKm = distById.get(r.id) ?? null;
       }
 
       const effective = effectiveById.get(r.id) ?? r;
@@ -566,25 +598,32 @@ export async function GET(req: Request) {
       };
     });
 
-    return NextResponse.json(
-      {
-        ok: true,
-        stores,
-        meta: {
-          source: "supabase" as const,
-          primary,
-          sub,
-          all_topics: wantsAllSubs,
-          sorted_by:
-            userLat != null && userLng != null
-              ? "district_featured_distance_rating"
-              : "district_featured_rating",
-          origin_source: origin.source,
-          origin_address_id: origin.addressId,
-        },
+    const responseBody = {
+      ok: true as const,
+      stores,
+      meta: {
+        source: "supabase" as const,
+        primary,
+        sub,
+        all_topics: wantsAllSubs,
+        sorted_by:
+          userLat != null && userLng != null
+            ? "district_featured_distance_rating"
+            : "district_featured_rating",
+        origin_source: origin.source,
+        origin_address_id: origin.addressId,
       },
-      { headers: { "Cache-Control": STORE_BROWSE_HTTP_CACHE_CONTROL } }
-    );
+    };
+    setStoresBrowseCache(browseCacheKey, responseBody);
+    logRoutePerf({
+      route: "/api/stores/browse",
+      total_ms: Math.round(devPerfNow() - tRoute0),
+      db_ms: Math.round(dbMs),
+      cache_hit: 0,
+      auth_ms: Math.round(originMs),
+      serialize_ms: 0,
+    });
+    return NextResponse.json(responseBody, { headers: { "Cache-Control": STORE_BROWSE_HTTP_CACHE_CONTROL } });
   } catch (e) {
     console.error("[api/stores/browse]", e);
     return NextResponse.json(

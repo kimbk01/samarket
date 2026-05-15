@@ -1,5 +1,6 @@
 /**
- * 클라이언트 파싱용 — API 라우트 페이로드와 정합. 임의 계약 변경 금지.
+ * 클라이언트 파싱용 — API 라우트 페이로드와 정합.
+ * `GET /api/stores/[slug]/menus` 확장 시 `parseStoreMenusPayload`·호출부를 함께 갱신한다.
  */
 import type { StoreDetailLike } from "@/lib/stores/store-public-page-hydrate";
 
@@ -19,6 +20,7 @@ export type StoreSummaryPayload = {
 };
 
 export type StoreMenusCommerceMeta = StoreSummaryCommerceMeta & {
+  menu_sold_out_bottom?: boolean;
   popular_menu?: {
     window_days: number;
     min_qty: number;
@@ -27,13 +29,31 @@ export type StoreMenusCommerceMeta = StoreSummaryCommerceMeta & {
   };
 };
 
+/** 메뉴 API `categories[]` 항목 — `products` 와 동일 id */
+export type StoreMenusCategoryPayload = {
+  id: string | null;
+  name: string;
+  display_order: number;
+  products?: unknown[];
+};
+
+export type StoreMenusPublicStore = {
+  id?: string;
+  slug?: string;
+  store_name?: string;
+  menu_sold_out_bottom?: boolean;
+};
+
 export type StoreMenusPayload = {
   ok: boolean;
+  store?: StoreMenusPublicStore | null;
   products?: unknown[];
-  /** 사장님 추천·대표 상단 섹션 순서(동일 id는 products·카테고리에도 존재) */
+  /** 추천메뉴 스트립 순서(인기→사장님 추천 보충, 최대 5) */
   recommendedProductIds?: string[];
-  /** 인기 메뉴 순서(주문 집계, 미달 시 빈 배열) */
   popularProductIds?: string[];
+  recommendedProducts?: unknown[];
+  popularProducts?: unknown[];
+  categories?: StoreMenusCategoryPayload[];
   meta?: StoreMenusCommerceMeta;
   error?: string;
 };
@@ -41,7 +61,7 @@ export type StoreMenusPayload = {
 export type StoreReviewsSummaryRecentItem = {
   id: unknown;
   rating: unknown;
-  content?: unknown;
+  content?: string;
   created_at?: unknown;
   buyer_public_label?: unknown;
 };
@@ -72,8 +92,10 @@ export function parseStoreMenusPayload(json: unknown): StoreMenusPayload {
   const j = json as Record<string, unknown>;
   const rec = j.recommendedProductIds;
   const pop = j.popularProductIds;
+  const cats = j.categories;
   return {
     ok: j.ok === true,
+    store: (j.store as StoreMenusPublicStore | null | undefined) ?? null,
     products: Array.isArray(j.products) ? j.products : undefined,
     recommendedProductIds: Array.isArray(rec)
       ? rec.map((x) => String(x ?? "").trim()).filter(Boolean)
@@ -81,6 +103,9 @@ export function parseStoreMenusPayload(json: unknown): StoreMenusPayload {
     popularProductIds: Array.isArray(pop)
       ? pop.map((x) => String(x ?? "").trim()).filter(Boolean)
       : undefined,
+    recommendedProducts: Array.isArray(j.recommendedProducts) ? j.recommendedProducts : undefined,
+    popularProducts: Array.isArray(j.popularProducts) ? j.popularProducts : undefined,
+    categories: Array.isArray(cats) ? (cats as StoreMenusCategoryPayload[]) : undefined,
     meta: j.meta as StoreMenusCommerceMeta | undefined,
     error: typeof j.error === "string" ? j.error : undefined,
   };

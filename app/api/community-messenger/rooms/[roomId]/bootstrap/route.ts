@@ -24,6 +24,7 @@ import { getOrCreateRequestId } from "@/lib/http/api-route";
 import { SAMARKET_REQUEST_ID_HEADER } from "@/lib/http/request-id";
 import { messengerApiEdgeCacheHeaders } from "@/lib/http/messenger-api-edge-cache";
 import { samarketMessengerTraceLogEnabled } from "@/lib/debug/samarket-server-trace-flags";
+import { logPerfMeasurementContext } from "@/lib/http/perf-measurement-context";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -119,6 +120,11 @@ export async function GET(
       };
       // eslint-disable-next-line no-console -- gated room bootstrap tier diagnostic
       console.debug("[cm-bootstrap-tier]", JSON.stringify(payload));
+      logPerfMeasurementContext({
+        route: `/api/community-messenger/rooms/${roomKey}/bootstrap`,
+        server_handler_ms: ms,
+        extras: { ...payload, log_channel: "cm-bootstrap-tier" },
+      });
       if (cmReqSrcBucket === "room_silent") {
         const violated = Object.entries(payload).some(
           ([k, v]) =>

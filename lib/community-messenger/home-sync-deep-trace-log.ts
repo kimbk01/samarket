@@ -135,6 +135,7 @@ export function logHomeSyncDeepTrace(input: {
 
   let home_sync_cache_reason = "miss";
   let home_sync_cache_bypass_reason = "";
+  const route_cache_disabled_env = input.cache.prodCacheEnabled === false;
   if (!input.cache.prodCacheEnabled) {
     home_sync_cache_reason = "route_cache_disabled";
     home_sync_cache_bypass_reason = "SAMARKET_HOME_SYNC_DISABLE_ROUTE_CACHE=1";
@@ -179,6 +180,7 @@ export function logHomeSyncDeepTrace(input: {
     home_sync_cache_key: input.cache.cacheKey,
     home_sync_cache_reason,
     home_sync_cache_bypass_reason,
+    route_cache_disabled_env,
     unread_legacy_fetch_path: ur.unreadLegacyFetchPath ?? null,
     unread_skip_reason: ur.unreadSkipReason ?? null,
     unread_slowest_query: ur.unreadSlowestQuery ?? null,

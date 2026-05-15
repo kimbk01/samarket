@@ -63,17 +63,18 @@ function trimSessionSet(set: Set<string>): void {
 
 const MAX_EVENTS_PROD = 400;
 const MAX_EVENTS_DEV_ENV = Number(process.env.SAMARKET_MONITORING_MAX_EVENTS_DEV);
-/** dev 기본 160 — RSS 압력 시 `SAMARKET_MONITORING_MAX_EVENTS_DEV`(≥32)로 조정 */
+/** dev 기본 40 — RSS 압력 시 `SAMARKET_MONITORING_MAX_EVENTS_DEV`(≥32)로 조정 */
 const MAX_EVENTS =
   process.env.NODE_ENV === "development"
     ? Number.isFinite(MAX_EVENTS_DEV_ENV) && MAX_EVENTS_DEV_ENV >= 32
       ? Math.floor(MAX_EVENTS_DEV_ENV)
-      : 160
+      : 40
     : Number(process.env.SAMARKET_MONITORING_MAX_EVENTS_PROD ?? MAX_EVENTS_PROD) || MAX_EVENTS_PROD;
-const MAX_ALERTS = 80;
-const MAX_AGG_KEYS = 600;
-const MAX_CLIENT_AGG_KEYS = 600;
-const MAX_OUTCOME_KEYS = 220;
+const MAX_ALERTS = process.env.NODE_ENV === "development" ? 5 : 80;
+const MAX_AGG_KEYS = process.env.NODE_ENV === "development" ? 10 : 600;
+const MAX_CLIENT_AGG_KEYS = process.env.NODE_ENV === "development" ? 10 : 600;
+const MAX_OUTCOME_KEYS = process.env.NODE_ENV === "development" ? 20 : 220;
+const MAX_SUBSCRIPTION_LOG_DEV = 20;
 const MAX_FAILURE_RATIO_KEYS = 64;
 const RATIO_ALERT_COOLDOWN_MS = 90_000;
 const AGG_KEY = (e: MessengerMonitoringEvent) => `${e.category}:${e.metric}:${e.source}`;
@@ -348,7 +349,10 @@ function appendSubscriptionEventLog(store: Store, event: MessengerMonitoringEven
     kind: event.kind,
   };
   store.subscriptionEventLog.push(snap);
-  const maxSub = Math.max(48, Math.min(MAX_EVENTS + 80, 400));
+  const maxSub =
+    process.env.NODE_ENV === "development"
+      ? MAX_SUBSCRIPTION_LOG_DEV
+      : Math.max(48, Math.min(MAX_EVENTS + 80, 400));
   if (store.subscriptionEventLog.length > maxSub) {
     const rm = store.subscriptionEventLog.length - maxSub;
     store.subscriptionEventLog.splice(0, rm);
@@ -434,7 +438,10 @@ function backfillSubscriptionEventLogFromEventsIfNeeded(store: Store) {
     };
     store.subscriptionEventLog.push(snap);
   }
-  const maxSub = Math.max(48, Math.min(MAX_EVENTS + 80, 400));
+  const maxSub =
+    process.env.NODE_ENV === "development"
+      ? MAX_SUBSCRIPTION_LOG_DEV
+      : Math.max(48, Math.min(MAX_EVENTS + 80, 400));
   while (store.subscriptionEventLog.length > maxSub) {
     store.subscriptionEventLog.shift();
     store.storeDiagnostics.subscriptionLogTrimmedTotal += 1;
@@ -490,15 +497,11 @@ export function recordMessengerMonitoringEvent(event: MessengerMonitoringEvent):
   const key = AGG_KEY(event);
   if (typeof event.value === "number" && (event.unit === "ms" || event.unit === undefined)) {
     bumpAgg(store.aggregates, key, event.value);
-    if (process.env.NODE_ENV === "development") {
-      trimMapOldest(store.aggregates, MAX_AGG_KEYS);
-    }
+    trimMapOldest(store.aggregates, MAX_AGG_KEYS);
   }
   if (event.source === "client" && typeof event.value === "number") {
     bumpAgg(store.clientAggregates, key, event.value);
-    if (process.env.NODE_ENV === "development") {
-      trimMapOldest(store.clientAggregates, MAX_CLIENT_AGG_KEYS);
-    }
+    trimMapOldest(store.clientAggregates, MAX_CLIENT_AGG_KEYS);
   }
 
   if (event.category === "call.connection" && event.metric === "first_connected" && event.labels?.sessionIdSuffix) {

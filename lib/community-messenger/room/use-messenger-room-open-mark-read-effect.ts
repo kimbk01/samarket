@@ -29,6 +29,7 @@ import {
   applyRoomSummaryPatched,
 } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { recordRouteEntryElapsedMetric, recordRouteEntryMetric } from "@/lib/runtime/samarket-runtime-debug";
+import { scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
 import { messengerVerboseTraceConsoleEnabled } from "@/lib/community-messenger/messenger-trace-console";
 import type {
   CommunityMessengerMessage,
@@ -867,17 +868,47 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         ? "incoming-visible"
         : "initial-render";
 
-    /** 진입 직후 가드+낙관+flushOpen 1회 — 스크롤 게이트는 커서 정합용 보조. */
-    queueMicrotask(() => {
+    /** 진입 직후 mark-read — UI 페인트·blocking bootstrap 이후 idle 에 실행 */
+    const deferMarkReadAfterPaint = (phase: "idle_scheduled" | "idle_run") => {
+      if (cancelled) return;
+      if (phase === "idle_scheduled") {
+        // eslint-disable-next-line no-console -- mark-read defer diagnostics
+        console.log("[cm-mark-read-deferred]", {
+          roomId: id,
+          optimistic_applied: false,
+          server_patch_ms: null,
+          unread_recalc_deferred: true,
+          ui_blocking: false,
+          phase,
+        });
+        return;
+      }
+      const patchStart = typeof performance !== "undefined" ? performance.now() : Date.now();
       runImmediateOpenFlushOnce();
       scheduleRoomReadAck(firstScheduleReason);
-      if (typeof requestAnimationFrame === "function") {
+      // eslint-disable-next-line no-console -- mark-read defer diagnostics
+      console.log("[cm-mark-read-deferred]", {
+        roomId: id,
+        optimistic_applied: true,
+        server_patch_ms: null,
+        unread_recalc_deferred: true,
+        ui_blocking: false,
+        phase,
+        deferred_ms: Math.round(
+          (typeof performance !== "undefined" ? performance.now() : Date.now()) - patchStart
+        ),
+      });
+    };
+    if (typeof window !== "undefined") {
+      requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          runImmediateOpenFlushOnce();
-          scheduleRoomReadAck(firstScheduleReason);
+          deferMarkReadAfterPaint("idle_scheduled");
+          scheduleWhenBrowserIdle(() => deferMarkReadAfterPaint("idle_run"), 160);
         });
-      }
-    });
+      });
+    } else {
+      deferMarkReadAfterPaint("idle_run");
+    }
     return () => {
       cancelled = true;
       clearScheduledReadAck();

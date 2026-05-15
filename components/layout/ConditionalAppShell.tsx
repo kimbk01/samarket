@@ -23,6 +23,7 @@ import {
   subscribeStoreOwnerMainBottomNavSuppressed,
 } from "@/lib/business/store-owner-main-bottom-nav-suppress";
 import { MessagingGlobalChrome } from "@/components/layout/providers/MessagingGlobalChrome";
+import { CommunityMessengerRoomOpeningOverlayHost } from "@/components/community-messenger/room/CommunityMessengerRoomOpeningOverlayHost";
 import { RegionBar } from "./RegionBar";
 import { BottomNav } from "./BottomNav";
 import { MainShellTabContentTransition } from "./MainShellTabContentTransition";
@@ -132,6 +133,7 @@ export function ConditionalAppShell({
     >
       {f.mountPhilifeWarmPrefetch ? <PhilifeFeedWarmPrefetch /> : null}
       <MessagingGlobalChrome regionBarInLayout={regionBarInLayout} />
+      <CommunityMessengerRoomOpeningOverlayHost />
       <WebConnectivityBanner />
       {f.showRegionBar && <RegionBar />}
       {f.showOwnerLiteStoreBar ? <OwnerLiteStoreBarLazy /> : null}

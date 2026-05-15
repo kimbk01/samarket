@@ -37,6 +37,7 @@ export async function getCommunityMessengerHomeSyncBundle(
       tier: "critical",
       roomListCap: COMMUNITY_MESSENGER_HOME_SYNC_CRITICAL_ROOM_CAP,
       homeSyncSkipHeavyEnrich: true,
+      deferTradeMetaEnrich: true,
       trace: options?.trace,
     });
     if (homeSyncTraceMeterEnabled(options?.trace)) {
@@ -73,6 +74,7 @@ export async function getCommunityMessengerHomeSyncBundle(
       tier: "full",
       roomListCap: COMMUNITY_MESSENGER_HOME_SYNC_FULL_ROOM_CAP,
       homeSyncSkipHeavyEnrich: true,
+      deferTradeMetaEnrich: true,
       trace: options?.trace,
     }),
     (async () => {

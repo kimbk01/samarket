@@ -22,6 +22,7 @@ import type { ProfileRow } from "@/lib/profile/types";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
+import { logRoutePerf } from "@/lib/http/route-perf-log";
 
 export async function requireAuth(): Promise<
   { ok: true; userId: string } | { ok: false; response: NextResponse }
@@ -76,6 +77,50 @@ export async function validateActiveSession(
     }
   }
   return { ok: true, profile };
+}
+
+/**
+ * `GET /api/auth/session` 등 경량 검증 — `profiles` 전체 행 대신 `active_session_id` 만 조회.
+ */
+export async function validateActiveSessionLight(
+  userId: string,
+  currentSessionId?: string | null
+): Promise<{ ok: true } | { ok: false; response: NextResponse }> {
+  const sbRead = tryCreateSupabaseServiceClient() ?? (await createSupabaseRouteHandlerClient());
+  if (!sbRead) {
+    return { ok: false, response: jsonError("인증 설정이 준비되지 않았습니다.", 503, { authenticated: false }) };
+  }
+  const { data: pr, error } = await sbRead
+    .from("profiles")
+    .select("active_session_id")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error || !pr) {
+    return { ok: false, response: jsonError("프로필을 찾을 수 없습니다.", 404) };
+  }
+  const activeSessionId = String((pr as { active_session_id?: string | null }).active_session_id ?? "").trim();
+  const sessionId = (currentSessionId ?? (await readActiveSessionIdCookie()) ?? "").trim();
+  if (!sessionId) {
+    return { ok: false, response: jsonError("로그인이 필요합니다.", 401, { authenticated: false }) };
+  }
+  const sb = tryCreateSupabaseServiceClient();
+  if (sb) {
+    const registryOk = await validateUserSessionRegistry(sb, userId, sessionId);
+    if (!registryOk) {
+      if (activeSessionId && activeSessionId !== sessionId) {
+        return { ok: false, response: sessionReplacedResponse() };
+      }
+      return { ok: false, response: jsonError("로그인이 필요합니다.", 401, { authenticated: false }) };
+    }
+  } else {
+    if (activeSessionId && activeSessionId !== sessionId) {
+      return { ok: false, response: sessionReplacedResponse() };
+    }
+    if (!activeSessionId && !sessionId) {
+      return { ok: false, response: jsonError("로그인이 필요합니다.", 401, { authenticated: false }) };
+    }
+  }
+  return { ok: true };
 }
 
 export async function requirePhoneVerified(
@@ -173,6 +218,8 @@ export async function syncActiveSessionForUser(
     >;
     /** sync UPDATE·registry 실행 여부 등 */
     syncTelemetry?: SyncSessionTelemetry;
+    /** GET /api/me/profile 등: profiles UPDATE·registry 를 응답 전에 await 하지 않고 백그라운드 실행 */
+    deferBlockingDbWrites?: boolean;
   }
 ): Promise<{ sessionId: string | null; profile: ProfileRow | null }> {
   const phase = options?.devSyncPhaseMs;
@@ -317,6 +364,101 @@ export async function syncActiveSessionForUser(
       profile: {
         ...profile,
         active_session_id: nextSessionId,
+      },
+    };
+  }
+
+  if (options?.deferBlockingDbWrites && sb && !skipHeavyWrites) {
+    if (tel) {
+      tel.sync_profiles_update_skipped = 1;
+      tel.sync_profiles_update_executed = 0;
+      tel.sync_registry_sync_skipped = 1;
+      tel.sync_registry_sync_executed = 0;
+      tel.sync_touch_reason = "deferred_fire_and_forget";
+      tel.sync_profile_write_skipped_reason = "deferred_fire_and_forget";
+      tel.sync_registry_write_skipped_reason = "deferred_fire_and_forget";
+    }
+    logRoutePerf({
+      route: "/api/me/profile",
+      phase: "sync_session_deferred_before",
+      before_ms: 0,
+      total_ms: 0,
+      db_ms: 0,
+      cache_hit: 0,
+      auth_ms: 0,
+      serialize_ms: 0,
+    });
+    const tcDeferCookie = devPerfNow();
+    await setActiveSessionCookie(response, nextSessionId, cookieSecure);
+    if (phase) {
+      phase.sync_cookie_ms = (phase.sync_cookie_ms ?? 0) + Math.round(devPerfNow() - tcDeferCookie);
+    }
+    const sbCaptured = sb;
+    const uid = userId;
+    const sid = nextSessionId;
+    const sm = options?.sessionMeta;
+    const loginId =
+      options?.loginIdentifier?.trim() || profile?.auth_login_email?.trim() || profile?.email?.trim() || null;
+    const schedule = () => {
+      void (async () => {
+        const tBg0 = devPerfNow();
+        try {
+          const { error: profileUpdateError } = await sbCaptured
+            .from("profiles")
+            .update({
+              active_session_id: sid,
+              last_login_at: new Date().toISOString(),
+              last_device_info: sm?.deviceInfo?.trim() || null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", uid);
+          if (profileUpdateError) {
+            const m = String(profileUpdateError.message ?? "").toLowerCase();
+            const schemaDrift =
+              profileUpdateError.code === "42703" ||
+              m.includes("schema cache") ||
+              m.includes("could not find") ||
+              m.includes("column") ||
+              m.includes("active_session_id") ||
+              m.includes("last_login_at") ||
+              m.includes("last_device_info");
+            if (!schemaDrift) {
+              console.error("[syncActiveSessionForUser] deferred profile update", profileUpdateError.message);
+            }
+          }
+          try {
+            await syncUserSessionRegistry(sbCaptured, uid, {
+              nextSessionId: sid,
+              deviceInfo: sm?.deviceInfo?.trim() || null,
+              loginIdentifier: loginId,
+              deviceKey: sm?.deviceKey ?? null,
+              browserKey: sm?.browserKey ?? null,
+              ipAddress: sm?.ipAddress ?? null,
+            });
+          } catch {
+            /* Session registry drift — login must not fail */
+          }
+          logRoutePerf({
+            route: "/api/me/profile",
+            phase: "sync_session_deferred_after",
+            after_ms: Math.round(devPerfNow() - tBg0),
+            total_ms: Math.round(devPerfNow() - tBg0),
+            db_ms: Math.round(devPerfNow() - tBg0),
+          });
+        } catch (e) {
+          console.error("[syncActiveSessionForUser] deferred", e);
+        }
+      })();
+    };
+    if (typeof setImmediate !== "undefined") setImmediate(schedule);
+    else queueMicrotask(schedule);
+    return {
+      sessionId: nextSessionId,
+      profile: {
+        ...profile,
+        active_session_id: nextSessionId,
+        last_login_at: new Date().toISOString(),
+        last_device_info: options?.sessionMeta?.deviceInfo?.trim() || null,
       },
     };
   }

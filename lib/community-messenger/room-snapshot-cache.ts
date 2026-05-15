@@ -9,6 +9,11 @@ import {
   parseCommunityMessengerRoomSnapshotResponse,
 } from "@/lib/community-messenger/messenger-room-bootstrap";
 import { prefetchTrace } from "@/lib/community-messenger/prefetch-dev-trace";
+import {
+  markRoomPrefetchAttempt,
+  markRoomPrefetchComplete,
+  wasRoomPrefetchRecentlySuccessful,
+} from "@/lib/community-messenger/room/cm-bootstrap-scheduling";
 import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
 
 const TTL_MS = 60_000;
@@ -179,15 +184,44 @@ export function peekRoomSnapshot(roomId: string, viewerUserId?: string | null): 
 }
 
 export function isRoomSnapshotFresh(roomId: string, viewerUserId?: string | null): boolean {
+  return isRoomSnapshotFreshWithin(roomId, TTL_MS, viewerUserId);
+}
+
+/** 캐시 행 age(ms). 없으면 null */
+export function getRoomSnapshotCacheAgeMs(
+  roomId: string,
+  viewerUserId?: string | null
+): number | null {
   const r = roomId.trim();
-  if (!r) return false;
+  if (!r) return null;
+  const now = Date.now();
   if (typeof viewerUserId === "string" && viewerUserId.trim()) {
     const row = entries.get(cacheKey(r, viewerUserId.trim()));
-    return !!row && Date.now() - row.at <= TTL_MS;
+    return row ? now - row.at : null;
+  }
+  const suffix = `:${r}`;
+  let bestAt: number | null = null;
+  for (const [k, row] of entries) {
+    if (!k.endsWith(suffix)) continue;
+    if (bestAt == null || row.at > bestAt) bestAt = row.at;
+  }
+  return bestAt != null ? now - bestAt : null;
+}
+
+export function isRoomSnapshotFreshWithin(
+  roomId: string,
+  maxAgeMs: number,
+  viewerUserId?: string | null
+): boolean {
+  const r = roomId.trim();
+  if (!r || maxAgeMs <= 0) return false;
+  if (typeof viewerUserId === "string" && viewerUserId.trim()) {
+    const row = entries.get(cacheKey(r, viewerUserId.trim()));
+    return !!row && Date.now() - row.at <= maxAgeMs;
   }
   const suffix = `:${r}`;
   for (const [k, row] of entries) {
-    if (k.endsWith(suffix) && Date.now() - row.at <= TTL_MS) return true;
+    if (k.endsWith(suffix) && Date.now() - row.at <= maxAgeMs) return true;
   }
   return false;
 }
@@ -336,6 +370,10 @@ export async function prefetchCommunityMessengerRoomSnapshot(
   const key = roomId.trim();
   if (!key) return false;
   const force = opts?.force === true;
+  if (!force && wasRoomPrefetchRecentlySuccessful(key)) {
+    prefetchTrace("prefetch_skip_recent_success", { roomIdSuffix: key.slice(-8) });
+    return true;
+  }
   const flightKey = `cm:prefetch-room-snapshot:${key}`;
   const inflight = getSingleFlightPromise<boolean>(flightKey);
   if (inflight) {
@@ -343,9 +381,14 @@ export async function prefetchCommunityMessengerRoomSnapshot(
     return inflight;
   }
   return runSingleFlight(flightKey, async () => {
+    if (!force && !markRoomPrefetchAttempt(key)) {
+      prefetchTrace("prefetch_skip_cooldown_or_inflight", { roomIdSuffix: key.slice(-8) });
+      return false;
+    }
     prefetchTrace("prefetch_flight_execute", { roomIdSuffix: key.slice(-8), force });
     if (!force && isRoomSnapshotFresh(key)) {
       prefetchTrace("prefetch_skip_fresh_inside_flight", { roomIdSuffix: key.slice(-8) });
+      markRoomPrefetchComplete(key, true);
       return true;
     }
     if (force) invalidateRoomSnapshot(key);
@@ -369,11 +412,13 @@ export async function prefetchCommunityMessengerRoomSnapshot(
         lastPrefetchSuccessAt = Date.now();
         primeRoomSnapshot(key, snap);
         primeHotRoomSnapshot(key, snap);
+        markRoomPrefetchComplete(key, true);
         return true;
       }
     } catch {
       // ignore
     }
+    markRoomPrefetchComplete(key, false);
     return false;
   });
 }

@@ -67,10 +67,10 @@ type Hs5RpcDebugPayload = {
   rpc_product_rows_count?: unknown;
 };
 
-const HS5_LEGACY_ROW_CACHE_TTL_MS = 2500;
+const HS5_LEGACY_ROW_CACHE_TTL_MS = 3_000;
 const HS5_LEGACY_ROW_CACHE_MAX_KEYS = 500;
 
-type Hs5LegacyLoadResult = {
+export type Hs5LegacyLoadResult = {
   itemTradeRows: unknown[];
   pcRows: unknown[];
   itErr: unknown | null;
@@ -93,17 +93,100 @@ function pruneHs5LegacyRowCache(now: number): void {
   }
 }
 
-/** CM room id·PC id·요약 직전 participant unread — 짧은 TTL 내 HS5 행 재사용 키 */
+function isTradeRoomSummaryForHs5(s: CommunityMessengerRoomSummary): boolean {
+  if (s.contextMeta?.kind === "trade") return true;
+  const dk = t(s.messengerDirectKey);
+  return dk.startsWith("trade_pc:") || dk.startsWith("trade_item:");
+}
+
+function productChatIdForHs5Summary(s: CommunityMessengerRoomSummary): string {
+  const fromMeta = t(s.contextMeta?.productChatId);
+  if (fromMeta) return fromMeta;
+  const dk = t(s.messengerDirectKey);
+  if (dk.startsWith("trade_pc:")) return dk.slice("trade_pc:".length).trim();
+  return "";
+}
+
+/** 동일 viewer·room·pc 집합 — critical HS5 RPC 재호출 방지(최대 3s stale 허용) */
+function hs5LegacyCacheKeyByRoomSet(uid: string, cmRoomIds: string[], productChatIds: string[]): string {
+  return `${uid}\0r:${[...cmRoomIds].sort().join(",")}\0p:${[...productChatIds].sort().join(",")}`;
+}
+
+/** @deprecated inflight dedupe — unread 시그니처 포함(비-critical 경로) */
 function fingerprintHs5LegacyRows(uid: string, tradeSummaries: CommunityMessengerRoomSummary[]): string {
   const roomIds = [...new Set(tradeSummaries.map((s) => t(s.id)).filter(Boolean))].sort();
-  const pcIds = [
-    ...new Set(tradeSummaries.map((s) => t(s.contextMeta?.productChatId)).filter(Boolean)),
-  ].sort();
+  const pcIds = [...new Set(tradeSummaries.map((s) => productChatIdForHs5Summary(s)).filter(Boolean))].sort();
   const unreadSig = tradeSummaries
     .map((s) => `${t(s.id)}:${Math.max(0, Math.floor(Number(s.unreadCount) || 0))}`)
     .sort()
     .join("|");
   return `${uid}\0${roomIds.join(",")}\0${pcIds.join(",")}\0${unreadSig}`;
+}
+
+/**
+ * home-sync critical — `hydrateProfiles` 와 병렬로 HS5 RPC 행만 미리 가져온다(응답 의미 동일).
+ */
+export async function prefetchHs5LegacyUnreadRows(
+  sbAny: SupabaseClient<any>,
+  viewerUserId: string,
+  cmRoomIds: string[],
+  productChatIds: string[],
+  homeSyncTrace?: HomeSyncTrace
+): Promise<Hs5LegacyLoadResult | null> {
+  const uid = t(viewerUserId);
+  const rooms = dedupeStrings(cmRoomIds);
+  if (!uid || !rooms.length) return null;
+
+  const pcIds = dedupeStrings(productChatIds);
+  const cacheKey = hs5LegacyCacheKeyByRoomSet(uid, rooms, pcIds);
+  const clock = Date.now();
+  const cached = hs5LegacyRowCache.get(cacheKey);
+  if (cached && cached.exp >= clock) {
+    console.log("[home-sync-unread-cache-hit]", {
+      room_count: rooms.length,
+      product_chat_count: pcIds.length,
+      path: cached.payload.unreadLegacyFetchPath,
+    });
+    if (homeSyncTraceMeterEnabled(homeSyncTrace)) {
+      const tr = homeSyncTrace!;
+      tr.deepSteps.unreadHomeSyncSteps = {
+        ...(tr.deepSteps.unreadHomeSyncSteps ?? {}),
+        unreadCacheHit: true,
+        unreadBootstrapCacheHit: 1,
+        unreadBootstrapSkipReason: "hs5_row_ttl_cache_prefetch",
+      };
+    }
+    return cached.payload;
+  }
+
+  const existingFlight = hs5LegacyInflight.get(cacheKey);
+  if (existingFlight) {
+    console.log("[home-sync-unread-cache-miss]", { reason: "inflight_join", room_count: rooms.length });
+    return existingFlight;
+  }
+
+  console.log("[home-sync-unread-cache-miss]", { reason: "cold_or_ttl_expired", room_count: rooms.length });
+  const flight = (async (): Promise<Hs5LegacyLoadResult> => {
+    const got = await loadHs5LegacyRowsUncached(sbAny, rooms, pcIds);
+    if (!got.itErr) {
+      hs5LegacyRowCache.set(cacheKey, {
+        exp: Date.now() + HS5_LEGACY_ROW_CACHE_TTL_MS,
+        payload: {
+          ...got,
+          itemTradeRows: [...got.itemTradeRows],
+          pcRows: [...got.pcRows],
+        },
+      });
+      pruneHs5LegacyRowCache(Date.now());
+    }
+    return got;
+  })();
+  hs5LegacyInflight.set(cacheKey, flight);
+  try {
+    return await flight;
+  } finally {
+    hs5LegacyInflight.delete(cacheKey);
+  }
 }
 
 async function loadHs5LegacyRowsUncached(
@@ -238,7 +321,8 @@ export async function enrichMessengerTradeUnreadWithLegacyTrade(
   /** 관측 전용 — 동작·합산 로직 불변 */
   metrics?: { dbRoundTrips: number },
   /** dev home-sync trace — 동작 불변, `deepSteps.unreadHomeSyncSteps` 만 병합 */
-  homeSyncTrace?: HomeSyncTrace
+  homeSyncTrace?: HomeSyncTrace,
+  opts?: { preloadedLegacy?: Hs5LegacyLoadResult | null }
 ): Promise<void> {
   const patchUnread = (p: Partial<HomeSyncDeepStepsUnreadBadge>) => {
     if (!homeSyncTraceMeterEnabled(homeSyncTrace)) return;
@@ -277,7 +361,7 @@ export async function enrichMessengerTradeUnreadWithLegacyTrade(
   }
 
   const tDedupe = performance.now();
-  const tradeSummaries = summaries.filter((s) => s.contextMeta?.kind === "trade");
+  const tradeSummaries = summaries.filter(isTradeRoomSummaryForHs5);
   const cmRoomIds = dedupeStrings(tradeSummaries.map((s) => s.id));
   const roomIdDedupeMs = performance.now() - tDedupe;
   patchUnread({ roomIdDedupeMs: ms(roomIdDedupeMs) });
@@ -297,9 +381,7 @@ export async function enrichMessengerTradeUnreadWithLegacyTrade(
     return;
   }
 
-  const productChatIds = dedupeStrings(
-    tradeSummaries.map((s) => t(s.contextMeta?.productChatId)).filter(Boolean)
-  );
+  const productChatIds = dedupeStrings(tradeSummaries.map((s) => productChatIdForHs5Summary(s)).filter(Boolean));
 
   patchUnread({
     unreadRoomIdsCount: cmRoomIds.length,
@@ -309,6 +391,7 @@ export async function enrichMessengerTradeUnreadWithLegacyTrade(
     unreadBootstrapRoomCount: cmRoomIds.length,
   });
 
+  const roomSetKey = hs5LegacyCacheKeyByRoomSet(uid, cmRoomIds, productChatIds);
   const fp = fingerprintHs5LegacyRows(uid, tradeSummaries);
   const tWall = performance.now();
   let unreadBootstrapParallelWaitMsNum = 0;
@@ -327,9 +410,30 @@ export async function enrichMessengerTradeUnreadWithLegacyTrade(
   let dbRoundTrips = 0;
   let usedRpcBundle = false;
 
+  const preloaded = opts?.preloadedLegacy;
+  if (preloaded) {
+    itemTradeRows = preloaded.itemTradeRows;
+    pcRows = preloaded.pcRows;
+    itErr = preloaded.itErr;
+    usedRpcBundle = preloaded.usedRpcBundle;
+    dbRoundTrips = 0;
+    legacyChatRoomsFetchMs = 0;
+    legacyProductChatsFetchMs = 0;
+    unreadLegacyFetchPath = preloaded.unreadLegacyFetchPath;
+    unreadRpcBundleMs = 0;
+    unreadBootstrapCacheHit = 1;
+    unreadBootstrapSkipReason = "prefetch_parallel_apply";
+    console.log("[home-sync-unread-cache-hit]", {
+      room_count: cmRoomIds.length,
+      product_chat_count: productChatIds.length,
+      path: preloaded.unreadLegacyFetchPath,
+      phase: "apply_preloaded",
+    });
+  }
+
   const clock = Date.now();
-  const cached = hs5LegacyRowCache.get(fp);
-  if (cached && cached.exp >= clock) {
+  const cached = !preloaded ? hs5LegacyRowCache.get(roomSetKey) : undefined;
+  if (!preloaded && cached && cached.exp >= clock) {
     const pay = cached.payload;
     itemTradeRows = pay.itemTradeRows;
     pcRows = pay.pcRows;
@@ -343,8 +447,17 @@ export async function enrichMessengerTradeUnreadWithLegacyTrade(
     rpcDbgPayload = undefined;
     unreadBootstrapCacheHit = 1;
     unreadBootstrapSkipReason = "hs5_row_ttl_cache";
-  } else {
-    const existingFlight = hs5LegacyInflight.get(fp);
+    console.log("[home-sync-unread-cache-hit]", {
+      room_count: cmRoomIds.length,
+      product_chat_count: productChatIds.length,
+      path: pay.unreadLegacyFetchPath,
+    });
+  } else if (!preloaded) {
+    console.log("[home-sync-unread-cache-miss]", {
+      reason: "cold_or_ttl_expired",
+      room_count: cmRoomIds.length,
+    });
+    const existingFlight = hs5LegacyInflight.get(roomSetKey) ?? hs5LegacyInflight.get(fp);
     if (existingFlight) {
       unreadBootstrapCacheMissReason = "inflight_join";
       const tJoin = performance.now();
@@ -365,19 +478,21 @@ export async function enrichMessengerTradeUnreadWithLegacyTrade(
       const flight = (async (): Promise<Hs5LegacyLoadResult> => {
         const got = await loadHs5LegacyRowsUncached(sbAny, cmRoomIds, productChatIds);
         if (!got.itErr) {
-          hs5LegacyRowCache.set(fp, {
+          const snap = {
             exp: Date.now() + HS5_LEGACY_ROW_CACHE_TTL_MS,
             payload: {
               ...got,
               itemTradeRows: [...got.itemTradeRows],
               pcRows: [...got.pcRows],
             },
-          });
+          };
+          hs5LegacyRowCache.set(roomSetKey, snap);
+          hs5LegacyRowCache.set(fp, snap);
           pruneHs5LegacyRowCache(Date.now());
         }
         return got;
       })();
-      hs5LegacyInflight.set(fp, flight);
+      hs5LegacyInflight.set(roomSetKey, flight);
       try {
         const got = await flight;
         itemTradeRows = got.itemTradeRows;
@@ -391,6 +506,7 @@ export async function enrichMessengerTradeUnreadWithLegacyTrade(
         unreadRpcBundleMs = got.unreadRpcBundleMs;
         rpcDbgPayload = got.rpcDbgPayload;
       } finally {
+        hs5LegacyInflight.delete(roomSetKey);
         hs5LegacyInflight.delete(fp);
       }
     }
@@ -532,7 +648,7 @@ export async function enrichMessengerTradeUnreadWithLegacyTrade(
     }
 
     let legacy = 0;
-    const pcid = t(s.contextMeta?.productChatId);
+    const pcid = productChatIdForHs5Summary(s);
     const pc = pcid ? pcById.get(pcid) : undefined;
     if (pc) {
       const amSeller = pc.seller_id === uid;

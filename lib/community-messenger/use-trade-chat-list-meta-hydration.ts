@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { getMessengerBackgroundHydrationScheduler } from "@/lib/community-messenger/background-hydration-scheduler";
+import { shouldDeferTradeChatListMetaHydration } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
 import { primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { communityMessengerRoomIsTrade } from "@/lib/community-messenger/messenger-room-domain";
 import type {
@@ -81,6 +82,7 @@ export function useTradeChatListMetaHydration(args: {
 
   useEffect(() => {
     if (!enabled || !viewerUserId || !missingKey) return;
+    if (shouldDeferTradeChatListMetaHydration()) return;
     const roomIds = missingKey.split(",").filter(Boolean);
     if (roomIds.length === 0) return;
 

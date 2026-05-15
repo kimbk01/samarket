@@ -131,6 +131,8 @@ export type OwnerStoreProfileFormValues = {
   isOpen: boolean;
   profileImageUrl: string;
   deliveryAvailable: boolean;
+  /** 공개 메뉴판에서 품절을 섹션 하단으로 모음 */
+  menuSoldOutBottom: boolean;
   pickupAvailable: boolean;
   hoursNote: string;
   /** 매장 창 영업시간 — business_hours_json.auto_business_hours */
@@ -221,6 +223,7 @@ function rowToFormValues(row: StoreRow): OwnerStoreProfileFormValues {
     isOpen: row.is_open !== false,
     profileImageUrl: row.profile_image_url ?? "",
     deliveryAvailable: row.delivery_available === true,
+    menuSoldOutBottom: row.menu_sold_out_bottom === true,
     pickupAvailable: row.pickup_available !== false,
     ...readAutoHoursFormFields(row.business_hours_json),
     breakHoursEnabled: breakOn,
@@ -597,6 +600,7 @@ export function OwnerStoreProfileForm({
             /** 매장명·업종은 승인 시 고정. 로고·소개·연락처·주소 등은 기본 정보 화면에서만 PATCH */
             is_open: values.isOpen,
             delivery_available: values.deliveryAvailable,
+            menu_sold_out_bottom: values.menuSoldOutBottom,
             pickup_available: values.pickupAvailable,
             business_hours_json,
             gallery_images_json,
@@ -870,6 +874,23 @@ export function OwnerStoreProfileForm({
       </OwnerStoreAdminDashSection>
 
       <OwnerStoreAdminDashSection title="공개 페이지 — 배달·결제·안내">
+        <div className="flex cursor-pointer items-start gap-2.5 rounded-ui-rect border border-sam-border-soft bg-sam-app/40 px-3 py-2.5">
+          <input
+            id={`menu-sold-out-bottom-${storeId}`}
+            type="checkbox"
+            checked={values.menuSoldOutBottom}
+            onChange={(e) => setValues((v) => ({ ...v, menuSoldOutBottom: e.target.checked }))}
+            className="mt-0.5 h-4 w-4 shrink-0 rounded border-sam-border text-signature"
+          />
+          <label htmlFor={`menu-sold-out-bottom-${storeId}`} className="min-w-0 leading-snug">
+            <span className="sam-text-body-secondary font-medium text-sam-fg">
+              메뉴판에서 품절 메뉴를 카테고리 맨 아래로 모으기
+            </span>
+            <span className="mt-0.5 block sam-text-xxs text-sam-muted">
+              끄면 품절 포함 기존 순서를 유지합니다.
+            </span>
+          </label>
+        </div>
         <label className="flex cursor-pointer items-start gap-2.5 rounded-ui-rect border border-sam-border-soft bg-sam-app/40 px-3 py-2.5">
           <input
             type="checkbox"

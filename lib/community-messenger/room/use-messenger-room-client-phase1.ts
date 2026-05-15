@@ -44,7 +44,11 @@ import {
 } from "@/lib/community-messenger/types";
 import { communityMessengerRoomMembersPath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import { buildClientShellPlaceholderSnapshot } from "@/lib/community-messenger/room/client-shell-placeholder-snapshot";
-import { peekRoomSnapshot, primeHotRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
+import {
+  peekRoomSnapshot,
+  primeHotRoomSnapshot,
+  seedRoomSnapshotFromSummary,
+} from "@/lib/community-messenger/room-snapshot-cache";
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { cmReadUiLog } from "@/lib/community-messenger/read/cm-read-ui-log";
 import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-log";
@@ -53,7 +57,12 @@ import {
   createMessengerRoomBootstrapRefresh,
   forgetMessengerRoomClientBootstrapFlights,
 } from "@/lib/community-messenger/room/messenger-room-bootstrap-refresh";
-import { useMessengerRoomBootstrapLifecycle } from "@/lib/community-messenger/room/use-messenger-room-bootstrap-lifecycle";
+import { clearCmBootstrapDebounceForRoom } from "@/lib/community-messenger/room/cm-bootstrap-orchestration";
+import {
+  useMessengerRoomBootstrapLifecycle,
+  type MessengerRoomBootstrapRefreshFn,
+} from "@/lib/community-messenger/room/use-messenger-room-bootstrap-lifecycle";
+import { clearCmRoomForegroundBootstrapLock } from "@/lib/community-messenger/room/cm-room-bootstrap-lock";
 import { useMessengerRoomUrlSyncEffects } from "@/lib/community-messenger/room/use-messenger-room-url-sync-effects";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import {
@@ -85,6 +94,8 @@ import {
   ensureCmRoomEntryRouteT0,
   resetCmRoomEntryTraceSession,
 } from "@/lib/community-messenger/room/cm-room-entry-instrumentation";
+import { beginCmRoomEntryPriorityMode, endCmRoomEntryPriorityMode } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
+import { consumeCommunityMessengerRoomNavTap } from "@/lib/community-messenger/room-nav-timing";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import { acquireCommunityMessengerReadAckBroadcast } from "@/lib/community-messenger/realtime/cm-read-ack-broadcast-client";
 import { useMessengerRoomBumpBroadcastSubscription } from "@/lib/community-messenger/room/use-messenger-room-bump-broadcast-subscription";
@@ -99,6 +110,7 @@ import { useMessengerRoomRemoteCatchup } from "@/lib/community-messenger/room/us
 import { useMessengerRoomLoadOlderMessagesFetch } from "@/lib/community-messenger/room/use-messenger-room-load-older-messages-fetch";
 import { useMessengerRoomLoadOlderMessagesIntersection } from "@/lib/community-messenger/room/use-messenger-room-load-older-messages-intersection";
 import { useMessengerRoomReaderScrollBottom } from "@/lib/community-messenger/room/use-messenger-room-reader-scroll-bottom";
+import { useMessengerRoomTradeDockScrollAnchor } from "@/lib/community-messenger/room/use-messenger-room-trade-dock-scroll-anchor";
 import { useMessengerRoomReaderScrollRoomLifecycle } from "@/lib/community-messenger/room/use-messenger-room-reader-scroll-room-lifecycle";
 import { useMessengerRoomVisibilityBusCatchup } from "@/lib/community-messenger/room/use-messenger-room-visibility-bus-catchup";
 import {
@@ -146,15 +158,27 @@ import {
 
 /** 입장 직후 여러 경로가 동시에 `refresh(true)` 를 열 때 silent bootstrap GET 을 한 번으로 합류 */
 const ROOM_ENTRY_SILENT_REFRESH_BURST_MS = 1000;
-const ROOM_ENTRY_SILENT_REFRESH_DEBOUNCE_MS = 200;
+const ROOM_ENTRY_SILENT_REFRESH_DEBOUNCE_MS = 1200;
 
 function resolveMessengerRoomInitialSnapshot(
   roomId: string,
   initialViewerId: string,
   initialServerSnapshot: CommunityMessengerRoomSnapshot | null
 ): CommunityMessengerRoomSnapshot | null {
-  const listPrimed = peekRoomSnapshot(roomId, initialViewerId || undefined);
-  return listPrimed ?? initialServerSnapshot ?? null;
+  const viewer = initialViewerId.trim();
+  const listPrimed = peekRoomSnapshot(roomId, viewer || undefined);
+  if (listPrimed) return listPrimed;
+  if (viewer) {
+    const summary = getMessengerRealtimeRoomSummary(roomId);
+    if (summary) {
+      const messages = getMessengerRealtimeRoomMessages(roomId);
+      const latest = messages[messages.length - 1] ?? null;
+      seedRoomSnapshotFromSummary({ room: summary, viewerUserId: viewer, message: latest });
+      const seeded = peekRoomSnapshot(roomId, viewer);
+      if (seeded) return seeded;
+    }
+  }
+  return initialServerSnapshot ?? null;
 }
 
 export type MessengerRoomClientPhase1Props = {
@@ -444,14 +468,19 @@ export function useMessengerRoomClientPhase1({
   });
 
   useLayoutEffect(() => {
+    consumeCommunityMessengerRoomNavTap(roomId);
+    beginCmRoomEntryPriorityMode(roomId);
     resetCmRoomEntryTraceSession(roomId);
     cancelMessengerRoomEntryHydration("room_change");
     ensureCmRoomEntryRouteT0();
     attachMessengerRoomEntryHydrationSchedulerSurface(true);
     return () => {
       attachMessengerRoomEntryHydrationSchedulerSurface(false);
+      endCmRoomEntryPriorityMode("room_unmount");
     };
   }, [roomId]);
+
+  /** TRUE PASS-0 shell timing은 `CommunityMessengerRoomPass0Shell` 전용 — Phase1 에서 shell 스테이지를 찍지 않는다. */
 
   useMessengerRoomPhase1ViewerBootstrapDedupSync({
     snapshotViewerUserId: snapshot?.viewerUserId,
@@ -527,6 +556,8 @@ export function useMessengerRoomClientPhase1({
       seededFirstSilentHoldPromiseRef.current = Promise.resolve();
     }
     return () => {
+      clearCmRoomForegroundBootstrapLock(roomId);
+      clearCmBootstrapDebounceForRoom(roomId);
       releaseSeededFirstSilentHoldRef.current?.();
       releaseSeededFirstSilentHoldRef.current = null;
       if (swrDeferredBootstrapTimerRef.current != null) {
@@ -553,8 +584,8 @@ export function useMessengerRoomClientPhase1({
     }
   }, []);
 
-  const refresh = useCallback(
-    async (silent?: boolean, opts?: { forceSilentNetwork?: boolean }) => {
+  const refresh = useCallback<MessengerRoomBootstrapRefreshFn>(
+    async (silent, opts) => {
       if (silent === true && isDevSafeMode() && !opts?.forceSilentNetwork) {
         return;
       }
@@ -910,7 +941,7 @@ export function useMessengerRoomClientPhase1({
         });
         queueMicrotask(() => {
           forgetMessengerRoomClientBootstrapFlights({ roomId: ledgerRoomId, viewerUserId: uid });
-          void refresh(true, { forceSilentNetwork: true });
+          void refresh(true, { forceSilentNetwork: true, triggerReason: "read_patch_force_network" });
         });
       }
     },
@@ -969,7 +1000,7 @@ export function useMessengerRoomClientPhase1({
          * 전체 부트스트랩을 건너뛰어 `readReceipt`(상대 last_read_message_id) 가 영구히 낡은 채로 남을 수 있다.
          * 증분 후 항상 silent 부트스트랩으로 스냅샷(읽음 표시 포함)을 맞춘다 — coalesce 로 폭주 완화.
          */
-        void refresh(true);
+        void refresh(true, { triggerReason: "realtime_on_refresh" });
       })();
     },
   });
@@ -1234,6 +1265,23 @@ export function useMessengerRoomClientPhase1({
     messagesViewportRef,
     messageEndRef,
     roomMessages,
+  });
+
+  const tradeDockScrollAnchorEnabled = useMemo(() => {
+    const room = snapshot?.room;
+    const meta = room?.contextMeta;
+    if (!room || room.roomType !== "direct" || !meta || meta.kind !== "trade") return false;
+    const pcid = typeof meta.productChatId === "string" ? meta.productChatId.trim() : "";
+    return pcid.length > 0;
+  }, [snapshot?.room]);
+
+  useMessengerRoomTradeDockScrollAnchor({
+    enabled: tradeDockScrollAnchorEnabled,
+    messagesViewportRef,
+    messageEndRef,
+    virtualizer: chatVirtualizer,
+    messageCount: displayRoomMessages.length,
+    stickToBottomRef,
   });
 
   useEffect(() => {

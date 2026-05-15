@@ -35,6 +35,11 @@ import {
   MESSENGER_HOME_SILENT_SYNC_PATH_ROUNDTRIP_DEBOUNCE_MS,
   MESSENGER_HOME_SILENT_SYNC_ROUTE_STABILIZE_MS,
 } from "@/lib/community-messenger/messenger-latency-config";
+import {
+  deferHomeSyncFetch,
+  noteHomeSyncInflightDuringEntry,
+  shouldDeferHomeSyncStart,
+} from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
 
 const FLIGHT_KEY = "community-messenger:home:silent:home_sync";
 
@@ -146,6 +151,13 @@ export function fetchCommunityMessengerHomeSilentLists(
   opts: FetchCommunityMessengerHomeSilentListsOpts = {}
 ): Promise<CommunityMessengerHomeSilentListsPayload> {
   void opts.signal;
+  if (shouldDeferHomeSyncStart()) {
+    return new Promise((resolve, reject) => {
+      deferHomeSyncFetch(() => {
+        fetchCommunityMessengerHomeSilentLists(opts).then(resolve).catch(reject);
+      });
+    });
+  }
   const tier = opts.tier ?? "full";
   const flightKey = `${FLIGHT_KEY}:${tier}`;
   const url = homeSyncUrl(tier);
@@ -230,8 +242,10 @@ export function fetchCommunityMessengerHomeSilentLists(
   });
 
   return runSingleFlight(flightKey, async () => {
+    noteHomeSyncInflightDuringEntry(true);
     recordMessengerHomeHomeSyncNetworkFetch();
     const t0 = typeof performance !== "undefined" ? performance.now() : 0;
+    try {
     const res = await fetch(url, {
       cache: "default",
       credentials: "include",
@@ -264,5 +278,8 @@ export function fetchCommunityMessengerHomeSilentLists(
       lastReplayableByTier.delete(flightKey);
     }
     return { res, json };
+    } finally {
+      noteHomeSyncInflightDuringEntry(false);
+    }
   });
 }

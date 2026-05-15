@@ -1,4 +1,19 @@
 import {
+  CM_ROOM_PREFETCH_COOLDOWN_MS,
+  isRoomPrefetchInflight,
+  markRoomPrefetchAttempt,
+  markRoomPrefetchComplete,
+  wasRoomPrefetchRecentlySuccessful,
+} from "@/lib/community-messenger/room/cm-bootstrap-scheduling";
+import {
+  logCmPrefetchSkip,
+  wasRoomForegroundBootstrapRecentlySuccessful,
+} from "@/lib/community-messenger/room/cm-room-bootstrap-lock";
+import {
+  getActiveOpeningRoomId,
+  shouldSkipRoomPrefetchDuringEntry,
+} from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
+import {
   isRoomSnapshotFresh,
   prefetchCommunityMessengerRoomSnapshot,
 } from "@/lib/community-messenger/room-snapshot-cache";
@@ -74,8 +89,30 @@ export function enqueueRoomPrefetch(roomId: string, priorityScore = 0): void {
   if (isConstrainedNetwork()) return;
   const id = String(roomId ?? "").trim();
   if (!id) return;
+  if (shouldSkipRoomPrefetchDuringEntry(id)) {
+    const active = getActiveOpeningRoomId();
+    logCmPrefetchSkip({
+      roomId: id,
+      reason: active === id ? "active_room_opening" : "room_entry_priority",
+    });
+    prefetchTrace("enqueue_skip_room_entry_priority", { roomIdSuffix: id.slice(-8) });
+    return;
+  }
   if (isRoomSnapshotFresh(id)) {
     prefetchTrace("enqueue_skip_ttl_fresh", { roomIdSuffix: id.slice(-8) });
+    return;
+  }
+  if (wasRoomPrefetchRecentlySuccessful(id)) {
+    prefetchTrace("enqueue_skip_recent_success", { roomIdSuffix: id.slice(-8), cooldownMs: CM_ROOM_PREFETCH_COOLDOWN_MS });
+    return;
+  }
+  if (wasRoomForegroundBootstrapRecentlySuccessful(id)) {
+    logCmPrefetchSkip({ roomId: id, reason: "foreground_recent_success" });
+    prefetchTrace("enqueue_skip_foreground_recent_success", { roomIdSuffix: id.slice(-8) });
+    return;
+  }
+  if (isRoomPrefetchInflight(id)) {
+    prefetchTrace("enqueue_skip_inflight", { roomIdSuffix: id.slice(-8) });
     return;
   }
   const existingIdx = queue.findIndex((x) => x.id === id);

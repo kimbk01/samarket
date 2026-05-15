@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import { runTradeChatListMetaWithDedupe } from "@/lib/community-messenger/trade-chat-list-meta-route-cache";
+import { runWithTradeMetaRequestScope } from "@/lib/community-messenger/trade-meta-request-scope";
 import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
 
 export const runtime = "nodejs";
@@ -47,10 +48,25 @@ export async function POST(req: NextRequest) {
 
   const hydrate0 = devPerfNow();
   const { hydrateTradeChatListContextMetaForRoomIds } = await import("@/lib/community-messenger/service");
-  const { patches, perf } = await runTradeChatListMetaWithDedupe(auth.userId, roomIds, () =>
-    hydrateTradeChatListContextMetaForRoomIds(auth.userId, roomIds)
+  console.log("[trade-meta-perf]", {
+    phase: "before",
+    room_count: roomIds.length,
+    user_id_tail: auth.userId.slice(-6),
+  });
+  const { patches, perf } = await runWithTradeMetaRequestScope(() =>
+    runTradeChatListMetaWithDedupe(auth.userId, roomIds, () =>
+      hydrateTradeChatListContextMetaForRoomIds(auth.userId, roomIds)
+    )
   );
   const hydrateMs = devPerfNow() - hydrate0;
+  console.log("[trade-meta-perf]", {
+    phase: "after",
+    room_count: roomIds.length,
+    patch_count: patches.length,
+    trade_chat_meta_total_ms: typeof perf.trade_chat_meta_total_ms === "number" ? perf.trade_chat_meta_total_ms : Math.round(hydrateMs),
+    trade_list_meta_ultra_light: perf.trade_list_meta_ultra_light ?? 0,
+    top_bottleneck: perf.trade_chat_meta_top_bottleneck ?? null,
+  });
 
   const metaTotal = typeof perf.trade_chat_meta_total_ms === "number" ? perf.trade_chat_meta_total_ms : Math.round(hydrateMs);
   logDevApiPerf("/api/community-messenger/trade-chat-list-meta", {

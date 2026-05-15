@@ -6,8 +6,8 @@
 import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
 
 /** 짧은 서버 캐시 — 클라이언트 폴링·다중 탭과 겹쳐도 한 번 계산으로 흡수. 클라 최소 간격은 `lib/chats/owner-hub-badge-store.ts` `MIN_FETCH_GAP_MS` 와 맞춤 */
-/** 짧을수록 수신 직후 교차 지연 완화, 길수록 GET 부하 감소 — 무효화 누락 시에도 10s 내 자연 정합 */
-const HUB_BADGE_TTL_MS = 10_000;
+/** 짧을수록 수신 직후 교차 지연 완화, 길수록 GET 부하 감소 — 무효화 누락 시에도 15s 내 자연 정합 */
+const HUB_BADGE_TTL_MS = 15_000;
 
 export type OwnerHubBadgePayload = {
   ok: true;
@@ -28,6 +28,14 @@ export type OwnerHubBadgePayload = {
 
 const hubBadgeCache = new Map<string, { expiresAt: number; value: OwnerHubBadgePayload }>();
 const hubBadgeFlights = new Map<string, Promise<OwnerHubBadgePayload>>();
+
+/** 라우트 `[route-perf]` cache_hit — 메모리 TTL 엔트리 존재 여부(인플라이트 제외) */
+export function peekOwnerHubBadgeCacheHit(userId: string): boolean {
+  const k = userId.trim();
+  if (!k) return false;
+  const row = hubBadgeCache.get(k);
+  return !!(row && row.expiresAt > Date.now());
+}
 
 export function invalidateOwnerHubBadgeCache(userId: string): void {
   const k = userId.trim();
@@ -60,6 +68,7 @@ export async function getCachedOwnerHubBadge(
   const now = Date.now();
   const cached = hubBadgeCache.get(cacheKey);
   if (cached && cached.expiresAt > now) {
+    console.log("[hub-badge-cache-hit]", { userId: cacheKey, ttl_remaining_ms: cached.expiresAt - now });
     return cached.value;
   }
 
@@ -70,6 +79,7 @@ export async function getCachedOwnerHubBadge(
 
   pruneExpiredHubBadgeCache(now);
 
+  console.log("[hub-badge-cache-miss]", { userId: cacheKey });
   const flight = factory()
     .then((value) => {
       hubBadgeCache.set(cacheKey, {

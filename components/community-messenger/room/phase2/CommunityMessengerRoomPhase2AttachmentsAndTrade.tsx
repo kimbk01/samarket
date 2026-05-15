@@ -8,11 +8,18 @@ import {
 } from "@/components/community-messenger/room/community-messenger-room-phase2-lazy";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { useMessengerRoomMobileViewport } from "@/components/community-messenger/room/phase2/messenger-room-mobile-viewport-context";
+import { useMessengerUIStore } from "@/lib/community-messenger/stores/useMessengerUIStore";
+import { useMatchMaxWidthMd } from "@/lib/ui/use-match-max-width";
 
 export function CommunityMessengerRoomPhase2AttachmentsAndTrade() {
   const vm = useMessengerRoomPhase2View();
   const { messengerKeyboardChromeOpen } = useMessengerRoomMobileViewport();
-  const keyboardCompact = Boolean(messengerKeyboardChromeOpen && !vm.voiceRecording);
+  const composerFocused = useMessengerUIStore((s) => s.composerFocused);
+  const isNarrowViewport = useMatchMaxWidthMd();
+  /** 입력란 바로 위 도크 — 모바일 키보드·포커스 시 1줄 접기(TradeFlowBanner keyboardCompact) */
+  const keyboardCompact = Boolean(
+    isNarrowViewport && !vm.voiceRecording && (messengerKeyboardChromeOpen || composerFocused)
+  );
   return (
     <>
       <input
@@ -50,6 +57,7 @@ export function CommunityMessengerRoomPhase2AttachmentsAndTrade() {
               initialTradeChatRoom={vm.snapshot.tradeChatRoomDetail ?? null}
               onTradeMetaChanged={() => void vm.refresh(true)}
               keyboardCompact={keyboardCompact}
+              dockPlacement="aboveComposer"
             />
           </Suspense>
         </>
