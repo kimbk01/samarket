@@ -4,9 +4,9 @@ import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   type AddStoreCartLineInput,
-  useStoreCommerceCartOptional,
+  useStoreCommerceCartActionsOptional,
 } from "@/contexts/StoreCommerceCartContext";
-import { StoreCartOtherStoreConflictDialog } from "@/components/stores/StoreCartOtherStoreConflictDialog";
+import { openStoreCartConflict } from "@/lib/stores/store-cart-conflict-ui-store";
 import type { ModifierSelectionsWire } from "@/lib/stores/modifiers/types";
 import { StoreModifierPicker } from "@/components/stores/modifiers/StoreModifierPicker";
 import { parseProductOptionsJson } from "@/lib/stores/product-line-options";
@@ -40,10 +40,26 @@ import {
   dibayPerfOnOptionSheetVisible,
   dibayPerfRecordAddToCartClick,
   dibayPerfRecordCartBlockedByOtherStore,
-  dibayPerfRecordCartReplaceConfirm,
-  dibayPerfRecordCartReplaceDone,
   dibayPerfRecordModifierIntent,
 } from "@/lib/dibay/delivery-flow-perf";
+import {
+  DELIVERY_PERF_TAG_CART_PATCH,
+  DELIVERY_PERF_TAG_OPTION_SHEET,
+  deliveryPerfTraceLog,
+} from "@/lib/dibay/delivery-perf-trace";
+import { deliveryRenderTraceBump } from "@/lib/dibay/delivery-render-trace";
+import {
+  countRequiredOptionGroups,
+  countSelectedOptions,
+  deliveryOptionTraceNow,
+  type DeliveryOptionHydrateState,
+  traceDeliveryOptionAddSubmitMs,
+  traceDeliveryOptionPricePatchMs,
+  traceDeliveryOptionSelectMs,
+  traceDeliveryOptionSheetOpenMs,
+  traceDeliveryOptionValidationMs,
+} from "@/lib/dibay/delivery-option-sheet-trace";
+import { getStoreProductSheetOpenMark } from "@/lib/stores/store-product-sheet-ui-store";
 
 type PublicStore = SheetPublicStore;
 
@@ -72,9 +88,7 @@ export function StoreProductAddSheet({
   commerceBlockedHint?: string;
   onAddedToCart?: () => void;
 }) {
-  const commerceCart = useStoreCommerceCartOptional();
-  const [otherStoreConflictOpen, setOtherStoreConflictOpen] = useState(false);
-  const pendingCartLineRef = useRef<AddStoreCartLineInput | null>(null);
+  const commerceCart = useStoreCommerceCartActionsOptional();
 
   const seedPair = useMemo(() => {
     const row = prefetchedListRow ?? null;
@@ -113,19 +127,14 @@ export function StoreProductAddSheet({
   const [lineNote, setLineNote] = useState("");
   const priceInteractionRef = useRef<string | null>(null);
   const sheetPerfOnceRef = useRef<string | null>(null);
-
-  useLayoutEffect(() => {
-    if (!productId) {
-      sheetPerfOnceRef.current = null;
-      return;
-    }
-    if (sheetPerfOnceRef.current === productId) return;
-    sheetPerfOnceRef.current = productId;
-    dibayPerfOnOptionSheetVisible({
-      storeId: sheetStoreContext?.store?.id,
-      productId,
-    });
-  }, [productId, sheetStoreContext?.store?.id]);
+  const renderCountRef = useRef(0);
+  const validationCostMsRef = useRef(0);
+  const priceCostMsRef = useRef(0);
+  const optionInteractionRef = useRef<{
+    t: number;
+    productId: string | null;
+    kind: "option" | "quantity";
+  } | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -155,8 +164,51 @@ export function StoreProductAddSheet({
     () => (product ? parseProductOptionsJson(product.options_json) : []),
     [product?.options_json]
   );
+  const requiredGroupCount = useMemo(() => countRequiredOptionGroups(optionGroups), [optionGroups]);
 
   const mergedHasOptionsFlag = !!(product?.has_options);
+
+  useLayoutEffect(() => {
+    if (!productId) {
+      sheetPerfOnceRef.current = null;
+      return;
+    }
+    if (sheetPerfOnceRef.current === productId) return;
+    sheetPerfOnceRef.current = productId;
+    dibayPerfOnOptionSheetVisible({
+      storeId: sheetStoreContext?.store?.id,
+      productId,
+    });
+    const openMs = Math.max(
+      0,
+      Math.round(
+        (typeof performance !== "undefined" ? performance.now() : Date.now()) -
+          getStoreProductSheetOpenMark()
+      )
+    );
+    deliveryPerfTraceLog(DELIVERY_PERF_TAG_OPTION_SHEET, {
+      event: "pass0_sheet_frame_visible",
+      event_key: `pass0:${productId}`,
+      product_id: productId,
+      store_id: sheetStoreContext?.store?.id,
+      has_seed: hasSeed,
+      pass: 0,
+      value_ms: openMs,
+    });
+    traceDeliveryOptionSheetOpenMs(openMs, {
+      product_id: productId,
+      store_id: sheetStoreContext?.store?.id ?? null,
+      has_options: mergedHasOptionsFlag,
+      required_group_count: 0,
+      selected_option_count: 0,
+      total_price: 0,
+      hydrate_state: hasSeed ? "seed" : "loading",
+      used_seed: hasSeed,
+      full_hydrated: false,
+      render_count: renderCountRef.current,
+    });
+  }, [productId, sheetStoreContext?.store?.id, hasSeed, mergedHasOptionsFlag]);
+
   const fetchResolvedOk = detail.phase === "ok";
   const optionHydrationFailed =
     mergedHasOptionsFlag &&
@@ -170,6 +222,15 @@ export function StoreProductAddSheet({
     !optionHydrationFailed;
 
   const optionsPriceReady = !awaitingOptionHydration && !optionHydrationFailed;
+  const hydrateState: DeliveryOptionHydrateState = optionHydrationFailed
+    ? "error"
+    : fetchResolvedOk
+      ? "full"
+      : hasSeed
+        ? "seed"
+        : detail.phase === "loading"
+          ? "loading"
+          : "empty";
 
   const sheetPrimaryImage = product?.thumbnail_url?.trim() || "";
 
@@ -238,10 +299,12 @@ export function StoreProductAddSheet({
 
   const baseUnit = product ? calculateStoreProductBaseUnit(product) : 0;
 
-  const optionValidation = useMemo(
-    () => validateStoreProductRequiredOptions(optionGroups, modifierWire, baseUnit),
-    [optionGroups, modifierWire, baseUnit]
-  );
+  const optionValidation = useMemo(() => {
+    const t = deliveryOptionTraceNow();
+    const result = validateStoreProductRequiredOptions(optionGroups, modifierWire, baseUnit);
+    validationCostMsRef.current = deliveryOptionTraceNow() - t;
+    return result;
+  }, [optionGroups, modifierWire, baseUnit]);
 
   const sheetCommerce = useMemo(() => {
     if (!store) return null;
@@ -265,19 +328,105 @@ export function StoreProductAddSheet({
     setQty((q) => Math.max(minQ, Math.min(capQty, q)));
   }, [product, minQ, capQty]);
 
-  const unitWithOptions =
-    product && optionsPriceReady && optionValidation.ok
-      ? baseUnit + optionValidation.unitDelta
-      : baseUnit;
-  const lineTotal = unitWithOptions * qty;
+  const optionUnitDelta = optionValidation.ok ? optionValidation.unitDelta : 0;
+  const priceSnapshot = useMemo(() => {
+    const t = deliveryOptionTraceNow();
+    const unit =
+      product && optionsPriceReady && optionValidation.ok
+        ? baseUnit + optionUnitDelta
+        : baseUnit;
+    const total = unit * qty;
+    priceCostMsRef.current = deliveryOptionTraceNow() - t;
+    return { unitWithOptions: unit, lineTotal: total };
+  }, [product, optionsPriceReady, optionValidation.ok, optionUnitDelta, baseUnit, qty]);
+  const unitWithOptions = priceSnapshot.unitWithOptions;
+  const lineTotal = priceSnapshot.lineTotal;
+  const selectedOptionCount = useMemo(() => countSelectedOptions(modifierWire), [modifierWire]);
+  const optionTraceBase = useMemo(
+    () => ({
+      product_id: product?.id ?? productId,
+      store_id: store?.id ?? sheetStoreContext?.store?.id ?? null,
+      has_options: mergedHasOptionsFlag || optionGroups.length > 0,
+      required_group_count: requiredGroupCount,
+      selected_option_count: selectedOptionCount,
+      total_price: lineTotal,
+      hydrate_state: hydrateState,
+      used_seed: hasSeed,
+      full_hydrated: fetchResolvedOk,
+      render_count: renderCountRef.current,
+    }),
+    [
+      product?.id,
+      productId,
+      store?.id,
+      sheetStoreContext?.store?.id,
+      mergedHasOptionsFlag,
+      optionGroups.length,
+      requiredGroupCount,
+      selectedOptionCount,
+      lineTotal,
+      hydrateState,
+      hasSeed,
+      fetchResolvedOk,
+    ]
+  );
+
+  useLayoutEffect(() => {
+    renderCountRef.current += 1;
+    deliveryRenderTraceBump("sheet-add", {
+      product_id: optionTraceBase.product_id ?? undefined,
+      store_id: optionTraceBase.store_id ?? undefined,
+      has_options: optionTraceBase.has_options,
+      required_group_count: optionTraceBase.required_group_count,
+      selected_option_count: optionTraceBase.selected_option_count,
+      total_price: optionTraceBase.total_price,
+      hydrate_state: optionTraceBase.hydrate_state,
+      used_seed: optionTraceBase.used_seed,
+      full_hydrated: optionTraceBase.full_hydrated,
+      render_count: renderCountRef.current,
+    });
+  });
 
   const setModifierWireTracked = useCallback(
     (next: ModifierSelectionsWire | ((prev: ModifierSelectionsWire) => ModifierSelectionsWire)) => {
+      optionInteractionRef.current = {
+        t: deliveryOptionTraceNow(),
+        productId: product?.id ?? productId,
+        kind: "option",
+      };
       dibayPerfRecordModifierIntent(product?.id);
       setModifierWire(next);
     },
-    [product?.id]
+    [product?.id, productId]
   );
+
+  const setQtyTracked = useCallback(
+    (updater: (prev: number) => number) => {
+      optionInteractionRef.current = {
+        t: deliveryOptionTraceNow(),
+        productId: product?.id ?? productId,
+        kind: "quantity",
+      };
+      setQty(updater);
+    },
+    [product?.id, productId]
+  );
+
+  useLayoutEffect(() => {
+    const intent = optionInteractionRef.current;
+    if (!intent || intent.productId !== (product?.id ?? productId)) return;
+    optionInteractionRef.current = null;
+    const elapsed = deliveryOptionTraceNow() - intent.t;
+    const extra = {
+      interaction_kind: intent.kind,
+      price_calc_ms: Math.max(0, Math.round(priceCostMsRef.current)),
+      validation_calc_ms: Math.max(0, Math.round(validationCostMsRef.current)),
+      validation_ok: optionValidation.ok,
+    };
+    traceDeliveryOptionSelectMs(elapsed, optionTraceBase, extra);
+    traceDeliveryOptionPricePatchMs(elapsed, optionTraceBase, extra);
+    traceDeliveryOptionValidationMs(validationCostMsRef.current, optionTraceBase, extra);
+  }, [modifierWire, qty, optionValidation.ok, optionTraceBase, product?.id, productId]);
 
   useEffect(() => {
     if (!productId) {
@@ -305,30 +454,8 @@ export function StoreProductAddSheet({
     });
   }, []);
 
-  const cancelReplaceCart = useCallback(() => {
-    pendingCartLineRef.current = null;
-    setOtherStoreConflictOpen(false);
-  }, []);
-
-  const confirmReplaceCart = useCallback(() => {
-    const line = pendingCartLineRef.current;
-    if (!line || !commerceCart) return;
-    dibayPerfRecordCartReplaceConfirm({ storeId: line.storeId });
-    dibayPerfRecordAddToCartClick(line.storeId);
-    const r = commerceCart.replaceWithLine(line);
-    dibayPerfRecordCartReplaceDone({ storeId: line.storeId });
-    pendingCartLineRef.current = null;
-    setOtherStoreConflictOpen(false);
-    if (!r.ok) {
-      setSheetErr("장바구니를 비운 뒤 담기에 실패했습니다.");
-      return;
-    }
-    cartBarBump(line.storeId);
-    onAddedToCart?.();
-    onClose();
-  }, [commerceCart, cartBarBump, onAddedToCart, onClose]);
-
   function addToCart() {
+    const submitStart = deliveryOptionTraceNow();
     const st = store;
     const pr = product;
     if (!st || !pr || !commerceCart) return;
@@ -340,14 +467,24 @@ export function StoreProductAddSheet({
             ? `준비중 · Break time: ${sheetCommerce.breakRangeLabel}. 쉬는 시간에는 담을 수 없습니다.`
             : "지금은 준비 중이라 담을 수 없습니다."
       );
+      traceDeliveryOptionAddSubmitMs(deliveryOptionTraceNow() - submitStart, optionTraceBase, {
+        status: "blocked_by_commerce",
+      });
       return;
     }
     if (soldOut) {
       setSheetErr("품절인 상품은 담을 수 없습니다.");
+      traceDeliveryOptionAddSubmitMs(deliveryOptionTraceNow() - submitStart, optionTraceBase, {
+        status: "blocked_by_sold_out",
+      });
       return;
     }
     if (!optionValidation.ok) {
       setSheetErr("옵션 선택을 확인해 주세요.");
+      traceDeliveryOptionAddSubmitMs(deliveryOptionTraceNow() - submitStart, optionTraceBase, {
+        status: "blocked_by_validation",
+        validation_calc_ms: Math.max(0, Math.round(validationCostMsRef.current)),
+      });
       return;
     }
     setSheetErr(null);
@@ -404,16 +541,28 @@ export function StoreProductAddSheet({
         existingStoreId: addResult.existingStoreId,
         nextStoreId: addResult.nextStoreId,
       });
-      pendingCartLineRef.current = lineInput;
-      setOtherStoreConflictOpen(true);
+      traceDeliveryOptionAddSubmitMs(deliveryOptionTraceNow() - submitStart, optionTraceBase, {
+        status: "blocked_by_other_store",
+      });
+      openStoreCartConflict(lineInput, () => {
+        cartBarBump(st.id);
+        onAddedToCart?.();
+        onClose();
+      });
       return;
     }
     if (!addResult.ok) {
       setSheetErr("장바구니에 담을 수 없습니다.");
+      traceDeliveryOptionAddSubmitMs(deliveryOptionTraceNow() - submitStart, optionTraceBase, {
+        status: "failed",
+      });
       return;
     }
 
     dibayPerfRecordAddToCartClick(st.id);
+    traceDeliveryOptionAddSubmitMs(deliveryOptionTraceNow() - submitStart, optionTraceBase, {
+      status: "ok",
+    });
     cartBarBump(st.id);
     onAddedToCart?.();
     onClose();
@@ -461,7 +610,6 @@ export function StoreProductAddSheet({
       : `${formatMoneyPhp(lineTotal)} 담기`;
 
   return (
-    <>
     <StoreProductSheetShell onBackdropClose={onClose}>
       <StoreProductSheetHeader title={headerTitle} onClose={onClose} />
 
@@ -681,7 +829,7 @@ export function StoreProductAddSheet({
                   <button
                     type="button"
                     disabled={qtyMinusDisabled}
-                    onClick={() => setQty((q) => Math.max(minQ, q - 1))}
+                    onClick={() => setQtyTracked((q) => Math.max(minQ, q - 1))}
                     className={`flex h-10 w-10 shrink-0 items-center justify-center text-lg font-bold leading-none ${STORE_ORDER_CTA_STEPPER}`}
                     aria-label="수량 감소"
                   >
@@ -693,7 +841,7 @@ export function StoreProductAddSheet({
                   <button
                     type="button"
                     disabled={qtyPlusDisabled}
-                    onClick={() => setQty((q) => Math.min(capQty, q + 1))}
+                    onClick={() => setQtyTracked((q) => Math.min(capQty, q + 1))}
                     className={`flex h-10 w-10 shrink-0 items-center justify-center text-lg font-bold leading-none ${STORE_ORDER_CTA_STEPPER}`}
                     aria-label="수량 증가"
                   >
@@ -769,11 +917,5 @@ export function StoreProductAddSheet({
         </div>
       ) : null}
     </StoreProductSheetShell>
-      <StoreCartOtherStoreConflictDialog
-        open={otherStoreConflictOpen}
-        onCancel={cancelReplaceCart}
-        onClearAndAdd={confirmReplaceCart}
-      />
-    </>
   );
 }

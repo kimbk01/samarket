@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import { StoreDetailPageEnterTrace } from "@/components/stores/detail/StoreDetailPageEnterTrace";
 import { StoreDetailPublic } from "@/components/stores/StoreDetailPublic";
 import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
 
@@ -70,5 +71,10 @@ export default async function StoreDetailPage({
   const { slug } = await params;
   const safe = typeof slug === "string" ? slug : "";
   /** 첫 페인트: 클라이언트에서 즉시 shell → `/api/stores/:slug` hydrate (서버 선조회 대기 제거) */
-  return <StoreDetailPublic key={safe} slug={safe} initialApiResponse={null} />;
+  return (
+    <>
+      <StoreDetailPageEnterTrace slug={safe} />
+      <StoreDetailPublic key={safe} slug={safe} initialApiResponse={null} />
+    </>
+  );
 }

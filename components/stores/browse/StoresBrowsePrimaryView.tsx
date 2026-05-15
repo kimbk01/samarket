@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { buildDeliveryListScrollRouteKey } from "@/lib/dibay/delivery-list-scroll-restore";
+import { useDeliveryListScrollRestore } from "@/lib/dibay/use-delivery-list-scroll-restore";
 import {
   useCallback,
   useEffect,
@@ -165,7 +167,17 @@ export function StoresBrowsePrimaryView({
   initialSubSlug: string | null;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
+  const listScrollSearch = searchParams.toString();
+  const listScrollRouteKey = useMemo(
+    () =>
+      buildDeliveryListScrollRouteKey(
+        pathname ?? `/stores/browse/${primarySlug}`,
+        listScrollSearch ? `?${listScrollSearch}` : ""
+      ),
+    [pathname, primarySlug, listScrollSearch]
+  );
   const industryVersion = useBrowseIndustryDatasetVersion();
   const regionCtx = useRegionOptional();
   const primaryRegion = regionCtx?.primaryRegion ?? null;
@@ -476,6 +488,7 @@ export function StoresBrowsePrimaryView({
   /** browse 목록: `user_lat`/`user_lng`(주소록 우선)로 직선거리 정렬만 수행 — matrix ETA 금지 */
   const hasGeo = browseUserGeo != null;
   const listLoaded = remoteRows !== undefined;
+  useDeliveryListScrollRestore(listScrollRouteKey, listLoaded);
   const useRemoteList = listLoaded && remoteRows.length > 0;
   const sortedRemoteRows = useMemo(() => {
     if (!remoteRows?.length) return remoteRows;

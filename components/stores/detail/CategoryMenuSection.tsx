@@ -1,5 +1,6 @@
 "use client";
 
+import { useLayoutEffect } from "react";
 import type { MenuSection } from "@/lib/stores/group-store-products-by-menu";
 import type { StoreDetailProductCard } from "@/lib/stores/group-store-products-by-menu";
 import { ProductMenuCard } from "@/components/stores/detail/ProductMenuCard";
@@ -17,10 +18,12 @@ export function CategoryMenuSection({
   sectionScrollMarginTopPx,
   storeSlug,
   canSell,
+  boardFlatCount = 0,
   menuSelectBlocked,
   menuSelectHint,
   onOpenProduct,
   onQuickAddProduct,
+  onFirstProductPaint,
 }: {
   section: MenuSection;
   sectionIndex: number;
@@ -30,12 +33,19 @@ export function CategoryMenuSection({
   sectionScrollMarginTopPx?: number;
   storeSlug: string;
   canSell: boolean;
+  boardFlatCount?: number;
   menuSelectBlocked?: boolean;
   menuSelectHint?: string;
   onOpenProduct?: (productId: string) => void;
   onQuickAddProduct?: (product: StoreDetailProductCard) => boolean;
+  onFirstProductPaint?: () => void;
 }) {
   const canInteract = canSell && !menuSelectBlocked;
+
+  useLayoutEffect(() => {
+    if (!onFirstProductPaint || section.items.length === 0) return;
+    onFirstProductPaint();
+  }, [onFirstProductPaint, section.items.length]);
 
   return (
     <section
@@ -65,7 +75,7 @@ export function CategoryMenuSection({
         </p>
       ) : null}
       <div className="mt-2" style={{ background: DibayMenuBoard.pageBg, paddingBottom: 4 }}>
-        {shouldVirtualizeMenuSection(section.items.length) ? (
+        {shouldVirtualizeMenuSection(section.items.length, boardFlatCount) ? (
           <VirtualizedMenuRows
             items={section.items}
             storeSlug={storeSlug}
@@ -73,6 +83,7 @@ export function CategoryMenuSection({
             menuSelectBlocked={menuSelectBlocked}
             onOpenProduct={onOpenProduct}
             onQuickAddProduct={onQuickAddProduct}
+            onFirstRowPaint={onFirstProductPaint}
           />
         ) : (
           <ul className="flex flex-col" style={{ gap: MENU_CARD_GAP_PX }}>

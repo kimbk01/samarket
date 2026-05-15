@@ -7,6 +7,7 @@ import {
   dibayPerfOnOptionDetailFetchDone,
   dibayPerfOnOptionDetailFetchStart,
 } from "@/lib/dibay/delivery-flow-perf";
+import { deliveryTraceSheetHydrateMs } from "@/lib/dibay/delivery-render-trace";
 
 export type ProductSheetDetailPhase = "idle" | "loading" | "ok" | "error";
 
@@ -110,6 +111,7 @@ export function useStoreProductSheetDetail(opts: {
           setApiStore(pj.store);
           setNotFound(false);
           setPhase("ok");
+          deliveryTraceSheetHydrateMs(pid, Math.max(0, performance.now() - startMark));
         }
       } catch {
         if (!cancelled) {

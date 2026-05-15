@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { DeliveryMediaImage } from "@/components/dibay/DeliveryMediaImage";
 import type { MouseEvent } from "react";
 import { memo, useCallback } from "react";
 import { DibayMenuBoard } from "@/lib/stores/dibay-menu-board-tokens";
@@ -122,9 +122,16 @@ export const ProductMenuCard = memo(function ProductMenuCard({
           </span>
         ) : null}
         {thumbSrc ? (
-          <Image src={thumbSrc} alt="" fill sizes={`${sz}px`} className="object-cover" />
+          <DeliveryMediaImage
+            src={thumbSrc}
+            alt=""
+            fill
+            sizes={`${sz}px`}
+            className="object-cover"
+            surface="menu-thumb"
+          />
         ) : (
-          <div className="h-full w-full bg-neutral-100" />
+          <div className="h-full w-full bg-neutral-100" aria-hidden />
         )}
         {soldOut ? <SoldOutOverlay /> : null}
       </div>

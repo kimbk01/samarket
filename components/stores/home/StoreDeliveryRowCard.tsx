@@ -1,13 +1,37 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
+import { DeliveryMediaImage } from "@/components/dibay/DeliveryMediaImage";
 import { useRouter } from "next/navigation";
-import { memo, useRef } from "react";
+import { memo } from "react";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { dibayPerfRecordStoreCardNavigationIntent } from "@/lib/dibay/delivery-flow-perf";
+import {
+  deliveryShellEntryBeginNavigation,
+  deliveryShellEntryMark,
+  deliveryShellEntryScheduleRouterPushStart,
+} from "@/lib/dibay/delivery-shell-entry-trace";
+import {
+  deliveryStoreDetailPrefetch,
+  deliveryStoreDetailPrefetchCheckBeforeTap,
+  deliveryStoreDetailScheduleTapPush,
+} from "@/lib/dibay/delivery-store-detail-prefetch";
+import { useDeliveryStoreDetailViewportPrefetch } from "@/lib/dibay/use-delivery-store-detail-viewport-prefetch";
+import { markStoreDetailListSeedNavigation } from "@/lib/dibay/store-detail-seed-patch-trace";
+import { saveDeliveryListScrollBeforeStoreNavigation } from "@/lib/dibay/delivery-list-scroll-restore";
+import { readStoreDetailListSeed, writeStoreDetailListSeed } from "@/lib/dibay/store-detail-list-seed";
+import { showStoreDetailTransitionShell } from "@/lib/dibay/store-detail-transition-shell-store";
+import { deliveryMenuVisibleBeginNavSession } from "@/lib/dibay/delivery-menu-visible-trace";
+import {
+  deliveryStoreMenusPrewarm,
+  resetDeliveryStoreMenusPrewarmForTests,
+} from "@/lib/dibay/delivery-store-menus-prewarm";
+import {
+  DELIVERY_PERF_TAG_ROUTE_TRANSITION,
+  deliveryPerfTraceLog,
+} from "@/lib/dibay/delivery-perf-trace";
 
 type StoreFeaturedCardItem = {
   productId: string;
@@ -215,14 +239,13 @@ export function browseItemToRowCard(s: BrowseStoreListItem): StoreRowCardData {
  */
 export const StoreDeliveryRowCard = memo(function StoreDeliveryRowCard({ data }: { data: StoreRowCardData }) {
   const router = useRouter();
-  const prefetchedAtRef = useRef<Record<string, number>>({});
   const href = `/stores/${encodeURIComponent(data.slug)}`;
-  const prefetchStoreDetail = () => {
-    const now = Date.now();
-    const last = prefetchedAtRef.current[href] ?? 0;
-    if (now - last < 8_000) return;
-    prefetchedAtRef.current[href] = now;
-    void router.prefetch(href);
+  const viewportRef = useDeliveryStoreDetailViewportPrefetch(data.slug);
+  const prefetchStoreDetail = (
+    source: Parameters<typeof deliveryStoreDetailPrefetch>[2],
+    opts?: { force?: boolean }
+  ) => {
+    deliveryStoreDetailPrefetch(router, data.slug, source, opts);
   };
   const d = distLabel(data.distanceKm);
   const showBrowseStraightPin = data.showStraightLineMapPin === true && !!d;
@@ -263,12 +286,66 @@ export const StoreDeliveryRowCard = memo(function StoreDeliveryRowCard({ data }:
   return (
     <li className="list-none border-b border-[#ECEFF3] bg-white dark:border-[#2F3133] dark:bg-[#18191A]">
       <Link
+        ref={viewportRef}
         href={href}
+        prefetch
         className="block py-[15px] transition-[transform,opacity,background-color] duration-120 ease-out active:scale-[0.985] active:opacity-95 active:bg-[#F8FAFC] dark:active:bg-[#202123]"
-        onPointerEnter={prefetchStoreDetail}
-        onFocus={prefetchStoreDetail}
-        onTouchStart={prefetchStoreDetail}
-        onClick={() => dibayPerfRecordStoreCardNavigationIntent(data.slug)}
+        onPointerEnter={() => prefetchStoreDetail("pointer_enter")}
+        onFocus={() => prefetchStoreDetail("focus")}
+        onPointerDown={() => {
+          deliveryStoreMenusPrewarm(data.slug);
+          prefetchStoreDetail("pointer_down", { force: true });
+        }}
+        onTouchStart={() => {
+          deliveryStoreMenusPrewarm(data.slug);
+          prefetchStoreDetail("touch_start", { force: true });
+        }}
+        onClick={(e) => {
+          e.preventDefault();
+          resetDeliveryStoreMenusPrewarmForTests();
+          deliveryShellEntryBeginNavigation(data.slug);
+          deliveryStoreMenusPrewarm(data.slug, { force: true });
+          saveDeliveryListScrollBeforeStoreNavigation();
+          const prefetch = deliveryStoreDetailPrefetchCheckBeforeTap(href);
+          prefetchStoreDetail("card_click", { force: true });
+          markStoreDetailListSeedNavigation(data.slug);
+          writeStoreDetailListSeed({
+            slug: data.slug,
+            store_name: data.nameKo,
+            profile_image_url: data.profileImageUrl,
+            rating_avg: data.rating,
+            review_count: data.reviewCount,
+            delivery_available: data.deliveryAvailable,
+            pickup_available: data.pickupAvailable,
+            tagline: data.tagline,
+            region_badge: data.regionBadge,
+          });
+          dibayPerfRecordStoreCardNavigationIntent(data.slug);
+          deliveryMenuVisibleBeginNavSession(data.slug);
+          deliveryShellEntryMark("card_tap", {
+            slug: data.slug,
+            href,
+            prefetch_hit: prefetch.hit,
+            prefetch_age_ms: prefetch.age_ms,
+            was_prefetched_request: prefetch.was_prefetched_request,
+            was_prefetch_ready: prefetch.was_prefetch_ready,
+            was_prefetch_inflight: prefetch.was_prefetch_inflight,
+            prefetch_request_age_ms: prefetch.prefetch_request_age_ms,
+            prefetch_ready_age_ms: prefetch.prefetch_ready_age_ms,
+            prefetch_duration_ms: prefetch.prefetch_duration_ms,
+            seed_saved: true,
+          });
+          const seed = readStoreDetailListSeed(data.slug);
+          if (seed) showStoreDetailTransitionShell(seed, href);
+          deliveryPerfTraceLog(DELIVERY_PERF_TAG_ROUTE_TRANSITION, {
+            event: "store_card_tap",
+            slug: data.slug,
+          });
+          deliveryStoreDetailScheduleTapPush(href, prefetch, () => {
+            deliveryShellEntryScheduleRouterPushStart(data.slug, href);
+            router.push(href);
+          });
+        }}
       >
         <div className="relative">
           {featuredMenuImages.length > 0 ? (
@@ -290,13 +367,13 @@ export const StoreDeliveryRowCard = memo(function StoreDeliveryRowCard({ data }:
                       "w-[calc((100%-8px)/3)] aspect-square",
                     ].join(" ")}
                   >
-                    <Image
+                    <DeliveryMediaImage
                       src={(item.imageUrl as string) || ""}
                       alt=""
                       fill
                       sizes="(max-width: 420px) 33vw, 220px"
                       className="object-cover"
-                      loading="lazy"
+                      surface="list-row-featured"
                     />
                     <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-2 pb-1.5 pt-8">
                       <p className="line-clamp-1 text-[11.5px] font-semibold leading-snug text-white">

@@ -112,6 +112,30 @@ export function dibayPerfOnStoreDetailShellVisible(opts: { slug: string }): void
   }
 }
 
+/** transition overlay 첫 paint — 체감 shell (route 전환 전) */
+export function dibayPerfOnStoreDetailPerceivedShellVisible(opts: { slug: string }): void {
+  if (!enabled()) return;
+  const route = routeNow();
+  const t0 = readNavT0();
+  const perceivedMs = performance.now();
+  emit({
+    metric: "store_perceived_shell_visible_ms",
+    value_ms: t0 != null ? Math.max(0, perceivedMs - t0) : perceivedMs,
+    store_id: opts.slug,
+    route,
+    timestamp: Date.now(),
+  });
+  if (t0 != null) {
+    emit({
+      metric: "store_click_to_perceived_shell_visible_ms",
+      value_ms: Math.max(0, perceivedMs - t0),
+      store_id: opts.slug,
+      route,
+      timestamp: Date.now(),
+    });
+  }
+}
+
 export function dibayPerfOnStoreMenuVisible(opts: { slug: string; storeId: string }): void {
   if (!enabled()) return;
   const route = routeNow();

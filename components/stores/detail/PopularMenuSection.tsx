@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { DeliveryMediaImage } from "@/components/dibay/DeliveryMediaImage";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { DibayMenuBoard } from "@/lib/stores/dibay-menu-board-tokens";
 import { cardIsMenuSoldOut, type StoreDetailProductCard } from "@/lib/stores/group-store-products-by-menu";
@@ -69,7 +69,14 @@ export function PopularMenuSection({
                   }}
                 >
                   {thumb ? (
-                    <Image src={thumb} alt="" fill sizes={`${DibayMenuBoard.thumbSize}px`} className="object-cover" />
+                    <DeliveryMediaImage
+                      src={thumb}
+                      alt=""
+                      fill
+                      sizes={`${DibayMenuBoard.thumbSize}px`}
+                      className="object-cover"
+                      surface="menu-popular-strip"
+                    />
                   ) : null}
                   {soldOut ? <SoldOutOverlay /> : null}
                 </div>

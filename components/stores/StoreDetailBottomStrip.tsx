@@ -6,6 +6,12 @@ import { createPortal } from "react-dom";
 import { StoreCommerceCartStrokeIcon } from "@/components/stores/StoreCommerceCartStrokeIcon";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
+import { getCommerceCartSnapshotBus } from "@/lib/stores/store-commerce-cart-snapshot-bus";
+import { findCommerceCartBucketBySlug } from "@/lib/stores/find-commerce-cart-bucket-by-slug";
+import {
+  markStoreCommerceCheckoutNavigation,
+  writeStoreCommerceCheckoutSeed,
+} from "@/lib/stores/store-commerce-checkout-seed-cache";
 import type { StorePublicFulfillmentMode } from "@/components/stores/StoreDetailStorefrontPanel";
 
 /**
@@ -73,6 +79,13 @@ export function StoreDetailBottomStrip({
 
   const cartHref = `/stores/${encodeURIComponent(slug)}/cart`;
 
+  const onCheckoutNavigate = () => {
+    markStoreCommerceCheckoutNavigation();
+    const bus = getCommerceCartSnapshotBus();
+    const bucket = findCommerceCartBucketBySlug(bus.snapshot, slug);
+    if (bucket) writeStoreCommerceCheckoutSeed(bucket);
+  };
+
   const active = cartQtyTotal > 0;
 
   const bar = (
@@ -119,6 +132,7 @@ export function StoreDetailBottomStrip({
         {active ? (
           <Link
             href={cartHref}
+            onClick={onCheckoutNavigate}
             className="flex h-[52px] shrink-0 touch-manipulation select-none items-center justify-center rounded-[14px] bg-[#1C8DB8] px-5 text-[15px] font-bold text-white transition-all duration-150 hover:bg-[#197DA3] active:scale-[0.97] active:bg-[#166F92]"
             aria-label="주문 확인으로 이동"
           >

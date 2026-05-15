@@ -88,6 +88,8 @@
 - 라운드 **BN4** — `GET /api/stores/taxonomy` 에서 `store_categories`·`store_topics` 조회를 **Promise.all 병렬화**. 수정 전 taxonomy slowest **375/477/316ms**; 수정 후 **319/219/250ms**(배치 A)·**330/245/460ms**(배치 B, Run3 dev 경합 가능). 배치 B 동시 기록: `firstShellVisibleMs` **115/111/99ms**, `routeSettledMs` **97/93/80ms**.
 - 라운드 **BN5** — `fetchStoresTaxonomyDeduped` 에 **120s TTL** + 탭 prewarm 시 taxonomy 선요청(`isStoresTaxonomyClientCacheFresh` 로 중복 억제). 어드민 taxonomy 재로드 시 `clearStoresTaxonomyClientCache`. **prod-like nav-perf·체크시트 `[x]`** 는 별도. 전체 배민급 완료 체크는 아직 `[ ]`.
 - 라운드 **S1**(마스터 **순서 1**·셸·탭) — idle·부트웜 `prewarmBottomNavTapTargetClientCache("/stores")` 에 **BN3 과 동일** `storeHomeFeedSuffixFromPrimaryRegion` 를 넘겨, pointerdown 없이 진입해도 지역 `home-feed` 캐시 키가 맞게 정렬. `verify:parity-gates` 통과.
+- 라운드 **DS1** — `/stores/[slug]` 상세에서 메뉴 apply 가 summary/decorations await 뒤에 묶이던 구조를 분리. 최신 기준 `menu_fetch_ms=871` 에서 수정 후 3회 **278/10/25ms** 로 감소했고 `normalize_ms=0~1`, `apply_ms=0`, `stale_session=false` 유지. `tap_to_menu_first_visible_ms` 전체값·실기기 합의 전까지 체크시트 `[x]` 는 유지하지 않음.
+- 라운드 **DS2** — 옵션 시트 open/select/price/validation/add submit breakdown trace 추가. 옵션 있는 상품 3회 측정 전까지 UX 완료 체크는 유지하지 않음.
 (상세: `docs/samarket-performance-track-state.md` 참고)
 
 ---

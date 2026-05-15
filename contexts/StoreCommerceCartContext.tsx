@@ -20,6 +20,22 @@ import {
   computeStoreCartAddOrMerge,
   emptyCommerceCartV2,
 } from "@/lib/stores/store-commerce-cart-add-merge";
+import { publishCommerceCartSnapshot } from "@/lib/stores/store-commerce-cart-snapshot-bus";
+import { publishDeliveryCartPatch } from "@/lib/dibay/delivery-cart-patch-bus";
+import {
+  traceDeliveryCartDeleteMs,
+  traceDeliveryCartOptimisticMs,
+  traceDeliveryCartQtyPatchMs,
+} from "@/lib/dibay/delivery-cart-trace";
+import {
+  DELIVERY_PERF_TAG_CART_PATCH,
+  deliveryPerfTraceLog,
+} from "@/lib/dibay/delivery-perf-trace";
+import { markDeliveryCartPatchAnchor } from "@/lib/dibay/delivery-render-trace";
+import {
+  mutateCartLineQuantity,
+  mutateCartRemoveLine,
+} from "@/lib/stores/store-commerce-cart-line-mutate";
 
 const STORAGE_KEY = "kasama_store_commerce_cart_v1";
 
@@ -161,7 +177,19 @@ function bucketsMatchingStoreId(
   return Object.values(snap.carts).filter((b) => normalizeStoreIdKey(b.storeId) === tid);
 }
 
+export type StoreCommerceCartActions = Pick<
+  Ctx,
+  | "addOrMergeLine"
+  | "replaceWithLine"
+  | "updateLineQuantity"
+  | "removeLine"
+  | "clearStoreCart"
+  | "clearAllCarts"
+  | "patchBucketMeta"
+>;
+
 const StoreCommerceCartCtx = createContext<Ctx | null>(null);
+const StoreCommerceCartActionsCtx = createContext<StoreCommerceCartActions | null>(null);
 
 export function StoreCommerceCartProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
@@ -177,80 +205,167 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
     writeSnapshot(snapshot);
   }, [hydrated, snapshot]);
 
+  useEffect(() => {
+    publishCommerceCartSnapshot(hydrated, snapshot);
+  }, [hydrated, snapshot]);
+
+  const flushCartSnapshot = useCallback(
+    (
+      next: StoreCommerceCartSnapshotV2 | null,
+      storeId: string | null,
+      patchT0: number,
+      trace:
+        | { kind: "optimistic"; productId?: string }
+        | { kind: "qty"; lineId: string; qty: number }
+        | { kind: "delete"; lineId: string }
+        | null
+    ) => {
+      publishCommerceCartSnapshot(hydrated, next);
+      const sid = storeId?.trim();
+      if (!sid) return;
+      publishDeliveryCartPatch(sid);
+      const patchMs =
+        typeof performance !== "undefined" ? performance.now() - patchT0 : Date.now() - patchT0;
+      if (!trace) return;
+      if (trace.kind === "optimistic") {
+        traceDeliveryCartOptimisticMs(patchMs, {
+          store_id: sid,
+          product_id: trace.productId,
+        });
+        deliveryPerfTraceLog(DELIVERY_PERF_TAG_CART_PATCH, {
+          event: "optimistic_cart_patch",
+          store_id: sid,
+          product_id: trace.productId,
+          patch_ms: Math.round(patchMs),
+        });
+        return;
+      }
+      if (trace.kind === "qty") {
+        traceDeliveryCartQtyPatchMs(patchMs, {
+          store_id: sid,
+          line_id: trace.lineId,
+          qty: trace.qty,
+        });
+        return;
+      }
+      traceDeliveryCartDeleteMs(patchMs, {
+        store_id: sid,
+        line_id: trace.lineId,
+      });
+    },
+    [hydrated]
+  );
+
   const addOrMergeLine = useCallback((input: AddStoreCartLineInput): StoreCartAddResult => {
+    const patchT0 = markDeliveryCartPatchAnchor();
     let result!: StoreCartAddResult;
+    let nextSnap: StoreCommerceCartSnapshotV2 | null = null;
     setSnapshot((prev) => {
       const base = prev ?? emptyCommerceCartV2();
       const out = computeStoreCartAddOrMerge(base, input);
       result = out.result;
+      nextSnap = out.nextSnapshot;
       return out.nextSnapshot;
     });
+    if (result.ok) {
+      flushCartSnapshot(nextSnap, input.storeId, patchT0, {
+        kind: "optimistic",
+        productId: input.productId,
+      });
+    }
     return result;
-  }, []);
+  }, [flushCartSnapshot]);
 
   const replaceWithLine = useCallback((input: AddStoreCartLineInput): StoreCartAddResult => {
+    const patchT0 = markDeliveryCartPatchAnchor();
     let result!: StoreCartAddResult;
+    let nextSnap: StoreCommerceCartSnapshotV2 | null = null;
     setSnapshot(() => {
       const out = computeStoreCartAddOrMerge(emptyCommerceCartV2(), input);
       result = out.result;
+      nextSnap = out.nextSnapshot;
       return out.nextSnapshot;
     });
+    if (result.ok) {
+      flushCartSnapshot(nextSnap, input.storeId, patchT0, {
+        kind: "optimistic",
+        productId: input.productId,
+      });
+    }
     return result;
-  }, []);
+  }, [flushCartSnapshot]);
 
-  const updateLineQuantity = useCallback((lineId: string, qty: number) => {
-    setSnapshot((prev) => {
-      if (!prev) return prev;
-      const q = Math.floor(qty);
-      const carts = { ...prev.carts };
-      for (const bid of Object.keys(carts)) {
-        const bucket = carts[bid];
-        const hit = bucket.lines.some((l) => l.lineId === lineId);
-        if (!hit) continue;
-        const lines = bucket.lines
-          .map((l) => {
-            if (l.lineId !== lineId) return l;
-            if (q <= 0) return null;
-            const nq = Math.max(l.minOrderQty, Math.min(l.maxOrderQty, q));
-            return { ...l, qty: nq };
-          })
-          .filter(Boolean) as StoreCommerceCartLine[];
-        if (lines.length === 0) delete carts[bid];
-        else carts[bid] = { ...bucket, lines };
-        return Object.keys(carts).length === 0 ? null : { v: 2, carts };
-      }
-      return prev;
-    });
-  }, []);
+  const updateLineQuantity = useCallback(
+    (lineId: string, qty: number) => {
+      const patchT0 = markDeliveryCartPatchAnchor();
+      let nextSnap: StoreCommerceCartSnapshotV2 | null = null;
+      let storeId: string | null = null;
+      let deleted = false;
+      let nextQty = Math.floor(qty);
+      setSnapshot((prev) => {
+        const out = mutateCartLineQuantity(prev, lineId, qty);
+        nextSnap = out.next;
+        storeId = out.storeId;
+        deleted = out.deleted;
+        if (!out.deleted && out.next) {
+          for (const bucket of Object.values(out.next.carts)) {
+            const line = bucket.lines.find((l) => l.lineId === lineId);
+            if (line) {
+              nextQty = Math.floor(Number(line.qty) || 0);
+              break;
+            }
+          }
+        }
+        return out.next;
+      });
+      flushCartSnapshot(
+        nextSnap,
+        storeId,
+        patchT0,
+        storeId
+          ? deleted
+            ? { kind: "delete", lineId }
+            : { kind: "qty", lineId, qty: nextQty }
+          : null
+      );
+    },
+    [flushCartSnapshot]
+  );
 
-  const removeLine = useCallback((lineId: string) => {
-    setSnapshot((prev) => {
-      if (!prev) return prev;
-      const carts = { ...prev.carts };
-      for (const bid of Object.keys(carts)) {
-        const bucket = carts[bid];
-        const hit = bucket.lines.some((l) => l.lineId === lineId);
-        if (!hit) continue;
-        const lines = bucket.lines.filter((l) => l.lineId !== lineId);
-        if (lines.length === 0) delete carts[bid];
-        else carts[bid] = { ...bucket, lines };
-        return Object.keys(carts).length === 0 ? null : { v: 2, carts };
-      }
-      return prev;
-    });
-  }, []);
+  const removeLine = useCallback(
+    (lineId: string) => {
+      const patchT0 = markDeliveryCartPatchAnchor();
+      let nextSnap: StoreCommerceCartSnapshotV2 | null = null;
+      let storeId: string | null = null;
+      setSnapshot((prev) => {
+        const out = mutateCartRemoveLine(prev, lineId);
+        nextSnap = out.next;
+        storeId = out.storeId;
+        return out.next;
+      });
+      flushCartSnapshot(nextSnap, storeId, patchT0, storeId ? { kind: "delete", lineId } : null);
+    },
+    [flushCartSnapshot]
+  );
 
-  const clearStoreCart = useCallback((storeId: string) => {
-    setSnapshot((prev) => {
-      if (!prev) return prev;
-      const tid = normalizeStoreIdKey(storeId);
-      const carts = { ...prev.carts };
-      for (const k of Object.keys(carts)) {
-        if (normalizeStoreIdKey(carts[k]?.storeId) === tid) delete carts[k];
-      }
-      return Object.keys(carts).length === 0 ? null : { v: 2, carts };
-    });
-  }, []);
+  const clearStoreCart = useCallback(
+    (storeId: string) => {
+      const patchT0 = markDeliveryCartPatchAnchor();
+      let nextSnap: StoreCommerceCartSnapshotV2 | null = null;
+      setSnapshot((prev) => {
+        if (!prev) return prev;
+        const tid = normalizeStoreIdKey(storeId);
+        const carts = { ...prev.carts };
+        for (const k of Object.keys(carts)) {
+          if (normalizeStoreIdKey(carts[k]?.storeId) === tid) delete carts[k];
+        }
+        nextSnap = Object.keys(carts).length === 0 ? null : { v: 2, carts };
+        return nextSnap;
+      });
+      flushCartSnapshot(nextSnap, storeId, patchT0, null);
+    },
+    [flushCartSnapshot]
+  );
 
   const clearAllCarts = useCallback(() => setSnapshot(null), []);
 
@@ -352,7 +467,32 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
     patchBucketMeta,
   ]);
 
-  return <StoreCommerceCartCtx.Provider value={value}>{children}</StoreCommerceCartCtx.Provider>;
+  const actionsValue = useMemo<StoreCommerceCartActions>(
+    () => ({
+      addOrMergeLine,
+      replaceWithLine,
+      updateLineQuantity,
+      removeLine,
+      clearStoreCart,
+      clearAllCarts,
+      patchBucketMeta,
+    }),
+    [
+      addOrMergeLine,
+      replaceWithLine,
+      updateLineQuantity,
+      removeLine,
+      clearStoreCart,
+      clearAllCarts,
+      patchBucketMeta,
+    ]
+  );
+
+  return (
+    <StoreCommerceCartActionsCtx.Provider value={actionsValue}>
+      <StoreCommerceCartCtx.Provider value={value}>{children}</StoreCommerceCartCtx.Provider>
+    </StoreCommerceCartActionsCtx.Provider>
+  );
 }
 
 export function useStoreCommerceCart(): Ctx {
@@ -363,4 +503,9 @@ export function useStoreCommerceCart(): Ctx {
 
 export function useStoreCommerceCartOptional(): Ctx | null {
   return useContext(StoreCommerceCartCtx);
+}
+
+/** snapshot 구독 없음 — detail·menu quick-add 등 cart patch 시 상위 re-render 방지 */
+export function useStoreCommerceCartActionsOptional(): StoreCommerceCartActions | null {
+  return useContext(StoreCommerceCartActionsCtx);
 }

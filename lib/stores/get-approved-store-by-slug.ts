@@ -84,8 +84,17 @@ export async function loadStoreCommerceMeta(
   let recentOrderCount = 0;
   let viewerFavorited = false;
 
+  const viewerFavP = viewerUserId
+    ? sb
+        .from("store_favorites")
+        .select("id")
+        .eq("store_id", storeId)
+        .eq("user_id", viewerUserId)
+        .maybeSingle()
+    : Promise.resolve({ data: null, error: null });
+
   try {
-    const [favRes, ordRes] = await Promise.all([
+    const [favRes, ordRes, permRes, viewerFavRes] = await Promise.all([
       sb.from("store_favorites").select("id", { count: "exact", head: true }).eq("store_id", storeId),
       sb
         .from("store_orders")
@@ -93,37 +102,25 @@ export async function loadStoreCommerceMeta(
         .eq("store_id", storeId)
         .in("order_status", [...RECENT_ORDER_STATUSES])
         .gte("created_at", since90d.toISOString()),
+      sb
+        .from("store_sales_permissions")
+        .select("allowed_to_sell, sales_status")
+        .eq("store_id", storeId)
+        .maybeSingle(),
+      viewerFavP,
     ]);
     if (favRes.error) console.error("[store-meta] favorite count", favRes.error);
     else if (typeof favRes.count === "number") favoriteCount = favRes.count;
     if (ordRes.error) console.error("[store-meta] recent orders count", ordRes.error);
     else if (typeof ordRes.count === "number") recentOrderCount = ordRes.count;
+    if (viewerFavRes.error) console.error("[store-meta] viewer favorited", viewerFavRes.error);
+    else viewerFavorited = !!viewerFavRes.data;
+    const perm = permRes.data;
+    const canSell = !!perm && perm.allowed_to_sell === true && perm.sales_status === "approved";
+    return { favoriteCount, recentOrderCount, viewerFavorited, canSell };
   } catch (e) {
     console.error("[store-meta] aggregate counts", e);
   }
 
-  if (viewerUserId) {
-    try {
-      const { data: favRow, error: vfErr } = await sb
-        .from("store_favorites")
-        .select("id")
-        .eq("store_id", storeId)
-        .eq("user_id", viewerUserId)
-        .maybeSingle();
-      if (vfErr) console.error("[store-meta] viewer favorited", vfErr);
-      else viewerFavorited = !!favRow;
-    } catch (e) {
-      console.error("[store-meta] viewer favorited", e);
-    }
-  }
-
-  const { data: perm } = await sb
-    .from("store_sales_permissions")
-    .select("allowed_to_sell, sales_status")
-    .eq("store_id", storeId)
-    .maybeSingle();
-
-  const canSell = !!perm && perm.allowed_to_sell === true && perm.sales_status === "approved";
-
-  return { favoriteCount, recentOrderCount, viewerFavorited, canSell };
+  return { favoriteCount, recentOrderCount, viewerFavorited, canSell: false };
 }

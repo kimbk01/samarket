@@ -1,7 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useLayoutEffect } from "react";
 import { usePathname } from "next/navigation";
+import { isStoreConsumerDetailPath } from "@/lib/dibay/delivery-list-scroll-restore";
+import { deliveryShellEntryMark } from "@/lib/dibay/delivery-shell-entry-trace";
+import { decodeSlugSegment } from "@/lib/stores/store-consumer-route";
 import { StoreSlugStickyBar } from "@/components/stores/StoreSlugStickyBar";
 import { APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { isStoreSlugOrderMenuRoot } from "@/lib/stores/store-consumer-route";
@@ -12,6 +16,14 @@ import { isStoreSlugOrderMenuRoot } from "@/lib/stores/store-consumer-route";
  */
 export function StoreConsumerShell({ slug, children }: { slug: string; children: ReactNode }) {
   const pathname = usePathname();
+  const decodedSlug = decodeSlugSegment(slug);
+
+  useLayoutEffect(() => {
+    const path = (pathname ?? "").split("?")[0] ?? "";
+    if (!isStoreConsumerDetailPath(path) || !decodedSlug) return;
+    deliveryShellEntryMark("route_layout_enter", { slug: decodedSlug });
+  }, [pathname, decodedSlug]);
+
   if (pathname?.includes("/owner/")) {
     return <>{children}</>;
   }

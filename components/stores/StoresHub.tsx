@@ -1,7 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { buildDeliveryListScrollRouteKey } from "@/lib/dibay/delivery-list-scroll-restore";
+import { useDeliveryListScrollRestore } from "@/lib/dibay/use-delivery-list-scroll-restore";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useRegion } from "@/contexts/RegionContext";
 import { getRegionName } from "@/lib/regions/region-utils";
@@ -108,6 +111,13 @@ function StoresHubOwnerOperChip({
 }
 
 export function StoresHub() {
+  const pathname = usePathname();
+  const listScrollRouteKey = useMemo(
+    () => buildDeliveryListScrollRouteKey(pathname ?? "/stores", ""),
+    [pathname]
+  );
+  useDeliveryListScrollRestore(listScrollRouteKey, true);
+
   const cachedHubSnapshot = readMeStoreOrdersHubSummaryCache();
   const initialHub =
     cachedHubSnapshot.value ?

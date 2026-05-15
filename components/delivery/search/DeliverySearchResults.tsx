@@ -1,5 +1,7 @@
 "use client";
 
+import { DeliveryMediaImage } from "@/components/dibay/DeliveryMediaImage";
+
 type DeliverySearchStore = {
   id: string;
   slug: string;
@@ -48,8 +50,6 @@ export function DeliverySearchResults({
   onClickStore: (slug: string) => void;
   onClickMenu: (menu: DeliverySearchMenu) => void;
 }) {
-  console.log("[render stores]", stores);
-  console.log("[render menus]", menus);
   const hasAny = (stores?.length ?? 0) + (menus?.length ?? 0) > 0;
 
   if (loading && !hasAny) {
@@ -90,10 +90,16 @@ export function DeliverySearchResults({
                   onClick={() => onClickStore(s.slug)}
                   className="flex w-full items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left hover:bg-sam-surface-muted"
                 >
-                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
+                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
                     {s.profile_image_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={s.profile_image_url} alt="" className="h-full w-full object-cover" />
+                      <DeliveryMediaImage
+                        src={s.profile_image_url}
+                        alt=""
+                        fill
+                        className="object-cover"
+                        sizes="48px"
+                        surface="search-store-thumb"
+                      />
                     ) : null}
                   </div>
                   <div className="min-w-0 flex-1">
@@ -125,10 +131,16 @@ export function DeliverySearchResults({
                   onClick={() => onClickMenu(m)}
                   className="flex w-full items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left hover:bg-sam-surface-muted"
                 >
-                  <div className="h-12 w-12 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
+                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
                     {m.thumbnail_url ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={m.thumbnail_url} alt="" className="h-full w-full object-cover" />
+                      <DeliveryMediaImage
+                        src={m.thumbnail_url}
+                        alt=""
+                        fill
+                        className="object-cover"
+                        sizes="48px"
+                        surface="search-menu-thumb"
+                      />
                     ) : null}
                   </div>
                   <div className="min-w-0 flex-1">

@@ -4,7 +4,7 @@ import type { ModifierSelectionsWire } from "@/lib/stores/modifiers/types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { flushSync } from "react-dom";
@@ -49,6 +49,17 @@ import {
   dibayPerfRecordOrderIdempotencyKeyCreated,
   dibayPerfRecordOrderSubmitClick,
 } from "@/lib/dibay/delivery-flow-perf";
+import {
+  DELIVERY_PERF_TAG_CHECKOUT,
+  DELIVERY_PERF_TAG_CHECKOUT_SHELL,
+  deliveryPerfTraceLog,
+} from "@/lib/dibay/delivery-perf-trace";
+import { deliveryTraceCheckoutShellMs } from "@/lib/dibay/delivery-render-trace";
+import { findCommerceCartBucketBySlug } from "@/lib/stores/find-commerce-cart-bucket-by-slug";
+import {
+  getStoreCommerceCheckoutNavigationMark,
+} from "@/lib/stores/store-commerce-checkout-seed-cache";
+import type { StoreCommerceCartBucket } from "@/lib/stores/store-commerce-cart-types";
 import { generateStoreOrderClientKey } from "@/lib/stores/store-order-client-key";
 import {
   buildStoreOrderDetailSeedFromPostSuccess,
@@ -96,6 +107,18 @@ type StoreHead = {
   address_line1?: string | null;
   address_line2?: string | null;
 };
+
+function storeHeadFromCartBucket(bucket: StoreCommerceCartBucket): StoreHead {
+  return {
+    id: bucket.storeId,
+    store_name: bucket.storeName,
+    slug: bucket.storeSlug,
+    business_hours_json: null,
+    is_open: true,
+    pickup_available: true,
+    delivery_available: true,
+  };
+}
 
 type ProfileContactSnap = {
   userAddressId?: string | null;
@@ -238,18 +261,40 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   );
 
   useEffect(() => {
-    setStore(null);
     setStoreLoadFailed(false);
     setStoreLoading(true);
+    const bucket = findCommerceCartBucketBySlug(cart.snapshot, storeSlug);
+    setStore(bucket ? storeHeadFromCartBucket(bucket) : null);
     void loadStore();
-  }, [loadStore]);
+  }, [loadStore, cart.snapshot, storeSlug]);
 
   useRefetchOnPageShowRestore(() => void loadStore({ silent: true }));
+
+  const cartBucket = useMemo(
+    () => findCommerceCartBucketBySlug(cart.snapshot, storeSlug),
+    [cart.snapshot, storeSlug]
+  );
 
   const lines = store ? cart.getLinesForStoreId(store.id) : [];
   const subtotalPhp = store ? cart.getSubtotalForStoreId(store.id) : 0;
 
   const otherBuckets = store ? cart.otherBucketsExcluding(store.id) : [];
+
+  const checkoutShellLoggedRef = useRef(false);
+  useLayoutEffect(() => {
+    if (!cart.hydrated || lines.length === 0 || checkoutShellLoggedRef.current) return;
+    checkoutShellLoggedRef.current = true;
+    const navT0 = getStoreCommerceCheckoutNavigationMark();
+    const ms =
+      navT0 > 0 && typeof performance !== "undefined" ? Math.max(0, performance.now() - navT0) : 0;
+    deliveryTraceCheckoutShellMs(storeSlug, ms);
+    deliveryPerfTraceLog(DELIVERY_PERF_TAG_CHECKOUT_SHELL, {
+      event: "pass1_cart_lines_visible",
+      slug: storeSlug,
+      line_count: lines.length,
+      store_from_api: !!store,
+    });
+  }, [cart.hydrated, lines.length, storeSlug, store]);
 
   const commerce = useMemo(
     () => parseCommerceExtrasFromHoursJson(store?.business_hours_json),
@@ -811,6 +856,11 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     setBusy(true);
     dibayPerfRecordOrderSubmitClick(store.id);
     dibayPerfOnOrderApiStart(store.id);
+    deliveryPerfTraceLog(DELIVERY_PERF_TAG_CHECKOUT, {
+      event: "submit_start",
+      store_id: store.id,
+      line_count: lines.length,
+    });
     try {
       if (!clientOrderKeyRef.current) {
         clientOrderKeyRef.current = generateStoreOrderClientKey();
@@ -955,13 +1005,13 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     );
   }
 
-  if (storeLoading) {
+  if (storeLoading && !store) {
     return (
       <div className="min-h-[40vh] px-4 py-12 text-center sam-text-body text-sam-muted">{t("common_loading")}</div>
     );
   }
 
-  if (storeLoadFailed || !store) {
+  if ((storeLoadFailed || !store) && lines.length === 0) {
     return (
       <div className="min-h-screen bg-sam-app">
         <p className="px-4 py-12 text-center text-sm text-sam-muted">{t("common_store_info_load_failed")}</p>
@@ -997,7 +1047,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               매장 문의 남기기
             </Link>
             <Link
-              href={`/stores/${encodeURIComponent(store.slug)}`}
+              href={`/stores/${encodeURIComponent(store?.slug ?? storeSlug)}`}
               className="sam-text-body text-sam-muted underline"
             >
               매장으로 돌아가기
@@ -1015,7 +1065,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         <div className="px-4 py-10">
           <div className="text-center">
             <p className="sam-text-body-lg font-semibold text-sam-fg">담은 메뉴가 없어요</p>
-            <p className="mt-1 sam-text-body text-sam-muted">{store.store_name} 다시 둘러볼까요?</p>
+            <p className="mt-1 sam-text-body text-sam-muted">{store?.store_name ?? storeSlug} 다시 둘러볼까요?</p>
           </div>
           {otherBuckets.length > 0 ? (
             <div className="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-3 sam-text-body-secondary leading-relaxed text-amber-950">
@@ -1060,7 +1110,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           ) : null}
           <div className="mt-6 flex justify-center">
             <Link
-              href={`/stores/${encodeURIComponent(store.slug)}`}
+              href={`/stores/${encodeURIComponent(store?.slug ?? storeSlug)}`}
               className="inline-flex h-11 min-w-[11.5rem] items-center justify-center rounded-full border border-sam-border bg-white px-6 sam-text-body font-semibold text-sam-fg shadow-sm active:bg-sam-app"
             >
               메뉴 보기
@@ -1068,6 +1118,12 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           </div>
         </div>
       </div>
+    );
+  }
+
+  if (!store) {
+    return (
+      <div className="min-h-[40vh] px-4 py-12 text-center sam-text-body text-sam-muted">{t("common_loading")}</div>
     );
   }
 

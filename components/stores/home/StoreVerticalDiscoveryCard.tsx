@@ -1,14 +1,28 @@
 "use client";
 
 import Link from "next/link";
+import { DeliveryMediaImage } from "@/components/dibay/DeliveryMediaImage";
 import { useRouter } from "next/navigation";
-import { useRef } from "react";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { StoreCardFavoriteIcon } from "./StoreCardFavoriteIcon";
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
 import { dibayPerfRecordStoreCardNavigationIntent } from "@/lib/dibay/delivery-flow-perf";
+import { markStoreDetailListSeedNavigation } from "@/lib/dibay/store-detail-seed-patch-trace";
+import { saveDeliveryListScrollBeforeStoreNavigation } from "@/lib/dibay/delivery-list-scroll-restore";
+import { writeStoreDetailListSeed } from "@/lib/dibay/store-detail-list-seed";
+import {
+  DELIVERY_PERF_TAG_ROUTE_TRANSITION,
+  deliveryPerfTraceLog,
+} from "@/lib/dibay/delivery-perf-trace";
+import { deliveryStoreDetailPrefetch } from "@/lib/dibay/delivery-store-detail-prefetch";
+import { deliveryMenuVisibleBeginNavSession } from "@/lib/dibay/delivery-menu-visible-trace";
+import {
+  deliveryStoreMenusPrewarm,
+  resetDeliveryStoreMenusPrewarmForTests,
+} from "@/lib/dibay/delivery-store-menus-prewarm";
+import { useDeliveryStoreDetailViewportPrefetch } from "@/lib/dibay/use-delivery-store-detail-viewport-prefetch";
 
 function statusBadge(status: BrowseStoreListItem["status"]) {
   if (status === "open") {
@@ -127,7 +141,7 @@ export function StoreVerticalDiscoveryCard({
   adHint?: string | null;
 }) {
   const router = useRouter();
-  const prefetchedAtRef = useRef<Record<string, number>>({});
+  const viewportRef = useDeliveryStoreDetailViewportPrefetch(store.slug);
   const flags = [
     store.deliveryAvailable ? "배달가능" : null,
     store.pickupAvailable ? "픽업가능" : null,
@@ -135,19 +149,14 @@ export function StoreVerticalDiscoveryCard({
   ].filter(Boolean);
 
   const storeHref = `/stores/${encodeURIComponent(store.slug)}`;
-  const prefetchStoreDetail = () => {
-    const now = Date.now();
-    const last = prefetchedAtRef.current[storeHref] ?? 0;
-    if (now - last < 8_000) return;
-    prefetchedAtRef.current[storeHref] = now;
-    void router.prefetch(storeHref);
+  const prefetchStoreDetail = (
+    source: Parameters<typeof deliveryStoreDetailPrefetch>[2],
+    opts?: { force?: boolean }
+  ) => {
+    deliveryStoreDetailPrefetch(router, store.slug, source, opts);
   };
   const prefetchProductDetail = (productId: string) => {
     const href = `/stores/${encodeURIComponent(store.slug)}/p/${encodeURIComponent(productId)}`;
-    const now = Date.now();
-    const last = prefetchedAtRef.current[href] ?? 0;
-    if (now - last < 8_000) return;
-    prefetchedAtRef.current[href] = now;
     void router.prefetch(href);
   };
   const categoryLine =
@@ -163,19 +172,52 @@ export function StoreVerticalDiscoveryCard({
   return (
     <li className={`overflow-hidden ${FB.card}`}>
       <Link
+        ref={viewportRef}
         href={storeHref}
+        prefetch
         className="block active:bg-[#F2F3F5] dark:active:bg-[#2F3031]"
-        onPointerEnter={prefetchStoreDetail}
-        onFocus={prefetchStoreDetail}
-        onTouchStart={prefetchStoreDetail}
-        onClick={() => dibayPerfRecordStoreCardNavigationIntent(store.slug)}
+        onPointerEnter={() => prefetchStoreDetail("pointer_enter")}
+        onFocus={() => prefetchStoreDetail("focus")}
+        onPointerDown={() => {
+          deliveryStoreMenusPrewarm(store.slug);
+          prefetchStoreDetail("pointer_down", { force: true });
+        }}
+        onTouchStart={() => {
+          deliveryStoreMenusPrewarm(store.slug);
+          prefetchStoreDetail("touch_start", { force: true });
+        }}
+        onClick={() => {
+          resetDeliveryStoreMenusPrewarmForTests();
+          deliveryStoreMenusPrewarm(store.slug, { force: true });
+          saveDeliveryListScrollBeforeStoreNavigation();
+          markStoreDetailListSeedNavigation(store.slug);
+          writeStoreDetailListSeed({
+            slug: store.slug,
+            store_name: store.nameKo,
+            profile_image_url: store.profileImageUrl,
+            rating_avg: store.rating,
+            review_count: store.reviewCount,
+            delivery_available: store.deliveryAvailable,
+            pickup_available: store.pickupAvailable,
+            tagline: store.tagline,
+          });
+          dibayPerfRecordStoreCardNavigationIntent(store.slug);
+          deliveryMenuVisibleBeginNavSession(store.slug);
+          deliveryPerfTraceLog(DELIVERY_PERF_TAG_ROUTE_TRANSITION, {
+            event: "vertical_store_card_tap",
+            slug: store.slug,
+          });
+        }}
       >
         <div className="relative aspect-[5/3] w-full overflow-hidden bg-sam-surface-muted dark:bg-[#3A3B3C]">
           {store.profileImageUrl ?
-            <img
+            <DeliveryMediaImage
               src={store.profileImageUrl}
               alt=""
-              className="h-full w-full object-cover"
+              fill
+              className="object-cover"
+              sizes="(max-width: 420px) 100vw, 480px"
+              surface="list-vertical-cover"
             />
           : <div className="flex h-full w-full items-center justify-center bg-[#1877F2]/90 text-white dark:bg-[#2374E1]/90">
               <svg className="h-14 w-14 opacity-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>

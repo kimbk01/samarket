@@ -1,9 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import { StoreOrderStickyHeader } from "@/components/stores/store-order-detail/StoreOrderStickyHeader";
 import { decodeSlugSegment } from "@/lib/stores/store-consumer-route";
+import { dibayPerfOnStoreDetailShellVisible } from "@/lib/dibay/delivery-flow-perf";
+import { deliveryShellEntryMark } from "@/lib/dibay/delivery-shell-entry-trace";
+import { hideStoreDetailTransitionShell } from "@/lib/dibay/store-detail-transition-shell-store";
+import {
+  DELIVERY_PERF_TAG_STORE_ENTRY,
+  deliveryPerfTraceLog,
+} from "@/lib/dibay/delivery-perf-trace";
+import { STORE_DETAIL_HERO_SHELL_CLASS } from "@/lib/dibay/store-detail-hero-layout";
 
 function Shimmer({ className }: { className: string }) {
   return (
@@ -49,6 +57,22 @@ export function StoreDetailQuickShell({
 }) {
   const decoded = useMemo(() => decodeSlugSegment(slug), [slug]);
   const title = useMemo(() => slugToPlaceholderTitle(decoded || slug), [decoded, slug]);
+  const pass0LoggedRef = useRef<string | null>(null);
+
+  useLayoutEffect(() => {
+    const key = decoded || slug;
+    if (!key || pass0LoggedRef.current === key) return;
+    pass0LoggedRef.current = key;
+    hideStoreDetailTransitionShell(key);
+    dibayPerfOnStoreDetailShellVisible({ slug: key });
+    deliveryShellEntryMark("shell_visible", { slug: key, source: "quick_shell" });
+    deliveryPerfTraceLog(DELIVERY_PERF_TAG_STORE_ENTRY, {
+      event: "pass0_quick_shell_visible",
+      slug: key,
+      pass: 0,
+      network_waited: false,
+    });
+  }, [decoded, slug]);
 
   return (
     <div className="min-h-[100dvh] overflow-x-hidden bg-white pb-8 [-webkit-overflow-scrolling:touch]">
@@ -66,7 +90,7 @@ export function StoreDetailQuickShell({
         onCartPreviewClick={onCartPreviewClick}
       />
 
-      <Shimmer className="relative mt-0 h-[clamp(12.5rem,44vh,17.75rem)] min-h-[200px] w-full" />
+      <Shimmer className={STORE_DETAIL_HERO_SHELL_CLASS} />
       <div className="mx-4 -mt-7 rounded-[20px] bg-white p-4 shadow-[0_2px_10px_rgba(0,0,0,0.06)]">
         <Shimmer className="h-7 w-3/4 rounded" />
         <Shimmer className="mt-3 h-4 w-1/2 rounded" />

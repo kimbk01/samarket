@@ -1,14 +1,20 @@
 "use client";
 
+import { useLayoutEffect } from "react";
 import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import type { StoreDetailProductCard } from "@/lib/stores/group-store-products-by-menu";
 import { ProductMenuCard } from "@/components/stores/detail/ProductMenuCard";
 
-const ESTIMATE_ROW = 130;
-const VIRT_THRESHOLD = 80;
+import {
+  MENU_ROW_ESTIMATE_PX,
+  shouldVirtualizeMenuSection as shouldVirtualizeMenuSectionPolicy,
+} from "@/lib/dibay/store-menu-viewport-policy";
 
-export function shouldVirtualizeMenuSection(itemCount: number): boolean {
-  return itemCount >= VIRT_THRESHOLD;
+export function shouldVirtualizeMenuSection(
+  itemCount: number,
+  boardFlatCount: number
+): boolean {
+  return shouldVirtualizeMenuSectionPolicy(itemCount, boardFlatCount);
 }
 
 export function VirtualizedMenuRows({
@@ -18,6 +24,7 @@ export function VirtualizedMenuRows({
   menuSelectBlocked,
   onOpenProduct,
   onQuickAddProduct,
+  onFirstRowPaint,
 }: {
   items: StoreDetailProductCard[];
   storeSlug: string;
@@ -25,12 +32,18 @@ export function VirtualizedMenuRows({
   menuSelectBlocked?: boolean;
   onOpenProduct?: (productId: string) => void;
   onQuickAddProduct?: (product: StoreDetailProductCard) => boolean;
+  onFirstRowPaint?: () => void;
 }) {
   const rowVirtualizer = useWindowVirtualizer({
     count: items.length,
-    estimateSize: () => ESTIMATE_ROW,
+    estimateSize: () => MENU_ROW_ESTIMATE_PX,
     overscan: 6,
   });
+
+  useLayoutEffect(() => {
+    if (!onFirstRowPaint || items.length === 0) return;
+    onFirstRowPaint();
+  }, [items.length, onFirstRowPaint]);
 
   return (
     <div className="relative w-full" style={{ height: rowVirtualizer.getTotalSize() }}>

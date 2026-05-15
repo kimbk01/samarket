@@ -1,6 +1,6 @@
 "use client";
 
-import Image from "next/image";
+import { DeliveryMediaImage } from "@/components/dibay/DeliveryMediaImage";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { useCallback, useMemo } from "react";
@@ -17,6 +17,7 @@ import {
   openGoogleMapsDrivingDirectionsFromUserTo,
   type StoreDetailDirectionsTarget,
 } from "@/lib/stores/google-maps-store-links";
+import { storeDetailHeroMediaBoxStyle } from "@/lib/dibay/store-detail-hero-layout";
 
 function InfoRow({
   label,
@@ -134,9 +135,8 @@ export function StoreOrderHeroSummary({
   const img = profileImageUrl?.trim() || "";
 
   /** 당김으로 히어로 높이가 늘 때 검은 여백 대신 이미지가 같이 확대되도록(최소 1 + stretch/기준높이) */
-  const HERO_BASE_MIN_PX = 208;
   const heroBannerPullScale = useMemo(() => {
-    const pullComp = heroRubberPx > 0 ? 1 + heroRubberPx / HERO_BASE_MIN_PX : 1;
+    const pullComp = heroRubberPx > 0 ? 1 + heroRubberPx / 208 : 1;
     return Math.min(2.25, Math.max(heroRubberScale, pullComp));
   }, [heroRubberPx, heroRubberScale]);
 
@@ -248,10 +248,7 @@ export function StoreOrderHeroSummary({
         >
           <div
             className="relative w-full overflow-hidden"
-            style={{
-              height: `calc(clamp(13rem, 44vh, 18rem) + ${heroRubberPx}px)`,
-              minHeight: `${208 + heroRubberPx}px`,
-            }}
+            style={storeDetailHeroMediaBoxStyle(heroRubberPx)}
           >
             {heroBannerSlot ? (
               <div className="absolute inset-0 z-[2] overflow-hidden">
@@ -273,7 +270,15 @@ export function StoreOrderHeroSummary({
                   transformOrigin: "center top",
                 }}
               >
-                <Image src={img} alt="" fill className="object-cover" sizes="100vw" priority />
+                <DeliveryMediaImage
+                  src={img}
+                  alt=""
+                  fill
+                  className="object-cover"
+                  sizes="100vw"
+                  priority
+                  surface="detail-hero"
+                />
                 <div className="absolute inset-0 bg-black/[0.14]" aria-hidden />
               </div>
             ) : null}

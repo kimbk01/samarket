@@ -1,9 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContext";
+import { useCallback, useLayoutEffect } from "react";
+import { useStoreCommerceCartActionsOptional } from "@/contexts/StoreCommerceCartContext";
+import {
+  useStoreCommerceCartBucketStats,
+  useStoreCommerceCartLines,
+} from "@/lib/stores/use-store-commerce-cart-selector";
+import { deliveryRenderTraceBump } from "@/lib/dibay/delivery-render-trace";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
+import { StoreCartPreviewLineRow } from "@/components/stores/store-order-detail/StoreCartPreviewLineRow";
 
 export function StoreCartPreviewSheet({
   open,
@@ -16,11 +23,41 @@ export function StoreCartPreviewSheet({
   storeId: string;
   storeSlug: string;
 }) {
-  const commerceCart = useStoreCommerceCartOptional();
+  const commerceCart = useStoreCommerceCartActionsOptional();
+  const lines = useStoreCommerceCartLines(storeId);
+  const { subtotalPhp: subtotal, hydrated } = useStoreCommerceCartBucketStats(storeId);
 
-  const lines = commerceCart?.hydrated ? commerceCart.getLinesForStoreId(storeId) : [];
+  useLayoutEffect(() => {
+    if (open) deliveryRenderTraceBump("cart-preview-sheet", { store_id: storeId });
+  }, [open, storeId]);
 
-  const subtotal = commerceCart?.hydrated ? commerceCart.getSubtotalForStoreId(storeId) : 0;
+  const handleDecrease = useCallback(
+    (ln: (typeof lines)[number]) => {
+      if (!commerceCart) return;
+      const q = Math.floor(Number(ln.qty)) || 0;
+      const next = Math.max(0, q - 1);
+      if (next <= 0) commerceCart.removeLine(ln.lineId);
+      else commerceCart.updateLineQuantity(ln.lineId, next);
+    },
+    [commerceCart]
+  );
+
+  const handleIncrease = useCallback(
+    (ln: (typeof lines)[number]) => {
+      if (!commerceCart) return;
+      const q = Math.floor(Number(ln.qty)) || 0;
+      const maxQ = Math.max(1, Math.floor(Number(ln.maxOrderQty)) || 99);
+      commerceCart.updateLineQuantity(ln.lineId, Math.min(maxQ, q + 1));
+    },
+    [commerceCart]
+  );
+
+  const handleRemove = useCallback(
+    (lineId: string) => {
+      commerceCart?.removeLine(lineId);
+    },
+    [commerceCart]
+  );
 
   if (!open) return null;
 
@@ -49,58 +86,14 @@ export function StoreCartPreviewSheet({
             ) : (
               <ul className="divide-y divide-neutral-100 pb-2">
                 {lines.map((ln) => (
-                  <li key={ln.lineId} className="flex gap-3 py-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[15px] font-bold text-neutral-900">{ln.title}</p>
-                      {ln.optionsSummary?.trim() ? (
-                        <p className="mt-0.5 text-[12px] text-neutral-500">{ln.optionsSummary}</p>
-                      ) : null}
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <span className="text-[13px] font-semibold text-neutral-700">
-                          {formatMoneyPhp(Math.floor(Number(ln.unitPricePhp) || 0))}
-                        </span>
-                        <div className="flex items-center gap-1 rounded-full border border-neutral-200 bg-neutral-50 px-1">
-                          <button
-                            type="button"
-                            className="flex h-8 w-8 items-center justify-center rounded-full text-lg font-bold text-neutral-700 transition-transform duration-[120ms] active:scale-[0.96]"
-                            aria-label="수량 감소"
-                            disabled={!commerceCart}
-                            onClick={() => {
-                              const q = Math.floor(Number(ln.qty)) || 0;
-                              const next = Math.max(0, q - 1);
-                              if (next <= 0) commerceCart?.removeLine(ln.lineId);
-                              else commerceCart?.updateLineQuantity(ln.lineId, next);
-                            }}
-                          >
-                            −
-                          </button>
-                          <span className="min-w-[1.5rem] text-center text-[13px] font-bold tabular-nums">
-                            {Math.floor(Number(ln.qty)) || 0}
-                          </span>
-                          <button
-                            type="button"
-                            className="flex h-8 w-8 items-center justify-center rounded-full text-lg font-bold text-neutral-700 transition-transform duration-[120ms] active:scale-[0.96]"
-                            aria-label="수량 증가"
-                            disabled={!commerceCart}
-                            onClick={() => {
-                              const q = Math.floor(Number(ln.qty)) || 0;
-                              const maxQ = Math.max(1, Math.floor(Number(ln.maxOrderQty)) || 99);
-                              commerceCart?.updateLineQuantity(ln.lineId, Math.min(maxQ, q + 1));
-                            }}
-                          >
-                            +
-                          </button>
-                        </div>
-                        <button
-                          type="button"
-                          className="ml-auto text-[12px] font-semibold text-red-600 underline underline-offset-2"
-                          onClick={() => commerceCart?.removeLine(ln.lineId)}
-                        >
-                          삭제
-                        </button>
-                      </div>
-                    </div>
-                  </li>
+                  <StoreCartPreviewLineRow
+                    key={ln.lineId}
+                    line={ln}
+                    hydrated={hydrated}
+                    onDecrease={() => handleDecrease(ln)}
+                    onIncrease={() => handleIncrease(ln)}
+                    onRemove={() => handleRemove(ln.lineId)}
+                  />
                 ))}
               </ul>
             )}
@@ -113,10 +106,10 @@ export function StoreCartPreviewSheet({
             </div>
             <Link
               href={cartHref}
-              onClick={onClose}
-              className="flex h-[52px] w-full items-center justify-center rounded-[14px] bg-[#1C8DB8] text-[15px] font-bold text-white transition-transform duration-[120ms] active:scale-[0.98]"
+              className="flex w-full items-center justify-center rounded-[14px] py-3.5 text-[15px] font-bold text-white shadow-sm active:opacity-95"
+              style={{ backgroundColor: "#1C8DB8" }}
             >
-              주문하기
+              장바구니 보기
             </Link>
           </div>
         </div>

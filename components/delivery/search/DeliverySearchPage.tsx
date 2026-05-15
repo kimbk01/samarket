@@ -2,6 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  buildDeliveryListScrollRouteKey,
+  saveDeliveryListScrollBeforeStoreNavigation,
+} from "@/lib/dibay/delivery-list-scroll-restore";
+import { useDeliveryListScrollRestore } from "@/lib/dibay/use-delivery-list-scroll-restore";
+import { markStoreDetailListSeedNavigation } from "@/lib/dibay/store-detail-seed-patch-trace";
 import { DeliverySearchHeader } from "@/components/delivery/search/DeliverySearchHeader";
 import { RecentSearchChips } from "@/components/delivery/search/RecentSearchChips";
 import { PopularSearchList } from "@/components/delivery/search/PopularSearchList";
@@ -69,6 +75,14 @@ export function DeliverySearchPage() {
 
   const trimmed = useMemo(() => normalizeKeyword(q), [q]);
   const showResults = debouncedQ.trim().length >= 1;
+  const listScrollRouteKey = useMemo(() => {
+    const keyword = debouncedQ.trim();
+    return buildDeliveryListScrollRouteKey(
+      "/stores/search",
+      keyword ? `?q=${encodeURIComponent(keyword)}` : ""
+    );
+  }, [debouncedQ]);
+  useDeliveryListScrollRestore(listScrollRouteKey, showResults && !loading);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedQ(trimmed), 250);
@@ -140,18 +154,22 @@ export function DeliverySearchPage() {
     (slug: string) => {
       const s = slug.trim();
       if (!s) return;
+      saveDeliveryListScrollBeforeStoreNavigation(listScrollRouteKey);
+      markStoreDetailListSeedNavigation(s);
       router.push(`/stores/${encodeURIComponent(s)}`);
     },
-    [router]
+    [router, listScrollRouteKey]
   );
 
   const onClickMenu = useCallback(
     (menu: DeliverySearchMenu) => {
       const slug = menu.store_slug?.trim();
       if (!slug) return;
+      saveDeliveryListScrollBeforeStoreNavigation(listScrollRouteKey);
+      markStoreDetailListSeedNavigation(slug);
       router.push(`/stores/${encodeURIComponent(slug)}?focusProduct=${encodeURIComponent(menu.id)}`);
     },
-    [router]
+    [router, listScrollRouteKey]
   );
 
   return (

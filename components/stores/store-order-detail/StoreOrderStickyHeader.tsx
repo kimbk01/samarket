@@ -8,7 +8,8 @@ import {
   STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME,
   StoreCommerceCartStrokeIcon,
 } from "@/components/stores/StoreCommerceCartStrokeIcon";
-import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContext";
+import { openStoreCartPreview } from "@/lib/stores/store-cart-preview-ui-store";
+import { useStoreCommerceCartHeaderBadgeCount } from "@/lib/stores/use-store-commerce-cart-selector";
 import { STORE_ORDER_BRAND } from "@/components/stores/store-order-detail/store-order-brand";
 
 const iconBtn =
@@ -45,24 +46,28 @@ export function StoreOrderStickyHeader({
     setPortalToBody(true);
   }, []);
 
-  const commerceCart = useStoreCommerceCartOptional();
-  const cartLineKindCount =
-    commerceCart?.hydrated && commerceCartStoreId
-      ? Math.max(0, Math.floor(commerceCart.getItemCountForStoreId(commerceCartStoreId)))
-      : commerceCart?.hydrated
-        ? Math.max(0, Math.floor(commerceCart.totalItemCountAllStores))
-        : 0;
+  const cartLineKindCount = useStoreCommerceCartHeaderBadgeCount(commerceCartStoreId);
 
   const cartHref = `/stores/${encodeURIComponent(storeSlug)}/cart`;
+
+  const openPreview = useCallback(() => {
+    const sid = commerceCartStoreId?.trim();
+    const slug = storeSlug?.trim();
+    if (sid && slug) {
+      openStoreCartPreview({ storeId: sid, storeSlug: slug });
+      return;
+    }
+    onCartPreviewClick();
+  }, [commerceCartStoreId, storeSlug, onCartPreviewClick]);
 
   const onCartPress = useCallback(
     (e: React.MouseEvent) => {
       if (cartLineKindCount <= 0) {
         e.preventDefault();
-        onCartPreviewClick();
+        openPreview();
       }
     },
-    [cartLineKindCount, onCartPreviewClick]
+    [cartLineKindCount, openPreview]
   );
 
   const header = (

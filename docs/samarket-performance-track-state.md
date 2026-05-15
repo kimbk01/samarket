@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-05-10 |
+| Last updated | 2026-05-16 (dibaY DS1–DS3 코드 마감) |
 | Owner | (선택) |
 
 ---
@@ -56,6 +56,105 @@
 | 후속(트랙 X 후보) | **거래 핫패스(마스터 순서 2) — 2026-05-10 마감:** 라운드 **P1** related `Suspense`·`getTradeDetailRelatedData` 단일 경유·`openCreateTradeChat` 비대기 `replace` 계약을 코드·`verify:trade-hot-path-contract` 로 재확인. `loadTradeDetailRelatedBundle` **내부** 쿼리·캐시 튜닝은 **별 라운드**(원인 1개)로 분리한다. |
 
 **보조(도메인 순환·`performance-state.json`):** 2026-04-26 — `myinfo`로 남아 있던 **`PurchaseDetailView` 구매 상세 GET**을 비행 패턴(`fetch`만 합류·`clone` 파싱·`credentials`)으로 정리해 한 사이클을 코드까지 마감했다. `currentTarget`은 다음 순환 진입점으로 **`login`**을 유지한다.
+
+---
+
+## 이번 라운드 (배달 장바구니: 라운드 DS3 — CART UX polish)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | cart mutation 후 `publishCommerceCartSnapshot` 이 Provider `useEffect` 에만 있어 strip/preview 가 한 프레임 늦었고, qty/delete·conflict open 전용 trace 가 없었다. 충돌 다이얼로그가 `StoreDetailPublic` state 로 열려 menu subtree 가 흔들 수 있었다. |
+| 측정 명령 | `npm run build` + `npm run start`, 콘솔: `delivery-cart-optimistic-ms`, `delivery-cart-qty-patch-ms`, `delivery-cart-delete-ms`, `delivery-cart-preview-open-ms`, `delivery-cart-conflict-open-ms`, `delivery-cart-subtree-impact`, `render_while_sheet_open`. 담기·수량 연타·삭제·preview·타매장 충돌 각 3회. |
+| 수정 파일 | `contexts/StoreCommerceCartContext.tsx`, `lib/dibay/delivery-cart-trace.ts`, `lib/stores/store-commerce-cart-line-mutate.ts`, `lib/stores/store-cart-conflict-ui-store.ts`, `components/stores/cart/StoreCartConflictPortal.tsx`, `components/stores/store-order-detail/StoreCartPreviewSheet.tsx`, `StoreCartPreviewLineRow.tsx`, `StoreDetailPublic.tsx`, `StoreProductAddSheet.tsx`, `StoreCommerceCartRuntimeBoundary.tsx` |
+| 이번 조치 | mutation 직후 snapshot bus 동기 flush + qty/delete/conflict trace. 충돌 UI portal 격리. preview line `memo`. DS1/DS2·option portal·route shell 미변경. |
+| 검증 | `npx tsc --noEmit`, `npx vitest run tests/unit/store-commerce-cart-line-mutate.test.ts` 통과. |
+
+### 라운드 DS3 — 3회 측정 (대기)
+
+| 구간 | Run1 | Run2 | Run3 | 목표 |
+|------|------|------|------|------|
+| add optimistic | — | — | — | ≤50ms |
+| qty patch | — | — | — | ≤30ms |
+| delete | — | — | — | ≤30ms |
+| preview open | — | — | — | ≤80ms |
+| conflict open | — | — | — | ≤80ms |
+| menu subtree | — | — | — | 0 |
+
+**판정:** **코드 마감(세션 종료)** — 구조·trace 반영 완료. 브라우저 3회 수치 표는 **새 세션**에서 `npm run build` + `start` 후 채운다. 병목 ms 없으면 추가 수정 없음.
+
+---
+
+## 이번 라운드 (배달 옵션: 라운드 DS2 — option sheet breakdown trace)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | 옵션 시트는 open/hydrate·rerender 일부 trace 만 있고, 옵션 선택 → 가격 계산 → required validation → 담기 submit 구간이 분리되지 않아 배민급 즉시 반응 기준(`select/price/validation ≤30ms`, add optimistic ≤50ms)을 측정할 수 없었다. |
+| 측정 명령 | `npm run build` 후 `npm run start`, 브라우저 콘솔 필터 `delivery-option`, 옵션 있는 메뉴 3회: 상품 클릭 → 필수 옵션 선택 → 수량 +/- → 담기. `[delivery-option-sheet-open-ms]`, `[delivery-option-select-ms]`, `[delivery-option-price-patch-ms]`, `[delivery-option-validation-ms]`, `[delivery-option-add-submit-ms]`, `[delivery-sheet-rerender]`, `[delivery-menu-subtree-stability]` 기록. |
+| 수정 파일 (1~3) | `lib/dibay/delivery-perf-trace.ts`, `lib/dibay/delivery-option-sheet-trace.ts`, `components/stores/StoreProductAddSheet.tsx`, `components/stores/product-sheet/StoreProductSheetPortal.tsx` |
+| 이번 조치 | 요구 태그 5개를 trace registry 에 추가하고, option sheet open/select/price/validation/add submit 에 `product_id`, `store_id`, `has_options`, `required_group_count`, `selected_option_count`, `total_price`, `hydrate_state`, `used_seed`, `full_hydrated`, `render_count` 를 실었다. 기존 `[delivery-sheet-rerender]` 에도 동일 핵심 필드를 싣는다. DS1 메뉴 apply·route shell·portal isolation·cart/menu subtree 구조는 변경하지 않았다. |
+| 검증 | `npx tsc --noEmit` 통과, 수정 파일 IDE lint 오류 없음. |
+
+### 라운드 DS2 — 3회 측정
+
+| 구분 | Run1 | Run2 | Run3 | 목표 |
+|------|------|------|------|------|
+| `sheet open` (`-open-ms`) | 3 | 3 | 3 | ≤80ms |
+| `option select` | 0–1 | 0–1 | 0–1 | ≤30ms |
+| `price patch` | 0–1 | 0–1 | 0–1 | ≤30ms |
+| `validation` | select·price 동시 | 0–1 | 0–1 | ≤30ms |
+| `add submit` | 0 | 0 | 0 | ≤50ms |
+| `menu subtree render` | `render_while_sheet_open` 별도 캡처 권장 | — | — | 0 |
+
+**비고:** 다상품 세션 — `5c3800d3…`(has_options false, add ₱900), `7929c806…`(options 3, add ₱8520/12780), `5c54af90…`(options 3, add ₱450). select/price 는 `total_price` 단계 증가(예: 2120→12780)와 함께 모두 0–1ms. add 4건 모두 `value_ms:0`, `hydrate_state:full`.
+
+**중간 해석 (2026-05-16):** `delivery-option` 필터에 `[delivery-option-sheet]` pass0 ~2ms 만 보임 — open 프레임은 PASS 후보. `[delivery-menu-subtree-stability]`·`[delivery-sheet-rerender]` 의 `count: 20` 은 **세션 누적 20회째** 로그(매 open 마다 20회 아님). 다만 `StoreDetailCartChrome` 이 `sheetOpen` 구독으로 시트 열 때 chrome 전체가 re-render 되어 menu subtree 격리가 깨질 수 있어 **DS2b** 로 bottom strip 만 분리 구독했다.
+
+### 라운드 DS2b — cart chrome sheet 구독 격리
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | 옵션 시트 open 시 `StoreDetailCartChrome` 이 `selectStoreProductSheetIsOpen` 을 구독해 chrome(및 children reconciliation) 이 함께 re-render — portal 격리와 어긋남. |
+| 수정 파일 (1) | `components/stores/detail/StoreDetailCartChrome.tsx` — `StoreDetailBottomStripSheetGate` 로 strip 만 sheet 구독. |
+| 검증 | `npx tsc --noEmit` 통과. |
+| 재측정 | `npm run build` + `npm run start` 후 시트 3회 open: `menu-section` count 가 open 마다 증가하지 않는지, `delivery-cart-subtree-impact` 없는지 확인. 필터 `delivery-option-sheet-open-ms`, `delivery-option-select-ms` 등 + 콘솔 **Verbose** 수준. |
+
+**판정:** **종료·성공(옵션 UX ms)** — open 3ms, select/price 0–1ms, add 0ms. trace 병목 없어 **옵션 경로 추가 최적화 없음**.  
+**다음 후보(재개 시):** DS3 cart 측정 마무리 또는 **CHECKOUT** seed.
+
+### 라운드 DS2c — menuTopSlot memo + pass0 `value_ms` + 시트 중 메뉴 render 진단
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | `StoreDetailPublic` 이 매 render 마다 `menuTopSlot` JSX 를 새로 만들어 `StoreDetailMenusSection` memo 가 깨짐. 또한 재빌드 전 번들이라 `[delivery-option-sheet-open-ms]`·`pass0` 의 `value_ms` 가 콘솔에 없었음. |
+| 수정 파일 | `StoreDetailPublic.tsx`, `StoreDetailMenusSection.tsx`, `StoreProductAddSheet.tsx` |
+| 이번 조치 | `menuTopSlot` `useMemo` 고정. `pass0_sheet_frame_visible` 에 `value_ms` + `[delivery-option-sheet-open-ms]` 동시 기록. 시트 open 중 메뉴 render 시 `render_while_sheet_open`·`sheet_open: true` 필드 추가. `npm run build` 완료. |
+| 재측정 | **`npm run start` 재시작 필수**(이전 `.next` 번들 `70b835…` 와 동일하면 무효). 필터: `delivery-option`(pass0 `value_ms` 확인), `render_while_sheet_open`, `delivery-detail-rerender`. |
+
+---
+
+## 이번 라운드 (배달 상세: 라운드 DS1 — menus apply 의 summary await 분리)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | `/stores/[slug]` 상세 클라 로드에서 `menusPromise` 는 먼저 시작했지만, 실제 `menu_data_ready`·메뉴 apply 가 `fetchStoreSummaryDeduped` 와 banners/notices `Promise.all` 뒤에 있어 메뉴 응답이 준비돼도 첫 메뉴 표시가 summary/decorations 대기에 묶였다. 최신 수동 trace 기준 `stale_session=false`, `normalize_ms=0`, `apply_ms=0`, `menu_fetch_ms=871`, `tap_to_menu_first_visible_ms=910`. |
+| 측정 명령 | `npm run build` 후 `npm run start`, 브라우저 콘솔 필터 `menu-visible-breakdown`, `/stores` 목록 → 동일 매장 상세 탭 3회. `menu_fetch_ms`, `tap_to_menu_first_visible_ms`, `normalize_ms`, `apply_ms`, `stale_session` 기록. |
+| 수정 파일 (1) | `components/stores/StoreDetailPublic.tsx` |
+| 이번 조치 | `menusPromise` 결과를 별도 `menusApplyPromise` 로 받아 준비 즉시 `deliveryMenuVisibleMarkMenuDataReady` + `applyMenusPayloadCore` + `setMenusLoading(false)` 를 수행한다. summary payload, banners/notices, legacy fallback 은 기존 shape·route·portal 구조를 유지하되 메뉴 first visible 을 막지 않게 분리했다. |
+| 검증 | `npx vitest run tests/unit/delivery-menu-visible-trace.test.ts` 통과, `npx tsc --noEmit` 통과, `StoreDetailPublic.tsx` IDE lint 오류 없음. |
+
+### 라운드 DS1 — 3회 측정 (ms)
+
+| 구분 | Run1 | Run2 | Run3 | 목표 |
+|------|------|------|------|------|
+| 수정 전 최신 trace `menu_fetch_ms` | 871 | — | — | ≤500ms 방향 |
+| 수정 전 최신 trace `tap_to_menu_first_visible_ms` | 910 | — | — | 300~350ms 방향 |
+| 수정 후 `menu_fetch_ms` | 278 | 10 | 25 | summary/decorations 대기 제거 확인 |
+| 수정 후 `normalize_ms` / `apply_ms` | 1 / 0 | 0 / 0 | 0 / 0 | 기존 PASS(≤80ms / 수 ms) 유지 |
+| 수정 후 `stale_session` | false | false | false | phase 혼선 없음 |
+
+**비교:** 최신 기준 `menu_fetch_ms` **871ms → 278/10/25ms**. `normalize_ms` 는 **0~1ms**, `apply_ms` 는 **0ms**, `stale_session=false` 로 기존 PASS와 trace 정합을 유지했다. 스크린샷상 `tap_to_menu_first_visible_ms` 전체 값은 우측이 잘려 별도 기록 필요.  
+**판정:** **성공(범위 한정)** — 단일 원인인 “menus apply 가 summary/decorations 뒤에 묶임” 제거가 3회 trace에서 확인됐다. 배달·서비스형 체크시트 `[x]` 는 first visible 전체값과 실기기 흐름 합의 전까지 유지하지 않는다.  
+**다음 후보 1개:** **OPTION SHEET UX** — 옵션 선택/가격 계산/검증 trace를 추가하고 `option select ≤30ms`, `price patch ≤30ms`, menu subtree render 0 여부를 확인한다.
 
 ---
 
@@ -775,6 +874,11 @@
 |-----------|--------|---------------------------|------|
 | 메신저 — 방 입장 `composer_wall_ms` (서버 스냅샷·동일 축) | 2026-04-21 | 동일 축 반복 한계·측정 비재현 | 라운드 G **실패**; F의 `deferSeedRecentMessagesFetchCap` 12→6은 **안정적 개선으로 비채택**·**12 롤백**. 재개 시 새 트랙 명·새 병목 1개로 연다. |
 | 메신저 — room 메시지 가상화 **`overscan`/`estimateSize` 단일 값만** 조정 | 2026-04-21 | 헌장 [6]-1 · [15] 동일 파일군 **3회**(J·K·L) 연속 보류·실패 | `use-messenger-room-chat-virtualizer.ts`만의 1값 실험은 **재개 금지**. 가상화 자체 개편이 필요하면 **새 트랙명·다른 병목 1개**로 연다. |
+| 배달 dibaY — **DS1** menus apply / summary await 분리 | 2026-05-16 | 성공(범위 한정) · `menu_fetch_ms` 871→278/10/25 | `StoreDetailPublic` `menusApplyPromise`. 체크시트 `[x]` 는 first visible 합의 전 유지. |
+| 배달 dibaY — **DS2** option sheet UX (trace + 격리) | 2026-05-16 | 성공(ms) · open≤3ms select/price≤1ms add 0ms | DS2b strip gate, DS2c `menuTopSlot` memo, option trace 5종. **재개 금지**(동일 축). |
+| 배달 dibaY — **DS3** CART UX polish (구조·trace) | 2026-05-16 | 코드 마감 · 브라우저 3회 표 미기록 | snapshot bus 동기 flush, cart trace 6종, conflict portal. **재개 시** 측정만 또는 CHECKOUT 신규 트랙. |
+
+**배달 재개 시 다음 1개:** `delivery-cart-*-ms` 3회 측정 → PASS면 **CHECKOUT** (checkout shell·seed trace). REALTIME·OWNER·ADMIN·BAD NETWORK·E2E는 마스터 순서표 순.
 
 ---
 

@@ -3,6 +3,10 @@
 import type { ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { StoreCommerceCartProvider } from "@/contexts/StoreCommerceCartContext";
+import { StoreCartConflictPortal } from "@/components/stores/cart/StoreCartConflictPortal";
+import { StoreCartPreviewPortal } from "@/components/stores/detail/StoreCartPreviewPortal";
+import { StoreDetailToastPortal } from "@/components/stores/detail/StoreDetailToastPortal";
+import { StoreProductSheetPortal } from "@/components/stores/product-sheet/StoreProductSheetPortal";
 
 /**
  * 장바구니 컨텍스트는 `/stores`·`/mypage` 에서만 마운트한다.
@@ -14,5 +18,13 @@ export function StoreCommerceCartRuntimeBoundary({ children }: { children: React
   if (!mountCart) {
     return <>{children}</>;
   }
-  return <StoreCommerceCartProvider>{children}</StoreCommerceCartProvider>;
+  return (
+    <StoreCommerceCartProvider>
+      {children}
+      <StoreProductSheetPortal />
+      <StoreDetailToastPortal />
+      <StoreCartConflictPortal />
+      <StoreCartPreviewPortal />
+    </StoreCommerceCartProvider>
+  );
 }
