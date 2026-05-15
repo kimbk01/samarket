@@ -1,15 +1,28 @@
-/** GET /api/stores/browse — region/primary/sub/district·origin 키 TTL 응답 캐시 */
-const TTL_MS = 15_000;
+/** GET /api/stores/browse - response cache (primary/sub/region/city/district/geo/page/limit) */
+const TTL_MS = 45_000;
 
 const cache = new Map<string, { expiresAt: number; body: unknown }>();
 
 export function browseListCacheKey(parts: {
   primary: string;
   sub: string;
-  district: string | null;
-  originPart: string;
+  region: string;
+  city: string;
+  district: string;
+  geoPart: string;
+  page: string;
+  limit: string;
 }): string {
-  return [parts.primary, parts.sub, parts.district ?? "", parts.originPart].join("\0");
+  return [
+    parts.primary,
+    parts.sub,
+    parts.region,
+    parts.city,
+    parts.district,
+    parts.geoPart,
+    parts.page,
+    parts.limit,
+  ].join("\0");
 }
 
 export function peekStoresBrowseCache(cacheKey: string): unknown | null {

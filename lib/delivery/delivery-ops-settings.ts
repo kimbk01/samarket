@@ -34,11 +34,19 @@ async function fetchDeliveryRideTimeSourceFromDb(sb: SupabaseClient): Promise<De
   return normalizeDeliveryRideTimeSource(v?.value);
 }
 
-export async function loadDeliveryRideTimeSource(sb: SupabaseClient): Promise<DeliveryRideTimeSource> {
+/** 프로세스 메모리 TTL 히트 시 즉시 반환(목록 API 등 — DB 왕복 생략) */
+export function peekDeliveryRideTimeSource(): DeliveryRideTimeSource | null {
   const now = Date.now();
   if (rideTimeSourceMem && rideTimeSourceMem.expiresAt > now) {
     return rideTimeSourceMem.value;
   }
+  return null;
+}
+
+export async function loadDeliveryRideTimeSource(sb: SupabaseClient): Promise<DeliveryRideTimeSource> {
+  const peeked = peekDeliveryRideTimeSource();
+  if (peeked != null) return peeked;
+  const now = Date.now();
   if (rideTimeSourceInflight) {
     return rideTimeSourceInflight;
   }
