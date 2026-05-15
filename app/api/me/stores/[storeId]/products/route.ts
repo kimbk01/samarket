@@ -9,12 +9,16 @@ import {
 import { parseProductOptionsJsonField } from "@/lib/stores/parse-product-options-json";
 import { validateOwnerOptionsJsonPayload } from "@/lib/stores/owner-product-options-validate";
 import { discountPriceFromPercent } from "@/lib/stores/store-product-pricing";
+import {
+  normalizeOwnerProductDetailImageUrls,
+  parseThumbnailDimensions,
+} from "@/lib/stores/owner-product-images";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(
-  _req: Request,
+  req: NextRequest,
   context: { params: Promise<{ storeId: string }> }
 ) {
   const userId = await getRouteUserId();
@@ -47,23 +51,37 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
 
-  const { data: products, error: pErr } = await supabase
+  const menuSectionId = req.nextUrl.searchParams.get("menu_section_id")?.trim() ?? "";
+  const sectionFilter = menuSectionId.length >= 8 ? menuSectionId : "";
+
+  const fullSelect = [
+    "id, store_id, title, summary, price, discount_price, discount_percent, stock_qty, track_inventory",
+    "thumbnail_url, product_status, pickup_available, local_delivery_available, shipping_available",
+    "category_id, menu_section_id, item_type, is_featured, is_owner_recommended, is_representative, sort_order",
+    "created_at, updated_at",
+    "store_menu_sections ( id, name, sort_order, is_hidden )",
+    "store_product_categories ( name, slug )",
+  ].join(", ");
+
+  /** 카테고리 삭제 전 건수 확인 등: 해당 구역만 좁혀 조회 */
+  const selectCols = sectionFilter ? "id, menu_section_id, store_menu_sections ( id )" : fullSelect;
+
+  let pq = supabase
     .from("store_products")
-    .select(
-      [
-        "id, store_id, title, summary, price, discount_price, discount_percent, stock_qty, track_inventory",
-        "thumbnail_url, product_status, pickup_available, local_delivery_available, shipping_available",
-        "category_id, menu_section_id, item_type, is_featured, sort_order",
-        "created_at, updated_at",
-        "store_menu_sections ( id, name, sort_order, is_hidden )",
-        "store_product_categories ( name, slug )",
-      ].join(", ")
-    )
+    .select(selectCols)
     .eq("store_id", id)
-    .not("product_status", "eq", "deleted")
+    .not("product_status", "eq", "deleted");
+
+  if (sectionFilter) {
+    pq = pq.eq("menu_section_id", sectionFilter);
+  }
+
+  pq = pq
     .order("is_featured", { ascending: false })
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });
+
+  const { data: products, error: pErr } = await pq;
 
   if (pErr) {
     console.error("[GET products]", pErr);
@@ -88,8 +106,14 @@ type CreateBody = {
   menu_section_id?: string | null;
   item_type?: string;
   is_featured?: boolean;
+  is_owner_recommended?: boolean;
+  is_representative?: boolean;
   sort_order?: number;
   options_json?: unknown[] | null;
+  /** 상세 슬라이드 전용 URL 배열(대표 thumbnail_url 과 중복 불가, 최대 5) */
+  images_json?: unknown[] | null;
+  thumbnail_width?: number | null;
+  thumbnail_height?: number | null;
   /** 0 또는 생략: 할인 없음. 1–100: 할인가 자동 계산 */
   discount_percent?: number | null;
   track_inventory?: boolean;
@@ -252,6 +276,37 @@ export async function POST(
     options_json = optCheck.value;
   }
 
+  const thumbStr = body.thumbnail_url != null ? String(body.thumbnail_url).trim() : "";
+  if (!thumbStr) {
+    return NextResponse.json({ ok: false, error: "thumbnail_required" }, { status: 400 });
+  }
+
+  const detailNorm = normalizeOwnerProductDetailImageUrls(
+    body.images_json === undefined ? [] : body.images_json,
+    thumbStr
+  );
+  if (!detailNorm.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: detailNorm.error,
+        message: detailNorm.message,
+      },
+      { status: 400 }
+    );
+  }
+
+  const dimParse = parseThumbnailDimensions(body.thumbnail_width, body.thumbnail_height);
+  if (!dimParse.ok) {
+    return NextResponse.json({ ok: false, error: dimParse.error }, { status: 400 });
+  }
+
+  const hasNewMenuFlags =
+    body.is_owner_recommended !== undefined || body.is_representative !== undefined;
+  const ownerRec = hasNewMenuFlags ? !!body.is_owner_recommended : !!body.is_featured;
+  const rep = hasNewMenuFlags ? !!body.is_representative : false;
+  const is_featured = ownerRec || rep;
+
   const row = {
     store_id: sid,
     title,
@@ -266,11 +321,16 @@ export async function POST(
     pickup_available: !!body.pickup_available,
     local_delivery_available: !!body.local_delivery_available,
     shipping_available: !!body.shipping_available,
-    thumbnail_url: body.thumbnail_url ? String(body.thumbnail_url).trim() || null : null,
+    thumbnail_url: thumbStr,
+    images_json: detailNorm.urls,
+    thumbnail_width: dimParse.dims?.width ?? null,
+    thumbnail_height: dimParse.dims?.height ?? null,
     category_id,
     menu_section_id,
     item_type,
-    is_featured: !!body.is_featured,
+    is_owner_recommended: ownerRec,
+    is_representative: rep,
+    is_featured,
     sort_order,
     options_json,
   };

@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import {
@@ -18,13 +17,22 @@ import {
   approximateDiscountPercent,
   discountPriceFromPercent,
 } from "@/lib/stores/store-product-pricing";
-import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import {
   formGroupsToOptionsJson,
   optionsJsonToFormGroups,
   type ProductOptionGroup,
 } from "@/lib/stores/owner-product-options-json";
+import { parseMediaUrlsJson } from "@/lib/stores/parse-media-urls-json";
+import { OWNER_PRODUCT_DETAIL_IMAGE_MAX, newOwnerProductImageSlotId } from "@/lib/stores/owner-product-images";
 import { validateProductOptionGroups } from "@/lib/stores/owner-product-options-validate";
+import {
+  readImageFileDimensions,
+  uploadStoreOwnerProductImage,
+} from "@/lib/stores/upload-store-product-image-client";
+import {
+  OwnerProductImagesBlock,
+  type OwnerProductImageSlot,
+} from "@/components/business/owner/OwnerProductImagesBlock";
 import { OwnerProductOptionsTab } from "@/components/business/owner/OwnerProductOptionsTab";
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
@@ -43,12 +51,35 @@ type FormValues = {
   thumbnail_url: string;
   /** 매장 전용 메뉴 구역 (store_menu_sections) — 상단 카테고리와 동일 */
   menu_section_id: string;
-  is_featured: boolean;
+  /** 사장님 추천(메뉴판 상단 + 카테고리 동시 노출) */
+  is_owner_recommended: boolean;
+  /** 대표 메뉴 배지·강조 */
+  is_representative: boolean;
   sort_order: string;
   optionGroups: ProductOptionGroup[];
 };
 
-function serializeProductFormSnapshot(v: FormValues): string {
+function ownerProductFileKey(f: File): string {
+  return `${f.name}:${f.size}:${f.lastModified}`;
+}
+
+function serializeImageSlotsForSnapshot(rows: OwnerProductImageSlot[]): string {
+  return rows
+    .map((r) =>
+      r.type === "url" && r.url
+        ? `u:${r.url.trim()}`
+        : r.type === "file" && r.file
+          ? `f:${ownerProductFileKey(r.file)}`
+          : "x"
+    )
+    .join("|");
+}
+
+function serializeProductFormSnapshot(
+  v: FormValues,
+  imageSlots: OwnerProductImageSlot[],
+  representativeSlotId: string | null
+): string {
   return JSON.stringify({
     title: v.title,
     summary: v.summary,
@@ -58,8 +89,11 @@ function serializeProductFormSnapshot(v: FormValues): string {
     track_inventory: v.track_inventory,
     product_status: v.product_status,
     thumbnail_url: v.thumbnail_url,
+    image_slots: serializeImageSlotsForSnapshot(imageSlots),
+    representative_slot_id: representativeSlotId,
     menu_section_id: v.menu_section_id,
-    is_featured: v.is_featured,
+    is_owner_recommended: v.is_owner_recommended,
+    is_representative: v.is_representative,
     sort_order: v.sort_order,
     optionGroups: v.optionGroups.map((g) => ({
       i: g.groupLocalId,
@@ -81,24 +115,37 @@ function serializeProductFormSnapshot(v: FormValues): string {
   });
 }
 
-function StatusToggleRow({
+function StatusToggleBandedRow({
   label,
   checked,
   disabled,
   onToggle,
+  band,
+  title: ariaTitle,
 }: {
   label: string;
   checked: boolean;
   disabled?: boolean;
   onToggle: () => void;
+  band: "a" | "b";
+  title?: string;
 }) {
+  const bandClass =
+    band === "a"
+      ? "border-sam-border-soft bg-sam-app"
+      : "border-signature/20 bg-signature/[0.08]";
   return (
-    <div className="flex items-center justify-between gap-3 border-b border-sam-border-soft py-2 last:border-0">
-      <span className="sam-text-body text-sam-fg">{label}</span>
+    <div
+      className={`flex min-w-0 items-center justify-between gap-3 rounded-ui-rect border px-3 py-2.5 ${bandClass}`}
+    >
+      <span className="min-w-0 sam-text-body text-sam-fg" title={ariaTitle}>
+        {label}
+      </span>
       <button
         type="button"
         role="switch"
         aria-checked={checked}
+        aria-label={ariaTitle ?? label}
         disabled={disabled}
         onClick={() => {
           if (!disabled) onToggle();
@@ -129,7 +176,8 @@ function initialValues(defaultDraft: boolean): FormValues {
     product_status: defaultDraft ? "draft" : "hidden",
     thumbnail_url: "",
     menu_section_id: "",
-    is_featured: false,
+    is_owner_recommended: false,
+    is_representative: false,
     sort_order: "0",
     optionGroups: [],
   };
@@ -167,15 +215,49 @@ export function OwnerProductForm({
   const [cancelDirtyConfirmOpen, setCancelDirtyConfirmOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [baselineSnapshot, setBaselineSnapshot] = useState<string | null>(null);
+  const [imageSlots, setImageSlots] = useState<OwnerProductImageSlot[]>([]);
+  const [representativeSlotId, setRepresentativeSlotId] = useState<string | null>(null);
+  const imageSlotsRef = useRef<OwnerProductImageSlot[]>([]);
+  const representativeSlotIdRef = useRef<string | null>(null);
+  imageSlotsRef.current = imageSlots;
+  representativeSlotIdRef.current = representativeSlotId;
   const [menuSections, setMenuSections] = useState<
     { id: string; name: string; is_hidden?: boolean }[]
   >([]);
-  const [formTab, setFormTab] = useState<"basic" | "options" | "language">("basic");
+  /** `language` 만 본문을 갈아끼움. 기본·옵션은 한 스크롤 폼에서 이어짐 */
+  const [formTab, setFormTab] = useState<"basic" | "language">("basic");
+  /** 상단 탭 강조: 기본 폼 안에서 스크롤 앵커만 다름 */
+  const [detailNav, setDetailNav] = useState<"top" | "options">("top");
+  const formBodyScrollRef = useRef<HTMLDivElement | null>(null);
+  const optionsSectionRef = useRef<HTMLDivElement | null>(null);
   const categoryStripRef = useRef<HTMLDivElement | null>(null);
   const menuSectionSelectRef = useRef<HTMLButtonElement | null>(null);
   const menuSectionSelectId = useId();
   const valuesRef = useRef(values);
   valuesRef.current = values;
+
+  const scrollBasicTop = useCallback(() => {
+    setFormTab("basic");
+    setDetailNav("top");
+    requestAnimationFrame(() => {
+      formBodyScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  }, []);
+
+  const scrollToOptionsBlock = useCallback(() => {
+    setFormTab("basic");
+    setDetailNav("options");
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const sc = formBodyScrollRef.current;
+        const el = optionsSectionRef.current;
+        if (!sc || !el) return;
+        const nextTop =
+          el.getBoundingClientRect().top - sc.getBoundingClientRect().top + sc.scrollTop;
+        sc.scrollTo({ top: Math.max(0, nextTop), behavior: "smooth" });
+      });
+    });
+  }, []);
 
   const previewCurrency = useMemo(() => getAppSettings().defaultCurrency, []);
   const saleAfterDiscount = useMemo(() => {
@@ -231,43 +313,16 @@ export function OwnerProductForm({
   useEffect(() => {
     if (mode !== "new") return;
     const t = window.setTimeout(() => {
-      setBaselineSnapshot(serializeProductFormSnapshot(valuesRef.current));
+      setBaselineSnapshot(
+        serializeProductFormSnapshot(
+          valuesRef.current,
+          imageSlotsRef.current,
+          representativeSlotIdRef.current
+        )
+      );
     }, 0);
     return () => window.clearTimeout(t);
   }, [mode, menuSections]);
-
-  const onPickThumbnail = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    setUploading(true);
-    setError(null);
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch(`/api/me/stores/${storeId}/upload-image`, {
-        method: "POST",
-        body: fd,
-        credentials: "include",
-      });
-      const json = await res.json();
-      if (!json?.ok || !json.url) {
-        setError(
-          typeof json?.message === "string" && json.message.trim()
-            ? json.message
-            : json?.error === "storage_bucket_missing"
-              ? "Storage 버킷 store-product-images가 없습니다. Supabase에서 버킷을 만들거나 SQL 마이그레이션을 적용해 주세요."
-              : (json?.error as string) ?? "이미지 업로드 실패 (버킷 store-product-images 확인)"
-        );
-        return;
-      }
-      setValues((v) => ({ ...v, thumbnail_url: json.url as string }));
-    } catch {
-      setError("network_error");
-    } finally {
-      setUploading(false);
-    }
-  };
 
   const performDeleteProduct = async () => {
     if (mode !== "edit" || !productId) return;
@@ -324,14 +379,34 @@ export function OwnerProductForm({
         stock_qty: String(p.stock_qty ?? 0),
         track_inventory: p.track_inventory === true,
         product_status: String(p.product_status ?? "active"),
-        thumbnail_url: String(p.thumbnail_url ?? ""),
+        thumbnail_url: "",
         menu_section_id: p.menu_section_id ? String(p.menu_section_id) : "",
-        is_featured: !!p.is_featured,
+        is_owner_recommended:
+          typeof p.is_owner_recommended === "boolean"
+            ? p.is_owner_recommended
+            : !!p.is_featured,
+        is_representative: typeof p.is_representative === "boolean" ? p.is_representative : false,
         sort_order: String(p.sort_order ?? 0),
         optionGroups: optionsJsonToFormGroups(p.options_json ?? []),
       };
+      const thumb = String(p.thumbnail_url ?? "").trim();
+      const extras = parseMediaUrlsJson(p.images_json, OWNER_PRODUCT_DETAIL_IMAGE_MAX);
+      const seen = new Set<string>();
+      const loadedSlots: OwnerProductImageSlot[] = [];
+      if (thumb) {
+        seen.add(thumb);
+        loadedSlots.push({ id: newOwnerProductImageSlotId(), type: "url", url: thumb });
+      }
+      for (const u of extras) {
+        const t = u.trim();
+        if (!t || seen.has(t)) continue;
+        seen.add(t);
+        loadedSlots.push({ id: newOwnerProductImageSlotId(), type: "url", url: t });
+      }
+      setImageSlots(loadedSlots);
+      setRepresentativeSlotId(null);
       setValues(next);
-      setBaselineSnapshot(serializeProductFormSnapshot(next));
+      setBaselineSnapshot(serializeProductFormSnapshot(next, loadedSlots, null));
     } catch {
       setError("network_error");
     } finally {
@@ -381,7 +456,16 @@ export function OwnerProductForm({
     const optRes = validateProductOptionGroups(values.optionGroups);
     if (!optRes.ok) {
       setError(optRes.message);
-      setFormTab("options");
+      scrollToOptionsBlock();
+      setSaving(false);
+      return;
+    }
+    const hasProductImage = imageSlots.some(
+      (s) => (s.type === "file" && s.file) || (s.type === "url" && !!s.url?.trim())
+    );
+    if (!hasProductImage) {
+      setError("이미지를 1장 이상 등록해 주세요.");
+      setFormTab("basic");
       setSaving(false);
       return;
     }
@@ -407,16 +491,64 @@ export function OwnerProductForm({
       stock_qty: values.track_inventory ? stock : 0,
       track_inventory: values.track_inventory,
       product_status: values.product_status,
-      thumbnail_url: values.thumbnail_url.trim() || null,
       menu_section_id: values.menu_section_id.trim() || null,
       category_id: null,
       item_type: "product" as const,
-      is_featured: values.is_featured,
+      is_owner_recommended: values.is_owner_recommended,
+      is_representative: values.is_representative,
       sort_order,
       options_json,
     };
 
+    setUploading(true);
     try {
+      const resolvedUrls: string[] = [];
+      for (const s of imageSlots) {
+        if (s.type === "file" && s.file) {
+          resolvedUrls.push(await uploadStoreOwnerProductImage(storeId, s.file));
+        } else if (s.type === "url" && s.url?.trim()) {
+          resolvedUrls.push(s.url.trim());
+        } else {
+          setError("이미지 정보가 올바르지 않습니다.");
+          return;
+        }
+      }
+      let repIdx = 0;
+      if (representativeSlotId) {
+        const ix = imageSlots.findIndex((s) => s.id === representativeSlotId);
+        if (ix >= 0) repIdx = ix;
+      }
+      const thumbnail_url = resolvedUrls[repIdx] ?? "";
+      if (!thumbnail_url) {
+        setError("대표 이미지를 확인할 수 없습니다.");
+        return;
+      }
+      const repSlot = imageSlots[repIdx];
+      let thumbnail_width: number | undefined;
+      let thumbnail_height: number | undefined;
+      if (repSlot?.type === "file" && repSlot.file) {
+        const dims = await readImageFileDimensions(repSlot.file);
+        if (dims) {
+          thumbnail_width = dims.width;
+          thumbnail_height = dims.height;
+        }
+      }
+      const images_json = imageSlots
+        .map((_, i) => i)
+        .filter((i) => i !== repIdx)
+        .map((i) => resolvedUrls[i]!);
+      const dimPayload =
+        repSlot?.type === "file" &&
+        thumbnail_width != null &&
+        thumbnail_height != null
+          ? ({ thumbnail_width, thumbnail_height } as const)
+          : ({} as { thumbnail_width?: number; thumbnail_height?: number });
+      const imagePayload = {
+        thumbnail_url,
+        images_json,
+        ...dimPayload,
+      };
+
       if (mode === "new") {
         const res = await fetch(`/api/me/stores/${storeId}/products`, {
           method: "POST",
@@ -424,6 +556,7 @@ export function OwnerProductForm({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             ...payloadCore,
+            ...imagePayload,
             pickup_available: true,
             local_delivery_available: false,
             shipping_available: false,
@@ -442,11 +575,16 @@ export function OwnerProductForm({
                     ? "저장하려면 카테고리를 선택해 주세요."
                     : json?.error === "invalid_menu_section_id"
                       ? "선택한 카테고리가 없거나 매장에 속하지 않습니다. 다시 선택해 주세요."
-                      : json?.error === "invalid_options_json" && typeof json?.message === "string"
-                        ? json.message
-                        : json?.error ?? "등록 실패"
+                      : json?.error === "thumbnail_required"
+                        ? "대표 이미지를 등록해 주세요."
+                        : json?.error === "detail_image_overlaps_thumbnail" &&
+                            typeof json?.message === "string"
+                          ? json.message
+                          : json?.error === "invalid_options_json" && typeof json?.message === "string"
+                            ? json.message
+                            : json?.error ?? "등록 실패"
           );
-          if (json?.error === "invalid_options_json") setFormTab("options");
+          if (json?.error === "invalid_options_json") scrollToOptionsBlock();
           if (
             json?.error === "menu_sections_required" ||
             json?.error === "menu_section_id_required" ||
@@ -459,12 +597,11 @@ export function OwnerProductForm({
           return;
         }
       } else if (productId) {
-        const patch: Record<string, unknown> = { ...payloadCore };
         const res = await fetch(`/api/me/stores/${storeId}/products/${productId}`, {
           method: "PATCH",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(patch),
+          body: JSON.stringify({ ...payloadCore, ...imagePayload }),
         });
         const json = await res.json();
         if (!json?.ok) {
@@ -477,11 +614,16 @@ export function OwnerProductForm({
                   ? "저장하려면 카테고리를 선택해 주세요."
                   : json?.error === "invalid_menu_section_id"
                     ? "선택한 카테고리가 없거나 매장에 속하지 않습니다. 다시 선택해 주세요."
-                    : json?.error === "invalid_options_json" && typeof json?.message === "string"
-                      ? json.message
-                      : json?.error ?? "저장 실패"
+                    : json?.error === "thumbnail_required"
+                      ? "대표 이미지를 등록해 주세요."
+                      : json?.error === "detail_image_overlaps_thumbnail" &&
+                          typeof json?.message === "string"
+                        ? json.message
+                        : json?.error === "invalid_options_json" && typeof json?.message === "string"
+                          ? json.message
+                          : json?.error ?? "저장 실패"
           );
-          if (json?.error === "invalid_options_json") setFormTab("options");
+          if (json?.error === "invalid_options_json") scrollToOptionsBlock();
           if (
             json?.error === "menu_sections_required" ||
             json?.error === "menu_section_id_required" ||
@@ -495,19 +637,19 @@ export function OwnerProductForm({
         }
       }
       router.push(`/stores/owner/products?storeId=${encodeURIComponent(storeId)}`);
-    } catch {
-      setError("network_error");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "network_error");
     } finally {
+      setUploading(false);
       setSaving(false);
     }
   };
 
   const productsHubHref = `/stores/owner/products?storeId=${encodeURIComponent(storeId)}`;
   const categoriesHref = `/stores/owner/menu-categories?storeId=${encodeURIComponent(storeId)}`;
-  const ordersQuickHref = buildStoreOrdersHref({ storeId });
-  const dashboardHref = `/stores/owner?storeId=${encodeURIComponent(storeId)}`;
   const isDirty =
-    baselineSnapshot != null && serializeProductFormSnapshot(values) !== baselineSnapshot;
+    baselineSnapshot != null &&
+    serializeProductFormSnapshot(values, imageSlots, representativeSlotId) !== baselineSnapshot;
 
   const revertToSaved = useCallback(async () => {
     setError(null);
@@ -520,7 +662,9 @@ export function OwnerProductForm({
       menu_section_id: initialMenuSectionId.trim(),
     };
     setValues(next);
-    setBaselineSnapshot(serializeProductFormSnapshot(next));
+    setImageSlots([]);
+    setRepresentativeSlotId(null);
+    setBaselineSnapshot(serializeProductFormSnapshot(next, [], null));
   }, [mode, productId, defaultDraft, initialMenuSectionId, load]);
 
   /** 취소: 미저장이면 확인 후 초기화, 없으면 상품 목록으로 나감(일반적인 나가기) */
@@ -583,25 +727,31 @@ export function OwnerProductForm({
         <nav className="flex border-t border-sam-border-soft px-2">
           <button
             type="button"
-            onClick={() => setFormTab("basic")}
+            onClick={() => void scrollBasicTop()}
             className={`min-w-0 flex-1 border-b-2 py-2 sam-text-body-secondary font-medium transition ${
-              formTab === "basic" ? "border-signature text-signature" : "border-transparent text-sam-muted"
+              formTab === "basic" && detailNav === "top"
+                ? "border-signature text-signature"
+                : "border-transparent text-sam-muted"
             }`}
           >
             기본정보
           </button>
           <button
             type="button"
-            onClick={() => setFormTab("options")}
+            onClick={() => void scrollToOptionsBlock()}
             className={`min-w-0 flex-1 border-b-2 py-2 sam-text-body-secondary font-medium transition ${
-              formTab === "options" ? "border-signature text-signature" : "border-transparent text-sam-muted"
+              formTab === "basic" && detailNav === "options"
+                ? "border-signature text-signature"
+                : "border-transparent text-sam-muted"
             }`}
           >
             옵션설정
           </button>
           <button
             type="button"
-            onClick={() => setFormTab("language")}
+            onClick={() => {
+              setFormTab("language");
+            }}
             className={`min-w-0 flex-1 border-b-2 py-2 sam-text-body-secondary font-medium transition ${
               formTab === "language" ? "border-signature text-signature" : "border-transparent text-sam-muted"
             }`}
@@ -611,7 +761,10 @@ export function OwnerProductForm({
         </nav>
       </div>
 
-      <div className="min-h-0 flex-1 basis-0 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[var(--biz-app-bg)]">
+      <div
+        ref={formBodyScrollRef}
+        className="min-h-0 flex-1 basis-0 overflow-x-hidden overflow-y-auto overscroll-y-contain bg-[var(--biz-app-bg)]"
+      >
       <form
         id="owner-product-form"
         onSubmit={(e) => void handleSubmit(e)}
@@ -625,42 +778,16 @@ export function OwnerProductForm({
 
         {formTab === "basic" ? (
           <>
-            <OwnerStoreAdminDashSection pad="narrow" title="지금 주문 · 노출">
-              <StatusToggleRow
-                label="지금 주문 가능"
-                checked={isListed}
-                disabled={isHidden || isSoldOut}
-                onToggle={() =>
-                  setValues((v) => ({
-                    ...v,
-                    product_status: v.product_status === "active" ? "draft" : "active",
-                  }))
-                }
-              />
-              <StatusToggleRow
-                label="숨김"
-                checked={isHidden}
-                onToggle={() =>
-                  setValues((v) => ({
-                    ...v,
-                    product_status: v.product_status === "hidden" ? "draft" : "hidden",
-                  }))
-                }
-              />
-              <StatusToggleRow
-                label="품절"
-                checked={isSoldOut}
-                onToggle={() =>
-                  setValues((v) => ({
-                    ...v,
-                    product_status: v.product_status === "sold_out" ? "draft" : "sold_out",
-                  }))
-                }
-              />
-            </OwnerStoreAdminDashSection>
-
-            <OwnerStoreAdminDashSection pad="narrow" title="필수정보">
+            <OwnerStoreAdminDashSection pad="narrow" title="필수 정보">
               <div className="space-y-2">
+                <OwnerProductImagesBlock
+                  slots={imageSlots}
+                  onSlotsChange={setImageSlots}
+                  representativeSlotId={representativeSlotId}
+                  onRepresentativeChange={setRepresentativeSlotId}
+                  disabled={saving || deleting || uploading}
+                  onClientError={setError}
+                />
                 <div>
                   <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>상품명</label>
                   <input
@@ -668,6 +795,15 @@ export function OwnerProductForm({
                     value={values.title}
                     onChange={(e) => setValues((v) => ({ ...v, title: e.target.value }))}
                     className={OWNER_STORE_PROFILE_CONTROL_CLASS}
+                  />
+                </div>
+                <div className="min-w-0">
+                  <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>한 줄 설명</label>
+                  <input
+                    value={values.summary}
+                    onChange={(e) => setValues((v) => ({ ...v, summary: e.target.value }))}
+                    className={OWNER_STORE_PROFILE_CONTROL_CLASS}
+                    placeholder="목록에 보이는 짧은 설명"
                   />
                 </div>
                 <div>
@@ -720,14 +856,11 @@ export function OwnerProductForm({
                       <span className="ml-2 sam-text-body font-medium text-sam-meta">—</span>
                     )}
                   </p>
-                  <p className="mt-1 sam-text-xxs leading-relaxed text-sam-muted">
-                    판매가 × (100% − 할인율)로 자동 계산되어 저장됩니다. 고객 주문 금액에 반영됩니다.
-                  </p>
                 </div>
               </div>
             </OwnerStoreAdminDashSection>
 
-            <OwnerStoreAdminDashSection pad="narrow" title="재고 · 정렬 · 한 줄 설명">
+            <OwnerStoreAdminDashSection pad="narrow" title="재고">
               <div className="space-y-2">
                 <div>
                   <p className="mb-2 sam-text-body-secondary font-medium text-sam-fg">재고 관리</p>
@@ -755,11 +888,11 @@ export function OwnerProductForm({
                       재고 입력
                     </button>
                   </div>
-                  <p className="mt-2 sam-text-xxs leading-relaxed text-sam-muted">
-                    {values.track_inventory
-                      ? "주문 확정 시 재고가 줄고, 0이 되면 자동으로 품절(판매 중지) 처리됩니다."
-                      : "재고를 세지 않습니다. 주문해도 수량이 줄지 않으며 자동 품절도 없습니다."}
-                  </p>
+                  {values.track_inventory ? (
+                    <p className="mt-2 sam-text-xxs leading-relaxed text-sam-muted">
+                      주문 확정 시 재고가 줄고, 0이 되면 자동으로 품절(판매 중지) 처리됩니다.
+                    </p>
+                  ) : null}
                 </div>
                 {values.track_inventory ? (
                   <div>
@@ -775,90 +908,33 @@ export function OwnerProductForm({
                     />
                   </div>
                 ) : null}
-                <div>
-                  <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>목록 정렬</label>
-                  <p className="mb-1 sam-text-xxs text-sam-muted">숫자가 작을수록 위쪽</p>
-                  <input
-                    inputMode="numeric"
-                    value={values.sort_order}
-                    onChange={(e) => setValues((v) => ({ ...v, sort_order: e.target.value }))}
-                    className={OWNER_STORE_PROFILE_CONTROL_CLASS}
-                    placeholder="0"
-                  />
-                </div>
-                <div className="min-w-0">
-                  <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>한 줄 설명</label>
-                  <input
-                    value={values.summary}
-                    onChange={(e) => setValues((v) => ({ ...v, summary: e.target.value }))}
-                    className={OWNER_STORE_PROFILE_CONTROL_CLASS}
-                    placeholder="목록에 보이는 짧은 설명"
-                  />
-                </div>
               </div>
             </OwnerStoreAdminDashSection>
 
-            <OwnerStoreAdminDashSection pad="narrow" title="상품 이미지">
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <label className="cursor-pointer rounded-full border border-sam-border bg-sam-surface px-4 py-2 sam-text-body-secondary font-medium text-sam-fg">
-                    {uploading ? "업로드 중…" : "이미지 선택"}
-                    <input
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp"
-                      className="hidden"
-                      disabled={uploading}
-                      onChange={(ev) => void onPickThumbnail(ev)}
-                    />
-                  </label>
-                  {values.thumbnail_url ? (
-                    <button
-                      type="button"
-                      onClick={() => setValues((v) => ({ ...v, thumbnail_url: "" }))}
-                      className="rounded-full border border-sam-border bg-sam-surface px-3 py-2 sam-text-helper font-medium text-sam-muted hover:bg-sam-app"
-                    >
-                      이미지 제거
-                    </button>
-                  ) : null}
-                </div>
-                {values.thumbnail_url ? (
-                  <div className="flex flex-wrap items-end gap-4">
-                    <div className="shrink-0 space-y-1">
-                      <p className="sam-text-xxs font-medium text-sam-muted">목록용</p>
-                      <img
-                        src={values.thumbnail_url}
-                        alt=""
-                        className="h-16 w-16 rounded-ui-rect border border-sam-border object-cover shadow-sm"
-                      />
-                    </div>
-                    <div className="min-w-0 flex-1 space-y-1">
-                      <p className="sam-text-xxs font-medium text-sam-muted">상세용</p>
-                      <img
-                        src={values.thumbnail_url}
-                        alt=""
-                        className="max-h-52 w-full max-w-[280px] rounded-ui-rect border border-sam-border object-cover shadow-sm"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <p className="sam-text-helper leading-relaxed text-sam-muted">
-                    사진을 올리면 목록용·상세용 크기로 미리보기가 각각 표시됩니다.
-                  </p>
-                )}
-              </div>
-            </OwnerStoreAdminDashSection>
-
-            <OwnerStoreAdminDashSection pad="narrow" title="사장님 추천 (실물)">
-              <p className="border-b border-sam-border-soft pb-2 sam-text-helper leading-relaxed text-sam-muted">
-                이 화면은 <strong className="font-medium text-sam-fg">실물 상품</strong> 기준입니다. 픽업·배달·택배
-                여부는 매장 기본 정보·설정에서 다룹니다.
-              </p>
-              <StatusToggleRow
-                label="목록에 사장님 추천 뱃지로 강조 노출"
-                checked={values.is_featured}
-                onToggle={() => setValues((v) => ({ ...v, is_featured: !v.is_featured }))}
-              />
-            </OwnerStoreAdminDashSection>
+            <div
+              ref={optionsSectionRef}
+              id="owner-product-options"
+              className={
+                detailNav === "options"
+                  ? "rounded-ui-rect border-[3px] border-[var(--biz-primary)] bg-[var(--biz-primary-soft)] p-1.5 shadow-[0_4px_0_0_rgba(28,141,184,0.14),0_10px_28px_rgba(28,141,184,0.2)] ring-2 ring-[var(--biz-primary)]/45 ring-offset-2 ring-offset-[var(--biz-app-bg)]"
+                  : "rounded-ui-rect border-[3px] border-[var(--biz-primary)] bg-[var(--biz-primary-soft)] p-1.5 shadow-[0_4px_0_0_rgba(28,141,184,0.08),0_8px_24px_rgba(15,23,42,0.08)]"
+              }
+            >
+              <OwnerStoreAdminDashSection
+                pad="narrow"
+                title="옵션 설정"
+                surfaceTone="bizSoft"
+                className="border-0 shadow-md ring-1 ring-inset ring-[var(--biz-primary)]/30"
+              >
+                <OwnerProductOptionsTab
+                  optionGroups={values.optionGroups}
+                  onOptionGroupsChange={(fn) =>
+                    setValues((v) => ({ ...v, optionGroups: fn(v.optionGroups) }))
+                  }
+                  priceUnitLabel={priceUnit}
+                />
+              </OwnerStoreAdminDashSection>
+            </div>
 
             {mode === "edit" && productId ? (
               <div className="px-2">
@@ -872,17 +948,73 @@ export function OwnerProductForm({
                 </button>
               </div>
             ) : null}
-          </>
-        ) : null}
 
-        {formTab === "options" ? (
-          <OwnerProductOptionsTab
-            optionGroups={values.optionGroups}
-            onOptionGroupsChange={(fn) =>
-              setValues((v) => ({ ...v, optionGroups: fn(v.optionGroups) }))
-            }
-            priceUnitLabel={priceUnit}
-          />
+            <OwnerStoreAdminDashSection pad="narrow" title="주문·노출·품절·추천·대표">
+              <div className="space-y-1.5">
+                <div className="grid min-w-0 grid-cols-2 gap-1.5">
+                  <StatusToggleBandedRow
+                    band="a"
+                    label="주문"
+                    title="지금 주문 가능"
+                    checked={isListed}
+                    disabled={isHidden || isSoldOut}
+                    onToggle={() =>
+                      setValues((v) => ({
+                        ...v,
+                        product_status: v.product_status === "active" ? "draft" : "active",
+                      }))
+                    }
+                  />
+                  <StatusToggleBandedRow
+                    band="b"
+                    label="노출"
+                    title="목록에 노출(숨김 해제)"
+                    checked={!isHidden}
+                    onToggle={() =>
+                      setValues((v) => ({
+                        ...v,
+                        product_status: v.product_status === "hidden" ? "draft" : "hidden",
+                      }))
+                    }
+                  />
+                </div>
+                <div className="grid min-w-0 grid-cols-2 gap-1.5">
+                  <StatusToggleBandedRow
+                    band="a"
+                    label="품절"
+                    checked={isSoldOut}
+                    onToggle={() =>
+                      setValues((v) => ({
+                        ...v,
+                        product_status: v.product_status === "sold_out" ? "draft" : "sold_out",
+                      }))
+                    }
+                  />
+                  <StatusToggleBandedRow
+                    band="b"
+                    label="사장님 추천"
+                    title="메뉴판 상단 추천과 카테고리 목록에 함께 표시"
+                    checked={values.is_owner_recommended}
+                    onToggle={() =>
+                      setValues((v) => ({ ...v, is_owner_recommended: !v.is_owner_recommended }))
+                    }
+                  />
+                </div>
+                <StatusToggleBandedRow
+                  band="b"
+                  label="대표 메뉴"
+                  title="상품 상세 등에서 대표 배지로 표시"
+                  checked={values.is_representative}
+                  onToggle={() =>
+                    setValues((v) => ({ ...v, is_representative: !v.is_representative }))
+                  }
+                />
+                <p className="sam-text-caption leading-relaxed text-sam-muted">
+                  인기 메뉴 순위는 최근 주문 집계로 자동 반영되며, 여기서는 켜거나 끌 수 없습니다.
+                </p>
+              </div>
+            </OwnerStoreAdminDashSection>
+          </>
         ) : null}
 
         {formTab === "language" ? (
@@ -893,36 +1025,7 @@ export function OwnerProductForm({
           </OwnerStoreAdminDashSection>
         ) : null}
 
-        <OwnerStoreAdminDashSection pad="narrow" title="바로가기">
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <Link
-              href={productsHubHref}
-              className="flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 text-center sam-text-body-secondary font-semibold text-sam-fg"
-            >
-              상품 목록
-            </Link>
-            <Link
-              href={ordersQuickHref}
-              className="flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 text-center sam-text-body-secondary font-semibold text-sam-fg"
-            >
-              주문
-            </Link>
-            <Link
-              href={categoriesHref}
-              className="flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 text-center sam-text-body-secondary font-semibold text-sam-fg"
-            >
-              카테고리
-            </Link>
-            <Link
-              href={dashboardHref}
-              className="flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 text-center sam-text-body-secondary font-semibold text-sam-fg"
-            >
-              대시보드
-            </Link>
-          </div>
-        </OwnerStoreAdminDashSection>
-
-        <OwnerStoreAdminDashSection pad="narrow" title="저장·취소">
+        <OwnerStoreAdminDashSection pad="narrow">
           <div
             className="grid grid-cols-2 gap-2 pb-[max(0px,env(safe-area-inset-bottom,0px))]"
             role="group"
@@ -968,8 +1071,8 @@ export function OwnerProductForm({
       <OwnerStoreAdminConfirmModal
         open={deleteConfirmOpen}
         titleId="owner-product-delete-title"
-        title="상품 삭제"
-        description="상품을 삭제(숨김)할까요? 목록에서 사라집니다."
+        title="삭제 확인"
+        description="삭제하시겠습니까??\n\n상품이 목록에서 사라집니다."
         cancelLabel="취소"
         confirmLabel="삭제"
         confirmBusyLabel="처리 중…"

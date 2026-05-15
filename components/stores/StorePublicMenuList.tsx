@@ -68,9 +68,14 @@ const StorePublicMenuRow = memo(function StorePublicMenuRow({
 
   const badges = (
     <div className="flex flex-wrap gap-1">
-      {p.is_featured ? (
+      {p.is_owner_recommended ? (
         <span className="inline-flex h-[18px] items-center rounded-[3px] bg-[#E6F4F9] px-1.5 text-[10px] font-bold text-[#1C8DB8] ring-1 ring-[#1C8DB8]/15">
           사장님 추천
+        </span>
+      ) : null}
+      {p.is_representative ? (
+        <span className="inline-flex h-[18px] items-center rounded-[3px] bg-[#FFF4E5] px-1.5 text-[10px] font-bold text-[#B45309] ring-1 ring-amber-200/80">
+          대표메뉴
         </span>
       ) : null}
       {typeLabel && typeLabel !== "상품" ? (

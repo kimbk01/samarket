@@ -117,6 +117,8 @@ type PublicProduct = {
   local_delivery_available: boolean | null;
   shipping_available: boolean | null;
   is_featured?: boolean;
+  is_owner_recommended?: boolean;
+  is_representative?: boolean;
   item_type?: string | null;
   store_menu_sections?: MenuSecEmbed;
   store_product_categories?: CatEmbed;
@@ -148,7 +150,7 @@ export function StoreProductPublic({
   const [orderErr, setOrderErr] = useState<string | null>(null);
   const [orderOk, setOrderOk] = useState<string | null>(null);
   const [lastPlacedOrderId, setLastPlacedOrderId] = useState<string | null>(null);
-  const [galleryIdx, setGalleryIdx] = useState(0);
+  const [detailGalleryIdx, setDetailGalleryIdx] = useState(0);
   const [modifierWire, setModifierWire] = useState<ModifierSelectionsWire>({ pick: {}, qty: {} });
   const [lineMemo, setLineMemo] = useState("");
   const [hoursTick, setHoursTick] = useState(0);
@@ -189,27 +191,31 @@ export function StoreProductPublic({
     return () => clearInterval(id);
   }, []);
 
-  const galleryUrls = useMemo(() => {
+  const detailGalleryUrls = useMemo(() => {
     if (!product) return [];
-    const extra = parseMediaUrlsJson(product.images_json, 12);
     const thumb = product.thumbnail_url?.trim() || "";
-    const ordered: string[] = [];
+    const extra = parseMediaUrlsJson(product.images_json, 12);
     const seen = new Set<string>();
-    if (thumb) {
-      ordered.push(thumb);
-      seen.add(thumb);
-    }
+    if (thumb) seen.add(thumb);
+    const out: string[] = [];
     for (const u of extra) {
-      if (!seen.has(u)) {
-        seen.add(u);
-        ordered.push(u);
-      }
+      const t = u.trim();
+      if (!t || seen.has(t)) continue;
+      seen.add(t);
+      out.push(t);
     }
-    return ordered;
+    return out;
   }, [product]);
 
+  const heroImageUrl = useMemo(() => {
+    if (!product) return "";
+    const thumb = product.thumbnail_url?.trim() || "";
+    if (thumb) return thumb;
+    return detailGalleryUrls[0] ?? "";
+  }, [product, detailGalleryUrls]);
+
   useEffect(() => {
-    setGalleryIdx((prev) => (prev === 0 ? prev : 0));
+    setDetailGalleryIdx((prev) => (prev === 0 ? prev : 0));
   }, [product?.id]);
 
   useEffect(() => {
@@ -658,8 +664,9 @@ export function StoreProductPublic({
     menuSectionNameFromEmbed(product.store_menu_sections) ??
     categoryNameFromEmbed(product.store_product_categories);
   const itemTypeLabel = itemTypeShortLabel(product.item_type);
+  const showRepresentativeBadge = !!(product.is_representative || product.is_featured);
   const badges = [
-    product.is_featured ? t("common_representative") : null,
+    showRepresentativeBadge ? t("common_representative") : null,
     itemTypeLabel,
     product.pickup_available ? t("common_pickup_label") : null,
     product.local_delivery_available ||
@@ -710,16 +717,10 @@ export function StoreProductPublic({
 
       <div className="bg-sam-surface">
         <div className="relative aspect-square w-full bg-sam-surface-muted">
-          {galleryUrls[galleryIdx] ? (
-             
-            <img
-              src={galleryUrls[galleryIdx]}
-              alt=""
-              className="h-full w-full object-cover"
-            />
+          {heroImageUrl ? (
+            <img src={heroImageUrl} alt="" className="h-full w-full object-cover" />
           ) : profileUrl ? (
             <div className="relative flex h-full w-full items-center justify-center bg-gradient-to-br from-sam-border-soft via-sam-surface-muted to-sam-surface-muted">
-              { }
               <img
                 src={profileUrl}
                 alt=""
@@ -731,31 +732,40 @@ export function StoreProductPublic({
               🍽️
             </div>
           )}
-          {product.is_featured ? (
+          {showRepresentativeBadge ? (
             <span className="absolute bottom-3 left-3 rounded-full bg-black/70 px-2.5 py-1 sam-text-xxs font-semibold text-amber-200">
               {t("common_representative")}
             </span>
           ) : null}
         </div>
-        {galleryUrls.length > 1 ? (
-          <HorizontalDragScroll
-            className="flex gap-2 overflow-x-auto border-b border-sam-border-soft px-3 py-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-            aria-label={t("common_image")}
-          >
-            {galleryUrls.map((u, i) => (
-              <button
-                key={`${u}-${i}`}
-                type="button"
-                onClick={() => setGalleryIdx(i)}
-                className={`relative h-14 w-14 shrink-0 overflow-hidden rounded-ui-rect ring-2 ring-offset-1 ${
-                  i === galleryIdx ? "ring-signature" : "ring-transparent opacity-80"
-                }`}
-              >
-                { }
-                <img src={u} alt="" className="h-full w-full object-cover" />
-              </button>
-            ))}
-          </HorizontalDragScroll>
+        {detailGalleryUrls.length > 0 ? (
+          <>
+            <div className="relative aspect-[4/3] w-full border-b border-sam-border-soft bg-sam-surface-muted">
+              <img
+                src={detailGalleryUrls[detailGalleryIdx] ?? ""}
+                alt=""
+                loading={detailGalleryIdx === 0 ? "eager" : "lazy"}
+                className="h-full w-full object-cover"
+              />
+            </div>
+            <HorizontalDragScroll
+              className="flex snap-x snap-mandatory gap-2 overflow-x-auto border-b border-sam-border-soft px-3 py-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+              aria-label={t("common_image")}
+            >
+              {detailGalleryUrls.map((u, i) => (
+                <button
+                  key={`${u}-${i}`}
+                  type="button"
+                  onClick={() => setDetailGalleryIdx(i)}
+                  className={`relative h-14 w-14 shrink-0 snap-start overflow-hidden rounded-ui-rect ring-2 ring-offset-1 ${
+                    i === detailGalleryIdx ? "ring-signature" : "ring-transparent opacity-80"
+                  }`}
+                >
+                  <img src={u} alt="" loading="lazy" className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </HorizontalDragScroll>
+          </>
         ) : null}
         <div className="border-b border-sam-border-soft px-4 py-4">
           <p className="text-lg font-semibold text-sam-fg">{product.title}</p>

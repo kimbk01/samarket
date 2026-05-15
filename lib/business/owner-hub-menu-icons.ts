@@ -24,6 +24,8 @@ const LABEL_ICON: Record<string, LucideIcon> = {
   "채팅 · 문의": MessageCircle,
   "배달 주문": Truck,
   "배달 운영 설정": Settings2,
+  "상품 관리 , 등록": Package,
+  /** 레거시·문서용 라벨 — 사이드바는 `business-admin-nav` 의 표기를 따름 */
   "상품 등록": Package,
   카테고리: LayoutGrid,
   "배너 관리": Image,

@@ -117,7 +117,7 @@ export function buildMyBusinessNavGroups(ctx: MyBusinessNavContext): MyBusinessN
       href: OwnerRoutes.menuCategories(storeId),
     });
     menuItems.push({
-      label: "상품 등록",
+      label: "상품 관리 , 등록",
       icon: "product",
       href: OwnerRoutes.products(storeId),
     });

@@ -7,9 +7,7 @@ import { BodyPortal } from "@/components/layout/BodyPortal";
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
 import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
 import { BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
-import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { Sam } from "@/lib/ui/sam-component-classes";
-import { samTier1HeaderIconMicro } from "@/lib/ui/tier1-header-icon";
 import { StoreMenuCategorySortableList } from "@/components/business/owner/StoreMenuCategorySortableList";
 import { useBusinessAdminStore } from "@/components/business/admin/business-admin-store-context";
 import type { OwnerRscMenuSection } from "@/lib/stores/owner/load-owner-store-read-bootstrap";
@@ -80,13 +78,14 @@ export function OwnerMenuCategoriesClient({
 
   const base = `/api/me/stores/${encodeURIComponent(storeId)}/menu-sections`;
   const productsHubHref = `/stores/owner/products?storeId=${encodeURIComponent(storeId)}`;
-  const ordersHref = buildStoreOrdersHref({ storeId });
-  const inquiriesHref = `/stores/owner/inquiries?storeId=${encodeURIComponent(storeId)}`;
 
-  const load = useCallback(async (opts?: { silent?: boolean }) => {
+  const load = useCallback(async (opts?: { silent?: boolean; preserveExistingError?: boolean }) => {
     const silent = opts?.silent === true;
+    const preserveExistingError = opts?.preserveExistingError === true;
+    if (!preserveExistingError) {
+      setError(null);
+    }
     if (!silent) setLoading(true);
-    setError(null);
     try {
       const res = await fetch(base, { credentials: "include", cache: "no-store" });
       const j = await res.json().catch(() => ({}));
@@ -107,6 +106,8 @@ export function OwnerMenuCategoriesClient({
       setSections(list);
       if (j.meta?.hint === "store_menu_sections") {
         setError("DB 마이그레이션(store_menu_sections)을 적용해 주세요.");
+      } else {
+        setError(null);
       }
     } catch {
       setError("network_error");
@@ -117,8 +118,17 @@ export function OwnerMenuCategoriesClient({
   }, [base]);
 
   useEffect(() => {
-    void load(initialSections ? { silent: true } : {});
-  }, [initialSections, load]);
+    if (initialSections !== undefined) {
+      return;
+    }
+    if (rscBootstrapError) {
+      void load({ silent: true, preserveExistingError: true }).finally(() => {
+        setLoading(false);
+      });
+      return;
+    }
+    void load({});
+  }, [initialSections, load, rscBootstrapError]);
 
   const openNew = useCallback(() => {
     setEditingId("new");
@@ -237,10 +247,10 @@ export function OwnerMenuCategoriesClient({
 
   const countProductsInSection = useCallback(async (sectionId: string): Promise<number> => {
     try {
-      const res = await fetch(`/api/me/stores/${encodeURIComponent(storeId)}/products`, {
-        credentials: "include",
-        cache: "no-store",
-      });
+      const res = await fetch(
+        `/api/me/stores/${encodeURIComponent(storeId)}/products?menu_section_id=${encodeURIComponent(sectionId)}`,
+        { credentials: "include", cache: "no-store" }
+      );
       const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         products?: Array<{ menu_section_id?: string | null; store_menu_sections?: unknown }>;
@@ -463,49 +473,22 @@ export function OwnerMenuCategoriesClient({
 
   return (
     <div className="max-w-full overflow-x-hidden bg-sam-app pb-8">
-      <div className="flex flex-wrap gap-2 border-b border-sam-border-soft bg-sam-surface px-0 py-2">
-        <Link
-          href={productsHubHref}
-          className={`${Sam.btn.outlineCombo} ${Sam.btn.pill} ${Sam.btn.sm} no-underline font-semibold text-sam-fg`}
-        >
-          상품 등록
-        </Link>
-        <Link
-          href={ordersHref}
-          className={`${Sam.btn.outlineCombo} ${Sam.btn.pill} ${Sam.btn.sm} no-underline font-semibold text-sam-fg`}
-        >
-          주문 관리
-        </Link>
-        <Link
-          href={inquiriesHref}
-          className={`${Sam.btn.outlineCombo} ${Sam.btn.pill} ${Sam.btn.sm} no-underline font-semibold text-sam-fg`}
-        >
-          문의
-        </Link>
-      </div>
       <div className="space-y-3 px-0 py-2">
-        <div className="flex min-w-0 items-center justify-between gap-4">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
           <button
             type="button"
             onClick={() => openNew()}
-            className={`inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-sam-border bg-sam-surface text-signature shadow-sm ${samTier1HeaderIconMicro}`}
-            aria-label="카테고리 추가"
+            className={`${Sam.btn.primaryCombo} ${Sam.btn.sm} shrink-0 touch-manipulation select-none font-semibold active:scale-[0.99] active:opacity-90`}
           >
-            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
+            카테고리 추가
           </button>
           <Link
             href={productsHubHref}
-            className={`${Sam.btn.outlinePrimaryCombo} no-underline`}
+            className={`${Sam.btn.secondaryCombo} ${Sam.btn.sm} no-underline font-semibold active:scale-[0.99] active:opacity-90`}
           >
             상품 목록으로
           </Link>
         </div>
-        <p className="sam-text-body-secondary leading-relaxed text-sam-muted">
-          카테고리를 만든 뒤 상품 등록 화면에서 탭으로 나누어 등록하세요. 왼쪽 줄 세 개 아이콘을 잡고 위·아래로
-          드래그하면 순서를 바꿀 수 있습니다.
-        </p>
 
         {error ? <p className="sam-text-body-secondary text-red-600">{error}</p> : null}
 

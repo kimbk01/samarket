@@ -1,17 +1,19 @@
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
+import sharp from "sharp";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { enforceStoreOwnerImageUploadQuota } from "@/lib/security/rate-limit-presets";
+import {
+  OWNER_PRODUCT_IMAGE_ALLOWED_MIMES,
+  OWNER_PRODUCT_IMAGE_MAX_BYTES,
+} from "@/lib/stores/owner-product-images";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const MAX_BYTES = 5 * 1024 * 1024;
-const ALLOWED = new Set(["image/jpeg", "image/png", "image/webp"]);
-
-/** 매장 소유자 + 승인된 매장만. multipart file → 공개 URL */
+/** 매장 소유자 + 승인된 매장만. multipart file → 공개 URL (DB 미갱신). JPG→WebP 선호. */
 export async function POST(
   req: NextRequest,
   context: { params: Promise<{ storeId: string }> }
@@ -61,21 +63,35 @@ export async function POST(
   if (!file || !(file instanceof File)) {
     return NextResponse.json({ ok: false, error: "file_required" }, { status: 400 });
   }
-  if (file.size > MAX_BYTES) {
+  if (file.size > OWNER_PRODUCT_IMAGE_MAX_BYTES) {
     return NextResponse.json({ ok: false, error: "file_too_large" }, { status: 413 });
   }
   const mime = (file.type || "").toLowerCase();
-  if (!ALLOWED.has(mime)) {
+  if (!OWNER_PRODUCT_IMAGE_ALLOWED_MIMES.has(mime)) {
     return NextResponse.json({ ok: false, error: "invalid_type" }, { status: 400 });
   }
 
-  const ext = mime === "image/png" ? "png" : mime === "image/webp" ? "webp" : "jpg";
+  let buf = Buffer.from(await file.arrayBuffer());
+  let contentType = mime;
+  let ext = "webp";
+  if (mime === "image/jpeg") {
+    try {
+      const webpBuf = await sharp(buf).rotate().webp({ quality: 86 }).toBuffer();
+      buf = Buffer.from(webpBuf);
+      contentType = "image/webp";
+      ext = "webp";
+    } catch (e) {
+      console.error("[upload-image] sharp webp", e);
+      contentType = "image/jpeg";
+      ext = "jpg";
+    }
+  }
+
   const path = `${sid}/${randomUUID()}.${ext}`;
 
-  const buf = Buffer.from(await file.arrayBuffer());
   const { error: upErr } = await sb.storage
     .from("store-product-images")
-    .upload(path, buf, { contentType: mime, upsert: false });
+    .upload(path, buf, { contentType, upsert: false });
 
   if (upErr) {
     console.error("[upload-image]", upErr);

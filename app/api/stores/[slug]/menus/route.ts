@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { parseProductOptionsJson } from "@/lib/stores/product-line-options";
 import {
   getApprovedStoreBySlug,
   loadStoreCommerceMeta,
@@ -7,14 +6,35 @@ import {
 } from "@/lib/stores/get-approved-store-by-slug";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { loadCommerceSettings } from "@/lib/stores/load-commerce-settings";
+import { queryStorePopularMenuStats } from "@/lib/stores/query-store-popular-menu-stats";
+import {
+  parseStoreDetailProducts,
+  slicePopularMenuProducts,
+  sliceRecommendedMenuProducts,
+  sortStoreDetailProductCardsForDisplay,
+} from "@/lib/stores/group-store-products-by-menu";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/** 목록용 — `parseProductOptionsJson` 전체 파싱 없이 옵션 유무만(행 수·페이로드 절약) */
+function menuRowHasOptions(optionsJson: unknown): boolean {
+  if (optionsJson == null) return false;
+  if (Array.isArray(optionsJson)) return optionsJson.length > 0;
+  if (typeof optionsJson === "string") {
+    const t = optionsJson.trim();
+    return t.length > 0 && t !== "[]" && t !== "null";
+  }
+  if (typeof optionsJson === "object") {
+    return Object.keys(optionsJson as object).length > 0;
+  }
+  return false;
+}
+
 function buildMenuProductRow(row: Record<string, unknown>): Record<string, unknown> {
-  const groups = parseProductOptionsJson(row.options_json);
-  const has_options = groups.length > 0;
-  const options_summary = has_options ? `옵션 ${groups.length}개 그룹` : "";
+  const has_options = menuRowHasOptions(row.options_json);
+  const options_summary = has_options ? "옵션 있음" : "";
   const {
     options_json: _omit,
     ...rest
@@ -27,7 +47,8 @@ function buildMenuProductRow(row: Record<string, unknown>): Record<string, unkno
 }
 
 /**
- * 메뉴 목록 전용 — `options_json` 미포함, `has_options`·`options_summary` 만.
+ * 메뉴 목록 전용 — `options_json` 응답 제외, `has_options`·`options_summary` 만.
+ * `recommendedProductIds` / `popularProductIds` 는 `products` 와 동일 id 참조(행 중복 없음).
  */
 export async function GET(
   _req: Request,
@@ -44,6 +65,8 @@ export async function GET(
     return NextResponse.json({
       ok: true,
       products: [],
+      recommendedProductIds: [],
+      popularProductIds: [],
       meta: { source: "supabase_unconfigured" as const, canSell: false },
     });
   }
@@ -56,7 +79,13 @@ export async function GET(
         return NextResponse.json({ ok: false, error: storeRes.message }, { status: 500 });
       }
       return NextResponse.json(
-        { ok: true, products: [], meta: { source: "supabase" as const, canSell: false } },
+        {
+          ok: true,
+          products: [],
+          recommendedProductIds: [],
+          popularProductIds: [],
+          meta: { source: "supabase" as const, canSell: false },
+        },
         { status: 404 }
       );
     }
@@ -64,21 +93,26 @@ export async function GET(
     const store = storeRes.store;
     const storeId = String(store.id ?? "");
     const viewerId = await getRouteUserId();
-    const meta = await loadStoreCommerceMeta(sb, storeId, viewerId);
+    const [meta, commerce] = await Promise.all([
+      loadStoreCommerceMeta(sb, storeId, viewerId),
+      loadCommerceSettings(sb),
+    ]);
 
     let products: unknown[] = [];
+    let recommendedProductIds: string[] = [];
+    let popularProductIds: string[] = [];
+
     if (meta.canSell) {
       const { data: prods, error: pErr } = await sb
         .from("store_products")
         .select(
-          "id, title, summary, price, discount_price, discount_percent, stock_qty, track_inventory, min_order_qty, max_order_qty, product_status, thumbnail_url, pickup_available, local_delivery_available, shipping_available, category_id, menu_section_id, item_type, is_featured, sort_order, options_json, store_menu_sections ( id, name, sort_order, is_hidden ), store_product_categories ( name, slug )"
+          "id, title, summary, price, discount_price, discount_percent, stock_qty, track_inventory, min_order_qty, max_order_qty, product_status, thumbnail_url, pickup_available, local_delivery_available, shipping_available, menu_section_id, item_type, is_featured, is_owner_recommended, is_representative, sort_order, options_json, store_menu_sections ( id, name, sort_order, is_hidden ), store_product_categories ( name, slug )"
         )
         .eq("store_id", storeId)
         .in("product_status", ["active", "sold_out"])
-        .order("is_featured", { ascending: false })
         .order("sort_order", { ascending: true })
         .order("created_at", { ascending: false })
-        .limit(80);
+        .limit(120);
 
       if (pErr) console.error("[api/stores/slug/menus] products", pErr);
       else {
@@ -90,18 +124,39 @@ export async function GET(
           return (o as { is_hidden?: boolean }).is_hidden !== true;
         });
         products = filtered.map((r) => buildMenuProductRow(r));
+
+        const cards = sortStoreDetailProductCardsForDisplay(parseStoreDetailProducts(products));
+        const popularStats = await queryStorePopularMenuStats(
+          sb,
+          storeId,
+          commerce.popularMenuWindowDays,
+          commerce.popularMenuTopN
+        );
+        const popularCards = slicePopularMenuProducts(cards, popularStats, commerce.popularMenuMinQty);
+        popularProductIds = popularCards.map((c) => c.id);
+
+        const recommendedCards = sliceRecommendedMenuProducts(cards, commerce.popularMenuRecommendedMax);
+        recommendedProductIds = recommendedCards.map((c) => c.id);
       }
     }
 
     return NextResponse.json({
       ok: true,
       products,
+      recommendedProductIds,
+      popularProductIds,
       meta: {
         canSell: meta.canSell,
         source: "supabase",
         favorite_count: meta.favoriteCount,
         recent_order_count: meta.recentOrderCount,
         viewer_favorited: meta.viewerFavorited,
+        popular_menu: {
+          window_days: commerce.popularMenuWindowDays,
+          min_qty: commerce.popularMenuMinQty,
+          top_n: commerce.popularMenuTopN,
+          recommended_max: commerce.popularMenuRecommendedMax,
+        },
       },
     });
   } catch (e) {

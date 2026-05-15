@@ -131,10 +131,12 @@ export function optionsJsonToFormGroups(raw: unknown): ProductOptionGroup[] {
  */
 export function formGroupsToOptionsJson(groups: ProductOptionGroup[]): unknown[] {
   const out: unknown[] = [];
-  for (const g of groups) {
+  for (let gi = 0; gi < groups.length; gi++) {
+    const g = groups[gi]!;
     const nameKo = g.nameKo.trim();
     const description = g.description.trim();
-    const sortOrder = ownerOptionsClampInt(parseInt(g.sortOrder, 10), -9999, 9999, 0);
+    /** 폼에서 노출 순서 입력을 제거했으므로, 그룹 배열 순서를 sortOrder로 저장 */
+    const sortOrder = ownerOptionsClampInt(gi, 0, 9999, 0);
     let minSelect = ownerOptionsClampInt(parseInt(g.minSelect, 10), 0, 99, 0);
     let maxSelect = ownerOptionsClampInt(parseInt(g.maxSelect, 10), 0, 99, 1);
     if (maxSelect < minSelect) maxSelect = minSelect;

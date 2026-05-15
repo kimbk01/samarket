@@ -1,5 +1,8 @@
 "use client";
 
+import type { ReactNode } from "react";
+import { useId, useState } from "react";
+import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
 import {
   OWNER_STORE_FORM_GRID_2_CLASS,
   OWNER_STORE_PROFILE_CONTROL_CLASS,
@@ -12,11 +15,73 @@ import {
   type ProductOptionSelectionKind,
 } from "@/lib/stores/owner-product-options-json";
 
+type OptionBadgeVariant = "option" | "group";
+
+const OPTION_ADD_BADGE_VARIANT_CLASS: Record<OptionBadgeVariant, string> = {
+  option:
+    "border-signature/28 bg-signature/10 text-signature hover:border-signature/40 hover:bg-signature/16",
+  group:
+    "border-sam-border bg-sam-app text-sam-fg hover:border-sam-border hover:bg-sam-border-soft/60",
+};
+
+function OptionAddBadgeButton({
+  children,
+  onClick,
+  "aria-label": ariaLabel,
+  variant = "option",
+  className = "",
+}: {
+  children: ReactNode;
+  onClick: () => void;
+  "aria-label": string;
+  variant?: OptionBadgeVariant;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={ariaLabel}
+      onClick={onClick}
+      className={
+        "inline-flex touch-manipulation select-none items-center gap-1.5 rounded-[4px] border px-3.5 py-2 shadow-sm transition-[transform,box-shadow,background-color,border-color] sam-text-body-secondary font-semibold active:scale-[0.98] disabled:pointer-events-none disabled:opacity-45 " +
+        OPTION_ADD_BADGE_VARIANT_CLASS[variant] +
+        " " +
+        className
+      }
+    >
+      <span aria-hidden className="text-[1.1rem] font-semibold leading-none">
+        +
+      </span>
+      {children}
+    </button>
+  );
+}
+
+function OptionGroupDeleteBadgeButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      aria-label="옵션 그룹 삭제"
+      onClick={onClick}
+      className={
+        "inline-flex touch-manipulation select-none items-center rounded-[4px] border border-red-200/90 bg-red-50 px-3.5 py-2 shadow-sm transition-[transform,box-shadow,background-color] sam-text-body-secondary font-semibold text-red-800 hover:border-red-300 hover:bg-red-100 active:scale-[0.98]"
+      }
+    >
+      삭제
+    </button>
+  );
+}
+
 type Props = {
   optionGroups: ProductOptionGroup[];
   onOptionGroupsChange: (fn: (prev: ProductOptionGroup[]) => ProductOptionGroup[]) => void;
   priceUnitLabel: string;
 };
+
+type OptionDeleteConfirm =
+  | null
+  | { kind: "optionRow"; gi: number; oi: number }
+  | { kind: "optionGroup"; gi: number };
 
 function setKindDefaults(
   kind: ProductOptionSelectionKind,
@@ -34,42 +99,52 @@ export function OwnerProductOptionsTab({
   onOptionGroupsChange,
   priceUnitLabel,
 }: Props) {
-  return (
-    <div className="space-y-2 px-2">
-      <p className="sam-text-helper leading-relaxed text-sam-muted">
-        옵션은 이 상품에 포함되는 선택 항목입니다. 옵션만 따로 저장되지 않으며, 하단 저장 버튼을 누르면 상품과
-        함께 저장됩니다.
-      </p>
+  const optionDeleteTitleId = useId();
+  const [deleteConfirm, setDeleteConfirm] = useState<OptionDeleteConfirm>(null);
 
+  const applyConfirmedDelete = () => {
+    if (!deleteConfirm) return;
+    if (deleteConfirm.kind === "optionRow") {
+      const { gi, oi } = deleteConfirm;
+      onOptionGroupsChange((prev) => {
+        const next = [...prev];
+        const g = { ...next[gi]! };
+        g.options = g.options.filter((_, j) => j !== oi);
+        if (g.options.length === 0) g.options = [emptyOptionRow()];
+        next[gi] = g;
+        return next;
+      });
+    } else {
+      const { gi } = deleteConfirm;
+      onOptionGroupsChange((prev) => prev.filter((_, j) => j !== gi));
+    }
+    setDeleteConfirm(null);
+  };
+
+  return (
+    <>
+    <div className="min-w-0 space-y-2 bg-transparent">
       {optionGroups.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-6 text-center">
+        <div className="rounded-ui-rect border-2 border-dashed border-[var(--biz-primary)]/55 bg-[color-mix(in_srgb,var(--biz-primary)_8%,var(--biz-primary-soft))] py-6 text-center">
           <p className="sam-text-body-secondary text-sam-muted">옵션이 없습니다</p>
-          <button
-            type="button"
-            aria-label="옵션그룹 추가"
-            onClick={() => onOptionGroupsChange((prev) => [...prev, emptyOptionGroup()])}
-            className="mt-4 inline-flex h-11 w-11 items-center justify-center rounded-full border border-sam-border bg-sam-surface sam-text-hero font-light leading-none text-sam-fg hover:bg-sam-app"
-          >
-            +
-          </button>
+          <div className="mt-4 flex justify-end px-1">
+            <OptionAddBadgeButton
+              variant="group"
+              aria-label="옵션 그룹 추가"
+              onClick={() => onOptionGroupsChange((prev) => [...prev, emptyOptionGroup()])}
+            >
+              그룹 옵션 추가
+            </OptionAddBadgeButton>
+          </div>
         </div>
       ) : (
         <ul className="space-y-2">
           {optionGroups.map((group, gi) => (
             <li
               key={group.groupLocalId}
-              className="relative overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm"
+              className="relative overflow-hidden rounded-ui-rect border-2 border-[var(--biz-primary)]/35 bg-sam-surface shadow-[0_2px_8px_rgba(15,23,42,0.06)]"
             >
-              <button
-                type="button"
-                aria-label="옵션 그룹 삭제"
-                title="그룹 삭제"
-                onClick={() => onOptionGroupsChange((prev) => prev.filter((_, j) => j !== gi))}
-                className="absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full sam-text-page-title leading-none text-sam-meta hover:bg-sam-surface-muted hover:text-sam-fg"
-              >
-                ×
-              </button>
-              <div className="space-y-2 p-3 pr-12">
+              <div className="space-y-2 p-3">
                 <div>
                   <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
                     옵션 그룹명
@@ -87,96 +162,67 @@ export function OwnerProductOptionsTab({
                     className={OWNER_STORE_PROFILE_CONTROL_CLASS}
                   />
                 </div>
-                <div>
-                  <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
-                    그룹 설명 (선택)
-                  </label>
-                  <input
-                    value={group.description}
-                    onChange={(e) =>
-                      onOptionGroupsChange((prev) => {
-                        const next = [...prev];
-                        next[gi] = { ...next[gi]!, description: e.target.value };
-                        return next;
-                      })
-                    }
-                    className={OWNER_STORE_PROFILE_CONTROL_CLASS}
-                    placeholder="고객에게 보이는 안내"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
-                    노출 순서
-                  </label>
-                  <input
-                    inputMode="numeric"
-                    value={group.sortOrder}
-                    onChange={(e) =>
-                      onOptionGroupsChange((prev) => {
-                        const next = [...prev];
-                        next[gi] = { ...next[gi]!, sortOrder: e.target.value.replace(/\D/g, "") };
-                        return next;
-                      })
-                    }
-                    className={`${OWNER_STORE_PROFILE_CONTROL_CLASS} max-w-[100px]`}
-                  />
-                  <p className="mt-0.5 sam-text-xxs text-sam-muted">숫자가 작을수록 먼저 표시</p>
-                </div>
 
                 <div>
                   <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
                     선택 방식
                   </label>
-                  <p className="mb-1 sam-text-xxs leading-snug text-sam-muted">
-                    단일은 하나만 선택, 복수는 여러 개, 수량형은 같은 선택지의 개수를 고릅니다.
-                  </p>
-                  <select
-                    value={group.selectionKind}
-                    onChange={(e) => {
-                      const kind = e.target.value as ProductOptionSelectionKind;
-                      onOptionGroupsChange((prev) => {
-                        const next = [...prev];
-                        const cur = next[gi]!;
-                        const mm = setKindDefaults(kind, cur.required);
-                        next[gi] = { ...cur, selectionKind: kind, ...mm };
-                        return next;
-                      });
-                    }}
-                    className={OWNER_STORE_PROFILE_SELECT_CLASS}
-                  >
-                    <option value="single">단일 선택</option>
-                    <option value="multiple">복수 선택</option>
-                    <option value="quantity">수량형 선택</option>
-                  </select>
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="relative min-w-0 flex-1">
+                      <select
+                        value={group.selectionKind}
+                        onChange={(e) => {
+                          const kind = e.target.value as ProductOptionSelectionKind;
+                          onOptionGroupsChange((prev) => {
+                            const next = [...prev];
+                            const cur = next[gi]!;
+                            const mm = setKindDefaults(kind, cur.required);
+                            next[gi] = { ...cur, selectionKind: kind, ...mm };
+                            return next;
+                          });
+                        }}
+                        className={OWNER_STORE_PROFILE_SELECT_CLASS}
+                      >
+                        <option value="single">단일 선택</option>
+                        <option value="multiple">복수 선택</option>
+                        <option value="quantity">수량형 선택</option>
+                      </select>
+                      <span
+                        aria-hidden
+                        className="pointer-events-none absolute right-3 top-1/2 z-[1] -translate-y-1/2 text-[0.65rem] leading-none text-sam-muted"
+                      >
+                        ▼
+                      </span>
+                    </div>
+                    <label className="flex shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap sam-text-body-secondary text-sam-fg">
+                      <input
+                        type="checkbox"
+                        checked={group.required}
+                        onChange={(e) => {
+                          const required = e.target.checked;
+                          onOptionGroupsChange((prev) => {
+                            const next = [...prev];
+                            const cur = next[gi]!;
+                            let mm: Pick<ProductOptionGroup, "minSelect" | "maxSelect">;
+                            if (cur.selectionKind === "single") {
+                              mm = setKindDefaults("single", required);
+                            } else if (cur.selectionKind === "multiple") {
+                              mm = required
+                                ? { minSelect: "1", maxSelect: cur.maxSelect }
+                                : { minSelect: "0", maxSelect: cur.maxSelect };
+                            } else {
+                              mm = { minSelect: cur.minSelect, maxSelect: cur.maxSelect };
+                            }
+                            next[gi] = { ...cur, required, ...mm };
+                            return next;
+                          });
+                        }}
+                        className="h-4 w-4 rounded border-sam-border"
+                      />
+                      필수
+                    </label>
+                  </div>
                 </div>
-
-                <label className="flex cursor-pointer items-center gap-2 sam-text-body-secondary text-sam-fg">
-                  <input
-                    type="checkbox"
-                    checked={group.required}
-                    onChange={(e) => {
-                      const required = e.target.checked;
-                      onOptionGroupsChange((prev) => {
-                        const next = [...prev];
-                        const cur = next[gi]!;
-                        let mm: Pick<ProductOptionGroup, "minSelect" | "maxSelect">;
-                        if (cur.selectionKind === "single") {
-                          mm = setKindDefaults("single", required);
-                        } else if (cur.selectionKind === "multiple") {
-                          mm = required
-                            ? { minSelect: "1", maxSelect: cur.maxSelect }
-                            : { minSelect: "0", maxSelect: cur.maxSelect };
-                        } else {
-                          mm = { minSelect: cur.minSelect, maxSelect: cur.maxSelect };
-                        }
-                        next[gi] = { ...cur, required, ...mm };
-                        return next;
-                      });
-                    }}
-                    className="h-4 w-4 rounded border-sam-border"
-                  />
-                  필수
-                </label>
 
                 {(group.selectionKind === "multiple" ||
                   group.selectionKind === "quantity" ||
@@ -215,20 +261,15 @@ export function OwnerProductOptionsTab({
                   </div>
                 )}
 
-                {group.selectionKind === "single" && group.required ? (
-                  <p className="sam-text-xxs text-sam-muted">필수 단일 선택: 고객은 반드시 1개를 고릅니다.</p>
-                ) : null}
-
-                <p className="sam-text-xxs font-medium text-sam-muted">
-                  선택지 (이름 · 추가 금액 · 품절 · 기본 선택)
-                </p>
-                <ul className="space-y-2">
+                <div className="space-y-2">
+                  <p className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">옵션 품목 입력</p>
+                  <ul className="space-y-2">
                   {group.options.map((opt, oi) => (
                     <li
                       key={opt.id}
                       className="flex flex-col gap-2 rounded-ui-rect border border-sam-border-soft bg-sam-app/80 p-2"
                     >
-                      <div className="flex flex-wrap items-end gap-2">
+                      <div className="min-w-0">
                         <input
                           value={opt.name}
                           onChange={(e) =>
@@ -243,10 +284,11 @@ export function OwnerProductOptionsTab({
                             })
                           }
                           placeholder="예: 순한맛, 보통"
-                          className="min-w-[120px] flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-2 sam-text-body text-sam-fg"
+                          className="w-full min-w-0 rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-2 sam-text-body text-sam-fg"
                         />
-                        <div className="flex items-center gap-1">
-                          <span className="sam-text-helper text-sam-muted">+</span>
+                      </div>
+                      <div className="flex min-w-0 items-stretch gap-2">
+                        <div className="inline-flex min-h-[36px] min-w-0 flex-1 items-center gap-2 self-stretch rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 shadow-none">
                           <input
                             inputMode="numeric"
                             value={opt.priceDelta}
@@ -261,87 +303,82 @@ export function OwnerProductOptionsTab({
                                 return next;
                               })
                             }
-                            className="w-[4.5rem] rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-2 sam-text-body text-sam-fg"
+                            className="min-h-0 min-w-[5rem] flex-1 appearance-none border-0 bg-transparent p-0 text-right text-[15px] leading-none text-sam-fg outline-none [-webkit-appearance:none] [appearance:textfield] focus:border-0 focus:outline-none focus:ring-0 focus-visible:outline-none"
+                            aria-label="추가 금액"
                           />
-                          <span className="sam-text-helper text-sam-muted">{priceUnitLabel}</span>
+                          <span className="shrink-0 whitespace-nowrap text-[11px] font-semibold uppercase leading-none text-sam-muted">
+                            {priceUnitLabel}
+                          </span>
                         </div>
-                        <button
-                          type="button"
-                          aria-label="선택지 삭제"
-                          onClick={() =>
-                            onOptionGroupsChange((prev) => {
-                              const next = [...prev];
-                              const g = { ...next[gi]! };
-                              g.options = g.options.filter((_, j) => j !== oi);
-                              if (g.options.length === 0) g.options = [emptyOptionRow()];
-                              next[gi] = g;
-                              return next;
-                            })
-                          }
-                          className="shrink-0 rounded-full border border-red-100 bg-red-50 px-2.5 py-1 sam-text-helper text-red-700"
-                        >
-                          삭제
-                        </button>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-3 sam-text-helper text-sam-fg">
-                        <label className="inline-flex items-center gap-1.5">
-                          <input
-                            type="checkbox"
-                            checked={opt.soldOut}
-                            onChange={(e) =>
-                              onOptionGroupsChange((prev) => {
-                                const next = [...prev];
-                                const g = { ...next[gi]! };
-                                const opts = [...g.options];
-                                const sold = e.target.checked;
-                                opts[oi] = {
-                                  ...opts[oi]!,
-                                  soldOut: sold,
-                                  defaultSelected: sold ? false : opts[oi]!.defaultSelected,
-                                };
-                                g.options = opts;
-                                next[gi] = g;
-                                return next;
-                              })
-                            }
-                            className="h-4 w-4 rounded border-sam-border"
-                          />
-                          품절
-                        </label>
-                        <label className="inline-flex items-center gap-1.5">
-                          <input
-                            type="checkbox"
-                            checked={opt.defaultSelected}
-                            disabled={opt.soldOut}
-                            onChange={(e) =>
-                              onOptionGroupsChange((prev) => {
-                                const next = [...prev];
-                                const g = { ...next[gi]! };
-                                const opts = [...g.options];
-                                const checked = e.target.checked;
-                                if (g.selectionKind === "single" && checked) {
-                                  for (let j = 0; j < opts.length; j++) {
-                                    opts[j] = { ...opts[j]!, defaultSelected: j === oi };
+                        <div className="flex min-h-[36px] shrink-0 items-center justify-end gap-x-2 gap-y-1 self-stretch">
+                          <label className="inline-flex items-center gap-1 sam-text-helper text-sam-fg">
+                            <input
+                              type="checkbox"
+                              checked={opt.soldOut}
+                              onChange={(e) =>
+                                onOptionGroupsChange((prev) => {
+                                  const next = [...prev];
+                                  const g = { ...next[gi]! };
+                                  const opts = [...g.options];
+                                  const sold = e.target.checked;
+                                  opts[oi] = {
+                                    ...opts[oi]!,
+                                    soldOut: sold,
+                                    defaultSelected: sold ? false : opts[oi]!.defaultSelected,
+                                  };
+                                  g.options = opts;
+                                  next[gi] = g;
+                                  return next;
+                                })
+                              }
+                              className="h-4 w-4 shrink-0 rounded border-sam-border"
+                            />
+                            품절
+                          </label>
+                          <label className="inline-flex items-center gap-1 sam-text-helper text-sam-fg">
+                            <input
+                              type="checkbox"
+                              checked={opt.defaultSelected}
+                              disabled={opt.soldOut}
+                              onChange={(e) =>
+                                onOptionGroupsChange((prev) => {
+                                  const next = [...prev];
+                                  const g = { ...next[gi]! };
+                                  const opts = [...g.options];
+                                  const checked = e.target.checked;
+                                  if (g.selectionKind === "single" && checked) {
+                                    for (let j = 0; j < opts.length; j++) {
+                                      opts[j] = { ...opts[j]!, defaultSelected: j === oi };
+                                    }
+                                  } else {
+                                    opts[oi] = { ...opts[oi]!, defaultSelected: checked };
                                   }
-                                } else {
-                                  opts[oi] = { ...opts[oi]!, defaultSelected: checked };
-                                }
-                                g.options = opts;
-                                next[gi] = g;
-                                return next;
-                              })
-                            }
-                            className="h-4 w-4 rounded border-sam-border"
-                          />
-                          기본 선택
-                        </label>
+                                  g.options = opts;
+                                  next[gi] = g;
+                                  return next;
+                                })
+                              }
+                              className="h-4 w-4 shrink-0 rounded border-sam-border"
+                            />
+                            기본정보
+                          </label>
+                          <button
+                            type="button"
+                            aria-label="선택지 삭제"
+                            title="삭제"
+                            onClick={() => setDeleteConfirm({ kind: "optionRow", gi, oi })}
+                            className="inline-flex h-[36px] min-h-[36px] shrink-0 items-center justify-center border-0 bg-transparent px-1 text-[1.65rem] font-extrabold leading-none text-red-700 hover:text-red-800 active:opacity-80"
+                          >
+                            <span aria-hidden>×</span>
+                          </button>
+                        </div>
                       </div>
                     </li>
                   ))}
                 </ul>
-                <div className="flex justify-center pt-2">
-                  <button
-                    type="button"
+                <div className="flex flex-wrap justify-end gap-2 pt-2">
+                  <OptionAddBadgeButton
+                    variant="option"
                     aria-label="선택지 추가"
                     onClick={() =>
                       onOptionGroupsChange((prev) => {
@@ -352,10 +389,13 @@ export function OwnerProductOptionsTab({
                         return next;
                       })
                     }
-                    className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-sam-border bg-sam-surface sam-text-page-title font-light leading-none text-sam-fg hover:bg-sam-app"
                   >
-                    +
-                  </button>
+                    옵션 추가
+                  </OptionAddBadgeButton>
+                  <OptionGroupDeleteBadgeButton
+                    onClick={() => onOptionGroupsChange((prev) => prev.filter((_, j) => j !== gi))}
+                  />
+                </div>
                 </div>
               </div>
             </li>
@@ -364,17 +404,36 @@ export function OwnerProductOptionsTab({
       )}
 
       {optionGroups.length > 0 ? (
-        <div className="flex justify-center pt-1">
-          <button
-            type="button"
-            aria-label="옵션그룹 추가"
+        <div className="flex justify-end pt-1">
+          <OptionAddBadgeButton
+            variant="group"
+            aria-label="옵션 그룹 추가"
             onClick={() => onOptionGroupsChange((prev) => [...prev, emptyOptionGroup()])}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-dashed border-sam-border bg-sam-surface sam-text-hero font-light leading-none text-sam-muted hover:border-sam-border hover:bg-sam-app"
           >
-            +
-          </button>
+            그룹 옵션 추가
+          </OptionAddBadgeButton>
         </div>
       ) : null}
     </div>
+    <OwnerStoreAdminConfirmModal
+      open={deleteConfirm != null}
+      titleId={optionDeleteTitleId}
+      title="삭제 확인"
+      description={
+        deleteConfirm?.kind === "optionGroup"
+          ? "이 옵션 그룹을 삭제하시겠습니까?"
+          : deleteConfirm?.kind === "optionRow"
+            ? "이 선택지를 삭제하시겠습니까?"
+            : "삭제하시겠습니까??"
+      }
+      cancelLabel="취소"
+      confirmLabel="삭제"
+      confirmTone="danger"
+      onCancel={() => setDeleteConfirm(null)}
+      onConfirm={() => {
+        applyConfirmedDelete();
+      }}
+    />
+    </>
   );
 }

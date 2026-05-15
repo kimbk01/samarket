@@ -180,7 +180,7 @@ export function BusinessAdminDashboard({
     () => [
       { label: "주문 관리", href: ordersBaseHref },
       { label: "채팅 · 문의", href: inquiriesHref },
-      { label: "상품 등록", href: productsHubHref },
+      { label: "상품 관리 , 등록", href: productsHubHref },
       { label: "카테고리", href: `/stores/owner/menu-categories?${q}` },
       { label: "매장 설정", href: `/stores/owner/profile?${q}` },
       { label: "알림 · 운영", href: `/stores/owner/settings?${q}` },

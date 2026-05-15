@@ -98,7 +98,7 @@ export function buildBusinessAdminSidebar(ctx: MyBusinessNavContext): BusinessAd
       title: "상품",
       items: [
         {
-          label: "상품 등록",
+          label: "상품 관리 , 등록",
           href: OwnerRoutes.products(storeId),
           description: "목록·노출·신규 등록",
         },

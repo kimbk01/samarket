@@ -11,7 +11,6 @@ import type { ModifierSelectionsWire } from "@/lib/stores/modifiers/types";
 import { StoreModifierPicker } from "@/components/stores/modifiers/StoreModifierPicker";
 import { parseProductOptionsJson } from "@/lib/stores/product-line-options";
 import { approximateDiscountPercent } from "@/lib/stores/store-product-pricing";
-import { parseMediaUrlsJson } from "@/lib/stores/parse-media-urls-json";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { resolveStoreFrontCommerceState } from "@/lib/stores/store-auto-hours";
 import {
@@ -173,24 +172,7 @@ export function StoreProductAddSheet({
 
   const optionsPriceReady = !awaitingOptionHydration && !optionHydrationFailed;
 
-  const galleryUrls = useMemo(() => {
-    if (!product) return [];
-    const extra = parseMediaUrlsJson(product.images_json, 16);
-    const thumb = product.thumbnail_url?.trim() || "";
-    const ordered: string[] = [];
-    const seen = new Set<string>();
-    if (thumb) {
-      ordered.push(thumb);
-      seen.add(thumb);
-    }
-    for (const u of extra) {
-      if (!seen.has(u)) {
-        seen.add(u);
-        ordered.push(u);
-      }
-    }
-    return ordered;
-  }, [product]);
+  const sheetPrimaryImage = product?.thumbnail_url?.trim() || "";
 
   useEffect(() => {
     if (!store?.slug || !product?.id) {
@@ -517,9 +499,9 @@ export function StoreProductAddSheet({
             ) : null}
 
             <div className="relative aspect-[16/10] max-h-[200px] min-h-[160px] w-full overflow-hidden bg-neutral-100">
-              {galleryUrls[0] ? (
+              {sheetPrimaryImage ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={galleryUrls[0]} alt="" className="h-full w-full object-cover" />
+                <img src={sheetPrimaryImage} alt="" className="h-full w-full object-cover" />
               ) : (
                 <div className="h-full w-full bg-neutral-100" />
               )}
@@ -542,10 +524,10 @@ export function StoreProductAddSheet({
 
             <div className="hidden mx-3 mt-3 gap-3 rounded-ui-rect bg-sam-surface p-3 shadow-sm ring-1 ring-sam-border/70">
               <div className="h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
-                {galleryUrls[0] ? (
+                {sheetPrimaryImage ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={galleryUrls[0]}
+                    src={sheetPrimaryImage}
                     alt=""
                     className="h-full w-full object-cover"
                   />
@@ -582,22 +564,6 @@ export function StoreProductAddSheet({
                 </div>
               </div>
             </div>
-
-            {galleryUrls.length > 1 ? (
-              <div className="hidden mt-2 px-3">
-                <div className="flex gap-2 overflow-x-auto rounded-ui-rect bg-sam-surface p-2 shadow-sm ring-1 ring-sam-border/70 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-                  {galleryUrls.slice(1).map((url, i) => (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      key={`${url}-${i}`}
-                      src={url}
-                      alt=""
-                      className="h-14 w-14 shrink-0 rounded-ui-rect object-cover ring-1 ring-sam-border/80"
-                    />
-                  ))}
-                </div>
-              </div>
-            ) : null}
 
             {reviewSnippets.length > 0 ? (
               <details className="hidden mx-3 mt-3 rounded-ui-rect border border-sam-border/80 bg-sam-surface shadow-sm">

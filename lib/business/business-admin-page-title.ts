@@ -37,7 +37,7 @@ export function getBusinessAdminPageTitle(pathname: string): string | null {
   }
   if (matchPattern(/^\/stores\/owner\/products\/[^/]+\/edit$/) || matchPattern(/^\/my\/business\/products\/[^/]+\/edit$/))
     return "상품 수정";
-  if (matchAny("/products")) return "상품 등록";
+  if (matchAny("/products")) return "상품 관리 , 등록";
   if (matchAny("/basic-info")) return "기본 정보";
   if (matchAny("/profile")) return "매장 설정";
   if (matchAny("/ops-status")) return "운영 · 심사";

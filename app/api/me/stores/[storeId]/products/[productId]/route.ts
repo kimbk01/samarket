@@ -8,6 +8,10 @@ import {
 import { parseProductOptionsJsonField } from "@/lib/stores/parse-product-options-json";
 import { validateOwnerOptionsJsonPayload } from "@/lib/stores/owner-product-options-validate";
 import { discountPriceFromPercent } from "@/lib/stores/store-product-pricing";
+import {
+  normalizeOwnerProductDetailImageUrls,
+  parseThumbnailDimensions,
+} from "@/lib/stores/owner-product-images";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,8 +31,8 @@ async function loadProductForOwner(
     .select(
       [
         "id, store_id, title, summary, price, discount_price, discount_percent, stock_qty, track_inventory",
-        "thumbnail_url, product_status, pickup_available, local_delivery_available, shipping_available",
-        "category_id, menu_section_id, item_type, is_featured, sort_order, options_json",
+        "thumbnail_url, thumbnail_width, thumbnail_height, images_json, product_status, pickup_available, local_delivery_available, shipping_available",
+        "category_id, menu_section_id, item_type, is_featured, is_owner_recommended, is_representative, sort_order, options_json",
         "created_at, updated_at",
         "store_menu_sections ( id, name, sort_order )",
         "store_product_categories ( name, slug )",
@@ -91,10 +95,17 @@ type PatchBody = {
   local_delivery_available?: boolean;
   shipping_available?: boolean;
   thumbnail_url?: string | null;
+  /** 상세 슬라이드 URL 배열(대표와 중복 불가, 최대 5). null 이면 비움 */
+  images_json?: unknown[] | null;
+  thumbnail_width?: number | null;
+  thumbnail_height?: number | null;
   category_id?: string | null;
   menu_section_id?: string | null;
   item_type?: string;
+  /** 레거시 단일 토글 — 신규 클라는 `is_owner_recommended` / `is_representative` 사용 */
   is_featured?: boolean;
+  is_owner_recommended?: boolean;
+  is_representative?: boolean;
   sort_order?: number;
   options_json?: unknown[] | null;
 };
@@ -133,8 +144,12 @@ export async function PATCH(
   if (!("store" in loaded) || !loaded.store) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
+  if (!("product" in loaded) || !loaded.product) {
+    return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
+  }
 
   const { store } = loaded;
+  const productRow = loaded.product as unknown as Record<string, unknown>;
 
   if (store.approval_status !== "approved") {
     return NextResponse.json({ ok: false, error: "store_not_approved" }, { status: 400 });
@@ -233,6 +248,40 @@ export async function PATCH(
         : String(body.thumbnail_url).trim();
   }
 
+  if (body.thumbnail_width !== undefined || body.thumbnail_height !== undefined) {
+    const dimParse = parseThumbnailDimensions(body.thumbnail_width, body.thumbnail_height);
+    if (!dimParse.ok) {
+      return NextResponse.json({ ok: false, error: dimParse.error }, { status: 400 });
+    }
+    if (dimParse.dims) {
+      patch.thumbnail_width = dimParse.dims.width;
+      patch.thumbnail_height = dimParse.dims.height;
+    } else {
+      patch.thumbnail_width = null;
+      patch.thumbnail_height = null;
+    }
+  }
+
+  if (body.images_json !== undefined) {
+    const thumbForNorm =
+      body.thumbnail_url !== undefined
+        ? body.thumbnail_url == null || body.thumbnail_url === ""
+          ? null
+          : String(body.thumbnail_url).trim()
+        : productRow.thumbnail_url != null && String(productRow.thumbnail_url).trim()
+          ? String(productRow.thumbnail_url).trim()
+          : null;
+    const rawDetail = body.images_json === null ? [] : body.images_json;
+    const norm = normalizeOwnerProductDetailImageUrls(rawDetail, thumbForNorm);
+    if (!norm.ok) {
+      return NextResponse.json(
+        { ok: false, error: norm.error, message: norm.message },
+        { status: 400 }
+      );
+    }
+    patch.images_json = norm.urls;
+  }
+
   if (body.category_id !== undefined) {
     if (body.category_id === null || body.category_id === "") {
       patch.category_id = null;
@@ -287,7 +336,38 @@ export async function PATCH(
     patch.item_type = it;
   }
 
-  if (body.is_featured !== undefined) {
+  if (body.is_owner_recommended !== undefined) {
+    patch.is_owner_recommended = !!body.is_owner_recommended;
+  }
+  if (body.is_representative !== undefined) {
+    patch.is_representative = !!body.is_representative;
+  }
+
+  const legacyFeaturedOnly =
+    body.is_featured !== undefined &&
+    body.is_owner_recommended === undefined &&
+    body.is_representative === undefined;
+  if (legacyFeaturedOnly) {
+    patch.is_owner_recommended = !!body.is_featured;
+  }
+
+  const shouldSyncFeatured =
+    patch.is_owner_recommended !== undefined ||
+    patch.is_representative !== undefined ||
+    legacyFeaturedOnly;
+  if (shouldSyncFeatured) {
+    const effOwner =
+      patch.is_owner_recommended !== undefined
+        ? !!patch.is_owner_recommended
+        : typeof productRow.is_owner_recommended === "boolean"
+          ? !!productRow.is_owner_recommended
+          : productRow.is_featured === true;
+    const effRep =
+      patch.is_representative !== undefined
+        ? !!patch.is_representative
+        : productRow.is_representative === true;
+    patch.is_featured = effOwner || effRep;
+  } else if (body.is_featured !== undefined) {
     patch.is_featured = !!body.is_featured;
   }
 
@@ -324,6 +404,22 @@ export async function PATCH(
       );
     }
     patch.options_json = optCheck.value;
+  }
+
+  const mergedThumb =
+    body.thumbnail_url !== undefined
+      ? body.thumbnail_url == null || body.thumbnail_url === ""
+        ? null
+        : String(body.thumbnail_url).trim()
+      : productRow.thumbnail_url != null && String(productRow.thumbnail_url).trim()
+        ? String(productRow.thumbnail_url).trim()
+        : null;
+  const touchesImageFields = body.thumbnail_url !== undefined || body.images_json !== undefined;
+  if (touchesImageFields && !mergedThumb) {
+    return NextResponse.json({ ok: false, error: "thumbnail_required" }, { status: 400 });
+  }
+  if (body.product_status === "active" && !mergedThumb) {
+    return NextResponse.json({ ok: false, error: "thumbnail_required" }, { status: 400 });
   }
 
   if (Object.keys(patch).length === 0) {

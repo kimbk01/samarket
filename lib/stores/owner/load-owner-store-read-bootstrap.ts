@@ -111,7 +111,7 @@ export const loadOwnerProductsListForRsc = cache(
         [
           "id, store_id, title, summary, price, discount_price, discount_percent, stock_qty, track_inventory",
           "thumbnail_url, product_status, pickup_available, local_delivery_available, shipping_available",
-          "category_id, menu_section_id, item_type, is_featured, sort_order",
+          "category_id, menu_section_id, item_type, is_featured, is_owner_recommended, is_representative, sort_order",
           "created_at, updated_at",
           "store_menu_sections ( id, name, sort_order, is_hidden )",
           "store_product_categories ( name, slug )",

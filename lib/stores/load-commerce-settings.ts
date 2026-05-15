@@ -7,12 +7,20 @@ export type CommerceSettingsResolved = {
   autoCompleteDays: number;
   settlementFeeBp: number;
   settlementDelayDays: number;
+  popularMenuWindowDays: number;
+  popularMenuMinQty: number;
+  popularMenuTopN: number;
+  popularMenuRecommendedMax: number;
 };
 
 const ALL_KEYS: CommerceSettingKey[] = [
   COMMERCE_SETTING_KEYS.autoCompleteDays,
   COMMERCE_SETTING_KEYS.settlementFeeBp,
   COMMERCE_SETTING_KEYS.settlementDelayDays,
+  COMMERCE_SETTING_KEYS.popularMenuWindowDays,
+  COMMERCE_SETTING_KEYS.popularMenuMinQty,
+  COMMERCE_SETTING_KEYS.popularMenuTopN,
+  COMMERCE_SETTING_KEYS.popularMenuRecommendedMax,
 ];
 
 function readNumericValue(
@@ -35,6 +43,10 @@ export async function loadCommerceSettings(sb: SupabaseClient): Promise<Commerce
     autoCompleteDays: getStoreAutoCompleteDays(),
     settlementFeeBp: getStoreSettlementFeeBp(),
     settlementDelayDays: getStoreSettlementDelayDays(),
+    popularMenuWindowDays: 30,
+    popularMenuMinQty: 1,
+    popularMenuTopN: 5,
+    popularMenuRecommendedMax: 10,
   };
 
   const { data, error } = await sb
@@ -71,6 +83,30 @@ export async function loadCommerceSettings(sb: SupabaseClient): Promise<Commerce
       fallback.settlementDelayDays,
       0,
       365
+    ),
+    popularMenuWindowDays: readNumericValue(
+      map.get(COMMERCE_SETTING_KEYS.popularMenuWindowDays),
+      fallback.popularMenuWindowDays,
+      1,
+      365
+    ),
+    popularMenuMinQty: readNumericValue(
+      map.get(COMMERCE_SETTING_KEYS.popularMenuMinQty),
+      fallback.popularMenuMinQty,
+      1,
+      10_000
+    ),
+    popularMenuTopN: readNumericValue(
+      map.get(COMMERCE_SETTING_KEYS.popularMenuTopN),
+      fallback.popularMenuTopN,
+      1,
+      50
+    ),
+    popularMenuRecommendedMax: readNumericValue(
+      map.get(COMMERCE_SETTING_KEYS.popularMenuRecommendedMax),
+      fallback.popularMenuRecommendedMax,
+      0,
+      30
     ),
   };
 }

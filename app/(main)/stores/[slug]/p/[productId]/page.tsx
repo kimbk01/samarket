@@ -41,12 +41,11 @@ export async function generateMetadata({
     const title = `${String(json.product.title ?? "상품")} · ${String(json.store.store_name ?? "매장")}`;
     const sum = typeof json.product.summary === "string" ? json.product.summary.trim() : "";
     const description = (sum || `${json.store.store_name ?? "매장"}의 상품입니다.`).slice(0, 160);
-    const thumbRaw =
-      typeof json.product.thumbnail_url === "string" && json.product.thumbnail_url
-        ? json.product.thumbnail_url
+    const thumbPrimary =
+      typeof json.product.thumbnail_url === "string" && json.product.thumbnail_url.trim()
+        ? json.product.thumbnail_url.trim()
         : "";
-    const fromGallery = parseMediaUrlsJson(json.product.images_json, 4)[0] ?? "";
-    const thumb = thumbRaw || fromGallery || undefined;
+    const ogImage = thumbPrimary || parseMediaUrlsJson(json.product.images_json, 1)[0] || undefined;
     const canonSlug = String(json.store.slug ?? "");
     const path = `/stores/${encodeURIComponent(canonSlug)}/p/${encodeURIComponent(id)}`;
 
@@ -56,7 +55,7 @@ export async function generateMetadata({
       openGraph: {
         title,
         description,
-        ...(thumb ? { images: [{ url: thumb }] } : {}),
+        ...(ogImage ? { images: [{ url: ogImage }] } : {}),
       },
       alternates: { canonical: `${base}${path}` },
     };

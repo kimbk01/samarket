@@ -30,6 +30,7 @@ import { StoreDetailSummarySection } from "@/components/stores/store-detail/Stor
 import {
   groupStoreProductsByMenuSection,
   parseStoreDetailProducts,
+  sliceRecommendedMenuProducts,
   sortStoreDetailProductCardsForDisplay,
   type StoreDetailProductCard,
 } from "@/lib/stores/group-store-products-by-menu";
@@ -129,6 +130,8 @@ export function StoreDetailPublic({
 
   const [store, setStore] = useState<StoreDetail | null>(() => initialSnap.store as StoreDetail | null);
   const [products, setProducts] = useState(() => initialSnap.products);
+  const [recommendedMenuCards, setRecommendedMenuCards] = useState<StoreDetailProductCard[]>([]);
+  const [popularMenuCards, setPopularMenuCards] = useState<StoreDetailProductCard[]>([]);
   const [productRowsById, setProductRowsById] = useState<Record<string, Record<string, unknown>>>(
     () => initialSnap.productRowsById
   );
@@ -158,6 +161,9 @@ export function StoreDetailPublic({
   const shellMarkedSlugRef = useRef<string | null>(null);
   const menuMarkedStoreIdRef = useRef<string | null>(null);
   const storeIdRef = useRef<string | null>(null);
+  /** 비동기 `loadSplitDetail*` 완료 시점에 URL slug 가 바뀌었는지 판별 */
+  const latestSlugPropRef = useRef(slug);
+  latestSlugPropRef.current = slug;
 
   useEffect(() => {
     storeIdRef.current = store?.id ?? null;
@@ -211,7 +217,10 @@ export function StoreDetailPublic({
         a.discount_price !== b.discount_price ||
         a.stock_qty !== b.stock_qty ||
         a.track_inventory !== b.track_inventory ||
-        a.is_featured !== b.is_featured
+        a.is_featured !== b.is_featured ||
+        a.is_owner_recommended !== b.is_owner_recommended ||
+        a.is_representative !== b.is_representative ||
+        a.sort_order !== b.sort_order
       ) {
         return false;
       }
@@ -225,6 +234,8 @@ export function StoreDetailPublic({
     if (h.dbOff) {
       setStore(null);
       setProducts([]);
+      setRecommendedMenuCards([]);
+      setPopularMenuCards([]);
       setProductRowsById({});
       setCanSell(false);
       setFavoriteSeed({ viewerFavorited: false, favoriteCount: 0 });
@@ -235,6 +246,8 @@ export function StoreDetailPublic({
       const nextStore = h.store as StoreDetail;
       setStore((prev) => (isSameStoreDetail(prev, nextStore) ? prev : nextStore));
       setProducts((prev) => (isSameProductCards(prev, h.products) ? prev : h.products));
+      setRecommendedMenuCards([]);
+      setPopularMenuCards([]);
       setCanSell((prev) => (prev === h.canSell ? prev : h.canSell));
       setFavoriteSeed(h.favoriteSeed);
       setRecentOrderCountMeta(h.recentOrderCountMeta);
@@ -242,6 +255,8 @@ export function StoreDetailPublic({
     } else {
       setStore(null);
       setProducts([]);
+      setRecommendedMenuCards([]);
+      setPopularMenuCards([]);
       setProductRowsById({});
       setCanSell(false);
       setFavoriteSeed({ viewerFavorited: false, favoriteCount: 0 });
@@ -270,6 +285,30 @@ export function StoreDetailPublic({
     const nextProducts = sortStoreDetailProductCardsForDisplay(parseStoreDetailProducts(raw));
     setProducts((prev) => (isSameProductCards(prev, nextProducts) ? prev : nextProducts));
     setProductRowsById(storePublicProductRowsMap(raw));
+    const byId = new Map(nextProducts.map((c) => [c.id, c]));
+    const recCap = Number(menuParsed.meta?.popular_menu?.recommended_max);
+    const recMax = Number.isFinite(recCap) && recCap > 0 ? Math.floor(recCap) : 10;
+    const recIds = Array.isArray(menuParsed.recommendedProductIds)
+      ? menuParsed.recommendedProductIds
+      : sliceRecommendedMenuProducts(nextProducts, recMax).map((c) => c.id);
+    const nextRec = recIds.map((id) => byId.get(id)).filter(Boolean) as StoreDetailProductCard[];
+    setRecommendedMenuCards((prev) => {
+      if (
+        prev.length === nextRec.length &&
+        prev.every((p, i) => p.id === nextRec[i]?.id && p.sort_order === nextRec[i]?.sort_order)
+      ) {
+        return prev;
+      }
+      return nextRec;
+    });
+    const popIds = Array.isArray(menuParsed.popularProductIds) ? menuParsed.popularProductIds : [];
+    const nextPop = popIds.map((id) => byId.get(id)).filter(Boolean) as StoreDetailProductCard[];
+    setPopularMenuCards((prev) => {
+      if (prev.length === nextPop.length && prev.every((p, i) => p.id === nextPop[i]?.id)) {
+        return prev;
+      }
+      return nextPop;
+    });
     setCanSell((prev) => {
       const next = !!menuParsed.meta?.canSell;
       return prev === next ? prev : next;
@@ -286,31 +325,43 @@ export function StoreDetailPublic({
     const sid = storeIdRef.current;
     if (h.store && sid && String(h.store.id) === String(sid)) {
       setProducts((prev) => (isSameProductCards(prev, h.products) ? prev : h.products));
+      setRecommendedMenuCards([]);
+      setPopularMenuCards([]);
       setProductRowsById(h.productRowsById);
       setCanSell((prev) => (prev === h.canSell ? prev : h.canSell));
     } else if (h.store) {
       applyLegacyHydrate(json);
     } else {
       setProducts([]);
+      setRecommendedMenuCards([]);
+      setPopularMenuCards([]);
       setProductRowsById({});
       setCanSell(false);
     }
   }, [applyLegacyHydrate]);
 
   const loadSplitDetail = useCallback(async () => {
+    const startedSlugDecode = decodeSlugSegment(slug);
     setSummaryLoading(true);
     setMenusLoading(true);
     setDbOff(false);
 
-    const sumP = fetchStoreSummaryDeduped(slug);
+    const sumRes = await fetchStoreSummaryDeduped(slug);
 
-    const sumRes = await sumP;
+    if (decodeSlugSegment(latestSlugPropRef.current) !== startedSlugDecode) {
+      setSummaryLoading(false);
+      setMenusLoading(false);
+      return;
+    }
+
     const sumParsed = parseStoreSummaryPayload(sumRes.json);
 
     if (sumParsed.meta?.source === "supabase_unconfigured") {
       setDbOff(true);
       setStore(null);
       setProducts([]);
+      setRecommendedMenuCards([]);
+      setPopularMenuCards([]);
       setProductRowsById({});
       setCanSell(false);
       setFavoriteSeed({ viewerFavorited: false, favoriteCount: 0 });
@@ -327,6 +378,11 @@ export function StoreDetailPublic({
 
     if (!summaryReady) {
       const leg = await fetchStorePublicBySlugDeduped(slug);
+      if (decodeSlugSegment(latestSlugPropRef.current) !== startedSlugDecode) {
+        setSummaryLoading(false);
+        setMenusLoading(false);
+        return;
+      }
       applyLegacyHydrate(leg.json);
       setPublicBanners([]);
       setPublicNotices([]);
@@ -335,13 +391,17 @@ export function StoreDetailPublic({
       return;
     }
 
-    applySummaryPayload(sumParsed);
-    setSummaryLoading(false);
+    const [menuRes, banRes, notRes] = await Promise.all([
+      fetchStoreMenusDeduped(slug),
+      fetchStoreBannersDeduped(slug),
+      fetchStoreNoticesDeduped(slug),
+    ]);
 
-    const menuP = fetchStoreMenusDeduped(slug);
-    const banP = fetchStoreBannersDeduped(slug);
-    const notP = fetchStoreNoticesDeduped(slug);
-    const [menuRes, banRes, notRes] = await Promise.all([menuP, banP, notP]);
+    if (decodeSlugSegment(latestSlugPropRef.current) !== startedSlugDecode) {
+      setSummaryLoading(false);
+      setMenusLoading(false);
+      return;
+    }
 
     const banJ = banRes.json as { ok?: boolean; banners?: StoreBannerPublicRow[] };
     const notJ = notRes.json as { ok?: boolean; notices?: StoreNoticePublicRow[] };
@@ -349,33 +409,42 @@ export function StoreDetailPublic({
     setPublicNotices(notRes.status === 200 && notJ?.ok && Array.isArray(notJ.notices) ? notJ.notices : []);
 
     const menuParsed = parseStoreMenusPayload(menuRes.json);
-
     const menusReady =
       menuRes.status === 200 &&
       menuParsed.ok === true &&
       menuParsed.meta?.source !== "supabase_unconfigured" &&
       Array.isArray(menuParsed.products);
 
+    applySummaryPayload(sumParsed);
     if (menusReady) {
       applyMenusPayload(menuParsed);
-      setMenusLoading(false);
-      return;
+    } else {
+      try {
+        const leg = await fetchStorePublicBySlugDeduped(slug);
+        if (decodeSlugSegment(latestSlugPropRef.current) !== startedSlugDecode) {
+          setSummaryLoading(false);
+          setMenusLoading(false);
+          return;
+        }
+        mergeLegacyProductsOnly(leg.json);
+      } catch {
+        setProducts([]);
+        setRecommendedMenuCards([]);
+        setPopularMenuCards([]);
+        setProductRowsById({});
+      }
     }
-
-    try {
-      const leg = await fetchStorePublicBySlugDeduped(slug);
-      mergeLegacyProductsOnly(leg.json);
-    } catch {
-      setProducts([]);
-      setProductRowsById({});
-    }
+    setSummaryLoading(false);
     setMenusLoading(false);
   }, [slug, applyLegacyHydrate, applyMenusPayload, applySummaryPayload, mergeLegacyProductsOnly]);
 
   const loadSplitDetailSilent = useCallback(async () => {
-    const sumP = fetchStoreSummaryDeduped(slug);
+    const startedSlugDecode = decodeSlugSegment(slug);
 
-    const sumRes = await sumP;
+    const sumRes = await fetchStoreSummaryDeduped(slug);
+
+    if (decodeSlugSegment(latestSlugPropRef.current) !== startedSlugDecode) return;
+
     const sumParsed = parseStoreSummaryPayload(sumRes.json);
 
     if (sumParsed.meta?.source === "supabase_unconfigured") {
@@ -390,18 +459,20 @@ export function StoreDetailPublic({
 
     if (!summaryReady) {
       const leg = await fetchStorePublicBySlugDeduped(slug);
+      if (decodeSlugSegment(latestSlugPropRef.current) !== startedSlugDecode) return;
       applyLegacyHydrate(leg.json);
       setPublicBanners([]);
       setPublicNotices([]);
       return;
     }
 
-    applySummaryPayload(sumParsed);
+    const [menuRes, banRes, notRes] = await Promise.all([
+      fetchStoreMenusDeduped(slug),
+      fetchStoreBannersDeduped(slug),
+      fetchStoreNoticesDeduped(slug),
+    ]);
 
-    const menuP = fetchStoreMenusDeduped(slug);
-    const banP = fetchStoreBannersDeduped(slug);
-    const notP = fetchStoreNoticesDeduped(slug);
-    const [menuRes, banRes, notRes] = await Promise.all([menuP, banP, notP]);
+    if (decodeSlugSegment(latestSlugPropRef.current) !== startedSlugDecode) return;
 
     const banJ = banRes.json as { ok?: boolean; banners?: StoreBannerPublicRow[] };
     const notJ = notRes.json as { ok?: boolean; notices?: StoreNoticePublicRow[] };
@@ -409,13 +480,15 @@ export function StoreDetailPublic({
     setPublicNotices(notRes.status === 200 && notJ?.ok && Array.isArray(notJ.notices) ? notJ.notices : []);
 
     const menuParsed = parseStoreMenusPayload(menuRes.json);
-
     const menusReady =
       menuRes.status === 200 &&
       menuParsed.ok === true &&
       menuParsed.meta?.source !== "supabase_unconfigured" &&
       Array.isArray(menuParsed.products);
 
+    if (decodeSlugSegment(latestSlugPropRef.current) !== startedSlugDecode) return;
+
+    applySummaryPayload(sumParsed);
     if (menusReady) {
       applyMenusPayload(menuParsed);
       return;
@@ -423,6 +496,7 @@ export function StoreDetailPublic({
 
     try {
       const leg = await fetchStorePublicBySlugDeduped(slug);
+      if (decodeSlugSegment(latestSlugPropRef.current) !== startedSlugDecode) return;
       mergeLegacyProductsOnly(leg.json);
     } catch {
       /* noop */
@@ -473,6 +547,14 @@ export function StoreDetailPublic({
   const ownerManagementHref = useOwnerManagementHref(
     store ? { id: store.id, slug: store.slug } : null
   );
+
+  /** 이미 RSC 등으로 상품이 있으면 스켈레톤으로 가리지 않음(재검증 중에도 목록 유지) */
+  const showMenusSkeleton = useMemo(() => {
+    if (!menusLoading) return false;
+    if (products.length === 0) return true;
+    if (store?.slug && store.slug !== decodedSlug) return true;
+    return false;
+  }, [menusLoading, products.length, store?.slug, decodedSlug]);
 
   const menuSections = useMemo(() => groupStoreProductsByMenuSection(products), [products]);
 
@@ -922,12 +1004,14 @@ export function StoreDetailPublic({
       />
 
       <StoreDetailMenusSection
-        menusLoading={menusLoading}
+        menusLoading={showMenusSkeleton}
         menuStickyMeasureRef={menuStickyMeasureRef}
         menuSearchOpen={menuSearchOpen}
         menuQuery={menuQuery}
         setMenuQuery={setMenuQuery}
         setMenuSearchOpen={setMenuSearchOpen}
+        recommendedMenuCards={recommendedMenuCards}
+        popularMenuCards={popularMenuCards}
         menuSectionsFiltered={menuSectionsFiltered}
         activeMenuSection={activeMenuSection}
         setActiveMenuSection={setActiveMenuSection}

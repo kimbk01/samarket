@@ -15,7 +15,7 @@ const PREFERRED_SHORTCUTS = [
   "정산 내역",
   "매장 설정",
   "공개 매장 페이지",
-  "상품 등록",
+  "상품 관리 , 등록",
 ] as const;
 
 const RAIL =

@@ -18,11 +18,22 @@ export type StoreSummaryPayload = {
   error?: string;
 };
 
-export type StoreMenusCommerceMeta = StoreSummaryCommerceMeta;
+export type StoreMenusCommerceMeta = StoreSummaryCommerceMeta & {
+  popular_menu?: {
+    window_days: number;
+    min_qty: number;
+    top_n: number;
+    recommended_max: number;
+  };
+};
 
 export type StoreMenusPayload = {
   ok: boolean;
   products?: unknown[];
+  /** 사장님 추천·대표 상단 섹션 순서(동일 id는 products·카테고리에도 존재) */
+  recommendedProductIds?: string[];
+  /** 인기 메뉴 순서(주문 집계, 미달 시 빈 배열) */
+  popularProductIds?: string[];
   meta?: StoreMenusCommerceMeta;
   error?: string;
 };
@@ -59,9 +70,17 @@ export function parseStoreSummaryPayload(json: unknown): StoreSummaryPayload {
 export function parseStoreMenusPayload(json: unknown): StoreMenusPayload {
   if (!json || typeof json !== "object") return { ok: false };
   const j = json as Record<string, unknown>;
+  const rec = j.recommendedProductIds;
+  const pop = j.popularProductIds;
   return {
     ok: j.ok === true,
     products: Array.isArray(j.products) ? j.products : undefined,
+    recommendedProductIds: Array.isArray(rec)
+      ? rec.map((x) => String(x ?? "").trim()).filter(Boolean)
+      : undefined,
+    popularProductIds: Array.isArray(pop)
+      ? pop.map((x) => String(x ?? "").trim()).filter(Boolean)
+      : undefined,
     meta: j.meta as StoreMenusCommerceMeta | undefined,
     error: typeof j.error === "string" ? j.error : undefined,
   };

@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode, RefObject } from "react";
+import { StoreMenuBoardPreamble } from "@/components/stores/StoreMenuBoardPreamble";
 import { StoreMenuCategoryChips } from "@/components/stores/StoreMenuCategoryChips";
 import { StorePublicMenuList } from "@/components/stores/StorePublicMenuList";
 import type {
@@ -16,6 +17,8 @@ export function StoreDetailMenusSection({
   menuQuery,
   setMenuQuery,
   setMenuSearchOpen,
+  recommendedMenuCards,
+  popularMenuCards,
   menuSectionsFiltered,
   activeMenuSection,
   setActiveMenuSection,
@@ -36,6 +39,8 @@ export function StoreDetailMenusSection({
   menuQuery: string;
   setMenuQuery: (v: string) => void;
   setMenuSearchOpen: (v: boolean) => void;
+  recommendedMenuCards: StoreDetailProductCard[];
+  popularMenuCards: StoreDetailProductCard[];
   menuSectionsFiltered: MenuSection[];
   activeMenuSection: number;
   setActiveMenuSection: (i: number | ((p: number) => number)) => void;
@@ -49,8 +54,20 @@ export function StoreDetailMenusSection({
   onQuickAddProduct: (p: StoreDetailProductCard) => boolean;
   menuTopSlot?: ReactNode;
 }) {
+  const canInteract = canSell && !menuSelectBlocked;
+
   return (
     <div id="store-menu-panel">
+      {!menusLoading ? (
+        <StoreMenuBoardPreamble
+          recommendedCards={recommendedMenuCards}
+          popularCards={popularMenuCards}
+          canInteract={canInteract}
+          menuSelectBlocked={menuSelectBlocked}
+          onOpenProduct={onOpenProductSheet}
+        />
+      ) : null}
+
       <div
         ref={menuStickyMeasureRef}
         className="sticky z-[40] border-b border-neutral-100 bg-white"
