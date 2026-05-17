@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-05-17 (R2-M11 종료 · R2-D1 배달 owner orders 진행) |
+| Last updated | 2026-05-17 (R2-M11 종료 · R2-D1 LOCK · KPI/meta 분석 착수) |
 | Owner | (선택) |
 
 ---
@@ -50,6 +50,7 @@
 |------|------------------|
 | **R2-M10** 메신저 방 **list tap → route page mount** | tap→push ~4ms·prefetch_hit·client-first 완료. `push→route_change` 150~200ms 는 App Router flight/segment 축 — **ROI 급감**으로 **2026-05-17 사용자 지시로 트랙 닫음**(HOLD 수치 유지). |
 | **R2-M11** 메신저 방 **cold navigation / Suspense release** (M11·B·C·D 포함) | **2026-05-17 종료** — **판정: 카카오톡 근접 / App Router RSC reveal framework ceiling**. 앱 구조( room 0ms · layout 2~4ms · provider/phase1/composer OK )는 근접. **cold** `route_change→suspense` **~300ms** · **warm reenter ~29ms**. push 전 room RSC flight 완료 **0%** — prefetch 로 cold ceiling 미해소. **재개 금지**(메신저). 추가 개선은 client shell/overlay/별도 선로딩 등 **제품 구조 변경** 필요(현 범위 금지 조건과 충돌). |
+| **R2-D1** 배달 **owner orders** realtime row-patch | **2026-05-17 LOCK** — `store_orders` / `store_order_deliveries` row-patch PASS · RT reason full reload **0** · `delivery_reload=0` · **배민형 owner orders realtime 운영 구조**. poll/pageshow/manual = fallback only. **재개 금지**(list reload·ownership 역행). 분석·실측: [r2-d1-owner-orders-analysis.md](./r2-d1-owner-orders-analysis.md). |
 
 ---
 
@@ -57,12 +58,15 @@
 
 | 항목 | 내용 |
 |------|------|
-| 트랙 이름 | **R2-D1** 배달 **owner orders** — dead row-patch / full reload **단일 정책** |
-| **트랙 상태** | **진행 예정 (메신저 R2 종료 후 착수)** |
-| 이번 원인 1개 | owner order list 에 **Realtime onChange→full `load()`** + **45s poll** + **dead row-patch hook** 이 공존 — 동일 `orders[]` 이중 writer·중복 fetch. |
-| 이번 조치 (예정) | row-patch **승격**(`useOwnerStoreOrdersRealtime`) **or** dead hook **삭제** — reload 1정책만 유지. |
-| 분석 대상 | owner order realtime · full reload 경로 · dead row-patch hook · 45s poll · order list patch ownership · owner dashboard memory · duplicate fetch |
-| 참고 | [dibay-state-ownership-map.md](./dibay-state-ownership-map.md) R2-D1 · [dibay-architecture-cleanup.md](./dibay-architecture-cleanup.md) |
+| 트랙 이름 | **R2-D1-KPI** (가칭) — owner orders **KPI/meta header realtime ownership** |
+| **트랙 상태** | **코드 LOCK · E2E 최종 검증 FAIL (2026-05-17)** — login 환경 · `COMPLETE` 보류 |
+| 이번 원인 1개 | **ownership split** — list derive KPI는 RT 즉시 · meta chip/banner는 `load()`/poll only (실측). |
+| 이번 조치 | `deriveOwnerStoreOrderMetaCounts` + `OwnerStoreOrdersView.metaCounts` — **list owner = KPI owner**. |
+| E2E | 3회 `r2-d1-kpi-meta-measure` — **FAIL** (login timeout). 로그 `messenger-r2-d1-kpi-final-verify.log`. [r2-d1-kpi-meta-analysis.md](./r2-d1-kpi-meta-analysis.md) § FINAL LOCK VERIFICATION |
+| 실측 | [r2-d1-kpi-meta-analysis.md](./r2-d1-kpi-meta-analysis.md) § Real Event Measurement · `messenger-r2-d1-kpi-measure.log` |
+| 분석 문서 | [r2-d1-kpi-meta-analysis.md](./r2-d1-kpi-meta-analysis.md) |
+| LOCK 금지 | poll 제거 · RT list reload 복구 · router.refresh · invalidate masking · row-patch ownership 분산 |
+| 참고 | [dibay-state-ownership-map.md](./dibay-state-ownership-map.md) R2-D1 · [r2-d1-owner-orders-analysis.md](./r2-d1-owner-orders-analysis.md) |
 
 ### R2-M11 종료 기록 (재개 금지 · 2026-05-17)
 

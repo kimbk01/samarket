@@ -14,6 +14,7 @@ import {
   mergeRealtimeRecordIntoOwnerOrder,
 } from "@/lib/store-owner/map-realtime-store-order-to-owner";
 import type { OwnerOrder } from "@/lib/store-owner/types";
+import { r2d1OwnerOrdersTrace } from "@/lib/dibay/r2-d1-owner-orders-trace";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 export function sortOwnerOrdersDesc(list: OwnerOrder[]): OwnerOrder[] {
@@ -31,7 +32,7 @@ export type UseOwnerStoreOrdersRealtimeOpts = {
   setOrders: Dispatch<SetStateAction<OwnerOrder[]>>;
   /** 품목 등 목록에 부족한 필드 보강 — 목록 전체 재조회 금지 */
   requestOrderEnrich: (orderId: string) => void;
-  onRealtimeInsert?: (orderId: string) => void;
+  onRealtimeInsert?: (orderId: string, record: Record<string, unknown>) => void;
 };
 
 /**
@@ -69,6 +70,7 @@ export function useOwnerStoreOrdersRealtime(opts: UseOwnerStoreOrdersRealtimeOpt
 
       const { setOrders } = optsRef.current;
       setOrders((prev) => {
+        const beforeCount = prev.length;
         const copy = [...prev];
         let changed = false;
         for (const [id, row] of batch) {
@@ -79,6 +81,24 @@ export function useOwnerStoreOrdersRealtime(opts: UseOwnerStoreOrdersRealtimeOpt
             copy[idx] = merged;
             changed = true;
             dibayPerfRecordOwnerOrderRowPatched(sid, id);
+            r2d1OwnerOrdersTrace({
+              kind: "row_patch_update",
+              source: "useOwnerStoreOrdersRealtime.flushUpdates",
+              owner: "useOwnerStoreOrdersRealtime",
+              storeId: sid,
+              orderId: id,
+              fetchReason: "realtime_update_batch",
+              beforeCount,
+              afterCount: changed ? copy.length : beforeCount,
+            });
+            r2d1OwnerOrdersTrace({
+              kind: "full_reload_blocked",
+              source: "useOwnerStoreOrdersRealtime.flushUpdates",
+              owner: "useOwnerStoreOrdersRealtime",
+              storeId: sid,
+              orderId: id,
+              fetchReason: "orders_realtime_row_patch",
+            });
           }
         }
         return changed ? sortOwnerOrdersDesc(copy) : prev;
@@ -114,6 +134,21 @@ export function useOwnerStoreOrdersRealtime(opts: UseOwnerStoreOrdersRealtimeOpt
             const { storeSlug, storeName, setOrders, requestOrderEnrich, onRealtimeInsert } =
               optsRef.current;
             const ctx = { storeId: sid, storeSlug, storeName };
+            const rtOrderId =
+              payload.new && typeof payload.new === "object" && "id" in payload.new
+                ? String((payload.new as { id?: unknown }).id ?? "").trim()
+                : payload.old && typeof payload.old === "object" && "id" in payload.old
+                  ? String((payload.old as { id?: unknown }).id ?? "").trim()
+                  : undefined;
+            r2d1OwnerOrdersTrace({
+              kind: "realtime_event",
+              source: "useOwnerStoreOrdersRealtime",
+              owner: "useOwnerStoreOrdersRealtime",
+              storeId: sid,
+              orderId: rtOrderId || undefined,
+              eventType: payload.eventType,
+              fetchReason: "postgres_changes",
+            });
 
             if (payload.eventType === "INSERT") {
               const row = payload.new as Record<string, unknown> | null;
@@ -128,11 +163,30 @@ export function useOwnerStoreOrdersRealtime(opts: UseOwnerStoreOrdersRealtimeOpt
               setOrders((prev) => {
                 if (prev.some((o) => o.id === id)) return prev;
                 didInsert = true;
-                return sortOwnerOrdersDesc([lite, ...prev]);
+                const next = sortOwnerOrdersDesc([lite, ...prev]);
+                r2d1OwnerOrdersTrace({
+                  kind: "row_patch_insert",
+                  source: "useOwnerStoreOrdersRealtime",
+                  owner: "useOwnerStoreOrdersRealtime",
+                  storeId: sid,
+                  orderId: id,
+                  fetchReason: "realtime_insert",
+                  beforeCount: prev.length,
+                  afterCount: next.length,
+                });
+                r2d1OwnerOrdersTrace({
+                  kind: "full_reload_blocked",
+                  source: "useOwnerStoreOrdersRealtime",
+                  owner: "useOwnerStoreOrdersRealtime",
+                  storeId: sid,
+                  orderId: id,
+                  fetchReason: "orders_realtime_row_patch",
+                });
+                return next;
               });
               if (didInsert) {
                 dibayPerfRecordOrderCreatedToOwnerVisible(sid, id);
-                onRealtimeInsert?.(id);
+                onRealtimeInsert?.(id, row);
                 requestOrderEnrich(id);
               }
               return;
@@ -156,12 +210,38 @@ export function useOwnerStoreOrdersRealtime(opts: UseOwnerStoreOrdersRealtimeOpt
               setOrders((prev) => {
                 if (!prev.some((o) => o.id === id)) return prev;
                 dibayPerfRecordOwnerOrderRowPatched(sid, id);
-                return prev.filter((o) => o.id !== id);
+                const next = prev.filter((o) => o.id !== id);
+                r2d1OwnerOrdersTrace({
+                  kind: "row_patch_remove",
+                  source: "useOwnerStoreOrdersRealtime",
+                  owner: "useOwnerStoreOrdersRealtime",
+                  storeId: sid,
+                  orderId: id,
+                  fetchReason: "realtime_delete",
+                  beforeCount: prev.length,
+                  afterCount: next.length,
+                });
+                r2d1OwnerOrdersTrace({
+                  kind: "full_reload_blocked",
+                  source: "useOwnerStoreOrdersRealtime",
+                  owner: "useOwnerStoreOrdersRealtime",
+                  storeId: sid,
+                  orderId: id,
+                  fetchReason: "orders_realtime_row_patch",
+                });
+                return next;
               });
             }
           }
         )
         .subscribe();
+      r2d1OwnerOrdersTrace({
+        kind: "listener_attach",
+        source: "useOwnerStoreOrdersRealtime.subscribe",
+        owner: "useOwnerStoreOrdersRealtime",
+        storeId: sid,
+        fetchReason: `channel:owner-store-orders-rt:${sid}`,
+      });
     };
 
     const {
@@ -185,7 +265,16 @@ export function useOwnerStoreOrdersRealtime(opts: UseOwnerStoreOrdersRealtimeOpt
       clearFlush();
       pendingUpdatesRef.current.clear();
       subscription.unsubscribe();
-      if (ch) void sb.removeChannel(ch);
+      if (ch) {
+        r2d1OwnerOrdersTrace({
+          kind: "listener_detach",
+          source: "useOwnerStoreOrdersRealtime.cleanup",
+          owner: "useOwnerStoreOrdersRealtime",
+          storeId: sid,
+          fetchReason: `channel:owner-store-orders-rt:${sid}`,
+        });
+        void sb.removeChannel(ch);
+      }
     };
   }, [opts.storeId, opts.enabled]);
 }

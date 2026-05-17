@@ -116,7 +116,61 @@ function mergeProofClears(patch: Record<string, unknown>): void {
 export const STORE_ORDER_DELIVERY_ROW_SELECT =
   "order_id, store_id, buyer_user_id, rider_id, delivery_status, assigned_at, picked_up_at, delivered_at, admin_note, failure_reason, rider_accepted_at, customer_arrived_at, rider_decline_reason, delivered_proof_image_path, delivered_proof_image_url, delivered_proof_note, delivered_receiver_name, delivered_confirmed_at, delivered_proof_lat, delivered_proof_lng, failure_proof_image_path, failure_proof_image_url, failure_note, rider_failure_reported_at, rider_failure_report_reason, failure_report_lat, failure_report_lng, failed_at, updated_at";
 
+/** @see supabase/migrations/20260509110000_delivery_riders_and_order_deliveries.sql */
+export const STORE_ORDER_DELIVERY_ROW_SELECT_BASE =
+  "order_id, store_id, buyer_user_id, rider_id, delivery_status, assigned_at, picked_up_at, delivered_at, admin_note, updated_at";
+
 const DELIVERY_ROW_SELECT = STORE_ORDER_DELIVERY_ROW_SELECT;
+
+function isDeliveryTableMissingError(message: string): boolean {
+  const m = String(message ?? "");
+  return (
+    /store_order_deliveries/i.test(m) &&
+    (/relation .* does not exist/i.test(m) || /table .* does not exist/i.test(m))
+  );
+}
+
+function isDeliveryExtendedColumnMissingError(message: string): boolean {
+  const m = String(message ?? "");
+  return /store_order_deliveries/i.test(m) && /column .* does not exist/i.test(m);
+}
+
+async function deliveryRowMaybeSingle(
+  sb: SupabaseClient,
+  orderId: string,
+  mode: "read" | "insert" | "update",
+  extra?: {
+    insertRow?: Record<string, unknown>;
+    patch?: Record<string, unknown>;
+    storeId?: string;
+    matchDeliveryStatus?: string;
+  }
+): Promise<{ data: unknown; error: { message: string } | null }> {
+  const oid = orderId.trim();
+  const run = (cols: string) => {
+    if (mode === "read") {
+      return sb.from("store_order_deliveries").select(cols).eq("order_id", oid).maybeSingle();
+    }
+    if (mode === "insert" && extra?.insertRow) {
+      return sb.from("store_order_deliveries").insert(extra.insertRow).select(cols).maybeSingle();
+    }
+    if (mode === "update" && extra?.patch) {
+      let q = sb.from("store_order_deliveries").update(extra.patch).eq("order_id", oid);
+      if (extra.storeId) q = q.eq("store_id", extra.storeId.trim());
+      if (extra.matchDeliveryStatus) q = q.eq("delivery_status", extra.matchDeliveryStatus);
+      return q.select(cols).maybeSingle();
+    }
+    return Promise.resolve({ data: null, error: { message: "invalid_delivery_row_query" } });
+  };
+
+  const full = await run(DELIVERY_ROW_SELECT);
+  if (!full.error) return full;
+  if (isDeliveryTableMissingError(full.error.message)) return full;
+  if (isDeliveryExtendedColumnMissingError(full.error.message)) {
+    return run(STORE_ORDER_DELIVERY_ROW_SELECT_BASE);
+  }
+  return full;
+}
 
 async function assertRiderAssignable(
   sb: SupabaseClient,
@@ -180,13 +234,9 @@ async function ensureDeliveryRow(
   sb: SupabaseClient,
   opts: { orderId: string; storeId: string; buyerUserId: string }
 ): Promise<{ ok: true; row: StoreOrderDeliveryRow } | { ok: false; error: string; httpStatus: number }> {
-  const { data: existing, error: eErr } = await sb
-    .from("store_order_deliveries")
-    .select(DELIVERY_ROW_SELECT)
-    .eq("order_id", opts.orderId)
-    .maybeSingle();
+  const { data: existing, error: eErr } = await deliveryRowMaybeSingle(sb, opts.orderId, "read");
   if (eErr) {
-    if (/store_order_deliveries/i.test(String(eErr.message)) && /does not exist/i.test(String(eErr.message))) {
+    if (isDeliveryTableMissingError(eErr.message)) {
       return { ok: false, error: "schema_missing_store_order_deliveries", httpStatus: 503 };
     }
     return { ok: false, error: eErr.message, httpStatus: 500 };
@@ -199,11 +249,9 @@ async function ensureDeliveryRow(
     buyer_user_id: opts.buyerUserId,
     delivery_status: "waiting_rider",
   };
-  const { data: created, error: cErr } = await sb
-    .from("store_order_deliveries")
-    .insert(insertRow)
-    .select(DELIVERY_ROW_SELECT)
-    .maybeSingle();
+  const { data: created, error: cErr } = await deliveryRowMaybeSingle(sb, opts.orderId, "insert", {
+    insertRow,
+  });
   if (cErr || !created) {
     return { ok: false, error: cErr?.message ?? "create_failed", httpStatus: 500 };
   }
@@ -522,13 +570,10 @@ export async function ownerPatchStoreOrderDelivery(
   if (desiredRaw === "delivering" && !ensured.row.picked_up_at) patch.picked_up_at = nowIso();
   if (desiredRaw === "delivered" && !ensured.row.delivered_at) patch.delivered_at = nowIso();
 
-  const { data: updated, error: uErr } = await sb
-    .from("store_order_deliveries")
-    .update(patch)
-    .eq("order_id", opts.orderId.trim())
-    .eq("store_id", opts.storeId.trim())
-    .select(DELIVERY_ROW_SELECT)
-    .maybeSingle();
+  const { data: updated, error: uErr } = await deliveryRowMaybeSingle(sb, opts.orderId.trim(), "update", {
+    patch,
+    storeId: opts.storeId,
+  });
   if (uErr || !updated) return { ok: false, error: uErr?.message ?? "update_failed", httpStatus: 500 };
 
   void appendAuditLog(sb, {

@@ -15,6 +15,7 @@ import {
   dibayPerfRecordOwnerOrderFullReloadFallback,
   dibayPerfRecordOwnerOrderRowPatched,
 } from "@/lib/dibay/delivery-flow-perf";
+import { r2d1OwnerOrdersTrace, r2d1OwnerOrdersTraceInstallCollector } from "@/lib/dibay/r2-d1-owner-orders-trace";
 import { useOwnerStoreOrdersRealtime, sortOwnerOrdersDesc } from "@/hooks/stores/useOwnerStoreOrdersRealtime";
 
 type Props = {
@@ -93,6 +94,13 @@ export function OwnerOrdersPageClient({ slug }: Props) {
 
   const fetchOrdersOnce = useCallback(async (): Promise<void> => {
     if (!storeId) return;
+    r2d1OwnerOrdersTrace({
+      kind: "full_reload",
+      source: "OwnerOrdersPageClient.fetchOrdersOnce",
+      owner: "OwnerOrdersPageClient",
+      storeId,
+      fetchReason: "list_get",
+    });
     setLoading(true);
     setError(null);
     try {
@@ -116,6 +124,7 @@ export function OwnerOrdersPageClient({ slug }: Props) {
   }, [storeId, fetchOrdersOnce]);
 
   useEffect(() => {
+    r2d1OwnerOrdersTraceInstallCollector();
     void load();
   }, [load]);
 
@@ -129,7 +138,7 @@ export function OwnerOrdersPageClient({ slug }: Props) {
     debounceUpdateMs: 140,
     setOrders,
     requestOrderEnrich: enrichOrder,
-    onRealtimeInsert: scheduleHighlight,
+    onRealtimeInsert: (orderId) => scheduleHighlight(orderId),
   });
 
   useLayoutEffect(() => {

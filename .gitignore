@@ -47,6 +47,9 @@ _env*.local
 # dev benchmark tee logs (see docs/dev-runtime-benchmark-protocol.md)
 /benchmark-runs/
 
+# R2-D1 Supabase dashboard login profile (local only)
+.playwright-supabase-profile/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

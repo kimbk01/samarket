@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { r2d1OwnerOrdersTrace } from "@/lib/dibay/r2-d1-owner-orders-trace";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 export type StoreOrdersRealtimeHandlers = {
@@ -66,6 +67,21 @@ export function useSupabaseStoreOrdersRealtime(
           },
           (payload) => {
             const eventType = payload.eventType;
+            const orderId =
+              payload.new && typeof payload.new === "object" && "id" in payload.new
+                ? String((payload.new as { id?: unknown }).id ?? "").trim()
+                : payload.old && typeof payload.old === "object" && "id" in payload.old
+                  ? String((payload.old as { id?: unknown }).id ?? "").trim()
+                  : undefined;
+            r2d1OwnerOrdersTrace({
+              kind: "realtime_event",
+              source: "useSupabaseStoreOrdersRealtime",
+              owner: "useSupabaseStoreOrdersRealtime",
+              storeId: sid,
+              orderId: orderId || undefined,
+              eventType,
+              fetchReason: "postgres_changes",
+            });
             if (eventType === "INSERT") {
               const row = payload.new as Record<string, unknown> | null;
               if (row && typeof row === "object") {
@@ -78,6 +94,13 @@ export function useSupabaseStoreOrdersRealtime(
           }
         )
         .subscribe();
+      r2d1OwnerOrdersTrace({
+        kind: "listener_attach",
+        source: "useSupabaseStoreOrdersRealtime.subscribe",
+        owner: "useSupabaseStoreOrdersRealtime",
+        storeId: sid,
+        fetchReason: `channel:store-orders-rt:${sid}`,
+      });
     };
 
     const {
@@ -99,7 +122,16 @@ export function useSupabaseStoreOrdersRealtime(
       cancelled = true;
       clearDebounce();
       subscription.unsubscribe();
-      if (ch) void sb.removeChannel(ch);
+      if (ch) {
+        r2d1OwnerOrdersTrace({
+          kind: "listener_detach",
+          source: "useSupabaseStoreOrdersRealtime.cleanup",
+          owner: "useSupabaseStoreOrdersRealtime",
+          storeId: sid,
+          fetchReason: `channel:store-orders-rt:${sid}`,
+        });
+        void sb.removeChannel(ch);
+      }
     };
   }, [storeId]);
 }

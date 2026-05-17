@@ -52,7 +52,9 @@
     "stickers:build": "node scripts/build-samarket-stickers.mjs",
     "sql:copy:flags": "node scripts/copy-sql-clipboard.mjs supabase/migrations/20260328100000_dangnae_community_sample_flags.sql",
     "sql:copy:meeting-chat-rooms": "node scripts/copy-sql-clipboard.mjs supabase/migrations/20260331150000_meeting_chat_rooms.sql",
-    "sql:copy:meeting-chat-rooms-rls": "node scripts/copy-sql-clipboard.mjs supabase/migrations/20260331160000_meeting_chat_private_rls.sql"
+    "sql:copy:meeting-chat-rooms-rls": "node scripts/copy-sql-clipboard.mjs supabase/migrations/20260331160000_meeting_chat_private_rls.sql",
+    "sql:copy:r2-d1-delivery-catchup": "node scripts/copy-sql-clipboard.mjs supabase/scripts/r2-d1-store-order-deliveries-schema-catchup.sql",
+    "apply:r2-d1-delivery-schema": "node scripts/apply-r2-d1-delivery-schema-catchup.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

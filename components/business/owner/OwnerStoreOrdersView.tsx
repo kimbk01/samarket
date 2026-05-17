@@ -2,11 +2,36 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type ReactNode,
+  type SetStateAction,
+} from "react";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { playDeliveryOrderAlertDebounced } from "@/lib/business/delivery-order-alert-debounce";
 import { primeStoreOrderAlertAudio } from "@/lib/business/store-order-alert-sound";
-import { useSupabaseStoreOrdersRealtime } from "@/hooks/useSupabaseStoreOrdersRealtime";
-import { useSupabaseStoreOrderDeliveriesRealtime } from "@/hooks/useSupabaseStoreOrderDeliveriesRealtime";
+import { useOwnerStoreOrdersRealtime } from "@/hooks/stores/useOwnerStoreOrdersRealtime";
+import {
+  useSupabaseStoreOrderDeliveriesRealtime,
+  type StoreOrderDeliveryRealtimeEvent,
+} from "@/hooks/useSupabaseStoreOrderDeliveriesRealtime";
+import {
+  deliveryStatusOf,
+  mapRealtimeRecordToOrderDelivery,
+  mergeRealtimeRecordIntoOrderDelivery,
+} from "@/lib/business/owner-store-order-delivery-row-rt";
+import {
+  listRowToOwnerOrder,
+  ownerOrdersToListRows,
+  sortOwnerStoreOrderListRowsDesc,
+  type OwnerStoreOrderListRow,
+} from "@/lib/business/owner-store-order-list-row-bridge";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
 import { buildStoreOrdersHref, type StoreOrderTabId } from "@/lib/business/store-orders-tab";
@@ -30,6 +55,15 @@ import { formatPhMobileDisplay, parsePhMobileInput, telHrefFromLoosePhPhone } fr
 import { KASAMA_OWNER_HUB_BADGE_REFRESH } from "@/lib/chats/chat-channel-events";
 import { KASAMA_NOTIFICATIONS_UPDATED } from "@/lib/notifications/notification-events";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
+import {
+  r2d1OwnerOrdersTrace,
+  r2d1OwnerOrdersTraceInstallCollector,
+} from "@/lib/dibay/r2-d1-owner-orders-trace";
+import {
+  r2d1KpiMetaTrace,
+  r2d1KpiMetaTraceInstallCollector,
+} from "@/lib/dibay/r2-d1-kpi-meta-trace";
+import { deriveOwnerStoreOrderMetaCounts } from "@/lib/stores/derive-owner-store-order-meta-counts";
 import { fetchStoreOrdersListDeduped } from "@/lib/stores/fetch-store-orders-list-deduped";
 import { OwnerStoreOrderChatModal } from "@/components/business/owner/OwnerStoreOrderChatModal";
 import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
@@ -53,55 +87,7 @@ type ItemRow = {
   options_snapshot_json?: unknown;
 };
 
-type OrderRow = {
-  id: string;
-  order_no: string;
-  buyer_user_id: string;
-  /** 프로필 기반 닉네임·사용자명 등 (API `buyer_public_label`) */
-  buyer_public_label?: string | null;
-  buyer_phone?: string | null;
-  total_amount: number;
-  payment_amount: number;
-  payment_status: string;
-  order_status: string;
-  fulfillment_type: string;
-  buyer_note: string | null;
-  buyer_payment_method?: string | null;
-  buyer_payment_method_detail?: string | null;
-  delivery_address_summary?: string | null;
-  delivery_address_detail?: string | null;
-  created_at: string;
-  updated_at?: string | null;
-  auto_complete_at?: string | null;
-  estimated_prep_minutes?: number | null;
-  estimated_ready_at?: string | null;
-  accepted_at?: string | null;
-  admin_locked?: boolean | null;
-  admin_flagged?: boolean | null;
-  dispute_status?: string | null;
-  admin_note?: string | null;
-  sla_warning_level?: string | null;
-  sla_warning_reason?: string | null;
-  sla_warning_at?: string | null;
-  needs_admin_attention?: boolean | null;
-  checkout_eta_minutes?: number | null;
-  checkout_route_distance_meters?: number | null;
-  delivery?: {
-    order_id: string;
-    rider_id: string | null;
-    delivery_status: string;
-    assigned_at: string | null;
-    picked_up_at: string | null;
-    delivered_at: string | null;
-    rider_accepted_at?: string | null;
-    customer_arrived_at?: string | null;
-    rider_failure_reported_at?: string | null;
-    rider_failure_report_reason?: string | null;
-    updated_at: string | null;
-    admin_note?: string | null;
-  } | null;
-  items: ItemRow[];
-};
+type OrderRow = OwnerStoreOrderListRow;
 
 function formatBuyerPhoneDisplay(raw: string | null | undefined): string | null {
   const s = typeof raw === "string" ? raw.trim() : "";
@@ -561,14 +547,21 @@ export function OwnerStoreOrdersView() {
         storeId: string;
         storeName: string;
         orders: OrderRow[];
-        refundRequestedCount: number;
-        pendingAcceptCount: number;
-        pendingDeliveryCount: number;
       }
   >({ kind: "loading" });
 
   const prevPendingDeliveryRef = useRef<number | null>(null);
   const alertStoreIdRef = useRef<string | null>(null);
+  const storeListCtxRef = useRef({ storeSlug: "", storeName: "" });
+  const lastLoadReasonRef = useRef<string>("mount");
+  const kpiTracePrevRef = useRef({
+    pendingSummary: -1,
+    pendingMeta: -1,
+    tabNew: -1,
+    tabProgress: -1,
+    chipAccept: false,
+    chipDelivery: false,
+  });
 
   useLayoutEffect(() => {
     alertStoreIdRef.current = state.kind === "ok" ? state.storeId : null;
@@ -580,8 +573,26 @@ export function OwnerStoreOrdersView() {
     return () => document.removeEventListener("pointerdown", fn);
   }, []);
 
-  const load = useCallback(async (opts?: { silent?: boolean }) => {
+  const load = useCallback(async (opts?: { silent?: boolean; reason?: string }) => {
     const silent = opts?.silent === true;
+    const reason = opts?.reason?.trim() || (silent ? "silent_load" : "initial_load");
+    lastLoadReasonRef.current = reason;
+    const traceKind =
+      reason === "realtime_deliveries"
+        ? "delivery_reload"
+        : reason === "page_show_restore"
+          ? "pageshow_fetch"
+          : reason === "poll_45s" || reason === "visibility_visible"
+            ? "poll_fetch"
+            : "full_reload";
+    r2d1OwnerOrdersTrace({
+      kind: traceKind,
+      source: "OwnerStoreOrdersView.load",
+      owner: "OwnerStoreOrdersView",
+      fetchReason: reason,
+      storeId: alertStoreIdRef.current ?? undefined,
+      silent,
+    });
     if (!silent) setState({ kind: "loading" });
     try {
       const { status: srStatus, json: rawSj } = await fetchMeStoresListDeduped();
@@ -598,7 +609,11 @@ export function OwnerStoreOrdersView() {
         if (!silent) setState({ kind: "no_store" });
         return;
       }
-      const store = sj.stores[0] as { id: string; store_name?: string };
+      const store = sj.stores[0] as { id: string; store_name?: string; slug?: string };
+      storeListCtxRef.current = {
+        storeSlug: String(store.slug ?? "").trim(),
+        storeName: String(store.store_name ?? "내 매장"),
+      };
       const { json: rawOj } = await fetchStoreOrdersListDeduped(store.id);
       const oj = rawOj as {
         ok?: boolean;
@@ -615,28 +630,11 @@ export function OwnerStoreOrdersView() {
         }
         return;
       }
-      const refundRequestedCount = Math.max(0, Math.floor(Number(oj.meta?.refund_requested_count) || 0));
-      const pendingAcceptCount = Math.max(0, Math.floor(Number(oj.meta?.pending_accept_count) || 0));
-      const pendingDeliveryCount = Math.max(0, Math.floor(Number(oj.meta?.pending_delivery_count) || 0));
-
-      if (silent) {
-        const prev = prevPendingDeliveryRef.current;
-        if (prev !== null && pendingDeliveryCount > prev) {
-          playDeliveryOrderAlertDebounced(store.id);
-        }
-        prevPendingDeliveryRef.current = pendingDeliveryCount;
-      } else {
-        prevPendingDeliveryRef.current = pendingDeliveryCount;
-      }
-
       setState({
         kind: "ok",
         storeId: store.id,
         storeName: String(store.store_name ?? "내 매장"),
         orders: (oj.orders ?? []) as OrderRow[],
-        refundRequestedCount,
-        pendingAcceptCount,
-        pendingDeliveryCount,
       });
     } catch {
       if (!silent) setState({ kind: "error", message: "network_error" });
@@ -644,7 +642,9 @@ export function OwnerStoreOrdersView() {
   }, []);
 
   useEffect(() => {
-    void load();
+    r2d1OwnerOrdersTraceInstallCollector();
+    r2d1KpiMetaTraceInstallCollector();
+    void load({ reason: "mount" });
   }, [load]);
 
   const highlightOrderId = searchParams.get("order_id")?.trim() ?? "";
@@ -679,6 +679,101 @@ export function OwnerStoreOrdersView() {
       progress: countOrdersMatchingTab(state.orders, "progress"),
     };
   }, [state]);
+
+  const metaCounts = useMemo(() => {
+    if (state.kind !== "ok") {
+      return { pendingAcceptCount: 0, pendingDeliveryCount: 0, refundRequestedCount: 0 };
+    }
+    return deriveOwnerStoreOrderMetaCounts(state.orders);
+  }, [state]);
+
+  useEffect(() => {
+    if (state.kind !== "ok") return;
+    const delivery = metaCounts.pendingDeliveryCount;
+    const prev = prevPendingDeliveryRef.current;
+    if (prev !== null && delivery > prev) {
+      playDeliveryOrderAlertDebounced(state.storeId);
+    }
+    prevPendingDeliveryRef.current = delivery;
+  }, [state, metaCounts.pendingDeliveryCount]);
+
+  useLayoutEffect(() => {
+    if (state.kind !== "ok") return;
+    const pendingSummary = summaryCounts.pending;
+    const pendingMetaDerived = metaCounts.pendingAcceptCount;
+    const prev = kpiTracePrevRef.current;
+    const highlightOid = highlightOrderId || undefined;
+
+    if (pendingSummary !== prev.pendingSummary) {
+      r2d1KpiMetaTrace({
+        kind: "summary_render",
+        pendingSummary,
+        pendingMetaDerived,
+        source: "OwnerStoreOrdersView.summaryCounts",
+        orderId: highlightOid,
+      });
+    }
+
+    if (pendingMetaDerived !== prev.pendingMeta) {
+      r2d1KpiMetaTrace({
+        kind: "kpi_derive_update",
+        pendingSummary,
+        pendingMetaDerived,
+        pendingDeliveryMeta: metaCounts.pendingDeliveryCount,
+        refundMeta: metaCounts.refundRequestedCount,
+        source: "OwnerStoreOrdersView.metaCounts",
+        orderId: highlightOid,
+      });
+    }
+
+    if (
+      prev.pendingSummary >= 0 &&
+      prev.pendingMeta >= 0 &&
+      prev.pendingSummary !== prev.pendingMeta &&
+      pendingSummary === pendingMetaDerived
+    ) {
+      r2d1KpiMetaTrace({
+        kind: "stale_window_closed",
+        pendingSummary,
+        pendingMetaDerived,
+        source: "OwnerStoreOrdersView.kpi_unified",
+        orderId: highlightOid,
+        detail: "summary_equals_derived_meta",
+      });
+    }
+
+    if (tabBadges.new !== prev.tabNew || tabBadges.progress !== prev.tabProgress) {
+      r2d1KpiMetaTrace({
+        kind: "tab_badge_render",
+        pendingSummary,
+        pendingMetaDerived,
+        source: "OwnerStoreOrdersView.tabBadges",
+        detail: `new=${tabBadges.new},progress=${tabBadges.progress}`,
+      });
+    }
+
+    const chipAccept = metaCounts.pendingAcceptCount > 0;
+    const chipDelivery = metaCounts.pendingDeliveryCount > 0;
+    if (chipAccept !== prev.chipAccept || chipDelivery !== prev.chipDelivery) {
+      r2d1KpiMetaTrace({
+        kind: "chip_render",
+        pendingSummary,
+        pendingMetaDerived,
+        pendingDeliveryMeta: metaCounts.pendingDeliveryCount,
+        source: "OwnerStoreOrdersView.chips",
+        detail: `accept=${chipAccept},delivery=${chipDelivery}`,
+      });
+    }
+
+    kpiTracePrevRef.current = {
+      pendingSummary,
+      pendingMeta: pendingMetaDerived,
+      tabNew: tabBadges.new,
+      tabProgress: tabBadges.progress,
+      chipAccept,
+      chipDelivery,
+    };
+  }, [state, summaryCounts, metaCounts, tabBadges, highlightOrderId]);
 
   useEffect(() => {
     if (state.kind !== "ok") return;
@@ -718,31 +813,185 @@ export function OwnerStoreOrdersView() {
     return () => clearTimeout(t);
   }, [state, highlightOrderId]);
 
-  useRefetchOnPageShowRestore(() => void load({ silent: true }));
+  useRefetchOnPageShowRestore(() => void load({ silent: true, reason: "page_show_restore" }));
 
   const pollStoreId = state.kind === "ok" ? state.storeId : null;
-  useSupabaseStoreOrdersRealtime(pollStoreId, {
-    debounceMs: 400,
-    onChange: () => void load({ silent: true }),
-    onInsert: (row) => {
+  const pollStoreName = state.kind === "ok" ? state.storeName : "";
+
+  const setOrdersForRealtime: Dispatch<
+    SetStateAction<import("@/lib/store-owner/types").OwnerOrder[]>
+  > =
+    useCallback((action) => {
+      setState((prev) => {
+        if (prev.kind !== "ok") return prev;
+        const ctx = {
+          storeId: prev.storeId,
+          storeSlug: storeListCtxRef.current.storeSlug,
+          storeName: prev.storeName,
+        };
+        const prevOwner = prev.orders.map((r) => listRowToOwnerOrder(r, ctx));
+        const nextOwner =
+          typeof action === "function" ? action(prevOwner) : action;
+        const orders = sortOwnerStoreOrderListRowsDesc(
+          ownerOrdersToListRows(prev.orders, nextOwner)
+        );
+        return { ...prev, orders };
+      });
+    }, []);
+
+  const enrichOrder = useCallback((orderId: string) => {
+    const oid = orderId.trim();
+    const storeId = alertStoreIdRef.current;
+    if (!oid || !storeId) return;
+    void runSingleFlight(`owner:store-order-enrich:${storeId}:${oid}`, async () => {
+        const res = await fetch(
+          `/api/me/stores/${encodeURIComponent(storeId)}/orders/${encodeURIComponent(oid)}`,
+          { credentials: "include", cache: "no-store" }
+        );
+        const json = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          order?: OrderRow;
+          delivery?: OrderRow["delivery"];
+        };
+        if (!json?.ok || !json.order) return;
+        setState((cur) => {
+          if (cur.kind !== "ok") return cur;
+          const idx = cur.orders.findIndex((o) => o.id === oid);
+          const merged: OrderRow = {
+            ...json.order!,
+            items: json.order!.items ?? [],
+            delivery: json.delivery ?? cur.orders[idx]?.delivery ?? null,
+            buyer_public_label:
+              cur.orders[idx]?.buyer_public_label ?? json.order!.buyer_public_label,
+          };
+          if (idx < 0) {
+            return {
+              ...cur,
+              orders: sortOwnerStoreOrderListRowsDesc([merged, ...cur.orders]),
+            };
+          }
+          const next = [...cur.orders];
+          next[idx] = { ...next[idx]!, ...merged };
+          return { ...cur, orders: sortOwnerStoreOrderListRowsDesc(next) };
+        });
+        r2d1OwnerOrdersTrace({
+          kind: "row_patch_update",
+          source: "OwnerStoreOrdersView.enrichOrder",
+          owner: "OwnerStoreOrdersView",
+          storeId,
+          orderId: oid,
+          fetchReason: "order_enrich_get",
+        });
+      });
+  }, []);
+
+  useOwnerStoreOrdersRealtime({
+    storeId: pollStoreId,
+    storeSlug: storeListCtxRef.current.storeSlug,
+    storeName: pollStoreName,
+    enabled: state.kind === "ok" && !!pollStoreId,
+    debounceUpdateMs: 140,
+    setOrders: setOrdersForRealtime,
+    requestOrderEnrich: enrichOrder,
+    onRealtimeInsert: (_orderId, row) => {
       if (String(row.fulfillment_type ?? "") !== "local_delivery") return;
       playDeliveryOrderAlertDebounced(alertStoreIdRef.current);
     },
   });
 
+  const patchDeliveryFromRealtime = useCallback((ev: StoreOrderDeliveryRealtimeEvent) => {
+    const oid = ev.orderId.trim();
+    if (!oid) return;
+    setState((prev) => {
+      if (prev.kind !== "ok") return prev;
+      const idx = prev.orders.findIndex((o) => o.id === oid);
+      if (idx < 0) {
+        r2d1OwnerOrdersTrace({
+          kind: "delivery_row_patch_miss",
+          source: "OwnerStoreOrdersView.patchDeliveryFromRealtime",
+          owner: "OwnerStoreOrdersView",
+          storeId: prev.storeId,
+          orderId: oid,
+          deliveryId: oid,
+          eventType: ev.eventType,
+          fetchReason: "order_not_in_list",
+        });
+        return prev;
+      }
+      const row = prev.orders[idx]!;
+      const beforeDeliveryStatus = deliveryStatusOf(row.delivery);
+      let nextDelivery = row.delivery;
+      if (ev.eventType === "DELETE") {
+        nextDelivery = null;
+      } else if (ev.eventType === "INSERT" && ev.newRow) {
+        nextDelivery = mapRealtimeRecordToOrderDelivery(ev.newRow);
+      } else if (ev.eventType === "UPDATE" && ev.newRow) {
+        nextDelivery = mergeRealtimeRecordIntoOrderDelivery(row.delivery, ev.newRow);
+      }
+      const afterDeliveryStatus = deliveryStatusOf(nextDelivery);
+      const deliveryUnchanged =
+        (row.delivery == null && nextDelivery == null) ||
+        (row.delivery != null &&
+          nextDelivery != null &&
+          row.delivery.order_id === nextDelivery.order_id &&
+          row.delivery.delivery_status === nextDelivery.delivery_status &&
+          row.delivery.rider_id === nextDelivery.rider_id &&
+          row.delivery.assigned_at === nextDelivery.assigned_at &&
+          row.delivery.picked_up_at === nextDelivery.picked_up_at &&
+          row.delivery.delivered_at === nextDelivery.delivered_at &&
+          row.delivery.updated_at === nextDelivery.updated_at);
+      if (deliveryUnchanged) return prev;
+
+      const patchKind =
+        ev.eventType === "INSERT"
+          ? "delivery_row_patch_insert"
+          : ev.eventType === "UPDATE"
+            ? "delivery_row_patch_update"
+            : "delivery_row_patch_delete";
+
+      r2d1OwnerOrdersTrace({
+        kind: patchKind,
+        source: "OwnerStoreOrdersView.patchDeliveryFromRealtime",
+        owner: "OwnerStoreOrdersView",
+        storeId: prev.storeId,
+        orderId: oid,
+        deliveryId: oid,
+        eventType: ev.eventType,
+        fetchReason: "delivery_realtime_row_patch",
+        beforeDeliveryStatus,
+        afterDeliveryStatus,
+        beforeCount: prev.orders.length,
+        afterCount: prev.orders.length,
+      });
+      r2d1OwnerOrdersTrace({
+        kind: "delivery_full_reload_blocked",
+        source: "OwnerStoreOrdersView.patchDeliveryFromRealtime",
+        owner: "OwnerStoreOrdersView",
+        storeId: prev.storeId,
+        orderId: oid,
+        deliveryId: oid,
+        fetchReason: "skipped_load_realtime_deliveries",
+      });
+
+      const orders = [...prev.orders];
+      orders[idx] = { ...row, delivery: nextDelivery };
+      return { ...prev, orders };
+    });
+  }, []);
+
   useSupabaseStoreOrderDeliveriesRealtime(
     pollStoreId ? { kind: "store", storeId: pollStoreId } : null,
-    { debounceMs: 450, onChange: () => void load({ silent: true }) }
+    { onDeliveryEvent: patchDeliveryFromRealtime }
   );
 
   useEffect(() => {
     if (!pollStoreId) return;
     let inFlight = false;
-    const safeSilentLoad = () => {
+    const safeSilentLoad = (reason: "poll_45s" | "visibility_visible") => {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
       if (inFlight) return;
       inFlight = true;
-      void load({ silent: true }).finally(() => {
+      void load({ silent: true, reason }).finally(() => {
         inFlight = false;
       });
     };
@@ -754,12 +1003,12 @@ export function OwnerStoreOrdersView() {
     };
     const startPoll = () => {
       stopPoll();
-      intervalId = window.setInterval(safeSilentLoad, 45_000);
+      intervalId = window.setInterval(() => safeSilentLoad("poll_45s"), 45_000);
     };
     const onVisibility = () => {
       if (typeof document === "undefined") return;
       if (document.visibilityState === "visible") {
-        safeSilentLoad();
+        safeSilentLoad("visibility_visible");
         startPoll();
       } else {
         stopPoll();
@@ -870,24 +1119,24 @@ export function OwnerStoreOrdersView() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm text-sam-muted">{state.storeName}</p>
           <div className="flex flex-wrap items-center gap-2">
-            {state.pendingDeliveryCount > 0 ? (
+            {metaCounts.pendingDeliveryCount > 0 ? (
               <span className="inline-flex items-center rounded-full bg-rose-100 px-2.5 py-0.5 sam-text-xxs font-semibold text-rose-950">
-                배달 대기 {state.pendingDeliveryCount}
+                배달 대기 {metaCounts.pendingDeliveryCount}
               </span>
             ) : null}
-            {state.pendingAcceptCount > 0 ? (
+            {metaCounts.pendingAcceptCount > 0 ? (
               <span className="inline-flex items-center rounded-full bg-violet-100 px-2.5 py-0.5 sam-text-xxs font-semibold text-violet-950">
-                접수 대기 {state.pendingAcceptCount}
+                접수 대기 {metaCounts.pendingAcceptCount}
               </span>
             ) : null}
-            {state.refundRequestedCount > 0 ? (
+            {metaCounts.refundRequestedCount > 0 ? (
               <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 sam-text-xxs font-semibold text-amber-950">
-                환불 요청 {state.refundRequestedCount}건
+                환불 요청 {metaCounts.refundRequestedCount}건
               </span>
             ) : null}
           </div>
         </div>
-        {state.pendingDeliveryCount > 0 ? (
+        {metaCounts.pendingDeliveryCount > 0 ? (
           <div
             className="rounded-ui-rect border border-rose-200 bg-rose-50/95 px-3 py-2.5 sam-text-helper leading-relaxed text-rose-950"
             role="status"
@@ -896,12 +1145,12 @@ export function OwnerStoreOrdersView() {
             <p className="font-semibold">배달 주문이 접수되었습니다.</p>
           </div>
         ) : null}
-        {state.pendingAcceptCount > 0 && state.pendingDeliveryCount === 0 ? (
+        {metaCounts.pendingAcceptCount > 0 && metaCounts.pendingDeliveryCount === 0 ? (
           <div className="rounded-ui-rect border border-violet-200 bg-violet-50/90 px-3 py-2 sam-text-helper text-violet-950">
-            접수 대기 중인 주문이 {state.pendingAcceptCount}건 있습니다.
+            접수 대기 중인 주문이 {metaCounts.pendingAcceptCount}건 있습니다.
           </div>
         ) : null}
-      {state.refundRequestedCount > 0 ? (
+      {metaCounts.refundRequestedCount > 0 ? (
         <div className="rounded-ui-rect border border-amber-200 bg-amber-50/90 px-3 py-2 sam-text-helper text-amber-950">
           구매자 환불 요청이 접수된 주문이 있습니다. 관리자에서 승인 시 상태가 갱신됩니다.
         </div>
