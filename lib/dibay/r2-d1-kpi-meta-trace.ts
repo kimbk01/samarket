@@ -34,6 +34,22 @@ export type R2D1KpiTracePayload = {
   fetchReason?: string;
 };
 
+export type R2D1KpiMetaSnapshot = {
+  at: number;
+  pendingSummary: number;
+  pendingMeta: number;
+  chipAcceptVisible: boolean;
+  chipDeliveryVisible: boolean;
+};
+
+/** Playwright 집계용 — `window.__R2D1_KPI_META__` */
+export type R2D1KpiMetaCollector = {
+  counts: Record<string, number>;
+  events: R2D1KpiTracePayload[];
+  snapshots: R2D1KpiMetaSnapshot[];
+  pushSnapshot: (s: R2D1KpiMetaSnapshot) => void;
+};
+
 function enabled(): boolean {
   if (typeof window === "undefined") return false;
   try {
@@ -109,29 +125,11 @@ export function r2d1KpiMetaTrace(payload: Omit<R2D1KpiTracePayload, "timestamp">
 
 export function r2d1KpiMetaTraceInstallCollector(): void {
   if (!enabled() || typeof window === "undefined") return;
-  const w = window as Window & {
-    __R2D1_KPI_META__?: {
-      counts: Record<string, number>;
-      events: R2D1KpiTracePayload[];
-      snapshots: Array<{
-        at: number;
-        pendingSummary: number;
-        pendingMeta: number;
-        chipAcceptVisible: boolean;
-        chipDeliveryVisible: boolean;
-      }>;
-    };
-  };
+  const w = window as Window & { __R2D1_KPI_META__?: R2D1KpiMetaCollector };
   if (w.__R2D1_KPI_META__) return;
   const counts: Record<string, number> = {};
   const events: R2D1KpiTracePayload[] = [];
-  const snapshots: Array<{
-    at: number;
-    pendingSummary: number;
-    pendingMeta: number;
-    chipAcceptVisible: boolean;
-    chipDeliveryVisible: boolean;
-  }> = [];
+  const snapshots: R2D1KpiMetaSnapshot[] = [];
   const orig = console.info.bind(console);
   console.info = (...args: unknown[]) => {
     if (args[0] === PREFIX && typeof args[1] === "string") {
@@ -142,16 +140,15 @@ export function r2d1KpiMetaTraceInstallCollector(): void {
     }
     orig(...args);
   };
-  w.__R2D1_KPI_META__ = {
+  const collector: R2D1KpiMetaCollector = {
     counts,
     events,
-    get snapshots() {
-      return snapshots;
-    },
-    pushSnapshot(s: (typeof snapshots)[number]) {
+    snapshots,
+    pushSnapshot(s) {
       snapshots.push(s);
     },
-  } as typeof w.__R2D1_KPI_META__;
+  };
+  w.__R2D1_KPI_META__ = collector;
 }
 
 export function r2d1KpiMetaResetStaleClock(): void {
