@@ -1,11 +1,9 @@
-import type { CommunityMessengerMessage, CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
+import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
 
 /** 세션 장시간 사용 시 Realtime·부트스트랩 병합으로 키가 무한 증가하지 않게 상한 */
 export const MESSENGER_REALTIME_TRACKED_ROOMS_CAP = 280;
 
 export type MessengerRealtimePruneInput = {
-  roomSummariesById: Record<string, CommunityMessengerRoomSummary>;
-  unreadByRoomId: Record<string, number>;
   lastReadByRoomId: Record<string, string | null>;
   messagesByRoomId: Record<string, CommunityMessengerMessage[]>;
   activeRoomId: string | null;
@@ -15,23 +13,16 @@ function normalizeRoomKey(roomId: string | null | undefined): string {
   return String(roomId ?? "").trim().toLowerCase();
 }
 
-function lastMessageAtMs(room: CommunityMessengerRoomSummary | undefined): number {
-  if (!room?.lastMessageAt) return 0;
-  const t = new Date(String(room.lastMessageAt)).getTime();
+function lastMessageAtMs(messages: CommunityMessengerMessage[] | undefined): number {
+  const last = messages?.[messages.length - 1];
+  if (!last?.createdAt) return 0;
+  const t = new Date(String(last.createdAt)).getTime();
   return Number.isFinite(t) ? t : 0;
 }
 
-/**
- * active·미읽음·최근 활동 우선으로 상한 유지.
- * (요약 없이 unread 만 있는 고아 키도 상한에 포함 — 세션 누적 방지)
- */
-export function retentionScoreForTrackedRoom(
-  canonicalId: string,
-  input: MessengerRealtimePruneInput
-): number {
-  const unread = Math.max(0, Math.floor(Number(input.unreadByRoomId[canonicalId] ?? 0) || 0));
-  const lastAt = lastMessageAtMs(input.roomSummariesById[canonicalId]);
-  let score = lastAt + unread * 86_400_000;
+/** active·최근 메시지 활동 우선으로 상한 유지 */
+export function retentionScoreForTrackedRoom(canonicalId: string, input: MessengerRealtimePruneInput): number {
+  let score = lastMessageAtMs(input.messagesByRoomId[canonicalId]);
   if (input.activeRoomId && normalizeRoomKey(input.activeRoomId) === normalizeRoomKey(canonicalId)) {
     score += 1e15;
   }
@@ -40,15 +31,11 @@ export function retentionScoreForTrackedRoom(
 
 export function pruneTrackedRoomMaps(input: MessengerRealtimePruneInput): MessengerRealtimePruneInput {
   const idSet = new Set<string>();
-  for (const k of Object.keys(input.roomSummariesById)) {
-    const id = String(k).trim();
-    if (id) idSet.add(id);
-  }
-  for (const k of Object.keys(input.unreadByRoomId)) {
-    const id = String(k).trim();
-    if (id) idSet.add(id);
-  }
   for (const k of Object.keys(input.messagesByRoomId)) {
+    const id = String(k).trim();
+    if (id) idSet.add(id);
+  }
+  for (const k of Object.keys(input.lastReadByRoomId)) {
     const id = String(k).trim();
     if (id) idSet.add(id);
   }
@@ -59,19 +46,6 @@ export function pruneTrackedRoomMaps(input: MessengerRealtimePruneInput): Messen
     .map((id) => ({ id, score: retentionScoreForTrackedRoom(id, input) }))
     .sort((a, b) => b.score - a.score);
   const keep = new Set(ranked.slice(0, MESSENGER_REALTIME_TRACKED_ROOMS_CAP).map((x) => x.id));
-
-  const roomSummariesById: Record<string, CommunityMessengerRoomSummary> = {};
-  for (const id of keep) {
-    const v = input.roomSummariesById[id];
-    if (v) roomSummariesById[id] = v;
-  }
-
-  const unreadByRoomId: Record<string, number> = {};
-  for (const id of keep) {
-    if (Object.prototype.hasOwnProperty.call(input.unreadByRoomId, id)) {
-      unreadByRoomId[id] = input.unreadByRoomId[id]!;
-    }
-  }
 
   const lastReadByRoomId: Record<string, string | null> = {};
   for (const id of keep) {
@@ -87,8 +61,6 @@ export function pruneTrackedRoomMaps(input: MessengerRealtimePruneInput): Messen
   }
 
   return {
-    roomSummariesById,
-    unreadByRoomId,
     lastReadByRoomId,
     messagesByRoomId,
     activeRoomId: input.activeRoomId,

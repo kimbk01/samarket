@@ -1,9 +1,6 @@
 export { useMessengerUIStore } from "./useMessengerUIStore";
 export type { MessengerActiveSection, MessengerChatFilter } from "./useMessengerUIStore";
 
-export { useChatStore } from "./useChatStore";
-export type { ChatStoreRoom, ChatStoreRoomType, ChatStoreLastEventType } from "./useChatStore";
-
 export { useCallStore } from "./useCallStore";
 export type { MessengerCallKind, MessengerCallStatus, MessengerCallPeer } from "./useCallStore";
 

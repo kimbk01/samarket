@@ -16,6 +16,15 @@ import {
   messengerRoomListSourceFromPathname,
 } from "@/lib/community-messenger/messenger-entry-origin";
 import { markCommunityMessengerRoomNavTap } from "@/lib/community-messenger/room-nav-timing";
+import {
+  noteMessengerRoomRoutePrefetchArmed,
+  noteR2M10RoomPageChunkLoaded,
+} from "@/lib/community-messenger/room/cm-room-r2-m10-route-transition";
+import {
+  noteR2M11DChunkImportDone,
+  noteR2M11DRoomPrefetchStart,
+  noteR2M11DRouterPrefetchCalled,
+} from "@/lib/community-messenger/room/cm-room-r2-m11d-prefetch-flight";
 import { cmReceiveBadgeLog } from "@/lib/community-messenger/read/cm-receive-badge-log";
 import { cmReadUiLog } from "@/lib/community-messenger/read/cm-read-ui-log";
 import { primeMessengerRoomEntrySnapshot } from "@/lib/community-messenger/stores/messenger-realtime-store";
@@ -312,10 +321,17 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   );
 
   const kickRoomNavPrefetchOnPointerDown = useCallback(() => {
+    noteR2M11DRoomPrefetchStart(room.id, roomHref, "pointerdown");
     primeMessengerRoomEntrySnapshot({ viewerUserId, room });
     enqueueRoomPrefetch(room.id, roomPrefetchPriority);
     void prefetchCommunityMessengerRoomSnapshot(room.id);
+    noteMessengerRoomRoutePrefetchArmed(roomHref);
     void router.prefetch(roomHref);
+    noteR2M11DRouterPrefetchCalled(room.id, roomHref);
+    void import("@/components/community-messenger/CommunityMessengerRoomClient").then(() => {
+      noteR2M10RoomPageChunkLoaded();
+      noteR2M11DChunkImportDone(room.id);
+    });
     if (listVisual === "trade" && tradeRowModel?.postId) {
       prefetchTradePostThumbnailIfNeeded(tradeRowModel.postId);
     }

@@ -1,30 +1,25 @@
 # Dynamic Route Exception: `community-messenger/rooms/[roomId]`
 
-## Why this route stays dynamic
+## Status (2026-05-17, R2-M10B)
 
-`app/(main)/community-messenger/rooms/[roomId]/page.tsx` intentionally keeps:
+`app/(main)/community-messenger/rooms/[roomId]/page.tsx` **no longer** exports `force-dynamic`.
 
-- `export const dynamic = "force-dynamic";`
+Room shell mounts via **`CommunityMessengerRoomPageClientEntry`** (client-first):
 
-This route reads per-request runtime inputs:
+- `roomId` / query: `useParams` · `useSearchParams`
+- `viewerUserId`: `peekMessengerRoomViewerUserIdClient()` (pub/dev cookie) → bootstrap 확정
+- E2E diag (non-prod): `isMessengerRoomE2eDiagEnabledClient()` + `MessengerRoomE2eSnapshotDiagTradeOverlay` → `GET .../e2e-room-snapshot-diag`
 
-- `cookies()` (`samarket_e2e_room_diag`)
-- `headers()` (`x-samarket-e2e-room-diag`)
+Per-request server `cookies()` / `headers()` / `getOptionalAuthenticatedUserId()` were removed from this segment to cut **push → route_change** RSC/flight wait.
 
-Those values drive E2E room diagnostics and must be reflected on every request.
-If this page is converted to static caching behavior, diagnostic toggles can be ignored or delayed.
+## E2E room diagnostics
 
-## Current policy
+Production: unchanged (diag off).
 
-- Remove `force-dynamic` everywhere possible (already applied across app routes).
-- Keep `force-dynamic` only on this room page until diagnostic flow is redesigned.
+Non-production: set cookie `samarket_e2e_room_diag=1` (Playwright 기존과 동일). Trade/load merge는 클라 overlay + API.
 
-## Before removing this exception
+## Before reintroducing server dynamic on this page
 
-All conditions below must be true:
-
-1. E2E room diagnostics no longer depend on request-time `cookies()` / `headers()`.
-2. Equivalent behavior is validated in production-like build (`npm run build` + E2E).
-3. No regression in room bootstrap visibility/trace tooling.
-
-If any condition is unmet, keep this route dynamic.
+1. Measured regression on `push_to_route_change_ms` / `route_mount_gap_ms` (R2-M10).
+2. E2E `messenger-room-snapshot-diag*` · composer snapshot specs pass.
+3. No composer / Phase2 / reducer contract change.

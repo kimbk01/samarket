@@ -1,0 +1,100 @@
+﻿
+Running 3 tests using 1 worker
+
+
+
+node.exe : [1A[2K(node:13032) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([1A[2K(node:1... env being set.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1A[2K(node:13032) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K[1/3] tests\e2e\messenger-room-entry-perf-breakdown.spec.ts:67:7 › messenger room entry perf breakdown › capture messenger room entry breakdown
+[1A[2K  1) tests\e2e\messenger-room-entry-perf-breakdown.spec.ts:67:7 › messenger room entry perf breakdown › capture messenger room entry breakdown 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32mtrue[39m
+    Received: [31mfalse[39m
+
+      51 |     );
+      52 |   }
+    > 53 |   expect(ok).toBe(true);
+         |              ^
+      54 | }
+      55 |
+      56 | test.describe("messenger room entry perf breakdown", () => {
+        at testLoginViaFetch (C:\samarket\tests\e2e\messenger-room-entry-perf-breakdown.spec.ts:53:14)
+        at C:\samarket\tests\e2e\messenger-room-entry-perf-breakdown.spec.ts:74:5
+
+    Error Context: test-results\messenger-room-entry-perf--2bbc2-senger-room-entry-breakdown\error-context.md
+
+
+
+
+[1A[2K(node:11364) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+[1A[2K(node:11364) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K[2/3] tests\e2e\messenger-room-entry-perf-breakdown.spec.ts:67:7 › messenger room entry perf breakdown › capture messenger room entry breakdown
+[1A[2K  2) tests\e2e\messenger-room-entry-perf-breakdown.spec.ts:67:7 › messenger room entry perf breakdown › capture messenger room entry breakdown 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32mtrue[39m
+    Received: [31mfalse[39m
+
+      51 |     );
+      52 |   }
+    > 53 |   expect(ok).toBe(true);
+         |              ^
+      54 | }
+      55 |
+      56 | test.describe("messenger room entry perf breakdown", () => {
+        at testLoginViaFetch (C:\samarket\tests\e2e\messenger-room-entry-perf-breakdown.spec.ts:53:14)
+        at C:\samarket\tests\e2e\messenger-room-entry-perf-breakdown.spec.ts:74:5
+
+    Error Context: test-results\messenger-room-entry-perf--2bbc2-senger-room-entry-breakdown-repeat1\error-context.md
+
+
+[1A[2K(node:19112) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K(node:19112) Warning: The 'NO_COLOR' env is ignored due to the 'FORCE_COLOR' env being set.
+(Use `node --trace-warnings ...` to show where the warning was created)
+
+
+[1A[2K[3/3] tests\e2e\messenger-room-entry-perf-breakdown.spec.ts:67:7 › messenger room entry perf breakdown › capture messenger room entry breakdown
+[1A[2K  3) tests\e2e\messenger-room-entry-perf-breakdown.spec.ts:67:7 › messenger room entry perf breakdown › capture messenger room entry breakdown 
+
+    Error: [2mexpect([22m[31mreceived[39m[2m).[22mtoBe[2m([22m[32mexpected[39m[2m) // Object.is equality[22m
+
+    Expected: [32mtrue[39m
+    Received: [31mfalse[39m
+
+      51 |     );
+      52 |   }
+    > 53 |   expect(ok).toBe(true);
+         |              ^
+      54 | }
+      55 |
+      56 | test.describe("messenger room entry perf breakdown", () => {
+        at testLoginViaFetch (C:\samarket\tests\e2e\messenger-room-entry-perf-breakdown.spec.ts:53:14)
+        at C:\samarket\tests\e2e\messenger-room-entry-perf-breakdown.spec.ts:74:5
+
+    Error Context: test-results\messenger-room-entry-perf--2bbc2-senger-room-entry-breakdown-repeat2\error-context.md
+
+
+[1A[2K  3 failed
+    tests\e2e\messenger-room-entry-perf-breakdown.spec.ts:67:7 › messenger room entry perf breakdown › capture messenger room entry breakdown 
+    tests\e2e\messenger-room-entry-perf-breakdown.spec.ts:67:7 › messenger room entry perf breakdown › capture messenger room entry breakdown 
+    tests\e2e\messenger-room-entry-perf-breakdown.spec.ts:67:7 › messenger room entry perf breakdown › capture messenger room entry breakdown 

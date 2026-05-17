@@ -12,7 +12,8 @@ import {
   type PointerEvent as ReactPointerEvent,
   type TransitionEvent as ReactTransitionEvent,
 } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
+import { useMessengerRoomUrlSearchParams } from "@/lib/community-messenger/room/use-messenger-room-url-search-params";
 import { markCommunityMessengerHomeReturn } from "@/lib/community-messenger/home-return-timing";
 import { buildMessengerRoomListBackHref } from "@/lib/community-messenger/messenger-entry-origin";
 import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
@@ -61,7 +62,7 @@ export function useMessengerRoomAnimatedBack(): (() => void) | null {
  */
 export function MessengerRoomSwipeBackShell({ children, roomType }: Props) {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = useMessengerRoomUrlSearchParams();
   const reducedMotion = usePrefersReducedMotion();
   const fallbackHref = useMemo(() => buildMessengerRoomListBackHref(searchParams), [searchParams]);
 

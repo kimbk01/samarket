@@ -41,7 +41,7 @@ import type {
   CommunityMessengerFriendRequest,
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
-import { mergeMessengerRoomSummaryForHomeSyncCriticalPatch } from "@/lib/community-messenger/merge-critical-home-sync-room-summary";
+import { applyHomeListPatch } from "@/lib/community-messenger/home-list-patch";
 import { finishSilentRefreshRound, tryEnterSilentRefreshRound } from "@/lib/http/silent-refresh-coalesce";
 import { isLikelyFetchAbortError, logFetchClientTelemetry } from "@/lib/http/fetch-client-telemetry";
 import { fetchCommunityMessengerBootstrapClient } from "@/lib/community-messenger/cm-bootstrap-client-fetch";
@@ -65,46 +65,6 @@ import {
   shouldDeferDuringRoomEntryQuiet,
   shouldDeferHomeSyncStart,
 } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
-
-/** critical 홈-sync 상단 블록 병합 — 서버 최근 순 · 로컬 나머지 유지 + 거래 `contextMeta` 역행 방지 */
-function mergeCriticalRoomPatchesIntoLists(
-  baseList: CommunityMessengerRoomSummary[],
-  incoming: CommunityMessengerRoomSummary[]
-): CommunityMessengerRoomSummary[] {
-  if (!incoming.length) return baseList;
-  const baseById = new Map(baseList.map((r) => [r.id, r]));
-  const incomingIds = new Set(incoming.map((r) => r.id));
-  const head = incoming.map((inc) => mergeMessengerRoomSummaryForHomeSyncCriticalPatch(baseById.get(inc.id), inc));
-  const tail = baseList.filter((r) => !incomingIds.has(r.id));
-  return [...head, ...tail];
-}
-
-/**
- * silent full 보강 등으로 서버 `requests` 가 통째로 올 때, 복제 지연으로 새 outgoing pending 이 빠지면
- * 검색 행이 쿨다운으로만 보이는 현상이 난다. 클라에만 남은 내 pending outgoing 은 유지한다.
- */
-function mergeFriendRequestsKeepStaleOutgoing(
-  base: CommunityMessengerBootstrap,
-  serverList: CommunityMessengerFriendRequest[] | undefined
-): CommunityMessengerFriendRequest[] {
-  const server = serverList ?? [];
-  const meId = base.me?.id?.trim();
-  if (!meId) return server;
-  const prev = base.requests ?? [];
-  const extra = prev.filter((r) => {
-    if (r.status !== "pending" || r.direction !== "outgoing" || r.requesterId !== meId) return false;
-    return !server.some((s) => {
-      if (String(s.id) === String(r.id)) return true;
-      return (
-        s.status === "pending" &&
-        s.requesterId === r.requesterId &&
-        s.addresseeId === r.addresseeId
-      );
-    });
-  });
-  if (!extra.length) return server;
-  return [...server, ...extra];
-}
 
 /** lite/full·open-groups 보강 — 셸 페인트 이후 `requestIdleCallback`(폴백 `setTimeout`) */
 function scheduleMessengerDeferredOnIdle(run: () => void): void {
@@ -231,14 +191,23 @@ export function useCommunityMessengerHomeBootstrap({
     if (initialServerBootstrap) return;
     const fullCached = peekMessengerBootstrapFull();
     if (fullCached) {
-      setData(fullCached);
+      setData((prev) => {
+        const next = applyHomeListPatch(prev, { kind: "bootstrap_full_seed", bootstrap: fullCached }, "bootstrap");
+        if (next) primeBootstrapCache(next);
+        return next;
+      });
       setLoading(false);
       setListAwaitingCritical(false);
       return;
     }
     const critCached = peekMessengerBootstrapCritical();
     if (!critCached) return;
-    setData(communityMessengerBootstrapFromCriticalPayload(critCached));
+    const critBootstrap = communityMessengerBootstrapFromCriticalPayload(critCached);
+    setData((prev) => {
+      const next = applyHomeListPatch(prev, { kind: "bootstrap_full_seed", bootstrap: critBootstrap }, "bootstrap");
+      if (next) primeBootstrapCache(next);
+      return next;
+    });
     setLoading(false);
     setListAwaitingCritical(false);
   }, [initialServerBootstrap]);
@@ -325,43 +294,19 @@ export function useCommunityMessengerHomeBootstrap({
         try {
           const base = prev ?? peekBootstrapCache();
           if (!base) return prev;
-          const chats =
-            roomMode === "critical_patch"
-              ? mergeCriticalRoomPatchesIntoLists(base.chats, payload.chats ?? [])
-              : payload.chats ?? base.chats;
-          const groups =
-            roomMode === "critical_patch"
-              ? mergeCriticalRoomPatchesIntoLists(base.groups, payload.groups ?? [])
-              : payload.groups ?? base.groups;
-          const requests =
-            roomMode === "critical_patch"
-              ? base.requests
-              : payload.requests !== undefined
-                ? mergeFriendRequestsKeepStaleOutgoing(base, payload.requests)
-                : payload.requests ?? base.requests;
-          const friends =
-            roomMode === "critical_patch" ? base.friends : payload.friends ?? base.friends;
-          if (
-            chats === base.chats &&
-            groups === base.groups &&
-            requests === base.requests &&
-            friends === base.friends
-          ) {
-            return prev;
-          }
-          const next: CommunityMessengerBootstrap = {
-            ...base,
-            chats,
-            groups,
-            requests,
-            friends,
-            tabs: {
-              ...base.tabs,
-              chats: chats.length,
-              groups: groups.length,
-              friends: friends.length,
+          const next = applyHomeListPatch(
+            base,
+            {
+              kind: "home_sync",
+              chats: payload.chats,
+              groups: payload.groups,
+              requests: payload.requests,
+              friends: payload.friends,
+              roomMode,
             },
-          };
+            "home-sync"
+          );
+          if (!next || next === base) return prev;
           primeBootstrapCache(next);
           return next;
         } finally {
@@ -436,7 +381,7 @@ export function useCommunityMessengerHomeBootstrap({
     const shouldBlock = !silent && !loadedRef.current && !stale;
     const useLiteBootstrapFallback = !silent && !stale && !loadedRef.current;
     if (stale) {
-      setData(stale);
+      setData((prev) => applyHomeListPatch(prev, { kind: "bootstrap_full_seed", bootstrap: stale }, "bootstrap"));
       setAuthRequired(false);
       setPageError(null);
     }
@@ -541,14 +486,15 @@ export function useCommunityMessengerHomeBootstrap({
               setAuthRequired(false);
               setPageError(null);
               setData((prev) => {
-                if (!prev) {
+                const merged = applyHomeListPatch(
+                  prev,
+                  { kind: "bootstrap_apply_full", next, mergeStaleOutgoingRequests: true },
+                  "bootstrap"
+                );
+                if (!merged) {
                   primeBootstrapCache(next);
                   return next;
                 }
-                const merged: CommunityMessengerBootstrap = {
-                  ...next,
-                  requests: mergeFriendRequestsKeepStaleOutgoing(prev, next.requests ?? []),
-                };
                 primeBootstrapCache(merged);
                 return merged;
               });
@@ -626,10 +572,12 @@ export function useCommunityMessengerHomeBootstrap({
                   setAuthRequired(false);
                   setPageError(null);
                   setData((prev) => {
-                    const merged: CommunityMessengerBootstrap = {
-                      ...next,
-                      requests: mergeFriendRequestsKeepStaleOutgoing(prev ?? next, next.requests ?? []),
-                    };
+                    const merged = applyHomeListPatch(
+                      prev,
+                      { kind: "bootstrap_apply_full", next, mergeStaleOutgoingRequests: true },
+                      "bootstrap"
+                    );
+                    if (!merged) return next;
                     primeMessengerBootstrapFull(merged);
                     return merged;
                   });
@@ -746,7 +694,15 @@ export function useCommunityMessengerHomeBootstrap({
               refreshDataOk = true;
               setAuthRequired(false);
               setPageError(null);
-              setData(partial);
+              setData((prev) => {
+                const seeded = applyHomeListPatch(
+                  prev,
+                  { kind: "bootstrap_full_seed", bootstrap: partial },
+                  "bootstrap"
+                );
+                if (seeded) primeBootstrapCache(seeded);
+                return seeded;
+              });
               setListAwaitingCritical(false);
               const critical_state_apply_ms =
                 typeof performance !== "undefined" ? Math.round(performance.now() - tApplyCrit0) : 0;
@@ -825,14 +781,15 @@ export function useCommunityMessengerHomeBootstrap({
               setAuthRequired(false);
               setPageError(null);
               setData((prev) => {
-                if (!prev) {
+                const merged = applyHomeListPatch(
+                  prev,
+                  { kind: "bootstrap_apply_full", next, mergeStaleOutgoingRequests: true },
+                  "bootstrap"
+                );
+                if (!merged) {
                   primeMessengerBootstrapFull(next);
                   return next;
                 }
-                const merged: CommunityMessengerBootstrap = {
-                  ...next,
-                  requests: mergeFriendRequestsKeepStaleOutgoing(prev, next.requests ?? []),
-                };
                 primeMessengerBootstrapFull(merged);
                 return merged;
               });

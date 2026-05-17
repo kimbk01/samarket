@@ -5,6 +5,7 @@ import type { Dispatch, SetStateAction } from "react";
 import { getMessengerBackgroundHydrationScheduler } from "@/lib/community-messenger/background-hydration-scheduler";
 import { shouldDeferTradeChatListMetaHydration } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
 import { primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
+import { applyHomeListPatch } from "@/lib/community-messenger/home-list-patch";
 import { communityMessengerRoomIsTrade } from "@/lib/community-messenger/messenger-room-domain";
 import type {
   CommunityMessengerBootstrap,
@@ -37,26 +38,6 @@ function tradeChatListSummaryNeedsMetaHydration(
   if (postId && !hasLeaf && !attemptedRoomIds.has(room.id)) return true;
 
   return false;
-}
-
-function mergeTradeChatContextPatches(
-  prev: CommunityMessengerBootstrap,
-  patches: Array<{ roomId: string; contextMeta: CommunityMessengerRoomContextMetaV1 | null }>
-): CommunityMessengerBootstrap {
-  const map = new Map(patches.map((p) => [p.roomId, p.contextMeta]));
-  const patchRooms = (rooms: CommunityMessengerRoomSummary[]) =>
-    rooms.map((r) => {
-      if (!map.has(r.id)) return r;
-      const cm = map.get(r.id) ?? null;
-      return { ...r, contextMeta: cm };
-    });
-  const next: CommunityMessengerBootstrap = {
-    ...prev,
-    chats: patchRooms(prev.chats ?? []),
-    groups: patchRooms(prev.groups ?? []),
-  };
-  primeBootstrapCache(next);
-  return next;
 }
 
 /**
@@ -112,8 +93,13 @@ export function useTradeChatListMetaHydration(args: {
           const toApply = json.patches.filter((p) => p.contextMeta != null);
           if (toApply.length === 0) return;
           setData((prev) => {
-            if (!prev) return prev;
-            return mergeTradeChatContextPatches(prev, toApply);
+            const next = applyHomeListPatch(
+              prev,
+              { kind: "trade_context_meta", patches: toApply },
+              "trade-meta"
+            );
+            if (next && next !== prev) primeBootstrapCache(next);
+            return next;
           });
         } catch {
           /* ignore */

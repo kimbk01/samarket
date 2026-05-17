@@ -28,7 +28,6 @@ import {
   messengerRoomListSourceFromPathname,
 } from "@/lib/community-messenger/messenger-entry-origin";
 import { prefetchCommunityMessengerRoomSnapshot } from "@/lib/community-messenger/room-snapshot-cache";
-import { applyRoomSummaryPatched } from "@/lib/community-messenger/stores/messenger-realtime-store";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
 import {
   cmReceiveLatencyKey,
@@ -172,11 +171,6 @@ export function useMessageNotificationBridge(
             realtime_payload_room_id: nextRoomId,
             realtime_payload_message_id: "",
             receiver_store_apply_start_ms: cmReceiveLatencyNow(),
-          });
-          applyRoomSummaryPatched({
-            viewerUserId: userId,
-            roomId: nextRoomId,
-            unreadCount: nextUnread,
           });
           cmReceiveLatencyMark(key, {
             receiver_store_apply_done_ms: cmReceiveLatencyNow(),

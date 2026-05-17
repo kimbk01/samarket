@@ -14,3 +14,7 @@ export function useMessengerRoomClientPhase1Context(): MessengerRoomClientPhase1
   }
   return v;
 }
+
+export function useMessengerRoomClientPhase1ContextOptional(): MessengerRoomClientPhase1Value | null {
+  return useContext(MessengerRoomClientPhase1Context);
+}

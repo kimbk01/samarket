@@ -12,7 +12,7 @@ export function CommunityMessengerRoomClientPrefetch() {
     if (typeof window === "undefined") return;
     const idleId = scheduleWhenBrowserIdle(() => {
       void import("@/components/community-messenger/CommunityMessengerRoomClient");
-    }, 900);
+    }, 120);
     return () => cancelScheduledWhenBrowserIdle(idleId);
   }, []);
   return null;

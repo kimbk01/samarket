@@ -10,6 +10,7 @@ import {
   type ChangeEvent,
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -71,6 +72,7 @@ import {
   setMessengerRoomReadBlock,
 } from "@/lib/community-messenger/room/messenger-room-read-gate";
 import { buildReplyPreviewSnapshot } from "@/lib/community-messenger/message-actions/message-reply-policy";
+import { registerMessengerRoomComposerPhase2Bridge } from "@/lib/community-messenger/room/messenger-room-composer-phase2-bridge";
 
 export type MessengerRoomPhase2ControllerState = ReturnType<typeof useMessengerRoomPhase2Controller>;
 
@@ -1908,6 +1910,40 @@ export function useMessengerRoomPhase2Controller() {
       tone?.stop();
     };
   }, [isGroupRoom, callPanel?.sessionId, callPanel?.mode, callPanel?.kind]);
+
+  useLayoutEffect(() => {
+    return registerMessengerRoomComposerPhase2Bridge({
+      sendMessage,
+      setActiveSheet,
+      voiceRecording,
+      voiceMicArming,
+      voiceHandsFree,
+      voiceRecordElapsedMs,
+      voiceLivePreviewBars,
+      voiceCancelHint,
+      voiceLockHint,
+      finalizeVoiceRecording,
+      onVoiceMicPointerDown,
+      onVoiceMicPointerMove,
+      onVoiceMicPointerUp,
+      onVoiceMicPointerCancel,
+    });
+  }, [
+    finalizeVoiceRecording,
+    onVoiceMicPointerCancel,
+    onVoiceMicPointerDown,
+    onVoiceMicPointerMove,
+    onVoiceMicPointerUp,
+    sendMessage,
+    setActiveSheet,
+    voiceCancelHint,
+    voiceHandsFree,
+    voiceLivePreviewBars,
+    voiceLockHint,
+    voiceMicArming,
+    voiceRecordElapsedMs,
+    voiceRecording,
+  ]);
 
   return {
     ...phase1,

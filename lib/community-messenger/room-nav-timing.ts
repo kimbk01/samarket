@@ -1,5 +1,6 @@
 import { messengerMonitorRecord } from "@/lib/community-messenger/monitoring/client";
 import { getRoomTapT0, markRoomTapAtClick } from "@/lib/community-messenger/room/cm-room-entry-timing";
+import { noteR2M9Stage, resetR2M9ProfileSession } from "@/lib/community-messenger/room/cm-room-r2-m9-entry-profile";
 import { logClientPerf } from "@/lib/performance/samarket-perf";
 
 const STORAGE_KEY = "samarket:cm:room_nav_t0.v1";
@@ -34,6 +35,8 @@ export function markCommunityMessengerRoomNavTap(roomId: string): void {
   if (typeof window === "undefined") return;
   const id = String(roomId ?? "").trim();
   if (!id) return;
+  resetR2M9ProfileSession();
+  noteR2M9Stage("list_nav_begin");
   markRoomTapAtClick(id);
   const row: Row = { at: nowMs(), roomId: id };
   try {

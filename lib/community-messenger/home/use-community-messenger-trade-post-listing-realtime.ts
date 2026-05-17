@@ -2,35 +2,12 @@
 
 import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import { primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
+import { applyHomeListPatch } from "@/lib/community-messenger/home-list-patch";
 import { subscribeWithRetry } from "@/lib/community-messenger/realtime/subscribe-with-retry";
-import type { CommunityMessengerBootstrap, CommunityMessengerRoomSummary } from "@/lib/community-messenger/types";
-import { getChatListingBoxPresentation } from "@/lib/products/seller-listing-state";
+import type { CommunityMessengerBootstrap } from "@/lib/community-messenger/types";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 const POSTS_LISTING_IN_FILTER_MAX = 90;
-
-function patchTradeContextMetaForPostRow(
-  prev: CommunityMessengerBootstrap,
-  postId: string,
-  sellerListingStateRaw: unknown,
-  postStatus: string | null | undefined
-): CommunityMessengerBootstrap | null {
-  const label = getChatListingBoxPresentation(sellerListingStateRaw, postStatus ?? undefined).label;
-  let changed = false;
-  const patchList = (rooms: CommunityMessengerRoomSummary[]) =>
-    rooms.map((room) => {
-      const m = room.contextMeta;
-      if (!m || m.kind !== "trade") return room;
-      if (String(m.postId ?? "").trim() !== postId) return room;
-      if (m.itemStateLabel === label) return room;
-      changed = true;
-      return { ...room, contextMeta: { ...m, itemStateLabel: label } };
-    });
-  const chats = patchList(prev.chats);
-  const groups = patchList(prev.groups);
-  if (!changed) return null;
-  return { ...prev, chats, groups };
-}
 
 /**
  * 메신저 홈 목록의 거래 행 `contextMeta.itemStateLabel`을 `posts` Realtime으로 즉시 맞춘다.
@@ -81,14 +58,17 @@ export function useCommunityMessengerTradePostListingRealtime(args: {
                 const id = typeof n?.id === "string" ? n.id.trim() : "";
                 if (!id) return;
                 setDataRef.current((prev) => {
-                  if (!prev) return prev;
-                  const next = patchTradeContextMetaForPostRow(
+                  const next = applyHomeListPatch(
                     prev,
-                    id,
-                    n?.seller_listing_state,
-                    typeof n?.status === "string" ? n.status : null
+                    {
+                      kind: "trade_post_listing_meta",
+                      postId: id,
+                      sellerListingStateRaw: n?.seller_listing_state,
+                      postStatus: typeof n?.status === "string" ? n.status : null,
+                    },
+                    "realtime"
                   );
-                  if (!next) return prev;
+                  if (!next || next === prev) return prev;
                   primeBootstrapCache(next);
                   return next;
                 });

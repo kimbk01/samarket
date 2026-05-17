@@ -67,7 +67,7 @@ import {
   resetMessengerAppShellFastPathClock,
 } from "@/lib/community-messenger/app-shell-fast-path-log";
 import { primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
-import { mergeBootstrapRoomSummaryIntoLists } from "@/lib/community-messenger/home/merge-bootstrap-room-summary-into-lists";
+import { applyHomeListPatch, commitHomeListPatch } from "@/lib/community-messenger/home-list-patch";
 import { useCommunityMessengerHomeRealtimeBootstrapList } from "@/lib/community-messenger/home/use-community-messenger-home-realtime-bootstrap-list";
 import { useCommunityMessengerTradePostListingRealtime } from "@/lib/community-messenger/home/use-community-messenger-trade-post-listing-realtime";
 import { postCommunityMessengerBusEvent } from "@/lib/community-messenger/multi-tab-bus";
@@ -186,11 +186,9 @@ import {
   setLocalReadGuard,
 } from "@/lib/community-messenger/read/local-read-guard";
 import { applyCmReadUiBadgeZero } from "@/lib/community-messenger/read/cm-read-ui-patch";
-import {
-  applyRoomReadEvent,
-  getMessengerRealtimeRoomSummary,
-  seedMessengerRealtimeFromBootstrap,
-} from "@/lib/community-messenger/stores/messenger-realtime-store";
+import { findHomeListRoomRow } from "@/lib/community-messenger/home-list-patch";
+import { seedMessengerRealtimeViewerFromBootstrap } from "@/lib/community-messenger/stores/messenger-realtime-store";
+import { patchMessengerRoomReadSnapshotRuntime } from "@/lib/community-messenger/realtime/messenger-realtime-snapshot-runtime";
 import {
   cmRtRoomSubLog,
   messengerRealtimeGetSubscribedMessageRoomIds,
@@ -539,7 +537,7 @@ export function CommunityMessengerHome({
   }, [data?.chats, data?.groups]);
 
   useEffect(() => {
-    seedMessengerRealtimeFromBootstrap(data);
+    seedMessengerRealtimeViewerFromBootstrap(data);
   }, [data]);
 
   const directRoomByPeerId = useMemo(() => {
@@ -681,16 +679,15 @@ export function CommunityMessengerHome({
         setActionError(getMessengerActionErrorMessage(json.error ?? "room_archive_update_failed"));
         return false;
       }
-      setData((prev) => {
-        if (!prev) return prev;
-        const apply = (rooms: CommunityMessengerRoomSummary[]) =>
-          rooms.map((current) => (current.id === room.id ? { ...current, isArchivedByViewer: false } : current));
-        return {
-          ...prev,
-          chats: apply(prev.chats),
-          groups: apply(prev.groups),
-        };
-      });
+      commitHomeListPatch(
+        setData,
+        {
+          kind: "room_update",
+          roomId: room.id,
+          updater: (current) => ({ ...current, isArchivedByViewer: false }),
+        },
+        "bootstrap"
+      );
       return true;
     },
     [getMessengerActionErrorMessage]
@@ -735,13 +732,11 @@ export function CommunityMessengerHome({
             primeRoomSnapshot(json.roomId, json.snapshot);
             const uid = data?.me?.id?.trim();
             const { description: _desc, ...roomSummary } = json.snapshot.room;
-            setData((prev) => {
-              if (!prev) return prev;
-              const next = mergeBootstrapRoomSummaryIntoLists(prev, roomSummary);
-              if (next === prev) return prev;
-              primeBootstrapCache(next);
-              return next;
-            });
+            commitHomeListPatch(
+              setData,
+              { kind: "merge_room_summary", summary: roomSummary },
+              "bootstrap"
+            );
             if (uid) {
               postCommunityMessengerBusEvent({
                 type: "cm.home.merge_room_summary",
@@ -2033,37 +2028,16 @@ export function CommunityMessengerHome({
   );
   const updateRoomSummaryState = useCallback(
     (roomId: string, updater: (room: CommunityMessengerRoomSummary) => CommunityMessengerRoomSummary) => {
-      setData((prev) => {
-        if (!prev) return prev;
-        const apply = (rooms: CommunityMessengerRoomSummary[]) =>
-          rooms.map((room) => (room.id === roomId ? updater(room) : room));
-        return {
-          ...prev,
-          chats: apply(prev.chats),
-          groups: apply(prev.groups),
-        };
-      });
+      commitHomeListPatch(setData, { kind: "room_update", roomId, updater }, "bootstrap");
     },
-    []
+    [setData]
   );
-  const removeRoomFromBootstrapState = useCallback((roomId: string) => {
-    setData((prev) => {
-      if (!prev) return prev;
-      const drop = (rooms: CommunityMessengerRoomSummary[]) => rooms.filter((room) => room.id !== roomId);
-      const nextChats = drop(prev.chats);
-      const nextGroups = drop(prev.groups);
-      return {
-        ...prev,
-        chats: nextChats,
-        groups: nextGroups,
-        tabs: {
-          ...prev.tabs,
-          chats: nextChats.length,
-          groups: nextGroups.length,
-        },
-      };
-    });
-  }, []);
+  const removeRoomFromBootstrapState = useCallback(
+    (roomId: string) => {
+      commitHomeListPatch(setData, { kind: "remove_room", roomId }, "bootstrap");
+    },
+    [setData]
+  );
   const updateRoomParticipantState = useCallback(
     async (roomId: string, patch: { isPinned?: boolean; isMuted?: boolean }) => {
       const actionKey = `room-settings:${roomId}`;
@@ -2096,7 +2070,7 @@ export function CommunityMessengerHome({
       const actionKey = `room-read:${roomId}`;
       setBusyId(actionKey);
       setActionError(null);
-      const summary = getMessengerRealtimeRoomSummary(roomId);
+      const summary = findHomeListRoomRow(data, roomId);
       setLocalReadGuard({
         roomId,
         referenceLastMessageAt: String(summary?.lastMessageAt ?? ""),
@@ -2127,10 +2101,9 @@ export function CommunityMessengerHome({
         }
         refreshLocalReadGuardServerAck(roomId);
         cmReadBadgeLog("mark_read_patch_done", { roomId, path: "home_mark_read" });
-        applyRoomReadEvent({
+        patchMessengerRoomReadSnapshotRuntime({
           viewerUserId: data?.me?.id ?? null,
           roomId,
-          lastReadMessageId: null,
         });
         postCommunityMessengerBusEvent({
           type: "cm.room.read",

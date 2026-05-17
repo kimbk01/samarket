@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useLayoutEffect, useMemo } from "react";
-import { useSearchParams } from "next/navigation";
+import { useMessengerRoomUrlSearchParams } from "@/lib/community-messenger/room/use-messenger-room-url-search-params";
 import { BackIcon, MoreIcon } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { useMessengerRoomPhase2HeaderView } from "@/components/community-messenger/room/phase2/messenger-room-phase2-header-context";
 import { markCommunityMessengerHomeReturn } from "@/lib/community-messenger/home-return-timing";
@@ -25,7 +25,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
   useLayoutEffect(() => {
     noteCmRoomPass1HeaderMs();
   }, [vm.snapshot.room.id]);
-  const searchParams = useSearchParams();
+  const searchParams = useMessengerRoomUrlSearchParams();
   const requestAnimatedBack = useMessengerRoomAnimatedBack();
   const bindPresenceAndTyping = hydrationPass >= 2;
   const peerPresence = useCommunityMessengerPeerPresence(

@@ -2,7 +2,10 @@
 
 /** 방 메시지·메타 Realtime 은 시청자당 단일 `global-messenger:bundle` 채널(`useCommunityMessengerRoomRealtime`)로 수신·`room_id` 로만 분배한다. */
 
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { useMessengerRoomUrlSearchParams } from "@/lib/community-messenger/room/use-messenger-room-url-search-params";
+import { noteR2M11Phase1SeedReady } from "@/lib/community-messenger/room/cm-room-r2-m11-suspense-release";
+import { noteR2M11BPhase1SeedReady } from "@/lib/community-messenger/room/cm-room-r2-m11b-breakdown";
 import {
   type ChangeEvent,
   useCallback,
@@ -64,12 +67,8 @@ import {
 } from "@/lib/community-messenger/room/use-messenger-room-bootstrap-lifecycle";
 import { clearCmRoomForegroundBootstrapLock } from "@/lib/community-messenger/room/cm-room-bootstrap-lock";
 import { useMessengerRoomUrlSyncEffects } from "@/lib/community-messenger/room/use-messenger-room-url-sync-effects";
-import { useVirtualizer } from "@tanstack/react-virtual";
-import {
-  MESSENGER_TIMELINE_VIRTUAL_ESTIMATE_PX,
-  MESSENGER_TIMELINE_VIRTUAL_OVERSCAN,
-} from "@/lib/community-messenger/room/messenger-room-ui-constants";
-import { useMessengerRoomDerivedMessageLists } from "@/lib/community-messenger/room/use-messenger-room-derived-message-lists";
+import { CM_ROOM_EMPTY_VIRTUALIZER_STUB } from "@/lib/community-messenger/room/cm-room-empty-virtualizer-stub";
+import type { MessengerRoomPhase1TimelineHeavyBundle } from "@/lib/community-messenger/room/use-messenger-room-phase1-timeline-heavy";
 import type { ChatRoom } from "@/lib/types/chat";
 import { useNotificationSurfaceCommunityMessengerRoom } from "@/lib/ui/use-notification-surface-explicit-chat-rooms";
 import { disposeDetachedCommunityCallIfStale } from "@/lib/community-messenger/direct-call-minimize";
@@ -95,6 +94,7 @@ import {
   resetCmRoomEntryTraceSession,
 } from "@/lib/community-messenger/room/cm-room-entry-instrumentation";
 import { beginCmRoomEntryPriorityMode, endCmRoomEntryPriorityMode } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
+import { scheduleCmRoomPass2IdleExpand } from "@/lib/community-messenger/room/cm-room-pass-scheduler";
 import { consumeCommunityMessengerRoomNavTap } from "@/lib/community-messenger/room-nav-timing";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import { acquireCommunityMessengerReadAckBroadcast } from "@/lib/community-messenger/realtime/cm-read-ack-broadcast-client";
@@ -118,13 +118,14 @@ import {
   postCommunityMessengerBusEvent,
 } from "@/lib/community-messenger/multi-tab-bus";
 import {
+  patchMessengerRoomReadSnapshotRuntime,
+  patchMessengerRoomSnapshotRuntime,
+} from "@/lib/community-messenger/realtime/messenger-realtime-snapshot-runtime";
+import {
   seedMessengerRealtimeFromRoomSnapshot,
   setActiveMessengerRealtimeRoom,
   applyIncomingMessageEvent,
-  applyRoomReadEvent,
-  applyRoomSummaryPatched,
   getMessengerRealtimeRoomMessages,
-  getMessengerRealtimeRoomSummary,
   normalizeMessengerRealtimeRoomId,
   useMessengerRealtimeStore,
 } from "@/lib/community-messenger/stores/messenger-realtime-store";
@@ -169,11 +170,9 @@ function resolveMessengerRoomInitialSnapshot(
   const listPrimed = peekRoomSnapshot(roomId, viewer || undefined);
   if (listPrimed) return listPrimed;
   if (viewer) {
-    const summary = getMessengerRealtimeRoomSummary(roomId);
-    if (summary) {
-      const messages = getMessengerRealtimeRoomMessages(roomId);
+    const messages = getMessengerRealtimeRoomMessages(roomId);
+    if (messages.length > 0) {
       const latest = messages[messages.length - 1] ?? null;
-      seedRoomSnapshotFromSummary({ room: summary, viewerUserId: viewer, message: latest });
       const seeded = peekRoomSnapshot(roomId, viewer);
       if (seeded) return seeded;
     }
@@ -206,7 +205,7 @@ export function useMessengerRoomClientPhase1({
   const { t, tt } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const searchParams = useMessengerRoomUrlSearchParams();
   /** 같은 방에 머문 채 전역 배너에서 수락할 때도 반응하도록 URL 을 구독한다(RSC initial props 만으론 갱신이 안 될 수 있음). */
   const callActionFromUrl = searchParams.get("callAction") ?? initialCallAction ?? undefined;
   const sessionIdFromUrl = searchParams.get("sessionId") ?? initialCallSessionId ?? undefined;
@@ -283,6 +282,13 @@ export function useMessengerRoomClientPhase1({
     return (c || r).trim();
   }, [snapshot?.room?.id, initialServerSnapshot?.room?.id, roomId]);
 
+  useLayoutEffect(() => {
+    const rid = String(roomId ?? "").trim();
+    if (!rid || !snapshot) return;
+    noteR2M11Phase1SeedReady(rid);
+    noteR2M11BPhase1SeedReady(rid);
+  }, [roomId, snapshot?.room.id]);
+
   useEffect(() => {
     const id = streamRoomId.trim();
     if (!id) return;
@@ -352,30 +358,51 @@ export function useMessengerRoomClientPhase1({
           roomSummary: snapshotRef.current?.room ?? initialServerSnapshot?.room ?? undefined,
         });
       } else if (ev.type === "cm.room.read") {
-        applyRoomReadEvent({
+        patchMessengerRoomReadSnapshotRuntime({
           viewerUserId: viewerId,
           roomId: rid,
-          lastReadMessageId: ev.lastReadMessageId,
         });
+        setSnapshot((prev) => (prev ? { ...prev, room: { ...prev.room, unreadCount: 0 } } : prev));
+        return;
       } else if (ev.type === "cm.room.summary_patch") {
-        applyRoomSummaryPatched({
+        patchMessengerRoomSnapshotRuntime({
           viewerUserId: viewerId,
           roomId: rid,
           unreadCount: ev.unreadCount,
           lastReadMessageId: ev.lastReadMessageId,
         });
+        setSnapshot((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            room: {
+              ...prev.room,
+              ...(typeof ev.unreadCount === "number" && Number.isFinite(ev.unreadCount)
+                ? { unreadCount: Math.max(0, Math.floor(ev.unreadCount)) }
+                : null),
+            },
+          };
+        });
+        return;
       } else if (ev.type === "cm.room.local_unread") {
-        applyRoomSummaryPatched({
+        patchMessengerRoomSnapshotRuntime({
           viewerUserId: viewerId,
           roomId: rid,
           unreadCount: ev.unreadCount,
         });
+        setSnapshot((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            room: {
+              ...prev.room,
+              unreadCount: Math.max(0, Math.floor(Number(ev.unreadCount) || 0)),
+            },
+          };
+        });
+        return;
       } else {
         return;
-      }
-      const summary = getMessengerRealtimeRoomSummary(rid);
-      if (summary) {
-        setSnapshot((prev) => (prev ? { ...prev, room: { ...prev.room, ...summary } } : prev));
       }
       const mergedMessages = getMessengerRealtimeRoomMessages(rid);
       if (mergedMessages.length > 0) {
@@ -389,6 +416,22 @@ export function useMessengerRoomClientPhase1({
   const [loading, setLoading] = useState(false);
   /** 초기 부트스트랩(HTTP) 완료 후에만 Realtime 구독 — 마운트 시 중복 요청·구독 레이스 완화 */
   const [roomReadyForRealtime, setRoomReadyForRealtime] = useState(false);
+  /** R2-M8: composer 선커밋 후 idle에 timeline virtualizer·파생 목록 마운트 */
+  const [timelineHeavyLive, setTimelineHeavyLive] = useState(false);
+  const [timelineHeavyBundle, setTimelineHeavyBundle] = useState<MessengerRoomPhase1TimelineHeavyBundle | null>(
+    null
+  );
+  const onTimelineHeavyReady = useCallback((bundle: MessengerRoomPhase1TimelineHeavyBundle) => {
+    setTimelineHeavyBundle(bundle);
+  }, []);
+
+  useLayoutEffect(() => {
+    const rid = roomId.trim();
+    if (!rid) return;
+    setTimelineHeavyLive(false);
+    setTimelineHeavyBundle(null);
+    return scheduleCmRoomPass2IdleExpand(() => setTimelineHeavyLive(true), 120);
+  }, [roomId]);
 
   useEffect(() => {
     const viewerId = snapshot?.viewerUserId?.trim() || initialServerSnapshot?.viewerUserId?.trim() || "";
@@ -927,7 +970,7 @@ export function useMessengerRoomClientPhase1({
       });
       const uid = snap.viewerUserId.trim();
       if (uid) {
-        applyRoomSummaryPatched({
+        patchMessengerRoomSnapshotRuntime({
           viewerUserId: uid,
           roomId: ledgerRoomId,
           lastReadMessageId: lrmStr,
@@ -1237,26 +1280,17 @@ export function useMessengerRoomClientPhase1({
     setInviteIds([]);
   }, []);
 
-  const {
-    messageSearchResults,
-    mediaGalleryMessages,
-    linkThreadMessages,
-    displayRoomMessages,
-    fileMessages,
-    managementEventMessages,
-    photoMessageCount,
-    voiceMessageCount,
-    fileMessageCount,
-    linkMessageCount,
-  } = useMessengerRoomDerivedMessageLists(roomMessages, hiddenCallStubIds, roomSearchQuery);
-
-  const chatVirtualizer = useVirtualizer({
-    count: displayRoomMessages.length,
-    getScrollElement: () => messagesViewportRef.current,
-    estimateSize: () => MESSENGER_TIMELINE_VIRTUAL_ESTIMATE_PX,
-    overscan: MESSENGER_TIMELINE_VIRTUAL_OVERSCAN,
-    getItemKey: (index) => displayRoomMessages[index]?.id ?? `__cm_timeline_${index}`,
-  });
+  const messageSearchResults = timelineHeavyBundle?.messageSearchResults ?? [];
+  const mediaGalleryMessages = timelineHeavyBundle?.mediaGalleryMessages ?? [];
+  const linkThreadMessages = timelineHeavyBundle?.linkThreadMessages ?? [];
+  const displayRoomMessages = timelineHeavyBundle?.displayRoomMessages ?? [];
+  const fileMessages = timelineHeavyBundle?.fileMessages ?? [];
+  const managementEventMessages = timelineHeavyBundle?.managementEventMessages ?? [];
+  const photoMessageCount = timelineHeavyBundle?.photoMessageCount ?? 0;
+  const voiceMessageCount = timelineHeavyBundle?.voiceMessageCount ?? 0;
+  const fileMessageCount = timelineHeavyBundle?.fileMessageCount ?? 0;
+  const linkMessageCount = timelineHeavyBundle?.linkMessageCount ?? 0;
+  const chatVirtualizer = timelineHeavyBundle?.chatVirtualizer ?? CM_ROOM_EMPTY_VIRTUALIZER_STUB;
 
   const { scrollMessengerToBottom, updateStickToBottomFromScroll } = useMessengerRoomReaderScrollBottom({
     roomId,
@@ -1274,15 +1308,6 @@ export function useMessengerRoomClientPhase1({
     const pcid = typeof meta.productChatId === "string" ? meta.productChatId.trim() : "";
     return pcid.length > 0;
   }, [snapshot?.room]);
-
-  useMessengerRoomTradeDockScrollAnchor({
-    enabled: tradeDockScrollAnchorEnabled,
-    messagesViewportRef,
-    messageEndRef,
-    virtualizer: chatVirtualizer,
-    messageCount: displayRoomMessages.length,
-    stickToBottomRef,
-  });
 
   useEffect(() => {
     urlDeepLinkMessageHandledRef.current = "";
@@ -1414,6 +1439,17 @@ export function useMessengerRoomClientPhase1({
     setFriendsLoaded(true);
   }, [friendsLoaded]);
   return {
+  timelineHeavyLive,
+  onTimelineHeavyReady,
+  timelineHeavyHostInput: {
+    roomMessages,
+    hiddenCallStubIds,
+    roomSearchQuery,
+    messagesViewportRef,
+    tradeDockScrollAnchorEnabled,
+    messageEndRef,
+    stickToBottomRef,
+  },
   roomId,
   streamRoomId,
   initialCallAction,

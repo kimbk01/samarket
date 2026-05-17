@@ -24,10 +24,7 @@ import {
 } from "@/lib/community-messenger/read/local-read-guard";
 import { applyCmReadUiBadgeZero } from "@/lib/community-messenger/read/cm-read-ui-patch";
 import { cmRtReadSyncLog } from "@/lib/community-messenger/read/cm-rt-read-sync-log";
-import {
-  applyRoomReadEvent,
-  applyRoomSummaryPatched,
-} from "@/lib/community-messenger/stores/messenger-realtime-store";
+import { patchMessengerRoomReadSnapshotRuntime } from "@/lib/community-messenger/realtime/messenger-realtime-snapshot-runtime";
 import { recordRouteEntryElapsedMetric, recordRouteEntryMetric } from "@/lib/runtime/samarket-runtime-debug";
 import { scheduleWhenBrowserIdle } from "@/lib/ui/network-policy";
 import { messengerVerboseTraceConsoleEnabled } from "@/lib/community-messenger/messenger-trace-console";
@@ -323,10 +320,9 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
 
     const applyOptimisticRoomRead = (snap: CommunityMessengerRoomSnapshot, lastReadMessageId: string | null) => {
       const tAlign0 = typeof performance !== "undefined" ? performance.now() : Date.now();
-      applyRoomReadEvent({
+      patchMessengerRoomReadSnapshotRuntime({
         viewerUserId: snap.viewerUserId,
         roomId: id,
-        lastReadMessageId,
       });
       postCommunityMessengerBusEvent({
         type: "cm.room.read",
@@ -478,11 +474,6 @@ export function useMessengerRoomOpenMarkReadEffect(args: {
         reconcileUnreadFromServer();
         return;
       }
-      applyRoomSummaryPatched({
-        viewerUserId: snap.viewerUserId,
-        roomId: id,
-        unreadCount: restoreUnread,
-      });
       postCommunityMessengerBusEvent({
         type: "cm.room.local_unread",
         roomId: id,

@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-05-16 (dibaY DS1–DS3 코드 마감) |
+| Last updated | 2026-05-17 (R2-M11 종료 · R2-D1 배달 owner orders 진행) |
 | Owner | (선택) |
 
 ---
@@ -44,7 +44,108 @@
 
 ---
 
+## 종료 트랙 (재개 금지)
+
+| 트랙 | 종료 사유 (요약) |
+|------|------------------|
+| **R2-M10** 메신저 방 **list tap → route page mount** | tap→push ~4ms·prefetch_hit·client-first 완료. `push→route_change` 150~200ms 는 App Router flight/segment 축 — **ROI 급감**으로 **2026-05-17 사용자 지시로 트랙 닫음**(HOLD 수치 유지). |
+| **R2-M11** 메신저 방 **cold navigation / Suspense release** (M11·B·C·D 포함) | **2026-05-17 종료** — **판정: 카카오톡 근접 / App Router RSC reveal framework ceiling**. 앱 구조( room 0ms · layout 2~4ms · provider/phase1/composer OK )는 근접. **cold** `route_change→suspense` **~300ms** · **warm reenter ~29ms**. push 전 room RSC flight 완료 **0%** — prefetch 로 cold ceiling 미해소. **재개 금지**(메신저). 추가 개선은 client shell/overlay/별도 선로딩 등 **제품 구조 변경** 필요(현 범위 금지 조건과 충돌). |
+
+---
+
 ## 진행 중 트랙
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 이름 | **R2-D1** 배달 **owner orders** — dead row-patch / full reload **단일 정책** |
+| **트랙 상태** | **진행 예정 (메신저 R2 종료 후 착수)** |
+| 이번 원인 1개 | owner order list 에 **Realtime onChange→full `load()`** + **45s poll** + **dead row-patch hook** 이 공존 — 동일 `orders[]` 이중 writer·중복 fetch. |
+| 이번 조치 (예정) | row-patch **승격**(`useOwnerStoreOrdersRealtime`) **or** dead hook **삭제** — reload 1정책만 유지. |
+| 분석 대상 | owner order realtime · full reload 경로 · dead row-patch hook · 45s poll · order list patch ownership · owner dashboard memory · duplicate fetch |
+| 참고 | [dibay-state-ownership-map.md](./dibay-state-ownership-map.md) R2-D1 · [dibay-architecture-cleanup.md](./dibay-architecture-cleanup.md) |
+
+### R2-M11 종료 기록 (재개 금지 · 2026-05-17)
+
+| 필드 | 값 |
+|------|-----|
+| 상태 | **종료** |
+| 판정 | **카카오톡 근접 (앱 구조) / framework ceiling (cold path)** |
+| cold path | `route_change → suspense_release` **약 300ms** (316ms 측정) |
+| warm path | **약 29ms** (Next 라우터 캐시·재진입) |
+| 배제 완료 | room page server 0ms · layout 2~4ms · bottom nav/menu/auth · provider/phase1 · composer/timeline · reducer/realtime ownership |
+| R2-M11D | push 전 room RSC flight 완료 **0%** — `router.prefetch` 만으로 cold ceiling 해소 불가 |
+| 다음 개선 | **제품 결정 필요** — Next 바깥 client route shell · client-side transition · room overlay/router · 데이터 선로딩 별도 계약 (현 라운드 금지 범위와 충돌) |
+
+<details>
+<summary>R2-M11 하위 라운드 측정 요약 (펼치기)</summary>
+
+#### R2-M11 (구조 + 계측)
+
+- **원인:** 이중 Suspense fallback + `useSearchParams` suspend → segment release 병목.
+- **조치:** loading/page Suspense 정리 · URL query 비-suspend 읽기 · `[R2-M11-SUSPENSE]` 계측.
+- **측정:** `node scripts/perf/r2-m11-capture-runs.mjs` 등 · 목표 ≤150/200ms **미달(HOLD)**.
+
+### R2-M11 — 3회 측정 (2026-05-17 · `node scripts/perf/r2-m11-capture-runs.mjs` · `aaaa` · prod `start` 재시작 후)
+
+| 구간 | Run1 | Run2 | Run3 | 목표 |
+|------|------|------|------|------|
+| route_change_to_release_ms | 326 | 311 | 307 | ≤150 |
+| release_to_phase1_visible_ms | 316 | 314 | 11 | ≤200 |
+| route_mount_gap_ms | 799 | 482 | 773 | ≤150 |
+| nested_suspense_count | 0 | 0 | 0 | (이중 fallback 제거 확인) |
+| composer `[data-cm-composer] textarea` | OK | OK | OK | 회귀 없음 |
+
+**판정:** **HOLD** — `nested_suspense_count=0`·fallback 미노출·composer 정상. **`route_change_to_release` ~310ms** 가 여전히 병목(목표 150ms 2배). `release_to_phase1` Run3 11ms 는 warm/순서 이상치 가능. **bootstrap_fetch ~294ms 는 별도 데이터 축.**
+
+### R2-M11B — `route_change → suspense_release` 분해 (2026-05-17)
+
+측정: `node scripts/perf/r2-m11b-capture-runs.mjs` 3회 · `samarket:debug:runtime=1` · prod `start`
+
+| 구간 | Run1 | Run2 | Run3 | 판정 |
+|------|-----:|-----:|-----:|------|
+| route_change → server_start | 0 | 0 | 0 | room page 서버 진입 ≈ flight 요청 시작(동시) |
+| server_start → server_done | 0 | 0 | 0 | **room `page.tsx` 동기 구간 0ms** |
+| server_done → flight_done | 549 | 393 | 511 | **RSC flight ≥150ms — server/RSC 축** |
+| flight_done → suspense_release | 158 | 635 | 315 | client reveal·순서 혼재(run2 이상치) |
+| suspense_release → first_client_boundary | 15 | 17 | 0 | 양호 |
+| first_client_boundary → phase1_visible | 0 | 0 | 322 | run3만 지연(phase 타이밍) |
+| provider_commit | 1 | 0 | 0 | 양호 |
+| **route_change → suspense_release** | **325** | **633** | **308** | **목표 구간 · run2 warm 이상치** |
+
+**R2-M11B 결론(1줄):** 병목 1순위는 **room page 서버 await가 아니라 RSC flight(`server_done→flight_done` 393–549ms)**; `room_page_server_wall_ms=0`. `route_change→suspense` ~310ms는 **shell release**이며 full flight(500ms+)보다 짧을 수 있음(프리페치·스트리밍). **다음 수정 라운드 후보:** `(main) layout` 서버 await가 room flight에 묶이는지 분리 계측·경로 한정 완화(R2-M11C).
+
+### R2-M11C — layout vs room flight 분해 (2026-05-17)
+
+측정: `node scripts/perf/r2-m11c-capture-runs.mjs` · 5회 중 Run2·4·5 유효 (2026-05-17 재측정)
+
+| 구간 | Run1(유효) | Run2 | Run3 | 판정 |
+|------|-----:|-----:|-----:|------|
+| main_layout total | 3 | 2 | 4 | **캐시 히트·병목 아님** (<150ms) |
+| bottom_nav load | 3 | 2 | 4 | 양호 (<100ms) |
+| menu/category load | 3 | 2 | 4 | 양호 (<100ms) |
+| auth/profile (`invoked`) | 0 (false) | 0 | 0 | layout·proxy 외 |
+| room segment server | **0** | **0** | **0** | **room page 원인 아님** |
+| remaining flight gap | 248 | 406 | 823 | **Next RSC flight 축** |
+| rsc_flight_done | 251 | 408 | 827 | 동상 |
+| route_change → suspense_release | 437 | 368 | 302 | R2-M11 HOLD |
+| `verdict_category` | next_rsc_flight | next_rsc_flight | next_rsc_flight | 3/3 일치 |
+
+**R2-M11C 결론:** layout 서버 await(3ms)는 flight에 거의 기여하지 않음. 병목 = **Next RSC flight 자체**.
+
+#### R2-M11D — prefetch vs flight (2026-05-17)
+
+| 항목 | Run1 tap | Run3 reenter |
+|------|----------|--------------|
+| `route_push_before_prefetch_done` | false | false |
+| `route_change→suspense_release` | 316ms | 29ms |
+
+**R2-M11D 결론:** push 전 room RSC flight 완료 불가 → cold **~310ms** 는 **App Router ceiling**. 트랙 **종료**.
+
+</details>
+
+---
+
+## 진행 중 트랙 (기타)
 
 | 항목 | 내용 |
 |------|------|

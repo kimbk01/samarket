@@ -1,29 +1,27 @@
 "use client";
 
-import { flushSync } from "react-dom";
-import { startTransition } from "react";
 import { acquireCmRoomEntryTimingSession } from "@/lib/community-messenger/room/cm-room-entry-timing-session";
 import { useCmRoomOpeningOverlayStore } from "@/lib/community-messenger/room/cm-room-opening-overlay-store";
 
-/** 탭 직후 sync flush 로 global overlay 를 먼저 commit 한다. */
+/**
+ * R2-M10 — overlay 는 `router.push` 이후 비동기로 올린다.
+ * push 전 `flushSync`·rAF 는 route page mount 를 ~1프레임+ 지연시켰다.
+ */
 export function beginCmPreRouteRoomOpeningOverlay(roomId: string): void {
   const id = String(roomId ?? "").trim();
   if (!id || typeof window === "undefined") return;
   acquireCmRoomEntryTimingSession(id, "nav_tap");
-  flushSync(() => {
-    useCmRoomOpeningOverlayStore.getState().beginOpening(id);
-  });
+  useCmRoomOpeningOverlayStore.getState().beginOpening(id);
 }
 
-export function scheduleCmPreRouteRoomNavigation(run: () => void): void {
+/** `router.push` 직후 follow-up(overlay·priority) — push 자체는 호출부에서 동기 실행 */
+export function scheduleCmPreRouteRoomNavigationFollowUp(run: () => void): void {
   if (typeof window === "undefined") {
     run();
     return;
   }
-  window.requestAnimationFrame(() => {
+  queueMicrotask(() => {
     useCmRoomOpeningOverlayStore.getState().noteRouteTransitionStarted();
-    startTransition(() => {
-      run();
-    });
+    run();
   });
 }

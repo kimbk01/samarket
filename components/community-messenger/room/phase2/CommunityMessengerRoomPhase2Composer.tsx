@@ -62,9 +62,11 @@ import {
   notifyChatInputKeydownForPerf,
   recordRouteEntryElapsedMetric,
   recordRouteEntryElapsedMetricOnce,
+  recordRouteEntryFirstInteractive,
   recordRouteEntryMetric,
 } from "@/lib/runtime/samarket-runtime-debug";
 import { useMessengerRoomClientPhase1Context } from "@/lib/community-messenger/room/messenger-room-client-phase1-context";
+import { getMessengerRoomComposerPhase2Bridge } from "@/lib/community-messenger/room/messenger-room-composer-phase2-bridge";
 import {
   finalizeCmRoomEntryComposerFrameVisibleMs,
   getCmRoomEntryBootstrapMeta,
@@ -92,6 +94,9 @@ import {
 import { MessengerInputBar } from "@/components/community-messenger/line-ui";
 
 function isDomTextareaLikelyVisible(el: HTMLTextAreaElement): boolean {
+  const st = window.getComputedStyle(el);
+  if (st.visibility === "hidden" || st.display === "none" || st.pointerEvents === "none") return false;
+  if (el.offsetWidth <= 0 || el.offsetHeight <= 0) return false;
   try {
     if (typeof el.checkVisibility === "function") {
       return el.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true });
@@ -99,15 +104,32 @@ function isDomTextareaLikelyVisible(el: HTMLTextAreaElement): boolean {
   } catch {
     /* ignore */
   }
-  const st = window.getComputedStyle(el);
-  if (st.visibility === "hidden" || st.display === "none") return false;
-  return el.offsetWidth > 0 && el.offsetHeight > 0;
+  return true;
+}
+
+function recordCmComposerInputReadyMilestones(
+  ta: HTMLTextAreaElement,
+  notifyComposerTextareaVisibleForSeededBootstrap: () => void
+): void {
+  recordRouteEntryElapsedMetricOnce("messenger_room_entry", "composer_textarea_visible_ms");
+  recordRouteEntryElapsedMetricOnce("messenger_room_entry", "input_ready_ms");
+  recordRouteEntryFirstInteractive("messenger_room_entry");
+  if (!ta.disabled) {
+    recordRouteEntryElapsedMetricOnce("messenger_room_entry", "first_input_enabled_ms");
+  }
+  notifyComposerTextareaVisibleForSeededBootstrap();
 }
 
 export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMessengerRoomPhase2Composer({
   onPass1ComposerReady,
+  composerEntryVisible = true,
+  composerSurfaceMode = "phase2",
 }: {
   onPass1ComposerReady?: () => void;
+  /** Phase2 셸이 사용자에게 보일 때만 textarea·input_ready 마일스톤 (invisible pass0 제외) */
+  composerEntryVisible?: boolean;
+  /** R2-M7: phase1 선커밋 surface vs phase2 본체(마일스톤 중복 방지) */
+  composerSurfaceMode?: "phase1" | "phase2";
 }) {
   const composerRenderPassStartRef = useRef(typeof performance !== "undefined" ? performance.now() : 0);
   composerRenderPassStartRef.current = typeof performance !== "undefined" ? performance.now() : 0;
@@ -189,28 +211,48 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
   useLayoutEffect(() => {
     const rid = String(roomKey).trim();
     if (!rid || composerFrameFinalizedRef.current) return;
+    if (composerSurfaceMode !== "phase1") return;
     if (shouldBlockCmRoomStrictEffectReRun(rid, "composer_frame_finalize")) return;
     composerFrameFinalizedRef.current = true;
     if (!composerMountRecordedRef.current) {
       composerMountRecordedRef.current = true;
+      recordRouteEntryElapsedMetricOnce("messenger_room_entry", "composer_mount_start_ms");
       if (!shouldSkipCmRoomSubtreeSurfaceAttach(rid, "composer")) {
         noteCmRoomSubtreeAttach(rid, "composer");
       }
       recordRouteEntryElapsedMetric("messenger_room_entry", "composer_mount_ms");
+      recordRouteEntryElapsedMetricOnce("messenger_room_entry", "composer_mount_done_ms");
     }
     const meta = getCmRoomEntryBootstrapMeta();
     if (!isCmRoomEntryMilestoneFinalized("composer_visible_ms")) {
       finalizeCmRoomEntryComposerFrameVisibleMs(rid, !meta.used_cached_snapshot);
     }
     onPass1ComposerReady?.();
-  }, [roomKey, onPass1ComposerReady]);
+    if (composerEntryVisible && !seededSilentHoldReleasedRef.current) {
+      const ta = vm.composerTextareaRef.current;
+      if (ta instanceof HTMLTextAreaElement && isDomTextareaLikelyVisible(ta)) {
+        seededSilentHoldReleasedRef.current = true;
+        recordCmComposerInputReadyMilestones(ta, notifyComposerTextareaVisibleForSeededBootstrap);
+      }
+    }
+  }, [
+    composerEntryVisible,
+    composerSurfaceMode,
+    roomKey,
+    onPass1ComposerReady,
+    notifyComposerTextareaVisibleForSeededBootstrap,
+    vm.composerTextareaRef,
+  ]);
 
   useLayoutEffect(() => {
+    if (composerSurfaceMode !== "phase1" || !composerEntryVisible) return;
     const rid = String(roomKey).trim();
     if (shouldBlockCmRoomStrictEffectReRun(rid, "composer_textarea_hydrate")) return;
     if (seededSilentHoldReleasedRef.current) return;
+    let cancelled = false;
+    let frames = 0;
     const tryRelease = () => {
-      if (seededSilentHoldReleasedRef.current) return;
+      if (cancelled || seededSilentHoldReleasedRef.current) return;
       if (vm.voiceRecording) {
         seededSilentHoldReleasedRef.current = true;
         notifyComposerTextareaVisibleForSeededBootstrap();
@@ -219,14 +261,23 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
       const ta = vm.composerTextareaRef.current;
       if (!ta || !isDomTextareaLikelyVisible(ta)) return;
       seededSilentHoldReleasedRef.current = true;
-      recordRouteEntryElapsedMetricOnce("messenger_room_entry", "composer_textarea_visible_ms");
-      notifyComposerTextareaVisibleForSeededBootstrap();
+      recordCmComposerInputReadyMilestones(ta, notifyComposerTextareaVisibleForSeededBootstrap);
+    };
+    const loop = () => {
+      if (cancelled || seededSilentHoldReleasedRef.current) return;
+      tryRelease();
+      if (seededSilentHoldReleasedRef.current || frames >= 48) return;
+      frames += 1;
+      requestAnimationFrame(loop);
     };
     tryRelease();
-    if (seededSilentHoldReleasedRef.current) return;
-    const raf = requestAnimationFrame(() => tryRelease());
-    return () => cancelAnimationFrame(raf);
+    if (!seededSilentHoldReleasedRef.current) requestAnimationFrame(loop);
+    return () => {
+      cancelled = true;
+    };
   }, [
+    composerSurfaceMode,
+    composerEntryVisible,
     roomKey,
     vm.voiceRecording,
     vm.busy,
@@ -464,7 +515,8 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
                     vm.busy === "send-sticker" ||
                     vm.busy === "delete-message" ||
                     Boolean(draft.trim()) ||
-                    (vm.voiceRecording && vm.voiceHandsFree)
+                    (vm.voiceRecording && vm.voiceHandsFree) ||
+                    (composerSurfaceMode === "phase1" && !getMessengerRoomComposerPhase2Bridge())
                   }
                   className={`sam-cm-voice-mic-ripple-btn absolute right-1.5 top-1/2 z-[5] flex h-8 w-8 -translate-y-1/2 touch-none select-none items-center justify-center rounded-full shadow-none transition-[transform,background-color,color] duration-200 active:scale-[0.96] disabled:text-[#9ca3af] disabled:opacity-45 ${
                     vm.voiceMicArming
