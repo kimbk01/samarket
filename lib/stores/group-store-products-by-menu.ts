@@ -356,6 +356,33 @@ export function groupStoreProductsByMenuSectionModel(
   return sections;
 }
 
+/** browse·검색 `focusProduct` — 해당 상품이 속한 카테고리 구역에서 맨 위로 */
+export function pinFocusedProductInMenuSections(
+  sections: MenuSection[],
+  productId: string
+): MenuSection[] {
+  const id = productId.trim();
+  if (!id) return sections;
+  return sections.map((section) => {
+    const idx = section.items.findIndex((p) => p.id === id);
+    if (idx <= 0) return section;
+    const items = [...section.items];
+    const picked = items[idx];
+    if (!picked) return section;
+    items.splice(idx, 1);
+    return { ...section, items: [picked, ...items] };
+  });
+}
+
+export function findMenuSectionIndexForProduct(
+  sections: MenuSection[],
+  productId: string
+): number {
+  const id = productId.trim();
+  if (!id) return -1;
+  return sections.findIndex((s) => s.items.some((p) => p.id === id));
+}
+
 /**
  * 실제 메뉴 구역(카테고리)만 — 추천/인기와 무관하게 **전체** 상품을 한 번씩만 포함.
  * @deprecated 메뉴 그룹 id 기준은 `groupStoreProductsByMenuSectionModel` 사용

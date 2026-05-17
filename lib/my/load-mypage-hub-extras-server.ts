@@ -117,7 +117,7 @@ export async function loadMypageHubExtrasServer(
         ownerHubStoreId = hubId || null;
         if (hubId) {
           try {
-            const payload = await getCachedStoreOrderCounts(hubId, async () => {
+            const { payload } = await getCachedStoreOrderCounts(hubId, async () => {
               const [refund_requested_count, pending_accept_count, pending_delivery_count] = await Promise.all([
                 countRefundRequestedForStore(sbStores, hubId),
                 countPendingAcceptForStore(sbStores, hubId),

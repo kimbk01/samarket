@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { StoreOwnerBannerCarousel } from "@/components/stores/StoreOwnerBannerCarousel";
 import { StoreOwnerNoticeCards } from "@/components/stores/StoreOwnerNoticeCards";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -27,6 +27,7 @@ import { StoreDetailMenusSection } from "@/components/stores/store-detail/StoreD
 import { StoreDetailSummarySection } from "@/components/stores/store-detail/StoreDetailSummarySection";
 import {
   groupStoreProductsByMenuSectionModel,
+  pinFocusedProductInMenuSections,
   type StoreDetailProductCard,
 } from "@/lib/stores/group-store-products-by-menu";
 import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
@@ -146,6 +147,9 @@ export function StoreDetailPublic({
   initialApiResponse?: StoreApiJsonResponse | null;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const focusProductId = searchParams.get("focusProduct")?.trim() || null;
   const commerceCartActions = useStoreCommerceCartActionsOptional();
   const decodedSlug = useMemo(() => decodeSlugSegment(slug), [slug]);
 
@@ -248,20 +252,21 @@ export function StoreDetailPublic({
     favoriteSeed
   );
 
+  /**
+   * 목록 seed 로 DOM 은 그리되, 전환 오버레이·첫 체감 페인트는 summary(실데이터) 까지 유지한다.
+   * 그렇지 않으면 seed 는 profile 히어로 ↔ summary 는 gallery[0] 히어로 로 바뀌며 '두 장면'이 보일 수 있음.
+   */
   useLayoutEffect(() => {
     if (!storeForPaint || !isStoreDetailListSeedId(storeForPaint.id)) return;
     if (listSeedPass1LoggedRef.current === decodedSlug) return;
     listSeedPass1LoggedRef.current = decodedSlug;
-    shellMarkedSlugRef.current = decodedSlug;
     markStoreDetailListSeedPass1Visible(decodedSlug);
-    hideStoreDetailTransitionShell(decodedSlug);
-    dibayPerfOnStoreDetailShellVisible({ slug: decodedSlug });
-    deliveryShellEntryMark("shell_visible", { slug: decodedSlug, source: "list_seed" });
     deliveryPerfTraceLog(DELIVERY_PERF_TAG_STORE_ENTRY, {
       event: "pass1_list_seed_visible",
       slug: decodedSlug,
       pass: 1,
       source: "list_seed",
+      under_transition_overlay: true,
     });
     deliveryPerfTraceLog(DELIVERY_PERF_TAG_HERO_LAYOUT, {
       event: "hero_box_locked",
@@ -288,6 +293,23 @@ export function StoreDetailPublic({
       source: "summary_api",
     });
   }, [store, summaryLoading, decodedSlug]);
+
+  /** summary 완료 후에도 seed id 면(폴백)·오버레이만 남지 않도록 */
+  useLayoutEffect(() => {
+    if (summaryLoading) return;
+    if (!store || !isStoreDetailListSeedId(store.id)) return;
+    if (shellMarkedSlugRef.current === decodedSlug) return;
+    shellMarkedSlugRef.current = decodedSlug;
+    hideStoreDetailTransitionShell(decodedSlug);
+    dibayPerfOnStoreDetailShellVisible({ slug: decodedSlug });
+    deliveryShellEntryMark("shell_visible", { slug: decodedSlug, source: "list_seed_fallback" });
+    deliveryPerfTraceLog(DELIVERY_PERF_TAG_STORE_ENTRY, {
+      event: "pass1_list_seed_fallback_visible",
+      slug: decodedSlug,
+      pass: 1,
+      source: "list_seed_fallback",
+    });
+  }, [summaryLoading, store, decodedSlug]);
 
   const onMenuFirstVisible = useCallback(
     (source: string) => {
@@ -545,15 +567,6 @@ export function StoreDetailPublic({
       })
       .catch(() => false);
 
-    const decorationsPromise = Promise.all([banPromise, notPromise])
-      .then(([banRes, notRes]) => {
-        if (decodeSlugSegment(latestSlugPropRef.current) !== startedSlugDecode) return;
-        applyBannersAndNotices(banRes, notRes);
-      })
-      .catch(() => {
-        /* banners/notices never block menu visibility */
-      });
-
     const sumRes = await fetchStoreSummaryDeduped(slug);
 
     if (decodeSlugSegment(latestSlugPropRef.current) !== startedSlugDecode) {
@@ -600,9 +613,29 @@ export function StoreDetailPublic({
       return;
     }
 
+    /**
+     * 히어로는 `StoreOrderHeroSummary` 에서 배너 슬롯 유무로 분기한다.
+     * summary 만 먼저 반영하고 banners 를 뒤늦게 넣으면 프로필/갤러리 이미지 → 배너 캐러셀로 한 번 더 바뀐다.
+     * 같은 비행에서 시작한 ban/not 는 summary 적용 직전까지 await 해 한 번에 페인트한다.
+     */
+    let banRes: StoreApiJsonResponse = { status: 0, json: {} };
+    let notRes: StoreApiJsonResponse = { status: 0, json: {} };
+    try {
+      const pair = await Promise.all([banPromise, notPromise]);
+      banRes = pair[0];
+      notRes = pair[1];
+    } catch {
+      /* empty banners/notices */
+    }
+    if (decodeSlugSegment(latestSlugPropRef.current) !== startedSlugDecode) {
+      setSummaryLoading(false);
+      setMenusLoading(false);
+      return;
+    }
+
+    applyBannersAndNotices(banRes, notRes);
     applySummaryPayload(sumParsed);
     setSummaryLoading(false);
-    void decorationsPromise;
 
     const menusReady = await menusApplyPromise;
     if (menusReady) {
@@ -651,15 +684,6 @@ export function StoreDetailPublic({
       })
       .catch(() => false);
 
-    const decorationsPromise = Promise.all([banPromise, notPromise])
-      .then(([banRes, notRes]) => {
-        if (decodeSlugSegment(latestSlugPropRef.current) !== startedSlugDecode) return;
-        applyBannersAndNotices(banRes, notRes);
-      })
-      .catch(() => {
-        /* banners/notices never block menu visibility */
-      });
-
     const sumRes = await fetchStoreSummaryDeduped(slug);
 
     if (decodeSlugSegment(latestSlugPropRef.current) !== startedSlugDecode) return;
@@ -685,8 +709,19 @@ export function StoreDetailPublic({
       return;
     }
 
+    let banRes: StoreApiJsonResponse = { status: 0, json: {} };
+    let notRes: StoreApiJsonResponse = { status: 0, json: {} };
+    try {
+      const pair = await Promise.all([banPromise, notPromise]);
+      banRes = pair[0];
+      notRes = pair[1];
+    } catch {
+      /* empty */
+    }
+    if (decodeSlugSegment(latestSlugPropRef.current) !== startedSlugDecode) return;
+
+    applyBannersAndNotices(banRes, notRes);
     applySummaryPayload(sumParsed);
-    void decorationsPromise;
 
     const menusReady = await menusApplyPromise;
     if (menusReady) {
@@ -763,18 +798,24 @@ export function StoreDetailPublic({
 
   const menuSectionsFiltered = useMemo(() => {
     const q = menuQuery.trim().toLowerCase();
-    if (!q) return menuSections;
-    return menuSections
-      .map((s) => ({
-        ...s,
-        items: s.items.filter(
-          (p) =>
-            p.title.toLowerCase().includes(q) ||
-            (p.summary && p.summary.toLowerCase().includes(q))
-        ),
-      }))
-      .filter((s) => s.items.length > 0);
-  }, [menuSections, menuQuery]);
+    let sections =
+      !q ?
+        menuSections
+      : menuSections
+          .map((s) => ({
+            ...s,
+            items: s.items.filter(
+              (p) =>
+                p.title.toLowerCase().includes(q) ||
+                (p.summary && p.summary.toLowerCase().includes(q))
+            ),
+          }))
+          .filter((s) => s.items.length > 0);
+    if (focusProductId && !q) {
+      sections = pinFocusedProductInMenuSections(sections, focusProductId);
+    }
+    return sections;
+  }, [menuSections, menuQuery, focusProductId]);
 
   useEffect(() => {
     setActiveMenuSection((i) =>
@@ -983,6 +1024,15 @@ export function StoreDetailPublic({
       }
     }, 280);
   }, []);
+
+  const onFocusProductHandled = useCallback(() => {
+    if (!focusProductId || typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("focusProduct")) return;
+    url.searchParams.delete("focusProduct");
+    const qs = url.searchParams.toString();
+    router.replace(`${url.pathname}${qs ? `?${qs}` : ""}${url.hash}`, { scroll: false });
+  }, [focusProductId, router]);
 
   const scrollStoreSectionIntoView = useCallback((sectionIndex: number) => {
     if (typeof window === "undefined") return;
@@ -1267,6 +1317,8 @@ export function StoreDetailPublic({
         onMenuFirstVisible={onMenuFirstVisible}
         commerceCartStoreId={isStoreDetailListSeedId(detailStore.id) ? undefined : detailStore.id}
         menuTopSlot={menuTopSlot}
+        focusProductId={focusProductId}
+        onFocusProductHandled={onFocusProductHandled}
       />
 
       <StoreDetailDeferredInfoSection

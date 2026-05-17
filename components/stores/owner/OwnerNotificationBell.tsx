@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { fetchOwnerOrdersMetaRemote } from "@/lib/store-owner/owner-order-remote";
+import { buildOwnerStoreNotificationsHref } from "@/lib/business/owner-store-notifications-route";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 
 export function OwnerNotificationBell({ slug, storeId }: { slug: string; storeId: string }) {
@@ -22,7 +23,7 @@ export function OwnerNotificationBell({ slug, storeId }: { slug: string; storeId
   return (
     <div className="flex flex-col items-end gap-0.5">
       <Link
-        href={`/stores/${encodeURIComponent(slug)}/owner/notifications`}
+        href={buildOwnerStoreNotificationsHref(slug)}
         className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-sam-border bg-sam-surface text-foreground"
         aria-label={
           refundRequestedCount > 0 ? `알림 · 환불요청 ${refundRequestedCount}건` : "알림"

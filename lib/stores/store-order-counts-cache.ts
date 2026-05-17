@@ -10,8 +10,8 @@ export type StoreOrderCountsPayload = {
   pending_delivery_count: number;
 };
 
-/** 비즈니스/주문 탭 폴링(25~30s)이 겹쳐도 한 차례 계산으로 흡수 */
-const ORDER_COUNTS_TTL_MS = 28_000;
+/** 허브·주문 탭 폴링 겹침 흡수 — 5~10초 권장 범위 */
+const ORDER_COUNTS_TTL_MS = 8_000;
 
 const cache = new Map<string, { expiresAt: number; value: StoreOrderCountsPayload }>();
 const flights = new Map<string, Promise<StoreOrderCountsPayload>>();
@@ -26,6 +26,13 @@ export function invalidateStoreOrderCountsCache(storeId: string): void {
   if (k) cache.delete(k);
 }
 
+export function peekStoreOrderCountsCacheHit(storeId: string): boolean {
+  const key = cacheKey(storeId);
+  if (!key) return false;
+  const hit = cache.get(key);
+  return !!hit && hit.expiresAt > Date.now();
+}
+
 function pruneExpired(now: number) {
   for (const [k, e] of cache) {
     if (e.expiresAt <= now) cache.delete(k);
@@ -37,24 +44,30 @@ function pruneExpired(now: number) {
   }
 }
 
+export type CachedStoreOrderCountsResult = {
+  payload: StoreOrderCountsPayload;
+  cache_hit: boolean;
+};
+
 export async function getCachedStoreOrderCounts(
   storeId: string,
   factory: () => Promise<StoreOrderCountsPayload>
-): Promise<StoreOrderCountsPayload> {
+): Promise<CachedStoreOrderCountsResult> {
   const key = cacheKey(storeId);
   if (!key) {
-    return factory();
+    return { payload: await factory(), cache_hit: false };
   }
 
   const now = Date.now();
   const hit = cache.get(key);
   if (hit && hit.expiresAt > now) {
-    return hit.value;
+    return { payload: hit.value, cache_hit: true };
   }
 
   const existing = flights.get(key);
   if (existing) {
-    return existing;
+    const payload = await existing;
+    return { payload, cache_hit: peekStoreOrderCountsCacheHit(storeId) };
   }
 
   pruneExpired(now);
@@ -69,5 +82,6 @@ export async function getCachedStoreOrderCounts(
     });
 
   flights.set(key, flight);
-  return flight;
+  const payload = await flight;
+  return { payload, cache_hit: false };
 }

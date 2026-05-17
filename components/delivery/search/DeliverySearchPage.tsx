@@ -8,6 +8,7 @@ import {
 } from "@/lib/dibay/delivery-list-scroll-restore";
 import { useDeliveryListScrollRestore } from "@/lib/dibay/use-delivery-list-scroll-restore";
 import { markStoreDetailListSeedNavigation } from "@/lib/dibay/store-detail-seed-patch-trace";
+import { buildStoreDetailHref } from "@/lib/dibay/store-detail-href";
 import { DeliverySearchHeader } from "@/components/delivery/search/DeliverySearchHeader";
 import { RecentSearchChips } from "@/components/delivery/search/RecentSearchChips";
 import { PopularSearchList } from "@/components/delivery/search/PopularSearchList";
@@ -167,7 +168,7 @@ export function DeliverySearchPage() {
       if (!slug) return;
       saveDeliveryListScrollBeforeStoreNavigation(listScrollRouteKey);
       markStoreDetailListSeedNavigation(slug);
-      router.push(`/stores/${encodeURIComponent(slug)}?focusProduct=${encodeURIComponent(menu.id)}`);
+      router.push(buildStoreDetailHref(slug, menu.id));
     },
     [router, listScrollRouteKey]
   );

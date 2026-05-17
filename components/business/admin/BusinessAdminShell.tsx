@@ -32,6 +32,7 @@ import { OWNER_HUB_BADGE_DOT_CLASS } from "@/lib/chats/hub-badge-ui";
 import { BusinessAdminStoreProvider } from "@/components/business/admin/business-admin-store-context";
 import { StoresOwnerStackHeader } from "@/components/business/owner/StoresOwnerStackHeader";
 import { OwnerHubStoreAvatar } from "@/components/business/owner/OwnerHubStoreAvatar";
+import { resolveOwnerStoreNotificationsHref } from "@/lib/business/owner-store-notifications-route";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
 import {
@@ -249,6 +250,41 @@ export function BusinessAdminShell({
       : null;
   const ownerCommerceUnread = useOwnerCommerceNotificationUnreadCount();
 
+  const ownerNotificationsHref = useMemo(() => {
+    const fromRow = resolveOwnerStoreNotificationsHref(selectedRow);
+    if (fromRow) return fromRow;
+    const sid = storeIdParam.trim();
+    if (!sid || !stores?.length) return null;
+    const row = stores.find((s) => s.id === sid);
+    return resolveOwnerStoreNotificationsHref(row);
+  }, [selectedRow, stores, storeIdParam]);
+
+  const ownerNotificationBell =
+    ownerNotificationsHref ?
+      <Link
+        href={ownerNotificationsHref}
+        className="relative flex h-10 w-10 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
+        aria-label={
+          ownerCommerceUnread != null && ownerCommerceUnread > 0
+            ? `알림 · 미읽음 ${ownerCommerceUnread}건`
+            : "알림"
+        }
+      >
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+          />
+        </svg>
+        {ownerCommerceUnread != null && ownerCommerceUnread > 0 ? (
+          <span className={`${OWNER_HUB_BADGE_DOT_CLASS} ring-sam-surface/80`}>
+            {ownerCommerceUnread > 99 ? "99+" : ownerCommerceUnread}
+          </span>
+        ) : null}
+      </Link>
+    : null;
+
   useEffect(() => {
     const open = isMobile && mobileMenuOpen;
     setStoreOwnerMainBottomNavSuppressed(open);
@@ -313,30 +349,7 @@ export function BusinessAdminShell({
     el.scrollLeft = 0;
   }, [isMobile, mobileMenuOpen, desktopSidebarOpen]);
 
-  const hubPartialHeaderRight =
-    storeIdParam.length > 0 ?
-      <Link
-        href={buildStoreOrdersHref({
-          storeId: storeIdParam,
-          ackOwnerNotifications: true,
-        })}
-        className="relative flex h-10 w-10 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
-        aria-label="배달 주문 알림"
-      >
-        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-          />
-        </svg>
-        {ownerCommerceUnread != null && ownerCommerceUnread > 0 ? (
-          <span className={`${OWNER_HUB_BADGE_DOT_CLASS} ring-sam-surface/80`}>
-            {ownerCommerceUnread > 99 ? "99+" : ownerCommerceUnread}
-          </span>
-        ) : null}
-      </Link>
-    : null;
+  const hubPartialHeaderRight = ownerNotificationBell;
 
   const adminHeaderBackHref = useMemo(() => {
     if (isHub || !selectedRow) return undefined;
@@ -428,27 +441,7 @@ export function BusinessAdminShell({
 
   const headerRightSlot = (
     <>
-      <Link
-        href={buildStoreOrdersHref({
-          storeId: selectedRow.id,
-          ackOwnerNotifications: true,
-        })}
-        className="relative flex h-10 w-10 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
-        aria-label="배달 주문 알림"
-      >
-        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
-          />
-        </svg>
-        {ownerCommerceUnread != null && ownerCommerceUnread > 0 ? (
-          <span className={`${OWNER_HUB_BADGE_DOT_CLASS} ring-sam-surface/80`}>
-            {ownerCommerceUnread > 99 ? "99+" : ownerCommerceUnread}
-          </span>
-        ) : null}
-      </Link>
+      {ownerNotificationBell}
       {publicStoreHref ?
         <Link
           href={publicStoreHref}

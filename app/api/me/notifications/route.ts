@@ -13,6 +13,13 @@ import {
   type UnreadCountMode,
 } from "@/lib/notifications/notification-unread-count-cache";
 import { isInAppChatMessageNotificationRow } from "@/lib/notifications/inapp-chat-message-notification";
+import {
+  countBottomNavUnreadServer,
+  countConsumerUnreadNoChatServer,
+  countOwnerStoreCommerceUnreadServer,
+  countUnreadExcludingOwnerCommerceServer,
+} from "@/lib/notifications/fetch-segmented-unread-count-server";
+import { jsonPayloadBytes, logOwnerDashboardPerf, perfNowMs } from "@/lib/stores/owner-dashboard-perf";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -54,8 +61,11 @@ const INBOX_PUSH_KIND_PARAMS = new Set([
  * GET ?owner_store_id=UUID → 해당 매장의 오너 매장주문(commerce·meta.kind) 알림만 (최대 200건)
  */
 export async function GET(req: NextRequest) {
+  const wall0 = perfNowMs();
   const { searchParams } = new URL(req.url);
+  const auth0 = perfNowMs();
   const userId = await getRouteUserId();
+  const auth_ms = Math.round(perfNowMs() - auth0);
 
   /** 비로그인: 미읽음 개수만 요청할 때는 401 대신 0 — 헤더/폴링이 세션 전에 닿는 노이즈 제거 */
   if (searchParams.get("unread_count_only") === "1" && !userId) {
@@ -73,6 +83,7 @@ export async function GET(req: NextRequest) {
   const sbx = sb;
 
   if (searchParams.get("unread_count_only") === "1") {
+    const db0 = perfNowMs();
     const excludeOwner = searchParams.get("exclude_owner_store_commerce") === "1";
     const excludeBuyerStore = searchParams.get("exclude_buyer_store_commerce") === "1";
     const excludeChatMessage = searchParams.get("exclude_chat_message") === "1";
@@ -91,6 +102,32 @@ export async function GET(req: NextRequest) {
 
     try {
         const unreadCount = await getCachedNotificationUnreadCount(userId, mode, async () => {
+        if (ownerOnly) {
+          try {
+            return await countOwnerStoreCommerceUnreadServer(sb, userId);
+          } catch (fastErr) {
+            console.warn("[GET notifications] owner commerce count fast-path failed, fallback scan", fastErr);
+          }
+        } else if (mode === "consumer_no_chat") {
+          try {
+            return await countConsumerUnreadNoChatServer(sb, userId);
+          } catch (fastErr) {
+            console.warn("[GET notifications] consumer_no_chat count fast-path failed, fallback scan", fastErr);
+          }
+        } else if (mode === "bottom_nav_no_chat") {
+          try {
+            return await countBottomNavUnreadServer(sb, userId);
+          } catch (fastErr) {
+            console.warn("[GET notifications] bottom_nav_no_chat count fast-path failed, fallback scan", fastErr);
+          }
+        } else if (mode === "consumer" && excludeOwner && !excludeBuyerStore && !excludeChatMessage) {
+          try {
+            return await countUnreadExcludingOwnerCommerceServer(sb, userId);
+          } catch (fastErr) {
+            console.warn("[GET notifications] consumer count fast-path failed, fallback scan", fastErr);
+          }
+        }
+
         if (!excludeOwner && !ownerOnly) {
           const { count, error } = await sb
             .from("notifications")
@@ -114,12 +151,16 @@ export async function GET(req: NextRequest) {
           push_kind?: unknown;
         };
 
-        const scanWithPk = await sb
+        let scanQ = sb
           .from("notifications")
           .select("id, meta, notification_type, push_kind")
           .eq("user_id", userId)
-          .eq("is_read", false)
-          .limit(UNREAD_SCAN_CAP);
+          .eq("is_read", false);
+        /** owner/buyer commerce 분기는 notification_type=commerce 로 1차 축소(응답 shape 동일) */
+        if (ownerOnly || excludeOwner || excludeBuyerStore) {
+          scanQ = scanQ.eq("notification_type", "commerce");
+        }
+        const scanWithPk = await scanQ.limit(UNREAD_SCAN_CAP);
 
         let data = scanWithPk.data as UnreadScanRow[] | null;
         let error = scanWithPk.error;
@@ -127,12 +168,15 @@ export async function GET(req: NextRequest) {
           error &&
           /push_kind|column|schema cache/i.test(String(error.message ?? ""))
         ) {
-          const scanFallback = await sb
+          let scanFallbackQ = sb
             .from("notifications")
             .select("id, meta, notification_type")
             .eq("user_id", userId)
-            .eq("is_read", false)
-            .limit(UNREAD_SCAN_CAP);
+            .eq("is_read", false);
+          if (ownerOnly || excludeOwner || excludeBuyerStore) {
+            scanFallbackQ = scanFallbackQ.eq("notification_type", "commerce");
+          }
+          const scanFallback = await scanFallbackQ.limit(UNREAD_SCAN_CAP);
           data = scanFallback.data as UnreadScanRow[] | null;
           error = scanFallback.error;
         }
@@ -184,7 +228,22 @@ export async function GET(req: NextRequest) {
         return rows.filter((r) => !isOwnerStoreCommerceNotificationRow(r)).length;
       });
 
-      return NextResponse.json({ ok: true, unread_count: unreadCount });
+      const db_ms = Math.round(perfNowMs() - db0);
+      const body = { ok: true as const, unread_count: unreadCount };
+      if (ownerOnly || excludeOwner) {
+        logOwnerDashboardPerf({
+          route: "/api/me/notifications",
+          total_ms: Math.round(perfNowMs() - wall0),
+          auth_ms,
+          db_ms,
+          count_ms: db_ms,
+          owner_store_commerce_unread_only: ownerOnly ? 1 : 0,
+          exclude_owner_store_commerce: excludeOwner ? 1 : 0,
+          result_count: unreadCount,
+          payload_bytes: jsonPayloadBytes(body),
+        });
+      }
+      return NextResponse.json(body);
     } catch (error) {
       const message = error instanceof Error ? error.message : "unknown_error";
       const logPrefix = excludeOwner || ownerOnly
@@ -207,6 +266,7 @@ export async function GET(req: NextRequest) {
   const excludeOwnerList = searchParams.get("exclude_owner_store_commerce") === "1";
   const excludeChatMessageList = searchParams.get("exclude_chat_message") === "1";
   const ownerStoreId = searchParams.get("owner_store_id")?.trim() ?? "";
+  const ownerListDb0 = ownerStoreId ? perfNowMs() : 0;
 
   const rawLimitParam = searchParams.get("limit");
   const rawOffsetParam = searchParams.get("offset");
@@ -220,8 +280,8 @@ export async function GET(req: NextRequest) {
   const listOffset =
     explicitPage && Number.isFinite(parsedOffset) && parsedOffset >= 0 ? Math.min(parsedOffset, 5000) : 0;
 
-  /** 매장 오너 전용 목록은 최근 건을 넉넉히 가져온 뒤 `meta.store_id` 로 좁힘 */
-  let fetchUpper = ownerStoreId ? 500 : excludeOwnerList ? 200 : 80;
+  /** 매장 오너 전용 목록은 최근 건을 가져온 뒤 `meta.store_id` 로 좁힘 */
+  let fetchUpper = ownerStoreId ? 220 : excludeOwnerList ? 200 : 80;
   let displayCap = fetchUpper;
   if (explicitPage) {
     displayCap = Math.min(parsedLimit, 100);
@@ -314,10 +374,36 @@ export async function GET(req: NextRequest) {
   if (explicitPage) {
     const hasMore = notifications.length > displayCap;
     notifications = notifications.slice(0, displayCap);
-    return NextResponse.json({ ok: true, notifications, has_more: hasMore });
+    const body = { ok: true as const, notifications, has_more: hasMore };
+    if (ownerStoreId) {
+      logOwnerDashboardPerf({
+        route: "/api/me/notifications",
+        store_id: ownerStoreId,
+        total_ms: Math.round(perfNowMs() - wall0),
+        auth_ms,
+        db_ms: Math.round(perfNowMs() - ownerListDb0),
+        list_ms: Math.round(perfNowMs() - ownerListDb0),
+        result_count: notifications.length,
+        payload_bytes: jsonPayloadBytes(body),
+      });
+    }
+    return NextResponse.json(body);
   }
 
-  return NextResponse.json({ ok: true, notifications });
+  const body = { ok: true as const, notifications };
+  if (ownerStoreId) {
+    logOwnerDashboardPerf({
+      route: "/api/me/notifications",
+      store_id: ownerStoreId,
+      total_ms: Math.round(perfNowMs() - wall0),
+      auth_ms,
+      db_ms: Math.round(perfNowMs() - ownerListDb0),
+      list_ms: Math.round(perfNowMs() - ownerListDb0),
+      result_count: notifications.length,
+      payload_bytes: jsonPayloadBytes(body),
+    });
+  }
+  return NextResponse.json(body);
 }
 
 type PatchBody = {

@@ -6,7 +6,8 @@ type UnreadCountMode =
   | "bottom_nav"
   | "bottom_nav_no_chat";
 
-const TTL_MS = 10_000;
+/** 허브·배지 폴링 겹침 — 10s 기본, 오너 대시보드 체감용으로 약간 연장 */
+const TTL_MS = 20_000;
 
 const cache = new Map<string, { value: number; expiresAt: number }>();
 const flights = new Map<string, Promise<number>>();

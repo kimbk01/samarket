@@ -1,7 +1,7 @@
 "use client";
 
 import { DeliveryMediaImage } from "@/components/dibay/DeliveryMediaImage";
-import type { MouseEvent } from "react";
+import type { KeyboardEvent, MouseEvent } from "react";
 import { memo, useCallback } from "react";
 import { DibayMenuBoard } from "@/lib/stores/dibay-menu-board-tokens";
 import { cardIsMenuSoldOut, type StoreDetailProductCard } from "@/lib/stores/group-store-products-by-menu";
@@ -9,6 +9,7 @@ import { approximateDiscountPercent } from "@/lib/stores/store-product-pricing";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { ProductBadgeRow } from "@/components/stores/detail/ProductBadgeRow";
 import { SoldOutOverlay } from "@/components/stores/detail/SoldOutOverlay";
+import { storeMenuProductDomId } from "@/lib/dibay/store-menu-product-focus";
 
 const PLUS_BTN =
   "absolute -bottom-1.5 -right-1.5 flex h-[31px] w-[31px] shrink-0 touch-manipulation select-none items-center justify-center rounded-full bg-[#1C8DB8] text-[21px] font-normal leading-none text-white shadow-[0_2px_8px_rgba(28,141,184,0.35)] ring-1 ring-[#1C8DB8]/40 transition-all duration-150 hover:bg-[#197DA3] active:scale-[0.92] active:bg-[#166F92]";
@@ -48,6 +49,15 @@ export const ProductMenuCard = memo(function ProductMenuCard({
   const openSheet = useCallback(() => {
     onOpenProduct?.(p.id);
   }, [onOpenProduct, p.id]);
+
+  const onCardKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLDivElement>) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
+      openSheet();
+    },
+    [openSheet]
+  );
 
   const onAddPress = useCallback(
     (e: MouseEvent) => {
@@ -148,10 +158,12 @@ export const ProductMenuCard = memo(function ProductMenuCard({
     borderRadius: DibayMenuBoard.cardRadiusPx,
     boxShadow: "0 1px 0 rgba(0,0,0,0.04)",
   };
+  const productDomId = storeMenuProductDomId(p.id);
 
   if (!canInteract) {
     return (
       <div
+        id={productDomId}
         className={`${rowWrapClass} cursor-not-allowed opacity-50`}
         style={cardStyle}
         role="group"
@@ -167,20 +179,23 @@ export const ProductMenuCard = memo(function ProductMenuCard({
 
   if (onOpenProduct) {
     return (
-      <button
-        type="button"
+      <div
+        id={productDomId}
+        role="button"
+        tabIndex={0}
         onClick={openSheet}
-        className={`${rowWrapClass} w-full text-left ${dimmed ? "opacity-80" : ""}`}
+        onKeyDown={onCardKeyDown}
+        className={`${rowWrapClass} w-full cursor-pointer text-left ${dimmed ? "opacity-80" : ""}`}
         style={cardStyle}
       >
         {textBlock}
         {thumb}
-      </button>
+      </div>
     );
   }
 
   return (
-    <div className={rowWrapClass} style={cardStyle}>
+    <div id={productDomId} className={rowWrapClass} style={cardStyle}>
       {textBlock}
       {thumb}
     </div>

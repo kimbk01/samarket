@@ -1,7 +1,9 @@
 "use client";
 
 import type { ReactNode, RefObject } from "react";
-import { memo, useLayoutEffect, useMemo, useRef } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import { scrollStoreMenuProductIntoView } from "@/lib/dibay/store-menu-product-focus";
+import { findMenuSectionIndexForProduct } from "@/lib/stores/group-store-products-by-menu";
 import { deliveryMenuVisibleMarkFirstSectionReady } from "@/lib/dibay/delivery-menu-visible-trace";
 import type { StoreMenuBoardListHandle } from "@/components/stores/detail/StoreMenuBoardList";
 import { deliveryRenderTraceBump } from "@/lib/dibay/delivery-render-trace";
@@ -42,6 +44,8 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   onMenuFirstVisible,
   menuTopSlot,
   commerceCartStoreId,
+  focusProductId,
+  onFocusProductHandled,
 }: {
   menusLoading: boolean;
   menuStickyMeasureRef: RefObject<HTMLDivElement | null>;
@@ -65,11 +69,78 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
   onMenuFirstVisible?: (source: string) => void;
   menuTopSlot?: ReactNode;
   commerceCartStoreId?: string;
+  /** browse·검색 등 — 해당 상품 행으로 스크롤 */
+  focusProductId?: string | null;
+  onFocusProductHandled?: () => void;
 }) {
   const canInteract = canSell && !menuSelectBlocked;
   const menuBoardRef = useRef<StoreMenuBoardListHandle>(null);
   const firstSectionReadyRef = useRef(false);
   const firstVisibleRef = useRef(false);
+  const focusHandledRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    focusHandledRef.current = null;
+  }, [focusProductId]);
+
+  useEffect(() => {
+    const productId = focusProductId?.trim();
+    if (!productId || menusLoading) return;
+    if (focusHandledRef.current === productId) return;
+
+    const sectionIndex = findMenuSectionIndexForProduct(menuSectionsFiltered, productId);
+    if (sectionIndex < 0) {
+      focusHandledRef.current = productId;
+      onFocusProductHandled?.();
+      return;
+    }
+
+    const stickyBottom = () =>
+      menuStickyMeasureRef.current?.getBoundingClientRect().bottom ?? 120;
+
+    const focusCategorySection = () => {
+      menuBoardRef.current?.ensureSectionsHydratedThrough(sectionIndex);
+      setActiveMenuSection(sectionIndex);
+      scrollStoreSectionIntoView(sectionIndex);
+    };
+
+    const finishFocus = () => {
+      focusHandledRef.current = productId;
+      onFocusProductHandled?.();
+    };
+
+    const tryComplete = (): boolean => {
+      focusCategorySection();
+      const highlighted = scrollStoreMenuProductIntoView(productId, stickyBottom());
+      if (highlighted) {
+        finishFocus();
+        return true;
+      }
+      return false;
+    };
+
+    focusCategorySection();
+
+    const delays = [80, 240, 480, 720];
+    const timers = delays.map((ms) =>
+      window.setTimeout(() => {
+        if (focusHandledRef.current === productId) return;
+        if (tryComplete()) return;
+        if (ms === delays[delays.length - 1]!) finishFocus();
+      }, ms)
+    );
+    return () => {
+      for (const t of timers) window.clearTimeout(t);
+    };
+  }, [
+    focusProductId,
+    menusLoading,
+    menuSectionsFiltered,
+    menuStickyMeasureRef,
+    scrollStoreSectionIntoView,
+    setActiveMenuSection,
+    onFocusProductHandled,
+  ]);
 
   useMenuSubtreeCartStabilityGuard(commerceCartStoreId);
 

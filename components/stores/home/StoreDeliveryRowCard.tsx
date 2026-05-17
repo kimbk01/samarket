@@ -1,9 +1,8 @@
 "use client";
 
-import Link from "next/link";
 import { DeliveryMediaImage } from "@/components/dibay/DeliveryMediaImage";
 import { useRouter } from "next/navigation";
-import { memo } from "react";
+import { memo, useCallback } from "react";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -14,8 +13,9 @@ import {
   deliveryShellEntryScheduleRouterPushStart,
 } from "@/lib/dibay/delivery-shell-entry-trace";
 import {
+  buildStoreDetailHref,
   deliveryStoreDetailPrefetch,
-  deliveryStoreDetailPrefetchCheckBeforeTap,
+  deliveryStoreDetailPrefetchForTap,
   deliveryStoreDetailScheduleTapPush,
 } from "@/lib/dibay/delivery-store-detail-prefetch";
 import { useDeliveryStoreDetailViewportPrefetch } from "@/lib/dibay/use-delivery-store-detail-viewport-prefetch";
@@ -239,14 +239,27 @@ export function browseItemToRowCard(s: BrowseStoreListItem): StoreRowCardData {
  */
 export const StoreDeliveryRowCard = memo(function StoreDeliveryRowCard({ data }: { data: StoreRowCardData }) {
   const router = useRouter();
-  const href = `/stores/${encodeURIComponent(data.slug)}`;
   const viewportRef = useDeliveryStoreDetailViewportPrefetch(data.slug);
-  const prefetchStoreDetail = (
-    source: Parameters<typeof deliveryStoreDetailPrefetch>[2],
-    opts?: { force?: boolean }
-  ) => {
-    deliveryStoreDetailPrefetch(router, data.slug, source, opts);
-  };
+  const prefetchStoreDetail = useCallback(
+    (
+      source: Parameters<typeof deliveryStoreDetailPrefetch>[2],
+      opts?: { force?: boolean; focusProductId?: string | null }
+    ) => {
+      deliveryStoreDetailPrefetch(router, data.slug, source, opts);
+    },
+    [router, data.slug]
+  );
+
+  const warmFeaturedMenuNavigation = useCallback(
+    (productId: string, source: "pointer_enter" | "pointer_down" | "touch_start") => {
+      deliveryStoreMenusPrewarm(data.slug, { force: true });
+      prefetchStoreDetail(source, {
+        force: true,
+        focusProductId: productId,
+      });
+    },
+    [data.slug, prefetchStoreDetail]
+  );
   const d = distLabel(data.distanceKm);
   const showBrowseStraightPin = data.showStraightLineMapPin === true && !!d;
   const showPinHaversine = !showBrowseStraightPin && d;
@@ -283,70 +296,70 @@ export const StoreDeliveryRowCard = memo(function StoreDeliveryRowCard({ data }:
     badgeLabels.push({ label: "예약가능", className: serviceBadgeClass });
   }
 
+  const navigateToStore = useCallback(
+    (source: "card" | "featured_menu" | "see_more", focusProductId?: string) => {
+      const href = buildStoreDetailHref(data.slug, focusProductId);
+      resetDeliveryStoreMenusPrewarmForTests();
+      deliveryShellEntryBeginNavigation(data.slug);
+      deliveryStoreMenusPrewarm(data.slug, { force: true });
+      saveDeliveryListScrollBeforeStoreNavigation();
+      const prefetch = deliveryStoreDetailPrefetchForTap(router, data.slug, href);
+      markStoreDetailListSeedNavigation(data.slug);
+      writeStoreDetailListSeed({
+        slug: data.slug,
+        store_name: data.nameKo,
+        profile_image_url: data.profileImageUrl,
+        rating_avg: data.rating,
+        review_count: data.reviewCount,
+        delivery_available: data.deliveryAvailable,
+        pickup_available: data.pickupAvailable,
+        tagline: data.tagline,
+        region_badge: data.regionBadge,
+      });
+      dibayPerfRecordStoreCardNavigationIntent(data.slug);
+      deliveryMenuVisibleBeginNavSession(data.slug);
+      deliveryShellEntryMark("card_tap", {
+        slug: data.slug,
+        href,
+        prefetch_hit: prefetch.hit,
+        prefetch_age_ms: prefetch.age_ms,
+        was_prefetched_request: prefetch.was_prefetched_request,
+        was_prefetch_ready: prefetch.was_prefetch_ready,
+        was_prefetch_inflight: prefetch.was_prefetch_inflight,
+        prefetch_request_age_ms: prefetch.prefetch_request_age_ms,
+        prefetch_ready_age_ms: prefetch.prefetch_ready_age_ms,
+        prefetch_duration_ms: prefetch.prefetch_duration_ms,
+        seed_saved: true,
+        ...(focusProductId ? { focus_product_id: focusProductId, tap_surface: source } : { tap_surface: source }),
+      });
+      const seed = readStoreDetailListSeed(data.slug);
+      if (seed) showStoreDetailTransitionShell(seed, href);
+      deliveryPerfTraceLog(DELIVERY_PERF_TAG_ROUTE_TRANSITION, {
+        event: source === "featured_menu" ? "store_featured_menu_tap" : "store_card_tap",
+        slug: data.slug,
+        ...(focusProductId ? { product_id: focusProductId } : {}),
+      });
+      deliveryStoreDetailScheduleTapPush(href, prefetch, () => {
+        deliveryShellEntryScheduleRouterPushStart(data.slug, href);
+        router.push(href);
+      });
+    },
+    [data, prefetchStoreDetail, router]
+  );
+
+  const onRowPointerWarm = useCallback(() => {
+    deliveryStoreMenusPrewarm(data.slug);
+    prefetchStoreDetail("pointer_enter");
+  }, [data.slug, prefetchStoreDetail]);
+
   return (
-    <li className="list-none border-b border-[#ECEFF3] bg-white dark:border-[#2F3133] dark:bg-[#18191A]">
-      <Link
-        ref={viewportRef}
-        href={href}
-        prefetch
-        className="block py-[15px] transition-[transform,opacity,background-color] duration-120 ease-out active:scale-[0.985] active:opacity-95 active:bg-[#F8FAFC] dark:active:bg-[#202123]"
-        onPointerEnter={() => prefetchStoreDetail("pointer_enter")}
-        onFocus={() => prefetchStoreDetail("focus")}
-        onPointerDown={() => {
-          deliveryStoreMenusPrewarm(data.slug);
-          prefetchStoreDetail("pointer_down", { force: true });
-        }}
-        onTouchStart={() => {
-          deliveryStoreMenusPrewarm(data.slug);
-          prefetchStoreDetail("touch_start", { force: true });
-        }}
-        onClick={(e) => {
-          e.preventDefault();
-          resetDeliveryStoreMenusPrewarmForTests();
-          deliveryShellEntryBeginNavigation(data.slug);
-          deliveryStoreMenusPrewarm(data.slug, { force: true });
-          saveDeliveryListScrollBeforeStoreNavigation();
-          const prefetch = deliveryStoreDetailPrefetchCheckBeforeTap(href);
-          prefetchStoreDetail("card_click", { force: true });
-          markStoreDetailListSeedNavigation(data.slug);
-          writeStoreDetailListSeed({
-            slug: data.slug,
-            store_name: data.nameKo,
-            profile_image_url: data.profileImageUrl,
-            rating_avg: data.rating,
-            review_count: data.reviewCount,
-            delivery_available: data.deliveryAvailable,
-            pickup_available: data.pickupAvailable,
-            tagline: data.tagline,
-            region_badge: data.regionBadge,
-          });
-          dibayPerfRecordStoreCardNavigationIntent(data.slug);
-          deliveryMenuVisibleBeginNavSession(data.slug);
-          deliveryShellEntryMark("card_tap", {
-            slug: data.slug,
-            href,
-            prefetch_hit: prefetch.hit,
-            prefetch_age_ms: prefetch.age_ms,
-            was_prefetched_request: prefetch.was_prefetched_request,
-            was_prefetch_ready: prefetch.was_prefetch_ready,
-            was_prefetch_inflight: prefetch.was_prefetch_inflight,
-            prefetch_request_age_ms: prefetch.prefetch_request_age_ms,
-            prefetch_ready_age_ms: prefetch.prefetch_ready_age_ms,
-            prefetch_duration_ms: prefetch.prefetch_duration_ms,
-            seed_saved: true,
-          });
-          const seed = readStoreDetailListSeed(data.slug);
-          if (seed) showStoreDetailTransitionShell(seed, href);
-          deliveryPerfTraceLog(DELIVERY_PERF_TAG_ROUTE_TRANSITION, {
-            event: "store_card_tap",
-            slug: data.slug,
-          });
-          deliveryStoreDetailScheduleTapPush(href, prefetch, () => {
-            deliveryShellEntryScheduleRouterPushStart(data.slug, href);
-            router.push(href);
-          });
-        }}
-      >
+    <li
+      ref={viewportRef}
+      className="list-none border-b border-[#ECEFF3] bg-white py-[15px] dark:border-[#2F3133] dark:bg-[#18191A]"
+      onPointerEnter={onRowPointerWarm}
+      onFocus={onRowPointerWarm}
+    >
+      <div>
         <div className="relative">
           {featuredMenuImages.length > 0 ? (
             <div
@@ -360,12 +373,19 @@ export const StoreDeliveryRowCard = memo(function StoreDeliveryRowCard({ data }:
               {featuredMenuImages.map((item) => {
                 const price = priceLabel(item.price);
                 return (
-                  <div
+                  <button
                     key={item.productId}
+                    type="button"
+                    aria-label={`${data.nameKo} ${item.name} 메뉴 보기`}
                     className={[
-                      "relative shrink-0 snap-start overflow-hidden rounded-[10px] bg-[#F3F4F6] dark:bg-[#2B2D30]",
+                      "relative shrink-0 snap-start overflow-hidden rounded-[10px] bg-[#F3F4F6] text-left dark:bg-[#2B2D30]",
                       "w-[calc((100%-8px)/3)] aspect-square",
+                      "transition-[transform,opacity] duration-120 active:scale-[0.98] active:opacity-90",
                     ].join(" ")}
+                    onPointerEnter={() => warmFeaturedMenuNavigation(item.productId, "pointer_enter")}
+                    onPointerDown={() => warmFeaturedMenuNavigation(item.productId, "pointer_down")}
+                    onTouchStart={() => warmFeaturedMenuNavigation(item.productId, "touch_start")}
+                    onClick={() => navigateToStore("featured_menu", item.productId)}
                   >
                     <DeliveryMediaImage
                       src={(item.imageUrl as string) || ""}
@@ -381,15 +401,18 @@ export const StoreDeliveryRowCard = memo(function StoreDeliveryRowCard({ data }:
                       </p>
                       <p className="line-clamp-1 text-[12.5px] font-bold leading-snug text-white">{price}</p>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
-              <div
+              <button
+                type="button"
+                aria-label={`${data.nameKo} 매장 더보기`}
                 className={[
                   "flex shrink-0 snap-start items-center justify-center rounded-[10px] bg-[#F7F7F7] text-[#111]",
                   "w-[calc((100%-8px)/3)] aspect-square",
-                  "transition-colors duration-120 group-active:bg-[#ECEFF3] dark:bg-[#2A2C2E] dark:text-[#E4E6EB] dark:group-active:bg-[#34373A]",
+                  "transition-[transform,opacity,background-color] duration-120 active:scale-[0.98] active:bg-[#ECEFF3] dark:bg-[#2A2C2E] dark:text-[#E4E6EB] dark:active:bg-[#34373A]",
                 ].join(" ")}
+                onClick={() => navigateToStore("see_more")}
               >
                 <div className="flex flex-col items-center gap-1">
                   <svg className="h-5 w-5 opacity-90" viewBox="0 0 20 20" fill="none" aria-hidden>
@@ -405,10 +428,15 @@ export const StoreDeliveryRowCard = memo(function StoreDeliveryRowCard({ data }:
                     더보기
                   </span>
                 </div>
-              </div>
+              </button>
             </div>
           ) : (
-            <div className="flex h-[116px] items-center justify-center overflow-hidden rounded-[10px] bg-[#F7F7F7] text-[#111] transition-colors duration-120 group-active:bg-[#ECEFF3] dark:bg-[#2A2C2E] dark:text-[#E4E6EB] dark:group-active:bg-[#34373A]">
+            <button
+              type="button"
+              aria-label={`${data.nameKo} 매장 더보기`}
+              className="flex h-[116px] w-full items-center justify-center overflow-hidden rounded-[10px] bg-[#F7F7F7] text-[#111] transition-[transform,opacity,background-color] duration-120 active:scale-[0.98] active:bg-[#ECEFF3] dark:bg-[#2A2C2E] dark:text-[#E4E6EB] dark:active:bg-[#34373A]"
+              onClick={() => navigateToStore("see_more")}
+            >
               <div className="flex flex-col items-center gap-1">
                 <svg className="h-5 w-5 opacity-90" viewBox="0 0 20 20" fill="none" aria-hidden>
                   <path
@@ -421,11 +449,23 @@ export const StoreDeliveryRowCard = memo(function StoreDeliveryRowCard({ data }:
                 </svg>
                 <span className="text-[13px] font-semibold leading-none text-[#111]/70 dark:text-white/70">더보기</span>
               </div>
-            </div>
+            </button>
           )}
         </div>
 
-        <div className="pt-2.5">
+        <button
+          type="button"
+          className="block w-full pt-2.5 text-left transition-[transform,opacity] duration-120 active:scale-[0.985] active:opacity-95"
+          onPointerDown={() => {
+            deliveryStoreMenusPrewarm(data.slug);
+            prefetchStoreDetail("pointer_down", { force: true });
+          }}
+          onTouchStart={() => {
+            deliveryStoreMenusPrewarm(data.slug);
+            prefetchStoreDetail("touch_start", { force: true });
+          }}
+          onClick={() => navigateToStore("card")}
+        >
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
               <h3 className="line-clamp-1 text-[16px] font-bold leading-tight tracking-[-0.01em] text-[#111] dark:text-[#F3F4F6]">
@@ -539,8 +579,8 @@ export const StoreDeliveryRowCard = memo(function StoreDeliveryRowCard({ data }:
               : null}
             </div>
           </div>
-        </div>
-      </Link>
+        </button>
+      </div>
     </li>
   );
 });

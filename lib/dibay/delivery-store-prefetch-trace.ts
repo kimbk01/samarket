@@ -122,6 +122,30 @@ export function deliveryStorePrefetchMarkRequest(href: string, source: string): 
   return at;
 }
 
+/** router.prefetch 가 상한 내 끝나지 않음 — ready 로 취급하지 않음 */
+export function deliveryStorePrefetchMarkTimedOut(
+  href: string,
+  source: string,
+  waitMs: number
+): void {
+  if (typeof sessionStorage !== "undefined") {
+    try {
+      sessionStorage.removeItem(readyKey(href));
+      sessionStorage.removeItem(durKey(href));
+    } catch {
+      /* quota */
+    }
+  }
+  if (!deliveryPerfTraceEnabled()) return;
+  deliveryPerfTraceLog(DELIVERY_PERF_TAG_PREFETCH_SKIPPED, {
+    event: "prefetch_timed_out",
+    href,
+    source,
+    reason: "flight_timeout",
+    prefetch_age_ms: waitMs,
+  });
+}
+
 export function deliveryStorePrefetchMarkComplete(
   href: string,
   source: string,

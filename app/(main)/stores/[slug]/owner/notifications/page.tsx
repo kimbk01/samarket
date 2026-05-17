@@ -21,6 +21,9 @@ async function StoreOwnerNotificationsPageBody({ params }: PageProps) {
   const safe = typeof slug === "string" ? slug : "";
   const storeId = await resolveStoreIdBySlug(safe);
   const ordersHubHref = storeId ? buildStoreOrdersHref({ storeId }) : "/stores/owner/orders";
+  const ownerHubHref = storeId
+    ? `/stores/owner?storeId=${encodeURIComponent(storeId)}`
+    : "/stores/owner";
 
   if (!storeId) {
     return (
@@ -34,7 +37,7 @@ async function StoreOwnerNotificationsPageBody({ params }: PageProps) {
     <div className="min-h-screen bg-sam-app pb-10">
       <header className="sticky top-0 z-10 border-b border-sam-border bg-sam-surface px-2 py-2">
         <div className="mx-auto flex max-w-3xl items-center gap-2">
-          <AppBackButton backHref={ordersHubHref} />
+          <AppBackButton backHref={ownerHubHref} preferHistoryBack={false} />
           <h1 className="min-w-0 flex-1 truncate text-center sam-text-body-lg font-bold text-sam-fg">알림</h1>
           <span className="w-11 shrink-0" />
         </div>
