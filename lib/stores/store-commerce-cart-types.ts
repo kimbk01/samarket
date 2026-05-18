@@ -39,11 +39,17 @@ export type StoreCommerceCartBucket = {
   storeSlug: string;
   storeName: string;
   lines: StoreCommerceCartLine[];
+  /** 버킷 마지막 변경(ms) */
+  touchedAtMs?: number;
 };
 
 export type StoreCommerceCartSnapshotV2 = {
   v: 2;
   carts: Record<string, StoreCommerceCartBucket>;
+  /** 장바구니 전체 마지막 변경(ms) — TTL */
+  touchedAtMs?: number;
+  /** 탭·BFCache 동기화용 단조 증가 버전 */
+  generation?: number;
 };
 
 /** 장바구니 담기 결과 — UI·교체 확인과 연동 */
@@ -53,6 +59,10 @@ export type StoreCartAddResult =
       ok: false;
       reason: "blocked_by_other_store";
       existingStoreId: string;
+      existingStoreSlug: string;
+      existingStoreName: string;
+      existingItemCount: number;
+      existingSubtotalPhp: number;
       nextStoreId: string;
     }
   | { ok: false; reason: "invalid_option" }

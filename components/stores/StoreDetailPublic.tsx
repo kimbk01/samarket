@@ -19,6 +19,7 @@ import {
   useStoreCommerceCartActionsOptional,
 } from "@/contexts/StoreCommerceCartContext";
 import { openStoreCartConflict } from "@/lib/stores/store-cart-conflict-ui-store";
+import { storeCartConflictExistingFromBlockedAdd } from "@/lib/stores/store-cart-conflict-meta";
 import type { StorePublicFulfillmentMode } from "@/components/stores/StoreDetailStorefrontPanel";
 import { StoreDetailCartChrome } from "@/components/stores/detail/StoreDetailCartChrome";
 import { StoreDetailQuickShell } from "@/components/stores/StoreDetailQuickShell";
@@ -36,6 +37,7 @@ import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-ex
 import { resolveStoreFrontCommerceState } from "@/lib/stores/store-auto-hours";
 import {
   readStoreFulfillmentPref,
+  resolveStoreFulfillmentModeForEntry,
   writeStoreFulfillmentPref,
   STORE_FULFILLMENT_PREF_CHANGED_EVENT,
   type StoreFulfillmentPrefChangedDetail,
@@ -82,8 +84,8 @@ import {
   deliveryPerfTraceLog,
 } from "@/lib/dibay/delivery-perf-trace";
 import {
+  getStoreDetailListSeedSnapshot,
   isStoreDetailListSeedId,
-  readStoreDetailListSeed,
   storeDetailPartialFromListSeed,
 } from "@/lib/dibay/store-detail-list-seed";
 import {
@@ -98,6 +100,10 @@ import {
 } from "@/lib/dibay/store-detail-seed-patch-trace";
 import { openStoreProductSheet } from "@/lib/stores/store-product-sheet-ui-store";
 import { showStoreDetailToast } from "@/lib/stores/store-detail-toast-ui-store";
+import {
+  resolveStoreBrowseListHref,
+  resolveStoreBrowseListHrefFromStore,
+} from "@/lib/stores/resolve-store-browse-list-href";
 import { useStoreDetailRenderGuard } from "@/lib/dibay/store-detail-render-guard";
 import { deliveryRenderTraceBump } from "@/lib/dibay/delivery-render-trace";
 import { deliveryShellEntryMark } from "@/lib/dibay/delivery-shell-entry-trace";
@@ -110,7 +116,17 @@ import {
   deliveryMenuVisibleBeginNavSession,
 } from "@/lib/dibay/delivery-menu-visible-trace";
 import { normalizeStoreMenusForClient } from "@/lib/dibay/store-menus-client-normalize";
-import { hideStoreDetailTransitionShell } from "@/lib/dibay/store-detail-transition-shell-store";
+import {
+  buildStoreDetailClientInitialState,
+  parseBannersFromApiResponse,
+  parseNoticesFromApiResponse,
+  peekStoreDetailInstantHydrate,
+} from "@/lib/dibay/store-detail-instant-hydrate";
+import {
+  getStoreDetailTransitionShellSnapshot,
+  hideStoreDetailTransitionShell,
+  subscribeStoreDetailTransitionShell,
+} from "@/lib/dibay/store-detail-transition-shell-store";
 import {
   dibayDeliveryDetailPhase2Log,
   dibayDeliveryDetailPhase2SinceMountOrNav,
@@ -121,6 +137,7 @@ type StoreDetail = {
   store_name: string;
   slug: string;
   business_type: string | null;
+  store_categories?: { slug: string; name: string } | { slug: string; name: string }[] | null;
   description: string | null;
   phone: string | null;
   region: string | null;
@@ -166,11 +183,21 @@ export function StoreDetailPublic({
     initialSnap.store ? (initialSnap.store as StoreDetail) : null
   );
 
-  /** SSR useState 초기값에는 sessionStorage seed 가 없음 — 클라 첫 페인트에서 동기 합성 */
-  const listSeedForPaint = useMemo(() => {
-    if (typeof window === "undefined") return null;
-    return readStoreDetailListSeed(decodedSlug);
-  }, [decodedSlug]);
+  /** 클라이언트에서만 목록 seed — `getStoreDetailListSeedSnapshot` 으로 참조 안정화 */
+  const listSeedForPaint = useMemo(
+    () => (typeof window === "undefined" ? null : getStoreDetailListSeedSnapshot(decodedSlug)),
+    [decodedSlug]
+  );
+
+  const [transitionShellActive, setTransitionShellActive] = useState(
+    () => getStoreDetailTransitionShellSnapshot()
+  );
+
+  useEffect(() => {
+    return subscribeStoreDetailTransitionShell(() => {
+      setTransitionShellActive(getStoreDetailTransitionShellSnapshot());
+    });
+  }, []);
 
   const storeForPaint = useMemo((): StoreDetail | null => {
     if (store) return store;
@@ -192,12 +219,22 @@ export function StoreDetailPublic({
   const [openTick, setOpenTick] = useState(0);
   const [menuQuery, setMenuQuery] = useState("");
   const [menuSearchOpen, setMenuSearchOpen] = useState(false);
-  const [fulfillmentMode, setFulfillmentMode] = useState<StorePublicFulfillmentMode>("pickup");
+  const [fulfillmentMode, setFulfillmentMode] =
+    useState<StorePublicFulfillmentMode>("local_delivery");
   const [headerSolid, setHeaderSolid] = useState(false);
   const [favoriteSeed, setFavoriteSeed] = useState(() => initialSnap.favoriteSeed);
   const [recentOrderCountMeta, setRecentOrderCountMeta] = useState(() => initialSnap.recentOrderCountMeta);
-  const [publicBanners, setPublicBanners] = useState<StoreBannerPublicRow[]>([]);
-  const [publicNotices, setPublicNotices] = useState<StoreNoticePublicRow[]>([]);
+  const [publicBanners, setPublicBanners] = useState<StoreBannerPublicRow[]>(() => {
+    if (typeof window === "undefined") return [];
+    const init = buildStoreDetailClientInitialState(decodedSlug, initialSnap);
+    const cached = parseBannersFromApiResponse(init.peek.bannersRes);
+    return cached.length > 0 ? cached : init.publicBannersFromSeed;
+  });
+  const [publicNotices, setPublicNotices] = useState<StoreNoticePublicRow[]>(() => {
+    if (typeof window === "undefined") return [];
+    const init = buildStoreDetailClientInitialState(decodedSlug, initialSnap);
+    return parseNoticesFromApiResponse(init.peek.noticesRes);
+  });
   const [menuSoldOutBottom, setMenuSoldOutBottom] = useState(false);
 
   const scrollHeaderGate = useRef(false);
@@ -207,6 +244,7 @@ export function StoreDetailPublic({
   const listSeedPass1LoggedRef = useRef<string | null>(null);
   const shellRenderedTracedRef = useRef<string | null>(null);
   const seedSummaryPatchTracedRef = useRef<string | null>(null);
+  const instantHydrateSlugRef = useRef<string | null>(null);
   const menuMarkedStoreIdRef = useRef<string | null>(null);
   const menuNormalizeGenerationRef = useRef(0);
   /** Phase 2 실측: slug 전환 시점 클라 마운트 기준 t0 */
@@ -565,6 +603,35 @@ export function StoreDetailPublic({
     [applyMenusPayloadCore]
   );
 
+  /** prewarm 캐시·목록 seed — slug 당 1회만 동기 반영(무한 setState 방지) */
+  useLayoutEffect(() => {
+    if (!decodedSlug || instantHydrateSlugRef.current === decodedSlug) return;
+    instantHydrateSlugRef.current = decodedSlug;
+
+    const init = buildStoreDetailClientInitialState(decodedSlug, initialSnap);
+    if (init.storeFromSeed) {
+      setStore((prev) => prev ?? (init.storeFromSeed as StoreDetail));
+    }
+    if (init.peek.summaryParsed?.store) {
+      applySummaryPayload(init.peek.summaryParsed);
+    }
+    const banCached = parseBannersFromApiResponse(init.peek.bannersRes);
+    if (banCached.length > 0) {
+      setPublicBanners(banCached);
+    } else if (init.publicBannersFromSeed.length > 0) {
+      setPublicBanners(init.publicBannersFromSeed);
+    }
+    const notCached = parseNoticesFromApiResponse(init.peek.noticesRes);
+    if (notCached.length > 0) setPublicNotices(notCached);
+    if (init.peek.menusRes && init.peek.menusParsed) {
+      applyMenusResponseIfReady(init.peek.menusRes, decodedSlug);
+    }
+    if (init.hasInstantPaint) {
+      setSummaryLoading(false);
+    }
+    hideStoreDetailTransitionShell(decodedSlug);
+  }, [decodedSlug, applySummaryPayload, applyMenusResponseIfReady, initialSnap]);
+
   const applyBannersAndNotices = useCallback(
     (banRes: StoreApiJsonResponse, notRes: StoreApiJsonResponse) => {
       const banJ = banRes.json as { ok?: boolean; banners?: StoreBannerPublicRow[] };
@@ -596,8 +663,18 @@ export function StoreDetailPublic({
     });
     const menusPromise = fetchStoreMenusDeduped(slug);
 
-    setSummaryLoading(true);
-    setMenusLoading(true);
+    const instantPeek = peekStoreDetailInstantHydrate(startedSlugDecode);
+    const hasInstantPaint =
+      Boolean(instantPeek.summaryParsed?.store) ||
+      Boolean(instantPeek.listSeed) ||
+      isStoreDetailListSeedId(storeRef.current?.id);
+
+    if (!hasInstantPaint) {
+      setSummaryLoading(true);
+    }
+    if (!instantPeek.menusParsed?.ok) {
+      setMenusLoading(true);
+    }
     setDbOff(false);
     const banPromise = fetchStoreBannersDeduped(slug);
     const notPromise = fetchStoreNoticesDeduped(slug);
@@ -678,33 +755,27 @@ export function StoreDetailPublic({
       return;
     }
 
-    /**
-     * 히어로는 `StoreOrderHeroSummary` 에서 배너 슬롯 유무로 분기한다.
-     * summary 만 먼저 반영하고 banners 를 뒤늦게 넣으면 프로필/갤러리 이미지 → 배너 캐러셀로 한 번 더 바뀐다.
-     * 같은 비행에서 시작한 ban/not 는 summary 적용 직전까지 await 해 한 번에 페인트한다.
-     */
-    let banRes: StoreApiJsonResponse = { status: 0, json: {} };
-    let notRes: StoreApiJsonResponse = { status: 0, json: {} };
-    try {
-      const pair = await Promise.all([banPromise, notPromise]);
-      banRes = pair[0];
-      notRes = pair[1];
-    } catch {
-      /* empty banners/notices */
-    }
     if (decodeSlugSegment(latestSlugPropRef.current) !== startedSlugDecode) {
       setSummaryLoading(false);
       setMenusLoading(false);
       return;
     }
 
-    applyBannersAndNotices(banRes, notRes);
     applySummaryPayload(sumParsed);
     dibayDeliveryDetailPhase2Log("header_summary_apply", {
       slug: startedSlugDecode,
       ...dibayDeliveryDetailPhase2SinceMountOrNav(mountT0),
     });
     setSummaryLoading(false);
+
+    void Promise.all([banPromise, notPromise])
+      .then(([banRes, notRes]) => {
+        if (decodeSlugSegment(latestSlugPropRef.current) !== startedSlugDecode) return;
+        applyBannersAndNotices(banRes, notRes);
+      })
+      .catch(() => {
+        /* empty banners/notices */
+      });
 
     const menusReady = await menusApplyPromise;
     dibayDeliveryDetailPhase2Log("menus_apply_await_settled", {
@@ -812,19 +883,18 @@ export function StoreDetailPublic({
       return;
     }
 
-    let banRes: StoreApiJsonResponse = { status: 0, json: {} };
-    let notRes: StoreApiJsonResponse = { status: 0, json: {} };
-    try {
-      const pair = await Promise.all([banPromise, notPromise]);
-      banRes = pair[0];
-      notRes = pair[1];
-    } catch {
-      /* empty */
-    }
     if (decodeSlugSegment(latestSlugPropRef.current) !== startedSlugDecode) return;
 
-    applyBannersAndNotices(banRes, notRes);
     applySummaryPayload(sumParsed);
+
+    void Promise.all([banPromise, notPromise])
+      .then(([banRes, notRes]) => {
+        if (decodeSlugSegment(latestSlugPropRef.current) !== startedSlugDecode) return;
+        applyBannersAndNotices(banRes, notRes);
+      })
+      .catch(() => {
+        /* empty */
+      });
 
     const menusReady = await menusApplyPromise;
     if (menusReady) {
@@ -938,9 +1008,15 @@ export function StoreDetailPublic({
 
   useEffect(() => {
     if (!store?.slug || typeof window === "undefined") return;
-    const v = readStoreFulfillmentPref(store.slug);
-    if (v) setFulfillmentMode(v);
-  }, [store?.slug]);
+    const mode = resolveStoreFulfillmentModeForEntry(
+      {
+        deliveryAvailable: store.delivery_available === true,
+        pickupAvailable: store.pickup_available !== false,
+      },
+      readStoreFulfillmentPref(store.slug)
+    );
+    setFulfillmentMode(mode);
+  }, [store?.slug, store?.delivery_available, store?.pickup_available]);
 
   useEffect(() => {
     const slugKey = store?.slug?.trim();
@@ -1106,7 +1182,7 @@ export function StoreDetailPublic({
           existingStoreId: addResult.existingStoreId,
           nextStoreId: addResult.nextStoreId,
         });
-        openStoreCartConflict(lineInput);
+        openStoreCartConflict(lineInput, storeCartConflictExistingFromBlockedAdd(addResult));
         return true;
       }
       if (!addResult.ok) return false;
@@ -1260,11 +1336,11 @@ export function StoreDetailPublic({
     </div>
   );
 
-  if (summaryLoading && !storeForPaint) {
+  if (summaryLoading && !storeForPaint && !transitionShellActive) {
     return viewportShell(
       <StoreDetailQuickShell
         slug={decodedSlug}
-        fallbackHref="/stores"
+        fallbackHref={resolveStoreBrowseListHref({ storeSlug: decodedSlug })}
         viewerFavorited={viewerFavorited}
         favoriteBusy={favoriteBusy}
         onFavoriteClick={() => void toggleFavorite()}
@@ -1308,17 +1384,18 @@ export function StoreDetailPublic({
 
   const storeRootPath = `/stores/${encodeURIComponent(detailStore.slug)}`;
   const infoPath = `${storeRootPath}/info`;
+  const browseListHref = resolveStoreBrowseListHrefFromStore(detailStore);
   const fallbackHref =
     pathname === infoPath || (pathname?.startsWith(`${infoPath}/`) ?? false)
       ? storeRootPath
-      : "/stores";
+      : browseListHref;
 
   const noticePreview =
     deliveryMeta.publicNotices.find((x) => String(x).trim())?.trim() ||
     deliveryMeta.deliveryNotice.trim() ||
     "";
   const storeGalleryUrls = parseMediaUrlsJson(detailStore.gallery_images_json, 8);
-  const heroImageUrl = storeGalleryUrls[0] || detailStore.profile_image_url;
+  const heroImageUrl = storeGalleryUrls[0] || null;
   const heroVisualForHeader =
     Boolean(String(heroImageUrl ?? "").trim()) || publicBanners.length > 0;
   const storeAddressLines = formatStorePickupAddressLines({

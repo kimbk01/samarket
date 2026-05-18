@@ -13,6 +13,10 @@ import {
   lineNoteFromOrderOptionsSnapshot,
   modifierWireFromOrderOptionsSnapshot,
 } from "@/lib/stores/reorder-from-order-snapshot";
+import {
+  storeCartConflictExistingFromBucket,
+} from "@/lib/stores/store-cart-conflict-meta";
+import { requestStoreCartBulkClearReplace } from "@/lib/stores/store-cart-conflict-ui-store";
 import { fetchStoreProductPublicDeduped } from "@/lib/stores/store-delivery-api-client";
 
 export type ReorderCartItemInput = {
@@ -40,7 +44,7 @@ export type ApplyOrderToCartDeps = {
 
 /**
  * 완료된 주문의 품목을 장바구니에 담고 매장 장바구니 화면으로 이동하기 전 단계.
- * 다른 매장 장바구니가 있으면 confirm 후 비웁니다.
+ * 다른 매장 장바구니가 있으면 동일 conflict dialog로 비웁니다.
  */
 export async function applyCompletedOrderToCommerceCart(
   deps: ApplyOrderToCartDeps,
@@ -58,12 +62,19 @@ export async function applyCompletedOrderToCommerceCart(
 
   const others = deps.otherBucketsExcluding(sid);
   if (others.length > 0) {
-    const ok =
-      typeof window !== "undefined" &&
-      window.confirm(
-        "다른 매장 장바구니에 담긴 메뉴가 있습니다. 비우고 이 주문 메뉴를 담을까요?"
-      );
-    if (!ok) return { ok: false, error: "cancelled" };
+    if (typeof window === "undefined") {
+      return { ok: false, error: "cancelled" };
+    }
+    const other = others[0]!;
+    const confirmed = await requestStoreCartBulkClearReplace(
+      storeCartConflictExistingFromBucket(other),
+      {
+        storeId: sid,
+        storeSlug: slug,
+        storeName: storeName.trim() || other.storeName,
+      }
+    );
+    if (!confirmed) return { ok: false, error: "cancelled" };
     deps.clearAllCarts();
   }
 

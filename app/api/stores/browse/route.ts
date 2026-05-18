@@ -13,6 +13,7 @@ import { formatMoneyPhp } from "@/lib/utils/format";
 import { isSameDeliveryAddressForList } from "@/lib/stores/store-list-delivery-origin";
 import { resolveBrowseRouteOrigin } from "@/lib/stores/browse-route-origin";
 import { logBrowsePerfSteps } from "@/lib/stores/browse-perf-steps-log";
+import { mapFirstStoreBannerImageByStoreId } from "@/lib/stores/pick-store-hero-banner-image";
 import { loadBrowseTaxonomySlice } from "@/lib/stores/stores-browse-taxonomy-cache";
 import { browseListCacheKey, peekStoresBrowseCache, setStoresBrowseCache } from "@/lib/stores/stores-browse-response-cache";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
@@ -56,6 +57,16 @@ type ProductMini = {
   thumbnail_url: string | null;
   is_featured: boolean | null;
   sort_order: number | null;
+};
+
+type BannerMini = {
+  store_id: string;
+  id: string;
+  image_url: string;
+  sort_order: number | null;
+  is_active: boolean | null;
+  start_at: string | null;
+  end_at: string | null;
 };
 
 type RelOne = { slug: string; name: string };
@@ -476,7 +487,7 @@ export async function GET(req: Request) {
     const featuredByStore = new Map<string, { productId: string; name: string; price: number; imageUrl: string | null }[]>();
 
     const dbRelated0 = devPerfNow();
-    const [deliveryRideTimeSource, productsRes] = await Promise.all([
+    const [deliveryRideTimeSource, productsRes, bannersRes] = await Promise.all([
       rideSourcePromise,
       ids.length > 0 ?
         supabase
@@ -488,7 +499,27 @@ export async function GET(req: Request) {
           .order("sort_order", { ascending: true })
           .limit(Math.min(ids.length * BROWSE_FEATURED_ITEMS_MAX, 360))
       : Promise.resolve({ data: [] as ProductMini[], error: null }),
+      ids.length > 0 ?
+        supabase
+          .from("store_banners")
+          .select("store_id, id, image_url, sort_order, is_active, start_at, end_at")
+          .in("store_id", ids)
+          .order("sort_order", { ascending: true })
+          .order("id", { ascending: true })
+      : Promise.resolve({ data: [] as BannerMini[], error: null }),
     ]);
+
+    const heroBannerByStore = mapFirstStoreBannerImageByStoreId(
+      ((bannersRes.data ?? []) as BannerMini[]).map((b) => ({
+        store_id: String(b.store_id),
+        id: String(b.id),
+        image_url: String(b.image_url ?? ""),
+        sort_order: b.sort_order,
+        is_active: b.is_active === false ? false : undefined,
+        start_at: b.start_at,
+        end_at: b.end_at,
+      }))
+    );
 
     const { data: prods, error: pErr } = productsRes;
     if (pErr) {
@@ -596,6 +627,7 @@ export async function GET(req: Request) {
         reservationAvailable: r.reservation_available !== false,
         featuredItems: featuredByStore.get(r.id) ?? [],
         profileImageUrl: r.profile_image_url,
+        heroBannerImageUrl: heroBannerByStore.get(r.id) ?? null,
         isFeatured: !!r.is_featured,
         estPrepLabel: extras.estPrepLabel,
         prepMinutes: extras.prepMinutes,

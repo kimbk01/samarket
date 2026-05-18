@@ -16,18 +16,19 @@ import {
   buildStoreDetailHref,
   deliveryStoreDetailPrefetch,
   deliveryStoreDetailPrefetchForTap,
-  deliveryStoreDetailScheduleTapPush,
 } from "@/lib/dibay/delivery-store-detail-prefetch";
 import { useDeliveryStoreDetailViewportPrefetch } from "@/lib/dibay/use-delivery-store-detail-viewport-prefetch";
 import { markStoreDetailListSeedNavigation } from "@/lib/dibay/store-detail-seed-patch-trace";
 import { saveDeliveryListScrollBeforeStoreNavigation } from "@/lib/dibay/delivery-list-scroll-restore";
 import { readStoreDetailListSeed, writeStoreDetailListSeed } from "@/lib/dibay/store-detail-list-seed";
+import {
+  parseBrowsePrimarySlugFromPathname,
+  writeStoreDetailBrowseOrigin,
+} from "@/lib/dibay/store-detail-browse-origin";
 import { showStoreDetailTransitionShell } from "@/lib/dibay/store-detail-transition-shell-store";
 import { deliveryMenuVisibleBeginNavSession } from "@/lib/dibay/delivery-menu-visible-trace";
-import {
-  deliveryStoreMenusPrewarm,
-  resetDeliveryStoreMenusPrewarmForTests,
-} from "@/lib/dibay/delivery-store-menus-prewarm";
+import { deliveryStoreDetailPrewarmAll } from "@/lib/dibay/delivery-store-detail-prewarm";
+import { resetDeliveryStoreMenusPrewarmForTests } from "@/lib/dibay/delivery-store-menus-prewarm";
 import {
   DELIVERY_PERF_TAG_ROUTE_TRANSITION,
   deliveryPerfTraceLog,
@@ -69,9 +70,13 @@ export type StoreRowCardData = {
   showStraightLineMapPin?: boolean;
   menuPreview: string | null;
   profileImageUrl: string | null;
+  /** 상세 히어로·전환 셸 — browse `heroBannerImageUrl` */
+  heroBannerImageUrl: string | null;
   featuredItems: StoreFeaturedCardItem[];
   isFeatured: boolean;
   coverEmoji?: string;
+  /** browse·home-feed 진입 시 상세 뒤로가기용 1차 업종 slug */
+  browsePrimarySlug?: string | null;
 };
 
 /** 목록 행 `data` 참조 재사용용 — 카드에 보이는 필드 전부 포함 */
@@ -111,6 +116,7 @@ export function storeRowCardDataEqual(a: StoreRowCardData, b: StoreRowCardData):
     a.showStraightLineMapPin === b.showStraightLineMapPin &&
     a.menuPreview === b.menuPreview &&
     a.profileImageUrl === b.profileImageUrl &&
+    a.heroBannerImageUrl === b.heroBannerImageUrl &&
     featuredEqual &&
     a.isFeatured === b.isFeatured &&
     a.coverEmoji === b.coverEmoji
@@ -179,6 +185,7 @@ export function homeFeedToRowCard(s: StoreHomeFeedItem): StoreRowCardData {
     straightDistanceKm: s.straightDistanceKm ?? null,
     menuPreview: menuPreview?.trim() || null,
     profileImageUrl: s.profileImageUrl,
+    heroBannerImageUrl: null,
     featuredItems: s.featuredItems.map((x) => ({
       productId: x.productId,
       name: x.name,
@@ -186,6 +193,7 @@ export function homeFeedToRowCard(s: StoreHomeFeedItem): StoreRowCardData {
       imageUrl: null,
     })),
     isFeatured: s.isFeatured,
+    browsePrimarySlug: s.primarySlug?.trim() || null,
   };
 }
 
@@ -224,6 +232,7 @@ export function browseItemToRowCard(s: BrowseStoreListItem): StoreRowCardData {
     showStraightLineMapPin: false,
     menuPreview: menuPreview?.trim() || null,
     profileImageUrl: s.profileImageUrl,
+    heroBannerImageUrl: s.heroBannerImageUrl ?? null,
     featuredItems: s.featuredItems.map((x) => ({
       productId: x.productId,
       name: x.name,
@@ -231,6 +240,7 @@ export function browseItemToRowCard(s: BrowseStoreListItem): StoreRowCardData {
       imageUrl: x.imageUrl,
     })),
     isFeatured: s.isFeatured,
+    browsePrimarySlug: s.primarySlug?.trim() || null,
   };
 }
 
@@ -252,7 +262,7 @@ function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
 
   const warmFeaturedMenuNavigation = useCallback(
     (productId: string, source: "pointer_enter" | "pointer_down" | "touch_start") => {
-      deliveryStoreMenusPrewarm(data.slug, { force: true });
+      deliveryStoreDetailPrewarmAll(data.slug, { force: true });
       prefetchStoreDetail(source, {
         force: true,
         focusProductId: productId,
@@ -300,15 +310,17 @@ function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
     (source: "card" | "featured_menu" | "see_more", focusProductId?: string) => {
       const href = buildStoreDetailHref(data.slug, focusProductId);
       resetDeliveryStoreMenusPrewarmForTests();
-      deliveryShellEntryBeginNavigation(data.slug);
-      deliveryStoreMenusPrewarm(data.slug, { force: true });
       saveDeliveryListScrollBeforeStoreNavigation();
-      const prefetch = deliveryStoreDetailPrefetchForTap(router, data.slug, href);
-      markStoreDetailListSeedNavigation(data.slug);
+      const browsePrimary =
+        data.browsePrimarySlug?.trim() ||
+        (typeof window !== "undefined"
+          ? parseBrowsePrimarySlugFromPathname(window.location.pathname)
+          : null);
+      if (browsePrimary) writeStoreDetailBrowseOrigin(data.slug, browsePrimary);
       writeStoreDetailListSeed({
         slug: data.slug,
         store_name: data.nameKo,
-        profile_image_url: data.profileImageUrl,
+        hero_image_url: data.heroBannerImageUrl,
         rating_avg: data.rating,
         review_count: data.reviewCount,
         delivery_available: data.deliveryAvailable,
@@ -316,6 +328,14 @@ function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
         tagline: data.tagline,
         region_badge: data.regionBadge,
       });
+      const seed = readStoreDetailListSeed(data.slug);
+      if (seed) showStoreDetailTransitionShell(seed, href);
+      deliveryShellEntryBeginNavigation(data.slug);
+      deliveryShellEntryScheduleRouterPushStart(data.slug, href);
+      router.push(href, { scroll: false });
+      deliveryStoreDetailPrewarmAll(data.slug, { force: true });
+      const prefetch = deliveryStoreDetailPrefetchForTap(router, data.slug, href);
+      markStoreDetailListSeedNavigation(data.slug);
       dibayPerfRecordStoreCardNavigationIntent(data.slug);
       deliveryMenuVisibleBeginNavSession(data.slug);
       deliveryShellEntryMark("card_tap", {
@@ -332,23 +352,17 @@ function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
         seed_saved: true,
         ...(focusProductId ? { focus_product_id: focusProductId, tap_surface: source } : { tap_surface: source }),
       });
-      const seed = readStoreDetailListSeed(data.slug);
-      if (seed) showStoreDetailTransitionShell(seed, href);
       deliveryPerfTraceLog(DELIVERY_PERF_TAG_ROUTE_TRANSITION, {
         event: source === "featured_menu" ? "store_featured_menu_tap" : "store_card_tap",
         slug: data.slug,
         ...(focusProductId ? { product_id: focusProductId } : {}),
-      });
-      deliveryStoreDetailScheduleTapPush(href, prefetch, () => {
-        deliveryShellEntryScheduleRouterPushStart(data.slug, href);
-        router.push(href);
       });
     },
     [data, prefetchStoreDetail, router]
   );
 
   const onRowPointerWarm = useCallback(() => {
-    deliveryStoreMenusPrewarm(data.slug);
+    deliveryStoreDetailPrewarmAll(data.slug);
     prefetchStoreDetail("pointer_enter");
   }, [data.slug, prefetchStoreDetail]);
 
@@ -457,11 +471,11 @@ function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
           type="button"
           className="block w-full pt-2.5 text-left transition-[transform,opacity] duration-120 active:scale-[0.985] active:opacity-95"
           onPointerDown={() => {
-            deliveryStoreMenusPrewarm(data.slug);
+            deliveryStoreDetailPrewarmAll(data.slug);
             prefetchStoreDetail("pointer_down", { force: true });
           }}
           onTouchStart={() => {
-            deliveryStoreMenusPrewarm(data.slug);
+            deliveryStoreDetailPrewarmAll(data.slug);
             prefetchStoreDetail("touch_start", { force: true });
           }}
           onClick={() => navigateToStore("card")}

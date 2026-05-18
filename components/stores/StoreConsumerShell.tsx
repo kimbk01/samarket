@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { isStoreConsumerDetailPath } from "@/lib/dibay/delivery-list-scroll-restore";
 import { deliveryShellEntryMark } from "@/lib/dibay/delivery-shell-entry-trace";
 import { decodeSlugSegment } from "@/lib/stores/store-consumer-route";
+import { StoreDetailSlideShell } from "@/components/stores/detail/StoreDetailSlideShell";
 import { StoreSlugStickyBar } from "@/components/stores/StoreSlugStickyBar";
 import { APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { isStoreSlugOrderMenuRoot } from "@/lib/stores/store-consumer-route";
@@ -28,7 +29,7 @@ export function StoreConsumerShell({ slug, children }: { slug: string; children:
     return <>{children}</>;
   }
   if (isStoreSlugOrderMenuRoot(pathname, slug)) {
-    return <>{children}</>;
+    return <StoreDetailSlideShell>{children}</StoreDetailSlideShell>;
   }
   const normalizedSlug = encodeURIComponent(decodeURIComponent((slug || "").trim()));
   const pathNoQuery = (pathname ?? "").split("?")[0] ?? "";

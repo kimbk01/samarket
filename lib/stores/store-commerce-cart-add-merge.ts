@@ -1,4 +1,5 @@
 import { orderLineIdentityKey, wireFromLegacyPickOnly } from "@/lib/stores/product-line-options";
+import { touchCommerceCartSnapshot } from "@/lib/stores/store-commerce-cart-expiry";
 import type {
   AddStoreCartLineInput,
   StoreCartAddResult,
@@ -76,11 +77,16 @@ export function computeStoreCartAddOrMerge(
   for (const b of Object.values(base.carts)) {
     if (normalizeStoreIdKey(b.storeId) === canonicId) continue;
     if (bucketStats(b).itemCount > 0) {
+      const stats = bucketStats(b);
       return {
         result: {
           ok: false,
           reason: "blocked_by_other_store",
           existingStoreId: normalizeStoreIdKey(b.storeId) || b.storeId,
+          existingStoreSlug: b.storeSlug,
+          existingStoreName: b.storeName,
+          existingItemCount: stats.itemCount,
+          existingSubtotalPhp: stats.subtotalPhp,
           nextStoreId: canonicId || input.storeId,
         },
         nextSnapshot: base,
@@ -122,17 +128,22 @@ export function computeStoreCartAddOrMerge(
     nextLines = [...lines, newLine()];
   }
 
+  const now = Date.now();
   const nextBucket: StoreCommerceCartBucket = {
     storeId: canonicId || input.storeId,
     storeSlug: input.storeSlug,
     storeName: input.storeName,
     lines: nextLines,
+    touchedAtMs: now,
   };
 
-  const nextSnapshot: StoreCommerceCartSnapshotV2 = {
-    v: 2,
-    carts: { ...base.carts, [cartKey]: nextBucket },
-  };
+  const nextSnapshot = touchCommerceCartSnapshot(
+    {
+      v: 2,
+      carts: { ...base.carts, [cartKey]: nextBucket },
+    },
+    canonicId || input.storeId
+  );
 
   return { result: { ok: true, reason }, nextSnapshot };
 }

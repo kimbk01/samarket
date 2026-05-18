@@ -7,6 +7,7 @@ import {
   useStoreCommerceCartActionsOptional,
 } from "@/contexts/StoreCommerceCartContext";
 import { openStoreCartConflict } from "@/lib/stores/store-cart-conflict-ui-store";
+import { storeCartConflictExistingFromBlockedAdd } from "@/lib/stores/store-cart-conflict-meta";
 import type { ModifierSelectionsWire } from "@/lib/stores/modifiers/types";
 import { StoreModifierPicker } from "@/components/stores/modifiers/StoreModifierPicker";
 import { parseProductOptionsJson } from "@/lib/stores/product-line-options";
@@ -544,11 +545,15 @@ export function StoreProductAddSheet({
       traceDeliveryOptionAddSubmitMs(deliveryOptionTraceNow() - submitStart, optionTraceBase, {
         status: "blocked_by_other_store",
       });
-      openStoreCartConflict(lineInput, () => {
-        cartBarBump(st.id);
-        onAddedToCart?.();
-        onClose();
-      });
+      openStoreCartConflict(
+        lineInput,
+        storeCartConflictExistingFromBlockedAdd(addResult),
+        () => {
+          cartBarBump(st.id);
+          onAddedToCart?.();
+          onClose();
+        }
+      );
       return;
     }
     if (!addResult.ok) {

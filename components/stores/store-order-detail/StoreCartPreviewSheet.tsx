@@ -9,6 +9,8 @@ import {
 } from "@/lib/stores/use-store-commerce-cart-selector";
 import { deliveryRenderTraceBump } from "@/lib/dibay/delivery-render-trace";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { DIBAY_CART_PRIMARY_BTN_CLASS } from "@/components/stores/cart/StoreCommerceCartBottomSheet";
+import { STORE_CART_PAGE_TITLE } from "@/lib/stores/store-cart-policy";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
 import { StoreCartPreviewLineRow } from "@/components/stores/store-order-detail/StoreCartPreviewLineRow";
 
@@ -76,7 +78,7 @@ export function StoreCartPreviewSheet({
           <div className="flex shrink-0 flex-col items-center pt-2 pb-1">
             <span className="h-1 w-10 rounded-full bg-neutral-300" aria-hidden />
             <h2 id="store-cart-preview-title" className="mt-2 px-4 text-center text-[16px] font-bold text-neutral-900">
-              장바구니
+              {STORE_CART_PAGE_TITLE}
             </h2>
           </div>
 
@@ -104,12 +106,8 @@ export function StoreCartPreviewSheet({
               <span className="text-neutral-600">총금액</span>
               <span className="tabular-nums text-neutral-900">{formatMoneyPhp(subtotal)}</span>
             </div>
-            <Link
-              href={cartHref}
-              className="flex w-full items-center justify-center rounded-[14px] py-3.5 text-[15px] font-bold text-white shadow-sm active:opacity-95"
-              style={{ backgroundColor: "#1C8DB8" }}
-            >
-              장바구니 보기
+            <Link href={cartHref} className={DIBAY_CART_PRIMARY_BTN_CLASS}>
+              카트 보기
             </Link>
           </div>
         </div>

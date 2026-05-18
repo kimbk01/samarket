@@ -1,3 +1,4 @@
+import { touchCommerceCartSnapshot } from "@/lib/stores/store-commerce-cart-expiry";
 import type {
   StoreCommerceCartLine,
   StoreCommerceCartSnapshotV2,
@@ -46,7 +47,9 @@ export function mutateCartLineQuantity(
     if (lines.length === 0) delete carts[bid];
     else carts[bid] = { ...bucket, lines };
     const next =
-      Object.keys(carts).length === 0 ? null : ({ v: 2 as const, carts });
+      Object.keys(carts).length === 0
+        ? null
+        : touchCommerceCartSnapshot({ v: 2, carts }, storeId);
     return { next, storeId, deleted: q <= 0 };
   }
   return { next: prev, storeId: null, deleted: false };
@@ -67,7 +70,9 @@ export function mutateCartRemoveLine(
     if (lines.length === 0) delete carts[bid];
     else carts[bid] = { ...bucket, lines };
     const next =
-      Object.keys(carts).length === 0 ? null : ({ v: 2 as const, carts });
+      Object.keys(carts).length === 0
+        ? null
+        : touchCommerceCartSnapshot({ v: 2, carts }, storeId);
     return { next, storeId };
   }
   return { next: prev, storeId: null };

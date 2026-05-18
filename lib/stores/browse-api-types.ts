@@ -18,6 +18,8 @@ export type BrowseStoreListItem = {
   reservationAvailable?: boolean;
   featuredItems: { productId: string; name: string; price: number; imageUrl?: string | null }[];
   profileImageUrl: string | null;
+  /** 상세 히어로·진입 시드 — `store_banners` 첫 활성 이미지 */
+  heroBannerImageUrl: string | null;
   isFeatured: boolean;
   /** business_hours_json 확장 — 카드 요약 */
   estPrepLabel: string;

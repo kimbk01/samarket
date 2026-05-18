@@ -62,6 +62,7 @@ export type StoreVerticalCardModel = Pick<
   | "visitAvailable"
   | "featuredItems"
   | "profileImageUrl"
+  | "heroBannerImageUrl"
   | "isFeatured"
   | "estPrepLabel"
   | "deliveryFeeLabel"
@@ -92,6 +93,7 @@ export function browseItemToVerticalModel(store: BrowseStoreListItem): StoreVert
     visitAvailable: store.visitAvailable,
     featuredItems: store.featuredItems,
     profileImageUrl: store.profileImageUrl,
+    heroBannerImageUrl: store.heroBannerImageUrl ?? null,
     isFeatured: store.isFeatured,
     estPrepLabel: store.estPrepLabel ?? "20~40분",
     etaLabel: store.etaLabel,
@@ -120,6 +122,7 @@ export function homeFeedItemToVerticalModel(store: StoreHomeFeedItem): StoreVert
     visitAvailable: true,
     featuredItems: store.featuredItems,
     profileImageUrl: store.profileImageUrl,
+    heroBannerImageUrl: null,
     isFeatured: store.isFeatured,
     estPrepLabel: store.estPrepLabel,
     etaLabel: store.etaLabel,
@@ -194,7 +197,7 @@ export function StoreVerticalDiscoveryCard({
           writeStoreDetailListSeed({
             slug: store.slug,
             store_name: store.nameKo,
-            profile_image_url: store.profileImageUrl,
+            hero_image_url: store.heroBannerImageUrl,
             rating_avg: store.rating,
             review_count: store.reviewCount,
             delivery_available: store.deliveryAvailable,

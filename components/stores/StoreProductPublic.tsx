@@ -7,9 +7,11 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import {
   type AddStoreCartLineInput,
+  useStoreCommerceCartActionsOptional,
   useStoreCommerceCartOptional,
 } from "@/contexts/StoreCommerceCartContext";
-import { StoreCartOtherStoreConflictDialog } from "@/components/stores/StoreCartOtherStoreConflictDialog";
+import { openStoreCartConflict } from "@/lib/stores/store-cart-conflict-ui-store";
+import { storeCartConflictExistingFromBlockedAdd } from "@/lib/stores/store-cart-conflict-meta";
 import { itemTypeShortLabel } from "@/lib/stores/group-store-products-by-menu";
 import { parseMediaUrlsJson } from "@/lib/stores/parse-media-urls-json";
 import type { ModifierSelectionsWire } from "@/lib/stores/modifiers/types";
@@ -46,8 +48,6 @@ import {
   dibayPerfOnCartbarUpdated,
   dibayPerfRecordAddToCartClick,
   dibayPerfRecordCartBlockedByOtherStore,
-  dibayPerfRecordCartReplaceConfirm,
-  dibayPerfRecordCartReplaceDone,
 } from "@/lib/dibay/delivery-flow-perf";
 
 type PublicStore = {
@@ -154,32 +154,7 @@ export function StoreProductPublic({
   const [modifierWire, setModifierWire] = useState<ModifierSelectionsWire>({ pick: {}, qty: {} });
   const [lineMemo, setLineMemo] = useState("");
   const [hoursTick, setHoursTick] = useState(0);
-  const [cartConflictOpen, setCartConflictOpen] = useState(false);
-  const pendingCartLineRef = useRef<AddStoreCartLineInput | null>(null);
-
-  const cancelCartConflict = useCallback(() => {
-    pendingCartLineRef.current = null;
-    setCartConflictOpen(false);
-  }, []);
-
-  const confirmCartConflictReplace = useCallback(() => {
-    const line = pendingCartLineRef.current;
-    if (!line || !commerceCart) return;
-    dibayPerfRecordCartReplaceConfirm({ storeId: line.storeId });
-    dibayPerfRecordAddToCartClick(line.storeId);
-    const r = commerceCart.replaceWithLine(line);
-    dibayPerfRecordCartReplaceDone({ storeId: line.storeId });
-    pendingCartLineRef.current = null;
-    setCartConflictOpen(false);
-    if (!r.ok) {
-      setOrderErr("장바구니를 비운 뒤 담기에 실패했습니다.");
-      return;
-    }
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => dibayPerfOnCartbarUpdated(line.storeId));
-    });
-    setOrderOk(t("common_add_to_cart"));
-  }, [commerceCart, t]);
+  const commerceCartActions = useStoreCommerceCartActionsOptional();
 
   useEffect(() => {
     void router.prefetch("/my/store-orders");
@@ -405,6 +380,10 @@ export function StoreProductPublic({
     const st = store;
     const pr = product;
     if (!st || !pr) return;
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      setOrderErr("네트워크에 연결된 뒤 다시 주문해 주세요.");
+      return;
+    }
     if (orderBusy || orderSubmitFlightRef.current) return;
     if (commerce.inBreak) {
       setOrderErr(
@@ -459,6 +438,7 @@ export function StoreProductPublic({
           {
             product_id: pr.id,
             qty,
+            client_unit_php: unitWithOptions,
             modifier_selections:
               Object.keys(modifierWire.pick).length > 0 || Object.keys(modifierWire.qty).length > 0
                 ? modifierWire
@@ -571,7 +551,7 @@ export function StoreProductPublic({
   function addToCart() {
     const st = store;
     const pr = product;
-    if (!st || !pr || !commerceCart) return;
+    if (!st || !pr || !commerceCartActions) return;
     if (commerce.inBreak) {
       setOrderErr(
         t("common_break_time_cart_blocked", { time: commerce.breakRangeLabel })
@@ -638,14 +618,27 @@ export function StoreProductPublic({
       maxOrderQty: maxForCart,
     };
 
-    const addResult = commerceCart.addOrMergeLine(lineInput);
+    const cartActions = commerceCartActions;
+    if (!cartActions) {
+      setOrderErr("장바구니에 담을 수 없습니다.");
+      return;
+    }
+    const addResult = cartActions.addOrMergeLine(lineInput);
     if (!addResult.ok && addResult.reason === "blocked_by_other_store") {
       dibayPerfRecordCartBlockedByOtherStore({
         existingStoreId: addResult.existingStoreId,
         nextStoreId: addResult.nextStoreId,
       });
-      pendingCartLineRef.current = lineInput;
-      setCartConflictOpen(true);
+      openStoreCartConflict(
+        lineInput,
+        storeCartConflictExistingFromBlockedAdd(addResult),
+        () => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => dibayPerfOnCartbarUpdated(st.id));
+          });
+          setOrderOk(t("common_add_to_cart"));
+        }
+      );
       return;
     }
     if (!addResult.ok) {
@@ -1108,12 +1101,6 @@ export function StoreProductPublic({
         onCartPreviewOpen={() =>
           router.push(`/stores/${encodeURIComponent(store.slug)}/cart`)
         }
-      />
-
-      <StoreCartOtherStoreConflictDialog
-        open={cartConflictOpen}
-        onCancel={cancelCartConflict}
-        onClearAndAdd={confirmCartConflictReplace}
       />
     </div>
   );

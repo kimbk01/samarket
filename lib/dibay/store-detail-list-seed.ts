@@ -6,10 +6,22 @@
 const KEY_PREFIX = "dibay:store-detail-list-seed:";
 const TTL_MS = 45_000;
 
+const listSeedListeners = new Set<() => void>();
+
+export function subscribeStoreDetailListSeed(onChange: () => void): () => void {
+  listSeedListeners.add(onChange);
+  return () => listSeedListeners.delete(onChange);
+}
+
+function emitStoreDetailListSeedChanged(): void {
+  listSeedListeners.forEach((l) => l());
+}
+
 export type StoreDetailListSeedWriteInput = {
   slug: string;
   store_name: string;
-  profile_image_url?: string | null;
+  /** 상단 히어로·전환 셸 — `store_banners` 첫 활성 이미지 */
+  hero_image_url?: string | null;
   rating_avg?: number;
   review_count?: number;
   delivery_available?: boolean;
@@ -21,7 +33,7 @@ export type StoreDetailListSeedWriteInput = {
 export type StoreDetailListSeed = {
   slug: string;
   store_name: string;
-  profile_image_url: string | null;
+  hero_image_url: string | null;
   rating_avg: number;
   review_count: number;
   delivery_available: boolean;
@@ -42,7 +54,7 @@ export function writeStoreDetailListSeed(input: StoreDetailListSeedWriteInput): 
   const seed: StoreDetailListSeed = {
     slug,
     store_name: input.store_name.trim() || slug,
-    profile_image_url: input.profile_image_url?.trim() || null,
+    hero_image_url: input.hero_image_url?.trim() || null,
     rating_avg: Number.isFinite(input.rating_avg) ? Number(input.rating_avg) : 0,
     review_count: Math.max(0, Math.floor(input.review_count ?? 0) || 0),
     delivery_available: input.delivery_available === true,
@@ -51,30 +63,65 @@ export function writeStoreDetailListSeed(input: StoreDetailListSeedWriteInput): 
     region_badge: input.region_badge?.trim() || null,
     saved_at: Date.now(),
   };
+  const raw = JSON.stringify(seed);
   try {
-    sessionStorage.setItem(ssKey(slug), JSON.stringify(seed));
+    sessionStorage.setItem(ssKey(slug), raw);
+    cachedSeedSlug = slug.toLowerCase();
+    cachedSeedRaw = raw;
+    cachedSeedValue = seed;
   } catch {
     /* quota */
+  }
+  emitStoreDetailListSeedChanged();
+}
+
+let cachedSeedSlug = "";
+let cachedSeedRaw: string | null = null;
+let cachedSeedValue: StoreDetailListSeed | null = null;
+
+/**
+ * `useSyncExternalStore` getSnapshot 용 — 동일 sessionStorage raw 이면 동일 객체 참조 유지.
+ */
+export function getStoreDetailListSeedSnapshot(slug: string): StoreDetailListSeed | null {
+  if (typeof sessionStorage === "undefined") return null;
+  const s = slug.trim();
+  if (!s) return null;
+  const key = ssKey(s);
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (!raw) {
+      if (cachedSeedSlug === s.toLowerCase()) {
+        cachedSeedSlug = "";
+        cachedSeedRaw = null;
+        cachedSeedValue = null;
+      }
+      return null;
+    }
+    if (cachedSeedSlug === s.toLowerCase() && cachedSeedRaw === raw && cachedSeedValue) {
+      if (cachedSeedValue.saved_at + TTL_MS >= Date.now()) {
+        return cachedSeedValue;
+      }
+    }
+    const parsed = JSON.parse(raw) as StoreDetailListSeed;
+    if (!parsed?.slug || parsed.saved_at + TTL_MS < Date.now()) {
+      sessionStorage.removeItem(key);
+      cachedSeedSlug = s.toLowerCase();
+      cachedSeedRaw = null;
+      cachedSeedValue = null;
+      return null;
+    }
+    if (parsed.slug.trim().toLowerCase() !== s.toLowerCase()) return null;
+    cachedSeedSlug = s.toLowerCase();
+    cachedSeedRaw = raw;
+    cachedSeedValue = parsed;
+    return cachedSeedValue;
+  } catch {
+    return null;
   }
 }
 
 export function readStoreDetailListSeed(slug: string): StoreDetailListSeed | null {
-  if (typeof sessionStorage === "undefined") return null;
-  const s = slug.trim();
-  if (!s) return null;
-  try {
-    const raw = sessionStorage.getItem(ssKey(s));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as StoreDetailListSeed;
-    if (!parsed?.slug || parsed.saved_at + TTL_MS < Date.now()) {
-      sessionStorage.removeItem(ssKey(s));
-      return null;
-    }
-    if (parsed.slug.trim().toLowerCase() !== s.toLowerCase()) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
+  return getStoreDetailListSeedSnapshot(slug);
 }
 
 export function isStoreDetailListSeedId(storeId: string | null | undefined): boolean {
@@ -119,8 +166,8 @@ export function storeDetailPartialFromListSeed(seed: StoreDetailListSeed): {
     address_line2: null,
     lat: null,
     lng: null,
-    profile_image_url: seed.profile_image_url,
-    gallery_images_json: null,
+    profile_image_url: null,
+    gallery_images_json: seed.hero_image_url ? JSON.stringify([seed.hero_image_url]) : null,
     is_open: true,
     business_hours_json: null,
     delivery_available: seed.delivery_available,

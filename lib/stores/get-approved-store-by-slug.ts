@@ -13,12 +13,16 @@ export const RECENT_ORDER_STATUSES = [
 ] as const;
 
 /** Legacy `GET /api/stores/:slug` 의 `stores` select */
+const STORE_PUBLIC_TAXONOMY_EMBED = ", store_categories ( slug, name )";
+
 export const STORE_SELECT_LEGACY_DETAIL =
-  "id, store_name, slug, business_type, description, phone, region, city, district, address_line1, address_line2, lat, lng, business_hours_json, profile_image_url, gallery_images_json, is_open, delivery_available, pickup_available, visit_available, reservation_available, rating_avg, review_count, approval_status, is_visible, created_at, updated_at";
+  "id, store_name, slug, business_type, description, phone, region, city, district, address_line1, address_line2, lat, lng, business_hours_json, profile_image_url, gallery_images_json, is_open, delivery_available, pickup_available, visit_available, reservation_available, rating_avg, review_count, approval_status, is_visible, created_at, updated_at" +
+  STORE_PUBLIC_TAXONOMY_EMBED;
 
 /** `GET /api/stores/:slug/summary` — 메뉴 없이 상단·배달 메타용 */
 export const STORE_SELECT_SUMMARY =
-  "id, store_name, slug, business_type, description, phone, region, city, district, address_line1, address_line2, lat, lng, business_hours_json, profile_image_url, gallery_images_json, is_open, delivery_available, pickup_available, visit_available, reservation_available, rating_avg, review_count, approval_status, is_visible, created_at, updated_at";
+  "id, store_name, slug, business_type, description, phone, region, city, district, address_line1, address_line2, lat, lng, business_hours_json, profile_image_url, gallery_images_json, is_open, delivery_available, pickup_available, visit_available, reservation_available, rating_avg, review_count, approval_status, is_visible, created_at, updated_at" +
+  STORE_PUBLIC_TAXONOMY_EMBED;
 
 /** `/menus`·`reviews-summary` 등 store id 만 필요할 때 */
 export const STORE_SELECT_ID_SLUG_GATE = "id, slug, approval_status, is_visible";

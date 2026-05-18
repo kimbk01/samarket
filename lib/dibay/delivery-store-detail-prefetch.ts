@@ -19,6 +19,7 @@ import {
   deliveryStorePrefetchResolveTapState,
   type DeliveryStorePrefetchTapState,
 } from "@/lib/dibay/delivery-store-prefetch-trace";
+import { deliveryStoreDetailPrewarmAll } from "@/lib/dibay/delivery-store-detail-prewarm";
 import { deliveryStoreSummaryPrewarmMaybe } from "@/lib/dibay/delivery-store-summary-prewarm";
 import {
   deliveryPerfTraceEnabled,
@@ -260,6 +261,7 @@ export function deliveryStoreDetailPrefetch(
     } else {
       deliveryStorePrefetchMarkSingleFlight(href, source);
       if (SUMMARY_PREWARM_SOURCES.has(source)) {
+        deliveryStoreDetailPrewarmAll(s);
         deliveryStoreSummaryPrewarmMaybe(s, source);
       }
       return opts?.force ? true : false;
@@ -278,6 +280,7 @@ export function deliveryStoreDetailPrefetch(
   startPrefetchFlight(router, href, s, source, requestAt);
 
   if (SUMMARY_PREWARM_SOURCES.has(source)) {
+    deliveryStoreDetailPrewarmAll(s, opts?.force ? { force: true } : undefined);
     deliveryStoreSummaryPrewarmMaybe(s, source);
   }
 
@@ -348,8 +351,14 @@ export function deliveryStoreDetailPrefetchForTap(
 export function deliveryStoreDetailScheduleTapPush(
   href: string,
   tap: DeliveryStorePrefetchTapState,
-  pushFn: () => void
+  pushFn: () => void,
+  opts?: { immediate?: boolean }
 ): void {
+  if (opts?.immediate) {
+    pushFn();
+    return;
+  }
+
   const key = normalizeStoreDetailHref(href);
   const flight = flights.get(key);
   const maxWaitMs = tapPushMaxWaitMs();

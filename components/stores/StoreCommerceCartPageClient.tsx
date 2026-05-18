@@ -27,7 +27,15 @@ import {
   isCompletePhMobile,
   parsePhMobileInput,
 } from "@/lib/utils/ph-mobile";
-import { fetchStorePublicBySlugDeduped, fetchStoreDeliveryEtaDeduped, postMeStoreOrder } from "@/lib/stores/store-delivery-api-client";
+import {
+  fetchStorePublicBySlugDeduped,
+  fetchStoreDeliveryEtaDeduped,
+  fetchStoreSummaryDeduped,
+  postMeStoreOrder,
+} from "@/lib/stores/store-delivery-api-client";
+import { STORE_CART_PAGE_TITLE, STORE_CART_SUMMARY_HINT } from "@/lib/stores/store-cart-policy";
+import { StoreCartClearConfirmDialog } from "@/components/stores/cart/StoreCartClearConfirmDialog";
+import { StoreCheckoutSubmitConfirmDialog } from "@/components/stores/cart/StoreCheckoutSubmitConfirmDialog";
 import { BOTTOM_NAV_STACK_ABOVE_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import {
   clearLastCheckoutOrderId,
@@ -95,6 +103,7 @@ type StoreHead = {
   id: string;
   store_name: string;
   slug: string;
+  profile_image_url?: string | null;
   business_hours_json: unknown;
   is_open: boolean | null;
   /** false면 포장 픽업 비노출(매장 설정) */
@@ -129,6 +138,111 @@ type ProfileContactSnap = {
   addressDetail: string;
 };
 
+function StoreCartStoreSummaryCard({
+  store,
+  frontCommerce,
+  subtotalPhp,
+  minOrderPhp,
+  minShortage,
+  meetsMin,
+  onBackToStore,
+  onRequestClear,
+  clearBusy,
+}: {
+  store: StoreHead;
+  frontCommerce: ReturnType<typeof resolveStoreFrontCommerceState> | null;
+  subtotalPhp: number;
+  minOrderPhp: number;
+  minShortage: number;
+  meetsMin: boolean;
+  onBackToStore: () => void;
+  onRequestClear: () => void;
+  clearBusy: boolean;
+}) {
+  const openLabel = frontCommerce
+    ? frontCommerce.isOpenForCommerce
+      ? "주문 가능"
+      : frontCommerce.inBreak
+        ? `Break · ${frontCommerce.breakRangeLabel}`
+        : "준비 중"
+    : null;
+  const deliveryLabel =
+    store.delivery_available === false
+      ? "배달 불가"
+      : store.delivery_available === true
+        ? "배달 가능"
+        : null;
+
+  const thumb = store.profile_image_url?.trim();
+
+  return (
+    <section className="mx-3 mt-3 rounded-[14px] border border-sam-border bg-white p-4 shadow-[0_1px_0_rgba(0,0,0,0.02)]">
+      <p className="sam-text-xxs font-semibold text-sam-muted">현재 카트</p>
+      <div className="mt-2 flex gap-3">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[10px] bg-gradient-to-br from-sam-surface-muted to-sam-border-soft text-2xl">
+          {thumb ? (
+            <img src={thumb} alt="" className="h-full w-full object-cover" />
+          ) : (
+            <span aria-hidden>🍽️</span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="sam-text-body-lg font-bold leading-snug text-sam-fg">{store.store_name}</p>
+          <p className="mt-0.5 sam-text-helper text-sam-muted">{STORE_CART_SUMMARY_HINT}</p>
+        </div>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {openLabel ? (
+          <span className="rounded-full bg-sam-surface px-2.5 py-0.5 sam-text-xxs font-medium text-sam-fg">
+            {openLabel}
+          </span>
+        ) : null}
+        {deliveryLabel ? (
+          <span className="rounded-full bg-sam-surface px-2.5 py-0.5 sam-text-xxs font-medium text-sam-fg">
+            {deliveryLabel}
+          </span>
+        ) : null}
+      </div>
+      <dl className="mt-3 space-y-1 sam-text-helper text-sam-muted">
+        {minOrderPhp > 0 ? (
+          <div className="flex justify-between gap-2">
+            <dt>최소 주문</dt>
+            <dd className="font-semibold text-sam-fg">{formatMoneyPhp(minOrderPhp)}</dd>
+          </div>
+        ) : null}
+        <div className="flex justify-between gap-2">
+          <dt>현재 상품 금액</dt>
+          <dd className="font-semibold tabular-nums text-sam-fg">{formatMoneyPhp(subtotalPhp)}</dd>
+        </div>
+        {minOrderPhp > 0 && !meetsMin ? (
+          <div className="flex justify-between gap-2 text-amber-800">
+            <dt>부족한 금액</dt>
+            <dd className="font-semibold tabular-nums">{formatMoneyPhp(minShortage)}</dd>
+          </div>
+        ) : null}
+      </dl>
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button
+          type="button"
+          disabled={clearBusy}
+          onClick={onBackToStore}
+          className="inline-flex h-10 flex-1 min-w-[8.5rem] items-center justify-center rounded-full border border-sam-border bg-white px-4 sam-text-helper font-semibold text-sam-fg shadow-sm active:bg-sam-app disabled:opacity-50"
+        >
+          가게로 돌아가기
+        </button>
+        <button
+          type="button"
+          disabled={clearBusy}
+          onClick={onRequestClear}
+          className="inline-flex h-10 flex-1 min-w-[8.5rem] items-center justify-center rounded-full border border-red-200 bg-red-50 px-4 sam-text-helper font-semibold text-red-800 active:bg-red-100/80 disabled:opacity-50"
+        >
+          카트 비우기
+        </button>
+      </div>
+    </section>
+  );
+}
+
 function CartTopBar({
   cartCount,
   onBack,
@@ -151,7 +265,9 @@ function CartTopBar({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 18l-6-6 6-6" />
               </svg>
             </button>
-            <h1 className="mx-auto text-center sam-text-body-lg font-semibold text-sam-fg">장바구니</h1>
+            <h1 className="mx-auto text-center sam-text-body-lg font-semibold text-sam-fg">
+              {STORE_CART_PAGE_TITLE}
+            </h1>
             <button
               type="button"
               aria-label="친구 추가"
@@ -205,6 +321,13 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const [addressBookHydrated, setAddressBookHydrated] = useState(false);
   const [legacyLsNoticeCount, setLegacyLsNoticeCount] = useState(0);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>("cod");
+  const [clearCartConfirmOpen, setClearCartConfirmOpen] = useState(false);
+  const [checkoutConfirmOpen, setCheckoutConfirmOpen] = useState(false);
+  const [checkoutConfirmPayload, setCheckoutConfirmPayload] = useState<{
+    phoneLabel: string;
+    addressLabel: string;
+    paymentLabel: string;
+  } | null>(null);
 
   useEffect(() => {
     void router.prefetch("/orders");
@@ -236,6 +359,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           id: s.id as string,
           store_name: s.store_name as string,
           slug: (s.slug as string) ?? storeSlug,
+          profile_image_url:
+            typeof s.profile_image_url === "string" && s.profile_image_url.trim()
+              ? s.profile_image_url.trim()
+              : null,
           business_hours_json: s.business_hours_json,
           is_open: (s.is_open as boolean | null | undefined) ?? null,
           pickup_available: (s.pickup_available as boolean | null | undefined) ?? null,
@@ -263,10 +390,21 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   useEffect(() => {
     setStoreLoadFailed(false);
     setStoreLoading(true);
-    const bucket = findCommerceCartBucketBySlug(cart.snapshot, storeSlug);
-    setStore(bucket ? storeHeadFromCartBucket(bucket) : null);
     void loadStore();
-  }, [loadStore, cart.snapshot, storeSlug]);
+  }, [loadStore, storeSlug]);
+
+  /** 수량 변경 등 snapshot 갱신 시 API 재호출 없이 카트 메타만 보강 */
+  useEffect(() => {
+    const bucket = findCommerceCartBucketBySlug(cart.snapshot, storeSlug);
+    if (!bucket) return;
+    setStore((prev) => {
+      if (prev?.id === bucket.storeId && prev.slug === bucket.storeSlug) {
+        if (prev.store_name === bucket.storeName) return prev;
+        return { ...prev, store_name: bucket.storeName };
+      }
+      return storeHeadFromCartBucket(bucket);
+    });
+  }, [cart.snapshot, storeSlug]);
 
   useRefetchOnPageShowRestore(() => void loadStore({ silent: true }));
 
@@ -770,8 +908,37 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
   const checkoutBlocked = frontCommerce != null && !frontCommerce.isOpenForCommerce;
 
+  const navigateToStoreMenu = useCallback(async () => {
+    const slugFromStore = store?.slug?.trim();
+    const slugFromCart = cartBucket?.storeSlug?.trim();
+    const slug = slugFromStore || slugFromCart || storeSlug.trim();
+    if (slug) {
+      router.push(`/stores/${encodeURIComponent(slug)}`);
+      return;
+    }
+    const sid = store?.id?.trim() || cartBucket?.storeId?.trim();
+    if (sid) {
+      try {
+        const { json } = await fetchStoreSummaryDeduped(storeSlug);
+        const j = json as { ok?: boolean; store?: { slug?: string } };
+        const resolved = j?.ok && j.store?.slug?.trim() ? j.store.slug.trim() : "";
+        if (resolved) {
+          router.push(`/stores/${encodeURIComponent(resolved)}`);
+          return;
+        }
+      } catch {
+        /* fallback */
+      }
+    }
+    router.push("/stores");
+  }, [store, cartBucket, storeSlug, router]);
+
   async function submitOrder() {
     if (!store || lines.length === 0) return;
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      setErr("네트워크에 연결된 뒤 다시 주문해 주세요.");
+      return;
+    }
     if (busy || orderSubmitFlightRef.current) return;
     if (frontCommerce && !frontCommerce.isOpenForCommerce) {
       setErr(
@@ -842,13 +1009,23 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       [summaryForSubmit, addressDetail.trim()].filter(Boolean).join("\n") || "(미입력)";
     const payLabel =
       checkoutPaymentOptions.find((o) => o.id === selectedPaymentMethod)?.label ?? selectedPaymentMethod;
-    if (
-      !window.confirm(
-        `주소·연락처·결제가 일치하나요?\n\n연락처: ${phoneDisp}\n주소:\n${addrDisp}\n결제: ${payLabel}\n\n이 내용으로 주문을 접수할까요?`
-      )
-    ) {
+    setCheckoutConfirmPayload({
+      phoneLabel: phoneDisp,
+      addressLabel: addrDisp,
+      paymentLabel: payLabel,
+    });
+    setCheckoutConfirmOpen(true);
+  }
+
+  async function submitOrderConfirmed() {
+    if (!store || lines.length === 0) return;
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      setErr("네트워크에 연결된 뒤 다시 주문해 주세요.");
       return;
     }
+    if (busy || orderSubmitFlightRef.current) return;
+    setCheckoutConfirmOpen(false);
+    setCheckoutConfirmPayload(null);
 
     setErr(null);
     setLastOrderId(null);
@@ -1064,8 +1241,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         <CartTopBar cartCount={0} onBack={() => router.back()} />
         <div className="px-4 py-10">
           <div className="text-center">
-            <p className="sam-text-body-lg font-semibold text-sam-fg">담은 메뉴가 없어요</p>
-            <p className="mt-1 sam-text-body text-sam-muted">{store?.store_name ?? storeSlug} 다시 둘러볼까요?</p>
+            <p className="sam-text-body-lg font-semibold text-sam-fg">장바구니가 비어 있어요</p>
+            <p className="mt-1 sam-text-body text-sam-muted">먹고 싶은 가게를 찾아보세요</p>
           </div>
           {otherBuckets.length > 0 ? (
             <div className="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-3 sam-text-body-secondary leading-relaxed text-amber-950">
@@ -1108,13 +1285,23 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               </ul>
             </div>
           ) : null}
-          <div className="mt-6 flex justify-center">
-            <Link
-              href={`/stores/${encodeURIComponent(store?.slug ?? storeSlug)}`}
-              className="inline-flex h-11 min-w-[11.5rem] items-center justify-center rounded-full border border-sam-border bg-white px-6 sam-text-body font-semibold text-sam-fg shadow-sm active:bg-sam-app"
-            >
-              메뉴 보기
-            </Link>
+          <div className="mt-6 flex flex-col items-center gap-3">
+            {otherBuckets.length === 0 ? (
+              <Link
+                href="/stores"
+                className="inline-flex h-11 min-w-[11.5rem] items-center justify-center rounded-full border border-sam-border bg-white px-6 sam-text-body font-semibold text-sam-fg shadow-sm active:bg-sam-app"
+              >
+                가게 둘러보기
+              </Link>
+            ) : null}
+            {store?.slug || storeSlug ? (
+              <Link
+                href={`/stores/${encodeURIComponent(store?.slug ?? storeSlug)}`}
+                className="sam-text-body text-sam-muted underline"
+              >
+                {store?.store_name ?? storeSlug} 메뉴 보기
+              </Link>
+            ) : null}
           </div>
         </div>
       </div>
@@ -1139,6 +1326,44 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   return (
     <div className="min-h-screen bg-sam-app pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
       <CartTopBar cartCount={lines.length} onBack={() => router.back()} />
+
+      <StoreCartStoreSummaryCard
+        store={store}
+        frontCommerce={frontCommerce}
+        subtotalPhp={subtotalPhp}
+        minOrderPhp={minOrderPhp}
+        minShortage={minShortage}
+        meetsMin={meetsMin}
+        clearBusy={busy}
+        onBackToStore={() => void navigateToStoreMenu()}
+        onRequestClear={() => setClearCartConfirmOpen(true)}
+      />
+
+      <StoreCartClearConfirmDialog
+        open={clearCartConfirmOpen}
+        storeName={store.store_name}
+        busy={busy}
+        onCancel={() => setClearCartConfirmOpen(false)}
+        onConfirm={() => {
+          setClearCartConfirmOpen(false);
+          cart.clearStoreCart(store.id);
+        }}
+      />
+
+      {checkoutConfirmPayload ? (
+        <StoreCheckoutSubmitConfirmDialog
+          open={checkoutConfirmOpen}
+          phoneLabel={checkoutConfirmPayload.phoneLabel}
+          addressLabel={checkoutConfirmPayload.addressLabel}
+          paymentLabel={checkoutConfirmPayload.paymentLabel}
+          busy={busy}
+          onCancel={() => {
+            setCheckoutConfirmOpen(false);
+            setCheckoutConfirmPayload(null);
+          }}
+          onConfirm={() => void submitOrderConfirmed()}
+        />
+      ) : null}
 
       <div className="mt-2 space-y-2 px-3">
         {lines.map((line) => {
@@ -1203,6 +1428,12 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 <p className="mt-0.5 sam-text-helper text-sam-muted">
                   {line.optionsSummary?.trim() ? line.optionsSummary.trim() : t("common_none")}
                 </p>
+                <Link
+                  href={`/stores/${encodeURIComponent(store.slug)}`}
+                  className="mt-1 inline-block sam-text-xxs font-semibold text-signature underline decoration-signature/40"
+                >
+                  이 가게 메뉴 더 보기
+                </Link>
                 {line.lineNote?.trim() ? (
                   <p className="mt-0.5 sam-text-helper text-amber-900/90">
                     <span className="font-medium">{t("common_request")}</span> {line.lineNote.trim()}

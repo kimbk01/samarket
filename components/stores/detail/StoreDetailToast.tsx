@@ -3,6 +3,7 @@
 import { memo, useLayoutEffect } from "react";
 import { useStoreCommerceCartBucketStats } from "@/lib/stores/use-store-commerce-cart-selector";
 import { deliveryRenderTraceBump } from "@/lib/dibay/delivery-render-trace";
+import { STORE_COMMERCE_POLICY_TOAST_STORE_ID } from "@/lib/stores/store-detail-toast-ui-store";
 
 export const StoreDetailToast = memo(function StoreDetailToast({
   storeId,
@@ -11,7 +12,10 @@ export const StoreDetailToast = memo(function StoreDetailToast({
   storeId: string;
   message: string;
 }) {
-  const { totalQty } = useStoreCommerceCartBucketStats(storeId);
+  const policyToast = storeId === STORE_COMMERCE_POLICY_TOAST_STORE_ID;
+  const { totalQty } = useStoreCommerceCartBucketStats(
+    policyToast ? "" : storeId
+  );
 
   useLayoutEffect(() => {
     deliveryRenderTraceBump("toast-view", { store_id: storeId });

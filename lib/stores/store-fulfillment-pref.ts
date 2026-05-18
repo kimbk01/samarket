@@ -12,6 +12,28 @@ export function storeFulfillmentPrefKey(slug: string): string {
   return `samarket:store-fulfillment:${slug.trim()}`;
 }
 
+/** 사장님 어드민 `delivery_available` / `pickup_available` 기준 기본 수령 방식 */
+export function resolveStoreFulfillmentModeForEntry(
+  availability: {
+    deliveryAvailable: boolean;
+    pickupAvailable: boolean;
+  },
+  savedPref: StoreFulfillmentPref | null = null
+): StoreFulfillmentPref {
+  const deliveryAvailable = availability.deliveryAvailable === true;
+  const pickupAvailable = availability.pickupAvailable !== false;
+
+  if (deliveryAvailable && pickupAvailable) {
+    return "local_delivery";
+  }
+  if (deliveryAvailable) return "local_delivery";
+  if (pickupAvailable) return "pickup";
+
+  if (savedPref === "local_delivery" && deliveryAvailable) return "local_delivery";
+  if (savedPref === "pickup" && pickupAvailable) return "pickup";
+  return "pickup";
+}
+
 export function readStoreFulfillmentPref(slug: string): StoreFulfillmentPref | null {
   if (typeof window === "undefined") return null;
   try {

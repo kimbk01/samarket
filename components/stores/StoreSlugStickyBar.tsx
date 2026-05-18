@@ -19,12 +19,15 @@ import {
   type StoreFulfillmentPrefChangedDetail,
 } from "@/lib/stores/store-fulfillment-pref";
 import { fetchStorePublicBySlugDeduped } from "@/lib/stores/store-delivery-api-client";
+import { resolveStoreBrowseListHrefFromStore } from "@/lib/stores/resolve-store-browse-list-href";
 import { useStoreFavoriteToggle } from "@/lib/stores/use-store-favorite-toggle";
 
 type StoreHead = {
   id: string;
   store_name: string;
   slug: string;
+  business_type?: string | null;
+  store_categories?: { slug: string; name: string } | { slug: string; name: string }[] | null;
   phone: string | null;
   district: string | null;
   city: string | null;
@@ -71,12 +74,15 @@ export function StoreSlugStickyBar({ slug }: { slug: string }) {
   const storeRoot = `/stores/${encodeURIComponent(decoded)}`;
   const infoPath = `/stores/${encodeURIComponent(decoded)}/info`;
   const reviewsPath = `${storeRoot}/reviews`;
+  const browseListHref = resolveStoreBrowseListHrefFromStore(
+    store ? { slug: store.slug, store_categories: store.store_categories, business_type: store.business_type ?? null } : { slug: decoded, store_categories: null, business_type: null }
+  );
   const fallbackHref =
     pathname === infoPath || (pathname?.startsWith(`${infoPath}/`) ?? false)
       ? storeRoot
       : pathname === reviewsPath || (pathname?.startsWith(`${reviewsPath}/`) ?? false)
         ? storeRoot
-        : "/stores";
+        : browseListHref;
 
   const isStoreMenuRoot = pathname === storeRoot;
 

@@ -160,6 +160,37 @@ export function primeStoreSummaryCache(slug: string, response: StoreApiJsonRespo
   storeSummaryPublicCache.set(s, { expiresAt: Date.now() + STORE_SUMMARY_PUBLIC_CACHE_TTL_MS, value });
 }
 
+function peekSlugPublicCache(
+  map: Map<string, { expiresAt: number; value: StoreApiJsonResponse }>,
+  slug: string
+): StoreApiJsonResponse | null {
+  const s = trimSlug(slug);
+  if (!s) return null;
+  const hit = map.get(s);
+  if (!hit || hit.expiresAt <= Date.now()) {
+    if (hit) map.delete(s);
+    return null;
+  }
+  return { status: hit.value.status, json: hit.value.json };
+}
+
+/** 탭·마운트 직후 동기 적용 — `fetchStoreSummaryDeduped` 왕복 전 */
+export function peekStoreSummaryPublicCache(slug: string): StoreApiJsonResponse | null {
+  return peekSlugPublicCache(storeSummaryPublicCache, slug);
+}
+
+export function peekStoreMenusPublicCache(slug: string): StoreApiJsonResponse | null {
+  return peekSlugPublicCache(storeMenusPublicCache, slug);
+}
+
+export function peekStoreBannersPublicCache(slug: string): StoreApiJsonResponse | null {
+  return peekSlugPublicCache(storeBannersPublicCache, slug);
+}
+
+export function peekStoreNoticesPublicCache(slug: string): StoreApiJsonResponse | null {
+  return peekSlugPublicCache(storeNoticesPublicCache, slug);
+}
+
 /** GET /api/stores/:slug/summary — 매장 메타만 (메뉴 없음) */
 export async function fetchStoreSummaryDeduped(slug: string): Promise<StoreApiJsonResponse> {
   const s = trimSlug(slug);
@@ -482,16 +513,37 @@ export async function fetchStoreDeliveryEtaDeduped(
   return withAbortSignal(flight, opts?.signal);
 }
 
-/** POST /api/me/store-orders (주문 생성) */
+const storeOrderPostFlights = new Map<string, Promise<StoreApiJsonResponse>>();
+
+/** POST /api/me/store-orders (주문 생성) — 동일 client_order_key 단일 비행 */
 export async function postMeStoreOrder(body: Record<string, unknown>): Promise<StoreApiJsonResponse> {
-  const res = await fetch("/api/me/store-orders", {
-    method: "POST",
-    credentials: "include",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  const json = await res.json().catch(() => ({}));
-  return { status: res.status, json };
+  const keyRaw = body.client_order_key;
+  const idemKey = typeof keyRaw === "string" ? keyRaw.trim() : "";
+
+  const runPost = async (): Promise<StoreApiJsonResponse> => {
+    const res = await fetch("/api/me/store-orders", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json().catch(() => ({}));
+    return { status: res.status, json };
+  };
+
+  if (!idemKey) return runPost();
+
+  const flightKey = `order:${idemKey}`;
+  const existing = storeOrderPostFlights.get(flightKey);
+  if (existing) return existing;
+
+  const flight = runPost();
+  storeOrderPostFlights.set(flightKey, flight);
+  try {
+    return await flight;
+  } finally {
+    storeOrderPostFlights.delete(flightKey);
+  }
 }
 
 /** GET /api/me/store-orders?… (목록·프리뷰) — query 전체를 키에 포함 */
