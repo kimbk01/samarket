@@ -5,6 +5,7 @@ import {
   loadStoreCommerceMeta,
   STORE_SELECT_SUMMARY,
 } from "@/lib/stores/get-approved-store-by-slug";
+import { resolveStoreOrderability } from "@/lib/stores/store-orderability-policy";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -49,17 +50,23 @@ export async function GET(
     const store = storeRes.store;
     const storeId = String(store.id ?? "");
     const viewerId = await getRouteUserId();
-    const meta = await loadStoreCommerceMeta(sb, storeId, viewerId);
+    const [meta, orderability] = await Promise.all([
+      loadStoreCommerceMeta(sb, storeId, viewerId),
+      resolveStoreOrderability(sb, viewerId, store.owner_user_id),
+    ]);
+    const publicStore = { ...store };
+    delete (publicStore as { owner_user_id?: unknown }).owner_user_id;
 
     return NextResponse.json({
       ok: true,
-      store,
+      store: publicStore,
       meta: {
         canSell: meta.canSell,
         source: "supabase",
         favorite_count: meta.favoriteCount,
         recent_order_count: meta.recentOrderCount,
         viewer_favorited: meta.viewerFavorited,
+        ...orderability,
       },
     });
   } catch (e) {

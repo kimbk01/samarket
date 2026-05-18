@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { getRouteUserId } from "@/lib/auth/get-route-user-id";
+import { resolveStoreOrderability } from "@/lib/stores/store-orderability-policy";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
@@ -59,7 +61,7 @@ export async function GET(
   const { data: store, error: sErr } = await sb
     .from("stores")
     .select(
-      "id, slug, store_name, approval_status, is_visible, phone, region, city, district, is_open, business_hours_json, profile_image_url, delivery_available, pickup_available, rating_avg, review_count"
+      "id, owner_user_id, slug, store_name, approval_status, is_visible, phone, region, city, district, is_open, business_hours_json, profile_image_url, delivery_available, pickup_available, rating_avg, review_count"
     )
     .eq("id", prod.store_id)
     .maybeSingle();
@@ -77,6 +79,9 @@ export async function GET(
   if (!perm || !perm.allowed_to_sell || perm.sales_status !== "approved") {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
   }
+
+  const viewerId = await getRouteUserId();
+  const orderability = await resolveStoreOrderability(sb, viewerId, store.owner_user_id);
 
   const since90d = new Date();
   since90d.setUTCDate(since90d.getUTCDate() - 90);
@@ -121,6 +126,10 @@ export async function GET(
       review_count: store.review_count ?? null,
       favorite_count,
       recent_order_count,
+      viewer_is_owner: orderability.viewer_is_owner,
+      viewer_is_admin: orderability.viewer_is_admin,
+      can_order_store: orderability.can_order_store,
+      owner_block_message: orderability.owner_block_message,
     },
   });
 }

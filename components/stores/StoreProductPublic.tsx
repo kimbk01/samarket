@@ -63,9 +63,15 @@ type PublicStore = {
   pickup_available?: boolean | null;
   is_open?: boolean | null;
   business_hours_json?: unknown;
+  viewer_is_owner?: boolean;
+  viewer_is_admin?: boolean;
+  can_order_store?: boolean;
+  owner_block_message?: string | null;
 };
 
 type Fulfillment = "pickup" | "local_delivery" | "shipping";
+
+const OWN_STORE_ORDER_BLOCK_MESSAGE = "본인 매장은 주문할 수 없습니다";
 
 type CatEmbed = { name?: string } | { name?: string }[] | null | undefined;
 type MenuSecEmbed = { name?: string } | { name?: string }[] | null | undefined;
@@ -349,6 +355,8 @@ export function StoreProductPublic({
   );
   void hoursTick;
   const orderBlocked = commerce.inBreak || !commerce.isOpenForCommerce;
+  const ownerOrderBlocked = store.can_order_store === false;
+  const ownerOrderBlockedMessage = store.owner_block_message ?? OWN_STORE_ORDER_BLOCK_MESSAGE;
 
   const rawPhone = store.phone?.trim() ?? "";
   const phDigits = rawPhone ? parsePhMobileInput(rawPhone) : "";
@@ -385,6 +393,10 @@ export function StoreProductPublic({
       return;
     }
     if (orderBusy || orderSubmitFlightRef.current) return;
+    if (ownerOrderBlocked) {
+      setOrderErr(ownerOrderBlockedMessage);
+      return;
+    }
     if (commerce.inBreak) {
       setOrderErr(
         t("common_break_time_order_blocked", { time: commerce.breakRangeLabel })
@@ -552,6 +564,10 @@ export function StoreProductPublic({
     const st = store;
     const pr = product;
     if (!st || !pr || !commerceCartActions) return;
+    if (ownerOrderBlocked) {
+      setOrderErr(ownerOrderBlockedMessage);
+      return;
+    }
     if (commerce.inBreak) {
       setOrderErr(
         t("common_break_time_cart_blocked", { time: commerce.breakRangeLabel })
@@ -1022,6 +1038,9 @@ export function StoreProductPublic({
               </p>
             ) : null}
 
+            {ownerOrderBlocked && !orderErr ? (
+              <p className="text-sm font-semibold text-sam-muted">{ownerOrderBlockedMessage}</p>
+            ) : null}
             {orderErr ? <p className="text-sm text-red-600">{orderErr}</p> : null}
             {orderOk ? (
               <div className="space-y-2 rounded-ui-rect bg-green-50 px-3 py-2">
@@ -1056,9 +1075,9 @@ export function StoreProductPublic({
               {commerceCart ? (
                 <button
                   type="button"
-                  disabled={orderBusy || !optionValidation.ok || orderBlocked}
+                  disabled={orderBusy || !optionValidation.ok || orderBlocked || ownerOrderBlocked}
                   onClick={() => addToCart()}
-                  className="flex-1 rounded-ui-rect border border-sam-border bg-sam-surface py-3 sam-text-body font-semibold text-sam-fg disabled:opacity-50"
+                  className="flex-1 rounded-ui-rect border border-sam-border bg-sam-surface py-3 sam-text-body font-semibold text-sam-fg disabled:cursor-not-allowed disabled:bg-sam-surface-muted disabled:text-sam-muted disabled:opacity-60"
                 >
                   장바구니 담기
                 </button>
@@ -1066,10 +1085,14 @@ export function StoreProductPublic({
               <button
                 type="button"
                 disabled={
-                  orderBusy || !optionValidation.ok || orderBlocked || belowStoreMinOrder
+                  orderBusy ||
+                  !optionValidation.ok ||
+                  orderBlocked ||
+                  belowStoreMinOrder ||
+                  ownerOrderBlocked
                 }
                 onClick={() => void submitOrder()}
-                className={`rounded-ui-rect bg-signature py-3 sam-text-body font-semibold text-white disabled:opacity-50 ${
+                className={`rounded-ui-rect bg-signature py-3 sam-text-body font-semibold text-white disabled:cursor-not-allowed disabled:bg-sam-border disabled:text-sam-muted disabled:opacity-100 ${
                   commerceCart ? "flex-1" : "w-full"
                 }`}
               >

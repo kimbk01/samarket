@@ -146,4 +146,39 @@ describe("computeStoreCartAddOrMerge", () => {
       reason: "blocked_by_other_store",
     });
   });
+
+  it("keeps same product+options separate when line memo differs", () => {
+    let snap = emptyCommerceCartV2();
+    const first = computeStoreCartAddOrMerge(snap, { ...baseLine, lineNote: "소스 많이" });
+    expect(first.result).toEqual({ ok: true, reason: "added" });
+    snap = first.nextSnapshot!;
+
+    const second = computeStoreCartAddOrMerge(snap, { ...baseLine, lineNote: "젓가락 제외" });
+    expect(second.result).toEqual({ ok: true, reason: "added" });
+
+    const bucket = Object.values(second.nextSnapshot!.carts)[0]!;
+    expect(bucket.lines).toHaveLength(2);
+    expect(bucket.lines.map((l) => l.lineNote)).toEqual(["소스 많이", "젓가락 제외"]);
+  });
+
+  it("keeps same product separate when option selections differ", () => {
+    let snap = emptyCommerceCartV2();
+    const first = computeStoreCartAddOrMerge(snap, {
+      ...baseLine,
+      modifierWire: { pick: { sauce: ["fried"] }, qty: {} },
+      optionSelections: { sauce: ["fried"] },
+    });
+    expect(first.result).toEqual({ ok: true, reason: "added" });
+    snap = first.nextSnapshot!;
+
+    const second = computeStoreCartAddOrMerge(snap, {
+      ...baseLine,
+      modifierWire: { pick: { sauce: ["spicy"] }, qty: {} },
+      optionSelections: { sauce: ["spicy"] },
+    });
+    expect(second.result).toEqual({ ok: true, reason: "added" });
+
+    const bucket = Object.values(second.nextSnapshot!.carts)[0]!;
+    expect(bucket.lines).toHaveLength(2);
+  });
 });

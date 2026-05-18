@@ -23,13 +23,13 @@ import type { SheetPublicStore } from "@/lib/stores/map-list-row-to-sheet-produc
 import { calculateStoreProductBaseUnit } from "@/lib/stores/product-sheet/calculate-store-product-line-price";
 import { validateStoreProductRequiredOptions } from "@/lib/stores/product-sheet/validate-store-product-required-options";
 import { useStoreProductSheetDetail } from "@/lib/stores/product-sheet/use-store-product-sheet-detail";
+import { StoreProductSheetAddToCartBar } from "@/components/stores/product-sheet/StoreProductSheetAddToCartBar";
 import { StoreProductSheetShell } from "@/components/stores/product-sheet/StoreProductSheetShell";
 import { StoreProductSheetHeader } from "@/components/stores/product-sheet/StoreProductSheetHeader";
 import {
   StoreProductSheetBodySkeleton,
   StoreProductSheetOptionsSkeleton,
 } from "@/components/stores/product-sheet/StoreProductSheetSkeleton";
-import { DeliveryButton } from "@/components/delivery/ui/DeliveryButton";
 import {
   STORE_ORDER_BRAND,
   STORE_ORDER_CTA_STEPPER,
@@ -557,7 +557,7 @@ export function StoreProductAddSheet({
       return;
     }
     if (!addResult.ok) {
-      setSheetErr("장바구니에 담을 수 없습니다.");
+      setSheetErr("카트에 담을 수 없습니다.");
       traceDeliveryOptionAddSubmitMs(deliveryOptionTraceNow() - submitStart, optionTraceBase, {
         status: "failed",
       });
@@ -612,7 +612,7 @@ export function StoreProductAddSheet({
     ? "옵션을 불러오는 중…"
     : optionHydrationFailed
       ? "옵션을 불러올 수 없음"
-      : "장바구니 담기";
+      : "카트 담기";
 
   return (
     <StoreProductSheetShell onBackdropClose={onClose}>
@@ -751,6 +751,58 @@ export function StoreProductAddSheet({
               </p>
             ) : null}
 
+            <div
+              className="mt-3 border-t-[8px] border-[#EDEDED] px-4 py-4"
+              style={{ backgroundColor: STORE_ORDER_BRAND.frameGray }}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[13px] font-bold text-neutral-900">본메뉴</p>
+                  <p className="mt-0.5 text-[12px] font-medium text-neutral-500">
+                    옵션을 추가하기 전 메뉴 금액입니다.
+                  </p>
+                </div>
+                <div className="shrink-0 text-right">
+                  {showListStrike ? (
+                    <span className="mr-2 text-[11px] font-medium tabular-nums text-neutral-400 line-through">
+                      {formatMoneyPhp(Math.floor(product.price))}
+                    </span>
+                  ) : null}
+                  <span className="text-[17px] font-extrabold tabular-nums tracking-tight text-neutral-900">
+                    {formatMoneyPhp(Math.floor(baseUnit))}
+                  </span>
+                  <span className="ml-0.5 text-[11px] font-semibold text-neutral-500">/개</span>
+                </div>
+              </div>
+
+              <div className="mt-4 flex items-center justify-between border-t border-neutral-200/70 pt-4">
+                <span className="text-[13px] font-bold text-neutral-900">본메뉴 수량</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={qtyMinusDisabled}
+                    onClick={() => setQtyTracked((q) => Math.max(minQ, q - 1))}
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center text-lg font-bold leading-none ${STORE_ORDER_CTA_STEPPER}`}
+                    aria-label="수량 감소"
+                  >
+                    −
+                  </button>
+                  <span className="min-w-[2.25rem] text-center text-[16px] font-extrabold tabular-nums text-neutral-900">
+                    {qty}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={qtyPlusDisabled}
+                    onClick={() => setQtyTracked((q) => Math.min(capQty, q + 1))}
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center text-lg font-bold leading-none ${STORE_ORDER_CTA_STEPPER}`}
+                    aria-label="수량 증가"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            </div>
+
             {awaitingOptionHydration ? (
               <StoreProductSheetOptionsSkeleton />
             ) : optionHydrationFailed ? (
@@ -778,92 +830,39 @@ export function StoreProductAddSheet({
               </div>
             ) : null}
 
-            <div
-              className="border-t-[8px] border-[#EDEDED] px-4 py-4"
-              style={{ backgroundColor: STORE_ORDER_BRAND.frameGray }}
-            >
-              {hasOptionDelta ? (
-                <>
-                  <div className="flex items-start justify-between gap-3">
-                    <span className="text-[12px] font-medium text-neutral-500">메뉴</span>
-                    <div className="text-right">
-                      {showListStrike ? (
-                        <span className="mr-2 text-[11px] font-medium tabular-nums text-neutral-400 line-through">
-                          {formatMoneyPhp(Math.floor(product.price))}
-                        </span>
-                      ) : null}
-                      <span className="text-[15px] font-bold tabular-nums text-neutral-900">
-                        {formatMoneyPhp(Math.floor(baseUnit))}
+            {hasOptionDelta || showLineTotalInCard ? (
+              <div
+                className="border-t-[8px] border-[#EDEDED] px-4 py-4"
+                style={{ backgroundColor: STORE_ORDER_BRAND.frameGray }}
+              >
+                {hasOptionDelta ? (
+                  <>
+                    <div className="flex items-center justify-between text-[12px] font-medium">
+                      <span className="text-neutral-600">추가 메뉴·옵션 금액</span>
+                      <span className="tabular-nums font-bold text-neutral-900">
+                        {optionValidation.unitDelta > 0 ? "+" : ""}
+                        {formatMoneyPhp(optionValidation.unitDelta)}
                       </span>
                     </div>
-                  </div>
-                  <div className="mt-2 flex items-center justify-between text-[11px] font-medium">
-                    <span className="text-neutral-500">옵션 추가</span>
-                    <span className="tabular-nums font-semibold text-neutral-700">
-                      {optionValidation.unitDelta > 0 ? "+" : ""}
-                      {formatMoneyPhp(optionValidation.unitDelta)}
-                    </span>
-                  </div>
-                  <div className="mt-3 flex items-end justify-between border-t border-neutral-200/70 pt-3">
-                    <span className="text-[12px] font-bold text-neutral-800">1개당</span>
-                    <span className="text-[17px] font-extrabold tabular-nums tracking-tight text-neutral-900">
-                      {formatMoneyPhp(unitWithOptions)}
-                    </span>
-                  </div>
-                </>
-              ) : (
-                <div className="flex items-start justify-between gap-3">
-                  <span className="pt-0.5 text-[12px] font-medium text-neutral-500">메뉴 금액</span>
-                  <div className="text-right">
-                    {showListStrike ? (
-                      <span className="mr-2 text-[11px] font-medium tabular-nums text-neutral-400 line-through">
-                        {formatMoneyPhp(Math.floor(product.price))}
+                    <div className="mt-4 flex items-end justify-between border-t border-neutral-200/70 pt-3">
+                      <span className="text-[12px] font-bold text-neutral-800">1개당</span>
+                      <span className="text-[17px] font-extrabold tabular-nums tracking-tight text-neutral-900">
+                        {formatMoneyPhp(unitWithOptions)}
                       </span>
-                    ) : null}
-                    <span className="text-[17px] font-extrabold tabular-nums tracking-tight text-neutral-900">
-                      {formatMoneyPhp(unitWithOptions)}
+                    </div>
+                  </>
+                ) : null}
+
+                {showLineTotalInCard ? (
+                  <div className="mt-4 flex items-center justify-between border-t border-neutral-200/70 pt-4">
+                    <span className="text-[12px] font-semibold text-neutral-600">주문 합계</span>
+                    <span className="text-[17px] font-extrabold tabular-nums text-neutral-900">
+                      {formatMoneyPhp(lineTotal)}
                     </span>
-                    <span className="ml-0.5 text-[11px] font-semibold text-neutral-500">/개</span>
                   </div>
-                </div>
-              )}
-
-              <div className="mt-4 flex items-center justify-between border-t border-neutral-200/70 pt-4">
-                <span className="text-[13px] font-bold text-neutral-900">수량</span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={qtyMinusDisabled}
-                    onClick={() => setQtyTracked((q) => Math.max(minQ, q - 1))}
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center text-lg font-bold leading-none ${STORE_ORDER_CTA_STEPPER}`}
-                    aria-label="수량 감소"
-                  >
-                    −
-                  </button>
-                  <span className="min-w-[2.25rem] text-center text-[16px] font-extrabold tabular-nums text-neutral-900">
-                    {qty}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={qtyPlusDisabled}
-                    onClick={() => setQtyTracked((q) => Math.min(capQty, q + 1))}
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center text-lg font-bold leading-none ${STORE_ORDER_CTA_STEPPER}`}
-                    aria-label="수량 증가"
-                  >
-                    +
-                  </button>
-                </div>
+                ) : null}
               </div>
-
-              {showLineTotalInCard ? (
-                <div className="mt-4 flex items-center justify-between border-t border-neutral-200/70 pt-4">
-                  <span className="text-[12px] font-semibold text-neutral-600">주문 합계</span>
-                  <span className="text-[17px] font-extrabold tabular-nums text-neutral-900">
-                    {formatMoneyPhp(lineTotal)}
-                  </span>
-                </div>
-              ) : null}
-            </div>
+            ) : null}
 
             <div className="border-t border-neutral-100 bg-white px-4 py-3.5">
               <label htmlFor="store-add-sheet-line-note" className="text-[12px] font-bold text-neutral-800">
@@ -896,7 +895,7 @@ export function StoreProductAddSheet({
             ) : null}
             {!commerceCart ? (
               <p className="mt-1 px-4 pb-2 text-[11px] text-amber-800">
-                장바구니를 사용할 수 없습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.
+                카트를 사용할 수 없습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.
               </p>
             ) : null}
           </div>
@@ -904,29 +903,14 @@ export function StoreProductAddSheet({
       </div>
 
       {!showNotFound && !showFullLoadingBody && product && store ? (
-        <div
-          className="shrink-0 border-t border-[var(--delivery-border-light)] bg-white px-4 pt-3"
-          style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))" }}
-        >
-          {sheetErr ? (
-            <p className="mb-2 text-center text-[11px] font-medium text-red-600">{sheetErr}</p>
-          ) : null}
-          <div className="flex items-center gap-3">
-            <p className="min-w-0 flex-1 text-[16px] font-bold leading-none tabular-nums text-[var(--delivery-text-main)]">
-              {formatMoneyPhp(lineTotal)}
-            </p>
-            <DeliveryButton
-              variant="primary"
-              size="md"
-              sticky
-              className="min-w-[9.5rem] max-w-[58%] flex-1"
-              disabled={ctaDisabled}
-              onClick={addToCart}
-            >
-              {ctaLabel}
-            </DeliveryButton>
-          </div>
-        </div>
+        <StoreProductSheetAddToCartBar
+          storeId={store.id}
+          lineTotalPhp={lineTotal}
+          label={ctaLabel}
+          disabled={ctaDisabled}
+          errorMessage={sheetErr}
+          onAdd={addToCart}
+        />
       ) : null}
     </StoreProductSheetShell>
   );

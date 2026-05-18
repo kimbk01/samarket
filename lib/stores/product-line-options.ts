@@ -44,6 +44,29 @@ export function orderLineIdentityKey(
   return modifierLineIdentityKey(productId, wire);
 }
 
+export function normalizeCartLineMemo(memo: string | null | undefined): string {
+  return String(memo ?? "").trim();
+}
+
+export function computeCartLineMergeKey({
+  storeId,
+  productId,
+  selections,
+  lineNote,
+}: {
+  storeId: string;
+  productId: string;
+  selections: Record<string, string[]> | ModifierSelectionsWire;
+  lineNote?: string | null;
+}): string {
+  const storeKey = String(storeId ?? "").trim();
+  return [
+    storeKey,
+    orderLineIdentityKey(productId, selections),
+    `M:${JSON.stringify(normalizeCartLineMemo(lineNote))}`,
+  ].join("\t");
+}
+
 export function stableOptionSelectionsKey(selections: Record<string, string[]> | undefined): string {
   return stablePickOnlyKey(selections);
 }

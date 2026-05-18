@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   formatPhMobileDisplay,
+  formatPhMobileDisplayPlus63,
   isCompletePhMobile,
   normalizeOptionalPhMobileDb,
   normalizePhMobileDb,
@@ -57,6 +58,18 @@ describe("normalizePhMobileDb / isCompletePhMobile", () => {
 describe("formatPhMobileDisplay", () => {
   it("groups as 09 ## ### ####", () => {
     expect(formatPhMobileDisplay("09171234567")).toBe("09 17 123 4567");
+  });
+});
+
+describe("formatPhMobileDisplayPlus63", () => {
+  it("groups as +63 956 188 6313", () => {
+    expect(formatPhMobileDisplayPlus63("09561886313")).toBe("+63 956 188 6313");
+    expect(formatPhMobileDisplayPlus63("09171234567")).toBe("+63 917 123 4567");
+  });
+
+  it("supports partial input", () => {
+    expect(formatPhMobileDisplayPlus63("0956")).toBe("+63 956");
+    expect(formatPhMobileDisplayPlus63("09")).toBe("+63 9");
   });
 });
 

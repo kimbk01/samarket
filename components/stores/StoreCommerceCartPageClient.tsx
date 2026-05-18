@@ -24,7 +24,7 @@ import {
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { resolveCartLineListUnitPhp } from "@/lib/stores/store-product-pricing";
 import {
-  formatPhMobileDisplay,
+  formatPhMobileDisplayPlus63,
   isCompletePhMobile,
   parsePhMobileInput,
 } from "@/lib/utils/ph-mobile";
@@ -143,7 +143,11 @@ type StoreHead = {
   district?: string | null;
   address_line1?: string | null;
   address_line2?: string | null;
+  can_order_store?: boolean;
+  owner_block_message?: string | null;
 };
+
+const OWN_STORE_ORDER_BLOCK_MESSAGE = "본인 매장은 주문할 수 없습니다";
 
 type ProfileContactSnap = {
   userAddressId?: string | null;
@@ -238,7 +242,11 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       const silent = !!opts?.silent;
       try {
         const { json } = await fetchStorePublicBySlugDeduped(storeSlug);
-        const j = json as { ok?: boolean; store?: Record<string, unknown> };
+        const j = json as {
+          ok?: boolean;
+          store?: Record<string, unknown>;
+          meta?: Record<string, unknown>;
+        };
         if (!j?.ok || !j.store) {
           if (!silent) {
             setStoreLoadFailed(true);
@@ -247,7 +255,11 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           return;
         }
         setStoreLoadFailed(false);
-        const head = parseStoreCartHeadFromPublicJson(storeSlug, j.store as Record<string, unknown>);
+        const head = parseStoreCartHeadFromPublicJson(
+          storeSlug,
+          j.store as Record<string, unknown>,
+          j.meta
+        );
         setStore(head);
         patchBucketMeta(head.id, { storeSlug: head.slug, storeName: head.store_name });
       } catch {
@@ -583,11 +595,11 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       ? Boolean(deliveryUserAddressIdForSubmit) && summaryForSubmit.trim().length >= 3
       : summaryForSubmit.trim().length >= 3;
 
-  /** 장바구니 카드 — `09 ## ### ####` */
+  /** 장바구니 카드 — `+63 956 188 6313` */
   const formattedPhoneDisplay = useMemo(() => {
     const d = parsePhMobileInput(buyerPhone);
     if (d.length === 0) return "";
-    return formatPhMobileDisplay(d);
+    return formatPhMobileDisplayPlus63(d);
   }, [buyerPhone]);
 
   const applyCheckoutBuyerPhone = useCallback(
@@ -858,7 +870,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     return resolveStoreFrontCommerceState(store.business_hours_json, store.is_open);
   }, [store, hoursTick]);
 
-  const checkoutBlocked = frontCommerce != null && !frontCommerce.isOpenForCommerce;
+  const ownerOrderBlocked = store?.can_order_store === false;
+  const ownerOrderBlockedMessage = store?.owner_block_message ?? OWN_STORE_ORDER_BLOCK_MESSAGE;
+  const checkoutBlocked =
+    ownerOrderBlocked || (frontCommerce != null && !frontCommerce.isOpenForCommerce);
 
   const navigateToStoreMenu = useCallback(async () => {
     const slugFromStore = store?.slug?.trim();
@@ -939,6 +954,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       return;
     }
     if (busy || orderSubmitFlightRef.current) return;
+    if (ownerOrderBlocked) {
+      setErr(ownerOrderBlockedMessage);
+      return;
+    }
     if (frontCommerce && !frontCommerce.isOpenForCommerce) {
       setErr(
         frontCommerce.inBreak
@@ -1000,9 +1019,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
     const phoneDigits = parsePhMobileInput(buyerPhone);
     const phoneDisp = isCompletePhMobile(phoneDigits)
-      ? formatPhMobileDisplay(phoneDigits)
+      ? formatPhMobileDisplayPlus63(phoneDigits)
       : phoneDigits.length > 0
-        ? `${formatPhMobileDisplay(phoneDigits)} (입력 미완성)`
+        ? `${formatPhMobileDisplayPlus63(phoneDigits)} (입력 미완성)`
         : "(미입력)";
     const addrDisp =
       [summaryForSubmit, addressDetail.trim()].filter(Boolean).join("\n") || "(미입력)";
@@ -1357,6 +1376,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           promoLine={checkoutPromoLine}
           busy={busy}
           submitDisabled={!meetsMin || fulfillmentOptions.length === 0 || checkoutBlocked}
+          disabledReason={ownerOrderBlocked ? ownerOrderBlockedMessage : null}
           processingLabel={t("common_processing")}
           onSubmit={() => void submitOrder()}
         />
@@ -1554,7 +1574,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                   type="tel"
                   inputMode="numeric"
                   autoComplete="tel"
-                  value={formatPhMobileDisplay(buyerPhone)}
+                  value={formatPhMobileDisplayPlus63(buyerPhone)}
                   onChange={(e) => setBuyerPhone(parsePhMobileInput(e.target.value))}
                   disabled={busy}
                   placeholder={PH_LOCAL_09_PLACEHOLDER}

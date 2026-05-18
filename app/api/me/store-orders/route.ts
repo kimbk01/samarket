@@ -39,6 +39,11 @@ import { logStoreOrderStockRestoreFailure } from "@/lib/stores/log-store-order-s
 import { normalizeStoreAddressPh } from "@/lib/stores/normalize-store-address-ph";
 import { computeStoreOrderCheckoutEtaSnapshot } from "@/lib/stores/compute-store-order-checkout-eta-snapshot";
 import { markUserAddressUsed } from "@/lib/addresses/user-address-service";
+import {
+  OWN_STORE_ORDER_BLOCK_MESSAGE,
+  resolveStoreOrderability,
+} from "@/lib/stores/store-orderability-policy";
+import { mergeStoreOrderLineItems } from "@/lib/stores/store-order-line-merge";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -383,12 +388,39 @@ export async function POST(req: NextRequest) {
     orderLines.push(row);
   }
 
+  const mergedOrderLines = mergeStoreOrderLineItems(storeId, orderLines);
+
+  const { data: store, error: sErr } = await sb
+    .from("stores")
+    .select(
+      "id, owner_user_id, approval_status, is_visible, store_name, is_open, business_hours_json, pickup_available, delivery_available, lat, lng"
+    )
+    .eq("id", storeId)
+    .maybeSingle();
+
+  if (sErr || !store || store.approval_status !== "approved" || !store.is_visible) {
+    return NextResponse.json({ ok: false, error: "store_unavailable" }, { status: 400 });
+  }
+
+  const orderability = await resolveStoreOrderability(sb, buyerId, store.owner_user_id);
+  if (!orderability.can_order_store) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "cannot_order_own_store",
+        message: OWN_STORE_ORDER_BLOCK_MESSAGE,
+      },
+      { status: 403 }
+    );
+  }
+
   const validated = await validateStoreOrderCheckout({
     sb,
     buyerId,
     storeId,
     fulfillment,
-    items: orderLines,
+    items: mergedOrderLines,
+    store,
   });
   if (!validated.ok) {
     return NextResponse.json(
@@ -403,18 +435,6 @@ export async function POST(req: NextRequest) {
   }
 
   const { lines, paymentTotal, deliveryFeeAmount, paymentGrandTotal, productsById } = validated;
-
-  const { data: store, error: sErr } = await sb
-    .from("stores")
-    .select(
-      "id, owner_user_id, approval_status, is_visible, store_name, is_open, business_hours_json, pickup_available, delivery_available, lat, lng"
-    )
-    .eq("id", storeId)
-    .maybeSingle();
-
-  if (sErr || !store || store.approval_status !== "approved" || !store.is_visible) {
-    return NextResponse.json({ ok: false, error: "store_unavailable" }, { status: 400 });
-  }
 
   const commerceExtras = parseCommerceExtrasFromHoursJson(store.business_hours_json);
   const deliveryCourierLabel =

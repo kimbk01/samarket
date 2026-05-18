@@ -523,6 +523,19 @@
     gap: 8px;
   }
 
+  .delivery-modal-footer--row {
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .delivery-modal-footer--row > .delivery-btn-outline,
+  .delivery-modal-footer--row > .delivery-btn-danger,
+  .delivery-modal-footer--row > .delivery-btn-secondary {
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
+  }
+
   .delivery-sticky-cta {
     position: sticky;
     bottom: 0;
@@ -662,10 +675,128 @@
   font-weight: 500;
 }
 
+[data-delivery-modal-root] .delivery-modal-footer--row .delivery-btn-outline {
+  min-height: var(--delivery-btn-h-md);
+  border-radius: var(--delivery-radius);
+  border: 1px solid var(--delivery-border) !important;
+  background-color: var(--delivery-bg-card) !important;
+  color: var(--delivery-text-main) !important;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: none;
+}
+
+[data-delivery-modal-root] .delivery-modal-footer--row .delivery-btn-danger {
+  min-height: var(--delivery-btn-h-md);
+}
+
 [data-delivery-modal-root] .delivery-modal-section {
   gap: 20px;
 }
 
 [data-delivery-modal-root] .delivery-modal-info-block {
   margin: 0;
+}
+
+/**
+ * 장바구니 비우기 — 배민식 가운데 확인 (전용, delivery-modal 과 분리)
+ */
+[data-store-cart-clear-modal] .store-cart-clear-modal__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  margin: 0;
+  padding: 0;
+  border: none;
+  cursor: pointer;
+  background-color: rgba(0, 0, 0, 0.45) !important;
+  background-color: var(--delivery-backdrop, rgba(0, 0, 0, 0.45)) !important;
+}
+
+[data-store-cart-clear-modal] .store-cart-clear-modal__backdrop:disabled {
+  cursor: default;
+}
+
+[data-store-cart-clear-modal] .store-cart-clear-modal__stage {
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-inline: var(--delivery-page-x);
+  pointer-events: none;
+}
+
+[data-store-cart-clear-modal] .store-cart-clear-modal__panel {
+  width: 100%;
+  max-width: min(92vw, 18.75rem);
+  padding: 28px 20px 20px;
+  border: none;
+  border-radius: 8px;
+  background-color: #ffffff !important;
+  background-color: var(--delivery-bg-card) !important;
+  box-shadow: var(--delivery-shadow-modal) !important;
+  pointer-events: auto;
+}
+
+[data-store-cart-clear-modal] .store-cart-clear-modal__title {
+  margin: 0 0 12px;
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.02em;
+  color: var(--delivery-text-main);
+}
+
+[data-store-cart-clear-modal] .store-cart-clear-modal__message {
+  margin: 0 0 24px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.55;
+  color: var(--delivery-text-sub);
+}
+
+[data-store-cart-clear-modal] .store-cart-clear-modal__store {
+  font-weight: 700;
+  color: var(--delivery-text-main);
+}
+
+[data-store-cart-clear-modal] .store-cart-clear-modal__actions {
+  display: flex;
+  gap: 8px;
+}
+
+[data-store-cart-clear-modal] .store-cart-clear-modal__actions .delivery-btn-outline,
+[data-store-cart-clear-modal] .store-cart-clear-modal__actions .delivery-btn-primary {
+  flex: 1 1 0;
+  min-width: 0;
+  width: auto;
+  min-height: var(--delivery-btn-h-md);
+  border-radius: var(--delivery-radius);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+[data-store-cart-clear-modal] .store-cart-clear-modal__actions .delivery-btn-outline {
+  border: 1px solid var(--delivery-border) !important;
+  background-color: var(--delivery-bg-card) !important;
+  color: var(--delivery-text-main) !important;
+  box-shadow: none;
+}
+
+[data-store-cart-clear-modal] .store-cart-clear-modal__actions .delivery-btn-primary {
+  border: none !important;
+  background-color: #2386b1 !important;
+  background-color: var(--delivery-primary) !important;
+  color: #ffffff !important;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+[data-store-cart-clear-modal] .store-cart-clear-modal__actions .delivery-btn-primary:disabled {
+  background-color: var(--delivery-btn-disabled) !important;
+  opacity: 1;
 }

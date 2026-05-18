@@ -44,6 +44,12 @@ export type StorePublicPageHydrated = {
   dbOff: boolean;
   favoriteSeed: { viewerFavorited: boolean; favoriteCount: number };
   recentOrderCountMeta: number;
+  orderability: {
+    viewerIsOwner: boolean;
+    viewerIsAdmin: boolean;
+    canOrderStore: boolean;
+    ownerBlockMessage: string | null;
+  };
 };
 
 export function storePublicProductRowsMap(products: unknown): Record<string, Record<string, unknown>> {
@@ -70,6 +76,10 @@ export function hydrateStorePublicFromApiJson(json: unknown): StorePublicPageHyd
       viewer_favorited?: boolean;
       favorite_count?: unknown;
       recent_order_count?: unknown;
+      viewer_is_owner?: boolean;
+      viewer_is_admin?: boolean;
+      can_order_store?: boolean;
+      owner_block_message?: string | null;
     };
   };
   const nextDbOff = j?.meta?.source === "supabase_unconfigured";
@@ -82,6 +92,12 @@ export function hydrateStorePublicFromApiJson(json: unknown): StorePublicPageHyd
       dbOff: true,
       favoriteSeed: { viewerFavorited: false, favoriteCount: 0 },
       recentOrderCountMeta: 0,
+      orderability: {
+        viewerIsOwner: false,
+        viewerIsAdmin: false,
+        canOrderStore: true,
+        ownerBlockMessage: null,
+      },
     };
   }
   if (j?.ok && j.store) {
@@ -103,6 +119,13 @@ export function hydrateStorePublicFromApiJson(json: unknown): StorePublicPageHyd
         favoriteCount: Number(j.meta?.favorite_count) || 0,
       },
       recentOrderCountMeta: Number(j.meta?.recent_order_count) || 0,
+      orderability: {
+        viewerIsOwner: !!j.meta?.viewer_is_owner,
+        viewerIsAdmin: !!j.meta?.viewer_is_admin,
+        canOrderStore: j.meta?.can_order_store !== false,
+        ownerBlockMessage:
+          typeof j.meta?.owner_block_message === "string" ? j.meta.owner_block_message : null,
+      },
     };
   }
   return {
@@ -113,6 +136,12 @@ export function hydrateStorePublicFromApiJson(json: unknown): StorePublicPageHyd
     dbOff: false,
     favoriteSeed: { viewerFavorited: false, favoriteCount: 0 },
     recentOrderCountMeta: 0,
+    orderability: {
+      viewerIsOwner: false,
+      viewerIsAdmin: false,
+      canOrderStore: true,
+      ownerBlockMessage: null,
+    },
   };
 }
 
@@ -137,6 +166,12 @@ export function getStorePublicInitialSnapshot(
       dbOff: false,
       favoriteSeed: { viewerFavorited: false, favoriteCount: 0 },
       recentOrderCountMeta: 0,
+      orderability: {
+        viewerIsOwner: false,
+        viewerIsAdmin: false,
+        canOrderStore: true,
+        ownerBlockMessage: null,
+      },
       loading: true,
     };
   }

@@ -18,7 +18,7 @@ export function StoreCommerceCartAlert({
 }) {
   return (
     <p
-      className={`rounded-[4px] border border-red-200 bg-red-50 px-3 py-2 text-[13px] font-semibold leading-relaxed text-red-700 ${className}`}
+      className={`rounded-[length:var(--delivery-radius)] border border-[color:var(--delivery-danger)]/25 bg-[var(--delivery-bg-soft)] px-3 py-2 text-[13px] font-semibold leading-relaxed text-[color:var(--delivery-danger)] ${className}`}
       role="alert"
     >
       {children}
@@ -34,6 +34,7 @@ export function StoreCommerceCartCenterPopup({
   onBackdropClose,
   children,
   footer,
+  footerLayout = "stack",
   placement = "center",
 }: {
   open: boolean;
@@ -43,6 +44,7 @@ export function StoreCommerceCartCenterPopup({
   onBackdropClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
+  footerLayout?: "stack" | "row";
   placement?: StoreCommerceCartPopupPlacement;
 }) {
   return (
@@ -53,6 +55,7 @@ export function StoreCommerceCartCenterPopup({
       busy={busy}
       onBackdropClose={onBackdropClose}
       footer={footer}
+      footerLayout={footerLayout}
       placement={placement}
     >
       {children}

@@ -61,6 +61,7 @@ export const DeliveryTheme = {
     sectionLabel: "delivery-modal-section__label",
     sectionValue: "delivery-modal-section__value",
     footer: "delivery-modal-footer",
+    footerRow: "delivery-modal-footer delivery-modal-footer--row",
     cancel: "delivery-modal-cancel",
   },
   sticky: {

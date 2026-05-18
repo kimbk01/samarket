@@ -40,7 +40,7 @@ export function StoreProductSheetPortal() {
       commerceBlockedHint={commerceBlockedHint}
       onAddedToCart={() => {
         const sid = sheetStoreContext?.store?.id;
-        if (sid) showStoreDetailToast(sid, "장바구니에 담았어요");
+        if (sid) showStoreDetailToast(sid, "카트에 담았어요");
       }}
     />,
     portalRoot

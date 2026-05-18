@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import type { StoreCommerceCartLine } from "@/lib/stores/store-commerce-cart-types";
 import { BAEMIN_CART_TYPE } from "@/lib/stores/store-baemin-cart-ui";
 import { resolveCartLineListUnitPhp } from "@/lib/stores/store-product-pricing";
@@ -25,14 +26,40 @@ export function StoreBaeminCartLineRow({
   onDecrease: () => void;
   onIncrease: () => void;
 }) {
+  const mountedRef = useRef(false);
+  const prevQtyRef = useRef(line.qty);
+  const [newLineFlash, setNewLineFlash] = useState(true);
+  const [qtyBump, setQtyBump] = useState(false);
   const lineTotal = line.unitPricePhp * line.qty;
   const listU = resolveCartLineListUnitPhp(line);
   const baseUnit = listU ?? line.unitPricePhp;
   const showTrash = line.qty <= line.minOrderQty;
   const optionsText = line.optionsSummary?.trim() || noneLabel;
 
+  useEffect(() => {
+    const id = window.setTimeout(() => setNewLineFlash(false), 220);
+    return () => window.clearTimeout(id);
+  }, [line.lineId]);
+
+  useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      prevQtyRef.current = line.qty;
+      return;
+    }
+    if (prevQtyRef.current === line.qty) return;
+    prevQtyRef.current = line.qty;
+    setQtyBump(true);
+    const id = window.setTimeout(() => setQtyBump(false), 220);
+    return () => window.clearTimeout(id);
+  }, [line.qty]);
+
   return (
-    <article className={`px-4 ${BAEMIN_CART_TYPE.rowPy}`}>
+    <article
+      className={`px-4 transition-colors duration-200 ${
+        newLineFlash ? "bg-[#E8F4FA]" : "bg-white"
+      } ${BAEMIN_CART_TYPE.rowPy}`}
+    >
       <div className="flex gap-3">
         <div className="min-w-0 flex-1">
           <p className={`${BAEMIN_CART_TYPE.itemTitle} text-[#111111]`}>{line.title}</p>
@@ -86,7 +113,11 @@ export function StoreBaeminCartLineRow({
               <span className="text-[18px] leading-none">{"\u2212"}</span>
             )}
           </button>
-          <span className="flex min-w-[2rem] items-center justify-center border-x border-[#E0E0E0] text-[15px] font-bold tabular-nums text-[#111111]">
+          <span
+            className={`flex min-w-[2rem] items-center justify-center border-x border-[#E0E0E0] text-[15px] font-bold tabular-nums text-[#111111] transition-[background-color,transform] duration-200 ${
+              qtyBump ? "scale-110 bg-[#E8F4FA] text-[#2386B1]" : "scale-100 bg-white"
+            }`}
+          >
             {line.qty}
           </span>
           <button

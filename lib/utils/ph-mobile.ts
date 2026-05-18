@@ -1,6 +1,7 @@
 /**
  * 필리핀 로컬 휴대전화 — 저장 형식: `09` + 9자리 숫자(총 11자).
- * 표시·입력 형식: 기본 `09 ## ### ####`, 일부 화면은 `0956 188 6313` (4·3·4) — `formatPhMobileDisplay0956`.
+ * 표시·입력 형식: 기본 `09 ## ### ####`, 일부 화면은 `0956 188 6313` (4·3·4) — `formatPhMobileDisplay0956`,
+ * 국제 표기 `+63 956 188 6313` (3·3·4) — `formatPhMobileDisplayPlus63`.
  */
 
 import { DEFAULT_APP_LANGUAGE, type AppLanguageCode } from "@/lib/i18n/config";
@@ -67,6 +68,23 @@ export function formatPhMobileDisplay(digits: string): string {
   if (b) parts.push(b);
   if (c) parts.push(c);
   if (e) parts.push(e);
+  return parts.join(" ");
+}
+
+/** digit string → `+63 956 188 6313` (국가코드 + 3·3·4, 부분 입력 시 앞 그룹만) */
+export function formatPhMobileDisplayPlus63(digitsOrRaw: string): string {
+  const d = parsePhMobileInput(digitsOrRaw);
+  if (!d) return "";
+  if (d === "0") return "0";
+  if (!d.startsWith("09")) return d;
+
+  const national = d.slice(1);
+  const g1 = national.slice(0, 3);
+  const g2 = national.slice(3, 6);
+  const g3 = national.slice(6, 10);
+  const parts: string[] = [`+63 ${g1}`];
+  if (g2) parts.push(g2);
+  if (g3) parts.push(g3);
   return parts.join(" ");
 }
 

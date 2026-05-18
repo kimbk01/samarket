@@ -1,4 +1,4 @@
-import { orderLineIdentityKey, wireFromLegacyPickOnly } from "@/lib/stores/product-line-options";
+import { computeCartLineMergeKey, wireFromLegacyPickOnly } from "@/lib/stores/product-line-options";
 import { touchCommerceCartSnapshot } from "@/lib/stores/store-commerce-cart-expiry";
 import type {
   AddStoreCartLineInput,
@@ -50,7 +50,12 @@ export function computeStoreCartAddOrMerge(
     Math.min(input.maxOrderQty, Math.floor(Number(input.qty)) || input.minOrderQty)
   );
   const wire = input.modifierWire ?? wireFromLegacyPickOnly(input.optionSelections);
-  const identity = orderLineIdentityKey(input.productId, wire);
+  const identity = computeCartLineMergeKey({
+    storeId: input.storeId,
+    productId: input.productId,
+    selections: wire,
+    lineNote: input.lineNote,
+  });
 
   const newLine = (): StoreCommerceCartLine => ({
     lineId: newLineId(),
@@ -102,7 +107,13 @@ export function computeStoreCartAddOrMerge(
   const lines = prevBucket?.lines ?? [];
 
   const idx = lines.findIndex(
-    (l) => orderLineIdentityKey(l.productId, effectiveModifierWire(l)) === identity
+    (l) =>
+      computeCartLineMergeKey({
+        storeId: input.storeId,
+        productId: l.productId,
+        selections: effectiveModifierWire(l),
+        lineNote: l.lineNote,
+      }) === identity
   );
   let nextLines: StoreCommerceCartLine[];
   let reason: "added" | "merged" = "added";

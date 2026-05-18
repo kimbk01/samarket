@@ -10,6 +10,10 @@ export type StoreSummaryCommerceMeta = {
   favorite_count?: unknown;
   recent_order_count?: unknown;
   viewer_favorited?: boolean;
+  viewer_is_owner?: boolean;
+  viewer_is_admin?: boolean;
+  can_order_store?: boolean;
+  owner_block_message?: string | null;
 };
 
 export type StoreSummaryPayload = {

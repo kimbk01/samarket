@@ -20,6 +20,7 @@ export function DeliveryModal({
   onBackdropClose,
   children,
   footer,
+  footerLayout = "stack",
   placement = "center",
 }: {
   open: boolean;
@@ -29,6 +30,8 @@ export function DeliveryModal({
   onBackdropClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
+  /** `row` ? cancel/confirm buttons on one line */
+  footerLayout?: "stack" | "row";
   placement?: DeliveryModalPlacement;
 }) {
   const [portalReady, setPortalReady] = useState(false);
@@ -79,7 +82,15 @@ export function DeliveryModal({
             {title}
           </h2>
           <div className="delivery-modal-body">{children}</div>
-          {footer ? <div className={DeliveryTheme.modal.footer}>{footer}</div> : null}
+          {footer ? (
+            <div
+              className={
+                footerLayout === "row" ? DeliveryTheme.modal.footerRow : DeliveryTheme.modal.footer
+              }
+            >
+              {footer}
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

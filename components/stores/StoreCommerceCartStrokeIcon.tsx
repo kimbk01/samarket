@@ -2,6 +2,10 @@
 export const STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME =
   "pointer-events-none flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-sam-primary px-1 sam-text-xxs font-bold leading-none text-white ring-2 ring-sam-surface";
 
+/** primary CTA(파란 버튼) 위 장바구니 수량 뱃지 */
+export const STORE_COMMERCE_CART_COUNT_BADGE_ON_PRIMARY_CLASSNAME =
+  "pointer-events-none absolute -right-2 -top-2 z-[1] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-white px-1 text-[10px] font-bold leading-none text-[var(--delivery-primary)] ring-2 ring-[var(--delivery-primary)]";
+
 /** 매장 상단·하단 장바구니 링크 공통 아이콘 (stroke, currentColor) */
 export function StoreCommerceCartStrokeIcon({ className }: { className?: string }) {
   return (

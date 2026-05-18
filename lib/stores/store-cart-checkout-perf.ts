@@ -21,6 +21,8 @@ export type StoreCartHead = {
   district: string | null;
   address_line1: string | null;
   address_line2: string | null;
+  can_order_store?: boolean;
+  owner_block_message?: string | null;
 };
 
 export function storeCartHeadFromCommerceBucket(bucket: StoreCommerceCartBucket): StoreCartHead {
@@ -38,12 +40,15 @@ export function storeCartHeadFromCommerceBucket(bucket: StoreCommerceCartBucket)
     district: null,
     address_line1: null,
     address_line2: null,
+    can_order_store: true,
+    owner_block_message: null,
   };
 }
 
 export function parseStoreCartHeadFromPublicJson(
   storeSlug: string,
-  raw: Record<string, unknown>
+  raw: Record<string, unknown>,
+  meta?: Record<string, unknown> | null
 ): StoreCartHead {
   return {
     id: raw.id as string,
@@ -62,15 +67,22 @@ export function parseStoreCartHeadFromPublicJson(
     district: typeof raw.district === "string" ? raw.district : null,
     address_line1: typeof raw.address_line1 === "string" ? raw.address_line1 : null,
     address_line2: typeof raw.address_line2 === "string" ? raw.address_line2 : null,
+    can_order_store: meta?.can_order_store !== false,
+    owner_block_message:
+      typeof meta?.owner_block_message === "string" ? meta.owner_block_message : null,
   };
 }
 
 export function peekStoreCartHeadFromPublicCache(storeSlug: string): StoreCartHead | null {
   const hit: StoreApiJsonResponse | null = peekStorePublicCache(storeSlug);
   if (!hit || hit.status !== 200) return null;
-  const j = hit.json as { ok?: boolean; store?: Record<string, unknown> };
+  const j = hit.json as {
+    ok?: boolean;
+    store?: Record<string, unknown>;
+    meta?: Record<string, unknown>;
+  };
   if (!j?.ok || !j.store) return null;
-  return parseStoreCartHeadFromPublicJson(storeSlug, j.store);
+  return parseStoreCartHeadFromPublicJson(storeSlug, j.store, j.meta);
 }
 
 export function readProfilePhoneDigitsFromMeProfileCache(): string {

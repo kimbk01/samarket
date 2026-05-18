@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ModifierSelectionsWire } from "@/lib/stores/modifiers/types";
 import {
-  orderLineIdentityKey,
+  computeCartLineMergeKey,
   parseProductOptionsJson,
   validateLineModifiers,
   type OrderLineOptionsSnapshotV2,
@@ -107,33 +107,43 @@ export async function validateStoreOrderCheckout(params: {
   storeId: string;
   fulfillment: "pickup" | "local_delivery" | "shipping";
   items: StoreOrderLineInput[];
+  store?: StoreRow | null;
 }): Promise<ValidateStoreOrderCheckoutResult> {
-  const { sb, buyerId, storeId, fulfillment, items } = params;
+  const { sb, storeId, fulfillment, items } = params;
   if (!storeId || items.length === 0) {
     return { ok: false, error: "store_and_items_required", status: 400 };
   }
 
-  const lineKeys = items.map((x) => orderLineIdentityKey(x.product_id, x.wire));
+  const lineKeys = items.map((x) =>
+    computeCartLineMergeKey({
+      storeId,
+      productId: x.product_id,
+      selections: x.wire,
+      lineNote: x.line_note,
+    })
+  );
   if (new Set(lineKeys).size !== lineKeys.length) {
     return { ok: false, error: "duplicate_line_in_order", status: 400 };
   }
 
-  const { data: store, error: sErr } = await sb
-    .from("stores")
-    .select(
-      "id, owner_user_id, approval_status, is_visible, is_open, business_hours_json, pickup_available, delivery_available"
-    )
-    .eq("id", storeId)
-    .maybeSingle();
+  let storeRow = params.store ?? null;
+  if (!storeRow) {
+    const { data: store, error: sErr } = await sb
+      .from("stores")
+      .select(
+        "id, owner_user_id, approval_status, is_visible, is_open, business_hours_json, pickup_available, delivery_available"
+      )
+      .eq("id", storeId)
+      .maybeSingle();
 
-  if (sErr || !store || store.approval_status !== "approved" || !store.is_visible) {
-    return { ok: false, error: "store_unavailable", status: 400 };
+    if (sErr || !store) {
+      return { ok: false, error: "store_unavailable", status: 400 };
+    }
+    storeRow = store as StoreRow;
   }
 
-  const storeRow = store as StoreRow;
-
-  if (storeRow.owner_user_id === buyerId) {
-    return { ok: false, error: "cannot_order_own_store", status: 400 };
+  if (storeRow.approval_status !== "approved" || !storeRow.is_visible) {
+    return { ok: false, error: "store_unavailable", status: 400 };
   }
 
   if (!(await canOwnerSellProducts(sb, storeId))) {

@@ -159,6 +159,8 @@ type StoreDetail = {
   updated_at?: string;
 };
 
+const OWN_STORE_ORDER_BLOCK_MESSAGE = "본인 매장은 주문할 수 없습니다";
+
 export function StoreDetailPublic({
   slug,
   initialApiResponse,
@@ -212,6 +214,7 @@ export function StoreDetailPublic({
     () => initialSnap.productRowsById
   );
   const [canSell, setCanSell] = useState(() => initialSnap.canSell);
+  const [storeOrderability, setStoreOrderability] = useState(() => initialSnap.orderability);
   const [summaryLoading, setSummaryLoading] = useState(() => initialSnap.loading);
   const [menusLoading, setMenusLoading] = useState(() => initialSnap.loading);
   const [dbOff, setDbOff] = useState(() => initialSnap.dbOff);
@@ -453,6 +456,12 @@ export function StoreDetailPublic({
       setPopularMenuCards([]);
       setProductRowsById({});
       setCanSell(false);
+      setStoreOrderability({
+        viewerIsOwner: false,
+        viewerIsAdmin: false,
+        canOrderStore: true,
+        ownerBlockMessage: null,
+      });
       setFavoriteSeed({ viewerFavorited: false, favoriteCount: 0 });
       setRecentOrderCountMeta(0);
       setMenuSoldOutBottom(false);
@@ -465,6 +474,7 @@ export function StoreDetailPublic({
       setRecommendedMenuCards([]);
       setPopularMenuCards([]);
       setCanSell((prev) => (prev === h.canSell ? prev : h.canSell));
+      setStoreOrderability(h.orderability);
       setFavoriteSeed(h.favoriteSeed);
       setRecentOrderCountMeta(h.recentOrderCountMeta);
       setProductRowsById(h.productRowsById);
@@ -476,6 +486,12 @@ export function StoreDetailPublic({
       setPopularMenuCards([]);
       setProductRowsById({});
       setCanSell(false);
+      setStoreOrderability({
+        viewerIsOwner: false,
+        viewerIsAdmin: false,
+        canOrderStore: true,
+        ownerBlockMessage: null,
+      });
       setFavoriteSeed({ viewerFavorited: false, favoriteCount: 0 });
       setRecentOrderCountMeta(0);
       setMenuSoldOutBottom(false);
@@ -503,6 +519,17 @@ export function StoreDetailPublic({
       viewerFavorited: !!sumParsed.meta?.viewer_favorited,
       favoriteCount: Number(sumParsed.meta?.favorite_count) || 0,
     });
+    if (sumParsed.meta) {
+      setStoreOrderability({
+        viewerIsOwner: !!sumParsed.meta.viewer_is_owner,
+        viewerIsAdmin: !!sumParsed.meta.viewer_is_admin,
+        canOrderStore: sumParsed.meta.can_order_store !== false,
+        ownerBlockMessage:
+          typeof sumParsed.meta.owner_block_message === "string"
+            ? sumParsed.meta.owner_block_message
+            : null,
+      });
+    }
     setRecentOrderCountMeta(Number(sumParsed.meta?.recent_order_count) || 0);
     setDbOff(false);
   }, []);
@@ -572,6 +599,7 @@ export function StoreDetailPublic({
       setProductRowsById(h.productRowsById);
       setMenuSoldOutBottom(false);
       setCanSell((prev) => (prev === h.canSell ? prev : h.canSell));
+      setStoreOrderability(h.orderability);
     } else if (h.store) {
       applyLegacyHydrate(json);
     } else {
@@ -580,6 +608,12 @@ export function StoreDetailPublic({
       setPopularMenuCards([]);
       setProductRowsById({});
       setCanSell(false);
+      setStoreOrderability({
+        viewerIsOwner: false,
+        viewerIsAdmin: false,
+        canOrderStore: true,
+        ownerBlockMessage: null,
+      });
       setMenuSoldOutBottom(false);
     }
   }, [applyLegacyHydrate]);
@@ -1123,6 +1157,10 @@ export function StoreDetailPublic({
   const quickAddFromCard = useCallback(
     (p: StoreDetailProductCard): boolean => {
       if (!commerceCartActions || !store || p.has_options) return false;
+      if (storeOrderability.canOrderStore === false) {
+        showStoreDetailToast(store.id, storeOrderability.ownerBlockMessage ?? OWN_STORE_ORDER_BLOCK_MESSAGE);
+        return true;
+      }
       if (commerce ? !commerce.isOpenForCommerce : false) return false;
       const soldOut =
         p.product_status === "sold_out" || (p.track_inventory && p.stock_qty <= 0);
@@ -1199,7 +1237,7 @@ export function StoreDetailPublic({
       showStoreDetailToast(store.id, `${p.title} 담았어요`);
       return true;
     },
-    [commerceCartActions, store, commerce]
+    [commerceCartActions, store, commerce, storeOrderability]
   );
 
   const onMenuSearchFocus = useCallback(() => {
@@ -1284,8 +1322,10 @@ export function StoreDetailPublic({
       ...dibayDeliveryDetailPhase2SinceMountOrNav(detailPhase2MountT0Ref.current),
     });
     const commerceSnap = resolveStoreFrontCommerceState(st.business_hours_json, st.is_open);
-    const blocked = !commerceSnap.isOpenForCommerce;
-    const hint = blocked
+    const blocked = storeOrderability.canOrderStore === false || !commerceSnap.isOpenForCommerce;
+    const hint = storeOrderability.canOrderStore === false
+      ? storeOrderability.ownerBlockMessage ?? OWN_STORE_ORDER_BLOCK_MESSAGE
+      : blocked
       ? commerceSnap.inBreak
         ? `준비중 · Break time: ${commerceSnap.breakRangeLabel}. 쉬는 시간에는 메뉴를 선택할 수 없습니다.`
         : "지금은 영업 시간이 아니어서 메뉴를 선택할 수 없습니다. 목록은 볼 수 있습니다."
@@ -1302,7 +1342,7 @@ export function StoreDetailPublic({
       commerceBlocked: blocked,
       commerceBlockedHint: hint,
     });
-  }, []);
+  }, [storeOrderability]);
 
   const sectionScrollMarginCss = useMemo(
     () =>
@@ -1374,9 +1414,14 @@ export function StoreDetailPublic({
   const deliveryAvailable = detailStore.delivery_available === true;
   const pickupAvailable = detailStore.pickup_available !== false;
 
-  const menuSelectBlocked = commerce ? !commerce.isOpenForCommerce : false;
+  const ownerOrderBlocked = storeOrderability.canOrderStore === false;
+  const ownerOrderBlockedMessage =
+    storeOrderability.ownerBlockMessage ?? OWN_STORE_ORDER_BLOCK_MESSAGE;
+  const menuSelectBlocked = ownerOrderBlocked || (commerce ? !commerce.isOpenForCommerce : false);
   const menuSelectHint =
-    commerce && !commerce.isOpenForCommerce
+    ownerOrderBlocked
+      ? ownerOrderBlockedMessage
+      : commerce && !commerce.isOpenForCommerce
       ? commerce.inBreak
         ? `준비중 · Break time: ${commerce.breakRangeLabel}. 쉬는 시간에는 메뉴를 선택할 수 없습니다.`
         : "지금은 영업 시간이 아니어서 메뉴를 선택할 수 없습니다. 목록은 볼 수 있습니다."

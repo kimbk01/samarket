@@ -16,6 +16,7 @@ type Props = {
   promoLine?: string | null;
   busy: boolean;
   submitDisabled: boolean;
+  disabledReason?: string | null;
   processingLabel: string;
   onSubmit: () => void;
 };
@@ -23,7 +24,16 @@ type Props = {
 /** 배민식 하단 — 좌측 금액(할인 시 취소선) + 우측 primary 버튼 */
 export const StoreCartCheckoutActionBar = forwardRef<HTMLElement, Props>(
   function StoreCartCheckoutActionBarInner(
-    { displayGrand, strikeGrand, promoLine, busy, submitDisabled, processingLabel, onSubmit },
+    {
+      displayGrand,
+      strikeGrand,
+      promoLine,
+      busy,
+      submitDisabled,
+      disabledReason,
+      processingLabel,
+      onSubmit,
+    },
     ref
   ) {
     const showStrike =
@@ -51,6 +61,11 @@ export const StoreCartCheckoutActionBar = forwardRef<HTMLElement, Props>(
               ) : null}
             </div>
             {promoLine ? <p className={`mt-1 ${BAEMIN_CART_FOOTER_PROMO_CLASS}`}>{promoLine}</p> : null}
+            {disabledReason ? (
+              <p className="mt-1 text-[12px] font-semibold leading-snug text-[#888888]">
+                {disabledReason}
+              </p>
+            ) : null}
           </div>
           <button
             type="button"
