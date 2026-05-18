@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { DeliveryMediaImage } from "@/components/dibay/DeliveryMediaImage";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { useRouter } from "next/navigation";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
@@ -214,14 +214,7 @@ export function StoreVerticalDiscoveryCard({
       >
         <div className="relative aspect-[5/3] w-full overflow-hidden bg-sam-surface-muted dark:bg-[#3A3B3C]">
           {store.profileImageUrl ?
-            <DeliveryMediaImage
-              src={store.profileImageUrl}
-              alt=""
-              fill
-              className="object-cover"
-              sizes="(max-width: 420px) 100vw, 480px"
-              surface="list-vertical-cover"
-            />
+            <SamarketThumbnail src={store.profileImageUrl} fill roundedClassName="rounded-none" className="bg-sam-surface-muted dark:bg-[#3A3B3C]" />
           : <div className="flex h-full w-full items-center justify-center bg-[#1877F2]/90 text-white dark:bg-[#2374E1]/90">
               <svg className="h-14 w-14 opacity-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} aria-hidden>
                 <path

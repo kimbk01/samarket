@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { STORE_ORDER_BRAND } from "@/components/stores/store-order-detail/store-order-brand";
 import { fetchStoreReviewsPublicDeduped } from "@/lib/stores/store-delivery-api-client";
 
@@ -84,8 +85,7 @@ export function StoreMenuReviewFlowLink({
                 className="flex h-[68px] w-[220px] shrink-0 gap-1.5 rounded-[8px] bg-[#F5F6F8] p-1.5 active:bg-neutral-100"
               >
                 {src ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={src} alt="" className="h-[56px] w-[56px] shrink-0 rounded-[7px] object-cover" />
+                  <SamarketThumbnail src={src} size={56} roundedClassName="rounded-[7px]" className="bg-[#F3F4F6]" />
                 ) : null}
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] font-bold leading-none" style={{ color: STORE_ORDER_BRAND.star }}>

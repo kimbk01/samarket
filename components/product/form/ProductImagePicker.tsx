@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef } from "react";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 
 export type ImagePreviewItem = { file?: File; url: string };
 
@@ -46,7 +47,12 @@ export function ProductImagePicker({
       <div className="flex gap-2 overflow-x-auto pb-1">
         {value.map((item, index) => (
           <div key={index} className="relative h-24 w-24 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
-            <img src={item.url} alt="" className="h-full w-full object-cover" />
+            <SamarketThumbnail
+              src={item.url}
+              fill
+              roundedClassName="rounded-ui-rect"
+              className="bg-sam-surface-muted"
+            />
             <button
               type="button"
               onClick={() => removeAt(index)}

@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { StoreCommerceCartStrokeIcon } from "@/components/stores/StoreCommerceCartStrokeIcon";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
+import { DeliveryTheme } from "@/lib/design/delivery-theme";
 import { getCommerceCartSnapshotBus } from "@/lib/stores/store-commerce-cart-snapshot-bus";
 import { findCommerceCartBucketBySlug } from "@/lib/stores/find-commerce-cart-bucket-by-slug";
 import {
@@ -133,16 +134,16 @@ export function StoreDetailBottomStrip({
           <Link
             href={cartHref}
             onClick={onCheckoutNavigate}
-            className="flex h-[52px] shrink-0 touch-manipulation select-none items-center justify-center rounded-[14px] bg-[#1C8DB8] px-5 text-[15px] font-bold text-white transition-all duration-150 hover:bg-[#197DA3] active:scale-[0.97] active:bg-[#166F92]"
-            aria-label="주문 확인으로 이동"
+            className={`${DeliveryTheme.btn.primary} ${DeliveryTheme.btn.sticky} ${DeliveryTheme.btn.sizeMd} shrink-0 !w-auto px-5 no-underline`}
+            aria-label="장바구니로 이동해 주문하기"
           >
-            주문 확인
+            {formatMoneyPhp(cartTotalPhp)} 가게 주문하기
           </Link>
         ) : (
           <button
             type="button"
             onClick={onCartPreviewOpen}
-            className="flex h-11 w-11 shrink-0 touch-manipulation select-none items-center justify-center rounded-full border-[1.5px] border-[#1C8DB8] bg-white text-[#1C8DB8] transition-all duration-150 hover:bg-[#E6F4F9] active:scale-[0.94] active:bg-[#E6F4F9]"
+            className="flex h-11 w-11 shrink-0 touch-manipulation select-none items-center justify-center rounded-full border-[1.5px] border-[var(--delivery-primary)] bg-white text-[var(--delivery-primary)] transition-all duration-150 hover:bg-[var(--delivery-primary-soft)] active:scale-[0.94]"
             aria-label="장바구니 미리보기"
           >
             <StoreCommerceCartStrokeIcon className="h-6 w-6 text-current" />

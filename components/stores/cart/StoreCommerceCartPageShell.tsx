@@ -6,6 +6,7 @@ import {
   STORE_CART_HEADER_CHROME_CLASS,
   STORE_CART_PAGE_ROOT_CLASS,
   STORE_CART_SCROLL_BODY_CLASS,
+  STORE_CART_SCROLL_BODY_INNER_CLASS,
   STORE_CART_SCROLL_BODY_DATA_ATTR,
 } from "@/lib/stores/store-cart-page-layout";
 
@@ -28,7 +29,7 @@ export function StoreCommerceCartPageShell({
         data-store-cart-scroll={STORE_CART_SCROLL_BODY_DATA_ATTR}
         className={STORE_CART_SCROLL_BODY_CLASS}
       >
-        {children}
+        <div className={STORE_CART_SCROLL_BODY_INNER_CLASS}>{children}</div>
       </div>
       {footer ? <div className={STORE_CART_FOOTER_CHROME_CLASS}>{footer}</div> : null}
     </div>

@@ -7,6 +7,7 @@ import {
   deliveryPerfTraceLog,
 } from "@/lib/dibay/delivery-perf-trace";
 import type { StoreDetailLike } from "@/lib/stores/store-public-page-hydrate";
+import type { StoreCommerceCartLine } from "@/lib/stores/store-commerce-cart-types";
 
 export type StoreProductSheetStoreContext = {
   store: StoreDetailLike;
@@ -21,6 +22,8 @@ export type OpenStoreProductSheetPayload = {
   sheetStoreContext?: StoreProductSheetStoreContext | null;
   commerceBlocked?: boolean;
   commerceBlockedHint?: string;
+  /** 카트 줄 옵션 변경 시 기존 줄 시드·교체 */
+  editCartLine?: StoreCommerceCartLine | null;
 };
 
 type SheetUiState = {
@@ -30,13 +33,20 @@ type SheetUiState = {
   sheetStoreContext: StoreProductSheetStoreContext | null;
   commerceBlocked: boolean;
   commerceBlockedHint?: string;
+  editCartLine: StoreCommerceCartLine | null;
   openSheet: (payload: OpenStoreProductSheetPayload) => void;
   closeSheet: () => void;
 };
 
 const CLOSED: Pick<
   SheetUiState,
-  "productId" | "pageStoreSlug" | "prefetchedListRow" | "sheetStoreContext" | "commerceBlocked" | "commerceBlockedHint"
+  | "productId"
+  | "pageStoreSlug"
+  | "prefetchedListRow"
+  | "sheetStoreContext"
+  | "commerceBlocked"
+  | "commerceBlockedHint"
+  | "editCartLine"
 > = {
   productId: null,
   pageStoreSlug: "",
@@ -44,6 +54,7 @@ const CLOSED: Pick<
   sheetStoreContext: null,
   commerceBlocked: false,
   commerceBlockedHint: undefined,
+  editCartLine: null,
 };
 
 let sheetOpenMark = 0;
@@ -71,6 +82,7 @@ export const useStoreProductSheetUIStore = create<SheetUiState>((set) => ({
       sheetStoreContext: payload.sheetStoreContext ?? null,
       commerceBlocked: payload.commerceBlocked === true,
       commerceBlockedHint: payload.commerceBlockedHint,
+      editCartLine: payload.editCartLine ?? null,
     });
   },
   closeSheet: () => set({ ...CLOSED }),

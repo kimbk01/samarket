@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { dispatchWrittenReviewUpdated } from "@/lib/mypage/written-review-events";
 import { fetchMeStoreOrderDetailDeduped } from "@/lib/stores/store-delivery-api-client";
 
@@ -299,8 +300,12 @@ export function StoreOrderReviewForm({
         <div className="flex flex-wrap gap-2">
           {imageUrls.map((url, i) => (
             <div key={url} className="relative h-20 w-20 overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface-muted">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={url} alt="" className="h-full w-full object-cover" />
+              <SamarketThumbnail
+                src={url}
+                fill
+                roundedClassName="rounded-ui-rect"
+                className="bg-sam-surface-muted"
+              />
               <button
                 type="button"
                 onClick={() => removeImage(i)}

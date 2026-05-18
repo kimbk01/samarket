@@ -33,6 +33,7 @@ import {
   type TimelineViberBubbleMessage,
 } from "@/components/community-messenger/room/phase2/MessengerTimelineBubbleInners";
 import { MessengerStoreOrderSummaryCard } from "@/components/community-messenger/room/phase2/MessengerStoreOrderSummaryCard";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { isStoreOrderSummarySystemContent } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
 import type { StoreOrderSummaryTimelineStep } from "@/lib/store-order-chat/store-order-summary-timeline";
 
@@ -421,20 +422,14 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
           {!item.isMine ? (
             <div className="relative z-[1] w-[34px] shrink-0 pt-[2px]">
               {showPeerAvatar ? (
-                peerAvatar?.avatarUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={peerAvatar.avatarUrl}
-                    alt=""
-                    loading="lazy"
-                    decoding="async"
-                    className="h-[30px] w-[30px] rounded-full border border-sam-fg/10 object-cover shadow-sm"
-                  />
-                ) : (
-                  <div className="flex h-[30px] w-[30px] shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-blue-100 bg-[#dbeafe] text-center text-[13px] font-semibold leading-none text-[#1f2937] shadow-sm">
-                    {peerAvatar?.initials?.slice(0, 1) ?? "?"}
-                  </div>
-                )
+                <SamarketThumbnail
+                  src={peerAvatar?.avatarUrl}
+                  size={30}
+                  roundedClassName="rounded-full"
+                  className="border border-sam-fg/10 bg-[#dbeafe] shadow-sm"
+                  fallbackSrc=""
+                  fallbackNode={<span className="whitespace-nowrap text-center text-[13px] font-semibold leading-none text-[#1f2937]">{peerAvatar?.initials?.slice(0, 1) ?? "?"}</span>}
+                />
               ) : (
                 <div className="h-[30px] w-[34px]" aria-hidden />
               )}

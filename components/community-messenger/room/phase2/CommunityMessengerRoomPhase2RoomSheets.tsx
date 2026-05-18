@@ -49,6 +49,7 @@ import {
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { CommunityMessengerRoomPhase2OneToOneDotMenu } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2OneToOneDotMenu";
 import { MessengerStickerSheet } from "@/components/community-messenger/stickers/MessengerStickerSheet";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { Crown, Image as ImageIcon, Link2, Megaphone, Search, Sticker } from "lucide-react";
 
 export function CommunityMessengerRoomPhase2RoomSheets() {
@@ -266,16 +267,14 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                 </div>
 
                 <div className="flex flex-col items-center gap-2 border-b border-sam-border-soft pb-4">
-                  <div className="h-[72px] w-[72px] shrink-0 overflow-hidden rounded-[14px] bg-sam-app ring-1 ring-sam-border">
-                    {vm.snapshot.room.avatarUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={vm.snapshot.room.avatarUrl} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center sam-text-page-title font-semibold text-sam-primary">
-                        {vm.snapshot.room.title.trim().slice(0, 1).toUpperCase() || "?"}
-                      </div>
-                    )}
-                  </div>
+                  <SamarketThumbnail
+                    src={vm.snapshot.room.avatarUrl}
+                    size={72}
+                    roundedClassName="rounded-[14px]"
+                    className="bg-sam-app ring-1 ring-sam-border"
+                    fallbackSrc=""
+                    fallbackNode={<span className="sam-text-page-title font-semibold text-sam-primary">{vm.snapshot.room.title.trim().slice(0, 1).toUpperCase() || "?"}</span>}
+                  />
                   <h2 className="text-center sam-text-body-lg font-semibold leading-snug text-sam-fg">{vm.snapshot.room.title}</h2>
                   <p className="text-center sam-text-helper text-sam-muted">
                     {vm.snapshot.room.memberCount}명 · {vm.myRoleLabel}
@@ -440,15 +439,15 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                           isSelf ? "opacity-90" : "active:bg-sam-surface"
                         }`}
                       >
-                        <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-sam-surface ring-1 ring-sam-border">
-                          {avatarUrl ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center sam-text-helper font-semibold text-sam-primary">
-                              {initials}
-                            </div>
-                          )}
+                        <div className="relative h-10 w-10 shrink-0">
+                          <SamarketThumbnail
+                            src={avatarUrl}
+                            size={40}
+                            roundedClassName="rounded-full"
+                            className="bg-sam-surface ring-1 ring-sam-border"
+                            fallbackSrc=""
+                            fallbackNode={<span className="sam-text-helper font-semibold text-sam-primary">{initials}</span>}
+                          />
                           {isRoomOwner ? (
                             <span className="absolute -bottom-0.5 -right-0.5 flex h-[18px] w-[18px] items-center justify-center rounded-full bg-sam-surface ring-1 ring-sam-border">
                               <Crown className="h-3 w-3 text-sky-600" strokeWidth={2} aria-hidden />

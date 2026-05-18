@@ -6,6 +6,7 @@ import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/ty
 import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
 import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
 import { MessengerListRow } from "@/components/community-messenger/line-ui";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 
 const ACTION_W = 72;
 const LEFT_ACTION_TOTAL = ACTION_W * 2;
@@ -328,19 +329,14 @@ export const MessengerLineFriendRow = memo(function MessengerLineFriendRow({
             trailingLayout="center"
             avatar={
               <div className="relative h-12 w-12">
-                <div className="h-full w-full overflow-hidden rounded-full bg-[color:var(--messenger-surface-muted)] ring-1 ring-[color:var(--messenger-divider)]">
-                  {avatarSrc ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={avatarSrc} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <div
-                      className="flex h-full w-full items-center justify-center sam-text-body font-semibold"
-                      style={{ color: "var(--messenger-text-secondary)" }}
-                    >
-                      {initial}
-                    </div>
-                  )}
-                </div>
+                <SamarketThumbnail
+                  src={avatarSrc}
+                  size={48}
+                  roundedClassName="rounded-full"
+                  className="bg-[color:var(--messenger-surface-muted)] ring-1 ring-[color:var(--messenger-divider)]"
+                  fallbackSrc=""
+                  fallbackNode={<span className="sam-text-body font-semibold" style={{ color: "var(--messenger-text-secondary)" }}>{initial}</span>}
+                />
                 <CommunityMessengerPresenceDot state={peerPresence?.state} />
               </div>
             }

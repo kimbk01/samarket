@@ -1,0 +1,106 @@
+/**
+ * dibaY delivery UI — single source of truth.
+ * `:root` — 포털(modal/sheet) 포함 전역 참조.
+ * `.delivery-ui` — `/stores` 트리에서 legacy `--sam-primary` 브리지.
+ */
+
+:root {
+  --delivery-bg: #f6f7f9;
+  --delivery-bg-main: var(--delivery-bg);
+  --delivery-bg-card: #ffffff;
+  --delivery-card: #ffffff;
+  --delivery-bg-soft: #f2f4f6;
+  --delivery-bg-thumb: #f3f4f6;
+  --delivery-info-card-bg: #f8fafb;
+
+  --delivery-primary: #2386b1;
+  --delivery-primary-hover: #1f789f;
+  --delivery-primary-active: #1a6a8f;
+  --delivery-primary-soft: #eaf6fb;
+  --delivery-primary-border: color-mix(in srgb, var(--delivery-primary) 22%, #ffffff);
+
+  --delivery-bridge-primary: var(--delivery-primary);
+  --delivery-bridge-primary-hover: var(--delivery-primary-hover);
+  --delivery-bridge-primary-soft: var(--delivery-primary-soft);
+
+  --delivery-text-main: #111111;
+  --delivery-text-sub: #555555;
+  --delivery-text-muted: #888888;
+  --delivery-text-disabled: #b8b8b8;
+
+  --delivery-border: #e5e7eb;
+  --delivery-border-light: #ececec;
+  --delivery-border-section: #eef0f2;
+  --delivery-border-soft: #f1f1f1;
+
+  --delivery-success: #16a34a;
+  --delivery-danger: #dc2626;
+  --delivery-warning: #f59e0b;
+
+  --delivery-fs-page-title: 20px;
+  --delivery-fs-modal-title: 18px;
+  --delivery-fs-section-title: 16px;
+  --delivery-fs-card-title: 15px;
+  --delivery-fs-body: 14px;
+  --delivery-fs-meta: 12px;
+  --delivery-fs-price: 16px;
+  --delivery-fs-button: 15px;
+  --delivery-fs-button-sticky: 16px;
+  --delivery-fs-badge: 11px;
+
+  --delivery-lh-page-title: 1.25;
+  --delivery-lh-modal-title: 1.3;
+  --delivery-lh-section-title: 1.35;
+  --delivery-lh-body: 1.55;
+  --delivery-lh-address: 1.55;
+
+  --delivery-page-x: 16px;
+  --delivery-section-gap: 20px;
+  --delivery-card-pad: 16px;
+  --delivery-row-gap: 12px;
+  --delivery-text-gap: 6px;
+  --delivery-small-gap: 4px;
+  --delivery-section-divider: 8px;
+  --delivery-compact-row: 12px;
+
+  --delivery-radius: 4px;
+  --delivery-radius-thumb: 8px;
+  --delivery-radius-sheet: 12px;
+  --delivery-radius-modal: 4px;
+  --delivery-radius-pill: 999px;
+
+  --delivery-btn-h: 52px;
+  --delivery-btn-h-md: 48px;
+  --delivery-btn-h-sticky: 56px;
+  --delivery-btn-disabled: #c9d5db;
+  --delivery-input-h: 48px;
+  --delivery-touch-min: 44px;
+
+  --delivery-thumb-list: 92px;
+  --delivery-thumb-menu: 96px;
+  --delivery-thumb-cart: 72px;
+  --delivery-thumb-upsell: 56px;
+
+  --delivery-shadow-modal: 0 4px 24px rgba(0, 0, 0, 0.14);
+  --delivery-shadow-order-confirm: 0 12px 32px rgba(0, 0, 0, 0.18);
+  --delivery-shadow-sheet: 0 -8px 32px rgba(17, 24, 39, 0.14);
+  /** 모달·시트 뒤 — blur 금지(흰 화면 뭉개짐). 배민식 반투명 딤만 */
+  --delivery-backdrop: rgba(0, 0, 0, 0.45);
+
+  --delivery-badge-primary-bg: var(--delivery-primary-soft);
+  --delivery-badge-primary-fg: var(--delivery-primary);
+  --delivery-badge-popular-bg: #fef3c7;
+  --delivery-badge-popular-fg: #92400e;
+  --delivery-badge-discount-bg: #fee2e2;
+  --delivery-badge-discount-fg: #b91c1c;
+  --delivery-badge-soldout-bg: #e5e7eb;
+  --delivery-badge-soldout-fg: #6b7280;
+}
+
+.delivery-ui {
+  --sam-primary: var(--delivery-bridge-primary);
+  --sam-primary-hover: var(--delivery-bridge-primary-hover);
+  --sam-primary-soft: var(--delivery-bridge-primary-soft);
+  --sm-color-primary: var(--delivery-bridge-primary);
+  --signature: var(--delivery-bridge-primary);
+}

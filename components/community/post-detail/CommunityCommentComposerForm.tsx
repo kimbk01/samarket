@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import {
   COMMUNITY_BUTTON_PRIMARY_CLASS,
   PHILIFE_FB_INPUT_CLASS,
@@ -23,16 +24,15 @@ type Props = {
 function SmallAvatar({ me }: { me: MeAvatarProps | null }) {
   const n = (me?.name || "?").trim() || "?";
   const ch = n.slice(0, 1).toUpperCase();
-  if (me?.avatarUrl) {
-    return <img src={me.avatarUrl} alt="" className="h-9 w-9 shrink-0 rounded-full object-cover ring-1 ring-[#DADDE1]/60" />;
-  }
   return (
-    <div
-      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#E4E6EB] text-[14px] font-semibold text-[#65676B]"
-      aria-hidden
-    >
-      {ch}
-    </div>
+    <SamarketThumbnail
+      src={me?.avatarUrl}
+      size={36}
+      roundedClassName="rounded-full"
+      className="bg-[#E4E6EB] ring-1 ring-[#DADDE1]/60"
+      fallbackSrc=""
+      fallbackNode={<span className="text-[14px] font-semibold text-[#65676B]" aria-hidden>{ch}</span>}
+    />
   );
 }
 

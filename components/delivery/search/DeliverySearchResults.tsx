@@ -1,6 +1,6 @@
 "use client";
 
-import { DeliveryMediaImage } from "@/components/dibay/DeliveryMediaImage";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 
 type DeliverySearchStore = {
   id: string;
@@ -90,18 +90,7 @@ export function DeliverySearchResults({
                   onClick={() => onClickStore(s.slug)}
                   className="flex w-full items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left hover:bg-sam-surface-muted"
                 >
-                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
-                    {s.profile_image_url ? (
-                      <DeliveryMediaImage
-                        src={s.profile_image_url}
-                        alt=""
-                        fill
-                        className="object-cover"
-                        sizes="48px"
-                        surface="search-store-thumb"
-                      />
-                    ) : null}
-                  </div>
+                  <SamarketThumbnail src={s.profile_image_url} size={48} roundedClassName="rounded-ui-rect" className="bg-sam-surface-muted" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate sam-text-body font-semibold text-sam-fg">{s.store_name}</p>
                     {s.description ? (
@@ -131,18 +120,7 @@ export function DeliverySearchResults({
                   onClick={() => onClickMenu(m)}
                   className="flex w-full items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left hover:bg-sam-surface-muted"
                 >
-                  <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
-                    {m.thumbnail_url ? (
-                      <DeliveryMediaImage
-                        src={m.thumbnail_url}
-                        alt=""
-                        fill
-                        className="object-cover"
-                        sizes="48px"
-                        surface="search-menu-thumb"
-                      />
-                    ) : null}
-                  </div>
+                  <SamarketThumbnail src={m.thumbnail_url} size={48} roundedClassName="rounded-ui-rect" className="bg-sam-surface-muted" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate sam-text-body font-semibold text-sam-fg">{m.title}</p>
                     <p className="mt-0.5 truncate sam-text-body text-sam-muted">{m.store_name}</p>

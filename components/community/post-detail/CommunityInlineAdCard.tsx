@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { AdFeedPost } from "@/lib/ads/types";
 import { Star } from "lucide-react";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { philifeAppPaths } from "@domain/philife/paths";
 import { PHILIFE_FB_CARD_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -99,9 +100,12 @@ export function CommunityInlineAdCard() {
               ) : null}
             </div>
             {thumb ? (
-              <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-[4px] ring-1 ring-[#E5E7EB]">
-                <img src={thumb} alt="" className="h-full w-full object-cover" loading="lazy" />
-              </div>
+              <SamarketThumbnail
+                src={thumb}
+                size={80}
+                roundedClassName="rounded-[4px]"
+                className="ring-1 ring-[#E5E7EB]"
+              />
             ) : null}
           </div>
         </Link>

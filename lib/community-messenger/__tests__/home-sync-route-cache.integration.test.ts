@@ -21,7 +21,7 @@ vi.mock("@/lib/http/api-route", async (importOriginal) => {
   };
 });
 
-const bundleFactory = vi.fn(async () => ({
+const bundleFactory = vi.fn(async (..._args: unknown[]) => ({
   chats: [{ id: "room-1" }],
   groups: [],
   friends: [],

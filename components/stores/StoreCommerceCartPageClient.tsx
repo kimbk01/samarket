@@ -41,11 +41,28 @@ import {
   scheduleStoreCartIdleTask,
   storeCartHeadFromCommerceBucket,
 } from "@/lib/stores/store-cart-checkout-perf";
-import { STORE_CART_PAGE_TITLE, STORE_CART_SUMMARY_HINT } from "@/lib/stores/store-cart-policy";
 import { StoreCartClearConfirmDialog } from "@/components/stores/cart/StoreCartClearConfirmDialog";
 import { StoreCartCheckoutActionBar } from "@/components/stores/cart/StoreCommerceCartCheckoutActionBar";
 import { StoreCommerceCartPageShell } from "@/components/stores/cart/StoreCommerceCartPageShell";
 import { StoreCheckoutSubmitConfirmDialog } from "@/components/stores/cart/StoreCheckoutSubmitConfirmDialog";
+import { StoreBaeminCartFulfillmentHint } from "@/components/stores/cart/baemin/StoreBaeminCartFulfillmentHint";
+import { StoreBaeminCartOrderSummaryCard } from "@/components/stores/cart/baemin/StoreBaeminCartOrderSummaryCard";
+import { StoreBaeminCartStoreBlock } from "@/components/stores/cart/baemin/StoreBaeminCartStoreBlock";
+import { StoreBaeminCartTopBar } from "@/components/stores/cart/baemin/StoreBaeminCartTopBar";
+import {
+  buildStoreCheckoutOrderSummaryLabel,
+  buildStoreCheckoutRequestLabel,
+} from "@/lib/stores/store-checkout-confirm-labels";
+import { openStoreProductSheetFromCart } from "@/lib/stores/open-store-product-sheet-from-cart";
+import type { StoreCommerceCartLine } from "@/lib/stores/store-commerce-cart-types";
+import {
+  BAEMIN_CART_ADDRESS_LIST_CLASS,
+  BAEMIN_CART_ADDRESS_ROW_CLASS,
+  BAEMIN_CART_ADDRESS_ROW_SELECTED_CLASS,
+  BAEMIN_CART_CHECKOUT_INNER_CLASS,
+  BAEMIN_CART_CHECKOUT_SECTION_DIVIDER_CLASS,
+  BAEMIN_CART_SECTION_CARD_CLASS,
+} from "@/lib/stores/store-baemin-cart-ui";
 import { fetchMeProfileDeduped, peekMeProfileCached } from "@/lib/profile/fetch-me-profile-deduped";
 import { resolveProfilePhoneDb09 } from "@/lib/profile/resolve-profile-phone";
 import type { ProfileRow } from "@/lib/profile/types";
@@ -90,10 +107,6 @@ import { checkoutPaymentOptionsForCart } from "@/lib/stores/payment-methods-conf
 import {
   STORE_ADDRESS_STREET_LABEL,
 } from "@/lib/stores/store-address-form-ui";
-import {
-  APP_TIER1_BAR_INNER_ALIGNED_CLASS,
-  APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS,
-} from "@/lib/ui/app-content-layout";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import {
   readStoreFulfillmentPref,
@@ -150,155 +163,6 @@ function readInitialBuyerPhoneFromProfileCache(): string {
   return parsePhMobileInput(resolveProfilePhoneDb09(json.profile) ?? "");
 }
 
-function StoreCartStoreSummaryCard({
-  store,
-  frontCommerce,
-  subtotalPhp,
-  minOrderPhp,
-  minShortage,
-  meetsMin,
-  onBackToStore,
-  onRequestClear,
-  clearBusy,
-}: {
-  store: StoreHead;
-  frontCommerce: ReturnType<typeof resolveStoreFrontCommerceState> | null;
-  subtotalPhp: number;
-  minOrderPhp: number;
-  minShortage: number;
-  meetsMin: boolean;
-  onBackToStore: () => void;
-  onRequestClear: () => void;
-  clearBusy: boolean;
-}) {
-  const openLabel = frontCommerce
-    ? frontCommerce.isOpenForCommerce
-      ? "주문 가능"
-      : frontCommerce.inBreak
-        ? `Break · ${frontCommerce.breakRangeLabel}`
-        : "준비 중"
-    : null;
-  const deliveryLabel =
-    store.delivery_available === false
-      ? "배달 불가"
-      : store.delivery_available === true
-        ? "배달 가능"
-        : null;
-
-  const thumb = store.profile_image_url?.trim();
-
-  return (
-    <section className="mx-3 mt-3 rounded-[14px] border border-sam-border bg-white p-4 shadow-[0_1px_0_rgba(0,0,0,0.02)]">
-      <p className="sam-text-xxs font-semibold text-sam-muted">현재 카트</p>
-      <div className="mt-2 flex gap-3">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[10px] bg-gradient-to-br from-sam-surface-muted to-sam-border-soft text-2xl">
-          {thumb ? (
-            <img src={thumb} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <span aria-hidden>🍽️</span>
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="sam-text-body-lg font-bold leading-snug text-sam-fg">{store.store_name}</p>
-          <p className="mt-0.5 sam-text-helper text-sam-muted">{STORE_CART_SUMMARY_HINT}</p>
-        </div>
-      </div>
-      <div className="mt-2 flex flex-wrap gap-1.5">
-        {openLabel ? (
-          <span className="rounded-full bg-sam-surface px-2.5 py-0.5 sam-text-xxs font-medium text-sam-fg">
-            {openLabel}
-          </span>
-        ) : null}
-        {deliveryLabel ? (
-          <span className="rounded-full bg-sam-surface px-2.5 py-0.5 sam-text-xxs font-medium text-sam-fg">
-            {deliveryLabel}
-          </span>
-        ) : null}
-      </div>
-      <dl className="mt-3 space-y-1 sam-text-helper text-sam-muted">
-        {minOrderPhp > 0 ? (
-          <div className="flex justify-between gap-2">
-            <dt>최소 주문</dt>
-            <dd className="font-semibold text-sam-fg">{formatMoneyPhp(minOrderPhp)}</dd>
-          </div>
-        ) : null}
-        <div className="flex justify-between gap-2">
-          <dt>현재 상품 금액</dt>
-          <dd className="font-semibold tabular-nums text-sam-fg">{formatMoneyPhp(subtotalPhp)}</dd>
-        </div>
-        {minOrderPhp > 0 && !meetsMin ? (
-          <div className="flex justify-between gap-2 text-amber-800">
-            <dt>부족한 금액</dt>
-            <dd className="font-semibold tabular-nums">{formatMoneyPhp(minShortage)}</dd>
-          </div>
-        ) : null}
-      </dl>
-      <div className="mt-4 flex flex-wrap gap-2">
-        <button
-          type="button"
-          disabled={clearBusy}
-          onClick={onBackToStore}
-          className="inline-flex h-10 flex-1 min-w-[8.5rem] items-center justify-center rounded-full border border-sam-border bg-white px-4 sam-text-helper font-semibold text-sam-fg shadow-sm active:bg-sam-app disabled:opacity-50"
-        >
-          가게로 돌아가기
-        </button>
-        <button
-          type="button"
-          disabled={clearBusy}
-          onClick={onRequestClear}
-          className="inline-flex h-10 flex-1 min-w-[8.5rem] items-center justify-center rounded-full border border-red-200 bg-red-50 px-4 sam-text-helper font-semibold text-red-800 active:bg-red-100/80 disabled:opacity-50"
-        >
-          카트 비우기
-        </button>
-      </div>
-    </section>
-  );
-}
-
-function CartTopBar({
-  cartCount,
-  onBack,
-}: {
-  cartCount: number;
-  onBack: () => void;
-}) {
-  return (
-    <header className={APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS}>
-      <div className="w-full border-b border-sam-border-soft bg-sam-surface">
-        <div className={APP_TIER1_BAR_INNER_ALIGNED_CLASS}>
-          <div className="relative flex h-12 items-center">
-            <button
-              type="button"
-              onClick={onBack}
-              aria-label="뒤로가기"
-              className="absolute left-0 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full text-sam-fg active:bg-black/[0.04]"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 18l-6-6 6-6" />
-              </svg>
-            </button>
-            <h1 className="mx-auto text-center sam-text-body-lg font-semibold text-sam-fg">
-              {STORE_CART_PAGE_TITLE}
-            </h1>
-            <button
-              type="button"
-              aria-label="친구 추가"
-              className="absolute right-0 top-1/2 -translate-y-1/2 flex h-10 w-10 items-center justify-center rounded-full text-sam-fg opacity-35 grayscale pointer-events-none"
-              disabled
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
-                <path strokeLinecap="round" strokeLinejoin="round" d="M20 8v6M23 11h-6" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
-    </header>
-  );
-}
-
 export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }) {
   const { t } = useI18n();
   const pathname = usePathname();
@@ -352,6 +216,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     phoneLabel: string;
     addressLabel: string;
     paymentLabel: string;
+    orderSummaryLabel: string;
+    requestLabel: string;
   } | null>(null);
 
   useEffect(() => {
@@ -873,9 +739,11 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     applyCheckoutBuyerPhone,
   ]);
 
+  /** 결제 폼이 보일 때만 연락처·주소 부트스트랩(빈 장바구니 3-way fetch 방지) */
   useEffect(() => {
+    if (!cart.hydrated || lines.length === 0) return;
     void bootstrapCheckoutIdentity();
-  }, [bootstrapCheckoutIdentity]);
+  }, [cart.hydrated, lines.length, bootstrapCheckoutIdentity]);
 
   useLayoutEffect(() => {
     if (!checkoutConfirmOpen) return;
@@ -883,10 +751,13 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   }, [checkoutConfirmOpen]);
 
   useEffect(() => {
-    const onAddressesUpdated = () => void bootstrapCheckoutIdentity();
+    const onAddressesUpdated = () => {
+      if (lines.length === 0) return;
+      void bootstrapCheckoutIdentity();
+    };
     window.addEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
     return () => window.removeEventListener(SAMARKET_ADDRESSES_UPDATED_EVENT, onAddressesUpdated);
-  }, [bootstrapCheckoutIdentity]);
+  }, [bootstrapCheckoutIdentity, lines.length]);
 
   useEffect(() => {
     if (!addressBookHydrated) return;
@@ -1014,6 +885,53 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     router.push("/stores");
   }, [store, cartBucket, storeSlug, router]);
 
+  /** Hooks must run before any `return` below — Rules of Hooks */
+  const deliveryFeeSummaryLabel = useMemo(() => {
+    if (fulfillment !== "local_delivery") return formatMoneyPhp(0);
+    if (commerce.deliveryFeeMode === "courier") {
+      const label = commerce.deliveryCourierLabel?.trim();
+      return label ? `착불 · ${label}` : "착불";
+    }
+    if (commerce.deliveryFeeMode === "self_free_promo") {
+      return (
+        <span className="inline-flex flex-col items-end gap-0.5">
+          <span className="inline-flex flex-wrap items-center justify-end gap-1.5">
+            <span className="text-[13px] font-semibold text-[#2563EB]">배달비 무료 적용 중</span>
+            {commerce.deliveryFeeStrikeReferencePhp != null &&
+            commerce.deliveryFeeStrikeReferencePhp > 0 ? (
+              <span className="text-[13px] font-medium text-[#999] line-through">
+                {formatMoneyPhp(commerce.deliveryFeeStrikeReferencePhp)}
+              </span>
+            ) : null}
+          </span>
+          <span>{formatMoneyPhp(deliveryFeeForCheckout)}</span>
+        </span>
+      );
+    }
+    return formatMoneyPhp(deliveryFeeForCheckout);
+  }, [commerce, deliveryFeeForCheckout, fulfillment]);
+
+  const openProductSheet = useCallback(
+    (productId: string, editCartLine?: StoreCommerceCartLine) => {
+      if (!store) return;
+      openStoreProductSheetFromCart({
+        store: {
+          id: store.id,
+          store_name: store.store_name,
+          slug: store.slug,
+          profile_image_url: store.profile_image_url,
+          business_hours_json: store.business_hours_json,
+          is_open: store.is_open,
+          delivery_available: store.delivery_available,
+          pickup_available: store.pickup_available,
+        },
+        productId,
+        editCartLine: editCartLine ?? null,
+      });
+    },
+    [store]
+  );
+
   async function submitOrder() {
     if (!store || lines.length === 0) return;
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
@@ -1090,10 +1008,14 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       [summaryForSubmit, addressDetail.trim()].filter(Boolean).join("\n") || "(미입력)";
     const payLabel =
       checkoutPaymentOptions.find((o) => o.id === selectedPaymentMethod)?.label ?? selectedPaymentMethod;
+    const grandForConfirm =
+      fulfillment === "local_delivery" ? paymentGrandTotalPhp : pickupGrandTotalPhp;
     setCheckoutConfirmPayload({
       phoneLabel: phoneDisp,
       addressLabel: addrDisp,
       paymentLabel: payLabel,
+      orderSummaryLabel: buildStoreCheckoutOrderSummaryLabel(lines, grandForConfirm),
+      requestLabel: buildStoreCheckoutRequestLabel(buyerNote),
     });
     setCheckoutConfirmOpen(true);
   }
@@ -1257,6 +1179,11 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     }
   }
 
+  /**
+   * ── JSX 분기 return (이 줄 아래) ──
+   * useState / useEffect / useMemo / useCallback / useRef / useLayoutEffect 추가 금지.
+   * (Rules of Hooks — 과거 useMemo를 여기 두었다가 런타임 크래시 발생)
+   */
   if (!cart.hydrated) {
     return (
       <div className="min-h-[40vh] px-4 py-12 text-center sam-text-body text-sam-muted">{t("common_loading")}</div>
@@ -1284,7 +1211,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
   if (lines.length === 0 && lastOrderId) {
     return (
-      <StoreCommerceCartPageShell header={<CartTopBar cartCount={0} onBack={() => router.back()} />}>
+      <StoreCommerceCartPageShell header={<StoreBaeminCartTopBar onBack={() => router.back()} />}>
         <div className="px-4 py-10 text-center">
           <p className="sam-text-body-lg font-semibold text-emerald-800">주문이 접수되었습니다.</p>
           <div className="mt-6 flex flex-col items-center gap-3">
@@ -1317,7 +1244,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
   if (lines.length === 0) {
     return (
-      <StoreCommerceCartPageShell header={<CartTopBar cartCount={0} onBack={() => router.back()} />}>
+      <StoreCommerceCartPageShell header={<StoreBaeminCartTopBar onBack={() => router.back()} />}>
         <div className="px-4 py-10">
           <div className="text-center">
             <p className="sam-text-body-lg font-semibold text-sam-fg">장바구니가 비어 있어요</p>
@@ -1402,32 +1329,78 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const displayGrand =
     fulfillment === "local_delivery" ? paymentGrandTotalPhp : pickupGrandTotalPhp;
 
+  const checkoutStrikeGrand =
+    discountAmountPhp > 0
+      ? fulfillment === "local_delivery"
+        ? listSubtotalPhp + deliveryFeeForCheckout
+        : listSubtotalPhp
+      : null;
+
+  const checkoutPromoLine =
+    discountAmountPhp > 0
+      ? discountPercentOverall > 0
+        ? `${discountPercentOverall}% 할인 ${formatMoneyPhp(discountAmountPhp)} 적용`
+        : `할인 ${formatMoneyPhp(discountAmountPhp)} 적용`
+      : null;
+
+  const showFulfillmentHint =
+    needsAddressAndPhone && checkoutContactReady && !deliveryAddressReady;
+
   return (
     <StoreCommerceCartPageShell
-      header={<CartTopBar cartCount={lines.length} onBack={() => router.back()} />}
+      header={<StoreBaeminCartTopBar onBack={() => router.back()} />}
       footer={
         <StoreCartCheckoutActionBar
           ref={checkoutFooterRef}
           displayGrand={displayGrand}
+          strikeGrand={checkoutStrikeGrand}
+          promoLine={checkoutPromoLine}
           busy={busy}
           submitDisabled={!meetsMin || fulfillmentOptions.length === 0 || checkoutBlocked}
-          submitLabel={busy ? t("common_processing") : "가게배달 주문하기"}
+          processingLabel={t("common_processing")}
           onSubmit={() => void submitOrder()}
         />
       }
     >
 
-      <StoreCartStoreSummaryCard
+      <StoreBaeminCartStoreBlock
         store={store}
-        frontCommerce={frontCommerce}
-        subtotalPhp={subtotalPhp}
-        minOrderPhp={minOrderPhp}
-        minShortage={minShortage}
-        meetsMin={meetsMin}
-        clearBusy={busy}
-        onBackToStore={() => void navigateToStoreMenu()}
+        lines={lines}
+        busy={busy}
+        noneLabel={t("common_none")}
+        deleteLabel={t("common_delete")}
         onRequestClear={() => setClearCartConfirmOpen(true)}
+        onBackToStore={() => void navigateToStoreMenu()}
+        onRemoveLine={(lineId) => cart.removeLine(lineId)}
+        onChangeOptions={(line) => openProductSheet(line.productId, line)}
+        onDecreaseQty={(line) => cart.updateLineQuantity(line.lineId, line.qty - 1)}
+        onIncreaseQty={(line) => cart.updateLineQuantity(line.lineId, line.qty + 1)}
       />
+
+      <StoreBaeminCartOrderSummaryCard
+        listSubtotalPhp={listSubtotalPhp}
+        subtotalPhp={subtotalPhp}
+        discountAmountPhp={discountAmountPhp}
+        discountPercentOverall={discountPercentOverall}
+        fulfillmentIsDelivery={fulfillment === "local_delivery"}
+        deliveryFeeLabel={deliveryFeeSummaryLabel}
+        displayGrand={displayGrand}
+        minOrderPhp={minOrderPhp}
+        meetsMin={meetsMin}
+        minShortage={minShortage}
+        showFreeDeliveryProgress={showFreeDeliveryProgress}
+        freeDeliveryThresholdPhp={freeDeliveryThresholdPhp}
+        freeDeliveryProgressPct={freeDeliveryProgressPct}
+        freeDeliveryMet={freeDeliveryMet}
+      />
+
+      <StoreBaeminCartFulfillmentHint show={showFulfillmentHint} />
+
+      {otherBuckets.length > 0 ? (
+        <div className={`${BAEMIN_CART_SECTION_CARD_CLASS} px-4 py-3 text-[13px] text-[#888]`}>
+          다른 매장 장바구니도 있습니다. 해당 매장 페이지에서 장바구니를 열 수 있어요.
+        </div>
+      ) : null}
 
       <StoreCartClearConfirmDialog
         open={clearCartConfirmOpen}
@@ -1446,6 +1419,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           phoneLabel={checkoutConfirmPayload.phoneLabel}
           addressLabel={checkoutConfirmPayload.addressLabel}
           paymentLabel={checkoutConfirmPayload.paymentLabel}
+          orderSummaryLabel={checkoutConfirmPayload.orderSummaryLabel}
+          requestLabel={checkoutConfirmPayload.requestLabel}
           busy={busy}
           onCancel={() => {
             setCheckoutConfirmOpen(false);
@@ -1455,254 +1430,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         />
       ) : null}
 
-      <div className="mt-2 space-y-2 px-3">
-        {lines.map((line) => {
-          const lineTotal = line.unitPricePhp * line.qty;
-          const listU = resolveCartLineListUnitPhp(line);
-          const lineListTotal = listU != null ? listU * line.qty : null;
-          const lineDiscPct =
-            line.discountPercent != null && line.discountPercent > 0
-              ? Math.floor(line.discountPercent)
-              : listU != null && listU > line.unitPricePhp
-                ? Math.max(
-                    1,
-                    Math.min(99, Math.round((1 - line.unitPricePhp / listU) * 100))
-                  )
-                : 0;
-          const showDiscBadge = lineDiscPct > 0 && listU != null;
-          return (
-            <div
-              key={line.lineId}
-              className="flex gap-3 rounded-[14px] border border-sam-border bg-white p-3 shadow-[0_1px_0_rgba(0,0,0,0.02)]"
-            >
-              <div className="relative h-16 w-16 shrink-0 overflow-visible">
-                {showDiscBadge ? (
-                  <span className="absolute -right-1 -top-1 z-10 flex h-6 min-w-[1.5rem] shrink-0 items-center justify-center rounded-full bg-red-600 px-1 sam-text-xxs font-bold leading-none text-white shadow-sm">
-                    {lineDiscPct}%
-                  </span>
-                ) : null}
-                <div className="flex h-full w-full items-center justify-center overflow-hidden rounded-[10px] bg-gradient-to-br from-sam-surface-muted to-sam-border-soft text-2xl text-sam-meta">
-                  {line.thumbnailUrl?.trim() ? (
-                    <img
-                      src={line.thumbnailUrl.trim()}
-                      alt=""
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <span>🍽️</span>
-                  )}
-                </div>
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-start justify-between gap-2">
-                  <p className="min-w-0 sam-text-body font-semibold leading-snug text-sam-fg">
-                    {line.title}
-                  </p>
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => cart.removeLine(line.lineId)}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sam-meta active:bg-black/[0.04] disabled:opacity-40"
-                    aria-label={t("common_delete")}
-                    title={t("common_delete")}
-                  >
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 6h18" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M8 6V4h8v2" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M19 6l-1 16H6L5 6" />
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M10 11v6M14 11v6" />
-                    </svg>
-                  </button>
-                </div>
-
-                <p className="mt-0.5 sam-text-helper text-sam-muted">
-                  {line.optionsSummary?.trim() ? line.optionsSummary.trim() : t("common_none")}
-                </p>
-                <Link
-                  href={`/stores/${encodeURIComponent(store.slug)}`}
-                  className="mt-1 inline-block sam-text-xxs font-semibold text-signature underline decoration-signature/40"
-                >
-                  이 가게 메뉴 더 보기
-                </Link>
-                {line.lineNote?.trim() ? (
-                  <p className="mt-0.5 sam-text-helper text-amber-900/90">
-                    <span className="font-medium">{t("common_request")}</span> {line.lineNote.trim()}
-                  </p>
-                ) : null}
-
-                <div className="mt-2 flex flex-wrap items-baseline gap-2">
-                  <span className="text-sm font-bold text-sam-fg">{formatMoneyPhp(lineTotal)}</span>
-                  {lineListTotal != null && lineListTotal > lineTotal ? (
-                    <span className="text-xs font-normal text-sam-meta line-through">
-                      {formatMoneyPhp(lineListTotal)}
-                    </span>
-                  ) : null}
-                </div>
-
-                <div className="mt-3 flex items-center justify-between gap-2">
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() =>
-                      router.push(
-                        `/stores/${encodeURIComponent(store.slug)}/products/${encodeURIComponent(line.productId)}`
-                      )
-                    }
-                    className="h-9 shrink-0 rounded-md border border-sam-border bg-white px-3 sam-text-helper font-semibold text-sam-fg shadow-sm active:bg-sam-app disabled:opacity-40"
-                  >
-                    옵션 변경
-                  </button>
-                  <div className="flex h-9 shrink-0 items-center overflow-hidden rounded-md border border-sam-border bg-white shadow-sm">
-                    <button
-                      type="button"
-                      disabled={busy || line.qty <= line.minOrderQty}
-                      onClick={() => cart.updateLineQuantity(line.lineId, line.qty - 1)}
-                      className="flex h-full w-10 items-center justify-center text-[18px] font-medium text-sam-fg disabled:opacity-30"
-                      aria-label="수량 줄이기"
-                    >
-                      −
-                    </button>
-                    <span className="min-w-[2.25rem] text-center sam-text-body font-semibold tabular-nums text-sam-fg">
-                      {line.qty}
-                    </span>
-                    <button
-                      type="button"
-                      disabled={busy || line.qty >= line.maxOrderQty}
-                      onClick={() => cart.updateLineQuantity(line.lineId, line.qty + 1)}
-                      className="flex h-full w-10 items-center justify-center text-[18px] font-medium text-sam-fg disabled:opacity-30"
-                      aria-label="수량 늘리기"
-                    >
-                      +
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* 사용자 요청: 장바구니 내 메뉴 추천/추가 영역은 생략 가능 */}
-
-      {otherBuckets.length > 0 ? (
-        <div className="mx-3 mt-3 rounded border border-sam-border bg-sam-surface px-3 py-2.5 sam-text-helper text-sam-muted">
-          다른 매장 장바구니도 있습니다. 해당 매장 페이지에서 장바구니를 열 수 있어요.
-        </div>
-      ) : null}
-
-      <div className="mx-3 mt-3 space-y-3">
-        <div className="rounded border border-sam-border bg-sam-surface p-3.5 shadow-sm">
-            <dl className="space-y-2.5 sam-text-body leading-snug">
-              <div className="flex justify-between gap-3">
-                <dt className="text-sam-muted">총상품금액</dt>
-                <dd className="shrink-0 text-right font-semibold tabular-nums text-sam-fg">
-                  {formatMoneyPhp(listSubtotalPhp)}
-                </dd>
-              </div>
-              <div className="flex justify-between gap-3">
-                <dt className="text-sam-muted">
-                  할인금액
-                  {discountAmountPhp > 0 && discountPercentOverall > 0 ? (
-                    <span className="ml-1 sam-text-xxs font-normal text-sam-meta">
-                      ({discountPercentOverall}%)
-                    </span>
-                  ) : null}
-                </dt>
-                <dd className="shrink-0 text-right font-semibold tabular-nums text-rose-600">
-                  {discountAmountPhp > 0
-                    ? `− ${formatMoneyPhp(discountAmountPhp)}`
-                    : `− ${formatMoneyPhp(0)}`}
-                </dd>
-              </div>
-              <div className="flex justify-between gap-3">
-                <dt className="text-sam-muted">예상배달비</dt>
-                <dd className="shrink-0 text-right font-semibold tabular-nums text-sam-fg">
-                  {fulfillment !== "local_delivery" ?
-                    formatMoneyPhp(0)
-                  : commerce.deliveryFeeMode === "courier" ?
-                    commerce.deliveryCourierLabel?.trim() ?
-                      `착불 · ${commerce.deliveryCourierLabel.trim()}`
-                    : "착불"
-                  : commerce.deliveryFeeMode === "self_free_promo" ?
-                    <span className="inline-flex flex-col items-end gap-0.5">
-                      <span className="inline-flex flex-wrap items-center justify-end gap-1.5">
-                        <span className="text-[13px] font-semibold text-[#2563EB]">배달비 무료 적용 중</span>
-                        {commerce.deliveryFeeStrikeReferencePhp != null &&
-                        commerce.deliveryFeeStrikeReferencePhp > 0 ? (
-                          <span className="text-[13px] font-medium text-sam-meta line-through">
-                            {formatMoneyPhp(commerce.deliveryFeeStrikeReferencePhp)}
-                          </span>
-                        ) : null}
-                      </span>
-                      <span>{formatMoneyPhp(deliveryFeeForCheckout)}</span>
-                    </span>
-                  : formatMoneyPhp(deliveryFeeForCheckout)}
-                </dd>
-              </div>
-            </dl>
-            <div className="mt-3 border-t border-dashed border-sam-border pt-3">
-              <div className="flex items-end justify-between gap-3">
-                <span className="sam-text-body font-bold text-sam-fg">결제예정금액</span>
-                <span className="sam-text-page-title font-bold leading-none text-rose-600 tabular-nums">
-                  {formatMoneyPhp(displayGrand)}
-                </span>
-              </div>
-              <p className="mt-2 sam-text-xxs text-sam-meta">
-                최소 주문 금액 : {formatMoneyPhp(minOrderPhp)}
-              </p>
-            </div>
-        </div>
-
-        {showFreeDeliveryProgress ? (
-          <div className="rounded border border-sky-100 bg-sky-50/80 px-3 py-2.5">
-            <p className="sam-text-helper font-semibold text-sky-950">
-              {formatMoneyPhp(freeDeliveryThresholdPhp!)} 이상 주문 시 무료배달
-            </p>
-            <div
-              className="mt-2 h-2 overflow-hidden rounded-full bg-sky-200/80"
-              role="progressbar"
-              aria-valuenow={Math.round(freeDeliveryProgressPct)}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label="무료배달까지 주문 금액 진행률"
-            >
-              <div
-                className="h-full rounded-full bg-sky-500 transition-[width] duration-300 ease-out"
-                style={{ width: `${freeDeliveryProgressPct}%` }}
-              />
-            </div>
-            {freeDeliveryMet ? (
-              <p className="mt-1.5 sam-text-xxs font-medium text-emerald-700">
-                무료배달 조건을 충족했습니다.
-              </p>
-            ) : (
-              <p className="mt-1.5 sam-text-xxs text-sky-900/80">
-                {formatMoneyPhp(Math.max(0, freeDeliveryThresholdPhp! - subtotalPhp))} 더 담으면 배달비가 면제될 수
-                있어요.
-              </p>
-            )}
-          </div>
-        ) : null}
-
-        {fulfillment !== "local_delivery" ? (
-          <p className="sam-text-xxs text-sam-muted">
-            배달을 선택하면 매장에 설정된 예상 배달비가 위 요약에 반영됩니다.
-          </p>
-        ) : null}
-
-        {minOrderPhp > 0 ? (
-          <p
-            className={`sam-text-helper font-medium ${meetsMin ? "text-emerald-700" : "text-amber-800"}`}
-          >
-            {meetsMin
-              ? "최소 주문 금액을 충족했습니다."
-              : `${formatMoneyPhp(minShortage)} 더 담아 최소 주문을 맞춰 주세요.`}
-          </p>
-        ) : null}
-
-      </div>
-
-      <div className="mx-3 mt-3 space-y-3 rounded border border-sam-border bg-sam-surface p-4 shadow-sm">
+      <div className={BAEMIN_CART_SECTION_CARD_CLASS}>
+        <div className={BAEMIN_CART_CHECKOUT_INNER_CLASS}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-3">
           <div className="min-w-0 sm:max-w-[8.5rem] sm:shrink-0">
             <p className="sam-text-body font-medium text-sam-muted">수령 방식</p>
@@ -1742,7 +1471,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               )
             ) : null}
           </div>
-          <div className="min-w-0 flex-1 border-t border-sam-border pt-4 sm:border-t-0 sm:border-l sm:border-sam-border sm:pt-0 sm:pl-3">
+          <div
+            className={`min-w-0 flex-1 ${BAEMIN_CART_CHECKOUT_SECTION_DIVIDER_CLASS} sm:border-t-0 sm:border-l sm:border-[var(--delivery-border-section)] sm:pt-0 sm:pl-4`}
+          >
             <p className="sam-text-body font-medium text-sam-muted">
               결제 방법 <span className="text-red-600">*</span>
             </p>
@@ -1804,11 +1535,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         ) : null}
 
         <div
-          className={
-            needsAddressAndPhone
-              ? "flex flex-col gap-4 border-t border-sam-border pt-4 sm:flex-row sm:items-start sm:gap-4"
-              : "border-t border-sam-border pt-4"
-          }
+          className={`${BAEMIN_CART_CHECKOUT_SECTION_DIVIDER_CLASS} ${
+            needsAddressAndPhone ? "flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-4" : ""
+          }`}
         >
           <div className={needsAddressAndPhone ? "min-w-0 sm:max-w-[13rem] sm:shrink-0" : undefined}>
             <p className="sam-text-body font-medium text-sam-muted">
@@ -1848,25 +1577,27 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           </div>
 
           {needsAddressAndPhone ? (
-            <div className="min-w-0 flex-1 border-t border-sam-border pt-4 sm:border-t-0 sm:border-l sm:border-sam-border sm:pl-4 sm:pt-0">
+            <div
+              className={`min-w-0 flex-1 ${BAEMIN_CART_CHECKOUT_SECTION_DIVIDER_CLASS} sm:border-t-0 sm:border-l sm:border-[var(--delivery-border-section)] sm:pt-0 sm:pl-4`}
+            >
             <p className="sam-text-body font-medium text-sam-muted">
               배송지 <span className="text-red-600">*</span>
             </p>
-            <ul className="mt-2 space-y-2">
+            <ul className={BAEMIN_CART_ADDRESS_LIST_CLASS}>
               {!checkoutContactReady ? (
-                <li className="rounded border border-sam-border bg-sam-surface p-3">
+                <li className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} bg-[#FAFAFA]`}>
                   <p className="sam-text-helper text-sam-muted">배달 주소 정보를 불러오는 중입니다…</p>
                 </li>
               ) : null}
               {checkoutContactReady && !profileSnap && savedAddresses.length === 0 ? (
-                <li className="rounded border border-amber-100 bg-amber-50/60 p-3">
+                <li className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} bg-amber-50/80`}>
                   <p className="sam-text-helper leading-snug text-amber-950">
                     로그인하면 마이페이지에 저장한 배달 주소를 여기서 선택할 수 있습니다.
                   </p>
                 </li>
               ) : null}
               {checkoutContactReady && legacyLsNoticeCount > 0 ? (
-                <li className="rounded border border-sky-100 bg-sky-50/75 p-3">
+                <li className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} bg-sky-50/80`}>
                   <p className="sam-text-helper leading-snug text-sky-950">
                     예전 장바구니에만 있던 배송지 {legacyLsNoticeCount}건은 저장되지 않습니다.{" "}
                     <Link href="/mypage/addresses" className="font-semibold text-signature underline">
@@ -1878,10 +1609,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
               ) : null}
               {checkoutContactReady && profileSnap ? (
                 <li
-                  className={`rounded border p-3 ${
+                  className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} ${
                     selectedAddressId === PROFILE_DELIVERY_SELECTION_ID
-                      ? "border-signature bg-signature/5 ring-1 ring-signature/30"
-                      : "border-sam-border bg-sam-surface"
+                      ? BAEMIN_CART_ADDRESS_ROW_SELECTED_CLASS
+                      : ""
                   }`}
                 >
                   <div className="flex items-start gap-2">
@@ -1925,8 +1656,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                   return (
                     <li
                       key={a.id}
-                      className={`rounded border p-3 ${
-                        isSel ? "border-signature bg-signature/5 ring-1 ring-signature/30" : "border-sam-border bg-sam-surface"
+                      className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} ${
+                        isSel ? BAEMIN_CART_ADDRESS_ROW_SELECTED_CLASS : ""
                       }`}
                     >
                       <div className="flex items-start gap-2">
@@ -2015,7 +1746,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             </div>
           ) : null}
         </div>
-        <div>
+        <div className={BAEMIN_CART_CHECKOUT_SECTION_DIVIDER_CLASS}>
           <label htmlFor="cart-buyer-note" className="sam-text-body font-medium text-sam-muted">
             요청 사항 (선택)
           </label>
@@ -2025,7 +1756,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             value={buyerNote}
             disabled={busy}
             onChange={(e) => setBuyerNote(e.target.value)}
-            className="sam-textarea mt-2 w-full min-h-[96px] resize-none"
+            className="mt-2 w-full min-h-[96px] resize-none rounded-[4px] border border-[var(--delivery-border-section)] bg-white px-3 py-2.5 text-[14px] text-[#111] outline-none focus:border-[#2386B1] focus:ring-2 focus:ring-[#2386B1]/20 disabled:bg-[#F5F5F5]"
             maxLength={500}
           />
           <p className="mt-1 sam-text-xxs leading-snug text-sam-muted">
@@ -2050,6 +1781,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             {err}
           </p>
         ) : null}
+        </div>
       </div>
     </StoreCommerceCartPageShell>
   );

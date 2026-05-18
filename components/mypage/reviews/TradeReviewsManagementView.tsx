@@ -18,6 +18,7 @@ import { SalesHistoryCard, type SalesHistoryRow } from "@/components/mypage/sale
 import { TradeManagementTabBar } from "@/components/mypage/TradeManagementTabBar";
 import { MyWrittenReviewsView } from "@/components/mypage/reviews/MyWrittenReviewsView";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import {
   fetchTradeHistoryPurchasesBySession,
   fetchTradeHistorySalesBySession,
@@ -84,13 +85,14 @@ function ReceivedReviewCard({ it, currency }: { it: MyReceivedReviewItem; curren
     <li className="overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface shadow-sm">
       <div className="flex gap-2 p-3">
         <Link href={detailHref} className="flex min-w-0 flex-1 gap-3">
-          <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
-            {it.thumbnail ? (
-              <img src={it.thumbnail} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full items-center justify-center sam-text-xxs text-sam-meta">이미지</div>
-            )}
-          </div>
+          <SamarketThumbnail
+            src={it.thumbnail}
+            size={72}
+            roundedClassName="rounded-ui-rect"
+            className="bg-sam-surface-muted"
+            fallbackSrc=""
+            fallbackNode={<div className="sam-text-xxs text-sam-meta">이미지</div>}
+          />
           <div className="min-w-0 flex-1">
             <p className="line-clamp-2 sam-text-body font-medium text-sam-fg">{it.title || "상품"}</p>
             <p className="mt-0.5 sam-text-body font-bold text-sam-fg">{formatPrice(it.price, currency)}</p>

@@ -1,8 +1,8 @@
 "use client";
 
-import Image from "next/image";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import type { StoreDetailProductCard } from "@/lib/stores/group-store-products-by-menu";
+import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
 
 /**
  * 배민식 메뉴판 상단: 사장님 추천(가로) + 인기 메뉴(랭킹) — 카테고리 탭 위.
@@ -47,9 +47,11 @@ export function StoreMenuBoardPreamble({
                   }`}
                 >
                   <div className="relative aspect-square w-full bg-neutral-100">
-                    {thumb ? (
-                      <Image src={thumb} alt="" fill sizes="104px" className="object-cover" />
-                    ) : null}
+                    <StoreProductThumbnail
+                      src={thumb}
+                      size={104}
+                      roundedClassName="rounded-none"
+                    />
                   </div>
                   <div className="min-h-[2.5rem] px-1.5 py-1">
                     <p className="line-clamp-2 text-[11px] font-extrabold leading-snug text-neutral-900">{p.title}</p>
@@ -92,10 +94,8 @@ export function StoreMenuBoardPreamble({
                     <span className="mt-1 w-6 shrink-0 text-center text-[14px] font-black tabular-nums text-[#1C8DB8]">
                       {rank}
                     </span>
-                    <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-[10px] bg-neutral-100">
-                      {thumb ? (
-                        <Image src={thumb} alt="" fill sizes="72px" className="object-cover" />
-                      ) : null}
+                    <div className="relative h-[72px] w-[72px] shrink-0">
+                      <StoreProductThumbnail src={thumb} size={72} roundedClassName="rounded-[10px]" />
                       {soldOut ? <div className="absolute inset-0 bg-white/45" aria-hidden /> : null}
                     </div>
                     <div className="min-w-0 flex-1">

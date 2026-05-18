@@ -7,6 +7,7 @@ import type { PostWithMeta } from "@/lib/posts/schema";
 import { getAppSettings } from "@/lib/app-settings";
 import { buildPostListPreviewModel } from "@/lib/posts/post-list-preview-model";
 import { PostListPreviewColumn } from "@/components/post/PostListPreviewColumn";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { formatPrice } from "@/lib/utils/format";
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 
@@ -45,20 +46,14 @@ function PostMiniCard({ item }: { item: PostWithMeta }) {
       className="block overflow-hidden rounded-md border border-[#ccd0d5] bg-white"
     >
       <div className="relative aspect-square bg-sam-app">
-        {thumb ? (
-          <img
-            src={thumb}
-            alt=""
-            width={320}
-            height={320}
-            className="h-full w-full object-cover"
-            loading="lazy"
-            decoding="async"
-            fetchPriority="low"
-          />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center sam-text-helper text-sam-muted">이미지</div>
-        )}
+        <SamarketThumbnail
+          src={thumb}
+          fill
+          roundedClassName="rounded-none"
+          className="bg-sam-app"
+          fallbackSrc=""
+          fallbackNode={<span className="sam-text-helper text-sam-muted">이미지</span>}
+        />
       </div>
       <div className="space-y-1 px-2.5 py-2.5">
         {preview ? (
@@ -101,20 +96,14 @@ function PostAdCompactCard({ item }: { item: PostWithMeta }) {
     >
       <div className="overflow-hidden rounded-md border border-[#ccd0d5] bg-white">
         <div className="aspect-square bg-sam-app">
-          {thumb ? (
-            <img
-              src={thumb}
-              alt=""
-              width={320}
-              height={320}
-              className="h-full w-full object-cover"
-              loading="lazy"
-              decoding="async"
-              fetchPriority="low"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center sam-text-xxs text-sam-muted">이미지</div>
-          )}
+          <SamarketThumbnail
+            src={thumb}
+            fill
+            roundedClassName="rounded-none"
+            className="bg-sam-app"
+            fallbackSrc=""
+            fallbackNode={<span className="sam-text-xxs text-sam-muted">이미지</span>}
+          />
         </div>
       </div>
       <p className="mt-1.5 line-clamp-2 sam-text-helper font-medium leading-tight text-sam-fg">{item.title}</p>

@@ -1,6 +1,7 @@
 "use client";
 
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import type { TradeChatComposePreviewFields } from "@/lib/chats/trade-chat-compose-preview-client";
 
@@ -20,21 +21,19 @@ export function TradeChatComposePreparingShell({
   const price = preview?.priceText?.trim() || "가격 문의";
   const seller = preview?.sellerName?.trim() || "판매자";
   const thumb = preview?.productThumbnail?.trim() ?? "";
-  const hasThumb = thumb.length > 0;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-sam-app" aria-busy="true" aria-live="polite">
       <header className="border-b border-sam-border-soft bg-sam-surface px-4 py-3">
         <div className={`${COL} flex items-start gap-3`}>
-          <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
-            {hasThumb ? (
-              <img src={thumb} alt="" className="h-full w-full object-cover" decoding="async" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center text-[10px] font-medium text-sam-muted">
-                IMG
-              </div>
-            )}
-          </div>
+          <SamarketThumbnail
+            src={thumb}
+            size={56}
+            roundedClassName="rounded-ui-rect"
+            className="bg-sam-surface-muted"
+            fallbackSrc=""
+            fallbackNode={<span className="text-[10px] font-medium text-sam-muted">IMG</span>}
+          />
           <div className="min-w-0 flex-1">
             <p className="line-clamp-2 text-[15px] font-semibold leading-snug text-sam-fg">{title}</p>
             <p className="mt-0.5 text-[13px] font-semibold tabular-nums text-sam-fg">{price}</p>

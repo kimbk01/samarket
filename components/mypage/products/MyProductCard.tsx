@@ -9,6 +9,7 @@ import {
   TradeListingStatusBadge,
   tradeListingPostFromProduct,
 } from "@/components/post/TradeListingStatusBadge";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import {
   POST_LIST_META_LINE_CLASS,
   POST_LIST_META_TEXT_CLASS,
@@ -56,15 +57,12 @@ export function MyProductCard({
           className="flex min-w-0 flex-1 gap-3"
         >
           <div className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
-            {product.thumbnail ? (
-              <img
-                src={product.thumbnail}
-                alt=""
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className="h-full w-full bg-sam-border-soft" />
-            )}
+            <SamarketThumbnail
+              src={product.thumbnail}
+              fill
+              roundedClassName="rounded-ui-rect"
+              className="bg-sam-surface-muted"
+            />
             {product.isBoosted && (
               <span className="absolute left-1 top-1 rounded bg-signature px-1.5 py-0.5 sam-text-xxs font-medium text-white">
                 끌올

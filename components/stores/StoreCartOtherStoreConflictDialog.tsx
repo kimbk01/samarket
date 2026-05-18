@@ -4,13 +4,11 @@ import type { StoreCommerceCartLine } from "@/lib/stores/store-commerce-cart-typ
 import { STORE_CART_OTHER_STORE_CONFLICT } from "@/lib/stores/store-cart-policy";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import {
-  CART_POPUP_BTN_DANGER,
-  CART_POPUP_BTN_GHOST,
-  CART_POPUP_BTN_SECONDARY,
   CART_POPUP_RADIUS_CLASS,
   StoreCommerceCartAlert,
   StoreCommerceCartCenterPopup,
 } from "@/components/stores/cart/StoreCommerceCartCenterPopup";
+import { DeliveryButton } from "@/components/delivery/ui/DeliveryButton";
 
 export type StoreCartConflictPendingAdd = {
   title: string;
@@ -190,25 +188,15 @@ export function StoreCartOtherStoreConflictDialog({
       onBackdropClose={onCancel}
       footer={
         <>
-          <button
-            type="button"
-            onClick={onViewCart}
-            disabled={replaceBusy}
-            className={CART_POPUP_BTN_SECONDARY}
-          >
+          <DeliveryButton variant="secondary" size="full" disabled={replaceBusy} onClick={onViewCart}>
             {STORE_CART_OTHER_STORE_CONFLICT.viewCart}
-          </button>
-          <button
-            type="button"
-            onClick={onClearAndAdd}
-            disabled={replaceBusy}
-            className={CART_POPUP_BTN_DANGER}
-          >
+          </DeliveryButton>
+          <DeliveryButton variant="danger" size="full" disabled={replaceBusy} onClick={onClearAndAdd}>
             {replaceBusy ? "처리 중…" : STORE_CART_OTHER_STORE_CONFLICT.confirm}
-          </button>
-          <button type="button" onClick={onCancel} disabled={replaceBusy} className={CART_POPUP_BTN_GHOST}>
+          </DeliveryButton>
+          <DeliveryButton variant="ghost" size="full" disabled={replaceBusy} onClick={onCancel}>
             {STORE_CART_OTHER_STORE_CONFLICT.cancel}
-          </button>
+          </DeliveryButton>
         </>
       }
     >

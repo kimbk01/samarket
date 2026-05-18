@@ -1,28 +1,13 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
-
-/** 디바이 장바구니 — 가운데 팝업 (radius 4px) */
+import type { ReactNode } from "react";
+import {
+  DeliveryModal,
+  type DeliveryModalPlacement,
+} from "@/components/delivery/ui/DeliveryModal";
 export const CART_POPUP_RADIUS_CLASS = "rounded-[4px]";
 
-export const CART_POPUP_BTN_PRIMARY =
-  "w-full rounded-[4px] bg-[#1C8DB8] py-2.5 text-[14px] font-bold text-white disabled:opacity-50";
-
-export const CART_POPUP_BTN_SECONDARY =
-  "w-full rounded-[4px] border border-neutral-300 bg-white py-2.5 text-[14px] font-semibold text-neutral-800 disabled:opacity-50";
-
-export const CART_POPUP_BTN_DANGER =
-  "w-full rounded-[4px] bg-red-600 py-2.5 text-[14px] font-bold text-white disabled:opacity-50";
-
-export const CART_POPUP_BTN_GHOST =
-  "w-full rounded-[4px] py-2 text-[14px] font-semibold text-neutral-600 disabled:opacity-50";
-
-/** 주문 확인 — 고정 주문 바 바로 위 여백 */
-const CHECKOUT_CONFIRM_POPUP_ABOVE_FOOTER_PAD =
-  "pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))]";
-
-export type StoreCommerceCartPopupPlacement = "center" | "above-checkout-footer";
+export type StoreCommerceCartPopupPlacement = DeliveryModalPlacement;
 
 export function StoreCommerceCartAlert({
   children,
@@ -58,47 +43,19 @@ export function StoreCommerceCartCenterPopup({
   onBackdropClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
-  /** `above-checkout-footer`: 가게배달 주문하기 바 위에 확인 팝업 */
   placement?: StoreCommerceCartPopupPlacement;
 }) {
-  const [portalReady, setPortalReady] = useState(false);
-
-  useEffect(() => {
-    setPortalReady(true);
-  }, []);
-
-  if (!open || !portalReady) return null;
-
-  const shellAlign =
-    placement === "above-checkout-footer"
-      ? `items-end ${CHECKOUT_CONFIRM_POPUP_ABOVE_FOOTER_PAD}`
-      : "items-center";
-
-  const node = (
-    <div
-      className={`fixed inset-0 z-[110] flex justify-center px-4 ${shellAlign}`}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
+  return (
+    <DeliveryModal
+      open={open}
+      title={title}
+      titleId={titleId}
+      busy={busy}
+      onBackdropClose={onBackdropClose}
+      footer={footer}
+      placement={placement}
     >
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/45 disabled:pointer-events-none"
-        aria-label="닫기"
-        onClick={onBackdropClose}
-        disabled={busy}
-      />
-      <div
-        className={`relative z-[1] mb-2 w-full max-w-[min(92vw,24rem)] bg-white p-4 shadow-xl ${CART_POPUP_RADIUS_CLASS}`}
-      >
-        <h2 id={titleId} className="text-[15px] font-bold leading-snug text-neutral-900">
-          {title}
-        </h2>
-        <div className="mt-3">{children}</div>
-        {footer ? <div className="mt-4 flex flex-col gap-2">{footer}</div> : null}
-      </div>
-    </div>
+      {children}
+    </DeliveryModal>
   );
-
-  return createPortal(node, document.body);
 }

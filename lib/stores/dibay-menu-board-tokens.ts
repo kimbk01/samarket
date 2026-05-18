@@ -5,14 +5,14 @@
 export const DibayMenuBoard = {
   pageBg: "#F6F7F8",
   sectionBg: "#FFFFFF",
-  brand: "#1C8DB8",
+  brand: "#2386B1",
   sectionGapPx: 8,
   cardRadiusPx: 4,
   productCardPadding: "14px 16px",
   thumbSize: 96,
   title: { fontSizePx: 15, fontWeight: 700 },
-  desc: { fontSizePx: 12, color: "#777" },
-  price: { fontSizePx: 14, fontWeight: 700 },
+  desc: { fontSizePx: 13, color: "#666666" },
+  price: { fontSizePx: 16, fontWeight: 700 },
   badgeRowMarginTopPx: 5,
   badgeGapPx: 4,
   badge: {
@@ -40,7 +40,7 @@ export const DibayMenuBoard = {
     representative: {
       text: "대표",
       bg: "#EAF7FA",
-      fg: "#1C8DB8",
+      fg: "#2386B1",
       border: "1px solid #BEE7F0",
       radiusPx: 4,
       fontSizePx: 10,

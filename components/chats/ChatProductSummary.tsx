@@ -9,6 +9,7 @@ import { CURRENCY_SYMBOLS } from "@/lib/exchange/form-options";
 import { PostFavoriteButton } from "@/components/favorites/PostFavoriteButton";
 import { PostListPreviewColumn } from "@/components/post/PostListPreviewColumn";
 import { TradeListingStatusBadge } from "@/components/post/TradeListingStatusBadge";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { trimPreviewForChatHeader } from "@/lib/chats/chat-list-preview-trim";
 import { APP_FEED_LIST_CARD_SHELL } from "@/lib/ui/app-feed-card";
 import {
@@ -114,14 +115,14 @@ export function ChatProductSummary({
           className="relative h-[88px] w-[88px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-primary-soft transition active:opacity-90 sm:h-[100px] sm:w-[100px]"
           aria-label={`${product.title || "상품"} 썸네일 상세 보기`}
         >
-          {product.thumbnail ? (
-            <img
-              src={product.thumbnail}
-              alt=""
-              className="h-full w-full object-cover object-center"
-              loading="lazy"
-            />
-          ) : thumbExchange ? (
+          <SamarketThumbnail
+            src={product.thumbnail}
+            fill
+            roundedClassName="rounded-ui-rect"
+            className="bg-sam-primary-soft"
+            fallbackSrc=""
+            fallbackNode={
+              thumbExchange ? (
             <div
               className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-emerald-50 text-2xl font-semibold text-sam-fg"
               aria-hidden
@@ -130,11 +131,11 @@ export function ChatProductSummary({
               <span className="sam-text-xxs text-sam-muted">↔</span>
               <span>{CURRENCY_SYMBOLS.KRW}</span>
             </div>
-          ) : (
-            <div className="flex h-full w-full items-center justify-center sam-text-xxs text-sam-meta" aria-hidden>
-              이미지
-            </div>
-          )}
+              ) : (
+                <span className="sam-text-xxs text-sam-meta" aria-hidden>이미지</span>
+              )
+            }
+          />
         </Link>
         <div className="flex min-h-[88px] min-w-0 flex-1 flex-col justify-center sm:min-h-[100px] md:min-h-0 md:justify-start">
           {headerPreview && !isPhilifeCard ? (

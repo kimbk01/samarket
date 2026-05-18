@@ -51,6 +51,7 @@ import { markDeliveryCartPatchAnchor } from "@/lib/dibay/delivery-render-trace";
 import {
   mutateCartLineQuantity,
   mutateCartRemoveLine,
+  mutateCartReplaceLineAt,
 } from "@/lib/stores/store-commerce-cart-line-mutate";
 
 function prepareSnapshotForWrite(
@@ -87,6 +88,7 @@ type Ctx = {
   otherBucketsExcluding: (storeId: string) => StoreCartBucketSummary[];
   addOrMergeLine: (input: AddStoreCartLineInput) => StoreCartAddResult;
   replaceWithLine: (input: AddStoreCartLineInput) => StoreCartAddResult;
+  replaceCartLineAt: (lineId: string, input: AddStoreCartLineInput) => StoreCartAddResult;
   updateLineQuantity: (lineId: string, qty: number) => void;
   removeLine: (lineId: string) => void;
   clearStoreCart: (storeId: string) => void;
@@ -129,6 +131,7 @@ export type StoreCommerceCartActions = Pick<
   Ctx,
   | "addOrMergeLine"
   | "replaceWithLine"
+  | "replaceCartLineAt"
   | "updateLineQuantity"
   | "removeLine"
   | "clearStoreCart"
@@ -273,6 +276,31 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
     }
     return result;
   }, [flushCartSnapshot]);
+
+  const replaceCartLineAt = useCallback(
+    (lineId: string, input: AddStoreCartLineInput): StoreCartAddResult => {
+      const patchT0 = markDeliveryCartPatchAnchor();
+      let ok = false;
+      let nextSnap: StoreCommerceCartSnapshotV2 | null = null;
+      let storeId: string | null = null;
+      setSnapshot((prev) => {
+        const out = mutateCartReplaceLineAt(prepareSnapshotForWrite(prev), lineId, input);
+        ok = out.ok;
+        nextSnap = out.next;
+        storeId = out.storeId;
+        return out.next;
+      });
+      if (ok && nextSnap && storeId) {
+        flushCartSnapshot(nextSnap, storeId, patchT0, {
+          kind: "optimistic",
+          productId: input.productId,
+        });
+        return { ok: true, reason: "added" };
+      }
+      return { ok: false, reason: "invalid_option" };
+    },
+    [flushCartSnapshot]
+  );
 
   const updateLineQuantity = useCallback(
     (lineId: string, qty: number) => {
@@ -431,6 +459,7 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
       otherBucketsExcluding,
       addOrMergeLine,
       replaceWithLine,
+      replaceCartLineAt,
       updateLineQuantity,
       removeLine,
       clearStoreCart,
@@ -442,6 +471,7 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
     snapshot,
     addOrMergeLine,
     replaceWithLine,
+    replaceCartLineAt,
     updateLineQuantity,
     removeLine,
     clearStoreCart,
@@ -453,6 +483,7 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
     () => ({
       addOrMergeLine,
       replaceWithLine,
+      replaceCartLineAt,
       updateLineQuantity,
       removeLine,
       clearStoreCart,
@@ -462,6 +493,7 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
     [
       addOrMergeLine,
       replaceWithLine,
+      replaceCartLineAt,
       updateLineQuantity,
       removeLine,
       clearStoreCart,

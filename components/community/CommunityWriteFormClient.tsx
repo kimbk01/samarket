@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { useRegion } from "@/contexts/RegionContext";
 import type { CommunityTopicDTO } from "@/lib/community-feed/types";
 import { normalizeSectionSlug } from "@/lib/community-feed/constants";
@@ -203,7 +204,12 @@ export function CommunityWriteFormClient({
           <div className="mt-2 flex flex-wrap gap-2">
             {imageUrls.map((url, idx) => (
               <div key={`${url}-${idx}`} className="relative h-20 w-20 overflow-hidden rounded-sam-md border border-sam-border bg-sam-surface-muted">
-                <img src={url} alt="" className="h-full w-full object-cover" />
+                <SamarketThumbnail
+                  src={url}
+                  fill
+                  roundedClassName="rounded-sam-md"
+                  className="bg-sam-surface-muted"
+                />
                 <button
                   type="button"
                   onClick={() => removeImage(idx)}

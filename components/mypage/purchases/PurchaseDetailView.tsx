@@ -20,6 +20,7 @@ import { PurchaseReviewSheet } from "./PurchaseReviewSheet";
 import { BuyerReviewReadSheet } from "./BuyerReviewReadSheet";
 import type { PurchaseHistoryRow } from "./PurchaseHistoryCard";
 import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 
 type DetailPayload = PurchaseHistoryRow & {
   reviewDeadlineAt?: string | null;
@@ -132,11 +133,12 @@ export function PurchaseDetailView({
     <div className="space-y-4 pb-28">
       <section className="overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
         <div className="flex gap-3">
-          <div className="h-20 w-20 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
-            {row.thumbnail ? (
-              <img src={row.thumbnail} alt="" className="h-full w-full object-cover" />
-            ) : null}
-          </div>
+          <SamarketThumbnail
+            src={row.thumbnail}
+            size={80}
+            roundedClassName="rounded-ui-rect"
+            className="bg-sam-surface-muted"
+          />
           <div className="min-w-0 flex-1">
             <h2 className="sam-text-body-lg font-semibold text-sam-fg">{row.title || "상품"}</h2>
             <p className="mt-1 sam-text-section-title font-bold">{formatPrice(row.price, currency)}</p>

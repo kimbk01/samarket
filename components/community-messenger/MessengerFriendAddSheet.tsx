@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState, type RefObject } from "react";
 import { SettingsToggleRow } from "@/components/community-messenger/MessengerSheetUi";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import type { CommunityMessengerLocalSettings } from "@/lib/community-messenger/preferences";
 import {
   formatFriendRejectCooldownShort,
@@ -375,22 +376,14 @@ function SearchResultRow({
         onClick={() => onOpenProfile(user)}
         className="flex min-w-0 flex-1 items-center gap-2.5 text-left"
       >
-        <div
-          className="h-10 w-10 shrink-0 overflow-hidden rounded-full ring-1 ring-[color:var(--messenger-primary-soft-2)]"
-          style={{ backgroundColor: "var(--messenger-surface-muted)" }}
-        >
-          {avatarSrc ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarSrc} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <div
-              className="flex h-full w-full items-center justify-center sam-text-body-secondary font-semibold"
-              style={{ color: "var(--messenger-text-secondary)" }}
-            >
-              {initial}
-            </div>
-          )}
-        </div>
+        <SamarketThumbnail
+          src={avatarSrc}
+          size={40}
+          roundedClassName="rounded-full"
+          className="bg-[color:var(--messenger-surface-muted)] ring-1 ring-[color:var(--messenger-primary-soft-2)]"
+          fallbackSrc=""
+          fallbackNode={<span className="sam-text-body-secondary font-semibold" style={{ color: "var(--messenger-text-secondary)" }}>{initial}</span>}
+        />
         <div className="min-w-0 flex-1">
           <p className="truncate sam-text-body font-medium" style={{ color: "var(--messenger-text)" }}>
             {user.label}

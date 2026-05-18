@@ -17,6 +17,7 @@ import { PHILIFE_FEED_INSET_NEG_X_CLASS, PHILIFE_FEED_INSET_X_CLASS } from "@/li
 import type { CompletedOrderReorderPayload } from "@/lib/stores/apply-completed-order-to-commerce-cart";
 import { StoreOrderReorderAgainButton } from "@/components/mypage/StoreOrderReorderAgainButton";
 import { StoreOrderMessengerDeepLink } from "@/components/stores/StoreOrderMessengerDeepLink";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { buildMessengerContextInputFromStoreOrderSnapshot } from "@/lib/community-messenger/store-order-messenger-context";
 import {
   deleteMeStoreOrder,
@@ -224,19 +225,15 @@ function MyStoreOrderCard({
     >
       <div className="px-3 pb-2 pt-3 sm:px-4">
         <div className="flex gap-2.5">
-          <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[#E4E6EB] dark:bg-[#3A3B3C]">
-            {storeImg ? (
-              <img
-                src={storeImg}
-                alt={o.store_name || "매장"}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className={`flex h-full w-full items-center justify-center sam-text-xxs font-semibold ${FB_MUTED}`}>
-                매장
-              </div>
-            )}
-          </div>
+          <SamarketThumbnail
+            src={storeImg}
+            alt={o.store_name || "매장"}
+            size={40}
+            roundedClassName="rounded-full"
+            className="bg-[#E4E6EB] dark:bg-[#3A3B3C]"
+            fallbackSrc=""
+            fallbackNode={<div className={`sam-text-xxs font-semibold ${FB_MUTED}`}>매장</div>}
+          />
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">

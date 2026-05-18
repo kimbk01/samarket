@@ -1,6 +1,7 @@
 "use client";
 
 import { TradeReviewForm } from "@/components/trade/TradeReviewForm";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
 
 export function PurchaseReviewSheet({
@@ -36,11 +37,12 @@ export function PurchaseReviewSheet({
         <div className="shrink-0 border-b border-sam-border-soft bg-sam-app/80 px-4 py-3">
           <p className="sam-text-helper text-sam-muted">이번 거래는 어땠나요?</p>
           <div className="mt-2 flex gap-3">
-            <div className="h-14 w-14 shrink-0 overflow-hidden rounded-ui-rect bg-sam-border-soft">
-              {thumbnail ? (
-                <img src={thumbnail} alt="" className="h-full w-full object-cover" />
-              ) : null}
-            </div>
+            <SamarketThumbnail
+              src={thumbnail}
+              size={56}
+              roundedClassName="rounded-ui-rect"
+              className="bg-sam-border-soft"
+            />
             <div className="min-w-0">
               <p className="line-clamp-2 sam-text-body font-medium text-sam-fg">{productTitle}</p>
               <p className="mt-0.5 sam-text-helper text-sam-muted">{sellerNickname}</p>

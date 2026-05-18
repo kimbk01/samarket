@@ -21,6 +21,7 @@ import {
 import { defaultTradeChatRoomHref } from "@/lib/chats/trade-chat-notification-href";
 import { useMessengerChatListUnread } from "@/lib/community-messenger/read/messenger-chat-list-unread-display";
 import { formatAtUsername } from "@/lib/users/user-label";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 
 interface ChatRoomCardProps {
   room: ChatRoom;
@@ -110,19 +111,14 @@ export function ChatRoomCard({ room, currentUserId, onRoomMutated, getRoomHref, 
   const rowInner = (
     <>
       <div className="relative shrink-0 overflow-visible">
-        <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-primary-soft">
-          {product?.thumbnail ? (
-            <img
-              src={product.thumbnail}
-              alt=""
-              width={100}
-              height={100}
-              className="h-full w-full object-cover"
-              loading="lazy"
-              decoding="async"
-              fetchPriority="low"
-            />
-          ) : isExchangeThumb ? (
+        <SamarketThumbnail
+          src={product?.thumbnail}
+          size={100}
+          roundedClassName="rounded-ui-rect"
+          className="bg-sam-primary-soft"
+          fallbackSrc=""
+          fallbackNode={
+            isExchangeThumb ? (
             <div
               className="flex h-full w-full flex-col items-center justify-center gap-0.5 bg-emerald-50 text-2xl font-semibold text-sam-fg"
               aria-hidden
@@ -131,12 +127,11 @@ export function ChatRoomCard({ room, currentUserId, onRoomMutated, getRoomHref, 
               <span className="sam-text-xxs text-muted">↔</span>
               <span>{CURRENCY_SYMBOLS.KRW}</span>
             </div>
-          ) : (
-            <div className="flex h-full w-full items-center justify-center sam-text-xxs text-sam-meta">
-              {t("common_image")}
-            </div>
-          )}
-        </div>
+            ) : (
+              <div className="sam-text-xxs text-sam-meta">{t("common_image")}</div>
+            )
+          }
+        />
         {displayedUnreadCount > 0 && (
           <span
             className="pointer-events-none absolute right-0 top-0 z-[2] flex h-5 min-w-[20px] translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-red-500 px-1 sam-text-xxs font-bold leading-none text-white shadow-md ring-2 ring-sam-surface"

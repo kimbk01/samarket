@@ -1,0 +1,671 @@
+/**
+ * dibaY delivery UI — semantic component classes (no per-page Tailwind soup).
+ */
+
+@layer components {
+  .delivery-page {
+    background: var(--delivery-bg-main);
+    color: var(--delivery-text-main);
+  }
+
+  .delivery-page-inner {
+    margin-inline: auto;
+    width: 100%;
+    max-width: 42rem;
+    padding-inline: var(--delivery-page-x);
+    padding-block: var(--delivery-section-divider);
+  }
+
+  .delivery-section-gap {
+    margin-top: var(--delivery-section-gap);
+  }
+
+  .delivery-card {
+    border-radius: var(--delivery-radius);
+    border: 1px solid var(--delivery-border-light);
+    background: var(--delivery-bg-card);
+  }
+
+  .delivery-card-pad {
+    padding: var(--delivery-card-pad);
+  }
+
+  .delivery-divider-block {
+    height: var(--delivery-section-divider);
+    background: var(--delivery-bg-soft);
+  }
+
+  .delivery-typo-page-title {
+    font-size: var(--delivery-fs-page-title);
+    font-weight: 700;
+    line-height: var(--delivery-lh-page-title);
+    color: var(--delivery-text-main);
+  }
+
+  .delivery-typo-modal-title {
+    font-size: var(--delivery-fs-modal-title);
+    font-weight: 700;
+    line-height: var(--delivery-lh-modal-title);
+    color: var(--delivery-text-main);
+  }
+
+  .delivery-typo-section-title {
+    font-size: var(--delivery-fs-section-title);
+    font-weight: 700;
+    line-height: var(--delivery-lh-section-title);
+    color: var(--delivery-text-main);
+  }
+
+  .delivery-typo-card-title {
+    font-size: var(--delivery-fs-card-title);
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--delivery-text-main);
+  }
+
+  .delivery-typo-body {
+    font-size: var(--delivery-fs-body);
+    font-weight: 400;
+    line-height: var(--delivery-lh-body);
+    color: var(--delivery-text-main);
+  }
+
+  .delivery-typo-meta {
+    font-size: var(--delivery-fs-meta);
+    font-weight: 400;
+    line-height: 1.4;
+    color: var(--delivery-text-muted);
+  }
+
+  .delivery-typo-price {
+    font-size: var(--delivery-fs-price);
+    font-weight: 700;
+    line-height: 1.25;
+    color: var(--delivery-text-main);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .delivery-btn-primary {
+    display: inline-flex;
+    min-height: var(--delivery-btn-h);
+    width: 100%;
+    touch-action: manipulation;
+    user-select: none;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--delivery-radius);
+    border: none;
+    background-color: #2386b1;
+    background-color: var(--delivery-primary);
+    padding-inline: 16px;
+    font-size: var(--delivery-fs-button);
+    font-weight: 700;
+    line-height: 1.2;
+    color: #ffffff;
+    transition: background-color 120ms ease;
+  }
+
+  .delivery-btn-primary:hover:not(:disabled) {
+    background-color: #1f769c;
+    background-color: var(--delivery-primary-hover);
+  }
+
+  .delivery-btn-primary:active:not(:disabled) {
+    background-color: #1a6a8f;
+    background-color: var(--delivery-primary-active);
+  }
+
+  .delivery-btn-primary:disabled {
+    cursor: not-allowed;
+    background-color: var(--delivery-btn-disabled);
+    color: #ffffff;
+    opacity: 1;
+  }
+
+  .delivery-btn--size-full {
+    width: 100%;
+  }
+
+  .delivery-btn--size-sm {
+    min-height: var(--delivery-touch-min);
+    width: auto;
+    padding-inline: 12px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .delivery-btn--size-md {
+    min-height: var(--delivery-btn-h-md);
+    width: auto;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .delivery-btn--size-lg {
+    min-height: var(--delivery-btn-h);
+    width: auto;
+  }
+
+  .delivery-btn--sticky {
+    min-height: var(--delivery-btn-h-sticky);
+    width: 100%;
+    font-size: var(--delivery-fs-button-sticky);
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  /** 장바구니 하단 CTA — globals/textarea 스타일과 분리 */
+  [data-store-cart-checkout-action] button[type="button"] {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    resize: none;
+    appearance: none;
+    -webkit-appearance: none;
+    border: none;
+    background-color: #2386b1;
+    color: #ffffff;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  [data-store-cart-checkout-action] button[type="button"]:disabled {
+    cursor: not-allowed;
+    background-color: #b8b8b8;
+  }
+
+  .delivery-btn-outline {
+    display: inline-flex;
+    min-height: var(--delivery-btn-h-md);
+    width: 100%;
+    touch-action: manipulation;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--delivery-radius);
+    border: 1px solid #dadde1;
+    background: var(--delivery-bg-card);
+    padding-inline: 16px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--delivery-text-main);
+    transition:
+      background-color 120ms ease,
+      border-color 120ms ease;
+  }
+
+  .delivery-btn-outline:hover:not(:disabled) {
+    background: var(--delivery-bg-soft);
+  }
+
+  .delivery-btn-outline:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  .delivery-btn-danger {
+    display: inline-flex;
+    min-height: var(--delivery-btn-h-md);
+    width: 100%;
+    touch-action: manipulation;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--delivery-radius);
+    border: none;
+    background-color: var(--delivery-danger);
+    padding-inline: 16px;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.2;
+    color: #ffffff;
+    transition: background-color 120ms ease;
+  }
+
+  .delivery-btn-danger:hover:not(:disabled) {
+    background-color: #b91c1c;
+  }
+
+  .delivery-btn-danger:active:not(:disabled) {
+    background-color: #991b1b;
+  }
+
+  .delivery-btn-danger:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  .delivery-btn-ghost {
+    display: inline-flex;
+    min-height: var(--delivery-touch-min);
+    width: 100%;
+    touch-action: manipulation;
+    align-items: center;
+    justify-content: center;
+    padding-inline: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.3;
+    color: #555555;
+    color: var(--delivery-text-sub);
+    background: transparent;
+    border: none;
+  }
+
+  .delivery-btn-ghost:disabled {
+    color: var(--delivery-text-disabled);
+    cursor: not-allowed;
+  }
+
+  .delivery-btn-secondary {
+    display: inline-flex;
+    min-height: var(--delivery-btn-h-md);
+    width: 100%;
+    touch-action: manipulation;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--delivery-radius);
+    border: none;
+    background: var(--delivery-bg-soft);
+    padding-inline: 16px;
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.2;
+    color: var(--delivery-text-main);
+    transition: background-color 120ms ease;
+  }
+
+  .delivery-btn-secondary:hover:not(:disabled) {
+    background: #e8eaed;
+  }
+
+  .delivery-btn-secondary:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+
+  .delivery-input {
+    display: block;
+    width: 100%;
+    min-height: var(--delivery-input-h);
+    border-radius: var(--delivery-radius);
+    border: 1px solid #dddddd;
+    background: var(--delivery-bg-card);
+    padding-inline: 12px;
+    font-size: var(--delivery-fs-body);
+    color: var(--delivery-text-main);
+  }
+
+  .delivery-input::placeholder {
+    color: #aaaaaa;
+    font-size: 13px;
+  }
+
+  .delivery-input:focus {
+    outline: none;
+    border-color: var(--delivery-primary);
+    box-shadow: 0 0 0 1px var(--delivery-primary);
+  }
+
+  .delivery-badge {
+    display: inline-flex;
+    height: 22px;
+    align-items: center;
+    border-radius: var(--delivery-radius-pill);
+    padding-inline: 8px;
+    font-size: var(--delivery-fs-badge);
+    font-weight: 600;
+    line-height: 1;
+    white-space: nowrap;
+  }
+
+  .delivery-badge--primary {
+    background: var(--delivery-badge-primary-bg);
+    color: var(--delivery-badge-primary-fg);
+  }
+
+  .delivery-badge--popular {
+    background: var(--delivery-badge-popular-bg);
+    color: var(--delivery-badge-popular-fg);
+  }
+
+  .delivery-badge--discount {
+    background: var(--delivery-badge-discount-bg);
+    color: var(--delivery-badge-discount-fg);
+  }
+
+  .delivery-badge--soldout {
+    background: var(--delivery-badge-soldout-bg);
+    color: var(--delivery-badge-soldout-fg);
+  }
+
+  .delivery-address-card {
+    display: block;
+    width: 100%;
+    border-radius: var(--delivery-radius);
+    border: 1px solid var(--delivery-border-light);
+    background: var(--delivery-bg-card);
+    padding: var(--delivery-card-pad);
+    text-align: left;
+    transition:
+      border-color 120ms ease,
+      background-color 120ms ease;
+  }
+
+  .delivery-address-card--selected {
+    border-color: var(--delivery-primary);
+    background: #f7fbfd;
+  }
+
+  .delivery-address-card__title {
+    font-size: var(--delivery-fs-card-title);
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--delivery-text-main);
+  }
+
+  .delivery-address-card__body {
+    margin-top: var(--delivery-text-gap);
+    font-size: 13px;
+    font-weight: 400;
+    line-height: var(--delivery-lh-address);
+    color: #666666;
+    white-space: pre-wrap;
+  }
+
+  .delivery-info-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--delivery-text-gap);
+    border-radius: var(--delivery-radius);
+    border: 1px solid var(--delivery-border-section);
+    background: var(--delivery-info-card-bg);
+    padding: 12px;
+  }
+
+  .delivery-info-card__label {
+    margin: 0;
+    font-size: var(--delivery-fs-meta);
+    font-weight: 600;
+    line-height: 1.4;
+    color: var(--delivery-text-muted);
+  }
+
+  .delivery-info-card__value {
+    margin: 0;
+    font-size: var(--delivery-fs-body);
+    font-weight: 400;
+    line-height: var(--delivery-lh-body);
+    color: var(--delivery-text-main);
+    white-space: pre-wrap;
+    word-break: keep-all;
+    overflow-wrap: anywhere;
+  }
+
+  .delivery-section-card {
+    margin-bottom: var(--delivery-section-divider);
+    border-radius: var(--delivery-radius);
+    border: 1px solid var(--delivery-border-section);
+    background: var(--delivery-bg-card);
+    padding: var(--delivery-card-pad);
+  }
+
+  .delivery-section-card__title {
+    margin: 0 0 var(--delivery-row-gap);
+    font-size: var(--delivery-fs-section-title);
+    font-weight: 700;
+    line-height: var(--delivery-lh-section-title);
+    color: var(--delivery-text-main);
+  }
+
+  .delivery-modal-panel {
+    width: 100%;
+    margin-bottom: 8px;
+    border: none;
+    border-radius: var(--delivery-radius-modal);
+    background-color: #ffffff;
+    padding: 24px 16px 16px;
+    box-shadow: var(--delivery-shadow-modal);
+    isolation: isolate;
+  }
+
+  .delivery-modal-body {
+    max-height: min(60vh, 420px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .delivery-modal-info-block + .delivery-modal-info-block {
+    margin-top: 0;
+  }
+
+  .delivery-modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    background-color: rgba(0, 0, 0, 0.45);
+    background-color: var(--delivery-backdrop);
+  }
+
+  .delivery-modal-backdrop:disabled {
+    cursor: default;
+  }
+
+  .delivery-modal-stage {
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    justify-content: center;
+    padding-inline: var(--delivery-page-x);
+    pointer-events: none;
+  }
+
+  .delivery-modal-section__value--address {
+    line-height: var(--delivery-lh-address);
+    word-break: break-word;
+  }
+
+  .delivery-modal-stage > [role="dialog"] {
+    width: 100%;
+    max-width: min(92vw, 24rem);
+    pointer-events: auto;
+  }
+
+  .delivery-sheet-backdrop {
+    position: absolute;
+    inset: 0;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    background-color: rgba(0, 0, 0, 0.45);
+    background-color: var(--delivery-backdrop);
+  }
+
+  .delivery-modal-title {
+    margin-bottom: var(--delivery-section-gap);
+    font-size: var(--delivery-fs-modal-title);
+    font-weight: 700;
+    line-height: var(--delivery-lh-modal-title);
+    color: var(--delivery-text-main);
+  }
+
+  .delivery-modal-section {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .delivery-modal-section__label {
+    margin-bottom: 8px;
+    font-size: var(--delivery-fs-meta);
+    font-weight: 600;
+    color: var(--delivery-text-muted);
+  }
+
+  .delivery-modal-section__value {
+    font-size: var(--delivery-fs-body);
+    font-weight: 400;
+    line-height: var(--delivery-lh-body);
+    color: var(--delivery-text-main);
+    white-space: pre-wrap;
+  }
+
+  .delivery-modal-footer {
+    margin-top: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .delivery-sticky-cta {
+    position: sticky;
+    bottom: 0;
+    z-index: 30;
+    border-top: 1px solid var(--delivery-border);
+    background: var(--delivery-bg-card);
+    padding: 12px var(--delivery-page-x);
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 0px));
+  }
+
+  .delivery-sticky-cta__inner {
+    margin-inline: auto;
+    width: 100%;
+    max-width: 42rem;
+  }
+
+  .delivery-sheet-panel {
+    width: 100%;
+    max-height: min(90vh, 560px);
+    overflow: hidden;
+    border-radius: var(--delivery-radius-sheet) var(--delivery-radius-sheet) 0 0;
+    background-color: #ffffff;
+    background-color: var(--delivery-bg-card);
+    box-shadow: var(--delivery-shadow-sheet);
+  }
+
+  .delivery-sheet-pad {
+    padding: 20px var(--delivery-page-x);
+  }
+
+  .delivery-sheet-handle {
+    margin-inline: auto;
+    margin-bottom: 8px;
+    display: block;
+    height: 4px;
+    width: 40px;
+    border-radius: var(--delivery-radius-pill);
+    background: var(--delivery-border-soft);
+  }
+
+  .delivery-price-summary__total {
+    font-size: 20px;
+    font-weight: 700;
+    line-height: 1.25;
+    color: var(--delivery-text-main);
+  }
+
+  .delivery-menu-row {
+    display: flex;
+    gap: var(--delivery-row-gap);
+    padding: var(--delivery-compact-row);
+    min-height: 96px;
+  }
+
+  .delivery-cart-section-stack > * + * {
+    margin-top: var(--delivery-section-divider);
+  }
+
+  .delivery-store-row {
+    display: flex;
+    gap: var(--delivery-row-gap);
+    padding: 14px var(--delivery-page-x);
+    background: var(--delivery-bg-card);
+    border-bottom: 1px solid var(--delivery-border-light);
+  }
+
+  .delivery-store-row__thumb {
+    width: var(--delivery-thumb-list);
+    height: var(--delivery-thumb-list);
+    flex-shrink: 0;
+    border-radius: var(--delivery-radius-thumb);
+    overflow: hidden;
+    background: var(--delivery-bg-thumb);
+  }
+
+  .delivery-store-row__title {
+    font-size: var(--delivery-fs-card-title);
+    font-weight: 700;
+    line-height: 1.3;
+    color: var(--delivery-text-main);
+  }
+
+  .delivery-store-row__meta {
+    font-size: var(--delivery-fs-meta);
+    color: var(--delivery-text-muted);
+  }
+}
+
+/**
+ * Modal chrome — unlayered so preflight / inherit cannot wash out UI.
+ */
+[data-delivery-modal-root] .delivery-modal-backdrop {
+  background-color: rgba(0, 0, 0, 0.45) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+[data-delivery-modal-root] .delivery-modal-panel {
+  border-radius: var(--delivery-radius-modal) !important;
+  background-color: #ffffff !important;
+  box-shadow: var(--delivery-shadow-modal) !important;
+}
+
+[data-delivery-modal-root] .delivery-modal-footer .delivery-btn-primary {
+  min-height: 52px;
+  border-radius: 4px;
+  background-color: #2386b1 !important;
+  color: #ffffff !important;
+  font-size: 15px;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+[data-delivery-modal-root] .delivery-modal-footer .delivery-btn-primary:disabled {
+  background-color: var(--delivery-btn-disabled) !important;
+  opacity: 1;
+}
+
+[data-delivery-modal-root] .delivery-modal-footer .delivery-btn-danger {
+  min-height: var(--delivery-btn-h-md);
+  border-radius: var(--delivery-radius);
+  background-color: var(--delivery-danger) !important;
+  color: #ffffff !important;
+  font-size: 14px;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+[data-delivery-modal-root] .delivery-modal-footer .delivery-btn-ghost,
+[data-delivery-modal-root] .delivery-modal-footer .delivery-modal-cancel {
+  min-height: 44px;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  color: #555555 !important;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+[data-delivery-modal-root] .delivery-modal-section {
+  gap: 20px;
+}
+
+[data-delivery-modal-root] .delivery-modal-info-block {
+  margin: 0;
+}

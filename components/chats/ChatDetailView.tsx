@@ -21,6 +21,7 @@ import { ChatInputBar } from "./ChatInputBar";
 import { ReportActionSheet } from "@/components/reports/ReportActionSheet";
 import { BlockActionSheet } from "@/components/reports/BlockActionSheet";
 import { TradeFlowBanner } from "@/components/trade/TradeFlowBanner";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import {
   StoreOrderBuyerChatTop,
   type StoreOrderBuyerItemPayload,
@@ -2083,15 +2084,14 @@ export function ChatDetailView({
                   ariaLabel="이전 화면"
                 />
                 <div className="flex min-w-0 flex-1 items-center gap-2">
-                  <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-sam-surface/90 ring-1 ring-black/5">
-                    {partnerDisplayAvatar ? (
-                      <img src={partnerDisplayAvatar} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center sam-text-body font-medium text-sam-muted">
-                        {partnerDisplayNickname.charAt(0) || "?"}
-                      </div>
-                    )}
-                  </div>
+                  <SamarketThumbnail
+                    src={partnerDisplayAvatar}
+                    size={40}
+                    roundedClassName="rounded-full"
+                    className="bg-sam-surface/90 ring-1 ring-black/5"
+                    fallbackSrc=""
+                    fallbackNode={<div className="sam-text-body font-medium text-sam-muted">{partnerDisplayNickname.charAt(0) || "?"}</div>}
+                  />
                   <div className="min-w-0 flex-1">
                     {showTradePeerRoleInline ? (
                       <p className="truncate sam-text-xxs leading-snug text-sam-muted">

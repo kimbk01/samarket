@@ -3,7 +3,7 @@
 import Link from "next/link";
 import type { StoreVerticalCardModel } from "@/components/stores/home/StoreVerticalDiscoveryCard";
 import { StoreCardFavoriteIcon } from "@/components/stores/home/StoreCardFavoriteIcon";
-import { DeliveryMediaImage } from "@/components/dibay/DeliveryMediaImage";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { dibayPerfRecordStoreCardNavigationIntent } from "@/lib/dibay/delivery-flow-perf";
 
 /** 인스타그램 탐색 느낌 — 고정 폭 가로 타일 (4:5 썸네일) */
@@ -39,14 +39,7 @@ export function StoreHorizontalStoreTile({
       >
         <div className="relative aspect-[4/5] w-full overflow-hidden rounded-ui-rect bg-sam-primary-soft ring-1 ring-black/[0.06]">
           {store.profileImageUrl ?
-            <DeliveryMediaImage
-              src={store.profileImageUrl}
-              alt=""
-              fill
-              sizes="148px"
-              className="object-cover"
-              surface="store-hub-horizontal-tile"
-            />
+            <SamarketThumbnail src={store.profileImageUrl} fill roundedClassName="rounded-ui-rect" className="bg-sam-primary-soft" />
           : <div className="flex h-full w-full items-center justify-center bg-gradient-to-b from-sam-border-soft to-sam-surface-muted text-2xl text-white/90">
               {coverEmoji ?
                 <span aria-hidden>{coverEmoji}</span>

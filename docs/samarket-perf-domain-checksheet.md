@@ -90,6 +90,7 @@
 - 라운드 **S1**(마스터 **순서 1**·셸·탭) — idle·부트웜 `prewarmBottomNavTapTargetClientCache("/stores")` 에 **BN3 과 동일** `storeHomeFeedSuffixFromPrimaryRegion` 를 넘겨, pointerdown 없이 진입해도 지역 `home-feed` 캐시 키가 맞게 정렬. `verify:parity-gates` 통과.
 - 라운드 **DS1** — `/stores/[slug]` 상세에서 메뉴 apply 가 summary/decorations await 뒤에 묶이던 구조를 분리. 최신 기준 `menu_fetch_ms=871` 에서 수정 후 3회 **278/10/25ms** 로 감소했고 `normalize_ms=0~1`, `apply_ms=0`, `stale_session=false` 유지. `tap_to_menu_first_visible_ms` 전체값·실기기 합의 전까지 체크시트 `[x]` 는 유지하지 않음.
 - 라운드 **DS2** — 옵션 시트 open/select/price/validation/add submit breakdown trace 추가. 옵션 있는 상품 3회 측정 전까지 UX 완료 체크는 유지하지 않음.
+- 라운드 **DS4** — 카트 옵션 변경 경로의 menus row seed·cart line fallback seed·수량 변경 시 menus 재호출 금지 계약을 `verify:store-cart-sheet-contract` 로 고정하고 `check`·`verify:parity-gates` 에 연결. 추가 더블체크에서 checkout identity fetch 를 idle 뒤로 지연해 첫 진입·옵션 시트와의 네트워크 경합을 줄임. 관련 vitest 통과. 브라우저 체감 3회 측정 전까지 체크시트 `[x]` 는 유지하지 않음.
 (상세: `docs/samarket-performance-track-state.md` 참고)
 
 ---

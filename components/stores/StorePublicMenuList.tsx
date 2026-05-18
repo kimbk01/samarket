@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import type { MouseEvent } from "react";
 import Link from "next/link";
 import { memo, useCallback } from "react";
@@ -11,6 +10,7 @@ import {
   type StoreDetailProductCard,
 } from "@/lib/stores/group-store-products-by-menu";
 import { approximateDiscountPercent } from "@/lib/stores/store-product-pricing";
+import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
 
 const PLUS_BTN =
   "absolute -bottom-1.5 -right-1.5 flex h-[31px] w-[31px] shrink-0 touch-manipulation select-none items-center justify-center rounded-full bg-[#1C8DB8] text-[21px] font-normal leading-none text-white shadow-[0_2px_8px_rgba(28,141,184,0.35)] ring-1 ring-[#1C8DB8]/40 transition-all duration-150 hover:bg-[#197DA3] active:scale-[0.92] active:bg-[#166F92]";
@@ -97,17 +97,13 @@ const StorePublicMenuRow = memo(function StorePublicMenuRow({
 
   const thumb = (
     <div className="relative h-[88px] w-[88px] shrink-0 overflow-visible">
-      <div className="relative h-full w-full overflow-hidden rounded-[10px] bg-neutral-100">
+      <div className="relative h-full w-full">
       {hasDiscount && badgePct > 0 ? (
         <span className="absolute left-1 top-1 z-10 rounded-[3px] bg-red-600 px-1.5 py-0.5 text-[9px] font-bold leading-none text-white shadow">
           {badgePct}%
         </span>
       ) : null}
-      {thumbSrc ? (
-        <Image src={thumbSrc} alt="" fill sizes="88px" className="object-cover" />
-      ) : (
-        <div className="h-full w-full bg-neutral-100" />
-      )}
+      <StoreProductThumbnail src={thumbSrc} size={88} roundedClassName="rounded-[10px]" />
       {soldOut ? <div className="absolute inset-0 bg-white/45" aria-hidden /> : null}
       </div>
       {!menuSelectBlocked && onOpenProduct && !soldOut ? (

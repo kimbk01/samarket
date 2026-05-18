@@ -1,5 +1,7 @@
 "use client";
 
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+
 function readInitial(label: string): string {
   const trimmed = label.trim();
   if (!trimmed) return "?";
@@ -53,12 +55,14 @@ export function CallAvatar({
       <div
         className={`relative flex h-full w-full items-center justify-center overflow-hidden rounded-full ${placeholderCls}`}
       >
-        {avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={avatarUrl} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <span className={initialCls}>{readInitial(label)}</span>
-        )}
+        <SamarketThumbnail
+          src={avatarUrl}
+          fill
+          roundedClassName="rounded-full"
+          className={placeholderCls}
+          fallbackSrc=""
+          fallbackNode={<span className={initialCls}>{readInitial(label)}</span>}
+        />
       </div>
     </div>
   );

@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-05-17 (R2-M11 종료 · R2-D1 LOCK · KPI/meta 분석 착수) |
+| Last updated | 2026-05-19 (배달 카트 DS4 · 시트 seed/menus/checkout idle 계약 검증 추가) |
 | Owner | (선택) |
 
 ---
@@ -186,6 +186,21 @@
 | menu subtree | — | — | — | 0 |
 
 **판정:** **코드 마감(세션 종료)** — 구조·trace 반영 완료. 브라우저 3회 수치 표는 **새 세션**에서 `npm run build` + `start` 후 채운다. 병목 ms 없으면 추가 수정 없음.
+
+---
+
+## 이번 라운드 (배달 카트: 라운드 DS4 — cart sheet seed/fetch 계약 방지선)
+
+| 항목 | 내용 |
+|------|------|
+| 원인 1개 | 카트 옵션 변경 경로가 매장 상세와 달리 `prefetchedListRow` 없이 시트를 열 수 있고, 업셀 menus fetch 가 `lines` 객체 identity 에 묶이면 수량 변경마다 같은 메뉴 API를 다시 호출하는 구조적 회귀가 가능했다. 추가 더블체크에서 checkout identity(`/api/me/checkout-contact`·addresses·profile)도 첫 진입 프레임과 경쟁할 수 있음이 확인됐다. |
+| 측정/검증 명령 | `npm run verify:store-cart-sheet-contract`, `npx vitest run lib/stores/__tests__/store-cart-sheet-prefetch.test.ts tests/unit/store-commerce-cart-line-mutate.test.ts`, `npx tsc --noEmit` |
+| 완료 기준 | (1) 카트 menus fetch effect 가 `store?.slug` 에만 묶임 (2) 카트 시트 오픈이 menus row 또는 cart line fallback seed 를 전달함 (3) `/stores/:slug/products/:id` 같은 없는 라우트 회귀가 검증에서 실패함 (4) checkout identity fetch 는 첫 페인트 뒤 idle 로 지연됨 |
+| 수정 파일 | `scripts/verify-store-cart-sheet-contract.cjs`, `package.json`, `lib/stores/store-cart-sheet-prefetch.ts`, `lib/stores/open-store-product-sheet-from-cart.ts`, `components/stores/StoreCommerceCartPageClient.tsx`, `components/stores/StoreProductAddSheet.tsx`, `lib/stores/__tests__/store-cart-sheet-prefetch.test.ts` |
+| 이번 조치 | 카트의 menus 원본 행을 slug 단위로 보관해 시트 seed 로 넘기고, 수량 변경은 상품 id 집합 키로만 업셀 재계산하도록 분리했다. slug 변경 시 stale menus refs 를 즉시 비우고, checkout identity fetch 는 `scheduleStoreCartIdleTask` 뒤로 밀었다. `verify:store-cart-sheet-contract` 를 `check`·`verify:parity-gates` 에 연결해 동일 회귀가 들어오면 검증 단계에서 막는다. |
+| 검증 | `verify:store-cart-sheet-contract` 통과. 관련 vitest 7건 통과. `npx tsc --noEmit` 은 기존 `lib/community-messenger/__tests__/home-sync-route-cache.integration.test.ts(32,78)` TS2556 에서 실패해 이번 변경 파일 기준 타입 회귀로 보지 않음. |
+
+**판정:** **코드 마감(재발 방지)** — 이번 라운드는 추가 미세 최적화가 아니라 계약 검증선 추가. 브라우저 3회 체감 수치는 별도 측정 전이라 배달·서비스형 체크시트 `[x]` 는 유지하지 않는다.
 
 ---
 

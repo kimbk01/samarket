@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 import { ThumbsUp, MessageCircle } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import type { FeedListThumbColumn } from "@/lib/community-feed/topic-feed-skin";
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { stripMarkdownImageSyntaxForFeedPreview } from "@/lib/philife/interleaved-body-markdown";
@@ -180,13 +181,11 @@ function ListThumb({ url, totalImages }: { url: string; totalImages: number }) {
   const showMore = totalImages > 1;
   return (
     <div className={COMMUNITY_FEED_LIST_THUMB_BOX_CLASS}>
-      <img
+      <SamarketThumbnail
         src={url}
-        alt=""
-        className="block h-full w-full object-cover"
-        loading="lazy"
-        decoding="async"
-        fetchPriority="low"
+        fill
+        roundedClassName="rounded-[4px]"
+        className="bg-[#F7F8FA]"
       />
       {showMore ? (
         <span

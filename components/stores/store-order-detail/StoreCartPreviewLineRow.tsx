@@ -3,6 +3,7 @@
 import { memo } from "react";
 import type { StoreCommerceCartLine } from "@/lib/stores/store-commerce-cart-types";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
 
 export const StoreCartPreviewLineRow = memo(function StoreCartPreviewLineRow({
   line,
@@ -60,6 +61,7 @@ export const StoreCartPreviewLineRow = memo(function StoreCartPreviewLineRow({
           </button>
         </div>
       </div>
+      <StoreProductThumbnail src={line.thumbnailUrl} size={56} roundedClassName="rounded-[10px]" />
     </li>
   );
 });

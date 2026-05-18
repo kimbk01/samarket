@@ -1,9 +1,9 @@
 "use client";
 
-import { DeliveryMediaImage } from "@/components/dibay/DeliveryMediaImage";
 import { DibayMenuBoard } from "@/lib/stores/dibay-menu-board-tokens";
 import { cardIsMenuSoldOut, type StoreDetailProductCard } from "@/lib/stores/group-store-products-by-menu";
 import { SoldOutOverlay } from "@/components/stores/detail/SoldOutOverlay";
+import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
 
 export function RecommendedMenuSection({
   cards,
@@ -51,20 +51,13 @@ export function RecommendedMenuSection({
               }`}
               style={{ borderRadius: DibayMenuBoard.cardRadiusPx }}
             >
-              <div
-                className="relative bg-neutral-100"
-                style={{ width: "100%", aspectRatio: "1", maxHeight: sz + 16 }}
-              >
-                {thumb ? (
-                  <DeliveryMediaImage
-                    src={thumb}
-                    alt=""
-                    fill
-                    sizes="112px"
-                    className="object-cover"
-                    surface="menu-recommended-strip"
-                  />
-                ) : null}
+              <div className="relative bg-neutral-100" style={{ width: "100%", aspectRatio: "1", maxHeight: sz + 16 }}>
+                <StoreProductThumbnail
+                  src={thumb}
+                  size={112}
+                  roundedClassName="rounded-none"
+                  className="h-full w-full"
+                />
                 {soldOut ? <SoldOutOverlay /> : null}
                 <div className="pointer-events-none absolute left-1 top-1 flex flex-wrap gap-1">
                   {showPopular ? (

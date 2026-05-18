@@ -1,6 +1,5 @@
 "use client";
 
-import { DeliveryMediaImage } from "@/components/dibay/DeliveryMediaImage";
 import type { KeyboardEvent, MouseEvent } from "react";
 import { memo, useCallback } from "react";
 import { DibayMenuBoard } from "@/lib/stores/dibay-menu-board-tokens";
@@ -10,9 +9,10 @@ import { formatMoneyPhp } from "@/lib/utils/format";
 import { ProductBadgeRow } from "@/components/stores/detail/ProductBadgeRow";
 import { SoldOutOverlay } from "@/components/stores/detail/SoldOutOverlay";
 import { storeMenuProductDomId } from "@/lib/dibay/store-menu-product-focus";
+import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
 
 const PLUS_BTN =
-  "absolute -bottom-1.5 -right-1.5 flex h-[31px] w-[31px] shrink-0 touch-manipulation select-none items-center justify-center rounded-full bg-[#1C8DB8] text-[21px] font-normal leading-none text-white shadow-[0_2px_8px_rgba(28,141,184,0.35)] ring-1 ring-[#1C8DB8]/40 transition-all duration-150 hover:bg-[#197DA3] active:scale-[0.92] active:bg-[#166F92]";
+  "absolute -bottom-1.5 -right-1.5 flex h-[31px] w-[31px] shrink-0 touch-manipulation select-none items-center justify-center rounded-full bg-[#2386B1] text-[21px] font-normal leading-none text-white shadow-[0_2px_8px_rgba(35,134,177,0.35)] ring-1 ring-[#2386B1]/40 transition-all duration-150 hover:bg-[#1F769C] active:scale-[0.92] active:bg-[#1A6A8F]";
 
 type Props = {
   storeSlug: string;
@@ -122,27 +122,17 @@ export const ProductMenuCard = memo(function ProductMenuCard({
 
   const thumb = (
     <div className="relative shrink-0" style={{ width: sz, height: sz }}>
-      <div
-        className="relative h-full w-full overflow-hidden bg-neutral-100"
-        style={{ borderRadius: DibayMenuBoard.cardRadiusPx }}
-      >
+      <div className="relative h-full w-full">
+        <StoreProductThumbnail
+          src={thumbSrc}
+          size={sz}
+          roundedClassName="rounded-[12px]"
+        />
         {hasDiscount && badgePct > 0 ? (
           <span className="absolute left-1 top-1 z-10 rounded-[3px] bg-red-600 px-1.5 py-0.5 text-[9px] font-bold leading-none text-white shadow">
             {badgePct}%
           </span>
         ) : null}
-        {thumbSrc ? (
-          <DeliveryMediaImage
-            src={thumbSrc}
-            alt=""
-            fill
-            sizes={`${sz}px`}
-            className="object-cover"
-            surface="menu-thumb"
-          />
-        ) : (
-          <div className="h-full w-full bg-neutral-100" aria-hidden />
-        )}
         {soldOut ? <SoldOutOverlay /> : null}
       </div>
       {!menuSelectBlocked && onOpenProduct && !soldOut ? (

@@ -12,6 +12,7 @@ import { formatMessengerPeerPresenceLine } from "@/lib/community-messenger/realt
 import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
 import { useMessengerTypingStore } from "@/lib/community-messenger/stores/useMessengerTypingStore";
 import { MessengerHeader } from "@/components/community-messenger/line-ui";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { Search } from "lucide-react";
 import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
@@ -115,17 +116,15 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
           >
             <BackIcon className="h-[18px] w-[18px]" />
           </button>
-          <div className="relative h-9 w-9 shrink-0 self-center">
-            <div className="h-full w-full overflow-hidden rounded-full bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]">
-              {vm.snapshot.room.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={vm.snapshot.room.avatarUrl} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center sam-text-body-secondary font-semibold text-[color:var(--cm-room-primary)]">
-                  {vm.snapshot.room.title.trim().slice(0, 1).toUpperCase() || "?"}
-                </div>
-              )}
-            </div>
+          <div className="relative shrink-0 self-center">
+            <SamarketThumbnail
+              src={vm.snapshot.room.avatarUrl}
+              size={36}
+              roundedClassName="rounded-full"
+              className="bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]"
+              fallbackSrc=""
+              fallbackNode={<div className="sam-text-body-secondary font-semibold text-[color:var(--cm-room-primary)]">{vm.snapshot.room.title.trim().slice(0, 1).toUpperCase() || "?"}</div>}
+            />
             {bindPresenceAndTyping && vm.snapshot.room.roomType === "direct" && peerPresence ? (
               <CommunityMessengerPresenceDot state={peerPresence.state} />
             ) : null}

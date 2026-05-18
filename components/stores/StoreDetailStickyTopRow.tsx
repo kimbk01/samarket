@@ -10,6 +10,7 @@ import {
 import { telHrefFromLoosePhPhone } from "@/lib/utils/ph-mobile";
 import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContext";
 import type { StoreFulfillmentPref } from "@/lib/stores/store-fulfillment-pref";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 
 const iconBtnClass =
   "sam-header-action flex h-10 w-10 shrink-0 items-center justify-center text-sam-fg disabled:pointer-events-none disabled:opacity-40";
@@ -115,19 +116,14 @@ export function StoreDetailStickyTopRow({
     <div className="flex w-full min-w-0 max-w-full flex-col gap-1 py-0.5">
     <div className="flex w-full min-w-0 max-w-full min-h-[40px] items-center gap-1.5">
       <StoreDetailBackLink fallbackHref={fallbackHref} />
-      <div className="h-10 w-10 shrink-0 overflow-hidden rounded-sam-md border border-sam-border bg-sam-surface-muted">
-        {profileImageUrl?.trim() ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={profileImageUrl.trim()} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <div
-            className="flex h-full w-full items-center justify-center sam-text-helper font-semibold text-sam-meta"
-            aria-hidden
-          >
-            {initialGlyph}
-          </div>
-        )}
-      </div>
+      <SamarketThumbnail
+        src={profileImageUrl}
+        size={40}
+        roundedClassName="rounded-sam-md"
+        className="border border-sam-border bg-sam-surface-muted"
+        fallbackSrc=""
+        fallbackNode={<span className="sam-text-helper font-semibold text-sam-meta" aria-hidden>{initialGlyph}</span>}
+      />
       <div className="min-w-0 flex-1 py-0.5">
         <h1 className="truncate sam-text-body font-bold leading-tight text-sam-fg">{storeName}</h1>
         <p className="mt-0.5 truncate sam-text-xxs font-medium leading-tight text-sam-muted">

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import type { PostListPreviewModel } from "@/lib/posts/post-list-preview-model";
 import { formatPrice } from "@/lib/utils/format";
 
@@ -30,12 +31,14 @@ export function MessengerTradeProductDockRow({
         className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)] transition active:opacity-90"
         aria-label={`${productLabel} 상세 보기`}
       >
-        {thumbnailUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" />
-        ) : (
-          <div className="flex h-full w-full items-center justify-center sam-text-xxs text-[color:var(--cm-room-text-muted)]">상품</div>
-        )}
+        <SamarketThumbnail
+          src={thumbnailUrl}
+          fill
+          roundedClassName="rounded-md"
+          className="bg-[color:var(--cm-room-primary-soft)]"
+          fallbackSrc=""
+          fallbackNode={<span className="sam-text-xxs text-[color:var(--cm-room-text-muted)]">상품</span>}
+        />
       </Link>
       <Link href={detailHref} className="min-w-0 flex-1 text-left transition active:opacity-90" aria-label={`${productLabel} 상세 보기`}>
         <p className="line-clamp-2 sam-text-body-secondary font-medium leading-snug text-[color:var(--cm-room-text)]">{line1}</p>

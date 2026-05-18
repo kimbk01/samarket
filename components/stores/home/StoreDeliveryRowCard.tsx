@@ -1,12 +1,12 @@
 "use client";
 
-import { DeliveryMediaImage } from "@/components/dibay/DeliveryMediaImage";
 import { useRouter } from "next/navigation";
 import { memo, useCallback } from "react";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { dibayPerfRecordStoreCardNavigationIntent } from "@/lib/dibay/delivery-flow-perf";
+import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
 import {
   deliveryShellEntryBeginNavigation,
   deliveryShellEntryMark,
@@ -369,7 +369,7 @@ function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
   return (
     <li
       ref={viewportRef}
-      className="list-none border-b border-[#ECEFF3] bg-white py-[15px] dark:border-[#2F3133] dark:bg-[#18191A]"
+      className="list-none border-b border-[var(--delivery-border-light)] bg-[var(--delivery-bg-card)] px-4 py-[14px]"
       onPointerEnter={onRowPointerWarm}
       onFocus={onRowPointerWarm}
     >
@@ -401,13 +401,11 @@ function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
                     onTouchStart={() => warmFeaturedMenuNavigation(item.productId, "touch_start")}
                     onClick={() => navigateToStore("featured_menu", item.productId)}
                   >
-                    <DeliveryMediaImage
+                    <StoreProductThumbnail
                       src={(item.imageUrl as string) || ""}
-                      alt=""
                       fill
-                      sizes="(max-width: 420px) 33vw, 220px"
-                      className="object-cover"
-                      surface="list-row-featured"
+                      roundedClassName="rounded-[10px]"
+                      className="h-full w-full"
                     />
                     <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-2 pb-1.5 pt-8">
                       <p className="line-clamp-1 text-[11.5px] font-semibold leading-snug text-white">
@@ -482,7 +480,7 @@ function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
         >
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0 flex-1">
-              <h3 className="line-clamp-1 text-[16px] font-bold leading-tight tracking-[-0.01em] text-[#111] dark:text-[#F3F4F6]">
+              <h3 className="delivery-store-row__title line-clamp-1 tracking-[-0.01em]">
                 {data.nameKo}
                 <span className="ml-2 inline-flex items-center gap-1 align-middle text-[14px] font-bold text-[#111] dark:text-[#F3F4F6]">
                   <span className="text-[12.5px] text-[#F4B400]" aria-hidden>★</span>

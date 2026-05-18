@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import {
   MessengerFriendAddCtaLabels,
   MessengerFriendRequestSheetLabels,
@@ -118,14 +119,14 @@ export function MessengerFriendRequestsSheet({
                     }}
                     className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left active:bg-ui-hover"
                   >
-                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-ui-hover">
-                      {avatarSrc ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={avatarSrc} alt="" className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center sam-text-body-secondary font-semibold text-ui-muted">{initial}</div>
-                      )}
-                    </div>
+                    <SamarketThumbnail
+                      src={avatarSrc}
+                      size={40}
+                      roundedClassName="rounded-full"
+                      className="bg-ui-hover"
+                      fallbackSrc=""
+                      fallbackNode={<span className="sam-text-body-secondary font-semibold text-ui-muted">{initial}</span>}
+                    />
                     <div className="min-w-0 flex-1">
                       <p className="truncate sam-text-body font-medium text-ui-fg">{p.label}</p>
                       <p className="truncate sam-text-xxs text-ui-muted">{p.subtitle ?? "추천"}</p>

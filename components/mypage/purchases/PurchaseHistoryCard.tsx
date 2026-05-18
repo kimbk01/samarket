@@ -20,6 +20,7 @@ import {
 import { formatTradeListDatetime } from "@/lib/mypage/format-trade-datetime";
 import { PurchaseReviewSheet } from "./PurchaseReviewSheet";
 import { BuyerReviewReadSheet } from "./BuyerReviewReadSheet";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 
 export interface PurchaseHistoryRow {
   chatId: string;
@@ -129,18 +130,15 @@ export function PurchaseHistoryCard({
         className={`flex gap-2 p-3 ${needsBuyerTradeConfirm || needsReviewCallToAction ? "pb-2" : ""}`}
       >
         <Link href={purchaseDetailHref} className="flex min-w-0 flex-1 gap-3">
-          <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
-            {row.thumbnail && !thumbFailed ? (
-              <img
-                src={row.thumbnail}
-                alt=""
-                className="h-full w-full object-cover"
-                onError={() => setThumbFailed(true)}
-              />
-            ) : (
-              <div className="flex h-full items-center justify-center sam-text-xxs text-sam-meta">이미지</div>
-            )}
-          </div>
+          <SamarketThumbnail
+            src={row.thumbnail && !thumbFailed ? row.thumbnail : null}
+            size={72}
+            roundedClassName="rounded-ui-rect"
+            className="bg-sam-surface-muted"
+            fallbackSrc=""
+            fallbackNode={<span className="sam-text-xxs text-sam-meta">이미지</span>}
+            onImageError={() => setThumbFailed(true)}
+          />
           <div className="min-w-0 flex-1 pr-1">
             <p className="line-clamp-2 sam-text-body font-medium text-sam-fg">{row.title || "상품"}</p>
             <p className="mt-0.5 sam-text-body font-bold text-sam-fg">{formatPrice(row.price, currency)}</p>

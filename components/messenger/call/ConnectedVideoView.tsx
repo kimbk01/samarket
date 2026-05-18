@@ -7,6 +7,7 @@ import { CallActionBar } from "./CallActionBar";
 import { CallStatusText } from "./CallStatusText";
 import { MiniLocalVideo } from "./MiniLocalVideo";
 import { useCallTimer } from "./useCallTimer";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 
 const IDLE_HIDE_MS = 4200;
@@ -174,10 +175,11 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
         {showAvatarCenterCard ? (
           <div className="absolute inset-0 z-[4] flex flex-col items-center justify-center px-8">
             {vm.mode === "video" && vm.peerAvatarUrl ? (
-              <img
+              <SamarketThumbnail
                 src={vm.peerAvatarUrl}
-                alt=""
-                className="mb-5 h-24 w-24 shrink-0 rounded-full object-cover shadow-[0_8px_28px_rgba(0,0,0,0.45)] ring-2 ring-white/20"
+                size={96}
+                roundedClassName="rounded-full"
+                className="mb-5 shadow-[0_8px_28px_rgba(0,0,0,0.45)] ring-2 ring-white/20"
               />
             ) : vm.mode === "video" ? (
               <div

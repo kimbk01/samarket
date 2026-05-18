@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { readTradePostThumbnailCache, writeTradePostThumbnailCache } from "@/lib/community-messenger/trade-chat-list/trade-post-thumbnail-cache";
 import { resolveTradeChatListThumbnailDisplayUrl } from "@/lib/community-messenger/trade-chat-list/view-model";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 
 type Props = {
   src: string | null | undefined;
@@ -69,26 +70,30 @@ export function TradeProductThumb({ src, postId }: Props) {
 
   if (!displayUrl) {
     return (
-      <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-[10px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]">
-        <span className="sam-text-xxs font-medium" style={{ color: "var(--messenger-text-secondary)" }}>
+      <SamarketThumbnail
+        src={null}
+        size={56}
+        roundedClassName="rounded-[10px]"
+        className="border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]"
+        fallbackSrc=""
+        fallbackNode={<span className="sam-text-xxs font-medium" style={{ color: "var(--messenger-text-secondary)" }}>
           거래
-        </span>
-      </div>
+        </span>}
+      />
     );
   }
   return (
-    <div className="h-14 w-14 shrink-0 overflow-hidden rounded-[10px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={displayUrl}
-        alt=""
-        width={56}
-        height={56}
-        className="h-full w-full object-cover"
-        decoding="async"
-        fetchPriority={cachedUrl ? "high" : "auto"}
-        onError={() => setFailed(true)}
-      />
-    </div>
+    <SamarketThumbnail
+      src={displayUrl}
+      size={56}
+      roundedClassName="rounded-[10px]"
+      className="border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]"
+      priority={Boolean(cachedUrl)}
+      fallbackSrc=""
+      fallbackNode={<span className="sam-text-xxs font-medium" style={{ color: "var(--messenger-text-secondary)" }}>
+        거래
+      </span>}
+      onImageError={() => setFailed(true)}
+    />
   );
 }

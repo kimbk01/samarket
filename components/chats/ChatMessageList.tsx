@@ -10,6 +10,7 @@ import {
 } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import type { ChatMessage } from "@/lib/types/chat";
 import {
   IG_DM_BODY_TEXT,
@@ -239,15 +240,14 @@ export function ChatMessageList({
             <li key={block.msg.id} className={`flex justify-start ${gapFromPrev}`}>
               <div className={`flex ${IG_DM_BUBBLE_ROW_MAX} items-end gap-2.5`}>
                 <div className="flex shrink-0 flex-col justify-end">
-                  <div className="relative h-8 w-8 overflow-hidden rounded-full bg-gradient-to-br from-[#E1306C]/18 to-[#F77737]/18 ring-1 ring-black/[0.06]">
-                    {partnerAvatar ? (
-                      <img src={partnerAvatar} alt="" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center sam-text-body-secondary font-semibold text-foreground">
-                        {(partnerNickname || "?").charAt(0)}
-                      </div>
-                    )}
-                  </div>
+                  <SamarketThumbnail
+                    src={partnerAvatar}
+                    size={32}
+                    roundedClassName="rounded-full"
+                    className="bg-gradient-to-br from-[#E1306C]/18 to-[#F77737]/18 ring-1 ring-black/[0.06]"
+                    fallbackSrc=""
+                    fallbackNode={<span className="sam-text-body-secondary font-semibold text-foreground">{(partnerNickname || "?").charAt(0)}</span>}
+                  />
                 </div>
                 <div className="flex min-w-0 flex-1 flex-col">
                   <div
@@ -290,19 +290,14 @@ export function ChatMessageList({
           <li key={`opponent-${msgs[0].id}`} className={`flex justify-start ${gapFromPrev}`}>
             <div className={`flex ${ig ? IG_DM_BUBBLE_ROW_MAX : DEFAULT_CHAT_BUBBLE_ROW_MAX} items-end ${ig ? "gap-2.5" : "gap-2"}`}>
               <div className="flex shrink-0 flex-col justify-end">
-                <div
-                  className={`relative overflow-hidden rounded-full ${ig ? "h-8 w-8 bg-gradient-to-br from-[#E1306C]/18 to-[#F77737]/18 ring-1 ring-black/[0.06]" : "h-[34px] w-[34px] bg-sam-surface-muted"}`}
-                >
-                  {partnerAvatar ? (
-                    <img src={partnerAvatar} alt="" className="h-full w-full object-cover" />
-                  ) : (
-                    <div
-                      className={`flex h-full w-full items-center justify-center ${ig ? "sam-text-body-secondary font-semibold text-foreground" : "sam-text-body font-medium text-sam-muted"}`}
-                    >
-                      {(partnerNickname || "?").charAt(0)}
-                    </div>
-                  )}
-                </div>
+                <SamarketThumbnail
+                  src={partnerAvatar}
+                  size={ig ? 32 : 34}
+                  roundedClassName="rounded-full"
+                  className={ig ? "bg-gradient-to-br from-[#E1306C]/18 to-[#F77737]/18 ring-1 ring-black/[0.06]" : "bg-sam-surface-muted"}
+                  fallbackSrc=""
+                  fallbackNode={<span className={ig ? "sam-text-body-secondary font-semibold text-foreground" : "sam-text-body font-medium text-sam-muted"}>{(partnerNickname || "?").charAt(0)}</span>}
+                />
               </div>
               <div className="flex min-w-0 flex-1 flex-col">
                 <p

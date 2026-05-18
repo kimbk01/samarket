@@ -1,11 +1,11 @@
 "use client";
 
-import { DeliveryMediaImage } from "@/components/dibay/DeliveryMediaImage";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { DibayMenuBoard } from "@/lib/stores/dibay-menu-board-tokens";
 import { cardIsMenuSoldOut, type StoreDetailProductCard } from "@/lib/stores/group-store-products-by-menu";
 import { ProductBadgeRow } from "@/components/stores/detail/ProductBadgeRow";
 import { SoldOutOverlay } from "@/components/stores/detail/SoldOutOverlay";
+import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
 
 export function PopularMenuSection({
   cards,
@@ -60,24 +60,12 @@ export function PopularMenuSection({
                 <span className="mt-1 w-6 shrink-0 text-center text-[14px] font-black tabular-nums text-[#1C8DB8]">
                   {rank}
                 </span>
-                <div
-                  className="relative shrink-0 overflow-hidden bg-neutral-100"
-                  style={{
-                    width: DibayMenuBoard.thumbSize,
-                    height: DibayMenuBoard.thumbSize,
-                    borderRadius: DibayMenuBoard.cardRadiusPx,
-                  }}
-                >
-                  {thumb ? (
-                    <DeliveryMediaImage
-                      src={thumb}
-                      alt=""
-                      fill
-                      sizes={`${DibayMenuBoard.thumbSize}px`}
-                      className="object-cover"
-                      surface="menu-popular-strip"
-                    />
-                  ) : null}
+                <div className="relative shrink-0">
+                  <StoreProductThumbnail
+                    src={thumb}
+                    size={DibayMenuBoard.thumbSize}
+                    roundedClassName="rounded-[12px]"
+                  />
                   {soldOut ? <SoldOutOverlay /> : null}
                 </div>
                 <div className="min-w-0 flex-1">

@@ -13,6 +13,7 @@ import {
 } from "@/components/post/PostListMenuBottomSheet";
 import { PostListPreviewColumn } from "@/components/post/PostListPreviewColumn";
 import { TradeListingStatusBadge } from "@/components/post/TradeListingStatusBadge";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { buildPostListPreviewModel } from "@/lib/posts/post-list-preview-model";
 import { PHILIFE_FB_CARD_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { TRADE_FEED_THUMB_BOX_CLASS } from "@/lib/posts/trade-feed-layout-classes";
@@ -161,23 +162,20 @@ export const PostCard = memo(function PostCard({
             }
           >
             {hasUsableThumbnail ? (
-              <img
-                ref={isFirstCard ? imageRef : undefined}
-                src={thumbnailUrl ?? undefined}
-                alt=""
-                width={120}
-                height={120}
-                className="h-full w-full object-cover object-center"
-                loading="lazy"
-                decoding="async"
-                fetchPriority="low"
-                onLoad={() => {
+              <SamarketThumbnail
+                src={thumbnailUrl}
+                fill
+                roundedClassName="rounded-none"
+                className="bg-sam-surface-muted"
+                fallbackSrc=""
+                imageRef={isFirstCard ? imageRef : undefined}
+                onImageLoad={() => {
                   if (!isFirstCard) return;
                   recordTradeListImageRequestRangeFromResources(
                     imageRef.current?.currentSrc || thumbnailUrl || null
                   );
                 }}
-                onError={() => setThumbnailFailed(true)}
+                onImageError={() => setThumbnailFailed(true)}
               />
             ) : usedCarBuyEmptyThumbSlot ? (
               <span className="block h-full min-h-0 w-full" aria-hidden />

@@ -29,9 +29,9 @@ import {
   StoreProductSheetBodySkeleton,
   StoreProductSheetOptionsSkeleton,
 } from "@/components/stores/product-sheet/StoreProductSheetSkeleton";
+import { DeliveryButton } from "@/components/delivery/ui/DeliveryButton";
 import {
   STORE_ORDER_BRAND,
-  STORE_ORDER_CTA_PRIMARY,
   STORE_ORDER_CTA_STEPPER,
   STORE_ORDER_TOUCH_BTN,
 } from "@/components/stores/store-order-detail/store-order-brand";
@@ -612,7 +612,7 @@ export function StoreProductAddSheet({
     ? "옵션을 불러오는 중…"
     : optionHydrationFailed
       ? "옵션을 불러올 수 없음"
-      : `${formatMoneyPhp(lineTotal)} 담기`;
+      : "장바구니 담기";
 
   return (
     <StoreProductSheetShell onBackdropClose={onClose}>
@@ -905,20 +905,27 @@ export function StoreProductAddSheet({
 
       {!showNotFound && !showFullLoadingBody && product && store ? (
         <div
-          className="shrink-0 border-t border-neutral-100 bg-white px-4 pt-3 shadow-[0_-4px_16px_rgba(0,0,0,0.08)]"
+          className="shrink-0 border-t border-[var(--delivery-border-light)] bg-white px-4 pt-3"
           style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))" }}
         >
           {sheetErr ? (
             <p className="mb-2 text-center text-[11px] font-medium text-red-600">{sheetErr}</p>
           ) : null}
-          <button
-            type="button"
-            disabled={ctaDisabled}
-            onClick={addToCart}
-            className={`w-full py-3.5 text-[17px] leading-none ${STORE_ORDER_CTA_PRIMARY}`}
-          >
-            {ctaLabel}
-          </button>
+          <div className="flex items-center gap-3">
+            <p className="min-w-0 flex-1 text-[16px] font-bold leading-none tabular-nums text-[var(--delivery-text-main)]">
+              {formatMoneyPhp(lineTotal)}
+            </p>
+            <DeliveryButton
+              variant="primary"
+              size="md"
+              sticky
+              className="min-w-[9.5rem] max-w-[58%] flex-1"
+              disabled={ctaDisabled}
+              onClick={addToCart}
+            >
+              {ctaLabel}
+            </DeliveryButton>
+          </div>
         </div>
       ) : null}
     </StoreProductSheetShell>

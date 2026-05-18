@@ -57,6 +57,7 @@ import {
 import { messengerTradeViewerRoleFromContextMeta } from "@/lib/community-messenger/messenger-trade-viewer-role";
 import { TradeChatListRowContent } from "@/components/community-messenger/trade-chat-list/TradeChatListRowContent";
 import { TradeProductThumb } from "@/components/community-messenger/trade-chat-list/TradeProductThumb";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { prefetchTradePostThumbnailIfNeeded } from "@/lib/community-messenger/trade-chat-list/trade-post-thumbnail-cache";
 import { useTradeChatListPostPreviewFields } from "@/lib/community-messenger/trade-chat-list/use-trade-chat-list-post-preview-fields";
 import { useMessengerChatListUnread } from "@/lib/community-messenger/read/messenger-chat-list-unread-display";
@@ -887,19 +888,15 @@ function CommerceThumb({
     return <AvatarCircle src={fallbackAvatarUrl} label={fallbackLabel} sizeClassName="h-12 w-12" textClassName="sam-text-body" />;
   }
   return (
-    <div className="h-12 w-12 shrink-0 overflow-hidden rounded-[8px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={src}
-        alt=""
-        width={48}
-        height={48}
-        className="h-full w-full object-cover"
-        decoding="async"
-        fetchPriority="low"
-        onError={() => setFailed(true)}
-      />
-    </div>
+    <SamarketThumbnail
+      src={src}
+      size={48}
+      roundedClassName="rounded-[8px]"
+      className="border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]"
+      fallbackSrc=""
+      fallbackNode={<AvatarCircle src={fallbackAvatarUrl} label={fallbackLabel} sizeClassName="h-12 w-12" textClassName="sam-text-body" />}
+      onImageError={() => setFailed(true)}
+    />
   );
 }
 
@@ -923,23 +920,15 @@ function AvatarCircle({
   }, [safeSrc]);
 
   return (
-    <div className={`shrink-0 overflow-hidden rounded-full bg-ui-hover ${sizeClassName}`}>
-      {safeSrc && !imageFailed ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={safeSrc}
-          alt=""
-          width={48}
-          height={48}
-          className="h-full w-full object-cover"
-          decoding="async"
-          fetchPriority="low"
-          onError={() => setImageFailed(true)}
-        />
-      ) : (
-        <div className={`flex h-full w-full items-center justify-center font-semibold text-ui-muted ${textClassName}`}>{initial}</div>
-      )}
-    </div>
+    <SamarketThumbnail
+      src={safeSrc && !imageFailed ? safeSrc : null}
+      size={48}
+      roundedClassName="rounded-full"
+      className={`bg-ui-hover ${sizeClassName}`}
+      fallbackSrc=""
+      fallbackNode={<div className={`flex h-full w-full items-center justify-center font-semibold text-ui-muted ${textClassName}`}>{initial}</div>}
+      onImageError={() => setImageFailed(true)}
+    />
   );
 }
 

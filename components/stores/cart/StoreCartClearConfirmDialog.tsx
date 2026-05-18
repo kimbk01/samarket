@@ -1,12 +1,8 @@
 "use client";
 
+import { DeliveryButton } from "@/components/delivery/ui/DeliveryButton";
 import { STORE_CART_CLEAR_CONFIRM } from "@/lib/stores/store-cart-policy";
-import {
-  CART_POPUP_BTN_DANGER,
-  CART_POPUP_BTN_GHOST,
-  StoreCommerceCartAlert,
-  StoreCommerceCartCenterPopup,
-} from "@/components/stores/cart/StoreCommerceCartCenterPopup";
+import { StoreCommerceCartAlert, StoreCommerceCartCenterPopup } from "@/components/stores/cart/StoreCommerceCartCenterPopup";
 
 /** 장바구니 비우기 — 가운데 팝업 */
 export function StoreCartClearConfirmDialog({
@@ -33,12 +29,12 @@ export function StoreCartClearConfirmDialog({
       onBackdropClose={onCancel}
       footer={
         <>
-          <button type="button" onClick={onConfirm} disabled={busy} className={CART_POPUP_BTN_DANGER}>
+          <DeliveryButton variant="danger" size="full" disabled={busy} onClick={onConfirm}>
             {busy ? "비우는 중…" : STORE_CART_CLEAR_CONFIRM.confirm}
-          </button>
-          <button type="button" onClick={onCancel} disabled={busy} className={CART_POPUP_BTN_GHOST}>
+          </DeliveryButton>
+          <DeliveryButton variant="ghost" size="full" disabled={busy} onClick={onCancel}>
             {STORE_CART_CLEAR_CONFIRM.cancel}
-          </button>
+          </DeliveryButton>
         </>
       }
     >

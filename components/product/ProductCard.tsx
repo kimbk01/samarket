@@ -6,6 +6,7 @@ import type { Product } from "@/lib/types/product";
 import { formatPrice } from "@/lib/utils/format";
 import { TimeAgo } from "@/components/ui/TimeAgo";
 import { FavoriteToggleButton } from "@/components/favorites/FavoriteToggleButton";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import {
   TradeListingStatusBadge,
   tradeListingPostFromProduct,
@@ -44,15 +45,12 @@ export function ProductCard({ product }: ProductCardProps) {
         <FavoriteToggleButton productId={product.id} iconClassName="h-5 w-5" />
       </div>
       <div className="relative h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
-        {product.thumbnail ? (
-          <img
-            src={product.thumbnail}
-            alt=""
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <div className="h-full w-full bg-sam-border-soft" />
-        )}
+        <SamarketThumbnail
+          src={product.thumbnail}
+          fill
+          roundedClassName="rounded-ui-rect"
+          className="bg-sam-surface-muted"
+        />
         {product.isBoosted && (
           <span className="absolute left-1 top-1 rounded bg-signature px-1.5 py-0.5 sam-text-xxs font-medium text-white">
             끌올

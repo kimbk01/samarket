@@ -12,6 +12,7 @@ import {
   UserPlus,
   Video,
 } from "lucide-react";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import type { CommunityMessengerPeerPresenceSnapshot } from "@/lib/community-messenger/types";
 import {
   formatMessengerTradeDockPriceLine,
@@ -170,16 +171,14 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
     <div className="flex flex-col pb-[env(safe-area-inset-bottom,0px)]">
       <div className="border-b border-[color:var(--cm-room-divider)] px-3 py-3">
         <div className="flex items-center gap-3">
-          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]">
-            {otherUser.avatarUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={otherUser.avatarUrl} alt="" className="h-full w-full object-cover" />
-            ) : (
-              <div className="flex h-full w-full items-center justify-center sam-text-body-secondary font-semibold text-[color:var(--cm-room-primary)]">
-                {otherUser.nickname.trim().slice(0, 1) || "?"}
-              </div>
-            )}
-          </div>
+          <SamarketThumbnail
+            src={otherUser.avatarUrl}
+            size={48}
+            roundedClassName="rounded-full"
+            className="bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]"
+            fallbackSrc=""
+            fallbackNode={<span className="sam-text-body-secondary font-semibold text-[color:var(--cm-room-primary)]">{otherUser.nickname.trim().slice(0, 1) || "?"}</span>}
+          />
           <div className="min-w-0 flex-1">
             <p className="truncate font-semibold text-[color:var(--cm-room-text)]">{otherUser.nickname}</p>
             <div className="mt-0.5 flex items-center gap-1.5 sam-text-xxs text-[color:var(--cm-room-text-muted)]">

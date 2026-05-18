@@ -16,6 +16,7 @@ import { isStoreOrderChatDisabledForBuyer } from "@/lib/stores/order-status-tran
 import { StoreOrderMessengerDeepLink } from "@/components/stores/StoreOrderMessengerDeepLink";
 import { buildMessengerContextInputFromStoreOrderSnapshot } from "@/lib/community-messenger/store-order-messenger-context";
 import { fetchMeStoreOrderDetailDeduped } from "@/lib/stores/store-delivery-api-client";
+import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
 
 type ItemRow = {
   id: string;
@@ -236,12 +237,15 @@ export function StoreCommerceOrderDetailClient({
         <h2 className="text-sm font-bold text-sam-fg">메뉴</h2>
         <ul className="mt-2 space-y-2 text-sm">
           {items.map((it) => (
-            <li key={it.id} className="border-b border-sam-border-soft pb-2 last:border-0">
-              <div className="flex justify-between font-medium">
-                <span>
-                  {it.product_title_snapshot} ×{it.qty}
-                </span>
-                <span>{formatMoneyPhp(it.subtotal)}</span>
+            <li key={it.id} className="flex gap-3 border-b border-sam-border-soft pb-2 last:border-0">
+              <StoreProductThumbnail src={null} size={56} roundedClassName="rounded-[10px]" />
+              <div className="min-w-0 flex-1">
+                <div className="flex justify-between gap-3 font-medium">
+                  <span className="min-w-0">
+                    {it.product_title_snapshot} ×{it.qty}
+                  </span>
+                  <span className="shrink-0">{formatMoneyPhp(it.subtotal)}</span>
+                </div>
               </div>
             </li>
           ))}

@@ -16,6 +16,7 @@ import { toggleFavorite } from "@/lib/favorites/toggleFavorite";
 import { createReport } from "@/lib/reports/createReport";
 import { postOwnedByUserId, postTradeListingOwnerUserId } from "@/lib/chats/resolve-author-nickname";
 import { PostCommunityCommentsSection } from "@/components/post/PostCommunityCommentsSection";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { incrementPostViewCount } from "@/lib/posts/incrementViewCount";
 import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
@@ -459,13 +460,14 @@ function PostDetailSellerProfileRow({
   return (
     <div className="flex min-w-0 items-center justify-between gap-3">
       <div className="flex min-w-0 flex-1 items-center">
-        <div className="mr-2.5 flex h-[38px] w-[38px] shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#eeeeee] text-[13px] font-bold text-[#888]">
-          {author?.avatar_url ? (
-            <img src={author.avatar_url} alt="" className="h-full w-full object-cover" />
-          ) : (
-            <span aria-hidden>{initial}</span>
-          )}
-        </div>
+        <SamarketThumbnail
+          src={author?.avatar_url}
+          size={38}
+          roundedClassName="rounded-full"
+          className="mr-2.5 bg-[#eeeeee] text-[13px] font-bold text-[#888]"
+          fallbackSrc=""
+          fallbackNode={<span aria-hidden>{initial}</span>}
+        />
         <div className="min-w-0 flex-1">
           <p className={TRADE_FB_DETAIL_SELLER_NAME}>{displayName}</p>
           {atUsername ? (

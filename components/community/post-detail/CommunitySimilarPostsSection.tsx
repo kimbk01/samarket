@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ThumbsUp, MessageCircle } from "lucide-react";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import type { NeighborhoodFeedPostDTO } from "@/lib/neighborhood/types";
 import { formatTimeAgo } from "@/lib/utils/format";
 import { resolveNeighborhoodFeedListThumbnail } from "@/lib/community-feed/feed-list-thumbnail";
@@ -65,9 +66,12 @@ export function CommunitySimilarPostsSection({ currentPostId, posts }: Props) {
                       </div>
                     </div>
                     {url ? (
-                      <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-[4px] bg-[#F7F8FA]">
-                        <img src={url} alt="" className="h-full w-full object-cover" loading="lazy" />
-                      </div>
+                      <SamarketThumbnail
+                        src={url}
+                        size={64}
+                        roundedClassName="rounded-[4px]"
+                        className="bg-[#F7F8FA]"
+                      />
                     ) : null}
                   </Link>
                 </li>
