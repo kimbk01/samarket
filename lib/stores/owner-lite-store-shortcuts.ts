@@ -1,6 +1,6 @@
 import type { OwnerHubBadgeBreakdown } from "@/lib/chats/owner-hub-badge-types";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
-import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
+import { ORDER_CHAT_MESSENGER_LIST_HREF } from "@/lib/chats/surfaces/order-chat-surface";
 
 type SalesPermission = {
   allowed_to_sell?: boolean;
@@ -49,7 +49,7 @@ export function resolveOwnerLiteStoreShortcuts(
       : canSell && b.orderAttention > 0
         ? safeStoreDeepLink ?? orderHref
         : b.storeOrderChatUnread > 0
-          ? safeStoreDeepLink ?? SAMARKET_ROUTES.orders.storeOrders
+          ? safeStoreDeepLink ?? ORDER_CHAT_MESSENGER_LIST_HREF
           : canSell
             ? safeStoreDeepLink ?? orderHref
             : profileHref;

@@ -39,7 +39,7 @@ export const MESSENGER_DOMAIN_OWNERSHIP: Record<
   philife: ["lib/chats", "app/(main)/philife"],
   store: ["lib/chats", "lib/chats/server"],
   community: ["lib/community-messenger", "app/api/community-messenger"],
-  store_order: ["lib/order-chat", "lib/shared-order-chat", "app/api/order-chat"],
+  store_order: ["lib/community-messenger", "lib/shared-order-chat", "app/api/community-messenger"],
   voice_call: ["lib/community-messenger", "app/api/community-messenger/calls"],
   video_call: [
     "lib/community-messenger/call-media-stack",

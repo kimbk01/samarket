@@ -33,9 +33,9 @@ export const SAMARKET_CHAT_PILLARS = {
     id: "store_order" as const satisfies SamarketChatPillarId,
     labelKo: "배달·매장 주문 채팅",
     descriptionKo:
-      "주문 단위 채팅. `lib/order-chat`, `generalChat.kind === \"store_order\"`. **`store`(통합 채팅 스트림)와 이름·도메인이 다르다.**",
+      "주문 단위 채팅. community messenger delivery pillar/contextMeta.kind === \"delivery\" 로 관리한다. **`store`(통합 채팅 스트림)와 이름·도메인이 다르다.**",
     messengerDomainKey: "store_order" as const,
-    codePaths: ["lib/order-chat", "lib/shared-order-chat", "app/api/order-chat"] as const,
+    codePaths: ["lib/community-messenger", "lib/shared-order-chat", "app/api/community-messenger"] as const,
   },
 } as const;
 

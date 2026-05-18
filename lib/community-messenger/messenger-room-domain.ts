@@ -18,6 +18,7 @@ export function communityMessengerRoomIsDelivery(room: CommunityMessengerRoomSum
   if (room.contextMeta?.kind === "delivery") return true;
   const dk = room.messengerDirectKey?.trim() ?? "";
   if (dk.startsWith("trade_pc:") || dk.startsWith("trade_item:")) return false;
+  if (dk.startsWith("store_order:")) return true;
   if (dk.startsWith("trade_order:")) return true;
   const title = `${room.title} ${room.summary} ${room.subtitle}`.toLowerCase();
   return title.includes("배달") || title.includes("주문");

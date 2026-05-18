@@ -28,3 +28,17 @@ export const ORDER_CHAT_SURFACE = {
 } as const;
 
 export type OrderChatSurface = typeof ORDER_CHAT_SURFACE;
+
+/** 배달·매장 주문 채팅방 — 메신저 앱 라우트 (`/community-messenger/rooms/[roomId]`). */
+export function orderMessengerRoomHref(roomId: string): string {
+  const id = roomId.trim();
+  if (!id) return ORDER_CHAT_MESSENGER_LIST_HREF;
+  return `/community-messenger/rooms/${encodeURIComponent(id)}?from=delivery`;
+}
+
+/** 메신저 방 id 가 없을 때 — RSC 가 방을 확보한 뒤 메신저로 리다이렉트 */
+export function storeOrderChatEnsureRedirectHref(orderId: string): string {
+  const id = orderId.trim();
+  if (!id) return ORDER_CHAT_MESSENGER_LIST_HREF;
+  return `/orders/store/${encodeURIComponent(id)}/chat`;
+}

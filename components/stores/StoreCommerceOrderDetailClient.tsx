@@ -182,8 +182,10 @@ export function StoreCommerceOrderDetailClient({
             <StoreOrderMessengerDeepLink
               roomId={order.community_messenger_room_id}
               context={buildMessengerContextInputFromStoreOrderSnapshot({
+                orderId: order.id,
                 storeName: order.store_name,
                 orderNo: order.order_no,
+                storeId: order.store_id,
                 fulfillmentType: order.fulfillment_type,
                 orderStatus: order.order_status,
                 paymentAmount: order.payment_amount,

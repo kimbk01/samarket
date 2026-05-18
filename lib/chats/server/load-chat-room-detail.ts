@@ -696,7 +696,7 @@ export async function loadChatRoomDetailForUser(input: {
     if (oid) {
       const { data: ordRow } = await sbAny
         .from("store_orders")
-        .select("order_no, store_id, order_status")
+        .select("order_no, store_id, order_status, community_messenger_room_id")
         .eq("id", oid)
         .maybeSingle();
       if (ordRow) {
@@ -740,6 +740,9 @@ export async function loadChatRoomDetailForUser(input: {
         ),
         source: "chat_room",
         chatDomain: "store_order",
+        communityMessengerRoomId:
+          trimMessengerRoomId((ordRow as { community_messenger_room_id?: unknown } | null)?.community_messenger_room_id) ??
+          trimMessengerRoomId((crSo as { community_messenger_room_id?: unknown }).community_messenger_room_id),
         roomTitle: titleSo,
         roomSubtitle: statusLabel ? `주문 상태 · ${statusLabel}` : "배달채팅",
         buyerReviewSubmitted: false,
@@ -797,6 +800,8 @@ export async function loadChatRoomDetailForUser(input: {
       ),
       source: "chat_room",
       chatDomain: "store_order",
+      communityMessengerRoomId:
+        trimMessengerRoomId((crSo as { community_messenger_room_id?: unknown }).community_messenger_room_id),
       roomTitle: titleSo,
       roomSubtitle: "배달채팅",
       buyerReviewSubmitted: false,

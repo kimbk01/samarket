@@ -365,8 +365,10 @@ function MyStoreOrderCard({
             roomId={o.community_messenger_room_id}
             variant="compact"
             context={buildMessengerContextInputFromStoreOrderSnapshot({
+              orderId: o.id,
               storeName: o.store_name,
               orderNo: o.order_no,
+              storeId: o.store_id,
               fulfillmentType: o.fulfillment_type,
               orderStatus: o.order_status,
               paymentAmount: o.payment_amount,

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { sumBuyerOrderChatUnreadForBuyerExcludingHiddenOrders } from "@/lib/order-chat/service";
+import { sumBuyerStoreOrderMessengerUnread } from "@/lib/community-messenger/store-order-chat-service";
 import { normalizeStoreOrderStatusForBuyer } from "@/lib/stores/normalize-store-order-status";
 
 const BUYER_HUB_ACTIVE_STATUSES = new Set([
@@ -93,7 +93,7 @@ export async function loadBuyerStoreOrdersHubSummary(
   const first = visible[0];
   const recentStoreId = first ? String(first.store_id ?? "").trim() : "";
 
-  const unreadP = sumBuyerOrderChatUnreadForBuyerExcludingHiddenOrders(sb as SupabaseClient<any>, uid, hidden);
+  const unreadP = sumBuyerStoreOrderMessengerUnread(sb as SupabaseClient<any>, uid, hidden);
 
   let unreadChats: number;
   let storeName = "";

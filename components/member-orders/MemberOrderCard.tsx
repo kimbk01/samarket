@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { UnreadBadge } from "@/components/order-chat/UnreadBadge";
 import type { MemberOrder } from "@/lib/member-orders/types";
 import { MEMBER_STATUS_USER_MESSAGE } from "@/lib/member-orders/member-order-labels";
 import { MemberOrderStatusBadge } from "./MemberOrderStatusBadge";
@@ -88,7 +87,11 @@ export function MemberOrderCard({
             className="flex items-center justify-center gap-1 rounded-ui-rect border border-sam-border bg-signature/5 px-4 py-2.5 text-sm font-semibold text-sam-fg"
           >
             {t("member_order_inquiry_action")}
-            <UnreadBadge count={chatUnread} />
+            {chatUnread > 0 ? (
+              <span className="inline-flex min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[11px] font-bold text-white">
+                {chatUnread > 99 ? "99+" : chatUnread}
+              </span>
+            ) : null}
           </Link>
         ) : null}
         {canCancelRequest && onOpenCancel ? (

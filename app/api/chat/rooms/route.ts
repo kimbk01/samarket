@@ -310,6 +310,7 @@ export async function GET(req: NextRequest) {
     last_message_at: string | null;
     last_message_preview: string | null;
     created_at: string;
+    community_messenger_room_id?: string | null;
   }[];
 
   const postIdsFromPc = [...new Set(pcRows.map((r) => r.post_id))];
@@ -502,8 +503,8 @@ export async function GET(req: NextRequest) {
   if (soRoomRows.length > 0) {
     const oids = [...new Set(soRoomRows.map((x) => x.store_order_id).filter(Boolean))] as string[];
     const { data: orows } = oids.length
-      ? await sbAny.from("store_orders").select("id, order_no, store_id, order_status").in("id", oids)
-      : { data: [] as { id: string; order_no: string; store_id: string; order_status?: string }[] };
+      ? await sbAny.from("store_orders").select("id, order_no, store_id, order_status, community_messenger_room_id").in("id", oids)
+      : { data: [] as { id: string; order_no: string; store_id: string; order_status?: string; community_messenger_room_id?: string | null }[] };
     const stids = [...new Set((orows ?? []).map((o) => o.store_id))];
     const { data: sts } = stids.length
       ? await sbAny.from("stores").select("id, store_name").in("id", stids)
@@ -526,6 +527,12 @@ export async function GET(req: NextRequest) {
           : "";
       const title =
         ord && st ? `${(st as { store_name: string }).store_name} · 주문 ${ord.order_no}` : "배달 주문";
+      const orderCmRoomId =
+        typeof (ord as { community_messenger_room_id?: unknown } | undefined)?.community_messenger_room_id === "string"
+          ? ((ord as { community_messenger_room_id?: string }).community_messenger_room_id ?? "").trim()
+          : "";
+      const legacyCmRoomId = typeof r.community_messenger_room_id === "string" ? r.community_messenger_room_id.trim() : "";
+      const cmRoomId = orderCmRoomId || legacyCmRoomId || null;
       const generalChat: GeneralChatMeta = {
         kind: "store_order",
         storeOrderId: r.store_order_id,
@@ -551,6 +558,7 @@ export async function GET(req: NextRequest) {
         source: "chat_room" as const,
         generalChat,
         chatDomain: "store_order" as const,
+        communityMessengerRoomId: cmRoomId,
         roomTitle: title,
         roomSubtitle: statusLabel ? `주문 상태 · ${statusLabel}` : "배달채팅",
       };

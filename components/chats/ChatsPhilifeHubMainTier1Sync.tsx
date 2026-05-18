@@ -1,7 +1,7 @@
 "use client";
 
 import { useLayoutEffect } from "react";
-import { ChatHubTopTabs } from "@/components/order-chat/ChatHubTopTabs";
+import { ChatHubTopTabs } from "@/components/chats/ChatHubTopTabs";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 
 /** 제거된 커뮤니티 허브 자리도 거래/주문 탭만 유지 */

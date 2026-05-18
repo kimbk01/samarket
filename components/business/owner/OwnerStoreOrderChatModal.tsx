@@ -1,9 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
-import { OrderChatRoomClient } from "@/components/order-chat/OrderChatRoomClient";
 
 const BOTTOM_OVER_NAV =
   "bottom-[calc(3.5rem+env(safe-area-inset-bottom,0px))]" as const;
@@ -91,13 +90,20 @@ export function OwnerStoreOrderChatModal({ open, onClose, storeId, orderId, anch
         aria-modal="true"
         aria-label="주문 채팅"
       >
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <OrderChatRoomClient
-            orderId={orderId}
-            backHref={listHref}
-            orderChatsHref={listHref}
-            showMessengerDeepLink={false}
-          />
+        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-hidden p-6 text-center">
+          <p className="text-sm font-semibold text-sam-fg">주문 채팅은 메신저에서 관리합니다.</p>
+          <p className="max-w-sm text-sm text-sam-muted">
+            배달·매장 주문 대화는 `/community-messenger/delivery-chats`와 메신저 방에서 이어집니다.
+          </p>
+          <a
+            href={`/my/business/store-order-chat/${encodeURIComponent(orderId)}`}
+            className="sam-btn sam-btn--primary sam-btn--md"
+          >
+            메신저에서 열기
+          </a>
+          <a href={listHref} className="text-sm font-medium text-signature underline">
+            주문 상세 보기
+          </a>
         </div>
       </div>
     </div>,

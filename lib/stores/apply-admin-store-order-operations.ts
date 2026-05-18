@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
-import { appendOrderChatStatusTransition } from "@/lib/order-chat/service";
+import { appendStoreOrderMessengerStatusTransition } from "@/lib/community-messenger/store-order-chat-service";
 import {
   notifyBuyerStoreRefundApproved,
   notifyBuyerStoreOrderOwnerStatus,
@@ -164,7 +164,7 @@ export async function adminForceCancelStoreOrder(
   }
 
   try {
-    await appendOrderChatStatusTransition(
+    await appendStoreOrderMessengerStatusTransition(
       sb as import("@supabase/supabase-js").SupabaseClient<any>,
       oid,
       os,
@@ -269,7 +269,7 @@ export async function adminSetRefundRequestedStoreOrder(
   }
 
   try {
-    await appendOrderChatStatusTransition(
+    await appendStoreOrderMessengerStatusTransition(
       sb as import("@supabase/supabase-js").SupabaseClient<any>,
       oid,
       os,

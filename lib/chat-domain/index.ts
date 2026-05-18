@@ -28,13 +28,6 @@ export type {
   TradeChatReadPort,
 } from "./ports/trade-chat-read";
 
-export type {
-  OrderChatReadPort,
-  OrderChatSnapshotResult,
-} from "./ports/order-chat-read";
-
-export { loadOrderChatSnapshotForOrder } from "./use-cases/order-chat-snapshot";
-
 export {
   CALL_SIGNALING_DOC,
   type CallSignalingStackKind,

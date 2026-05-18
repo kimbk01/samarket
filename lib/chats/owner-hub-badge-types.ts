@@ -2,13 +2,13 @@
 export type OwnerHubBadgeBreakdown = {
   /** 하단 「채팅」탭 — `/chats` 거래 목록과 동일 범위(item_trade + 레거시 product_chats) */
   chatUnread: number;
-  /** 하단 「메신저」탭(`/community-messenger`) — 친구·그룹 메신저 참가자 미읽음 */
+  /** 하단 「메신저」탭(`/community-messenger`) — 친구·그룹·거래·배달 메신저 참가자 미읽음 */
   communityMessengerUnread: number;
   /** 하단 「커뮤니티」탭 — 커뮤니티·일반 DM 등(非 거래 item_trade) 참가자 미읽음 */
   philifeChatUnread: number;
   /** 거래 + 커뮤니티 채팅 미읽음 합 */
   socialChatUnread: number;
-  /** 하단 「매장」탭에 더해질 매장 주문 채팅 미읽음 */
+  /** 배달·매장 주문 메신저 미읽음(딥링크·알림음용) — `total` 합산에는 `communityMessengerUnread` 만 사용 */
   storeOrderChatUnread: number;
   /** 허브 매장: 접수 대기·환불 요청 */
   orderAttention: number;
@@ -69,7 +69,7 @@ export function parseOwnerHubBadgeJson(data: unknown): OwnerHubBadgeBreakdown {
   const storesTabAttention =
     typeof d.storesTabAttention === "number"
       ? d.storesTabAttention
-      : Math.max(0, orderAttention) + Math.max(0, inquiryAttention) + Math.max(0, storeOrderChatUnread);
+      : Math.max(0, orderAttention) + Math.max(0, inquiryAttention);
   const storeDeepLink = parseInternalAppHref(d.storeDeepLink);
   const total =
     typeof d.total === "number"

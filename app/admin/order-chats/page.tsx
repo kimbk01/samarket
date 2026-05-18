@@ -71,21 +71,12 @@ export default function AdminOrderChatsHubPage() {
       </div>
 
       <p className="sam-text-helper leading-relaxed text-sam-muted">
-        {t("admin_order_chats_foot_1")}
-        <code className="rounded bg-sam-app px-1">order_chat_*</code>
-        {t("admin_order_chats_foot_2")}
-        <code className="rounded bg-sam-app px-1">/api/order-chat/…</code>
-        {t("admin_order_chats_foot_3")}
-        <code className="rounded bg-sam-app px-1">/admin/stores/orders/{"{"}주문UUID{"}"}/chat</code>
-        {t("admin_order_chats_foot_4")}
-        <code className="rounded bg-sam-app px-1">/api/admin/order-chat/…</code>
-        {t("admin_order_chats_foot_5")}
+        주문 채팅 원장은 <code className="rounded bg-sam-app px-1">community_messenger_*</code>로 통합되었습니다. 주문
+        UUID는{" "}
         <Link href="/admin/store-orders" className="text-signature underline">
           {t("admin_order_chats_link_store_action")}
         </Link>
-        {t("admin_order_chats_foot_6")}
-        <code className="rounded bg-sam-app px-1">order_id</code>
-        {t("admin_order_chats_foot_7")}
+        에서 조회하고, 실제 대화는 메신저 배달 채팅함에서 확인합니다.
       </p>
     </div>
   );

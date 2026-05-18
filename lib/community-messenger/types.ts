@@ -115,6 +115,14 @@ export type CommunityMessengerRoomContextMetaV1 = {
   sellerDisplayName?: string;
   /** Mirrors `product_chats.trade_flow_status` for list/header sync. */
   tradeFlowStatus?: string;
+  /** 배달·매장 주문 채팅(`store_order`)의 원본 주문 id */
+  storeOrderId?: string;
+  /** 배달·매장 주문 번호 — 목록/헤더 보조 표시 */
+  orderNo?: string;
+  /** 배달·매장 주문의 매장 id */
+  storeId?: string;
+  /** `store_orders.fulfillment_type` 스냅샷 */
+  fulfillmentType?: string;
 };
 
 export type CommunityMessengerRoomSummary = {

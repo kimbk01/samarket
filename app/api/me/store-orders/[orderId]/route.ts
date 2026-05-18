@@ -16,9 +16,9 @@ import { canBuyerRequestStoreRefund } from "@/lib/stores/order-status-transition
 import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
-  appendOrderChatStatusTransition,
-  ensureOrderChatRoom,
-} from "@/lib/order-chat/service";
+  appendStoreOrderMessengerStatusTransition,
+  ensureStoreOrderMessengerRoom,
+} from "@/lib/community-messenger/store-order-chat-service";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
 
@@ -181,7 +181,7 @@ export async function GET(
     loadStoreOrderReviewMeta(sb, oid),
     (async () => {
       try {
-        return await ensureOrderChatRoom(sbAny, oid);
+        return await ensureStoreOrderMessengerRoom(sbAny, { orderId: oid, userId: buyerId });
       } catch {
         return { ok: false as const, error: "exception" };
       }
@@ -226,6 +226,7 @@ export async function GET(
     ok: true,
     order: {
       ...order,
+      ...(ens.ok ? { community_messenger_room_id: ens.roomId } : {}),
       store_name: (store?.store_name as string) ?? "",
       store_slug: (store?.slug as string) ?? "",
       owner_user_id: (store?.owner_user_id as string) ?? "",
@@ -383,7 +384,7 @@ export async function PATCH(
         .eq("id", order.store_id as string)
         .maybeSingle();
       const ownerId = (stRow as { owner_user_id?: string } | null)?.owner_user_id;
-      await appendOrderChatStatusTransition(
+      await appendStoreOrderMessengerStatusTransition(
         sb as import("@supabase/supabase-js").SupabaseClient<any>,
         oid,
         order.order_status as string,
@@ -493,7 +494,7 @@ export async function PATCH(
       .maybeSingle();
     const ownerId2 = (stRow2 as { owner_user_id?: string } | null)?.owner_user_id;
     cancelOwnerId = ownerId2 ? String(ownerId2) : null;
-    await appendOrderChatStatusTransition(
+    await appendStoreOrderMessengerStatusTransition(
       sb as import("@supabase/supabase-js").SupabaseClient<any>,
       oid,
       order.order_status as string,

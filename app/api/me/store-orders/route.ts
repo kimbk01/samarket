@@ -24,7 +24,11 @@ import {
 import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
 import { normalizeStoreOrderStatusForBuyer } from "@/lib/stores/normalize-store-order-status";
 import { STORE_ORDER_STATUS_LIST } from "@/lib/stores/order-status-transitions";
-import { ensureOrderChatRoom, getBuyerOrderChatUnreadMap } from "@/lib/order-chat/service";
+import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
+import {
+  ensureStoreOrderMessengerRoom,
+  getBuyerStoreOrderMessengerUnreadMap,
+} from "@/lib/community-messenger/store-order-chat-service";
 import { loadBuyerStoreOrdersHubSummary } from "@/lib/stores/load-buyer-store-orders-hub-summary";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
@@ -245,7 +249,7 @@ export async function GET(req: NextRequest) {
     storeIds.length
       ? sb.from("stores").select("id, store_name, profile_image_url, slug").in("id", storeIds)
       : Promise.resolve({ data: [] as const, error: null as null }),
-    getBuyerOrderChatUnreadMap(sb as SupabaseClient<any>, buyerId, orderIdsForChat),
+    getBuyerStoreOrderMessengerUnreadMap(sb as SupabaseClient<any>, buyerId, orderIdsForChat),
   ]);
 
   const names: Record<string, string> = {};
@@ -757,7 +761,7 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const ens = await ensureOrderChatRoom(sb as SupabaseClient<any>, orderId);
+    const ens = await ensureStoreOrderMessengerRoom(sb as SupabaseClient<any>, { orderId, userId: buyerId });
     if (!ens.ok) console.error("[POST store-orders] ensure order chat", ens.error);
   } catch (e) {
     console.error("[POST store-orders] ensure order chat", e);

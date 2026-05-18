@@ -8,6 +8,7 @@ import { createTradeChatReadAdapter } from "@/lib/chats/server/trade-chat-read-a
 import type { ChatMessage, ChatRoom, ChatRoomSource } from "@/lib/types/chat";
 import { parseRoomId } from "@/lib/validate-params";
 import { TRADE_CHAT_SURFACE, tradeItemChatMessengerHrefIfLinked } from "@/lib/chats/surfaces/trade-chat-surface";
+import { orderMessengerRoomHref } from "@/lib/chats/surfaces/order-chat-surface";
 
 const ChatRoomPageClient = dynamic(
   () => import("./ChatRoomPageClient").then((m) => m.ChatRoomPageClient),
@@ -63,6 +64,9 @@ async function ChatRoomPageBody({
     });
     if (boot.ok) {
       serverBootstrap = { room: boot.room, messages: boot.messages };
+      if (boot.room.chatDomain === "store_order" && boot.room.communityMessengerRoomId?.trim()) {
+        redirect(orderMessengerRoomHref(boot.room.communityMessengerRoomId));
+      }
       const toMessenger = tradeItemChatMessengerHrefIfLinked(boot.room, {
         sourceHint: chatRoomSourceHint,
         openReview: openReviewOnMount,

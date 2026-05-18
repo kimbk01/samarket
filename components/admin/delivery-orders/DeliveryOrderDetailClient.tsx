@@ -213,7 +213,7 @@ export function DeliveryOrderDetailClient({ orderId }: { orderId: string }) {
         >
           주문 채팅
         </Link>
-        <span className="text-sam-muted"> · order_chat_* 실데이터</span>
+        <span className="text-sam-muted"> · 메신저 배달 채팅 원장</span>
       </p>
 
       <AdminCard title="기본 정보">

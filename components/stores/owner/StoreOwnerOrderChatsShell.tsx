@@ -4,11 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
-import { ChatHubTopTabs } from "@/components/order-chat/ChatHubTopTabs";
-import { UnreadBadge } from "@/components/order-chat/UnreadBadge";
-import { fetchMeOrderChatRoomsDeduped } from "@/lib/me/fetch-me-order-chat-rooms-deduped";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
-import type { OrderChatRoomPublic } from "@/lib/order-chat/types";
 
 type ShellState =
   | { kind: "loading" }
@@ -19,8 +15,6 @@ type ShellState =
 
 export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
   const [state, setState] = useState<ShellState>({ kind: "loading" });
-  const [rooms, setRooms] = useState<OrderChatRoomPublic[]>([]);
-  const [roomsError, setRoomsError] = useState<string | null>(null);
 
   const loadStore = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = !!opts?.silent;
@@ -54,39 +48,15 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
     }
   }, [slug]);
 
-  const loadRooms = useCallback(async (storeId: string) => {
-    setRoomsError((prev) => (prev === null ? prev : null));
-    try {
-      const { status, json: raw } = await fetchMeOrderChatRoomsDeduped(storeId);
-      const j = raw as { ok?: boolean; error?: string; rooms?: OrderChatRoomPublic[] };
-      if (status < 200 || status >= 300 || j?.ok === false) {
-        setRooms([]);
-        setRoomsError(typeof j?.error === "string" ? j.error : `HTTP ${status}`);
-        return;
-      }
-      setRooms(Array.isArray(j.rooms) ? j.rooms : []);
-    } catch {
-      setRooms([]);
-      setRoomsError("network_error");
-    }
-  }, []);
-
   useEffect(() => {
     void loadStore();
   }, [loadStore]);
 
-  useEffect(() => {
-    if (state.kind !== "ok") return;
-    void loadRooms(state.storeId);
-  }, [state, loadRooms]);
-
   useRefetchOnPageShowRestore(() => {
     void loadStore({ silent: true });
-    if (state.kind === "ok") void loadRooms(state.storeId);
   });
 
   const ordersHref = "/stores/owner/orders";
-  const orderChatsHref = "/my/store-orders";
   const loginHref = "/login";
 
   if (state.kind === "loading") {
@@ -130,8 +100,6 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
     );
   }
 
-  const storeId = state.storeId;
-
   return (
     <div className="min-h-screen bg-sam-app pb-10">
       <header className="sticky top-0 z-10 border-b border-sam-border bg-sam-surface px-2 py-2">
@@ -143,43 +111,13 @@ export function StoreOwnerOrderChatsShell({ slug }: { slug: string }) {
           <span className="w-10" />
         </div>
       </header>
-      <ChatHubTopTabs active="order" orderChatsHref={orderChatsHref} />
       <div className="mx-auto max-w-3xl space-y-3 px-3 pt-4">
-        {roomsError ? (
-          <p className="rounded-ui-rect border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950">
-            채팅 목록을 불러오지 못했습니다 ({roomsError}).
-            <button
-              type="button"
-              className="ml-2 font-medium text-signature underline"
-              onClick={() => void loadRooms(storeId)}
-            >
-              다시 시도
-            </button>
-          </p>
-        ) : null}
-        {rooms.length === 0 && !roomsError ? (
-          <p className="rounded-ui-rect bg-sam-surface p-6 text-sm text-sam-muted shadow-sm ring-1 ring-sam-border-soft">
-            열린 주문 채팅이 없어요. 고객이 주문·채팅을 시작하면 여기에 표시됩니다.
-          </p>
-        ) : (
-          <ul className="space-y-2">
-            {rooms.map((r) => (
-              <li key={r.id}>
-                <Link
-                  href={`/stores/owner/order-chat/${encodeURIComponent(r.order_id)}`}
-                  className="flex items-start justify-between gap-2 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm"
-                >
-                  <div className="min-w-0">
-                    <p className="font-bold text-sam-fg">{r.buyer_name}</p>
-                    <p className="font-mono text-xs text-sam-meta">{r.order_no}</p>
-                    <p className="mt-1 line-clamp-2 text-sm text-sam-muted">{r.last_message}</p>
-                  </div>
-                  <UnreadBadge count={r.unread_count_owner} />
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
+        <div className="rounded-ui-rect bg-sam-surface p-6 text-sm text-sam-muted shadow-sm ring-1 ring-sam-border-soft">
+          <p>주문 채팅은 메신저 배달 채팅함으로 통합되었습니다.</p>
+          <Link href="/community-messenger/delivery-chats" className="mt-3 inline-block font-medium text-signature underline">
+            배달 채팅함 열기
+          </Link>
+        </div>
         <Link href={ordersHref} className="inline-block text-sm text-violet-700 underline">
           주문 관리로
         </Link>

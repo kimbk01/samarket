@@ -11,9 +11,9 @@ import {
   sumTradeChatUnread,
 } from "@/lib/chat/user-chat-unread-parts";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
-import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
-import { countOwnerOrderChatUnread } from "@/lib/order-chat/service";
+import { ORDER_CHAT_MESSENGER_LIST_HREF } from "@/lib/chats/surfaces/order-chat-surface";
 import { sumCommunityMessengerParticipantUnread } from "@/lib/community-messenger/community-messenger-unread-total";
+import { countOwnerStoreOrderMessengerUnread } from "@/lib/community-messenger/store-order-chat-service";
 
 export type OwnerHubBadgeApiPayload = {
   ok: true;
@@ -45,23 +45,23 @@ export type OwnerHubBadgeStorePartial = {
   storeDeepLink: string | null;
 };
 
-/** 1차: 채팅 미읽음·메신저·매장 주문채팅 unread (스토어 목록·문의·접수 카운트 없음) */
+/** 1차: 채팅 미읽음·메신저 unread (스토어 목록·문의·접수 카운트 없음) */
 export async function buildOwnerHubBadgeUnreadSegment(
   sbAny: SupabaseClient<any>,
   storesSb: SupabaseClient<any> | null,
   userId: string
 ): Promise<OwnerHubBadgeUnreadPartial> {
   const unreadParts = await getCachedUserChatUnreadParts(sbAny, userId);
-  const [storeOrderChatUnread, communityMessengerUnread] = await Promise.all([
-    storesSb ? countOwnerOrderChatUnread(storesSb as any, userId).catch(() => 0) : Promise.resolve(0),
+  const [communityMessengerUnread, storeOrderChatUnread] = await Promise.all([
     sumCommunityMessengerParticipantUnread(sbAny, userId).catch(() => 0),
+    storesSb ? countOwnerStoreOrderMessengerUnread(storesSb as any, userId).catch(() => 0) : Promise.resolve(0),
   ]);
   return {
     chatUnread: sumTradeChatUnread(unreadParts),
     communityMessengerUnread: Math.max(0, communityMessengerUnread),
     philifeChatUnread: Math.max(0, unreadParts.communityParticipantUnread),
     socialChatUnread: sumSocialChatUnread(unreadParts),
-    storeOrderChatUnread,
+    storeOrderChatUnread: Math.max(0, storeOrderChatUnread),
   };
 }
 
@@ -119,7 +119,7 @@ export async function resolveOwnerHubBadgeStoreAttentionFromHubStore(
   } else if (orderAttention > 0) {
     storeDeepLink = buildStoreOrdersHref({ storeId: hubStore.id });
   } else if (storeOrderChatUnread > 0) {
-    storeDeepLink = SAMARKET_ROUTES.orders.storeOrders;
+    storeDeepLink = ORDER_CHAT_MESSENGER_LIST_HREF;
   }
 
   return { orderAttention, inquiryAttention, storeDeepLink };
@@ -142,11 +142,8 @@ export function mergeOwnerHubBadgeUnreadAndStore(
   const { chatUnread, communityMessengerUnread, philifeChatUnread, socialChatUnread, storeOrderChatUnread } = unread;
   const { orderAttention, inquiryAttention } = store;
   let storeDeepLink = store.storeDeepLink;
-  if (!storeDeepLink && storeOrderChatUnread > 0) {
-    storeDeepLink = SAMARKET_ROUTES.orders.storeOrders;
-  }
-  const storesTabAttention =
-    Math.max(0, orderAttention) + Math.max(0, inquiryAttention) + storeOrderChatUnread;
+  /** 배달 채팅 unread 는 `communityMessengerUnread`·`storeOrderChatUnread` 필드로만 — `total`·매장 탭 합산에 이중 포함하지 않음 */
+  const storesTabAttention = Math.max(0, orderAttention) + Math.max(0, inquiryAttention);
   const total = socialChatUnread + storesTabAttention + Math.max(0, communityMessengerUnread);
   return {
     ok: true,
@@ -165,7 +162,7 @@ export function mergeOwnerHubBadgeUnreadAndStore(
 
 /**
  * 메인 라우트·캐시 팩토리 — 기존 route 와 동일한 병렬도:
- * wave1: unread parts + store 목록, wave2: 주문채팅 unread + 메신저 합, 이후 허브 카운트.
+ * wave1: unread parts + store 목록, wave2: 메신저 unread, 이후 허브 카운트.
  */
 export async function buildOwnerHubBadgePayloadMerged(
   sbAny: SupabaseClient<any>,
@@ -177,9 +174,9 @@ export async function buildOwnerHubBadgePayloadMerged(
     findOwnerHubStore(storesSb, userId),
   ]);
 
-  const [storeOrderChatUnread, communityMessengerUnread] = await Promise.all([
-    storesSb ? countOwnerOrderChatUnread(storesSb as any, userId).catch(() => 0) : Promise.resolve(0),
+  const [communityMessengerUnread, storeOrderChatUnread] = await Promise.all([
     sumCommunityMessengerParticipantUnread(sbAny, userId).catch(() => 0),
+    storesSb ? countOwnerStoreOrderMessengerUnread(storesSb as any, userId).catch(() => 0) : Promise.resolve(0),
   ]);
 
   const unread: OwnerHubBadgeUnreadPartial = {
@@ -187,9 +184,9 @@ export async function buildOwnerHubBadgePayloadMerged(
     communityMessengerUnread: Math.max(0, communityMessengerUnread),
     philifeChatUnread: Math.max(0, unreadParts.communityParticipantUnread),
     socialChatUnread: sumSocialChatUnread(unreadParts),
-    storeOrderChatUnread,
+    storeOrderChatUnread: Math.max(0, storeOrderChatUnread),
   };
 
-  const store = await resolveOwnerHubBadgeStoreAttentionFromHubStore(storesSb, hubStore, storeOrderChatUnread);
+  const store = await resolveOwnerHubBadgeStoreAttentionFromHubStore(storesSb, hubStore, unread.storeOrderChatUnread);
   return mergeOwnerHubBadgeUnreadAndStore(unread, store);
 }

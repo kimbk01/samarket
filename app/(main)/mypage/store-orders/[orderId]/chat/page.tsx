@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
-import { RedirectStoreOrderToUnifiedChat } from "@/components/chats/RedirectStoreOrderToUnifiedChat";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
-import { loadOrderChatSnapshotForPage } from "@/lib/order-chat/load-order-chat-snapshot-for-page";
-import { ORDER_CHAT_SNAPSHOT_BOOTSTRAP_MESSAGE_LIMIT } from "@/lib/order-chat/types";
+import { ensureStoreOrderMessengerRoom } from "@/lib/community-messenger/store-order-chat-service";
+import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 /** 마이페이지 매장 주문 채팅 — RSC 선로딩 */
 export default function MypageStoreOrderChatPage({
@@ -48,9 +48,8 @@ async function MypageStoreOrderChatPageBody({
     );
   }
 
-  const result = await loadOrderChatSnapshotForPage(userId, orderId, {
-    messageLimit: ORDER_CHAT_SNAPSHOT_BOOTSTRAP_MESSAGE_LIMIT,
-  });
+  const sb = tryGetSupabaseForStores();
+  const result = sb ? await ensureStoreOrderMessengerRoom(sb as any, { orderId, userId }) : null;
   if (result == null || !result.ok) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-sam-app px-4 text-center">
@@ -67,13 +66,5 @@ async function MypageStoreOrderChatPageBody({
       </div>
     );
   }
-
-  return (
-    <RedirectStoreOrderToUnifiedChat
-      key={orderId}
-      variant="buyer"
-      orderId={orderId}
-      initialSnapshot={result.snapshot}
-    />
-  );
+  redirect(`/community-messenger/rooms/${encodeURIComponent(result.roomId)}?from=delivery`);
 }

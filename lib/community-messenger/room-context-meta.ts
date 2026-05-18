@@ -41,6 +41,12 @@ export function parseCommunityMessengerRoomContextMeta(raw: string | null | unde
     if (typeof o.tradeFlowStatus === "string" && o.tradeFlowStatus.trim()) {
       out.tradeFlowStatus = o.tradeFlowStatus.trim();
     }
+    if (typeof o.storeOrderId === "string" && o.storeOrderId.trim()) out.storeOrderId = o.storeOrderId.trim();
+    if (typeof o.orderNo === "string" && o.orderNo.trim()) out.orderNo = o.orderNo.trim();
+    if (typeof o.storeId === "string" && o.storeId.trim()) out.storeId = o.storeId.trim();
+    if (typeof o.fulfillmentType === "string" && o.fulfillmentType.trim()) {
+      out.fulfillmentType = o.fulfillmentType.trim();
+    }
     return out;
   } catch {
     return null;

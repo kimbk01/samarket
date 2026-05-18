@@ -2,8 +2,7 @@
  * POST /api/me/chats/mark-all-read
  * 로그인 사용자 기준:
  * - 통합 `chat_rooms`·`chat_messages`·레거시 `product_chats` / `product_chat_messages`
- * - 매장 주문 채팅 `order_chat_*` (거래 파이프라인과 별도 테이블)
- * - 커뮤니티 메신저 `community_messenger_participants` 미읽음
+ * - 커뮤니티 메신저 `community_messenger_participants` 미읽음(배달·매장 주문 포함)
  */
 import { NextResponse } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
@@ -13,7 +12,6 @@ import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { CHAT_ROOM_ID_IN_CHUNK_SIZE, chunkIds } from "@/lib/chats/chat-list-limits";
 import { markAllCommunityMessengerParticipantsReadForUser } from "@/lib/community-messenger/bulk-mark-all-read";
-import { markAllOrderChatsReadForUser } from "@/lib/order-chat/service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -160,14 +158,6 @@ export async function POST() {
     legacyMessageBatches += 1;
   }
 
-  const orderMark = await markAllOrderChatsReadForUser(sbAny, userId);
-  if (!orderMark.ok) {
-    return NextResponse.json(
-      { ok: false, error: clientSafeInternalErrorMessage(orderMark.error) },
-      { status: 500 }
-    );
-  }
-
   const cmMark = await markAllCommunityMessengerParticipantsReadForUser(sbAny, userId);
   if (!cmMark.ok) {
     return NextResponse.json(
@@ -185,7 +175,7 @@ export async function POST() {
     messageRoomBatches: messageBatches,
     legacyProductChatIds: legacyIds.length,
     legacyProductMessageBatches: legacyMessageBatches,
-    orderChatMarked: true,
+    orderChatMarked: !cmMark.skipped,
     communityMessengerMarked: !cmMark.skipped,
     communityMessengerSkipped: Boolean(cmMark.skipped),
   });

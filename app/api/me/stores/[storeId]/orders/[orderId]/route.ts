@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
-import { ensureOrderChatRoom } from "@/lib/order-chat/service";
+import { ensureStoreOrderMessengerRoom } from "@/lib/community-messenger/store-order-chat-service";
 import { applyStoreOrderStatusTransition } from "@/lib/stores/apply-store-order-status-transition";
 import { ownerAcceptRequiresRecordedPayment } from "@/lib/stores/owner-order-payment-policy";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
@@ -125,10 +125,17 @@ export async function GET(
   }
 
   let order_chat_ready = false;
+  let communityMessengerRoomId = "";
   const deliverySnap = await loadDeliverySnapshot(sb as import("@supabase/supabase-js").SupabaseClient<any>, oid);
   try {
-    const ens = await ensureOrderChatRoom(sb as import("@supabase/supabase-js").SupabaseClient<any>, oid);
-    if (ens.ok) order_chat_ready = true;
+    const ens = await ensureStoreOrderMessengerRoom(sb as import("@supabase/supabase-js").SupabaseClient<any>, {
+      orderId: oid,
+      userId,
+    });
+    if (ens.ok) {
+      order_chat_ready = true;
+      communityMessengerRoomId = ens.roomId;
+    }
   } catch {
     /* ignore */
   }
@@ -143,7 +150,7 @@ export async function GET(
       order_chat_ready,
       store_pickup_address_lines,
     },
-    order: { ...order, items: items ?? [] },
+    order: { ...order, ...(communityMessengerRoomId ? { community_messenger_room_id: communityMessengerRoomId } : {}), items: items ?? [] },
     delivery: deliverySnap.ok ? deliverySnap.delivery : null,
   });
 }

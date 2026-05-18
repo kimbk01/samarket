@@ -15,11 +15,12 @@ describe("buildMessengerContextMetaFromStoreOrder", () => {
     expect(m.priceLabel).toBeDefined();
   });
 
-  it("defaults to trade for pickup", () => {
+  it("keeps pickup orders in delivery/store_order pillar", () => {
     const m = buildMessengerContextMetaFromStoreOrder({
       fulfillmentType: "pickup",
       productTitle: "커피",
     });
-    expect(m.kind).toBe("trade");
+    expect(m.kind).toBe("delivery");
+    expect(m.fulfillmentType).toBe("pickup");
   });
 });

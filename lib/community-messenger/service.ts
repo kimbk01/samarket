@@ -7899,13 +7899,15 @@ async function verifyUserIsStoreOrderChatCounterpart(
   const sb = getSupabaseOrNull();
   if (!sb) return false;
   const { data } = await (sb as any)
-    .from("order_chat_rooms")
-    .select("buyer_user_id, owner_user_id")
-    .eq("order_id", oid)
+    .from("store_orders")
+    .select("buyer_user_id, stores(owner_user_id)")
+    .eq("id", oid)
     .maybeSingle();
   if (!data) return false;
   const buyer = trimText((data as { buyer_user_id?: unknown }).buyer_user_id);
-  const owner = trimText((data as { owner_user_id?: unknown }).owner_user_id);
+  const stores = (data as { stores?: { owner_user_id?: unknown } | Array<{ owner_user_id?: unknown }> | null }).stores;
+  const store = Array.isArray(stores) ? stores[0] : stores;
+  const owner = trimText(store?.owner_user_id);
   if (!buyer || !owner) return false;
   return (
     (userId === buyer && peerUserId === owner) || (userId === owner && peerUserId === buyer)
@@ -7985,24 +7987,30 @@ export async function ensureCommunityMessengerDirectRoom(
       : productChatId !== ""
         ? `trade_pc:${productChatId}`
         : storeOrderId !== ""
-          ? `trade_order:${storeOrderId}`
+          ? `store_order:${storeOrderId}`
           : basePairKey;
+  const legacyStoreOrderDirectKey = storeOrderId !== "" ? `trade_order:${storeOrderId}` : "";
   const sb = getSupabaseOrNull();
   if (sb) {
     const loadExistingRoomId = async () => {
-      const { data } = await (sb as any)
+      let q = (sb as any)
         .from("community_messenger_rooms")
         .select("id")
-        .eq("room_type", "direct")
-        .eq("direct_key", directKey)
-        .maybeSingle();
+        .eq("room_type", "direct");
+      q = legacyStoreOrderDirectKey ? q.in("direct_key", [directKey, legacyStoreOrderDirectKey]) : q.eq("direct_key", directKey);
+      const { data } = await q.order("created_at", { ascending: true }).limit(1).maybeSingle();
       return typeof data?.id === "string" ? (data.id as string) : null;
     };
-    const { data: existing, error: existingError } = await (sb as any)
+    let existingQ = (sb as any)
       .from("community_messenger_rooms")
       .select("id")
-      .eq("room_type", "direct")
-      .eq("direct_key", directKey)
+      .eq("room_type", "direct");
+    existingQ = legacyStoreOrderDirectKey
+      ? existingQ.in("direct_key", [directKey, legacyStoreOrderDirectKey])
+      : existingQ.eq("direct_key", directKey);
+    const { data: existing, error: existingError } = await existingQ
+      .order("created_at", { ascending: true })
+      .limit(1)
       .maybeSingle();
     if (existing?.id && !existingError) {
       const rid = existing.id as string;
@@ -8188,18 +8196,47 @@ export async function ensureCommunityMessengerDirectRoomFromStoreOrderChat(
   const sb = getSupabaseOrNull();
   if (!sb) return { ok: false, error: "server_unavailable" };
   const { data } = await (sb as any)
-    .from("order_chat_rooms")
-    .select("buyer_user_id, owner_user_id")
-    .eq("order_id", oid)
+    .from("store_orders")
+    .select("id, order_no, store_id, buyer_user_id, order_status, fulfillment_type, payment_amount, total_amount, stores(store_name, owner_user_id)")
+    .eq("id", oid)
     .maybeSingle();
-  if (!data) return { ok: false, error: "order_chat_not_found" };
-  const buyer = trimText((data as { buyer_user_id?: unknown }).buyer_user_id);
-  const owner = trimText((data as { owner_user_id?: unknown }).owner_user_id);
+  if (!data) return { ok: false, error: "store_order_not_found" };
+  const orderRow = data as {
+    id?: unknown;
+    order_no?: unknown;
+    store_id?: unknown;
+    buyer_user_id?: unknown;
+    order_status?: unknown;
+    fulfillment_type?: unknown;
+    payment_amount?: unknown;
+    total_amount?: unknown;
+    stores?: { store_name?: unknown; owner_user_id?: unknown } | Array<{ store_name?: unknown; owner_user_id?: unknown }> | null;
+  };
+  const storeRow = Array.isArray(orderRow.stores) ? orderRow.stores[0] : orderRow.stores;
+  const buyer = trimText(orderRow.buyer_user_id);
+  const owner = trimText(storeRow?.owner_user_id);
   if (!buyer || !owner) return { ok: false, error: "order_chat_invalid" };
   if (userId !== buyer && userId !== owner) return { ok: false, error: "not_participant" };
   const peer = userId === buyer ? owner : buyer;
   const out = await ensureCommunityMessengerDirectRoom(userId, peer, { storeOrderId: oid });
   if (!out.ok || !out.roomId) return { ok: false, error: out.error ?? "room_failed" };
+  const storeName = trimText(storeRow?.store_name) || "매장";
+  const orderNo = trimText(orderRow.order_no);
+  const status = trimText(orderRow.order_status);
+  const fulfillmentType = trimText(orderRow.fulfillment_type);
+  const amountRaw = Number(orderRow.payment_amount ?? orderRow.total_amount ?? 0);
+  const contextMeta: CommunityMessengerRoomContextMetaV1 = {
+    v: 1,
+    kind: "delivery",
+    storeOrderId: oid,
+    orderNo,
+    storeId: trimText(orderRow.store_id),
+    fulfillmentType,
+    headline: orderNo ? `${storeName} · 주문 ${orderNo}` : `${storeName} · 주문`,
+    ...(Number.isFinite(amountRaw) && amountRaw >= 0 ? { priceLabel: `₱${amountRaw.toLocaleString("en-US")}` } : {}),
+    ...(status ? { stepLabel: status } : {}),
+  };
+  await updateCommunityMessengerRoomContextMeta({ userId, roomId: out.roomId, contextMeta }).catch(() => ({ ok: false }));
   return { ok: true, roomId: out.roomId, peerUserId: peer };
 }
 
@@ -8220,13 +8257,15 @@ export async function syncStoreOrderCommunityMessengerRoomId(input: {
   if (!sb) return { ok: false };
 
   const { data: ocr } = await (sb as any)
-    .from("order_chat_rooms")
-    .select("buyer_user_id, owner_user_id")
-    .eq("order_id", oid)
+    .from("store_orders")
+    .select("buyer_user_id, stores(owner_user_id)")
+    .eq("id", oid)
     .maybeSingle();
   if (!ocr) return { ok: false };
   const buyer = trimText((ocr as { buyer_user_id?: unknown }).buyer_user_id);
-  const owner = trimText((ocr as { owner_user_id?: unknown }).owner_user_id);
+  const stores = (ocr as { stores?: { owner_user_id?: unknown } | Array<{ owner_user_id?: unknown }> | null }).stores;
+  const storeRow = Array.isArray(stores) ? stores[0] : stores;
+  const owner = trimText(storeRow?.owner_user_id);
   if (uid !== buyer && uid !== owner) return { ok: false };
 
   const { error } = await (sb as any).from("store_orders").update({ community_messenger_room_id: cmRoomId }).eq("id", oid);

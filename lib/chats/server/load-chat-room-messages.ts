@@ -2,10 +2,6 @@ import type { ChatMessage, ChatRoom } from "@/lib/types/chat";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { parseProductChatImageContent } from "@/lib/chats/chat-image-bundle";
 import { integratedChatRowToMessage } from "@/lib/chats/fetch-chat-room-messages-api";
-import { mapOrderChatMessageToChatMessage } from "@/lib/chats/fetch-order-chat-messages-api";
-import { getOrderChatSnapshotForUser } from "@/lib/order-chat/service";
-import type { OrderChatMessagePublic } from "@/lib/order-chat/types";
-import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getChatServiceRoleSupabase } from "./service-role-supabase";
 
 type LoaderError = { ok: false; status: number; error: string };
@@ -298,17 +294,7 @@ export async function loadChatMessagesForRoom(input: {
   }
 
   if (room.generalChat?.kind === "store_order") {
-    const orderId = room.generalChat.storeOrderId?.trim() ?? "";
-    if (!orderId) return [];
-    const sb = tryGetSupabaseForStores();
-    if (!sb) return [];
-    const snapshot = await getOrderChatSnapshotForUser(sb as any, orderId, userId, {
-      ...(typeof messageLimit === "number" ? { messageLimit } : {}),
-    });
-    if (!snapshot.ok) return [];
-    return snapshot.snapshot.messages.map((row: OrderChatMessagePublic) =>
-      mapOrderChatMessageToChatMessage(row, room.id, room.buyerId, userId)
-    );
+    return [];
   }
 
   const result = await loadIntegratedChatRoomMessageRowsForUser({
