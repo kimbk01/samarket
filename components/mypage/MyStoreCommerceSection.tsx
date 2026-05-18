@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { hasApprovedOwnerStore } from "@/lib/stores/store-admin-access";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
@@ -36,6 +37,7 @@ async function resolveCommercePhase(): Promise<Exclude<CommercePhase, { kind: "l
 }
 
 export function MyStoreCommerceSection() {
+  const { t } = useI18n();
   const [phase, setPhase] = useState<CommercePhase>({ kind: "loading" });
 
   useEffect(() => {
@@ -51,7 +53,7 @@ export function MyStoreCommerceSection() {
   if (phase.kind === "loading") {
     return (
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <h2 className="sam-text-body font-semibold text-sam-fg">동네 매장</h2>
+        <h2 className="sam-text-body font-semibold text-sam-fg">{t("mypage_comp_store_section_neighborhood_title")}</h2>
         <div className="mt-3 h-20 animate-pulse rounded-ui-rect bg-sam-surface-muted" />
       </section>
     );
@@ -66,19 +68,17 @@ export function MyStoreCommerceSection() {
   if (!approved) {
     return (
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <h2 className="sam-text-body font-semibold text-sam-fg">동네 매장 (사장님)</h2>
-        <p className="mt-2 sam-text-body-secondary leading-relaxed text-sam-muted">
-          승인된 매장이 있으면 주문·문의·정산을 여기서 관리할 수 있습니다. 매장 등록은 누구나 신청할 수 있습니다.
-        </p>
+        <h2 className="sam-text-body font-semibold text-sam-fg">{t("mypage_comp_store_section_owner_title")}</h2>
+        <p className="mt-2 sam-text-body-secondary leading-relaxed text-sam-muted">{t("mypage_comp_store_owner_intro")}</p>
         <div className="mt-3 flex flex-col gap-2">
           <Link
             href="/stores/owner/apply"
             className="rounded-ui-rect border border-sam-border bg-sam-surface-muted py-3 text-center sam-text-body-secondary font-medium text-sam-fg"
           >
-            매장 등록 신청
+            {t("mypage_comp_store_owner_cta_apply")}
           </Link>
           <Link href="/my/store-orders" className="text-center sam-text-helper text-sam-muted underline">
-            내가 주문한 배달 주문 보기
+            {t("mypage_comp_store_buyer_orders_link")}
           </Link>
         </div>
       </section>
@@ -99,31 +99,31 @@ export function MyStoreCommerceSection() {
 
   return (
     <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-      <h2 className="sam-text-body font-semibold text-sam-fg">동네 매장 (사장님)</h2>
+      <h2 className="sam-text-body font-semibold text-sam-fg">{t("mypage_comp_store_section_owner_title")}</h2>
       <div className="mt-3 grid grid-cols-2 gap-2">
         <Link
           href={ordersHref}
           className="rounded-ui-rect border border-amber-200 bg-amber-50 py-3 text-center sam-text-body-secondary font-semibold text-amber-950"
         >
-          신규·접수 주문
+          {t("mypage_comp_store_owner_new_orders")}
         </Link>
         <Link
           href={inquiriesHref}
           className="rounded-ui-rect border border-sam-border-soft bg-sam-surface-muted py-3 text-center sam-text-body-secondary font-medium text-sam-fg"
         >
-          받은 문의
+          {t("mypage_comp_store_owner_inquiries")}
         </Link>
         <Link
           href={hubHref}
           className="rounded-ui-rect border border-sam-border-soft bg-sam-surface-muted py-3 text-center sam-text-body-secondary font-medium text-sam-fg"
         >
-          운영 허브
+          {t("mypage_comp_store_owner_hub")}
         </Link>
         <Link
           href={productsHref}
           className="rounded-ui-rect border border-sam-border-soft bg-sam-surface-muted py-3 text-center sam-text-body-secondary font-medium text-sam-fg"
         >
-          상품 관리
+          {t("mypage_comp_store_owner_products")}
         </Link>
         <Link
           href={
@@ -133,11 +133,11 @@ export function MyStoreCommerceSection() {
           }
           className="col-span-2 rounded-ui-rect border border-sam-border-soft bg-sam-surface-muted py-3 text-center sam-text-body-secondary font-medium text-sam-fg"
         >
-          정산 내역
+          {t("mypage_comp_store_owner_settlements")}
         </Link>
       </div>
       <Link href="/my/store-orders" className="mt-3 block text-center sam-text-helper text-sam-muted underline">
-        내가 주문한 배달 주문 보기
+        {t("mypage_comp_store_buyer_orders_link")}
       </Link>
     </section>
   );

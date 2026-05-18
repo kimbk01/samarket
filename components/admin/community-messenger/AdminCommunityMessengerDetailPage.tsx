@@ -4,12 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
-import {
-  COMMUNITY_MESSENGER_CALL_FORCE_END_REASONS,
-  type CommunityMessengerCallForceEndReasonCode,
-} from "@/lib/admin-community-messenger/call-force-end-reasons";
+import type { CommunityMessengerCallForceEndReasonCode } from "@/lib/admin-community-messenger/call-force-end-reasons";
 import type { AdminCommunityMessengerRoomDetail } from "@/lib/admin-community-messenger/service";
 import { getSupabaseClient } from "@/lib/supabase/client";
+import { useCmAdminLabels } from "./useCmAdminLabels";
 
 type DetailResponse = AdminCommunityMessengerRoomDetail & { ok?: boolean };
 type RoomAction =
@@ -30,6 +28,7 @@ type ReportAction =
 type PendingForceEndCall = NonNullable<AdminCommunityMessengerRoomDetail["activeCalls"]>[number];
 
 export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }) {
+  const { t, formatDateTime, roomTypeLabel, forceEndReasonOptions, forceEndReasonLabel } = useCmAdminLabels();
   const [detail, setDetail] = useState<AdminCommunityMessengerRoomDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -146,7 +145,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
         );
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
-          alert(json.error ?? "처리에 실패했습니다.");
+          alert(json.error ?? t("admin_cm_err_action_failed"));
           return;
         }
         setNote("");
@@ -155,7 +154,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
         setBusy(null);
       }
     },
-    [note, refresh, roomId]
+    [note, refresh, roomId, t]
   );
 
   const runMessageAction = useCallback(
@@ -173,7 +172,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
         );
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
-          alert(json.error ?? "메시지 조치에 실패했습니다.");
+          alert(json.error ?? t("admin_cm_err_message_action_failed"));
           return;
         }
         await refresh();
@@ -181,7 +180,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
         setBusy(null);
       }
     },
-    [refresh, roomId]
+    [refresh, roomId, t]
   );
 
   const runCallAction = useCallback(
@@ -198,10 +197,10 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
         if (!res.ok || !json.ok) {
           alert(
             json.error === "admin_note_required"
-              ? "강제 종료에는 운영 메모가 필수입니다."
+              ? t("admin_cm_err_force_end_note_required")
               : json.error === "reason_code_required"
-                ? "강제 종료 사유 코드를 선택해 주세요."
-                : (json.error ?? "통화 세션 처리에 실패했습니다.")
+                ? t("admin_cm_err_force_end_reason_required")
+                : (json.error ?? t("admin_cm_err_call_action_failed"))
           );
           return;
         }
@@ -213,22 +212,22 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
         setBusy(null);
       }
     },
-    [forceEndReasonCode, note, refresh]
+    [forceEndReasonCode, note, refresh, t]
   );
 
   const openForceEndConfirm = useCallback(
     (call: PendingForceEndCall) => {
       if (!forceEndReasonCode) {
-        alert("강제 종료 사유 코드를 선택해 주세요.");
+        alert(t("admin_cm_err_force_end_reason_required"));
         return;
       }
       if (!note.trim()) {
-        alert("강제 종료 사유를 운영 메모에 입력해 주세요.");
+        alert(t("admin_cm_err_force_end_note_input_required"));
         return;
       }
       setPendingForceEndCall(call);
     },
-    [forceEndReasonCode, note]
+    [forceEndReasonCode, note, t]
   );
 
   const runReportAction = useCallback(
@@ -243,7 +242,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
-          alert(json.error ?? "신고 처리에 실패했습니다.");
+          alert(json.error ?? t("admin_cm_err_report_failed"));
           return;
         }
         await refresh();
@@ -251,7 +250,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
         setBusy(null);
       }
     },
-    [note, refresh]
+    [note, refresh, t]
   );
 
   const filteredCalls = useMemo(() => {
@@ -295,11 +294,11 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
   }, [auditPeriodFilter, auditQuery, detail?.callAudits]);
 
   if (loading) {
-    return <div className="py-10 text-center sam-text-body text-sam-muted">불러오는 중...</div>;
+    return <div className="py-10 text-center sam-text-body text-sam-muted">{t("admin_cm_common_loading")}</div>;
   }
 
   if (!detail) {
-    return <div className="py-10 text-center sam-text-body text-sam-muted">메신저 방을 찾을 수 없습니다.</div>;
+    return <div className="py-10 text-center sam-text-body text-sam-muted">{t("admin_cm_empty_room_not_found")}</div>;
   }
 
   const room = detail.room;
@@ -307,47 +306,47 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
   return (
     <div className="space-y-4">
       <AdminPageHeader
-        title="메신저 방 상세"
+        titleKey="admin_cm_page_detail_title"
         backHref="/admin/chats/messenger"
-        description="방 상태 조치, 참여자 확인, 메시지 흐름 점검"
+        descriptionKey="admin_cm_page_detail_desc"
       />
 
-      <AdminCard title="방 정보">
+      <AdminCard titleKey="admin_cm_card_room_info">
         <div className="grid gap-3 md:grid-cols-2">
-          <Info label="방 제목" value={room.title} />
-          <Info label="방 ID" value={room.id} mono />
+          <Info label={t("admin_cm_label_room_title")} value={room.title} />
+          <Info label={t("admin_cm_label_room_id")} value={room.id} mono />
           <Info
-            label="유형"
-            value={room.roomType === "open_group" ? "공개 그룹" : room.roomType === "private_group" ? "비공개 그룹" : "1:1"}
+            label={t("admin_cm_th_type")}
+            value={roomTypeLabel(room.roomType === "open_group" ? "open_group" : room.roomType === "private_group" ? "private_group" : "direct")}
           />
-          <Info label="상태" value={room.roomStatus} />
-          <Info label="공개 여부" value={room.visibility === "public" ? "public" : "private"} />
-          <Info label="입장 정책" value={room.joinPolicy} />
-          <Info label="읽기 전용" value={room.isReadonly ? "ON" : "OFF"} />
-          <Info label="생성자" value={room.createdByLabel} />
-          <Info label="방장" value={room.ownerLabel} />
-          <Info label="참여자 수" value={`${room.memberCount}명`} />
-          <Info label="최대 인원" value={room.memberLimit ? `${room.memberLimit}명` : "-"} />
-          <Info label="목록 노출" value={room.isDiscoverable ? "ON" : "OFF"} />
-          <Info label="비밀번호 설정" value={room.requiresPassword ? "설정됨" : "없음"} />
-          <Info label="최근 메시지 시간" value={formatDateTime(room.lastMessageAt)} />
-          <Info label="방 소개" value={room.summary || "-"} full />
-          <Info label="최근 메시지" value={room.lastMessage} full />
-          <Info label="운영 메모" value={room.adminNote || "-"} full />
-          <Info label="최근 조치 관리자" value={room.moderatedByLabel} />
-          <Info label="최근 조치 시각" value={room.moderatedAt ? formatDateTime(room.moderatedAt) : "-"} />
+          <Info label={t("admin_cm_th_status")} value={room.roomStatus} />
+          <Info label={t("admin_cm_label_visibility")} value={room.visibility === "public" ? "public" : "private"} />
+          <Info label={t("admin_cm_label_join_policy")} value={room.joinPolicy} />
+          <Info label={t("admin_cm_label_readonly")} value={room.isReadonly ? t("admin_cm_common_on") : t("admin_cm_common_off")} />
+          <Info label={t("admin_cm_th_creator")} value={room.createdByLabel} />
+          <Info label={t("admin_cm_label_owner")} value={room.ownerLabel} />
+          <Info label={t("admin_cm_label_member_count")} value={t("admin_cm_common_members", { count: room.memberCount })} />
+          <Info label={t("admin_cm_label_member_limit")} value={room.memberLimit ? t("admin_cm_common_members", { count: room.memberLimit }) : t("admin_cm_common_dash")} />
+          <Info label={t("admin_cm_label_discoverable")} value={room.isDiscoverable ? t("admin_cm_common_on") : t("admin_cm_common_off")} />
+          <Info label={t("admin_cm_label_password")} value={room.requiresPassword ? t("admin_cm_common_configured") : t("admin_cm_common_not_set")} />
+          <Info label={t("admin_cm_label_last_message_at")} value={formatDateTime(room.lastMessageAt)} />
+          <Info label={t("admin_cm_label_summary")} value={room.summary || t("admin_cm_common_dash")} full />
+          <Info label={t("admin_cm_th_last_message")} value={room.lastMessage} full />
+          <Info label={t("admin_cm_label_ops_note")} value={room.adminNote || t("admin_cm_common_dash")} full />
+          <Info label={t("admin_cm_label_last_moderator")} value={room.moderatedByLabel} />
+          <Info label={t("admin_cm_label_last_moderated_at")} value={room.moderatedAt ? formatDateTime(room.moderatedAt) : t("admin_cm_common_dash")} />
         </div>
       </AdminCard>
 
-      <AdminCard title="운영 조치">
+      <AdminCard titleKey="admin_cm_card_ops_actions">
         <div className="space-y-3">
           <select
             value={forceEndReasonCode}
             onChange={(e) => setForceEndReasonCode(e.target.value as CommunityMessengerCallForceEndReasonCode | "")}
             className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
           >
-            <option value="">강제 종료 사유 코드를 선택하세요</option>
-            {COMMUNITY_MESSENGER_CALL_FORCE_END_REASONS.map((reason) => (
+            <option value="">{t("admin_cm_select_force_end_reason")}</option>
+            {forceEndReasonOptions.map((reason) => (
               <option key={reason.code} value={reason.code}>
                 {reason.label}
               </option>
@@ -357,32 +356,32 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={3}
-            placeholder="운영 메모를 남기세요. 강제 종료 시에는 선택한 사유 코드에 대한 상세 설명을 적어 주세요."
+            placeholder={t("admin_cm_placeholder_ops_note")}
             className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
           />
-          <p className="sam-text-helper text-amber-700">통화 강제 종료에는 사유 코드 선택과 운영 메모 입력이 모두 필수입니다.</p>
+          <p className="sam-text-helper text-amber-700">{t("admin_cm_force_end_requires_note")}</p>
           <div className="flex flex-wrap gap-2">
             {room.roomStatus !== "blocked" ? (
-              <ActionButton busy={busy} action="block_room" label="채팅 차단" onRun={runAction} />
+              <ActionButton busy={busy} action="block_room" label={t("admin_cm_action_block_chat")} onRun={runAction} />
             ) : (
-              <ActionButton busy={busy} action="unblock_room" label="차단 해제" onRun={runAction} />
+              <ActionButton busy={busy} action="unblock_room" label={t("admin_cm_action_unblock_chat")} onRun={runAction} />
             )}
             {room.roomStatus !== "archived" ? (
-              <ActionButton busy={busy} action="archive_room" label="보관" onRun={runAction} />
+              <ActionButton busy={busy} action="archive_room" label={t("admin_cm_action_archive")} onRun={runAction} />
             ) : (
-              <ActionButton busy={busy} action="unarchive_room" label="보관 해제" onRun={runAction} />
+              <ActionButton busy={busy} action="unarchive_room" label={t("admin_cm_action_unarchive")} onRun={runAction} />
             )}
             {!room.isReadonly ? (
-              <ActionButton busy={busy} action="readonly_on" label="읽기 전용" onRun={runAction} />
+              <ActionButton busy={busy} action="readonly_on" label={t("admin_cm_action_readonly_on")} onRun={runAction} />
             ) : (
-              <ActionButton busy={busy} action="readonly_off" label="읽기 전용 해제" onRun={runAction} />
+              <ActionButton busy={busy} action="readonly_off" label={t("admin_cm_action_readonly_off")} onRun={runAction} />
             )}
           </div>
         </div>
       </AdminCard>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <AdminCard title="참여자">
+        <AdminCard titleKey="admin_cm_card_participants">
           <div className="space-y-2">
             {detail.participants.map((participant) => (
               <div key={participant.id} className="rounded border border-sam-border-soft px-3 py-3">
@@ -394,8 +393,8 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                     </p>
                   </div>
                   <div className="text-right sam-text-helper text-sam-meta">
-                    <div>참여 {participant.joinedAt ? formatDateTime(participant.joinedAt) : "-"}</div>
-                    <div className="mt-1">읽음 {participant.lastReadAt ? formatDateTime(participant.lastReadAt) : "-"}</div>
+                    <div>{t("admin_cm_common_joined", { date: participant.joinedAt ? formatDateTime(participant.joinedAt) : t("admin_cm_common_dash") })}</div>
+                    <div className="mt-1">{t("admin_cm_common_read", { date: participant.lastReadAt ? formatDateTime(participant.lastReadAt) : t("admin_cm_common_dash") })}</div>
                   </div>
                 </div>
               </div>
@@ -403,7 +402,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
           </div>
         </AdminCard>
 
-        <AdminCard title="최근 통화">
+        <AdminCard titleKey="admin_cm_card_recent_calls_detail">
           <div className="mb-3 flex flex-wrap gap-2">
             <select
               value={callStatusFilter}
@@ -414,7 +413,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
               }
               className="rounded border border-sam-border px-3 py-2 sam-text-body"
             >
-              <option value="">모든 기록 상태</option>
+              <option value="">{t("admin_cm_filter_all_record_status")}</option>
               <option value="missed">missed</option>
               <option value="rejected">rejected</option>
               <option value="cancelled">cancelled</option>
@@ -427,14 +426,14 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
               onChange={(e) => setCallKindFilter(e.target.value as "voice" | "video" | "")}
               className="rounded border border-sam-border px-3 py-2 sam-text-body"
             >
-              <option value="">모든 통화 종류</option>
+              <option value="">{t("admin_cm_filter_all_call_kind")}</option>
               <option value="voice">voice</option>
               <option value="video">video</option>
             </select>
           </div>
           <div className="space-y-2">
             {filteredCalls.length === 0 ? (
-              <div className="py-8 text-center sam-text-body text-sam-muted">통화 기록이 없습니다.</div>
+              <div className="py-8 text-center sam-text-body text-sam-muted">{t("admin_cm_empty_call_logs")}</div>
             ) : (
               filteredCalls.map((call) => (
                 <div key={call.id} className="rounded border border-sam-border-soft px-3 py-3">
@@ -442,7 +441,12 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                     {call.callerLabel} {"->"} {call.peerLabel}
                   </p>
                   <p className="mt-1 sam-text-helper text-sam-muted">
-                    {call.callKind} · {call.status} · {call.durationSeconds}초
+                    {t("admin_cm_common_call_duration", {
+                      kind: call.callKind,
+                      status: call.status,
+                      seconds: call.durationSeconds,
+                      count: 0,
+                    }).replace(" · 참여 0명", "").replace(" · 0 participants", "").replace(" · 参与 0人", "")}
                   </p>
                   <p className="mt-1 sam-text-helper text-sam-meta">{formatDateTime(call.startedAt)}</p>
                 </div>
@@ -452,14 +456,14 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
         </AdminCard>
       </div>
 
-      <AdminCard title="활성 통화 세션">
+      <AdminCard titleKey="admin_cm_card_active_calls">
         <div className="mb-3 flex flex-wrap gap-2">
           <select
             value={activeCallStatusFilter}
             onChange={(e) => setActiveCallStatusFilter(e.target.value as "ringing" | "active" | "")}
             className="rounded border border-sam-border px-3 py-2 sam-text-body"
           >
-            <option value="">모든 활성 상태</option>
+            <option value="">{t("admin_cm_filter_all_active_status")}</option>
             <option value="ringing">ringing</option>
             <option value="active">active</option>
           </select>
@@ -468,27 +472,27 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
             onChange={(e) => setCallKindFilter(e.target.value as "voice" | "video" | "")}
             className="rounded border border-sam-border px-3 py-2 sam-text-body"
           >
-            <option value="">모든 통화 종류</option>
+            <option value="">{t("admin_cm_filter_all_call_kind")}</option>
             <option value="voice">voice</option>
             <option value="video">video</option>
           </select>
         </div>
         <div className="space-y-2">
           {filteredActiveCalls.length === 0 ? (
-            <div className="py-8 text-center sam-text-body text-sam-muted">현재 진행 중인 통화 세션이 없습니다.</div>
+            <div className="py-8 text-center sam-text-body text-sam-muted">{t("admin_cm_empty_active_calls_detail")}</div>
           ) : (
             filteredActiveCalls.map((call) => (
               <div key={call.id} className="rounded border border-sam-border-soft px-3 py-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="sam-text-body font-medium text-sam-fg">
-                      {call.sessionMode === "group" ? "그룹 통화" : "1:1 통화"} · {call.callKind}
+                      {call.sessionMode === "group" ? t("admin_cm_call_group") : t("admin_cm_call_direct")} · {call.callKind}
                     </p>
                     <p className="mt-1 sam-text-helper text-sam-muted">
-                      상태 {call.status} · 시작자 {call.initiatorLabel} · 시작 {formatDateTime(call.startedAt)}
+                      {t("admin_cm_common_call_status_line", { status: call.status, initiator: call.initiatorLabel, started: formatDateTime(call.startedAt) })}
                     </p>
                     <p className="mt-1 sam-text-helper text-sam-fg">
-                      참여 {call.joinedCount}명 · 대기 {call.invitedCount}명 · 전체 {call.participantCount}명
+                      {t("admin_cm_common_participants_joined", { joined: call.joinedCount, invited: call.invitedCount, total: call.participantCount })}
                     </p>
                     <p className="mt-1 sam-text-helper text-sam-muted">
                       {call.participants.map((participant) => `${participant.label}(${participant.status})`).join(", ")}
@@ -500,7 +504,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                     onClick={() => openForceEndConfirm(call)}
                     className="rounded border border-red-200 bg-red-50 px-3 py-2 sam-text-helper font-medium text-red-700"
                   >
-                    {busy === `call:${call.id}:force_end` ? "종료 중..." : "강제 종료"}
+                    {busy === `call:${call.id}:force_end` ? t("admin_cm_common_ending") : t("admin_cm_action_force_end")}
                   </button>
                 </div>
               </div>
@@ -509,12 +513,12 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
         </div>
       </AdminCard>
 
-      <AdminCard title="강제 종료 감사 로그">
+      <AdminCard titleKey="admin_cm_card_force_end_audit">
         <div className="mb-3 flex flex-wrap gap-2">
           <input
             value={auditQuery}
             onChange={(e) => setAuditQuery(e.target.value)}
-            placeholder="관리자, 세션 ID, 메모 검색"
+            placeholder={t("admin_cm_placeholder_audit_search_detail")}
             className="min-w-[220px] rounded border border-sam-border px-3 py-2 sam-text-body"
           />
           <select
@@ -522,35 +526,35 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
             onChange={(e) => setAuditPeriodFilter(e.target.value as "24h" | "7d" | "30d" | "")}
             className="rounded border border-sam-border px-3 py-2 sam-text-body"
           >
-            <option value="">전체 기간</option>
-            <option value="24h">최근 24시간</option>
-            <option value="7d">최근 7일</option>
-            <option value="30d">최근 30일</option>
+            <option value="">{t("admin_cm_period_all")}</option>
+            <option value="24h">{t("admin_cm_period_24h")}</option>
+            <option value="7d">{t("admin_cm_period_7d")}</option>
+            <option value="30d">{t("admin_cm_period_30d")}</option>
           </select>
-          <div className="flex items-center sam-text-helper text-sam-muted">결과 {filteredCallAudits.length}건</div>
+          <div className="flex items-center sam-text-helper text-sam-muted">{t("admin_cm_common_results", { count: filteredCallAudits.length })}</div>
         </div>
         <div className="space-y-2">
           {filteredCallAudits.length === 0 ? (
-            <div className="py-8 text-center sam-text-body text-sam-muted">이 방의 강제 종료 감사 로그가 없습니다.</div>
+            <div className="py-8 text-center sam-text-body text-sam-muted">{t("admin_cm_empty_room_audit_logs")}</div>
           ) : (
             filteredCallAudits.map((log) => (
               <div key={log.id} className="rounded border border-sam-border-soft px-3 py-3">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="sam-text-body font-medium text-sam-fg">
-                      관리자 {log.actorLabel}
-                      <span className="ml-2 rounded bg-red-50 px-1.5 py-0.5 sam-text-xxs text-red-700">강제 종료</span>
+                      {t("admin_cm_common_admin_actor", { name: log.actorLabel })}
+                      <span className="ml-2 rounded bg-red-50 px-1.5 py-0.5 sam-text-xxs text-red-700">{t("admin_cm_force_end_badge")}</span>
                     </p>
                     <p className="mt-1 font-mono sam-text-helper text-sam-muted">{log.sessionId}</p>
                     {log.reasonCode ? (
                       <p className="mt-1 sam-text-helper text-sky-700">
-                        사유 코드: {log.reasonLabel} ({log.reasonCode})
+                        {t("admin_cm_common_reason_code", { label: log.reasonLabel, code: log.reasonCode ?? "" })}
                       </p>
                     ) : null}
                     <p className="mt-1 sam-text-helper text-sam-fg">
-                      상태 {log.beforeStatus} {"->"} {log.afterStatus}
+                      {t("admin_cm_common_status", { status: `${log.beforeStatus} -> ${log.afterStatus}` })}
                     </p>
-                    {log.note ? <p className="mt-1 sam-text-helper text-amber-700">메모: {log.note}</p> : null}
+                    {log.note ? <p className="mt-1 sam-text-helper text-amber-700">{t("admin_cm_common_note", { text: log.note })}</p> : null}
                   </div>
                   <div className="sam-text-helper text-sam-meta">{formatDateTime(log.createdAt)}</div>
                 </div>
@@ -560,7 +564,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
         </div>
       </AdminCard>
 
-      <AdminCard title="메시지 타임라인">
+      <AdminCard titleKey="admin_cm_card_message_timeline">
         <div className="space-y-2">
           {detail.messages.map((message) => (
             <div key={message.id} className="rounded border border-sam-border-soft px-3 py-3">
@@ -570,16 +574,16 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                     {message.senderLabel}
                     <span className="ml-2 sam-text-helper font-normal text-sam-meta">{message.messageType}</span>
                     {message.isHiddenByAdmin ? (
-                      <span className="ml-2 rounded bg-red-50 px-1.5 py-0.5 sam-text-xxs text-red-700">숨김</span>
+                      <span className="ml-2 rounded bg-red-50 px-1.5 py-0.5 sam-text-xxs text-red-700">{t("admin_cm_badge_hidden")}</span>
                     ) : null}
                     {message.reportCount > 0 ? (
                       <span className="ml-2 rounded bg-amber-50 px-1.5 py-0.5 sam-text-xxs text-amber-700">
-                        신고 {message.reportCount}
+                        {t("admin_cm_badge_reports", { count: message.reportCount })}
                       </span>
                     ) : null}
                   </p>
                   <p className="mt-1 whitespace-pre-wrap sam-text-body text-sam-fg">
-                    {message.content || "(빈 메시지)"}
+                    {message.content || t("admin_cm_empty_message")}
                   </p>
                   <div className="mt-2 flex flex-wrap gap-2">
                     {message.isHiddenByAdmin ? (
@@ -589,7 +593,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                         onClick={() => void runMessageAction(message.id, false)}
                         className="rounded border border-lime-200 bg-lime-50 px-2.5 py-1 sam-text-helper text-lime-700"
                       >
-                        숨김 해제
+                        {t("admin_cm_action_unhide_message")}
                       </button>
                     ) : (
                       <button
@@ -598,7 +602,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                         onClick={() => void runMessageAction(message.id, true)}
                         className="rounded border border-orange-200 bg-orange-50 px-2.5 py-1 sam-text-helper text-orange-700"
                       >
-                        메시지 숨김
+                        {t("admin_cm_action_hide_message")}
                       </button>
                     )}
                   </div>
@@ -610,10 +614,10 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
         </div>
       </AdminCard>
 
-      <AdminCard title="방 신고 내역">
+      <AdminCard titleKey="admin_cm_card_room_reports">
         <div className="space-y-2">
           {detail.reports.length === 0 ? (
-            <div className="py-8 text-center sam-text-body text-sam-muted">이 방에 접수된 신고가 없습니다.</div>
+            <div className="py-8 text-center sam-text-body text-sam-muted">{t("admin_cm_empty_room_reports")}</div>
           ) : (
             detail.reports.map((report) => (
               <div key={report.id} className="rounded border border-sam-border-soft px-3 py-3">
@@ -623,13 +627,13 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                       {report.reportType} · {report.reporterLabel}
                     </p>
                     <p className="mt-1 sam-text-helper text-sam-muted">
-                      상태 {report.status} · {formatDateTime(report.createdAt)}
+                      {t("admin_cm_common_status", { status: report.status })} · {formatDateTime(report.createdAt)}
                     </p>
                     <p className="mt-1 sam-text-helper text-sam-fg">
                       {report.reasonType}{report.reasonDetail ? ` · ${report.reasonDetail}` : ""}
                     </p>
                     {report.adminNote ? (
-                      <p className="mt-1 sam-text-helper text-amber-700">관리 메모: {report.adminNote}</p>
+                      <p className="mt-1 sam-text-helper text-amber-700">{t("admin_cm_common_admin_note", { text: report.adminNote })}</p>
                     ) : null}
                   </div>
                   <div className="flex flex-wrap justify-end gap-2">
@@ -639,7 +643,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                       onClick={() => void runReportAction(report.id, "reviewing")}
                       className="rounded border border-sam-border px-2.5 py-1 sam-text-helper text-sam-fg"
                     >
-                      검토중
+                      {t("admin_cm_action_reviewing")}
                     </button>
                     <button
                       type="button"
@@ -647,7 +651,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                       onClick={() => void runReportAction(report.id, "resolved")}
                       className="rounded border border-emerald-200 bg-emerald-50 px-2.5 py-1 sam-text-helper text-emerald-700"
                     >
-                      해결
+                      {t("admin_cm_action_resolve")}
                     </button>
                     <button
                       type="button"
@@ -655,7 +659,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                       onClick={() => void runReportAction(report.id, "rejected")}
                       className="rounded border border-sam-border bg-sam-surface px-2.5 py-1 sam-text-helper text-sam-fg"
                     >
-                      기각
+                      {t("admin_cm_action_dismiss")}
                     </button>
                     {report.messageId ? (
                       <button
@@ -664,7 +668,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                         onClick={() => void runReportAction(report.id, "sanction_message_hide")}
                         className="rounded border border-orange-200 bg-orange-50 px-2.5 py-1 sam-text-helper text-orange-700"
                       >
-                        메시지 숨김 제재
+                        {t("admin_cm_action_sanction_hide")}
                       </button>
                     ) : null}
                     {report.roomId ? (
@@ -674,7 +678,7 @@ export function AdminCommunityMessengerDetailPage({ roomId }: { roomId: string }
                         onClick={() => void runReportAction(report.id, "sanction_room_block")}
                         className="rounded border border-red-200 bg-red-50 px-2.5 py-1 sam-text-helper text-red-700"
                       >
-                        방 차단 제재
+                        {t("admin_cm_action_sanction_block_room")}
                       </button>
                     ) : null}
                   </div>
@@ -734,6 +738,7 @@ function ActionButton({
   label: string;
   onRun: (action: RoomAction) => Promise<void>;
 }) {
+  const { t } = useCmAdminLabels();
   return (
     <button
       type="button"
@@ -741,7 +746,7 @@ function ActionButton({
       onClick={() => void onRun(action)}
       className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary text-sam-fg disabled:opacity-50"
     >
-      {busy === action ? "처리 중..." : label}
+      {busy === action ? t("admin_cm_common_processing") : label}
     </button>
   );
 }
@@ -763,10 +768,11 @@ function ForceEndConfirmModal({
   onClose: () => void;
   onConfirm: () => void;
 }) {
+  const { t, forceEndReasonLabel } = useCmAdminLabels();
   if (!open || !call) return null;
 
   const reasonLabel =
-    COMMUNITY_MESSENGER_CALL_FORCE_END_REASONS.find((item) => item.code === reasonCode)?.label ?? "사유 미선택";
+    reasonCode ? forceEndReasonLabel(reasonCode) : t("admin_cm_force_end_reason_unselected");
 
   return (
     <div className="fixed inset-0 z-[300] flex items-end justify-center bg-black/50 sm:items-center">
@@ -775,36 +781,36 @@ function ForceEndConfirmModal({
         aria-modal="true"
         className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface p-4 shadow-xl sm:rounded-ui-rect"
       >
-        <h2 className="text-base font-bold text-sam-fg">통화 강제 종료 확인</h2>
+        <h2 className="text-base font-bold text-sam-fg">{t("admin_cm_modal_force_end_title")}</h2>
         <p className="mt-2 rounded-ui-rect bg-red-50 px-3 py-2 text-xs text-red-800 ring-1 ring-red-200">
-          이 작업은 즉시 통화를 종료시키며 감사 로그에 기록됩니다. 실행 전에 대상과 사유를 다시 확인하세요.
+          {t("admin_cm_modal_force_end_warning")}
         </p>
         <div className="mt-4 space-y-2 rounded-ui-rect border border-sam-border bg-sam-app p-3 text-sm text-sam-fg">
           <div>
-            <span className="text-sam-muted">대상 통화</span>
+            <span className="text-sam-muted">{t("admin_cm_modal_target_call")}</span>
             <div className="mt-1 font-medium text-sam-fg">
-              {call.sessionMode === "group" ? "그룹 통화" : "1:1 통화"} · {call.callKind}
+              {call.sessionMode === "group" ? t("admin_cm_call_group") : t("admin_cm_call_direct")} · {call.callKind}
             </div>
           </div>
           <div>
-            <span className="text-sam-muted">시작자</span>
+            <span className="text-sam-muted">{t("admin_cm_modal_initiator")}</span>
             <div className="mt-1">{call.initiatorLabel}</div>
           </div>
           <div>
-            <span className="text-sam-muted">참여 인원</span>
+            <span className="text-sam-muted">{t("admin_cm_modal_participants")}</span>
             <div className="mt-1">
-              참여 {call.joinedCount}명 · 대기 {call.invitedCount}명 · 전체 {call.participantCount}명
+              {t("admin_cm_common_participants_joined", { joined: call.joinedCount, invited: call.invitedCount, total: call.participantCount })}
             </div>
           </div>
           <div>
-            <span className="text-sam-muted">사유 코드</span>
+            <span className="text-sam-muted">{t("admin_cm_modal_reason_code")}</span>
             <div className="mt-1 text-sky-700">
               {reasonLabel}
               {reasonCode ? ` (${reasonCode})` : ""}
             </div>
           </div>
           <div>
-            <span className="text-sam-muted">상세 메모</span>
+            <span className="text-sam-muted">{t("admin_cm_modal_detail_note")}</span>
             <div className="mt-1 whitespace-pre-wrap">{note.trim()}</div>
           </div>
         </div>
@@ -815,7 +821,7 @@ function ForceEndConfirmModal({
             onClick={onClose}
             className="rounded-ui-rect border border-sam-border px-4 py-2 text-sm font-medium text-sam-fg disabled:opacity-50"
           >
-            취소
+            {t("admin_cm_common_cancel")}
           </button>
           <button
             type="button"
@@ -823,7 +829,7 @@ function ForceEndConfirmModal({
             onClick={onConfirm}
             className="rounded-ui-rect bg-red-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50"
           >
-            {busy ? "강제 종료 중..." : "강제 종료 확인"}
+            {busy ? t("admin_cm_action_force_end_in_progress") : t("admin_cm_action_force_end_confirm")}
           </button>
         </div>
       </div>

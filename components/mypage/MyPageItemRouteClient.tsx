@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { MyPageData } from "@/lib/my/types";
 import { useMypageHubModel } from "@/hooks/use-mypage-hub-model";
 import { MyPageItemScreen } from "@/components/mypage/MyPageItemScreen";
@@ -10,13 +12,15 @@ export function MyPageItemRouteClient({
   initialMyPageData,
   section,
   item,
-  itemLabel,
+  itemLabelKey,
 }: {
   initialMyPageData: MyPageData | null;
   section: string;
   item: string;
-  itemLabel: string;
+  itemLabelKey: MessageKey;
 }) {
+  const { t } = useI18n();
+  const itemLabel = t(itemLabelKey);
   const {
     data,
     loading,
@@ -32,15 +36,15 @@ export function MyPageItemRouteClient({
   const hasOwnerStore = data?.hasOwnerStore ?? false;
   const storeAttentionSummary =
     hasOwnerStore && overviewCounts.storeAttention != null
-      ? `처리 ${overviewCounts.storeAttention}건`
+      ? t("mypage_comp_store_attention_count", { count: overviewCounts.storeAttention })
       : hasOwnerStore
-        ? "새 주문·문의 확인"
+        ? t("mypage_comp_store_attention_summary")
         : null;
 
   if (loading) {
     return (
       <MyPageStackShell title={itemLabel} backHref={buildMypageSectionHref(section)}>
-        <div className="py-6 text-center sam-text-body text-sam-muted">불러오는 중…</div>
+        <div className="py-6 text-center sam-text-body text-sam-muted">{t("mypage_comp_loading_ellipsis")}</div>
       </MyPageStackShell>
     );
   }
@@ -48,7 +52,7 @@ export function MyPageItemRouteClient({
   if (!data?.profile) {
     return (
       <MyPageStackShell title={itemLabel} backHref={buildMypageSectionHref(section)}>
-        <div className="py-6 text-center sam-text-body text-sam-muted">로그인이 필요합니다.</div>
+        <div className="py-6 text-center sam-text-body text-sam-muted">{t("mypage_comp_login_required")}</div>
       </MyPageStackShell>
     );
   }

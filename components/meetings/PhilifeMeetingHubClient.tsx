@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MeetingRoomHero } from "@/components/meetings/MeetingRoomHero";
 import { MeetingHomeTab, type MeetingDetailTabId } from "@/components/meetings/MeetingHomeTab";
 import { mapMeetingMemberListToTabRows, MeetingMembersTab } from "@/components/meetings/MeetingMembersTab";
@@ -19,21 +20,6 @@ import type {
   NeighborhoodMeetingEventDTO,
   NeighborhoodMeetingNoticeDTO,
 } from "@/lib/neighborhood/types";
-
-const TAB_ITEMS: Array<{ id: MeetingDetailTabId; label: string }> = [
-  { id: "home", label: "홈" },
-  { id: "notices", label: "공지" },
-  { id: "feed", label: "피드" },
-  { id: "chat", label: "채팅" },
-  { id: "album", label: "앨범" },
-  { id: "members", label: "멤버" },
-];
-
-function roleLabel(role: MeetingMemberListItemDTO["role"] | undefined) {
-  if (role === "host") return "모임장";
-  if (role === "co_host") return "운영진";
-  return "멤버";
-}
 
 export function PhilifeMeetingHubClient({
   meeting,
@@ -60,7 +46,23 @@ export function PhilifeMeetingHubClient({
   isHost: boolean;
   isManager: boolean;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
+
+  const tabItems: Array<{ id: MeetingDetailTabId; label: string }> = [
+    { id: "home", label: t("meeting_tab_home") },
+    { id: "notices", label: t("meeting_tab_notices") },
+    { id: "feed", label: t("meeting_tab_feed") },
+    { id: "chat", label: t("meeting_tab_chat") },
+    { id: "album", label: t("meeting_tab_album") },
+    { id: "members", label: t("meeting_tab_members") },
+  ];
+
+  const roleLabel = (role: MeetingMemberListItemDTO["role"] | undefined) => {
+    if (role === "host") return t("community_role_owner");
+    if (role === "co_host") return t("community_role_cohost");
+    return t("meeting_role_member");
+  };
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [leaving, setLeaving] = useState(false);
@@ -78,7 +80,7 @@ export function PhilifeMeetingHubClient({
   };
 
   const onLeave = async () => {
-    if (!window.confirm("모임에서 나가시겠어요?")) return;
+    if (!window.confirm(t("meeting_confirm_leave"))) return;
     setLeaving(true);
     try {
       const res = await fetch(philifeMeetingApi(meeting.id).leave(), { method: "POST" });
@@ -107,16 +109,23 @@ export function PhilifeMeetingHubClient({
         showHostMenu={operator}
         isHostUser={isHost}
         backHref={`/philife/${meeting.post_id}`}
-        backAriaLabel="게시글로"
+        backAriaLabel={t("meeting_hub_back_to_post")}
       />
 
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="min-w-0">
-            <p className="sam-text-body font-semibold text-sam-fg">{meeting.region_text || meeting.location_text || "지역 미정"}</p>
+            <p className="sam-text-body font-semibold text-sam-fg">
+              {meeting.region_text || meeting.location_text || t("meeting_hub_region_tbd")}
+            </p>
             <p className="mt-1 sam-text-helper text-sam-muted">
-              {meeting.category_text || "모임"} · 내 역할 {roleLabel(me?.role)}
-              {meeting.platform_approval_status ? ` · 운영 상태 ${meeting.platform_approval_status}` : ""}
+              {t("meeting_hub_role_line", {
+                category: meeting.category_text || t("community_meeting_label"),
+                role: roleLabel(me?.role),
+              })}
+              {meeting.platform_approval_status
+                ? t("meeting_hub_ops_status", { status: meeting.platform_approval_status })
+                : ""}
             </p>
           </div>
           {messengerRoomHref ? (
@@ -124,17 +133,17 @@ export function PhilifeMeetingHubClient({
               href={messengerRoomHref}
               className="rounded-ui-rect bg-emerald-600 px-4 py-2 sam-text-body-secondary font-semibold text-white"
             >
-              채팅 입장
+              {t("community_meeting_join_chat_entry")}
             </Link>
           ) : (
-            <span className="sam-text-helper text-sam-muted">채팅 준비 중</span>
+            <span className="sam-text-helper text-sam-muted">{t("meeting_hub_chat_preparing")}</span>
           )}
         </div>
       </div>
 
       <div className="overflow-x-auto">
         <div className="flex gap-2">
-          {TAB_ITEMS.map((tab) => {
+          {tabItems.map((tab) => {
             const active = activeTab === tab.id;
             return (
               <button
@@ -219,19 +228,17 @@ export function PhilifeMeetingHubClient({
 
       {activeTab === "chat" ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-5 text-center shadow-sm">
-          <p className="sam-text-body font-semibold text-sam-fg">모임 기본 채팅방</p>
-          <p className="mt-2 sam-text-body-secondary text-sam-muted">
-            참여가 승인된 멤버만 기본 채팅방에 입장할 수 있습니다.
-          </p>
+          <p className="sam-text-body font-semibold text-sam-fg">{t("meeting_hub_chat_room_title")}</p>
+          <p className="mt-2 sam-text-body-secondary text-sam-muted">{t("meeting_hub_chat_room_hint")}</p>
           {messengerRoomHref ? (
             <Link
               href={messengerRoomHref}
               className="mt-4 inline-flex rounded-ui-rect bg-emerald-600 px-4 py-2.5 sam-text-body-secondary font-semibold text-white"
             >
-              채팅방 열기
+              {t("meeting_hub_open_chat")}
             </Link>
           ) : (
-            <p className="mt-4 sam-text-helper text-sam-muted">채팅방이 아직 연결되지 않았습니다.</p>
+            <p className="mt-4 sam-text-helper text-sam-muted">{t("community_chat_not_linked")}</p>
           )}
         </div>
       ) : null}

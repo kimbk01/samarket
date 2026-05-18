@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import type { NeighborhoodCommentNode } from "@/lib/neighborhood/types";
 import { CommentItem } from "./CommentItem";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function CommentList({
   roots,
@@ -14,6 +15,7 @@ export function CommentList({
   scrollToBottomSignal?: number;
   onReply?: (id: string) => void;
 }) {
+  const { t } = useI18n();
   const endRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -22,7 +24,7 @@ export function CommentList({
   }, [scrollToBottomSignal]);
 
   if (roots.length === 0) {
-    return <p className="py-6 text-center sam-text-body text-sam-muted">첫 댓글을 남겨 보세요.</p>;
+    return <p className="py-6 text-center sam-text-body text-sam-muted">{t("community_comment_first")}</p>;
   }
 
   return (

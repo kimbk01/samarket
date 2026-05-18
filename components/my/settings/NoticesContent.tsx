@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 type NoticeItem = {
@@ -10,16 +11,17 @@ type NoticeItem = {
   createdAt: string;
 };
 
-function formatDate(iso: string): string {
-  const value = new Date(iso);
-  if (Number.isNaN(value.getTime())) return "";
-  return value.toLocaleDateString("ko-KR");
-}
-
 export function NoticesContent() {
+  const { t, language } = useI18n();
   const [notices, setNotices] = useState<NoticeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const formatDate = (iso: string): string => {
+    const value = new Date(iso);
+    if (Number.isNaN(value.getTime())) return "";
+    return value.toLocaleDateString(language === "ko" ? "ko-KR" : "en-US");
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -38,14 +40,14 @@ export function NoticesContent() {
         };
         if (cancelled) return;
         if (!res.ok || !json.ok) {
-          setError(typeof json.error === "string" ? json.error : "공지사항을 불러오지 못했습니다.");
+          setError(typeof json.error === "string" ? json.error : t("settings_notices_load_failed"));
           setNotices((prev) => (prev.length === 0 ? prev : []));
           return;
         }
         setNotices(Array.isArray(json.notices) ? json.notices : []);
       } catch {
         if (!cancelled) {
-          setError("공지사항을 불러오지 못했습니다.");
+          setError(t("settings_notices_load_failed"));
           setNotices((prev) => (prev.length === 0 ? prev : []));
         }
       } finally {
@@ -55,10 +57,10 @@ export function NoticesContent() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [t]);
 
   if (loading) {
-    return <div className="py-12 text-center sam-text-body text-sam-muted">불러오는 중입니다.</div>;
+    return <div className="py-12 text-center sam-text-body text-sam-muted">{t("settings_notices_loading")}</div>;
   }
 
   if (error) {
@@ -67,9 +69,7 @@ export function NoticesContent() {
 
   if (notices.length === 0) {
     return (
-      <div className="py-12 text-center sam-text-body text-sam-muted">
-        공지사항이 없습니다.
-      </div>
+      <div className="py-12 text-center sam-text-body text-sam-muted">{t("settings_notices_empty")}</div>
     );
   }
 

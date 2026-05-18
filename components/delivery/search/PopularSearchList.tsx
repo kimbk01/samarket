@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function PopularSearchList({
   keywords,
@@ -7,18 +8,19 @@ export function PopularSearchList({
   keywords: string[];
   onPick: (keyword: string) => void;
 }) {
+  const { t } = useI18n();
   if (!keywords || keywords.length === 0) {
     return (
       <section>
-        <h2 className="sam-text-body-secondary font-semibold text-sam-fg">인기 검색어</h2>
-        <p className="mt-2 sam-text-body text-sam-muted">표시할 데이터가 없습니다.</p>
+        <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("ui_delivery_search_popular_heading")}</h2>
+        <p className="mt-2 sam-text-body text-sam-muted">{t("ui_delivery_search_popular_empty")}</p>
       </section>
     );
   }
 
   return (
     <section>
-      <h2 className="sam-text-body-secondary font-semibold text-sam-fg">인기 검색어</h2>
+      <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("ui_delivery_search_popular_heading")}</h2>
       <ol className="mt-2 space-y-1.5">
         {keywords.slice(0, 10).map((k, idx) => (
           <li key={`${k}:${idx}`}>

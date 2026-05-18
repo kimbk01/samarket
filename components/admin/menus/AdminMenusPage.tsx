@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useCategoryAdmin } from "@/components/admin/categories/useCategoryAdmin";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MenuManagementTable } from "./MenuManagementTable";
 import { CategorySubtopicsModal } from "./CategorySubtopicsModal";
 import { CategoryFormModal } from "@/components/admin/categories/CategoryFormModal";
@@ -25,6 +26,7 @@ async function requestPruneOrphanMarketBottomNav(): Promise<void> {
 
 /** 메뉴 관리 (거래) — `/admin/menus/trade` */
 export function AdminMenusPage() {
+  const { t } = useI18n();
   const {
     list,
     loading,
@@ -41,10 +43,6 @@ export function AdminMenusPage() {
     () => list.filter((c) => c.type === "trade" && c.parent_id == null),
     [list]
   );
-
-  const title = "메뉴 관리 (거래)";
-  const subtitle =
-    "거래 종류(일반·중고차·부동산·알바·환전 등)를 관리합니다. 항목을 추가하면 기본으로 홈 상단 칩과 플로팅 글쓰기(+ 메뉴) 주제 목록에 함께 들어갑니다. 런처에서만 빼려면 표의 「글쓰기 런처」를 끄거나, 수정 화면에서 「런처에 표시」를 해제하세요. 「주제」로 2행 칩을 만들 수 있습니다.";
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -110,12 +108,12 @@ export function AdminMenusPage() {
     async (id: string, current: boolean) => {
       const res = await updateCategory(id, { quick_create_enabled: !current });
       if (res.ok) {
-        showSuccess(!current ? "글쓰기 런처에 표시합니다." : "글쓰기 런처에서 뺐습니다.");
+        showSuccess(!current ? t("admin_menu_launcher_on") : t("admin_menu_launcher_off"));
         load();
         void syncTradeMenuToStoredBottomNav();
       }
     },
-    [load, showSuccess, syncTradeMenuToStoredBottomNav]
+    [load, showSuccess, syncTradeMenuToStoredBottomNav, t]
   );
 
   const handleMoveUp = useCallback(
@@ -124,12 +122,12 @@ export function AdminMenusPage() {
       if (idx <= 0) return;
       const res = await swapCategorySortOrders(menuRows[idx], menuRows[idx - 1]);
       if (res.ok) {
-        showSuccess("순서가 변경되었습니다.");
+        showSuccess(t("admin_cat_msg_reordered"));
         load();
         void syncTradeMenuToStoredBottomNav();
       }
     },
-    [menuRows, load, showSuccess, syncTradeMenuToStoredBottomNav]
+    [menuRows, load, showSuccess, syncTradeMenuToStoredBottomNav, t]
   );
 
   const handleMoveDown = useCallback(
@@ -138,45 +136,45 @@ export function AdminMenusPage() {
       if (idx === -1 || idx >= menuRows.length - 1) return;
       const res = await swapCategorySortOrders(menuRows[idx], menuRows[idx + 1]);
       if (res.ok) {
-        showSuccess("순서가 변경되었습니다.");
+        showSuccess(t("admin_cat_msg_reordered"));
         load();
         void syncTradeMenuToStoredBottomNav();
       }
     },
-    [menuRows, load, showSuccess, syncTradeMenuToStoredBottomNav]
+    [menuRows, load, showSuccess, syncTradeMenuToStoredBottomNav, t]
   );
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title={title} />
-      <p className="sam-text-body text-sam-muted">{subtitle}</p>
+      <AdminPageHeader titleKey="admin_menu_trade_mgmt_title" />
+      <p className="sam-text-body text-sam-muted">{t("admin_menu_trade_mgmt_subtitle")}</p>
       <p className="sam-text-body-secondary text-sam-muted">
-        앱 하단 탭에서 경로를 <span className="font-mono sam-text-helper text-sam-fg">/market/…</span> 로 둔 항목은
-        여기 거래 메뉴와 연동됩니다(이름 변경·삭제 시 탭 라벨 제거 또는 고아 탭 정리).
-        <span className="font-mono sam-text-helper"> /philife</span> 등 다른 경로만 쓰는 탭은 이 목록과 자동 동기화되지 않으니{" "}
+        {t("admin_menu_trade_sync_p1")}{" "}
+        <span className="font-mono sam-text-helper text-sam-fg">/market/…</span>
+        {t("admin_menu_trade_sync_p2")}
+        <span className="font-mono sam-text-helper"> /philife</span>
+        {t("admin_menu_trade_sync_p3")}{" "}
         <Link href="/admin/menus/main-bottom-nav" className="font-medium text-signature hover:underline">
-          메인 하단 탭 메뉴
+          {t("admin_menu_main_bottom_nav")}
         </Link>
-        에서 직접 조정하세요.
+        {t("admin_menu_trade_sync_p4")}
       </p>
 
       <div className="flex items-center justify-between">
-        <span className="sam-text-body text-sam-muted">거래 종류 항목</span>
+        <span className="sam-text-body text-sam-muted">{t("admin_menu_trade_items_heading")}</span>
         <button
           type="button"
           onClick={() => setCreateOpen(true)}
           className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white hover:bg-signature/90"
         >
-          항목 추가
+          {t("admin_cat_menu_add")}
         </button>
       </div>
 
       {supabaseAvailable === false && (
         <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 sam-text-body-secondary text-amber-800">
-          <p className="font-medium">Supabase가 연결되지 않았습니다.</p>
-          <p className="mt-1 text-amber-700">
-            저장·조회를 하려면 .env.local에 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY를 설정한 뒤 개발 서버를 재시작해 주세요.
-          </p>
+          <p className="font-medium">{t("admin_cat_supabase_title")}</p>
+          <p className="mt-1 text-amber-700">{t("admin_cat_supabase_body")}</p>
         </div>
       )}
 
@@ -192,7 +190,7 @@ export function AdminMenusPage() {
 
       {loading ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
-          불러오는 중…
+          {t("common_loading")}
         </div>
       ) : (
         <MenuManagementTable
@@ -226,7 +224,7 @@ export function AdminMenusPage() {
           category={editing}
           onSave={handleSaveEdit}
           onDelete={async () => {
-            if (!confirm("삭제하시겠습니까?")) return;
+            if (!confirm(t("admin_cat_confirm_delete"))) return;
             const ok = await handleDelete(editing.id);
             if (ok) void syncTradeMenuToStoredBottomNav();
             if (ok) setEditingId(null);

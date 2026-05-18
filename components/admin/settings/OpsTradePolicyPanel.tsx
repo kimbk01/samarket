@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { isAdminUser } from "@/lib/auth/get-current-user";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function OpsTradePolicyPanel() {
+  const { t } = useI18n();
   const [autoDays, setAutoDays] = useState(7);
   const [reviewDays, setReviewDays] = useState(14);
   const [loading, setLoading] = useState(true);
@@ -28,11 +30,11 @@ export function OpsTradePolicyPanel() {
         setReviewDays(data.buyerReviewDeadlineDays ?? 14);
       }
     } catch {
-      setMsg("불러오기 실패");
+      setMsg(t("admin_settings_trade_load_failed"));
     } finally {
       setLoading((prev) => (prev ? false : prev));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -54,32 +56,30 @@ export function OpsTradePolicyPanel() {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.ok) {
-        setMsg((data as { error?: string }).error ?? "저장 실패");
+        setMsg((data as { error?: string }).error ?? t("admin_settings_notif_save_failed"));
         return;
       }
-      setMsg("저장했습니다.");
+      setMsg(t("admin_settings_trade_saved"));
     } catch {
-      setMsg("네트워크 오류");
+      setMsg(t("common_network_error_generic"));
     } finally {
       setSaving((prev) => (prev ? false : prev));
     }
   };
 
   if (loading) {
-    return <p className="sam-text-body-secondary text-sam-muted">거래 정책 불러오는 중…</p>;
+    return <p className="sam-text-body-secondary text-sam-muted">{t("admin_settings_trade_loading")}</p>;
   }
 
   return (
     <div className="mt-8 border-t border-sam-border pt-6">
-      <h3 className="sam-text-body font-semibold text-sam-fg">구매자 거래·평가 (DB 연동)</h3>
-      <p className="mt-1 sam-text-helper text-sam-muted">
-        판매자 거래완료 후 구매자가 확인하지 않을 때 자동으로 거래완료 확인 처리되는 일수, 그리고 확인 후 평가·후기 제한
-        모드 전까지의 일수입니다. Supabase에 <code className="sam-text-xxs">ops_trade_policy</code> 테이블이 있어야
-        저장됩니다.
-      </p>
+      <h3 className="sam-text-body font-semibold text-sam-fg">{t("admin_settings_trade_title")}</h3>
+      <p className="mt-1 sam-text-helper text-sam-muted">{t("admin_settings_trade_desc")}</p>
       <div className="mt-4 grid max-w-md gap-4 sm:grid-cols-2">
         <div>
-          <label className="block sam-text-body-secondary font-medium text-sam-fg">구매자 미반영 자동 처리 (일)</label>
+          <label className="block sam-text-body-secondary font-medium text-sam-fg">
+            {t("admin_settings_trade_auto_confirm_days")}
+          </label>
           <input
             type="number"
             min={1}
@@ -90,7 +90,9 @@ export function OpsTradePolicyPanel() {
           />
         </div>
         <div>
-          <label className="block sam-text-body-secondary font-medium text-sam-fg">평가·후기 기한 (일)</label>
+          <label className="block sam-text-body-secondary font-medium text-sam-fg">
+            {t("admin_settings_trade_review_deadline_days")}
+          </label>
           <input
             type="number"
             min={1}
@@ -108,7 +110,7 @@ export function OpsTradePolicyPanel() {
           onClick={() => void save()}
           className="rounded bg-signature px-4 py-2 sam-text-body font-medium text-white disabled:opacity-50"
         >
-          {saving ? "저장 중…" : "거래 정책 저장"}
+          {saving ? t("common_saving") : t("admin_settings_trade_save")}
         </button>
         {msg ? <span className="sam-text-body-secondary text-sam-muted">{msg}</span> : null}
       </div>

@@ -2,27 +2,33 @@
  * 18단계: 감사 로그 필터·정렬
  */
 
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { AdminAuditLog, AuditLogCategory, AuditLogResult } from "@/lib/types/admin-audit";
 
-export const CATEGORY_OPTIONS: { value: AuditLogCategory | ""; label: string }[] = [
-  { value: "", label: "전체" },
-  { value: "product", label: "상품" },
-  { value: "user", label: "회원" },
-  { value: "chat", label: "채팅" },
-  { value: "report", label: "신고" },
-  { value: "review", label: "리뷰" },
-  { value: "setting", label: "설정" },
-  { value: "auth", label: "관리자 인증" },
+export const CATEGORY_OPTIONS: { value: AuditLogCategory | ""; labelKey: MessageKey }[] = [
+  { value: "", labelKey: "admin_report_filter_all" },
+  { value: "product", labelKey: "admin_audit_category_product" },
+  { value: "user", labelKey: "admin_audit_category_user" },
+  { value: "chat", labelKey: "admin_audit_category_chat" },
+  { value: "report", labelKey: "admin_audit_category_report" },
+  { value: "review", labelKey: "admin_audit_category_review" },
+  { value: "setting", labelKey: "admin_audit_category_setting" },
+  { value: "auth", labelKey: "admin_audit_category_auth" },
 ];
 
-export const RESULT_OPTIONS: { value: AuditLogResult | ""; label: string }[] = [
-  { value: "", label: "전체" },
-  { value: "success", label: "성공" },
-  { value: "warning", label: "경고" },
-  { value: "error", label: "오류" },
+export const RESULT_OPTIONS: { value: AuditLogResult | ""; labelKey: MessageKey }[] = [
+  { value: "", labelKey: "admin_report_filter_all" },
+  { value: "success", labelKey: "admin_audit_result_success" },
+  { value: "warning", labelKey: "admin_audit_result_warning" },
+  { value: "error", labelKey: "admin_audit_result_error" },
 ];
 
 export type AuditSortKey = "newest" | "oldest";
+
+export const AUDIT_SORT_OPTIONS: { value: AuditSortKey; labelKey: MessageKey }[] = [
+  { value: "newest", labelKey: "admin_audit_sort_newest" },
+  { value: "oldest", labelKey: "admin_audit_sort_oldest" },
+];
 
 export interface AdminAuditFilters {
   category: AuditLogCategory | "";

@@ -7,6 +7,7 @@ import {
   type AdminProductFilters,
   type AdminProductSortKey,
 } from "@/lib/admin-products/admin-product-utils";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminProductFilterBar } from "./AdminProductFilterBar";
 import { getSupabaseClient } from "@/lib/supabase/client";
@@ -23,6 +24,7 @@ const DEFAULT_FILTERS: AdminProductFilters = {
 };
 
 export function AdminProductListPage() {
+  const { t } = useI18n();
   const [filters, setFilters] = useState<AdminProductFilters>(DEFAULT_FILTERS);
   const [searchQuery, setSearchQuery] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
@@ -44,18 +46,18 @@ export function AdminProductListPage() {
           : {};
       if (status < 200 || status >= 300) {
         setProducts([]);
-        setListError(data.queryError ?? `목록을 불러오지 못했습니다. (${status})`);
+        setListError(data.queryError ?? `${t("admin_products_list_load_failed")} (${status})`);
         return;
       }
       setProducts(Array.isArray(data.products) ? data.products : []);
       if (data.queryError) setListError(data.queryError);
     } catch {
       setProducts([]);
-      setListError("목록을 불러오지 못했습니다.");
+      setListError(t("admin_products_list_load_failed"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     load();
@@ -108,13 +110,11 @@ export function AdminProductListPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="상품 목록" />
+      <AdminPageHeader titleKey="admin_products_list_title" />
       {supabaseAvailable === false && (
         <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 sam-text-body-secondary text-amber-800">
-          <p className="font-medium">Supabase가 연결되지 않았습니다.</p>
-          <p className="mt-1 text-amber-700">
-            메뉴 목록·필터를 쓰려면 .env.local에 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY를 설정한 뒤 개발 서버를 재시작해 주세요.
-          </p>
+          <p className="font-medium">{t("admin_products_supabase_warn_title")}</p>
+          <p className="mt-1 text-amber-700">{t("admin_products_supabase_warn_body")}</p>
         </div>
       )}
       <AdminProductFilterBar
@@ -129,14 +129,14 @@ export function AdminProductListPage() {
       />
       {loading ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          불러오는 중…
+          {t("admin_dashboard_loading")}
         </div>
       ) : filtered.length === 0 ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
           {listError ? (
             <p className="whitespace-pre-wrap text-sam-danger">{listError}</p>
           ) : (
-            "조건에 맞는 상품이 없습니다."
+            t("admin_products_list_empty_filtered")
           )}
         </div>
       ) : (

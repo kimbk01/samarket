@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -14,6 +15,7 @@ export function BasicDetailSkin({
   showLike = true,
   showReport = true,
 }: BoardDetailSkinProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const [reportBusy, setReportBusy] = useState(false);
   const me = getCurrentUser()?.id ?? "";
@@ -32,7 +34,7 @@ export function BasicDetailSkin({
     setReportBusy(true);
     const res = await createCommunityPostReport(post.id, text);
     setReportBusy(false);
-    if (res.ok) alert("신고가 접수되었습니다.");
+    if (res.ok) alert(t("community_board_report_submitted"));
     else alert(res.error);
   };
 
@@ -50,7 +52,7 @@ export function BasicDetailSkin({
         <div className="flex flex-wrap items-center gap-2 mt-2 text-sm text-sam-muted">
           {post.author?.name && <span>{post.author.name}</span>}
           <span>{new Date(post.created_at).toLocaleString("ko-KR")}</span>
-          {post.view_count > 0 && <span>조회 {post.view_count}</span>}
+          {post.view_count > 0 && <span>{t("community_stat_views_inline", { count: post.view_count })}</span>}
         </div>
         <div className="mt-4 prose prose-sm max-w-none text-sam-fg whitespace-pre-wrap">
           {post.content}

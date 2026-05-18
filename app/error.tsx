@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface ErrorProps {
   error: Error & { digest?: string };
@@ -9,6 +10,8 @@ interface ErrorProps {
 }
 
 export default function RootError({ error, reset }: ErrorProps) {
+  const { t } = useI18n();
+
   useEffect(() => {
     console.error("[RootError]", error);
   }, [error]);
@@ -16,18 +19,18 @@ export default function RootError({ error, reset }: ErrorProps) {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-sam-app px-4 antialiased">
       <div className="flex flex-col items-center justify-center text-center">
-        <p className="sam-text-body font-medium text-sam-fg">앱을 불러오는 중 문제가 발생했어요.</p>
-        <p className="mt-2 sam-text-body-secondary text-sam-muted">잠시 후 다시 시도해 주세요.</p>
+        <p className="sam-text-body font-medium text-sam-fg">{t("app_error_root_title")}</p>
+        <p className="mt-2 sam-text-body-secondary text-sam-muted">{t("app_error_subtitle")}</p>
         <div className="mt-8 flex flex-col gap-3">
           <button
             type="button"
             onClick={reset}
             className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white"
           >
-            다시 시도
+            {t("common_retry")}
           </button>
           <Link href="/philife" className="sam-text-body font-medium text-signature">
-            홈으로 이동
+            {t("app_error_go_home")}
           </Link>
         </div>
       </div>

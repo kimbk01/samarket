@@ -4,6 +4,7 @@ import { useCallback, useState, useEffect } from "react";
 import type { Product, ProductStatusLog } from "@/lib/types/product";
 import { getAdminProductByIdFromDb } from "@/lib/admin-products/getAdminProductsFromDb";
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
@@ -15,7 +16,15 @@ interface AdminProductDetailPageProps {
   productId: string;
 }
 
+function adminProductLocale(language: string): string {
+  if (language === "en") return "en-US";
+  if (language === "zh-CN") return "zh-CN";
+  return "ko-KR";
+}
+
 export function AdminProductDetailPage({ productId }: AdminProductDetailPageProps) {
+  const { t, language } = useI18n();
+  const locale = adminProductLocale(language);
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
   const [logs, setLogs] = useState<ProductStatusLog[]>([]);
@@ -35,7 +44,7 @@ export function AdminProductDetailPage({ productId }: AdminProductDetailPageProp
   if (loading && !product) {
     return (
       <div className="py-8 text-center sam-text-body text-sam-muted">
-        불러오는 중…
+        {t("admin_dashboard_loading")}
       </div>
     );
   }
@@ -43,7 +52,7 @@ export function AdminProductDetailPage({ productId }: AdminProductDetailPageProp
   if (!product) {
     return (
       <div className="py-8 text-center sam-text-body text-sam-muted">
-        상품을 찾을 수 없습니다.
+        {t("admin_products_not_found")}
       </div>
     );
   }
@@ -52,9 +61,9 @@ export function AdminProductDetailPage({ productId }: AdminProductDetailPageProp
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="상품 상세" backHref="/admin/products" />
+      <AdminPageHeader titleKey="admin_products_detail_title" backHref="/admin/products" />
 
-      <AdminCard title="기본 정보">
+      <AdminCard titleKey="admin_products_card_basic">
         <div className="flex gap-4">
           {images.length > 0 ? (
             <div className="h-24 w-24 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
@@ -74,25 +83,31 @@ export function AdminProductDetailPage({ productId }: AdminProductDetailPageProp
             </p>
             <AdminStatusBadge status={product.status} className="mt-2" />
             <p className="mt-2 sam-text-body-secondary text-sam-muted">
-              등록 {new Date(product.createdAt).toLocaleString("ko-KR")}
+              {t("admin_products_registered_at", {
+                date: new Date(product.createdAt).toLocaleString(locale),
+              })}
               {product.updatedAt && (
-                <> · 수정 {new Date(product.updatedAt).toLocaleString("ko-KR")}</>
+                <>
+                  {t("admin_products_updated_at", {
+                    date: new Date(product.updatedAt).toLocaleString(locale),
+                  })}
+                </>
               )}
             </p>
             <Link
               href={`/post/${product.id}`}
               className="mt-2 inline-block sam-text-body-secondary font-medium text-signature hover:underline"
             >
-              웹에서 보기
+              {t("admin_products_view_on_web")}
             </Link>
           </div>
         </div>
       </AdminCard>
 
-      <AdminCard title="판매자">
+      <AdminCard titleKey="admin_products_card_seller">
         <dl className="grid gap-1 sam-text-body">
           <div>
-            <dt className="text-sam-muted">닉네임</dt>
+            <dt className="text-sam-muted">{t("admin_products_dt_nickname")}</dt>
             <dd>
               <p className="text-sam-fg">{product.seller?.nickname ?? product.sellerId ?? "-"}</p>
               {product.seller?.username ? (
@@ -107,24 +122,24 @@ export function AdminProductDetailPage({ productId }: AdminProductDetailPageProp
             <dd>{product.seller?.id ?? product.sellerId ?? "-"}</dd>
           </div>
           <div>
-            <dt className="text-sam-muted">지역</dt>
+            <dt className="text-sam-muted">{t("admin_products_dt_region")}</dt>
             <dd>{product.seller?.location ?? product.location ?? "-"}</dd>
           </div>
         </dl>
       </AdminCard>
 
-      <AdminCard title="상품 정보">
+      <AdminCard titleKey="admin_products_card_info">
         <dl className="grid gap-2 sam-text-body">
           <div>
-            <dt className="text-sam-muted">카테고리</dt>
+            <dt className="text-sam-muted">{t("admin_products_dt_category")}</dt>
             <dd>{product.category ?? "-"}</dd>
           </div>
           <div>
-            <dt className="text-sam-muted">지역</dt>
+            <dt className="text-sam-muted">{t("admin_products_dt_region")}</dt>
             <dd>{product.location}</dd>
           </div>
           <div>
-            <dt className="text-sam-muted">찜 / 채팅 / 조회</dt>
+            <dt className="text-sam-muted">{t("admin_products_dt_likes_chats_views")}</dt>
             <dd>
               {product.likesCount ?? 0} / {product.chatCount ?? 0} /{" "}
               {product.viewCount ?? 0}
@@ -132,13 +147,13 @@ export function AdminProductDetailPage({ productId }: AdminProductDetailPageProp
           </div>
           {product.reportCount != null && product.reportCount > 0 && (
             <div>
-              <dt className="text-sam-muted">신고 수</dt>
+              <dt className="text-sam-muted">{t("admin_products_dt_report_count")}</dt>
               <dd>{product.reportCount}</dd>
             </div>
           )}
           {product.description && (
             <div>
-              <dt className="text-sam-muted">설명</dt>
+              <dt className="text-sam-muted">{t("admin_products_dt_description")}</dt>
               <dd className="whitespace-pre-wrap text-sam-fg">
                 {product.description}
               </dd>
@@ -147,14 +162,14 @@ export function AdminProductDetailPage({ productId }: AdminProductDetailPageProp
         </dl>
       </AdminCard>
 
-      <AdminCard title="처리">
+      <AdminCard titleKey="admin_products_card_actions">
         <AdminProductActionPanel product={product} onActionSuccess={refreshDetail} />
       </AdminCard>
 
-      <AdminCard title="상태 변경 이력">
+      <AdminCard titleKey="admin_products_card_status_log">
         <AdminProductStatusLogList logs={logs} />
         {logs.length === 0 && (
-          <p className="sam-text-body-secondary text-sam-muted">상태 변경 이력은 DB 연동 후 제공됩니다.</p>
+          <p className="sam-text-body-secondary text-sam-muted">{t("admin_products_status_log_db_pending")}</p>
         )}
       </AdminCard>
     </div>

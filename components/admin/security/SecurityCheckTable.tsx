@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { getSecurityChecks } from "@/lib/security/mock-security-checks";
 import { AdminTable } from "@/components/admin/AdminTable";
@@ -11,6 +14,7 @@ import type { SecurityCheckType, SecurityStatus } from "@/lib/types/security";
 import Link from "next/link";
 
 export function SecurityCheckTable() {
+  const { t } = useI18n();
   const [typeFilter, setTypeFilter] = useState<SecurityCheckType | "">("");
   const [statusFilter, setStatusFilter] = useState<SecurityStatus | "">("");
 
@@ -26,7 +30,7 @@ export function SecurityCheckTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">점검 유형</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_security_k3e0fa017")}</span>
         <select
           value={typeFilter}
           onChange={(e) =>
@@ -34,14 +38,14 @@ export function SecurityCheckTable() {
           }
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
+          <option value="">{t("common_all")}</option>
           <option value="rls">RLS</option>
           <option value="api">API</option>
-          <option value="admin">관리자</option>
-          <option value="auth">인증</option>
-          <option value="storage">스토리지</option>
+          <option value="admin">{t("admin_security_admin")}</option>
+          <option value="auth">{t("admin_security_kce715622")}</option>
+          <option value="storage">{t("admin_security_ke5b6b308")}</option>
         </select>
-        <span className="sam-text-body-secondary text-sam-muted">상태</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_qa_status_2")}</span>
         <select
           value={statusFilter}
           onChange={(e) =>
@@ -49,10 +53,10 @@ export function SecurityCheckTable() {
           }
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
-          <option value="safe">안전</option>
-          <option value="warning">주의</option>
-          <option value="critical">위험</option>
+          <option value="">{t("common_all")}</option>
+          <option value="safe">{t("admin_security_safe")}</option>
+          <option value="warning">{t("admin_security_warning")}</option>
+          <option value="critical">{t("admin_security_critical")}</option>
         </select>
       </div>
 

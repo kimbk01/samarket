@@ -1,0 +1,133 @@
+﻿node : [check:i18n-hardcoded] 96 possible hardcoded Korean string(s):
+At C:\Users\im2pa\AppData\Local\Temp\ps-script-1feb44a1-06e6-4d9e-bbc5-1d0f71ef2f3f.ps1:82 char:299
++ ... r-detail'); node scripts/check-hardcoded-korean.mjs @paths 2>&1 | Out ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([check:i18n-har...rean string(s)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  components\stores\browse\StoresBrowsePrimaryView.tsx:134: aria-label="검색"
+  components\stores\browse\StoresBrowsePrimaryView.tsx:565: aria-label="하위 업종"
+  components\stores\browse\StoresBrowsePrimaryView.tsx:716: <p className="text-sm text-sam-muted">존재하지 않는 업종입니다.</p>
+  components\stores\browse\StoresBrowsePrimaryView.tsx:729: <p className="py-4 text-center text-sm text-sam-muted">실매장 
+연동 확인 중…</p>
+  components\stores\browse\StoresBrowsePrimaryView.tsx:739: <p className="text-sm text-sam-muted dark:text-sam-meta">표시
+할 매장이 없습니다.</p>
+  components\stores\browse\StoresBrowsePrimaryView.tsx:747: <p className="mb-2 sam-text-xxs font-semibold text-sam-mute
+d dark:text-sam-meta">다른 업종 둘러보기</p>
+  components\stores\browse\StoresIndustryGrid.tsx:24: <h2 className="min-w-0 shrink text-sm font-semibold text-sam-fg">
+업종별 둘러보기</h2>
+  components\stores\cart\StoreCheckoutSubmitConfirmDialog.tsx:30: title="주문 내용을 확인해 주세요"
+  components\stores\cart\StoreCheckoutSubmitConfirmDialog.tsx:47: <dt className="font-semibold text-neutral-500">연락처</d
+t>
+  components\stores\cart\StoreCheckoutSubmitConfirmDialog.tsx:51: <dt className="font-semibold text-neutral-500">주소</dt
+>
+  components\stores\cart\StoreCheckoutSubmitConfirmDialog.tsx:55: <dt className="font-semibold text-neutral-500">결제</dt
+>
+  components\stores\cart\StoreCommerceCartBottomSheet.tsx:36: aria-label="닫기"
+  components\stores\cart\StoreCommerceCartCenterPopup.tsx:66: aria-label="닫기"
+  components\stores\delivery\RestaurantOrderCompleteClient.tsx:83: return <p className="p-6 text-center text-sm text-sa
+m-muted">불러오는 중…</p>;
+  components\stores\delivery\RestaurantOrderCompleteClient.tsx:96: <h1 className="mt-2 text-center text-xl font-bold te
+xt-sam-fg">감사합니다</h1>
+  components\stores\delivery\RestaurantOrderCompleteClient.tsx:99: <dt className="text-sam-muted">주문번호</dt>
+  components\stores\delivery\RestaurantOrderCompleteClient.tsx:103: <dt className="text-sam-muted">업체</dt>
+  components\stores\delivery\RestaurantOrderCompleteClient.tsx:107: <dt className="text-sam-muted">주문 금액</dt>
+  components\stores\delivery\RestaurantOrderCompleteClient.tsx:158: <p className="text-sm text-sam-muted">주문 정보를 불러오지 못
+했거나 주문 번호가 없습니다.</p>
+  components\stores\delivery\RestaurantOrderDetailClient.tsx:26: aria-label="매장으로"
+  components\stores\delivery\RestaurantOrderDetailClient.tsx:31: <p className="text-sm text-sam-muted">주문을 찾을 수 없거나 올바른
+ 주문 번호가 아닙니다.</p>
+  components\stores\detail\CategoryStickyTabs.tsx:36: placeholder="메뉴명을 검색해보세요"
+  components\stores\detail\PopularMenuSection.tsx:28: aria-label="인기 메뉴"
+  components\stores\detail\ProductMenuCard.tsx:87: <span className="ml-1.5 text-[11px] font-semibold text-neutral-400">
+품절</span>
+  components\stores\home\StoreCardFavoriteIcon.tsx:34: window.alert("로그인 후 찜할 수 있습니다.");
+  components\stores\home\StoreCategoryExploreSection.tsx:121: aria-label="대분류 업종"
+  components\stores\home\StoreCategoryExploreSection.tsx:191: <span className="text-sam-muted dark:text-[#B0B3B8]"> · 세
+부 주제</span>
+  components\stores\home\StoreCategoryExploreSection.tsx:248: <span className="sam-text-xxs font-semibold leading-none 
+text-sam-muted dark:text-[#B0B3B8]">모아보기</span>
+  components\stores\home\StoreDeliveryRowCard.tsx:385: aria-label="대표 메뉴 이미지"
+  components\stores\home\StoreDeliveryRowCard.tsx:464: <span className="text-[13px] font-semibold leading-none text-[#1
+11]/70 dark:text-white/70">더보기</span>
+  components\stores\home\StoreDeliveryRowCard.tsx:537: title="직선 거리"
+  components\stores\home\StoreDeliveryRowCard.tsx:545: title="직선 거리"
+  components\stores\home\StoreDeliveryRowCard.tsx:590: <span className="font-semibold text-[#4B5563] dark:text-[#B8C0CA
+]">결제</span> ·{" "}
+  components\stores\home\StoreHubMyZoneSection.tsx:29: <h2 className={FB.name}>내 주문 · 매장 운영</h2>
+  components\stores\home\StoreHubSearchStrip.tsx:35: placeholder="매장 검색"
+  components\stores\home\StoreMyBusinessHubBanner.tsx:29: <p className={`sam-text-helper ${FB.metaSm}`}>내 매장 상태 확인 중…</
+p>
+  components\stores\home\StoreMyBusinessHubBanner.tsx:57: <p className={`sam-text-xxs font-semibold uppercase tracking-
+wide ${FB.metaSm}`}>내 매장</p>
+  components\stores\home\StoreMyBusinessHubBanner.tsx:64: <span className="sam-text-xxs font-medium text-emerald-700 da
+rk:text-emerald-300">/stores 노출</span>
+  components\stores\home\StoreMyBusinessHubBanner.tsx:72: <p className={`mt-1 sam-text-xxs ${FB.metaSm}`}>다른 소유 매장 {ext
+raCount}건 — 운영 센터에서 전환할 수 있어요.</p>
+  components\stores\home\StoreNearbyFeedSection.tsx:197: <p className={`sam-text-helper font-semibold uppercase trackin
+g-wide ${FB.metaSm}`}>피드</p>
+  components\stores\home\StoreNearbyFeedSection.tsx:234: <p className={FB.body}>등록된 매장이 없습니다</p>
+  components\stores\home\StoreNearbyFeedSection.tsx:248: title="추천 스폿"
+  components\stores\home\StoreNearbyFeedSection.tsx:249: subtitle="에디터가 고른 동네 매장 — 카드를 옆으로 넘겨 보세요."
+  components\stores\home\StoreNearbyFeedSection.tsx:254: aria-label="추천 매장"
+  components\stores\home\StoreNearbyFeedSection.tsx:266: <SectionBlock eyebrow="실시간" title="지금 주문 가능" subtitle="영업 중 · 
+배달 또는 포장이 열려 있어요">
+  components\stores\home\StoreNearbyFeedSection.tsx:278: title="이 동네 더보기"
+  components\stores\home\StoreNearbyFeedSection.tsx:279: subtitle="거리와 인기를 섞어 보여 드려요"
+  components\stores\home\StoreOrderDashboardSection.tsx:60: <h2 className="sam-text-body font-bold text-sam-fg">내 주문</h
+2>
+  components\stores\home\StoreOrderDashboardSection.tsx:89: <h2 className="sam-text-body font-bold tracking-tight text-
+sam-fg">내 주문</h2>
+  components\stores\home\StoreOrderDashboardSection.tsx:113: <HorizontalDragScroll className={RAIL} aria-label="주문 바로가기
+">
+  components\stores\home\StoreOrderDashboardSection.tsx:118: <span className="sam-text-xxs font-medium text-sam-muted">
+진행 중</span>
+  components\stores\home\StoreOrderDashboardSection.tsx:120: <span className="mt-2 sam-text-xxs font-semibold text-sign
+ature">내역</span>
+  components\stores\home\StoreOrderDashboardSection.tsx:126: <span className="sam-text-xxs font-medium text-sam-muted">
+주문 채팅</span>
+  components\stores\home\StoreOrderDashboardSection.tsx:137: <span className="sam-text-xxs font-medium text-sam-muted">
+최근</span>
+  components\stores\home\StoreOrderDashboardSection.tsx:141: <span className="mt-auto pt-2 sam-text-xxs font-semibold t
+ext-signature">상세</span>
+  components\stores\home\StoreOrderDashboardSection.tsx:147: <span className="sam-text-xxs font-medium text-sam-muted">
+최근</span>
+  components\stores\home\StoreOrderDashboardSection.tsx:148: <span className="mt-2 sam-text-helper text-sam-muted">주문 없
+음</span>
+  components\stores\home\StoreOrderDashboardSection.tsx:149: <span className="mt-auto pt-2 sam-text-xxs font-semibold t
+ext-signature">업종 찾기</span>
+  components\stores\home\StoreOrderDashboardSection.tsx:155: <p className="mb-1.5 px-0.5 sam-text-xxs font-semibold upp
+ercase tracking-wide text-sam-meta">상태</p>
+  components\stores\home\StoreOrderDashboardSection.tsx:156: <HorizontalDragScroll className={RAIL} aria-label="주문 상태 필
+터">
+  components\stores\home\StoreOwnerOpsSection.tsx:85: <h2 className="truncate sam-text-body font-bold text-violet-950">
+매장 운영</h2>
+  components\stores\home\StoreOwnerOpsSection.tsx:90: : <h2 className="truncate sam-text-body-secondary font-bold text-
+violet-950">매장주 바로가기</h2>}
+  components\stores\home\StoreOwnerOpsSection.tsx:111: <HorizontalDragScroll className={RAIL} aria-label="매장 운영 메뉴">
+  components\stores\home\StorePrimaryIndustrySwitcher.tsx:100: aria-label="대분류 업종"
+  components\stores\home\StorePromoHeroBanner.tsx:13: <p className={`sam-text-helper font-semibold uppercase tracking-w
+ide ${FB.metaSm}`}>한눈에</p>
+  components\stores\home\StorePromoHeroBanner.tsx:14: <p className={`mt-1 ${FB.name}`}>업종 골라 바로 들어가기</p>
+  components\stores\home\StorePromoHeroBanner.tsx:15: <p className={`mt-1 ${FB.meta}`}>식당·마트·생활까지 탭만 바꾸면 세부가 바뀌어요.</p>
+  components\stores\home\StorePromoHeroBanner.tsx:16: <span className={`mt-2 inline-block sam-text-body ${FB.link}`}>업종
+ 열기</span>
+  components\stores\home\StoreVerticalDiscoveryCard.tsx:267: <span>리뷰 {store.reviewCount.toLocaleString("en-PH")}</span
+>
+  components\stores\home\StoreVerticalDiscoveryCard.tsx:273: : <span>예상 {store.estPrepLabel}</span>}
+  components\stores\home\StoreVerticalDiscoveryCard.tsx:288: <span>배달비 매장별</span>
+  components\stores\home\StoreVerticalDiscoveryCard.tsx:312: <span className="font-semibold text-[#4B5563] dark:text-[#
+B8C0CA]">결제</span> · {store.paymentMethodsLine}
+  components\stores\modifiers\StoreModifierPicker.tsx:108: <span className={STORE_ORDER_BADGE_REQUIRED}>필수</span>
+  components\stores\modifiers\StoreModifierPicker.tsx:110: <span className={STORE_ORDER_BADGE_OPTIONAL}>선택 {rangeHint}<
+/span>
+  components\stores\modifiers\StoreModifierPicker.tsx:161: <span className="sam-text-xxs font-medium text-amber-700">품절
+</span>
+  components\stores\modifiers\StoreModifierPicker.tsx:210: <p className="px-3 pb-2 sam-text-xxs text-amber-700">품절</p>
+  components\stores\modifiers\StoreModifierPicker.tsx:338: <span className="sam-text-xxs font-medium text-amber-700">품절
+</span>
+  components\stores\modifiers\StoreModifierPicker.tsx:374: <p className="mt-0.5 sam-text-xxs text-amber-700">품절 · 선택 불가
+</p>
+  components\stores\product-sheet\StoreProductSheetHeader.tsx:26: aria-label="닫기"
+  components\stores\product-sheet\StoreProductSheetShell.tsx:23: aria-label="시트 닫기"
+  … and 16 more

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { Product } from "@/lib/types/product";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
@@ -9,20 +10,29 @@ interface AdminProductTableProps {
   products: Product[];
 }
 
+function adminProductLocale(language: string): string {
+  if (language === "en") return "en-US";
+  if (language === "zh-CN") return "zh-CN";
+  return "ko-KR";
+}
+
 export function AdminProductTable({ products }: AdminProductTableProps) {
+  const { t, language } = useI18n();
+  const locale = adminProductLocale(language);
+
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[720px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">ID</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">상품명</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">판매자</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">상태</th>
-            <th className="px-3 py-2.5 text-right font-medium text-sam-fg">가격</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">지역</th>
-            <th className="px-3 py-2.5 text-right font-medium text-sam-fg">찜/채팅</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">등록일</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_products_th_name")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_products_th_seller")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_products_th_status")}</th>
+            <th className="px-3 py-2.5 text-right font-medium text-sam-fg">{t("admin_products_th_price")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_products_th_region")}</th>
+            <th className="px-3 py-2.5 text-right font-medium text-sam-fg">{t("admin_products_th_likes_chat")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_products_th_created")}</th>
           </tr>
         </thead>
         <tbody>
@@ -62,7 +72,7 @@ export function AdminProductTable({ products }: AdminProductTableProps) {
                 {p.likesCount ?? 0} / {p.chatCount ?? 0}
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(p.createdAt).toLocaleDateString("ko-KR")}
+                {new Date(p.createdAt).toLocaleDateString(locale)}
               </td>
             </tr>
           ))}

@@ -10,11 +10,14 @@ import {
 } from "@/lib/trade/trade-review-tags";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { dispatchWrittenReviewUpdated } from "@/lib/mypage/written-review-events";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
-const PUBLIC_OPTIONS: { value: PublicReviewType; label: string }[] = [
-  { value: "good", label: "좋아요" },
-  { value: "normal", label: "보통" },
-  { value: "bad", label: "별로예요" },
+import type { MessageKey } from "@/lib/i18n/messages";
+
+const PUBLIC_OPTIONS: { value: PublicReviewType; labelKey: MessageKey }[] = [
+  { value: "good", labelKey: "trade_review_public_good" },
+  { value: "normal", labelKey: "trade_review_public_normal" },
+  { value: "bad", labelKey: "trade_review_public_bad" },
 ];
 
 interface TradeReviewFormProps {
@@ -36,6 +39,7 @@ export function TradeReviewForm({
   onSuccess,
   onCancel,
 }: TradeReviewFormProps) {
+  const { t } = useI18n();
   const [publicType, setPublicType] = useState<PublicReviewType>("good");
   const [pos, setPos] = useState<Set<string>>(new Set());
   const [neg, setNeg] = useState<Set<string>>(new Set());
@@ -60,7 +64,7 @@ export function TradeReviewForm({
     e.preventDefault();
     const user = getCurrentUser();
     if (!user?.id) {
-      setError("로그인이 필요합니다.");
+      setError(t("common_login_required"));
       return;
     }
     setLoading(true);
@@ -82,7 +86,7 @@ export function TradeReviewForm({
       });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !data.ok) {
-        setError(data.error ?? "등록에 실패했습니다.");
+        setError(data.error ?? t("trade_review_form_submit_failed"));
         return;
       }
       dispatchWrittenReviewUpdated();
@@ -101,11 +105,11 @@ export function TradeReviewForm({
     >
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-4 pt-2 pb-2">
       <p className="sam-text-body text-sam-muted">
-        <strong>{revieweeLabel}</strong>님에 대한 거래 후기 (1회)
+        {t("trade_review_form_heading", { name: revieweeLabel })}
       </p>
 
       <div className="mt-3">
-        <p className="mb-2 sam-text-body-secondary font-medium text-sam-fg">총평</p>
+        <p className="mb-2 sam-text-body-secondary font-medium text-sam-fg">{t("trade_114")}</p>
         <div className="flex flex-wrap gap-2">
           {PUBLIC_OPTIONS.map((opt) => (
             <label key={opt.value} className="flex cursor-pointer items-center gap-1.5">
@@ -117,14 +121,14 @@ export function TradeReviewForm({
                 onChange={() => setPublicType(opt.value)}
                 className="rounded border-sam-border"
               />
-              <span className="sam-text-body-secondary text-sam-fg">{opt.label}</span>
+              <span className="sam-text-body-secondary text-sam-fg">{t(opt.labelKey)}</span>
             </label>
           ))}
         </div>
       </div>
 
       <div className="mt-3">
-        <p className="mb-1.5 sam-text-helper font-medium text-sam-fg">긍정 항목 (복수)</p>
+        <p className="mb-1.5 sam-text-helper font-medium text-sam-fg">{t("trade_044")}</p>
         <div className="flex flex-wrap gap-2">
           {posOpts.map((o) => (
             <button
@@ -137,14 +141,14 @@ export function TradeReviewForm({
                   : "border-sam-border bg-sam-surface text-sam-fg"
               }`}
             >
-              {o.label}
+              {t(o.labelKey)}
             </button>
           ))}
         </div>
       </div>
 
       <div className="mt-3">
-        <p className="mb-1.5 sam-text-helper font-medium text-sam-fg">부정 항목 (복수, 상대에게 일부 비공개)</p>
+        <p className="mb-1.5 sam-text-helper font-medium text-sam-fg">{t("trade_065")}</p>
         <div className="flex flex-wrap gap-2">
           {negOpts.map((o) => (
             <button
@@ -157,20 +161,20 @@ export function TradeReviewForm({
                   : "border-sam-border bg-sam-surface text-sam-fg"
               }`}
             >
-              {o.label}
+              {t(o.labelKey)}
             </button>
           ))}
         </div>
       </div>
 
       <div className="mt-3">
-        <label className="sam-text-helper font-medium text-sam-fg">한줄 코멘트 (선택)</label>
+        <label className="sam-text-helper font-medium text-sam-fg">{t("trade_129")}</label>
         <textarea
           value={comment}
           onChange={(e) => setComment(e.target.value.slice(0, 200))}
           rows={2}
           className="sam-textarea mt-1 min-h-[96px] w-full"
-          placeholder="짧게 남겨 주세요"
+          placeholder={t("trade_110")}
         />
       </div>
 
@@ -182,7 +186,7 @@ export function TradeReviewForm({
             onChange={(e) => setAnonymousNegative(e.target.checked)}
             className="rounded border-sam-border"
           />
-          <span className="sam-text-helper text-sam-muted">부정 평가는 상대에게 익명으로 표시</span>
+          <span className="sam-text-helper text-sam-muted">{t("trade_064")}</span>
         </label>
       )}
       </div>
@@ -195,14 +199,14 @@ export function TradeReviewForm({
             onClick={onCancel}
             className="sam-btn-secondary flex-1"
           >
-            취소
+            {t("common_cancel")}
           </button>
           <button
             type="submit"
             disabled={loading}
             className="sam-btn-primary flex-1 disabled:opacity-50"
           >
-            {loading ? "등록 중..." : "후기 등록"}
+            {loading ? t("trade_review_form_submitting") : t("trade_review_form_submit")}
           </button>
         </div>
       </div>

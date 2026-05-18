@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 import { ORDER_CHAT_SURFACE } from "@/lib/chats/surfaces/order-chat-surface";
 
@@ -22,23 +23,24 @@ export function MessengerServiceStrip({
   onFindFriend: () => void;
   onCreateGroup: () => void;
 }) {
+  const { t } = useI18n();
   const items: Item[] = [
-    { id: "find", label: "친구 찾기", emoji: "🔍", onClick: onFindFriend },
-    { id: "group", label: "그룹", emoji: "👥", onClick: onCreateGroup },
+    { id: "find", label: t("cm_ui_find_friends"), emoji: "🔍", onClick: onFindFriend },
+    { id: "group", label: t("cm_ui_group"), emoji: "👥", onClick: onCreateGroup },
     {
       id: "trade",
-      label: "거래",
+      label: t("cm_ui_trade"),
       emoji: "💬",
       href: TRADE_CHAT_SURFACE.messengerListHref,
     },
-    { id: "order", label: "주문", emoji: "🛒", href: ORDER_CHAT_SURFACE.messengerDeliveryListHref },
+    { id: "order", label: t("cm_ui_order"), emoji: "🛒", href: ORDER_CHAT_SURFACE.messengerDeliveryListHref },
   ];
 
   return (
     <section className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-4">
       <div className="mb-3 flex items-center justify-between px-1">
-        <h2 className="sam-text-body font-semibold text-sam-fg">바로가기</h2>
-        <span className="sam-text-xxs text-sam-meta">거래·주문은 별도 유지</span>
+        <h2 className="sam-text-body font-semibold text-sam-fg">{t("cm_ui_shortcuts")}</h2>
+        <span className="sam-text-xxs text-sam-meta">{t("cm_ui_trade_order_stay_separate")}</span>
       </div>
       <div className="grid grid-cols-4 gap-2">
         {items.map((it) => {

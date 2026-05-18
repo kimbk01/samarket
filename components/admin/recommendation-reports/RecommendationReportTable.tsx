@@ -2,27 +2,22 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import type { ReportType, ReportSurface } from "@/lib/types/recommendation-report";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { ReportType } from "@/lib/types/recommendation-report";
 import { getRecommendationReports } from "@/lib/recommendation-reports/mock-recommendation-reports";
+import {
+  recReportTypeLabel,
+  recSurfaceOptionLabel,
+} from "@/components/admin/recommendation-admin-i18n";
 
-const REPORT_TYPE_LABELS: Record<ReportType, string> = {
-  daily: "일간",
-  weekly: "주간",
-  custom: "맞춤",
-};
-
-const SURFACE_LABELS: Record<ReportSurface, string> = {
-  all: "전체",
-  home: "홈",
-  search: "검색",
-  shop: "상점",
-};
+const REPORT_TYPES: ReportType[] = ["daily", "weekly", "custom"];
 
 interface RecommendationReportTableProps {
   refresh?: number;
 }
 
 export function RecommendationReportTable({ refresh = 0 }: RecommendationReportTableProps) {
+  const { t } = useI18n();
   const [typeFilter, setTypeFilter] = useState<ReportType | "">("");
   const reports = useMemo(
     () =>
@@ -43,15 +38,17 @@ export function RecommendationReportTable({ refresh = 0 }: RecommendationReportT
           }
           className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
-          <option value="">전체 유형</option>
-          <option value="daily">일간</option>
-          <option value="weekly">주간</option>
-          <option value="custom">맞춤</option>
+          <option value="">{t("admin_rec_report_filter_all_types")}</option>
+          {REPORT_TYPES.map((rt) => (
+            <option key={rt} value={rt}>
+              {recReportTypeLabel(t, rt)}
+            </option>
+          ))}
         </select>
       </div>
       {reports.length === 0 ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          보고서가 없습니다. 기간을 선택한 뒤 생성 버튼을 눌러 주세요.
+          {t("admin_rec_report_empty_list")}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
@@ -59,19 +56,19 @@ export function RecommendationReportTable({ refresh = 0 }: RecommendationReportT
             <thead>
               <tr className="border-b border-sam-border bg-sam-app">
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  제목
+                  {t("admin_rec_th_title")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  유형
+                  {t("admin_rec_th_report_type")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  surface
+                  {t("admin_rec_th_surface")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  기간
+                  {t("admin_rec_th_period")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  생성
+                  {t("admin_rec_th_generated")}
                 </th>
               </tr>
             </thead>
@@ -90,16 +87,16 @@ export function RecommendationReportTable({ refresh = 0 }: RecommendationReportT
                     </Link>
                   </td>
                   <td className="px-3 py-2.5 text-sam-fg">
-                    {REPORT_TYPE_LABELS[r.reportType]}
+                    {recReportTypeLabel(t, r.reportType)}
                   </td>
                   <td className="px-3 py-2.5 text-sam-fg">
-                    {SURFACE_LABELS[r.surface]}
+                    {recSurfaceOptionLabel(t, r.surface)}
                   </td>
                   <td className="px-3 py-2.5 text-sam-muted">
                     {r.dateFrom} ~ {r.dateTo}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                    {new Date(r.generatedAt).toLocaleString("ko-KR", { hour12: false })}
+                    {new Date(r.generatedAt).toLocaleString(undefined, { hour12: false })}
                   </td>
                 </tr>
               ))}

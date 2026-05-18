@@ -1,10 +1,23 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  pointActionTypeLabel,
+  pointBoardLabel,
+  pointChargeStatusLabel,
+  pointExecStatusLabel,
+  pointExpireCycleLabel,
+  pointExpireExecStatusLabel,
+  pointLedgerTypeLabel,
+  pointPaymentMethodLabel,
+  pointRewardTypeLabel,
+  pointUserTypeLabel,
+} from "@/components/admin/points/admin-points-notifications-i18n";
+
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { PointChargeRequest } from "@/lib/types/point";
 import { PointChargeBadge } from "@/components/points/PointChargeBadge";
-import { POINT_PAYMENT_METHOD_LABELS } from "@/lib/points/point-utils";
 import Link from "next/link";
 
 interface AdminPointChargeInlineActionsProps {
@@ -12,6 +25,7 @@ interface AdminPointChargeInlineActionsProps {
 }
 
 export function AdminPointChargeInlineActions({ requests }: AdminPointChargeInlineActionsProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [memoInputs, setMemoInputs] = useState<Record<string, string>>({});
@@ -28,7 +42,7 @@ export function AdminPointChargeInlineActions({ requests }: AdminPointChargeInli
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        setErr(j.error ?? "처리 실패");
+        setErr(j.error ?? t("admin_points_err_action_failed"));
         return;
       }
       router.refresh();
@@ -39,7 +53,7 @@ export function AdminPointChargeInlineActions({ requests }: AdminPointChargeInli
 
   if (requests.length === 0) {
     return (
-      <p className="py-10 text-center sam-text-body-secondary text-sam-meta">충전 신청 내역이 없습니다.</p>
+      <p className="py-10 text-center sam-text-body-secondary text-sam-meta">{t("admin_points_charge_empty_list")}</p>
     );
   }
 
@@ -51,7 +65,16 @@ export function AdminPointChargeInlineActions({ requests }: AdminPointChargeInli
       <table className="w-full min-w-[820px] border-collapse sam-text-body-secondary">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app sam-text-helper">
-            {["신청자", "플랜/포인트", "결제방식", "입금자명", "상태", "신청일", "메모", "액션"].map((h) => (
+            {[
+              t("admin_points_charge_th_applicant"),
+              t("admin_points_charge_th_plan_points"),
+              t("admin_points_charge_th_payment"),
+              t("admin_points_charge_th_depositor"),
+              t("admin_points_th_status"),
+              t("admin_points_charge_th_requested_at"),
+              t("admin_points_charge_th_memo"),
+              t("admin_points_th_action"),
+            ].map((h) => (
               <th key={h} className="px-3 py-2.5 text-left font-semibold text-sam-muted">
                 {h}
               </th>
@@ -88,7 +111,7 @@ export function AdminPointChargeInlineActions({ requests }: AdminPointChargeInli
                   <p className="sam-text-xxs text-sam-muted">₱{r.paymentAmount.toLocaleString()}</p>
                 </td>
                 <td className="px-3 py-2.5 text-sam-muted">
-                  {POINT_PAYMENT_METHOD_LABELS[r.paymentMethod]}
+                  {pointPaymentMethodLabel(t, r.paymentMethod)}
                 </td>
                 <td className="px-3 py-2.5 text-sam-fg">
                   {r.depositorName || <span className="text-sam-meta">-</span>}
@@ -106,7 +129,7 @@ export function AdminPointChargeInlineActions({ requests }: AdminPointChargeInli
                     onChange={(e) =>
                       setMemoInputs((prev) => ({ ...prev, [r.id]: e.target.value }))
                     }
-                    placeholder="관리자 메모"
+                    placeholder={t("admin_points_admin_memo_inline_ph")}
                     className="w-28 rounded border border-sam-border px-2 py-1 sam-text-xxs outline-none focus:border-sky-300"
                   />
                 </td>
@@ -119,15 +142,14 @@ export function AdminPointChargeInlineActions({ requests }: AdminPointChargeInli
                         onClick={() => void doAction(r.id, "approve", memo)}
                         className="rounded bg-emerald-600 px-2 py-1 sam-text-xxs font-bold text-white disabled:opacity-50"
                       >
-                        {busy ? "…" : "승인"}
+                        {busy ? "…" : t("admin_points_charge_status_approved")}
                       </button>
                       <button
                         type="button"
                         disabled={busy}
                         onClick={() => void doAction(r.id, "reject", memo)}
                         className="rounded bg-red-500 px-2 py-1 sam-text-xxs font-bold text-white disabled:opacity-50"
-                      >
-                        반려
+                      > {t("admin_points_charge_status_rejected")}
                       </button>
                       {r.requestStatus !== "on_hold" && (
                         <button
@@ -135,13 +157,12 @@ export function AdminPointChargeInlineActions({ requests }: AdminPointChargeInli
                           disabled={busy}
                           onClick={() => void doAction(r.id, "hold", memo)}
                           className="rounded border border-sam-border bg-sam-surface px-2 py-1 sam-text-xxs text-sam-muted disabled:opacity-50"
-                        >
-                          보류
+                        > {t("admin_points_charge_status_on_hold")}
                         </button>
                       )}
                     </div>
                   ) : (
-                    <span className="sam-text-xxs text-sam-meta">처리완료</span>
+                    <span className="sam-text-xxs text-sam-meta">{t("admin_points_done")}</span>
                   )}
                 </td>
               </tr>

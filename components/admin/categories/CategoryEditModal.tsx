@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { CategoryWithSettings, CategoryType } from "@/lib/types/category";
-import { CATEGORY_TYPE_LABELS, POST_TYPE_OPTIONS } from "@/lib/types/category";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  adminCategoryTypeLabelKey,
+  adminPostTypeLabelKey,
+} from "@/lib/admin/categories/admin-category-label-keys";
+import { POST_TYPE_OPTIONS } from "@/lib/types/category";
 
 interface CategoryEditModalProps {
   category?: CategoryWithSettings | null;
@@ -20,6 +25,7 @@ export function CategoryEditModal({
   onDelete,
   onClose,
 }: CategoryEditModalProps) {
+  const { t } = useI18n();
   const [name, setName] = useState(category?.name ?? "");
   const [slug, setSlug] = useState(category?.slug ?? "");
   const [icon_key, setIconKey] = useState(category?.icon_key ?? "default");
@@ -67,11 +73,11 @@ export function CategoryEditModal({
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="mb-4 sam-text-section-title font-semibold text-sam-fg">
-          {isCreate ? "카테고리 추가" : "카테고리 수정"}
+          {isCreate ? t("admin_cat_form_add") : t("admin_cat_form_edit")}
         </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block sam-text-body-secondary font-medium text-sam-fg">이름 *</label>
+            <label className="block sam-text-body-secondary font-medium text-sam-fg">{t("admin_cat_label_name_short")}</label>
             <input
               type="text"
               value={name}
@@ -91,7 +97,7 @@ export function CategoryEditModal({
             />
           </div>
           <div>
-            <label className="block sam-text-body-secondary font-medium text-sam-fg">아이콘 키</label>
+            <label className="block sam-text-body-secondary font-medium text-sam-fg">{t("admin_cat_label_icon_key")}</label>
             <input
               type="text"
               value={icon_key}
@@ -100,21 +106,21 @@ export function CategoryEditModal({
             />
           </div>
           <div>
-            <label className="block sam-text-body-secondary font-medium text-sam-fg">타입</label>
+            <label className="block sam-text-body-secondary font-medium text-sam-fg">{t("admin_cat_label_type")}</label>
             <select
               value={type}
               onChange={(e) => setType(e.target.value as CategoryType)}
               className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
             >
-              {(Object.keys(CATEGORY_TYPE_LABELS) as CategoryType[]).map((t) => (
-                <option key={t} value={t}>
-                  {CATEGORY_TYPE_LABELS[t]}
+              {(["trade", "service", "community", "feature"] as const).map((typ) => (
+                <option key={typ} value={typ}>
+                  {t(adminCategoryTypeLabelKey(typ))}
                 </option>
               ))}
             </select>
           </div>
           <div>
-            <label className="block sam-text-body-secondary font-medium text-sam-fg">설명</label>
+            <label className="block sam-text-body-secondary font-medium text-sam-fg">{t("admin_cat_label_desc")}</label>
             <input
               type="text"
               value={description}
@@ -123,12 +129,12 @@ export function CategoryEditModal({
             />
           </div>
           <div className="border-t border-sam-border-soft pt-4">
-            <p className="mb-2 sam-text-body-secondary font-medium text-sam-fg">기능 토글</p>
+            <p className="mb-2 sam-text-body-secondary font-medium text-sam-fg">{t("admin_cat_features_toggle")}</p>
             <div className="space-y-2">
-              <LabelCheck checked={can_write} onChange={setCanWrite} label="글쓰기 가능 (can_write)" />
-              <LabelCheck checked={has_price} onChange={setHasPrice} label="가격 (has_price)" />
-              <LabelCheck checked={has_chat} onChange={setHasChat} label="채팅 (has_chat)" />
-              <LabelCheck checked={has_location} onChange={setHasLocation} label="위치 (has_location)" />
+              <LabelCheck checked={can_write} onChange={setCanWrite} label={t("admin_cat_feat_write_alt")} />
+              <LabelCheck checked={has_price} onChange={setHasPrice} label={t("admin_cat_feat_price")} />
+              <LabelCheck checked={has_chat} onChange={setHasChat} label={t("admin_cat_feat_chat")} />
+              <LabelCheck checked={has_location} onChange={setHasLocation} label={t("admin_cat_feat_location")} />
               <div>
                 <label className="block sam-text-helper text-sam-muted">post_type</label>
                 <select
@@ -138,7 +144,7 @@ export function CategoryEditModal({
                 >
                   {POST_TYPE_OPTIONS.map((o) => (
                     <option key={o.value} value={o.value}>
-                      {o.label}
+                      {t(adminPostTypeLabelKey(o.value))}
                     </option>
                   ))}
                 </select>
@@ -147,14 +153,14 @@ export function CategoryEditModal({
           </div>
           <div className="flex flex-wrap gap-2 pt-4">
             <button type="submit" className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white">
-              저장
+              {t("common_save")}
             </button>
             <button type="button" onClick={onClose} className="rounded-ui-rect border border-sam-border px-4 py-2 sam-text-body text-sam-fg">
-              취소
+              {t("common_cancel")}
             </button>
             {!isCreate && onDelete && (
               <button type="button" onClick={onDelete} className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-2 sam-text-body text-red-700">
-                삭제
+                {t("admin_cat_delete")}
               </button>
             )}
           </div>

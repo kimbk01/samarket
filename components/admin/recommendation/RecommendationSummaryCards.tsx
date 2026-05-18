@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { RecommendationAnalyticsSummary } from "@/lib/types/recommendation";
 
 interface RecommendationSummaryCardsProps {
@@ -9,6 +12,7 @@ interface RecommendationSummaryCardsProps {
 export function RecommendationSummaryCards({
   summaries,
 }: RecommendationSummaryCardsProps) {
+  const { t } = useI18n();
   const bySurface = new Map<string, RecommendationAnalyticsSummary[]>();
   for (const s of summaries) {
     if (!bySurface.has(s.surface)) bySurface.set(s.surface, []);
@@ -30,11 +34,11 @@ export function RecommendationSummaryCards({
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <p className="sam-text-helper text-sam-muted">총 노출</p>
+        <p className="sam-text-helper text-sam-muted">{t("admin_rec_analytics_keaa4d063")}</p>
         <p className="sam-text-page-title font-semibold text-sam-fg">{totalImpressions}</p>
       </div>
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <p className="sam-text-helper text-sam-muted">총 클릭</p>
+        <p className="sam-text-helper text-sam-muted">{t("admin_rec_analytics_k866e0ee4")}</p>
         <p className="sam-text-page-title font-semibold text-sam-fg">{totalClicks}</p>
       </div>
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
@@ -44,7 +48,7 @@ export function RecommendationSummaryCards({
         </p>
       </div>
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <p className="sam-text-helper text-sam-muted">전환률</p>
+        <p className="sam-text-helper text-sam-muted">{t("admin_rec_analytics_kb2f09600")}</p>
         <p className="sam-text-page-title font-semibold text-sam-fg">
           {(overallCvr * 100).toFixed(2)}%
         </p>

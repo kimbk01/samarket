@@ -1,6 +1,7 @@
 "use client";
 
 import type { CommunityMessengerFriendRequest } from "@/lib/community-messenger/types";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
@@ -24,9 +25,10 @@ export function MessengerIncomingFriendRequestPopup({
   onRespond,
   layout = "viewport",
 }: Props) {
+  const { t } = useI18n();
   const busyAccept = busyId === `request:${request.id}:accept`;
   const busyReject = busyId === `request:${request.id}:reject`;
-  const label = request.requesterLabel.trim() || "상대";
+  const label = request.requesterLabel.trim() || t("common_partner");
   const initial = label.slice(0, 1) || "?";
   const titleId = `messenger-incoming-fr-title-${request.id}`;
   const subtitleId = `messenger-incoming-fr-sub-${request.id}`;
@@ -52,7 +54,7 @@ export function MessengerIncomingFriendRequestPopup({
           type="button"
           onClick={onDismiss}
           className={`${Sam.btn.base} ${Sam.btn.ghostCombo} absolute right-2 top-2 z-[1] !h-11 !min-h-11 !w-11 !max-w-none shrink-0 rounded-full !border-0 !px-0 !py-0 text-sam-fg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sam-primary ${MOBILE_PRESS}`}
-          aria-label="닫기"
+          aria-label={t("nav_close")}
         >
           <svg className="h-6 w-6 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -71,7 +73,7 @@ export function MessengerIncomingFriendRequestPopup({
               {label}
             </p>
             <p id={subtitleId} className={`${Sam.text.bodySecondary} mt-1 leading-snug text-sam-fg/75`}>
-              친구 요청을 보냈습니다
+              {t("cm_ui_sent_friend_request")}
             </p>
           </div>
         </div>
@@ -83,7 +85,7 @@ export function MessengerIncomingFriendRequestPopup({
             onClick={() => onRespond(request.id, "accept")}
             className={`${Sam.btn.base} ${Sam.btn.primaryCombo} ${Sam.btn.block} min-h-[44px] rounded-xl px-4 font-semibold disabled:pointer-events-none ${MOBILE_PRESS}`}
           >
-            {busyAccept ? "처리 중…" : "수락"}
+            {busyAccept ? t("common_processing") : t("cm_ui_accept")}
           </button>
           <button
             type="button"
@@ -91,7 +93,7 @@ export function MessengerIncomingFriendRequestPopup({
             onClick={() => onRespond(request.id, "reject")}
             className={`${Sam.btn.base} ${Sam.btn.outlineCombo} ${Sam.btn.block} min-h-[44px] rounded-xl px-4 font-semibold disabled:pointer-events-none ${MOBILE_PRESS}`}
           >
-            {busyReject ? "처리 중…" : "거절"}
+            {busyReject ? t("common_processing") : t("cm_ui_reject")}
           </button>
         </div>
       </div>

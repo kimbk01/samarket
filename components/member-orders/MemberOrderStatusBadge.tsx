@@ -1,20 +1,21 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { MemberOrderStatus } from "@/lib/member-orders/types";
 
-const LABEL: Record<MemberOrderStatus, string> = {
-  pending: "접수됨",
-  accepted: "주문확인",
-  preparing: "상품준비",
-  delivering: "배송중",
-  ready_for_pickup: "픽업준비",
-  arrived: "배송지도착",
-  completed: "주문완료",
-  cancelled: "취소됨",
-  cancel_requested: "취소요청",
-  refund_requested: "환불검토",
-  refunded: "환불완료",
+const STATUS_KEY: Record<MemberOrderStatus, MessageKey> = {
+  pending: "member_order_status_pending",
+  accepted: "member_order_status_accepted",
+  preparing: "member_order_status_preparing",
+  delivering: "member_order_status_delivering",
+  ready_for_pickup: "member_order_status_ready_for_pickup",
+  arrived: "member_order_status_arrived",
+  completed: "member_order_status_completed",
+  cancelled: "member_order_status_cancelled",
+  cancel_requested: "member_order_status_cancel_requested",
+  refund_requested: "member_order_status_refund_requested",
+  refunded: "member_order_status_refunded",
 };
 
 const CLS: Record<MemberOrderStatus, string> = {
@@ -32,12 +33,12 @@ const CLS: Record<MemberOrderStatus, string> = {
 };
 
 export function MemberOrderStatusBadge({ status }: { status: MemberOrderStatus }) {
-  const { tt } = useI18n();
+  const { t } = useI18n();
   return (
     <span
       className={`inline-flex rounded-full px-2.5 py-0.5 sam-text-xxs font-bold ${CLS[status]}`}
     >
-      {tt(LABEL[status])}
+      {t(STATUS_KEY[status])}
     </span>
   );
 }

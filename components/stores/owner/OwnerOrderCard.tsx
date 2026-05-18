@@ -8,6 +8,7 @@ import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { StoreOrderMessengerDeepLink } from "@/components/stores/StoreOrderMessengerDeepLink";
 import { buildMessengerContextInputFromOwnerOrder } from "@/lib/community-messenger/store-order-messenger-context";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 function menuSummary(items: OwnerOrder["items"]) {
   const parts = items.map((i) => `${i.menu_name}×${i.qty}`);
@@ -29,11 +30,13 @@ export function OwnerOrderCard({
   highlight?: boolean;
   onActionDone?: () => void | Promise<void>;
 }) {
+  const { t, language } = useI18n();
   const detailHref = buildStoreOrdersHref({ storeId, orderId: order.id });
+  const dateLocale = language === "ko" ? "ko-KR" : language === "zh" ? "zh-CN" : "en-US";
   const typeBadge =
     order.order_type === "delivery" || order.order_type === "shipping"
-      ? { cls: "bg-signature/5 text-sam-fg", text: "배달" }
-      : { cls: "bg-teal-50 text-teal-900", text: "포장 픽업" };
+      ? { cls: "bg-signature/5 text-sam-fg", text: t("common_delivery") }
+      : { cls: "bg-teal-50 text-teal-900", text: t("common_pickup_label") };
 
   return (
     <article
@@ -45,7 +48,7 @@ export function OwnerOrderCard({
         <div>
           <p className="font-mono text-xs font-semibold text-sam-muted">{order.order_no}</p>
           <p className="text-xs text-sam-meta">
-            {new Date(order.created_at).toLocaleString("ko-KR")}
+            {new Date(order.created_at).toLocaleString(dateLocale)}
           </p>
         </div>
         <OwnerOrderStatusBadge status={order.order_status} />
@@ -55,15 +58,15 @@ export function OwnerOrderCard({
         <span className={`rounded-ui-rect px-2 py-0.5 text-xs font-bold ${typeBadge.cls}`}>{typeBadge.text}</span>
         <span className="font-semibold text-sam-fg">{order.buyer_name}</span>
         {order.request_message ? (
-          <span className="rounded bg-amber-50 px-1.5 py-0.5 sam-text-xxs font-bold text-amber-900">요청</span>
+          <span className="rounded bg-amber-50 px-1.5 py-0.5 sam-text-xxs font-bold text-amber-900">{t("common_request")}</span>
         ) : null}
         {order.buyer_cancel_request ? (
-          <span className="rounded bg-red-50 px-1.5 py-0.5 sam-text-xxs font-bold text-red-800">취소요청</span>
+          <span className="rounded bg-red-50 px-1.5 py-0.5 sam-text-xxs font-bold text-red-800">{t("business_phase7_296")}</span>
         ) : null}
       </div>
 
       <p className="mt-2 line-clamp-2 text-sm text-sam-muted">
-        {order.items.length === 0 ? "주문 품목을 불러오는 중…" : menuSummary(order.items)}
+        {order.items.length === 0 ? t("store_owner_order_items_loading") : menuSummary(order.items)}
       </p>
       <p className="mt-2 text-lg font-bold text-sam-fg">{formatMoneyPhp(order.total_amount)}</p>
 
@@ -72,13 +75,13 @@ export function OwnerOrderCard({
           href={detailHref}
           className="flex-1 rounded-ui-rect bg-sam-surface-muted py-2.5 text-center text-sm font-semibold text-sam-fg"
         >
-          상세보기
+          {t("store_owner_view_detail")}
         </Link>
         <Link
           href={`/stores/owner/order-chat/${encodeURIComponent(order.id)}`}
           className="flex-1 rounded-ui-rect border border-sam-border bg-signature/5 py-2.5 text-center text-sm font-semibold text-sam-fg"
         >
-          고객 문의
+          {t("store_owner_customer_inquiry")}
         </Link>
       </div>
       {order.community_messenger_room_id ? (

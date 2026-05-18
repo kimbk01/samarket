@@ -1,14 +1,15 @@
 import { normalizeSellerListingState, publicListingBadge } from "@/lib/products/seller-listing-state";
 import { tradeSituationShortLabel } from "@/lib/trade/trade-situation-copy";
+import type { TradeReviewTranslate } from "@/lib/trade/trade-review-tags";
 
-export function salesTradeStatusBadge(flow: string): string {
+export function salesTradeStatusBadge(t: TradeReviewTranslate, flow: string): string {
   const f = String(flow ?? "chatting");
-  if (f === "dispute") return "분쟁 처리중";
-  if (f === "archived") return "종료";
-  if (f === "review_completed") return "거래·후기 완료";
-  if (f === "seller_marked_done") return "구매자 확인 대기";
-  if (f === "buyer_confirmed" || f === "review_pending") return "거래완료 확인 · 평가·후기";
-  return "판매중";
+  if (f === "dispute") return t("trade_sales_badge_dispute");
+  if (f === "archived") return t("trade_sales_badge_archived");
+  if (f === "review_completed") return t("trade_sales_badge_review_done");
+  if (f === "seller_marked_done") return t("trade_sales_badge_seller_marked");
+  if (f === "buyer_confirmed" || f === "review_pending") return t("trade_sales_badge_buyer_confirmed");
+  return t("trade_sales_badge_selling");
 }
 
 /** 상품(노출) 상태 배지 — 판매내역 카드 */
@@ -33,11 +34,12 @@ export function salesCanChangeListing(postStatus: string | undefined): boolean {
 }
 
 export function salesCardTradeLine(
+  t: TradeReviewTranslate,
   tradeFlowStatus: string | undefined,
   hasBuyerReview: boolean,
   buyerConfirmSource?: string | null
 ): string {
-  return tradeSituationShortLabel(tradeFlowStatus, "seller", {
+  return tradeSituationShortLabel(t, tradeFlowStatus, "seller", {
     hasBuyerReview,
     buyerConfirmSource,
   });

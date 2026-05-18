@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useMemo } from "react";
 import { getCurrentUserId } from "@/lib/regions/mock-user-regions";
@@ -11,6 +12,7 @@ interface BlockedUserListProps {
 }
 
 export function BlockedUserList({ refreshKey, onUnblock }: BlockedUserListProps) {
+  const { t } = useI18n();
   const userId = getCurrentUserId();
   const list = useMemo(
     () => getBlockedUsers(userId),
@@ -20,7 +22,7 @@ export function BlockedUserList({ refreshKey, onUnblock }: BlockedUserListProps)
   if (list.length === 0) {
     return (
       <div className="py-12 text-center">
-        <p className="sam-text-body text-sam-muted">차단한 사용자가 없어요</p>
+        <p className="sam-text-body text-sam-muted">{t("ui_report_blocked_empty")}</p>
       </div>
     );
   }

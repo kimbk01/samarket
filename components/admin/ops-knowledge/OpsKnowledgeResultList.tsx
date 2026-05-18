@@ -1,14 +1,10 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { OPS_DOC_TYPE_KEYS } from "@/components/admin/i18n/admin-ops-doc-label-keys";
 import Link from "next/link";
 import type { OpsKnowledgeBaseIndexItem } from "@/lib/types/ops-knowledge";
 import { OpsKnowledgePreviewCard } from "./OpsKnowledgePreviewCard";
-
-const DOC_TYPE_LABELS: Record<string, string> = {
-  sop: "SOP",
-  playbook: "플레이북",
-  scenario: "시나리오",
-};
 
 interface OpsKnowledgeResultListProps {
   items: OpsKnowledgeBaseIndexItem[];
@@ -23,11 +19,10 @@ export function OpsKnowledgeResultList({
   onSelectDocument,
   onViewDocument,
 }: OpsKnowledgeResultListProps) {
+  const { t } = useI18n();
   if (items.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        검색 결과가 없습니다.
-      </div>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_kb_results_empty")}</div>
     );
   }
 
@@ -47,7 +42,7 @@ export function OpsKnowledgeResultList({
             tabIndex={0}
           >
             <div className="flex items-center gap-2 sam-text-helper text-sam-muted">
-              <span>{DOC_TYPE_LABELS[item.docType]}</span>
+              <span>{t(OPS_DOC_TYPE_KEYS[item.docType])}</span>
               {item.isPinned && <span>📌</span>}
             </div>
             <Link

@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { swapCategorySortOrders } from "@/lib/categories/swapCategorySortOrder";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CategorySubtopicFormModal } from "./CategorySubtopicFormModal";
 
 interface TradeSubtopicsPanelProps {
@@ -10,7 +11,6 @@ interface TradeSubtopicsPanelProps {
   allCategories: CategoryWithSettings[];
   onRefresh: () => void | Promise<void>;
   onDelete: (id: string) => void | Promise<void>;
-  /** 모달 상단 닫기 (페이지 모드에서는 생략) */
   onClose?: () => void;
 }
 
@@ -22,6 +22,7 @@ export function TradeSubtopicsPanel({
   onDelete,
   onClose,
 }: TradeSubtopicsPanelProps) {
+  const { t } = useI18n();
   const siblings = useMemo(
     () =>
       allCategories
@@ -66,18 +67,16 @@ export function TradeSubtopicsPanel({
       <div className="flex items-start justify-between gap-2">
         <div>
           <h2 className="sam-text-section-title font-semibold text-sam-fg">
-            {onClose ? "주제(하위) 관리" : `「${parent.name}」 주제`}
+            {onClose ? t("admin_menu_subtopic_modal_title") : t("admin_menu_subtopic_parent_title", { name: parent.name })}
           </h2>
-          <p className="mt-1 sam-text-body-secondary text-sam-muted">
-            이 메뉴를 탭했을 때 홈·마켓 상단 2행 칩·글쓰기 주제로 쓰입니다. 주제가 없으면 2행은 표시되지 않습니다.
-          </p>
+          <p className="mt-1 sam-text-body-secondary text-sam-muted">{t("admin_menu_subtopic_desc")}</p>
         </div>
         {onClose ? (
           <button
             type="button"
             onClick={onClose}
             className="rounded-ui-rect px-2 py-1 sam-text-body text-sam-muted hover:bg-sam-surface-muted"
-            aria-label="닫기"
+            aria-label={t("admin_menu_close_aria")}
           >
             ✕
           </button>
@@ -90,19 +89,18 @@ export function TradeSubtopicsPanel({
           onClick={() => setCreateOpen(true)}
           className="rounded-ui-rect bg-signature px-3 py-1.5 sam-text-body-secondary font-medium text-white hover:bg-signature/90"
         >
-          주제 추가
+          {t("admin_menu_subtopic_add")}
         </button>
       </div>
 
       {siblings.length === 0 ? (
         <div className="space-y-3">
           <p className="rounded-ui-rect border border-dashed border-sam-border py-6 text-center sam-text-body text-sam-muted">
-            아래에서 주제를 추가하면 목록이 여기 표시됩니다. 사용자 화면에서는 주제가 없으면 2행 칩이 나타나지 않습니다.
+            {t("admin_menu_subtopic_empty")}
           </p>
           <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-900">
-            <strong className="font-medium">주제를 저장했는데도 목록·표에 안 보이면</strong> Supabase <code className="rounded bg-amber-100 px-1">categories</code> 테이블에{" "}
-            <code className="rounded bg-amber-100 px-1">parent_id</code> 컬럼이 있는지 확인하세요. 없으면 SQL Editor에서 마이그레이션(
-            <code className="rounded bg-amber-100 px-1">ALTER TABLE … ADD parent_id</code>)을 실행해야 합니다.
+            <strong className="font-medium">{t("admin_menu_subtopic_migration_title")}</strong>{" "}
+            {t("admin_menu_subtopic_migration_body")}
           </div>
         </div>
       ) : (
@@ -110,11 +108,11 @@ export function TradeSubtopicsPanel({
           <table className="w-full min-w-[480px] border-collapse sam-text-body">
             <thead>
               <tr className="border-b border-sam-border bg-sam-app">
-                <th className="px-3 py-2 text-left font-medium text-sam-fg">순서</th>
-                <th className="px-3 py-2 text-left font-medium text-sam-fg">이름</th>
-                <th className="px-3 py-2 text-left font-medium text-sam-fg">slug</th>
-                <th className="px-3 py-2 text-left font-medium text-sam-fg">상태</th>
-                <th className="px-3 py-2 text-right font-medium text-sam-fg">관리</th>
+                <th className="px-3 py-2 text-left font-medium text-sam-fg">{t("admin_menu_th_order")}</th>
+                <th className="px-3 py-2 text-left font-medium text-sam-fg">{t("admin_menu_th_name")}</th>
+                <th className="px-3 py-2 text-left font-medium text-sam-fg">{t("admin_menu_th_slug")}</th>
+                <th className="px-3 py-2 text-left font-medium text-sam-fg">{t("admin_menu_th_status")}</th>
+                <th className="px-3 py-2 text-right font-medium text-sam-fg">{t("admin_menu_th_actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -123,7 +121,9 @@ export function TradeSubtopicsPanel({
                   <td className="px-3 py-2 text-sam-muted">{c.sort_order}</td>
                   <td className="px-3 py-2 font-medium text-sam-fg">{c.name}</td>
                   <td className="px-3 py-2 sam-text-helper text-sam-muted">{c.slug}</td>
-                  <td className="px-3 py-2 sam-text-body-secondary text-sam-muted">{c.is_active ? "사용" : "비활성"}</td>
+                  <td className="px-3 py-2 sam-text-body-secondary text-sam-muted">
+                    {c.is_active ? t("admin_menu_status_active") : t("admin_menu_status_inactive")}
+                  </td>
                   <td className="px-3 py-2 text-right">
                     <div className="flex flex-wrap items-center justify-end gap-1">
                       <button
@@ -131,6 +131,7 @@ export function TradeSubtopicsPanel({
                         onClick={() => handleMoveUp(c.id)}
                         disabled={index === 0}
                         className="rounded p-1 text-sam-muted hover:bg-sam-border-soft disabled:opacity-40"
+                        title={t("admin_cat_move_up")}
                       >
                         ▲
                       </button>
@@ -139,6 +140,7 @@ export function TradeSubtopicsPanel({
                         onClick={() => handleMoveDown(c.id)}
                         disabled={index === siblings.length - 1}
                         className="rounded p-1 text-sam-muted hover:bg-sam-border-soft disabled:opacity-40"
+                        title={t("admin_cat_move_down")}
                       >
                         ▼
                       </button>
@@ -147,14 +149,14 @@ export function TradeSubtopicsPanel({
                         onClick={() => setEditingId(c.id)}
                         className="rounded px-1.5 py-0.5 sam-text-helper text-signature hover:bg-signature/10"
                       >
-                        수정
+                        {t("admin_cat_edit")}
                       </button>
                       <button
                         type="button"
                         onClick={() => onDelete(c.id)}
                         className="rounded px-1.5 py-0.5 sam-text-helper text-red-600 hover:bg-red-50"
                       >
-                        삭제
+                        {t("common_delete")}
                       </button>
                     </div>
                   </td>

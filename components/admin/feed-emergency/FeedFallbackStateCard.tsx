@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
 import { getFeedFallbackStates } from "@/lib/feed-emergency/feed-emergency-state";
@@ -15,6 +18,7 @@ const MODE_LABELS: Record<string, string> = {
 };
 
 export function FeedFallbackStateCard() {
+  const { t } = useI18n();
   const [refresh, setRefresh] = useState(0);
 
   const states = useMemo(
@@ -71,14 +75,14 @@ export function FeedFallbackStateCard() {
             </div>
             <dl className="space-y-1 sam-text-body-secondary">
               <div>
-                <dt className="text-sam-muted">활성 버전</dt>
+                <dt className="text-sam-muted">{t("admin_feed_emergency_active_4")}</dt>
                 <dd className="text-sam-fg">
                   {activeVersion?.versionName ?? activeVersionId ?? "-"}
                 </dd>
               </div>
               {s.fallbackVersionId && (
                 <div>
-                  <dt className="text-sam-muted">Fallback 버전</dt>
+                  <dt className="text-sam-muted">{t("admin_fallback_version")}</dt>
                   <dd className="text-sam-fg">
                     {fallbackVersion?.versionName ?? s.fallbackVersionId}
                   </dd>
@@ -86,12 +90,12 @@ export function FeedFallbackStateCard() {
               )}
               {s.fallbackReason && (
                 <div>
-                  <dt className="text-sam-muted">사유</dt>
+                  <dt className="text-sam-muted">{t("admin_feed_emergency_k63c27906")}</dt>
                   <dd className="text-sam-fg">{s.fallbackReason}</dd>
                 </div>
               )}
               <div>
-                <dt className="text-sam-muted">갱신</dt>
+                <dt className="text-sam-muted">{t("admin_rec_deploy_k2d2acced")}</dt>
                 <dd className="text-sam-muted">
                   {new Date(s.updatedAt).toLocaleString("ko-KR")}
                 </dd>

@@ -2,11 +2,13 @@
 
 import type { AuditLogCategory, AuditLogResult } from "@/lib/types/admin-audit";
 import {
+  AUDIT_SORT_OPTIONS,
   CATEGORY_OPTIONS,
   RESULT_OPTIONS,
   type AdminAuditFilters,
   type AuditSortKey,
 } from "@/lib/admin-audit/admin-audit-utils";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface AdminAuditFilterBarProps {
   filters: AdminAuditFilters;
@@ -17,11 +19,13 @@ export function AdminAuditFilterBar({
   filters,
   onFiltersChange,
 }: AdminAuditFilterBarProps) {
+  const { t } = useI18n();
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       <input
         type="text"
-        placeholder="관리자·대상 ID·제목·actionType 검색"
+        placeholder={t("admin_audit_search_placeholder")}
         value={filters.searchQuery}
         onChange={(e) =>
           onFiltersChange({ ...filters, searchQuery: e.target.value })
@@ -40,13 +44,13 @@ export function AdminAuditFilterBar({
       >
         {CATEGORY_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
-            {o.label}
+            {t(o.labelKey)}
           </option>
         ))}
       </select>
       <input
         type="text"
-        placeholder="관리자 닉네임"
+        placeholder={t("admin_audit_admin_nickname_placeholder")}
         value={filters.adminNickname}
         onChange={(e) =>
           onFiltersChange({ ...filters, adminNickname: e.target.value })
@@ -65,7 +69,7 @@ export function AdminAuditFilterBar({
       >
         {RESULT_OPTIONS.map((o) => (
           <option key={o.value || "all"} value={o.value}>
-            {o.label}
+            {t(o.labelKey)}
           </option>
         ))}
       </select>
@@ -79,8 +83,11 @@ export function AdminAuditFilterBar({
         }
         className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
       >
-        <option value="newest">최신순</option>
-        <option value="oldest">오래된순</option>
+        {AUDIT_SORT_OPTIONS.map((o) => (
+          <option key={o.value} value={o.value}>
+            {t(o.labelKey)}
+          </option>
+        ))}
       </select>
     </div>
   );

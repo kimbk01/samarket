@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export type HiddenPostFeedbackReason =
   | "bought_elsewhere"
@@ -45,7 +46,8 @@ function IconSad({ className }: { className?: string }) {
   );
 }
 
-export function HiddenPostCard({ postId, onUndo, onFeedback }: HiddenPostCardProps) {
+export function HiddenPostCard({ postId: _postId, onUndo, onFeedback }: HiddenPostCardProps) {
+  const { t } = useI18n();
   const [feedbackSent, setFeedbackSent] = useState(false);
 
   const handleFeedback = (reason: HiddenPostFeedbackReason) => {
@@ -57,8 +59,8 @@ export function HiddenPostCard({ postId, onUndo, onFeedback }: HiddenPostCardPro
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface-muted p-4">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <p className="text-[12px] font-semibold text-sam-fg">글을 숨겼어요</p>
-          <p className="mt-0.5 text-[13px] text-sam-muted">이유를 알려주세요.</p>
+          <p className="text-[12px] font-semibold text-sam-fg">{t("ui_post_hidden_title")}</p>
+          <p className="mt-0.5 text-[13px] text-sam-muted">{t("ui_post_hidden_reason_prompt")}</p>
         </div>
         <button
           type="button"
@@ -66,7 +68,7 @@ export function HiddenPostCard({ postId, onUndo, onFeedback }: HiddenPostCardPro
           className="flex shrink-0 items-center gap-1 rounded-ui-rect px-2 py-1.5 text-[13px] font-medium text-sam-fg hover:bg-sam-border-soft"
         >
           <IconUndo className="h-4 w-4" />
-          되돌리기
+          {t("ui_post_hidden_undo")}
         </button>
       </div>
 
@@ -79,7 +81,7 @@ export function HiddenPostCard({ postId, onUndo, onFeedback }: HiddenPostCardPro
               className="flex w-full items-center gap-3 border-b border-sam-border py-3 text-left text-[14px] text-sam-fg hover:bg-sam-border-soft/50"
             >
               <IconShoppingBag className="h-5 w-5 shrink-0 text-sam-muted" />
-              이미 다른 물품을 구매했어요
+              {t("ui_post_hidden_feedback_bought")}
             </button>
           </li>
           <li>
@@ -89,7 +91,7 @@ export function HiddenPostCard({ postId, onUndo, onFeedback }: HiddenPostCardPro
               className="flex w-full items-center gap-3 border-b border-sam-border py-3 text-left text-[14px] text-sam-fg hover:bg-sam-border-soft/50"
             >
               <IconThumbsDown className="h-5 w-5 shrink-0 text-sam-muted" />
-              이 물품에 관심없어요
+              {t("ui_post_hidden_feedback_not_interested")}
             </button>
           </li>
           <li>
@@ -99,12 +101,12 @@ export function HiddenPostCard({ postId, onUndo, onFeedback }: HiddenPostCardPro
               className="flex w-full items-center gap-3 py-3 text-left text-[14px] text-sam-fg hover:bg-sam-border-soft/50"
             >
               <IconSad className="h-5 w-5 shrink-0 text-sam-muted" />
-              이 글이 불쾌해요
+              {t("ui_post_hidden_feedback_offensive")}
             </button>
           </li>
         </ul>
       ) : (
-        <p className="mt-3 text-[13px] text-sam-muted">의견을 남겨주셔서 감사해요.</p>
+        <p className="mt-3 text-[13px] text-sam-muted">{t("ui_post_hidden_thanks")}</p>
       )}
     </div>
   );

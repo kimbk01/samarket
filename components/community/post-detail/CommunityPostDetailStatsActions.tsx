@@ -5,6 +5,7 @@ import { Eye, ThumbsUp, Bookmark } from "lucide-react";
 import { isPostSavedLocal, setPostSavedLocal } from "./post-detail-utils";
 import { NeighborFollowButton } from "../NeighborFollowButton";
 import { UserBlockButton } from "../UserBlockButton";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type Props = {
   postId: string;
@@ -18,11 +19,12 @@ type Props = {
 };
 
 export function CommunityPostDetailViewLine({ viewCount }: { viewCount: number }) {
+  const { t } = useI18n();
   return (
     <div className="flex items-center gap-1.5 px-4 pt-4 text-[12px] font-normal leading-[1.4] text-[#6B7280]">
       <Eye className="h-4 w-4 shrink-0 opacity-80" strokeWidth={1.8} aria-hidden />
       <p>
-        {viewCount.toLocaleString("ko-KR")}명이 봤어요
+        {t("community_views_count_line", { count: viewCount.toLocaleString("ko-KR") })}
       </p>
     </div>
   );
@@ -37,6 +39,7 @@ export function CommunityPostDetailStatsActions({
   socialTargetUserId,
   showSocialActions = false,
 }: Props) {
+  const { t } = useI18n();
   const [saved, setSaved] = useState(false);
   useEffect(() => {
     const nextSaved = isPostSavedLocal(postId);
@@ -62,7 +65,7 @@ export function CommunityPostDetailStatsActions({
             className="inline-flex min-h-11 min-w-[5.5rem] items-center justify-center gap-1.5 rounded-[4px] border border-[#7360F2] bg-[#F3F0FF] px-4 py-2 text-[14px] font-semibold text-[#7360F2] active:scale-[0.98] disabled:opacity-50"
           >
             <ThumbsUp className="h-4 w-4" strokeWidth={2.2} />
-            공감 {likeCount.toLocaleString("ko-KR")}
+            {t("community_stat_likes", { count: likeCount.toLocaleString("ko-KR") })}
           </button>
           <button
             type="button"
@@ -74,7 +77,7 @@ export function CommunityPostDetailStatsActions({
             }`}
           >
             <Bookmark className="h-4 w-4" fill={saved ? "currentColor" : "none"} strokeWidth={2} />
-            저장
+            {t("community_save")}
           </button>
         </div>
         {showSocialActions && tid ? (

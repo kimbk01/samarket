@@ -1,17 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type Props = {
   tags: string[];
 };
 
 export function CommunityPostDetailTags({ tags }: Props) {
+  const { t } = useI18n();
   if (tags.length === 0) return null;
 
   return (
     <div className="px-4 pt-5">
-      <p className="mb-2 text-[12px] font-normal text-[#6B7280]">추천 태그</p>
+      <p className="mb-2 text-[12px] font-normal text-[#6B7280]">{t("community_recommended_tags")}</p>
       <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
         {tags.map((t) => {
           const q = t.startsWith("#") ? t.slice(1) : t;

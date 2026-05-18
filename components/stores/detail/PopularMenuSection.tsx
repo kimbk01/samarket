@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { DibayMenuBoard } from "@/lib/stores/dibay-menu-board-tokens";
@@ -18,6 +19,7 @@ export function PopularMenuSection({
   menuSelectBlocked?: boolean;
   onOpenProduct: (id: string) => void;
 }) {
+  const { t } = useI18n();
   if (cards.length === 0) return null;
   const dimmed = menuSelectBlocked || !canInteract;
 
@@ -25,7 +27,7 @@ export function PopularMenuSection({
     <section
       className="border-t border-neutral-100 bg-white px-4 pb-3 pt-3"
       style={{ marginBottom: DibayMenuBoard.sectionGapPx }}
-      aria-label="인기 메뉴"
+      aria-label={t("store_popular_menu_aria")}
     >
       <h2
         className="tracking-[-0.02em] text-neutral-900"

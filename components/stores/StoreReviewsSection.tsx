@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
@@ -51,6 +52,7 @@ export function StoreReviewsSection({
   variant?: "card" | "plain";
   surface?: "default" | "orderDetail";
 }) {
+  const { t } = useI18n();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [avg, setAvg] = useState<number | null>(null);
   const [count, setCount] = useState(0);
@@ -174,8 +176,8 @@ export function StoreReviewsSection({
     }
     return wrap(
       <>
-        <StoreDetailSectionTitle level="h2">리뷰</StoreDetailSectionTitle>
-        <p className={Sam.text.bodySecondary}>리뷰 불러오는 중…</p>
+        <StoreDetailSectionTitle level="h2">{t("store_reviews_title")}</StoreDetailSectionTitle>
+        <p className={Sam.text.bodySecondary}>{t("store_reviews_loading")}</p>
       </>
     );
   }
@@ -185,20 +187,20 @@ export function StoreReviewsSection({
       return wrapOrderDetail(
         <div className="rounded-[16px] bg-white px-4 py-10 text-center shadow-sm ring-1 ring-neutral-100/80">
           <p className="text-[14px] leading-relaxed" style={{ color: STORE_ORDER_BRAND.secondary }}>
-            아직 등록된 리뷰가 없습니다.
+            {t("store_no_reviews_yet")}
           </p>
         </div>
       );
     }
     return wrap(
       <>
-        <StoreDetailSectionTitle level="h2">리뷰</StoreDetailSectionTitle>
+        <StoreDetailSectionTitle level="h2">{t("store_reviews_title")}</StoreDetailSectionTitle>
         {variant === "plain" ? (
           <div className={`${STORE_DETAIL_CARD} p-4`}>
-            <p className={`${Sam.text.body} text-sam-muted`}>아직 등록된 리뷰가 없습니다.</p>
+            <p className={`${Sam.text.body} text-sam-muted`}>{t("store_no_reviews_yet")}</p>
           </div>
         ) : (
-          <p className={`${Sam.text.body} text-sam-muted`}>아직 등록된 리뷰가 없습니다.</p>
+          <p className={`${Sam.text.body} text-sam-muted`}>{t("store_no_reviews_yet")}</p>
         )}
       </>
     );
@@ -214,10 +216,10 @@ export function StoreReviewsSection({
                 {avg != null ? avg.toFixed(1) : "—"}
               </p>
               <p className="mt-2 text-[12px] font-medium" style={{ color: STORE_ORDER_BRAND.secondary }}>
-                총 리뷰 {count.toLocaleString("ko-KR")}
+                {t("store_reviews_total", { count: count.toLocaleString("ko-KR") })}
               </p>
               <p className="mt-0.5 text-[12px]" style={{ color: STORE_ORDER_BRAND.secondary }}>
-                사장님 댓글 {ownerReplyCount.toLocaleString("ko-KR")}
+                {t("store_owner_reply_count", { count: ownerReplyCount.toLocaleString("ko-KR") })}
               </p>
             </div>
             <p className="text-[13px] font-semibold leading-none" style={{ color: STORE_ORDER_BRAND.star }}>
@@ -255,7 +257,7 @@ export function StoreReviewsSection({
           {photoReviewThumbUrls.length > 0 ? (
             <div className="mt-4 border-t border-neutral-100 pt-3">
               <p className="mb-2 text-[12px] font-bold" style={{ color: STORE_ORDER_BRAND.title }}>
-                사진 리뷰
+                {t("store_photo_reviews")}
               </p>
               <div className="flex gap-2 overflow-x-auto pb-0.5 [-webkit-overflow-scrolling:touch]">
                 {photoReviewThumbUrls.map((src) => (
@@ -284,7 +286,7 @@ export function StoreReviewsSection({
               checked={photoOnly}
               onChange={(e) => setPhotoOnly(e.target.checked)}
             />
-            사진 리뷰만
+            {t("store_photo_reviews_only")}
           </label>
           <select
             value={sortBy}
@@ -292,17 +294,17 @@ export function StoreReviewsSection({
             className="rounded-full border border-neutral-200 bg-white px-3 py-2 text-[13px] font-semibold outline-none"
             style={{ color: STORE_ORDER_BRAND.title }}
           >
-            <option value="recommended">추천순</option>
-            <option value="latest">최신순</option>
-            <option value="rating_desc">별점 높은순</option>
-            <option value="rating_asc">별점 낮은순</option>
+            <option value="recommended">{t("store_sort_recommended")}</option>
+            <option value="latest">{t("store_sort_latest")}</option>
+            <option value="rating_desc">{t("store_sort_rating_high")}</option>
+            <option value="rating_asc">{t("store_sort_rating_low")}</option>
           </select>
         </div>
 
         {filteredReviews.length === 0 ? (
           <div className="rounded-[16px] bg-white px-4 py-8 text-center shadow-sm ring-1 ring-neutral-100/80">
             <p className="text-[13px] leading-relaxed" style={{ color: STORE_ORDER_BRAND.secondary }}>
-              조건에 맞는 리뷰가 없습니다.
+              {t("store_no_matching_reviews")}
             </p>
           </div>
         ) : null}
@@ -318,7 +320,7 @@ export function StoreReviewsSection({
                   className="min-w-0 truncate text-[13px] font-semibold leading-snug"
                   style={{ color: STORE_ORDER_BRAND.title }}
                 >
-                  {r.buyer_public_label || "사마켓 회원"}
+                  {r.buyer_public_label || t("store_member_fallback")}
                 </p>
                 <p className="shrink-0 text-[12px] leading-snug tabular-nums" style={{ color: STORE_ORDER_BRAND.secondary }}>
                   {new Date(r.created_at).toLocaleDateString("ko-KR")}
@@ -353,7 +355,7 @@ export function StoreReviewsSection({
                   style={{ backgroundColor: STORE_ORDER_BRAND.frameGray }}
                 >
                   <p className="text-[12px] font-bold" style={{ color: STORE_ORDER_BRAND.title }}>
-                    사장님 댓글
+                    {t("store_owner_reply")}
                   </p>
                   <p
                     className="mt-1 whitespace-pre-wrap text-[13px] leading-snug"
@@ -380,8 +382,12 @@ export function StoreReviewsSection({
       <div className={`${STORE_DETAIL_CARD} p-3`}>
         <div className="flex items-end justify-between gap-2">
           <div>
-            <StoreDetailSectionTitle level="h2">리뷰 {count.toLocaleString("ko-KR")}</StoreDetailSectionTitle>
-            <p className={`mt-0.5 ${Sam.text.bodySecondary}`}>사장님 댓글 {ownerReplyCount.toLocaleString("ko-KR")}</p>
+            <StoreDetailSectionTitle level="h2">
+              {t("store_reviews_with_count", { count: count.toLocaleString("ko-KR") })}
+            </StoreDetailSectionTitle>
+            <p className={`mt-0.5 ${Sam.text.bodySecondary}`}>
+              {t("store_owner_reply_count", { count: ownerReplyCount.toLocaleString("ko-KR") })}
+            </p>
           </div>
           <div className="text-right">
             <p className={`${Sam.text.hero} leading-none text-sam-fg`}>{avg != null ? avg.toFixed(2) : "—"}</p>
@@ -394,7 +400,7 @@ export function StoreReviewsSection({
             const pct = count > 0 ? Math.round((n / count) * 1000) / 10 : 0;
             return (
               <div key={star} className="flex items-center gap-2">
-                <span className={`w-5 font-semibold text-sam-fg ${Sam.text.helper}`}>{star}점</span>
+                <span className={`w-5 font-semibold text-sam-fg ${Sam.text.helper}`}>{t("store_star_points", { star })}</span>
                 <div className="h-2 flex-1 overflow-hidden rounded-full bg-sam-border-soft">
                   <div className="h-full rounded-full bg-amber-400" style={{ width: `${pct}%` }} />
                 </div>
@@ -413,23 +419,23 @@ export function StoreReviewsSection({
             checked={photoOnly}
             onChange={(e) => setPhotoOnly(e.target.checked)}
           />
-          사진 리뷰만
+          {t("store_photo_reviews_only")}
         </label>
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
           className={`rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg ${Sam.text.bodySecondary}`}
         >
-          <option value="recommended">추천순</option>
-          <option value="latest">최신순</option>
-          <option value="rating_desc">별점 높은순</option>
-          <option value="rating_asc">별점 낮은순</option>
+          <option value="recommended">{t("store_sort_recommended")}</option>
+          <option value="latest">{t("store_sort_latest")}</option>
+          <option value="rating_desc">{t("store_sort_rating_high")}</option>
+          <option value="rating_asc">{t("store_sort_rating_low")}</option>
         </select>
       </div>
 
       {filteredReviews.length === 0 ? (
         <div className={`${STORE_DETAIL_CARD} p-4`}>
-          <p className={`${Sam.text.body} text-sam-muted`}>조건에 맞는 리뷰가 없습니다.</p>
+          <p className={`${Sam.text.body} text-sam-muted`}>{t("store_no_matching_reviews")}</p>
         </div>
       ) : null}
 
@@ -438,7 +444,7 @@ export function StoreReviewsSection({
           <li key={r.id} className={`${STORE_DETAIL_CARD} p-3`}>
             <div className="flex items-center justify-between gap-2">
               <p className={`truncate font-semibold text-sam-fg ${Sam.text.bodySecondary}`}>
-                {r.buyer_public_label || "사마켓 회원"}
+                {r.buyer_public_label || t("store_member_fallback")}
               </p>
               <p className={`${Sam.text.helper}`}>
                 {new Date(r.created_at).toLocaleDateString("ko-KR")}
@@ -463,7 +469,7 @@ export function StoreReviewsSection({
             </p>
             {r.owner_reply_content?.trim() ? (
               <div className="mt-2 rounded-ui-rect border border-sam-border bg-sam-app px-2.5 py-2">
-                <p className={`font-semibold text-sam-fg ${Sam.text.helper}`}>사장님 댓글</p>
+                <p className={`font-semibold text-sam-fg ${Sam.text.helper}`}>{t("store_owner_reply")}</p>
                 <p className={`mt-1 whitespace-pre-wrap text-sam-fg ${Sam.text.bodySecondary}`}>
                   {r.owner_reply_content.trim()}
                 </p>

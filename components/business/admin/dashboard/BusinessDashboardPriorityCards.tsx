@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type Card = {
   title: string;
@@ -11,9 +12,10 @@ type Card = {
 };
 
 export function BusinessDashboardPriorityCards({ cards }: { cards: Card[] }) {
+  const { t } = useI18n();
   return (
     <section className="space-y-2">
-      <h2 className="px-0.5 sam-text-body font-semibold text-sam-fg">지금 바로 처리</h2>
+      <h2 className="px-0.5 sam-text-body font-semibold text-sam-fg">{t("business_phase7_278")}</h2>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {cards.map((c) => {
           const toneClass =

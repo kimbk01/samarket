@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
 import { getFeedEmergencyLogs } from "@/lib/feed-emergency/mock-feed-emergency-logs";
@@ -9,6 +12,7 @@ import { SECTION_OVERRIDE_LABELS } from "@/lib/feed-emergency/mock-feed-section-
 import type { FeedSectionOverrideKey } from "@/lib/types/feed-emergency";
 
 export function FeedEmergencyLogList() {
+  const { t } = useI18n();
   const [surfaceFilter, setSurfaceFilter] = useState<RecommendationSurface | "">("");
 
   const logs = useMemo(
@@ -35,10 +39,10 @@ export function FeedEmergencyLogList() {
           }
           className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
-          <option value="">전체</option>
-          <option value="home">홈</option>
-          <option value="search">검색</option>
-          <option value="shop">상점</option>
+          <option value="">{t("common_all")}</option>
+          <option value="home">{t("admin_surface_home")}</option>
+          <option value="search">{t("admin_surface_search")}</option>
+          <option value="shop">{t("admin_rec_deploy_shop")}</option>
         </select>
       </div>
       {logs.length === 0 ? (

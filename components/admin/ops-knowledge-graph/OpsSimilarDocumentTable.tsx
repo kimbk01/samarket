@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { getOpsSimilarDocumentRecommendations } from "@/lib/ops-knowledge-graph/mock-ops-similar-document-recommendations";
@@ -10,6 +11,7 @@ interface OpsSimilarDocumentTableProps {
 }
 
 export function OpsSimilarDocumentTable({ sourceDocumentId }: OpsSimilarDocumentTableProps) {
+  const { t } = useI18n();
   const [selectedSource, setSelectedSource] = useState(sourceDocumentId ?? "");
 
   const recs = useMemo(
@@ -35,9 +37,7 @@ export function OpsSimilarDocumentTable({ sourceDocumentId }: OpsSimilarDocument
   if (!selectedSource && recs.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <label className="mb-2 block sam-text-body font-medium text-sam-fg">
-          문서 선택 (유사 문서 조회)
-        </label>
+        <label className="mb-2 block sam-text-body font-medium text-sam-fg">{t("admin_ops_tools_kg_similar_title")}</label>
         <input
           type="text"
           value={selectedSource}
@@ -45,7 +45,7 @@ export function OpsSimilarDocumentTable({ sourceDocumentId }: OpsSimilarDocument
           placeholder="od-1"
           className="w-full max-w-xs rounded border border-sam-border px-3 py-2 sam-text-body"
         />
-        <p className="mt-4 sam-text-body text-sam-muted">문서 ID를 입력하거나 목록에서 선택해 주세요.</p>
+        <p className="mt-4 sam-text-body text-sam-muted">{t("admin_ops_tools_kg_similar_hint")}</p>
       </div>
     );
   }
@@ -53,7 +53,7 @@ export function OpsSimilarDocumentTable({ sourceDocumentId }: OpsSimilarDocument
   return (
     <div className="space-y-3">
       <div>
-        <label className="mb-1 block sam-text-helper text-sam-muted">기준 문서</label>
+        <label className="mb-1 block sam-text-helper text-sam-muted">{t("admin_ops_tools_kg_base_doc")}</label>
         <input
           type="text"
           value={selectedSource}
@@ -63,17 +63,15 @@ export function OpsSimilarDocumentTable({ sourceDocumentId }: OpsSimilarDocument
         />
       </div>
       {recs.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
-          유사 문서가 없습니다.
-        </div>
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_kg_no_similar")}</div>
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[480px] border-collapse sam-text-body">
             <thead>
               <tr className="border-b border-sam-border bg-sam-app">
-                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">대상 문서</th>
-                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">유사도</th>
-                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">사유</th>
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_kg_th_target")}</th>
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_kg_th_similarity")}</th>
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_kg_th_reason")}</th>
               </tr>
             </thead>
             <tbody>

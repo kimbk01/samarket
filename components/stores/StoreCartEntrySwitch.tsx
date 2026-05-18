@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
@@ -25,6 +26,7 @@ export function StoreCartEntrySwitch({
   initialVerifiedReal?: boolean;
   initialApiForPrime?: StoreApiJsonResponse | null;
 }) {
+  const { t } = useI18n();
   const normalizedSlug = useMemo(
     () => decodeURIComponent((storeSlug || "").trim()),
     [storeSlug]
@@ -92,7 +94,7 @@ export function StoreCartEntrySwitch({
 
   if (state.kind === "load") {
     return (
-      <div className="min-h-[40vh] px-4 py-12 text-center sam-text-body text-sam-muted">불러오는 중…</div>
+      <div className="min-h-[40vh] px-4 py-12 text-center sam-text-body text-sam-muted">{t("common_loading")}</div>
     );
   }
   if (state.kind === "real") {

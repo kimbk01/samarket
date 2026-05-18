@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AutomationRulesTable } from "./AutomationRulesTable";
@@ -8,19 +9,20 @@ import { AutomationLogList } from "./AutomationLogList";
 
 type TabId = "rules" | "logs";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "rules", label: "자동화 룰" },
-  { id: "logs", label: "실행 로그" },
-];
-
 export function AdminAutomationPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("rules");
+
+  const tabs: { id: TabId; label: string }[] = [
+    { id: "rules", label: t("admin_automation_tab_rules") },
+    { id: "logs", label: t("admin_automation_tab_logs") },
+  ];
 
   return (
     <>
-      <AdminPageHeader title="운영 자동화" />
+      <AdminPageHeader titleKey="admin_automation_page_title" />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
-        {TABS.map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab.id}
             type="button"
@@ -36,12 +38,12 @@ export function AdminAutomationPage() {
         ))}
       </div>
       {activeTab === "rules" && (
-        <AdminCard title="자동화 룰 테이블">
+        <AdminCard titleKey="admin_automation_card_rules_table">
           <AutomationRulesTable />
         </AdminCard>
       )}
       {activeTab === "logs" && (
-        <AdminCard title="실행 로그">
+        <AdminCard titleKey="admin_automation_tab_logs">
           <AutomationLogList />
         </AdminCard>
       )}

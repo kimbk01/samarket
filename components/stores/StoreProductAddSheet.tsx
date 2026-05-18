@@ -1,8 +1,8 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import {
   type AddStoreCartLineInput,
   useStoreCommerceCartActionsOptional,
@@ -24,7 +24,6 @@ import type { SheetPublicStore } from "@/lib/stores/map-list-row-to-sheet-produc
 import { calculateStoreProductBaseUnit } from "@/lib/stores/product-sheet/calculate-store-product-line-price";
 import { validateStoreProductRequiredOptions } from "@/lib/stores/product-sheet/validate-store-product-required-options";
 import { useStoreProductSheetDetail } from "@/lib/stores/product-sheet/use-store-product-sheet-detail";
-import { StoreProductSheetAddToCartBar } from "@/components/stores/product-sheet/StoreProductSheetAddToCartBar";
 import { StoreProductSheetShell } from "@/components/stores/product-sheet/StoreProductSheetShell";
 import { StoreProductSheetHeader } from "@/components/stores/product-sheet/StoreProductSheetHeader";
 import {
@@ -33,6 +32,7 @@ import {
 } from "@/components/stores/product-sheet/StoreProductSheetSkeleton";
 import {
   STORE_ORDER_BRAND,
+  STORE_ORDER_CTA_PRIMARY,
   STORE_ORDER_CTA_STEPPER,
   STORE_ORDER_TOUCH_BTN,
 } from "@/components/stores/store-order-detail/store-order-brand";
@@ -62,13 +62,6 @@ import {
   traceDeliveryOptionValidationMs,
 } from "@/lib/dibay/delivery-option-sheet-trace";
 import { getStoreProductSheetOpenMark } from "@/lib/stores/store-product-sheet-ui-store";
-import type { StoreCommerceCartLine } from "@/lib/stores/store-commerce-cart-types";
-import { useStoreCommerceCartLinesForStorePage } from "@/lib/stores/use-store-commerce-cart-lines-for-store-page";
-import {
-  clampCartSeedQty,
-  findCommerceCartLineByProductId,
-  modifierWireFromCartLine,
-} from "@/lib/stores/store-commerce-cart-line-seed";
 
 type PublicStore = SheetPublicStore;
 
@@ -79,7 +72,6 @@ export function StoreProductAddSheet({
   pageStoreSlug,
   prefetchedListRow,
   sheetStoreContext,
-  editCartLine = null,
   onClose,
   commerceBlocked,
   commerceBlockedHint,
@@ -93,27 +85,13 @@ export function StoreProductAddSheet({
     favoriteCount: number;
     recentOrderCount: number;
   } | null;
-  /** 카트 줄 옵션 변경 — 동일 lineId 로 replace */
-  editCartLine?: StoreCommerceCartLine | null;
   onClose: () => void;
   commerceBlocked: boolean;
   commerceBlockedHint?: string;
   onAddedToCart?: () => void;
 }) {
+  const { t } = useI18n();
   const commerceCart = useStoreCommerceCartActionsOptional();
-  const sheetSlug = sheetStoreContext?.store?.slug ?? pageStoreSlug;
-  const sheetStoreId = sheetStoreContext?.store?.id ?? null;
-  const { lines: cartLines, hydrated: cartHydrated } = useStoreCommerceCartLinesForStorePage(
-    sheetSlug,
-    sheetStoreId
-  );
-
-  const resolvedCartLine = useMemo((): StoreCommerceCartLine | null => {
-    if (editCartLine != null && editCartLine.productId === productId) return editCartLine;
-    const pid = String(productId ?? "").trim();
-    if (!pid) return null;
-    return findCommerceCartLineByProductId(cartLines, pid);
-  }, [editCartLine, cartLines, productId]);
 
   const seedPair = useMemo(() => {
     const row = prefetchedListRow ?? null;
@@ -177,27 +155,13 @@ export function StoreProductAddSheet({
   }, [productId, onClose]);
 
   useEffect(() => {
-    if (!product?.id || !cartHydrated) return;
-    const editing =
-      resolvedCartLine != null && resolvedCartLine.productId === product.id
-        ? resolvedCartLine
-        : null;
-    if (editing) {
-      const minQ = Math.max(1, Number(product.min_order_qty) || 1);
-      const maxQ = Math.max(minQ, Number(product.max_order_qty) || 99);
-      const trackInv = product.track_inventory === true;
-      const cap = trackInv ? Math.min(maxQ, product.stock_qty) : maxQ;
-      setQty(clampCartSeedQty(editing, minQ, cap));
-      setModifierWire(modifierWireFromCartLine(editing));
-      setLineNote(editing.lineNote?.trim() ?? "");
-    } else {
-      const minQ = Math.max(1, Number(product.min_order_qty) || 1);
-      setQty(minQ);
-      setModifierWire({ pick: {}, qty: {} });
-      setLineNote("");
-    }
+    if (!product?.id) return;
+    const minQ = Math.max(1, Number(product.min_order_qty) || 1);
+    setQty(minQ);
+    setModifierWire({ pick: {}, qty: {} });
+    setLineNote("");
     setSheetErr(null);
-  }, [product?.id, cartHydrated, cartLines, resolvedCartLine]);
+  }, [product?.id]);
 
   const optionGroups = useMemo(
     () => (product ? parseProductOptionsJson(product.options_json) : []),
@@ -559,8 +523,7 @@ export function StoreProductAddSheet({
       title: pr.title,
       thumbnailUrl: pr.thumbnail_url?.trim() || null,
       qty,
-      mergeQtyMode: "set",
-      unitPricePhp: Math.max(0, Math.floor(unitWithOptions) || 0),
+      unitPricePhp: unitWithOptions,
       listUnitPricePhp: hasLineDiscount ? listWithOptions : null,
       discountPercent: hasLineDiscount && lineDiscountPct > 0 ? lineDiscountPct : null,
       optionSelections: { ...modifierWire.pick },
@@ -574,27 +537,6 @@ export function StoreProductAddSheet({
       minOrderQty: minQ,
       maxOrderQty: maxForCart,
     };
-
-    const editingLine =
-      resolvedCartLine != null && resolvedCartLine.productId === pr.id ? resolvedCartLine : null;
-
-    if (editingLine) {
-      const replaceResult = commerceCart.replaceCartLineAt(editingLine.lineId, lineInput);
-      if (!replaceResult.ok) {
-        setSheetErr("옵션을 변경할 수 없습니다.");
-        traceDeliveryOptionAddSubmitMs(deliveryOptionTraceNow() - submitStart, optionTraceBase, {
-          status: "failed",
-        });
-        return;
-      }
-      traceDeliveryOptionAddSubmitMs(deliveryOptionTraceNow() - submitStart, optionTraceBase, {
-        status: "ok",
-      });
-      cartBarBump(st.id);
-      onAddedToCart?.();
-      onClose();
-      return;
-    }
 
     const addResult = commerceCart.addOrMergeLine(lineInput);
     if (!addResult.ok && addResult.reason === "blocked_by_other_store") {
@@ -617,7 +559,7 @@ export function StoreProductAddSheet({
       return;
     }
     if (!addResult.ok) {
-      setSheetErr("카트에 담을 수 없습니다.");
+      setSheetErr("장바구니에 담을 수 없습니다.");
       traceDeliveryOptionAddSubmitMs(deliveryOptionTraceNow() - submitStart, optionTraceBase, {
         status: "failed",
       });
@@ -657,12 +599,7 @@ export function StoreProductAddSheet({
   const showLineTotalInCard =
     qty > 1 || hasOptionDelta || (showListStrike && product !== null);
 
-  const isEditingCartLine =
-    resolvedCartLine != null && product != null && resolvedCartLine.productId === product.id;
-
-  const headerTitle = isEditingCartLine
-    ? "옵션 변경"
-    : product?.title ?? (showFullLoadingBody ? "불러오는 중…" : "메뉴 담기");
+  const headerTitle = product?.title ?? (showFullLoadingBody ? "불러오는 중…" : "메뉴 담기");
 
   const ctaDisabled =
     soldOut ||
@@ -677,9 +614,7 @@ export function StoreProductAddSheet({
     ? "옵션을 불러오는 중…"
     : optionHydrationFailed
       ? "옵션을 불러올 수 없음"
-      : isEditingCartLine
-        ? "변경 적용"
-        : "카트 담기";
+      : `${formatMoneyPhp(lineTotal)} 담기`;
 
   return (
     <StoreProductSheetShell onBackdropClose={onClose}>
@@ -719,14 +654,12 @@ export function StoreProductAddSheet({
             ) : null}
 
             <div className="relative aspect-[16/10] max-h-[200px] min-h-[160px] w-full overflow-hidden bg-neutral-100">
-              <SamarketThumbnail
-                src={sheetPrimaryImage}
-                alt=""
-                fill
-                priority
-                className="h-full w-full"
-                roundedClassName="rounded-none"
-              />
+              {sheetPrimaryImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={sheetPrimaryImage} alt="" className="h-full w-full object-cover" />
+              ) : (
+                <div className="h-full w-full bg-neutral-100" />
+              )}
             </div>
 
             <div className="bg-white px-4 pb-3 pt-3">
@@ -745,13 +678,18 @@ export function StoreProductAddSheet({
 
             <div className="hidden mx-3 mt-3 gap-3 rounded-ui-rect bg-sam-surface p-3 shadow-sm ring-1 ring-sam-border/70">
               <div className="h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
-                <SamarketThumbnail
-                  src={sheetPrimaryImage}
-                  alt=""
-                  fill
-                  className="h-full w-full"
-                  roundedClassName="rounded-ui-rect"
-                />
+                {sheetPrimaryImage ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={sheetPrimaryImage}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center sam-text-xxs text-sam-meta">
+                    이미지 없음
+                  </div>
+                )}
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">
@@ -815,58 +753,6 @@ export function StoreProductAddSheet({
               </p>
             ) : null}
 
-            <div
-              className="mt-3 border-t-[8px] border-[#EDEDED] px-4 py-4"
-              style={{ backgroundColor: STORE_ORDER_BRAND.frameGray }}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-[13px] font-bold text-neutral-900">본메뉴</p>
-                  <p className="mt-0.5 text-[12px] font-medium text-neutral-500">
-                    옵션을 추가하기 전 메뉴 금액입니다.
-                  </p>
-                </div>
-                <div className="shrink-0 text-right">
-                  {showListStrike ? (
-                    <span className="mr-2 text-[11px] font-medium tabular-nums text-neutral-400 line-through">
-                      {formatMoneyPhp(Math.floor(product.price))}
-                    </span>
-                  ) : null}
-                  <span className="text-[17px] font-extrabold tabular-nums tracking-tight text-neutral-900">
-                    {formatMoneyPhp(Math.floor(baseUnit))}
-                  </span>
-                  <span className="ml-0.5 text-[11px] font-semibold text-neutral-500">/개</span>
-                </div>
-              </div>
-
-              <div className="mt-4 flex items-center justify-between border-t border-neutral-200/70 pt-4">
-                <span className="text-[13px] font-bold text-neutral-900">본메뉴 수량</span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={qtyMinusDisabled}
-                    onClick={() => setQtyTracked((q) => Math.max(minQ, q - 1))}
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center text-lg font-bold leading-none ${STORE_ORDER_CTA_STEPPER}`}
-                    aria-label="수량 감소"
-                  >
-                    −
-                  </button>
-                  <span className="min-w-[2.25rem] text-center text-[16px] font-extrabold tabular-nums text-neutral-900">
-                    {qty}
-                  </span>
-                  <button
-                    type="button"
-                    disabled={qtyPlusDisabled}
-                    onClick={() => setQtyTracked((q) => Math.min(capQty, q + 1))}
-                    className={`flex h-10 w-10 shrink-0 items-center justify-center text-lg font-bold leading-none ${STORE_ORDER_CTA_STEPPER}`}
-                    aria-label="수량 증가"
-                  >
-                    +
-                  </button>
-                </div>
-              </div>
-            </div>
-
             {awaitingOptionHydration ? (
               <StoreProductSheetOptionsSkeleton />
             ) : optionHydrationFailed ? (
@@ -894,43 +780,96 @@ export function StoreProductAddSheet({
               </div>
             ) : null}
 
-            {hasOptionDelta || showLineTotalInCard ? (
-              <div
-                className="border-t-[8px] border-[#EDEDED] px-4 py-4"
-                style={{ backgroundColor: STORE_ORDER_BRAND.frameGray }}
-              >
-                {hasOptionDelta ? (
-                  <>
-                    <div className="flex items-center justify-between text-[12px] font-medium">
-                      <span className="text-neutral-600">추가 메뉴·옵션 금액</span>
-                      <span className="tabular-nums font-bold text-neutral-900">
-                        {optionValidation.unitDelta > 0 ? "+" : ""}
-                        {formatMoneyPhp(optionValidation.unitDelta)}
+            <div
+              className="border-t-[8px] border-[#EDEDED] px-4 py-4"
+              style={{ backgroundColor: STORE_ORDER_BRAND.frameGray }}
+            >
+              {hasOptionDelta ? (
+                <>
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="text-[12px] font-medium text-neutral-500">{t("store_menu_label")}</span>
+                    <div className="text-right">
+                      {showListStrike ? (
+                        <span className="mr-2 text-[11px] font-medium tabular-nums text-neutral-400 line-through">
+                          {formatMoneyPhp(Math.floor(product.price))}
+                        </span>
+                      ) : null}
+                      <span className="text-[15px] font-bold tabular-nums text-neutral-900">
+                        {formatMoneyPhp(Math.floor(baseUnit))}
                       </span>
                     </div>
-                    <div className="mt-4 flex items-end justify-between border-t border-neutral-200/70 pt-3">
-                      <span className="text-[12px] font-bold text-neutral-800">1개당</span>
-                      <span className="text-[17px] font-extrabold tabular-nums tracking-tight text-neutral-900">
-                        {formatMoneyPhp(unitWithOptions)}
-                      </span>
-                    </div>
-                  </>
-                ) : null}
-
-                {showLineTotalInCard ? (
-                  <div className="mt-4 flex items-center justify-between border-t border-neutral-200/70 pt-4">
-                    <span className="text-[12px] font-semibold text-neutral-600">주문 합계</span>
-                    <span className="text-[17px] font-extrabold tabular-nums text-neutral-900">
-                      {formatMoneyPhp(lineTotal)}
+                  </div>
+                  <div className="mt-2 flex items-center justify-between text-[11px] font-medium">
+                    <span className="text-neutral-500">{t("store_add_options")}</span>
+                    <span className="tabular-nums font-semibold text-neutral-700">
+                      {optionValidation.unitDelta > 0 ? "+" : ""}
+                      {formatMoneyPhp(optionValidation.unitDelta)}
                     </span>
                   </div>
-                ) : null}
+                  <div className="mt-3 flex items-end justify-between border-t border-neutral-200/70 pt-3">
+                    <span className="text-[12px] font-bold text-neutral-800">{t("store_per_item")}</span>
+                    <span className="text-[17px] font-extrabold tabular-nums tracking-tight text-neutral-900">
+                      {formatMoneyPhp(unitWithOptions)}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-start justify-between gap-3">
+                  <span className="pt-0.5 text-[12px] font-medium text-neutral-500">{t("store_menu_amount")}</span>
+                  <div className="text-right">
+                    {showListStrike ? (
+                      <span className="mr-2 text-[11px] font-medium tabular-nums text-neutral-400 line-through">
+                        {formatMoneyPhp(Math.floor(product.price))}
+                      </span>
+                    ) : null}
+                    <span className="text-[17px] font-extrabold tabular-nums tracking-tight text-neutral-900">
+                      {formatMoneyPhp(unitWithOptions)}
+                    </span>
+                    <span className="ml-0.5 text-[11px] font-semibold text-neutral-500">{t("store_per_unit_suffix")}</span>
+                  </div>
+                </div>
+              )}
+
+              <div className="mt-4 flex items-center justify-between border-t border-neutral-200/70 pt-4">
+                <span className="text-[13px] font-bold text-neutral-900">{t("store_quantity")}</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={qtyMinusDisabled}
+                    onClick={() => setQtyTracked((q) => Math.max(minQ, q - 1))}
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center text-lg font-bold leading-none ${STORE_ORDER_CTA_STEPPER}`}
+                    aria-label={t("store_qty_decrease_aria")}
+                  >
+                    −
+                  </button>
+                  <span className="min-w-[2.25rem] text-center text-[16px] font-extrabold tabular-nums text-neutral-900">
+                    {qty}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={qtyPlusDisabled}
+                    onClick={() => setQtyTracked((q) => Math.min(capQty, q + 1))}
+                    className={`flex h-10 w-10 shrink-0 items-center justify-center text-lg font-bold leading-none ${STORE_ORDER_CTA_STEPPER}`}
+                    aria-label={t("store_qty_increase_aria")}
+                  >
+                    +
+                  </button>
+                </div>
               </div>
-            ) : null}
+
+              {showLineTotalInCard ? (
+                <div className="mt-4 flex items-center justify-between border-t border-neutral-200/70 pt-4">
+                  <span className="text-[12px] font-semibold text-neutral-600">{t("store_order_total")}</span>
+                  <span className="text-[17px] font-extrabold tabular-nums text-neutral-900">
+                    {formatMoneyPhp(lineTotal)}
+                  </span>
+                </div>
+              ) : null}
+            </div>
 
             <div className="border-t border-neutral-100 bg-white px-4 py-3.5">
               <label htmlFor="store-add-sheet-line-note" className="text-[12px] font-bold text-neutral-800">
-                요청사항 <span className="font-medium text-neutral-500">(선택)</span>
+                {t("store_request_note")} <span className="font-medium text-neutral-500">{t("store_optional_suffix")}</span>
               </label>
               <textarea
                 id="store-add-sheet-line-note"
@@ -938,7 +877,7 @@ export function StoreProductAddSheet({
                 value={lineNote}
                 onChange={(e) => setLineNote(e.target.value)}
                 disabled={soldOut || orderBlocked}
-                placeholder="예: 덜 맵게, 양파 빼주세요"
+                placeholder={t("store_request_placeholder")}
                 className="mt-2 w-full resize-none rounded-[10px] border border-neutral-200 bg-white px-3 py-2 text-[13px] font-medium text-neutral-900 placeholder:text-neutral-400 focus:border-[#1C8DB8] focus:outline-none focus:ring-2 focus:ring-[#1C8DB8]/20 disabled:bg-neutral-100"
               />
             </div>
@@ -955,11 +894,11 @@ export function StoreProductAddSheet({
             </p>
 
             {!optionValidation.ok && !awaitingOptionHydration && !optionHydrationFailed ? (
-              <p className="mt-1 px-4 text-[11px] text-amber-800">옵션을 올바르게 선택해 주세요.</p>
+              <p className="mt-1 px-4 text-[11px] text-amber-800">{t("store_fix_modifier_selection")}</p>
             ) : null}
             {!commerceCart ? (
               <p className="mt-1 px-4 pb-2 text-[11px] text-amber-800">
-                카트를 사용할 수 없습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.
+                장바구니를 사용할 수 없습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.
               </p>
             ) : null}
           </div>
@@ -967,14 +906,22 @@ export function StoreProductAddSheet({
       </div>
 
       {!showNotFound && !showFullLoadingBody && product && store ? (
-        <StoreProductSheetAddToCartBar
-          storeId={store.id}
-          lineTotalPhp={lineTotal}
-          label={ctaLabel}
-          disabled={ctaDisabled}
-          errorMessage={sheetErr}
-          onAdd={addToCart}
-        />
+        <div
+          className="shrink-0 border-t border-neutral-100 bg-white px-4 pt-3 shadow-[0_-4px_16px_rgba(0,0,0,0.08)]"
+          style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))" }}
+        >
+          {sheetErr ? (
+            <p className="mb-2 text-center text-[11px] font-medium text-red-600">{sheetErr}</p>
+          ) : null}
+          <button
+            type="button"
+            disabled={ctaDisabled}
+            onClick={addToCart}
+            className={`w-full py-3.5 text-[17px] leading-none ${STORE_ORDER_CTA_PRIMARY}`}
+          >
+            {ctaLabel}
+          </button>
+        </div>
       ) : null}
     </StoreProductSheetShell>
   );

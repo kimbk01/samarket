@@ -1,14 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { addOpsRetrospective } from "@/lib/ops-board/mock-ops-retrospectives";
 import type { OpsSurface } from "@/lib/types/ops-board";
+import { OPS_TOOLS_SURFACE_KEYS } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 
-const SURFACE_OPTIONS: { value: OpsSurface; label: string }[] = [
-  { value: "all", label: "전체" },
-  { value: "home", label: "홈" },
-  { value: "search", label: "검색" },
-  { value: "shop", label: "상점" },
+const SURFACE_OPTIONS: { value: OpsSurface; labelKey: MessageKey }[] = [
+  { value: "all", labelKey: OPS_TOOLS_SURFACE_KEYS.all },
+  { value: "home", labelKey: OPS_TOOLS_SURFACE_KEYS.home },
+  { value: "search", labelKey: OPS_TOOLS_SURFACE_KEYS.search },
+  { value: "shop", labelKey: OPS_TOOLS_SURFACE_KEYS.shop },
 ];
 
 export function OpsRetrospectiveForm({
@@ -16,6 +19,7 @@ export function OpsRetrospectiveForm({
 }: {
   onSaved?: () => void;
 }) {
+  const { t } = useI18n();
   const [title, setTitle] = useState("");
   const [summary, setSummary] = useState("");
   const [wins, setWins] = useState("");
@@ -30,7 +34,7 @@ export function OpsRetrospectiveForm({
     const date = new Date().toISOString().slice(0, 10);
     addOpsRetrospective({
       retrospectiveDate: date,
-      title: title || "운영 회고",
+      title: title || t("admin_ops_tools_board_retro_default_title"),
       summary,
       wins,
       issues,
@@ -40,7 +44,7 @@ export function OpsRetrospectiveForm({
       relatedReportId: relatedReportId.trim() || null,
       createdAt: new Date().toISOString(),
       createdByAdminId: "admin1",
-      createdByAdminNickname: "관리자",
+      createdByAdminNickname: t("admin_ops_tools_admin_nickname"),
     });
     setTitle("");
     setSummary("");
@@ -54,19 +58,19 @@ export function OpsRetrospectiveForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-      <h3 className="sam-text-body font-medium text-sam-fg">새 운영 회고</h3>
+      <h3 className="sam-text-body font-medium text-sam-fg">{t("admin_ops_tools_board_retro_new")}</h3>
       <div>
-        <label className="mb-1 block sam-text-helper text-sam-muted">제목</label>
+        <label className="mb-1 block sam-text-helper text-sam-muted">{t("admin_ops_tools_board_label_title")}</label>
         <input
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="회고 제목"
+          placeholder={t("admin_ops_tools_board_ph_title")}
           className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
         />
       </div>
       <div>
-        <label className="mb-1 block sam-text-helper text-sam-muted">요약</label>
+        <label className="mb-1 block sam-text-helper text-sam-muted">{t("admin_ops_tools_board_label_summary")}</label>
         <textarea
           value={summary}
           onChange={(e) => setSummary(e.target.value)}
@@ -75,7 +79,7 @@ export function OpsRetrospectiveForm({
         />
       </div>
       <div>
-        <label className="mb-1 block sam-text-helper text-sam-muted">잘된 점</label>
+        <label className="mb-1 block sam-text-helper text-sam-muted">{t("admin_ops_tools_board_label_went_well")}</label>
         <textarea
           value={wins}
           onChange={(e) => setWins(e.target.value)}
@@ -84,7 +88,7 @@ export function OpsRetrospectiveForm({
         />
       </div>
       <div>
-        <label className="mb-1 block sam-text-helper text-sam-muted">이슈</label>
+        <label className="mb-1 block sam-text-helper text-sam-muted">{t("admin_ops_tools_board_label_issues")}</label>
         <textarea
           value={issues}
           onChange={(e) => setIssues(e.target.value)}
@@ -93,7 +97,7 @@ export function OpsRetrospectiveForm({
         />
       </div>
       <div>
-        <label className="mb-1 block sam-text-helper text-sam-muted">다음 액션 (액션아이템 생성 placeholder)</label>
+        <label className="mb-1 block sam-text-helper text-sam-muted">{t("admin_ops_tools_board_label_next_action")}</label>
         <textarea
           value={nextActions}
           onChange={(e) => setNextActions(e.target.value)}
@@ -103,7 +107,7 @@ export function OpsRetrospectiveForm({
       </div>
       <div className="flex flex-wrap gap-3">
         <div>
-          <label className="mb-1 block sam-text-helper text-sam-muted">관련 surface</label>
+          <label className="mb-1 block sam-text-helper text-sam-muted">{t("admin_ops_tools_board_label_surface")}</label>
           <select
             value={relatedSurface}
             onChange={(e) => setRelatedSurface(e.target.value as OpsSurface)}
@@ -111,13 +115,13 @@ export function OpsRetrospectiveForm({
           >
             {SURFACE_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
-                {o.label}
+                {t(o.labelKey)}
               </option>
             ))}
           </select>
         </div>
         <div>
-          <label className="mb-1 block sam-text-helper text-sam-muted">관련 보고서 ID</label>
+          <label className="mb-1 block sam-text-helper text-sam-muted">{t("admin_ops_tools_board_label_report_id")}</label>
           <input
             type="text"
             value={relatedReportId}
@@ -131,7 +135,7 @@ export function OpsRetrospectiveForm({
         type="submit"
         className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white"
       >
-        회고 저장
+        {t("admin_ops_tools_board_save_retro")}
       </button>
     </form>
   );

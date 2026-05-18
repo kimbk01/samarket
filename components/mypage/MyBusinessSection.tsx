@@ -1,20 +1,23 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
-const ITEMS: { label: string; href: string; icon: React.ReactNode }[] = [
-  { label: "매장 등록 신청", href: "/stores/owner/apply", icon: <BuildingIcon /> },
-  { label: "매장 관리 (승인 후)", href: "/stores/owner", icon: <StoreManageIcon /> },
-  { label: "광고", href: "/my/ads", icon: <MegaphoneIcon /> },
+const ITEMS: { labelKey: MessageKey; href: string; icon: React.ReactNode }[] = [
+  { labelKey: "mypage_comp_business_store_apply", href: "/stores/owner/apply", icon: <BuildingIcon /> },
+  { labelKey: "mypage_comp_business_store_manage", href: "/stores/owner", icon: <StoreManageIcon /> },
+  { labelKey: "mypage_comp_business_ads", href: "/my/ads", icon: <MegaphoneIcon /> },
 ];
 
 export function MyBusinessSection() {
+  const { t } = useI18n();
   return (
     <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-      <h2 className="mb-3 sam-text-body-secondary font-semibold text-muted">나의 비즈니스</h2>
+      <h2 className="mb-3 sam-text-body-secondary font-semibold text-muted">{t("mypage_comp_section_my_business")}</h2>
       <ul className="space-y-0">
         {ITEMS.map((item, i) => (
-          <li key={item.label}>
+          <li key={item.labelKey}>
             <Link
               href={item.href}
               className="flex items-center gap-3 py-3 sam-text-body text-sam-fg"
@@ -22,7 +25,7 @@ export function MyBusinessSection() {
               <span className="flex h-8 w-8 items-center justify-center text-sam-muted">
                 {item.icon}
               </span>
-              <span className="flex-1">{item.label}</span>
+              <span className="flex-1">{t(item.labelKey)}</span>
               <ChevronRight />
             </Link>
             {i < ITEMS.length - 1 && <hr className="border-sam-border" />}

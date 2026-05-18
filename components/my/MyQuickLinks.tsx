@@ -1,32 +1,31 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MYPAGE_TRADE_FAVORITES_HREF } from "@/lib/mypage/trade-hub-paths";
 
 interface MyQuickLinksProps {
-  /** 찜(관심) 상품 개수 — 0보다 크면 관심목록에 뱃지 */
   favoriteCount?: number | null;
-  /** 인앱 알림 미읽음 — null 이면 배지 숨김 */
   notificationUnreadCount?: number | null;
 }
 
-/** 바로가기: 관심목록 / 최근 본 글 / 혜택 / 알림 — 인스타형 아웃라인 아이콘 */
 export function MyQuickLinks({ favoriteCount, notificationUnreadCount }: MyQuickLinksProps) {
+  const { t } = useI18n();
   return (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
       <Link
         href={MYPAGE_TRADE_FAVORITES_HREF}
         className="relative flex flex-col items-center rounded-ui-rect border border-sam-border bg-sam-surface py-4 active:bg-sam-primary-soft"
       >
-        {favoriteCount != null && favoriteCount > 0 && (
+        {favoriteCount != null && favoriteCount > 0 ? (
           <span className="absolute right-3 top-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 sam-text-xxs font-bold text-white ring-2 ring-sam-surface">
             {favoriteCount > 99 ? "99+" : favoriteCount}
           </span>
-        )}
+        ) : null}
         <span className="mb-1 flex h-8 w-8 items-center justify-center text-foreground">
           <HeartOutlineIcon />
         </span>
-        <span className="sam-text-body-secondary font-medium text-foreground">관심목록</span>
+        <span className="sam-text-body-secondary font-medium text-foreground">{t("my_quick_favorites")}</span>
       </Link>
       <Link
         href="/my/recent-viewed"
@@ -35,7 +34,7 @@ export function MyQuickLinks({ favoriteCount, notificationUnreadCount }: MyQuick
         <span className="mb-1 flex h-8 w-8 items-center justify-center text-foreground">
           <ClockOutlineIcon />
         </span>
-        <span className="sam-text-body-secondary font-medium text-foreground">최근 본 글</span>
+        <span className="sam-text-body-secondary font-medium text-foreground">{t("my_quick_recent")}</span>
       </Link>
       <Link
         href="/my/benefits"
@@ -44,21 +43,21 @@ export function MyQuickLinks({ favoriteCount, notificationUnreadCount }: MyQuick
         <span className="mb-1 flex h-8 w-8 items-center justify-center text-foreground">
           <GiftOutlineIcon />
         </span>
-        <span className="sam-text-body-secondary font-medium text-foreground">혜택</span>
+        <span className="sam-text-body-secondary font-medium text-foreground">{t("my_quick_benefits")}</span>
       </Link>
       <Link
         href="/mypage/notifications"
         className="relative flex flex-col items-center rounded-ui-rect border border-sam-border bg-sam-surface py-4 active:bg-sam-primary-soft"
       >
-        {notificationUnreadCount != null && notificationUnreadCount > 0 && (
+        {notificationUnreadCount != null && notificationUnreadCount > 0 ? (
           <span className="absolute right-3 top-2 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-red-500 px-1 sam-text-xxs font-bold text-white ring-2 ring-sam-surface">
             {notificationUnreadCount > 99 ? "99+" : notificationUnreadCount}
           </span>
-        )}
+        ) : null}
         <span className="mb-1 flex h-8 w-8 items-center justify-center text-foreground">
           <BellOutlineIcon />
         </span>
-        <span className="sam-text-body-secondary font-medium text-foreground">알림</span>
+        <span className="sam-text-body-secondary font-medium text-foreground">{t("my_quick_notifications")}</span>
       </Link>
     </div>
   );

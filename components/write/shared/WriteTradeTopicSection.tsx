@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useEffect, useState } from "react";
 import type { CategoryWithSettings } from "@/lib/categories/types";
@@ -22,6 +23,7 @@ export function WriteTradeTopicSection({
   onChange,
   compact = false,
 }: WriteTradeTopicSectionProps) {
+  const { t } = useI18n();
   const [topics, setTopics] = useState<CategoryWithSettings[]>([]);
 
   useEffect(() => {
@@ -45,11 +47,11 @@ export function WriteTradeTopicSection({
       <p className={`sam-text-body font-medium text-sam-fg ${compact ? "mb-1 leading-tight sam-text-body-secondary" : "mb-2"}`}>
         {compact ? (
           <>
-            주제<span className="font-normal text-sam-muted"> · 하나만</span>
+            {t("ui_write_topic_label")}<span className="font-normal text-sam-muted">{t("ui_write_topic_one_only")}</span>
           </>
         ) : (
           <>
-            주제 <span className="font-normal text-sam-muted">(하나만 선택)</span>
+            {t("ui_write_topic_label")} <span className="font-normal text-sam-muted">{t("ui_write_topic_select_paren")}</span>
           </>
         )}
       </p>
@@ -63,7 +65,7 @@ export function WriteTradeTopicSection({
             }}
             className="rounded border-sam-border"
           />
-          <span className="sam-text-body text-sam-fg">전체</span>
+          <span className="sam-text-body text-sam-fg">{t("ui_fav_filter_all")}</span>
         </label>
         {topics.map((t) => (
           <label

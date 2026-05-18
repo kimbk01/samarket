@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-entry-modal";
 
 interface SettingsAdminEntryProps {
@@ -11,15 +12,14 @@ interface SettingsAdminEntryProps {
 }
 
 export function SettingsAdminEntry({ showAdmin, showStoreOwner }: SettingsAdminEntryProps) {
-  const { goBusinessHubOrModal, hubBlockedModal } = useStoreBusinessHubEntryModal("확인");
+  const { t } = useI18n();
+  const { goBusinessHubOrModal, hubBlockedModal } = useStoreBusinessHubEntryModal(t("common_confirm"));
   if (!showAdmin && !showStoreOwner) return null;
   return (
     <section className="mt-6 rounded-ui-rect bg-sam-surface px-4 py-4 shadow-sm">
       <div className="mb-3">
-        <h2 className="sam-text-body-secondary font-medium text-sam-muted">보조 바로가기</h2>
-        <p className="mt-1 sam-text-helper leading-relaxed text-sam-muted">
-          운영 기능이 필요할 때만 여는 보조 진입입니다. 주문과 매장 운영 흐름은 매장 메뉴에서 이어집니다.
-        </p>
+        <h2 className="sam-text-body-secondary font-medium text-sam-muted">{t("settings_admin_shortcuts")}</h2>
+        <p className="mt-1 sam-text-helper leading-relaxed text-sam-muted">{t("settings_admin_shortcuts_desc")}</p>
       </div>
       <div className="divide-y divide-sam-border-soft rounded-ui-rect border border-sam-border-soft">
         {showAdmin ? (
@@ -27,7 +27,7 @@ export function SettingsAdminEntry({ showAdmin, showStoreOwner }: SettingsAdminE
             href="/admin"
             className="flex items-center justify-between px-4 py-3 sam-text-body font-medium text-signature"
           >
-            <span>관리자 접속</span>
+            <span>{t("settings_admin_portal")}</span>
             <ChevronRight />
           </Link>
         ) : null}
@@ -37,7 +37,7 @@ export function SettingsAdminEntry({ showAdmin, showStoreOwner }: SettingsAdminE
             onClick={() => goBusinessHubOrModal("/stores/owner")}
             className="flex w-full items-center justify-between px-4 py-3 text-left sam-text-body font-medium text-sam-fg"
           >
-            <span>매장 관리자 접속</span>
+            <span>{t("settings_store_admin_portal")}</span>
             <ChevronRight className="text-sam-meta" />
           </button>
         ) : null}

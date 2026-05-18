@@ -1,14 +1,16 @@
 ﻿"use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import type { StoreCommerceCartLine } from "@/lib/stores/store-commerce-cart-types";
-import { STORE_CART_OTHER_STORE_CONFLICT } from "@/lib/stores/store-cart-policy";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import {
+  CART_POPUP_BTN_DANGER,
+  CART_POPUP_BTN_GHOST,
+  CART_POPUP_BTN_SECONDARY,
   CART_POPUP_RADIUS_CLASS,
   StoreCommerceCartAlert,
   StoreCommerceCartCenterPopup,
 } from "@/components/stores/cart/StoreCommerceCartCenterPopup";
-import { DeliveryButton } from "@/components/delivery/ui/DeliveryButton";
 
 export type StoreCartConflictPendingAdd = {
   title: string;
@@ -64,10 +66,11 @@ function CartConflictSection({
   lines?: StoreCommerceCartLine[];
   pendingAdd?: StoreCartConflictPendingAdd | null;
 }) {
+  const { t } = useI18n();
   const isCurrent = tone === "current";
   const label = isCurrent
-    ? STORE_CART_OTHER_STORE_CONFLICT.currentCartLabel
-    : STORE_CART_OTHER_STORE_CONFLICT.pendingAddLabel;
+    ? t("store_cart_current_label")
+    : t("store_cart_pending_label");
 
   return (
     <section className="mt-3">
@@ -115,15 +118,15 @@ function CartConflictSection({
         ) : null}
 
         {isCurrent && (!lines || lines.length === 0) ? (
-          <p className="px-2.5 py-3 text-center text-[12px] text-neutral-500">담긴 메뉴 없음</p>
+          <p className="px-2.5 py-3 text-center text-[12px] text-neutral-500">{t("store_cart_preview_none")}</p>
         ) : null}
 
         {isCurrent && subtotalPhp != null ? (
           <div className="flex items-center justify-between border-t border-neutral-200 bg-neutral-50 px-2.5 py-2">
             <span className="text-[12px] font-semibold text-neutral-600">
-              {STORE_CART_OTHER_STORE_CONFLICT.listTotal}
+              {t("store_cart_list_total")}
               {itemCount != null && itemCount > 0 ? (
-                <span className="ml-1 font-normal text-neutral-500">· {itemCount}종</span>
+                <span className="ml-1 font-normal text-neutral-500">{t("store_cart_items_kind", { count: itemCount })}</span>
               ) : null}
             </span>
             <span className="text-[14px] font-bold tabular-nums text-neutral-900">
@@ -135,7 +138,7 @@ function CartConflictSection({
         {!isCurrent && pendingAdd ? (
           <div className="flex items-center justify-between border-t border-neutral-200 bg-[#E6F4F9]/50 px-2.5 py-2">
             <span className="text-[12px] font-semibold text-[#1C8DB8]">
-              {STORE_CART_OTHER_STORE_CONFLICT.listTotal}
+              {t("store_cart_list_total")}
             </span>
             <span className="text-[14px] font-bold tabular-nums text-neutral-900">
               {formatMoneyPhp(pendingAdd.lineTotalPhp)}
@@ -175,32 +178,43 @@ export function StoreCartOtherStoreConflictDialog({
   onCancel: () => void;
   onClearAndAdd: () => void;
 }) {
-  const existingLabel = existingStoreName.trim() || "다른 가게";
+  const { t } = useI18n();
+  const existingLabel = existingStoreName.trim() || t("store_other_store");
   const nextLabel = nextStoreName.trim();
   const visibleLines = existingLines.filter((l) => Math.floor(Number(l.qty) || 0) > 0);
 
   return (
     <StoreCommerceCartCenterPopup
       open={open}
-      title={STORE_CART_OTHER_STORE_CONFLICT.title}
+      title={t("store_cart_other_title")}
       titleId="store-cart-conflict-title"
       busy={replaceBusy}
       onBackdropClose={onCancel}
       footer={
         <>
-          <DeliveryButton variant="secondary" size="full" disabled={replaceBusy} onClick={onViewCart}>
-            {STORE_CART_OTHER_STORE_CONFLICT.viewCart}
-          </DeliveryButton>
-          <DeliveryButton variant="danger" size="full" disabled={replaceBusy} onClick={onClearAndAdd}>
-            {replaceBusy ? "처리 중…" : STORE_CART_OTHER_STORE_CONFLICT.confirm}
-          </DeliveryButton>
-          <DeliveryButton variant="ghost" size="full" disabled={replaceBusy} onClick={onCancel}>
-            {STORE_CART_OTHER_STORE_CONFLICT.cancel}
-          </DeliveryButton>
+          <button
+            type="button"
+            onClick={onViewCart}
+            disabled={replaceBusy}
+            className={CART_POPUP_BTN_SECONDARY}
+          >
+            {t("store_cart_view")}
+          </button>
+          <button
+            type="button"
+            onClick={onClearAndAdd}
+            disabled={replaceBusy}
+            className={CART_POPUP_BTN_DANGER}
+          >
+            {replaceBusy ? t("store_cart_conflict_processing") : t("store_cart_replace_confirm")}
+          </button>
+          <button type="button" onClick={onCancel} disabled={replaceBusy} className={CART_POPUP_BTN_GHOST}>
+            {t("common_cancel")}
+          </button>
         </>
       }
     >
-      <StoreCommerceCartAlert>{STORE_CART_OTHER_STORE_CONFLICT.singleStoreRule}</StoreCommerceCartAlert>
+      <StoreCommerceCartAlert>{t("store_cart_single_store_rule")}</StoreCommerceCartAlert>
 
       <CartConflictSection
         tone="current"
@@ -216,7 +230,7 @@ export function StoreCartOtherStoreConflictDialog({
         <section className="mt-3">
           <div className="mb-1.5 flex items-baseline justify-between gap-2">
             <p className="text-[12px] font-bold text-[#1C8DB8]">
-              {STORE_CART_OTHER_STORE_CONFLICT.pendingAddLabel}
+              {t("store_cart_pending_label")}
             </p>
             <p className="truncate text-[13px] font-bold text-neutral-900">{nextLabel}</p>
           </div>

@@ -37,6 +37,8 @@ import { OwnerProductOptionsTab } from "@/components/business/owner/OwnerProduct
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
 import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerStoreAdminDashSection";
 import { OwnerStoreMenuSectionPicker } from "@/components/business/owner/OwnerStoreMenuSectionPicker";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 type FormValues = {
   title: string;
   summary: string;
@@ -198,6 +200,7 @@ export function OwnerProductForm({
   /** 상품 목록에서 탭 선택 후 들어올 때 미리 선택할 매장 카테고리(store_menu_sections id) */
   initialMenuSectionId?: string;
 }) {
+  const { t, language } = useI18n();
   const router = useRouter();
   const priceUnit = useMemo(() => getCurrencyUnitLabel(getAppSettings().defaultCurrency), []);
   const [values, setValues] = useState<FormValues>(() => ({
@@ -337,7 +340,7 @@ export function OwnerProductForm({
       });
       const json = await res.json();
       if (!json?.ok) {
-        setError(json?.error ?? "삭제 실패");
+        setError(json?.error ?? t("business_phase7_352"));
         return;
       }
       router.push(`/stores/owner/products?storeId=${encodeURIComponent(storeId)}`);
@@ -358,7 +361,7 @@ export function OwnerProductForm({
       });
       const json = await res.json();
       if (!json?.ok || !json.product) {
-        setError(json?.error ?? "불러오기 실패");
+        setError(json?.error ?? t("business_phase7_353"));
         return;
       }
       const p = json.product as Record<string, unknown>;
@@ -423,37 +426,37 @@ export function OwnerProductForm({
     setSaving(true);
     setError(null);
     if (!values.title.trim()) {
-      setError("상품명을 입력해 주세요.");
+      setError(t("business_phase7_354"));
       setFormTab("basic");
       setSaving(false);
       return;
     }
     if (!values.price.trim()) {
-      setError("가격을 입력해 주세요.");
+      setError(t("business_phase7_355"));
       setFormTab("basic");
       setSaving(false);
       return;
     }
     const price = parseInt(values.price.replace(/\D/g, ""), 10);
     if (!Number.isFinite(price) || price < 0) {
-      setError("가격을 올바르게 입력해 주세요.");
+      setError(t("business_phase7_356"));
       setFormTab("basic");
       setSaving(false);
       return;
     }
     if (menuSections.length === 0) {
-      setError("먼저 카테고리 관리에서 메뉴 구역을 추가해 주세요.");
+      setError(t("business_phase7_357"));
       setCategoryGateModal("no_sections");
       setSaving(false);
       return;
     }
     if (!values.menu_section_id.trim()) {
-      setError("저장하려면 카테고리를 선택해 주세요.");
+      setError(t("business_phase7_358"));
       setCategoryGateModal("pick_required");
       setSaving(false);
       return;
     }
-    const optRes = validateProductOptionGroups(values.optionGroups);
+    const optRes = validateProductOptionGroups(values.optionGroups, language);
     if (!optRes.ok) {
       setError(optRes.message);
       scrollToOptionsBlock();
@@ -464,7 +467,7 @@ export function OwnerProductForm({
       (s) => (s.type === "file" && s.file) || (s.type === "url" && !!s.url?.trim())
     );
     if (!hasProductImage) {
-      setError("이미지를 1장 이상 등록해 주세요.");
+      setError(t("business_phase7_359"));
       setFormTab("basic");
       setSaving(false);
       return;
@@ -509,7 +512,7 @@ export function OwnerProductForm({
         } else if (s.type === "url" && s.url?.trim()) {
           resolvedUrls.push(s.url.trim());
         } else {
-          setError("이미지 정보가 올바르지 않습니다.");
+          setError(t("business_phase7_360"));
           return;
         }
       }
@@ -520,7 +523,7 @@ export function OwnerProductForm({
       }
       const thumbnail_url = resolvedUrls[repIdx] ?? "";
       if (!thumbnail_url) {
-        setError("대표 이미지를 확인할 수 없습니다.");
+        setError(t("business_phase7_361"));
         return;
       }
       const repSlot = imageSlots[repIdx];
@@ -566,23 +569,23 @@ export function OwnerProductForm({
         if (!json?.ok) {
           setError(
             json?.error === "sales_not_approved"
-              ? "판매 승인이 필요합니다. 관리자에게 판매 권한 승인을 요청하세요."
+              ? t("business_phase7_362")
               : json?.error === "migration_pending"
-                ? "DB 마이그레이션(store_menu_sections)을 적용한 뒤 다시 시도해 주세요."
+                ? t("business_phase7_363")
                 : json?.error === "menu_sections_required"
-                  ? "먼저 카테고리 관리에서 메뉴 구역을 추가한 뒤 등록해 주세요."
+                  ? t("business_phase7_364")
                   : json?.error === "menu_section_id_required"
-                    ? "저장하려면 카테고리를 선택해 주세요."
+                    ? t("business_phase7_358")
                     : json?.error === "invalid_menu_section_id"
-                      ? "선택한 카테고리가 없거나 매장에 속하지 않습니다. 다시 선택해 주세요."
+                      ? t("business_phase7_365")
                       : json?.error === "thumbnail_required"
-                        ? "대표 이미지를 등록해 주세요."
+                        ? t("business_phase7_366")
                         : json?.error === "detail_image_overlaps_thumbnail" &&
                             typeof json?.message === "string"
                           ? json.message
                           : json?.error === "invalid_options_json" && typeof json?.message === "string"
                             ? json.message
-                            : json?.error ?? "등록 실패"
+                            : json?.error ?? t("business_phase7_367")
           );
           if (json?.error === "invalid_options_json") scrollToOptionsBlock();
           if (
@@ -607,21 +610,21 @@ export function OwnerProductForm({
         if (!json?.ok) {
           setError(
             json?.error === "migration_pending"
-              ? "DB 마이그레이션(store_menu_sections)을 적용한 뒤 다시 시도해 주세요."
+              ? t("business_phase7_363")
               : json?.error === "menu_sections_required"
-                ? "먼저 카테고리 관리에서 메뉴 구역을 추가한 뒤 저장해 주세요."
+                ? t("business_phase7_364")
                 : json?.error === "menu_section_id_required"
-                  ? "저장하려면 카테고리를 선택해 주세요."
+                  ? t("business_phase7_358")
                   : json?.error === "invalid_menu_section_id"
-                    ? "선택한 카테고리가 없거나 매장에 속하지 않습니다. 다시 선택해 주세요."
+                    ? t("business_phase7_365")
                     : json?.error === "thumbnail_required"
-                      ? "대표 이미지를 등록해 주세요."
+                      ? t("business_phase7_366")
                       : json?.error === "detail_image_overlaps_thumbnail" &&
                           typeof json?.message === "string"
                         ? json.message
                         : json?.error === "invalid_options_json" && typeof json?.message === "string"
                           ? json.message
-                          : json?.error ?? "저장 실패"
+                          : json?.error ?? t("business_phase7_368")
           );
           if (json?.error === "invalid_options_json") scrollToOptionsBlock();
           if (
@@ -693,7 +696,7 @@ export function OwnerProductForm({
   if (loading) {
     return (
       <div className="flex min-h-0 flex-1 flex-col items-stretch justify-center px-4 py-6">
-        <p className="sam-text-body text-sam-muted">불러오는 중…</p>
+        <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
       </div>
     );
   }
@@ -705,13 +708,13 @@ export function OwnerProductForm({
           ref={categoryStripRef}
           className="border-t border-sam-border-soft bg-sam-surface px-2 py-1.5"
           role="group"
-          aria-label="등록 카테고리"
+          aria-label={t("business_phase7_055")}
         >
           <label
             htmlFor={menuSectionSelectId}
             className="mb-1 block px-0.5 sam-text-xxs font-medium uppercase tracking-wide text-sam-meta"
           >
-            {menuSections.length > 0 ? "카테고리 (필수)" : "카테고리"}
+            {menuSections.length > 0 ? t("business_phase7_369") : t("business_phase7_370")}
           </label>
           <OwnerStoreMenuSectionPicker
             ref={menuSectionSelectRef}
@@ -734,7 +737,7 @@ export function OwnerProductForm({
                 : "border-transparent text-sam-muted"
             }`}
           >
-            기본정보
+            {t("business_phase7_371")}
           </button>
           <button
             type="button"
@@ -745,7 +748,7 @@ export function OwnerProductForm({
                 : "border-transparent text-sam-muted"
             }`}
           >
-            옵션설정
+            {t("business_phase7_372")}
           </button>
           <button
             type="button"
@@ -756,7 +759,7 @@ export function OwnerProductForm({
               formTab === "language" ? "border-signature text-signature" : "border-transparent text-sam-muted"
             }`}
           >
-            언어
+            {t("business_phase7_187")}
           </button>
         </nav>
       </div>
@@ -772,13 +775,13 @@ export function OwnerProductForm({
       >
         {error ? (
           <div className="rounded-ui-rect bg-red-50 px-2 py-1.5 sam-text-body-secondary text-red-800">
-            {error}
+            {resolveOwnerApiErrorMessage(error, t)}
           </div>
         ) : null}
 
         {formTab === "basic" ? (
           <>
-            <OwnerStoreAdminDashSection pad="narrow" title="필수 정보">
+            <OwnerStoreAdminDashSection pad="narrow" title={t("business_phase7_324")}>
               <div className="space-y-2">
                 <OwnerProductImagesBlock
                   slots={imageSlots}
@@ -789,7 +792,7 @@ export function OwnerProductForm({
                   onClientError={setError}
                 />
                 <div>
-                  <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>상품명</label>
+                  <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_156")}</label>
                   <input
                     required
                     value={values.title}
@@ -798,17 +801,17 @@ export function OwnerProductForm({
                   />
                 </div>
                 <div className="min-w-0">
-                  <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>한 줄 설명</label>
+                  <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_325")}</label>
                   <input
                     value={values.summary}
                     onChange={(e) => setValues((v) => ({ ...v, summary: e.target.value }))}
                     className={OWNER_STORE_PROFILE_CONTROL_CLASS}
-                    placeholder="목록에 보이는 짧은 설명"
+                    placeholder={t("business_phase7_095")}
                   />
                 </div>
                 <div>
                   <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>
-                    기본 가격 ({priceUnit}) *
+                    {t("business_phase7_373", { v1: priceUnit })}
                   </label>
                   <input
                     required
@@ -824,10 +827,10 @@ export function OwnerProductForm({
               </div>
             </OwnerStoreAdminDashSection>
 
-            <OwnerStoreAdminDashSection pad="narrow" title="할인">
+            <OwnerStoreAdminDashSection pad="narrow" title={t("business_phase7_326")}>
               <div className="space-y-2">
                 <div>
-                  <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>할인율 (%)</label>
+                  <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_327")}</label>
                   <div className="flex items-center gap-2">
                     <input
                       inputMode="numeric"
@@ -847,7 +850,7 @@ export function OwnerProductForm({
                 </div>
                 <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-2 py-1.5">
                   <p className="sam-text-helper text-sam-muted">
-                    할인 적용가(주문 단가)
+                    {t("business_phase7_374")}
                     {saleAfterDiscount != null ? (
                       <span className="ml-2 sam-text-body font-bold text-signature">
                         {formatPrice(saleAfterDiscount, previewCurrency)}
@@ -860,10 +863,10 @@ export function OwnerProductForm({
               </div>
             </OwnerStoreAdminDashSection>
 
-            <OwnerStoreAdminDashSection pad="narrow" title="재고">
+            <OwnerStoreAdminDashSection pad="narrow" title={t("business_phase7_242")}>
               <div className="space-y-2">
                 <div>
-                  <p className="mb-2 sam-text-body-secondary font-medium text-sam-fg">재고 관리</p>
+                  <p className="mb-2 sam-text-body-secondary font-medium text-sam-fg">{t("business_phase7_243")}</p>
                   <div className="flex gap-2">
                     <button
                       type="button"
@@ -874,7 +877,7 @@ export function OwnerProductForm({
                           : "border border-sam-border bg-sam-surface text-sam-fg"
                       }`}
                     >
-                      재고 확인 안 함
+                      {t("business_phase7_375")}
                     </button>
                     <button
                       type="button"
@@ -885,18 +888,18 @@ export function OwnerProductForm({
                           : "border border-sam-border bg-sam-surface text-sam-fg"
                       }`}
                     >
-                      재고 입력
+                      {t("business_phase7_376")}
                     </button>
                   </div>
                   {values.track_inventory ? (
                     <p className="mt-2 sam-text-xxs leading-relaxed text-sam-muted">
-                      주문 확정 시 재고가 줄고, 0이 되면 자동으로 품절(판매 중지) 처리됩니다.
+                      {t("business_phase7_377")}
                     </p>
                   ) : null}
                 </div>
                 {values.track_inventory ? (
                   <div>
-                    <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>재고 수량</label>
+                    <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_244")}</label>
                     <input
                       inputMode="numeric"
                       value={formatPriceInput(values.stock_qty)}
@@ -922,7 +925,7 @@ export function OwnerProductForm({
             >
               <OwnerStoreAdminDashSection
                 pad="narrow"
-                title="옵션 설정"
+                title={t("business_phase7_219")}
                 surfaceTone="bizSoft"
                 className="border-0 shadow-md ring-1 ring-inset ring-[var(--biz-primary)]/30"
               >
@@ -944,18 +947,18 @@ export function OwnerProductForm({
                   onClick={() => setDeleteConfirmOpen(true)}
                   className="w-full rounded-ui-rect border border-red-200 bg-red-50 py-2.5 sam-text-body font-medium text-red-800 disabled:opacity-50"
                 >
-                  {deleting ? "처리 중…" : "상품 삭제(목록에서 제거)"}
+                  {deleting ? t("common_processing") : t("business_phase7_378")}
                 </button>
               </div>
             ) : null}
 
-            <OwnerStoreAdminDashSection pad="narrow" title="주문·노출·품절·추천·대표">
+            <OwnerStoreAdminDashSection pad="narrow" title={t("business_phase7_273")}>
               <div className="space-y-1.5">
                 <div className="grid min-w-0 grid-cols-2 gap-1.5">
                   <StatusToggleBandedRow
                     band="a"
-                    label="주문"
-                    title="지금 주문 가능"
+                    label={t("business_phase7_260")}
+                    title={t("business_phase7_279")}
                     checked={isListed}
                     disabled={isHidden || isSoldOut}
                     onToggle={() =>
@@ -967,8 +970,8 @@ export function OwnerProductForm({
                   />
                   <StatusToggleBandedRow
                     band="b"
-                    label="노출"
-                    title="목록에 노출(숨김 해제)"
+                    label={t("business_phase7_379")}
+                    title={t("business_phase7_094")}
                     checked={!isHidden}
                     onToggle={() =>
                       setValues((v) => ({
@@ -981,7 +984,7 @@ export function OwnerProductForm({
                 <div className="grid min-w-0 grid-cols-2 gap-1.5">
                   <StatusToggleBandedRow
                     band="a"
-                    label="품절"
+                    label={t("business_phase7_317")}
                     checked={isSoldOut}
                     onToggle={() =>
                       setValues((v) => ({
@@ -992,8 +995,8 @@ export function OwnerProductForm({
                   />
                   <StatusToggleBandedRow
                     band="b"
-                    label="사장님 추천"
-                    title="메뉴판 상단 추천과 카테고리 목록에 함께 표시"
+                    label={t("business_phase7_380")}
+                    title={t("business_phase7_091")}
                     checked={values.is_owner_recommended}
                     onToggle={() =>
                       setValues((v) => ({ ...v, is_owner_recommended: !v.is_owner_recommended }))
@@ -1002,15 +1005,15 @@ export function OwnerProductForm({
                 </div>
                 <StatusToggleBandedRow
                   band="b"
-                  label="대표 메뉴"
-                  title="상품 상세 등에서 대표 배지로 표시"
+                  label={t("business_phase7_381")}
+                  title={t("business_phase7_152")}
                   checked={values.is_representative}
                   onToggle={() =>
                     setValues((v) => ({ ...v, is_representative: !v.is_representative }))
                   }
                 />
                 <p className="sam-text-caption leading-relaxed text-sam-muted">
-                  인기 메뉴 순위는 최근 주문 집계로 자동 반영되며, 여기서는 켜거나 끌 수 없습니다.
+                  {t("business_phase7_382")}
                 </p>
               </div>
             </OwnerStoreAdminDashSection>
@@ -1018,9 +1021,9 @@ export function OwnerProductForm({
         ) : null}
 
         {formTab === "language" ? (
-          <OwnerStoreAdminDashSection pad="narrow" title="언어">
+          <OwnerStoreAdminDashSection pad="narrow" title={t("business_phase7_187")}>
             <div className="py-2 text-center sam-text-body leading-relaxed text-sam-muted">
-              상품명·옵션·한 줄 설명의 다국어 입력은 추후 지원 예정입니다.
+              {t("business_phase7_383")}
             </div>
           </OwnerStoreAdminDashSection>
         ) : null}
@@ -1029,7 +1032,7 @@ export function OwnerProductForm({
           <div
             className="grid grid-cols-2 gap-2 pb-[max(0px,env(safe-area-inset-bottom,0px))]"
             role="group"
-            aria-label="취소 및 저장"
+            aria-label={t("business_phase7_295")}
           >
             <button
               type="button"
@@ -1037,14 +1040,14 @@ export function OwnerProductForm({
               disabled={saving || deleting || uploading}
               className="min-h-[48px] rounded-ui-rect border border-sam-border bg-sam-surface px-2 sam-text-body font-semibold text-signature disabled:opacity-50"
             >
-              취소
+              {t("common_cancel")}
             </button>
             <button
               type="submit"
               disabled={!isDirty || saving || deleting || uploading}
               className="min-h-[48px] rounded-ui-rect border border-transparent bg-signature px-2 sam-text-body font-semibold text-white disabled:opacity-50"
             >
-              {saving ? "저장 중…" : "저장"}
+              {saving ? t("business_phase7_384") : t("business_phase7_385")}
             </button>
           </div>
         </OwnerStoreAdminDashSection>
@@ -1054,13 +1057,10 @@ export function OwnerProductForm({
       <OwnerStoreAdminConfirmModal
         open={cancelDirtyConfirmOpen}
         titleId="owner-product-cancel-dirty-title"
-        title="작성 내용을 취소할까요?"
-        description={
-          "이 화면에서 바꾼 내용이 아직 저장되지 않았습니다.\n" +
-          "작성 내용을 지우면 마지막으로 저장된 상태로 되돌아가며, 신규 등록이면 빈 양식으로 초기화됩니다."
-        }
-        cancelLabel="계속 작성"
-        confirmLabel="작성 내용 지우기"
+        title={t("business_phase7_241")}
+        description={t("business_phase7_386")}
+        cancelLabel={t("business_phase7_387")}
+        confirmLabel={t("business_phase7_388")}
         confirmTone="danger"
         onCancel={() => setCancelDirtyConfirmOpen(false)}
         onConfirm={async () => {
@@ -1071,11 +1071,11 @@ export function OwnerProductForm({
       <OwnerStoreAdminConfirmModal
         open={deleteConfirmOpen}
         titleId="owner-product-delete-title"
-        title="삭제 확인"
-        description="삭제하시겠습니까??\n\n상품이 목록에서 사라집니다."
-        cancelLabel="취소"
-        confirmLabel="삭제"
-        confirmBusyLabel="처리 중…"
+        title={t("business_phase7_139")}
+        description={t("business_phase7_389")}
+        cancelLabel={t("common_cancel")}
+        confirmLabel={t("common_delete")}
+        confirmBusyLabel={t("common_processing")}
         busy={deleting}
         disableActions={deleting || saving}
         confirmTone="danger"
@@ -1088,13 +1088,10 @@ export function OwnerProductForm({
       <OwnerStoreAdminConfirmModal
         open={categoryGateModal === "no_sections"}
         titleId="owner-product-category-no-sections-title"
-        title="카테고리가 필요합니다"
-        description={
-          "상품을 등록·저장하려면 먼저 카테고리 관리에서 메뉴 구역을 한 개 이상 만든 뒤,\n" +
-          "이 화면 상단에서 선택해야 합니다."
-        }
-        cancelLabel="닫기"
-        confirmLabel="카테고리 관리"
+        title={t("business_phase7_305")}
+        description={t("business_phase7_390")}
+        cancelLabel={t("common_close")}
+        confirmLabel={t("business_phase7_391")}
         confirmTone="primary"
         onCancel={() => setCategoryGateModal(null)}
         onConfirm={async () => {
@@ -1105,13 +1102,10 @@ export function OwnerProductForm({
       <OwnerStoreAdminConfirmModal
         open={categoryGateModal === "pick_required"}
         titleId="owner-product-category-pick-required-title"
-        title="카테고리를 선택해 주세요"
-        description={
-          "저장하려면 화면 상단의 카테고리(메뉴 구역) 드롭다운에서\n" +
-          "노출할 구역을 선택한 뒤 다시 저장해 주세요."
-        }
-        cancelLabel="닫기"
-        confirmLabel="카테고리로 이동"
+        title={t("business_phase7_306")}
+        description={t("business_phase7_392")}
+        cancelLabel={t("common_close")}
+        confirmLabel={t("business_phase7_393")}
         confirmTone="primary"
         onCancel={() => setCategoryGateModal(null)}
         onConfirm={async () => {

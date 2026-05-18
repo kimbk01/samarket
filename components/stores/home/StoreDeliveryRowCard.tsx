@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useRouter } from "next/navigation";
 import { memo, useCallback } from "react";
@@ -124,6 +125,7 @@ export function storeRowCardDataEqual(a: StoreRowCardData, b: StoreRowCardData):
 }
 
 function reviewLabel(n: number) {
+  const { t } = useI18n();
   if (n > 9999) return "9,999+";
   return n.toLocaleString("en-PH");
 }
@@ -248,6 +250,7 @@ export function browseItemToRowCard(s: BrowseStoreListItem): StoreRowCardData {
  * Facebook 피드 게시물형 — 40px 아바타, 이름+메타 줄, 본문, 하단 액션 바
  */
 function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
+  const { t } = useI18n();
   const router = useRouter();
   const viewportRef = useDeliveryStoreDetailViewportPrefetch(data.slug);
   const prefetchStoreDetail = useCallback(
@@ -382,7 +385,7 @@ function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
                 "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
               ].join(" ")}
               style={{ WebkitOverflowScrolling: "touch" }}
-              aria-label="대표 메뉴 이미지"
+              aria-label={t("store_featured_menu_image_aria")}
             >
               {featuredMenuImages.map((item) => {
                 const price = priceLabel(item.price);
@@ -459,7 +462,7 @@ function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
                     strokeLinejoin="round"
                   />
                 </svg>
-                <span className="text-[13px] font-semibold leading-none text-[#111]/70 dark:text-white/70">더보기</span>
+                <span className="text-[13px] font-semibold leading-none text-[#111]/70 dark:text-white/70">{t("store_show_more")}</span>
               </div>
             </button>
           )}
@@ -532,7 +535,7 @@ function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
                 {showBrowseStraightPin ? (
                   <span
                     className="inline-flex shrink-0 items-center gap-0.5 font-medium text-[#4B5563] dark:text-[#B8C0CA]"
-                    title="직선 거리"
+                    title={t("store_straight_distance_title")}
                   >
                     <BrowseListStraightDistancePinIcon className="shrink-0" />
                     <span>{d}</span>
@@ -540,7 +543,7 @@ function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
                 ) : showPinHaversine ? (
                   <span
                     className="inline-flex shrink-0 items-center gap-1 font-medium"
-                    title="직선 거리"
+                    title={t("store_straight_distance_title")}
                   >
                     <svg className="h-3.5 w-3.5 opacity-70" viewBox="0 0 24 24" fill="none" aria-hidden>
                       <path
@@ -585,7 +588,7 @@ function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
                   className="mt-1 line-clamp-2 text-[12px] font-medium leading-snug text-[#6B7280] dark:text-[#9AA3AD]"
                   title={data.paymentMethodsLine}
                 >
-                  <span className="font-semibold text-[#4B5563] dark:text-[#B8C0CA]">결제</span> ·{" "}
+                  <span className="font-semibold text-[#4B5563] dark:text-[#B8C0CA]">{t("store_label_payment")}</span> ·{" "}
                   {data.paymentMethodsLine}
                 </p>
               : null}

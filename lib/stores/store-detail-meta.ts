@@ -5,6 +5,9 @@
  * - 공지 배열: `public_notices` (+ 레거시 `promo_banner`는 읽기 시 `readPublicNoticesFromBusinessRecord`에서 병합).
  * - 고객 표시: `StorePublicNoticesList` + `parseStoreDeliveryMeta` — 매장 메인·가게정보 동일 데이터.
  */
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { translate } from "@/lib/i18n/messages";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { coerceBusinessHoursRecord } from "@/lib/stores/coerce-business-hours-json";
 import { paymentMethodsLineFromBusinessRecord } from "@/lib/stores/payment-methods-config";
 import { normalizeHHMM } from "@/lib/stores/store-auto-hours";
@@ -39,10 +42,13 @@ export function readPublicNoticesFromBusinessRecord(raw: unknown): string[] {
 }
 
 /** 고객 화면 공통 — `business_hours_json`에서 결제 안내 한 줄(비어 있으면 안내용 기본문구) */
-export function resolvePublicPaymentMethodsLine(raw: unknown): string {
+export function resolvePublicPaymentMethodsLine(
+  raw: unknown,
+  lang: AppLanguageCode = getRuntimeAppLanguage()
+): string {
   const o = coerceBusinessHoursRecord(raw);
-  const pay = paymentMethodsLineFromBusinessRecord(o).trim();
-  return pay || "GCash · 만나서 결제 등 (매장 확인)";
+  const pay = paymentMethodsLineFromBusinessRecord(o, lang).trim();
+  return pay || translate(lang, "store_pay_methods_fallback");
 }
 
 /**

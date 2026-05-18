@@ -1,20 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
-import type { AutomationActionType } from "@/lib/types/recommendation-automation";
 import { getRecommendationAutomationExecutions } from "@/lib/recommendation-automation/mock-recommendation-automation-executions";
-import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
-
-const ACTION_LABELS: Record<AutomationActionType, string> = {
-  auto_fallback: "자동 Fallback",
-  auto_kill_switch: "자동 킬스위치",
-  auto_rollback: "자동 롤백",
-  auto_recovery: "자동 복귀",
-  send_escalation: "Escalation 발송",
-};
+import {
+  recAutoActionLabel,
+  recSurfaceLabel,
+} from "@/components/admin/recommendation-admin-i18n";
 
 export function AutomationExecutionTable() {
+  const { t } = useI18n();
   const [refresh, setRefresh] = useState(0);
   const [surfaceFilter, setSurfaceFilter] = useState<RecommendationSurface | "">("");
 
@@ -39,15 +35,15 @@ export function AutomationExecutionTable() {
           }
           className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
-          <option value="">전체 surface</option>
-          <option value="home">홈</option>
-          <option value="search">검색</option>
-          <option value="shop">상점</option>
+          <option value="">{t("admin_rec_filter_all_surface")}</option>
+          <option value="home">{t("admin_rec_surface_home")}</option>
+          <option value="search">{t("admin_rec_surface_search")}</option>
+          <option value="shop">{t("admin_rec_surface_shop")}</option>
         </select>
       </div>
       {executions.length === 0 ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          자동 조치 실행 이력이 없습니다.
+          {t("admin_rec_auto_empty_executions")}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
@@ -55,25 +51,25 @@ export function AutomationExecutionTable() {
             <thead>
               <tr className="border-b border-sam-border bg-sam-app">
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  일시
+                  {t("admin_rec_th_datetime")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  surface
+                  {t("admin_rec_th_surface")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  조치
+                  {t("admin_rec_th_action")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  모드
+                  {t("admin_rec_th_mode")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  결과
+                  {t("admin_rec_th_result")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  사유
+                  {t("admin_rec_th_reason")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  before → after
+                  {t("admin_rec_th_before_after")}
                 </th>
               </tr>
             </thead>
@@ -84,16 +80,18 @@ export function AutomationExecutionTable() {
                   className="border-b border-sam-border-soft hover:bg-sam-app"
                 >
                   <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                    {new Date(e.createdAt).toLocaleString("ko-KR", { hour12: false })}
+                    {new Date(e.createdAt).toLocaleString(undefined, { hour12: false })}
                   </td>
                   <td className="px-3 py-2.5 text-sam-fg">
-                    {SURFACE_LABELS[e.surface]}
+                    {recSurfaceLabel(t, e.surface)}
                   </td>
                   <td className="px-3 py-2.5 text-sam-fg">
-                    {ACTION_LABELS[e.actionType]}
+                    {recAutoActionLabel(t, e.actionType)}
                   </td>
                   <td className="px-3 py-2.5 text-sam-muted">
-                    {e.executionMode === "dry_run" ? "Dry-run" : "Live"}
+                    {e.executionMode === "dry_run"
+                      ? t("admin_rec_auto_sim_mode_dry_run")
+                      : t("admin_rec_auto_sim_mode_live")}
                   </td>
                   <td className="px-3 py-2.5">
                     <span

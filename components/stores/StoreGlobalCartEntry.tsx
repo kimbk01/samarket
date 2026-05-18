@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { useEffect, useMemo } from "react";
@@ -6,6 +7,7 @@ import { useRouter } from "next/navigation";
 import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContext";
 
 export function StoreGlobalCartEntry() {
+  const { t } = useI18n();
   const router = useRouter();
   const cart = useStoreCommerceCartOptional();
 
@@ -23,13 +25,13 @@ export function StoreGlobalCartEntry() {
   }, [router, target]);
 
   if (target) {
-    return <div className="min-h-[30vh] px-4 py-12 text-center sam-text-body text-sam-muted">이동 중…</div>;
+    return <div className="min-h-[30vh] px-4 py-12 text-center sam-text-body text-sam-muted">{t("store_navigating")}</div>;
   }
 
   return (
     <div className="min-h-[40vh] px-4 py-12 text-center">
-      <p className="sam-text-body font-medium text-sam-fg">장바구니가 비어 있어요.</p>
-      <p className="mt-1 sam-text-body text-sam-muted">매장 상세에서 메뉴를 담아 주세요.</p>
+      <p className="sam-text-body font-medium text-sam-fg">{t("store_cart_empty_period")}</p>
+      <p className="mt-1 sam-text-body text-sam-muted">{t("store_cart_empty_add_menu")}</p>
       <div className="mt-4 flex items-center justify-center gap-2">
         <Link className="sam-btn primary" href="/stores" scroll={false}>
           배달 홈으로

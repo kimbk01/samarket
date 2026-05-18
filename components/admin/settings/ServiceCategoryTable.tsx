@@ -1,6 +1,7 @@
 "use client";
 
 import type { ServiceCategory } from "@/lib/types/admin-category";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface ServiceCategoryTableProps {
   items: ServiceCategory[];
@@ -9,10 +10,12 @@ interface ServiceCategoryTableProps {
 }
 
 export function ServiceCategoryTable({ items, onToggleActive, onEdit }: ServiceCategoryTableProps) {
+  const { t } = useI18n();
+
   if (items.length === 0) {
     return (
       <div className="rounded border border-sam-border bg-sam-app py-8 text-center sam-text-body text-sam-muted">
-        상단 서비스 카테고리가 없습니다.
+        {t("admin_settings_category_top_empty")}
       </div>
     );
   }
@@ -22,12 +25,12 @@ export function ServiceCategoryTable({ items, onToggleActive, onEdit }: ServiceC
       <table className="w-full min-w-[500px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
-            <th className="px-3 py-2 text-left font-medium text-sam-fg">순서</th>
-            <th className="px-3 py-2 text-left font-medium text-sam-fg">이름</th>
+            <th className="px-3 py-2 text-left font-medium text-sam-fg">{t("admin_settings_th_order")}</th>
+            <th className="px-3 py-2 text-left font-medium text-sam-fg">{t("admin_settings_th_name")}</th>
             <th className="px-3 py-2 text-left font-medium text-sam-fg">slug</th>
-            <th className="px-3 py-2 text-left font-medium text-sam-fg">아이콘</th>
-            <th className="px-3 py-2 text-left font-medium text-sam-fg">노출</th>
-            <th className="px-3 py-2 text-right font-medium text-sam-fg">수정</th>
+            <th className="px-3 py-2 text-left font-medium text-sam-fg">{t("admin_settings_th_icon")}</th>
+            <th className="px-3 py-2 text-left font-medium text-sam-fg">{t("admin_settings_th_visible")}</th>
+            <th className="px-3 py-2 text-right font-medium text-sam-fg">{t("common_edit")}</th>
           </tr>
         </thead>
         <tbody>
@@ -56,7 +59,7 @@ export function ServiceCategoryTable({ items, onToggleActive, onEdit }: ServiceC
                   onClick={() => onEdit(row.id)}
                   className="sam-text-body-secondary text-sam-muted hover:text-sam-fg"
                 >
-                  수정
+                  {t("common_edit")}
                 </button>
               </td>
             </tr>

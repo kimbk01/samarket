@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { getHighGapDomains } from "@/lib/ops-benchmarks/ops-benchmarks-utils";
 import { getOpsBenchmarks } from "@/lib/ops-benchmarks/mock-ops-benchmarks";
@@ -20,12 +23,13 @@ const DOMAIN_LABELS: Record<OpsBenchmarkDomain, string> = {
 };
 
 export function OpsGapAnalysisCards() {
+  const { t } = useI18n();
   const [scope, setScope] = useState<OpsBenchmarkScope>("quarterly");
   const highGap = useMemo(() => getHighGapDomains(scope, 6), [scope]);
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">범위</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_ops_benchmark_kf6b7b470")}</span>
         {(["quarterly", "yearly"] as const).map((s) => (
           <button
             key={s}

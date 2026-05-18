@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { OwnerStoreOrderDeliveryActionsChatToolbar } from "@/components/business/owner/OwnerStoreOrderDeliveryActions";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type Snap = {
   order_no: string;
@@ -18,6 +19,7 @@ export function OwnerStoreOrderModalSellerToolbar({
   orderId: string;
   onRoomReload?: () => void;
 }) {
+  const { t } = useI18n();
   const [snap, setSnap] = useState<Snap | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -70,7 +72,7 @@ export function OwnerStoreOrderModalSellerToolbar({
   if (loading && !snap) {
     return (
       <div className="shrink-0 border-b border-sam-border bg-background px-3 py-2">
-        <p className="text-center sam-text-helper text-muted">주문 상태 불러오는 중…</p>
+        <p className="text-center sam-text-helper text-muted">{t("business_phase7_263")}</p>
       </div>
     );
   }

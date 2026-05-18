@@ -8,6 +8,7 @@ import { OnboardingShell } from "@/components/onboarding/OnboardingShell";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 /**
  * 로그인 직후 대표 주소가 없으면 도착하는 화면 (스펙 1-C, 9).
@@ -19,6 +20,7 @@ import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-
  * - "나중에 하기" 는 읽기 전용으로 `/philife` 로 보낸다. 글쓰기·채팅·주문 시 다시 게이트가 막는다.
  */
 export function OnboardingAddressClient() {
+  const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = useMemo(
@@ -77,10 +79,10 @@ export function OnboardingAddressClient() {
 
   return (
     <OnboardingShell
-      title="대표 주소 등록"
-      description="필리핀 내 거래·동네·배달을 이용하려면 지도에서 위치를 지정한 대표 주소를 한 곳 등록해 주세요. 동네 글쓰기·거래 글쓰기·커뮤니티 메신저 채팅을 하시려면 주소 등록 후 마이페이지에서 전화번호 인증까지 완료해 주세요."
+      title={t("auth_onboarding_address_title")}
+      description={t("auth_onboarding_address_desc")}
       onSkip={handleSkip}
-      skipLabel="나중에 하기"
+      skipLabel={t("auth_onboarding_skip")}
     >
       <AddressManagementClient embedded />
       {completed ? (
@@ -88,7 +90,7 @@ export function OnboardingAddressClient() {
           role="status"
           className="rounded-ui-rect border border-sam-success/40 bg-sam-success-soft px-3 py-2 sam-text-body text-sam-success"
         >
-          주소 설정이 완료되었습니다. 바로 이동합니다…
+          {t("auth_onboarding_address_done")}
         </p>
       ) : null}
     </OnboardingShell>

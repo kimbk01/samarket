@@ -1,17 +1,21 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { RecommendationSurface } from "@/lib/types/recommendation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   getRecommendationAlertEvents,
   acknowledgeAlertEvent,
 } from "@/lib/recommendation-monitoring/mock-recommendation-alert-events";
 import { persistRecommendationRuntimeToServer } from "@/lib/recommendation-ops/recommendation-runtime-sync-client";
-import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
+import {
+  recAlertSeverityLabel,
+  recSurfaceLabel,
+} from "@/components/admin/recommendation-admin-i18n";
 
 const ADMIN_ID = "admin1";
 
 export function AlertEventTable() {
+  const { t } = useI18n();
   const [refresh, setRefresh] = useState(0);
   const [ackFilter, setAckFilter] = useState<boolean | "">("");
 
@@ -42,14 +46,14 @@ export function AlertEventTable() {
           }}
           className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
-          <option value="">전체</option>
-          <option value="unack">미확인</option>
-          <option value="ack">확인됨</option>
+          <option value="">{t("admin_rec_filter_all")}</option>
+          <option value="unack">{t("admin_rec_filter_unack")}</option>
+          <option value="ack">{t("admin_rec_filter_ack")}</option>
         </select>
       </div>
       {events.length === 0 ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          알림 이벤트가 없습니다.
+          {t("admin_rec_mon_empty_alert_events")}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
@@ -57,19 +61,19 @@ export function AlertEventTable() {
             <thead>
               <tr className="border-b border-sam-border bg-sam-app">
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  일시
+                  {t("admin_rec_th_datetime")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  surface
+                  {t("admin_rec_th_surface")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  심각도
+                  {t("admin_rec_th_severity")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  메시지
+                  {t("admin_rec_th_message")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  확인
+                  {t("admin_rec_th_ack")}
                 </th>
               </tr>
             </thead>
@@ -80,10 +84,10 @@ export function AlertEventTable() {
                   className="border-b border-sam-border-soft hover:bg-sam-app"
                 >
                   <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                    {new Date(e.createdAt).toLocaleString("ko-KR")}
+                    {new Date(e.createdAt).toLocaleString()}
                   </td>
                   <td className="px-3 py-2.5 text-sam-fg">
-                    {SURFACE_LABELS[e.surface]}
+                    {recSurfaceLabel(t, e.surface)}
                   </td>
                   <td className="px-3 py-2.5">
                     <span
@@ -93,7 +97,7 @@ export function AlertEventTable() {
                           : "bg-amber-50 text-amber-800"
                       }`}
                     >
-                      {e.severity}
+                      {recAlertSeverityLabel(t, e.severity)}
                     </span>
                   </td>
                   <td className="max-w-[280px] truncate px-3 py-2.5 text-sam-fg">
@@ -102,9 +106,9 @@ export function AlertEventTable() {
                   <td className="px-3 py-2.5">
                     {e.isAcknowledged ? (
                       <span className="sam-text-body-secondary text-sam-muted">
-                        확인됨
+                        {t("admin_rec_mon_acknowledged")}
                         {e.acknowledgedAt &&
-                          ` ${new Date(e.acknowledgedAt).toLocaleString("ko-KR")}`}
+                          ` ${new Date(e.acknowledgedAt).toLocaleString()}`}
                       </span>
                     ) : (
                       <button
@@ -112,7 +116,7 @@ export function AlertEventTable() {
                         onClick={() => handleAck(e.id)}
                         className="rounded border border-sam-border bg-sam-app px-2 py-1 sam-text-body-secondary text-sam-fg"
                       >
-                        확인
+                        {t("common_confirm")}
                       </button>
                     )}
                   </td>

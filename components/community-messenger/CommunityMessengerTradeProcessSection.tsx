@@ -24,6 +24,7 @@ import { usePostSellerListingRealtime } from "@/lib/chats/use-post-seller-listin
 import type { ChatRoom } from "@/lib/types/chat";
 import { TradeReviewForm } from "@/components/trade/TradeReviewForm";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 function bustTradeCachesAfterReview(productChatId: string) {
   const k = productChatId.trim();
@@ -57,6 +58,7 @@ export function CommunityMessengerTradeProcessSection({
   keyboardCompact = false,
   dockPlacement = "belowHeader",
 }: Props) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -89,7 +91,7 @@ export function CommunityMessengerTradeProcessSection({
       setLoadError(null);
     } else {
       setRoom(null);
-      setLoadError(r.code === "not_found" ? "거래 정보를 불러오지 못했습니다." : "거래 정보를 불러오지 못했습니다.");
+      setLoadError(t("cm_ui_failed_to_load_trade_info"));
     }
   }, [productChatId]);
 
@@ -131,7 +133,7 @@ export function CommunityMessengerTradeProcessSection({
           setRoom(r.room);
         } else {
           setRoom(null);
-          setLoadError("거래 정보를 불러오지 못했습니다.");
+          setLoadError(t("cm_ui_failed_to_load_trade_info"));
         }
         setLoading(false);
       })();
@@ -210,7 +212,7 @@ export function CommunityMessengerTradeProcessSection({
       if (!room || !postId || state === displayListing) return;
       if (amISeller) {
         const label = SELLER_LISTING_LABEL[state];
-        if (typeof window !== "undefined" && !window.confirm(`물품의 상태를 "${label}"으로 변경할까요?`)) {
+        if (typeof window !== "undefined" && !window.confirm(t("cm_ui_confirm_change_item_status", { label }))) {
           return;
         }
       }
@@ -237,7 +239,7 @@ export function CommunityMessengerTradeProcessSection({
           threadNotices?: TradeListingThreadNotice[];
         };
         if (!res.ok || !data.ok || !data.sellerListingState) {
-          setListingError(String(data.error ?? "저장에 실패했습니다."));
+          setListingError(String(data.error ?? t("common_save_failed")));
           return;
         }
         const w = typeof data.warning === "string" ? data.warning.trim() : "";
@@ -256,7 +258,7 @@ export function CommunityMessengerTradeProcessSection({
           roomId: room.id?.trim() || undefined,
         });
       } catch {
-        setListingError("네트워크 오류로 저장하지 못했습니다.");
+        setListingError(t("common_network_error_retry"));
       } finally {
         setListingSaving(false);
       }
@@ -305,7 +307,7 @@ export function CommunityMessengerTradeProcessSection({
   if (loading) {
     return (
       <div className="border-b border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-2.5 sam-text-helper text-[color:var(--cm-room-text-muted)]">
-        거래 정보를 불러오는 중…
+        {t("cm_ui_loading_trade_info")}
       </div>
     );
   }
@@ -313,7 +315,7 @@ export function CommunityMessengerTradeProcessSection({
   if (loadError || !room) {
     return (
       <div className="border-b border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-2.5 sam-text-helper text-amber-900">
-        {loadError ?? "거래 정보를 표시할 수 없습니다."}
+        {loadError ?? t("cm_ui_cannot_display_trade_info")}
       </div>
     );
   }
@@ -368,13 +370,13 @@ export function CommunityMessengerTradeProcessSection({
             className={`flex max-h-full min-h-0 w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-sam-elevated sm:max-h-[min(90vh,calc(100dvh-3.5rem-env(safe-area-inset-bottom,0px)))] sm:rounded-ui-rect`}
           >
             <div className="flex shrink-0 items-center justify-between border-b border-sam-border-soft px-4 py-3">
-              <h2 className="sam-text-body-lg font-semibold text-sam-fg">후기 작성</h2>
+              <h2 className="sam-text-body-lg font-semibold text-sam-fg">{t("cm_ui_write_review")}</h2>
               <button
                 type="button"
                 onClick={() => setReviewSheetOpen((prev) => (prev ? false : prev))}
                 className="sam-text-body text-sam-muted"
               >
-                닫기
+                {t("nav_close")}
               </button>
             </div>
             <TradeReviewForm

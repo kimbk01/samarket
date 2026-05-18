@@ -1,12 +1,23 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import {
   ADMIN_BOARD_CATEGORY_MODES,
   ADMIN_BOARD_SKIN_TYPES,
   normalizeBoardSlug,
 } from "@/lib/admin-boards/parse-create-board-body";
+
+const BOARD_CREATE_ERROR_KEYS: Record<string, MessageKey> = {
+  duplicate_slug: "admin_board_err_duplicate_slug",
+  service_not_found: "admin_board_err_service_not_found",
+  invalid_slug: "admin_board_err_invalid_slug",
+  invalid_name: "admin_board_err_invalid_name",
+  forbidden: "admin_board_err_forbidden_short",
+  supabase_unconfigured: "admin_board_err_supabase_short",
+};
 
 type ServiceOption = { id: string; name: string; slug: string };
 
@@ -19,6 +30,7 @@ export function AdminBoardCreateForm({
   onClose: () => void;
   onCreated: () => void;
 }) {
+  const { t } = useI18n();
   const [services, setServices] = useState<ServiceOption[]>([]);
   const [loadingSvc, setLoadingSvc] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -117,15 +129,8 @@ export function AdminBoardCreateForm({
       const data = await res.json();
       if (!res.ok || !data?.ok) {
         const err = data?.error as string | undefined;
-        const map: Record<string, string> = {
-          duplicate_slug: "같은 서비스에 동일 slug 게시판이 이미 있습니다.",
-          service_not_found: "선택한 서비스를 찾을 수 없습니다.",
-          invalid_slug: "slug는 영문 소문자·숫자·하이픈만 사용하세요.",
-          invalid_name: "이름을 1~120자로 입력하세요.",
-          forbidden: "권한이 없습니다.",
-          supabase_unconfigured: "Supabase 서버 설정을 확인하세요.",
-        };
-        setError(map[err ?? ""] ?? err ?? "저장 실패");
+        const errKey = err ? BOARD_CREATE_ERROR_KEYS[err] : undefined;
+        setError(errKey ? t(errKey) : err ?? t("admin_board_err_save_failed"));
         return;
       }
       setName("");
@@ -135,7 +140,7 @@ export function AdminBoardCreateForm({
       onCreated();
       onClose();
     } catch {
-      setError("네트워크 오류");
+      setError(t("admin_board_err_network"));
     } finally {
       setSubmitting(false);
     }
@@ -153,13 +158,13 @@ export function AdminBoardCreateForm({
       >
         <div className="flex items-center justify-between border-b border-sam-border-soft px-4 py-3">
           <h2 id="admin-board-create-title" className="sam-text-body-lg font-semibold text-sam-fg">
-            게시판 추가
+            {t("admin_board_create_title")}
           </h2>
           <button
             type="button"
             onClick={onClose}
             className="rounded-ui-rect px-2 py-1 sam-text-page-title leading-none text-sam-muted hover:bg-sam-surface-muted"
-            aria-label="닫기"
+            aria-label={t("admin_board_close_aria")}
           >
             ×
           </button>
@@ -167,13 +172,13 @@ export function AdminBoardCreateForm({
 
         <form onSubmit={(e) => void submit(e)} className="space-y-3 px-4 py-4 sam-text-body">
           {loadingSvc ? (
-            <p className="text-sam-muted">서비스 목록 불러오는 중…</p>
+            <p className="text-sam-muted">{t("admin_board_svc_loading")}</p>
           ) : services.length === 0 ? (
-            <p className="text-amber-800">활성 서비스가 없습니다. DB에 `services` 행을 먼저 추가하세요.</p>
+            <p className="text-amber-800">{t("admin_board_no_active_service")}</p>
           ) : null}
 
           <label className="block">
-            <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">서비스</span>
+            <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">{t("admin_board_label_service")}</span>
             <select
               value={serviceId}
               onChange={(e) => setServiceId(e.target.value)}
@@ -189,32 +194,32 @@ export function AdminBoardCreateForm({
           </label>
 
           <label className="block">
-            <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">게시판 이름</span>
+            <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">{t("admin_board_label_name")}</span>
             <input
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
               maxLength={120}
               className="w-full rounded-ui-rect border border-sam-border px-3 py-2"
-              placeholder="예: 동네 맛집"
+              placeholder={t("admin_board_name_ph")}
             />
           </label>
 
           <label className="block">
-            <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">slug (URL)</span>
+            <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">{t("admin_board_label_slug_url")}</span>
             <input
               value={slug}
               onChange={(e) => setSlug(normalizeBoardSlug(e.target.value))}
               required
               maxLength={64}
               className="w-full rounded-ui-rect border border-sam-border px-3 py-2 font-mono sam-text-body-secondary"
-              placeholder="예: food"
+              placeholder={t("admin_board_slug_ph")}
             />
-            <span className="mt-0.5 block sam-text-helper text-sam-muted">사용자 피드: /community (게시판 slug 미노출)</span>
+            <span className="mt-0.5 block sam-text-helper text-sam-muted">{t("admin_board_slug_hint")}</span>
           </label>
 
           <label className="block">
-            <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">설명 (선택)</span>
+            <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">{t("admin_board_label_desc")}</span>
             <textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -226,7 +231,7 @@ export function AdminBoardCreateForm({
 
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
-              <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">스킨</span>
+              <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">{t("admin_board_label_skin")}</span>
               <select value={skinType} onChange={(e) => setSkinType(e.target.value)} className="w-full rounded-ui-rect border border-sam-border px-2 py-2 sam-text-body-secondary">
                 {ADMIN_BOARD_SKIN_TYPES.map((t) => (
                   <option key={t} value={t}>
@@ -236,7 +241,7 @@ export function AdminBoardCreateForm({
               </select>
             </label>
             <label className="block">
-              <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">폼</span>
+              <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">{t("admin_board_label_form")}</span>
               <select value={formType} onChange={(e) => setFormType(e.target.value)} className="w-full rounded-ui-rect border border-sam-border px-2 py-2 sam-text-body-secondary">
                 {ADMIN_BOARD_SKIN_TYPES.map((t) => (
                   <option key={t} value={t}>
@@ -248,7 +253,7 @@ export function AdminBoardCreateForm({
           </div>
 
           <label className="block">
-            <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">카테고리 모드</span>
+            <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">{t("admin_board_label_category_mode")}</span>
             <select
               value={categoryMode}
               onChange={(e) => setCategoryMode(e.target.value)}
@@ -264,11 +269,11 @@ export function AdminBoardCreateForm({
 
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="h-4 w-4" />
-            <span className="sam-text-body-secondary text-sam-fg">노출(활성)</span>
+            <span className="sam-text-body-secondary text-sam-fg">{t("admin_board_label_active")}</span>
           </label>
 
           <label className="block">
-            <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">정렬 순서</span>
+            <span className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">{t("admin_board_label_sort")}</span>
             <input
               type="number"
               min={0}
@@ -287,14 +292,14 @@ export function AdminBoardCreateForm({
               onClick={onClose}
               className="rounded-ui-rect border border-sam-border px-4 py-2 sam-text-body text-sam-fg hover:bg-sam-app"
             >
-              취소
+              {t("common_cancel")}
             </button>
             <button
               type="submit"
               disabled={submitting || loadingSvc || services.length === 0}
               className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white hover:bg-signature/90 disabled:opacity-50"
             >
-              {submitting ? "저장 중…" : "추가"}
+              {submitting ? t("admin_board_saving") : t("admin_board_submit_add")}
             </button>
           </div>
         </form>

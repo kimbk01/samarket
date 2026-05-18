@@ -9,6 +9,8 @@ import { Biz } from "@/lib/ui/biz-component-classes";
 import { invalidateStoreNoticesPublicCache } from "@/lib/stores/store-delivery-api-client";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { parseNoticeImages } from "@/lib/stores/store-banners-notices-public";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 
 type NoticeRow = {
   id: string;
@@ -22,14 +24,21 @@ type NoticeRow = {
   end_at?: string | null;
 };
 
-const PLACEMENT_OPTS = [
-  { v: "store_top", label: "매장 상단" },
-  { v: "menu_top", label: "메뉴 상단" },
-  { v: "review_top", label: "리뷰 상단" },
-  { v: "info_tab", label: "정보 탭" },
-] as const;
+const PLACEMENT_VALUES = ["store_top", "menu_top", "review_top", "info_tab"] as const;
+
+const PLACEMENT_I18N: Record<(typeof PLACEMENT_VALUES)[number], string> = {
+  store_top: "business_phase7_432",
+  menu_top: "business_phase7_433",
+  review_top: "business_phase7_434",
+  info_tab: "business_phase7_435",
+};
 
 export function OwnerStoreNoticesView() {
+  const { t } = useI18n();
+  const placementLabel = (v: string) => {
+    const key = PLACEMENT_I18N[v as (typeof PLACEMENT_VALUES)[number]];
+    return key ? t(key) : v;
+  };
   const sp = useSearchParams();
   const storeId = sp.get("storeId")?.trim() ?? "";
   const [resolvedStoreId, setResolvedStoreId] = useState<string>(storeId);
@@ -117,7 +126,7 @@ export function OwnerStoreNoticesView() {
       if (editor.mode === "new") {
         const title = String(editor.draft.title ?? "").trim();
         if (!title) {
-          setErr("제목을 입력해 주세요.");
+          setErr(t("business_phase7_439"));
           setBusy(false);
           return;
         }
@@ -190,7 +199,7 @@ export function OwnerStoreNoticesView() {
   };
 
   if (!resolvedStoreId) {
-    return <p className="sam-text-body text-sam-muted">매장을 불러오는 중…</p>;
+    return <p className="sam-text-body text-sam-muted">{t("business_phase7_088")}</p>;
   }
 
   const q = `storeId=${encodeURIComponent(resolvedStoreId)}`;
@@ -198,15 +207,13 @@ export function OwnerStoreNoticesView() {
   return (
     <div className={`py-2 ${OWNER_STORE_STACK_Y_CLASS}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className={Biz.textTitle}>공지 관리</h1>
+        <h1 className={Biz.textTitle}>{t("business_phase7_030")}</h1>
         <Link href={`/stores/owner?${q}`} className={Biz.textMuted}>
-          ← 대시보드
+          {t("business_phase7_429")}
         </Link>
       </div>
-      <p className={`mt-1 ${Biz.textMuted}`}>
-        위치별로 고객 매장 페이지에 노출됩니다. 기존 「매장 프로필」의 간단 공지(텍스트)와 별도입니다.
-      </p>
-      {err ? <p className="mt-2 text-sm text-red-600">{err}</p> : null}
+      <p className={`mt-1 ${Biz.textMuted}`}>{t("business_phase7_430")}</p>
+      {err ? <p className="mt-2 text-sm text-red-600">{resolveOwnerApiErrorMessage(err, t)}</p> : null}
 
       <button
         type="button"
@@ -226,17 +233,21 @@ export function OwnerStoreNoticesView() {
         }
         className={`mt-4 ${Biz.btnPrimary}`}
       >
-        공지 작성
+        {t("business_phase7_431")}
       </button>
 
-      {loading ? <p className="mt-3 text-sm text-sam-muted">불러오는 중…</p> : null}
+      {loading ? <p className="mt-3 text-sm text-sam-muted">{t("common_loading")}</p> : null}
 
       <ul className="mt-4 space-y-3">
         {notices.map((n) => (
           <li key={n.id} className={Biz.card}>
             <p className="font-semibold text-[var(--biz-text)]">{n.title}</p>
             <p className="text-[12px] text-[var(--biz-text-muted)]">
-              {n.placement} · {n.is_active ? "사용" : "숨김"} · 정렬 {n.sort_order}
+              {t("business_phase7_486", {
+                v1: placementLabel(n.placement),
+                v2: n.is_active ? t("business_phase7_135") : t("business_phase7_418"),
+                v3: String(n.sort_order),
+              })}
             </p>
             <p className="mt-1 line-clamp-2 text-[13px] text-[var(--biz-text)]">{n.body}</p>
             <div className="mt-2 flex flex-wrap gap-2">
@@ -251,7 +262,7 @@ export function OwnerStoreNoticesView() {
                 }
                 className={Biz.btnOutline}
               >
-                수정
+                {t("common_edit")}
               </button>
               <button
                 type="button"
@@ -259,7 +270,7 @@ export function OwnerStoreNoticesView() {
                 onClick={() => setDeleteConfirmId(n.id)}
                 className={Biz.btnOutline}
               >
-                삭제
+                {t("common_delete")}
               </button>
             </div>
           </li>
@@ -269,10 +280,12 @@ export function OwnerStoreNoticesView() {
       {editor ? (
         <div className="fixed inset-0 z-[95] flex items-end justify-center bg-black/45 p-3 sm:items-center">
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-[16px] bg-[var(--biz-card-bg)] p-4 sm:rounded-[16px]">
-            <h2 className={Biz.textCardTitle}>{editor.mode === "new" ? "공지 등록" : "공지 수정"}</h2>
+            <h2 className={Biz.textCardTitle}>
+              {editor.mode === "new" ? t("business_phase7_437") : t("business_phase7_438")}
+            </h2>
             <div className="mt-3 space-y-3">
               <label className="block">
-                <span className={Biz.textMuted}>제목</span>
+                <span className={Biz.textMuted}>{t("business_phase7_254")}</span>
                 <input
                   className="mt-1 w-full rounded-[14px] border border-[var(--biz-card-border)] px-3 py-2 text-[14px]"
                   value={editor.mode === "new" ? String(editor.draft.title ?? "") : editor.row.title}
@@ -286,7 +299,7 @@ export function OwnerStoreNoticesView() {
                 />
               </label>
               <label className="block">
-                <span className={Biz.textMuted}>내용</span>
+                <span className={Biz.textMuted}>{t("business_phase7_045")}</span>
                 <textarea
                   rows={4}
                   className="mt-1 w-full rounded-[14px] border border-[var(--biz-card-border)] px-3 py-2 text-[14px]"
@@ -301,7 +314,7 @@ export function OwnerStoreNoticesView() {
                 />
               </label>
               <label className="block">
-                <span className={Biz.textMuted}>노출 위치</span>
+                <span className={Biz.textMuted}>{t("business_phase7_049")}</span>
                 <select
                   className="mt-1 w-full rounded-[14px] border border-[var(--biz-card-border)] px-3 py-2 text-[14px]"
                   value={editor.mode === "new" ? String(editor.draft.placement ?? "store_top") : editor.row.placement}
@@ -314,15 +327,15 @@ export function OwnerStoreNoticesView() {
                     }
                   }}
                 >
-                  {PLACEMENT_OPTS.map((o) => (
-                    <option key={o.v} value={o.v}>
-                      {o.label}
+                  {PLACEMENT_VALUES.map((v) => (
+                    <option key={v} value={v}>
+                      {placementLabel(v)}
                     </option>
                   ))}
                 </select>
               </label>
               <div>
-                <span className={Biz.textMuted}>이미지 (최대 3장)</span>
+                <span className={Biz.textMuted}>{t("business_phase7_236")}</span>
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
@@ -334,7 +347,7 @@ export function OwnerStoreNoticesView() {
                     if (!f) return;
                     const url = await uploadImage(f);
                     if (!url) {
-                      setErr("이미지 업로드 실패");
+                      setErr(t("business_phase7_440"));
                       return;
                     }
                     if (editor.mode === "new") {
@@ -388,15 +401,15 @@ export function OwnerStoreNoticesView() {
                     }
                   }}
                 />
-                <span className={Biz.textBody}>사용</span>
+                <span className={Biz.textBody}>{t("business_phase7_135")}</span>
               </label>
             </div>
             <div className="mt-4 flex gap-2">
               <button type="button" disabled={busy} onClick={() => setEditor(null)} className={Biz.btnOutline}>
-                닫기
+                {t("common_close")}
               </button>
               <button type="button" disabled={busy} onClick={() => void saveEditor()} className={Biz.btnPrimaryLg}>
-                {busy ? "저장 중…" : "저장"}
+                {busy ? t("business_phase7_384") : t("business_phase7_385")}
               </button>
             </div>
           </div>
@@ -406,11 +419,9 @@ export function OwnerStoreNoticesView() {
       <OwnerStoreAdminConfirmModal
         open={deleteConfirmId != null}
         titleId="owner-store-notices-delete-title"
-        title="공지 삭제"
-        description="이 공지를 삭제할까요?"
-        cancelLabel="취소"
-        confirmLabel="삭제"
-        confirmBusyLabel="삭제 중…"
+        title={t("business_phase7_032")}
+        description={t("business_phase7_441")}
+        confirmBusyLabel={t("business_phase7_442")}
         busy={busy}
         disableActions={busy}
         confirmTone="danger"

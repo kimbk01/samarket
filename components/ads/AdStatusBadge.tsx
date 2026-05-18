@@ -1,5 +1,8 @@
+"use client";
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdApplyStatus } from "@/lib/ads/types";
-import { AD_APPLY_STATUS_LABELS } from "@/lib/ads/types";
+import { postAdStatusLabel } from "@/lib/ads/post-ad-label-keys";
 
 const STATUS_STYLES: Record<AdApplyStatus, string> = {
   draft: "bg-sam-surface-muted text-sam-muted",
@@ -13,11 +16,12 @@ const STATUS_STYLES: Record<AdApplyStatus, string> = {
 };
 
 export function AdStatusBadge({ status }: { status: AdApplyStatus }) {
+  const { t } = useI18n();
   return (
     <span
       className={`inline-flex items-center rounded-full px-2 py-0.5 sam-text-xxs font-semibold ${STATUS_STYLES[status]}`}
     >
-      {AD_APPLY_STATUS_LABELS[status]}
+      {postAdStatusLabel(t, status)}
     </span>
   );
 }

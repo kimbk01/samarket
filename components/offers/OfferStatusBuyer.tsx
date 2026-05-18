@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useEffect, useMemo, useState } from "react";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { formatPrice } from "@/lib/utils/format";
@@ -18,13 +19,6 @@ type Props = {
   onRetryOffer?: () => void;
 };
 
-function cardTitle(status: PriceOfferListItem["status"]): string {
-  if (status === "pending") return "제안 대기중";
-  if (status === "accepted") return "제안 수락됨";
-  if (status === "rejected") return "제안 거절됨";
-  return "제안 만료됨";
-}
-
 export function OfferStatusBuyer({
   productId,
   currency,
@@ -35,6 +29,7 @@ export function OfferStatusBuyer({
   onContinueChat,
   onRetryOffer,
 }: Props) {
+  const { t } = useI18n();
   const [internalOffers, setInternalOffers] = useState<PriceOfferListItem[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -85,8 +80,11 @@ export function OfferStatusBuyer({
 
   const title = useMemo(() => {
     if (!primaryOffer) return null;
-    return cardTitle(primaryOffer.status);
-  }, [primaryOffer]);
+    if (primaryOffer.status === "pending") return t("ui_offer_status_pending");
+    if (primaryOffer.status === "accepted") return t("ui_offer_status_accepted");
+    if (primaryOffer.status === "rejected") return t("ui_offer_status_rejected");
+    return t("ui_offer_status_expired");
+  }, [primaryOffer, t]);
 
   if (!viewerUserId) return null;
   if ((loadingState && !primaryOffer) || !primaryOffer || !title) return null;
@@ -97,16 +95,16 @@ export function OfferStatusBuyer({
         <div className="min-w-0 flex-1">
           <p className="text-[14px] font-semibold text-sam-fg">{title}</p>
           <p className="mt-1 text-[12px] text-sam-muted">
-            내 제안가 {formatPrice(primaryOffer.offeredPrice, currency)}
+            {t("ui_offer_my_price", { price: formatPrice(primaryOffer.offeredPrice, currency) })}
             {" · "}
-            판매가 {formatPrice(primaryOffer.originalPrice, currency)}
+            {t("ui_offer_list_price", { price: formatPrice(primaryOffer.originalPrice, currency) })}
           </p>
           {primaryOffer.status === "pending" ? (
-            <p className="mt-2 text-[12px] leading-snug text-sam-muted">판매자 응답 대기중입니다.</p>
+            <p className="mt-2 text-[12px] leading-snug text-sam-muted">{t("ui_offer_waiting_seller")}</p>
           ) : null}
           {primaryOffer.status === "rejected" || primaryOffer.status === "expired" ? (
             <p className="mt-2 text-[12px] leading-snug text-sam-muted">
-              하단의 <span className="font-semibold text-sam-fg">다시 제안하기</span>로 새 제안을 보낼 수 있어요. (같은 상품 하루 최대 3회)
+              {t("ui_offer_retry_hint", { retry: t("ui_offer_retry_label") })}
             </p>
           ) : null}
         </div>
@@ -116,7 +114,7 @@ export function OfferStatusBuyer({
             onClick={onContinueChat}
             className="shrink-0 rounded-ui-rect bg-sam-primary px-3 py-2 text-[12px] font-semibold text-white"
           >
-            채팅 이어가기
+            {t("ui_offer_chat_continue")}
           </button>
         ) : null}
         {(primaryOffer.status === "rejected" || primaryOffer.status === "expired") && onRetryOffer ? (
@@ -125,7 +123,7 @@ export function OfferStatusBuyer({
             onClick={onRetryOffer}
             className="shrink-0 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[12px] font-semibold text-sam-fg"
           >
-            다시 제안하기
+            {t("ui_offer_retry_label")}
           </button>
         ) : null}
       </div>
@@ -140,7 +138,9 @@ export function OfferStatusBuyer({
             onClick={() => setHistoryOpen((o) => !o)}
             className="text-[12px] font-medium text-sam-primary"
           >
-            {historyOpen ? "이전 제안 접기" : `이전 제안 ${olderOffers.length}건 보기`}
+            {historyOpen
+              ? t("ui_offer_history_collapse")
+              : t("ui_offer_history_expand", { count: olderOffers.length })}
           </button>
           {historyOpen ? (
             <ul className="mt-2 space-y-2">

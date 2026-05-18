@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
@@ -12,6 +13,7 @@ import { showStoreDetailToast } from "@/lib/stores/store-detail-toast-ui-store";
  * `/stores` 트리 최상단에 1회 마운트 — sheet state 변경이 `StoreDetailPublic` 에 전파되지 않음.
  */
 export function StoreProductSheetPortal() {
+  const { t } = useI18n();
   const productId = useStoreProductSheetUIStore((s) => s.productId);
   const pageStoreSlug = useStoreProductSheetUIStore((s) => s.pageStoreSlug);
   const prefetchedListRow = useStoreProductSheetUIStore((s) => s.prefetchedListRow);

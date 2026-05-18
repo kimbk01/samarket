@@ -813,6 +813,7 @@ export function BottomNav({
   }, [bodyPortal]);
 
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
+  const { t } = useI18n();
 
   const hideBottomNavShell =
     (isChatRoomDetail && !isCommunityMessengerRoomPathname(pathname ?? null)) ||
@@ -831,7 +832,7 @@ export function BottomNav({
     .join(" ");
 
   const nav = (
-    <nav className={outerClass} aria-label="주요 메뉴">
+    <nav className={outerClass} aria-label={t("nav_bottom_bar_aria")}>
       <div className={`${BOTTOM_NAV_SHELL.innerBarClassName} ${BOTTOM_NAV_SHELL.heightClass}`}>
         <div className="app-bottom-nav-grid">
           {tabs.map((tab) => {

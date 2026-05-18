@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { STORE_DETAIL_SECTION_HEAD } from "@/lib/stores/store-detail-ui";
 
@@ -12,6 +13,7 @@ export function StoreDetailSectionTitle({
   children: React.ReactNode;
   level?: Level;
 }) {
+  const { t } = useI18n();
   const Tag = level;
   return (
     <Tag className={STORE_DETAIL_SECTION_HEAD}>

@@ -1,8 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import {
+  BOTTOM_NAV_BUILTIN_ICON_KEYS,
+  resolveAdminDelApiError,
+} from "@/components/admin/i18n/admin-delivery-label-keys";
 import { isDeliveryBottomNavBuiltinOwnerStoreItem } from "@/lib/delivery/load-delivery-bottom-nav-items-server";
 
 type Row = {
@@ -59,6 +64,7 @@ function normalizeInt(v: string): number {
 }
 
 export function AdminDeliveryBottomNavPage() {
+  const { t } = useI18n();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -76,13 +82,28 @@ export function AdminDeliveryBottomNavPage() {
     color: "#1C8DB8",
   });
 
+  const tableHeaders = useMemo(
+    () =>
+      [
+        "admin_del_th_order",
+        "admin_del_th_menu_name",
+        "admin_del_th_icon_key",
+        "admin_del_th_link",
+        "admin_del_th_visible",
+        "admin_del_th_center",
+        "admin_del_th_color",
+        "admin_del_th_manage",
+      ] as const,
+    []
+  );
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const data = await apiList();
       if (!data.ok) {
-        setError(data.error ?? "load_failed");
+        setError(resolveAdminDelApiError(t, data.error));
         setRows([]);
       } else {
         const sorted = (data.items ?? []).slice().sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
@@ -91,7 +112,7 @@ export function AdminDeliveryBottomNavPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -111,7 +132,6 @@ export function AdminDeliveryBottomNavPage() {
       if (nextIdx < 0 || nextIdx >= rows.length) return;
       const a = rows[idx]!;
       const b = rows[nextIdx]!;
-      // Swap sort_order (best-effort) then refetch.
       await apiUpdate(a.id, { sort_order: b.sort_order });
       await apiUpdate(b.id, { sort_order: a.sort_order });
       await load();
@@ -143,7 +163,7 @@ export function AdminDeliveryBottomNavPage() {
     const href = String(editDraft.href ?? "").trim();
     const color = String(editDraft.color ?? "").trim() || "#1C8DB8";
     if (!label || !icon_key || !href) {
-      setError("필수값(label/icon_key/href)을 입력해 주세요.");
+      setError(t("admin_del_err_required_fields"));
       return;
     }
     setSaving(true);
@@ -156,7 +176,7 @@ export function AdminDeliveryBottomNavPage() {
       if (Object.keys(patch).length > 0) {
         const res = await apiUpdate(editingId, patch);
         if (!res.ok) {
-          setError(res.error ?? "save_failed");
+          setError(resolveAdminDelApiError(t, res.error));
           return;
         }
       }
@@ -165,47 +185,47 @@ export function AdminDeliveryBottomNavPage() {
     } finally {
       setSaving(false);
     }
-  }, [editingRow, editingId, editDraft, cancelEdit, load]);
+  }, [editingRow, editingId, editDraft, cancelEdit, load, t]);
 
   return (
     <div className="mx-auto w-full max-w-5xl">
       <AdminPageHeader
-        title="배달 하단 메뉴 설정"
-        description="배달(/stores) 도메인 전용 하단 네비 항목을 관리합니다."
+        titleKey="admin_del_page_bottom_nav_title"
+        descriptionKey="admin_del_page_bottom_nav_desc"
       />
 
       <div className="grid gap-4">
-        <AdminCard title="메뉴 추가" className="">
+        <AdminCard titleKey="admin_del_card_add_menu" className="">
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="grid gap-1">
-              <span className="sam-text-body font-medium text-sam-fg">label</span>
+              <span className="sam-text-body font-medium text-sam-fg">{t("admin_del_field_label")}</span>
               <input
                 className="sam-input"
                 value={draft.label ?? ""}
                 onChange={(e) => setDraft((p) => ({ ...p, label: e.target.value }))}
-                placeholder="예: 내주문"
+                placeholder={t("admin_del_ph_label_example")}
               />
             </label>
             <label className="grid gap-1">
-              <span className="sam-text-body font-medium text-sam-fg">icon_key</span>
+              <span className="sam-text-body font-medium text-sam-fg">{t("admin_del_field_icon_key")}</span>
               <input
                 className="sam-input"
                 value={draft.icon_key ?? ""}
                 onChange={(e) => setDraft((p) => ({ ...p, icon_key: e.target.value }))}
-                placeholder="orders | cart | home | user"
+                placeholder={t("admin_del_ph_icon_key")}
               />
             </label>
             <label className="grid gap-1 sm:col-span-2">
-              <span className="sam-text-body font-medium text-sam-fg">href</span>
+              <span className="sam-text-body font-medium text-sam-fg">{t("admin_del_field_href")}</span>
               <input
                 className="sam-input"
                 value={draft.href ?? ""}
                 onChange={(e) => setDraft((p) => ({ ...p, href: e.target.value }))}
-                placeholder="/my/store-orders"
+                placeholder={t("admin_del_ph_href")}
               />
             </label>
             <label className="grid gap-1">
-              <span className="sam-text-body font-medium text-sam-fg">sort_order</span>
+              <span className="sam-text-body font-medium text-sam-fg">{t("admin_del_field_sort_order")}</span>
               <input
                 className="sam-input"
                 inputMode="numeric"
@@ -214,12 +234,12 @@ export function AdminDeliveryBottomNavPage() {
               />
             </label>
             <label className="grid gap-1">
-              <span className="sam-text-body font-medium text-sam-fg">color</span>
+              <span className="sam-text-body font-medium text-sam-fg">{t("admin_del_field_color")}</span>
               <input
                 className="sam-input"
                 value={draft.color ?? "#1C8DB8"}
                 onChange={(e) => setDraft((p) => ({ ...p, color: e.target.value }))}
-                placeholder="#1C8DB8"
+                placeholder={t("admin_del_ph_color")}
               />
             </label>
             <div className="flex flex-wrap items-center gap-4 sm:col-span-2">
@@ -229,7 +249,7 @@ export function AdminDeliveryBottomNavPage() {
                   checked={Boolean(draft.is_active)}
                   onChange={(e) => setDraft((p) => ({ ...p, is_active: e.target.checked }))}
                 />
-                is_active
+                {t("admin_del_field_is_active")}
               </label>
               <label className="inline-flex items-center gap-2 sam-text-body text-sam-fg">
                 <input
@@ -237,7 +257,7 @@ export function AdminDeliveryBottomNavPage() {
                   checked={Boolean(draft.is_center)}
                   onChange={(e) => setDraft((p) => ({ ...p, is_center: e.target.checked }))}
                 />
-                is_center (현재 {centerCount}개)
+                {t("admin_del_field_is_center_count", { count: centerCount })}
               </label>
               <button
                 className="sam-btn-primary"
@@ -245,39 +265,41 @@ export function AdminDeliveryBottomNavPage() {
                   setError(null);
                   const res = await apiCreate(draft);
                   if (!res.ok) {
-                    setError(res.error ?? "create_failed");
+                    setError(resolveAdminDelApiError(t, res.error));
                     return;
                   }
                   setDraft((p) => ({ ...p, label: "" }));
                   await load();
                 }}
               >
-                추가
+                {t("admin_del_btn_add")}
               </button>
               <button className="sam-btn" onClick={load}>
-                새로고침
+                {t("admin_del_common_refresh")}
               </button>
             </div>
             {error ? <p className="sam-text-body text-red-600">{error}</p> : null}
           </div>
         </AdminCard>
 
-        <AdminCard title="메뉴 목록">
+        <AdminCard titleKey="admin_del_card_menu_list">
           {loading ? (
-            <div className="sam-text-body text-sam-muted">불러오는 중...</div>
+            <div className="sam-text-body text-sam-muted">{t("common_loading")}</div>
           ) : (
             <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
               <table className="w-full min-w-[820px] border-collapse sam-text-body">
                 <thead>
                   <tr className="border-b border-sam-border bg-sam-app">
-                    <th className="px-3 py-2 text-left font-medium text-sam-fg">순서</th>
-                    <th className="px-3 py-2 text-left font-medium text-sam-fg">메뉴명</th>
-                    <th className="px-3 py-2 text-left font-medium text-sam-fg">아이콘키</th>
-                    <th className="px-3 py-2 text-left font-medium text-sam-fg">링크</th>
-                    <th className="px-3 py-2 text-center font-medium text-sam-fg">노출</th>
-                    <th className="px-3 py-2 text-center font-medium text-sam-fg">센터</th>
-                    <th className="px-3 py-2 text-left font-medium text-sam-fg">색</th>
-                    <th className="px-3 py-2 text-right font-medium text-sam-fg">관리</th>
+                    {tableHeaders.map((key) => (
+                      <th
+                        key={key}
+                        className={`px-3 py-2 font-medium text-sam-fg ${
+                          key === "admin_del_th_manage" ? "text-right" : "text-left"
+                        } ${key === "admin_del_th_visible" || key === "admin_del_th_center" ? "text-center" : ""}`}
+                      >
+                        {t(key)}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
@@ -304,12 +326,16 @@ export function AdminDeliveryBottomNavPage() {
                               value={String(editDraft?.icon_key ?? "")}
                               onChange={(e) => setEditDraft((p) => ({ ...(p ?? {}), icon_key: e.target.value }))}
                             >
-                              {["orders", "cart", "home", "user"].map((k) => (
+                              {BOTTOM_NAV_BUILTIN_ICON_KEYS.map((k) => (
                                 <option key={k} value={k}>
                                   {k}
                                 </option>
                               ))}
-                              <option value={String(editDraft?.icon_key ?? "")}>custom: {String(editDraft?.icon_key ?? "")}</option>
+                              <option value={String(editDraft?.icon_key ?? "")}>
+                                {t("admin_del_custom_icon_option", {
+                                  key: String(editDraft?.icon_key ?? ""),
+                                })}
+                              </option>
                             </select>
                           ) : (
                             <span className="sam-text-helper text-sam-muted">{r.icon_key}</span>
@@ -333,9 +359,9 @@ export function AdminDeliveryBottomNavPage() {
                             className={`rounded px-1.5 py-0.5 sam-text-helper ${
                               r.is_active ? "text-signature hover:bg-signature/10" : "text-sam-muted hover:bg-sam-border-soft"
                             }`}
-                            title="노출 토글"
+                            title={t("admin_del_toggle_visible_title")}
                           >
-                            {r.is_active ? "ON" : "OFF"}
+                            {r.is_active ? t("admin_del_state_on") : t("admin_del_state_off")}
                           </button>
                         </td>
                         <td className="px-3 py-2 text-center">
@@ -345,9 +371,9 @@ export function AdminDeliveryBottomNavPage() {
                             className={`rounded px-1.5 py-0.5 sam-text-helper ${
                               r.is_center ? "text-signature hover:bg-signature/10" : "text-sam-muted hover:bg-sam-border-soft"
                             }`}
-                            title="센터는 1개만 유지됩니다."
+                            title={t("admin_del_center_only_one_title")}
                           >
-                            {r.is_center ? "센터" : "일반"}
+                            {r.is_center ? t("admin_del_center_badge") : t("admin_del_normal_badge")}
                           </button>
                         </td>
                         <td className="px-3 py-2">
@@ -363,7 +389,7 @@ export function AdminDeliveryBottomNavPage() {
                                 value={String(editDraft?.color ?? "#1C8DB8")}
                                 onChange={(e) => setEditDraft((p) => ({ ...(p ?? {}), color: e.target.value }))}
                                 className="h-9 w-10 rounded border border-sam-border bg-sam-surface"
-                                aria-label="색상 선택"
+                                aria-label={t("admin_del_pick_color_aria")}
                               />
                             </div>
                           ) : (
@@ -377,7 +403,7 @@ export function AdminDeliveryBottomNavPage() {
                               onClick={() => void move(r.id, "up")}
                               disabled={idx === 0}
                               className="rounded p-1 text-sam-muted hover:bg-sam-border-soft disabled:opacity-40"
-                              title="위로"
+                              title={t("admin_del_move_up_title")}
                             >
                               ▲
                             </button>
@@ -386,7 +412,7 @@ export function AdminDeliveryBottomNavPage() {
                               onClick={() => void move(r.id, "down")}
                               disabled={idx === rows.length - 1}
                               className="rounded p-1 text-sam-muted hover:bg-sam-border-soft disabled:opacity-40"
-                              title="아래로"
+                              title={t("admin_del_move_down_title")}
                             >
                               ▼
                             </button>
@@ -398,7 +424,7 @@ export function AdminDeliveryBottomNavPage() {
                                   onClick={() => void saveEdit()}
                                   className="rounded px-1.5 py-0.5 sam-text-helper text-signature hover:bg-signature/10 disabled:opacity-50"
                                 >
-                                  저장
+                                  {t("common_save")}
                                 </button>
                                 <button
                                   type="button"
@@ -406,7 +432,7 @@ export function AdminDeliveryBottomNavPage() {
                                   onClick={cancelEdit}
                                   className="rounded px-1.5 py-0.5 sam-text-helper text-sam-muted hover:bg-sam-border-soft disabled:opacity-50"
                                 >
-                                  취소
+                                  {t("common_cancel")}
                                 </button>
                               </>
                             ) : (
@@ -415,20 +441,20 @@ export function AdminDeliveryBottomNavPage() {
                                 onClick={() => enterEdit(r)}
                                 className="rounded px-1.5 py-0.5 sam-text-helper text-signature hover:bg-signature/10"
                               >
-                                수정
+                                {t("common_edit")}
                               </button>
                             )}
                             <button
                               type="button"
                               onClick={async () => {
-                                if (!confirm("삭제할까요?")) return;
+                                if (!confirm(t("admin_del_confirm_delete"))) return;
                                 await apiDelete(r.id);
                                 if (editingId === r.id) cancelEdit();
                                 await load();
                               }}
                               className="rounded px-1.5 py-0.5 sam-text-helper text-red-600 hover:bg-red-50"
                             >
-                              삭제
+                              {t("common_delete")}
                             </button>
                           </div>
                         </td>
@@ -444,4 +470,3 @@ export function AdminDeliveryBottomNavPage() {
     </div>
   );
 }
-

@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
 import { getCarryOverExecutions } from "@/lib/ops-routines/mock-ops-routine-executions";
 import { getOpsRoutineTemplateById } from "@/lib/ops-routines/mock-ops-routine-templates";
@@ -7,24 +8,21 @@ import { getCadenceLabel, getPriorityLabel } from "@/lib/ops-routines/ops-routin
 import Link from "next/link";
 
 export function OpsCarryOverBoard() {
+  const { t } = useI18n();
   const carryOver = useMemo(() => getCarryOverExecutions(), []);
 
   if (carryOver.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-        다음 달로 이월(carry-over)된 항목이 없습니다.
-      </div>
+      <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_routines_carry_empty")}</div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <p className="sam-text-body-secondary text-sam-muted">
-        carryOverToNextPeriod=true 인 항목. 다음 달 정기 업무로 반영할 수 있습니다.
-      </p>
+      <p className="sam-text-body-secondary text-sam-muted">{t("admin_ops_tools_routines_carry_hint")}</p>
       <div className="space-y-3">
         {carryOver.map((e) => {
-          const t = getOpsRoutineTemplateById(e.templateId);
+          const template = getOpsRoutineTemplateById(e.templateId);
           return (
             <div
               key={e.id}
@@ -38,27 +36,27 @@ export function OpsCarryOverBoard() {
                 <span>{e.periodKey}</span>
               </div>
               <p className="mt-2 font-medium text-sam-fg">
-                {t?.title ?? e.templateId}
+                {template?.title ?? e.templateId}
               </p>
               {e.note && (
                 <p className="mt-2 sam-text-body-secondary text-sam-fg">{e.note}</p>
               )}
               {(e.ownerAdminNickname || e.dueDate) && (
                 <p className="mt-2 sam-text-helper text-sam-muted">
-                  담당 {e.ownerAdminNickname ?? "-"}
-                  {e.dueDate && ` · 기한 ${e.dueDate}`}
+                  {t("admin_ops_tools_routines_carry_owner", {
+                    name: e.ownerAdminNickname ?? "-",
+                  })}
+                  {e.dueDate && ` ${t("admin_ops_tools_routines_carry_due", { date: e.dueDate })}`}
                 </p>
               )}
               {e.linkedType && (
                 <p className="mt-1 sam-text-helper text-sam-muted">
-                  연결: {e.linkedType}
+                  {t("admin_ops_tools_routines_carry_link", { type: e.linkedType })}
                   {e.linkedType === "checklist" && (
                     <Link
                       href="/admin/ops-board"
                       className="ml-1 text-signature hover:underline"
-                    >
-                      운영 보드
-                    </Link>
+                    >{t("admin_ops_tools_board_page_title")}</Link>
                   )}
                 </p>
               )}

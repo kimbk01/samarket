@@ -39,9 +39,7 @@ import {
   shouldSkipCallerMediaGateOverlaySync,
 } from "@/lib/community-messenger/call-permission";
 import {
-  COMMUNITY_MESSENGER_AGORA_SETUP_REQUIRED_MESSAGE,
-  COMMUNITY_MESSENGER_HTTPS_REQUIRED_FOR_WEBRTC,
-  COMMUNITY_MESSENGER_INSECURE_ORIGIN_MEDIA_HINT,
+  getCommunityMessengerInsecureOriginMediaHint,
   getCommunityMessengerMediaErrorMessage,
   isAgoraJoinRetryableError,
   isCommunityMessengerMediaBlockedByInsecureOrigin,
@@ -70,7 +68,10 @@ import {
 import { runCommunityMessengerCallMediaCleanup } from "@/lib/community-messenger/community-messenger-call-media-cleanup";
 import { takeDetachedCommunityCallCleanup } from "@/lib/community-messenger/direct-call-minimize";
 import { isCommunityMessengerAgoraAppConfigured } from "@/lib/community-messenger/call-provider/client-runtime";
-import { formatMessengerAgoraLastMileLine } from "@/lib/community-messenger/call-provider/agora-network-quality";
+import {
+  formatMessengerAgoraLastMileLine,
+  messengerNetworkQualityWorst,
+} from "@/lib/community-messenger/call-provider/agora-network-quality";
 import { applyAgoraRemoteSpeakerPreference } from "@/lib/community-messenger/call-provider/agora-playback-routing";
 import { CallScreen } from "@/components/messenger/call/CallScreen";
 import type { CallActionItem, CallPhase, CallScreenViewModel } from "@/components/messenger/call/call-ui.types";
@@ -116,6 +117,7 @@ import { messengerMonitorCallFlowPhase } from "@/lib/community-messenger/monitor
 import { logClientPerf, perfNow } from "@/lib/performance/samarket-perf";
 import { fetchMessengerCallSoundConfig, getMessengerCallSoundConfigCache } from "@/lib/community-messenger/messenger-call-sound-config-client";
 import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messenger-call-ring-timeout";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const CALL_CLIENT_TIER = getPublicDeployTier();
 
@@ -310,6 +312,7 @@ export function CommunityMessengerCallClient({
   /** RSC에서 미리 조회해 첫 페인트·클라이언트 중복 요청을 줄인다 */
   initialSession?: CommunityMessengerCallSession | null;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedAction = searchParams.get("action");
@@ -372,12 +375,13 @@ export function CommunityMessengerCallClient({
   const [bluetoothPreferred, setBluetoothPreferred] = useState(false);
   const [cameraSwitchSupported, setCameraSwitchSupported] = useState(false);
   /** Agora last-mile `network-quality` 기반(고정 문구 대신 실측) */
-  const [lastMileLine, setLastMileLine] = useState("네트워크 품질 · 확인 중");
+  const [lastMileLine, setLastMileLine] = useState(() => t("cm_ui_network_quality_checking"));
+  const [lastMileWorst, setLastMileWorst] = useState(0);
   const lastMileToneClass = useMemo(() => {
-    if (/끊김|나쁨/.test(lastMileLine)) return "text-amber-400/95";
-    if (/불안정|보통|다소/.test(lastMileLine)) return "text-yellow-200/90";
+    if (lastMileWorst >= 6) return "text-amber-400/95";
+    if (lastMileWorst >= 4) return "text-yellow-200/90";
     return "text-emerald-400/95";
-  }, [lastMileLine]);
+  }, [lastMileWorst]);
   const largeVideoRef = useRef<HTMLDivElement | null>(null);
   const smallVideoRef = useRef<HTMLDivElement | null>(null);
   const videoStageRef = useRef<HTMLDivElement | null>(null);
@@ -757,7 +761,7 @@ export function CommunityMessengerCallClient({
     stopCommunityMessengerCallTone();
     if (st === "missed") {
       void playCommunityMessengerCallSignalSound("missed", { dedupeSessionId: sid });
-      showMessengerSnackbar("부재중 알림", { variant: "error" });
+      showMessengerSnackbar(t("cm_ui_missed_call_notification"), { variant: "error" });
     } else if (st === "ended") {
       void playCommunityMessengerCallSignalSound("call_end", { dedupeSessionId: sid });
     }
@@ -846,7 +850,7 @@ export function CommunityMessengerCallClient({
             return sessionsMeaningfullyEqual(prev, resolved) ? prev : resolved;
           });
           if (!nextSession && !silent) {
-            setErrorMessage("통화 연결이 끊어졌습니다.");
+            setErrorMessage(t("cm_ui_call_disconnected"));
           }
           return nextSession;
         } finally {
@@ -1010,7 +1014,8 @@ export function CommunityMessengerCallClient({
       setMicMuted(false);
       micMutedRef.current = false;
       useRearFacingRef.current = false;
-      setLastMileLine("네트워크 품질 · 확인 중");
+      setLastMileLine(t("cm_ui_network_quality_checking"));
+      setLastMileWorst(0);
       cmCallVideoLogOnceRef.current = { localReady: false, remoteReady: false, pipRendered: false };
 
       await runCommunityMessengerCallMediaCleanup({
@@ -1106,7 +1111,7 @@ export function CommunityMessengerCallClient({
 
   const fetchConnection = useCallback(async (): Promise<CommunityMessengerManagedCallConnection> => {
     if (!isCommunityMessengerAgoraAppConfigured()) {
-      throw new Error("통화 설정이 아직 연결되지 않았습니다.");
+      throw new Error(t("cm_ui_call_provider_not_connected"));
     }
     const res = await fetch(`/api/community-messenger/calls/sessions/${encodeURIComponent(sessionId)}/token`, {
       cache: "no-store",
@@ -1115,15 +1120,15 @@ export function CommunityMessengerCallClient({
     if (!res.ok || !json.ok || !json.connection) {
       const error = json.error ?? "call_provider_not_configured";
       if (error === "call_provider_not_configured") {
-        throw new Error("통화 설정이 아직 연결되지 않았습니다.");
+        throw new Error(t("cm_ui_call_provider_not_connected"));
       }
       if (error === "session_not_joinable") {
-        throw new Error("이미 종료되었거나 더 이상 연결할 수 없는 통화입니다.");
+        throw new Error(t("cm_ui_call_session_not_joinable"));
       }
-      throw new Error("통화 연결 정보를 불러오지 못했습니다.");
+      throw new Error(t("cm_ui_call_connection_load_failed"));
     }
     return json.connection;
-  }, [sessionId]);
+  }, [sessionId, t]);
 
   useEffect(() => {
     prefetchedConnectionRef.current = null;
@@ -1388,7 +1393,7 @@ export function CommunityMessengerCallClient({
   const toggleSpeakerEnabled = useCallback(() => {
     setSpeakerEnabled((prev) => !prev);
     if (typeof window !== "undefined" && !("setSinkId" in HTMLMediaElement.prototype)) {
-      showMessengerSnackbar("브라우저에서는 실제 출력 전환이 제한될 수 있습니다. 기기 오디오 설정도 함께 확인해 주세요.");
+      showMessengerSnackbar(t("cm_ui_speaker_route_browser_limited"));
     }
   }, []);
 
@@ -1401,7 +1406,7 @@ export function CommunityMessengerCallClient({
   const toggleBluetoothPreferred = useCallback(() => {
     setBluetoothPreferred((prev) => !prev);
     if (typeof window !== "undefined") {
-      showMessengerSnackbar("블루투스 연결은 브라우저보다 기기 오디오 출력 설정의 영향을 먼저 받습니다.");
+      showMessengerSnackbar(t("cm_ui_bluetooth_route_hint"));
     }
   }, []);
 
@@ -1527,7 +1532,7 @@ export function CommunityMessengerCallClient({
       /** 통화 화면은 유지(ringing) — 즉시 PATCH 종료하면 발신 진입·종료 버튼이 깨진다. 안내만 하고 Agora 조인은 생략 */
       if (isCommunityMessengerMediaBlockedByInsecureOrigin()) {
         autoJoinBlockedRef.current = true;
-        setErrorMessage(COMMUNITY_MESSENGER_INSECURE_ORIGIN_MEDIA_HINT);
+        setErrorMessage(getCommunityMessengerInsecureOriginMediaHint());
         return;
       }
       joiningRef.current = true;
@@ -1636,6 +1641,7 @@ export function CommunityMessengerCallClient({
             networkQualityFlushTimerRef.current = null;
             const p = pendingNetworkQualityRef.current;
             if (!p) return;
+            setLastMileWorst(messengerNetworkQualityWorst(p.u, p.d));
             setLastMileLine(formatMessengerAgoraLastMileLine(p.u, p.d));
           }, 480);
         });
@@ -1779,12 +1785,12 @@ export function CommunityMessengerCallClient({
         const code = json.error;
         const msg =
           code === "bad_action"
-            ? "이미 종료되었거나 수락할 수 없는 통화입니다."
+            ? t("cm_ui_call_accept_bad_action")
             : code === "forbidden"
-              ? "권한이 없습니다."
+              ? t("cm_ui_call_forbidden")
               : code === "session_required"
-                ? "통화 정보를 찾을 수 없습니다."
-                : "통화 수락 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+                ? t("cm_ui_call_session_not_found")
+                : t("cm_ui_call_accept_failed");
         setErrorMessage(msg);
         callFlowAcceptStartRef.current = null;
         if (!s.isMineInitiator) {
@@ -1985,8 +1991,8 @@ export function CommunityMessengerCallClient({
         if (!res.ok || !json.ok) {
           setErrorMessage(
             json.error === "bad_action"
-              ? "이미 처리된 통화입니다."
-              : "거절 요청에 실패했습니다. 잠시 후 다시 시도해 주세요."
+              ? t("cm_ui_call_reject_already_handled")
+              : t("cm_ui_call_reject_failed")
           );
           await disposeCallMedia({ domAudioNuclear: true });
           scheduleSilentRefresh("terminal");
@@ -2091,8 +2097,8 @@ export function CommunityMessengerCallClient({
         if (!res.ok || !json.ok) {
           setErrorMessage(
             json.error === "bad_action"
-              ? "이미 종료된 통화입니다."
-              : "통화 종료 요청에 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요."
+              ? t("cm_ui_call_end_already_ended")
+              : t("cm_ui_call_end_failed")
           );
           await disposeCallMedia({ domAudioNuclear: true });
           scheduleSilentRefresh("terminal");
@@ -2111,21 +2117,21 @@ export function CommunityMessengerCallClient({
   const requestUpgradeToVideo = useCallback(async () => {
     const s = sessionRef.current;
     if (!s || s.sessionMode !== "direct") {
-      showMessengerSnackbar("이 통화에서는 영상 전환을 사용할 수 없습니다.");
+      showMessengerSnackbar(t("cm_ui_video_upgrade_not_in_direct"));
       return;
     }
     if (s.callKind === "video") {
-      showMessengerSnackbar("이미 영상 통화입니다.");
+      showMessengerSnackbar(t("cm_ui_already_video_call"));
       return;
     }
     const ringingUpgrade = s.status === "ringing" && s.isMineInitiator;
     const activeUpgrade = joined && s.status === "active";
     if (!ringingUpgrade && !activeUpgrade) {
-      showMessengerSnackbar("지금은 영상으로 전환할 수 없어요.");
+      showMessengerSnackbar(t("cm_ui_video_upgrade_unavailable_now"));
       return;
     }
     if (activeUpgrade && localTracksRef.current?.videoTrack) {
-      showMessengerSnackbar("카메라가 이미 켜져 있습니다.");
+      showMessengerSnackbar(t("cm_ui_camera_already_on"));
       return;
     }
 
@@ -2154,20 +2160,20 @@ export function CommunityMessengerCallClient({
           const code = json.error;
           setErrorMessage(
             code === "bad_action"
-              ? "지금은 영상으로 전환할 수 없습니다."
+              ? t("cm_ui_video_upgrade_blocked")
               : code === "forbidden"
-                ? "권한이 없습니다."
+                ? t("cm_ui_call_forbidden")
                 : code === "trade_chat_video_not_allowed"
-                  ? "이 글에서는 음성 통화만 허용되어 있습니다."
+                  ? t("cm_ui_trade_post_voice_only")
                   : code === "trade_chat_calls_disabled"
-                    ? "이 글의 판매자가 거래 채팅 통화를 허용하지 않았습니다."
-                    : "영상 전환에 실패했습니다. 잠시 후 다시 시도해 주세요."
+                    ? t("cm_ui_trade_post_calls_disabled")
+                    : t("cm_ui_video_upgrade_failed")
           );
           return;
         }
         setSession(json.session);
         setSpeakerEnabled(true);
-        showMessengerSnackbar("영상 통화로 바꿨어요. 연결되면 카메라가 사용됩니다.");
+        showMessengerSnackbar(t("cm_ui_switched_to_video_snackbar"));
       } finally {
         setBusy(null);
       }
@@ -2181,10 +2187,10 @@ export function CommunityMessengerCallClient({
       if (!perm.ok) {
         setErrorMessage(
           perm.code === "denied"
-            ? "카메라·마이크 권한이 꺼져 있습니다. 주소창 사이트 설정에서 허용해 주세요."
+            ? t("cm_ui_camera_mic_denied_site_settings")
             : perm.code === "insecure_context"
-              ? COMMUNITY_MESSENGER_INSECURE_ORIGIN_MEDIA_HINT
-              : "브라우저에서 카메라를 사용할 수 없습니다."
+              ? getCommunityMessengerInsecureOriginMediaHint()
+              : t("cm_ui_browser_camera_unavailable")
         );
         return;
       }
@@ -2209,14 +2215,14 @@ export function CommunityMessengerCallClient({
         const code = json.error;
         setErrorMessage(
           code === "bad_action"
-            ? "지금은 영상으로 전환할 수 없습니다."
+            ? t("cm_ui_video_upgrade_blocked")
             : code === "forbidden"
-              ? "권한이 없습니다."
+              ? t("cm_ui_call_forbidden")
               : code === "trade_chat_video_not_allowed"
-                ? "이 글에서는 음성 통화만 허용되어 있습니다."
+                ? t("cm_ui_trade_post_voice_only")
                 : code === "trade_chat_calls_disabled"
-                  ? "이 글의 판매자가 거래 채팅 통화를 허용하지 않았습니다."
-                  : "영상 전환에 실패했습니다. 잠시 후 다시 시도해 주세요."
+                  ? t("cm_ui_trade_post_calls_disabled")
+                  : t("cm_ui_video_upgrade_failed")
         );
         return;
       }
@@ -2227,7 +2233,7 @@ export function CommunityMessengerCallClient({
       if (!client || !tracks) {
         videoTrack.stop();
         videoTrack.close();
-        setErrorMessage("통화 연결이 끊어졌습니다.");
+        setErrorMessage(t("cm_ui_call_disconnected"));
         return;
       }
       await client.publish([videoTrack]);
@@ -2253,17 +2259,17 @@ export function CommunityMessengerCallClient({
   const requestDowngradeToVoice = useCallback(async () => {
     const s = sessionRef.current;
     if (!s || s.sessionMode !== "direct") {
-      showMessengerSnackbar("이 통화에서는 음성으로 전환할 수 없습니다.");
+      showMessengerSnackbar(t("cm_ui_voice_downgrade_not_in_direct"));
       return;
     }
     if (s.callKind !== "video") {
-      showMessengerSnackbar("이미 음성 통화입니다.");
+      showMessengerSnackbar(t("cm_ui_already_voice_call"));
       return;
     }
     const ringingDowngrade = s.status === "ringing";
     const activeDowngrade = joinedRef.current && s.status === "active";
     if (!ringingDowngrade && !activeDowngrade) {
-      showMessengerSnackbar("지금은 음성으로 전환할 수 없어요.");
+      showMessengerSnackbar(t("cm_ui_voice_downgrade_unavailable_now"));
       return;
     }
     setBusy("join");
@@ -2317,10 +2323,10 @@ export function CommunityMessengerCallClient({
         const code = json.error;
         setErrorMessage(
           code === "bad_action"
-            ? "지금은 음성으로 전환할 수 없습니다."
+            ? t("cm_ui_voice_downgrade_blocked")
             : code === "forbidden"
-              ? "권한이 없습니다."
-              : "음성 전환에 실패했습니다. 잠시 후 다시 시도해 주세요."
+              ? t("cm_ui_call_forbidden")
+              : t("cm_ui_voice_downgrade_failed")
         );
         return;
       }
@@ -2330,7 +2336,7 @@ export function CommunityMessengerCallClient({
       autoVideoPublishAttemptedRef.current = null;
       bindLocalVideoTrack();
       setSpeakerEnabled(false);
-      showMessengerSnackbar("음성 통화로 바꿨어요.");
+      showMessengerSnackbar(t("cm_ui_switched_to_voice_snackbar"));
     } catch (e) {
       setErrorMessage(getCommunityMessengerMediaErrorMessage(e, "video"));
     } finally {
@@ -2406,7 +2412,7 @@ export function CommunityMessengerCallClient({
           return sessionsMeaningfullyEqual(prev, resolved) ? prev : resolved;
         });
         if (!nextSession) {
-          setErrorMessage("통화 세션을 찾지 못했습니다.");
+          setErrorMessage(t("cm_ui_call_session_missing"));
         }
         /* Agora 토큰: session 상태 반영 후 prefetch effect 가 단일 요청 */
       } finally {
@@ -2712,7 +2718,7 @@ export function CommunityMessengerCallClient({
     if (!s) return;
     if (isTerminalCallSessionStatus(s.status)) return;
     if (s.sessionMode !== "direct") {
-      setErrorMessage("이 통화는 채팅방에서 이어집니다.");
+      setErrorMessage(t("cm_ui_call_continue_in_chat_room"));
       return;
     }
     const shouldAutoAccept = requestedAction === "accept" && !s.isMineInitiator && s.status === "ringing";
@@ -2828,10 +2834,10 @@ export function CommunityMessengerCallClient({
       mode: "video",
       direction: "outgoing",
       phase: "ringing",
-      peerLabel: "통화",
+      peerLabel: t("cm_ui_call_label"),
       peerAvatarUrl: null,
-      statusText: "전화 거는 중",
-      subStatusText: "통화 정보를 불러오는 중입니다.",
+      statusText: t("cm_ui_outgoing_voice_dialing"),
+      subStatusText: t("cm_ui_call_loading_session"),
       topLabel: null,
       onTopLabelClick: null,
       footerNote: null,
@@ -2850,7 +2856,7 @@ export function CommunityMessengerCallClient({
       primaryActions: [
         {
           id: "end",
-          label: "닫기",
+          label: t("nav_close"),
           icon: "end",
           tone: "danger",
           onClick: dismissHydrate,
@@ -2858,7 +2864,7 @@ export function CommunityMessengerCallClient({
       ],
       mainVideoSlot: (
         <div className="absolute inset-0 flex items-center justify-center bg-black">
-          <span className="sam-text-body-secondary text-white/40">불러오는 중…</span>
+          <span className="sam-text-body-secondary text-white/40">{t("common_loading")}</span>
         </div>
       ),
       showRemoteVideo: false,
@@ -2873,13 +2879,13 @@ export function CommunityMessengerCallClient({
   if (!session) {
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 px-4 text-center">
-        <p className="sam-text-page-title font-semibold text-ui-fg">통화를 찾을 수 없습니다.</p>
+        <p className="sam-text-page-title font-semibold text-ui-fg">{t("cm_ui_not_found_call")}</p>
         <button
           type="button"
           onClick={() => router.replace("/community-messenger?section=chats")}
           className="rounded-ui-rect bg-ui-fg px-4 py-3 sam-text-body font-semibold text-ui-surface"
         >
-          메신저로 돌아가기
+          {t("cm_ui_return_to_messenger")}
         </button>
       </div>
     );
@@ -2920,7 +2926,7 @@ export function CommunityMessengerCallClient({
           showMessengerSnackbar(result.userMessage, { variant: "error" });
         }
       } catch {
-        showMessengerSnackbar("네트워크 오류로 통화를 시작하지 못했습니다.", { variant: "error" });
+        showMessengerSnackbar(t("cm_ui_network_error_could_not_start_call"), { variant: "error" });
       }
     })();
   };
@@ -2954,7 +2960,7 @@ export function CommunityMessengerCallClient({
     if (!skipRetryForInsecure && !skipRetryForCalleeReject) {
       primaryActions.push({
         id: "retry-call",
-        label: "다시 시도",
+        label: t("common_retry"),
         icon: "retry",
         onClick: () => startOutgoingAgain(session.callKind),
         disabled: !session.peerUserId,
@@ -2968,7 +2974,7 @@ export function CommunityMessengerCallClient({
       primaryActions.push(
         {
           id: "speaker",
-          label: "스피커",
+          label: t("cm_ui_speaker"),
           icon: "speaker",
           active: speakerEnabled,
           disabled: busy === "upgrade" || gateBusy,
@@ -2976,7 +2982,7 @@ export function CommunityMessengerCallClient({
         },
         {
           id: "upgrade-video",
-          label: "영상",
+          label: t("cm_ui_video_short"),
           icon: "video",
           active: session.callKind === "video",
           disabled: busy === "upgrade" || busy === "end" || gateBusy,
@@ -2984,7 +2990,7 @@ export function CommunityMessengerCallClient({
         },
         {
           id: "mute",
-          label: micMuted ? "음소거 해제" : "음소거",
+          label: micMuted ? t("cm_ui_unmute") : t("cm_ui_mute"),
           icon: "mic",
           active: !micMuted,
           disabled: busy === "end" || gateBusy,
@@ -2992,7 +2998,7 @@ export function CommunityMessengerCallClient({
         },
         {
           id: "end",
-          label: busy === "end" ? "취소 중" : "종료",
+          label: busy === "end" ? t("cm_ui_cancel_call_in_progress") : t("cm_ui_end_call"),
           icon: "end",
           tone: "danger",
           disabled: busy === "end",
@@ -3003,14 +3009,14 @@ export function CommunityMessengerCallClient({
       primaryActions.push(
         {
           id: "switch-camera",
-          label: "전환",
+          label: t("cm_ui_switch_camera"),
           icon: "camera-switch",
           disabled: gateBusy,
           onClick: grantConnect,
         },
         {
           id: "camera",
-          label: "영상",
+          label: t("cm_ui_video_short"),
           icon: "camera",
           active: true,
           disabled: gateBusy,
@@ -3018,7 +3024,7 @@ export function CommunityMessengerCallClient({
         },
         {
           id: "mute",
-          label: micMuted ? "음소거 해제" : "음소거",
+          label: micMuted ? t("cm_ui_unmute") : t("cm_ui_mute"),
           icon: "mic",
           active: !micMuted,
           disabled: gateBusy,
@@ -3026,7 +3032,7 @@ export function CommunityMessengerCallClient({
         },
         {
           id: "end",
-          label: busy === "end" ? "취소 중" : "종료",
+          label: busy === "end" ? t("cm_ui_cancel_call_in_progress") : t("cm_ui_end_call"),
           icon: "end",
           tone: "danger",
           disabled: busy === "end",
@@ -3039,7 +3045,7 @@ export function CommunityMessengerCallClient({
     primaryActions.push(
       {
         id: "speaker",
-        label: "스피커",
+        label: t("cm_ui_speaker"),
         icon: "speaker",
         active: speakerEnabled,
         disabled: busy === "upgrade",
@@ -3047,7 +3053,7 @@ export function CommunityMessengerCallClient({
       },
       {
         id: "upgrade-video",
-        label: "영상",
+        label: t("cm_ui_video_short"),
         icon: "video",
         active: session.callKind === "video",
         disabled: busy === "upgrade" || busy === "end",
@@ -3055,7 +3061,7 @@ export function CommunityMessengerCallClient({
       },
       {
         id: "mute",
-        label: micMuted ? "음소거 해제" : "음소거",
+        label: micMuted ? t("cm_ui_unmute") : t("cm_ui_mute"),
         icon: "mic",
         active: !micMuted,
         disabled: !joined || busy === "end",
@@ -3063,7 +3069,7 @@ export function CommunityMessengerCallClient({
       },
       {
         id: "end",
-        label: busy === "end" ? "취소 중" : "종료",
+        label: busy === "end" ? t("cm_ui_cancel_call_in_progress") : t("cm_ui_end_call"),
         icon: "end",
         tone: "danger",
         disabled: busy === "end",
@@ -3074,7 +3080,7 @@ export function CommunityMessengerCallClient({
     primaryActions.push(
       {
         id: "reject",
-        label: busy === "reject" ? "거절 중" : "거절",
+        label: busy === "reject" ? t("cm_ui_rejecting") : t("cm_ui_reject"),
         icon: "decline",
         tone: "danger",
         disabled: busy === "reject" || busy === "accept" || busy === "join",
@@ -3082,7 +3088,7 @@ export function CommunityMessengerCallClient({
       },
       {
         id: "accept",
-        label: busy === "accept" || busy === "join" ? "연결 중" : "수락",
+        label: busy === "accept" || busy === "join" ? t("cm_ui_connecting") : t("cm_ui_accept"),
         icon: "accept",
         tone: "accept",
         disabled: busy === "accept" || busy === "join",
@@ -3094,14 +3100,14 @@ export function CommunityMessengerCallClient({
     primaryActions.push(
       {
         id: "switch-camera",
-        label: "전환",
+        label: t("cm_ui_switch_camera"),
         icon: "camera-switch",
         disabled: !mediaReady || !cameraSwitchSupported || busy === "camera",
         onClick: () => void switchCameraFacing(),
       },
       {
         id: "swap-pip-main",
-        label: "화면 전환",
+        label: t("cm_ui_swap_pip_layout"),
         icon: "pip-swap",
         disabled:
           !mediaReady ||
@@ -3113,7 +3119,7 @@ export function CommunityMessengerCallClient({
       },
       {
         id: "camera",
-        label: "영상",
+        label: t("cm_ui_video_short"),
         icon: "camera",
         active: !camOff,
         disabled: !mediaReady || busy === "join" || busy === "upgrade",
@@ -3121,7 +3127,7 @@ export function CommunityMessengerCallClient({
       },
       {
         id: "mute",
-        label: micMuted ? "음소거 해제" : "음소거",
+        label: micMuted ? t("cm_ui_unmute") : t("cm_ui_mute"),
         icon: "mic",
         active: !micMuted,
         disabled: busy === "join" || busy === "upgrade",
@@ -3129,7 +3135,7 @@ export function CommunityMessengerCallClient({
       },
       {
         id: "end",
-        label: busy === "end" ? "종료 중" : "종료",
+        label: busy === "end" ? t("cm_ui_ending_call") : t("cm_ui_end_call"),
         icon: "end",
         tone: "danger",
         disabled: busy === "end",
@@ -3140,7 +3146,7 @@ export function CommunityMessengerCallClient({
     primaryActions.push(
       {
         id: "speaker",
-        label: "스피커",
+        label: t("cm_ui_speaker"),
         icon: "speaker",
         active: speakerEnabled,
         disabled: busy === "upgrade",
@@ -3148,7 +3154,7 @@ export function CommunityMessengerCallClient({
       },
       {
         id: "upgrade-video",
-        label: "영상 전환",
+        label: t("cm_ui_switch_to_video"),
         icon: "video",
         active: session.callKind === "video",
         disabled:
@@ -3161,7 +3167,7 @@ export function CommunityMessengerCallClient({
       },
       {
         id: "mute",
-        label: micMuted ? "음소거 해제" : "음소거",
+        label: micMuted ? t("cm_ui_unmute") : t("cm_ui_mute"),
         icon: "mic",
         active: !micMuted,
         disabled: busy === "join" || busy === "upgrade",
@@ -3169,7 +3175,7 @@ export function CommunityMessengerCallClient({
       },
       {
         id: "end",
-        label: busy === "end" ? "종료 중" : "종료",
+        label: busy === "end" ? t("cm_ui_ending_call") : t("cm_ui_end_call"),
         icon: "end",
         tone: "danger",
         disabled: busy === "end",
@@ -3188,7 +3194,7 @@ export function CommunityMessengerCallClient({
   ) {
     secondaryActions.push({
       id: "retry-media",
-      label: busy === "join" || busy === "accept" ? "재시도 중" : "다시 시도",
+      label: busy === "join" || busy === "accept" ? t("cm_ui_retrying") : t("common_retry"),
       icon: "retry",
       disabled: busy === "join" || busy === "accept",
       onClick: handleRetryMediaAndJoin,
@@ -3203,7 +3209,7 @@ export function CommunityMessengerCallClient({
     ) {
       secondaryActions.push({
         id: "open-permission-settings",
-        label: "설정 열기",
+        label: t("cm_ui_open_settings"),
         icon: "settings",
         onClick: () => {
           openCommunityMessengerPermissionSettings();
@@ -3212,7 +3218,7 @@ export function CommunityMessengerCallClient({
     }
     secondaryActions.push({
       id: "close-terminal",
-      label: "닫기",
+      label: t("nav_close"),
       icon: "close",
       onClick: closeTerminalView,
     });
@@ -3222,52 +3228,52 @@ export function CommunityMessengerCallClient({
     terminalFailureHeadline !== null
       ? terminalFailureHeadline
       : failureEndedDetail !== null
-        ? "통화가 종료되었습니다"
+        ? t("cm_ui_call_ended")
         : showCallerMediaGate && directPhase === "ringing"
           ? videoCall
-            ? "마이크·카메라 권한이 필요합니다"
-            : "마이크 권한이 필요합니다"
+            ? t("cm_ui_mic_camera_permission_required")
+            : t("cm_ui_mic_permission_required")
           : callScreenPhase === "ringing"
             ? session.isMineInitiator
               ? videoCall
-                ? "영상 통화 거는 중"
-                : "전화 거는 중"
+                ? t("cm_ui_outgoing_video_dialing")
+                : t("cm_ui_outgoing_voice_dialing")
               : videoCall
-                ? "영상 통화가 왔습니다"
-                : "전화가 왔습니다"
+                ? t("cm_ui_incoming_video_ringing")
+                : t("cm_ui_incoming_voice_ringing")
             : callScreenPhase === "connecting"
-              ? "연결 중"
+              ? t("cm_ui_connecting")
               : callScreenPhase === "connected"
                 ? videoCall
-                  ? "영상 통화 중"
-                  : "통화 중"
+                  ? t("cm_ui_call_active_video")
+                  : t("cm_ui_call_active_voice")
                 : callScreenPhase === "declined"
-                  ? "상대방이 통화를 거절했습니다"
+                  ? t("cm_ui_peer_declined_call")
                   : callScreenPhase === "missed"
-                    ? "부재중 통화"
+                    ? t("cm_ui_call_missed_status")
                     : callScreenPhase === "failed"
-                      ? "통화가 종료되었습니다"
+                      ? t("cm_ui_call_ended")
                       : callScreenPhase === "ended"
                         ? session.status === "cancelled"
-                          ? "통화가 취소되었습니다"
-                          : "통화가 종료되었습니다"
-                        : "통화가 종료되었습니다";
+                          ? t("cm_ui_call_cancelled")
+                          : t("cm_ui_call_ended")
+                        : t("cm_ui_call_ended");
 
   const subStatusText =
     failureEndedDetail ??
     errorMessage ??
     (showCallerMediaGate && directPhase === "ringing"
       ? videoCall
-        ? "아래 버튼에서 마이크·카메라 권한을 허용해야 실제 통화 연결이 진행됩니다."
-        : "스피커·영상·음소거 중 하나를 눌러 마이크를 허용하면 연결이 진행됩니다."
+        ? t("cm_ui_gate_grant_camera_mic_hint")
+        : t("cm_ui_gate_grant_mic_via_controls_hint")
       : callScreenPhase === "ringing"
         ? session.isMineInitiator
-          ? "상대가 받을 때까지 기다리는 중입니다."
-          : "수락 또는 거절을 선택해 주세요."
+          ? t("cm_ui_waiting_for_peer_answer")
+          : t("cm_ui_choose_accept_or_reject")
         : callScreenPhase === "connecting"
         ? calleeAcceptBridgeLayout
-          ? "통화에 연결하는 중입니다."
-          : "실제 미디어 연결을 붙이는 중입니다."
+          ? t("cm_ui_call_connecting_session")
+          : t("cm_ui_call_attaching_media")
         : callScreenPhase === "connected"
           ? lastMileLine
           : null);
@@ -3313,9 +3319,9 @@ export function CommunityMessengerCallClient({
       showCallerMediaGate && directPhase === "ringing"
         ? null
         : showCallerMediaGate
-          ? "브라우저 권한을 허용해야 실제 연결이 시작됩니다."
+          ? t("cm_ui_browser_permission_required_footer")
           : directPhase === "ringing" && ringStartAt
-            ? "통화 시간은 실제 연결 완료 후부터 시작됩니다."
+            ? t("cm_ui_call_timer_starts_after_connect")
             : null,
     connectionLabel: callScreenPhase === "connected" ? lastMileLine : null,
     connectedAt: connectedAtTs,
@@ -3359,7 +3365,7 @@ export function CommunityMessengerCallClient({
             aria-hidden
           >
             <span className="sam-text-body-secondary text-center text-white/50">
-              {!joined ? "카메라·연결 준비 중…" : "영상 표시 준비 중…"}
+              {!joined ? t("cm_ui_camera_preparing_connection") : t("cm_ui_video_preparing_display")}
             </span>
           </div>
         ) : null}
@@ -3370,7 +3376,7 @@ export function CommunityMessengerCallClient({
         <div ref={smallVideoRef} className="h-full w-full" />
         {camOff ? (
           <div className="pointer-events-none absolute inset-0 z-[2] flex flex-col items-center justify-center gap-1 bg-black/75 px-2">
-            <span className="text-center sam-text-xxs font-semibold leading-tight text-white/95">카메라 꺼짐</span>
+            <span className="text-center sam-text-xxs font-semibold leading-tight text-white/95">{t("cm_ui_camera_off")}</span>
           </div>
         ) : null}
       </div>
@@ -3385,7 +3391,7 @@ export function CommunityMessengerCallClient({
             onPipPointerMove,
             onPipPointerUp,
             onPipPointerCancel,
-            pipLabel: layoutSwapped ? session.peerLabel : "나",
+            pipLabel: layoutSwapped ? session.peerLabel : t("common_me"),
             pipPixelStyle: pipFreePos ? { left: pipFreePos.left, top: pipFreePos.top } : null,
           }
         : null,
@@ -3529,6 +3535,7 @@ function playDtmfDigit(digit: string) {
 }
 
 function CallKeypadOverlay({ onClose }: { onClose: () => void }) {
+  const { t } = useI18n();
   const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "*", "0", "#"] as const;
   return (
     <div
@@ -3543,16 +3550,16 @@ function CallKeypadOverlay({ onClose }: { onClose: () => void }) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
-          <p className="sam-text-body font-semibold text-white">자판</p>
+          <p className="sam-text-body font-semibold text-white">{t("cm_ui_keypad")}</p>
           <button
             type="button"
             onClick={onClose}
             className="rounded-full px-3 py-1.5 sam-text-body-secondary font-medium text-white/75 transition hover:bg-sam-surface/10"
           >
-            닫기
+            {t("nav_close")}
           </button>
         </div>
-        <p className="mb-3 sam-text-xxs leading-snug text-white/45">로컬에서만 톤이 재생됩니다. 상대에게는 전달되지 않을 수 있습니다.</p>
+        <p className="mb-3 sam-text-xxs leading-snug text-white/45">{t("cm_ui_dtmf_local_only_notice")}</p>
         <div className="grid grid-cols-3 gap-2">
           {keys.map((k) => (
             <button
@@ -3686,12 +3693,13 @@ function CallerMediaGateOverlay(
         closeBusy: boolean;
       }
 ) {
+  const { t } = useI18n();
   const headline =
     props.variant === "insecure"
-      ? "보안 연결에서만 통화할 수 있습니다"
+      ? t("cm_ui_call_https_required_headline")
       : props.callKind === "video"
-        ? "마이크·카메라 권한이 필요합니다"
-        : "마이크 권한이 필요합니다";
+        ? t("cm_ui_mic_camera_permission_required")
+        : t("cm_ui_mic_permission_required");
   const detail =
     props.variant === "insecure" ? messengerCallFailureEndedDetail("failed_insecure_context") : null;
 
@@ -3709,7 +3717,7 @@ function CallerMediaGateOverlay(
             disabled={props.confirmBusy || props.closeBusy}
             className="mt-4 w-full rounded-full bg-sam-surface py-3 sam-text-body font-semibold text-sam-fg disabled:opacity-40"
           >
-            {props.confirmBusy ? "연결 중" : "허용하고 연결"}
+            {props.confirmBusy ? t("cm_ui_connecting") : t("cm_ui_allow_and_connect")}
           </button>
         ) : null}
         <button
@@ -3720,7 +3728,7 @@ function CallerMediaGateOverlay(
             props.variant === "permission" ? "mt-2" : "mt-4"
           }`}
         >
-          {props.closeBusy ? "종료 중" : "닫기"}
+          {props.closeBusy ? t("cm_ui_ending_call") : t("nav_close")}
         </button>
       </div>
     </div>

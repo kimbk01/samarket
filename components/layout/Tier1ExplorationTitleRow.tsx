@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRegion } from "@/contexts/RegionContext";
 import {
   neighborhoodLocationLabelFromRegion,
@@ -27,6 +28,7 @@ export function Tier1ExplorationTitleRow({
   segmentTitle,
   align = "center",
 }: Tier1ExplorationTitleRowProps) {
+  const { t } = useI18n();
   const { currentRegion } = useRegion();
   const rep = useRepresentativeAddressLine();
   const meta = neighborhoodLocationMetaFromRegion(currentRegion);
@@ -48,7 +50,7 @@ export function Tier1ExplorationTitleRow({
       <Link
         href={ADDRESS_MANAGEMENT_HREF}
         className="sam-text-body-secondary min-w-0 flex-1 truncate leading-none hover:text-sam-fg hover:underline"
-        aria-label={`내 동네 ${addressLine}, 주소 관리에서 대표 주소 변경`}
+        aria-label={t("layout_neighborhood_address_aria", { line: addressLine })}
       >
         {addressLine}
       </Link>

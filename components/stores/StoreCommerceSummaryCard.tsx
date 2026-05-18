@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { formatPhMobileDisplay, parsePhMobileInput, telHrefFromLoosePhPhone } from "@/lib/utils/ph-mobile";
@@ -51,6 +52,7 @@ export function StoreCommerceSummaryCard({
   phone,
   disclaimer = "금액·시간은 매장 운영에 따라 달라질 수 있어요. 주문 전 매장에 확인해 주세요.",
 }: StoreCommerceSummaryCardProps) {
+  const { t } = useI18n();
   const minOrderDd =
     minOrderPhp != null && minOrderPhp > 0 ? formatMoneyPhp(minOrderPhp) : "주문 시 확인";
   const deliveryDd =
@@ -83,17 +85,17 @@ export function StoreCommerceSummaryCard({
         )}
       </div>
       <dl className="grid grid-cols-2 gap-x-2 gap-y-1 sam-text-helper text-sam-fg">
-        <dt className="text-sam-muted">최소주문</dt>
+        <dt className="text-sam-muted">{t("store_min_order_short")}</dt>
         <dd className="text-right font-medium">{minOrderDd}</dd>
-        <dt className="text-sam-muted">배달비</dt>
+        <dt className="text-sam-muted">{t("store_delivery_fee")}</dt>
         <dd className="text-right font-medium">{deliveryAvailable ? deliveryDd : "—"}</dd>
-        <dt className="text-sam-muted">예상 조리</dt>
+        <dt className="text-sam-muted">{t("store_est_prep_short")}</dt>
         <dd className="text-right font-medium">{estPrepLabel}</dd>
-        <dt className="text-sam-muted">지역</dt>
+        <dt className="text-sam-muted">{t("store_region_label")}</dt>
         <dd className="text-right">{regionLabel || "—"}</dd>
         {phone ? (
           <>
-            <dt className="text-sam-muted">연락처</dt>
+            <dt className="text-sam-muted">{t("store_label_contact")}</dt>
             <dd className="text-right font-medium">
               <a
                 href={

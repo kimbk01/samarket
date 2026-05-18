@@ -1,15 +1,13 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
-import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
 import { pickPreferredOwnerStore } from "@/lib/stores/owner-lite-external-store";
-import { resolveOwnerOperationsCenterAttentionCount } from "@/lib/stores/owner-store-badge-display-policy";
 import {
   formatStoreApprovalStatusKo,
   isStorePubliclyListed,
 } from "@/lib/stores/store-approval-label-ko";
-import { OWNER_HUB_BADGE_DOT_CLASS } from "@/lib/chats/hub-badge-ui";
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
 
 function pickPrimaryStore(stores: StoreRow[]): StoreRow | null {
@@ -26,13 +24,11 @@ export function StoreMyBusinessHubBanner({
   loading: boolean;
   ownerStores: StoreRow[];
 }) {
-  const hubBreakdown = useOwnerHubBadgeBreakdown();
-  const opsAttention = resolveOwnerOperationsCenterAttentionCount(hubBreakdown);
-
+  const { t } = useI18n();
   if (loading && ownerStores.length === 0) {
     return (
       <div className={`rounded-ui-rect border border-[#E4E6EB] bg-sam-surface/90 px-4 py-3 dark:border-[#3E4042] dark:bg-[#242526]`}>
-        <p className={`sam-text-helper ${FB.metaSm}`}>내 매장 상태 확인 중…</p>
+        <p className={`sam-text-helper ${FB.metaSm}`}>{t("store_my_store_status_loading")}</p>
       </div>
     );
   }
@@ -56,18 +52,18 @@ export function StoreMyBusinessHubBanner({
 
   return (
     <section
-      className={`rounded-ui-rect border border-[#E4E6EB] bg-sam-surface px-4 py-3 dark:border-[#3E4042] dark:bg-[#242526]`}
+      className={`rounded-ui-rect border border-[#E4E6EB] bg-sam-surface px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-[#3E4042] dark:bg-[#242526] dark:shadow-none`}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className={`sam-text-xxs font-semibold uppercase tracking-wide ${FB.metaSm}`}>내 매장</p>
+          <p className={`sam-text-xxs font-semibold uppercase tracking-wide ${FB.metaSm}`}>{t("store_my_store_label")}</p>
           <p className="mt-0.5 truncate sam-text-body font-bold text-[#050505] dark:text-[#E4E6EB]">
             {primary.store_name?.trim() || "이름 없음"}
           </p>
           <div className="mt-1.5 flex flex-wrap items-center gap-2">
             <span className={`rounded-full px-2 py-0.5 sam-text-xxs font-bold ${statusTone}`}>{statusKo}</span>
             {listed ?
-              <span className="sam-text-xxs font-medium text-emerald-700 dark:text-emerald-300">/stores 노출</span>
+              <span className="sam-text-xxs font-medium text-emerald-700 dark:text-emerald-300">{t("store_listed_on_stores")}</span>
             : (
               <span className={`sam-text-xxs ${FB.metaSm}`}>
                 승인·노출 전까지 고객용 목록에는 나오지 않습니다.
@@ -75,26 +71,15 @@ export function StoreMyBusinessHubBanner({
             )}
           </div>
           {extraCount > 0 ?
-            <p className={`mt-1 sam-text-xxs ${FB.metaSm}`}>다른 소유 매장 {extraCount}건 — 운영 센터에서 전환할 수 있어요.</p>
+            <p className={`mt-1 sam-text-xxs ${FB.metaSm}`}>{t("store_other_owned_stores", { count: extraCount })}</p>
           : null}
         </div>
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
           <Link
             href={`/stores/owner?${q}`}
-            className="relative inline-flex items-center justify-center rounded-full bg-[#1877F2] px-4 py-2 sam-text-helper font-bold text-white active:opacity-90"
-            aria-label={
-              opsAttention > 0 ? `운영 센터 · 확인할 일 ${opsAttention}건` : "운영 센터"
-            }
+            className="inline-flex items-center justify-center rounded-full bg-[#1877F2] px-4 py-2 sam-text-helper font-bold text-white active:opacity-90"
           >
             운영 센터
-            {opsAttention > 0 ? (
-              <span
-                className={`${OWNER_HUB_BADGE_DOT_CLASS} ring-[#1877F2]`}
-                aria-hidden
-              >
-                {opsAttention > 99 ? "99+" : opsAttention}
-              </span>
-            ) : null}
           </Link>
           {listed && primary.slug ?
             <Link

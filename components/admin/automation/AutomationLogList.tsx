@@ -1,18 +1,20 @@
 "use client";
 
 import { useMemo } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getAutomationLogs } from "@/lib/automation/mock-automation-logs";
 import { getAutomationRuleById } from "@/lib/automation/mock-automation-rules";
 
 export function AutomationLogList() {
+  const { t } = useI18n();
   const logs = useMemo(() => getAutomationLogs(), []);
 
   return (
     <div className="space-y-4">
-      <p className="sam-text-helper text-sam-muted">자동화 룰 실행 로그</p>
+      <p className="sam-text-helper text-sam-muted">{t("admin_automation_logs_helper")}</p>
       {logs.length === 0 ? (
         <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          실행 로그가 없습니다.
+          {t("admin_automation_logs_empty")}
         </div>
       ) : (
         <ul className="space-y-2">

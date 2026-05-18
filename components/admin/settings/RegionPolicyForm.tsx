@@ -1,6 +1,7 @@
 "use client";
 
 import type { AppSettings } from "@/lib/types/admin-settings";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface RegionPolicyFormProps {
   values: Pick<
@@ -11,11 +12,11 @@ interface RegionPolicyFormProps {
 }
 
 export function RegionPolicyForm({ values, onChange }: RegionPolicyFormProps) {
+  const { t } = useI18n();
+
   return (
     <div className="space-y-4">
-      <p className="sam-text-body-secondary text-sam-muted">
-        지역·노출 정책 (8·9단계 연동 placeholder)
-      </p>
+      <p className="sam-text-body-secondary text-sam-muted">{t("admin_settings_region_intro")}</p>
       <div className="flex items-center gap-2">
         <input
           type="checkbox"
@@ -30,12 +31,12 @@ export function RegionPolicyForm({ values, onChange }: RegionPolicyFormProps) {
           htmlFor="regionMultiSelectEnabled"
           className="sam-text-body text-sam-fg"
         >
-          동네 여러 개 선택 허용
+          {t("admin_settings_region_multi")}
         </label>
       </div>
       <div>
         <label className="block sam-text-body-secondary font-medium text-sam-fg">
-          최대 저장 동네 수
+          {t("admin_settings_region_max_saved")}
         </label>
         <input
           type="number"
@@ -49,7 +50,7 @@ export function RegionPolicyForm({ values, onChange }: RegionPolicyFormProps) {
       </div>
       <div>
         <label className="block sam-text-body-secondary font-medium text-sam-fg">
-          홈 노출 반경 (km)
+          {t("admin_settings_region_home_radius")}
         </label>
         <input
           type="number"

@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { ExperimentMetrics } from "@/lib/types/recommendation-experiment";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getExperimentMetrics } from "@/lib/recommendation-experiments/mock-experiment-metrics";
 import { getRecommendationExperiments } from "@/lib/recommendation-experiments/mock-recommendation-experiments";
 import { getFeedVersionById } from "@/lib/recommendation-experiments/mock-feed-versions";
 
 export function ExperimentMetricsCards() {
+  const { t } = useI18n();
   const [experimentId, setExperimentId] = useState<string>("");
 
   const experiments = useMemo(() => getRecommendationExperiments(), []);
@@ -19,7 +20,7 @@ export function ExperimentMetricsCards() {
   if (experiments.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        실험이 없습니다.
+        {t("admin_rec_exp_empty_experiment_list")}
       </div>
     );
   }
@@ -27,7 +28,9 @@ export function ExperimentMetricsCards() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="sam-text-body font-medium text-sam-fg">실험</label>
+        <label className="sam-text-body font-medium text-sam-fg">
+          {t("admin_rec_exp_label_experiment")}
+        </label>
         <select
           value={effectiveId}
           onChange={(e) => setExperimentId(e.target.value)}
@@ -42,7 +45,7 @@ export function ExperimentMetricsCards() {
       </div>
       {effectiveMetrics.length === 0 ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          해당 실험의 성과 데이터가 없습니다.
+          {t("admin_rec_exp_empty_metrics")}
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -58,31 +61,31 @@ export function ExperimentMetricsCards() {
                 </p>
                 <dl className="mt-2 space-y-1 sam-text-body-secondary text-sam-fg">
                   <div className="flex justify-between">
-                    <dt>배정 사용자</dt>
+                    <dt>{t("admin_rec_exp_metrics_assigned_users")}</dt>
                     <dd>{m.assignedUsers}</dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt>노출</dt>
+                    <dt>{t("admin_rec_exp_metrics_impressions")}</dt>
                     <dd>{m.impressionCount}</dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt>클릭</dt>
+                    <dt>{t("admin_rec_exp_metrics_clicks")}</dt>
                     <dd>{m.clickCount}</dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt>전환</dt>
+                    <dt>{t("admin_rec_exp_metrics_conversions")}</dt>
                     <dd>{m.conversionCount}</dd>
                   </div>
                   <div className="flex justify-between font-medium">
-                    <dt>CTR</dt>
+                    <dt>{t("admin_rec_th_ctr")}</dt>
                     <dd>{(m.ctr * 100).toFixed(2)}%</dd>
                   </div>
                   <div className="flex justify-between font-medium">
-                    <dt>전환률</dt>
+                    <dt>{t("admin_rec_exp_metrics_conversion_rate")}</dt>
                     <dd>{(m.conversionRate * 100).toFixed(2)}%</dd>
                   </div>
                   <div className="flex justify-between">
-                    <dt>평균 점수</dt>
+                    <dt>{t("admin_rec_exp_metrics_avg_score")}</dt>
                     <dd>{m.avgScore}</dd>
                   </div>
                 </dl>

@@ -1,13 +1,14 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { RoomStatus } from "@/lib/types/admin-chat";
 
-const LABELS: Record<RoomStatus, string> = {
-  active: "활성",
-  blocked: "차단",
-  reported: "신고됨",
-  archived: "보관",
+const LABEL_KEYS: Record<RoomStatus, MessageKey> = {
+  active: "admin_chat_status_active",
+  blocked: "admin_chat_status_blocked",
+  reported: "admin_chat_status_reported",
+  archived: "admin_chat_status_archived",
 };
 
 const CLASSES: Record<RoomStatus, string> = {
@@ -26,12 +27,12 @@ export function AdminChatRoomStatusBadge({
   status,
   className = "",
 }: AdminChatRoomStatusBadgeProps) {
-  const { tt } = useI18n();
+  const { t } = useI18n();
   return (
     <span
       className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${CLASSES[status]} ${className}`}
     >
-      {tt(LABELS[status])}
+      {t(LABEL_KEYS[status])}
     </span>
   );
 }

@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useCategoryAdmin } from "./useCategoryAdmin";
 import { CategoryTable } from "./CategoryTable";
 import { CategoryFormModal } from "./CategoryFormModal";
 import type { CategoryFormPayload, CategoryFormSettingsPayload } from "./CategoryFormModal";
 
 export function AdminCategoriesPage() {
+  const { t } = useI18n();
   const {
     list,
     loading,
@@ -45,23 +47,20 @@ export function AdminCategoriesPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="sam-text-page-title font-semibold text-sam-fg">카테고리 관리</h1>
+        <h1 className="sam-text-page-title font-semibold text-sam-fg">{t("admin_cat_page_title")}</h1>
         <button
           type="button"
           onClick={() => setCreateOpen(true)}
           className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white"
         >
-          카테고리 추가
+          {t("admin_cat_add_btn")}
         </button>
       </div>
 
       {supabaseAvailable === false && (
         <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 sam-text-body-secondary text-amber-800">
-          <p className="font-medium">Supabase가 연결되지 않았습니다.</p>
-          <p className="mt-1 text-amber-700">
-            카테고리 저장·조회를 하려면 .env.local에 NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY를
-            설정한 뒤 개발 서버를 재시작해 주세요.
-          </p>
+          <p className="font-medium">{t("admin_cat_supabase_title")}</p>
+          <p className="mt-1 text-amber-700">{t("admin_cat_supabase_body")}</p>
         </div>
       )}
 
@@ -77,7 +76,7 @@ export function AdminCategoriesPage() {
 
       {loading ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
-          불러오는 중…
+          {t("admin_cat_loading")}
         </div>
       ) : (
         <CategoryTable

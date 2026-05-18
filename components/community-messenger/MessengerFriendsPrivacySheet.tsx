@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessengerFriendStateModel } from "@/lib/community-messenger/messenger-friend-model";
 
 type Tab = "hidden" | "blocked" | "muted";
@@ -23,6 +23,7 @@ export function MessengerFriendsPrivacySheet({
   onToggleBlock,
   onOpenChat,
 }: Props) {
+  const { t } = useI18n();
   const [tab, setTab] = useState<Tab>("hidden");
 
   const list =
@@ -30,14 +31,14 @@ export function MessengerFriendsPrivacySheet({
 
   return (
     <div className="fixed inset-0 z-[46] flex flex-col justify-end bg-black/30" role="dialog" aria-modal="true">
-      <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={onClose} />
+      <button type="button" className="min-h-0 flex-1 cursor-default" aria-label={t("nav_close")} onClick={onClose} />
       <div className="flex max-h-[min(78vh,600px)] w-full flex-col overflow-hidden rounded-t-[12px] border border-ui-border bg-ui-surface shadow-[0_-4px_24px_rgba(0,0,0,0.08)]">
         <div className="flex shrink-0 items-center justify-between border-b border-ui-border px-3 py-2.5">
-          <p className="sam-text-body-lg font-semibold text-ui-fg">숨김 · 차단 · 알림</p>
+          <p className="sam-text-body-lg font-semibold text-ui-fg">{t("cm_ui_hidden_blocked_notifications")}</p>
           <button
             type="button"
             className="flex h-9 w-9 items-center justify-center rounded-ui-rect text-ui-muted active:bg-ui-hover"
-            aria-label="닫기"
+            aria-label={t("nav_close")}
             onClick={onClose}
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
@@ -48,9 +49,9 @@ export function MessengerFriendsPrivacySheet({
         <div className="flex shrink-0 border-b border-ui-border">
           {(
             [
-              { id: "hidden" as const, label: "숨김", count: model.hidden.length },
-              { id: "blocked" as const, label: "차단", count: model.blocked.length },
-              { id: "muted" as const, label: "알림 끔", count: model.muted.length },
+              { id: "hidden" as const, label: t("common_hide"), count: model.hidden.length },
+              { id: "blocked" as const, label: t("common_block"), count: model.blocked.length },
+              { id: "muted" as const, label: t("cm_ui_notifications_off"), count: model.muted.length },
             ] as const
           ).map((seg) => (
             <button
@@ -70,7 +71,7 @@ export function MessengerFriendsPrivacySheet({
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
           {list.length === 0 ? (
-            <p className="px-4 py-8 text-center sam-text-body-secondary text-ui-muted">목록이 비어 있습니다.</p>
+            <p className="px-4 py-8 text-center sam-text-body-secondary text-ui-muted">{t("cm_ui_list_is_empty")}</p>
           ) : (
             <ul className="divide-y divide-ui-border">
               {list.map((entry) => {
@@ -78,14 +79,16 @@ export function MessengerFriendsPrivacySheet({
                 const initial = p.label.trim().slice(0, 1) || "?";
                 return (
                   <li key={p.id} className="flex items-center gap-3 px-3 py-2.5">
-                    <SamarketThumbnail
-                      src={p.avatarUrl}
-                      size={40}
-                      roundedClassName="rounded-full"
-                      className="bg-ui-hover"
-                      fallbackSrc=""
-                      fallbackNode={<span className="sam-text-body-secondary font-semibold text-ui-muted">{initial}</span>}
-                    />
+                    <div className="h-10 w-10 shrink-0 overflow-hidden rounded-full bg-ui-hover">
+                      {p.avatarUrl?.trim() ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={p.avatarUrl.trim()} alt="" className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center sam-text-body-secondary font-semibold text-ui-muted">
+                          {initial}
+                        </div>
+                      )}
+                    </div>
                     <div className="min-w-0 flex-1">
                       <p className="truncate sam-text-body font-medium text-ui-fg">{p.label}</p>
                       {p.subtitle ? <p className="truncate sam-text-xxs text-ui-muted">{p.subtitle}</p> : null}
@@ -98,7 +101,7 @@ export function MessengerFriendsPrivacySheet({
                           disabled={busyId === `hidden:${p.id}`}
                           className="rounded-ui-rect border border-ui-border px-2.5 py-1.5 sam-text-helper font-medium text-ui-fg disabled:opacity-50"
                         >
-                          {busyId === `hidden:${p.id}` ? "…" : "해제"}
+                          {busyId === `hidden:${p.id}` ? "…" : t("cm_ui_release")}
                         </button>
                       ) : null}
                       {tab === "blocked" ? (
@@ -108,7 +111,7 @@ export function MessengerFriendsPrivacySheet({
                           disabled={busyId === `block:${p.id}`}
                           className="rounded-ui-rect border border-ui-border px-2.5 py-1.5 sam-text-helper font-medium text-ui-fg disabled:opacity-50"
                         >
-                          {busyId === `block:${p.id}` ? "…" : "해제"}
+                          {busyId === `block:${p.id}` ? "…" : t("cm_ui_release")}
                         </button>
                       ) : null}
                       {tab === "muted" ? (
@@ -118,7 +121,7 @@ export function MessengerFriendsPrivacySheet({
                           disabled={busyId === `room:${p.id}`}
                           className="rounded-ui-rect border border-ui-border px-2.5 py-1.5 sam-text-helper font-medium text-ui-fg disabled:opacity-50"
                         >
-                          대화
+                          {t("nav_conversation")}
                         </button>
                       ) : null}
                     </div>

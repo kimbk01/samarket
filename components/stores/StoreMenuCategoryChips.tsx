@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
 
@@ -28,6 +29,7 @@ export function StoreMenuCategoryChips({
   showSearchButton?: boolean;
   onSearchClick?: () => void;
 }) {
+  const { t } = useI18n();
   if (sections.length <= 1) return null;
 
   const wrapPad =
@@ -60,13 +62,13 @@ export function StoreMenuCategoryChips({
 
   return (
     <div className={`${wrapPad} ${borderCls}`}>
-      <HorizontalDragScroll className={scrollCls} role="tablist" aria-label="메뉴 카테고리">
+      <HorizontalDragScroll className={scrollCls} role="tablist" aria-label={t("store_menu_category_aria")}>
         {showSearchButton ? (
           <button
             type="button"
             onClick={onSearchClick}
             className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-900"
-            aria-label="메뉴 검색"
+            aria-label={t("store_menu_search_aria")}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
               <circle cx="11" cy="11" r="7" />

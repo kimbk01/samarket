@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -31,6 +32,7 @@ export function StorePrimaryIndustrySwitcher({
   /** browse 상단에서는 매장 홈 칩을 숨기고 업종만 촘촘히 */
   showHomeChip?: boolean;
 }) {
+  const { t } = useI18n();
   const industryVersion = useBrowseIndustryDatasetVersion();
   const pathname = usePathname();
   const [taxonomyCats, setTaxonomyCats] = useState<StoreTaxonomyCategory[] | null>(null);
@@ -97,7 +99,7 @@ export function StorePrimaryIndustrySwitcher({
       <HorizontalDragScroll
         className={STORE_CATEGORY_PILL_SCROLL}
         style={{ WebkitOverflowScrolling: "touch" }}
-        aria-label="대분류 업종"
+        aria-label={t("store_primary_industry_aria")}
       >
         {showHomeChip ?
           <Link href="/stores" className={pillClass(onStoresHome && activeSlug == null)}>

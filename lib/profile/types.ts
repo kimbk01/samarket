@@ -129,7 +129,7 @@ export const DEFAULT_PROFILE_ROW: ProfileRow = {
   points: 0,
   manner_score: 50,
   trust_score: 50,
-  preferred_language: "ko",
+  preferred_language: "system",
   preferred_country: "PH",
   provider: null,
   auth_provider: null,

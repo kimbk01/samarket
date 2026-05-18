@@ -10,8 +10,10 @@ import {
   fetchCommunityUserRelationSnapshot,
   invalidateCommunityUserRelationSnapshot,
 } from "@/lib/community/user-relation-client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function NeighborFollowButton({ targetUserId }: { targetUserId: string }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const me = mounted ? getCurrentUser() : getHydrationSafeCurrentUser();
@@ -73,7 +75,7 @@ export function NeighborFollowButton({ targetUserId }: { targetUserId: string })
       onClick={() => void toggle()}
       className="rounded-ui-rect border border-sky-200 bg-sky-50 px-3 py-1.5 sam-text-helper font-medium text-sky-900 disabled:opacity-50"
     >
-      {following === true ? "관심이웃 해제" : "관심이웃 추가"}
+      {following === true ? t("community_neighbor_follow_remove") : t("community_neighbor_follow_add")}
     </button>
   );
 }

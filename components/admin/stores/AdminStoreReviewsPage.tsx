@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
 type Row = {
@@ -18,10 +20,22 @@ type Row = {
 };
 
 export function AdminStoreReviewsPage() {
+  const { t, language } = useI18n();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  const locale = catalogDateLocale(language);
+
+  const errorText =
+    error === "forbidden"
+      ? t("admin_audit_err_no_permission")
+      : error === "table_missing"
+        ? t("admin_stores_reviews_err_table_missing")
+        : error === "network_error"
+          ? t("common_network_error")
+          : error;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -30,12 +44,12 @@ export function AdminStoreReviewsPage() {
       const res = await fetch("/api/admin/store-reviews", { credentials: "include" });
       const json = await res.json();
       if (res.status === 403) {
-        setError("관리자 권한이 없습니다.");
+        setError("forbidden");
         setRows([]);
         return;
       }
       if (!json?.ok) {
-        setError(json?.error === "table_missing" ? "store_reviews 테이블을 적용해 주세요." : json?.error);
+        setError(json?.error === "table_missing" ? "table_missing" : json?.error);
         setRows([]);
         return;
       }
@@ -70,13 +84,13 @@ export function AdminStoreReviewsPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="매장 리뷰 검수" />
-      <p className="sam-text-body-secondary text-sam-muted">노출 숨김 처리만 지원합니다. 삭제는 DB 정책에 따릅니다.</p>
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
+      <AdminPageHeader titleKey="admin_page_store_reviews" />
+      <p className="sam-text-body-secondary text-sam-muted">{t("admin_stores_reviews_desc")}</p>
+      {errorText ? <p className="text-sm text-red-700">{errorText}</p> : null}
       {loading ? (
-        <p className="text-sm text-sam-muted">불러오는 중…</p>
+        <p className="text-sm text-sam-muted">{t("common_loading")}</p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-sam-muted">리뷰가 없습니다.</p>
+        <p className="text-sm text-sam-muted">{t("admin_stores_reviews_empty")}</p>
       ) : (
         <ul className="space-y-3">
           {rows.map((r) => (
@@ -92,24 +106,29 @@ export function AdminStoreReviewsPage() {
                 </span>
               </div>
               <p className="mt-1 text-xs text-sam-muted">
-                주문 {r.order_id} · 구매자 {r.buyer_user_id}
+                {t("admin_stores_reviews_order_buyer", {
+                  orderId: r.order_id,
+                  buyerId: r.buyer_user_id,
+                })}
               </p>
               <p className="mt-2 text-amber-800">{"★".repeat(r.rating)}</p>
               <p className="mt-1 whitespace-pre-wrap text-sm text-sam-fg">{r.content}</p>
               {r.owner_reply_content?.trim() ? (
                 <div className="mt-2 rounded-ui-rect border border-sam-border bg-sam-app p-2">
-                  <p className="sam-text-helper font-semibold text-sam-fg">사장님 댓글</p>
+                  <p className="sam-text-helper font-semibold text-sam-fg">
+                    {t("admin_stores_reviews_owner_reply")}
+                  </p>
                   <p className="mt-1 whitespace-pre-wrap sam-text-body-secondary text-sam-fg">
                     {r.owner_reply_content}
                   </p>
                   {r.owner_reply_created_at ? (
                     <p className="mt-1 text-right sam-text-xxs text-sam-muted">
-                      {new Date(r.owner_reply_created_at).toLocaleDateString("ko-KR")}
+                      {new Date(r.owner_reply_created_at).toLocaleDateString(locale)}
                     </p>
                   ) : null}
                 </div>
               ) : (
-                <p className="mt-2 sam-text-helper text-sam-meta">사장님 댓글 없음</p>
+                <p className="mt-2 sam-text-helper text-sam-meta">{t("admin_stores_reviews_no_owner_reply")}</p>
               )}
               <div className="mt-3 flex gap-2">
                 {r.status === "visible" ? (
@@ -119,7 +138,7 @@ export function AdminStoreReviewsPage() {
                     onClick={() => void setStatus(r.id, "hidden")}
                     className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-xs"
                   >
-                    숨김
+                    {t("common_hidden")}
                   </button>
                 ) : (
                   <button
@@ -128,7 +147,7 @@ export function AdminStoreReviewsPage() {
                     onClick={() => void setStatus(r.id, "visible")}
                     className="rounded-ui-rect bg-signature px-3 py-1.5 text-xs text-white"
                   >
-                    다시 노출
+                    {t("admin_stores_reviews_restore_visible")}
                   </button>
                 )}
               </div>

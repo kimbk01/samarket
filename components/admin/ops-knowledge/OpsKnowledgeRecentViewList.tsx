@@ -1,18 +1,17 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  OPS_TOOLS_KB_SOURCE_KEYS,
+  opsToolsLabel,
+} from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { useMemo } from "react";
 import Link from "next/link";
 import { getOpsKnowledgeRecentViews } from "@/lib/ops-knowledge/mock-ops-knowledge-recent-views";
 import { getOpsDocumentById } from "@/lib/ops-docs/mock-ops-documents";
 
-const SOURCE_LABELS: Record<string, string> = {
-  search: "검색",
-  incident: "이슈",
-  runbook: "런북",
-  manual: "직접",
-};
-
 export function OpsKnowledgeRecentViewList() {
+  const { t } = useI18n();
   const views = useMemo(
     () => getOpsKnowledgeRecentViews({ adminId: "admin1", limit: 15 }),
     []
@@ -20,9 +19,7 @@ export function OpsKnowledgeRecentViewList() {
 
   if (views.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
-        최근 열람 문서가 없습니다.
-      </div>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_kb_recent_empty")}</div>
     );
   }
 
@@ -39,7 +36,7 @@ export function OpsKnowledgeRecentViewList() {
               {doc?.title ?? v.documentId}
             </Link>
             <span className="shrink-0 sam-text-helper text-sam-muted">
-              {SOURCE_LABELS[v.sourceType]} · {new Date(v.viewedAt).toLocaleString("ko-KR")}
+              {t(opsToolsLabel(OPS_TOOLS_KB_SOURCE_KEYS, v.sourceType))} · {new Date(v.viewedAt).toLocaleString("ko-KR")}
             </span>
           </li>
         );

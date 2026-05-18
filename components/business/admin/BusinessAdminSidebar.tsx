@@ -14,6 +14,7 @@ import {
   getOwnerBasicInfoDirty,
   isOwnerStoreAdminDirtyGuardPath,
 } from "@/lib/business/owner-basic-info-guard";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function BusinessAdminSidebar({
   sections,
@@ -29,12 +30,13 @@ export function BusinessAdminSidebar({
   onDirtyNavBlocked?: () => void;
   className?: string;
 }) {
+  const { t } = useI18n();
   const searchParams = useSearchParams();
   const router = useRouter();
 
   const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, item: BusinessAdminSidebarItem) => {
     /* Drawer 닫기와 레이아웃 전환(hub)이 겹치면 Link 기본 동작이 끊기는 경우가 있어 대시보드만 명시 이동 */
-    if (item.label === "대시보드") {
+    if (item.id === "dashboard") {
       if (isOwnerStoreAdminDirtyGuardPath(pathname) && getOwnerBasicInfoDirty()) {
         e.preventDefault();
         emitOwnerBasicInfoLeave({ href: item.href, kind: "sidebar" });
@@ -58,7 +60,7 @@ export function BusinessAdminSidebar({
   return (
     <nav
       className={`flex flex-col gap-3 bg-[var(--biz-card-bg)] ${className}`}
-      aria-label="매장 어드민 메뉴"
+      aria-label={t("business_phase7_076")}
     >
       {sections.map((section) => (
         <section
@@ -76,7 +78,7 @@ export function BusinessAdminSidebar({
             {section.items.map((item) => {
               const active = isBusinessAdminNavHrefActive(item.href, pathname, searchParams);
               const isExternal = item.href.startsWith("/stores/");
-              const Icon = resolveOwnerHubMenuIcon(item.label);
+              const Icon = resolveOwnerHubMenuIcon(item.id);
               const common =
                 "flex items-center justify-between gap-2 rounded-ui-rect px-2.5 py-2.5 sam-text-body font-medium transition-colors";
               const activeCls = active
@@ -111,7 +113,7 @@ export function BusinessAdminSidebar({
               );
               if (isExternal) {
                 return (
-                  <li key={item.label + item.href}>
+                  <li key={item.id + item.href}>
                     <Link
                       href={item.href}
                       className={`${common} ${activeCls}`}

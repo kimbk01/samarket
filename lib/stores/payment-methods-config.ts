@@ -1,3 +1,6 @@
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { coerceBusinessHoursRecord } from "@/lib/stores/coerce-business-hours-json";
 
 /**
@@ -11,6 +14,14 @@ export type OrderCheckoutCorePaymentId = (typeof ORDER_CHECKOUT_CORE_IDS)[number
 export type OrderCheckoutPaymentId = OrderCheckoutCorePaymentId | "card_on_delivery";
 
 const ORDER_CHECKOUT_ID_SET = new Set<string>([...ORDER_CHECKOUT_CORE_IDS, "card_on_delivery"]);
+
+const CHECKOUT_PAYMENT_LABEL_KEYS: Record<string, MessageKey> = {
+  cod: "store_pay_label_cod",
+  gcash: "store_pay_label_gcash",
+  bank_transfer: "store_pay_label_bank_transfer",
+  other: "store_pay_label_other",
+  card_on_delivery: "store_pay_label_card_on_delivery",
+};
 
 export type PaymentMethodsFormValues = {
   payMethodGcash: boolean;
@@ -61,15 +72,29 @@ export function readPaymentMethodsFormValues(raw: unknown): PaymentMethodsFormVa
   };
 }
 
+export function labelCheckoutPaymentMethod(
+  id: string,
+  lang: AppLanguageCode = getRuntimeAppLanguage()
+): string {
+  const key = CHECKOUT_PAYMENT_LABEL_KEYS[id];
+  return key ? translate(lang, key) : id;
+}
+
+/** @deprecated `labelCheckoutPaymentMethod` 사용 */
+export const labelCheckoutPaymentMethodKo = labelCheckoutPaymentMethod;
+
 /** 표시·저장 겸용 한 줄 ( · 구분) */
-export function formatPaymentMethodsDisplayLine(v: PaymentMethodsFormValues): string {
+export function formatPaymentMethodsDisplayLine(
+  v: PaymentMethodsFormValues,
+  lang: AppLanguageCode = getRuntimeAppLanguage()
+): string {
   const parts: string[] = [];
-  if (v.payMethodGcash) parts.push("GCash");
-  if (v.payMethodCashMeet) parts.push("만나서 현금");
-  if (v.payMethodBank) parts.push("계좌이체");
+  if (v.payMethodGcash) parts.push(translate(lang, "store_pay_label_gcash"));
+  if (v.payMethodCashMeet) parts.push(translate(lang, "store_pay_display_cash_meet"));
+  if (v.payMethodBank) parts.push(translate(lang, "store_pay_label_bank_transfer"));
   if (v.payMethodOtherEnabled) {
-    const t = v.payMethodOtherText.trim();
-    parts.push(t || "기타");
+    const custom = v.payMethodOtherText.trim();
+    parts.push(custom || translate(lang, "store_pay_label_other"));
   }
   return parts.join(" · ");
 }
@@ -92,14 +117,21 @@ export function paymentMethodsConfigPayload(v: PaymentMethodsFormValues): Record
 }
 
 /** JSON 레코드에서 결제 안내 한 줄 (고객 화면) */
-export function paymentMethodsLineFromBusinessRecord(o: Record<string, unknown>): string {
+export function paymentMethodsLineFromBusinessRecord(
+  o: Record<string, unknown>,
+  lang: AppLanguageCode = getRuntimeAppLanguage()
+): string {
   const cfg = o.payment_methods_config ?? o.paymentMethodsConfig;
   if (cfg && typeof cfg === "object" && !Array.isArray(cfg)) {
     const r = cfg as Record<string, unknown>;
     const parts: string[] = [];
-    if (r.gcash === true) parts.push("GCash");
-    if (r.cash_meet === true || r.cashMeet === true) parts.push("만나서 현금");
-    if (r.bank_transfer === true || r.bankTransfer === true) parts.push("계좌이체");
+    if (r.gcash === true) parts.push(translate(lang, "store_pay_label_gcash"));
+    if (r.cash_meet === true || r.cashMeet === true) {
+      parts.push(translate(lang, "store_pay_display_cash_meet"));
+    }
+    if (r.bank_transfer === true || r.bankTransfer === true) {
+      parts.push(translate(lang, "store_pay_label_bank_transfer"));
+    }
     const other =
       typeof r.other_note === "string"
         ? r.other_note.trim()
@@ -108,7 +140,7 @@ export function paymentMethodsLineFromBusinessRecord(o: Record<string, unknown>)
           : "";
     const otherOn = r.other_enabled === true || r.otherEnabled === true;
     if (other) parts.push(other);
-    else if (otherOn) parts.push("기타");
+    else if (otherOn) parts.push(translate(lang, "store_pay_label_other"));
     if (parts.length) return parts.join(" · ");
   }
   return String(o.payment_methods ?? o.paymentMethods ?? "").trim();
@@ -146,53 +178,40 @@ export function isKnownCheckoutPaymentMethodId(id: string): boolean {
   return ORDER_CHECKOUT_ID_SET.has(id);
 }
 
-/** 장바구니에서 매장이 입력한 기타 라벨 (없으면 "기타") */
-export function otherPaymentMethodLabelFromConfig(businessHoursJson: unknown): string {
-  const t = readPaymentMethodsFormValues(businessHoursJson).payMethodOtherText.trim();
-  return t || "기타";
+/** 장바구니에서 매장이 입력한 기타 라벨 (없으면 카탈로그 "기타") */
+export function otherPaymentMethodLabelFromConfig(
+  businessHoursJson: unknown,
+  lang: AppLanguageCode = getRuntimeAppLanguage()
+): string {
+  const custom = readPaymentMethodsFormValues(businessHoursJson).payMethodOtherText.trim();
+  return custom || translate(lang, "store_pay_label_other");
 }
 
 /** 카트 라디오용: id + 화면 라벨(기타는 매장 입력 문구) */
 export function checkoutPaymentOptionsForCart(
-  businessHoursJson: unknown
+  businessHoursJson: unknown,
+  lang: AppLanguageCode = getRuntimeAppLanguage()
 ): { id: OrderCheckoutPaymentId; label: string }[] {
   const ids = effectiveCheckoutPaymentMethodIdsForCart(businessHoursJson);
   const safe = ids.length > 0 ? ids : [...ORDER_CHECKOUT_CORE_IDS];
-  const otherLbl = otherPaymentMethodLabelFromConfig(businessHoursJson);
+  const otherLbl = otherPaymentMethodLabelFromConfig(businessHoursJson, lang);
   return safe.map((id) => ({
     id,
-    label: id === "other" ? otherLbl : labelCheckoutPaymentMethodKo(id),
+    label: id === "other" ? otherLbl : labelCheckoutPaymentMethod(id, lang),
   }));
 }
 
 /** 주문 목록·상세·관리자 표시용 */
 export function formatBuyerPaymentDisplay(
   method: string | null | undefined,
-  detail: string | null | undefined
+  detail: string | null | undefined,
+  lang: AppLanguageCode = getRuntimeAppLanguage()
 ): string {
   const m = (method ?? "").trim();
   if (!m) return "—";
   if (m === "other") {
     const d = (detail ?? "").trim();
-    return d || "기타";
+    return d || translate(lang, "store_pay_label_other");
   }
-  return labelCheckoutPaymentMethodKo(m);
-}
-
-/** 카트·확인 모달용 짧은 한글 라벨 (기타는 맥락 없이 "기타" — 화면은 checkoutPaymentOptionsForCart 사용) */
-export function labelCheckoutPaymentMethodKo(id: string): string {
-  switch (id) {
-    case "cod":
-      return "현금결제";
-    case "gcash":
-      return "GCash";
-    case "bank_transfer":
-      return "계좌이체";
-    case "other":
-      return "기타";
-    case "card_on_delivery":
-      return "카드(배달 시 결제)";
-    default:
-      return id;
-  }
+  return labelCheckoutPaymentMethod(m, lang);
 }

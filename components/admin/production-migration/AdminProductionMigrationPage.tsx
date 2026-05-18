@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -19,6 +22,7 @@ type TabId =
   | "blocker";
 
 export function AdminProductionMigrationPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
 
   const tabs: { id: TabId; label: string }[] = [
@@ -32,7 +36,7 @@ export function AdminProductionMigrationPage() {
 
   return (
     <>
-      <AdminPageHeader title="프로덕션 전환" />
+      <AdminPageHeader titleKey="admin_qa_kdcc4b43a" />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {tabs.map((tab) => (
           <button
@@ -51,37 +55,37 @@ export function AdminProductionMigrationPage() {
       </div>
 
       {activeTab === "overview" && (
-        <AdminCard title="Readiness 요약 · 테이블/RLS/인프라/배포 체크">
+        <AdminCard titleKey="admin_prod_migration_summary_deploy_2">
           <ProductionMigrationSummaryCards />
         </AdminCard>
       )}
 
       {activeTab === "table" && (
-        <AdminCard title="실제 연동 대상 테이블 · Supabase 스키마 맵">
+        <AdminCard titleKey="admin_prod_migration_k92baf5c0">
           <ProductionMigrationTable />
         </AdminCard>
       )}
 
       {activeTab === "rls" && (
-        <AdminCard title="RLS 정책 점검">
+        <AdminCard titleKey="admin_prod_migration_k45e42f6f">
           <ProductionRlsCheckTable />
         </AdminCard>
       )}
 
       {activeTab === "infra" && (
-        <AdminCard title="스토리지/Env/Webhook 등 인프라 점검">
+        <AdminCard titleKey="admin_prod_migration_k1dc78488">
           <ProductionInfraCheckTable />
         </AdminCard>
       )}
 
       {activeTab === "launch" && (
-        <AdminCard title="최종 배포 전환 체크리스트 (SQL 적용 placeholder)">
+        <AdminCard titleKey="admin_prod_migration_checklist_deploy_3">
           <ProductionLaunchCheckTable />
         </AdminCard>
       )}
 
       {activeTab === "blocker" && (
-        <AdminCard title="Blocker 집중 보드">
+        <AdminCard titleKey="admin_launch_readiness_kead0bf4e">
           <ProductionBlockerBoard />
         </AdminCard>
       )}

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 
@@ -10,11 +11,12 @@ export interface BoardListCategoryChipsProps {
 
 /** 게시판 목록 — board_category 모드용 카테고리 칩 (?category=slug) */
 export function BoardListCategoryChips({ baseHref, categorySlug, categories }: BoardListCategoryChipsProps) {
+  const { t } = useI18n();
   if (categories.length === 0) return null;
 
   return (
     <div className="mb-3 flex flex-wrap gap-2 rounded-ui-rect border border-sam-border-soft bg-sam-surface px-3 py-2.5">
-      <span className="w-full sam-text-xxs font-medium uppercase tracking-wide text-sam-meta">카테고리</span>
+      <span className="w-full sam-text-xxs font-medium uppercase tracking-wide text-sam-meta">{t("community_board_category_label")}</span>
       <Link
         href={baseHref}
         className={`rounded-sam-sm border px-3 py-1.5 sam-text-helper font-medium ${
@@ -23,7 +25,7 @@ export function BoardListCategoryChips({ baseHref, categorySlug, categories }: B
             : "border-sam-border bg-sam-surface text-sam-fg hover:bg-sam-surface-muted"
         }`}
       >
-        전체
+        {t("ui_fav_filter_all")}
       </Link>
       {categories.map((c) => (
         <Link

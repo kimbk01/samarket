@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useEffect, useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -16,6 +17,7 @@ const TOAST_AUTO_MS = 2400;
  * toast state — `StoreDetailPublic` 밖 portal.
  */
 export function StoreDetailToastPortal() {
+  const { t } = useI18n();
   const message = useStoreDetailToastUIStore((s) => s.message);
   const storeId = useStoreDetailToastUIStore((s) => s.storeId);
   const loggedRef = useRef<string | null>(null);

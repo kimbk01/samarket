@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import type { ReactNode } from "react";
 import Link from "next/link";
@@ -31,6 +32,7 @@ export function StoreDetailDeferredInfoSection({
   /** 리뷰 블록 위 — `review_top` 매장 공지 */
   reviewTopSlot?: ReactNode;
 }) {
+  const { t } = useI18n();
   const [phase, setPhase] = useState<"idle" | "loading" | "ready" | "failed">("idle");
   const [payload, setPayload] = useState<{
     avg: number | null;
@@ -100,7 +102,7 @@ export function StoreDetailDeferredInfoSection({
       <>
         {reviewTopSlot ? <div className="mx-4 mt-4">{reviewTopSlot}</div> : null}
         <div className="mx-4 mt-4 rounded-[14px] border border-dashed border-neutral-200 bg-white px-4 py-3 text-center">
-        <p className="text-[12px] text-neutral-500">리뷰 요약을 불러오지 못했어요.</p>
+        <p className="text-[12px] text-neutral-500">{t("store_review_summary_load_failed")}</p>
         <button
           type="button"
           onClick={() => void load()}
@@ -143,9 +145,9 @@ export function StoreDetailDeferredInfoSection({
       {reviewTopSlot ? <div className="mx-4 mt-4">{reviewTopSlot}</div> : null}
       <div className="mx-4 mt-4 rounded-[14px] border border-neutral-100 bg-white px-4 py-3 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
       <div className="flex items-baseline justify-between gap-2">
-        <div className="text-[15px] font-bold text-neutral-900">리뷰</div>
+        <div className="text-[15px] font-bold text-neutral-900">{t("store_reviews_title")}</div>
         <Link href={reviewsHref} className="shrink-0 text-[12px] font-semibold text-[#1C8DB8]">
-          전체 보기
+          {t("store_show_more")}
         </Link>
       </div>
       <div className="mt-1 flex flex-wrap items-center gap-2 text-[13px] text-neutral-700">

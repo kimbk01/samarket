@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getRecommendationRegionAnalytics } from "@/lib/recommendation-reports/mock-recommendation-region-analytics";
 
 interface RecommendationRegionAnalyticsTableProps {
@@ -10,6 +11,7 @@ interface RecommendationRegionAnalyticsTableProps {
 export function RecommendationRegionAnalyticsTable({
   reportId,
 }: RecommendationRegionAnalyticsTableProps) {
+  const { t } = useI18n();
   const rows = useMemo(
     () => getRecommendationRegionAnalytics(reportId),
     [reportId]
@@ -18,7 +20,7 @@ export function RecommendationRegionAnalyticsTable({
   if (rows.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
-        지역별 성과 데이터가 없습니다.
+        {t("admin_rec_report_empty_region")}
       </div>
     );
   }
@@ -29,19 +31,19 @@ export function RecommendationRegionAnalyticsTable({
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              지역 / 시·구
+              {t("admin_rec_th_region")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              노출
+              {t("admin_rec_th_impressions")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              클릭
+              {t("admin_rec_th_clicks")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              CTR
+              {t("admin_rec_th_ctr")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              전환율
+              {t("admin_rec_th_conversion_rate")}
             </th>
           </tr>
         </thead>

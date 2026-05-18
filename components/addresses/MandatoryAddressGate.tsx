@@ -11,6 +11,7 @@ import {
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 /** 주소 목록이 바뀐 뒤 게이트 재검사 — `AddressManagementClient.load` 등에서 발행 */
 export const SAMARKET_ADDRESSES_UPDATED_EVENT = "samarket:addresses-updated";
@@ -57,6 +58,7 @@ function shouldRefetchGateOnPathChange(prev: string | null, next: string): boole
  * 주소 등록(주소 관리)으로 보냅니다. 주소·지도 플로우 경로는 제외합니다.
  */
 export function MandatoryAddressGate() {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const pathRef = useRef(pathname);
@@ -173,17 +175,14 @@ export function MandatoryAddressGate() {
     >
       <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-ui-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-5 shadow-xl sm:rounded-ui-rect sm:p-6">
         <h2 id="mandatory-address-title" className="sam-text-section-title font-semibold text-ui-fg">
-          대표 주소가 필요해요
+          {t("addr_ui_gate_title")}
         </h2>
         <p id="mandatory-address-desc" className="mt-2 sam-text-body leading-relaxed text-ui-muted">
-          로그인 후 서비스(거래·동네·배달)를 이용하려면 지도에서 위치를 지정한 대표 주소를 한 곳 등록해야
-          합니다. 아래에서 주소를 입력해 주세요.
+          {t("addr_ui_gate_desc")}
         </p>
         {!fullInteractiveMemberOk ? (
           <p className="mt-3 rounded-ui-rect border border-sam-border bg-sam-surface-muted px-3 py-2.5 sam-text-body leading-relaxed text-sam-fg">
-            동네·거래 <strong className="font-semibold">글쓰기</strong>와 커뮤니티 메신저{" "}
-            <strong className="font-semibold">채팅</strong>은 전화번호 인증을 마친 뒤에 이용할 수 있습니다. 주소를
-            저장한 뒤 마이페이지에서 인증을 완료해 주세요.
+            {t("addr_ui_gate_phone_hint")}
           </p>
         ) : null}
         <div className="mt-5 flex flex-col gap-2">
@@ -192,7 +191,7 @@ export function MandatoryAddressGate() {
             onClick={() => router.push("/mypage/addresses")}
             className="w-full rounded-ui-rect bg-signature py-3.5 sam-text-body font-semibold text-white"
           >
-            주소 입력하기
+            {t("addr_ui_gate_add_address")}
           </button>
           {!fullInteractiveMemberOk ? (
             <button
@@ -206,7 +205,7 @@ export function MandatoryAddressGate() {
               }
               className="w-full rounded-ui-rect border border-sam-primary/35 bg-sam-primary-soft py-3.5 sam-text-body font-semibold text-sam-fg"
             >
-              전화 인증하기
+              {t("addr_ui_gate_phone_verify")}
             </button>
           ) : null}
           <LogoutActionTrigger variant="outlined_button" />

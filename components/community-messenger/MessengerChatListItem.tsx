@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { philifeMeetingMemberRoleLabel } from "@/lib/community-messenger/cm-ui-translate";
 import {
   enqueueRoomPrefetch,
   messengerRoomPrefetchPriorityScore,
@@ -134,6 +136,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   onResetTransientUi,
   listVisual = "default",
 }: Props) {
+  const { t } = useI18n();
   useCmDevRenderTrace("MessengerChatListItem");
   const onLeaveRoom = onLeaveRoomProp ?? (() => {});
   if (!shouldFreezeRoomListSubtree()) {
@@ -309,11 +312,11 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
 
   const secondaryHint =
     item.previewKind === "call" && item.callStatus === "missed"
-      ? "부재중"
+      ? t("cm_ui_missed_call")
       : room.isReadonly
-        ? "읽기 전용"
+        ? t("cm_ui_read_only")
         : communityMessengerRoomIsInboxHidden(room)
-          ? "보관됨"
+          ? t("cm_ui_archived")
           : null;
 
   const roomHref = useMemo(
@@ -631,12 +634,12 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       <div className="flex flex-col items-end gap-0.5">
         <div className="flex items-center gap-0.5">
           {room.isPinned ? (
-            <span style={{ color: "var(--messenger-text-secondary)" }} aria-label="고정됨">
+            <span style={{ color: "var(--messenger-text-secondary)" }} aria-label={t("cm_ui_pinned")}>
               <PinIcon />
             </span>
           ) : null}
           {room.isMuted ? (
-            <span style={{ color: "var(--messenger-text-secondary)" }} aria-label="알림 끔">
+            <span style={{ color: "var(--messenger-text-secondary)" }} aria-label={t("cm_ui_notifications_off")}>
               <MuteIcon />
             </span>
           ) : null}
@@ -694,9 +697,9 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
           {room.philifeMeetingMemberLabel ? (
             <span
               className="shrink-0 rounded-[6px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-1 py-px sam-text-xxs font-medium text-[color:var(--messenger-text-secondary)]"
-              title="Philife 모임"
+              title={t("cm_ui_philife_meeting")}
             >
-              {room.philifeMeetingMemberLabel}
+              {philifeMeetingMemberRoleLabel(room.philifeMeetingMemberLabel)}
             </span>
           ) : null}
           {commerceMeta?.kind === "trade" && tradeItemStateLabel ? (

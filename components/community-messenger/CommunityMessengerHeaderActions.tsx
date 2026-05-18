@@ -15,6 +15,7 @@ import {
   Tier1HeaderSearchGlyph,
   Tier1HeaderSettingsGlyph,
 } from "@/lib/ui/tier1-header-glyphs";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 /**
  * 메신저 홈 상단 우측 액션: 검색 / 통화 기록 / 알림 / 설정.
@@ -34,21 +35,26 @@ export function CommunityMessengerHeaderActions({
   onOpenRequestList: () => void;
   onOpenSettings: () => void;
 }) {
+  const { t } = useI18n();
   const iconBtn = `${Sam.headerAction} relative h-10 w-10 shrink-0 text-sam-fg ${samTier1HeaderIconMicro}`;
 
   return (
     <div className={samTier1HeaderIconCluster}>
-      <button type="button" onClick={onOpenSearch} className={iconBtn} aria-label="메신저 검색">
+      <button type="button" onClick={onOpenSearch} className={iconBtn} aria-label={t("cm_ui_messenger_search")}>
         <Tier1HeaderSearchGlyph />
       </button>
-      <Link href="/community-messenger/calls/logs" className={iconBtn} aria-label="통화 기록">
+      <Link href="/community-messenger/calls/logs" className={iconBtn} aria-label={t("cm_ui_call_logs_title")}>
         <Phone className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS} strokeWidth={SAM_TIER1_HEADER_ICON_STROKE_WIDTH} aria-hidden />
       </Link>
       <button
         type="button"
         onClick={onOpenRequestList}
         className={iconBtn}
-        aria-label={`알림${incomingRequestCount > 0 ? ` · 친구 요청 대기 ${incomingRequestCount}건` : ""}`}
+        aria-label={
+          incomingRequestCount > 0
+            ? t("cm_ui_notifications_pending_friend_requests", { count: incomingRequestCount })
+            : t("common_notifications")
+        }
       >
         <Tier1HeaderBellGlyph />
         {incomingRequestCount > 0 ? (
@@ -57,7 +63,7 @@ export function CommunityMessengerHeaderActions({
           </span>
         ) : null}
       </button>
-      <button type="button" onClick={onOpenSettings} className={iconBtn} aria-label="메신저 설정">
+      <button type="button" onClick={onOpenSettings} className={iconBtn} aria-label={t("nav_messenger_settings")}>
         <Tier1HeaderSettingsGlyph />
       </button>
     </div>

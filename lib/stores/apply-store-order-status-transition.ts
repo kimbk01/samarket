@@ -1,9 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
-import {
-  appendStoreOrderMessengerStatusTransition,
-  syncStoreOrderMessengerRoomContextMeta,
-} from "@/lib/community-messenger/store-order-chat-service";
+import { appendStoreOrderMessengerStatusTransition } from "@/lib/community-messenger/store-order-chat-service";
 import { notifyBuyerStoreOrderOwnerStatus } from "@/lib/notifications/notify-store-commerce";
 import { createStoreOrderStatusEvent } from "@/lib/stores/store-order-events";
 import { cancelScheduledSettlementForOrder } from "@/lib/stores/cancel-store-settlement";
@@ -212,10 +209,6 @@ export async function applyStoreOrderStatusTransition(
         orderNo: String(order.order_no ?? ""),
         storeId: sid,
         nextStatus,
-        estimatedPrepMinutes:
-          current === "pending" && nextStatus === "accepted"
-            ? (updatePayload.estimated_prep_minutes as number | undefined) ?? null
-            : null,
         storeOrderEventId: statusEv.row.id,
       });
     }
@@ -227,10 +220,6 @@ export async function applyStoreOrderStatusTransition(
       orderNo: String(order.order_no ?? ""),
       storeId: sid,
       nextStatus,
-      estimatedPrepMinutes:
-        current === "pending" && nextStatus === "accepted"
-          ? (updatePayload.estimated_prep_minutes as number | undefined) ?? null
-          : null,
     });
   }
 
@@ -241,12 +230,8 @@ export async function applyStoreOrderStatusTransition(
       current,
       nextStatus
     );
-    await syncStoreOrderMessengerRoomContextMeta(
-      sb as import("@supabase/supabase-js").SupabaseClient<any>,
-      oid
-    );
-  } catch (chatErr) {
-    console.error("[applyStoreOrderStatusTransition] store order messenger", chatErr);
+  } catch {
+    /* ignore */
   }
 
   return { ok: true, order_status: nextStatus, previous: current };

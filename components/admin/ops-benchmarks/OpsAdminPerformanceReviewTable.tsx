@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { getOpsAdminPerformanceReviews } from "@/lib/ops-benchmarks/mock-ops-admin-performance-reviews";
 import { AdminTable } from "@/components/admin/AdminTable";
@@ -12,6 +15,7 @@ const STATUS_LABELS: Record<OpsPerformanceReviewStatus, string> = {
 };
 
 export function OpsAdminPerformanceReviewTable() {
+  const { t } = useI18n();
   const [period, setPeriod] = useState(() =>
     new Date().toISOString().slice(0, 7)
   );
@@ -29,7 +33,7 @@ export function OpsAdminPerformanceReviewTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">리뷰 기간</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_ops_benchmark_k59815a4a")}</span>
         <input
           type="month"
           value={period}

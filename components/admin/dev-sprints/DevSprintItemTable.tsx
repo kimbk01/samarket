@@ -1,6 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { getDevSprintItems } from "@/lib/dev-sprints/mock-dev-sprint-items";
 import { getDevSprints, getDevSprintById } from "@/lib/dev-sprints/mock-dev-sprints";
 import { AdminTable } from "@/components/admin/AdminTable";
@@ -10,9 +13,9 @@ import {
   getSprintItemOwnerTypeLabel,
 } from "@/lib/dev-sprints/dev-sprint-utils";
 import type { DevSprintItemStatus } from "@/lib/types/dev-sprints";
-import Link from "next/link";
 
 export function DevSprintItemTable() {
+  const { t } = useI18n();
   const [sprintId, setSprintId] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<DevSprintItemStatus | "">("");
 
@@ -26,23 +29,51 @@ export function DevSprintItemTable() {
     [sprintId, statusFilter]
   );
 
+  const headers = useMemo(
+    () =>
+      [
+        "admin_dev_sprint_th_title",
+        "admin_dev_sprint_th_sprint",
+        "admin_dev_sprint_th_status",
+        "admin_dev_sprint_th_priority",
+        "admin_dev_sprint_th_assignee",
+        "admin_dev_sprint_th_blocker",
+        "admin_dev_sprint_th_link",
+      ] as MessageKey[],
+    []
+  );
+
+  const statusOptions = useMemo(
+    () =>
+      [
+        { value: "" as const, labelKey: "common_all" as const },
+        { value: "todo" as const, labelKey: "admin_dev_sprint_status_todo" as const },
+        { value: "in_progress" as const, labelKey: "admin_dev_sprint_status_in_progress" as const },
+        { value: "review" as const, labelKey: "admin_dev_sprint_status_review" as const },
+        { value: "qa_ready" as const, labelKey: "admin_dev_sprint_status_qa_ready" as const },
+        { value: "done" as const, labelKey: "admin_dev_sprint_status_done" as const },
+        { value: "blocked" as const, labelKey: "admin_dev_sprint_status_blocked" as const },
+      ] satisfies { value: DevSprintItemStatus | ""; labelKey: MessageKey }[],
+    []
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">스프린트</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_dev_sprint_label_sprint")}</span>
         <select
           value={sprintId}
           onChange={(e) => setSprintId(e.target.value)}
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
+          <option value="">{t("common_all")}</option>
           {sprints.map((s) => (
             <option key={s.id} value={s.id}>
               {s.sprintName}
             </option>
           ))}
         </select>
-        <span className="sam-text-body-secondary text-sam-muted">상태</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_dev_sprint_label_status")}</span>
         <select
           value={statusFilter}
           onChange={(e) =>
@@ -50,32 +81,20 @@ export function DevSprintItemTable() {
           }
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
-          <option value="todo">할 일</option>
-          <option value="in_progress">진행중</option>
-          <option value="review">리뷰</option>
-          <option value="qa_ready">QA 대기</option>
-          <option value="done">완료</option>
-          <option value="blocked">블로킹</option>
+          {statusOptions.map((opt) => (
+            <option key={opt.value || "all"} value={opt.value}>
+              {t(opt.labelKey)}
+            </option>
+          ))}
         </select>
       </div>
 
       {items.length === 0 ? (
         <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          해당 조건의 스프린트 작업이 없습니다.
+          {t("admin_dev_sprint_empty_items")}
         </div>
       ) : (
-        <AdminTable
-          headers={[
-            "제목",
-            "스프린트",
-            "상태",
-            "우선순위",
-            "담당",
-            "블로커",
-            "연결",
-          ]}
-        >
+        <AdminTable headers={headers.map((k) => t(k))}>
           {items.map((i) => {
             const sprint = getDevSprintById(i.sprintId);
             return (
@@ -85,9 +104,7 @@ export function DevSprintItemTable() {
                   i.status === "blocked" ? "bg-red-50/30" : ""
                 }`}
               >
-                <td className="px-3 py-2.5 font-medium text-sam-fg">
-                  {i.title}
-                </td>
+                <td className="px-3 py-2.5 font-medium text-sam-fg">{i.title}</td>
                 <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                   {sprint?.sprintName ?? i.sprintId}
                 </td>
@@ -101,14 +118,14 @@ export function DevSprintItemTable() {
                           : "bg-sam-surface-muted text-sam-muted"
                     }`}
                   >
-                    {getSprintItemStatusLabel(i.status)}
+                    {getSprintItemStatusLabel(t, i.status)}
                   </span>
                 </td>
                 <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                  {getSprintItemPriorityLabel(i.priority)}
+                  {getSprintItemPriorityLabel(t, i.priority)}
                 </td>
                 <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                  {getSprintItemOwnerTypeLabel(i.ownerType)} {i.ownerName}
+                  {getSprintItemOwnerTypeLabel(t, i.ownerType)} {i.ownerName}
                 </td>
                 <td className="px-3 py-2.5 sam-text-body-secondary text-red-600">
                   {i.blockerReason ?? "-"}
@@ -123,15 +140,18 @@ export function DevSprintItemTable() {
                     <>
                       {" "}
                       <Link href="/admin/ops-board" className="text-signature hover:underline">
-                        액션
+                        {t("admin_dev_sprint_link_action")}
                       </Link>
                     </>
                   )}
                   {i.linkedDeploymentId && (
                     <>
                       {" "}
-                      <Link href="/admin/recommendation-deployments" className="text-signature hover:underline">
-                        배포
+                      <Link
+                        href="/admin/recommendation-deployments"
+                        className="text-signature hover:underline"
+                      >
+                        {t("admin_dev_sprint_link_deploy")}
                       </Link>
                     </>
                   )}

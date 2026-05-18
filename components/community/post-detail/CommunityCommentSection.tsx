@@ -9,6 +9,7 @@ import {
 } from "@/lib/philife/philife-flat-ui-classes";
 import { CommunityCommentComposerForm, type MeAvatarProps } from "./CommunityCommentComposerForm";
 import { CommunityCommentItem } from "./CommunityCommentItem";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export type CommentSortMode = "thread" | "newest";
 
@@ -75,6 +76,7 @@ export function CommunityCommentSection({
   commentBusy,
   composer = null,
 }: Props) {
+  const { t } = useI18n();
   const [sortMode, setSortMode] = useState<CommentSortMode>("thread");
   const [replyOpenCommentId, setReplyOpenCommentId] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
@@ -102,9 +104,9 @@ export function CommunityCommentSection({
     return (
       <section className="border-t border-[#E5E7EB] bg-[#F7F8FA]" id="comments">
         <div className="px-4 py-4">
-          <h2 className="m-0 text-[17px] font-bold leading-[1.35] text-[#1F2430]">댓글</h2>
+          <h2 className="m-0 text-[17px] font-bold leading-[1.35] text-[#1F2430]">{t("community_stat_comments_title")}</h2>
           <div className="mt-3 flex min-h-[88px] items-center justify-center gap-2 rounded-[4px] border border-[#E5E7EB] bg-white px-4 py-4 text-[14px] text-[#6B7280]">
-            <span>{lockMessage || "댓글을 작성할 수 없어요."}</span>
+            <span>{lockMessage || t("community_comment_locked")}</span>
           </div>
         </div>
       </section>
@@ -136,11 +138,11 @@ export function CommunityCommentSection({
           </div>
         ) : null}
         <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
-          <p className="m-0 text-[12px] font-normal text-[#6B7280]">댓글 목록</p>
+          <p className="m-0 text-[12px] font-normal text-[#6B7280]">{t("community_comments_list_aria")}</p>
           <div
             className="flex gap-1 rounded-[4px] border border-[#E5E7EB] bg-white p-0.5"
             role="group"
-            aria-label="댓글 정렬"
+            aria-label={t("community_comments_sort_aria")}
           >
             <button
               type="button"
@@ -168,9 +170,9 @@ export function CommunityCommentSection({
         </div>
 
         {commentsLoading ? (
-          <div className="py-8 text-center text-[14px] text-[#6B7280]">댓글 불러오는 중…</div>
+          <div className="py-8 text-center text-[14px] text-[#6B7280]">{t("community_comments_loading")}</div>
         ) : displayRoots.length === 0 ? (
-          <p className="py-8 text-center text-[14px] text-[#9CA3AF]">첫 댓글을 남겨 보세요.</p>
+          <p className="py-8 text-center text-[14px] text-[#9CA3AF]">{t("community_comment_first")}</p>
         ) : (
           <ul className="m-0 mt-3 list-none rounded-[4px] border border-[#E5E7EB] bg-white p-2 shadow-[0_1px_2px_rgba(31,36,48,0.05)] [&>li:last-child>article]:border-b-0">
             {displayRoots.map((node) => (

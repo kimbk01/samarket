@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
@@ -17,19 +18,18 @@ type Row = {
   created_at: string;
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  open: "답변 대기",
-  answered: "답변 완료",
-  closed: "종료",
-  escalated: "운영 이관",
-};
-
-function formatDate(iso: string | null) {
-  if (!iso) return "";
-  return new Date(iso).toLocaleString("ko-KR");
-}
-
 export function MyStoreInquiriesView() {
+  const { t, language } = useI18n();
+  const dateLocale = language === "en" ? "en-US" : "ko-KR";
+  const statusLabels = useMemo(
+    () => ({
+      open: t("mypage_comp_inquiry_status_open"),
+      answered: t("mypage_comp_inquiry_status_answered"),
+      closed: t("mypage_comp_inquiry_status_closed"),
+      escalated: t("mypage_comp_inquiry_status_escalated"),
+    }),
+    [t],
+  );
   const [state, setState] = useState<
     | { kind: "loading" }
     | { kind: "unauth" }
@@ -77,18 +77,23 @@ export function MyStoreInquiriesView() {
 
   useRefetchOnPageShowRestore(() => void load({ silent: true }));
 
+  function formatDate(iso: string | null) {
+    if (!iso) return "";
+    return new Date(iso).toLocaleString(dateLocale);
+  }
+
   if (state.kind === "loading") {
-    return <p className="text-sm text-sam-muted">불러오는 중…</p>;
+    return <p className="text-sm text-sam-muted">{t("mypage_comp_loading_short")}</p>;
   }
   if (state.kind === "unauth") {
-    return <p className="text-sm text-sam-muted">로그인 후 문의 내역을 확인할 수 있습니다.</p>;
+    return <p className="text-sm text-sam-muted">{t("mypage_comp_inquiry_login_prompt")}</p>;
   }
   if (state.kind === "error") {
     return (
       <div className="space-y-2">
         <p className="text-sm text-red-600">({state.message})</p>
         <button type="button" onClick={() => void load({ silent: false })} className="text-sm text-signature underline">
-          다시 시도
+          {t("mypage_comp_retry")}
         </button>
       </div>
     );
@@ -97,9 +102,9 @@ export function MyStoreInquiriesView() {
   if (state.rows.length === 0) {
     return (
       <div className="rounded-ui-rect bg-sam-surface p-6 text-center text-sm text-sam-muted shadow-sm">
-        <p>보낸 문의가 없습니다.</p>
+        <p>{t("mypage_comp_inquiry_empty")}</p>
         <Link href="/stores" className="mt-3 inline-block text-signature">
-          매장 둘러보기
+          {t("mypage_comp_browse_stores")}
         </Link>
       </div>
     );
@@ -109,15 +114,15 @@ export function MyStoreInquiriesView() {
     <ul className="space-y-3">
       {state.rows.map((r) => (
         <li key={r.id} className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
-          <p className="sam-text-body font-semibold text-sam-fg">{r.store_name || "매장"}</p>
+          <p className="sam-text-body font-semibold text-sam-fg">{r.store_name || t("mypage_comp_store_fallback_name")}</p>
           <p className="mt-1 text-sm font-medium text-sam-fg">{r.subject}</p>
           <p className="mt-2 whitespace-pre-wrap text-sm text-sam-muted">{r.content}</p>
           <p className="mt-2 text-xs text-sam-muted">
-            {STATUS_LABEL[r.status] ?? r.status} · {formatDate(r.created_at)}
+            {statusLabels[r.status as keyof typeof statusLabels] ?? r.status} · {formatDate(r.created_at)}
           </p>
           {r.answer ? (
             <div className="mt-3 rounded-ui-rect bg-sam-app px-3 py-2">
-              <p className="text-xs font-medium text-sam-muted">매장 답변</p>
+              <p className="text-xs font-medium text-sam-muted">{t("mypage_comp_inquiry_store_reply")}</p>
               <p className="mt-1 whitespace-pre-wrap text-sm text-sam-fg">{r.answer}</p>
               {r.answered_at ? (
                 <p className="mt-1 sam-text-xxs text-sam-meta">{formatDate(r.answered_at)}</p>

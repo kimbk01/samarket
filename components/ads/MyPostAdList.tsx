@@ -2,11 +2,12 @@
 
 import { useCallback, useState } from "react";
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
-  AD_APPLY_STATUS_LABELS,
-  AD_PAYMENT_METHOD_LABELS,
-  AD_TYPE_LABELS,
-} from "@/lib/ads/types";
+  postAdPaymentLabel,
+  postAdStatusLabel,
+  postAdTypeLabel,
+} from "@/lib/ads/post-ad-label-keys";
 import type { AdminPostAdRow, AdApplyStatus } from "@/lib/ads/types";
 
 const STATUS_CLASS: Record<AdApplyStatus, string> = {
@@ -29,6 +30,7 @@ export function MyPostAdList({
   metaSource?: "supabase" | "memory";
   onRefresh?: () => void;
 }) {
+  const { t } = useI18n();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
@@ -57,7 +59,7 @@ export function MyPostAdList({
   if (ads.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-8 text-center sam-text-body text-sam-muted">
-        <p>게시글 광고 신청 내역이 없습니다.</p>
+        <p>{t("ui_ad_post_list_empty")}</p>
         <p className="mt-2 sam-text-helper text-sam-meta">
           커뮤니티·동네 피드에서 글을 작성한 뒤, 해당 글에 대해 광고를 신청할 수 있어요.
         </p>
@@ -81,16 +83,16 @@ export function MyPostAdList({
           <li key={a.id} className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
             <p className="font-semibold text-sam-fg">{a.postTitle}</p>
             <p className="mt-0.5 sam-text-body-secondary text-sam-muted">
-              {a.adProductName} · {AD_TYPE_LABELS[a.adType]} · {a.pointCost.toLocaleString()}P
+              {a.adProductName} · {postAdTypeLabel(t, a.adType)} · {a.pointCost.toLocaleString()}P
             </p>
             <div className="mt-2 flex flex-wrap items-center gap-2">
               <span
                 className={`inline-block rounded-full px-2 py-0.5 sam-text-xxs font-semibold ${STATUS_CLASS[a.applyStatus]}`}
               >
-                {AD_APPLY_STATUS_LABELS[a.applyStatus]}
+                {postAdStatusLabel(t, a.applyStatus)}
               </span>
               <span className="sam-text-xxs text-sam-muted">
-                결제: {AD_PAYMENT_METHOD_LABELS[a.paymentMethod]}
+                {t("post_ad_list_payment_prefix")} {postAdPaymentLabel(t, a.paymentMethod)}
               </span>
               <span className="sam-text-xxs text-sam-meta">· {a.boardKey}</span>
             </div>
@@ -122,7 +124,7 @@ export function MyPostAdList({
                   onClick={() => void cancel(a.id)}
                   className="sam-text-helper font-medium text-red-600 hover:underline disabled:opacity-50"
                 >
-                  {busyId === a.id ? "처리 중…" : "신청 취소"}
+                  {busyId === a.id ? t("community_meeting_join_processing") : t("points_ui_cancel_request")}
                 </button>
               ) : null}
             </div>

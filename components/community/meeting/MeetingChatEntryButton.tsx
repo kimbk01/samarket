@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { philifeAppPaths } from "@domain/philife/paths";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function MeetingChatEntryButton({
   meetingId,
@@ -10,17 +11,18 @@ export function MeetingChatEntryButton({
   meetingId: string | null;
   disabled?: boolean;
 }) {
+  const { t } = useI18n();
   const mid = String(meetingId ?? "").trim();
-  if (!mid) return <p className="sam-text-body-secondary text-sam-muted">모임 정보가 아직 없습니다.</p>;
+  if (!mid) return <p className="sam-text-body-secondary text-sam-muted">{t("community_meeting_info_missing")}</p>;
   if (disabled) {
-    return <p className="sam-text-body-secondary text-sam-muted">종료된 모임은 입장할 수 없습니다.</p>;
+    return <p className="sam-text-body-secondary text-sam-muted">{t("community_meeting_ended_no_entry")}</p>;
   }
   return (
     <Link
       href={philifeAppPaths.meeting(mid)}
       className="inline-block rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white"
     >
-      모임 보기
+      {t("community_meeting_view")}
     </Link>
   );
 }

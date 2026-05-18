@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import type { KeyboardEvent, MouseEvent } from "react";
 import { memo, useCallback } from "react";
@@ -31,6 +32,7 @@ export const ProductMenuCard = memo(function ProductMenuCard({
   onOpenProduct,
   onQuickAddProduct,
 }: Props) {
+  const { t } = useI18n();
   const hasDiscount =
     p.discount_price != null &&
     Number.isFinite(p.discount_price) &&
@@ -84,7 +86,7 @@ export const ProductMenuCard = memo(function ProductMenuCard({
         >
           {p.title}
           {soldOut ? (
-            <span className="ml-1.5 text-[11px] font-semibold text-neutral-400">품절</span>
+            <span className="ml-1.5 text-[11px] font-semibold text-neutral-400">{t("store_sold_out")}</span>
           ) : null}
         </h3>
       </div>

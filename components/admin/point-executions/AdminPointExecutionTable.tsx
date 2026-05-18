@@ -1,5 +1,19 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  pointActionTypeLabel,
+  pointBoardLabel,
+  pointChargeStatusLabel,
+  pointExecStatusLabel,
+  pointExpireCycleLabel,
+  pointExpireExecStatusLabel,
+  pointLedgerTypeLabel,
+  pointPaymentMethodLabel,
+  pointRewardTypeLabel,
+  pointUserTypeLabel,
+} from "@/components/admin/points/admin-points-notifications-i18n";
+
 import Link from "next/link";
 import type { PointRewardExecution } from "@/lib/types/point-execution";
 import {
@@ -22,10 +36,11 @@ const STATUS_CLASS: Record<string, string> = {
 export function AdminPointExecutionTable({
   executions,
 }: AdminPointExecutionTableProps) {
+  const { t } = useI18n();
+
   if (executions.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        지급/차단 실행 이력이 없습니다.
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted"> {t("admin_points_exec_history_empty")}
       </div>
     );
   }
@@ -38,26 +53,19 @@ export function AdminPointExecutionTable({
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
               ID
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              게시판
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_th_board")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              행동
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_th_action")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              대상
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_th_target")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              사용자
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_th_user")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              포인트
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_th_points")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              상태
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_th_status")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              일시
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_th_datetime")}
             </th>
           </tr>
         </thead>
@@ -76,10 +84,10 @@ export function AdminPointExecutionTable({
                 </Link>
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
-                {getBoardName(e.boardKey)}
+                {pointBoardLabel(t, e.boardKey)}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
-                {POINT_REWARD_ACTION_LABELS[e.actionType]}
+                {pointActionTypeLabel(t, e.actionType)}
               </td>
               <td className="max-w-[120px] truncate px-3 py-2.5 text-sam-muted">
                 {e.targetType} {e.targetId}
@@ -87,7 +95,7 @@ export function AdminPointExecutionTable({
               <td className="px-3 py-2.5 text-sam-fg">
                 {e.userNickname}
                 <span className="ml-1 sam-text-helper text-sam-muted">
-                  ({USER_TYPE_LABELS[e.userType]})
+                  ({pointUserTypeLabel(t, e.userType)})
                 </span>
               </td>
               <td className="px-3 py-2.5 font-medium text-sam-fg">
@@ -99,7 +107,7 @@ export function AdminPointExecutionTable({
                     STATUS_CLASS[e.status] ?? "bg-sam-surface-muted text-sam-fg"
                   }`}
                 >
-                  {POINT_EXECUTION_STATUS_LABELS[e.status]}
+                  {pointExecStatusLabel(t, e.status)}
                 </span>
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">

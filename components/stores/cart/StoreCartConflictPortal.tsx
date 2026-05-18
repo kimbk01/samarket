@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -27,6 +28,7 @@ import type { StoreCartConflictPendingAdd } from "@/components/stores/StoreCartO
  * 다른 매장 장바구니 충돌 — 전 경로 단일 portal (detail / sheet / product / 재주문).
  */
 export function StoreCartConflictPortal() {
+  const { t } = useI18n();
   const router = useRouter();
   const open = useStoreCartConflictUIStore((s) => s.open);
   const mode = useStoreCartConflictUIStore((s) => s.mode);
@@ -59,7 +61,7 @@ export function StoreCartConflictPortal() {
   const root = typeof document !== "undefined" ? document.body : null;
   if (!open || !root || !existing) return null;
 
-  const existingStoreName = existing.storeName.trim() || "다른 가게";
+  const existingStoreName = existing.storeName.trim() || t("store_other_store");
   const nextStoreName = target?.storeName?.trim() ?? pendingLine?.storeName?.trim() ?? "";
 
   const pendingAdd: StoreCartConflictPendingAdd | null = pendingLine
@@ -131,7 +133,7 @@ export function StoreCartConflictPortal() {
     requestAnimationFrame(() => {
       requestAnimationFrame(() => dibayPerfOnCartbarUpdated(line.storeId));
     });
-    showStoreDetailToast(line.storeId, `${line.title} 담았어요`);
+    showStoreDetailToast(line.storeId, `${t("store_added_to_cart_toast", { title: line.title })}`);
     onResolved?.();
   };
 

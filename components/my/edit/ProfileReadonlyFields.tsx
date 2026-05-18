@@ -1,3 +1,6 @@
+"use client";
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { ProfileRow } from "@/lib/profile/types";
 import { hasFormalMemberContactVerification } from "@/lib/auth/member-access";
 
@@ -6,6 +9,7 @@ export interface ProfileReadonlyFieldsProps {
 }
 
 export function ProfileReadonlyFields({ profile }: ProfileReadonlyFieldsProps) {
+  const { t } = useI18n();
   const contactFormal = hasFormalMemberContactVerification({
     phone_verified: profile.phone_verified,
     auth_provider: profile.auth_provider,
@@ -14,36 +18,38 @@ export function ProfileReadonlyFields({ profile }: ProfileReadonlyFieldsProps) {
 
   return (
     <div className="space-y-3 rounded-ui-rect bg-sam-app p-3">
-      <p className="sam-text-helper font-medium text-sam-muted">읽기 전용</p>
+      <p className="sam-text-helper font-medium text-sam-muted">{t("profile_edit_readonly_badge")}</p>
       <div className="grid gap-2 sam-text-body">
         <div className="flex justify-between">
-          <span className="text-sam-muted">@아이디</span>
+          <span className="text-sam-muted">{t("my_account_username")}</span>
           <span className="font-mono text-sam-fg tabular-nums">{profile.username ? `@${profile.username}` : "-"}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-sam-muted">이메일</span>
+          <span className="text-sam-muted">{t("account_email")}</span>
           <span className="text-sam-fg">{profile.email ?? "-"}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-sam-muted">실명 인증</span>
-          <span className="text-sam-fg">{profile.realname_verified ? "완료" : "미인증"}</span>
-        </div>
-        <div className="flex justify-between">
-          <span className="text-sam-muted">연락처 인증</span>
+          <span className="text-sam-muted">{t("account_realname")}</span>
           <span className="text-sam-fg">
-            {contactFormal
-              ? "완료"
-              : profile.phone_verification_status === "pending"
-                ? "승인 대기"
-                : "미인증"}
+            {profile.realname_verified ? t("account_verified") : t("account_unverified")}
           </span>
         </div>
         <div className="flex justify-between">
-          <span className="text-sam-muted">회원 등급</span>
+          <span className="text-sam-muted">{t("account_phone_verification")}</span>
+          <span className="text-sam-fg">
+            {contactFormal
+              ? t("account_verified")
+              : profile.phone_verification_status === "pending"
+                ? t("account_pending")
+                : t("account_unverified")}
+          </span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-sam-muted">{t("profile_edit_member_tier")}</span>
           <span className="text-sam-fg">{profile.role}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-sam-muted">포인트</span>
+          <span className="text-sam-muted">{t("profile_edit_points")}</span>
           <span className="text-sam-fg">{profile.points}</span>
         </div>
       </div>

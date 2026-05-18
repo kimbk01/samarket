@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState, useEffect, useCallback } from "react";
 import type { AdminReview } from "@/lib/types/admin-review";
 import { fetchAdminTransactionReviewsList } from "@/lib/admin-reviews/fetch-admin-transaction-reviews";
@@ -20,6 +23,7 @@ const DEFAULT_FILTERS: AdminReviewFilters = {
 };
 
 export function AdminReviewListPage() {
+  const { t } = useI18n();
   const [filters, setFilters] = useState<AdminReviewFilters>(DEFAULT_FILTERS);
   const [searchQuery, setSearchQuery] = useState("");
   const [reviews, setReviews] = useState<AdminReview[]>([]);
@@ -53,7 +57,7 @@ export function AdminReviewListPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="거래 후기 목록" />
+      <AdminPageHeader titleKey="admin_review_kf2bb246c" />
       <p className="sam-text-body-secondary text-sam-muted">
         마이페이지 「후기」(
         <code className="rounded bg-sam-surface-muted px-1">/mypage/trade/reviews</code>)와 동일하게{" "}

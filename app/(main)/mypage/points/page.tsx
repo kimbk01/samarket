@@ -147,7 +147,7 @@ export default function MypagePointsPage() {
         <div>
           <h2 className="mb-2 sam-text-body font-semibold text-sam-fg">{t("points_charge_history")}</h2>
           {loading ? (
-            <div className="rounded-ui-rect bg-sam-surface p-8 text-center sam-text-body text-sam-muted">불러오는 중…</div>
+            <div className="rounded-ui-rect bg-sam-surface p-8 text-center sam-text-body text-sam-muted">{t("common_loading")}</div>
           ) : (
             <PointChargeRequestList requests={requests} />
           )}

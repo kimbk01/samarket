@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
 
@@ -10,6 +11,7 @@ export function StoreHubSearchStrip({
   value: string;
   onChange: (v: string) => void;
 }) {
+  const { t } = useI18n();
   return (
     <div className="-mx-1 px-1 pb-2">
       <label htmlFor="stores-hub-global-search" className="sr-only">
@@ -32,7 +34,7 @@ export function StoreHubSearchStrip({
           id="stores-hub-global-search"
           type="search"
           enterKeyHint="search"
-          placeholder="매장 검색"
+          placeholder={t("store_search_placeholder")}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className="min-w-0 flex-1 bg-transparent text-[14px] font-normal leading-[1.5] text-sam-fg placeholder:text-[13px] placeholder:font-normal placeholder:leading-[1.45] placeholder:text-sam-meta focus:outline-none dark:text-[#E4E6EB] dark:placeholder:text-[#B0B3B8]"

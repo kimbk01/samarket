@@ -74,11 +74,11 @@ export function CommunityMessengerRoomPhase2CallLayer() {
           className={`fixed left-3 right-3 z-40 flex items-center gap-3 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 ${BOTTOM_NAV_STACK_ABOVE_CLASS}`}
         >
           <span className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 sam-text-xxs font-semibold text-sam-muted">
-            진행 중
+            {vm.t("cm_ui_in_progress")}
           </span>
           <div className="min-w-0 flex-1">
-            <p className="sam-text-body-secondary font-semibold text-sam-fg">통화 진행 중</p>
-            <p className="truncate sam-text-helper text-sam-muted">채팅 중 복귀 가능</p>
+            <p className="sam-text-body-secondary font-semibold text-sam-fg">{vm.t("cm_ui_call_in_progress")}</p>
+            <p className="truncate sam-text-helper text-sam-muted">{vm.t("cm_ui_can_return_while_chatting")}</p>
           </div>
           <button
             type="button"
@@ -95,7 +95,7 @@ export function CommunityMessengerRoomPhase2CallLayer() {
             }}
             className="shrink-0 rounded-ui-rect border border-sam-border bg-sam-ink px-3 py-2 sam-text-helper font-semibold text-white"
           >
-            통화 화면
+            {vm.t("cm_ui_call_screen")}
           </button>
         </div>
       ) : null}

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useState } from "react";
 import { useRegion } from "@/contexts/RegionContext";
@@ -6,6 +7,7 @@ import { SavedRegionList } from "./SavedRegionList";
 import { RegionSelectorForm } from "./RegionSelectorForm";
 
 export function MyRegionSettingsView() {
+  const { t } = useI18n();
   const {
     userRegions,
     currentRegion,
@@ -44,14 +46,14 @@ export function MyRegionSettingsView() {
     return (
       <div className="mx-auto max-w-lg px-4 py-8">
         <p className="sam-text-body text-sam-muted">
-          등록된 동네가 없어요. 동네를 추가하면 해당 지역 기반으로 상품을 볼 수 있어요.
+          {t("ui_region_empty_hint")}
         </p>
         <button
           type="button"
           onClick={() => setShowAddForm(true)}
           className="mt-4 w-full rounded-ui-rect bg-signature py-3 sam-text-body font-medium text-white"
         >
-          동네 추가하기
+          {t("ui_region_add_cta")}
         </button>
       </div>
     );
@@ -62,7 +64,7 @@ export function MyRegionSettingsView() {
       {showAddForm ? (
         <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4">
           <h2 className="mb-4 sam-text-body font-semibold text-sam-fg">
-            동네 추가
+            {t("ui_region_add_title")}
           </h2>
           <RegionSelectorForm
             onSubmit={handleAdd}
@@ -83,7 +85,7 @@ export function MyRegionSettingsView() {
             onClick={() => setShowAddForm(true)}
             className="w-full rounded-ui-rect border-2 border-dashed border-sam-border py-3 sam-text-body font-medium text-sam-muted"
           >
-            + 동네 추가
+            {t("ui_region_add_more")}
           </button>
         </>
       )}

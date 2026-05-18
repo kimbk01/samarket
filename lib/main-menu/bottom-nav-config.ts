@@ -209,20 +209,20 @@ export const HOME_TRADE_HUB_PRIMARY_FAB_BUTTON_CLASS =
  * (`as const` 튜플은 선택 스타일 필드가 타입에 안 잡혀 BottomNavItemConfig[] 로 둡니다.)
  */
 export const BOTTOM_NAV_ITEMS: readonly BottomNavItemConfig[] = [
-  { id: "community", href: "/philife", label: "커뮤니티", labelKey: "nav_bottom_community", icon: "community" },
-  { id: "home", href: "/market", label: "거래", labelKey: "nav_bottom_trade", icon: "trade" },
-  { id: "stores", href: "/stores", label: "배달", labelKey: "nav_bottom_delivery", icon: "stores" },
+  { id: "community", href: "/philife", label: "Community", labelKey: "nav_bottom_community", icon: "community" },
+  { id: "home", href: "/market", label: "Trade", labelKey: "nav_bottom_trade", icon: "trade" },
+  { id: "stores", href: "/stores", label: "Delivery", labelKey: "nav_bottom_delivery", icon: "stores" },
   {
     id: "chat",
     href: "/community-messenger?section=chats",
-    label: "메신저",
+    label: "Messenger",
     labelKey: "nav_bottom_messenger",
     icon: "chat",
     activeShellClass: "bg-sam-primary-soft",
     iconActiveClass: "text-sam-primary",
     labelActiveClass: "font-semibold tracking-normal text-sam-fg",
   },
-  { id: "my", href: "/mypage", label: "내정보", labelKey: "nav_bottom_my", icon: "my" },
+  { id: "my", href: "/mypage", label: "My Page", labelKey: "nav_bottom_my", icon: "my" },
   // 예: 탭별 색·폰트만 바꿀 때
   // { id: "home", href: "/market", label: "홈", icon: "home", iconActiveClass: "text-emerald-600", labelActiveExtraClass: "font-semibold" },
 ];
@@ -238,14 +238,14 @@ export function getBottomNavAdjacentHref(tabId: BottomNavTabId, direction: "next
 
 /** 거래 탐색(/market·/mypage/purchases 등) 메인 1단 제목 — `BOTTOM_NAV_ITEMS` 의 home 라벨과 동일 */
 export const BOTTOM_NAV_TRADE_TAB_LABEL: string =
-  BOTTOM_NAV_ITEMS.find((i) => i.id === "home")?.label ?? "거래";
+  BOTTOM_NAV_ITEMS.find((i) => i.id === "home")?.label ?? "Trade";
 
 export const BOTTOM_NAV_TRADE_TAB_LABEL_KEY: MessageKey =
   BOTTOM_NAV_ITEMS.find((i) => i.id === "home")?.labelKey ?? "nav_bottom_trade";
 
 /** 커뮤니티 탭 라벨 — 1단 `Tier1ExplorationTitleRow` 등과 동기화 */
 export const BOTTOM_NAV_PHILIFE_TAB_LABEL: string =
-  BOTTOM_NAV_ITEMS.find((i) => i.id === "community")?.label ?? "커뮤니티";
+  BOTTOM_NAV_ITEMS.find((i) => i.id === "community")?.label ?? "Community";
 
 export const BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY: MessageKey =
   BOTTOM_NAV_ITEMS.find((i) => i.id === "community")?.labelKey ?? "nav_bottom_community";

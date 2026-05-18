@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useEffect } from "react";
 
 export type PostListMenuAction =
@@ -103,6 +104,7 @@ export function PostListMenuBottomSheet({
   ownerEditLockHint = "",
   ownerDeleteLockHint = "",
 }: PostListMenuBottomSheetProps) {
+  const { t } = useI18n();
   useEffect(() => {
     if (!open) return;
     const h = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -125,7 +127,7 @@ export function PostListMenuBottomSheet({
 
   const confirmDeleteOwn = () => {
     if (deleteLocked) return;
-    if (typeof window !== "undefined" && !window.confirm("이 글을 삭제할까요? 삭제 후에는 피드에서 사라져요.")) {
+    if (typeof window !== "undefined" && !window.confirm(t("ui_post_delete_confirm_feed"))) {
       return;
     }
     handle("delete_own");
@@ -139,7 +141,7 @@ export function PostListMenuBottomSheet({
         onKeyDown={(e) => e.key === "Enter" && onClose()}
         role="button"
         tabIndex={0}
-        aria-label="닫기"
+        aria-label={t("ui_sheet_close_aria")}
       />
       <div className="relative w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-4 pb-8 pt-2 shadow-xl">
         <div className="mb-2 h-1 w-10 shrink-0 self-center rounded-full bg-sam-border-soft" aria-hidden />

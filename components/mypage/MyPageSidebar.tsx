@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRouter } from "next/navigation";
 import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-location";
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
@@ -22,15 +23,16 @@ export function MyPageSidebar({
   mannerScore: number;
 }) {
   const router = useRouter();
+  const { t } = useI18n();
 
   const navigate = (tab: MyPageTabId, section?: string) => {
     router.replace(buildMyPageHref(tab, section), { scroll: false });
   };
 
-  const displayName = resolveDisplayName(profile) || "내정보";
+  const displayName = resolveDisplayName(profile) || t("mypage_comp_sidebar_display_fallback");
   const atUsername = formatAtUsername(profile.username ?? null);
   const regionLine =
-    resolveProfileLocationAddressLines(profile).join(" · ") || "지역 설정 필요";
+    resolveProfileLocationAddressLines(profile).join(" · ") || t("mypage_comp_sidebar_region_placeholder");
 
   return (
     <div className="flex flex-col bg-sam-surface">
@@ -53,17 +55,17 @@ export function MyPageSidebar({
           onClick={() => router.push(MYPAGE_PROFILE_EDIT_HREF)}
           className={`mt-3 w-full rounded-ui-rect border border-sam-border py-2 text-center font-medium text-sam-fg hover:bg-sam-app ${MYPAGE_TYPO.navItem}`}
         >
-          프로필 수정
+          {t("mypage_comp_profile_edit")}
         </button>
       </div>
 
-      <nav className="pb-2" aria-label="내정보 메뉴">
+      <nav className="pb-2" aria-label={t("mypage_comp_sidebar_nav_aria")}>
         {MYPAGE_NAV.map((tab) => (
           <div key={tab.id}>
             <p
               className={`border-t border-sam-border-soft bg-sam-app px-3 py-2 ${MYPAGE_TYPO.meta} font-semibold uppercase tracking-wide text-sam-muted`}
             >
-              {tab.label}
+              {t(tab.labelKey)}
             </p>
             <ul className="divide-y divide-sam-border-soft">
               {tab.sections.map((section) => {
@@ -80,7 +82,7 @@ export function MyPageSidebar({
                           : "text-sam-fg hover:bg-sam-app"
                       }`}
                     >
-                      <span className="min-w-0 flex-1">{section.label}</span>
+                      <span className="min-w-0 flex-1">{t(section.labelKey)}</span>
                       <ChevronIcon
                         className={isActive ? "text-sam-primary" : "text-sam-meta"}
                       />

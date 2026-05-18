@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useState, useCallback } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -15,10 +16,12 @@ import { searchOpsKnowledge, logOpsKnowledgeSearch, addRecentView } from "@/lib/
 import type { OpsKnowledgeSearchFilters } from "@/lib/ops-knowledge/ops-knowledge-utils";
 import type { OpsKnowledgeBaseIndexItem } from "@/lib/types/ops-knowledge";
 import { getOpsKnowledgeBaseIndexItemByDocumentId } from "@/lib/ops-knowledge/mock-ops-knowledge-base-index";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type TabId = "search" | "recommend" | "recent" | "searchLogs" | "recLogs";
 
 export function AdminOpsKnowledgePage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("search");
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<OpsKnowledgeSearchFilters>({});
@@ -43,17 +46,17 @@ export function AdminOpsKnowledgePage() {
     addRecentView(documentId, "search");
   }, []);
 
-  const tabs: { id: TabId; label: string }[] = [
-    { id: "search", label: "검색" },
-    { id: "recommend", label: "추천 문서" },
-    { id: "recent", label: "최근 열람" },
-    { id: "searchLogs", label: "검색 로그" },
-    { id: "recLogs", label: "추천 로그" },
+  const tabs: { id: TabId; labelKey: MessageKey }[] = [
+    { id: "search", labelKey: "admin_ops_tools_kb_tab_search" },
+    { id: "recommend", labelKey: "admin_ops_tools_kb_tab_recommend" },
+    { id: "recent", labelKey: "admin_ops_tools_kb_tab_recent" },
+    { id: "searchLogs", labelKey: "admin_ops_tools_kb_tab_search_logs" },
+    { id: "recLogs", labelKey: "admin_ops_tools_kb_tab_rec_logs" },
   ];
 
   return (
     <>
-      <AdminPageHeader title="운영 지식베이스" />
+      <AdminPageHeader titleKey="admin_ops_tools_kb_page_title" />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {tabs.map((tab) => (
           <button
@@ -66,7 +69,7 @@ export function AdminOpsKnowledgePage() {
                 : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
@@ -81,7 +84,7 @@ export function AdminOpsKnowledgePage() {
             onSearch={handleSearch}
           />
           <div className="grid gap-4 lg:grid-cols-[1fr,320px]">
-            <AdminCard title="검색 결과">
+            <AdminCard titleKey="admin_ops_tools_kb_card_results">
               <OpsKnowledgeResultList
                 items={searchResults}
                 selectedDocumentId={selectedDocumentId}
@@ -89,14 +92,14 @@ export function AdminOpsKnowledgePage() {
                 onViewDocument={handleViewDocument}
               />
             </AdminCard>
-            <AdminCard title="미리보기">
+            <AdminCard titleKey="admin_ops_tools_kb_card_preview">
               {selectedItem ? (
                 <OpsKnowledgePreviewCard
                   item={selectedItem}
                   onView={handleViewDocument}
                 />
               ) : (
-                <p className="sam-text-body text-sam-muted">문서를 선택하면 미리보기가 표시됩니다.</p>
+                <p className="sam-text-body text-sam-muted">{t("admin_ops_tools_kb_preview_empty")}</p>
               )}
             </AdminCard>
           </div>
@@ -105,25 +108,25 @@ export function AdminOpsKnowledgePage() {
 
       {activeTab === "recommend" && (
         <div className="space-y-4">
-          <AdminCard title="상황별 관련 문서 추천">
+          <AdminCard titleKey="admin_ops_tools_kb_card_recommend">
             <div className="mb-4 flex flex-wrap gap-2">
-              <label className="sam-text-body text-sam-fg">출처 유형</label>
+              <label className="sam-text-body text-sam-fg">{t("admin_ops_tools_kb_source_type")}</label>
               <select
                 value={recommendSourceType}
                 onChange={(e) => setRecommendSourceType(e.target.value as typeof recommendSourceType)}
                 className="rounded border border-sam-border px-3 py-2 sam-text-body"
               >
-                <option value="incident">이슈/인시던트</option>
-                <option value="deployment">배포</option>
-                <option value="rollback">롤백</option>
+                <option value="incident">{t("admin_ops_tools_rb_link_incident")}</option>
+                <option value="deployment">{t("admin_ops_tools_action_src_deployment")}</option>
+                <option value="rollback">{t("admin_ops_tools_node_rollback")}</option>
                 <option value="fallback">Fallback</option>
-                <option value="kill_switch">킬스위치</option>
+                <option value="kill_switch">{t("admin_ops_tools_rb_link_kill_switch")}</option>
               </select>
               <input
                 type="text"
                 value={recommendSourceId}
                 onChange={(e) => setRecommendSourceId(e.target.value)}
-                placeholder="연결 ID (선택)"
+                placeholder={t("admin_ops_tools_runbook_link_id")}
                 className="w-28 rounded border border-sam-border px-3 py-2 sam-text-body"
               />
             </div>
@@ -138,13 +141,13 @@ export function AdminOpsKnowledgePage() {
       )}
 
       {activeTab === "recent" && (
-        <AdminCard title="최근 열람 문서">
+        <AdminCard titleKey="admin_ops_tools_kb_card_recent">
           <OpsKnowledgeRecentViewList />
         </AdminCard>
       )}
 
       {activeTab === "searchLogs" && (
-        <AdminCard title="검색 로그">
+        <AdminCard titleKey="admin_ops_tools_kb_tab_search_logs">
           <OpsKnowledgeSummaryCards />
           <div className="mt-4">
             <OpsKnowledgeSearchLogTable />
@@ -153,7 +156,7 @@ export function AdminOpsKnowledgePage() {
       )}
 
       {activeTab === "recLogs" && (
-        <AdminCard title="추천 로그">
+        <AdminCard titleKey="admin_ops_tools_kb_tab_rec_logs">
           <OpsKnowledgeRecommendationLogTable />
         </AdminCard>
       )}

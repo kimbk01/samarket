@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -12,6 +13,7 @@ import { AdminPointExpireRunPanel } from "./AdminPointExpireRunPanel";
 import { AdminPointExpireLogList } from "./AdminPointExpireLogList";
 
 export function AdminPointExpirePage() {
+  const { t } = useI18n();
   const [refresh, setRefresh] = useState(0);
   const policies = useMemo(() => getPointExpirePolicies(), []);
   const activePolicy = useMemo(
@@ -31,35 +33,34 @@ export function AdminPointExpirePage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="포인트 만료" />
+      <AdminPageHeader titleKey="admin_points_expire_page" />
 
       {activePolicy ? (
-        <AdminCard title="적용 정책">
+        <AdminCard titleKey="admin_points_expire_card_policy">
           <AdminPointExpirePolicyCard policy={activePolicy} />
         </AdminCard>
       ) : (
-        <AdminCard title="적용 정책">
-          <p className="sam-text-body text-sam-muted">
-            활성화된 만료 정책이 없습니다.
+        <AdminCard titleKey="admin_points_expire_card_policy">
+          <p className="sam-text-body text-sam-muted"> {t("admin_points_expire_no_policy")}
           </p>
         </AdminCard>
       )}
 
-      <AdminCard title="만료 실행">
+      <AdminCard titleKey="admin_points_expire_card_run">
         <AdminPointExpireRunPanel onRunComplete={() => setRefresh((r) => r + 1)} />
       </AdminCard>
 
       {executions.length > 0 && (
-        <AdminCard title="실행 결과 요약">
+        <AdminCard titleKey="admin_points_expire_card_summary">
           <div className="flex flex-wrap gap-4 sam-text-body">
             <div>
-              <span className="text-sam-muted">실행 건수</span>
+              <span className="text-sam-muted">{t("admin_points_expire_label_run_count")}</span>
               <span className="ml-2 font-medium text-sam-fg">
-                {executions.length}건
+                {t("admin_points_unit_count", { count: executions.length })}
               </span>
             </div>
             <div>
-              <span className="text-sam-muted">총 만료 P</span>
+              <span className="text-sam-muted">{t("admin_points_expire_label_total_expired_p")}</span>
               <span className="ml-2 font-medium text-sam-fg">
                 {totalExpired}P
               </span>
@@ -68,11 +69,11 @@ export function AdminPointExpirePage() {
         </AdminCard>
       )}
 
-      <AdminCard title="만료 실행 이력">
+      <AdminCard titleKey="admin_points_expire_card_history">
         <AdminPointExpireTable executions={executions} />
       </AdminCard>
 
-      <AdminCard title="만료 로그">
+      <AdminCard titleKey="admin_points_expire_card_logs">
         <AdminPointExpireLogList logs={logs} />
       </AdminCard>
     </div>

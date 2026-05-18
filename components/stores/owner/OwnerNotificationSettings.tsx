@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { fetchMeNotificationSettingsGet } from "@/lib/me/fetch-me-notification-settings-client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type DomainSettings = {
   order_enabled: boolean;
@@ -48,6 +49,7 @@ function Row({
 }
 
 export function OwnerNotificationSettings({ storeId }: { storeId: string }) {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [unauthorized, setUnauthorized] = useState(false);
   const [tableMissing, setTableMissing] = useState(false);
@@ -121,13 +123,13 @@ export function OwnerNotificationSettings({ storeId }: { storeId: string }) {
   );
 
   if (loading) {
-    return <p className="text-sm text-sam-muted">불러오는 중…</p>;
+    return <p className="text-sm text-sam-muted">{t("common_loading")}</p>;
   }
 
   if (unauthorized) {
     return (
       <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
-        로그인한 사장님 계정에서만 알림 설정을 바꿀 수 있어요.
+        {t("store_owner_notif_login_only")}
       </p>
     );
   }
@@ -135,9 +137,7 @@ export function OwnerNotificationSettings({ storeId }: { storeId: string }) {
   if (!s || tableMissing) {
     return (
       <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
-        {tableMissing
-          ? "알림 설정 테이블이 아직 없습니다."
-          : "설정을 불러오지 못했습니다."}
+        {tableMissing ? t("store_owner_notif_table_missing") : t("store_owner_notif_load_failed")}
       </p>
     );
   }
@@ -145,31 +145,39 @@ export function OwnerNotificationSettings({ storeId }: { storeId: string }) {
   return (
     <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
       <div className="border-b border-sam-border-soft px-4 py-3">
-        <h2 className="text-sm font-bold text-sam-fg">매장 알림</h2>
+        <h2 className="text-sm font-bold text-sam-fg">{t("business_phase7_075")}</h2>
         <p className="mt-1 sam-text-helper text-sam-muted font-mono" title="store id">
           {storeId}
         </p>
         <p className="mt-2 sam-text-helper text-sam-muted">
           <Link href="/my/settings/notifications" className="font-medium text-signature underline">
-            전체 알림 설정
+            {t("order_notifications_all_settings_link")}
           </Link>
-          에서 거래·커뮤니티 채팅 알림을 함께 조정할 수 있어요.
+          {t("store_owner_notif_settings_link_suffix")}
         </p>
       </div>
       <Row
-        label="주문 알림"
-        description="신규 주문·취소·환불·결제 등"
+        label={t("store_owner_notif_order_label")}
+        description={t("store_owner_notif_order_desc")}
         checked={s.order_enabled}
         onChange={(v) => void patch({ order_enabled: v })}
       />
       <Row
-        label="매장·판매 알림"
-        description="매장 운영 관련 인앱 알림"
+        label={t("store_owner_notif_store_label")}
+        description={t("store_owner_notif_store_desc")}
         checked={s.store_enabled}
         onChange={(v) => void patch({ store_enabled: v })}
       />
-      <Row label="인앱 알림음" checked={s.sound_enabled} onChange={(v) => void patch({ sound_enabled: v })} />
-      <Row label="진동" checked={s.vibration_enabled} onChange={(v) => void patch({ vibration_enabled: v })} />
+      <Row
+        label={t("store_owner_notif_sound")}
+        checked={s.sound_enabled}
+        onChange={(v) => void patch({ sound_enabled: v })}
+      />
+      <Row
+        label={t("store_owner_notif_vibration")}
+        checked={s.vibration_enabled}
+        onChange={(v) => void patch({ vibration_enabled: v })}
+      />
     </div>
   );
 }

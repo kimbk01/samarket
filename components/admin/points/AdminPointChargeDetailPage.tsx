@@ -1,5 +1,19 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  pointActionTypeLabel,
+  pointBoardLabel,
+  pointChargeStatusLabel,
+  pointExecStatusLabel,
+  pointExpireCycleLabel,
+  pointExpireExecStatusLabel,
+  pointLedgerTypeLabel,
+  pointPaymentMethodLabel,
+  pointRewardTypeLabel,
+  pointUserTypeLabel,
+} from "@/components/admin/points/admin-points-notifications-i18n";
+
 import { useCallback, useState } from "react";
 import type { PointChargeRequest } from "@/lib/types/point";
 import {
@@ -7,10 +21,6 @@ import {
   setPointChargeRequestAdminMemo,
 } from "@/lib/points/mock-point-charge-requests";
 import { getPointActionLogsByRelatedId } from "@/lib/points/mock-point-action-logs";
-import {
-  POINT_CHARGE_STATUS_LABELS,
-  POINT_PAYMENT_METHOD_LABELS,
-} from "@/lib/points/point-utils";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AdminPointActionPanel } from "./AdminPointActionPanel";
@@ -22,6 +32,8 @@ interface AdminPointChargeDetailPageProps {
 export function AdminPointChargeDetailPage({
   requestId,
 }: AdminPointChargeDetailPageProps) {
+  const { t } = useI18n();
+
   const [refresh, setRefresh] = useState(0);
   const [memoInput, setMemoInput] = useState("");
   const request = getPointChargeRequestById(requestId);
@@ -30,8 +42,7 @@ export function AdminPointChargeDetailPage({
 
   if (!request) {
     return (
-      <div className="py-8 text-center sam-text-body text-sam-muted">
-        충전 신청을 찾을 수 없습니다.
+      <div className="py-8 text-center sam-text-body text-sam-muted"> {t("admin_points_charge_not_found")}
       </div>
     );
   }
@@ -45,34 +56,34 @@ export function AdminPointChargeDetailPage({
   return (
     <div className="space-y-4">
       <AdminPageHeader
-        title="포인트 충전 상세"
+        titleKey="admin_points_charge_page_detail"
         backHref="/admin/point-charges"
       />
       <AdminPointActionPanel request={request} onActionSuccess={refreshDetail} />
-      <AdminCard title="신청 정보">
+      <AdminCard titleKey="admin_points_charge_card_request_info">
         <dl className="grid gap-2 sam-text-body">
           <div>
-            <dt className="text-sam-muted">신청자</dt>
+            <dt className="text-sam-muted">{t("admin_points_charge_th_applicant")}</dt>
             <dd>
               {request.userNickname} ({request.userId})
             </dd>
           </div>
           <div>
-            <dt className="text-sam-muted">상품</dt>
+            <dt className="text-sam-muted">{t("admin_points_charge_label_product")}</dt>
             <dd>{request.planName}</dd>
           </div>
           <div>
-            <dt className="text-sam-muted">결제 금액 / 지급 포인트</dt>
+            <dt className="text-sam-muted">{t("admin_points_charge_label_payment_points")}</dt>
             <dd>
               ₩{request.paymentAmount.toLocaleString()} → {request.pointAmount}P
             </dd>
           </div>
           <div>
-            <dt className="text-sam-muted">결제 방식</dt>
-            <dd>{POINT_PAYMENT_METHOD_LABELS[request.paymentMethod]}</dd>
+            <dt className="text-sam-muted">{t("admin_points_charge_label_payment_method")}</dt>
+            <dd>{pointPaymentMethodLabel(t, request.paymentMethod)}</dd>
           </div>
           <div>
-            <dt className="text-sam-muted">상태</dt>
+            <dt className="text-sam-muted">{t("admin_points_th_status")}</dt>
             <dd>
               <span
                 className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
@@ -83,16 +94,16 @@ export function AdminPointChargeDetailPage({
                       : "bg-sam-surface-muted text-sam-fg"
                 }`}
               >
-                {POINT_CHARGE_STATUS_LABELS[request.requestStatus]}
+                {pointChargeStatusLabel(t, request.requestStatus)}
               </span>
             </dd>
           </div>
           <div>
-            <dt className="text-sam-muted">입금자명</dt>
+            <dt className="text-sam-muted">{t("admin_points_charge_th_depositor")}</dt>
             <dd>{request.depositorName || "-"}</dd>
           </div>
           <div>
-            <dt className="text-sam-muted">신청일 / 수정일</dt>
+            <dt className="text-sam-muted">{t("admin_points_charge_label_dates")}</dt>
             <dd className="sam-text-body-secondary text-sam-muted">
               {new Date(request.requestedAt).toLocaleString("ko-KR")} /{" "}
               {new Date(request.updatedAt).toLocaleString("ko-KR")}
@@ -100,7 +111,7 @@ export function AdminPointChargeDetailPage({
           </div>
           {request.userMemo && (
             <div>
-              <dt className="text-sam-muted">신청자 메모</dt>
+              <dt className="text-sam-muted">{t("admin_points_charge_label_user_memo")}</dt>
               <dd className="whitespace-pre-wrap text-sam-fg">
                 {request.userMemo}
               </dd>
@@ -108,13 +119,13 @@ export function AdminPointChargeDetailPage({
           )}
         </dl>
       </AdminCard>
-      <AdminCard title="관리자 메모 (placeholder)">
+      <AdminCard titleKey="admin_points_admin_memo_card">
         <div className="flex gap-2">
           <input
             type="text"
             value={memoInput}
             onChange={(e) => setMemoInput(e.target.value)}
-            placeholder="메모 입력"
+            placeholder={t("admin_points_admin_memo_ph")}
             className="flex-1 rounded border border-sam-border px-3 py-2 sam-text-body"
           />
           <button
@@ -122,22 +133,21 @@ export function AdminPointChargeDetailPage({
             onClick={handleSaveMemo}
             className="rounded border border-sam-border bg-sam-app px-3 py-2 sam-text-body text-sam-fg hover:bg-sam-surface-muted"
           >
-            저장
+            {t("common_save")}
           </button>
         </div>
         {request.adminMemo && (
           <p className="mt-2 sam-text-body-secondary text-sam-muted">{request.adminMemo}</p>
         )}
       </AdminCard>
-      <AdminCard title="포인트 수동 조정 (placeholder)">
-        <p className="sam-text-body-secondary text-sam-muted">
-          특정 사용자 포인트 증감은 원장 화면에서 연결 예정
+      <AdminCard titleKey="admin_points_charge_card_manual_adjust">
+        <p className="sam-text-body-secondary text-sam-muted"> {t("admin_points_charge_manual_adjust_hint")}
         </p>
       </AdminCard>
-      <AdminCard title="변경 이력">
+      <AdminCard titleKey="admin_points_card_change_history">
         <ul className="space-y-2 sam-text-body-secondary">
           {logs.length === 0 ? (
-            <li className="text-sam-muted">이력 없음</li>
+            <li className="text-sam-muted">{t("admin_points_history_empty")}</li>
           ) : (
             logs.map((l) => (
               <li

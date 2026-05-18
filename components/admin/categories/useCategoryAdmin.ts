@@ -9,11 +9,13 @@ import { updateCategoryAdmin } from "@/lib/categories/admin/updateCategory";
 import { deleteCategory } from "@/lib/categories/admin/deleteCategory";
 import { reorderCategories } from "@/lib/categories/admin/reorderCategories";
 import { updateCategory as updateCategoryRow } from "@/lib/categories/updateCategory";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { CategoryFormPayload, CategoryFormSettingsPayload } from "./CategoryFormModal";
 
 export type CategoryAdminMessage = { type: "success" | "error"; text: string } | null;
 
 export function useCategoryAdmin() {
+  const { t } = useI18n();
   const [list, setList] = useState<CategoryWithSettings[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState<CategoryAdminMessage>(null);
@@ -62,11 +64,11 @@ export function useCategoryAdmin() {
         showError(res.error);
         return false;
       }
-      showSuccess("카테고리가 추가되었습니다.");
+      showSuccess(t("admin_cat_msg_created"));
       load();
       return true;
     },
-    [load, showError, showSuccess]
+    [load, showError, showSuccess, t]
   );
 
   const handleUpdate = useCallback(
@@ -96,22 +98,22 @@ export function useCategoryAdmin() {
       load();
       return true;
     },
-    [load, showError, showSuccess]
+    [load, showError, showSuccess, t]
   );
 
   const handleDelete = useCallback(
     async (id: string): Promise<boolean> => {
-      if (!confirm("이 카테고리를 삭제하시겠습니까? (하위에 게시물이 있으면 삭제되지 않고 변경을 안내합니다.)")) return false;
+      if (!confirm(t("admin_cat_confirm_delete"))) return false;
       const res = await deleteCategory(id);
       if (!res.ok) {
         showError(res.error);
         return false;
       }
-      showSuccess("삭제되었습니다.");
+      showSuccess(t("admin_cat_msg_deleted"));
       load();
       return true;
     },
-    [load, showError, showSuccess]
+    [load, showError, showSuccess, t]
   );
 
   const handleMoveUp = useCallback(
@@ -142,10 +144,10 @@ export function useCategoryAdmin() {
         showError(res.error);
         return;
       }
-      showSuccess("순서가 변경되었습니다.");
+      showSuccess(t("admin_cat_msg_reordered"));
       load();
     },
-    [list, load, showError, showSuccess]
+    [list, load, showError, showSuccess, t]
   );
 
   const handleToggleActive = useCallback(
@@ -157,10 +159,10 @@ export function useCategoryAdmin() {
         showError(res.error);
         return;
       }
-      showSuccess(cat.is_active ? "미사용으로 변경되었습니다." : "사용으로 변경되었습니다.");
+      showSuccess(cat.is_active ? t("admin_cat_msg_deactivated") : t("admin_cat_msg_activated"));
       load();
     },
-    [list, load, showError, showSuccess]
+    [list, load, showError, showSuccess, t]
   );
 
   return {

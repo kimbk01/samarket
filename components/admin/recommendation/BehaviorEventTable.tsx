@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useState, useMemo } from "react";
 import type { UserBehaviorEvent, BehaviorEventType } from "@/lib/types/recommendation";
 import { getBehaviorEvents } from "@/lib/recommendation/mock-user-behavior-events";
@@ -16,6 +18,7 @@ const EVENT_LABELS: Record<BehaviorEventType, string> = {
 };
 
 export function BehaviorEventTable() {
+  const { t } = useI18n();
   const [eventType, setEventType] = useState<BehaviorEventType | "">("");
   const [userIdFilter, setUserIdFilter] = useState("");
   const [sectionKeyFilter, setSectionKeyFilter] = useState("");
@@ -45,7 +48,7 @@ export function BehaviorEventTable() {
           onChange={(e) => setEventType(e.target.value as BehaviorEventType | "")}
           className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
-          <option value="">전체</option>
+          <option value="">{t("common_all")}</option>
           {(Object.keys(EVENT_LABELS) as BehaviorEventType[]).map((k) => (
             <option key={k} value={k}>
               {EVENT_LABELS[k]}

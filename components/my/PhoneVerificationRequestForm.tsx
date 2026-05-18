@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   formatPhMobileDisplay,
   normalizePhMobileDb,
   parsePhMobileInput,
-  PH_LOCAL_MOBILE_RULE_MESSAGE_KO,
 } from "@/lib/utils/ph-mobile";
 import { PH_MOBILE_PLACEHOLDER } from "@/lib/constants/philippines-contact";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -24,6 +24,7 @@ type VerificationPayload = {
 };
 
 export function PhoneVerificationRequestForm() {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [displayName, setDisplayName] = useState("");
@@ -43,7 +44,7 @@ export function PhoneVerificationRequestForm() {
         const data = await res.json().catch(() => null);
         if (cancelled) return;
         if (!res.ok || !data?.ok) {
-          setError(data?.error || "인증 상태를 불러오지 못했습니다.");
+          setError(data?.error || t("my_phone_load_status_failed"));
           return;
         }
         const verification = data.verification as VerificationPayload;
@@ -51,7 +52,7 @@ export function PhoneVerificationRequestForm() {
         setPhoneDigits(parsePhMobileInput(verification.phone ?? ""));
         setDisplayName(verification.display_name ?? "");
       } catch {
-        if (!cancelled) setError("인증 상태를 불러오지 못했습니다.");
+        if (!cancelled) setError(t("my_phone_load_status_failed"));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -68,7 +69,7 @@ export function PhoneVerificationRequestForm() {
     setMessage((prev) => (prev === null ? prev : null));
     const norm = normalizePhMobileDb(phoneDigits);
     if (!norm) {
-      setError(PH_LOCAL_MOBILE_RULE_MESSAGE_KO);
+      setError(t("my_phone_rule_invalid"));
       setSubmitting((prev) => (prev ? false : prev));
       return;
     }
@@ -81,13 +82,13 @@ export function PhoneVerificationRequestForm() {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.ok) {
-        setError(data?.error || "인증 요청에 실패했습니다.");
+        setError(data?.error || t("my_phone_send_failed"));
         return;
       }
       setStatus(data.verification as VerificationPayload);
-      setMessage("인증번호를 발송했습니다. 받은 코드를 입력해 정회원 인증을 완료해 주세요.");
+      setMessage(t("my_phone_sent_hint"));
     } catch {
-      setError("인증번호 발송에 실패했습니다.");
+      setError(t("my_phone_send_otp_failed"));
     } finally {
       setSubmitting((prev) => (prev ? false : prev));
     }
@@ -96,11 +97,11 @@ export function PhoneVerificationRequestForm() {
   const verifyCode = async () => {
     const norm = normalizePhMobileDb(phoneDigits);
     if (!norm) {
-      setError(PH_LOCAL_MOBILE_RULE_MESSAGE_KO);
+      setError(t("my_phone_rule_invalid"));
       return;
     }
     if (!otpCode.trim()) {
-      setError("인증번호를 입력해 주세요.");
+      setError(t("my_phone_code_required"));
       return;
     }
     setSubmitting(true);
@@ -115,65 +116,56 @@ export function PhoneVerificationRequestForm() {
       });
       const data = await res.json().catch(() => null);
       if (!res.ok || !data?.ok) {
-        setError(data?.error || "인증번호 확인에 실패했습니다.");
+        setError(data?.error || t("my_phone_verify_code_failed"));
         return;
       }
       setStatus(data.verification as VerificationPayload);
-      setMessage("전화번호 인증이 완료되었습니다. 이제 정회원 기능을 이용할 수 있습니다.");
+      setMessage(t("my_phone_verified_success"));
       setOtpCode("");
     } catch {
-      setError("인증번호 확인에 실패했습니다.");
+      setError(t("my_phone_verify_code_failed"));
     } finally {
       setSubmitting(false);
     }
   };
 
   if (loading) {
-    return <p className="py-8 text-center sam-text-body text-sam-muted">불러오는 중…</p>;
+    return <p className="py-8 text-center sam-text-body text-sam-muted">{t("common_loading")}</p>;
   }
 
   return (
     <div className="space-y-4">
       <div className="rounded-ui-rect border border-sam-border bg-signature/5 px-4 py-3">
-        <p className="text-[17px] font-bold leading-[1.35] text-sam-fg">필리핀 전화번호 인증</p>
+        <p className="text-[17px] font-bold leading-[1.35] text-sam-fg">{t("my_phone_verify_title")}</p>
         <p className="mt-1 sam-text-helper leading-relaxed text-sam-muted">
-          {status?.full_member_access_ok && !status.phone_verified ? (
-            <>
-              관리자 수동 생성 계정 또는 관리자 계정은 이미 정회원 권한으로 이용할 수 있습니다. 필요하면 필리핀 번호를
-              등록해 업데이트할 수 있습니다.
-            </>
-          ) : (
-            <>
-              정회원 인증이 필요합니다. 필리핀 전화번호 인증 후 이용할 수 있습니다.
-            </>
-          )}
+          {status?.full_member_access_ok && !status.phone_verified
+            ? t("my_phone_intro_admin")
+            : t("my_phone_intro_required")}
         </p>
       </div>
 
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-[0_1px_2px_rgba(31,36,48,0.05)]">
-        <p className="sam-text-body-secondary text-sam-muted">현재 상태</p>
+        <p className="sam-text-body-secondary text-sam-muted">{t("my_phone_verify_status")}</p>
         <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">
           {status?.phone_verified
-            ? "인증 완료"
+            ? t("my_phone_status_verified")
             : status?.full_member_access_ok
-              ? "정식 회원(앱 이용 가능)"
+              ? t("my_phone_status_full_member")
               : status?.phone_verification_status === "pending"
-                ? "인증번호 확인 대기"
-                : "미인증"}
+                ? t("my_phone_status_pending")
+                : t("my_phone_status_unverified")}
         </p>
         {status?.help_text ? (
           <p className="mt-1 sam-text-body-secondary text-sam-muted">{status.help_text}</p>
         ) : null}
         {status?.consent_required ? (
-          <p className="mt-1 sam-text-body-secondary text-amber-700">
-            이용약관/개인정보처리방침 동의가 먼저 필요합니다.
-          </p>
+          <p className="mt-1 sam-text-body-secondary text-amber-700">{t("my_phone_consent_required")}</p>
         ) : null}
       </div>
 
       <form onSubmit={submit} className="space-y-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-[0_1px_2px_rgba(31,36,48,0.05)]">
         <div>
-          <label className="block text-[13px] font-semibold text-sam-fg">닉네임</label>
+          <label className="block text-[13px] font-semibold text-sam-fg">{t("my_phone_verify_nickname")}</label>
           <input
             type="text"
             value={displayName}
@@ -184,7 +176,7 @@ export function PhoneVerificationRequestForm() {
           />
         </div>
         <div>
-          <label className="block text-[13px] font-semibold text-sam-fg">필리핀 전화번호</label>
+          <label className="block text-[13px] font-semibold text-sam-fg">{t("my_phone_verify_phone")}</label>
           <input
             type="tel"
             inputMode="numeric"
@@ -197,14 +189,14 @@ export function PhoneVerificationRequestForm() {
           />
         </div>
         <div>
-          <label className="block text-[13px] font-semibold text-sam-fg">인증번호</label>
+          <label className="block text-[13px] font-semibold text-sam-fg">{t("my_phone_verify_code")}</label>
           <input
             type="text"
             inputMode="numeric"
             maxLength={10}
             value={otpCode}
             onChange={(e) => setOtpCode(e.target.value.replace(/\D+/g, ""))}
-            placeholder="SMS로 받은 인증번호"
+            placeholder={t("my_phone_verify_code_placeholder")}
             className="sam-input mt-1"
           />
         </div>
@@ -215,7 +207,7 @@ export function PhoneVerificationRequestForm() {
           disabled={submitting}
           className="sam-btn-primary w-full disabled:opacity-50"
         >
-          {submitting ? "발송 중…" : "인증번호 발송"}
+          {submitting ? t("my_phone_sending") : t("my_phone_send_otp")}
         </button>
         <button
           type="button"
@@ -223,12 +215,12 @@ export function PhoneVerificationRequestForm() {
           onClick={() => void verifyCode()}
           className="w-full rounded-ui-rect border border-sam-border py-3 sam-text-body font-semibold text-sam-fg disabled:opacity-50"
         >
-          {submitting ? "확인 중…" : "인증번호 확인"}
+          {submitting ? t("my_phone_verifying") : t("my_phone_verify_submit")}
         </button>
       </form>
 
       <Link href="/mypage/account" className="block text-center sam-text-body-secondary text-signature underline">
-        내 계정으로 돌아가기
+        {t("my_phone_back_account")}
       </Link>
     </div>
   );

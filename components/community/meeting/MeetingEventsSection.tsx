@@ -1,11 +1,12 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useEffect, useState } from "react";
 import { philifeMeetingApi } from "@domain/philife/api";
 import {
-  MEETING_EVENT_TYPE_LABELS,
   MEETING_EVENT_TYPES,
   formatMeetingEventDescription,
+  meetingEventTypeLabel,
 } from "@/lib/neighborhood/meeting-event-format";
 import type { NeighborhoodMeetingEventDTO } from "@/lib/neighborhood/types";
 
@@ -16,6 +17,7 @@ type Props = {
 };
 
 export function MeetingEventsSection({ meetingId, initialEvents, initialHasMore }: Props) {
+  const { t } = useI18n();
   const [events, setEvents] = useState<NeighborhoodMeetingEventDTO[]>(initialEvents);
   const [hasMore, setHasMore] = useState(initialHasMore);
   const [filter, setFilter] = useState<string>("all");
@@ -48,7 +50,7 @@ export function MeetingEventsSection({ meetingId, initialEvents, initialHasMore 
           error?: string;
         };
         if (!res.ok || !json.ok) {
-          setError(json.error === "forbidden" ? "운영 로그를 볼 권한이 없습니다." : "불러오지 못했습니다.");
+          setError(json.error === "forbidden" ? t("community_meeting_ops_forbidden") : t("community_meeting_events_load_failed"));
           return;
         }
         const next = json.events ?? [];
@@ -58,7 +60,7 @@ export function MeetingEventsSection({ meetingId, initialEvents, initialHasMore 
         setLoading((prev) => (prev ? false : prev));
       }
     },
-    [meetingId]
+    [meetingId, t]
   );
 
   const onFilterChange = (value: string) => {
@@ -74,19 +76,19 @@ export function MeetingEventsSection({ meetingId, initialEvents, initialHasMore 
   return (
     <section className="mt-4 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="sam-text-body font-semibold text-sam-fg">운영 로그</h2>
+        <h2 className="sam-text-body font-semibold text-sam-fg">{t("community_meeting_ops_log")}</h2>
         <label className="flex items-center gap-2 sam-text-helper text-sam-muted">
-          <span className="shrink-0">유형</span>
+          <span className="shrink-0">{t("community_filter_type")}</span>
           <select
             className="min-w-[8rem] rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary text-sam-fg"
             value={filter}
             disabled={loading}
             onChange={(e) => onFilterChange(e.target.value)}
           >
-            <option value="all">전체</option>
-            {MEETING_EVENT_TYPES.map((t) => (
-              <option key={t} value={t}>
-                {MEETING_EVENT_TYPE_LABELS[t]}
+            <option value="all">{t("community_filter_all")}</option>
+            {MEETING_EVENT_TYPES.map((evType) => (
+              <option key={evType} value={evType}>
+                {meetingEventTypeLabel(t, evType)}
               </option>
             ))}
           </select>
@@ -94,7 +96,7 @@ export function MeetingEventsSection({ meetingId, initialEvents, initialHasMore 
       </div>
       {error ? <p className="mt-2 sam-text-body-secondary text-red-600">{error}</p> : null}
       {events.length === 0 && !loading ? (
-        <p className="mt-3 sam-text-body-secondary text-sam-muted">표시할 기록이 없습니다.</p>
+        <p className="mt-3 sam-text-body-secondary text-sam-muted">{t("community_no_records")}</p>
       ) : (
         <ul className="mt-3 space-y-2">
           {events.map((event) => {
@@ -102,7 +104,7 @@ export function MeetingEventsSection({ meetingId, initialEvents, initialHasMore 
               event.created_at && !Number.isNaN(Date.parse(event.created_at))
                 ? new Date(event.created_at).toLocaleString("ko-KR")
                 : "";
-            const text = formatMeetingEventDescription(event);
+            const text = formatMeetingEventDescription(event, t);
             return (
               <li key={event.id} className="rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2">
                 <p className="sam-text-body-secondary text-sam-fg">{text}</p>
@@ -119,7 +121,7 @@ export function MeetingEventsSection({ meetingId, initialEvents, initialHasMore 
           disabled={loading}
           onClick={onLoadMore}
         >
-          {loading ? "불러오는 중…" : "더보기"}
+          {loading ? t("community_events_loading") : t("community_events_load_more")}
         </button>
       ) : null}
     </section>

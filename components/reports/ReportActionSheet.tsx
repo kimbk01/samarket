@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useState } from "react";
 import type { ReportTargetType } from "@/lib/types/report";
@@ -31,6 +32,7 @@ export function ReportActionSheet({
   onClose,
   onSuccess,
 }: ReportActionSheetProps) {
+  const { t } = useI18n();
   const currentUser = getCurrentUser();
   const userId = getCurrentUserId();
   const alreadyReported = hasReported(userId, targetType, targetId);
@@ -46,7 +48,7 @@ export function ReportActionSheet({
     setError(null);
     setSubmitting(true);
     const selected = REPORT_REASONS.find((r) => r.code === reasonCode);
-    const reasonText = reasonCode === "other" ? detail : (selected?.label ?? reasonLabel);
+    const reasonText = reasonCode === "other" ? detail : (t(selected?.labelKey ?? "ui_report_reason_other") ?? reasonLabel);
 
     if (currentUser?.id) {
       const daangnTargetType =
@@ -65,7 +67,7 @@ export function ReportActionSheet({
         onClose();
         return;
       }
-      setError(res.error ?? "신고 접수에 실패했습니다.");
+      setError(res.error ?? t("ui_report_failed"));
       return;
     }
 
@@ -75,7 +77,7 @@ export function ReportActionSheet({
       targetId,
       targetUserId,
       reasonCode,
-      selected?.label ?? reasonLabel,
+      t(selected?.labelKey ?? "ui_report_reason_other") ?? reasonLabel,
       detail
     );
     setSubmitting(false);
@@ -86,13 +88,13 @@ export function ReportActionSheet({
   if (alreadyReported) {
     return (
       <div className="p-4">
-        <p className="sam-text-body text-sam-muted">이미 신고한 대상입니다.</p>
+        <p className="sam-text-body text-sam-muted">{t("ui_report_already")}</p>
         <button
           type="button"
           onClick={onClose}
           className="mt-4 w-full rounded-ui-rect border border-sam-border py-2.5 sam-text-body text-sam-fg"
         >
-          닫기
+          {t("common_close")}
         </button>
       </div>
     );
@@ -102,7 +104,7 @@ export function ReportActionSheet({
     <form onSubmit={handleSubmit} className="p-4">
       <p className="mb-3 sam-text-body text-sam-muted">
         {targetLabel && <span>{targetLabel} </span>}
-        신고 사유를 선택해 주세요.
+        {t("ui_report_select_prompt")}
       </p>
       <ReportReasonSelector
         value={reasonCode}
@@ -114,13 +116,13 @@ export function ReportActionSheet({
       {reasonCode === "other" && (
         <div className="mt-3">
           <label className="mb-1 block sam-text-body-secondary text-sam-muted">
-            기타 사유 (선택)
+            {t("ui_report_other_optional")}
           </label>
           <input
             type="text"
             value={detail}
             onChange={(e) => setDetail(e.target.value)}
-            placeholder="구체적으로 적어 주세요"
+            placeholder={t("ui_report_detail_placeholder")}
             className="w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
           />
         </div>
@@ -133,14 +135,14 @@ export function ReportActionSheet({
           disabled={submitting}
           className="rounded-ui-rect border border-sam-border px-4 py-2.5 sam-text-body text-sam-muted disabled:opacity-50"
         >
-          취소
+          {t("common_cancel")}
         </button>
         <button
           type="submit"
           disabled={!reasonCode || submitting}
           className="flex-1 rounded-ui-rect bg-signature py-2.5 sam-text-body font-medium text-white disabled:opacity-50"
         >
-          {submitting ? "접수 중…" : "신고하기"}
+          {submitting ? t("ui_report_submitting") : t("ui_report_submit")}
         </button>
       </div>
     </form>

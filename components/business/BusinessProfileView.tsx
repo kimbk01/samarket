@@ -2,6 +2,7 @@
 
 import type { BusinessProfile } from "@/lib/types/business";
 import { BUSINESS_STATUS_LABELS } from "@/lib/business/business-utils";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface BusinessProfileViewProps {
   profile: BusinessProfile;
@@ -9,6 +10,7 @@ interface BusinessProfileViewProps {
 }
 
 export function BusinessProfileView({ profile, isOwner }: BusinessProfileViewProps) {
+  const { t } = useI18n();
   const street = (profile.addressStreetLine ?? "").trim();
   const detail = (profile.addressDetail ?? "").trim();
   const fullAddress = (profile.addressLabel ?? "").trim();
@@ -69,8 +71,8 @@ export function BusinessProfileView({ profile, isOwner }: BusinessProfileViewPro
           </p>
         )}
         <div className="mt-3 flex flex-wrap gap-4 sam-text-body-secondary text-sam-muted">
-          <span>상품 {profile.productCount}개</span>
-          <span>팔로워 {profile.followerCount}</span>
+          <span>{t("business_phase7_149", { v1: profile.productCount })}</span>
+          <span>{t("business_phase7_312", { v1: profile.followerCount })}</span>
           {profile.reviewCount > 0 && (
             <span>
               후기 {profile.reviewCount} · ★ {profile.averageRating.toFixed(1)}
@@ -79,9 +81,9 @@ export function BusinessProfileView({ profile, isOwner }: BusinessProfileViewPro
         </div>
         {(profile.phone || profile.kakaoId) && (
           <div className="mt-3 border-t border-sam-border-soft pt-3 sam-text-body-secondary text-sam-muted">
-            {profile.phone && <p>연락처: {profile.phone}</p>}
+            {profile.phone && <p>{t("business_phase7_196", { v1: profile.phone })}</p>}
             {profile.kakaoId && (
-              <p>카카오톡 ID: {profile.kakaoId} (placeholder)</p>
+              <p>{t("business_phase7_298", { v1: profile.kakaoId })}</p>
             )}
           </div>
         )}
@@ -89,7 +91,7 @@ export function BusinessProfileView({ profile, isOwner }: BusinessProfileViewPro
       {/* 상점 후기 요약 placeholder */}
       {profile.reviewCount > 0 && (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <h2 className="sam-text-body font-medium text-sam-fg">후기 요약</h2>
+          <h2 className="sam-text-body font-medium text-sam-fg">{t("business_phase7_333")}</h2>
           <p className="mt-1 sam-text-body-secondary text-sam-muted">
             후기 {profile.reviewCount}개 · 평균 ★ {profile.averageRating.toFixed(1)}
             (상세 후기 목록 연결 예정)

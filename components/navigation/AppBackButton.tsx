@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
 
 export function AppBackIcon({ className }: { className?: string }) {
@@ -58,7 +59,9 @@ type AppBackButtonProps = {
   /** 미지정 시 기본: text-sam-fg hover:bg-sam-surface-muted */
   className?: string;
   iconClassName?: string;
-  /** 접근성 라벨 (기본: 뒤로가기) */
+  /** 접근성 라벨 키 (기본: nav_back) */
+  ariaLabelKey?: MessageKey;
+  /** @deprecated ariaLabelKey 사용. 역검색(tt) 호환용 */
   ariaLabel?: string;
 };
 
@@ -73,12 +76,17 @@ export function AppBackButton({
   onBack,
   className,
   iconClassName,
-  ariaLabel = "뒤로가기",
+  ariaLabelKey,
+  ariaLabel,
 }: AppBackButtonProps) {
-  const { tt } = useI18n();
+  const { t, tt } = useI18n();
   const router = useRouter();
   const mergedClass = `${structuralClass} ${className ?? defaultToneClass}`.trim();
-  const resolvedAriaLabel = tt(ariaLabel);
+  const resolvedAriaLabel = ariaLabelKey
+    ? t(ariaLabelKey)
+    : ariaLabel
+      ? tt(ariaLabel)
+      : t("nav_back");
 
   if (preferHistoryBack === false && backHref != null) {
     return (

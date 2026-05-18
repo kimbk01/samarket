@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { postAdTypeLabel } from "@/lib/ads/post-ad-label-keys";
 import type { AdProduct, AdPaymentMethod } from "@/lib/ads/types";
-import { AD_TYPE_LABELS } from "@/lib/ads/types";
 
 interface AdProductSelectorProps {
   boardKey?: string;
@@ -21,6 +22,7 @@ export function AdProductSelector({
   onClose,
   onSuccess,
 }: AdProductSelectorProps) {
+  const { t } = useI18n();
   const [products, setProducts] = useState<AdProduct[]>([]);
   const [selected, setSelected] = useState<AdProduct | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<AdPaymentMethod>("points");
@@ -93,7 +95,7 @@ export function AdProductSelector({
       <div className="w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-5 pb-10 pt-5 shadow-2xl">
         {/* 헤더 */}
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="sam-text-section-title font-bold text-sam-fg">광고 신청</h2>
+          <h2 className="sam-text-section-title font-bold text-sam-fg">{t("ui_ad_apply_title")}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -104,20 +106,20 @@ export function AdProductSelector({
         </div>
 
         <p className="mb-3 truncate sam-text-body-secondary text-sam-muted">
-          게시글: <span className="font-medium text-sam-fg">{postTitle}</span>
+          {t("ui_ad_post_label")} <span className="font-medium text-sam-fg">{postTitle}</span>
         </p>
 
         {/* 포인트 잔액 */}
         <div className="mb-4 flex items-center justify-between rounded-ui-rect bg-sky-50 px-3 py-2.5 sam-text-body-secondary">
-          <span className="text-sky-800">내 포인트</span>
+          <span className="text-sky-800">{t("ui_ad_my_points")}</span>
           <span className="font-bold text-sky-900">{userPointBalance.toLocaleString()}P</span>
         </div>
 
         {/* 상품 목록 */}
         {loading ? (
-          <p className="py-6 text-center sam-text-body-secondary text-sam-muted">불러오는 중…</p>
+          <p className="py-6 text-center sam-text-body-secondary text-sam-muted">{t("common_loading")}</p>
         ) : products.length === 0 ? (
-          <p className="py-6 text-center sam-text-body-secondary text-sam-muted">이 게시판에 등록된 광고 상품이 없습니다.</p>
+          <p className="py-6 text-center sam-text-body-secondary text-sam-muted">{t("ui_ad_no_board_products")}</p>
         ) : (
           <div className="mb-4 space-y-2">
             {products.map((p) => {
@@ -138,7 +140,7 @@ export function AdProductSelector({
                     <div>
                       <p className="sam-text-body font-semibold text-sam-fg">{p.name}</p>
                       <p className="mt-0.5 sam-text-helper text-sam-muted">
-                        {AD_TYPE_LABELS[p.adType]} · {p.durationDays}일
+                        {postAdTypeLabel(t, p.adType)} · {t("philife_write_ad_duration_days", { days: p.durationDays })}
                       </p>
                       {p.description ? (
                         <p className="mt-0.5 sam-text-helper text-sam-muted">{p.description}</p>
@@ -147,9 +149,9 @@ export function AdProductSelector({
                     <div className="text-right">
                       <p className="sam-text-body font-bold text-sam-fg">{p.pointCost.toLocaleString()}P</p>
                       {lacking > 0 ? (
-                        <p className="sam-text-xxs text-red-500">{lacking.toLocaleString()}P 부족</p>
+                        <p className="sam-text-xxs text-red-500">{t("ui_ad_points_short", { amount: lacking.toLocaleString() })}</p>
                       ) : (
-                        <p className="sam-text-xxs text-emerald-600">사용 가능</p>
+                        <p className="sam-text-xxs text-emerald-600">{t("ui_ad_points_available")}</p>
                       )}
                     </div>
                   </div>
@@ -162,7 +164,7 @@ export function AdProductSelector({
         {/* 결제 방법 선택 (포인트 vs 입금) */}
         {selected !== null && (
           <div className="mb-4">
-            <p className="mb-2 sam-text-body-secondary font-semibold text-sam-fg">결제 방식</p>
+            <p className="mb-2 sam-text-body-secondary font-semibold text-sam-fg">{t("philife_write_payment_method")}</p>
             <div className="flex gap-2">
               {(["points", "bank_transfer"] as AdPaymentMethod[]).map((m) => (
                 <button
@@ -175,7 +177,7 @@ export function AdProductSelector({
                       : "border-sam-border bg-sam-surface text-sam-fg"
                   }`}
                 >
-                  {m === "points" ? "포인트 사용" : "계좌 입금"}
+                  {m === "points" ? t("ui_ad_payment_points") : t("ui_ad_payment_bank")}
                 </button>
               ))}
             </div>
@@ -183,10 +185,8 @@ export function AdProductSelector({
             {/* 포인트 방식: 부족 시 안내 */}
             {paymentMethod === "points" && shortfall > 0 && (
               <div className="mt-2 rounded-ui-rect bg-red-50 px-3 py-2.5 sam-text-helper text-red-700">
-                <p className="font-semibold">포인트 부족 {shortfall.toLocaleString()}P</p>
-                <p className="mt-1">
-                  포인트를 충전하거나 계좌 입금 방식을 선택해 주세요.
-                </p>
+                <p className="font-semibold">{t("ui_ad_points_short_title", { amount: shortfall.toLocaleString() })}</p>
+                <p className="mt-1">{t("ui_ad_points_short_hint")}</p>
               </div>
             )}
 
@@ -197,19 +197,19 @@ export function AdProductSelector({
                   type="text"
                   value={depositorName}
                   onChange={(e) => setDepositorName(e.target.value)}
-                  placeholder="입금자명 (필수)"
+                  placeholder={t("ui_ad_depositor_required_ph")}
                   className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body outline-none focus:border-sky-300"
                 />
                 <input
                   type="text"
                   value={memo}
                   onChange={(e) => setMemo(e.target.value)}
-                  placeholder="메모 (선택)"
+                  placeholder={t("ui_ad_memo_optional_ph")}
                   className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body outline-none focus:border-sky-300"
                 />
                 <div className="rounded-ui-rect bg-sky-50 px-3 py-2 sam-text-helper text-sky-800">
-                  <p className="font-semibold">입금 안내</p>
-                  <p>관리자 확인 후 광고가 승인됩니다.</p>
+                  <p className="font-semibold">{t("ui_ad_deposit_guide_title")}</p>
+                  <p>{t("ui_ad_deposit_guide_body")}</p>
                 </div>
               </div>
             )}
@@ -224,7 +224,11 @@ export function AdProductSelector({
           disabled={!canSubmit || submitting}
           className="w-full rounded-ui-rect bg-emerald-600 py-3.5 sam-text-body font-bold text-white shadow-md disabled:opacity-40"
         >
-          {submitting ? "처리 중…" : paymentMethod === "bank_transfer" ? "입금 신청하기" : "광고 신청하기"}
+          {submitting
+            ? t("community_meeting_join_processing")
+            : paymentMethod === "bank_transfer"
+              ? t("ui_ad_submit_bank")
+              : t("ui_ad_submit_points")}
         </button>
       </div>
     </div>

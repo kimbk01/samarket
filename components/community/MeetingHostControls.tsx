@@ -8,6 +8,7 @@ import {
   getHydrationSafeCurrentUser,
 } from "@/lib/auth/get-current-user";
 import type { NeighborhoodMeetingNoticeDTO } from "@/lib/neighborhood/types";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type AttendanceStatus = "unknown" | "attending" | "absent" | "excused";
 type MemberRow = {
@@ -47,6 +48,7 @@ export function MeetingHostControls({
   hasPassword?: boolean;
   canManage?: boolean;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const mApi = philifeMeetingApi(meetingId);
   const [mounted, setMounted] = useState(false);
@@ -118,7 +120,7 @@ export function MeetingHostControls({
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        setErr(j.error ?? "참석 상태를 저장하지 못했습니다.");
+        setErr(j.error ?? t("community_meeting_attendance_save_failed"));
         return;
       }
       router.refresh();
@@ -129,14 +131,14 @@ export function MeetingHostControls({
 
   const onCloseMeeting = async () => {
     if (!isHost) return;
-    if (!window.confirm("모임을 종료할까요? 이후 새 참여는 불가합니다.")) return;
+    if (!window.confirm(t("community_confirm_end_meeting"))) return;
     setBusy((prev) => (prev ? prev : true));
     setErr((prev) => (prev === "" ? prev : ""));
     try {
       const res = await fetch(mApi.close(), { method: "POST" });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (res.ok && j.ok) router.refresh();
-      else setErr(j.error ?? "종료 실패");
+      else setErr(j.error ?? t("community_meeting_end_failed"));
     } finally {
       setBusy((prev) => (prev ? false : prev));
     }
@@ -144,7 +146,7 @@ export function MeetingHostControls({
 
   const onKick = async (userId: string) => {
     if (!isHost) return;
-    if (!window.confirm("이 멤버를 내보낼까요?")) return;
+    if (!window.confirm(t("community_confirm_kick_member"))) return;
     setBusy(true);
     setErr("");
     try {
@@ -155,7 +157,7 @@ export function MeetingHostControls({
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (res.ok && j.ok) router.refresh();
-      else setErr(j.error ?? "처리 실패");
+      else setErr(j.error ?? t("community_meeting_action_failed"));
     } finally {
       setBusy(false);
     }
@@ -173,7 +175,7 @@ export function MeetingHostControls({
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (res.ok && j.ok) router.refresh();
-      else setErr(j.error ?? "운영진 지정 실패");
+      else setErr(j.error ?? t("community_meeting_cohost_promote_failed"));
     } finally {
       setBusy(false);
     }
@@ -191,7 +193,7 @@ export function MeetingHostControls({
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (res.ok && j.ok) router.refresh();
-      else setErr(j.error ?? "운영진 해제 실패");
+      else setErr(j.error ?? t("community_meeting_cohost_demote_failed"));
     } finally {
       setBusy(false);
     }
@@ -202,7 +204,7 @@ export function MeetingHostControls({
     const title = noticeTitle.trim();
     const body = noticeBody.trim();
     if (!title && !body) {
-      setErr("공지 제목 또는 내용을 입력해 주세요.");
+      setErr(t("community_meeting_notice_required"));
       return;
     }
     setBusy(true);
@@ -219,7 +221,7 @@ export function MeetingHostControls({
         setNoticeTitle("");
         setNoticeBody("");
         router.refresh();
-      } else setErr(j.error ?? "공지 등록 실패");
+      } else setErr(j.error ?? t("community_meeting_notice_create_failed"));
     } finally {
       setBusy(false);
     }
@@ -227,7 +229,7 @@ export function MeetingHostControls({
 
   const onDeleteNotice = async (noticeId: string) => {
     if (!canManage) return;
-    if (!window.confirm("이 공지를 삭제할까요?")) return;
+    if (!window.confirm(t("community_confirm_delete_notice"))) return;
     setBusy(true);
     setErr("");
     try {
@@ -236,7 +238,7 @@ export function MeetingHostControls({
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (res.ok && j.ok) router.refresh();
-      else setErr(j.error ?? "공지 삭제 실패");
+      else setErr(j.error ?? t("community_meeting_notice_delete_failed"));
     } finally {
       setBusy(false);
     }
@@ -258,7 +260,7 @@ export function MeetingHostControls({
   const onSaveNoticeEdit = async () => {
     if (!canManage || !editingNoticeId) return;
     if (!editingNoticeTitle.trim() && !editingNoticeBody.trim()) {
-      setErr("공지 제목 또는 내용을 입력해 주세요.");
+      setErr(t("community_meeting_notice_required"));
       return;
     }
     setBusy(true);
@@ -277,7 +279,7 @@ export function MeetingHostControls({
         onCancelEditNotice();
         router.refresh();
       } else {
-        setErr(j.error ?? "공지 수정 실패");
+        setErr(j.error ?? t("community_meeting_notice_edit_failed"));
       }
     } finally {
       setBusy(false);
@@ -287,7 +289,7 @@ export function MeetingHostControls({
   const onUpdateAccessPolicy = async () => {
     if (!isHost) return;
     if (entryPolicy === "password" && !meetingPassword.trim() && !hasPassword) {
-      setErr("비밀번호형 모임은 비밀번호를 먼저 설정해 주세요.");
+      setErr(t("community_meeting_password_required_first"));
       return;
     }
     setBusy(true);
@@ -306,7 +308,7 @@ export function MeetingHostControls({
         setMeetingPassword("");
         router.refresh();
       } else {
-        setErr(j.error === "password_required" ? "비밀번호를 입력해 주세요." : j.error ?? "입장 설정 저장 실패");
+        setErr(j.error === "password_required" ? t("community_meeting_password_enter") : j.error ?? t("community_meeting_entry_save_failed"));
       }
     } finally {
       setBusy(false);
@@ -317,7 +319,7 @@ export function MeetingHostControls({
     if (!canManage) return;
     const userId = String(forcedUserId ?? inviteUserId).trim();
     if (!userId) {
-      setErr("초대할 사용자 ID를 입력해 주세요.");
+      setErr(t("community_meeting_invite_user_required"));
       return;
     }
     setBusy(true);
@@ -334,7 +336,7 @@ export function MeetingHostControls({
         setInviteCandidates([]);
         router.refresh();
       } else {
-        setErr(j.error ?? "초대 실패");
+        setErr(j.error ?? t("community_meeting_invite_failed"));
       }
     } finally {
       setBusy(false);
@@ -354,7 +356,7 @@ export function MeetingHostControls({
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (res.ok && j.ok) router.refresh();
-      else setErr(j.error ?? "초대 취소 실패");
+      else setErr(j.error ?? t("community_meeting_invite_cancel_failed"));
     } finally {
       setBusy(false);
     }
@@ -362,7 +364,7 @@ export function MeetingHostControls({
 
   const onBan = async (userId: string) => {
     if (!isHost) return;
-    if (!window.confirm("이 사용자를 이 모임에서 차단할까요? 이후 다시 참여할 수 없습니다.")) return;
+    if (!window.confirm(t("community_confirm_block_member"))) return;
     setBusy(true);
     setErr("");
     try {
@@ -373,7 +375,7 @@ export function MeetingHostControls({
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (res.ok && j.ok) router.refresh();
-      else setErr(j.error ?? "차단 실패");
+      else setErr(j.error ?? t("community_meeting_ban_failed"));
     } finally {
       setBusy(false);
     }
@@ -391,7 +393,7 @@ export function MeetingHostControls({
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (res.ok && j.ok) router.refresh();
-      else setErr(j.error ?? "차단 해제 실패");
+      else setErr(j.error ?? t("community_meeting_unban_failed"));
     } finally {
       setBusy(false);
     }
@@ -401,7 +403,7 @@ export function MeetingHostControls({
 
   return (
     <div className="space-y-3 rounded-ui-rect border border-amber-200 bg-amber-50/80 p-3">
-      <p className="sam-text-body-secondary font-semibold text-amber-900">모임 관리</p>
+      <p className="sam-text-body-secondary font-semibold text-amber-900">{t("community_meeting_manage")}</p>
       {isHost ? (
         <button
           type="button"
@@ -409,11 +411,11 @@ export function MeetingHostControls({
           onClick={() => void onCloseMeeting()}
           className="w-full rounded-ui-rect border border-amber-300 bg-sam-surface py-2 sam-text-body-secondary font-medium text-amber-900"
         >
-          모임 종료
+          {t("community_end_meeting_btn")}
         </button>
       ) : null}
       <div className="space-y-2 rounded-ui-rect border border-amber-200 bg-sam-surface/80 p-3">
-        <p className="sam-text-helper font-semibold text-amber-900">입장 설정</p>
+        <p className="sam-text-helper font-semibold text-amber-900">{t("community_entry_settings")}</p>
         {isHost ? (
           <>
             <select
@@ -429,17 +431,17 @@ export function MeetingHostControls({
               }
               className="w-full rounded-ui-rect border border-amber-200 bg-sam-surface px-3 py-2 sam-text-body-secondary text-sam-fg outline-none"
             >
-              <option value="open">바로 참여</option>
-              <option value="approve">승인제</option>
-              <option value="password">비밀번호</option>
-              <option value="invite_only">초대/승인제</option>
+              <option value="open">{t("community_entry_open")}</option>
+              <option value="approve">{t("community_entry_approve")}</option>
+              <option value="password">{t("community_entry_password")}</option>
+              <option value="invite_only">{t("community_entry_invite_only")}</option>
             </select>
             {entryPolicy === "password" ? (
               <input
                 type="password"
                 value={meetingPassword}
                 onChange={(e) => setMeetingPassword(e.target.value)}
-                placeholder={hasPassword ? "새 비밀번호 입력 시 변경" : "모임 비밀번호 입력"}
+                placeholder={hasPassword ? t("community_meeting_password_new_placeholder") : t("community_meeting_password_placeholder")}
                 className="w-full rounded-ui-rect border border-amber-200 bg-sam-surface px-3 py-2 sam-text-body-secondary text-sam-fg outline-none"
               />
             ) : null}
@@ -449,25 +451,25 @@ export function MeetingHostControls({
               onClick={() => void onUpdateAccessPolicy()}
               className="w-full rounded-ui-rect border border-amber-300 bg-sam-surface py-2 sam-text-body-secondary font-medium text-amber-900 disabled:opacity-50"
             >
-              입장 설정 저장
+              {t("community_save_entry_settings_btn")}
             </button>
           </>
         ) : (
-          <p className="sam-text-helper text-sam-muted">운영진은 초대, 가입 승인, 공지 관리만 할 수 있습니다.</p>
+          <p className="sam-text-helper text-sam-muted">{t("community_cohost_hint")}</p>
         )}
         {entryPolicy === "invite_only" && canManage ? (
           <div
             id="meeting-host-invite-section"
             className="space-y-2 scroll-mt-4 rounded-ui-rect border border-amber-100 bg-amber-50/60 p-3"
           >
-            <p className="sam-text-helper font-semibold text-amber-900">초대 관리</p>
+            <p className="sam-text-helper font-semibold text-amber-900">{t("community_invite_manage")}</p>
             <input
               value={inviteUserId}
               onChange={(e) => setInviteUserId(e.target.value)}
-              placeholder="닉네임 또는 아이디로 검색"
+              placeholder={t("community_invite_search_placeholder")}
               className="w-full rounded-ui-rect border border-amber-200 bg-sam-surface px-3 py-2 sam-text-body-secondary text-sam-fg outline-none"
             />
-            {inviteSearching ? <p className="sam-text-helper text-sam-muted">검색 중...</p> : null}
+            {inviteSearching ? <p className="sam-text-helper text-sam-muted">{t("community_searching")}</p> : null}
             {inviteCandidates.length > 0 ? (
               <ul className="space-y-2 rounded-ui-rect border border-amber-100 bg-sam-surface p-2 sam-text-body-secondary">
                 {inviteCandidates.map((candidate) => (
@@ -477,9 +479,9 @@ export function MeetingHostControls({
                       <p className="truncate sam-text-xxs text-sam-muted">{candidate.secondary}</p>
                       {candidate.neighborFollow || candidate.sameRegion ? (
                         <p className="truncate sam-text-xxs text-amber-700">
-                          {candidate.neighborFollow ? "관심이웃 우선" : ""}
+                          {candidate.neighborFollow ? t("community_invite_neighbor_priority") : ""}
                           {candidate.neighborFollow && candidate.sameRegion ? " · " : ""}
-                          {candidate.sameRegion ? "같은 지역" : ""}
+                          {candidate.sameRegion ? t("community_invite_same_region") : ""}
                         </p>
                       ) : null}
                     </div>
@@ -492,7 +494,7 @@ export function MeetingHostControls({
                       }}
                       className="shrink-0 text-amber-800 underline"
                     >
-                      초대
+                      {t("community_meeting_invite")}
                     </button>
                   </li>
                 ))}
@@ -504,7 +506,7 @@ export function MeetingHostControls({
               onClick={() => void onInvite()}
               className="w-full rounded-ui-rect bg-amber-500 py-2 sam-text-body-secondary font-medium text-white disabled:opacity-50"
             >
-              초대 보내기
+              {t("community_meeting_invite_send")}
             </button>
             {invitedMembers.length > 0 ? (
               <ul className="space-y-2 sam-text-body-secondary">
@@ -517,7 +519,7 @@ export function MeetingHostControls({
                       onClick={() => void onRevokeInvite(member.user_id)}
                       className="shrink-0 text-red-700 underline"
                     >
-                      초대 취소
+                      {t("community_meeting_invite_cancel")}
                     </button>
                   </li>
                 ))}
@@ -527,18 +529,18 @@ export function MeetingHostControls({
         ) : null}
       </div>
       <div className="space-y-2 rounded-ui-rect border border-amber-200 bg-sam-surface/80 p-3">
-        <p className="sam-text-helper font-semibold text-amber-900">공지 작성</p>
+        <p className="sam-text-helper font-semibold text-amber-900">{t("community_notice_write")}</p>
         <input
           value={noticeTitle}
           onChange={(e) => setNoticeTitle(e.target.value)}
-          placeholder="공지 제목"
+          placeholder={t("community_notice_title_placeholder")}
           maxLength={120}
           className="w-full rounded-ui-rect border border-amber-200 bg-sam-surface px-3 py-2 sam-text-body-secondary text-sam-fg outline-none"
         />
         <textarea
           value={noticeBody}
           onChange={(e) => setNoticeBody(e.target.value)}
-          placeholder="모임 공지 내용을 입력하세요"
+          placeholder={t("community_notice_body_placeholder")}
           rows={3}
           maxLength={2000}
           className="w-full rounded-ui-rect border border-amber-200 bg-sam-surface px-3 py-2 sam-text-body-secondary text-sam-fg outline-none"
@@ -549,12 +551,12 @@ export function MeetingHostControls({
           onClick={() => void onCreateNotice()}
           className="w-full rounded-ui-rect bg-amber-500 py-2 sam-text-body-secondary font-medium text-white disabled:opacity-50"
         >
-          공지 등록
+          {t("community_meeting_notice_register")}
         </button>
       </div>
       {notices.length > 0 ? (
         <div className="space-y-2 rounded-ui-rect border border-amber-200 bg-sam-surface/80 p-3">
-          <p className="sam-text-helper font-semibold text-amber-900">등록된 공지</p>
+          <p className="sam-text-helper font-semibold text-amber-900">{t("community_notice_registered")}</p>
           <ul className="space-y-2 sam-text-body-secondary">
             {notices.map((notice) => (
               <li key={notice.id} className="rounded-ui-rect border border-amber-100 bg-sam-surface px-3 py-2">
@@ -563,7 +565,7 @@ export function MeetingHostControls({
                     <input
                       value={editingNoticeTitle}
                       onChange={(e) => setEditingNoticeTitle(e.target.value)}
-                      placeholder="공지 제목"
+                      placeholder={t("community_notice_title_placeholder")}
                       maxLength={120}
                       className="w-full rounded-ui-rect border border-amber-200 bg-sam-surface px-3 py-2 sam-text-body-secondary text-sam-fg outline-none"
                     />
@@ -581,7 +583,7 @@ export function MeetingHostControls({
                         onClick={() => void onSaveNoticeEdit()}
                         className="flex-1 rounded-ui-rect bg-amber-500 py-2 sam-text-helper font-medium text-white disabled:opacity-50"
                       >
-                        저장
+                        {t("common_save")}
                       </button>
                       <button
                         type="button"
@@ -589,14 +591,14 @@ export function MeetingHostControls({
                         onClick={onCancelEditNotice}
                         className="flex-1 rounded-ui-rect border border-sam-border bg-sam-surface py-2 sam-text-helper font-medium text-sam-fg"
                       >
-                        취소
+                        {t("common_cancel")}
                       </button>
                     </div>
                   </div>
                 ) : (
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="truncate font-medium text-sam-fg">{notice.title || "공지"}</p>
+                      <p className="truncate font-medium text-sam-fg">{notice.title || t("community_notice_fallback")}</p>
                       {notice.body ? <p className="mt-1 whitespace-pre-wrap sam-text-helper text-sam-fg">{notice.body}</p> : null}
                     </div>
                     <div className="flex shrink-0 gap-2">
@@ -606,7 +608,7 @@ export function MeetingHostControls({
                         onClick={() => onStartEditNotice(notice)}
                         className="text-amber-800 underline"
                       >
-                        수정
+                        {t("common_edit")}
                       </button>
                       <button
                         type="button"
@@ -614,7 +616,7 @@ export function MeetingHostControls({
                         onClick={() => void onDeleteNotice(notice.id)}
                         className="text-red-700 underline"
                       >
-                        삭제
+                        {t("community_delete")}
                       </button>
                     </div>
                   </div>
@@ -626,7 +628,7 @@ export function MeetingHostControls({
       ) : null}
       {isHost && bannedMembers.length > 0 ? (
         <div className="space-y-2 rounded-ui-rect border border-red-200 bg-sam-surface/80 p-3">
-          <p className="sam-text-helper font-semibold text-red-900">차단된 사용자</p>
+          <p className="sam-text-helper font-semibold text-red-900">{t("community_blocked_users")}</p>
           <ul className="space-y-2 sam-text-body-secondary">
             {bannedMembers.map((m) => (
               <li key={m.user_id} className="flex items-center justify-between gap-2">
@@ -640,7 +642,7 @@ export function MeetingHostControls({
                   onClick={() => void onUnban(m.user_id)}
                   className="shrink-0 text-sky-700 underline"
                 >
-                  차단 해제
+                  {t("community_unblock")}
                 </button>
               </li>
             ))}
@@ -649,7 +651,7 @@ export function MeetingHostControls({
       ) : null}
       {canManage && members.length > 0 ? (
         <div className="space-y-2 rounded-ui-rect border border-sky-200 bg-sky-50/50 p-3">
-          <p className="sam-text-helper font-semibold text-sky-900">참석 확인</p>
+          <p className="sam-text-helper font-semibold text-sky-900">{t("community_attendance_check")}</p>
           <ul className="space-y-2 sam-text-body-secondary">
             {members.map((m) => {
               const att: AttendanceStatus = m.attendance_status ?? "unknown";
@@ -661,13 +663,13 @@ export function MeetingHostControls({
                   <div className="min-w-0">
                     <p className="truncate font-medium text-sam-fg">{m.label}</p>
                     {m.user_id === createdBy ? (
-                      <p className="sam-text-xxs text-sam-muted">모임장</p>
+                      <p className="sam-text-xxs text-sam-muted">{t("community_role_owner")}</p>
                     ) : m.role === "co_host" ? (
-                      <p className="sam-text-xxs text-amber-700">운영진</p>
+                      <p className="sam-text-xxs text-amber-700">{t("community_role_cohost")}</p>
                     ) : null}
                   </div>
                   <label className="flex shrink-0 items-center gap-2 sam-text-helper text-sam-muted">
-                    <span className="hidden sm:inline">참석</span>
+                    <span className="hidden sm:inline">{t("community_role_attending")}</span>
                     <select
                       className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary text-sam-fg"
                       disabled={busy}
@@ -676,10 +678,10 @@ export function MeetingHostControls({
                         void onSetAttendance(m.user_id, e.target.value as AttendanceStatus)
                       }
                     >
-                      <option value="unknown">미정</option>
-                      <option value="attending">참석</option>
-                      <option value="absent">불참</option>
-                      <option value="excused">불참(사유)</option>
+                      <option value="unknown">{t("community_attendance_unknown")}</option>
+                      <option value="attending">{t("community_attendance_yes")}</option>
+                      <option value="absent">{t("community_attendance_no")}</option>
+                      <option value="excused">{t("community_attendance_no_reason")}</option>
                     </select>
                   </label>
                 </li>
@@ -690,7 +692,7 @@ export function MeetingHostControls({
       ) : null}
       {isHost && members.filter((m) => m.user_id !== createdBy).length > 0 ? (
         <div className="space-y-2 rounded-ui-rect border border-amber-200 bg-sam-surface/80 p-3">
-          <p className="sam-text-helper font-semibold text-amber-900">멤버 관리</p>
+          <p className="sam-text-helper font-semibold text-amber-900">{t("community_member_manage")}</p>
           <ul className="space-y-1 sam-text-body-secondary">
             {members
               .filter((m) => m.user_id !== createdBy)
@@ -698,7 +700,7 @@ export function MeetingHostControls({
                 <li key={m.user_id} className="flex items-center justify-between gap-2">
                   <div className="min-w-0">
                     <p className="truncate text-sam-fg">{m.label}</p>
-                    {m.role === "co_host" ? <p className="sam-text-xxs text-amber-700">운영진</p> : null}
+                    {m.role === "co_host" ? <p className="sam-text-xxs text-amber-700">{t("community_role_cohost")}</p> : null}
                   </div>
                   <div className="flex shrink-0 flex-wrap gap-2">
                   {m.role === "co_host" ? (
@@ -708,7 +710,7 @@ export function MeetingHostControls({
                       onClick={() => void onDemoteCoHost(m.user_id)}
                       className="text-amber-800 underline"
                     >
-                      운영진 해제
+                      {t("community_meeting_cohost_demote")}
                     </button>
                   ) : (
                     <button
@@ -717,7 +719,7 @@ export function MeetingHostControls({
                       onClick={() => void onPromoteCoHost(m.user_id)}
                       className="text-amber-800 underline"
                     >
-                      운영진 지정
+                      {t("community_meeting_cohost_promote")}
                     </button>
                   )}
                   <button
@@ -734,7 +736,7 @@ export function MeetingHostControls({
                     onClick={() => void onBan(m.user_id)}
                     className="text-red-900 underline"
                   >
-                    재참여 차단
+                    {t("community_meeting_ban_rejoin")}
                   </button>
                   </div>
                 </li>

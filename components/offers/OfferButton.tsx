@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 type Props = {
   disabled?: boolean;
   busy?: boolean;
@@ -10,6 +11,7 @@ type Props = {
 };
 
 export function OfferButton({ disabled, busy, className, onClick, retry }: Props) {
+  const { t } = useI18n();
   const label = retry ? "다시 제안하기" : "가격 제안하기";
   return (
     <button

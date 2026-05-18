@@ -79,6 +79,8 @@ function ownerHubStatusPillClass(active: boolean): string {
 }
 
 import type { OwnerRscHubProduct, OwnerRscMenuSection } from "@/lib/stores/owner/load-owner-store-read-bootstrap";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 
 /** 매장 상품 목록·노출·신규 등록 진입 — RSC `initial*` 으로 첫 페인트부터 데이터 표시 */
 export function OwnerProductsHubClient({
@@ -93,6 +95,7 @@ export function OwnerProductsHubClient({
   /** RSC 부트스트랩 실패 시 클라에서 API 재시도 */
   rscBootstrapError?: string;
 }) {
+  const { t } = useI18n();
   const hasRscPayload = initialSections != null && initialProducts != null;
 
   const adminStore = useBusinessAdminStore();
@@ -120,10 +123,10 @@ export function OwnerProductsHubClient({
   const [error, setError] = useState<string | null>(() => {
     if (!rscBootstrapError) return null;
     if (rscBootstrapError === "session_invalid") {
-      return "로그인 세션을 확인할 수 없습니다. 새로고침 후 다시 시도해 주세요.";
+      return t("business_phase7_422");
     }
     if (rscBootstrapError === "supabase_unconfigured") {
-      return "매장 서비스 설정이 완료되지 않았습니다.";
+      return t("business_phase7_423");
     }
     return rscBootstrapError;
   });
@@ -168,7 +171,7 @@ export function OwnerProductsHubClient({
       let nextProducts: HubProduct[] = [];
       let nextSections: Section[] = [];
       if (!pj?.ok) {
-        setError(typeof pj?.error === "string" ? pj.error : "상품 목록을 불러오지 못했습니다.");
+        setError(typeof pj?.error === "string" ? pj.error : t("business_phase7_424"));
         setProducts([]);
         nextProducts = [];
       } else {
@@ -198,7 +201,7 @@ export function OwnerProductsHubClient({
     } finally {
       if (!opts?.silent) setLoading(false);
     }
-  }, [storeId]);
+  }, [storeId, t]);
 
   useEffect(() => {
     const clientCached = readOwnerProductsHubSessionCache(storeId) != null;
@@ -215,8 +218,8 @@ export function OwnerProductsHubClient({
 
   useEffect(() => {
     if (!toast) return;
-    const t = setTimeout(() => setToast(null), 3200);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setToast(null), 3200);
+    return () => clearTimeout(timer);
   }, [toast]);
 
   const filtered = useMemo(() => {
@@ -257,9 +260,9 @@ export function OwnerProductsHubClient({
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j?.ok) {
         if (j?.error === "sales_not_approved") {
-          setToast("판매 승인 전에는 상품을 노출(판매중)로 바꿀 수 없습니다. 초안·숨김만 가능합니다.");
+          setToast(t("business_phase7_425"));
         } else {
-          setError(typeof j?.error === "string" ? j.error : "처리 실패");
+          setError(typeof j?.error === "string" ? j.error : t("business_phase7_426"));
         }
         return;
       }
@@ -288,7 +291,7 @@ export function OwnerProductsHubClient({
       void patchProduct(p.id, { product_status: "sold_out" });
       return;
     }
-    setToast("빠른 품절은 「판매중」 또는 「품절」 상태에서만 전환할 수 있습니다.");
+    setToast(t("business_phase7_427"));
   };
 
   const onDeleteClick = (p: HubProduct) => {
@@ -302,19 +305,19 @@ export function OwnerProductsHubClient({
     <div className="max-w-full overflow-x-hidden bg-sam-app pb-[max(0px,env(safe-area-inset-bottom,0px))]">
       <div className="flex gap-2 border-b border-sam-border-soft bg-sam-surface px-0 py-2.5">
         <Link href={categoriesHref} className={`${Sam.btn.outlineCombo} ${hubTopActionClass}`}>
-          카테고리추가
+          {t("business_phase7_307")}
         </Link>
         <Link href={newProductHrefForTab} className={`${Sam.btn.primaryCombo} ${hubTopActionClass} !text-white`}>
-          상품 등록
+          {t("business_phase7_408")}
         </Link>
       </div>
 
       <section
         className="sticky top-0 z-10 border-b border-sam-border-soft bg-gradient-to-b from-sam-surface-muted to-sam-surface-muted/90 px-0 pt-2 pb-2 backdrop-blur-[6px]"
-        aria-label="카테고리 및 상품 상태 필터"
+        aria-label={t("business_phase7_300")}
       >
-        <p className="mb-1 sam-text-xxs font-medium text-sam-meta">카테고리</p>
-        <nav className={OWNER_HUB_FILTER_SCROLL_ROW} aria-label="상품 카테고리" role="tablist">
+        <p className="mb-1 sam-text-xxs font-medium text-sam-meta">{t("business_phase7_299")}</p>
+        <nav className={OWNER_HUB_FILTER_SCROLL_ROW} aria-label={t("business_phase7_154")} role="tablist">
           <button
             type="button"
             role="tab"
@@ -334,24 +337,24 @@ export function OwnerProductsHubClient({
               className={`max-w-[min(220px,82vw)] truncate ${ownerHubCategoryPillClass(tab === s.id)}`}
             >
               {s.name}
-              {s.is_hidden ? " · 숨김" : ""}
+              {s.is_hidden ? t("business_phase7_397") : ""}
             </button>
           ))}
         </nav>
         <p className="mb-1 mt-2 border-t border-sam-border/40 pt-2 sam-text-xxs font-medium text-sam-meta">
-          목록 필터
+          {t("business_phase7_410")}
         </p>
         <div
           className={OWNER_HUB_FILTER_SCROLL_ROW}
           role="group"
-          aria-label="목록에 보일 상품 상태"
+          aria-label={t("business_phase7_096")}
         >
           {(
             [
-              { id: "all" as const, label: "모든 상태" },
-              { id: "active" as const, label: "판매중" },
-              { id: "sold_out" as const, label: "품절" },
-              { id: "hidden" as const, label: "숨김·초안" },
+              { id: "all" as const, label: t("business_phase7_411") },
+              { id: "active" as const, label: t("business_phase7_412") },
+              { id: "sold_out" as const, label: t("business_phase7_317") },
+              { id: "hidden" as const, label: t("business_phase7_413") },
             ] as const
           ).map((s) => (
             <button
@@ -384,19 +387,19 @@ export function OwnerProductsHubClient({
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="상품 검색"
+            placeholder={t("business_phase7_150")}
             className="min-w-0 flex-1 border-0 bg-transparent sam-text-body text-sam-fg outline-none placeholder:text-sam-meta"
           />
         </div>
 
         {sections.length === 0 ? (
           <p className="sam-text-helper leading-relaxed text-sam-muted">
-            <strong className="font-medium text-sam-fg">카테고리추가</strong>로 카테고리를 만든 뒤 상품을
-            등록하세요. 이미 만든 카테고리는{" "}
+            {t("business_phase7_414", { v1: t("business_phase7_307") })}{" "}
+            {t("business_phase7_415")}{" "}
             <Link href={categoriesHref} className="font-medium text-signature underline">
-              카테고리 관리
+              {t("business_phase7_391")}
             </Link>
-            에서도 수정할 수 있습니다.
+            {t("business_phase7_416")}
           </p>
         ) : null}
 
@@ -405,18 +408,18 @@ export function OwnerProductsHubClient({
             {toast}
           </p>
         ) : null}
-        {error ? <p className="sam-text-body-secondary text-red-600">{error}</p> : null}
+        {error ? <p className="sam-text-body-secondary text-red-600">{resolveOwnerApiErrorMessage(error, t)}</p> : null}
 
         {loading ? (
-          <p className="sam-text-body text-sam-muted">불러오는 중…</p>
+          <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
         ) : filtered.length === 0 ? (
           <div
             className={`rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-6 text-center sam-text-body-secondary text-sam-muted`}
           >
             {products.length === 0 ? (
-              <p>등록된 상품이 없습니다.</p>
+              <p>{t("business_phase7_058")}</p>
             ) : (
-              <p>조건에 맞는 상품이 없습니다.</p>
+              <p>{t("business_phase7_255")}</p>
             )}
           </div>
         ) : (
@@ -428,9 +431,9 @@ export function OwnerProductsHubClient({
               const intro = oneLineProductIntro(p);
               const statusLabel =
                 p.product_status === "draft"
-                  ? "초안"
+                  ? t("business_phase7_417")
                   : p.product_status === "hidden"
-                    ? "숨김"
+                    ? t("business_phase7_418")
                     : p.product_status !== "active" && p.product_status !== "sold_out"
                       ? p.product_status
                       : null;
@@ -452,7 +455,7 @@ export function OwnerProductsHubClient({
                         />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center px-0.5 text-center sam-text-xxs leading-tight text-sam-meta">
-                          없음
+                          {t("business_phase7_419")}
                         </div>
                       )}
                     </div>
@@ -479,7 +482,7 @@ export function OwnerProductsHubClient({
                   <div className="flex min-h-8 w-full flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-sam-border-soft px-2 py-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <div className="flex items-center gap-0.5">
-                        <span className="whitespace-nowrap sam-text-xxs text-sam-muted">품절</span>
+                        <span className="whitespace-nowrap sam-text-xxs text-sam-muted">{t("business_phase7_317")}</span>
                         <button
                           type="button"
                           role="switch"
@@ -487,8 +490,8 @@ export function OwnerProductsHubClient({
                           disabled={busy || (!listed && p.product_status !== "sold_out")}
                           title={
                             p.product_status === "draft" || p.product_status === "hidden"
-                              ? "판매중으로 전환한 뒤 품절을 켤 수 있습니다"
-                              : "빠른 품절"
+                              ? t("business_phase7_420")
+                              : t("business_phase7_421")
                           }
                           onClick={() => onToggleSoldOut(p)}
                           className={`relative h-6 w-11 shrink-0 rounded-full transition focus-visible:outline focus-visible:ring-2 focus-visible:ring-amber-500 disabled:opacity-50 ${
@@ -503,7 +506,7 @@ export function OwnerProductsHubClient({
                         </button>
                       </div>
                       <div className="flex items-center gap-0.5">
-                        <span className="whitespace-nowrap sam-text-xxs text-sam-muted">노출</span>
+                        <span className="whitespace-nowrap sam-text-xxs text-sam-muted">{t("business_phase7_047")}</span>
                         <button
                           type="button"
                           role="switch"
@@ -535,7 +538,7 @@ export function OwnerProductsHubClient({
                             d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
                           />
                         </svg>
-                        수정
+                        {t("common_edit")}
                       </Link>
                       <button
                         type="button"
@@ -551,7 +554,7 @@ export function OwnerProductsHubClient({
                             d="M6 18L18 6M6 6l12 12"
                           />
                         </svg>
-                        삭제
+                        {t("common_delete")}
                       </button>
                     </div>
                   </div>
@@ -565,13 +568,13 @@ export function OwnerProductsHubClient({
       <OwnerStoreAdminConfirmModal
         open={deleteTarget != null}
         titleId="owner-products-hub-delete-title"
-        title="상품 삭제"
+        title={t("business_phase7_151")}
         description={
-          deleteTarget ? `「${deleteTarget.title}」을(를) 삭제(목록에서 제거)할까요?` : undefined
+          deleteTarget ? t("business_phase7_428", { v1: deleteTarget.title }) : undefined
         }
-        cancelLabel="취소"
-        confirmLabel="삭제"
-        confirmBusyLabel="처리 중…"
+        cancelLabel={t("common_cancel")}
+        confirmLabel={t("common_delete")}
+        confirmBusyLabel={t("common_processing")}
         busy={deleteTarget != null && busyId === deleteTarget.id}
         disableActions={busyId !== null}
         confirmTone="danger"

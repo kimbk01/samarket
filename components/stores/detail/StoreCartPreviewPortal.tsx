@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useLayoutEffect, useRef } from "react";
 import { createPortal } from "react-dom";
@@ -17,6 +18,7 @@ import {
  * 장바구니 프리뷰 sheet — `StoreDetailPublic` 밖 portal.
  */
 export function StoreCartPreviewPortal() {
+  const { t } = useI18n();
   const open = useStoreCartPreviewUIStore((s) => s.open);
   const storeId = useStoreCartPreviewUIStore((s) => s.storeId);
   const storeSlug = useStoreCartPreviewUIStore((s) => s.storeSlug);

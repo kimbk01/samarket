@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -21,13 +22,14 @@ interface HomeFeedCardProps {
 }
 
 export function HomeFeedCard({ item, product }: HomeFeedCardProps) {
+  const { t } = useI18n();
   const router = useRouter();
   if (product) {
     return (
       <div className="relative">
         {item.itemType === "sponsored" && (
           <span className="absolute left-1 top-1 z-[1] rounded bg-amber-500 px-1.5 py-0.5 sam-text-xxs font-medium text-white">
-            광고
+            {t("ui_home_feed_ad_label")}
           </span>
         )}
         <ProductCard product={product} />

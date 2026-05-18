@@ -1,16 +1,12 @@
 "use client";
 
 import type { AdminActionStatus, OrderStatus, PaymentStatus, SettlementStatus } from "@/lib/admin/delivery-orders-admin/types";
-import {
-  ADMIN_ACTION_LABEL,
-  ORDER_STATUS_LABEL,
-  PAYMENT_LABEL,
-  SETTLEMENT_LABEL,
-} from "@/lib/admin/delivery-orders-admin/labels";
+import { useDoAdminStatusLabels } from "./useDoAdminStatusLabels";
 
 const base = "inline-block rounded px-2 py-0.5 sam-text-xxs font-semibold";
 
 export function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
+  const { paymentStatus } = useDoAdminStatusLabels();
   const cls =
     status === "paid"
       ? "bg-emerald-50 text-emerald-800"
@@ -19,10 +15,11 @@ export function PaymentStatusBadge({ status }: { status: PaymentStatus }) {
         : status === "failed" || status === "cancelled"
           ? "bg-red-50 text-red-800"
           : "bg-sam-surface-muted text-sam-fg";
-  return <span className={`${base} ${cls}`}>{PAYMENT_LABEL[status]}</span>;
+  return <span className={`${base} ${cls}`}>{paymentStatus(status)}</span>;
 }
 
 export function OrderStatusBadge({ status }: { status: OrderStatus }) {
+  const { orderStatus } = useDoAdminStatusLabels();
   const cls =
     status === "completed"
       ? "bg-emerald-50 text-emerald-800"
@@ -31,10 +28,11 @@ export function OrderStatusBadge({ status }: { status: OrderStatus }) {
         : status === "refund_requested" || status === "cancel_requested"
           ? "bg-amber-50 text-amber-900"
           : "bg-sky-50 text-sky-900";
-  return <span className={`${base} ${cls}`}>{ORDER_STATUS_LABEL[status]}</span>;
+  return <span className={`${base} ${cls}`}>{orderStatus(status)}</span>;
 }
 
 export function SettlementStatusBadge({ status }: { status: SettlementStatus }) {
+  const { settlementStatus } = useDoAdminStatusLabels();
   const cls =
     status === "paid"
       ? "bg-emerald-50 text-emerald-800"
@@ -43,10 +41,11 @@ export function SettlementStatusBadge({ status }: { status: SettlementStatus }) 
         : status === "cancelled"
           ? "bg-sam-surface-muted text-sam-muted"
           : "bg-blue-50 text-blue-800";
-  return <span className={`${base} ${cls}`}>{SETTLEMENT_LABEL[status]}</span>;
+  return <span className={`${base} ${cls}`}>{settlementStatus(status)}</span>;
 }
 
 export function AdminActionStatusBadge({ status }: { status: AdminActionStatus }) {
+  const { adminAction } = useDoAdminStatusLabels();
   if (status === "none") return <span className="sam-text-xxs text-sam-meta">—</span>;
   const cls =
     status === "dispute_reviewing" || status === "manual_hold"
@@ -54,5 +53,5 @@ export function AdminActionStatusBadge({ status }: { status: AdminActionStatus }
       : status === "refund_approved"
         ? "bg-signature/5 text-sam-fg"
         : "bg-sam-surface-muted text-sam-fg";
-  return <span className={`${base} ${cls}`}>{ADMIN_ACTION_LABEL[status]}</span>;
+  return <span className={`${base} ${cls}`}>{adminAction(status)}</span>;
 }

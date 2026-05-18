@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getAdApplicationsForAdmin } from "@/lib/ads/mock-ad-applications";
 import {
   filterAdApplications,
@@ -15,6 +16,7 @@ const DEFAULT_FILTERS: AdminAdApplicationFilters = {
 };
 
 export function AdminAdApplicationListPage() {
+  const { t } = useI18n();
   const [filters, setFilters] = useState<AdminAdApplicationFilters>(DEFAULT_FILTERS);
   const applications = useMemo(() => getAdApplicationsForAdmin(), []);
   const filtered = useMemo(
@@ -24,11 +26,11 @@ export function AdminAdApplicationListPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="광고 신청 목록" />
+      <AdminPageHeader titleKey="admin_ads_application_list_title" />
       <AdminAdApplicationFilterBar filters={filters} onChange={setFilters} />
       {filtered.length === 0 ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          조건에 맞는 광고 신청이 없습니다.
+          {t("admin_ads_application_list_empty")}
         </div>
       ) : (
         <AdminAdApplicationTable applications={filtered} />

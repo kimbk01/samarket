@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -28,6 +29,7 @@ export function PostCommunityCommentsSection({
   currentUserId: string | null;
   showCommentReport?: boolean;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [comments, setComments] = useState<CommentRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -151,7 +153,7 @@ export function PostCommunityCommentsSection({
     setError((prev) => (prev === "" ? prev : ""));
     const res = await createCommunityCommentReport(commentId, text);
     setReportBusyId((prev) => (prev === null ? prev : null));
-    if (res.ok) alert("신고가 접수되었습니다.");
+    if (res.ok) alert(t("cm_ui_report_submitted"));
     else setError(res.error);
   };
 
@@ -174,7 +176,7 @@ export function PostCommunityCommentsSection({
           <div className="min-w-0 flex-1">
             <p className={`font-medium text-sam-fg ${Sam.text.bodySecondary}`}>
               {label}
-              {opts.isChild ? <span className={`ml-1 font-normal text-sky-700 ${Sam.text.xxs}`}>답글</span> : null}
+              {opts.isChild ? <span className={`ml-1 font-normal text-sky-700 ${Sam.text.xxs}`}>{t("community_comment_reply")}</span> : null}
             </p>
             {atUsername ? (
               <p className={`mt-0.5 truncate font-mono text-sam-muted tabular-nums ${Sam.text.xxs}`}>
@@ -192,7 +194,7 @@ export function PostCommunityCommentsSection({
                 onClick={() => void onReportComment(c.id)}
                 className={`rounded-ui-rect border border-red-100 bg-sam-surface px-2 py-1 font-medium text-red-700 disabled:opacity-50 ${Sam.text.xxs}`}
               >
-                {reportBusyId === c.id ? "…" : "신고"}
+                {reportBusyId === c.id ? "…" : t("common_report")}
               </button>
             )}
             {opts.allowReply && currentUserId && (
@@ -201,7 +203,7 @@ export function PostCommunityCommentsSection({
                 onClick={() => setReplyParentId((prev) => (prev === c.id ? prev : c.id))}
                 className={`rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1 font-medium text-sam-fg ${Sam.text.xxs}`}
               >
-                답글
+                {t("community_comment_reply")}
               </button>
             )}
           </div>
@@ -212,11 +214,11 @@ export function PostCommunityCommentsSection({
 
   return (
     <div id="community-post-comments" className="mt-4 border-t border-sam-border-soft bg-sam-surface px-4 py-4">
-      <h3 className={`font-semibold text-sam-fg ${Sam.text.body}`}>댓글</h3>
+      <h3 className={`font-semibold text-sam-fg ${Sam.text.body}`}>{t("community_stat_comments_title")}</h3>
       {loading ? (
-        <p className={`mt-3 text-sam-muted ${Sam.text.bodySecondary}`}>불러오는 중...</p>
+        <p className={`mt-3 text-sam-muted ${Sam.text.bodySecondary}`}>{t("common_loading")}</p>
       ) : roots.length === 0 ? (
-        <p className={`mt-3 text-sam-muted ${Sam.text.bodySecondary}`}>첫 댓글을 남겨 보세요.</p>
+        <p className={`mt-3 text-sam-muted ${Sam.text.bodySecondary}`}>{t("community_comment_first")}</p>
       ) : (
         <ul className="mt-3 space-y-3">
           {roots.map((root) => (
@@ -235,7 +237,7 @@ export function PostCommunityCommentsSection({
           <div
             className={`mb-2 flex items-center justify-between gap-2 rounded-ui-rect border border-sky-200 bg-sky-50 px-3 py-2 text-sky-900 ${Sam.text.bodySecondary}`}
           >
-            <span>이 댓글에 답글 작성 중</span>
+            <span>{t("ui_post_comment_replying")}</span>
             <button
               type="button"
               className="font-medium text-sky-800 underline"

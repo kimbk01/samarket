@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -30,9 +31,10 @@ type HubState =
   | { kind: "ok"; row: StoreRow };
 
 /**
- * 주문 허브 탭 줄 오른쪽 끝 — 매장 소유자만 햄버거 표시(별도 2단 바 없음).
+ * 주문 허브 탭 줄 오른쪽 끝 — 매장 소유자만 햄버거 표시(별도 2단 바 {t("common_none")}).
  */
 export function OrdersHubStoreAdminMenuTrigger() {
+  const { t } = useI18n();
   const [mounted, setMounted] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [hub, setHub] = useState<HubState>({ kind: "loading" });
@@ -167,31 +169,31 @@ export function OrdersHubStoreAdminMenuTrigger() {
         onNavigate={() => setDrawerOpen(false)}
       />
     ) : hub.kind === "loading" ? (
-      <p className="px-4 py-6 text-center text-sm text-sam-muted">매장 정보 불러오는 중…</p>
+      <p className="px-4 py-6 text-center text-sm text-sam-muted">{t("ui_orders_hub_store_loading")}</p>
     ) : hub.kind === "no_supabase" ? (
       <div className="space-y-3 px-4 py-6 text-center">
-        <p className="text-sm text-amber-800">매장 DB가 연결되지 않았습니다.</p>
+        <p className="text-sm text-amber-800">{t("ui_orders_hub_db_disconnected")}</p>
         <button
           type="button"
           className="text-sm font-medium text-signature underline"
           onClick={() => void loadStores()}
         >
-          다시 시도
+          {t("common_retry")}
         </button>
       </div>
     ) : hub.kind === "error" ? (
       <div className="space-y-3 px-4 py-6 text-center">
-        <p className="text-sm text-red-700">매장을 불러오지 못했습니다. ({hub.message})</p>
+        <p className="text-sm text-red-700">{t("ui_orders_hub_load_failed", { message: hub.message })}</p>
         <button
           type="button"
           className="text-sm font-medium text-signature underline"
           onClick={() => void loadStores()}
         >
-          다시 시도
+          {t("common_retry")}
         </button>
       </div>
     ) : (
-      <p className="px-4 py-6 text-center text-sm text-sam-muted">상태를 확인할 수 없습니다.</p>
+      <p className="px-4 py-6 text-center text-sm text-sam-muted">{t("ui_orders_hub_status_unknown")}</p>
     );
 
   const drawer =
@@ -201,22 +203,22 @@ export function OrdersHubStoreAdminMenuTrigger() {
             className="fixed inset-0 z-[60] flex justify-end"
             role="dialog"
             aria-modal="true"
-            aria-label="매장 관리 메뉴"
+            aria-label={t("ui_orders_hub_menu_aria")}
           >
             <button
               type="button"
               className="absolute inset-0 bg-black/45"
-              aria-label="메뉴 닫기"
+              aria-label={t("ui_orders_hub_close_menu_aria")}
               onClick={() => setDrawerOpen(false)}
             />
             <div className="relative flex h-full w-[min(100vw,22rem)] max-w-full flex-col bg-sam-surface shadow-2xl sm:w-[24rem]">
               <div className="flex h-12 shrink-0 items-center justify-between border-b border-sam-border px-3">
-                <p className="min-w-0 truncate sam-text-body font-semibold text-sam-fg">매장 관리</p>
+                <p className="min-w-0 truncate sam-text-body font-semibold text-sam-fg">{t("ui_orders_hub_store_manage")}</p>
                 <button
                   type="button"
                   onClick={() => setDrawerOpen(false)}
                   className="flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect sam-text-page-title leading-none text-sam-muted hover:bg-sam-surface-muted"
-                  aria-label="닫기"
+                  aria-label={t("common_close")}
                 >
                   ×
                 </button>
@@ -248,7 +250,7 @@ export function OrdersHubStoreAdminMenuTrigger() {
           onClick={() => setDrawerOpen(true)}
           disabled={hub.kind === "loading"}
           className="mx-auto inline-flex h-10 w-10 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-sam-surface-muted active:bg-sam-border-soft disabled:cursor-wait disabled:opacity-50"
-          aria-label="매장 관리자 메뉴 열기"
+          aria-label={t("ui_orders_hub_open_menu_aria")}
           aria-expanded={drawerOpen}
           aria-busy={hub.kind === "loading"}
         >

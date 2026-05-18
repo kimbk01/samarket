@@ -1,18 +1,14 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  OPS_TOOLS_EDGE_TYPE_KEYS,
+  opsToolsLabel,
+} from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { useMemo } from "react";
 import type { OpsKnowledgeGraphEdgeType } from "@/lib/types/ops-knowledge-graph";
 import { getOpsKnowledgeGraphEdges } from "@/lib/ops-knowledge-graph/mock-ops-knowledge-graph-edges";
 import { getOpsKnowledgeGraphNodeById } from "@/lib/ops-knowledge-graph/mock-ops-knowledge-graph-nodes";
-
-const EDGE_TYPE_LABELS: Record<OpsKnowledgeGraphEdgeType, string> = {
-  related_to: "관련",
-  executed_by: "실행함",
-  recommended_for: "추천대상",
-  derived_from: "파생",
-  resolved_with: "해결에 사용",
-  followup_of: "후속",
-};
 
 interface OpsKnowledgeEdgeTableProps {
   edgeTypeFilter?: OpsKnowledgeGraphEdgeType | "";
@@ -23,6 +19,7 @@ export function OpsKnowledgeEdgeTable({
   edgeTypeFilter = "",
   sourceNodeId,
 }: OpsKnowledgeEdgeTableProps) {
+  const { t } = useI18n();
   const edges = useMemo(
     () =>
       getOpsKnowledgeGraphEdges({
@@ -34,9 +31,7 @@ export function OpsKnowledgeEdgeTable({
 
   if (edges.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
-        엣지가 없습니다.
-      </div>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_kg_edges_empty")}</div>
     );
   }
 
@@ -45,10 +40,10 @@ export function OpsKnowledgeEdgeTable({
       <table className="w-full min-w-[560px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">소스</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">관계</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">타깃</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">비고</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_kg_th_source")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_kg_th_relation")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_kg_th_target_col")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_kg_th_remark")}</th>
           </tr>
         </thead>
         <tbody>
@@ -61,7 +56,7 @@ export function OpsKnowledgeEdgeTable({
                   {source?.title ?? e.sourceNodeId}
                 </td>
                 <td className="px-3 py-2.5 font-medium text-sam-fg">
-                  {EDGE_TYPE_LABELS[e.edgeType]}
+                  {t(opsToolsLabel(OPS_TOOLS_EDGE_TYPE_KEYS, e.edgeType))}
                 </td>
                 <td className="px-3 py-2.5 text-sam-fg">
                   {target?.title ?? e.targetNodeId}

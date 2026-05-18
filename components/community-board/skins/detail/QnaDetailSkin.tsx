@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import type { BoardDetailSkinProps } from "@/lib/community-board/types";
 
@@ -8,6 +9,7 @@ export function QnaDetailSkin({
   showLike = true,
   showReport = true,
 }: BoardDetailSkinProps) {
+  const { t } = useI18n();
   return (
     <article className="bg-sam-surface rounded-ui-rect border border-sam-border overflow-hidden">
       <div className="border-l-4 border-sam-primary bg-sam-primary-soft/50 p-4">
@@ -33,13 +35,13 @@ export function QnaDetailSkin({
         )}
       </div>
       <footer className="px-4 py-3 border-t flex gap-2">
-        {showLike && <button type="button" className="text-sm text-sam-muted">좋아요</button>}
+        {showLike && <button type="button" className="text-sm text-sam-muted">{t("community_board_like")}</button>}
         {showComments && (
           <a href="#community-post-comments" className="text-sm text-sam-muted hover:text-sam-fg">
             댓글
           </a>
         )}
-        {showReport && <button type="button" className="text-sm text-sam-muted ml-auto">신고</button>}
+        {showReport && <button type="button" className="text-sm text-sam-muted ml-auto">{t("community_report")}</button>}
       </footer>
     </article>
   );

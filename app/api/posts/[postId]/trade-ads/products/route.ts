@@ -7,10 +7,10 @@ import { loadCategoryLite } from "@/lib/posts/category-lite";
 import { resolveServiceSegment } from "@/lib/posts/listing-service-segment";
 import type { TradeAdProductRow } from "@/lib/trade-ads/load-trade-ad-product";
 import {
-
   evaluateTradePostAdEligibility,
-  TRADE_PAID_AD_FORMAT_GUIDE,
+  tradePaidAdFormatGuide,
 } from "@/lib/trade-ads/trade-post-ad-policy";
+import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -62,6 +62,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ postId: st
   const post = mapPostDetailRowToPostWithMeta(row);
   const cat = await loadCategoryLite(sb, post.category_id ?? post.trade_category_id ?? null);
   const segment = resolveServiceSegment(post, cat);
+  const lang = await loadNotificationUserLanguage(sb, auth.userId);
 
   const { data: productRows, error: pe } = await sb
     .from("ad_products")
@@ -98,6 +99,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ postId: st
       post,
       product: p,
       serviceSegment: segment,
+      lang,
     });
     const duplicateDenied = hasAnyExisting && !p.allow_duplicate;
     const alreadyRequested = existingByProduct.has(p.id);
@@ -134,7 +136,7 @@ export async function GET(_: Request, { params }: { params: Promise<{ postId: st
 
   return NextResponse.json({
     ok: true,
-    formatGuide: TRADE_PAID_AD_FORMAT_GUIDE,
+    formatGuide: tradePaidAdFormatGuide(lang),
     criteriaSummary: topCheck,
     products,
     existingCount: existing.length,

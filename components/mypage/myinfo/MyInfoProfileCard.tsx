@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Check, MapPin } from "lucide-react";
 import { isSamarketDefaultAvatarUrl, withDefaultAvatar } from "@/lib/profile/default-avatar";
 import { MYINFO_SURFACE, MYINFO_TYPO } from "./myinfo-theme";
@@ -23,6 +24,7 @@ export function MyInfoProfileCard({
   editHref: string;
   rightMetaSlot?: React.ReactNode;
 }) {
+  const { t } = useI18n();
   const resolvedAvatar = withDefaultAvatar(avatarUrl);
   const showCheckBadge = !isSamarketDefaultAvatarUrl(resolvedAvatar);
 
@@ -32,7 +34,7 @@ export function MyInfoProfileCard({
         <Link
           href={editHref}
           className="relative block h-[76px] w-[76px] shrink-0 overflow-hidden rounded-full bg-sam-primary-soft"
-          aria-label="프로필 이미지"
+          aria-label={t("mypage_comp_profile_image_aria")}
         >
           <Image
             src={resolvedAvatar}
@@ -66,7 +68,7 @@ export function MyInfoProfileCard({
             <Link
               href={addressHref}
               className="mt-1 flex items-start gap-1.5 rounded-[8px] py-0.5 pr-1 text-[11px] leading-snug text-sam-muted hover:text-signature"
-              aria-label="주소 관리로 이동"
+              aria-label={t("mypage_comp_address_manage_aria")}
             >
               <MapPin className="mt-0.5 h-3.5 w-3.5 shrink-0 text-signature" strokeWidth={2} aria-hidden />
               <span className="min-w-0 whitespace-normal break-words leading-snug">{addressLine}</span>
@@ -83,7 +85,7 @@ export function MyInfoProfileCard({
               href={editHref}
               className="inline-flex min-h-[36px] items-center justify-center rounded-[10px] border border-sam-border bg-sam-surface px-3 text-[13px] font-semibold text-sam-fg hover:bg-sam-app"
             >
-              프로필 수정
+              {t("mypage_comp_profile_edit")}
             </Link>
             {rightMetaSlot ? <div className="min-w-0 flex-1">{rightMetaSlot}</div> : null}
           </div>

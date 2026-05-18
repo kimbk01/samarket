@@ -1,71 +1,76 @@
 /**
- * 23단계: 포인트 라벨 / 필터
+ * 23단계: 포인트 라벨 / 필터 — i18n via `point-label-i18n.ts`
  */
 
+export {
+  pointChargeStatusLabel,
+  pointPaymentMethodLabel,
+  pointLedgerEntryLabel,
+  pointPromotionOrderStatusLabel,
+  pointPromotionPlacementLabel,
+  POINT_CHARGE_STATUS_OPTIONS,
+} from "@/lib/points/point-label-i18n";
+
+import {
+  pointChargeStatusLabel,
+  pointLedgerEntryLabel,
+  pointPaymentMethodLabel,
+  pointPromotionOrderStatusLabel,
+  pointPromotionPlacementLabel,
+} from "@/lib/points/point-label-i18n";
 import type {
   PointChargeRequestStatus,
-  PointPaymentMethod,
   PointLedgerEntryType,
+  PointPaymentMethod,
   PointPromotionOrderStatus,
   PointPromotionPlacement,
 } from "@/lib/types/point";
 
+/** @deprecated use `pointChargeStatusLabel(status)` — default locale snapshot */
 export const POINT_CHARGE_STATUS_LABELS: Record<PointChargeRequestStatus, string> = {
-  pending: "대기",
-  waiting_confirm: "입금확인대기",
-  on_hold: "보류",
-  approved: "승인",
-  rejected: "반려",
-  cancelled: "취소",
+  pending: pointChargeStatusLabel("pending"),
+  waiting_confirm: pointChargeStatusLabel("waiting_confirm"),
+  on_hold: pointChargeStatusLabel("on_hold"),
+  approved: pointChargeStatusLabel("approved"),
+  rejected: pointChargeStatusLabel("rejected"),
+  cancelled: pointChargeStatusLabel("cancelled"),
 };
 
+/** @deprecated use `pointPaymentMethodLabel(method)` */
 export const POINT_PAYMENT_METHOD_LABELS: Record<PointPaymentMethod, string> = {
-  bank_transfer: "계좌이체",
-  gcash: "GCash",
-  manual_confirm: "수동확인",
+  bank_transfer: pointPaymentMethodLabel("bank_transfer"),
+  gcash: pointPaymentMethodLabel("gcash"),
+  manual_confirm: pointPaymentMethodLabel("manual_confirm"),
 };
 
+/** @deprecated use `pointLedgerEntryLabel(type)` */
 export const POINT_LEDGER_ENTRY_LABELS: Record<PointLedgerEntryType, string> = {
-  charge: "충전",
-  spend: "사용",
-  refund: "환불",
-  admin_adjust: "관리자조정",
-  expire: "만료",
-  reward: "커뮤니티지급",
-  reverse: "커뮤니티회수",
-  ad_purchase: "광고구매",
-  ad_refund: "광고환불",
+  charge: pointLedgerEntryLabel("charge"),
+  spend: pointLedgerEntryLabel("spend"),
+  refund: pointLedgerEntryLabel("refund"),
+  admin_adjust: pointLedgerEntryLabel("admin_adjust"),
+  expire: pointLedgerEntryLabel("expire"),
+  reward: pointLedgerEntryLabel("reward"),
+  reverse: pointLedgerEntryLabel("reverse"),
+  ad_purchase: pointLedgerEntryLabel("ad_purchase"),
+  ad_refund: pointLedgerEntryLabel("ad_refund"),
 };
 
-export const POINT_PROMOTION_ORDER_STATUS_LABELS: Record<
-  PointPromotionOrderStatus,
-  string
-> = {
-  pending: "대기",
-  active: "노출중",
-  expired: "만료",
-  cancelled: "취소",
+/** @deprecated use `pointPromotionOrderStatusLabel(status)` */
+export const POINT_PROMOTION_ORDER_STATUS_LABELS: Record<PointPromotionOrderStatus, string> = {
+  pending: pointPromotionOrderStatusLabel("pending"),
+  active: pointPromotionOrderStatusLabel("active"),
+  expired: pointPromotionOrderStatusLabel("expired"),
+  cancelled: pointPromotionOrderStatusLabel("cancelled"),
 };
 
+/** @deprecated use `pointPromotionPlacementLabel(placement)` */
 export const POINT_PROMOTION_PLACEMENT_LABELS: Record<PointPromotionPlacement, string> = {
-  home_top: "홈 상단",
-  home_middle: "홈 중단",
-  search_top: "검색 상단",
-  shop_featured: "상점 추천",
+  home_top: pointPromotionPlacementLabel("home_top"),
+  home_middle: pointPromotionPlacementLabel("home_middle"),
+  search_top: pointPromotionPlacementLabel("search_top"),
+  shop_featured: pointPromotionPlacementLabel("shop_featured"),
 };
-
-export const POINT_CHARGE_STATUS_OPTIONS: {
-  value: PointChargeRequestStatus | "";
-  label: string;
-}[] = [
-  { value: "", label: "전체" },
-  { value: "pending", label: "대기" },
-  { value: "waiting_confirm", label: "입금확인대기" },
-  { value: "on_hold", label: "보류" },
-  { value: "approved", label: "승인" },
-  { value: "rejected", label: "반려" },
-  { value: "cancelled", label: "취소" },
-];
 
 export interface AdminPointChargeFilters {
   requestStatus: PointChargeRequestStatus | "";

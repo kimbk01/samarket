@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MyPageBannerRow } from "@/lib/my/types";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { updateMySettings } from "@/lib/my/updateMySettings";
@@ -12,6 +13,7 @@ export interface MyTopBannerProps {
 }
 
 export function MyTopBanner({ banner, onDismiss }: MyTopBannerProps) {
+  const { t } = useI18n();
   if (!banner) return null;
 
   const handleDismiss = () => {
@@ -40,7 +42,7 @@ export function MyTopBanner({ banner, onDismiss }: MyTopBannerProps) {
           type="button"
           onClick={handleDismiss}
           className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full text-sam-meta hover:bg-sam-surface-muted hover:text-sam-muted"
-          aria-label="닫기"
+          aria-label={t("common_close")}
         >
           <span className="sam-text-page-title leading-none">×</span>
         </button>

@@ -5,6 +5,7 @@ import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { invalidateMeStoresListDedupedCache } from "@/lib/me/fetch-me-stores-deduped";
 import { StoreOpsOnOffSwitch } from "@/components/business/admin/StoreOpsOnOffSwitch";
 import { parsePostgresBool } from "@/lib/community-feed/parse-postgres-bool";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 /**
  * `stores.is_visible` — 동네 매장 목록·탭·공개 매장 URL 노출 여부.
@@ -17,6 +18,7 @@ export function BusinessAdminVisibleToggle({
   row: StoreRow;
   onUpdated: () => void | Promise<void>;
 }) {
+  const { t } = useI18n();
   const [busy, setBusy] = useState(false);
   const [pendingUi, setPendingUi] = useState<boolean | null>(null);
   const isVisible = parsePostgresBool(row.is_visible, false);
@@ -61,7 +63,7 @@ export function BusinessAdminVisibleToggle({
 
   return (
     <div className="flex shrink-0 items-center gap-2">
-      <span className="sam-text-helper font-semibold text-sam-fg">노출</span>
+      <span className="sam-text-helper font-semibold text-sam-fg">{t("business_phase7_047")}</span>
       <StoreOpsOnOffSwitch
         checked={shownVisible}
         disabled={disabled}

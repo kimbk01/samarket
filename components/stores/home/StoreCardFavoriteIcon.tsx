@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useState } from "react";
 import {
@@ -17,6 +18,7 @@ export function StoreCardFavoriteIcon({
   slug: string;
   className?: string;
 }) {
+  const { t } = useI18n();
   const decoded = decodeURIComponent((slug || "").trim());
   const [busy, setBusy] = useState(false);
   const [on, setOn] = useState(false);
@@ -31,7 +33,7 @@ export function StoreCardFavoriteIcon({
         const method = on ? "DELETE" : "POST";
         const { status, json } = await fetchStoreFavoriteMutation(decoded, method);
         if (status === 401) {
-          window.alert("로그인 후 찜할 수 있습니다.");
+          window.alert(t("store_favorite_login_required"));
           return;
         }
         const j = json as { ok?: boolean; favorited?: boolean; favorite_count?: unknown };

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { DeliveryMediaImage } from "@/components/dibay/DeliveryMediaImage";
 import Link from "next/link";
@@ -127,6 +128,7 @@ export function StoreOrderHeroSummary({
   deliveryTimeDisplay?: string;
   storeSlug?: string | null;
 }) {
+  const { t, language } = useI18n();
   /** 당김 시 레이아웃 높이 + 위로 이동을 같이 줘서 헤더 위 흰 빈 공간이 보이지 않게 함 */
   const { stretch: heroStretch, scale: heroRubberScale } = useRubberBandAtDocumentTop(120, {
     blockNativeViewportOverscroll: true,
@@ -144,35 +146,37 @@ export function StoreOrderHeroSummary({
 
   const feeDisplay = useMemo((): ReactNode => {
     if (!deliveryAvailable) {
-      return formatStoreDetailDeliveryFeeValue(commerceExtras, { deliveryAvailable });
+      return formatStoreDetailDeliveryFeeValue(commerceExtras, { deliveryAvailable }, language);
     }
     if (commerceExtras.deliveryFeeMode === "self_free_promo") {
       const strike = commerceExtras.deliveryFeeStrikeReferencePhp;
       return (
         <span className="inline-flex flex-wrap items-center gap-1.5">
-          <span className="font-bold text-[#2563EB]">배달비 무료 적용 중</span>
+          <span className="font-bold text-[#2563EB]">{t("store_free_delivery_applied")}</span>
           {strike != null && strike > 0 ? (
             <span className="font-bold text-neutral-400 line-through">{formatMoneyPhp(strike)}</span>
           ) : null}
         </span>
       );
     }
-    return formatStoreDetailDeliveryFeeValue(commerceExtras, { deliveryAvailable });
-  }, [commerceExtras, deliveryAvailable]);
+    return formatStoreDetailDeliveryFeeValue(commerceExtras, { deliveryAvailable }, language);
+  }, [commerceExtras, deliveryAvailable, language, t]);
 
   const minDisplay = useMemo(() => {
     const m = commerceExtras.minOrderPhp;
-    if (m != null && m > 0) return `${formatMoneyPhp(m)} 이상`;
-    return "없음";
-  }, [commerceExtras.minOrderPhp]);
+    if (m != null && m > 0) return t("store_min_amount_or_more", { amount: formatMoneyPhp(m) });
+    return t("store_none");
+  }, [commerceExtras.minOrderPhp, t]);
 
   const heroPrepDisplay = useMemo(() => {
     const p = commerceExtras.prepMinutes;
-    if (p != null && Number.isFinite(p)) return `약 ${Math.round(p)}분`;
-    const t = commerceExtras.estPrepLabel?.trim();
-    if (t) return t.startsWith("약") ? t : `약 ${t}`;
+    if (p != null && Number.isFinite(p))
+      return t("store_about_minutes", { minutes: Math.round(p) });
+    const prepLabel = commerceExtras.estPrepLabel?.trim();
+    if (prepLabel)
+      return prepLabel.startsWith("약") ? prepLabel : t("store_about_time", { time: prepLabel });
     return "—";
-  }, [commerceExtras.prepMinutes, commerceExtras.estPrepLabel]);
+  }, [commerceExtras.prepMinutes, commerceExtras.estPrepLabel, t]);
 
   const heroRideDisplay = deliveryTimeDisplay.trim() ? deliveryTimeDisplay : "—";
 
@@ -197,19 +201,21 @@ export function StoreOrderHeroSummary({
   const deliverySub = useMemo(() => {
     if (!deliveryAvailable) return null;
     if (commerceExtras.deliveryFeeMode === "courier") {
-      return "앱 결제 금액에 포함되지 않습니다(착불)";
+      return t("store_cod_not_in_app");
     }
     if (commerceExtras.deliveryFeeMode === "self_free_promo") {
-      return "앱 청구 배달비 0₱";
+      return t("store_app_delivery_zero");
     }
     if (commerceExtras.deliveryFeePhp === 0) {
       if (deliveryMeta.freeDeliveryOverPhp != null && deliveryMeta.freeDeliveryOverPhp > 0) {
-        return "배달비 무료 적용 중";
+        return t("store_free_delivery_applied");
       }
       return null;
     }
     if (deliveryMeta.freeDeliveryOverPhp != null && deliveryMeta.freeDeliveryOverPhp > 0) {
-      return `${formatMoneyPhp(deliveryMeta.freeDeliveryOverPhp)} 이상 무료배달`;
+      return t("store_free_delivery_over", {
+        amount: formatMoneyPhp(deliveryMeta.freeDeliveryOverPhp),
+      });
     }
     return null;
   }, [
@@ -217,6 +223,7 @@ export function StoreOrderHeroSummary({
     commerceExtras.deliveryFeeMode,
     commerceExtras.deliveryFeePhp,
     deliveryMeta.freeDeliveryOverPhp,
+    t,
   ]);
 
   const segBase =
@@ -293,7 +300,7 @@ export function StoreOrderHeroSummary({
               href={ownerManagementHref}
               className="inline-flex rounded-[4px] bg-[#5E4BFF] px-2 py-1 text-[10px] font-bold text-white"
             >
-              내 상점 관리
+              {t("store_manage_my_shop")}
             </Link>
           </p>
         ) : null}
@@ -306,7 +313,7 @@ export function StoreOrderHeroSummary({
           </div>
           <button
             type="button"
-            aria-label={viewerFavorited ? "찜 해제" : "찜하기"}
+            aria-label={viewerFavorited ? t("store_favorite_remove_aria") : t("store_favorite_add_aria")}
             disabled={favoriteBusy}
             onClick={() => void onFavoriteClick()}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-neutral-900 transition-transform duration-[120ms] active:scale-[0.96]"
@@ -335,7 +342,7 @@ export function StoreOrderHeroSummary({
             <Link
               href={reviewsHref}
               className="inline-flex flex-wrap items-center gap-2 underline-offset-2 hover:underline touch-manipulation"
-              aria-label="리뷰 전체 보기"
+              aria-label={t("store_reviews_view_all_aria")}
             >
               <span style={{ color: STORE_ORDER_BRAND.star }}>★ {ratingLabel}({formatReviewCount(reviewCount)})</span>
               <span className="text-neutral-300" aria-hidden>
@@ -347,15 +354,17 @@ export function StoreOrderHeroSummary({
               <span style={{ color: STORE_ORDER_BRAND.star }}>★ {ratingLabel}({formatReviewCount(reviewCount)})</span>
             </>
           )}
-          <span className="rounded-full bg-neutral-100 px-1.5 py-0.5 text-[10px] font-bold text-neutral-700">주문 {formatOrderCount(recentOrderCount)}</span>
+          <span className="rounded-full bg-neutral-100 px-1.5 py-0.5 text-[10px] font-bold text-neutral-700">
+            {t("store_order_count_badge", { count: formatOrderCount(recentOrderCount) })}
+          </span>
         </div>
 
         <div className="mt-1.5 flex flex-wrap gap-1.5 text-[10.5px] font-semibold text-neutral-500">
-          {isOpenForOrder ? <span>영업중</span> : <span>준비중</span>}
-          {deliveryAvailable ? <span>배달가능</span> : null}
-          {pickupAvailable ? <span>픽업가능</span> : null}
+          {isOpenForOrder ? <span>{t("store_open_now")}</span> : <span>{t("store_preparing")}</span>}
+          {deliveryAvailable ? <span>{t("store_delivery_available")}</span> : null}
+          {pickupAvailable ? <span>{t("store_pickup_available")}</span> : null}
           <span className="ml-auto rounded-full bg-neutral-100 px-2 py-0.5 text-[10px] font-bold text-neutral-700">
-            {fulfillmentMode === "local_delivery" ? "배달주문" : "픽업주문"}
+            {fulfillmentMode === "local_delivery" ? t("store_delivery_order_mode") : t("store_pickup_order_mode")}
           </span>
         </div>
       </div>
@@ -370,7 +379,7 @@ export function StoreOrderHeroSummary({
                 onClick={() => onFulfillmentChange("local_delivery")}
                 className={`${segBase} ${fulfillmentMode === "local_delivery" ? segOn : segOff}`}
               >
-                배달
+                {t("store_delivery_tab")}
               </button>
               <button
                 type="button"
@@ -378,45 +387,45 @@ export function StoreOrderHeroSummary({
                 onClick={() => onFulfillmentChange("pickup")}
                 className={`${segBase} ${fulfillmentMode === "pickup" ? segOn : segOff}`}
               >
-                픽업
+                {t("store_pickup_tab")}
               </button>
             </div>
 
             <div className="px-3 py-1.5">
               {fulfillmentMode === "local_delivery" ? (
                 <>
-                  <InfoRow label="최소주문" value={minDisplay} />
-                  <InfoRow label="조리 시간" value={heroPrepDisplay} />
-                  <InfoRow label="배달 시간" value={heroRideDisplay} />
-                  <InfoRow label="경로 거리" value={heroDistDisplay} />
-                  <InfoRow label="배달비" value={feeDisplay} sub={deliverySub} />
-                  {payFull ? <InfoRow label="결제방법" value={payFull} /> : null}
+                  <InfoRow label={t("store_min_order_short")} value={minDisplay} />
+                  <InfoRow label={t("store_prep_time_label")} value={heroPrepDisplay} />
+                  <InfoRow label={t("store_delivery_time")} value={heroRideDisplay} />
+                  <InfoRow label={t("store_route_distance")} value={heroDistDisplay} />
+                  <InfoRow label={t("store_delivery_fee")} value={feeDisplay} sub={deliverySub} />
+                  {payFull ? <InfoRow label={t("store_payment_methods_label")} value={payFull} /> : null}
                 </>
               ) : (
                 <>
                   <InfoRow
-                    label="최소주문"
+                    label={t("store_min_order_short")}
                     value={
                       commerceExtras.minOrderPhp != null && commerceExtras.minOrderPhp > 0
                         ? minDisplay
-                        : "없음"
+                        : t("store_none")
                     }
                   />
-                  <InfoRow label="픽업시간" value={`약 ${prepLine}`} />
-                  {payFull ? <InfoRow label="결제방법" value={payFull} /> : null}
+                  <InfoRow label={t("store_pickup_time_label")} value={t("store_about_time", { time: prepLine })} />
+                  {payFull ? <InfoRow label={t("store_payment_methods_label")} value={payFull} /> : null}
                   {addressDisp ? (
                     <InfoRow
-                      label="위치안내"
+                      label={t("store_location_guide")}
                       value={addressDisp}
                       action={
                         directions ? (
                           <button
                             type="button"
                             onClick={onDirectionsClick}
-                            aria-label="구글 지도에서 내 위치에서 이 매장까지 길찾기"
+                            aria-label={t("store_directions_google_aria")}
                             className="shrink-0 rounded-full bg-neutral-100 px-2.5 py-1 text-[12px] font-bold text-neutral-800 touch-manipulation"
                           >
-                            길찾기
+                            {t("store_directions_btn")}
                           </button>
                         ) : null
                       }

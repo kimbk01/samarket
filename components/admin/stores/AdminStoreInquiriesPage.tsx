@@ -1,7 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type Row = {
   id: string;
@@ -17,17 +20,26 @@ type Row = {
   created_at: string;
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  open: "미답변",
-  answered: "답변됨",
-  closed: "종료",
-  escalated: "이관",
+const STATUS_LABEL_KEYS: Record<string, MessageKey> = {
+  open: "admin_stores_inquiries_status_open",
+  answered: "admin_stores_inquiries_status_answered",
+  closed: "admin_stores_inquiries_status_closed",
+  escalated: "admin_stores_inquiries_status_escalated",
 };
 
 export function AdminStoreInquiriesPage() {
+  const { t, language } = useI18n();
+  const locale = catalogDateLocale(language);
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const errorText = useMemo(() => {
+    if (!error) return null;
+    if (error === "forbidden") return t("admin_audit_err_no_permission");
+    if (error === "network_error") return t("common_network_error");
+    return error;
+  }, [error, t]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -36,7 +48,7 @@ export function AdminStoreInquiriesPage() {
       const res = await fetch("/api/admin/store-inquiries", { credentials: "include" });
       const json = await res.json();
       if (res.status === 403) {
-        setError("관리자 권한이 없습니다.");
+        setError("forbidden");
         setRows([]);
         return;
       }
@@ -60,20 +72,17 @@ export function AdminStoreInquiriesPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="매장 문의 모니터링" />
-      <p className="sam-text-body-secondary text-sam-muted">
-        회원이 매장에 보낸 문의·오너 답변 상태를 조회합니다. 답변은 오너 화면(
-        <code className="rounded bg-sam-surface-muted px-1">/stores/owner/inquiries</code>)에서 처리합니다.
-      </p>
+      <AdminPageHeader titleKey="admin_page_store_inquiries" />
+      <p className="sam-text-body-secondary text-sam-muted">{t("admin_stores_inquiries_desc")}</p>
 
-      {error ? (
-        <p className="rounded-ui-rect bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p>
+      {errorText ? (
+        <p className="rounded-ui-rect bg-red-50 px-3 py-2 text-sm text-red-800">{errorText}</p>
       ) : null}
 
       {loading ? (
-        <p className="text-sm text-sam-muted">불러오는 중…</p>
+        <p className="text-sm text-sam-muted">{t("common_loading")}</p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-sam-muted">문의가 없습니다.</p>
+        <p className="text-sm text-sam-muted">{t("admin_stores_inquiries_empty")}</p>
       ) : (
         <div className="space-y-3">
           {rows.map((r) => (
@@ -83,21 +92,24 @@ export function AdminStoreInquiriesPage() {
             >
               <div className="flex flex-wrap justify-between gap-2 sam-text-body-secondary">
                 <span className="font-semibold text-sam-fg">{r.store_name || r.store_id}</span>
-                <span className="text-sam-muted">{STATUS_LABEL[r.status] ?? r.status}</span>
+                <span className="text-sam-muted">
+                  {STATUS_LABEL_KEYS[r.status] ? t(STATUS_LABEL_KEYS[r.status]) : r.status}
+                </span>
               </div>
               <p className="mt-1 text-xs text-sam-muted">
-                문의자 <span className="font-mono">{r.from_user_id}</span> · {r.inquiry_type} ·{" "}
-                {new Date(r.created_at).toLocaleString("ko-KR")}
+                {t("admin_stores_inquiries_reporter")}{" "}
+                <span className="font-mono">{r.from_user_id}</span> · {r.inquiry_type} ·{" "}
+                {new Date(r.created_at).toLocaleString(locale)}
               </p>
               <p className="mt-2 font-medium text-sam-fg">{r.subject}</p>
               <p className="mt-1 whitespace-pre-wrap text-sm text-sam-fg">{r.content}</p>
               {r.answer ? (
                 <div className="mt-3 rounded-ui-rect bg-sam-app p-3 text-sm text-sam-fg">
-                  <p className="text-xs font-medium text-sam-muted">매장 답변</p>
+                  <p className="text-xs font-medium text-sam-muted">{t("admin_stores_inquiries_store_reply")}</p>
                   <p className="mt-1 whitespace-pre-wrap">{r.answer}</p>
                   {r.answered_at ? (
                     <p className="mt-1 sam-text-xxs text-sam-meta">
-                      {new Date(r.answered_at).toLocaleString("ko-KR")}
+                      {new Date(r.answered_at).toLocaleString(locale)}
                     </p>
                   ) : null}
                 </div>

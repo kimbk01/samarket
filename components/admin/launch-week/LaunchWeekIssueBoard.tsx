@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { getLaunchWeekIssues } from "@/lib/launch-week/mock-launch-week-issues";
 import { AdminTable } from "@/components/admin/AdminTable";
@@ -15,6 +18,7 @@ import type {
 import Link from "next/link";
 
 export function LaunchWeekIssueBoard() {
+  const { t } = useI18n();
   const [dayNumber, setDayNumber] = useState<LaunchWeekDayNumber | "">("");
   const [status, setStatus] = useState<LaunchWeekIssueStatus | "">("");
   const issues = useMemo(
@@ -37,14 +41,14 @@ export function LaunchWeekIssueBoard() {
           }
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
+          <option value="">{t("common_all")}</option>
           {([1, 2, 3, 4, 5, 6, 7] as const).map((d) => (
             <option key={d} value={d}>
               Day {d}
             </option>
           ))}
         </select>
-        <span className="sam-text-body-secondary text-sam-muted">상태</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_qa_status_2")}</span>
         <select
           value={status}
           onChange={(e) =>
@@ -52,11 +56,11 @@ export function LaunchWeekIssueBoard() {
           }
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
-          <option value="open">오픈</option>
-          <option value="investigating">조사중</option>
-          <option value="mitigated">완화됨</option>
-          <option value="resolved">해결됨</option>
+          <option value="">{t("common_all")}</option>
+          <option value="open">{t("admin_qa_open")}</option>
+          <option value="investigating">{t("admin_launch_week_kd59552c1")}</option>
+          <option value="mitigated">{t("admin_launch_week_k0e7ca9ba")}</option>
+          <option value="resolved">{t("admin_launch_week_resolved")}</option>
         </select>
       </div>
 

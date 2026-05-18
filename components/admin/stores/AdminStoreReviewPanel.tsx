@@ -1,15 +1,13 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
 import { splitStoreDescriptionAndKakao } from "@/lib/stores/split-store-description-kakao";
 import { formatPhMobileDisplay, parsePhMobileInput } from "@/lib/utils/ph-mobile";
+import { STORE_LOCATION_SECTION_HINT_APPLY } from "@/lib/stores/store-address-form-ui";
 import {
-  STORE_ADDRESS_DETAIL_LABEL,
-  STORE_ADDRESS_STREET_LABEL,
-  STORE_LOCATION_SECTION_HINT_APPLY,
-} from "@/lib/stores/store-address-form-ui";
-import {
-  ADMIN_STORE_APPROVAL_LABEL,
+  ADMIN_STORE_APPROVAL_LABEL_KEYS,
   type AdminStoreReviewRow,
   formatAdminStoreAddressOneLine,
 } from "@/components/admin/stores/admin-store-review-model";
@@ -120,10 +118,13 @@ export function AdminStoreReviewPanel({
   onSetOwnerIdentityEditable,
   identityActionBusy,
 }: AdminStoreReviewPanelProps) {
+  const { t, language } = useI18n();
+  const locale = catalogDateLocale(language);
+
   if (!store) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-6">
-        <p className="sam-text-body text-sam-muted">좌측에서 매장을 선택하세요.</p>
+        <p className="sam-text-body text-sam-muted">{t("admin_stores_review_select_store")}</p>
       </div>
     );
   }
@@ -133,7 +134,8 @@ export function AdminStoreReviewPanel({
     setAdminStoreName(store.store_name ?? "");
   }, [store.id, store.store_name]);
 
-  const statusKo = ADMIN_STORE_APPROVAL_LABEL[store.approval_status] ?? store.approval_status;
+  const statusKey = ADMIN_STORE_APPROVAL_LABEL_KEYS[store.approval_status];
+  const statusLabel = statusKey ? t(statusKey) : store.approval_status;
   const { intro: storeIntro, kakao: storeKakao } = splitStoreDescriptionAndKakao(
     store.description,
     store.kakao_id
@@ -147,7 +149,9 @@ export function AdminStoreReviewPanel({
   const catDb = embedRelationName(store.store_categories);
   const topicDb = embedRelationName(store.store_topics);
 
-  const imgs = [{ label: "프로필 이미지", url: store.profile_image_url }].filter((x) => x.url?.trim());
+  const imgs = [{ label: t("admin_stores_image_profile"), url: store.profile_image_url }].filter(
+    (x) => x.url?.trim()
+  );
 
   const busy = Boolean(actionBusy || identityActionBusy);
 
@@ -161,13 +165,13 @@ export function AdminStoreReviewPanel({
   const actionSales = `${actionBtnBase} border border-sam-primary-border bg-sam-primary text-white hover:bg-sam-primary-hover active:bg-sam-primary-active disabled:bg-sam-primary-disabled`;
   const actionSalesOutline = `${actionBtnBase} border border-sam-primary-border bg-sam-primary-soft text-sam-primary hover:bg-sam-primary-soft-2`;
 
-  const promptReason = (title: string) => window.prompt(title, "")?.trim() ?? "";
+  const promptReason = (titleKey: Parameters<typeof t>[0]) => window.prompt(t(titleKey), "")?.trim() ?? "";
 
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
       <div className="flex items-center justify-between border-b border-sam-border-soft px-4 py-3">
         <div className="min-w-0">
-          <p className="sam-text-helper font-semibold text-sam-muted">매장 관리</p>
+          <p className="sam-text-helper font-semibold text-sam-muted">{t("admin_stores_review_manage")}</p>
           <h2 className="truncate sam-text-body-lg font-semibold text-sam-fg">
             {dash(store.store_name)}
           </h2>
@@ -178,7 +182,7 @@ export function AdminStoreReviewPanel({
             onClick={onClose}
             className="rounded-ui-rect px-3 py-1.5 sam-text-body-secondary font-medium text-sam-muted hover:bg-sam-surface-muted"
           >
-            닫기
+            {t("common_close")}
           </button>
         ) : null}
       </div>
@@ -187,15 +191,15 @@ export function AdminStoreReviewPanel({
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 shadow-sm">
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-sam-ink px-2.5 py-0.5 sam-text-xxs font-bold text-white">
-              {statusKo}
+              {statusLabel}
             </span>
             {store.is_visible ? (
               <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 sam-text-xxs font-bold text-emerald-800">
-                노출 Y
+                {t("admin_stores_visible_y")}
               </span>
             ) : (
               <span className="rounded-full bg-sam-app px-2.5 py-0.5 sam-text-xxs font-bold text-sam-muted">
-                노출 N
+                {t("admin_stores_visible_n")}
               </span>
             )}
           </div>
@@ -207,12 +211,22 @@ export function AdminStoreReviewPanel({
               rel="noopener noreferrer"
               className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-helper font-semibold text-sam-fg hover:bg-sam-app"
             >
-              공개 페이지
+              {t("admin_stores_public_page")}
             </a>
           </div>
           <p className="mt-2 sam-text-helper text-sam-muted">
-            신청 {new Date(store.created_at).toLocaleString("ko-KR")}
-            {store.approved_at ? <> · 승인 {new Date(store.approved_at).toLocaleString("ko-KR")}</> : null}
+            {t("admin_stores_applied_at", {
+              date: new Date(store.created_at).toLocaleString(locale),
+            })}
+            {store.approved_at ? (
+              <>
+                {" "}
+                ·{" "}
+                {t("admin_stores_approved_at", {
+                  date: new Date(store.approved_at).toLocaleString(locale),
+                })}
+              </>
+            ) : null}
           </p>
 
           {onRunAction ? (
@@ -224,7 +238,7 @@ export function AdminStoreReviewPanel({
                   className={actionPrimary}
                   onClick={() => onRunAction("resume_store")}
                 >
-                  재개(노출 복구)
+                  {t("admin_stores_action_resume_store")}
                 </button>
               ) : store.approval_status !== "approved" ? (
                 <>
@@ -234,31 +248,31 @@ export function AdminStoreReviewPanel({
                     className={actionPrimary}
                     onClick={() => onRunAction("approve_store")}
                   >
-                    매장 승인
+                    {t("admin_stores_action_approve_store")}
                   </button>
                   <button
                     type="button"
                     disabled={busy}
                     className={actionWarn}
                     onClick={() => {
-                      const note = promptReason("보완 요청 메모");
+                      const note = promptReason("admin_stores_prompt_revision_memo");
                       if (!note) return;
                       onRunAction("request_revision", { reason: note });
                     }}
                   >
-                    보완 요청
+                    {t("admin_stores_action_request_revision")}
                   </button>
                   <button
                     type="button"
                     disabled={busy}
                     className={actionDanger}
                     onClick={() => {
-                      const reason = promptReason("반려 사유");
+                      const reason = promptReason("admin_stores_prompt_reject_reason");
                       if (!reason) return;
                       onRunAction("reject_store", { reason });
                     }}
                   >
-                    반려
+                    {t("admin_stores_action_reject_store")}
                   </button>
                     {onClose ? (
                       <button
@@ -267,7 +281,7 @@ export function AdminStoreReviewPanel({
                         className={actionSecondary}
                         onClick={() => onClose?.()}
                       >
-                        닫기
+                        {t("common_close")}
                       </button>
                     ) : null}
                 </>
@@ -279,43 +293,43 @@ export function AdminStoreReviewPanel({
                     className={actionSales}
                     onClick={() => onRunAction("approve_sales")}
                   >
-                    판매 승인
+                    {t("admin_stores_action_approve_sales")}
                   </button>
                   <button
                     type="button"
                     disabled={busy}
                     className={actionSalesOutline}
                     onClick={() => {
-                      const reason = promptReason("판매 거절 사유");
+                      const reason = promptReason("admin_stores_prompt_sales_reject_reason");
                       if (!reason) return;
                       onRunAction("reject_sales", { reason });
                     }}
                   >
-                    판매 거절
+                    {t("admin_stores_action_reject_sales")}
                   </button>
                   <button
                     type="button"
                     disabled={busy}
                     className={actionDangerSoft}
                     onClick={() => {
-                      const reason = promptReason("매장 정지 사유");
+                      const reason = promptReason("admin_stores_prompt_suspend_store_reason");
                       if (!reason) return;
                       onRunAction("suspend_store", { reason });
                     }}
                   >
-                    매장 정지
+                    {t("admin_stores_action_suspend_store")}
                   </button>
                   <button
                     type="button"
                     disabled={busy}
                     className={actionWarn}
                     onClick={() => {
-                      const reason = promptReason("판매 정지 사유");
+                      const reason = promptReason("admin_stores_prompt_suspend_sales_reason");
                       if (!reason) return;
                       onRunAction("suspend_sales", { reason });
                     }}
                   >
-                    판매 정지
+                    {t("admin_stores_action_suspend_sales")}
                   </button>
                 </>
               )}
@@ -323,17 +337,17 @@ export function AdminStoreReviewPanel({
           ) : null}
         </div>
 
-        <ReviewSection title="관리 (관리자 전용)">
+        <ReviewSection title={t("admin_stores_section_admin_only")}>
           <div className="grid grid-cols-1 gap-2">
             <Field
-              label="매장명 (관리자)"
+              label={t("admin_stores_field_store_name_admin")}
               value={
                 <div className="flex flex-col gap-2">
                   <input
                     value={adminStoreName}
                     onChange={(e) => setAdminStoreName(e.target.value)}
                     className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body-secondary font-medium text-sam-fg"
-                    placeholder="매장명"
+                    placeholder={t("admin_stores_field_store_name_ph")}
                     disabled={busy || !onRunAction}
                   />
                   <button
@@ -342,39 +356,39 @@ export function AdminStoreReviewPanel({
                     onClick={() => onRunAction?.("set_store_name", { store_name: adminStoreName.trim() })}
                     className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body-secondary font-semibold text-white disabled:opacity-50"
                   >
-                    매장명 저장
+                    {t("admin_stores_save_store_name")}
                   </button>
                 </div>
               }
             />
             <Field
-              label="등록 ID (URL)"
+              label={t("admin_stores_field_owner_slug")}
               value={<span className="font-mono sam-text-xxs text-sam-muted">/stores/{store.slug}</span>}
             />
           </div>
         </ReviewSection>
 
-        <ReviewSection title="신청자">
+        <ReviewSection title={t("admin_stores_section_applicant")}>
           <Field
-            label="닉네임"
+            label={t("admin_stores_field_nickname")}
             value={<span className="font-medium">{dash(store.applicant_nickname)}</span>}
           />
           <Field
-            label="오너 user id"
+            label={t("admin_stores_field_owner_user_id")}
             value={<span className="break-all font-mono sam-text-xxs">{store.owner_user_id}</span>}
           />
         </ReviewSection>
 
-        <ReviewSection title="연락">
-          <Field label="전화" value={<span className="font-medium">{dash(store.phone)}</span>} />
-          <Field label="카카오" value={<span className="font-medium">{dash(storeKakao)}</span>} />
-          <Field label="이메일/GCash" value={<span className="font-medium">{gcashNoDisplay}</span>} />
+        <ReviewSection title={t("admin_stores_section_contact")}>
+          <Field label={t("admin_stores_field_phone")} value={<span className="font-medium">{dash(store.phone)}</span>} />
+          <Field label={t("admin_stores_field_kakao")} value={<span className="font-medium">{dash(storeKakao)}</span>} />
+          <Field label={t("admin_stores_field_email_gcash")} value={<span className="font-medium">{gcashNoDisplay}</span>} />
           <Field label="GCash name" value={<span className="font-medium">{dash(store.website_url)}</span>} />
         </ReviewSection>
 
-        <ReviewSection title="주소" hint={STORE_LOCATION_SECTION_HINT_APPLY}>
+        <ReviewSection title={t("admin_stores_section_address")} hint={STORE_LOCATION_SECTION_HINT_APPLY}>
           <Field
-            label="지역"
+            label={t("admin_stores_field_region")}
             value={(() => {
               const reg = (store.region ?? "").trim();
               const city = (store.city ?? "").trim();
@@ -383,7 +397,7 @@ export function AdminStoreReviewPanel({
             })()}
           />
           <Field
-            label="주소1"
+            label={t("admin_stores_field_address1")}
             value={(() => {
               const city = (store.city ?? "").trim();
               const region = (store.region ?? "").trim();
@@ -392,7 +406,7 @@ export function AdminStoreReviewPanel({
             })()}
           />
           <Field
-            label="세부주소"
+            label={t("admin_stores_field_address_detail")}
             value={(() => {
               const city = (store.city ?? "").trim();
               const region = (store.region ?? "").trim();
@@ -402,7 +416,7 @@ export function AdminStoreReviewPanel({
             })()}
           />
           <Field
-            label="전체주소"
+            label={t("admin_stores_field_full_address")}
             value={
               <span className="font-medium text-sam-fg">
                 {formatAdminStoreAddressOneLine(store)}
@@ -410,7 +424,7 @@ export function AdminStoreReviewPanel({
             }
           />
           <Field
-            label="지도 좌표 (delivery-eta)"
+            label={t("admin_stores_field_map_coords")}
             value={(() => {
               const la = parseFiniteLatitude(store.lat);
               const ln = parseFiniteLongitude(store.lng);
@@ -423,25 +437,29 @@ export function AdminStoreReviewPanel({
               }
               return (
                 <span className="font-medium text-amber-800 dark:text-amber-200">
-                  좌표 미설정 (배달 ETA·Routes 불가)
+                  {t("admin_stores_coords_missing")}
                 </span>
               );
             })()}
           />
         </ReviewSection>
 
-        <ReviewSection title="업종">
-          <Field label="1차" value={<span className="font-medium">{catDb || "—"}</span>} />
-          <Field label="2차" value={<span className="font-medium">{topicDb || "—"}</span>} />
+        <ReviewSection title={t("admin_stores_section_business")}>
+          <Field label={t("admin_stores_field_category_primary")} value={<span className="font-medium">{catDb || "—"}</span>} />
+          <Field label={t("admin_stores_field_category_secondary")} value={<span className="font-medium">{topicDb || "—"}</span>} />
           <Field label="business_type" value={dash(store.business_type)} />
           <Field
-            label="식별 수정 허용"
-            value={store.owner_can_edit_store_identity ? "예 (관리자 허용)" : "아니오 (기본)"}
+            label={t("admin_stores_field_identity_edit_allowed")}
+            value={
+              store.owner_can_edit_store_identity
+                ? t("admin_stores_identity_edit_yes")
+                : t("admin_stores_identity_edit_no")
+            }
           />
         </ReviewSection>
 
         {storeIntro?.trim() ? (
-          <ReviewSection title="소개">
+          <ReviewSection title={t("admin_stores_section_intro")}>
             <pre className="whitespace-pre-wrap break-words font-sans sam-text-body-secondary leading-relaxed text-sam-fg">
               {storeIntro.trim()}
             </pre>
@@ -449,23 +467,23 @@ export function AdminStoreReviewPanel({
         ) : null}
 
         {store.revision_note?.trim() ? (
-          <ReviewSection title="보완 요청">
+          <ReviewSection title={t("admin_stores_section_revision")}>
             <p className="whitespace-pre-wrap sam-text-body-secondary text-amber-950">{store.revision_note.trim()}</p>
           </ReviewSection>
         ) : null}
         {store.rejected_reason?.trim() ? (
-          <ReviewSection title="반려 사유">
+          <ReviewSection title={t("admin_stores_section_reject_reason")}>
             <p className="whitespace-pre-wrap sam-text-body-secondary text-red-900">{store.rejected_reason.trim()}</p>
           </ReviewSection>
         ) : null}
         {store.suspended_reason?.trim() ? (
-          <ReviewSection title="정지 사유">
+          <ReviewSection title={t("admin_stores_section_suspend_reason")}>
             <p className="whitespace-pre-wrap sam-text-body-secondary text-sam-fg">{store.suspended_reason.trim()}</p>
           </ReviewSection>
         ) : null}
 
         {imgs.length > 0 ? (
-          <ReviewSection title="이미지">
+          <ReviewSection title={t("admin_stores_section_images")}>
             {imgs.map(({ label, url }) => (
               <div key={label}>
                 <p className="mb-1 sam-text-xxs text-sam-muted">{label}</p>
@@ -484,7 +502,7 @@ export function AdminStoreReviewPanel({
 
         {onSetOwnerIdentityEditable ? (
           <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
-            <p className="sam-text-body-secondary font-medium text-sam-fg">오너 식별 수정</p>
+            <p className="sam-text-body-secondary font-medium text-sam-fg">{t("admin_stores_owner_identity_edit")}</p>
             <button
               type="button"
               disabled={identityActionBusy}
@@ -492,10 +510,10 @@ export function AdminStoreReviewPanel({
               className="mt-2 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2.5 sam-text-body-secondary font-semibold text-sam-fg hover:bg-sam-app disabled:opacity-50"
             >
               {identityActionBusy
-                ? "처리 중…"
+                ? t("common_processing")
                 : store.owner_can_edit_store_identity
-                  ? "식별 수정 허용 해제"
-                  : "식별 수정 허용하기"}
+                  ? t("admin_stores_identity_revoke")
+                  : t("admin_stores_identity_grant")}
             </button>
           </div>
         ) : null}

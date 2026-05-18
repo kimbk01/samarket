@@ -22,7 +22,9 @@ import {
 import type { ChatRoom, GeneralChatMeta } from "@/lib/types/chat";
 import { fetchPostRowsForChatIn } from "@/lib/chats/post-select-compat";
 import { CHAT_ROOM_ID_IN_CHUNK_SIZE, CHAT_ROOM_LIST_PRODUCT_CHATS_LIMIT, chunkIds } from "@/lib/chats/chat-list-limits";
-import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
+import { translate } from "@/lib/i18n/messages";
+import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
+import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 import { participantRowActive } from "@/lib/chat/user-chat-unread-parts";
 import { tradeListUnreadHintFromCursor } from "@/lib/chats/server/trade-list-unread-hint";
 import {
@@ -501,6 +503,7 @@ export async function GET(req: NextRequest) {
 
   let listFromStoreOrderRooms: ChatRoomListRow[] = [];
   if (soRoomRows.length > 0) {
+    const userLang = await loadNotificationUserLanguage(sbAny, userId);
     const oids = [...new Set(soRoomRows.map((x) => x.store_order_id).filter(Boolean))] as string[];
     const { data: orows } = oids.length
       ? await sbAny.from("store_orders").select("id, order_no, store_id, order_status, community_messenger_room_id").in("id", oids)
@@ -523,10 +526,15 @@ export async function GET(req: NextRequest) {
       const st = ord ? storeMap.get(ord.store_id) : undefined;
       const statusLabel =
         ord && typeof ord.order_status === "string"
-          ? BUYER_ORDER_STATUS_LABEL[ord.order_status] ?? ord.order_status
+          ? buyerOrderStatusLabel(ord.order_status, userLang)
           : "";
       const title =
-        ord && st ? `${(st as { store_name: string }).store_name} · 주문 ${ord.order_no}` : "배달 주문";
+        ord && st
+          ? translate(userLang, "store_messenger_order_title", {
+              store: (st as { store_name: string }).store_name,
+              orderNo: ord.order_no,
+            })
+          : translate(userLang, "store_messenger_delivery_order_title");
       const orderCmRoomId =
         typeof (ord as { community_messenger_room_id?: unknown } | undefined)?.community_messenger_room_id === "string"
           ? ((ord as { community_messenger_room_id?: string }).community_messenger_room_id ?? "").trim()

@@ -5,93 +5,96 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
   getUserSettings,
-  LANGUAGE_NAMES,
   subscribeUserSettings,
   syncUserSettings,
   updateUserSettings,
 } from "@/lib/settings/user-settings-store";
-import { updateMyProfile } from "@/lib/profile/updateMyProfile";
-import { normalizeAppLanguage, type AppLanguageCode } from "@/lib/i18n/config";
+import { SUPPORTED_APP_LANGUAGES, type AppLanguageCode } from "@/lib/i18n/config";
 
-const LANGUAGE_SEGMENTS: Array<{ code: AppLanguageCode; name: string }> = [
-  { code: "ko", name: LANGUAGE_NAMES.ko },
-  { code: "en", name: LANGUAGE_NAMES.en },
-];
+const CHOICES = SUPPORTED_APP_LANGUAGES;
 
+function choiceLabel(
+  choice: AppLanguageCode,
+  t: (key: import("@/lib/i18n/messages").MessageKey) => string
+): string {
+  if (choice === "ko") return t("mypage_korean");
+  return t("mypage_english");
+}
+
+/** 앱 UI 언어 — source of truth: user_settings + AppLanguageProvider (profiles 미사용) */
 export function LanguageSettingsContent() {
   const { language, setLanguage, t } = useI18n();
   const userId = getCurrentUser()?.id ?? "me";
   const [current, setCurrent] = useState<AppLanguageCode>(language);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [savedHint, setSavedHint] = useState(false);
 
   useEffect(() => {
-    let cancelled = false;
+    setCurrent(language);
+  }, [language]);
+
+  useEffect(() => {
     const applyCurrent = () => {
-      const s = getUserSettings(userId);
-      setCurrent(normalizeAppLanguage(s.preferred_language ?? language));
+      const explicit = getUserSettings(userId).preferred_language;
+      if (explicit === "ko" || explicit === "en") setCurrent(explicit);
+      else setCurrent(language);
     };
     applyCurrent();
     void syncUserSettings(userId).then(() => applyCurrent());
     const unsubscribe = subscribeUserSettings(({ userId: changedUserId }) => {
       if (changedUserId === userId) applyCurrent();
     });
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
+    return unsubscribe;
   }, [language, userId]);
 
   const select = useCallback(
-    async (code: AppLanguageCode) => {
-      if (busy || code === current) return;
-      setBusy((prev) => (prev ? prev : true));
-      setError((prev) => (prev === "" ? prev : ""));
+    async (choice: AppLanguageCode) => {
+      if (busy || choice === current) return;
+      setBusy(true);
+      setError("");
+      setSavedHint(false);
       const previous = current;
-      setCurrent(code);
-      setLanguage(code);
-      updateUserSettings(userId, { preferred_language: code });
-      const result = await updateMyProfile({ preferred_language: code });
-      if (!result.ok) {
-        setCurrent(previous);
-        setLanguage(previous);
-        updateUserSettings(userId, { preferred_language: previous });
-        setError(result.error);
-      }
-      setBusy((prev) => (prev ? false : prev));
+      setCurrent(choice);
+      setLanguage(choice);
+
+      updateUserSettings(userId, { preferred_language: choice });
+      setBusy(false);
+      setSavedHint(true);
     },
     [busy, current, setLanguage, userId]
   );
 
   return (
     <div className="space-y-3">
-      <div className="flex w-full max-w-[420px] items-center gap-3">
-        {LANGUAGE_SEGMENTS.map((c) => {
-          const active = current === c.code;
+      <p className="sam-text-helper text-sam-meta">{t("language_settings_subtitle")}</p>
+      <div className="flex w-full max-w-[420px] flex-col gap-2">
+        {CHOICES.map((choice) => {
+          const active = current === choice;
           return (
             <button
-              key={c.code}
+              key={choice}
               type="button"
               disabled={busy}
               aria-pressed={active}
-              className={`group relative flex h-11 min-w-0 flex-1 items-center justify-center rounded-full border px-4 transition-all duration-150 disabled:opacity-60 ${
+              className={`flex h-11 w-full items-center justify-between rounded-ui-rect border px-4 transition-colors disabled:opacity-60 ${
                 active
-                  ? "border-transparent bg-gradient-to-r from-fuchsia-500 via-orange-400 to-amber-300 text-white shadow-[0_6px_18px_rgba(219,39,119,0.28)]"
+                  ? "border-[#1877F2] bg-[#1877F2]/10 text-sam-fg"
                   : "border-sam-border bg-sam-surface text-sam-muted hover:border-sam-border-strong hover:text-sam-fg"
               }`}
-              onClick={() => void select(c.code as AppLanguageCode)}
+              onClick={() => void select(choice)}
             >
-              <span className={`truncate sam-text-body font-semibold ${active ? "pr-8" : ""}`}>{c.name}</span>
-              {active ? (
-                <span className="absolute right-1.5 inline-flex h-8 w-8 items-center justify-center rounded-full border border-white/70 bg-white text-amber-500 shadow-sm">
-                  ✓
-                </span>
-              ) : null}
+              <span className="sam-text-body font-semibold">{choiceLabel(choice, t)}</span>
+              {active ? <span className="text-[#1877F2]">✓</span> : null}
             </button>
           );
         })}
       </div>
-      <p className="sam-text-helper text-sam-meta">{t("common_selected")}</p>
+      {savedHint ? (
+        <p className="sam-text-helper text-sam-meta">{t("mypage_language_saved")}</p>
+      ) : (
+        <p className="sam-text-helper text-sam-meta">{t("common_selected")}</p>
+      )}
       {error ? <p className="sam-text-body-secondary text-red-600">{error}</p> : null}
     </div>
   );

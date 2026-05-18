@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { BackupSnapshotTable } from "./BackupSnapshotTable";
@@ -8,19 +9,20 @@ import { RestoreSimulationCard } from "./RestoreSimulationCard";
 
 type TabId = "list" | "restore";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "list", label: "백업 목록" },
-  { id: "restore", label: "복구 시뮬레이션" },
-];
-
 export function AdminBackupPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("list");
+
+  const tabs: { id: TabId; label: string }[] = [
+    { id: "list", label: t("admin_backup_tab_list") },
+    { id: "restore", label: t("admin_backup_tab_restore_sim") },
+  ];
 
   return (
     <>
-      <AdminPageHeader title="백업 / 복구" />
+      <AdminPageHeader titleKey="admin_page_backup_restore" />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
-        {TABS.map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab.id}
             type="button"
@@ -42,19 +44,19 @@ export function AdminBackupPage() {
               type="button"
               className="rounded border border-signature bg-signature/10 px-3 py-2 sam-text-body font-medium text-signature hover:bg-signature/20"
             >
-              백업 실행 (mock)
+              {t("admin_backup_run_mock")}
             </button>
             <span className="sam-text-helper text-sam-muted">
               manual / scheduled / pre-release / emergency
             </span>
           </div>
-          <AdminCard title="백업 스냅샷">
+          <AdminCard titleKey="admin_backup_card_snapshots">
             <BackupSnapshotTable />
           </AdminCard>
         </div>
       )}
       {activeTab === "restore" && (
-        <AdminCard title="복구 시뮬레이션 및 실행 로그">
+        <AdminCard titleKey="admin_backup_card_restore_sim_log">
           <RestoreSimulationCard />
         </AdminCard>
       )}

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
@@ -46,6 +47,7 @@ export function StoreOrderDashboardSection({
   /** 매장 탭 하단 묶음 안에서 — 카드 테두리·제목 중복 제거 */
   embedded?: boolean;
 }) {
+  const { t } = useI18n();
   const shell = embedded ? "rounded-ui-rect bg-sam-app/90 p-2" : "rounded-ui-rect border border-sam-border-soft bg-sam-surface p-3 shadow-sm";
   const shellReady = embedded ?
     "space-y-2 p-0"
@@ -57,7 +59,7 @@ export function StoreOrderDashboardSection({
     return (
       <section className={shell}>
         {!embedded ?
-          <h2 className="sam-text-body font-bold text-sam-fg">내 주문</h2>
+          <h2 className="sam-text-body font-bold text-sam-fg">{t("store_my_orders_title")}</h2>
         : null}
         <p className="mt-1 sam-text-xxs text-sam-muted">
           {loadingHint ?? "로그인 후 주문·채팅을 가로로 빠르게 열 수 있어요."}
@@ -86,7 +88,7 @@ export function StoreOrderDashboardSection({
     <section className={shellReady}>
       {!embedded ?
         <div className="mb-2 flex items-center justify-between gap-2 px-0.5">
-          <h2 className="sam-text-body font-bold tracking-tight text-sam-fg">내 주문</h2>
+          <h2 className="sam-text-body font-bold tracking-tight text-sam-fg">{t("store_my_orders_title")}</h2>
           <div className="flex items-center gap-2">
             {b.unreadChats > 0 ?
               <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 sam-text-xxs font-bold text-white">
@@ -110,20 +112,20 @@ export function StoreOrderDashboardSection({
         </div>
       }
 
-      <HorizontalDragScroll className={RAIL} aria-label="주문 바로가기">
+      <HorizontalDragScroll className={RAIL} aria-label={t("store_order_shortcuts_aria")}>
         <Link
           href={ordersHubHref("receiving")}
           className="flex w-[132px] shrink-0 flex-col rounded-ui-rect bg-sam-app p-3 ring-1 ring-sam-border-soft"
         >
-          <span className="sam-text-xxs font-medium text-sam-muted">진행 중</span>
+          <span className="sam-text-xxs font-medium text-sam-muted">{t("store_in_progress")}</span>
           <span className="mt-1 sam-text-hero font-bold tabular-nums text-sam-fg">{b.activeOrders}</span>
-          <span className="mt-2 sam-text-xxs font-semibold text-signature">내역</span>
+          <span className="mt-2 sam-text-xxs font-semibold text-signature">{t("store_history")}</span>
         </Link>
         <Link
           href="/my/store-orders"
           className="flex w-[132px] shrink-0 flex-col rounded-ui-rect bg-sam-app p-3 ring-1 ring-sam-border-soft"
         >
-          <span className="sam-text-xxs font-medium text-sam-muted">주문 채팅</span>
+          <span className="sam-text-xxs font-medium text-sam-muted">{t("store_order_chat")}</span>
           <span className="mt-1 sam-text-hero font-bold tabular-nums text-sam-fg">{b.orderChatRooms}</span>
           <span className="mt-2 sam-text-xxs font-semibold text-signature">
             {b.unreadChats > 0 ? `+${b.unreadChats}` : "열기"}
@@ -134,26 +136,26 @@ export function StoreOrderDashboardSection({
             href={`/orders/store/${encodeURIComponent(recentOrder.id)}`}
             className="flex w-[148px] shrink-0 flex-col rounded-ui-rect border border-dashed border-signature/30 bg-signature/[0.04] p-3"
           >
-            <span className="sam-text-xxs font-medium text-sam-muted">최근</span>
+            <span className="sam-text-xxs font-medium text-sam-muted">{t("store_recent")}</span>
             <span className="mt-1 line-clamp-2 sam-text-helper font-bold leading-tight text-sam-fg">
               {recentOrder.store_name || "매장"}
             </span>
-            <span className="mt-auto pt-2 sam-text-xxs font-semibold text-signature">상세</span>
+            <span className="mt-auto pt-2 sam-text-xxs font-semibold text-signature">{t("store_detail_link")}</span>
           </Link>
         : <Link
             href="/stores#store-industry-explore"
             className="flex w-[132px] shrink-0 flex-col rounded-ui-rect border border-sam-border p-3"
           >
-            <span className="sam-text-xxs font-medium text-sam-muted">최근</span>
-            <span className="mt-2 sam-text-helper text-sam-muted">주문 없음</span>
-            <span className="mt-auto pt-2 sam-text-xxs font-semibold text-signature">업종 찾기</span>
+            <span className="sam-text-xxs font-medium text-sam-muted">{t("store_recent")}</span>
+            <span className="mt-2 sam-text-helper text-sam-muted">{t("store_no_orders")}</span>
+            <span className="mt-auto pt-2 sam-text-xxs font-semibold text-signature">{t("store_find_industry")}</span>
           </Link>
         }
       </HorizontalDragScroll>
 
       <div className="mt-3 border-t border-sam-border-soft pt-2">
-        <p className="mb-1.5 px-0.5 sam-text-xxs font-semibold uppercase tracking-wide text-sam-meta">상태</p>
-        <HorizontalDragScroll className={RAIL} aria-label="주문 상태 필터">
+        <p className="mb-1.5 px-0.5 sam-text-xxs font-semibold uppercase tracking-wide text-sam-meta">{t("store_status_label")}</p>
+        <HorizontalDragScroll className={RAIL} aria-label={t("store_order_status_filter_aria")}>
           {FILTER_CHIPS.map(({ key, label }) => (
             <Link
               key={key}

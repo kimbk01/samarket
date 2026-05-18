@@ -1,5 +1,19 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  pointActionTypeLabel,
+  pointBoardLabel,
+  pointChargeStatusLabel,
+  pointExecStatusLabel,
+  pointExpireCycleLabel,
+  pointExpireExecStatusLabel,
+  pointLedgerTypeLabel,
+  pointPaymentMethodLabel,
+  pointRewardTypeLabel,
+  pointUserTypeLabel,
+} from "@/components/admin/points/admin-points-notifications-i18n";
+
 import { useState } from "react";
 import type {
   PointProbabilityRule,
@@ -24,6 +38,8 @@ export function PointProbabilityRuleTable({
   onSaveRule,
   onDeleteRule,
 }: PointProbabilityRuleTableProps) {
+  const { t } = useI18n();
+
   const [showAddForm, setShowAddForm] = useState(false);
   const [targetType, setTargetType] = useState<PointProbabilityTargetType>("write");
   const [minPoint, setMinPoint] = useState(1);
@@ -53,8 +69,7 @@ export function PointProbabilityRuleTable({
 
   if (!policyId) {
     return (
-      <p className="sam-text-body text-sam-muted">
-        위에서 확률형 정책을 선택하면 구간을 설정할 수 있습니다.
+      <p className="sam-text-body text-sam-muted"> {t("admin_points_policy_prob_hint_select")}
       </p>
     );
   }
@@ -63,15 +78,15 @@ export function PointProbabilityRuleTable({
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <span className="sam-text-body text-sam-muted">
-          합계: {totalPercent}% {totalPercent !== 100 && "(100% 권장)"}
+          {t("admin_points_policy_prob_total", { total: totalPercent })}
+          {totalPercent !== 100 ? ` ${t("admin_points_policy_prob_total_hint")}` : null}
         </span>
         {onSaveRule && (
           <button
             type="button"
             onClick={() => setShowAddForm(true)}
             className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary text-sam-fg hover:bg-sam-app"
-          >
-            구간 추가
+          > {t("admin_points_policy_prob_btn_add_band")}
           </button>
         )}
       </div>
@@ -80,10 +95,10 @@ export function PointProbabilityRuleTable({
           onSubmit={handleAddSubmit}
           className="rounded border border-sam-border bg-sam-app p-3 sam-text-body"
         >
-          <div className="mb-2 font-medium text-sam-fg">새 확률 구간</div>
+          <div className="mb-2 font-medium text-sam-fg">{t("admin_points_policy_prob_new_band")}</div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
             <div>
-              <label className="mb-0.5 block sam-text-helper text-sam-muted">대상</label>
+              <label className="mb-0.5 block sam-text-helper text-sam-muted">{t("admin_points_th_target")}</label>
               <select
                 value={targetType}
                 onChange={(e) =>
@@ -96,7 +111,7 @@ export function PointProbabilityRuleTable({
               </select>
             </div>
             <div>
-              <label className="mb-0.5 block sam-text-helper text-sam-muted">최소 P</label>
+              <label className="mb-0.5 block sam-text-helper text-sam-muted">{t("admin_points_policy_prob_label_min_p")}</label>
               <input
                 type="number"
                 min={0}
@@ -106,7 +121,7 @@ export function PointProbabilityRuleTable({
               />
             </div>
             <div>
-              <label className="mb-0.5 block sam-text-helper text-sam-muted">최대 P</label>
+              <label className="mb-0.5 block sam-text-helper text-sam-muted">{t("admin_points_policy_prob_label_max_p")}</label>
               <input
                 type="number"
                 min={0}
@@ -116,7 +131,7 @@ export function PointProbabilityRuleTable({
               />
             </div>
             <div>
-              <label className="mb-0.5 block sam-text-helper text-sam-muted">확률(%)</label>
+              <label className="mb-0.5 block sam-text-helper text-sam-muted">{t("admin_points_policy_prob_label_percent")}</label>
               <input
                 type="number"
                 min={0}
@@ -129,7 +144,7 @@ export function PointProbabilityRuleTable({
               />
             </div>
             <div>
-              <label className="mb-0.5 block sam-text-helper text-sam-muted">순서</label>
+              <label className="mb-0.5 block sam-text-helper text-sam-muted">{t("admin_points_policy_prob_label_order")}</label>
               <input
                 type="number"
                 min={1}
@@ -145,40 +160,33 @@ export function PointProbabilityRuleTable({
             <button
               type="submit"
               className="rounded border border-signature bg-signature px-3 py-1.5 sam-text-body-secondary text-white"
-            >
-              추가
+            > {t("admin_points_btn_add")}
             </button>
             <button
               type="button"
               onClick={() => setShowAddForm(false)}
               className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary text-sam-fg"
-            >
-              취소
+            > {t("admin_points_charge_status_cancelled")}
             </button>
           </div>
         </form>
       )}
       {rules.length === 0 && !showAddForm ? (
-        <p className="sam-text-body text-sam-muted">
-          확률 구간이 없습니다. 게시판 정책에서 확률형을 사용할 때 여기에서 구간을 설정합니다.
+        <p className="sam-text-body text-sam-muted"> {t("admin_points_policy_prob_empty")}
         </p>
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[400px] border-collapse sam-text-body">
             <thead>
               <tr className="border-b border-sam-border bg-sam-app">
-                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  대상
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_th_target")}
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  구간(최소~최대)P
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_policy_prob_th_range")}
                 </th>
-                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  확률(%)
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_policy_prob_label_percent")}
                 </th>
                 {onDeleteRule && (
-                  <th className="px-3 py-2.5 text-right font-medium text-sam-fg">
-                    작업
+                  <th className="px-3 py-2.5 text-right font-medium text-sam-fg"> {t("admin_points_th_work")}
                   </th>
                 )}
               </tr>
@@ -190,7 +198,7 @@ export function PointProbabilityRuleTable({
                   className="border-b border-sam-border-soft hover:bg-sam-app"
                 >
                   <td className="px-3 py-2.5 text-sam-fg">
-                    {TARGET_TYPE_LABELS[r.targetType]}
+                    {pointActionTypeLabel(t, r.targetType)}
                   </td>
                   <td className="px-3 py-2.5 text-sam-fg">
                     {r.minPoint} ~ {r.maxPoint}
@@ -204,8 +212,7 @@ export function PointProbabilityRuleTable({
                         type="button"
                         onClick={() => onDeleteRule(r.id)}
                         className="sam-text-body-secondary text-red-600 hover:underline"
-                      >
-                        삭제
+                      > {t("admin_points_reclaim_trigger_delete")}
                       </button>
                     </td>
                   )}

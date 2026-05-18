@@ -1,11 +1,20 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminRole } from "@/lib/admin-menu-config";
 import type { AdminPermissionKey } from "@/lib/types/admin-staff";
 import {
   ADMIN_PERMISSION_GROUPS,
+  adminPermissionGroupLabel,
   getPermissionLabel,
 } from "@/lib/admin-users/admin-permissions";
+import type { MessageKey } from "@/lib/i18n/messages";
+
+const ROLE_DEFAULT_KEYS: Record<AdminRole, MessageKey> = {
+  master: "admin_users_perm_default_master",
+  manager: "admin_users_perm_default_manager",
+  operator: "admin_users_perm_default_operator",
+};
 
 interface AdminPermissionTogglesProps {
   /** 현재 선택된 권한 목록 */
@@ -29,6 +38,8 @@ export function AdminPermissionToggles({
   showRoleDefaultsButton = true,
   currentRole = "operator",
 }: AdminPermissionTogglesProps) {
+  const { t } = useI18n();
+
   const applyRoleDefaults = () => {
     onApplyRoleDefaults?.(currentRole);
   };
@@ -37,23 +48,23 @@ export function AdminPermissionToggles({
     <div className="space-y-4">
       {showRoleDefaultsButton && (
         <div className="flex items-center justify-between rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
-          <span className="sam-text-body-secondary text-sam-muted">역할에 맞춰 권한을 한 번에 적용</span>
+          <span className="sam-text-body-secondary text-sam-muted">{t("admin_users_perm_apply_role_hint")}</span>
           <button
             type="button"
             onClick={applyRoleDefaults}
             className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary text-sam-fg hover:bg-sam-surface-muted"
           >
-            {currentRole === "master" ? "최고관리자 기본값 적용" : currentRole === "manager" ? "총괄 기본값 적용" : "운영자 기본값 적용"}
+            {t(ROLE_DEFAULT_KEYS[currentRole])}
           </button>
         </div>
       )}
       <p className="sam-text-body-secondary font-medium text-sam-fg">
-        아이디별로 항목을 클릭해 권한 부여 여부를 선택하세요. (예: 글쓰기 권한 부여 O/X)
+        {t("admin_users_perm_click_hint")}
       </p>
       {ADMIN_PERMISSION_GROUPS.map((g) => (
-        <div key={g.groupLabel} className="rounded-ui-rect border border-sam-border bg-sam-surface">
+        <div key={String(g.groupLabelKey)} className="rounded-ui-rect border border-sam-border bg-sam-surface">
           <div className="border-b border-sam-border-soft bg-sam-app px-3 py-2 sam-text-helper font-medium text-sam-muted">
-            {g.groupLabel}
+            {adminPermissionGroupLabel(g.groupLabelKey)}
           </div>
           <ul className="divide-y divide-sam-border-soft">
             {g.keys
@@ -62,7 +73,7 @@ export function AdminPermissionToggles({
                 <li key={key} className="flex items-center justify-between gap-3 px-3 py-2.5">
                   <span className="sam-text-body text-sam-fg">{getPermissionLabel(key)}</span>
                   <label className="flex shrink-0 items-center gap-2">
-                    <span className="sam-text-body-secondary text-sam-muted">권한 부여</span>
+                    <span className="sam-text-body-secondary text-sam-muted">{t("admin_users_perm_grant_label")}</span>
                     <input
                       type="checkbox"
                       checked={permissions.includes(key)}

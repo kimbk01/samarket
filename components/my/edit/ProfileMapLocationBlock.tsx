@@ -1,11 +1,11 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { UserAddressDesignationTitle } from "@/components/addresses/UserAddressDesignationTitle";
 import { buildTradePublicLine, stripCountryFromAddressDisplayLine } from "@/lib/addresses/user-address-format";
 import { formatPhAddressCardOneLine, formatPhAddressCardOneLinePlain } from "@/lib/addresses/ph-address-display";
-import { PROFILE_ADDRESS_SECTION_TITLE } from "@/lib/stores/store-address-form-ui";
 import { OWNER_STORE_FORM_LEAD_CLASS } from "@/lib/business/owner-store-stack";
 
 type Props = {
@@ -21,13 +21,12 @@ function sortAddresses(rows: UserAddressDTO[]): UserAddressDTO[] {
   });
 }
 
-/** 프로필 카드에는 대표(마스터) 한 건만 노출 */
 function pickRepresentative(rows: UserAddressDTO[]): UserAddressDTO | null {
   const master = rows.find((r) => r.isDefaultMaster);
   return master ?? null;
 }
 
-function RepresentativeRow({ row }: { row: UserAddressDTO }) {
+function RepresentativeRow({ row, repBadge }: { row: UserAddressDTO; repBadge: string }) {
   const isPh = (row.countryCode ?? "PH").trim().toUpperCase() === "PH";
   const repPh = isPh ? formatPhAddressCardOneLine(row) : null;
   const sub = isPh
@@ -39,7 +38,7 @@ function RepresentativeRow({ row }: { row: UserAddressDTO }) {
         <div className="flex flex-wrap items-center gap-1.5">
           <UserAddressDesignationTitle row={row} className="sam-text-body font-semibold text-ui-fg" />
           <span className="rounded-full bg-signature/10 px-2 py-0.5 sam-text-xxs font-semibold text-signature">
-            대표
+            {repBadge}
           </span>
         </div>
         <p className="mt-0.5 sam-text-body-secondary leading-snug text-ui-muted">
@@ -61,8 +60,8 @@ function RepresentativeRow({ row }: { row: UserAddressDTO }) {
   );
 }
 
-/** 프로필 수정 — 주소록 요약 + 주소 관리 이동(지도 직행 아님) */
 export function ProfileMapLocationBlock({ addresses, listError }: Props) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const sorted = addresses ? sortAddresses(addresses) : [];
@@ -71,34 +70,27 @@ export function ProfileMapLocationBlock({ addresses, listError }: Props) {
   return (
     <div className="space-y-3">
       <div>
-        <p className={OWNER_STORE_FORM_LEAD_CLASS}>{PROFILE_ADDRESS_SECTION_TITLE}</p>
-        <p className="mt-1 sam-text-helper leading-relaxed text-ui-muted">
-          대표 주소는 거래·동네·배달에 기본으로 쓰입니다. 배달은 주문 단계에서 바꿀 수 있어요.
-        </p>
+        <p className={OWNER_STORE_FORM_LEAD_CLASS}>{t("profile_edit_section_address")}</p>
+        <p className="mt-1 sam-text-helper leading-relaxed text-ui-muted">{t("profile_edit_map_intro")}</p>
       </div>
 
       {listError ? (
-        <p className="sam-text-body-secondary text-ui-muted">주소를 불러오지 못했습니다.</p>
+        <p className="sam-text-body-secondary text-ui-muted">{t("profile_edit_map_load_failed")}</p>
       ) : addresses === null ? (
-        <p className="sam-text-body-secondary text-ui-muted">불러오는 중…</p>
+        <p className="sam-text-body-secondary text-ui-muted">{t("common_loading")}</p>
       ) : sorted.length === 0 ? (
         <div className="rounded-ui-rect border border-amber-200 bg-amber-50/90 px-3 py-3 sam-text-body-secondary leading-relaxed text-ui-fg">
-          <p className="font-medium">등록된 주소가 없어요.</p>
-          <p className="mt-1 sam-text-helper text-ui-muted">
-            서비스 이용을 위해 지도에서 위치를 지정한 대표 주소가 필요합니다. 아래 「주소 관리」에서
-            추가해 주세요.
-          </p>
+          <p className="font-medium">{t("profile_edit_map_no_address")}</p>
+          <p className="mt-1 sam-text-helper text-ui-muted">{t("profile_edit_map_empty_desc")}</p>
         </div>
       ) : representative == null ? (
         <div className="rounded-ui-rect border border-amber-200 bg-amber-50/90 px-3 py-3 sam-text-body-secondary leading-relaxed text-ui-fg">
-          <p className="font-medium">대표 주소가 지정되어 있지 않아요.</p>
-          <p className="mt-1 sam-text-helper text-ui-muted">
-            「주소 관리」에서 한 곳을 대표로 지정하거나, 새로 등록해 주세요.
-          </p>
+          <p className="font-medium">{t("profile_edit_map_no_primary")}</p>
+          <p className="mt-1 sam-text-helper text-ui-muted">{t("profile_edit_map_no_primary_desc")}</p>
         </div>
       ) : (
         <ul className="divide-y divide-sam-border rounded-ui-rect border border-sam-border bg-ui-surface">
-          <RepresentativeRow key={representative.id} row={representative} />
+          <RepresentativeRow key={representative.id} row={representative} repBadge={t("profile_edit_address_rep_badge")} />
         </ul>
       )}
 
@@ -110,7 +102,7 @@ export function ProfileMapLocationBlock({ addresses, listError }: Props) {
         }}
         className="w-full rounded-ui-rect border border-sam-border bg-ui-surface py-3.5 sam-text-body font-semibold text-ui-fg"
       >
-        주소 관리
+        {t("address_manage_title")}
       </button>
     </div>
   );

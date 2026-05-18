@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect } from "react";
 import type { OwnerStoreGateState } from "@/lib/stores/store-admin-access";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   getStoreBusinessBlockedTitleBody,
   showStoreBusinessApplyLink,
@@ -25,6 +26,7 @@ export function StoreBusinessBlockedModal({
   firstStoreId,
   primaryCloseLabel = "내 정보로",
 }: Props) {
+  const { t } = useI18n();
   useEffect(() => {
     if (!open || typeof document === "undefined") return;
     const prev = document.body.style.overflow;
@@ -59,7 +61,7 @@ export function StoreBusinessBlockedModal({
       <button
         type="button"
         className="absolute inset-0 bg-black/50"
-        aria-label="닫기"
+        aria-label={t("common_close")}
         onClick={onClose}
       />
       <div

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import type { BoardDetailSkinProps } from "@/lib/community-board/types";
 
@@ -8,6 +9,7 @@ export function PromoDetailSkin({
   showLike = true,
   showReport = true,
 }: BoardDetailSkinProps) {
+  const { t } = useI18n();
   const thumb = post.images?.[0]?.url;
 
   return (
@@ -18,7 +20,7 @@ export function PromoDetailSkin({
         </div>
       )}
       <div className="p-5">
-        <span className="text-xs font-bold text-amber-700 uppercase">프로모션</span>
+        <span className="text-xs font-bold text-amber-700 uppercase">{t("community_board_promo_label")}</span>
         <h1 className="text-xl font-bold text-sam-fg mt-1">{post.title}</h1>
         <p className="text-sm text-sam-muted mt-1">
           {post.author?.name} · {new Date(post.created_at).toLocaleDateString("ko-KR")}
@@ -35,13 +37,13 @@ export function PromoDetailSkin({
         )}
       </div>
       <footer className="px-5 py-3 border-t border-amber-100 flex gap-2">
-        {showLike && <button type="button" className="text-sm text-sam-muted">좋아요</button>}
+        {showLike && <button type="button" className="text-sm text-sam-muted">{t("community_board_like")}</button>}
         {showComments && (
           <a href="#community-post-comments" className="text-sm text-sam-muted hover:text-sam-fg">
             댓글
           </a>
         )}
-        {showReport && <button type="button" className="text-sm text-sam-muted ml-auto">신고</button>}
+        {showReport && <button type="button" className="text-sm text-sam-muted ml-auto">{t("community_report")}</button>}
       </footer>
     </article>
   );

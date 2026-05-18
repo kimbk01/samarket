@@ -1,18 +1,18 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
 import Link from "next/link";
 import { getOpsKnowledgeDocumentRankings } from "@/lib/ops-knowledge-graph/mock-ops-knowledge-document-rankings";
 import { getOpsDocumentById } from "@/lib/ops-docs/mock-ops-documents";
 
 export function OpsDocumentRankingTable() {
+  const { t } = useI18n();
   const rankings = useMemo(() => getOpsKnowledgeDocumentRankings(), []);
 
   if (rankings.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
-        랭킹 데이터가 없습니다.
-      </div>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_kg_ranking_empty")}</div>
     );
   }
 
@@ -21,13 +21,13 @@ export function OpsDocumentRankingTable() {
       <table className="w-full min-w-[640px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">순위</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">문서</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">랭킹점수</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">조회</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">추천클릭</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">해결연계</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">실행수</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_kg_th_rank")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_node_document")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_kg_th_score")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_kg_th_views")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_kg_th_rec_clicks")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_kg_th_resolution_link")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_kg_th_exec_count")}</th>
           </tr>
         </thead>
         <tbody>

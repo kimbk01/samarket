@@ -2,6 +2,9 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import {
   parseDeliveryOperationsPayload,
@@ -25,13 +28,13 @@ type OpsConsoleSummary = {
 };
 
 const TABS = [
-  { key: "risk", label: "위험 주문" },
-  { key: "sla", label: "SLA" },
-  { key: "riders", label: "라이더" },
-  { key: "auto_actions", label: "자동 액션" },
-  { key: "settlements", label: "정산 문제" },
-  { key: "incidents", label: "장애" },
-] as const;
+  { key: "risk", labelKey: "admin_ops_console_tab_risk" },
+  { key: "sla", labelKey: "admin_ops_console_tab_sla" },
+  { key: "riders", labelKey: "admin_ops_console_tab_riders" },
+  { key: "auto_actions", labelKey: "admin_ops_console_tab_auto_actions" },
+  { key: "settlements", labelKey: "admin_ops_console_tab_settlements" },
+  { key: "incidents", labelKey: "admin_ops_console_tab_incidents" },
+] as const satisfies readonly { key: string; labelKey: MessageKey }[];
 
 const QUEUE_KEYS: Record<(typeof TABS)[number]["key"], string[]> = {
   risk: ["urgent_flagged", "sla_attention", "eta_overdue", "long_delivering", "unassigned"],
@@ -42,13 +45,13 @@ const QUEUE_KEYS: Record<(typeof TABS)[number]["key"], string[]> = {
   incidents: ["sla_attention"], // fallback
 };
 
-const QUICK_RECOVERY: { action: DeliveryOperationRecoveryAction; label: string }[] = [
-  { action: "sla_scan", label: "SLA 스캔" },
-  { action: "alert_sync", label: "알림 동기화" },
-  { action: "auto_action_runner", label: "자동 액션 러너" },
-  { action: "alert_pipeline", label: "동기화+러너" },
-  { action: "stale_alerts_resolve", label: "종료 주문 알림 정리" },
-  { action: "bulk_retry_failed_auto_actions", label: "실패 자동 액션 재큐" },
+const QUICK_RECOVERY: { action: DeliveryOperationRecoveryAction; labelKey: MessageKey }[] = [
+  { action: "sla_scan", labelKey: "admin_ops_console_recovery_sla_scan" },
+  { action: "alert_sync", labelKey: "admin_ops_console_recovery_alert_sync" },
+  { action: "auto_action_runner", labelKey: "admin_ops_console_recovery_auto_action_runner" },
+  { action: "alert_pipeline", labelKey: "admin_ops_console_recovery_alert_pipeline" },
+  { action: "stale_alerts_resolve", labelKey: "admin_ops_console_recovery_stale_alerts" },
+  { action: "bulk_retry_failed_auto_actions", labelKey: "admin_ops_console_recovery_bulk_retry" },
 ];
 
 type AutoActionRow = {
@@ -137,7 +140,9 @@ function minutesSince(ms: number | null): number | null {
   return Math.floor(diff / 60000);
 }
 
-function priorityForOpsRow(row: Record<string, unknown>): PriorityInfo {
+type OpsTranslate = (key: MessageKey, vars?: Record<string, string | number>) => string;
+
+function priorityForOpsRow(row: Record<string, unknown>, t: OpsTranslate): PriorityInfo {
   let score = 0;
   const reasons: string[] = [];
 
@@ -150,22 +155,22 @@ function priorityForOpsRow(row: Record<string, unknown>): PriorityInfo {
   // SLA level (critical > warning)
   if (slaLevel.toLowerCase() === "critical") {
     score += 600;
-    reasons.push("SLA critical");
+    reasons.push(t("admin_ops_console_reason_sla_critical"));
   } else if (slaLevel) {
     score += 260;
-    reasons.push(`SLA ${slaLevel}`);
+    reasons.push(t("admin_ops_console_reason_sla_level", { level: slaLevel }));
   }
 
   // refund_requested is always operator attention
   if (orderStatus === "refund_requested") {
     score += 380;
-    reasons.push("환불 요청");
+    reasons.push(t("admin_ops_console_reason_refund"));
   }
 
   // unassigned rider
   if (deliveryStatus === "waiting_rider" || !safeTrim((row as any).rider_id)) {
     score += 420;
-    reasons.push("미배차");
+    reasons.push(t("admin_ops_console_reason_unassigned"));
   }
 
   // long delivering heuristics (based on updated_at/assigned timestamps if present)
@@ -180,13 +185,13 @@ function priorityForOpsRow(row: Record<string, unknown>): PriorityInfo {
     if (mins != null) {
       if (mins >= 180) {
         score += 520;
-        reasons.push("delivering 3h+");
+        reasons.push(t("admin_ops_console_reason_delivering_3h"));
       } else if (mins >= 120) {
         score += 420;
-        reasons.push("delivering 2h+");
+        reasons.push(t("admin_ops_console_reason_delivering_2h"));
       } else if (mins >= 60) {
         score += 220;
-        reasons.push("delivering 1h+");
+        reasons.push(t("admin_ops_console_reason_delivering_1h"));
       }
     }
   }
@@ -194,32 +199,32 @@ function priorityForOpsRow(row: Record<string, unknown>): PriorityInfo {
   // escalation / repeat fire from alert events
   if (escalationCount >= 3) {
     score += 220;
-    reasons.push(`escalation ${escalationCount}`);
+    reasons.push(t("admin_ops_console_reason_escalation", { count: escalationCount }));
   } else if (escalationCount >= 1) {
     score += 90;
-    reasons.push(`escalation ${escalationCount}`);
+    reasons.push(t("admin_ops_console_reason_escalation", { count: escalationCount }));
   }
   if (repeatFire >= 2) {
     score += 120;
-    reasons.push(`repeat ${repeatFire}`);
+    reasons.push(t("admin_ops_console_reason_repeat", { count: repeatFire }));
   }
 
   // held settlements
   if (safeTrim((row as any).settlement_id) && safeTrim((row as any).settlement_status) === "held") {
     score += 200;
-    reasons.push("held settlement");
+    reasons.push(t("admin_ops_console_reason_held_settlement"));
   }
 
   // attention flag (if present on row)
   if ((row as any).needs_admin_attention === true) {
     score += 140;
-    reasons.push("attention");
+    reasons.push(t("admin_ops_console_reason_attention"));
   }
 
   // default mild priority if it ended up in queue without clear reason
   if (reasons.length === 0) {
     score += 30;
-    reasons.push("queue");
+    reasons.push(t("admin_ops_console_reason_queue"));
   }
 
   const severity: PriorityInfo["severity"] =
@@ -252,21 +257,22 @@ type ModalState =
     };
 
 function ModalShell(props: {
-  title: string;
+  titleKey: MessageKey;
   children: React.ReactNode;
   onClose: () => void;
   busy?: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-3">
       <div className={`${Sam.card.base} w-full max-w-lg ${Sam.card.pad}`}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <div className="text-base font-semibold text-sam-fg">{props.title}</div>
-            <div className="mt-1 text-xs text-sam-muted">확인/취소. 처리 중 중복 클릭은 차단됩니다.</div>
+            <div className="text-base font-semibold text-sam-fg">{t(props.titleKey)}</div>
+            <div className="mt-1 text-xs text-sam-muted">{t("admin_ops_console_modal_hint")}</div>
           </div>
           <button className={Sam.btn.secondary} onClick={props.onClose} disabled={props.busy} type="button">
-            닫기
+            {t("admin_ops_console_btn_close")}
           </button>
         </div>
         <div className="mt-4">{props.children}</div>
@@ -276,6 +282,7 @@ function ModalShell(props: {
 }
 
 export function AdminOpsConsolePage() {
+  const { t, language } = useI18n();
   const [tab, setTab] = useState<(typeof TABS)[number]["key"]>("risk");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -301,13 +308,13 @@ export function AdminOpsConsolePage() {
     if (!r.ok || !j.ok) {
       setSummary(j);
       setOps(null);
-      setErr(j.error ?? "load_failed");
+      setErr(j.error ?? t("admin_ops_console_err_load_failed"));
       return;
     }
     setSummary(j);
     const parsed = parseDeliveryOperationsPayload(j.deliveryOps);
     setOps(parsed);
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     let alive = true;
@@ -407,9 +414,9 @@ export function AdminOpsConsolePage() {
       const j = (await r.json()) as { ok?: boolean; error?: string; message?: string };
       if (!r.ok) throw new Error(j.error ?? j.message ?? "recovery_failed");
       await load();
-      setToast("실행 완료");
+      setToast(t("admin_ops_console_toast_recovery_done"));
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "recovery_failed");
+      setErr(e instanceof Error ? e.message : t("admin_ops_console_err_recovery_failed"));
     } finally {
       setBusy(false);
     }
@@ -421,9 +428,9 @@ export function AdminOpsConsolePage() {
     setErr(null);
     try {
       await fn();
-      setToast("처리 완료");
+      setToast(t("admin_ops_console_toast_action_done"));
     } catch (e) {
-      setErr(e instanceof Error ? e.message : "action_failed");
+      setErr(e instanceof Error ? e.message : t("admin_ops_console_err_action_failed"));
     } finally {
       setActionBusyKey(null);
     }
@@ -524,7 +531,7 @@ export function AdminOpsConsolePage() {
 
   const smartRows = useMemo(() => {
     const rows = currentQueues.map((row) => {
-      const pr = priorityForOpsRow(row);
+      const pr = priorityForOpsRow(row, t);
       const updatedMs = parseDateMs((row as any).updated_at) ?? 0;
       return { row, pr, updatedMs };
     });
@@ -532,7 +539,7 @@ export function AdminOpsConsolePage() {
     const filtered = rows.filter(({ row, pr }) => {
       if (focus === "all") return true;
       if (focus === "critical") return pr.severity === "critical";
-      if (focus === "sla") return safeTrim((row as any).sla_warning_level) !== "" || pr.reasons.some((r) => r.startsWith("SLA"));
+      if (focus === "sla") return safeTrim((row as any).sla_warning_level) !== "";
       if (focus === "rider_issues") {
         const ds = safeTrim((row as any).delivery_status);
         return ds === "waiting_rider" || ds === "delivering" || safeTrim((row as any).rider_id) === "";
@@ -564,11 +571,11 @@ export function AdminOpsConsolePage() {
     });
 
     return filtered;
-  }, [currentQueues, focus]);
+  }, [currentQueues, focus, summary, t, language]);
 
   const grouped = useMemo(() => {
     if (groupMode === "none") {
-      return [{ key: "all", title: "전체", rows: smartRows }];
+      return [{ key: "all", title: t("admin_ops_console_group_all"), rows: smartRows }];
     }
     const map = new Map<string, { key: string; title: string; rows: typeof smartRows }>();
     for (const x of smartRows) {
@@ -578,17 +585,21 @@ export function AdminOpsConsolePage() {
           ? safeTrim((row as any).store_id) || "unknown_store"
           : groupMode === "rider"
             ? safeTrim((row as any).rider_id) || "unknown_rider"
-            : `${safeTrim((row as any).region) || "미지정"} · ${safeTrim((row as any).city) || "—"}`;
+            : `${safeTrim((row as any).region) || t("admin_ops_console_region_unknown")} · ${safeTrim((row as any).city) || "—"}`;
       const title = (() => {
         if (groupMode === "store") {
           const name = safeTrim((row as any).store_name);
-          return name ? `매장 · ${name}` : `Store ${g.slice(0, 8) || "—"}`;
+          return name
+            ? t("admin_ops_console_group_store_named", { name })
+            : t("admin_ops_console_group_store_id", { id: g.slice(0, 8) || "—" });
         }
         if (groupMode === "rider") {
           const name = safeTrim((row as any).rider_name);
-          return name ? `라이더 · ${name}` : `Rider ${g.slice(0, 8) || "—"}`;
+          return name
+            ? t("admin_ops_console_group_rider_named", { name })
+            : t("admin_ops_console_group_rider_id", { id: g.slice(0, 8) || "—" });
         }
-        return `지역 · ${g}`;
+        return t("admin_ops_console_group_region_named", { region: g });
       })();
       const key = `${groupMode}:${g || "unknown"}`;
       const cur = map.get(key);
@@ -603,15 +614,33 @@ export function AdminOpsConsolePage() {
       return a.key.localeCompare(b.key);
     });
     return list;
-  }, [smartRows, groupMode]);
+  }, [smartRows, groupMode, t, language]);
 
   const toggleCollapsed = (k: string) => setCollapsed((m) => ({ ...m, [k]: !(m[k] === true) }));
 
   const tabCounts = useMemo(() => {
     return Object.fromEntries(
-      TABS.map((t) => [t.key, getQueueCount(ops, QUEUE_KEYS[t.key] ?? [])])
+      TABS.map((tabDef) => [tabDef.key, getQueueCount(ops, QUEUE_KEYS[tabDef.key] ?? [])])
     ) as Record<(typeof TABS)[number]["key"], number>;
   }, [ops]);
+
+  const focusLabel = (k: FocusMode) => {
+    if (k === "all") return t("admin_ops_console_focus_all");
+    if (k === "critical") return t("admin_ops_console_focus_critical");
+    if (k === "sla") return t("admin_ops_console_focus_sla");
+    if (k === "rider_issues") return t("admin_ops_console_focus_rider");
+    if (k === "settlements") return t("admin_ops_console_focus_settlements");
+    if (k === "refund") return t("admin_ops_console_focus_refund");
+    if (k === "attention") return t("admin_ops_console_focus_attention");
+    return t("admin_ops_console_focus_mine");
+  };
+
+  const groupLabel = (g: GroupMode) => {
+    if (g === "none") return t("admin_ops_console_group_none");
+    if (g === "store") return t("admin_ops_console_group_store");
+    if (g === "rider") return t("admin_ops_console_group_rider");
+    return t("admin_ops_console_group_region");
+  };
 
   return (
     <div className={`${Sam.page} bg-sam-app min-h-[75vh]`}>
@@ -625,10 +654,13 @@ export function AdminOpsConsolePage() {
 
       <div className="sticky top-0 z-10 bg-sam-app/90 backdrop-blur border-b border-sam-border">
         <div className="px-4 py-3 flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <div className="text-lg font-semibold text-sam-fg truncate">Ops Console</div>
-            <div className="text-xs text-sam-muted truncate">
-              auto refresh 15s ·{" "}
+          <div className="min-w-0 flex-1">
+            <AdminPageHeader
+              titleKey="admin_ops_console_page_title"
+              titleClassName="text-lg font-semibold text-sam-fg truncate !mb-0"
+            />
+            <div className="text-xs text-sam-muted truncate -mt-1">
+              {t("admin_ops_console_subtitle_refresh")} ·{" "}
               <Link href="/admin/delivery-operations" className="underline">
                 delivery-operations
               </Link>{" "}
@@ -647,7 +679,7 @@ export function AdminOpsConsolePage() {
             </div>
           </div>
           <button className={Sam.btn.secondary} disabled={busy} onClick={() => void load()} type="button">
-            새로고침
+            {t("admin_ops_console_btn_refresh")}
           </button>
         </div>
       </div>
@@ -655,7 +687,7 @@ export function AdminOpsConsolePage() {
       <div className="px-4 py-4 space-y-4">
         {err ? (
           <div className={`${Sam.card.base} ${Sam.card.pad} border border-red-300`}>
-            <div className="font-medium text-red-700">오류</div>
+            <div className="font-medium text-red-700">{t("admin_ops_console_err_title")}</div>
             <div className="mt-2 text-sm text-red-700 break-all">{err}</div>
             {summary?.hint ? <div className="mt-2 text-xs text-sam-muted">{summary.hint}</div> : null}
           </div>
@@ -663,7 +695,7 @@ export function AdminOpsConsolePage() {
 
         {runtimeWarnings.length ? (
           <div className={`${Sam.card.base} ${Sam.card.pad} border border-amber-300`}>
-            <div className="font-medium text-amber-800">운영 알림 (capability mismatch)</div>
+            <div className="font-medium text-amber-800">{t("admin_ops_console_runtime_warning_title")}</div>
             <ul className="mt-2 space-y-1 text-sm text-amber-900">
               {runtimeWarnings.slice(0, 6).map((w) => (
                 <li key={w.code}>
@@ -676,47 +708,49 @@ export function AdminOpsConsolePage() {
 
         <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2">
           <div className={`${Sam.card.base} ${Sam.card.pad}`}>
-            <div className="text-xs text-sam-muted">진행중 주문</div>
+            <div className="text-xs text-sam-muted">{t("admin_ops_console_kpi_orders_in_progress")}</div>
             <div className="text-lg font-semibold text-sam-fg">{fmtInt(kpis.orders_in_progress)}</div>
           </div>
           <div className={`${Sam.card.base} ${Sam.card.pad}`}>
-            <div className="text-xs text-sam-muted">SLA 경고</div>
+            <div className="text-xs text-sam-muted">{t("admin_ops_console_kpi_sla_attention")}</div>
             <div className="text-lg font-semibold text-sam-fg">{fmtInt(kpis.sla_attention)}</div>
           </div>
           <div className={`${Sam.card.base} ${Sam.card.pad}`}>
-            <div className="text-xs text-sam-muted">미배차</div>
+            <div className="text-xs text-sam-muted">{t("admin_ops_console_kpi_unassigned")}</div>
             <div className="text-lg font-semibold text-sam-fg">{fmtInt(kpis.unassigned)}</div>
           </div>
           <div className={`${Sam.card.base} ${Sam.card.pad}`}>
-            <div className="text-xs text-sam-muted">장기 배송</div>
+            <div className="text-xs text-sam-muted">{t("admin_ops_console_kpi_long_delivering")}</div>
             <div className="text-lg font-semibold text-sam-fg">{fmtInt(kpis.long_delivering)}</div>
           </div>
           <div className={`${Sam.card.base} ${Sam.card.pad}`}>
-            <div className="text-xs text-sam-muted">failed auto</div>
+            <div className="text-xs text-sam-muted">{t("admin_ops_console_kpi_failed_auto")}</div>
             <div className="text-lg font-semibold text-sam-fg">{fmtInt(kpis.failed_auto_actions)}</div>
           </div>
           <div className={`${Sam.card.base} ${Sam.card.pad}`}>
-            <div className="text-xs text-sam-muted">pending appr</div>
+            <div className="text-xs text-sam-muted">{t("admin_ops_console_kpi_pending_appr")}</div>
             <div className="text-lg font-semibold text-sam-fg">{fmtInt(kpis.pending_approvals)}</div>
           </div>
           <div className={`${Sam.card.base} ${Sam.card.pad}`}>
-            <div className="text-xs text-sam-muted">held settlements</div>
+            <div className="text-xs text-sam-muted">{t("admin_ops_console_kpi_held_settlements")}</div>
             <div className="text-lg font-semibold text-sam-fg">{fmtInt(kpis.held_settlements)}</div>
           </div>
           <div className={`${Sam.card.base} ${Sam.card.pad}`}>
-            <div className="text-xs text-sam-muted">cron health</div>
+            <div className="text-xs text-sam-muted">{t("admin_ops_console_kpi_cron_health")}</div>
             <div className="text-lg font-semibold text-sam-fg">
-              {kpis.cron_health_age_seconds == null ? "—" : `${Math.floor(Number(kpis.cron_health_age_seconds) / 60)}m`}
+              {kpis.cron_health_age_seconds == null
+                ? "—"
+                : t("admin_ops_console_kpi_cron_minutes", {
+                    m: Math.floor(Number(kpis.cron_health_age_seconds) / 60),
+                  })}
             </div>
           </div>
         </div>
 
         <div className={`${Sam.card.base} ${Sam.card.pad}`}>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="font-medium text-sam-fg">빠른 액션</div>
-            <div className="text-xs text-sam-muted">
-              복구 러너는 기존 RPC를 호출합니다. (상태 머신/기능 축소 없음)
-            </div>
+            <div className="font-medium text-sam-fg">{t("admin_ops_console_quick_actions_title")}</div>
+            <div className="text-xs text-sam-muted">{t("admin_ops_console_quick_actions_hint")}</div>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             {QUICK_RECOVERY.map((b) => (
@@ -727,37 +761,39 @@ export function AdminOpsConsolePage() {
                 onClick={() => void runRecovery(b.action)}
                 type="button"
               >
-                {b.label}
+                {t(b.labelKey)}
               </button>
             ))}
             <Link className={Sam.btn.secondary} href="/admin/delivery-auto-actions">
-              자동 액션 상세
+              {t("admin_ops_console_quick_auto_actions_detail")}
             </Link>
           </div>
         </div>
 
         <div className={`${Sam.card.base} ${Sam.card.pad}`}>
           <div className="flex items-center justify-between gap-3">
-            <div className="font-medium text-sam-fg">실시간 운영 큐</div>
-            <div className="text-xs text-sam-muted">{loading ? "loading…" : summary?.generated_at ?? ""}</div>
+            <div className="font-medium text-sam-fg">{t("admin_ops_console_queue_title")}</div>
+            <div className="text-xs text-sam-muted">
+              {loading ? t("admin_ops_console_loading") : (summary?.generated_at ?? "")}
+            </div>
           </div>
 
           <div className="mt-3 flex flex-wrap gap-2">
-            {TABS.map((t) => (
+            {TABS.map((tabDef) => (
               <button
-                key={t.key}
+                key={tabDef.key}
                 type="button"
-                className={tab === t.key ? Sam.btn.primary : Sam.btn.secondary}
-                onClick={() => setTab(t.key)}
+                className={tab === tabDef.key ? Sam.btn.primary : Sam.btn.secondary}
+                onClick={() => setTab(tabDef.key)}
               >
-                {t.label} ({fmtInt(tabCounts[t.key] ?? 0)})
+                {t(tabDef.labelKey)} ({fmtInt(tabCounts[tabDef.key] ?? 0)})
               </button>
             ))}
           </div>
 
           {tab !== "auto_actions" ? (
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <div className="text-xs text-sam-muted">Focus</div>
+              <div className="text-xs text-sam-muted">{t("admin_ops_console_focus_label")}</div>
               {(["all", "critical", "sla", "rider_issues", "settlements", "refund", "attention", "mine"] as const).map((k) => (
                 <button
                   key={k}
@@ -765,25 +801,11 @@ export function AdminOpsConsolePage() {
                   className={focus === k ? Sam.btn.primary : Sam.btn.secondary}
                   onClick={() => setFocus(k)}
                 >
-                  {k === "all"
-                    ? "전체"
-                    : k === "critical"
-                      ? "Critical"
-                      : k === "sla"
-                        ? "SLA"
-                        : k === "rider_issues"
-                          ? "라이더"
-                          : k === "settlements"
-                            ? "정산"
-                            : k === "refund"
-                              ? "환불"
-                              : k === "attention"
-                                ? "Attention"
-                                : "내 담당"}
+                  {focusLabel(k)}
                 </button>
               ))}
 
-              <div className="ml-2 text-xs text-sam-muted">Group</div>
+              <div className="ml-2 text-xs text-sam-muted">{t("admin_ops_console_group_label")}</div>
               {(["none", "store", "rider", "region"] as const).map((g) => (
                 <button
                   key={g}
@@ -791,13 +813,11 @@ export function AdminOpsConsolePage() {
                   className={groupMode === g ? Sam.btn.primary : Sam.btn.secondary}
                   onClick={() => setGroupMode(g)}
                 >
-                  {g === "none" ? "없음" : g === "store" ? "매장" : g === "rider" ? "라이더" : "지역"}
+                  {groupLabel(g)}
                 </button>
               ))}
 
-              <div className="ml-auto text-xs text-sam-muted">
-                smart sort: priority_score desc (tie: escalation, updated_at)
-              </div>
+              <div className="ml-auto text-xs text-sam-muted">{t("admin_ops_console_sort_hint")}</div>
             </div>
           ) : null}
 
@@ -806,18 +826,18 @@ export function AdminOpsConsolePage() {
               <table className="min-w-[980px] w-full text-sm">
                 <thead className="bg-sam-surface">
                   <tr className="text-left text-sam-muted">
-                    <th className="px-3 py-2 w-[180px]">주문</th>
-                    <th className="px-3 py-2 w-[180px]">상태</th>
-                    <th className="px-3 py-2 w-[220px]">룰</th>
-                    <th className="px-3 py-2">메시지</th>
-                    <th className="px-3 py-2 w-[300px]">즉시 액션</th>
+                    <th className="px-3 py-2 w-[180px]">{t("admin_ops_console_th_order")}</th>
+                    <th className="px-3 py-2 w-[180px]">{t("admin_ops_console_th_status")}</th>
+                    <th className="px-3 py-2 w-[220px]">{t("admin_ops_console_th_rule")}</th>
+                    <th className="px-3 py-2">{t("admin_ops_console_th_message")}</th>
+                    <th className="px-3 py-2 w-[300px]">{t("admin_ops_console_th_instant_action")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {(autoActions ?? []).length === 0 ? (
                     <tr>
                       <td className="px-3 py-6 text-sam-muted" colSpan={5}>
-                        자동 액션 큐가 비어있습니다.
+                        {t("admin_ops_console_empty_auto_queue")}
                       </td>
                     </tr>
                   ) : (
@@ -854,7 +874,7 @@ export function AdminOpsConsolePage() {
                                   onClick={() => setModal({ kind: "auto_approve", actionId: aid, note: "" })}
                                   type="button"
                                 >
-                                  승인
+                                  {t("admin_ops_console_btn_approve")}
                                 </button>
                               ) : null}
                               {canReject ? (
@@ -864,7 +884,7 @@ export function AdminOpsConsolePage() {
                                   onClick={() => setModal({ kind: "auto_reject", actionId: aid, note: "" })}
                                   type="button"
                                 >
-                                  거절
+                                  {t("admin_ops_console_btn_reject")}
                                 </button>
                               ) : null}
                               {canRetry ? (
@@ -879,11 +899,11 @@ export function AdminOpsConsolePage() {
                                   }
                                   type="button"
                                 >
-                                  재시도
+                                  {t("admin_ops_console_btn_retry")}
                                 </button>
                               ) : null}
                               <Link className={Sam.btn.secondary} href="/admin/delivery-auto-actions">
-                                상세
+                                {t("admin_ops_console_btn_detail")}
                               </Link>
                             </div>
                           </td>
@@ -899,20 +919,20 @@ export function AdminOpsConsolePage() {
             <table className="min-w-[1120px] w-full text-sm">
               <thead className="bg-sam-surface">
                 <tr className="text-left text-sam-muted">
-                  <th className="px-3 py-2 w-[160px]">주문</th>
-                  <th className="px-3 py-2 w-[220px]">매장</th>
-                  <th className="px-3 py-2 w-[160px]">상태</th>
-                  <th className="px-3 py-2 w-[140px]">Priority</th>
-                  <th className="px-3 py-2">이유</th>
-                  <th className="px-3 py-2 w-[260px]">즉시 액션</th>
-                  <th className="px-3 py-2 w-[220px]">바로가기</th>
+                  <th className="px-3 py-2 w-[160px]">{t("admin_ops_console_th_order")}</th>
+                  <th className="px-3 py-2 w-[220px]">{t("admin_ops_console_th_store")}</th>
+                  <th className="px-3 py-2 w-[160px]">{t("admin_ops_console_th_status")}</th>
+                  <th className="px-3 py-2 w-[140px]">{t("admin_ops_console_th_priority")}</th>
+                  <th className="px-3 py-2">{t("admin_ops_console_th_reasons")}</th>
+                  <th className="px-3 py-2 w-[260px]">{t("admin_ops_console_th_instant_action")}</th>
+                  <th className="px-3 py-2 w-[220px]">{t("admin_ops_console_th_shortcuts")}</th>
                 </tr>
               </thead>
               <tbody>
                 {smartRows.length === 0 ? (
                   <tr>
                     <td className="px-3 py-6 text-sam-muted" colSpan={6}>
-                      큐가 비어있습니다.
+                      {t("admin_ops_console_empty_queue")}
                     </td>
                   </tr>
                 ) : (
@@ -931,8 +951,12 @@ export function AdminOpsConsolePage() {
                             <span className="font-medium">{isCollapsed ? "▶" : "▼"}</span>
                             <span className="font-medium">{g.title}</span>
                             <span className="text-xs text-sam-muted">({g.rows.length})</span>
-                            <span className="ml-2 text-xs text-sam-muted">top priority {top}</span>
-                            {low ? <span className="ml-2 text-xs text-sam-muted">low → auto collapse</span> : null}
+                            <span className="ml-2 text-xs text-sam-muted">
+                              {t("admin_ops_console_top_priority", { score: top })}
+                            </span>
+                            {low ? (
+                              <span className="ml-2 text-xs text-sam-muted">{t("admin_ops_console_low_auto_collapse")}</span>
+                            ) : null}
                           </button>
                         </td>
                       </tr>
@@ -979,7 +1003,7 @@ export function AdminOpsConsolePage() {
                                     onClick={() => setModal({ kind: "alert_ack", eventId, orderId: oid || undefined, note: "" })}
                                     type="button"
                                   >
-                                    Ack
+                                    {t("admin_ops_console_btn_ack")}
                                   </button>
                                   <button
                                     className={Sam.btn.secondary}
@@ -987,7 +1011,7 @@ export function AdminOpsConsolePage() {
                                     onClick={() => setModal({ kind: "alert_resolve", eventId, orderId: oid || undefined, note: "" })}
                                     type="button"
                                   >
-                                    Resolve
+                                    {t("admin_ops_console_btn_resolve")}
                                   </button>
                                 </>
                               ) : null}
@@ -999,7 +1023,7 @@ export function AdminOpsConsolePage() {
                                   onClick={() => setModal({ kind: "order_attention", orderId: oid, attention: true, adminNote: "" })}
                                   type="button"
                                 >
-                                  Attention
+                                  {t("admin_ops_console_btn_attention")}
                                 </button>
                               ) : null}
 
@@ -1011,7 +1035,7 @@ export function AdminOpsConsolePage() {
                                     onClick={() => setModal({ kind: "settlement_hold", settlementId, holdReason: "" })}
                                     type="button"
                                   >
-                                    Hold
+                                    {t("admin_ops_console_btn_hold")}
                                   </button>
                                   <button
                                     className={Sam.btn.primary}
@@ -1019,7 +1043,7 @@ export function AdminOpsConsolePage() {
                                     onClick={() => setModal({ kind: "settlement_paid", settlementId, payoutNote: "" })}
                                     type="button"
                                   >
-                                    Paid
+                                    {t("admin_ops_console_btn_paid")}
                                   </button>
                                 </>
                               ) : null}
@@ -1032,7 +1056,7 @@ export function AdminOpsConsolePage() {
                                     onClick={() => setModal({ kind: "rider_release", orderId: oid, failureReason: "" })}
                                     type="button"
                                   >
-                                    Release
+                                    {t("admin_ops_console_btn_release")}
                                   </button>
                                   <button
                                     className={Sam.btn.primary}
@@ -1050,18 +1074,20 @@ export function AdminOpsConsolePage() {
                                     }
                                     type="button"
                                   >
-                                    Reassign
+                                    {t("admin_ops_console_btn_reassign")}
                                   </button>
                                 </>
                               ) : null}
 
                               {!eventId && (tab === "risk" || tab === "sla" || tab === "incidents") ? (
-                                <span className="text-xs text-sam-muted">event_id 없음</span>
+                                <span className="text-xs text-sam-muted">{t("admin_ops_console_no_event_id")}</span>
                               ) : null}
                               {!settlementId && tab === "settlements" ? (
-                                <span className="text-xs text-sam-muted">settlement_id 없음</span>
+                                <span className="text-xs text-sam-muted">{t("admin_ops_console_no_settlement_id")}</span>
                               ) : null}
-                              {!oid && tab === "riders" ? <span className="text-xs text-sam-muted">order_id 없음</span> : null}
+                              {!oid && tab === "riders" ? (
+                                <span className="text-xs text-sam-muted">{t("admin_ops_console_no_order_id")}</span>
+                              ) : null}
                             </div>
                           </td>
                           <td className="px-3 py-2">
@@ -1069,20 +1095,20 @@ export function AdminOpsConsolePage() {
                               {oid ? (
                                 <>
                                   <Link className={Sam.btn.secondary} href={`/admin/delivery-orders/${encodeURIComponent(oid)}`}>
-                                    주문
+                                    {t("admin_ops_console_link_order")}
                                   </Link>
                                   <Link className={Sam.btn.secondary} href={`/admin/stores/orders/${encodeURIComponent(oid)}`}>
-                                    스토어 주문
+                                    {t("admin_ops_console_link_store_order")}
                                   </Link>
                                 </>
                               ) : null}
                               {settlementId ? (
                                 <Link className={Sam.btn.secondary} href={`/admin/store-settlements`}>
-                                  정산
+                                  {t("admin_ops_console_link_settlement")}
                                 </Link>
                               ) : null}
                               <Link className={Sam.btn.secondary} href="/admin/delivery-operations">
-                                운영센터
+                                {t("admin_ops_console_link_ops_hub")}
                               </Link>
                             </div>
                           </td>
@@ -1102,17 +1128,17 @@ export function AdminOpsConsolePage() {
 
       {modal ? (
         modal.kind === "alert_ack" ? (
-          <ModalShell title="Alert acknowledge" busy={!!actionBusyKey} onClose={() => setModal(null)}>
+          <ModalShell titleKey="admin_ops_console_modal_alert_ack_title" busy={!!actionBusyKey} onClose={() => setModal(null)}>
             <textarea
               className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
-              placeholder="메모(선택)"
+              placeholder={t("admin_ops_console_ph_note_optional")}
               value={modal.note}
               onChange={(e) => setModal({ ...modal, note: e.target.value })}
               rows={4}
             />
             <div className="mt-3 flex justify-end gap-2">
               <button className={Sam.btn.secondary} disabled={!!actionBusyKey} onClick={() => setModal(null)} type="button">
-                취소
+                {t("admin_ops_console_btn_cancel")}
               </button>
               <button
                 className={Sam.btn.primary}
@@ -1126,22 +1152,22 @@ export function AdminOpsConsolePage() {
                 }
                 type="button"
               >
-                확인
+                {t("admin_ops_console_btn_confirm")}
               </button>
             </div>
           </ModalShell>
         ) : modal.kind === "alert_resolve" ? (
-          <ModalShell title="Alert resolve" busy={!!actionBusyKey} onClose={() => setModal(null)}>
+          <ModalShell titleKey="admin_ops_console_modal_alert_resolve_title" busy={!!actionBusyKey} onClose={() => setModal(null)}>
             <textarea
               className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
-              placeholder="해결 메모(선택)"
+              placeholder={t("admin_ops_console_ph_resolve_note")}
               value={modal.note}
               onChange={(e) => setModal({ ...modal, note: e.target.value })}
               rows={4}
             />
             <div className="mt-3 flex justify-end gap-2">
               <button className={Sam.btn.secondary} disabled={!!actionBusyKey} onClick={() => setModal(null)} type="button">
-                취소
+                {t("admin_ops_console_btn_cancel")}
               </button>
               <button
                 className={Sam.btn.primary}
@@ -1155,22 +1181,22 @@ export function AdminOpsConsolePage() {
                 }
                 type="button"
               >
-                해결
+                {t("admin_ops_console_btn_resolve_action")}
               </button>
             </div>
           </ModalShell>
         ) : modal.kind === "auto_approve" ? (
-          <ModalShell title="Auto action approve" busy={!!actionBusyKey} onClose={() => setModal(null)}>
+          <ModalShell titleKey="admin_ops_console_modal_auto_approve_title" busy={!!actionBusyKey} onClose={() => setModal(null)}>
             <textarea
               className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
-              placeholder="승인 메모(선택)"
+              placeholder={t("admin_ops_console_ph_approve_note")}
               value={modal.note}
               onChange={(e) => setModal({ ...modal, note: e.target.value })}
               rows={4}
             />
             <div className="mt-3 flex justify-end gap-2">
               <button className={Sam.btn.secondary} disabled={!!actionBusyKey} onClick={() => setModal(null)} type="button">
-                취소
+                {t("admin_ops_console_btn_cancel")}
               </button>
               <button
                 className={Sam.btn.primary}
@@ -1184,22 +1210,22 @@ export function AdminOpsConsolePage() {
                 }
                 type="button"
               >
-                승인
+                {t("admin_ops_console_btn_approve")}
               </button>
             </div>
           </ModalShell>
         ) : modal.kind === "auto_reject" ? (
-          <ModalShell title="Auto action reject" busy={!!actionBusyKey} onClose={() => setModal(null)}>
+          <ModalShell titleKey="admin_ops_console_modal_auto_reject_title" busy={!!actionBusyKey} onClose={() => setModal(null)}>
             <textarea
               className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
-              placeholder="거절 사유/메모(권장)"
+              placeholder={t("admin_ops_console_ph_reject_note")}
               value={modal.note}
               onChange={(e) => setModal({ ...modal, note: e.target.value })}
               rows={4}
             />
             <div className="mt-3 flex justify-end gap-2">
               <button className={Sam.btn.secondary} disabled={!!actionBusyKey} onClick={() => setModal(null)} type="button">
-                취소
+                {t("admin_ops_console_btn_cancel")}
               </button>
               <button
                 className={Sam.btn.primary}
@@ -1213,21 +1239,21 @@ export function AdminOpsConsolePage() {
                 }
                 type="button"
               >
-                거절
+                {t("admin_ops_console_btn_reject")}
               </button>
             </div>
           </ModalShell>
         ) : modal.kind === "settlement_hold" ? (
-          <ModalShell title="Settlement hold" busy={!!actionBusyKey} onClose={() => setModal(null)}>
+          <ModalShell titleKey="admin_ops_console_modal_settlement_hold_title" busy={!!actionBusyKey} onClose={() => setModal(null)}>
             <input
               className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
-              placeholder="보류 사유(필수)"
+              placeholder={t("admin_ops_console_ph_hold_reason")}
               value={modal.holdReason}
               onChange={(e) => setModal({ ...modal, holdReason: e.target.value })}
             />
             <div className="mt-3 flex justify-end gap-2">
               <button className={Sam.btn.secondary} disabled={!!actionBusyKey} onClick={() => setModal(null)} type="button">
-                취소
+                {t("admin_ops_console_btn_cancel")}
               </button>
               <button
                 className={Sam.btn.primary}
@@ -1244,22 +1270,22 @@ export function AdminOpsConsolePage() {
                 }
                 type="button"
               >
-                Hold
+                {t("admin_ops_console_btn_hold")}
               </button>
             </div>
           </ModalShell>
         ) : modal.kind === "settlement_paid" ? (
-          <ModalShell title="Settlement paid" busy={!!actionBusyKey} onClose={() => setModal(null)}>
+          <ModalShell titleKey="admin_ops_console_modal_settlement_paid_title" busy={!!actionBusyKey} onClose={() => setModal(null)}>
             <textarea
               className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
-              placeholder="지급 메모/레퍼런스(선택)"
+              placeholder={t("admin_ops_console_ph_payout_note")}
               value={modal.payoutNote}
               onChange={(e) => setModal({ ...modal, payoutNote: e.target.value })}
               rows={4}
             />
             <div className="mt-3 flex justify-end gap-2">
               <button className={Sam.btn.secondary} disabled={!!actionBusyKey} onClick={() => setModal(null)} type="button">
-                취소
+                {t("admin_ops_console_btn_cancel")}
               </button>
               <button
                 className={Sam.btn.primary}
@@ -1276,22 +1302,22 @@ export function AdminOpsConsolePage() {
                 }
                 type="button"
               >
-                Paid
+                {t("admin_ops_console_btn_paid")}
               </button>
             </div>
           </ModalShell>
         ) : modal.kind === "order_attention" ? (
-          <ModalShell title="Order attention mark" busy={!!actionBusyKey} onClose={() => setModal(null)}>
+          <ModalShell titleKey="admin_ops_console_modal_order_attention_title" busy={!!actionBusyKey} onClose={() => setModal(null)}>
             <textarea
               className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
-              placeholder="admin_note(선택, 권장)"
+              placeholder={t("admin_ops_console_ph_admin_note")}
               value={modal.adminNote}
               onChange={(e) => setModal({ ...modal, adminNote: e.target.value })}
               rows={4}
             />
             <div className="mt-3 flex justify-end gap-2">
               <button className={Sam.btn.secondary} disabled={!!actionBusyKey} onClick={() => setModal(null)} type="button">
-                취소
+                {t("admin_ops_console_btn_cancel")}
               </button>
               <button
                 className={Sam.btn.primary}
@@ -1305,21 +1331,21 @@ export function AdminOpsConsolePage() {
                 }
                 type="button"
               >
-                적용
+                {t("admin_ops_console_btn_apply")}
               </button>
             </div>
           </ModalShell>
         ) : modal.kind === "rider_release" ? (
-          <ModalShell title="Rider release" busy={!!actionBusyKey} onClose={() => setModal(null)}>
+          <ModalShell titleKey="admin_ops_console_modal_rider_release_title" busy={!!actionBusyKey} onClose={() => setModal(null)}>
             <input
               className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
-              placeholder="failure_reason(선택)"
+              placeholder={t("admin_ops_console_ph_failure_reason")}
               value={modal.failureReason}
               onChange={(e) => setModal({ ...modal, failureReason: e.target.value })}
             />
             <div className="mt-3 flex justify-end gap-2">
               <button className={Sam.btn.secondary} disabled={!!actionBusyKey} onClick={() => setModal(null)} type="button">
-                취소
+                {t("admin_ops_console_btn_cancel")}
               </button>
               <button
                 className={Sam.btn.primary}
@@ -1336,21 +1362,21 @@ export function AdminOpsConsolePage() {
                 }
                 type="button"
               >
-                Release
+                {t("admin_ops_console_btn_release")}
               </button>
             </div>
           </ModalShell>
         ) : (
-          <ModalShell title="Rider reassign" busy={!!actionBusyKey} onClose={() => setModal(null)}>
+          <ModalShell titleKey="admin_ops_console_modal_rider_reassign_title" busy={!!actionBusyKey} onClose={() => setModal(null)}>
             <div className="space-y-3">
               <div className="text-xs text-sam-muted">
-                현재 라이더:{" "}
+                {t("admin_ops_console_current_rider")}{" "}
                 <span className="font-mono text-sam-fg">{modal.currentRiderId ? modal.currentRiderId.slice(0, 8) : "—"}</span>
               </div>
 
               <input
                 className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
-                placeholder="라이더 검색(이름/ID 일부)"
+                placeholder={t("admin_ops_console_ph_rider_search")}
                 value={modal.search}
                 onChange={(e) => setModal({ ...modal, search: e.target.value })}
               />
@@ -1361,20 +1387,22 @@ export function AdminOpsConsolePage() {
                   checked={modal.allowOffline}
                   onChange={(e) => setModal({ ...modal, allowOffline: e.target.checked })}
                 />
-                오프라인 배정 허용
+                {t("admin_ops_console_allow_offline_assign")}
               </label>
 
               {riderOptionsErr ? (
-                <div className="text-sm text-red-700">라이더 목록 로드 실패: {riderOptionsErr}</div>
+                <div className="text-sm text-red-700">
+                  {t("admin_ops_console_rider_load_failed", { error: riderOptionsErr })}
+                </div>
               ) : riderOptions == null ? (
-                <div className="text-sm text-sam-muted">라이더 목록 불러오는 중…</div>
+                <div className="text-sm text-sam-muted">{t("admin_ops_console_rider_loading")}</div>
               ) : (
                 <select
                   className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
                   value={modal.selectedRiderId}
                   onChange={(e) => setModal({ ...modal, selectedRiderId: e.target.value })}
                 >
-                  <option value="">라이더 선택…</option>
+                  <option value="">{t("admin_ops_console_ph_rider_select")}</option>
                   {riderOptions
                     .filter((r) => {
                       if (r.suspended_at || r.admin_status === "paused") return false;
@@ -1390,7 +1418,7 @@ export function AdminOpsConsolePage() {
                     .slice(0, 80)
                     .map((r) => (
                       <option key={r.id} value={r.id}>
-                        {r.is_online ? "[ON] " : "[OFF] "}
+                        {r.is_online ? t("admin_ops_console_rider_option_online") : t("admin_ops_console_rider_option_offline")}
                         {r.display_name} · {r.id.slice(0, 8)}
                       </option>
                     ))}
@@ -1398,18 +1426,18 @@ export function AdminOpsConsolePage() {
               )}
 
               {modal.selectedRiderId && modal.currentRiderId && modal.selectedRiderId === modal.currentRiderId ? (
-                <div className="text-sm text-amber-800">현재 라이더와 동일합니다. 변경이 필요하다면 다른 라이더를 선택하세요.</div>
+                <div className="text-sm text-amber-800">{t("admin_ops_console_rider_same_warning")}</div>
               ) : null}
 
               {modal.selectedRiderId && !modal.allowOffline && riderOptions ? (
                 riderOptions.find((x) => x.id === modal.selectedRiderId && !x.is_online) ? (
-                  <div className="text-sm text-amber-800">오프라인 라이더입니다. “오프라인 배정 허용”을 켜야 선택됩니다.</div>
+                  <div className="text-sm text-amber-800">{t("admin_ops_console_rider_offline_warning")}</div>
                 ) : null
               ) : null}
 
               <textarea
                 className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-sm"
-                placeholder="admin_note(선택)"
+                placeholder={t("admin_ops_console_ph_admin_note_short")}
                 value={modal.adminNote}
                 onChange={(e) => setModal({ ...modal, adminNote: e.target.value })}
                 rows={3}
@@ -1417,7 +1445,7 @@ export function AdminOpsConsolePage() {
             </div>
             <div className="mt-3 flex justify-end gap-2">
               <button className={Sam.btn.secondary} disabled={!!actionBusyKey} onClick={() => setModal(null)} type="button">
-                취소
+                {t("admin_ops_console_btn_cancel")}
               </button>
               <button
                 className={Sam.btn.primary}
@@ -1439,7 +1467,7 @@ export function AdminOpsConsolePage() {
                 }
                 type="button"
               >
-                Reassign
+                {t("admin_ops_console_btn_reassign")}
               </button>
             </div>
           </ModalShell>

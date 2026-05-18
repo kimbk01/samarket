@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -11,26 +12,28 @@ import { OpsPatternLogList } from "./OpsPatternLogList";
 import { OpsResponseQualityTable } from "./OpsResponseQualityTable";
 import { OpsImprovementSuggestionTable } from "./OpsImprovementSuggestionTable";
 import type { OpsLearningStatus } from "@/lib/types/ops-learning";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type TabId = "history" | "patterns" | "quality" | "suggestions" | "patternLogs";
 
 export function AdminOpsLearningPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("history");
   const [historyStatusFilter, setHistoryStatusFilter] = useState<OpsLearningStatus | "">("");
   const [patternStatusFilter, setPatternStatusFilter] = useState<OpsLearningStatus | "">("");
   const [selectedPatternId, setSelectedPatternId] = useState<string | null>(null);
 
-  const tabs: { id: TabId; label: string }[] = [
-    { id: "history", label: "학습 히스토리" },
-    { id: "patterns", label: "반복 패턴" },
-    { id: "quality", label: "대응 품질 피드백" },
-    { id: "suggestions", label: "개선 제안" },
-    { id: "patternLogs", label: "패턴 로그" },
+  const tabs: { id: TabId; labelKey: MessageKey }[] = [
+    { id: "history", labelKey: "admin_ops_tools_learning_tab_history" },
+    { id: "patterns", labelKey: "admin_ops_tools_learning_tab_patterns" },
+    { id: "quality", labelKey: "admin_ops_tools_learning_tab_quality" },
+    { id: "suggestions", labelKey: "admin_ops_tools_learning_tab_suggestions" },
+    { id: "patternLogs", labelKey: "admin_ops_tools_learning_tab_logs" },
   ];
 
   return (
     <>
-      <AdminPageHeader title="운영 학습" />
+      <AdminPageHeader titleKey="admin_ops_tools_learning_page_title" />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {tabs.map((tab) => (
           <button
@@ -43,7 +46,7 @@ export function AdminOpsLearningPage() {
                 : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
@@ -51,19 +54,19 @@ export function AdminOpsLearningPage() {
       {activeTab === "history" && (
         <div className="space-y-4">
           <OpsLearningSummaryCards />
-          <AdminCard title="학습 히스토리">
+          <AdminCard titleKey="admin_ops_tools_learning_tab_history">
             <div className="mb-3">
               <select
                 value={historyStatusFilter}
                 onChange={(e) => setHistoryStatusFilter(e.target.value as OpsLearningStatus | "")}
                 className="rounded border border-sam-border px-3 py-2 sam-text-body"
               >
-                <option value="">전체 상태</option>
-                <option value="detected">탐지</option>
-                <option value="reviewing">검토중</option>
-                <option value="action_created">액션생성</option>
-                <option value="mitigated">완화</option>
-                <option value="closed">종료</option>
+                <option value="">{t("admin_ops_tools_board_filter_status")}</option>
+                <option value="detected">{t("admin_ops_tools_pattern_detected")}</option>
+                <option value="reviewing">{t("admin_ops_tools_pattern_reviewing")}</option>
+                <option value="action_created">{t("admin_ops_tools_pattern_action_created")}</option>
+                <option value="mitigated">{t("admin_ops_tools_resolution_mitigated")}</option>
+                <option value="closed">{t("admin_ops_tools_pattern_closed")}</option>
               </select>
             </div>
             <OpsLearningHistoryTable statusFilter={historyStatusFilter} />
@@ -75,17 +78,17 @@ export function AdminOpsLearningPage() {
         <div className="grid gap-4 lg:grid-cols-[1fr,340px]">
           <div className="space-y-4">
             <OpsLearningSummaryCards />
-            <AdminCard title="반복 이슈 패턴">
+            <AdminCard titleKey="admin_ops_tools_learning_card_patterns">
               <div className="mb-3">
                 <select
                   value={patternStatusFilter}
                   onChange={(e) => setPatternStatusFilter(e.target.value as OpsLearningStatus | "")}
                   className="rounded border border-sam-border px-3 py-2 sam-text-body"
                 >
-                  <option value="">전체 상태</option>
-                  <option value="detected">탐지</option>
-                  <option value="reviewing">검토중</option>
-                  <option value="mitigated">완화</option>
+                  <option value="">{t("admin_ops_tools_board_filter_status")}</option>
+                  <option value="detected">{t("admin_ops_tools_pattern_detected")}</option>
+                  <option value="reviewing">{t("admin_ops_tools_pattern_reviewing")}</option>
+                  <option value="mitigated">{t("admin_ops_tools_resolution_mitigated")}</option>
                 </select>
               </div>
               <OpsIssuePatternTable
@@ -94,7 +97,7 @@ export function AdminOpsLearningPage() {
               />
             </AdminCard>
           </div>
-          <AdminCard title="패턴 상세">
+          <AdminCard titleKey="admin_ops_tools_learning_card_detail">
             <OpsPatternDetailPanel
               patternId={selectedPatternId}
               onClose={() => setSelectedPatternId(null)}
@@ -106,28 +109,28 @@ export function AdminOpsLearningPage() {
       {activeTab === "quality" && (
         <div className="space-y-4">
           <OpsLearningSummaryCards />
-          <AdminCard title="대응 품질 피드백 (이슈·런북 결과 비교)">
+          <AdminCard titleKey="admin_ops_tools_learning_card_quality">
             <OpsResponseQualityTable />
           </AdminCard>
         </div>
       )}
 
       {activeTab === "suggestions" && (
-        <AdminCard title="개선 제안">
+        <AdminCard titleKey="admin_ops_tools_learning_tab_suggestions">
           <OpsImprovementSuggestionTable />
         </AdminCard>
       )}
 
       {activeTab === "patternLogs" && (
         <div className="grid gap-4 lg:grid-cols-[1fr,340px]">
-          <AdminCard title="반복 패턴 (로그 확인 시 선택)">
+          <AdminCard titleKey="admin_ops_tools_learning_card_pattern_pick">
             <OpsIssuePatternTable onSelectPattern={setSelectedPatternId} />
           </AdminCard>
-          <AdminCard title="선택 패턴 로그">
+          <AdminCard titleKey="admin_ops_tools_learning_card_pattern_logs">
             {selectedPatternId ? (
               <OpsPatternLogList patternId={selectedPatternId} />
             ) : (
-              <p className="sam-text-body text-sam-muted">패턴을 선택하면 로그가 표시됩니다.</p>
+              <p className="sam-text-body text-sam-muted">{t("admin_ops_tools_learning_log_pick")}</p>
             )}
           </AdminCard>
         </div>

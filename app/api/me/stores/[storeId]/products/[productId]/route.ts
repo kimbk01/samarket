@@ -6,6 +6,7 @@ import {
   getStoreIfOwner,
 } from "@/lib/stores/owner-product-gate";
 import { parseProductOptionsJsonField } from "@/lib/stores/parse-product-options-json";
+import { loadUserAppLanguage } from "@/lib/i18n/load-user-app-language";
 import { validateOwnerOptionsJsonPayload } from "@/lib/stores/owner-product-options-validate";
 import { discountPriceFromPercent } from "@/lib/stores/store-product-pricing";
 import {
@@ -133,6 +134,7 @@ export async function PATCH(
   if (!sb) {
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
+  const uiLang = await loadUserAppLanguage(sb, userId, req.headers.get("accept-language"));
 
   const loaded = await loadProductForOwner(sb, userId, sid, pid);
   if (loaded.error === "no_sb") {
@@ -400,7 +402,7 @@ export async function PATCH(
     if (!parsed.ok) {
       return NextResponse.json({ ok: false, error: "invalid_options_json" }, { status: 400 });
     }
-    const optCheck = validateOwnerOptionsJsonPayload(parsed.value);
+    const optCheck = validateOwnerOptionsJsonPayload(parsed.value, uiLang);
     if (!optCheck.ok) {
       return NextResponse.json(
         { ok: false, error: optCheck.error, message: optCheck.message },

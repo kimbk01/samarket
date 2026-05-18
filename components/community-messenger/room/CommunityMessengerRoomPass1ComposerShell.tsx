@@ -2,6 +2,7 @@
 
 import { ArrowUp, Mic, Plus } from "lucide-react";
 import { memo, useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MessengerInputBar } from "@/components/community-messenger/line-ui";
 import { communityMessengerRoomIsGloballyUsable } from "@/lib/community-messenger/types";
 import { useMessengerRoomComposerSurface } from "@/lib/community-messenger/room/use-messenger-room-composer-surface";
@@ -67,6 +68,7 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
 }: {
   composerEntryVisible: boolean;
 }) {
+  const { t } = useI18n();
   const earlyVm = useMessengerRoomComposerEarlyContext();
   const phase1Vm = useMessengerRoomComposerSurface();
   const vm = earlyVm ?? phase1Vm;
@@ -146,10 +148,10 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
   const roomUnavailable = vm.roomUnavailable;
   const voiceBridgeReady = Boolean(getMessengerRoomComposerPhase2Bridge());
   const placeholder = vm.snapshot.clientShellPlaceholder
-    ? "메시지를 입력하세요"
+    ? t("nav_messenger_input_placeholder")
     : roomUnavailable
-      ? "읽기 전용 방입니다"
-      : "메시지";
+      ? t("cm_ui_read_only_room")
+      : t("cm_ui_message");
 
   return (
     <footer
@@ -168,7 +170,7 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
             data-cm-line-plus-btn
             onClick={() => vm.setActiveSheet("attach")}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-transparent text-[#1f2937] active:bg-black/[0.08]"
-            aria-label="첨부 메뉴"
+            aria-label={t("cm_ui_attachment_menu")}
           >
             <Plus className="h-[21px] w-[21px]" strokeWidth={2} />
           </button>
@@ -197,7 +199,7 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
               vm.busy === "send-file" ||
               vm.busy === "send-sticker"
             }
-            placeholder={tradeOnlyBlocked ? vm.snapshot.tradeMessaging?.denyMessage ?? "메시지를 보낼 수 없습니다" : placeholder}
+            placeholder={tradeOnlyBlocked ? vm.snapshot.tradeMessaging?.denyMessage ?? t("cm_ui_cannot_send_message") : placeholder}
             className="h-[38px] min-h-[38px] w-full min-w-0 resize-none border-0 bg-transparent text-[14px] leading-[1.35] outline-none placeholder:text-[#65676b] disabled:opacity-50"
           />
         </div>
@@ -208,7 +210,7 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
               data-cm-line-mic-btn
               disabled={roomUnavailable || !voiceBridgeReady}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-transparent text-[#1f2937] disabled:opacity-45"
-              aria-label="음성 메시지"
+              aria-label={t("cm_ui_voice_message")}
             >
               <Mic className="h-5 w-5" strokeWidth={2} />
             </button>
@@ -219,7 +221,7 @@ export const CommunityMessengerRoomPass1ComposerShell = memo(function CommunityM
               onClick={() => commitTextSend()}
               disabled={roomUnavailable || !draft.trim() || vm.busy === "send"}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[color:var(--cm-room-primary)] text-white disabled:opacity-50"
-              aria-label="전송"
+              aria-label={t("common_send")}
             >
               <ArrowUp className="h-5 w-5" strokeWidth={2.25} />
             </button>

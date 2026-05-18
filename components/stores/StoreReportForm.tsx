@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -22,6 +23,7 @@ export function StoreReportForm({
   mode: "store" | "product";
   productId?: string;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [reason, setReason] = useState("other");
   const [message, setMessage] = useState("");
@@ -77,8 +79,8 @@ export function StoreReportForm({
   if (ok) {
     return (
       <div className="rounded-ui-rect border border-sam-success/15 bg-sam-success-soft p-4 sam-text-body text-sam-success">
-        <p className="font-medium">신고가 접수되었습니다.</p>
-        <p className="mt-1 sam-text-body-secondary text-sam-success">검토 후 필요 시 조치합니다. 허위 신고는 제재 대상이 될 수 있습니다.</p>
+        <p className="font-medium">{t("store_report_submitted")}</p>
+        <p className="mt-1 sam-text-body-secondary text-sam-success">{t("store_report_followup")}</p>
         <button
           type="button"
           className="mt-4 sam-text-body-secondary font-medium text-sam-success underline"
@@ -98,7 +100,7 @@ export function StoreReportForm({
           : "선택한 상품에 대한 신고입니다."}
       </p>
       <label className="sam-form-field block">
-        <span className="sam-form-label">사유</span>
+        <span className="sam-form-label">{t("store_report_reason")}</span>
         <select
           className="sam-select mt-1"
           value={reason}
@@ -112,13 +114,13 @@ export function StoreReportForm({
         </select>
       </label>
       <label className="sam-form-field block">
-        <span className="sam-form-label">상세 내용 (최대 2000자)</span>
+        <span className="sam-form-label">{t("store_report_detail_label")}</span>
         <textarea
           className="sam-textarea mt-1 min-h-[96px]"
           value={message}
           onChange={(e) => setMessage(e.target.value)}
           maxLength={2000}
-          placeholder="구체적으로 적어 주시면 검토에 도움이 됩니다."
+          placeholder={t("store_report_detail_placeholder")}
         />
       </label>
       {err ? <p className="sam-text-helper text-sam-danger">{err}</p> : null}

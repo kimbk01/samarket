@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { formatMoneyPhp } from "@/lib/utils/format";
 import type { StoreDetailProductCard } from "@/lib/stores/group-store-products-by-menu";
@@ -20,6 +21,7 @@ export function StoreMenuBoardPreamble({
   menuSelectBlocked?: boolean;
   onOpenProduct: (productId: string) => void;
 }) {
+  const { t } = useI18n();
   const dimmed = menuSelectBlocked;
 
   if (recommendedCards.length === 0 && popularCards.length === 0) return null;
@@ -27,8 +29,8 @@ export function StoreMenuBoardPreamble({
   return (
     <div className="border-b border-neutral-100 bg-white">
       {recommendedCards.length > 0 ? (
-        <section className="px-4 pb-3 pt-3" aria-label="사장님 추천">
-          <h2 className="text-[15px] font-extrabold tracking-[-0.02em] text-neutral-900">사장님 추천</h2>
+        <section className="px-4 pb-3 pt-3" aria-label={t("store_owner_pick_aria")}>
+          <h2 className="text-[15px] font-extrabold tracking-[-0.02em] text-neutral-900">{t("store_owner_pick_title")}</h2>
           <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {recommendedCards.map((p) => {
               const thumb = p.thumbnail_url?.trim() || "";
@@ -64,8 +66,8 @@ export function StoreMenuBoardPreamble({
       ) : null}
 
       {popularCards.length > 0 ? (
-        <section className="border-t border-neutral-100 px-4 pb-3 pt-3" aria-label="인기 메뉴">
-          <h2 className="text-[15px] font-extrabold tracking-[-0.02em] text-neutral-900">인기 메뉴</h2>
+        <section className="border-t border-neutral-100 px-4 pb-3 pt-3" aria-label={t("store_popular_menu_aria")}>
+          <h2 className="text-[15px] font-extrabold tracking-[-0.02em] text-neutral-900">{t("store_popular_menu_aria")}</h2>
           <ul className="mt-1 divide-y divide-[#F1F1F1]">
             {popularCards.map((p, idx) => {
               const rank = idx + 1;

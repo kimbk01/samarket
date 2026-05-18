@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import {
   SELLER_LISTING_LABEL,
@@ -59,6 +60,7 @@ export function SellerListingStateControl({
   onChange,
   className = "",
 }: SellerListingStateControlProps) {
+  const { t } = useI18n();
   const value =
     forcedValue ??
     normalizeSellerListingState(sellerListingState, postStatus);
@@ -67,7 +69,7 @@ export function SellerListingStateControl({
       className={`${SELLER_LISTING_CONTROL_BOX_LAYOUT} ${chatListingBoxClassForState(value)} ${className}`.trim()}
     >
       <select
-        aria-label="거래 상태"
+        aria-label={t("ui_product_listing_status_aria")}
         value={value}
         disabled={disabled}
         onChange={(e) => {

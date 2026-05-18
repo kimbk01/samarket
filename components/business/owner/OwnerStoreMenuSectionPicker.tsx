@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { MutableRefObject } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   forwardRef,
   useCallback,
@@ -33,6 +34,7 @@ export const OwnerStoreMenuSectionPicker = forwardRef<HTMLButtonElement, OwnerSt
     { id, sections, value, onChange, disabled = false, triggerClassName, categoriesHref },
     ref
   ) {
+    const { t } = useI18n();
     const [open, setOpen] = useState(false);
     const rootRef = useRef<HTMLDivElement | null>(null);
     const listId = useId();
@@ -67,13 +69,15 @@ export const OwnerStoreMenuSectionPicker = forwardRef<HTMLButtonElement, OwnerSt
       };
     }, [open, close]);
 
+    const sectionLabel = (s: OwnerMenuSectionRow) =>
+      `${s.name}${s.is_hidden ? t("business_phase7_397") : ""}`;
     const selected = sections.find((s) => s.id === value);
     const label =
       selected != null
-        ? `${selected.name}${selected.is_hidden ? " (숨김)" : ""}`
+        ? sectionLabel(selected)
         : sections.length > 0
-          ? "카테고리를 선택하세요"
-          : "등록된 카테고리 없음 · 눌러 추가";
+          ? t("business_phase7_394")
+          : t("business_phase7_395");
 
     const hasOptions = sections.length > 0;
 
@@ -103,7 +107,7 @@ export const OwnerStoreMenuSectionPicker = forwardRef<HTMLButtonElement, OwnerSt
           <div
             className="absolute left-0 right-0 top-[calc(100%+4px)] z-[60] min-w-0 max-w-full overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-lg ring-1 ring-black/[0.04]"
             role={hasOptions ? "presentation" : "dialog"}
-            aria-label={hasOptions ? undefined : "카테고리 추가"}
+            aria-label={hasOptions ? undefined : t("business_phase7_396")}
           >
             {hasOptions ? (
               <ul
@@ -113,7 +117,7 @@ export const OwnerStoreMenuSectionPicker = forwardRef<HTMLButtonElement, OwnerSt
               >
                 {sections.map((s) => {
                   const sel = s.id === value;
-                  const text = `${s.name}${s.is_hidden ? " (숨김)" : ""}`;
+                  const text = sectionLabel(s);
                   return (
                     <li key={s.id} role="presentation" className="min-w-0 max-w-full">
                       <button
@@ -146,7 +150,7 @@ export const OwnerStoreMenuSectionPicker = forwardRef<HTMLButtonElement, OwnerSt
                 className="flex min-h-[44px] w-full min-w-0 max-w-full items-center px-3 py-2.5 sam-text-body-secondary font-bold text-signature hover:bg-sam-app"
                 onClick={() => close()}
               >
-                <span className="min-w-0 flex-1 truncate">+ 카테고리 추가 관리</span>
+                <span className="min-w-0 flex-1 truncate">{t("business_phase7_002")}</span>
               </Link>
             </div>
           </div>

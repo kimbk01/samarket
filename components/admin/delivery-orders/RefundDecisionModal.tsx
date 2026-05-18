@@ -1,10 +1,11 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DeliveryReasonModal } from "./DeliveryReasonModal";
 
 type Mode = "approve" | "reject";
 
-/** 환불 승인/거절 전용 모달 (DeliveryReasonModal 래퍼, Supabase 연동 시 이 컴포넌트만 교체하기 쉬움) */
+/** Refund approve/reject modal (DeliveryReasonModal wrapper). */
 export function RefundDecisionModal({
   open,
   mode,
@@ -16,13 +17,14 @@ export function RefundDecisionModal({
   onClose: () => void;
   onConfirm: (memo: string) => void;
 }) {
+  const { t } = useI18n();
   const approve = mode === "approve";
   return (
     <DeliveryReasonModal
       open={open}
-      title={approve ? "환불 승인" : "환불 거절"}
-      label={approve ? "승인 메모 (필수)" : "거절 사유 (필수)"}
-      confirmLabel={approve ? "환불 승인" : "거절"}
+      title={t(approve ? "admin_do_refund_modal_approve_title" : "admin_do_refund_modal_reject_title")}
+      label={t(approve ? "admin_do_refund_modal_approve_label" : "admin_do_refund_modal_reject_label")}
+      confirmLabel={t(approve ? "admin_do_common_approve" : "admin_do_common_reject")}
       required
       onClose={onClose}
       onConfirm={onConfirm}

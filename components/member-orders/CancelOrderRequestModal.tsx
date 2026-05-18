@@ -3,13 +3,15 @@
 import { useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
-const PRESETS = [
-  "실수로 주문했어요",
-  "주소를 잘못 입력했어요",
-  "메뉴를 잘못 선택했어요",
-  "매장에 문의 후 취소 원해요",
-  "기타",
+const CANCEL_REASON_KEYS = [
+  "member_order_cancel_reason_mistake",
+  "member_order_cancel_reason_wrong_address",
+  "member_order_cancel_reason_wrong_menu",
+  "member_order_cancel_reason_store_contact",
+  "member_order_cancel_reason_other",
 ] as const;
+
+type CancelReasonKey = (typeof CANCEL_REASON_KEYS)[number];
 
 export function CancelOrderRequestModal({
   open,
@@ -20,13 +22,13 @@ export function CancelOrderRequestModal({
   onClose: () => void;
   onConfirm: (reasonLabel: string, detail?: string) => void;
 }) {
-  const { t, tt } = useI18n();
-  const [preset, setPreset] = useState<string>(PRESETS[0]);
+  const { t } = useI18n();
+  const [preset, setPreset] = useState<CancelReasonKey>(CANCEL_REASON_KEYS[0]);
   const [extra, setExtra] = useState("");
 
   if (!open) return null;
 
-  const needsExtra = preset === "기타";
+  const needsExtra = preset === "member_order_cancel_reason_other";
 
   return (
     <div className="fixed inset-0 z-[300] flex items-end justify-center bg-black/50 sm:items-center">
@@ -36,13 +38,18 @@ export function CancelOrderRequestModal({
           {t("member_order_cancel_notice")}
         </p>
         <div className="mt-3 space-y-2">
-          {PRESETS.map((p) => (
+          {CANCEL_REASON_KEYS.map((key) => (
             <label
-              key={p}
+              key={key}
               className="flex cursor-pointer items-center gap-2 rounded-ui-rect border border-sam-border-soft px-3 py-2 text-sm has-[:checked]:border-sam-border has-[:checked]:bg-sam-app"
             >
-              <input type="radio" name="cancel-reason" checked={preset === p} onChange={() => setPreset(p)} />
-              {tt(p)}
+              <input
+                type="radio"
+                name="cancel-reason"
+                checked={preset === key}
+                onChange={() => setPreset(key)}
+              />
+              {t(key)}
             </label>
           ))}
         </div>
@@ -73,7 +80,7 @@ export function CancelOrderRequestModal({
             type="button"
             onClick={() => {
               if (needsExtra && !extra.trim()) return;
-              onConfirm(preset, needsExtra ? extra.trim() : undefined);
+              onConfirm(t(preset), needsExtra ? extra.trim() : undefined);
               setExtra("");
               onClose();
             }}

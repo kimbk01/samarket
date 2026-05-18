@@ -11,8 +11,10 @@ import { ServiceWriteForm } from "@/components/write/service/ServiceWriteForm";
 import { FeatureWriteBlock } from "@/components/write/FeatureWriteBlock";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export default function WriteByCategoryPage() {
+  const { t } = useI18n();
   const params = useParams();
   const pathname = usePathname();
   const router = useRouter();
@@ -94,7 +96,7 @@ export default function WriteByCategoryPage() {
   if (status === "not_found") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
-        <p className="sam-text-body font-medium text-sam-fg">카테고리를 찾을 수 없습니다.</p>
+        <p className="sam-text-body font-medium text-sam-fg">{t("trade_120")}</p>
         <div className="mt-4 flex justify-center">
           <AppBackButton className="text-signature hover:bg-signature/10" />
         </div>
@@ -105,7 +107,7 @@ export default function WriteByCategoryPage() {
   if (status === "no_write" && category) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
-        <p className="sam-text-body font-medium text-sam-fg">이 카테고리에는 글을 쓸 수 없습니다.</p>
+        <p className="sam-text-body font-medium text-sam-fg">{t("trade_098")}</p>
         <button
           type="button"
           onClick={() => router.push(getCategoryHref(category))}
@@ -120,7 +122,7 @@ export default function WriteByCategoryPage() {
   if (status !== "found" || !category) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <p className="sam-text-body text-sam-muted">카테고리 정보를 불러오는 중입니다.</p>
+        <p className="sam-text-body text-sam-muted">{t("trade_119")}</p>
       </div>
     );
   }

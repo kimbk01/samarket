@@ -1,12 +1,14 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import Link from "next/link";
 
 type Row = Record<string, unknown>;
 
 export function AdminTradeAdPoliciesPage() {
+  const { t } = useI18n();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState("");
@@ -19,7 +21,7 @@ export function AdminTradeAdPoliciesPage() {
       const res = await fetch("/api/admin/trade-ad-products", { cache: "no-store" });
       const j = (await res.json()) as { ok?: boolean; rows?: Row[]; error?: string };
       if (!res.ok || !j.ok) {
-        setErr(j.error ?? "목록 로드 실패");
+        setErr(j.error ?? t("admin_trade_post_ads_list_load_failed"));
         setRows([]);
       } else {
         setRows(j.rows ?? []);
@@ -27,7 +29,7 @@ export function AdminTradeAdPoliciesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -46,7 +48,7 @@ export function AdminTradeAdPoliciesPage() {
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        setErr(j.error ?? "저장 실패");
+        setErr(j.error ?? t("admin_trade_ad_policies_save_failed"));
         return;
       }
       await load();
@@ -57,42 +59,39 @@ export function AdminTradeAdPoliciesPage() {
 
   return (
     <div className="space-y-6">
-      <AdminPageHeader
-        title="거래 광고 정책 (ad_products)"
-        description="상세 하단·리스트 상단 등 거래 마켓 광고의 기간·포인트·노출 위치·서비스 타입을 DB에서 관리합니다. 수치는 코드가 아니라 여기서만 조정하세요."
-      />
+      <AdminPageHeader titleKey="admin_page_trade_ad_policies" descriptionKey="admin_trade_ad_policies_desc" />
 
       <p className="sam-text-body-secondary text-sam-muted">
-        신청 처리·승인은{" "}
+        {t("admin_trade_ad_policies_apply_prefix")}{" "}
         <Link href="/admin/trade-post-ads" className="text-blue-700 underline">
-          거래 상세 광고 (trade_post_ads)
+          {t("admin_trade_ad_policies_apply_link")}
         </Link>{" "}
-        메뉴에서 합니다.
+        {t("admin_trade_ad_policies_apply_suffix")}
       </p>
 
       {err ? (
-        <div className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-3 sam-text-body-secondary text-red-800">{err}</div>
+        <div className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-3 sam-text-body-secondary text-red-800">
+          {err}
+        </div>
       ) : null}
 
       {loading ? (
-        <p className="sam-text-body-secondary text-sam-muted">불러오는 중…</p>
+        <p className="sam-text-body-secondary text-sam-muted">{t("common_loading")}</p>
       ) : rows.length === 0 ? (
-        <p className="sam-text-body-secondary text-sam-muted">
-          ad_products 테이블에 board_key=trade 또는 placement가 설정된 행이 없습니다. Supabase에 행을 추가하거나 마이그레이션 시드를 적용하세요.
-        </p>
+        <p className="sam-text-body-secondary text-sam-muted">{t("admin_trade_ad_policies_empty")}</p>
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
           <table className="min-w-full text-left sam-text-body-secondary">
             <thead className="bg-sam-surface-muted text-sam-muted">
               <tr>
-                <th className="px-3 py-2">이름</th>
+                <th className="px-3 py-2">{t("admin_trade_ad_policies_th_name")}</th>
                 <th className="px-3 py-2">board</th>
                 <th className="px-3 py-2">placement</th>
-                <th className="px-3 py-2">서비스</th>
-                <th className="px-3 py-2">기간(일)</th>
-                <th className="px-3 py-2">포인트</th>
-                <th className="px-3 py-2">순위</th>
-                <th className="px-3 py-2">활성</th>
+                <th className="px-3 py-2">{t("admin_trade_ad_policies_th_service")}</th>
+                <th className="px-3 py-2">{t("admin_trade_ad_policies_th_duration_days")}</th>
+                <th className="px-3 py-2">{t("admin_trade_th_points")}</th>
+                <th className="px-3 py-2">{t("admin_trade_ad_policies_th_priority")}</th>
+                <th className="px-3 py-2">{t("admin_trade_ad_policies_th_active")}</th>
               </tr>
             </thead>
             <tbody>
@@ -103,7 +102,7 @@ export function AdminTradeAdPoliciesPage() {
                     <td className="px-3 py-2 font-medium text-sam-fg">{String(r.name ?? "")}</td>
                     <td className="px-3 py-2">{String(r.board_key ?? "—")}</td>
                     <td className="px-3 py-2">{String(r.placement ?? "—")}</td>
-                    <td className="px-3 py-2">{String(r.service_type ?? "전체")}</td>
+                    <td className="px-3 py-2">{String(r.service_type ?? t("admin_trade_ad_policies_service_all"))}</td>
                     <td className="px-3 py-2">{String(r.duration_days ?? "")}</td>
                     <td className="px-3 py-2">{String(r.point_cost ?? "")}</td>
                     <td className="px-3 py-2">{String(r.priority_default ?? "")}</td>
@@ -114,7 +113,7 @@ export function AdminTradeAdPoliciesPage() {
                         onClick={() => void toggleActive(r)}
                         className="rounded border border-sam-border px-2 py-0.5 sam-text-helper disabled:opacity-50"
                       >
-                        {r.is_active ? "끄기" : "켜기"}
+                        {r.is_active ? t("admin_trade_ad_policies_toggle_off") : t("admin_trade_ad_policies_toggle_on")}
                       </button>
                     </td>
                   </tr>

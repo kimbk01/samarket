@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useEffect, useState } from "react";
 import { getCategories } from "@/lib/categories/getCategories";
@@ -16,6 +17,7 @@ export function ProductCategorySelect({
   onChange,
   error,
 }: ProductCategorySelectProps) {
+  const { t } = useI18n();
   const [options, setOptions] = useState<CategoryWithSettings[]>([]);
 
   useEffect(() => {
@@ -25,7 +27,7 @@ export function ProductCategorySelect({
   return (
     <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
       <label className="mb-2 block sam-text-body font-medium text-sam-fg">
-        카테고리 <span className="text-red-500">*</span>
+        {t("ui_product_category_label")} <span className="text-red-500">*</span>
       </label>
       <select
         value={value}
@@ -33,7 +35,7 @@ export function ProductCategorySelect({
         className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 sam-text-body text-sam-fg"
         aria-invalid={!!error}
       >
-        <option value="">선택</option>
+        <option value="">{t("ui_product_category_select")}</option>
         {options.map((c) => (
           <option key={c.id} value={c.id}>
             {c.name}

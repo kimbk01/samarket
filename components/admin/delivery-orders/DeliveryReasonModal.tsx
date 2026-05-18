@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function DeliveryReasonModal({
   open,
@@ -19,6 +20,7 @@ export function DeliveryReasonModal({
   onConfirm: (reason: string) => void;
   required?: boolean;
 }) {
+  const { t } = useI18n();
   const [text, setText] = useState("");
 
   if (!open) return null;
@@ -33,7 +35,7 @@ export function DeliveryReasonModal({
           onChange={(e) => setText(e.target.value)}
           rows={4}
           className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
-          placeholder={required ? "필수 입력" : "선택 입력"}
+          placeholder={required ? t("admin_do_common_required_input") : t("admin_do_common_optional_input")}
         />
         <div className="mt-4 flex justify-end gap-2">
           <button
@@ -44,7 +46,7 @@ export function DeliveryReasonModal({
             }}
             className="rounded-ui-rect border border-sam-border px-4 py-2 text-sm font-medium text-sam-fg"
           >
-            취소
+            {t("admin_do_common_cancel")}
           </button>
           <button
             type="button"

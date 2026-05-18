@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { previewStoreDeliveryBuiltinSound } from "@/lib/business/store-order-alert-sound";
+import type { MessageKey } from "@/lib/i18n/messages";
 import {
   STORE_DELIVERY_ALERT_SOUND_OPTIONS,
   STORE_DELIVERY_NOTIFICATION_MP3_PATH,
@@ -10,21 +12,21 @@ import {
 } from "@/lib/stores/store-delivery-alert-sound-presets";
 
 export type AdminGlobalAlertSoundSectionProps = {
-  title: string;
-  description: ReactNode;
+  titleKey: MessageKey;
+  descriptionKey?: MessageKey;
   codeKey: string;
   apiPath: string;
-  /** 저장·삭제·업로드 직후 (클라이언트 캐시 무효화 등) */
   onAfterMutation?: () => void;
 };
 
 export function AdminGlobalAlertSoundSection({
-  title,
-  description,
+  titleKey,
+  descriptionKey,
   codeKey,
   apiPath,
   onAfterMutation,
 }: AdminGlobalAlertSoundSectionProps) {
+  const { t } = useI18n();
   const [soundSelect, setSoundSelect] = useState<StoreDeliveryAlertSoundSelectId | "">("builtin");
   const [soundLegacyUrl, setSoundLegacyUrl] = useState<string | null>(null);
   const [soundFromDb, setSoundFromDb] = useState(false);
@@ -33,6 +35,13 @@ export function AdminGlobalAlertSoundSection({
   const [soundError, setSoundError] = useState<string | null>(null);
   const [soundMsg, setSoundMsg] = useState<string | null>(null);
   const adminSoundFileRef = useRef<HTMLInputElement>(null);
+
+  const errorText =
+    soundError === "network_error"
+      ? t("common_network_error")
+      : soundError === "forbidden"
+        ? t("admin_audit_err_no_permission")
+        : soundError;
 
   const uploadAdminSoundFromPc = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -63,7 +72,7 @@ export function AdminGlobalAlertSoundSection({
               ? json.message
               : typeof json?.error === "string"
                 ? json.error
-                : "업로드에 실패했습니다."
+                : "upload_failed"
           );
           return;
         }
@@ -71,7 +80,7 @@ export function AdminGlobalAlertSoundSection({
         setSoundSelect("");
         setSoundLegacyUrl(u || null);
         setSoundFromDb(json.from_db === true);
-        setSoundMsg("PC 파일을 올려 알림음으로 저장했습니다.");
+        setSoundMsg(t("admin_stores_alert_upload_ok"));
         onAfterMutation?.();
         window.setTimeout(() => setSoundMsg(null), 3200);
       } catch {
@@ -80,17 +89,11 @@ export function AdminGlobalAlertSoundSection({
         setSoundSaving(false);
       }
     },
-    [apiPath, onAfterMutation]
+    [apiPath, onAfterMutation, t]
   );
 
   const deleteGlobalSound = useCallback(async () => {
-    if (
-      !window.confirm(
-        "알림음을 DB에서 지웁니다. 관리자가 업로드한 파일이면 Storage에서도 함께 삭제합니다. 이후 기본 비프가 사용됩니다. 계속할까요?"
-      )
-    ) {
-      return;
-    }
+    if (!window.confirm(t("admin_stores_alert_delete_confirm"))) return;
     setSoundSaving(true);
     setSoundError(null);
     setSoundMsg(null);
@@ -107,7 +110,7 @@ export function AdminGlobalAlertSoundSection({
       setSoundSelect("builtin");
       setSoundLegacyUrl(null);
       setSoundFromDb(false);
-      setSoundMsg("알림음을 제거했습니다.");
+      setSoundMsg(t("admin_stores_alert_removed"));
       onAfterMutation?.();
       window.setTimeout(() => setSoundMsg(null), 3200);
     } catch {
@@ -115,7 +118,7 @@ export function AdminGlobalAlertSoundSection({
     } finally {
       setSoundSaving(false);
     }
-  }, [apiPath, onAfterMutation]);
+  }, [apiPath, onAfterMutation, t]);
 
   const persistSoundChoice = useCallback(
     async (id: StoreDeliveryAlertSoundSelectId) => {
@@ -135,17 +138,13 @@ export function AdminGlobalAlertSoundSection({
         });
         const json = await res.json();
         if (!json?.ok) {
-          setSoundError(
-            json?.error === "invalid_url"
-              ? "저장에 실패했습니다. 다시 선택해 주세요."
-              : String(json?.error ?? "save_failed")
-          );
+          setSoundError(json?.error === "invalid_url" ? "save_retry" : String(json?.error ?? "save_failed"));
           return;
         }
         setSoundSelect(id);
         setSoundLegacyUrl(null);
         setSoundFromDb(json.from_db === true);
-        setSoundMsg("저장했습니다.");
+        setSoundMsg(t("admin_stores_app_taxonomy_msg_saved"));
         onAfterMutation?.();
         window.setTimeout(() => setSoundMsg(null), 2800);
       } catch {
@@ -154,7 +153,7 @@ export function AdminGlobalAlertSoundSection({
         setSoundSaving(false);
       }
     },
-    [apiPath, onAfterMutation]
+    [apiPath, onAfterMutation, t]
   );
 
   const loadSound = useCallback(async () => {
@@ -164,7 +163,7 @@ export function AdminGlobalAlertSoundSection({
       const res = await fetch(apiPath, { credentials: "include" });
       const json = await res.json();
       if (res.status === 403) {
-        setSoundError("관리자 권한이 없습니다.");
+        setSoundError("forbidden");
         return;
       }
       if (!json?.ok) {
@@ -193,26 +192,35 @@ export function AdminGlobalAlertSoundSection({
     void loadSound();
   }, [loadSound]);
 
+  const displayError =
+    soundError === "upload_failed"
+      ? t("admin_stores_alert_upload_failed")
+      : soundError === "save_retry"
+        ? t("admin_stores_alert_save_retry")
+        : errorText;
+
   return (
     <section className="mt-6 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
-      <h2 className="sam-text-body font-semibold text-sam-fg">{title}</h2>
-      <div className="mt-1 sam-text-helper text-sam-muted">{description}</div>
+      <h2 className="sam-text-body font-semibold text-sam-fg">{t(titleKey)}</h2>
+      {descriptionKey ? (
+        <div className="mt-1 sam-text-helper text-sam-muted">{t(descriptionKey)}</div>
+      ) : null}
       <p className="mt-1 sam-text-xxs text-sam-meta">
         <code className="rounded bg-sam-surface-muted px-1">{codeKey}</code>
       </p>
       {soundLegacyUrl ? (
         <p className="mt-2 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">
-          DB에 프리셋에 없는 URL이 있습니다. 아래에서 항목을 고르면 그 값으로 덮어씁니다.
+          {t("admin_stores_alert_legacy_url")}
         </p>
       ) : null}
-      {soundError ? <p className="mt-2 sam-text-body-secondary text-red-700">{soundError}</p> : null}
+      {displayError ? <p className="mt-2 sam-text-body-secondary text-red-700">{displayError}</p> : null}
       {soundMsg ? <p className="mt-2 sam-text-body-secondary text-green-800">{soundMsg}</p> : null}
       {soundLoading ? (
-        <p className="mt-3 sam-text-body-secondary text-sam-muted">알림음 설정 불러오는 중…</p>
+        <p className="mt-3 sam-text-body-secondary text-sam-muted">{t("admin_stores_alert_loading")}</p>
       ) : (
         <div className="mt-3 space-y-3">
           <label className="block sam-text-helper font-medium text-sam-fg">
-            알림 종류
+            {t("admin_stores_alert_kind_label")}
             <select
               className="mt-1.5 block w-full max-w-md cursor-pointer rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body-lg text-sam-fg shadow-sm focus:border-signature focus:outline-none focus:ring-1 focus:ring-signature disabled:cursor-not-allowed disabled:opacity-60"
               value={soundSelect}
@@ -225,7 +233,9 @@ export function AdminGlobalAlertSoundSection({
             >
               {soundSelect === "" && (
                 <option value="" disabled>
-                  {soundLegacyUrl ? "▼ 프리셋에 없는 저장값 — 아래에서 선택" : "▼ 선택하세요"}
+                  {soundLegacyUrl
+                    ? t("admin_stores_alert_select_legacy")
+                    : t("admin_stores_alert_select_default")}
                 </option>
               )}
               {STORE_DELIVERY_ALERT_SOUND_OPTIONS.map((o) => (
@@ -238,24 +248,24 @@ export function AdminGlobalAlertSoundSection({
           <div className="flex flex-wrap items-end justify-between gap-2">
             <p className="min-w-0 flex-1 break-all sam-text-xxs text-sam-muted">
               <span className={soundFromDb ? "font-medium text-signature" : "text-sam-meta"}>
-                {soundFromDb ? "DB에 저장됨" : "기본 비프 (DB 없음)"}
+                {soundFromDb ? t("admin_stores_alert_stored_db") : t("admin_stores_alert_stored_default")}
               </span>
               {soundLegacyUrl ? (
                 <>
                   {" "}
-                  · 업로드·직접 URL{" "}
+                  · {t("admin_stores_alert_upload_url")}{" "}
                   <code className="rounded bg-sam-app px-0.5">{soundLegacyUrl}</code>
                 </>
               ) : soundFromDb && soundSelect === "notif" ? (
                 <>
                   {" "}
-                  · 프리셋 MP3{" "}
+                  · {t("admin_stores_alert_preset_mp3")}{" "}
                   <code className="rounded bg-sam-app px-0.5">{STORE_DELIVERY_NOTIFICATION_MP3_PATH}</code>
                 </>
               ) : !soundFromDb ? (
                 <>
                   {" "}
-                  · 안내용 프리셋 경로{" "}
+                  · {t("admin_stores_alert_preset_path_hint")}{" "}
                   <code className="rounded bg-sam-app px-0.5">{STORE_DELIVERY_NOTIFICATION_MP3_PATH}</code>
                 </>
               ) : null}
@@ -267,7 +277,7 @@ export function AdminGlobalAlertSoundSection({
                 onClick={() => void deleteGlobalSound()}
                 className="shrink-0 rounded-ui-rect border border-red-200 bg-sam-surface px-2.5 py-1.5 sam-text-helper font-medium text-red-800 disabled:opacity-50"
               >
-                DB·Storage 제거
+                {t("admin_stores_alert_remove_db")}
               </button>
             ) : null}
           </div>
@@ -285,7 +295,7 @@ export function AdminGlobalAlertSoundSection({
               onClick={() => adminSoundFileRef.current?.click()}
               className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg disabled:opacity-50"
             >
-              {soundSaving ? "처리 중…" : "내 PC에서 찾기 (업로드)"}
+              {soundSaving ? t("common_processing") : t("admin_stores_alert_upload_pc")}
             </button>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -302,10 +312,10 @@ export function AdminGlobalAlertSoundSection({
                     const a = new Audio(STORE_DELIVERY_NOTIFICATION_MP3_PATH);
                     a.volume = 0.55;
                     void a.play().catch(() => {
-                      window.alert("미리듣기에 실패했습니다. 파일이 있는지 확인해 주세요.");
+                      window.alert(t("admin_stores_alert_preview_fail"));
                     });
                   } catch {
-                    window.alert("미리듣기를 시작할 수 없습니다.");
+                    window.alert(t("admin_stores_alert_preview_start_fail"));
                   }
                   return;
                 }
@@ -313,15 +323,15 @@ export function AdminGlobalAlertSoundSection({
                   try {
                     const a = new Audio(soundLegacyUrl);
                     a.volume = 0.55;
-                    void a.play().catch(() => window.alert("현재 저장된 URL 재생에 실패했습니다."));
+                    void a.play().catch(() => window.alert(t("admin_stores_alert_preview_url_fail")));
                   } catch {
-                    window.alert("미리듣기를 시작할 수 없습니다.");
+                    window.alert(t("admin_stores_alert_preview_start_fail"));
                   }
                 }
               }}
               className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg disabled:opacity-50"
             >
-              미리듣기
+              {t("admin_stores_alert_preview")}
             </button>
           </div>
         </div>

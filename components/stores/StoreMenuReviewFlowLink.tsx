@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -26,6 +27,7 @@ export function StoreMenuReviewFlowLink({
   reviewCount: number;
   ratingAvg: number | null;
 }) {
+  const { t } = useI18n();
   const n = Number.isFinite(reviewCount) ? Math.floor(reviewCount) : 0;
   const [reviews, setReviews] = useState<ReviewCard[]>([]);
 
@@ -64,7 +66,7 @@ export function StoreMenuReviewFlowLink({
   const href = `/stores/${encodeURIComponent(storeSlug)}/reviews`;
 
   return (
-    <section className="border-b border-neutral-100 bg-white py-2" aria-label="리뷰">
+    <section className="border-b border-neutral-100 bg-white py-2" aria-label={t("store_reviews_title")}>
       <div className="mb-1.5 flex items-center justify-between px-4">
         <p className="text-[12px] font-extrabold text-neutral-900">
           <span className="text-[#FFC400]">★★★★★</span>{" "}

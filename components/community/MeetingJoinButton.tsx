@@ -8,6 +8,7 @@ import { getCurrentUser, getHydrationSafeCurrentUser } from "@/lib/auth/get-curr
 import { formatMeetingJoinRequestMessage } from "@/lib/neighborhood/meeting-join-request-message";
 import { MeetingJoinRequestModal } from "./MeetingJoinRequestModal";
 import { MeetingPasswordOnlyModal } from "./MeetingPasswordOnlyModal";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type ViewerMeetingStatus = "joined" | "pending" | "left" | "kicked" | "banned" | "rejected" | null;
 
@@ -41,6 +42,7 @@ export function MeetingJoinButton({
   openChatRoomNeedsApprovalIntro?: boolean;
   hasMeetingPassword?: boolean;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const meetingPath = philifeAppPaths.meeting(meetingId);
@@ -92,11 +94,11 @@ export function MeetingJoinButton({
   };
 
   const humanizeJoinError = (error?: string) => {
-    if (error === "full") return "인원이 가득 찼습니다.";
-    if (error === "closed") return "모집이 마감되었어요.";
-    if (error === "meeting_banned") return "참여할 수 없는 모임입니다.";
-    if (error === "invalid_password") return "비밀번호가 올바르지 않습니다.";
-    return error ?? "참여를 처리하지 못했습니다.";
+    if (error === "full") return t("community_meeting_join_full");
+    if (error === "closed") return t("community_meeting_join_closed");
+    if (error === "meeting_banned") return t("community_meeting_join_banned");
+    if (error === "invalid_password") return t("community_meeting_join_bad_password");
+    return error ?? t("community_meeting_join_failed");
   };
 
   const finishJoin = async (payload?: { password?: string; message?: string }) => {
@@ -135,18 +137,18 @@ export function MeetingJoinButton({
         setLocalStatus("pending");
         setJoinModalOpen(false);
         setPasswordModalOpen(false);
-        setOkMsg("참여 요청이 접수되었습니다. 운영자 승인을 기다려 주세요.");
+        setOkMsg(t("community_meeting_join_request_ok"));
         router.refresh();
         return;
       }
       setLocalStatus("joined");
       setJoinModalOpen(false);
       setPasswordModalOpen(false);
-      setOkMsg(json.already ? "이미 참여 중입니다." : "모임 참여가 완료되었습니다.");
+      setOkMsg(json.already ? t("community_meeting_join_already") : t("community_meeting_join_done"));
       if (pathname !== messengerRoomPath) router.push(messengerRoomPath);
       router.refresh();
     } catch {
-      const msg = "네트워크 오류로 요청하지 못했습니다.";
+      const msg = t("community_meeting_join_network_err");
       setErr(msg);
       setModalSubmitErr(msg);
     } finally {
@@ -180,26 +182,27 @@ export function MeetingJoinButton({
 
   const joinLabel = isJoined
     ? successSurface === "chat"
-      ? "채팅 입장"
-      : "참여 중"
+      ? t("community_meeting_join_chat_entry")
+      : t("community_meeting_join_active")
     : entryNorm === "approve" || entryNorm === "invite_only" || requiresApproval
       ? effectiveStatus === "pending"
-        ? "가입 승인 대기 중"
-        : "참여 요청"
+        ? t("community_meeting_join_pending")
+        : t("community_meeting_join_request")
       : meetingPasswordRequired
-        ? "비밀번호로 참여"
-        : "모임 참여";
+        ? t("community_meeting_join_with_password")
+        : t("community_meeting_join_cta");
 
-  const helperText =
-    isClosed
-      ? "마감되었거나 종료된 모임입니다."
-      : effectiveStatus === "pending"
-        ? `운영자 승인 후 참여할 수 있어요${pendingCount > 0 ? ` · 현재 대기 ${pendingCount}명` : ""}.`
-        : entryNorm === "approve" || entryNorm === "invite_only" || requiresApproval
-          ? "참여 요청을 보내면 운영자가 확인 후 승인합니다."
-          : meetingPasswordRequired
-            ? "모임 비밀번호를 입력하면 참여할 수 있어요."
-            : "";
+  const pendingSuffix =
+    pendingCount > 0 ? ` · ${t("community_meeting_pending_approval", { count: pendingCount }).trim()}` : "";
+  const helperText = isClosed
+    ? t("community_meeting_join_closed_hint")
+    : effectiveStatus === "pending"
+      ? t("community_meeting_join_approve_hint", { pending: pendingSuffix })
+      : entryNorm === "approve" || entryNorm === "invite_only" || requiresApproval
+        ? t("community_meeting_join_request_hint")
+        : meetingPasswordRequired
+          ? t("community_meeting_join_password_hint")
+          : "";
 
   const btnClass = embedChrome
     ? "w-full rounded-ui-rect bg-emerald-600 py-3 sam-text-body font-semibold text-white disabled:opacity-40"
@@ -213,7 +216,7 @@ export function MeetingJoinButton({
         disabled={busy || isClosed || isFull || effectiveStatus === "pending" || !meetingId}
         className={btnClass}
       >
-        {busy ? "처리 중…" : joinLabel}
+        {busy ? t("community_meeting_join_processing") : joinLabel}
       </button>
 
       {helperText ? (
@@ -234,9 +237,9 @@ export function MeetingJoinButton({
         }}
         busy={busy}
         error={passwordModalOpen ? err : ""}
-        title="비밀번호로 참여"
-        hint="모임에서 설정한 비밀번호를 입력하면 참여할 수 있어요."
-        submitLabel="참여하기"
+        title={t("community_join_password_title")}
+        hint={t("community_meeting_password_modal_hint")}
+        submitLabel={t("community_meeting_join_submit")}
         onSubmit={(password) => {
           void finishJoin({ password });
         }}

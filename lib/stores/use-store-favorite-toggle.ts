@@ -6,6 +6,7 @@ import {
   type StoreFavoriteChangedDetail,
 } from "@/lib/stores/store-favorite-events";
 import { fetchStoreFavoriteMutation } from "@/lib/stores/store-delivery-api-client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export type StoreFavoriteToggleSeed = {
   viewerFavorited: boolean;
@@ -16,6 +17,7 @@ export type StoreFavoriteToggleSeed = {
  * 매장 공개 페이지 헤더·카드 공통 — 즐겨찾기 토글(낙관적 업데이트 + 커스텀 이벤트 동기화).
  */
 export function useStoreFavoriteToggle(slugForRequest: string, seed: StoreFavoriteToggleSeed) {
+  const { t } = useI18n();
   const decoded = (slugForRequest || "").trim();
   const [viewerFavorited, setViewerFavorited] = useState(seed.viewerFavorited);
   const [favoriteCount, setFavoriteCount] = useState(seed.favoriteCount);
@@ -62,7 +64,7 @@ export function useStoreFavoriteToggle(slugForRequest: string, seed: StoreFavori
             detail: { slug: decoded, favorited: prevFavorited, favorite_count: prevFavoriteCount },
           })
         );
-        window.alert("로그인이 필요합니다.");
+        window.alert(t("common_login_required"));
         return;
       }
       const favJ = json as { ok?: boolean; favorited?: boolean; favorite_count?: unknown };
@@ -88,7 +90,7 @@ export function useStoreFavoriteToggle(slugForRequest: string, seed: StoreFavori
     } finally {
       setFavoriteBusy(false);
     }
-  }, [favoriteBusy, viewerFavorited, favoriteCount, decoded]);
+  }, [favoriteBusy, viewerFavorited, favoriteCount, decoded, t]);
 
   return { viewerFavorited, favoriteCount, favoriteBusy, toggleFavorite };
 }

@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { getLaunchWeekChecklistItems } from "@/lib/launch-week/mock-launch-week-checklist-items";
 import { AdminTable } from "@/components/admin/AdminTable";
@@ -14,6 +17,7 @@ import type {
 } from "@/lib/types/launch-week";
 
 export function LaunchWeekChecklistTable() {
+  const { t } = useI18n();
   const [dayNumber, setDayNumber] = useState<LaunchWeekDayNumber | "">("");
   const [status, setStatus] = useState<LaunchWeekChecklistStatus | "">("");
   const items = useMemo(
@@ -36,14 +40,14 @@ export function LaunchWeekChecklistTable() {
           }
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
+          <option value="">{t("common_all")}</option>
           {([1, 2, 3, 4, 5, 6, 7] as const).map((d) => (
             <option key={d} value={d}>
               Day {d}
             </option>
           ))}
         </select>
-        <span className="sam-text-body-secondary text-sam-muted">상태</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_qa_status_2")}</span>
         <select
           value={status}
           onChange={(e) =>
@@ -51,11 +55,11 @@ export function LaunchWeekChecklistTable() {
           }
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
-          <option value="todo">할 일</option>
-          <option value="in_progress">진행중</option>
-          <option value="done">완료</option>
-          <option value="blocked">차단</option>
+          <option value="">{t("common_all")}</option>
+          <option value="todo">{t("admin_launch_week_todo")}</option>
+          <option value="in_progress">{t("admin_qa_in_progress")}</option>
+          <option value="done">{t("admin_qa_done")}</option>
+          <option value="blocked">{t("admin_qa_blocked")}</option>
         </select>
       </div>
 

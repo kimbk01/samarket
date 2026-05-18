@@ -18,6 +18,7 @@ import { loadBrowseTaxonomySlice } from "@/lib/stores/stores-browse-taxonomy-cac
 import { browseListCacheKey, peekStoresBrowseCache, setStoresBrowseCache } from "@/lib/stores/stores-browse-response-cache";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { logRoutePerf } from "@/lib/http/route-perf-log";
+import { detectAcceptLanguageAppLanguage } from "@/lib/i18n/language-preference";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -207,6 +208,7 @@ function mapBrowseEmbedRows(raw: unknown[]): StoreBrowseRow[] {
  */
 export async function GET(req: Request) {
   const tRoute0 = devPerfNow();
+  const uiLang = detectAcceptLanguageAppLanguage(req.headers.get("accept-language"));
   const { searchParams } = new URL(req.url);
   const primary = (searchParams.get("primary") ?? "").trim().toLowerCase();
   const subRaw = (searchParams.get("sub") ?? "").trim().toLowerCase();
@@ -563,9 +565,13 @@ export async function GET(req: Request) {
       const status: BrowseStoreListItem["status"] = openNow ? "open" : "preparing";
       const regionLabel = formatStoreLocationLine(r) ?? "위치 미등록";
       const extras = parseCommerceExtrasFromHoursJson(r.business_hours_json);
-      const deliveryFeeLabel = formatStoreBrowseDeliveryFeeLine(extras, {
-        deliveryAvailable: !!r.delivery_available,
-      });
+      const deliveryFeeLabel = formatStoreBrowseDeliveryFeeLine(
+        extras,
+        {
+          deliveryAvailable: !!r.delivery_available,
+        },
+        uiLang
+      );
       const deliveryFeeStrikePhp = formatStoreBrowseDeliveryFeeStrikePhp(extras, {
         deliveryAvailable: !!r.delivery_available,
       });
@@ -600,11 +606,16 @@ export async function GET(req: Request) {
       const routeCtx = userLat != null && userLng != null;
       const manualForEta =
         deliveryRideTimeSource === "store" ? extras.deliveryRideDisplayManual : null;
-      const etaLabel = buildBrowseStoreListEtaLabel(extras, rideMinutes, {
-        deliveryAvailable: !!r.delivery_available,
-        routeContextPresent: routeCtx,
-        manualRideDisplay: manualForEta,
-      });
+      const etaLabel = buildBrowseStoreListEtaLabel(
+        extras,
+        rideMinutes,
+        {
+          deliveryAvailable: !!r.delivery_available,
+          routeContextPresent: routeCtx,
+          manualRideDisplay: manualForEta,
+        },
+        uiLang
+      );
 
       return {
         id: r.id,

@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { reverseGeocodeLatLngPh, type ReverseGeocodePhResult } from "@/lib/addresses/reverse-geocode-ph-client";
 import { stripCountryFromAddressDisplayLine } from "@/lib/addresses/user-address-format";
 
@@ -12,7 +13,7 @@ const AddressFineTuneMapLazy = dynamic(
     ssr: false,
     loading: () => (
       <div className="flex h-[200px] items-center justify-center rounded-lg border border-sam-border bg-sam-surface-muted sam-text-body-secondary text-sam-muted">
-        지도 불러오는 중…
+        …
       </div>
     ),
   },
@@ -28,6 +29,7 @@ type Props = {
 };
 
 export function AddressFineTuneSheet(props: Props) {
+  const { t } = useI18n();
   const { open, latitude, longitude, onClose, onApply } = props;
   const [draftLat, setDraftLat] = useState(latitude);
   const [draftLng, setDraftLng] = useState(longitude);
@@ -51,14 +53,14 @@ export function AddressFineTuneSheet(props: Props) {
         if (seq !== seqRef.current) return;
         setPreview(r);
         if (!r?.placeId) {
-          setResolveErr("이 좌표에서는 Google place id를 받지 못했습니다. 검색으로 장소를 고른 뒤 저장해 주세요.");
+          setResolveErr(t("addr_ui_no_place_id"));
         } else {
           setResolveErr(null);
         }
       } catch {
         if (seq !== seqRef.current) return;
         setPreview(null);
-        setResolveErr("주소를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.");
+        setResolveErr(t("addr_ui_resolve_failed"));
       } finally {
         if (seq === seqRef.current) setResolving(false);
       }
@@ -79,14 +81,14 @@ export function AddressFineTuneSheet(props: Props) {
           if (seq !== seqRef.current) return;
           setPreview(r);
           if (!r?.placeId) {
-            setResolveErr("이 좌표에서는 Google place id를 받지 못했습니다. 다른 위치를 탭하거나 검색으로 장소를 선택해 주세요.");
+            setResolveErr(t("addr_ui_no_place_id_move"));
           } else {
             setResolveErr(null);
           }
         } catch {
           if (seq !== seqRef.current) return;
           setPreview(null);
-          setResolveErr("주소를 불러오지 못했습니다.");
+          setResolveErr(t("addr_ui_resolve_failed_short"));
         } finally {
           if (seq === seqRef.current) setResolving(false);
         }
@@ -124,13 +126,13 @@ export function AddressFineTuneSheet(props: Props) {
       >
         <div className="flex shrink-0 items-center justify-between border-b border-sam-border px-4 py-3">
           <h2 id="addr-finetune-title" className="text-[16px] font-bold leading-6 text-sam-fg">
-            위치 미세 조정
+            {t("addr_ui_fine_tune_title")}
           </h2>
           <button
             type="button"
             onClick={onClose}
             className="flex h-9 w-9 items-center justify-center rounded-full text-sam-muted transition-colors hover:bg-sam-app hover:text-sam-fg"
-            aria-label="닫기"
+            aria-label={t("common_close")}
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
               <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -140,8 +142,8 @@ export function AddressFineTuneSheet(props: Props) {
 
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
           <p className="sam-text-xxs leading-snug text-sam-muted">
-            지도를 확대·이동한 뒤 핀을 놓으면 이 위치로 주소가 다시 잡힙니다. 아래 미리보기가 맞으면{" "}
-            <strong className="font-semibold text-sam-fg">이 위치로 반영</strong>을 눌러 주세요.
+            {t("addr_ui_fine_tune_hint")}{" "}
+            <strong className="font-semibold text-sam-fg">{t("addr_ui_apply_location")}</strong>
           </p>
           <div className="min-h-[200px]">
             <AddressFineTuneMapLazy
@@ -154,11 +156,11 @@ export function AddressFineTuneSheet(props: Props) {
           </div>
           <div className="rounded-lg border border-sam-border bg-sam-app/60 px-3 py-2.5">
             {resolving ? (
-              <p className="sam-text-helper text-sam-muted">주소 확인 중…</p>
+              <p className="sam-text-helper text-sam-muted">{t("addr_ui_confirming_address")}</p>
             ) : previewLine ? (
               <p className="sam-text-body-secondary leading-relaxed text-sam-fg">{previewLine}</p>
             ) : (
-              <p className="sam-text-helper text-sam-muted">핀을 움직이면 주소 미리보기가 나타납니다.</p>
+              <p className="sam-text-helper text-sam-muted">{t("addr_ui_move_pin_hint")}</p>
             )}
           </div>
           {resolveErr ? <p className="sam-text-body-secondary font-medium text-sam-danger">{resolveErr}</p> : null}
@@ -182,7 +184,7 @@ export function AddressFineTuneSheet(props: Props) {
             }}
             className="flex-1 rounded-lg bg-sam-primary py-2.5 sam-text-body font-semibold text-white shadow-sm transition-opacity hover:bg-sam-primary-hover disabled:opacity-40"
           >
-            이 위치로 반영
+            {t("addr_ui_apply_location")}
           </button>
         </div>
       </div>

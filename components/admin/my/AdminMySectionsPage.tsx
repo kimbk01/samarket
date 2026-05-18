@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { MyPageSectionRow } from "@/lib/my/types";
@@ -7,6 +10,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { MY_PAGE_SECTIONS_SELECT } from "@/lib/my/mypage-tables-select";
 
 export function AdminMySectionsPage() {
+  const { t } = useI18n();
   const [items, setItems] = useState<MyPageSectionRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,9 +44,9 @@ export function AdminMySectionsPage() {
 
   return (
     <div>
-      <h1 className="mb-4 sam-text-page-title font-semibold text-sam-fg">나의 카마켓 섹션</h1>
+      <h1 className="mb-4 sam-text-page-title font-semibold text-sam-fg">{t("admin_my_kf4d396da")}</h1>
       {loading ? (
-        <p className="text-sam-muted">불러오는 중…</p>
+        <p className="text-sam-muted">{t("common_loading")}</p>
       ) : error ? (
         <p className="rounded-ui-rect bg-red-50 p-4 sam-text-body text-red-700">{error}</p>
       ) : items.length === 0 ? (

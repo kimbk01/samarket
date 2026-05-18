@@ -1,4 +1,6 @@
 import { Suspense } from "react";
+import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
+import { translate } from "@/lib/i18n/messages";
 import Link from "next/link";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { GroupChatRoomClient } from "@/components/group-chat/GroupChatRoomClient";
@@ -10,7 +12,7 @@ async function GroupChatRoomPageBody({ paramsPromise }: { paramsPromise: Promise
   const id = roomId?.trim() ?? "";
   if (!id) {
     return (
-      <div className="p-6 text-center sam-text-body text-sam-muted">roomId가 필요합니다.</div>
+      <div className="p-6 text-center sam-text-body text-sam-muted">{translate(lang, "ui_group_chat_room_id_required")}</div>
     );
   }
 
@@ -18,7 +20,7 @@ async function GroupChatRoomPageBody({ paramsPromise }: { paramsPromise: Promise
   if (!userId) {
     return (
       <div className="flex min-h-[50vh] flex-col items-center justify-center gap-3 px-4 text-center">
-        <p className="text-sm text-sam-muted">로그인이 필요합니다.</p>
+        <p className="text-sm text-sam-muted">{translate(lang, "common_login_required")}</p>
         <Link href="/login" className="font-medium text-signature underline">
           로그인
         </Link>
@@ -31,9 +33,9 @@ async function GroupChatRoomPageBody({ paramsPromise }: { paramsPromise: Promise
     if (boot.status === 404) {
       return (
         <div className="flex min-h-[50vh] flex-col items-center justify-center gap-2 px-4 text-center text-sm text-sam-muted">
-          <p>방을 찾을 수 없습니다.</p>
+          <p>{translate(lang, "ui_group_chat_room_not_found")}</p>
           <Link href="/group-chat" className="font-medium text-signature underline">
-            목록으로
+            {translate(lang, "common_to_list")}
           </Link>
         </div>
       );
@@ -43,7 +45,7 @@ async function GroupChatRoomPageBody({ paramsPromise }: { paramsPromise: Promise
         <div className="flex min-h-[50vh] flex-col items-center justify-center gap-2 px-4 text-center text-sm text-sam-muted">
           <p>{boot.error}</p>
           <Link href="/group-chat" className="font-medium text-signature underline">
-            목록으로
+            {translate(lang, "common_to_list")}
           </Link>
         </div>
       );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { NeighborhoodMeetingNoticeDTO, MeetingFeedPostDTO } from "@/lib/neighborhood/types";
 import { formatKorDateTime } from "@/lib/ui/format-meeting-date";
 
@@ -20,10 +21,12 @@ interface UnifiedNotice {
 function toUnified(
   notices: NeighborhoodMeetingNoticeDTO[],
   feedPosts: MeetingFeedPostDTO[],
+  noticeFallback: string,
+  feedNoticeTitle: string,
 ): UnifiedNotice[] {
   const fromNotices: UnifiedNotice[] = notices.map((n) => ({
     id: n.id,
-    title: n.title || "공지",
+    title: n.title || noticeFallback,
     body: n.body,
     is_pinned: n.is_pinned,
     created_at: n.created_at,
@@ -34,7 +37,7 @@ function toUnified(
     .filter((p) => p.post_type === "notice")
     .map((p) => ({
       id: p.id,
-      title: "📢 공지",
+      title: feedNoticeTitle,
       body: p.content,
       is_pinned: false,
       created_at: p.created_at,
@@ -77,8 +80,14 @@ export function MeetingNoticesTab({
   allowFeed = true,
   onGoFeed,
 }: MeetingNoticesTabProps) {
+  const { t } = useI18n();
   const [showHint, setShowHint] = useState(false);
-  const unified = toUnified(notices, feedPosts);
+  const unified = toUnified(
+    notices,
+    feedPosts,
+    t("community_notice_fallback"),
+    t("meeting_notices_feed_badge"),
+  );
   const dbNoticeTotal = typeof noticeCount === "number" ? noticeCount : notices.length;
   const lastAtLabel =
     lastNoticeAt && !Number.isNaN(Date.parse(lastNoticeAt))
@@ -89,55 +98,49 @@ export function MeetingNoticesTab({
     <div className="space-y-3">
       {/* 공지 ↔ 피드 연동 상태 */}
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3.5 py-3 shadow-sm">
-        <p className="sam-text-helper font-semibold text-sam-fg">연동 상태</p>
+        <p className="sam-text-helper font-semibold text-sam-fg">{t("meeting_sync_status_title")}</p>
         <ul className="mt-2 space-y-1.5 sam-text-helper text-sam-muted">
           <li className="flex justify-between gap-2">
-            <span>모임 공지 (DB)</span>
+            <span>{t("meeting_notices_db")}</span>
             <span className="shrink-0 font-medium text-sam-fg">
-              {dbNoticeTotal}건 · 최근 {lastAtLabel}
+              {t("meeting_notices_db_meta", { count: dbNoticeTotal, last: lastAtLabel })}
             </span>
           </li>
           <li className="flex justify-between gap-2">
-            <span>피드 공지형 글</span>
-            <span className="shrink-0 font-medium text-sam-fg">{feedNoticeCount}건</span>
+            <span>{t("meeting_notices_feed_type")}</span>
+            <span className="shrink-0 font-medium text-sam-fg">{t("meeting_count_unit", { count: feedNoticeCount })}</span>
           </li>
           <li className="flex justify-between gap-2 border-t border-sam-border-soft pt-1.5">
-            <span>이 탭 통합 목록</span>
-            <span className="shrink-0 font-semibold text-[#2d7a5e]">{unified.length}건</span>
+            <span>{t("meeting_notices_unified_list")}</span>
+            <span className="shrink-0 font-semibold text-[#2d7a5e]">{t("meeting_count_unit", { count: unified.length })}</span>
           </li>
           <li className="flex justify-between gap-2">
-            <span>피드 ↔ 회원</span>
+            <span>{t("meeting_notices_feed_member")}</span>
             <span
               className={`shrink-0 font-medium ${allowFeed ? "text-emerald-700" : "text-amber-700"}`}
             >
-              {allowFeed ? "회원 글 작성 허용" : "회원 글 작성 제한 · 운영자만"}
+              {allowFeed ? t("meeting_notices_member_write_allow") : t("meeting_notices_member_write_restrict")}
             </span>
           </li>
         </ul>
-        <p className="mt-2 sam-text-xxs leading-relaxed text-sam-meta">
-          개설자 관리의 공지 등록과 피드의 &apos;공지&apos; 유형 글이 이 목록에 함께 표시됩니다.
-        </p>
+        <p className="mt-2 sam-text-xxs leading-relaxed text-sam-meta">{t("meeting_notices_sync_hint")}</p>
       </div>
 
       {/* 운영진 전용 — 공지 작성 안내 */}
       {isHost && (
         <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50/60 p-3">
           <div className="flex items-center justify-between">
-            <p className="sam-text-body-secondary font-semibold text-emerald-800">📢 공지 작성</p>
+            <p className="sam-text-body-secondary font-semibold text-emerald-800">{t("meeting_notices_write_title")}</p>
             <button
               type="button"
               onClick={() => setShowHint((v) => !v)}
               className="sam-text-helper text-emerald-600"
             >
-              {showHint ? "닫기" : "방법"}
+              {showHint ? t("common_close") : t("meeting_notices_howto_btn")}
             </button>
           </div>
           {showHint && (
-            <p className="mt-1 sam-text-helper leading-relaxed text-emerald-700">
-              <strong>모임 관리</strong>에서 &quot;공지 등록&quot;한 내용과,{" "}
-              <strong>피드</strong> 탭에서 유형 <strong>공지</strong>로 올린 글이 모두 여기에
-              모입니다. 멤버도 동일한 목록을 봅니다.
-            </p>
+            <p className="mt-1 sam-text-helper leading-relaxed text-emerald-700">{t("meeting_notices_howto_body")}</p>
           )}
           {onGoFeed && (
             <button
@@ -145,7 +148,7 @@ export function MeetingNoticesTab({
               onClick={onGoFeed}
               className="mt-2 w-full rounded-ui-rect bg-emerald-600 py-2 sam-text-body-secondary font-semibold text-white hover:bg-emerald-700"
             >
-              피드에서 공지 작성하기 →
+              {t("meeting_notices_go_feed")}
             </button>
           )}
         </div>
@@ -154,12 +157,8 @@ export function MeetingNoticesTab({
       {unified.length === 0 ? (
         <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-16 text-center">
           <p className="sam-text-hero">📢</p>
-          <p className="mt-3 sam-text-body text-sam-meta">아직 공지가 없어요.</p>
-          {isHost && (
-            <p className="mt-1 sam-text-helper text-sam-meta">
-              아래 모임 관리의 공지 등록 또는 피드의 &apos;공지&apos; 유형 글이 여기에 표시됩니다.
-            </p>
-          )}
+          <p className="mt-3 sam-text-body text-sam-meta">{t("meeting_notices_empty")}</p>
+          {isHost && <p className="mt-1 sam-text-helper text-sam-meta">{t("meeting_notices_empty_host")}</p>}
         </div>
       ) : (
         unified.map((notice) => (

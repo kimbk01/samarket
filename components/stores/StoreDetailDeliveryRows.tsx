@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -44,6 +45,7 @@ export function StoreDetailCommerceMetrics({
   deliveryCourierLabel: string | null;
   deliveryAvailable: boolean;
 }) {
+  const { t } = useI18n();
   const minDd =
     minOrderPhp != null && minOrderPhp > 0 ? formatMoneyPhp(minOrderPhp) : `${formatMoneyPhp(0)}`;
   const feeDd =
@@ -91,7 +93,7 @@ export function StoreDetailCommerceMetrics({
       <div
         className="overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]"
         role="group"
-        aria-label="배달·주문 요약"
+        aria-label={t("store_delivery_order_summary_aria")}
       >
         <div className="border-b border-sam-border py-0">
           {metricsRow}
@@ -102,7 +104,7 @@ export function StoreDetailCommerceMetrics({
       ) : null}
       {courier ? (
         <p className="mt-1 sam-text-helper text-sam-muted">
-          <span className="font-medium text-sam-fg">배달 안내</span> · {courier}
+          <span className="font-medium text-sam-fg">{t("store_delivery_guide")}</span> · {courier}
         </p>
       ) : null}
     </>
@@ -124,9 +126,10 @@ export function StoreDetailCommerceStrip({
   deliveryCourierLabel: string | null;
   deliveryAvailable: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <div className={`${STORE_DETAIL_GUTTER} mt-3 ${STORE_DETAIL_CARD} p-4`}>
-      <StoreDetailSectionTitle level="h2">배달·주문 안내</StoreDetailSectionTitle>
+      <StoreDetailSectionTitle level="h2">{t("store_delivery_order_guide_title")}</StoreDetailSectionTitle>
       <div className="-mt-1">
         <StoreDetailCommerceMetrics
           deliveryMeta={deliveryMeta}
@@ -151,6 +154,7 @@ export function StoreDetailCommerceStrip({
 }
 
 export function StoreDetailInquiryActions({ phone }: { phone: string | null }) {
+  const { t } = useI18n();
   const href =
     telHrefFromLoosePhPhone(phone) ?? (phone?.replace(/\s/g, "") ? `tel:${phone.replace(/\s/g, "")}` : "");
   const btn =
@@ -159,14 +163,14 @@ export function StoreDetailInquiryActions({ phone }: { phone: string | null }) {
     "flex flex-1 cursor-not-allowed items-center justify-center rounded-ui-rect border border-sam-border bg-sam-app py-2.5 text-center sam-text-body text-sam-meta";
   return (
     <div className={`${STORE_DETAIL_GUTTER} mt-3 ${STORE_DETAIL_CARD} p-4`}>
-      <StoreDetailSectionTitle level="h2">문의</StoreDetailSectionTitle>
+      <StoreDetailSectionTitle level="h2">{t("store_inquiry_title")}</StoreDetailSectionTitle>
       <div className="-mt-1 flex gap-2">
         {href ? (
           <a href={href} className={btn}>
             전화 문의
           </a>
         ) : (
-          <span className={disabled}>전화 문의</span>
+          <span className={disabled}>{t("store_phone_inquiry")}</span>
         )}
         <Link href="/chat" className={btn}>
           채팅 문의
@@ -185,6 +189,7 @@ export function StoreDetailPromoBanner({
   customText: string;
   embedded?: boolean;
 }) {
+  const { t } = useI18n();
   const line =
     customText.trim() ||
     (freeOverPhp != null && freeOverPhp > 0

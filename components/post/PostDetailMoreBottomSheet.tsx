@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
@@ -77,7 +78,7 @@ export function PostDetailMoreBottomSheet({
     }
     blockUser(u.id, authorUserId, authorNickname ?? undefined);
     onClose();
-    window.alert("이 사용자의 글을 숨겼습니다.");
+    window.alert(t("ui_post_user_hidden_alert"));
   };
 
   const handleReport = () => {
@@ -96,7 +97,7 @@ export function PostDetailMoreBottomSheet({
         type="button"
         className="absolute inset-0 bg-black/50"
         onClick={onClose}
-        aria-label="닫기"
+        aria-label={t("ui_sheet_close_aria")}
       />
       <div
         className={`relative w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-4 pb-8 pt-2 shadow-xl transition-transform duration-300 ease-out ${

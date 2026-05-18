@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useEffect, useRef, useState } from "react";
 import { FavoriteToggleButton } from "@/components/favorites/FavoriteToggleButton";
@@ -15,6 +16,7 @@ export function ProductDetailHeaderToolbar({
   onReport,
   hideFavorite = false,
 }: ProductDetailHeaderToolbarProps) {
+  const { t } = useI18n();
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
 
@@ -31,7 +33,7 @@ export function ProductDetailHeaderToolbar({
     if (typeof navigator !== "undefined" && navigator.share) {
       navigator
         .share({
-          title: document.title || "상품",
+          title: document.title || t("post_preview_product_default"),
           url: window.location.href,
         })
         .catch(() => {
@@ -56,7 +58,7 @@ export function ProductDetailHeaderToolbar({
         type="button"
         onClick={handleShare}
         className="flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-foreground hover:bg-sam-primary-soft"
-        aria-label="공유"
+        aria-label={t("ui_product_share_aria")}
       >
         <ShareIcon className="h-5 w-5" />
       </button>
@@ -66,7 +68,7 @@ export function ProductDetailHeaderToolbar({
           type="button"
           onClick={() => setMoreOpen((v) => !v)}
           className="flex h-9 w-9 min-h-[44px] min-w-[44px] items-center justify-center rounded-full text-foreground hover:bg-sam-primary-soft"
-          aria-label="더보기"
+          aria-label={t("ui_product_more_aria")}
         >
           <MoreIcon className="h-5 w-5" />
         </button>
@@ -80,7 +82,7 @@ export function ProductDetailHeaderToolbar({
               }}
               className="block w-full px-4 py-2.5 text-left sam-text-body text-foreground hover:bg-sam-primary-soft"
             >
-              상품 신고
+              {t("store_report_product")}
             </button>
           </div>
         ) : null}

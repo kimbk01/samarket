@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useState } from "react";
 import type { ReviewRoleType, PublicReviewType } from "@/lib/types/daangn";
 import { submitTransactionReviewDaangn } from "@/lib/reviews/submitTransactionReviewDaangn";
@@ -29,6 +30,7 @@ export function ReviewForm({
   onSuccess,
   onCancel,
 }: ReviewFormProps) {
+  const { t } = useI18n();
   const [publicType, setPublicType] = useState<PublicReviewType>("good");
   const [anonymousNegative, setAnonymousNegative] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -57,7 +59,7 @@ export function ReviewForm({
         <strong>{revieweeLabel}</strong>님에 대한 거래 후기를 남겨주세요. (1회만 가능)
       </p>
       <div className="mt-4">
-        <p className="mb-2 sam-text-body-secondary font-medium text-sam-fg">평가</p>
+        <p className="mb-2 sam-text-body-secondary font-medium text-sam-fg">{t("ui_review_evaluation")}</p>
         <div className="flex gap-2">
           {PUBLIC_OPTIONS.map((opt) => (
             <label key={opt.value} className="flex cursor-pointer items-center gap-1.5">
@@ -82,7 +84,7 @@ export function ReviewForm({
             onChange={(e) => setAnonymousNegative(e.target.checked)}
             className="rounded border-sam-border"
           />
-          <span className="sam-text-helper text-sam-muted">부정/비매너 평가는 상대방에게 익명으로 표시</span>
+          <span className="sam-text-helper text-sam-muted">{t("ui_review_anonymous_negative")}</span>
         </label>
       )}
       {error && <p className="mt-2 sam-text-body-secondary text-red-600">{error}</p>}

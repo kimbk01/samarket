@@ -1,0 +1,121 @@
+﻿node : [check:i18n-hardcoded] 111 possible hardcoded Korean string(s):
+At C:\Users\im2pa\AppData\Local\Temp\ps-script-820c9d1e-53bd-4834-8b3b-6acd61c5d3dc.ps1:76 char:1
++ node scripts/check-hardcoded-korean.mjs components/write components/w ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([check:i18n-har...rean string(s)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  components\write\community\CommunityWriteForm.tsx:39: if (!title.trim()) next.title = "제목을 입력해 주세요.";
+  components\write\community\CommunityWriteForm.tsx:101: placeholder="제목"
+  components\write\community\CommunityWriteForm.tsx:115: placeholder="내용을 입력해 주세요"
+  components\write\FeatureWriteBlock.tsx:44: <p className="sam-text-body font-medium text-sam-fg">이 카테고리는 글쓰기를 지원하지 않습니
+다.</p>
+  components\write\FeatureWriteBlock.tsx:45: <p className="mt-2 sam-text-body-secondary text-sam-muted">혜택·기능 페이지는 별도 안
+내를 확인해 주세요.</p>
+  components\write\service\ServiceWriteForm.tsx:61: if (!title.trim()) next.title = "제목을 입력해 주세요.";
+  components\write\service\ServiceWriteForm.tsx:148: placeholder="어떤 도움이 필요하신가요?"
+  components\write\service\ServiceWriteForm.tsx:165: placeholder="채팅, 전화 등"
+  components\write\service\ServiceWriteForm.tsx:180: placeholder="제목"
+  components\write\service\ServiceWriteForm.tsx:196: placeholder="서비스 내용을 입력해 주세요"
+  components\write\shared\ImageEditorModal.tsx:355: aria-label="닫기"
+  components\write\shared\ImageEditorModal.tsx:374: <p className="text-white/70">불러오는 중…</p>
+  components\write\shared\ImageEditorModal.tsx:420: <span>회전</span>
+  components\write\shared\ImageUploader.tsx:99: aria-label="사진 추가"
+  components\write\shared\ImageUploader.tsx:127: aria-label="삭제"
+  components\write\shared\ImageUploader.tsx:188: aria-label="삭제"
+  components\write\shared\LocationSelector.tsx:236: <p className={OWNER_STORE_FORM_LEAD_CLASS}>ZIP 코드 (PhilPost 4자리)</p
+>
+  components\write\shared\LocationSelector.tsx:269: aria-label="PhilPost ZIP 4자리"
+  components\write\shared\TradeFrequentPhrasesSheet.tsx:188: aria-label="닫기"
+  components\write\shared\TradeFrequentPhrasesSheet.tsx:234: placeholder="문구를 입력하세요"
+  components\write\shared\TradeFrequentPhrasesSheet.tsx:326: aria-label="삭제"
+  components\write\shared\WriteTradeTopicSection.tsx:48: 주제<span className="font-normal text-sam-muted"> · 하나만</span>
+  components\write\shared\WriteTradeTopicSection.tsx:52: 주제 <span className="font-normal text-sam-muted">(하나만 선택)</span
+>
+  components\write\shared\WriteTradeTopicSection.tsx:66: <span className="sam-text-body text-sam-fg">전체</span>
+  components\write\WriteScreenTier1Sync.tsx:55: aria-label="닫기"
+  components\write\WriteScreenTier1Sync.tsx:76: aria-label="닫기"
+  components\write\WriteScreenTier1Sync.tsx:104: title="글쓰기 취소"
+  components\write\WriteScreenTier1Sync.tsx:117: <p className="sam-text-body text-sam-fg">입력한 내용이 저장되지 않습니다.</p>
+  components\write\WriteSheetFlowInner.tsx:326: return <p className="py-10 text-center sam-text-body text-sam-muted">불러
+오는 중…</p>;
+  components\write\WriteSheetFlowInner.tsx:329: return <p className="py-10 text-center sam-text-body text-sam-muted">권한
+ 확인 중…</p>;
+  components\write\WriteSheetFlowInner.tsx:332: return <p className="py-10 text-center sam-text-body text-sam-muted">카테
+고리를 찾을 수 없습니다.</p>;
+  components\write\WriteSheetFlowInner.tsx:335: return <p className="py-10 text-center sam-text-body text-sam-muted">이 
+카테고리에는 글을 쓸 수 없습니다.</p>;
+  components\write\WriteSheetFlowInner.tsx:371: return <p className="py-10 text-center sam-text-body text-sam-muted">지원
+하지 않는 카테고리 타입입니다.</p>;
+  components\write\WriteSheetFlowInner.tsx:420: <option value="">카테고리를 선택하세요</option>
+  components\write\WriteSheetFlowInner.tsx:431: <p className="py-10 text-center sam-text-body text-sam-muted">카테고리를 선택하
+세요</p>
+  components\write-launcher\WriteLauncher.tsx:58: <p className="py-8 text-center sam-text-body text-sam-muted">불러오는 중…<
+/p>
+  components\write-launcher\WriteLauncher.tsx:61: <p>노출할 주제가 없습니다.</p>
+  components\write-launcher\WriteLauncher.tsx:91: aria-label="닫기"
+  components\write-launcher\WriteLauncherOverlay.tsx:22: aria-label="글쓰기 메뉴"
+  components\community-board\BoardListCategoryChips.tsx:17: <span className="w-full sam-text-xxs font-medium uppercase 
+tracking-wide text-sam-meta">카테고리</span>
+  components\community-board\CommunityWritePage.tsx:51: <h1 className="text-lg font-semibold text-sam-fg">글쓰기</h1>
+  components\community-board\forms\CommunityForm.tsx:31: alert("주제를 선택하세요.");
+  components\community-board\forms\CommunityForm.tsx:99: placeholder="제목을 입력하세요"
+  components\community-board\forms\CommunityForm.tsx:114: placeholder="내용을 입력하세요"
+  components\community-board\forms\GalleryForm.tsx:72: <label className="block text-sm font-medium text-sam-fg mb-1">사진
+</label>
+  components\community-board\forms\GalleryForm.tsx:106: placeholder="제목"
+  components\community-board\forms\GalleryForm.tsx:120: placeholder="설명 (선택)"
+  components\community-board\forms\PromoForm.tsx:63: <span className="text-sm font-medium text-amber-800">프로모션 / 홍보 글</
+span>
+  components\community-board\forms\PromoForm.tsx:66: <label className="block text-sm font-medium text-sam-fg mb-1">대표 이
+미지 (선택)</label>
+  components\community-board\forms\PromoForm.tsx:71: placeholder="이미지 URL (개발용)"
+  components\community-board\forms\PromoForm.tsx:87: placeholder="프로모션 제목"
+  components\community-board\forms\PromoForm.tsx:102: placeholder="프로모션 내용을 입력하세요"
+  components\community-board\forms\QuestionForm.tsx:61: <span className="text-sm font-medium text-sam-primary">질문하기</sp
+an>
+  components\community-board\forms\QuestionForm.tsx:74: placeholder="질문을 한 줄로 요약해 주세요"
+  components\community-board\forms\QuestionForm.tsx:89: placeholder="질문 내용을 자세히 적어 주세요"
+  components\community-board\skins\detail\BasicDetailSkin.tsx:35: if (res.ok) alert("신고가 접수되었습니다.");
+  components\community-board\skins\detail\BasicDetailSkin.tsx:53: {post.view_count > 0 && <span>조회 {post.view_count}</s
+pan>}
+  components\community-board\skins\detail\GalleryDetailSkin.tsx:53: {showLike && <button type="button" className="text-
+sm text-sam-muted">좋아요</button>}
+  components\community-board\skins\detail\GalleryDetailSkin.tsx:59: {showReport && <button type="button" className="tex
+t-sm text-sam-muted ml-auto">신고</button>}
+  components\community-board\skins\detail\MagazineDetailSkin.tsx:44: {showLike && <button type="button" className="text
+-sm text-sam-muted">좋아요</button>}
+  components\community-board\skins\detail\MagazineDetailSkin.tsx:50: {showReport && <button type="button" className="te
+xt-sm text-sam-muted ml-auto">신고</button>}
+  components\community-board\skins\detail\PromoDetailSkin.tsx:21: <span className="text-xs font-bold text-amber-700 upp
+ercase">프로모션</span>
+  components\community-board\skins\detail\PromoDetailSkin.tsx:38: {showLike && <button type="button" className="text-sm
+ text-sam-muted">좋아요</button>}
+  components\community-board\skins\detail\PromoDetailSkin.tsx:44: {showReport && <button type="button" className="text-
+sm text-sam-muted ml-auto">신고</button>}
+  components\community-board\skins\detail\QnaDetailSkin.tsx:36: {showLike && <button type="button" className="text-sm t
+ext-sam-muted">좋아요</button>}
+  components\community-board\skins\detail\QnaDetailSkin.tsx:42: {showReport && <button type="button" className="text-sm
+ text-sam-muted ml-auto">신고</button>}
+  components\community-board\skins\list\BasicListSkin.tsx:14: <li className="px-4 py-8 text-center text-sam-muted">아직 글
+이 없어요.</li>
+  components\community-board\skins\list\BasicListSkin.tsx:34: {post.view_count > 0 && <span>조회 {post.view_count}</span>
+}
+  components\community-board\skins\list\GalleryListSkin.tsx:13: <div className="col-span-full py-12 text-center text-sa
+m-muted">아직 글이 없어요.</div>
+  components\community-board\skins\list\MagazineListSkin.tsx:12: <div className="py-12 text-center text-sam-muted bg-sa
+m-surface rounded-ui-rect">아직 글이 없어요.</div>
+  components\community-board\skins\list\PromoListSkin.tsx:13: <div className="py-12 text-center text-sam-muted bg-sam-s
+urface rounded-ui-rect">아직 게시글이 없어요.</div>
+  components\community-board\skins\list\PromoListSkin.tsx:42: <span className="text-xs font-semibold text-amber-700">프로
+모션</span>
+  components\community-board\skins\list\QnaListSkin.tsx:13: <li className="px-4 py-8 text-center text-sam-muted">아직 질문이
+ 없어요.</li>
+  components\community-board\skins\list\QnaListSkin.tsx:29: <span>댓글 {post.comment_count}</span>
+  components\delivery\search\DeliverySearchHeader.tsx:28: aria-label="뒤로가기"
+  components\delivery\search\DeliverySearchHeader.tsx:46: aria-label="검색"
+  components\delivery\search\DeliverySearchHeader.tsx:60: placeholder="먹고 싶은 메뉴나 가게를 찾아보세요"
+  components\delivery\search\DeliverySearchHeader.tsx:62: aria-label="배달 검색어 입력"
+  components\delivery\search\DeliverySearchHeader.tsx:69: aria-label="검색어 지우기"
+  components\delivery\search\DeliverySearchResults.tsx:58: <p className="sam-text-body text-sam-muted">검색 중…</p>
+  … and 31 more

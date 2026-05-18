@@ -125,7 +125,7 @@ export function MemberNotificationSettings() {
   if (loading) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-4 text-sm text-sam-muted shadow-sm">
-        불러오는 중…
+        {t("common_loading")}
       </div>
     );
   }
@@ -141,9 +141,7 @@ export function MemberNotificationSettings() {
   if (!s || tableMissing) {
     return (
       <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-950">
-        {tableMissing
-          ? "알림 설정 테이블이 아직 없습니다. 마이그레이션 적용 후 다시 시도해 주세요."
-          : "설정을 불러오지 못했습니다."}
+        {tableMissing ? t("order_notifications_table_missing") : t("order_notifications_load_failed")}
       </div>
     );
   }
@@ -153,32 +151,32 @@ export function MemberNotificationSettings() {
       <div className="px-4 py-3">
         <h2 className="text-sm font-bold text-sam-fg">{t("order_notifications_header")}</h2>
         <p className="mt-1 sam-text-helper text-sam-muted">
-          주문·매장 인앱 알림은 Supabase `user_notification_settings` 에 저장됩니다.{" "}
+          {t("order_notifications_storage_intro")}{" "}
           <Link href="/my/settings/notifications" className="font-medium text-signature underline">
-            전체 알림 설정
+            {t("order_notifications_all_settings_link")}
           </Link>
-          에서 채팅·이메일 등을 함께 조정할 수 있어요.
+          {t("order_notifications_storage_suffix")}
         </p>
       </div>
       <Row
-        label="주문 알림 (상태·취소·환불 등)"
-        description="매장 주문 진행·취소·환불 관련 인앱 알림"
+        label={t("order_notifications_order_toggle")}
+        description={t("order_notifications_order_toggle_desc")}
         checked={s.order_enabled}
         onChange={(v) => void patch({ order_enabled: v })}
       />
       <Row
-        label="매장·판매 알림"
-        description="입점 매장·주문 접수 등 매장 도메인 알림"
+        label={t("order_notifications_store_toggle")}
+        description={t("order_notifications_store_toggle_desc")}
         checked={s.store_enabled}
         onChange={(v) => void patch({ store_enabled: v })}
       />
       <Row
-        label="인앱 알림음"
+        label={t("order_notifications_sound_toggle")}
         checked={s.sound_enabled}
         onChange={(v) => void patch({ sound_enabled: v })}
       />
       <Row
-        label="진동"
+        label={t("order_notifications_vibration_toggle")}
         checked={s.vibration_enabled}
         onChange={(v) => void patch({ vibration_enabled: v })}
       />

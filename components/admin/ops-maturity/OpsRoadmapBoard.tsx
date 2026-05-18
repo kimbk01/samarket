@@ -1,5 +1,10 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  OPS_TOOLS_CHECKLIST_STATUS_KEYS,
+  opsToolsLabel,
+} from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { useMemo, useState } from "react";
 import type { OpsRoadmapStatus, OpsRoadmapDomain } from "@/lib/types/ops-maturity";
 import { getOpsImprovementRoadmapItems } from "@/lib/ops-maturity/mock-ops-improvement-roadmap-items";
@@ -14,16 +19,8 @@ const STATUS_COLUMNS: OpsRoadmapStatus[] = [
   "deferred",
 ];
 
-const STATUS_LABELS: Record<OpsRoadmapStatus, string> = {
-  planned: "예정",
-  approved: "승인",
-  in_progress: "진행중",
-  blocked: "차단",
-  completed: "완료",
-  deferred: "보류",
-};
-
 export function OpsRoadmapBoard() {
+  const { t } = useI18n();
   const [domainFilter, setDomainFilter] = useState<OpsRoadmapDomain | "">("");
 
   const items = useMemo(
@@ -54,20 +51,20 @@ export function OpsRoadmapBoard() {
           onChange={(e) => setDomainFilter(e.target.value as OpsRoadmapDomain | "")}
           className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
-          <option value="">전체 영역</option>
-          <option value="monitoring">모니터링</option>
-          <option value="automation">자동화</option>
-          <option value="documentation">문서화</option>
-          <option value="response">대응</option>
-          <option value="recommendation_quality">추천 품질</option>
-          <option value="learning">학습</option>
+          <option value="">{t("admin_ops_tools_maturity_filter_area")}</option>
+          <option value="monitoring">{t("admin_ops_tools_cat_monitoring")}</option>
+          <option value="automation">{t("admin_ops_tools_cat_automation")}</option>
+          <option value="documentation">{t("admin_ops_tools_area_documentation")}</option>
+          <option value="response">{t("admin_ops_tools_area_response")}</option>
+          <option value="recommendation_quality">{t("admin_ops_tools_area_recommendation")}</option>
+          <option value="learning">{t("admin_ops_tools_area_learning")}</option>
         </select>
       </div>
       <div className="grid gap-3 overflow-x-auto lg:grid-cols-6">
         {STATUS_COLUMNS.map((status) => (
           <div key={status} className="min-w-[200px] rounded-ui-rect border border-sam-border bg-sam-app/50 p-3">
             <h3 className="mb-2 sam-text-body-secondary font-medium text-sam-fg">
-              {STATUS_LABELS[status]} ({byStatus[status].length})
+              {t(opsToolsLabel(OPS_TOOLS_CHECKLIST_STATUS_KEYS, status))} ({byStatus[status].length})
             </h3>
             <div className="space-y-2">
               {byStatus[status].map((item) => (

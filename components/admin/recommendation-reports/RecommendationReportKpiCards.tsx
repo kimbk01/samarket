@@ -1,13 +1,16 @@
 "use client";
 
 import { useMemo } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getRecommendationReportKpis } from "@/lib/recommendation-reports/mock-recommendation-report-kpis";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 interface RecommendationReportKpiCardsProps {
   reportId: string;
 }
 
 export function RecommendationReportKpiCards({ reportId }: RecommendationReportKpiCardsProps) {
+  const { t } = useI18n();
   const kpis = useMemo(
     () => getRecommendationReportKpis(reportId),
     [reportId]
@@ -16,32 +19,35 @@ export function RecommendationReportKpiCards({ reportId }: RecommendationReportK
   if (!kpis) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
-        KPI 데이터가 없습니다.
+        {t("admin_rec_report_empty_kpi")}
       </div>
     );
   }
 
-  const items = [
-    { label: "총 노출수", value: kpis.impressionCount.toLocaleString() },
-    { label: "총 클릭수", value: kpis.clickCount.toLocaleString() },
-    { label: "CTR", value: `${(kpis.ctr * 100).toFixed(2)}%` },
-    { label: "총 전환수", value: kpis.conversionCount.toLocaleString() },
-    { label: "전환율", value: `${(kpis.conversionRate * 100).toFixed(2)}%` },
-    { label: "평균 노출 점수", value: kpis.avgScore.toFixed(2) },
-    { label: "Fallback 발생", value: kpis.fallbackCount },
-    { label: "킬스위치 발생", value: kpis.killSwitchCount },
-    { label: "자동 롤백 발생", value: kpis.rollbackCount },
-    { label: "이슈 건수", value: kpis.incidentCount },
+  const items: { labelKey: MessageKey; value: string | number }[] = [
+    { labelKey: "admin_rec_report_kpi_impressions", value: kpis.impressionCount.toLocaleString() },
+    { labelKey: "admin_rec_report_kpi_clicks", value: kpis.clickCount.toLocaleString() },
+    { labelKey: "admin_rec_th_ctr", value: `${(kpis.ctr * 100).toFixed(2)}%` },
+    { labelKey: "admin_rec_report_kpi_conversions", value: kpis.conversionCount.toLocaleString() },
+    {
+      labelKey: "admin_rec_report_kpi_conversion_rate",
+      value: `${(kpis.conversionRate * 100).toFixed(2)}%`,
+    },
+    { labelKey: "admin_rec_report_kpi_avg_score", value: kpis.avgScore.toFixed(2) },
+    { labelKey: "admin_rec_report_kpi_fallback", value: kpis.fallbackCount },
+    { labelKey: "admin_rec_report_kpi_kill_switch", value: kpis.killSwitchCount },
+    { labelKey: "admin_rec_report_kpi_rollback", value: kpis.rollbackCount },
+    { labelKey: "admin_rec_report_kpi_incidents", value: kpis.incidentCount },
   ];
 
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
       {items.map((item) => (
         <div
-          key={item.label}
+          key={item.labelKey}
           className="rounded-ui-rect border border-sam-border bg-sam-surface p-4"
         >
-          <p className="sam-text-helper text-sam-muted">{item.label}</p>
+          <p className="sam-text-helper text-sam-muted">{t(item.labelKey)}</p>
           <p className="sam-text-page-title font-semibold text-sam-fg">{item.value}</p>
         </div>
       ))}

@@ -1,25 +1,15 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  OPS_TOOLS_SUGGESTION_STATUS_KEYS,
+  OPS_TOOLS_SUGGESTION_TYPE_KEYS,
+  opsToolsLabel,
+} from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { useMemo } from "react";
 import Link from "next/link";
 import { getOpsImprovementSuggestions } from "@/lib/ops-learning/mock-ops-improvement-suggestions";
 import type { OpsSuggestionStatus } from "@/lib/types/ops-learning";
-
-const TYPE_LABELS: Record<string, string> = {
-  document_update: "문서 수정",
-  new_runbook: "신규 런북",
-  automation_rule: "자동화 규칙",
-  rollback_policy: "롤백 정책",
-  section_disable_rule: "섹션 비활성 규칙",
-  alert_threshold_change: "알림 임계치",
-};
-
-const STATUS_LABELS: Record<OpsSuggestionStatus, string> = {
-  proposed: "제안",
-  approved: "승인",
-  rejected: "반려",
-  implemented: "적용완료",
-};
 
 interface OpsImprovementSuggestionTableProps {
   patternId?: string | null;
@@ -30,6 +20,7 @@ export function OpsImprovementSuggestionTable({
   patternId = null,
   compact = false,
 }: OpsImprovementSuggestionTableProps) {
+  const { t } = useI18n();
   const suggestions = useMemo(
     () => getOpsImprovementSuggestions({ patternId: patternId ?? undefined }),
     [patternId]
@@ -37,20 +28,18 @@ export function OpsImprovementSuggestionTable({
 
   if (suggestions.length === 0) {
     return (
-      <div className="rounded border border-sam-border-soft bg-sam-surface py-4 text-center sam-text-body-secondary text-sam-muted">
-        개선 제안이 없습니다.
-      </div>
+      <div className="rounded border border-sam-border-soft bg-sam-surface py-4 text-center sam-text-body-secondary text-sam-muted">{t("admin_ops_tools_learning_suggest_empty")}</div>
     );
   }
 
   if (compact) {
     return (
       <div>
-        <p className="sam-text-helper font-medium text-sam-fg">개선 제안</p>
+        <p className="sam-text-helper font-medium text-sam-fg">{t("admin_ops_tools_learning_tab_suggestions")}</p>
         <ul className="mt-1 space-y-1 sam-text-body-secondary text-sam-fg">
           {suggestions.slice(0, 3).map((s) => (
             <li key={s.id}>
-              {s.title} · {STATUS_LABELS[s.status]}
+              {s.title} · {t(opsToolsLabel(OPS_TOOLS_SUGGESTION_STATUS_KEYS, s.status))}
             </li>
           ))}
         </ul>
@@ -63,17 +52,17 @@ export function OpsImprovementSuggestionTable({
       <table className="w-full min-w-[560px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">유형</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">제목</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">상태</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">액션</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_kg_th_type")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_board_th_title")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_board_th_status")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_node_action")}</th>
           </tr>
         </thead>
         <tbody>
           {suggestions.map((s) => (
             <tr key={s.id} className="border-b border-sam-border-soft hover:bg-sam-app">
               <td className="px-3 py-2.5 text-sam-fg">
-                {TYPE_LABELS[s.suggestionType]}
+                {t(opsToolsLabel(OPS_TOOLS_SUGGESTION_TYPE_KEYS, s.suggestionType))}
               </td>
               <td className="px-3 py-2.5">
                 <span className="font-medium text-sam-fg">{s.title}</span>
@@ -81,7 +70,7 @@ export function OpsImprovementSuggestionTable({
               </td>
               <td className="px-3 py-2.5">
                 <span className="rounded bg-sam-surface-muted px-2 py-0.5 sam-text-helper text-sam-fg">
-                  {STATUS_LABELS[s.status]}
+                  {t(opsToolsLabel(OPS_TOOLS_SUGGESTION_STATUS_KEYS, s.status))}
                 </span>
               </td>
               <td className="px-3 py-2.5">

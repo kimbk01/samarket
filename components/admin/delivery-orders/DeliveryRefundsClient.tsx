@@ -10,8 +10,10 @@ import {
 } from "@/lib/admin/fetch-admin-store-orders-scoped";
 import type { AdminDeliveryOrder } from "@/lib/admin/delivery-orders-admin/types";
 import { RefundRequestTable } from "./RefundRequestTable";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function DeliveryRefundsClient() {
+  const { t } = useI18n();
   const [rows, setRows] = useState<AdminDeliveryOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -45,12 +47,12 @@ export function DeliveryRefundsClient() {
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, t]);
 
   const approve = async (orderId: string) => {
     if (
       !window.confirm(
-        "환불을 승인할까요? 주문이 refunded로 바뀌고 재고가 복구되며 예정 정산이 취소될 수 있습니다."
+        t("admin_do_refunds_confirm")
       )
     ) {
       return;
@@ -63,13 +65,13 @@ export function DeliveryRefundsClient() {
       });
       const json = (await res.json()) as { ok?: boolean; error?: string };
       if (!json?.ok) {
-        show(json.error ?? "승인 실패");
+        show(json.error ?? t("admin_do_refunds_approve_failed"));
         return;
       }
-      show("환불 승인을 반영했습니다.");
+      show(t("admin_do_refunds_approve_ok"));
       await load();
     } catch {
-      show("네트워크 오류");
+      show(t("admin_do_refunds_network_error"));
     } finally {
       setBusyId(null);
     }
@@ -81,19 +83,18 @@ export function DeliveryRefundsClient() {
 
   return (
     <div className="p-4 md:p-6">
-      <AdminPageHeader title="환불 요청" backHref="/admin/stores/orders" />
+      <AdminPageHeader titleKey="admin_do_refunds_title" backHref="/admin/stores/orders" />
       <p className="mb-2 sam-text-body-secondary text-sam-muted">
-        <code className="rounded bg-sam-app px-1 sam-text-helper">order_status = refund_requested</code> 원장만
-        표시합니다. 승인은 DB API로 처리하고, 거절·기타 조정은{" "}
+        <code className="rounded bg-sam-app px-1 sam-text-helper">order_status = refund_requested</code>{" "}
+        {t("admin_do_refunds_intro")}{" "}
         <Link href="/admin/store-orders" className="text-signature underline">
-          매장 주문(액션)
+          {t("admin_do_nav_store_orders")}
         </Link>
-        에서 이어가세요.
       </p>
       {toast ? <p className="mb-2 text-sm text-sam-fg">{toast}</p> : null}
       {error ? (
         <p className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">
-          불러오지 못했습니다 ({error}).
+          {t("admin_do_common_load_failed", { error })}
         </p>
       ) : null}
       <div className="mb-2">
@@ -103,12 +104,12 @@ export function DeliveryRefundsClient() {
           disabled={loading}
           className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-xs text-sam-fg disabled:opacity-50"
         >
-          {loading ? "갱신 중…" : "새로고침"}
+          {loading ? t("admin_do_common_refreshing") : t("admin_do_common_refresh")}
         </button>
       </div>
-      <AdminCard title="대기 목록 (원장)">
+      <AdminCard titleKey="admin_do_refunds_card">
         {loading ? (
-          <p className="text-sm text-sam-muted">불러오는 중…</p>
+          <p className="text-sm text-sam-muted">{t("admin_dashboard_loading")}</p>
         ) : (
           <RefundRequestTable
             rows={rows}

@@ -1,25 +1,19 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  OPS_TOOLS_RUNBOOK_LOG_KEYS,
+  opsToolsLabel,
+} from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { useMemo } from "react";
 import { getOpsRunbookExecutionLogs } from "@/lib/ops-runbooks/mock-ops-runbook-execution-logs";
-
-const ACTION_LABELS: Record<string, string> = {
-  start_execution: "실행 시작",
-  start_step: "단계 시작",
-  complete_step: "단계 완료",
-  skip_step: "단계 스킵",
-  block_step: "단계 차단",
-  add_note: "메모",
-  complete_execution: "실행 완료",
-  abort_execution: "실행 중단",
-  write_result: "결과 기록",
-};
 
 interface OpsRunbookExecutionLogListProps {
   executionId: string;
 }
 
 export function OpsRunbookExecutionLogList({ executionId }: OpsRunbookExecutionLogListProps) {
+  const { t } = useI18n();
   const logs = useMemo(
     () => getOpsRunbookExecutionLogs(executionId),
     [executionId]
@@ -27,9 +21,7 @@ export function OpsRunbookExecutionLogList({ executionId }: OpsRunbookExecutionL
 
   if (logs.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
-        실행 로그가 없습니다.
-      </div>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_runbook_logs_empty")}</div>
     );
   }
 
@@ -41,7 +33,7 @@ export function OpsRunbookExecutionLogList({ executionId }: OpsRunbookExecutionL
           className="flex flex-wrap items-center gap-2 rounded border border-sam-border-soft bg-sam-surface px-3 py-2 sam-text-body-secondary"
         >
           <span className="rounded bg-sam-surface-muted px-2 py-0.5 font-medium text-sam-fg">
-            {ACTION_LABELS[log.actionType] ?? log.actionType}
+            {t(opsToolsLabel(OPS_TOOLS_RUNBOOK_LOG_KEYS, log.actionType))}
           </span>
           <span className="text-sam-muted">{log.actorNickname}</span>
           {log.note && <span className="text-sam-muted">· {log.note}</span>}

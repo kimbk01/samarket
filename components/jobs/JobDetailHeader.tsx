@@ -2,19 +2,23 @@
 
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { formatPrice } from "@/lib/utils/format";
-import { JOB_LISTING_KIND_LABELS, PAY_TYPE_LABELS } from "@/lib/jobs/form-options";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { jobListingKindLabel, jobPayTypeLabel } from "@/lib/jobs/job-label-keys";
 import type { JobDetailDirection } from "@/lib/jobs/resolve-job-detail-direction";
 import {
   TRADE_FB_DETAIL_HERO_TITLE,
   TRADE_FB_DETAIL_PRICE,
 } from "@/lib/ui/trade-write-fb-ui";
 
-function jobListingTypeLabel(meta: Record<string, unknown>): string {
+function jobListingTypeLabel(
+  t: ReturnType<typeof useI18n>["t"],
+  meta: Record<string, unknown>
+): string {
   const lk = String(meta.listing_kind ?? "").trim();
   const jt = String(meta.job_type ?? "").trim();
-  if (lk && JOB_LISTING_KIND_LABELS[lk]) return JOB_LISTING_KIND_LABELS[lk];
-  if (jt === "seek") return JOB_LISTING_KIND_LABELS.work;
-  return JOB_LISTING_KIND_LABELS.hire;
+  if (lk) return jobListingKindLabel(t, lk);
+  if (jt === "seek") return jobListingKindLabel(t, "work");
+  return jobListingKindLabel(t, "hire");
 }
 
 function jobStatusLabel(post: PostWithMeta, direction: JobDetailDirection): { label: string; className: string } {
@@ -48,7 +52,7 @@ function jobPayHeroLine(
   const prefix = direction === "seeking" ? "희망급여" : "급여";
 
   if (payAmount != null && !Number.isNaN(payAmount)) {
-    const base = `${PAY_TYPE_LABELS[payType] ?? payType} ${formatPrice(payAmount, currency)}`;
+    const base = `${jobPayTypeLabel(t, payType)} ${formatPrice(payAmount, currency)}`;
     const tail = sameDayPay ? " · 당일 지급" : "";
     return `${prefix} ${base}${tail}`;
   }
@@ -71,8 +75,9 @@ export function JobDetailHeader({
   /** 거래완료 등 흐림 처리 — 기존 상세와 동일 */
   isSoldOpacity: boolean;
 }) {
-  const typeLabel = jobListingTypeLabel(meta);
-  const payLine = jobPayHeroLine(meta, post.price ?? null, currency, direction);
+  const { t } = useI18n();
+  const typeLabel = jobListingTypeLabel(t, meta);
+  const payLine = jobPayHeroLine(t, meta, post.price ?? null, currency, direction);
   const status = jobStatusLabel(post, direction);
 
   return (

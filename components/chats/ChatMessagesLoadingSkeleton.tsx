@@ -1,6 +1,7 @@
 "use client";
 
 import { IG_DM_BUBBLE_ROW_MAX, IG_DM_BUBBLE_PAD } from "@/lib/chats/instagram-dm-tokens";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type Props = {
   variant?: "default" | "instagram";
@@ -8,6 +9,7 @@ type Props = {
 
 /** 메시지 GET 대기 중 — 실제 말풍선 레이아웃에 맞춘 스켈레톤(전면 문구 대신 체감 속도 개선) */
 export function ChatMessagesLoadingSkeleton({ variant = "default" }: Props) {
+  const { t } = useI18n();
   const ig = variant === "instagram";
   const rowMax = ig
     ? IG_DM_BUBBLE_ROW_MAX
@@ -24,9 +26,9 @@ export function ChatMessagesLoadingSkeleton({ variant = "default" }: Props) {
     <ul
       className={`list-none space-y-0 py-3 ${ig ? "min-h-[200px]" : "min-h-[220px]"}`}
       aria-busy="true"
-      aria-label="메시지 불러오는 중"
+      aria-label={t("chats_loading_messages_aria")}
     >
-      <span className="sr-only">메시지를 불러오는 중입니다.</span>
+      <span className="sr-only">{t("chats_loading_messages_sr")}</span>
 
       <li className="flex justify-start pt-1">
         <div className={`flex ${rowMax} items-end ${gap}`}>

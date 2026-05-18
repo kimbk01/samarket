@@ -1,21 +1,23 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { parseMeetingJoinRequestMessage } from "@/lib/neighborhood/meeting-join-request-message";
 
 export function JoinRequestMessagePreview({ text }: { text: string }) {
+  const { t } = useI18n();
   const parsed = parseMeetingJoinRequestMessage(text);
   if (!parsed) {
     return (
       <p className="mt-2 whitespace-pre-wrap rounded-ui-rect bg-amber-50/90 px-2.5 py-2 sam-text-helper leading-relaxed text-sam-fg">
-        {text || "내용 없음"}
+        {text || t("meeting_join_preview_empty")}
       </p>
     );
   }
   const rows: { k: string; v: string }[] = [
-    { k: "닉네임", v: parsed.nickname },
-    { k: "소개", v: parsed.intro },
-    { k: "참여 이유", v: parsed.reason },
-    { k: "메모", v: parsed.note },
+    { k: t("community_join_field_name"), v: parsed.nickname },
+    { k: t("community_join_field_intro"), v: parsed.intro },
+    { k: t("community_join_field_reason"), v: parsed.reason },
+    { k: t("community_join_field_memo"), v: parsed.note },
   ];
   return (
     <dl className="mt-2 space-y-2 rounded-ui-rect border border-amber-100 bg-amber-50/60 px-2.5 py-2 sam-text-helper">

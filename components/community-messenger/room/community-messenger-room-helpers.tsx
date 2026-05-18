@@ -17,6 +17,7 @@ import type {
 } from "@/lib/community-messenger/types";
 import type { CommunityMessengerRoomRealtimeMessageRow } from "@/lib/community-messenger/realtime/community-messenger-realtime-types";
 import { isCommunityMessengerStickerPublicPath } from "@/lib/stickers/sticker-content";
+import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
 
 /** 녹음 경과 시간 — 1/10000초(0.0001s) 단위까지 표시 */
 export function formatVoiceRecordTenThousandths(ms: number): string {
@@ -58,14 +59,16 @@ export function VoiceRecordingLiveWaveform({ peaks, className }: { peaks: number
 }
 
 export function communityMessengerMessageSearchText(m: CommunityMessengerMessage & { pending?: boolean }): string {
-  if (m.messageType === "call_stub") return m.callKind === "video" ? "영상 통화" : "음성 통화";
-  if (m.messageType === "voice") return "음성 메시지";
-  if (m.messageType === "sticker") return "스티커";
-  if (m.messageType === "file") return m.fileName?.trim() || "파일";
+  if (m.messageType === "call_stub") {
+    return m.callKind === "video" ? translateCmUi("cm_ui_video_call") : translateCmUi("cm_ui_voice_call");
+  }
+  if (m.messageType === "voice") return translateCmUi("cm_ui_voice_message");
+  if (m.messageType === "sticker") return translateCmUi("cm_ui_sticker");
+  if (m.messageType === "file") return m.fileName?.trim() || translateCmUi("cm_ui_file");
   if (m.messageType === "image") {
     const n = m.imageAlbumUrls?.length ?? 0;
-    if (n > 1) return `사진 ${n}장`;
-    return m.content.trim() || "사진";
+    if (n > 1) return translateCmUi("cm_ui_photo_count_sheets", { count: n });
+    return m.content.trim() || translateCmUi("cm_ui_photo");
   }
   return m.content;
 }
@@ -335,7 +338,9 @@ export function mapRealtimeRoomMessage(
     id: message.id,
     roomId: message.roomId,
     senderId: message.senderId,
-    senderLabel: sender?.label ?? (message.senderId === snapshot.viewerUserId ? "나" : "상대"),
+    senderLabel:
+      sender?.label ??
+      (message.senderId === snapshot.viewerUserId ? translateCmUi("common_me") : translateCmUi("cm_ui_peer_fallback")),
     messageType: message.messageType,
     content: message.content,
     createdAt: message.createdAt,
@@ -364,7 +369,7 @@ export function formatFileMeta(mimeType?: string | null, fileSizeBytes?: number 
   const size = Number(fileSizeBytes ?? 0);
   if (mime) parts.push(mime);
   if (size > 0) parts.push(formatFileSize(size));
-  return parts.join(" · ") || "첨부 파일";
+  return parts.join(" · ") || translateCmUi("common_attached_file");
 }
 
 export function formatFileSize(bytes: number): string {
@@ -381,13 +386,13 @@ export function formatTime(value: string): string {
 }
 
 export function formatRoomCallStatus(status?: string | null): string {
-  if (status === "missed") return "부재중";
-  if (status === "rejected") return "거절됨";
-  if (status === "cancelled") return "취소됨";
-  if (status === "ended") return "통화 종료";
-  if (status === "incoming") return "수신 중";
-  if (status === "dialing") return "발신 중";
-  return "상태 확인 중";
+  if (status === "missed") return translateCmUi("cm_ui_call_status_missed_short");
+  if (status === "rejected") return translateCmUi("cm_ui_call_status_declined");
+  if (status === "cancelled") return translateCmUi("cm_ui_call_status_cancelled_short");
+  if (status === "ended") return translateCmUi("cm_ui_call_end_short");
+  if (status === "incoming") return translateCmUi("cm_ui_call_status_incoming");
+  if (status === "dialing") return translateCmUi("cm_ui_call_status_outgoing_dialing");
+  return translateCmUi("cm_ui_call_status_unknown");
 }
 
 export function formatDuration(value: number): string {
@@ -398,10 +403,10 @@ export function formatDuration(value: number): string {
 }
 
 export function formatParticipantStatus(value: "invited" | "joined" | "left" | "rejected"): string {
-  if (value === "joined") return "참여 중";
-  if (value === "invited") return "대기";
-  if (value === "rejected") return "거절";
-  return "종료";
+  if (value === "joined") return translateCmUi("cm_ui_participant_status_joined");
+  if (value === "invited") return translateCmUi("cm_ui_participant_status_waiting");
+  if (value === "rejected") return translateCmUi("cm_ui_reject");
+  return translateCmUi("cm_ui_participant_status_ended");
 }
 
 export function BackIcon({ className }: { className?: string }) {

@@ -1,46 +1,75 @@
 "use client";
 
 import { useMemo } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { RecommendationSurface } from "@/lib/types/recommendation";
 import { getRecommendationIncidents } from "@/lib/recommendation-monitoring/mock-recommendation-incidents";
 import { getRecommendationDeployments } from "@/lib/recommendation-deployments/mock-recommendation-deployments";
 import { getRecommendationAlertEvents } from "@/lib/recommendation-monitoring/mock-recommendation-alert-events";
-import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
+import { recSurfaceLabel } from "@/components/admin/recommendation-admin-i18n";
 
 type TimelineItem =
-  | { type: "incident"; id: string; at: string; title: string; surface: string; status: string }
-  | { type: "deployment"; id: string; at: string; title: string; surface: string; status: string }
-  | { type: "alert"; id: string; at: string; title: string; surface: string; severity: string };
+  | {
+      type: "incident";
+      id: string;
+      at: string;
+      title: string;
+      surface: RecommendationSurface;
+      status: string;
+    }
+  | {
+      type: "deployment";
+      id: string;
+      at: string;
+      title: string;
+      surface: RecommendationSurface;
+      status: string;
+    }
+  | {
+      type: "alert";
+      id: string;
+      at: string;
+      title: string;
+      surface: RecommendationSurface;
+      severity: string;
+    };
 
 export function MonitoringTimeline() {
+  const { t } = useI18n();
+
   const items = useMemo(() => {
     const list: TimelineItem[] = [];
-    getRecommendationIncidents().slice(0, 5).forEach((i) => {
-      list.push({
-        type: "incident",
-        id: i.id,
-        at: i.startedAt,
-        title: i.title,
-        surface: SURFACE_LABELS[i.surface],
-        status: i.status,
+    getRecommendationIncidents()
+      .slice(0, 5)
+      .forEach((i) => {
+        list.push({
+          type: "incident",
+          id: i.id,
+          at: i.startedAt,
+          title: i.title,
+          surface: i.surface,
+          status: i.status,
+        });
       });
-    });
-    getRecommendationDeployments().slice(0, 5).forEach((d) => {
-      list.push({
-        type: "deployment",
-        id: d.id,
-        at: d.deployedAt,
-        title: d.deploymentName,
-        surface: SURFACE_LABELS[d.surface],
-        status: d.deploymentStatus,
+    getRecommendationDeployments()
+      .slice(0, 5)
+      .forEach((d) => {
+        list.push({
+          type: "deployment",
+          id: d.id,
+          at: d.deployedAt,
+          title: d.deploymentName,
+          surface: d.surface,
+          status: d.deploymentStatus,
+        });
       });
-    });
     getRecommendationAlertEvents({ limit: 5 }).forEach((e) => {
       list.push({
         type: "alert",
         id: e.id,
         at: e.createdAt,
         title: e.message,
-        surface: SURFACE_LABELS[e.surface],
+        surface: e.surface,
         severity: e.severity,
       });
     });
@@ -51,7 +80,7 @@ export function MonitoringTimeline() {
   if (items.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        최근 이벤트가 없습니다.
+        {t("admin_rec_mon_empty_timeline")}
       </div>
     );
   }
@@ -73,23 +102,23 @@ export function MonitoringTimeline() {
             }`}
           >
             {item.type === "incident"
-              ? "이슈"
+              ? t("admin_rec_mon_timeline_issue")
               : item.type === "deployment"
-                ? "배포"
-                : "알림"}
+                ? t("admin_rec_mon_timeline_deploy")
+                : t("admin_rec_mon_timeline_alert")}
           </span>
           <div className="min-w-0 flex-1">
             <p className="truncate sam-text-body font-medium text-sam-fg">
               {item.title}
             </p>
             <p className="sam-text-helper text-sam-muted">
-              {item.surface}
+              {recSurfaceLabel(t, item.surface)}
               {"status" in item && ` · ${item.status}`}
               {"severity" in item && ` · ${item.severity}`}
             </p>
           </div>
           <span className="shrink-0 sam-text-helper text-sam-muted">
-            {new Date(item.at).toLocaleString("ko-KR")}
+            {new Date(item.at).toLocaleString()}
           </span>
         </div>
       ))}

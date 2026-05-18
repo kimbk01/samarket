@@ -1,22 +1,18 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
-/**
- * 안전거래/결제 유도 카드 (당근페이 느낌)
- * 실제 결제·안전거래 페이지 연결 가능
- */
 export function MySafeTradeCard() {
+  const { t } = useI18n();
   return (
     <Link
       href="/mypage/points"
       className="flex items-center justify-between rounded-ui-rect bg-sam-surface p-4 shadow-sm"
     >
       <div>
-        <p className="sam-text-body font-semibold text-sam-fg">안전한 거래</p>
-        <p className="mt-0.5 sam-text-body-secondary text-sam-muted">
-          포인트 충전 및 결제
-        </p>
+        <p className="sam-text-body font-semibold text-sam-fg">{t("my_safe_trade_title")}</p>
+        <p className="mt-0.5 sam-text-body-secondary text-sam-muted">{t("my_safe_trade_desc")}</p>
       </div>
       <span className="text-sam-meta">
         <ChevronIcon />
@@ -27,7 +23,7 @@ export function MySafeTradeCard() {
 
 function ChevronIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
       <polyline points="9 18 15 12 9 6" />
     </svg>
   );

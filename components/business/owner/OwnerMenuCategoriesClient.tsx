@@ -11,6 +11,8 @@ import { Sam } from "@/lib/ui/sam-component-classes";
 import { StoreMenuCategorySortableList } from "@/components/business/owner/StoreMenuCategorySortableList";
 import { useBusinessAdminStore } from "@/components/business/admin/business-admin-store-context";
 import type { OwnerRscMenuSection } from "@/lib/stores/owner/load-owner-store-read-bootstrap";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 
 type Section = {
   id: string;
@@ -34,6 +36,7 @@ export function OwnerMenuCategoriesClient({
   initialSections?: OwnerRscMenuSection[];
   rscBootstrapError?: string;
 }) {
+  const { t } = useI18n();
   const pathname = usePathname() ?? "";
   /** `ConditionalAppShell` 과 동일한 하단 탭 노출 여부 — 고정 액션 바 오프셋에만 사용 */
   const { showBottomNav } = useMemo(
@@ -57,10 +60,10 @@ export function OwnerMenuCategoriesClient({
   const [error, setError] = useState<string | null>(() => {
     if (!rscBootstrapError) return null;
     if (rscBootstrapError === "session_invalid") {
-      return "로그인 세션을 확인할 수 없습니다. 새로고침 후 다시 시도해 주세요.";
+      return t("business_phase7_422");
     }
     if (rscBootstrapError === "supabase_unconfigured") {
-      return "매장 서비스 설정이 완료되지 않았습니다.";
+      return t("business_phase7_423");
     }
     return rscBootstrapError;
   });
@@ -105,7 +108,7 @@ export function OwnerMenuCategoriesClient({
         : [];
       setSections(list);
       if (j.meta?.hint === "store_menu_sections") {
-        setError("DB 마이그레이션(store_menu_sections)을 적용해 주세요.");
+        setError(t("business_phase7_363"));
       } else {
         setError(null);
       }
@@ -182,7 +185,7 @@ export function OwnerMenuCategoriesClient({
   const saveEditor = async () => {
     const n = name.trim();
     if (n.length < 1) {
-      setError("카테고리 이름을 입력해 주세요.");
+      setError(t("business_phase7_473"));
       return;
     }
     const so = parseInt(sortOrder, 10);
@@ -206,10 +209,10 @@ export function OwnerMenuCategoriesClient({
         if (!res.ok || !j?.ok) {
           setError(
             j?.error === "duplicate_section_name"
-              ? "같은 이름의 카테고리가 이미 있습니다."
+              ? t("business_phase7_474")
               : typeof j?.error === "string"
                 ? j.error
-                : "저장 실패"
+                : t("business_phase7_368")
           );
           return;
         }
@@ -229,10 +232,10 @@ export function OwnerMenuCategoriesClient({
         if (!res.ok || !j?.ok) {
           setError(
             j?.error === "duplicate_section_name"
-              ? "같은 이름의 카테고리가 이미 있습니다."
+              ? t("business_phase7_474")
               : typeof j?.error === "string"
                 ? j.error
-                : "저장 실패"
+                : t("business_phase7_368")
           );
           return;
         }
@@ -272,7 +275,7 @@ export function OwnerMenuCategoriesClient({
   const askDeleteSection = useCallback(async (s: Section) => {
     const n = await countProductsInSection(s.id);
     if (n > 0) {
-      setError(`이 카테고리에 메뉴가 ${n}개 있습니다. 상품 관리에서 다른 카테고리로 옮긴 뒤 삭제해 주세요.`);
+      setError(t("business_phase7_475", { v1: String(n) }));
       return;
     }
     setDeleteTarget(s);
@@ -308,7 +311,7 @@ export function OwnerMenuCategoriesClient({
       if (bad) {
         setSections(previous);
         const msg =
-          typeof bad.j?.error === "string" ? bad.j.error : "순서 저장에 실패했습니다.";
+          typeof bad.j?.error === "string" ? bad.j.error : t("business_phase7_476");
         setError(msg);
         window.alert(msg);
         return;
@@ -316,7 +319,7 @@ export function OwnerMenuCategoriesClient({
     } catch {
       setSections(previous);
       setError("network_error");
-      window.alert("네트워크 오류로 순서를 저장하지 못했습니다.");
+      window.alert(t("business_phase7_046"));
     } finally {
       setReorderBusy(false);
     }
@@ -331,7 +334,7 @@ export function OwnerMenuCategoriesClient({
       });
       const j = await res.json().catch(() => ({}));
       if (!res.ok || !j?.ok) {
-        setError(typeof j?.error === "string" ? j.error : "삭제 실패");
+        setError(typeof j?.error === "string" ? j.error : t("business_phase7_352"));
         return;
       }
       await load({ silent: true });
@@ -348,7 +351,7 @@ export function OwnerMenuCategoriesClient({
     return (
       <>
         <div className={`min-h-[100dvh] bg-sam-app ${editScrollBottomPaddingClass}`}>
-          <nav className="sam-tabs" aria-label="카테고리 편집 탭">
+          <nav className="sam-tabs" aria-label={t("business_phase7_304")}>
             <button
               type="button"
               role="tab"
@@ -356,7 +359,7 @@ export function OwnerMenuCategoriesClient({
               onClick={() => setEditorTab("basic")}
               className={`sam-tab flex-1 ${editorTab === "basic" ? "sam-tab--active" : ""}`}
             >
-              기본정보
+              {t("business_phase7_371")}
             </button>
             <button
               type="button"
@@ -365,37 +368,39 @@ export function OwnerMenuCategoriesClient({
               onClick={() => setEditorTab("language")}
               className={`sam-tab flex-1 ${editorTab === "language" ? "sam-tab--active" : ""}`}
             >
-              언어
+              {t("business_phase7_187")}
             </button>
           </nav>
 
           <div className="px-4 py-4">
-            {error ? <p className="mb-3 sam-text-body-secondary text-red-600">{error}</p> : null}
+            {error ? (
+              <p className="mb-3 sam-text-body-secondary text-red-600">{resolveOwnerApiErrorMessage(error, t)}</p>
+            ) : null}
 
             {editorTab === "basic" ? (
               <div className="space-y-4 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
                 <div>
-                  <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">이름</label>
+                  <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">{t("business_phase7_235")}</label>
                   <input
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="카테고리 이름"
+                    placeholder={t("business_phase7_302")}
                     className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 sam-text-body text-sam-fg"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">설명</label>
+                  <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">{t("business_phase7_165")}</label>
                   <textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="고객에게 보일 수 있는 짧은 설명 (선택)"
+                    placeholder={t("business_phase7_023")}
                     rows={3}
                     className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 sam-text-body text-sam-fg"
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">정렬순서</label>
-                  <p className="mb-1 sam-text-helper text-sam-muted">숫자가 작을수록 메뉴 탭에서 앞에 옵니다.</p>
+                  <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">{t("business_phase7_248")}</label>
+                  <p className="mb-1 sam-text-helper text-sam-muted">{t("business_phase7_171")}</p>
                   <input
                     inputMode="numeric"
                     value={sortOrder}
@@ -404,7 +409,7 @@ export function OwnerMenuCategoriesClient({
                   />
                 </div>
                 <div className="flex items-center justify-between border-t border-sam-border-soft pt-3">
-                  <span className="sam-text-body text-sam-fg">숨김여부</span>
+                  <span className="sam-text-body text-sam-fg">{t("business_phase7_170")}</span>
                   <button
                     type="button"
                     role="switch"
@@ -422,14 +427,13 @@ export function OwnerMenuCategoriesClient({
                   </button>
                 </div>
                 <p className="sam-text-helper leading-relaxed text-sam-muted">
-                  숨김을 켜면 고객 매장 페이지에서 이 카테고리 탭과 속한 메뉴가 보이지 않습니다. 오너 화면에서는
-                  계속 관리할 수 있습니다.
+                  {t("business_phase7_478")}
                 </p>
               </div>
             ) : (
               <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface p-6 text-center">
                 <p className="sam-text-body text-sam-muted">
-                  다국어 카테고리 이름·설명은 추후 지원 예정입니다.
+                  {t("business_phase7_479")}
                 </p>
               </div>
             )}
@@ -444,7 +448,7 @@ export function OwnerMenuCategoriesClient({
         <BodyPortal>
           <div
             role="toolbar"
-            aria-label="카테고리 편집 저장"
+            aria-label={t("business_phase7_303")}
             className={`pointer-events-auto fixed inset-x-0 z-[120] border-t border-sam-border bg-sam-surface shadow-[0_-4px_12px_rgba(0,0,0,0.08)] ${bottomActionBarPositionClass} lg:left-[260px]`}
           >
             <div className="mx-auto flex w-full max-w-6xl gap-2 px-2 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] sm:px-2">
@@ -454,7 +458,7 @@ export function OwnerMenuCategoriesClient({
                 onClick={() => closeEditToListOnly()}
                 className="min-h-12 flex-1 touch-manipulation select-none rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body-lg font-semibold text-sam-muted shadow-sm transition-[transform,opacity,background-color] duration-150 hover:bg-sam-surface-muted hover:text-sam-fg active:scale-[0.99] active:bg-sam-border-soft active:opacity-90 disabled:opacity-45"
               >
-                취소
+                {t("common_cancel")}
               </button>
               <button
                 type="button"
@@ -480,29 +484,29 @@ export function OwnerMenuCategoriesClient({
             onClick={() => openNew()}
             className={`${Sam.btn.primaryCombo} ${Sam.btn.sm} shrink-0 touch-manipulation select-none font-semibold active:scale-[0.99] active:opacity-90`}
           >
-            카테고리 추가
+            {t("business_phase7_396")}
           </button>
           <Link
             href={productsHubHref}
             className={`${Sam.btn.secondaryCombo} ${Sam.btn.sm} no-underline font-semibold active:scale-[0.99] active:opacity-90`}
           >
-            상품 목록으로
+            {t("business_phase7_480")}
           </Link>
         </div>
 
-        {error ? <p className="sam-text-body-secondary text-red-600">{error}</p> : null}
+        {error ? <p className="sam-text-body-secondary text-red-600">{resolveOwnerApiErrorMessage(error, t)}</p> : null}
 
         {loading ? (
-          <p className="sam-text-body text-sam-muted">불러오는 중…</p>
+          <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
         ) : sections.length === 0 ? (
           <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-            등록된 카테고리가 없습니다.
+            {t("business_phase7_481")}
             <button
               type="button"
               onClick={() => openNew()}
               className={`${Sam.btn.ghostCombo} ${Sam.btn.block} mt-2 font-medium text-signature underline`}
             >
-              카테고리 추가
+              {t("business_phase7_396")}
             </button>
           </div>
         ) : (
@@ -519,11 +523,9 @@ export function OwnerMenuCategoriesClient({
       <OwnerStoreAdminConfirmModal
         open={deleteTarget != null}
         titleId="owner-menu-categories-delete-title"
-        title="카테고리 삭제"
-        description={deleteTarget ? `「${deleteTarget.name}」 카테고리를 삭제할까요?` : undefined}
-        cancelLabel="취소"
-        confirmLabel="삭제"
-        confirmBusyLabel="삭제 중…"
+        title={t("business_phase7_301")}
+        description={deleteTarget ? t("business_phase7_477", { v1: deleteTarget.name }) : undefined}
+        confirmBusyLabel={t("business_phase7_442")}
         busy={deleteBusy}
         disableActions={deleteBusy}
         confirmTone="danger"

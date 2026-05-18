@@ -1,11 +1,15 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo } from "react";
 import { getProductionMigrationSummary } from "@/lib/production-migration/mock-production-migration-summary";
 import { getGoLiveLabel } from "@/lib/production-migration/production-migration-utils";
 import Link from "next/link";
 
 export function ProductionMigrationSummaryCards() {
+  const { t } = useI18n();
   const summary = useMemo(() => getProductionMigrationSummary(), []);
 
   const goClass =
@@ -19,19 +23,19 @@ export function ProductionMigrationSummaryCards() {
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="sam-text-helper text-sam-muted">테이블</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_prod_migration_kfac1ca9e")}</p>
           <p className="sam-text-page-title font-semibold text-sam-fg">
             {summary.productionReadyTables} / {summary.totalTables} 준비
           </p>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="sam-text-helper text-sam-muted">RLS 정책</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_rls_policy")}</p>
           <p className="sam-text-page-title font-semibold text-sam-fg">
             {summary.verifiedRlsChecks} / {summary.totalRlsChecks} 검증
           </p>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="sam-text-helper text-sam-muted">인프라</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_prod_migration_k876c28e3")}</p>
           <p className="sam-text-page-title font-semibold text-sam-fg">
             {summary.readyInfraChecks} / {summary.totalInfraChecks} 준비
           </p>
@@ -45,7 +49,7 @@ export function ProductionMigrationSummaryCards() {
                 : "border-emerald-200 bg-emerald-50/30"
           }`}
         >
-          <p className="sam-text-helper text-sam-muted">전환 Go/No-Go</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_prod_migration_k538f307a")}</p>
           <p className={`sam-text-page-title font-semibold ${goClass}`}>
             {getGoLiveLabel(summary.goLiveRecommendation)}
           </p>
@@ -58,7 +62,7 @@ export function ProductionMigrationSummaryCards() {
       </div>
 
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <p className="sam-text-helper text-sam-muted">배포 체크리스트</p>
+        <p className="sam-text-helper text-sam-muted">{t("admin_prod_migration_checklist_deploy_2")}</p>
         <p className="sam-text-body text-sam-fg">
           완료 {summary.doneLaunchChecks} / {summary.totalLaunchChecks}
         </p>

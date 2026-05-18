@@ -1,25 +1,29 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { ReportPeriod } from "@/lib/recommendation-reports/recommendation-report-utils";
 import {
   generateRecommendationReport,
   getDateRange,
 } from "@/lib/recommendation-reports/recommendation-report-utils";
 import type { ReportType, ReportSurface } from "@/lib/types/recommendation-report";
+import {
+  recReportPeriodLabel,
+  recReportTypeLabel,
+  recSurfaceOptionLabel,
+} from "@/components/admin/recommendation-admin-i18n";
 
-const PERIOD_LABELS: Record<ReportPeriod, string> = {
-  today: "오늘",
-  yesterday: "어제",
-  last_7_days: "최근 7일",
-  last_30_days: "최근 30일",
-};
+const PERIODS: ReportPeriod[] = ["today", "yesterday", "last_7_days", "last_30_days"];
+const REPORT_TYPES: ReportType[] = ["daily", "weekly", "custom"];
+const SURFACES: ReportSurface[] = ["all", "home", "search", "shop"];
 
 export function ReportPeriodSelector({
   onGenerated,
 }: {
   onGenerated?: (reportId: string) => void;
 }) {
+  const { t } = useI18n();
   const [period, setPeriod] = useState<ReportPeriod>("today");
   const [surface, setSurface] = useState<ReportSurface>("all");
   const [reportType, setReportType] = useState<ReportType>("daily");
@@ -42,46 +46,55 @@ export function ReportPeriodSelector({
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
       <h3 className="mb-3 sam-text-body font-medium text-sam-fg">
-        새 보고서 생성
+        {t("admin_rec_report_new_report")}
       </h3>
       <div className="flex flex-wrap items-end gap-3">
         <div>
-          <label className="mb-1 block sam-text-helper text-sam-muted">기간</label>
+          <label className="mb-1 block sam-text-helper text-sam-muted">
+            {t("admin_rec_report_label_period")}
+          </label>
           <select
             value={period}
             onChange={(e) => setPeriod(e.target.value as ReportPeriod)}
             className="rounded border border-sam-border px-3 py-2 sam-text-body"
           >
-            {(Object.keys(PERIOD_LABELS) as ReportPeriod[]).map((p) => (
+            {PERIODS.map((p) => (
               <option key={p} value={p}>
-                {PERIOD_LABELS[p]}
+                {recReportPeriodLabel(t, p)}
               </option>
             ))}
           </select>
         </div>
         <div>
-          <label className="mb-1 block sam-text-helper text-sam-muted">surface</label>
+          <label className="mb-1 block sam-text-helper text-sam-muted">
+            {t("admin_rec_th_surface")}
+          </label>
           <select
             value={surface}
             onChange={(e) => setSurface(e.target.value as ReportSurface)}
             className="rounded border border-sam-border px-3 py-2 sam-text-body"
           >
-            <option value="all">전체</option>
-            <option value="home">홈</option>
-            <option value="search">검색</option>
-            <option value="shop">상점</option>
+            {SURFACES.map((s) => (
+              <option key={s} value={s}>
+                {recSurfaceOptionLabel(t, s)}
+              </option>
+            ))}
           </select>
         </div>
         <div>
-          <label className="mb-1 block sam-text-helper text-sam-muted">유형</label>
+          <label className="mb-1 block sam-text-helper text-sam-muted">
+            {t("admin_rec_report_label_type")}
+          </label>
           <select
             value={reportType}
             onChange={(e) => setReportType(e.target.value as ReportType)}
             className="rounded border border-sam-border px-3 py-2 sam-text-body"
           >
-            <option value="daily">일간</option>
-            <option value="weekly">주간</option>
-            <option value="custom">맞춤</option>
+            {REPORT_TYPES.map((rt) => (
+              <option key={rt} value={rt}>
+                {recReportTypeLabel(t, rt)}
+              </option>
+            ))}
           </select>
         </div>
         <div className="sam-text-body-secondary text-sam-muted">
@@ -93,11 +106,11 @@ export function ReportPeriodSelector({
           disabled={generating}
           className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white disabled:opacity-50"
         >
-          {generating ? "생성 중…" : "보고서 생성"}
+          {generating ? t("admin_rec_report_generating") : t("admin_rec_report_generate")}
         </button>
       </div>
       <p className="mt-2 sam-text-helper text-sam-muted">
-        맞춤 기간(custom) 선택은 placeholder입니다.
+        {t("admin_rec_report_custom_hint")}
       </p>
     </div>
   );

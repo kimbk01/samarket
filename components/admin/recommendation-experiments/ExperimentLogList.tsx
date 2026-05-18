@@ -1,25 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { ExperimentLog } from "@/lib/types/recommendation-experiment";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getExperimentLogs } from "@/lib/recommendation-experiments/mock-experiment-logs";
 import { getRecommendationExperiments } from "@/lib/recommendation-experiments/mock-recommendation-experiments";
-
-const ACTION_LABELS: Record<ExperimentLog["actionType"], string> = {
-  create: "생성",
-  update: "수정",
-  start: "시작",
-  pause: "일시중지",
-  end: "종료",
-  assign_user: "사용자 배정",
-  choose_winner: "승자 선택",
-};
+import {
+  recLogActionLabel,
+  recLogNoteLabel,
+} from "@/components/admin/recommendation-admin-i18n";
 
 interface ExperimentLogListProps {
   experimentId?: string;
 }
 
 export function ExperimentLogList({ experimentId }: ExperimentLogListProps) {
+  const { t } = useI18n();
   const [filterExp, setFilterExp] = useState(experimentId ?? "");
 
   const experiments = useMemo(() => getRecommendationExperiments(), []);
@@ -31,13 +26,15 @@ export function ExperimentLogList({ experimentId }: ExperimentLogListProps) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="sam-text-body font-medium text-sam-fg">실험</label>
+        <label className="sam-text-body font-medium text-sam-fg">
+          {t("admin_rec_exp_label_experiment")}
+        </label>
         <select
           value={filterExp}
           onChange={(e) => setFilterExp(e.target.value)}
           className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
-          <option value="">전체</option>
+          <option value="">{t("admin_rec_filter_all")}</option>
           {experiments.map((e) => (
             <option key={e.id} value={e.id}>
               {e.experimentName}
@@ -47,7 +44,7 @@ export function ExperimentLogList({ experimentId }: ExperimentLogListProps) {
       </div>
       {logs.length === 0 ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          로그가 없습니다.
+          {t("admin_rec_exp_empty_logs")}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
@@ -55,19 +52,19 @@ export function ExperimentLogList({ experimentId }: ExperimentLogListProps) {
             <thead>
               <tr className="border-b border-sam-border bg-sam-app">
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  일시
+                  {t("admin_rec_th_datetime")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  실험
+                  {t("admin_rec_th_experiment")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  액션
+                  {t("admin_rec_th_action")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  담당
+                  {t("admin_rec_th_operator")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  비고
+                  {t("admin_rec_th_note")}
                 </th>
               </tr>
             </thead>
@@ -80,19 +77,19 @@ export function ExperimentLogList({ experimentId }: ExperimentLogListProps) {
                     className="border-b border-sam-border-soft hover:bg-sam-app"
                   >
                     <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                      {new Date(l.createdAt).toLocaleString("ko-KR")}
+                      {new Date(l.createdAt).toLocaleString()}
                     </td>
                     <td className="px-3 py-2.5 text-sam-fg">
                       {exp?.experimentName ?? l.experimentId}
                     </td>
                     <td className="px-3 py-2.5 text-sam-fg">
-                      {ACTION_LABELS[l.actionType]}
+                      {recLogActionLabel(t, l.actionType)}
                     </td>
                     <td className="px-3 py-2.5 text-sam-muted">
                       {l.actorNickname} ({l.actorType})
                     </td>
                     <td className="max-w-[200px] truncate px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                      {l.note}
+                      {recLogNoteLabel(t, l.note)}
                     </td>
                   </tr>
                 );

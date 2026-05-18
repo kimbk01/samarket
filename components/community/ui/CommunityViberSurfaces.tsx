@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   COMMUNITY_BOTTOM_SHEET_PANEL_CLASS,
   COMMUNITY_DROPDOWN_PANEL_CLASS,
@@ -11,15 +12,17 @@ import {
 
 export function CommunityOverlayBackdrop({
   onClick,
-  ariaLabel = "닫기",
+  ariaLabel,
 }: {
   onClick?: () => void;
   ariaLabel?: string;
 }) {
+  const { t } = useI18n();
+  const label = ariaLabel ?? t("common_close");
   return (
     <button
       type="button"
-      aria-label={ariaLabel}
+      aria-label={label}
       onClick={onClick}
       className={COMMUNITY_OVERLAY_BACKDROP_CLASS}
     />

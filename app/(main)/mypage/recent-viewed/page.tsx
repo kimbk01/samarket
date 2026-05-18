@@ -1,19 +1,16 @@
-import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+"use client";
+
 import { RecentViewedList } from "@/components/recent-viewed/RecentViewedList";
-import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import { MypageSubpageShell } from "@/components/mypage/i18n/MypageSubpageShell";
 
 export default function MypageRecentViewedPage() {
   return (
-    <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
-      <MySubpageHeader
-        title="최근 본 글"
-        subtitle="상품·게시물 다시 보기"
-        backHref="/mypage"
-        hideCtaStrip
-      />
-      <div className={`${APP_MAIN_TAB_SCROLL_BODY_CLASS} py-4`}>
-        <RecentViewedList />
-      </div>
-    </div>
+    <MypageSubpageShell
+      titleKey="route_recent_viewed_title"
+      subtitleKey="route_recent_viewed_subtitle"
+      bodyClassName="min-h-0 w-full min-w-0 flex-1 overflow-y-auto py-4"
+    >
+      <RecentViewedList />
+    </MypageSubpageShell>
   );
 }

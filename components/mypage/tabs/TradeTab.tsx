@@ -1,3 +1,5 @@
+"use client";
+
 import type { ReactNode } from "react";
 import { FavoriteProductsView } from "@/components/favorites/FavoriteProductsView";
 import { ChatRoomList } from "@/components/chats/ChatRoomList";
@@ -7,13 +9,15 @@ import { SalesHistoryView } from "@/components/mypage/sales/SalesHistoryView";
 import { RecentViewedList } from "@/components/recent-viewed/RecentViewedList";
 import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
 import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function TradeTab({ section }: { section: string }) {
+  const { t } = useI18n();
   if (section === "sales") {
     return (
       <TabShell
-        title="판매 내역"
-        description="판매중, 예약중, 완료된 거래를 한 화면에서 관리합니다."
+        title={t("mypage_comp_nav_sec_trade_sales_label")}
+        description={t("mypage_comp_nav_sec_trade_sales_desc")}
       >
         <SalesHistoryView />
       </TabShell>
@@ -23,8 +27,8 @@ export function TradeTab({ section }: { section: string }) {
   if (section === "purchases") {
     return (
       <TabShell
-        title="구매 내역"
-        description="구매 진행 상태와 구매 후 후기를 확인합니다."
+        title={t("mypage_comp_nav_sec_trade_purchases_label")}
+        description={t("mypage_comp_nav_sec_trade_purchases_desc")}
       >
         <PurchasesView />
       </TabShell>
@@ -34,8 +38,8 @@ export function TradeTab({ section }: { section: string }) {
   if (section === "favorites") {
     return (
       <TabShell
-        title="찜한 상품"
-        description="관심 상품과 다시 보고 싶은 거래 글을 모아서 관리합니다."
+        title={t("mypage_comp_nav_sec_trade_favorites_label")}
+        description={t("mypage_comp_nav_sec_trade_favorites_desc")}
       >
         <FavoriteProductsView embedded />
       </TabShell>
@@ -45,8 +49,8 @@ export function TradeTab({ section }: { section: string }) {
   if (section === "recent") {
     return (
       <TabShell
-        title="최근 본 상품"
-        description="최근에 확인한 상품을 다시 이어서 볼 수 있습니다."
+        title={t("mypage_comp_nav_sec_trade_recent_label")}
+        description={t("mypage_comp_nav_sec_trade_recent_desc")}
       >
         <RecentViewedList />
       </TabShell>
@@ -56,8 +60,8 @@ export function TradeTab({ section }: { section: string }) {
   if (section === "chat") {
     return (
       <TabShell
-        title="거래 채팅"
-        description="거래 전용 채팅만 분리해서 확인합니다."
+        title={t("mypage_comp_nav_sec_trade_chat_label")}
+        description={t("mypage_comp_nav_sec_trade_chat_desc")}
       >
         <div className="space-y-2 pb-6">
           <ChatRoomList
@@ -72,8 +76,8 @@ export function TradeTab({ section }: { section: string }) {
   if (section === "reviews") {
     return (
       <TabShell
-        title="거래 후기"
-        description="받은 후기, 작성한 후기, 후기 대기 상태를 관리합니다."
+        title={t("mypage_comp_nav_sec_trade_reviews_label")}
+        description={t("mypage_comp_nav_sec_trade_reviews_desc")}
       >
         <TradeReviewsManagementView />
       </TabShell>
@@ -82,8 +86,8 @@ export function TradeTab({ section }: { section: string }) {
 
   return (
     <TabShell
-      title="판매 내역"
-      description="판매중, 예약중, 완료된 거래를 한 화면에서 관리합니다."
+      title={t("mypage_comp_nav_sec_trade_sales_label")}
+      description={t("mypage_comp_nav_sec_trade_sales_desc")}
     >
       <SalesHistoryView />
     </TabShell>

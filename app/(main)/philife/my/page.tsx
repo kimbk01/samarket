@@ -6,6 +6,8 @@ import { CommunityMyHubClient } from "@/components/community/CommunityMyHubClien
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { AppTopHeader } from "@/components/app-shell";
 import { APP_MAIN_TAB_SCROLL_BODY_CLASS } from "@/lib/ui/app-content-layout";
+import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
+import { translate } from "@/lib/i18n/messages";
 
 export default function PhilifeMyPage() {
   return (
@@ -18,21 +20,24 @@ export default function PhilifeMyPage() {
 async function PhilifeMyPageBody() {
   const uid = await getOptionalAuthenticatedUserId();
   if (!uid) return redirect("/login");
+  const lang = resolveServerInitialLanguage({});
 
   return (
     <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
-      <AppTopHeader title="내 커뮤니티 활동" backButtonProps={{ backHref: "/philife" }} shellVariant="flat" />
+      <AppTopHeader
+        title={translate(lang, "philife_my_title")}
+        backButtonProps={{ backHref: "/philife" }}
+        shellVariant="flat"
+      />
       <div className={APP_MAIN_TAB_SCROLL_BODY_CLASS}>
         <div className="flex min-w-0 flex-col gap-3 pt-2">
-          <p className="sam-text-body-secondary">
-            작성 글과 참여 중인 모임은 피드에서 확인하거나 아래에서 빠르게 이동할 수 있어요.
-          </p>
+          <p className="sam-text-body-secondary">{translate(lang, "philife_my_intro")}</p>
           <CommunityMyHubClient userId={uid} />
           <Link
             href="/philife"
             className="sam-text-body-secondary mt-2 inline-block font-medium text-signature underline underline-offset-2"
           >
-            커뮤니티 피드로
+            {translate(lang, "philife_my_to_feed")}
           </Link>
         </div>
       </div>

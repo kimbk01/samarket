@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { REGIONS } from "@/lib/products/form-options";
 
@@ -17,13 +18,14 @@ export function ProductLocationSelect({
   onCityChange,
   error,
 }: ProductLocationSelectProps) {
+  const { t } = useI18n();
   const selectedRegion = REGIONS.find((r) => r.id === region);
   const cities = selectedRegion?.cities ?? [];
 
   return (
     <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
       <p className="mb-2 sam-text-body font-medium text-sam-fg">
-        거래 지역 <span className="text-red-500">*</span>
+        {t("ui_product_trade_region_label")} <span className="text-red-500">*</span>
       </p>
       <div className="space-y-3">
         <select

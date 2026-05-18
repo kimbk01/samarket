@@ -4,6 +4,7 @@ import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import type { TradeChatComposePreviewFields } from "@/lib/chats/trade-chat-compose-preview-client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const COL = `mx-auto w-full min-w-0 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} ${APP_MAIN_GUTTER_X_CLASS}`;
 
@@ -17,6 +18,7 @@ export function TradeChatComposePreparingShell({
   preview: TradeChatComposePreviewFields | null;
   errorBanner?: { message: string; onRetry: () => void } | null;
 }) {
+  const { t } = useI18n();
   const title = preview?.productTitle?.trim() || "상품";
   const price = preview?.priceText?.trim() || "가격 문의";
   const seller = preview?.sellerName?.trim() || "판매자";
@@ -60,8 +62,8 @@ export function TradeChatComposePreparingShell({
 
       <div className="flex min-h-0 flex-1 flex-col justify-between bg-sam-app">
         <div className={`${COL} flex flex-1 flex-col px-4 py-6`}>
-          <p className="text-center text-[14px] font-medium text-sam-fg">채팅방을 준비하고 있습니다...</p>
-          <p className="mt-2 text-center text-[12px] text-sam-muted">연결되는 동안 잠시만 기다려 주세요.</p>
+          <p className="text-center text-[14px] font-medium text-sam-fg">{t("chats_compose_preparing_title")}</p>
+          <p className="mt-2 text-center text-[12px] text-sam-muted">{t("chats_compose_preparing_description")}</p>
         </div>
 
         <footer className="border-t border-sam-border-soft bg-sam-surface px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
@@ -73,7 +75,7 @@ export function TradeChatComposePreparingShell({
                 aria-hidden
               >
                 <div className="flex h-full items-center">
-                  <span className="text-[13px] text-sam-muted">메시지를 입력…</span>
+                  <span className="text-[13px] text-sam-muted">{t("chats_compose_input_placeholder")}</span>
                 </div>
               </div>
             </div>
@@ -82,7 +84,7 @@ export function TradeChatComposePreparingShell({
               disabled
               className="w-full rounded-ui-rect bg-sam-surface-muted py-3 text-[15px] font-semibold text-sam-muted"
             >
-              메시지 보내기
+              {t("chats_compose_send_button")}
             </button>
           </div>
         </footer>

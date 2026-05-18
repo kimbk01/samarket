@@ -10,8 +10,10 @@ import {
 } from "@/lib/admin/fetch-admin-store-orders-scoped";
 import type { AdminDeliveryOrder } from "@/lib/admin/delivery-orders-admin/types";
 import { OrderTable } from "./OrderTable";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function DeliveryOrdersByStoreClient({ storeId }: { storeId: string }) {
+  const { t } = useI18n();
   const [rows, setRows] = useState<AdminDeliveryOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,20 +46,20 @@ export function DeliveryOrdersByStoreClient({ storeId }: { storeId: string }) {
 
   return (
     <div className="p-4 md:p-6">
-      <AdminPageHeader title={`매장 주문 이력 · ${title}`} backHref="/admin/stores/orders" />
+      <AdminPageHeader title={t("admin_do_by_store_title", { title })} backHref="/admin/stores/orders" />
       <p className="mb-2 text-xs text-sam-muted">
         storeId: <span className="font-mono">{storeId}</span> ·{" "}
         <Link href="/admin/stores" className="text-signature underline">
-          매장 심사
+          {t("admin_do_by_store_review")}
         </Link>{" "}
         ·{" "}
         <Link href="/admin/store-orders" className="text-signature underline">
-          매장 주문(액션)
+          {t("admin_do_nav_store_orders")}
         </Link>
       </p>
       {error ? (
         <p className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">
-          불러오지 못했습니다 ({error}).
+          {t("admin_do_common_load_failed", { error })}
         </p>
       ) : null}
       <div className="mb-2">
@@ -67,12 +69,12 @@ export function DeliveryOrdersByStoreClient({ storeId }: { storeId: string }) {
           disabled={loading}
           className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-xs text-sam-fg disabled:opacity-50"
         >
-          {loading ? "갱신 중…" : "새로고침"}
+          {loading ? t("admin_do_common_refreshing") : t("admin_do_common_refresh")}
         </button>
       </div>
-      <AdminCard title="주문 목록 (store_orders 원장 · 최대 500건)">
+      <AdminCard titleKey="admin_do_orders_list_card">
         {loading ? (
-          <p className="text-sm text-sam-muted">불러오는 중…</p>
+          <p className="text-sm text-sam-muted">{t("admin_dashboard_loading")}</p>
         ) : (
           <OrderTable rows={rows} />
         )}

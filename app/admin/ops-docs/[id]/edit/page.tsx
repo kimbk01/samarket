@@ -10,7 +10,7 @@ export default async function OpsDocEditRoute({ params }: PageProps) {
   const { id } = await params;
   return (
     <>
-      <AdminPageHeader title="문서 수정" backHref={`/admin/ops-docs/${id}`} />
+      <AdminPageHeader titleKey="admin_page_ops_doc_edit" backHref={`/admin/ops-docs/${id}`} />
       <AdminCard>
         <OpsDocumentForm documentId={id} />
       </AdminCard>

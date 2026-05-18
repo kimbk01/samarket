@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import type { BoardDetailSkinProps } from "@/lib/community-board/types";
 
@@ -8,6 +9,7 @@ export function MagazineDetailSkin({
   showLike = true,
   showReport = true,
 }: BoardDetailSkinProps) {
+  const { t } = useI18n();
   const thumb = post.images?.[0]?.url;
 
   return (
@@ -41,13 +43,13 @@ export function MagazineDetailSkin({
         )}
       </div>
       <footer className="px-6 py-4 border-t flex gap-2 max-w-3xl mx-auto">
-        {showLike && <button type="button" className="text-sm text-sam-muted">좋아요</button>}
+        {showLike && <button type="button" className="text-sm text-sam-muted">{t("community_board_like")}</button>}
         {showComments && (
           <a href="#community-post-comments" className="text-sm text-sam-muted hover:text-sam-fg">
             댓글
           </a>
         )}
-        {showReport && <button type="button" className="text-sm text-sam-muted ml-auto">신고</button>}
+        {showReport && <button type="button" className="text-sm text-sam-muted ml-auto">{t("community_report")}</button>}
       </footer>
     </article>
   );

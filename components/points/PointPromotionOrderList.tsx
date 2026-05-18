@@ -1,10 +1,22 @@
 "use client";
 
-import type { PointPromotionOrder } from "@/lib/types/point";
-import {
-  POINT_PROMOTION_ORDER_STATUS_LABELS,
-  POINT_PROMOTION_PLACEMENT_LABELS,
-} from "@/lib/points/point-utils";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
+import type { PointPromotionOrder, PointPromotionOrderStatus, PointPromotionPlacement } from "@/lib/types/point";
+
+const STATUS_KEYS: Record<PointPromotionOrderStatus, MessageKey> = {
+  pending: "point_status_pending",
+  active: "point_status_active",
+  expired: "point_status_expired",
+  cancelled: "point_status_cancelled",
+};
+
+const PLACEMENT_KEYS: Record<PointPromotionPlacement, MessageKey> = {
+  home_top: "point_placement_home_top",
+  home_middle: "point_placement_home_middle",
+  search_top: "point_placement_search_top",
+  shop_featured: "point_placement_shop_featured",
+};
 
 interface PointPromotionOrderListProps {
   orders: PointPromotionOrder[];
@@ -18,10 +30,12 @@ const STATUS_CLASS: Record<PointPromotionOrder["orderStatus"], string> = {
 };
 
 export function PointPromotionOrderList({ orders }: PointPromotionOrderListProps) {
+  const { t } = useI18n();
+
   if (orders.length === 0) {
     return (
       <div className="rounded-ui-rect bg-sam-surface p-8 text-center sam-text-body text-sam-muted">
-        포인트로 신청한 노출 내역이 없습니다.
+        {t("points_ui_promo_empty")}
       </div>
     );
   }
@@ -35,15 +49,15 @@ export function PointPromotionOrderList({ orders }: PointPromotionOrderListProps
         >
           <p className="font-medium text-sam-fg">{o.targetTitle}</p>
           <p className="mt-0.5 sam-text-body-secondary text-sam-muted">
-            {POINT_PROMOTION_PLACEMENT_LABELS[o.placement]} · {o.durationDays}일
+            {t(PLACEMENT_KEYS[o.placement])} · {t("points_ui_days", { days: o.durationDays })}
           </p>
           <p className="mt-0.5 sam-text-body-secondary text-sam-muted">
-            {o.pointCost.toLocaleString()}P 사용
+            {t("points_ui_promo_cost", { cost: o.pointCost.toLocaleString() })}
           </p>
           <span
             className={`mt-2 inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${STATUS_CLASS[o.orderStatus]}`}
           >
-            {POINT_PROMOTION_ORDER_STATUS_LABELS[o.orderStatus]}
+            {t(STATUS_KEYS[o.orderStatus])}
           </span>
           <p className="mt-1 sam-text-helper text-sam-meta">
             {new Date(o.createdAt).toLocaleDateString("ko-KR")}

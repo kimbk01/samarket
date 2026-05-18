@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { memo, useLayoutEffect } from "react";
 import { useStoreCommerceCartBucketStats } from "@/lib/stores/use-store-commerce-cart-selector";

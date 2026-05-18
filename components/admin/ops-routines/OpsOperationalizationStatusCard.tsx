@@ -1,11 +1,13 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
 import { getOpsOperationalizationStatus } from "@/lib/ops-routines/mock-ops-operationalization-status";
 import { getOperationalizationLabel } from "@/lib/ops-routines/ops-routines-utils";
 import Link from "next/link";
 
 export function OpsOperationalizationStatusCard() {
+  const { t } = useI18n();
   const status = useMemo(() => getOpsOperationalizationStatus(), []);
 
   const statusClass =
@@ -29,7 +31,7 @@ export function OpsOperationalizationStatusCard() {
   return (
     <div className="space-y-4">
       <div className={`rounded-ui-rect border p-4 ${statusBg}`}>
-        <p className="sam-text-helper text-sam-muted">운영 체계 정착 상태</p>
+        <p className="sam-text-helper text-sam-muted">{t("admin_ops_tools_routines_card_ops_status")}</p>
         <p className={`sam-text-hero font-semibold ${statusClass}`}>
           {getOperationalizationLabel(status.overallStatus)}
         </p>
@@ -40,19 +42,19 @@ export function OpsOperationalizationStatusCard() {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="sam-text-helper text-sam-muted">루틴 완료율</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_ops_tools_routines_completion")}</p>
           <p className="sam-text-page-title font-semibold text-sam-fg">
             {status.routineCompletionRate}%
           </p>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="sam-text-helper text-sam-muted">지연 / 이월</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_ops_tools_routines_summary_overdue")}</p>
           <p className="sam-text-page-title font-semibold text-sam-fg">
             {status.overdueRoutineCount} / {status.carryOverCount}
           </p>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="sam-text-helper text-sam-muted">문서 최신화 / 액션 마감율</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_ops_tools_routines_doc_action")}</p>
           <p className="sam-text-body text-sam-fg">
             {status.documentationFreshnessRate}% / {status.actionClosureRate}%
           </p>
@@ -60,26 +62,34 @@ export function OpsOperationalizationStatusCard() {
       </div>
 
       <div className="flex flex-wrap gap-2 sam-text-body-secondary text-sam-muted">
-        <span>월간 리뷰: {status.monthlyReviewDone ? "완료" : "미완료"}</span>
-        <span>벤치마크 리뷰: {status.benchmarkReviewDone ? "완료" : "미완료"}</span>
+        <span>
+          {t("admin_ops_tools_routines_monthly_review", {
+            status: t(
+              status.monthlyReviewDone
+                ? "admin_ops_tools_routines_review_done"
+                : "admin_ops_tools_routines_review_pending"
+            ),
+          })}
+        </span>
+        <span>
+          {t("admin_ops_tools_routines_benchmark_review", {
+            status: t(
+              status.benchmarkReviewDone
+                ? "admin_ops_tools_routines_review_done"
+                : "admin_ops_tools_routines_review_pending"
+            ),
+          })}
+        </span>
       </div>
 
       <p className="sam-text-body-secondary text-sam-muted">
-        <Link href="/admin/ops-board" className="text-signature hover:underline">
-          운영 보드
-        </Link>
+        <Link href="/admin/ops-board" className="text-signature hover:underline">{t("admin_ops_tools_board_page_title")}</Link>
         {" · "}
-        <Link href="/admin/ops-maturity" className="text-signature hover:underline">
-          성숙도
-        </Link>
+        <Link href="/admin/ops-maturity" className="text-signature hover:underline">{t("admin_ops_tools_routines_link_maturity")}</Link>
         {" · "}
-        <Link href="/admin/ops-benchmarks" className="text-signature hover:underline">
-          벤치마크
-        </Link>
+        <Link href="/admin/ops-benchmarks" className="text-signature hover:underline">{t("admin_ops_tools_routines_link_benchmark")}</Link>
         {" · "}
-        <Link href="/admin/launch-week" className="text-signature hover:underline">
-          첫 주 관제
-        </Link>
+        <Link href="/admin/launch-week" className="text-signature hover:underline">{t("admin_ops_tools_routines_launch_week")}</Link>
       </p>
 
       {status.note && (

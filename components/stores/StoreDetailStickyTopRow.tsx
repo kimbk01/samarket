@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef } from "react";
@@ -60,6 +61,7 @@ export function StoreDetailStickyTopRow({
   onFavoriteClick: () => void | Promise<void>;
   orderChrome?: StoreStickyOrderChrome | null;
 }) {
+  const { t } = useI18n();
   const commerceCart = useStoreCommerceCartOptional();
   const moreRef = useRef<HTMLDetailsElement>(null);
 
@@ -100,7 +102,7 @@ export function StoreDetailStickyTopRow({
         await navigator.share({ title: storeName, text: storeName, url });
       } else if (navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(url);
-        window.alert("링크를 복사했습니다.");
+        window.alert(t("store_link_copied"));
       }
     } catch {
       /* 사용자 취소 등 */
@@ -181,7 +183,7 @@ export function StoreDetailStickyTopRow({
           <button
             type="button"
             className={iconBtnClass}
-            aria-label="메뉴 검색"
+            aria-label={t("store_menu_search_aria")}
             onClick={() => orderChrome.onMenuSearchFocus()}
           >
             <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
@@ -190,7 +192,7 @@ export function StoreDetailStickyTopRow({
             </svg>
           </button>
         ) : null}
-        <button type="button" className={iconBtnClass} aria-label="공유" onClick={() => void onShare()}>
+        <button type="button" className={iconBtnClass} aria-label={t("common_share")} onClick={() => void onShare()}>
           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
             <circle cx="18" cy="5" r="3" />
             <circle cx="6" cy="12" r="3" />
@@ -201,7 +203,7 @@ export function StoreDetailStickyTopRow({
         <details ref={moreRef} className="relative">
           <summary
             className={`${iconBtnClass} list-none [&::-webkit-details-marker]:hidden`}
-            aria-label="더보기"
+            aria-label={t("store_more_aria")}
           >
             <span className="text-lg font-bold leading-none text-sam-muted">⋯</span>
           </summary>
@@ -260,7 +262,7 @@ export function StoreDetailStickyTopRow({
           <div
             className="ml-auto flex min-w-0 max-w-[11rem] flex-1 rounded-full border border-sam-border bg-sam-surface-muted p-0.5"
             role="group"
-            aria-label="수령 방식"
+            aria-label={t("store_fulfillment_mode_aria")}
           >
             <button
               type="button"

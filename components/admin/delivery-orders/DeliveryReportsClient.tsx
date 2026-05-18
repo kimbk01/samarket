@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { doAdminLocale } from "./do-admin-locale";
 
 type StoreReportRow = {
   id: string;
@@ -20,6 +22,7 @@ type StoreReportRow = {
 };
 
 export function DeliveryReportsClient() {
+  const { t, language } = useI18n();
   const [rows, setRows] = useState<StoreReportRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +39,7 @@ export function DeliveryReportsClient() {
         return;
       }
       if (!json?.ok) {
-        setError(json?.error === "table_missing" ? "store_reports 테이블을 확인하세요." : json?.error ?? "load_failed");
+        setError(json?.error === "table_missing" ? t("admin_do_reports_table_missing") : json?.error ?? "load_failed");
         setRows([]);
         return;
       }
@@ -47,7 +50,7 @@ export function DeliveryReportsClient() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -55,17 +58,18 @@ export function DeliveryReportsClient() {
 
   return (
     <div className="p-4 md:p-6">
-      <AdminPageHeader title="신고·분쟁" backHref="/admin/stores/orders" />
+      <AdminPageHeader titleKey="admin_do_reports_title" backHref="/admin/stores/orders" />
       <p className="mb-3 sam-text-body-secondary leading-relaxed text-sam-muted">
-        <code className="rounded bg-sam-app px-1 sam-text-helper">store_reports</code> 실데이터입니다. 상태 변경·메모·기각은{" "}
+        <code className="rounded bg-sam-app px-1 sam-text-helper">store_reports</code>{" "}
+        {t("admin_do_reports_intro")}{" "}
         <Link href="/admin/store-reports" className="font-medium text-signature underline">
-          매장·상품 신고
+          {t("admin_do_reports_console")}
         </Link>{" "}
-        콘솔에서 처리하세요.
+        {t("admin_do_reports_console_suffix")}
       </p>
       {error ? (
         <p className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">
-          불러오지 못했습니다 ({error}).
+          {t("admin_do_common_load_failed", { error })}
         </p>
       ) : null}
       <div className="mb-2">
@@ -75,25 +79,25 @@ export function DeliveryReportsClient() {
           disabled={loading}
           className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-xs text-sam-fg disabled:opacity-50"
         >
-          {loading ? "갱신 중…" : "새로고침"}
+          {loading ? t("admin_do_common_refreshing") : t("admin_do_common_refresh")}
         </button>
       </div>
-      <AdminCard title="신고 목록">
+      <AdminCard titleKey="admin_do_reports_card">
         {loading ? (
-          <p className="text-sm text-sam-muted">불러오는 중…</p>
+          <p className="text-sm text-sam-muted">{t("admin_dashboard_loading")}</p>
         ) : rows.length === 0 ? (
-          <p className="text-sm text-sam-muted">신고가 없습니다.</p>
+          <p className="text-sm text-sam-muted">{t("admin_do_reports_empty")}</p>
         ) : (
           <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
             <table className="w-full min-w-[900px] border-collapse sam-text-body-secondary">
               <thead>
                 <tr className="border-b border-sam-border bg-sam-app text-left text-xs font-medium text-sam-muted">
-                  <th className="px-2 py-2">신고 ID</th>
-                  <th className="px-2 py-2">매장</th>
-                  <th className="px-2 py-2">대상</th>
-                  <th className="px-2 py-2">사유</th>
-                  <th className="px-2 py-2">상태</th>
-                  <th className="px-2 py-2">접수</th>
+                  <th className="px-2 py-2">{t("admin_do_th_report_id_short")}</th>
+                  <th className="px-2 py-2">{t("admin_do_th_store")}</th>
+                  <th className="px-2 py-2">{t("admin_do_th_target")}</th>
+                  <th className="px-2 py-2">{t("admin_do_th_reason")}</th>
+                  <th className="px-2 py-2">{t("admin_do_th_status")}</th>
+                  <th className="px-2 py-2">{t("admin_do_th_received")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -106,7 +110,7 @@ export function DeliveryReportsClient() {
                       <span className="text-sam-meta"> · </span>
                       <span className="font-mono">{r.target_id}</span>
                       {r.product_title ? (
-                        <span className="mt-0.5 block text-sam-muted">상품: {r.product_title}</span>
+                        <span className="mt-0.5 block text-sam-muted">{t("admin_do_reports_product", { title: r.product_title })}</span>
                       ) : null}
                     </td>
                     <td className="max-w-[280px] px-2 py-2">
@@ -115,7 +119,7 @@ export function DeliveryReportsClient() {
                     </td>
                     <td className="whitespace-nowrap px-2 py-2">{r.status}</td>
                     <td className="whitespace-nowrap px-2 py-2 text-sam-muted">
-                      {new Date(r.created_at).toLocaleString("ko-KR")}
+                      {new Date(r.created_at).toLocaleString(doAdminLocale(language))}
                     </td>
                   </tr>
                 ))}

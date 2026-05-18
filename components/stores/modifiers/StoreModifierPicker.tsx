@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useMemo, useState } from "react";
 import type { ModifierSelectionsWire, ParsedOptionGroup } from "@/lib/stores/modifiers/types";
@@ -27,6 +28,7 @@ type Props = {
 };
 
 export function StoreModifierPicker({ groups, value, onChange, disabled, variant = "default" }: Props) {
+  const { t } = useI18n();
   const sorted = useMemo(() => sortModifierGroupsForCustomerUi(groups), [groups]);
   const [openKeys, setOpenKeys] = useState<Record<string, boolean>>({});
 
@@ -105,9 +107,9 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-[15px] font-extrabold tracking-[-0.025em] text-neutral-900">{g.label}</h3>
                   {required ? (
-                    <span className={STORE_ORDER_BADGE_REQUIRED}>필수</span>
+                    <span className={STORE_ORDER_BADGE_REQUIRED}>{t("store_modifier_required")}</span>
                   ) : (
-                    <span className={STORE_ORDER_BADGE_OPTIONAL}>선택 {rangeHint}</span>
+                    <span className={STORE_ORDER_BADGE_OPTIONAL}>{t("store_modifier_optional", { hint: rangeHint })}</span>
                   )}
                 </div>
                 {g.description ? (
@@ -158,7 +160,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                           </button>
                         </div>
                         {opt.soldOut ? (
-                          <span className="sam-text-xxs font-medium text-amber-700">품절</span>
+                          <span className="sam-text-xxs font-medium text-amber-700">{t("store_sold_out")}</span>
                         ) : null}
                       </li>
                     );
@@ -207,7 +209,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                             </span>
                           </button>
                           {opt.soldOut ? (
-                            <p className="px-3 pb-2 sam-text-xxs text-amber-700">품절</p>
+                            <p className="px-3 pb-2 sam-text-xxs text-amber-700">{t("store_sold_out")}</p>
                           ) : null}
                         </li>
                       );
@@ -335,7 +337,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                         </button>
                       </div>
                       {opt.soldOut ? (
-                        <span className="sam-text-xxs font-medium text-amber-700">품절</span>
+                        <span className="sam-text-xxs font-medium text-amber-700">{t("store_sold_out")}</span>
                       ) : null}
                     </li>
                   );
@@ -371,7 +373,7 @@ export function StoreModifierPicker({ groups, value, onChange, disabled, variant
                           </span>
                         </button>
                         {opt.soldOut ? (
-                          <p className="mt-0.5 sam-text-xxs text-amber-700">품절 · 선택 불가</p>
+                          <p className="mt-0.5 sam-text-xxs text-amber-700">{t("store_sold_out_cannot_select")}</p>
                         ) : null}
                       </li>
                     );

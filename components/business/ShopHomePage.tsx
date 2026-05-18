@@ -7,18 +7,20 @@ import { BusinessProfileView } from "./BusinessProfileView";
 import { BusinessProductList } from "./BusinessProductList";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { isUuidString } from "@/lib/shared/uuid-string";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface ShopHomePageProps {
   slug: string;
 }
 
 export function ShopHomePage({ slug }: ShopHomePageProps) {
+  const { t } = useI18n();
   const profile = getBusinessProfileBySlug(slug);
 
   if (!profile) {
     return (
       <div className="rounded-ui-rect bg-sam-surface p-8 text-center">
-        <p className="sam-text-body text-sam-muted">상점을 찾을 수 없거나 비공개입니다.</p>
+        <p className="sam-text-body text-sam-muted">{t("business_phase7_146")}</p>
         <Link href="/" className="mt-3 inline-block sam-text-body text-signature">
           홈으로
         </Link>
@@ -41,7 +43,7 @@ export function ShopHomePage({ slug }: ShopHomePageProps) {
           </p>
         )}
         {!isOwner && operatorOk ? (
-          <p className="sam-text-helper text-sam-muted">채팅 문의 기능은 현재 비활성화되어 있습니다.</p>
+          <p className="sam-text-helper text-sam-muted">{t("business_phase7_287")}</p>
         ) : null}
         <button
           type="button"

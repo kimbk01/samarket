@@ -1,17 +1,17 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
 import { getOpsMaturityHistory } from "@/lib/ops-maturity/mock-ops-maturity-history";
 
 /** 성숙도 히스토리 추이 placeholder (표로 대체) */
 export function OpsMaturityHistoryChart() {
+  const { t } = useI18n();
   const history = useMemo(() => getOpsMaturityHistory(10), []);
 
   if (history.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
-        히스토리 데이터가 없습니다.
-      </div>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_maturity_history_empty")}</div>
     );
   }
 
@@ -20,14 +20,14 @@ export function OpsMaturityHistoryChart() {
       <table className="w-full min-w-[480px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">일자</th>
-            <th className="px-3 py-2.5 text-right font-medium text-sam-fg">종합</th>
-            <th className="px-3 py-2.5 text-right font-medium text-sam-fg">모니터링</th>
-            <th className="px-3 py-2.5 text-right font-medium text-sam-fg">자동화</th>
-            <th className="px-3 py-2.5 text-right font-medium text-sam-fg">문서화</th>
-            <th className="px-3 py-2.5 text-right font-medium text-sam-fg">대응</th>
-            <th className="px-3 py-2.5 text-right font-medium text-sam-fg">추천</th>
-            <th className="px-3 py-2.5 text-right font-medium text-sam-fg">학습</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_maturity_th_date")}</th>
+            <th className="px-3 py-2.5 text-right font-medium text-sam-fg">{t("admin_ops_tools_maturity_th_overall")}</th>
+            <th className="px-3 py-2.5 text-right font-medium text-sam-fg">{t("admin_ops_tools_cat_monitoring")}</th>
+            <th className="px-3 py-2.5 text-right font-medium text-sam-fg">{t("admin_ops_tools_cat_automation")}</th>
+            <th className="px-3 py-2.5 text-right font-medium text-sam-fg">{t("admin_ops_tools_area_documentation")}</th>
+            <th className="px-3 py-2.5 text-right font-medium text-sam-fg">{t("admin_ops_tools_area_response")}</th>
+            <th className="px-3 py-2.5 text-right font-medium text-sam-fg">{t("admin_ops_tools_routine_cat_recommendation")}</th>
+            <th className="px-3 py-2.5 text-right font-medium text-sam-fg">{t("admin_ops_tools_area_learning")}</th>
           </tr>
         </thead>
         <tbody>
@@ -45,7 +45,7 @@ export function OpsMaturityHistoryChart() {
           ))}
         </tbody>
       </table>
-      <p className="p-3 sam-text-helper text-sam-muted">차트 시각화는 placeholder (표 대체)</p>
+      <p className="p-3 sam-text-helper text-sam-muted">{t("admin_ops_tools_maturity_chart_ph")}</p>
     </div>
   );
 }

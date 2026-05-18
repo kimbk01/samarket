@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import type { OrderStatusLog } from "@/lib/admin/delivery-orders-admin/types";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { doAdminLocale } from "./do-admin-locale";
 
 export function DeliveryAuditLogTable({
   logs,
@@ -10,32 +12,35 @@ export function DeliveryAuditLogTable({
   logs: OrderStatusLog[];
   orderNoById: Record<string, string>;
 }) {
+  const { t, language } = useI18n();
+  const locale = doAdminLocale(language);
+
   const sorted = [...logs].sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
   if (sorted.length === 0) {
-    return <p className="py-6 text-center text-sm text-sam-muted">로그가 없습니다.</p>;
+    return <p className="py-6 text-center text-sm text-sam-muted">{t("admin_do_common_no_logs")}</p>;
   }
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[960px] border-collapse sam-text-helper">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app text-left text-xs font-medium text-sam-muted">
-            <th className="px-2 py-2">시각</th>
-            <th className="px-2 py-2">주문</th>
-            <th className="px-2 py-2">행위자</th>
-            <th className="px-2 py-2">액션</th>
-            <th className="px-2 py-2">주문상태</th>
-            <th className="px-2 py-2">결제</th>
-            <th className="px-2 py-2">정산</th>
-            <th className="px-2 py-2">사유</th>
+            <th className="px-2 py-2">{t("admin_do_th_time")}</th>
+            <th className="px-2 py-2">{t("admin_do_common_order")}</th>
+            <th className="px-2 py-2">{t("admin_do_th_actor")}</th>
+            <th className="px-2 py-2">{t("admin_do_common_action")}</th>
+            <th className="px-2 py-2">{t("admin_do_th_order_status")}</th>
+            <th className="px-2 py-2">{t("admin_do_th_payment")}</th>
+            <th className="px-2 py-2">{t("admin_do_th_settlement")}</th>
+            <th className="px-2 py-2">{t("admin_do_th_reason")}</th>
           </tr>
         </thead>
         <tbody>
           {sorted.map((l) => (
             <tr key={l.id} className="border-b border-sam-border-soft hover:bg-sam-app/60">
               <td className="px-2 py-2 whitespace-nowrap text-sam-muted">
-                {new Date(l.createdAt).toLocaleString("ko-KR")}
+                {new Date(l.createdAt).toLocaleString(locale)}
               </td>
               <td className="px-2 py-2">
                 <Link

@@ -6,7 +6,14 @@
 import { clearBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { resetMessengerNotificationSurfacesAfterSignOut } from "@/lib/community-messenger/notifications/messenger-notification-surfaces-reset";
 import { fetchWithTimeout } from "@/lib/http/fetch-with-timeout";
-import { invalidateAppBootAll } from "@/components/app/AppBootProvider";
+import {
+  APP_LANGUAGE_CHANGED_EVENT,
+  getBrowserLanguage,
+} from "@/lib/i18n/config";
+import { clearLanguagePersistence } from "@/lib/i18n/language-preference";
+import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 /**
@@ -23,9 +30,13 @@ export type LogoutResult =
 const SUPABASE_LOCAL_SIGNOUT_TIMEOUT_MS = 1_500;
 const SERVER_LOGOUT_TIMEOUT_MS = 5_000;
 
+function logoutT(key: MessageKey): string {
+  return translate(getRuntimeAppLanguage(), key);
+}
+
 function normalizeLogoutErrorMessage(raw: unknown): string {
   const message = String(raw ?? "").trim();
-  return message || "로그아웃 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.";
+  return message || logoutT("auth_logout_err_failed");
 }
 
 async function raceWithTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
@@ -67,13 +78,19 @@ export async function performClientLogout(): Promise<LogoutResult> {
   if (typeof window === "undefined") {
     return {
       ok: false,
-      message: "브라우저 환경에서만 로그아웃을 실행할 수 있습니다.",
+      message: logoutT("auth_logout_err_browser_only"),
     };
   }
 
-  invalidateAppBootAll();
+  invalidateMeProfileDedupedCache();
   clearBootstrapCache();
   resetMessengerNotificationSurfacesAfterSignOut();
+  clearLanguagePersistence();
+  window.dispatchEvent(
+    new CustomEvent(APP_LANGUAGE_CHANGED_EVENT, {
+      detail: getBrowserLanguage(),
+    })
+  );
 
   const supabase = getSupabaseClient();
   if (supabase) {

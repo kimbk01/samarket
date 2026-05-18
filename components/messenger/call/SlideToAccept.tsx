@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const KNOB = 46;
 const ACCEPT_AT = 0.88;
@@ -9,7 +10,7 @@ const ACCEPT_AT = 0.88;
  * 드래그 중 React state 를 쓰지 않고 transform 만 갱신 — 통화 화면 전체 리렌더를 줄인다.
  */
 export function SlideToAccept({
-  label = "밀어서 통화하기",
+  label: labelProp,
   disabled = false,
   onAccept,
 }: {
@@ -17,6 +18,8 @@ export function SlideToAccept({
   disabled?: boolean;
   onAccept: () => void;
 }) {
+  const { t } = useI18n();
+  const label = labelProp ?? t("cm_ui_slide_to_accept");
   const trackRef = useRef<HTMLDivElement | null>(null);
   const knobRef = useRef<HTMLButtonElement | null>(null);
   const draggingRef = useRef(false);

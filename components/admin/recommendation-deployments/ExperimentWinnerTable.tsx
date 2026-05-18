@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import type { WinningMetric } from "@/lib/types/recommendation-deployment";
 import { getRecommendationExperiments } from "@/lib/recommendation-experiments/mock-recommendation-experiments";
@@ -15,6 +18,7 @@ const WINNING_METRIC_LABELS: Record<WinningMetric, string> = {
 };
 
 export function ExperimentWinnerTable() {
+  const { t } = useI18n();
   const [metric, setMetric] = useState<WinningMetric>("ctr");
   const [choosingId, setChoosingId] = useState<string | null>(null);
   const [refresh, setRefresh] = useState(0);
@@ -108,7 +112,7 @@ export function ExperimentWinnerTable() {
                   </td>
                   <td className="px-3 py-2.5">
                     {s.autoDeployRecommended ? (
-                      <span className="sam-text-body-secondary text-emerald-600">추천</span>
+                      <span className="sam-text-body-secondary text-emerald-600">{t("admin_rec_deploy_k4b0ea2fc")}</span>
                     ) : (
                       "-"
                     )}

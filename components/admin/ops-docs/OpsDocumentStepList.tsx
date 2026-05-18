@@ -2,16 +2,10 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getOpsDocumentSteps } from "@/lib/ops-docs/mock-ops-document-steps";
 import type { OpsDocumentStepLinkedType } from "@/lib/types/ops-docs";
-
-const LINKED_TYPE_LABELS: Record<OpsDocumentStepLinkedType, string> = {
-  incident: "이슈/인시던트",
-  deployment: "배포",
-  report: "보고서",
-  checklist: "체크리스트",
-  action_item: "액션아이템",
-};
+import { OPS_DOC_STEP_LINK_KEYS } from "@/components/admin/i18n/admin-ops-doc-label-keys";
 
 const LINKED_HREF: Record<OpsDocumentStepLinkedType, (id: string) => string> = {
   incident: (id) => `/admin/recommendation-monitoring?incident=${id}`,
@@ -26,6 +20,7 @@ interface OpsDocumentStepListProps {
 }
 
 export function OpsDocumentStepList({ documentId }: OpsDocumentStepListProps) {
+  const { t } = useI18n();
   const steps = useMemo(
     () => getOpsDocumentSteps(documentId),
     [documentId]
@@ -34,7 +29,7 @@ export function OpsDocumentStepList({ documentId }: OpsDocumentStepListProps) {
   if (steps.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
-        등록된 단계가 없습니다.
+        {t("admin_ops_doc_steps_empty")}
       </div>
     );
   }
@@ -54,19 +49,21 @@ export function OpsDocumentStepList({ documentId }: OpsDocumentStepListProps) {
               <span className="font-medium text-sam-fg">{s.title}</span>
               {s.isRequired && (
                 <span className="rounded bg-amber-50 px-1.5 py-0.5 sam-text-xxs text-amber-800">
-                  필수
+                  {t("admin_ops_doc_step_required")}
                 </span>
               )}
               {s.estimatedMinutes != null && (
                 <span className="sam-text-helper text-sam-muted">
-                  약 {s.estimatedMinutes}분
+                  {t("admin_ops_doc_step_minutes", { n: s.estimatedMinutes })}
                 </span>
               )}
             </div>
             <p className="mt-1 sam-text-body-secondary text-sam-muted">{s.description}</p>
             {s.linkedType && (
               <p className="mt-2 sam-text-helper text-sam-muted">
-                연결: {LINKED_TYPE_LABELS[s.linkedType]}
+                {t("admin_ops_doc_step_linked", {
+                  type: t(OPS_DOC_STEP_LINK_KEYS[s.linkedType]),
+                })}
                 {s.linkedId && (
                   <>
                     {" · "}

@@ -1,20 +1,58 @@
 /**
- * 통화·메신저 클라이언트에서 공통으로 쓰는 사용자 노출 문구(한국어).
+ * 통화·메신저 클라이언트에서 공통으로 쓰는 사용자 노출 문구.
  * API `error` 코드 매핑은 서버 스키마와 맞출 것.
  */
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+const KEYS = {
+  sessionActionFailed: "cm_ui_call_session_action_failed",
+  sessionRejectFailed: "cm_ui_call_session_reject_failed",
+  incomingListFailed: "cm_ui_incoming_call_list_failed",
+  incomingListRetry: "common_retry",
+  networkOrServer: "cm_ui_network_or_server_unreachable",
+  signalPollUnstable: "cm_ui_call_signal_poll_unstable",
+  groupRingEndFailed: "cm_ui_group_ring_end_failed",
+  groupCancelFailed: "cm_ui_group_call_cancel_failed",
+  groupEndFailed: "cm_ui_group_call_end_failed",
+  autoAcceptFailed: "cm_ui_call_auto_accept_failed",
+} as const satisfies Record<string, MessageKey>;
+
+function tr(key: MessageKey): string {
+  return translate(getRuntimeAppLanguage(), key);
+}
 
 export const MESSENGER_CALL_USER_MSG = {
-  sessionActionFailed: "통화 상태를 변경하지 못했습니다. 잠시 후 다시 시도해 주세요.",
-  sessionRejectFailed: "거절 처리에 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.",
-  incomingListFailed: "수신 통화 목록을 불러오지 못했습니다.",
-  incomingListRetry: "다시 시도",
-  networkOrServer: "네트워크 또는 서버 응답을 확인할 수 없습니다.",
-  signalPollUnstable:
-    "통화 신호 연결이 불안정합니다. 잠시만 기다리거나 통화를 종료한 뒤 다시 시도해 주세요.",
-  groupRingEndFailed: "그룹 통화 호출 종료 요청에 실패했습니다.",
-  groupCancelFailed: "통화 취소 요청에 실패했습니다.",
-  groupEndFailed: "통화 종료 요청에 실패했습니다.",
-  autoAcceptFailed: "자동 수락에 실패했습니다. 통화 안내에서 「수락」을 눌러 주세요.",
+  get sessionActionFailed() {
+    return tr(KEYS.sessionActionFailed);
+  },
+  get sessionRejectFailed() {
+    return tr(KEYS.sessionRejectFailed);
+  },
+  get incomingListFailed() {
+    return tr(KEYS.incomingListFailed);
+  },
+  get incomingListRetry() {
+    return tr(KEYS.incomingListRetry);
+  },
+  get networkOrServer() {
+    return tr(KEYS.networkOrServer);
+  },
+  get signalPollUnstable() {
+    return tr(KEYS.signalPollUnstable);
+  },
+  get groupRingEndFailed() {
+    return tr(KEYS.groupRingEndFailed);
+  },
+  get groupCancelFailed() {
+    return tr(KEYS.groupCancelFailed);
+  },
+  get groupEndFailed() {
+    return tr(KEYS.groupEndFailed);
+  },
+  get autoAcceptFailed() {
+    return tr(KEYS.autoAcceptFailed);
+  },
 } as const;
 
 export const SIGNAL_POLL_SOFT_ERROR = MESSENGER_CALL_USER_MSG.signalPollUnstable;

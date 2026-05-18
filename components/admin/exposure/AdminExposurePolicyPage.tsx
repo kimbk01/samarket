@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -13,13 +16,14 @@ import { ExposurePolicyLogList } from "./ExposurePolicyLogList";
 
 type TabId = "policy" | "simulate" | "logs";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "policy", label: "정책" },
-  { id: "simulate", label: "시뮬레이션" },
-  { id: "logs", label: "변경 이력" },
+const TABS: { id: TabId; labelKey: MessageKey }[] = [
+  { id: "policy", labelKey: "admin_prod_migration_k9d7426d4" },
+  { id: "simulate", labelKey: "admin_exposure_k6349265b" },
+  { id: "logs", labelKey: "admin_exposure_k14bf3e5b" },
 ];
 
 export function AdminExposurePolicyPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("policy");
   const [refresh, setRefresh] = useState(0);
   const [editingPolicyId, setEditingPolicyId] = useState<string | null>(null);
@@ -43,27 +47,27 @@ export function AdminExposurePolicyPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="노출 점수 정책" />
+      <AdminPageHeader titleKey="admin_exposure_k3ec2b019" />
 
       <div className="flex flex-wrap gap-2 border-b border-sam-border">
-        {TABS.map((t) => (
+        {TABS.map((tab) => (
           <button
-            key={t.id}
+            key={tab.id}
             type="button"
-            onClick={() => setActiveTab(t.id)}
+            onClick={() => setActiveTab(tab.id)}
             className={`border-b-2 px-3 py-2 sam-text-body font-medium ${
-              activeTab === t.id
+              activeTab === tab.id
                 ? "border-signature text-signature"
                 : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
-            {t.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
 
       {activeTab === "policy" && (
-        <AdminCard title="노출 점수 정책 (surface별 가중치)">
+        <AdminCard titleKey="admin_exposure_k6d95f114">
           {editingPolicy && (
             <div className="mb-4 rounded border border-sam-border bg-sam-app p-4">
               <ExposurePolicyForm
@@ -81,13 +85,13 @@ export function AdminExposurePolicyPage() {
       )}
 
       {activeTab === "simulate" && (
-        <AdminCard title="시뮬레이션">
+        <AdminCard titleKey="admin_exposure_k6349265b">
           <ExposureSimulator onSimulated={() => setRefresh((r) => r + 1)} />
         </AdminCard>
       )}
 
       {activeTab === "logs" && (
-        <AdminCard title="변경 이력">
+        <AdminCard titleKey="admin_exposure_k14bf3e5b">
           <ExposurePolicyLogList logs={logs} />
         </AdminCard>
       )}

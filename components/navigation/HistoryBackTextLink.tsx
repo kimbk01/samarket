@@ -2,12 +2,16 @@
 
 import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
 
 type HistoryBackTextLinkProps = {
   fallbackHref: string;
   className?: string;
   children: ReactNode;
+  ariaLabelKey?: MessageKey;
+  /** @deprecated ariaLabelKey 사용 */
   "aria-label"?: string;
 };
 
@@ -18,14 +22,21 @@ export function HistoryBackTextLink({
   fallbackHref,
   className,
   children,
-  "aria-label": ariaLabel = "뒤로가기",
+  ariaLabelKey,
+  "aria-label": ariaLabel,
 }: HistoryBackTextLinkProps) {
   const router = useRouter();
+  const { t, tt } = useI18n();
+  const resolvedAriaLabel = ariaLabelKey
+    ? t(ariaLabelKey)
+    : ariaLabel
+      ? tt(ariaLabel)
+      : t("nav_back");
   return (
     <button
       type="button"
       className={className}
-      aria-label={ariaLabel}
+      aria-label={resolvedAriaLabel}
       onClick={() => runHistoryBackWithFallback(router, fallbackHref)}
     >
       {children}

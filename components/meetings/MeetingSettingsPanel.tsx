@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { philifeMeetingApi } from "@domain/philife/api";
 import type { NeighborhoodMeetingDetailDTO } from "@/lib/neighborhood/types";
 
@@ -10,6 +11,7 @@ interface MeetingSettingsPanelProps {
 }
 
 export function MeetingSettingsPanel({ meeting }: MeetingSettingsPanelProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [, startTransition] = useTransition();
@@ -47,14 +49,14 @@ export function MeetingSettingsPanel({ meeting }: MeetingSettingsPanelProps) {
       });
       const j = (await res.json()) as { ok: boolean; error?: string };
       if (!j.ok) {
-        setErr(j.error ?? "저장에 실패했습니다.");
+        setErr(j.error ?? t("common_save_failed"));
         return;
       }
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
       startTransition(() => router.refresh());
     } catch {
-      setErr("네트워크 오류가 발생했습니다.");
+      setErr(t("common_network_error"));
     } finally {
       setSaving(false);
     }
@@ -68,7 +70,7 @@ export function MeetingSettingsPanel({ meeting }: MeetingSettingsPanelProps) {
         onClick={() => setOpen((v) => !v)}
         className="flex w-full items-center justify-between px-4 py-3.5"
       >
-        <span className="sam-text-body font-semibold text-sam-fg">⚙️ 모임 설정</span>
+        <span className="sam-text-body font-semibold text-sam-fg">{t("meeting_settings_title")}</span>
         <span className="sam-text-page-title leading-none text-sam-meta">{open ? "∧" : "∨"}</span>
       </button>
 
@@ -77,17 +79,15 @@ export function MeetingSettingsPanel({ meeting }: MeetingSettingsPanelProps) {
           {/* 환영 메시지 */}
           <div>
             <label className="block sam-text-helper font-semibold text-sam-fg">
-              환영 메시지
+              {t("meeting_settings_welcome_label")}
             </label>
-            <p className="mb-1 sam-text-xxs text-sam-meta">
-              신규 멤버가 승인됐을 때 홈 탭에 표시됩니다.
-            </p>
+            <p className="mb-1 sam-text-xxs text-sam-meta">{t("meeting_settings_welcome_hint")}</p>
             <textarea
               value={welcomeMsg}
               onChange={(e) => setWelcomeMsg(e.target.value)}
               rows={3}
               maxLength={500}
-              placeholder="모임에 오신 것을 환영합니다! ..."
+              placeholder={t("meeting_settings_welcome_placeholder")}
               className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body-secondary text-sam-fg placeholder-sam-meta outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200"
             />
             <p className="mt-0.5 text-right sam-text-xxs text-sam-meta">{welcomeMsg.length}/500</p>
@@ -96,7 +96,7 @@ export function MeetingSettingsPanel({ meeting }: MeetingSettingsPanelProps) {
           {/* 최대 인원 */}
           <div>
             <label className="block sam-text-helper font-semibold text-sam-fg">
-              최대 인원
+              {t("meeting_settings_max_members")}
             </label>
             <input
               type="number"
@@ -112,8 +112,8 @@ export function MeetingSettingsPanel({ meeting }: MeetingSettingsPanelProps) {
           {/* 피드 허용 토글 */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="sam-text-body-secondary font-medium text-sam-fg">피드 글 허용</p>
-              <p className="sam-text-xxs text-sam-meta">멤버가 피드에 글을 올릴 수 있습니다.</p>
+              <p className="sam-text-body-secondary font-medium text-sam-fg">{t("meeting_settings_allow_feed")}</p>
+              <p className="sam-text-xxs text-sam-meta">{t("meeting_settings_allow_feed_hint")}</p>
             </div>
             <button
               type="button"
@@ -133,8 +133,8 @@ export function MeetingSettingsPanel({ meeting }: MeetingSettingsPanelProps) {
           {/* 앨범 업로드 허용 토글 */}
           <div className="flex items-center justify-between">
             <div>
-              <p className="sam-text-body-secondary font-medium text-sam-fg">앨범 업로드 허용</p>
-              <p className="sam-text-xxs text-sam-meta">멤버가 사진을 앨범에 올릴 수 있습니다.</p>
+              <p className="sam-text-body-secondary font-medium text-sam-fg">{t("meeting_settings_allow_album")}</p>
+              <p className="sam-text-xxs text-sam-meta">{t("meeting_settings_allow_album_hint")}</p>
             </div>
             <button
               type="button"
@@ -153,7 +153,7 @@ export function MeetingSettingsPanel({ meeting }: MeetingSettingsPanelProps) {
 
           {/* 에러 / 성공 메시지 */}
           {err && <p className="sam-text-helper text-red-500">{err}</p>}
-          {saved && <p className="sam-text-helper text-emerald-600">✓ 저장되었습니다.</p>}
+          {saved && <p className="sam-text-helper text-emerald-600">{t("meeting_settings_saved")}</p>}
 
           {/* 저장 버튼 */}
           <button
@@ -162,7 +162,7 @@ export function MeetingSettingsPanel({ meeting }: MeetingSettingsPanelProps) {
             onClick={() => void onSave()}
             className="w-full rounded-ui-rect bg-emerald-500 py-2.5 sam-text-body font-semibold text-white disabled:opacity-50"
           >
-            {saving ? "저장 중…" : "설정 저장"}
+            {saving ? t("meeting_settings_saving") : t("meeting_settings_save")}
           </button>
         </div>
       )}

@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import type { MyPageBannerRow } from "@/lib/my/types";
@@ -7,6 +10,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 import { MY_PAGE_BANNERS_SELECT } from "@/lib/my/mypage-tables-select";
 
 export function AdminMyBannersPage() {
+  const { t } = useI18n();
   const [items, setItems] = useState<MyPageBannerRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +45,7 @@ export function AdminMyBannersPage() {
   return (
     <div>
       <div className="mb-4 flex items-center justify-between">
-        <h1 className="sam-text-page-title font-semibold text-sam-fg">나의 카마켓 배너</h1>
+        <h1 className="sam-text-page-title font-semibold text-sam-fg">{t("admin_my_k4ab546c0")}</h1>
         <Link
           href="/admin/my/banners/create"
           className="rounded-ui-rect bg-signature px-3 py-2 sam-text-body font-medium text-white"
@@ -50,7 +54,7 @@ export function AdminMyBannersPage() {
         </Link>
       </div>
       {loading ? (
-        <p className="text-sam-muted">불러오는 중…</p>
+        <p className="text-sam-muted">{t("common_loading")}</p>
       ) : error ? (
         <p className="rounded-ui-rect bg-red-50 p-4 sam-text-body text-red-700">{error}</p>
       ) : items.length === 0 ? (

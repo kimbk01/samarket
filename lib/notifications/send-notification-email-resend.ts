@@ -1,6 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { abortSignalForTimeout } from "@/lib/http/abort-signal-timeout";
 import type { NotificationSideEffectPayloadOut } from "@/lib/notifications/publish-notification-side-effect";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { translate } from "@/lib/i18n/messages";
+import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 
 const FETCH_MS = 12_000;
 const BRAND_PRIMARY_HEX = "#1C8DB8";
@@ -20,7 +23,10 @@ function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function buildNotificationEmailHtml(out: NotificationSideEffectPayloadOut): string {
+function buildNotificationEmailHtml(
+  out: NotificationSideEffectPayloadOut,
+  language: AppLanguageCode
+): string {
   const title = escapeHtml(out.title);
   const body = (out.body ?? "").trim();
   const bodyHtml = body
@@ -29,14 +35,14 @@ function buildNotificationEmailHtml(out: NotificationSideEffectPayloadOut): stri
   const link = (out.link_url_absolute ?? out.link_url ?? "").trim();
   const linkSafe = escapeHtml(link);
   const linkHtml = link
-    ? `<p style="margin:24px 0 0;"><a href="${linkSafe}" style="color:${BRAND_PRIMARY_HEX};text-decoration:underline;">앱에서 보기</a></p>`
+    ? `<p style="margin:24px 0 0;"><a href="${linkSafe}" style="color:${BRAND_PRIMARY_HEX};text-decoration:underline;">${escapeHtml(translate(language, "notify_email_view_in_app"))}</a></p>`
     : "";
   return `<!DOCTYPE html><html><body style="margin:0;padding:24px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:#f9fafb;">
   <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:12px;padding:24px;border:1px solid #e5e7eb;">
     <p style="margin:0;font-size:17px;font-weight:600;color:#111827;">${title}</p>
     ${bodyHtml}
     ${linkHtml}
-    <p style="margin:24px 0 0;font-size:12px;color:#9ca3af;">이 메일은 Kasama 서비스 알림입니다.</p>
+    <p style="margin:24px 0 0;font-size:12px;color:#9ca3af;">${escapeHtml(translate(language, "notify_email_service_footer"))}</p>
   </div></body></html>`;
 }
 
@@ -140,13 +146,14 @@ export async function trySendNotificationEmailResend(
     parts.push("");
     parts.push(body);
   }
+  const language = await loadNotificationUserLanguage(sb, out.user_id);
   const link = (out.link_url_absolute ?? out.link_url ?? "").trim();
   if (link) {
     parts.push("");
-    parts.push(`링크: ${link}`);
+    parts.push(translate(language, "notify_email_link_line", { url: link }));
   }
   const text = truncate(parts.join("\n"), 12_000);
-  const html = buildNotificationEmailHtml(out);
+  const html = buildNotificationEmailHtml(out, language);
 
   const signal = abortSignalForTimeout(FETCH_MS);
   const res = await fetch("https://api.resend.com/emails", {

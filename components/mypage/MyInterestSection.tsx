@@ -1,25 +1,27 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { MYPAGE_TRADE_FAVORITES_HREF } from "@/lib/mypage/trade-hub-paths";
 
-const ITEMS: { label: string; href: string; icon: React.ReactNode; countKey?: "favorites" }[] = [
-  { label: "관심목록", href: MYPAGE_TRADE_FAVORITES_HREF, icon: <HeartIcon />, countKey: "favorites" },
-  { label: "키워드 알림 설정", href: "/mypage/settings/notifications", icon: <TagIcon /> },
+const ITEMS: { labelKey: MessageKey; href: string; icon: React.ReactNode; countKey?: "favorites" }[] = [
+  { labelKey: "mypage_comp_interest_favorites", href: MYPAGE_TRADE_FAVORITES_HREF, icon: <HeartIcon />, countKey: "favorites" },
+  { labelKey: "mypage_comp_interest_keyword_alerts", href: "/mypage/settings/notifications", icon: <TagIcon /> },
 ];
 
 interface MyInterestSectionProps {
-  /** API로 가져온 찜 상품 개수 (없으면 표시 생략) */
   favoriteCount?: number | null;
 }
 
 export function MyInterestSection({ favoriteCount }: MyInterestSectionProps) {
+  const { t } = useI18n();
   return (
     <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-      <h2 className="mb-3 sam-text-body-secondary font-semibold text-muted">나의 관심</h2>
+      <h2 className="mb-3 sam-text-body-secondary font-semibold text-muted">{t("mypage_comp_section_my_interest")}</h2>
       <ul className="space-y-0">
         {ITEMS.map((item, i) => (
-          <li key={item.label}>
+          <li key={item.labelKey}>
             <Link
               href={item.href}
               className="flex items-center gap-3 py-3 sam-text-body text-foreground"
@@ -28,12 +30,12 @@ export function MyInterestSection({ favoriteCount }: MyInterestSectionProps) {
                 {item.icon}
               </span>
               <span className="flex-1">
-                {item.label}
+                {t(item.labelKey)}
                 {item.countKey === "favorites" &&
                   favoriteCount != null &&
                   favoriteCount > 0 && (
                     <span className="ml-2 sam-text-helper font-normal text-sam-muted">
-                      {favoriteCount}개
+                      {t("mypage_comp_interest_count_suffix", { count: favoriteCount })}
                     </span>
                   )}
               </span>
@@ -44,9 +46,7 @@ export function MyInterestSection({ favoriteCount }: MyInterestSectionProps) {
         ))}
       </ul>
       {favoriteCount != null && favoriteCount === 0 && (
-        <p className="-mt-1 pb-1 sam-text-helper text-muted">
-          찜한 상품이 없으면 홈에서 하트를 눌러 담을 수 있어요.
-        </p>
+        <p className="-mt-1 pb-1 sam-text-helper text-muted">{t("mypage_comp_interest_empty_hint")}</p>
       )}
     </section>
   );

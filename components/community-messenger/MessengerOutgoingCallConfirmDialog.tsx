@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   COMMUNITY_BUTTON_PRIMARY_CLASS,
   COMMUNITY_BUTTON_SECONDARY_CLASS,
@@ -21,11 +22,12 @@ export type MessengerOutgoingCallConfirmDialogProps = {
 };
 
 export function MessengerOutgoingCallConfirmDialog(props: MessengerOutgoingCallConfirmDialogProps) {
+  const { t } = useI18n();
   const { open, peerLabel, kind, busy = false, onCancel, onConfirm } = props;
 
-  const title = kind === "video" ? "영상 통화" : "음성 통화";
-  const dialogLabel = `${peerLabel.trim() || "상대"} ${title}`;
-  const peer = peerLabel.trim() || "상대방";
+  const title = kind === "video" ? t("cm_ui_video_call") : t("cm_ui_voice_call");
+  const dialogLabel = `${peerLabel.trim() || t("common_partner")} ${title}`;
+  const peer = peerLabel.trim() || t("cm_ui_other_party");
 
   useEffect(() => {
     if (!open) return;
@@ -50,7 +52,7 @@ export function MessengerOutgoingCallConfirmDialog(props: MessengerOutgoingCallC
       <button
         type="button"
         className={COMMUNITY_OVERLAY_BACKDROP_CLASS}
-        aria-label="닫기"
+        aria-label={t("nav_close")}
         onClick={() => {
           if (!busy) onCancel();
         }}
@@ -64,7 +66,7 @@ export function MessengerOutgoingCallConfirmDialog(props: MessengerOutgoingCallC
             {title}
           </h2>
           <p className="mt-1 text-[13px] font-normal text-[#6B7280]">{peer}</p>
-          <p className="mt-2 text-[14px] font-normal leading-[1.5] text-[#1F2430]">통화를 시작하시겠습니까?</p>
+          <p className="mt-2 text-[14px] font-normal leading-[1.5] text-[#1F2430]">{t("cm_ui_start_call_question")}</p>
         </div>
         <div className="flex gap-2 border-t border-[#E5E7EB] px-4 pb-4 pt-3">
           <button
@@ -73,7 +75,7 @@ export function MessengerOutgoingCallConfirmDialog(props: MessengerOutgoingCallC
             onClick={onCancel}
             className={`flex-1 ${COMMUNITY_BUTTON_SECONDARY_CLASS}`}
           >
-            취소
+            {t("common_cancel")}
           </button>
           <button
             type="button"
@@ -81,7 +83,7 @@ export function MessengerOutgoingCallConfirmDialog(props: MessengerOutgoingCallC
             onClick={onConfirm}
             className={`flex-1 ${COMMUNITY_BUTTON_PRIMARY_CLASS}`}
           >
-            통화
+            {t("cm_ui_call")}
           </button>
         </div>
       </div>

@@ -1,8 +1,14 @@
+import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
 import {
   HIRE_WEEKDAY_OPTIONS,
   JOB_SEEKER_LANGUAGE_OPTIONS,
   JOB_SEEKER_TIME_SLOT_OPTIONS,
 } from "@/lib/jobs/form-options";
+
+function optLabel(labelKey: MessageKey): string {
+  return translate(DEFAULT_APP_LANGUAGE, labelKey);
+}
 
 export function formatJobHireWeekDays(meta: Record<string, unknown>): string {
   const pipe = String(meta.hire_week_days_pipe ?? "").trim();
@@ -10,10 +16,13 @@ export function formatJobHireWeekDays(meta: Record<string, unknown>): string {
     return pipe
       .split("|")
       .filter(Boolean)
-      .map((p) => HIRE_WEEKDAY_OPTIONS.find((o) => o.value === p)?.label ?? p)
+      .map((p) => {
+        const opt = HIRE_WEEKDAY_OPTIONS.find((o) => o.value === p);
+        return opt ? optLabel(opt.labelKey) : p;
+      })
       .join(", ");
   }
-  if (meta.hire_work_days_discuss === true) return "협의";
+  if (meta.hire_work_days_discuss === true) return optLabel("jobs_discuss");
   return "";
 }
 
@@ -23,7 +32,10 @@ export function formatJobHireTimeSlotsPipe(meta: Record<string, unknown>): strin
   return raw
     .split("|")
     .filter(Boolean)
-    .map((v) => JOB_SEEKER_TIME_SLOT_OPTIONS.find((o) => o.value === v)?.label ?? v)
+    .map((v) => {
+      const opt = JOB_SEEKER_TIME_SLOT_OPTIONS.find((o) => o.value === v);
+      return opt ? optLabel(opt.labelKey) : v;
+    })
     .join(", ");
 }
 
@@ -33,7 +45,10 @@ export function formatSeekTimeSlotsPipe(meta: Record<string, unknown>): string {
   return raw
     .split("|")
     .filter(Boolean)
-    .map((v) => JOB_SEEKER_TIME_SLOT_OPTIONS.find((o) => o.value === v)?.label ?? v)
+    .map((v) => {
+      const opt = JOB_SEEKER_TIME_SLOT_OPTIONS.find((o) => o.value === v);
+      return opt ? optLabel(opt.labelKey) : v;
+    })
     .join(", ");
 }
 
@@ -43,7 +58,10 @@ export function formatSeekerLanguagesPipe(meta: Record<string, unknown>): string
   return raw
     .split("|")
     .filter(Boolean)
-    .map((v) => JOB_SEEKER_LANGUAGE_OPTIONS.find((o) => o.value === v)?.label ?? v)
+    .map((v) => {
+      const opt = JOB_SEEKER_LANGUAGE_OPTIONS.find((o) => o.value === v);
+      return opt ? optLabel(opt.labelKey) : v;
+    })
     .join(", ");
 }
 

@@ -3,6 +3,8 @@ import { Suspense } from "react";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { OwnerNotificationList } from "@/components/stores/owner/OwnerNotificationList";
+import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
+import { translate } from "@/lib/i18n/messages";
 import { resolveStoreIdBySlug } from "@/lib/store-owner/queries";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 
@@ -24,11 +26,12 @@ async function StoreOwnerNotificationsPageBody({ params }: PageProps) {
   const ownerHubHref = storeId
     ? `/stores/owner?storeId=${encodeURIComponent(storeId)}`
     : "/stores/owner";
+  const lang = resolveServerInitialLanguage({});
 
   if (!storeId) {
     return (
       <div className="min-h-screen bg-sam-app px-4 py-16 text-center text-sm text-sam-fg">
-        등록된 매장을 찾을 수 없습니다. 주소(slug)를 확인해 주세요.
+        {translate(lang, "store_owner_slug_not_found")}
       </div>
     );
   }
@@ -38,14 +41,16 @@ async function StoreOwnerNotificationsPageBody({ params }: PageProps) {
       <header className="sticky top-0 z-10 border-b border-sam-border bg-sam-surface px-2 py-2">
         <div className="mx-auto flex max-w-3xl items-center gap-2">
           <AppBackButton backHref={ownerHubHref} preferHistoryBack={false} />
-          <h1 className="min-w-0 flex-1 truncate text-center sam-text-body-lg font-bold text-sam-fg">알림</h1>
+          <h1 className="min-w-0 flex-1 truncate text-center sam-text-body-lg font-bold text-sam-fg">
+            {translate(lang, "store_owner_notifications_title")}
+          </h1>
           <span className="w-11 shrink-0" />
         </div>
       </header>
       <div className="mx-auto max-w-3xl space-y-4 px-3 pt-4">
         <OwnerNotificationList slug={safe} storeId={storeId} />
         <Link href={ordersHubHref} className="text-sm text-signature underline">
-          주문 관리로
+          {translate(lang, "store_owner_go_order_management")}
         </Link>
       </div>
     </div>

@@ -1,10 +1,23 @@
 "use client";
 
-import type { PointChargeRequest } from "@/lib/types/point";
-import {
-  POINT_CHARGE_STATUS_LABELS,
-  POINT_PAYMENT_METHOD_LABELS,
-} from "@/lib/points/point-utils";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
+import type { PointChargeRequest, PointChargeRequestStatus, PointPaymentMethod } from "@/lib/types/point";
+
+const STATUS_KEYS: Record<PointChargeRequestStatus, MessageKey> = {
+  pending: "point_status_pending",
+  waiting_confirm: "point_status_waiting_confirm",
+  on_hold: "point_status_on_hold",
+  approved: "point_status_approved",
+  rejected: "point_status_rejected",
+  cancelled: "point_status_cancelled",
+};
+
+const PAYMENT_KEYS: Record<PointPaymentMethod, MessageKey> = {
+  bank_transfer: "point_pay_bank_transfer",
+  gcash: "point_pay_manual_confirm",
+  manual_confirm: "point_pay_manual_confirm",
+};
 
 interface PointChargeRequestListProps {
   requests: PointChargeRequest[];
@@ -24,6 +37,8 @@ export function PointChargeRequestList({
   requests,
   onCancel,
 }: PointChargeRequestListProps) {
+  const { t } = useI18n();
+
   const handleCancel = (_id: string) => {
     onCancel?.();
   };
@@ -31,7 +46,7 @@ export function PointChargeRequestList({
   if (requests.length === 0) {
     return (
       <div className="rounded-ui-rect bg-sam-surface p-8 text-center sam-text-body text-sam-muted">
-        충전 신청 내역이 없습니다.
+        {t("points_ui_no_charge_requests")}
       </div>
     );
   }
@@ -48,13 +63,13 @@ export function PointChargeRequestList({
             ₩{r.paymentAmount.toLocaleString()} → {r.pointAmount.toLocaleString()}P
           </p>
           <p className="mt-0.5 sam-text-body-secondary text-sam-muted">
-            {POINT_PAYMENT_METHOD_LABELS[r.paymentMethod]}
+            {r.paymentMethod === "gcash" ? "GCash" : t(PAYMENT_KEYS[r.paymentMethod])}
           </p>
           <div className="mt-2 flex items-center gap-2">
             <span
               className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${STATUS_CLASS[r.requestStatus]}`}
             >
-              {POINT_CHARGE_STATUS_LABELS[r.requestStatus]}
+              {t(STATUS_KEYS[r.requestStatus])}
             </span>
           </div>
           <p className="mt-1 sam-text-helper text-sam-meta">
@@ -66,7 +81,7 @@ export function PointChargeRequestList({
               onClick={() => handleCancel(r.id)}
               className="mt-2 sam-text-body-secondary text-red-600 hover:underline"
             >
-              신청 취소
+              {t("points_ui_cancel_request")}
             </button>
           )}
         </li>

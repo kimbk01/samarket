@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getDevSprints } from "@/lib/dev-sprints/mock-dev-sprints";
 import { getDevSprintItems } from "@/lib/dev-sprints/mock-dev-sprint-items";
 import { getDevSprintById } from "@/lib/dev-sprints/mock-dev-sprints";
@@ -18,6 +19,7 @@ const ITEM_STATUS_COLUMNS: DevSprintItemStatus[] = [
 ];
 
 export function DevSprintBoard() {
+  const { t } = useI18n();
   const [sprintId, setSprintId] = useState<string>("");
 
   const sprints = useMemo(() => getDevSprints(), []);
@@ -52,13 +54,13 @@ export function DevSprintBoard() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">스프린트</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_dev_sprint_label_sprint")}</span>
         <select
           value={selectedSprintId}
           onChange={(e) => setSprintId(e.target.value)}
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">선택</option>
+          <option value="">{t("admin_dev_sprint_select_sprint")}</option>
           {sprints.map((s) => (
             <option key={s.id} value={s.id}>
               {s.sprintName} ({s.status})
@@ -74,7 +76,7 @@ export function DevSprintBoard() {
 
       {items.length === 0 ? (
         <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          해당 스프린트 작업이 없습니다. 백로그에서 편성할 수 있습니다.
+          {t("admin_dev_sprint_empty_board")}
         </div>
       ) : (
         <div className="grid gap-4 overflow-x-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
@@ -84,7 +86,7 @@ export function DevSprintBoard() {
               className="min-w-[200px] rounded-ui-rect border border-sam-border bg-sam-app/50 p-3"
             >
               <h3 className="mb-2 sam-text-body-secondary font-medium text-sam-fg">
-                {getSprintItemStatusLabel(status)}
+                {getSprintItemStatusLabel(t, status)}
                 <span className="ml-1 text-sam-muted">
                   ({(byStatus[status] ?? []).length})
                 </span>

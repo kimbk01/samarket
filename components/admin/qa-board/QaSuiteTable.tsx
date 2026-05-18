@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { getQaTestSuites } from "@/lib/qa-board/mock-qa-test-suites";
 import { getQaTestCases } from "@/lib/qa-board/mock-qa-test-cases";
@@ -8,6 +11,7 @@ import { getDomainLabel } from "@/lib/qa-board/qa-board-utils";
 import type { QaTestDomain } from "@/lib/types/qa-board";
 
 export function QaSuiteTable() {
+  const { t } = useI18n();
   const [domain, setDomain] = useState<QaTestDomain | "">("");
   const suites = useMemo(
     () =>
@@ -43,7 +47,7 @@ export function QaSuiteTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">영역</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_qa_area")}</span>
         <select
           value={domain}
           onChange={(e) =>
@@ -72,7 +76,7 @@ export function QaSuiteTable() {
             return (
               <tr key={s.id} className="border-b border-sam-border-soft">
                 <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">
-                  {getDomainLabel(s.domain)}
+                  {getDomainLabel(t, s.domain)}
                 </td>
                 <td className="px-3 py-2.5 font-medium text-sam-fg">
                   {s.title}

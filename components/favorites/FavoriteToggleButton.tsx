@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useFavorite } from "@/contexts/FavoriteContext";
 
@@ -15,6 +16,7 @@ export function FavoriteToggleButton({
   iconClassName = "h-6 w-6",
   showLabel = false,
 }: FavoriteToggleButtonProps) {
+  const { t } = useI18n();
   const { isFavorite, toggle } = useFavorite();
   const liked = isFavorite(productId);
 
@@ -27,14 +29,14 @@ export function FavoriteToggleButton({
         toggle(productId);
       }}
       className={`flex shrink-0 flex-col items-center gap-0.5 sam-text-xxs text-sam-muted ${className}`}
-      aria-label={liked ? "관심 해제" : "관심"}
+      aria-label={liked ? t("ui_fav_interest_remove_aria") : t("ui_fav_interest_add_aria")}
     >
       {liked ? (
         <HeartFilledIcon className={`${iconClassName} text-red-500`} />
       ) : (
         <HeartOutlineIcon className={iconClassName} />
       )}
-      {showLabel && <span>관심</span>}
+      {showLabel && <span>{t("ui_fav_interest")}</span>}
     </button>
   );
 }

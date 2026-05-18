@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import type { BoardListSkinProps } from "@/lib/community-board/types";
@@ -7,10 +8,11 @@ export function PromoListSkin({
   posts,
   baseHref,
 }: BoardListSkinProps) {
+  const { t } = useI18n();
   return (
     <div className="space-y-3">
       {posts.length === 0 ? (
-        <div className="py-12 text-center text-sam-muted bg-sam-surface rounded-ui-rect">아직 게시글이 없어요.</div>
+        <div className="py-12 text-center text-sam-muted bg-sam-surface rounded-ui-rect">{t("community_board_empty_promo_posts")}</div>
       ) : (
         posts.map((post) => {
           const thumb = post.images?.[0]?.url;
@@ -39,7 +41,7 @@ export function PromoListSkin({
                 )}
               </div>
               <div className="min-w-0 flex-1">
-                <span className="text-xs font-semibold text-amber-700">프로모션</span>
+                <span className="text-xs font-semibold text-amber-700">{t("community_board_promo_label")}</span>
                 <h3 className="font-semibold text-sam-fg mt-0.5 line-clamp-2">{post.title}</h3>
                 <p className="text-xs text-sam-muted mt-1 line-clamp-1">{post.content}</p>
                 <p className="text-xs text-sam-muted mt-2">

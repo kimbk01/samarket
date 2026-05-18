@@ -1,22 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
 import {
   getRecommendationAutomationPolicies,
   saveRecommendationAutomationPolicy,
 } from "@/lib/recommendation-automation/mock-recommendation-automation-policies";
 import { persistRecommendationOpsToServer } from "@/lib/recommendation-ops/recommendation-ops-sync-client";
-import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
-
-const FALLBACK_MODE_LABELS: Record<string, string> = {
-  previous_live_version: "이전 live",
-  safe_default_feed: "안전 기본",
-  local_latest_only: "지역 최신만",
-  static_slots_only: "정적 슬롯",
-};
+import {
+  recFallbackModeLabel,
+  recSurfaceLabel,
+} from "@/components/admin/recommendation-admin-i18n";
 
 export function AutomationPolicyTable() {
+  const { t } = useI18n();
   const [refresh, setRefresh] = useState(0);
   const policies = useMemo(
     () => getRecommendationAutomationPolicies(),
@@ -25,7 +23,7 @@ export function AutomationPolicyTable() {
 
   const flush = async () => {
     const r = await persistRecommendationOpsToServer();
-    if (!r.ok) console.warn("[recommendation-ops] 저장 실패:", r.error);
+    if (!r.ok) console.warn("[recommendation-ops] persist failed:", r.error);
     setRefresh((x) => x + 1);
   };
 
@@ -44,7 +42,7 @@ export function AutomationPolicyTable() {
   if (policies.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        자동화 정책이 없습니다.
+        {t("admin_rec_auto_empty_policy")}
       </div>
     );
   }
@@ -55,28 +53,28 @@ export function AutomationPolicyTable() {
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              surface
+              {t("admin_rec_th_surface")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              사용
+              {t("admin_rec_th_enabled")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              자동 Fallback
+              {t("admin_rec_auto_col_auto_fallback")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              자동 킬스위치
+              {t("admin_rec_auto_col_auto_kill_switch")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              자동 롤백
+              {t("admin_rec_auto_col_auto_rollback")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              자동 복귀
+              {t("admin_rec_auto_col_auto_recovery")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              Dry-run
+              {t("admin_rec_th_dry_run")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              Fallback 모드
+              {t("admin_rec_auto_col_fallback_mode")}
             </th>
           </tr>
         </thead>
@@ -87,7 +85,7 @@ export function AutomationPolicyTable() {
               className="border-b border-sam-border-soft hover:bg-sam-app"
             >
               <td className="px-3 py-2.5 font-medium text-sam-fg">
-                {SURFACE_LABELS[p.surface]}
+                {recSurfaceLabel(t, p.surface)}
               </td>
               <td className="px-3 py-2.5">
                 <button
@@ -183,7 +181,7 @@ export function AutomationPolicyTable() {
                 </label>
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">
-                {FALLBACK_MODE_LABELS[p.fallbackMode] ?? p.fallbackMode}
+                {recFallbackModeLabel(t, p.fallbackMode)}
               </td>
             </tr>
           ))}

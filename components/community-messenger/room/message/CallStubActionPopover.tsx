@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type {
   CommunityMessengerMessage,
   CommunityMessengerMessageActionAnchorRect,
@@ -44,6 +45,7 @@ function MenuRow({
 }
 
 export function CallStubActionPopover(props: CallStubActionPopoverProps) {
+  const { t } = useI18n();
   const { open, roomUnavailable, redialDisabled, onClose } = props;
   const { item, anchorRect } = open;
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -79,7 +81,7 @@ export function CallStubActionPopover(props: CallStubActionPopoverProps) {
 
   const node = (
     <div className="fixed inset-0 z-[62]" role="presentation">
-      <button type="button" className="absolute inset-0 cursor-default bg-black/45" aria-label="닫기" onClick={onClose} />
+      <button type="button" className="absolute inset-0 cursor-default bg-black/45" aria-label={t("nav_close")} onClick={onClose} />
       <div
         ref={panelRef}
         className="absolute z-[63] w-[min(92vw,280px)] overflow-hidden rounded-[14px] border border-neutral-200 bg-white text-neutral-900 shadow-[0_8px_32px_rgba(0,0,0,0.22)] dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
@@ -89,12 +91,12 @@ export function CallStubActionPopover(props: CallStubActionPopoverProps) {
         onPointerDown={(e) => e.stopPropagation()}
       >
         <div className="border-b border-neutral-200 px-3 py-2 dark:border-neutral-700">
-          <p className="sam-text-xxs font-semibold text-neutral-500 dark:text-neutral-400">통화 메시지</p>
+          <p className="sam-text-xxs font-semibold text-neutral-500 dark:text-neutral-400">{t("cm_ui_call_message")}</p>
           <p className="mt-0.5 line-clamp-2 sam-text-helper text-neutral-600 dark:text-neutral-300">{item.content}</p>
         </div>
-        <nav className="flex flex-col bg-white dark:bg-neutral-950" aria-label="통화 로그 작업">
+        <nav className="flex flex-col bg-white dark:bg-neutral-950" aria-label={t("cm_ui_call_log_actions")}>
           <MenuRow
-            label="다시 걸기"
+            label={t("cm_ui_redial")}
             disabled={roomUnavailable || redialDisabled}
             onClick={() => {
               onClose();
@@ -102,7 +104,7 @@ export function CallStubActionPopover(props: CallStubActionPopoverProps) {
             }}
           />
           <MenuRow
-            label="메시지 보내기"
+            label={t("cm_ui_send_message")}
             disabled={roomUnavailable}
             onClick={() => {
               onClose();
@@ -110,7 +112,7 @@ export function CallStubActionPopover(props: CallStubActionPopoverProps) {
             }}
           />
           <MenuRow
-            label="텍스트 복사"
+            label={t("cm_ui_copy_text")}
             disabled={roomUnavailable}
             onClick={() => {
               props.onCopyText();
@@ -118,7 +120,7 @@ export function CallStubActionPopover(props: CallStubActionPopoverProps) {
             }}
           />
           <MenuRow
-            label="이 기기에서만 숨기기"
+            label={t("cm_ui_hide_only_on_this_device")}
             disabled={roomUnavailable}
             onClick={() => {
               props.onHideLocal();

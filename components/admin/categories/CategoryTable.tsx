@@ -1,6 +1,7 @@
 "use client";
 
 import type { CategoryWithSettings } from "@/lib/categories/types";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CategoryTypeBadge } from "./CategoryTypeBadge";
 import { CategoryStatusBadge } from "./CategoryStatusBadge";
 
@@ -21,10 +22,11 @@ export function CategoryTable({
   onMoveDown,
   onToggleActive,
 }: CategoryTableProps) {
+  const { t } = useI18n();
   if (items.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        등록된 카테고리가 없습니다. 새 카테고리를 추가해 주세요.
+        {t("admin_cat_empty")}
       </div>
     );
   }
@@ -34,22 +36,22 @@ export function CategoryTable({
       <table className="w-full min-w-[800px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
-            <th className="px-3 py-2 text-left font-medium text-sam-fg">순서</th>
-            <th className="px-3 py-2 text-left font-medium text-sam-fg">카테고리명</th>
+            <th className="px-3 py-2 text-left font-medium text-sam-fg">{t("admin_cat_th_order")}</th>
+            <th className="px-3 py-2 text-left font-medium text-sam-fg">{t("admin_cat_th_name")}</th>
             <th className="px-3 py-2 text-left font-medium text-sam-fg">slug</th>
-            <th className="px-3 py-2 text-left font-medium text-sam-fg">아이콘</th>
-            <th className="px-3 py-2 text-left font-medium text-sam-fg">타입</th>
-            <th className="px-3 py-2 text-left font-medium text-sam-fg">사용여부</th>
-            <th className="px-3 py-2 text-center font-medium text-sam-fg">글쓰기</th>
-            <th className="px-3 py-2 text-center font-medium text-sam-fg">가격</th>
-            <th className="px-3 py-2 text-center font-medium text-sam-fg">채팅</th>
-            <th className="px-3 py-2 text-center font-medium text-sam-fg">위치</th>
+            <th className="px-3 py-2 text-left font-medium text-sam-fg">{t("admin_cat_th_icon")}</th>
+            <th className="px-3 py-2 text-left font-medium text-sam-fg">{t("admin_cat_th_type")}</th>
+            <th className="px-3 py-2 text-left font-medium text-sam-fg">{t("admin_cat_th_active")}</th>
+            <th className="px-3 py-2 text-center font-medium text-sam-fg">{t("admin_cat_th_write")}</th>
+            <th className="px-3 py-2 text-center font-medium text-sam-fg">{t("admin_cat_th_price")}</th>
+            <th className="px-3 py-2 text-center font-medium text-sam-fg">{t("admin_cat_th_chat")}</th>
+            <th className="px-3 py-2 text-center font-medium text-sam-fg">{t("admin_cat_th_location")}</th>
             <th className="px-3 py-2 text-left font-medium text-sam-fg">post_type</th>
-            <th className="px-3 py-2 text-center font-medium text-sam-fg">런처</th>
-            <th className="px-3 py-2 text-center font-medium text-sam-fg">런처그룹</th>
-            <th className="px-3 py-2 text-center font-medium text-sam-fg">런처순서</th>
-            <th className="px-3 py-2 text-center font-medium text-sam-fg">상단칩</th>
-            <th className="px-3 py-2 text-right font-medium text-sam-fg">관리</th>
+            <th className="px-3 py-2 text-center font-medium text-sam-fg">{t("admin_cat_th_launcher")}</th>
+            <th className="px-3 py-2 text-center font-medium text-sam-fg">{t("admin_cat_th_launcher_group")}</th>
+            <th className="px-3 py-2 text-center font-medium text-sam-fg">{t("admin_cat_th_launcher_order")}</th>
+            <th className="px-3 py-2 text-center font-medium text-sam-fg">{t("admin_cat_th_chip")}</th>
+            <th className="px-3 py-2 text-right font-medium text-sam-fg">{t("admin_cat_th_actions")}</th>
           </tr>
         </thead>
         <tbody>
@@ -81,7 +83,7 @@ export function CategoryTable({
                     onClick={() => onMoveUp(c.id)}
                     disabled={index === 0}
                     className="rounded p-1 text-sam-muted hover:bg-sam-border-soft disabled:opacity-40"
-                    title="위로"
+                    title={t("admin_cat_move_up")}
                   >
                     ▲
                   </button>
@@ -90,7 +92,7 @@ export function CategoryTable({
                     onClick={() => onMoveDown(c.id)}
                     disabled={index === items.length - 1}
                     className="rounded p-1 text-sam-muted hover:bg-sam-border-soft disabled:opacity-40"
-                    title="아래로"
+                    title={t("admin_cat_move_down")}
                   >
                     ▼
                   </button>
@@ -106,14 +108,14 @@ export function CategoryTable({
                     onClick={() => onEdit(c.id)}
                     className="rounded px-1.5 py-0.5 sam-text-helper text-signature hover:bg-signature/10"
                   >
-                    수정
+                    {t("admin_cat_edit")}
                   </button>
                   <button
                     type="button"
                     onClick={() => onDelete(c.id)}
                     className="rounded px-1.5 py-0.5 sam-text-helper text-red-600 hover:bg-red-50"
                   >
-                    삭제
+                    {t("admin_cat_delete")}
                   </button>
                 </div>
               </td>

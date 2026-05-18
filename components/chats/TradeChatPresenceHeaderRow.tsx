@@ -2,6 +2,7 @@
 
 import type { TradePresenceLiveState } from "@/lib/chats/trade-presence-policy";
 import { tradePresenceStateLabel } from "@/lib/chats/trade-presence-policy";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 function Dot({ state }: { state: TradePresenceLiveState }) {
   const cls =
@@ -19,12 +20,13 @@ export function TradeChatPresenceHeaderRow(props: {
   peerTyping: boolean;
   peerLastSeenLabel: string;
 }) {
+  const { t } = useI18n();
   const { peerSharesLive, peerLiveState, peerTyping, peerLastSeenLabel } = props;
 
   return (
     <div className="mt-0.5 flex min-h-[18px] flex-wrap items-center gap-x-2 gap-y-0.5 sam-text-helper text-sam-muted">
       {peerTyping ? (
-        <span className="font-medium text-signature">입력 중…</span>
+        <span className="font-medium text-signature">{t("chats_peer_typing")}</span>
       ) : null}
       {peerSharesLive ? (
         <span className="inline-flex items-center gap-1.5">

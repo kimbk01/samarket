@@ -1,20 +1,14 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  OPS_TOOLS_NODE_TYPE_KEYS,
+  opsToolsLabel,
+} from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { useMemo } from "react";
 import Link from "next/link";
 import type { OpsKnowledgeGraphNodeType } from "@/lib/types/ops-knowledge-graph";
 import { getOpsKnowledgeGraphNodes } from "@/lib/ops-knowledge-graph/mock-ops-knowledge-graph-nodes";
-
-const NODE_TYPE_LABELS: Record<OpsKnowledgeGraphNodeType, string> = {
-  document: "문서",
-  incident: "이슈",
-  deployment: "배포",
-  rollback: "롤백",
-  fallback: "Fallback",
-  report: "보고서",
-  runbook_execution: "런북실행",
-  action_item: "액션",
-};
 
 interface OpsKnowledgeNodeTableProps {
   nodeTypeFilter?: OpsKnowledgeGraphNodeType | "";
@@ -27,6 +21,7 @@ export function OpsKnowledgeNodeTable({
   categoryFilter = "",
   onSelectNode,
 }: OpsKnowledgeNodeTableProps) {
+  const { t } = useI18n();
   const nodes = useMemo(
     () =>
       getOpsKnowledgeGraphNodes({
@@ -38,9 +33,7 @@ export function OpsKnowledgeNodeTable({
 
   if (nodes.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
-        노드가 없습니다.
-      </div>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_kg_nodes_empty")}</div>
     );
   }
 
@@ -49,10 +42,10 @@ export function OpsKnowledgeNodeTable({
       <table className="w-full min-w-[520px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">유형</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">제목 / refId</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">카테고리</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">상태</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_kg_th_type")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_kg_th_title_ref")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_board_tpl_category")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_board_th_status")}</th>
           </tr>
         </thead>
         <tbody>
@@ -63,7 +56,7 @@ export function OpsKnowledgeNodeTable({
               onClick={() => onSelectNode?.(n.id)}
             >
               <td className="px-3 py-2.5 text-sam-fg">
-                {NODE_TYPE_LABELS[n.nodeType]}
+                {t(opsToolsLabel(OPS_TOOLS_NODE_TYPE_KEYS, n.nodeType))}
               </td>
               <td className="px-3 py-2.5">
                 {n.nodeType === "document" ? (

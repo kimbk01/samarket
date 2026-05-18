@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -19,20 +22,21 @@ type TabId =
   | "blocker";
 
 export function AdminLaunchWeekPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
 
-  const tabs: { id: TabId; label: string }[] = [
-    { id: "overview", label: "Week 개요" },
-    { id: "kpi", label: "KPI" },
-    { id: "checklist", label: "체크리스트" },
-    { id: "issues", label: "이슈 보드" },
-    { id: "daily", label: "Daily Note" },
-    { id: "blocker", label: "Blocker" },
+  const tabs: { id: TabId; labelKey: MessageKey }[] = [
+    { id: "overview", labelKey: "admin_launch_week_k14765c91" },
+    { id: "kpi", labelKey: "admin_launch_week_open_4" },
+    { id: "checklist", labelKey: "admin_launch_week_checklist_2" },
+    { id: "issues", labelKey: "admin_launch_week_k24f5e606" },
+    { id: "daily", labelKey: "admin_launch_week_k01fce460" },
+    { id: "blocker", labelKey: "admin_qa_tab_blocker" },
   ];
 
   return (
     <>
-      <AdminPageHeader title="오픈 직후 첫 주" />
+      <AdminPageHeader titleKey="admin_launch_week_open_3" />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {tabs.map((tab) => (
           <button
@@ -45,43 +49,43 @@ export function AdminLaunchWeekPage() {
                 : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
 
       {activeTab === "overview" && (
-        <AdminCard title="초기 안정화 상태 · 이슈 · 체크리스트 · Fallback/Kill Switch">
+        <AdminCard titleKey="admin_launch_week_status_checklist_issues_2">
           <LaunchWeekSummaryCards />
         </AdminCard>
       )}
 
       {activeTab === "kpi" && (
-        <AdminCard title="오픈 후 Day 1~7 핵심 KPI">
+        <AdminCard titleKey="admin_launch_week_open_4">
           <LaunchWeekKpiTable />
         </AdminCard>
       )}
 
       {activeTab === "checklist" && (
-        <AdminCard title="첫 주 Must-Watch · 안정화 체크리스트">
+        <AdminCard titleKey="admin_launch_week_checklist_3">
           <LaunchWeekChecklistTable />
         </AdminCard>
       )}
 
       {activeTab === "issues" && (
-        <AdminCard title="긴급 이슈 리스트">
+        <AdminCard titleKey="admin_launch_week_critical_issues_2">
           <LaunchWeekIssueBoard />
         </AdminCard>
       )}
 
       {activeTab === "daily" && (
-        <AdminCard title="Day별 Summary Note">
+        <AdminCard titleKey="admin_launch_week_k01fce460">
           <LaunchWeekDailyNoteList />
         </AdminCard>
       )}
 
       {activeTab === "blocker" && (
-        <AdminCard title="Blocker 강조 (차단 체크리스트)">
+        <AdminCard titleKey="admin_launch_week_blocked_checklist_3">
           <LaunchWeekBlockerBoard />
         </AdminCard>
       )}

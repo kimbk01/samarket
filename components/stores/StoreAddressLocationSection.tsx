@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { LocationSelector } from "@/components/write/shared/LocationSelector";
 import { StoreAddressStreetDetailGrid } from "@/components/stores/StoreAddressStreetDetailGrid";
@@ -49,6 +50,7 @@ export function StoreAddressLocationSection({
   locationLabel = "지역 · 동네",
   showRequired = false,
 }: StoreAddressLocationSectionProps) {
+  const { t } = useI18n();
   return (
     <>
       <div>

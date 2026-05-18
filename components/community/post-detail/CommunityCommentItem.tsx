@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link2, Pencil, ThumbsUp, X } from "lucide-react";
@@ -56,6 +57,7 @@ export function CommunityCommentItem({
   onSubmitReply,
   commentBusy,
 }: Props) {
+  const { t } = useI18n();
   const pathname = usePathname();
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(node.content);
@@ -66,8 +68,10 @@ export function CommunityCommentItem({
   const me = viewerUserId?.trim() ?? "";
   const isOwner = me.length > 0 && isSameUserId(node.user_id, me);
   const isDeleteAllowed = isOwner || viewerIsAdmin;
+  const deletedLabel = t("community_comment_deleted");
   const normalized = (node.content ?? "").trim();
   const isDeleted =
+    normalized === deletedLabel ||
     normalized === "댓글이 삭제 되었습니다." ||
     normalized === "댓글이 삭제 되엇습니다." ||
     normalized === "댓글이 삭제 되었습니다" ||
@@ -163,13 +167,13 @@ export function CommunityCommentItem({
             <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
               <time className="text-[12px] tabular-nums font-normal text-[#6B7280]" dateTime={node.created_at}>
                 {timeStamp || timeRel}
-                {node.is_edited ? <span className="text-[#9CA3AF]"> · 수정</span> : null}
+                {node.is_edited ? <span className="text-[#9CA3AF]">{t("community_comment_edit_mark")}</span> : null}
               </time>
               {isDeleteAllowed && !editing && !isDeleted ? (
                 <button
                   type="button"
                   className="rounded-[4px] p-0.5 text-[#E25555] hover:bg-rose-50"
-                  aria-label="댓글 삭제"
+                  aria-label={t("community_comment_delete_aria")}
                   onClick={() => void onDelete(node.id)}
                 >
                   <X className="h-4 w-4" strokeWidth={2} />
@@ -178,7 +182,7 @@ export function CommunityCommentItem({
               <button
                 type="button"
                 className="rounded-[4px] p-1 text-[#6B7280] hover:bg-[#F7F8FA]"
-                aria-label="댓글 링크 복사"
+                aria-label={t("community_comment_copy_aria")}
                 onClick={() => void copyCommentLink()}
               >
                 <Link2 className="h-4 w-4" strokeWidth={1.8} />
@@ -201,7 +205,7 @@ export function CommunityCommentItem({
                   onClick={() => void onSave()}
                   className={COMMUNITY_BUTTON_PRIMARY_CLASS}
                 >
-                  저장
+                  {t("community_save")}
                 </button>
                 <button
                   type="button"
@@ -212,7 +216,7 @@ export function CommunityCommentItem({
                   }}
                   className={COMMUNITY_BUTTON_SECONDARY_CLASS}
                 >
-                  취소
+                  {t("common_cancel")}
                 </button>
               </div>
             </div>
@@ -222,7 +226,7 @@ export function CommunityCommentItem({
                 isDeleted ? "text-[#9CA3AF]" : "text-[#1F2430]"
               }`}
             >
-              {isDeleted ? "댓글이 삭제 되었습니다." : node.content}
+              {isDeleted ? deletedLabel : node.content}
             </p>
           )}
 
@@ -238,7 +242,9 @@ export function CommunityCommentItem({
                 onClick={() => void onLike(node.id)}
               >
                 <ThumbsUp className="h-3.5 w-3.5" strokeWidth={1.7} fill={node.liked_by_viewer ? "currentColor" : "none"} />
-                공감 {Math.max(0, node.like_count || 0).toLocaleString("ko-KR")}
+                {t("community_stat_likes", {
+                  count: Math.max(0, node.like_count || 0).toLocaleString(),
+                })}
               </button>
               {me && !isDeleted ? (
                 <button
@@ -247,7 +253,7 @@ export function CommunityCommentItem({
                   className={`rounded-[4px] px-2 py-0.5 font-semibold ${isReplyOpen ? "text-[#7360F2]" : "text-[#1F2430] hover:bg-[#F7F8FA]"}`}
                   onClick={toggleReply}
                 >
-                  {isReplyOpen ? "답글 취소" : "답글 쓰기"}
+                  {isReplyOpen ? t("community_reply_cancel") : t("community_reply_write")}
                 </button>
               ) : null}
               {isOwner && !editing && !isDeleted ? (
@@ -260,12 +266,12 @@ export function CommunityCommentItem({
                   }}
                 >
                   <Pencil className="h-3.5 w-3.5" strokeWidth={1.6} />
-                  수정
+                  {t("common_edit")}
                 </button>
               ) : null}
             </div>
-            <span className="inline-flex cursor-default items-center gap-0.5 text-[12px] text-[#9CA3AF]" title="추가 기능은 준비 중이에요">
-              이 댓글을…
+            <span className="inline-flex cursor-default items-center gap-0.5 text-[12px] text-[#9CA3AF]" title={t("community_comment_more_prep")}>
+              {t("community_comment_actions_ellipsis")}
             </span>
           </div>
 
@@ -285,7 +291,7 @@ export function CommunityCommentItem({
                     void submitInlineReply();
                   }
                 }}
-                placeholder="답글을 입력하세요…"
+                placeholder={t("community_reply_placeholder")}
                 autoComplete="off"
                 enterKeyHint="send"
               />
@@ -297,7 +303,7 @@ export function CommunityCommentItem({
                 className={`shrink-0 min-h-[2rem] px-3 text-[13px] ${COMMUNITY_BUTTON_PRIMARY_CLASS}`}
                 onClick={() => void submitInlineReply()}
               >
-                답글
+                {t("community_comment_reply")}
               </button>
               </div>
             </div>
@@ -313,7 +319,7 @@ export function CommunityCommentItem({
               className="m-0 border-0 bg-transparent p-0 text-left text-[13px] font-semibold text-[#7360F2] underline underline-offset-2"
               onClick={() => setRepliesOpen((prev) => (prev ? prev : true))}
             >
-              답글 {childCount}개 펼치기
+              {t("community_replies_expand", { count: childCount })}
             </button>
           ) : (
             <>
@@ -323,7 +329,7 @@ export function CommunityCommentItem({
                   className="mb-2 border-0 bg-transparent p-0 text-left text-[12px] text-[#6B7280]"
                   onClick={() => setRepliesOpen((prev) => (prev ? false : prev))}
                 >
-                  답글 접기
+                  {t("community_replies_collapse")}
                 </button>
               ) : null}
               <ul className="m-0 list-none space-y-0 pl-0">

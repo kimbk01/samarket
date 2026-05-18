@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -41,6 +42,7 @@ export function StoreOwnerBannerCarousel({
   banners: StoreBannerPublicRow[];
   variant?: "default" | "hero";
 }) {
+  const { t } = useI18n();
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [idx, setIdx] = useState(0);
 

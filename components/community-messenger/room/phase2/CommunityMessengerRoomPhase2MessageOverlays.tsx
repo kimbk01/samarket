@@ -5,8 +5,10 @@ import { MessageLongPressPopover } from "@/components/community-messenger/room/m
 import { CallStubActionPopover } from "@/components/community-messenger/room/message/CallStubActionPopover";
 import { MessengerOutgoingCallConfirmDialog } from "@/components/community-messenger/MessengerOutgoingCallConfirmDialog";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function CommunityMessengerRoomPhase2MessageOverlays() {
+  const { t } = useI18n();
   const vm = useMessengerRoomPhase2View();
   const messageActionItem = vm.messageActionItem;
   const callStubSheet = vm.callStubSheet;
@@ -76,9 +78,9 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
             void (async () => {
               try {
                 await navigator.clipboard.writeText(callStubSheet.item.content);
-                showMessengerSnackbar("복사했습니다.", { variant: "success" });
+                showMessengerSnackbar(t("cm_ui_copied_success"), { variant: "success" });
               } catch {
-                showMessengerSnackbar("복사하지 못했습니다.", { variant: "error" });
+                showMessengerSnackbar(t("cm_ui_copy_failed"), { variant: "error" });
               }
             })();
           }}
@@ -91,7 +93,7 @@ export function CommunityMessengerRoomPhase2MessageOverlays() {
       {vm.callStubOutgoingConfirm ? (
         <MessengerOutgoingCallConfirmDialog
           open
-          peerLabel={vm.snapshot.room.title?.trim() || "상대"}
+          peerLabel={vm.snapshot.room.title?.trim() || t("cm_ui_peer_fallback")}
           kind={vm.callStubOutgoingConfirm.kind}
           busy={vm.outgoingDialLocked}
           onCancel={vm.cancelCallStubOutgoingConfirm}

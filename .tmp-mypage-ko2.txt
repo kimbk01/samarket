@@ -1,0 +1,144 @@
+﻿node : [check:i18n-hardcoded] 150 possible hardcoded Korean string(s):
+At C:\Users\im2pa\AppData\Local\Temp\ps-script-b8e46157-b88b-4ef6-a7ac-871749011599.ps1:82 char:1
++ node scripts/check-hardcoded-korean.mjs components/mypage 2>&1 | Out- ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([check:i18n-har...rean string(s)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  components\mypage\products\MyProductActions.tsx:57: if (confirm(`이 상품을 "${newStatus === "active" ? "판매중" : newStatus 
+=== "reserved" ? "예약중" : newStatus === "sold" ? "판매완료" 
+  components\mypage\products\MyProductActions.tsx:69: if (confirm("이 상품을 삭제할까요? 삭제된 상품은 복구할 수 없어요.")) {
+  components\mypage\products\MyProductActions.tsx:81: aria-label="더보기"
+  components\mypage\products\MyProductsView.tsx:156: window.alert("네트워크 오류로 변경하지 못했습니다.");
+  components\mypage\products\MyProductsView.tsx:199: } else if (!window.confirm(`판매 진행 상황을 "${label}"으로 변경할까요?`)) {
+  components\mypage\products\MyProductsView.tsx:226: window.alert("예약된 구매자와의 활성 채팅을 찾을 수 없습니다.");
+  components\mypage\products\MyProductsView.tsx:240: window.alert("문의 중인 채팅이 없으면 거래완료를 진행할 수 없습니다.");
+  components\mypage\products\MyProductsView.tsx:265: window.alert("문의 채팅이 있는 구매자만 예약할 수 있습니다.");
+  components\mypage\products\MyProductsView.tsx:290: window.alert("네트워크 오류로 저장하지 못했습니다.");
+  components\mypage\products\MyProductsView.tsx:321: window.alert("네트워크 오류입니다.");
+  components\mypage\products\MyProductsView.tsx:346: <p className="sam-text-body text-sam-muted">불러오는 중...</p>
+  components\mypage\products\TradeBuyerPickerModal.tsx:36: aria-label="닫기"
+  components\mypage\products\TradeBuyerPickerModal.tsx:55: <span className="ml-2 shrink-0 sam-text-helper text-signatur
+e">선택</span>
+  components\mypage\profile\PhoneVerificationBox.tsx:114: <p className="sam-text-body font-semibold text-sam-fg">전화번호 인
+증</p>
+  components\mypage\profile\PhoneVerificationBox.tsx:115: <p className="mt-1 sam-text-body-secondary text-sam-muted">설정
+을 불러오는 중입니다…</p>
+  components\mypage\profile\PhoneVerificationBox.tsx:123: <p className="sam-text-body font-semibold text-sam-fg">전화번호 인
+증</p>
+  components\mypage\profile\PhoneVerificationBox.tsx:136: <p className="sam-text-body font-semibold text-sam-fg">전화번호 인
+증</p>
+  components\mypage\profile\PhoneVerificationBox.tsx:144: <p className="sam-text-body font-semibold text-emerald-800">전
+화번호 인증 완료</p>
+  components\mypage\profile\PhoneVerificationBox.tsx:182: placeholder="OTP 6자리"
+  components\mypage\ProfileCard.tsx:21: <p className="sam-text-body font-medium text-muted">로그인해 주세요</p>
+  components\mypage\ProfileCard.tsx:22: <p className="sam-text-helper text-muted">프로필 보기</p>
+  components\mypage\purchases\BuyerReviewReadSheet.tsx:80: <p className="py-8 text-center sam-text-body text-sam-muted"
+>불러오는 중…</p>
+  components\mypage\purchases\BuyerReviewReadSheet.tsx:86: <span className="text-sam-muted">총평</span>{" "}
+  components\mypage\purchases\BuyerReviewReadSheet.tsx:97: <p className="mb-1 sam-text-helper font-medium text-sam-mute
+d">긍정</p>
+  components\mypage\purchases\BuyerReviewReadSheet.tsx:112: <p className="mb-1 sam-text-helper font-medium text-sam-mut
+ed">부정</p>
+  components\mypage\purchases\BuyerReviewReadSheet.tsx:135: <p className="py-8 text-center text-sam-muted">후기가 없습니다.</p
+>
+  components\mypage\purchases\PurchaseDetailView.tsx:85: return <p className="py-16 text-center sam-text-body text-sam-
+muted">불러오는 중…</p>;
+  components\mypage\purchases\PurchaseDetailView.tsx:90: <p className="sam-text-body text-sam-muted">내역을 찾을 수 없어요.</p>
+  components\mypage\purchases\PurchaseDetailView.tsx:143: <p className="mt-1 sam-text-body-secondary text-sam-muted">판매
+자 {row.sellerNickname || "—"}</p>
+  components\mypage\purchases\PurchaseDetailView.tsx:158: <p className="sam-text-xxs font-semibold uppercase tracking-[
+0.08em] text-signature">구매 맥락</p>
+  components\mypage\purchases\PurchaseDetailView.tsx:167: 판매자가 <strong className="font-semibold">거래완료</strong>를 처리했어요. 
+물품을 받았다면 아래{" "}
+  components\mypage\purchases\PurchaseDetailView.tsx:168: <strong className="font-semibold">거래완료 확인</strong>을 눌러 마무리한 뒤
+,{" "}
+  components\mypage\purchases\PurchaseDetailView.tsx:169: <strong className="font-semibold">평가·후기</strong> 단계로 넘어가요.
+  components\mypage\purchases\PurchaseDetailView.tsx:208: <strong className="font-semibold">평가·후기</strong>를 작성해 주세요.
+  components\mypage\purchases\PurchaseDetailView.tsx:222: <h3 className="sam-text-body font-semibold text-sam-fg">거래 상태
+</h3>
+  components\mypage\purchases\PurchaseDetailView.tsx:268: <ActionBtn onClick={() => setReviewOpen(true)}>평가·후기 보내기</Act
+ionBtn>
+  components\mypage\purchases\PurchaseHistoryCard.tsx:141: <div className="flex h-full items-center justify-center sam-
+text-xxs text-sam-meta">이미지</div>
+  components\mypage\purchases\PurchaseHistoryCard.tsx:150: <p className="mt-0.5 sam-text-xxs text-sam-meta">거래 {tradeAt
+Label}</p>
+  components\mypage\purchases\PurchaseHistoryCard.tsx:169: aria-label="더보기"
+  components\mypage\purchases\PurchaseHistoryCard.tsx:255: 거래완료 확인이 끝났어요. 이제 <strong className="font-semibold">평가·후기</s
+trong>를 남겨 주세요.
+  components\mypage\purchases\PurchaseReviewSheet.tsx:31: <h2 className="sam-text-body-lg font-semibold text-sam-fg">후기
+ 보내기</h2>
+  components\mypage\purchases\PurchaseReviewSheet.tsx:37: <p className="sam-text-helper text-sam-muted">이번 거래는 어땠나요?</p
+>
+  components\mypage\reviews\MyWrittenReviewsView.tsx:77: <div className="flex h-full items-center justify-center sam-te
+xt-xxs text-sam-meta">이미지</div>
+  components\mypage\reviews\MyWrittenReviewsView.tsx:96: <span className="rounded-ui-rect bg-sam-surface-muted px-1.5 p
+y-0.5 sam-text-xxs text-sam-muted">익명 표시</span>
+  components\mypage\reviews\MyWrittenReviewsView.tsx:182: return <p className={`${pyClass} text-center sam-text-body te
+xt-sam-muted`}>불러오는 중…</p>;
+  components\mypage\reviews\MyWrittenReviewsView.tsx:189: <p className="sam-text-body text-sam-muted">작성한 거래 후기가 없어요.</
+p>
+  components\mypage\reviews\MyWrittenReviewsView.tsx:190: <p className="mt-1 sam-text-helper text-sam-muted">거래 완료 후 구매
+·판매 내역에서 평가를 남길 수 있어요.</p>
+  components\mypage\reviews\MyWrittenReviewsView.tsx:210: <p className="sam-text-body text-sam-muted">아직 작성한 거래 후기가 없어요
+.</p>
+  components\mypage\reviews\MyWrittenReviewsView.tsx:211: <p className="mt-1 sam-text-body-secondary text-sam-muted">거래
+ 완료 후 구매·판매 내역에서 평가를 남길 수 있어요.</p>
+  components\mypage\reviews\MyWrittenReviewsView.tsx:219: <h4 className="sam-text-body font-semibold text-sam-fg">구매 후기
+</h4>
+  components\mypage\reviews\MyWrittenReviewsView.tsx:220: <p className="mt-0.5 sam-text-helper text-sam-muted">내가 구매한 거
+래에서 판매자에게 남긴 후기예요.</p>
+  components\mypage\reviews\MyWrittenReviewsView.tsx:222: <p className="mt-3 text-center sam-text-body-secondary text-s
+am-muted">구매 후기가 없어요.</p>
+  components\mypage\reviews\MyWrittenReviewsView.tsx:232: <h4 className="sam-text-body font-semibold text-sam-fg">판매 후기
+</h4>
+  components\mypage\reviews\MyWrittenReviewsView.tsx:233: <p className="mt-0.5 sam-text-helper text-sam-muted">내가 판매한 거
+래에서 구매자에게 남긴 후기예요.</p>
+  components\mypage\reviews\MyWrittenReviewsView.tsx:235: <p className="mt-3 text-center sam-text-body-secondary text-s
+am-muted">판매 후기가 없어요.</p>
+  components\mypage\reviews\MyWrittenReviewsView.tsx:251: <p className="sam-text-body text-sam-muted">아직 작성한 거래 후기가 없어요
+.</p>
+  components\mypage\reviews\MyWrittenReviewsView.tsx:252: <p className="sam-text-body-secondary text-sam-muted">거래완료 확인
+ 후 구매내역에서 평가·후기를 남길 수 있어요.</p>
+  components\mypage\reviews\TradeReviewsManagementView.tsx:91: <div className="flex h-full items-center justify-center 
+sam-text-xxs text-sam-meta">이미지</div>
+  components\mypage\reviews\TradeReviewsManagementView.tsx:110: <span className="rounded-ui-rect bg-sam-surface-muted p
+x-1.5 py-0.5 sam-text-xxs text-sam-muted">익명 표시</span>
+  components\mypage\reviews\TradeReviewsManagementView.tsx:253: <p className="mt-3 sam-text-body text-sam-muted">불러오는 중
+…</p>
+  components\mypage\reviews\TradeReviewsManagementView.tsx:261: <p className="sam-text-body text-sam-muted">로그인하면 거래 후기
+를 모아 볼 수 있어요.</p>
+  components\mypage\reviews\TradeReviewsManagementView.tsx:270: return <p className="py-10 text-center sam-text-body te
+xt-sam-muted">불러오는 중…</p>;
+  components\mypage\reviews\TradeReviewsManagementView.tsx:279: <p className="py-10 text-center sam-text-body text-sam-
+muted">아직 받은 거래 후기가 없어요.</p>
+  components\mypage\reviews\TradeReviewsManagementView.tsx:293: <p className="py-10 text-center sam-text-body text-sam-
+muted">후기를 남기거나 받을 차례인 거래가 없어요.</p>
+  components\mypage\reviews\TradeReviewsManagementView.tsx:298: <h4 className="sam-text-body font-semibold text-sam-fg"
+>구매 거래 — 후기 작성</h4>
+  components\mypage\reviews\TradeReviewsManagementView.tsx:299: <p className="mt-0.5 sam-text-helper text-sam-muted">거래
+ 완료 확인 후 판매자에게 후기를 남길 수 있어요.</p>
+  components\mypage\reviews\TradeReviewsManagementView.tsx:315: <h4 className="sam-text-body font-semibold text-sam-fg"
+>판매 거래 — 구매자 후기 대기</h4>
+  components\mypage\reviews\TradeReviewsManagementView.tsx:316: <p className="mt-0.5 sam-text-helper text-sam-muted">구매
+자가 후기를 남기면 여기에서 상태를 확인할 수 있어요.</p>
+  components\mypage\reviews\TradeReviewsManagementView.tsx:336: <p className="sam-text-body text-sam-muted">현재 사용자 화면에 
+표시할 숨김 후기 내역이 없습니다.</p>
+  components\mypage\sales\SalesHistoryCard.tsx:87: if (typeof window !== "undefined" && !window.confirm(`물품 상태를 "${labe
+l}"(으)로 바꿀까요?`)) {
+  components\mypage\sales\SalesHistoryCard.tsx:133: if (typeof window !== "undefined" && !window.confirm("이 구매자와 거래를 완료
+하고 상품을 판매완료로 표시할까요?")) {
+  components\mypage\sales\SalesHistoryCard.tsx:191: <div className="flex h-full items-center justify-center sam-text-xx
+s text-sam-meta">이미지</div>
+  components\mypage\sales\SalesHistoryCard.tsx:200: <p className="mt-0.5 sam-text-xxs text-sam-meta">거래 {formatTradeLis
+tDatetime(tradeAt)}</p>
+  components\mypage\sales\SalesHistoryCard.tsx:235: aria-label="더보기"
+  components\mypage\sales\SalesHistoryView.tsx:109: return <p className="py-12 text-center sam-text-body text-sam-muted
+">불러오는 중...</p>;
+  components\mypage\StoreOrderReorderAgainButton.tsx:26: window.alert("매장 정보를 찾을 수 없어 다시 주문할 수 없습니다.");
+  components\mypage\StoreOrderReviewForm.tsx:218: aria-label="닫기"
+  components\mypage\StoreOrderReviewForm.tsx:233: return shell(<p className="text-center text-sm text-sam-muted">불러오는 중
+…</p>);
+  components\mypage\StoreOrderReviewForm.tsx:238: <p>이 주문에는 이미 리뷰가 있습니다.</p>
+  components\mypage\StoreOrderReviewForm.tsx:248: <p>주문이 완료된 뒤에 리뷰를 작성할 수 있습니다.</p>
+  … and 70 more

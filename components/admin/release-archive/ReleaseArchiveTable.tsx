@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getReleaseArchives } from "@/lib/release-archive/mock-release-archives";
 import { AdminTable } from "@/components/admin/AdminTable";
-import { getReleaseStatusLabel } from "@/lib/release-archive/release-archive-utils";
+import { RELEASE_ARCHIVE_STATUS_KEYS } from "@/components/admin/i18n/admin-release-label-keys";
 import type { ReleaseArchiveStatus } from "@/lib/types/release-archive";
-import Link from "next/link";
-
 export function ReleaseArchiveTable() {
+  const { t } = useI18n();
   const [statusFilter, setStatusFilter] = useState<ReleaseArchiveStatus | "">("");
   const archives = useMemo(
     () =>
@@ -20,7 +21,7 @@ export function ReleaseArchiveTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">버전 상태</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_rel_filter_version_status")}</span>
         <select
           value={statusFilter}
           onChange={(e) =>
@@ -28,28 +29,28 @@ export function ReleaseArchiveTable() {
           }
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
-          <option value="active">활성</option>
-          <option value="stable">안정</option>
-          <option value="deprecated">폐예정</option>
-          <option value="rolled_back">롤백</option>
-          <option value="hotfix">핫픽스</option>
+          <option value="">{t("admin_rel_filter_all")}</option>
+          <option value="active">{t("admin_rel_vstatus_active")}</option>
+          <option value="stable">{t("admin_rel_vstatus_stable")}</option>
+          <option value="deprecated">{t("admin_rel_vstatus_deprecated")}</option>
+          <option value="rolled_back">{t("admin_rel_vstatus_rolled_back")}</option>
+          <option value="hotfix">{t("admin_rel_vstatus_hotfix")}</option>
         </select>
       </div>
 
       {archives.length === 0 ? (
         <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          해당 조건의 릴리즈 아카이브가 없습니다.
+          {t("admin_rel_archive_empty")}
         </div>
       ) : (
         <AdminTable
           headers={[
-            "버전",
-            "빌드",
-            "제목",
-            "상태",
-            "릴리즈일",
-            "요약",
+            t("admin_rel_th_version"),
+            t("admin_rel_th_build"),
+            t("admin_rel_th_title"),
+            t("admin_rel_th_status"),
+            t("admin_rel_th_release_date"),
+            t("admin_rel_th_summary"),
             "",
           ]}
         >
@@ -83,7 +84,7 @@ export function ReleaseArchiveTable() {
                             : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >
-                  {getReleaseStatusLabel(a.releaseStatus)}
+                  {t(RELEASE_ARCHIVE_STATUS_KEYS[a.releaseStatus])}
                 </span>
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
@@ -97,7 +98,7 @@ export function ReleaseArchiveTable() {
                   href={`/admin/release-archive/${a.id}`}
                   className="text-signature hover:underline"
                 >
-                  상세
+                  {t("admin_rel_action_detail")}
                 </Link>
               </td>
             </tr>

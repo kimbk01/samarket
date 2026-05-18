@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getReleaseLearningNotes } from "@/lib/release-archive/mock-release-learning-notes";
 import { getReleaseArchives, getReleaseArchiveById } from "@/lib/release-archive/mock-release-archives";
 
@@ -9,6 +10,7 @@ interface ReleaseLearningCardProps {
 }
 
 export function ReleaseLearningCard({ releaseArchiveId }: ReleaseLearningCardProps) {
+  const { t } = useI18n();
   const [versionFilter, setVersionFilter] = useState<string>(releaseArchiveId ?? "");
 
   const archives = useMemo(() => getReleaseArchives(), []);
@@ -23,13 +25,13 @@ export function ReleaseLearningCard({ releaseArchiveId }: ReleaseLearningCardPro
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">릴리즈</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_rel_filter_release")}</span>
         <select
           value={versionFilter}
           onChange={(e) => setVersionFilter(e.target.value)}
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
+          <option value="">{t("admin_rel_filter_all")}</option>
           {archives.map((a) => (
             <option key={a.id} value={a.id}>
               {a.releaseVersion} - {a.releaseTitle}
@@ -40,7 +42,7 @@ export function ReleaseLearningCard({ releaseArchiveId }: ReleaseLearningCardPro
 
       {notes.length === 0 ? (
         <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          해당 릴리즈의 학습 메모가 없습니다.
+          {t("admin_rel_learning_empty_filter")}
         </div>
       ) : (
         <div className="space-y-4">
@@ -59,7 +61,7 @@ export function ReleaseLearningCard({ releaseArchiveId }: ReleaseLearningCardPro
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   <div>
                     <p className="sam-text-body-secondary font-medium text-sam-fg">
-                      잘 된 점
+                      {t("admin_rel_went_well")}
                     </p>
                     <p className="mt-1 sam-text-body-secondary text-sam-muted">
                       {n.whatWentWell}
@@ -67,7 +69,7 @@ export function ReleaseLearningCard({ releaseArchiveId }: ReleaseLearningCardPro
                   </div>
                   <div>
                     <p className="sam-text-body-secondary font-medium text-sam-fg">
-                      깨진 점
+                      {t("admin_rel_went_wrong")}
                     </p>
                     <p className="mt-1 sam-text-body-secondary text-sam-muted">
                       {n.whatBroke}
@@ -75,19 +77,19 @@ export function ReleaseLearningCard({ releaseArchiveId }: ReleaseLearningCardPro
                   </div>
                 </div>
                 <p className="mt-3 sam-text-body-secondary font-medium text-sam-fg">
-                  회귀 요약
+                  {t("admin_rel_regression_summary")}
                 </p>
                 <p className="mt-1 sam-text-body-secondary text-sam-muted">
                   {n.regressionSummary}
                 </p>
                 <p className="mt-3 sam-text-body-secondary font-medium text-sam-fg">
-                  완화 조치
+                  {t("admin_rel_mitigation")}
                 </p>
                 <p className="mt-1 sam-text-body-secondary text-sam-muted">
                   {n.mitigationSummary}
                 </p>
                 <p className="mt-3 sam-text-body-secondary font-medium text-sam-fg">
-                  다음 릴리즈 체크리스트
+                  {t("admin_rel_next_checklist")}
                 </p>
                 <p className="mt-1 sam-text-body-secondary text-sam-muted">
                   {n.nextReleaseChecklist}

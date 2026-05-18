@@ -1,5 +1,19 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  pointActionTypeLabel,
+  pointBoardLabel,
+  pointChargeStatusLabel,
+  pointExecStatusLabel,
+  pointExpireCycleLabel,
+  pointExpireExecStatusLabel,
+  pointLedgerTypeLabel,
+  pointPaymentMethodLabel,
+  pointRewardTypeLabel,
+  pointUserTypeLabel,
+} from "@/components/admin/points/admin-points-notifications-i18n";
+
 import Link from "next/link";
 import type { PointChargeRequest } from "@/lib/types/point";
 import {
@@ -23,25 +37,22 @@ interface AdminPointChargeTableProps {
 export function AdminPointChargeTable({
   requests,
 }: AdminPointChargeTableProps) {
+  const { t } = useI18n();
+
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[640px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              신청자
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_charge_th_applicant")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              상품/금액
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_charge_th_product_amount")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              결제방식
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_charge_th_payment")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              상태
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_th_status")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              신청일
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_charge_th_requested_at")}
             </th>
           </tr>
         </thead>
@@ -64,13 +75,13 @@ export function AdminPointChargeTable({
                 {r.pointAmount}P
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {POINT_PAYMENT_METHOD_LABELS[r.paymentMethod]}
+                {pointPaymentMethodLabel(t, r.paymentMethod)}
               </td>
               <td className="px-3 py-2.5">
                 <span
                   className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${STATUS_CLASS[r.requestStatus]}`}
                 >
-                  {POINT_CHARGE_STATUS_LABELS[r.requestStatus]}
+                  {pointChargeStatusLabel(t, r.requestStatus)}
                 </span>
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -61,6 +62,7 @@ export function CategoryListLayout({
   children,
   tradeServerSeed = null,
 }: CategoryListLayoutProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchParamsRef = useRef(searchParams);
@@ -287,7 +289,7 @@ export function CategoryListLayout({
     }
     return (
       <div className="min-h-[200px] flex items-center justify-center sam-text-body text-sam-muted">
-        불러오는 중…
+        {t("common_loading")}
       </div>
     );
   }
@@ -296,7 +298,7 @@ export function CategoryListLayout({
     if (status === "not_found") {
       return (
         <div className={`${APP_MAIN_GUTTER_X_CLASS} py-8 text-center`}>
-          <p className="sam-text-body font-medium text-sam-fg">카테고리를 찾을 수 없습니다.</p>
+          <p className="sam-text-body font-medium text-sam-fg">{t("ui_category_not_found")}</p>
           <div className="mt-4 flex justify-center">
             <AppBackButton />
           </div>

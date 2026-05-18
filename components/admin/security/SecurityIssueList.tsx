@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { getSecurityIssues } from "@/lib/security/mock-security-issues";
 import { getSecurityCheckById } from "@/lib/security/mock-security-checks";
@@ -11,6 +14,7 @@ import {
 import type { SecurityIssueStatus } from "@/lib/types/security";
 
 export function SecurityIssueList() {
+  const { t } = useI18n();
   const [statusFilter, setStatusFilter] = useState<SecurityIssueStatus | "">("");
   const issues = useMemo(
     () =>
@@ -23,7 +27,7 @@ export function SecurityIssueList() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">이슈 상태</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_security_status_issues")}</span>
         <select
           value={statusFilter}
           onChange={(e) =>
@@ -31,9 +35,9 @@ export function SecurityIssueList() {
           }
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
-          <option value="open">미해결</option>
-          <option value="fixed">해결됨</option>
+          <option value="">{t("common_all")}</option>
+          <option value="open">{t("admin_qa_open_2")}</option>
+          <option value="fixed">{t("admin_launch_week_resolved")}</option>
         </select>
       </div>
 

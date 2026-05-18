@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { useMemo, useState, useEffect } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useCategoryAdmin } from "@/components/admin/categories/useCategoryAdmin";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { TradeSubtopicsPanel } from "@/components/admin/menus/TradeSubtopicsPanel";
 
-/**
- * 커뮤니티 「피드 주제」와 대응 — 거래 메뉴별 홈·마켓 2행 주제 일괄 관리
- */
+/** Trade feed topics — mirrors community feed topics admin */
 export function AdminTradeFeedTopicsPage() {
+  const { t } = useI18n();
   const { list, loading, supabaseAvailable, load, handleDelete } = useCategoryAdmin();
 
   const parents = useMemo(
@@ -35,44 +35,46 @@ export function AdminTradeFeedTopicsPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="거래 피드 주제" backHref="/admin/menus/trade" />
+      <AdminPageHeader titleKey="admin_page_trade_feed_topics" backHref="/admin/menus/trade" />
       <p className="sam-text-body text-sam-muted">
-        커뮤니티의{" "}
+        {t("admin_trade_feed_topics_intro_prefix")}{" "}
         <Link href="/admin/philife/topics" className="font-medium text-signature hover:underline">
-          피드 주제
+          {t("admin_trade_feed_topics_link_philife")}
         </Link>
-        와 같이, <strong className="font-medium text-sam-fg">홈·마켓 2행 칩·글쓰기 주제</strong>를 메뉴별로
-        관리합니다. 상위 메뉴(거래·중고차 등)는{" "}
+        {t("admin_trade_feed_topics_intro_mid")}{" "}
+        <strong className="font-medium text-sam-fg">{t("admin_trade_feed_topics_intro_strong")}</strong>
+        {t("admin_trade_feed_topics_intro_suffix")}{" "}
         <Link href="/admin/menus/trade" className="font-medium text-signature hover:underline">
-          메뉴 (거래)
+          {t("admin_menu_menu_trade")}
         </Link>
-        에서 다룹니다.
+        {t("admin_trade_feed_topics_intro_suffix2")}
       </p>
 
       {supabaseAvailable === false && (
         <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 sam-text-body-secondary text-amber-800">
-          Supabase가 연결되지 않았습니다. <code className="sam-text-helper">categories.parent_id</code> 마이그레이션 적용
-          후 주제를 저장할 수 있습니다.
+          {t("admin_trade_feed_topics_supabase_warn_prefix")}{" "}
+          <code className="sam-text-helper">categories.parent_id</code>{" "}
+          {t("admin_trade_feed_topics_supabase_warn_suffix")}
         </div>
       )}
 
       {loading ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-10 text-center sam-text-body text-sam-muted">
-          불러오는 중…
+          {t("common_loading")}
         </div>
       ) : parents.length === 0 ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-10 text-center sam-text-body text-sam-muted">
-          거래 메뉴가 없습니다.{" "}
+          {t("admin_trade_feed_topics_empty_prefix")}{" "}
           <Link href="/admin/menus/trade" className="text-signature hover:underline">
-            메뉴 (거래)
-          </Link>
-          에서 항목을 추가하세요.
+            {t("admin_menu_menu_trade")}
+          </Link>{" "}
+          {t("admin_trade_feed_topics_empty_suffix")}
         </div>
       ) : (
         <>
           <div className="flex flex-wrap items-end gap-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
             <label className="flex flex-col gap-1 sam-text-body-secondary">
-              <span className="font-medium text-sam-fg">상위 메뉴 (1행 칩)</span>
+              <span className="font-medium text-sam-fg">{t("admin_trade_feed_topics_parent_menu")}</span>
               <select
                 className="min-w-[240px] rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
                 value={selectedId}

@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { getProductionLaunchChecks } from "@/lib/production-migration/mock-production-launch-checks";
 import { AdminTable } from "@/components/admin/AdminTable";
@@ -16,6 +19,7 @@ import type {
 import Link from "next/link";
 
 export function ProductionLaunchCheckTable() {
+  const { t } = useI18n();
   const [phase, setPhase] = useState<ProductionLaunchPhase | "">("");
   const checks = useMemo(
     () =>
@@ -28,7 +32,7 @@ export function ProductionLaunchCheckTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">단계</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_launch_readiness_k0e685c7c")}</span>
         {(["before_cutover", "cutover", "after_cutover"] as const).map((p) => (
           <button
             key={p}

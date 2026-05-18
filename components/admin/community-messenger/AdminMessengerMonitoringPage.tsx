@@ -13,10 +13,12 @@ import {
   MESSENGER_PERF_REFERENCE_ROOM_OPEN_MS,
   MESSENGER_PERF_THRESHOLDS,
 } from "@/lib/community-messenger/monitoring/thresholds";
+import { useCmAdminLabels } from "./useCmAdminLabels";
 
 type SummaryResponse = { ok?: boolean; summary?: MessengerMonitoringSummary };
 
 export function AdminMessengerMonitoringPage() {
+  const { t, formatDateTime } = useCmAdminLabels();
   const [summary, setSummary] = useState<MessengerMonitoringSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,15 +33,15 @@ export function AdminMessengerMonitoringPage() {
         setSummary(json.summary);
       } else {
         setSummary(null);
-        setError("요약을 불러오지 못했습니다.");
+        setError(t("admin_cm_err_summary_load_failed"));
       }
     } catch {
       setSummary(null);
-      setError("네트워크 오류");
+      setError(t("admin_cm_err_network"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void refresh();
@@ -50,17 +52,17 @@ export function AdminMessengerMonitoringPage() {
   return (
     <div className="space-y-6">
       <AdminPageHeader
-        title="커뮤니티 메신저 · 성능 모니터링"
-        description="프로세스 인메모리 집계(샘플). 멀티 인스턴스에서는 노드별로 다를 수 있습니다. 클라이언트 이벤트는 로그인 사용자 POST로 수집됩니다."
+        titleKey="admin_cm_page_monitoring_title"
+        descriptionKey="admin_cm_page_monitoring_desc"
       />
 
-      <AdminCard title="임계값 (환경 변수로 조정 가능)">
+      <AdminCard titleKey="admin_cm_card_thresholds">
         <pre className="overflow-x-auto rounded-ui-rect bg-sam-app p-4 sam-text-helper leading-relaxed text-sam-fg">
           {JSON.stringify(MESSENGER_PERF_THRESHOLDS, null, 2)}
         </pre>
       </AdminCard>
 
-      <AdminCard title="참조 SLO (p95·비율 — docs/messenger-performance-targets 와 동기)">
+      <AdminCard titleKey="admin_cm_card_ref_slo">
         <div className="grid gap-4 md:grid-cols-2">
           <pre className="overflow-x-auto rounded-ui-rect bg-sam-app p-4 sam-text-xxs leading-relaxed text-sam-fg">
             {JSON.stringify(MESSENGER_PERF_REFERENCE_P95_MS, null, 2)}
@@ -71,7 +73,7 @@ export function AdminMessengerMonitoringPage() {
         </div>
       </AdminCard>
 
-      <AdminCard title="참조 슬리버 (room_open · bootstrap_fetch · frame · prefetch — 동 문서 상단)">
+      <AdminCard titleKey="admin_cm_card_ref_slivers">
         <pre className="overflow-x-auto rounded-ui-rect bg-sam-app p-4 sam-text-xxs leading-relaxed text-sam-fg">
           {JSON.stringify(
             {
@@ -86,27 +88,29 @@ export function AdminMessengerMonitoringPage() {
         </pre>
       </AdminCard>
 
-      <AdminCard title="SLO 요약 (인메모리 윈도우 — 관측값 vs 목표)">
+      <AdminCard titleKey="admin_cm_card_slo_summary">
         {!summary?.sloDigest?.length ? (
-          <p className="sam-text-body text-sam-muted">아직 집계할 샘플이 없습니다.</p>
+          <p className="sam-text-body text-sam-muted">{t("admin_cm_empty_slo_samples")}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[720px] border-collapse text-left sam-text-helper">
               <thead>
                 <tr className="border-b border-sam-border">
-                  <th className="py-2 pr-2 font-semibold text-sam-fg">지표</th>
-                  <th className="py-2 pr-2 font-semibold text-sam-fg">목표</th>
-                  <th className="py-2 pr-2 font-semibold text-sam-fg">경고</th>
-                  <th className="py-2 pr-2 font-semibold text-sam-fg">치명</th>
-                  <th className="py-2 pr-2 font-semibold text-sam-fg">평균</th>
-                  <th className="py-2 pr-2 font-semibold text-sam-fg">최근</th>
+                  <th className="py-2 pr-2 font-semibold text-sam-fg">{t("admin_cm_th_metric")}</th>
+                  <th className="py-2 pr-2 font-semibold text-sam-fg">{t("admin_cm_th_target")}</th>
+                  <th className="py-2 pr-2 font-semibold text-sam-fg">{t("admin_cm_th_warning")}</th>
+                  <th className="py-2 pr-2 font-semibold text-sam-fg">{t("admin_cm_th_critical")}</th>
+                  <th className="py-2 pr-2 font-semibold text-sam-fg">{t("admin_cm_th_avg")}</th>
+                  <th className="py-2 pr-2 font-semibold text-sam-fg">{t("admin_cm_th_recent")}</th>
                   <th className="py-2 font-semibold text-sam-fg">n</th>
                 </tr>
               </thead>
               <tbody>
                 {summary.sloDigest.map((row) => (
                   <tr key={row.id} className="border-b border-sam-border/60">
-                    <td className="py-2 pr-2 text-sam-fg">{row.label}</td>
+                    <td className="py-2 pr-2 text-sam-fg">
+                      {t(row.labelKey, row.labelVars)}
+                    </td>
                     <td className="py-2 pr-2 font-mono sam-text-xxs text-sam-muted">
                       {row.unit === "ratio" ? `${((row.target ?? 0) * 100).toFixed(2)}%` : `${row.target ?? "—"} ms`}
                     </td>
@@ -139,23 +143,25 @@ export function AdminMessengerMonitoringPage() {
         )}
         {summary?.reconnectSessionRate != null ? (
           <p className="mt-3 sam-text-helper text-sam-muted">
-            재연결 세션 비율(근사): {(summary.reconnectSessionRate * 100).toFixed(2)}%
+            {t("admin_cm_common_reconnect_rate", {
+              percent: (summary.reconnectSessionRate * 100).toFixed(2),
+            })}
           </p>
         ) : null}
       </AdminCard>
 
-      <AdminCard title="성공/실패 누적 (구독·시그널링)">
+      <AdminCard titleKey="admin_cm_card_outcome_stats">
         {!summary?.outcomeStats?.length ? (
-          <p className="sam-text-body text-sam-muted">아직 outcome 이벤트가 없습니다.</p>
+          <p className="sam-text-body text-sam-muted">{t("admin_cm_empty_outcome_events")}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[420px] border-collapse text-left sam-text-helper">
               <thead>
                 <tr className="border-b border-sam-border">
-                  <th className="py-2 pr-3 font-semibold text-sam-fg">키</th>
+                  <th className="py-2 pr-3 font-semibold text-sam-fg">{t("admin_cm_th_key")}</th>
                   <th className="py-2 pr-3 font-semibold text-sam-fg">ok</th>
                   <th className="py-2 pr-3 font-semibold text-sam-fg">fail</th>
-                  <th className="py-2 font-semibold text-sam-fg">실패율</th>
+                  <th className="py-2 font-semibold text-sam-fg">{t("admin_cm_th_fail_rate")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -173,19 +179,19 @@ export function AdminMessengerMonitoringPage() {
         )}
       </AdminCard>
 
-      <AdminCard title="서버 API 라우트 (평균·최근 ms)">
+      <AdminCard titleKey="admin_cm_card_api_routes">
         {loading ? (
-          <p className="sam-text-body text-sam-muted">불러오는 중…</p>
+          <p className="sam-text-body text-sam-muted">{t("admin_cm_common_loading")}</p>
         ) : error ? (
           <p className="sam-text-body text-red-600">{error}</p>
         ) : apiRows.length === 0 ? (
-          <p className="sam-text-body text-sam-muted">아직 기록이 없습니다. 방 부트스트랩·메시지 API를 호출하면 쌓입니다.</p>
+          <p className="sam-text-body text-sam-muted">{t("admin_cm_empty_api_records")}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[480px] border-collapse text-left sam-text-body-secondary">
               <thead>
                 <tr className="border-b border-sam-border">
-                  <th className="py-2 pr-3 font-semibold text-sam-fg">route</th>
+                  <th className="py-2 pr-3 font-semibold text-sam-fg">{t("admin_cm_th_route")}</th>
                   <th className="py-2 pr-3 font-semibold text-sam-fg">n</th>
                   <th className="py-2 pr-3 font-semibold text-sam-fg">avg ms</th>
                   <th className="py-2 font-semibold text-sam-fg">last ms</th>
@@ -206,23 +212,23 @@ export function AdminMessengerMonitoringPage() {
         )}
       </AdminCard>
 
-      <AdminCard title="최근 알림 (임계 초과)">
+      <AdminCard titleKey="admin_cm_card_recent_alerts">
         {!summary?.recentAlerts?.length ? (
-          <p className="sam-text-body text-sam-muted">알림 없음</p>
+          <p className="sam-text-body text-sam-muted">{t("admin_cm_empty_alerts")}</p>
         ) : (
           <ul className="space-y-2">
             {summary.recentAlerts.slice(0, 20).map((a, i) => (
               <li key={`${a.ts}-${i}`} className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-helper text-sam-fg">
-                <span className="text-sam-muted">{new Date(a.ts).toLocaleString("ko-KR")}</span> — {a.message}
+                <span className="text-sam-muted">{formatDateTime(String(a.ts))}</span> — {a.message}
               </li>
             ))}
           </ul>
         )}
       </AdminCard>
 
-      <AdminCard title="클라이언트 집계 (키별 평균)">
+      <AdminCard titleKey="admin_cm_card_client_aggregates">
         {!summary?.clientAggregates || Object.keys(summary.clientAggregates).length === 0 ? (
-          <p className="sam-text-body text-sam-muted">클라이언트 이벤트 없음 (방 입장·전송·통화 후 갱신)</p>
+          <p className="sam-text-body text-sam-muted">{t("admin_cm_empty_client_events")}</p>
         ) : (
           <pre className="max-h-[320px] overflow-auto rounded-ui-rect bg-sam-app p-4 sam-text-xxs leading-relaxed text-sam-fg">
             {JSON.stringify(summary.clientAggregates, null, 2)}
@@ -230,9 +236,9 @@ export function AdminMessengerMonitoringPage() {
         )}
       </AdminCard>
 
-      <AdminCard title="전체 집계 (서버+클라이언트 이벤트 키)">
+      <AdminCard titleKey="admin_cm_card_all_aggregates">
         {!summary?.aggregates || Object.keys(summary.aggregates).length === 0 ? (
-          <p className="sam-text-body text-sam-muted">집계 없음</p>
+          <p className="sam-text-body text-sam-muted">{t("admin_cm_empty_aggregates")}</p>
         ) : (
           <pre className="max-h-[360px] overflow-auto rounded-ui-rect bg-sam-app p-4 sam-text-xxs leading-relaxed text-sam-fg">
             {JSON.stringify(summary.aggregates, null, 2)}
@@ -241,7 +247,10 @@ export function AdminMessengerMonitoringPage() {
       </AdminCard>
 
       <p className="sam-text-helper text-sam-muted">
-        생성 시각: {summary?.generatedAt ?? "—"} · 윈도우 이벤트 수: {summary?.windowEvents ?? 0}
+        {t("admin_cm_common_generated_at", {
+          at: summary?.generatedAt ? formatDateTime(summary.generatedAt) : t("admin_cm_common_dash"),
+          count: summary?.windowEvents ?? 0,
+        })}
       </p>
     </div>
   );

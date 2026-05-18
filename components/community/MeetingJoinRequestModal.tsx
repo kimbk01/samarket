@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useEffect, useState } from "react";
 import {
@@ -37,6 +38,7 @@ export function MeetingJoinRequestModal({
   /** 전송 실패 시 모달 안에 표시 (아래 버튼과 무관하게 보이도록) */
   submitError?: string;
 }) {
+  const { t } = useI18n();
   const [nickname, setNickname] = useState(defaultNickname);
   const [intro, setIntro] = useState("");
   const [reason, setReason] = useState("");
@@ -63,7 +65,7 @@ export function MeetingJoinRequestModal({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="join-req-title">
-      <button type="button" className={COMMUNITY_OVERLAY_BACKDROP_CLASS} aria-label="닫기" onClick={onClose} />
+      <button type="button" className={COMMUNITY_OVERLAY_BACKDROP_CLASS} aria-label={t("common_close")} onClick={onClose} />
       <div className={`relative z-50 max-h-[92vh] overflow-y-auto ${COMMUNITY_MODAL_PANEL_CLASS}`}>
         <div className="sticky top-0 flex items-center justify-between border-b border-sam-border bg-sam-surface px-4 py-3">
           <h2 id="join-req-title" className="sam-text-page-title">
@@ -75,59 +77,59 @@ export function MeetingJoinRequestModal({
         </div>
         <div className="space-y-3 px-4 py-4">
           <p className="sam-text-body-secondary">
-            모임장에게 전달됩니다. 승인 후 모임 참여 상태가 갱신됩니다.
+            {t("community_join_request_intro")}
           </p>
-          <Field label="이름" required hint="운영자가 확인할 수 있는 이름을 적어 주세요.">
+          <Field label={t("community_join_field_name")} required hint={t("community_join_field_name_hint")}>
             <input
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
               maxLength={80}
               className={`mt-1 w-full ${PHILIFE_FB_INPUT_CLASS}`}
-              placeholder="예: BK"
+              placeholder={t("community_join_field_bk_placeholder")}
               disabled={busy}
             />
           </Field>
-          <Field label="소개">
+          <Field label={t("community_join_field_intro")}>
             <textarea
               value={intro}
               onChange={(e) => setIntro(e.target.value)}
               rows={2}
               maxLength={500}
               className={`mt-1 w-full resize-none ${PHILIFE_FB_TEXTAREA_CLASS}`}
-              placeholder="예: BGC 거주 / 운동 좋아함"
+              placeholder={t("community_join_field_area_placeholder")}
               disabled={busy}
             />
           </Field>
-          <Field label="참여 이유" required>
+          <Field label={t("community_join_field_reason")} required>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}
               rows={3}
               maxLength={800}
               className={`mt-1 w-full resize-none ${PHILIFE_FB_TEXTAREA_CLASS}`}
-              placeholder="예: 주말 축구 같이 하고 싶어요"
+              placeholder={t("community_join_field_message_placeholder")}
               disabled={busy}
             />
           </Field>
-          <Field label="메모">
+          <Field label={t("community_join_field_memo")}>
             <textarea
               value={note}
               onChange={(e) => setNote(e.target.value)}
               rows={2}
               maxLength={500}
               className={`mt-1 w-full resize-none ${PHILIFE_FB_TEXTAREA_CLASS}`}
-              placeholder="예: 처음 참여입니다"
+              placeholder={t("community_join_field_note_placeholder")}
               disabled={busy}
             />
           </Field>
           {requirePassword ? (
-            <Field label="입장 비밀번호" required>
+            <Field label={t("community_join_field_room_password")} required>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className={`mt-1 w-full ${PHILIFE_FB_INPUT_CLASS}`}
-                placeholder="비밀번호"
+                placeholder={t("community_password_label")}
                 disabled={busy}
               />
             </Field>
@@ -156,7 +158,7 @@ export function MeetingJoinRequestModal({
             }
             className={`flex-1 ${COMMUNITY_BUTTON_PRIMARY_CLASS}`}
           >
-            {busy ? "전송 중…" : "신청 보내기"}
+            {busy ? t("community_join_request_submitting") : t("community_join_request_send")}
           </button>
         </div>
       </div>

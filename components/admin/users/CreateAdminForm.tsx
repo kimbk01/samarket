@@ -1,17 +1,19 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminRole } from "@/lib/admin-menu-config";
 import type { AdminPermissionKey, CreateAdminInput } from "@/lib/types/admin-staff";
 import { DEFAULT_PERMISSIONS_BY_ROLE } from "@/lib/admin-users/admin-permissions";
 import { createAdminStaff } from "@/lib/admin-users/mock-admin-staff";
 import { getAdminRole } from "@/lib/admin-permission";
 import { AdminPermissionToggles } from "./AdminPermissionToggles";
+import type { MessageKey } from "@/lib/i18n/messages";
 
-const ROLE_OPTIONS: { value: AdminRole; label: string }[] = [
-  { value: "operator", label: "운영자" },
-  { value: "manager", label: "총괄" },
-  { value: "master", label: "최고 관리자" },
+const ROLE_OPTIONS: { value: AdminRole; labelKey: MessageKey }[] = [
+  { value: "operator", labelKey: "admin_users_role_operator" },
+  { value: "manager", labelKey: "admin_users_role_manager" },
+  { value: "master", labelKey: "admin_users_role_master" },
 ];
 
 interface CreateAdminFormProps {
@@ -20,6 +22,7 @@ interface CreateAdminFormProps {
 }
 
 export function CreateAdminForm({ onClose, onSuccess }: CreateAdminFormProps) {
+  const { t } = useI18n();
   const [loginId, setLoginId] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -44,23 +47,23 @@ export function CreateAdminForm({ onClose, onSuccess }: CreateAdminFormProps) {
     e.preventDefault();
     setError(null);
     if (getAdminRole() !== "master") {
-      setError("최고 관리자만 관리자를 생성할 수 있습니다.");
+      setError(t("admin_users_err_master_only_create"));
       return;
     }
     if (!loginId.trim()) {
-      setError("로그인 ID를 입력하세요.");
+      setError(t("admin_users_err_login_id_required"));
       return;
     }
     if (loginId.trim().length < 2 || loginId.trim().length > 64) {
-      setError("로그인 ID는 2~64자로 입력하세요.");
+      setError(t("admin_users_err_login_id_length"));
       return;
     }
     if (!password || password.length < 4) {
-      setError("비밀번호는 4자 이상 입력하세요.");
+      setError(t("admin_users_err_password_min"));
       return;
     }
     if (displayName.trim().length > 64) {
-      setError("표시 이름은 64자 이내로 입력하세요.");
+      setError(t("admin_users_err_display_name_max"));
       return;
     }
 
@@ -87,15 +90,15 @@ export function CreateAdminForm({ onClose, onSuccess }: CreateAdminFormProps) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-ui-rect bg-sam-surface shadow-xl">
         <div className="sticky top-0 z-10 border-b border-sam-border bg-sam-surface px-5 py-4">
-          <h2 className="text-lg font-semibold text-sam-fg">관리자 수동 생성</h2>
+          <h2 className="text-lg font-semibold text-sam-fg">{t("admin_users_form_create_admin_title")}</h2>
           <p className="mt-1 sam-text-body-secondary text-sam-muted">
-            각 항목을 클릭해 권한 부여 여부를 선택하세요. (예: 글쓰기 권한 부여 O/X)
+            {t("admin_users_form_create_admin_hint")}
           </p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4 p-5">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">로그인 ID</label>
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_label_login_id")}</label>
               <input
                 type="text"
                 value={loginId}
@@ -103,11 +106,11 @@ export function CreateAdminForm({ onClose, onSuccess }: CreateAdminFormProps) {
                 maxLength={64}
                 autoComplete="username"
                 className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
-                placeholder="이메일 또는 아이디 (2~64자)"
+                placeholder={t("admin_users_ph_login_id")}
               />
             </div>
             <div>
-              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">비밀번호</label>
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_label_password")}</label>
               <input
                 type="password"
                 value={password}
@@ -116,31 +119,31 @@ export function CreateAdminForm({ onClose, onSuccess }: CreateAdminFormProps) {
                 maxLength={128}
                 autoComplete="new-password"
                 className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
-                placeholder="4자 이상"
+                placeholder={t("admin_users_ph_password_min")}
               />
             </div>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">표시 이름</label>
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_label_display_name")}</label>
               <input
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 maxLength={64}
                 className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
-                placeholder="관리자 목록에 표시될 이름 (64자 이내)"
+                placeholder={t("admin_users_ph_display_name")}
               />
             </div>
             <div>
-              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">역할</label>
+              <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_label_role")}</label>
               <select
                 value={role}
                 onChange={(e) => setRole(e.target.value as AdminRole)}
                 className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
               >
                 {ROLE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
+                  <option key={o.value} value={o.value}>{t(o.labelKey)}</option>
                 ))}
               </select>
             </div>
@@ -164,14 +167,14 @@ export function CreateAdminForm({ onClose, onSuccess }: CreateAdminFormProps) {
               onClick={onClose}
               className="rounded border border-sam-border px-4 py-2 sam-text-body text-sam-fg hover:bg-sam-app"
             >
-              취소
+              {t("common_cancel")}
             </button>
             <button
               type="submit"
               disabled={submitting}
               className="rounded bg-signature px-4 py-2 sam-text-body text-white hover:bg-signature/90 disabled:opacity-50"
             >
-              {submitting ? "생성 중…" : "생성"}
+              {submitting ? t("admin_users_creating") : t("admin_users_create")}
             </button>
           </div>
         </form>

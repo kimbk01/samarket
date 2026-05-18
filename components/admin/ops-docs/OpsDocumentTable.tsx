@@ -2,31 +2,15 @@
 
 import { useMemo } from "react";
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { OpsDocumentFilterState } from "./OpsDocumentFilterBar";
 import { getOpsDocuments } from "@/lib/ops-docs/mock-ops-documents";
-
-const DOC_TYPE_LABELS: Record<string, string> = {
-  sop: "SOP",
-  playbook: "플레이북",
-  scenario: "시나리오",
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  draft: "초안",
-  active: "활성",
-  archived: "보관",
-};
-
-const CATEGORY_LABELS: Record<string, string> = {
-  incident_response: "인시던트",
-  deployment: "배포",
-  rollback: "롤백",
-  moderation: "검수",
-  recommendation: "추천",
-  ads: "광고",
-  points: "포인트",
-  support: "지원",
-};
+import {
+  OPS_DOC_TYPE_KEYS,
+  OPS_DOC_STATUS_KEYS,
+  OPS_DOC_CATEGORY_TABLE_KEYS,
+} from "@/components/admin/i18n/admin-ops-doc-label-keys";
+import { adminDateLocaleTag } from "@/components/admin/i18n/admin-date-locale";
 
 interface OpsDocumentTableProps {
   filterState: OpsDocumentFilterState;
@@ -34,14 +18,16 @@ interface OpsDocumentTableProps {
 }
 
 export function OpsDocumentTable({ filterState, refresh = 0 }: OpsDocumentTableProps) {
+  const { t, language } = useI18n();
+  const dateLocale = adminDateLocaleTag(language);
   const documents = useMemo(
     () =>
       getOpsDocuments({
-    docType: filterState.docType || undefined,
-    status: filterState.status || undefined,
-    category: filterState.category || undefined,
-    search: filterState.search.trim() || undefined,
-    sort: filterState.sort,
+        docType: filterState.docType || undefined,
+        status: filterState.status || undefined,
+        category: filterState.category || undefined,
+        search: filterState.search.trim() || undefined,
+        sort: filterState.sort,
       }),
     [filterState.search, filterState.docType, filterState.status, filterState.category, filterState.sort, refresh]
   );
@@ -49,7 +35,7 @@ export function OpsDocumentTable({ filterState, refresh = 0 }: OpsDocumentTableP
   if (documents.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        조건에 맞는 문서가 없습니다.
+        {t("admin_ops_doc_empty")}
       </div>
     );
   }
@@ -59,12 +45,12 @@ export function OpsDocumentTable({ filterState, refresh = 0 }: OpsDocumentTableP
       <table className="w-full min-w-[640px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">제목</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">유형</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">카테고리</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">상태</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">수정일</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">작성자</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_doc_th_title")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_doc_th_type")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_doc_th_category")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_doc_th_status")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_doc_th_updated")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_doc_th_author")}</th>
           </tr>
         </thead>
         <tbody>
@@ -79,11 +65,9 @@ export function OpsDocumentTable({ filterState, refresh = 0 }: OpsDocumentTableP
                   {d.title}
                 </Link>
               </td>
+              <td className="px-3 py-2.5 text-sam-fg">{t(OPS_DOC_TYPE_KEYS[d.docType])}</td>
               <td className="px-3 py-2.5 text-sam-fg">
-                {DOC_TYPE_LABELS[d.docType]}
-              </td>
-              <td className="px-3 py-2.5 text-sam-fg">
-                {CATEGORY_LABELS[d.category] ?? d.category}
+                {t(OPS_DOC_CATEGORY_TABLE_KEYS[d.category])}
               </td>
               <td className="px-3 py-2.5">
                 <span
@@ -95,15 +79,13 @@ export function OpsDocumentTable({ filterState, refresh = 0 }: OpsDocumentTableP
                         : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >
-                  {STATUS_LABELS[d.status]}
+                  {t(OPS_DOC_STATUS_KEYS[d.status])}
                 </span>
               </td>
               <td className="px-3 py-2.5 text-sam-muted">
-                {new Date(d.updatedAt).toLocaleDateString("ko-KR")}
+                {new Date(d.updatedAt).toLocaleDateString(dateLocale)}
               </td>
-              <td className="px-3 py-2.5 text-sam-muted">
-                {d.createdByAdminNickname}
-              </td>
+              <td className="px-3 py-2.5 text-sam-muted">{d.createdByAdminNickname}</td>
             </tr>
           ))}
         </tbody>

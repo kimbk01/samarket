@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { getCurrentUserId } from "@/lib/regions/mock-user-regions";
 import { isBlocked, blockUser, unblockUser } from "@/lib/reports/mock-blocked-users";
@@ -16,6 +17,7 @@ export function UserBlockButton({
   onBlockChange,
   variant = "text",
 }: UserBlockButtonProps) {
+  const { t } = useI18n();
   const currentUserId = getCurrentUserId();
   const blocked = isBlocked(currentUserId, userId);
 
@@ -24,7 +26,7 @@ export function UserBlockButton({
     if (blocked) {
       unblockUser(currentUserId, userId);
     } else {
-      if (confirm(`${nickname ?? "이 사용자"}를 차단할까요?`)) {
+      if (confirm(t("ui_report_block_user_confirm", { nickname: nickname ?? t("ui_report_user_fallback", { id: "" }) }))) {
         blockUser(currentUserId, userId, nickname);
       }
     }
@@ -33,7 +35,7 @@ export function UserBlockButton({
 
   if (currentUserId === userId) return null;
 
-  const label = blocked ? "차단 해제" : "차단";
+  const label = blocked ? t("ui_report_unblock") : t("ui_report_block");
 
   if (variant === "button") {
     return (

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useRef } from "react";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -16,6 +17,7 @@ export function ProductImagePicker({
   onChange,
   maxCount = 10,
 }: ProductImagePickerProps) {
+  const { t } = useI18n();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const addFiles = useCallback(
@@ -43,7 +45,7 @@ export function ProductImagePicker({
 
   return (
     <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
-      <p className="mb-3 sam-text-body font-medium text-sam-fg">사진</p>
+      <p className="mb-3 sam-text-body font-medium text-sam-fg">{t("ui_product_photos_label")}</p>
       <div className="flex gap-2 overflow-x-auto pb-1">
         {value.map((item, index) => (
           <div key={index} className="relative h-24 w-24 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
@@ -57,7 +59,7 @@ export function ProductImagePicker({
               type="button"
               onClick={() => removeAt(index)}
               className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/50 text-white"
-              aria-label="삭제"
+              aria-label={t("common_delete")}
             >
               ×
             </button>

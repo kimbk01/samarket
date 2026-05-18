@@ -5,11 +5,13 @@ import { useCallback, useEffect, useState } from "react";
 import { getActiveCategories } from "@/lib/categories/getActiveCategories";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { ServiceCategoryGrid } from "./ServiceCategoryGrid";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 /**
  * 홈용 서비스 블록: DB 카테고리 그리드 + 전체 서비스 링크
  */
 export function HomeServicesBlock() {
+  const { t } = useI18n();
   const [categories, setCategories] = useState<CategoryWithSettings[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +52,7 @@ export function HomeServicesBlock() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between px-0">
-        <h2 className="sam-text-body font-semibold text-sam-fg">서비스</h2>
+        <h2 className="sam-text-body font-semibold text-sam-fg">{t("trade_074")}</h2>
         <Link href="/services" className="sam-text-body font-medium text-sam-fg hover:text-signature">
           전체 서비스
         </Link>

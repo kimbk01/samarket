@@ -15,8 +15,10 @@ import { DeliveryOrdersProgressPanel } from "./DeliveryOrdersProgressPanel";
 import { OrderFilterBar } from "./OrderFilterBar";
 import { OrderTable } from "./OrderTable";
 import { fetchAdminStoreOrdersListDeduped } from "@/lib/admin/fetch-admin-store-orders-deduped";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function DeliveryOrdersDashboardClient() {
+  const { t } = useI18n();
   const [filters, setFilters] = useState<OrderListFilters>(defaultOrderListFilters);
   const [dbOrders, setDbOrders] = useState<AdminDeliveryOrder[]>([]);
   const [dbLoading, setDbLoading] = useState(true);
@@ -136,7 +138,7 @@ export function DeliveryOrdersDashboardClient() {
       return next;
     });
     setSelectedIds(new Set());
-    setActionMessage("선택한 주문을 이 화면 목록에서만 숨겼습니다. 브라우저 새로고침(F5) 시 다시 보입니다.");
+    setActionMessage(t("admin_do_msg_hidden_from_list"));
   }, [selectedIds]);
 
   const deleteSelectedFromDb = useCallback(async () => {
@@ -144,7 +146,7 @@ export function DeliveryOrdersDashboardClient() {
     const ids = [...selectedIds];
     if (
       !window.confirm(
-        `선택 ${ids.length}건을 DB(store_orders)에서 영구 삭제합니다.\n연결된 품목·정산·리뷰·주문 채팅방 등이 함께 정리될 수 있습니다. 계속할까요?`
+        t("admin_do_msg_delete_confirm", { count: ids.length })
       )
     ) {
       return;
@@ -165,7 +167,7 @@ export function DeliveryOrdersDashboardClient() {
         error?: string;
       };
       if (!res.ok) {
-        setActionMessage(data.error ?? "삭제 요청에 실패했습니다.");
+        setActionMessage(data.error ?? t("admin_do_msg_delete_failed"));
         return;
       }
       const deleted: string[] = Array.isArray(data.deleted) ? data.deleted : [];
@@ -182,60 +184,61 @@ export function DeliveryOrdersDashboardClient() {
         return next;
       });
       if (data.errors?.length) {
+        const errText = data.errors.map((e) => `${e.id.slice(0, 8)}… ${e.message}`).join(" / ");
         setActionMessage(
           deleted.length > 0
-            ? `${deleted.length}건 DB 삭제 완료. 실패 ${data.errors.length}건: ${data.errors
-                .map((e) => `${e.id.slice(0, 8)}… ${e.message}`)
-                .join(" / ")}`
-            : `삭제 실패 ${data.errors.length}건: ${data.errors
-                .map((e) => `${e.id.slice(0, 8)}… ${e.message}`)
-                .join(" / ")}`
+            ? t("admin_do_msg_delete_partial", {
+                ok: deleted.length,
+                fail: data.errors.length,
+                errors: errText,
+              })
+            : t("admin_do_msg_delete_all_failed", {
+                fail: data.errors.length,
+                errors: errText,
+              })
         );
       } else {
-        setActionMessage(`${deleted.length}건을 DB에서 삭제했습니다.`);
+        setActionMessage(t("admin_do_msg_delete_ok", { count: deleted.length }));
       }
     } catch {
-      setActionMessage("네트워크 오류로 삭제에 실패했습니다.");
+      setActionMessage(t("admin_do_msg_delete_network"));
     } finally {
       setActionBusy(false);
     }
-  }, [selectedIds]);
+  }, [selectedIds, t]);
 
   const sub = [
-    { href: "/admin/stores/orders", label: "주문 목록" },
-    { href: "/admin/store-orders", label: "매장 주문(액션)" },
-    { href: "/admin/order-chats", label: "주문 채팅" },
-    { href: "/admin/order-notifications", label: "운영 알림" },
-    { href: "/admin/stores/orders/cancellations", label: "취소" },
-    { href: "/admin/stores/orders/refunds", label: "환불" },
-    { href: "/admin/stores/orders/settlements", label: "정산" },
-    { href: "/admin/stores/orders/reports", label: "신고·분쟁" },
-    { href: "/admin/stores/orders/logs", label: "로그" },
+    { href: "/admin/stores/orders", label: t("admin_do_nav_order_list") },
+    { href: "/admin/store-orders", label: t("admin_do_nav_store_orders") },
+    { href: "/admin/order-chats", label: t("admin_do_nav_order_chat") },
+    { href: "/admin/order-notifications", label: t("admin_do_nav_ops_alerts") },
+    { href: "/admin/stores/orders/cancellations", label: t("admin_do_nav_cancellations") },
+    { href: "/admin/stores/orders/refunds", label: t("admin_do_nav_refunds") },
+    { href: "/admin/stores/orders/settlements", label: t("admin_do_nav_settlements") },
+    { href: "/admin/stores/orders/reports", label: t("admin_do_nav_reports") },
+    { href: "/admin/stores/orders/logs", label: t("admin_do_nav_logs") },
   ];
 
   return (
     <div className="p-4 md:p-6">
       <AdminPageHeader
-        title="배달·포장 주문 (실데이터)"
-        description="Supabase store_orders 원장만 표시합니다. 결제·환불 등 처리는 «매장 주문(액션)»에서 진행하세요."
+        titleKey="admin_do_dashboard_title"
+        descriptionKey="admin_do_dashboard_desc"
       />
-      <AdminCard title="데이터 원장">
+      <AdminCard titleKey="admin_do_dashboard_ledger_card">
         <p className="sam-text-body-secondary leading-relaxed text-sam-fg">
-          이 화면 목록은 <code className="rounded bg-sam-surface-muted px-1 sam-text-xxs">store_orders</code> 와 품목 스냅샷을
-          API로 불러온 결과입니다.{" "}
+          {t("admin_do_dashboard_ledger_intro")}{" "}
           <Link href="/admin/store-orders" className="font-medium text-signature underline">
-            매장 주문(액션)
+            {t("admin_do_nav_store_orders")}
           </Link>
-          과 <strong>같은 DB</strong>입니다. 한쪽에서 <strong>DB에서 삭제</strong>하면 서버에는 바로 반영되고, 다른
-          탭으로 돌아오면 자동으로 목록을 다시 불러오며(탭 복귀 시), 보이는 동안 약 30초마다도 갱신됩니다.
+          {t("admin_do_dashboard_ledger_same_db")}
         </p>
         <p className="mt-2 sam-text-helper text-sam-muted">
-          <strong className="text-sam-fg">목록에서만 제거</strong>는 이 브라우저 세션에서 표시만 숨깁니다.{" "}
-          <strong className="text-red-800">DB에서 삭제</strong>는 원장에서 영구 삭제합니다.
+          {t("admin_do_dashboard_ledger_hide_list")} {t("admin_do_dashboard_ledger_db_delete")}
         </p>
         <p className="mt-2 sam-text-helper text-sam-muted">
           <Link href="/admin/store-orders" className="text-signature underline">
-            매장 주문(액션)으로 이동
+            {t("admin_do_dashboard_go_store_orders")}
           </Link>
         </p>
       </AdminCard>
@@ -257,52 +260,52 @@ export function DeliveryOrdersDashboardClient() {
           disabled={dbLoading}
           className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-xs text-sam-fg disabled:opacity-50"
         >
-          {dbLoading ? "목록 갱신 중…" : "목록 새로고침"}
+          {dbLoading ? t("admin_do_common_list_refreshing") : t("admin_do_common_list_refresh")}
         </button>
       </div>
 
       {dbError ? (
         <p className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">
-          주문 목록을 불러오지 못했습니다 ({dbError}). Supabase 설정·관리자 로그인을 확인하세요.
+          {t("admin_do_dashboard_list_load_failed", { error: dbError })}
         </p>
       ) : null}
 
-      <AdminCard title="KPI (현재 목록 기준 · 최대 500건)">
+      <AdminCard titleKey="admin_do_dashboard_kpi_card">
         <DeliveryOrdersKpiCards orders={dbOrders} />
       </AdminCard>
 
-      <AdminCard title="긴급 운영 큐 (필터 적용 결과 기준)">
+      <AdminCard titleKey="admin_do_dashboard_urgent_card">
         <p className="sam-text-helper text-sam-muted">
-          SLA 초과·방치·미배차·환불 지연 등 운영 우선 처리 대상입니다. (표에서 붉은 SLA 배지로 표시)
+          {t("admin_do_dashboard_urgent_hint")}
         </p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app p-3">
-            <p className="sam-text-helper font-semibold text-sam-fg">미배차</p>
-            <p className="mt-1 sam-text-body-secondary text-sam-muted">{urgentBuckets.unassigned}건</p>
+            <p className="sam-text-helper font-semibold text-sam-fg">{t("admin_do_dashboard_urgent_unassigned")}</p>
+            <p className="mt-1 sam-text-body-secondary text-sam-muted">{t("admin_do_common_count_unit", { count: urgentBuckets.unassigned })}</p>
           </div>
           <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app p-3">
-            <p className="sam-text-helper font-semibold text-sam-fg">ETA 초과</p>
-            <p className="mt-1 sam-text-body-secondary text-sam-muted">{urgentBuckets.eta}건</p>
+            <p className="sam-text-helper font-semibold text-sam-fg">{t("admin_do_dashboard_urgent_eta")}</p>
+            <p className="mt-1 sam-text-body-secondary text-sam-muted">{t("admin_do_common_count_unit", { count: urgentBuckets.eta })}</p>
           </div>
           <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app p-3">
-            <p className="sam-text-helper font-semibold text-sam-fg">장기 배송</p>
-            <p className="mt-1 sam-text-body-secondary text-sam-muted">{urgentBuckets.delivering}건</p>
+            <p className="sam-text-helper font-semibold text-sam-fg">{t("admin_do_dashboard_urgent_long_delivery")}</p>
+            <p className="mt-1 sam-text-body-secondary text-sam-muted">{t("admin_do_common_count_unit", { count: urgentBuckets.delivering })}</p>
           </div>
           <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app p-3">
-            <p className="sam-text-helper font-semibold text-sam-fg">환불 지연</p>
-            <p className="mt-1 sam-text-body-secondary text-sam-muted">{urgentBuckets.refund}건</p>
+            <p className="sam-text-helper font-semibold text-sam-fg">{t("admin_do_dashboard_urgent_refund")}</p>
+            <p className="mt-1 sam-text-body-secondary text-sam-muted">{t("admin_do_common_count_unit", { count: urgentBuckets.refund })}</p>
           </div>
           <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app p-3">
-            <p className="sam-text-helper font-semibold text-sam-fg">주문 방치</p>
-            <p className="mt-1 sam-text-body-secondary text-sam-muted">{urgentBuckets.pending}건</p>
+            <p className="sam-text-helper font-semibold text-sam-fg">{t("admin_do_dashboard_urgent_pending")}</p>
+            <p className="mt-1 sam-text-body-secondary text-sam-muted">{t("admin_do_common_count_unit", { count: urgentBuckets.pending })}</p>
           </div>
           <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app p-3">
-            <p className="sam-text-helper font-semibold text-sam-fg">기타</p>
-            <p className="mt-1 sam-text-body-secondary text-sam-muted">{urgentBuckets.other}건</p>
+            <p className="sam-text-helper font-semibold text-sam-fg">{t("admin_do_dashboard_urgent_other")}</p>
+            <p className="mt-1 sam-text-body-secondary text-sam-muted">{t("admin_do_common_count_unit", { count: urgentBuckets.other })}</p>
           </div>
         </div>
         <p className="mt-3 sam-text-helper text-sam-muted">
-          총 <strong className="text-sam-fg">{urgentRows.length}</strong>건
+          {t("admin_do_dashboard_urgent_total", { count: urgentRows.length })}
         </p>
       </AdminCard>
 
@@ -315,16 +318,19 @@ export function DeliveryOrdersDashboardClient() {
       </div>
 
       <div className="mt-4">
-        <h2 className="mb-2 text-sm font-semibold text-sam-fg">주문 목록</h2>
+        <h2 className="mb-2 text-sm font-semibold text-sam-fg">{t("admin_do_dashboard_order_list")}</h2>
         <p className="mb-2 sam-text-helper text-sam-muted">
-          전체 <strong>{dbOrders.length}</strong>건 · 필터 일치 <strong>{filteredRows.length}</strong>건 · 표시{" "}
-          <strong>{visibleRows.length}</strong>건
-          {dbLoading ? " · 갱신 중…" : ""}
+          {t("admin_do_dashboard_stats", {
+            total: dbOrders.length,
+            filtered: filteredRows.length,
+            visible: visibleRows.length,
+          })}
+          {dbLoading ? t("admin_do_dashboard_stats_refreshing") : ""}
         </p>
         {!dbLoading && (filteredRows.length > 0 || dbOrders.length > 0) ? (
           <div className="mb-3 flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary">
             <span className="text-sam-muted">
-              선택 <strong className="text-sam-fg">{selectedIds.size}</strong>건
+              {t("admin_do_dashboard_selected", { count: selectedIds.size })}
             </span>
             <span className="hidden sm:inline text-sam-meta">|</span>
             <button
@@ -333,7 +339,7 @@ export function DeliveryOrdersDashboardClient() {
               onClick={() => handleToggleAllVisible(true)}
               className="rounded border border-sam-border bg-sam-surface px-2.5 py-1.5 font-medium text-sam-fg hover:bg-sam-app disabled:opacity-40"
             >
-              현재 목록 전체 선택
+              {t("admin_do_dashboard_select_all")}
             </button>
             <button
               type="button"
@@ -341,7 +347,7 @@ export function DeliveryOrdersDashboardClient() {
               onClick={() => setSelectedIds(new Set())}
               className="rounded border border-sam-border bg-sam-surface px-2.5 py-1.5 font-medium text-sam-fg hover:bg-sam-app disabled:opacity-40"
             >
-              선택 해제
+              {t("admin_do_dashboard_clear_selection")}
             </button>
             <button
               type="button"
@@ -349,7 +355,7 @@ export function DeliveryOrdersDashboardClient() {
               onClick={hideSelectedFromListOnly}
               className="rounded border border-amber-200 bg-amber-50 px-2.5 py-1.5 font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-40"
             >
-              목록에서만 제거
+              {t("admin_do_dashboard_hide_from_list")}
             </button>
             <button
               type="button"
@@ -357,7 +363,7 @@ export function DeliveryOrdersDashboardClient() {
               onClick={() => void deleteSelectedFromDb()}
               className="rounded border border-red-200 bg-red-50 px-2.5 py-1.5 font-medium text-red-800 hover:bg-red-100 disabled:opacity-40"
             >
-              DB에서 삭제
+              {t("admin_do_dashboard_delete_from_db")}
             </button>
           </div>
         ) : null}
@@ -368,7 +374,7 @@ export function DeliveryOrdersDashboardClient() {
         ) : null}
         {visibleRows.length === 0 && !dbLoading && filteredRows.length > 0 ? (
           <p className="py-6 text-center text-sm text-sam-muted">
-            표시할 주문이 없습니다. 목록에서만 숨긴 상태라면 브라우저 새로고침(F5)으로 숨김이 초기화됩니다.
+            {t("admin_do_dashboard_empty_visible")}
           </p>
         ) : (
           <OrderTable

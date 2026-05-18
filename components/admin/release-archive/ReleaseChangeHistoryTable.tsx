@@ -1,16 +1,17 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getAllReleaseArchiveItems } from "@/lib/release-archive/mock-release-archive-items";
 import { getReleaseArchives, getReleaseArchiveById } from "@/lib/release-archive/mock-release-archives";
 import { AdminTable } from "@/components/admin/AdminTable";
-import { getChangeTypeLabel } from "@/lib/release-archive/release-archive-utils";
+import { CHANGE_TYPE_KEYS } from "@/components/admin/i18n/admin-release-label-keys";
 import type {
   ReleaseArchiveChangeType,
 } from "@/lib/types/release-archive";
-import Link from "next/link";
-
 export function ReleaseChangeHistoryTable() {
+  const { t } = useI18n();
   const [versionFilter, setVersionFilter] = useState<string>("");
   const [changeTypeFilter, setChangeTypeFilter] = useState<ReleaseArchiveChangeType | "">("");
 
@@ -27,20 +28,20 @@ export function ReleaseChangeHistoryTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">릴리즈</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_rel_filter_release")}</span>
         <select
           value={versionFilter}
           onChange={(e) => setVersionFilter(e.target.value)}
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
+          <option value="">{t("admin_rel_filter_all")}</option>
           {archives.map((a) => (
             <option key={a.id} value={a.id}>
               {a.releaseVersion} - {a.releaseTitle}
             </option>
           ))}
         </select>
-        <span className="sam-text-body-secondary text-sam-muted">변경 유형</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_rel_filter_change_type")}</span>
         <select
           value={changeTypeFilter}
           onChange={(e) =>
@@ -48,23 +49,29 @@ export function ReleaseChangeHistoryTable() {
           }
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
-          <option value="feature">기능</option>
-          <option value="improvement">개선</option>
-          <option value="bugfix">버그수정</option>
-          <option value="hotfix">핫픽스</option>
-          <option value="ops_change">운영변경</option>
-          <option value="config_change">설정변경</option>
+          <option value="">{t("admin_rel_filter_all")}</option>
+          <option value="feature">{t("admin_rel_type_feature")}</option>
+          <option value="improvement">{t("admin_rel_type_improvement")}</option>
+          <option value="bugfix">{t("admin_rel_type_bugfix")}</option>
+          <option value="hotfix">{t("admin_rel_type_hotfix")}</option>
+          <option value="ops_change">{t("admin_rel_type_ops")}</option>
+          <option value="config_change">{t("admin_rel_type_config")}</option>
         </select>
       </div>
 
       {items.length === 0 ? (
         <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          해당 조건의 변경 이력이 없습니다.
+          {t("admin_rel_history_empty")}
         </div>
       ) : (
         <AdminTable
-          headers={["릴리즈", "유형", "제목", "설명", "연결"]}
+          headers={[
+            t("admin_rel_filter_release"),
+            t("admin_rel_th_type"),
+            t("admin_rel_th_title"),
+            t("admin_rel_th_description"),
+            t("admin_rel_th_link"),
+          ]}
         >
           {items.map((i) => {
             const archive = getReleaseArchiveById(i.releaseArchiveId);
@@ -75,7 +82,7 @@ export function ReleaseChangeHistoryTable() {
                 </td>
                 <td className="px-3 py-2.5">
                   <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 sam-text-helper text-sam-fg">
-                    {getChangeTypeLabel(i.changeType)}
+                    {t(CHANGE_TYPE_KEYS[i.changeType])}
                   </span>
                 </td>
                 <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">
@@ -94,7 +101,7 @@ export function ReleaseChangeHistoryTable() {
                     <>
                       {" "}
                       <Link href="/admin/product-backlog" className="text-signature hover:underline">
-                        백로그
+                        {t("admin_rel_backlog")}
                       </Link>
                     </>
                   )}
@@ -102,7 +109,7 @@ export function ReleaseChangeHistoryTable() {
                     <>
                       {" "}
                       <Link href="/admin/recommendation-deployments" className="text-signature hover:underline">
-                        배포
+                        {t("admin_rel_deploy")}
                       </Link>
                     </>
                   )}

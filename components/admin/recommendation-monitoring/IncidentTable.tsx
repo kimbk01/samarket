@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
 import type { IncidentStatus } from "@/lib/types/recommendation-monitoring";
 import {
@@ -9,35 +10,17 @@ import {
   resolveIncident,
 } from "@/lib/recommendation-monitoring/mock-recommendation-incidents";
 import { persistRecommendationRuntimeToServer } from "@/lib/recommendation-ops/recommendation-runtime-sync-client";
-import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
-
-const SEVERITY_LABELS: Record<string, string> = {
-  low: "낮음",
-  medium: "중간",
-  high: "높음",
-  critical: "긴급",
-};
-
-const TYPE_LABELS: Record<string, string> = {
-  empty_feed_spike: "빈피드 급증",
-  ctr_drop: "CTR 하락",
-  conversion_drop: "전환율 하락",
-  fallback_activated: "Fallback 활성화",
-  kill_switch_enabled: "킬스위치 활성화",
-  deployment_failure: "배포 실패",
-  section_disabled: "섹션 비활성화",
-};
-
-const STATUS_LABELS: Record<IncidentStatus, string> = {
-  open: "미해결",
-  acknowledged: "확인됨",
-  resolved: "해결됨",
-};
+import {
+  recIncidentStatusLabel,
+  recIncidentTypeLabel,
+  recSeverityLabel,
+  recSurfaceLabel,
+} from "@/components/admin/recommendation-admin-i18n";
 
 const ADMIN_ID = "admin1";
-const ADMIN_NICK = "관리자";
 
 export function IncidentTable() {
+  const { t } = useI18n();
   const [refresh, setRefresh] = useState(0);
   const [statusFilter, setStatusFilter] = useState<IncidentStatus | "">("");
   const [surfaceFilter, setSurfaceFilter] = useState<RecommendationSurface | "">("");
@@ -52,7 +35,7 @@ export function IncidentTable() {
   );
 
   const handleAck = async (id: string) => {
-    acknowledgeIncident(id, ADMIN_ID, ADMIN_NICK);
+    acknowledgeIncident(id, ADMIN_ID, t("admin_rec_admin_nickname"));
     setRefresh((r) => r + 1);
     const r = await persistRecommendationRuntimeToServer();
     if (!r.ok) console.warn("[incident] persist failed", r.error);
@@ -77,10 +60,10 @@ export function IncidentTable() {
           }
           className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
-          <option value="">전체 상태</option>
-          <option value="open">미해결</option>
-          <option value="acknowledged">확인됨</option>
-          <option value="resolved">해결됨</option>
+          <option value="">{t("admin_rec_filter_all_status")}</option>
+          <option value="open">{t("admin_rec_incident_status_open")}</option>
+          <option value="acknowledged">{t("admin_rec_incident_status_acknowledged")}</option>
+          <option value="resolved">{t("admin_rec_incident_status_resolved")}</option>
         </select>
         <select
           value={surfaceFilter}
@@ -91,15 +74,15 @@ export function IncidentTable() {
           }
           className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
-          <option value="">전체 surface</option>
-          <option value="home">홈</option>
-          <option value="search">검색</option>
-          <option value="shop">상점</option>
+          <option value="">{t("admin_rec_filter_all_surface")}</option>
+          <option value="home">{t("admin_rec_surface_home")}</option>
+          <option value="search">{t("admin_rec_surface_search")}</option>
+          <option value="shop">{t("admin_rec_surface_shop")}</option>
         </select>
       </div>
       {incidents.length === 0 ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          운영 이슈가 없습니다.
+          {t("admin_rec_mon_empty_incidents")}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
@@ -107,22 +90,22 @@ export function IncidentTable() {
             <thead>
               <tr className="border-b border-sam-border bg-sam-app">
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  제목
+                  {t("admin_rec_th_title")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  surface
+                  {t("admin_rec_th_surface")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  유형 / 심각도
+                  {t("admin_rec_th_type_severity")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  상태
+                  {t("admin_rec_th_status")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  발생
+                  {t("admin_rec_th_occurred")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  조치
+                  {t("admin_rec_th_actions")}
                 </th>
               </tr>
             </thead>
@@ -136,11 +119,11 @@ export function IncidentTable() {
                     {i.title}
                   </td>
                   <td className="px-3 py-2.5 text-sam-fg">
-                    {SURFACE_LABELS[i.surface]}
+                    {recSurfaceLabel(t, i.surface)}
                   </td>
                   <td className="px-3 py-2.5 text-sam-fg">
-                    {TYPE_LABELS[i.incidentType] ?? i.incidentType} /{" "}
-                    {SEVERITY_LABELS[i.severity]}
+                    {recIncidentTypeLabel(t, i.incidentType)} /{" "}
+                    {recSeverityLabel(t, i.severity)}
                   </td>
                   <td className="px-3 py-2.5">
                     <span
@@ -152,11 +135,11 @@ export function IncidentTable() {
                             : "bg-sam-surface-muted text-sam-fg"
                       }`}
                     >
-                      {STATUS_LABELS[i.status]}
+                      {recIncidentStatusLabel(t, i.status)}
                     </span>
                   </td>
                   <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                    {new Date(i.startedAt).toLocaleString("ko-KR")}
+                    {new Date(i.startedAt).toLocaleString()}
                   </td>
                   <td className="px-3 py-2.5">
                     {i.status === "open" && (
@@ -165,7 +148,7 @@ export function IncidentTable() {
                         onClick={() => handleAck(i.id)}
                         className="mr-1 rounded border border-amber-200 bg-amber-50 px-2 py-1 sam-text-body-secondary text-amber-800"
                       >
-                        확인
+                        {t("common_confirm")}
                       </button>
                     )}
                     {(i.status === "open" || i.status === "acknowledged") && (
@@ -174,7 +157,7 @@ export function IncidentTable() {
                         onClick={() => handleResolve(i.id)}
                         className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 sam-text-body-secondary text-emerald-800"
                       >
-                        해결
+                        {t("admin_rec_incident_btn_resolve")}
                       </button>
                     )}
                   </td>

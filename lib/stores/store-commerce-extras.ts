@@ -1,4 +1,15 @@
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
 import { formatMoneyPhp } from "@/lib/utils/format";
+
+function scT(
+  lang: AppLanguageCode,
+  key: MessageKey,
+  vars?: Record<string, string | number>
+): string {
+  return translate(lang, key, vars);
+}
 
 /** `business_hours_json.delivery_fee_mode` */
 export type StoreDeliveryFeeMode = "self" | "self_free_promo" | "courier";
@@ -208,15 +219,18 @@ export function resolveChargedDeliveryFeePhp(
 /** browse/home-feed 카드 주 문구(취소선 금액은 `deliveryFeeStrikePhp` 별도). 배달 불가면 null */
 export function formatStoreBrowseDeliveryFeeLine(
   extras: CommerceExtrasFromHours,
-  opts: { deliveryAvailable: boolean }
+  opts: { deliveryAvailable: boolean },
+  lang: AppLanguageCode = DEFAULT_APP_LANGUAGE
 ): string | null {
   if (!opts.deliveryAvailable) return null;
   if (extras.deliveryFeeMode === "courier") {
-    if (extras.deliveryCourierLabel) return `배달비: ${extras.deliveryCourierLabel}`;
-    return "배달비 착불";
+    if (extras.deliveryCourierLabel) {
+      return scT(lang, "store_delivery_fee_courier_colon", { label: extras.deliveryCourierLabel });
+    }
+    return scT(lang, "store_delivery_fee_cod_line");
   }
   if (extras.deliveryFeeMode === "self_free_promo") {
-    return "배달비 무료 적용 중";
+    return scT(lang, "store_free_delivery_applied");
   }
   if (extras.deliveryFeeMode === "self" && extras.deliveryFeePhp != null && extras.deliveryFeePhp >= 0) {
     if (
@@ -224,9 +238,11 @@ export function formatStoreBrowseDeliveryFeeLine(
       extras.freeDeliveryOverPhp != null &&
       extras.freeDeliveryOverPhp > 0
     ) {
-      return "배달비 무료";
+      return scT(lang, "store_delivery_fee_free_line");
     }
-    return `배달비 ${formatMoneyPhp(extras.deliveryFeePhp)}`;
+    return scT(lang, "store_delivery_fee_amount_line", {
+      amount: formatMoneyPhp(extras.deliveryFeePhp),
+    });
   }
   return null;
 }
@@ -254,15 +270,16 @@ export function storeBrowseDeliveryFeeShowsFreeBadge(extras: CommerceExtrasFromH
 /** 매장 상단/히어로 등 — 값만(라벨은 컴포넌트에서 `배달비`로 통일) */
 export function formatStoreDetailDeliveryFeeValue(
   extras: CommerceExtrasFromHours,
-  opts: { deliveryAvailable: boolean }
+  opts: { deliveryAvailable: boolean },
+  lang: AppLanguageCode = DEFAULT_APP_LANGUAGE
 ): string {
-  if (!opts.deliveryAvailable) return "배달 불가";
+  if (!opts.deliveryAvailable) return scT(lang, "store_delivery_no_short");
   if (extras.deliveryFeeMode === "courier") {
     if (extras.deliveryCourierLabel) return extras.deliveryCourierLabel;
-    return "착불";
+    return scT(lang, "store_cod_label");
   }
   if (extras.deliveryFeeMode === "self_free_promo") {
-    return "배달비 무료 적용 중";
+    return scT(lang, "store_free_delivery_applied");
   }
   if (extras.deliveryFeeMode === "self" && extras.deliveryFeePhp != null) {
     if (
@@ -270,28 +287,33 @@ export function formatStoreDetailDeliveryFeeValue(
       extras.freeDeliveryOverPhp != null &&
       extras.freeDeliveryOverPhp > 0
     ) {
-      return "무료배달";
+      return scT(lang, "store_free_delivery_short");
     }
     if (extras.deliveryFeePhp >= 0) return formatMoneyPhp(extras.deliveryFeePhp);
   }
-  return "문의";
+  return scT(lang, "store_inquiry_title");
 }
 
 /** 매장 가로 요약 줄: `배달비 …` 형태 */
 export function formatStoreStorefrontDeliveryFeeLine(
   extras: CommerceExtrasFromHours,
-  opts: { deliveryAvailable: boolean }
+  opts: { deliveryAvailable: boolean },
+  lang: AppLanguageCode = DEFAULT_APP_LANGUAGE
 ): string {
-  if (!opts.deliveryAvailable) return "배달 불가";
+  if (!opts.deliveryAvailable) return scT(lang, "store_delivery_no_short");
   if (extras.deliveryFeeMode === "courier") {
-    if (extras.deliveryCourierLabel) return `배달비: ${extras.deliveryCourierLabel}`;
-    return "배달비 착불";
+    if (extras.deliveryCourierLabel) {
+      return scT(lang, "store_delivery_fee_courier_colon", { label: extras.deliveryCourierLabel });
+    }
+    return scT(lang, "store_delivery_fee_cod_line");
   }
   if (extras.deliveryFeeMode === "self_free_promo") {
-    return "배달비 무료 적용 중";
+    return scT(lang, "store_free_delivery_applied");
   }
   if (extras.deliveryFeeMode === "self" && extras.deliveryFeePhp != null && extras.deliveryFeePhp >= 0) {
-    return `배달비 ${formatMoneyPhp(extras.deliveryFeePhp)}`;
+    return scT(lang, "store_delivery_fee_amount_line", {
+      amount: formatMoneyPhp(extras.deliveryFeePhp),
+    });
   }
-  return "배달비 문의";
+  return scT(lang, "store_delivery_fee_inquire_line");
 }

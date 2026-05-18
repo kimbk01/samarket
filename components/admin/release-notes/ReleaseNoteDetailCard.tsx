@@ -1,17 +1,21 @@
 "use client";
 
 import { useMemo } from "react";
+import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getReleaseNoteById } from "@/lib/dev-sprints/mock-release-notes";
 import { getReleaseNoteItems } from "@/lib/dev-sprints/mock-release-note-items";
-import { getReleaseNoteStatusLabel } from "@/lib/dev-sprints/dev-sprint-utils";
-import { getReleaseNoteItemTypeLabel } from "@/lib/dev-sprints/dev-sprint-utils";
-import Link from "next/link";
+import {
+  RELEASE_NOTE_STATUS_KEYS,
+  RELEASE_NOTE_ITEM_TYPE_KEYS,
+} from "@/components/admin/i18n/admin-release-label-keys";
 
 interface ReleaseNoteDetailCardProps {
   releaseNoteId: string;
 }
 
 export function ReleaseNoteDetailCard({ releaseNoteId }: ReleaseNoteDetailCardProps) {
+  const { t } = useI18n();
   const note = useMemo(
     () => getReleaseNoteById(releaseNoteId),
     [releaseNoteId]
@@ -24,7 +28,7 @@ export function ReleaseNoteDetailCard({ releaseNoteId }: ReleaseNoteDetailCardPr
   if (!note) {
     return (
       <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-        릴리즈 노트를 찾을 수 없습니다.
+        {t("admin_rel_note_not_found")}
       </div>
     );
   }
@@ -44,7 +48,7 @@ export function ReleaseNoteDetailCard({ releaseNoteId }: ReleaseNoteDetailCardPr
                   : "bg-sam-surface-muted text-sam-muted"
             }`}
           >
-            {getReleaseNoteStatusLabel(note.status)}
+            {t(RELEASE_NOTE_STATUS_KEYS[note.status])}
           </span>
         </div>
         <h2 className="mt-2 sam-text-page-title font-semibold text-sam-fg">
@@ -52,22 +56,25 @@ export function ReleaseNoteDetailCard({ releaseNoteId }: ReleaseNoteDetailCardPr
         </h2>
         <p className="mt-2 sam-text-body text-sam-fg">{note.summary}</p>
         <p className="mt-2 sam-text-helper text-sam-muted">
-          릴리즈일 {note.releaseDate ?? "-"} · {note.createdByAdminNickname}
+          {t("admin_rel_note_meta", {
+            date: note.releaseDate ?? "-",
+            author: note.createdByAdminNickname,
+          })}
         </p>
         {note.includedSprintId && (
           <p className="mt-1 sam-text-helper text-sam-muted">
-            스프린트: {note.includedSprintId}
+            {t("admin_rel_sprint", { id: note.includedSprintId })}
             <Link href="/admin/dev-sprints" className="ml-1 text-signature hover:underline">
-              스프린트 보드
+              {t("admin_rel_sprint_board")}
             </Link>
           </p>
         )}
       </div>
 
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <h3 className="sam-text-body font-medium text-sam-fg">변경 항목</h3>
+        <h3 className="sam-text-body font-medium text-sam-fg">{t("admin_rel_changes_title")}</h3>
         {items.length === 0 ? (
-          <p className="mt-2 sam-text-body-secondary text-sam-muted">항목 없음</p>
+          <p className="mt-2 sam-text-body-secondary text-sam-muted">{t("admin_rel_changes_empty")}</p>
         ) : (
           <ul className="mt-2 space-y-2">
             {items.map((i) => (
@@ -76,14 +83,14 @@ export function ReleaseNoteDetailCard({ releaseNoteId }: ReleaseNoteDetailCardPr
                 className="flex flex-wrap items-start gap-2 border-b border-sam-border-soft pb-2 last:border-0 last:pb-0"
               >
                 <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 sam-text-helper text-sam-muted">
-                  {getReleaseNoteItemTypeLabel(i.itemType)}
+                  {t(RELEASE_NOTE_ITEM_TYPE_KEYS[i.itemType])}
                 </span>
                 <span className="font-medium text-sam-fg">{i.title}</span>
                 <span className="sam-text-body-secondary text-sam-muted">{i.description}</span>
                 <span className="flex gap-1 sam-text-helper">
                   {i.linkedBacklogItemId && (
                     <Link href="/admin/product-backlog" className="text-signature hover:underline">
-                      백로그
+                      {t("admin_rel_backlog")}
                     </Link>
                   )}
                   {i.linkedQaIssueId && (

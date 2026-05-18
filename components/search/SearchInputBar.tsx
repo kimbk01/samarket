@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useEffect } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface SearchInputBarProps {
   value: string;
@@ -14,9 +15,10 @@ export function SearchInputBar({
   value,
   onChange,
   onSubmit,
-  placeholder = "검색",
+  placeholder,
   autoFocus,
 }: SearchInputBarProps) {
+  const { t } = useI18n();
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -38,16 +40,16 @@ export function SearchInputBar({
           type="search"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
+          placeholder={placeholder ?? t("trade_024")}
           className="min-h-0 min-w-0 flex-1 self-stretch border-0 bg-transparent py-0 sam-text-body font-normal leading-[1.35] text-foreground placeholder:text-muted focus:outline-none focus:ring-0"
-          aria-label="검색어 입력"
+          aria-label={t("trade_027")}
         />
       </div>
       <button
         type="submit"
         className="flex min-h-[44px] shrink-0 items-center rounded-ui-rect bg-signature px-4 sam-text-body font-semibold text-white"
       >
-        검색
+        {t("trade_024")}
       </button>
     </form>
   );

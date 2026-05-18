@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -32,6 +33,7 @@ const BTN_PRIMARY =
  * 찜 목록 카드 하단 — 거래 채팅·상세의 판매자 영역으로 이동
  */
 export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [authBump, setAuthBump] = useState(0);
   useEffect(() => {
@@ -132,7 +134,7 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
     chatEnabled && post.type !== "community" && !isOwnPost;
 
   const tradeChatCtaLabel =
-    post.type !== "community" && existingRoomId ? "채팅 이어가기" : "채팅하기";
+    post.type !== "community" && existingRoomId ? t("ui_fav_chat_continue") : t("member_order_chat_action");
 
   const chatDisabled =
     chatBlockedByOtherReservation ||
@@ -223,11 +225,11 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
       return;
     }
     if (chatBlockedByOtherReservation) {
-      setChatError("다른 분과 예약이 진행 중인 상품입니다.");
+      setChatError(t("ui_fav_err_reserved_other"));
       return;
     }
     if (isSold && !allowChatAfterSold) {
-      setChatError("거래가 완료된 상품은 새 채팅을 열 수 없습니다.");
+      setChatError(t("ui_fav_err_sold_no_chat"));
       return;
     }
     const defaultCurrency = getAppSettings().defaultCurrency || "KRW";
@@ -238,16 +240,16 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
       typeof post.thumbnail_url === "string" && post.thumbnail_url.trim()
         ? post.thumbnail_url.trim()
         : imgArr[0] ?? "";
-    const productTitle = (post.title ?? "상품").trim();
+    const productTitle = (post.title ?? t("post_preview_product_default")).trim();
     const priceText = post.is_free_share
-      ? "무료나눔"
+      ? t("post_preview_free_share")
       : post.price != null
         ? formatPrice(post.price, defaultCurrency)
-        : "가격 문의";
+        : t("post_preview_price_inquiry");
     const sellerName =
       typeof post.author_nickname === "string" && post.author_nickname.trim()
         ? post.author_nickname.trim()
-        : "판매자";
+        : t("ui_fav_seller_fallback");
     openCreateTradeChat(router, {
       productId: post.id,
       composePreview: {
@@ -295,7 +297,7 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
             disabled={chatDisabled}
             title={
               chatBlockedByOtherReservation
-                ? "다른 구매자와 예약이 진행 중입니다"
+                ? t("ui_fav_reserved_other_title")
                 : undefined
             }
             className={BTN_PRIMARY}
@@ -304,7 +306,7 @@ export function FavoritePostTradeActions({ post }: { post: FavoritedPost }) {
           </button>
         ) : null}
         <Link href={sellerHref} className={showChat ? BTN_SECONDARY : `${BTN_SECONDARY} flex-[2]`}>
-          판매자 정보
+          {t("ui_fav_seller_info")}
         </Link>
       </div>
       {chatError ? <p className="sam-text-helper text-red-600">{chatError}</p> : null}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
@@ -17,6 +18,7 @@ type TradePresenceSettings = {
 };
 
 export function ChatSettingsContent() {
+  const { t } = useI18n();
   const userId = getCurrentUser()?.id ?? "me";
   const [settings, setSettings] = useState(() => getUserSettings(userId));
   const [tradePresence, setTradePresence] = useState<TradePresenceSettings | null>(null);
@@ -48,7 +50,7 @@ export function ChatSettingsContent() {
           };
         };
         if (cancelled || !j.ok || !j.settings) {
-          if (!cancelled && j.ok === false) setTradePresenceErr("거래 채팅 표시 설정을 불러오지 못했습니다.");
+          if (!cancelled && j.ok === false) setTradePresenceErr(t("settings_trade_presence_load_failed"));
           return;
         }
         setTradePresenceErr((prev) => (prev === null ? prev : null));
@@ -60,13 +62,13 @@ export function ChatSettingsContent() {
           audience,
         });
       } catch {
-        if (!cancelled) setTradePresenceErr("거래 채팅 표시 설정을 불러오지 못했습니다.");
+        if (!cancelled) setTradePresenceErr(t("settings_trade_presence_load_failed"));
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, t]);
 
   const toggle = (key: "chat_push_enabled" | "chat_preview_enabled") => {
     const v = settings[key];
@@ -95,11 +97,11 @@ export function ChatSettingsContent() {
       const j = (await r.json()) as { ok?: boolean; error?: string };
       if (!r.ok || !j.ok) {
         setTradePresence(prev);
-        setTradePresenceErr(j.error ?? "저장에 실패했습니다.");
+        setTradePresenceErr(j.error ?? t("settings_trade_presence_save_failed"));
       }
     } catch {
       setTradePresence(prev);
-      setTradePresenceErr("네트워크 오류로 저장하지 못했습니다.");
+      setTradePresenceErr(t("settings_trade_presence_network_failed"));
     } finally {
       setTradePresenceSaving((prev) => (prev ? false : prev));
     }
@@ -108,7 +110,7 @@ export function ChatSettingsContent() {
   return (
     <div className="space-y-0">
       <div className="flex items-center justify-between border-b border-sam-border-soft py-3">
-        <span className="sam-text-body text-sam-fg">채팅 알림</span>
+        <span className="sam-text-body text-sam-fg">{t("settings_chat_push")}</span>
         <button
           type="button"
           role="switch"
@@ -126,7 +128,7 @@ export function ChatSettingsContent() {
         </button>
       </div>
       <div className="flex items-center justify-between border-b border-sam-border-soft py-3">
-        <span className="sam-text-body text-sam-fg">미리보기 표시</span>
+        <span className="sam-text-body text-sam-fg">{t("settings_chat_preview")}</span>
         <button
           type="button"
           role="switch"
@@ -145,15 +147,13 @@ export function ChatSettingsContent() {
       </div>
 
       <div className="border-b border-sam-border-soft py-3">
-        <p className="sam-text-body font-semibold text-sam-fg">거래 채팅 표시</p>
-        <p className="mt-1 sam-text-helper leading-relaxed text-sam-muted">
-          온라인·자리비움은 연결과 최근 활동으로만 표시됩니다. 마지막 접속은 앱을 닫거나 오래 비활성일 때 갱신됩니다.
-        </p>
+        <p className="sam-text-body font-semibold text-sam-fg">{t("settings_trade_presence_title")}</p>
+        <p className="mt-1 sam-text-helper leading-relaxed text-sam-muted">{t("settings_trade_presence_desc")}</p>
         {tradePresenceErr ? <p className="mt-2 sam-text-helper text-red-600">{tradePresenceErr}</p> : null}
         {tradePresence ? (
           <div className="mt-3 space-y-3">
             <div className="flex items-center justify-between gap-2">
-              <span className="sam-text-body text-sam-fg">온라인 표시</span>
+              <span className="sam-text-body text-sam-fg">{t("settings_trade_presence_online")}</span>
               <button
                 type="button"
                 role="switch"
@@ -172,7 +172,7 @@ export function ChatSettingsContent() {
               </button>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <span className="sam-text-body text-sam-fg">마지막 접속 숨기기</span>
+              <span className="sam-text-body text-sam-fg">{t("settings_trade_presence_hide_last_seen")}</span>
               <button
                 type="button"
                 role="switch"
@@ -191,10 +191,8 @@ export function ChatSettingsContent() {
               </button>
             </div>
             <div>
-              <span className="sam-text-body text-sam-fg">상태 공개 범위</span>
-              <p className="mt-0.5 sam-text-xxs text-sam-muted">
-                「거래 상대만」은 같은 거래 채팅방에서만 온라인 표시가 공유됩니다.
-              </p>
+              <span className="sam-text-body text-sam-fg">{t("settings_trade_presence_audience")}</span>
+              <p className="mt-0.5 sam-text-xxs text-sam-muted">{t("settings_trade_presence_audience_hint")}</p>
               <select
                 className="mt-2 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
                 disabled={tradePresenceSaving}
@@ -206,14 +204,14 @@ export function ChatSettingsContent() {
                   }
                 }}
               >
-                <option value="everyone">모두에게 공개</option>
-                <option value="friends">거래 상대만</option>
-                <option value="nobody">나만 보기</option>
+                <option value="everyone">{t("settings_trade_presence_audience_everyone")}</option>
+                <option value="friends">{t("settings_trade_presence_audience_friends")}</option>
+                <option value="nobody">{t("settings_trade_presence_audience_nobody")}</option>
               </select>
             </div>
           </div>
         ) : tradePresenceErr ? null : (
-          <p className="mt-2 sam-text-helper text-sam-muted">설정을 불러오는 중…</p>
+          <p className="mt-2 sam-text-helper text-sam-muted">{t("settings_loading_settings")}</p>
         )}
       </div>
     </div>

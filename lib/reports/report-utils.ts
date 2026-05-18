@@ -2,14 +2,24 @@
  * 11단계: 신고 사유 옵션
  */
 
-export const REPORT_REASONS: { code: string; label: string }[] = [
-  { code: "spam", label: "스팸" },
-  { code: "fraud", label: "사기" },
-  { code: "abusive_language", label: "욕설·비방" },
-  { code: "no_show", label: "무응답·노쇼" },
-  { code: "inappropriate_item", label: "부적절한 상품" },
-  { code: "fake_listing", label: "허위 게시" },
-  { code: "other", label: "기타" },
+export const REPORT_REASONS: {
+  code: string;
+  labelKey:
+    | "ui_report_reason_spam"
+    | "ui_report_reason_fraud"
+    | "ui_report_reason_abusive"
+    | "ui_report_reason_no_show"
+    | "ui_report_reason_inappropriate"
+    | "ui_report_reason_fake"
+    | "ui_report_reason_other";
+}[] = [
+  { code: "spam", labelKey: "ui_report_reason_spam" },
+  { code: "fraud", labelKey: "ui_report_reason_fraud" },
+  { code: "abusive_language", labelKey: "ui_report_reason_abusive" },
+  { code: "no_show", labelKey: "ui_report_reason_no_show" },
+  { code: "inappropriate_item", labelKey: "ui_report_reason_inappropriate" },
+  { code: "fake_listing", labelKey: "ui_report_reason_fake" },
+  { code: "other", labelKey: "ui_report_reason_other" },
 ];
 
 /** 게시글 신고 사유 (리스트/상세 신고 화면용) */

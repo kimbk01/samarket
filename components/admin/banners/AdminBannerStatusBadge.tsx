@@ -2,14 +2,7 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { BannerStatus } from "@/lib/types/admin-banner";
-
-const LABELS: Record<BannerStatus, string> = {
-  draft: "초안",
-  active: "활성",
-  paused: "일시중지",
-  expired: "만료",
-  hidden: "숨김",
-};
+import { ADMIN_BANNER_STATUS_KEYS } from "./admin-banner-i18n";
 
 const CLASSES: Record<BannerStatus, string> = {
   draft: "bg-sam-surface-muted text-sam-fg",
@@ -25,12 +18,12 @@ interface AdminBannerStatusBadgeProps {
 }
 
 export function AdminBannerStatusBadge({ status, className = "" }: AdminBannerStatusBadgeProps) {
-  const { tt } = useI18n();
+  const { t } = useI18n();
   return (
     <span
       className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${CLASSES[status]} ${className}`}
     >
-      {tt(LABELS[status])}
+      {t(ADMIN_BANNER_STATUS_KEYS[status])}
     </span>
   );
 }

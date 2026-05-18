@@ -1,7 +1,8 @@
 "use client";
 
-import { CONDITIONS } from "@/lib/products/form-options";
+import { PRODUCT_CONDITION_OPTIONS } from "@/lib/products/form-options";
 import type { ProductCondition } from "@/lib/types/product-form";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface ProductConditionSelectProps {
   value: ProductCondition;
@@ -12,11 +13,12 @@ export function ProductConditionSelect({
   value,
   onChange,
 }: ProductConditionSelectProps) {
+  const { t } = useI18n();
   return (
     <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
-      <p className="mb-2 sam-text-body font-medium text-sam-fg">상품 상태</p>
+      <p className="mb-2 sam-text-body font-medium text-sam-fg">{t("ui_product_condition_label")}</p>
       <div className="flex flex-wrap gap-2">
-        {CONDITIONS.map((c) => (
+        {PRODUCT_CONDITION_OPTIONS.map((c) => (
           <button
             key={c.value}
             type="button"
@@ -27,7 +29,7 @@ export function ProductConditionSelect({
                 : "border-sam-border text-sam-muted"
             }`}
           >
-            {c.label}
+            {t(c.labelKey)}
           </button>
         ))}
       </div>

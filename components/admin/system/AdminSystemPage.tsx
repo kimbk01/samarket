@@ -1,26 +1,32 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { OperationStatusCards } from "./OperationStatusCards";
 import { SystemHealthList } from "./SystemHealthList";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type TabId = "overview" | "services";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "overview", label: "전체 상태" },
-  { id: "services", label: "서비스 상태" },
-];
-
 export function AdminSystemPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
+
+  const tabs = useMemo(
+    (): { id: TabId; labelKey: MessageKey }[] => [
+      { id: "overview", labelKey: "admin_system_tab_overview" },
+      { id: "services", labelKey: "admin_system_tab_services" },
+    ],
+    []
+  );
 
   return (
     <>
-      <AdminPageHeader title="최종 안정화 운영 체계" />
+      <AdminPageHeader titleKey="admin_page_system_stability" />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
-        {TABS.map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab.id}
             type="button"
@@ -31,17 +37,17 @@ export function AdminSystemPage() {
                 : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
       {activeTab === "overview" && (
-        <AdminCard title="전체 시스템 상태 요약">
+        <AdminCard titleKey="admin_system_card_overview">
           <OperationStatusCards />
         </AdminCard>
       )}
       {activeTab === "services" && (
-        <AdminCard title="서비스 health 리스트">
+        <AdminCard titleKey="admin_system_card_services">
           <SystemHealthList />
         </AdminCard>
       )}

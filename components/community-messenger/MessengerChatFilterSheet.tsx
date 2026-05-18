@@ -86,14 +86,14 @@ export function MessengerChatFilterSheet({
               </svg>
             </button>
             <p id={titleId} className="pr-11 sam-text-section-title font-semibold leading-snug tracking-tight text-sam-fg">
-              대화 필터
+              {t("cm_ui_conversation_filter")}
             </p>
             <p className="pr-11 sam-text-helper leading-relaxed text-sam-muted">
-              유형별로 빠르게 전환하세요. 고정은 핀 아이콘으로, 안읽음은 뱃지로 확인합니다.
+              {t("cm_ui_quick_switch_by_type")}
             </p>
           </div>
 
-          <nav className="min-h-0 flex-1 overflow-y-auto bg-sam-surface px-3 py-3" aria-label="대화 유형 선택">
+          <nav className="min-h-0 flex-1 overflow-y-auto bg-sam-surface px-3 py-3" aria-label={t("cm_ui_select_conversation_type")}>
             <ul className="flex flex-col gap-1.5">
               {FILTER_CHIPS.map((chip) => {
                 const selected = value === chip;

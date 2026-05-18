@@ -272,7 +272,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
           e.stopPropagation();
           void focusTimelineMessage(replyQuote.targetMessageId);
         }}
-        aria-label={`원본 메시지로 이동: ${replyQuote.senderLabel}`}
+        aria-label={tt("cm_ui_jump_to_original_message", { label: replyQuote.senderLabel })}
       >
         <p
           className={`sam-text-xxs font-bold leading-snug ${mine ? "text-white" : "text-[color:var(--cm-room-primary)]"}`}
@@ -322,7 +322,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
                     anchor: messengerMessageAnchorRectFromDomRect(e.currentTarget.getBoundingClientRect()),
                   });
                 }}
-                aria-label={`${r.reactionKey} 반응 ${r.count}명, 누가 눌렀는지 보기`}
+                aria-label={tt("cm_ui_reaction_view_aria", { key: r.reactionKey, count: r.count })}
               >
                 <span className="text-base leading-none">{r.reactionKey}</span>
                 {r.count >= 1 ? <span className="tabular-nums opacity-90">{r.count}</span> : null}
@@ -449,7 +449,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
                     </span>
                   ) : null}
                   {mineUnreadBadgeVisible ? (
-                    <span className="shrink-0 pb-0.5 text-[11px] leading-none text-[#65676b]">안읽음</span>
+                    <span className="shrink-0 pb-0.5 text-[11px] leading-none text-[#65676b]">{tt("cm_ui_unread")}</span>
                   ) : null}
                   {renderBubbleStack(viberBubble)}
                 </>

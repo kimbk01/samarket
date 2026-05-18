@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -9,13 +10,13 @@ export type MobileSheetInteractionMode = "standard" | "blocking";
 
 export type MobileConfirmBottomSheetProps = {
   open: boolean;
-  /** 배경 클릭·취소 버튼과 동일할 때 (`interactionMode="blocking"` 이면 배경 탭 없음) */
+  /** 배경 클릭·{t("common_cancel")} 버튼과 동일할 때 (`interactionMode="blocking"` 이면 배경 탭 {t("common_none")}) */
   onCancel: () => void;
   title: string;
   description?: string;
   cancelLabel: string;
   confirmLabel: string;
-  /** 나가기·삭제 등 위험 동작 */
+  /** 나가기·{t("common_delete")} 등 위험 동작 */
   confirmTone?: "danger" | "primary";
   onConfirm: () => void;
   /** 시트·다른 오버레이 위 */
@@ -39,9 +40,11 @@ export function MobileConfirmBottomSheet({
   confirmTone = "danger",
   onConfirm,
   zIndexClass = "z-[60]",
-  ariaLabel = "확인",
+  ariaLabel,
   interactionMode = "standard",
 }: MobileConfirmBottomSheetProps) {
+  const { t } = useI18n();
+  const resolvedAriaLabel = ariaLabel ?? t("ui_sheet_confirm_aria");
   const [entered, setEntered] = useState(false);
   const blocking = interactionMode === "blocking";
 
@@ -84,7 +87,7 @@ export function MobileConfirmBottomSheet({
       className={`fixed inset-0 flex items-center justify-center p-4 ${zIndexClass}`}
       role="dialog"
       aria-modal
-      aria-label={ariaLabel}
+      aria-label={resolvedAriaLabel}
     >
       <div className="absolute inset-0 bg-black/50" aria-hidden />
       <div
@@ -116,14 +119,14 @@ export function MobileConfirmBottomSheet({
       className={`fixed inset-0 flex items-end justify-center ${zIndexClass}`}
       role="dialog"
       aria-modal
-      aria-label={ariaLabel}
+      aria-label={resolvedAriaLabel}
     >
       <button
         type="button"
         className="absolute inset-0 bg-black/50 transition-opacity duration-200"
         style={{ opacity: entered ? 1 : 0 }}
         onClick={onCancel}
-        aria-label="닫기"
+        aria-label={t("ui_sheet_close_aria")}
       />
       <div
         className={`relative w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-2 shadow-[0_-8px_32px_rgba(15,23,42,0.18)] transition-transform duration-300 ease-[cubic-bezier(0.22,0.9,0.32,1)] ${
@@ -185,9 +188,11 @@ export function MobileDualActionBottomSheet({
   onSecondary,
   primaryTone = "primary",
   zIndexClass = "z-[60]",
-  ariaLabel = "선택",
+  ariaLabel,
   interactionMode = "standard",
 }: MobileDualActionBottomSheetProps) {
+  const { t } = useI18n();
+  const resolvedAriaLabel = ariaLabel ?? t("ui_sheet_choice_aria");
   const [entered, setEntered] = useState(false);
   const blocking = interactionMode === "blocking";
 
@@ -247,7 +252,7 @@ export function MobileDualActionBottomSheet({
       className={`fixed inset-0 flex items-center justify-center p-4 ${zIndexClass}`}
       role="dialog"
       aria-modal
-      aria-label={ariaLabel}
+      aria-label={resolvedAriaLabel}
     >
       <div className="absolute inset-0 bg-black/50" aria-hidden />
       <div
@@ -267,14 +272,14 @@ export function MobileDualActionBottomSheet({
       className={`fixed inset-0 flex items-end justify-center ${zIndexClass}`}
       role="dialog"
       aria-modal
-      aria-label={ariaLabel}
+      aria-label={resolvedAriaLabel}
     >
       <button
         type="button"
         className="absolute inset-0 bg-black/50 transition-opacity duration-200"
         style={{ opacity: entered ? 1 : 0 }}
         onClick={onClose}
-        aria-label="닫기"
+        aria-label={t("ui_sheet_close_aria")}
       />
       <div
         className={`relative w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-2 shadow-[0_-8px_32px_rgba(15,23,42,0.18)] transition-transform duration-300 ease-[cubic-bezier(0.22,0.9,0.32,1)] ${

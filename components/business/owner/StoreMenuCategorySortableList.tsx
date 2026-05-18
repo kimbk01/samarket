@@ -19,6 +19,7 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { memo, useCallback, useMemo } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export type StoreMenuCategorySortableItem = {
   id: string;
@@ -58,6 +59,7 @@ const SortableCategoryRow = memo(function SortableCategoryRow({
   onEdit,
   onDelete,
 }: SortableRowProps) {
+  const { t } = useI18n();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: item.id,
     disabled: !reorderEnabled || disabled,
@@ -84,7 +86,7 @@ const SortableCategoryRow = memo(function SortableCategoryRow({
           {...listeners}
           {...attributes}
           style={{ touchAction: "none" }}
-          aria-label={`${item.name} 순서 바꾸기 — 줄 세 개를 드래그하세요`}
+          aria-label={t("business_phase7_482", { v1: item.name })}
           className={`flex shrink-0 flex-col justify-center gap-1.5 rounded-ui-rect border border-transparent bg-transparent px-1.5 py-2 text-sam-muted outline-none hover:border-sam-border-soft hover:bg-sam-surface-muted ${
             disabled ? "cursor-not-allowed opacity-45" : "cursor-grab touch-none active:cursor-grabbing"
           }`}
@@ -100,20 +102,20 @@ const SortableCategoryRow = memo(function SortableCategoryRow({
         <div className="min-w-0 flex-1 cursor-default select-none py-0.5 text-left">
           <p className={categoryTitleClass}>{item.name}</p>
           <p className={categoryMetaClass}>
-            정렬 {orderIndex}
+            {t("business_phase7_483", { v1: String(orderIndex) })}
             {item.is_hidden ? (
               <span className="ml-2 rounded bg-sam-border-soft px-1.5 py-0.5 text-sam-fg [font-size:calc(var(--sam-text-helper-size)-1px)]">
-                숨김
+                {t("business_phase7_418")}
               </span>
             ) : null}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
           <button type="button" onClick={() => onEdit(item)} className={rowEditBtnClass}>
-            수정
+            {t("common_edit")}
           </button>
           <button type="button" onClick={() => onDelete(item)} className={rowDeleteBtnClass}>
-            삭제
+            {t("common_delete")}
           </button>
         </div>
       </div>
@@ -132,6 +134,7 @@ function StaticCategoryRow({
   onEdit: (s: StoreMenuCategorySortableItem) => void;
   onDelete: (s: StoreMenuCategorySortableItem) => void;
 }) {
+  const { t } = useI18n();
   return (
     <li className="relative flex items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3 shadow-sm">
       <span className="w-8 shrink-0" aria-hidden />
@@ -139,20 +142,20 @@ function StaticCategoryRow({
         <div className="min-w-0 flex-1 cursor-default select-none py-0.5 text-left">
           <p className={categoryTitleClass}>{item.name}</p>
           <p className={categoryMetaClass}>
-            정렬 {orderIndex}
+            {t("business_phase7_483", { v1: String(orderIndex) })}
             {item.is_hidden ? (
               <span className="ml-2 rounded bg-sam-border-soft px-1.5 py-0.5 text-sam-fg [font-size:calc(var(--sam-text-helper-size)-1px)]">
-                숨김
+                {t("business_phase7_418")}
               </span>
             ) : null}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-0.5">
           <button type="button" onClick={() => onEdit(item)} className={rowEditBtnClass}>
-            수정
+            {t("common_edit")}
           </button>
           <button type="button" onClick={() => onDelete(item)} className={rowDeleteBtnClass}>
-            삭제
+            {t("common_delete")}
           </button>
         </div>
       </div>

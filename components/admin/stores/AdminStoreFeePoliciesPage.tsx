@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type Row = {
   id: string;
@@ -38,10 +40,10 @@ function fmtPercent(n: number) {
   return `${v.toFixed(2)}%`;
 }
 
-function scopeLabel(r: Row): string {
-  if (r.store_id) return "업체";
-  if (r.category_id) return "업종";
-  return "기본";
+function scopeLabelKey(r: Row): MessageKey {
+  if (r.store_id) return "admin_stores_fee_scope_store";
+  if (r.category_id) return "admin_stores_fee_scope_category";
+  return "admin_stores_fee_scope_default";
 }
 
 function feePolicyApiErrorCode(error: unknown, httpStatus: number): string {
@@ -52,33 +54,45 @@ function feePolicyApiErrorCode(error: unknown, httpStatus: number): string {
   return `http_error_${httpStatus}`;
 }
 
-function feePolicyErrorToKo(code: string | undefined): string {
+function feePolicyErrorKey(code: string | undefined): MessageKey | null {
   const c = String(code ?? "").trim();
   switch (c) {
     case "policy_archived":
-      return "보관된 정책은 이 방식으로 수정할 수 없습니다. 복구하거나 보관 해제 후 다시 시도해 주세요.";
+      return "admin_stores_fee_err_archived";
     case "conflict_default_overlap":
-      return "기본 정책은 같은 기간에 여러 활성 정책을 둘 수 없습니다. 기존 정책을 조정한 뒤 복구해 주세요.";
+      return "admin_stores_fee_err_conflict_default";
     case "conflict_priority_overlap":
-      return "같은 적용 대상·기간 안에서 동일 priority의 활성 정책이 이미 있습니다. priority 또는 기간을 바꾼 뒤 복구해 주세요.";
+      return "admin_stores_fee_err_conflict_priority";
     case "failed_to_archive":
-      return "보관 처리에 실패했습니다. 잠시 후 다시 시도하거나 관리자에게 문의해 주세요.";
+      return "admin_stores_fee_err_archive_failed";
     case "failed_to_restore":
-      return "복구에 실패했습니다. 잠시 후 다시 시도하거나 관리자에게 문의해 주세요.";
+      return "admin_stores_fee_err_restore_failed";
     case "not_archived":
-      return "보관 상태가 아닌 정책입니다.";
+      return "admin_stores_fee_err_not_archived";
     case "network_error":
-      return "네트워크 오류가 발생했습니다. 연결을 확인한 뒤 다시 시도해 주세요.";
+      return "common_network_error";
     case "table_missing":
-      return "store_fee_policies 테이블 마이그레이션을 적용해 주세요.";
+      return "admin_stores_fee_err_table_missing";
     case "forbidden":
-      return "관리자 권한이 필요합니다.";
+      return "admin_stores_fee_err_forbidden";
     case "supabase_unconfigured":
-      return "저장소 설정이 되어 있지 않습니다.";
+      return "admin_stores_fee_err_supabase";
     default:
-      if (/^http_error_\d+$/.test(c)) return `요청이 거절되었습니다. (${c.replace("http_error_", "HTTP ")})`;
-      return c || "요청을 처리하지 못했습니다.";
+      return null;
   }
+}
+
+function feePolicyErrorMessage(
+  t: (key: MessageKey, params?: Record<string, string | number>) => string,
+  code: string | undefined
+): string {
+  const c = String(code ?? "").trim();
+  const key = feePolicyErrorKey(c);
+  if (key) return t(key);
+  if (/^http_error_\d+$/.test(c)) {
+    return t("admin_stores_fee_err_http", { status: c.replace("http_error_", "HTTP ") });
+  }
+  return c || t("admin_stores_fee_err_generic");
 }
 
 function formatArchivedBy(id: string | null | undefined): string {
@@ -86,22 +100,31 @@ function formatArchivedBy(id: string | null | undefined): string {
   return s || "—";
 }
 
-function targetScopeDescription(r: Row, stores: StoreRow[], categories: CategoryRow[]): string {
+function targetScopeDescription(
+  r: Row,
+  stores: StoreRow[],
+  categories: CategoryRow[],
+  t: (key: MessageKey, params?: Record<string, string | number>) => string
+): string {
   if (r.store_id) {
     const s = stores.find((x) => x.id === r.store_id);
-    const tail = s ? `${String(s.store_name ?? "매장")}${s.slug ? ` /${s.slug}` : ""}` : r.store_id;
+    const tail = s
+      ? `${String(s.store_name ?? t("common_store"))}${s.slug ? ` /${s.slug}` : ""}`
+      : r.store_id;
     if (r.category_id) {
       const c = categories.find((x) => x.id === r.category_id);
       const ct = c ? `${c.name} (${c.slug})` : r.category_id;
-      return `업체: ${tail} · 업종(피벗): ${ct}`;
+      return t("admin_stores_fee_scope_store_pivot", { tail, category: ct });
     }
-    return `업체: ${tail}`;
+    return t("admin_stores_fee_scope_store_label", { tail });
   }
   if (r.category_id) {
     const c = categories.find((x) => x.id === r.category_id);
-    return c ? `업종: ${c.name} (${c.slug})` : `업종: ${r.category_id}`;
+    return c
+      ? t("admin_stores_fee_scope_category_label", { name: `${c.name} (${c.slug})` })
+      : t("admin_stores_fee_scope_category_label", { name: r.category_id });
   }
-  return "기본(전역)";
+  return t("admin_stores_fee_scope_global");
 }
 
 function feeSummary(r: Row): string {
@@ -130,6 +153,7 @@ function dateInputToIsoRangeEnd(d: string): string | null {
 }
 
 export function AdminStoreFeePoliciesPage() {
+  const { t } = useI18n();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -432,17 +456,17 @@ export function AdminStoreFeePoliciesPage() {
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!json.ok) {
-        setArchiveModalError(feePolicyErrorToKo(feePolicyApiErrorCode(json.error, res.status)));
+        setArchiveModalError(feePolicyErrorMessage(t, feePolicyApiErrorCode(json.error, res.status)));
         return;
       }
       closeArchiveModal(true);
       await load();
     } catch {
-      setArchiveModalError(feePolicyErrorToKo("network_error"));
+      setArchiveModalError(feePolicyErrorMessage(t, "network_error"));
     } finally {
       setBusy(false);
     }
-  }, [archiveModalRow, archiveReasonDraft, closeArchiveModal, load]);
+  }, [archiveModalRow, archiveReasonDraft, closeArchiveModal, load, t]);
 
   const confirmRestore = useCallback(async () => {
     const row = restoreModalRow;
@@ -459,40 +483,42 @@ export function AdminStoreFeePoliciesPage() {
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!json.ok) {
-        setRestoreModalError(feePolicyErrorToKo(feePolicyApiErrorCode(json.error, res.status)));
+        setRestoreModalError(feePolicyErrorMessage(t, feePolicyApiErrorCode(json.error, res.status)));
         return;
       }
       closeRestoreModal(true);
       await load();
     } catch {
-      setRestoreModalError(feePolicyErrorToKo("network_error"));
+      setRestoreModalError(feePolicyErrorMessage(t, "network_error"));
     } finally {
       setBusy(false);
     }
-  }, [closeRestoreModal, load, restoreModalRow]);
+  }, [closeRestoreModal, load, restoreModalRow, t]);
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="수수료 정책 (필리핀형)" />
-      <p className="sam-text-body-secondary text-sam-muted">
-        우선순위: <strong className="text-sam-fg">업체(store_id) &gt; 업종(category_id) &gt; 기본</strong>. 실제 적용은
-        completed 시점에 원장 스냅샷으로 저장됩니다.
-      </p>
+      <AdminPageHeader titleKey="admin_page_store_fee_policies" />
+      <p className="sam-text-body-secondary text-sam-muted">{t("admin_stores_fee_desc")}</p>
 
       {error ? (
         <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">
-          {feePolicyErrorToKo(error)}
+          {feePolicyErrorMessage(t, error)}
         </p>
       ) : null}
 
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-sam-fg">{mode === "create" ? "정책 생성" : "정책 수정"}</h2>
+        <h2 className="text-sm font-semibold text-sam-fg">
+          {mode === "create" ? t("admin_stores_fee_form_create") : t("admin_stores_fee_form_edit")}
+        </h2>
         <p className="mt-1 sam-text-helper text-sam-muted">
-          기간 겹침 + 동일 priority 충돌은 저장 시 차단됩니다.
+          {t("admin_stores_fee_form_hint")}
           {effectiveDefaults ? (
             <span className="ml-1 text-sam-muted">
-              (현재 기본: {effectiveDefaults.policy_name}, {fmtPercent(effectiveDefaults.fee_percent)} +{" "}
-              {fmtMoney(effectiveDefaults.fixed_fee)})
+              {t("admin_stores_fee_form_current_default", {
+                name: effectiveDefaults.policy_name,
+                percent: fmtPercent(effectiveDefaults.fee_percent),
+                fixed: fmtMoney(effectiveDefaults.fixed_fee),
+              })}
             </span>
           ) : null}
         </p>
@@ -502,13 +528,13 @@ export function AdminStoreFeePoliciesPage() {
             value={policyType}
             onChange={(e) => setPolicyType(e.target.value as any)}
           >
-            <option value="default">기본</option>
-            <option value="category">업종</option>
-            <option value="store">업체</option>
+            <option value="default">{t("admin_stores_fee_scope_default")}</option>
+            <option value="category">{t("admin_stores_fee_scope_category")}</option>
+            <option value="store">{t("admin_stores_fee_scope_store")}</option>
           </select>
           <label className="flex items-center gap-2 text-sm text-sam-fg">
             <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} />
-            활성
+            {t("common_active")}
           </label>
           <input
             type="date"
@@ -526,20 +552,20 @@ export function AdminStoreFeePoliciesPage() {
         <div className="mt-3 flex flex-wrap gap-2">
           <input
             className="w-56 rounded border border-sam-border px-2 py-1.5 text-sm"
-            placeholder="정책명"
+            placeholder={t("admin_stores_fee_ph_name")}
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
           <input
             className="w-28 rounded border border-sam-border px-2 py-1.5 text-sm"
-            placeholder="수수료%"
+            placeholder={t("admin_stores_fee_ph_percent")}
             value={feePercent}
             onChange={(e) => setFeePercent(e.target.value)}
             inputMode="decimal"
           />
           <input
             className="w-28 rounded border border-sam-border px-2 py-1.5 text-sm"
-            placeholder="고정수수료"
+            placeholder={t("admin_stores_fee_ph_fixed")}
             value={fixedFee}
             onChange={(e) => setFixedFee(e.target.value)}
             inputMode="numeric"
@@ -549,13 +575,13 @@ export function AdminStoreFeePoliciesPage() {
             value={deliveryMode}
             onChange={(e) => setDeliveryMode(e.target.value as any)}
           >
-            <option value="none">배달비 수익 없음</option>
-            <option value="percent">배달비 수익 %</option>
+            <option value="none">{t("admin_stores_fee_delivery_none")}</option>
+            <option value="percent">{t("admin_stores_fee_delivery_percent")}</option>
           </select>
           {deliveryMode === "percent" ? (
             <input
               className="w-28 rounded border border-sam-border px-2 py-1.5 text-sm"
-              placeholder="배달비%"
+              placeholder={t("admin_stores_fee_ph_delivery_percent")}
               value={deliveryPercent}
               onChange={(e) => setDeliveryPercent(e.target.value)}
               inputMode="decimal"
@@ -579,7 +605,7 @@ export function AdminStoreFeePoliciesPage() {
             onClick={() => void submit()}
             className="rounded bg-sam-ink px-3 py-2 text-sm font-medium text-white disabled:opacity-40"
           >
-            {mode === "create" ? "생성" : "저장"}
+            {mode === "create" ? t("admin_stores_fee_create") : t("common_save")}
           </button>
           <button
             type="button"
@@ -587,7 +613,7 @@ export function AdminStoreFeePoliciesPage() {
             onClick={() => void load()}
             className="rounded border border-sam-border px-3 py-2 text-sm font-medium text-sam-fg disabled:opacity-40"
           >
-            새로고침
+            {t("admin_stores_fee_refresh")}
           </button>
           {mode === "edit" ? (
             <button
@@ -595,7 +621,7 @@ export function AdminStoreFeePoliciesPage() {
               onClick={resetFormForCreate}
               className="rounded border border-sam-border px-3 py-2 text-sm font-medium text-sam-fg"
             >
-              새 정책 생성으로 전환
+              {t("admin_stores_fee_switch_create")}
             </button>
           ) : null}
         </div>
@@ -603,10 +629,10 @@ export function AdminStoreFeePoliciesPage() {
         {policyType === "store" ? (
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             <div>
-              <p className="sam-text-helper text-sam-muted">업체 선택</p>
+              <p className="sam-text-helper text-sam-muted">{t("admin_stores_fee_pick_store")}</p>
               <input
                 className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
-                placeholder="매장명/슬러그 검색"
+                placeholder={t("admin_stores_fee_search_store")}
                 value={storeQuery}
                 onChange={(e) => setStoreQuery(e.target.value)}
               />
@@ -616,19 +642,19 @@ export function AdminStoreFeePoliciesPage() {
                 onChange={(e) => setSelectedStoreId(e.target.value)}
                 disabled={refLoading}
               >
-                <option value="">(선택)</option>
+                <option value="">{t("admin_stores_fee_pick_optional")}</option>
                 {storeOptions.map((s) => (
                   <option key={s.id} value={s.id}>
-                    {String(s.store_name ?? "매장")} {s.slug ? `/${s.slug}` : ""}
+                    {String(s.store_name ?? t("common_store"))} {s.slug ? `/${s.slug}` : ""}
                   </option>
                 ))}
               </select>
             </div>
             <div>
-              <p className="sam-text-helper text-sam-muted">업종(선택)</p>
+              <p className="sam-text-helper text-sam-muted">{t("admin_stores_fee_category_optional")}</p>
               <input
                 className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
-                placeholder="업종 검색"
+                placeholder={t("admin_stores_fee_search_category")}
                 value={categoryQuery}
                 onChange={(e) => setCategoryQuery(e.target.value)}
               />
@@ -638,7 +664,7 @@ export function AdminStoreFeePoliciesPage() {
                 onChange={(e) => setSelectedCategoryId(e.target.value)}
                 disabled={refLoading}
               >
-                <option value="">(선택 안함)</option>
+                <option value="">{t("admin_stores_fee_pick_none")}</option>
                 {categoryOptions.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name} ({c.slug})
@@ -651,10 +677,10 @@ export function AdminStoreFeePoliciesPage() {
 
         {policyType === "category" ? (
           <div className="mt-3">
-            <p className="sam-text-helper text-sam-muted">업종 선택</p>
+            <p className="sam-text-helper text-sam-muted">{t("admin_stores_fee_pick_category")}</p>
             <input
               className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
-              placeholder="업종 검색"
+              placeholder={t("admin_stores_fee_search_category")}
               value={categoryQuery}
               onChange={(e) => setCategoryQuery(e.target.value)}
             />
@@ -664,7 +690,7 @@ export function AdminStoreFeePoliciesPage() {
               onChange={(e) => setSelectedCategoryId(e.target.value)}
               disabled={refLoading}
             >
-              <option value="">(선택)</option>
+              <option value="">{t("admin_stores_fee_pick_optional")}</option>
               {categoryOptions.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name} ({c.slug})
@@ -675,13 +701,13 @@ export function AdminStoreFeePoliciesPage() {
         ) : null}
 
         <div className="mt-3">
-          <p className="sam-text-helper text-sam-muted">메모</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_stores_fee_memo_label")}</p>
           <textarea
             className="mt-1 w-full rounded border border-sam-border px-2 py-2 text-sm"
             rows={3}
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
-            placeholder="계약/운영 메모"
+            placeholder={t("admin_stores_fee_memo_ph")}
           />
         </div>
       </div>
@@ -694,34 +720,32 @@ export function AdminStoreFeePoliciesPage() {
             disabled={loading || busy}
             onChange={(e) => setIncludeArchived(e.target.checked)}
           />
-          보관 포함
+          {t("admin_stores_fee_include_archived")}
         </label>
-        <p className="sam-text-xxs text-sam-muted">
-          보관 정책은 정산에 적용되지 않습니다. 기본 목록에서는 숨깁니다.
-        </p>
+        <p className="sam-text-xxs text-sam-muted">{t("admin_stores_fee_archived_hint")}</p>
       </div>
 
       {loading ? (
-        <p className="text-sm text-sam-muted">불러오는 중…</p>
+        <p className="text-sm text-sam-muted">{t("common_loading")}</p>
       ) : rows.length === 0 ? (
         <p className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 text-sm text-sam-muted">
-          정책이 없습니다. 기본 정책부터 생성해 주세요.
+          {t("admin_stores_fee_empty")}
         </p>
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
           <table className="min-w-[960px] w-full text-left sam-text-body-secondary">
             <thead className="border-b border-sam-border-soft bg-sam-app text-sam-muted">
               <tr>
-                <th className="px-3 py-2">정책명</th>
-                <th className="px-3 py-2">대상</th>
-                <th className="px-3 py-2">수수료</th>
-                <th className="px-3 py-2">배달비 수익</th>
-                <th className="px-3 py-2">기간</th>
+                <th className="px-3 py-2">{t("admin_stores_fee_th_name")}</th>
+                <th className="px-3 py-2">{t("admin_stores_fee_th_target")}</th>
+                <th className="px-3 py-2">{t("admin_stores_fee_th_fee")}</th>
+                <th className="px-3 py-2">{t("admin_stores_fee_th_delivery")}</th>
+                <th className="px-3 py-2">{t("admin_stores_fee_th_period")}</th>
                 <th className="px-3 py-2">priority</th>
-                <th className="px-3 py-2">활성</th>
-                <th className="px-3 py-2">보관</th>
-                <th className="px-3 py-2">메모</th>
-                <th className="px-3 py-2">액션</th>
+                <th className="px-3 py-2">{t("admin_stores_fee_th_active")}</th>
+                <th className="px-3 py-2">{t("admin_stores_fee_th_archive")}</th>
+                <th className="px-3 py-2">{t("admin_stores_fee_th_memo")}</th>
+                <th className="px-3 py-2">{t("admin_stores_settlements_th_action")}</th>
               </tr>
             </thead>
             <tbody>
@@ -735,12 +759,14 @@ export function AdminStoreFeePoliciesPage() {
                       <span>{r.policy_name}</span>
                       {r.is_archived ? (
                         <span className="rounded-full bg-slate-200 px-2 py-0.5 sam-text-xxs font-medium text-slate-700">
-                          보관됨
+                          {t("admin_stores_fee_archived_badge")}
                         </span>
                       ) : null}
                     </div>
                   </td>
-                  <td className="px-3 py-2 text-sam-muted">{targetScopeDescription(r, stores, categories)}</td>
+                  <td className="px-3 py-2 text-sam-muted">
+                    {targetScopeDescription(r, stores, categories, t)}
+                  </td>
                   <td className="px-3 py-2">
                     {fmtPercent(r.fee_percent)} + {fmtMoney(r.fixed_fee)}
                   </td>
@@ -756,17 +782,17 @@ export function AdminStoreFeePoliciesPage() {
                     {r.is_archived ? (
                       <div className="space-y-1.5">
                         <div>
-                          <span className="text-slate-500">보관일</span>{" "}
+                          <span className="text-slate-500">{t("admin_stores_fee_archived_at")}</span>{" "}
                           <span className="font-mono text-slate-700">
                             {(r.archived_at ?? "").slice(0, 19).replace("T", " ") || "—"}
                           </span>
                         </div>
                         <div>
-                          <span className="text-slate-500">보관자</span>{" "}
+                          <span className="text-slate-500">{t("admin_stores_fee_archived_by")}</span>{" "}
                           <span className="break-all font-mono text-slate-700">{formatArchivedBy(r.archived_by)}</span>
                         </div>
                         <div>
-                          <span className="text-slate-500">사유</span>{" "}
+                          <span className="text-slate-500">{t("admin_stores_fee_archive_reason")}</span>{" "}
                           <span className="break-words text-slate-700">
                             {typeof r.archive_reason === "string" && r.archive_reason.trim()
                               ? r.archive_reason
@@ -793,7 +819,7 @@ export function AdminStoreFeePoliciesPage() {
                         className="rounded border border-sam-border px-2 py-1 sam-text-xxs text-sam-fg disabled:opacity-40"
                         onClick={() => startEdit(r)}
                       >
-                        수정
+                        {t("common_edit")}
                       </button>
                       {r.is_active && !r.is_archived ? (
                         <button
@@ -802,7 +828,7 @@ export function AdminStoreFeePoliciesPage() {
                           className="rounded border border-amber-300 px-2 py-1 sam-text-xxs text-amber-900 disabled:opacity-40"
                           onClick={() => void deactivate(r.id)}
                         >
-                          비활성
+                          {t("admin_stores_fee_deactivate")}
                         </button>
                       ) : null}
                       {!r.is_archived ? (
@@ -816,7 +842,7 @@ export function AdminStoreFeePoliciesPage() {
                             setArchiveModalError(null);
                           }}
                         >
-                          보관
+                          {t("admin_stores_fee_archive")}
                         </button>
                       ) : (
                         <button
@@ -828,7 +854,7 @@ export function AdminStoreFeePoliciesPage() {
                             setRestoreModalError(null);
                           }}
                         >
-                          복구
+                          {t("admin_stores_fee_restore")}
                         </button>
                       )}
                     </div>
@@ -855,26 +881,26 @@ export function AdminStoreFeePoliciesPage() {
             aria-labelledby="fee-policy-archive-title"
           >
             <h2 id="fee-policy-archive-title" className="text-base font-bold text-sam-fg">
-              정책 보관
+              {t("admin_stores_fee_archive_modal_title")}
             </h2>
-            <p className="mt-2 sam-text-helper text-sam-muted">
-              삭제가 아니라 보관입니다. 보관된 정책은 정산 계산 후보에서 제외되며, 필요 시 복구할 수 있습니다.
-            </p>
+            <p className="mt-2 sam-text-helper text-sam-muted">{t("admin_stores_fee_archive_modal_desc")}</p>
             <dl className="mt-4 space-y-2 sam-text-body-secondary">
               <div>
-                <dt className="text-sam-muted">정책명</dt>
+                <dt className="text-sam-muted">{t("admin_stores_fee_th_name")}</dt>
                 <dd className="font-medium text-sam-fg">{archiveModalRow.policy_name}</dd>
               </div>
               <div>
-                <dt className="text-sam-muted">적용 대상</dt>
-                <dd>{targetScopeDescription(archiveModalRow, stores, categories)}</dd>
+                <dt className="text-sam-muted">{t("admin_stores_fee_th_target")}</dt>
+                <dd>{targetScopeDescription(archiveModalRow, stores, categories, t)}</dd>
               </div>
               <div>
-                <dt className="text-sam-muted">수수료</dt>
+                <dt className="text-sam-muted">{t("admin_stores_fee_th_fee")}</dt>
                 <dd>{feeSummary(archiveModalRow)}</dd>
               </div>
             </dl>
-            <label className="mt-4 block text-xs font-medium text-sam-muted">보관 사유 (선택)</label>
+            <label className="mt-4 block text-xs font-medium text-sam-muted">
+              {t("admin_stores_fee_archive_reason_ph")}
+            </label>
             <textarea
               value={archiveReasonDraft}
               onChange={(e) => setArchiveReasonDraft(e.target.value)}
@@ -882,7 +908,7 @@ export function AdminStoreFeePoliciesPage() {
               disabled={busy}
               maxLength={2000}
               className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm disabled:opacity-50"
-              placeholder="운영/감사용 메모"
+              placeholder={t("admin_stores_fee_archive_reason_ph")}
             />
             {archiveModalError ? (
               <p className="mt-3 rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-helper text-red-900">
@@ -896,7 +922,7 @@ export function AdminStoreFeePoliciesPage() {
                 onClick={() => closeArchiveModal()}
                 className="rounded-ui-rect border border-sam-border px-4 py-2 text-sm font-medium text-sam-fg disabled:opacity-40"
               >
-                취소
+                {t("common_cancel")}
               </button>
               <button
                 type="button"
@@ -904,7 +930,7 @@ export function AdminStoreFeePoliciesPage() {
                 onClick={() => void confirmArchive()}
                 className="rounded-ui-rect bg-sam-ink px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
               >
-                보관
+                {t("admin_stores_fee_archive")}
               </button>
             </div>
           </div>
@@ -926,32 +952,32 @@ export function AdminStoreFeePoliciesPage() {
             aria-labelledby="fee-policy-restore-title"
           >
             <h2 id="fee-policy-restore-title" className="text-base font-bold text-sam-fg">
-              보관 정책 복구
+              {t("admin_stores_fee_restore_modal_title")}
             </h2>
-            <p className="mt-2 sam-text-helper text-sam-muted">
-              복구 후 정책이 다시 후보에 올라갑니다.{" "}
-              <strong className="text-sam-fg">활성</strong>이면서 같은 적용 대상·기간이 겹치는 정책이 있으면 복구가
-              거절될 수 있습니다.
-            </p>
+            <p className="mt-2 sam-text-helper text-sam-muted">{t("admin_stores_fee_restore_modal_desc")}</p>
             <div className="mt-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">
-              동일 priority가 겹치면 복구가 막힐 수 있습니다. 기본 정책은 같은 기간에 둘 이상 둘 수 없습니다.
+              {t("admin_stores_fee_restore_warn")}
             </div>
             <dl className="mt-4 space-y-2 sam-text-body-secondary">
               <div>
-                <dt className="text-sam-muted">정책명</dt>
+                <dt className="text-sam-muted">{t("admin_stores_fee_th_name")}</dt>
                 <dd className="font-medium text-sam-fg">{restoreModalRow.policy_name}</dd>
               </div>
               <div>
-                <dt className="text-sam-muted">적용 대상</dt>
-                <dd>{targetScopeDescription(restoreModalRow, stores, categories)}</dd>
+                <dt className="text-sam-muted">{t("admin_stores_fee_th_target")}</dt>
+                <dd>{targetScopeDescription(restoreModalRow, stores, categories, t)}</dd>
               </div>
               <div>
-                <dt className="text-sam-muted">수수료</dt>
+                <dt className="text-sam-muted">{t("admin_stores_fee_th_fee")}</dt>
                 <dd>{feeSummary(restoreModalRow)}</dd>
               </div>
               <div>
-                <dt className="text-sam-muted">활성</dt>
-                <dd>{restoreModalRow.is_active ? "ON (복구 후 정산 후보 가능)" : "OFF (복구만 되며 정산 후보는 아님)"}</dd>
+                <dt className="text-sam-muted">{t("admin_stores_fee_th_active")}</dt>
+                <dd>
+                  {restoreModalRow.is_active
+                    ? t("admin_stores_fee_restore_active_on")
+                    : t("admin_stores_fee_restore_active_off")}
+                </dd>
               </div>
             </dl>
             {restoreModalError ? (
@@ -966,7 +992,7 @@ export function AdminStoreFeePoliciesPage() {
                 onClick={() => closeRestoreModal()}
                 className="rounded-ui-rect border border-sam-border px-4 py-2 text-sm font-medium text-sam-fg disabled:opacity-40"
               >
-                취소
+                {t("common_cancel")}
               </button>
               <button
                 type="button"
@@ -974,7 +1000,7 @@ export function AdminStoreFeePoliciesPage() {
                 onClick={() => void confirmRestore()}
                 className="rounded-ui-rect bg-emerald-700 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
               >
-                복구
+                {t("admin_stores_fee_restore")}
               </button>
             </div>
           </div>

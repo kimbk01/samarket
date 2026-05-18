@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import type { MemberBenefitPolicy } from "@/lib/types/member-benefit";
 import { MEMBER_TYPE_LABELS } from "@/lib/member-benefits/member-benefit-utils";
@@ -9,6 +10,7 @@ interface MemberBenefitCardProps {
 }
 
 export function MemberBenefitCard({ policy, className = "" }: MemberBenefitCardProps) {
+  const { t } = useI18n();
   const isPremium = policy.memberType === "premium";
   const isAdmin = policy.memberType === "admin";
 
@@ -36,7 +38,7 @@ export function MemberBenefitCard({ policy, className = "" }: MemberBenefitCardP
         </span>
         {!policy.isActive && (
           <span className="rounded bg-sam-border-soft px-2 py-0.5 sam-text-xxs text-sam-muted">
-            비활성
+            {t("ui_member_benefit_inactive")}
           </span>
         )}
       </div>
@@ -48,24 +50,28 @@ export function MemberBenefitCard({ policy, className = "" }: MemberBenefitCardP
       )}
       <ul className="mt-3 space-y-1 sam-text-body-secondary text-sam-fg">
         {policy.badgeLabel && (
-          <li>· 프로필 배지: {policy.badgeLabel}</li>
+          <li>{t("ui_member_benefit_profile_badge", { label: policy.badgeLabel })}</li>
         )}
         {(policy.homePriorityBoost > 0 || policy.searchPriorityBoost > 0 || policy.shopFeaturedPriorityBoost > 0) && (
           <li>
-            · 노출 우선: 홈 +{policy.homePriorityBoost} / 검색 +{policy.searchPriorityBoost} / 상점 featured +{policy.shopFeaturedPriorityBoost}
+            {t("ui_member_benefit_priority_boost", {
+              home: policy.homePriorityBoost,
+              search: policy.searchPriorityBoost,
+              shop: policy.shopFeaturedPriorityBoost,
+            })}
           </li>
         )}
         {policy.pointRewardBonusRate > 0 && (
-          <li>· 포인트 보너스: {(policy.pointRewardBonusRate * 100).toFixed(0)}%</li>
+          <li>{t("ui_member_benefit_point_bonus", { rate: (policy.pointRewardBonusRate * 100).toFixed(0) })}</li>
         )}
         {policy.adDiscountRate > 0 && (
-          <li>· 광고 할인: {(policy.adDiscountRate * 100).toFixed(0)}%</li>
+          <li>{t("ui_member_benefit_ad_discount", { rate: (policy.adDiscountRate * 100).toFixed(0) })}</li>
         )}
         {policy.canOpenBusinessProfile && (
-          <li>· 상점 개설 가능</li>
+          <li>{t("ui_member_benefit_can_open_shop")}</li>
         )}
         {policy.canAccessPremiumPromotion && (
-          <li>· 프리미엄 노출 신청 가능</li>
+          <li>{t("ui_member_benefit_premium_promo")}</li>
         )}
       </ul>
     </div>

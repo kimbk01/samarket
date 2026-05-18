@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
@@ -15,6 +16,7 @@ function CategoryTabsBar(props: {
   setMenuSearchOpen: (v: boolean) => void;
   onSelect: (i: number) => void;
 }) {
+  const { t } = useI18n();
   return (
     <>
       <label className="sr-only" htmlFor="store-menu-search">
@@ -31,7 +33,7 @@ function CategoryTabsBar(props: {
               id="store-menu-search"
               type="search"
               enterKeyHint="search"
-              placeholder="메뉴명을 검색해보세요"
+              placeholder={t("store_menu_search_placeholder")}
               value={props.menuQuery}
               onChange={(e) => props.setMenuQuery(e.target.value)}
               onKeyDown={(e) => {

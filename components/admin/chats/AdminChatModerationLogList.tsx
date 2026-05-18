@@ -1,22 +1,22 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { ChatModerationLog } from "@/lib/types/admin-chat";
 
-const ACTION_LABELS: Record<string, string> = {
-  warn: "채팅 경고",
-  block_room: "채팅방 차단",
-  unblock_room: "채팅방 해제",
-  archive_room: "채팅방 보관",
-  unarchive_room: "보관 해제",
-  readonly_on: "읽기 전용",
-  readonly_off: "읽기 전용 해제",
-  hide_message: "메시지 숨김",
-  review_only: "검토만",
-  /** moderation_actions.action_type (API 매핑) */
-  restrict_chat: "채팅 제한(차단)",
-  lock_room: "방 잠금(보관)",
-  mute_room: "읽기 전용(뮤트)",
+const ACTION_LABEL_KEYS: Record<string, MessageKey> = {
+  warn: "admin_chat_mod_warn",
+  block_room: "admin_chat_mod_block_room",
+  unblock_room: "admin_chat_mod_unblock_room",
+  archive_room: "admin_chat_mod_archive_room",
+  unarchive_room: "admin_chat_mod_unarchive_room",
+  readonly_on: "admin_chat_mod_readonly_on",
+  readonly_off: "admin_chat_mod_readonly_off",
+  hide_message: "admin_chat_mod_hide_message",
+  review_only: "admin_chat_mod_review_only",
+  restrict_chat: "admin_chat_mod_restrict_chat",
+  lock_room: "admin_chat_mod_lock_room",
+  mute_room: "admin_chat_mod_mute_room",
 };
 
 interface AdminChatModerationLogListProps {
@@ -24,7 +24,7 @@ interface AdminChatModerationLogListProps {
 }
 
 export function AdminChatModerationLogList({ logs }: AdminChatModerationLogListProps) {
-  const { t, tt } = useI18n();
+  const { t } = useI18n();
   if (logs.length === 0) {
     return (
       <p className="sam-text-body-secondary text-sam-muted">{t("admin_chat_no_action_history")}</p>
@@ -41,7 +41,9 @@ export function AdminChatModerationLogList({ logs }: AdminChatModerationLogListP
           className="flex flex-wrap items-center gap-2 border-b border-sam-border-soft pb-2 sam-text-body-secondary"
         >
           <span className="font-medium text-sam-fg">
-            {tt(ACTION_LABELS[log.actionType] ?? log.actionType)}
+            {ACTION_LABEL_KEYS[log.actionType]
+              ? t(ACTION_LABEL_KEYS[log.actionType]!)
+              : log.actionType}
           </span>
           <span className="text-sam-muted">
             {new Date(log.createdAt).toLocaleString("ko-KR")}

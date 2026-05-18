@@ -1,15 +1,17 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 
 export function SearchButton() {
+  const { t } = useI18n();
   return (
     <Link
       href="/search"
       className="flex flex-1 items-center gap-2 rounded-ui-rect bg-sam-surface-muted px-3 py-2 text-left sam-text-body text-sam-muted"
     >
       <SearchIcon />
-      <span>검색</span>
+      <span>{t("common_search")}</span>
     </Link>
   );
 }

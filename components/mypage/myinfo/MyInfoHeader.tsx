@@ -1,10 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 
 export function MyInfoHeader({
-  title = "내정보",
+  title,
   backHref = "/philife",
   rightSlot,
 }: {
@@ -12,9 +13,10 @@ export function MyInfoHeader({
   backHref?: string;
   rightSlot?: ReactNode;
 }) {
+  const { t } = useI18n();
   return (
     <MySubpageHeader
-      title={title}
+      title={title ?? t("mypage_comp_myinfo_header_title_default")}
       backHref={backHref}
       preferHistoryBack
       hideCtaStrip

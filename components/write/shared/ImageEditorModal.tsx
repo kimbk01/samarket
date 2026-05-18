@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -29,6 +30,7 @@ export function ImageEditorModal({
   onClose,
   onComplete,
 }: ImageEditorModalProps) {
+  const { t } = useI18n();
   const workRef = useRef<HTMLCanvasElement | null>(null);
   const viewRef = useRef<HTMLCanvasElement | null>(null);
   const [workVersion, setWorkVersion] = useState(0);
@@ -352,7 +354,7 @@ export function ImageEditorModal({
           type="button"
           onClick={onClose}
           className="rounded-full p-2 hover:bg-white/10"
-          aria-label="닫기"
+          aria-label={t("common_close")}
         >
           <X className="h-6 w-6" />
         </button>
@@ -371,7 +373,7 @@ export function ImageEditorModal({
 
       <div className="relative flex min-h-0 flex-1 flex-col items-center justify-center px-2">
         {loading ? (
-          <p className="text-white/70">불러오는 중…</p>
+          <p className="text-white/70">{t("common_loading")}</p>
         ) : error ? (
           <p className="text-red-300">{error}</p>
         ) : (
@@ -417,7 +419,7 @@ export function ImageEditorModal({
             className="flex min-w-[64px] flex-col items-center gap-1 rounded-ui-rect px-2 py-2 sam-text-xxs text-white/80 hover:bg-white/10"
           >
             <RotateCw className="h-6 w-6 stroke-[1.5]" />
-            <span>회전</span>
+            <span>{t("ui_write_image_rotate")}</span>
           </button>
           {toolBtn("draw", <Pencil className="stroke-[1.5]" />, "그리기")}
           {toolBtn("bg", <Sparkles className="stroke-[1.5]" />, "배경 지우기")}

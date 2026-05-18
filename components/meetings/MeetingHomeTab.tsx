@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { NeighborhoodMeetingDetailDTO, NeighborhoodMeetingNoticeDTO } from "@/lib/neighborhood/types";
 import { philifeAppPaths } from "@domain/philife/paths";
 import Link from "next/link";
@@ -27,14 +28,6 @@ interface MeetingHomeTabProps {
   compactSummary?: boolean;
 }
 
-const NAV_ACTIONS = [
-  { tab: "notices", emoji: "📢", label: "공지" },
-  { tab: "feed", emoji: "📝", label: "피드" },
-  { tab: "chat", emoji: "💬", label: "채팅" },
-  { tab: "album", emoji: "📸", label: "앨범" },
-  { tab: "members", emoji: "👥", label: "멤버" },
-] as const;
-
 function AvatarCircle({ name, role, size = "md" }: { name: string; role?: string; size?: "sm" | "md" }) {
   const isHost = role === "host";
   const dim = size === "sm" ? "h-8 w-8 sam-text-xxs" : "h-10 w-10 sam-text-body-secondary";
@@ -57,17 +50,18 @@ function MeetingHomeFullSummary({
   meeting: NeighborhoodMeetingDetailDTO;
   joinedMembers: { userId: string; name: string; role?: string }[];
 }) {
+  const { t } = useI18n();
   const joinedCount = meeting.joined_count ?? meeting.member_count ?? joinedMembers.length;
   const maxMembers = meeting.max_members ?? 0;
   const capacityPct = maxMembers > 0 ? Math.min(100, (joinedCount / maxMembers) * 100) : 0;
   const entryLabel =
     meeting.entry_policy === "approve"
-      ? "승인제"
+      ? t("community_meeting_policy_approve")
       : meeting.entry_policy === "invite_only"
-        ? "초대/승인제"
+        ? t("community_meeting_policy_invite")
         : meeting.entry_policy === "password"
-          ? "비밀번호"
-          : "바로 참여";
+          ? t("community_meeting_policy_password")
+          : t("community_meeting_policy_open");
   const isClosed =
     meeting.status === "ended" ||
     meeting.status === "finished" ||
@@ -87,11 +81,11 @@ function MeetingHomeFullSummary({
         ) : null}
         <span className="flex items-center gap-1.5">
           <span className="sam-text-body">👥</span>
-          {joinedCount}/{maxMembers}명
+          {t("meeting_members_count", { joined: joinedCount, max: maxMembers })}
         </span>
         {meeting.tenure_type === "long" ? (
           <span className="rounded-full bg-signature/10 px-2 py-0.5 sam-text-xxs font-semibold text-sam-fg">
-            장기 모임
+            {t("meeting_home_long_tenure")}
           </span>
         ) : null}
         <span
@@ -99,7 +93,7 @@ function MeetingHomeFullSummary({
             isClosed ? "bg-sam-surface-muted text-sam-muted" : "bg-emerald-100 text-emerald-700"
           }`}
         >
-          {isClosed ? "마감" : entryLabel}
+          {isClosed ? t("meeting_home_closed_badge") : entryLabel}
         </span>
       </div>
       {maxMembers > 0 && (
@@ -113,7 +107,9 @@ function MeetingHomeFullSummary({
             />
           </div>
           <p className="mt-1 text-right sam-text-xxs text-sam-meta">
-            {maxMembers - joinedCount > 0 ? `${maxMembers - joinedCount}명 더 참여 가능` : "정원 마감"}
+            {maxMembers - joinedCount > 0
+              ? t("meeting_home_capacity_open", { count: maxMembers - joinedCount })
+              : t("meeting_home_capacity_full")}
           </p>
         </div>
       )}
@@ -132,7 +128,20 @@ export function MeetingHomeTab({
   pendingApprovalCount = 0,
   compactSummary = false,
 }: MeetingHomeTabProps) {
+  const { t } = useI18n();
   const [descExpanded, setDescExpanded] = useState(false);
+
+  const navActions = useMemo(
+    () =>
+      [
+        { tab: "notices" as const, emoji: "📢", label: t("meeting_tab_notices") },
+        { tab: "feed" as const, emoji: "📝", label: t("meeting_tab_feed") },
+        { tab: "chat" as const, emoji: "💬", label: t("meeting_tab_chat") },
+        { tab: "album" as const, emoji: "📸", label: t("meeting_tab_album") },
+        { tab: "members" as const, emoji: "👥", label: t("meeting_tab_members") },
+      ],
+    [t],
+  );
 
   const latestNotice = notices[0] ?? null;
   const desc = meeting.description ?? "";
@@ -155,18 +164,16 @@ export function MeetingHomeTab({
           <span className="sam-text-hero">⏳</span>
           <div className="min-w-0 flex-1">
             <p className="sam-text-body font-semibold text-amber-950">
-              가입 승인 대기 {pendingApprovalCount}명
+              {t("meeting_home_pending_banner", { count: pendingApprovalCount })}
             </p>
-            <p className="mt-0.5 sam-text-helper text-amber-800/90">
-              멤버 탭에서 신청 내용을 확인하고 승인할 수 있어요.
-            </p>
+            <p className="mt-0.5 sam-text-helper text-amber-800/90">{t("meeting_home_pending_hint")}</p>
           </div>
           <button
             type="button"
             onClick={() => onTabChange("members")}
             className="shrink-0 rounded-ui-rect bg-amber-600 px-3 py-2 sam-text-helper font-semibold text-white active:bg-amber-700"
           >
-            확인
+            {t("common_confirm")}
           </button>
         </div>
       ) : null}
@@ -192,14 +199,14 @@ export function MeetingHomeTab({
                   onClick={() => onTabChange("members")}
                   className="sam-text-helper text-sam-meta hover:text-emerald-600"
                 >
-                  전체 멤버 →
+                  {t("meeting_home_view_all_members")}
                 </button>
               )}
             </div>
           )}
           {onTabChange && (
             <div className="grid grid-cols-5 gap-1">
-              {NAV_ACTIONS.map(({ tab, emoji, label }) => (
+              {navActions.map(({ tab, emoji, label }) => (
                 <button
                   key={tab}
                   type="button"
@@ -218,7 +225,7 @@ export function MeetingHomeTab({
       {/* ── 모임 소개 ─────────────────────────────────────── */}
       {desc ? (
         <div className="rounded-ui-rect border border-sam-border/80 bg-sam-surface px-4 py-3.5 shadow-sm">
-          <p className="sam-text-body font-semibold text-sam-fg">모임 소개</p>
+          <p className="sam-text-body font-semibold text-sam-fg">{t("meeting_home_intro_title")}</p>
           <p
             className={`mt-2 whitespace-pre-wrap sam-text-body leading-relaxed text-sam-fg ${
               !descExpanded && isLongDesc ? "line-clamp-4" : ""
@@ -232,7 +239,7 @@ export function MeetingHomeTab({
               onClick={() => setDescExpanded((v) => !v)}
               className="mt-1.5 sam-text-helper font-medium text-[#2d7a5e]"
             >
-              {descExpanded ? "접기" : "더 보기"}
+              {descExpanded ? t("meeting_home_show_less") : t("meeting_home_show_more")}
             </button>
           )}
         </div>
@@ -243,7 +250,7 @@ export function MeetingHomeTab({
 
       {/* ── 공지 카드 (홈 탭) ─────────────────────────────── */}
       <div className="overflow-hidden rounded-ui-rect border border-sam-border/80 bg-sam-surface shadow-sm">
-        <p className="px-4 pt-3.5 sam-text-body font-semibold text-sam-fg">공지</p>
+        <p className="px-4 pt-3.5 sam-text-body font-semibold text-sam-fg">{t("meeting_home_notices_title")}</p>
         <div className="mx-3 mb-1 mt-2 rounded-ui-rect border border-amber-100/90 bg-[#fffbeb] px-3.5 py-3">
           <div className="flex gap-2.5">
             <span className="mt-0.5 shrink-0 sam-text-page-title" aria-hidden>
@@ -253,7 +260,7 @@ export function MeetingHomeTab({
               {latestNotice ? (
                 <>
                   <p className="sam-text-body-secondary font-semibold text-sam-fg">
-                    {latestNotice.title || "공지"}
+                    {latestNotice.title || t("community_notice_fallback")}
                   </p>
                   {latestNotice.body ? (
                     <p className="mt-1 line-clamp-3 sam-text-body-secondary leading-relaxed text-sam-fg">
@@ -266,7 +273,7 @@ export function MeetingHomeTab({
                 </>
               ) : (
                 <p className="sam-text-body-secondary leading-relaxed text-sam-muted">
-                  새로운 공지사항입니다. 모임 공지를 여기에 작성하세요.
+                  {t("meeting_home_notice_placeholder")}
                 </p>
               )}
             </div>
@@ -280,14 +287,14 @@ export function MeetingHomeTab({
                 onClick={() => onTabChange("feed")}
                 className="sam-text-helper font-medium text-sam-muted hover:text-[#2d7a5e]"
               >
-                전체 게시글 보기 &gt;
+                {t("meeting_home_view_all_posts")}
               </button>
               <button
                 type="button"
                 onClick={() => onTabChange("notices")}
                 className="sam-text-xxs text-sam-meta hover:text-[#2d7a5e]"
               >
-                공지 목록 보기
+                {t("meeting_home_view_notice_list")}
               </button>
             </>
           ) : null}
@@ -304,7 +311,7 @@ export function MeetingHomeTab({
               size="md"
             />
             <p className="truncate sam-text-body-secondary text-sam-fg">
-              <span className="text-sam-muted">모임장</span> :{" "}
+              <span className="text-sam-muted">{t("community_role_owner")}</span> :{" "}
               <span className="font-semibold text-sam-fg">{hostMember?.name ?? "—"}</span>
             </p>
           </div>
@@ -312,7 +319,7 @@ export function MeetingHomeTab({
             type="button"
             onClick={() => onTabChange("members")}
             className="flex shrink-0 items-center gap-0.5 text-sam-meta"
-            aria-label="멤버 전체 보기"
+            aria-label={t("meeting_home_members_aria")}
           >
             <div className="flex -space-x-2">
               {joinedMembers
@@ -333,7 +340,7 @@ export function MeetingHomeTab({
           href={philifeAppPaths.post(meeting.post_id)}
           className="sam-text-helper text-sky-600 underline"
         >
-          원본 게시글 보기
+          {t("meeting_home_original_post")}
         </Link>
         {typeof onLeave === "function" && (
           <button
@@ -342,7 +349,7 @@ export function MeetingHomeTab({
             onClick={onLeave}
             className="sam-text-helper text-sam-meta hover:text-red-500 disabled:opacity-50"
           >
-            {isLeaving ? "처리 중…" : "모임 나가기"}
+            {isLeaving ? t("community_meeting_join_processing") : t("meeting_home_leave")}
           </button>
         )}
       </div>

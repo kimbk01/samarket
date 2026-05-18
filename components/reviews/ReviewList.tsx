@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { Review } from "@/lib/types/review";
 import { ReviewCard } from "./ReviewCard";
 
@@ -10,10 +11,11 @@ interface ReviewListProps {
 }
 
 export function ReviewList({ reviews, reviewerLabels }: ReviewListProps) {
+  const { t } = useI18n();
   if (reviews.length === 0) {
     return (
       <div className="py-8 text-center">
-        <p className="sam-text-body text-sam-muted">아직 받은 후기가 없어요</p>
+        <p className="sam-text-body text-sam-muted">{t("ui_review_empty")}</p>
       </div>
     );
   }

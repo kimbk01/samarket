@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import type { BusinessProfile } from "@/lib/types/business";
-import { BUSINESS_STATUS_LABELS } from "@/lib/business/business-utils";
+import type { BusinessProfileStatus } from "@/lib/types/business";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const STATUS_CLASS: Record<BusinessProfile["status"], string> = {
   pending: "bg-amber-100 text-amber-800",
@@ -15,27 +17,25 @@ interface AdminBusinessTableProps {
   profiles: BusinessProfile[];
 }
 
+const STATUS_LABEL_KEYS: Record<BusinessProfileStatus, MessageKey> = {
+  pending: "admin_biz_status_pending",
+  active: "admin_biz_status_active",
+  paused: "admin_biz_status_paused",
+  rejected: "admin_biz_status_rejected",
+};
+
 export function AdminBusinessTable({ profiles }: AdminBusinessTableProps) {
+  const { t } = useI18n();
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[640px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              상점명
-            </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              소유자
-            </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              상태
-            </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              상품/후기
-            </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              신청일
-            </th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_biz_th_name")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_biz_th_owner")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_biz_th_status")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_biz_th_stats")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_biz_th_applied")}</th>
           </tr>
         </thead>
         <tbody>
@@ -59,7 +59,7 @@ export function AdminBusinessTable({ profiles }: AdminBusinessTableProps) {
                 <span
                   className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${STATUS_CLASS[p.status]}`}
                 >
-                  {BUSINESS_STATUS_LABELS[p.status]}
+                  {t(STATUS_LABEL_KEYS[p.status])}
                 </span>
               </td>
               <td className="px-3 py-2.5 text-sam-muted">

@@ -3,6 +3,7 @@
 import { useLayoutEffect, useState, useCallback, useEffect, useRef } from "react";
 import { PhilifeNeighborhoodWriteForm } from "@/components/philife/PhilifeNeighborhoodWriteForm";
 import { usePhilifeWriteSheet } from "@/contexts/PhilifeWriteSheetContext";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const SHEET_EXIT_MS = 520;
 
@@ -11,6 +12,7 @@ const SHEET_EXIT_MS = 520;
  * **아래→위**로 올리며 표시한다. 닫을 때 **아래로** 내려가며 사라진다.
  */
 export function PhilifeWriteBottomSheet() {
+  const { t } = useI18n();
   const { isOpen, openEpoch, initialCategory, close, setBlockingDraft } = usePhilifeWriteSheet();
   const [topOffsetPx, setTopOffsetPx] = useState(0);
   const [enterDraw, setEnterDraw] = useState(false);
@@ -111,7 +113,9 @@ export function PhilifeWriteBottomSheet() {
 
   const panelOpen = enterDraw && !isExiting;
   const sheetTitle =
-    initialCategory.trim() === "meetup" ? "모임 만들기" : "커뮤니티 글쓰기";
+    initialCategory.trim() === "meetup"
+      ? t("philife_write_meetup_create_title")
+      : t("community_compose_write");
 
   return (
     <div

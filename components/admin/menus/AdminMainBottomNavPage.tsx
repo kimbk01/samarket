@@ -2,6 +2,18 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  BOTTOM_NAV_FONT_PRESET_KEYS,
+  BOTTOM_NAV_ICON_ACTIVE_PRESET_KEYS,
+  BOTTOM_NAV_ICON_INACTIVE_PRESET_KEYS,
+  BOTTOM_NAV_ICON_LABEL_KEYS,
+  BOTTOM_NAV_LABEL_ACTIVE_PRESET_KEYS,
+  BOTTOM_NAV_LABEL_INACTIVE_PRESET_KEYS,
+  BOTTOM_NAV_LABEL_SIZE_PRESET_KEYS,
+  BOTTOM_NAV_SAVE_ERROR_KEYS,
+  bottomNavPresetLabelKey,
+} from "@/components/admin/i18n/admin-menus-label-keys";
 import type { BottomNavIconKey, BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import {
   MAIN_BOTTOM_NAV_FONT_FAMILY_PRESETS,
@@ -18,22 +30,15 @@ import {
 } from "@/lib/main-menu/resolve-main-bottom-nav";
 import { notifyMainBottomNavConfigChanged } from "@/lib/app/fetch-main-bottom-nav-deduped";
 
-const ICON_OPTIONS: { value: BottomNavIconKey; label: string }[] = [
-  { value: "trade", label: "trade (거래 탭)" },
-  { value: "home", label: "home (집)" },
-  { value: "community", label: "community (커뮤니티)" },
-  { value: "stores", label: "stores (배달)" },
-  { value: "chat", label: "chat (거래채팅)" },
-  { value: "my", label: "my (내정보)" },
-];
+const ICON_OPTION_KEYS: BottomNavIconKey[] = ["trade", "home", "community", "stores", "chat", "my", "orders"];
 
 const MAX_TABS = 10;
 
-function rowToPayloadItem(row: MainBottomNavAdminRow) {
+function rowToPayloadItem(row: MainBottomNavAdminRow, defaultLabel: string) {
   return {
     id: row.id,
     visible: row.visible,
-    label: row.label.trim() || "메뉴",
+    label: row.label.trim() || defaultLabel,
     href: row.href,
     icon: row.icon,
     iconSizeClass: row.iconSizeClass,
@@ -55,6 +60,7 @@ function presetSelectValue(current: string | undefined, presets: { value: string
 }
 
 export function AdminMainBottomNavPage() {
+  const { t } = useI18n();
   const [rows, setRows] = useState<MainBottomNavAdminRow[] | null>(null);
   const [previewVisible, setPreviewVisible] = useState<BottomNavItemConfig[]>([]);
   const [fromDb, setFromDb] = useState(false);
@@ -71,7 +77,7 @@ export function AdminMainBottomNavPage() {
       const res = await fetch("/api/admin/main-bottom-nav", { cache: "no-store" });
       const data = await res.json();
       if (!res.ok || !data?.ok) {
-        setMessage({ type: "err", text: data?.error ?? "불러오기 실패" });
+        setMessage({ type: "err", text: data?.error ?? t("admin_menu_bottom_err_load") });
         setRows(null);
         return;
       }
@@ -80,12 +86,12 @@ export function AdminMainBottomNavPage() {
       setFromDb(Boolean(data.from_db));
       setUpdatedAt(typeof data.updated_at === "string" ? data.updated_at : null);
     } catch {
-      setMessage({ type: "err", text: "네트워크 오류" });
+      setMessage({ type: "err", text: t("admin_menu_bottom_err_network") });
       setRows(null);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -118,7 +124,7 @@ export function AdminMainBottomNavPage() {
       const row: MainBottomNavAdminRow = {
         id,
         visible: true,
-        label: "새 메뉴",
+        label: t("admin_menu_bottom_new_label"),
         href: "/philife",
         icon: "home",
       };
@@ -141,45 +147,39 @@ export function AdminMainBottomNavPage() {
       const res = await fetch("/api/admin/main-bottom-nav", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ items: rows.map(rowToPayloadItem) }),
+        body: JSON.stringify({ items: rows.map((r) => rowToPayloadItem(r, t("admin_menu_bottom_default_label"))) }),
       });
       const data = await res.json();
       if (!res.ok || !data?.ok) {
         const err = data?.error as string | undefined;
-        const hint =
-          err === "items_count"
-            ? "탭은 1~10개만 가능합니다."
-            : err === "min_one_visible"
-              ? "숨김만 있으면 저장할 수 없습니다."
-              : err === "invalid_href"
-                ? "경로는 / 로 시작하는 내부 링크만 가능합니다."
-                : err === "invalid_label"
-                  ? "모든 탭에 라벨을 입력하세요."
-                  : err;
-        setMessage({ type: "err", text: hint ?? err ?? "저장 실패" });
+        const hint = err ? BOTTOM_NAV_SAVE_ERROR_KEYS[err] : undefined;
+        setMessage({
+          type: "err",
+          text: hint ? t(hint) : err ?? t("admin_menu_bottom_err_save"),
+        });
         return;
       }
       setRows(data.items as MainBottomNavAdminRow[]);
       setPreviewVisible(Array.isArray(data.preview_visible) ? (data.preview_visible as BottomNavItemConfig[]) : []);
       setFromDb(true);
       notifyMainBottomNavConfigChanged();
-      setMessage({ type: "ok", text: "저장되었습니다. 앱 하단 탭에 반영됩니다." });
+      setMessage({ type: "ok", text: t("admin_menu_bottom_save_ok") });
     } catch {
-      setMessage({ type: "err", text: "네트워크 오류" });
+      setMessage({ type: "err", text: t("admin_menu_bottom_err_network") });
     } finally {
       setSaving(false);
     }
   };
 
   const reset = async () => {
-    if (!confirm("DB에 저장된 하단 탭 설정을 지우고 코드 기본값으로 돌아갑니다. 계속할까요?")) return;
+    if (!confirm(t("admin_menu_bottom_reset_confirm"))) return;
     setSaving(true);
     setMessage(null);
     try {
       const res = await fetch("/api/admin/main-bottom-nav", { method: "DELETE" });
       const data = await res.json();
       if (!res.ok || !data?.ok) {
-        setMessage({ type: "err", text: data?.error ?? "초기화 실패" });
+        setMessage({ type: "err", text: data?.error ?? t("admin_menu_bottom_err_save") });
         return;
       }
       setRows(data.items as MainBottomNavAdminRow[]);
@@ -187,9 +187,9 @@ export function AdminMainBottomNavPage() {
       setFromDb(false);
       setUpdatedAt(null);
       notifyMainBottomNavConfigChanged();
-      setMessage({ type: "ok", text: "초기화되었습니다." });
+      setMessage({ type: "ok", text: t("admin_menu_bottom_reset_ok") });
     } catch {
-      setMessage({ type: "err", text: "네트워크 오류" });
+      setMessage({ type: "err", text: t("admin_menu_bottom_err_network") });
     } finally {
       setSaving(false);
     }
@@ -197,28 +197,28 @@ export function AdminMainBottomNavPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader
-        title="메인 하단 탭"
-        description="탭 추가·삭제(최대 10개), 순서, 숨김(노출 끄기), 라벨·경로·아이콘, 폰트·글자 크기·라벨·아이콘 색 프리셋을 설정합니다."
-      />
+      <AdminPageHeader titleKey="admin_menu_bottom_title" descriptionKey="admin_menu_bottom_desc" />
 
       <div className="flex flex-wrap items-center gap-2 sam-text-body-secondary text-sam-muted">
         <span>
-          저장 위치: <code className="rounded bg-sam-surface-muted px-1">admin_settings.main_bottom_nav</code>
+          {t("admin_menu_bottom_storage")}{" "}
+          <code className="rounded bg-sam-surface-muted px-1">admin_settings.main_bottom_nav</code>
         </span>
         {fromDb ? (
-          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-800">DB 적용 중</span>
+          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-800">{t("admin_menu_bottom_from_db")}</span>
         ) : (
-          <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 text-sam-fg">코드 기본값</span>
+          <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 text-sam-fg">{t("admin_menu_bottom_from_code")}</span>
         )}
-        {updatedAt ? <span className="text-sam-muted">마지막 수정: {updatedAt}</span> : null}
+        {updatedAt ? (
+          <span className="text-sam-muted">{t("admin_menu_bottom_last_updated", { at: updatedAt })}</span>
+        ) : null}
         {rows ? (
           <>
             <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 text-sam-fg">
-              노출 {rows.filter((r) => r.visible).length}
+              {t("admin_menu_bottom_visible_count", { count: String(rows.filter((r) => r.visible).length) })}
             </span>
             <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 text-sam-fg">
-              숨김 {rows.filter((r) => !r.visible).length}
+              {t("admin_menu_bottom_hidden_count", { count: String(rows.filter((r) => !r.visible).length) })}
             </span>
           </>
         ) : null}
@@ -226,7 +226,7 @@ export function AdminMainBottomNavPage() {
 
       {previewVisible.length > 0 ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-app px-4 py-3">
-          <p className="sam-text-helper font-medium text-sam-fg">앱 반영 미리보기(노출 탭)</p>
+          <p className="sam-text-helper font-medium text-sam-fg">{t("admin_menu_bottom_preview_title")}</p>
           <p className="mt-1 sam-text-xxs text-sam-muted">
             {previewVisible.map((tab) => `${tab.label}(${tab.href})`).join(" · ")}
           </p>
@@ -250,7 +250,7 @@ export function AdminMainBottomNavPage() {
           onClick={() => void save()}
           className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white hover:bg-signature/90 disabled:opacity-50"
         >
-          {saving ? "저장 중…" : "저장"}
+          {saving ? t("admin_menu_saving") : t("common_save")}
         </button>
         <button
           type="button"
@@ -258,7 +258,7 @@ export function AdminMainBottomNavPage() {
           onClick={addRow}
           className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-body text-sam-fg hover:bg-sam-app disabled:opacity-50"
         >
-          메뉴 추가
+          {t("admin_menu_bottom_add_tab")}
         </button>
         <button
           type="button"
@@ -266,7 +266,7 @@ export function AdminMainBottomNavPage() {
           onClick={() => void load()}
           className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-body text-sam-fg hover:bg-sam-app disabled:opacity-50"
         >
-          다시 불러오기
+          {t("admin_menu_bottom_reload")}
         </button>
         <button
           type="button"
@@ -274,47 +274,49 @@ export function AdminMainBottomNavPage() {
           onClick={() => void reset()}
           className="rounded-ui-rect border border-amber-300 bg-amber-50 px-4 py-2 sam-text-body text-amber-900 hover:bg-amber-100 disabled:opacity-50"
         >
-          DB 설정 지우기(기본값)
+          {t("admin_menu_bottom_reset_db")}
         </button>
         <button
           type="button"
           onClick={() => setShowAdvanced((v) => !v)}
           className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-body text-sam-fg hover:bg-sam-app"
         >
-          {showAdvanced ? "고급(Tailwind 직접) 접기" : "고급(Tailwind 직접) 펼치기"}
+          {showAdvanced ? t("admin_menu_bottom_advanced_collapse") : t("admin_menu_bottom_advanced_expand")}
         </button>
       </div>
 
       {loading ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-10 text-center sam-text-body text-sam-muted">불러오는 중…</div>
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-10 text-center sam-text-body text-sam-muted">
+          {t("common_loading")}
+        </div>
       ) : !rows ? (
         <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 sam-text-body text-amber-900">
-          목록을 불러오지 못했습니다. 관리자 권한·Supabase 환경을 확인해 주세요.
+          {t("admin_menu_bottom_load_fail")}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="min-w-[1100px] w-full border-collapse text-left sam-text-helper">
             <thead>
               <tr className="border-b border-sam-border bg-sam-app text-sam-muted">
-                <th className="px-2 py-2 font-medium">순서</th>
-                <th className="px-2 py-2 font-medium">노출</th>
-                <th className="px-2 py-2 font-medium">삭제</th>
-                <th className="px-2 py-2 font-medium">ID</th>
-                <th className="px-2 py-2 font-medium">라벨</th>
-                <th className="px-2 py-2 font-medium">경로</th>
-                <th className="px-2 py-2 font-medium">아이콘</th>
-                <th className="px-2 py-2 font-medium">폰트</th>
-                <th className="px-2 py-2 font-medium">글자크기</th>
-                <th className="px-2 py-2 font-medium">라벨 활성</th>
-                <th className="px-2 py-2 font-medium">라벨 비활성</th>
-                <th className="px-2 py-2 font-medium">아이콘 활성</th>
-                <th className="px-2 py-2 font-medium">아이콘 비활성</th>
+                <th className="px-2 py-2 font-medium">{t("admin_menu_bottom_th_order")}</th>
+                <th className="px-2 py-2 font-medium">{t("admin_menu_bottom_th_visible")}</th>
+                <th className="px-2 py-2 font-medium">{t("admin_menu_bottom_th_delete")}</th>
+                <th className="px-2 py-2 font-medium">{t("admin_menu_bottom_th_id")}</th>
+                <th className="px-2 py-2 font-medium">{t("admin_menu_bottom_th_label")}</th>
+                <th className="px-2 py-2 font-medium">{t("admin_menu_bottom_th_href")}</th>
+                <th className="px-2 py-2 font-medium">{t("admin_menu_bottom_th_icon")}</th>
+                <th className="px-2 py-2 font-medium">{t("admin_menu_bottom_th_font")}</th>
+                <th className="px-2 py-2 font-medium">{t("admin_menu_bottom_th_font_size")}</th>
+                <th className="px-2 py-2 font-medium">{t("admin_menu_bottom_th_label_active")}</th>
+                <th className="px-2 py-2 font-medium">{t("admin_menu_bottom_th_label_inactive")}</th>
+                <th className="px-2 py-2 font-medium">{t("admin_menu_bottom_th_icon_active")}</th>
+                <th className="px-2 py-2 font-medium">{t("admin_menu_bottom_th_icon_inactive")}</th>
                 {showAdvanced ? (
                   <>
-                    <th className="px-2 py-2 font-medium">글자크기 직접</th>
-                    <th className="px-2 py-2 font-medium">라벨 활성+α</th>
-                    <th className="px-2 py-2 font-medium">라벨 비활성+α</th>
-                    <th className="px-2 py-2 font-medium">아이콘 크기</th>
+                    <th className="px-2 py-2 font-medium">{t("admin_menu_bottom_th_size_direct")}</th>
+                    <th className="px-2 py-2 font-medium">{t("admin_menu_bottom_th_label_active_extra")}</th>
+                    <th className="px-2 py-2 font-medium">{t("admin_menu_bottom_th_label_inactive_extra")}</th>
+                    <th className="px-2 py-2 font-medium">{t("admin_menu_bottom_th_icon_size")}</th>
                   </>
                 ) : null}
               </tr>
@@ -349,7 +351,7 @@ export function AdminMainBottomNavPage() {
                         checked={row.visible}
                         onChange={(e) => patchRow(i, { visible: e.target.checked })}
                         className="h-4 w-4"
-                        title="끄면 앱에서 숨김"
+                        title={t("admin_menu_bottom_hide_title")}
                       />
                       <button
                         type="button"
@@ -359,9 +361,9 @@ export function AdminMainBottomNavPage() {
                             ? "border-amber-300 bg-amber-50 text-amber-900"
                             : "border-emerald-300 bg-emerald-50 text-emerald-900"
                         }`}
-                        title={row.visible ? "이 메뉴 숨기기" : "이 메뉴 다시 보이기"}
+                        title={row.visible ? t("admin_menu_bottom_hide_menu_title") : t("admin_menu_bottom_show_menu_title")}
                       >
-                        {row.visible ? "숨기기" : "보이기"}
+                        {row.visible ? t("admin_menu_bottom_hide_btn") : t("admin_menu_bottom_show_btn")}
                       </button>
                     </div>
                   </td>
@@ -371,17 +373,17 @@ export function AdminMainBottomNavPage() {
                       disabled={rows.length <= 1}
                       onClick={() => removeRow(i)}
                       className="rounded border border-red-200 bg-red-50 px-2 py-0.5 sam-text-xxs text-red-800 disabled:opacity-30"
-                      title={rows.length <= 1 ? "최소 1개 탭 필요" : "이 탭 제거"}
+                      title={rows.length <= 1 ? t("admin_menu_bottom_delete_min_title") : t("admin_menu_bottom_delete_tab_title")}
                     >
-                      삭제
+                      {t("common_delete")}
                     </button>
                   </td>
                   <td className="max-w-[100px] truncate px-2 py-2 font-mono sam-text-xxs text-sam-fg" title={row.id}>
                     {row.id}
                     {isBuiltinBottomNavTabId(row.id) ? (
-                      <span className="ml-1 sam-text-xxs text-sam-meta">(내장)</span>
+                      <span className="ml-1 sam-text-xxs text-sam-meta">{t("admin_menu_bottom_builtin")}</span>
                     ) : (
-                      <span className="ml-1 sam-text-xxs text-signature">(추가)</span>
+                      <span className="ml-1 sam-text-xxs text-signature">{t("admin_menu_bottom_custom")}</span>
                     )}
                   </td>
                   <td className="px-2 py-2">
@@ -406,9 +408,9 @@ export function AdminMainBottomNavPage() {
                       onChange={(e) => patchRow(i, { icon: e.target.value as BottomNavIconKey })}
                       className="max-w-[120px] rounded border border-sam-border px-1 py-1 sam-text-xxs"
                     >
-                      {ICON_OPTIONS.map((o) => (
-                        <option key={o.value} value={o.value}>
-                          {o.label}
+                      {ICON_OPTION_KEYS.map((iconKey) => (
+                        <option key={iconKey} value={iconKey}>
+                          {t(BOTTOM_NAV_ICON_LABEL_KEYS[iconKey])}
                         </option>
                       ))}
                     </select>
@@ -420,8 +422,8 @@ export function AdminMainBottomNavPage() {
                       className="max-w-[100px] rounded border border-sam-border px-1 py-1 sam-text-xxs"
                     >
                       {MAIN_BOTTOM_NAV_FONT_FAMILY_PRESETS.map((o) => (
-                        <option key={o.label} value={o.value}>
-                          {o.label}
+                        <option key={o.value || "__default__"} value={o.value}>
+                          {t(bottomNavPresetLabelKey(o.value, BOTTOM_NAV_FONT_PRESET_KEYS))}
                         </option>
                       ))}
                     </select>
@@ -437,12 +439,12 @@ export function AdminMainBottomNavPage() {
                       className="max-w-[100px] rounded border border-sam-border px-1 py-1 sam-text-xxs"
                     >
                       {MAIN_BOTTOM_NAV_LABEL_SIZE_PRESETS.map((o) => (
-                        <option key={o.label} value={o.value}>
-                          {o.label}
+                        <option key={o.value || "__default__"} value={o.value}>
+                          {t(bottomNavPresetLabelKey(o.value, BOTTOM_NAV_LABEL_SIZE_PRESET_KEYS))}
                         </option>
                       ))}
                       {row.labelSizeClass && !MAIN_BOTTOM_NAV_LABEL_SIZE_PRESETS.some((p) => p.value === row.labelSizeClass) ? (
-                        <option value="__custom__">(고급 입력)</option>
+                        <option value="__custom__">{t("admin_menu_bottom_preset_custom")}</option>
                       ) : null}
                     </select>
                   </td>
@@ -457,13 +459,13 @@ export function AdminMainBottomNavPage() {
                       className="max-w-[120px] rounded border border-sam-border px-1 py-1 sam-text-xxs"
                     >
                       {MAIN_BOTTOM_NAV_LABEL_ACTIVE_STYLE_PRESETS.map((o) => (
-                        <option key={o.label} value={o.value}>
-                          {o.label}
+                        <option key={o.value || "__default__"} value={o.value}>
+                          {t(bottomNavPresetLabelKey(o.value, BOTTOM_NAV_LABEL_ACTIVE_PRESET_KEYS))}
                         </option>
                       ))}
                       {row.labelActiveClass &&
                       !MAIN_BOTTOM_NAV_LABEL_ACTIVE_STYLE_PRESETS.some((p) => p.value === (row.labelActiveClass ?? "")) ? (
-                        <option value="__custom__">(고급 입력)</option>
+                        <option value="__custom__">{t("admin_menu_bottom_preset_custom")}</option>
                       ) : null}
                     </select>
                   </td>
@@ -478,13 +480,13 @@ export function AdminMainBottomNavPage() {
                       className="max-w-[120px] rounded border border-sam-border px-1 py-1 sam-text-xxs"
                     >
                       {MAIN_BOTTOM_NAV_LABEL_INACTIVE_STYLE_PRESETS.map((o) => (
-                        <option key={o.label} value={o.value}>
-                          {o.label}
+                        <option key={o.value || "__default__"} value={o.value}>
+                          {t(bottomNavPresetLabelKey(o.value, BOTTOM_NAV_LABEL_INACTIVE_PRESET_KEYS))}
                         </option>
                       ))}
                       {row.labelInactiveClass &&
                       !MAIN_BOTTOM_NAV_LABEL_INACTIVE_STYLE_PRESETS.some((p) => p.value === (row.labelInactiveClass ?? "")) ? (
-                        <option value="__custom__">(고급 입력)</option>
+                        <option value="__custom__">{t("admin_menu_bottom_preset_custom")}</option>
                       ) : null}
                     </select>
                   </td>
@@ -499,13 +501,13 @@ export function AdminMainBottomNavPage() {
                       className="max-w-[100px] rounded border border-sam-border px-1 py-1 sam-text-xxs"
                     >
                       {MAIN_BOTTOM_NAV_ICON_ACTIVE_STYLE_PRESETS.map((o) => (
-                        <option key={o.label} value={o.value}>
-                          {o.label}
+                        <option key={o.value || "__default__"} value={o.value}>
+                          {t(bottomNavPresetLabelKey(o.value, BOTTOM_NAV_ICON_ACTIVE_PRESET_KEYS))}
                         </option>
                       ))}
                       {row.iconActiveClass &&
                       !MAIN_BOTTOM_NAV_ICON_ACTIVE_STYLE_PRESETS.some((p) => p.value === (row.iconActiveClass ?? "")) ? (
-                        <option value="__custom__">(고급)</option>
+                        <option value="__custom__">{t("admin_menu_bottom_preset_custom_short")}</option>
                       ) : null}
                     </select>
                   </td>
@@ -520,13 +522,13 @@ export function AdminMainBottomNavPage() {
                       className="max-w-[100px] rounded border border-sam-border px-1 py-1 sam-text-xxs"
                     >
                       {MAIN_BOTTOM_NAV_ICON_INACTIVE_STYLE_PRESETS.map((o) => (
-                        <option key={o.label} value={o.value}>
-                          {o.label}
+                        <option key={o.value || "__default__"} value={o.value}>
+                          {t(bottomNavPresetLabelKey(o.value, BOTTOM_NAV_ICON_INACTIVE_PRESET_KEYS))}
                         </option>
                       ))}
                       {row.iconInactiveClass &&
                       !MAIN_BOTTOM_NAV_ICON_INACTIVE_STYLE_PRESETS.some((p) => p.value === (row.iconInactiveClass ?? "")) ? (
-                        <option value="__custom__">(고급)</option>
+                        <option value="__custom__">{t("admin_menu_bottom_preset_custom_short")}</option>
                       ) : null}
                     </select>
                   </td>
@@ -536,17 +538,16 @@ export function AdminMainBottomNavPage() {
                         <input
                           value={row.labelSizeClass ?? ""}
                           onChange={(e) => patchRow(i, { labelSizeClass: e.target.value || undefined })}
-                          placeholder="sam-text-xxs"
+                          placeholder={t("admin_menu_bottom_ph_label_size")}
                           className="w-[100px] rounded border border-sam-border px-1.5 py-1 font-mono sam-text-xxs"
                           maxLength={120}
-                          title="프리셋과 병합됨. 비우면 프리셋/기본값"
                         />
                       </td>
                       <td className="px-2 py-2">
                         <input
                           value={row.labelActiveExtraClass ?? ""}
                           onChange={(e) => patchRow(i, { labelActiveExtraClass: e.target.value || undefined })}
-                          placeholder="추가 클래스"
+                          placeholder={t("admin_menu_bottom_ph_extra_class")}
                           className="w-[100px] rounded border border-sam-border px-1.5 py-1 font-mono sam-text-xxs"
                           maxLength={120}
                         />
@@ -563,7 +564,7 @@ export function AdminMainBottomNavPage() {
                         <input
                           value={row.iconSizeClass ?? ""}
                           onChange={(e) => patchRow(i, { iconSizeClass: e.target.value || undefined })}
-                          placeholder="h-6 w-6"
+                          placeholder={t("admin_menu_bottom_ph_icon_size")}
                           className="w-[90px] rounded border border-sam-border px-1.5 py-1 font-mono sam-text-xxs"
                           maxLength={120}
                         />
@@ -577,10 +578,7 @@ export function AdminMainBottomNavPage() {
         </div>
       )}
 
-      <p className="sam-text-helper leading-relaxed text-sam-muted">
-        추가 탭 id는 <code className="rounded bg-sam-surface-muted px-0.5">custom_*</code> 형식입니다. 경로는 내부 링크만(/로 시작). 최소 1개 탭·1개 이상 노출이어야 저장됩니다. 채팅 읽지 않음 배지는 아이콘이
-        &quot;chat&quot;인 탭에만 붙습니다.
-      </p>
+      <p className="sam-text-helper leading-relaxed text-sam-muted">{t("admin_menu_bottom_footer")}</p>
     </div>
   );
 }

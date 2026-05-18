@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { registerWebPushSubscriptionFromClient } from "@/lib/push/register-web-push-subscription-client";
 
@@ -22,6 +23,7 @@ type StatusRes = {
 };
 
 export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
+  const { t } = useI18n();
   const [loaded, setLoaded] = useState(false);
   const [status, setStatus] = useState<StatusRes | null>(null);
   const [busy, setBusy] = useState(false);
@@ -77,14 +79,14 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
   const registerPush = useCallback(async () => {
     setHint((prev) => (prev === null ? prev : null));
     if (!isPushSupported()) {
-      setHint("이 브라우저는 웹 푸시를 지원하지 않습니다.");
+      setHint(t("settings_web_push_err_unsupported"));
       return;
     }
     setBusy((prev) => (prev ? prev : true));
     try {
       const perm = await Notification.requestPermission();
       if (perm !== "granted") {
-        setHint("브라우저 알림 권한이 필요합니다.");
+        setHint(t("settings_web_push_err_permission"));
         return;
       }
 
@@ -92,22 +94,22 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
       if (!reg.ok) {
         setHint(
           reg.error === "vapid_missing"
-            ? "서버에 VAPID 공개 키가 설정되지 않았습니다."
+            ? t("settings_web_push_err_no_vapid")
             : reg.error === "table_missing" || reg.error === "subscribe_failed"
-              ? "DB 마이그레이션(web_push_subscriptions)이 필요하거나 등록에 실패했습니다."
+              ? t("settings_web_push_err_migration")
               : reg.error === "permission_not_granted"
-                ? "브라우저 알림 권한이 필요합니다."
-                : "등록에 실패했습니다."
+                ? t("settings_web_push_err_permission")
+                : t("settings_web_push_err_register_failed")
         );
         return;
       }
       refresh();
     } catch (e) {
-      setHint(e instanceof Error ? e.message : "등록 중 오류가 났습니다.");
+      setHint(e instanceof Error ? e.message : t("settings_web_push_err_register_generic"));
     } finally {
       setBusy((prev) => (prev ? false : prev));
     }
-  }, [refresh]);
+  }, [refresh, t]);
 
   const unregisterPush = useCallback(async () => {
     setHint((prev) => (prev === null ? prev : null));
@@ -125,11 +127,11 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
       });
       refresh();
     } catch (e) {
-      setHint(e instanceof Error ? e.message : "해제에 실패했습니다.");
+      setHint(e instanceof Error ? e.message : t("settings_web_push_err_unregister_failed"));
     } finally {
       setBusy((prev) => (prev ? false : prev));
     }
-  }, [refresh]);
+  }, [refresh, t]);
 
   if (!loaded) {
     return (
@@ -148,33 +150,26 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
     <div className="border-b border-sam-border-soft px-3 py-2.5">
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0 flex-1">
-          <span className="text-[14px] font-medium text-sam-fg">브라우저 푸시 (PWA)</span>
-          <p className="mt-0.5 text-[11px] leading-snug text-sam-muted">
-            앱을 닫아도 브라우저 알림으로 인앱 알림을 받습니다. HTTPS 또는 localhost에서 동작합니다. 상단 &quot;전체
-            알림&quot;을 끄면 등록이 해제됩니다.
-          </p>
+          <span className="text-[14px] font-medium text-sam-fg">{t("settings_web_push_title")}</span>
+          <p className="mt-0.5 text-[11px] leading-snug text-sam-muted">{t("settings_web_push_desc")}</p>
           {!supported ? (
-            <p className="mt-1 text-[11px] leading-snug text-amber-800">이 환경에서는 Web Push API를 사용할 수 없습니다.</p>
+            <p className="mt-1 text-[11px] leading-snug text-amber-800">{t("settings_web_push_unsupported_env")}</p>
           ) : null}
           {status?.table_missing ? (
-            <p className="mt-1 text-[11px] leading-snug text-amber-800">
-              DB에 web_push_subscriptions 테이블이 없습니다. Supabase 마이그레이션을 적용해 주세요.
-            </p>
+            <p className="mt-1 text-[11px] leading-snug text-amber-800">{t("settings_web_push_no_table")}</p>
           ) : null}
           {!status?.vapid_configured ? (
-            <p className="mt-1 text-[11px] leading-snug text-sam-muted">
-              서버에 `NEXT_PUBLIC_VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` 가 없으면 발송·등록이 되지 않습니다.
-            </p>
+            <p className="mt-1 text-[11px] leading-snug text-sam-muted">{t("settings_web_push_no_vapid")}</p>
           ) : null}
           {status?.vapid_configured && !status?.web_push_enabled ? (
-            <p className="mt-1 text-[11px] leading-snug text-sam-muted">서버에서 `WEB_PUSH_ENABLED=1` 이면 실제 푸시가 발송됩니다.</p>
+            <p className="mt-1 text-[11px] leading-snug text-sam-muted">{t("settings_web_push_enabled_hint")}</p>
           ) : null}
           {hint ? <p className="mt-1 text-[11px] leading-snug text-red-600">{hint}</p> : null}
           {supported && canRegister ? (
             <p className="mt-1 text-[11px] leading-snug text-sam-muted">
-              등록된 기기: {count} / 최대 10
-              {Notification.permission === "granted" ? " · 알림 권한: 허용" : ""}
-              {Notification.permission === "denied" ? " · 알림 권한: 거부 (브라우저 설정에서 허용해 주세요)" : ""}
+              {t("settings_web_push_devices", { count: String(count) })}
+              {Notification.permission === "granted" ? t("settings_web_push_perm_granted") : ""}
+              {Notification.permission === "denied" ? t("settings_web_push_perm_denied") : ""}
             </p>
           ) : null}
         </div>
@@ -185,7 +180,7 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
             onClick={() => void registerPush()}
             className="rounded-ui-rect bg-signature px-3 py-1.5 text-[12px] font-medium text-white disabled:opacity-40"
           >
-            {busy ? "처리 중…" : "알림 허용·등록"}
+            {busy ? t("settings_web_push_busy") : t("settings_web_push_register")}
           </button>
           <button
             type="button"
@@ -193,7 +188,7 @@ export function WebPushSettingsRow({ pushEnabled }: { pushEnabled: boolean }) {
             onClick={() => void unregisterPush()}
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-[12px] text-sam-fg disabled:opacity-40"
           >
-            등록 해제
+            {t("settings_web_push_unregister")}
           </button>
         </div>
       </div>

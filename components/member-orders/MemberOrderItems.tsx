@@ -1,9 +1,11 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MemberOrderItem } from "@/lib/member-orders/types";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
 export function MemberOrderItems({ items }: { items: MemberOrderItem[] }) {
+  const { t } = useI18n();
   return (
     <ul className="divide-y divide-sam-border-soft rounded-ui-rect border border-sam-border-soft bg-sam-surface">
       {items.map((it) => (
@@ -11,7 +13,7 @@ export function MemberOrderItems({ items }: { items: MemberOrderItem[] }) {
           <div className="min-w-0 flex-1">
             <p className="font-semibold text-sam-fg">{it.menu_name}</p>
             <p className="text-xs text-sam-muted">{it.options_summary}</p>
-            <p className="mt-0.5 text-xs text-sam-meta">수량 {it.qty}</p>
+            <p className="mt-0.5 text-xs text-sam-meta">{t("member_order_qty_line", { qty: it.qty })}</p>
           </div>
           <p className="shrink-0 font-medium text-sam-fg">{formatMoneyPhp(it.line_total)}</p>
         </li>

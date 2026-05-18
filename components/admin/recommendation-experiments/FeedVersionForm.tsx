@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { FeedVersion, FeedVersionSurface } from "@/lib/types/recommendation-experiment";
-import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
+import { recSurfaceLabel } from "@/components/admin/recommendation-admin-i18n";
 
 interface FeedVersionFormProps {
   initial: FeedVersion;
@@ -17,6 +18,7 @@ export function FeedVersionForm({
   onSubmit,
   onCancel,
 }: FeedVersionFormProps) {
+  const { t } = useI18n();
   const [versionName, setVersionName] = useState(initial.versionName);
   const [versionKey, setVersionKey] = useState(initial.versionKey);
   const [surface, setSurface] = useState(initial.surface);
@@ -43,7 +45,7 @@ export function FeedVersionForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          버전 키
+          {t("admin_rec_exp_label_version_key")}
         </label>
         <input
           type="text"
@@ -54,7 +56,7 @@ export function FeedVersionForm({
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          버전명
+          {t("admin_rec_exp_label_version_name")}
         </label>
         <input
           type="text"
@@ -65,7 +67,7 @@ export function FeedVersionForm({
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          surface
+          {t("admin_rec_th_surface")}
         </label>
         <select
           value={surface}
@@ -74,7 +76,7 @@ export function FeedVersionForm({
         >
           {SURFACES.map((s) => (
             <option key={s} value={s}>
-              {SURFACE_LABELS[s]}
+              {recSurfaceLabel(t, s)}
             </option>
           ))}
         </select>
@@ -88,12 +90,12 @@ export function FeedVersionForm({
           className="rounded border-sam-border"
         />
         <label htmlFor="fvActive" className="sam-text-body text-sam-fg">
-          활성
+          {t("admin_rec_exp_label_active")}
         </label>
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          중복 제거 전략
+          {t("admin_rec_exp_label_dedup")}
         </label>
         <select
           value={dedupeStrategy}
@@ -102,13 +104,13 @@ export function FeedVersionForm({
           }
           className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
         >
-          <option value="global">전체 공통</option>
-          <option value="per_section">섹션별</option>
+          <option value="global">{t("admin_rec_exp_dedup_global")}</option>
+          <option value="per_section">{t("admin_rec_exp_dedup_per_section")}</option>
         </select>
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          비고
+          {t("admin_rec_th_note")}
         </label>
         <textarea
           value={notes}
@@ -122,7 +124,7 @@ export function FeedVersionForm({
           type="submit"
           className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white"
         >
-          저장
+          {t("common_save")}
         </button>
         {onCancel && (
           <button
@@ -130,7 +132,7 @@ export function FeedVersionForm({
             onClick={onCancel}
             className="rounded border border-sam-border bg-sam-surface px-4 py-2 sam-text-body text-sam-fg"
           >
-            취소
+            {t("common_cancel")}
           </button>
         )}
       </div>

@@ -1,26 +1,29 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { MYPAGE_TRADE_FAVORITES_HREF } from "@/lib/mypage/trade-hub-paths";
 
-const ITEMS: { label: string; href: string; icon: React.ReactNode }[] = [
-  { label: "구매 내역", href: "/mypage/trade/purchases", icon: <BagIcon /> },
-  { label: "판매 내역", href: "/mypage/trade/sales", icon: <CartIcon /> },
-  { label: "찜 목록", href: MYPAGE_TRADE_FAVORITES_HREF, icon: <HeartIcon /> },
-  { label: "거래후기", href: "/mypage/trade/reviews", icon: <StarIcon /> },
-  { label: "나의 배터리·신뢰", href: "/my/trust", icon: <ThermoIcon /> },
-  { label: "내 상품 관리", href: "/my/products", icon: <DocIcon /> },
-  { label: "상품 검색", href: "/search", icon: <SearchIcon /> },
-  { label: "포인트 거래내역", href: "/my/points/ledger", icon: <BookIcon /> },
+const ITEMS: { labelKey: MessageKey; href: string; icon: React.ReactNode }[] = [
+  { labelKey: "mypage_comp_trade_nav_purchases", href: "/mypage/trade/purchases", icon: <BagIcon /> },
+  { labelKey: "mypage_comp_trade_nav_sales", href: "/mypage/trade/sales", icon: <CartIcon /> },
+  { labelKey: "mypage_comp_trade_nav_favorites", href: MYPAGE_TRADE_FAVORITES_HREF, icon: <HeartIcon /> },
+  { labelKey: "mypage_comp_trade_nav_reviews", href: "/mypage/trade/reviews", icon: <StarIcon /> },
+  { labelKey: "mypage_comp_trade_nav_trust", href: "/my/trust", icon: <ThermoIcon /> },
+  { labelKey: "mypage_comp_trade_nav_products", href: "/my/products", icon: <DocIcon /> },
+  { labelKey: "mypage_comp_trade_nav_search", href: "/search", icon: <SearchIcon /> },
+  { labelKey: "mypage_comp_trade_nav_points_ledger", href: "/my/points/ledger", icon: <BookIcon /> },
 ];
 
 export function MyTradeSection() {
+  const { t } = useI18n();
   return (
     <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-      <h2 className="mb-3 sam-text-body-secondary font-semibold text-muted">거래 관리 · 내 정보</h2>
+      <h2 className="mb-3 sam-text-body-secondary font-semibold text-muted">{t("mypage_comp_trade_section_title")}</h2>
       <ul className="space-y-0">
         {ITEMS.map((item, i) => (
-          <li key={item.label}>
+          <li key={item.labelKey}>
             <Link
               href={item.href}
               className="flex items-center gap-3 py-3 sam-text-body text-foreground"
@@ -28,7 +31,7 @@ export function MyTradeSection() {
               <span className="flex h-8 w-8 items-center justify-center text-foreground">
                 {item.icon}
               </span>
-              <span className="flex-1">{item.label}</span>
+              <span className="flex-1">{t(item.labelKey)}</span>
               <ChevronRight />
             </Link>
             {i < ITEMS.length - 1 && <hr className="border-sam-border" />}
@@ -39,13 +42,6 @@ export function MyTradeSection() {
   );
 }
 
-function DocIcon() {
-  return (
-    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-    </svg>
-  );
-}
 function BagIcon() {
   return (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -78,6 +74,13 @@ function ThermoIcon() {
   return (
     <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+    </svg>
+  );
+}
+function DocIcon() {
+  return (
+    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
     </svg>
   );
 }

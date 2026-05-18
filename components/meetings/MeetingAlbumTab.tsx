@@ -2,12 +2,8 @@
 
 import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MeetingAlbumItemDTO } from "@/lib/neighborhood/types";
-import { formatKorDate } from "@/lib/ui/format-meeting-date";
-
-function formatDate(iso: string | null | undefined): string {
-  return formatKorDate(iso);
-}
 
 interface MeetingAlbumTabProps {
   albumItems: MeetingAlbumItemDTO[];
@@ -24,6 +20,7 @@ export function MeetingAlbumTab({
   currentUserId = "",
   isHost = false,
 }: MeetingAlbumTabProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const [, startTransition] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -41,7 +38,7 @@ export function MeetingAlbumTab({
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 8 * 1024 * 1024) {
-      setErr("8MB 이하 사진만 업로드할 수 있습니다.");
+      setErr(t("meeting_album_file_size_limit"));
       return;
     }
     const url = URL.createObjectURL(file);
@@ -50,7 +47,7 @@ export function MeetingAlbumTab({
   };
 
   const handleDeleteItem = async (itemId: string) => {
-    if (!confirm("이 사진을 삭제하시겠어요?")) return;
+    if (!confirm(t("meeting_album_confirm_delete"))) return;
     setDeletingId(itemId);
     try {
       const res = await fetch(`/api/philife/meetings/${meetingId}/album/${itemId}`, {
@@ -90,7 +87,7 @@ export function MeetingAlbumTab({
       });
       const j = (await res.json()) as { ok: boolean; item?: MeetingAlbumItemDTO; error?: string };
       if (!j.ok) {
-        setErr(j.error ?? "업로드에 실패했습니다.");
+        setErr(j.error ?? t("meeting_album_upload_failed"));
         return;
       }
       if (j.item) {
@@ -104,7 +101,7 @@ export function MeetingAlbumTab({
       onCancel();
       startTransition(() => router.refresh());
     } catch {
-      setErr("네트워크 오류가 발생했습니다.");
+      setErr(t("common_network_error"));
     } finally {
       setUploading(false);
     }
@@ -129,7 +126,7 @@ export function MeetingAlbumTab({
               <div className="relative mx-auto max-w-xs overflow-hidden rounded-ui-rect">
                 <img
                   src={preview.url}
-                  alt="미리보기"
+                  alt={t("meeting_album_preview_alt")}
                   className="h-48 w-full object-cover"
                 />
               </div>
@@ -138,7 +135,7 @@ export function MeetingAlbumTab({
                 value={caption}
                 onChange={(e) => setCaption(e.target.value)}
                 maxLength={200}
-                placeholder="사진에 한마디 (선택)"
+                placeholder={t("meeting_album_caption_placeholder")}
                 className="mt-3 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body-secondary text-sam-fg placeholder-sam-meta outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-200"
               />
               {err && <p className="mt-1 sam-text-xxs text-red-500">{err}</p>}
@@ -149,7 +146,7 @@ export function MeetingAlbumTab({
                   disabled={uploading}
                   className="flex-1 rounded-ui-rect border border-sam-border py-2.5 sam-text-body-secondary font-medium text-sam-muted disabled:opacity-50"
                 >
-                  취소
+                  {t("common_cancel")}
                 </button>
                 <button
                   type="button"
@@ -157,7 +154,7 @@ export function MeetingAlbumTab({
                   disabled={uploading}
                   className="flex-1 rounded-ui-rect bg-emerald-500 py-2.5 sam-text-body-secondary font-semibold text-white disabled:opacity-50"
                 >
-                  {uploading ? "업로드 중…" : "앨범에 올리기"}
+                  {uploading ? t("meeting_album_uploading") : t("meeting_album_upload_submit")}
                 </button>
               </div>
             </div>
@@ -169,7 +166,7 @@ export function MeetingAlbumTab({
               className="flex w-full items-center justify-center gap-2 rounded-ui-rect bg-emerald-500 px-4 py-3 sam-text-body-secondary font-semibold text-white shadow-sm hover:bg-emerald-600 active:bg-emerald-700"
             >
               <span className="sam-text-page-title">📷</span>
-              <span>사진 올리기</span>
+              <span>{t("meeting_album_upload_cta")}</span>
             </button>
           )}
         </>
@@ -179,9 +176,9 @@ export function MeetingAlbumTab({
       {visible.length === 0 ? (
         <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-14 text-center">
           <p className="sam-text-hero">📷</p>
-          <p className="mt-2 sam-text-body text-sam-meta">앨범에 사진이 없어요.</p>
+          <p className="mt-2 sam-text-body text-sam-meta">{t("meeting_album_empty")}</p>
           {allowUpload && (
-            <p className="mt-1 sam-text-helper text-sam-meta">첫 사진을 올려보세요.</p>
+            <p className="mt-1 sam-text-helper text-sam-meta">{t("meeting_album_empty_hint")}</p>
           )}
         </div>
       ) : (
@@ -191,7 +188,7 @@ export function MeetingAlbumTab({
               {item.image_url ? (
                 <img
                   src={item.image_url}
-                  alt={item.caption ?? "모임 사진"}
+                  alt={item.caption ?? t("meeting_album_photo_alt")}
                   className="h-full w-full object-cover"
                   loading="lazy"
                   onError={(e) => {
@@ -216,7 +213,7 @@ export function MeetingAlbumTab({
                   disabled={deletingId === item.id}
                   onClick={() => void handleDeleteItem(item.id)}
                   className="absolute right-1 top-1 rounded-full bg-black/50 p-1 sam-text-xxs text-white hover:bg-black/70 disabled:opacity-50"
-                  title="삭제"
+                  title={t("common_delete")}
                 >
                   🗑
                 </button>

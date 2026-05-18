@@ -7,8 +7,8 @@ import { UsageCostCards } from "./UsageCostCards";
 export function AdminUsagePage() {
   return (
     <>
-      <AdminPageHeader title="비용 최적화" />
-      <AdminCard title="Supabase 사용량 및 월간 비용 추정">
+      <AdminPageHeader titleKey="admin_page_usage_optimization" />
+      <AdminCard titleKey="admin_usage_card_title">
         <UsageCostCards />
       </AdminCard>
     </>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import type { TradeDetailOpsSettings } from "@/services/trade/trade-settings.service";
@@ -27,6 +28,7 @@ function parseRegionGroupText(text: string): Record<string, string> {
 }
 
 export function AdminTradeSettingsPage() {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [settings, setSettings] = useState<TradeDetailOpsSettings | null>(null);
@@ -81,12 +83,12 @@ export function AdminTradeSettingsPage() {
         error?: string;
       };
       if (!data.ok || !data.settings) {
-        alert(data.error ?? "저장하지 못했습니다.");
+        alert(data.error ?? t("admin_trade_settings_save_failed"));
         return;
       }
       setSettings(data.settings);
       setRegionGroupsText(regionGroupsToText(data.settings.regionGroups));
-      alert("저장했습니다.");
+      alert(t("admin_stores_saved"));
     } finally {
       setSaving(false);
     }
@@ -95,20 +97,20 @@ export function AdminTradeSettingsPage() {
   if (loading || !settings) {
     return (
       <div className="space-y-4" data-admin>
-        <AdminPageHeader title="거래 설정" backHref="/admin/trade" />
-        <p className="sam-text-body-secondary text-sam-muted">불러오는 중…</p>
+        <AdminPageHeader titleKey="admin_menu_trade_settings" backHref="/admin/trade" />
+        <p className="sam-text-body-secondary text-sam-muted">{t("common_loading")}</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-4" data-admin>
-      <AdminPageHeader title="거래 설정" backHref="/admin/trade" />
-      <AdminCard title="거래 상세 하단 추천·지역 운영">
+      <AdminPageHeader titleKey="admin_menu_trade_settings" backHref="/admin/trade" />
+      <AdminCard titleKey="admin_trade_settings_card_title">
         <p className="mb-4 sam-text-body-secondary text-sam-muted">
-          설정 반영 규칙: 지역 사용 OFF면 지역 조건 없이 추천하고, ON이면
-          <span className="font-medium text-sam-fg"> region_id → region_group → 전체 fallback</span>
-          순서로 완화합니다. 지역 필수 ON은 지역 우선 매칭을 더 엄격하게 적용하지만, 최종 fallback은 유지해 빈 화면을 막습니다.
+          {t("admin_trade_settings_rules_intro")}
+          <span className="font-medium text-sam-fg">{t("admin_trade_settings_rules_fallback_span")}</span>
+          {t("admin_trade_settings_rules_outro")}
         </p>
         <form onSubmit={onSave} className="space-y-4 sam-text-body-secondary">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -118,7 +120,7 @@ export function AdminTradeSettingsPage() {
                 checked={settings.regionEnabled}
                 onChange={(e) => setSettings({ ...settings, regionEnabled: e.target.checked })}
               />
-              <span className="text-sam-fg">지역 필터 사용</span>
+              <span className="text-sam-fg">{t("admin_trade_settings_region_filter")}</span>
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -126,13 +128,13 @@ export function AdminTradeSettingsPage() {
                 checked={settings.regionRequired}
                 onChange={(e) => setSettings({ ...settings, regionRequired: e.target.checked })}
               />
-              <span className="text-sam-fg">지역 입력 필수</span>
+              <span className="text-sam-fg">{t("admin_trade_settings_region_required")}</span>
             </label>
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <label className="flex flex-col gap-1">
-              <span className="text-sam-muted">유사상품 개수</span>
+              <span className="text-sam-muted">{t("admin_trade_settings_similar_count")}</span>
               <input
                 type="number"
                 min={1}
@@ -145,7 +147,7 @@ export function AdminTradeSettingsPage() {
               />
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-sam-muted">광고 개수</span>
+              <span className="text-sam-muted">{t("admin_trade_settings_ads_count")}</span>
               <input
                 type="number"
                 min={1}
@@ -158,7 +160,7 @@ export function AdminTradeSettingsPage() {
               />
             </label>
             <label className="flex flex-col gap-1">
-              <span className="text-sam-muted">fallback 개수</span>
+              <span className="text-sam-muted">{t("admin_trade_settings_fallback_count")}</span>
               <input
                 type="number"
                 min={1}
@@ -173,7 +175,7 @@ export function AdminTradeSettingsPage() {
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <label className="flex flex-col gap-1">
-              <span className="text-sam-muted">거래완료 노출 유지(일)</span>
+              <span className="text-sam-muted">{t("admin_trade_settings_completed_visible_days")}</span>
               <input
                 type="number"
                 min={1}
@@ -187,23 +189,19 @@ export function AdminTradeSettingsPage() {
                   })
                 }
               />
-              <span className="sam-text-helper text-sam-muted">
-                거래완료(completed/sold) 아이템은 설정한 기간 이후 상세 추천 리스트에서 자동 제외됩니다.
-              </span>
+              <span className="sam-text-helper text-sam-muted">{t("admin_trade_settings_completed_visible_hint")}</span>
             </label>
           </div>
 
           <label className="flex flex-col gap-1">
-            <span className="font-medium text-sam-fg">지역 그룹 맵 (한 줄: region:group)</span>
+            <span className="font-medium text-sam-fg">{t("admin_trade_settings_region_map_label")}</span>
             <textarea
               value={regionGroupsText}
               onChange={(e) => setRegionGroupsText(e.target.value)}
               className="min-h-[140px] rounded border border-sam-border px-2 py-2 font-mono sam-text-helper"
               placeholder="quezon city:metro-manila"
             />
-            <span className="sam-text-helper text-sam-muted">
-              예) quezon city:metro-manila / makati:metro-manila
-            </span>
+            <span className="sam-text-helper text-sam-muted">{t("admin_trade_settings_region_map_example")}</span>
           </label>
 
           <button
@@ -211,7 +209,7 @@ export function AdminTradeSettingsPage() {
             disabled={!canSave}
             className="rounded bg-sam-ink px-4 py-2 text-white disabled:opacity-50"
           >
-            {saving ? "저장 중…" : "저장"}
+            {saving ? t("admin_stores_saving") : t("common_save")}
           </button>
         </form>
       </AdminCard>

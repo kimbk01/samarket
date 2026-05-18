@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { getProductionMigrationTables } from "@/lib/production-migration/mock-production-migration-tables";
 import { AdminTable } from "@/components/admin/AdminTable";
@@ -13,6 +16,7 @@ import type {
 } from "@/lib/types/production-migration";
 
 export function ProductionMigrationTable() {
+  const { t } = useI18n();
   const [domain, setDomain] = useState<ProductionMigrationDomain | "">("");
   const tables = useMemo(
     () =>
@@ -38,7 +42,7 @@ export function ProductionMigrationTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">도메인</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_prod_migration_k48750694")}</span>
         <select
           value={domain}
           onChange={(e) =>

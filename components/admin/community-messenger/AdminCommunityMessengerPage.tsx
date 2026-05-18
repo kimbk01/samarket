@@ -19,6 +19,8 @@ import type {
 } from "@/lib/admin-community-messenger/service";
 import type { CommunityMessengerFriendRequestStatus, CommunityMessengerRoomStatus } from "@/lib/community-messenger/types";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { cmForceEndReasonLabel, useCmAdminLabels } from "./useCmAdminLabels";
+import type { CmAdminTranslate } from "./useCmAdminLabels";
 
 const ADMIN_MESSENGER_OVERVIEW_SILENT_FLIGHT = "admin:community-messenger:overview:silent";
 /** Coalesce burst postgres_changes into one overview GET. */
@@ -26,10 +28,19 @@ const REALTIME_OVERVIEW_DEBOUNCE_MS = 900;
 
 type DashboardResponse = AdminCommunityMessengerDashboard & { ok?: boolean };
 
-const FORCE_END_HEATMAP_WEEKDAYS = ["일", "월", "화", "수", "목", "금", "토"] as const;
-const FORCE_END_HEATMAP_HOURS = Array.from({ length: 24 }, (_, hour) => `${String(hour).padStart(2, "0")}시`);
-
 export function AdminCommunityMessengerPage() {
+  const {
+    t,
+    formatDateTime,
+    roomTypeLabel,
+    forceEndReasonOptions,
+    weekdays,
+    heatmapHours,
+    heatmapHourHeader,
+    heatmapCellTitle,
+    adminUnknownLabel,
+    defaultRoomLabel,
+  } = useCmAdminLabels();
   const searchParams = useSearchParams();
   const initialListQueryAppliedRef = useRef(false);
   const [data, setData] = useState<AdminCommunityMessengerDashboard | null>(null);
@@ -248,7 +259,7 @@ export function AdminCommunityMessengerPage() {
 
   const filteredAnalyticsAudits = useMemo(() => {
     return analyticsAuditsByReason.filter((log) => matchesAuditPeriod(log.createdAt, forceEndAnalysisPeriodFilter));
-  }, [analyticsAuditsByReason, forceEndAnalysisPeriodFilter]);
+  }, [analyticsAuditsByReason, forceEndAnalysisPeriodFilter, t]);
 
   const roomTypeByRoomId = useMemo(() => {
     return new Map((data?.rooms ?? []).map((room) => [room.id, room.roomType]));
@@ -268,44 +279,44 @@ export function AdminCommunityMessengerPage() {
   }, [data?.calls]);
 
   const filteredForceEndReasonStats = useMemo(() => {
-    return buildForceEndReasonStats(filteredAnalyticsAudits);
-  }, [filteredAnalyticsAudits]);
+    return buildForceEndReasonStats(filteredAnalyticsAudits, t);
+  }, [filteredAnalyticsAudits, t]);
 
   const filteredForceEndTrendStats = useMemo(() => {
-    return buildForceEndTrendStats(analyticsAuditsByReason, forceEndAnalysisPeriodFilter);
-  }, [analyticsAuditsByReason, forceEndAnalysisPeriodFilter]);
+    return buildForceEndTrendStats(analyticsAuditsByReason, forceEndAnalysisPeriodFilter, t);
+  }, [analyticsAuditsByReason, forceEndAnalysisPeriodFilter, t]);
 
   const filteredForceEndAdminStats = useMemo(() => {
-    return buildForceEndAdminStats(filteredAnalyticsAudits);
-  }, [filteredAnalyticsAudits]);
+    return buildForceEndAdminStats(filteredAnalyticsAudits, t);
+  }, [filteredAnalyticsAudits, t]);
 
   const filteredForceEndRoomTypeStats = useMemo(() => {
-    return buildForceEndRoomTypeStats(filteredAnalyticsAudits, roomTypeByRoomId);
+    return buildForceEndRoomTypeStats(filteredAnalyticsAudits, roomTypeByRoomId, t);
   }, [filteredAnalyticsAudits, roomTypeByRoomId]);
 
   const filteredForceEndRecurrenceAnalysis = useMemo(() => {
-    return buildForceEndRecurrenceAnalysis(filteredAnalyticsAudits, roomTitleByRoomId, callLogBySessionId);
-  }, [callLogBySessionId, filteredAnalyticsAudits, roomTitleByRoomId]);
+    return buildForceEndRecurrenceAnalysis(filteredAnalyticsAudits, roomTitleByRoomId, callLogBySessionId, t);
+  }, [callLogBySessionId, filteredAnalyticsAudits, roomTitleByRoomId, t]);
 
   const filteredForceEndReasonRecurrenceStats = useMemo(() => {
-    return buildForceEndReasonRecurrenceStats(filteredAnalyticsAudits, roomTitleByRoomId, callLogBySessionId);
+    return buildForceEndReasonRecurrenceStats(filteredAnalyticsAudits, roomTitleByRoomId, callLogBySessionId, t);
   }, [callLogBySessionId, filteredAnalyticsAudits, roomTitleByRoomId]);
 
   const filteredForceEndAdminEffectStats = useMemo(() => {
-    return buildForceEndAdminEffectStats(filteredAnalyticsAudits, callLogBySessionId);
-  }, [callLogBySessionId, filteredAnalyticsAudits]);
+    return buildForceEndAdminEffectStats(filteredAnalyticsAudits, callLogBySessionId, t);
+  }, [callLogBySessionId, filteredAnalyticsAudits, t]);
 
   const filteredForceEndHeatmapStats = useMemo(() => {
-    return buildForceEndHeatmapStats(filteredAnalyticsAudits, callLogBySessionId);
-  }, [callLogBySessionId, filteredAnalyticsAudits]);
+    return buildForceEndHeatmapStats(filteredAnalyticsAudits, callLogBySessionId, weekdays, t);
+  }, [callLogBySessionId, filteredAnalyticsAudits, weekdays, t]);
 
   const filteredForceEndReasonHeatmapStats = useMemo(() => {
-    return buildForceEndReasonHeatmapStats(filteredAnalyticsAudits, callLogBySessionId);
-  }, [callLogBySessionId, filteredAnalyticsAudits]);
+    return buildForceEndReasonHeatmapStats(filteredAnalyticsAudits, callLogBySessionId, weekdays, t);
+  }, [callLogBySessionId, filteredAnalyticsAudits, weekdays, t]);
 
   const filteredForceEndReasonAdminStats = useMemo(() => {
-    return buildForceEndReasonAdminStats(filteredAnalyticsAudits);
-  }, [filteredAnalyticsAudits]);
+    return buildForceEndReasonAdminStats(filteredAnalyticsAudits, t);
+  }, [filteredAnalyticsAudits, t]);
 
   const handleRequestAction = useCallback(
     async (requestId: string, status: CommunityMessengerFriendRequestStatus) => {
@@ -327,32 +338,32 @@ export function AdminCommunityMessengerPage() {
   return (
     <div className="space-y-4">
       <AdminPageHeader
-        title="커뮤니티 메신저 운영"
-        description="친구 요청, 1:1·그룹 채팅방, 통화 기록을 관리자에서 통합 관리합니다."
+        titleKey="admin_cm_page_overview_title"
+        descriptionKey="admin_cm_page_overview_desc"
       />
 
       <div className="grid gap-3 md:grid-cols-4">
-        <StatCard label="전체 메신저 방" value={data?.stats.totalRooms ?? 0} helper="1:1 + 비공개 + 공개" />
-        <StatCard label="활성 방" value={data?.stats.activeRooms ?? 0} helper="정상 운영 중" />
-        <StatCard label="운영 차단/보관" value={(data?.stats.blockedRooms ?? 0) + (data?.stats.archivedRooms ?? 0)} helper="blocked + archived" />
-        <StatCard label="대기 친구 요청" value={data?.stats.pendingRequests ?? 0} helper="관리 검토 가능" />
-        <StatCard label="비공개 그룹" value={data?.stats.privateGroupRooms ?? 0} helper="friend invite" />
-        <StatCard label="공개 그룹" value={data?.stats.openGroupRooms ?? 0} helper="password join" />
-        <StatCard label="활성 통화 세션" value={data?.stats.activeCallSessions ?? 0} helper="ringing + active" />
-        <StatCard label="활성 그룹 통화" value={data?.stats.activeGroupCallSessions ?? 0} helper="group sessions" />
-        <StatCard label="미처리 신고" value={data?.stats.openReports ?? 0} helper="received + reviewing" />
-        <StatCard label="강제 종료 누적" value={data?.stats.forceEndTotal ?? 0} helper="감사 로그 기준" />
+        <StatCard label={t("admin_cm_stat_total_rooms")} value={data?.stats.totalRooms ?? 0} helper={t("admin_cm_stat_total_rooms_helper")} />
+        <StatCard label={t("admin_cm_stat_active_rooms")} value={data?.stats.activeRooms ?? 0} helper={t("admin_cm_stat_active_rooms_helper")} />
+        <StatCard label={t("admin_cm_stat_blocked_archived")} value={(data?.stats.blockedRooms ?? 0) + (data?.stats.archivedRooms ?? 0)} helper="blocked + archived" />
+        <StatCard label={t("admin_cm_stat_pending_requests")} value={data?.stats.pendingRequests ?? 0} helper={t("admin_cm_stat_pending_requests_helper")} />
+        <StatCard label={t("admin_cm_stat_private_groups")} value={data?.stats.privateGroupRooms ?? 0} helper="friend invite" />
+        <StatCard label={t("admin_cm_stat_open_groups")} value={data?.stats.openGroupRooms ?? 0} helper="password join" />
+        <StatCard label={t("admin_cm_stat_active_calls")} value={data?.stats.activeCallSessions ?? 0} helper="ringing + active" />
+        <StatCard label={t("admin_cm_stat_active_group_calls")} value={data?.stats.activeGroupCallSessions ?? 0} helper="group sessions" />
+        <StatCard label={t("admin_cm_stat_open_reports")} value={data?.stats.openReports ?? 0} helper="received + reviewing" />
+        <StatCard label={t("admin_cm_stat_force_end_total")} value={data?.stats.forceEndTotal ?? 0} helper={t("admin_cm_stat_force_end_total_helper")} />
       </div>
 
-      <AdminCard title="강제 종료 분석">
+      <AdminCard titleKey="admin_cm_card_force_end_analysis">
         <div className="mb-4 flex flex-wrap gap-2">
           <select
             value={forceEndReasonFilter}
             onChange={(e) => setForceEndReasonFilter(e.target.value)}
             className="rounded border border-sam-border px-3 py-2 sam-text-body"
           >
-            <option value="">모든 사유 코드</option>
-            {COMMUNITY_MESSENGER_CALL_FORCE_END_REASONS.map((reason) => (
+            <option value="">{t("admin_cm_filter_all_reason_codes")}</option>
+            {forceEndReasonOptions.map((reason) => (
               <option key={reason.code} value={reason.code}>
                 {reason.label}
               </option>
@@ -363,10 +374,10 @@ export function AdminCommunityMessengerPage() {
             onChange={(e) => setForceEndAnalysisPeriodFilter(e.target.value as "24h" | "7d" | "30d" | "")}
             className="rounded border border-sam-border px-3 py-2 sam-text-body"
           >
-            <option value="">전체 기간</option>
-            <option value="24h">최근 24시간</option>
-            <option value="7d">최근 7일</option>
-            <option value="30d">최근 30일</option>
+            <option value="">{t("admin_cm_period_all")}</option>
+            <option value="24h">{t("admin_cm_period_24h")}</option>
+            <option value="7d">{t("admin_cm_period_7d")}</option>
+            <option value="30d">{t("admin_cm_period_30d")}</option>
           </select>
           <button
             type="button"
@@ -376,13 +387,13 @@ export function AdminCommunityMessengerPage() {
             }}
             className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
           >
-            필터 초기화
+            {t("admin_cm_filter_reset")}
           </button>
-          <div className="flex items-center sam-text-helper text-sam-muted">분석 대상 {filteredAnalyticsAudits.length}건</div>
+          <div className="flex items-center sam-text-helper text-sam-muted">{t("admin_cm_common_analysis_target", { count: filteredAnalyticsAudits.length })}</div>
         </div>
       </AdminCard>
 
-      <AdminCard title="강제 종료 사유 KPI">
+      <AdminCard titleKey="admin_cm_card_force_end_kpi">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {filteredForceEndReasonStats.map((item) => (
             <ForceEndReasonKpiCard key={item.code} label={item.label} code={item.code} count={item.count} share={item.share} />
@@ -390,7 +401,7 @@ export function AdminCommunityMessengerPage() {
         </div>
       </AdminCard>
 
-      <AdminCard title="강제 종료 추이">
+      <AdminCard titleKey="admin_cm_card_force_end_trend">
         <div className="grid gap-3 md:grid-cols-3">
           {filteredForceEndTrendStats.map((item) => (
             <ForceEndTrendCard
@@ -405,10 +416,10 @@ export function AdminCommunityMessengerPage() {
         </div>
       </AdminCard>
 
-      <AdminCard title="관리자별 강제 종료 집계">
+      <AdminCard titleKey="admin_cm_card_force_end_by_admin">
         <div className="space-y-2">
           {filteredForceEndAdminStats.length === 0 ? (
-            <div className="py-8 text-center sam-text-body text-sam-muted">강제 종료 집계가 없습니다.</div>
+            <div className="py-8 text-center sam-text-body text-sam-muted">{t("admin_cm_empty_force_end_stats")}</div>
           ) : (
             filteredForceEndAdminStats.map((item) => (
               <ForceEndAdminRow key={item.adminLabel} adminLabel={item.adminLabel} count={item.count} share={item.share} />
@@ -417,7 +428,7 @@ export function AdminCommunityMessengerPage() {
         </div>
       </AdminCard>
 
-      <AdminCard title="방 유형별 강제 종료 분석">
+      <AdminCard titleKey="admin_cm_card_force_end_by_room_type">
         <div className="grid gap-3 md:grid-cols-3">
           {filteredForceEndRoomTypeStats.map((item) => (
             <ForceEndRoomTypeCard
@@ -430,31 +441,31 @@ export function AdminCommunityMessengerPage() {
         </div>
       </AdminCard>
 
-      <AdminCard title="강제 종료 재발 분석">
+      <AdminCard titleKey="admin_cm_card_force_end_recurrence">
         <div className="grid gap-3 md:grid-cols-2">
           <ForceEndRecurrenceSummaryCard
-            label="재발 방"
+            label={t("admin_cm_recurrence_rooms")}
             subjectCount={filteredForceEndRecurrenceAnalysis.room.repeatedSubjects}
             repeatCount={filteredForceEndRecurrenceAnalysis.room.repeatedEvents}
             analyzedCount={filteredForceEndRecurrenceAnalysis.room.analyzedCount}
             share={filteredForceEndRecurrenceAnalysis.room.share}
-            helper="같은 방에서 2회 이상 강제 종료"
+            helper={t("admin_cm_recurrence_rooms_helper")}
           />
           <ForceEndRecurrenceSummaryCard
-            label="재발 발신자"
+            label={t("admin_cm_recurrence_callers")}
             subjectCount={filteredForceEndRecurrenceAnalysis.caller.repeatedSubjects}
             repeatCount={filteredForceEndRecurrenceAnalysis.caller.repeatedEvents}
             analyzedCount={filteredForceEndRecurrenceAnalysis.caller.analyzedCount}
             share={filteredForceEndRecurrenceAnalysis.caller.share}
-            helper="세션 매핑 가능한 발신자 기준"
+            helper={t("admin_cm_recurrence_callers_helper")}
           />
         </div>
         <div className="mt-4 grid gap-4 xl:grid-cols-2">
           <div className="space-y-2">
-            <p className="sam-text-body-secondary font-medium text-sam-fg">반복 발생 방 TOP</p>
+            <p className="sam-text-body-secondary font-medium text-sam-fg">{t("admin_cm_repeat_rooms_top")}</p>
             {filteredForceEndRecurrenceAnalysis.room.topItems.length === 0 ? (
               <div className="rounded-ui-rect border border-dashed border-sam-border px-3 py-6 text-center sam-text-body-secondary text-sam-muted">
-                반복 발생 방이 없습니다.
+                {t("admin_cm_empty_repeat_rooms")}
               </div>
             ) : (
               filteredForceEndRecurrenceAnalysis.room.topItems.map((item) => (
@@ -469,10 +480,10 @@ export function AdminCommunityMessengerPage() {
             )}
           </div>
           <div className="space-y-2">
-            <p className="sam-text-body-secondary font-medium text-sam-fg">반복 발생 발신자 TOP</p>
+            <p className="sam-text-body-secondary font-medium text-sam-fg">{t("admin_cm_repeat_callers_top")}</p>
             {filteredForceEndRecurrenceAnalysis.caller.topItems.length === 0 ? (
               <div className="rounded-ui-rect border border-dashed border-sam-border px-3 py-6 text-center sam-text-body-secondary text-sam-muted">
-                반복 발생 발신자가 없습니다.
+                {t("admin_cm_empty_repeat_callers")}
               </div>
             ) : (
               filteredForceEndRecurrenceAnalysis.caller.topItems.map((item) => (
@@ -489,11 +500,11 @@ export function AdminCommunityMessengerPage() {
         </div>
       </AdminCard>
 
-      <AdminCard title="사유 코드 x 재발 여부">
+      <AdminCard titleKey="admin_cm_card_force_end_reason_recurrence">
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {filteredForceEndReasonRecurrenceStats.length === 0 ? (
             <div className="rounded-ui-rect border border-dashed border-sam-border px-3 py-8 text-center sam-text-body-secondary text-sam-muted md:col-span-2 xl:col-span-3">
-              재발 분석 대상 사유 코드가 없습니다.
+              {t("admin_cm_empty_reason_recurrence")}
             </div>
           ) : (
             filteredForceEndReasonRecurrenceStats.map((item) => (
@@ -514,10 +525,10 @@ export function AdminCommunityMessengerPage() {
         </div>
       </AdminCard>
 
-      <AdminCard title="관리자별 재발 억제 효과">
+      <AdminCard titleKey="admin_cm_card_force_end_admin_effect">
         <div className="space-y-2">
           {filteredForceEndAdminEffectStats.length === 0 ? (
-            <div className="py-8 text-center sam-text-body text-sam-muted">재발 억제 효과를 계산할 데이터가 없습니다.</div>
+            <div className="py-8 text-center sam-text-body text-sam-muted">{t("admin_cm_empty_recurrence_data")}</div>
           ) : (
             filteredForceEndAdminEffectStats.map((item) => (
               <ForceEndAdminEffectRow
@@ -535,19 +546,19 @@ export function AdminCommunityMessengerPage() {
         </div>
       </AdminCard>
 
-      <AdminCard title="시간대별 강제 종료/재발 히트맵">
+      <AdminCard titleKey="admin_cm_card_force_end_heatmap">
         <div className="grid gap-4 xl:grid-cols-2">
           <ForceEndHeatmapCard
-            title="강제 종료 분포"
-            description="요일/시간대별 전체 강제 종료 건수"
+            title={t("admin_cm_heatmap_force_end")}
+            description={t("admin_cm_heatmap_force_end_desc")}
             matrix={filteredForceEndHeatmapStats.totalMatrix}
             maxCount={filteredForceEndHeatmapStats.maxTotalCount}
             topSlots={filteredForceEndHeatmapStats.topForceEndSlots}
             tone="red"
           />
           <ForceEndHeatmapCard
-            title="후속 재발 분포"
-            description="해당 시점 이후 같은 방 또는 발신자에서 다시 강제 종료된 케이스"
+            title={t("admin_cm_heatmap_recurrence")}
+            description={t("admin_cm_heatmap_recurrence_desc")}
             matrix={filteredForceEndHeatmapStats.recurrenceMatrix}
             maxCount={filteredForceEndHeatmapStats.maxRecurrenceCount}
             topSlots={filteredForceEndHeatmapStats.topRecurrenceSlots}
@@ -556,11 +567,11 @@ export function AdminCommunityMessengerPage() {
         </div>
       </AdminCard>
 
-      <AdminCard title="사유 코드 x 시간대 히트맵">
+      <AdminCard titleKey="admin_cm_card_force_end_reason_heatmap">
         <div className="grid gap-4 xl:grid-cols-2">
           {filteredForceEndReasonHeatmapStats.length === 0 ? (
             <div className="rounded-ui-rect border border-dashed border-sam-border px-3 py-8 text-center sam-text-body-secondary text-sam-muted xl:col-span-2">
-              시간대 패턴을 표시할 사유 코드가 없습니다.
+              {t("admin_cm_empty_reason_heatmap")}
             </div>
           ) : (
             filteredForceEndReasonHeatmapStats.map((item) => (
@@ -580,11 +591,11 @@ export function AdminCommunityMessengerPage() {
         </div>
       </AdminCard>
 
-      <AdminCard title="사유 코드 x 관리자">
+      <AdminCard titleKey="admin_cm_card_force_end_reason_admin">
         <div className="grid gap-4 xl:grid-cols-2">
           {filteredForceEndReasonAdminStats.length === 0 ? (
             <div className="rounded-ui-rect border border-dashed border-sam-border px-3 py-8 text-center sam-text-body-secondary text-sam-muted xl:col-span-2">
-              운영자 교차 분석 대상 사유 코드가 없습니다.
+              {t("admin_cm_empty_reason_admin")}
             </div>
           ) : (
             filteredForceEndReasonAdminStats.map((item) => (
@@ -601,12 +612,12 @@ export function AdminCommunityMessengerPage() {
         </div>
       </AdminCard>
 
-      <AdminCard title="메신저 방 목록">
+      <AdminCard titleKey="admin_cm_card_room_list">
         <div className="mb-3 flex flex-wrap gap-2">
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="방 제목, 참여자, 최근 메시지 검색"
+            placeholder={t("admin_cm_placeholder_room_search")}
             className="min-w-[220px] rounded border border-sam-border px-3 py-2 sam-text-body"
           />
           <select
@@ -614,7 +625,7 @@ export function AdminCommunityMessengerPage() {
             onChange={(e) => setRoomStatusFilter(e.target.value as CommunityMessengerRoomStatus | "")}
             className="rounded border border-sam-border px-3 py-2 sam-text-body"
           >
-            <option value="">모든 상태</option>
+            <option value="">{t("admin_cm_filter_all_status")}</option>
             <option value="active">active</option>
             <option value="blocked">blocked</option>
             <option value="archived">archived</option>
@@ -624,37 +635,37 @@ export function AdminCommunityMessengerPage() {
             onChange={(e) => setRoomTypeFilter(e.target.value as "direct" | "private_group" | "open_group" | "")}
             className="rounded border border-sam-border px-3 py-2 sam-text-body"
           >
-            <option value="">모든 유형</option>
+            <option value="">{t("admin_cm_filter_all_types")}</option>
             <option value="direct">1:1</option>
-            <option value="private_group">비공개 그룹</option>
-            <option value="open_group">공개 그룹</option>
+            <option value="private_group">{t("admin_cm_room_type_private_group")}</option>
+            <option value="open_group">{t("admin_cm_room_type_open_group")}</option>
           </select>
           <button
             type="button"
             onClick={() => void refresh()}
             className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
           >
-            새로고침
+            {t("admin_cm_common_refresh")}
           </button>
         </div>
 
         {loading ? (
-          <div className="py-10 text-center sam-text-body text-sam-muted">불러오는 중...</div>
+          <div className="py-10 text-center sam-text-body text-sam-muted">{t("admin_cm_common_loading")}</div>
         ) : filteredRooms.length === 0 ? (
-          <div className="py-10 text-center sam-text-body text-sam-muted">표시할 메신저 방이 없습니다.</div>
+          <div className="py-10 text-center sam-text-body text-sam-muted">{t("admin_cm_empty_rooms")}</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[960px] sam-text-body">
               <thead>
                 <tr className="border-b border-sam-border text-left text-sam-muted">
-                  <th className="px-3 py-2">방</th>
-                  <th className="px-3 py-2">유형</th>
-                  <th className="px-3 py-2">상태</th>
-                  <th className="px-3 py-2">생성자</th>
-                  <th className="px-3 py-2">참여자</th>
-                  <th className="px-3 py-2">최근 메시지</th>
-                  <th className="px-3 py-2">최근 시간</th>
-                  <th className="px-3 py-2 text-right">상세</th>
+                  <th className="px-3 py-2">{t("admin_cm_th_room")}</th>
+                  <th className="px-3 py-2">{t("admin_cm_th_type")}</th>
+                  <th className="px-3 py-2">{t("admin_cm_th_status")}</th>
+                  <th className="px-3 py-2">{t("admin_cm_th_creator")}</th>
+                  <th className="px-3 py-2">{t("admin_cm_th_participants")}</th>
+                  <th className="px-3 py-2">{t("admin_cm_th_last_message")}</th>
+                  <th className="px-3 py-2">{t("admin_cm_th_last_time")}</th>
+                  <th className="px-3 py-2 text-right">{t("admin_cm_th_detail")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -668,12 +679,12 @@ export function AdminCommunityMessengerPage() {
       </AdminCard>
 
       <div className="grid gap-4 xl:grid-cols-2">
-        <AdminCard title="활성 통화 세션">
+        <AdminCard titleKey="admin_cm_card_active_calls">
           <div className="mb-3 flex flex-wrap gap-2">
             <input
               value={callQuery}
               onChange={(e) => setCallQuery(e.target.value)}
-              placeholder="통화방, 시작자, 참여자 검색"
+              placeholder={t("admin_cm_placeholder_call_search")}
               className="min-w-[220px] rounded border border-sam-border px-3 py-2 sam-text-body"
             />
             <select
@@ -681,16 +692,16 @@ export function AdminCommunityMessengerPage() {
               onChange={(e) => setCallModeFilter(e.target.value as "direct" | "group" | "")}
               className="rounded border border-sam-border px-3 py-2 sam-text-body"
             >
-              <option value="">모든 통화 유형</option>
+              <option value="">{t("admin_cm_filter_all_call_types")}</option>
               <option value="direct">1:1</option>
-              <option value="group">그룹</option>
+              <option value="group">{t("admin_cm_session_mode_group")}</option>
             </select>
             <select
               value={activeCallStatusFilter}
               onChange={(e) => setActiveCallStatusFilter(e.target.value as "ringing" | "active" | "")}
               className="rounded border border-sam-border px-3 py-2 sam-text-body"
             >
-              <option value="">모든 활성 상태</option>
+              <option value="">{t("admin_cm_filter_all_active_status")}</option>
               <option value="ringing">ringing</option>
               <option value="active">active</option>
             </select>
@@ -699,21 +710,21 @@ export function AdminCommunityMessengerPage() {
               onChange={(e) => setCallKindFilter(e.target.value as "voice" | "video" | "")}
               className="rounded border border-sam-border px-3 py-2 sam-text-body"
             >
-              <option value="">모든 통화 종류</option>
+              <option value="">{t("admin_cm_filter_all_call_kind")}</option>
               <option value="voice">voice</option>
               <option value="video">video</option>
             </select>
           </div>
           <div className="space-y-2">
             {filteredActiveCalls.length === 0 ? (
-              <div className="py-8 text-center sam-text-body text-sam-muted">활성 통화 세션이 없습니다.</div>
+              <div className="py-8 text-center sam-text-body text-sam-muted">{t("admin_cm_empty_active_calls")}</div>
             ) : (
               filteredActiveCalls.map((call) => <ActiveCallRow key={call.id} call={call} />)
             )}
           </div>
         </AdminCard>
 
-        <AdminCard title="친구 요청 관리">
+        <AdminCard titleKey="admin_cm_card_friend_requests">
           <div className="mb-3 flex items-center gap-2">
             <select
               value={requestStatusFilter}
@@ -722,7 +733,7 @@ export function AdminCommunityMessengerPage() {
               }
               className="rounded border border-sam-border px-3 py-2 sam-text-body"
             >
-              <option value="">모든 요청 상태</option>
+              <option value="">{t("admin_cm_filter_all_request_status")}</option>
               <option value="pending">pending</option>
               <option value="accepted">accepted</option>
               <option value="rejected">rejected</option>
@@ -732,7 +743,7 @@ export function AdminCommunityMessengerPage() {
           </div>
           <div className="space-y-2">
             {filteredRequests.length === 0 ? (
-              <div className="py-8 text-center sam-text-body text-sam-muted">친구 요청이 없습니다.</div>
+              <div className="py-8 text-center sam-text-body text-sam-muted">{t("admin_cm_empty_friend_requests")}</div>
             ) : (
               filteredRequests.map((request) => (
                 <RequestRow
@@ -746,7 +757,7 @@ export function AdminCommunityMessengerPage() {
           </div>
         </AdminCard>
 
-        <AdminCard title="최근 통화 기록">
+        <AdminCard titleKey="admin_cm_card_recent_calls">
           <div className="mb-3 flex flex-wrap gap-2">
             <select
               value={callStatusFilter}
@@ -757,7 +768,7 @@ export function AdminCommunityMessengerPage() {
               }
               className="rounded border border-sam-border px-3 py-2 sam-text-body"
             >
-              <option value="">모든 기록 상태</option>
+              <option value="">{t("admin_cm_filter_all_record_status")}</option>
               <option value="missed">missed</option>
               <option value="rejected">rejected</option>
               <option value="cancelled">cancelled</option>
@@ -768,7 +779,7 @@ export function AdminCommunityMessengerPage() {
           </div>
           <div className="space-y-2">
             {filteredCalls.length === 0 ? (
-              <div className="py-8 text-center sam-text-body text-sam-muted">통화 기록이 없습니다.</div>
+              <div className="py-8 text-center sam-text-body text-sam-muted">{t("admin_cm_empty_call_logs")}</div>
             ) : (
               filteredCalls.map((call) => <CallRow key={call.id} call={call} />)
             )}
@@ -776,12 +787,12 @@ export function AdminCommunityMessengerPage() {
         </AdminCard>
       </div>
 
-      <AdminCard title="강제 종료 감사 로그">
+      <AdminCard titleKey="admin_cm_card_force_end_audit">
         <div className="mb-3 flex flex-wrap gap-2">
           <input
             value={auditQuery}
             onChange={(e) => setAuditQuery(e.target.value)}
-            placeholder="방 제목, 관리자, 세션 ID, 메모 검색"
+            placeholder={t("admin_cm_placeholder_audit_search")}
             className="min-w-[220px] rounded border border-sam-border px-3 py-2 sam-text-body"
           />
           <select
@@ -789,26 +800,26 @@ export function AdminCommunityMessengerPage() {
             onChange={(e) => setAuditPeriodFilter(e.target.value as "24h" | "7d" | "30d" | "")}
             className="rounded border border-sam-border px-3 py-2 sam-text-body"
           >
-            <option value="">전체 기간</option>
-            <option value="24h">최근 24시간</option>
-            <option value="7d">최근 7일</option>
-            <option value="30d">최근 30일</option>
+            <option value="">{t("admin_cm_period_all")}</option>
+            <option value="24h">{t("admin_cm_period_24h")}</option>
+            <option value="7d">{t("admin_cm_period_7d")}</option>
+            <option value="30d">{t("admin_cm_period_30d")}</option>
           </select>
-          <div className="flex items-center sam-text-helper text-sam-muted">결과 {filteredCallAudits.length}건</div>
+          <div className="flex items-center sam-text-helper text-sam-muted">{t("admin_cm_common_results", { count: filteredCallAudits.length })}</div>
         </div>
         <div className="space-y-2">
           {filteredCallAudits.length === 0 ? (
-            <div className="py-8 text-center sam-text-body text-sam-muted">강제 종료 감사 로그가 없습니다.</div>
+            <div className="py-8 text-center sam-text-body text-sam-muted">{t("admin_cm_empty_audit_logs")}</div>
           ) : (
             filteredCallAudits.map((log) => <CallAuditRow key={log.id} log={log} />)
           )}
         </div>
       </AdminCard>
 
-      <AdminCard title="최근 메신저 신고">
+      <AdminCard titleKey="admin_cm_card_recent_reports">
         <div className="space-y-2">
           {(data?.reports ?? []).length === 0 ? (
-            <div className="py-8 text-center sam-text-body text-sam-muted">메신저 신고가 없습니다.</div>
+            <div className="py-8 text-center sam-text-body text-sam-muted">{t("admin_cm_empty_reports")}</div>
           ) : (
             (data?.reports ?? []).map((report) => (
               <ReportRow key={report.id} report={report} busy={busy} onRefresh={refresh} />
@@ -821,6 +832,7 @@ export function AdminCommunityMessengerPage() {
 }
 
 function StatCard({ label, value, helper }: { label: string; value: number; helper: string }) {
+  const { t, formatDateTime, roomTypeLabel, heatmapHourHeader, heatmapCellTitle } = useCmAdminLabels();
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
       <p className="sam-text-body-secondary text-sam-muted">{label}</p>
@@ -841,6 +853,7 @@ function ForceEndReasonKpiCard({
   count: number;
   share: number;
 }) {
+  const { t, formatDateTime, roomTypeLabel, heatmapHourHeader, heatmapCellTitle } = useCmAdminLabels();
   const percent = Math.round(share * 100);
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
@@ -854,7 +867,7 @@ function ForceEndReasonKpiCard({
       <div className="mt-3 h-2 rounded-full bg-sam-surface-muted">
         <div className="h-2 rounded-full bg-red-500" style={{ width: `${Math.max(percent, count > 0 ? 8 : 0)}%` }} />
       </div>
-      <p className="mt-2 sam-text-helper text-sam-muted">전체 강제 종료 중 {percent}%</p>
+      <p className="mt-2 sam-text-helper text-sam-muted">{t("admin_cm_common_share_of_force_end", { percent })}</p>
     </div>
   );
 }
@@ -872,6 +885,7 @@ function ForceEndTrendCard({
   delta: number;
   direction: "up" | "down" | "flat";
 }) {
+  const { t, formatDateTime, roomTypeLabel, heatmapHourHeader, heatmapCellTitle } = useCmAdminLabels();
   const toneClass =
     direction === "up"
       ? "text-red-700 bg-red-50"
@@ -890,7 +904,7 @@ function ForceEndTrendCard({
         </div>
         <span className={`rounded px-2 py-1 sam-text-helper font-medium ${toneClass}`}>{deltaLabel}</span>
       </div>
-      <p className="mt-2 sam-text-helper text-sam-muted">이전 동일 기간 {previousCount}건 대비</p>
+      <p className="mt-2 sam-text-helper text-sam-muted">{t("admin_cm_common_vs_previous_period", { count: previousCount })}</p>
     </div>
   );
 }
@@ -904,17 +918,18 @@ function ForceEndAdminRow({
   count: number;
   share: number;
 }) {
+  const { t, formatDateTime, roomTypeLabel, heatmapHourHeader, heatmapCellTitle } = useCmAdminLabels();
   const percent = Math.round(share * 100);
   return (
     <div className="rounded-ui-rect border border-sam-border-soft px-3 py-3">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate sam-text-body font-medium text-sam-fg">{adminLabel}</p>
-          <p className="mt-1 sam-text-helper text-sam-muted">전체 강제 종료 중 {percent}%</p>
+          <p className="mt-1 sam-text-helper text-sam-muted">{t("admin_cm_common_share_of_force_end", { percent })}</p>
         </div>
         <div className="text-right">
           <p className="sam-text-hero font-semibold text-sam-fg">{count}</p>
-          <p className="sam-text-xxs text-sam-meta">건수</p>
+          <p className="sam-text-xxs text-sam-meta">{t("admin_cm_label_count")}</p>
         </div>
       </div>
       <div className="mt-3 h-2 rounded-full bg-sam-surface-muted">
@@ -933,6 +948,7 @@ function ForceEndRoomTypeCard({
   count: number;
   share: number;
 }) {
+  const { t, formatDateTime, roomTypeLabel, heatmapHourHeader, heatmapCellTitle } = useCmAdminLabels();
   const percent = Math.round(share * 100);
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
@@ -941,7 +957,7 @@ function ForceEndRoomTypeCard({
       <div className="mt-3 h-2 rounded-full bg-sam-surface-muted">
         <div className="h-2 rounded-full bg-violet-500" style={{ width: `${Math.max(percent, count > 0 ? 8 : 0)}%` }} />
       </div>
-      <p className="mt-2 sam-text-helper text-sam-muted">전체 강제 종료 중 {percent}%</p>
+      <p className="mt-2 sam-text-helper text-sam-muted">{t("admin_cm_common_share_of_force_end", { percent })}</p>
     </div>
   );
 }
@@ -961,6 +977,7 @@ function ForceEndRecurrenceSummaryCard({
   share: number;
   helper: string;
 }) {
+  const { t, formatDateTime, roomTypeLabel, heatmapHourHeader, heatmapCellTitle } = useCmAdminLabels();
   const percent = Math.round(share * 100);
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
@@ -972,7 +989,9 @@ function ForceEndRecurrenceSummaryCard({
         <span className="rounded bg-amber-50 px-2 py-1 sam-text-helper font-medium text-amber-700">{percent}%</span>
       </div>
       <p className="mt-2 sam-text-helper text-sam-muted">{helper}</p>
-      <p className="mt-1 sam-text-helper text-sam-muted">재발 {repeatCount}건 · 분석 {analyzedCount}건</p>
+      <p className="mt-1 sam-text-helper text-sam-muted">
+        {t("admin_cm_common_repeat_analyzed", { repeat: repeatCount, analyzed: analyzedCount })}
+      </p>
       <div className="mt-3 h-2 rounded-full bg-sam-surface-muted">
         <div className="h-2 rounded-full bg-amber-500" style={{ width: `${Math.max(percent, repeatCount > 0 ? 8 : 0)}%` }} />
       </div>
@@ -991,12 +1010,15 @@ function ForceEndRecurrenceRow({
   repeatCount: number;
   latestAt: string;
 }) {
+  const { t, formatDateTime, roomTypeLabel, heatmapHourHeader, heatmapCellTitle } = useCmAdminLabels();
   return (
     <div className="rounded-ui-rect border border-sam-border-soft px-3 py-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate sam-text-body font-medium text-sam-fg">{label}</p>
-          <p className="mt-1 sam-text-helper text-sam-muted">총 {totalCount}건 · 재발 {repeatCount}건</p>
+          <p className="mt-1 sam-text-helper text-sam-muted">
+            {t("admin_cm_common_total_repeat", { total: totalCount, repeat: repeatCount })}
+          </p>
         </div>
         <div className="text-right sam-text-helper text-sam-meta">{formatDateTime(latestAt)}</div>
       </div>
@@ -1025,6 +1047,7 @@ function ForceEndReasonRecurrenceCard({
   callerRepeatedEvents: number;
   callerRepeatShare: number;
 }) {
+  const { t, formatDateTime, roomTypeLabel, heatmapHourHeader, heatmapCellTitle } = useCmAdminLabels();
   const roomPercent = Math.round(roomRepeatShare * 100);
   const callerPercent = Math.round(callerRepeatShare * 100);
   return (
@@ -1036,30 +1059,32 @@ function ForceEndReasonRecurrenceCard({
         </div>
         <div className="text-right">
           <p className="sam-text-hero font-semibold text-sam-fg">{totalCount}</p>
-          <p className="sam-text-xxs text-sam-meta">총 강제 종료</p>
+          <p className="sam-text-xxs text-sam-meta">{t("admin_cm_common_total_force_end")}</p>
         </div>
       </div>
       <div className="mt-4 space-y-3">
         <div>
           <div className="flex items-center justify-between gap-3 sam-text-helper">
-            <span className="text-sam-muted">방 재발</span>
+            <span className="text-sam-muted">{t("admin_cm_room_recurrence")}</span>
             <span className="font-medium text-sam-fg">{roomPercent}%</span>
           </div>
           <div className="mt-1 h-2 rounded-full bg-sam-surface-muted">
             <div className="h-2 rounded-full bg-rose-500" style={{ width: `${Math.max(roomPercent, roomRepeatedEvents > 0 ? 8 : 0)}%` }} />
           </div>
-          <p className="mt-1 sam-text-helper text-sam-muted">반복 방 {roomRepeatedSubjects}개 · 재발 {roomRepeatedEvents}건</p>
+          <p className="mt-1 sam-text-helper text-sam-muted">
+            {t("admin_cm_common_room_repeat", { rooms: roomRepeatedSubjects, events: roomRepeatedEvents })}
+          </p>
         </div>
         <div>
           <div className="flex items-center justify-between gap-3 sam-text-helper">
-            <span className="text-sam-muted">발신자 재발</span>
+            <span className="text-sam-muted">{t("admin_cm_caller_recurrence")}</span>
             <span className="font-medium text-sam-fg">{callerPercent}%</span>
           </div>
           <div className="mt-1 h-2 rounded-full bg-sam-surface-muted">
             <div className="h-2 rounded-full bg-sky-500" style={{ width: `${Math.max(callerPercent, callerRepeatedEvents > 0 ? 8 : 0)}%` }} />
           </div>
           <p className="mt-1 sam-text-helper text-sam-muted">
-            반복 발신자 {callerRepeatedSubjects}명 · 재발 {callerRepeatedEvents}건
+            {t("admin_cm_common_caller_repeat", { callers: callerRepeatedSubjects, events: callerRepeatedEvents })}
           </p>
         </div>
       </div>
@@ -1084,6 +1109,7 @@ function ForceEndAdminEffectRow({
   callerFollowupCount: number;
   callerSuppressionRate: number;
 }) {
+  const { t, formatDateTime, roomTypeLabel, heatmapHourHeader, heatmapCellTitle } = useCmAdminLabels();
   const roomPercent = Math.round(roomSuppressionRate * 100);
   const callerPercent = Math.round(callerSuppressionRate * 100);
   return (
@@ -1091,17 +1117,19 @@ function ForceEndAdminEffectRow({
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="truncate sam-text-body font-medium text-sam-fg">{adminLabel}</p>
-          <p className="mt-1 sam-text-helper text-sam-muted">총 강제 종료 {totalCount}건</p>
+          <p className="mt-1 sam-text-helper text-sam-muted">
+            {t("admin_cm_common_total_force_end")} · {t("admin_cm_common_count", { count: totalCount })}
+          </p>
         </div>
         <div className="text-right sam-text-helper text-sam-meta">
-          <div>방 후속 재발 {roomFollowupCount}건</div>
-          <div className="mt-1">발신자 후속 재발 {callerFollowupCount}건</div>
+          <div>{t("admin_cm_common_room_followup", { count: roomFollowupCount })}</div>
+          <div className="mt-1">{t("admin_cm_common_caller_followup", { count: callerFollowupCount })}</div>
         </div>
       </div>
       <div className="mt-3 grid gap-3 md:grid-cols-2">
         <div>
           <div className="flex items-center justify-between gap-3 sam-text-helper">
-            <span className="text-sam-muted">방 기준 억제율</span>
+            <span className="text-sam-muted">{t("admin_cm_room_suppression")}</span>
             <span className="font-medium text-sam-fg">{roomPercent}%</span>
           </div>
           <div className="mt-1 h-2 rounded-full bg-sam-surface-muted">
@@ -1110,7 +1138,7 @@ function ForceEndAdminEffectRow({
         </div>
         <div>
           <div className="flex items-center justify-between gap-3 sam-text-helper">
-            <span className="text-sam-muted">발신자 기준 억제율</span>
+            <span className="text-sam-muted">{t("admin_cm_caller_suppression")}</span>
             <span className="font-medium text-sam-fg">{callerPercent}%</span>
           </div>
           <div className="mt-1 h-2 rounded-full bg-sam-surface-muted">
@@ -1119,7 +1147,7 @@ function ForceEndAdminEffectRow({
               style={{ width: `${Math.max(callerPercent, callerEvaluatedCount > 0 ? 8 : 0)}%` }}
             />
           </div>
-          <p className="mt-1 sam-text-xxs text-sam-meta">발신자 매핑 가능 {callerEvaluatedCount}건 기준</p>
+          <p className="mt-1 sam-text-xxs text-sam-meta">{t("admin_cm_common_caller_evaluated", { count: callerEvaluatedCount })}</p>
         </div>
       </div>
     </div>
@@ -1141,6 +1169,7 @@ function ForceEndHeatmapCard({
   topSlots: Array<{ label: string; count: number }>;
   tone: "red" | "amber";
 }) {
+  const { t, weekdays, heatmapHours, heatmapHourHeader, heatmapCellTitle } = useCmAdminLabels();
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
       <p className="sam-text-body font-medium text-sam-fg">{title}</p>
@@ -1149,22 +1178,22 @@ function ForceEndHeatmapCard({
         <table className="min-w-[760px] border-separate border-spacing-1">
           <thead>
             <tr>
-              <th className="px-2 py-1 text-left sam-text-xxs font-medium text-sam-meta">요일</th>
-              {FORCE_END_HEATMAP_HOURS.map((hourLabel) => (
+              <th className="px-2 py-1 text-left sam-text-xxs font-medium text-sam-meta">{t("admin_cm_weekday_header")}</th>
+              {heatmapHours.map((hourLabel, hour) => (
                 <th key={hourLabel} className="px-1 py-1 text-center sam-text-xxs font-medium text-sam-meta">
-                  {hourLabel.replace("시", "")}
+                  {heatmapHourHeader(hour)}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {FORCE_END_HEATMAP_WEEKDAYS.map((weekday, dayIndex) => (
+            {weekdays.map((weekday, dayIndex) => (
               <tr key={weekday}>
                 <th className="px-2 py-1 text-left sam-text-xxs font-medium text-sam-muted">{weekday}</th>
                 {matrix[dayIndex].map((count, hour) => (
                   <td
                     key={`${weekday}-${hour}`}
-                    title={`${weekday} ${String(hour).padStart(2, "0")}:00 · ${count}건`}
+                    title={heatmapCellTitle(weekday, hour, count)}
                     className="h-8 min-w-8 rounded text-center sam-text-xxs font-medium text-sam-fg"
                     style={getHeatmapCellStyle(count, maxCount, tone)}
                   >
@@ -1178,18 +1207,18 @@ function ForceEndHeatmapCard({
       </div>
       <div className="mt-3 flex items-center gap-2 sam-text-xxs text-sam-muted">
         <span className="inline-block h-2 w-8 rounded bg-sam-surface-muted" />
-        <span>낮음</span>
+        <span>{t("admin_cm_heatmap_low")}</span>
         <span className={`inline-block h-2 w-8 rounded ${tone === "red" ? "bg-red-400" : "bg-amber-400"}`} />
-        <span>높음</span>
+        <span>{t("admin_cm_heatmap_high")}</span>
       </div>
       <div className="mt-3 space-y-1">
-        <p className="sam-text-helper font-medium text-sam-fg">집중 시간대</p>
+        <p className="sam-text-helper font-medium text-sam-fg">{t("admin_cm_heatmap_peak_hours")}</p>
         {topSlots.length === 0 ? (
-          <p className="sam-text-helper text-sam-muted">집계 데이터가 없습니다.</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_cm_heatmap_no_data")}</p>
         ) : (
           topSlots.map((slot) => (
             <p key={slot.label} className="sam-text-helper text-sam-muted">
-              {slot.label} · {slot.count}건
+              {t("admin_cm_common_slot_line", { label: slot.label, count: slot.count })}
             </p>
           ))
         )}
@@ -1217,6 +1246,7 @@ function ForceEndReasonHeatmapCard({
   maxCount: number;
   topSlots: Array<{ label: string; count: number }>;
 }) {
+  const { t, weekdays, heatmapHours, heatmapHourHeader, heatmapCellTitle } = useCmAdminLabels();
   const recurrencePercent = Math.round(recurrenceShare * 100);
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
@@ -1227,32 +1257,32 @@ function ForceEndReasonHeatmapCard({
         </div>
         <div className="text-right">
           <p className="sam-text-hero font-semibold text-sam-fg">{totalCount}</p>
-          <p className="sam-text-xxs text-sam-meta">총 강제 종료</p>
+          <p className="sam-text-xxs text-sam-meta">{t("admin_cm_common_total_force_end")}</p>
         </div>
       </div>
       <p className="mt-2 sam-text-helper text-sam-muted">
-        후속 재발 {recurrenceCount}건 · 재발 비중 {recurrencePercent}%
+        {t("admin_cm_common_recurrence_line", { count: recurrenceCount, percent: recurrencePercent })}
       </p>
       <div className="mt-3 overflow-x-auto">
         <table className="min-w-[760px] border-separate border-spacing-1">
           <thead>
             <tr>
-              <th className="px-2 py-1 text-left sam-text-xxs font-medium text-sam-meta">요일</th>
-              {FORCE_END_HEATMAP_HOURS.map((hourLabel) => (
+              <th className="px-2 py-1 text-left sam-text-xxs font-medium text-sam-meta">{t("admin_cm_weekday_header")}</th>
+              {heatmapHours.map((hourLabel, hour) => (
                 <th key={hourLabel} className="px-1 py-1 text-center sam-text-xxs font-medium text-sam-meta">
-                  {hourLabel.replace("시", "")}
+                  {heatmapHourHeader(hour)}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {FORCE_END_HEATMAP_WEEKDAYS.map((weekday, dayIndex) => (
+            {weekdays.map((weekday, dayIndex) => (
               <tr key={`${code}:${weekday}`}>
                 <th className="px-2 py-1 text-left sam-text-xxs font-medium text-sam-muted">{weekday}</th>
                 {matrix[dayIndex].map((count, hour) => (
                   <td
                     key={`${code}:${weekday}-${hour}`}
-                    title={`${label} · ${weekday} ${String(hour).padStart(2, "0")}:00 · ${count}건`}
+                    title={heatmapCellTitle(weekday, hour, count)}
                     className="h-8 min-w-8 rounded text-center sam-text-xxs font-medium text-sam-fg"
                     style={getHeatmapCellStyle(count, maxCount, "red")}
                   >
@@ -1265,13 +1295,13 @@ function ForceEndReasonHeatmapCard({
         </table>
       </div>
       <div className="mt-3 space-y-1">
-        <p className="sam-text-helper font-medium text-sam-fg">집중 시간대</p>
+        <p className="sam-text-helper font-medium text-sam-fg">{t("admin_cm_heatmap_peak_hours")}</p>
         {topSlots.length === 0 ? (
-          <p className="sam-text-helper text-sam-muted">집계 데이터가 없습니다.</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_cm_heatmap_no_data")}</p>
         ) : (
           topSlots.map((slot) => (
             <p key={`${code}:${slot.label}`} className="sam-text-helper text-sam-muted">
-              {slot.label} · {slot.count}건
+              {t("admin_cm_common_slot_line", { label: slot.label, count: slot.count })}
             </p>
           ))
         )}
@@ -1293,6 +1323,7 @@ function ForceEndReasonAdminCard({
   uniqueAdminCount: number;
   topAdmins: Array<{ adminLabel: string; count: number; share: number }>;
 }) {
+  const { t, formatDateTime, roomTypeLabel, heatmapHourHeader, heatmapCellTitle } = useCmAdminLabels();
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
       <div className="flex items-start justify-between gap-3">
@@ -1302,13 +1333,13 @@ function ForceEndReasonAdminCard({
         </div>
         <div className="text-right">
           <p className="sam-text-hero font-semibold text-sam-fg">{totalCount}</p>
-          <p className="sam-text-xxs text-sam-meta">총 강제 종료</p>
+          <p className="sam-text-xxs text-sam-meta">{t("admin_cm_common_total_force_end")}</p>
         </div>
       </div>
-      <p className="mt-2 sam-text-helper text-sam-muted">처리 운영자 {uniqueAdminCount}명</p>
+      <p className="mt-2 sam-text-helper text-sam-muted">{t("admin_cm_common_operators_count", { count: uniqueAdminCount })}</p>
       <div className="mt-4 space-y-2">
         {topAdmins.length === 0 ? (
-          <p className="sam-text-helper text-sam-muted">집계 가능한 운영자 데이터가 없습니다.</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_cm_empty_operator_stats")}</p>
         ) : (
           topAdmins.map((item) => {
             const percent = Math.round(item.share * 100);
@@ -1317,11 +1348,11 @@ function ForceEndReasonAdminCard({
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="truncate sam-text-body-secondary font-medium text-sam-fg">{item.adminLabel}</p>
-                    <p className="mt-1 sam-text-xxs text-sam-muted">이 사유 내 점유율 {percent}%</p>
+                    <p className="mt-1 sam-text-xxs text-sam-muted">{t("admin_cm_common_reason_share", { percent })}</p>
                   </div>
                   <div className="text-right">
                     <p className="sam-text-page-title font-semibold text-sam-fg">{item.count}</p>
-                    <p className="sam-text-xxs text-sam-meta">건수</p>
+                    <p className="sam-text-xxs text-sam-meta">{t("admin_cm_label_count")}</p>
                   </div>
                 </div>
                 <div className="mt-3 h-2 rounded-full bg-sam-surface-muted">
@@ -1337,15 +1368,16 @@ function ForceEndReasonAdminCard({
 }
 
 function RoomRow({ room }: { room: AdminCommunityMessengerRoomSummary }) {
+  const { t, formatDateTime, roomTypeLabel, heatmapHourHeader, heatmapCellTitle } = useCmAdminLabels();
   return (
     <tr className="border-b border-sam-border-soft align-top">
       <td className="px-3 py-3">
         <div className="font-medium text-sam-fg">{room.title}</div>
         <div className="mt-1 font-mono sam-text-helper text-sam-meta">{room.id}</div>
-        {room.adminNote ? <div className="mt-1 sam-text-helper text-amber-700">메모: {room.adminNote}</div> : null}
+        {room.adminNote ? <div className="mt-1 sam-text-helper text-amber-700">{t("admin_cm_common_note", { text: room.adminNote })}</div> : null}
       </td>
       <td className="px-3 py-3 text-sam-fg">
-        {room.roomType === "open_group" ? "공개 그룹" : room.roomType === "private_group" ? "비공개 그룹" : "1:1"}
+        {roomTypeLabel(room.roomType === "open_group" ? "open_group" : room.roomType === "private_group" ? "private_group" : "direct")}
       </td>
       <td className="px-3 py-3">
         <div className="flex flex-wrap gap-1">
@@ -1365,7 +1397,7 @@ function RoomRow({ room }: { room: AdminCommunityMessengerRoomSummary }) {
       </td>
       <td className="px-3 py-3 text-sam-fg">{room.createdByLabel}</td>
       <td className="px-3 py-3 text-sam-fg">
-        <div>{room.memberCount}명</div>
+        <div>{t("admin_cm_common_members", { count: room.memberCount })}</div>
         <div className="mt-1 sam-text-helper text-sam-muted">{room.memberLabels.join(", ")}</div>
       </td>
       <td className="px-3 py-3 text-sam-fg">{room.lastMessage}</td>
@@ -1375,7 +1407,7 @@ function RoomRow({ room }: { room: AdminCommunityMessengerRoomSummary }) {
           href={`/admin/chats/messenger/${encodeURIComponent(room.id)}`}
           className="text-signature hover:underline"
         >
-          상세보기
+          {t("admin_cm_action_view_detail")}
         </Link>
       </td>
     </tr>
@@ -1391,6 +1423,7 @@ function RequestRow({
   busy: string | null;
   onAction: (requestId: string, status: CommunityMessengerFriendRequestStatus) => Promise<void>;
 }) {
+  const { t, formatDateTime } = useCmAdminLabels();
   return (
     <div className="rounded-ui-rect border border-sam-border-soft px-3 py-3">
       <div className="flex items-start justify-between gap-3">
@@ -1399,11 +1432,11 @@ function RequestRow({
             {request.requesterLabel} {"->"} {request.addresseeLabel}
           </p>
           <p className="mt-1 sam-text-helper text-sam-muted">
-            상태 {request.status} · 생성 {formatDateTime(request.createdAt)}
+            {t("admin_cm_common_status", { status: request.status })} · {t("admin_cm_common_created", { date: formatDateTime(request.createdAt) })}
           </p>
-          {request.note ? <p className="mt-1 sam-text-helper text-sam-fg">요청 메모: {request.note}</p> : null}
+          {request.note ? <p className="mt-1 sam-text-helper text-sam-fg">{t("admin_cm_common_request_note", { text: request.note })}</p> : null}
           {request.adminNote ? (
-            <p className="mt-1 sam-text-helper text-amber-700">관리 메모: {request.adminNote}</p>
+            <p className="mt-1 sam-text-helper text-amber-700">{t("admin_cm_common_admin_note", { text: request.adminNote })}</p>
           ) : null}
         </div>
         <div className="flex flex-wrap justify-end gap-2">
@@ -1413,7 +1446,7 @@ function RequestRow({
             onClick={() => void onAction(request.id, "accepted")}
             className="rounded border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 sam-text-helper text-emerald-700"
           >
-            승인
+            {t("admin_cm_action_approve")}
           </button>
           <button
             type="button"
@@ -1421,7 +1454,7 @@ function RequestRow({
             onClick={() => void onAction(request.id, "rejected")}
             className="rounded border border-sam-border bg-sam-surface px-2.5 py-1.5 sam-text-helper text-sam-fg"
           >
-            거절
+            {t("admin_cm_action_reject")}
           </button>
           <button
             type="button"
@@ -1429,7 +1462,7 @@ function RequestRow({
             onClick={() => void onAction(request.id, "blocked")}
             className="rounded border border-red-200 bg-red-50 px-2.5 py-1.5 sam-text-helper text-red-700"
           >
-            차단 처리
+            {t("admin_cm_action_block")}
           </button>
         </div>
       </div>
@@ -1438,6 +1471,7 @@ function RequestRow({
 }
 
 function CallRow({ call }: { call: AdminCommunityMessengerCallLog }) {
+  const { t, formatDateTime, roomTypeLabel, heatmapHourHeader, heatmapCellTitle } = useCmAdminLabels();
   return (
     <div className="rounded-ui-rect border border-sam-border-soft px-3 py-3">
       <div className="flex items-start justify-between gap-3">
@@ -1445,14 +1479,14 @@ function CallRow({ call }: { call: AdminCommunityMessengerCallLog }) {
           <p className="sam-text-body font-medium text-sam-fg">
             {call.roomTitle}
             <span className="ml-2 rounded bg-sam-surface-muted px-1.5 py-0.5 sam-text-xxs text-sam-fg">
-              {call.sessionMode === "group" ? "그룹" : "1:1"}
+              {call.sessionMode === "group" ? t("admin_cm_session_mode_group") : t("admin_cm_session_mode_direct")}
             </span>
           </p>
           <p className="mt-1 sam-text-helper text-sam-muted">
             {call.callerLabel} {"->"} {call.peerLabel}
           </p>
           <p className="mt-1 sam-text-helper text-sam-fg">
-            {call.callKind} · {call.status} · {call.durationSeconds}초 · 참여 {call.participantCount}명
+            {t("admin_cm_common_call_duration", { kind: call.callKind, status: call.status, seconds: call.durationSeconds, count: call.participantCount })}
           </p>
         </div>
         <div className="sam-text-helper text-sam-meta">{formatDateTime(call.startedAt)}</div>
@@ -1462,6 +1496,7 @@ function CallRow({ call }: { call: AdminCommunityMessengerCallLog }) {
 }
 
 function ActiveCallRow({ call }: { call: AdminCommunityMessengerActiveCallSession }) {
+  const { t, formatDateTime, roomTypeLabel, heatmapHourHeader, heatmapCellTitle } = useCmAdminLabels();
   return (
     <div className="rounded-ui-rect border border-sam-border-soft px-3 py-3">
       <div className="flex items-start justify-between gap-3">
@@ -1469,14 +1504,14 @@ function ActiveCallRow({ call }: { call: AdminCommunityMessengerActiveCallSessio
           <p className="sam-text-body font-medium text-sam-fg">
             {call.roomTitle}
             <span className="ml-2 rounded bg-sky-50 px-1.5 py-0.5 sam-text-xxs text-sky-700">
-              {call.sessionMode === "group" ? "그룹" : "1:1"}
+              {call.sessionMode === "group" ? t("admin_cm_session_mode_group") : t("admin_cm_session_mode_direct")}
             </span>
           </p>
           <p className="mt-1 sam-text-helper text-sam-muted">
-            시작자 {call.initiatorLabel} · {call.callKind} · {call.status}
+            {t("admin_cm_common_initiator", { name: call.initiatorLabel })} · {call.callKind} · {call.status}
           </p>
           <p className="mt-1 sam-text-helper text-sam-fg">
-            참여 {call.joinedCount}명 · 대기 {call.invitedCount}명 · 전체 {call.participantCount}명
+            {t("admin_cm_common_participants_joined", { joined: call.joinedCount, invited: call.invitedCount, total: call.participantCount })}
           </p>
           <p className="mt-1 sam-text-helper text-sam-muted">
             {call.participants.map((participant) => `${participant.label}(${participant.status})`).join(", ")}
@@ -1489,7 +1524,7 @@ function ActiveCallRow({ call }: { call: AdminCommunityMessengerActiveCallSessio
               href={`/admin/chats/messenger/${encodeURIComponent(call.roomId)}`}
               className="text-signature hover:underline"
             >
-              방 상세
+              {t("admin_cm_action_room_detail")}
             </Link>
           </div>
         </div>
@@ -1499,24 +1534,25 @@ function ActiveCallRow({ call }: { call: AdminCommunityMessengerActiveCallSessio
 }
 
 function CallAuditRow({ log }: { log: AdminCommunityMessengerCallAuditLog }) {
+  const { t, formatDateTime, roomTypeLabel, heatmapHourHeader, heatmapCellTitle } = useCmAdminLabels();
   return (
     <div className="rounded-ui-rect border border-sam-border-soft px-3 py-3">
       <div className="flex items-start justify-between gap-3">
         <div>
           <p className="sam-text-body font-medium text-sam-fg">
             {log.roomTitle}
-            <span className="ml-2 rounded bg-red-50 px-1.5 py-0.5 sam-text-xxs text-red-700">강제 종료</span>
+            <span className="ml-2 rounded bg-red-50 px-1.5 py-0.5 sam-text-xxs text-red-700">{t("admin_cm_force_end_badge")}</span>
           </p>
           <p className="mt-1 sam-text-helper text-sam-muted">
-            관리자 {log.actorLabel} · {log.beforeStatus} {"->"} {log.afterStatus}
+            {t("admin_cm_common_admin_actor", { name: log.actorLabel })} · {log.beforeStatus} {"->"} {log.afterStatus}
           </p>
           {log.reasonCode ? (
             <p className="mt-1 sam-text-helper text-sky-700">
-              사유 코드: {log.reasonLabel} ({log.reasonCode})
+              {t("admin_cm_common_reason_code", { label: log.reasonLabel, code: log.reasonCode ?? "" })}
             </p>
           ) : null}
           <p className="mt-1 sam-text-helper text-sam-fg font-mono">{log.sessionId}</p>
-          {log.note ? <p className="mt-1 sam-text-helper text-amber-700">메모: {log.note}</p> : null}
+          {log.note ? <p className="mt-1 sam-text-helper text-amber-700">{t("admin_cm_common_note", { text: log.note })}</p> : null}
         </div>
         <div className="text-right sam-text-helper text-sam-meta">
           <div>{formatDateTime(log.createdAt)}</div>
@@ -1525,7 +1561,7 @@ function CallAuditRow({ log }: { log: AdminCommunityMessengerCallAuditLog }) {
               href={`/admin/chats/messenger/${encodeURIComponent(log.roomId)}`}
               className="text-signature hover:underline"
             >
-              방 상세
+              {t("admin_cm_action_room_detail")}
             </Link>
           </div>
         </div>
@@ -1543,6 +1579,7 @@ function ReportRow({
   busy: string | null;
   onRefresh: () => Promise<void>;
 }) {
+  const { t } = useCmAdminLabels();
   const run = async (action: "reviewing" | "resolved" | "rejected" | "sanction_message_hide" | "sanction_room_block") => {
     const key = `report:${report.id}:${action}`;
     try {
@@ -1553,7 +1590,7 @@ function ReportRow({
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        alert(json.error ?? "신고 처리 실패");
+        alert(json.error ?? t("admin_cm_err_report_action_failed"));
         return;
       }
       await onRefresh();
@@ -1568,10 +1605,10 @@ function ReportRow({
             {report.reportType} · {report.roomTitle}
           </p>
           <p className="mt-1 sam-text-helper text-sam-muted">
-            신고자 {report.reporterLabel} · 대상 {report.reportedUserLabel} · 상태 {report.status}
+            {t("admin_cm_common_reporter_line", { reporter: report.reporterLabel, target: report.reportedUserLabel, status: report.status })}
           </p>
           <p className="mt-1 sam-text-helper text-sam-fg">
-            사유 {report.reasonType}{report.reasonDetail ? ` · ${report.reasonDetail}` : ""}
+            {t("admin_cm_common_reason_line", { reason: `${report.reasonType}${report.reasonDetail ? ` · ${report.reasonDetail}` : ""}` })}
           </p>
         </div>
         <div className="flex flex-wrap justify-end gap-2">
@@ -1581,7 +1618,7 @@ function ReportRow({
             onClick={() => void run("reviewing")}
             className="rounded border border-sam-border px-2.5 py-1.5 sam-text-helper text-sam-fg"
           >
-            검토중
+            {t("admin_cm_action_reviewing")}
           </button>
           <button
             type="button"
@@ -1589,7 +1626,7 @@ function ReportRow({
             onClick={() => void run("resolved")}
             className="rounded border border-emerald-200 bg-emerald-50 px-2.5 py-1.5 sam-text-helper text-emerald-700"
           >
-            해결
+            {t("admin_cm_action_resolve")}
           </button>
           {report.messageId ? (
             <button
@@ -1598,7 +1635,7 @@ function ReportRow({
               onClick={() => void run("sanction_message_hide")}
               className="rounded border border-orange-200 bg-orange-50 px-2.5 py-1.5 sam-text-helper text-orange-700"
             >
-              메시지 숨김
+              {t("admin_cm_action_hide_message")}
             </button>
           ) : null}
           {report.roomId ? (
@@ -1608,7 +1645,7 @@ function ReportRow({
               onClick={() => void run("sanction_room_block")}
               className="rounded border border-red-200 bg-red-50 px-2.5 py-1.5 sam-text-helper text-red-700"
             >
-              방 차단
+              {t("admin_cm_action_block_room")}
             </button>
           ) : null}
         </div>
@@ -1617,7 +1654,7 @@ function ReportRow({
   );
 }
 
-function buildForceEndReasonStats(callAudits: AdminCommunityMessengerCallAuditLog[]) {
+function buildForceEndReasonStats(callAudits: AdminCommunityMessengerCallAuditLog[], t: CmAdminTranslate) {
   const total = callAudits.length;
   const countMap = new Map<string, number>();
   for (const audit of callAudits) {
@@ -1629,7 +1666,7 @@ function buildForceEndReasonStats(callAudits: AdminCommunityMessengerCallAuditLo
     const count = countMap.get(reason.code) ?? 0;
     return {
       code: reason.code,
-      label: reason.label,
+      label: cmForceEndReasonLabel(t, reason.code),
       count,
       share: total > 0 ? count / total : 0,
     };
@@ -1638,7 +1675,8 @@ function buildForceEndReasonStats(callAudits: AdminCommunityMessengerCallAuditLo
 
 function buildForceEndTrendStats(
   callAudits: AdminCommunityMessengerCallAuditLog[],
-  periodFilter: "24h" | "7d" | "30d" | ""
+  periodFilter: "24h" | "7d" | "30d" | "",
+  t: CmAdminTranslate
 ) {
   const periods = periodFilter
     ? [periodFilter]
@@ -1650,7 +1688,7 @@ function buildForceEndTrendStats(
     const delta = currentCount - previousCount;
     return {
       key: period,
-      label: period === "24h" ? "최근 24시간" : period === "7d" ? "최근 7일" : "최근 30일",
+      label: period === "24h" ? t("admin_cm_period_24h") : period === "7d" ? t("admin_cm_period_7d") : t("admin_cm_period_30d"),
       currentCount,
       previousCount,
       delta,
@@ -1659,11 +1697,11 @@ function buildForceEndTrendStats(
   });
 }
 
-function buildForceEndAdminStats(callAudits: AdminCommunityMessengerCallAuditLog[]) {
+function buildForceEndAdminStats(callAudits: AdminCommunityMessengerCallAuditLog[], t: CmAdminTranslate) {
   const total = callAudits.length;
   const countMap = new Map<string, number>();
   for (const audit of callAudits) {
-    const adminLabel = audit.actorLabel || "관리자 미상";
+    const adminLabel = audit.actorLabel || t("admin_cm_admin_unknown");
     countMap.set(adminLabel, (countMap.get(adminLabel) ?? 0) + 1);
   }
 
@@ -1679,7 +1717,8 @@ function buildForceEndAdminStats(callAudits: AdminCommunityMessengerCallAuditLog
 
 function buildForceEndRoomTypeStats(
   callAudits: AdminCommunityMessengerCallAuditLog[],
-  roomTypeByRoomId: Map<string, "direct" | "private_group" | "open_group">
+  roomTypeByRoomId: Map<string, "direct" | "private_group" | "open_group">,
+  t: CmAdminTranslate
 ) {
   const total = callAudits.length;
   const countMap = new Map<string, number>([
@@ -1695,10 +1734,10 @@ function buildForceEndRoomTypeStats(
   }
 
   return [
-    { key: "direct", label: "1:1", count: countMap.get("direct") ?? 0 },
-    { key: "private_group", label: "비공개 그룹", count: countMap.get("private_group") ?? 0 },
-    { key: "open_group", label: "공개 그룹", count: countMap.get("open_group") ?? 0 },
-    { key: "unknown", label: "미확인", count: countMap.get("unknown") ?? 0 },
+    { key: "direct", label: t("admin_cm_room_type_direct"), count: countMap.get("direct") ?? 0 },
+    { key: "private_group", label: t("admin_cm_room_type_private_group"), count: countMap.get("private_group") ?? 0 },
+    { key: "open_group", label: t("admin_cm_room_type_open_group"), count: countMap.get("open_group") ?? 0 },
+    { key: "unknown", label: t("admin_cm_room_type_unknown"), count: countMap.get("unknown") ?? 0 },
   ].map((item) => ({
     ...item,
     share: total > 0 ? item.count / total : 0,
@@ -1708,7 +1747,8 @@ function buildForceEndRoomTypeStats(
 function buildForceEndRecurrenceAnalysis(
   callAudits: AdminCommunityMessengerCallAuditLog[],
   roomTitleByRoomId: Map<string, string>,
-  callLogBySessionId: Map<string, AdminCommunityMessengerCallLog>
+  callLogBySessionId: Map<string, AdminCommunityMessengerCallLog>,
+  t: CmAdminTranslate
 ) {
   const roomCounts = new Map<string, { key: string; label: string; totalCount: number; latestAt: string }>();
   const callerCounts = new Map<string, { key: string; label: string; totalCount: number; latestAt: string }>();
@@ -1717,7 +1757,7 @@ function buildForceEndRecurrenceAnalysis(
   for (const audit of callAudits) {
     const roomKey = audit.roomId || audit.sessionId;
     const existingRoom = roomCounts.get(roomKey);
-    const roomLabel = roomTitleByRoomId.get(audit.roomId) || audit.roomTitle || "메신저 방";
+    const roomLabel = roomTitleByRoomId.get(audit.roomId) || audit.roomTitle || t("admin_cm_default_room_title");
     roomCounts.set(roomKey, {
       key: roomKey,
       label: roomLabel,
@@ -1753,7 +1793,8 @@ function buildForceEndRecurrenceAnalysis(
 function buildForceEndReasonRecurrenceStats(
   callAudits: AdminCommunityMessengerCallAuditLog[],
   roomTitleByRoomId: Map<string, string>,
-  callLogBySessionId: Map<string, AdminCommunityMessengerCallLog>
+  callLogBySessionId: Map<string, AdminCommunityMessengerCallLog>,
+  t: CmAdminTranslate
 ) {
   const auditsByReason = new Map<string, AdminCommunityMessengerCallAuditLog[]>();
   for (const audit of callAudits) {
@@ -1765,10 +1806,10 @@ function buildForceEndReasonRecurrenceStats(
 
   return COMMUNITY_MESSENGER_CALL_FORCE_END_REASONS.map((reason) => {
     const reasonAudits = auditsByReason.get(reason.code) ?? [];
-    const recurrence = buildForceEndRecurrenceAnalysis(reasonAudits, roomTitleByRoomId, callLogBySessionId);
+    const recurrence = buildForceEndRecurrenceAnalysis(reasonAudits, roomTitleByRoomId, callLogBySessionId, t);
     return {
       code: reason.code,
-      label: reason.label,
+      label: cmForceEndReasonLabel(t, reason.code),
       totalCount: reasonAudits.length,
       roomRepeatedSubjects: recurrence.room.repeatedSubjects,
       roomRepeatedEvents: recurrence.room.repeatedEvents,
@@ -1784,7 +1825,8 @@ function buildForceEndReasonRecurrenceStats(
 
 function buildForceEndAdminEffectStats(
   callAudits: AdminCommunityMessengerCallAuditLog[],
-  callLogBySessionId: Map<string, AdminCommunityMessengerCallLog>
+  callLogBySessionId: Map<string, AdminCommunityMessengerCallLog>,
+  t: CmAdminTranslate
 ) {
   const audits = [...callAudits].sort((left, right) => {
     const diff = new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime();
@@ -1805,7 +1847,7 @@ function buildForceEndAdminEffectStats(
 
   for (let index = audits.length - 1; index >= 0; index -= 1) {
     const audit = audits[index];
-    const adminLabel = audit.actorLabel || "관리자 미상";
+    const adminLabel = audit.actorLabel || t("admin_cm_admin_unknown");
     const roomKey = audit.roomId || audit.sessionId;
     const callerLabel = callLogBySessionId.get(audit.sessionId)?.callerLabel?.trim() || "";
     const hasFutureRoomRepeat = (futureRoomCounts.get(roomKey) ?? 0) > 0;
@@ -1853,7 +1895,9 @@ function buildForceEndAdminEffectStats(
 
 function buildForceEndHeatmapStats(
   callAudits: AdminCommunityMessengerCallAuditLog[],
-  callLogBySessionId: Map<string, AdminCommunityMessengerCallLog>
+  callLogBySessionId: Map<string, AdminCommunityMessengerCallLog>,
+  weekdays: string[],
+  t: CmAdminTranslate
 ) {
   const totalMatrix = createEmptyHeatmapMatrix();
   const recurrenceMatrix = createEmptyHeatmapMatrix();
@@ -1891,14 +1935,16 @@ function buildForceEndHeatmapStats(
     recurrenceMatrix,
     maxTotalCount: getHeatmapMaxCount(totalMatrix),
     maxRecurrenceCount: getHeatmapMaxCount(recurrenceMatrix),
-    topForceEndSlots: getTopHeatmapSlots(totalMatrix),
-    topRecurrenceSlots: getTopHeatmapSlots(recurrenceMatrix),
+    topForceEndSlots: getTopHeatmapSlots(totalMatrix, weekdays, t),
+    topRecurrenceSlots: getTopHeatmapSlots(recurrenceMatrix, weekdays, t),
   };
 }
 
 function buildForceEndReasonHeatmapStats(
   callAudits: AdminCommunityMessengerCallAuditLog[],
-  callLogBySessionId: Map<string, AdminCommunityMessengerCallLog>
+  callLogBySessionId: Map<string, AdminCommunityMessengerCallLog>,
+  weekdays: string[],
+  t: CmAdminTranslate
 ) {
   const auditsByReason = new Map<string, AdminCommunityMessengerCallAuditLog[]>();
   for (const audit of callAudits) {
@@ -1910,11 +1956,11 @@ function buildForceEndReasonHeatmapStats(
 
   return COMMUNITY_MESSENGER_CALL_FORCE_END_REASONS.map((reason) => {
     const reasonAudits = auditsByReason.get(reason.code) ?? [];
-    const heatmap = buildForceEndHeatmapStats(reasonAudits, callLogBySessionId);
+    const heatmap = buildForceEndHeatmapStats(reasonAudits, callLogBySessionId, weekdays, t);
     const recurrenceCount = heatmap.recurrenceMatrix.reduce((sum, row) => sum + row.reduce((rowSum, count) => rowSum + count, 0), 0);
     return {
       code: reason.code,
-      label: reason.label,
+      label: cmForceEndReasonLabel(t, reason.code),
       totalCount: reasonAudits.length,
       recurrenceCount,
       recurrenceShare: reasonAudits.length > 0 ? recurrenceCount / reasonAudits.length : 0,
@@ -1927,7 +1973,7 @@ function buildForceEndReasonHeatmapStats(
     .sort((left, right) => right.totalCount - left.totalCount || left.label.localeCompare(right.label, "ko-KR"));
 }
 
-function buildForceEndReasonAdminStats(callAudits: AdminCommunityMessengerCallAuditLog[]) {
+function buildForceEndReasonAdminStats(callAudits: AdminCommunityMessengerCallAuditLog[], t: CmAdminTranslate) {
   const auditsByReason = new Map<string, AdminCommunityMessengerCallAuditLog[]>();
   for (const audit of callAudits) {
     const reasonCode = audit.reasonCode || "other";
@@ -1940,12 +1986,12 @@ function buildForceEndReasonAdminStats(callAudits: AdminCommunityMessengerCallAu
     const reasonAudits = auditsByReason.get(reason.code) ?? [];
     const adminCounts = new Map<string, number>();
     for (const audit of reasonAudits) {
-      const adminLabel = audit.actorLabel || "관리자 미상";
+      const adminLabel = audit.actorLabel || t("admin_cm_admin_unknown");
       adminCounts.set(adminLabel, (adminCounts.get(adminLabel) ?? 0) + 1);
     }
     return {
       code: reason.code,
-      label: reason.label,
+      label: cmForceEndReasonLabel(t, reason.code),
       totalCount: reasonAudits.length,
       uniqueAdminCount: adminCounts.size,
       topAdmins: [...adminCounts.entries()]
@@ -1996,11 +2042,14 @@ function getHeatmapMaxCount(matrix: number[][]) {
   return matrix.reduce((max, row) => Math.max(max, ...row), 0);
 }
 
-function getTopHeatmapSlots(matrix: number[][]) {
+function getTopHeatmapSlots(matrix: number[][], weekdays: string[], t: CmAdminTranslate) {
   return matrix
     .flatMap((row, weekday) =>
       row.map((count, hour) => ({
-        label: `${FORCE_END_HEATMAP_WEEKDAYS[weekday]} ${String(hour).padStart(2, "0")}:00`,
+        label: t("admin_cm_heatmap_slot_label", {
+          weekday: weekdays[weekday] ?? "",
+          hour: String(hour).padStart(2, "0"),
+        }),
         count,
         weekday,
         hour,
@@ -2020,13 +2069,6 @@ function getHeatmapCellStyle(count: number, maxCount: number, tone: "red" | "amb
   return {
     backgroundColor: tone === "red" ? `rgba(239, 68, 68, ${alpha})` : `rgba(245, 158, 11, ${alpha})`,
   };
-}
-
-function formatDateTime(value: string) {
-  if (!value) return "-";
-  const date = new Date(value);
-  if (!Number.isFinite(date.getTime())) return value;
-  return date.toLocaleString("ko-KR");
 }
 
 function matchesAuditPeriod(value: string, period: "24h" | "7d" | "30d" | "") {

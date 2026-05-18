@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getRecommendationReasonAnalytics } from "@/lib/recommendation-reports/mock-recommendation-reason-analytics";
 
 interface RecommendationReasonAnalyticsTableProps {
@@ -12,6 +13,7 @@ export function RecommendationReasonAnalyticsTable({
   reportId,
   limit = 15,
 }: RecommendationReasonAnalyticsTableProps) {
+  const { t } = useI18n();
   const rows = useMemo(
     () => getRecommendationReasonAnalytics(reportId, limit),
     [reportId, limit]
@@ -20,7 +22,7 @@ export function RecommendationReasonAnalyticsTable({
   if (rows.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
-        추천 이유 분석 데이터가 없습니다.
+        {t("admin_rec_report_empty_reason")}
       </div>
     );
   }
@@ -31,22 +33,22 @@ export function RecommendationReasonAnalyticsTable({
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              순위
+              {t("admin_rec_th_rank")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              이유
+              {t("admin_rec_report_th_reason")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              노출
+              {t("admin_rec_th_impressions")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              클릭
+              {t("admin_rec_th_clicks")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              CTR
+              {t("admin_rec_th_ctr")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              전환
+              {t("admin_rec_th_conversion")}
             </th>
           </tr>
         </thead>

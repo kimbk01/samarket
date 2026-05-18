@@ -14,8 +14,10 @@ import {
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { invalidateAddressDefaultsSnapshotCache } from "@/lib/addresses/fetch-address-defaults-client";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 function AddressEditorPageInner() {
+  const { t } = useI18n();
   const router = useRouter();
   const sp = useSearchParams();
   const idFromUrl = (sp.get("id") ?? "").trim();
@@ -40,7 +42,7 @@ function AddressEditorPageInner() {
       setLoadErr(null);
       const result = await fetchMeAddressesListSingleFlight();
       if (!result.ok) {
-        setLoadErr(describeMeAddressesListFailure(result, "목록을 불러오지 못했어요."));
+        setLoadErr(describeMeAddressesListFailure(result, t("address_load_failed")));
         setList([]);
         setBootstrapping(false);
         return;
@@ -99,7 +101,7 @@ function AddressEditorPageInner() {
   if (bootstrapping) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center bg-sam-app sam-text-body-secondary text-sam-muted">
-        불러오는 중…
+        {t("common_loading")}
       </div>
     );
   }
@@ -113,7 +115,7 @@ function AddressEditorPageInner() {
           className="mx-auto mt-4 rounded-lg border border-sam-border px-4 py-2 sam-text-body font-semibold text-sam-fg"
           onClick={() => router.push("/mypage/addresses")}
         >
-          주소 목록으로
+          {t("addr_ui_back_to_list")}
         </button>
       </div>
     );
@@ -145,7 +147,7 @@ export function AddressEditorPageClient() {
     <Suspense
       fallback={
         <div className="flex min-h-[40vh] items-center justify-center bg-sam-app sam-text-body-secondary text-sam-muted">
-          불러오는 중…
+          {t("common_loading")}
         </div>
       }
     >

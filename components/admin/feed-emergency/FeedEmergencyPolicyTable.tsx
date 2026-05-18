@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import type { FeedFallbackMode } from "@/lib/types/feed-emergency";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
@@ -23,6 +26,7 @@ const FALLBACK_MODE_LABELS: Record<FeedFallbackMode, string> = {
 };
 
 export function FeedEmergencyPolicyTable() {
+  const { t } = useI18n();
   const [refresh, setRefresh] = useState(0);
 
   const policies = useMemo(
@@ -120,7 +124,7 @@ export function FeedEmergencyPolicyTable() {
                       {p.killSwitchEnabled ? "ON (해제)" : "OFF (활성화)"}
                     </button>
                     {mode === "kill_switch" && (
-                      <span className="sam-text-helper text-amber-600">활성됨</span>
+                      <span className="sam-text-helper text-amber-600">{t("admin_feed_emergency_active_2")}</span>
                     )}
                   </div>
                 </td>
@@ -173,7 +177,7 @@ export function FeedEmergencyPolicyTable() {
                       }
                       className="rounded border-sam-border"
                     />
-                    <span className="sam-text-body-secondary">공지 표시</span>
+                    <span className="sam-text-body-secondary">{t("admin_feed_emergency_visible")}</span>
                   </label>
                   {p.emergencyNoticeEnabled && (
                     <input
@@ -187,7 +191,7 @@ export function FeedEmergencyPolicyTable() {
                           e.target.value
                         )
                       }
-                      placeholder="공지 문구"
+                      placeholder={t("admin_notice_placeholder")}
                       className="mt-1 w-full rounded border border-sam-border px-2 py-1 sam-text-helper"
                     />
                   )}

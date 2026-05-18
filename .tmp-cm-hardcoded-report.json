@@ -1,0 +1,1825 @@
+{
+  "total": 326,
+  "byFile": [
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "count": 115
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "count": 28
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "count": 28
+    },
+    {
+      "file": "components/community-messenger/MessengerSearchSheet.tsx",
+      "count": 18
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MemberActionModal.tsx",
+      "count": 16
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendProfileSheet.tsx",
+      "count": 10
+    },
+    {
+      "file": "components/community-messenger/room/phase2/ChatRoomMoreMenu.tsx",
+      "count": 8
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Composer.tsx",
+      "count": 7
+    },
+    {
+      "file": "components/community-messenger/meetings/MeetingJoinPreviewFullScreen.tsx",
+      "count": 6
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MessageTimeline.tsx",
+      "count": 6
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerCallClient.tsx",
+      "count": 5
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendAddSheet.tsx",
+      "count": 5
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerCallLogsClient.tsx",
+      "count": 4
+    },
+    {
+      "file": "components/community-messenger/MessengerArchiveScreen.tsx",
+      "count": 4
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendsPrivacySheet.tsx",
+      "count": 4
+    },
+    {
+      "file": "components/community-messenger/room/message/MessageReactionRosterSheet.tsx",
+      "count": 4
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerDeviceSettingsSection.tsx",
+      "count": 3
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHeaderActions.tsx",
+      "count": 3
+    },
+    {
+      "file": "components/community-messenger/MessengerChatListItem.tsx",
+      "count": 3
+    },
+    {
+      "file": "components/community-messenger/MessengerNewConversationSheet.tsx",
+      "count": 3
+    },
+    {
+      "file": "components/community-messenger/MessengerNotificationCenterSheet.tsx",
+      "count": 3
+    },
+    {
+      "file": "components/community-messenger/room/CommunityMessengerRoomPass1ComposerShell.tsx",
+      "count": 3
+    },
+    {
+      "file": "components/community-messenger/room/message/CallStubActionPopover.tsx",
+      "count": 3
+    },
+    {
+      "file": "components/community-messenger/room/MessengerImageLightbox.tsx",
+      "count": 3
+    },
+    {
+      "file": "components/community-messenger/stickers/MessengerStickerSheet.tsx",
+      "count": 3
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHomeListPane.tsx",
+      "count": 2
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerTradeProcessSection.tsx",
+      "count": 2
+    },
+    {
+      "file": "components/community-messenger/MessengerChatRoomActionSheet.tsx",
+      "count": 2
+    },
+    {
+      "file": "components/community-messenger/MessengerOutgoingCallConfirmDialog.tsx",
+      "count": 2
+    },
+    {
+      "file": "components/community-messenger/MessengerServiceStrip.tsx",
+      "count": 2
+    },
+    {
+      "file": "components/community-messenger/room/message/MessageActionMenu.tsx",
+      "count": 2
+    },
+    {
+      "file": "components/community-messenger/room/MessengerChatImageBubble.tsx",
+      "count": 2
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2CallLayer.tsx",
+      "count": 2
+    },
+    {
+      "file": "components/community-messenger/room/phase2/MessengerTimelineBubbleInners.tsx",
+      "count": 2
+    },
+    {
+      "file": "app/(main)/community-messenger/calls/outgoing/CommunityMessengerOutgoingDialPageClient.tsx",
+      "count": 1
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerCallRouteLoading.tsx",
+      "count": 1
+    },
+    {
+      "file": "components/community-messenger/line-ui/messenger-tabs.tsx",
+      "count": 1
+    },
+    {
+      "file": "components/community-messenger/MessengerChatFilterSheet.tsx",
+      "count": 1
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendRequestsSheet.tsx",
+      "count": 1
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendRowQuickPopup.tsx",
+      "count": 1
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendsScreen.tsx",
+      "count": 1
+    },
+    {
+      "file": "components/community-messenger/MessengerIncomingFriendRequestPopup.tsx",
+      "count": 1
+    },
+    {
+      "file": "components/community-messenger/room/CommunityMessengerRoomClientPhase2Body.tsx",
+      "count": 1
+    },
+    {
+      "file": "components/community-messenger/room/message/MessageLongPressPopover.tsx",
+      "count": 1
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Header.tsx",
+      "count": 1
+    },
+    {
+      "file": "components/community-messenger/room/phase2/MessengerTimelineVirtualRow.tsx",
+      "count": 1
+    },
+    {
+      "file": "components/community-messenger/room/phase2/MessengerTradeProductDockRow.tsx",
+      "count": 1
+    }
+  ],
+  "findings": [
+    {
+      "file": "app/(main)/community-messenger/calls/outgoing/CommunityMessengerOutgoingDialPageClient.tsx",
+      "line": 84,
+      "code": "<p className=\"mt-6 text-center sam-text-body text-white/90\">통화 화면으로 이동 중…</p>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerCallClient.tsx",
+      "line": 2861,
+      "code": "<span className=\"sam-text-body-secondary text-white/40\">불러오는 중…</span>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerCallClient.tsx",
+      "line": 2876,
+      "code": "<p className=\"sam-text-page-title font-semibold text-ui-fg\">통화를 찾을 수 없습니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerCallClient.tsx",
+      "line": 3373,
+      "code": "<span className=\"text-center sam-text-xxs font-semibold leading-tight text-white/95\">카메라 꺼짐</span>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerCallClient.tsx",
+      "line": 3546,
+      "code": "<p className=\"sam-text-body font-semibold text-white\">자판</p>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerCallClient.tsx",
+      "line": 3555,
+      "code": "<p className=\"mb-3 sam-text-xxs leading-snug text-white/45\">로컬에서만 톤이 재생됩니다. 상대에게는 전달되지 않을 수 있습니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerCallLogsClient.tsx",
+      "line": 104,
+      "code": "aria-label=\"뒤로\""
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerCallLogsClient.tsx",
+      "line": 108,
+      "code": "<h1 className=\"min-w-0 flex-1 truncate sam-text-page-title font-semibold text-sam-fg\">통화 기록</h1>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerCallLogsClient.tsx",
+      "line": 119,
+      "code": "<p className=\"py-10 text-center sam-text-body-secondary text-sam-muted\">불러오는 중…</p>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerCallLogsClient.tsx",
+      "line": 123,
+      "code": "<p className=\"py-10 text-center sam-text-body-secondary text-sam-muted\">통화 기록이 없습니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerCallRouteLoading.tsx",
+      "line": 25,
+      "code": "<p className=\"mt-3 sam-text-body-lg font-medium text-white/76 sm:sam-text-section-title\">통화 화면을 불러오는 중</p>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerDeviceSettingsSection.tsx",
+      "line": 82,
+      "code": "<p className=\"mb-2 sam-text-body-secondary font-semibold text-sam-muted\">통화 장치</p>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerDeviceSettingsSection.tsx",
+      "line": 94,
+      "code": "<span className=\"mb-1 block sam-text-helper font-medium text-sam-fg\">마이크</span>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerDeviceSettingsSection.tsx",
+      "line": 108,
+      "code": "<span className=\"mb-1 block sam-text-helper font-medium text-sam-fg\">카메라</span>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHeaderActions.tsx",
+      "line": 41,
+      "code": "<button type=\"button\" onClick={onOpenSearch} className={iconBtn} aria-label=\"메신저 검색\">"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHeaderActions.tsx",
+      "line": 44,
+      "code": "<Link href=\"/community-messenger/calls/logs\" className={iconBtn} aria-label=\"통화 기록\">"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHeaderActions.tsx",
+      "line": 60,
+      "code": "<button type=\"button\" onClick={onOpenSettings} className={iconBtn} aria-label=\"메신저 설정\">"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 2356,
+      "code": "if (shouldConfirm && !window.confirm(\"이 친구를 삭제할까요? 친구 관계만 해제되고 기존 채팅방은 유지됩니다.\")) {"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 2912,
+      "code": "aria-label=\"닫기\""
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 2917,
+      "code": "<p className=\"sam-text-section-title font-semibold text-sam-fg\">모임 찾기</p>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 2930,
+      "code": "placeholder=\"모임 검색\""
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 2944,
+      "code": "<div className=\"py-10 text-center sam-text-body-secondary text-sam-muted\">검색 결과가 없습니다.</div>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 2957,
+      "code": "<p className=\"sam-text-body-secondary font-medium text-sam-fg\">그룹 생성</p>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 2958,
+      "code": "<h2 className=\"mt-1 sam-text-page-title font-semibold text-sam-fg\">어떤 그룹을 만들까요?</h2>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 2965,
+      "code": "<p className=\"sam-text-helper text-sam-muted\">친구 초대형</p>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 2966,
+      "code": "<p className=\"mt-1 sam-text-body-lg font-semibold text-sam-fg\">비공개 그룹</p>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 2967,
+      "code": "<p className=\"mt-1 sam-text-body-secondary text-sam-muted\">친구를 선택해 바로 만드는 초대형 그룹입니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 2977,
+      "code": "<p className=\"sam-text-body-secondary font-medium text-sam-fg\">비공개 그룹</p>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 2978,
+      "code": "<h2 className=\"mt-1 sam-text-page-title font-semibold text-sam-fg\">친구 초대형 그룹 만들기</h2>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 2991,
+      "code": "placeholder=\"예: 사마켓 운영팀 (선택 입력)\""
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 2995,
+      "code": "<span>선택된 친구 {groupMembers.length}명</span>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 3040,
+      "code": "<p className=\"sam-text-body font-semibold text-sam-fg\">초대할 친구가 아직 없습니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 3061,
+      "code": "<p className=\"sam-text-body-secondary font-medium text-[#111827]\">모임</p>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 3062,
+      "code": "<h2 className=\"mt-1 sam-text-page-title font-semibold text-sam-fg\">방장 설정형 그룹 만들기</h2>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 3076,
+      "code": "placeholder=\"모임 이름\""
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 3083,
+      "code": "placeholder=\"방 소개를 입력하세요\""
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 3088,
+      "code": "<p className=\"sam-text-body-secondary font-semibold text-sam-fg\">입장 방식</p>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 3110,
+      "code": "<p className=\"sam-text-body-secondary font-semibold text-sam-fg\">신원 정책</p>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 3137,
+      "code": "placeholder=\"입장 비밀번호\""
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 3148,
+      "code": "placeholder=\"최대 인원\""
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 3154,
+      "code": "<p className=\"sam-text-body font-medium text-sam-fg\">목록에 공개</p>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 3155,
+      "code": "<p className=\"sam-text-helper text-sam-muted\">OFF면 채팅방에는 남지만 모임 찾기에는 노출되지 않습니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 3187,
+      "code": "placeholder=\"방장 별칭 닉네임\""
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 3193,
+      "code": "placeholder=\"아바타 URL (선택)\""
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHome.tsx",
+      "line": 3200,
+      "code": "placeholder=\"방장 소개 (선택)\""
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHomeListPane.tsx",
+      "line": 267,
+      "code": "<p className=\"sam-text-body-lg font-semibold\">로그인이 필요합니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerHomeListPane.tsx",
+      "line": 279,
+      "code": "<p className=\"sam-text-body-lg font-semibold\">메신저를 불러오지 못했습니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerTradeProcessSection.tsx",
+      "line": 213,
+      "code": "if (typeof window !== \"undefined\" && !window.confirm(`물품의 상태를 \"${label}\"으로 변경할까요?`)) {"
+    },
+    {
+      "file": "components/community-messenger/CommunityMessengerTradeProcessSection.tsx",
+      "line": 371,
+      "code": "<h2 className=\"sam-text-body-lg font-semibold text-sam-fg\">후기 작성</h2>"
+    },
+    {
+      "file": "components/community-messenger/line-ui/messenger-tabs.tsx",
+      "line": 31,
+      "code": "aria-label=\"메신저 구역\""
+    },
+    {
+      "file": "components/community-messenger/meetings/MeetingJoinPreviewFullScreen.tsx",
+      "line": 56,
+      "code": "<span className=\"sam-text-body-secondary font-semibold text-[color:var(--messenger-text)]\">모임 미리보기</span>"
+    },
+    {
+      "file": "components/community-messenger/meetings/MeetingJoinPreviewFullScreen.tsx",
+      "line": 92,
+      "code": "placeholder=\"비밀번호 입력\""
+    },
+    {
+      "file": "components/community-messenger/meetings/MeetingJoinPreviewFullScreen.tsx",
+      "line": 98,
+      "code": "<p className=\"sam-text-body-secondary font-semibold text-sam-fg\">표시 이름</p>"
+    },
+    {
+      "file": "components/community-messenger/meetings/MeetingJoinPreviewFullScreen.tsx",
+      "line": 130,
+      "code": "placeholder=\"별칭 닉네임\""
+    },
+    {
+      "file": "components/community-messenger/meetings/MeetingJoinPreviewFullScreen.tsx",
+      "line": 136,
+      "code": "placeholder=\"아바타 URL (선택)\""
+    },
+    {
+      "file": "components/community-messenger/meetings/MeetingJoinPreviewFullScreen.tsx",
+      "line": 143,
+      "code": "placeholder=\"소개 (선택)\""
+    },
+    {
+      "file": "components/community-messenger/MessengerArchiveScreen.tsx",
+      "line": 44,
+      "code": "title=\"숨김 친구\""
+    },
+    {
+      "file": "components/community-messenger/MessengerArchiveScreen.tsx",
+      "line": 49,
+      "code": "title=\"차단 친구\""
+    },
+    {
+      "file": "components/community-messenger/MessengerArchiveScreen.tsx",
+      "line": 54,
+      "code": "title=\"알림 끔\""
+    },
+    {
+      "file": "components/community-messenger/MessengerArchiveScreen.tsx",
+      "line": 59,
+      "code": "title=\"보관 채팅\""
+    },
+    {
+      "file": "components/community-messenger/MessengerChatFilterSheet.tsx",
+      "line": 96,
+      "code": "<nav className=\"min-h-0 flex-1 overflow-y-auto bg-sam-surface px-3 py-3\" aria-label=\"대화 유형 선택\">"
+    },
+    {
+      "file": "components/community-messenger/MessengerChatListItem.tsx",
+      "line": 633,
+      "code": "<span style={{ color: \"var(--messenger-text-secondary)\" }} aria-label=\"고정됨\">"
+    },
+    {
+      "file": "components/community-messenger/MessengerChatListItem.tsx",
+      "line": 638,
+      "code": "<span style={{ color: \"var(--messenger-text-secondary)\" }} aria-label=\"알림 끔\">"
+    },
+    {
+      "file": "components/community-messenger/MessengerChatListItem.tsx",
+      "line": 696,
+      "code": "title=\"Philife 모임\""
+    },
+    {
+      "file": "components/community-messenger/MessengerChatRoomActionSheet.tsx",
+      "line": 150,
+      "code": "<button type=\"button\" className=\"absolute inset-0 cursor-default bg-transparent\" aria-label=\"닫기\" onClick={onClose} />"
+    },
+    {
+      "file": "components/community-messenger/MessengerChatRoomActionSheet.tsx",
+      "line": 156,
+      "code": "<nav className=\"flex flex-col\" aria-label=\"대화방 작업\">"
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendAddSheet.tsx",
+      "line": 98,
+      "code": "<button type=\"button\" className=\"min-h-0 flex-1 cursor-default\" aria-label=\"닫기\" onClick={onClose} />"
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendAddSheet.tsx",
+      "line": 110,
+      "code": "aria-label=\"닫기\""
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendAddSheet.tsx",
+      "line": 161,
+      "code": "title=\"전화번호로 친구 추가\""
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendAddSheet.tsx",
+      "line": 167,
+      "code": "title=\"연락처 자동 추가\""
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendAddSheet.tsx",
+      "line": 253,
+      "code": "placeholder=\"@아이디 (예: @samarket)\""
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendProfileSheet.tsx",
+      "line": 83,
+      "code": "<button type=\"button\" className=\"min-h-0 flex-1 cursor-default\" aria-label=\"닫기\" onClick={onClose} />"
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendProfileSheet.tsx",
+      "line": 121,
+      "code": "{bChat ? <p className=\"mt-0.5 sam-text-xxs text-ui-muted\">열기…</p> : null}"
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendProfileSheet.tsx",
+      "line": 129,
+      "code": "<p className=\"sam-text-body-secondary font-semibold text-ui-fg\">음성</p>"
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendProfileSheet.tsx",
+      "line": 130,
+      "code": "{bVoice ? <p className=\"mt-0.5 sam-text-xxs text-ui-muted\">연결…</p> : null}"
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendProfileSheet.tsx",
+      "line": 138,
+      "code": "<p className=\"sam-text-body-secondary font-semibold text-ui-fg\">영상</p>"
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendProfileSheet.tsx",
+      "line": 139,
+      "code": "{bVideo ? <p className=\"mt-0.5 sam-text-xxs text-ui-muted\">연결…</p> : null}"
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendProfileSheet.tsx",
+      "line": 143,
+      "code": "<p className=\"mt-2 text-center sam-text-xxs text-ui-muted\">친구가 되면 메시지·음성·영상을 이용할 수 있습니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendProfileSheet.tsx",
+      "line": 208,
+      "code": "<p className=\"mt-1 sam-text-helper leading-snug text-ui-muted\">차단 상태에서는 친구 추가·대화를 할 수 없습니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendProfileSheet.tsx",
+      "line": 255,
+      "code": "<p className=\"text-center sam-text-body-secondary text-ui-fg\">이 사용자가 친구 요청을 보냈습니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendProfileSheet.tsx",
+      "line": 314,
+      "code": "{!onClick ? <span className=\"sam-text-xxs text-ui-muted\">준비 중</span> : null}"
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendRequestsSheet.tsx",
+      "line": 40,
+      "code": "<button type=\"button\" className=\"min-h-0 flex-1 cursor-default\" aria-label=\"닫기\" onClick={onClose} />"
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendRowQuickPopup.tsx",
+      "line": 320,
+      "code": "aria-label=\"뒤로\""
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendsPrivacySheet.tsx",
+      "line": 32,
+      "code": "<button type=\"button\" className=\"min-h-0 flex-1 cursor-default\" aria-label=\"닫기\" onClick={onClose} />"
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendsPrivacySheet.tsx",
+      "line": 35,
+      "code": "<p className=\"sam-text-body-lg font-semibold text-ui-fg\">숨김 · 차단 · 알림</p>"
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendsPrivacySheet.tsx",
+      "line": 39,
+      "code": "aria-label=\"닫기\""
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendsPrivacySheet.tsx",
+      "line": 72,
+      "code": "<p className=\"px-4 py-8 text-center sam-text-body-secondary text-ui-muted\">목록이 비어 있습니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/MessengerFriendsScreen.tsx",
+      "line": 185,
+      "code": "<p className=\"sam-text-body font-medium\">숨김 · 차단 · 알림 끔</p>"
+    },
+    {
+      "file": "components/community-messenger/MessengerIncomingFriendRequestPopup.tsx",
+      "line": 55,
+      "code": "aria-label=\"닫기\""
+    },
+    {
+      "file": "components/community-messenger/MessengerNewConversationSheet.tsx",
+      "line": 49,
+      "code": "<button type=\"button\" className=\"min-h-0 flex-1 cursor-default\" aria-label=\"닫기\" onClick={onClose} />"
+    },
+    {
+      "file": "components/community-messenger/MessengerNewConversationSheet.tsx",
+      "line": 51,
+      "code": "<p className=\"text-center sam-text-body font-semibold text-ui-fg\">새 대화</p>"
+    },
+    {
+      "file": "components/community-messenger/MessengerNewConversationSheet.tsx",
+      "line": 52,
+      "code": "<p className=\"mt-3 text-center sam-text-helper text-ui-muted\">새 대화 메뉴</p>"
+    },
+    {
+      "file": "components/community-messenger/MessengerNotificationCenterSheet.tsx",
+      "line": 51,
+      "code": "<button type=\"button\" className=\"min-h-0 flex-1 cursor-default\" aria-label=\"닫기\" onClick={onClose} />"
+    },
+    {
+      "file": "components/community-messenger/MessengerNotificationCenterSheet.tsx",
+      "line": 392,
+      "code": "<button type=\"button\" className=\"min-h-0 flex-1 cursor-default\" aria-label=\"닫기\" onClick={onClose} />"
+    },
+    {
+      "file": "components/community-messenger/MessengerNotificationCenterSheet.tsx",
+      "line": 397,
+      "code": "aria-label=\"알림 센터\""
+    },
+    {
+      "file": "components/community-messenger/MessengerOutgoingCallConfirmDialog.tsx",
+      "line": 53,
+      "code": "aria-label=\"닫기\""
+    },
+    {
+      "file": "components/community-messenger/MessengerOutgoingCallConfirmDialog.tsx",
+      "line": 67,
+      "code": "<p className=\"mt-2 text-[14px] font-normal leading-[1.5] text-[#1F2430]\">통화를 시작하시겠습니까?</p>"
+    },
+    {
+      "file": "components/community-messenger/MessengerSearchSheet.tsx",
+      "line": 109,
+      "code": "<button type=\"button\" className=\"min-h-0 flex-1 cursor-default\" aria-label=\"닫기\" onClick={onDismiss} />"
+    },
+    {
+      "file": "components/community-messenger/MessengerSearchSheet.tsx",
+      "line": 115,
+      "code": "<nav className=\"flex flex-col p-1\" aria-label=\"최근 검색 작업\">"
+    },
+    {
+      "file": "components/community-messenger/MessengerSearchSheet.tsx",
+      "line": 139,
+      "code": "<nav className=\"flex flex-col p-1\" aria-label=\"친구 검색 결과\">"
+    },
+    {
+      "file": "components/community-messenger/MessengerSearchSheet.tsx",
+      "line": 155,
+      "code": "<nav className=\"flex flex-col p-1\" aria-label=\"대화 작업\">"
+    },
+    {
+      "file": "components/community-messenger/MessengerSearchSheet.tsx",
+      "line": 212,
+      "code": "<nav className=\"flex flex-col p-1\" aria-label=\"모임\">"
+    },
+    {
+      "file": "components/community-messenger/MessengerSearchSheet.tsx",
+      "line": 312,
+      "code": "<span className=\"sam-text-xxs text-[color:var(--messenger-text-secondary)]\">열기</span>"
+    },
+    {
+      "file": "components/community-messenger/MessengerSearchSheet.tsx",
+      "line": 446,
+      "code": "<button type=\"button\" className=\"min-h-0 flex-1 cursor-default\" aria-label=\"닫기\" onClick={onClose} />"
+    },
+    {
+      "file": "components/community-messenger/MessengerSearchSheet.tsx",
+      "line": 463,
+      "code": "placeholder=\"친구, 방, 메시지, 모임\""
+    },
+    {
+      "file": "components/community-messenger/MessengerSearchSheet.tsx",
+      "line": 469,
+      "code": "<MessengerSearchSection title=\"최근 검색\">"
+    },
+    {
+      "file": "components/community-messenger/MessengerSearchSheet.tsx",
+      "line": 482,
+      "code": "<EmptyHint>최근 검색이 없습니다.</EmptyHint>"
+    },
+    {
+      "file": "components/community-messenger/MessengerSearchSheet.tsx",
+      "line": 487,
+      "code": "<MessengerSearchSection title=\"친구\">"
+    },
+    {
+      "file": "components/community-messenger/MessengerSearchSheet.tsx",
+      "line": 503,
+      "code": "<EmptyHint>일치하는 친구가 없습니다.</EmptyHint>"
+    },
+    {
+      "file": "components/community-messenger/MessengerSearchSheet.tsx",
+      "line": 506,
+      "code": "<MessengerSearchSection title=\"채팅방\">"
+    },
+    {
+      "file": "components/community-messenger/MessengerSearchSheet.tsx",
+      "line": 529,
+      "code": "<EmptyHint>일치하는 채팅방이 없습니다.</EmptyHint>"
+    },
+    {
+      "file": "components/community-messenger/MessengerSearchSheet.tsx",
+      "line": 532,
+      "code": "<MessengerSearchSection title=\"모임\">"
+    },
+    {
+      "file": "components/community-messenger/MessengerSearchSheet.tsx",
+      "line": 548,
+      "code": "<EmptyHint>일치하는 모임이 없습니다.</EmptyHint>"
+    },
+    {
+      "file": "components/community-messenger/MessengerSearchSheet.tsx",
+      "line": 551,
+      "code": "<MessengerSearchSection title=\"메시지\">"
+    },
+    {
+      "file": "components/community-messenger/MessengerSearchSheet.tsx",
+      "line": 567,
+      "code": "<EmptyHint>일치하는 메시지가 없습니다.</EmptyHint>"
+    },
+    {
+      "file": "components/community-messenger/MessengerServiceStrip.tsx",
+      "line": 40,
+      "code": "<h2 className=\"sam-text-body font-semibold text-sam-fg\">바로가기</h2>"
+    },
+    {
+      "file": "components/community-messenger/MessengerServiceStrip.tsx",
+      "line": 41,
+      "code": "<span className=\"sam-text-xxs text-sam-meta\">거래·주문은 별도 유지</span>"
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 70,
+      "code": "<button type=\"button\" className=\"min-h-0 flex-1 cursor-default\" aria-label=\"닫기\" onClick={onClose} />"
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 90,
+      "code": "<MessengerSettingsBlock title=\"알림\">"
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 92,
+      "code": "title=\"메신저·1:1 채팅\""
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 99,
+      "code": "title=\"거래 채팅\""
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 106,
+      "code": "title=\"주문·배달\""
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 112,
+      "code": "title=\"매장\""
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 119,
+      "code": "title=\"채팅·서비스 알림 소리\""
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 126,
+      "code": "title=\"수신 통화 벨\""
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 132,
+      "code": "title=\"수신 통화 화면 안내\""
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 138,
+      "code": "title=\"진동\""
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 145,
+      "code": "<MessengerSettingsBlock title=\"통화 · 기기\">"
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 149,
+      "code": "<MessengerSettingsBlock title=\"친구\">"
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 154,
+      "code": "title=\"전화번호로 친구 추가\""
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 160,
+      "code": "title=\"연락처 자동 추가\""
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 166,
+      "code": "<p className=\"sam-text-helper font-medium text-ui-fg\">차단</p>"
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 184,
+      "code": "<p className=\"mt-1 sam-text-xxs text-ui-muted\">차단된 사용자가 없습니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 188,
+      "code": "<p className=\"sam-text-helper font-medium text-ui-fg\">숨김 친구</p>"
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 209,
+      "code": "<p className=\"mt-1 sam-text-xxs text-ui-muted\">숨김 처리된 친구가 없습니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 213,
+      "code": "<p className=\"sam-text-helper font-medium text-ui-fg\">즐겨찾기 관리</p>"
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 236,
+      "code": "<p className=\"mt-1 sam-text-xxs text-ui-muted\">즐겨찾기 친구가 없습니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 241,
+      "code": "<MessengerSettingsBlock title=\"채팅\">"
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 243,
+      "code": "title=\"입장 전 정보 확인\""
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 249,
+      "code": "title=\"미디어 자동 저장\""
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 255,
+      "code": "title=\"링크 미리보기\""
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 262,
+      "code": "<span className=\"block sam-text-body-secondary font-medium text-ui-fg\">대화 백업</span>"
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 263,
+      "code": "<span className=\"mt-0.5 block sam-text-xxs leading-snug text-ui-muted\">설정과 최근 검색, 장치 선택 백업</span>"
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 284,
+      "code": "<MessengerSettingsBlock title=\"모임\">"
+    },
+    {
+      "file": "components/community-messenger/MessengerSettingsSheet.tsx",
+      "line": 286,
+      "code": "title=\"모임 찾기\""
+    },
+    {
+      "file": "components/community-messenger/room/CommunityMessengerRoomClientPhase2Body.tsx",
+      "line": 516,
+      "code": "<p className=\"sam-text-body-lg font-semibold text-ui-fg\">채팅방을 찾을 수 없습니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/room/CommunityMessengerRoomPass1ComposerShell.tsx",
+      "line": 171,
+      "code": "aria-label=\"첨부 메뉴\""
+    },
+    {
+      "file": "components/community-messenger/room/CommunityMessengerRoomPass1ComposerShell.tsx",
+      "line": 211,
+      "code": "aria-label=\"음성 메시지\""
+    },
+    {
+      "file": "components/community-messenger/room/CommunityMessengerRoomPass1ComposerShell.tsx",
+      "line": 222,
+      "code": "aria-label=\"전송\""
+    },
+    {
+      "file": "components/community-messenger/room/message/CallStubActionPopover.tsx",
+      "line": 82,
+      "code": "<button type=\"button\" className=\"absolute inset-0 cursor-default bg-black/45\" aria-label=\"닫기\" onClick={onClose} />"
+    },
+    {
+      "file": "components/community-messenger/room/message/CallStubActionPopover.tsx",
+      "line": 92,
+      "code": "<p className=\"sam-text-xxs font-semibold text-neutral-500 dark:text-neutral-400\">통화 메시지</p>"
+    },
+    {
+      "file": "components/community-messenger/room/message/CallStubActionPopover.tsx",
+      "line": 95,
+      "code": "<nav className=\"flex flex-col bg-white dark:bg-neutral-950\" aria-label=\"통화 로그 작업\">"
+    },
+    {
+      "file": "components/community-messenger/room/message/MessageActionMenu.tsx",
+      "line": 87,
+      "code": "<nav className=\"flex flex-col bg-white dark:bg-neutral-950\" aria-label=\"메시지 작업\">"
+    },
+    {
+      "file": "components/community-messenger/room/message/MessageActionMenu.tsx",
+      "line": 139,
+      "code": "title=\"나에게만 숨기기 또는 모두에게서 삭제\""
+    },
+    {
+      "file": "components/community-messenger/room/message/MessageLongPressPopover.tsx",
+      "line": 162,
+      "code": "<button type=\"button\" className=\"absolute inset-0 cursor-default bg-black/45\" aria-label=\"닫기\" onClick={onClose} />"
+    },
+    {
+      "file": "components/community-messenger/room/message/MessageReactionRosterSheet.tsx",
+      "line": 116,
+      "code": "aria-label=\"반응한 사람\""
+    },
+    {
+      "file": "components/community-messenger/room/message/MessageReactionRosterSheet.tsx",
+      "line": 123,
+      "code": "<span className=\"sam-text-xxs font-semibold text-[color:var(--cm-room-text-muted)]\">반응한 사람</span>"
+    },
+    {
+      "file": "components/community-messenger/room/message/MessageReactionRosterSheet.tsx",
+      "line": 127,
+      "code": "<p className=\"px-2 py-4 text-center sam-text-xxs text-[color:var(--cm-room-text-muted)]\">불러오는 중…</p>"
+    },
+    {
+      "file": "components/community-messenger/room/message/MessageReactionRosterSheet.tsx",
+      "line": 129,
+      "code": "<p className=\"px-2 py-4 text-center sam-text-xxs text-[color:var(--cm-room-text-muted)]\">아직 없습니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/room/MessengerChatImageBubble.tsx",
+      "line": 178,
+      "code": "aria-label=\"사진 크게 보기\""
+    },
+    {
+      "file": "components/community-messenger/room/MessengerChatImageBubble.tsx",
+      "line": 218,
+      "code": "<p className={`mt-1 text-center sam-text-xxs ${isMine ? \"text-white/85\" : \"text-sam-muted\"}`}>전송 중…</p>"
+    },
+    {
+      "file": "components/community-messenger/room/MessengerImageLightbox.tsx",
+      "line": 35,
+      "code": "aria-label=\"이미지 확대 보기\""
+    },
+    {
+      "file": "components/community-messenger/room/MessengerImageLightbox.tsx",
+      "line": 65,
+      "code": "aria-label=\"이전\""
+    },
+    {
+      "file": "components/community-messenger/room/MessengerImageLightbox.tsx",
+      "line": 74,
+      "code": "aria-label=\"다음\""
+    },
+    {
+      "file": "components/community-messenger/room/phase2/ChatRoomMoreMenu.tsx",
+      "line": 230,
+      "code": "<nav className=\"flex flex-col\" aria-label=\"채팅방 메뉴\">"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/ChatRoomMoreMenu.tsx",
+      "line": 233,
+      "code": "<span className=\"min-w-0 flex-1 font-medium\">대화 내 검색</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/ChatRoomMoreMenu.tsx",
+      "line": 237,
+      "code": "<span className=\"min-w-0 flex-1 font-medium\">사진/파일 보기</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/ChatRoomMoreMenu.tsx",
+      "line": 253,
+      "code": "<span className=\"min-w-0 flex-1 font-medium text-[color:var(--cm-room-text-muted)]\">요청중</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/ChatRoomMoreMenu.tsx",
+      "line": 258,
+      "code": "<span className=\"min-w-0 flex-1 font-medium text-[color:var(--cm-room-text)]\">친구입니다</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/ChatRoomMoreMenu.tsx",
+      "line": 270,
+      "code": "<span className=\"min-w-0 flex-1 font-medium\">음성 통화</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/ChatRoomMoreMenu.tsx",
+      "line": 282,
+      "code": "<span className=\"min-w-0 flex-1 font-medium\">영상 통화</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/ChatRoomMoreMenu.tsx",
+      "line": 317,
+      "code": "<span className=\"min-w-0 flex-1 font-medium\">채팅방 나가기</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2CallLayer.tsx",
+      "line": 80,
+      "code": "<p className=\"sam-text-body-secondary font-semibold text-sam-fg\">통화 진행 중</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2CallLayer.tsx",
+      "line": 81,
+      "code": "<p className=\"truncate sam-text-helper text-sam-muted\">채팅 중 복귀 가능</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Composer.tsx",
+      "line": 366,
+      "code": "aria-label=\"답장 대상 메시지로 이동\""
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Composer.tsx",
+      "line": 422,
+      "code": "aria-label=\"첨부 메뉴\""
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Composer.tsx",
+      "line": 526,
+      "code": "aria-label=\"음성 메시지 — 길게 눌러 녹음, 왼쪽으로 밀어 취소, 위로 밀어 잠금\""
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Composer.tsx",
+      "line": 544,
+      "code": "<span className=\"shrink-0 text-center sam-text-xxs font-medium leading-tight text-sam-fg\">잠금 녹음 중</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Composer.tsx",
+      "line": 550,
+      "code": "aria-label=\"녹음 삭제\""
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Composer.tsx",
+      "line": 558,
+      "code": "aria-label=\"음성 전송\""
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Composer.tsx",
+      "line": 598,
+      "code": "aria-label=\"전송\""
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Header.tsx",
+      "line": 149,
+      "code": "aria-label=\"대화 내 검색\""
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MemberActionModal.tsx",
+      "line": 85,
+      "code": "<p className=\"sam-text-body-secondary font-medium text-sam-fg\">멤버 액션</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MemberActionModal.tsx",
+      "line": 98,
+      "code": "<p className=\"sam-text-xxs text-sam-muted\">역할 변경</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MemberActionModal.tsx",
+      "line": 102,
+      "code": "<p className=\"sam-text-xxs text-sam-muted\">내보내기</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MemberActionModal.tsx",
+      "line": 106,
+      "code": "<p className=\"sam-text-xxs text-sam-muted\">방장 위임</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MemberActionModal.tsx",
+      "line": 112,
+      "code": "<div className=\"border-b border-sam-border-soft pb-1 sam-text-xxs font-semibold text-sam-meta\">대화</div>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MemberActionModal.tsx",
+      "line": 120,
+      "code": "<p className=\"sam-text-body font-semibold text-sam-fg\">1:1 대화 시작</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MemberActionModal.tsx",
+      "line": 121,
+      "code": "<p className=\"mt-1 sam-text-helper text-sam-muted\">이 멤버와 별도 대화방을 엽니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MemberActionModal.tsx",
+      "line": 150,
+      "code": "<div className=\"border-b border-sam-border-soft pb-1 pt-2 sam-text-xxs font-semibold text-sam-meta\">운영</div>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MemberActionModal.tsx",
+      "line": 164,
+      "code": "<p className=\"sam-text-body font-semibold text-sam-fg\">방장 위임</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MemberActionModal.tsx",
+      "line": 165,
+      "code": "<p className=\"mt-1 sam-text-helper text-sam-muted\">이 멤버를 새 방장으로 변경합니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MemberActionModal.tsx",
+      "line": 185,
+      "code": "<p className=\"mt-1 sam-text-helper text-sam-muted\">운영진 권한을 조정합니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MemberActionModal.tsx",
+      "line": 201,
+      "code": "<p className=\"sam-text-body font-semibold text-red-700\">그룹에서 내보내기</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MemberActionModal.tsx",
+      "line": 202,
+      "code": "<p className=\"mt-1 sam-text-helper text-red-600/80\">현재 그룹 참여를 종료합니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MemberActionModal.tsx",
+      "line": 207,
+      "code": "<div className=\"border-b border-sam-border-soft pb-1 pt-2 sam-text-xxs font-semibold text-sam-meta\">보호</div>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MemberActionModal.tsx",
+      "line": 219,
+      "code": "<p className=\"sam-text-body font-semibold text-red-700\">사용자 신고</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MemberActionModal.tsx",
+      "line": 220,
+      "code": "<p className=\"mt-1 sam-text-helper text-red-600/80\">문제가 있는 사용자를 신고합니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MessageTimeline.tsx",
+      "line": 660,
+      "code": "<p className=\"sam-text-xxs font-semibold uppercase tracking-wide text-[color:var(--cm-room-text-muted)]\">공지</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MessageTimeline.tsx",
+      "line": 674,
+      "code": "<span className=\"sam-text-helper text-ui-muted\">이전 대화를 불러오는 중…</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MessageTimeline.tsx",
+      "line": 676,
+      "code": "<span className=\"sam-text-xxs text-ui-muted\">맨 위로 스크롤하면 이전 대화를 불러옵니다</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MessageTimeline.tsx",
+      "line": 833,
+      "code": "<div className=\"space-y-3 px-6 py-10\" aria-busy=\"true\" aria-label=\"대화 불러오는 중\">"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MessageTimeline.tsx",
+      "line": 844,
+      "code": "<span className=\"mt-1 inline-block sam-text-helper\">잠시만 기다려 주세요.</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MessageTimeline.tsx",
+      "line": 850,
+      "code": "<span className=\"mt-1 inline-block sam-text-helper\">첫 인사를 남겨보세요.</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 90,
+      "code": "<p className=\"sam-text-body-secondary font-semibold text-[color:var(--cm-room-text)]\">첨부</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 91,
+      "code": "<p className=\"mt-0.5 sam-text-helper text-[color:var(--cm-room-text-muted)]\">보낼 항목을 선택하세요</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 93,
+      "code": "<nav className=\"flex flex-col\" aria-label=\"첨부\">"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 173,
+      "code": "<p className=\"sam-text-body-secondary font-semibold text-[color:var(--cm-room-text)]\">보내기 전 확인</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 174,
+      "code": "<p className=\"mt-0.5 sam-text-helper text-[color:var(--cm-room-text-muted)]\">취소하면 전송되지 않습니다</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 195,
+      "code": "alt=\"선택한 이미지 미리보기\""
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 258,
+      "code": "<p className=\"sam-text-section-title font-semibold text-sam-fg\">채팅방</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 295,
+      "code": "<span className=\"block sam-text-body font-semibold text-sam-fg\">사진/동영상</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 311,
+      "code": "<span className=\"block sam-text-body font-semibold text-sam-fg\">파일</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 312,
+      "code": "<span className=\"mt-0.5 block sam-text-helper text-sam-muted\">파일 {vm.fileMessageCount}개</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 325,
+      "code": "<span className=\"block sam-text-body font-semibold text-sam-fg\">링크</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 326,
+      "code": "<span className=\"mt-0.5 block sam-text-helper text-sam-muted\">링크 {vm.linkMessageCount}개</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 340,
+      "code": "<span className=\"sam-text-helper font-semibold text-sam-fg\">공지</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 349,
+      "code": "<span className=\"sam-text-helper font-semibold text-sam-muted\">공지</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 364,
+      "code": "<span className=\"sam-text-helper font-semibold text-sam-fg\">대화 내 검색</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 365,
+      "code": "<span className=\"sam-text-xxs text-sam-muted\">메시지 · 보낸 사람</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 374,
+      "code": "<span className=\"sam-text-body font-semibold text-sam-fg\">채팅방 정보</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 379,
+      "code": "<p className=\"sam-text-xxs font-medium text-sam-muted\">그룹 통화</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 464,
+      "code": "<p className=\"sam-text-xxs text-sam-muted\">관리자</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 482,
+      "code": "<p className=\"sam-text-body font-semibold text-sam-fg\">운영 이력</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 594,
+      "code": "<p className=\"sam-text-xxs font-medium text-sam-muted\">참여자</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 599,
+      "code": "<p className=\"sam-text-xxs font-medium text-sam-muted\">운영진</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 600,
+      "code": "<p className=\"mt-1 sam-text-body-lg font-semibold text-sam-fg\">방장 1 · 관리자 {vm.groupAdminCount}</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 601,
+      "code": "<p className=\"mt-1 sam-text-helper text-sam-muted\">현재 그룹 운영 가능 인원</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 604,
+      "code": "<p className=\"sam-text-xxs font-medium text-sam-muted\">초대 상태</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 631,
+      "code": "<p className=\"sam-text-body-secondary font-semibold text-sam-fg\">운영 안내</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 657,
+      "code": "<span className=\"rounded-ui-rect border border-sam-border bg-sam-app px-2 py-0.5 sam-text-xxs font-semibold text-sam-fg\">관리자</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 660,
+      "code": "<span className=\"rounded-ui-rect bg-sam-surface-muted px-2 py-0.5 sam-text-xxs font-semibold text-sam-fg\">나</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 663,
+      "code": "<span className=\"rounded-ui-rect border border-sam-border bg-sam-app px-2 py-0.5 sam-text-xxs font-semibold text-sam-fg\">닉네임</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 698,
+      "code": "<p className=\"sam-text-helper text-sam-muted\">초대 후보 {vm.filteredInviteCandidates.length}명 · 선택 {vm.inviteIds.length}명</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 712,
+      "code": "placeholder=\"친구 검색\""
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 755,
+      "code": "<p className=\"sam-text-helper text-sam-muted\">검색 결과가 없습니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 759,
+      "code": "<p className=\"sam-text-helper text-sam-muted\">친구 초대는 방장이 허용한 방에서만 사용할 수 있습니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 794,
+      "code": "<p className=\"sam-text-xxs font-medium text-sam-muted\">참여자</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 799,
+      "code": "<p className=\"sam-text-xxs font-medium text-sam-muted\">내 상태</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 804,
+      "code": "<p className=\"sam-text-xxs font-medium text-sam-muted\">참여 방식</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 811,
+      "code": "<p className=\"sam-text-xxs font-medium text-sam-muted\">공유 항목</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 827,
+      "code": "<p className=\"sam-text-xxs text-sam-muted\">참여자</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 835,
+      "code": "<p className=\"sam-text-xxs text-sam-muted\">미디어</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 836,
+      "code": "<p className=\"mt-1 sam-text-body-secondary font-semibold text-sam-fg\">사진·음성</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 846,
+      "code": "<p className=\"sam-text-xxs text-sam-muted\">검색</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 847,
+      "code": "<p className=\"mt-1 sam-text-body-secondary font-semibold text-sam-fg\">대화 내 검색</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 852,
+      "code": "<p className=\"sam-text-body font-semibold text-sam-fg\">기본 정보</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 861,
+      "code": "<span className=\"text-sam-muted\">채팅방 종류</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 865,
+      "code": "<span className=\"text-sam-muted\">참여자</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 869,
+      "code": "<span className=\"text-sam-muted\">방장</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 873,
+      "code": "<span className=\"text-sam-muted\">내 역할</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 878,
+      "code": "<span className=\"text-sam-muted\">최대 인원</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 884,
+      "code": "<span className=\"text-sam-muted\">참여 방식</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 890,
+      "code": "<span className=\"text-sam-muted\">표시 이름</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 896,
+      "code": "<span className=\"text-sam-muted\">검색 노출</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 902,
+      "code": "<span className=\"text-sam-muted\">비밀번호</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 908,
+      "code": "<span className=\"text-sam-muted\">멤버 초대</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 917,
+      "code": "<p className=\"sam-text-body font-semibold text-sam-fg\">통화 상태</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 920,
+      "code": "<span className=\"text-sam-muted\">현재 상태</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 924,
+      "code": "<span className=\"text-sam-muted\">시작 권한</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 929,
+      "code": "<span className=\"text-sam-muted\">현재 참여자</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 938,
+      "code": "<p className=\"sam-text-body font-semibold text-sam-fg\">공유된 항목</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 945,
+      "code": "<p className=\"sam-text-xxs text-sam-muted\">사진</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 953,
+      "code": "<p className=\"sam-text-xxs text-sam-muted\">음성</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 961,
+      "code": "<p className=\"sam-text-xxs text-sam-muted\">파일</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 969,
+      "code": "<p className=\"sam-text-xxs text-sam-muted\">링크</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 979,
+      "code": "<p className=\"sam-text-body font-semibold text-sam-fg\">운영</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 988,
+      "code": "<p className=\"sam-text-xxs text-sam-muted\">공지</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 990,
+      "code": "<p className=\"mt-1 sam-text-xxs text-sam-meta\">상단 고정 상태</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 993,
+      "code": "<p className=\"sam-text-xxs text-sam-muted\">허용 권한</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 995,
+      "code": "<p className=\"mt-1 sam-text-xxs text-sam-meta\">운영 설정 반영</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 998,
+      "code": "<p className=\"sam-text-xxs text-sam-muted\">운영 이력</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1000,
+      "code": "<p className=\"mt-1 sam-text-xxs text-sam-meta\">역할 변경 기록</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1009,
+      "code": "<p className=\"sam-text-xxs text-sam-muted\">운영</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1010,
+      "code": "<p className=\"mt-1 sam-text-body-secondary font-semibold text-sam-fg\">공지</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1011,
+      "code": "<p className=\"mt-1 sam-text-xxs text-sam-meta\">등록 및 수정</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1018,
+      "code": "<p className=\"sam-text-xxs text-sam-muted\">운영</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1019,
+      "code": "<p className=\"mt-1 sam-text-body-secondary font-semibold text-sam-fg\">권한</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1020,
+      "code": "<p className=\"mt-1 sam-text-xxs text-sam-meta\">허용 범위 조정</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1027,
+      "code": "<p className=\"sam-text-xxs text-sam-muted\">운영</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1028,
+      "code": "<p className=\"mt-1 sam-text-body-secondary font-semibold text-sam-fg\">이력</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1029,
+      "code": "<p className=\"mt-1 sam-text-xxs text-sam-meta\">시스템 기록 보기</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1085,
+      "code": "<p className=\"sam-text-xxs text-sam-muted\">상태</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1089,
+      "code": "<p className=\"sam-text-xxs text-sam-muted\">노출</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1127,
+      "code": "<p className=\"sam-text-body font-semibold text-sam-fg\">권한 설정</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1128,
+      "code": "<p className=\"mt-1 sam-text-helper text-sam-muted\">허용 {vm.allowedPrivateGroupPermissionCount}개 · 제한 {6 - vm.allowedPrivateGroupPermissionCount}개</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1134,
+      "code": "<p className=\"sam-text-xxs text-sam-muted\">허용</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1138,
+      "code": "<p className=\"sam-text-xxs text-sam-muted\">제한</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1143,
+      "code": "<p className=\"sam-text-helper font-semibold text-sam-fg\">권한 요약</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1155,
+      "code": "<span className=\"sam-text-body-secondary font-medium text-sam-fg\">일반 멤버 초대 허용</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1159,
+      "code": "<span className=\"sam-text-body-secondary font-medium text-sam-fg\">관리자 초대 허용</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1163,
+      "code": "<span className=\"sam-text-body-secondary font-medium text-sam-fg\">관리자 내보내기 허용</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1167,
+      "code": "<span className=\"sam-text-body-secondary font-medium text-sam-fg\">관리자 공지 수정 허용</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1171,
+      "code": "<span className=\"sam-text-body-secondary font-medium text-sam-fg\">일반 멤버 파일 업로드 허용</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1175,
+      "code": "<span className=\"sam-text-body-secondary font-medium text-sam-fg\">일반 멤버 통화 시작 허용</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1196,
+      "code": "<p className=\"sam-text-body font-semibold text-sam-fg\">운영 이력</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1197,
+      "code": "<p className=\"mt-1 sam-text-helper text-sam-muted\">방장 위임, 관리자 지정, 공지 수정 기록을 확인합니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1348,
+      "code": "<p className=\"sam-text-body-secondary font-medium text-sam-fg\">이 방에서 검색</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1349,
+      "code": "<h2 className=\"mt-1 sam-text-page-title font-semibold text-sam-fg\">대화 내 검색</h2>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1362,
+      "code": "placeholder=\"키워드 (보낸 사람·내용)\""
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1380,
+      "code": "<p className=\"py-6 text-center sam-text-body-secondary text-sam-muted\">검색 결과가 없습니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1390,
+      "code": "<p className=\"sam-text-body-secondary font-medium text-sam-fg\">이 방 미디어</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1391,
+      "code": "<h2 className=\"mt-1 sam-text-page-title font-semibold text-sam-fg\">사진·음성</h2>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1403,
+      "code": "<p className=\"sam-text-xxs font-medium text-sam-muted\">사진</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1405,
+      "code": "<p className=\"mt-1 sam-text-helper text-sam-muted\">이미지와 사진 링크</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1408,
+      "code": "<p className=\"sam-text-xxs font-medium text-sam-muted\">음성</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1410,
+      "code": "<p className=\"mt-1 sam-text-helper text-sam-muted\">보이스 메시지 기록</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1449,
+      "code": "<p className=\"py-8 text-center sam-text-body-secondary text-sam-muted\">미디어 없음</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1459,
+      "code": "<p className=\"sam-text-body-secondary font-medium text-sam-fg\">이 방 파일</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1460,
+      "code": "<h2 className=\"mt-1 sam-text-page-title font-semibold text-sam-fg\">파일 모아보기</h2>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1471,
+      "code": "<p className=\"sam-text-xxs font-medium text-sam-muted\">첨부 파일</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1473,
+      "code": "<p className=\"mt-1 sam-text-helper text-sam-muted\">문서, 압축 파일, 일반 첨부를 한곳에서 확인합니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1494,
+      "code": "<p className=\"mt-3 sam-text-helper text-sam-muted\">업로드 중…</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1499,
+      "code": "<p className=\"py-8 text-center sam-text-body-secondary text-sam-muted\">파일 없음</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1509,
+      "code": "<p className=\"sam-text-body-secondary font-medium text-sam-fg\">이 방 링크</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1510,
+      "code": "<h2 className=\"mt-1 sam-text-page-title font-semibold text-sam-fg\">링크 모아보기</h2>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1521,
+      "code": "<p className=\"sam-text-xxs font-medium text-sam-muted\">공유 링크</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1523,
+      "code": "<p className=\"mt-1 sam-text-helper text-sam-muted\">메시지에 포함된 URL을 모아 다시 열 수 있습니다.</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/CommunityMessengerRoomPhase2RoomSheets.tsx",
+      "line": 1552,
+      "code": "<p className=\"py-8 text-center sam-text-body-secondary text-sam-muted\">링크 없음</p>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/MessengerTimelineBubbleInners.tsx",
+      "line": 47,
+      "code": "<span className=\"mt-1 sam-text-xxs text-sam-muted\">전송 중…</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/MessengerTimelineBubbleInners.tsx",
+      "line": 105,
+      "code": "<span className={`sam-text-helper ${item.isMine ? \"text-sam-muted\" : \"text-sam-muted\"}`}>업로드 중…</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/MessengerTimelineVirtualRow.tsx",
+      "line": 450,
+      "code": "<span className=\"shrink-0 pb-0.5 text-[11px] leading-none text-[#65676b]\">안읽음</span>"
+    },
+    {
+      "file": "components/community-messenger/room/phase2/MessengerTradeProductDockRow.tsx",
+      "line": 37,
+      "code": "<div className=\"flex h-full w-full items-center justify-center sam-text-xxs text-[color:var(--cm-room-text-muted)]\">상품</div>"
+    },
+    {
+      "file": "components/community-messenger/stickers/MessengerStickerSheet.tsx",
+      "line": 119,
+      "code": "aria-label=\"스티커\""
+    },
+    {
+      "file": "components/community-messenger/stickers/MessengerStickerSheet.tsx",
+      "line": 123,
+      "code": "<span className=\"sam-text-body font-semibold text-sam-fg\">스티커</span>"
+    },
+    {
+      "file": "components/community-messenger/stickers/MessengerStickerSheet.tsx",
+      "line": 152,
+      "code": "<p className=\"py-6 text-center sam-text-body-secondary text-sam-muted\">불러오는 중…</p>"
+    }
+  ]
+}

@@ -1,42 +1,22 @@
 "use client";
 
 import { useMemo } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getRecommendationEscalationRules } from "@/lib/recommendation-automation/mock-recommendation-escalation-rules";
-import type {
-  EscalationSeverity,
-  EscalationTriggerType,
-  EscalationChannel,
-} from "@/lib/types/recommendation-automation";
-
-const SEVERITY_LABELS: Record<EscalationSeverity, string> = {
-  warning: "경고",
-  critical: "위험",
-};
-
-const TRIGGER_LABELS: Record<EscalationTriggerType, string> = {
-  empty_feed_spike: "빈피드 급증",
-  ctr_drop: "CTR 하락",
-  conversion_drop: "전환율 하락",
-  deployment_failure: "배포 실패",
-  fallback_active: "Fallback 활성",
-  kill_switch_active: "킬스위치 활성",
-};
-
-const CHANNEL_LABELS: Record<EscalationChannel, string> = {
-  dashboard_only: "대시보드",
-  email: "이메일",
-  slack: "Slack",
-  sms: "SMS",
-  admin_call: "관리자 호출",
-};
+import {
+  recAlertSeverityLabel,
+  recEscalationChannelLabel,
+  recEscalationTriggerLabel,
+} from "@/components/admin/recommendation-admin-i18n";
 
 export function EscalationRuleTable() {
+  const { t } = useI18n();
   const rules = useMemo(() => getRecommendationEscalationRules(), []);
 
   if (rules.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        Escalation 규칙이 없습니다.
+        {t("admin_rec_auto_empty_escalation")}
       </div>
     );
   }
@@ -47,22 +27,22 @@ export function EscalationRuleTable() {
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              단계
+              {t("admin_rec_th_step")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              심각도
+              {t("admin_rec_th_severity")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              트리거
+              {t("admin_rec_th_trigger")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              채널
+              {t("admin_rec_th_channel")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              지연(분)
+              {t("admin_rec_th_delay_min")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              사용
+              {t("admin_rec_th_enabled")}
             </th>
           </tr>
         </thead>
@@ -83,14 +63,14 @@ export function EscalationRuleTable() {
                       : "bg-amber-50 text-amber-800"
                   }`}
                 >
-                  {SEVERITY_LABELS[r.severity]}
+                  {recAlertSeverityLabel(t, r.severity)}
                 </span>
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
-                {TRIGGER_LABELS[r.triggerType]}
+                {recEscalationTriggerLabel(t, r.triggerType)}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
-                {CHANNEL_LABELS[r.channel]}
+                {recEscalationChannelLabel(t, r.channel)}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
                 {r.delayMinutes}

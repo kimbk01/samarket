@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MYPAGE_MAIN_HREF } from "@/lib/my/mypage-info-hub";
 
 type Props = {
@@ -9,6 +10,8 @@ type Props = {
 };
 
 export function AccountDeletionRequestForm({ source }: Props) {
+  const { t } = useI18n();
+  const confirmWord = t("ui_account_delete_confirm_word");
   const [confirmationText, setConfirmationText] = useState("");
   const [reason, setReason] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -16,8 +19,8 @@ export function AccountDeletionRequestForm({ source }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const handleConfirm = async () => {
-    if (confirmationText.trim() !== "계정삭제") {
-      setError("최종 확인 입력란에 `계정삭제`를 정확히 입력해 주세요.");
+    if (confirmationText.trim() !== confirmWord) {
+      setError(t("ui_account_delete_confirm_err"));
       return;
     }
     setSubmitting(true);
@@ -39,12 +42,12 @@ export function AccountDeletionRequestForm({ source }: Props) {
         requestedAt?: string;
       };
       if (!res.ok || !json.ok) {
-        setError(typeof json.error === "string" ? json.error : "계정 삭제 요청을 접수하지 못했습니다.");
+        setError(typeof json.error === "string" ? json.error : t("ui_account_delete_submit_err"));
         return;
       }
       setSubmittedAt(typeof json.requestedAt === "string" ? json.requestedAt : new Date().toISOString());
     } catch {
-      setError("계정 삭제 요청을 접수하지 못했습니다.");
+      setError(t("ui_account_delete_submit_err"));
     } finally {
       setSubmitting(false);
     }
@@ -53,51 +56,53 @@ export function AccountDeletionRequestForm({ source }: Props) {
   return (
     <div className="space-y-4">
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <p className="sam-text-body font-semibold text-sam-fg">삭제 시 사라지는 정보</p>
+        <p className="sam-text-body font-semibold text-sam-fg">{t("ui_account_delete_data_title")}</p>
         <ul className="mt-2 list-disc space-y-1 pl-5 sam-text-body-secondary text-sam-muted">
-          <li>프로필 표시 정보와 연락처, 로그인 연결 정보</li>
-          <li>찜, 관심 사용자, 개인 설정값</li>
-          <li>서비스 내 개인화 상태</li>
+          <li>{t("ui_account_delete_data_1")}</li>
+          <li>{t("ui_account_delete_data_2")}</li>
+          <li>{t("ui_account_delete_data_3")}</li>
         </ul>
       </div>
 
       <div className="rounded-ui-rect border border-amber-200 bg-amber-50 p-4">
-        <p className="sam-text-body font-semibold text-sam-fg">보관될 수 있는 기록</p>
+        <p className="sam-text-body font-semibold text-sam-fg">{t("ui_account_retain_title")}</p>
         <ul className="mt-2 list-disc space-y-1 pl-5 sam-text-body-secondary text-sam-fg">
-          <li>거래, 신고, 정산, 감사 로그 등 법적/운영상 필요한 기록</li>
-          <li>게시글과 댓글의 운영상 식별 불가 표기(예: 탈퇴한 사용자)</li>
-          <li>안전 및 분쟁 대응을 위한 최소 보관 정보</li>
+          <li>{t("ui_account_retain_1")}</li>
+          <li>{t("ui_account_retain_2")}</li>
+          <li>{t("ui_account_retain_3")}</li>
         </ul>
       </div>
 
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <label className="block text-[13px] font-semibold text-sam-fg">삭제 사유 (선택)</label>
+        <label className="block text-[13px] font-semibold text-sam-fg">{t("ui_account_delete_reason_label")}</label>
         <textarea
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           rows={4}
           className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
-          placeholder="개선 의견이나 삭제 사유를 남길 수 있습니다."
+          placeholder={t("ui_account_delete_reason_ph")}
         />
       </div>
 
       <div className="rounded-ui-rect border border-red-200 bg-red-50 p-4">
-        <label className="block text-[13px] font-semibold text-red-800">최종 확인 입력</label>
-        <p className="mt-1 sam-text-body-secondary text-red-700">계속하려면 아래 입력란에 `계정삭제`를 입력해 주세요.</p>
+        <label className="block text-[13px] font-semibold text-red-800">{t("ui_account_delete_confirm_label")}</label>
+        <p className="mt-1 sam-text-body-secondary text-red-700">{t("ui_account_delete_confirm_hint")}</p>
         <input
           type="text"
           value={confirmationText}
           onChange={(e) => setConfirmationText(e.target.value)}
           className="mt-3 w-full rounded-ui-rect border border-red-200 bg-white px-3 py-2 sam-text-body"
-          placeholder="계정삭제"
+          placeholder={t("ui_account_delete_confirm_ph")}
         />
       </div>
 
       {submittedAt ? (
         <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50 p-4">
-          <p className="sam-text-body font-medium text-emerald-800">계정 삭제 요청이 접수되었습니다.</p>
+          <p className="sam-text-body font-medium text-emerald-800">{t("ui_account_delete_submitted")}</p>
           <p className="mt-1 sam-text-body-secondary text-emerald-700">
-            접수 시간: {new Date(submittedAt).toLocaleString("ko-KR")}
+            {t("ui_account_delete_submitted_at", {
+              time: new Date(submittedAt).toLocaleString(),
+            })}
           </p>
         </div>
       ) : null}
@@ -113,7 +118,7 @@ export function AccountDeletionRequestForm({ source }: Props) {
             href={MYPAGE_MAIN_HREF}
             className="rounded-ui-rect border border-sam-border px-4 py-2 sam-text-body font-medium text-sam-fg"
           >
-            취소
+            {t("common_cancel")}
           </Link>
         ) : null}
         <button
@@ -122,7 +127,7 @@ export function AccountDeletionRequestForm({ source }: Props) {
           onClick={() => void handleConfirm()}
           className="rounded-ui-rect bg-red-500 px-4 py-2 sam-text-body font-medium text-white disabled:opacity-50"
         >
-          {submitting ? "요청 중…" : "계정 삭제 요청"}
+          {submitting ? t("ui_account_delete_submitting") : t("ui_account_delete_submit")}
         </button>
       </div>
     </div>

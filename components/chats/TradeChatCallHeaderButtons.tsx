@@ -22,6 +22,7 @@ import {
   tradeChatCallPolicyAllowsVoice,
   type TradeChatCallPolicy,
 } from "@/lib/trade/trade-chat-call-policy";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type CallKind = "voice" | "video";
 
@@ -36,6 +37,7 @@ export function TradeChatCallHeaderButtons(props: {
   communityMessengerRoomId?: string | null;
   onErrorMessage: (message: string) => void;
 }) {
+  const { t } = useI18n();
   const { policy, productChatRoomId, communityMessengerRoomId, onErrorMessage } = props;
   const router = useRouter();
   const pathname = usePathname() ?? "";
@@ -74,10 +76,10 @@ export function TradeChatCallHeaderButtons(props: {
             const code = typeof json.code === "string" ? json.code : "";
             onErrorMessage(
               code === "not_participant"
-                ? "이 채팅에서 통화를 시작할 수 없습니다."
+                ? t("chats_trade_call_not_allowed")
                 : code === "product_chat_not_found"
-                  ? "거래 채팅을 찾을 수 없습니다."
-                  : "메신저 연결에 실패했습니다. 잠시 후 다시 시도해 주세요."
+                  ? t("chats_trade_call_room_not_found")
+                  : t("chats_trade_call_bridge_failed")
             );
             return;
           }
@@ -91,7 +93,7 @@ export function TradeChatCallHeaderButtons(props: {
         });
         router.push(buildCommunityMessengerOutgoingDialHref({ kind, roomId: messengerRoomId }));
       } catch {
-        onErrorMessage("네트워크 오류로 통화를 시작하지 못했습니다.");
+        onErrorMessage(t("chats_trade_call_network_error"));
       } finally {
         setBusy(false);
       }
@@ -114,7 +116,7 @@ export function TradeChatCallHeaderButtons(props: {
           void startCall("voice");
         }}
         className="flex h-10 w-10 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-black/10 disabled:opacity-50"
-        aria-label="음성 통화"
+        aria-label={t("chats_trade_call_voice_aria")}
       >
         <Phone className="h-5 w-5" strokeWidth={2} />
       </button>
@@ -130,7 +132,7 @@ export function TradeChatCallHeaderButtons(props: {
             void startCall("video");
           }}
           className="flex h-10 w-10 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-black/10 disabled:opacity-50"
-          aria-label="영상 통화"
+          aria-label={t("chats_trade_call_video_aria")}
         >
           <Video className="h-5 w-5" strokeWidth={2} />
         </button>

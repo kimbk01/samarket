@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { philifeMeetingApi } from "@domain/philife/api";
 
 function DotsVerticalIcon({ className }: { className?: string }) {
@@ -48,6 +49,7 @@ export function MeetingRoomHero({
   backHref,
   backAriaLabel = "뒤로가기",
 }: MeetingRoomHeroProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -56,15 +58,19 @@ export function MeetingRoomHero({
 
   const entryLabel =
     entryPolicy === "approve"
-      ? "승인제"
+      ? t("community_meeting_policy_approve")
       : entryPolicy === "invite_only"
-        ? "초대/승인제"
+        ? t("community_meeting_policy_invite")
         : entryPolicy === "password"
-          ? "비밀번호"
-          : "바로 참여";
+          ? t("community_meeting_policy_password")
+          : t("community_meeting_policy_open");
 
   const isOpen = status === "open" && !isClosed;
-  const statusLabel = !isOpen ? (status === "cancelled" ? "취소됨" : "마감") : null;
+  const statusLabel = !isOpen
+    ? status === "cancelled"
+      ? t("meeting_hero_status_cancelled")
+      : t("meeting_hero_status_closed")
+    : null;
 
   const hasCover = !!coverImageUrl?.trim();
 
@@ -109,7 +115,7 @@ export function MeetingRoomHero({
 
   const onEndMeeting = async () => {
     if (!isHostUser) return;
-    if (!window.confirm("모임을 종료할까요? 이후 새 참여는 불가합니다.")) return;
+    if (!window.confirm(t("community_confirm_end_meeting"))) return;
     setMenuOpen(false);
     const res = await fetch(philifeMeetingApi(meetingId).close(), { method: "POST" });
     const j = (await res.json()) as { ok?: boolean };
@@ -147,7 +153,7 @@ export function MeetingRoomHero({
                 type="button"
                 aria-expanded={menuOpen}
                 aria-haspopup="menu"
-                aria-label="모임 메뉴"
+                aria-label={t("meeting_hero_menu_aria")}
                 onClick={() => setMenuOpen((v) => !v)}
                 className="flex h-8 w-8 items-center justify-center rounded-full bg-black/15 text-white hover:bg-black/25"
               >
@@ -164,7 +170,7 @@ export function MeetingRoomHero({
                     className="flex w-full items-center justify-between gap-2 px-4 py-2.5 text-left text-sam-fg hover:bg-sam-app"
                     onClick={() => goMembersSection("pending")}
                   >
-                    <span>가입 요청 관리</span>
+                    <span>{t("meeting_hero_pending_requests")}</span>
                     {pendingApprovalCount > 0 ? (
                       <span className="rounded-full bg-red-500 px-1.5 py-0.5 sam-text-xxs font-bold text-white">
                         {pendingApprovalCount}
@@ -177,7 +183,7 @@ export function MeetingRoomHero({
                     className="w-full px-4 py-2.5 text-left text-sam-fg hover:bg-sam-app"
                     onClick={() => goMembersSection("joined")}
                   >
-                    참여자 관리
+                    {t("meeting_hero_manage_members")}
                   </button>
                   <button
                     type="button"
@@ -185,7 +191,7 @@ export function MeetingRoomHero({
                     className="w-full px-4 py-2.5 text-left text-sam-fg hover:bg-sam-app"
                     onClick={() => void openHostDetails()}
                   >
-                    모임 수정
+                    {t("meeting_hero_edit")}
                   </button>
                   {isHostUser ? (
                     <button
@@ -194,7 +200,7 @@ export function MeetingRoomHero({
                       className="w-full px-4 py-2.5 text-left text-red-600 hover:bg-red-50"
                       onClick={() => void onEndMeeting()}
                     >
-                      모임 종료
+                      {t("community_end_meeting_btn")}
                     </button>
                   ) : null}
                 </div>
@@ -225,7 +231,7 @@ export function MeetingRoomHero({
             {joinedCount}
             <span className="font-normal text-sam-meta">/{maxMembers}</span>
           </span>
-          <span className="sam-text-xxs text-sam-muted">멤버</span>
+          <span className="sam-text-xxs text-sam-muted">{t("meeting_hero_members_label")}</span>
         </div>
       </div>
     </div>

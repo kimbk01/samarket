@@ -1,15 +1,16 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { ProductStatus } from "@/lib/types/product";
 
-const LABELS: Record<ProductStatus, string> = {
-  active: "판매중",
-  reserved: "예약중",
-  sold: "판매완료",
-  hidden: "숨김",
-  blinded: "블라인드",
-  deleted: "삭제",
+const LABEL_KEYS: Record<ProductStatus, MessageKey> = {
+  active: "admin_dashboard_product_active",
+  reserved: "admin_dashboard_product_reserved",
+  sold: "admin_dashboard_product_sold",
+  hidden: "admin_dashboard_product_hidden",
+  blinded: "admin_dashboard_product_blinded",
+  deleted: "admin_dashboard_product_deleted",
 };
 
 const CLASSES: Record<ProductStatus, string> = {
@@ -27,12 +28,12 @@ interface AdminStatusBadgeProps {
 }
 
 export function AdminStatusBadge({ status, className = "" }: AdminStatusBadgeProps) {
-  const { tt } = useI18n();
+  const { t } = useI18n();
   return (
     <span
       className={`inline-flex min-w-[84px] items-center justify-center whitespace-nowrap rounded px-2 py-0.5 sam-text-helper font-medium ${CLASSES[status]} ${className}`}
     >
-      {tt(LABELS[status])}
+      {t(LABEL_KEYS[status])}
     </span>
   );
 }

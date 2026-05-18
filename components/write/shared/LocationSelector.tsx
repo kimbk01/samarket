@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { REGIONS } from "@/lib/products/form-options";
@@ -65,6 +66,7 @@ export function LocationSelector({
   philippinesZipSeed,
   onPhilippinesZipCommitted,
 }: LocationSelectorProps) {
+  const { t } = useI18n();
   const selectedRegion = REGIONS.find((r) => r.id === region);
   const cities = selectedRegion?.cities ?? [];
   const [zipDraft, setZipDraft] = useState("");
@@ -233,7 +235,7 @@ export function LocationSelector({
       </div>
       {showZipLookup ? (
         <div className="mt-3">
-          <p className={OWNER_STORE_FORM_LEAD_CLASS}>ZIP 코드 (PhilPost 4자리)</p>
+          <p className={OWNER_STORE_FORM_LEAD_CLASS}>{t("ui_write_zip_philpost_label")}</p>
           <p className="mb-2 sam-text-helper leading-snug text-sam-muted">
             숫자 4자리를 입력하면 지역·동네가 자동으로 맞춰집니다. 3자리만 입력한 뒤에는 「적용」으로
             앞에 0을 붙여 확정할 수 있습니다.
@@ -266,7 +268,7 @@ export function LocationSelector({
               }}
               maxLength={4}
               className={`min-w-0 ${OWNER_STORE_CONTROL_CLASS}`}
-              aria-label="PhilPost ZIP 4자리"
+              aria-label={t("ui_write_zip_philpost_aria")}
             />
             <button type="button" onClick={applyZipOrNeighborhood} className={OWNER_STORE_AUX_BUTTON_INLINE_COMPACT_CLASS}>
               적용

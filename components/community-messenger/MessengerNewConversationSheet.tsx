@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+
 type Props = {
   onClose: () => void;
   onFriendChatStart: () => void;
@@ -44,16 +46,17 @@ export function MessengerNewConversationSheet({
   onCreateGroup,
   onFindOpenChat,
 }: Props) {
+  const { t } = useI18n();
   return (
     <div className="fixed inset-0 z-[42] flex flex-col justify-end bg-black/25">
-      <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={onClose} />
+      <button type="button" className="min-h-0 flex-1 cursor-default" aria-label={t("nav_close")} onClick={onClose} />
       <div className="rounded-t-[12px] border border-ui-border bg-ui-surface px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 shadow-[var(--ui-shadow-card)]">
-        <p className="text-center sam-text-body font-semibold text-ui-fg">새 대화</p>
-        <p className="mt-3 text-center sam-text-helper text-ui-muted">새 대화 메뉴</p>
+        <p className="text-center sam-text-body font-semibold text-ui-fg">{t("cm_ui_new_conversation")}</p>
+        <p className="mt-3 text-center sam-text-helper text-ui-muted">{t("cm_ui_new_conversation_menu")}</p>
         <div className="mt-4 grid gap-2">
           <SheetActionButton
-            label="친구와 대화 시작"
-            helper="친구 탭에서 프로필을 연 뒤 대화합니다."
+            label={t("cm_ui_start_conversation_with_friend")}
+            helper={t("cm_ui_open_profile_then_conversation")}
             meta="1"
             onClick={() => {
               onClose();
@@ -61,8 +64,8 @@ export function MessengerNewConversationSheet({
             }}
           />
           <SheetActionButton
-            label="친구 추가"
-            helper="@아이디로 검색해 요청합니다."
+            label={t("cm_ui_add_friend")}
+            helper={t("cm_ui_search_by_at_id")}
             meta="2"
             onClick={() => {
               onClose();
@@ -70,8 +73,8 @@ export function MessengerNewConversationSheet({
             }}
           />
           <SheetActionButton
-            label="그룹 만들기"
-            helper="친구를 고른 비공개 그룹."
+            label={t("cm_ui_create_group")}
+            helper={t("cm_ui_private_group_with_selected_friends")}
             meta="3"
             onClick={() => {
               onClose();
@@ -79,8 +82,8 @@ export function MessengerNewConversationSheet({
             }}
           />
           <SheetActionButton
-            label="모임 찾기"
-            helper="커뮤니티 모임 탐색·참여."
+            label={t("cm_ui_find_meeting")}
+            helper={t("cm_ui_browse_and_join_community_meetings")}
             meta="4"
             onClick={() => {
               onClose();
@@ -89,7 +92,7 @@ export function MessengerNewConversationSheet({
           />
         </div>
         <button type="button" className="mt-3 w-full py-2 sam-text-body text-ui-muted" onClick={onClose}>
-          취소
+          {t("common_cancel")}
         </button>
       </div>
     </div>

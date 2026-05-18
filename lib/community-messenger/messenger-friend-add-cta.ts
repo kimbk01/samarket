@@ -17,34 +17,36 @@ export type MessengerFriendAddCta =
   | { kind: "friend" }
   | { kind: "blocked" };
 
-/** UI 문구 통일 (프롬프트 CTA 기준) */
-export const MessengerFriendAddCtaLabels = {
-  add: "친구 추가",
-  pending: "요청중",
-  cancel: "요청 취소",
-  accept: "수락",
-  reject: "거절",
-  friend: "친구",
-  message: "메시지 보내기",
-  unavailable: "이용 불가",
-  blockedChip: "차단됨",
-  cooldown: "재요청 제한",
-} as const;
+import type { MessageKey } from "@/lib/i18n/messages";
 
-/** `MessengerFriendRequestsSheet` — 섹션·빈 목록·헤더 (CTA 버튼은 `MessengerFriendAddCtaLabels`) */
-export const MessengerFriendRequestSheetLabels = {
-  title: "친구 요청",
-  sectionReceived: "받은 요청",
-  sectionSent: "보낸 요청",
-  sectionSuggested: "추천",
-  subtitleReceived: "받은 요청",
-  subtitleSent: "보낸 요청",
-  emptyReceived: "받은 요청이 없습니다.",
-  emptySent: "보낸 요청이 없습니다.",
-  emptySuggested: "추천이 없습니다.",
-  openProfile: "보기",
-  processing: "처리 중…",
-} as const;
+/** UI 문구 키 — 컴포넌트에서 `t(MessengerFriendAddCtaLabelKeys.add)` */
+export const MessengerFriendAddCtaLabelKeys = {
+  add: "cm_friend_cta_add",
+  pending: "cm_friend_cta_pending",
+  cancel: "cm_friend_cta_cancel",
+  accept: "cm_friend_cta_accept",
+  reject: "cm_friend_cta_reject",
+  friend: "cm_friend_cta_friend",
+  message: "cm_friend_cta_message",
+  unavailable: "cm_friend_cta_unavailable",
+  blockedChip: "cm_friend_cta_blocked",
+  cooldown: "cm_friend_cta_cooldown",
+} as const satisfies Record<string, MessageKey>;
+
+/** `MessengerFriendRequestsSheet` — 섹션·빈 목록·헤더 */
+export const MessengerFriendRequestSheetLabelKeys = {
+  title: "cm_friend_sheet_title",
+  sectionReceived: "cm_friend_sheet_received",
+  sectionSent: "cm_friend_sheet_sent",
+  sectionSuggested: "cm_friend_sheet_suggested",
+  subtitleReceived: "cm_friend_sheet_sub_received",
+  subtitleSent: "cm_friend_sheet_sub_sent",
+  emptyReceived: "cm_friend_sheet_empty_received",
+  emptySent: "cm_friend_sheet_empty_sent",
+  emptySuggested: "cm_friend_sheet_empty_suggested",
+  openProfile: "cm_friend_sheet_open_profile",
+  processing: "cm_friend_sheet_processing",
+} as const satisfies Record<string, MessageKey>;
 
 export type ResolveMessengerFriendAddCtaOpts = {
   /** peer id → unix ms; 해당 시각까지 재요청 불가 UI */

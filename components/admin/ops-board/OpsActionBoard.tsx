@@ -1,20 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { OpsActionStatus } from "@/lib/types/ops-board";
 import { getOpsActionItems } from "@/lib/ops-board/mock-ops-action-items";
 import { getOverdueActionItems } from "@/lib/ops-board/mock-ops-action-items";
+import { OPS_TOOLS_ACTION_STATUS_KEYS, opsToolsLabel } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { OpsActionCard } from "./OpsActionCard";
 
-const STATUS_ORDER: OpsActionStatus[] = [
-  "open",
-  "planned",
-  "in_progress",
-  "done",
-  "archived",
-];
-
 export function OpsActionBoard() {
+  const { t } = useI18n();
   const [refresh, setRefresh] = useState(0);
   const [statusFilter, setStatusFilter] = useState<OpsActionStatus | "">("");
 
@@ -29,6 +24,15 @@ export function OpsActionBoard() {
     return allItems;
   }, [allItems, statusFilter]);
 
+  const statusOptions: { value: OpsActionStatus | ""; labelKey: keyof typeof OPS_TOOLS_ACTION_STATUS_KEYS | "all" }[] = [
+    { value: "", labelKey: "all" },
+    { value: "open", labelKey: "open" },
+    { value: "planned", labelKey: "planned" },
+    { value: "in_progress", labelKey: "in_progress" },
+    { value: "done", labelKey: "done" },
+    { value: "archived", labelKey: "archived" },
+  ];
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -39,22 +43,23 @@ export function OpsActionBoard() {
           }
           className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
-          <option value="">전체 상태</option>
-          <option value="open">미해결</option>
-          <option value="planned">예정</option>
-          <option value="in_progress">진행중</option>
-          <option value="done">완료</option>
-          <option value="archived">보관</option>
+          {statusOptions.map((o) => (
+            <option key={o.value || "all"} value={o.value}>
+              {o.labelKey === "all"
+                ? t("admin_ops_tools_board_filter_status")
+                : t(opsToolsLabel(OPS_TOOLS_ACTION_STATUS_KEYS, o.labelKey))}
+            </option>
+          ))}
         </select>
         {overdueItems.length > 0 && (
           <span className="rounded bg-red-100 px-2 py-1 sam-text-body-secondary font-medium text-red-800">
-            기한 초과 {overdueItems.length}건
+            {t("admin_ops_tools_board_overdue_count", { count: overdueItems.length })}
           </span>
         )}
       </div>
       {items.length === 0 ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          액션아이템이 없습니다.
+          {t("admin_ops_tools_board_no_actions")}
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

@@ -110,26 +110,21 @@ export async function enrichOpenGroupSummariesWithPhilifeMeetingLabels(
     }
 
     const mm = byMeeting.get(link.meetingId);
-    let label: "모임장" | "회원";
+    let role: "host" | "member";
     if (mm === "host" || mm === "co_host") {
-      label = "모임장";
+      role = "host";
     } else if (mm) {
-      label = "회원";
+      role = "member";
     } else if (selfKey && link.hostKeySet.has(selfKey)) {
-      label = "모임장";
+      role = "host";
     } else if (selfKey && s.ownerUserId && normalizeUserIdForCompare(s.ownerUserId) === selfKey) {
-      label = "모임장";
+      role = "host";
     } else {
       s.philifeMeetingMemberLabel = undefined;
       continue;
     }
 
-    s.philifeMeetingMemberLabel = label;
-    if (!s.subtitle.includes(label)) {
-      s.subtitle = s.subtitle.includes("모임")
-        ? `${s.subtitle} · ${label}`
-        : `모임 · ${label} · ${s.subtitle}`;
-    }
+    s.philifeMeetingMemberLabel = role;
   }
 }
 

@@ -11,6 +11,7 @@ import {
   peekMeStoresListClientCache,
 } from "@/lib/me/fetch-me-stores-deduped";
 import { StoreBusinessBlockedModal } from "@/components/business/StoreBusinessBlockedModal";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type MeStore = {
   id: string;
@@ -80,6 +81,7 @@ async function resolveStoreBusinessPhase(): Promise<ResolvedPhase> {
 }
 
 export function StoreBusinessGuard({ children }: { children: React.ReactNode }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [phase, setPhase] = useState<Phase>(() => resolvedPhaseFromPeek() ?? { kind: "loading" });
 
@@ -114,7 +116,7 @@ export function StoreBusinessGuard({ children }: { children: React.ReactNode }) 
     return (
       <div className="min-h-screen bg-sam-app px-4 py-10">
         <div className="mx-auto max-w-md rounded-ui-rect bg-sam-surface p-6 text-center shadow-sm">
-          <p className="sam-text-body text-sam-fg">로그인이 필요합니다.</p>
+          <p className="sam-text-body text-sam-fg">{t("common_login_required")}</p>
           <Link href="/mypage" className="mt-4 inline-block sam-text-body font-medium text-signature">
             내 정보로
           </Link>
@@ -127,7 +129,7 @@ export function StoreBusinessGuard({ children }: { children: React.ReactNode }) 
     return (
       <div className="min-h-screen bg-sam-app px-4 py-10">
         <div className="mx-auto max-w-md rounded-ui-rect bg-sam-surface p-6 text-center shadow-sm">
-          <p className="sam-text-body text-sam-fg">매장 서비스 설정이 완료되지 않았습니다.</p>
+          <p className="sam-text-body text-sam-fg">{t("business_phase7_069")}</p>
           <Link href="/mypage" className="mt-4 inline-block sam-text-body font-medium text-signature">
             내 정보로
           </Link>
@@ -140,7 +142,7 @@ export function StoreBusinessGuard({ children }: { children: React.ReactNode }) 
     return (
       <div className="min-h-screen bg-sam-app px-4 py-10">
         <div className="mx-auto max-w-md rounded-ui-rect bg-sam-surface p-6 text-center shadow-sm">
-          <p className="sam-text-body text-red-700">불러오지 못했습니다. ({phase.message})</p>
+          <p className="sam-text-body text-red-700">{t("business_phase7_131", { v1: phase.message })}</p>
           <button
             type="button"
             onClick={() => retry()}

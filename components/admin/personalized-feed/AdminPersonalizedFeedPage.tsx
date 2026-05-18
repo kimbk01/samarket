@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -24,6 +27,7 @@ const TABS: { id: TabId; label: string }[] = [
 const MOCK_USER_IDS = ["me"];
 
 export function AdminPersonalizedFeedPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("policy");
   const [refresh, setRefresh] = useState(0);
   const [editingPolicyId, setEditingPolicyId] = useState<string | null>(null);
@@ -51,7 +55,7 @@ export function AdminPersonalizedFeedPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="개인화 추천 정책" />
+      <AdminPageHeader titleKey="admin_personalized_feed_kba737687" />
 
       <div className="flex flex-wrap gap-2 border-b border-sam-border">
         {TABS.map((t) => (
@@ -71,7 +75,7 @@ export function AdminPersonalizedFeedPage() {
       </div>
 
       {activeTab === "policy" && (
-        <AdminCard title="섹션별 개인화 정책">
+        <AdminCard titleKey="admin_personalized_feed_k72af229f">
           {editingPolicy && (
             <div className="mb-4 rounded border border-sam-border bg-sam-app p-4">
               <PersonalizedPolicyForm
@@ -91,19 +95,19 @@ export function AdminPersonalizedFeedPage() {
       )}
 
       {activeTab === "profile" && (
-        <AdminCard title="사용자 행동 프로필 (mock)">
+        <AdminCard titleKey="admin_personalized_feed_kaf4e0ed1">
           <UserBehaviorProfileTable profiles={profiles} />
         </AdminCard>
       )}
 
       {activeTab === "simulate" && (
-        <AdminCard title="개인화 추천 시뮬레이션">
+        <AdminCard titleKey="admin_personalized_feed_k42182c5c">
           <PersonalizedFeedSimulator />
         </AdminCard>
       )}
 
       {activeTab === "logs" && (
-        <AdminCard title="개인화 피드 생성 로그">
+        <AdminCard titleKey="admin_personalized_feed_create_4">
           <PersonalizedFeedLogList logs={logs} />
         </AdminCard>
       )}

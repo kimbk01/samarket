@@ -5,29 +5,30 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { formatCommunityMessengerCallDurationLabel } from "@/lib/community-messenger/call-duration-label";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type {
   CommunityMessengerCallLog,
   CommunityMessengerCallLogDisplayType,
 } from "@/lib/community-messenger/types";
 
-function displayTypeLabel(t: CommunityMessengerCallLogDisplayType): string {
+function displayTypeLabel(t: CommunityMessengerCallLogDisplayType, tr: (key: string) => string): string {
   switch (t) {
     case "missed_outgoing":
-      return "부재중 · 발신";
+      return tr("cm_ui_call_type_missed_outgoing");
     case "missed_incoming":
-      return "부재중 · 수신";
+      return tr("cm_ui_call_type_missed_incoming");
     case "rejected":
-      return "거절";
+      return tr("cm_ui_call_type_rejected");
     case "cancelled":
-      return "취소";
+      return tr("common_cancel");
     case "failed":
-      return "실패";
+      return tr("cm_ui_call_type_failed");
     case "outgoing":
-      return "발신";
+      return tr("cm_ui_call_type_outgoing");
     case "incoming":
-      return "수신";
+      return tr("cm_ui_call_type_incoming");
     default:
-      return "통화";
+      return tr("cm_ui_call_label");
   }
 }
 
@@ -50,6 +51,7 @@ function resolveRowTimestamp(call: CommunityMessengerCallLog): string {
 }
 
 export function CommunityMessengerCallLogsClient() {
+  const { t } = useI18n();
   const router = useRouter();
   const [calls, setCalls] = useState<CommunityMessengerCallLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,12 +66,12 @@ export function CommunityMessengerCallLogsClient() {
         const res = await fetch("/api/community-messenger/calls", { credentials: "include" });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; calls?: CommunityMessengerCallLog[] };
         if (!res.ok || !json.ok) {
-          if (!cancelled) setError("통화 기록을 불러오지 못했습니다.");
+          if (!cancelled) setError(t("cm_ui_call_logs_load_failed"));
           return;
         }
         if (!cancelled) setCalls(json.calls ?? []);
       } catch {
-        if (!cancelled) setError("네트워크 오류로 통화 기록을 불러오지 못했습니다.");
+        if (!cancelled) setError(t("cm_ui_call_logs_network_failed"));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -101,33 +103,33 @@ export function CommunityMessengerCallLogsClient() {
           type="button"
           onClick={() => router.back()}
           className="flex h-10 w-10 items-center justify-center rounded-full text-sam-fg active:bg-sam-surface-muted"
-          aria-label="뒤로"
+          aria-label={t("nav_back")}
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <h1 className="min-w-0 flex-1 truncate sam-text-page-title font-semibold text-sam-fg">통화 기록</h1>
+        <h1 className="min-w-0 flex-1 truncate sam-text-page-title font-semibold text-sam-fg">{t("cm_ui_call_logs_title")}</h1>
         <Link
           href="/community-messenger?section=chats"
           className="sam-text-body-secondary shrink-0 text-signature active:opacity-80"
         >
-          채팅
+          {t("nav_conversation")}
         </Link>
       </header>
 
       <main className="flex-1 px-3 pb-[max(16px,env(safe-area-inset-bottom))] pt-2">
         {loading ? (
-          <p className="py-10 text-center sam-text-body-secondary text-sam-muted">불러오는 중…</p>
+          <p className="py-10 text-center sam-text-body-secondary text-sam-muted">{t("common_loading")}</p>
         ) : error ? (
           <p className="py-10 text-center sam-text-body text-red-600">{error}</p>
         ) : calls.length === 0 ? (
-          <p className="py-10 text-center sam-text-body-secondary text-sam-muted">통화 기록이 없습니다.</p>
+          <p className="py-10 text-center sam-text-body-secondary text-sam-muted">{t("cm_ui_call_logs_empty")}</p>
         ) : (
           <ul className="divide-y divide-sam-border rounded-ui-rect border border-sam-border bg-sam-surface">
             {calls.map((call) => {
-              const name = call.peerLabel?.trim() || call.title?.trim() || "상대";
+              const name = call.peerLabel?.trim() || call.title?.trim() || t("common_partner");
               const dateLine = resolveRowTimestamp(call);
               const durationLine =
-                call.durationSeconds > 0 ? formatCommunityMessengerCallDurationLabel(call.durationSeconds) : "—";
+                call.durationSeconds > 0 ? formatCommunityMessengerCallDurationLabel(call.durationSeconds) : t("mypage_comp_placeholder_dash");
               const canNavigate = Boolean(call.roomId?.trim() || call.sessionId?.trim());
               return (
                 <li key={call.id}>
@@ -149,7 +151,7 @@ export function CommunityMessengerCallLogsClient() {
                     <span className="min-w-0 flex-1">
                       <span className="block truncate sam-text-body font-semibold text-sam-fg">{name}</span>
                       <span className="mt-0.5 block sam-text-body-secondary text-sam-muted">
-                        {displayTypeLabel(call.displayType)}
+                        {displayTypeLabel(call.displayType, t)}
                         <span className="mx-1.5 text-sam-border">·</span>
                         {durationLine}
                       </span>

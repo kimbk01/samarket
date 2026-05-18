@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useState } from "react";
 import type { ReviewRole } from "@/lib/types/review";
 import type { Transaction } from "@/lib/types/review";
@@ -26,6 +27,7 @@ export function ReviewWriteForm({
   onSuccess,
   onCancel,
 }: ReviewWriteFormProps) {
+  const { t } = useI18n();
   const userId = getCurrentUserId();
   const [rating, setRating] = useState(5);
   const [tags, setTags] = useState<string[]>([]);
@@ -60,7 +62,7 @@ export function ReviewWriteForm({
         {targetLabel}에게 후기를 남겨 주세요.
       </p>
       <div>
-        <p className="mb-2 sam-text-body-secondary font-medium text-sam-fg">평점</p>
+        <p className="mb-2 sam-text-body-secondary font-medium text-sam-fg">{t("ui_review_rating")}</p>
         <div className="flex gap-1">
           {[1, 2, 3, 4, 5].map((r) => (
             <button
@@ -79,7 +81,7 @@ export function ReviewWriteForm({
         </div>
       </div>
       <div>
-        <p className="mb-2 sam-text-body-secondary font-medium text-sam-fg">태그 (선택)</p>
+        <p className="mb-2 sam-text-body-secondary font-medium text-sam-fg">{t("ui_review_tags_optional")}</p>
         <div className="flex flex-wrap gap-2">
           {REVIEW_TAGS.map((tag) => (
             <button
@@ -104,7 +106,7 @@ export function ReviewWriteForm({
         <textarea
           value={comment}
           onChange={(e) => setComment(e.target.value)}
-          placeholder="거래는 어떠셨나요?"
+          placeholder={t("ui_review_comment_ph")}
           rows={3}
           className="w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
         />

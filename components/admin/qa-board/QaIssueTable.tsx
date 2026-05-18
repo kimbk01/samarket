@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { getQaIssueLogs } from "@/lib/qa-board/mock-qa-issue-logs";
 import { AdminTable } from "@/components/admin/AdminTable";
@@ -7,10 +10,25 @@ import {
   getSeverityLabel,
   getIssueStatusLabel,
 } from "@/lib/qa-board/qa-board-utils";
+import { QA_TABLE_HEADER_KEYS } from "@/components/admin/i18n/admin-qa-label-keys";
 import type { QaIssueStatus, QaIssueSeverity } from "@/lib/types/qa-board";
 import Link from "next/link";
 
 export function QaIssueTable() {
+  const { t } = useI18n();
+  const headers = useMemo(
+    () =>
+      [
+        QA_TABLE_HEADER_KEYS.title,
+        QA_TABLE_HEADER_KEYS.severity,
+        QA_TABLE_HEADER_KEYS.status,
+        QA_TABLE_HEADER_KEYS.linkedTest,
+        QA_TABLE_HEADER_KEYS.reproduce,
+        QA_TABLE_HEADER_KEYS.owner,
+        QA_TABLE_HEADER_KEYS.notes,
+      ].map((k) => t(k)),
+    [t]
+  );
   const [status, setStatus] = useState<QaIssueStatus | "">("");
   const [severity, setSeverity] = useState<QaIssueSeverity | "">("");
   const logs = useMemo(
@@ -25,7 +43,7 @@ export function QaIssueTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">상태</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_qa_status_2")}</span>
         <select
           value={status}
           onChange={(e) =>
@@ -33,14 +51,14 @@ export function QaIssueTable() {
           }
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
-          <option value="open">오픈</option>
-          <option value="in_progress">진행중</option>
-          <option value="fixed">수정됨</option>
-          <option value="verified">검증됨</option>
-          <option value="wont_fix">미해결</option>
+          <option value="">{t("common_all")}</option>
+          <option value="open">{t("admin_qa_open")}</option>
+          <option value="in_progress">{t("admin_qa_in_progress")}</option>
+          <option value="fixed">{t("admin_qa_fixed")}</option>
+          <option value="verified">{t("admin_qa_verified")}</option>
+          <option value="wont_fix">{t("admin_qa_wont_fix")}</option>
         </select>
-        <span className="sam-text-body-secondary text-sam-muted">심각도</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_qa_severity")}</span>
         <select
           value={severity}
           onChange={(e) =>
@@ -48,34 +66,24 @@ export function QaIssueTable() {
           }
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
-          <option value="critical">긴급</option>
-          <option value="high">높음</option>
-          <option value="medium">중간</option>
-          <option value="low">낮음</option>
+          <option value="">{t("common_all")}</option>
+          <option value="critical">{t("admin_qa_critical")}</option>
+          <option value="high">{t("admin_qa_high")}</option>
+          <option value="medium">{t("admin_qa_medium")}</option>
+          <option value="low">{t("admin_qa_low")}</option>
         </select>
       </div>
 
       <p className="sam-text-helper text-sam-muted">
-        재현 가능 여부(reproduced)는 placeholder로 표시됩니다.
+        {t("admin_qa_visible")}
       </p>
 
       {logs.length === 0 ? (
         <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          QA 이슈가 없습니다.
+          {t("admin_qa_empty_issues")}
         </div>
       ) : (
-        <AdminTable
-          headers={[
-            "제목",
-            "심각도",
-            "상태",
-            "연결 테스트",
-            "재현",
-            "담당",
-            "비고",
-          ]}
-        >
+        <AdminTable headers={headers}>
           {logs.map((l) => (
             <tr
               key={l.id}
@@ -98,7 +106,7 @@ export function QaIssueTable() {
                         : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >
-                  {getSeverityLabel(l.severity)}
+                  {getSeverityLabel(t, l.severity)}
                 </span>
               </td>
               <td className="px-3 py-2.5">
@@ -111,7 +119,7 @@ export function QaIssueTable() {
                         : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >
-                  {getIssueStatusLabel(l.status)}
+                  {getIssueStatusLabel(t, l.status)}
                 </span>
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">

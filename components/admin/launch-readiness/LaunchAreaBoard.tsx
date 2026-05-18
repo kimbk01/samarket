@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { getLaunchReadinessAreasList } from "@/lib/launch-readiness/mock-launch-readiness-areas";
 import { LaunchAreaCard } from "./LaunchAreaCard";
@@ -7,6 +10,7 @@ import type { LaunchReadinessPhase } from "@/lib/types/launch-readiness";
 import { getPhaseLabel } from "@/lib/launch-readiness/launch-readiness-utils";
 
 export function LaunchAreaBoard() {
+  const { t } = useI18n();
   const [phase, setPhase] = useState<LaunchReadinessPhase>("pre_launch");
   const areas = useMemo(
     () => getLaunchReadinessAreasList(phase),
@@ -16,7 +20,7 @@ export function LaunchAreaBoard() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">단계</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_launch_readiness_k0e685c7c")}</span>
         {(["pre_launch", "launch_day", "post_launch"] as const).map((p) => (
           <button
             key={p}

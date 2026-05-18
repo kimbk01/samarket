@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 type ListType = "favorite" | "hidden" | "blocked";
@@ -20,17 +21,18 @@ type UserRelationItem = {
   createdAt: string;
 };
 
-function formatDate(iso: string): string {
-  const value = new Date(iso);
-  if (Number.isNaN(value.getTime())) return "";
-  return value.toLocaleDateString("ko-KR");
-}
-
 export function UserListContent({ type, emptyMessage }: UserListContentProps) {
+  const { t, language } = useI18n();
   const [items, setItems] = useState<UserRelationItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  const formatDate = (iso: string): string => {
+    const value = new Date(iso);
+    if (Number.isNaN(value.getTime())) return "";
+    return value.toLocaleDateString(language === "ko" ? "ko-KR" : "en-US");
+  };
 
   const load = useCallback(async () => {
     setLoading((prev) => (prev ? prev : true));
@@ -49,7 +51,7 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
       };
       if (!res.ok || !json.ok) {
         setItems((prev) => (prev.length === 0 ? prev : []));
-        setError(typeof json.error === "string" ? json.error : "목록을 불러오지 못했습니다.");
+        setError(typeof json.error === "string" ? json.error : t("settings_user_list_load_failed"));
         return;
       }
       const nextItems = Array.isArray(json.items) ? json.items : [];
@@ -69,11 +71,11 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
       });
     } catch {
       setItems((prev) => (prev.length === 0 ? prev : []));
-      setError("목록을 불러오지 못했습니다.");
+      setError(t("settings_user_list_load_failed"));
     } finally {
       setLoading((prev) => (prev ? false : prev));
     }
-  }, [type]);
+  }, [type, t]);
 
   useEffect(() => {
     void load();
@@ -89,19 +91,19 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
-        setError(typeof json.error === "string" ? json.error : "삭제하지 못했습니다.");
+        setError(typeof json.error === "string" ? json.error : t("settings_user_list_delete_failed"));
         return;
       }
       setItems((current) => current.filter((item) => item.id !== id));
     } catch {
-      setError("삭제하지 못했습니다.");
+      setError(t("settings_user_list_delete_failed"));
     } finally {
       setBusyId((prev) => (prev === null ? prev : null));
     }
   };
 
   if (loading) {
-    return <div className="py-12 text-center sam-text-body text-sam-muted">불러오는 중입니다.</div>;
+    return <div className="py-12 text-center sam-text-body text-sam-muted">{t("settings_user_list_loading")}</div>;
   }
 
   if (error) {
@@ -109,11 +111,7 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
   }
 
   if (items.length === 0) {
-    return (
-      <div className="py-12 text-center sam-text-body text-sam-muted">
-        {emptyMessage}
-      </div>
-    );
+    return <div className="py-12 text-center sam-text-body text-sam-muted">{emptyMessage}</div>;
   }
 
   return (
@@ -139,7 +137,7 @@ export function UserListContent({ type, emptyMessage }: UserListContentProps) {
             className="sam-text-body-secondary text-red-600"
             onClick={() => void handleDelete(item.id)}
           >
-            {busyId === item.id ? "삭제 중" : "삭제"}
+            {busyId === item.id ? t("settings_user_list_deleting") : t("common_delete")}
           </button>
         </li>
       ))}

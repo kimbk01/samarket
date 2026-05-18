@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { getDrScenarios } from "@/lib/dr/mock-dr-scenarios";
 import { AdminTable } from "@/components/admin/AdminTable";
@@ -8,6 +11,7 @@ import type { DrScenarioType, DrSeverity } from "@/lib/types/dr";
 import Link from "next/link";
 
 export function DrScenarioTable() {
+  const { t } = useI18n();
   const [typeFilter, setTypeFilter] = useState<DrScenarioType | "">("");
   const [severityFilter, setSeverityFilter] = useState<DrSeverity | "">("");
 
@@ -23,7 +27,7 @@ export function DrScenarioTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">시나리오 유형</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_dr_k74dab07c")}</span>
         <select
           value={typeFilter}
           onChange={(e) =>
@@ -31,15 +35,15 @@ export function DrScenarioTable() {
           }
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
-          <option value="db_down">DB 장애</option>
-          <option value="api_failure">API 장애</option>
-          <option value="auth_failure">인증 장애</option>
-          <option value="storage_failure">스토리지 장애</option>
-          <option value="chat_failure">채팅 장애</option>
-          <option value="payment_failure">결제 장애</option>
+          <option value="">{t("common_all")}</option>
+          <option value="db_down">{t("admin_db_failure")}</option>
+          <option value="api_failure">{t("admin_api_failure")}</option>
+          <option value="auth_failure">{t("admin_dr_k4804459c")}</option>
+          <option value="storage_failure">{t("admin_dr_k02e6bf26")}</option>
+          <option value="chat_failure">{t("admin_dr_chat")}</option>
+          <option value="payment_failure">{t("admin_dr_k8440d176")}</option>
         </select>
-        <span className="sam-text-body-secondary text-sam-muted">심각도</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_qa_severity")}</span>
         <select
           value={severityFilter}
           onChange={(e) =>
@@ -47,11 +51,11 @@ export function DrScenarioTable() {
           }
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
-          <option value="low">낮음</option>
-          <option value="medium">중간</option>
-          <option value="high">높음</option>
-          <option value="critical">긴급</option>
+          <option value="">{t("common_all")}</option>
+          <option value="low">{t("admin_qa_low")}</option>
+          <option value="medium">{t("admin_qa_medium")}</option>
+          <option value="high">{t("admin_qa_high")}</option>
+          <option value="critical">{t("admin_qa_critical")}</option>
         </select>
       </div>
 

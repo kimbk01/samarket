@@ -5,15 +5,22 @@
 import { formatPrice, formatTimeAgo, parseMetaAmount } from "@/lib/utils/format";
 import { getLocationLabel } from "@/lib/products/form-options";
 import { resolveTradePostListingLocationLine } from "@/lib/posts/post-listing-location-label";
-import { TRADE_SKIN_LABELS } from "@/lib/types/category";
+import { postPreviewSkinLabel } from "@/lib/posts/post-list-preview-i18n";
 import {
   EXPERIENCE_LEVEL_OPTIONS,
   HIRE_WEEKDAY_OPTIONS,
-  JOB_LISTING_KIND_LABELS,
-  PAY_TYPE_LABELS,
-  WORK_TERM_LABELS,
   jobWorkCategoryDisplay,
 } from "@/lib/jobs/form-options";
+import {
+  jobExperienceLabel,
+  jobListingKindLabel,
+  jobPayTypeLabel,
+  jobWorkTermLabel,
+} from "@/lib/jobs/job-label-keys";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { translate } from "@/lib/i18n/messages";
+import { DEFAULT_APP_LANGUAGE, normalizeAppLanguage } from "@/lib/i18n/config";
+import { postPreviewT } from "@/lib/posts/post-list-preview-i18n";
 import { CURRENCY_SYMBOLS } from "@/lib/exchange/form-options";
 import { getExchangeFeedLines } from "@/lib/exchange/exchange-feed-lines";
 import {
@@ -173,16 +180,24 @@ function hireWeekDaysShort(meta: Record<string, unknown>, row: Record<string, un
     return pipe
       .split("|")
       .filter(Boolean)
-      .map((p) => HIRE_WEEKDAY_OPTIONS.find((o) => o.value === p)?.label ?? p)
+      .map((p) => {
+        const opt = HIRE_WEEKDAY_OPTIONS.find((o) => o.value === p);
+        return opt ? translate(DEFAULT_APP_LANGUAGE, opt.labelKey) : p;
+      })
       .join("/");
   }
   const wd = row.work_days;
   if (Array.isArray(wd) && wd.length > 0) {
     return wd
-      .map((x) => HIRE_WEEKDAY_OPTIONS.find((o) => o.value === String(x))?.label ?? String(x))
+      .map((x) => {
+        const opt = HIRE_WEEKDAY_OPTIONS.find((o) => o.value === String(x));
+        return opt ? translate(DEFAULT_APP_LANGUAGE, opt.labelKey) : String(x);
+      })
       .join("/");
   }
-  if (meta.hire_work_days_discuss === true) return "요일 협의";
+  if (meta.hire_work_days_discuss === true) {
+    return postPreviewT(DEFAULT_APP_LANGUAGE, "post_preview_days_discuss");
+  }
   return "";
 }
 
@@ -229,13 +244,17 @@ function buildListFooter(
   if (variant === "uc") {
     if (locationLabel) items.push(locationLabel);
     if (t) items.push(t);
-    if (typeof chatCount === "number" && chatCount > 0) items.push(`채팅 ${chatCount}`);
-    if (typeof favCount === "number" && favCount > 0) items.push(`관심 ${favCount}`);
+    if (typeof chatCount === "number" && chatCount > 0)
+      items.push(postPreviewT(locale, "post_preview_chat_count", { count: chatCount }));
+    if (typeof favCount === "number" && favCount > 0)
+      items.push(postPreviewT(locale, "post_preview_fav_count", { count: favCount }));
   } else {
     if (variant === "trade" && locationLabel) items.push(locationLabel);
     if (t) items.push(t);
-    if (typeof chatCount === "number" && chatCount > 0) items.push(`채팅 ${chatCount}`);
-    if (typeof favCount === "number" && favCount > 0) items.push(`관심 ${favCount}`);
+    if (typeof chatCount === "number" && chatCount > 0)
+      items.push(postPreviewT(locale, "post_preview_chat_count", { count: chatCount }));
+    if (typeof favCount === "number" && favCount > 0)
+      items.push(postPreviewT(locale, "post_preview_fav_count", { count: favCount }));
   }
   /** ul 은 `sellerLine` 아래 두 번째 줄 — 블록 전체 `mt-1` 은 PostListPreviewColumn 래퍼에서 */
   const ulClassName = `flex flex-wrap items-center gap-x-2 gap-y-0.5 ${POST_LIST_META_LINE_CLASS}`;
@@ -246,28 +265,41 @@ function buildListFooter(
 function getRealEstateRow2PriceLabel(
   price: number | null | undefined,
   meta: Record<string, unknown>,
-  currency: string
+  currency: string,
+  locale: string
 ): string {
   const dealType = str(meta.deal_type);
-  if (dealType === "판매" && price != null) return `매매 ${formatPrice(price, currency)}`;
+  if (dealType === "판매" && price != null) {
+    return postPreviewT(locale, "post_preview_sale_price", { price: formatPrice(price, currency) });
+  }
   if (dealType === "임대") {
     const d = meta.deposit != null ? String(meta.deposit).trim() : "";
     const m = meta.monthly != null ? String(meta.monthly).trim() : "";
     if (d || m) {
-      return `보증금 ${formatPrice(parseMetaAmount(meta.deposit), currency)} | 월세 ${formatPrice(parseMetaAmount(meta.monthly), currency)}`;
+      return postPreviewT(locale, "post_preview_deposit_monthly", {
+        deposit: formatPrice(parseMetaAmount(meta.deposit), currency),
+        monthly: formatPrice(parseMetaAmount(meta.monthly), currency),
+      });
     }
   }
   if (price != null) return formatPrice(price, currency);
   return "";
 }
 
+type PreviewJobT = (key: MessageKey, vars?: Record<string, string | number>) => string;
+
+function previewJobT(locale: string): PreviewJobT {
+  return (key, vars) => postPreviewT(locale, key, vars);
+}
+
 /** 일반 중고거래: API에 type이 비어 있거나 다르게 와도 price가 있으면 금액 표시 */
 function rowPriceLabel(
   price: number | null | undefined,
   isFree: boolean,
-  currency: string
+  currency: string,
+  locale: string
 ): string | null {
-  if (isFree) return "무료나눔";
+  if (isFree) return postPreviewT(locale, "post_preview_free_share");
   if (price != null && !Number.isNaN(price)) return formatPrice(price, currency);
   return null;
 }
@@ -282,7 +314,7 @@ function realEstateListingHeadline(
   const bn = str(meta.building_name);
   if (bn) return bn;
   const title = str(post.title);
-  if (!title) return "매물";
+  if (!title) return postPreviewT(DEFAULT_APP_LANGUAGE, "post_preview_listing_default");
   const loc = region && city ? getLocationLabel(region, city).trim() : "";
   if (loc) {
     if (title === loc || title.startsWith(`${loc}·`) || title.startsWith(`${loc} ·`)) {
@@ -339,7 +371,7 @@ export function buildPostListPreviewModel(
   const priceOk = price != null && !Number.isNaN(price) ? price : null;
   const isFree = post.is_free_share === true;
 
-  const skinLabel = skinKey ? TRADE_SKIN_LABELS[skinKey] ?? skinKey : null;
+  const skinLabel = skinKey ? postPreviewSkinLabel(locale, skinKey) : null;
   const isDirectDeal = isTradePost && meta.direct_deal === true;
 
   const isRealEstate = skinKey === "real-estate" || (!skinKey && hasRealEstateMeta(meta));
@@ -351,7 +383,7 @@ export function buildPostListPreviewModel(
   if (isRealEstate && Object.keys(meta).length > 0) {
     const dealType = str(meta.deal_type);
     const row1Headline = realEstateListingHeadline(meta, post, region, city);
-    const row2Price = getRealEstateRow2PriceLabel(priceOk, meta, currency);
+    const row2Price = getRealEstateRow2PriceLabel(priceOk, meta, currency, locale);
     const estateType = str(meta.estate_type);
     const sizeSq = meta.size_sq ?? meta.area_sqm;
     const sizeSqStr =
@@ -372,7 +404,7 @@ export function buildPostListPreviewModel(
       },
       {
         className: POST_LIST_REAL_ESTATE_PRICE_ROW_CLASS,
-        text: row2Price || "금액 문의",
+        text: row2Price || postPreviewT(locale, "post_preview_price_inquiry"),
         row: "real_estate_price",
       },
     ];
@@ -400,11 +432,13 @@ export function buildPostListPreviewModel(
       meta.car_trade === "buy" && bodyTypeRaw ? labelForUsedCarBodyTypeKey(bodyTypeRaw) : "";
     const yearRaw = str(meta.car_year_max) || str(meta.car_year);
     const yearPart =
-      yearRaw && /^\d{4}$/.test(yearRaw) ? `${yearRaw}년` : yearRaw;
+      yearRaw && /^\d{4}$/.test(yearRaw)
+        ? postPreviewT(locale, "post_preview_year_suffix", { year: yearRaw })
+        : yearRaw;
     /** 삽니다: 차종은 `listingChips` 줄 — 여기서는 모델·연식만 (팝니다도 동일) */
     const carSpecLine = [carModel, yearPart].filter(Boolean).join(" · ");
     const usedCarPriceLabel = isFree
-      ? "무료나눔"
+      ? postPreviewT(locale, "post_preview_free_share")
       : priceOk != null
         ? formatPrice(priceOk, currency)
         : null;
@@ -422,7 +456,7 @@ export function buildPostListPreviewModel(
     }
     blocks.push({
       className: POST_LIST_TRADE_PRICE_CLASS,
-      text: usedCarPriceLabel ?? "가격 문의",
+      text: usedCarPriceLabel ?? postPreviewT(locale, "post_preview_price_inquiry"),
     });
 
     return {
@@ -444,12 +478,11 @@ export function buildPostListPreviewModel(
     const kindRaw = str(meta.listing_kind);
     const legacyJobType = str(meta.job_type);
     const isSeek = kindRaw === "work" || legacyJobType === "seek";
-    const listingKindLabel =
-      kindRaw && JOB_LISTING_KIND_LABELS[kindRaw]
-        ? JOB_LISTING_KIND_LABELS[kindRaw]
-        : isSeek
-          ? JOB_LISTING_KIND_LABELS.work
-          : JOB_LISTING_KIND_LABELS.hire;
+    const jt = previewJobT(locale);
+    const listingKindLabel = jobListingKindLabel(
+      jt,
+      kindRaw || (isSeek ? "work" : "hire")
+    );
     const payTypeMeta = str(meta.pay_type) || str(row.pay_type);
     const colPay = row.pay_amount;
     const payAmountNum =
@@ -462,7 +495,7 @@ export function buildPostListPreviewModel(
             : null;
     const jobsPayLabel =
       payAmountNum != null && !Number.isNaN(payAmountNum)
-        ? `${PAY_TYPE_LABELS[payTypeMeta] ?? payTypeMeta} ${formatPrice(payAmountNum, currency)}`
+        ? `${jobPayTypeLabel(jt, payTypeMeta)} ${formatPrice(payAmountNum, currency)}`
         : null;
     const workAddressLabel = str(meta.work_address) || locationLabel || "";
     const regionId = str(row.region);
@@ -471,22 +504,21 @@ export function buildPostListPreviewModel(
       regionId && cityId ? getLocationLabel(regionId, cityId) : locationLabel || workAddressLabel || "";
 
     const wt = str(meta.work_term) || str(row.job_employment_type);
-    const wtLabel =
-      WORK_TERM_LABELS[wt] ?? (wt === "short" || wt === "one_day" ? "단기" : wt ? wt : "");
+    const wtLabel = wt ? jobWorkTermLabel(jt, wt) : "";
 
-    const industryLabel = jobWorkCategoryDisplay(meta);
+    const industryLabel = jobWorkCategoryDisplay(meta, normalizeAppLanguage(locale));
 
     const listingChips: ListingChip[] = [];
     if (listingKindLabel) {
       listingChips.push({ text: listingKindLabel, className: POST_LIST_CHIP_AMBER });
     }
 
-    const titleLine = str(post.title) || "상품";
+    const titleLine = str(post.title) || postPreviewT(locale, "post_preview_product_default");
     const blocks: PostListBodyBlock[] = [{ className: POST_LIST_TRADE_TITLE_CLASS, text: titleLine }];
 
     if (!isSeek) {
       const hirePayNegotiable = meta.hire_pay_negotiable === true || payTypeMeta === "negotiate";
-      const ptShort = PAY_TYPE_LABELS[payTypeMeta] ?? payTypeMeta;
+      const ptShort = payTypeMeta ? jobPayTypeLabelDefault(payTypeMeta) : "";
       let payLabel: string;
       let payAmount: string | null = null;
       if (jobsPayLabel != null && payAmountNum != null && !Number.isNaN(payAmountNum)) {
@@ -495,7 +527,7 @@ export function buildPostListPreviewModel(
       } else if (hirePayNegotiable) {
         payLabel = "협의";
       } else {
-        payLabel = "금액 문의";
+        payLabel = postPreviewT(locale, "post_preview_price_inquiry");
       }
       const payPlain = payAmount ? `${payLabel} ${payAmount}` : payLabel;
       blocks.push({
@@ -521,16 +553,16 @@ export function buildPostListPreviewModel(
       }
     } else {
       const seekNegotiate = payTypeMeta === "negotiate";
-      const ptShort = PAY_TYPE_LABELS[payTypeMeta] ?? payTypeMeta;
+      const ptShort = payTypeMeta ? jobPayTypeLabel(jt, payTypeMeta) : "";
       let payLabel: string;
       let payAmount: string | null = null;
       if (jobsPayLabel != null && payAmountNum != null && !Number.isNaN(payAmountNum)) {
-        payLabel = `희망 ${ptShort}`;
+        payLabel = postPreviewT(locale, "post_preview_wanted_pay", { pay: ptShort });
         payAmount = formatPrice(payAmountNum, currency);
       } else if (seekNegotiate) {
-        payLabel = "희망 급여 협의";
+        payLabel = postPreviewT(locale, "post_preview_wanted_pay_discuss");
       } else {
-        payLabel = "희망 급여 문의";
+        payLabel = postPreviewT(locale, "post_preview_wanted_pay_inquiry");
       }
       const payPlain = payAmount ? `${payLabel} ${payAmount}` : payLabel;
       blocks.push({
@@ -543,7 +575,7 @@ export function buildPostListPreviewModel(
       const industryWt = [industryLabel, wtLabel].filter(Boolean).join(" · ");
       const avail = str(meta.available_time);
       const expRaw = str(meta.experience_level);
-      const expLabel = EXPERIENCE_LEVEL_OPTIONS.find((o) => o.value === expRaw)?.label ?? "";
+      const expLabel = expRaw ? jobExperienceLabel(jt, expRaw) : "";
       const condTrim = [avail, expLabel].filter(Boolean).join(" · ").trim();
       if (industryWt || condTrim) {
         const plainMeta = [industryWt, condTrim].filter(Boolean).join(" · ");
@@ -562,7 +594,13 @@ export function buildPostListPreviewModel(
       listingChips,
       listingBold: null,
       bodyBlocks: blocks,
-      listFooter: buildListFooter(post, "trade", geoLabel || workAddressLabel || "위치 미입력", locale, createdAt),
+      listFooter: buildListFooter(
+        post,
+        "trade",
+        geoLabel || workAddressLabel || postPreviewT(locale, "post_preview_location_unknown"),
+        locale,
+        createdAt
+      ),
       showPipeAfterListingBadge: listingChips.length > 0,
     };
   }
@@ -573,13 +611,19 @@ export function buildPostListPreviewModel(
     const phpText =
       phpAmount != null && !Number.isNaN(phpAmount)
         ? `${CURRENCY_SYMBOLS.PHP} ${phpAmount.toLocaleString()}`
-        : "금액 문의";
-    const rateText = rateLine ? `환율 ${rateLine}` : "환율 미지정";
+        : postPreviewT(locale, "post_preview_price_inquiry");
+    const rateText = rateLine
+      ? postPreviewT(locale, "post_preview_rate_line", { rate: rateLine })
+      : postPreviewT(locale, "post_preview_rate_unset");
 
     /** 1단 — 타 스킨 칩·상태 배지와 동일 pill 규격(`APP_FEED_LIST_ROW1_PILL_LIST`) */
     const titleStr = str(post.title);
     const isBuy = exchangeListingIsBuy(meta, titleStr);
-    const exchangeHeadline = titleStr || (isBuy ? "페소 삽니다" : "페소 팝니다");
+    const exchangeHeadline =
+      titleStr ||
+      (isBuy
+        ? postPreviewT(locale, "post_preview_buy_peso")
+        : postPreviewT(locale, "post_preview_sell_peso"));
     const listingChips: ListingChip[] = [
       {
         text: exchangeHeadline,
@@ -612,23 +656,29 @@ export function buildPostListPreviewModel(
   }
 
   const listingChips: ListingChip[] = [];
-  if (skinLabel && skinLabel !== "일반") {
+  const generalSkinLabel = postPreviewSkinLabel(locale, "general");
+  if (skinLabel && skinLabel !== generalSkinLabel) {
     listingChips.push({ text: skinLabel, className: POST_LIST_CHIP_GRAY });
   }
-  if (isDirectDeal) listingChips.push({ text: "직거래", className: POST_LIST_CHIP_BLUE });
+  if (isDirectDeal) {
+    listingChips.push({
+      text: postPreviewT(locale, "post_preview_direct_deal"),
+      className: POST_LIST_CHIP_BLUE,
+    });
+  }
 
-  const tradePriceLabel = rowPriceLabel(priceOk, isFree, currency);
+  const tradePriceLabel = rowPriceLabel(priceOk, isFree, currency, locale);
 
   const blocks: PostListBodyBlock[] = [
     {
       className: POST_LIST_TRADE_TITLE_CLASS,
-      text: str(post.title) || "상품",
+      text: str(post.title) || postPreviewT(locale, "post_preview_product_default"),
     },
   ];
   if (priceOk != null || isFree || isTradePost) {
     blocks.push({
       className: POST_LIST_TRADE_PRICE_CLASS,
-      text: tradePriceLabel ?? "가격 문의",
+      text: tradePriceLabel ?? postPreviewT(locale, "post_preview_price_inquiry"),
     });
   }
 

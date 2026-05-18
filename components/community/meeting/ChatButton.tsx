@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { philifeAppPaths } from "@domain/philife/paths";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 /** 커뮤니티 채팅 제거 후 모임 상세로만 이동 */
 export function ChatButton({
@@ -16,9 +17,10 @@ export function ChatButton({
   reason?: string;
   children?: ReactNode;
 }) {
+  const { t } = useI18n();
   const mid = String(meetingId ?? "").trim();
   if (!mid) {
-    return <p className="sam-text-body-secondary text-sam-muted">채팅방이 아직 연결되지 않았어요.</p>;
+    return <p className="sam-text-body-secondary text-sam-muted">{t("community_chat_not_linked")}</p>;
   }
   if (disabled) {
     return reason ? <p className="sam-text-body-secondary text-sam-muted">{reason}</p> : null;
@@ -28,7 +30,7 @@ export function ChatButton({
       href={philifeAppPaths.meeting(mid)}
       className="inline-flex min-h-[52px] w-full items-center justify-center rounded-ui-rect bg-signature px-4 sam-text-body-lg font-semibold text-white shadow-md active:opacity-90"
     >
-      {children ?? "모임 보기"}
+      {children ?? t("community_meeting_view")}
     </Link>
   );
 }

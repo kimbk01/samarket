@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
 type RiderRow = {
@@ -12,6 +13,7 @@ type RiderRow = {
 };
 
 export function RiderHomeClient() {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [rider, setRider] = useState<RiderRow | null>(null);
@@ -33,14 +35,14 @@ export function RiderHomeClient() {
       return;
     }
     if (!r.ok || !j.ok) {
-      setErr(j.error ?? "불러오기 실패");
+      setErr(j.error ?? t("ui_rider_load_failed"));
       setRider(null);
       setCounts(null);
       return;
     }
     setRider(j.rider ?? null);
     setCounts(j.counts ?? null);
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     let alive = true;
@@ -63,7 +65,7 @@ export function RiderHomeClient() {
     });
     const j = (await r.json()) as { ok?: boolean; error?: string; rider?: RiderRow };
     if (!r.ok || !j.ok) {
-      setErr(j.error ?? "상태 변경 실패");
+      setErr(j.error ?? t("ui_rider_status_change_failed"));
       return;
     }
     if (j.rider) setRider(j.rider);
@@ -72,7 +74,7 @@ export function RiderHomeClient() {
   if (loading) {
     return (
       <div className={`${Sam.page} bg-sam-app min-h-[70vh] flex items-center justify-center text-sam-muted`}>
-        불러오는 중…
+        {t("common_loading")}
       </div>
     );
   }
@@ -80,14 +82,12 @@ export function RiderHomeClient() {
   if (err === "rider_profile_not_found" || err === "unauthorized") {
     return (
       <div className={`${Sam.page} bg-sam-app min-h-[70vh] px-4 py-8 max-w-md mx-auto`}>
-        <h1 className={Sam.text.pageTitle}>라이더 센터</h1>
+        <h1 className={Sam.text.pageTitle}>{t("ui_rider_center_title")}</h1>
         <p className={`mt-3 ${Sam.text.bodySecondary}`}>
-          {err === "unauthorized"
-            ? "로그인 후 이용할 수 있습니다."
-            : "이 계정은 라이더로 등록되어 있지 않습니다. 관리자에게 문의하세요."}
+          {err === "unauthorized" ? t("ui_rider_login_required") : t("ui_rider_not_registered")}
         </p>
         <Link href="/login" className={`mt-6 inline-flex ${Sam.btn.primary}`}>
-          로그인
+          {t("common_login")}
         </Link>
       </div>
     );
@@ -97,11 +97,11 @@ export function RiderHomeClient() {
     <div className={`${Sam.page} bg-sam-app min-h-[70vh] px-4 py-6 max-w-lg mx-auto space-y-6`}>
       <header className="flex items-start justify-between gap-3">
         <div>
-          <h1 className={Sam.text.pageTitle}>라이더</h1>
-          <p className={`mt-1 ${Sam.text.bodySecondary}`}>온라인 상태와 배달 목록을 관리합니다.</p>
+          <h1 className={Sam.text.pageTitle}>{t("ui_rider_title")}</h1>
+          <p className={`mt-1 ${Sam.text.bodySecondary}`}>{t("ui_rider_subtitle")}</p>
         </div>
         <Link href="/rider/orders" className={`${Sam.btn.secondary} shrink-0 text-sm`}>
-          주문 목록
+          {t("ui_rider_orders_link")}
         </Link>
       </header>
 
@@ -109,11 +109,11 @@ export function RiderHomeClient() {
 
       {rider ? (
         <section className={`${Sam.card.base} ${Sam.card.pad}`}>
-          <h2 className={Sam.text.sectionTitle}>내 상태</h2>
+          <h2 className={Sam.text.sectionTitle}>{t("ui_rider_my_status")}</h2>
           <dl className="mt-3 grid grid-cols-2 gap-2 text-sm">
-            <dt className="text-sam-muted">온라인</dt>
-            <dd className="text-sam-fg">{rider.is_online ? "예" : "아니오"}</dd>
-            <dt className="text-sam-muted">모드</dt>
+            <dt className="text-sam-muted">{t("ui_rider_online_label")}</dt>
+            <dd className="text-sam-fg">{rider.is_online ? t("ui_rider_yes") : t("ui_rider_no")}</dd>
+            <dt className="text-sam-muted">{t("ui_rider_mode_label")}</dt>
             <dd className="text-sam-fg">{rider.rider_status ?? "—"}</dd>
           </dl>
           <div className="mt-4 flex flex-wrap gap-2">
@@ -123,7 +123,7 @@ export function RiderHomeClient() {
               disabled={rider.is_online === true}
               onClick={() => void patchStatus({ is_online: true, rider_status: "active" })}
             >
-              온라인
+              {t("ui_rider_go_online")}
             </button>
             <button
               type="button"
@@ -131,18 +131,18 @@ export function RiderHomeClient() {
               disabled={rider.is_online === false}
               onClick={() => void patchStatus({ is_online: false })}
             >
-              오프라인
+              {t("ui_rider_go_offline")}
             </button>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             <button type="button" className={Sam.btn.secondary} onClick={() => void patchStatus({ rider_status: "active" })}>
-              업무(active)
+              {t("ui_rider_mode_active")}
             </button>
             <button type="button" className={Sam.btn.secondary} onClick={() => void patchStatus({ rider_status: "delivering" })}>
-              배달중 표시
+              {t("ui_rider_mode_delivering")}
             </button>
             <button type="button" className={Sam.btn.secondary} onClick={() => void patchStatus({ rider_status: "on_break" })}>
-              휴식
+              {t("ui_rider_mode_break")}
             </button>
           </div>
         </section>
@@ -150,17 +150,17 @@ export function RiderHomeClient() {
 
       {counts ? (
         <section className={`${Sam.card.base} ${Sam.card.pad}`}>
-          <h2 className={Sam.text.sectionTitle}>오늘 요약</h2>
+          <h2 className={Sam.text.sectionTitle}>{t("ui_rider_today_summary")}</h2>
           <ul className={`mt-3 space-y-2 ${Sam.text.body}`}>
-            <li>대기 배차: {counts.queue}</li>
-            <li>진행 중: {counts.active}</li>
-            <li>오늘 완료: {counts.delivered_today}</li>
+            <li>{t("ui_rider_queue_count", { count: counts.queue })}</li>
+            <li>{t("ui_rider_active_count", { count: counts.active })}</li>
+            <li>{t("ui_rider_delivered_today_count", { count: counts.delivered_today })}</li>
           </ul>
         </section>
       ) : null}
 
       <button type="button" className={`${Sam.btn.secondary} w-full`} onClick={() => void load()}>
-        새로고침
+        {t("ui_rider_refresh")}
       </button>
     </div>
   );

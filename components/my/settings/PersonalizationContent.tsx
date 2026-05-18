@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
   getUserSettings,
@@ -10,6 +11,7 @@ import {
 } from "@/lib/settings/user-settings-store";
 
 export function PersonalizationContent() {
+  const { t } = useI18n();
   const userId = getCurrentUser()?.id ?? "me";
   const [enabled, setEnabled] = useState(true);
 
@@ -33,7 +35,7 @@ export function PersonalizationContent() {
 
   return (
     <div className="flex items-center justify-between border-b border-sam-border-soft py-3">
-      <span className="sam-text-body text-sam-fg">개인화 추천 사용</span>
+      <span className="sam-text-body text-sam-fg">{t("settings_personalization_recommend")}</span>
       <button
         type="button"
         role="switch"

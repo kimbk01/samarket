@@ -26,7 +26,6 @@ import { normalizeStoreOrderStatusForBuyer } from "@/lib/stores/normalize-store-
 import { STORE_ORDER_STATUS_LIST } from "@/lib/stores/order-status-transitions";
 import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
 import {
-  appendStoreOrderMessengerOrderCreatedLine,
   ensureStoreOrderMessengerRoom,
   getBuyerStoreOrderMessengerUnreadMap,
 } from "@/lib/community-messenger/store-order-chat-service";
@@ -40,13 +39,8 @@ import { logStoreOrderStockRestoreFailure } from "@/lib/stores/log-store-order-s
 import { normalizeStoreAddressPh } from "@/lib/stores/normalize-store-address-ph";
 import { computeStoreOrderCheckoutEtaSnapshot } from "@/lib/stores/compute-store-order-checkout-eta-snapshot";
 import { markUserAddressUsed } from "@/lib/addresses/user-address-service";
-import {
-  OWN_STORE_ORDER_BLOCK_MESSAGE,
-  resolveStoreOrderability,
-} from "@/lib/stores/store-orderability-policy";
-import { mergeStoreOrderLineItems } from "@/lib/stores/store-order-line-merge";
-import { resolveCheckoutDeliveryGeoFromUserAddress } from "@/lib/addresses/resolve-checkout-delivery-geo";
-import { loadUserAddressDtoForBuyer } from "@/lib/stores/sync-store-orders-checkout-geo";
+import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
+import { translate } from "@/lib/i18n/messages";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -391,7 +385,25 @@ export async function POST(req: NextRequest) {
     orderLines.push(row);
   }
 
-  const mergedOrderLines = mergeStoreOrderLineItems(storeId, orderLines);
+  const validated = await validateStoreOrderCheckout({
+    sb,
+    buyerId,
+    storeId,
+    fulfillment,
+    items: orderLines,
+  });
+  if (!validated.ok) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: validated.error,
+        ...(validated.min_order_php != null ? { min_order_php: validated.min_order_php } : {}),
+      },
+      { status: validated.status }
+    );
+  }
+
+  const { lines, paymentTotal, deliveryFeeAmount, paymentGrandTotal, productsById } = validated;
 
   const { data: store, error: sErr } = await sb
     .from("stores")
@@ -405,40 +417,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "store_unavailable" }, { status: 400 });
   }
 
-  const orderability = await resolveStoreOrderability(sb, buyerId, store.owner_user_id);
-  if (!orderability.can_order_store) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "cannot_order_own_store",
-        message: OWN_STORE_ORDER_BLOCK_MESSAGE,
-      },
-      { status: 403 }
-    );
-  }
-
-  const validated = await validateStoreOrderCheckout({
-    sb,
-    buyerId,
-    storeId,
-    fulfillment,
-    items: mergedOrderLines,
-    store,
-  });
-  if (!validated.ok) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: validated.error,
-        ...(validated.message ? { message: validated.message } : {}),
-        ...(validated.min_order_php != null ? { min_order_php: validated.min_order_php } : {}),
-      },
-      { status: validated.status }
-    );
-  }
-
-  const { lines, paymentTotal, deliveryFeeAmount, paymentGrandTotal, productsById } = validated;
-
   const commerceExtras = parseCommerceExtrasFromHoursJson(store.business_hours_json);
   const deliveryCourierLabel =
     fulfillment === "local_delivery" && commerceExtras.deliveryCourierLabel?.trim()
@@ -450,33 +428,20 @@ export async function POST(req: NextRequest) {
   );
   const paymentMethodRaw = String(body.payment_method ?? "").trim();
   if (!paymentMethodRaw) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "payment_method_required",
-        message: "결제 방법을 선택해 주세요.",
-      },
-      { status: 400 }
-    );
+    return NextResponse.json({ ok: false, error: "payment_method_required" }, { status: 400 });
   }
   if (
     !isKnownCheckoutPaymentMethodId(paymentMethodRaw) ||
     !allowedPaymentMethods.includes(paymentMethodRaw as OrderCheckoutPaymentId)
   ) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "payment_method_invalid",
-        message: "선택한 결제 방법을 이 매장에서 사용할 수 없습니다.",
-      },
-      { status: 400 }
-    );
+    return NextResponse.json({ ok: false, error: "payment_method_invalid" }, { status: 400 });
   }
 
+  const buyerLang = await loadNotificationUserLanguage(sb, buyerId);
   const payCfgAtOrder = readPaymentMethodsFormValues(store.business_hours_json);
   const buyer_payment_method_detail =
     paymentMethodRaw === "other"
-      ? payCfgAtOrder.payMethodOtherText.trim() || "기타"
+      ? payCfgAtOrder.payMethodOtherText.trim() || translate(buyerLang, "store_pay_label_other")
       : null;
 
   const stockRollback: { id: string; delta: number }[] = [];
@@ -509,27 +474,10 @@ export async function POST(req: NextRequest) {
   const phoneRaw = String(body.buyer_phone ?? "").trim();
   const buyer_phone_norm = phoneRaw ? normalizePhMobileDb(phoneRaw) : null;
   /** 주문자 배달·배송지(매장 주소와 별도). 픽업이면 비워도 됨 — 픽업 장소는 `stores` 주소로 안내 */
-  let addrSummaryRaw = String(body.delivery_address_summary ?? "").trim();
-  let addrDetailRaw = String(body.delivery_address_detail ?? "").trim();
-  let delivery_region_raw = String(body.delivery_region ?? "").trim();
-  let delivery_city_raw = String(body.delivery_city ?? "").trim();
-
-  const deliveryUserAddressIdForGeo = String(body.delivery_user_address_id ?? "").trim() || null;
-  if (
-    (fulfillment === "local_delivery" || fulfillment === "shipping") &&
-    deliveryUserAddressIdForGeo
-  ) {
-    const addrDto = await loadUserAddressDtoForBuyer(sb, buyerId, deliveryUserAddressIdForGeo);
-    if (addrDto) {
-      const geo = resolveCheckoutDeliveryGeoFromUserAddress(addrDto);
-      if (geo) {
-        if (!delivery_region_raw) delivery_region_raw = geo.regionId;
-        if (!delivery_city_raw) delivery_city_raw = geo.cityId;
-        if (!addrSummaryRaw) addrSummaryRaw = geo.summaryLine;
-        if (!addrDetailRaw) addrDetailRaw = geo.detailLine;
-      }
-    }
-  }
+  const addrSummaryRaw = String(body.delivery_address_summary ?? "").trim();
+  const addrDetailRaw = String(body.delivery_address_detail ?? "").trim();
+  const delivery_region_raw = String(body.delivery_region ?? "").trim();
+  const delivery_city_raw = String(body.delivery_city ?? "").trim();
 
   // 주문 주소 저장 규격 고정 (PH):
   // - 지역(delivery_region/city)은 운영/권역 키
@@ -546,36 +494,16 @@ export async function POST(req: NextRequest) {
   const delivery_city = normDeliveryAddr.city;
   if (fulfillment === "local_delivery" || fulfillment === "shipping") {
     if (!buyer_phone_norm) {
-      return NextResponse.json(
-        { ok: false, error: "buyer_phone_required", message: "연락처(09 xx xxx xxxx)를 입력해 주세요." },
-        { status: 400 }
-      );
+      return NextResponse.json({ ok: false, error: "buyer_phone_required" }, { status: 400 });
     }
     if (!delivery_address_summary) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "delivery_address_required",
-          message: "배달·배송 주소를 입력해 주세요.",
-        },
-        { status: 400 }
-      );
+      return NextResponse.json({ ok: false, error: "delivery_address_required" }, { status: 400 });
     }
     if (!delivery_region || !delivery_city) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "delivery_region_city_required",
-          message: "배달 지역(지역/도시)을 선택해 주세요.",
-        },
-        { status: 400 }
-      );
+      return NextResponse.json({ ok: false, error: "delivery_region_city_required" }, { status: 400 });
     }
   } else if (phoneRaw && !buyer_phone_norm) {
-    return NextResponse.json(
-      { ok: false, error: "invalid_buyer_phone", message: "연락처 형식을 확인해 주세요. (09 xx xxx xxxx)" },
-      { status: 400 }
-    );
+    return NextResponse.json({ ok: false, error: "invalid_buyer_phone" }, { status: 400 });
   }
 
   const storeRow = store as { lat?: number | null; lng?: number | null };
@@ -583,19 +511,12 @@ export async function POST(req: NextRequest) {
     storeRow.lat != null && Number.isFinite(Number(storeRow.lat)) ? Number(storeRow.lat) : null;
   const storeLng =
     storeRow.lng != null && Number.isFinite(Number(storeRow.lng)) ? Number(storeRow.lng) : null;
-  const deliveryUserAddressId = deliveryUserAddressIdForGeo;
+  const deliveryUserAddressId = String(body.delivery_user_address_id ?? "").trim() || null;
 
   let deliveryAddressSnapshot: DeliveryAddressOrderSnapshot | null = null;
 
   if (fulfillment === "local_delivery" && !deliveryUserAddressId) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: "delivery_user_address_required",
-        message: "저장된 배달 주소를 선택해 주세요.",
-      },
-      { status: 400 }
-    );
+    return NextResponse.json({ ok: false, error: "delivery_user_address_required" }, { status: 400 });
   }
 
   if (fulfillment === "local_delivery" && deliveryUserAddressId) {
@@ -606,14 +527,7 @@ export async function POST(req: NextRequest) {
       .eq("user_id", buyerId)
       .maybeSingle();
     if (ownAddrErr || !ownAddr) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "delivery_user_address_invalid",
-          message: "선택한 배달 주소를 찾을 수 없거나 본인 주소가 아닙니다.",
-        },
-        { status: 400 }
-      );
+      return NextResponse.json({ ok: false, error: "delivery_user_address_invalid" }, { status: 400 });
     }
     deliveryAddressSnapshot = ownAddr as DeliveryAddressOrderSnapshot;
   }
@@ -690,8 +604,6 @@ export async function POST(req: NextRequest) {
         {
           ok: false,
           error: "order_status_schema_mismatch",
-          message:
-            "DB의 store_orders.order_status 허용 값이 앱과 다릅니다. Supabase SQL에 마이그레이션 supabase/migrations/20260430220000_store_orders_order_status_check.sql 을 적용해 주세요.",
           allowed_order_status: [...STORE_ORDER_STATUS_LIST],
           detail: raw,
         },
@@ -781,6 +693,8 @@ export async function POST(req: NextRequest) {
     },
   });
 
+  const ownerUserId = String(store.owner_user_id ?? "").trim();
+  const ownerLang = ownerUserId ? await loadNotificationUserLanguage(sb, ownerUserId) : buyerLang;
   const notifyOwnerPayload = {
     storeId,
     orderId,
@@ -788,7 +702,11 @@ export async function POST(req: NextRequest) {
     paymentAmount: Math.round(paymentGrandTotal),
     lineCount: lines.length,
     storeName: (store.store_name as string) ?? undefined,
-    paymentLabel: formatBuyerPaymentDisplay(paymentMethodRaw, buyer_payment_method_detail),
+    paymentLabel: formatBuyerPaymentDisplay(
+      paymentMethodRaw,
+      buyer_payment_method_detail,
+      ownerLang
+    ),
     buyerNote: buyer_note,
   };
   if (createdEv.ok) {
@@ -803,7 +721,6 @@ export async function POST(req: NextRequest) {
   try {
     const ens = await ensureStoreOrderMessengerRoom(sb as SupabaseClient<any>, { orderId, userId: buyerId });
     if (!ens.ok) console.error("[POST store-orders] ensure order chat", ens.error);
-    else await appendStoreOrderMessengerOrderCreatedLine(sb as SupabaseClient<any>, orderId);
   } catch (e) {
     console.error("[POST store-orders] ensure order chat", e);
   }

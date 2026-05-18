@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { HistoryBackTextLink } from "@/components/navigation/HistoryBackTextLink";
 import type { OwnerOrder } from "@/lib/store-owner/types";
 import { OwnerOrderActionPanel } from "./OwnerOrderActionPanel";
@@ -15,11 +16,14 @@ import { formatMoneyPhp } from "@/lib/utils/format";
 import { StoreOrderMessengerDeepLink } from "@/components/stores/StoreOrderMessengerDeepLink";
 import { buildMessengerContextInputFromOwnerOrder } from "@/lib/community-messenger/store-order-messenger-context";
 
-function fulfillmentLabel(t: OwnerOrder["order_type"]) {
-  if (t === "delivery" || t === "shipping") {
-    return { cls: "bg-signature/5 text-sam-fg", text: "배달" };
+function fulfillmentLabel(
+  orderType: OwnerOrder["order_type"],
+  t: (key: MessageKey) => string
+) {
+  if (orderType === "delivery" || orderType === "shipping") {
+    return { cls: "bg-signature/5 text-sam-fg", text: t("common_delivery") };
   }
-  return { cls: "bg-teal-50 text-teal-900", text: "포장 픽업" };
+  return { cls: "bg-teal-50 text-teal-900", text: t("common_pickup_label") };
 }
 
 export function OwnerOrderDetail({
@@ -33,9 +37,10 @@ export function OwnerOrderDetail({
   order: OwnerOrder;
   onActionDone?: () => void | Promise<void>;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const listHref = buildStoreOrdersHref({ storeId });
-  const fl = fulfillmentLabel(order.order_type);
+  const fl = fulfillmentLabel(order.order_type, t);
+  const dateLocale = language === "ko" ? "ko-KR" : language === "zh" ? "zh-CN" : "en-US";
 
   const terminal = ["completed", "cancelled", "refunded", "refund_requested"].includes(order.order_status);
 
@@ -46,9 +51,9 @@ export function OwnerOrderDetail({
           <HistoryBackTextLink
             fallbackHref={listHref}
             className="text-sm font-semibold text-sam-muted"
-            aria-label="목록으로"
+            aria-label={t("common_to_list")}
           >
-            ← 목록
+            ← {t("common_to_list")}
           </HistoryBackTextLink>
           <h1 className="min-w-0 flex-1 truncate text-center sam-text-body font-bold text-sam-fg">
             {order.order_no}
@@ -64,7 +69,8 @@ export function OwnerOrderDetail({
             <span className={`rounded-ui-rect px-2 py-0.5 text-xs font-bold ${fl.cls}`}>{fl.text}</span>
           </div>
           <p className="mt-2 text-xs text-sam-muted">
-            주문시각 {new Date(order.created_at).toLocaleString("ko-KR")}
+            {t("store_owner_order_placed_at")}{" "}
+            {new Date(order.created_at).toLocaleString(dateLocale)}
           </p>
         </section>
 
@@ -83,41 +89,41 @@ export function OwnerOrderDetail({
 
         {order.buyer_cancel_request ? (
           <section className="rounded-ui-rect border border-amber-200 bg-amber-50 p-4 text-sm">
-            <p className="font-bold text-amber-950">고객 취소 요청</p>
+            <p className="font-bold text-amber-950">{t("business_phase7_022")}</p>
             <p className="mt-1 text-amber-900">{order.buyer_cancel_request.reason}</p>
           </section>
         ) : null}
 
         {order.order_status === "refund_requested" ? (
           <section className="rounded-ui-rect border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-            <p className="font-bold">환불 요청 접수됨</p>
-            <p className="mt-1 text-xs">비즈니스 콘솔·관리자 절차에 따라 처리해 주세요.</p>
+            <p className="font-bold">{t("business_phase7_329")}</p>
+            <p className="mt-1 text-xs">{t("business_phase7_134")}</p>
           </section>
         ) : null}
 
         {order.cancel_reason ? (
           <section className="rounded-ui-rect border border-sam-border bg-sam-surface-muted p-4 text-sm text-sam-fg">
-            <p className="font-bold">거절·취소 사유</p>
+            <p className="font-bold">{t("business_phase7_009")}</p>
             <p className="mt-1">{order.cancel_reason}</p>
           </section>
         ) : null}
 
         {order.problem_memo ? (
           <section className="rounded-ui-rect border border-red-200 bg-red-50 p-4 text-sm text-red-900">
-            <p className="font-bold">문제 접수 메모</p>
+            <p className="font-bold">{t("business_phase7_098")}</p>
             <p className="mt-1">{order.problem_memo}</p>
           </section>
         ) : null}
 
         <section className="rounded-ui-rect bg-sam-surface p-4 shadow-sm ring-1 ring-sam-border-soft">
-          <h2 className="text-sm font-bold text-sam-fg">기본 정보</h2>
+          <h2 className="text-sm font-bold text-sam-fg">{t("business_phase7_038")}</h2>
           <dl className="mt-3 space-y-2 text-sm">
             <div className="flex justify-between gap-2">
-              <dt className="text-sam-muted">주문자</dt>
+              <dt className="text-sam-muted">{t("business_phase7_275")}</dt>
               <dd className="font-medium text-sam-fg">{order.buyer_name}</dd>
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <dt className="text-sam-muted">연락처</dt>
+              <dt className="text-sam-muted">{t("business_phase7_194")}</dt>
               <dd className="flex flex-wrap items-center justify-end gap-2 font-mono text-sam-fg">
                 <span>{order.buyer_phone}</span>
                 {order.buyer_phone_tel_href ? (
@@ -125,53 +131,57 @@ export function OwnerOrderDetail({
                     href={order.buyer_phone_tel_href}
                     className="rounded-full border border-signature/30 bg-signature/10 px-3 py-1 sam-text-helper font-semibold text-signature no-underline"
                   >
-                    전화 문의
+                    {t("store_phone_inquiry")}
                   </a>
                 ) : null}
               </dd>
             </div>
             <div className="flex justify-between gap-2">
-              <dt className="text-sam-muted">결제 방법</dt>
+              <dt className="text-sam-muted">{t("business_phase7_010")}</dt>
               <dd className="text-right font-medium text-sam-fg">
-                {formatBuyerPaymentDisplay(order.buyer_payment_method, order.buyer_payment_method_detail)}
+                {formatBuyerPaymentDisplay(
+                  order.buyer_payment_method,
+                  order.buyer_payment_method_detail,
+                  language
+                )}
               </dd>
             </div>
             {order.order_type === "delivery" ? (
               <div>
-                <dt className="text-sam-muted">배달 주소</dt>
+                <dt className="text-sam-muted">{t("business_phase7_115")}</dt>
                 <dd className="mt-1 text-sam-fg">{order.delivery_address ?? "—"}</dd>
                 {order.checkout_eta_summary?.trim() ? (
                   <div className="mt-3 space-y-1">
-                    <p className="text-sam-muted">배달 거리·시간(참고)</p>
+                    <p className="text-sam-muted">{t("business_phase7_107")}</p>
                     <p className="text-sam-fg">{order.checkout_eta_summary.trim()}</p>
                     <p className="sam-text-xxs text-sam-muted">
-                      주문자·매장 주소가 바뀌면 자동으로 다시 계산됩니다. 실제 소요는 교통·매장 상황에 따라 달라질 수 있습니다.
+                      {t("store_owner_eta_recalc_hint")}
                     </p>
                   </div>
                 ) : null}
                 {order.delivery_courier_label?.trim() ? (
                   <div className="mt-3">
-                    <dt className="text-sam-muted">배달 업체(안내)</dt>
+                    <dt className="text-sam-muted">{t("business_phase7_111")}</dt>
                     <dd className="mt-1 text-sam-fg">{order.delivery_courier_label.trim()}</dd>
                     <p className="mt-1 sam-text-xxs text-sam-muted">
-                      안내 문구이며, 상품·배달비 합계와 별도로 청구되지 않습니다.
+                      {t("store_owner_courier_fee_notice")}
                     </p>
                   </div>
                 ) : null}
               </div>
             ) : order.order_type === "shipping" ? (
               <div>
-                <dt className="text-sam-muted">배송</dt>
-                <dd className="mt-1 text-sam-fg">배송지·운송장은 주문 데이터 연동 후 표시됩니다.</dd>
+                <dt className="text-sam-muted">{t("business_phase7_120")}</dt>
+                <dd className="mt-1 text-sam-fg">{t("business_phase7_123")}</dd>
               </div>
             ) : (
               <div>
-                <dt className="text-sam-muted">픽업 안내</dt>
+                <dt className="text-sam-muted">{t("business_phase7_321")}</dt>
                 <dd className="mt-1 text-sam-fg">{order.pickup_note ?? "—"}</dd>
               </div>
             )}
             <div>
-              <dt className="text-sam-muted">고객 요청 사항</dt>
+              <dt className="text-sam-muted">{t("business_phase7_020")}</dt>
               <dd className="mt-1 whitespace-pre-wrap text-sam-fg">
                 {order.request_message?.trim() || "—"}
               </dd>
@@ -180,38 +190,42 @@ export function OwnerOrderDetail({
         </section>
 
         <section className="rounded-ui-rect bg-sam-surface p-4 shadow-sm ring-1 ring-sam-border-soft">
-          <h2 className="text-sm font-bold text-sam-fg">주문 항목</h2>
+          <h2 className="text-sm font-bold text-sam-fg">{t("business_phase7_272")}</h2>
           <div className="mt-3">
             <OwnerOrderItems items={order.items} />
           </div>
         </section>
 
         <section className="rounded-ui-rect bg-sam-surface p-4 shadow-sm ring-1 ring-sam-border-soft">
-          <h2 className="text-sm font-bold text-sam-fg">금액</h2>
+          <h2 className="text-sm font-bold text-sam-fg">{t("business_phase7_037")}</h2>
           <dl className="mt-3 space-y-1 text-sm">
             <div className="flex justify-between">
-              <dt className="text-sam-muted">상품금액</dt>
+              <dt className="text-sam-muted">{t("business_phase7_155")}</dt>
               <dd>{formatMoneyPhp(order.product_amount)}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-sam-muted">옵션금액</dt>
+              <dt className="text-sam-muted">{t("business_phase7_221")}</dt>
               <dd>{formatMoneyPhp(order.option_amount)}</dd>
             </div>
             <div className="flex justify-between">
               <dt className="text-sam-muted">
-                {order.order_type === "delivery" ? "배달비" : order.order_type === "shipping" ? "배송비" : "기타"}
+                {order.order_type === "delivery"
+                  ? t("store_delivery_fee")
+                  : order.order_type === "shipping"
+                    ? t("store_shipping_fee")
+                    : t("store_fee_other")}
               </dt>
               <dd>{formatMoneyPhp(order.delivery_fee)}</dd>
             </div>
             <div className="flex justify-between border-t border-sam-border-soft pt-2 text-base font-bold">
-              <dt>주문 합계</dt>
+              <dt>{t("business_phase7_271")}</dt>
               <dd>{formatMoneyPhp(order.total_amount)}</dd>
             </div>
           </dl>
         </section>
 
         <section className="rounded-ui-rect bg-sam-surface p-4 shadow-sm ring-1 ring-sam-border-soft">
-          <h2 className="text-sm font-bold text-sam-fg">상태 변경 이력</h2>
+          <h2 className="text-sm font-bold text-sam-fg">{t("business_phase7_147")}</h2>
           <div className="mt-4">
             <OwnerOrderTimeline logs={order.logs} />
           </div>
@@ -235,7 +249,7 @@ export function OwnerOrderDetail({
       {!terminal ? (
         <div className="mx-auto hidden max-w-lg px-3 pb-8 md:block">
           <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-            <h2 className="text-sm font-bold text-sam-fg">주문 처리</h2>
+            <h2 className="text-sm font-bold text-sam-fg">{t("business_phase7_270")}</h2>
             <div className="mt-3">
               <OwnerOrderActionPanel
               storeId={storeId}

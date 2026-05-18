@@ -1,17 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type {
   RecommendationExperiment,
   RecommendationSurface,
   TrafficAllocationType,
 } from "@/lib/types/recommendation-experiment";
-import {
-  EXPERIMENT_STATUS_LABELS,
-  TRAFFIC_ALLOCATION_LABELS,
-} from "@/lib/recommendation-experiments/mock-recommendation-experiments";
 import { getFeedVersions } from "@/lib/recommendation-experiments/mock-feed-versions";
-import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
+import {
+  recExperimentStatusLabel,
+  recSurfaceLabel,
+  recTrafficAllocLabel,
+} from "@/components/admin/recommendation-admin-i18n";
 
 interface ExperimentFormProps {
   initial: RecommendationExperiment;
@@ -25,12 +26,19 @@ const TRAFFIC_TYPES: TrafficAllocationType[] = [
   "region_based",
   "member_type_based",
 ];
+const STATUSES: RecommendationExperiment["status"][] = [
+  "draft",
+  "running",
+  "paused",
+  "ended",
+];
 
 export function ExperimentForm({
   initial,
   onSubmit,
   onCancel,
 }: ExperimentFormProps) {
+  const { t } = useI18n();
   const [experimentName, setExperimentName] = useState(initial.experimentName);
   const [description, setDescription] = useState(initial.description);
   const [status, setStatus] = useState(initial.status);
@@ -75,7 +83,7 @@ export function ExperimentForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          실험명
+          {t("admin_rec_exp_label_experiment_name")}
         </label>
         <input
           type="text"
@@ -86,7 +94,7 @@ export function ExperimentForm({
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          설명
+          {t("admin_rec_exp_label_description")}
         </label>
         <input
           type="text"
@@ -97,25 +105,23 @@ export function ExperimentForm({
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          상태
+          {t("admin_rec_th_status")}
         </label>
         <select
           value={status}
           onChange={(e) => setStatus(e.target.value as RecommendationExperiment["status"])}
           className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
         >
-          {(Object.keys(EXPERIMENT_STATUS_LABELS) as RecommendationExperiment["status"][]).map(
-            (s) => (
-              <option key={s} value={s}>
-                {EXPERIMENT_STATUS_LABELS[s]}
-              </option>
-            )
-          )}
+          {STATUSES.map((s) => (
+            <option key={s} value={s}>
+              {recExperimentStatusLabel(t, s)}
+            </option>
+          ))}
         </select>
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          대상 surface
+          {t("admin_rec_exp_label_target_surface")}
         </label>
         <select
           value={targetSurface}
@@ -124,14 +130,14 @@ export function ExperimentForm({
         >
           {SURFACES.map((s) => (
             <option key={s} value={s}>
-              {SURFACE_LABELS[s]}
+              {recSurfaceLabel(t, s)}
             </option>
           ))}
         </select>
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          대조군 버전
+          {t("admin_rec_exp_label_control_version")}
         </label>
         <select
           value={controlVersionId}
@@ -147,7 +153,7 @@ export function ExperimentForm({
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          트래픽 할당
+          {t("admin_rec_exp_label_traffic")}
         </label>
         <select
           value={trafficAllocationType}
@@ -156,9 +162,9 @@ export function ExperimentForm({
           }
           className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
         >
-          {TRAFFIC_TYPES.map((t) => (
-            <option key={t} value={t}>
-              {TRAFFIC_ALLOCATION_LABELS[t]}
+          {TRAFFIC_TYPES.map((tt) => (
+            <option key={tt} value={tt}>
+              {recTrafficAllocLabel(t, tt)}
             </option>
           ))}
         </select>
@@ -166,7 +172,7 @@ export function ExperimentForm({
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label className="mb-1 block sam-text-helper text-sam-muted">
-            대조군 %
+            {t("admin_rec_exp_label_control_pct")}
           </label>
           <input
             type="number"
@@ -181,7 +187,7 @@ export function ExperimentForm({
         </div>
         <div>
           <label className="mb-1 block sam-text-helper text-sam-muted">
-            실험군 % (쉼표)
+            {t("admin_rec_exp_label_variant_pct")}
           </label>
           <input
             type="text"
@@ -201,7 +207,7 @@ export function ExperimentForm({
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          관리자 메모
+          {t("admin_rec_exp_label_admin_memo")}
         </label>
         <textarea
           value={adminMemo}
@@ -215,7 +221,7 @@ export function ExperimentForm({
           type="submit"
           className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white"
         >
-          저장
+          {t("common_save")}
         </button>
         {onCancel && (
           <button
@@ -223,7 +229,7 @@ export function ExperimentForm({
             onClick={onCancel}
             className="rounded border border-sam-border bg-sam-surface px-4 py-2 sam-text-body text-sam-fg"
           >
-            취소
+            {t("common_cancel")}
           </button>
         )}
       </div>

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
@@ -32,6 +33,7 @@ export function ServiceWriteForm({
   onCancel,
   suppressTier1Chrome = false,
 }: ServiceWriteFormProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const embeddedTier1 = useWriteScreenEmbeddedTier1();
@@ -56,10 +58,10 @@ export function ServiceWriteForm({
   const validate = useCallback((): boolean => {
     const next: Record<string, string> = {};
     if (isRequest) {
-      if (!content.trim()) next.content = "요청 내용을 입력해 주세요.";
+      if (!content.trim()) next.content = t("ui_write_service_request_err");
     } else {
-      if (!title.trim()) next.title = "제목을 입력해 주세요.";
-      if (!content.trim()) next.content = "설명을 입력해 주세요.";
+      if (!title.trim()) next.title = t("ui_product_err_title");
+      if (!content.trim()) next.content = t("ui_write_service_desc_err");
     }
     if (hasLocation && !isRequest && (!region || !city)) {
       next.location =
@@ -67,7 +69,7 @@ export function ServiceWriteForm({
     }
     setErrors(next);
     return Object.keys(next).length === 0;
-  }, [isRequest, title, content, hasLocation, region, city]);
+  }, [isRequest, title, content, hasLocation, region, city, t]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -124,7 +126,7 @@ export function ServiceWriteForm({
       {!suppressTier1Chrome ? (
         <WriteScreenTier1Sync
           tier1Mode={embeddedTier1 ? "embedded" : "global"}
-          title={`${category.name} · 글쓰기`}
+          title={`${category.name} · ${t("ui_write_suffix_post")}`}
           backHref={backHref}
           onRequestClose={onCancel}
         />
@@ -134,18 +136,18 @@ export function ServiceWriteForm({
         className="mx-auto w-full max-w-[480px] md:max-w-2xl lg:max-w-3xl"
       >
         {!isRequest && (
-          <ImageUploader value={images} onChange={setImages} label="사진" />
+          <ImageUploader value={images} onChange={setImages} label={t("ui_write_photos_label")} />
         )}
         {isRequest ? (
           <>
             <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
               <label className="mb-2 block sam-text-body font-medium text-sam-fg">
-                요청 내용 <span className="text-red-500">*</span>
+                {t("ui_write_service_request_label")} <span className="text-red-500">*</span>
               </label>
               <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="어떤 도움이 필요하신가요?"
+                placeholder={t("ui_write_service_title_ph")}
                 rows={5}
                 className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
                 aria-invalid={!!errors.content}
@@ -156,13 +158,13 @@ export function ServiceWriteForm({
             </section>
             <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
               <label className="mb-2 block sam-text-body font-medium text-sam-fg">
-                연락 방법
+                {t("ui_write_service_contact_label")}
               </label>
               <input
                 type="text"
                 value={contactMethod}
                 onChange={(e) => setContactMethod(e.target.value)}
-                placeholder="채팅, 전화 등"
+                placeholder={t("ui_write_service_contact_ph")}
                 className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
               />
             </section>
@@ -171,13 +173,13 @@ export function ServiceWriteForm({
           <>
             <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
               <label className="mb-2 block sam-text-body font-medium text-sam-fg">
-                제목 <span className="text-red-500">*</span>
+                {t("ui_write_title_label")} <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="제목"
+                placeholder={t("ui_write_title_ph")}
                 maxLength={100}
                 className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
                 aria-invalid={!!errors.title}
@@ -188,12 +190,12 @@ export function ServiceWriteForm({
             </section>
             <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
               <label className="mb-2 block sam-text-body font-medium text-sam-fg">
-                설명 <span className="text-red-500">*</span>
+                {t("ui_write_service_desc_label")} <span className="text-red-500">*</span>
               </label>
               <textarea
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
-                placeholder="서비스 내용을 입력해 주세요"
+                placeholder={t("ui_write_service_content_ph")}
                 rows={5}
                 className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
                 aria-invalid={!!errors.content}
@@ -216,7 +218,7 @@ export function ServiceWriteForm({
           <p className="px-4 py-2 sam-text-body-secondary text-red-500">{errors.submit}</p>
         )}
         <SubmitButton
-          label={isRequest ? "요청하기" : "등록하기"}
+          label={isRequest ? t("ui_write_service_request_submit") : t("community_write_submit")}
           submitting={submitting}
           onCancel={onCancel}
         />

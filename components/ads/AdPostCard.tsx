@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import type { AdFeedPost } from "@/lib/ads/types";
 import { PHILIFE_FB_CARD_CLASS } from "@/lib/philife/philife-flat-ui-classes";
@@ -19,6 +20,7 @@ function daysLeft(endAt: string): string {
 
 /** 필라이프 피드 스폰서 카드 — 전역 카드/리스트 규격 */
 export function AdPostCard({ ad, href }: AdPostCardProps) {
+  const { t } = useI18n();
   const linkHref = href ?? `/philife/${ad.postId}`;
 
   return (
@@ -44,7 +46,7 @@ export function AdPostCard({ ad, href }: AdPostCardProps) {
           {ad.postSummary ? (
             <p className="line-clamp-2 sam-text-body-secondary">{ad.postSummary}</p>
           ) : null}
-          <p className="sam-text-body-secondary font-medium text-sam-primary">자세히 보기</p>
+          <p className="sam-text-body-secondary font-medium text-sam-primary">{t("ui_ad_view_details")}</p>
         </div>
       </Link>
     </article>

@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import type { PointerEvent } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type {
   CommunityMessengerCallLog,
   CommunityMessengerFriendRequest,
@@ -46,9 +47,10 @@ function RowActionSheet({
   actions: { label: string; onClick: () => void; disabled?: boolean; destructive?: boolean }[];
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <div className="fixed inset-0 z-[43] flex flex-col justify-end bg-black/30">
-      <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={onClose} />
+      <button type="button" className="min-h-0 flex-1 cursor-default" aria-label={t("nav_close")} onClick={onClose} />
       <div className="rounded-t-[12px] border border-ui-border bg-ui-surface px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
         <p className="px-1 pb-2 text-center sam-text-helper font-medium text-ui-muted">{title}</p>
         <div className="flex flex-col gap-1">
@@ -70,7 +72,7 @@ function RowActionSheet({
           ))}
         </div>
         <button type="button" className="mt-1 w-full py-2 sam-text-body-secondary text-ui-muted" onClick={onClose}>
-          취소
+          {t("common_cancel")}
         </button>
       </div>
     </div>
@@ -88,6 +90,7 @@ function RequestRow({
   onAction: (requestId: string, action: "accept" | "reject" | "cancel") => Promise<void>;
   onDismiss: (id: string) => void;
 }) {
+  const { t } = useI18n();
   const request = item.request;
   const [menu, setMenu] = useState(false);
   const isIncoming = request.direction === "incoming";
@@ -124,11 +127,11 @@ function RequestRow({
         >
           <div className="flex items-center gap-1.5">
             <span className="rounded-ui-rect border border-ui-border bg-ui-page px-1 py-0.5 sam-text-xxs font-medium text-ui-muted">
-              {isIncoming ? "요청" : "보냄"}
+              {isIncoming ? t("cm_ui_request") : t("cm_ui_sent")}
             </span>
             <p className="truncate sam-text-body-secondary font-medium text-ui-fg">{label}</p>
           </div>
-          <p className="mt-0.5 truncate sam-text-xxs text-ui-muted">{isIncoming ? "친구 요청" : "보낸 요청"}</p>
+          <p className="mt-0.5 truncate sam-text-xxs text-ui-muted">{isIncoming ? t("cm_ui_friend_request") : t("cm_ui_sent_request")}</p>
         </div>
         <div className="flex shrink-0 gap-1">
           {isIncoming ? (
@@ -139,7 +142,7 @@ function RequestRow({
                 disabled={busyId === `request:${request.id}:reject`}
                 className="rounded-ui-rect border border-ui-border px-2 py-1 sam-text-xxs text-ui-fg"
               >
-                거절
+                {t("cm_ui_reject")}
               </button>
               <button
                 type="button"
@@ -147,7 +150,7 @@ function RequestRow({
                 disabled={busyId === `request:${request.id}:accept`}
                 className="rounded-ui-rect border border-ui-fg bg-ui-fg px-2 py-1 sam-text-xxs font-semibold text-ui-surface"
               >
-                수락
+                {t("cm_ui_accept")}
               </button>
             </>
           ) : (
@@ -157,7 +160,7 @@ function RequestRow({
               disabled={busyId === `request:${request.id}:cancel`}
               className="rounded-ui-rect border border-ui-border px-2 py-1 sam-text-xxs text-ui-fg"
             >
-              취소
+              {t("common_cancel")}
             </button>
           )}
         </div>
@@ -168,13 +171,13 @@ function RequestRow({
           onClose={() => setMenu((prev) => (prev ? false : prev))}
           actions={[
             {
-              label: "거절",
+              label: t("cm_ui_reject"),
               destructive: true,
               disabled: busyId === `request:${request.id}:reject`,
               onClick: () => void onAction(request.id, "reject"),
             },
             {
-              label: "알림 목록에서만 숨기기",
+              label: t("cm_ui_hide_only_from_notification_list"),
               onClick: () => onDismiss(item.id),
             },
           ]}
@@ -193,8 +196,9 @@ function MissedCallRow({
   onOpen: () => void;
   onDismiss: (id: string) => void;
 }) {
+  const { t } = useI18n();
   const call = item.call;
-  const kindLabel = call.callKind === "video" ? "영상" : "음성";
+  const kindLabel = call.callKind === "video" ? t("nav_video_call_label") : t("nav_voice_call_label");
   const [menu, setMenu] = useState(false);
   const openMenu = useCallback(() => setMenu((prev) => (prev ? prev : true)), []);
   const { bind, consumeClickSuppression } = useMessengerLongPress(openMenu);
@@ -223,7 +227,7 @@ function MissedCallRow({
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <span className="rounded-ui-rect border border-ui-border bg-ui-page px-1 py-0.5 sam-text-xxs font-medium text-ui-muted">
-                부재
+                {t("cm_ui_missed")}
               </span>
               <p className="truncate sam-text-body-secondary font-medium text-ui-fg">{call.peerLabel}</p>
             </div>
@@ -231,7 +235,7 @@ function MissedCallRow({
               {kindLabel} · {formatConversationTimestamp(call.startedAt)}
             </p>
           </div>
-          <span className="shrink-0 sam-text-xxs text-ui-muted">{call.roomId ? "열기" : "—"}</span>
+          <span className="shrink-0 sam-text-xxs text-ui-muted">{call.roomId ? t("cm_ui_open") : "—"}</span>
         </button>
       </div>
       {menu ? (
@@ -242,13 +246,13 @@ function MissedCallRow({
             ...(call.roomId
               ? [
                   {
-                    label: "대화 열기",
+                    label: t("cm_ui_open_conversation"),
                     onClick: onOpen,
                   },
                 ]
               : []),
             {
-              label: "알림 목록에서만 숨기기",
+              label: t("cm_ui_hide_only_from_notification_list"),
               onClick: () => onDismiss(item.id),
             },
           ]}
@@ -258,10 +262,10 @@ function MissedCallRow({
   );
 }
 
-function highlightReasonLabel(reason: "pinned" | "trade" | "delivery"): string {
-  if (reason === "pinned") return "고정";
-  if (reason === "trade") return "거래";
-  return "배달";
+function highlightReasonLabel(reason: "pinned" | "trade" | "delivery"): "cm_ui_reason_pinned" | "cm_ui_reason_trade" | "cm_ui_reason_delivery" {
+  if (reason === "pinned") return "cm_ui_reason_pinned";
+  if (reason === "trade") return "cm_ui_reason_trade";
+  return "cm_ui_reason_delivery";
 }
 
 function ImportantRoomRow({
@@ -281,6 +285,7 @@ function ImportantRoomRow({
   onToggleRoomMute: (room: CommunityMessengerRoomSummary) => Promise<void>;
   onArchiveRoom: (room: CommunityMessengerRoomSummary) => Promise<void>;
 }) {
+  const { t } = useI18n();
   const room = item.room;
   const [menu, setMenu] = useState(false);
   const openMenu = useCallback(() => setMenu((prev) => (prev ? prev : true)), []);
@@ -312,7 +317,7 @@ function ImportantRoomRow({
         >
           <div className="flex w-full items-center gap-1.5">
             <span className="rounded-ui-rect border border-ui-border bg-ui-page px-1 py-0.5 sam-text-xxs font-medium text-ui-muted">
-              {highlightReasonLabel(item.highlightReason)}
+              {t(highlightReasonLabel(item.highlightReason))}
             </span>
             <span className="rounded-ui-rect border border-ui-border bg-ui-page px-1 py-0.5 sam-text-xxs font-medium text-ui-muted">
               {badge}
@@ -334,26 +339,26 @@ function ImportantRoomRow({
           onClose={() => setMenu((prev) => (prev ? false : prev))}
           actions={[
             {
-              label: "대화 열기",
+              label: t("cm_ui_open_conversation"),
               onClick: onOpen,
             },
             {
-              label: "읽음 처리",
+              label: t("cm_ui_mark_as_read"),
               disabled: busyRead || room.unreadCount < 1,
               onClick: () => void onMarkRoomRead(room.id),
             },
             {
-              label: room.isMuted ? "이 방 알림 받기" : "이 방 알림 끄기",
+              label: room.isMuted ? t("cm_ui_receive_room_notifications") : t("cm_ui_turn_off_room_notifications"),
               disabled: busyMute,
               onClick: () => void onToggleRoomMute(room),
             },
             {
-              label: "보관함으로",
+              label: t("cm_ui_move_to_archive"),
               disabled: busyArchive,
               onClick: () => void onArchiveRoom(room),
             },
             {
-              label: "알림 목록에서만 숨기기",
+              label: t("cm_ui_hide_only_from_notification_list"),
               onClick: () => onDismiss(item.id),
             },
           ]}
@@ -365,9 +370,9 @@ function ImportantRoomRow({
 
 function buildSummaryLine(summary: Summary): string | null {
   const parts: string[] = [];
-  if (summary.requestCount > 0) parts.push(`요청 ${summary.requestCount}`);
-  if (summary.missedCallCount > 0) parts.push(`부재 통화 ${summary.missedCallCount}`);
-  if (summary.importantCount > 0) parts.push(`중요 대화 ${summary.importantCount}`);
+  if (summary.requestCount > 0) parts.push(`request ${summary.requestCount}`);
+  if (summary.missedCallCount > 0) parts.push(`missed ${summary.missedCallCount}`);
+  if (summary.importantCount > 0) parts.push(`important ${summary.importantCount}`);
   if (!parts.length) return null;
   return parts.join(" · ");
 }
@@ -385,20 +390,28 @@ export function MessengerNotificationCenterSheet({
   onToggleRoomMute,
   onArchiveRoom,
 }: Props) {
-  const summaryLine = buildSummaryLine(summary);
+  const { t } = useI18n();
+  const summaryLineRaw = buildSummaryLine(summary);
+  const summaryLine =
+    summaryLineRaw == null
+      ? null
+      : summaryLineRaw
+          .replace(/request (\d+)/g, (_, n) => t("cm_ui_request_count", { count: Number(n) }))
+          .replace(/missed (\d+)/g, (_, n) => t("cm_ui_missed_call_count", { count: Number(n) }))
+          .replace(/important (\d+)/g, (_, n) => t("cm_ui_important_chat_count", { count: Number(n) }));
 
   return (
     <div className="fixed inset-0 z-[42] flex flex-col justify-end bg-black/25">
-      <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={onClose} />
+      <button type="button" className="min-h-0 flex-1 cursor-default" aria-label={t("nav_close")} onClick={onClose} />
       <div
         data-messenger-shell
         role="dialog"
         aria-modal="true"
-        aria-label="알림 센터"
+        aria-label={t("cm_ui_notification_center")}
         className="max-h-[min(78vh,calc(100dvh-2rem))] overflow-y-auto rounded-t-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2 shadow-[var(--messenger-shadow-soft)]"
       >
         <p className="text-center sam-text-body font-semibold" style={{ color: "var(--messenger-text)" }}>
-          알림
+          {t("common_notifications")}
         </p>
         {summaryLine ? (
           <p className="mt-1 text-center sam-text-xxs leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
@@ -444,7 +457,7 @@ export function MessengerNotificationCenterSheet({
             )
           ) : (
             <p className="px-3 py-4 text-center sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
-              새 알림이 없습니다.
+              {t("cm_ui_no_new_notifications")}
             </p>
           )}
         </div>
@@ -454,7 +467,7 @@ export function MessengerNotificationCenterSheet({
           style={{ color: "var(--messenger-text-secondary)" }}
           onClick={onClose}
         >
-          닫기
+          {t("nav_close")}
         </button>
       </div>
     </div>

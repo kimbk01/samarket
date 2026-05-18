@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useState } from "react";
@@ -25,6 +26,7 @@ export function CommunityWriteForm({
   onCancel,
   suppressTier1Chrome = false,
 }: CommunityWriteFormProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const embeddedTier1 = useWriteScreenEmbeddedTier1();
@@ -36,11 +38,11 @@ export function CommunityWriteForm({
 
   const validate = useCallback((): boolean => {
     const next: Record<string, string> = {};
-    if (!title.trim()) next.title = "제목을 입력해 주세요.";
-    if (!content.trim()) next.content = "내용을 입력해 주세요.";
+    if (!title.trim()) next.title = t("ui_product_err_title");
+    if (!content.trim()) next.content = t("ui_write_err_content");
     setErrors(next);
     return Object.keys(next).length === 0;
-  }, [title, content]);
+  }, [title, content, t]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -80,7 +82,7 @@ export function CommunityWriteForm({
       {!suppressTier1Chrome ? (
         <WriteScreenTier1Sync
           tier1Mode={embeddedTier1 ? "embedded" : "global"}
-          title={`${category.name} · 글쓰기`}
+          title={`${category.name} · ${t("ui_write_suffix_post")}`}
           backHref={backHref}
           onRequestClose={onCancel}
         />
@@ -89,16 +91,16 @@ export function CommunityWriteForm({
         onSubmit={handleSubmit}
         className="mx-auto w-full max-w-[480px] space-y-3 px-4 py-4 md:max-w-2xl lg:max-w-3xl"
       >
-        <ImageUploader value={images} onChange={setImages} label="사진 (선택)" />
+        <ImageUploader value={images} onChange={setImages} label={t("ui_write_photos_optional")} />
         <section className="sam-section">
           <label className="sam-form-label mb-2 block">
-            제목 <span className="sam-form-required">*</span>
+            {t("ui_write_title_label")} <span className="sam-form-required">*</span>
           </label>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            placeholder="제목"
+            placeholder={t("ui_write_title_ph")}
             maxLength={100}
             className={`w-full ${PHILIFE_FB_INPUT_CLASS}`}
             aria-invalid={!!errors.title}
@@ -107,12 +109,12 @@ export function CommunityWriteForm({
         </section>
         <section className="sam-section">
           <label className="sam-form-label mb-2 block">
-            내용 <span className="sam-form-required">*</span>
+            {t("ui_write_content_label")} <span className="sam-form-required">*</span>
           </label>
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            placeholder="내용을 입력해 주세요"
+            placeholder={t("ui_write_content_ph")}
             rows={6}
             className={`w-full resize-none ${PHILIFE_FB_TEXTAREA_CLASS}`}
             aria-invalid={!!errors.content}
@@ -122,7 +124,7 @@ export function CommunityWriteForm({
         {errors.submit && (
           <p className="sam-text-helper px-4 py-2 text-sam-danger">{errors.submit}</p>
         )}
-        <SubmitButton label="등록하기" submitting={submitting} onCancel={onCancel} />
+        <SubmitButton label={t("community_write_submit")} submitting={submitting} onCancel={onCancel} />
       </form>
     </div>
   );

@@ -2,19 +2,22 @@
 
 import type { AdminDeliveryOrderItem } from "@/lib/admin/delivery-orders-admin/types";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function OrderItemsTable({ items }: { items: AdminDeliveryOrderItem[] }) {
+  const { t } = useI18n();
+
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
       <table className="w-full min-w-[640px] border-collapse text-sm">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app text-left text-xs font-medium text-sam-muted">
-            <th className="px-3 py-2">메뉴</th>
-            <th className="px-3 py-2">옵션</th>
-            <th className="px-3 py-2">수량</th>
-            <th className="px-3 py-2">단가</th>
-            <th className="px-3 py-2">옵션가</th>
-            <th className="px-3 py-2">합계</th>
+            <th className="px-3 py-2">{t("admin_do_th_menu")}</th>
+            <th className="px-3 py-2">{t("admin_do_th_option")}</th>
+            <th className="px-3 py-2">{t("admin_do_th_qty")}</th>
+            <th className="px-3 py-2">{t("admin_do_th_unit_price")}</th>
+            <th className="px-3 py-2">{t("admin_do_th_option_price")}</th>
+            <th className="px-3 py-2">{t("admin_do_th_line_total")}</th>
           </tr>
         </thead>
         <tbody>

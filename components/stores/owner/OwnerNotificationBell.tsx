@@ -2,11 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { fetchOwnerOrdersMetaRemote } from "@/lib/store-owner/owner-order-remote";
 import { buildOwnerStoreNotificationsHref } from "@/lib/business/owner-store-notifications-route";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 
 export function OwnerNotificationBell({ slug, storeId }: { slug: string; storeId: string }) {
+  const { t } = useI18n();
   const [refundRequestedCount, setRefundRequestedCount] = useState(0);
 
   useEffect(() => {
@@ -26,7 +28,9 @@ export function OwnerNotificationBell({ slug, storeId }: { slug: string; storeId
         href={buildOwnerStoreNotificationsHref(slug)}
         className="relative inline-flex h-9 w-9 items-center justify-center rounded-full border border-sam-border bg-sam-surface text-foreground"
         aria-label={
-          refundRequestedCount > 0 ? `알림 · 환불요청 ${refundRequestedCount}건` : "알림"
+          refundRequestedCount > 0
+            ? t("store_owner_notif_bell_refund", { count: String(refundRequestedCount) })
+            : t("store_owner_notif_bell")
         }
       >
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
@@ -44,9 +48,9 @@ export function OwnerNotificationBell({ slug, storeId }: { slug: string; storeId
       </Link>
       {refundRequestedCount > 0 ? (
         <p className="max-w-[140px] text-right sam-text-xxs leading-tight text-muted">
-          환불 요청 {refundRequestedCount}건 ·{" "}
+          {t("store_owner_notif_refund_link", { count: String(refundRequestedCount) })}{" "}
           <Link href={buildStoreOrdersHref({ storeId, tab: "refund" })} className="underline">
-            주문 관리
+            {t("store_owner_notif_go_orders")}
           </Link>
         </p>
       ) : null}

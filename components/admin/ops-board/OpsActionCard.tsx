@@ -1,31 +1,14 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { OpsActionItem } from "@/lib/types/ops-board";
 import { updateOpsActionItem } from "@/lib/ops-board/mock-ops-action-items";
-
-const STATUS_LABELS: Record<string, string> = {
-  open: "미해결",
-  planned: "예정",
-  in_progress: "진행중",
-  done: "완료",
-  archived: "보관",
-};
-
-const PRIORITY_LABELS: Record<string, string> = {
-  low: "낮음",
-  medium: "중간",
-  high: "높음",
-  critical: "긴급",
-};
-
-const SOURCE_LABELS: Record<string, string> = {
-  checklist: "체크리스트",
-  retrospective: "회고",
-  incident: "이슈",
-  report: "보고서",
-  deployment: "배포",
-  manual: "수동",
-};
+import {
+  OPS_TOOLS_ACTION_SOURCE_KEYS,
+  OPS_TOOLS_ACTION_STATUS_KEYS,
+  OPS_TOOLS_PRIORITY_KEYS,
+  opsToolsLabel,
+} from "@/components/admin/i18n/admin-ops-tools-label-keys";
 
 interface OpsActionCardProps {
   item: OpsActionItem;
@@ -33,6 +16,7 @@ interface OpsActionCardProps {
 }
 
 export function OpsActionCard({ item, onUpdate }: OpsActionCardProps) {
+  const { t } = useI18n();
   const isOverdue =
     item.dueDate &&
     item.dueDate < new Date().toISOString().slice(0, 10) &&
@@ -55,16 +39,16 @@ export function OpsActionCard({ item, onUpdate }: OpsActionCardProps) {
           <h3 className="font-medium text-sam-fg">{item.title}</h3>
           <p className="mt-1 sam-text-body-secondary text-sam-muted">{item.description}</p>
           <div className="mt-2 flex flex-wrap gap-2 sam-text-helper text-sam-muted">
-            <span>{SOURCE_LABELS[item.sourceType] ?? item.sourceType}</span>
-            <span>{PRIORITY_LABELS[item.priority]}</span>
+            <span>{t(opsToolsLabel(OPS_TOOLS_ACTION_SOURCE_KEYS, item.sourceType))}</span>
+            <span>{t(opsToolsLabel(OPS_TOOLS_PRIORITY_KEYS, item.priority))}</span>
             {item.dueDate && (
               <span className={isOverdue ? "font-medium text-red-600" : ""}>
-                기한 {item.dueDate}
-                {isOverdue ? " (초과)" : ""}
+                {t("admin_ops_tools_board_due", { date: item.dueDate })}
+                {isOverdue ? t("admin_ops_tools_board_overdue_suffix") : ""}
               </span>
             )}
             {item.ownerAdminNickname && (
-              <span>담당 {item.ownerAdminNickname}</span>
+              <span>{t("admin_ops_tools_board_owner", { name: item.ownerAdminNickname })}</span>
             )}
           </div>
         </div>
@@ -77,7 +61,7 @@ export function OpsActionCard({ item, onUpdate }: OpsActionCardProps) {
                 : "bg-sam-surface-muted text-sam-muted"
           }`}
         >
-          {STATUS_LABELS[item.status]}
+          {t(opsToolsLabel(OPS_TOOLS_ACTION_STATUS_KEYS, item.status))}
         </span>
       </div>
       {item.status !== "done" && item.status !== "archived" && (
@@ -87,14 +71,14 @@ export function OpsActionCard({ item, onUpdate }: OpsActionCardProps) {
             onClick={() => handleStatusChange("in_progress")}
             className="rounded border border-amber-200 bg-amber-50 px-2 py-1 sam-text-helper text-amber-800"
           >
-            진행
+            {t("admin_ops_tools_board_btn_progress")}
           </button>
           <button
             type="button"
             onClick={() => handleStatusChange("done")}
             className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 sam-text-helper text-emerald-800"
           >
-            완료
+            {t("admin_ops_tools_board_btn_complete")}
           </button>
         </div>
       )}

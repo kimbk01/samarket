@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
 import { getHomeFeedPolicies } from "@/lib/home-feed/mock-home-feed-policies";
 import { getFeedCandidates } from "@/lib/home-feed/mock-feed-candidates";
@@ -19,6 +21,7 @@ interface HomeFeedPreviewProps {
 }
 
 export function HomeFeedPreview({ refreshKey = 0 }: HomeFeedPreviewProps) {
+  const { t } = useI18n();
   const policies = useMemo(() => getHomeFeedPolicies(), [refreshKey]);
   const candidates = useMemo(
     () => getFeedCandidates(MOCK_PREVIEW_REGION_LABEL, MOCK_PREVIEW_REGION),
@@ -61,7 +64,7 @@ export function HomeFeedPreview({ refreshKey = 0 }: HomeFeedPreviewProps) {
                 </li>
               ))}
               {sec.items.length > 5 && (
-                <li className="text-sam-muted">… 외 {sec.items.length - 5}건</li>
+                <li className="text-sam-muted">{t("admin_more_items")} {sec.items.length - 5}{t("admin_more_items_suffix")}</li>
               )}
             </ul>
           </div>

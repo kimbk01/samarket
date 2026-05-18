@@ -61,6 +61,7 @@ import {
 } from "@/lib/business/owner-basic-info-guard";
 import { formatHHmm12hLabel } from "@/lib/utils/tumbler-time";
 import { formatPriceInput } from "@/lib/utils/format";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 const GALLERY_MAX = 16;
 
 function intStrFromJson(o: Record<string, unknown>, snake: string, camel: string): string {
@@ -419,6 +420,7 @@ export function OwnerStoreProfileForm({
   onSaved,
   onServiceDraftChange,
 }: OwnerStoreProfileFormProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const hideAppBottomNav =
@@ -703,7 +705,7 @@ export function OwnerStoreProfileForm({
             : "pb-0"
         }`}
       >
-      <OwnerStoreAdminDashSection title="편집 안내">
+      <OwnerStoreAdminDashSection title={t("business_phase7_313")}>
         <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app/50 px-3 py-2.5 sam-text-xxs leading-snug text-sam-fg">
           로고·매장명·연락처·주소 등은{" "}
           <Link
@@ -716,7 +718,7 @@ export function OwnerStoreProfileForm({
         </div>
       </OwnerStoreAdminDashSection>
 
-      <OwnerStoreAdminDashSection title="서비스 형태">
+      <OwnerStoreAdminDashSection title={t("business_phase7_159")}>
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 sam-text-body text-sam-fg">
           <label className="flex cursor-pointer items-center gap-2">
             <input
@@ -726,7 +728,7 @@ export function OwnerStoreProfileForm({
               onChange={(e) => setValues((v) => ({ ...v, deliveryAvailable: e.target.checked }))}
               className="h-4 w-4 rounded border-sam-border text-signature"
             />
-            <span>배달 가능</span>
+            <span>{t("business_phase7_106")}</span>
           </label>
           <label className="flex cursor-pointer items-center gap-2">
             <input
@@ -736,22 +738,22 @@ export function OwnerStoreProfileForm({
               onChange={(e) => setValues((v) => ({ ...v, pickupAvailable: e.target.checked }))}
               className="h-4 w-4 rounded border-sam-border text-signature"
             />
-            <span>포장·픽업 가능</span>
+            <span>{t("business_phase7_315")}</span>
           </label>
         </div>
       </OwnerStoreAdminDashSection>
 
-      <OwnerStoreAdminDashSection title="신규 주문 알림음 (배달)">
+      <OwnerStoreAdminDashSection title={t("business_phase7_176")}>
         <p className="sam-text-helper text-sam-muted">
-          알림음은 관리자 <span className="font-medium text-sam-fg">매장 신청 설정</span>에서 지정합니다. 미설정 시 짧은
+          알림음은 관리자 <span className="font-medium text-sam-fg">{t("business_phase7_072")}</span>에서 지정합니다. 미설정 시 짧은
           비프음이 재생됩니다.
         </p>
       </OwnerStoreAdminDashSection>
 
-      <OwnerStoreAdminDashSection title="매장 창 영업시간 (현지 시각)">
+      <OwnerStoreAdminDashSection title={t("business_phase7_086")}>
         <div className={OWNER_STORE_PROFILE_INNER_PANEL_CLASS}>
           <div>
-            <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>현지 타임존</label>
+            <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_328")}</label>
             <select
               value={values.autoHoursTz}
               onChange={(e) => setValues((v) => ({ ...v, autoHoursTz: e.target.value }))}
@@ -771,7 +773,7 @@ export function OwnerStoreProfileForm({
             </p>
             <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
               <div className="min-w-0">
-                <span className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>시작</span>
+                <span className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_173")}</span>
                 <button
                   type="button"
                   onClick={() => setTimePickerTarget("open")}
@@ -781,7 +783,7 @@ export function OwnerStoreProfileForm({
                 </button>
               </div>
               <div className="min-w-0">
-                <span className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>종료</span>
+                <span className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_257")}</span>
                 <button
                   type="button"
                   onClick={() => setTimePickerTarget("close")}
@@ -812,13 +814,13 @@ export function OwnerStoreProfileForm({
                 className="mt-0.5 h-4 w-4 shrink-0 rounded border-sam-border text-signature"
               />
               <span>
-                <span className="text-[13px] font-semibold text-sam-fg">쉬는 시간 사용</span>
+                <span className="text-[13px] font-semibold text-sam-fg">{t("business_phase7_172")}</span>
               </span>
             </label>
             {values.breakHoursEnabled ?
               <div className={`mt-3 ${OWNER_STORE_FORM_GRID_2_CLASS}`}>
                 <div className="min-w-0">
-                  <span className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>시작</span>
+                  <span className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_173")}</span>
                   <button
                     type="button"
                     onClick={() => setTimePickerTarget("breakOpen")}
@@ -828,7 +830,7 @@ export function OwnerStoreProfileForm({
                   </button>
                 </div>
                 <div className="min-w-0">
-                  <span className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>종료</span>
+                  <span className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_257")}</span>
                   <button
                     type="button"
                     onClick={() => setTimePickerTarget("breakClose")}
@@ -850,24 +852,24 @@ export function OwnerStoreProfileForm({
               className="mt-0.5 h-4 w-4 shrink-0 rounded border-sam-border text-signature"
             />
             <label htmlFor="temp-closed" className="sam-text-body-secondary leading-snug text-sam-fg">
-              <span className="font-medium">임시 휴무 (매장 창에 항상 준비중)</span>
+              <span className="font-medium">{t("business_phase7_239")}</span>
             </label>
           </div>
 
           <div>
-            <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>안내 메모 (선택)</label>
+            <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_185")}</label>
             <input
               type="text"
               value={values.hoursNote}
               onChange={(e) => setValues((v) => ({ ...v, hoursNote: e.target.value }))}
-              placeholder="예: 연중무휴 · 일요일 휴무"
+              placeholder={t("business_phase7_208")}
               className={OWNER_STORE_PROFILE_CONTROL_CLASS}
             />
           </div>
         </div>
       </OwnerStoreAdminDashSection>
 
-      <OwnerStoreAdminDashSection title="공개 페이지 — 배달·결제·안내">
+      <OwnerStoreAdminDashSection title={t("business_phase7_027")}>
         <div className="flex cursor-pointer items-start gap-2.5 rounded-ui-rect border border-sam-border-soft bg-sam-app/40 px-3 py-2.5">
           <input
             id={`menu-sold-out-bottom-${storeId}`}
@@ -893,13 +895,13 @@ export function OwnerStoreProfileForm({
             className="mt-0.5 h-4 w-4 shrink-0 rounded border-sam-border text-signature"
           />
           <span className="min-w-0">
-            <span className="sam-text-body-secondary font-medium text-sam-fg">상세 항목 펼치기</span>
+            <span className="sam-text-body-secondary font-medium text-sam-fg">{t("business_phase7_140")}</span>
           </span>
         </label>
         {publicCommerceDetailOpen ? (
           <div className="mt-4 space-y-4 border-t border-sam-border-soft pt-4">
             <div>
-              <span className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>결제 방법 안내</span>
+              <span className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_011")}</span>
               <div className="rounded-ui-rect border border-sam-primary/18 bg-sam-primary-soft/30 px-3 py-3 sam-text-body text-sam-fg">
                 <div className="flex flex-nowrap items-center gap-x-3 gap-y-0 overflow-x-auto py-0.5 [scrollbar-width:thin] sm:gap-x-5">
                   <label className="flex shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap">
@@ -918,7 +920,7 @@ export function OwnerStoreProfileForm({
                       onChange={(e) => setValues((v) => ({ ...v, payMethodCashMeet: e.target.checked }))}
                       className="h-4 w-4 shrink-0 rounded border-sam-border text-signature"
                     />
-                    <span>만나서 현금</span>
+                    <span>{t("business_phase7_067")}</span>
                   </label>
                   <label className="flex shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap">
                     <input
@@ -927,7 +929,7 @@ export function OwnerStoreProfileForm({
                       onChange={(e) => setValues((v) => ({ ...v, payMethodBank: e.target.checked }))}
                       className="h-4 w-4 shrink-0 rounded border-sam-border text-signature"
                     />
-                    <span>계좌이체</span>
+                    <span>{t("business_phase7_015")}</span>
                   </label>
                   <span className="mx-0.5 h-4 w-px shrink-0 bg-sam-border-soft" aria-hidden />
                   <label className="flex shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap">
@@ -939,14 +941,14 @@ export function OwnerStoreProfileForm({
                       }
                       className="h-4 w-4 shrink-0 rounded border-sam-border text-signature"
                     />
-                    <span>기타</span>
+                    <span>{t("business_phase7_040")}</span>
                   </label>
                   <input
                     type="text"
                     value={values.payMethodOtherText}
                     onChange={(e) => setValues((v) => ({ ...v, payMethodOtherText: e.target.value }))}
                     disabled={!values.payMethodOtherEnabled}
-                    placeholder="기타 입력"
+                    placeholder={t("business_phase7_042")}
                     className={`sam-input min-w-[8rem] max-w-[14rem] flex-1 sam-text-body-secondary text-sam-fg disabled:bg-sam-app disabled:text-sam-meta sm:min-w-[12rem] sm:max-w-none sm:flex-[1_1_12rem] ${OWNER_STORE_PROFILE_FIELD_EDGE_CLASS}`}
                   />
                 </div>
@@ -954,7 +956,7 @@ export function OwnerStoreProfileForm({
             </div>
             <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
               <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
-                <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>최소 주문 (₱, 숫자)</label>
+                <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>{t("business_phase7_292")}</label>
                 <input
                   type="text"
                   inputMode="numeric"
@@ -962,13 +964,13 @@ export function OwnerStoreProfileForm({
                   onChange={(e) =>
                     setValues((v) => ({ ...v, minOrderPhp: formatPriceInput(e.target.value) }))
                   }
-                  placeholder="0 이면 0₱ 표시"
+                  placeholder={t("business_phase7_003")}
                   className={OWNER_STORE_PROFILE_CONTROL_CLASS}
                 />
               </div>
             </div>
             <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
-              <span className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>배달 방식</span>
+              <span className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>{t("business_phase7_109")}</span>
               <p className="mb-2 sam-text-xxs text-sam-muted">
                 자체배달은 앱 결제에 배달비가 포함됩니다. 배달 업체는 고객 착불입니다.
               </p>
@@ -986,7 +988,7 @@ export function OwnerStoreProfileForm({
                     }
                     className="h-4 w-4 border-sam-border text-signature"
                   />
-                  <span>자체배달(유료)</span>
+                  <span>{t("business_phase7_240")}</span>
                 </label>
                 <label className="flex cursor-pointer items-center gap-2">
                   <input
@@ -1001,7 +1003,7 @@ export function OwnerStoreProfileForm({
                     }
                     className="h-4 w-4 border-sam-border text-signature"
                   />
-                  <span>배달비 무료 적용 중</span>
+                  <span>{t("business_phase7_116")}</span>
                 </label>
                 <label className="flex cursor-pointer items-center gap-2">
                   <input
@@ -1016,7 +1018,7 @@ export function OwnerStoreProfileForm({
                     }
                     className="h-4 w-4 border-sam-border text-signature"
                   />
-                  <span>배달 업체(착불)</span>
+                  <span>{t("business_phase7_112")}</span>
                 </label>
               </div>
             </div>
@@ -1032,7 +1034,7 @@ export function OwnerStoreProfileForm({
                   onChange={(e) =>
                     setValues((v) => ({ ...v, deliveryFeePhp: formatPriceInput(e.target.value) }))
                   }
-                  placeholder="비우면 배달 시 ‘문의’로 표시"
+                  placeholder={t("business_phase7_133")}
                   className={OWNER_STORE_PROFILE_CONTROL_CLASS}
                 />
               </div>
@@ -1052,7 +1054,7 @@ export function OwnerStoreProfileForm({
                       deliveryFeeStrikeReferencePhp: formatPriceInput(e.target.value),
                     }))
                   }
-                  placeholder="1 이상 — 실제 청구는 0₱"
+                  placeholder={t("business_phase7_004")}
                   className={OWNER_STORE_PROFILE_CONTROL_CLASS}
                 />
               </div>
@@ -1068,7 +1070,7 @@ export function OwnerStoreProfileForm({
                   onChange={(e) =>
                     setValues((v) => ({ ...v, deliveryCourierLabel: e.target.value }))
                   }
-                  placeholder="예: 라라무브"
+                  placeholder={t("business_phase7_205")}
                   className={OWNER_STORE_PROFILE_CONTROL_CLASS}
                 />
               </div>
@@ -1088,7 +1090,7 @@ export function OwnerStoreProfileForm({
                       freeDeliveryOverPhp: formatPriceInput(e.target.value),
                     }))
                   }
-                  placeholder="예: 2000 — 상품 합계 이상이면 배달 청구 배달비 0·매장 창 안내에 반영"
+                  placeholder={t("business_phase7_202")}
                   className={OWNER_STORE_PROFILE_CONTROL_CLASS}
                 />
               </div>
@@ -1108,7 +1110,7 @@ export function OwnerStoreProfileForm({
                 에서 등록합니다.
               </p>
               {values.publicNotices.length === 0 ? (
-                <p className="mb-2 sam-text-helper text-sam-meta">등록된 공지가 없습니다.</p>
+                <p className="mb-2 sam-text-helper text-sam-meta">{t("business_phase7_056")}</p>
               ) : (
                 <ul className="mb-2 space-y-2">
                   {values.publicNotices.map((line, i) => (
@@ -1151,17 +1153,17 @@ export function OwnerStoreProfileForm({
               </button>
             </div>
             <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
-              <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>배달비·지역 상세 (메뉴 탭 접기 안내)</label>
+              <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>{t("business_phase7_118")}</label>
               <textarea
                 value={values.deliveryNotice}
                 onChange={(e) => setValues((v) => ({ ...v, deliveryNotice: e.target.value }))}
                 rows={4}
-                placeholder="지역별 배달비, 유의사항 등 여러 줄 입력 가능"
+                placeholder={t("business_phase7_284")}
                 className={OWNER_STORE_PROFILE_CONTROL_CLASS}
               />
             </div>
             <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
-              <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>예상 조리·준비 시간 (분)</label>
+              <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>{t("business_phase7_211")}</label>
               <input
                 type="number"
                 min={1}
@@ -1169,18 +1171,18 @@ export function OwnerStoreProfileForm({
                 inputMode="numeric"
                 value={values.prepTimeMinutes}
                 onChange={(e) => setValues((v) => ({ ...v, prepTimeMinutes: e.target.value }))}
-                placeholder="예: 25 — 목록·주문 예상 시간에 더해집니다"
+                placeholder={t("business_phase7_203")}
                 className={OWNER_STORE_PROFILE_CONTROL_CLASS}
               />
               <p className="mt-1.5 sam-text-helper text-sam-meta">
                 {globalRideTimeSource === "google" ? (
                   <>
-                    배달 구간(오토바이) 소요는 고객 위치 기준으로 <strong className="text-sam-fg">구글 경로</strong>로
+                    배달 구간(오토바이) 소요는 고객 위치 기준으로 <strong className="text-sam-fg">{t("business_phase7_035")}</strong>로
                     자동 추정됩니다.
                   </>
                 ) : globalRideTimeSource === "store" ? (
                   <>
-                    운영 정책상 배달 구간은 아래 <strong className="text-sam-fg">수기 배달 시간</strong> 문구로
+                    운영 정책상 배달 구간은 아래 <strong className="text-sam-fg">{t("business_phase7_166")}</strong> 문구로
                     표시됩니다. (고객 앱에서 구글 Routes 호출 없음)
                   </>
                 ) : (
@@ -1190,7 +1192,7 @@ export function OwnerStoreProfileForm({
             </div>
             {globalRideTimeSource === "store" ? (
               <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
-                <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>배달 시간 (수기, 최대 80자)</label>
+                <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>{t("business_phase7_110")}</label>
                 <input
                   type="text"
                   maxLength={80}
@@ -1198,7 +1200,7 @@ export function OwnerStoreProfileForm({
                   onChange={(e) =>
                     setValues((v) => ({ ...v, deliveryRideDisplayManual: e.target.value.slice(0, 80) }))
                   }
-                  placeholder='예: 30~45분, 지역에 따라 상이'
+                  placeholder={t("business_phase7_204")}
                   className={OWNER_STORE_PROFILE_CONTROL_CLASS}
                 />
                 <p className="mt-1.5 sam-text-helper text-sam-meta">
@@ -1208,12 +1210,12 @@ export function OwnerStoreProfileForm({
               </div>
             ) : null}
             <div className={OWNER_STORE_PROFILE_FIELD_BLOCK_CLASS}>
-              <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>평균 채팅 응답 (가게정보)</label>
+              <label className={OWNER_STORE_PROFILE_FIELD_BLOCK_HEAD_CLASS}>{t("business_phase7_314")}</label>
               <input
                 type="text"
                 value={values.avgChatResponse}
                 onChange={(e) => setValues((v) => ({ ...v, avgChatResponse: e.target.value }))}
-                placeholder="예: 1분 이내"
+                placeholder={t("business_phase7_201")}
                 className={OWNER_STORE_PROFILE_CONTROL_CLASS}
               />
             </div>
@@ -1221,7 +1223,7 @@ export function OwnerStoreProfileForm({
         ) : null}
       </OwnerStoreAdminDashSection>
 
-      <OwnerStoreAdminDashSection title="갤러리 이미지 (전단지·소개 사진)">
+      <OwnerStoreAdminDashSection title={t("business_phase7_007")}>
         <p className="sam-text-helper text-sam-muted">
           가게정보「전단지·소개」에 표시됩니다. 최대 {GALLERY_MAX}장, 파일 업로드만 가능합니다.
         </p>
@@ -1288,7 +1290,7 @@ export function OwnerStoreProfileForm({
         <BodyPortal>
           <footer
             role="contentinfo"
-            aria-label="매장 설정 저장"
+            aria-label={t("business_phase7_070")}
             className={`pointer-events-none fixed inset-x-0 z-[54] border-t border-sam-border bg-sam-surface/95 backdrop-blur-md supports-[backdrop-filter]:bg-sam-surface/88 ${
               dockActionBarAboveMainBottomNav
                 ? BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS

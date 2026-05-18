@@ -1,6 +1,7 @@
 "use client";
 
 import type { AppSettings } from "@/lib/types/admin-settings";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface ProductPolicyFormProps {
   values: Pick<
@@ -15,14 +16,14 @@ interface ProductPolicyFormProps {
 }
 
 export function ProductPolicyForm({ values, onChange }: ProductPolicyFormProps) {
+  const { t } = useI18n();
+
   return (
     <div className="space-y-4">
-      <p className="sam-text-body-secondary text-sam-muted">
-        상품 등록·노출 정책 (4·5단계 연동 placeholder)
-      </p>
+      <p className="sam-text-body-secondary text-sam-muted">{t("admin_settings_product_intro")}</p>
       <div>
         <label className="block sam-text-body-secondary font-medium text-sam-fg">
-          상품 자동 만료 일수
+          {t("admin_settings_product_auto_expire")}
         </label>
         <input
           type="number"
@@ -36,7 +37,7 @@ export function ProductPolicyForm({ values, onChange }: ProductPolicyFormProps) 
       </div>
       <div>
         <label className="block sam-text-body-secondary font-medium text-sam-fg">
-          최대 상품 이미지 수
+          {t("admin_settings_product_max_images")}
         </label>
         <input
           type="number"
@@ -57,7 +58,7 @@ export function ProductPolicyForm({ values, onChange }: ProductPolicyFormProps) 
           className="rounded border-sam-border"
         />
         <label htmlFor="allowPriceOffer" className="sam-text-body text-sam-fg">
-          가격 제안 허용
+          {t("admin_settings_product_allow_offer")}
         </label>
       </div>
       <div className="flex items-center gap-2">
@@ -69,12 +70,12 @@ export function ProductPolicyForm({ values, onChange }: ProductPolicyFormProps) 
           className="rounded border-sam-border"
         />
         <label htmlFor="allowProductBoost" className="sam-text-body text-sam-fg">
-          끌올 허용
+          {t("admin_settings_product_allow_boost")}
         </label>
       </div>
       <div>
         <label className="block sam-text-body-secondary font-medium text-sam-fg">
-          끌올 쿨다운 (시간)
+          {t("admin_settings_product_boost_cooldown")}
         </label>
         <input
           type="number"

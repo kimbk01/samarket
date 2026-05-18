@@ -4,6 +4,8 @@ import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { PurchaseDetailView } from "@/components/mypage/purchases/PurchaseDetailView";
 import { HomePurchaseSalesHubTabs } from "@/components/mypage/HomePurchaseSalesHubTabs";
 import { parseRoomId } from "@/lib/validate-params";
+import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
+import { translate } from "@/lib/i18n/messages";
 
 interface PageProps {
   params: Promise<{ chatId: string }>;
@@ -20,10 +22,13 @@ export default function PhilifePurchaseDetailPage({ params }: PageProps) {
 async function PhilifePurchaseDetailPageBody({ params }: PageProps) {
   const { chatId: raw } = await params;
   const chatId = parseRoomId(raw);
+  const lang = resolveServerInitialLanguage({});
   if (!chatId) {
     return (
       <div className="min-h-screen bg-background px-4 py-8">
-        <p className="text-center sam-text-body text-sam-muted">잘못된 경로입니다.</p>
+        <p className="text-center sam-text-body text-sam-muted">
+          {translate(lang, "philife_purchase_detail_invalid_path")}
+        </p>
       </div>
     );
   }
@@ -31,7 +36,7 @@ async function PhilifePurchaseDetailPageBody({ params }: PageProps) {
   return (
     <div className="min-h-screen bg-background">
       <MySubpageHeader
-        title="구매 상세"
+        title={translate(lang, "philife_purchase_detail_title")}
         backHref="/mypage/purchases"
         stickyBelow={<HomePurchaseSalesHubTabs />}
       />

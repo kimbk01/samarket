@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useState } from "react";
 import type {
@@ -36,6 +37,7 @@ export function ProductForm({
   onCancel,
   saveProduct,
 }: ProductFormProps) {
+  const { t } = useI18n();
   const [images, setImages] = useState<ImagePreviewItem[]>(() =>
     initialValues?.images?.length ? toPreviewItems(initialValues.images) : []
   );
@@ -57,16 +59,16 @@ export function ProductForm({
 
   const validate = useCallback((): boolean => {
     const next: Record<string, string> = {};
-    if (!title.trim()) next.title = "제목을 입력해 주세요.";
-    if (!description.trim()) next.description = "설명을 입력해 주세요.";
+    if (!title.trim()) next.title = t("ui_product_err_title");
+    if (!description.trim()) next.description = t("ui_product_err_desc");
     const priceNum = price.trim() ? Number(price.replace(/,/g, "")) : NaN;
     if (!price.trim() || isNaN(priceNum) || priceNum < 0)
-      next.price = "가격을 입력해 주세요.";
-    if (!category) next.category = "카테고리를 선택해 주세요.";
-    if (!region || !city) next.region = "거래 지역과 동네를 선택해 주세요.";
+      next.price = t("ui_product_err_price");
+    if (!category) next.category = t("ui_product_err_category");
+    if (!region || !city) next.region = t("ui_product_err_region");
     setErrors(next);
     return Object.keys(next).length === 0;
-  }, [title, description, price, category, region, city]);
+  }, [title, description, price, category, region, city, t]);
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent) => {
@@ -114,13 +116,13 @@ export function ProductForm({
       <ProductImagePicker value={images} onChange={setImages} />
       <section className="border-b border-sam-border-soft bg-sam-surface px-0 py-4">
         <label className="mb-2 block sam-text-body font-medium text-sam-fg">
-          제목 <span className="text-red-500">*</span>
+          {t("ui_product_title_label")} <span className="text-red-500">*</span>
         </label>
         <input
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="상품 제목"
+          placeholder={t("ui_product_title_placeholder")}
           maxLength={100}
           className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
           aria-invalid={!!errors.title}
@@ -131,12 +133,12 @@ export function ProductForm({
       </section>
       <section className="border-b border-sam-border-soft bg-sam-surface px-0 py-4">
         <label className="mb-2 block sam-text-body font-medium text-sam-fg">
-          설명 <span className="text-red-500">*</span>
+          {t("ui_product_desc_label")} <span className="text-red-500">*</span>
         </label>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="상품 설명"
+          placeholder={t("ui_product_desc_placeholder")}
           rows={5}
           className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
           aria-invalid={!!errors.description}
@@ -176,7 +178,7 @@ export function ProductForm({
             onClick={onCancel}
             className="rounded-ui-rect border border-sam-border px-4 py-2.5 sam-text-body text-sam-muted"
           >
-            취소
+            {t("common_cancel")}
           </button>
         )}
         <button
@@ -184,7 +186,7 @@ export function ProductForm({
           disabled={submitting}
           className="flex-1 rounded-ui-rect bg-signature py-2.5 sam-text-body font-medium text-white disabled:opacity-50"
         >
-          {submitting ? "등록 중…" : "등록하기"}
+          {submitting ? t("ui_product_registering") : t("ui_product_register")}
         </button>
         </div>
       </div>

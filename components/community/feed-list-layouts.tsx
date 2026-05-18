@@ -9,6 +9,7 @@ import type { FeedListThumbColumn } from "@/lib/community-feed/topic-feed-skin";
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 import { stripMarkdownImageSyntaxForFeedPreview } from "@/lib/philife/interleaved-body-markdown";
 import { PHILIFE_FB_CARD_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export type FeedListCardViewModel = {
   href: string;
@@ -55,6 +56,7 @@ function hasCategoryBadge(
 }
 
 function SingleListBadge({ vm }: { vm: Pick<FeedListCardViewModel, "topicLabel" | "topicColor" | "isQuestion" | "isMeetup"> }) {
+  const { t } = useI18n();
   const label = (vm.topicLabel ?? "").trim();
   if (label) {
     const c = vm.topicColor?.trim();
@@ -71,14 +73,14 @@ function SingleListBadge({ vm }: { vm: Pick<FeedListCardViewModel, "topicLabel" 
   if (vm.isQuestion) {
     return (
       <span className="shrink-0 rounded-[4px] border border-amber-200/80 bg-amber-50 px-2 py-1 text-[11px] font-medium text-amber-900">
-        질문
+        {t("community_badge_question")}
       </span>
     );
   }
   if (vm.isMeetup) {
     return (
       <span className="shrink-0 rounded-[4px] border border-emerald-200/80 bg-emerald-50 px-2 py-1 text-[11px] font-medium text-emerald-900">
-        모임
+        {t("community_badge_meeting")}
       </span>
     );
   }
@@ -135,13 +137,14 @@ function ListMetaKarrot({
   placeInMeta: boolean;
   className?: string;
 }) {
-  const author = (vm.authorName ?? "").trim() || "회원";
+  const { t } = useI18n();
+  const author = (vm.authorName ?? "").trim() || t("community_member_fallback");
   const pl = (vm.placeLine ?? "").trim();
   const sec = (vm.secondaryMeta ?? "").trim();
   const locationPart = placeInMeta && pl ? pl : sec && sec !== author ? sec : "";
   const time = (vm.timeLabel ?? "").trim();
 
-  const titleStr = [author, locationPart, time, `조회 ${vm.viewCount}`].filter(Boolean).join(" · ");
+  const titleStr = [author, locationPart, time, t("community_stat_views_inline", { count: vm.viewCount })].filter(Boolean).join(" · ");
 
   return (
     <div
@@ -153,14 +156,14 @@ function ListMetaKarrot({
         <span className="font-semibold text-[#1F2430]">{author}</span>
         {locationPart ? <> · {locationPart}</> : null}
         {time ? <> · {time}</> : null}
-        <> · </>조회 {vm.viewCount}
+        <> · </> {t("community_stat_views_inline", { count: vm.viewCount })}
       </p>
       <div className="flex shrink-0 items-center gap-3 text-[12px] text-[#6B7280]">
-        <span className="inline-flex items-center gap-1 tabular-nums" title="공감">
+        <span className="inline-flex items-center gap-1 tabular-nums" title={t("community_stat_likes_title")}>
           <ThumbsUp className="h-4 w-4 shrink-0 text-[#6B7280]" strokeWidth={1.8} />
           {vm.likeCount}
         </span>
-        <span className="inline-flex items-center gap-1 tabular-nums" title="댓글">
+        <span className="inline-flex items-center gap-1 tabular-nums" title={t("community_stat_comments_title")}>
           <MessageCircle className="h-4 w-4 shrink-0 text-[#6B7280]" strokeWidth={1.8} />
           {vm.commentCount}
         </span>
@@ -178,6 +181,7 @@ export const COMMUNITY_FEED_LIST_THUMB_BOX_CLASS =
 
 /** 리스트: 72~88px 정사각형 고정(세로형 원본도 object-cover, 메타행과 겹침 방지) */
 function ListThumb({ url, totalImages }: { url: string; totalImages: number }) {
+  const { t } = useI18n();
   const showMore = totalImages > 1;
   return (
     <div className={COMMUNITY_FEED_LIST_THUMB_BOX_CLASS}>
@@ -190,7 +194,7 @@ function ListThumb({ url, totalImages }: { url: string; totalImages: number }) {
       {showMore ? (
         <span
           className="absolute left-0.5 top-0.5 min-w-[1.125rem] rounded-[4px] bg-black/65 px-1 text-center text-[10px] font-medium leading-tight text-white"
-          aria-label={`이미지 ${totalImages}장`}
+          aria-label={t("community_images_aria", { count: totalImages })}
         >
           {totalImages > 9 ? "9+" : totalImages}
         </span>

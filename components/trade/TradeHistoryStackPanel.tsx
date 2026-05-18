@@ -91,22 +91,22 @@ export function TradeHistoryStackPanel() {
         className={`min-h-0 flex-1 overflow-y-auto overscroll-contain pb-[max(1rem,env(safe-area-inset-bottom,0px))] pt-2 ${PHILIFE_FEED_INSET_X_CLASS}`}
       >
         {tab === "purchases" ? (
-          <TradeHubSectionShell title="구매 내역">
+          <TradeHubSectionShell title={t("trade_031")}>
             <PurchasesView />
           </TradeHubSectionShell>
         ) : null}
         {tab === "sales" ? (
-          <TradeHubSectionShell title="판매 내역">
+          <TradeHubSectionShell title={t("trade_122")}>
             <SalesHistoryView />
           </TradeHubSectionShell>
         ) : null}
         {tab === "favorites" ? (
-          <TradeHubSectionShell title="찜 목록">
+          <TradeHubSectionShell title={t("trade_111")}>
             <FavoriteProductsView embedded />
           </TradeHubSectionShell>
         ) : null}
         {tab === "reviews" ? (
-          <TradeHubSectionShell title="거래 후기">
+          <TradeHubSectionShell title={t("trade_017")}>
             <TradeReviewsManagementView />
           </TradeHubSectionShell>
         ) : null}

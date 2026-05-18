@@ -1,6 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
 import type { MessengerChatListContext } from "@/lib/community-messenger/messenger-ia";
 import {
@@ -52,6 +53,7 @@ export function MessengerChatRoomActionSheet({
   onViewRelatedCommerce,
   onLeave,
 }: Props) {
+  const { t } = useI18n();
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [panelHeight, setPanelHeight] = useState(0);
   const room = item.room;
@@ -64,8 +66,8 @@ export function MessengerChatRoomActionSheet({
   const anyBusy = Boolean(busyId);
   const archiveUi = listContext === "archive";
 
-  const archiveLabel = hidden ? "복원 · 목록에 다시 표시" : "보관";
-  const defaultArchiveLabel = hidden ? "보관 해제" : "보관";
+  const archiveLabel = hidden ? t("cm_ui_restore_show_in_list") : t("cm_ui_archive");
+  const defaultArchiveLabel = hidden ? t("cm_ui_unarchive") : t("cm_ui_archive");
 
   const isDirect = room.roomType === "direct";
   const isPrivateGroup = room.roomType === "private_group";
@@ -147,33 +149,33 @@ export function MessengerChatRoomActionSheet({
       role="dialog"
       aria-modal="true"
     >
-      <button type="button" className="absolute inset-0 cursor-default bg-transparent" aria-label="닫기" onClick={onClose} />
+      <button type="button" className="absolute inset-0 cursor-default bg-transparent" aria-label={t("nav_close")} onClick={onClose} />
       <div
         ref={panelRef}
         className="absolute overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]"
         style={anchoredStyle}
       >
-        <nav className="flex flex-col" aria-label="대화방 작업">
+        <nav className="flex flex-col" aria-label={t("cm_ui_chat_room_actions")}>
           <AnchoredAction
-            label="채팅방 열기"
+            label={t("cm_ui_open_chat_room")}
             icon={<EnterIcon />}
             onClick={onEnterRoom}
             disabled={anyBusy}
           />
           <AnchoredAction
-            label={room.isMuted ? "알림 켜기" : "알림 끄기"}
+            label={room.isMuted ? t("cm_ui_turn_on_notifications") : t("cm_ui_turn_off_notifications")}
             icon={<MuteIcon />}
             onClick={onToggleMute}
             disabled={anyBusy || isSettingsBusy}
           />
           <AnchoredAction
-            label={room.isPinned ? "상단 고정 해제" : "채팅방 상단 고정"}
+            label={room.isPinned ? t("cm_ui_unpin_top") : t("cm_ui_pin_chat_room_top")}
             icon={<PinIcon />}
             onClick={onTogglePin}
             disabled={anyBusy || isSettingsBusy}
           />
           <AnchoredAction
-            label="읽음 처리"
+            label={t("cm_ui_mark_as_read")}
             icon={<ReadIcon />}
             onClick={onMarkRead}
             disabled={anyBusy || isReadBusy || room.unreadCount <= 0}
@@ -194,7 +196,7 @@ export function MessengerChatRoomActionSheet({
           ) : null}
           {onLeave ? (
             <AnchoredAction
-              label="나가기"
+              label={t("cm_ui_leave")}
               icon={<LeaveIcon />}
               onClick={onLeave}
               disabled={anyBusy || isLeaveBusy}

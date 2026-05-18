@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePriceOffersProductRealtime } from "@/hooks/usePriceOffersProductRealtime";
@@ -61,6 +62,7 @@ export function OfferListSeller({
   initialOffers,
   variant = "card",
 }: Props) {
+  const { t } = useI18n();
   const [offers, setOffers] = useState<PriceOfferListItem[]>(() => initialOffers ?? []);
   const [loading, setLoading] = useState(() => initialOffers === undefined);
   const [busyOfferId, setBusyOfferId] = useState<string | null>(null);
@@ -229,7 +231,7 @@ export function OfferListSeller({
   const header =
     variant === "modal" ? null : (
       <div className="flex items-center justify-between gap-2">
-        <h3 className="text-[14px] font-bold text-sam-fg">받은 가격 제안</h3>
+        <h3 className="text-[14px] font-bold text-sam-fg">{t("ui_offer_received_title")}</h3>
         <Link href="/my/offers/received" className="text-[12px] font-semibold text-sam-primary">
           전체 보기
         </Link>
@@ -240,27 +242,27 @@ export function OfferListSeller({
     <>
       {showBlockingLoading ? (
         variant === "modal" && offers.length === 0 ? (
-          <div className="space-y-2" aria-busy="true" aria-label="가격 제안 불러오는 중">
+          <div className="space-y-2" aria-busy="true" aria-label={t("ui_offer_loading_aria")}>
             <div className="h-[88px] animate-pulse rounded-lg bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)] dark:bg-sam-surface" />
             <div className="h-[88px] animate-pulse rounded-lg bg-white shadow-[0_1px_2px_rgba(0,0,0,0.06)] dark:bg-sam-surface" />
           </div>
         ) : (
           <p className={`${variant === "modal" ? "sam-text-body-secondary text-sam-muted" : "mt-3 text-[12px] text-sam-muted"}`}>
-            불러오는 중…
+            {t("common_loading")}
           </p>
         )
       ) : null}
       {!loading && !error && offers.length === 0 ? (
         variant === "modal" ? (
           <div className="rounded-lg border border-black/[0.06] bg-white px-4 py-10 text-center shadow-[0_1px_2px_rgba(0,0,0,0.06)] dark:border-sam-border dark:bg-sam-surface dark:shadow-none">
-            <p className="text-[15px] font-bold text-[#111111] dark:text-sam-fg">도착한 제안이 없어요</p>
+            <p className="text-[15px] font-bold text-[#111111] dark:text-sam-fg">{t("ui_offer_empty_title")}</p>
             <p className="mt-2 text-[14px] font-normal leading-[1.65] text-[#222222] dark:text-sam-muted">
               구매자가 제안을 보내면 여기에 표시됩니다.
             </p>
           </div>
         ) : (
           <div className="mt-3 space-y-1 text-[12px] text-sam-muted">
-            <p>아직 도착한 가격 제안이 없습니다.</p>
+            <p>{t("ui_offer_empty_body")}</p>
             <p className="text-[11px] leading-snug">
               구매자 쪽에서 모달까지 열어 「제안 보내기」가 성공했는지 확인해 주세요. 보낸 직후에는 새로고침하거나 잠시 후 다시 열어 보세요.
             </p>
@@ -304,7 +306,7 @@ export function OfferListSeller({
                   </span>
                 </div>
                 <p className="mt-2 text-[12px] leading-[1.4] text-[#999999] dark:text-sam-meta">
-                  원가 {formatPrice(offer.originalPrice, currency)} · 제안일 {formatTimeAgo(offer.createdAt)}
+                  원가 {formatPrice(offer.originalPrice, currency)} · {t("ui_offer_date_label", { time: formatTimeAgo(offer.createdAt) })}
                 </p>
                 {offer.message?.trim() ? (
                   <div className="mt-2 rounded-md bg-[#F0F2F5] px-3 py-2 dark:bg-sam-surface-muted">
@@ -353,7 +355,7 @@ export function OfferListSeller({
                   <p className="mt-1 text-[12px] text-sam-muted">
                     원가 {formatPrice(offer.originalPrice, currency)} · {statusLabel(offer.status)}
                   </p>
-                  <p className="mt-0.5 text-[11px] text-sam-muted">제안일 {formatTimeAgo(offer.createdAt)}</p>
+                  <p className="mt-0.5 text-[11px] text-sam-muted">{t("ui_offer_date_label", { time: formatTimeAgo(offer.createdAt) })}</p>
                 </div>
                 {offer.status === "pending" ? (
                   <div className="flex gap-2">

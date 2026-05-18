@@ -10,8 +10,10 @@ import {
   fetchCommunityUserRelationSnapshot,
   invalidateCommunityUserRelationSnapshot,
 } from "@/lib/community/user-relation-client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function UserBlockButton({ targetUserId }: { targetUserId: string }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const me = mounted ? getCurrentUser() : getHydrationSafeCurrentUser();
@@ -45,13 +47,13 @@ export function UserBlockButton({ targetUserId }: { targetUserId: string }) {
     const nextBlocked = !blocked;
     if (
       nextBlocked &&
-      !window.confirm("이 이웃을 차단할까요? 글과 댓글이 보이지 않게 됩니다.")
+      !window.confirm(t("community_confirm_block_neighbor"))
     ) {
       return;
     }
     if (
       !nextBlocked &&
-      !window.confirm("차단을 해제할까요?")
+      !window.confirm(t("community_confirm_unblock_neighbor"))
     ) {
       return;
     }
@@ -83,7 +85,7 @@ export function UserBlockButton({ targetUserId }: { targetUserId: string }) {
         onClick={() => router.push("/login")}
         className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper text-sam-fg"
       >
-        차단
+        {t("community_block")}
       </button>
     );
   }
@@ -99,7 +101,7 @@ export function UserBlockButton({ targetUserId }: { targetUserId: string }) {
           : "border-sam-border bg-sam-surface text-sam-fg"
       }`}
     >
-      {blocked === true ? "차단 해제" : "차단"}
+      {blocked === true ? t("community_unblock") : t("community_block")}
     </button>
   );
 }

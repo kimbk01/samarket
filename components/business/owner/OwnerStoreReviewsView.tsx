@@ -5,6 +5,8 @@ import { useSearchParams } from "next/navigation";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 
 type ReviewRow = {
   id: string;
@@ -21,6 +23,7 @@ type ReviewRow = {
 };
 
 export function OwnerStoreReviewsView() {
+  const { t } = useI18n();
   const searchParams = useSearchParams();
   const [storeId, setStoreId] = useState<string>("");
   const [rows, setRows] = useState<ReviewRow[]>([]);
@@ -39,14 +42,14 @@ export function OwnerStoreReviewsView() {
         const { status, json } = await fetchMeStoresListDeduped();
         const j = json as { ok?: boolean; stores?: { id: string }[] };
         if (status === 401) {
-          setErr("로그인이 필요합니다.");
+          setErr(t("common_login_required"));
           setRows([]);
           return;
         }
         sid = j?.ok && Array.isArray(j.stores) && j.stores[0]?.id ? j.stores[0].id : "";
       }
       if (!sid) {
-        setErr("매장을 찾을 수 없습니다.");
+        setErr(t("store_not_found_short"));
         setRows([]);
         return;
       }
@@ -120,13 +123,13 @@ export function OwnerStoreReviewsView() {
     [drafts, load, storeId]
   );
 
-  if (loading) return <p className="text-sm text-sam-muted">불러오는 중…</p>;
-  if (err) return <p className="text-sm text-red-600">{err}</p>;
-  if (rows.length === 0) return <p className="text-sm text-sam-muted">리뷰가 없습니다.</p>;
+  if (loading) return <p className="text-sm text-sam-muted">{t("common_loading")}</p>;
+  if (err) return <p className="text-sm text-red-600">{resolveOwnerApiErrorMessage(err, t)}</p>;
+  if (rows.length === 0) return <p className="text-sm text-sam-muted">{t("business_phase7_066")}</p>;
 
   return (
     <div className={OWNER_STORE_STACK_Y_CLASS}>
-      <p className="sam-text-body-secondary text-sam-muted">배달 완료 주문 리뷰 목록입니다. 사장님 댓글을 남길 수 있습니다.</p>
+      <p className="sam-text-body-secondary text-sam-muted">{t("business_phase7_113")}</p>
       <ul className="space-y-3">
         {rows.map((r) => (
           <li key={r.id} className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 shadow-sm">
@@ -137,15 +140,19 @@ export function OwnerStoreReviewsView() {
             <p className="mt-1 sam-text-body-secondary text-amber-700">{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</p>
             <p className="mt-1 whitespace-pre-wrap sam-text-body leading-relaxed text-sam-fg">{r.content}</p>
             <p className="mt-1 sam-text-helper text-sam-muted">
-              주문 {r.order_id} · {r.visible_to_public ? "공개" : "비공개"} · {r.status}
+              {t("business_phase7_469", {
+                v1: r.order_id,
+                v2: r.visible_to_public ? t("business_phase7_470") : t("business_phase7_132"),
+                v3: r.status,
+              })}
             </p>
 
             <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-app p-2.5">
-              <p className="sam-text-helper font-semibold text-sam-fg">사장님 댓글</p>
+              <p className="sam-text-helper font-semibold text-sam-fg">{t("business_phase7_138")}</p>
               <textarea
                 value={drafts[r.id] ?? ""}
                 onChange={(e) => setDrafts((prev) => ({ ...prev, [r.id]: e.target.value }))}
-                placeholder="고객 리뷰에 댓글을 남겨보세요."
+                placeholder={t("business_phase7_017")}
                 rows={3}
                 className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1.5 sam-text-body-secondary outline-none ring-signature/20 focus:ring-2"
               />
@@ -156,12 +163,14 @@ export function OwnerStoreReviewsView() {
                   onClick={() => void saveReply(r.id)}
                   className="rounded-ui-rect bg-signature px-3 py-1.5 sam-text-helper font-semibold text-white disabled:opacity-40"
                 >
-                  {busyId === r.id ? "저장 중…" : "댓글 저장"}
+                  {busyId === r.id ? t("business_phase7_384") : t("business_phase7_471")}
                 </button>
               </div>
               {r.owner_reply_created_at ? (
                 <p className="mt-1 text-right sam-text-xxs text-sam-muted">
-                  최근 저장: {new Date(r.owner_reply_created_at).toLocaleString("ko-KR")}
+                  {t("business_phase7_472", {
+                    v1: new Date(r.owner_reply_created_at).toLocaleString(),
+                  })}
                 </p>
               ) : null}
             </div>

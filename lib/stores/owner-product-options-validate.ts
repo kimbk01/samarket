@@ -1,5 +1,20 @@
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
 import type { ProductOptionGroup } from "@/lib/stores/owner-product-options-json";
 import { optionsJsonToFormGroups, ownerOptionsClampInt } from "@/lib/stores/owner-product-options-json";
+
+function optT(
+  lang: AppLanguageCode,
+  key: MessageKey,
+  vars?: Record<string, string | number>
+): string {
+  return translate(lang, key, vars);
+}
+
+function groupLabel(lang: AppLanguageCode, gi: number): string {
+  return optT(lang, "store_owner_opt_group_label", { index: gi + 1 });
+}
 
 function parseNonNegInt(s: string): number | null {
   const t = s.trim();
@@ -14,16 +29,17 @@ function parseNonNegInt(s: string): number | null {
  * 그룹이 하나도 없으면 통과(옵션 없는 상품).
  */
 export function validateProductOptionGroups(
-  groups: ProductOptionGroup[]
+  groups: ProductOptionGroup[],
+  lang: AppLanguageCode = DEFAULT_APP_LANGUAGE
 ): { ok: true } | { ok: false; message: string } {
   if (groups.length === 0) return { ok: true };
 
   for (let gi = 0; gi < groups.length; gi++) {
     const g = groups[gi]!;
-    const label = `옵션 그룹 ${gi + 1}`;
+    const label = groupLabel(lang, gi);
 
     if (!g.nameKo.trim()) {
-      return { ok: false, message: `${label}: 그룹명을 입력해 주세요.` };
+      return { ok: false, message: optT(lang, "store_owner_opt_name_required", { group: label }) };
     }
 
     const minSelect = ownerOptionsClampInt(parseInt(g.minSelect, 10), 0, 99, 0);
@@ -35,45 +51,63 @@ export function validateProductOptionGroups(
         if (minSelect !== 1 || maxSelect !== 1) {
           return {
             ok: false,
-            message: `${label}: 단일 선택·필수일 때는 최소·최대 선택 수가 각각 1이어야 합니다.`,
+            message: optT(lang, "store_owner_opt_single_required_bounds", { group: label }),
           };
         }
       } else {
         if (minSelect < 0 || maxSelect > 1 || minSelect > maxSelect) {
           return {
             ok: false,
-            message: `${label}: 단일 선택(선택)은 0~1개 범위로 설정해 주세요.`,
+            message: optT(lang, "store_owner_opt_single_optional_bounds", { group: label }),
           };
         }
       }
     } else if (g.selectionKind === "multiple") {
       if (g.required && minSelect < 1) {
-        return { ok: false, message: `${label}: 복수 선택·필수일 때는 최소 선택 수가 1 이상이어야 합니다.` };
+        return {
+          ok: false,
+          message: optT(lang, "store_owner_opt_multiple_required_min", { group: label }),
+        };
       }
       if (maxSelect < minSelect) {
-        return { ok: false, message: `${label}: 최대 선택 수는 최소 선택 수 이상이어야 합니다.` };
+        return {
+          ok: false,
+          message: optT(lang, "store_owner_opt_max_gte_min", { group: label }),
+        };
       }
       if (maxSelect < 1) {
-        return { ok: false, message: `${label}: 복수 선택에서는 최대 선택 수가 1 이상이어야 합니다.` };
+        return {
+          ok: false,
+          message: optT(lang, "store_owner_opt_multiple_max_min_one", { group: label }),
+        };
       }
     } else if (g.selectionKind === "quantity") {
       if (maxSelect < 1) {
-        return { ok: false, message: `${label}: 수량형은 최대 선택(수량 상한)이 1 이상이어야 합니다.` };
+        return {
+          ok: false,
+          message: optT(lang, "store_owner_opt_quantity_max_min_one", { group: label }),
+        };
       }
       if (maxSelect < minSelect) {
-        return { ok: false, message: `${label}: 수량형에서 최대는 최소 이상이어야 합니다.` };
+        return {
+          ok: false,
+          message: optT(lang, "store_owner_opt_quantity_max_gte_min", { group: label }),
+        };
       }
       if (g.required && minSelect < 1) {
         return {
           ok: false,
-          message: `${label}: 수량형·필수일 때는 최소 선택 수가 1 이상이어야 합니다.`,
+          message: optT(lang, "store_owner_opt_quantity_required_min", { group: label }),
         };
       }
     }
 
     const items = g.options;
     if (items.length === 0) {
-      return { ok: false, message: `${label}: 선택지를 한 개 이상 추가해 주세요.` };
+      return {
+        ok: false,
+        message: optT(lang, "store_owner_opt_choices_required", { group: label }),
+      };
     }
 
     let namedCount = 0;
@@ -83,7 +117,10 @@ export function validateProductOptionGroups(
       const o = items[oi]!;
       const name = o.name.trim();
       if (!name) {
-        return { ok: false, message: `${label}: 선택지 ${oi + 1}의 이름을 입력해 주세요.` };
+        return {
+          ok: false,
+          message: optT(lang, "store_owner_opt_choice_name_required", { group: label, index: oi + 1 }),
+        };
       }
       namedCount++;
 
@@ -91,14 +128,14 @@ export function validateProductOptionGroups(
       if (pd === null) {
         return {
           ok: false,
-          message: `${label}: 「${name}」의 추가 금액은 0 이상 숫자만 입력해 주세요.`,
+          message: optT(lang, "store_owner_opt_choice_price_invalid", { group: label, name }),
         };
       }
 
       if (o.soldOut && o.defaultSelected) {
         return {
           ok: false,
-          message: `${label}: 품절인 「${name}」은 기본 선택으로 지정할 수 없습니다.`,
+          message: optT(lang, "store_owner_opt_choice_sold_out_default", { group: label, name }),
         };
       }
 
@@ -106,13 +143,16 @@ export function validateProductOptionGroups(
     }
 
     if (namedCount < 1) {
-      return { ok: false, message: `${label}: 선택지를 한 개 이상 입력해 주세요.` };
+      return {
+        ok: false,
+        message: optT(lang, "store_owner_opt_choices_named_required", { group: label }),
+      };
     }
 
     if (g.selectionKind === "single" && defaultCount > 1) {
       return {
         ok: false,
-        message: `${label}: 단일 선택 그룹에서는 기본 선택은 한 개만 지정할 수 있습니다.`,
+        message: optT(lang, "store_owner_opt_single_default_one", { group: label }),
       };
     }
   }
@@ -122,14 +162,21 @@ export function validateProductOptionGroups(
 
 /** API 본문의 `options_json` — 배열만 받은 뒤 폼 역변환하여 동일 규칙 검증 */
 export function validateOwnerOptionsJsonPayload(
-  raw: unknown
+  raw: unknown,
+  lang: AppLanguageCode = DEFAULT_APP_LANGUAGE
 ):
   | { ok: true; value: unknown[] }
   | { ok: false; error: "invalid_options_json"; message: string } {
   if (raw === null || raw === undefined) return { ok: true, value: [] };
-  if (!Array.isArray(raw)) return { ok: false, error: "invalid_options_json", message: "옵션 형식이 올바르지 않습니다." };
+  if (!Array.isArray(raw)) {
+    return {
+      ok: false,
+      error: "invalid_options_json",
+      message: optT(lang, "store_owner_opt_invalid_json"),
+    };
+  }
   const groups = optionsJsonToFormGroups(raw);
-  const v = validateProductOptionGroups(groups);
+  const v = validateProductOptionGroups(groups, lang);
   if (!v.ok) return { ok: false, error: "invalid_options_json", message: v.message };
   return { ok: true, value: raw as unknown[] };
 }

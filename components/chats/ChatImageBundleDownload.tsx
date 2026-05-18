@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { saveChatImagesBundle } from "@/lib/chats/save-chat-images-bundle";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 function DownloadGlyph({ className }: { className?: string }) {
   return (
@@ -15,6 +16,7 @@ function DownloadGlyph({ className }: { className?: string }) {
  * 이미지 묶음 저장 — 원형 테두리·반투명 배경. 부모 flex에서 `items-center`로 이미지 세로 중앙에 맞춤.
  */
 export function ChatImageBundleDownload({ urls }: { urls: string[] }) {
+  const { t } = useI18n();
   const [busy, setBusy] = useState(false);
   const [hint, setHint] = useState<string | null>(null);
 
@@ -44,7 +46,7 @@ export function ChatImageBundleDownload({ urls }: { urls: string[] }) {
         disabled={busy}
         className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-sam-fg/20 bg-sam-surface/30 text-foreground shadow-[0_1px_4px_rgba(0,0,0,0.06)] backdrop-blur-md outline-none transition active:scale-95 focus-visible:ring-2 focus-visible:ring-signature/35 focus-visible:ring-offset-2 disabled:opacity-45 dark:border-sam-surface/28 dark:bg-sam-surface/14 dark:text-white dark:focus-visible:ring-offset-[#121212] [&::-moz-focus-inner]:border-0"
         style={{ borderRadius: "50%", WebkitBackdropFilter: "blur(12px)" }}
-        aria-label="사진 저장"
+        aria-label={t("chats_save_photo_aria")}
         onClick={() => void onClick()}
       >
         <DownloadGlyph className="h-[18px] w-[18px]" />

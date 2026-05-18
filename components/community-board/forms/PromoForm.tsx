@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -13,6 +14,7 @@ export function PromoForm({
   defaultCategoryId = null,
   boardCategories = [],
 }: BoardWriteFormProps) {
+  const { t } = useI18n();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [imageUrl, setImageUrl] = useState("");
@@ -60,15 +62,15 @@ export function PromoForm({
         </div>
       )}
       <div className="p-3 rounded-ui-rect bg-amber-50 border border-amber-200">
-        <span className="text-sm font-medium text-amber-800">프로모션 / 홍보 글</span>
+        <span className="text-sm font-medium text-amber-800">{t("community_board_promo_badge")}</span>
       </div>
       <div>
-        <label className="block text-sm font-medium text-sam-fg mb-1">대표 이미지 (선택)</label>
+        <label className="block text-sm font-medium text-sam-fg mb-1">{t("community_board_promo_cover_label")}</label>
         <input
           type="text"
           value={imageUrl}
           onChange={(e) => setImageUrl(e.target.value)}
-          placeholder="이미지 URL (개발용)"
+          placeholder={t("community_board_promo_image_url_ph")}
           className="w-full px-3 py-2 border border-sam-border rounded-ui-rect focus:ring-2 focus:ring-amber-500"
           disabled={isSubmitting}
         />
@@ -84,7 +86,7 @@ export function PromoForm({
           onChange={(e) => setTitle(e.target.value)}
           required
           maxLength={200}
-          placeholder="프로모션 제목"
+          placeholder={t("community_board_promo_title_ph")}
           className="w-full px-3 py-2 border border-sam-border rounded-ui-rect focus:ring-2 focus:ring-amber-500"
           disabled={isSubmitting}
         />
@@ -99,7 +101,7 @@ export function PromoForm({
           onChange={(e) => setContent(e.target.value)}
           required
           rows={6}
-          placeholder="프로모션 내용을 입력하세요"
+          placeholder={t("community_board_promo_content_ph")}
           className="w-full px-3 py-2 border border-sam-border rounded-ui-rect focus:ring-2 focus:ring-amber-500 resize-y"
           disabled={isSubmitting}
         />

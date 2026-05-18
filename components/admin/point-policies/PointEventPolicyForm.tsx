@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useState } from "react";
 import type { PointEventPolicy } from "@/lib/types/point-policy";
 import { BOARD_OPTIONS } from "@/lib/point-policies/point-policy-utils";
@@ -15,6 +16,8 @@ export function PointEventPolicyForm({
   onSubmit,
   onCancel,
 }: PointEventPolicyFormProps) {
+  const { t } = useI18n();
+
   const [title, setTitle] = useState(initial?.title ?? "");
   const [isActive, setIsActive] = useState(initial?.isActive ?? true);
   const [startAt, setStartAt] = useState(
@@ -59,15 +62,14 @@ export function PointEventPolicyForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          제목
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg"> {t("admin_points_policy_event_title")}
         </label>
         <input
           type="text"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
-          placeholder="이벤트명"
+          placeholder={t("admin_points_policy_event_title_ph")}
         />
       </div>
       <div className="flex items-center gap-2">
@@ -78,14 +80,12 @@ export function PointEventPolicyForm({
           onChange={(e) => setIsActive(e.target.checked)}
           className="rounded border-sam-border"
         />
-        <label htmlFor="evActive" className="sam-text-body text-sam-fg">
-          활성
+        <label htmlFor="evActive" className="sam-text-body text-sam-fg"> {t("admin_points_status_active")}
         </label>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-            시작일시
+          <label className="mb-1 block sam-text-body font-medium text-sam-fg"> {t("admin_points_policy_event_start")}
           </label>
           <input
             type="datetime-local"
@@ -95,8 +95,7 @@ export function PointEventPolicyForm({
           />
         </div>
         <div>
-          <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-            종료일시
+          <label className="mb-1 block sam-text-body font-medium text-sam-fg"> {t("admin_points_policy_event_end")}
           </label>
           <input
             type="datetime-local"
@@ -108,8 +107,7 @@ export function PointEventPolicyForm({
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-            글쓰기 배율
+          <label className="mb-1 block sam-text-body font-medium text-sam-fg"> {t("admin_points_policy_event_write_mult")}
           </label>
           <input
             type="number"
@@ -123,8 +121,7 @@ export function PointEventPolicyForm({
           />
         </div>
         <div>
-          <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-            댓글 배율
+          <label className="mb-1 block sam-text-body font-medium text-sam-fg"> {t("admin_points_policy_event_comment_mult")}
           </label>
           <input
             type="number"
@@ -139,8 +136,7 @@ export function PointEventPolicyForm({
         </div>
       </div>
       <div>
-        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          대상 게시판
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg"> {t("admin_points_policy_th_target_boards")}
         </label>
         <div className="flex flex-wrap gap-2">
           {BOARD_OPTIONS.map((b) => (
@@ -157,8 +153,7 @@ export function PointEventPolicyForm({
         </div>
       </div>
       <div>
-        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          비고
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg"> {t("admin_points_policy_event_note")}
         </label>
         <textarea
           value={note}
@@ -172,15 +167,14 @@ export function PointEventPolicyForm({
           type="submit"
           className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white"
         >
-          저장
+          {t("common_save")}
         </button>
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
             className="rounded border border-sam-border bg-sam-surface px-4 py-2 sam-text-body text-sam-fg"
-          >
-            취소
+          > {t("admin_points_charge_status_cancelled")}
           </button>
         )}
       </div>

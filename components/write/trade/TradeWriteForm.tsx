@@ -206,6 +206,7 @@ import {
   resolveTradeMeetSpotReturnTo,
   scheduleClearTradeWriteSkipPersistedDraftPromptAfterMeetSpot,
 } from "@/lib/navigation/trade-meet-spot-return-to";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   TRADE_MEET_SPOT_SCROLL_ANCHOR_ID,
   consumeTradeMeetSpotFocusOnReturn,
@@ -240,6 +241,7 @@ export function TradeWriteForm({
   ownerEditSnapshot,
   tradePolicy = null,
 }: TradeWriteFormProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const tradeWriteSheet = useTradeWriteSheetOptional();
@@ -639,7 +641,7 @@ export function TradeWriteForm({
     const files = workingImages.map((x) => x.file).filter((f): f is File => !!f);
     if (files.length === 0) return workingImages;
     if (!user?.id) {
-      window.alert("로그인이 필요합니다. 로그인 후 다시 시도해 주세요.");
+      window.alert(t("trade_056"));
       throw new Error("no-user");
     }
     const uploaded = await uploadPostImages(files, user.id);
@@ -1051,7 +1053,7 @@ export function TradeWriteForm({
 
   const validate = useCallback((): boolean => {
     const next: Record<string, string> = {};
-    if (skinKey !== "real-estate" && !isUsedCarSkin && !title.trim()) next.title = "제목을 입력해 주세요.";
+    if (skinKey !== "real-estate" && !isUsedCarSkin && !title.trim()) next.title = t("trade_102");
     if (isUsedCarSkin && !usedCarTrade) next.usedCarTrade = "삽니다 또는 팝니다를 선택해 주세요.";
     if (isUsedCarSkin && usedCarTrade === "buy") {
       if (!usedCarBodyTypeKey.trim()) next.usedCarBodyType = "차량 유형을 선택해 주세요.";
@@ -1257,7 +1259,7 @@ export function TradeWriteForm({
         }
         const usedCarPostTitle =
           usedCarTrade === "buy"
-            ? `삽니다 · ${labelForUsedCarBodyTypeKey(usedCarBodyTypeKey)}${carModel.trim() ? ` · ${carModel.trim()}` : ""}`
+            ? `삽니다 · ${labelForUsedCarBodyTypeKey(usedCarBodyTypeKey, t)}${carModel.trim() ? ` · ${carModel.trim()}` : ""}`
             : usedCarTrade === "sell"
               ? `팝니다${carModel.trim() ? ` · ${carModel.trim()}` : ""}`
               : "";
@@ -1503,7 +1505,7 @@ export function TradeWriteForm({
         onChange={(e) => setBuildingName(e.target.value)}
         readOnly={coreLocked}
         className={`mt-0.5 w-full ${TRADE_WRITE_FB_CONTROL}`}
-        placeholder="단지·동·호 (예: OO아파트 101동)"
+        placeholder={t("trade_053")}
         aria-invalid={!!errors.buildingName}
       />
       {errors.buildingName ? (
@@ -1547,7 +1549,7 @@ export function TradeWriteForm({
       <MobileDualActionBottomSheet
         open={draftResumeGate === "pending_choice"}
         onClose={() => {}}
-        title="작성 중이던 글이 있습니다"
+        title={t("trade_099")}
         description="이전에 입력한 내용을 불러올까요?"
         secondaryLabel="새로 작성"
         onSecondary={handleDiscardPersistedDraft}
@@ -1598,7 +1600,7 @@ export function TradeWriteForm({
           <section
             className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
           >
-            <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>필수 정보</h4>
+            <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>{t("trade_128")}</h4>
             <div>
               <label className={TRADE_WRITE_FB_FIELD_HEAD}>
                 건물명 <span className="text-sam-danger">*</span>
@@ -1609,7 +1611,7 @@ export function TradeWriteForm({
                 onChange={(e) => setBuildingName(e.target.value)}
                 readOnly={coreLocked}
                 className={`mt-0.5 ${TRADE_WRITE_FB_CONTROL}`}
-                placeholder="단지·동·호 (예: OO아파트 101동)"
+                placeholder={t("trade_053")}
                 aria-invalid={!!errors.buildingName}
               />
               {errors.buildingName ? (
@@ -1632,7 +1634,7 @@ export function TradeWriteForm({
                     onChange={(e) => setUsedCarTrade(e.target.checked ? "sell" : null)}
                     className="h-4 w-4 rounded border-sam-border text-sam-primary focus:ring-sam-primary/30"
                   />
-                  <span className="sam-text-body text-sam-fg">팝니다</span>
+                  <span className="sam-text-body text-sam-fg">{t("trade_126")}</span>
                 </label>
                 <label className="flex cursor-pointer items-center gap-2">
                   <input
@@ -1645,7 +1647,7 @@ export function TradeWriteForm({
                     }}
                     className="h-4 w-4 rounded border-sam-border text-sam-primary focus:ring-sam-primary/30"
                   />
-                  <span className="sam-text-body text-sam-fg">삽니다</span>
+                  <span className="sam-text-body text-sam-fg">{t("trade_071")}</span>
                 </label>
               </div>
               {(errors.usedCarTrade || errors.title) && (
@@ -1655,7 +1657,7 @@ export function TradeWriteForm({
             {usedCarTrade === "buy" ? (
               <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
                 <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>
-                  희망 모델·브랜드 <span className="font-normal text-[#8a8d91]">(선택)</span>
+                  희망 모델·브랜드 <span className="font-normal text-[#8a8d91]">{t("trade_001")}</span>
                 </h4>
                 <input
                   type="text"
@@ -1720,7 +1722,7 @@ export function TradeWriteForm({
           {errors.description && <p className="mt-1 text-[12px] text-red-600">{errors.description}</p>}
           {showDescriptionAppend ? (
             <div className="mt-2 border-t border-[#e4e6eb] pt-2">
-              <label className={TRADE_WRITE_FB_FIELD_LABEL}>추가 안내 (선택)</label>
+              <label className={TRADE_WRITE_FB_FIELD_LABEL}>{t("trade_116")}</label>
               <AutoGrowTextarea
                 value={descriptionAppend}
                 onChange={(e) => setDescriptionAppend(e.target.value)}
@@ -1738,7 +1740,7 @@ export function TradeWriteForm({
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2 pb-1">
                 {hasFreeShare && hasDirectDeal && !isUsedCarSkin ? (
                   isKarrotGeneral ? (
-                    <div role="radiogroup" aria-label="거래 방식" className="flex w-full gap-2">
+                    <div role="radiogroup" aria-label={t("trade_014")} className="flex w-full gap-2">
                       <button
                         type="button"
                         className={`flex-1 rounded-full border px-4 py-2.5 sam-text-body font-medium transition ${!isFreeShare ? KARROT_PILL_ACTIVE : KARROT_PILL_IDLE}`}
@@ -1761,7 +1763,7 @@ export function TradeWriteForm({
                       </button>
                     </div>
                   ) : (
-                  <div role="radiogroup" aria-label="거래 방식" className="flex flex-wrap gap-x-5 gap-y-2">
+                  <div role="radiogroup" aria-label={t("trade_014")} className="flex flex-wrap gap-x-5 gap-y-2">
                     <label className="flex cursor-pointer items-center gap-2">
                       <input
                         type="radio"
@@ -1773,7 +1775,7 @@ export function TradeWriteForm({
                           setIsDirectDeal(true);
                         }}
                       />
-                      <span className="sam-text-body text-sam-fg">직거래</span>
+                      <span className="sam-text-body text-sam-fg">{t("trade_108")}</span>
                     </label>
                     <label className="flex cursor-pointer items-center gap-2">
                       <input
@@ -1786,7 +1788,7 @@ export function TradeWriteForm({
                           setIsDirectDeal(false);
                         }}
                       />
-                      <span className="sam-text-body text-sam-fg">나눔</span>
+                      <span className="sam-text-body text-sam-fg">{t("trade_050")}</span>
                     </label>
                   </div>
                   )
@@ -1800,7 +1802,7 @@ export function TradeWriteForm({
                           onChange={(e) => setIsFreeShare(e.target.checked)}
                           className="rounded border-sam-border"
                         />
-                        <span className="sam-text-body text-sam-fg">나눔</span>
+                        <span className="sam-text-body text-sam-fg">{t("trade_050")}</span>
                       </label>
                     )}
                     {hasDirectDeal && !isUsedCarSkin && (
@@ -1811,7 +1813,7 @@ export function TradeWriteForm({
                           onChange={(e) => setIsDirectDeal(e.target.checked)}
                           className="rounded border-sam-border"
                         />
-                        <span className="sam-text-body text-sam-fg">직거래</span>
+                        <span className="sam-text-body text-sam-fg">{t("trade_108")}</span>
                       </label>
                     )}
                   </>
@@ -1836,7 +1838,7 @@ export function TradeWriteForm({
                     inputMode="numeric"
                     value={price}
                     onChange={(e) => setPrice(formatPriceInput(e.target.value))}
-                    placeholder="가격을 입력해주세요."
+                    placeholder={t("trade_006")}
                     className="min-w-0 flex-1 border-0 bg-transparent p-0 sam-text-body text-sam-fg outline-none placeholder:text-sam-meta"
                     aria-invalid={!!errors.price}
                   />
@@ -1850,7 +1852,7 @@ export function TradeWriteForm({
                       onChange={(e) => setIsPriceOfferEnabled(e.target.checked)}
                       className={`rounded border-sam-border ${isKarrotGeneral ? "accent-signature" : ""}`}
                     />
-                    <span className="sam-text-body-secondary text-sam-muted">가격 제안 받기</span>
+                    <span className="sam-text-body-secondary text-sam-muted">{t("trade_004")}</span>
                   </label>
                 )}
               </>
@@ -1860,7 +1862,7 @@ export function TradeWriteForm({
         {skinKey === "real-estate" && (
           <>
             <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
-              <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>거래·면적·입주</h4>
+              <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>{t("trade_021")}</h4>
               <div className="space-y-2">
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   <div className="min-w-0">
@@ -1898,7 +1900,9 @@ export function TradeWriteForm({
                 </div>
                 {dealType === "판매" && (
                   <div>
-                    <label className={TRADE_WRITE_FB_FIELD_LABEL}>판매가 <span className="text-sam-danger">*</span></label>
+                    <label className={TRADE_WRITE_FB_FIELD_LABEL}>
+                      {t("trade_123")} <span className="text-sam-danger">*</span>
+                    </label>
                     <div className={`${TRADE_WRITE_FB_CONTROL_ROW} focus-within:ring-2 focus-within:ring-signature/20`}>
                       <span className="shrink-0 sam-text-body font-medium text-sam-muted">
                         {currencyUnit}
@@ -1908,7 +1912,7 @@ export function TradeWriteForm({
                         inputMode="numeric"
                         value={price}
                         onChange={(e) => setPrice(formatPriceInput(e.target.value))}
-                        placeholder="판매가 입력"
+                        placeholder={t("trade_124")}
                         className="min-w-0 flex-1 border-0 bg-transparent p-0 sam-text-body text-sam-fg outline-none placeholder:text-sam-meta"
                         aria-invalid={!!errors.price}
                       />
@@ -2034,11 +2038,11 @@ export function TradeWriteForm({
             </section>
             {dealType === "임대" ? (
               <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
-                <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>선택 정보</h4>
+                <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>{t("trade_076")}</h4>
                 <div className="space-y-2">
                   <div className="min-w-0">
                     <label className={TRADE_WRITE_FB_FIELD_LABEL}>
-                      관리비 <span className="font-normal text-[#8a8d91]">(선택)</span>
+                      관리비 <span className="font-normal text-[#8a8d91]">{t("trade_001")}</span>
                     </label>
                     <div className={TRADE_WRITE_FB_CONTROL_ROW}>
                       <input
@@ -2059,7 +2063,7 @@ export function TradeWriteForm({
                       className="h-4 w-4 rounded border-sam-border text-sam-primary focus:ring-sam-primary/30"
                     />
                     <span className="sam-text-body-secondary text-sam-fg">
-                      권리금 있음 <span className="font-normal text-sam-muted sam-text-body-secondary">(선택)</span>
+                      권리금 있음 <span className="font-normal text-sam-muted sam-text-body-secondary">{t("trade_001")}</span>
                     </span>
                   </label>
                 </div>
@@ -2069,7 +2073,7 @@ export function TradeWriteForm({
         )}
         {skinKey === "used-car" && (
           <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
-            <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>차량 정보</h4>
+            <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>{t("trade_112")}</h4>
             {usedCarTrade === "buy" ? (
               <UsedCarBuyFields
                 bodyTypeKey={usedCarBodyTypeKey}
@@ -2117,7 +2121,7 @@ export function TradeWriteForm({
                     onChange={(e) => setCarHasAccident(e.target.checked)}
                     className="h-4 w-4 rounded border-sam-border text-sam-primary focus:ring-sam-primary/30"
                   />
-                  <span className="sam-text-body-secondary text-sam-fg whitespace-nowrap">사고 이력 있음</span>
+                  <span className="sam-text-body-secondary text-sam-fg whitespace-nowrap">{t("trade_069")}</span>
                 </label>
               </div>
             )}
@@ -2125,10 +2129,10 @@ export function TradeWriteForm({
         )}
         {skinKey === "jobs" && (
           <section className={TRADE_WRITE_FB_SECTION}>
-            <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>알바 정보</h4>
+            <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>{t("trade_082")}</h4>
             <div className="space-y-2">
               <div>
-                <label className={TRADE_WRITE_FB_FIELD_LABEL}>급여</label>
+                <label className={TRADE_WRITE_FB_FIELD_LABEL}>{t("trade_042")}</label>
                 <input
                   type="text"
                   value={salary}
@@ -2138,7 +2142,7 @@ export function TradeWriteForm({
                 />
               </div>
               <div>
-                <label className={TRADE_WRITE_FB_FIELD_LABEL}>근무지</label>
+                <label className={TRADE_WRITE_FB_FIELD_LABEL}>{t("trade_040")}</label>
                 <input
                   type="text"
                   value={workPlace}
@@ -2148,7 +2152,7 @@ export function TradeWriteForm({
                 />
               </div>
               <div>
-                <label className={TRADE_WRITE_FB_FIELD_LABEL}>근무 형태</label>
+                <label className={TRADE_WRITE_FB_FIELD_LABEL}>{t("trade_039")}</label>
                 <input
                   type="text"
                   value={workType}
@@ -2162,10 +2166,10 @@ export function TradeWriteForm({
         )}
         {skinKey === "exchange" && (
           <section className={TRADE_WRITE_FB_SECTION}>
-            <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>환전 정보</h4>
+            <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>{t("trade_132")}</h4>
             <div className="space-y-2">
               <div>
-                <label className={TRADE_WRITE_FB_FIELD_LABEL}>통화</label>
+                <label className={TRADE_WRITE_FB_FIELD_LABEL}>{t("trade_121")}</label>
                 <input
                   type="text"
                   value={currency}
@@ -2175,7 +2179,7 @@ export function TradeWriteForm({
                 />
               </div>
               <div>
-                <label className={TRADE_WRITE_FB_FIELD_LABEL}>환율/비고</label>
+                <label className={TRADE_WRITE_FB_FIELD_LABEL}>{t("trade_131")}</label>
                 <input
                   type="text"
                   value={exchangeRate}
@@ -2189,7 +2193,7 @@ export function TradeWriteForm({
         )}
         {skinKey !== "real-estate" ? tradeLocationEl : null}
         <section className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}>
-          <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>거래 채팅 통화</h4>
+          <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>{t("trade_016")}</h4>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-0.5">
             <label className="flex cursor-pointer items-center gap-2">
               <input
@@ -2199,7 +2203,7 @@ export function TradeWriteForm({
                 checked={tradeChatCallPolicy === "none"}
                 onChange={() => setTradeChatCallPolicy("none")}
               />
-              <span className="sam-text-body font-medium text-sam-fg">받지 않음</span>
+              <span className="sam-text-body font-medium text-sam-fg">{t("trade_062")}</span>
             </label>
             <label className="flex cursor-pointer items-center gap-2">
               <input
@@ -2209,7 +2213,7 @@ export function TradeWriteForm({
                 checked={tradeChatCallPolicy === "voice_only"}
                 onChange={() => setTradeChatCallPolicy("voice_only")}
               />
-              <span className="sam-text-body font-medium text-sam-fg">음성만</span>
+              <span className="sam-text-body font-medium text-sam-fg">{t("trade_097")}</span>
             </label>
             <label className="flex cursor-pointer items-center gap-2">
               <input
@@ -2219,7 +2223,7 @@ export function TradeWriteForm({
                 checked={tradeChatCallPolicy === "voice_and_video"}
                 onChange={() => setTradeChatCallPolicy("voice_and_video")}
               />
-              <span className="sam-text-body font-medium text-sam-fg">음성 + 영상</span>
+              <span className="sam-text-body font-medium text-sam-fg">{t("trade_096")}</span>
             </label>
           </div>
         </section>

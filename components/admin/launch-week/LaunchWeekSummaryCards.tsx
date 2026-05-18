@@ -1,11 +1,15 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo } from "react";
 import { getLaunchWeekSummary } from "@/lib/launch-week/mock-launch-week-summary";
 import { getStabilityLabel } from "@/lib/launch-week/launch-week-utils";
 import Link from "next/link";
 
 export function LaunchWeekSummaryCards() {
+  const { t } = useI18n();
   const summary = useMemo(() => getLaunchWeekSummary(), []);
 
   const stabilityClass =
@@ -30,25 +34,25 @@ export function LaunchWeekSummaryCards() {
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="sam-text-helper text-sam-muted">현재 Day</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_launch_week_kc6c6e832")}</p>
           <p className="sam-text-hero font-semibold text-sam-fg">
             Day {summary.currentDay}
           </p>
         </div>
         <div className={`rounded-ui-rect border p-4 ${stabilityBg}`}>
-          <p className="sam-text-helper text-sam-muted">초기 안정화 상태</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_launch_week_status")}</p>
           <p className={`sam-text-page-title font-semibold ${stabilityClass}`}>
             {getStabilityLabel(summary.currentStabilityStatus)}
           </p>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="sam-text-helper text-sam-muted">오픈 이슈 / Critical</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_launch_week_open_issues_2")}</p>
           <p className="sam-text-page-title font-semibold text-sam-fg">
             {summary.openIssueCount} / {summary.criticalIssueCount}
           </p>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="sam-text-helper text-sam-muted">체크리스트</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_launch_week_checklist_2")}</p>
           <p className="sam-text-page-title font-semibold text-sam-fg">
             {summary.totalChecklistDone} / {summary.totalChecklistCount}
           </p>
@@ -62,13 +66,13 @@ export function LaunchWeekSummaryCards() {
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="sam-text-helper text-sam-muted">오늘 Fallback / Kill Switch</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_launch_week_ked90e83d")}</p>
           <p className="sam-text-body text-sam-fg">
             {summary.fallbackToday} / {summary.killSwitchToday}
           </p>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="sam-text-helper text-sam-muted">연결</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_qa_link_2")}</p>
           <p className="sam-text-body text-sam-fg">
             <Link href="/admin/recommendation-monitoring" className="text-signature hover:underline">
               추천 모니터링

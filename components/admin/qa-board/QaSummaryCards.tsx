@@ -1,11 +1,15 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo } from "react";
 import { getQaSummary } from "@/lib/qa-board/mock-qa-summary";
 import { getGoLiveQaLabel } from "@/lib/qa-board/qa-board-utils";
 import Link from "next/link";
 
 export function QaSummaryCards() {
+  const { t } = useI18n();
   const summary = useMemo(() => getQaSummary(), []);
 
   const passRate =
@@ -33,7 +37,7 @@ export function QaSummaryCards() {
           </p>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="sam-text-helper text-sam-muted">실패 / 차단</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_qa_failed_blocked_2")}</p>
           <p className="sam-text-page-title font-semibold text-sam-fg">
             {summary.failedCases} / {summary.blockedCases}
           </p>
@@ -44,7 +48,7 @@ export function QaSummaryCards() {
             {summary.mustPassPassed} / {summary.mustPassTotal}
           </p>
           {summary.mustPassPassed < summary.mustPassTotal && (
-            <p className="mt-1 sam-text-helper text-amber-600">미통과 있음</p>
+            <p className="mt-1 sam-text-helper text-amber-600">{t("admin_qa_passed")}</p>
           )}
         </div>
         <div
@@ -56,9 +60,9 @@ export function QaSummaryCards() {
                 : "border-emerald-200 bg-emerald-50/30"
           }`}
         >
-          <p className="sam-text-helper text-sam-muted">Go-Live QA 판정</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_go_live_qa_decision")}</p>
           <p className={`sam-text-page-title font-semibold ${goClass}`}>
-            {getGoLiveQaLabel(summary.goLiveQaDecision)}
+            {getGoLiveQaLabel(t, summary.goLiveQaDecision)}
           </p>
           {summary.criticalOpenIssues > 0 && (
             <p className="mt-1 sam-text-helper text-red-600">
@@ -70,13 +74,13 @@ export function QaSummaryCards() {
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="sam-text-helper text-sam-muted">파일럿 운영</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_qa_k692dba38")}</p>
           <p className="sam-text-page-title font-semibold text-sam-fg">
             {summary.pilotDoneCount} / {summary.pilotTotalCount} 완료
           </p>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="sam-text-helper text-sam-muted">연결</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_qa_link_2")}</p>
           <p className="sam-text-body text-sam-fg">
             <Link href="/admin/launch-readiness" className="text-signature hover:underline">
               런칭 준비

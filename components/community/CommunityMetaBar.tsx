@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+
 /** 조회·공감·댓글 작은 메타 줄 (카드/상세 공통) */
 export function CommunityMetaBar({
   viewCount,
@@ -10,11 +12,13 @@ export function CommunityMetaBar({
   likeCount: number;
   commentCount: number;
 }) {
+  const { t } = useI18n();
+
   return (
     <div className="flex flex-wrap gap-3 sam-text-helper text-sam-muted">
-      <span>조회 {viewCount}</span>
-      <span>공감 {likeCount}</span>
-      <span>댓글 {commentCount}</span>
+      <span>{t("community_stat_views", { count: viewCount })}</span>
+      <span>{t("community_stat_likes", { count: likeCount })}</span>
+      <span>{t("community_stat_comments", { count: commentCount })}</span>
     </div>
   );
 }

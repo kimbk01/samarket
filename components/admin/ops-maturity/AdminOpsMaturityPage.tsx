@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { OpsMaturityScoreCards } from "./OpsMaturityScoreCards";
@@ -12,19 +14,20 @@ import { OpsImprovementSummaryCards } from "./OpsImprovementSummaryCards";
 type TabId = "scores" | "kpi" | "roadmap" | "history" | "summary";
 
 export function AdminOpsMaturityPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("scores");
 
-  const tabs: { id: TabId; label: string }[] = [
-    { id: "scores", label: "성숙도 점수" },
-    { id: "kpi", label: "KPI" },
-    { id: "roadmap", label: "로드맵 보드" },
-    { id: "history", label: "히스토리" },
-    { id: "summary", label: "요약 카드" },
+  const tabs: { id: TabId; labelKey: MessageKey }[] = [
+    { id: "scores", labelKey: "admin_ops_tools_maturity_tab_scores" },
+    { id: "kpi", labelKey: "admin_ops_tools_maturity_tab_kpi" },
+    { id: "roadmap", labelKey: "admin_ops_tools_maturity_tab_roadmap" },
+    { id: "history", labelKey: "admin_ops_tools_maturity_tab_history" },
+    { id: "summary", labelKey: "admin_ops_tools_maturity_tab_summary" },
   ];
 
   return (
     <>
-      <AdminPageHeader title="운영 성숙도" />
+      <AdminPageHeader titleKey="admin_ops_tools_maturity_page_title" />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {tabs.map((tab) => (
           <button
@@ -37,37 +40,37 @@ export function AdminOpsMaturityPage() {
                 : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
 
       {activeTab === "scores" && (
-        <AdminCard title="영역별 성숙도 (목표 점수 설정 가능)">
+        <AdminCard titleKey="admin_ops_tools_maturity_card_scores">
           <OpsMaturityScoreCards />
         </AdminCard>
       )}
 
       {activeTab === "kpi" && (
-        <AdminCard title="팀 운영 KPI (이번 주 vs 지난 주 / 이번 달 vs 지난 달)">
+        <AdminCard titleKey="admin_ops_tools_maturity_card_kpi">
           <OpsTeamKpiTable />
         </AdminCard>
       )}
 
       {activeTab === "roadmap" && (
-        <AdminCard title="운영 개선 로드맵">
+        <AdminCard titleKey="admin_ops_tools_maturity_card_roadmap">
           <OpsRoadmapBoard />
         </AdminCard>
       )}
 
       {activeTab === "history" && (
-        <AdminCard title="성숙도 히스토리 (차트 placeholder)">
+        <AdminCard titleKey="admin_ops_tools_maturity_card_history">
           <OpsMaturityHistoryChart />
         </AdminCard>
       )}
 
       {activeTab === "summary" && (
-        <AdminCard title="개선 요약">
+        <AdminCard titleKey="admin_ops_tools_maturity_card_summary">
           <OpsImprovementSummaryCards />
         </AdminCard>
       )}

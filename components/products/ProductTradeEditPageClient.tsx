@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -20,6 +21,7 @@ type Props = {
 };
 
 export function ProductTradeEditPageClient({ postId: id }: Props) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const detailHref = `/post/${id}`;
@@ -42,7 +44,7 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
       res = await fetch(`/api/posts/${encodeURIComponent(id)}/owner-edit`, { credentials: "include" });
     } catch {
       setStatus("error");
-      setErrorMessage("네트워크 오류가 났습니다.");
+      setErrorMessage(t("common_network_error"));
       return;
     }
     const data = (await res.json().catch(() => ({}))) as {
@@ -55,23 +57,23 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
     if (!res.ok || !data.ok) {
       const err = typeof data.error === "string" ? data.error : "";
       if (
-        redirectForBlockedAction(router, err || (res.status === 401 ? "로그인이 필요합니다." : null), pathname || `/products/${id}/edit`)
+        redirectForBlockedAction(router, err || (res.status === 401 ? t("common_login_required") : null), pathname || `/products/${id}/edit`)
       ) {
         return;
       }
       if (res.status === 403 && data.locked) {
         setStatus("locked");
-        setErrorMessage(err || "지금은 수정할 수 없는 상태입니다.");
+        setErrorMessage(err || t("ui_product_edit_cannot_edit"));
         return;
       }
       setStatus("error");
-      setErrorMessage(err || "불러오지 못했습니다.");
+      setErrorMessage(err || t("ui_product_edit_load_failed"));
       return;
     }
     const post = data.post;
     if (!post) {
       setStatus("error");
-      setErrorMessage("글 정보를 받지 못했습니다.");
+      setErrorMessage(t("ui_product_edit_no_payload"));
       return;
     }
     let c: CategoryWithSettings | null = null;
@@ -79,12 +81,12 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
       c = await getCategoryBySlugOrId(post.trade_category_id);
     } catch {
       setStatus("error");
-      setErrorMessage("카테고리를 찾을 수 없습니다.");
+      setErrorMessage(t("trade_120"));
       return;
     }
     if (!c) {
       setStatus("error");
-      setErrorMessage("카테고리를 찾을 수 없습니다.");
+      setErrorMessage(t("trade_120"));
       return;
     }
     if (c.settings && !c.settings.can_write) {
@@ -98,7 +100,7 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
     setTradePolicy(data.tradePolicy ?? null);
     setCategory(c);
     setStatus("ready");
-  }, [id, router, pathname]);
+  }, [id, router, pathname, t]);
 
   useEffect(() => {
     void load();
@@ -119,7 +121,7 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
   if (status === "loading") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background sam-text-body text-sam-muted">
-        불러오는 중…
+        {t("common_loading")}
       </div>
     );
   }
@@ -136,7 +138,7 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
   if (status === "no_write" && category && snapshot && id) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-background px-4">
-        <p className="sam-text-body font-medium text-sam-fg">이 카테고리에는 글을 쓸 수 없습니다.</p>
+        <p className="sam-text-body font-medium text-sam-fg">{t("trade_098")}</p>
         <button
           type="button"
           onPointerEnter={() => void router.prefetch(detailHref)}
@@ -147,7 +149,7 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
           }}
           className="mt-4 sam-text-body text-signature"
         >
-          상품으로 돌아가기
+          {t("ui_product_edit_back_to_product")}
         </button>
       </div>
     );
@@ -156,7 +158,7 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
   if (status !== "ready" || !category || !snapshot) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <p className="sam-text-body text-sam-muted">카테고리 정보를 불러오는 중입니다.</p>
+        <p className="sam-text-body text-sam-muted">{t("trade_119")}</p>
       </div>
     );
   }
@@ -164,7 +166,7 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
   if (category.type !== "trade") {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 px-4">
-        <p className="sam-text-body text-sam-muted">이 상품은 이 화면에서 수정할 수 없습니다.</p>
+        <p className="sam-text-body text-sam-muted">{t("ui_product_edit_cannot_edit")}</p>
         <Link
           href={detailHref}
           onPointerEnter={() => void router.prefetch(detailHref)}
@@ -172,7 +174,7 @@ export function ProductTradeEditPageClient({ postId: id }: Props) {
           onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
           className="sam-text-body font-medium text-signature"
         >
-          상품으로
+          {t("ui_product_edit_back_short")}
         </Link>
       </div>
     );

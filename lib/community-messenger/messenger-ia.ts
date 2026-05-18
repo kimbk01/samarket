@@ -170,26 +170,7 @@ export function inboxKindToChatListChip(
   return "all";
 }
 
-export function messengerChatListChipLabel(chip: MessengerChatListChip): string {
-  switch (chip) {
-    case "all":
-      return "전체";
-    case "unread":
-      return "안읽음";
-    case "pinned":
-      return "고정";
-    case "direct":
-      return "1:1";
-    case "private_group":
-      return "그룹";
-    case "trade":
-      return "거래";
-    case "delivery":
-      return "배달";
-    default:
-      return "전체";
-  }
-}
+export { messengerChatListChipLabelI18n as messengerChatListChipLabel } from "@/lib/community-messenger/messenger-ia-i18n";
 
 export function messengerChatFiltersToSearchParams(inbox: MessengerChatInboxFilter, kind: MessengerChatKindFilter): URLSearchParams {
   const qs = new URLSearchParams();
@@ -202,20 +183,7 @@ export function messengerChatFiltersToSearchParams(inbox: MessengerChatInboxFilt
   return qs;
 }
 
-export function messengerSectionLabel(section: MessengerMainSection): string {
-  switch (section) {
-    case "friends":
-      return "친구";
-    case "chats":
-      return "채팅";
-    case "open_chat":
-      return "모임";
-    case "archive":
-      return "보관함";
-    default:
-      return "채팅";
-  }
-}
+export { messengerSectionLabelI18n as messengerSectionLabel } from "@/lib/community-messenger/messenger-ia-i18n";
 
 export function messengerFriendSwipeItemId(userId: string): string {
   return `friend:swipe:${String(userId ?? "").trim()}`;
@@ -252,68 +220,10 @@ export function messengerRoomMenuItemId(roomId: string, listContext: MessengerCh
   return `room:menu:${listContext}:${String(roomId ?? "").trim()}`;
 }
 
-export function messengerChatInboxFilterLabel(filter: MessengerChatInboxFilter): string {
-  switch (filter) {
-    case "all":
-      return "전체";
-    case "unread":
-      return "안읽음";
-    case "pinned":
-      return "고정";
-    default:
-      return "전체";
-  }
-}
-
-export function messengerChatKindFilterLabel(filter: MessengerChatKindFilter): string {
-  switch (filter) {
-    case "all":
-      return "전체";
-    case "direct":
-      return "1:1";
-    case "private_group":
-      return "그룹";
-    case "trade":
-      return "거래";
-    case "delivery":
-      return "배달";
-    default:
-      return "전체";
-  }
-}
-
-export function messengerChatSubFilterLabel(filter: MessengerChatSubFilter): string {
-  if (CHAT_INBOX_FILTERS.has(filter)) {
-    return messengerChatInboxFilterLabel(filter as MessengerChatInboxFilter);
-  }
-  return messengerChatKindFilterLabel(filter as MessengerChatKindFilter);
-}
-
-/**
- * 채팅 목록이 비었을 때 — 거래/배달 탭은 DB `summary` JSON(v1) 또는 키워드로만 분류되므로
- * 일반 대화만 있으면 비어 보이는 것이 정상임을 안내한다.
- */
-export function messengerChatListEmptyMessage(kind: MessengerChatKindFilter): string {
-  if (kind === "trade") {
-    return "거래로 분류된 대화가 없습니다. 중고 거래채팅에서「SAMessenger에서 이 거래 열기」 또는 스토어 주문 채팅에서「SAMessenger에서 이 주문 열기」로 연결하면 맥락이 붙습니다. 친구 이름만 있는 일반 1:1은 거래 탭에 포함되지 않습니다.";
-  }
-  if (kind === "delivery") {
-    return "배달로 분류된 대화가 없습니다. 배달 주문 채팅에서 메신저로 열면 배달 맥락이 붙은 방만 이 탭에 나타납니다.";
-  }
-  return "조건에 맞는 대화가 없습니다.";
-}
-
-/** 단일 칩 기준 빈 목록 문구(거래/배달만 긴 안내 유지). */
-export function messengerChatListEmptyMessageForChip(chip: MessengerChatListChip): string {
-  if (chip === "trade" || chip === "delivery") {
-    const { kind } = chipToInboxKind(chip);
-    return messengerChatListEmptyMessage(kind);
-  }
-  if (chip === "unread") return "읽지 않은 대화가 없습니다.";
-  if (chip === "pinned") return "고정한 대화가 없습니다.";
-  if (chip === "direct") return "1:1 대화가 없습니다.";
-  if (chip === "private_group") return "그룹 대화가 없습니다.";
-  if (chip === "all") return "대화가 없습니다.\n새 대화를 시작해보세요.";
-  const { kind } = chipToInboxKind(chip);
-  return messengerChatListEmptyMessage(kind);
-}
+export {
+  messengerChatInboxFilterLabelI18n as messengerChatInboxFilterLabel,
+  messengerChatKindFilterLabelI18n as messengerChatKindFilterLabel,
+  messengerChatSubFilterLabelI18n as messengerChatSubFilterLabel,
+  messengerChatListEmptyMessageI18n as messengerChatListEmptyMessage,
+  messengerChatListEmptyMessageForChipI18n as messengerChatListEmptyMessageForChip,
+} from "@/lib/community-messenger/messenger-ia-i18n";

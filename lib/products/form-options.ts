@@ -6,25 +6,21 @@ import { REGIONS } from "./regions-data";
 
 export { REGIONS };
 
-export const CATEGORIES = [
-  "디지털기기",
-  "생활가전",
-  "가구/인테리어",
-  "유아동",
-  "생활/주방",
-  "여성잡화",
-  "남성패션",
-  "스포츠/레저",
-  "게임/취미",
-  "기타중고",
-] as const;
+import type { MessageKey } from "@/lib/i18n/messages";
+import type { ProductCondition } from "@/lib/types/product-form";
 
-export const CONDITIONS = [
-  { value: "new" as const, label: "새 상품" },
-  { value: "like_new" as const, label: "거의 새 것" },
-  { value: "good" as const, label: "좋음" },
-  { value: "fair" as const, label: "보통" },
+export const PRODUCT_CONDITION_OPTIONS: {
+  value: ProductCondition;
+  labelKey: MessageKey;
+}[] = [
+  { value: "new", labelKey: "product_condition_new" },
+  { value: "like_new", labelKey: "product_condition_like_new" },
+  { value: "good", labelKey: "product_condition_good" },
+  { value: "fair", labelKey: "product_condition_fair" },
 ];
+
+/** @deprecated use `PRODUCT_CONDITION_OPTIONS` + `t(labelKey)` */
+export const CONDITIONS = PRODUCT_CONDITION_OPTIONS;
 
 export function getLocationLabel(regionId: string, cityId: string): string {
   const region = REGIONS.find((r) => r.id === regionId);

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { OpsActionSummaryCards } from "./OpsActionSummaryCards";
@@ -17,23 +19,24 @@ type TabId =
   | "retro"
   | "actions";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "summary", label: "요약 카드" },
-  { id: "checklist", label: "일일 체크리스트" },
-  { id: "templates", label: "체크리스트 템플릿" },
-  { id: "retro", label: "운영 회고" },
-  { id: "actions", label: "액션아이템 보드" },
+const TABS: { id: TabId; labelKey: MessageKey }[] = [
+  { id: "summary", labelKey: "admin_ops_tools_board_tab_summary" },
+  { id: "checklist", labelKey: "admin_ops_tools_board_tab_checklist" },
+  { id: "templates", labelKey: "admin_ops_tools_board_tab_templates" },
+  { id: "retro", labelKey: "admin_ops_tools_board_tab_retro" },
+  { id: "actions", labelKey: "admin_ops_tools_board_tab_actions" },
 ];
 
 export function AdminOpsBoardPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("summary");
   const [retroRefresh, setRetroRefresh] = useState(0);
 
   return (
     <>
       <AdminPageHeader
-        title="운영 보드"
-        description="일일 점검 체크리스트·운영 회고·액션아이템"
+        titleKey="admin_ops_tools_board_page_title"
+        descriptionKey="admin_ops_tools_board_page_desc"
       />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {TABS.map((tab) => (
@@ -47,35 +50,35 @@ export function AdminOpsBoardPage() {
                 : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
       {activeTab === "summary" && (
-        <AdminCard title="운영 요약">
+        <AdminCard titleKey="admin_ops_tools_board_card_summary">
           <OpsActionSummaryCards />
         </AdminCard>
       )}
       {activeTab === "checklist" && (
-        <AdminCard title="일일 점검 체크리스트">
+        <AdminCard titleKey="admin_ops_tools_board_card_checklist">
           <OpsChecklistTable />
         </AdminCard>
       )}
       {activeTab === "templates" && (
-        <AdminCard title="체크리스트 템플릿">
+        <AdminCard titleKey="admin_ops_tools_board_card_templates">
           <OpsChecklistTemplateTable />
         </AdminCard>
       )}
       {activeTab === "retro" && (
         <div className="space-y-4">
           <OpsRetrospectiveForm onSaved={() => setRetroRefresh((r) => r + 1)} />
-          <AdminCard title="회고 목록">
+          <AdminCard titleKey="admin_ops_tools_board_card_retro_list">
             <OpsRetrospectiveList refreshKey={retroRefresh} />
           </AdminCard>
         </div>
       )}
       {activeTab === "actions" && (
-        <AdminCard title="액션아이템 보드">
+        <AdminCard titleKey="admin_ops_tools_board_card_actions">
           <OpsActionBoard />
         </AdminCard>
       )}

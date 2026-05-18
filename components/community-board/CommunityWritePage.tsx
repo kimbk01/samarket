@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useState } from "react";
 import { getWriteForm } from "@/lib/community-board/form-registry";
@@ -29,6 +30,7 @@ export function CommunityWritePage({
   boardCategories = [],
   communityTopics = [],
 }: CommunityWritePageProps) {
+  const { t } = useI18n();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const cancelHref = SAMARKET_ROUTES.community.home;
 
@@ -47,8 +49,8 @@ export function CommunityWritePage({
     <div className="min-h-screen bg-sam-app">
       <div className="bg-sam-surface border-b border-sam-border sticky top-0 z-10">
         <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-2">
-          <AppBackButton backHref={cancelHref} ariaLabel="취소" />
-          <h1 className="text-lg font-semibold text-sam-fg">글쓰기</h1>
+          <AppBackButton backHref={cancelHref} ariaLabel={t("common_cancel")} />
+          <h1 className="text-lg font-semibold text-sam-fg">{t("common_write")}</h1>
         </div>
       </div>
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdApplication } from "@/lib/types/ad-application";
 import {
   markAdApplicationPaid,
@@ -18,6 +19,8 @@ export function AdminAdActionPanel({
   application,
   onActionSuccess,
 }: AdminAdActionPanelProps) {
+  const { t } = useI18n();
+
   const handle = (fn: () => AdApplication | undefined) => {
     fn();
     onActionSuccess();
@@ -31,7 +34,7 @@ export function AdminAdActionPanel({
           onClick={() => handle(() => markAdApplicationPaid(application.id))}
           className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 sam-text-body text-emerald-800 hover:bg-emerald-100"
         >
-          입금 확인
+          {t("admin_ads_action_confirm_deposit")}
         </button>
       )}
       {["waiting_payment", "pending"].includes(application.applicationStatus) &&
@@ -41,7 +44,7 @@ export function AdminAdActionPanel({
             onClick={() => handle(() => approveAdApplication(application.id))}
             className="rounded border border-emerald-200 bg-emerald-50 px-3 py-2 sam-text-body text-emerald-800 hover:bg-emerald-100"
           >
-            승인
+            {t("admin_ads_action_approve")}
           </button>
         )}
       {["waiting_payment", "pending"].includes(application.applicationStatus) && (
@@ -50,7 +53,7 @@ export function AdminAdActionPanel({
           onClick={() => handle(() => rejectAdApplication(application.id))}
           className="rounded border border-red-200 bg-red-50 px-3 py-2 sam-text-body text-red-700 hover:bg-red-100"
         >
-          반려
+          {t("admin_ads_action_reject")}
         </button>
       )}
       {application.applicationStatus === "approved" && (
@@ -59,7 +62,7 @@ export function AdminAdActionPanel({
           onClick={() => handle(() => activateAdApplication(application.id))}
           className="rounded border border-signature bg-signature/10 px-3 py-2 sam-text-body text-signature hover:bg-signature/20"
         >
-          노출 시작
+          {t("admin_ads_action_start_exposure")}
         </button>
       )}
       {application.applicationStatus === "active" && (
@@ -68,7 +71,7 @@ export function AdminAdActionPanel({
           onClick={() => handle(() => expireAdApplication(application.id))}
           className="rounded border border-sam-border bg-sam-surface-muted px-3 py-2 sam-text-body text-sam-fg hover:bg-sam-border-soft"
         >
-          노출 종료
+          {t("admin_ads_action_end_exposure")}
         </button>
       )}
     </div>

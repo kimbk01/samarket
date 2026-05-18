@@ -11,6 +11,7 @@ import {
 } from "@/lib/business/owner-store-stack";
 import { StoreAddressLocationSection } from "@/components/stores/StoreAddressLocationSection";
 import { STORE_LOCATION_SECTION_HINT_MOCK_EDIT } from "@/lib/stores/store-address-form-ui";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export interface BusinessProfileEditFormValues {
   shopName: string;
@@ -44,6 +45,7 @@ export function BusinessProfileEditForm({
   onSubmit,
   submitLabel = "저장",
 }: BusinessProfileEditFormProps) {
+  const { t } = useI18n();
   const [values, setValues] = useState<BusinessProfileEditFormValues>({
     shopName: profile.shopName,
     description: profile.description,
@@ -167,10 +169,10 @@ export function BusinessProfileEditForm({
           }
           className={OWNER_STORE_SELECT_CLASS}
         >
-          <option value="일반">일반</option>
-          <option value="디지털/가전">디지털/가전</option>
-          <option value="의류">의류</option>
-          <option value="생활">생활</option>
+          <option value={t("business_phase7_237")}>{t("business_phase7_237")}</option>
+          <option value={t("business_phase7_059")}>{t("business_phase7_059")}</option>
+          <option value={t("business_phase7_230")}>{t("business_phase7_230")}</option>
+          <option value={t("business_phase7_157")}>{t("business_phase7_157")}</option>
         </select>
       </div>
       <button

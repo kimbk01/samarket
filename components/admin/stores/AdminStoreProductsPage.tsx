@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
 type Row = {
@@ -16,16 +18,17 @@ type Row = {
   store: { store_name: string; slug: string } | null;
 };
 
-const FILTERS = [
-  { value: "all", label: "전체" },
-  { value: "active", label: "판매중" },
-  { value: "draft", label: "초안" },
-  { value: "hidden", label: "숨김" },
-  { value: "blocked", label: "차단" },
-  { value: "sold_out", label: "품절" },
+const FILTERS: { value: string; labelKey: MessageKey }[] = [
+  { value: "all", labelKey: "admin_stores_product_filter_all" },
+  { value: "active", labelKey: "admin_stores_product_filter_active" },
+  { value: "draft", labelKey: "common_draft" },
+  { value: "hidden", labelKey: "common_hidden" },
+  { value: "blocked", labelKey: "common_block" },
+  { value: "sold_out", labelKey: "admin_stores_product_filter_sold_out" },
 ];
 
 export function AdminStoreProductsPage() {
+  const { t } = useI18n();
   const [filter, setFilter] = useState("all");
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,6 +40,13 @@ export function AdminStoreProductsPage() {
     [filter]
   );
 
+  const errorText =
+    error === "forbidden"
+      ? t("admin_audit_err_no_permission")
+      : error === "network_error"
+        ? t("common_network_error")
+        : error;
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -44,7 +54,7 @@ export function AdminStoreProductsPage() {
       const res = await fetch(`/api/admin/store-products${qs}`, { credentials: "include" });
       const json = await res.json();
       if (res.status === 403) {
-        setError("관리자 권한이 없습니다.");
+        setError("forbidden");
         setRows([]);
         return;
       }
@@ -69,7 +79,7 @@ export function AdminStoreProductsPage() {
   const run = async (id: string, action: string) => {
     const memo =
       action === "block" || action === "hide"
-        ? window.prompt("메모(선택)", "")?.trim() || null
+        ? window.prompt(t("admin_stores_prompt_memo_optional"), "")?.trim() || null
         : null;
     setBusyId(id);
     setError(null);
@@ -95,11 +105,8 @@ export function AdminStoreProductsPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="매장 상품 검수" />
-      <p className="sam-text-body-secondary text-sam-muted">
-        차단(blocked)·숨김·판매중 복구. 공개 목록은 <code className="rounded bg-sam-surface-muted px-1">active</code> 만
-        노출됩니다.
-      </p>
+      <AdminPageHeader titleKey="admin_page_store_products" />
+      <p className="sam-text-body-secondary text-sam-muted">{t("admin_stores_products_desc")}</p>
 
       <div className="flex flex-wrap gap-2">
         {FILTERS.map((f) => (
@@ -113,33 +120,33 @@ export function AdminStoreProductsPage() {
                 : "border border-sam-border bg-sam-surface text-sam-fg"
             }`}
           >
-            {f.label}
+            {t(f.labelKey)}
           </button>
         ))}
       </div>
 
-      {error ? (
+      {errorText ? (
         <div className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800">
-          {error}
+          {errorText}
         </div>
       ) : null}
 
       {loading ? (
-        <p className="sam-text-body text-sam-muted">불러오는 중…</p>
+        <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
       ) : rows.length === 0 ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          상품이 없습니다.
+          {t("admin_stores_products_empty")}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="min-w-[900px] w-full border-collapse text-left sam-text-body-secondary">
             <thead className="border-b border-sam-border bg-sam-app sam-text-helper text-sam-muted">
               <tr>
-                <th className="px-3 py-2 font-medium">상품</th>
-                <th className="px-3 py-2 font-medium">매장</th>
-                <th className="px-3 py-2 font-medium">상태</th>
-                <th className="px-3 py-2 font-medium">검수</th>
-                <th className="px-3 py-2 font-medium">액션</th>
+                <th className="px-3 py-2 font-medium">{t("admin_stores_products_th_product")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_stores_products_th_store")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_stores_products_th_status")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_stores_products_th_review")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_stores_products_th_action")}</th>
               </tr>
             </thead>
             <tbody>
@@ -151,7 +158,6 @@ export function AdminStoreProductsPage() {
                       <div className="flex gap-2">
                         <div className="h-10 w-10 shrink-0 overflow-hidden rounded bg-sam-surface-muted">
                           {r.thumbnail_url ? (
-                             
                             <img src={r.thumbnail_url} alt="" className="h-full w-full object-cover" />
                           ) : null}
                         </div>
@@ -178,7 +184,7 @@ export function AdminStoreProductsPage() {
                             className="rounded border border-red-200 bg-red-50 px-2 py-1 text-left sam-text-helper text-red-900 disabled:opacity-50"
                             onClick={() => void run(r.id, "block")}
                           >
-                            차단
+                            {t("common_block")}
                           </button>
                         )}
                         {r.product_status === "active" && (
@@ -188,7 +194,7 @@ export function AdminStoreProductsPage() {
                             className="rounded border border-sam-border bg-sam-app px-2 py-1 text-left sam-text-helper disabled:opacity-50"
                             onClick={() => void run(r.id, "hide")}
                           >
-                            숨김
+                            {t("common_hidden")}
                           </button>
                         )}
                         {r.product_status !== "active" && r.product_status !== "deleted" && (
@@ -198,7 +204,7 @@ export function AdminStoreProductsPage() {
                             className="rounded border border-green-200 bg-green-50 px-2 py-1 text-left sam-text-helper text-green-900 disabled:opacity-50"
                             onClick={() => void run(r.id, "activate")}
                           >
-                            판매중(복구)
+                            {t("admin_stores_product_activate")}
                           </button>
                         )}
                       </div>

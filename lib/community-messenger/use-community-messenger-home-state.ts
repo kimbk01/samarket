@@ -9,7 +9,12 @@ import {
   communityMessengerRoomIsTrade,
   messengerDirectThreadListCollapseKey,
 } from "@/lib/community-messenger/messenger-room-domain";
-import { formatCommunityMessengerCallDurationLabel } from "@/lib/community-messenger/call-duration-label";
+import { philifeMeetingMemberRoleLabel } from "@/lib/community-messenger/cm-ui-translate";
+import {
+  formatCallPreview,
+  getRoomPreviewText,
+  getRoomTypeBadgeLabel,
+} from "@/lib/community-messenger/cm-home-list-copy";
 import {
   communityMessengerRoomIsInboxHidden,
   type CommunityMessengerBootstrap,
@@ -413,7 +418,10 @@ export function useCommunityMessengerHomeState({
       if (chatKindFilter === "trade" && !communityMessengerRoomIsTrade(room)) return false;
       if (chatKindFilter === "delivery" && !communityMessengerRoomIsDelivery(room)) return false;
       if (!keyword) return true;
-      const haystack = [room.title, room.subtitle, room.summary, item.preview, room.philifeMeetingMemberLabel ?? ""]
+      const meetingRoleHaystack = room.philifeMeetingMemberLabel
+        ? philifeMeetingMemberRoleLabel(room.philifeMeetingMemberLabel)
+        : "";
+      const haystack = [room.title, room.subtitle, room.summary, item.preview, meetingRoleHaystack]
         .join(" ")
         .toLowerCase();
       return haystack.includes(keyword);
@@ -429,7 +437,10 @@ export function useCommunityMessengerHomeState({
     return unifiedRooms
       .filter((item) => {
         const room = item.room;
-        const haystack = [room.title, room.subtitle, room.summary, item.preview, room.philifeMeetingMemberLabel ?? ""]
+        const meetingRoleHaystack = room.philifeMeetingMemberLabel
+          ? philifeMeetingMemberRoleLabel(room.philifeMeetingMemberLabel)
+          : "";
+        const haystack = [room.title, room.subtitle, room.summary, item.preview, meetingRoleHaystack]
           .join(" ")
           .toLowerCase();
         return haystack.includes(keyword);
@@ -464,14 +475,7 @@ export function useCommunityMessengerHomeState({
   };
 }
 
-export function formatCallPreview(call: CommunityMessengerCallLog): string {
-  const kindLabel = call.callKind === "video" ? "영상 통화" : "음성 통화";
-  if (call.status === "missed") return "부재중 통화";
-  if (call.status === "cancelled") return `${kindLabel} · 취소됨`;
-  if (call.status === "rejected") return `${kindLabel} · 거절됨`;
-  if (call.durationSeconds > 0) return `${kindLabel} · ${formatDurationLabel(call.durationSeconds)}`;
-  return `${kindLabel} 종료`;
-}
+export { formatCallPreview, getRoomTypeBadgeLabel } from "@/lib/community-messenger/cm-home-list-copy";
 
 export function formatConversationTimestamp(value: string): string {
   const time = new Date(value).getTime();
@@ -512,64 +516,6 @@ function directRoomMapsEqual(
     if (a.get(k) !== v) return false;
   }
   return true;
-}
-
-export function getRoomTypeBadgeLabel(room: CommunityMessengerRoomSummary): string {
-  if (room.roomType === "open_group") return "오픈";
-  if (room.roomType === "private_group") return "그룹";
-  if (room.contextMeta?.kind === "delivery") return "배달";
-  if (room.contextMeta?.kind === "trade") return "거래";
-  if (communityMessengerRoomIsDelivery(room)) return "배달";
-  if (communityMessengerRoomIsTrade(room)) return "거래";
-  return "1:1";
-}
-
-function getRoomPreviewText(room: CommunityMessengerRoomSummary): string {
-  const lastMessage = room.lastMessage?.trim();
-  const lastMessageType = room.lastMessageType ?? "text";
-  if (lastMessageType === "image") return "사진";
-  if (lastMessageType === "voice") return "음성 메시지";
-  if (lastMessageType === "file") {
-    if (!lastMessage) return "파일";
-    return lastMessage === "파일" ? lastMessage : `파일 · ${lastMessage}`;
-  }
-  if (lastMessageType === "system") {
-    return formatSystemPreview(lastMessage);
-  }
-  if (lastMessageType === "call_stub") {
-    if (!lastMessage) return "통화";
-    return lastMessage.includes("통화") ? lastMessage : `통화 · ${lastMessage}`;
-  }
-  if (lastMessage) return lastMessage;
-  const meta = room.contextMeta;
-  if (meta?.headline) return meta.headline;
-  const summary = room.summary?.trim();
-  if (summary) {
-    if (meta) return "메시지를 확인해 주세요.";
-    if (summary[0] === "{") return "거래·주문 안내";
-    return summary;
-  }
-  return "최근 메시지가 아직 없습니다.";
-}
-
-function formatSystemPreview(value: string): string {
-  const text = value.trim();
-  if (!text) return "시스템 메시지";
-  if (text.startsWith("공지 수정")) return "공지 변경";
-  if (text.startsWith("공지 변경")) return "공지 변경";
-  if (text === "공지 삭제" || text === "공지가 삭제되었습니다.") return "공지 삭제";
-  if (text.startsWith("운영 권한 변경") || text === "그룹 권한이 변경되었습니다.") return "권한 변경";
-  if (text.startsWith("관리자 지정")) return text;
-  if (text.startsWith("관리자 해제")) return text;
-  if (text.startsWith("방장 위임")) return text;
-  if (text.startsWith("멤버 초대")) return text;
-  if (text.startsWith("멤버 내보내기")) return text;
-  if (text.includes("주문") && (text.includes("접수") || text.includes("접수됨"))) return "주문접수";
-  if (text.includes("거래") && text.includes("제안")) {
-    const m = text.match(/[\d,.\s]+[₱₩$€원]/);
-    return m ? `거래 제안 ${m[0].trim()}` : "거래 제안";
-  }
-  return "시스템 메시지";
 }
 
 function sortRooms(rooms: CommunityMessengerRoomSummary[]): CommunityMessengerRoomSummary[] {
@@ -647,6 +593,3 @@ function mergeCallsByConversation(sortedNewestFirst: CommunityMessengerCallLog[]
   return out;
 }
 
-function formatDurationLabel(seconds: number): string {
-  return formatCommunityMessengerCallDurationLabel(seconds);
-}

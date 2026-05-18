@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -24,6 +25,7 @@ interface FavoriteProductCardProps {
 }
 
 export function FavoriteProductCard({ product }: FavoriteProductCardProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const isSold = product.status === "sold";
   const detailHref = `/post/${product.id}`;
@@ -55,7 +57,7 @@ export function FavoriteProductCard({ product }: FavoriteProductCardProps) {
           />
           {product.isBoosted && (
             <span className="absolute left-1 top-1 rounded bg-signature px-1.5 py-0.5 sam-text-xxs font-medium text-white">
-              끌올
+              {t("mypage_comp_product_bump")}
             </span>
           )}
         </div>

@@ -7,10 +7,14 @@ import {
   USED_CAR_BRAND_OTHER_KEY,
   buildCarModelLineFromKeys,
   buildUsedCarYearSelectOptions,
+  labelForUsedCarMileagePresetKey,
   USED_CAR_MILEAGE_PRESETS,
   USED_CAR_MILEAGE_CUSTOM_KEY,
+  usedCarBrandOptionLabel,
+  usedCarModelOptionLabel,
 } from "@/lib/trade/used-car-form-catalog";
 import { TRADE_WRITE_FB_CONTROL, TRADE_WRITE_FB_FIELD_LABEL } from "@/lib/ui/trade-write-fb-ui";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export type UsedCarSellFieldsErrors = {
   carYear?: string;
@@ -49,6 +53,7 @@ export function UsedCarSellFields({
   setMileagePresetKey,
   errors,
 }: UsedCarSellFieldsProps) {
+  const { t } = useI18n();
   const yearOpts = useMemo(() => buildUsedCarYearSelectOptions(), []);
   const brand = USED_CAR_BRANDS.find((b) => b.key === brandKey);
   const models = brand?.models ?? [];
@@ -71,10 +76,10 @@ export function UsedCarSellFields({
             className={TRADE_WRITE_FB_CONTROL}
             aria-invalid={!!errors.carModel && !brandKey}
           >
-            <option value="">선택</option>
+            <option value="">{t("trade_075")}</option>
             {USED_CAR_BRANDS.map((b) => (
               <option key={b.key} value={b.key}>
-                {b.label}
+                {usedCarBrandOptionLabel(t, b.key, b.label)}
               </option>
             ))}
           </select>
@@ -96,10 +101,10 @@ export function UsedCarSellFields({
               className={TRADE_WRITE_FB_CONTROL}
               aria-invalid={!!errors.carModel && !modelKey}
             >
-              <option value="">선택</option>
+              <option value="">{t("trade_075")}</option>
               {models.map((m) => (
                 <option key={m.key} value={m.key}>
-                  {m.label}
+                  {usedCarModelOptionLabel(t, m.key, m.label)}
                 </option>
               ))}
             </select>
@@ -158,13 +163,13 @@ export function UsedCarSellFields({
             className={TRADE_WRITE_FB_CONTROL}
             aria-invalid={!!errors.mileage}
           >
-            <option value="">선택</option>
+            <option value="">{t("trade_075")}</option>
             {USED_CAR_MILEAGE_PRESETS.map((p) => (
               <option key={p.key} value={p.key}>
-                {p.label}
+                {labelForUsedCarMileagePresetKey(p.key, t)}
               </option>
             ))}
-            <option value={USED_CAR_MILEAGE_CUSTOM_KEY}>직접 입력</option>
+            <option value={USED_CAR_MILEAGE_CUSTOM_KEY}>{t("trade_109")}</option>
           </select>
           {mileagePresetKey === USED_CAR_MILEAGE_CUSTOM_KEY ? (
             <input

@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export default function ProductNotFound() {
+  const { t } = useI18n();
   return (
     <div className="flex flex-col items-center justify-center px-4 py-16 text-center">
-      <p className="sam-text-body font-medium text-sam-fg">상품을 찾을 수 없어요</p>
+      <p className="sam-text-body font-medium text-sam-fg">{t("trade_073")}</p>
       <p className="mt-1 sam-text-body-secondary text-sam-muted">
         삭제되었거나 존재하지 않는 상품이에요.
       </p>

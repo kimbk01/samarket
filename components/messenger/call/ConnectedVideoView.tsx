@@ -9,10 +9,12 @@ import { MiniLocalVideo } from "./MiniLocalVideo";
 import { useCallTimer } from "./useCallTimer";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const IDLE_HIDE_MS = 4200;
 
 export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
+  const { t } = useI18n();
   const timer = useCallTimer({
     connectedAt: vm.connectedAt,
     endedAt: vm.endedAt,
@@ -125,7 +127,9 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
             <div className="max-w-[92vw] text-center drop-shadow-[0_2px_14px_rgba(0,0,0,0.55)]">
               {vm.hideOutgoingVideoBrandRow ? null : (
                 <div className="flex items-center justify-center gap-2 text-white/95">
-                  <span className="min-w-0 truncate sam-text-body font-medium tracking-tight">사마켓 영상 통화…</span>
+                  <span className="min-w-0 truncate sam-text-body font-medium tracking-tight">
+                    {t("cm_ui_samarket_video_call_brand")}…
+                  </span>
                 </div>
               )}
               <div
@@ -164,8 +168,8 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
             <button
               type="button"
               className="flex h-11 w-11 items-center justify-center rounded-full bg-black/40 text-white backdrop-blur-md transition active:scale-[0.96]"
-              aria-label="참가자"
-              onClick={() => showMessengerSnackbar("참가자 초대는 준비 중입니다.")}
+              aria-label={t("cm_ui_participants")}
+              onClick={() => showMessengerSnackbar(t("cm_ui_participant_invite_soon"))}
             >
               <Monitor size={22} />
             </button>
@@ -213,7 +217,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
             {vm.miniVideoSlot}
           </MiniLocalVideo>
         ) : vm.showLocalVideo ? (
-          <MiniLocalVideo label="나" minimized={vm.mediaState.localVideoMinimized} className={pipCornerExtra}>
+          <MiniLocalVideo label={t("common_me")} minimized={vm.mediaState.localVideoMinimized} className={pipCornerExtra}>
             {vm.miniVideoSlot}
           </MiniLocalVideo>
         ) : null}
@@ -228,7 +232,7 @@ export function ConnectedVideoView({ vm }: { vm: CallScreenViewModel }) {
           <button
             type="button"
             className="absolute inset-0 z-[5] bg-transparent"
-            aria-label="통화 버튼 표시"
+            aria-label={t("cm_ui_show_call_controls")}
             onClick={() => revealControls()}
           />
         ) : null}

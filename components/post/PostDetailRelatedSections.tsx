@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -7,7 +8,6 @@ import type { PostWithMeta } from "@/lib/posts/schema";
 import { getAppSettings } from "@/lib/app-settings";
 import { buildPostListPreviewModel } from "@/lib/posts/post-list-preview-model";
 import { PostListPreviewColumn } from "@/components/post/PostListPreviewColumn";
-import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { formatPrice } from "@/lib/utils/format";
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 
@@ -46,14 +46,20 @@ function PostMiniCard({ item }: { item: PostWithMeta }) {
       className="block overflow-hidden rounded-md border border-[#ccd0d5] bg-white"
     >
       <div className="relative aspect-square bg-sam-app">
-        <SamarketThumbnail
-          src={thumb}
-          fill
-          roundedClassName="rounded-none"
-          className="bg-sam-app"
-          fallbackSrc=""
-          fallbackNode={<span className="sam-text-helper text-sam-muted">이미지</span>}
-        />
+        {thumb ? (
+          <img
+            src={thumb}
+            alt=""
+            width={320}
+            height={320}
+            className="h-full w-full object-cover"
+            loading="lazy"
+            decoding="async"
+            fetchPriority="low"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center sam-text-helper text-sam-muted">{t("ui_product_gallery_fallback")}</div>
+        )}
       </div>
       <div className="space-y-1 px-2.5 py-2.5">
         {preview ? (
@@ -96,18 +102,24 @@ function PostAdCompactCard({ item }: { item: PostWithMeta }) {
     >
       <div className="overflow-hidden rounded-md border border-[#ccd0d5] bg-white">
         <div className="aspect-square bg-sam-app">
-          <SamarketThumbnail
-            src={thumb}
-            fill
-            roundedClassName="rounded-none"
-            className="bg-sam-app"
-            fallbackSrc=""
-            fallbackNode={<span className="sam-text-xxs text-sam-muted">이미지</span>}
-          />
+          {thumb ? (
+            <img
+              src={thumb}
+              alt=""
+              width={320}
+              height={320}
+              className="h-full w-full object-cover"
+              loading="lazy"
+              decoding="async"
+              fetchPriority="low"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center sam-text-xxs text-sam-muted">{t("ui_product_gallery_fallback")}</div>
+          )}
         </div>
       </div>
       <p className="mt-1.5 line-clamp-2 sam-text-helper font-medium leading-tight text-sam-fg">{item.title}</p>
-      <p className="mt-0.5 sam-text-xxs text-sam-muted">파트너 · 광고</p>
+      <p className="mt-0.5 sam-text-xxs text-sam-muted">{t("ui_post_related_partner_ad")}</p>
       <p className="sam-text-body-lg font-bold leading-tight text-sam-fg">{priceText}</p>
     </Link>
   );
@@ -131,8 +143,8 @@ function RelatedAdsCarouselSection({ items }: { items: PostWithMeta[] }) {
           <h3 className="truncate text-[13px] font-bold leading-tight text-[#050505]">{personalTitle}</h3>
           <span
             className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-sam-border sam-text-xxs text-sam-muted"
-            aria-label="광고 안내"
-            title="광고 상품 영역"
+            aria-label={t("ui_post_ad_info_aria")}
+            title={t("ui_post_ad_product_area_title")}
           >
             i
           </span>
@@ -141,7 +153,7 @@ function RelatedAdsCarouselSection({ items }: { items: PostWithMeta[] }) {
           <button
             type="button"
             className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-sam-border text-sam-muted"
-            aria-label="다음 광고 페이지"
+            aria-label={t("ui_post_ad_next_page_aria")}
             onClick={() => {
               const next = (page + 1) % pages.length;
               const el = scrollerRef.current;
@@ -223,6 +235,7 @@ function RelatedGridSection({
 const RELATED_STACK_CARD_CLASS = "border-t border-[#e4e6eb] bg-white";
 
 export function PostDetailRelatedSections({ sellerItems, similarItems, ads }: RelatedProps) {
+  const { t } = useI18n();
   if (sellerItems.length === 0 && similarItems.length === 0 && ads.length === 0) {
     return null;
   }
@@ -230,9 +243,9 @@ export function PostDetailRelatedSections({ sellerItems, similarItems, ads }: Re
   return (
     <div className={RELATED_STACK_CARD_CLASS}>
       <div className="space-y-6 px-3 py-4 sm:px-4">
-        <RelatedGridSection title="판매자의 다른 물품" items={sellerItems} />
+        <RelatedGridSection title={t("ui_post_related_seller_items")} items={sellerItems} />
         <RelatedAdsCarouselSection items={ads} />
-        <RelatedGridSection title="보고 있는 물품과 비슷한 물품" items={similarItems} />
+        <RelatedGridSection title={t("ui_post_related_similar_items")} items={similarItems} />
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useState } from "react";
 import { AdProductSelector } from "./AdProductSelector";
 import { getUserPointBalance } from "@/lib/ads/mock-ad-data";
@@ -24,6 +25,7 @@ export function PostAdProposalModal({
   boardKey = "plife",
   onSkip,
 }: PostAdProposalModalProps) {
+  const { t } = useI18n();
   const me = getCurrentUser();
   const [step, setStep] = useState<"propose" | "select" | "done">("propose");
   const [adId, setAdId] = useState<string>("");
@@ -38,7 +40,7 @@ export function PostAdProposalModal({
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
               <span className="sam-text-hero">✅</span>
             </div>
-            <h2 className="sam-text-page-title font-bold text-sam-fg">광고 신청 완료!</h2>
+            <h2 className="sam-text-page-title font-bold text-sam-fg">{t("ui_ad_apply_complete_title")}</h2>
             <p className="sam-text-body-secondary text-sam-muted">
               관리자 검토 후 승인되면 피드 상단에 노출됩니다.
               <br />
@@ -101,7 +103,7 @@ export function PostAdProposalModal({
           <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-amber-50">
             <span className="sam-text-hero">📢</span>
           </div>
-          <h2 className="sam-text-page-title font-bold text-sam-fg">이 글을 광고로 노출할까요?</h2>
+          <h2 className="sam-text-page-title font-bold text-sam-fg">{t("ui_ad_promote_confirm_title")}</h2>
           <p className="mt-2 sam-text-body-secondary text-sam-muted">
             포인트를 사용해 커뮤니티 피드 상단에 내 글을 노출시켜 보세요.
             <br />더 많은 이웃이 볼 수 있어요.
@@ -110,7 +112,7 @@ export function PostAdProposalModal({
 
         {/* 포인트 잔액 */}
         <div className="mt-4 flex items-center justify-between rounded-ui-rect bg-sky-50 px-3 py-2.5">
-          <span className="sam-text-body-secondary text-sky-700">내 포인트 잔액</span>
+          <span className="sam-text-body-secondary text-sky-700">{t("ui_ad_my_points_balance")}</span>
           <span className="sam-text-body-lg font-bold text-sky-800">{balance.toLocaleString()}P</span>
         </div>
 

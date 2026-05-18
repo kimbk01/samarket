@@ -1,9 +1,11 @@
 "use client";
 
 import { useMemo } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getPostReleaseChecks } from "@/lib/dev-sprints/mock-post-release-checks";
 
 export function ReleaseReadinessCard() {
+  const { t } = useI18n();
   const readiness = useMemo(() => {
     const checks = getPostReleaseChecks();
     const criticalBlocked = checks.filter(
@@ -28,18 +30,19 @@ export function ReleaseReadinessCard() {
           : "border-red-200 bg-red-50/50"
       }`}
     >
-      <p className="sam-text-helper text-sam-muted">릴리즈 준비 상태</p>
+      <p className="sam-text-helper text-sam-muted">{t("admin_rel_readiness_label")}</p>
       <p
         className={`sam-text-page-title font-semibold ${
           readiness.ready ? "text-emerald-700" : "text-red-700"
         }`}
       >
-        {readiness.ready ? "준비됨" : "critical 블로킹 있음"}
+        {readiness.ready ? t("admin_rel_readiness_ready") : t("admin_rel_readiness_blocked")}
       </p>
       <p className="mt-1 sam-text-body-secondary text-sam-muted">
-        critical 블로킹 {readiness.criticalBlockedCount}건
-        {readiness.criticalTodoCount > 0 &&
-          ` · critical 미완료 ${readiness.criticalTodoCount}건`}
+        {t("admin_rel_readiness_critical_blocked", { count: readiness.criticalBlockedCount })}
+        {readiness.criticalTodoCount > 0
+          ? t("admin_rel_readiness_critical_todo", { count: readiness.criticalTodoCount })
+          : null}
       </p>
     </div>
   );

@@ -1,8 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import type { AdminBanner, BannerPlacement, BannerStatus } from "@/lib/types/admin-banner";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { BannerPlacement, BannerStatus } from "@/lib/types/admin-banner";
 import { getBannerPlacements } from "@/lib/admin-banners/mock-banner-placements";
+import {
+  ADMIN_BANNER_PLACEMENT_KEYS,
+  ADMIN_BANNER_STATUS_KEYS,
+} from "./admin-banner-i18n";
 
 export interface AdminBannerFormValues {
   title: string;
@@ -41,8 +46,10 @@ interface AdminBannerFormProps {
 export function AdminBannerForm({
   initial,
   onSubmit,
-  submitLabel = "저장",
+  submitLabel,
 }: AdminBannerFormProps) {
+  const { t } = useI18n();
+  const resolvedSubmitLabel = submitLabel ?? t("common_save");
   const [values, setValues] = useState<AdminBannerFormValues>({
     ...DEFAULT_VALUES,
     ...initial,
@@ -59,19 +66,19 @@ export function AdminBannerForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          제목
+          {t("admin_banners_label_title")}
         </label>
         <input
           type="text"
           value={values.title}
           onChange={(e) => setValues((v) => ({ ...v, title: e.target.value }))}
           className="w-full rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
-          placeholder="배너 제목"
+          placeholder={t("admin_banners_field_title_placeholder")}
         />
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          설명
+          {t("admin_banners_label_description")}
         </label>
         <textarea
           value={values.description}
@@ -80,24 +87,24 @@ export function AdminBannerForm({
           }
           rows={2}
           className="w-full rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
-          placeholder="내부용 설명"
+          placeholder={t("admin_banners_field_desc_placeholder")}
         />
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          이미지 URL (데스크톱)
+          {t("admin_banners_field_image_desktop")}
         </label>
         <input
           type="text"
           value={values.imageUrl}
           onChange={(e) => setValues((v) => ({ ...v, imageUrl: e.target.value }))}
           className="w-full rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
-          placeholder="이미지 URL 또는 업로드 예정"
+          placeholder={t("admin_banners_field_image_desktop_placeholder")}
         />
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          이미지 URL (모바일)
+          {t("admin_banners_field_image_mobile")}
         </label>
         <input
           type="text"
@@ -106,12 +113,12 @@ export function AdminBannerForm({
             setValues((v) => ({ ...v, mobileImageUrl: e.target.value }))
           }
           className="w-full rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
-          placeholder="모바일 이미지 URL 또는 업로드 예정"
+          placeholder={t("admin_banners_field_image_mobile_placeholder")}
         />
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          클릭 URL
+          {t("admin_banners_label_click_url")}
         </label>
         <input
           type="text"
@@ -123,7 +130,7 @@ export function AdminBannerForm({
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          노출 위치
+          {t("admin_banners_field_placement")}
         </label>
         <select
           value={values.placement}
@@ -137,14 +144,17 @@ export function AdminBannerForm({
         >
           {placements.map((p) => (
             <option key={p.key} value={p.key}>
-              {p.label} (최대 {p.maxVisibleCount}개)
+              {t("admin_banners_placement_max_count", {
+                label: t(ADMIN_BANNER_PLACEMENT_KEYS[p.key]),
+                max: p.maxVisibleCount,
+              })}
             </option>
           ))}
         </select>
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          우선순위 (숫자 작을수록 먼저)
+          {t("admin_banners_field_priority")}
         </label>
         <input
           type="number"
@@ -159,7 +169,7 @@ export function AdminBannerForm({
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-            노출 시작일
+            {t("admin_banners_field_start")}
           </label>
           <input
             type="datetime-local"
@@ -175,7 +185,7 @@ export function AdminBannerForm({
         </div>
         <div>
           <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-            노출 종료일
+            {t("admin_banners_field_end")}
           </label>
           <input
             type="datetime-local"
@@ -192,7 +202,7 @@ export function AdminBannerForm({
       </div>
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          관리자 메모
+          {t("admin_banners_label_admin_memo")}
         </label>
         <textarea
           value={values.adminMemo}
@@ -201,13 +211,13 @@ export function AdminBannerForm({
           }
           rows={2}
           className="w-full rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
-          placeholder="내부 메모"
+          placeholder={t("admin_banners_field_memo_placeholder")}
         />
       </div>
       {initial && "status" in initial && (
         <div>
           <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-            상태
+            {t("admin_banners_label_status")}
           </label>
           <select
             value={values.status}
@@ -216,10 +226,11 @@ export function AdminBannerForm({
             }
             className="rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
           >
-            <option value="draft">초안</option>
-            <option value="active">활성</option>
-            <option value="paused">일시중지</option>
-            <option value="hidden">숨김</option>
+            {(Object.keys(ADMIN_BANNER_STATUS_KEYS) as BannerStatus[]).map((status) => (
+              <option key={status} value={status}>
+                {t(ADMIN_BANNER_STATUS_KEYS[status])}
+              </option>
+            ))}
           </select>
         </div>
       )}
@@ -228,7 +239,7 @@ export function AdminBannerForm({
           type="submit"
           className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white hover:bg-signature/90"
         >
-          {submitLabel}
+          {resolvedSubmitLabel}
         </button>
       </div>
     </form>

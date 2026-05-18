@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BodyPortal } from "@/components/layout/BodyPortal";
@@ -114,11 +115,13 @@ export type TumblerTimePickerDialogProps = {
 
 export function TumblerTimePickerDialog({
   open,
-  title = "시간 설정",
+  title,
   valueHHmm,
   onClose,
   onConfirm,
 }: TumblerTimePickerDialogProps) {
+  const { t } = useI18n();
+  const resolvedTitle = title ?? t("ui_time_picker_title");
   const initial = hhmm24ToWheelParts(valueHHmm);
   const [h12, setH12] = useState(initial.h12);
   const [minute, setMinute] = useState(initial.minute);
@@ -169,7 +172,7 @@ export function TumblerTimePickerDialog({
         >
         <div className="border-b border-sky-200/80 px-4 py-3">
           <h2 id="tumbler-time-title" className="sam-text-body font-medium text-sky-500">
-            {title}
+            {resolvedTitle}
           </h2>
         </div>
 
@@ -203,7 +206,7 @@ export function TumblerTimePickerDialog({
             onClick={done}
             className="w-full py-3.5 sam-text-body-lg font-bold text-sam-fg active:bg-sam-app"
           >
-            완료
+            {t("ui_time_picker_done")}
           </button>
         </div>
       </div>

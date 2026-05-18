@@ -937,7 +937,10 @@ export function ChatDetailView({
       if (!postId || state === displayListing) return;
       if (amISeller) {
         const label = SELLER_LISTING_LABEL[state];
-        if (typeof window !== "undefined" && !window.confirm(`물품의 상태를 "${label}"으로 변경할까요?`)) {
+        if (
+          typeof window !== "undefined" &&
+          !window.confirm(t("chats_change_item_status_confirm", { label }))
+        ) {
           return;
         }
       }
@@ -1727,7 +1730,7 @@ export function ChatDetailView({
 
   const handleCancelStoreOrder = useCallback(async () => {
     if (!storeOrderId || !storeOrderTop) return;
-    if (typeof window !== "undefined" && !window.confirm("주문을 취소할까요?")) return;
+    if (typeof window !== "undefined" && !window.confirm(t("chats_store_order_cancel_confirm"))) return;
     setStoreOrderCancelBusy(true);
     try {
       const { status, json: raw } = await patchMeStoreOrder(storeOrderId, { cancel: true });
@@ -1747,11 +1750,11 @@ export function ChatDetailView({
       onRoomReload?.();
       router.refresh();
     } catch {
-      if (typeof window !== "undefined") window.alert("네트워크 오류");
+      if (typeof window !== "undefined") window.alert(t("common_network_error"));
     } finally {
       setStoreOrderCancelBusy(false);
     }
-  }, [storeOrderId, storeOrderTop, loadStoreOrderDetail, onRoomReload, router]);
+  }, [storeOrderId, storeOrderTop, loadStoreOrderDetail, onRoomReload, router, t]);
 
   const runSellerCompleteFromMenu = useCallback(async () => {
     const uid = currentUserId?.trim();
@@ -2126,7 +2129,7 @@ export function ChatDetailView({
                     )}
                   </div>
                   {partnerTrustSummary ? (
-                    <div className="shrink-0 pr-0.5" aria-label="상대방 거래 매너">
+                    <div className="shrink-0 pr-0.5" aria-label={t("chats_partner_trust_aria")}>
                       <TrustSummaryCard summary={partnerTrustSummary} variant="compact" />
                     </div>
                   ) : null}
@@ -2160,7 +2163,7 @@ export function ChatDetailView({
                       type="button"
                       onClick={() => setMenuOpen((v) => !v)}
                       className="flex h-11 w-11 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-black/10"
-                      aria-label="더보기"
+                      aria-label={t("chats_more_menu_aria")}
                     >
                       <MoreIcon className="h-5 w-5" />
                     </button>
@@ -2240,7 +2243,9 @@ export function ChatDetailView({
         >
           <div className={CHAT_THREAD_COLUMN_INNER_CLASS}>
             {integratedHistoryLoading && !isStoreOrderChat ? (
-              <div className="px-4 py-2 text-center sam-text-body-secondary text-sam-muted">이전 메시지를 불러오는 중…</div>
+              <div className="px-4 py-2 text-center sam-text-body-secondary text-sam-muted">
+                {t("chats_loading_previous_messages")}
+              </div>
             ) : null}
             {messagesLoading ? (
               <ChatMessagesLoadingSkeleton variant={isStoreOrderChat ? "instagram" : "default"} />
@@ -2444,7 +2449,7 @@ export function ChatDetailView({
             className={`flex max-h-full min-h-0 w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-sam-elevated sm:max-h-[min(90vh,calc(100dvh-3.5rem-env(safe-area-inset-bottom,0px)))] sm:rounded-ui-rect`}
           >
             <div className="flex shrink-0 items-center justify-between border-b border-sam-border-soft px-4 py-3">
-              <h2 className="sam-text-body-lg font-semibold text-sam-fg">후기 작성</h2>
+              <h2 className="sam-text-body-lg font-semibold text-sam-fg">{t("chats_write_review_title")}</h2>
               <button type="button" onClick={() => setReviewSheetOpen(false)} className="sam-text-body text-sam-muted">
                 닫기
               </button>

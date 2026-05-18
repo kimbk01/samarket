@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type Props = {
   identifier: string;
@@ -25,6 +26,7 @@ export function PasswordLoginForm({
   onPasswordChange,
   onSubmit,
 }: Props) {
+  const { t } = useI18n();
   /**
      * `disabled` 상태에서는 Enter 키로 form.onSubmit이 다시 발사되지 않도록 입력도 잠근다.
      * (LoginPageClient의 `loading` 가드와 함께 이중 제출을 차단)
@@ -49,20 +51,20 @@ export function PasswordLoginForm({
     <form onSubmit={onSubmit} className="mt-6 space-y-4" noValidate autoComplete="off">
       <fieldset disabled={disabled} className="space-y-4">
         <div>
-          <label className="block sam-text-body-secondary font-medium text-sam-fg">이메일 또는 로그인 ID</label>
+          <label className="block sam-text-body-secondary font-medium text-sam-fg">{t("auth_login_identifier")}</label>
           <input
             type="text"
             inputMode="email"
             autoComplete="off"
             value={identifier}
             onChange={(e) => handleIdentifierChange(e.target.value)}
-            placeholder="이메일 또는 로그인 ID"
+            placeholder={t("auth_login_identifier")}
             required
             className={inputClassName}
           />
         </div>
         <div>
-          <label className="block sam-text-body-secondary font-medium text-sam-fg">비밀번호</label>
+          <label className="block sam-text-body-secondary font-medium text-sam-fg">{t("auth_password")}</label>
           <input
             type="password"
             autoComplete="new-password"
@@ -80,7 +82,11 @@ export function PasswordLoginForm({
         aria-busy={loading}
         className="w-full rounded-ui-rect bg-signature py-2.5 sam-text-body font-medium text-white transition-transform duration-100 active:scale-[0.985] active:brightness-95 disabled:opacity-50 disabled:active:scale-100 disabled:active:brightness-100"
       >
-        {loading ? (loadingText?.trim() ? loadingText.trim() : "처리 중") : "로그인"}
+        {loading
+          ? loadingText?.trim()
+            ? loadingText.trim()
+            : t("common_processing")
+          : t("auth_login_submit")}
       </button>
     </form>
   );

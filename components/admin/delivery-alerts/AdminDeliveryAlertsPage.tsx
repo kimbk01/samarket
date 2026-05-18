@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { DeliveryAlertLogTimeline } from "@/components/admin/delivery-alerts/DeliveryAlertLogTimeline";
+import { AUTO_ACTION_TYPE_KEYS } from "@/components/admin/i18n/admin-delivery-alerts-label-keys";
 import { fetchAdminDeliveryOperationAlertsDeduped } from "@/lib/admin/fetch-admin-delivery-operation-alerts-deduped";
 
 type RuleRow = {
@@ -25,16 +27,16 @@ type RuleRow = {
   auto_action_requires_approval?: boolean;
 };
 
-const AUTO_ACTION_SELECT: { value: string; label: string }[] = [
-  { value: "", label: "OFF" },
-  { value: "auto_hold_settlement", label: "정산 held" },
-  { value: "auto_flag_order", label: "주문 플래그" },
-  { value: "auto_reassign_rider", label: "라이더 해제" },
-  { value: "auto_escalate", label: "에스컬 +1" },
-  { value: "auto_assign_admin", label: "담당 자동" },
-  { value: "auto_mark_attention", label: "주목 표시" },
-  { value: "auto_mute", label: "mute" },
-];
+const AUTO_ACTION_VALUES = [
+  "",
+  "auto_hold_settlement",
+  "auto_flag_order",
+  "auto_reassign_rider",
+  "auto_escalate",
+  "auto_assign_admin",
+  "auto_mark_attention",
+  "auto_mute",
+] as const;
 
 type Summary = {
   mine_open: number;
@@ -105,19 +107,78 @@ function parsePayload(json: unknown): { rules: RuleRow[]; events: EventRow[]; su
   };
 }
 
-function elapsedLabel(fromIso: string): string {
-  const t = Date.parse(fromIso);
-  if (!Number.isFinite(t)) return "—";
-  const ms = Date.now() - t;
-  const m = Math.floor(ms / 60000);
-  if (m < 60) return `${m}분`;
-  const h = Math.floor(m / 60);
-  if (h < 48) return `${h}시간`;
-  const d = Math.floor(h / 24);
-  return `${d}일`;
-}
-
 export function AdminDeliveryAlertsPage() {
+  const { t } = useI18n();
+  const dash = t("admin_del_common_dash");
+
+  const elapsedLabel = useCallback(
+    (fromIso: string): string => {
+      const ts = Date.parse(fromIso);
+      if (!Number.isFinite(ts)) return dash;
+      const ms = Date.now() - ts;
+      const m = Math.floor(ms / 60000);
+      if (m < 60) return t("admin_del_alert_elapsed_min", { n: m });
+      const h = Math.floor(m / 60);
+      if (h < 48) return t("admin_del_alert_elapsed_hour", { n: h });
+      const d = Math.floor(h / 24);
+      return t("admin_del_alert_elapsed_day", { n: d });
+    },
+    [t, dash]
+  );
+
+  const summaryCards = useMemo(
+    () =>
+      [
+        { key: "admin_del_alert_kpi_mine_open" as const, value: (s: Summary) => s.mine_open },
+        { key: "admin_del_alert_kpi_unassigned_open" as const, value: (s: Summary) => s.unassigned_open },
+        { key: "admin_del_alert_kpi_escalated" as const, value: (s: Summary) => s.escalated_active },
+        { key: "admin_del_alert_kpi_today_resolved" as const, value: (s: Summary) => s.today_resolved_mine },
+        {
+          key: "admin_del_alert_kpi_avg_handle_min" as const,
+          value: (s: Summary) =>
+            s.avg_handle_minutes_today_mine == null ? dash : String(s.avg_handle_minutes_today_mine),
+        },
+      ],
+    [dash]
+  );
+
+  const ruleTableHeaders = useMemo(
+    () =>
+      [
+        "admin_del_alert_th_key",
+        "admin_del_alert_th_name",
+        "admin_del_alert_th_threshold",
+        "admin_del_alert_th_repeat",
+        "admin_del_alert_th_escalate_after",
+        "admin_del_alert_th_max_level",
+        "admin_del_alert_th_display_level",
+        "admin_del_alert_th_auto_action",
+        "admin_del_alert_th_auto_delay",
+        "admin_del_alert_th_auto_min_esc",
+        "admin_del_alert_th_instant",
+        "admin_del_alert_th_active",
+      ] as const,
+    []
+  );
+
+  const eventTableHeaders = useMemo(
+    () =>
+      [
+        "admin_del_alert_th_log",
+        "admin_del_alert_th_kind",
+        "admin_del_alert_th_order",
+        "admin_del_alert_th_store",
+        "admin_del_alert_th_assignee",
+        "admin_del_alert_th_status",
+        "admin_del_alert_th_severity",
+        "admin_del_alert_th_escal",
+        "admin_del_alert_th_repeat_count",
+        "admin_del_alert_th_elapsed",
+        "admin_del_alert_th_handling",
+      ] as const,
+    []
+  );
+
   const [filter, setFilter] = useState<"open" | "all">("open");
   const [assignment, setAssignment] = useState<"all" | "mine" | "unassigned">("all");
   const [rules, setRules] = useState<RuleRow[]>([]);
@@ -163,10 +224,12 @@ export function AdminDeliveryAlertsPage() {
       }
       setRules([]);
       setEvents([]);
-      setError(status === 503 ? "스키마 미적용(마이그레이션)" : `불러오기 실패 (${status})`);
+      setError(
+        status === 503 ? t("admin_del_alert_err_schema") : t("admin_del_alert_err_load_status", { status })
+      );
       setLoading(false);
     });
-  }, [filter, assignment]);
+  }, [filter, assignment, t]);
 
   useEffect(() => {
     load();
@@ -180,12 +243,12 @@ export function AdminDeliveryAlertsPage() {
   const runSync = useCallback(() => {
     void fetch("/api/admin/delivery-operation-alerts/sync", { method: "POST", cache: "no-store" }).then(async (res) => {
       if (!res.ok) {
-        setError(`동기화 실패 (${res.status})`);
+        setError(t("admin_del_alert_err_sync_status", { status: res.status }));
         return;
       }
       load();
     });
-  }, [load]);
+  }, [load, t]);
 
   const patchEventJson = useCallback(
     (eventId: string, body: Record<string, unknown>) => {
@@ -199,14 +262,14 @@ export function AdminDeliveryAlertsPage() {
           if (!res.ok) {
             const j = await res.json().catch(() => null);
             const msg = j && typeof j === "object" && j != null && "error" in j ? String((j as { error?: unknown }).error) : "";
-            setError(msg || `처리 실패 (${res.status})`);
+            setError(msg || t("admin_del_alert_err_action_status", { status: res.status }));
             return;
           }
           load();
         })
         .finally(() => setBusyId(null));
     },
-    [load]
+    [load, t]
   );
 
   const patchRule = useCallback(
@@ -236,14 +299,14 @@ export function AdminDeliveryAlertsPage() {
       })
         .then(async (res) => {
           if (!res.ok) {
-            setError(`룰 저장 실패 (${res.status})`);
+            setError(t("admin_del_alert_err_rule_save_status", { status: res.status }));
             return;
           }
           load();
         })
         .finally(() => setRuleBusyId(null));
     },
-    [load]
+    [load, t]
   );
 
   const rowStress = (ev: EventRow) =>
@@ -252,33 +315,24 @@ export function AdminDeliveryAlertsPage() {
   return (
     <div className="sam-page-stack">
       <AdminPageHeader
-        title="배달 운영 알림"
-        description="담당 배정 · 에스컬레이션 · 동기화 후 자동 액션(cron) · mute/resolved 시 자동 처리 중단"
+        titleKey="admin_del_alert_page_title"
+        descriptionKey="admin_del_alert_page_desc"
       />
 
       {error ? (
         <div className="rounded-ui-rect border border-sam-warning/20 bg-sam-warning-soft px-4 py-3 text-sam-warning sam-text-body-secondary" role="alert">
           {error}
           <button type="button" className="sam-btn sam-btn--outline sam-btn--sm ml-3" onClick={() => setError(null)}>
-            닫기
+            {t("common_close")}
           </button>
         </div>
       ) : null}
 
       <section className="grid grid-cols-2 gap-2 sm:grid-cols-5">
-        {[
-          { label: "내 담당 open", value: summary.mine_open },
-          { label: "미배정 open", value: summary.unassigned_open },
-          { label: "에스컬레이션", value: summary.escalated_active },
-          { label: "오늘 내 해결", value: summary.today_resolved_mine },
-          {
-            label: "평균 처리(분)",
-            value: summary.avg_handle_minutes_today_mine == null ? "—" : String(summary.avg_handle_minutes_today_mine),
-          },
-        ].map((c) => (
-          <div key={c.label} className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">
-            <p className="sam-text-xxs text-sam-muted">{c.label}</p>
-            <p className="tabular-nums font-semibold text-sam-fg">{loading ? "…" : c.value}</p>
+        {summaryCards.map((c) => (
+          <div key={c.key} className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">
+            <p className="sam-text-xxs text-sam-muted">{t(c.key)}</p>
+            <p className="tabular-nums font-semibold text-sam-fg">{loading ? "…" : c.value(summary)}</p>
           </div>
         ))}
       </section>
@@ -290,14 +344,14 @@ export function AdminDeliveryAlertsPage() {
             className={`sam-btn sam-btn--sm ${filter === "open" ? "sam-btn--primary" : "sam-btn--outline"}`}
             onClick={() => setFilter("open")}
           >
-            진행 중
+            {t("admin_del_alert_filter_open")}
           </button>
           <button
             type="button"
             className={`sam-btn sam-btn--sm ${filter === "all" ? "sam-btn--primary" : "sam-btn--outline"}`}
             onClick={() => setFilter("all")}
           >
-            전체
+            {t("common_all")}
           </button>
           <span className="mx-1 hidden text-sam-muted sm:inline">|</span>
           <button
@@ -305,56 +359,51 @@ export function AdminDeliveryAlertsPage() {
             className={`sam-btn sam-btn--sm ${assignment === "all" ? "sam-btn--primary" : "sam-btn--outline"}`}
             onClick={() => setAssignment("all")}
           >
-            담당 전체
+            {t("admin_del_alert_filter_assign_all")}
           </button>
           <button
             type="button"
             className={`sam-btn sam-btn--sm ${assignment === "mine" ? "sam-btn--primary" : "sam-btn--outline"}`}
             onClick={() => setAssignment("mine")}
           >
-            내 담당
+            {t("admin_del_alert_filter_assign_mine")}
           </button>
           <button
             type="button"
             className={`sam-btn sam-btn--sm ${assignment === "unassigned" ? "sam-btn--primary" : "sam-btn--outline"}`}
             onClick={() => setAssignment("unassigned")}
           >
-            미배정
+            {t("admin_del_alert_filter_assign_unassigned")}
           </button>
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/admin/delivery-auto-actions" className="sam-btn sam-btn--outline sam-btn--sm">
-            자동 액션
+            {t("admin_del_alert_link_auto_actions")}
           </Link>
           <button type="button" className="sam-btn sam-btn--outline sam-btn--sm" onClick={runSync} disabled={loading}>
-            지금 동기화
+            {t("admin_del_alert_btn_sync_now")}
           </button>
           <button type="button" className="sam-btn sam-btn--outline sam-btn--sm" onClick={() => load()} disabled={loading}>
-            새로고침
+            {t("admin_del_common_refresh")}
           </button>
         </div>
       </div>
 
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <h2 className="mb-3 sam-text-body font-medium text-sam-fg">운영 룰</h2>
+        <h2 className="mb-3 sam-text-body font-medium text-sam-fg">{t("admin_del_alert_section_rules")}</h2>
         <div className="overflow-x-auto">
           <table className="min-w-[1260px] w-full border-collapse sam-text-body-secondary">
             <thead>
               <tr className="border-b border-sam-border text-left sam-text-xxs text-sam-muted">
-                <th className="py-2 pr-2 font-medium">키</th>
-                <th className="py-2 pr-2 font-medium">이름</th>
-                <th className="py-2 pr-2 font-medium">임계(분)</th>
-                <th className="py-2 pr-2 font-medium">반복(분)</th>
-                <th className="py-2 pr-2 font-medium">승격(분)</th>
-                <th className="py-2 pr-2 font-medium">최대 단계</th>
-                <th className="py-2 pr-2 font-medium">표시 단계</th>
-                <th className="py-2 pr-2 font-medium">자동 액션</th>
-                <th className="py-2 pr-2 font-medium">자동 지연(분)</th>
-                <th className="py-2 pr-2 font-medium">자동 MinEsc</th>
-                <th className="py-2 pr-2 font-medium" title="체크 시 승인 생략하고 즉시 실행">
-                  즉시
-                </th>
-                <th className="py-2 pr-2 font-medium">활성</th>
+                {ruleTableHeaders.map((key) => (
+                  <th
+                    key={key}
+                    className="py-2 pr-2 font-medium"
+                    title={key === "admin_del_alert_th_instant" ? t("admin_del_alert_title_instant_exec") : undefined}
+                  >
+                    {t(key)}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -442,9 +491,9 @@ export function AdminDeliveryAlertsPage() {
                         });
                       }}
                     >
-                      {AUTO_ACTION_SELECT.map((o) => (
-                        <option key={o.value || "off"} value={o.value}>
-                          {o.label}
+                      {AUTO_ACTION_VALUES.map((value) => (
+                        <option key={value || "off"} value={value}>
+                          {t(AUTO_ACTION_TYPE_KEYS[value] ?? "admin_del_alert_auto_off")}
                         </option>
                       ))}
                     </select>
@@ -456,7 +505,7 @@ export function AdminDeliveryAlertsPage() {
                       className="sam-input h-8 w-16 text-sm"
                       defaultValue={ru.auto_action_delay_minutes ?? ""}
                       disabled={ruleBusyId === ru.id || !ru.auto_action_enabled}
-                      title="first_triggered_at 기준 최소 경과(분)"
+                      title={t("admin_del_alert_title_auto_delay_from_first")}
                       onBlur={(ev) => {
                         const n = Math.floor(Number(ev.target.value));
                         if (!Number.isFinite(n) || n < 1) return;
@@ -471,7 +520,7 @@ export function AdminDeliveryAlertsPage() {
                       className="sam-input h-8 w-14 text-sm"
                       defaultValue={ru.auto_action_min_escalation_count ?? 0}
                       disabled={ruleBusyId === ru.id || !ru.auto_action_enabled}
-                      title="필요 최소 escalation_count"
+                      title={t("admin_del_alert_title_min_escalation")}
                       onBlur={(ev) => {
                         const n = Math.floor(Number(ev.target.value));
                         if (!Number.isFinite(n) || n < 0) return;
@@ -493,7 +542,7 @@ export function AdminDeliveryAlertsPage() {
                           ru.auto_action_type === "auto_reassign_rider" ||
                           ru.auto_action_type === "auto_mute"
                         }
-                        title="위험 액션은 승인 필수"
+                        title={t("admin_del_alert_title_risk_requires_approval")}
                         onChange={(ev) =>
                           patchRule(ru.id, { auto_action_requires_approval: !ev.target.checked })
                         }
@@ -508,7 +557,7 @@ export function AdminDeliveryAlertsPage() {
                         disabled={ruleBusyId === ru.id}
                         onChange={(ev) => patchRule(ru.id, { is_active: ev.target.checked })}
                       />
-                      ON
+                      {t("admin_del_alert_state_on")}
                     </label>
                   </td>
                 </tr>
@@ -516,7 +565,7 @@ export function AdminDeliveryAlertsPage() {
               {!loading && rules.length === 0 ? (
                 <tr>
                   <td colSpan={12} className="py-6 text-center text-sam-muted">
-                    룰이 없습니다.
+                    {t("admin_del_alert_empty_rules")}
                   </td>
                 </tr>
               ) : null}
@@ -526,22 +575,16 @@ export function AdminDeliveryAlertsPage() {
       </section>
 
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <h2 className="mb-3 sam-text-body font-medium text-sam-fg">알림 이벤트</h2>
+        <h2 className="mb-3 sam-text-body font-medium text-sam-fg">{t("admin_del_alert_section_events")}</h2>
         <div className="overflow-x-auto">
           <table className="min-w-[1180px] w-full border-collapse sam-text-body-secondary">
             <thead>
               <tr className="border-b border-sam-border text-left sam-text-xxs text-sam-muted">
-                <th className="py-2 pr-2 font-medium w-24">이력</th>
-                <th className="py-2 pr-2 font-medium">종류</th>
-                <th className="py-2 pr-2 font-medium">주문</th>
-                <th className="py-2 pr-2 font-medium">업체</th>
-                <th className="py-2 pr-2 font-medium">담당</th>
-                <th className="py-2 pr-2 font-medium">상태</th>
-                <th className="py-2 pr-2 font-medium">심각도</th>
-                <th className="py-2 pr-2 font-medium">에스컬</th>
-                <th className="py-2 pr-2 font-medium">반복</th>
-                <th className="py-2 pr-2 font-medium">경과</th>
-                <th className="py-2 pr-2 font-medium">처리·메모</th>
+                {eventTableHeaders.map((key) => (
+                  <th key={key} className={`py-2 pr-2 font-medium${key === "admin_del_alert_th_log" ? " w-24" : ""}`}>
+                    {t(key)}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -558,7 +601,7 @@ export function AdminDeliveryAlertsPage() {
                         setLogPanelOpen((p) => ({ ...p, [ev.id]: open }));
                       }}
                     >
-                      <summary className="cursor-pointer text-signature underline sam-text-xxs">타임라인</summary>
+                      <summary className="cursor-pointer text-signature underline sam-text-xxs">{t("admin_del_alert_timeline")}</summary>
                       {logPanelOpen[ev.id] ? (
                         <div className="mt-2 max-h-64 overflow-y-auto rounded-ui-rect border border-sam-border bg-sam-surface-muted/30 p-2">
                           <DeliveryAlertLogTimeline eventId={ev.id} />
@@ -567,7 +610,7 @@ export function AdminDeliveryAlertsPage() {
                     </details>
                   </td>
                   <td className="py-2 pr-2">
-                    <span className="font-medium text-sam-fg">{ev.rule?.rule_name ?? ev.rule?.rule_key ?? "—"}</span>
+                    <span className="font-medium text-sam-fg">{ev.rule?.rule_name ?? ev.rule?.rule_key ?? dash}</span>
                   </td>
                   <td className="py-2 pr-2">
                     {ev.order_id ? (
@@ -578,7 +621,7 @@ export function AdminDeliveryAlertsPage() {
                         {ev.order_no || ev.order_id.slice(0, 8)}
                       </Link>
                     ) : (
-                      "—"
+                      dash
                     )}
                   </td>
                   <td className="py-2 pr-2">
@@ -591,11 +634,11 @@ export function AdminDeliveryAlertsPage() {
                         {ev.store_name || ev.store_id.slice(0, 8)}
                       </Link>
                     ) : (
-                      "—"
+                      dash
                     )}
                   </td>
                   <td className="py-2 pr-2 sam-text-xxs">
-                    <div className="max-w-[10rem]">{ev.assigned_label || "—"}</div>
+                    <div className="max-w-[10rem]">{ev.assigned_label || dash}</div>
                     {ev.event_status !== "resolved" ? (
                       <div className="mt-1 flex flex-col gap-1">
                         <select
@@ -603,7 +646,7 @@ export function AdminDeliveryAlertsPage() {
                           value={assignPick[ev.id] ?? ""}
                           onChange={(e) => setAssignPick((p) => ({ ...p, [ev.id]: e.target.value }))}
                         >
-                          <option value="">담당 선택…</option>
+                          <option value="">{t("admin_del_alert_select_assignee")}</option>
                           {operators.map((op) => (
                             <option key={op.id} value={op.id}>
                               {(op.nickname || op.username || op.id).slice(0, 24)}
@@ -612,7 +655,7 @@ export function AdminDeliveryAlertsPage() {
                         </select>
                         <input
                           className="sam-input h-8 max-w-[10rem] text-xxs"
-                          placeholder="배정 메모"
+                          placeholder={t("admin_del_alert_ph_assign_memo")}
                           value={assignMemo[ev.id] ?? ""}
                           onChange={(e) => setAssignMemo((m) => ({ ...m, [ev.id]: e.target.value }))}
                         />
@@ -629,7 +672,7 @@ export function AdminDeliveryAlertsPage() {
                               })
                             }
                           >
-                            배정
+                            {t("admin_del_alert_btn_assign")}
                           </button>
                           <button
                             type="button"
@@ -637,7 +680,7 @@ export function AdminDeliveryAlertsPage() {
                             disabled={busyId === ev.id || !ev.assigned_admin_id}
                             onClick={() => patchEventJson(ev.id, { action: "unassign" })}
                           >
-                            해제
+                            {t("admin_del_alert_btn_unassign")}
                           </button>
                         </div>
                       </div>
@@ -651,14 +694,14 @@ export function AdminDeliveryAlertsPage() {
                   <td className="py-2 pr-2">
                     <input
                       className="sam-input mb-1 h-8 w-full min-w-[8rem] text-xxs"
-                      placeholder="처리 메모 (선택)"
+                      placeholder={t("admin_del_alert_ph_action_note")}
                       value={actionNotes[ev.id] ?? ""}
                       onChange={(e) => setActionNotes((n) => ({ ...n, [ev.id]: e.target.value }))}
                     />
                     {ev.event_status !== "resolved" ? (
                       <input
                         className="sam-input mb-1 h-8 w-full min-w-[8rem] text-xxs"
-                        placeholder="작업 메모"
+                        placeholder={t("admin_del_alert_ph_handling_note")}
                         defaultValue={ev.handling_note ?? ""}
                         key={`hand-${ev.id}-${ev.handling_note ?? ""}`}
                         onBlur={(e) => {
@@ -677,7 +720,7 @@ export function AdminDeliveryAlertsPage() {
                           patchEventJson(ev.id, { action: "acknowledge", note: actionNotes[ev.id] || undefined })
                         }
                       >
-                        확인
+                        {t("admin_del_alert_btn_acknowledge")}
                       </button>
                       <button
                         type="button"
@@ -687,7 +730,7 @@ export function AdminDeliveryAlertsPage() {
                           patchEventJson(ev.id, { action: "mute", note: actionNotes[ev.id] || undefined })
                         }
                       >
-                        mute
+                        {t("admin_del_alert_btn_mute")}
                       </button>
                       <button
                         type="button"
@@ -697,7 +740,7 @@ export function AdminDeliveryAlertsPage() {
                           patchEventJson(ev.id, { action: "resolve", note: actionNotes[ev.id] || undefined })
                         }
                       >
-                        해결
+                        {t("admin_del_alert_btn_resolve")}
                       </button>
                     </div>
                   </td>
@@ -706,7 +749,7 @@ export function AdminDeliveryAlertsPage() {
               {!loading && events.length === 0 ? (
                 <tr>
                   <td colSpan={11} className="py-8 text-center text-sam-muted">
-                    표시할 알림이 없습니다.
+                    {t("admin_del_alert_empty_events")}
                   </td>
                 </tr>
               ) : null}

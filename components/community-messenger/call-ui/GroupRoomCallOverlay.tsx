@@ -58,14 +58,14 @@ export function GroupRoomCallOverlay({
       peerAvatarUrl: null,
       statusText:
         endedPanel.reason === "declined"
-          ? "거절됨"
+          ? t("cm_ui_call_status_declined")
           : endedPanel.reason === "missed"
-            ? "부재중 알림"
+            ? t("cm_ui_missed_call_notification")
             : endedPanel.reason === "failed"
-              ? "연결 실패"
+              ? t("cm_ui_connection_failed")
               : endedPanel.reason === "canceled"
-                ? "통화가 취소되었습니다"
-                : "통화 종료",
+                ? t("cm_ui_call_cancelled")
+                : t("cm_ui_call_end_short"),
       subStatusText: groupCall.errorMessage,
       topLabel: isGroupRoom ? `${groupPrefix}${endedPanel.kind === "video" ? t("nav_video_call_label") : t("nav_voice_call_label")}` : null,
       connectedAt: groupCall.connectedAt,
@@ -81,13 +81,13 @@ export function GroupRoomCallOverlay({
       primaryActions: [
         {
           id: "retry-call",
-          label: "다시 시도",
+          label: t("common_retry"),
           icon: "retry",
           onClick: () => void groupCall.startOutgoingCall(endedPanel.kind === "video" ? "video" : "voice"),
         },
         {
           id: "reject-after-end",
-          label: "거부",
+          label: t("cm_ui_decline_action"),
           icon: "decline",
           tone: "danger",
           onClick: groupCall.dismissPanel,
@@ -116,7 +116,7 @@ export function GroupRoomCallOverlay({
       ? [
           {
             id: "reject",
-            label: groupCall.busy === "call-reject" ? "거절 중" : "거절",
+            label: groupCall.busy === "call-reject" ? t("cm_ui_rejecting") : t("cm_ui_reject"),
             icon: "decline",
             tone: "danger",
             disabled: groupCall.busy === "call-reject" || groupCall.busy === "call-accept",
@@ -124,7 +124,7 @@ export function GroupRoomCallOverlay({
           },
           {
             id: "accept",
-            label: groupCall.busy === "call-accept" ? "연결 중" : "수락",
+            label: groupCall.busy === "call-accept" ? t("cm_ui_connecting") : t("cm_ui_accept"),
             icon: "accept",
             tone: "accept",
             disabled: groupCall.busy === "call-accept",
@@ -135,28 +135,28 @@ export function GroupRoomCallOverlay({
         ? [
             {
               id: "switch-camera",
-              label: "전환",
+              label: t("cm_ui_switch_camera"),
               icon: "camera-switch",
               disabled: !groupCall.localStream,
               onClick: () => void onRetryCallDevicePermission(),
             },
             {
               id: "camera",
-              label: "카메라",
+              label: t("cm_ui_camera"),
               icon: "camera",
               active: Boolean(groupCall.localStream),
               onClick: () => void onRetryCallDevicePermission(),
             },
             {
               id: "mute",
-              label: "음소거",
+              label: t("cm_ui_mute"),
               icon: "mic",
               active: true,
               onClick: () => void onRetryCallDevicePermission(),
             },
             {
               id: "end",
-              label: sessionPanel.mode === "active" ? "종료" : "취소",
+              label: sessionPanel.mode === "active" ? t("cm_ui_end_call") : t("cm_ui_cancel_short"),
               icon: "end",
               tone: "danger",
               disabled: groupCall.busy === "call-end" || groupCall.busy === "call-cancel",
@@ -167,28 +167,28 @@ export function GroupRoomCallOverlay({
         : [
             {
               id: "speaker",
-              label: "스피커",
+              label: t("cm_ui_speaker"),
               icon: "speaker",
               active: true,
               onClick: () => void onRetryCallDevicePermission(),
             },
             {
               id: "video",
-              label: "영상 전환",
+              label: t("cm_ui_switch_to_video"),
               icon: "video",
               disabled: sessionPanel.mode === "active",
               onClick: () => void groupCall.startOutgoingCall("video"),
             },
             {
               id: "mute",
-              label: "음소거",
+              label: t("cm_ui_mute"),
               icon: "mic",
               active: true,
               onClick: () => void onRetryCallDevicePermission(),
             },
             {
               id: "end",
-              label: sessionPanel.mode === "active" ? "종료" : "취소",
+              label: sessionPanel.mode === "active" ? t("cm_ui_end_call") : t("cm_ui_cancel_short"),
               icon: "end",
               tone: "danger",
               disabled: groupCall.busy === "call-end" || groupCall.busy === "call-cancel",
@@ -201,7 +201,7 @@ export function GroupRoomCallOverlay({
   if (groupCall.connectionBadge?.tone === "poor") {
     secondaryActions.push({
       id: "retry",
-      label: "다시 연결",
+      label: t("cm_ui_reconnect"),
       icon: "retry",
       disabled: groupCall.busy === "call-retry",
       onClick: () => void groupCall.retryConnection(),
@@ -210,7 +210,7 @@ export function GroupRoomCallOverlay({
   if (permissionGuide && !groupCall.localStream && sessionPanel.mode !== "incoming") {
     secondaryActions.push({
       id: "permission",
-      label: permissionGuide.retryLabel ?? "권한 확인",
+      label: permissionGuide.retryLabel ?? t("cm_ui_check_permission"),
       icon: "accept",
       onClick: () => void onRetryCallDevicePermission(),
     });
@@ -225,13 +225,13 @@ export function GroupRoomCallOverlay({
     statusText:
       sessionPanel.mode === "incoming"
         ? sessionPanel.kind === "video"
-          ? "영상 통화"
-          : "음성 통화"
+          ? t("cm_ui_video_call")
+          : t("cm_ui_voice_call")
         : sessionPanel.mode === "dialing"
           ? "Ringing..."
           : sessionPanel.mode === "connecting"
-            ? "연결중..."
-            : "그룹 통화 중",
+            ? t("cm_ui_group_call_connecting")
+            : t("cm_ui_group_call_in_progress"),
     subStatusText: groupCall.errorMessage ?? groupCall.callStatusLabel,
     topLabel: isGroupRoom ? `${groupPrefix}${sessionPanel.kind === "video" ? t("nav_video_call_label") : t("nav_voice_call_label")}` : null,
     footerNote: groupCall.connectionBadge?.label ?? null,
@@ -275,7 +275,7 @@ export function GroupRoomCallOverlay({
     showLocalVideo: Boolean(groupCall.localStream && remoteLead),
     participantsSummary:
       isGroupRoom && groupCall.participants.length
-        ? `${groupCall.participants.length}명 참여`
+        ? t("cm_ui_participant_count", { count: groupCall.participants.length })
         : null,
   };
 

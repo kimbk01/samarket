@@ -1,6 +1,8 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function StoreProductSheetOptionsSkeleton() {
+  const { t } = useI18n();
   return (
     <div className="border-t-[8px] border-[#EDEDED] px-4 py-4">
       <div className="mb-3 h-4 w-28 animate-pulse rounded bg-neutral-200/90" />
@@ -21,6 +23,7 @@ export function StoreProductSheetOptionsSkeleton() {
 }
 
 export function StoreProductSheetBodySkeleton() {
+  const { t } = useI18n();
   return (
     <div className="pb-3">
       <div className="relative aspect-[16/10] max-h-[200px] min-h-[160px] w-full overflow-hidden bg-neutral-100">

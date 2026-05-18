@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+
 function MenuRow({
   label,
   onClick,
@@ -58,6 +60,7 @@ export type MessageActionMenuProps = {
 };
 
 export function MessageActionMenu(props: MessageActionMenuProps) {
+  const { t } = useI18n();
   const {
     roomUnavailable,
     copyLabel,
@@ -84,7 +87,7 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
   const deleteNestedOpen = deleteExpanded && hasDeleteSection;
 
   return (
-    <nav className="flex flex-col bg-white dark:bg-neutral-950" aria-label="메시지 작업">
+    <nav className="flex flex-col bg-white dark:bg-neutral-950" aria-label={t("cm_ui_message_actions")}>
       <MenuRow
         label={copyLabel}
         onClick={onCopy}
@@ -92,14 +95,14 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
         title={copyTitle}
       />
       <MenuRow
-        label="답장"
+        label={t("cm_ui_reply")}
         onClick={onReply}
         disabled={roomUnavailable || replyDisabled}
         title={replyTitle}
       />
       <div className="border-b border-neutral-200 dark:border-neutral-700">
         <MenuRow
-          label="공유"
+          label={t("common_share")}
           onClick={onToggleShare}
           disabled={roomUnavailable || shareDisabled}
           title={shareTitle}
@@ -114,14 +117,14 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
               nested
             />
             <MenuRow
-              label="외부로 공유"
+              label={t("cm_ui_share_externally")}
               onClick={shareNested.external.onClick}
               disabled={shareNested.external.disabled}
               title={shareNested.external.title}
               nested
             />
             <MenuRow
-              label="링크 복사"
+              label={t("cm_ui_copy_link")}
               onClick={shareNested.link.onClick}
               disabled={shareNested.link.disabled}
               title={shareNested.link.title}
@@ -133,17 +136,17 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
       {hasDeleteSection ? (
         <div className="border-b border-neutral-200 dark:border-neutral-700">
           <MenuRow
-            label="삭제"
+            label={t("common_delete")}
             onClick={onToggleDelete}
             disabled={roomUnavailable}
-            title="나에게만 숨기기 또는 모두에게서 삭제"
+            title={t("cm_ui_hide_for_me_or_delete_for_everyone")}
             danger
           />
           {deleteNestedOpen ? (
             <div className="border-t border-neutral-100 bg-neutral-50 pb-1 dark:border-neutral-800 dark:bg-neutral-900">
               {deleteForMe ? (
                 <MenuRow
-                  label="나에게서만 삭제"
+                  label={t("cm_ui_delete_for_me_only")}
                   onClick={() => {
                     onCancelDeleteNested();
                     deleteForMe.onClick();
@@ -156,7 +159,7 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
               ) : null}
               {deleteForEveryone ? (
                 <MenuRow
-                  label="모두에게서 삭제"
+                  label={t("cm_ui_delete_for_everyone")}
                   onClick={() => {
                     onCancelDeleteNested();
                     deleteForEveryone.onClick();
@@ -169,7 +172,7 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
               ) : null}
               {deleteVoiceHard ? (
                 <MenuRow
-                  label="음성 메시지 영구 삭제"
+                  label={t("cm_ui_permanently_delete_voice_message")}
                   onClick={() => {
                     onCancelDeleteNested();
                     deleteVoiceHard.onClick();
@@ -178,7 +181,7 @@ export function MessageActionMenu(props: MessageActionMenuProps) {
                   danger
                 />
               ) : null}
-              <MenuRow label="취소" onClick={onCancelDeleteNested} nested />
+              <MenuRow label={t("common_cancel")} onClick={onCancelDeleteNested} nested />
             </div>
           ) : null}
         </div>

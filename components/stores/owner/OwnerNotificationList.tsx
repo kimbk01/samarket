@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import type { MessageKey } from "@/lib/i18n/messages";
 import {
   commerceMetaKindLabel,
   notificationTypeLabel,
@@ -30,17 +32,19 @@ type Row = {
   meta?: Record<string, unknown> | null;
 };
 
-const GROUPS: { label: string; match: (r: Row) => boolean }[] = [
-  { label: "신규 주문", match: (r) => (r.meta as { kind?: string } | undefined)?.kind === "store_order_created" },
+type OwnerNotifTab = "all" | "new_orders" | "cancel_payment" | "refund";
+
+const GROUPS: { id: Exclude<OwnerNotifTab, "all">; match: (r: Row) => boolean }[] = [
+  { id: "new_orders", match: (r) => (r.meta as { kind?: string } | undefined)?.kind === "store_order_created" },
   {
-    label: "취소·결제",
+    id: "cancel_payment",
     match: (r) =>
       ["store_order_buyer_cancelled", "store_order_payment_completed", "store_order_payment_failed"].includes(
         String((r.meta as { kind?: string } | undefined)?.kind)
       ),
   },
   {
-    label: "환불",
+    id: "refund",
     match: (r) =>
       ["store_order_refund_requested", "store_order_refund_approved"].includes(
         String((r.meta as { kind?: string } | undefined)?.kind)
@@ -48,12 +52,18 @@ const GROUPS: { label: string; match: (r: Row) => boolean }[] = [
   },
 ];
 
+const GROUP_TAB_LABEL_KEY: Record<Exclude<OwnerNotifTab, "all">, MessageKey> = {
+  new_orders: "store_owner_notif_group_new_orders",
+  cancel_payment: "store_owner_notif_group_cancel_payment",
+  refund: "store_owner_notif_group_refund",
+};
+
 export function OwnerNotificationList({ slug, storeId }: { slug: string; storeId: string }) {
-  const { language } = useI18n();
+  const { t, language } = useI18n();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<string>("all");
+  const [tab, setTab] = useState<OwnerNotifTab>("all");
   const [markBusy, setMarkBusy] = useState(false);
 
   const load = useCallback(
@@ -137,7 +147,7 @@ export function OwnerNotificationList({ slug, storeId }: { slug: string; storeId
 
   const filtered = useMemo(() => {
     if (tab === "all") return rows;
-    const g = GROUPS.find((x) => x.label === tab);
+    const g = GROUPS.find((x) => x.id === tab);
     if (!g) return rows;
     return rows.filter((r) => g.match(r));
   }, [rows, tab]);
@@ -191,13 +201,21 @@ export function OwnerNotificationList({ slug, storeId }: { slug: string; storeId
   };
 
   if (loading) {
-    return <p className="text-sm text-sam-muted">불러오는 중…</p>;
+    return <p className="text-sm text-sam-muted">{t("common_loading")}</p>;
   }
 
   if (error === "login_required") {
     return (
       <p className="rounded-ui-rect border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
-        로그인한 뒤 알림을 확인하세요.
+        {t("store_owner_notif_login_to_view")}
+      </p>
+    );
+  }
+
+  if (error) {
+    return (
+      <p className="rounded-ui-rect border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+        {resolveOwnerApiErrorMessage(error, t)}
       </p>
     );
   }
@@ -205,16 +223,18 @@ export function OwnerNotificationList({ slug, storeId }: { slug: string; storeId
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-1">
-        {["all", ...GROUPS.map((g) => g.label)].map((t) => (
+        {(["all", ...GROUPS.map((g) => g.id)] as const).map((tabId) => (
           <button
-            key={t}
+            key={tabId}
             type="button"
-            onClick={() => setTab((prev) => (prev === t ? prev : t))}
+            onClick={() => setTab((prev) => (prev === tabId ? prev : tabId))}
             className={`rounded-full px-3 py-1 sam-text-xxs font-semibold ${
-              tab === t ? "bg-sam-ink text-white" : "bg-sam-surface text-sam-fg ring-1 ring-sam-border"
+              tab === tabId ? "bg-sam-ink text-white" : "bg-sam-surface text-sam-fg ring-1 ring-sam-border"
             }`}
           >
-            {t === "all" ? "전체" : t}
+            {tabId === "all"
+              ? t("store_owner_notif_tab_all")
+              : t(GROUP_TAB_LABEL_KEY[tabId as Exclude<OwnerNotifTab, "all">])}
           </button>
         ))}
       </div>
@@ -225,12 +245,12 @@ export function OwnerNotificationList({ slug, storeId }: { slug: string; storeId
           className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-xs text-sam-fg disabled:opacity-50"
           onClick={() => void markAllForStoreRead()}
         >
-          {markBusy ? "처리 중…" : "이 매장 알림 모두 읽음"}
+          {markBusy ? t("store_owner_notif_mark_all_busy") : t("store_owner_notif_mark_all_read")}
         </button>
       </div>
       {filtered.length === 0 ? (
         <p className="rounded-ui-rect bg-sam-surface p-4 text-sm text-sam-muted ring-1 ring-sam-border-soft">
-          알림이 없어요.
+          {t("store_owner_notif_empty")}
         </p>
       ) : (
         <ul className="space-y-2">
@@ -268,7 +288,7 @@ export function OwnerNotificationList({ slug, storeId }: { slug: string; storeId
                       if (!r.is_read) void markOneRead(r.id);
                     }}
                   >
-                    주문 보기
+                    {t("store_owner_notif_view_order")}
                   </Link>
                   {!r.is_read ? (
                     <button
@@ -276,7 +296,7 @@ export function OwnerNotificationList({ slug, storeId }: { slug: string; storeId
                       className="text-xs text-sam-muted underline"
                       onClick={() => void markOneRead(r.id)}
                     >
-                      읽음
+                      {t("store_owner_notif_mark_read")}
                     </button>
                   ) : null}
                 </div>
@@ -287,11 +307,11 @@ export function OwnerNotificationList({ slug, storeId }: { slug: string; storeId
       )}
       <p className="text-xs text-sam-muted">
         <Link href={`/stores/${encodeURIComponent(slug)}/owner/notification-settings`} className="text-signature underline">
-          알림 설정
+          {t("store_owner_notif_settings_link")}
         </Link>
         {" · "}
         <Link href="/mypage/notifications" className="text-signature underline">
-          전체 알림
+          {t("store_owner_notif_all_link")}
         </Link>
       </p>
     </div>

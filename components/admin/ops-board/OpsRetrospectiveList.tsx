@@ -1,16 +1,12 @@
 "use client";
 
 import { useMemo } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getOpsRetrospectives } from "@/lib/ops-board/mock-ops-retrospectives";
-
-const SURFACE_LABELS: Record<string, string> = {
-  all: "전체",
-  home: "홈",
-  search: "검색",
-  shop: "상점",
-};
+import { OPS_TOOLS_SURFACE_KEYS, opsToolsLabel } from "@/components/admin/i18n/admin-ops-tools-label-keys";
 
 export function OpsRetrospectiveList({ refreshKey = 0 }: { refreshKey?: number }) {
+  const { t } = useI18n();
   const retros = useMemo(
     () => getOpsRetrospectives({ limit: 20 }),
     [refreshKey]
@@ -19,7 +15,7 @@ export function OpsRetrospectiveList({ refreshKey = 0 }: { refreshKey?: number }
   if (retros.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        운영 회고가 없습니다. 새 회고를 작성해 주세요.
+        {t("admin_ops_tools_board_retro_empty")}
       </div>
     );
   }
@@ -35,8 +31,9 @@ export function OpsRetrospectiveList({ refreshKey = 0 }: { refreshKey?: number }
             <div>
               <h3 className="font-medium text-sam-fg">{r.title}</h3>
               <p className="mt-1 sam-text-body-secondary text-sam-muted">
-                {r.retrospectiveDate} · {SURFACE_LABELS[r.relatedSurface]}
-                {r.relatedReportId && ` · 보고서 ${r.relatedReportId}`}
+                {r.retrospectiveDate} · {t(opsToolsLabel(OPS_TOOLS_SURFACE_KEYS, r.relatedSurface))}
+                {r.relatedReportId &&
+                  ` · ${t("admin_ops_tools_board_retro_report", { id: r.relatedReportId })}`}
               </p>
               <p className="mt-2 sam-text-body-secondary text-sam-fg line-clamp-2">
                 {r.summary}

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -13,6 +14,7 @@ type DetailPayload = {
 };
 
 export function RiderOrderDetailClient(props: { orderId: string }) {
+  const { t } = useI18n();
   const oid = props.orderId.trim();
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
@@ -34,12 +36,12 @@ export function RiderOrderDetailClient(props: { orderId: string }) {
     const r = await fetch(`/api/me/rider/orders/${encodeURIComponent(oid)}`, { cache: "no-store" });
     const j = (await r.json()) as DetailPayload;
     if (!r.ok || !j.ok) {
-      setErr(j.error ?? "불러오기 실패");
+      setErr(j.error ?? t("ui_rider_load_failed"));
       setData(null);
       return;
     }
     setData(j);
-  }, [oid]);
+  }, [oid, t]);
 
   useEffect(() => {
     let alive = true;
@@ -62,7 +64,7 @@ export function RiderOrderDetailClient(props: { orderId: string }) {
     });
     const j = (await r.json()) as { ok?: boolean; error?: string };
     if (!r.ok || !j.ok) {
-      setErr(j.error ?? "요청 실패");
+      setErr(j.error ?? t("ui_rider_request_failed"));
       return;
     }
     await load();
@@ -153,7 +155,7 @@ export function RiderOrderDetailClient(props: { orderId: string }) {
   if (loading) {
     return (
       <div className={`${Sam.page} bg-sam-app min-h-[50vh] flex items-center justify-center text-sam-muted`}>
-        불러오는 중…
+        {t("common_loading")}
       </div>
     );
   }
@@ -161,9 +163,9 @@ export function RiderOrderDetailClient(props: { orderId: string }) {
   if (!data?.delivery) {
     return (
       <div className={`${Sam.page} bg-sam-app px-4 py-8`}>
-        <p className="text-red-600 text-sm">{err ?? "데이터 없음"}</p>
+        <p className="text-red-600 text-sm">{err ?? t("ui_rider_no_data")}</p>
         <Link href="/rider/orders" className={`mt-4 inline-flex ${Sam.btn.secondary}`}>
-          목록
+          {t("ui_rider_list_label")}
         </Link>
       </div>
     );
@@ -179,25 +181,25 @@ export function RiderOrderDetailClient(props: { orderId: string }) {
       <header className="flex items-center justify-between gap-2">
         <h1 className={Sam.text.pageTitle}>{String(ord.order_no ?? oid.slice(0, 8))}</h1>
         <Link href="/rider/orders" className={`${Sam.btn.secondary} text-sm`}>
-          목록
+          {t("ui_rider_list_label")}
         </Link>
       </header>
 
       <section className={`${Sam.card.base} ${Sam.card.pad} space-y-2 text-sm`}>
         <div className="flex justify-between">
-          <span className="text-sam-muted">배달 상태</span>
+          <span className="text-sam-muted">{t("ui_rider_delivery_status")}</span>
           <span className="text-sam-fg font-medium">{st}</span>
         </div>
         <div className="flex justify-between">
-          <span className="text-sam-muted">주문 상태</span>
+          <span className="text-sam-muted">{t("ui_rider_order_status")}</span>
           <span className="text-sam-fg">{String(ord.order_status ?? "—")}</span>
         </div>
         <div className="flex justify-between gap-2">
-          <span className="text-sam-muted shrink-0">매장</span>
+          <span className="text-sam-muted shrink-0">{t("ui_rider_store")}</span>
           <span className="text-right text-sam-fg">{String(data.store?.store_name ?? "—")}</span>
         </div>
         <div className="flex justify-between gap-2">
-          <span className="text-sam-muted shrink-0">배달지</span>
+          <span className="text-sam-muted shrink-0">{t("ui_rider_delivery_address")}</span>
           <span className="text-right text-sam-fg text-xs">{String(ord.delivery_address_summary ?? "—")}</span>
         </div>
         <dl className="pt-2 border-t border-sam-border space-y-1 text-xs text-sam-muted">
@@ -218,7 +220,7 @@ export function RiderOrderDetailClient(props: { orderId: string }) {
             <dd>{String(del.delivered_at ?? "—")}</dd>
           </div>
           <div className="flex justify-between">
-            <dt>POD 위치</dt>
+            <dt>{t("ui_rider_pod_location")}</dt>
             <dd className="text-right">
               {del.delivered_proof_lat != null && del.delivered_proof_lng != null
                 ? `${String(del.delivered_proof_lat)}, ${String(del.delivered_proof_lng)}`
@@ -230,7 +232,7 @@ export function RiderOrderDetailClient(props: { orderId: string }) {
 
       {failureReported ? (
         <div className="rounded-ui-rect border border-amber-600/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-900">
-          실패 보고가 접수되었습니다. 관리자 확인까지 배달 상태는 유지됩니다.
+          {t("ui_rider_failure_reported_notice")}
         </div>
       ) : null}
 
@@ -240,17 +242,17 @@ export function RiderOrderDetailClient(props: { orderId: string }) {
         {st === "rider_assigned" && !del.rider_accepted_at ? (
           <div className="flex flex-wrap gap-2">
             <button type="button" className={Sam.btn.primary} onClick={() => void patchOrder({ action: "accept" })}>
-              수락
+              {t("common_accept")}
             </button>
             <button
               type="button"
               className={Sam.btn.secondary}
               onClick={() => {
-                const reason = window.prompt("거절 사유(선택)") ?? "";
+                const reason = window.prompt(t("ui_rider_decline_reason_prompt")) ?? "";
                 void patchOrder({ action: "decline", reason: reason.trim() || undefined });
               }}
             >
-              거절
+              {t("common_reject")}
             </button>
           </div>
         ) : null}
@@ -261,7 +263,7 @@ export function RiderOrderDetailClient(props: { orderId: string }) {
             className={`${Sam.btn.primary} w-full`}
             onClick={() => void patchOrder({ action: "set_delivery_status", delivery_status: "pickup_in_progress" })}
           >
-            출발 (매장으로)
+            {t("ui_rider_depart_to_store")}
           </button>
         ) : null}
 
@@ -271,29 +273,29 @@ export function RiderOrderDetailClient(props: { orderId: string }) {
             className={`${Sam.btn.primary} w-full`}
             onClick={() => void patchOrder({ action: "set_delivery_status", delivery_status: "delivering" })}
           >
-            픽업 완료 · 배달 출발
+            {t("ui_rider_pickup_start_delivery")}
           </button>
         ) : null}
 
         {(st === "pickup_in_progress" || st === "delivering") && !failureReported ? (
           <div className={`${Sam.card.base} ${Sam.card.pad} space-y-2`}>
-            <p className={`${Sam.text.sectionTitle} text-sm`}>실패 보고 (관리자 확정 전)</p>
+            <p className={`${Sam.text.sectionTitle} text-sm`}>{t("ui_rider_failure_report_section")}</p>
             <input
               type="text"
               value={failReason}
               onChange={(e) => setFailReason(e.target.value)}
-              placeholder="실패 사유 (필수)"
+              placeholder={t("ui_rider_failure_reason_required")}
               className={`${Sam.input.base} w-full text-sm`}
             />
             <textarea
               value={failNote}
               onChange={(e) => setFailNote(e.target.value)}
-              placeholder="추가 메모"
+              placeholder={t("ui_rider_extra_memo")}
               rows={2}
               className={`${Sam.input.base} w-full text-sm`}
             />
             <label className={`block text-xs ${Sam.text.bodySecondary}`}>
-              증빙 사진 (선택)
+              {t("ui_rider_proof_photo_optional")}
               <input
                 type="file"
                 accept="image/jpeg,image/png,image/webp"
@@ -302,7 +304,7 @@ export function RiderOrderDetailClient(props: { orderId: string }) {
                 onChange={(e) => void onPickFailurePhoto(e.target.files)}
               />
             </label>
-            {failImgPath ? <p className="text-xs text-sam-muted">증빙 경로 업로드됨</p> : null}
+            {failImgPath ? <p className="text-xs text-sam-muted">{t("ui_rider_proof_uploaded")}</p> : null}
             <button
               type="button"
               className={`${Sam.btn.secondary} w-full`}
@@ -316,7 +318,7 @@ export function RiderOrderDetailClient(props: { orderId: string }) {
                 })
               }
             >
-              실패 보고 제출
+              {t("ui_rider_submit_failure_report")}
             </button>
           </div>
         ) : null}
@@ -324,12 +326,12 @@ export function RiderOrderDetailClient(props: { orderId: string }) {
         {st === "delivering" ? (
           <div className="flex flex-col gap-3">
             <button type="button" className={Sam.btn.secondary} onClick={() => void patchOrder({ action: "customer_arrived" })}>
-              고객 도착
+              {t("ui_rider_customer_arrived")}
             </button>
             <div className={`${Sam.card.base} ${Sam.card.pad} space-y-2`}>
-              <p className={`${Sam.text.sectionTitle} text-sm`}>배달 완료 증명 (선택)</p>
+              <p className={`${Sam.text.sectionTitle} text-sm`}>{t("ui_rider_pod_proof_section")}</p>
               <label className={`block text-xs ${Sam.text.bodySecondary}`}>
-                완료 사진 (선택)
+                {t("ui_rider_completion_photo_optional")}
                 <input
                   type="file"
                   accept="image/jpeg,image/png,image/webp"
@@ -338,18 +340,18 @@ export function RiderOrderDetailClient(props: { orderId: string }) {
                   onChange={(e) => void onPickDeliveryPhoto(e.target.files)}
                 />
               </label>
-              {podImgPath ? <p className="text-xs text-sam-muted">증빙 경로 업로드됨</p> : null}
+              {podImgPath ? <p className="text-xs text-sam-muted">{t("ui_rider_proof_uploaded")}</p> : null}
               <input
                 type="text"
                 value={receiverName}
                 onChange={(e) => setReceiverName(e.target.value)}
-                placeholder="수령자 이름 (선택)"
+                placeholder={t("ui_rider_receiver_name_optional")}
                 className={`${Sam.input.base} w-full text-sm`}
               />
               <textarea
                 value={podNote}
                 onChange={(e) => setPodNote(e.target.value)}
-                placeholder="메모 (선택)"
+                placeholder={t("ui_rider_memo_optional")}
                 rows={2}
                 className={`${Sam.input.base} w-full text-sm`}
               />
@@ -369,7 +371,7 @@ export function RiderOrderDetailClient(props: { orderId: string }) {
                   })
                 }
               >
-                배달 완료
+                {t("ui_rider_delivery_complete")}
               </button>
             </div>
           </div>
@@ -377,7 +379,7 @@ export function RiderOrderDetailClient(props: { orderId: string }) {
       </section>
 
       <p className={`${Sam.text.helper} text-xs`}>
-        진행 중에는 약 30초마다 위치를 올립니다. 완료 시 라이더 최근 좌표가 가능하면 POD 위치로 저장됩니다.
+        {t("ui_rider_location_tracking_hint")}
       </p>
     </div>
   );

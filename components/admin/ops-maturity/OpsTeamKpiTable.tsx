@@ -1,20 +1,14 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  OPS_TOOLS_KPI_KEYS,
+  opsToolsLabel,
+} from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { useMemo, useState } from "react";
 import { getOpsTeamKpis } from "@/lib/ops-maturity/mock-ops-team-kpis";
 import { getKpiComparison } from "@/lib/ops-maturity/ops-maturity-utils";
 import type { OpsKpiPeriodType } from "@/lib/types/ops-maturity";
-
-const KPI_LABELS: Record<string, string> = {
-  incidentAvgResolutionMinutes: "이슈 평균 해결(분)",
-  fallbackRate: "Fallback 발생률",
-  rollbackSuccessRate: "롤백 성공률",
-  documentFreshnessRate: "문서 최신화율",
-  checklistCompletionRate: "체크리스트 완료율",
-  actionCompletionRate: "액션 완료율",
-  ctrChangeRate: "CTR 변화율",
-  conversionRateChange: "전환율 변화",
-};
 
 function deltaBadge(current: number, previous: number, lowerIsBetter = false): React.ReactNode {
   const delta = current - previous;
@@ -28,6 +22,7 @@ function deltaBadge(current: number, previous: number, lowerIsBetter = false): R
 }
 
 export function OpsTeamKpiTable() {
+  const { t } = useI18n();
   const [periodType, setPeriodType] = useState<OpsKpiPeriodType>("weekly");
 
   const kpis = useMemo(
@@ -57,7 +52,7 @@ export function OpsTeamKpiTable() {
       const isRate = key.includes("Rate") || key.includes("Change");
       const fmt = (v: number) =>
         key === "incidentAvgResolutionMinutes" ? `${v}분` : isRate ? `${(v * 100).toFixed(2)}%` : v.toFixed(2);
-      return { key, label: KPI_LABELS[key], current: curr, previous: prev, fmt, lowerIsBetter };
+      return { key, label: t(opsToolsLabel(OPS_TOOLS_KPI_KEYS, key)), current: curr, previous: prev, fmt, lowerIsBetter };
     });
   }, [currKpi, prevKpi]);
 
@@ -69,18 +64,18 @@ export function OpsTeamKpiTable() {
           onChange={(e) => setPeriodType(e.target.value as OpsKpiPeriodType)}
           className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
-          <option value="weekly">주간 (이번 주 vs 지난 주)</option>
-          <option value="monthly">월간 (이번 달 vs 지난 달)</option>
+          <option value="weekly">{t("admin_ops_tools_maturity_kpi_weekly")}</option>
+          <option value="monthly">{t("admin_ops_tools_maturity_kpi_monthly")}</option>
         </select>
       </div>
       <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
         <table className="w-full min-w-[520px] border-collapse sam-text-body">
           <thead>
             <tr className="border-b border-sam-border bg-sam-app">
-              <th className="px-3 py-2.5 text-left font-medium text-sam-fg">지표</th>
-              <th className="px-3 py-2.5 text-right font-medium text-sam-fg">현재</th>
-              <th className="px-3 py-2.5 text-right font-medium text-sam-fg">이전</th>
-              <th className="px-3 py-2.5 text-right font-medium text-sam-fg">증감</th>
+              <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_maturity_th_metric")}</th>
+              <th className="px-3 py-2.5 text-right font-medium text-sam-fg">{t("admin_ops_tools_maturity_th_current")}</th>
+              <th className="px-3 py-2.5 text-right font-medium text-sam-fg">{t("admin_ops_tools_maturity_th_prev")}</th>
+              <th className="px-3 py-2.5 text-right font-medium text-sam-fg">{t("admin_ops_tools_maturity_th_change")}</th>
             </tr>
           </thead>
           <tbody>
@@ -92,9 +87,9 @@ export function OpsTeamKpiTable() {
                 <td className="px-3 py-2.5 text-right">
                   {key === "incidentAvgResolutionMinutes"
                     ? (current - previous < 0 ? (
-                        <span className="text-emerald-600">개선</span>
+                        <span className="text-emerald-600">{t("admin_ops_tools_maturity_improved")}</span>
                       ) : (
-                        <span className="text-red-600">악화</span>
+                        <span className="text-red-600">{t("admin_ops_tools_maturity_worsened")}</span>
                       ))
                     : deltaBadge(current, previous, lowerIsBetter)}
                 </td>

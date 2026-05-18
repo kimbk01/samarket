@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import type { ReactNode } from "react";
 import { StoreOwnerBannerCarousel } from "@/components/stores/StoreOwnerBannerCarousel";
@@ -176,6 +177,7 @@ export function StoreDetailPublic({
   /** 서버에서 동일 API 선조회 — 첫 페인트·캐시 프라임·카트 진입 가속 */
   initialApiResponse?: StoreApiJsonResponse | null;
 }) {
+  const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1344,7 +1346,7 @@ export function StoreDetailPublic({
           await navigator.share({ title: store.store_name, text: store.store_name, url });
         } else if (navigator.clipboard?.writeText) {
           await navigator.clipboard.writeText(url);
-          window.alert("링크를 복사했습니다.");
+          window.alert(t("store_link_copied"));
         }
       } catch {
         /* 사용자 취소 등 */
@@ -1365,7 +1367,7 @@ export function StoreDetailPublic({
           await navigator.share({ title, text: title, url });
         } else if (navigator.clipboard?.writeText) {
           await navigator.clipboard.writeText(url);
-          window.alert("링크를 복사했습니다.");
+          window.alert(t("store_link_copied"));
         }
       } catch {
         /* noop */

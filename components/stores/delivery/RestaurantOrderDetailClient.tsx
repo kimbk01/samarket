@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { HistoryBackTextLink } from "@/components/navigation/HistoryBackTextLink";
@@ -13,6 +14,7 @@ export function RestaurantOrderDetailClient({
   storeSlug: string;
   orderId: string;
 }) {
+  const { t } = useI18n();
   if (isLikelyUuid(orderId)) {
     return <StoreCommerceOrderDetailClient storeSlug={storeSlug} orderId={orderId} />;
   }
@@ -23,12 +25,12 @@ export function RestaurantOrderDetailClient({
         <HistoryBackTextLink
           fallbackHref={`/stores/${encodeURIComponent(storeSlug)}`}
           className="text-sm text-signature"
-          aria-label="매장으로"
+          aria-label={t("store_back_to_store_aria")}
         >
           ← 매장
         </HistoryBackTextLink>
       </div>
-      <p className="text-sm text-sam-muted">주문을 찾을 수 없거나 올바른 주문 번호가 아닙니다.</p>
+      <p className="text-sm text-sam-muted">{t("store_order_not_found")}</p>
       <p className="mt-2 text-sm text-sam-muted">
         실매장에서 주문하셨다면 내 배달 주문에서 확인해 주세요.
       </p>

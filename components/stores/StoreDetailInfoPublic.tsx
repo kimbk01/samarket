@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -102,6 +103,7 @@ export function StoreDetailInfoPublic({
   prefetchedRecentOrderCount?: number;
   layoutVariant?: "page" | "embedded";
 }) {
+  const { t, language } = useI18n();
   const prefetchHit =
     !!prefetchedStore && slugMatchesApiStore(slug, prefetchedStore);
 
@@ -277,9 +279,9 @@ export function StoreDetailInfoPublic({
     return (
       <div className="min-h-screen bg-sam-surface">
         <div className={`${STORE_DETAIL_SUBHEADER_STICKY} px-4 py-2.5`}>
-          <h2 className="text-center sam-text-body-lg font-bold text-sam-fg">가게 정보</h2>
+          <h2 className="text-center sam-text-body-lg font-bold text-sam-fg">{t("store_shop_info_title")}</h2>
         </div>
-        <p className="py-16 text-center text-sm text-sam-muted">불러오는 중…</p>
+        <p className="py-16 text-center text-sm text-sam-muted">{t("common_loading")}</p>
       </div>
     );
   }
@@ -288,7 +290,7 @@ export function StoreDetailInfoPublic({
     return (
       <div className="min-h-screen bg-sam-surface">
         <div className={`${STORE_DETAIL_SUBHEADER_STICKY} px-4 py-2.5`}>
-          <h2 className="text-center sam-text-body-lg font-bold text-sam-fg">가게 정보</h2>
+          <h2 className="text-center sam-text-body-lg font-bold text-sam-fg">{t("store_shop_info_title")}</h2>
         </div>
         <div className="px-4 py-12 text-center text-sm text-sam-muted">
           매장을 찾을 수 없습니다.
@@ -308,7 +310,7 @@ export function StoreDetailInfoPublic({
   const headerTitle =
     layoutVariant === "embedded" ? null : (
       <div className={`${STORE_DETAIL_SUBHEADER_STICKY} px-4 py-2.5`}>
-        <h2 className="text-center sam-text-body-lg font-bold text-sam-fg">가게 정보</h2>
+        <h2 className="text-center sam-text-body-lg font-bold text-sam-fg">{t("store_shop_info_title")}</h2>
       </div>
     );
 
@@ -358,30 +360,30 @@ export function StoreDetailInfoPublic({
 
         <dl className="mt-2 border-t border-sam-border">
           <div className="flex gap-3 border-b border-sam-border-soft py-3.5">
-            <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">영업시간</dt>
+            <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">{t("store_hours_weekday")}</dt>
             <dd className="min-w-0 flex-1 sam-text-body font-medium leading-snug text-sam-fg">
               {deliveryMeta.weekdaysLine || deliveryMeta.deliveryHoursLine || "—"}
             </dd>
           </div>
           {satHours ? (
             <div className="flex gap-3 border-b border-sam-border-soft py-3.5">
-              <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">토 영업시간</dt>
+              <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">{t("store_hours_saturday")}</dt>
               <dd className="min-w-0 flex-1 sam-text-body font-medium text-sam-fg">{satHours}</dd>
             </div>
           ) : null}
           {sunHours ? (
             <div className="flex gap-3 border-b border-sam-border-soft py-3.5">
-              <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">일 영업시간</dt>
+              <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">{t("store_hours_sunday")}</dt>
               <dd className="min-w-0 flex-1 sam-text-body font-medium text-sam-fg">{sunHours}</dd>
             </div>
           ) : null}
           <div className="flex gap-3 border-b border-sam-border-soft py-3.5">
-            <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">휴무일</dt>
+            <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">{t("store_closed_days")}</dt>
             <dd className="min-w-0 flex-1 sam-text-body text-sam-fg">{holidayLine}</dd>
           </div>
           {store.phone ? (
             <div className="flex flex-wrap items-center gap-2 border-b border-sam-border-soft py-3.5">
-              <dt className="w-full sam-text-body-secondary text-sam-meta sm:w-[100px] sm:shrink-0">전화번호</dt>
+              <dt className="w-full sam-text-body-secondary text-sam-meta sm:w-[100px] sm:shrink-0">{t("store_phone_number")}</dt>
               <dd className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                 <span className="sam-text-body font-medium text-sam-fg">
                   {(() => {
@@ -401,7 +403,7 @@ export function StoreDetailInfoPublic({
             </div>
           ) : null}
           <div className="flex gap-3 border-b border-sam-border-soft py-3.5">
-            <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">위치</dt>
+            <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">{t("store_location")}</dt>
             <dd className="min-w-0 flex-1 space-y-2 sam-text-body leading-relaxed text-sam-fg">
               <div className="space-y-1.5">
                 <div className="flex gap-2">
@@ -421,11 +423,11 @@ export function StoreDetailInfoPublic({
                   </span>
                 </div>
                 <div className="flex gap-2">
-                  <span className="w-11 shrink-0 sam-text-body-secondary text-sam-meta">동네</span>
+                  <span className="w-11 shrink-0 sam-text-body-secondary text-sam-meta">{t("store_neighborhood")}</span>
                   <span className="min-w-0 font-medium">{neighborhoodLabel ?? "—"}</span>
                 </div>
                 <div className="flex gap-2">
-                  <span className="w-11 shrink-0 sam-text-body-secondary text-sam-meta">지역</span>
+                  <span className="w-11 shrink-0 sam-text-body-secondary text-sam-meta">{t("store_region_label")}</span>
                   <span className="min-w-0 font-medium">{regionLabel ?? "—"}</span>
                 </div>
               </div>
@@ -454,27 +456,27 @@ export function StoreDetailInfoPublic({
             </dd>
           </div>
           <div className="flex gap-3 border-b border-sam-border-soft py-3.5">
-            <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">배달·픽업</dt>
+            <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">{t("store_delivery_pickup")}</dt>
             <dd className="min-w-0 flex-1 sam-text-body text-sam-fg">
               {deliveryAvailable ? "배달 가능" : "배달 불가"} ·{" "}
               {pickupAvailable ? "포장·픽업 가능" : "픽업 불가"}
             </dd>
           </div>
           <div className="flex gap-3 border-b border-sam-border-soft py-3.5">
-            <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">배달 시간</dt>
+            <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">{t("store_delivery_time")}</dt>
             <dd className="min-w-0 flex-1 sam-text-body text-sam-fg">
               {compactStoreHoursRangeForDisplay(deliveryMeta.deliveryHoursLine.trim() || "—")}
             </dd>
           </div>
           <div className="flex gap-3 border-b border-sam-border-soft py-3.5">
-            <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">결제</dt>
+            <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">{t("store_label_payment")}</dt>
             <dd className="min-w-0 flex-1 sam-text-body text-sam-fg">
               {deliveryMeta.paymentMethodsLine}
             </dd>
           </div>
           {commerceExtras.minOrderPhp != null && commerceExtras.minOrderPhp > 0 ? (
             <div className="flex gap-3 border-b border-sam-border-soft py-3.5">
-              <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">최소주문</dt>
+              <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">{t("store_min_order_short")}</dt>
               <dd className="sam-text-body font-semibold text-sam-fg">
                 {formatMoneyPhp(commerceExtras.minOrderPhp)}
               </dd>
@@ -482,11 +484,11 @@ export function StoreDetailInfoPublic({
           ) : null}
           {deliveryAvailable ? (
             <div className="flex gap-3 border-b border-sam-border-soft py-3.5">
-              <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">배달비(안내)</dt>
+              <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">{t("store_delivery_fee_notice")}</dt>
               <dd className="sam-text-body font-semibold text-sam-fg">
                 {commerceExtras.deliveryFeeMode === "self_free_promo" ? (
                   <span className="inline-flex flex-wrap items-center gap-1.5">
-                    <span className="font-semibold text-[#2563EB] dark:text-[#8AB4FF]">배달비 무료 적용 중</span>
+                    <span className="font-semibold text-[#2563EB] dark:text-[#8AB4FF]">{t("store_free_delivery_applied")}</span>
                     {commerceExtras.deliveryFeeStrikeReferencePhp != null &&
                     commerceExtras.deliveryFeeStrikeReferencePhp > 0 ? (
                       <span className="font-medium text-sam-meta line-through">
@@ -495,21 +497,21 @@ export function StoreDetailInfoPublic({
                     ) : null}
                   </span>
                 ) : (
-                  formatStoreDetailDeliveryFeeValue(commerceExtras, { deliveryAvailable: true })
+                  formatStoreDetailDeliveryFeeValue(commerceExtras, { deliveryAvailable: true }, language)
                 )}
               </dd>
             </div>
           ) : null}
           {deliveryMeta.deliveryNotice ? (
             <div className="border-b border-sam-border-soft py-3.5">
-              <dt className="sam-text-body-secondary text-sam-meta">배달·지역 안내</dt>
+              <dt className="sam-text-body-secondary text-sam-meta">{t("store_delivery_region_guide")}</dt>
               <dd className="mt-2 whitespace-pre-wrap sam-text-body leading-relaxed text-sam-fg">
                 {deliveryMeta.deliveryNotice}
               </dd>
             </div>
           ) : null}
           <div className="flex gap-3 py-3.5">
-            <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">등록·수정</dt>
+            <dt className="w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta">{t("store_registered_updated")}</dt>
             <dd className="sam-text-body-secondary text-sam-muted">
               {formatTs(store.created_at)} · {formatTs(store.updated_at)}
             </dd>
@@ -520,31 +522,31 @@ export function StoreDetailInfoPublic({
       <SectionDivider />
 
       <section className="px-4 py-4">
-        <h3 className="sam-text-body-lg font-bold text-sam-fg">소개글 및 혜택</h3>
+        <h3 className="sam-text-body-lg font-bold text-sam-fg">{t("store_intro_benefits_title")}</h3>
         <StorePublicNoticesList lines={deliveryMeta.publicNotices} className="mt-3" />
         {store.description?.trim() ? (
           <p className="mt-3 whitespace-pre-wrap sam-text-body leading-relaxed text-sam-fg">
             {store.description.trim()}
           </p>
         ) : deliveryMeta.publicNotices.length === 0 ? (
-          <p className="mt-3 sam-text-body text-sam-meta">등록된 소개글이 없습니다.</p>
+          <p className="mt-3 sam-text-body text-sam-meta">{t("store_no_intro")}</p>
         ) : null}
       </section>
 
       <SectionDivider />
 
       <section className="px-4 py-4">
-        <h3 className="sam-text-body-lg font-bold text-sam-fg">매장 통계</h3>
+        <h3 className="sam-text-body-lg font-bold text-sam-fg">{t("store_stats_title")}</h3>
         <dl className="mt-2 border-t border-sam-border">
           <div className="flex gap-3 border-b border-sam-border-soft py-3.5">
-            <dt className="w-[100px] shrink-0 sam-text-body-secondary text-sam-meta">주문수</dt>
+            <dt className="w-[100px] shrink-0 sam-text-body-secondary text-sam-meta">{t("store_order_count_label")}</dt>
             <dd className="sam-text-body font-semibold tabular-nums text-sam-fg">
               {recentOrderCount.toLocaleString("en-PH")}
-              <span className="ml-1 sam-text-helper font-normal text-sam-muted">(최근 90일)</span>
+              <span className="ml-1 sam-text-helper font-normal text-sam-muted">{t("store_recent_90_days")}</span>
             </dd>
           </div>
           <div className="flex gap-3 py-3.5">
-            <dt className="w-[100px] shrink-0 sam-text-body-secondary text-sam-meta">리뷰수</dt>
+            <dt className="w-[100px] shrink-0 sam-text-body-secondary text-sam-meta">{t("store_review_count_label")}</dt>
             <dd className="sam-text-body font-semibold tabular-nums text-sam-fg">
               {(store.review_count ?? 0).toLocaleString("en-PH")}
               {store.rating_avg != null ? (
@@ -561,7 +563,7 @@ export function StoreDetailInfoPublic({
         <>
           <SectionDivider />
           <section className="px-4 py-4">
-            <h3 className="sam-text-body-lg font-bold text-sam-fg">전단지·소개</h3>
+            <h3 className="sam-text-body-lg font-bold text-sam-fg">{t("store_flyer_intro_title")}</h3>
             <ul className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
               {flyers.map((u, i) => (
                 <li key={`${u}-${i}`}>

@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { OpsRunbookStepStatus } from "@/lib/types/ops-runbook";
@@ -7,14 +8,10 @@ import { getOpsRunbookExecutionSteps } from "@/lib/ops-runbooks/mock-ops-runbook
 import { updateOpsRunbookExecutionStep } from "@/lib/ops-runbooks/mock-ops-runbook-execution-steps";
 import { setRunbookStepStatus } from "@/lib/ops-runbooks/ops-runbook-utils";
 import type { OpsRunbookStepLinkedType } from "@/lib/types/ops-runbook";
-
-const STATUS_LABELS: Record<OpsRunbookStepStatus, string> = {
-  pending: "대기",
-  in_progress: "진행중",
-  done: "완료",
-  skipped: "스킵",
-  blocked: "차단",
-};
+import {
+  OPS_TOOLS_RUNBOOK_STEP_STATUS_KEYS,
+  opsToolsLabel,
+} from "@/components/admin/i18n/admin-ops-tools-label-keys";
 
 const LINKED_HREF: Record<OpsRunbookStepLinkedType, (id: string) => string> = {
   incident: (id) => `/admin/recommendation-monitoring`,
@@ -31,13 +28,14 @@ interface OpsRunbookStepWorkflowProps {
 }
 
 const ADMIN_ID = "admin1";
-const ADMIN_NICK = "관리자";
 
 export function OpsRunbookStepWorkflow({
   executionId,
   executionStatus,
   onStepUpdate,
 }: OpsRunbookStepWorkflowProps) {
+  const { t } = useI18n();
+  const adminNickname = t("admin_ops_tools_admin_nickname");
   const [refresh, setRefresh] = useState(0);
   const steps = useMemo(
     () => getOpsRunbookExecutionSteps(executionId),
@@ -49,7 +47,7 @@ export function OpsRunbookStepWorkflow({
     status: "in_progress" | "done" | "skipped" | "blocked",
     note?: string
   ) => {
-    setRunbookStepStatus(stepId, status, ADMIN_ID, ADMIN_NICK, note);
+    setRunbookStepStatus(stepId, status, ADMIN_ID, adminNickname, note);
     setRefresh((r) => r + 1);
     onStepUpdate?.();
   };
@@ -61,22 +59,18 @@ export function OpsRunbookStepWorkflow({
 
   if (steps.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
-        실행 단계가 없습니다.
-      </div>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_runbook_steps_empty")}</div>
     );
   }
 
   return (
     <div className="space-y-4">
       {hasBlocked && (
-        <div className="rounded-ui-rect border border-red-200 bg-red-50 p-3 sam-text-body font-medium text-red-800">
-          차단(blocked) 단계가 있습니다. 원인 해소 후 진행해 주세요.
-        </div>
+        <div className="rounded-ui-rect border border-red-200 bg-red-50 p-3 sam-text-body font-medium text-red-800">{t("admin_ops_tools_runbook_blocked_warn")}</div>
       )}
       {pendingOrBlocked.length > 0 && executionStatus === "in_progress" && (
         <div className="rounded-ui-rect border border-amber-200 bg-amber-50 p-3 sam-text-body text-amber-800">
-          미완료 단계 {pendingOrBlocked.length}건
+          {t("admin_ops_tools_runbook_pending_steps", { count: pendingOrBlocked.length })}
         </div>
       )}
       <ul className="space-y-3">
@@ -107,7 +101,7 @@ export function OpsRunbookStepWorkflow({
                             : "bg-sam-surface-muted text-sam-muted"
                     }`}
                   >
-                    {STATUS_LABELS[s.status]}
+                    {t(opsToolsLabel(OPS_TOOLS_RUNBOOK_STEP_STATUS_KEYS, s.status))}
                   </span>
                 </div>
                 <p className="mt-1 sam-text-body-secondary text-sam-muted">{s.description}</p>
@@ -119,7 +113,9 @@ export function OpsRunbookStepWorkflow({
                   </p>
                 )}
                 {s.note && (
-                  <p className="mt-1 sam-text-body-secondary text-sam-fg">메모: {s.note}</p>
+                  <p className="mt-1 sam-text-body-secondary text-sam-fg">
+                    {t("admin_ops_tools_runbook_step_note", { note: s.note })}
+                  </p>
                 )}
                 {s.linkedType && (
                   <p className="mt-2 sam-text-helper">
@@ -141,18 +137,14 @@ export function OpsRunbookStepWorkflow({
                       type="button"
                       onClick={() => handleStatus(s.id, "in_progress")}
                       className="rounded border border-amber-200 bg-amber-50 px-2 py-1 sam-text-helper text-amber-800"
-                    >
-                      시작
-                    </button>
+                    >{t("admin_ops_tools_runbook_th_started")}</button>
                   )}
                   {s.status === "in_progress" && (
                     <button
                       type="button"
                       onClick={() => handleStatus(s.id, "done")}
                       className="rounded border border-emerald-200 bg-emerald-50 px-2 py-1 sam-text-helper text-emerald-800"
-                    >
-                      완료
-                    </button>
+                    >{t("admin_ops_tools_checklist_done")}</button>
                   )}
                   {(s.status === "pending" || s.status === "in_progress") && (
                     <>
@@ -160,16 +152,12 @@ export function OpsRunbookStepWorkflow({
                         type="button"
                         onClick={() => handleStatus(s.id, "skipped")}
                         className="rounded border border-sam-border bg-sam-surface-muted px-2 py-1 sam-text-helper text-sam-muted"
-                      >
-                        스킵
-                      </button>
+                      >{t("admin_ops_tools_checklist_skipped")}</button>
                       <button
                         type="button"
                         onClick={() => handleStatus(s.id, "blocked")}
                         className="rounded border border-red-200 bg-red-50 px-2 py-1 sam-text-helper text-red-800"
-                      >
-                        차단
-                      </button>
+                      >{t("admin_ops_tools_checklist_blocked")}</button>
                     </>
                   )}
                   {s.status === "blocked" && (
@@ -177,9 +165,7 @@ export function OpsRunbookStepWorkflow({
                       type="button"
                       onClick={() => handleStatus(s.id, "in_progress")}
                       className="rounded border border-amber-200 bg-amber-50 px-2 py-1 sam-text-helper text-amber-800"
-                    >
-                      재개
-                    </button>
+                    >{t("admin_ops_tools_runbook_btn_resume")}</button>
                   )}
                 </div>
               )}

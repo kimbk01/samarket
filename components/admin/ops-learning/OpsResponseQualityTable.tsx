@@ -1,17 +1,17 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
 import Link from "next/link";
 import { getOpsResponseQualityFeedback } from "@/lib/ops-learning/mock-ops-response-quality-feedback";
 
 export function OpsResponseQualityTable() {
+  const { t } = useI18n();
   const feedback = useMemo(() => getOpsResponseQualityFeedback(), []);
 
   if (feedback.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
-        대응 품질 피드백이 없습니다.
-      </div>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_learning_quality_empty")}</div>
     );
   }
 
@@ -20,12 +20,12 @@ export function OpsResponseQualityTable() {
       <table className="w-full min-w-[640px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">이슈</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">런북 실행</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">품질</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">속도</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">문서적합도</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">요약</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_action_src_incident")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_kg_th_runbook")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_learning_th_quality")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_learning_th_speed")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_learning_th_doc_fit")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_board_label_summary")}</th>
           </tr>
         </thead>
         <tbody>

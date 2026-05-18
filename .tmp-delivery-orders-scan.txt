@@ -1,0 +1,118 @@
+﻿node : [check:i18n-hardcoded] 196 possible hardcoded Korean string(s):
+At C:\Users\im2pa\AppData\Local\Temp\ps-script-c7888ad9-800e-458a-90d3-1d152f270a84.ps1:82 char:1
++ node scripts/check-hardcoded-korean.mjs components/admin/delivery-ord ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([check:i18n-har...rean string(s)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  components\admin\delivery-orders\AdminDeliveryOrderChatDbClient.tsx:12: title="주문 채팅"
+  components\admin\delivery-orders\AdminMemoBox.tsx:17: <h3 className="text-sm font-semibold text-sam-fg">관리자 메모</h3>
+  components\admin\delivery-orders\AdminMemoBox.tsx:37: {saved ? <p className="mt-2 text-xs text-emerald-600">저장됨 (시뮬)<
+/p> : null}
+  components\admin\delivery-orders\AdminOrderChatList.tsx:8: <p>주문 채팅 목록은 메신저 배달 채팅함으로 통합되었습니다.</p>
+  components\admin\delivery-orders\AdminOrderTimeline.tsx:7: return <p className="text-sm text-sam-muted">이력이 없습니다.</p>
+;
+  components\admin\delivery-orders\AdminOrderTimeline.tsx:23: {l.reason ? <p className="mt-1 rounded bg-sam-app px-2 py
+-1 text-xs text-sam-fg">사유: {l.reason}</p> : null}
+  components\admin\delivery-orders\CancelRequestTable.tsx:19: return <p className="py-6 text-center text-sm text-sam-mu
+ted">대기 중인 취소 요청이 없습니다.</p>;
+  components\admin\delivery-orders\CancelRequestTable.tsx:26: <th className="px-2 py-2">주문번호</th>
+  components\admin\delivery-orders\CancelRequestTable.tsx:27: <th className="px-2 py-2">주문자</th>
+  components\admin\delivery-orders\CancelRequestTable.tsx:28: <th className="px-2 py-2">매장</th>
+  components\admin\delivery-orders\CancelRequestTable.tsx:29: <th className="px-2 py-2">요청일</th>
+  components\admin\delivery-orders\CancelRequestTable.tsx:30: <th className="px-2 py-2">사유</th>
+  components\admin\delivery-orders\CancelRequestTable.tsx:31: <th className="px-2 py-2">액션</th>
+  components\admin\delivery-orders\DeliveryAuditLogsClient.tsx:68: <AdminPageHeader title="주문 감사 로그" backHref="/admin/s
+tores/orders" />
+  components\admin\delivery-orders\DeliveryAuditLogsClient.tsx:92: <AdminCard title="주문 상태 변경 감사 (최대 200건)">
+  components\admin\delivery-orders\DeliveryAuditLogsClient.tsx:94: <p className="text-sm text-sam-muted">불러오는 중…</p>
+  components\admin\delivery-orders\DeliveryAuditLogsClient.tsx:96: <p className="text-sm text-sam-muted">기록이 없습니다.</p>
+  components\admin\delivery-orders\DeliveryAuditLogsClient.tsx:102: <th className="px-2 py-2">시각</th>
+  components\admin\delivery-orders\DeliveryAuditLogsClient.tsx:103: <th className="px-2 py-2">주문</th>
+  components\admin\delivery-orders\DeliveryAuditLogsClient.tsx:104: <th className="px-2 py-2">행위자</th>
+  components\admin\delivery-orders\DeliveryAuditLogsClient.tsx:105: <th className="px-2 py-2">액션</th>
+  components\admin\delivery-orders\DeliveryAuditLogTable.tsx:17: return <p className="py-6 text-center text-sm text-sam
+-muted">로그가 없습니다.</p>;
+  components\admin\delivery-orders\DeliveryAuditLogTable.tsx:24: <th className="px-2 py-2">시각</th>
+  components\admin\delivery-orders\DeliveryAuditLogTable.tsx:25: <th className="px-2 py-2">주문</th>
+  components\admin\delivery-orders\DeliveryAuditLogTable.tsx:26: <th className="px-2 py-2">행위자</th>
+  components\admin\delivery-orders\DeliveryAuditLogTable.tsx:27: <th className="px-2 py-2">액션</th>
+  components\admin\delivery-orders\DeliveryAuditLogTable.tsx:28: <th className="px-2 py-2">주문상태</th>
+  components\admin\delivery-orders\DeliveryAuditLogTable.tsx:29: <th className="px-2 py-2">결제</th>
+  components\admin\delivery-orders\DeliveryAuditLogTable.tsx:30: <th className="px-2 py-2">정산</th>
+  components\admin\delivery-orders\DeliveryAuditLogTable.tsx:31: <th className="px-2 py-2">사유</th>
+  components\admin\delivery-orders\DeliveryCancellationsClient.tsx:45: <AdminPageHeader title="취소 주문" backHref="/admin/
+stores/orders" />
+  components\admin\delivery-orders\DeliveryCancellationsClient.tsx:70: <AdminCard title="취소 완료 (원장 · 최근 최대 500건)">
+  components\admin\delivery-orders\DeliveryCancellationsClient.tsx:72: <p className="text-sm text-sam-muted">불러오는 중…</p
+>
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:153: <AdminPageHeader title="주문 상세" backHref="/admin/s
+tores/orders" />
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:154: <p className="text-sm text-sam-muted">원장 불러오는 중…<
+/p>
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:162: <AdminPageHeader title="주문 상세" backHref="/admin/s
+tores/orders" />
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:163: <p className="text-sm text-sam-muted">주문을 찾을 수 없습
+니다.</p>
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:216: <span className="text-sam-muted"> · 메신저 배달 채팅 원장<
+/span>
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:219: <AdminCard title="기본 정보">
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:223: <AdminCard title="주문 항목">
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:227: <AdminCard title="금액">
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:231: <AdminCard title="상태 정보">
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:234: <dt className="text-sam-muted">결제상태</dt>
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:240: <dt className="text-sam-muted">주문상태</dt>
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:246: <dt className="text-sam-muted">취소 상태</dt>
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:250: <dt className="text-sam-muted">환불 상태</dt>
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:254: <dt className="text-sam-muted">정산상태</dt>
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:263: <AdminCard title="취소·환불 요청">
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:266: <p className="font-semibold">취소 요청 ({order.cancel
+Request.status})</p>
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:284: <AdminCard title="취소·환불 사유(확정)">
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:285: {order.cancelReason ? <p className="text-sm">취소: 
+{order.cancelReason}</p> : null}
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:286: {order.refundReason ? <p className="text-sm">환불: 
+{order.refundReason}</p> : null}
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:291: <AdminCard title="정산">
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:294: <dt className="text-sam-muted">총매출</dt>
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:298: <dt className="text-sam-muted">수수료</dt>
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:302: <dt>정산예정액</dt>
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:306: <p className="mt-1 text-xs text-sam-muted">예정일: {
+order.settlement.scheduledDate}</p>
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:318: <AdminCard title="신고·분쟁">
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:320: <p className="text-sm text-amber-900">이 주문에 신고·분쟁
+ 플래그가 있습니다.</p>
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:324: <span className="text-sam-muted">분쟁 메모: </span>
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:336: <AdminCard title="플랫폼 운영 조치">
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:346: if (!confirm("주문을 강제 취소할까요? (완료·환불된 주문은 거절됩니다)"))
+ return;
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:357: if (!confirm("환불 요청 상태로 올릴까요?")) return;
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:368: if (!confirm("환불 완료(원장·재고·정산 반영)를 진행할까요?")) retur
+n;
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:410: <span className="text-sam-muted">운영 메모</span>
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:452: <AdminCard title="상태·감사 로그">
+  components\admin\delivery-orders\DeliveryOrderDetailClient.tsx:458: <p className="mt-2 text-sm text-sam-muted">불러오는 중
+…</p>
+  components\admin\delivery-orders\DeliveryOrdersByBuyerClient.tsx:72: <AdminCard title="주문 목록 (store_orders 원장 · 최대 50
+0건)">
+  components\admin\delivery-orders\DeliveryOrdersByBuyerClient.tsx:74: <p className="text-sm text-sam-muted">불러오는 중…</p
+>
+  components\admin\delivery-orders\DeliveryOrdersByStoreClient.tsx:73: <AdminCard title="주문 목록 (store_orders 원장 · 최대 50
+0건)">
+  components\admin\delivery-orders\DeliveryOrdersByStoreClient.tsx:75: <p className="text-sm text-sam-muted">불러오는 중…</p
+>
+  components\admin\delivery-orders\DeliveryOrdersDashboardClient.tsx:219: title="배달·포장 주문 (실데이터)"
+  components\admin\delivery-orders\DeliveryOrdersDashboardClient.tsx:222: <AdminCard title="데이터 원장">
+  components\admin\delivery-orders\DeliveryOrdersDashboardClient.tsx:229: 과 <strong>같은 DB</strong>입니다. 한쪽에서 <strong>DB에
+서 삭제</strong>하면 서버에는 바로 반영되고, 다른
+  components\admin\delivery-orders\DeliveryOrdersDashboardClient.tsx:233: <strong className="text-sam-fg">목록에서만 제거</str
+ong>는 이 브라우저 세션에서 표시만 숨깁니다.{" "}
+  components\admin\delivery-orders\DeliveryOrdersDashboardClient.tsx:234: <strong className="text-red-800">DB에서 삭제</str
+ong>는 원장에서 영구 삭제합니다.
+  components\admin\delivery-orders\DeliveryOrdersDashboardClient.tsx:270: <AdminCard title="KPI (현재 목록 기준 · 최대 500건)">
+  components\admin\delivery-orders\DeliveryOrdersDashboardClient.tsx:274: <AdminCard title="긴급 운영 큐 (필터 적용 결과 기준)">
+  components\admin\delivery-orders\DeliveryOrdersDashboardClient.tsx:280: <p className="sam-text-helper font-semibold t
+ext-sam-fg">미배차</p>
+  components\admin\delivery-orders\DeliveryOrdersDashboardClient.tsx:284: <p className="sam-text-helper font-semibold t
+ext-sam-fg">ETA 초과</p>
+  … and 116 more

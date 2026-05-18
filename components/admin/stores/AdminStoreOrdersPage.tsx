@@ -1,10 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { fetchAdminStoreOrdersQueryDeduped } from "@/lib/admin/fetch-admin-store-orders-query-deduped";
+import { catalogDateLocale } from "@/lib/i18n/catalog-date-locale";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
 type Row = {
@@ -20,18 +23,32 @@ type Row = {
   created_at: string;
 };
 
-const ORDER_LABEL: Record<string, string> = {
-  pending: "접수 대기",
-  accepted: "주문확인",
-  preparing: "상품준비",
-  ready_for_pickup: "픽업준비",
-  delivering: "배송중",
-  arrived: "배송지도착",
-  completed: "주문완료",
-  cancelled: "취소",
-  refund_requested: "환불요청",
-  refunded: "환불됨",
+const ORDER_STATUS_LABEL_KEYS: Record<string, MessageKey> = {
+  pending: "admin_stores_orders_status_pending",
+  accepted: "admin_stores_orders_status_accepted",
+  preparing: "admin_stores_orders_status_preparing",
+  ready_for_pickup: "admin_stores_orders_status_ready_for_pickup",
+  delivering: "admin_stores_orders_status_delivering",
+  arrived: "admin_stores_orders_status_arrived",
+  completed: "admin_stores_orders_status_completed",
+  cancelled: "admin_stores_orders_status_cancelled",
+  refund_requested: "admin_stores_orders_status_refund_requested",
+  refunded: "admin_stores_orders_status_refunded",
 };
+
+const ORDER_FILTER_OPTIONS: { value: string; labelKey: MessageKey }[] = [
+  { value: "", labelKey: "admin_stores_orders_filter_all" },
+  { value: "pending", labelKey: "admin_stores_orders_status_pending" },
+  { value: "accepted", labelKey: "admin_stores_orders_status_accepted" },
+  { value: "preparing", labelKey: "admin_stores_orders_status_preparing" },
+  { value: "ready_for_pickup", labelKey: "admin_stores_orders_status_ready_for_pickup" },
+  { value: "delivering", labelKey: "admin_stores_orders_status_delivering" },
+  { value: "arrived", labelKey: "admin_stores_orders_status_arrived" },
+  { value: "completed", labelKey: "admin_stores_orders_status_completed" },
+  { value: "cancelled", labelKey: "admin_stores_orders_status_cancelled" },
+  { value: "refund_requested", labelKey: "admin_stores_orders_status_refund_requested" },
+  { value: "refunded", labelKey: "admin_stores_orders_status_refunded" },
+];
 
 type OrderFilters = {
   orderId: string;
@@ -44,20 +61,6 @@ const emptyFilters: OrderFilters = {
   orderNo: "",
   orderStatus: "",
 };
-
-const ORDER_FILTER_OPTIONS: { value: string; label: string }[] = [
-  { value: "", label: "주문 전체" },
-  { value: "pending", label: ORDER_LABEL.pending },
-  { value: "accepted", label: ORDER_LABEL.accepted },
-  { value: "preparing", label: ORDER_LABEL.preparing },
-  { value: "ready_for_pickup", label: ORDER_LABEL.ready_for_pickup },
-  { value: "delivering", label: ORDER_LABEL.delivering },
-  { value: "arrived", label: ORDER_LABEL.arrived },
-  { value: "completed", label: ORDER_LABEL.completed },
-  { value: "cancelled", label: ORDER_LABEL.cancelled },
-  { value: "refund_requested", label: ORDER_LABEL.refund_requested },
-  { value: "refunded", label: ORDER_LABEL.refunded },
-];
 
 type Props = {
   /** URL 쿼리로 초기 필터 전달 */
@@ -75,8 +78,8 @@ function buildOrdersQueryString(f: OrderFilters) {
   return params.toString();
 }
 
-/** 적용된 필터와 동일 조건으로 `/api/admin/store-orders/export` 호출 */
 function CsvExportLink({ filters }: { filters: OrderFilters }) {
+  const { t } = useI18n();
   const qs = buildOrdersQueryString(filters);
   const href = `/api/admin/store-orders/export${qs ? `?${qs}` : ""}`;
   return (
@@ -85,12 +88,14 @@ function CsvExportLink({ filters }: { filters: OrderFilters }) {
       className="inline-flex items-center rounded border border-sam-border bg-sam-surface px-3 py-1.5 text-sam-fg hover:bg-sam-surface-muted"
       download
     >
-      CSV 내려받기
+      {t("admin_stores_orders_csv_export")}
     </a>
   );
 }
 
 export function AdminStoreOrdersPage({ initialFilters }: Props) {
+  const { t, language } = useI18n();
+  const locale = catalogDateLocale(language);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -114,6 +119,32 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
   const [applied, setApplied] = useState<OrderFilters>(() => (hasUrlInitial ? initial : emptyFilters));
   const [draft, setDraft] = useState<OrderFilters>(() => (hasUrlInitial ? initial : emptyFilters));
 
+  const orderStatusLabel = useCallback(
+    (status: string) => {
+      const key = ORDER_STATUS_LABEL_KEYS[status];
+      return key ? t(key) : status;
+    },
+    [t]
+  );
+
+  const errorText = useMemo(() => {
+    if (!error) return null;
+    if (error === "forbidden") return t("admin_audit_err_no_permission");
+    if (error === "network_error") return t("common_network_error");
+    return error;
+  }, [error, t]);
+
+  const syncDescParts = useMemo(() => {
+    const linkLabel = t("admin_stores_orders_sync_link");
+    const desc = t("admin_stores_orders_sync_desc");
+    const idx = desc.indexOf(linkLabel);
+    if (idx < 0) return { before: desc, after: "" };
+    return {
+      before: desc.slice(0, idx),
+      after: desc.slice(idx + linkLabel.length),
+    };
+  }, [t]);
+
   const fetchWith = useCallback(async (f: OrderFilters) => {
     setLoading(true);
     setError(null);
@@ -122,7 +153,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
       const { status, json: raw } = await fetchAdminStoreOrdersQueryDeduped(qs);
       const json = raw as { ok?: boolean; error?: string; orders?: Row[] };
       if (status === 403) {
-        setError("관리자 권한이 없습니다.");
+        setError("forbidden");
         setRows([]);
         return;
       }
@@ -144,7 +175,6 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
     void fetchWith(applied);
   }, [applied, fetchWith]);
 
-  /** 배달·포장 표와 같은 DB — 다른 탭에서 삭제해도 이 탭은 캐시된 목록을 들고 있을 수 있어, 탭 복귀·주기 갱신으로 맞춤 */
   useEffect(() => {
     const refetchIfVisible = () => {
       if (document.visibilityState !== "visible") return;
@@ -203,11 +233,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
   const deleteSelectedFromDb = useCallback(async () => {
     if (selectedIds.size === 0) return;
     const ids = [...selectedIds];
-    if (
-      !window.confirm(
-        `선택 ${ids.length}건을 DB(store_orders)에서 영구 삭제합니다.\n연결된 품목·채팅 등이 함께 정리될 수 있습니다. 계속할까요?`
-      )
-    ) {
+    if (!window.confirm(t("admin_stores_orders_confirm_delete", { count: ids.length }))) {
       return;
     }
     setBulkBusy(true);
@@ -226,7 +252,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
         error?: string;
       };
       if (!res.ok) {
-        setActionMessage(data.error ?? "삭제 요청에 실패했습니다.");
+        setActionMessage(data.error ?? t("admin_stores_orders_delete_failed"));
         return;
       }
       const deleted: string[] = Array.isArray(data.deleted) ? data.deleted : [];
@@ -240,28 +266,26 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
       if (data.errors?.length) {
         setActionMessage(
           deleted.length > 0
-            ? `${deleted.length}건 삭제. 실패 ${data.errors.length}건`
-            : `삭제 실패 ${data.errors.length}건`
+            ? t("admin_stores_orders_delete_partial", {
+                deleted: deleted.length,
+                failed: data.errors.length,
+              })
+            : t("admin_stores_orders_delete_all_failed", { failed: data.errors.length })
         );
       } else {
-        setActionMessage(`${deleted.length}건을 DB에서 삭제했습니다.`);
+        setActionMessage(t("admin_stores_orders_deleted_count", { count: deleted.length }));
       }
       await fetchWith(applied);
     } catch {
-      setActionMessage("네트워크 오류로 삭제에 실패했습니다.");
+      setActionMessage(t("common_network_error"));
     } finally {
       setBulkBusy(false);
     }
-  }, [applied, fetchWith, selectedIds]);
+  }, [applied, fetchWith, selectedIds, t]);
 
   const approveRefund = useCallback(
     async (id: string) => {
-      if (
-        !window.confirm(
-          "환불을 승인할까요? 주문이 refunded로 바뀌고 재고가 복구되며 예정 정산이 취소됩니다."
-        )
-      )
-        return;
+      if (!window.confirm(t("admin_stores_orders_confirm_refund"))) return;
       setBusyId(id);
       setError(null);
       try {
@@ -281,11 +305,10 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
         setBusyId(null);
       }
     },
-    [applied, fetchWith]
+    [applied, fetchWith, t]
   );
 
-  const allRowsSelected =
-    rows.length > 0 && rows.every((r) => selectedIds.has(r.id));
+  const allRowsSelected = rows.length > 0 && rows.every((r) => selectedIds.has(r.id));
   const someRowsSelected = rows.some((r) => selectedIds.has(r.id));
   useEffect(() => {
     const el = headerSelectRef.current;
@@ -294,50 +317,41 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="매장 주문" />
+      <AdminPageHeader titleKey="admin_page_store_orders" />
       <nav className="flex flex-wrap gap-2 sam-text-helper">
         <Link
           href="/admin/stores/orders"
           className="rounded-full border border-sam-border bg-sam-surface px-3 py-1 text-sam-fg hover:border-signature hover:text-signature"
         >
-          배달·포장 주문(표·KPI)
+          {t("admin_stores_orders_nav_delivery")}
         </Link>
         <Link
           href="/admin/order-chats"
           className="rounded-full border border-sam-border bg-sam-surface px-3 py-1 text-sam-fg hover:border-signature hover:text-signature"
         >
-          주문·채팅 허브
+          {t("admin_stores_orders_nav_hub")}
         </Link>
         <Link
           href="/admin/chats/messenger"
           className="rounded-full border border-sam-border bg-sam-surface px-3 py-1 text-sam-fg hover:border-signature hover:text-signature"
         >
-          커뮤니티 메신저
+          {t("admin_stores_orders_nav_messenger")}
         </Link>
         <Link
           href="/admin/order-notifications"
           className="rounded-full border border-sam-border bg-sam-surface px-3 py-1 text-sam-fg hover:border-signature hover:text-signature"
         >
-          운영 알림
+          {t("admin_stores_orders_nav_notif")}
         </Link>
       </nav>
       <p className="sam-text-body-secondary leading-relaxed text-sam-fg">
-        이 화면과{" "}
+        {syncDescParts.before}
         <Link href="/admin/stores/orders" className="font-medium text-signature underline">
-          배달·포장 주문(표)
+          {t("admin_stores_orders_sync_link")}
         </Link>
-        는 <strong>같은 Supabase 테이블</strong>(
-        <code className="rounded bg-sam-surface-muted px-1 sam-text-helper">store_orders</code>)을 봅니다.{" "}
-        <strong>한쪽에서 DB 삭제</strong>하면 서버 데이터는 바로 없어지고, 다른 쪽 화면도{" "}
-        <strong>이 탭으로 돌아오거나(자동 새로고침) 최대 약 30초 안에</strong> 같은 목록으로 맞춰집니다. 배달 표의
-        &quot;목록에서만 제거&quot;는 이 브라우저에서만 숨김이라 DB와 무관합니다.
+        {syncDescParts.after}
       </p>
-      <p className="sam-text-helper text-sam-muted">
-        사마켓 매장 주문은 앱 내 결제 없이 진행됩니다. 구매자가 &quot;환불 요청&quot;하면 주문 상태가{" "}
-        <strong>환불요청</strong>으로 바뀌며, 아래 <strong>환불 승인</strong>으로 DB·재고·정산을 맞출 수 있습니다.
-        대기만 보려면 주문 상태에서 &quot;환불요청&quot;을 고르거나 URL에{" "}
-        <code className="rounded bg-sam-surface-muted px-1">?order_status=refund_requested</code> 를 붙이면 됩니다.
-      </p>
+      <p className="sam-text-helper text-sam-muted">{t("admin_stores_orders_refund_desc")}</p>
 
       <div className="flex flex-wrap items-end gap-2 rounded-ui-rect border border-sam-border bg-sam-app p-3 sam-text-body-secondary">
         <label className="flex flex-col gap-0.5">
@@ -350,7 +364,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
           />
         </label>
         <label className="flex flex-col gap-0.5">
-          <span className="text-sam-muted">주문번호 포함</span>
+          <span className="text-sam-muted">{t("admin_stores_orders_filter_order_no")}</span>
           <input
             className="min-w-[140px] rounded border border-sam-border bg-sam-surface px-2 py-1"
             value={draft.orderNo}
@@ -359,7 +373,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
           />
         </label>
         <label className="flex flex-col gap-0.5">
-          <span className="text-sam-muted">주문 상태</span>
+          <span className="text-sam-muted">{t("admin_stores_orders_filter_status")}</span>
           <select
             className="min-w-[132px] rounded border border-sam-border bg-sam-surface px-2 py-1"
             value={draft.orderStatus}
@@ -367,7 +381,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
           >
             {ORDER_FILTER_OPTIONS.map((o) => (
               <option key={o.value ? `ord-${o.value}` : "ord-all"} value={o.value}>
-                {o.label}
+                {t(o.labelKey)}
               </option>
             ))}
           </select>
@@ -378,7 +392,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
           onClick={() => applyFilters()}
           disabled={loading}
         >
-          {loading ? "조회 중…" : "조회"}
+          {loading ? t("admin_stores_orders_querying") : t("admin_audit_query_btn")}
         </button>
         <button
           type="button"
@@ -386,17 +400,14 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
           onClick={() => refreshList()}
           disabled={loading}
         >
-          목록 새로고침
+          {t("admin_stores_orders_refresh_list")}
         </button>
         <CsvExportLink filters={applied} />
       </div>
-      <p className="sam-text-xxs text-sam-muted">
-        CSV는 위에서 <strong>조회</strong>에 적용된 필터와 동일합니다. 기본 최대 500건이며, URL에{" "}
-        <code className="rounded bg-sam-surface-muted px-1">limit=2000</code> 까지 지정할 수 있습니다. (UTF-8 BOM)
-      </p>
+      <p className="sam-text-xxs text-sam-muted">{t("admin_stores_orders_csv_hint")}</p>
 
-      {error ? (
-        <p className="rounded-ui-rect bg-red-50 px-3 py-2 text-sm text-red-800">{error}</p>
+      {errorText ? (
+        <p className="rounded-ui-rect bg-red-50 px-3 py-2 text-sm text-red-800">{errorText}</p>
       ) : null}
       {actionMessage ? (
         <p className="rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 sam-text-body-secondary text-sam-fg">
@@ -407,7 +418,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
       {!loading && rows.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary">
           <span className="text-sam-muted">
-            선택 <strong className="text-sam-fg">{selectedIds.size}</strong>건
+            {t("admin_stores_orders_selected_count", { count: selectedIds.size })}
           </span>
           <button
             type="button"
@@ -415,7 +426,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
             onClick={() => toggleSelectAll(true)}
             className="rounded border border-sam-border bg-sam-surface px-2.5 py-1.5 font-medium text-sam-fg hover:bg-sam-app disabled:opacity-40"
           >
-            현재 목록 전체 선택
+            {t("admin_stores_orders_select_all")}
           </button>
           <button
             type="button"
@@ -423,7 +434,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
             onClick={() => setSelectedIds(new Set())}
             className="rounded border border-sam-border bg-sam-surface px-2.5 py-1.5 font-medium text-sam-fg hover:bg-sam-app disabled:opacity-40"
           >
-            선택 해제
+            {t("admin_stores_orders_deselect")}
           </button>
           <button
             type="button"
@@ -431,15 +442,15 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
             onClick={() => void deleteSelectedFromDb()}
             className="rounded border border-red-200 bg-red-50 px-2.5 py-1.5 font-medium text-red-800 hover:bg-red-100 disabled:opacity-40"
           >
-            {bulkBusy ? "삭제 중…" : "DB에서 삭제"}
+            {bulkBusy ? t("admin_stores_orders_deleting") : t("admin_stores_orders_delete_db")}
           </button>
         </div>
       ) : null}
 
       {loading ? (
-        <p className="text-sm text-sam-muted">불러오는 중…</p>
+        <p className="text-sm text-sam-muted">{t("common_loading")}</p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-sam-muted">주문이 없습니다.</p>
+        <p className="text-sm text-sam-muted">{t("admin_stores_orders_empty")}</p>
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="min-w-full text-left sam-text-body-secondary">
@@ -452,15 +463,15 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
                     checked={allRowsSelected}
                     onChange={(e) => toggleSelectAll(e.target.checked)}
                     className="rounded border-sam-border"
-                    aria-label="현재 목록 전체 선택"
+                    aria-label={t("admin_stores_orders_select_all_aria")}
                   />
                 </th>
-                <th className="px-3 py-2 font-medium">주문 / id</th>
-                <th className="px-3 py-2 font-medium">매장</th>
-                <th className="px-3 py-2 font-medium">금액</th>
-                <th className="px-3 py-2 font-medium">주문</th>
-                <th className="px-3 py-2 font-medium">일시</th>
-                <th className="px-3 py-2 font-medium">연동</th>
+                <th className="px-3 py-2 font-medium">{t("admin_stores_orders_th_order")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_stores_th_store")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_stores_orders_th_amount")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_stores_orders_th_order_status")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_stores_orders_th_datetime")}</th>
+                <th className="px-3 py-2 font-medium">{t("admin_stores_orders_th_links")}</th>
               </tr>
             </thead>
             <tbody>
@@ -472,7 +483,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
                       checked={selectedIds.has(r.id)}
                       onChange={(e) => toggleSelect(r.id, e.target.checked)}
                       className="rounded border-sam-border"
-                      aria-label={`주문 ${r.order_no} 선택`}
+                      aria-label={t("admin_stores_orders_select_aria", { orderNo: r.order_no })}
                     />
                   </td>
                   <td className="max-w-[200px] px-3 py-2 font-mono sam-text-helper text-sam-fg">
@@ -485,9 +496,9 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
                     {r.store_name || r.store_id}
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 font-medium">{formatMoneyPhp(r.payment_amount)}</td>
-                  <td className="px-3 py-2">{ORDER_LABEL[r.order_status] ?? r.order_status}</td>
+                  <td className="px-3 py-2">{orderStatusLabel(r.order_status)}</td>
                   <td className="whitespace-nowrap px-3 py-2 text-sam-muted">
-                    {new Date(r.created_at).toLocaleString("ko-KR")}
+                    {new Date(r.created_at).toLocaleString(locale)}
                   </td>
                   <td className="space-y-1 px-3 py-2 align-top">
                     <div className="flex flex-col gap-1 sam-text-helper">
@@ -495,19 +506,19 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
                         href={`/admin/stores/orders/${encodeURIComponent(r.id)}/chat`}
                         className="font-medium text-signature underline"
                       >
-                        주문 채팅
+                        {t("admin_stores_orders_link_chat")}
                       </Link>
                       <Link
                         href={`/admin/chats/messenger?q=${encodeURIComponent(r.buyer_user_id)}`}
                         className="text-sam-muted underline"
                       >
-                        메신저(구매자 id)
+                        {t("admin_stores_orders_link_messenger")}
                       </Link>
                       <Link
                         href={`/admin/stores/orders/${encodeURIComponent(r.id)}`}
                         className="text-sam-muted underline"
                       >
-                        배달 주문 상세
+                        {t("admin_stores_orders_link_detail")}
                       </Link>
                     </div>
                     {r.order_status === "refund_requested" ? (
@@ -517,7 +528,7 @@ export function AdminStoreOrdersPage({ initialFilters }: Props) {
                         onClick={() => void approveRefund(r.id)}
                         className="mt-2 block w-full rounded-ui-rect border border-red-200 bg-red-50 px-2 py-1 sam-text-helper font-medium text-red-800 disabled:opacity-50"
                       >
-                        {busyId === r.id ? "…" : "환불 승인"}
+                        {busyId === r.id ? "…" : t("admin_stores_orders_approve_refund")}
                       </button>
                     ) : null}
                   </td>

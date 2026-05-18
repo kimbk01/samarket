@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import type { ReactNode } from "react";
@@ -55,6 +56,7 @@ export function StoreDetailStorefrontPanel({
   ownerManagementHref?: string | null;
   storeInfoHref: string;
 }) {
+  const { t, language } = useI18n();
   void _pickupAvailable;
   void _isOpen;
 
@@ -63,10 +65,9 @@ export function StoreDetailStorefrontPanel({
     if (m != null && m > 0) return `최소 ${formatMoneyPhp(m)}`;
     return "최소 없음";
   }, [commerceExtras.minOrderPhp]);
-
   const feeLine = useMemo(
-    () => formatStoreStorefrontDeliveryFeeLine(commerceExtras, { deliveryAvailable }),
-    [commerceExtras, deliveryAvailable]
+    () => formatStoreStorefrontDeliveryFeeLine(commerceExtras, { deliveryAvailable }, language),
+    [commerceExtras, deliveryAvailable, language]
   );
 
   const feeSummaryInline = useMemo(() => {
@@ -76,7 +77,7 @@ export function StoreDetailStorefrontPanel({
     const strike = commerceExtras.deliveryFeeStrikeReferencePhp;
     return (
       <span className="inline-flex flex-wrap items-center gap-1">
-        <span className="font-semibold text-[#2563EB]">배달비 무료 적용 중</span>
+        <span className="font-semibold text-[#2563EB]">{t("store_free_delivery_applied")}</span>
         {strike != null && strike > 0 ? (
           <span className="text-sam-meta line-through">{formatMoneyPhp(strike)}</span>
         ) : null}
@@ -110,7 +111,7 @@ export function StoreDetailStorefrontPanel({
   return (
     <section
       className="w-full border-b border-sam-border bg-sam-surface px-3 py-2 shadow-sm"
-      aria-label="주문 요약"
+      aria-label={t("store_order_summary_aria")}
     >
       {ownerManagementHref ? (
         <p className="mb-2 text-center">
@@ -126,7 +127,7 @@ export function StoreDetailStorefrontPanel({
       <div
         className="overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]"
         role="group"
-        aria-label="최소주문·배달·준비·결제 요약"
+        aria-label={t("store_commerce_summary_aria")}
       >
         <p className="flex w-max min-w-full items-center gap-x-2 whitespace-nowrap py-1 sam-text-xxs font-medium text-sam-fg">
           <span className="text-sam-fg">{minLine}</span>
@@ -178,7 +179,7 @@ export function StoreDetailStorefrontPanel({
         </summary>
         <div className="border-t border-sam-border bg-sam-surface px-3 pb-3 pt-1">
           <p className="mb-2 sam-text-xxs leading-relaxed text-sam-muted">
-            매장에 등록된 영업·결제·공지입니다. 주소·지도는 우측 <strong className="text-sam-muted">가게 정보</strong>
+            {t("store_commerce_notice_html")}
             또는 상단 ⋯ 메뉴에서 열 수 있어요.
           </p>
 
@@ -208,14 +209,14 @@ export function StoreDetailStorefrontPanel({
           </div>
           {deliveryAvailable && commerceExtras.deliveryFeeMode === "courier" && commerceExtras.deliveryCourierLabel ? (
             <p className="mt-2 sam-text-helper text-sam-muted">
-              <span className="font-semibold text-sam-fg">배달 담당(착불)</span> · {commerceExtras.deliveryCourierLabel}
+              <span className="font-semibold text-sam-fg">{t("store_courier_cod")}</span> · {commerceExtras.deliveryCourierLabel}
             </p>
           ) : null}
 
           <StorePublicNoticesList lines={deliveryMeta.publicNotices} className="mt-3" />
           {deliveryMeta.deliveryNotice.trim() ? (
             <p className="mt-3 rounded-ui-rect border border-sam-border-soft bg-sam-app px-2.5 py-2 sam-text-xxs leading-relaxed whitespace-pre-wrap text-sam-muted">
-              <span className="font-semibold text-sam-fg">배달 안내</span>
+              <span className="font-semibold text-sam-fg">{t("store_delivery_guide")}</span>
               <br />
               {deliveryMeta.deliveryNotice}
             </p>

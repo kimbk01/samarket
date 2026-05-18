@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { getLatestOpsBenchmarks } from "@/lib/ops-benchmarks/mock-ops-benchmarks";
 import type { OpsBenchmarkScope, OpsBenchmarkDomain } from "@/lib/types/ops-benchmarks";
@@ -25,6 +28,7 @@ const TREND_LABELS: Record<string, string> = {
 };
 
 export function OpsBenchmarkCards() {
+  const { t } = useI18n();
   const [scope, setScope] = useState<OpsBenchmarkScope>("quarterly");
   const benchmarks = useMemo(
     () => getLatestOpsBenchmarks(scope),
@@ -42,7 +46,7 @@ export function OpsBenchmarkCards() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">범위</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_ops_benchmark_kf6b7b470")}</span>
         {(["quarterly", "yearly"] as const).map((s) => (
           <button
             key={s}
@@ -78,9 +82,9 @@ export function OpsBenchmarkCards() {
                 현재 {b.currentScore}
               </span>
               <span className="text-sam-meta">/</span>
-              <span className="text-sam-muted">목표 {b.targetScore}</span>
+              <span className="text-sam-muted">{t("admin_target_score")} {b.targetScore}</span>
               <span className="text-sam-meta">/</span>
-              <span className="text-sam-muted">기준 {b.referenceScore}</span>
+              <span className="text-sam-muted">{t("admin_reference_score")} {b.referenceScore}</span>
             </div>
             <div className="mt-2 flex items-center gap-2">
               <span

@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useEffect, useId, useState } from "react";
 import { formatPrice, formatPriceInput } from "@/lib/utils/format";
 import type { PriceOfferListItem } from "@/lib/offers/types";
@@ -24,6 +25,7 @@ export function OfferModal({
   onClose,
   onSubmitted,
 }: Props) {
+  const { t } = useI18n();
   const titleId = useId();
   const [offeredPrice, setOfferedPrice] = useState("");
   const [message, setMessage] = useState("");
@@ -56,11 +58,11 @@ export function OfferModal({
     const digits = offeredPrice.replace(/\D/g, "");
     const nextPrice = digits ? Number(digits) : NaN;
     if (!Number.isFinite(nextPrice) || nextPrice <= 0) {
-      setError("제안 가격을 입력해 주세요.");
+      setError(t("ui_offer_price_required"));
       return;
     }
     if (nextPrice < minAllowed) {
-      setError(`최소 ${formatPrice(minAllowed, currency)} 이상만 제안할 수 있습니다.`);
+      setError(t("ui_offer_min_price", { min: formatPrice(minAllowed, currency) }));
       return;
     }
     setBusy(true);
@@ -98,7 +100,7 @@ export function OfferModal({
     <div className="fixed inset-0 z-[45] flex flex-col justify-end sm:items-center sm:justify-center sm:p-4">
       <button
         type="button"
-        aria-label="닫기"
+        aria-label={t("ui_sheet_close_aria")}
         disabled={busy}
         className="absolute inset-0 bg-black/50 backdrop-blur-[1px] transition-opacity sm:bg-black/40"
         onClick={() => {
@@ -127,7 +129,7 @@ export function OfferModal({
             onClick={onClose}
             disabled={busy}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[22px] leading-none text-sam-muted transition-colors hover:bg-sam-surface-muted disabled:opacity-50"
-            aria-label="닫기"
+            aria-label={t("ui_sheet_close_aria")}
           >
             ×
           </button>
@@ -157,7 +159,7 @@ export function OfferModal({
 
           <div className="space-y-4">
             <label className="block">
-              <span className="mb-1.5 block text-[13px] font-semibold text-sam-fg">제안 가격</span>
+              <span className="mb-1.5 block text-[13px] font-semibold text-sam-fg">{t("ui_offer_price_label")}</span>
               <input
                 type="text"
                 inputMode="numeric"
@@ -171,13 +173,13 @@ export function OfferModal({
             </label>
 
             <label className="block">
-              <span className="mb-1.5 block text-[13px] font-semibold text-sam-fg">메시지 (선택)</span>
+              <span className="mb-1.5 block text-[13px] font-semibold text-sam-fg">{t("ui_offer_message_optional")}</span>
               <textarea
                 rows={4}
                 maxLength={500}
                 value={message}
                 onChange={(e) => setMessage(e.target.value)}
-                placeholder="판매자에게 전달할 내용을 적어 주세요."
+                placeholder={t("ui_offer_message_ph")}
                 className="w-full resize-none rounded-xl border border-sam-border bg-sam-app px-3.5 py-3 text-[15px] text-sam-fg outline-none ring-sam-primary/25 placeholder:text-sam-muted focus:border-sam-primary focus:ring-2"
                 disabled={busy}
               />

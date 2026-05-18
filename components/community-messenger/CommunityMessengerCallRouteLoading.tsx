@@ -3,12 +3,14 @@
 import { CallScreenShell } from "@/components/community-messenger/call-ui/CallScreenShell";
 import { CallBackground } from "@/components/messenger/call/CallBackground";
 import { CallHeader } from "@/components/messenger/call/CallHeader";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 /**
  * 통화 라우트(RSC 대기·클라 청크 로드) 동안 실제 통화 화면과 동일한 골격을 유지한다.
  * 별도 보라 스피너 화면으로 바뀌지 않아 체감 단절·이중 전환을 줄인다.
  */
 export function CommunityMessengerCallRouteLoading() {
+  const { t } = useI18n();
   return (
     <CallScreenShell variant="page" className="min-h-[100dvh] overflow-hidden">
       <CallBackground mode="video" phase="connecting" showVideo={false} />
@@ -22,9 +24,11 @@ export function CommunityMessengerCallRouteLoading() {
                   className="mx-auto h-10 max-w-[220px] animate-pulse rounded-xl bg-white/22 sm:h-11"
                   aria-hidden
                 />
-                <p className="mt-3 sam-text-body-lg font-medium text-white/76 sm:sam-text-section-title">통화 화면을 불러오는 중</p>
+                <p className="mt-3 sam-text-body-lg font-medium text-white/76 sm:sam-text-section-title">
+                  {t("cm_ui_loading_call_screen")}
+                </p>
                 <p className="mt-2 sam-text-body-secondary leading-snug text-white/60 sm:sam-text-body">
-                  연결 준비가 끝나면 바로 표시됩니다
+                  {t("cm_ui_call_screen_ready_hint")}
                 </p>
               </div>
             </div>

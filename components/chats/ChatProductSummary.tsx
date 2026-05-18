@@ -18,6 +18,7 @@ import {
   MessengerTradeProductDockRow,
 } from "@/components/community-messenger/room/phase2/MessengerTradeProductDockRow";
 import { normalizeSellerListingState, SELLER_LISTING_LABEL } from "@/lib/products/seller-listing-state";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface ChatProductSummaryProps {
   product: ChatProductSummaryType;
@@ -41,6 +42,7 @@ export function ChatProductSummary({
   productStatusOverride,
   variant = "card",
 }: ChatProductSummaryProps) {
+  const { t } = useI18n();
   const currency = getAppSettings().defaultCurrency ?? "KRW";
   const detailHref = product.detailHref?.trim() || `/post/${product.id}`;
   const isPhilifeCard = detailHref.startsWith("/philife/") || detailHref.startsWith("/community/");
@@ -72,7 +74,7 @@ export function ChatProductSummary({
     const line2 = isExchange
       ? exchangePhp != null && Number.isFinite(exchangePhp)
         ? formatMessengerTradeDockPriceLine(Number(exchangePhp), "PHP", listingPhaseLabel)
-        : `금액 문의 · ${listingPhaseLabel}`
+        : `${t("chats_amount_inquiry")} · ${listingPhaseLabel}`
       : formatMessengerTradeDockPriceLine(product.price, currency, listingPhaseLabel);
 
     return (
@@ -187,7 +189,7 @@ export function ChatProductSummary({
                         {CURRENCY_SYMBOLS.PHP} {exchangePhp.toLocaleString()}
                       </>
                     ) : (
-                      <span className="sam-text-body font-semibold text-sam-muted">금액 문의</span>
+                      <span className="sam-text-body font-semibold text-sam-muted">{t("chats_amount_inquiry")}</span>
                     )
                   ) : (
                     formatPrice(product.price, currency)
@@ -197,9 +199,9 @@ export function ChatProductSummary({
               {!isPhilifeCard && isExchange ? (
                 <p className="mt-0.5 sam-text-helper font-medium text-sam-fg">
                   {exchangeRateLine ? (
-                    <>환율 {exchangeRateLine}</>
+                    <>{t("chats_exchange_rate_prefix", { line: exchangeRateLine })}</>
                   ) : (
-                    <span className="text-muted">환율 미지정</span>
+                    <span className="text-muted">{t("chats_exchange_rate_unset")}</span>
                   )}
                 </p>
               ) : null}

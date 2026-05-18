@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import {
   STORE_ADDRESS_DETAIL_LABEL,
@@ -36,6 +37,7 @@ export function StoreAddressStreetDetailGrid({
   inputClassName = OWNER_STORE_CONTROL_CLASS,
   showStreetHint = true,
 }: StoreAddressStreetDetailGridProps) {
+  const { t } = useI18n();
   return (
     <div className="space-y-2">
       {showStreetHint ? (

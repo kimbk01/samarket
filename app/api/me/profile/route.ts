@@ -23,9 +23,8 @@ import {
 } from "@/lib/profile/me-profile-get-response-cache";
 import { createEmptyProfileFetchMetrics, type ProfileFetchMetrics } from "@/lib/profile/fetch-profile-row-safe";
 import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
-import { normalizeAppLanguage } from "@/lib/i18n/config";
-import { profilePhoneStorageFieldsFromDb09 } from "@/lib/profile/resolve-profile-phone";
-import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
+import { normalizeAppLanguage, normalizeLanguagePreferenceForStorage } from "@/lib/i18n/config";
+import { isValidPhilippinesMobilePhone, normalizePhilippinesPhoneNumber } from "@/lib/phone/philippines-phone";
 import { enforceProfileEnsureQuota } from "@/lib/security/rate-limit-presets";
 import { clearMeProfileGetRouteCache } from "@/lib/profile/me-profile-get-route-cache";
 import {
@@ -36,16 +35,10 @@ import {
 } from "@/lib/profile/profile-response-cache";
 import { jsonError } from "@/lib/http/api-route";
 import { logRoutePerf } from "@/lib/http/route-perf-log";
-import {
-  buildRoutePerfClientObservability,
-  buildRoutePerfDedupeFields,
-  readClientCallSourceFromRequest,
-} from "@/lib/http/route-perf-dedupe-fields";
-import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/me/profile — 동일 userId·mode 동시 요청이 `runMeProfileReadPipeline` 을 한 번만 타도록 (userId 키 분리, 실패 응답은 캐시하지 않음).
+ * GET /api/me/profile — 동일 userId 동시 요청이 `runMeProfileReadPipeline` 을 한 번만 타도록 (userId 키 분리, 실패 응답은 캐시하지 않음).
  * @see `PROFILE_ROUTE_PIPELINE_COALESCE_MS` — `[dev-api-perf]` 의 `profile_cache_ttl_ms` 설계 상한
  */
 type MeProfilePipelineFlight = {
@@ -54,15 +47,8 @@ type MeProfilePipelineFlight = {
   profileFetchMetrics: ProfileFetchMetrics;
   pipelineStepMs: MeProfilePipelinePerf;
 };
+const ME_PROFILE_PIPELINE_INFLIGHT = new Map<string, Promise<MeProfilePipelineFlight>>();
 const PROFILE_ROUTE_PIPELINE_COALESCE_MS = 1500;
-
-function meProfilePipelineFlightKey(userId: string, mode: "full" | "lite"): string {
-  return `me-profile-pipeline:${userId.trim()}\0${mode}`;
-}
-
-function meProfileRequestDedupeKey(userId: string, mode: "full" | "lite"): string {
-  return `${userId.trim()}\0${mode}`;
-}
 
 function buildProfilePipelineStepsJson(perf: MeProfilePipelinePerf): string {
   return JSON.stringify({
@@ -396,21 +382,16 @@ function parsePatchBody(body: unknown): { ok: true; patch: Record<string, unknow
     const v = b.phone;
     if (v === null || v === "") {
       patch.phone = null;
-      patch.phone_country_code = null;
-      patch.phone_number = null;
     } else {
-      const phNorm = normalizeOptionalPhMobileDb(String(v));
-      if (!phNorm.ok) {
-        return { ok: false, error: phNorm.error };
+      const normalizedPhone = normalizePhilippinesPhoneNumber(String(v));
+      if (!isValidPhilippinesMobilePhone(normalizedPhone)) {
+        return { ok: false, error: "필리핀 휴대폰 번호 형식을 확인해 주세요. 예: +639171234567" };
       }
-      const fields = profilePhoneStorageFieldsFromDb09(phNorm.value);
-      patch.phone = fields.phone;
-      patch.phone_country_code = fields.phone_country_code;
-      patch.phone_number = fields.phone_number;
+      patch.phone = normalizedPhone;
     }
   }
   if ("preferred_language" in b) {
-    patch.preferred_language = normalizeAppLanguage(b.preferred_language);
+    patch.preferred_language = normalizeLanguagePreferenceForStorage(b.preferred_language);
   }
   if ("preferred_country" in b) {
     const s = String(b.preferred_country ?? "PH").trim() || "PH";
@@ -426,20 +407,7 @@ function parsePatchBody(body: unknown): { ok: true; patch: Record<string, unknow
  */
 export async function GET(request: NextRequest) {
   const tRoute0 = devPerfNow();
-  const modeParam = request.nextUrl.searchParams.get("mode")?.trim().toLowerCase();
-  const mode: "full" | "lite" =
-    modeParam === "minimal" || modeParam === "lite" || request.nextUrl.searchParams.get("lite") === "1"
-      ? "lite"
-      : "full";
-  const profileModeLabel = modeParam === "minimal" ? "minimal" : mode;
-  const profileClientObs = {
-    ...buildRoutePerfClientObservability({
-      request,
-      firstPaintBlocking: mode === "lite",
-    }),
-    mode: profileModeLabel,
-    snapshotTier: mode === "lite" ? "boot_minimal" : "full",
-  };
+  const mode: "full" | "lite" = request.nextUrl.searchParams.get("lite") === "1" ? "lite" : "full";
 
   const auth0 = devPerfNow();
   const cookieAuth = await getOptionalRouteHandlerCookieAuth();
@@ -503,17 +471,7 @@ export async function GET(request: NextRequest) {
       cache_hit: 1,
       auth_ms: Math.round(requireAuthMs),
       serialize_ms: json_payload_serialize_probe_ms,
-      prod_profile_response_cache_lookup_ms,
-      query_type: "profile_row",
-      ...profileClientObs,
-      ...buildRoutePerfDedupeFields({
-        userId,
-        dedupeKey: meProfileRequestDedupeKey(userId, mode),
-        responseCacheHit: true,
-        ttlCacheHit: true,
-        queryType: "profile_row",
-        cacheHitReason: "prod_profile_response_ttl",
-      }),
+        prod_profile_response_cache_lookup_ms,
     });
     finalizeMeProfileGetPerfLog(
       {
@@ -752,13 +710,6 @@ export async function GET(request: NextRequest) {
       cache_hit: cached ? 1 : 0,
       auth_ms: Math.round(requireAuthMs),
       serialize_ms: json_payload_serialize_probe_ms,
-      query_type: "profile_row",
-      ...buildRoutePerfDedupeFields({
-        userId,
-        dedupeKey: meProfileRequestDedupeKey(userId, mode),
-        responseCacheHit: true,
-        queryType: "profile_row",
-      }),
     });
     finalizeMeProfileGetPerfLog(
       {
@@ -847,29 +798,41 @@ export async function GET(request: NextRequest) {
   }
 
   const serviceSb = tryCreateSupabaseServiceClient();
-  const pipelineFlightKey = meProfilePipelineFlightKey(userId, mode);
-  const profileSingleflightHit = getSingleFlightPromise<MeProfilePipelineFlight>(pipelineFlightKey) !== undefined ? 1 : 0;
-
-  const flight = await runSingleFlight(pipelineFlightKey, async (): Promise<MeProfilePipelineFlight> => {
-    const profileFetchMetrics = createEmptyProfileFetchMetrics();
-    const pipelineStepMs = createEmptyMeProfilePipelinePerf();
-    const pipe0 = devPerfNow();
-    const profile = await runMeProfileReadPipeline({
-      authUserId: userId,
-      supabaseUser,
-      routeSb: cookieAuth.supabase!,
-      serviceSb,
-      profileFetchMetrics,
-      profileSelectMode: mode,
-      pipelineStepMs,
+  const pipelineFlightKey = `${userId.trim()}\0${mode}`;
+  let profileSingleflightHit = 0;
+  const existingFlight = ME_PROFILE_PIPELINE_INFLIGHT.get(pipelineFlightKey);
+  let flightPromise: Promise<MeProfilePipelineFlight>;
+  if (existingFlight) {
+    profileSingleflightHit = 1;
+    flightPromise = existingFlight;
+  } else {
+    flightPromise = (async (): Promise<MeProfilePipelineFlight> => {
+      const profileFetchMetrics = createEmptyProfileFetchMetrics();
+      const pipelineStepMs = createEmptyMeProfilePipelinePerf();
+      const pipe0 = devPerfNow();
+      const profile = await runMeProfileReadPipeline({
+        authUserId: userId,
+        supabaseUser,
+        routeSb: cookieAuth.supabase!,
+        serviceSb,
+        profileFetchMetrics,
+        profileSelectMode: mode,
+        pipelineStepMs,
+      });
+      return {
+        profile,
+        profilePipelineMs: devPerfNow() - pipe0,
+        profileFetchMetrics,
+        pipelineStepMs,
+      };
+    })();
+    ME_PROFILE_PIPELINE_INFLIGHT.set(pipelineFlightKey, flightPromise);
+    void flightPromise.finally(() => {
+      ME_PROFILE_PIPELINE_INFLIGHT.delete(pipelineFlightKey);
     });
-    return {
-      profile,
-      profilePipelineMs: devPerfNow() - pipe0,
-      profileFetchMetrics,
-      pipelineStepMs,
-    };
-  });
+  }
+
+  const flight = await flightPromise;
   const { profile, profilePipelineMs, profileFetchMetrics, pipelineStepMs } = flight;
 
   if (mode === "full") {
@@ -929,21 +892,6 @@ export async function GET(request: NextRequest) {
   if (profile) {
     setProfileResponseCache(userId, mode, profile);
   }
-  if (profileModeLabel === "minimal" && process.env.NODE_ENV === "development") {
-    // eslint-disable-next-line no-console -- boot layer verify
-    console.log(
-      "[app-boot]",
-      JSON.stringify({
-        route: "/api/me/profile",
-        mode: profileModeLabel,
-        total_ms: total_route_ms,
-        db_ms: Math.round(profilePipelineMs),
-        cache_hit: 0,
-        client_call_source: readClientCallSourceFromRequest(request),
-        first_paint_blocking: mode === "lite",
-      })
-    );
-  }
   logRoutePerf({
     route: "/api/me/profile",
     total_ms: total_route_ms,
@@ -951,16 +899,6 @@ export async function GET(request: NextRequest) {
     cache_hit: 0,
     auth_ms: Math.round(requireAuthMs),
     serialize_ms: json_payload_serialize_probe_ms,
-    query_type: "profile_pipeline",
-    surface: "app_boot",
-    ...profileClientObs,
-    ...buildRoutePerfDedupeFields({
-      userId,
-      dedupeKey: meProfileRequestDedupeKey(userId, mode),
-      inFlightHit: profileSingleflightHit === 1,
-      queryType: "profile_pipeline",
-      dedupeHitReason: profileSingleflightHit === 1 ? "pipeline_singleflight" : undefined,
-    }),
   });
   finalizeMeProfileGetPerfLog(
     {

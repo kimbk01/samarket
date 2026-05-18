@@ -1,14 +1,16 @@
 "use client";
 
 import type { CategoryType } from "@/lib/categories/types";
-import { CATEGORY_TYPE_LABELS } from "@/lib/types/category";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { adminCategoryTypeLabelKey } from "@/lib/admin/categories/admin-category-label-keys";
 
 interface CategoryTypeBadgeProps {
   type: CategoryType;
 }
 
 export function CategoryTypeBadge({ type }: CategoryTypeBadgeProps) {
-  const label = CATEGORY_TYPE_LABELS[type] ?? type;
+  const { t } = useI18n();
+  const label = t(adminCategoryTypeLabelKey(type));
   const color =
     type === "trade"
       ? "bg-green-100 text-green-800"

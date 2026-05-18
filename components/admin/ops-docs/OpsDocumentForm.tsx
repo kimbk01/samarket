@@ -1,37 +1,48 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { OpsDocType, OpsDocCategory } from "@/lib/types/ops-docs";
 import { getOpsDocumentById } from "@/lib/ops-docs/mock-ops-documents";
 import { addOpsDocument, updateOpsDocument } from "@/lib/ops-docs/mock-ops-documents";
 import { addOpsDocumentLog } from "@/lib/ops-docs/mock-ops-document-logs";
 import { slugFromTitle } from "@/lib/ops-docs/ops-docs-utils";
 
-const DOC_TYPE_OPTIONS: { value: OpsDocType; label: string }[] = [
-  { value: "sop", label: "SOP" },
-  { value: "playbook", label: "플레이북" },
-  { value: "scenario", label: "시나리오" },
-];
-
-const CATEGORY_OPTIONS: { value: OpsDocCategory; label: string }[] = [
-  { value: "incident_response", label: "인시던트 대응" },
-  { value: "deployment", label: "배포" },
-  { value: "rollback", label: "롤백" },
-  { value: "moderation", label: "검수" },
-  { value: "recommendation", label: "추천" },
-  { value: "ads", label: "광고" },
-  { value: "points", label: "포인트" },
-  { value: "support", label: "지원" },
-];
-
 interface OpsDocumentFormProps {
   documentId?: string | null;
 }
 
 export function OpsDocumentForm({ documentId }: OpsDocumentFormProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const isEdit = !!documentId;
+
+  const docTypeOptions = useMemo(
+    () =>
+      [
+        { value: "sop" as const, labelKey: "admin_ops_doc_type_sop" as MessageKey },
+        { value: "playbook" as const, labelKey: "admin_ops_doc_type_playbook" as MessageKey },
+        { value: "scenario" as const, labelKey: "admin_ops_doc_type_scenario" as MessageKey },
+      ],
+    []
+  );
+
+  const categoryOptions = useMemo(
+    () =>
+      [
+        { value: "incident_response" as const, labelKey: "admin_ops_doc_cat_incident" as MessageKey },
+        { value: "deployment" as const, labelKey: "admin_ops_doc_cat_deployment" as MessageKey },
+        { value: "rollback" as const, labelKey: "admin_ops_doc_cat_rollback" as MessageKey },
+        { value: "moderation" as const, labelKey: "admin_ops_doc_cat_moderation" as MessageKey },
+        { value: "recommendation" as const, labelKey: "admin_ops_doc_cat_recommendation" as MessageKey },
+        { value: "ads" as const, labelKey: "admin_ops_doc_cat_ads" as MessageKey },
+        { value: "points" as const, labelKey: "admin_ops_doc_cat_points" as MessageKey },
+        { value: "support" as const, labelKey: "admin_ops_doc_cat_support" as MessageKey },
+      ] satisfies { value: OpsDocCategory; labelKey: MessageKey }[],
+    []
+  );
 
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
@@ -75,7 +86,7 @@ export function OpsDocumentForm({ documentId }: OpsDocumentFormProps) {
       .map((t) => t.trim())
       .filter(Boolean);
     const adminId = "admin1";
-    const adminNickname = "관리자";
+    const adminNickname = t("admin_ops_doc_admin_nickname");
 
     if (isEdit && documentId) {
       updateOpsDocument(documentId, {
@@ -96,7 +107,7 @@ export function OpsDocumentForm({ documentId }: OpsDocumentFormProps) {
         actorType: "admin",
         actorId: adminId,
         actorNickname: adminNickname,
-        note: "수정 저장",
+        note: t("admin_ops_doc_save_note"),
         createdAt: new Date().toISOString(),
       });
       router.push(`/admin/ops-docs/${documentId}`);
@@ -135,7 +146,7 @@ export function OpsDocumentForm({ documentId }: OpsDocumentFormProps) {
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="mb-1 block sam-text-helper font-medium text-sam-fg">제목</label>
+          <label className="mb-1 block sam-text-helper font-medium text-sam-fg">{t("admin_ops_doc_label_title")}</label>
           <input
             type="text"
             value={title}
@@ -157,44 +168,48 @@ export function OpsDocumentForm({ documentId }: OpsDocumentFormProps) {
       </div>
       <div className="flex flex-wrap gap-4">
         <div>
-          <label className="mb-1 block sam-text-helper font-medium text-sam-fg">유형</label>
+          <label className="mb-1 block sam-text-helper font-medium text-sam-fg">{t("admin_ops_doc_label_type")}</label>
           <select
             value={docType}
             onChange={(e) => setDocType(e.target.value as OpsDocType)}
             className="rounded border border-sam-border px-3 py-2 sam-text-body"
           >
-            {DOC_TYPE_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+            {docTypeOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {t(o.labelKey)}
+              </option>
             ))}
           </select>
         </div>
         <div>
-          <label className="mb-1 block sam-text-helper font-medium text-sam-fg">카테고리</label>
+          <label className="mb-1 block sam-text-helper font-medium text-sam-fg">{t("admin_ops_doc_label_category")}</label>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value as OpsDocCategory)}
             className="rounded border border-sam-border px-3 py-2 sam-text-body"
           >
-            {CATEGORY_OPTIONS.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
+            {categoryOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {t(o.labelKey)}
+              </option>
             ))}
           </select>
         </div>
         {!isEdit && (
           <div>
-            <label className="mb-1 block sam-text-helper font-medium text-sam-fg">상태</label>
+            <label className="mb-1 block sam-text-helper font-medium text-sam-fg">{t("admin_ops_doc_label_status")}</label>
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as "draft" | "active")}
               className="rounded border border-sam-border px-3 py-2 sam-text-body"
             >
-              <option value="draft">초안</option>
-              <option value="active">활성</option>
+              <option value="draft">{t("admin_ops_doc_status_draft")}</option>
+              <option value="active">{t("admin_ops_doc_status_active")}</option>
             </select>
           </div>
         )}
         <div>
-          <label className="mb-1 block sam-text-helper font-medium text-sam-fg">버전</label>
+          <label className="mb-1 block sam-text-helper font-medium text-sam-fg">{t("admin_ops_doc_label_version")}</label>
           <input
             type="text"
             value={versionLabel}
@@ -209,12 +224,12 @@ export function OpsDocumentForm({ documentId }: OpsDocumentFormProps) {
               checked={isPinned}
               onChange={(e) => setIsPinned(e.target.checked)}
             />
-            고정
+            {t("admin_ops_doc_label_pinned")}
           </label>
         </div>
       </div>
       <div>
-        <label className="mb-1 block sam-text-helper font-medium text-sam-fg">요약</label>
+        <label className="mb-1 block sam-text-helper font-medium text-sam-fg">{t("admin_ops_doc_label_summary")}</label>
         <textarea
           value={summary}
           onChange={(e) => setSummary(e.target.value)}
@@ -223,7 +238,7 @@ export function OpsDocumentForm({ documentId }: OpsDocumentFormProps) {
         />
       </div>
       <div>
-        <label className="mb-1 block sam-text-helper font-medium text-sam-fg">본문</label>
+        <label className="mb-1 block sam-text-helper font-medium text-sam-fg">{t("admin_ops_doc_label_body")}</label>
         <textarea
           value={content}
           onChange={(e) => setContent(e.target.value)}
@@ -232,7 +247,7 @@ export function OpsDocumentForm({ documentId }: OpsDocumentFormProps) {
         />
       </div>
       <div>
-        <label className="mb-1 block sam-text-helper font-medium text-sam-fg">태그 (쉼표 구분)</label>
+        <label className="mb-1 block sam-text-helper font-medium text-sam-fg">{t("admin_ops_doc_label_tags")}</label>
         <input
           type="text"
           value={tagsStr}
@@ -242,7 +257,7 @@ export function OpsDocumentForm({ documentId }: OpsDocumentFormProps) {
         />
       </div>
       <div>
-        <label className="mb-1 block sam-text-helper font-medium text-sam-fg">관리자 메모</label>
+        <label className="mb-1 block sam-text-helper font-medium text-sam-fg">{t("admin_ops_doc_label_admin_memo")}</label>
         <input
           type="text"
           value={adminMemo}
@@ -255,14 +270,14 @@ export function OpsDocumentForm({ documentId }: OpsDocumentFormProps) {
           type="submit"
           className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white"
         >
-          {isEdit ? "저장" : "생성"}
+          {isEdit ? t("common_save") : t("admin_ops_doc_submit_create")}
         </button>
         <button
           type="button"
           onClick={() => router.back()}
           className="rounded border border-sam-border bg-sam-surface px-4 py-2 sam-text-body text-sam-fg"
         >
-          취소
+          {t("common_cancel")}
         </button>
       </div>
     </form>

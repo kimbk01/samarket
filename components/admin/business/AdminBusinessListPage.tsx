@@ -6,6 +6,7 @@ import {
   filterBusinessProfiles,
   type AdminBusinessFilters,
 } from "@/lib/business/business-utils";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminBusinessFilterBar } from "./AdminBusinessFilterBar";
 import { AdminBusinessTable } from "./AdminBusinessTable";
@@ -15,6 +16,7 @@ const DEFAULT_FILTERS: AdminBusinessFilters = {
 };
 
 export function AdminBusinessListPage() {
+  const { t } = useI18n();
   const [filters, setFilters] = useState<AdminBusinessFilters>(DEFAULT_FILTERS);
   const profiles = useMemo(() => getBusinessProfilesForAdmin(), []);
   const filtered = useMemo(
@@ -24,11 +26,11 @@ export function AdminBusinessListPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="상점 목록" />
+      <AdminPageHeader titleKey="admin_biz_page_list" />
       <AdminBusinessFilterBar filters={filters} onChange={setFilters} />
       {filtered.length === 0 ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          조건에 맞는 상점이 없습니다.
+          {t("admin_biz_empty_list")}
         </div>
       ) : (
         <AdminBusinessTable profiles={filtered} />

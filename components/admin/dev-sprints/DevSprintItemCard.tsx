@@ -1,18 +1,20 @@
 "use client";
 
+import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { DevSprintItem } from "@/lib/types/dev-sprints";
 import {
   getSprintItemStatusLabel,
   getSprintItemPriorityLabel,
   getSprintItemOwnerTypeLabel,
 } from "@/lib/dev-sprints/dev-sprint-utils";
-import Link from "next/link";
 
 interface DevSprintItemCardProps {
   item: DevSprintItem;
 }
 
 export function DevSprintItemCard({ item }: DevSprintItemCardProps) {
+  const { t } = useI18n();
   const isBlocked = item.status === "blocked";
 
   return (
@@ -23,12 +25,10 @@ export function DevSprintItemCard({ item }: DevSprintItemCardProps) {
     >
       <div className="flex flex-wrap items-center gap-1.5 sam-text-helper text-sam-muted">
         <span className="rounded bg-sam-surface-muted px-1.5 py-0.5">
-          {getSprintItemPriorityLabel(item.priority)}
+          {getSprintItemPriorityLabel(t, item.priority)}
         </span>
-        <span>{getSprintItemOwnerTypeLabel(item.ownerType)}</span>
-        {item.estimatePoint != null && (
-          <span>{item.estimatePoint}pt</span>
-        )}
+        <span>{getSprintItemOwnerTypeLabel(t, item.ownerType)}</span>
+        {item.estimatePoint != null && <span>{item.estimatePoint}pt</span>}
       </div>
       <p className="mt-2 font-medium text-sam-fg">{item.title}</p>
       {item.description && (
@@ -48,13 +48,13 @@ export function DevSprintItemCard({ item }: DevSprintItemCardProps) {
                   : "bg-sam-surface-muted text-sam-muted"
           }`}
         >
-          {getSprintItemStatusLabel(item.status)}
+          {getSprintItemStatusLabel(t, item.status)}
         </span>
         {item.ownerName && <span className="text-sam-muted">{item.ownerName}</span>}
       </div>
       {item.blockerReason && (
         <p className="mt-2 sam-text-helper font-medium text-red-700">
-          블로커: {item.blockerReason}
+          {t("admin_dev_sprint_blocker_prefix")} {item.blockerReason}
         </p>
       )}
       <div className="mt-2 flex flex-wrap gap-1 sam-text-helper">
@@ -65,12 +65,15 @@ export function DevSprintItemCard({ item }: DevSprintItemCardProps) {
         )}
         {item.linkedActionItemId && (
           <Link href="/admin/ops-board" className="text-signature hover:underline">
-            액션
+            {t("admin_dev_sprint_link_action")}
           </Link>
         )}
         {item.linkedDeploymentId && (
-          <Link href="/admin/recommendation-deployments" className="text-signature hover:underline">
-            배포
+          <Link
+            href="/admin/recommendation-deployments"
+            className="text-signature hover:underline"
+          >
+            {t("admin_dev_sprint_link_deploy")}
           </Link>
         )}
       </div>

@@ -70,6 +70,7 @@ export function HomeProductList({
   /** 서버(RSC)에서 채운 첫 페이지 — 마운트 시 클라이언트 재요청 생략 */
   initialHomeTradeFeed?: GetPostsForHomeResult | null;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const tradeState = normalizeTradeStateFromQuery(searchParams.get("tradeState"));
@@ -447,8 +448,9 @@ export function HomeProductList({
 }
 
 function LoadingState() {
+  const { t } = useI18n();
   return (
-    <ul className={TRADE_FEED_LIST_WRAP_CLASS} aria-busy="true" aria-label="거래 목록 로딩">
+    <ul className={TRADE_FEED_LIST_WRAP_CLASS} aria-busy="true" aria-label={t("trade_013")}>
       {[0, 1, 2, 3].map((k) => (
         <li key={k} className="rounded-ui-rect border border-sam-border/70 bg-ui-surface p-3 shadow-sm">
           <div className="flex items-start gap-3">
@@ -466,17 +468,19 @@ function LoadingState() {
 }
 
 function EmptyState() {
+  const { t } = useI18n();
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
-      <p className="text-[14px] text-sam-muted">등록된 상품이 없어요</p>
+      <p className="text-[14px] text-sam-muted">{t("trade_055")}</p>
     </div>
   );
 }
 
 function ErrorState({ onRetry }: { onRetry: () => void }) {
+  const { t } = useI18n();
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
-      <p className="text-[14px] text-sam-muted">문제가 발생했어요</p>
+      <p className="text-[14px] text-sam-muted">{t("trade_060")}</p>
       <button
         type="button"
         onClick={onRetry}

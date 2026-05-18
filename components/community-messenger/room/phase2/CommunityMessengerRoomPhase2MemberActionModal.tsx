@@ -82,34 +82,34 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
             className="w-full max-w-[520px] overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface p-5 shadow-[0_10px_30px_rgba(17,24,39,0.08)]"
             onClick={(event) => event.stopPropagation()}
           >
-            <p className="sam-text-body-secondary font-medium text-sam-fg">멤버 액션</p>
+            <p className="sam-text-body-secondary font-medium text-sam-fg">{vm.t("cm_ui_member_actions")}</p>
             <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">{memberActionTarget.label}</h2>
             <p className="mt-1 sam-text-helper text-sam-muted">
               {memberActionTarget.memberRole === "admin"
-                ? "관리자"
+                ? vm.t("nav_messenger_admin")
                 : vm.snapshot?.room.ownerUserId && messengerUserIdsEqual(memberActionTarget.id, vm.snapshot.room.ownerUserId)
-                  ? "방장"
-                  : "멤버"}
-              {memberActionTarget.identityMode === "alias" ? " · 닉네임 프로필" : ""}
+                  ? vm.t("nav_messenger_owner")
+                  : vm.t("nav_messenger_member")}
+              {memberActionTarget.identityMode === "alias" ? ` · ${vm.t("cm_ui_nickname_profile")}` : ""}
             </p>
             {vm.isPrivateGroupRoom ? (
               <div className="mt-3 grid grid-cols-3 gap-2">
                 <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">
-                  <p className="sam-text-xxs text-sam-muted">역할 변경</p>
-                  <p className="mt-1 sam-text-helper font-semibold text-sam-fg">{vm.canManageMemberRoles ? "가능" : "제한"}</p>
+                  <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_change_role")}</p>
+                  <p className="mt-1 sam-text-helper font-semibold text-sam-fg">{vm.canManageMemberRoles ? vm.t("cm_ui_possible") : vm.t("cm_ui_limited")}</p>
                 </div>
                 <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">
-                  <p className="sam-text-xxs text-sam-muted">내보내기</p>
-                  <p className="mt-1 sam-text-helper font-semibold text-sam-fg">{vm.canKickGroupMembers ? "가능" : "제한"}</p>
+                  <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_remove")}</p>
+                  <p className="mt-1 sam-text-helper font-semibold text-sam-fg">{vm.canKickGroupMembers ? vm.t("cm_ui_possible") : vm.t("cm_ui_limited")}</p>
                 </div>
                 <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">
-                  <p className="sam-text-xxs text-sam-muted">방장 위임</p>
-                  <p className="mt-1 sam-text-helper font-semibold text-sam-fg">{vm.isOwner ? "가능" : "불가"}</p>
+                  <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_delegate_owner")}</p>
+                  <p className="mt-1 sam-text-helper font-semibold text-sam-fg">{vm.isOwner ? vm.t("cm_ui_possible") : vm.t("cm_ui_not_possible")}</p>
                 </div>
               </div>
             ) : null}
             <div className="mt-4 grid gap-2">
-              <div className="border-b border-sam-border-soft pb-1 sam-text-xxs font-semibold text-sam-meta">대화</div>
+              <div className="border-b border-sam-border-soft pb-1 sam-text-xxs font-semibold text-sam-meta">{vm.t("cm_ui_conversation")}</div>
               <button
                 type="button"
                 onClick={() => void vm.startDirectChatWithMember(memberActionTarget.id)}
@@ -117,8 +117,8 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
                 className="flex items-center justify-between rounded-ui-rect border border-sam-border px-4 py-4 text-left disabled:opacity-40"
               >
                 <div>
-                  <p className="sam-text-body font-semibold text-sam-fg">1:1 대화 시작</p>
-                  <p className="mt-1 sam-text-helper text-sam-muted">이 멤버와 별도 대화방을 엽니다.</p>
+                  <p className="sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_start_direct_chat")}</p>
+                  <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_open_separate_chat_with_member")}</p>
                 </div>
                 <span className="sam-text-page-title text-sam-meta">›</span>
               </button>
@@ -129,7 +129,7 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
                   disabled={vm.outgoingDialLocked}
                   className="rounded-ui-rect border border-sam-border px-4 py-4 text-left sam-text-body font-semibold text-sam-fg disabled:opacity-40"
                 >
-                  음성 통화
+                  {vm.t("cm_ui_voice_call")}
                 </button>
                 <button
                   type="button"
@@ -137,7 +137,7 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
                   disabled={vm.outgoingDialLocked}
                   className="rounded-ui-rect border border-sam-border px-4 py-4 text-left sam-text-body font-semibold text-sam-fg disabled:opacity-40"
                 >
-                  영상 통화
+                  {vm.t("cm_ui_video_call")}
                 </button>
               </div>
               {((vm.canManageMemberRoles &&
@@ -147,7 +147,7 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
                   vm.snapshot?.room.ownerUserId &&
                   !messengerUserIdsEqual(memberActionTarget.id, vm.snapshot.room.ownerUserId) &&
                   !(vm.snapshot.myRole !== "owner" && memberActionTarget.memberRole === "admin"))) ? (
-                <div className="border-b border-sam-border-soft pb-1 pt-2 sam-text-xxs font-semibold text-sam-meta">운영</div>
+                <div className="border-b border-sam-border-soft pb-1 pt-2 sam-text-xxs font-semibold text-sam-meta">{vm.t("cm_ui_operations")}</div>
               ) : null}
               {vm.canManageMemberRoles &&
               vm.snapshot?.room.ownerUserId &&
@@ -161,8 +161,8 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
                       className="flex items-center justify-between rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-4 text-left disabled:opacity-40"
                     >
                       <div>
-                        <p className="sam-text-body font-semibold text-sam-fg">방장 위임</p>
-                        <p className="mt-1 sam-text-helper text-sam-muted">이 멤버를 새 방장으로 변경합니다.</p>
+                        <p className="sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_delegate_owner")}</p>
+                        <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_change_member_to_new_owner")}</p>
                       </div>
                       <span className="sam-text-page-title text-sam-meta">›</span>
                     </button>
@@ -180,9 +180,9 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
                 >
                   <div>
                     <p className="sam-text-body font-semibold text-sam-fg">
-                      {memberActionTarget.memberRole === "admin" ? "관리자 해제" : "관리자 지정"}
+                      {memberActionTarget.memberRole === "admin" ? vm.t("cm_ui_remove_admin") : vm.t("cm_ui_assign_admin")}
                     </p>
-                    <p className="mt-1 sam-text-helper text-sam-muted">운영진 권한을 조정합니다.</p>
+                    <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_adjust_staff_permissions")}</p>
                   </div>
                   <span className="sam-text-page-title text-sam-meta">›</span>
                 </button>
@@ -198,13 +198,13 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
                   className="flex items-center justify-between rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-4 text-left disabled:opacity-40"
                 >
                   <div>
-                    <p className="sam-text-body font-semibold text-red-700">그룹에서 내보내기</p>
-                    <p className="mt-1 sam-text-helper text-red-600/80">현재 그룹 참여를 종료합니다.</p>
+                    <p className="sam-text-body font-semibold text-red-700">{vm.t("cm_ui_remove_from_group")}</p>
+                    <p className="mt-1 sam-text-helper text-red-600/80">{vm.t("cm_ui_end_current_group_participation")}</p>
                   </div>
                   <span className="sam-text-page-title text-red-300">›</span>
                 </button>
               ) : null}
-              <div className="border-b border-sam-border-soft pb-1 pt-2 sam-text-xxs font-semibold text-sam-meta">보호</div>
+              <div className="border-b border-sam-border-soft pb-1 pt-2 sam-text-xxs font-semibold text-sam-meta">{vm.t("cm_ui_protection")}</div>
               <button
                 type="button"
                 onClick={() =>
@@ -216,8 +216,8 @@ export function CommunityMessengerRoomPhase2MemberActionModal() {
                 className="flex items-center justify-between rounded-ui-rect border border-red-200 bg-sam-surface px-4 py-4 text-left"
               >
                 <div>
-                  <p className="sam-text-body font-semibold text-red-700">사용자 신고</p>
-                  <p className="mt-1 sam-text-helper text-red-600/80">문제가 있는 사용자를 신고합니다.</p>
+                  <p className="sam-text-body font-semibold text-red-700">{vm.t("cm_ui_report_user")}</p>
+                  <p className="mt-1 sam-text-helper text-red-600/80">{vm.t("cm_ui_report_problematic_user")}</p>
                 </div>
                 <span className="sam-text-page-title text-red-300">›</span>
               </button>

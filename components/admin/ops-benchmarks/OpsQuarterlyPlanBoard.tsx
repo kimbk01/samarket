@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { getOpsQuarterlyPlans } from "@/lib/ops-benchmarks/mock-ops-quarterly-plans";
 import { OpsQuarterlyPlanCard } from "./OpsQuarterlyPlanCard";
@@ -37,6 +40,7 @@ const DOMAIN_OPTIONS: { value: OpsBenchmarkDomain | ""; label: string }[] = [
 ];
 
 export function OpsQuarterlyPlanBoard() {
+  const { t } = useI18n();
   const [year] = useState(() => new Date().getFullYear());
   const [domainFilter, setDomainFilter] = useState<OpsBenchmarkDomain | "">("");
 
@@ -61,7 +65,7 @@ export function OpsQuarterlyPlanBoard() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">도메인</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_prod_migration_k48750694")}</span>
         <select
           value={domainFilter}
           onChange={(e) =>

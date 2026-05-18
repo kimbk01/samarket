@@ -28,27 +28,15 @@ export const SECTION_OVERRIDE_KEYS: FeedSectionOverrideKey[] = [
   "interest_based",
 ];
 
-export const SECTION_OVERRIDE_LABELS: Record<FeedSectionOverrideKey, string> = {
-  recommended: "추천",
-  local_latest: "우리동네 최신",
-  bumped: "끌올",
-  sponsored: "광고/프로모션",
-  premium_shops: "특별회원/상점",
-  recent_based: "최근 본 기반",
-  category_based: "카테고리 기반",
-  interest_based: "관심 기반",
-};
+import {
+  buildSectionOverrideLabels,
+  getFeedEmergencyActionLabel as getFeedEmergencyActionLabelI18n,
+  getFeedEmergencyDefaultNoticeText,
+  getFeedEmergencyShortNoticeText,
+} from "@/lib/feed-emergency/feed-emergency-label-i18n";
 
-const ACTION_LABELS: Record<FeedEmergencyActionType, string> = {
-  enable_kill_switch: "킬스위치 활성화",
-  disable_kill_switch: "킬스위치 해제",
-  enable_fallback: "Fallback 활성화",
-  disable_fallback: "Fallback 해제",
-  disable_section: "섹션 비활성화",
-  enable_section: "섹션 활성화",
-  auto_fallback: "자동 Fallback",
-  rollback_to_previous: "이전 버전 롤백",
-};
+/** @deprecated `getFeedSectionOverrideLabel` — 모듈 로드 시 스냅샷 */
+export const SECTION_OVERRIDE_LABELS = buildSectionOverrideLabels();
 
 const SURFACES: RecommendationSurface[] = ["home", "search", "shop"];
 
@@ -69,7 +57,7 @@ function defaultPolicies(): FeedEmergencyPolicy[] {
     emptyFeedThreshold: 3,
     ctrDropThreshold: 0.3,
     emergencyNoticeEnabled: false,
-    emergencyNoticeText: "일시적인 점검 중입니다. 잠시만 기다려 주세요.",
+    emergencyNoticeText: getFeedEmergencyDefaultNoticeText(),
     updatedAt: t,
     adminMemo: "",
   }));
@@ -158,7 +146,7 @@ export function computeFeedEmergencyPublicSnapshot(
       mode: "kill_switch",
       emergencyNotice: {
         enabled: Boolean(policy.emergencyNoticeEnabled),
-        text: policy.emergencyNoticeText || "일시적인 점검 중입니다.",
+        text: policy.emergencyNoticeText || getFeedEmergencyShortNoticeText(),
       },
       disabledSectionKeys: bundle.sectionOverrides
         .filter((o) => o.surface === surface && o.isForcedDisabled)
@@ -181,7 +169,7 @@ export function computeFeedEmergencyPublicSnapshot(
     mode,
     emergencyNotice: {
       enabled: showNotice,
-      text: policy?.emergencyNoticeText ?? "일시적인 점검 중입니다.",
+      text: policy?.emergencyNoticeText ?? getFeedEmergencyShortNoticeText(),
     },
     disabledSectionKeys: bundle.sectionOverrides
       .filter((o) => o.surface === surface && o.isForcedDisabled)
@@ -354,5 +342,7 @@ export function addFeedEmergencyLog(input: Omit<FeedEmergencyLog, "id" | "create
 }
 
 export function getFeedEmergencyActionLabel(actionType: FeedEmergencyActionType): string {
-  return ACTION_LABELS[actionType] ?? actionType;
+  return getFeedEmergencyActionLabelI18n(actionType);
 }
+
+export { getFeedSectionOverrideLabel } from "@/lib/feed-emergency/feed-emergency-label-i18n";

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useMemo } from "react";
 import { getAppSettings } from "@/lib/app-settings";
@@ -19,11 +20,12 @@ export function ProductPriceField({
   onPriceOfferChange,
   error,
 }: ProductPriceFieldProps) {
+  const { t } = useI18n();
   const unit = useMemo(() => getCurrencyUnitLabel(getAppSettings().defaultCurrency), []);
   return (
     <section className="border-b border-sam-border-soft bg-sam-surface px-4 py-4">
       <label className="mb-2 block sam-text-body font-medium text-sam-fg">
-        가격 <span className="text-red-500">*</span>
+        {t("ui_product_price_label")} <span className="text-red-500">*</span>
       </label>
       <div className="flex items-center gap-2">
         <input
@@ -44,7 +46,7 @@ export function ProductPriceField({
           onChange={(e) => onPriceOfferChange(e.target.checked)}
           className="rounded border-sam-border"
         />
-        가격 제안 가능
+        {t("ui_product_price_offer_enabled")}
       </label>
       {error && <p className="mt-1 sam-text-body-secondary text-red-500">{error}</p>}
     </section>

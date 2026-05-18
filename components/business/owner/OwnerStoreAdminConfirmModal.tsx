@@ -1,6 +1,7 @@
 "use client";
 
 import { BodyPortal } from "@/components/layout/BodyPortal";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export type OwnerStoreAdminConfirmTone = "primary" | "danger";
 
@@ -13,8 +14,8 @@ export function OwnerStoreAdminConfirmModal({
   titleId,
   title,
   description,
-  cancelLabel = "취소",
-  confirmLabel = "확인",
+  cancelLabel,
+  confirmLabel,
   confirmBusyLabel,
   busy = false,
   disableActions = false,
@@ -36,6 +37,11 @@ export function OwnerStoreAdminConfirmModal({
   onCancel: () => void;
   onConfirm: () => void | Promise<void>;
 }) {
+  const { t } = useI18n();
+  const resolvedCancelLabel = cancelLabel ?? t("common_cancel");
+  const resolvedConfirmLabel = confirmLabel ?? t("common_confirm");
+  const resolvedConfirmBusyLabel = confirmBusyLabel ?? t("common_processing");
+
   if (!open) return null;
 
   const confirmCls =
@@ -44,8 +50,7 @@ export function OwnerStoreAdminConfirmModal({
       : "min-h-[44px] flex-1 rounded-ui-rect bg-signature sam-text-body font-medium text-white shadow-sm hover:opacity-95 active:opacity-90 disabled:opacity-50";
 
   const disabled = disableActions || busy;
-  const confirmText =
-    busy ? (confirmBusyLabel?.trim() ? confirmBusyLabel : "처리 중…") : confirmLabel;
+  const confirmText = busy ? resolvedConfirmBusyLabel : resolvedConfirmLabel;
 
   return (
     <BodyPortal>
@@ -71,7 +76,7 @@ export function OwnerStoreAdminConfirmModal({
               onClick={onCancel}
               disabled={disabled}
             >
-              {cancelLabel}
+              {resolvedCancelLabel}
             </button>
             <button
               type="button"

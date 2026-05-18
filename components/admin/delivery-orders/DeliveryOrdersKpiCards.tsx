@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import type { AdminDeliveryOrder } from "@/lib/admin/delivery-orders-admin/types";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 function isToday(iso: string) {
   const d = new Date(iso);
@@ -11,6 +12,7 @@ function isToday(iso: string) {
 }
 
 export function DeliveryOrdersKpiCards({ orders }: { orders: AdminDeliveryOrder[] }) {
+  const { t } = useI18n();
   const data = useMemo(() => {
     const today = orders.filter((o) => isToday(o.createdAt));
     const completedToday = today.filter((o) => o.orderStatus === "completed");
@@ -62,24 +64,24 @@ export function DeliveryOrdersKpiCards({ orders }: { orders: AdminDeliveryOrder[
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-4">
-        {card("오늘 주문", data.todayCount)}
-        {card("오늘 완료", data.completedToday)}
-        {card("오늘 취소", data.cancelledToday)}
-        {card("오늘 환불요청", data.refundReqToday)}
-        {card("진행중 주문", data.inProgress)}
-        {card("오늘 결제합(유료)", formatMoneyPhp(data.paidSumToday))}
-        {card("정산 예정(합계)", formatMoneyPhp(data.schedAmt))}
-        {card("정산 보류(합계)", formatMoneyPhp(data.heldAmt))}
+        {card(t("admin_do_kpi_today_orders"), data.todayCount)}
+        {card(t("admin_do_kpi_today_completed"), data.completedToday)}
+        {card(t("admin_do_kpi_today_cancelled"), data.cancelledToday)}
+        {card(t("admin_do_kpi_today_refund_req"), data.refundReqToday)}
+        {card(t("admin_do_kpi_in_progress"), data.inProgress)}
+        {card(t("admin_do_kpi_paid_sum_today"), formatMoneyPhp(data.paidSumToday))}
+        {card(t("admin_do_kpi_settlement_scheduled"), formatMoneyPhp(data.schedAmt))}
+        {card(t("admin_do_kpi_settlement_held"), formatMoneyPhp(data.heldAmt))}
       </div>
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 shadow-sm">
-        <p className="text-xs font-semibold text-sam-fg">매장별 주문 Top 5</p>
+        <p className="text-xs font-semibold text-sam-fg">{t("admin_do_kpi_store_top5")}</p>
         <ol className="mt-2 space-y-1 text-sm">
           {data.top5.length === 0 ? (
-            <li className="text-sam-muted">표시할 주문이 없습니다.</li>
+            <li className="text-sam-muted">{t("admin_do_kpi_no_orders")}</li>
           ) : (
             data.top5.map(([name, n], i) => (
               <li key={name}>
-                {i + 1}. {name} — {n}건
+                {t("admin_do_kpi_store_rank", { rank: i + 1, name, count: n })}
               </li>
             ))
           )}

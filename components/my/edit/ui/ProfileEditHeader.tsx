@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 
 export function ProfileEditHeader({
@@ -10,6 +11,7 @@ export function ProfileEditHeader({
   backHref: string;
   formId: string;
 }) {
+  const { t } = useI18n();
   const rightSlot = useMemo(
     () => (
       <button
@@ -17,16 +19,16 @@ export function ProfileEditHeader({
         form={formId}
         className="inline-flex min-h-9 items-center justify-center rounded-[10px] bg-[color:#1C8DB8] px-3 text-[13px] font-semibold text-white"
       >
-        저장
+        {t("common_save")}
       </button>
     ),
-    [formId]
+    [formId, t]
   );
 
   return (
     <MySubpageHeader
-      title="프로필 수정"
-      subtitle="닉네임, 사진, 나의 상태, 지역, 동네"
+      title={t("profile_edit_title")}
+      subtitle={t("profile_edit_subtitle")}
       backHref={backHref}
       hideCtaStrip
       rightSlot={rightSlot}
@@ -34,4 +36,3 @@ export function ProfileEditHeader({
     />
   );
 }
-

@@ -1,3 +1,4 @@
+import type { MessageKey } from "@/lib/i18n/messages";
 import type {
   MessengerMonitoringSummary,
   MessengerOutcomeStat,
@@ -25,6 +26,15 @@ function findAgg(pool: Record<string, ClientAggRow>, substr: string): ClientAggR
   return hit ? hit[1] : null;
 }
 
+function sloRow(
+  partial: Omit<MessengerSloDigestRow, "labelKey"> & {
+    labelKey: MessageKey;
+    labelVars?: Record<string, string | number>;
+  }
+): MessengerSloDigestRow {
+  return partial;
+}
+
 function buildSloDigest(
   store: Store,
   _aggregates: MessengerMonitoringSummary["aggregates"],
@@ -37,9 +47,10 @@ function buildSloDigest(
 
   const roomsApi = apiByRoute["GET /api/community-messenger/rooms"];
   if (roomsApi) {
-    rows.push({
+    rows.push(
+      sloRow({
       id: "room_list",
-      label: "방 목록 API (서버)",
+      labelKey: "admin_cm_slo_room_list",
       unit: "ms",
       target: ref.roomListLoad.target,
       warning: ref.roomListLoad.warning,
@@ -48,14 +59,16 @@ function buildSloDigest(
       observedLast: roomsApi.lastMs,
       sampleCount: roomsApi.count,
       sourceHint: "GET /api/community-messenger/rooms",
-    });
+    })
+    );
   }
 
   const homeSyncApi = apiByRoute["GET /api/community-messenger/home-sync"];
   if (homeSyncApi) {
-    rows.push({
+    rows.push(
+      sloRow({
       id: "home_sync",
-      label: "홈 silent 묶음 API (서버)",
+      labelKey: "admin_cm_slo_home_sync",
       unit: "ms",
       target: ref.homeSilentListSync.target,
       warning: ref.homeSilentListSync.warning,
@@ -64,14 +77,16 @@ function buildSloDigest(
       observedLast: homeSyncApi.lastMs,
       sampleCount: homeSyncApi.count,
       sourceHint: "GET /api/community-messenger/home-sync",
-    });
+    })
+    );
   }
 
   const bootClient = findAgg(clientAggregates, "chat.room_load:bootstrap_fetch:client");
   if (bootClient) {
-    rows.push({
+    rows.push(
+      sloRow({
       id: "room_enter_client",
-      label: "방 입장 부트스트랩 (클라 RTT)",
+      labelKey: "admin_cm_slo_room_enter_client",
       unit: "ms",
       target: ref.roomBootstrap.target,
       warning: ref.roomBootstrap.warning,
@@ -80,7 +95,8 @@ function buildSloDigest(
       observedLast: bootClient.last,
       sampleCount: bootClient.count,
       sourceHint: "chat.room_load / bootstrap_fetch",
-    });
+    })
+    );
   }
 
   const bootPrefix = "GET /api/community-messenger/rooms/[roomId]/bootstrap|";
@@ -88,9 +104,11 @@ function buildSloDigest(
     if (!routeKey.startsWith(bootPrefix)) continue;
     const cmReqSrc = routeKey.slice(bootPrefix.length);
     const safeId = cmReqSrc.replace(/[^a-z0-9_-]/gi, "_");
-    rows.push({
+    rows.push(
+      sloRow({
       id: `room_bootstrap_server_${safeId}`,
-      label: `방 부트스트랩 HTTP (cmReqSrc=${cmReqSrc})`,
+      labelKey: "admin_cm_slo_room_bootstrap_http",
+      labelVars: { cmReqSrc },
       unit: "ms",
       target: ref.roomBootstrap.target,
       warning: ref.roomBootstrap.warning,
@@ -99,13 +117,15 @@ function buildSloDigest(
       observedLast: bootApi.lastMs,
       sampleCount: bootApi.count,
       sourceHint: `GET /api/community-messenger/rooms/[roomId]/bootstrap · ${cmReqSrc}`,
-    });
+    })
+    );
   }
   const bootLegacy = apiByRoute["GET /api/community-messenger/rooms/[roomId]/bootstrap"];
   if (bootLegacy) {
-    rows.push({
+    rows.push(
+      sloRow({
       id: "room_bootstrap_server_legacy_route_key",
-      label: "방 부트스트랩 HTTP (구 apiByRoute 키, cmReqSrc 미분리)",
+      labelKey: "admin_cm_slo_room_bootstrap_legacy",
       unit: "ms",
       target: ref.roomBootstrap.target,
       warning: ref.roomBootstrap.warning,
@@ -113,15 +133,17 @@ function buildSloDigest(
       observedAvg: bootLegacy.avgMs,
       observedLast: bootLegacy.lastMs,
       sampleCount: bootLegacy.count,
-      sourceHint: "GET /api/community-messenger/rooms/[roomId]/bootstrap (레거시 집계)",
-    });
+      sourceHint: "GET /api/community-messenger/rooms/[roomId]/bootstrap (legacy aggregate)",
+    })
+    );
   }
 
   const send = findAgg(clientAggregates, "chat.message_latency:send_roundtrip:client");
   if (send) {
-    rows.push({
+    rows.push(
+      sloRow({
       id: "message_send",
-      label: "메시지 전송 RTT",
+      labelKey: "admin_cm_slo_message_send",
       unit: "ms",
       target: ref.sendAck.target,
       warning: ref.sendAck.warning,
@@ -130,14 +152,16 @@ function buildSloDigest(
       observedLast: send.last,
       sampleCount: send.count,
       sourceHint: "chat.message_latency / send_roundtrip",
-    });
+    })
+    );
   }
 
   const rt = findAgg(clientAggregates, "chat.realtime:message_insert_delay:client");
   if (rt) {
-    rows.push({
+    rows.push(
+      sloRow({
       id: "realtime_delay",
-      label: "Realtime 메시지 지연 (created_at→수신)",
+      labelKey: "admin_cm_slo_realtime_delay",
       unit: "ms",
       target: ref.incomingDelivery.target,
       warning: ref.incomingDelivery.warning,
@@ -146,14 +170,16 @@ function buildSloDigest(
       observedLast: rt.last,
       sampleCount: rt.count,
       sourceHint: "chat.realtime / message_insert_delay",
-    });
+    })
+    );
   }
 
   const unread = findAgg(clientAggregates, "chat.unread_sync:badge_list_align:client");
   if (unread) {
-    rows.push({
+    rows.push(
+      sloRow({
       id: "unread_sync",
-      label: "미읽음·목록 정합 (읽음 처리 PATCH ~ 목록 반영)",
+      labelKey: "admin_cm_slo_unread_sync",
       unit: "ms",
       target: ref.unreadRefresh.target,
       warning: ref.unreadRefresh.warning,
@@ -162,14 +188,16 @@ function buildSloDigest(
       observedLast: unread.last,
       sampleCount: unread.count,
       sourceHint: "chat.unread_sync / badge_list_align",
-    });
+    })
+    );
   }
 
   const unreadList = findAgg(clientAggregates, "chat.unread_sync:list_bootstrap_align:client");
   if (unreadList) {
-    rows.push({
+    rows.push(
+      sloRow({
       id: "unread_home_bootstrap",
-      label: "홈 목록 UI 정합 (merge·세션 캐시)",
+      labelKey: "admin_cm_slo_unread_home_bootstrap",
       unit: "ms",
       target: ref.unreadRefresh.target,
       warning: ref.unreadRefresh.warning,
@@ -177,15 +205,17 @@ function buildSloDigest(
       observedAvg: unreadList.avg,
       observedLast: unreadList.last,
       sampleCount: unreadList.count,
-      sourceHint: "chat.unread_sync / list_bootstrap_align — mergeHomeSyncIntoBootstrap 동기 구간만",
-    });
+      sourceHint: "chat.unread_sync / list_bootstrap_align",
+    })
+    );
   }
 
   const homeSyncFetchClient = findAgg(clientAggregates, "chat.unread_sync:home_sync_fetch_ms:client");
   if (homeSyncFetchClient) {
-    rows.push({
+    rows.push(
+      sloRow({
       id: "home_sync_fetch_client",
-      label: "홈 silent home-sync (클라 네트워크)",
+      labelKey: "admin_cm_slo_home_sync_fetch_client",
       unit: "ms",
       target: ref.homeSilentListSync.target,
       warning: ref.homeSilentListSync.warning,
@@ -193,15 +223,17 @@ function buildSloDigest(
       observedAvg: homeSyncFetchClient.avg,
       observedLast: homeSyncFetchClient.last,
       sampleCount: homeSyncFetchClient.count,
-      sourceHint: "chat.unread_sync / home_sync_fetch_ms — GET /api/community-messenger/home-sync 왕복",
-    });
+      sourceHint: "chat.unread_sync / home_sync_fetch_ms",
+    })
+    );
   }
 
   const silentFb = findAgg(clientAggregates, "chat.unread_sync:silent_fail_fallback_bootstrap_ms:client");
   if (silentFb) {
-    rows.push({
+    rows.push(
+      sloRow({
       id: "silent_fallback_bootstrap",
-      label: "silent 실패 시 fresh 부트스트랩 (클라)",
+      labelKey: "admin_cm_slo_silent_fallback_bootstrap",
       unit: "ms",
       target: ref.roomBootstrap.target,
       warning: ref.roomBootstrap.warning,
@@ -210,14 +242,16 @@ function buildSloDigest(
       observedLast: silentFb.last,
       sampleCount: silentFb.count,
       sourceHint: "chat.unread_sync / silent_fail_fallback_bootstrap_ms",
-    });
+    })
+    );
   }
 
   const call = findAgg(clientAggregates, "call.connection:first_connected:client");
   if (call) {
-    rows.push({
+    rows.push(
+      sloRow({
       id: "call_connect",
-      label: "통화 첫 연결 (음·영상 합산 집계)",
+      labelKey: "admin_cm_slo_call_connect",
       unit: "ms",
       target: ref.voiceConnect.target,
       warning: ref.voiceConnect.warning,
@@ -226,14 +260,16 @@ function buildSloDigest(
       observedLast: call.last,
       sampleCount: call.count,
       sourceHint: "call.connection / first_connected",
-    });
+    })
+    );
   }
 
   const frameBudget = findAgg(clientAggregates, "chat.render:frame_budget:client");
   if (frameBudget) {
-    rows.push({
+    rows.push(
+      sloRow({
       id: "frame_budget",
-      label: "클라 프레임 예산 (frame_budget · NEXT_PUBLIC_MESSENGER_PERF_TRACE_FRAME_BUDGET=1)",
+      labelKey: "admin_cm_slo_frame_budget",
       unit: "ms",
       target: MESSENGER_PERF_THRESHOLDS.frameBudgetTargetMs,
       warning: MESSENGER_PERF_THRESHOLDS.frameBudgetWarningMs,
@@ -242,16 +278,18 @@ function buildSloDigest(
       observedLast: frameBudget.last,
       sampleCount: frameBudget.count,
       sourceHint: "chat.render / frame_budget",
-    });
+    })
+    );
   }
 
   const opened = store.callSessionsOpened.size;
   const withRe = store.callSessionsWithReconnect.size;
   if (opened > 0) {
     const rate = withRe / opened;
-    rows.push({
+    rows.push(
+      sloRow({
       id: "reconnect_session_rate",
-      label: "재연결 경험 세션 비율 (근사)",
+      labelKey: "admin_cm_slo_reconnect_session_rate",
       unit: "ratio",
       target: ratioRef.reconnectSessionRate.target,
       warning: ratioRef.reconnectSessionRate.warning,
@@ -260,15 +298,17 @@ function buildSloDigest(
       observedLast: rate,
       sampleCount: opened,
       sourceHint: "callSessionsWithReconnect / callSessionsOpened",
-    });
+    })
+    );
   }
 
   const sub = store.outcomes.get("realtime.subscription:phase:initial") ?? store.outcomes.get("realtime.subscription");
   if (sub && sub.ok + sub.fail > 0) {
     const rate = sub.fail / (sub.ok + sub.fail);
-    rows.push({
+    rows.push(
+      sloRow({
       id: "subscription_fail_rate",
-      label: "Realtime 구독 초기 시도 실패율·raw 콜백 (phase:initial)",
+      labelKey: "admin_cm_slo_subscription_fail_rate",
       unit: "ratio",
       target: ratioRef.subscriptionFailureRate.target,
       warning: ratioRef.subscriptionFailureRate.warning,
@@ -277,15 +317,17 @@ function buildSloDigest(
       observedLast: rate,
       sampleCount: sub.ok + sub.fail,
       sourceHint: "realtime.subscription:phase:initial",
-    });
+    })
+    );
   }
 
   const cb = store.outcomes.get(OUTCOME_CHANNEL_SUBSCRIBE_CALLBACK);
   if (cb && cb.ok + cb.fail > 0) {
     const rate = cb.fail / (cb.ok + cb.fail);
-    rows.push({
+    rows.push(
+      sloRow({
       id: "subscription_callback_fail_rate",
-      label: "Realtime channel_subscribe 콜백 실패율(모든 시도·HS4 raw)",
+      labelKey: "admin_cm_slo_subscription_callback_fail_rate",
       unit: "ratio",
       target: ratioRef.subscriptionFailureRate.target,
       warning: ratioRef.subscriptionFailureRate.warning,
@@ -294,15 +336,17 @@ function buildSloDigest(
       observedLast: rate,
       sampleCount: cb.ok + cb.fail,
       sourceHint: OUTCOME_CHANNEL_SUBSCRIBE_CALLBACK,
-    });
+    })
+    );
   }
 
   const sess = store.outcomes.get(OUTCOME_CHANNEL_SUBSCRIBE_SESSION_FINAL);
   if (sess && sess.ok + sess.fail > 0) {
     const rate = sess.fail / (sess.ok + sess.fail);
-    rows.push({
+    rows.push(
+      sloRow({
       id: "subscription_session_final_fail_rate",
-      label: "Realtime 구독 세션 최종 실패율(recovered transient 제외)",
+      labelKey: "admin_cm_slo_subscription_session_final_fail_rate",
       unit: "ratio",
       target: ratioRef.subscriptionSessionFinalFailureRate.target,
       warning: ratioRef.subscriptionSessionFinalFailureRate.warning,
@@ -311,15 +355,17 @@ function buildSloDigest(
       observedLast: rate,
       sampleCount: sess.ok + sess.fail,
       sourceHint: OUTCOME_CHANNEL_SUBSCRIBE_SESSION_FINAL,
-    });
+    })
+    );
   }
 
   const sig = store.outcomes.get("call.signaling");
   if (sig && sig.ok + sig.fail > 0) {
     const rate = sig.fail / (sig.ok + sig.fail);
-    rows.push({
+    rows.push(
+      sloRow({
       id: "signaling_fail_rate",
-      label: "시그널링 POST 실패율 (offer/answer/hangup)",
+      labelKey: "admin_cm_slo_signaling_fail_rate",
       unit: "ratio",
       target: ratioRef.signalingFailureRate.target,
       warning: ratioRef.signalingFailureRate.warning,
@@ -328,7 +374,8 @@ function buildSloDigest(
       observedLast: rate,
       sampleCount: sig.ok + sig.fail,
       sourceHint: "call.signaling",
-    });
+    })
+    );
   }
 
   return rows;

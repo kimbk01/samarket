@@ -1,23 +1,27 @@
+"use client";
+
 import type { ReactNode } from "react";
 import { ChatSettingsContent } from "@/components/my/settings/ChatSettingsContent";
 import { NotificationsSettingsContent } from "@/components/my/settings/NotificationsSettingsContent";
 import { MessengerOverviewPanel } from "@/components/mypage/MessengerOverviewPanel";
 import { MyPageQuickActions } from "@/components/mypage/MyPageQuickActions";
 import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function MessengerTab({ section }: { section: string }) {
+  const { t } = useI18n();
   if (section === "dm") {
     return (
       <TabShell
-        title="1:1 채팅"
-        description="메신저 1:1 채팅과 거래 / 주문 채팅을 구분해서 관리합니다."
+        title={t("mypage_comp_nav_sec_messenger_dm_label")}
+        description={t("mypage_comp_nav_sec_messenger_dm_desc")}
       >
         <MessengerOverviewPanel mode="dm" />
         <div className="mt-4">
           <MyPageQuickActions
             items={[
-              { label: "거래 채팅", href: "/mypage/section/trade/trade-chat", caption: "거래 전용 채팅" },
-              { label: "주문 채팅", href: "/mypage/section/store/order-chat", caption: "주문 전용 채팅" },
+              { label: t("mypage_comp_nav_sec_trade_chat_label"), href: "/mypage/section/trade/trade-chat", caption: t("mypage_comp_nav_sec_trade_chat_desc") },
+              { label: t("mypage_comp_nav_sec_store_order_chat_label"), href: "/mypage/section/store/order-chat", caption: t("mypage_comp_nav_sec_store_order_chat_desc") },
             ]}
           />
         </div>
@@ -28,8 +32,8 @@ export function MessengerTab({ section }: { section: string }) {
   if (section === "groups") {
     return (
       <TabShell
-        title="그룹 채팅"
-        description="공개 그룹과 비공개 그룹은 메신저 축에서 유지하되, 내정보 안에서 빠르게 진입합니다."
+        title={t("mypage_comp_nav_sec_messenger_groups_label")}
+        description={t("mypage_comp_nav_sec_messenger_groups_desc")}
       >
         <MessengerOverviewPanel mode="groups" />
       </TabShell>
@@ -39,8 +43,8 @@ export function MessengerTab({ section }: { section: string }) {
   if (section === "chat-settings") {
     return (
       <TabShell
-        title="채팅 설정"
-        description="거래 채팅, 주문 채팅, 메신저가 공통으로 참조하는 채팅 설정입니다."
+        title={t("mypage_comp_nav_sec_messenger_chat_settings_label")}
+        description={t("mypage_comp_nav_sec_messenger_chat_settings_desc")}
       >
         <ChatSettingsContent />
       </TabShell>
@@ -50,8 +54,8 @@ export function MessengerTab({ section }: { section: string }) {
   if (section === "alerts") {
     return (
       <TabShell
-        title="알림 설정"
-        description="메신저 알림과 전체 서비스 알림을 함께 관리합니다."
+        title={t("mypage_comp_nav_sec_messenger_alerts_label")}
+        description={t("mypage_comp_nav_sec_messenger_alerts_desc")}
       >
         <NotificationsSettingsContent />
       </TabShell>
@@ -60,8 +64,8 @@ export function MessengerTab({ section }: { section: string }) {
 
   return (
     <TabShell
-      title="1:1 채팅"
-      description="메신저 1:1 채팅과 거래 / 주문 채팅을 구분해서 관리합니다."
+      title={t("mypage_comp_nav_sec_messenger_dm_label")}
+      description={t("mypage_comp_nav_sec_messenger_dm_desc")}
     >
       <MessengerOverviewPanel mode="dm" />
     </TabShell>

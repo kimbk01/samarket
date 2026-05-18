@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
 type Step = "main" | "call";
@@ -97,6 +98,7 @@ export function MessengerFriendRowQuickPopup({
   isHidden,
   isBlocked,
 }: Props) {
+  const { t } = useI18n();
   const pid = profile.id;
   const titleId = useId();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -194,7 +196,7 @@ export function MessengerFriendRowQuickPopup({
                 </p>
                 <div className="mt-3 grid grid-cols-3 gap-2">
                   <ActionTile
-                    label={bChat ? "연결 중" : "1:1 채팅"}
+                    label={bChat ? t("cm_ui_connecting") : t("cm_ui_direct_chat")}
                     icon={<IconChatOutline className="h-5 w-5" />}
                     onClick={() => {
                       haptic(12);
@@ -205,7 +207,7 @@ export function MessengerFriendRowQuickPopup({
                     disabled={anyBusy}
                   />
                   <ActionTile
-                    label={bVoice ? "연결 중" : "음성"}
+                    label={bVoice ? t("cm_ui_connecting") : t("nav_voice_call_label")}
                     icon={<IconPhoneOutline className="h-5 w-5" />}
                     onClick={() => {
                       haptic(14);
@@ -216,7 +218,7 @@ export function MessengerFriendRowQuickPopup({
                     disabled={anyBusy}
                   />
                   <ActionTile
-                    label={bVideo ? "연결 중" : "영상"}
+                    label={bVideo ? t("cm_ui_connecting") : t("nav_video_call_label")}
                     icon={<IconVideoOutline className="h-5 w-5" />}
                     onClick={() => {
                       haptic(14);
@@ -232,7 +234,7 @@ export function MessengerFriendRowQuickPopup({
               <div className="px-4 py-3">
                 <div className="overflow-hidden rounded-[18px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)]">
                   <SheetRow
-                    label="프로필 보기"
+                    label={t("cm_ui_open_profile")}
                     onClick={() => {
                       haptic(10);
                       onOpenProfile();
@@ -240,7 +242,7 @@ export function MessengerFriendRowQuickPopup({
                     }}
                   />
                   <SheetRow
-                    label={favoriteActive ? "즐겨찾기 해제" : "즐겨찾기"}
+                    label={favoriteActive ? t("cm_ui_unfavorite") : t("cm_ui_favorite")}
                     onClick={() => {
                       haptic(10);
                       onToggleFavorite();
@@ -252,14 +254,14 @@ export function MessengerFriendRowQuickPopup({
                     <SheetRow
                       label={
                         notificationsBusy
-                          ? "처리 중…"
+                          ? t("common_processing")
                           : typeof directRoomMuted === "boolean"
                             ? directRoomMuted
-                              ? "대화 알림 켜기"
-                              : "대화 알림 끄기"
-                            : "대화 알림"
+                              ? t("cm_ui_turn_on_conversation_notifications")
+                              : t("cm_ui_turn_off_conversation_notifications")
+                            : t("cm_ui_conversation_notifications")
                       }
-                      sub={typeof directRoomMuted === "boolean" ? (directRoomMuted ? "현재 OFF" : "현재 ON") : undefined}
+                      sub={typeof directRoomMuted === "boolean" ? (directRoomMuted ? t("cm_ui_current_off") : t("cm_ui_current_on")) : undefined}
                       onClick={() => {
                         haptic(10);
                         onToggleMute();
@@ -272,7 +274,7 @@ export function MessengerFriendRowQuickPopup({
 
             <div className="mt-3 overflow-hidden rounded-[18px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)]">
                   <SheetRow
-                    label={isHidden ? "숨김 해제" : "숨기기"}
+                    label={isHidden ? t("cm_ui_unhide") : t("common_hide")}
                     onClick={() => {
                       haptic(12);
                       onHide();
@@ -281,7 +283,7 @@ export function MessengerFriendRowQuickPopup({
                     danger
                   />
                   <SheetRow
-                    label={isBlocked ? "차단 해제" : "차단"}
+                    label={isBlocked ? t("cm_ui_unblock") : t("common_block")}
                     onClick={() => {
                       haptic(12);
                       onBlock();
@@ -290,7 +292,7 @@ export function MessengerFriendRowQuickPopup({
                     danger
                   />
                   <SheetRow
-                    label="친구 삭제"
+                    label={t("cm_ui_remove_friend")}
                     onClick={() => {
                       haptic(14);
                       onRemove();
@@ -306,7 +308,7 @@ export function MessengerFriendRowQuickPopup({
                 className="w-full border-t border-[color:var(--messenger-divider)] px-4 py-3 sam-text-body font-medium"
                 style={{ color: "var(--messenger-text-secondary)" }}
               >
-                닫기
+                {t("nav_close")}
               </button>
             </>
           ) : (
@@ -317,20 +319,20 @@ export function MessengerFriendRowQuickPopup({
                   onClick={() => setStep("main")}
                   className="flex h-8 w-8 items-center justify-center rounded-lg sam-text-page-title active:bg-[color:var(--messenger-primary-soft)]"
                   style={{ color: "var(--messenger-text)" }}
-                  aria-label="뒤로"
+                  aria-label={t("nav_back")}
                 >
                   ‹
                 </button>
                 <p className="flex-1 text-center sam-text-body-secondary font-semibold" style={{ color: "var(--messenger-text)" }}>
-                  통화하기
+                  {t("cm_ui_make_call")}
                 </p>
                 <span className="w-8" />
               </div>
               <div className="px-4 py-4">
                 <div className="overflow-hidden rounded-[18px] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)]">
                   <SheetRow
-                    label={bVoice ? "음성 통화 연결 중…" : "음성 통화"}
-                    sub="음성"
+                    label={bVoice ? t("cm_ui_voice_call_connecting") : t("cm_ui_voice_call")}
+                    sub={t("cm_ui_voice_short")}
                     icon={<IconPhoneOutline className="h-5 w-5" />}
                     onClick={() => {
                       haptic(14);
@@ -340,8 +342,8 @@ export function MessengerFriendRowQuickPopup({
                     disabled={anyBusy}
                   />
                   <SheetRow
-                    label={bVideo ? "영상 통화 연결 중…" : "영상 통화"}
-                    sub="영상"
+                    label={bVideo ? t("cm_ui_video_call_connecting") : t("cm_ui_video_call")}
+                    sub={t("cm_ui_video_short")}
                     icon={<IconVideoOutline className="h-5 w-5" />}
                     onClick={() => {
                       haptic(14);

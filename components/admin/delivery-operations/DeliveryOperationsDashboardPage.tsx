@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import {
   parseDeliveryOperationsPayload,
@@ -11,8 +12,10 @@ import { deliveryOpsStabilityPercent } from "@/lib/admin-delivery-ops/delivery-o
 import { fetchAdminDeliveryOperationsDeduped } from "@/lib/admin/fetch-admin-delivery-operations-deduped";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import type { DeliveryOperationRecoveryAction } from "@/lib/admin/delivery-operation-recovery-actions";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type LoadState = "loading" | "ready" | "error";
+type Translate = (key: MessageKey, params?: Record<string, string | number>) => string;
 
 const DAY_OPTIONS = [7, 14, 30] as const;
 
@@ -22,14 +25,14 @@ const CHART_SKELETON_ROWS = Array.from({ length: 12 }, (_, i) => ({
   hint: String(i),
 }));
 
-const QUEUE_META: { key: string; title: string }[] = [
-  { key: "sla_attention", title: "SLA · 어텐션" },
-  { key: "eta_overdue", title: "ETA 초과" },
-  { key: "unassigned", title: "미배차" },
-  { key: "long_delivering", title: "장기 delivering (45분+)" },
-  { key: "held_settlements", title: "held 정산" },
-  { key: "refund_requested", title: "환불 요청" },
-  { key: "urgent_flagged", title: "긴급 플래그 주문" },
+const QUEUE_META_KEYS: { key: string; titleKey: MessageKey }[] = [
+  { key: "sla_attention", titleKey: "admin_del_ops_queue_sla_attention" },
+  { key: "eta_overdue", titleKey: "admin_del_ops_queue_eta_overdue" },
+  { key: "unassigned", titleKey: "admin_del_ops_queue_unassigned" },
+  { key: "long_delivering", titleKey: "admin_del_ops_queue_long_delivering" },
+  { key: "held_settlements", titleKey: "admin_del_ops_queue_held_settlements" },
+  { key: "refund_requested", titleKey: "admin_del_ops_queue_refund_requested" },
+  { key: "urgent_flagged", titleKey: "admin_del_ops_queue_urgent_flagged" },
 ];
 
 function fmtInt(n: number): string {
@@ -45,64 +48,85 @@ function numMeta(v: unknown): number {
   return 0;
 }
 
-function fmtAgeSeconds(sec: unknown): string {
+function fmtAgeSeconds(sec: unknown, noSignalLabel: string): string {
   const s = numMeta(sec);
   if (s <= 0) return "—";
-  if (s >= 86400000) return "미수신";
+  if (s >= 86400000) return noSignalLabel;
   if (s < 90) return `${s}s`;
   if (s < 3600) return `${Math.floor(s / 60)}m`;
   return `${Math.floor(s / 3600)}h${Math.floor((s % 3600) / 60)}m`;
 }
 
-function healthBannerLabel(code: string): string {
+function healthBannerKey(code: string): MessageKey | null {
   switch (code) {
     case "cron_heartbeat_stale":
-      return "크론 하트비트가 오래되었거나 없습니다(약 5분 이상). pg_cron·배포 상태를 확인하세요.";
+      return "admin_del_ops_health_cron_stale";
     case "failed_auto_action_backlog":
-      return "실패한 자동 액션이 많습니다. 재시도·룰·외부 연동을 점검하세요.";
+      return "admin_del_ops_health_failed_backlog";
     case "pending_approval_backlog_high":
-      return "승인 대기 자동 액션이 과다합니다.";
+      return "admin_del_ops_health_pending_approval_high";
     case "stale_pending_approval":
-      return "오래된 승인 대기(15분+)가 있습니다.";
+      return "admin_del_ops_health_stale_pending";
     case "stuck_orders_detected":
-      return "장기 waiting_rider 또는 장기 delivering 주문이 집계되었습니다.";
+      return "admin_del_ops_health_stuck_orders";
     case "held_settlement_stale":
-      return "3일 이상 held 정산이 있습니다.";
+      return "admin_del_ops_health_held_settlement_stale";
     case "auto_actions_disabled":
-      return "자동 액션 kill switch 가 OFF 입니다.";
+      return "admin_del_ops_health_auto_actions_disabled";
     default:
-      return code;
+      return null;
   }
 }
 
-const RECOVERY_BUTTONS: {
+function healthBannerLabel(code: string, t: Translate): string {
+  const key = healthBannerKey(code);
+  return key ? t(key) : code;
+}
+
+const RECOVERY_BUTTON_KEYS: {
   action: DeliveryOperationRecoveryAction;
-  label: string;
-  hint: string;
+  labelKey: MessageKey;
+  hintKey: MessageKey;
 }[] = [
-  { action: "sla_scan", label: "SLA 스캔", hint: "scan_store_order_sla_warnings" },
-  { action: "alert_sync", label: "알림 동기화", hint: "sync_delivery_operation_alert_events" },
-  { action: "auto_action_runner", label: "자동 액션 러너", hint: "run_delivery_operation_alert_auto_actions" },
-  { action: "alert_pipeline", label: "동기화+러너", hint: "수동 파이프라인 (기존 관리자 동기화와 동일 계열)" },
+  {
+    action: "sla_scan",
+    labelKey: "admin_del_ops_recovery_sla_scan",
+    hintKey: "admin_del_ops_recovery_hint_sla_scan",
+  },
+  {
+    action: "alert_sync",
+    labelKey: "admin_del_ops_recovery_alert_sync",
+    hintKey: "admin_del_ops_recovery_hint_alert_sync",
+  },
+  {
+    action: "auto_action_runner",
+    labelKey: "admin_del_ops_recovery_auto_runner",
+    hintKey: "admin_del_ops_recovery_hint_auto_runner",
+  },
+  {
+    action: "alert_pipeline",
+    labelKey: "admin_del_ops_recovery_pipeline",
+    hintKey: "admin_del_ops_recovery_hint_pipeline",
+  },
   {
     action: "stale_alerts_resolve",
-    label: "종료 주문 알림 정리",
-    hint: "완료·취소·환불 주문의 open 알림 → resolved (상한 220)",
+    labelKey: "admin_del_ops_recovery_stale_alerts",
+    hintKey: "admin_del_ops_recovery_hint_stale_alerts",
   },
   {
     action: "waiting_rider_bump",
-    label: "waiting_rider 재큐(소프트)",
-    hint: "30분+ 대기 배차 행의 updated_at 만 갱신 (상한 120)",
+    labelKey: "admin_del_ops_recovery_waiting_bump",
+    hintKey: "admin_del_ops_recovery_hint_waiting_bump",
   },
   {
     action: "delivering_mark_attention",
-    label: "delivering 주목 표시",
-    hint: "2시간+ delivering 에 needs_admin_attention (상한 120)",
+    labelKey: "admin_del_ops_recovery_delivering_attention",
+    hintKey: "admin_del_ops_recovery_hint_delivering_attention",
   },
   {
     action: "bulk_retry_failed_auto_actions",
-    label: "실패 자동 액션 재큐",
-    hint: "retry RPC 최대 30건 (승인 필요 룰은 pending으로 복귀)",
+    labelKey: "admin_del_ops_recovery_bulk_retry",
+    hintKey: "admin_del_ops_recovery_hint_bulk_retry",
   },
 ];
 
@@ -144,9 +168,17 @@ function MiniBarList(props: {
   );
 }
 
-function QueueRows({ qKey, rows }: { qKey: string; rows: Record<string, unknown>[] }) {
+function QueueRows({
+  qKey,
+  rows,
+  t,
+}: {
+  qKey: string;
+  rows: Record<string, unknown>[];
+  t: Translate;
+}) {
   if (!rows.length) {
-    return <p className="sam-text-helper text-sam-muted">해당 없음</p>;
+    return <p className="sam-text-helper text-sam-muted">{t("admin_del_ops_queue_none")}</p>;
   }
   return (
     <ul className="max-h-52 space-y-2 overflow-y-auto pr-1 sam-text-body-secondary">
@@ -168,16 +200,20 @@ function QueueRows({ qKey, rows }: { qKey: string; rows: Record<string, unknown>
               <span className="font-medium text-sam-fg">{primary}</span>
               {href ? (
                 <Link href={href} className="text-signature underline sam-text-xxs">
-                  열기
+                  {t("admin_del_ops_open")}
                 </Link>
               ) : null}
             </div>
             {storeName ? <p className="mt-0.5 truncate text-sam-muted sam-text-xxs">{storeName}</p> : null}
             {typeof row.order_status === "string" ? (
-              <p className="text-sam-muted sam-text-xxs">상태 {row.order_status}</p>
+              <p className="text-sam-muted sam-text-xxs">
+                {t("admin_del_ops_status_label", { status: row.order_status })}
+              </p>
             ) : null}
             {typeof row.sla_warning_level === "string" && row.sla_warning_level ? (
-              <p className="text-sam-warning sam-text-xxs">SLA {row.sla_warning_level}</p>
+              <p className="text-sam-warning sam-text-xxs">
+                {t("admin_del_ops_sla_label", { level: row.sla_warning_level })}
+              </p>
             ) : null}
           </li>
         );
@@ -187,6 +223,9 @@ function QueueRows({ qKey, rows }: { qKey: string; rows: Record<string, unknown>
 }
 
 export function DeliveryOperationsDashboardPage() {
+  const { t } = useI18n();
+  const noSignalLabel = t("admin_del_ops_age_no_signal");
+
   const [days, setDays] = useState<number>(14);
   const [payload, setPayload] = useState<DeliveryOperationsPayload | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("loading");
@@ -208,10 +247,14 @@ export function DeliveryOperationsDashboardPage() {
         }
         setPayload(null);
         setLoadState("error");
-        setLastError(status === 503 ? "통계 함수 미배포(DB 마이그레이션 필요)" : `HTTP ${status}`);
+        setLastError(
+          status === 503
+            ? t("admin_del_ops_err_stats_fn_missing")
+            : t("admin_del_ops_err_http", { status })
+        );
       });
     },
-    [days]
+    [days, t]
   );
 
   useEffect(() => {
@@ -237,18 +280,18 @@ export function DeliveryOperationsDashboardPage() {
           setRecoveryNote(
             j && typeof j === "object" && j != null && "message" in j
               ? String((j as { message?: unknown }).message)
-              : `실패 (${r.status})`
+              : t("admin_del_ops_fail_status", { status: r.status })
           );
           return;
         }
-        setRecoveryNote(typeof j?.result === "string" ? String(j.result) : "ok");
+        setRecoveryNote(typeof j?.result === "string" ? String(j.result) : t("admin_del_ops_ok"));
         load({ showLoading: false });
       })
       .catch(() => {
-        setRecoveryNote("네트워크 오류");
+        setRecoveryNote(t("common_network_error"));
       })
       .finally(() => setRecoveryBusy(null));
-  }, [load]);
+  }, [load, t]);
 
   const loading = loadState === "loading";
 
@@ -257,36 +300,36 @@ export function DeliveryOperationsDashboardPage() {
     return fillHours(payload.charts.orders_by_hour_utc).map((r) => ({
       label: `${String(r.hour).padStart(2, "0")}h`,
       value: r.count,
-      hint: `UTC ${r.hour}시 · ${fmtInt(r.count)}건`,
+      hint: t("admin_del_ops_chart_hint_hour", { hour: r.hour, count: fmtInt(r.count) }),
     }));
-  }, [payload]);
+  }, [payload, t]);
 
   const orderDayBars = useMemo(() => {
     if (!payload) return [];
     return payload.charts.orders_by_day.map((d) => ({
       label: d.date.slice(5).replace("-", "/"),
       value: d.count,
-      hint: `${d.date} · ${fmtInt(d.count)}건`,
+      hint: t("admin_del_ops_chart_hint_day_count", { date: d.date, count: fmtInt(d.count) }),
     }));
-  }, [payload]);
+  }, [payload, t]);
 
   const refundDayBars = useMemo(() => {
     if (!payload) return [];
     return payload.charts.refunds_by_day.map((d) => ({
       label: d.date.slice(5).replace("-", "/"),
       value: d.amount,
-      hint: `${d.date} · ${formatMoneyPhp(d.amount)}`,
+      hint: t("admin_del_ops_chart_hint_day_amount", { date: d.date, amount: formatMoneyPhp(d.amount) }),
     }));
-  }, [payload]);
+  }, [payload, t]);
 
   const revenueDayBars = useMemo(() => {
     if (!payload) return [];
     return payload.charts.platform_revenue_by_day.map((d) => ({
       label: d.date.slice(5).replace("-", "/"),
       value: d.amount,
-      hint: `${d.date} · ${formatMoneyPhp(d.amount)}`,
+      hint: t("admin_del_ops_chart_hint_day_amount", { date: d.date, amount: formatMoneyPhp(d.amount) }),
     }));
-  }, [payload]);
+  }, [payload, t]);
 
   const kpis = payload?.kpis;
   const health = payload?.health;
@@ -299,11 +342,35 @@ export function DeliveryOperationsDashboardPage() {
       : null;
   const recentFail = health?.counts?.recent_failed_action_at;
 
+  const verdictLabel =
+    verdict === "danger"
+      ? t("admin_del_ops_verdict_danger")
+      : verdict === "warning"
+        ? t("admin_del_ops_verdict_warning")
+        : t("admin_del_ops_verdict_ok");
+
+  const kpiCards: { labelKey: MessageKey; value: string | null }[] = [
+    { labelKey: "admin_del_ops_kpi_orders_today", value: kpis ? fmtInt(kpis.orders_today) : null },
+    { labelKey: "admin_del_ops_kpi_in_progress", value: kpis ? fmtInt(kpis.orders_in_progress) : null },
+    { labelKey: "admin_del_ops_kpi_sla_attention", value: kpis ? fmtInt(kpis.sla_attention_orders) : null },
+    { labelKey: "admin_del_ops_kpi_unassigned", value: kpis ? fmtInt(kpis.unassigned_delivery_orders) : null },
+    {
+      labelKey: "admin_del_ops_kpi_revenue_today",
+      value: kpis ? formatMoneyPhp(kpis.platform_revenue_today) : null,
+    },
+    { labelKey: "admin_del_ops_kpi_refund_today", value: kpis ? formatMoneyPhp(kpis.refund_amount_today) : null },
+    {
+      labelKey: "admin_del_ops_kpi_settlement_today",
+      value: kpis ? formatMoneyPhp(kpis.settlement_pending_amount_today) : null,
+    },
+    { labelKey: "admin_del_ops_kpi_online_riders", value: kpis ? fmtInt(kpis.online_riders) : null },
+  ];
+
   return (
     <div className="sam-page-stack">
       <AdminPageHeader
-        title="배달 운영 통계"
-        description="단일 RPC 집계 · 기간 필터 · 45초 자동 새로고침 · 시간대 차트는 UTC"
+        titleKey="admin_menu_delivery_operations_stats"
+        descriptionKey="admin_del_ops_page_desc"
       />
 
       {payload?.health_rpc_missing ? (
@@ -311,8 +378,10 @@ export function DeliveryOperationsDashboardPage() {
           className="rounded-ui-rect border border-sam-warning/25 bg-sam-warning-soft px-4 py-3 sam-text-xxs text-sam-warning"
           role="status"
         >
-          운영 헬스 RPC 미배포:{" "}
-          <span className="font-mono text-[10px]">{payload.health_rpc_hint ?? "migration 필요"}</span>
+          {t("admin_del_ops_health_rpc_missing")}{" "}
+          <span className="font-mono text-[10px]">
+            {payload.health_rpc_hint ?? t("admin_del_ops_migration_needed")}
+          </span>
         </div>
       ) : null}
 
@@ -321,7 +390,8 @@ export function DeliveryOperationsDashboardPage() {
           className="rounded-ui-rect border border-sam-warning/25 bg-sam-warning-soft px-4 py-3 sam-text-xxs text-sam-warning"
           role="status"
         >
-          헬스 RPC 오류: <span className="font-mono text-[10px]">{payload.health_rpc_error}</span>
+          {t("admin_del_ops_health_rpc_error")}{" "}
+          <span className="font-mono text-[10px]">{payload.health_rpc_error}</span>
         </div>
       ) : null}
 
@@ -338,7 +408,7 @@ export function DeliveryOperationsDashboardPage() {
                     : "border-sam-border bg-sam-surface text-sam-muted"
               }`}
             >
-              {healthBannerLabel(b)}
+              {healthBannerLabel(b, t)}
             </div>
           ))}
         </div>
@@ -348,7 +418,7 @@ export function DeliveryOperationsDashboardPage() {
         <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 sam-text-xxs">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-medium text-sam-fg">운영 헬스</span>
+              <span className="font-medium text-sam-fg">{t("admin_del_ops_section_health")}</span>
               <span
                 className={`rounded-full px-2 py-0.5 font-medium ${
                   verdict === "danger"
@@ -358,21 +428,22 @@ export function DeliveryOperationsDashboardPage() {
                       : "bg-sam-border/40 text-sam-fg"
                 }`}
               >
-                {verdict === "danger" ? "위험" : verdict === "warning" ? "주의" : "양호"}
+                {verdictLabel}
               </span>
               <span className="text-sam-muted">
-                안정성(휴리스틱) <strong className="tabular-nums text-sam-fg">{stabPct}%</strong>
+                {t("admin_del_ops_stability_label")}{" "}
+                <strong className="tabular-nums text-sam-fg">{stabPct}%</strong>
               </span>
             </div>
             <Link href="/admin/delivery-auto-actions" className="text-signature underline">
-              자동 액션 승인 대기
+              {t("admin_del_ops_link_auto_actions_pending")}
             </Link>
           </div>
           <dl className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
             <div>
-              <dt className="text-sam-muted">SLA cron 마지막</dt>
+              <dt className="text-sam-muted">{t("admin_del_ops_hb_sla_cron_last")}</dt>
               <dd className="font-mono tabular-nums text-sam-fg">
-                {fmtAgeSeconds(hbAgeObj?.sla_scan)}
+                {fmtAgeSeconds(hbAgeObj?.sla_scan, noSignalLabel)}
                 {health?.heartbeats?.sla_scan?.last_run_at ? (
                   <span className="ml-1 text-sam-muted">
                     ({health.heartbeats.sla_scan.last_run_at.slice(0, 19).replace("T", " ")})
@@ -381,15 +452,19 @@ export function DeliveryOperationsDashboardPage() {
               </dd>
             </div>
             <div>
-              <dt className="text-sam-muted">알림 동기화 마지막</dt>
-              <dd className="font-mono tabular-nums text-sam-fg">{fmtAgeSeconds(hbAgeObj?.alert_sync)}</dd>
+              <dt className="text-sam-muted">{t("admin_del_ops_hb_alert_sync_last")}</dt>
+              <dd className="font-mono tabular-nums text-sam-fg">
+                {fmtAgeSeconds(hbAgeObj?.alert_sync, noSignalLabel)}
+              </dd>
             </div>
             <div>
-              <dt className="text-sam-muted">자동 액션 러너 마지막</dt>
-              <dd className="font-mono tabular-nums text-sam-fg">{fmtAgeSeconds(hbAgeObj?.auto_action_runner)}</dd>
+              <dt className="text-sam-muted">{t("admin_del_ops_hb_auto_runner_last")}</dt>
+              <dd className="font-mono tabular-nums text-sam-fg">
+                {fmtAgeSeconds(hbAgeObj?.auto_action_runner, noSignalLabel)}
+              </dd>
             </div>
             <div>
-              <dt className="text-sam-muted">최근 실패 자동 액션</dt>
+              <dt className="text-sam-muted">{t("admin_del_ops_recent_failed_auto")}</dt>
               <dd className="font-mono text-sam-fg">
                 {typeof recentFail === "string" && recentFail
                   ? recentFail.slice(0, 19).replace("T", " ")
@@ -397,26 +472,26 @@ export function DeliveryOperationsDashboardPage() {
               </dd>
             </div>
             <div>
-              <dt className="text-sam-muted">승인 대기 / 15분+</dt>
+              <dt className="text-sam-muted">{t("admin_del_ops_pending_approval_counts")}</dt>
               <dd className="tabular-nums text-sam-fg">
                 {fmtInt(numMeta(health?.counts?.pending_approval_actions))} /{" "}
                 {fmtInt(numMeta(health?.counts?.pending_approval_stale_15m))}
               </dd>
             </div>
             <div>
-              <dt className="text-sam-muted">실패 자동 액션(열린 건)</dt>
+              <dt className="text-sam-muted">{t("admin_del_ops_failed_actions_open")}</dt>
               <dd className="tabular-nums text-sam-fg">{fmtInt(numMeta(health?.counts?.failed_actions_open))}</dd>
             </div>
             <div>
-              <dt className="text-sam-muted">stuck delivering (2h+)</dt>
+              <dt className="text-sam-muted">{t("admin_del_ops_stuck_delivering")}</dt>
               <dd className="tabular-nums text-sam-fg">{fmtInt(numMeta(health?.counts?.stuck_delivering_2h))}</dd>
             </div>
             <div>
-              <dt className="text-sam-muted">stuck waiting_rider (30m+)</dt>
+              <dt className="text-sam-muted">{t("admin_del_ops_stuck_waiting_rider")}</dt>
               <dd className="tabular-nums text-sam-fg">{fmtInt(numMeta(health?.counts?.stuck_waiting_rider_30m))}</dd>
             </div>
             <div>
-              <dt className="text-sam-muted">held 정산 (전체 / 3일+)</dt>
+              <dt className="text-sam-muted">{t("admin_del_ops_held_settlement_counts")}</dt>
               <dd className="tabular-nums text-sam-fg">
                 {fmtInt(numMeta(health?.counts?.held_settlement_total))} /{" "}
                 {fmtInt(numMeta(health?.counts?.held_settlement_older_than_3d))}
@@ -425,17 +500,17 @@ export function DeliveryOperationsDashboardPage() {
           </dl>
 
           <details className="mt-3 border-t border-sam-border pt-3">
-            <summary className="cursor-pointer font-medium text-sam-fg">복구 액션 (로그 기록)</summary>
-            <p className="mt-2 text-sam-muted">
-              동일 종류는 트랜잭션 락으로 동시 실행을 막습니다. 과도한 연속 클릭은 피하세요.
-            </p>
+            <summary className="cursor-pointer font-medium text-sam-fg">
+              {t("admin_del_ops_recovery_summary")}
+            </summary>
+            <p className="mt-2 text-sam-muted">{t("admin_del_ops_recovery_hint")}</p>
             {recoveryNote ? (
               <p className="mt-2 rounded-ui-rect border border-sam-border bg-sam-surface-muted/40 px-2 py-1 font-mono text-[11px] text-sam-fg">
                 {recoveryNote}
               </p>
             ) : null}
             <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {RECOVERY_BUTTONS.map((b) => (
+              {RECOVERY_BUTTON_KEYS.map((b) => (
                 <div key={b.action} className="rounded-ui-rect border border-sam-border/80 bg-sam-app/30 p-2">
                   <button
                     type="button"
@@ -443,9 +518,9 @@ export function DeliveryOperationsDashboardPage() {
                     disabled={recoveryBusy !== null}
                     onClick={() => postRecovery(b.action)}
                   >
-                    {recoveryBusy === b.action ? "실행 중…" : b.label}
+                    {recoveryBusy === b.action ? t("admin_del_ops_recovery_running") : t(b.labelKey)}
                   </button>
-                  <p className="mt-1 text-[10px] text-sam-muted">{b.hint}</p>
+                  <p className="mt-1 text-[10px] text-sam-muted">{t(b.hintKey)}</p>
                 </div>
               ))}
             </div>
@@ -458,17 +533,17 @@ export function DeliveryOperationsDashboardPage() {
           className="rounded-ui-rect border border-sam-warning/15 bg-sam-warning-soft px-4 py-3 sam-text-body-secondary text-sam-warning"
           role="alert"
         >
-          <p className="font-medium">통계를 불러오지 못했습니다.</p>
+          <p className="font-medium">{t("admin_del_ops_load_failed_title")}</p>
           {lastError ? <p className="mt-1 text-sam-muted">{lastError}</p> : null}
           <button type="button" onClick={() => load({ showLoading: true })} className="sam-btn sam-btn--outline sam-btn--sm mt-3">
-            다시 시도
+            {t("common_retry")}
           </button>
         </div>
       )}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="sam-text-helper text-sam-muted">기간</span>
+          <span className="sam-text-helper text-sam-muted">{t("admin_del_ops_period_label")}</span>
           {DAY_OPTIONS.map((d) => (
             <button
               key={d}
@@ -476,14 +551,16 @@ export function DeliveryOperationsDashboardPage() {
               onClick={() => setDays(d)}
               className={`sam-btn sam-btn--sm ${days === d ? "sam-btn--primary" : "sam-btn--outline"}`}
             >
-              {d}일
+              {t("admin_del_ops_days", { days: d })}
             </button>
           ))}
         </div>
         <div className="flex items-center gap-2">
           {payload?.generated_at ? (
             <span className="sam-text-xxs text-sam-muted">
-              생성 {payload.generated_at.slice(0, 19).replace("T", " ")}
+              {t("admin_del_ops_generated_at", {
+                at: payload.generated_at.slice(0, 19).replace("T", " "),
+              })}
             </span>
           ) : null}
           <button
@@ -492,26 +569,17 @@ export function DeliveryOperationsDashboardPage() {
             className="sam-btn sam-btn--outline sam-btn--sm"
             disabled={loading}
           >
-            새로고침
+            {t("admin_do_common_refresh")}
           </button>
         </div>
       </div>
 
       <section aria-busy={loading ? true : undefined}>
-        <h2 className="mb-3 sam-text-body font-medium text-sam-muted">운영 KPI</h2>
+        <h2 className="mb-3 sam-text-body font-medium text-sam-muted">{t("admin_del_ops_section_kpi")}</h2>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {[
-            { label: "오늘 주문 수", value: kpis ? fmtInt(kpis.orders_today) : null },
-            { label: "진행 중 주문", value: kpis ? fmtInt(kpis.orders_in_progress) : null },
-            { label: "SLA 경고 수", value: kpis ? fmtInt(kpis.sla_attention_orders) : null },
-            { label: "미배차 수", value: kpis ? fmtInt(kpis.unassigned_delivery_orders) : null },
-            { label: "오늘 플랫폼 수익", value: kpis ? formatMoneyPhp(kpis.platform_revenue_today) : null },
-            { label: "오늘 환불 금액", value: kpis ? formatMoneyPhp(kpis.refund_amount_today) : null },
-            { label: "오늘 정산 예정금", value: kpis ? formatMoneyPhp(kpis.settlement_pending_amount_today) : null },
-            { label: "온라인 라이더 수", value: kpis ? fmtInt(kpis.online_riders) : null },
-          ].map((c) => (
-            <div key={c.label} className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
-              <p className="sam-text-helper text-sam-muted">{c.label}</p>
+          {kpiCards.map((c) => (
+            <div key={c.labelKey} className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
+              <p className="sam-text-helper text-sam-muted">{t(c.labelKey)}</p>
               <p className="mt-1 sam-text-page-title font-semibold tabular-nums text-sam-fg">
                 {loading && !kpis ? (
                   <span className="inline-block h-[1.125rem] w-[4rem] animate-pulse rounded bg-sam-border" aria-hidden />
@@ -525,22 +593,22 @@ export function DeliveryOperationsDashboardPage() {
       </section>
 
       <section>
-        <h2 className="mb-3 sam-text-body font-medium text-sam-muted">실시간 운영 큐</h2>
+        <h2 className="mb-3 sam-text-body font-medium text-sam-muted">{t("admin_del_ops_section_queues")}</h2>
         <div className="grid gap-3 lg:grid-cols-2">
-          {QUEUE_META.map(({ key, title }) => (
+          {QUEUE_META_KEYS.map(({ key, titleKey }) => (
             <details
               key={key}
               className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 open:border-signature/25"
               open={key === "sla_attention"}
             >
               <summary className="cursor-pointer list-none font-medium text-sam-fg [&::-webkit-details-marker]:hidden">
-                {title}
+                {t(titleKey)}
                 <span className="ml-2 text-sam-muted sam-text-helper">
-                  {(payload?.queues[key]?.length ?? 0).toLocaleString()}건
+                  {t("admin_do_common_count_unit", { count: payload?.queues[key]?.length ?? 0 })}
                 </span>
               </summary>
               <div className="mt-3 border-t border-sam-border pt-3">
-                <QueueRows qKey={key} rows={payload?.queues[key] ?? []} />
+                <QueueRows qKey={key} rows={payload?.queues[key] ?? []} t={t} />
               </div>
             </details>
           ))}
@@ -548,25 +616,25 @@ export function DeliveryOperationsDashboardPage() {
       </section>
 
       <section>
-        <h2 className="mb-3 sam-text-body font-medium text-sam-muted">추이 차트</h2>
+        <h2 className="mb-3 sam-text-body font-medium text-sam-muted">{t("admin_del_ops_section_charts")}</h2>
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-            <h3 className="mb-3 sam-text-body font-medium text-sam-fg">일별 주문</h3>
+            <h3 className="mb-3 sam-text-body font-medium text-sam-fg">{t("admin_del_ops_chart_orders_by_day")}</h3>
             <MiniBarList rows={loading && !payload ? CHART_SKELETON_ROWS : orderDayBars} />
           </div>
           <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-            <h3 className="mb-3 sam-text-body font-medium text-sam-fg">시간대별 주문 (UTC)</h3>
+            <h3 className="mb-3 sam-text-body font-medium text-sam-fg">{t("admin_del_ops_chart_orders_by_hour")}</h3>
             <MiniBarList rows={loading && !payload ? CHART_SKELETON_ROWS : hourRowsFilled} />
           </div>
           <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-            <h3 className="mb-3 sam-text-body font-medium text-sam-fg">환불 추이</h3>
+            <h3 className="mb-3 sam-text-body font-medium text-sam-fg">{t("admin_del_ops_chart_refunds")}</h3>
             <MiniBarList
               rows={loading && !payload ? CHART_SKELETON_ROWS : refundDayBars}
               valueFmt={(n) => formatMoneyPhp(n)}
             />
           </div>
           <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-            <h3 className="mb-3 sam-text-body font-medium text-sam-fg">플랫폼 수익 추이</h3>
+            <h3 className="mb-3 sam-text-body font-medium text-sam-fg">{t("admin_del_ops_chart_revenue")}</h3>
             <MiniBarList
               rows={loading && !payload ? CHART_SKELETON_ROWS : revenueDayBars}
               valueFmt={(n) => formatMoneyPhp(n)}
@@ -576,18 +644,18 @@ export function DeliveryOperationsDashboardPage() {
       </section>
 
       <section className="overflow-x-auto">
-        <h2 className="mb-3 sam-text-body font-medium text-sam-muted">업체 TOP</h2>
+        <h2 className="mb-3 sam-text-body font-medium text-sam-muted">{t("admin_del_ops_section_top_stores")}</h2>
         <table className="min-w-[720px] w-full border-collapse sam-text-body-secondary">
           <thead>
             <tr className="border-b border-sam-border text-left sam-text-xxs text-sam-muted">
-              <th className="py-2 pr-3 font-medium">매장</th>
-              <th className="py-2 pr-3 font-medium">주문</th>
-              <th className="py-2 pr-3 font-medium">완료율</th>
-              <th className="py-2 pr-3 font-medium">취소·환불율</th>
-              <th className="py-2 pr-3 font-medium">환불 비율</th>
-              <th className="py-2 pr-3 font-medium">SLA 플래그</th>
-              <th className="py-2 pr-3 font-medium">매출</th>
-              <th className="py-2 font-medium">플랫폼 수수료</th>
+              <th className="py-2 pr-3 font-medium">{t("admin_do_th_store")}</th>
+              <th className="py-2 pr-3 font-medium">{t("admin_do_common_order")}</th>
+              <th className="py-2 pr-3 font-medium">{t("admin_del_ops_th_completion_rate")}</th>
+              <th className="py-2 pr-3 font-medium">{t("admin_del_ops_th_cancel_refund_rate")}</th>
+              <th className="py-2 pr-3 font-medium">{t("admin_del_ops_th_refund_rate")}</th>
+              <th className="py-2 pr-3 font-medium">{t("admin_del_ops_th_sla_flags")}</th>
+              <th className="py-2 pr-3 font-medium">{t("admin_del_ops_th_gross")}</th>
+              <th className="py-2 font-medium">{t("admin_del_ops_th_platform_fees")}</th>
             </tr>
           </thead>
           <tbody>
@@ -620,7 +688,7 @@ export function DeliveryOperationsDashboardPage() {
             {!loading && (payload?.charts.top_stores.length ?? 0) === 0 ? (
               <tr>
                 <td colSpan={8} className="py-6 text-center text-sam-muted">
-                  기간 내 데이터 없음
+                  {t("admin_del_ops_no_data_in_period")}
                 </td>
               </tr>
             ) : null}
@@ -629,14 +697,14 @@ export function DeliveryOperationsDashboardPage() {
       </section>
 
       <section className="overflow-x-auto">
-        <h2 className="mb-3 sam-text-body font-medium text-sam-muted">지역 TOP</h2>
+        <h2 className="mb-3 sam-text-body font-medium text-sam-muted">{t("admin_del_ops_section_top_regions")}</h2>
         <table className="min-w-[520px] w-full border-collapse sam-text-body-secondary">
           <thead>
             <tr className="border-b border-sam-border text-left sam-text-xxs text-sam-muted">
-              <th className="py-2 pr-3 font-medium">지역</th>
-              <th className="py-2 pr-3 font-medium">주문</th>
-              <th className="py-2 pr-3 font-medium">SLA 플래그</th>
-              <th className="py-2 font-medium">매출</th>
+              <th className="py-2 pr-3 font-medium">{t("admin_del_ops_th_region")}</th>
+              <th className="py-2 pr-3 font-medium">{t("admin_do_common_order")}</th>
+              <th className="py-2 pr-3 font-medium">{t("admin_del_ops_th_sla_flags")}</th>
+              <th className="py-2 font-medium">{t("admin_del_ops_th_gross")}</th>
             </tr>
           </thead>
           <tbody>
@@ -651,7 +719,7 @@ export function DeliveryOperationsDashboardPage() {
             {!loading && (payload?.charts.top_regions.length ?? 0) === 0 ? (
               <tr>
                 <td colSpan={4} className="py-6 text-center text-sam-muted">
-                  기간 내 데이터 없음
+                  {t("admin_del_ops_no_data_in_period")}
                 </td>
               </tr>
             ) : null}
@@ -660,15 +728,15 @@ export function DeliveryOperationsDashboardPage() {
       </section>
 
       <section className="overflow-x-auto">
-        <h2 className="mb-3 sam-text-body font-medium text-sam-muted">라이더 TOP</h2>
+        <h2 className="mb-3 sam-text-body font-medium text-sam-muted">{t("admin_del_ops_section_top_riders")}</h2>
         <table className="min-w-[640px] w-full border-collapse sam-text-body-secondary">
           <thead>
             <tr className="border-b border-sam-border text-left sam-text-xxs text-sam-muted">
-              <th className="py-2 pr-3 font-medium">라이더 ID</th>
-              <th className="py-2 pr-3 font-medium">완료 배달</th>
-              <th className="py-2 pr-3 font-medium">평균 배달(분)</th>
-              <th className="py-2 pr-3 font-medium">종료·실패 추정</th>
-              <th className="py-2 font-medium">SLA 플래그</th>
+              <th className="py-2 pr-3 font-medium">{t("admin_del_ops_th_rider_id")}</th>
+              <th className="py-2 pr-3 font-medium">{t("admin_del_ops_th_completed_deliveries")}</th>
+              <th className="py-2 pr-3 font-medium">{t("admin_del_ops_th_avg_delivery_min")}</th>
+              <th className="py-2 pr-3 font-medium">{t("admin_del_ops_th_terminal_estimate")}</th>
+              <th className="py-2 font-medium">{t("admin_del_ops_th_sla_flags")}</th>
             </tr>
           </thead>
           <tbody>
@@ -686,7 +754,7 @@ export function DeliveryOperationsDashboardPage() {
             {!loading && (payload?.riders.length ?? 0) === 0 ? (
               <tr>
                 <td colSpan={5} className="py-6 text-center text-sam-muted">
-                  기간 내 라이더 배달 기록 없음
+                  {t("admin_del_ops_no_rider_records")}
                 </td>
               </tr>
             ) : null}

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 function Shimmer({ className }: { className: string }) {
   return (
@@ -11,6 +12,7 @@ function Shimmer({ className }: { className: string }) {
 
 /** Summary shell 이후 메뉴 데이터 대기 중 — 칩·목록 자리만 표시 */
 export function StoreDetailMenusSkeleton() {
+  const { t } = useI18n();
   return (
     <>
       <div className="mt-4 border-y border-neutral-100">

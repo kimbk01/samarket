@@ -3,6 +3,7 @@
 import { TradeReviewForm } from "@/components/trade/TradeReviewForm";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function PurchaseReviewSheet({
   chatId,
@@ -23,19 +24,20 @@ export function PurchaseReviewSheet({
   onClose: () => void;
   onSuccess: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <div
       className={`fixed inset-x-0 top-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-4 ${BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS}`}
     >
       <div className="flex max-h-full min-h-0 w-full max-w-lg flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-xl sm:max-h-[min(90vh,calc(100dvh-3.5rem-env(safe-area-inset-bottom,0px)))] sm:rounded-ui-rect">
         <div className="flex shrink-0 items-center justify-between border-b border-sam-border-soft px-4 py-3">
-          <h2 className="sam-text-body-lg font-semibold text-sam-fg">후기 보내기</h2>
+          <h2 className="sam-text-body-lg font-semibold text-sam-fg">{t("mypage_comp_purchase_review_sheet_title")}</h2>
           <button type="button" onClick={onClose} className="sam-text-body text-sam-muted">
-            닫기
+            {t("mypage_comp_close")}
           </button>
         </div>
         <div className="shrink-0 border-b border-sam-border-soft bg-sam-app/80 px-4 py-3">
-          <p className="sam-text-helper text-sam-muted">이번 거래는 어땠나요?</p>
+          <p className="sam-text-helper text-sam-muted">{t("mypage_comp_purchase_review_sheet_subtitle")}</p>
           <div className="mt-2 flex gap-3">
             <SamarketThumbnail
               src={thumbnail}

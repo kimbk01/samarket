@@ -1,27 +1,30 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
-import type { PointLedgerEntry, PointChargeRequest } from "@/lib/types/point";
+import type { PointLedgerEntry, PointChargeRequest, PointLedgerEntryType } from "@/lib/types/point";
 import { PointChargeBadge } from "./PointChargeBadge";
 import { PointChargeForm } from "./PointChargeForm";
 import { getPointPlans } from "@/lib/points/mock-point-plans";
 
 type Tab = "balance" | "ledger" | "charges";
 
-const LEDGER_TYPE_LABELS: Record<string, string> = {
-  charge: "충전",
-  spend: "사용",
-  refund: "환불",
-  admin_adjust: "관리자조정",
-  expire: "만료",
-  reward: "보상",
-  reverse: "취소",
-  ad_purchase: "광고구매",
-  ad_refund: "광고환불",
+const LEDGER_KEYS: Record<PointLedgerEntryType, MessageKey> = {
+  charge: "point_ledger_charge",
+  spend: "point_ledger_spend",
+  refund: "point_ledger_refund",
+  admin_adjust: "point_ledger_admin_adjust",
+  expire: "point_ledger_expire",
+  reward: "point_ledger_reward",
+  reverse: "point_ledger_reverse",
+  ad_purchase: "point_ledger_ad_purchase",
+  ad_refund: "point_ledger_ad_refund",
 };
 
 export function MyPointsView() {
+  const { t } = useI18n();
   const [balance, setBalance] = useState(0);
   const [ledger, setLedger] = useState<PointLedgerEntry[]>([]);
   const [charges, setCharges] = useState<PointChargeRequest[]>([]);
@@ -67,11 +70,29 @@ export function MyPointsView() {
     (c) => c.requestStatus === "pending" || c.requestStatus === "waiting_confirm" || c.requestStatus === "on_hold"
   ).length;
 
+  const ledgerLabel = (type: PointLedgerEntryType) => t(LEDGER_KEYS[type] ?? "point_ledger_charge");
+
+  const tabs = useMemo(
+    () =>
+      [
+        { id: "balance" as const, label: t("points_ui_tab_summary") },
+        { id: "ledger" as const, label: t("points_ui_tab_ledger") },
+        {
+          id: "charges" as const,
+          label:
+            charges.length > 0
+              ? `${t("points_ui_tab_charges")} (${charges.length})`
+              : t("points_ui_tab_charges"),
+        },
+      ],
+    [t, charges.length]
+  );
+
   return (
     <div className="min-h-screen bg-sam-app pb-28">
       {/* 잔액 헤더 카드 */}
       <div className="bg-gradient-to-br from-sky-600 to-sky-700 px-5 pb-8 pt-6">
-        <p className="sam-text-body-secondary font-medium text-sky-200">내 포인트 잔액</p>
+        <p className="sam-text-body-secondary font-medium text-sky-200">{t("points_ui_balance_label")}</p>
         {loading ? (
           <p className="mt-2 sam-text-hero font-bold text-white">…</p>
         ) : (
@@ -82,24 +103,18 @@ export function MyPointsView() {
           onClick={() => setShowChargeForm(true)}
           className="mt-4 rounded-ui-rect border border-sam-surface/40 bg-sam-surface/20 px-4 py-2 sam-text-body font-semibold text-white backdrop-blur hover:bg-sam-surface/30"
         >
-          + 포인트 충전 신청
+          {t("points_ui_charge_request_btn")}
         </button>
         {pendingCharges > 0 && (
           <p className="mt-2 sam-text-helper text-sky-200">
-            처리 대기 중인 충전 신청 {pendingCharges}건
+            {t("points_ui_pending_charges", { count: pendingCharges })}
           </p>
         )}
       </div>
 
       {/* 탭 */}
       <div className="sticky top-0 z-10 flex gap-0 border-b border-sam-border bg-sam-surface">
-        {(
-          [
-            { id: "balance", label: "내역 요약" },
-            { id: "ledger", label: "원장" },
-            { id: "charges", label: `충전신청 ${charges.length > 0 ? `(${charges.length})` : ""}` },
-          ] as { id: Tab; label: string }[]
-        ).map(({ id, label }) => (
+        {tabs.map(({ id, label }) => (
           <button
             key={id}
             type="button"
@@ -123,7 +138,7 @@ export function MyPointsView() {
             <div className="grid grid-cols-2 gap-3">
               {[
                 {
-                  label: "최근 충전 합계",
+                  label: t("points_ui_recent_charge_sum"),
                   value: ledger
                     .filter((l) => l.entryType === "charge")
                     .reduce((s, l) => s + l.amount, 0)
@@ -131,7 +146,7 @@ export function MyPointsView() {
                   color: "text-emerald-700",
                 },
                 {
-                  label: "최근 사용 합계",
+                  label: t("points_ui_recent_spend_sum"),
                   value: ledger
                     .filter((l) => l.entryType === "spend" || l.entryType === "ad_purchase")
                     .reduce((s, l) => s + Math.abs(l.amount), 0)
@@ -149,17 +164,17 @@ export function MyPointsView() {
             {/* 최근 원장 5건 */}
             <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface shadow-sm">
               <div className="border-b border-sam-border-soft px-4 py-3">
-                <h3 className="sam-text-body font-semibold text-sam-fg">최근 포인트 내역</h3>
+                <h3 className="sam-text-body font-semibold text-sam-fg">{t("points_ui_recent_history")}</h3>
               </div>
               {ledger.length === 0 ? (
-                <p className="py-8 text-center sam-text-body-secondary text-sam-meta">내역이 없습니다.</p>
+                <p className="py-8 text-center sam-text-body-secondary text-sam-meta">{t("points_ui_no_history")}</p>
               ) : (
                 <ul className="divide-y divide-sam-border-soft">
                   {ledger.slice(0, 5).map((l) => (
                     <li key={l.id} className="flex items-center justify-between px-4 py-3">
                       <div>
                         <p className="sam-text-body-secondary font-medium text-sam-fg">
-                          {LEDGER_TYPE_LABELS[l.entryType] ?? l.entryType}
+                          {ledgerLabel(l.entryType)}
                         </p>
                         <p className="sam-text-xxs text-sam-muted">{l.description}</p>
                         <p className="sam-text-xxs text-sam-meta">
@@ -170,7 +185,9 @@ export function MyPointsView() {
                         <p className={`sam-text-body font-bold ${l.amount >= 0 ? "text-emerald-700" : "text-red-600"}`}>
                           {l.amount >= 0 ? "+" : ""}{l.amount.toLocaleString()}P
                         </p>
-                        <p className="sam-text-xxs text-sam-meta">잔액 {l.balanceAfter.toLocaleString()}P</p>
+                        <p className="sam-text-xxs text-sam-meta">
+                          {t("points_ui_balance_after", { balance: l.balanceAfter.toLocaleString() })}
+                        </p>
                       </div>
                     </li>
                   ))}
@@ -183,7 +200,7 @@ export function MyPointsView() {
                     onClick={() => setActiveTab("ledger")}
                     className="sam-text-helper text-sky-700 underline"
                   >
-                    전체 내역 보기
+                    {t("points_ui_view_all_ledger")}
                   </button>
                 </div>
               )}
@@ -193,7 +210,7 @@ export function MyPointsView() {
             {charges.length > 0 && (
               <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface shadow-sm">
                 <div className="border-b border-sam-border-soft px-4 py-3">
-                  <h3 className="sam-text-body font-semibold text-sam-fg">충전 신청 현황</h3>
+                  <h3 className="sam-text-body font-semibold text-sam-fg">{t("points_ui_charge_status_title")}</h3>
                 </div>
                 <ul className="divide-y divide-sam-border-soft">
                   {charges.slice(0, 3).map((c) => (
@@ -220,7 +237,7 @@ export function MyPointsView() {
         {activeTab === "ledger" && (
           <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface shadow-sm">
             {ledger.length === 0 ? (
-              <p className="py-10 text-center sam-text-body-secondary text-sam-meta">포인트 내역이 없습니다.</p>
+              <p className="py-10 text-center sam-text-body-secondary text-sam-meta">{t("points_ui_no_ledger")}</p>
             ) : (
               <ul className="divide-y divide-sam-border-soft">
                 {ledger.map((l) => (
@@ -234,7 +251,7 @@ export function MyPointsView() {
                               : "bg-red-100 text-red-700"
                           }`}
                         >
-                          {LEDGER_TYPE_LABELS[l.entryType] ?? l.entryType}
+                          {ledgerLabel(l.entryType)}
                         </span>
                         <p className="truncate sam-text-body-secondary font-medium text-sam-fg">{l.description}</p>
                       </div>
@@ -263,12 +280,12 @@ export function MyPointsView() {
               onClick={() => setShowChargeForm(true)}
               className="w-full rounded-ui-rect bg-sky-600 py-3.5 sam-text-body font-bold text-white shadow-md"
             >
-              + 포인트 충전 신청하기
+              {t("points_ui_charge_apply_btn")}
             </button>
 
             {charges.length === 0 ? (
               <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-10 text-center sam-text-body-secondary text-sam-meta">
-                충전 신청 내역이 없습니다.
+                {t("points_ui_no_charge_requests")}
               </div>
             ) : (
               <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface shadow-sm">
@@ -280,22 +297,26 @@ export function MyPointsView() {
                           <p className="sam-text-body font-semibold text-sam-fg">{c.planName}</p>
                           <dl className="mt-1 space-y-0.5 sam-text-helper text-sam-muted">
                             <div className="flex gap-2">
-                              <dt className="w-16 shrink-0">결제 방식</dt>
-                              <dd>{c.paymentMethod === "manual_confirm" ? "계좌 입금" : "이체"}</dd>
+                              <dt className="w-16 shrink-0">{t("points_ui_payment_method")}</dt>
+                              <dd>
+                                {c.paymentMethod === "manual_confirm"
+                                  ? t("points_ui_bank_deposit")
+                                  : t("points_ui_transfer")}
+                              </dd>
                             </div>
                             {c.depositorName ? (
                               <div className="flex gap-2">
-                                <dt className="w-16 shrink-0">입금자명</dt>
+                                <dt className="w-16 shrink-0">{t("points_ui_depositor")}</dt>
                                 <dd>{c.depositorName}</dd>
                               </div>
                             ) : null}
                             <div className="flex gap-2">
-                              <dt className="w-16 shrink-0">신청일</dt>
+                              <dt className="w-16 shrink-0">{t("points_ui_requested_at")}</dt>
                               <dd>{new Date(c.requestedAt).toLocaleString("ko-KR")}</dd>
                             </div>
                             {c.adminMemo ? (
                               <div className="flex gap-2">
-                                <dt className="w-16 shrink-0 text-amber-600">관리자 메모</dt>
+                                <dt className="w-16 shrink-0 text-amber-600">{t("points_ui_admin_memo")}</dt>
                                 <dd className="text-amber-700">{c.adminMemo}</dd>
                               </div>
                             ) : null}
@@ -311,7 +332,7 @@ export function MyPointsView() {
                               onClick={() => void cancelCharge(c.id)}
                               className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1 sam-text-xxs text-sam-muted disabled:opacity-50"
                             >
-                              {cancelling === c.id ? "취소중…" : "신청 취소"}
+                              {cancelling === c.id ? t("points_ui_cancelling") : t("points_ui_cancel_request")}
                             </button>
                           )}
                         </div>

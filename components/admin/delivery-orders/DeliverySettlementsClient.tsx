@@ -9,6 +9,7 @@ import type { AdminDeliveryOrder } from "@/lib/admin/delivery-orders-admin/types
 import { parseAdminStoreOrdersResponse } from "@/lib/admin/fetch-admin-store-orders-scoped";
 import { SettlementFilterBar, type SettlementListFilters } from "./SettlementFilterBar";
 import { SettlementTable } from "./SettlementTable";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const defaultFilters: SettlementListFilters = {
   settlementStatus: "",
@@ -27,6 +28,7 @@ function filterRows(all: AdminDeliveryOrder[], f: SettlementListFilters): AdminD
 }
 
 export function DeliverySettlementsClient() {
+  const { t } = useI18n();
   const [filters, setFilters] = useState<SettlementListFilters>(defaultFilters);
   const [orders, setOrders] = useState<AdminDeliveryOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,21 +62,21 @@ export function DeliverySettlementsClient() {
 
   return (
     <div className="p-4 md:p-6">
-      <AdminPageHeader title="정산 관리" backHref="/admin/stores/orders" />
+      <AdminPageHeader titleKey="admin_do_settlements_title" backHref="/admin/stores/orders" />
       <p className="mb-2 sam-text-body-secondary text-sam-muted">
-        주문 단위 정산 스냅샷은 원장 매핑 기준이며, 실제 지급·보류는{" "}
+        {t("admin_do_settlements_intro")}{" "}
         <Link href="/admin/store-settlements" className="text-signature underline">
-          매장 정산
+          {t("admin_do_settlements_store_link")}
         </Link>
-        과 동일 DB를 참고하세요. 환불·목록 액션은{" "}
+        {t("admin_do_settlements_intro_mid")}{" "}
         <Link href="/admin/store-orders" className="text-signature underline">
-          매장 주문(액션)
+          {t("admin_do_nav_store_orders")}
         </Link>
-        에서 처리합니다.
+        {t("admin_do_settlements_intro_suffix")}
       </p>
       {error ? (
         <p className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">
-          목록을 불러오지 못했습니다 ({error}).
+          {t("admin_do_settlements_list_failed", { error })}
         </p>
       ) : null}
       <div className="mb-2">
@@ -84,13 +86,13 @@ export function DeliverySettlementsClient() {
           disabled={loading}
           className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-xs text-sam-fg disabled:opacity-50"
         >
-          {loading ? "갱신 중…" : "새로고침"}
+          {loading ? t("admin_do_common_refreshing") : t("admin_do_common_refresh")}
         </button>
       </div>
       <SettlementFilterBar filters={filters} onChange={setFilters} />
       <div className="mt-4">
-        <AdminCard title="정산 행 (주문 단위 · 최대 500건)">
-          {loading ? <p className="text-sm text-sam-muted">불러오는 중…</p> : <SettlementTable rows={rows} />}
+        <AdminCard titleKey="admin_do_settlements_card">
+          {loading ? <p className="text-sm text-sam-muted">{t("admin_dashboard_loading")}</p> : <SettlementTable rows={rows} />}
         </AdminCard>
       </div>
     </div>

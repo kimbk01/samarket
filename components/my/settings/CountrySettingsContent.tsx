@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
@@ -10,15 +11,20 @@ import {
   updateUserSettings,
 } from "@/lib/settings/user-settings-store";
 
-const FALLBACK_COUNTRIES = [
-  { code: "PH", name: "필리핀" },
-  { code: "KR", name: "한국" },
-  { code: "US", name: "미국" },
-];
+type CountryOption = { code: string; name: string };
 
 export function CountrySettingsContent() {
+  const { t } = useI18n();
   const userId = getCurrentUser()?.id ?? "me";
-  const [list, setList] = useState(FALLBACK_COUNTRIES);
+  const fallbackCountries = useMemo(
+    (): CountryOption[] => [
+      { code: "PH", name: t("settings_country_ph") },
+      { code: "KR", name: t("settings_country_kr") },
+      { code: "US", name: t("settings_country_us") },
+    ],
+    [t]
+  );
+  const [list, setList] = useState<CountryOption[]>(fallbackCountries);
   const [current, setCurrent] = useState("PH");
 
   useEffect(() => {
@@ -32,7 +38,7 @@ export function CountrySettingsContent() {
         .order("sort_order", { ascending: true })
         .then(({ data }) => {
           if (!cancelled && Array.isArray(data) && data.length > 0) {
-            setList(data as typeof FALLBACK_COUNTRIES);
+            setList(data as CountryOption[]);
           }
         });
     }
@@ -70,7 +76,7 @@ export function CountrySettingsContent() {
           >
             <span>{c.name}</span>
             {current === c.code && (
-              <span className="sam-text-body-secondary font-medium text-signature">선택됨</span>
+              <span className="sam-text-body-secondary font-medium text-signature">{t("common_selected")}</span>
             )}
           </button>
         </li>

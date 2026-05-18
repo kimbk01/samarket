@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
@@ -12,6 +13,7 @@ export function DeliverySearchHeader({
   onChange: (v: string) => void;
   onSubmit: (v: string) => void;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -25,7 +27,7 @@ export function DeliverySearchHeader({
         <button
           type="button"
           onClick={() => router.back()}
-          aria-label="뒤로가기"
+          aria-label={t("ui_delivery_search_back_aria")}
           className="sam-header-action h-10 w-10 shrink-0 text-sam-fg"
         >
           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
@@ -43,7 +45,7 @@ export function DeliverySearchHeader({
           <div className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-full border border-sam-border bg-sam-surface-muted px-4">
             <button
               type="submit"
-              aria-label="검색"
+              aria-label={t("common_search")}
               className="shrink-0 text-sam-muted"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
@@ -57,16 +59,16 @@ export function DeliverySearchHeader({
               enterKeyHint="search"
               value={value}
               onChange={(e) => onChange(e.target.value)}
-              placeholder="먹고 싶은 메뉴나 가게를 찾아보세요"
+              placeholder={t("ui_delivery_search_input_ph")}
               className="min-w-0 flex-1 bg-transparent sam-text-body text-sam-fg placeholder:text-sam-meta focus:outline-none"
-              aria-label="배달 검색어 입력"
+              aria-label={t("ui_delivery_search_input_aria")}
             />
 
             {value.trim().length > 0 ? (
               <button
                 type="button"
                 onClick={() => onChange("")}
-                aria-label="검색어 지우기"
+                aria-label={t("ui_delivery_search_clear_aria")}
                 className="shrink-0 text-sam-muted"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>

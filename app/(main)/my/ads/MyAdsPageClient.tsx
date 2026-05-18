@@ -2,12 +2,14 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { MyPostAdList } from "@/components/ads/MyPostAdList";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import type { AdminPostAdRow, MePostAdsMeta } from "@/lib/ads/types";
 
 export default function MyAdsPageClient() {
+  const { t } = useI18n();
   const [ads, setAds] = useState<AdminPostAdRow[]>([]);
   const [meta, setMeta] = useState<MePostAdsMeta | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,7 +28,7 @@ export default function MyAdsPageClient() {
         meta?: MePostAdsMeta;
       };
       if (res.status === 401) {
-        setAuthHint("로그인 후 이용할 수 있습니다.");
+        setAuthHint(t("ads_auth_hint"));
         setAds([]);
         setMeta(null);
         return;
@@ -53,8 +55,8 @@ export default function MyAdsPageClient() {
   return (
     <div className="min-h-screen bg-background">
       <MySubpageHeader
-        title="내 광고"
-        subtitle="게시글·커뮤니티 노출"
+        title={t("mypage_ads_title")}
+        subtitle={t("mypage_ads_subtitle")}
         backHref="/mypage"
         section="store"
       />
@@ -63,33 +65,23 @@ export default function MyAdsPageClient() {
           <p className="mb-4 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-900">
             {authHint}{" "}
             <Link href="/login" className="font-semibold text-signature underline">
-              로그인
+              {t("common_login")}
             </Link>
           </p>
         ) : null}
 
         <div className="mb-4 space-y-2 rounded-ui-rect border border-sam-border bg-sam-surface p-3 sam-text-helper text-sam-muted">
-          <p className="font-semibold text-sam-fg">무엇이 여기에 보이나요?</p>
+          <p className="font-semibold text-sam-fg">{t("ads_what_shows_title")}</p>
           <ul className="list-inside list-disc space-y-1 sam-text-xxs leading-relaxed">
+            <li>{t("ads_post_ads_list_item")}</li>
             <li>
-              <strong className="text-sam-fg">커뮤니티·동네 피드 게시글 광고</strong> — 글 단위로 신청한 내역(
-              <code className="rounded bg-sam-surface-muted px-1">post_ads</code>)이 표시됩니다. 신청은 글 작성·수정 흐름의
-              광고 신청과 연결됩니다.
-            </li>
-            <li>
-              <strong className="text-sam-fg">어드민</strong>{" "}
               <Link href="/admin/post-ads" className="text-signature underline">
-                광고 신청 관리
+                {t("ads_admin_manage_link")}
               </Link>
-              에서 같은 건을 승인·반려합니다(DB 연결 시).
+              {" — "}
+              {t("ads_admin_list_item")}
             </li>
-            <li>
-              <strong className="text-sam-fg">홈·검색 배너(베타)</strong>는 별도 샘플 폼(
-              <Link href="/my/ads/apply" className="text-signature underline">
-                /my/ads/apply
-              </Link>
-              )이며, 아직 DB와 연동되지 않았습니다.
-            </li>
+            <li>{t("ads_banner_beta_list_item")}</li>
           </ul>
         </div>
 
@@ -98,18 +90,18 @@ export default function MyAdsPageClient() {
             href="/philife"
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-center sam-text-body font-medium text-sam-fg"
           >
-            커뮤니티에서 글 쓰기
+            {t("ads_write_in_community")}
           </Link>
           <Link
             href="/my/ads/apply"
             className="rounded-ui-rect bg-sam-surface-muted px-4 py-2 text-center sam-text-body font-medium text-sam-fg"
           >
-            홈 노출 신청(베타)
+            {t("ads_home_banner_beta")}
           </Link>
         </div>
 
         {loading ? (
-          <p className="py-10 text-center sam-text-body text-sam-muted">불러오는 중…</p>
+          <p className="py-10 text-center sam-text-body text-sam-muted">{t("common_loading")}</p>
         ) : (
           <MyPostAdList ads={ads} metaSource={meta?.source} onRefresh={() => void load()} />
         )}

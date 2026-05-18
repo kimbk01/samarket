@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   BusinessApplyForm,
   type BusinessApplyFormValues,
@@ -31,6 +32,7 @@ const STATUS_KO: Record<string, string> = {
 };
 
 export default function BusinessApplyRoute() {
+  const { t } = useI18n();
   const router = useRouter();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -218,7 +220,7 @@ export default function BusinessApplyRoute() {
               <span className="rounded-full bg-sam-ink px-2.5 py-0.5 sam-text-xxs font-bold text-white">
                 {STATUS_KO[String(existingStore.approval_status ?? "").trim()] ?? String(existingStore.approval_status ?? "")}
               </span>
-              <span className="sam-text-body-secondary font-semibold text-amber-950">신청중입니다.</span>
+              <span className="sam-text-body-secondary font-semibold text-amber-950">{t("owner_apply_pending")}</span>
             </div>
             <p className="mt-2 sam-text-body-secondary text-sam-fg">
               {String(existingStore.store_name ?? "").trim() || "매장"}

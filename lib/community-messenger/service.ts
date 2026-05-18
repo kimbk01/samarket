@@ -32,6 +32,45 @@ import {
 import {
   buildCommunityMessengerCallStubLabel,
 } from "@/lib/community-messenger/call-stub-message-label";
+import {
+  cmDirectRoomSubtitleFallback,
+  cmGroupRoomSubtitle,
+  cmGroupTitleFallback,
+  cmGroupTitleWithPeers,
+  cmOpenGroupRoomSubtitle,
+  cmOpenGroupRoomTitle,
+  cmPeerFallbackLabel,
+  cmProfileFallbackLabel,
+  cmRoomLastMessagePlaceholder,
+  cmRoomSnapshotDescription,
+  cmSenderDisplayLabel,
+  cmMessagePreviewFallback,
+  cmSvcUserDefaultLabel,
+  cmSvcDeletedMessagePreview,
+  cmLastPreviewVoice,
+  cmLastPreviewImage,
+  cmLastPreviewFile,
+  cmLastPreviewSticker,
+  cmLastPreviewCall,
+  cmLastPreviewNotification,
+  cmLastPreviewPhotoAlbum,
+  cmServiceT,
+  cmTradePostTitleFallback,
+  isWeakTradeMessengerHeadline,
+} from "@/lib/community-messenger/cm-service-copy";
+import {
+  cmMgmtAdminRoleContent,
+  cmMgmtMemberInviteContent,
+  cmMgmtMemberKickContent,
+  cmMgmtNoticeContent,
+  cmMgmtOwnerTransferContent,
+  cmMgmtPermissionsContent,
+  cmStoreOrderHeadline,
+  cmTradeFlowMessageBlockedCopy,
+  cmTradeSellerClosedCopy,
+  cmTradeSenderLeftCopy,
+  cmTradeChatModeLockedCopy,
+} from "@/lib/community-messenger/cm-home-list-copy";
 import { buildMessengerContextMetaFromProductChatSnapshot } from "@/lib/community-messenger/product-chat-messenger-meta";
 import {
   enrichMessengerTradeUnreadWithLegacyTrade,
@@ -720,7 +759,7 @@ export function profileLabel(row: ProfileRow | null | undefined, fallbackId: str
   const username = trimText(row?.username);
   const label = labelFromDisplayAndUsername(display, username).trim();
   if (label) return label;
-  return `회원 ${fallbackId.replace(/-/g, "").slice(0, 6)}`;
+  return cmProfileFallbackLabel(fallbackId);
 }
 
 function directKeyFor(userA: string, userB: string): string {
@@ -893,10 +932,10 @@ function mapCommunityMessengerDbMessageRowToMessage(input: {
     roomId: message.room_id,
     senderId,
     senderLabel: isMine
-      ? "나"
+      ? cmServiceT("common_me")
       : senderId
         ? trimText(input.profileById.get(senderId)?.label) || profileLabel(null, senderId)
-        : "시스템",
+        : cmServiceT("cm_svc_system"),
     messageType: safeMt,
     content: contentForUi,
     createdAt: trimText(message.created_at) || nowIso(),
@@ -1527,7 +1566,7 @@ async function resolveCommunityMessengerGroupTitle(
   if (explicitTitle) return explicitTitle;
 
   const peerIds = dedupeIds(memberIds.filter((id) => id !== userId));
-  if (!peerIds.length) return `그룹 ${memberIds.length}명`;
+  if (!peerIds.length) return cmGroupTitleFallback(memberIds.length);
 
   const peers = await hydrateProfiles(userId, peerIds);
   const labels = peers
@@ -1535,9 +1574,7 @@ async function resolveCommunityMessengerGroupTitle(
     .filter(Boolean)
     .slice(0, 3);
 
-  if (!labels.length) return `그룹 ${memberIds.length}명`;
-  if (peerIds.length > labels.length) return `${labels.join(", ")} 외 ${peerIds.length - labels.length}명`;
-  return labels.join(", ");
+  return cmGroupTitleWithPeers(labels, peerIds.length, memberIds.length);
 }
 
 async function hydrateSelfProfile(userId: string): Promise<CommunityMessengerProfileLite | null> {
@@ -1780,17 +1817,18 @@ function buildRoomSummaryFromHydratedMembers(
   const ownerLabel =
     (ownerUserId ? memberProfiles.find((profile) => profile.id === ownerUserId)?.label : "") ||
     (ownerUserId ? profileLabel(null, ownerUserId) : "-");
-  const defaultDirectTitle = peerProfilesBase[0]?.label ?? "새 대화";
+  const defaultDirectTitle = peerProfilesBase[0]?.label ?? cmServiceT("cm_ui_new_conversation");
   const title =
     roomType === "direct"
       ? defaultDirectTitle
-      : roomTitle || (roomType === "open_group" ? "공개 그룹방" : `그룹 ${effectiveMemberCount}명`);
+      : roomTitle ||
+        (roomType === "open_group" ? cmOpenGroupRoomTitle() : cmGroupTitleFallback(effectiveMemberCount));
   const subtitle =
     roomType === "direct"
-      ? peerProfilesBase[0]?.subtitle ?? "친구와 나누는 대화"
+      ? peerProfilesBase[0]?.subtitle ?? cmDirectRoomSubtitleFallback()
       : roomType === "open_group"
-        ? `공개 그룹 · ${effectiveMemberCount}명 참여 중`
-        : `${effectiveMemberCount}명 참여 중`;
+        ? cmOpenGroupRoomSubtitle(effectiveMemberCount)
+        : cmGroupRoomSubtitle(effectiveMemberCount);
   const messengerDirectKey =
     roomType === "direct"
       ? isDbRoom
@@ -1834,7 +1872,9 @@ function buildRoomSummaryFromHydratedMembers(
     unreadCount: unreadCountVal,
     isMuted: "is_muted" in (me ?? {}) ? (me as ParticipantRow).is_muted === true : false,
     isPinned: "is_pinned" in (me ?? {}) ? (me as ParticipantRow).is_pinned === true : false,
-    lastMessage: roomLastMessage || (roomType === "direct" ? "메시지를 보내 보세요." : "그룹 대화를 시작해 보세요."),
+    lastMessage:
+      roomLastMessage ||
+      cmRoomLastMessagePlaceholder(roomType === "direct" ? "direct" : "group"),
     lastMessageType: roomLastMessageType,
     lastMessageAt: roomLastAt,
     memberCount: effectiveMemberCount,
@@ -2443,8 +2483,6 @@ export async function fetchMyRoomsPayload(
           logMessengerPerfMs("rooms_meta_fetch", diagnostics.round2RoomsDbFetchMs);
           logMessengerPerfMs("participants_join", diagnostics.round2ParticipantsMs);
           logMessengerPerfMs("last_message_fetch", diagnostics.round2RoomsDbFetchMs);
-          logMessengerPerfMs("rooms_base_query", diagnostics.round2RoomsDbFetchMs);
-          logMessengerPerfMs("participants_join_query", diagnostics.round2ParticipantsMs);
         }
       }
       roomRows = rooms;
@@ -3147,14 +3185,17 @@ function buildCallLogEntriesFromRows(
       sessionMode === "group" ? Math.max(participants.length, Number(roomMeta?.memberCount ?? 0), 2) : 2;
     const title =
       sessionMode === "group"
-        ? roomMeta?.title ?? "그룹 통화"
+        ? roomMeta?.title ?? cmServiceT("cm_svc_group_call")
         : roomId
-          ? roomMeta?.title ?? peer?.label ?? "통화"
-          : peer?.label ?? "통화";
+          ? roomMeta?.title ?? peer?.label ?? cmServiceT("cm_svc_call")
+          : peer?.label ?? cmServiceT("cm_svc_call");
     const groupPeerLabel =
       participantLabels.length > 1
-        ? `${participantLabels[0]} 외 ${participantLabels.length - 1}명`
-        : participantLabels[0] ?? `${participantCount}명 그룹`;
+        ? cmServiceT("cm_svc_call_participants", {
+            name: participantLabels[0] ?? "",
+            extra: participantLabels.length - 1,
+          })
+        : participantLabels[0] ?? cmServiceT("cm_svc_group_call_label", { count: participantCount });
 
     const sessionEndedReason =
       trimText(isDbCall ? row.sessionEndedReason ?? "" : row.sessionEndedReason ?? "") || null;
@@ -3173,7 +3214,7 @@ function buildCallLogEntriesFromRows(
       roomId,
       sessionMode,
       title,
-      peerLabel: sessionMode === "group" ? groupPeerLabel : peer?.label ?? "상대",
+      peerLabel: sessionMode === "group" ? groupPeerLabel : peer?.label ?? cmPeerFallbackLabel(),
       peerUserId,
       participantCount,
       participantLabels,
@@ -3468,7 +3509,7 @@ export async function listCommunityMessengerMyChatsAndGroups(
       rows: phaseRows,
       dbQueryCountEstimate: dbEstimate,
       notes:
-        "queryCount는 fetchMyRoomsPayload 내부 추정. hydrate는 profiles.in 일반 1RTT(+캐시 히트 시 0). round2 rooms/participants 병렬→parallel_bottleneck=max. enrichLegacy 내부 0~2쿼리는 enrich 파일 로그 참고.",
+        "queryCount is estimated inside fetchMyRoomsPayload. hydrate uses one profiles.in RTT (0 on cache hit). round2 rooms/participants parallel; see enrich logs for legacy queries.",
     });
   }
   const tSplitLists = performance.now();
@@ -3493,12 +3534,6 @@ export async function listCommunityMessengerMyChatsAndGroups(
       listSplitFilterMs: ms(listSplitFilterMs),
       listMyChatsWallMs: ms(listWall),
       roomsRound2RoomsDbFetchMs: ms(roomsDiagForBreakdown?.round2RoomsDbFetchMs ?? 0),
-      roomIdsResolutionMs: ms(roomsDiagForBreakdown?.round1Ms ?? 0),
-      participantsJoinQueryMs: ms(roomsDiagForBreakdown?.round2ParticipantsMs ?? 0),
-      roomsBaseQueryMs: ms(roomsDiagForBreakdown?.round2RoomsDbFetchMs ?? 0),
-      roomMetaQueryMs: ms(roomsDiagForBreakdown?.round3Ms ?? 0),
-      roomRowsCount: roomsDiagForBreakdown?.round2RoomRowCount ?? 0,
-      messageRowsCount: 0,
       homeSyncCriticalRoomsCacheHit: roomsCacheHit,
       homeSyncHs5HydrateUnreadParallelWallMs: isCritical ? ms(hs5HydrateUnreadParallelWallMs) : undefined,
     };
@@ -3647,8 +3682,8 @@ async function mapCallSession(
   const peerLabel =
     sessionMode === "group"
       ? joinedCount > 1
-        ? `그룹 통화 · ${joinedCount}명 참여 중`
-        : "그룹 통화"
+        ? cmServiceT("cm_svc_group_call_active", { count: joinedCount })
+        : cmServiceT("cm_svc_group_call")
       : (peerUserId
           ? participants.find((p) => p.userId === peerUserId)?.label
           : undefined) ??
@@ -4131,14 +4166,12 @@ export async function getCommunityMessengerBootstrap(
         diagnostics && (diagnostics.callsLogRowsFetchMs = elapsed);
         return rows;
       })();
-  const acceptedFriendRowsPromise = isMinimalLiteBootstrap
-    ? Promise.resolve<Awaited<ReturnType<typeof fetchCommunityFriendRequestsAcceptedRowsForViewer>>>([])
-    : (async () => {
-        const t = performance.now();
-        const rows = await fetchCommunityFriendRequestsAcceptedRowsForViewer(userId);
-        diagnostics && (diagnostics.parallelAcceptedFriendsBundleMs = Math.round(performance.now() - t));
-        return rows;
-      })();
+  const acceptedFriendRowsPromise = (async () => {
+    const t = performance.now();
+    const rows = await fetchCommunityFriendRequestsAcceptedRowsForViewer(userId);
+    diagnostics && (diagnostics.parallelAcceptedFriendsBundleMs = Math.round(performance.now() - t));
+    return rows;
+  })();
   const tParallelInitial = performance.now();
   const [
     acceptedFriendRows,
@@ -4152,46 +4185,36 @@ export async function getCommunityMessengerBootstrap(
     callRows,
   ] = await Promise.all([
     acceptedFriendRowsPromise,
-    isMinimalLiteBootstrap
-      ? Promise.resolve<string[]>([])
-      : (async () => {
-          const t = performance.now();
-          const r = await listFavoriteFriendIds(userId);
-          diagnostics && (diagnostics.parallelFavoriteFriendsMs = Math.round(performance.now() - t));
-          return r;
-        })(),
-    isMinimalLiteBootstrap
-      ? Promise.resolve<string[]>([])
-      : (async () => {
-          const t = performance.now();
-          const r = await listFollowingIds(userId, "neighbor_follow");
-          diagnostics && (diagnostics.parallelFollowingNeighborMs = Math.round(performance.now() - t));
-          return r;
-        })(),
-    isMinimalLiteBootstrap
-      ? Promise.resolve<string[]>([])
-      : (async () => {
-          const t = performance.now();
-          const r = await listFollowingIds(userId, "hidden");
-          diagnostics && (diagnostics.parallelFollowingHiddenMs = Math.round(performance.now() - t));
-          return r;
-        })(),
-    isMinimalLiteBootstrap
-      ? Promise.resolve<string[]>([])
-      : (async () => {
-          const t = performance.now();
-          const r = await listFollowingIds(userId, "blocked");
-          diagnostics && (diagnostics.parallelFollowingBlockedMs = Math.round(performance.now() - t));
-          return r;
-        })(),
-    isMinimalLiteBootstrap
-      ? Promise.resolve<Awaited<ReturnType<typeof listCommunityMessengerFriendRequestRows>>>([])
-      : (async () => {
-          const t = performance.now();
-          const r = await listCommunityMessengerFriendRequestRows(userId);
-          diagnostics && (diagnostics.parallelFriendRequestsMs = Math.round(performance.now() - t));
-          return r;
-        })(),
+    (async () => {
+      const t = performance.now();
+      const r = await listFavoriteFriendIds(userId);
+      diagnostics && (diagnostics.parallelFavoriteFriendsMs = Math.round(performance.now() - t));
+      return r;
+    })(),
+    (async () => {
+      const t = performance.now();
+      const r = await listFollowingIds(userId, "neighbor_follow");
+      diagnostics && (diagnostics.parallelFollowingNeighborMs = Math.round(performance.now() - t));
+      return r;
+    })(),
+    (async () => {
+      const t = performance.now();
+      const r = await listFollowingIds(userId, "hidden");
+      diagnostics && (diagnostics.parallelFollowingHiddenMs = Math.round(performance.now() - t));
+      return r;
+    })(),
+    (async () => {
+      const t = performance.now();
+      const r = await listFollowingIds(userId, "blocked");
+      diagnostics && (diagnostics.parallelFollowingBlockedMs = Math.round(performance.now() - t));
+      return r;
+    })(),
+    (async () => {
+      const t = performance.now();
+      const r = await listCommunityMessengerFriendRequestRows(userId);
+      diagnostics && (diagnostics.parallelFriendRequestsMs = Math.round(performance.now() - t));
+      return r;
+    })(),
     myPayloadPromise,
     skipDiscoverable
       ? Promise.resolve<DiscoverableOpenGroupsRawState>({
@@ -4308,21 +4331,11 @@ export async function getCommunityMessengerBootstrap(
   diagnostics && (diagnostics.roomsQueryRound2RoomsHydrateLabelMs = Math.round(performance.now() - tRoomsHydrateLabel));
   diagnostics && (diagnostics.transformMs += Math.round(performance.now() - tTransformCore));
   /**
-   * Lite(`?lite=1`): 거래 `contextMeta` full enrich 는 `trade-chat-list-meta` 백그라운드로 — unread 병합만 동기.
-   * Full: 썸네일·제목 enrich + Philife 오픈그룹은 아래 `!isMinimalLiteBootstrap` 분기.
+   * Lite 부트스트랩도 거래 채팅 목록 썸네일·제목에 `posts` 를 써야 한다 — 예전에는 이 블록 전체를 lite 에서 생략해
+   * 첫 GET(`?lite=1`)·세션 캐시에 썸네일 없는 채팅 배열만 남았다.
+   * Philife 오픈그룹 라벨 보강만 lite 에서 생략한다.
    */
-  if (isMinimalLiteBootstrap) {
-    diagnostics && (diagnostics.tradeContextMs = 0);
-    diagnostics && (diagnostics.enrichTradeDirectKeysMs = 0);
-    diagnostics && (diagnostics.enrichTradeMiddlePipelineMs = 0);
-    diagnostics && (diagnostics.enrichTradeSellerHydrateMs = 0);
-    const sbBoot = getSupabaseOrNull();
-    if (sbBoot) {
-      const tUnread = performance.now();
-      await enrichMessengerTradeUnreadWithLegacyTrade(sbBoot as any, userId, mySummaries).catch(() => {});
-      diagnostics && (diagnostics.unreadMs = Math.round(performance.now() - tUnread));
-    }
-  } else {
+  {
     const tTrade = performance.now();
     await enrichTradeRoomContextMetaForBootstrap(userId, mySummaries, diagnostics, undefined);
     diagnostics && (diagnostics.tradeContextMs = Math.round(performance.now() - tTrade));
@@ -4537,8 +4550,7 @@ function tradeMessengerTradeListMetaNeedsPcHydration(summary: CommunityMessenger
   const m = summary.contextMeta;
   if (!m || m.kind !== "trade") return false;
   const headline = trimText(m.headline);
-  // "거래"는 레거시 placeholder, "제목 없음"은 최후 fallback 이므로 둘 다 약한 값으로 본다.
-  const weakHeadline = !headline || headline === "거래" || headline === "제목 없음";
+  const weakHeadline = isWeakTradeMessengerHeadline(headline);
   const missingPostId = !trimText(m.postId);
   const missingPc = !trimText(m.productChatId);
   return weakHeadline || missingPostId || missingPc;
@@ -8225,23 +8237,49 @@ export async function ensureCommunityMessengerDirectRoomFromStoreOrderChat(
   if (!oid) return { ok: false, error: "bad_order" };
   const sb = getSupabaseOrNull();
   if (!sb) return { ok: false, error: "server_unavailable" };
-  const { ensureStoreOrderMessengerRoom } = await import(
-    "@/lib/community-messenger/store-order-chat-service"
-  );
-  const ensured = await ensureStoreOrderMessengerRoom(sb as never, { orderId: oid, userId });
-  if (!ensured.ok) {
-    const err = ensured.error;
-    const status =
-      err === "forbidden"
-        ? "not_participant"
-        : err === "order_not_found"
-          ? "store_order_not_found"
-          : err;
-    return { ok: false, error: status };
-  }
-  const peer =
-    userId === ensured.buyerUserId ? ensured.ownerUserId : ensured.buyerUserId;
-  return { ok: true, roomId: ensured.roomId, peerUserId: peer };
+  const { data } = await (sb as any)
+    .from("store_orders")
+    .select("id, order_no, store_id, buyer_user_id, order_status, fulfillment_type, payment_amount, total_amount, stores(store_name, owner_user_id)")
+    .eq("id", oid)
+    .maybeSingle();
+  if (!data) return { ok: false, error: "store_order_not_found" };
+  const orderRow = data as {
+    id?: unknown;
+    order_no?: unknown;
+    store_id?: unknown;
+    buyer_user_id?: unknown;
+    order_status?: unknown;
+    fulfillment_type?: unknown;
+    payment_amount?: unknown;
+    total_amount?: unknown;
+    stores?: { store_name?: unknown; owner_user_id?: unknown } | Array<{ store_name?: unknown; owner_user_id?: unknown }> | null;
+  };
+  const storeRow = Array.isArray(orderRow.stores) ? orderRow.stores[0] : orderRow.stores;
+  const buyer = trimText(orderRow.buyer_user_id);
+  const owner = trimText(storeRow?.owner_user_id);
+  if (!buyer || !owner) return { ok: false, error: "order_chat_invalid" };
+  if (userId !== buyer && userId !== owner) return { ok: false, error: "not_participant" };
+  const peer = userId === buyer ? owner : buyer;
+  const out = await ensureCommunityMessengerDirectRoom(userId, peer, { storeOrderId: oid });
+  if (!out.ok || !out.roomId) return { ok: false, error: out.error ?? "room_failed" };
+  const storeName = trimText(storeRow?.store_name) || cmServiceT("cm_svc_store_fallback");
+  const orderNo = trimText(orderRow.order_no);
+  const status = trimText(orderRow.order_status);
+  const fulfillmentType = trimText(orderRow.fulfillment_type);
+  const amountRaw = Number(orderRow.payment_amount ?? orderRow.total_amount ?? 0);
+  const contextMeta: CommunityMessengerRoomContextMetaV1 = {
+    v: 1,
+    kind: "delivery",
+    storeOrderId: oid,
+    orderNo,
+    storeId: trimText(orderRow.store_id),
+    fulfillmentType,
+    headline: cmStoreOrderHeadline(storeName, orderNo),
+    ...(Number.isFinite(amountRaw) && amountRaw >= 0 ? { priceLabel: `₱${amountRaw.toLocaleString("en-US")}` } : {}),
+    ...(status ? { stepLabel: status } : {}),
+  };
+  await updateCommunityMessengerRoomContextMeta({ userId, roomId: out.roomId, contextMeta }).catch(() => ({ ok: false }));
+  return { ok: true, roomId: out.roomId, peerUserId: peer };
 }
 
 /**
@@ -8615,7 +8653,7 @@ export async function inviteCommunityMessengerGroupMembers(input: {
       await appendCommunityMessengerSystemMessage({
         userId: input.userId,
         roomId,
-        content: labels ? `멤버 초대 · ${labels}` : "멤버 초대",
+        content: cmMgmtMemberInviteContent(labels),
       });
       return { ok: true };
     }
@@ -8655,7 +8693,7 @@ export async function inviteCommunityMessengerGroupMembers(input: {
   await appendCommunityMessengerSystemMessage({
     userId: input.userId,
     roomId,
-    content: labels ? `멤버 초대 · ${labels}` : "멤버 초대",
+    content: cmMgmtMemberInviteContent(labels),
   });
   return { ok: true };
 }
@@ -8680,7 +8718,7 @@ export async function updateCommunityMessengerPrivateGroupNotice(input: {
         await appendCommunityMessengerSystemMessage({
           userId: input.userId,
           roomId,
-          content: noticeText ? `공지 수정 · ${noticeText}` : "공지 삭제",
+          content: cmMgmtNoticeContent(noticeText),
         });
         return { ok: true };
       }
@@ -8708,11 +8746,11 @@ export async function updateCommunityMessengerPrivateGroupNotice(input: {
     roomId,
     senderId: null,
     messageType: "system",
-    content: noticeText ? `공지 수정 · ${noticeText}` : "공지 삭제",
+    content: cmMgmtNoticeContent(noticeText),
     metadata: {},
     createdAt,
   });
-  room.lastMessage = noticeText ? `공지 수정 · ${noticeText}` : "공지 삭제";
+  room.lastMessage = cmMgmtNoticeContent(noticeText);
   room.lastMessageAt = createdAt;
   room.lastMessageType = "system";
   return { ok: true };
@@ -8747,7 +8785,7 @@ export async function updateCommunityMessengerPrivateGroupPermissions(input: {
         await appendCommunityMessengerSystemMessage({
           userId: input.userId,
           roomId,
-          content: "운영 권한 변경",
+          content: cmMgmtPermissionsContent(),
         });
         return { ok: true };
       }
@@ -8770,7 +8808,7 @@ export async function updateCommunityMessengerPrivateGroupPermissions(input: {
   await appendCommunityMessengerSystemMessage({
     userId: input.userId,
     roomId,
-    content: "운영 권한 변경",
+    content: cmMgmtPermissionsContent(),
   });
   return { ok: true };
 }
@@ -8798,11 +8836,7 @@ export async function setCommunityMessengerGroupMemberRole(input: {
         await appendCommunityMessengerSystemMessage({
           userId: input.userId,
           roomId,
-          content: target
-            ? `${input.nextRole === "admin" ? "관리자 지정" : "관리자 해제"} · ${target.label}`
-            : input.nextRole === "admin"
-              ? "관리자 지정"
-              : "관리자 해제",
+          content: cmMgmtAdminRoleContent(input.nextRole, target?.label),
         });
         return { ok: true };
       }
@@ -8824,11 +8858,7 @@ export async function setCommunityMessengerGroupMemberRole(input: {
   await appendCommunityMessengerSystemMessage({
     userId: input.userId,
     roomId,
-    content: targetProfile
-      ? `${input.nextRole === "admin" ? "관리자 지정" : "관리자 해제"} · ${targetProfile.label}`
-      : input.nextRole === "admin"
-        ? "관리자 지정"
-        : "관리자 해제",
+    content: cmMgmtAdminRoleContent(input.nextRole, targetProfile?.label),
   });
   return { ok: true };
 }
@@ -8854,7 +8884,7 @@ export async function transferCommunityMessengerGroupOwner(input: {
         await appendCommunityMessengerSystemMessage({
           userId: input.userId,
           roomId,
-          content: target ? `방장 위임 · ${target.label}` : "방장 위임",
+          content: cmMgmtOwnerTransferContent(target?.label),
         });
         return { ok: true };
       }
@@ -8881,7 +8911,7 @@ export async function transferCommunityMessengerGroupOwner(input: {
   await appendCommunityMessengerSystemMessage({
     userId: input.userId,
     roomId,
-    content: targetProfile ? `방장 위임 · ${targetProfile.label}` : "방장 위임",
+    content: cmMgmtOwnerTransferContent(targetProfile?.label),
   });
   return { ok: true };
 }
@@ -8907,7 +8937,7 @@ export async function kickCommunityMessengerGroupMember(input: {
         await appendCommunityMessengerSystemMessage({
           userId: input.userId,
           roomId,
-          content: target ? `멤버 내보내기 · ${target.label}` : "멤버 내보내기",
+          content: cmMgmtMemberKickContent(target?.label),
         });
         return { ok: true };
       }
@@ -8931,7 +8961,7 @@ export async function kickCommunityMessengerGroupMember(input: {
   await appendCommunityMessengerSystemMessage({
     userId: input.userId,
     roomId,
-    content: targetProfile ? `멤버 내보내기 · ${targetProfile.label}` : "멤버 내보내기",
+    content: cmMgmtMemberKickContent(targetProfile?.label),
   });
   return { ok: true };
 }
@@ -10325,7 +10355,7 @@ async function fetchTradeChatListPostRowsByIds(
             postIds: ids.length,
             pgCode: err?.code ?? null,
             message: err?.message ?? null,
-            hint: "운영 DB 마이그레이션을 점검하라. critical tier 는 fallback 으로 조용히 보강하지 않는다.",
+            hint: "Check DB migrations. Critical tier does not silently enrich via fallback.",
           }
         );
       }
@@ -10468,7 +10498,7 @@ function buildTradeMessengerListContextMetaFromLoadedPost(args: {
 
   if (!homeSyncTraceMeterEnabled(trace)) {
     const pcl = tradeChatProductCategoryDisplayName(post, args.categoryById);
-    const productTitle = tradePostHeadlineForMessengerList(post) || "제목 없음";
+    const productTitle = tradePostHeadlineForMessengerList(post) || cmTradePostTitleFallback();
     const categoryMenuLabel = tradeChatCategoryMenuLabelForPost(post, args.categoryById);
     return toSnap(pcl, productTitle, categoryMenuLabel);
   }
@@ -10477,7 +10507,7 @@ function buildTradeMessengerListContextMetaFromLoadedPost(args: {
   const pcl = tradeChatProductCategoryDisplayName(post, args.categoryById);
   const dProd = performance.now() - t;
   t = performance.now();
-  const productTitle = tradePostHeadlineForMessengerList(post) || "제목 없음";
+  const productTitle = tradePostHeadlineForMessengerList(post) || cmTradePostTitleFallback();
   const dHead = performance.now() - t;
   t = performance.now();
   const categoryMenuLabel = tradeChatCategoryMenuLabelForPost(post, args.categoryById);
@@ -12205,7 +12235,7 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     }
     const senderLabel = senderId
       ? (senderLabelByUserId.get(senderId) ?? profileLabel(profileMap.get(senderId), senderId))
-      : "시스템";
+      : cmServiceT("cm_svc_system");
     if (mappedMsgAcc) {
       mappedMsgAcc.senderLabelResolve += performance.now() - tStep;
       tStep = performance.now();
@@ -12384,11 +12414,11 @@ async function loadCommunityMessengerRoomSnapshotUncached(
     viewerUserId: userId,
     room: {
       ...summary,
-      description:
-        summary.roomType === "direct"
-          ? "친구와 1:1로 대화하는 메신저 방"
-          : summary.summary ||
-            `${summary.memberCount}명이 함께 있는 ${summary.roomType === "open_group" ? "공개" : "비공개"} 그룹 채팅`,
+      description: cmRoomSnapshotDescription({
+        roomType: summary.roomType,
+        summary: summary.summary,
+        memberCount: summary.memberCount,
+      }),
     },
     members,
     ...(hydrateFullMemberList ? {} : { membersDeferred: true as const }),
@@ -12538,7 +12568,11 @@ export async function listCommunityMessengerRoomMessagesBefore(input: {
         id: message.id,
         roomId: message.roomId,
         senderId,
-        senderLabel: isMine ? "나" : senderId ? profileLabel(profileById.get(senderId), senderId) : "시스템",
+        senderLabel: cmSenderDisplayLabel(
+          senderId ?? "",
+          input.userId,
+          senderId ? profileLabel(profileById.get(senderId), senderId) : ""
+        ),
         messageType: safeMt,
         content: trimText(message.content),
         createdAt: message.createdAt,
@@ -12687,7 +12721,11 @@ export async function listCommunityMessengerRoomMessagesAfter(input: {
         id: message.id,
         roomId: message.roomId,
         senderId,
-        senderLabel: isMine ? "나" : senderId ? profileLabel(profileById.get(senderId), senderId) : "시스템",
+        senderLabel: cmSenderDisplayLabel(
+          senderId ?? "",
+          input.userId,
+          senderId ? profileLabel(profileById.get(senderId), senderId) : ""
+        ),
         messageType: safeMt,
         content: trimText(message.content),
         createdAt: message.createdAt,
@@ -12803,7 +12841,11 @@ export async function getCommunityMessengerRoomMessageById(input: {
       id: row.id,
       roomId: row.roomId,
       senderId,
-      senderLabel: isMine ? "나" : senderId ? profileLabel(profileById.get(senderId), senderId) : "시스템",
+      senderLabel: cmSenderDisplayLabel(
+        senderId ?? "",
+        input.userId,
+        senderId ? profileLabel(profileById.get(senderId), senderId) : ""
+      ),
       messageType: safeMt,
       content: trimText(row.content),
       createdAt: row.createdAt,
@@ -12945,7 +12987,7 @@ async function resolveCommunityMessengerReplyFieldsForFallbackInsert(
   if (!mt || mt === "system") return { ok: false, error: "reply_target_invalid" };
   if (trimText((rr as { deleted_at?: string | null }).deleted_at)) return { ok: false, error: "reply_target_not_found" };
   const sender = trimText((rr as { sender_id?: string | null }).sender_id);
-  let label = "사용자";
+  let label = cmSvcUserDefaultLabel();
   if (sender) {
     const { data: pr } = await (sb as any).from("profiles").select("nickname, username").eq("id", sender).maybeSingle();
     const nick = trimText((pr as { nickname?: string } | null)?.nickname);
@@ -12954,7 +12996,7 @@ async function resolveCommunityMessengerReplyFieldsForFallbackInsert(
   }
   const dfe = trimText((rr as { deleted_for_everyone_at?: string | null }).deleted_for_everyone_at);
   let preview = "";
-  if (dfe) preview = "삭제된 메시지";
+  if (dfe) preview = cmSvcDeletedMessagePreview();
   else if (mt === "text") preview = trimText((rr as { content?: string }).content).slice(0, 280);
   else preview = `(${mt})`;
   return {
@@ -13004,18 +13046,18 @@ async function trySendCommunityMessengerTextAtomic(
   if (payload.ok !== true) {
     const err = typeof payload.error === "string" ? payload.error : "message_send_failed";
     if (err === "trade_seller_closed") {
-      return { ok: false, error: "판매자가 대화를 종료했습니다. 새 메시지를 보낼 수 없습니다." };
+      return { ok: false, error: cmTradeSellerClosedCopy() };
     }
     if (err === "trade_sender_left") {
-      return { ok: false, error: "이미 나간 채팅방입니다." };
+      return { ok: false, error: cmTradeSenderLeftCopy() };
     }
     if (err === "trade_chat_mode_locked" || err === "trade_flow_not_chatting") {
       return {
         ok: false,
         error:
           err === "trade_chat_mode_locked"
-            ? "이 채팅에서는 메시지를 보낼 수 없습니다."
-            : "거래 진행 단계가 바뀌어 일반 메시지를 보낼 수 없습니다. 상단 안내를 확인해 주세요.",
+            ? cmTradeChatModeLockedCopy()
+            : cmTradeFlowMessageBlockedCopy(),
       };
     }
     return { ok: false, error: err };
@@ -13039,7 +13081,7 @@ async function trySendCommunityMessengerTextAtomic(
         createdAt: message.createdAt,
       }).catch(() => {});
     }
-    const preview = content.length > 120 ? `${content.slice(0, 117)}…` : content || "메시지";
+    const preview = cmMessagePreviewFallback(content);
     void notifyCommunityChatInAppForRecipients(sb as SupabaseLike, {
       roomId,
       senderUserId: input.userId,
@@ -13232,7 +13274,7 @@ export async function sendCommunityMessengerMessage(input: {
         .map((p) => p.user_id)
         .filter((uid) => Boolean(uid?.trim()));
       const preview =
-        content.length > 120 ? `${content.slice(0, 117)}…` : content || "메시지";
+        cmMessagePreviewFallback(content);
       const hasMention = /@\S/.test(content);
       void notifyCommunityChatInAppForRecipients(sb as SupabaseLike, {
         roomId,
@@ -13302,7 +13344,7 @@ export async function sendCommunityMessengerMessage(input: {
       id: messageId,
       roomId,
       senderId: input.userId,
-      senderLabel: "나",
+      senderLabel: cmServiceT("common_me"),
       messageType: "text",
       content,
       createdAt,
@@ -13383,11 +13425,6 @@ async function appendCommunityMessengerSystemMessage(input: {
 
 const COMMUNITY_MESSENGER_IMAGE_ALBUM_MAX = 10;
 
-const VOICE_LAST_PREVIEW = "음성 메시지";
-const IMAGE_LAST_PREVIEW = "사진";
-const FILE_LAST_PREVIEW = "파일";
-const STICKER_LAST_PREVIEW = "스티커";
-
 function communityMessengerImageMessageMetadata(items: CommunityMessengerImageSendItem[]): Record<string, unknown> {
   if (items.length === 1) {
     const f = items[0]!;
@@ -13422,7 +13459,7 @@ function communityMessengerBuiltImageClientMessage(
     id,
     roomId,
     senderId: userId,
-    senderLabel: "나",
+    senderLabel: cmServiceT("common_me"),
     messageType: "image",
     content: first.chatPublicUrl,
     createdAt,
@@ -13471,7 +13508,7 @@ export async function sendCommunityMessengerImageMessage(input: {
 
   const first = items[0]!;
   const metadata = communityMessengerImageMessageMetadata(items);
-  const lastPreview = items.length > 1 ? `사진 ${items.length}장` : IMAGE_LAST_PREVIEW;
+  const lastPreview = cmLastPreviewPhotoAlbum(items.length);
   const sb = getSupabaseOrNull();
   if (sb) {
     const [{ data: participant }, { data: roomData }] = await Promise.all([
@@ -13650,7 +13687,7 @@ export async function sendCommunityMessengerStickerMessage(input: {
             id: String((existingRow as { id?: unknown }).id ?? ""),
             roomId,
             senderId: input.userId,
-            senderLabel: "나",
+            senderLabel: cmServiceT("common_me"),
             messageType: "sticker",
             content: String((existingRow as { content?: unknown }).content ?? path),
             createdAt: String((existingRow as { created_at?: unknown }).created_at ?? nowIso()),
@@ -13680,7 +13717,7 @@ export async function sendCommunityMessengerStickerMessage(input: {
       await (sb as any)
         .from("community_messenger_rooms")
         .update({
-          last_message: STICKER_LAST_PREVIEW,
+          last_message: cmLastPreviewSticker(),
           last_message_at: createdAt,
           last_message_type: "sticker",
           updated_at: createdAt,
@@ -13705,7 +13742,7 @@ export async function sendCommunityMessengerStickerMessage(input: {
       void notifyCommunityChatInAppForRecipients(sb as SupabaseLike, {
         roomId,
         senderUserId: input.userId,
-        preview: STICKER_LAST_PREVIEW,
+        preview: cmLastPreviewSticker(),
         recipientUserIds,
       }).catch(() => {});
       invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, recipientUserIds);
@@ -13715,7 +13752,7 @@ export async function sendCommunityMessengerStickerMessage(input: {
           id: String((insertedMessage as { id?: unknown }).id ?? ""),
           roomId,
           senderId: input.userId,
-          senderLabel: "나",
+          senderLabel: cmServiceT("common_me"),
           messageType: "sticker",
           content: path,
           createdAt,
@@ -13753,7 +13790,7 @@ export async function sendCommunityMessengerStickerMessage(input: {
     metadata,
     createdAt,
   });
-  room.lastMessage = STICKER_LAST_PREVIEW;
+  room.lastMessage = cmLastPreviewSticker();
   room.lastMessageAt = createdAt;
   room.lastMessageType = "sticker";
   for (const p of dev.participants.filter((row) => row.roomId === roomId)) {
@@ -13765,7 +13802,7 @@ export async function sendCommunityMessengerStickerMessage(input: {
       id: messageId,
       roomId,
       senderId: input.userId,
-      senderLabel: "나",
+      senderLabel: cmServiceT("common_me"),
       messageType: "sticker",
       content: path,
       createdAt,
@@ -13832,7 +13869,7 @@ export async function sendCommunityMessengerFileMessage(input: {
       await (sb as any)
         .from("community_messenger_rooms")
         .update({
-          last_message: FILE_LAST_PREVIEW,
+          last_message: cmLastPreviewFile(fileName),
           last_message_at: createdAt,
           last_message_type: "file",
           updated_at: createdAt,
@@ -13857,7 +13894,7 @@ export async function sendCommunityMessengerFileMessage(input: {
       void notifyCommunityChatInAppForRecipients(sb as SupabaseLike, {
         roomId,
         senderUserId: input.userId,
-        preview: FILE_LAST_PREVIEW,
+        preview: cmLastPreviewFile(fileName),
         recipientUserIds: fileRecipientUserIds,
       }).catch(() => {});
       invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, fileRecipientUserIds);
@@ -13867,7 +13904,7 @@ export async function sendCommunityMessengerFileMessage(input: {
           id: String((insertedMessage as { id?: unknown }).id ?? ""),
           roomId,
           senderId: input.userId,
-          senderLabel: "나",
+          senderLabel: cmServiceT("common_me"),
           messageType: "file",
           content: filePublicUrl,
           createdAt,
@@ -13907,7 +13944,7 @@ export async function sendCommunityMessengerFileMessage(input: {
     metadata,
     createdAt,
   });
-  room.lastMessage = FILE_LAST_PREVIEW;
+  room.lastMessage = cmLastPreviewFile(fileName);
   room.lastMessageAt = createdAt;
   room.lastMessageType = "file";
   for (const p of dev.participants.filter((row) => row.roomId === roomId)) {
@@ -13919,7 +13956,7 @@ export async function sendCommunityMessengerFileMessage(input: {
       id: messageId,
       roomId,
       senderId: input.userId,
-      senderLabel: "나",
+      senderLabel: cmServiceT("common_me"),
       messageType: "file",
       content: filePublicUrl,
       createdAt,
@@ -13939,14 +13976,21 @@ function messengerLastPreviewFromRow(row: {
   metadata?: unknown;
 }): { preview: string; messageType: string } {
   const mt = trimText(row.message_type);
-  if (mt === "voice") return { preview: VOICE_LAST_PREVIEW, messageType: "voice" };
-  if (mt === "call_stub") return { preview: trimText(row.content) || "통화", messageType: "call_stub" };
-  if (mt === "image") return { preview: trimText(row.content) || "사진", messageType: "image" };
-  if (mt === "sticker") return { preview: STICKER_LAST_PREVIEW, messageType: "sticker" };
-  if (mt === "file") return { preview: trimText((row.metadata as { fileName?: string } | undefined)?.fileName) || FILE_LAST_PREVIEW, messageType: "file" };
-  if (mt === "system") return { preview: trimText(row.content) || "알림", messageType: "system" };
+  if (mt === "voice") return { preview: cmLastPreviewVoice(), messageType: "voice" };
+  if (mt === "call_stub") return { preview: cmLastPreviewCall(trimText(row.content)), messageType: "call_stub" };
+  if (mt === "image") return { preview: cmLastPreviewImage(), messageType: "image" };
+  if (mt === "sticker") return { preview: cmLastPreviewSticker(), messageType: "sticker" };
+  if (mt === "file") {
+    return {
+      preview: cmLastPreviewFile(
+        trimText((row.metadata as { fileName?: string } | undefined)?.fileName)
+      ),
+      messageType: "file",
+    };
+  }
+  if (mt === "system") return { preview: cmLastPreviewNotification(trimText(row.content)), messageType: "system" };
   const c = trimText(row.content);
-  const preview = c.length > 120 ? `${c.slice(0, 117)}…` : c || "메시지";
+  const preview = cmMessagePreviewFallback(c);
   return { preview, messageType: mt || "text" };
 }
 
@@ -14344,8 +14388,8 @@ export async function listCommunityMessengerMessageReactionParticipants(input: {
   if (!uidList.length) return { ok: true, users: [] };
 
   const members = await hydrateProfilesLabelsOnly(userId, uidList, { includeSelf: true });
-  const labelById = new Map(members.map((m) => [m.id, m.label.trim() || "사용자"] as const));
-  const users = uidList.map((id) => ({ userId: id, label: labelById.get(id) ?? "사용자" }));
+  const labelById = new Map(members.map((m) => [m.id, m.label.trim() || cmSvcUserDefaultLabel()] as const));
+  const users = uidList.map((id) => ({ userId: id, label: labelById.get(id) ?? cmSvcUserDefaultLabel() }));
   return { ok: true, users };
 }
 
@@ -14483,7 +14527,7 @@ export async function sendCommunityMessengerVoiceMessage(input: {
       await (sb as any)
         .from("community_messenger_rooms")
         .update({
-          last_message: VOICE_LAST_PREVIEW,
+          last_message: cmLastPreviewVoice(),
           last_message_at: createdAt,
           last_message_type: "voice",
           updated_at: createdAt,
@@ -14508,7 +14552,7 @@ export async function sendCommunityMessengerVoiceMessage(input: {
       void notifyCommunityChatInAppForRecipients(sb as SupabaseLike, {
         roomId,
         senderUserId: input.userId,
-        preview: VOICE_LAST_PREVIEW,
+        preview: cmLastPreviewVoice(),
         recipientUserIds: voiceRecipientUserIds,
       }).catch(() => {});
       invalidateOwnerHubBadgeForCommunityMessengerPeers(input.userId, voiceRecipientUserIds);
@@ -14518,7 +14562,7 @@ export async function sendCommunityMessengerVoiceMessage(input: {
           id: String((insertedMessage as { id?: unknown }).id ?? ""),
           roomId,
           senderId: input.userId,
-          senderLabel: "나",
+          senderLabel: cmServiceT("common_me"),
           messageType: "voice",
           content: audioPublicUrl,
           createdAt,
@@ -14558,7 +14602,7 @@ export async function sendCommunityMessengerVoiceMessage(input: {
     metadata,
     createdAt,
   });
-  room.lastMessage = VOICE_LAST_PREVIEW;
+  room.lastMessage = cmLastPreviewVoice();
   room.lastMessageAt = createdAt;
   room.lastMessageType = "voice";
   for (const p of dev.participants.filter((row) => row.roomId === roomId)) {
@@ -14570,7 +14614,7 @@ export async function sendCommunityMessengerVoiceMessage(input: {
       id: messageId,
       roomId,
       senderId: input.userId,
-      senderLabel: "나",
+      senderLabel: cmServiceT("common_me"),
       messageType: "voice",
       content: audioPublicUrl,
       createdAt,

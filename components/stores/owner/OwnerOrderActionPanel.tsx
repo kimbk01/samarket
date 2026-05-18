@@ -7,6 +7,7 @@ import { patchOwnerOrderStatusRemote } from "@/lib/store-owner/owner-order-remot
 import type { OwnerOrder } from "@/lib/store-owner/types";
 import { RejectOrderModal } from "./RejectOrderModal";
 import { dibayPerfBridgeOwnerStatusChange } from "@/lib/dibay/delivery-flow-perf";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 function btnClass(primary?: boolean) {
   return primary
@@ -25,6 +26,7 @@ export function OwnerOrderActionPanel({
   layout?: "default" | "detail";
   onAfterAction?: () => void | Promise<void>;
 }) {
+  const { t, language } = useI18n();
   const [toast, setToast] = useState<string | null>(null);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -36,13 +38,13 @@ export function OwnerOrderActionPanel({
   const s = order.order_status;
 
   const patch = async (order_status: string) => {
-    const label = labelForOwnerTransition(s, order_status, fulfillment);
+    const label = labelForOwnerTransition(s, order_status, fulfillment, language);
     dibayPerfBridgeOwnerStatusChange(order.id);
     setBusy(order_status);
     const r = await patchOwnerOrderStatusRemote(storeId, order.id, order_status);
     setBusy((prev) => (prev === null ? prev : null));
     if (r.ok) {
-      setToast(`${label} 반영됨`);
+      setToast(t("store_owner_action_applied", { label }));
       await onAfterAction?.();
     } else {
       setToast(r.error);
@@ -59,7 +61,7 @@ export function OwnerOrderActionPanel({
     return (
       <div className="space-y-2">
         <p className="rounded-ui-rect bg-amber-50 px-3 py-2 text-center text-xs text-amber-950 ring-1 ring-amber-200">
-          구매자가 환불을 요청했습니다. 비즈니스 콘솔 또는 관리자 처리 흐름을 이용해 주세요.
+          {t("store_owner_refund_requested_notice")}
         </p>
       </div>
     );
@@ -68,7 +70,7 @@ export function OwnerOrderActionPanel({
   if (s === "refunded") {
     return (
       <p className="rounded-ui-rect bg-sam-surface-muted px-3 py-2 text-center text-xs text-sam-muted ring-1 ring-sam-border">
-        환불 처리된 주문입니다.
+        {t("store_owner_refunded_notice")}
       </p>
     );
   }
@@ -83,7 +85,7 @@ export function OwnerOrderActionPanel({
 
       {order.buyer_cancel_request ? (
         <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
-          <p className="font-semibold text-amber-950">고객 취소 요청</p>
+          <p className="font-semibold text-amber-950">{t("business_phase7_022")}</p>
           <p className="mt-1 text-xs text-amber-900">{order.buyer_cancel_request.reason}</p>
         </div>
       ) : null}
@@ -96,7 +98,7 @@ export function OwnerOrderActionPanel({
             className={btnClass(true)}
             onClick={() => void patch("accepted")}
           >
-            {labelForOwnerTransition(s, "accepted", fulfillment)}
+            {labelForOwnerTransition(s, "accepted", fulfillment, language)}
           </button>
         ) : null}
 
@@ -107,7 +109,7 @@ export function OwnerOrderActionPanel({
             className={btnClass()}
             onClick={() => setRejectOpen((prev) => (prev ? prev : true))}
           >
-            주문 거절
+            {t("store_owner_action_reject_order")}
           </button>
         ) : null}
 
@@ -118,7 +120,7 @@ export function OwnerOrderActionPanel({
             className={btnClass(true)}
             onClick={() => void patch("preparing")}
           >
-            {labelForOwnerTransition(s, "preparing", fulfillment)}
+            {labelForOwnerTransition(s, "preparing", fulfillment, language)}
           </button>
         ) : null}
 
@@ -129,7 +131,7 @@ export function OwnerOrderActionPanel({
             className={btnClass()}
             onClick={() => setRejectOpen((prev) => (prev ? prev : true))}
           >
-            주문 취소
+            {t("store_owner_action_cancel_order")}
           </button>
         ) : null}
 
@@ -140,7 +142,7 @@ export function OwnerOrderActionPanel({
             className={btnClass(true)}
             onClick={() => void patch("ready_for_pickup")}
           >
-            {labelForOwnerTransition(s, "ready_for_pickup", fulfillment)}
+            {labelForOwnerTransition(s, "ready_for_pickup", fulfillment, language)}
           </button>
         ) : null}
 
@@ -151,7 +153,7 @@ export function OwnerOrderActionPanel({
             className={btnClass()}
             onClick={() => setRejectOpen((prev) => (prev ? prev : true))}
           >
-            주문 취소
+            {t("store_owner_action_cancel_order")}
           </button>
         ) : null}
 
@@ -162,7 +164,7 @@ export function OwnerOrderActionPanel({
             className={btnClass(true)}
             onClick={() => void patch("delivering")}
           >
-            {labelForOwnerTransition(s, "delivering", fulfillment)}
+            {labelForOwnerTransition(s, "delivering", fulfillment, language)}
           </button>
         ) : null}
 
@@ -173,7 +175,7 @@ export function OwnerOrderActionPanel({
             className={btnClass(true)}
             onClick={() => void patch("completed")}
           >
-            {labelForOwnerTransition(s, "completed", fulfillment)}
+            {labelForOwnerTransition(s, "completed", fulfillment, language)}
           </button>
         ) : null}
 
@@ -184,7 +186,7 @@ export function OwnerOrderActionPanel({
             className={btnClass()}
             onClick={() => setRejectOpen((prev) => (prev ? prev : true))}
           >
-            주문 취소
+            {t("store_owner_action_cancel_order")}
           </button>
         ) : null}
 
@@ -195,7 +197,7 @@ export function OwnerOrderActionPanel({
             className={btnClass(true)}
             onClick={() => void patch("arrived")}
           >
-            {labelForOwnerTransition(s, "arrived", fulfillment)}
+            {labelForOwnerTransition(s, "arrived", fulfillment, language)}
           </button>
         ) : null}
 
@@ -206,7 +208,7 @@ export function OwnerOrderActionPanel({
             className={btnClass()}
             onClick={() => setRejectOpen((prev) => (prev ? prev : true))}
           >
-            주문 취소
+            {t("store_owner_action_cancel_order")}
           </button>
         ) : null}
 
@@ -217,7 +219,7 @@ export function OwnerOrderActionPanel({
             className={btnClass(true)}
             onClick={() => void patch("completed")}
           >
-            {labelForOwnerTransition(s, "completed", fulfillment)}
+            {labelForOwnerTransition(s, "completed", fulfillment, language)}
           </button>
         ) : null}
 
@@ -228,7 +230,7 @@ export function OwnerOrderActionPanel({
             className={btnClass()}
             onClick={() => setRejectOpen((prev) => (prev ? prev : true))}
           >
-            주문 취소
+            {t("store_owner_action_cancel_order")}
           </button>
         ) : null}
       </div>

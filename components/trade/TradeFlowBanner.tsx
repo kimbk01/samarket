@@ -5,6 +5,7 @@ import type { ChatRoom, TradeFlowStatus } from "@/lib/types/chat";
 import type { SellerListingState } from "@/lib/products/seller-listing-state";
 import { TradeSellerListingStepDiagram } from "@/components/trade/TradeSellerListingStepDiagram";
 import { TRADE_LISTING_CHAT_STEPS } from "@/lib/trade/seller-listing-chat-transitions";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const DISMISS_KEY_PREFIX = "trade-flow-banner-dismiss-actions:";
 
@@ -52,6 +53,7 @@ export function TradeFlowBanner({
   layoutVariant = "default",
   onDiagramExpandedChange,
 }: TradeFlowBannerProps) {
+  const { t } = useI18n();
   const [loading, setLoading] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
   const [diagramExpanded, setDiagramExpanded] = useState(false);
@@ -254,7 +256,7 @@ export function TradeFlowBanner({
       {flow === "seller_marked_done" && amBuyer && !actionsDismissed && (
         <div className="mt-2 space-y-1.5">
           <p className="sam-text-helper text-sam-fg">
-            판매자가 거래완료 처리했어요. 거래가 끝났다면 <strong className="font-semibold">거래완료 확인</strong>으로
+            판매자가 거래완료 처리했어요. 거래가 끝났다면 <strong className="font-semibold">{t("trade_022")}</strong>으로
             넘어간 뒤 평가·후기를 남겨 주세요.
           </p>
           <div className="flex flex-wrap gap-2">
@@ -288,7 +290,7 @@ export function TradeFlowBanner({
       {flow === "seller_marked_done" && amBuyer && actionsDismissed && (
         <p className="mt-2 sam-text-xxs text-sam-fg">
           거래완료 확인·평가·후기는 새로고침하거나{" "}
-          <span className="font-medium">내 정보 → 구매 내역</span>의 메뉴(⋮)에서 진행할 수 있어요.
+          <span className="font-medium">{t("trade_052")}</span>의 메뉴(⋮)에서 진행할 수 있어요.
         </p>
       )}
 
@@ -321,7 +323,7 @@ export function TradeFlowBanner({
       )}
 
       {flow === "dispute" && (
-        <p className="mt-2 sam-text-xxs text-sam-warning">문제가 접수되어 운영팀이 확인 중이에요.</p>
+        <p className="mt-2 sam-text-xxs text-sam-warning">{t("trade_061")}</p>
       )}
 
       {listingNotice ? <p className="mt-1.5 sam-text-xxs text-sam-warning">{listingNotice}</p> : null}

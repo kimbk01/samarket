@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { getProductionInfraChecks } from "@/lib/production-migration/mock-production-infra-checks";
 import { AdminTable } from "@/components/admin/AdminTable";
@@ -13,6 +16,7 @@ import type {
 } from "@/lib/types/production-migration";
 
 export function ProductionInfraCheckTable() {
+  const { t } = useI18n();
   const [category, setCategory] = useState<ProductionInfraCategory | "">("");
   const checks = useMemo(
     () =>
@@ -38,7 +42,7 @@ export function ProductionInfraCheckTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">분류</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_qa_category")}</span>
         <select
           value={category}
           onChange={(e) =>

@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { ReleaseNoteTable } from "./ReleaseNoteTable";
@@ -9,20 +11,21 @@ import { ReleaseReadinessCard } from "./ReleaseReadinessCard";
 
 type TabId = "notes" | "post-release" | "readiness";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "notes", label: "릴리즈 노트" },
-  { id: "post-release", label: "배포 후 검증" },
-  { id: "readiness", label: "릴리즈 준비" },
+const TAB_KEYS: { id: TabId; labelKey: MessageKey }[] = [
+  { id: "notes", labelKey: "admin_rel_tab_notes" },
+  { id: "post-release", labelKey: "admin_rel_tab_post_release" },
+  { id: "readiness", labelKey: "admin_rel_tab_readiness" },
 ];
 
 export function AdminReleaseNotesPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("notes");
 
   return (
     <>
-      <AdminPageHeader title="릴리즈 노트" />
+      <AdminPageHeader titleKey="admin_rel_page_notes" />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
-        {TABS.map((tab) => (
+        {TAB_KEYS.map((tab) => (
           <button
             key={tab.id}
             type="button"
@@ -33,22 +36,22 @@ export function AdminReleaseNotesPage() {
                 : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
       {activeTab === "notes" && (
-        <AdminCard title="릴리즈 노트 목록">
+        <AdminCard titleKey="admin_rel_card_notes_list">
           <ReleaseNoteTable />
         </AdminCard>
       )}
       {activeTab === "post-release" && (
-        <AdminCard title="배포 후 검증">
+        <AdminCard titleKey="admin_rel_card_post_release">
           <PostReleaseCheckTable />
         </AdminCard>
       )}
       {activeTab === "readiness" && (
-        <AdminCard title="릴리즈 준비 상태">
+        <AdminCard titleKey="admin_rel_card_readiness">
           <ReleaseReadinessCard />
         </AdminCard>
       )}

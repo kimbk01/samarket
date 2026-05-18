@@ -1,5 +1,11 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  OPS_TOOLS_RUNBOOK_EXEC_STATUS_KEYS,
+  OPS_TOOLS_RUNBOOK_LINK_KEYS,
+  opsToolsLabel,
+} from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -12,29 +18,14 @@ import { OpsRunbookExecutionLogList } from "./OpsRunbookExecutionLogList";
 import { OpsKnowledgeRecommendationPanel } from "@/components/admin/ops-knowledge/OpsKnowledgeRecommendationPanel";
 import { OpsRelatedDocumentPanel } from "@/components/admin/ops-knowledge-graph/OpsRelatedDocumentPanel";
 import type { OpsKnowledgeRecommendSourceType } from "@/lib/types/ops-knowledge";
-
-const STATUS_LABELS: Record<string, string> = {
-  pending: "대기",
-  in_progress: "진행중",
-  completed: "완료",
-  aborted: "중단",
-};
-
-const LINKED_LABELS: Record<string, string> = {
-  incident: "이슈",
-  deployment: "배포",
-  rollback: "롤백",
-  fallback: "Fallback",
-  kill_switch: "킬스위치",
-  manual: "수동",
-};
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type TabId = "detail" | "steps" | "result" | "logs";
 
 const ADMIN_ID = "admin1";
-const ADMIN_NICK = "관리자";
-
 export function OpsRunbookExecutionDetailPage({ executionId }: { executionId: string }) {
+  const { t } = useI18n();
+  const adminNickname = t("admin_ops_tools_admin_nickname");
   const [activeTab, setActiveTab] = useState<TabId>("detail");
   const [refresh, setRefresh] = useState(0);
 
@@ -46,29 +37,29 @@ export function OpsRunbookExecutionDetailPage({ executionId }: { executionId: st
   if (!exec) {
     return (
       <>
-        <AdminPageHeader title="실행 없음" backHref="/admin/ops-runbooks" />
-        <p className="sam-text-body text-sam-muted">해당 실행을 찾을 수 없습니다.</p>
+        <AdminPageHeader titleKey="admin_ops_tools_runbook_detail_not_found_title" backHref="/admin/ops-runbooks" />
+        <p className="sam-text-body text-sam-muted">{t("admin_ops_tools_runbook_detail_not_found")}</p>
       </>
     );
   }
 
   const handleComplete = () => {
-    completeRunbookExecution(executionId, ADMIN_ID, ADMIN_NICK);
+    completeRunbookExecution(executionId, ADMIN_ID, adminNickname);
     setRefresh((r) => r + 1);
   };
 
   const handleAbort = () => {
-    if (typeof window !== "undefined" && window.confirm("실행을 중단하시겠습니까?")) {
-      abortRunbookExecution(executionId, ADMIN_ID, ADMIN_NICK, "관리자 중단");
+    if (typeof window !== "undefined" && window.confirm(t("admin_ops_tools_runbook_confirm_abort"))) {
+      abortRunbookExecution(executionId, ADMIN_ID, adminNickname, t("admin_ops_tools_runbook_abort_reason"));
       setRefresh((r) => r + 1);
     }
   };
 
-  const tabs: { id: TabId; label: string }[] = [
-    { id: "detail", label: "실행 상세" },
-    { id: "steps", label: "단계 진행" },
-    { id: "result", label: "결과 기록" },
-    { id: "logs", label: "실행 로그" },
+  const tabs: { id: TabId; labelKey: MessageKey }[] = [
+    { id: "detail", labelKey: "admin_ops_tools_runbook_tab_detail" },
+    { id: "steps", labelKey: "admin_ops_tools_runbook_tab_steps" },
+    { id: "result", labelKey: "admin_ops_tools_rb_log_result" },
+    { id: "logs", labelKey: "admin_ops_tools_runbook_tab_logs" },
   ];
 
   return (
@@ -78,25 +69,19 @@ export function OpsRunbookExecutionDetailPage({ executionId }: { executionId: st
         <Link
           href={`/admin/ops-docs/${exec.documentId}`}
           className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg hover:bg-sam-app"
-        >
-          문서 보기
-        </Link>
+        >{t("admin_ops_tools_runbook_view_doc")}</Link>
         {exec.executionStatus === "in_progress" && (
           <>
             <button
               type="button"
               onClick={handleComplete}
               className="rounded border border-signature bg-signature px-3 py-2 sam-text-body font-medium text-white"
-            >
-              실행 완료
-            </button>
+            >{t("admin_ops_tools_rb_log_complete")}</button>
             <button
               type="button"
               onClick={handleAbort}
               className="rounded border border-red-200 bg-red-50 px-3 py-2 sam-text-body text-red-800"
-            >
-              중단
-            </button>
+            >{t("admin_ops_tools_rb_exec_aborted")}</button>
           </>
         )}
       </div>
@@ -112,7 +97,7 @@ export function OpsRunbookExecutionDetailPage({ executionId }: { executionId: st
                 : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
@@ -125,7 +110,7 @@ export function OpsRunbookExecutionDetailPage({ executionId }: { executionId: st
                 {exec.documentType}
               </span>
               <span className="rounded bg-sam-surface-muted px-2 py-0.5 text-sam-fg">
-                {LINKED_LABELS[exec.linkedType]}
+                {t(opsToolsLabel(OPS_TOOLS_RUNBOOK_LINK_KEYS, exec.linkedType))}
                 {exec.linkedId && ` · ${exec.linkedId}`}
               </span>
               <span
@@ -137,7 +122,7 @@ export function OpsRunbookExecutionDetailPage({ executionId }: { executionId: st
                       : "bg-sam-surface-muted text-sam-muted"
                 }`}
               >
-                {STATUS_LABELS[exec.executionStatus]}
+                {t(opsToolsLabel(OPS_TOOLS_RUNBOOK_EXEC_STATUS_KEYS, exec.executionStatus))}
               </span>
             </div>
             <p className="sam-text-body text-sam-fg">{exec.summary}</p>
@@ -160,18 +145,18 @@ export function OpsRunbookExecutionDetailPage({ executionId }: { executionId: st
           <OpsKnowledgeRecommendationPanel
             sourceType={exec.linkedType as OpsKnowledgeRecommendSourceType}
             sourceId={exec.linkedId}
-            title="관련 문서"
+            titleKey="admin_ops_tools_kg_panel_related_default"
             compact
             recentViewSource="runbook"
           />
           <div className="mt-4">
-            <OpsRelatedDocumentPanel title="그래프 Top 문서" compact />
+            <OpsRelatedDocumentPanel titleKey="admin_ops_tools_runbook_graph_top" compact />
           </div>
         </div>
         </div>
       )}
       {activeTab === "steps" && (
-        <AdminCard title="단계 진행">
+        <AdminCard titleKey="admin_ops_tools_runbook_tab_steps">
           <OpsRunbookStepWorkflow
             executionId={executionId}
             executionStatus={exec.executionStatus}
@@ -180,7 +165,7 @@ export function OpsRunbookExecutionDetailPage({ executionId }: { executionId: st
         </AdminCard>
       )}
       {activeTab === "result" && (
-        <AdminCard title="대응 결과 기록">
+        <AdminCard titleKey="admin_ops_tools_runbook_card_result">
           <OpsRunbookResultForm
             executionId={executionId}
             onSaved={() => setRefresh((r) => r + 1)}
@@ -188,7 +173,7 @@ export function OpsRunbookExecutionDetailPage({ executionId }: { executionId: st
         </AdminCard>
       )}
       {activeTab === "logs" && (
-        <AdminCard title="실행 로그">
+        <AdminCard titleKey="admin_ops_tools_runbook_tab_logs">
           <OpsRunbookExecutionLogList executionId={executionId} />
         </AdminCard>
       )}

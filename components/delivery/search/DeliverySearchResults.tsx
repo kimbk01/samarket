@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 
@@ -50,12 +51,13 @@ export function DeliverySearchResults({
   onClickStore: (slug: string) => void;
   onClickMenu: (menu: DeliverySearchMenu) => void;
 }) {
+  const { t } = useI18n();
   const hasAny = (stores?.length ?? 0) + (menus?.length ?? 0) > 0;
 
   if (loading && !hasAny) {
     return (
       <div className="py-10 text-center">
-        <p className="sam-text-body text-sam-muted">검색 중…</p>
+        <p className="sam-text-body text-sam-muted">{t("ui_delivery_search_searching")}</p>
       </div>
     );
   }
@@ -63,8 +65,8 @@ export function DeliverySearchResults({
   if (!hasAny && q.trim().length > 0) {
     return (
       <div className="py-10 text-center">
-        <p className="sam-text-body font-semibold text-sam-fg">검색 결과가 없습니다</p>
-        <p className="mt-1 sam-text-body text-sam-muted">다른 키워드로 다시 시도해 보세요.</p>
+        <p className="sam-text-body font-semibold text-sam-fg">{t("ui_delivery_search_no_results_title")}</p>
+        <p className="mt-1 sam-text-body text-sam-muted">{t("ui_delivery_search_no_results_hint")}</p>
       </div>
     );
   }
@@ -78,9 +80,9 @@ export function DeliverySearchResults({
       </div>
 
       <section className="space-y-2">
-        <h2 className="sam-text-body-secondary font-semibold text-sam-fg">가게</h2>
+        <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("ui_delivery_search_stores_heading")}</h2>
         {stores.length === 0 ? (
-          <p className="sam-text-body text-sam-muted">가게 결과가 없습니다.</p>
+          <p className="sam-text-body text-sam-muted">{t("ui_delivery_search_stores_empty")}</p>
         ) : (
           <ul className="space-y-2">
             {stores.map((s) => (
@@ -108,9 +110,9 @@ export function DeliverySearchResults({
       </section>
 
       <section className="space-y-2">
-        <h2 className="sam-text-body-secondary font-semibold text-sam-fg">메뉴</h2>
+        <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("ui_delivery_search_menu_heading")}</h2>
         {menus.length === 0 ? (
-          <p className="sam-text-body text-sam-muted">메뉴 결과가 없습니다.</p>
+          <p className="sam-text-body text-sam-muted">{t("ui_delivery_search_menu_empty")}</p>
         ) : (
           <ul className="space-y-2">
             {menus.map((m) => (

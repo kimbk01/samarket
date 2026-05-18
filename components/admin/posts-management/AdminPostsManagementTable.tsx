@@ -13,12 +13,11 @@ import {
   getMarketCategoryPath,
   getPublicProductPath,
 } from "@/lib/products/web-post-links";
-import {
-  getPostsManagementSectionLabel,
-  inferPostsManagementSection,
-} from "@/lib/admin-products/posts-management-utils";
+import { inferPostsManagementSection } from "@/lib/admin-products/posts-management-utils";
 import { getCarTradeLabelKo } from "@/lib/posts/car-trade-label";
 import { formatPrice } from "@/lib/utils/format";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { POSTS_MGMT_TAB_LABEL_KEY, postsMgmtLocale } from "./posts-management-i18n";
 
 interface AdminPostsManagementTableProps {
   products: Product[];
@@ -37,11 +36,24 @@ export const AdminPostsManagementTable = forwardRef<
   { products, showProductIdColumn = false, onHorizontalScroll, onActionSuccess },
   ref
 ) {
+  const { t, tt, language } = useI18n();
+  const locale = postsMgmtLocale(language);
   const [actionRowId, setActionRowId] = useState<string | null>(null);
 
   const runTradeOverride = async (action: "cancel_sale" | "force_complete", p: Product) => {
-    const label = action === "cancel_sale" ? "물품 판매 취소(목록 숨김)" : "거래완료로 강제";
-    if (!window.confirm(`「${p.title.slice(0, 48)}${p.title.length > 48 ? "…" : ""}」\n${label} 처리할까요?`)) {
+    const actionLabel =
+      action === "cancel_sale"
+        ? t("admin_posts_mgmt_confirm_cancel_sale_label")
+        : t("admin_posts_mgmt_confirm_force_complete_label");
+    const titleSnippet = `${p.title.slice(0, 48)}${p.title.length > 48 ? "…" : ""}`;
+    if (
+      !window.confirm(
+        t("admin_posts_mgmt_confirm_trade_override", {
+          title: titleSnippet,
+          action: actionLabel,
+        })
+      )
+    ) {
       return;
     }
     try {
@@ -53,13 +65,13 @@ export const AdminPostsManagementTable = forwardRef<
       });
       const data = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !data.ok) {
-        alert(data.error ?? "처리 실패");
+        alert(data.error ?? t("admin_posts_mgmt_action_failed"));
         return;
       }
       setActionRowId(null);
       onActionSuccess?.();
     } catch (e) {
-      alert((e as Error)?.message ?? "처리 실패");
+      alert((e as Error)?.message ?? t("admin_posts_mgmt_action_failed"));
     }
   };
 
@@ -75,13 +87,13 @@ export const AdminPostsManagementTable = forwardRef<
       }
 
       if (!res.ok) {
-        alert(res.error ?? "처리 실패");
+        alert(res.error ?? t("admin_posts_mgmt_action_failed"));
         return;
       }
       setActionRowId(null);
       onActionSuccess?.();
     } catch (e) {
-      alert((e as Error)?.message ?? "처리 실패");
+      alert((e as Error)?.message ?? t("admin_posts_mgmt_action_failed"));
     }
   };
 
@@ -98,56 +110,56 @@ export const AdminPostsManagementTable = forwardRef<
           <tr className="border-b border-sam-border bg-sam-app">
             {showProductIdColumn && (
               <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-                상품ID
+                {t("admin_posts_mgmt_th_product_id")}
               </th>
             )}
             <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-              썸네일
+              {t("admin_posts_mgmt_th_thumbnail")}
             </th>
             <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-              제목 / 웹
+              {t("admin_posts_mgmt_th_title_web")}
             </th>
             <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-              판매자
+              {t("admin_posts_mgmt_th_seller")}
             </th>
             <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-              웹 분류
+              {t("admin_posts_mgmt_th_web_section")}
             </th>
             <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-              카테고리
+              {t("admin_posts_mgmt_th_category")}
             </th>
             <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-              구분
+              {t("admin_posts_mgmt_th_kind")}
             </th>
             <th className="whitespace-nowrap px-3 py-2.5 text-right font-medium text-sam-fg">
-              가격
+              {t("admin_posts_mgmt_th_price")}
             </th>
             <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-              거래유형
+              {t("admin_posts_mgmt_th_deal_type")}
             </th>
             <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-              상태
+              {t("admin_posts_mgmt_th_status")}
             </th>
             <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-              거래표시
+              {t("admin_posts_mgmt_th_trade_display")}
             </th>
             <th className="whitespace-nowrap px-3 py-2.5 text-right font-medium text-sam-fg">
-              관심
+              {t("admin_posts_mgmt_th_likes")}
             </th>
             <th className="whitespace-nowrap px-3 py-2.5 text-right font-medium text-sam-fg">
-              채팅
+              {t("admin_posts_mgmt_th_chats")}
             </th>
             <th className="whitespace-nowrap px-3 py-2.5 text-right font-medium text-sam-fg">
-              신고
+              {t("admin_posts_mgmt_th_reports")}
             </th>
             <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-              등록일
+              {t("admin_posts_mgmt_th_created")}
             </th>
             <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-              노출상태
+              {t("admin_posts_mgmt_th_visibility")}
             </th>
             <th className="whitespace-nowrap px-3 py-2.5 text-left font-medium text-sam-fg">
-              액션
+              {t("admin_posts_mgmt_th_actions")}
             </th>
           </tr>
         </thead>
@@ -186,7 +198,7 @@ export const AdminPostsManagementTable = forwardRef<
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-signature hover:underline"
-                    title="상품 웹보기"
+                    title={t("admin_posts_mgmt_title_view_web")}
                   >
                     {p.title}
                   </Link>
@@ -208,7 +220,8 @@ export const AdminPostsManagementTable = forwardRef<
               <td className="px-3 py-2.5 text-sam-fg">
                 {(() => {
                   const market = getMarketCategoryPath(p.categorySlug);
-                  const label = getPostsManagementSectionLabel(p);
+                  const section = inferPostsManagementSection(p);
+                  const label = t(POSTS_MGMT_TAB_LABEL_KEY[section]);
 
                   const body = (
                     <>
@@ -232,7 +245,7 @@ export const AdminPostsManagementTable = forwardRef<
                       target="_blank"
                       rel="noopener noreferrer"
                       className="block hover:opacity-90"
-                      title="카테고리 목록"
+                      title={t("admin_posts_mgmt_title_category_list")}
                     >
                       {body}
                     </Link>
@@ -261,14 +274,16 @@ export const AdminPostsManagementTable = forwardRef<
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 text-sam-muted">
                 {inferPostsManagementSection(p) === "used-car"
-                  ? getCarTradeLabelKo(p.postMeta) ?? "—"
+                  ? tt(getCarTradeLabelKo(p.postMeta) ?? "—")
                   : "—"}
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 text-right text-sam-fg">
-                {p.isFreeShare ? "나눔" : formatPrice(p.price ?? 0)}
+                {p.isFreeShare ? t("admin_posts_mgmt_price_free_share") : formatPrice(p.price ?? 0)}
               </td>
               <td className="px-3 py-2.5 text-sam-muted">
-                {p.isFreeShare ? "무료나눔" : "판매"}
+                {p.isFreeShare
+                  ? t("admin_posts_mgmt_deal_free")
+                  : t("admin_posts_mgmt_deal_sale")}
               </td>
               <td className="px-3 py-2.5">
                 <AdminStatusBadge status={p.status} />
@@ -283,7 +298,7 @@ export const AdminPostsManagementTable = forwardRef<
                     <span
                       className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${badge.className}`}
                     >
-                      {badge.label}
+                      {tt(badge.label)}
                     </span>
                   );
                 })()}
@@ -307,13 +322,13 @@ export const AdminPostsManagementTable = forwardRef<
                 )}
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(p.createdAt).toLocaleDateString("ko-KR")}
+                {new Date(p.createdAt).toLocaleDateString(locale)}
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {p.visibility === "hidden" || p.status === "hidden" ? (
-                  <span className="text-amber-600">숨김</span>
+                  <span className="text-amber-600">{t("admin_posts_mgmt_visibility_hidden")}</span>
                 ) : (
-                  <span className="text-green-600">노출</span>
+                  <span className="text-green-600">{t("admin_posts_mgmt_visibility_visible")}</span>
                 )}
               </td>
               <td className="relative px-3 py-2.5">
@@ -324,7 +339,7 @@ export const AdminPostsManagementTable = forwardRef<
                   }
                   className="rounded border border-sam-border bg-sam-surface px-2 py-1 sam-text-body-secondary text-sam-fg hover:bg-sam-app"
                 >
-                  액션 ▾
+                  {t("admin_posts_mgmt_actions_menu")}
                 </button>
                 {actionRowId === p.id && (
                   <div className="absolute left-0 top-full z-10 mt-1 min-w-[180px] rounded border border-sam-border bg-sam-surface py-1 shadow-sam-elevated">
@@ -334,67 +349,67 @@ export const AdminPostsManagementTable = forwardRef<
                       rel="noopener noreferrer"
                       className="block px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-sam-app"
                     >
-                      웹에서 보기
+                      {t("admin_posts_mgmt_action_view_web")}
                     </Link>
                     <button
                       type="button"
                       onClick={() => runTradeOverride("cancel_sale", p)}
                       className="block w-full px-3 py-2 text-left sam-text-body-secondary text-amber-800 hover:bg-amber-50"
                     >
-                      물품 판매 취소(강제)
+                      {t("admin_posts_mgmt_action_cancel_sale")}
                     </button>
                     <button
                       type="button"
                       onClick={() => runTradeOverride("force_complete", p)}
                       className="block w-full px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-signature/5"
                     >
-                      거래완료(강제)
+                      {t("admin_posts_mgmt_action_force_complete")}
                     </button>
                     <button
                       type="button"
                       onClick={() => runAction("hide", p)}
                       className="block w-full px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-sam-app"
                     >
-                      숨김
+                      {t("admin_posts_mgmt_action_hide")}
                     </button>
                     <button
                       type="button"
                       onClick={() => runAction("restore", p)}
                       className="block w-full px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-sam-app"
                     >
-                      숨김 해제
+                      {t("admin_posts_mgmt_action_unhide")}
                     </button>
                     <button
                       type="button"
                       onClick={() => runAction("delete", p)}
                       className="block w-full px-3 py-2 text-left sam-text-body-secondary text-red-600 hover:bg-sam-app"
                     >
-                      강제 삭제
+                      {t("admin_posts_mgmt_action_force_delete")}
                     </button>
                     <Link
                       href={`/admin/reports?target=${p.id}`}
                       className="block px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-sam-app"
                     >
-                      신고 내역 보기
+                      {t("admin_posts_mgmt_action_view_reports")}
                     </Link>
                     <Link
                       href={`/admin/users/${p.sellerId}`}
                       className="block px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-sam-app"
                     >
-                      판매자 제재
+                      {t("admin_posts_mgmt_action_seller_sanction")}
                     </Link>
                     <button
                       type="button"
                       onClick={() => runAction("bump", p)}
                       className="block w-full px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-sam-app"
                     >
-                      추천/인기 노출 조정
+                      {t("admin_posts_mgmt_action_bump")}
                     </button>
                     <button
                       type="button"
                       className="block w-full px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-sam-app"
                     >
-                      금지품목 판정 메모
+                      {t("admin_posts_mgmt_action_banned_memo")}
                     </button>
                   </div>
                 )}

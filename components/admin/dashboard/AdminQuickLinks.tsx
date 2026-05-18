@@ -1,73 +1,77 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
-const LINKS: { href: string; label: string }[] = [
-  { href: "/admin/products", label: "상품관리" },
-  { href: "/admin/users", label: "회원관리" },
-  { href: "/admin/reports", label: "신고관리" },
-  { href: "/admin/chats", label: "채팅관리" },
-  { href: "/admin/reviews", label: "리뷰관리" },
-  { href: "/admin/banners", label: "배너관리" },
-  { href: "/admin/business", label: "상점관리" },
-  { href: "/admin/ad-applications", label: "광고신청" },
-  { href: "/admin/promoted-items", label: "유료노출" },
-  { href: "/admin/point-charges", label: "포인트충전" },
-  { href: "/admin/points/ledger", label: "포인트원장" },
-  { href: "/admin/point-policies", label: "포인트정책" },
-  { href: "/admin/point-executions", label: "포인트실행" },
-  { href: "/admin/points/expire", label: "포인트만료" },
-  { href: "/admin/member-benefits", label: "회원혜택" },
-  { href: "/admin/exposure-policies", label: "노출정책" },
-  { href: "/admin/home-feed", label: "홈피드" },
-  { href: "/admin/personalized-feed", label: "개인화추천" },
-  { href: "/admin/recommendation-analytics", label: "추천분석" },
-  { href: "/admin/recommendation-experiments", label: "A/B실험" },
-  { href: "/admin/recommendation-deployments", label: "추천배포" },
-  { href: "/admin/feed-emergency", label: "피드장애대응" },
-  { href: "/admin/recommendation-monitoring", label: "추천모니터링" },
-  { href: "/admin/recommendation-automation", label: "추천자동화" },
-  { href: "/admin/recommendation-reports", label: "추천보고서" },
-  { href: "/admin/ops-board", label: "운영보드" },
-  { href: "/admin/ops-docs", label: "운영문서" },
-  { href: "/admin/ops-runbooks", label: "런북실행" },
-  { href: "/admin/ops-knowledge", label: "지식베이스" },
-  { href: "/admin/ops-knowledge-graph", label: "지식그래프" },
-  { href: "/admin/ops-learning", label: "운영학습" },
-  { href: "/admin/ops-maturity", label: "운영성숙도" },
-  { href: "/admin/ops-benchmarks", label: "운영벤치마크" },
-  { href: "/admin/launch-readiness", label: "런칭준비" },
-  { href: "/admin/production-migration", label: "프로덕션전환" },
-  { href: "/admin/qa-board", label: "QA보드" },
-  { href: "/admin/launch-week", label: "첫주관제" },
-  { href: "/admin/ops-routines", label: "장기운영" },
-  { href: "/admin/product-backlog", label: "제품백로그" },
-  { href: "/admin/dev-sprints", label: "스프린트" },
-  { href: "/admin/release-notes", label: "릴리즈노트" },
-  { href: "/admin/release-archive", label: "릴리즈아카이브" },
-  { href: "/admin/backup", label: "백업/복구" },
-  { href: "/admin/dr", label: "DR시나리오" },
-  { href: "/admin/security", label: "보안점검" },
-  { href: "/admin/performance", label: "성능" },
-  { href: "/admin/usage", label: "비용" },
-  { href: "/admin/automation", label: "자동화" },
-  { href: "/admin/system", label: "시스템상태" },
-  { href: "/admin/settings", label: "설정관리" },
-  { href: "/admin/audit-logs", label: "로그감사" },
+const LINKS: { href: string; labelKey: MessageKey }[] = [
+  { href: "/admin/products", labelKey: "admin_menu_trade_products" },
+  { href: "/admin/users", labelKey: "admin_menu_users" },
+  { href: "/admin/reports", labelKey: "admin_menu_reports" },
+  { href: "/admin/chats", labelKey: "admin_menu_chat" },
+  { href: "/admin/reviews", labelKey: "admin_menu_reviews" },
+  { href: "/admin/banners", labelKey: "admin_quicklink_banners" },
+  { href: "/admin/business", labelKey: "admin_menu_business_management" },
+  { href: "/admin/ad-applications", labelKey: "admin_menu_ads_applications" },
+  { href: "/admin/promoted-items", labelKey: "admin_menu_ads_paid" },
+  { href: "/admin/point-charges", labelKey: "admin_menu_points_charge" },
+  { href: "/admin/points/ledger", labelKey: "admin_menu_points_ledger" },
+  { href: "/admin/point-policies", labelKey: "admin_menu_points_policy" },
+  { href: "/admin/point-executions", labelKey: "admin_menu_points_execute" },
+  { href: "/admin/points/expire", labelKey: "admin_menu_points_expire" },
+  { href: "/admin/member-benefits", labelKey: "admin_menu_ads_benefits" },
+  { href: "/admin/exposure-policies", labelKey: "admin_menu_ads_policy" },
+  { href: "/admin/home-feed", labelKey: "admin_menu_ads_home_feed" },
+  { href: "/admin/personalized-feed", labelKey: "admin_menu_ads_recommendation" },
+  { href: "/admin/recommendation-analytics", labelKey: "admin_quicklink_recommendation_analytics" },
+  { href: "/admin/recommendation-experiments", labelKey: "admin_menu_manage_ab" },
+  { href: "/admin/recommendation-deployments", labelKey: "admin_quicklink_recommendation_deployments" },
+  { href: "/admin/feed-emergency", labelKey: "admin_menu_dev_hotfix" },
+  { href: "/admin/recommendation-monitoring", labelKey: "admin_quicklink_recommendation_monitoring" },
+  { href: "/admin/recommendation-automation", labelKey: "admin_quicklink_recommendation_automation" },
+  { href: "/admin/recommendation-reports", labelKey: "admin_menu_manage_reports" },
+  { href: "/admin/ops-board", labelKey: "admin_menu_manage_ops_board" },
+  { href: "/admin/ops-docs", labelKey: "admin_menu_manage_docs" },
+  { href: "/admin/ops-runbooks", labelKey: "admin_menu_manage_runbooks" },
+  { href: "/admin/ops-knowledge", labelKey: "admin_menu_manage_kb" },
+  { href: "/admin/ops-knowledge-graph", labelKey: "admin_menu_manage_kg" },
+  { href: "/admin/ops-learning", labelKey: "admin_menu_manage_learning" },
+  { href: "/admin/ops-maturity", labelKey: "admin_menu_manage_maturity" },
+  { href: "/admin/ops-benchmarks", labelKey: "admin_menu_manage_benchmarks" },
+  { href: "/admin/launch-readiness", labelKey: "admin_quicklink_launch_readiness" },
+  { href: "/admin/production-migration", labelKey: "admin_menu_dev_production" },
+  { href: "/admin/qa-board", labelKey: "admin_menu_dev_qa" },
+  { href: "/admin/launch-week", labelKey: "admin_quicklink_launch_week" },
+  { href: "/admin/ops-routines", labelKey: "admin_menu_dev_longterm" },
+  { href: "/admin/product-backlog", labelKey: "admin_menu_dev_backlog" },
+  { href: "/admin/dev-sprints", labelKey: "admin_menu_dev_sprints" },
+  { href: "/admin/release-notes", labelKey: "admin_menu_dev_release_notes" },
+  { href: "/admin/release-archive", labelKey: "admin_menu_dev_release_archive" },
+  { href: "/admin/backup", labelKey: "admin_menu_dev_backup" },
+  { href: "/admin/dr", labelKey: "admin_menu_dev_dr" },
+  { href: "/admin/security", labelKey: "admin_menu_dev_security" },
+  { href: "/admin/performance", labelKey: "admin_menu_dev_performance" },
+  { href: "/admin/usage", labelKey: "admin_menu_dev_usage" },
+  { href: "/admin/automation", labelKey: "admin_menu_dev_automation" },
+  { href: "/admin/system", labelKey: "admin_menu_dev_system_status" },
+  { href: "/admin/settings", labelKey: "admin_menu_settings_general" },
+  { href: "/admin/audit-logs", labelKey: "admin_menu_dev_audit" },
 ];
 
 export function AdminQuickLinks() {
+  const { t } = useI18n();
+
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-      <h2 className="mb-3 sam-text-body font-medium text-sam-fg">빠른 이동</h2>
+      <h2 className="mb-3 sam-text-body font-medium text-sam-fg">{t("admin_quicklinks_title")}</h2>
       <ul className="flex flex-wrap gap-2">
-        {LINKS.map(({ href, label }) => (
+        {LINKS.map(({ href, labelKey }) => (
           <li key={href}>
             <Link
               href={href}
               className="inline-block rounded border border-sam-border bg-sam-app px-3 py-2 sam-text-body text-sam-fg hover:border-signature hover:bg-signature/5 hover:text-signature"
             >
-              {label}
+              {t(labelKey)}
             </Link>
           </li>
         ))}

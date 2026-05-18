@@ -2,18 +2,22 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { parseSlug } from "@/lib/validate-params";
 import { ShopHomePage } from "@/components/business/ShopHomePage";
 
 export default function ShopSlugRoute() {
+  const { t } = useI18n();
   const params = useParams();
   const slug = parseSlug(params.slug);
 
   if (!slug) {
     return (
       <div className="px-4 py-8 text-center sam-text-body text-sam-muted">
-        <Link href="/philife" className="text-signature">홈으로</Link>
+        <Link href="/philife" className="text-signature">
+          {t("app_error_go_home_short")}
+        </Link>
       </div>
     );
   }
@@ -23,7 +27,7 @@ export default function ShopSlugRoute() {
       <header className="sticky top-0 z-10 flex items-center border-b border-sam-border-soft bg-sam-surface px-4 py-3">
         <AppBackButton backHref="/" />
         <h1 className="flex-1 text-center sam-text-body-lg font-semibold text-sam-fg">
-          상점
+          {t("ui_finish_shop_title")}
         </h1>
         <span className="w-11 shrink-0" />
       </header>

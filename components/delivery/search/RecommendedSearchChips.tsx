@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function RecommendedSearchChips({
   keywords,
@@ -7,9 +8,10 @@ export function RecommendedSearchChips({
   keywords: string[];
   onPick: (keyword: string) => void;
 }) {
+  const { t } = useI18n();
   return (
     <section>
-      <h2 className="sam-text-body-secondary font-semibold text-sam-fg">추천 검색어</h2>
+      <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("ui_delivery_search_recommended_heading")}</h2>
       <ul className="mt-2 flex flex-wrap gap-2">
         {keywords.map((k) => (
           <li key={k}>

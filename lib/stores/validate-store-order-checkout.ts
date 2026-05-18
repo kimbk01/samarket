@@ -43,7 +43,7 @@ export type ValidateStoreOrderCheckoutResult =
       /** 검증 시 조회한 상품 — 재고 차감 재조회 생략 */
       productsById: Record<string, StoreOrderCheckoutProductRow>;
     }
-  | { ok: false; error: string; status: number; message?: string; min_order_php?: number };
+  | { ok: false; error: string; status: number; min_order_php?: number };
 
 type StoreRow = {
   id: string;
@@ -89,8 +89,6 @@ export function assertSingleStoreOnOrderItems(
   }
   return { ok: true };
 }
-
-const PRICE_CHANGED_MESSAGE = "메뉴 가격이 변경되어 장바구니를 다시 확인해주세요.";
 
 function productUnitPrice(p: StoreOrderCheckoutProductRow): number {
   const price = Number(p.price);
@@ -179,7 +177,7 @@ export async function validateStoreOrderCheckout(params: {
   const productRows = products as StoreOrderCheckoutProductRow[];
   const mixed = assertSingleStoreOnOrderItems(storeId, productRows);
   if (!mixed.ok) {
-    return { ok: false, error: mixed.error, status: 400, message: "한 번에 한 매장의 메뉴만 주문할 수 있습니다." };
+    return { ok: false, error: mixed.error, status: 400 };
   }
 
   const byId = Object.fromEntries(productRows.map((p) => [p.id, p]));
@@ -192,20 +190,10 @@ export async function validateStoreOrderCheckout(params: {
       return { ok: false, error: "invalid_product", status: 400 };
     }
     if (p.product_status === "sold_out") {
-      return {
-        ok: false,
-        error: "product_sold_out",
-        status: 400,
-        message: "품절된 메뉴가 포함되어 있습니다. 장바구니를 수정해 주세요.",
-      };
+      return { ok: false, error: "product_sold_out", status: 400 };
     }
     if (p.product_status !== "active") {
-      return {
-        ok: false,
-        error: "product_not_available",
-        status: 400,
-        message: "판매 중지된 메뉴가 포함되어 있습니다. 장바구니를 수정해 주세요.",
-      };
+      return { ok: false, error: "product_not_available", status: 400 };
     }
 
     const minQ = Math.max(1, Number(p.min_order_qty) || 1);
@@ -234,11 +222,7 @@ export async function validateStoreOrderCheckout(params: {
     const optVal = validateLineModifiers(groups, line.wire, baseUnit);
     if (!optVal.ok) {
       const err = optVal.error ?? "invalid_option";
-      const message =
-        err === "required_option_missing" || err === "invalid_option"
-          ? "필수 옵션이 변경되었습니다. 장바구니를 다시 확인해 주세요."
-          : undefined;
-      return { ok: false, error: err, status: 400, message };
+      return { ok: false, error: err, status: 400 };
     }
 
     const unit = baseUnit + optVal.unitDelta;
@@ -247,20 +231,10 @@ export async function validateStoreOrderCheckout(params: {
     }
 
     if (line.client_unit_php == null || !Number.isFinite(line.client_unit_php)) {
-      return {
-        ok: false,
-        error: "client_unit_php_required",
-        status: 400,
-        message: PRICE_CHANGED_MESSAGE,
-      };
+      return { ok: false, error: "client_unit_php_required", status: 400 };
     }
     if (Math.abs(unit - line.client_unit_php) >= 1) {
-      return {
-        ok: false,
-        error: "price_changed",
-        status: 400,
-        message: PRICE_CHANGED_MESSAGE,
-      };
+      return { ok: false, error: "price_changed", status: 400 };
     }
 
     const subtotal = unit * line.qty;
@@ -285,13 +259,7 @@ export async function validateStoreOrderCheckout(params: {
   const commerceExtras = parseCommerceExtrasFromHoursJson(storeRow.business_hours_json);
   const minOrderPhp = commerceExtras.minOrderPhp;
   if (minOrderPhp != null && minOrderPhp > 0 && paymentTotal < minOrderPhp) {
-    return {
-      ok: false,
-      error: "below_min_order",
-      status: 400,
-      min_order_php: minOrderPhp,
-      message: "최소 주문 금액에 맞지 않습니다. 장바구니 금액을 늘린 뒤 다시 시도해 주세요.",
-    };
+    return { ok: false, error: "below_min_order", status: 400, min_order_php: minOrderPhp };
   }
 
   const deliveryFeeAmount = resolveChargedDeliveryFeePhp(commerceExtras, paymentTotal, fulfillment);

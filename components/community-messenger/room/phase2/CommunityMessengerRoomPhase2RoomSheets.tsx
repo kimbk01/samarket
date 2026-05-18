@@ -88,10 +88,10 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
             {vm.activeSheet === "attach" ? (
               <>
                 <div className="border-b border-[color:var(--cm-room-divider)] px-4 py-3">
-                  <p className="sam-text-body-secondary font-semibold text-[color:var(--cm-room-text)]">첨부</p>
-                  <p className="mt-0.5 sam-text-helper text-[color:var(--cm-room-text-muted)]">보낼 항목을 선택하세요</p>
+                  <p className="sam-text-body-secondary font-semibold text-[color:var(--cm-room-text)]">{vm.t("common_attach")}</p>
+                  <p className="mt-0.5 sam-text-helper text-[color:var(--cm-room-text-muted)]">{vm.t("cm_ui_select_item_to_send")}</p>
                 </div>
-                <nav className="flex flex-col" aria-label="첨부">
+                <nav className="flex flex-col" aria-label={vm.t("common_attach")}>
                   <button
                     type="button"
                     onClick={() => vm.setActiveSheet("stickers")}
@@ -108,7 +108,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   >
                     <span className="flex items-center gap-2.5">
                       <Sticker className="h-5 w-5 shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
-                      스티커
+                      {vm.t("cm_ui_sticker")}
                     </span>
                     <span className="text-[color:var(--cm-room-text-muted)]">›</span>
                   </button>
@@ -118,7 +118,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     disabled={vm.roomUnavailable || vm.busy === "send-image" || !vm.canUploadAttachments}
                     className="flex min-h-[48px] w-full items-center justify-between border-b border-[color:var(--cm-room-divider)] px-4 py-3 text-left sam-text-body font-medium text-[color:var(--cm-room-text)] active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-40"
                   >
-                    사진 (갤러리)
+                    {vm.t("cm_ui_photo_gallery")}
                     <span className="text-[color:var(--cm-room-text-muted)]">›</span>
                   </button>
                   <button
@@ -127,7 +127,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     disabled={vm.roomUnavailable || vm.busy === "send-image" || !vm.canUploadAttachments}
                     className="flex min-h-[48px] w-full items-center justify-between border-b border-[color:var(--cm-room-divider)] px-4 py-3 text-left sam-text-body font-medium text-[color:var(--cm-room-text)] active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-40"
                   >
-                    카메라
+                    {vm.t("cm_ui_camera")}
                     <span className="text-[color:var(--cm-room-text-muted)]">›</span>
                   </button>
                   <button
@@ -136,7 +136,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     disabled={vm.roomUnavailable || vm.busy === "send-file" || !vm.canUploadAttachments}
                     className="flex min-h-[48px] w-full items-center justify-between border-b border-[color:var(--cm-room-divider)] px-4 py-3 text-left sam-text-body font-medium text-[color:var(--cm-room-text)] active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-40"
                   >
-                    파일
+                    {vm.t("cm_ui_file")}
                     <span className="text-[color:var(--cm-room-text-muted)]">›</span>
                   </button>
                   <button
@@ -145,7 +145,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     disabled={vm.roomUnavailable}
                     className="flex min-h-[48px] w-full items-center justify-between border-b border-[color:var(--cm-room-divider)] px-4 py-3 text-left sam-text-body font-medium text-[color:var(--cm-room-text)] active:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-40"
                   >
-                    위치
+                    {vm.t("common_location")}
                     <span className="text-[color:var(--cm-room-text-muted)]">›</span>
                   </button>
                 </nav>
@@ -155,7 +155,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     onClick={() => vm.setActiveSheet("menu")}
                     className="w-full rounded-ui-rect bg-[color:var(--cm-room-chat-bg)] px-3 py-2.5 text-center text-[13px] font-normal text-[color:var(--cm-room-text-muted)] active:opacity-90"
                   >
-                    사진·파일 모아보기 · 채팅방 정보는 서랍에서
+                    {vm.t("cm_ui_media_files_and_room_info_hint")}
                   </button>
                 </div>
                 <button
@@ -163,7 +163,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   onClick={vm.dismissRoomSheet}
                   className="mt-1 w-full border-t border-[color:var(--cm-room-divider)] py-3 sam-text-body font-medium text-[color:var(--cm-room-text-muted)] active:bg-[color:var(--cm-room-primary-soft)]"
                 >
-                  취소
+                  {vm.t("common_cancel")}
                 </button>
               </>
             ) : null}
@@ -171,8 +171,8 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
             {vm.activeSheet === "attach-confirm" && vm.attachmentConfirmDraft ? (
               <>
                 <div className="border-b border-[color:var(--cm-room-divider)] px-4 py-3">
-                  <p className="sam-text-body-secondary font-semibold text-[color:var(--cm-room-text)]">보내기 전 확인</p>
-                  <p className="mt-0.5 sam-text-helper text-[color:var(--cm-room-text-muted)]">취소하면 전송되지 않습니다</p>
+                  <p className="sam-text-body-secondary font-semibold text-[color:var(--cm-room-text)]">{vm.t("cm_ui_confirm_before_send")}</p>
+                  <p className="mt-0.5 sam-text-helper text-[color:var(--cm-room-text-muted)]">{vm.t("cm_ui_cancel_not_sent_hint")}</p>
                 </div>
                 <div className="max-h-[50vh] overflow-y-auto px-4 py-3">
                   {vm.attachmentConfirmDraft.kind === "image" ? (
@@ -193,7 +193,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={vm.attachmentConfirmDraft.previewUrls[0]}
-                        alt="선택한 이미지 미리보기"
+                        alt={vm.t("cm_ui_selected_image_preview_alt")}
                         className="mx-auto max-h-[40vh] w-auto max-w-full rounded-ui-rect object-contain"
                       />
                     )
@@ -221,7 +221,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     onClick={vm.cancelAttachmentConfirm}
                     className="min-h-[44px] flex-1 rounded-ui-rect border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-chat-bg)] text-[14px] font-semibold text-[color:var(--cm-room-text)] active:opacity-90"
                   >
-                    취소
+                    {vm.t("common_cancel")}
                   </button>
                   <button
                     type="button"
@@ -236,7 +236,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     }
                     className="min-h-[44px] flex-[1.15] rounded-ui-rect bg-[color:var(--cm-room-primary)] text-[14px] font-semibold text-white shadow-sm active:opacity-90 disabled:opacity-40"
                   >
-                    보내기
+                    {vm.t("common_send")}
                   </button>
                 </div>
               </>
@@ -256,13 +256,13 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
             {vm.activeSheet === "menu" && vm.isGroupRoom ? (
               <>
                 <div className="mb-3 flex shrink-0 items-center justify-between border-b border-sam-border pb-3">
-                  <p className="sam-text-section-title font-semibold text-sam-fg">채팅방</p>
+                  <p className="sam-text-section-title font-semibold text-sam-fg">{vm.t("cm_ui_chat_room")}</p>
                   <button
                     type="button"
                     onClick={vm.dismissRoomSheet}
                     className="rounded-ui-rect px-3 py-1.5 sam-text-body text-sam-muted transition active:bg-sam-app"
                   >
-                    닫기
+                    {vm.t("nav_close")}
                   </button>
                 </div>
 
@@ -277,7 +277,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   />
                   <h2 className="text-center sam-text-body-lg font-semibold leading-snug text-sam-fg">{vm.snapshot.room.title}</h2>
                   <p className="text-center sam-text-helper text-sam-muted">
-                    {vm.snapshot.room.memberCount}명 · {vm.myRoleLabel}
+                    {vm.t("nav_chat_count_people", { count: vm.snapshot.room.memberCount })} · {vm.myRoleLabel}
                   </p>
                 </div>
 
@@ -291,9 +291,9 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       <ImageIcon className="h-5 w-5" strokeWidth={2} aria-hidden />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block sam-text-body font-semibold text-sam-fg">사진/동영상</span>
+                      <span className="block sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_photo_video")}</span>
                       <span className="mt-0.5 block sam-text-helper text-sam-muted">
-                        사진 {vm.photoMessageCount}개 · 음성 {vm.voiceMessageCount}개
+                        {vm.t("cm_ui_photo_voice_count", { photos: vm.photoMessageCount, voices: vm.voiceMessageCount })}
                       </span>
                     </span>
                     <span className="sam-text-page-title text-sam-meta">›</span>
@@ -307,8 +307,8 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       <FileIcon className="h-5 w-5 shrink-0" />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block sam-text-body font-semibold text-sam-fg">파일</span>
-                      <span className="mt-0.5 block sam-text-helper text-sam-muted">파일 {vm.fileMessageCount}개</span>
+                      <span className="block sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_file")}</span>
+                      <span className="mt-0.5 block sam-text-helper text-sam-muted">{vm.t("cm_ui_file_count", { count: vm.fileMessageCount })}</span>
                     </span>
                     <span className="sam-text-page-title text-sam-meta">›</span>
                   </button>
@@ -321,8 +321,8 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       <Link2 className="h-5 w-5" strokeWidth={2} aria-hidden />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block sam-text-body font-semibold text-sam-fg">링크</span>
-                      <span className="mt-0.5 block sam-text-helper text-sam-muted">링크 {vm.linkMessageCount}개</span>
+                      <span className="block sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_link")}</span>
+                      <span className="mt-0.5 block sam-text-helper text-sam-muted">{vm.t("cm_ui_link_count", { count: vm.linkMessageCount })}</span>
                     </span>
                     <span className="sam-text-page-title text-sam-meta">›</span>
                   </button>
@@ -336,7 +336,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       className="flex min-h-[72px] flex-col items-start justify-between gap-1 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left transition active:bg-sam-app"
                     >
                       <Megaphone className="h-5 w-5 shrink-0 text-sky-600" strokeWidth={2} aria-hidden />
-                      <span className="sam-text-helper font-semibold text-sam-fg">공지</span>
+                      <span className="sam-text-helper font-semibold text-sam-fg">{vm.t("neighborhood_notice")}</span>
                       <span className="line-clamp-2 w-full sam-text-xxs leading-snug text-sam-muted">{vm.roomNotice}</span>
                     </button>
                   ) : (
@@ -345,9 +345,9 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       onClick={() => vm.openInfoSheet(vm.canEditGroupNotice ? "notice" : undefined)}
                       className="flex min-h-[72px] flex-col items-start justify-between gap-1 rounded-ui-rect border border-dashed border-sam-border bg-sam-app p-3 text-left transition active:bg-sam-surface"
                     >
-                      <span className="sam-text-helper font-semibold text-sam-muted">공지</span>
+                      <span className="sam-text-helper font-semibold text-sam-muted">{vm.t("neighborhood_notice")}</span>
                       <span className="sam-text-xxs text-sam-muted">
-                        {vm.canEditGroupNotice ? "탭해서 등록·수정" : "채팅방 정보에서 확인"}
+                        {vm.canEditGroupNotice ? vm.t("cm_ui_tap_to_register_edit") : vm.t("cm_ui_check_in_room_info")}
                       </span>
                     </button>
                   )}
@@ -360,8 +360,8 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     className="flex min-h-[72px] flex-col items-start justify-between gap-1 rounded-ui-rect border border-sam-border bg-sam-surface p-3 text-left transition active:bg-sam-app"
                   >
                     <Search className="h-5 w-5 shrink-0 text-sam-muted" strokeWidth={2} aria-hidden />
-                    <span className="sam-text-helper font-semibold text-sam-fg">대화 내 검색</span>
-                    <span className="sam-text-xxs text-sam-muted">메시지 · 보낸 사람</span>
+                    <span className="sam-text-helper font-semibold text-sam-fg">{vm.t("cm_ui_search_in_chat")}</span>
+                    <span className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_message_sender")}</span>
                   </button>
                 </div>
 
@@ -370,19 +370,22 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   onClick={() => vm.openInfoSheet()}
                   className="mt-2 flex w-full items-center justify-between rounded-ui-rect border border-sam-border px-4 py-3 text-left transition active:bg-sam-app"
                 >
-                  <span className="sam-text-body font-semibold text-sam-fg">채팅방 정보</span>
+                  <span className="sam-text-body font-semibold text-sam-fg">{vm.t("nav_messenger_room_info")}</span>
                   <span className="sam-text-page-title text-sam-meta">›</span>
                 </button>
 
                 <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-app px-4 py-3">
-                  <p className="sam-text-xxs font-medium text-sam-muted">그룹 통화</p>
+                  <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("nav_messenger_group_call")}</p>
                   <p className="mt-1 sam-text-body font-semibold text-sam-fg">{vm.groupCallStatusLabel}</p>
                   <p className="mt-0.5 sam-text-helper text-sam-muted">
                     {vm.activeGroupCall
-                      ? `${vm.activeGroupCall.callKind === "video" ? "영상" : "음성"} · ${vm.activeGroupCall.participants.length}명 참여`
+                      ? vm.t("cm_ui_group_call_participants", {
+                          kind: vm.activeGroupCall.callKind === "video" ? vm.t("nav_video_call_label") : vm.t("nav_voice_call_label"),
+                          count: vm.activeGroupCall.participants.length,
+                        })
                       : vm.canStartGroupCall
-                        ? "지금 시작 가능"
-                        : "시작 권한 없음"}
+                        ? vm.t("cm_ui_can_start_now")
+                        : vm.t("cm_ui_no_start_permission")}
                   </p>
                 </div>
 
@@ -393,7 +396,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     disabled={!vm.canStartGroupCall || vm.call.busy === "call-start" || vm.call.busy === "device-prepare"}
                     className="rounded-ui-rect border border-sam-border px-3 py-3 text-left sam-text-body font-semibold text-sam-fg transition active:bg-sam-surface disabled:opacity-40"
                   >
-                    그룹 음성 통화
+                    {vm.t("cm_ui_group_voice_call")}
                   </button>
                   <button
                     type="button"
@@ -401,12 +404,12 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     disabled={!vm.canStartGroupCall || vm.call.busy === "call-start" || vm.call.busy === "device-prepare"}
                     className="rounded-ui-rect border border-sam-border px-3 py-3 text-left sam-text-body font-semibold text-sam-fg transition active:bg-sam-surface disabled:opacity-40"
                   >
-                    그룹 영상 통화
+                    {vm.t("cm_ui_group_video_call")}
                   </button>
                 </div>
 
                 <p className="mt-5 px-0.5 sam-text-helper font-semibold text-sam-muted">
-                  대화상대 {vm.snapshot.room.memberCount}
+                  {vm.t("cm_ui_chat_partners_count", { count: vm.snapshot.room.memberCount })}
                 </p>
                 <div className="mt-2 space-y-1">
                   {vm.sortedMembers.slice(0, 12).map((member) => {
@@ -457,10 +460,10 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         <div className="min-w-0 flex-1">
                           <p className="truncate sam-text-body font-medium text-sam-fg">
                             {displayLabel}
-                            {isSelf ? " (나)" : ""}
+                            {isSelf ? ` (${vm.t("nav_messenger_me")})` : ""}
                           </p>
                           {member.memberRole === "admin" && !isRoomOwner ? (
-                            <p className="sam-text-xxs text-sam-muted">관리자</p>
+                            <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_admin")}</p>
                           ) : null}
                         </div>
                         {!isSelf ? <span className="sam-text-page-title text-sam-meta">›</span> : null}
@@ -473,12 +476,12 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   onClick={() => vm.setActiveSheet("members")}
                   className="mt-2 w-full rounded-ui-rect border border-sam-border py-2.5 sam-text-body font-medium text-sam-fg transition active:bg-sam-app"
                 >
-                  참여자 및 초대 · 전체 보기 ›
+                  {vm.t("cm_ui_members_invites_view_all")} ›
                 </button>
 
                 {vm.managementEventMessages.length ? (
                   <div className="mt-4 rounded-ui-rect border border-sam-border p-3">
-                    <p className="sam-text-body font-semibold text-sam-fg">운영 이력</p>
+                    <p className="sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_operation_history")}</p>
                     <div className="mt-2 space-y-2">
                       {vm.managementEventMessages.map((event) => {
                         const summary = describeManagementEvent(event.content);
@@ -509,14 +512,14 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     className="flex w-full items-center justify-between rounded-ui-rect border border-sam-border px-4 py-3 text-left disabled:opacity-40"
                   >
                     <span className="sam-text-body font-semibold text-sam-fg">
-                      {vm.snapshot.room.isMuted ? "이 채팅방 알림 켜기" : "이 채팅방 알림 끄기"}
+                      {vm.snapshot.room.isMuted ? vm.t("cm_ui_turn_on_room_notifications") : vm.t("cm_ui_turn_off_room_notifications")}
                     </span>
                     <span
                       className={`rounded-ui-rect px-2 py-1 sam-text-xxs font-semibold ${
                         vm.snapshot.room.isMuted ? "bg-sam-ink text-white" : "bg-sam-surface-muted text-sam-muted"
                       }`}
                     >
-                      {vm.busy === "room-mute" ? "저장 중" : vm.snapshot.room.isMuted ? "꺼짐" : "켜짐"}
+                      {vm.busy === "room-mute" ? vm.t("common_processing") : vm.snapshot.room.isMuted ? vm.t("cm_ui_off") : vm.t("cm_ui_on")}
                     </span>
                   </button>
                   <button
@@ -526,14 +529,14 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     className="flex w-full items-center justify-between rounded-ui-rect border border-sam-border px-4 py-3 text-left disabled:opacity-40"
                   >
                     <span className="sam-text-body font-semibold text-sam-fg">
-                      {!vm.snapshot.room.isArchivedByViewer ? "이 채팅방 보관" : "이 채팅방 보관 해제"}
+                      {!vm.snapshot.room.isArchivedByViewer ? vm.t("cm_ui_archive_room") : vm.t("cm_ui_unarchive_room")}
                     </span>
                     <span
                       className={`rounded-ui-rect px-2 py-1 sam-text-xxs font-semibold ${
                         !vm.snapshot.room.isArchivedByViewer ? "bg-sam-surface-muted text-sam-muted" : "bg-sam-ink text-white"
                       }`}
                     >
-                      {vm.busy === "room-archive" ? "저장 중" : !vm.snapshot.room.isArchivedByViewer ? "활성" : "보관됨"}
+                      {vm.busy === "room-archive" ? vm.t("common_processing") : !vm.snapshot.room.isArchivedByViewer ? vm.t("common_active") : vm.t("cm_ui_archived")}
                     </span>
                   </button>
                 </div>
@@ -554,7 +557,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     {vm.busy === "leave-room"
                       ? vm.t("nav_messenger_leaving")
                       : vm.isOwner && vm.isPrivateGroupRoom
-                        ? "방장 위임 후 나가기"
+                        ? vm.t("cm_ui_leave_after_owner_transfer")
                         : vm.t("nav_messenger_leave_group_room")}
                   </button>
                   <button
@@ -590,29 +593,31 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   {vm.isGroupRoom ? (
                     <div className="grid grid-cols-3 gap-2">
                       <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
-                        <p className="sam-text-xxs font-medium text-sam-muted">참여자</p>
-                        <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.snapshot.room.memberCount}명</p>
+                        <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("nav_messenger_participants")}</p>
+                        <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.t("nav_chat_count_people", { count: vm.snapshot.room.memberCount })}</p>
                         <p className="mt-1 sam-text-helper text-sam-muted">{vm.roomTypeLabel}</p>
                       </div>
                       <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
-                        <p className="sam-text-xxs font-medium text-sam-muted">운영진</p>
-                        <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">방장 1 · 관리자 {vm.groupAdminCount}</p>
-                        <p className="mt-1 sam-text-helper text-sam-muted">현재 그룹 운영 가능 인원</p>
+                        <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_operation_team")}</p>
+                        <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.t("cm_ui_owner_admin_count", { count: vm.groupAdminCount })}</p>
+                        <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_group_operation_capacity")}</p>
                       </div>
                       <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
-                        <p className="sam-text-xxs font-medium text-sam-muted">초대 상태</p>
-                        <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.canInviteMembers ? "가능" : "제한"}</p>
+                        <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_invite_status")}</p>
+                        <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.canInviteMembers ? vm.t("cm_ui_possible") : vm.t("cm_ui_limited")}</p>
                         <p className="mt-1 sam-text-helper text-sam-muted">
-                          닉네임 프로필 {vm.aliasProfileCount}명
-                          {vm.roomMembersDisplay.length < vm.snapshot.room.memberCount ? " · 표시 범위 기준" : ""}
+                          {vm.t("cm_ui_alias_profile_count", { count: vm.aliasProfileCount })}
+                          {vm.roomMembersDisplay.length < vm.snapshot.room.memberCount ? ` · ${vm.t("cm_ui_based_on_display_range")}` : ""}
                         </p>
                       </div>
                     </div>
                   ) : null}
                   {vm.isGroupRoom && vm.snapshot.room.memberCount > vm.roomMembersDisplay.length ? (
                     <p className="sam-text-helper leading-5 text-sam-muted">
-                      참여자 {vm.snapshot.room.memberCount}명 중 {vm.roomMembersDisplay.length}명 프로필을 불러왔습니다. 나머지는
-                      아래에서 더 불러올 수 있습니다.
+                      {vm.t("cm_ui_loaded_member_profiles", {
+                        total: vm.snapshot.room.memberCount,
+                        loaded: vm.roomMembersDisplay.length,
+                      })}
                     </p>
                   ) : null}
                   {vm.isGroupRoom && vm.membersListNextOffset !== null ? (
@@ -622,14 +627,14 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       disabled={vm.membersPagingBusy}
                       className="w-full rounded-ui-rect border border-sam-border bg-sam-app px-4 py-3 sam-text-body font-medium text-sam-fg disabled:opacity-50"
                     >
-                      {vm.membersPagingBusy ? "불러오는 중…" : "멤버 더 불러오기"}
+                      {vm.membersPagingBusy ? vm.t("common_loading") : vm.t("cm_ui_load_more_members")}
                     </button>
                   ) : null}
                   {vm.isOwner && vm.isPrivateGroupRoom ? (
                     <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
-                      <p className="sam-text-body-secondary font-semibold text-sam-fg">운영 안내</p>
+                      <p className="sam-text-body-secondary font-semibold text-sam-fg">{vm.t("cm_ui_operation_guide")}</p>
                       <p className="mt-1 sam-text-helper leading-5 text-sam-muted">
-                        멤버를 선택하면 방장 위임, 관리자 지정, 내보내기를 같은 메뉴에서 바로 처리할 수 있습니다.
+                        {vm.t("cm_ui_member_action_guide")}
                       </p>
                     </div>
                   ) : null}
@@ -649,17 +654,17 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                             <p className="sam-text-body font-semibold text-sam-fg">{member.label}</p>
                             {vm.snapshot.room.ownerUserId && messengerUserIdsEqual(member.id, vm.snapshot.room.ownerUserId) ? (
                               <span className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-0.5 sam-text-xxs font-semibold text-sam-fg">
-                                방장
+                                {vm.t("nav_messenger_owner_label")}
                               </span>
                             ) : null}
                             {member.memberRole === "admin" ? (
-                              <span className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-0.5 sam-text-xxs font-semibold text-sam-fg">관리자</span>
+                              <span className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-0.5 sam-text-xxs font-semibold text-sam-fg">{vm.t("cm_ui_admin")}</span>
                             ) : null}
                             {messengerUserIdsEqual(member.id, vm.snapshot.viewerUserId) ? (
-                              <span className="rounded-ui-rect bg-sam-surface-muted px-2 py-0.5 sam-text-xxs font-semibold text-sam-fg">나</span>
+                              <span className="rounded-ui-rect bg-sam-surface-muted px-2 py-0.5 sam-text-xxs font-semibold text-sam-fg">{vm.t("nav_messenger_me")}</span>
                             ) : null}
                             {member.identityMode === "alias" ? (
-                              <span className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-0.5 sam-text-xxs font-semibold text-sam-fg">닉네임</span>
+                              <span className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-0.5 sam-text-xxs font-semibold text-sam-fg">{vm.t("cm_ui_nickname")}</span>
                             ) : null}
                           </div>
                           <p className="mt-1 sam-text-helper text-sam-muted">
@@ -667,7 +672,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                           </p>
                           {!messengerUserIdsEqual(member.id, vm.snapshot.viewerUserId) ? (
                             <p className="mt-2 sam-text-xxs text-sam-meta">
-                              {vm.isPrivateGroupRoom ? "탭해서 대화, 역할, 내보내기" : "탭해서 대화와 프로필 액션"}
+                              {vm.isPrivateGroupRoom ? vm.t("cm_ui_tap_for_chat_role_kick") : vm.t("cm_ui_tap_for_chat_profile_actions")}
                             </p>
                           ) : null}
                         </div>
@@ -684,7 +689,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       <div>
                         <p className="sam-text-body font-semibold text-sam-fg">{vm.t("nav_messenger_invite_members")}</p>
                         <p className="mt-1 sam-text-helper text-sam-muted">
-                          {vm.canInviteMembers ? vm.t("nav_messenger_invite_members_desc") : "이 방은 현재 멤버 초대가 제한되어 있습니다."}
+                          {vm.canInviteMembers ? vm.t("nav_messenger_invite_members_desc") : vm.t("cm_ui_member_invite_restricted")}
                         </p>
                       </div>
                       <span className="rounded-ui-rect bg-sam-surface px-2 py-1 sam-text-xxs font-semibold text-sam-muted">
@@ -694,21 +699,21 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     {vm.canInviteMembers && vm.inviteCandidates.length ? (
                       <>
                         <div className="mt-3 flex items-center justify-between gap-3">
-                          <p className="sam-text-helper text-sam-muted">초대 후보 {vm.filteredInviteCandidates.length}명 · 선택 {vm.inviteIds.length}명</p>
+                          <p className="sam-text-helper text-sam-muted">{vm.t("cm_ui_invite_candidate_selected_count", { candidates: vm.filteredInviteCandidates.length, selected: vm.inviteIds.length })}</p>
                           {vm.inviteIds.length ? (
                             <button
                               type="button"
                               onClick={() => vm.setInviteIds([])}
                               className="rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1 sam-text-xxs font-medium text-sam-muted"
                             >
-                              선택 해제
+                              {vm.t("cm_ui_clear_selection")}
                             </button>
                           ) : null}
                         </div>
                         <input
                           value={vm.inviteSearchQuery}
                           onChange={(e) => vm.setInviteSearchQuery(e.target.value)}
-                          placeholder="친구 검색"
+                          placeholder={vm.t("cm_ui_search_friends")}
                           className="mt-3 h-10 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 sam-text-body-secondary outline-none focus:border-sam-border"
                         />
                         {vm.selectedInviteCandidates.length ? (
@@ -720,7 +725,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                                 onClick={() => vm.setInviteIds((prev) => prev.filter((id) => id !== friend.id))}
                                 className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-medium text-sam-fg"
                               >
-                                {friend.label} 닫기
+                                {friend.label} {vm.t("nav_close")}
                               </button>
                             ))}
                           </div>
@@ -751,11 +756,11 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                           </label>
                         ))
                       ) : vm.canInviteMembers && vm.inviteCandidates.length ? (
-                        <p className="sam-text-helper text-sam-muted">검색 결과가 없습니다.</p>
+                        <p className="sam-text-helper text-sam-muted">{vm.t("cm_ui_no_search_results")}</p>
                       ) : vm.canInviteMembers ? (
                         <p className="sam-text-helper text-sam-muted">{vm.t("nav_messenger_no_invitable_friends")}</p>
                       ) : (
-                        <p className="sam-text-helper text-sam-muted">친구 초대는 방장이 허용한 방에서만 사용할 수 있습니다.</p>
+                        <p className="sam-text-helper text-sam-muted">{vm.t("cm_ui_friend_invite_owner_allowed_only")}</p>
                       )}
                     </div>
                     <button
@@ -790,29 +795,29 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                 <div className="mt-4 space-y-3">
                   <div className="grid grid-cols-2 gap-2">
                     <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
-                      <p className="sam-text-xxs font-medium text-sam-muted">참여자</p>
-                      <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.snapshot.room.memberCount}명</p>
+                      <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("nav_messenger_participants")}</p>
+                      <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.t("nav_chat_count_people", { count: vm.snapshot.room.memberCount })}</p>
                       <p className="mt-1 sam-text-helper text-sam-muted">{vm.roomTypeLabel}</p>
                     </div>
                     <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
-                      <p className="sam-text-xxs font-medium text-sam-muted">내 상태</p>
+                      <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_my_status")}</p>
                       <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.myRoleLabel}</p>
-                      <p className="mt-1 sam-text-helper text-sam-muted">{vm.roomIdentityLabel || "기본 프로필"}</p>
+                      <p className="mt-1 sam-text-helper text-sam-muted">{vm.roomIdentityLabel || vm.t("cm_ui_default_profile")}</p>
                     </div>
                     <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
-                      <p className="sam-text-xxs font-medium text-sam-muted">참여 방식</p>
-                      <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.roomJoinLabel || "기본 입장"}</p>
+                      <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_join_method")}</p>
+                      <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.roomJoinLabel || vm.t("cm_ui_default_join")}</p>
                       <p className="mt-1 sam-text-helper text-sam-muted">
-                        {vm.isOpenGroupRoom ? (vm.snapshot.room.isDiscoverable ? "검색 노출" : "비공개") : "초대 기반"}
+                        {vm.isOpenGroupRoom ? (vm.snapshot.room.isDiscoverable ? vm.t("cm_ui_search_visibility") : vm.t("nav_messenger_private_group")) : vm.t("cm_ui_invite_based")}
                       </p>
                     </div>
                     <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
-                      <p className="sam-text-xxs font-medium text-sam-muted">공유 항목</p>
+                      <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_shared_items")}</p>
                       <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">
-                        {vm.photoMessageCount + vm.voiceMessageCount + vm.fileMessageCount + vm.linkMessageCount}개
+                        {vm.t("cm_ui_count_items", { count: vm.photoMessageCount + vm.voiceMessageCount + vm.fileMessageCount + vm.linkMessageCount })}
                       </p>
                       <p className="mt-1 sam-text-helper text-sam-muted">
-                        사진 {vm.photoMessageCount} · 파일 {vm.fileMessageCount}
+                        {vm.t("cm_ui_photo_file_counts", { photos: vm.photoMessageCount, files: vm.fileMessageCount })}
                       </p>
                     </div>
                   </div>
@@ -823,16 +828,16 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       onClick={() => vm.setActiveSheet("members")}
                       className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
                     >
-                      <p className="sam-text-xxs text-sam-muted">참여자</p>
-                      <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.isGroupRoom ? "멤버 관리" : "상대 정보"}</p>
+                      <p className="sam-text-xxs text-sam-muted">{vm.t("nav_messenger_participants")}</p>
+                      <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.isGroupRoom ? vm.t("cm_ui_member_management") : vm.t("cm_ui_peer_info")}</p>
                     </button>
                     <button
                       type="button"
                       onClick={() => vm.setActiveSheet("media")}
                       className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
                     >
-                      <p className="sam-text-xxs text-sam-muted">미디어</p>
-                      <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">사진·음성</p>
+                      <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_media")}</p>
+                      <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.t("cm_ui_photo_voice")}</p>
                     </button>
                     <button
                       type="button"
@@ -842,13 +847,13 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       }}
                       className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
                     >
-                      <p className="sam-text-xxs text-sam-muted">검색</p>
-                      <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">대화 내 검색</p>
+                      <p className="sam-text-xxs text-sam-muted">{vm.t("common_search")}</p>
+                      <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.t("cm_ui_search_in_chat")}</p>
                     </button>
                   </div>
 
                   <div className="rounded-ui-rect border border-sam-border p-4">
-                    <p className="sam-text-body font-semibold text-sam-fg">기본 정보</p>
+                    <p className="sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_basic_info")}</p>
                     <p className="mt-3 sam-text-body font-semibold text-sam-fg">{vm.snapshot.room.title}</p>
                     <p className="mt-2 sam-text-body-secondary leading-5 text-sam-muted">
                       {vm.roomSummaryHoldsOnlyTradeOrDeliveryMeta
@@ -857,55 +862,55 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     </p>
                     <div className="mt-4 space-y-2 border-t border-sam-border-soft pt-4 sam-text-body-secondary text-sam-fg">
                       <div className="flex items-center justify-between gap-3">
-                        <span className="text-sam-muted">채팅방 종류</span>
+                        <span className="text-sam-muted">{vm.t("cm_ui_room_type")}</span>
                         <span className="font-medium text-sam-fg">{vm.roomTypeLabel}</span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
-                        <span className="text-sam-muted">참여자</span>
-                        <span className="font-medium text-sam-fg">{vm.snapshot.room.memberCount}명</span>
+                        <span className="text-sam-muted">{vm.t("nav_messenger_participants")}</span>
+                        <span className="font-medium text-sam-fg">{vm.t("nav_chat_count_people", { count: vm.snapshot.room.memberCount })}</span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
-                        <span className="text-sam-muted">방장</span>
+                        <span className="text-sam-muted">{vm.t("nav_messenger_owner_label")}</span>
                         <span className="font-medium text-sam-fg">{vm.snapshot.room.ownerLabel || "-"}</span>
                       </div>
                       <div className="flex items-center justify-between gap-3">
-                        <span className="text-sam-muted">내 역할</span>
+                        <span className="text-sam-muted">{vm.t("cm_ui_my_role")}</span>
                         <span className="font-medium text-sam-fg">{vm.myRoleLabel}</span>
                       </div>
                       {vm.snapshot.room.memberLimit ? (
                         <div className="flex items-center justify-between gap-3">
-                          <span className="text-sam-muted">최대 인원</span>
-                          <span className="font-medium text-sam-fg">{vm.snapshot.room.memberLimit}명</span>
+                          <span className="text-sam-muted">{vm.t("cm_ui_max_members")}</span>
+                          <span className="font-medium text-sam-fg">{vm.t("nav_chat_count_people", { count: vm.snapshot.room.memberLimit })}</span>
                         </div>
                       ) : null}
                       {vm.roomJoinLabel ? (
                         <div className="flex items-center justify-between gap-3">
-                          <span className="text-sam-muted">참여 방식</span>
+                          <span className="text-sam-muted">{vm.t("cm_ui_join_method")}</span>
                           <span className="font-medium text-sam-fg">{vm.roomJoinLabel}</span>
                         </div>
                       ) : null}
                       {vm.roomIdentityLabel ? (
                         <div className="flex items-center justify-between gap-3">
-                          <span className="text-sam-muted">표시 이름</span>
+                          <span className="text-sam-muted">{vm.t("cm_ui_display_name")}</span>
                           <span className="font-medium text-sam-fg">{vm.roomIdentityLabel}</span>
                         </div>
                       ) : null}
                       {vm.isOpenGroupRoom ? (
                         <div className="flex items-center justify-between gap-3">
-                          <span className="text-sam-muted">검색 노출</span>
-                          <span className="font-medium text-sam-fg">{vm.snapshot.room.isDiscoverable ? "허용" : "비공개"}</span>
+                          <span className="text-sam-muted">{vm.t("cm_ui_search_visibility")}</span>
+                          <span className="font-medium text-sam-fg">{vm.snapshot.room.isDiscoverable ? vm.t("cm_ui_allowed") : vm.t("nav_messenger_private_group")}</span>
                         </div>
                       ) : null}
                       {vm.isOpenGroupRoom ? (
                         <div className="flex items-center justify-between gap-3">
-                          <span className="text-sam-muted">비밀번호</span>
-                          <span className="font-medium text-sam-fg">{vm.snapshot.room.requiresPassword ? "사용" : "없음"}</span>
+                          <span className="text-sam-muted">{vm.t("nav_messenger_password_short")}</span>
+                          <span className="font-medium text-sam-fg">{vm.snapshot.room.requiresPassword ? vm.t("cm_ui_enabled") : vm.t("common_none")}</span>
                         </div>
                       ) : null}
                       {vm.isPrivateGroupRoom ? (
                         <div className="flex items-center justify-between gap-3">
-                          <span className="text-sam-muted">멤버 초대</span>
-                          <span className="font-medium text-sam-fg">{vm.snapshot.room.allowMemberInvite ? "허용" : "제한"}</span>
+                          <span className="text-sam-muted">{vm.t("nav_messenger_invite_members")}</span>
+                          <span className="font-medium text-sam-fg">{vm.snapshot.room.allowMemberInvite ? vm.t("cm_ui_allowed") : vm.t("cm_ui_limited")}</span>
                         </div>
                       ) : null}
                     </div>
@@ -913,20 +918,20 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
 
                   {vm.isGroupRoom ? (
                     <div className="rounded-ui-rect border border-sam-border p-4">
-                      <p className="sam-text-body font-semibold text-sam-fg">통화 상태</p>
+                      <p className="sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_call_status")}</p>
                       <div className="mt-3 space-y-2 sam-text-body-secondary text-sam-fg">
                         <div className="flex items-center justify-between gap-3">
-                          <span className="text-sam-muted">현재 상태</span>
+                          <span className="text-sam-muted">{vm.t("cm_ui_current_status")}</span>
                           <span className="font-medium text-sam-fg">{vm.groupCallStatusLabel}</span>
                         </div>
                         <div className="flex items-center justify-between gap-3">
-                          <span className="text-sam-muted">시작 권한</span>
-                          <span className="font-medium text-sam-fg">{vm.canStartGroupCall ? "가능" : "제한"}</span>
+                          <span className="text-sam-muted">{vm.t("cm_ui_start_permission")}</span>
+                          <span className="font-medium text-sam-fg">{vm.canStartGroupCall ? vm.t("cm_ui_possible") : vm.t("cm_ui_limited")}</span>
                         </div>
                         {vm.activeGroupCall ? (
                           <div className="flex items-center justify-between gap-3">
-                            <span className="text-sam-muted">현재 참여자</span>
-                            <span className="font-medium text-sam-fg">{vm.activeGroupCall.participants.length}명</span>
+                            <span className="text-sam-muted">{vm.t("cm_ui_current_participants")}</span>
+                            <span className="font-medium text-sam-fg">{vm.t("nav_chat_count_people", { count: vm.activeGroupCall.participants.length })}</span>
                           </div>
                         ) : null}
                       </div>
@@ -934,14 +939,14 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   ) : null}
 
                   <div className="rounded-ui-rect border border-sam-border p-4">
-                    <p className="sam-text-body font-semibold text-sam-fg">공유된 항목</p>
+                    <p className="sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_shared_items")}</p>
                     <div className="mt-3 grid grid-cols-4 gap-2">
                       <button
                         type="button"
                         onClick={() => vm.setActiveSheet("media")}
                         className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
                       >
-                        <p className="sam-text-xxs text-sam-muted">사진</p>
+                        <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_photo")}</p>
                         <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.photoMessageCount}</p>
                       </button>
                       <button
@@ -949,7 +954,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         onClick={() => vm.setActiveSheet("media")}
                         className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
                       >
-                        <p className="sam-text-xxs text-sam-muted">음성</p>
+                        <p className="sam-text-xxs text-sam-muted">{vm.t("nav_voice_call_label")}</p>
                         <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.voiceMessageCount}</p>
                       </button>
                       <button
@@ -957,7 +962,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         onClick={() => vm.setActiveSheet("files")}
                         className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
                       >
-                        <p className="sam-text-xxs text-sam-muted">파일</p>
+                        <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_file")}</p>
                         <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.fileMessageCount}</p>
                       </button>
                       <button
@@ -965,7 +970,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         onClick={() => vm.setActiveSheet("links")}
                         className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
                       >
-                        <p className="sam-text-xxs text-sam-muted">링크</p>
+                        <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_link")}</p>
                         <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.linkMessageCount}</p>
                       </button>
                     </div>
@@ -975,28 +980,28 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     <div className="rounded-ui-rect border border-sam-border p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="sam-text-body font-semibold text-sam-fg">운영</p>
+                          <p className="sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_operation")}</p>
                           <p className="mt-1 sam-text-helper text-sam-muted">
-                            방장 {vm.snapshot.room.ownerLabel ? `· ${vm.snapshot.room.ownerLabel}` : ""} · 관리자 {vm.groupAdminCount}명
+                            {vm.t("cm_ui_owner_admin_summary", { owner: vm.snapshot.room.ownerLabel || "-", count: vm.groupAdminCount })}
                           </p>
                         </div>
                         <span className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1 sam-text-xxs font-semibold text-sam-fg">{vm.myRoleLabel}</span>
                       </div>
                       <div className="mt-3 grid grid-cols-3 gap-2">
                         <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3">
-                          <p className="sam-text-xxs text-sam-muted">공지</p>
+                          <p className="sam-text-xxs text-sam-muted">{vm.t("neighborhood_notice")}</p>
                           <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.privateGroupNoticeStatusLabel}</p>
-                          <p className="mt-1 sam-text-xxs text-sam-meta">상단 고정 상태</p>
+                          <p className="mt-1 sam-text-xxs text-sam-meta">{vm.t("cm_ui_top_fixed_status")}</p>
                         </div>
                         <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3">
-                          <p className="sam-text-xxs text-sam-muted">허용 권한</p>
+                          <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_allowed_permissions")}</p>
                           <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.allowedPrivateGroupPermissionCount}/6</p>
-                          <p className="mt-1 sam-text-xxs text-sam-meta">운영 설정 반영</p>
+                          <p className="mt-1 sam-text-xxs text-sam-meta">{vm.t("cm_ui_operation_settings_applied")}</p>
                         </div>
                         <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3">
-                          <p className="sam-text-xxs text-sam-muted">운영 이력</p>
-                          <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.managementEventMessages.length}건</p>
-                          <p className="mt-1 sam-text-xxs text-sam-meta">역할 변경 기록</p>
+                          <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_operation_history")}</p>
+                          <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.t("cm_ui_count_items", { count: vm.managementEventMessages.length })}</p>
+                          <p className="mt-1 sam-text-xxs text-sam-meta">{vm.t("cm_ui_role_change_history")}</p>
                         </div>
                       </div>
                       <div className="mt-3 grid grid-cols-3 gap-2">
@@ -1005,27 +1010,27 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                           onClick={() => vm.openInfoSheet("notice")}
                           className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
                         >
-                          <p className="sam-text-xxs text-sam-muted">운영</p>
-                          <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">공지</p>
-                          <p className="mt-1 sam-text-xxs text-sam-meta">등록 및 수정</p>
+                          <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_operation")}</p>
+                          <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.t("neighborhood_notice")}</p>
+                          <p className="mt-1 sam-text-xxs text-sam-meta">{vm.t("cm_ui_register_edit")}</p>
                         </button>
                         <button
                           type="button"
                           onClick={() => vm.openInfoSheet("permissions")}
                           className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
                         >
-                          <p className="sam-text-xxs text-sam-muted">운영</p>
-                          <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">권한</p>
-                          <p className="mt-1 sam-text-xxs text-sam-meta">허용 범위 조정</p>
+                          <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_operation")}</p>
+                          <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.t("cm_ui_permissions")}</p>
+                          <p className="mt-1 sam-text-xxs text-sam-meta">{vm.t("cm_ui_adjust_allowed_range")}</p>
                         </button>
                         <button
                           type="button"
                           onClick={() => vm.openInfoSheet("history")}
                           className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-left"
                         >
-                          <p className="sam-text-xxs text-sam-muted">운영</p>
-                          <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">이력</p>
-                          <p className="mt-1 sam-text-xxs text-sam-meta">시스템 기록 보기</p>
+                          <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_operation")}</p>
+                          <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.t("cm_ui_history")}</p>
+                          <p className="mt-1 sam-text-xxs text-sam-meta">{vm.t("cm_ui_view_system_history")}</p>
                         </button>
                       </div>
                       <div className="mt-3 grid gap-2">
@@ -1034,7 +1039,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                           onClick={() => vm.setActiveSheet("members")}
                           className="rounded-ui-rect border border-sam-border px-4 py-3 text-left sam-text-body-secondary font-semibold text-sam-fg"
                         >
-                          {vm.isOwner ? "멤버 · 위임" : "멤버 · 초대"}
+                          {vm.isOwner ? vm.t("cm_ui_members_transfer") : vm.t("cm_ui_members_invite")}
                         </button>
                         <button
                           type="button"
@@ -1051,7 +1056,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                           {vm.busy === "leave-room"
                             ? vm.t("nav_messenger_leaving")
                             : vm.isOwner
-                              ? "방장 위임 후 나가기"
+                              ? vm.t("cm_ui_leave_after_owner_transfer")
                               : vm.t("nav_messenger_leave_group_room")}
                         </button>
                       </div>
@@ -1063,14 +1068,14 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="sam-text-body font-semibold text-sam-fg">
-                            {vm.isOpenGroupRoom ? "모임 공지" : "그룹 공지"}
+                            {vm.isOpenGroupRoom ? vm.t("cm_ui_meeting_notice") : vm.t("cm_ui_group_notice")}
                           </p>
                           <p className="mt-1 sam-text-helper text-sam-muted">
                             {vm.privateGroupNotice
                               ? vm.isOpenGroupRoom
-                                ? "참가자에게 표시 중"
-                                : "상단과 서랍에 노출 중"
-                              : "등록된 공지 없음"}
+                                ? vm.t("cm_ui_shown_to_participants")
+                                : vm.t("cm_ui_shown_top_and_drawer")
+                              : vm.t("cm_ui_no_registered_notice")}
                           </p>
                         </div>
                         {vm.snapshot.room.noticeUpdatedAt ? (
@@ -1081,12 +1086,12 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       </div>
                       <div className="mt-3 grid grid-cols-2 gap-2">
                         <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3">
-                          <p className="sam-text-xxs text-sam-muted">상태</p>
+                          <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_status")}</p>
                           <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.privateGroupNoticeStatusLabel}</p>
                         </div>
                         <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3">
-                          <p className="sam-text-xxs text-sam-muted">노출</p>
-                          <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.privateGroupNotice ? "상단 표시" : "미설정"}</p>
+                          <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_visibility")}</p>
+                          <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.privateGroupNotice ? vm.t("cm_ui_shown_top") : vm.t("cm_ui_not_set")}</p>
                         </div>
                       </div>
                       {vm.canEditGroupNotice ? (
@@ -1095,7 +1100,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                             value={vm.privateGroupNoticeDraft}
                             onChange={(e) => vm.setPrivateGroupNoticeDraft(e.target.value)}
                             rows={4}
-                            placeholder={vm.isOpenGroupRoom ? "모임 공지를 입력하세요" : "그룹 공지를 입력하세요"}
+                            placeholder={vm.isOpenGroupRoom ? vm.t("cm_ui_enter_meeting_notice") : vm.t("cm_ui_enter_group_notice")}
                             className="w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-body outline-none focus:border-sam-border"
                           />
                           <button
@@ -1104,7 +1109,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                             disabled={vm.busy === "group-notice"}
                             className="rounded-ui-rect bg-sam-ink px-4 py-3 sam-text-body-secondary font-semibold text-white disabled:opacity-40"
                           >
-                            {vm.busy === "group-notice" ? "저장 중" : "공지 저장"}
+                            {vm.busy === "group-notice" ? vm.t("common_processing") : vm.t("cm_ui_save_notice")}
                           </button>
                         </div>
                       ) : vm.privateGroupNotice ? (
@@ -1113,7 +1118,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                         </div>
                       ) : (
                         <div className="mt-3 rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-3 py-4 sam-text-helper text-sam-muted">
-                          {vm.isOpenGroupRoom ? "아직 등록된 모임 공지가 없습니다." : "아직 등록된 그룹 공지가 없습니다."}
+                          {vm.isOpenGroupRoom ? vm.t("cm_ui_no_registered_meeting_notice") : vm.t("cm_ui_no_registered_group_notice")}
                         </div>
                       )}
                     </div>
@@ -1123,23 +1128,23 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     <div ref={vm.groupPermissionsSectionRef} className="rounded-ui-rect border border-sam-border p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="sam-text-body font-semibold text-sam-fg">권한 설정</p>
-                          <p className="mt-1 sam-text-helper text-sam-muted">허용 {vm.allowedPrivateGroupPermissionCount}개 · 제한 {6 - vm.allowedPrivateGroupPermissionCount}개</p>
+                          <p className="sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_permission_settings")}</p>
+                          <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_allowed_limited_counts", { allowed: vm.allowedPrivateGroupPermissionCount, limited: 6 - vm.allowedPrivateGroupPermissionCount })}</p>
                         </div>
                         <span className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1 sam-text-xxs font-semibold text-sam-fg">{vm.myRoleLabel}</span>
                       </div>
                       <div className="mt-3 grid grid-cols-2 gap-2">
                         <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3">
-                          <p className="sam-text-xxs text-sam-muted">허용</p>
-                          <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.allowedPrivateGroupPermissionCount}개</p>
+                          <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_allowed")}</p>
+                          <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.t("cm_ui_count_items", { count: vm.allowedPrivateGroupPermissionCount })}</p>
                         </div>
                         <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3">
-                          <p className="sam-text-xxs text-sam-muted">제한</p>
-                          <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{6 - vm.allowedPrivateGroupPermissionCount}개</p>
+                          <p className="sam-text-xxs text-sam-muted">{vm.t("cm_ui_limited")}</p>
+                          <p className="mt-1 sam-text-body-secondary font-semibold text-sam-fg">{vm.t("cm_ui_count_items", { count: 6 - vm.allowedPrivateGroupPermissionCount })}</p>
                         </div>
                       </div>
                       <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-surface p-3">
-                        <p className="sam-text-helper font-semibold text-sam-fg">권한 요약</p>
+                        <p className="sam-text-helper font-semibold text-sam-fg">{vm.t("cm_ui_permission_summary")}</p>
                         <div className="mt-2 space-y-1.5 sam-text-helper text-sam-muted">
                           {vm.privateGroupPermissionRows.map((row) => (
                             <div key={row.label} className="flex items-center justify-between gap-3">
@@ -1151,27 +1156,27 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       </div>
                       <div className="mt-3 grid gap-2">
                         <label className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
-                          <span className="sam-text-body-secondary font-medium text-sam-fg">일반 멤버 초대 허용</span>
+                          <span className="sam-text-body-secondary font-medium text-sam-fg">{vm.t("cm_ui_allow_member_invite")}</span>
                           <input type="checkbox" checked={vm.groupAllowMemberInvite} onChange={(e) => vm.setGroupAllowMemberInvite(e.target.checked)} disabled={!vm.canManageGroupPermissions} />
                         </label>
                         <label className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
-                          <span className="sam-text-body-secondary font-medium text-sam-fg">관리자 초대 허용</span>
+                          <span className="sam-text-body-secondary font-medium text-sam-fg">{vm.t("cm_ui_allow_admin_invite")}</span>
                           <input type="checkbox" checked={vm.groupAllowAdminInvite} onChange={(e) => vm.setGroupAllowAdminInvite(e.target.checked)} disabled={!vm.canManageGroupPermissions} />
                         </label>
                         <label className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
-                          <span className="sam-text-body-secondary font-medium text-sam-fg">관리자 내보내기 허용</span>
+                          <span className="sam-text-body-secondary font-medium text-sam-fg">{vm.t("cm_ui_allow_admin_kick")}</span>
                           <input type="checkbox" checked={vm.groupAllowAdminKick} onChange={(e) => vm.setGroupAllowAdminKick(e.target.checked)} disabled={!vm.canManageGroupPermissions} />
                         </label>
                         <label className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
-                          <span className="sam-text-body-secondary font-medium text-sam-fg">관리자 공지 수정 허용</span>
+                          <span className="sam-text-body-secondary font-medium text-sam-fg">{vm.t("cm_ui_allow_admin_edit_notice")}</span>
                           <input type="checkbox" checked={vm.groupAllowAdminEditNotice} onChange={(e) => vm.setGroupAllowAdminEditNotice(e.target.checked)} disabled={!vm.canManageGroupPermissions} />
                         </label>
                         <label className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
-                          <span className="sam-text-body-secondary font-medium text-sam-fg">일반 멤버 파일 업로드 허용</span>
+                          <span className="sam-text-body-secondary font-medium text-sam-fg">{vm.t("cm_ui_allow_member_upload")}</span>
                           <input type="checkbox" checked={vm.groupAllowMemberUpload} onChange={(e) => vm.setGroupAllowMemberUpload(e.target.checked)} disabled={!vm.canManageGroupPermissions} />
                         </label>
                         <label className="flex items-center justify-between rounded-ui-rect border border-sam-border px-3 py-3">
-                          <span className="sam-text-body-secondary font-medium text-sam-fg">일반 멤버 통화 시작 허용</span>
+                          <span className="sam-text-body-secondary font-medium text-sam-fg">{vm.t("cm_ui_allow_member_call")}</span>
                           <input type="checkbox" checked={vm.groupAllowMemberCall} onChange={(e) => vm.setGroupAllowMemberCall(e.target.checked)} disabled={!vm.canManageGroupPermissions} />
                         </label>
                       </div>
@@ -1182,7 +1187,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                           disabled={vm.busy === "group-permissions"}
                           className="mt-3 rounded-ui-rect bg-sam-ink px-4 py-3 sam-text-body-secondary font-semibold text-white disabled:opacity-40"
                         >
-                          {vm.busy === "group-permissions" ? "저장 중" : "권한 저장"}
+                          {vm.busy === "group-permissions" ? vm.t("common_processing") : vm.t("cm_ui_save_permissions")}
                         </button>
                       ) : null}
                     </div>
@@ -1192,11 +1197,11 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                     <div ref={vm.groupHistorySectionRef} className="rounded-ui-rect border border-sam-border p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="sam-text-body font-semibold text-sam-fg">운영 이력</p>
-                          <p className="mt-1 sam-text-helper text-sam-muted">방장 위임, 관리자 지정, 공지 수정 기록을 확인합니다.</p>
+                          <p className="sam-text-body font-semibold text-sam-fg">{vm.t("cm_ui_operation_history")}</p>
+                          <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_check_operation_history_description")}</p>
                         </div>
                         <span className="rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-1 sam-text-xxs font-semibold text-sam-fg">
-                          {vm.managementEventMessages.length}건
+                          {vm.t("cm_ui_count_items", { count: vm.managementEventMessages.length })}
                         </span>
                       </div>
                       <div className="mt-3 space-y-2">
@@ -1344,8 +1349,8 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
               <>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="sam-text-body-secondary font-medium text-sam-fg">이 방에서 검색</p>
-                    <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">대화 내 검색</h2>
+                    <p className="sam-text-body-secondary font-medium text-sam-fg">{vm.t("cm_ui_search_in_this_room")}</p>
+                    <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">{vm.t("cm_ui_search_in_chat")}</h2>
                   </div>
                   <button
                     type="button"
@@ -1358,7 +1363,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                 <input
                   value={vm.roomSearchQuery}
                   onChange={(e) => vm.setRoomSearchQuery(e.target.value)}
-                  placeholder="키워드 (보낸 사람·내용)"
+                  placeholder={vm.t("cm_ui_keyword_sender_content")}
                   className="mt-4 h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
                   autoFocus
                 />
@@ -1376,7 +1381,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       </button>
                     ))
                   ) : (
-                    <p className="py-6 text-center sam-text-body-secondary text-sam-muted">검색 결과가 없습니다.</p>
+                    <p className="py-6 text-center sam-text-body-secondary text-sam-muted">{vm.t("cm_ui_no_search_results")}</p>
                   )}
                 </div>
               </>
@@ -1386,8 +1391,8 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
               <>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="sam-text-body-secondary font-medium text-sam-fg">이 방 미디어</p>
-                    <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">사진·음성</h2>
+                    <p className="sam-text-body-secondary font-medium text-sam-fg">{vm.t("cm_ui_room_media")}</p>
+                    <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">{vm.t("cm_ui_photo_voice")}</h2>
                   </div>
                   <button
                     type="button"
@@ -1399,14 +1404,14 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                 </div>
                 <div className="mt-4 grid grid-cols-2 gap-2">
                   <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
-                    <p className="sam-text-xxs font-medium text-sam-muted">사진</p>
+                    <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_photo")}</p>
                     <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.photoMessageCount}</p>
-                    <p className="mt-1 sam-text-helper text-sam-muted">이미지와 사진 링크</p>
+                    <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_image_photo_links")}</p>
                   </div>
                   <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
-                    <p className="sam-text-xxs font-medium text-sam-muted">음성</p>
+                    <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("nav_voice_call_label")}</p>
                     <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.voiceMessageCount}</p>
-                    <p className="mt-1 sam-text-helper text-sam-muted">보이스 메시지 기록</p>
+                    <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_voice_message_history")}</p>
                   </div>
                 </div>
                 <div className="mt-4 max-h-[55vh] space-y-3 overflow-y-auto">
@@ -1420,7 +1425,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       >
                         <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-ui-rect bg-sam-border-soft sam-text-xxs font-semibold text-sam-muted">
                           {m.messageType === "voice" ? (
-                            "음성"
+                            vm.t("nav_voice_call_label")
                           ) : m.messageType === "image" || looksLikeDirectImageUrl(m.content) ? (
                             // eslint-disable-next-line @next/next/no-img-element
                             <img
@@ -1429,23 +1434,28 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                               className="h-full w-full object-cover"
                             />
                           ) : (
-                            "미디어"
+                            vm.t("cm_ui_media")
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="sam-text-helper text-sam-muted">{formatTime(m.createdAt)}</p>
                           <p className="mt-0.5 truncate sam-text-body text-sam-fg">
                             {m.messageType === "voice"
-                              ? `음성${m.voiceDurationSeconds ? ` · ${m.voiceDurationSeconds}초` : ""}`
+                              ? vm.t("cm_ui_voice_with_optional_seconds", {
+                                  seconds:
+                                    typeof m.voiceDurationSeconds === "number" && m.voiceDurationSeconds > 0
+                                      ? ` · ${m.voiceDurationSeconds}${vm.t("cm_ui_seconds_suffix")}`
+                                      : "",
+                                })
                               : m.imageAlbumUrls && m.imageAlbumUrls.length > 1
-                                ? `사진 ${m.imageAlbumUrls.length}장`
-                                : "사진"}
+                                ? vm.t("cm_ui_photo_count_sheets", { count: m.imageAlbumUrls.length })
+                                : vm.t("cm_ui_photo")}
                           </p>
                         </div>
                       </button>
                     ))
                   ) : (
-                    <p className="py-8 text-center sam-text-body-secondary text-sam-muted">미디어 없음</p>
+                    <p className="py-8 text-center sam-text-body-secondary text-sam-muted">{vm.t("cm_ui_no_media")}</p>
                   )}
                 </div>
               </>
@@ -1455,8 +1465,8 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
               <>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="sam-text-body-secondary font-medium text-sam-fg">이 방 파일</p>
-                    <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">파일 모아보기</h2>
+                    <p className="sam-text-body-secondary font-medium text-sam-fg">{vm.t("cm_ui_room_files")}</p>
+                    <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">{vm.t("cm_ui_files_collection")}</h2>
                   </div>
                   <button
                     type="button"
@@ -1467,9 +1477,9 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   </button>
                 </div>
                 <div className="mt-4 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
-                  <p className="sam-text-xxs font-medium text-sam-muted">첨부 파일</p>
-                  <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.fileMessageCount}개</p>
-                  <p className="mt-1 sam-text-helper text-sam-muted">문서, 압축 파일, 일반 첨부를 한곳에서 확인합니다.</p>
+                  <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_attached_files")}</p>
+                  <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.t("cm_ui_count_items", { count: vm.fileMessageCount })}</p>
+                  <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_check_docs_archives_attachments")}</p>
                 </div>
                 <div className="mt-4 max-h-[55vh] space-y-3 overflow-y-auto">
                   {vm.fileMessages.length ? (
@@ -1477,7 +1487,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       <div key={m.id} className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
                         <button type="button" onClick={() => vm.scrollToRoomMessage(m.id)} className="w-full text-left">
                           <p className="sam-text-helper text-sam-muted">{vm.tt(m.senderLabel)} · {formatTime(m.createdAt)}</p>
-                          <p className="mt-1 truncate sam-text-body font-semibold text-sam-fg">{m.fileName?.trim() || "첨부 파일"}</p>
+                          <p className="mt-1 truncate sam-text-body font-semibold text-sam-fg">{m.fileName?.trim() || vm.t("cm_ui_attached_files")}</p>
                           <p className="mt-1 sam-text-helper text-sam-muted">{formatFileMeta(m.fileMimeType, m.fileSizeBytes)}</p>
                         </button>
                         {!m.pending && m.content.trim() ? (
@@ -1487,15 +1497,15 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                             rel="noopener noreferrer"
                             className="mt-3 inline-flex rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-helper font-semibold text-sam-fg"
                           >
-                            파일 열기
+                            {vm.t("cm_ui_open_file")}
                           </a>
                         ) : (
-                          <p className="mt-3 sam-text-helper text-sam-muted">업로드 중…</p>
+                          <p className="mt-3 sam-text-helper text-sam-muted">{vm.t("cm_ui_uploading")}</p>
                         )}
                       </div>
                     ))
                   ) : (
-                    <p className="py-8 text-center sam-text-body-secondary text-sam-muted">파일 없음</p>
+                    <p className="py-8 text-center sam-text-body-secondary text-sam-muted">{vm.t("cm_ui_no_files")}</p>
                   )}
                 </div>
               </>
@@ -1505,8 +1515,8 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
               <>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="sam-text-body-secondary font-medium text-sam-fg">이 방 링크</p>
-                    <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">링크 모아보기</h2>
+                    <p className="sam-text-body-secondary font-medium text-sam-fg">{vm.t("cm_ui_room_links")}</p>
+                    <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">{vm.t("cm_ui_links_collection")}</h2>
                   </div>
                   <button
                     type="button"
@@ -1517,9 +1527,9 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                   </button>
                 </div>
                 <div className="mt-4 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3">
-                  <p className="sam-text-xxs font-medium text-sam-muted">공유 링크</p>
-                  <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.linkMessageCount}개</p>
-                  <p className="mt-1 sam-text-helper text-sam-muted">메시지에 포함된 URL을 모아 다시 열 수 있습니다.</p>
+                  <p className="sam-text-xxs font-medium text-sam-muted">{vm.t("cm_ui_shared_links")}</p>
+                  <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{vm.t("cm_ui_count_items", { count: vm.linkMessageCount })}</p>
+                  <p className="mt-1 sam-text-helper text-sam-muted">{vm.t("cm_ui_collect_message_urls")}</p>
                 </div>
                 <div className="mt-4 max-h-[55vh] space-y-3 overflow-y-auto">
                   {vm.linkThreadMessages.length ? (
@@ -1548,7 +1558,7 @@ export function CommunityMessengerRoomPhase2RoomSheets() {
                       );
                     })
                   ) : (
-                    <p className="py-8 text-center sam-text-body-secondary text-sam-muted">링크 없음</p>
+                    <p className="py-8 text-center sam-text-body-secondary text-sam-muted">{vm.t("cm_ui_no_links")}</p>
                   )}
                 </div>
               </>

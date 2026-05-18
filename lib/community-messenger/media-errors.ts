@@ -1,10 +1,16 @@
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 
 /** 토큰 API·클라이언트에서 동일하게 쓰는 설정 누락 식별 */
 export function isCommunityMessengerCallProviderNotConfiguredError(error: unknown): boolean {
   const msg = extractErrorDetail(error);
   if (!msg) return false;
-  return /통화 설정이 아직 연결되지|call_provider_not_configured|통화 설정이 아직 연결되지 않았습니다/i.test(msg);
+  return (
+    /call_provider_not_configured|통화 설정이 아직 연결되지|call service \(agora\) is not configured/i.test(msg) ||
+    matchesMediaMessageKey(msg, "cm_ui_media_agora_setup_required")
+  );
 }
 
 /** IPv6 루프백 등 — `window.location.hostname` 은 `[::1]` 또는 `::1` 형태가 혼재한다 */
@@ -22,9 +28,27 @@ export function isCommunityMessengerMediaBlockedByInsecureOrigin(): boolean {
   return true;
 }
 
+const MEDIA_MESSAGE_KEYS = {
+  httpsRequired: "cm_ui_media_https_required",
+  agoraSetup: "cm_ui_media_agora_setup_required",
+  insecureHint: "cm_ui_media_insecure_origin_hint",
+} as const satisfies Record<string, MessageKey>;
+
+function mediaMessage(lang: AppLanguageCode, key: MessageKey): string {
+  return translate(lang, key);
+}
+
+function matchesMediaMessageKey(message: string, key: MessageKey): boolean {
+  return message === mediaMessage("ko", key) || message === mediaMessage("en", key);
+}
+
 /** 통화(Agora) 차단 시 — 짧은 사용자 메시지·throw 공용 */
-export const COMMUNITY_MESSENGER_HTTPS_REQUIRED_FOR_WEBRTC =
-  "이 주소(HTTP·사설 IP)에서는 브라우저 보안 정책으로 영상·음성 통화(WebRTC)를 사용할 수 없습니다. PC: https://localhost:3000 또는 `npm run dev:https` 로 띄운 주소로 접속하세요. 휴대폰: 같은 Wi‑Fi에서도 HTTPS(역프록시·mkcert) 또는 터널링이 필요합니다.";
+export function getCommunityMessengerHttpsRequiredForWebRtc(): string {
+  return mediaMessage(getRuntimeAppLanguage(), MEDIA_MESSAGE_KEYS.httpsRequired);
+}
+
+/** @deprecated 호환 — 런타임 언어 반영 문자열. 새 코드는 `getCommunityMessengerHttpsRequiredForWebRtc()` 사용 */
+export const COMMUNITY_MESSENGER_HTTPS_REQUIRED_FOR_WEBRTC = mediaMessage("ko", MEDIA_MESSAGE_KEYS.httpsRequired);
 
 /**
  * Agora·WebRTC 호출 전에 사용. `http://LAN-IP` 는 `window.isSecureContext === false` 라
@@ -33,28 +57,34 @@ export const COMMUNITY_MESSENGER_HTTPS_REQUIRED_FOR_WEBRTC =
 export function assertCommunityMessengerWebRtcSecureContext(): void {
   if (typeof window === "undefined") return;
   if (!isCommunityMessengerMediaBlockedByInsecureOrigin()) return;
-  throw new Error(COMMUNITY_MESSENGER_HTTPS_REQUIRED_FOR_WEBRTC);
+  throw new Error(getCommunityMessengerHttpsRequiredForWebRtc());
 }
 
 /**
  * Agora 앱 ID 미설정 — 「장치 오류」가 아님. 배포·빌드 환경 변수 안내.
  * @see `NEXT_PUBLIC_COMMUNITY_MESSENGER_AGORA_APP_ID`, `COMMUNITY_MESSENGER_AGORA_APP_CERTIFICATE`
  */
-export const COMMUNITY_MESSENGER_AGORA_SETUP_REQUIRED_MESSAGE =
-  "통화 서비스(Agora)가 연결되지 않았습니다. 프로젝트 루트 `.env.local` 에 NEXT_PUBLIC_COMMUNITY_MESSENGER_AGORA_APP_ID=… 를 넣은 뒤 개발 서버를 재시작하세요(빌드된 클라이언트에는 빌드 시점 값이 박힙니다). 운영에서는 토큰 발급용 COMMUNITY_MESSENGER_AGORA_APP_CERTIFICATE 도 서버에 설정하세요.";
+export function getCommunityMessengerAgoraSetupRequiredMessage(): string {
+  return mediaMessage(getRuntimeAppLanguage(), MEDIA_MESSAGE_KEYS.agoraSetup);
+}
+
+/** @deprecated 호환 — 런타임 언어 반영은 `getCommunityMessengerAgoraSetupRequiredMessage()` */
+export const COMMUNITY_MESSENGER_AGORA_SETUP_REQUIRED_MESSAGE = mediaMessage("ko", MEDIA_MESSAGE_KEYS.agoraSetup);
 
 /** HTTP + LAN IP 등 비보안 출처 — UI 배너용 (한 줄 요약) */
-export const COMMUNITY_MESSENGER_INSECURE_ORIGIN_MEDIA_HINT =
-  "HTTP(예: 192.168.x.x:3000)에서는 브라우저가 마이크·카메라를 막습니다. `npm run dev:https` 로 띄운 뒤 터미널에 나온 https:// 주소로 접속하거나, PC에서는 localhost 로 접속하세요. 휴대폰·다른 기기는 HTTPS(역프록시·mkcert)가 필요합니다.";
+export function getCommunityMessengerInsecureOriginMediaHint(): string {
+  return mediaMessage(getRuntimeAppLanguage(), MEDIA_MESSAGE_KEYS.insecureHint);
+}
 
-const HTTPS_REQUIRED_FOR_MEDIA_MESSAGE = COMMUNITY_MESSENGER_HTTPS_REQUIRED_FOR_WEBRTC;
+/** @deprecated 호환 — 런타임 언어 반영은 `getCommunityMessengerInsecureOriginMediaHint()` */
+export const COMMUNITY_MESSENGER_INSECURE_ORIGIN_MEDIA_HINT = mediaMessage("ko", MEDIA_MESSAGE_KEYS.insecureHint);
 
 /** 환경·설정 문제로 「다시 시도」가 의미 없는 통화 오류 문구 */
 export function isCommunityMessengerNonRetryableCallErrorMessage(message: string | null | undefined): boolean {
   if (!message) return false;
   return (
-    message === COMMUNITY_MESSENGER_HTTPS_REQUIRED_FOR_WEBRTC ||
-    message === COMMUNITY_MESSENGER_AGORA_SETUP_REQUIRED_MESSAGE
+    matchesMediaMessageKey(message, MEDIA_MESSAGE_KEYS.httpsRequired) ||
+    matchesMediaMessageKey(message, MEDIA_MESSAGE_KEYS.agoraSetup)
   );
 }
 
@@ -118,13 +148,15 @@ export function getCommunityMessengerMediaErrorMessage(
   error: unknown,
   kind: CommunityMessengerCallKind
 ): string {
+  const lang = getRuntimeAppLanguage();
+
   if (isCommunityMessengerCallProviderNotConfiguredError(error)) {
-    return COMMUNITY_MESSENGER_AGORA_SETUP_REQUIRED_MESSAGE;
+    return mediaMessage(lang, MEDIA_MESSAGE_KEYS.agoraSetup);
   }
 
   const rawForSecurity = error instanceof Error ? error.message : String(error);
   if (/WEB_SECURITY_RESTRICT|limited by web security|isSecureContext/i.test(rawForSecurity)) {
-    return COMMUNITY_MESSENGER_HTTPS_REQUIRED_FOR_WEBRTC;
+    return mediaMessage(lang, MEDIA_MESSAGE_KEYS.httpsRequired);
   }
 
   const name =
@@ -134,40 +166,43 @@ export function getCommunityMessengerMediaErrorMessage(
 
   if (isCommunityMessengerMediaBlockedByInsecureOrigin()) {
     if (name === "NotAllowedError" || name === "PermissionDeniedError") {
-      return HTTPS_REQUIRED_FOR_MEDIA_MESSAGE;
+      return mediaMessage(lang, MEDIA_MESSAGE_KEYS.httpsRequired);
     }
   }
 
   if (isNotReadableMediaError(error)) {
-    return "다른 앱이 장치를 사용 중일 수 있습니다. 장치 점유를 해제한 뒤 다시 시도해 주세요.";
+    return translate(lang, "cm_ui_media_device_in_use");
   }
 
   if (name === "NotAllowedError" || name === "PermissionDeniedError") {
-    return kind === "video"
-      ? "카메라와 마이크 권한이 필요합니다. 브라우저 주소창 왼쪽의 사이트 설정에서 권한을 허용해 주세요."
-      : "마이크 권한이 필요합니다. 브라우저 주소창 왼쪽의 사이트 설정에서 권한을 허용해 주세요.";
+    return translate(
+      lang,
+      kind === "video" ? "cm_ui_media_permission_video_site_settings" : "cm_ui_media_permission_voice_site_settings"
+    );
   }
   if (name === "NotFoundError" || name === "DevicesNotFoundError") {
-    return kind === "video"
-      ? "사용 가능한 카메라 또는 마이크를 찾지 못했습니다."
-      : "사용 가능한 마이크를 찾지 못했습니다.";
+    return translate(lang, kind === "video" ? "cm_ui_media_no_device_video" : "cm_ui_media_no_device_voice");
   }
   if (name === "AbortError") {
-    return "장치 연결이 잠시 지연되고 있습니다. 잠시 후 다시 시도해 주세요.";
+    return translate(lang, "cm_ui_media_abort_delay");
   }
   if (name === "OverconstrainedError") {
-    return kind === "video"
-      ? "카메라 또는 마이크 설정을 맞추지 못했습니다. 다른 장치를 선택하거나 권한을 다시 확인해 주세요."
-      : "마이크 설정을 맞추지 못했습니다. 다른 장치를 선택하거나 권한을 다시 확인해 주세요.";
+    return translate(
+      lang,
+      kind === "video" ? "cm_ui_media_overconstrained_video" : "cm_ui_media_overconstrained_voice"
+    );
   }
 
   const detail = extractErrorDetail(error);
   if (detail) {
-    return kind === "video"
-      ? `영상 통화 장치 오류: ${detail}`
-      : `음성 통화 장치 오류: ${detail}`;
+    return translate(
+      lang,
+      kind === "video" ? "cm_ui_media_error_video_with_detail" : "cm_ui_media_error_voice_with_detail",
+      { detail }
+    );
   }
-  return kind === "video"
-    ? "영상 통화 장치 준비에 실패했습니다. 마이크·카메라 권한과 다른 앱의 장치 점유를 확인해 주세요."
-    : "음성 통화 장치 준비에 실패했습니다. 마이크 권한과 다른 앱의 장치 점유를 확인해 주세요.";
+  return translate(
+    lang,
+    kind === "video" ? "cm_ui_media_prepare_failed_video" : "cm_ui_media_prepare_failed_voice"
+  );
 }

@@ -9,6 +9,7 @@ import { APP_TRADE_WRITE_SHEET_SCROLL_COLUMN_CLASS } from "@/lib/ui/app-content-
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import { useTradeWriteSheet } from "@/contexts/TradeWriteSheetContext";
 import { TRADE_WRITE_EXIT_SHEET_BODY, TRADE_WRITE_EXIT_SHEET_TITLE } from "@/lib/posts/trade-write-exit-cleanup";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const SHEET_EXIT_MS = 520;
 
@@ -17,6 +18,7 @@ const SHEET_EXIT_MS = 520;
  * z-index 는 확인 모달(`MobileConfirmBottomSheet` 등 z≥65)보다 낮게 유지한다.
  */
 export function TradeWriteBottomSheet() {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname() ?? "/philife";
   const {
@@ -162,7 +164,7 @@ export function TradeWriteBottomSheet() {
       className="pointer-events-none fixed inset-0 z-[50] flex flex-col"
       role="dialog"
       aria-modal
-      aria-label="거래 글쓰기"
+      aria-label={t("trade_011")}
     >
       <div
         ref={panelRef}
@@ -171,12 +173,12 @@ export function TradeWriteBottomSheet() {
         }`}
       >
         <div className="relative shrink-0 border-b border-sam-border bg-sam-surface/95 px-3 py-2.5 pr-11">
-          <h2 className="text-center text-[16px] font-bold leading-tight text-sam-fg">거래 글쓰기</h2>
+          <h2 className="text-center text-[16px] font-bold leading-tight text-sam-fg">{t("trade_011")}</h2>
           <button
             type="button"
             onClick={onHeaderClose}
             className="absolute right-2 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-ui-rect text-sam-fg transition hover:bg-sam-surface-muted active:opacity-90"
-            aria-label="닫기"
+            aria-label={t("trade_054")}
           >
             <span className="text-[22px] font-light leading-none" aria-hidden>
               ×

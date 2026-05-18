@@ -32,49 +32,48 @@ export function getMessengerRoomActionErrorMessage(
     case "room_readonly":
       return t("nav_messenger_room_readonly_error");
     case "friend_required":
-      return "그룹 초대는 친구 관계에서만 가능합니다.";
+      return t("nav_messenger_friend_required");
     case "target_not_found":
-      return "대상 멤버를 찾지 못했습니다.";
+      return t("nav_messenger_target_not_found");
     case "invalid_role":
-      return "변경할 권한 값이 올바르지 않습니다.";
+      return t("nav_messenger_invalid_role");
     case "owner_immutable":
-      return "방장 권한은 이 화면에서 변경할 수 없습니다.";
+      return t("nav_messenger_owner_immutable");
     case "same_owner":
-      return "이미 현재 방장인 멤버입니다.";
+      return t("nav_messenger_same_owner");
     case "cannot_kick_admin":
-      return "관리자는 내보낼 수 없습니다.";
+      return t("nav_messenger_cannot_kick_admin");
     case "self_kick_forbidden":
-      return "자기 자신은 내보낼 수 없습니다.";
+      return t("nav_messenger_self_kick_forbidden");
     case "not_group_room":
       return t("nav_messenger_group_only");
     case "not_open_group_room":
-      return "공개 그룹방에서만 사용할 수 있는 기능입니다.";
+      return t("nav_messenger_open_group_feature_only");
     case "password_required":
-      return "비밀번호를 입력해 주세요.";
+      return t("nav_messenger_password_required");
     case "alias_name_required":
-      return "별칭 닉네임을 입력해 주세요.";
+      return t("nav_messenger_alias_name_required");
     case "invalid_password":
-      return "비밀번호가 맞지 않습니다.";
+      return t("nav_messenger_invalid_password");
     case "room_full":
-      return "정원이 가득 찬 방입니다.";
+      return t("nav_messenger_room_full");
     case "owner_cannot_leave":
-      return "방장은 이 방을 바로 나갈 수 없습니다.";
+      return t("nav_messenger_owner_cannot_leave");
     case "room_unavailable":
       return t("nav_messenger_room_unavailable");
     case "trade_product_chat_unlinked":
-      return "거래 정보를 확인할 수 없습니다.";
+      return t("nav_messenger_product_trade_bridge_not_found");
     case "trade_not_counterpart":
-      return "참여자만 메시지를 보낼 수 있습니다.";
+      return t("nav_messenger_trade_not_counterpart");
     case "trade_viewer_left_as_seller":
-      return "이미 나간 채팅방입니다.";
     case "trade_viewer_left_as_buyer":
-      return "이미 나간 채팅방입니다.";
+      return t("nav_messenger_trade_viewer_left");
     case "trade_seller_closed_buyer_blocked":
-      return "판매자가 대화를 종료했습니다. 새 메시지를 보낼 수 없습니다.";
+      return t("nav_messenger_trade_seller_closed");
     case "trade_chat_mode_locked":
-      return "이 채팅에서는 메시지를 보낼 수 없습니다.";
+      return t("nav_messenger_trade_chat_locked");
     case "trade_flow_not_chatting":
-      return "거래 진행 단계가 바뀌어 일반 메시지를 보낼 수 없습니다. 상단 안내를 확인해 주세요.";
+      return t("nav_messenger_trade_flow_not_chatting");
     case "peer_not_found":
       return t("nav_messenger_peer_not_found");
     case "forbidden":
@@ -85,39 +84,38 @@ export function getMessengerRoomActionErrorMessage(
     case "call_session_participants_insert_failed":
       return t("nav_messenger_call_start_failed");
     case "messenger_storage_unavailable":
-      return "메신저 저장소에 연결하지 못했습니다. 잠시 후 다시 시도해 주세요.";
+      return t("nav_messenger_storage_unavailable");
     case "messenger_migration_required":
-      return "메신저 저장소 마이그레이션이 아직 반영되지 않았습니다. DB 스키마를 먼저 업데이트해 주세요.";
+    case "migration_required":
+      return t("nav_messenger_migration_required");
     case "file_too_large":
-      return "파일 용량이 너무 큽니다.";
+      return t("nav_messenger_file_too_large");
     case "file_too_small":
-      return "음성 파일이 너무 짧거나 비어 있습니다. 조금 더 길게 녹음해 주세요.";
+      return t("nav_messenger_file_too_small");
     case "unsupported_audio":
       return t("nav_messenger_voice_unsupported");
     case "unsupported_image":
-      return "JPG, PNG, WEBP, GIF 이미지만 보낼 수 있습니다.";
+      return t("nav_messenger_unsupported_image");
     case "too_many_images":
-      return "한 번에 보낼 수 있는 사진은 최대 10장입니다.";
+      return t("nav_messenger_too_many_images");
     case "unsupported_file":
-      return "지원하지 않는 파일 형식입니다.";
+      return t("nav_messenger_unsupported_file");
     case "file_required":
     case "multipart_required":
-      return "파일을 먼저 선택해 주세요.";
+      return t("nav_messenger_file_required");
     case "upload_failed":
     case "server_config":
       return t("nav_messenger_voice_upload_failed");
     case "not_found":
       return t("nav_messenger_message_not_found");
     case "reply_target_not_found":
-      return "답장 대상 메시지를 찾을 수 없습니다.";
+      return t("nav_messenger_reply_target_not_found");
     case "reply_target_invalid":
-      return "답장할 수 없는 메시지입니다.";
+      return t("nav_messenger_reply_target_invalid");
     case "bad_request":
-      return "요청이 올바르지 않습니다.";
+      return t("nav_messenger_bad_request");
     case "reaction_failed":
-      return "반응을 저장하지 못했습니다.";
-    case "migration_required":
-      return "메신저 저장소 마이그레이션이 아직 반영되지 않았습니다. DB 스키마를 먼저 업데이트해 주세요.";
+      return t("nav_messenger_reaction_failed");
     case "unsupported_type":
       return t("nav_messenger_message_type_delete_unsupported");
     case "delete_failed":

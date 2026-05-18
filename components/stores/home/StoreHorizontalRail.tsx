@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import type { ReactNode } from "react";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
@@ -18,6 +19,7 @@ export function StoreHorizontalRail({
   children: ReactNode;
   ariaLabel?: string;
 }) {
+  const { t } = useI18n();
   return (
     <div className="space-y-2">
       <div className="flex items-end justify-between gap-2 px-0.5">

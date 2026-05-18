@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useRef, useState } from "react";
 import { Camera } from "lucide-react";
@@ -33,6 +34,7 @@ export function ImageUploader({
   compact = false,
   variant = "default",
 }: ImageUploaderProps) {
+  const { t } = useI18n();
   const inputRef = useRef<HTMLInputElement>(null);
   const isKarrot = variant === "karrot";
   const [editorIndex, setEditorIndex] = useState<number | null>(null);
@@ -96,7 +98,7 @@ export function ImageUploader({
                 disabled={disabled}
                 onClick={() => inputRef.current?.click()}
                 className={`${THUMB_CLASS} flex flex-col items-center justify-center border border-sam-border bg-sam-surface-muted`}
-                aria-label="사진 추가"
+                aria-label={t("ui_write_image_add_aria")}
               >
                 <Camera className="h-7 w-7 stroke-[1.25] text-sam-muted" aria-hidden />
                 <span className="pointer-events-none mt-1 sam-text-xxs font-medium text-signature">
@@ -124,7 +126,7 @@ export function ImageUploader({
                   <button
                     type="button"
                     className="absolute right-0.5 top-0.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-black/55 text-[12px] leading-none text-white"
-                    aria-label="삭제"
+                    aria-label={t("common_delete")}
                     onClick={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
@@ -185,7 +187,7 @@ export function ImageUploader({
                 type="button"
                 onClick={() => removeAt(index)}
                 className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/50 text-white"
-                aria-label="삭제"
+                aria-label={t("common_delete")}
               >
                 ×
               </button>

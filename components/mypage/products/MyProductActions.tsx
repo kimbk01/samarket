@@ -5,11 +5,11 @@ import Link from "next/link";
 import type { Product } from "@/lib/types/product";
 import type { ProductStatus } from "@/lib/types/product";
 import {
-  SELLER_LISTING_LABEL,
   normalizeSellerListingState,
   type SellerListingState,
 } from "@/lib/products/seller-listing-state";
-import { SELLER_CANCEL_SALE_CONFIRM_MESSAGE } from "@/lib/posts/seller-cancel-sale-ui";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { productStatusLabel, sellerListingLabel } from "@/lib/mypage/seller-listing-i18n";
 
 const LISTING_MENU_ORDER: SellerListingState[] = [
   "inquiry",
@@ -35,6 +35,7 @@ export function MyProductActions({
   onBump,
   onDelete,
 }: MyProductActionsProps) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const currentListing = normalizeSellerListingState(
@@ -54,7 +55,8 @@ export function MyProductActions({
   }, [open]);
 
   const handleStatusChange = (newStatus: ProductStatus) => {
-    if (confirm(`이 상품을 "${newStatus === "active" ? "판매중" : newStatus === "reserved" ? "예약중" : newStatus === "sold" ? "판매완료" : "숨김"}"으로 변경할까요?`)) {
+    const statusLabel = productStatusLabel(t, newStatus);
+    if (confirm(t("mypage_comp_product_status_confirm", { status: statusLabel }))) {
       onStatusChange(product.id, newStatus);
       setOpen(false);
     }
@@ -66,7 +68,7 @@ export function MyProductActions({
   };
 
   const handleDelete = () => {
-    if (confirm("이 상품을 삭제할까요? 삭제된 상품은 복구할 수 없어요.")) {
+    if (confirm(t("mypage_comp_product_delete_confirm"))) {
       onDelete(product.id);
       setOpen(false);
     }
@@ -78,7 +80,7 @@ export function MyProductActions({
         type="button"
         onClick={() => setOpen((v) => !v)}
         className="flex h-9 w-9 items-center justify-center rounded-full text-sam-muted hover:bg-sam-surface-muted"
-        aria-label="더보기"
+        aria-label={t("mypage_comp_more_aria")}
       >
         <MoreIcon />
       </button>
@@ -89,7 +91,7 @@ export function MyProductActions({
             className="block px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
             onClick={() => setOpen(false)}
           >
-            수정
+            {t("mypage_comp_product_edit")}
           </Link>
           {product.status === "active" && (
             <button
@@ -97,7 +99,7 @@ export function MyProductActions({
               onClick={handleBump}
               className="w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
             >
-              끌올
+              {t("mypage_comp_product_bump")}
             </button>
           )}
           {product.status === "hidden" ? (
@@ -106,12 +108,12 @@ export function MyProductActions({
               onClick={() => handleStatusChange("active")}
               className="w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
             >
-              다시 판매중으로
+              {t("mypage_comp_product_relist_active")}
             </button>
           ) : (
             <>
               <div className="px-4 py-1.5 sam-text-xxs font-medium uppercase tracking-wide text-sam-meta">
-                거래 상태
+                {t("mypage_comp_product_listing_section")}
               </div>
               {LISTING_MENU_ORDER.map((state) => {
                 const isCurrent = state === currentListing;
@@ -130,8 +132,8 @@ export function MyProductActions({
                         : "text-sam-fg"
                     } disabled:opacity-50`}
                   >
-                    {SELLER_LISTING_LABEL[state]}
-                    {isCurrent ? " · 현재" : ""}
+                    {sellerListingLabel(t, state)}
+                    {isCurrent ? t("mypage_comp_listing_current_suffix") : ""}
                   </button>
                 );
               })}
@@ -141,13 +143,13 @@ export function MyProductActions({
             <button
               type="button"
               onClick={() => {
-                if (!window.confirm(SELLER_CANCEL_SALE_CONFIRM_MESSAGE)) return;
+                if (!window.confirm(t("mypage_comp_product_cancel_sale_confirm"))) return;
                 onStatusChange(product.id, "hidden");
                 setOpen(false);
               }}
               className="w-full px-4 py-2.5 text-left sam-text-body text-red-700 hover:bg-red-50"
             >
-              물품 판매 취소
+              {t("mypage_comp_product_cancel_sale")}
             </button>
           )}
           {product.status !== "hidden" && (
@@ -156,7 +158,7 @@ export function MyProductActions({
               onClick={() => handleStatusChange("hidden")}
               className="w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
             >
-              숨기기
+              {t("mypage_comp_product_hide")}
             </button>
           )}
           <button
@@ -164,7 +166,7 @@ export function MyProductActions({
             onClick={handleDelete}
             className="w-full px-4 py-2.5 text-left sam-text-body text-red-600 hover:bg-red-50"
           >
-            삭제
+            {t("mypage_comp_product_delete")}
           </button>
         </div>
       )}

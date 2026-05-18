@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useState } from "react";
 import { getOpsRoutineTemplates } from "@/lib/ops-routines/mock-ops-routine-templates";
 import { AdminTable } from "@/components/admin/AdminTable";
@@ -12,8 +13,10 @@ import type {
   OpsRoutineCategory,
   OpsRoutineCadence,
 } from "@/lib/types/ops-routines";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 export function OpsRoutineTemplateTable() {
+  const { t } = useI18n();
   const [category, setCategory] = useState<OpsRoutineCategory | "">("");
   const [cadence, setCadence] = useState<OpsRoutineCadence | "">("");
   const templates = useMemo(
@@ -25,24 +28,24 @@ export function OpsRoutineTemplateTable() {
     [category, cadence]
   );
 
-  const categories: { value: OpsRoutineCategory | ""; label: string }[] = [
-    { value: "", label: "전체" },
-    { value: "monitoring", label: "모니터링" },
-    { value: "moderation", label: "신고/제재" },
-    { value: "content", label: "콘텐츠" },
-    { value: "points", label: "포인트" },
-    { value: "ads", label: "광고" },
-    { value: "recommendation", label: "추천" },
-    { value: "docs", label: "문서" },
-    { value: "automation", label: "자동화" },
-    { value: "reporting", label: "보고" },
-    { value: "security", label: "보안" },
+  const categories: { value: OpsRoutineCategory | ""; labelKey: MessageKey }[] = [
+    { value: "", labelKey: "common_all" },
+    { value: "monitoring", labelKey: "admin_ops_tools_routine_cat_monitoring" },
+    { value: "moderation", labelKey: "admin_ops_tools_routine_cat_moderation" },
+    { value: "content", labelKey: "admin_ops_tools_routine_cat_content" },
+    { value: "points", labelKey: "admin_ops_tools_routine_cat_points" },
+    { value: "ads", labelKey: "admin_ops_tools_routine_cat_ads" },
+    { value: "recommendation", labelKey: "admin_ops_tools_routine_cat_recommendation" },
+    { value: "docs", labelKey: "admin_ops_tools_routine_cat_docs" },
+    { value: "automation", labelKey: "admin_ops_tools_routine_cat_automation" },
+    { value: "reporting", labelKey: "admin_ops_tools_routine_cat_reporting" },
+    { value: "security", labelKey: "admin_ops_tools_routine_cat_security" },
   ];
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">카테고리</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_ops_tools_board_tpl_category")}</span>
         <select
           value={category}
           onChange={(e) =>
@@ -52,11 +55,11 @@ export function OpsRoutineTemplateTable() {
         >
           {categories.map((c) => (
             <option key={c.value || "all"} value={c.value}>
-              {c.label}
+              {t(c.labelKey)}
             </option>
           ))}
         </select>
-        <span className="sam-text-body-secondary text-sam-muted">주기</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_ops_tools_routines_label_period")}</span>
         <select
           value={cadence}
           onChange={(e) =>
@@ -64,27 +67,25 @@ export function OpsRoutineTemplateTable() {
           }
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
-          <option value="weekly">주간</option>
-          <option value="monthly">월간</option>
-          <option value="quarterly">분기</option>
+          <option value="">{t("admin_ops_tools_surface_all")}</option>
+          <option value="weekly">{t("admin_ops_tools_period_weekly")}</option>
+          <option value="monthly">{t("admin_ops_tools_period_monthly")}</option>
+          <option value="quarterly">{t("admin_ops_tools_period_quarterly")}</option>
         </select>
       </div>
 
       {templates.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          해당 조건 템플릿이 없습니다.
-        </div>
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_routines_tpl_empty")}</div>
       ) : (
         <AdminTable
           headers={[
-            "제목",
-            "카테고리",
-            "주기",
-            "우선순위",
-            "SLA(일)",
-            "담당 역할",
-            "활성",
+            t("admin_ops_tools_routines_th_title"),
+            t("admin_ops_tools_routines_th_category"),
+            t("admin_ops_tools_routines_th_period"),
+            t("admin_ops_tools_board_th_priority"),
+            t("admin_ops_tools_routines_th_sla"),
+            t("admin_ops_tools_routines_th_role"),
+            t("admin_ops_tools_routines_th_active"),
           ]}
         >
           {templates.map((t) => (

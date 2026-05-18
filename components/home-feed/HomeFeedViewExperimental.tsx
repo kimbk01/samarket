@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRegion } from "@/contexts/RegionContext";
@@ -46,6 +47,7 @@ function personalizedToFeedItem(p: {
 
 /** mock·실험용 홈 피드 — production·비실험 환경에서는 `HomeContent` 가 마운트하지 않음 */
 export function HomeFeedViewExperimental() {
+  const { t } = useI18n();
   const { currentRegionName } = useRegion();
 
   const userRegion = useMemo(() => {
@@ -253,7 +255,7 @@ export function HomeFeedViewExperimental() {
     return (
       <div className="space-y-3">
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <p className="sam-text-body text-sam-muted">등록된 상품이 없어요</p>
+          <p className="sam-text-body text-sam-muted">{t("ui_home_feed_no_products")}</p>
         </div>
       </div>
     );

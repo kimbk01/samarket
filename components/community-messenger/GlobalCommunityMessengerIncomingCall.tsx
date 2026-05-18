@@ -1441,8 +1441,8 @@ export function GlobalCommunityMessengerIncomingCall() {
           if (permissionFailed) {
             showMessengerSnackbar(
               session.callKind === "video"
-                ? "카메라/마이크 권한을 허용하지 못했습니다. 통화 화면에서 마이크·카메라를 허용해 주세요."
-                : "마이크 권한을 허용하지 못했습니다. 통화 화면에서 마이크를 허용해 주세요.",
+                ? t("cm_ui_call_accept_permission_video_failed")
+                : t("cm_ui_call_accept_permission_voice_failed"),
               { variant: "error" }
             );
           }
@@ -1452,7 +1452,7 @@ export function GlobalCommunityMessengerIncomingCall() {
         }
       })();
     },
-    [busyId, refresh, router]
+    [busyId, refresh, router, t]
   );
 
   if (visibleSession && isMinimized) {
@@ -1515,7 +1515,7 @@ export function GlobalCommunityMessengerIncomingCall() {
                 className="rounded-ui-rect px-3 py-1.5 sam-text-helper font-medium text-white/75 underline-offset-2 active:text-white"
                 onClick={() => setIncomingListError((prev) => (prev === null ? prev : null))}
               >
-                닫기
+                {t("nav_close")}
               </button>
             </div>
           </div>

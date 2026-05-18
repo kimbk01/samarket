@@ -1,10 +1,13 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useState } from "react";
 import { getLaunchWeekDailyNotes } from "@/lib/launch-week/mock-launch-week-daily-notes";
 import type { LaunchWeekDayNumber } from "@/lib/types/launch-week";
 
 export function LaunchWeekDailyNoteList() {
+  const { t } = useI18n();
   const [dayNumber, setDayNumber] = useState<LaunchWeekDayNumber | "">("");
   const notes = useMemo(
     () =>
@@ -25,7 +28,7 @@ export function LaunchWeekDailyNoteList() {
           }
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
+          <option value="">{t("common_all")}</option>
           {([1, 2, 3, 4, 5, 6, 7] as const).map((d) => (
             <option key={d} value={d}>
               Day {d}

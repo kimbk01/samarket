@@ -7,6 +7,7 @@ import {
   testCommunityMessengerMediaPipeline,
   writePreferredCommunityMessengerDeviceIds,
 } from "@/lib/community-messenger/media-preflight";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function CommunityMessengerDeviceSettingsSection({
   visible,
@@ -16,6 +17,7 @@ export function CommunityMessengerDeviceSettingsSection({
   visible: boolean;
   embedded?: boolean;
 }) {
+  const { t } = useI18n();
   const [audioList, setAudioList] = useState<MediaDeviceInfo[]>([]);
   const [videoList, setVideoList] = useState<MediaDeviceInfo[]>([]);
   const [audioId, setAudioId] = useState("");
@@ -44,7 +46,7 @@ export function CommunityMessengerDeviceSettingsSection({
       setAudioId(cur.audioDeviceId && list.some((d) => d.deviceId === cur.audioDeviceId) ? cur.audioDeviceId : firstA);
       setVideoId(cur.videoDeviceId && list.some((d) => d.deviceId === cur.videoDeviceId) ? cur.videoDeviceId : firstV);
     } catch {
-      setHint("장치 목록을 불러오지 못했습니다.");
+      setHint(t("cm_ui_device_list_load_failed"));
     }
   }, []);
 
@@ -57,7 +59,7 @@ export function CommunityMessengerDeviceSettingsSection({
   const save = () => {
     writePreferredCommunityMessengerDeviceIds(audioId || null, videoId || null);
     void refreshPreferredCommunityMessengerDevicesFromEnumerate();
-    setHint("저장했습니다. 다음 통화부터 이 장치를 사용합니다.");
+    setHint(t("cm_ui_device_saved_hint"));
   };
 
   const test = async () => {
@@ -65,9 +67,9 @@ export function CommunityMessengerDeviceSettingsSection({
     setHint((prev) => (prev === null ? prev : null));
     try {
       await testCommunityMessengerMediaPipeline();
-      setHint("마이크·카메라 테스트에 성공했습니다.");
+      setHint(t("cm_ui_device_test_success"));
     } catch {
-      setHint("테스트에 실패했습니다. 브라우저 권한과 장치 연결을 확인해 주세요.");
+      setHint(t("cm_ui_device_test_failed"));
     } finally {
       setBusy((prev) => (prev ? false : prev));
     }
@@ -79,19 +81,19 @@ export function CommunityMessengerDeviceSettingsSection({
     <>
       {!embedded ? (
         <>
-          <p className="mb-2 sam-text-body-secondary font-semibold text-sam-muted">통화 장치</p>
+          <p className="mb-2 sam-text-body-secondary font-semibold text-sam-muted">{t("cm_ui_call_devices_title")}</p>
           <p className="mb-3 sam-text-helper leading-snug text-sam-muted">
-            메신저에 처음 들어올 때 한 번만 권한을 묻고, 이후에는 여기서 고른 마이크·카메라로 바로 연결합니다.
+            {t("cm_ui_device_settings_intro")}
           </p>
         </>
       ) : (
         <p className="mb-2 sam-text-helper leading-snug text-sam-muted">
-          마이크·카메라 기본 장치와 테스트입니다.
+          {t("cm_ui_device_settings_embedded_intro")}
         </p>
       )}
       <div className="space-y-3 rounded-ui-rect border border-sam-border-soft bg-sam-app px-3 py-2.5">
         <label className="block">
-          <span className="mb-1 block sam-text-helper font-medium text-sam-fg">마이크</span>
+          <span className="mb-1 block sam-text-helper font-medium text-sam-fg">{t("cm_ui_microphone")}</span>
           <select
             value={audioId}
             onChange={(e) => setAudioId(e.target.value)}
@@ -99,13 +101,13 @@ export function CommunityMessengerDeviceSettingsSection({
           >
             {audioList.map((d) => (
               <option key={d.deviceId || d.label} value={d.deviceId}>
-                {d.label || "마이크"}
+                {d.label || t("cm_ui_microphone")}
               </option>
             ))}
           </select>
         </label>
         <label className="block">
-          <span className="mb-1 block sam-text-helper font-medium text-sam-fg">카메라</span>
+          <span className="mb-1 block sam-text-helper font-medium text-sam-fg">{t("cm_ui_camera")}</span>
           <select
             value={videoId}
             onChange={(e) => setVideoId(e.target.value)}
@@ -113,7 +115,7 @@ export function CommunityMessengerDeviceSettingsSection({
           >
             {videoList.map((d) => (
               <option key={d.deviceId || d.label} value={d.deviceId}>
-                {d.label || "카메라"}
+                {d.label || t("cm_ui_camera")}
               </option>
             ))}
           </select>
@@ -124,7 +126,7 @@ export function CommunityMessengerDeviceSettingsSection({
             onClick={() => save()}
             className="rounded-ui-rect bg-sam-ink px-4 py-2 sam-text-body-secondary font-semibold text-white"
           >
-            장치 저장
+            {t("cm_ui_save_device")}
           </button>
           <button
             type="button"
@@ -132,7 +134,7 @@ export function CommunityMessengerDeviceSettingsSection({
             onClick={() => void test()}
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-body-secondary font-medium text-sam-fg disabled:opacity-50"
           >
-            테스트 통화(미디어)
+            {t("cm_ui_test_call_media")}
           </button>
         </div>
         {hint ? <p className="sam-text-helper text-sam-muted">{hint}</p> : null}

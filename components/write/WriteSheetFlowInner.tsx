@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -9,8 +10,6 @@ import {
   TRADE_WRITE_EXIT_SHEET_TITLE,
 } from "@/lib/posts/trade-write-exit-cleanup";
 
-const CATEGORY_CHANGE_SHEET_TITLE = "카테고리를 변경할까요?";
-const CATEGORY_CHANGE_SHEET_BODY = "현재 입력한 내용이 사라질 수 있습니다.";
 import { getCategories } from "@/lib/categories/getCategories";
 import { getCategoryBySlugOrId } from "@/lib/categories/getCategoryById";
 import { normalizeMarketSlugParam } from "@/lib/categories/tradeMarketPath";
@@ -58,6 +57,7 @@ export function WriteSheetFlowInner({
   onExposeTryClose,
   onTradeSheetBlockingDraftChange,
 }: WriteSheetFlowInnerProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const tradeWriteSheetCtx = useTradeWriteSheetOptional();
   const [categories, setCategories] = useState<CategoryWithSettings[]>([]);
@@ -323,16 +323,16 @@ export function WriteSheetFlowInner({
 
   const renderWriteForm = () => {
     if (formStatus === "loading") {
-      return <p className="py-10 text-center sam-text-body text-sam-muted">불러오는 중…</p>;
+      return <p className="py-10 text-center sam-text-body text-sam-muted">{t("common_loading")}</p>;
     }
     if (formStatus === "redirecting") {
-      return <p className="py-10 text-center sam-text-body text-sam-muted">권한 확인 중…</p>;
+      return <p className="py-10 text-center sam-text-body text-sam-muted">{t("ui_write_auth_checking")}</p>;
     }
     if (formStatus === "not_found") {
-      return <p className="py-10 text-center sam-text-body text-sam-muted">카테고리를 찾을 수 없습니다.</p>;
+      return <p className="py-10 text-center sam-text-body text-sam-muted">{t("ui_category_not_found")}</p>;
     }
     if (formStatus === "no_write") {
-      return <p className="py-10 text-center sam-text-body text-sam-muted">이 카테고리에는 글을 쓸 수 없습니다.</p>;
+      return <p className="py-10 text-center sam-text-body text-sam-muted">{t("ui_product_edit_cannot_write_category")}</p>;
     }
     if (formStatus !== "found" || !selectedCategory) return null;
 
@@ -368,7 +368,7 @@ export function WriteSheetFlowInner({
       case "feature":
         return <FeatureWriteBlock category={selectedCategory} onCancel={tryClose} suppressTier1Chrome />;
       default:
-        return <p className="py-10 text-center sam-text-body text-sam-muted">지원하지 않는 카테고리 타입입니다.</p>;
+        return <p className="py-10 text-center sam-text-body text-sam-muted">{t("ui_write_unsupported_type")}</p>;
     }
   };
 
@@ -379,25 +379,25 @@ export function WriteSheetFlowInner({
         onCancel={handleLeaveCancel}
         title={TRADE_WRITE_EXIT_SHEET_TITLE}
         description={TRADE_WRITE_EXIT_SHEET_BODY}
-        cancelLabel="계속 작성"
-        confirmLabel="나가기"
+        cancelLabel={t("ui_write_exit_continue")}
+        confirmLabel={t("ui_write_exit_confirm")}
         confirmTone="primary"
         onConfirm={handleLeaveConfirm}
         zIndexClass={mode === "tradeSheet" ? "z-[66]" : "z-[60]"}
-        ariaLabel="글쓰기 나가기 확인"
+        ariaLabel={t("ui_write_exit_aria")}
         interactionMode="blocking"
       />
       <MobileConfirmBottomSheet
         open={categoryChangeOpen}
         onCancel={handleCategoryChangeCancel}
-        title={CATEGORY_CHANGE_SHEET_TITLE}
-        description={CATEGORY_CHANGE_SHEET_BODY}
-        cancelLabel="취소"
-        confirmLabel="변경"
+        title={t("ui_write_category_change_title")}
+        description={t("ui_write_category_change_body")}
+        cancelLabel={t("ui_write_category_change_cancel")}
+        confirmLabel={t("ui_write_category_change_confirm")}
         confirmTone="danger"
         onConfirm={handleCategoryChangeConfirm}
         zIndexClass={mode === "tradeSheet" ? "z-[66]" : "z-[60]"}
-        ariaLabel="카테고리 변경 확인"
+        ariaLabel={t("ui_write_category_change_aria")}
         interactionMode="blocking"
       />
     <div
@@ -408,7 +408,7 @@ export function WriteSheetFlowInner({
           htmlFor="write-category-select"
           className="mb-2 block sam-text-body font-semibold text-sam-fg"
         >
-          카테고리를 선택하세요
+          {t("ui_write_select_category")}
         </label>
         <select
           id="write-category-select"
@@ -417,18 +417,18 @@ export function WriteSheetFlowInner({
           className="h-11 w-full rounded-sam-md border border-sam-border bg-white px-3 sam-text-body text-sam-fg outline-none focus:border-sam-primary"
           disabled={selectableCategories.length === 0}
         >
-          <option value="">카테고리를 선택하세요</option>
+          <option value="">{t("ui_write_select_category")}</option>
           {selectableCategories.map((category) => (
             <option key={category.id} value={category.id} disabled={!category.settings?.can_write}>
               {category.name}
-              {!category.settings?.can_write ? " (작성 불가)" : ""}
+              {!category.settings?.can_write ? t("ui_write_category_disabled_suffix") : ""}
             </option>
           ))}
         </select>
       </div>
       {!categoryKey.trim() ? (
         <div className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface">
-          <p className="py-10 text-center sam-text-body text-sam-muted">카테고리를 선택하세요</p>
+          <p className="py-10 text-center sam-text-body text-sam-muted">{t("ui_write_select_category")}</p>
         </div>
       ) : (
         <div

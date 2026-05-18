@@ -8,6 +8,7 @@ import {
   tryTrackFirstMenuListRender,
 } from "@/lib/runtime/samarket-runtime-debug";
 import { useLayoutEffect, useRef, type ReactElement } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { shouldFreezeRoomListSubtree } from "@/lib/community-messenger/room/cm-room-list-render-pause";
 import { CommunityMessengerHomeShellSkeleton } from "@/components/community-messenger/CommunityMessengerRouteSkeletons";
 import type { MessengerChatListVisual, MessengerMenuAnchorRect } from "@/components/community-messenger/MessengerChatListItem";
@@ -98,6 +99,7 @@ type Props = {
 };
 
 export function CommunityMessengerHomeListPane(props: Props) {
+  const { t } = useI18n();
   const frozenTreeRef = useRef<ReactElement | null>(null);
   const frameRef = useRef<HTMLDivElement | null>(null);
   const listFrozen = shouldFreezeRoomListSubtree();
@@ -241,7 +243,7 @@ export function CommunityMessengerHomeListPane(props: Props) {
               style={{ color: "var(--messenger-text-secondary)" }}
               data-cm-home-refresh-overlay="true"
             >
-              기존 목록을 유지한 채 새 데이터를 반영하는 중입니다.
+              {t("cm_ui_updating_with_existing_list")}
             </div>
           </div>
         ) : null}
@@ -264,7 +266,7 @@ export function CommunityMessengerHomeListPane(props: Props) {
           className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-8 text-center shadow-[var(--messenger-shadow-soft)]"
           style={{ color: "var(--messenger-text)" }}
         >
-          <p className="sam-text-body-lg font-semibold">로그인이 필요합니다.</p>
+          <p className="sam-text-body-lg font-semibold">{t("nav_messenger_login_required")}</p>
           <p className="mt-2 sam-text-body-secondary" style={{ color: "var(--messenger-text-secondary)" }}>
             {props.pageError ?? props.loginRequiredText}
           </p>
@@ -276,7 +278,7 @@ export function CommunityMessengerHomeListPane(props: Props) {
           className="rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-8 text-center shadow-[var(--messenger-shadow-soft)]"
           style={{ color: "var(--messenger-text)" }}
         >
-          <p className="sam-text-body-lg font-semibold">메신저를 불러오지 못했습니다.</p>
+          <p className="sam-text-body-lg font-semibold">{t("cm_ui_failed_to_load_messenger")}</p>
           <p className="mt-2 sam-text-body-secondary" style={{ color: "var(--messenger-text-secondary)" }}>
             {props.pageError ?? props.retryText}
           </p>
@@ -286,7 +288,7 @@ export function CommunityMessengerHomeListPane(props: Props) {
               onClick={props.onRetry}
               className="rounded-[var(--messenger-radius-md)] bg-[color:var(--messenger-primary)] px-4 py-3 sam-text-body font-semibold text-white active:opacity-90"
             >
-              다시 불러오기
+              {t("cm_ui_reload")}
             </button>
           </div>
         </section>

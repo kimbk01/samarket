@@ -1,21 +1,23 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminUser, MemberType } from "@/lib/types/admin-user";
 import { getAdminRole } from "@/lib/admin-permission";
 import { useAdminMemberUuidVisibility } from "@/hooks/useAdminMemberUuidVisibility";
+import type { MessageKey } from "@/lib/i18n/messages";
 
-const MEMBER_LABEL: Record<MemberType, string> = {
-  normal: "일반",
-  premium: "특별",
-  admin: "관리자",
+const MEMBER_LABEL_KEYS: Record<MemberType, MessageKey> = {
+  normal: "admin_users_member_type_normal_short",
+  premium: "admin_users_member_type_premium_short",
+  admin: "admin_users_member_type_admin_short",
 };
 
-const PHONE_OPTIONS: { value: string; label: string }[] = [
-  { value: "unverified", label: "미인증" },
-  { value: "pending", label: "대기 (승인 요청)" },
-  { value: "verified", label: "인증 완료" },
-  { value: "rejected", label: "거절" },
+const PHONE_OPTION_KEYS: { value: string; labelKey: MessageKey }[] = [
+  { value: "unverified", labelKey: "admin_users_phone_unverified" },
+  { value: "pending", labelKey: "admin_users_phone_pending" },
+  { value: "verified", labelKey: "admin_users_phone_verified" },
+  { value: "rejected", labelKey: "admin_users_phone_rejected" },
 ];
 
 interface EditMemberFormProps {
@@ -32,6 +34,7 @@ function inferPhoneValue(u: AdminUser): string {
 }
 
 export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps) {
+  const { t } = useI18n();
   const { showMemberUuid, setShowMemberUuid } = useAdminMemberUuidVisibility();
   const isMasterUi = getAdminRole() === "master";
   const [nickname, setNickname] = useState(user.nickname);
@@ -68,11 +71,11 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
 
     const nextNickname = nickname.trim();
     if (!nextNickname) {
-      setError("닉네임을 입력해 주세요.");
+      setError(t("admin_users_err_nickname_required"));
       return;
     }
     if (nextNickname.length > 20) {
-      setError("닉네임은 20자 이내로 입력해 주세요.");
+      setError(t("admin_users_err_nickname_max"));
       return;
     }
     const body: { nickname?: string; memberType?: MemberType; phoneVerificationStatus?: string } = {};
@@ -82,7 +85,7 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
     if (phoneStatus !== inferPhoneValue(user)) body.phoneVerificationStatus = phoneStatus;
 
     if (Object.keys(body).length === 0) {
-      setError("변경된 항목이 없습니다.");
+      setError(t("admin_users_err_no_changes"));
       return;
     }
 
@@ -96,14 +99,14 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
       });
       const data = (await res.json()) as { ok?: boolean; error?: string; message?: string };
       if (!res.ok || !data.ok) {
-        setError(data.message ?? data.error ?? "저장에 실패했습니다.");
+        setError(data.message ?? data.error ?? t("admin_users_err_save_failed"));
         setSubmitting(false);
         return;
       }
       onSuccess();
       onClose();
     } catch {
-      setError("요청에 실패했습니다.");
+      setError(t("admin_users_request_failed"));
     } finally {
       setSubmitting(false);
     }
@@ -121,7 +124,7 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
         className="w-full max-w-md rounded-ui-rect border border-sam-border bg-sam-surface p-6 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="text-lg font-semibold text-sam-fg">회원 수정</h2>
+        <h2 className="text-lg font-semibold text-sam-fg">{t("admin_users_form_edit_member_title")}</h2>
         <p className="mt-1 sam-text-body-secondary text-sam-muted">
           {user.nickname}
           {showMemberUuid ? (
@@ -130,41 +133,40 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
             <span className="ml-2 font-mono sam-text-helper text-sam-meta">{user.loginUsername}</span>
           ) : (
             <>
-              <span className="ml-2 sam-text-helper text-sam-muted">(내부 ID 숨김)</span>
+              <span className="ml-2 sam-text-helper text-sam-muted">{t("admin_users_id_hidden")}</span>
               <button
                 type="button"
                 className="ml-2 sam-text-helper font-medium text-signature hover:underline"
                 onClick={() => setShowMemberUuid(true)}
               >
-                UUID 표시
+                {t("admin_users_show_uuid")}
               </button>
             </>
           )}
         </p>
         <p className="mt-2 sam-text-helper text-amber-800">
-          구분·전화 인증은 <strong>profiles</strong>(및 개발용 <strong>test_users.role</strong>)에 반영됩니다.
+          {t("admin_users_edit_profiles_hint")}
         </p>
         {user.hasProfile === false ? (
           <p className="mt-2 rounded-ui-rect border border-sky-200 bg-sky-50 px-3 py-2 sam-text-helper text-sky-950">
-            수동(test_users)만 연결된 계정입니다. <strong>저장 시</strong> 같은 UUID로 Supabase Auth와 profiles가
-            없으면 <strong>자동으로 만들어</strong> 정식 회원과 동일하게 맞춥니다.
+            {t("admin_users_edit_test_only_hint")}
           </p>
         ) : null}
 
         <div className="mt-5 space-y-4">
           <label className="block">
-            <span className="sam-text-body-secondary font-medium text-sam-fg">닉네임</span>
+            <span className="sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_label_nickname")}</span>
             <input
               value={nickname}
               onChange={(e) => setNickname(e.target.value)}
               maxLength={20}
               className="mt-1.5 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
-              placeholder="닉네임"
+              placeholder={t("admin_users_label_nickname")}
             />
           </label>
 
           <label className="block">
-            <span className="sam-text-body-secondary font-medium text-sam-fg">회원 구분</span>
+            <span className="sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_label_member_type")}</span>
             <select
               value={memberType}
               onChange={(e) => setMemberType(e.target.value as MemberType)}
@@ -173,31 +175,31 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
             >
               {memberOptions.map((v) => (
                 <option key={v} value={v}>
-                  {MEMBER_LABEL[v]}
+                  {t(MEMBER_LABEL_KEYS[v])}
                 </option>
               ))}
             </select>
             {user.profileRole === "master" ? (
               <span className="mt-1 block sam-text-xxs text-amber-700">
-                최고 관리자 계정은 DB role이 유지됩니다. 전화 인증만 바꿀 수 있습니다.
+                {t("admin_users_edit_master_role_hint")}
               </span>
             ) : !isMasterUi ? (
               <span className="mt-1 block sam-text-xxs text-sam-muted">
-                일반·특별 ↔ 관리자 변경은 최고 관리자만 할 수 있습니다.
+                {t("admin_users_edit_member_type_hint")}
               </span>
             ) : null}
           </label>
 
           <label className="block">
-            <span className="sam-text-body-secondary font-medium text-sam-fg">전화 인증 상태</span>
+            <span className="sam-text-body-secondary font-medium text-sam-fg">{t("admin_users_label_phone_verify_status")}</span>
             <select
               value={phoneStatus}
               onChange={(e) => setPhoneStatus(e.target.value)}
               className="mt-1.5 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
             >
-              {PHONE_OPTIONS.map((o) => (
+              {PHONE_OPTION_KEYS.map((o) => (
                 <option key={o.value} value={o.value}>
-                  {o.label}
+                  {t(o.labelKey)}
                 </option>
               ))}
             </select>
@@ -212,14 +214,14 @@ export function EditMemberForm({ user, onClose, onSuccess }: EditMemberFormProps
             onClick={onClose}
             className="rounded-ui-rect border border-sam-border px-4 py-2 sam-text-body font-medium text-sam-fg hover:bg-sam-app"
           >
-            취소
+            {t("common_cancel")}
           </button>
           <button
             type="submit"
             disabled={submitting}
             className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white hover:bg-signature/90 disabled:opacity-50"
           >
-            {submitting ? "저장 중…" : "저장"}
+            {submitting ? t("admin_users_saving") : t("common_save")}
           </button>
         </div>
       </form>

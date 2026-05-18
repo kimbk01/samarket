@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState, type RefObject } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SettingsToggleRow } from "@/components/community-messenger/MessengerSheetUi";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import type { CommunityMessengerLocalSettings } from "@/lib/community-messenger/preferences";
@@ -10,7 +11,7 @@ import {
   shouldDisableMessengerIncomingFriendActionButtons,
   shouldDisableMessengerOutgoingFriendCancelButton,
 } from "@/lib/community-messenger/community-messenger-friend-request-client";
-import { MessengerFriendAddCtaLabels, resolveMessengerFriendAddCta } from "@/lib/community-messenger/messenger-friend-add-cta";
+import { MessengerFriendAddCtaLabelKeys, resolveMessengerFriendAddCta } from "@/lib/community-messenger/messenger-friend-add-cta";
 import type { CommunityMessengerFriendRequest, CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
 export type MessengerFriendAddTab = "id" | "contacts" | "invite";
@@ -45,16 +46,16 @@ type Props = {
 
 const TAB_ORDER: MessengerFriendAddTab[] = ["id", "contacts", "invite"];
 
-function tabLabel(t: MessengerFriendAddTab): string {
+function tabLabel(t: MessengerFriendAddTab): "cm_ui_at_id" | "cm_ui_contacts" | "cm_ui_qr_invite" {
   switch (t) {
     case "id":
-      return "@아이디";
+      return "cm_ui_at_id";
     case "contacts":
-      return "연락처";
+      return "cm_ui_contacts";
     case "invite":
-      return "QR · 초대";
+      return "cm_ui_qr_invite";
     default:
-      return "";
+      return "cm_ui_at_id";
   }
 }
 
@@ -82,6 +83,7 @@ export function MessengerFriendAddSheet({
   cooldownUntilByPeerId,
   cooldownNowMs,
 }: Props) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
 
   const copyInvite = useCallback(async () => {
@@ -96,19 +98,19 @@ export function MessengerFriendAddSheet({
 
   return (
     <div className="fixed inset-0 z-[43] flex flex-col justify-end bg-black/30">
-      <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={onClose} />
+      <button type="button" className="min-h-0 flex-1 cursor-default" aria-label={t("nav_close")} onClick={onClose} />
       <div
         data-messenger-shell
         className="flex max-h-[78vh] w-full flex-col overflow-hidden rounded-t-ui-rect border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]"
       >
         <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--messenger-divider)] px-3 py-2.5">
           <p className="sam-text-body-lg font-semibold" style={{ color: "var(--messenger-text)" }}>
-            친구 추가
+            {t("cm_ui_add_friend")}
           </p>
           <button
             type="button"
             className="flex h-8 w-8 items-center justify-center rounded-ui-rect text-[color:var(--messenger-text-secondary)] active:bg-[color:var(--messenger-primary-soft)]"
-            aria-label="닫기"
+            aria-label={t("nav_close")}
             onClick={onClose}
           >
             <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
@@ -138,7 +140,7 @@ export function MessengerFriendAddSheet({
                 } ${active ? "font-semibold" : ""}`}
                 style={{ color: active ? "var(--messenger-text)" : "var(--messenger-text-secondary)" }}
               >
-                <span className="line-clamp-2">{tabLabel(tab)}</span>
+                <span className="line-clamp-2">{t(tabLabel(tab))}</span>
                 {active ? (
                   <span
                     className="absolute bottom-0 left-2 right-2 h-0.5 rounded-full"
@@ -159,14 +161,14 @@ export function MessengerFriendAddSheet({
               </p>
               <div className="overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]">
                 <SettingsToggleRow
-                  title="전화번호로 친구 추가"
-                  description="연락처 탭 사용"
+                  title={t("cm_ui_add_friend_by_phone")}
+                  description={t("cm_ui_use_contacts_tab")}
                   checked={localSettings.phoneFriendAddEnabled}
                   onChange={(next) => updateLocalSetting("phoneFriendAddEnabled", next)}
                 />
                 <SettingsToggleRow
-                  title="연락처 자동 추가"
-                  description="모바일 연동 시 자동 반영"
+                  title={t("cm_ui_auto_add_contacts")}
+                  description={t("cm_ui_auto_apply_mobile_integration")}
                   checked={localSettings.contactAutoAddEnabled}
                   onChange={(next) => updateLocalSetting("contactAutoAddEnabled", next)}
                 />
@@ -211,7 +213,7 @@ export function MessengerFriendAddSheet({
                             </div>
                             <div className="min-w-0 flex-1">
                               <p className="truncate sam-text-body font-medium" style={{ color: "var(--messenger-text)" }}>
-                                {r.addresseeLabel || "상대"}
+                                {r.addresseeLabel || t("cm_ui_other_party")}
                               </p>
                               <p className="truncate sam-text-xxs" style={{ color: "var(--messenger-text-secondary)" }}>
                                 수락 대기 중
@@ -227,7 +229,7 @@ export function MessengerFriendAddSheet({
                               className="shrink-0 rounded-full border border-[color:var(--messenger-divider)] px-2.5 py-1 sam-text-xxs font-medium disabled:opacity-40"
                               style={{ color: "var(--messenger-text)" }}
                             >
-                              {busyId === `request:${r.id}:cancel` ? "…" : MessengerFriendAddCtaLabels.cancel}
+                              {busyId === `request:${r.id}:cancel` ? "…" : t(MessengerFriendAddCtaLabelKeys.cancel)}
                             </button>
                           </div>
                         );
@@ -251,7 +253,7 @@ export function MessengerFriendAddSheet({
                     }
                   }}
                   maxLength={20}
-                  placeholder="@아이디 (예: @samarket)"
+                  placeholder={t("cm_ui_at_id_example")}
                   autoCapitalize="none"
                   autoCorrect="off"
                   spellCheck={false}
@@ -267,13 +269,13 @@ export function MessengerFriendAddSheet({
                   disabled={busyId === "user-search"}
                   className="mt-3 w-full rounded-ui-rect bg-[color:var(--messenger-primary)] py-2.5 text-[14px] font-semibold text-white disabled:opacity-50 active:opacity-90"
                 >
-                  {busyId === "user-search" ? "검색 중…" : "검색"}
+                  {busyId === "user-search" ? t("common_loading") : t("cm_ui_search")}
                 </button>
               </div>
               <div className="divide-y divide-[color:var(--messenger-divider)] overflow-hidden rounded-ui-rect border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]">
                 {searchResults.length === 0 ? (
                   <p className="px-3 py-4 text-center sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
-                    {!friendUserSearchAttempted ? "검색어를 입력한 뒤 검색을 눌러 주세요." : "검색 결과가 없습니다."}
+                    {!friendUserSearchAttempted ? t("cm_ui_enter_keyword_then_search") : t("cm_ui_no_search_results")}
                   </p>
                 ) : (
                   searchResults.map((user) => (
@@ -316,7 +318,7 @@ export function MessengerFriendAddSheet({
                 className="w-full rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-primary-soft)] py-2.5 sam-text-body font-semibold active:opacity-90"
                 style={{ color: "var(--messenger-primary)" }}
               >
-                {copied ? "복사됨" : "링크 복사"}
+                {copied ? t("cm_ui_copied") : t("cm_ui_copy_link")}
               </button>
             </div>
           ) : null}
@@ -353,6 +355,7 @@ function SearchResultRow({
   cooldownUntilByPeerId: Record<string, number>;
   cooldownNowMs: number;
 }) {
+  const { t } = useI18n();
   const prefetchOnceRef = useRef(false);
   const avatarSrc = user.avatarUrl?.trim() ? user.avatarUrl.trim() : null;
   const initial = user.label.trim().slice(0, 1) || "?";
@@ -396,11 +399,11 @@ function SearchResultRow({
       <div className="flex shrink-0 items-center justify-end gap-1">
         {cta.kind === "friend" || user.isFriend ? (
           <span className="sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
-            {MessengerFriendAddCtaLabels.friend}
+            {t(MessengerFriendAddCtaLabelKeys.friend)}
           </span>
         ) : cta.kind === "blocked" ? (
           <span className="max-w-[5.5rem] text-right sam-text-xxs leading-tight" style={{ color: "var(--messenger-text-secondary)" }}>
-            {MessengerFriendAddCtaLabels.unavailable}
+            {t(MessengerFriendAddCtaLabelKeys.unavailable)}
           </span>
         ) : cta.kind === "pending_outgoing" ? (
           <>
@@ -408,7 +411,7 @@ function SearchResultRow({
               className="rounded-full border border-[color:var(--messenger-divider)] px-2 py-1 sam-text-xxs font-medium"
               style={{ color: "var(--messenger-text-secondary)" }}
             >
-              {MessengerFriendAddCtaLabels.pending}
+              {t(MessengerFriendAddCtaLabelKeys.pending)}
             </span>
             <button
               type="button"
@@ -423,7 +426,7 @@ function SearchResultRow({
               className="rounded-full border border-[color:var(--messenger-divider)] px-2 py-1 sam-text-xxs font-medium disabled:opacity-40"
               style={{ color: "var(--messenger-text)" }}
             >
-              {busyId === `request:${cta.requestId}:cancel` ? "…" : MessengerFriendAddCtaLabels.cancel}
+              {busyId === `request:${cta.requestId}:cancel` ? "…" : t(MessengerFriendAddCtaLabelKeys.cancel)}
             </button>
           </>
         ) : cta.kind === "pending_incoming" ? (
@@ -438,7 +441,7 @@ function SearchResultRow({
               className="rounded-full border border-[color:var(--messenger-divider)] px-2 py-1 sam-text-xxs font-medium disabled:opacity-40"
               style={{ color: "var(--messenger-text)" }}
             >
-              {MessengerFriendAddCtaLabels.reject}
+              {t(MessengerFriendAddCtaLabelKeys.reject)}
             </button>
             <button
               type="button"
@@ -449,7 +452,7 @@ function SearchResultRow({
               disabled={shouldDisableMessengerIncomingFriendActionButtons(busyId, cta.requestId)}
               className="rounded-full bg-[color:var(--messenger-primary)] px-2.5 py-1 sam-text-xxs font-semibold text-white disabled:opacity-40"
             >
-              {MessengerFriendAddCtaLabels.accept}
+              {t(MessengerFriendAddCtaLabelKeys.accept)}
             </button>
           </>
         ) : cta.kind === "cooldown" ? (
@@ -458,7 +461,7 @@ function SearchResultRow({
               className="rounded-full border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] px-2 py-1 sam-text-xxs font-medium"
               style={{ color: "var(--messenger-text-secondary)" }}
             >
-              {MessengerFriendAddCtaLabels.cooldown}
+              {t(MessengerFriendAddCtaLabelKeys.cooldown)}
             </span>
             <span className="sam-text-xxs tabular-nums leading-tight" style={{ color: "var(--messenger-text-secondary)" }}>
               {formatFriendRejectCooldownShort(cta.remainingMs)} 재요청
@@ -474,7 +477,7 @@ function SearchResultRow({
             disabled={bAdd}
             className="rounded-full bg-[color:var(--messenger-primary)] px-3 py-1.5 sam-text-helper font-semibold text-white disabled:opacity-40 active:opacity-90"
           >
-            {bAdd ? "…" : MessengerFriendAddCtaLabels.add}
+            {bAdd ? "…" : t(MessengerFriendAddCtaLabelKeys.add)}
           </button>
         )}
       </div>

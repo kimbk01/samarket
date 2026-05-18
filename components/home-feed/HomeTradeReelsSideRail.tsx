@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useState, useCallback, useEffect, useRef } from "react";
 import type { ComponentType, ReactNode } from "react";
@@ -29,86 +30,99 @@ const FAB_BASE =
  * 홈 거래 플로팅 CTA — 피드에서 빠른 거래·쓰기 진입용.
  * `/mypage/trade`(내정보→나의 거래)에서는 목록형 메뉴만 쓰고 이 레일은 띄우지 않음.
  */
+type RailLabelKey =
+  | "ui_home_rail_trade_hub"
+  | "trade_031"
+  | "trade_122"
+  | "nav_trade_chat"
+  | "trade_111"
+  | "trade_017"
+  | "ui_home_rail_reviews_manage"
+  | "ui_home_rail_trust_battery"
+  | "ui_home_rail_my_products"
+  | "ui_home_rail_delivery_orders"
+  | "ui_home_rail_points_ledger";
+
 const TRADE_HUB_RAIL_LINKS: readonly {
   key: string;
-  label: string;
+  labelKey: RailLabelKey;
   href: string;
   fabClass: string;
   Icon: ComponentType;
 }[] = [
   {
     key: "hub",
-    label: "거래 허브",
+    labelKey: "ui_home_rail_trade_hub",
     href: "/mypage/trade/purchases",
     fabClass: `${FAB_BASE} bg-sam-fg/10`,
     Icon: HubGridIcon,
   },
   {
     key: "purchases",
-    label: "구매 내역",
+    labelKey: "trade_031",
     href: "/mypage/trade/purchases",
     fabClass: `${FAB_BASE} bg-amber-600`,
     Icon: BagIcon,
   },
   {
     key: "sales",
-    label: "판매 내역",
+    labelKey: "trade_122",
     href: "/mypage/trade/sales",
     fabClass: `${FAB_BASE} bg-rose-600`,
     Icon: CartIcon,
   },
   {
     key: "chat",
-    label: "거래채팅",
+    labelKey: "nav_trade_chat",
     href: TRADE_CHAT_SURFACE.messengerListHref,
     fabClass: `${FAB_BASE} bg-violet-600`,
     Icon: ChatBubbleIcon,
   },
   {
     key: "favorites",
-    label: "찜 목록",
+    labelKey: "trade_111",
     href: MYPAGE_TRADE_FAVORITES_HREF,
     fabClass: `${FAB_BASE} bg-pink-600`,
     Icon: HeartIcon,
   },
   {
     key: "reviews-hub",
-    label: "거래 후기",
+    labelKey: "trade_017",
     href: "/mypage/trade/reviews",
     fabClass: `${FAB_BASE} bg-orange-500`,
     Icon: StarIcon,
   },
   {
     key: "reviews-manage",
-    label: "후기 관리(전체)",
+    labelKey: "ui_home_rail_reviews_manage",
     href: "/mypage/reviews",
     fabClass: `${FAB_BASE} bg-purple-600`,
     Icon: StarOutlineIcon,
   },
   {
     key: "trust",
-    label: "신뢰·배터리",
+    labelKey: "ui_home_rail_trust_battery",
     href: "/my/trust",
     fabClass: `${FAB_BASE} bg-teal-600`,
     Icon: TrustIcon,
   },
   {
     key: "my-products",
-    label: "내 상품",
+    labelKey: "ui_home_rail_my_products",
     href: "/my/products",
     fabClass: `${FAB_BASE} bg-cyan-600`,
     Icon: DocIcon,
   },
   {
     key: "store-orders",
-    label: "배달 주문",
+    labelKey: "ui_home_rail_delivery_orders",
     href: "/my/store-orders",
     fabClass: `${FAB_BASE} bg-blue-700`,
     Icon: StoreBagIcon,
   },
   {
     key: "points",
-    label: "포인트 내역",
+    labelKey: "ui_home_rail_points_ledger",
     href: "/my/points/ledger",
     fabClass: `${FAB_BASE} bg-indigo-600`,
     Icon: CoinIcon,
@@ -126,6 +140,7 @@ function isTradeHubSideRailPath(pathname: string | null): boolean {
 }
 
 export function HomeTradeReelsSideRail() {
+  const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
   const tradeWriteSheet = useTradeWriteSheetOptional();
@@ -205,15 +220,15 @@ export function HomeTradeReelsSideRail() {
                     <nav
                       id="home-quick-rail-menu"
                       className="pointer-events-auto flex max-h-[min(78vh,32rem)] flex-col items-end gap-3 overflow-y-auto overscroll-contain pr-0.5 [scrollbar-width:thin]"
-                      aria-label="거래 빠른 메뉴"
+                      aria-label={t("ui_home_rail_trade_menu_aria")}
                     >
                       <StackRow index={0} sheetEntered={sheetEntered} maxIndex={MAX_ROW_INDEX}>
-                        <span className={RAIL_LABEL_CLASS}>글쓰기</span>
+                        <span className={RAIL_LABEL_CLASS}>{t("nav_write_aria")}</span>
                         <button
                           type="button"
                           onClick={onWriteClick}
                           className={`${FAB_BASE} bg-emerald-600`}
-                          aria-label="글쓰기"
+                          aria-label={t("nav_write_aria")}
                         >
                           <PlusIcon />
                         </button>
@@ -221,12 +236,12 @@ export function HomeTradeReelsSideRail() {
 
                       {TRADE_HUB_RAIL_LINKS.map((item, i) => (
                         <StackRow key={item.key} index={i + 1} sheetEntered={sheetEntered} maxIndex={MAX_ROW_INDEX}>
-                          <span className={RAIL_LABEL_CLASS}>{item.label}</span>
+                          <span className={RAIL_LABEL_CLASS}>{t(item.labelKey)}</span>
                           <Link
                             href={item.href}
                             prefetch={false}
                             className={item.fabClass}
-                            aria-label={item.label}
+                            aria-label={t(item.labelKey)}
                           >
                             <item.Icon />
                           </Link>
@@ -244,7 +259,7 @@ export function HomeTradeReelsSideRail() {
                     className={`pointer-events-auto flex h-14 w-14 shrink-0 items-center justify-center rounded-full text-white shadow-[0_6px_20px_rgba(0,0,0,0.22)] ring-2 transition active:opacity-90 ${
                       railOpen ? "bg-sam-fg/10 ring-sam-surface/35" : "bg-signature ring-sam-surface/25"
                     }`}
-                    aria-label={railOpen ? "메뉴 닫기" : "메뉴 열기"}
+                    aria-label={railOpen ? t("ui_home_rail_menu_close") : t("ui_home_rail_menu_open")}
                   >
                     {railOpen ? <RadialCloseIcon /> : <MoreIcon />}
                   </button>

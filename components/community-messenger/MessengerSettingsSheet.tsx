@@ -3,6 +3,7 @@
 import type { RefObject } from "react";
 import { CommunityMessengerDeviceSettingsSection } from "@/components/community-messenger/CommunityMessengerDeviceSettingsSection";
 import { MessengerSettingsBlock, SettingsActionRow, SettingsToggleRow } from "@/components/community-messenger/MessengerSheetUi";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { CommunityMessengerLocalSettings } from "@/lib/community-messenger/preferences";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
@@ -65,16 +66,17 @@ export function MessengerSettingsSheet({
   onBackupFileSelected,
   onOpenOpenChatDiscovery,
 }: MessengerSettingsSheetProps) {
+  const { t } = useI18n();
   return (
     <div className="fixed inset-0 z-[43] flex flex-col justify-end bg-black/30">
-      <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={onClose} />
+      <button type="button" className="min-h-0 flex-1 cursor-default" aria-label={t("nav_close")} onClick={onClose} />
       <div
         data-messenger-shell
         className="flex max-h-[88vh] w-full flex-col overflow-hidden rounded-t-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] shadow-[var(--messenger-shadow-soft)]"
       >
         <div className="flex shrink-0 items-center justify-between border-b border-[color:var(--messenger-divider)] px-3 py-2.5">
           <p className="sam-text-body-lg font-semibold" style={{ color: "var(--messenger-text)" }}>
-            설정
+            {t("common_settings")}
           </p>
           <button
             type="button"
@@ -82,88 +84,88 @@ export function MessengerSettingsSheet({
             style={{ color: "var(--messenger-text-secondary)" }}
             onClick={onClose}
           >
-            닫기
+            {t("nav_close")}
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto bg-[color:var(--messenger-bg)] px-3 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
           <div className="space-y-4">
-            <MessengerSettingsBlock title="알림">
+            <MessengerSettingsBlock title={t("common_notifications")}>
               <SettingsToggleRow
-                title="메신저·1:1 채팅"
-                description="일반 대화 알림"
+                title={t("cm_ui_messenger_direct_chat")}
+                description={t("cm_ui_general_chat_notifications")}
                 checked={notificationSettings.community_chat_enabled}
                 disabled={busyId === "notification-setting:community_chat_enabled"}
                 onChange={(next) => void updateNotificationSetting("community_chat_enabled", next)}
               />
               <SettingsToggleRow
-                title="거래 채팅"
-                description="중고·거래 연결 알림"
+                title={t("nav_trade_chat_label")}
+                description={t("cm_ui_trade_chat_notifications")}
                 checked={notificationSettings.trade_chat_enabled}
                 disabled={busyId === "notification-setting:trade_chat_enabled"}
                 onChange={(next) => void updateNotificationSetting("trade_chat_enabled", next)}
               />
               <SettingsToggleRow
-                title="주문·배달"
+                title={t("cm_ui_order_delivery")}
                 checked={notificationSettings.order_enabled}
                 disabled={busyId === "notification-setting:order_enabled"}
                 onChange={(next) => void updateNotificationSetting("order_enabled", next)}
               />
               <SettingsToggleRow
-                title="매장"
-                description="매장 공지·운영 알림"
+                title={t("common_store")}
+                description={t("cm_ui_store_notice_operations_notifications")}
                 checked={notificationSettings.store_enabled}
                 disabled={busyId === "notification-setting:store_enabled"}
                 onChange={(next) => void updateNotificationSetting("store_enabled", next)}
               />
               <SettingsToggleRow
-                title="채팅·서비스 알림 소리"
-                description="메시지·거래·주문 등 알림음"
+                title={t("cm_ui_chat_service_notification_sound")}
+                description={t("cm_ui_message_trade_order_sound")}
                 checked={notificationSettings.sound_enabled}
                 disabled={busyId === "notification-setting:sound_enabled"}
                 onChange={(next) => void updateNotificationSetting("sound_enabled", next)}
               />
               <SettingsToggleRow
-                title="수신 통화 벨"
-                description="이 기기에서 통화 수신 시 재생합니다. 관리자가 서버에 지정한 통화 톤이 있으면 그 톤이 우선될 수 있습니다."
+                title={t("cm_ui_incoming_call_bell")}
+                description={t("cm_ui_incoming_call_bell_desc")}
                 checked={incomingCallSoundEnabled}
                 onChange={(next) => onIncomingCallSoundChange(next)}
               />
               <SettingsToggleRow
-                title="수신 통화 화면 안내"
-                description="배너·오버레이"
+                title={t("cm_ui_incoming_call_screen_guide")}
+                description={t("cm_ui_banner_overlay")}
                 checked={incomingCallBannerEnabled}
                 onChange={(next) => onIncomingCallBannerChange(next)}
               />
               <SettingsToggleRow
-                title="진동"
+                title={t("cm_ui_vibration")}
                 checked={notificationSettings.vibration_enabled}
                 disabled={busyId === "notification-setting:vibration_enabled"}
                 onChange={(next) => void updateNotificationSetting("vibration_enabled", next)}
               />
             </MessengerSettingsBlock>
 
-            <MessengerSettingsBlock title="통화 · 기기">
+            <MessengerSettingsBlock title={t("cm_ui_call_devices")}>
               <CommunityMessengerDeviceSettingsSection visible={true} embedded />
             </MessengerSettingsBlock>
 
-            <MessengerSettingsBlock title="친구">
+            <MessengerSettingsBlock title={t("nav_messenger_friends")}>
               <p className="px-3 py-2 sam-text-helper leading-snug text-ui-muted">
-                차단 {blocked.length}명 · 숨김 {hidden.length}명 · 즐겨찾기 {favoriteCount}명
+                {t("cm_ui_block_hidden_favorites_count", { blocked: blocked.length, hidden: hidden.length, favorites: favoriteCount })}
               </p>
               <SettingsToggleRow
-                title="전화번호로 친구 추가"
-                description="연락처 탭 사용"
+                title={t("cm_ui_add_friend_by_phone")}
+                description={t("cm_ui_use_contacts_tab")}
                 checked={localSettings.phoneFriendAddEnabled}
                 onChange={(next) => updateLocalSetting("phoneFriendAddEnabled", next)}
               />
               <SettingsToggleRow
-                title="연락처 자동 추가"
-                description="모바일 연동 시 자동 반영"
+                title={t("cm_ui_auto_add_contacts")}
+                description={t("cm_ui_auto_apply_mobile_integration")}
                 checked={localSettings.contactAutoAddEnabled}
                 onChange={(next) => updateLocalSetting("contactAutoAddEnabled", next)}
               />
               <div className="px-3 py-2">
-                <p className="sam-text-helper font-medium text-ui-fg">차단</p>
+                <p className="sam-text-helper font-medium text-ui-fg">{t("common_block")}</p>
                 {blocked.length ? (
                   <div className="mt-1.5 space-y-1">
                     {blocked.map((user) => (
@@ -175,24 +177,24 @@ export function MessengerSettingsSheet({
                           disabled={busyId === `block:${user.id}`}
                           className="shrink-0 sam-text-xxs font-medium text-ui-muted"
                         >
-                          해제
+                          {t("cm_ui_release")}
                         </button>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="mt-1 sam-text-xxs text-ui-muted">차단된 사용자가 없습니다.</p>
+                  <p className="mt-1 sam-text-xxs text-ui-muted">{t("cm_ui_no_blocked_users")}</p>
                 )}
               </div>
               <div className="px-3 py-2">
-                <p className="sam-text-helper font-medium text-ui-fg">숨김 친구</p>
+                <p className="sam-text-helper font-medium text-ui-fg">{t("cm_ui_hidden_friends")}</p>
                 {hidden.length ? (
                   <div className="mt-1.5 space-y-1">
                     {hidden.map((friend) => (
                       <div key={friend.id} className="flex items-center justify-between gap-2 border-b border-ui-border py-1.5 last:border-0">
                         <div className="min-w-0">
                           <p className="truncate sam-text-body-secondary text-ui-fg">{friend.label}</p>
-                          <p className="truncate sam-text-xxs text-ui-muted">{friend.subtitle ?? "목록에서만 숨김"}</p>
+                          <p className="truncate sam-text-xxs text-ui-muted">{friend.subtitle ?? t("cm_ui_hidden_only_in_list")}</p>
                         </div>
                         <button
                           type="button"
@@ -200,17 +202,17 @@ export function MessengerSettingsSheet({
                           disabled={busyId === `hidden:${friend.id}`}
                           className="shrink-0 sam-text-xxs font-medium text-ui-muted"
                         >
-                          해제
+                          {t("cm_ui_release")}
                         </button>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="mt-1 sam-text-xxs text-ui-muted">숨김 처리된 친구가 없습니다.</p>
+                  <p className="mt-1 sam-text-xxs text-ui-muted">{t("cm_ui_no_hidden_friends")}</p>
                 )}
               </div>
               <div className="px-3 py-2">
-                <p className="sam-text-helper font-medium text-ui-fg">즐겨찾기 관리</p>
+                <p className="sam-text-helper font-medium text-ui-fg">{t("cm_ui_manage_favorites")}</p>
                 {favoriteManageFriends.length ? (
                   <div className="mt-1.5 space-y-1">
                     {favoriteManageFriends.map((friend) => (
@@ -218,7 +220,7 @@ export function MessengerSettingsSheet({
                         <div className="min-w-0">
                           <p className="truncate sam-text-body-secondary text-ui-fg">{friend.label}</p>
                           <p className="truncate sam-text-xxs text-ui-muted">
-                            {friend.isHiddenFriend ? "숨김 친구 · 즐겨찾기 유지" : friend.subtitle ?? "즐겨찾기"}
+                            {friend.isHiddenFriend ? t("cm_ui_hidden_friend_keep_favorite") : friend.subtitle ?? t("cm_ui_favorite")}
                           </p>
                         </div>
                         <button
@@ -227,40 +229,40 @@ export function MessengerSettingsSheet({
                           disabled={busyId === `favorite:${friend.id}`}
                           className="shrink-0 sam-text-xxs font-medium text-ui-muted"
                         >
-                          해제
+                          {t("cm_ui_release")}
                         </button>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="mt-1 sam-text-xxs text-ui-muted">즐겨찾기 친구가 없습니다.</p>
+                  <p className="mt-1 sam-text-xxs text-ui-muted">{t("cm_ui_no_favorite_friends")}</p>
                 )}
               </div>
             </MessengerSettingsBlock>
 
-            <MessengerSettingsBlock title="채팅">
+            <MessengerSettingsBlock title={t("nav_conversation")}>
               <SettingsToggleRow
-                title="입장 전 정보 확인"
-                description="모임 채팅도 입장 전 정보를 먼저 확인"
+                title={t("cm_ui_check_info_before_join")}
+                description={t("cm_ui_check_meeting_info_before_join")}
                 checked={localSettings.groupJoinPreviewEnabled}
                 onChange={(next) => updateLocalSetting("groupJoinPreviewEnabled", next)}
               />
               <SettingsToggleRow
-                title="미디어 자동 저장"
-                description="파일·이미지 링크를 저장 중심으로 열기"
+                title={t("cm_ui_media_auto_save")}
+                description={t("cm_ui_open_files_images_with_save_focus")}
                 checked={localSettings.mediaAutoSaveEnabled}
                 onChange={(next) => updateLocalSetting("mediaAutoSaveEnabled", next)}
               />
               <SettingsToggleRow
-                title="링크 미리보기"
-                description="대화에서 링크 칩 표시"
+                title={t("cm_ui_link_preview")}
+                description={t("cm_ui_show_link_chip_in_chat")}
                 checked={localSettings.linkPreviewEnabled}
                 onChange={(next) => updateLocalSetting("linkPreviewEnabled", next)}
               />
               <div className="flex items-center justify-between gap-3 px-3 py-2">
                 <span className="min-w-0">
-                  <span className="block sam-text-body-secondary font-medium text-ui-fg">대화 백업</span>
-                  <span className="mt-0.5 block sam-text-xxs leading-snug text-ui-muted">설정과 최근 검색, 장치 선택 백업</span>
+                  <span className="block sam-text-body-secondary font-medium text-ui-fg">{t("cm_ui_chat_backup")}</span>
+                  <span className="mt-0.5 block sam-text-xxs leading-snug text-ui-muted">{t("cm_ui_backup_settings_recent_device")}</span>
                 </span>
                 <div className="flex shrink-0 gap-1.5">
                   <button
@@ -268,24 +270,24 @@ export function MessengerSettingsSheet({
                     onClick={exportSettingsBackup}
                     className="rounded-ui-rect border border-ui-border bg-ui-page px-2.5 py-1 sam-text-xxs font-medium text-ui-fg"
                   >
-                    내보내기
+                    {t("cm_ui_export")}
                   </button>
                   <button
                     type="button"
                     onClick={() => backupInputRef.current?.click()}
                     className="rounded-ui-rect border border-ui-border bg-ui-page px-2.5 py-1 sam-text-xxs font-medium text-ui-fg"
                   >
-                    가져오기
+                    {t("cm_ui_import")}
                   </button>
                 </div>
               </div>
             </MessengerSettingsBlock>
 
-            <MessengerSettingsBlock title="모임">
+            <MessengerSettingsBlock title={t("nav_messenger_open_group")}>
               <SettingsActionRow
-                title="모임 찾기"
-                description="참여 가능한 모임 목록 열기"
-                actionLabel="열기"
+                title={t("cm_ui_find_meeting")}
+                description={t("cm_ui_open_joinable_meetings")}
+                actionLabel={t("cm_ui_open")}
                 onClick={onOpenOpenChatDiscovery}
               />
             </MessengerSettingsBlock>

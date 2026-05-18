@@ -1,15 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
 import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-location";
 import { MannerBatteryDisplay } from "@/components/trust/MannerBatteryDisplay";
-import {
-  MYPAGE_MOBILE_NAV,
-  MYPAGE_PROFILE_EDIT_HREF,
-  buildMypageSectionHref,
-} from "@/lib/mypage/mypage-mobile-nav-registry";
+import { MYPAGE_PROFILE_EDIT_HREF, buildMypageSectionHref } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { MyPageAdminMenuEntry } from "@/components/mypage/MyPageAdminMenuEntry";
 import { useMyFavoriteCount } from "@/hooks/useMyFavoriteCount";
 import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
@@ -51,11 +48,6 @@ import {
 import { MYINFO_SURFACE } from "@/components/mypage/myinfo/myinfo-theme";
 import { dibayMyInfoPerfMark, dibayMyInfoPerfMaybeLogTotal } from "@/lib/runtime/dibay-myinfo-perf";
 
-function formatCount(n: number | null | undefined): string {
-  if (n == null || Number.isNaN(n)) return "—";
-  if (n > 99) return "99+";
-  return String(n);
-}
 
 function icon(el: ReactNode) {
   return el;
@@ -77,6 +69,12 @@ export function MyPageHomeDashboard({
   /** From RSC — skips client list fetches for order/post counts. */
   homeDashboardCounts?: MyPageHomeDashboardCounts | null;
 }) {
+  const { t } = useI18n();
+  const formatCount = (n: number | null | undefined): string => {
+    if (n == null || Number.isNaN(n)) return t("mypage_comp_placeholder_dash");
+    if (n > 99) return t("mypage_comp_stat_overflow_99plus");
+    return String(n);
+  };
   const { count: favoriteCount } = useMyFavoriteCount();
   const ownerHub = useOwnerHubBadgeBreakdown();
   const [orderCount, setOrderCount] = useState<number | null>(() => homeDashboardCounts?.storeOrderCount ?? null);
@@ -172,8 +170,10 @@ export function MyPageHomeDashboard({
   const regionLine =
     representativeFullAddressLine ||
     profileAddressLine ||
-    (representativeAddress.status === "loading" ? "대표 주소를 확인하는 중입니다" : "대표 주소를 설정해 주세요");
-  const displayName = resolveDisplayName(profile) || "닉네임 없음";
+    (representativeAddress.status === "loading"
+      ? t("mypage_comp_address_loading")
+      : t("mypage_comp_address_empty"));
+  const displayName = resolveDisplayName(profile) || t("mypage_comp_display_name_empty");
   const atUsername = formatAtUsername(profile.username ?? null);
 
   const statRows = useMemo((): { label: string; value: string; href: string; accent?: boolean }[] => {
@@ -183,28 +183,28 @@ export function MyPageHomeDashboard({
         : null;
     return [
       {
-        label: "포인트",
+        label: t("mypage_comp_stat_points"),
         value: profile.points != null ? String(profile.points) : "—",
         href: "/mypage/points",
         accent: true,
       },
       {
-        label: "진행중 거래",
+        label: t("mypage_comp_stat_active_trade"),
         value: formatCount(activeTrade),
         href: buildMypageSectionHref("trade"),
       },
       {
-        label: "주문",
+        label: t("mypage_comp_stat_orders"),
         value: formatCount(orderCount),
         href: buildMypageSectionHref("store"),
       },
       {
-        label: "안읽은 채팅",
+        label: t("mypage_comp_stat_unread_chat"),
         value: formatCount(resolveUnifiedChatUnreadHintForDashboard(ownerHub)),
         href: buildMypageSectionHref("messenger"),
       },
       {
-        label: "찜",
+        label: t("mypage_comp_stat_favorites_short"),
         value: formatCount(favoriteCount ?? null),
         href: "/mypage/section/trade/favorites",
       },
@@ -217,6 +217,7 @@ export function MyPageHomeDashboard({
     favoriteCount,
     ownerHub,
     profile.points,
+    t,
   ]);
 
   /** 거래 홈 `HomeProductList` — `PHILIFE_FEED_INSET_X` + 카드 간 `gap-1` 과 동일 축 */
@@ -239,134 +240,134 @@ export function MyPageHomeDashboard({
           }
         />
 
-        <MyInfoStatGrid title="요약" items={statRows} />
+        <MyInfoStatGrid items={statRows} />
 
         <div className="space-y-4">
-          <MyInfoMenuSection title="거래">
+          <MyInfoMenuSection title={t("mypage_comp_section_trade")}>
             <MyInfoMenuItem
               href="/mypage/section/trade/sales"
-              title="진행중 거래"
-              description="판매·구매 내역과 거래 상태를 확인합니다."
+              title={t("mypage_comp_menu_trade_active_title")}
+              description={t("mypage_comp_menu_trade_active_desc")}
               icon={icon(<Package className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/mypage/section/trade/favorites"
-              title="찜"
-              description="관심 상품과 다시 보고 싶은 글을 모아봅니다."
+              title={t("mypage_comp_menu_trade_favorites_title")}
+              description={t("mypage_comp_menu_trade_favorites_desc")}
               icon={icon(<Heart className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/my/offers"
-              title="내 가격 제안"
-              description="내가 보낸 가격 제안을 확인합니다."
+              title={t("mypage_comp_menu_trade_offers_title")}
+              description={t("mypage_comp_menu_trade_offers_desc")}
               icon={icon(<ReceiptText className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
           </MyInfoMenuSection>
 
-          <MyInfoMenuSection title="커뮤니티">
+          <MyInfoMenuSection title={t("mypage_comp_section_community")}>
             <MyInfoMenuItem
               href="/mypage/section/community/posts"
-              title="내가 쓴 글"
-              description="작성한 게시물을 최근순으로 확인합니다."
+              title={t("mypage_comp_menu_community_posts_title")}
+              description={t("mypage_comp_menu_community_posts_desc")}
               icon={icon(<BookOpen className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/mypage/section/community/comments"
-              title="댓글/활동"
-              description="내가 쓴 댓글과 활동을 확인합니다."
+              title={t("mypage_comp_menu_community_activity_title")}
+              description={t("mypage_comp_menu_community_activity_desc")}
               icon={icon(<MessageCircle className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
           </MyInfoMenuSection>
 
-          <MyInfoMenuSection title="매장 / 주문">
+          <MyInfoMenuSection title={t("mypage_comp_section_store_orders")}>
             <MyInfoMenuItem
               href="/mypage/section/store/manage"
-              title="내 상점 등록하기"
-              description="매장 등록 및 운영 화면으로 이동합니다."
+              title={t("mypage_comp_menu_store_register_title")}
+              description={t("mypage_comp_menu_store_register_desc")}
               icon={icon(<Store className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/mypage/section/store/orders"
-              title="주문내역"
-              description="주문 상태, 주문 채팅, 리뷰를 관리합니다."
+              title={t("mypage_comp_menu_store_order_history_title")}
+              description={t("mypage_comp_menu_store_order_history_desc")}
               icon={icon(<ShoppingBag className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/mypage/section/store/rider"
-              title="배달K 라이더"
-              description="라이더 관련 안내/진입을 확인합니다."
+              title={t("mypage_comp_menu_store_rider_title")}
+              description={t("mypage_comp_menu_store_rider_desc")}
               icon={icon(<Truck className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
           </MyInfoMenuSection>
 
-          <MyInfoMenuSection title="계정">
+          <MyInfoMenuSection title={t("mypage_comp_section_account_menu")}>
             <MyInfoMenuItem
               href="/mypage/addresses"
-              title="주소관리"
-              description="거래·생활·배달 주소를 관리합니다."
+              title={t("mypage_comp_menu_account_address_title")}
+              description={t("mypage_comp_menu_account_address_desc")}
               icon={icon(<MapPin className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/mypage/section/store/payment"
-              title="결제정보"
-              description="결제 및 포인트 정보를 확인합니다."
+              title={t("mypage_comp_menu_account_payment_title")}
+              description={t("mypage_comp_menu_account_payment_desc")}
               icon={icon(<CreditCard className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/mypage/section/settings/device-permissions"
-              title="개인/보안"
-              description="기기 권한과 보안 설정을 확인합니다."
+              title={t("mypage_comp_menu_account_security_title")}
+              description={t("mypage_comp_menu_account_security_desc")}
               icon={icon(<Shield className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/mypage/section/settings/notifications"
-              title="알림"
-              description="서비스·채팅 알림 설정을 관리합니다."
+              title={t("mypage_comp_menu_account_notifications_title")}
+              description={t("mypage_comp_menu_account_notifications_desc")}
               icon={icon(<Bell className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/mypage/section/settings/language"
-              title="언어 Language"
-              description="언어 설정을 변경합니다."
+              title={t("mypage_comp_menu_account_language_title")}
+              description={t("mypage_comp_menu_account_language_desc")}
               icon={icon(<Languages className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/mypage/section/settings/country"
-              title="지역/국가"
-              description="국가 설정을 변경합니다."
+              title={t("mypage_comp_menu_account_region_title")}
+              description={t("mypage_comp_menu_account_region_desc")}
               icon={icon(<Globe className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/mypage/settings"
-              title="설정"
-              description="시스템 및 서비스 설정을 관리합니다."
+              title={t("mypage_comp_menu_account_settings_title")}
+              description={t("mypage_comp_menu_account_settings_desc")}
               icon={icon(<Settings className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
           </MyInfoMenuSection>
 
-          <MyInfoMenuSection title="고객지원">
+          <MyInfoMenuSection title={t("mypage_comp_section_support")}>
             <MyInfoMenuItem
               href="/mypage/section/settings/support"
-              title="고객센터"
-              description="문의 및 도움말을 확인합니다."
+              title={t("mypage_comp_menu_support_cs_title")}
+              description={t("mypage_comp_menu_support_cs_desc")}
               icon={icon(<HelpCircle className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/mypage/section/settings/notices"
-              title="공지사항"
-              description="운영 공지를 확인합니다."
+              title={t("mypage_comp_menu_support_notices_title")}
+              description={t("mypage_comp_menu_support_notices_desc")}
               icon={icon(<UserRound className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/mypage/section/settings/events"
-              title="이벤트"
-              description="진행 중인 이벤트를 확인합니다."
+              title={t("mypage_comp_menu_support_events_title")}
+              description={t("mypage_comp_menu_support_events_desc")}
               icon={icon(<CalendarDays className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/mypage/section/settings/terms"
-              title="이용약관"
-              description="약관 및 정책을 확인합니다."
+              title={t("mypage_comp_menu_support_terms_title")}
+              description={t("mypage_comp_menu_support_terms_desc")}
               icon={icon(<Shield className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
           </MyInfoMenuSection>

@@ -1,5 +1,19 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  pointActionTypeLabel,
+  pointBoardLabel,
+  pointChargeStatusLabel,
+  pointExecStatusLabel,
+  pointExpireCycleLabel,
+  pointExpireExecStatusLabel,
+  pointLedgerTypeLabel,
+  pointPaymentMethodLabel,
+  pointRewardTypeLabel,
+  pointUserTypeLabel,
+} from "@/components/admin/points/admin-points-notifications-i18n";
+
 import type { BoardPointPolicy } from "@/lib/types/point-policy";
 import { REWARD_TYPE_LABELS } from "@/lib/point-policies/point-policy-utils";
 
@@ -14,10 +28,11 @@ export function BoardPointPolicyTable({
   onEdit,
   onToggleActive,
 }: BoardPointPolicyTableProps) {
+  const { t } = useI18n();
+
   if (policies.length === 0) {
     return (
-      <p className="sam-text-body text-sam-muted">
-        등록된 게시판 포인트 정책이 없습니다.
+      <p className="sam-text-body text-sam-muted"> {t("admin_points_policy_board_empty")}
       </p>
     );
   }
@@ -27,27 +42,20 @@ export function BoardPointPolicyTable({
       <table className="w-full min-w-[640px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              게시판
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_th_board")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              글쓰기
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_policy_th_write")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              댓글
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_policy_th_comment")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              쿨다운
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_exec_block_cooldown")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              무상한도
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_policy_th_free_cap")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              상태
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_th_status")}
             </th>
             {(onEdit || onToggleActive) && (
-              <th className="px-3 py-2.5 text-right font-medium text-sam-fg">
-                작업
+              <th className="px-3 py-2.5 text-right font-medium text-sam-fg"> {t("admin_points_th_work")}
               </th>
             )}
           </tr>
@@ -65,19 +73,22 @@ export function BoardPointPolicyTable({
                 </span>
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
-                {REWARD_TYPE_LABELS[p.writeRewardType]}
+                {pointRewardTypeLabel(t, p.writeRewardType)}
                 {p.writeRewardType === "fixed"
                   ? ` ${p.writeFixedPoint}P`
                   : ` ${p.writeRandomMin}~${p.writeRandomMax}P`}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
-                {REWARD_TYPE_LABELS[p.commentRewardType]}
+                {pointRewardTypeLabel(t, p.commentRewardType)}
                 {p.commentRewardType === "fixed"
                   ? ` ${p.commentFixedPoint}P`
                   : ` ${p.commentRandomMin}~${p.commentRandomMax}P`}
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                글 {p.writeCooldownSeconds}초 / 댓글 {p.commentCooldownSeconds}초
+                {t("admin_points_policy_cooldown_line", {
+                  writeSec: p.writeCooldownSeconds,
+                  commentSec: p.commentCooldownSeconds,
+                })}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
                 {p.maxFreeUserPointCap}P
@@ -88,7 +99,7 @@ export function BoardPointPolicyTable({
                     p.isActive ? "bg-emerald-50 text-emerald-800" : "bg-sam-border-soft text-sam-muted"
                   }`}
                 >
-                  {p.isActive ? "활성" : "비활성"}
+                  {p.isActive ? t("admin_points_status_active") : t("admin_points_status_inactive")}
                 </span>
               </td>
               {(onEdit || onToggleActive) && (
@@ -99,7 +110,7 @@ export function BoardPointPolicyTable({
                       onClick={() => onEdit(p)}
                       className="mr-1 sam-text-body-secondary text-signature hover:underline"
                     >
-                      편집
+                      {t("common_edit")}
                     </button>
                   )}
                   {onToggleActive && (
@@ -108,7 +119,7 @@ export function BoardPointPolicyTable({
                       onClick={() => onToggleActive(p.id, !p.isActive)}
                       className="sam-text-body-secondary text-sam-muted hover:underline"
                     >
-                      {p.isActive ? "비활성" : "활성"}
+                      {p.isActive ? t("admin_points_status_inactive") : t("admin_points_status_active")}
                     </button>
                   )}
                 </td>

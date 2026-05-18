@@ -1,39 +1,23 @@
 "use client";
 
 import { useMemo } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getOpsChecklistTemplates } from "@/lib/ops-board/mock-ops-checklist-templates";
-import type { OpsChecklistCategory } from "@/lib/types/ops-board";
-
-const CATEGORY_LABELS: Record<OpsChecklistCategory, string> = {
-  monitoring: "모니터링",
-  feed: "피드",
-  ads: "광고",
-  moderation: "검수",
-  reports: "보고서",
-  automation: "자동화",
-};
-
-const SURFACE_LABELS: Record<string, string> = {
-  all: "전체",
-  home: "홈",
-  search: "검색",
-  shop: "상점",
-};
-
-const PRIORITY_LABELS: Record<string, string> = {
-  low: "낮음",
-  medium: "중간",
-  high: "높음",
-  critical: "긴급",
-};
+import {
+  OPS_TOOLS_CHECKLIST_CATEGORY_KEYS,
+  OPS_TOOLS_PRIORITY_KEYS,
+  OPS_TOOLS_SURFACE_KEYS,
+  opsToolsLabel,
+} from "@/components/admin/i18n/admin-ops-tools-label-keys";
 
 export function OpsChecklistTemplateTable() {
+  const { t } = useI18n();
   const templates = useMemo(() => getOpsChecklistTemplates(), []);
 
   if (templates.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        체크리스트 템플릿이 없습니다.
+        {t("admin_ops_tools_board_tpl_empty")}
       </div>
     );
   }
@@ -44,40 +28,41 @@ export function OpsChecklistTemplateTable() {
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              순서
+              {t("admin_ops_tools_board_tpl_order")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              제목
+              {t("admin_ops_tools_board_th_title")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              카테고리
+              {t("admin_ops_tools_board_tpl_category")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              surface / 우선순위
+              {t("admin_ops_tools_board_tpl_surface_prio")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              사용
+              {t("admin_ops_tools_board_tpl_usage")}
             </th>
           </tr>
         </thead>
         <tbody>
-          {templates.map((t) => (
+          {templates.map((tpl) => (
             <tr
-              key={t.id}
+              key={tpl.id}
               className="border-b border-sam-border-soft hover:bg-sam-app"
             >
-              <td className="px-3 py-2.5 text-sam-fg">{t.sortOrder}</td>
+              <td className="px-3 py-2.5 text-sam-fg">{tpl.sortOrder}</td>
               <td className="px-3 py-2.5 font-medium text-sam-fg">
-                {t.title}
+                {tpl.title}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
-                {CATEGORY_LABELS[t.category]}
+                {t(opsToolsLabel(OPS_TOOLS_CHECKLIST_CATEGORY_KEYS, tpl.category))}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
-                {SURFACE_LABELS[t.defaultSurface]} / {PRIORITY_LABELS[t.defaultPriority]}
+                {t(opsToolsLabel(OPS_TOOLS_SURFACE_KEYS, tpl.defaultSurface))} /{" "}
+                {t(opsToolsLabel(OPS_TOOLS_PRIORITY_KEYS, tpl.defaultPriority))}
               </td>
               <td className="px-3 py-2.5">
-                {t.isActive ? (
+                {tpl.isActive ? (
                   <span className="sam-text-body-secondary text-emerald-600">ON</span>
                 ) : (
                   <span className="sam-text-body-secondary text-sam-meta">OFF</span>

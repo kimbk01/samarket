@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminChatMessage } from "@/lib/types/admin-chat";
 
 interface AdminChatMessageTimelineProps {
@@ -7,9 +8,13 @@ interface AdminChatMessageTimelineProps {
 }
 
 export function AdminChatMessageTimeline({ messages }: AdminChatMessageTimelineProps) {
+  const { t } = useI18n();
+
   if (messages.length === 0) {
     return (
-      <p className="py-6 text-center sam-text-body-secondary text-sam-muted">메시지가 없습니다.</p>
+      <p className="py-6 text-center sam-text-body-secondary text-sam-muted">
+        {t("admin_chat_no_messages")}
+      </p>
     );
   }
   return (
@@ -28,12 +33,12 @@ export function AdminChatMessageTimeline({ messages }: AdminChatMessageTimelineP
             <span>{new Date(m.createdAt).toLocaleString("ko-KR")}</span>
             {m.isReported && (
               <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800">
-                신고됨
+                {t("admin_chat_status_reported")}
               </span>
             )}
             {m.isHidden && (
               <span className="rounded bg-sam-border-soft px-1.5 py-0.5 text-sam-muted">
-                숨김
+                {t("admin_dashboard_product_hidden")}
               </span>
             )}
           </div>

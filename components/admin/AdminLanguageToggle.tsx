@@ -3,28 +3,31 @@
 import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { normalizeAppLanguage, type AppLanguageCode } from "@/lib/i18n/config";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 import { getUserSettings, subscribeUserSettings, syncUserSettings, updateUserSettings } from "@/lib/settings/user-settings-store";
-import { updateMyProfile } from "@/lib/profile/updateMyProfile";
 
 export function AdminLanguageToggle() {
-  const { setLanguage } = useI18n();
+  const { language, setLanguage, t } = useI18n();
   const userId = getCurrentUser()?.id ?? "me";
-  const [current, setCurrent] = useState<AppLanguageCode>(() =>
-    normalizeAppLanguage(getUserSettings(userId).preferred_language)
-  );
+  const [current, setCurrent] = useState<AppLanguageCode>(language);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
+    setCurrent(language);
+  }, [language]);
+
+  useEffect(() => {
     const apply = () => {
-      setCurrent(normalizeAppLanguage(getUserSettings(userId).preferred_language));
+      const stored = getUserSettings(userId).preferred_language;
+      if (stored === "ko" || stored === "en") setCurrent(stored);
+      else setCurrent(language);
     };
     apply();
     void syncUserSettings(userId).then(() => apply());
     return subscribeUserSettings(({ userId: changedUserId }) => {
       if (changedUserId === userId) apply();
     });
-  }, [userId]);
+  }, [language, userId]);
 
   const changeLanguage = useCallback(
     async (next: AppLanguageCode) => {
@@ -34,12 +37,6 @@ export function AdminLanguageToggle() {
       setCurrent(next);
       setLanguage(next);
       updateUserSettings(userId, { preferred_language: next });
-      const result = await updateMyProfile({ preferred_language: next });
-      if (!result.ok) {
-        setCurrent(previous);
-        setLanguage(previous);
-        updateUserSettings(userId, { preferred_language: previous });
-      }
       setBusy(false);
     },
     [busy, current, setLanguage, userId]
@@ -56,7 +53,7 @@ export function AdminLanguageToggle() {
           current === "ko" ? "bg-[#1877F2] text-white" : "text-[#1877F2] hover:bg-white/60"
         }`}
       >
-        한국어
+        {t("language_korean")}
       </button>
       <button
         type="button"
@@ -67,7 +64,7 @@ export function AdminLanguageToggle() {
           current === "en" ? "bg-[#1877F2] text-white" : "text-[#1877F2] hover:bg-white/60"
         }`}
       >
-        Language
+        {t("language_english")}
       </button>
     </div>
   );

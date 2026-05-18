@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AuthProviderPublic, OAuthProvider } from "@/lib/auth/auth-providers";
 
 type Props = {
@@ -26,6 +27,7 @@ export function LoginProviderButtons({
   emptyText,
   onSelectProvider,
 }: Props) {
+  const { t } = useI18n();
   const handleProviderClick = useCallback(
     (e: React.MouseEvent<HTMLButtonElement>) => {
       const raw = e.currentTarget.dataset.provider?.trim() ?? "";
@@ -51,8 +53,8 @@ export function LoginProviderButtons({
           className="w-full rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 sam-text-body font-medium text-sam-fg transition-transform duration-100 active:scale-[0.985] active:brightness-95 disabled:opacity-50 disabled:active:scale-100 disabled:active:brightness-100"
         >
           {busyProvider === provider.provider
-            ? "이동 중…"
-            : `${getButtonLabel(provider.provider)}로 계속하기`}
+            ? t("auth_provider_busy")
+            : t("auth_provider_continue", { provider: getButtonLabel(provider.provider) })}
         </button>
       ))}
     </div>

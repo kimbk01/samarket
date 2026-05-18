@@ -1,20 +1,16 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
 import Link from "next/link";
 import { getPatternConnections } from "@/lib/ops-learning/ops-learning-utils";
 import { OpsPatternLogList } from "./OpsPatternLogList";
 import { OpsImprovementSuggestionTable } from "./OpsImprovementSuggestionTable";
 import type { OpsLearningStatus } from "@/lib/types/ops-learning";
-
-const STATUS_LABELS: Record<OpsLearningStatus, string> = {
-  detected: "탐지",
-  reviewing: "검토중",
-  action_created: "액션생성",
-  mitigated: "완화",
-  monitoring: "모니터링",
-  closed: "종료",
-};
+import {
+  OPS_TOOLS_PATTERN_STATUS_KEYS,
+  opsToolsLabel,
+} from "@/components/admin/i18n/admin-ops-tools-label-keys";
 
 interface OpsPatternDetailPanelProps {
   patternId: string | null;
@@ -22,6 +18,7 @@ interface OpsPatternDetailPanelProps {
 }
 
 export function OpsPatternDetailPanel({ patternId, onClose }: OpsPatternDetailPanelProps) {
+  const { t } = useI18n();
   const connections = useMemo(
     () => (patternId ? getPatternConnections(patternId) : null),
     [patternId]
@@ -29,9 +26,7 @@ export function OpsPatternDetailPanel({ patternId, onClose }: OpsPatternDetailPa
 
   if (!patternId || !connections) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-center sam-text-body text-sam-muted">
-        패턴을 선택하면 상세가 표시됩니다.
-      </div>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_learning_detail_empty")}</div>
     );
   }
 
@@ -51,16 +46,28 @@ export function OpsPatternDetailPanel({ patternId, onClose }: OpsPatternDetailPa
         )}
       </div>
       <div className="rounded border border-sam-border-soft bg-sam-app p-3 sam-text-body-secondary">
-        <p>발생 {pattern.occurrenceCount}회 · {pattern.surface} · {pattern.incidentType}</p>
+        <p>
+          {t("admin_ops_tools_learning_occurred", {
+            count: pattern.occurrenceCount,
+            surface: pattern.surface,
+            type: pattern.incidentType,
+          })}
+        </p>
         <p className="mt-1 text-sam-muted">
-          첫 발생 {new Date(pattern.firstOccurredAt).toLocaleDateString("ko-KR")} · 마지막 {new Date(pattern.lastOccurredAt).toLocaleDateString("ko-KR")}
+          {t("admin_ops_tools_learning_first_last", {
+            first: new Date(pattern.firstOccurredAt).toLocaleDateString(),
+            last: new Date(pattern.lastOccurredAt).toLocaleDateString(),
+          })}
         </p>
         <p className="mt-1">
-          상태: <span className="font-medium">{STATUS_LABELS[pattern.status]}</span>
+          {t("admin_ops_tools_learning_status_label")}
+          <span className="font-medium">
+            {t(opsToolsLabel(OPS_TOOLS_PATTERN_STATUS_KEYS, pattern.status))}
+          </span>
         </p>
       </div>
       <div>
-        <p className="sam-text-helper font-medium text-sam-fg">연결 문서</p>
+        <p className="sam-text-helper font-medium text-sam-fg">{t("admin_ops_tools_learning_th_linked_doc")}</p>
         <div className="mt-1 space-y-1">
           {linkedDocument && (
             <Link href={`/admin/ops-docs/${pattern.linkedDocumentId}`} className="block sam-text-body-secondary text-signature hover:underline">
@@ -73,7 +80,7 @@ export function OpsPatternDetailPanel({ patternId, onClose }: OpsPatternDetailPa
             </Link>
           )}
           {!linkedDocument && !linkedRunbookDocument && (
-            <span className="sam-text-body-secondary text-sam-muted">연결된 문서 없음</span>
+            <span className="sam-text-body-secondary text-sam-muted">{t("admin_ops_tools_learning_no_linked_doc")}</span>
           )}
         </div>
       </div>

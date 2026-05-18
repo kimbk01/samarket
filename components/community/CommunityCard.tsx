@@ -8,6 +8,7 @@ import { extractHashtagPreview } from "@/lib/community-feed/topic-feed-skin";
 import { stripMeetupPostMetaFromContent } from "@/lib/neighborhood/meeting-post-content";
 import { resolveNeighborhoodFeedListThumbnail } from "@/lib/community-feed/feed-list-thumbnail";
 import { stripMarkdownImageSyntaxForFeedPreview } from "@/lib/philife/interleaved-body-markdown";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   FeedListLayoutCarrotThumbLeft,
   FeedListLayoutCarrotThumbRight,
@@ -18,7 +19,7 @@ import {
   type FeedListCardViewModel,
 } from "./feed-list-layouts";
 
-function buildNeighborhoodFeedListViewModel(post: NeighborhoodFeedPostDTO): FeedListCardViewModel {
+function buildNeighborhoodFeedListViewModel(post: NeighborhoodFeedPostDTO, untitledLabel: string): FeedListCardViewModel {
   const time =
     post.created_at && !Number.isNaN(Date.parse(post.created_at))
       ? formatTimeAgo(post.created_at, "ko-KR")
@@ -47,7 +48,7 @@ function buildNeighborhoodFeedListViewModel(post: NeighborhoodFeedPostDTO): Feed
     meetupMeetingId: post.is_meetup && post.meeting_id ? post.meeting_id : null,
     topicLabel: post.category_label,
     topicColor: post.topic_color,
-    title: post.title?.trim() || "제목 없음",
+    title: post.title?.trim() || untitledLabel,
     summary: normalizeFeedListBodyPreview(summaryForList),
     timeLabel: time,
     authorName: post.author_name,
@@ -90,8 +91,9 @@ function isSameCommunityCardPost(prev: NeighborhoodFeedPostDTO, next: Neighborho
 }
 
 export const CommunityCard = memo(function CommunityCard({ post }: { post: NeighborhoodFeedPostDTO }) {
+  const { t } = useI18n();
   const skin = post.feed_list_skin;
-  const vm = buildNeighborhoodFeedListViewModel(post);
+  const vm = buildNeighborhoodFeedListViewModel(post, t("community_no_title"));
   const hasThumb = Boolean(vm.thumbnailUrl);
   /** `text_primary` 는 일반 주제용 「썸네일 숨김」— 모임은 `meetings.cover`·`images` 로 썸네일이 있으면 우선 표시 */
   const useTextOnlySkin = skin === "text_primary" && !(post.is_meetup && hasThumb);

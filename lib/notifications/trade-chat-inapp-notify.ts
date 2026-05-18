@@ -3,6 +3,8 @@ import { appendUserNotification } from "@/lib/notifications/append-user-notifica
 import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
 import { getAdminNotificationCooldownSeconds } from "@/lib/notifications/messenger-notification-cooldown";
 import { tradeChatNotificationHref } from "@/lib/chats/trade-chat-notification-href";
+import { translate } from "@/lib/i18n/messages";
+import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 
 async function shouldSkipDueToCooldown(
   sb: SupabaseClient<any>,
@@ -51,14 +53,17 @@ export async function notifyTradeChatInAppForRecipients(
   const cooldownSec = await getAdminNotificationCooldownSeconds(sb, "trade_chat");
   const nickMap = await fetchNicknamesForUserIds(sb, [senderUserId]);
   const senderLabel = nickMap.get(senderUserId.trim())?.trim() || null;
-  const title = "새 메시지";
-  const body = preview.slice(0, 200) || "메시지가 도착했습니다.";
   const linkUrl = tradeChatNotificationHref(roomId, "chat_room");
 
   for (const uid of recipientUserIds) {
     if (!uid || uid === senderUserId) continue;
     const skip = await shouldSkipDueToCooldown(sb, uid, roomId, cooldownSec);
     if (skip) continue;
+
+    const language = await loadNotificationUserLanguage(sb, uid);
+    const title = translate(language, "notify_chat_new_message_title");
+    const body =
+      preview.slice(0, 200) || translate(language, "notify_chat_message_arrived_body");
 
     await appendUserNotification(sb, {
       user_id: uid,

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Biz } from "@/lib/ui/biz-component-classes";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export type OwnerCardMenuBadges = {
   newOrders: number;
@@ -20,6 +21,7 @@ export function BusinessDashboardOwnerCardMenu({
   isVisible: boolean;
   badges: OwnerCardMenuBadges;
 }) {
+  const { t } = useI18n();
   const q = `storeId=${encodeURIComponent(storeId)}`;
   const showOps = canSell && isVisible;
 
@@ -84,7 +86,7 @@ export function BusinessDashboardOwnerCardMenu({
 
   return (
     <section className="space-y-3">
-      <h2 className={["font-semibold", Biz.textCardTitle].join(" ")}>바로가기</h2>
+      <h2 className={["font-semibold", Biz.textCardTitle].join(" ")}>{t("business_phase7_100")}</h2>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {items.map((it) => {
           const inner = (
@@ -109,7 +111,7 @@ export function BusinessDashboardOwnerCardMenu({
                 key={it.title}
                 className={[Biz.cardCompact, "opacity-50"].join(" ")}
                 aria-disabled
-                title="판매 승인·공개 후 이용할 수 있습니다"
+                title={t("business_phase7_310")}
               >
                 {inner}
               </div>

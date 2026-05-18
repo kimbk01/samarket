@@ -1,8 +1,22 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  pointActionTypeLabel,
+  pointBoardLabel,
+  pointChargeStatusLabel,
+  pointExecStatusLabel,
+  pointExpireCycleLabel,
+  pointExpireExecStatusLabel,
+  pointLedgerTypeLabel,
+  pointPaymentMethodLabel,
+  pointRewardTypeLabel,
+  pointUserTypeLabel,
+} from "@/components/admin/points/admin-points-notifications-i18n";
+
 import { useState } from "react";
 import type { BoardPointPolicy, PointRewardType } from "@/lib/types/point-policy";
-import { BOARD_OPTIONS, REWARD_TYPE_LABELS } from "@/lib/point-policies/point-policy-utils";
+import { BOARD_OPTIONS } from "@/lib/point-policies/point-policy-utils";
 
 interface BoardPointPolicyFormProps {
   initial?: BoardPointPolicy | null;
@@ -12,7 +26,7 @@ interface BoardPointPolicyFormProps {
 
 const DEFAULT: Partial<BoardPointPolicy> = {
   boardKey: "general",
-  boardName: "자유게시판",
+  boardName: "general",
   isActive: true,
   writeRewardType: "fixed",
   writeFixedPoint: 5,
@@ -36,6 +50,8 @@ export function BoardPointPolicyForm({
   onSubmit,
   onCancel,
 }: BoardPointPolicyFormProps) {
+  const { t } = useI18n();
+
   const [values, setValues] = useState<Partial<BoardPointPolicy>>({
     ...DEFAULT,
     ...initial,
@@ -51,7 +67,7 @@ export function BoardPointPolicyForm({
     setValues((v) => ({
       ...v,
       boardKey: key,
-      boardName: board?.name ?? key,
+      boardName: pointBoardLabel(t, key),
     }));
   };
 
@@ -59,8 +75,7 @@ export function BoardPointPolicyForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       {!initial?.id && (
         <div>
-          <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-            게시판
+          <label className="mb-1 block sam-text-body font-medium text-sam-fg"> {t("admin_points_th_board")}
           </label>
           <select
             value={values.boardKey ?? ""}
@@ -69,7 +84,7 @@ export function BoardPointPolicyForm({
           >
             {BOARD_OPTIONS.map((b) => (
               <option key={b.key} value={b.key}>
-                {b.name}
+                {pointBoardLabel(t, b.key)}
               </option>
             ))}
           </select>
@@ -77,8 +92,7 @@ export function BoardPointPolicyForm({
       )}
 
       <div>
-        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          글쓰기 보상 유형
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg"> {t("admin_points_policy_label_write_reward_type")}
         </label>
         <select
           value={values.writeRewardType ?? "fixed"}
@@ -90,14 +104,13 @@ export function BoardPointPolicyForm({
           }
           className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
         >
-          <option value="fixed">{REWARD_TYPE_LABELS.fixed}</option>
-          <option value="random">{REWARD_TYPE_LABELS.random}</option>
+          <option value="fixed">{pointRewardTypeLabel(t, "fixed")}</option>
+          <option value="random">{pointRewardTypeLabel(t, "random")}</option>
         </select>
       </div>
       {values.writeRewardType === "fixed" ? (
         <div>
-          <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-            글쓰기 고정 포인트
+          <label className="mb-1 block sam-text-body font-medium text-sam-fg"> {t("admin_points_policy_label_write_fixed")}
           </label>
           <input
             type="number"
@@ -115,8 +128,7 @@ export function BoardPointPolicyForm({
       ) : (
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-              글쓰기 최소
+            <label className="mb-1 block sam-text-body font-medium text-sam-fg"> {t("admin_points_policy_label_write_min")}
             </label>
             <input
               type="number"
@@ -132,8 +144,7 @@ export function BoardPointPolicyForm({
             />
           </div>
           <div>
-            <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-              글쓰기 최대
+            <label className="mb-1 block sam-text-body font-medium text-sam-fg"> {t("admin_points_policy_label_write_max")}
             </label>
             <input
               type="number"
@@ -152,8 +163,7 @@ export function BoardPointPolicyForm({
       )}
 
       <div>
-        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          글쓰기 쿨다운(초)
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg"> {t("admin_points_policy_label_write_cooldown")}
         </label>
         <input
           type="number"
@@ -170,8 +180,7 @@ export function BoardPointPolicyForm({
       </div>
 
       <div>
-        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          댓글 보상 유형
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg"> {t("admin_points_policy_label_comment_reward_type")}
         </label>
         <select
           value={values.commentRewardType ?? "fixed"}
@@ -183,14 +192,13 @@ export function BoardPointPolicyForm({
           }
           className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
         >
-          <option value="fixed">{REWARD_TYPE_LABELS.fixed}</option>
-          <option value="random">{REWARD_TYPE_LABELS.random}</option>
+          <option value="fixed">{pointRewardTypeLabel(t, "fixed")}</option>
+          <option value="random">{pointRewardTypeLabel(t, "random")}</option>
         </select>
       </div>
       {values.commentRewardType === "fixed" ? (
         <div>
-          <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-            댓글 고정 포인트
+          <label className="mb-1 block sam-text-body font-medium text-sam-fg"> {t("admin_points_policy_label_comment_fixed")}
           </label>
           <input
             type="number"
@@ -208,8 +216,7 @@ export function BoardPointPolicyForm({
       ) : (
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-              댓글 최소
+            <label className="mb-1 block sam-text-body font-medium text-sam-fg"> {t("admin_points_policy_label_comment_min")}
             </label>
             <input
               type="number"
@@ -225,8 +232,7 @@ export function BoardPointPolicyForm({
             />
           </div>
           <div>
-            <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-              댓글 최대
+            <label className="mb-1 block sam-text-body font-medium text-sam-fg"> {t("admin_points_policy_label_comment_max")}
             </label>
             <input
               type="number"
@@ -245,8 +251,7 @@ export function BoardPointPolicyForm({
       )}
 
       <div>
-        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          댓글 쿨다운(초)
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg"> {t("admin_points_policy_label_comment_cooldown")}
         </label>
         <input
           type="number"
@@ -263,8 +268,7 @@ export function BoardPointPolicyForm({
       </div>
 
       <div>
-        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          비입금 회원 포인트 상한
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg"> {t("admin_points_policy_label_free_cap")}
         </label>
         <input
           type="number"
@@ -293,14 +297,12 @@ export function BoardPointPolicyForm({
           }
           className="rounded border-sam-border"
         />
-        <label htmlFor="eventMultiplier" className="sam-text-body text-sam-fg">
-          이벤트 배율 적용
+        <label htmlFor="eventMultiplier" className="sam-text-body text-sam-fg"> {t("admin_points_policy_label_event_multiplier")}
         </label>
       </div>
 
       <div>
-        <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          관리자 메모
+        <label className="mb-1 block sam-text-body font-medium text-sam-fg"> {t("admin_points_policy_label_admin_memo")}
         </label>
         <textarea
           value={values.adminMemo ?? ""}
@@ -317,15 +319,14 @@ export function BoardPointPolicyForm({
           type="submit"
           className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white"
         >
-          저장
+          {t("common_save")}
         </button>
         {onCancel && (
           <button
             type="button"
             onClick={onCancel}
             className="rounded border border-sam-border bg-sam-surface px-4 py-2 sam-text-body text-sam-fg"
-          >
-            취소
+          > {t("admin_points_charge_status_cancelled")}
           </button>
         )}
       </div>

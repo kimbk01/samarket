@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContext";
@@ -12,6 +13,7 @@ export function StoreCommerceCartEntryFallback({
   hint: "network" | "missing" | "api";
   onRetry?: () => void;
 }) {
+  const { t } = useI18n();
   const cart = useStoreCommerceCartOptional();
   const buckets =
     cart?.hydrated ? sortedNonemptyCommerceBuckets(cart.listCartBuckets()) : [];
@@ -45,7 +47,7 @@ export function StoreCommerceCartEntryFallback({
       ) : null}
       {buckets.length > 0 ? (
         <div className="mx-auto mt-8 max-w-md rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 sam-text-body-secondary text-amber-950">
-          <p className="font-medium">담아 둔 장바구니가 있으면 아래에서 열 수 있어요.</p>
+          <p className="font-medium">{t("store_cart_saved_hint")}</p>
           <ul className="mt-3 space-y-2">
             {buckets.map((b) => (
               <li key={b.storeId} className="flex flex-wrap items-center justify-between gap-2">

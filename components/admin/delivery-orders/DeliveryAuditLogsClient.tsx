@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { doAdminLocale } from "./do-admin-locale";
 
 type AuditRow = {
   id: string;
@@ -28,6 +30,7 @@ function jsonBrief(x: unknown): string {
 }
 
 export function DeliveryAuditLogsClient() {
+  const { t, language } = useI18n();
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,7 +49,7 @@ export function DeliveryAuditLogsClient() {
         return;
       }
       if (!json?.ok) {
-        setError(json?.error === "table_missing" ? "audit_logs 테이블을 확인하세요." : json?.error ?? "load_failed");
+        setError(json?.error === "table_missing" ? t("admin_do_audit_table_missing") : json?.error ?? "load_failed");
         setRows([]);
         return;
       }
@@ -57,7 +60,7 @@ export function DeliveryAuditLogsClient() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -65,18 +68,18 @@ export function DeliveryAuditLogsClient() {
 
   return (
     <div className="p-4 md:p-6">
-      <AdminPageHeader title="주문 감사 로그" backHref="/admin/stores/orders" />
+      <AdminPageHeader titleKey="admin_do_audit_title" backHref="/admin/stores/orders" />
       <p className="mb-3 sam-text-body-secondary text-sam-muted">
-        <code className="rounded bg-sam-app px-1 sam-text-helper">target_type = store_order</code> 감사 기록입니다. 전체
-        감사는{" "}
+        <code className="rounded bg-sam-app px-1 sam-text-helper">target_type = store_order</code>{" "}
+        {t("admin_do_audit_intro")}{" "}
         <Link href="/admin/audit-logs" className="text-signature underline">
-          감사 로그
+          {t("admin_do_audit_menu")}
         </Link>
-        메뉴를 이용하세요.
+        {t("admin_do_audit_menu_suffix")}
       </p>
       {error ? (
         <p className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">
-          불러오지 못했습니다 ({error}).
+          {t("admin_do_common_load_failed", { error })}
         </p>
       ) : null}
       <div className="mb-2">
@@ -86,23 +89,23 @@ export function DeliveryAuditLogsClient() {
           disabled={loading}
           className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-xs text-sam-fg disabled:opacity-50"
         >
-          {loading ? "갱신 중…" : "새로고침"}
+          {loading ? t("admin_do_common_refreshing") : t("admin_do_common_refresh")}
         </button>
       </div>
-      <AdminCard title="주문 상태 변경 감사 (최대 200건)">
+      <AdminCard titleKey="admin_do_audit_card">
         {loading ? (
-          <p className="text-sm text-sam-muted">불러오는 중…</p>
+          <p className="text-sm text-sam-muted">{t("admin_dashboard_loading")}</p>
         ) : rows.length === 0 ? (
-          <p className="text-sm text-sam-muted">기록이 없습니다.</p>
+          <p className="text-sm text-sam-muted">{t("admin_do_common_no_records")}</p>
         ) : (
           <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
             <table className="w-full min-w-[960px] border-collapse sam-text-helper">
               <thead>
                 <tr className="border-b border-sam-border bg-sam-app text-left text-xs font-medium text-sam-muted">
-                  <th className="px-2 py-2">시각</th>
-                  <th className="px-2 py-2">주문</th>
-                  <th className="px-2 py-2">행위자</th>
-                  <th className="px-2 py-2">액션</th>
+                  <th className="px-2 py-2">{t("admin_do_th_time")}</th>
+                  <th className="px-2 py-2">{t("admin_do_common_order")}</th>
+                  <th className="px-2 py-2">{t("admin_do_th_actor")}</th>
+                  <th className="px-2 py-2">{t("admin_do_common_action")}</th>
                   <th className="px-2 py-2">before</th>
                   <th className="px-2 py-2">after</th>
                 </tr>
@@ -111,7 +114,7 @@ export function DeliveryAuditLogsClient() {
                 {rows.map((r) => (
                   <tr key={r.id} className="border-b border-sam-border-soft hover:bg-sam-app/60">
                     <td className="whitespace-nowrap px-2 py-2 text-sam-muted">
-                      {new Date(r.created_at).toLocaleString("ko-KR")}
+                      {new Date(r.created_at).toLocaleString(doAdminLocale(language))}
                     </td>
                     <td className="px-2 py-2">
                       <Link

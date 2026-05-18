@@ -24,7 +24,7 @@ const DEFAULT: ResolvedMainTier1Subpage = {
   showBack: true,
   backHref: "/philife",
   preferHistoryBack: true,
-  ariaLabel: "이전 화면",
+  ariaLabel: "tier1_back",
   titleText: "",
   showHubQuickActions: true,
 };
@@ -55,7 +55,7 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     return {
       ...DEFAULT,
       backHref: "/stores",
-      titleText: "배달",
+      titleText: "navigation_delivery",
       showHubQuickActions: false,
     };
   }
@@ -64,8 +64,8 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
     return {
       ...DEFAULT,
       backHref: "/mypage",
-      titleText: "개인 거래 허브",
-      subtitle: "구매·판매·찜·후기·채팅",
+      titleText: "tier1_trade_hub_title",
+      subtitle: "tier1_trade_hub_subtitle",
       showHubQuickActions: true,
     };
   }
@@ -76,8 +76,8 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
       ...DEFAULT,
       backHref: "/orders?tab=store",
       preferHistoryBack: true,
-      ariaLabel: "이전 화면",
-      titleText: "주문 상세",
+      ariaLabel: "tier1_back",
+      titleText: "tier1_order_detail",
       showHubQuickActions: true,
     };
   }
@@ -88,31 +88,31 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
       showBack: false,
       hideBack: true,
       backHref: "/philife",
-      titleText: "주문",
+      titleText: "tier1_order",
       showHubQuickActions: false,
     };
   }
 
   if (p === "/search") {
-    return backHome({ titleText: "검색", showHubQuickActions: true });
+    return backHome({ titleText: "tier1_search", showHubQuickActions: true });
   }
 
   if (p === "/services" || starts(p, "/services/")) {
-    return backHome({ titleText: "서비스", showHubQuickActions: true });
+    return backHome({ titleText: "tier1_service", showHubQuickActions: true });
   }
 
   if (p === "/mypage") {
-    return backHome({ titleText: "내정보", showHubQuickActions: true });
+    return backHome({ titleText: "tier1_myinfo", showHubQuickActions: true });
   }
 
   if (p === "/address/select") {
-    return backMypage({ titleText: "주소 설정", showHubQuickActions: false });
+    return backMypage({ titleText: "tier1_address_setup", showHubQuickActions: false });
   }
 
   if (p === "/community-messenger") {
     return backHome({
-      titleText: "메신저",
-      subtitle: "친구 · 채팅 · 모임",
+      titleText: "tier1_messenger",
+      subtitle: "tier1_messenger_hub_subtitle",
       showHubQuickActions: true,
     });
   }
@@ -127,8 +127,8 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
       ...DEFAULT,
       backHref: "/community-messenger?section=chats",
       preferHistoryBack: false,
-      ariaLabel: "메신저로 돌아가기",
-      titleText: "거래 채팅",
+      ariaLabel: "tier1_messenger_back",
+      titleText: "nav_trade_chat_label",
       showHubQuickActions: false,
     };
   }
@@ -138,8 +138,8 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
       ...DEFAULT,
       backHref: "/community-messenger?section=chats",
       preferHistoryBack: false,
-      ariaLabel: "메신저로 돌아가기",
-      titleText: "배달 채팅",
+      ariaLabel: "tier1_messenger_back",
+      titleText: "tier1_delivery_chat",
       showHubQuickActions: false,
     };
   }
@@ -153,189 +153,189 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
        * 방 화면에서는 **히스토리 백 우선**(`preferHistoryBack: true`)으로 직전 목록 복귀.
        */
       preferHistoryBack: true,
-      ariaLabel: "메신저로 돌아가기",
-      titleText: "메신저 대화",
-      subtitle: "1:1·그룹 채팅",
+      ariaLabel: "tier1_messenger_back",
+      titleText: "tier1_messenger_chat",
+      subtitle: "tier1_messenger_chat_subtitle",
       showHubQuickActions: false,
     };
   }
 
   if (p === "/write" || starts(p, "/write/")) {
-    return backHome({ titleText: "글쓰기", showHubQuickActions: true });
+    return backHome({ titleText: "tier1_write", showHubQuickActions: true });
   }
 
   if (p === "/philife/write" || starts(p, "/philife/write")) {
-    return backHome({ titleText: "커뮤니티 글쓰기", showHubQuickActions: true });
+    return backHome({ titleText: "tier1_community_write", showHubQuickActions: true });
   }
 
   if (p === "/philife/my") {
-    return backHome({ titleText: "내 커뮤니티 활동", showHubQuickActions: true });
+    return backHome({ titleText: "tier1_my_community_activity", showHubQuickActions: true });
   }
 
   if (p === "/mypage/reviews" || starts(p, "/mypage/reviews/")) {
-    return backHome({ titleText: "후기 관리", showHubQuickActions: true });
+    return backHome({ titleText: "tier1_review_management", showHubQuickActions: true });
   }
 
   if (p === "/mypage/purchases") {
-    return backHome({ titleText: "거래 관리", showHubQuickActions: true });
+    return backHome({ titleText: "tier1_trade_management", showHubQuickActions: true });
   }
 
   if (/^\/mypage\/purchases\/[^/]+$/.test(p)) {
-    return backHome({ titleText: "구매 상세", showHubQuickActions: true });
+    return backHome({ titleText: "tier1_purchase_detail", showHubQuickActions: true });
   }
 
   if (p === "/mypage/sales" || starts(p, "/mypage/sales/")) {
-    return backHome({ titleText: "거래 관리", showHubQuickActions: true });
+    return backHome({ titleText: "tier1_trade_management", showHubQuickActions: true });
   }
 
   if (p === "/mypage/purchases") {
-    return backMypage({ titleText: "거래 관리", subtitle: "구매·예약·후기", showHubQuickActions: true });
+    return backMypage({ titleText: "tier1_trade_management", subtitle: "tier1_trade_manage_purchases_sub", showHubQuickActions: true });
   }
 
   if (/^\/mypage\/purchases\/[^/]+$/.test(p)) {
-    return backMypage({ titleText: "구매 상세", subtitle: "거래 진행·채팅", showHubQuickActions: true });
+    return backMypage({ titleText: "tier1_purchase_detail", subtitle: "tier1_purchase_detail_trade_sub", showHubQuickActions: true });
   }
 
   if (p === "/mypage/sales" || starts(p, "/mypage/sales/")) {
-    return backMypage({ titleText: "거래 관리", subtitle: "판매·예약·완료", showHubQuickActions: true });
+    return backMypage({ titleText: "tier1_trade_management", subtitle: "tier1_trade_manage_sales_sub", showHubQuickActions: true });
   }
 
   if (p === "/mypage/reviews" || starts(p, "/mypage/reviews/")) {
-    return backMypage({ titleText: "후기 관리", subtitle: "작성·받은 거래 후기", showHubQuickActions: true });
+    return backMypage({ titleText: "tier1_review_management", subtitle: "tier1_review_manage_sub", showHubQuickActions: true });
   }
 
   if (p === "/my/community-posts") {
     return backMypage({
-      titleText: "내 커뮤니티 글",
-      subtitle: "커뮤니티·동네생활",
+      titleText: "tier1_my_community_posts",
+      subtitle: "tier1_my_community_posts_subtitle",
       showHubQuickActions: true,
     });
   }
 
   if (p === "/my/benefits") {
-    return backMypage({ titleText: "회원 혜택", subtitle: "이벤트·프로모션", showHubQuickActions: true });
+    return backMypage({ titleText: "tier1_member_benefits", subtitle: "tier1_member_benefits_subtitle", showHubQuickActions: true });
   }
 
   if (p === "/my/account" || p === "/mypage/account") {
-    return backMypage({ titleText: "내 계정", subtitle: "프로필·인증·연락처", showHubQuickActions: true });
+    return backMypage({ titleText: "tier1_my_account", subtitle: "tier1_my_account_subtitle", showHubQuickActions: true });
   }
 
   if (p === "/my/account/phone-verification") {
-    return backMypage({ titleText: "전화번호 인증", subtitle: "계정 보안", showHubQuickActions: true });
+    return backMypage({ titleText: "tier1_phone_verification", subtitle: "tier1_phone_verification_subtitle", showHubQuickActions: true });
   }
 
   if (p === "/my/ads") {
-    return backMypage({ titleText: "내 광고 신청", subtitle: "노출·홍보", showHubQuickActions: true });
+    return backMypage({ titleText: "tier1_my_ads", subtitle: "tier1_my_ads_subtitle", showHubQuickActions: true });
   }
 
   if (p === "/my/ads/apply") {
-    return { ...DEFAULT, backHref: "/my/ads", titleText: "광고 신청", subtitle: "노출 플랜 선택", showHubQuickActions: true };
+    return { ...DEFAULT, backHref: "/my/ads", titleText: "tier1_ads_apply", subtitle: "tier1_ads_apply_subtitle", showHubQuickActions: true };
   }
 
   if (p === "/my/store-inquiries") {
-    return backMypage({ titleText: "배달 문의", subtitle: "주문·배달 문의 내역", showHubQuickActions: true });
+    return backMypage({ titleText: "tier1_store_inquiries", subtitle: "tier1_store_inquiries_subtitle", showHubQuickActions: true });
   }
 
   if (p === "/my/store-orders" || p === "/mypage/store-orders") {
-    return backMypage({ titleText: "배달 주문", showHubQuickActions: true });
+    return backMypage({ titleText: "tier1_store_orders", showHubQuickActions: true });
   }
 
   if (/^\/my\/store-orders\/[^/]+$/.test(p) || /^\/mypage\/store-orders\/[^/]+$/.test(p)) {
     return backMypage({
-      titleText: "주문 상세",
-      subtitle: "배달·픽업 주문",
+      titleText: "tier1_order_detail",
+      subtitle: "tier1_store_order_subtitle",
       preferHistoryBack: true,
-      ariaLabel: "이전 화면",
+      ariaLabel: "tier1_back",
       showHubQuickActions: true,
     });
   }
 
   if (/^\/my\/store-orders\/[^/]+\/review$/.test(p) || /^\/mypage\/store-orders\/[^/]+\/review$/.test(p)) {
-    return backMypage({ titleText: "리뷰 작성", subtitle: "배달 주문 후기", showHubQuickActions: true });
+    return backMypage({ titleText: "tier1_review_write", subtitle: "tier1_review_write_subtitle", showHubQuickActions: true });
   }
 
   if (p === "/my/points" || p === "/mypage/points") {
-    return backMypage({ titleText: "포인트", subtitle: "잔액·충전·내역", showHubQuickActions: true });
+    return backMypage({ titleText: "tier1_points_hub", subtitle: "tier1_points_hub_sub", showHubQuickActions: true });
   }
 
   if (p === "/my/points/promotions") {
-    return { ...DEFAULT, backHref: "/mypage/points", titleText: "포인트 노출 신청", subtitle: "프로모션", showHubQuickActions: true };
+    return { ...DEFAULT, backHref: "/mypage/points", titleText: "tier1_point_promotion", subtitle: "tier1_point_promotion_subtitle", showHubQuickActions: true };
   }
 
   if (p === "/my/points/expiring") {
-    return { ...DEFAULT, backHref: "/mypage/points", titleText: "만료 예정 포인트", subtitle: "소멸 전 확인", showHubQuickActions: true };
+    return { ...DEFAULT, backHref: "/mypage/points", titleText: "tier1_points_expiring", subtitle: "tier1_points_expiring_subtitle", showHubQuickActions: true };
   }
 
   if (p === "/my/points/ledger") {
-    return { ...DEFAULT, backHref: "/mypage/points", titleText: "포인트 거래내역", subtitle: "적립·사용 내역", showHubQuickActions: true };
+    return { ...DEFAULT, backHref: "/mypage/points", titleText: "tier1_points_ledger", subtitle: "tier1_points_ledger_subtitle", showHubQuickActions: true };
   }
 
   if (p === "/my/points/charge") {
-    return { ...DEFAULT, backHref: "/mypage/points", titleText: "포인트 충전 신청", subtitle: "충전 요청", showHubQuickActions: true };
+    return { ...DEFAULT, backHref: "/mypage/points", titleText: "tier1_points_charge", subtitle: "tier1_points_charge_subtitle", showHubQuickActions: true };
   }
 
   if (p === "/my/notifications" || p === "/mypage/notifications") {
-    return backMypage({ titleText: "알림", subtitle: "거래·주문·서비스", showHubQuickActions: false });
+    return backMypage({ titleText: "tier1_notifications", subtitle: "tier1_notifications_subtitle", showHubQuickActions: false });
   }
 
   if (p === "/mypage/order-notifications") {
-    return backMypage({ titleText: "주문 알림", subtitle: "배달·픽업 상태 알림", showHubQuickActions: false });
+    return backMypage({ titleText: "tier1_order_notifications", subtitle: "tier1_order_notifications_sub", showHubQuickActions: false });
   }
 
   if (p === "/my/trust") {
-    return backMypage({ titleText: "나의 배터리·신뢰", subtitle: "거래 매너 지표", showHubQuickActions: true });
+    return backMypage({ titleText: "tier1_trust", subtitle: "tier1_trust_subtitle", showHubQuickActions: true });
   }
 
   if (p === "/my/blocked-users") {
-    return backMypage({ titleText: "차단 목록", subtitle: "차단·숨김 관리", showHubQuickActions: true });
+    return backMypage({ titleText: "tier1_blocked_users", subtitle: "tier1_blocked_users_subtitle", showHubQuickActions: true });
   }
 
   if (p === "/my/reviews" || starts(p, "/my/reviews/")) {
-    return backMypage({ titleText: "받은 후기", subtitle: "거래 신뢰·평가", showHubQuickActions: true });
+    return backMypage({ titleText: "tier1_received_reviews", subtitle: "tier1_received_reviews_subtitle", showHubQuickActions: true });
   }
 
   if (p === "/my/products" || starts(p, "/my/products/")) {
-    return backMypage({ titleText: "내상품 관리", subtitle: "거래·판매 글", showHubQuickActions: true });
+    return backMypage({ titleText: "tier1_my_products", subtitle: "tier1_my_products_subtitle", showHubQuickActions: true });
   }
 
   if (p === "/my/edit" || p === "/mypage/edit" || p === "/mypage/section/account/profile/edit") {
-    return backMypage({ titleText: "프로필 수정", subtitle: "닉네임·사진·소개", showHubQuickActions: true });
+    return backMypage({ titleText: "tier1_profile_edit", subtitle: "tier1_profile_edit_subtitle", showHubQuickActions: true });
   }
 
   if (
     p === "/stores/owner" || /^\/stores\/owner\/.+/.test(p) ||
     p === "/mypage/business" || /^\/mypage\/business\/.+/.test(p)
   ) {
-    return backMypage({ titleText: "매장 운영", subtitle: "주문·상품·정산 관리", showHubQuickActions: true });
+    return backMypage({ titleText: "tier1_store_ops", subtitle: "tier1_store_ops_sub", showHubQuickActions: true });
   }
 
   if (p === "/stores/owner/apply" || p === "/my/business/apply") {
-    return { ...DEFAULT, backHref: "/stores/owner", titleText: "배달 입점 신청", showHubQuickActions: true };
+    return { ...DEFAULT, backHref: "/stores/owner", titleText: "tier1_business_apply", showHubQuickActions: true };
   }
 
   if (p === "/my/recent-viewed") {
-    return backMypage({ titleText: "최근 본 글", subtitle: "상품·게시물 다시 보기", showHubQuickActions: true });
+    return backMypage({ titleText: "tier1_recent_viewed", subtitle: "tier1_recent_viewed_subtitle", showHubQuickActions: true });
   }
 
   if (starts(p, "/my/settings") || starts(p, "/mypage/settings")) {
-    return backMypage({ titleText: "앱·계정 설정", showHubQuickActions: true });
+    return backMypage({ titleText: "tier1_app_settings", showHubQuickActions: true });
   }
 
   /** `/mypage/section/...` — `MainTier1Extras`로 섹션 제목 덮어쓰기 전 RegionBar 기본값 */
   if (starts(p, "/mypage/section/")) {
-    return backMypage({ titleText: "내정보", showHubQuickActions: true });
+    return backMypage({ titleText: "tier1_myinfo", showHubQuickActions: true });
   }
 
   if (p === "/products/new" || starts(p, "/products/new/")) {
-    return backHome({ titleText: "상품 등록", showHubQuickActions: true });
+    return backHome({ titleText: "tier1_product_create", showHubQuickActions: true });
   }
 
   if (/^\/products\/[^/]+\/edit$/.test(p)) {
-    return backHome({ titleText: "상품 수정", showHubQuickActions: true });
+    return backHome({ titleText: "tier1_product_edit", showHubQuickActions: true });
   }
 
   if (/^\/products\/[^/]+$/.test(p)) {
-    return backHome({ titleText: "상품", showHubQuickActions: false });
+    return backHome({ titleText: "tier1_product", showHubQuickActions: false });
   }
 
   /**
@@ -347,8 +347,8 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
       ...DEFAULT,
       backHref: "/philife",
       preferHistoryBack: true,
-      ariaLabel: "이전 화면",
-      titleText: "거래",
+      ariaLabel: "tier1_back",
+      titleText: "tier1_trade",
       showHubQuickActions: true,
     };
   }
@@ -364,8 +364,8 @@ export function resolveMainTier1Subpage(pathname: string): ResolvedMainTier1Subp
         ...DEFAULT,
         backHref: "/philife",
         preferHistoryBack: true,
-        ariaLabel: "피드로",
-        titleText: "커뮤니티",
+        ariaLabel: "tier1_feed_back",
+        titleText: "tier1_community",
         showHubQuickActions: true,
       };
     }

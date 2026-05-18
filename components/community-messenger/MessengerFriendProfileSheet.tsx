@@ -1,10 +1,10 @@
 "use client";
 
 import {
-  MessengerFriendAddCtaLabels,
+  MessengerFriendAddCtaLabelKeys,
   type MessengerFriendAddCta,
 } from "@/lib/community-messenger/messenger-friend-add-cta";
-import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { isMessengerFriendRequestBusy } from "@/lib/community-messenger/community-messenger-friend-request-client";
 import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/types";
 
@@ -58,6 +58,7 @@ export function MessengerFriendProfileSheet({
   onFriendAcceptIncoming,
   onFriendRejectIncoming,
 }: Props) {
+  const { t } = useI18n();
   const pid = profile.id;
   const bVoice = busyId === `call:voice:${pid}`;
   const bVideo = busyId === `call:video:${pid}`;
@@ -81,17 +82,17 @@ export function MessengerFriendProfileSheet({
 
   return (
     <div className="fixed inset-0 z-[45] flex flex-col justify-end bg-black/25" role="dialog" aria-modal="true" aria-labelledby="messenger-friend-sheet-title">
-      <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={onClose} />
+      <button type="button" className="min-h-0 flex-1 cursor-default" aria-label={t("nav_close")} onClick={onClose} />
       <div className="max-h-[82vh] w-full overflow-y-auto rounded-t-[12px] border border-ui-border bg-ui-surface px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
         <div className="flex flex-col items-center border-b border-ui-border pb-3 text-center">
-          <SamarketThumbnail
-            src={avatarSrc}
-            size={64}
-            roundedClassName="rounded-full"
-            className="bg-ui-hover"
-            fallbackSrc=""
-            fallbackNode={<span className="text-xl font-semibold text-ui-muted">{initial}</span>}
-          />
+          <div className="h-16 w-16 overflow-hidden rounded-full bg-ui-hover">
+            {avatarSrc ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={avatarSrc} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-xl font-semibold text-ui-muted">{initial}</div>
+            )}
+          </div>
           <h2 id="messenger-friend-sheet-title" className="mt-2 sam-text-body-lg font-semibold text-ui-fg">
             {profile.label}
           </h2>
@@ -100,15 +101,27 @@ export function MessengerFriendProfileSheet({
           ) : null}
           {atUsername ? <p className="mt-1 font-mono sam-text-xxs text-ui-muted tabular-nums">{atUsername}</p> : null}
           <div className="mt-2 flex flex-wrap items-center justify-center gap-1">
-            {profile.isFriend ? <StatusChip label={MessengerFriendAddCtaLabels.friend} /> : null}
-            {profile.isFavoriteFriend ? <StatusChip label="즐겨찾기" /> : null}
-            {profile.isHiddenFriend ? <StatusChip label="숨김" /> : null}
-            {profile.blocked ? <StatusChip label={MessengerFriendAddCtaLabels.blockedChip} tone="danger" /> : null}
+            {profile.isFriend ? <StatusChip label={t(MessengerFriendAddCtaLabelKeys.friend)} /> : null}
+            {profile.isFavoriteFriend ? <StatusChip label={t("cm_ui_favorite")} /> : null}
+            {profile.isHiddenFriend ? <StatusChip label={t("common_hide")} /> : null}
+            {profile.blocked ? <StatusChip label={t(MessengerFriendAddCtaLabelKeys.blockedChip)} tone="danger" /> : null}
           </div>
         </div>
 
         {useFriendAddGate && cta ? (
-          <div className="mt-3">{renderFriendAddBlock({ cta, pid, busyId, bFriendAdd, onFriendAdd, onFriendCancelOutgoing, onFriendAcceptIncoming, onFriendRejectIncoming })}</div>
+          <div className="mt-3">
+            {renderFriendAddBlock({
+              cta,
+              pid,
+              busyId,
+              bFriendAdd,
+              onFriendAdd,
+              onFriendCancelOutgoing,
+              onFriendAcceptIncoming,
+              onFriendRejectIncoming,
+              t,
+            })}
+          </div>
         ) : null}
 
         <div className={`mt-3 grid grid-cols-3 gap-1.5 ${!canMessageAndCall && useFriendAddGate ? "opacity-40" : ""}`}>
@@ -118,8 +131,8 @@ export function MessengerFriendProfileSheet({
             disabled={anyBusy || !canMessageAndCall}
             className="rounded-ui-rect bg-ui-page px-1 py-2.5 text-center active:bg-ui-hover disabled:opacity-50"
           >
-            <p className="sam-text-body-secondary font-semibold text-ui-fg">{MessengerFriendAddCtaLabels.message}</p>
-            {bChat ? <p className="mt-0.5 sam-text-xxs text-ui-muted">열기…</p> : null}
+            <p className="sam-text-body-secondary font-semibold text-ui-fg">{t(MessengerFriendAddCtaLabelKeys.message)}</p>
+            {bChat ? <p className="mt-0.5 sam-text-xxs text-ui-muted">{t("cm_ui_opening")}</p> : null}
           </button>
           <button
             type="button"
@@ -127,8 +140,8 @@ export function MessengerFriendProfileSheet({
             disabled={anyBusy || !canMessageAndCall}
             className="rounded-ui-rect bg-ui-page px-1 py-2.5 text-center active:bg-ui-hover disabled:opacity-50"
           >
-            <p className="sam-text-body-secondary font-semibold text-ui-fg">음성</p>
-            {bVoice ? <p className="mt-0.5 sam-text-xxs text-ui-muted">연결…</p> : null}
+            <p className="sam-text-body-secondary font-semibold text-ui-fg">{t("nav_voice_call_label")}</p>
+            {bVoice ? <p className="mt-0.5 sam-text-xxs text-ui-muted">{t("cm_ui_connecting")}</p> : null}
           </button>
           <button
             type="button"
@@ -136,25 +149,25 @@ export function MessengerFriendProfileSheet({
             disabled={anyBusy || !canMessageAndCall}
             className="rounded-ui-rect bg-ui-page px-1 py-2.5 text-center active:bg-ui-hover disabled:opacity-50"
           >
-            <p className="sam-text-body-secondary font-semibold text-ui-fg">영상</p>
-            {bVideo ? <p className="mt-0.5 sam-text-xxs text-ui-muted">연결…</p> : null}
+            <p className="sam-text-body-secondary font-semibold text-ui-fg">{t("nav_video_call_label")}</p>
+            {bVideo ? <p className="mt-0.5 sam-text-xxs text-ui-muted">{t("cm_ui_connecting")}</p> : null}
           </button>
         </div>
         {!canMessageAndCall && useFriendAddGate ? (
-          <p className="mt-2 text-center sam-text-xxs text-ui-muted">친구가 되면 메시지·음성·영상을 이용할 수 있습니다.</p>
+          <p className="mt-2 text-center sam-text-xxs text-ui-muted">{t("cm_ui_can_use_message_voice_video_when_friends")}</p>
         ) : null}
 
         <div className="mt-3 divide-y divide-ui-border border-t border-ui-border">
           {profile.isFriend ? (
             <ActionRow
-              label={bFav ? "처리 중…" : profile.isFavoriteFriend ? "즐겨찾기 해제" : "즐겨찾기"}
+              label={bFav ? t("common_processing") : profile.isFavoriteFriend ? t("cm_ui_unfavorite") : t("cm_ui_favorite")}
               onClick={onToggleFavorite}
               disabled={anyBusy}
             />
           ) : null}
           {profile.isFriend ? (
             <ActionRow
-              label={bHidden ? "처리 중…" : profile.isHiddenFriend ? "숨김 해제" : "숨김"}
+              label={bHidden ? t("common_processing") : profile.isHiddenFriend ? t("cm_ui_unhide") : t("common_hide")}
               onClick={onToggleHidden}
               disabled={anyBusy}
             />
@@ -163,25 +176,25 @@ export function MessengerFriendProfileSheet({
             <ActionRow
               label={
                 notificationsBusy
-                  ? "처리 중…"
+                  ? t("common_processing")
                   : typeof directRoomMuted === "boolean"
                     ? directRoomMuted
-                      ? "대화 알림 켜기"
-                      : "대화 알림 끄기"
-                    : "대화 알림 (채팅 시작 후)"
+                      ? t("cm_ui_turn_on_conversation_notifications")
+                      : t("cm_ui_turn_off_conversation_notifications")
+                    : t("cm_ui_conversation_notifications_after_chat_start")
               }
               onClick={onToggleMuteNotifications}
               disabled={anyBusy || typeof directRoomMuted !== "boolean"}
             />
           ) : null}
-          {onInviteToGroup && profile.isFriend ? <ActionRow label="그룹에 초대" onClick={onInviteToGroup} disabled={anyBusy} /> : null}
-          {profile.isFriend && onRemoveFriend ? <ActionRow label="친구 삭제" onClick={onRemoveFriend} disabled={anyBusy} danger /> : null}
-          {onBlock ? <ActionRow label={profile.blocked ? "차단 해제" : "차단"} onClick={onBlock} disabled={anyBusy} danger /> : null}
-          {onReport ? <ActionRow label="신고" onClick={onReport} disabled={anyBusy} danger /> : null}
+          {onInviteToGroup && profile.isFriend ? <ActionRow label={t("cm_ui_invite_to_group")} onClick={onInviteToGroup} disabled={anyBusy} /> : null}
+          {profile.isFriend && onRemoveFriend ? <ActionRow label={t("cm_ui_remove_friend")} onClick={onRemoveFriend} disabled={anyBusy} danger /> : null}
+          {onBlock ? <ActionRow label={profile.blocked ? t("cm_ui_unblock") : t("common_block")} onClick={onBlock} disabled={anyBusy} danger /> : null}
+          {onReport ? <ActionRow label={t("common_report")} onClick={onReport} disabled={anyBusy} danger /> : null}
         </div>
 
         <button type="button" onClick={onClose} className="mt-2 w-full py-2.5 sam-text-body-secondary font-medium text-ui-muted active:bg-ui-hover">
-          닫기
+          {t("nav_close")}
         </button>
       </div>
     </div>
@@ -197,16 +210,17 @@ function renderFriendAddBlock(args: {
   onFriendCancelOutgoing?: (requestId: string) => void;
   onFriendAcceptIncoming?: (requestId: string) => void;
   onFriendRejectIncoming?: (requestId: string) => void;
+  t: ReturnType<typeof useI18n>["t"];
 }) {
-  const { cta, pid, busyId, bFriendAdd, onFriendAdd, onFriendCancelOutgoing, onFriendAcceptIncoming, onFriendRejectIncoming } = args;
+  const { cta, pid, busyId, bFriendAdd, onFriendAdd, onFriendCancelOutgoing, onFriendAcceptIncoming, onFriendRejectIncoming, t } = args;
 
   if (cta.kind === "friend") return null;
 
   if (cta.kind === "blocked") {
     return (
       <div className="rounded-ui-rect border border-ui-border bg-ui-page px-3 py-3 text-center">
-        <p className="sam-text-body font-semibold text-ui-muted">{MessengerFriendAddCtaLabels.unavailable}</p>
-        <p className="mt-1 sam-text-helper leading-snug text-ui-muted">차단 상태에서는 친구 추가·대화를 할 수 없습니다.</p>
+        <p className="sam-text-body font-semibold text-ui-muted">{t(MessengerFriendAddCtaLabelKeys.unavailable)}</p>
+        <p className="mt-1 sam-text-helper leading-snug text-ui-muted">{t("cm_ui_cannot_add_friend_or_chat_when_blocked")}</p>
       </div>
     );
   }
@@ -220,7 +234,7 @@ function renderFriendAddBlock(args: {
           disabled={Boolean(busyId)}
           className="w-full rounded-ui-rect bg-ui-fg py-3 sam-text-body font-semibold text-ui-surface disabled:opacity-50"
         >
-          {bFriendAdd ? "처리 중…" : MessengerFriendAddCtaLabels.add}
+          {bFriendAdd ? t("common_processing") : t(MessengerFriendAddCtaLabelKeys.add)}
         </button>
       </div>
     );
@@ -235,7 +249,7 @@ function renderFriendAddBlock(args: {
           className="flex min-h-[var(--ui-tap-min,44px)] flex-1 items-center justify-center rounded-ui-rect border border-ui-border bg-ui-page sam-text-body font-medium text-ui-muted"
           aria-live="polite"
         >
-          {MessengerFriendAddCtaLabels.pending}
+          {t(MessengerFriendAddCtaLabelKeys.pending)}
         </div>
         <button
           type="button"
@@ -243,7 +257,7 @@ function renderFriendAddBlock(args: {
           disabled={Boolean(busyId)}
           className="min-h-[var(--ui-tap-min,44px)] shrink-0 rounded-ui-rect border border-ui-border px-4 sam-text-body font-medium text-ui-fg disabled:opacity-50"
         >
-          {bCancel ? "처리 중…" : MessengerFriendAddCtaLabels.cancel}
+          {bCancel ? t("common_processing") : t(MessengerFriendAddCtaLabelKeys.cancel)}
         </button>
       </div>
     );
@@ -253,7 +267,7 @@ function renderFriendAddBlock(args: {
     const rid = cta.requestId;
     return (
       <div className="space-y-2">
-        <p className="text-center sam-text-body-secondary text-ui-fg">이 사용자가 친구 요청을 보냈습니다.</p>
+        <p className="text-center sam-text-body-secondary text-ui-fg">{t("cm_ui_this_user_sent_friend_request")}</p>
         <div className="flex gap-2">
           <button
             type="button"
@@ -261,7 +275,7 @@ function renderFriendAddBlock(args: {
             disabled={Boolean(busyId)}
             className="min-h-[var(--ui-tap-min,44px)] flex-1 rounded-ui-rect border border-ui-border py-2.5 sam-text-body font-medium text-ui-fg disabled:opacity-50"
           >
-            {busyId === `request:${rid}:reject` ? "처리 중…" : MessengerFriendAddCtaLabels.reject}
+            {busyId === `request:${rid}:reject` ? t("common_processing") : t(MessengerFriendAddCtaLabelKeys.reject)}
           </button>
           <button
             type="button"
@@ -269,7 +283,7 @@ function renderFriendAddBlock(args: {
             disabled={Boolean(busyId)}
             className="min-h-[var(--ui-tap-min,44px)] flex-1 rounded-ui-rect bg-ui-fg py-2.5 sam-text-body font-semibold text-ui-surface disabled:opacity-50"
           >
-            {busyId === `request:${rid}:accept` ? "처리 중…" : MessengerFriendAddCtaLabels.accept}
+            {busyId === `request:${rid}:accept` ? t("common_processing") : t(MessengerFriendAddCtaLabelKeys.accept)}
           </button>
         </div>
       </div>
@@ -312,7 +326,7 @@ function ActionRow({
       }`}
     >
       <span>{label}</span>
-      {!onClick ? <span className="sam-text-xxs text-ui-muted">준비 중</span> : null}
+      {!onClick ? <span className="sam-text-xxs text-ui-muted">...</span> : null}
     </button>
   );
 }

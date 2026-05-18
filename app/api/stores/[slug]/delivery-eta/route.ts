@@ -22,6 +22,7 @@ import {
   isGoogleRoutesApiGloballyDisabled,
 } from "@/lib/geo/google-routes-client";
 import { haversineKm } from "@/lib/geo/haversine-km";
+import { detectAcceptLanguageAppLanguage } from "@/lib/i18n/language-preference";
 import {
   isSameDeliveryAddressForList,
   loadOwnerDefaultAddressByUserId,
@@ -105,6 +106,7 @@ export async function GET(
   if (!buyerId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const uiLang = detectAcceptLanguageAppLanguage(req.headers.get("accept-language"));
 
   const { slug } = await context.params;
   const decoded = decodeURIComponent(slug || "").trim();
@@ -216,7 +218,11 @@ export async function GET(
             routeDistanceKm: null,
             travelModeUsed: null,
             fallbackUsed: true,
-            etaLabel: buildStoreDeliveryEtaLabelWithManualRide(extras, extras.deliveryRideDisplayManual),
+            etaLabel: buildStoreDeliveryEtaLabelWithManualRide(
+              extras,
+              extras.deliveryRideDisplayManual,
+              uiLang
+            ),
             reason: "same_address",
           }),
         );
@@ -232,7 +238,7 @@ export async function GET(
           routeDistanceKm: 0,
           travelModeUsed: null,
           fallbackUsed: false,
-          etaLabel: buildStoreDeliveryEtaLabel(extras, 0),
+          etaLabel: buildStoreDeliveryEtaLabel(extras, 0, uiLang),
           reason: "same_address",
         }),
       );
@@ -290,7 +296,7 @@ export async function GET(
         routeDistanceKm: null,
         travelModeUsed: null,
         fallbackUsed: true,
-        etaLabel: buildStoreDeliveryEtaLabel(extras, null),
+        etaLabel: buildStoreDeliveryEtaLabel(extras, null, uiLang),
         reason: "missing_coords",
         ...maybeCoordDebug(debugFlags),
       }),
@@ -309,7 +315,11 @@ export async function GET(
         routeDistanceKm: null,
         travelModeUsed: null,
         fallbackUsed: true,
-        etaLabel: buildStoreDeliveryEtaLabelWithManualRide(extras, extras.deliveryRideDisplayManual),
+        etaLabel: buildStoreDeliveryEtaLabelWithManualRide(
+          extras,
+          extras.deliveryRideDisplayManual,
+          uiLang
+        ),
         reason: "ride_time_source_store",
         ...maybeCoordDebug(debugFlags),
       }),
@@ -331,7 +341,7 @@ export async function GET(
         routeDistanceKm: 0,
         travelModeUsed: null,
         fallbackUsed: false,
-        etaLabel: buildStoreDeliveryEtaLabel(extras, 0),
+        etaLabel: buildStoreDeliveryEtaLabel(extras, 0, uiLang),
         reason: "near_origin",
       }),
     );
@@ -370,7 +380,7 @@ export async function GET(
       routeDistanceMeters != null && Number.isFinite(routeDistanceMeters)
         ? routeDistanceMeters / 1000
         : null;
-    const etaLabel = buildStoreDeliveryEtaLabel(extras, rideMinutes);
+    const etaLabel = buildStoreDeliveryEtaLabel(extras, rideMinutes, uiLang);
 
     if (rideMinutes == null && routeDistanceMeters == null) {
       devConsoleWarn(

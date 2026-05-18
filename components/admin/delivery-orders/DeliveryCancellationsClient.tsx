@@ -10,8 +10,10 @@ import {
 } from "@/lib/admin/fetch-admin-store-orders-scoped";
 import type { AdminDeliveryOrder } from "@/lib/admin/delivery-orders-admin/types";
 import { CancelRequestTable } from "./CancelRequestTable";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function DeliveryCancellationsClient() {
+  const { t } = useI18n();
   const [rows, setRows] = useState<AdminDeliveryOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -42,19 +44,18 @@ export function DeliveryCancellationsClient() {
 
   return (
     <div className="p-4 md:p-6">
-      <AdminPageHeader title="취소 주문" backHref="/admin/stores/orders" />
+      <AdminPageHeader titleKey="admin_do_cancellations_title" backHref="/admin/stores/orders" />
       <p className="mb-2 sam-text-body-secondary text-sam-muted">
-        DB 스키마상 취소 단계는{" "}
-        <code className="rounded bg-sam-app px-1 sam-text-helper">cancelled</code> 로 확정된 건만 조회합니다. 추가
-        처리는{" "}
+        <code className="rounded bg-sam-app px-1 sam-text-helper">cancelled</code>{" "}
+        {t("admin_do_cancellations_intro")}{" "}
         <Link href="/admin/store-orders" className="text-signature underline">
-          매장 주문(액션)
+          {t("admin_do_nav_store_orders")}
         </Link>
-        과 주문 상세에서 진행하세요.
+        {t("admin_do_cancellations_intro_suffix")}
       </p>
       {error ? (
         <p className="mb-3 rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper text-amber-950">
-          불러오지 못했습니다 ({error}).
+          {t("admin_do_common_load_failed", { error })}
         </p>
       ) : null}
       <div className="mb-2">
@@ -64,12 +65,12 @@ export function DeliveryCancellationsClient() {
           disabled={loading}
           className="rounded-ui-rect border border-sam-border px-3 py-1.5 text-xs text-sam-fg disabled:opacity-50"
         >
-          {loading ? "갱신 중…" : "새로고침"}
+          {loading ? t("admin_do_common_refreshing") : t("admin_do_common_refresh")}
         </button>
       </div>
-      <AdminCard title="취소 완료 (원장 · 최근 최대 500건)">
+      <AdminCard titleKey="admin_do_cancellations_card">
         {loading ? (
-          <p className="text-sm text-sam-muted">불러오는 중…</p>
+          <p className="text-sm text-sam-muted">{t("admin_dashboard_loading")}</p>
         ) : (
           <CancelRequestTable
             rows={rows}

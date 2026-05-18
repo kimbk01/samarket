@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useState } from "react";
 import type { MemberBenefitPolicy } from "@/lib/types/member-benefit";
 import { MEMBER_TYPE_OPTIONS } from "@/lib/member-benefits/member-benefit-utils";
@@ -15,6 +17,7 @@ export function AdminMemberBenefitForm({
   onSubmit,
   onCancel,
 }: AdminMemberBenefitFormProps) {
+  const { t } = useI18n();
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
   const [memberType, setMemberType] = useState<"normal" | "premium" | "admin">(
@@ -132,7 +135,7 @@ export function AdminMemberBenefitForm({
           }
           className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
         >
-          <option value="dark">dark (기본)</option>
+          <option value="dark">{t("admin_dark_default")}</option>
           <option value="gold">gold</option>
           <option value="admin_special">admin_special</option>
         </select>
@@ -146,7 +149,7 @@ export function AdminMemberBenefitForm({
           value={badgeLabel}
           onChange={(e) => setBadgeLabel(e.target.value)}
           className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
-          placeholder="특별회원, 관리자 등"
+          placeholder={t("admin_badge_placeholder")}
         />
       </div>
       <div className="grid grid-cols-3 gap-2">

@@ -1,23 +1,22 @@
 "use client";
 
 import { useMemo } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getRecommendationReportSections } from "@/lib/recommendation-reports/mock-recommendation-report-sections";
-import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
 import type { SectionHealthStatus } from "@/lib/types/recommendation-report";
+import {
+  recHealthLabel,
+  recSurfaceLabel,
+} from "@/components/admin/recommendation-admin-i18n";
 
 interface RecommendationSectionReportTableProps {
   reportId: string;
 }
 
-const STATUS_LABELS: Record<SectionHealthStatus, string> = {
-  healthy: "정상",
-  warning: "경고",
-  critical: "위험",
-};
-
 export function RecommendationSectionReportTable({
   reportId,
 }: RecommendationSectionReportTableProps) {
+  const { t } = useI18n();
   const sections = useMemo(
     () => getRecommendationReportSections(reportId),
     [reportId]
@@ -26,7 +25,7 @@ export function RecommendationSectionReportTable({
   if (sections.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
-        섹션 성과 데이터가 없습니다.
+        {t("admin_rec_report_empty_section")}
       </div>
     );
   }
@@ -37,25 +36,25 @@ export function RecommendationSectionReportTable({
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              surface
+              {t("admin_rec_th_surface")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              섹션
+              {t("admin_rec_th_section")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              노출
+              {t("admin_rec_th_impressions")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              클릭
+              {t("admin_rec_th_clicks")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              CTR
+              {t("admin_rec_th_ctr")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              전환
+              {t("admin_rec_th_conversion")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              상태
+              {t("admin_rec_th_status")}
             </th>
           </tr>
         </thead>
@@ -66,7 +65,7 @@ export function RecommendationSectionReportTable({
               className="border-b border-sam-border-soft hover:bg-sam-app"
             >
               <td className="px-3 py-2.5 font-medium text-sam-fg">
-                {SURFACE_LABELS[s.surface]}
+                {recSurfaceLabel(t, s.surface)}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">{s.sectionKey}</td>
               <td className="px-3 py-2.5 text-sam-fg">
@@ -91,7 +90,7 @@ export function RecommendationSectionReportTable({
                         : "bg-red-50 text-red-800"
                   }`}
                 >
-                  {STATUS_LABELS[s.status]}
+                  {recHealthLabel(t, s.status as SectionHealthStatus)}
                 </span>
               </td>
             </tr>

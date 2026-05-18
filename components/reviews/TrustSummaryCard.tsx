@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { UserTrustSummary } from "@/lib/types/review";
 import { getAppSettings } from "@/lib/app-settings";
 import { mannerBatteryAccentClass, mannerBatteryTier, mannerRawToPercent } from "@/lib/trust/manner-battery";
@@ -12,6 +13,7 @@ interface TrustSummaryCardProps {
 }
 
 export function TrustSummaryCard({ summary, variant = "full" }: TrustSummaryCardProps) {
+  const { t } = useI18n();
   const raw = summary.mannerScore;
   const percent = mannerRawToPercent(raw);
   const tier = mannerBatteryTier(percent);
@@ -34,7 +36,7 @@ export function TrustSummaryCard({ summary, variant = "full" }: TrustSummaryCard
           <MannerBatteryIcon tier={tier} percent={percent} size="sm" />
           <p className={`sam-text-helper font-semibold tabular-nums ${accent}`}>{percent}%</p>
         </div>
-        <p className="sam-text-xxs text-sam-muted">후기 {summary.reviewCount}</p>
+        <p className="sam-text-xxs text-sam-muted">{t("ui_review_count_short", { count: summary.reviewCount })}</p>
       </div>
     );
   }
@@ -49,11 +51,11 @@ export function TrustSummaryCard({ summary, variant = "full" }: TrustSummaryCard
         </div>
       </div>
       <div className="mt-2 flex gap-4 sam-text-helper text-sam-muted">
-        <span>후기 {summary.reviewCount}개</span>
+        <span>{t("ui_review_count_full", { count: summary.reviewCount })}</span>
         {summary.reviewCount > 0 && (
           <>
-            <span>평균 {summary.averageRating}점</span>
-            <span>좋아요 {summary.positiveCount}</span>
+            <span>{t("ui_review_avg_rating", { rating: summary.averageRating })}</span>
+            <span>{t("ui_review_positive_count", { count: summary.positiveCount })}</span>
           </>
         )}
       </div>

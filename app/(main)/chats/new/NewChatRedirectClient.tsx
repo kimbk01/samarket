@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   TRADE_CHAT_SURFACE,
   tradeHubChatComposeHref,
@@ -9,6 +10,7 @@ import {
 import { startTradeChatEntryMark } from "@/lib/chats/trade-chat-entry-client";
 
 export function NewChatRedirectClient({ productId }: { productId: string | null }) {
+  const { t } = useI18n();
   const router = useRouter();
 
   useEffect(() => {
@@ -22,7 +24,7 @@ export function NewChatRedirectClient({ productId }: { productId: string | null 
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
-      <p className="text-center sam-text-body text-sam-muted">채팅방으로 이동 중...</p>
+      <p className="text-center sam-text-body text-sam-muted">{t("chats_redirecting_to_room")}</p>
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MyPageMobileMenuRow } from "@/components/mypage/mobile/MyPageMobileMenuRow";
 
 /**
@@ -14,6 +15,7 @@ export function MyPageAdminMenuEntry({
   /** @deprecated `asListItem` 사용 */
   wrapInStandaloneCard = false,
 }: { asListItem?: boolean; wrapInStandaloneCard?: boolean } = {}) {
+  const { t } = useI18n();
   const [show, setShow] = useState(false);
   const [ready, setReady] = useState(false);
 
@@ -37,7 +39,13 @@ export function MyPageAdminMenuEntry({
 
   if (!ready || !show) return null;
 
-  const row = <MyPageMobileMenuRow href="/admin" title="관리자 접속" surface={asListItem || wrapInStandaloneCard ? "card" : "grouped"} />;
+  const row = (
+    <MyPageMobileMenuRow
+      href="/admin"
+      title={t("mypage_comp_admin_entry_title")}
+      surface={asListItem || wrapInStandaloneCard ? "card" : "grouped"}
+    />
+  );
   if (asListItem) {
     return <li className="list-none">{row}</li>;
   }

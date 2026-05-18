@@ -3,16 +3,20 @@
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { getLocationLabel } from "@/lib/products/form-options";
 import { formatPrice } from "@/lib/utils/format";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   EXPERIENCE_LEVEL_LABELS,
-  JOB_LISTING_KIND_LABELS,
   JOB_SEEKER_START_OPTIONS,
   JOB_SEEKER_VISA_OPTIONS,
-  PAY_TYPE_LABELS,
-  WORK_TERM_LABELS,
   jobWorkCategoryDisplay,
   type JobSeekerStartValue,
 } from "@/lib/jobs/form-options";
+import {
+  jobListingKindLabel,
+  jobOptionLabel,
+  jobPayTypeLabel,
+  jobWorkTermLabel,
+} from "@/lib/jobs/job-label-keys";
 import { formatSeekTimeSlotsPipe, formatSeekerLanguagesPipe } from "@/lib/jobs/job-detail-format";
 import { JobDetailSectionCard } from "@/components/jobs/JobDetailSectionCard";
 import { TRADE_FB_DETAIL_BODY, TRADE_WRITE_FB_FIELD_HEAD } from "@/lib/ui/trade-write-fb-ui";
@@ -26,10 +30,10 @@ function tradeMeetDisplayLine(meta: Record<string, unknown>): string {
   return "";
 }
 
-function seekerStartLabel(meta: Record<string, unknown>): string {
+function seekerStartLabel(t: ReturnType<typeof useI18n>["t"], meta: Record<string, unknown>): string {
   const raw = String(meta.seeker_start ?? "").trim() as JobSeekerStartValue | "";
   const opt = JOB_SEEKER_START_OPTIONS.find((o) => o.value === raw);
-  const base = opt?.label ?? (raw ? raw : "");
+  const base = opt ? jobOptionLabel(t, opt.labelKey) : raw ? raw : "";
   const d = String(meta.seeker_start_date ?? "").trim();
   if (raw === "date" && d) return `${base}: ${d}`;
   return base || "";
@@ -44,7 +48,8 @@ export function JobSeekingDetailCards({
   meta: Record<string, unknown>;
   currency: string;
 }) {
-  const workCategory = jobWorkCategoryDisplay(meta);
+  const { t, language } = useI18n();
+  const workCategory = jobWorkCategoryDisplay(meta, language);
   const workTerm = String(meta.work_term ?? "").trim();
   const experienceLevel = String(meta.experience_level ?? "").trim();
   const payType = String(meta.pay_type ?? "").trim();
@@ -61,15 +66,15 @@ export function JobSeekingDetailCards({
 
   const payLabel =
     payAmount != null && !Number.isNaN(payAmount)
-      ? `${PAY_TYPE_LABELS[payType] ?? payType} ${formatPrice(payAmount, currency)}`
+      ? `${jobPayTypeLabel(t, payType)} ${formatPrice(payAmount, currency)}`
       : payType === "negotiate"
         ? "협의"
         : "";
 
   const seekRows: { label: string; value: string }[] = [];
-  seekRows.push({ label: "글 유형", value: JOB_LISTING_KIND_LABELS.work ?? "일자리 찾고 있어요" });
+  seekRows.push({ label: "글 유형", value: jobListingKindLabel(t, "work") });
   if (workCategory) seekRows.push({ label: "희망 업종", value: workCategory });
-  if (workTerm) seekRows.push({ label: "희망 근무형태", value: WORK_TERM_LABELS[workTerm] ?? workTerm });
+  if (workTerm) seekRows.push({ label: "희망 근무형태", value: jobWorkTermLabel(t, workTerm) });
 
   if (timeLine) seekRows.push({ label: "가능 시간", value: timeLine });
   if (payLabel) seekRows.push({ label: "희망 급여", value: payLabel });
@@ -82,10 +87,11 @@ export function JobSeekingDetailCards({
   if (hopeWorkRegion) seekRows.push({ label: "희망 근무지역", value: hopeWorkRegion });
 
   const visaRaw = String(meta.seeker_visa ?? "").trim();
-  const visaLabel = JOB_SEEKER_VISA_OPTIONS.find((o) => o.value === visaRaw)?.label ?? (visaRaw || "");
+  const visaOpt = JOB_SEEKER_VISA_OPTIONS.find((o) => o.value === visaRaw);
+  const visaLabel = visaOpt ? jobOptionLabel(t, visaOpt.labelKey) : visaRaw || "";
 
   const langLine = formatSeekerLanguagesPipe(meta);
-  const startLine = seekerStartLabel(meta);
+  const startLine = seekerStartLabel(t, meta);
 
   const extraRows: { label: string; value: string }[] = [];
   if (langLine) extraRows.push({ label: "가능 언어", value: langLine });
@@ -100,12 +106,12 @@ export function JobSeekingDetailCards({
 
   return (
     <div className="flex flex-col gap-2">
-      <JobDetailSectionCard title="구직 정보" rows={seekRows} />
+      <JobDetailSectionCard title={t("ui_jobs_detail_seek_section")} rows={seekRows} />
       <div className="rounded-ui-rect border border-[#e4e6eb] bg-[#fafbfc] px-3 py-2.5">
-        <h3 className={`${TRADE_WRITE_FB_FIELD_HEAD} mb-0`}>자기소개</h3>
+        <h3 className={`${TRADE_WRITE_FB_FIELD_HEAD} mb-0`}>{t("ui_jobs_detail_intro_heading")}</h3>
         <p className={`mt-1 ${TRADE_FB_DETAIL_BODY}`}>{content || "—"}</p>
       </div>
-      <JobDetailSectionCard title="추가 정보" rows={extraRows} />
+      <JobDetailSectionCard title={t("ui_jobs_detail_extra_section")} rows={extraRows} />
     </div>
   );
 }

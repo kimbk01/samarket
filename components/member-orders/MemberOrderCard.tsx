@@ -3,15 +3,18 @@
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MemberOrder } from "@/lib/member-orders/types";
-import { MEMBER_STATUS_USER_MESSAGE } from "@/lib/member-orders/member-order-labels";
+import { memberOrderStatusUserMessage } from "@/lib/member-orders/member-order-labels";
 import { MemberOrderStatusBadge } from "./MemberOrderStatusBadge";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
-function titleSummary(items: MemberOrder["items"]) {
+function titleSummary(
+  items: MemberOrder["items"],
+  formatMore: (first: string, count: number) => string
+) {
   if (items.length === 0) return "";
   const first = items[0]!.menu_name;
   const rest = items.length - 1;
-  return rest > 0 ? `${first} 외 ${rest}건` : first;
+  return rest > 0 ? formatMore(first, rest) : first;
 }
 
 export function MemberOrderCard({
@@ -25,7 +28,7 @@ export function MemberOrderCard({
   chatHref: string;
   onOpenCancel?: (order: MemberOrder) => void;
 }) {
-  const { t, tt } = useI18n();
+  const { t, language } = useI18n();
   const activeTab = [
     "pending",
     "accepted",
@@ -70,9 +73,13 @@ export function MemberOrderCard({
         ) : null}
       </div>
 
-      <p className="mt-2 text-sm text-sam-fg">{titleSummary(order.items)}</p>
+      <p className="mt-2 text-sm text-sam-fg">
+        {titleSummary(order.items, (first, count) => t("member_order_items_more", { first, count }))}
+      </p>
       <p className="mt-2 text-lg font-bold text-sam-fg">{formatMoneyPhp(order.total_amount)}</p>
-      <p className="mt-2 text-sm text-sam-muted">{tt(MEMBER_STATUS_USER_MESSAGE[order.order_status])}</p>
+      <p className="mt-2 text-sm text-sam-muted">
+        {memberOrderStatusUserMessage(order.order_status, language)}
+      </p>
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Link

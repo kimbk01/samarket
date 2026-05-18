@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -11,6 +14,7 @@ import { AdminMemberBenefitTable } from "./AdminMemberBenefitTable";
 import { AdminMemberBenefitForm } from "./AdminMemberBenefitForm";
 
 export function AdminMemberBenefitPage() {
+  const { t } = useI18n();
   const [refresh, setRefresh] = useState(0);
   const [showForm, setShowForm] = useState(false);
 
@@ -46,9 +50,9 @@ export function AdminMemberBenefitPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="회원 혜택 정책" />
+      <AdminPageHeader titleKey="admin_member_benefit_k98edcb0c" />
 
-      <AdminCard title="혜택 요약">
+      <AdminCard titleKey="admin_member_benefit_summary_2">
         <div className="flex flex-wrap gap-4 sam-text-body">
           {summaries.map((s) => (
             <div
@@ -66,7 +70,7 @@ export function AdminMemberBenefitPage() {
         </div>
       </AdminCard>
 
-      <AdminCard title="혜택 정책 목록">
+      <AdminCard titleKey="admin_member_benefit_kdff18da4">
         <div className="mb-3 flex justify-end">
           <button
             type="button"

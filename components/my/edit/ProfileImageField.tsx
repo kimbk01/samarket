@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useRef, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 import { updateMyProfile } from "@/lib/profile/updateMyProfile";
 
@@ -14,6 +15,7 @@ export interface ProfileImageFieldProps {
  * 프로필 사진: Supabase Storage 업로드 (/api/me/profile/avatar) 후 public URL을 avatar_url 로 저장
  */
 export function ProfileImageField({ avatarUrl, onChangeUrl }: ProfileImageFieldProps) {
+  const { t } = useI18n();
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -36,19 +38,18 @@ export function ProfileImageField({ avatarUrl, onChangeUrl }: ProfileImageFieldP
       });
       const data = (await res.json().catch(() => null)) as { ok?: boolean; url?: string; error?: string } | null;
       if (!res.ok || !data?.ok || !data.url) {
-        setUploadError(data?.error || "업로드에 실패했습니다.");
+        setUploadError(data?.error || t("profile_edit_upload_failed"));
         return;
       }
-      // 업로드만으로는 /mypage 등에서 반영되지 않으므로, avatar_url 을 즉시 저장까지 마친다.
       const save = await updateMyProfile({ avatar_url: data.url });
       if (!save.ok) {
-        setUploadError(save.error || "저장에 실패했습니다.");
+        setUploadError(save.error || t("profile_edit_save_failed"));
         return;
       }
       invalidateMeProfileDedupedCache();
       onChangeUrl(data.url);
     } catch {
-      setUploadError("업로드에 실패했습니다.");
+      setUploadError(t("profile_edit_upload_failed"));
     } finally {
       setUploading((prev) => (prev ? false : prev));
     }
@@ -61,10 +62,10 @@ export function ProfileImageField({ avatarUrl, onChangeUrl }: ProfileImageFieldP
         onClick={pickFile}
         disabled={uploading}
         className="relative h-20 w-20 shrink-0 overflow-hidden rounded-full bg-sam-surface-muted outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-signature disabled:opacity-60"
-        aria-label="프로필 사진 선택"
+        aria-label={t("profile_edit_photo_aria")}
       >
         {avatarUrl ? (
-          <Image src={avatarUrl} alt="프로필" fill className="object-cover" sizes="80px" />
+          <Image src={avatarUrl} alt={t("profile_edit_photo_alt")} fill className="object-cover" sizes="80px" />
         ) : (
           <div className="flex h-full w-full items-center justify-center sam-text-hero text-sam-meta">👤</div>
         )}
@@ -78,7 +79,7 @@ export function ProfileImageField({ avatarUrl, onChangeUrl }: ProfileImageFieldP
       />
       <p className="text-center sam-text-body-secondary font-medium text-signature">
         <button type="button" onClick={pickFile} disabled={uploading} className="underline disabled:opacity-60">
-          {uploading ? "업로드 중…" : "사진에서 선택"}
+          {uploading ? t("profile_edit_photo_uploading") : t("profile_edit_photo_pick")}
         </button>
         {avatarUrl ? (
           <>
@@ -94,13 +95,13 @@ export function ProfileImageField({ avatarUrl, onChangeUrl }: ProfileImageFieldP
                   try {
                     const save = await updateMyProfile({ avatar_url: null });
                     if (!save.ok) {
-                      setUploadError(save.error || "저장에 실패했습니다.");
+                      setUploadError(save.error || t("profile_edit_save_failed"));
                       return;
                     }
                     invalidateMeProfileDedupedCache();
                     onChangeUrl(null);
                   } catch {
-                    setUploadError("저장에 실패했습니다.");
+                    setUploadError(t("profile_edit_save_failed"));
                   } finally {
                     setUploading(false);
                   }
@@ -108,7 +109,7 @@ export function ProfileImageField({ avatarUrl, onChangeUrl }: ProfileImageFieldP
               }}
               disabled={uploading}
             >
-              제거
+              {t("profile_edit_photo_remove")}
             </button>
           </>
         ) : null}

@@ -13,35 +13,31 @@ import {
   Sparkles,
   Settings,
   Settings2,
-  Store,
   Truck,
   Wallet,
 } from "lucide-react";
+import type { BusinessAdminNavItemId } from "@/lib/business/business-admin-nav";
 
-const LABEL_ICON: Record<string, LucideIcon> = {
-  대시보드: LayoutDashboard,
-  "매장 설정": Settings,
-  "채팅 · 문의": MessageCircle,
-  "배달 주문": Truck,
-  "배달 운영 설정": Settings2,
-  "상품 관리 , 등록": Package,
-  /** 레거시·문서용 라벨 — 사이드바는 `business-admin-nav` 의 표기를 따름 */
-  "상품 등록": Package,
-  카테고리: LayoutGrid,
-  "배너 관리": Image,
-  "공지 관리": Megaphone,
-  "기본 정보": Building2,
-  "매장 프로필": Store,
-  "운영 · 심사": ClipboardCheck,
-  "공개 매장 페이지": ExternalLink,
-  "정산 내역": Wallet,
-  "광고 · 프로모션": Sparkles,
-  "알림 · 운영": Bell,
+const ID_ICON: Record<BusinessAdminNavItemId, LucideIcon> = {
+  dashboard: LayoutDashboard,
+  basic_info: Building2,
+  store_settings: Settings,
+  inquiries: MessageCircle,
+  delivery_orders: Truck,
+  delivery_ops: Settings2,
+  products: Package,
+  categories: LayoutGrid,
+  banners: Image,
+  notices: Megaphone,
+  ops_review: ClipboardCheck,
+  public_store: ExternalLink,
+  settlements: Wallet,
+  ads: Sparkles,
+  notifications: Bell,
 };
 
 const FALLBACK = LayoutGrid;
 
-export function resolveOwnerHubMenuIcon(label: string): LucideIcon {
-  const key = label.trim();
-  return LABEL_ICON[key] ?? FALLBACK;
+export function resolveOwnerHubMenuIcon(id: BusinessAdminNavItemId): LucideIcon {
+  return ID_ICON[id] ?? FALLBACK;
 }

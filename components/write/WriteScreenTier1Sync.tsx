@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useLayoutEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -26,6 +27,7 @@ export function WriteScreenTier1Sync({
   onRequestClose?: () => void;
   tier1Mode?: "global" | "embedded";
 }) {
+  const { t } = useI18n();
   const setExtras = useSetMainTier1ExtrasOptional();
   const router = useRouter();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -52,7 +54,7 @@ export function WriteScreenTier1Sync({
           <button
             type="button"
             onClick={onRequestClose ?? openConfirm}
-            aria-label="닫기"
+            aria-label={t("common_close")}
             className="sam-header-action flex h-10 w-10 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center text-sam-fg"
           >
             <AppCloseIcon />
@@ -73,7 +75,7 @@ export function WriteScreenTier1Sync({
           <button
             type="button"
             onClick={onRequestClose ?? openConfirm}
-            aria-label="닫기"
+            aria-label={t("common_close")}
             className="sam-header-action flex h-10 w-10 min-h-[44px] min-w-[44px] shrink-0 items-center justify-center text-sam-fg"
           >
             <AppCloseIcon />
@@ -101,12 +103,12 @@ export function WriteScreenTier1Sync({
         <AppModal
           open={confirmOpen}
           onClose={() => setConfirmOpen(false)}
-          title="글쓰기 취소"
+          title={t("ui_write_cancel_title")}
           className="sm:max-w-[24rem] sm:rounded-sam-md sm:border-b"
           footer={
             <div className="flex gap-2">
               <button type="button" onClick={() => setConfirmOpen(false)} className="sam-btn sam-btn--outline flex-1">
-                계속 쓰기
+                {t("ui_write_continue_writing")}
               </button>
               <button type="button" onClick={handleConfirmLeave} className="sam-btn sam-btn--primary flex-1">
                 취소
@@ -114,7 +116,7 @@ export function WriteScreenTier1Sync({
             </div>
           }
         >
-          <p className="sam-text-body text-sam-fg">입력한 내용이 저장되지 않습니다.</p>
+          <p className="sam-text-body text-sam-fg">{t("ui_write_discard_body")}</p>
         </AppModal>
       ) : null}
     </>

@@ -85,6 +85,7 @@ import {
   TRADE_WRITE_FB_FIELD_LABEL,
 } from "@/lib/ui/trade-write-fb-ui";
 import { PHILIFE_FB_TEXTAREA_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface ExchangeWriteFormProps {
   category: CategoryWithSettings;
@@ -135,6 +136,7 @@ export function ExchangeWriteForm({
   ownerEditSnapshot,
   tradePolicy = null,
 }: ExchangeWriteFormProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const tradeWriteSheet = useTradeWriteSheetOptional();
@@ -504,7 +506,7 @@ export function ExchangeWriteForm({
     const files = workingImages.map((x) => x.file).filter((f): f is File => !!f);
     if (files.length > 0) {
       if (!user?.id) {
-        window.alert("로그인이 필요합니다. 로그인 후 다시 시도해 주세요.");
+        window.alert(t("trade_056"));
         return false;
       }
       const uploaded = await uploadPostImages(files, user.id);
@@ -804,7 +806,7 @@ export function ExchangeWriteForm({
       <MobileDualActionBottomSheet
         open={draftResumeGate === "pending_choice"}
         onClose={() => {}}
-        title="작성 중이던 글이 있습니다"
+        title={t("trade_099")}
         description="이전에 입력한 내용을 불러올까요?"
         secondaryLabel="새로 작성"
         onSecondary={handleDiscardExchangePersistedDraft}
@@ -831,7 +833,7 @@ export function ExchangeWriteForm({
         ) : null}
 
         <div className={TRADE_WRITE_FB_INPUT_REGION_BAR}>
-          <p className={TRADE_WRITE_FB_INPUT_REGION_TITLE}>거래 글 작성 · 직접 입력</p>
+          <p className={TRADE_WRITE_FB_INPUT_REGION_TITLE}>{t("trade_010")}</p>
           <p className="mt-1 text-[12px] font-normal normal-case tracking-normal text-[#65676B]">
             사진·환율·금액·만남 장소 등 아래 내용만 글에 저장됩니다.
           </p>
@@ -878,7 +880,7 @@ export function ExchangeWriteForm({
 
         {/* 참고 시세(요약) + 기준/가산 입력 + 적용 환율 + 페소 금액 — 한 카드 (열·행 정렬·타이포 통일) */}
         <section className={TRADE_WRITE_FB_SECTION}>
-          <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>환율 · 금액</h4>
+          <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>{t("trade_130")}</h4>
           <div className="mt-1 overflow-hidden rounded-ui-rect border border-slate-800 bg-white shadow-sm">
             <div className={EXCHANGE_WRITE_REFERENCE_BAR_CLASS}>
               <span className="shrink-0 text-[12px] font-semibold leading-none tracking-tight">
@@ -886,7 +888,7 @@ export function ExchangeWriteForm({
               </span>
               <span className="min-w-0 text-right font-mono text-[12px] font-medium leading-snug tabular-nums text-slate-100">
                 {ratesLoading ? (
-                  <span className="text-slate-400">조회 중…</span>
+                  <span className="text-slate-400">{t("trade_103")}</span>
                 ) : (
                   <span className="inline-flex flex-col items-end gap-0.5 sm:flex-row sm:items-baseline sm:gap-1.5">
                     <span className="text-slate-50">
@@ -905,8 +907,8 @@ export function ExchangeWriteForm({
               <div className="grid grid-cols-2 gap-x-3 gap-y-0">
                 <div className="flex min-w-0 flex-col">
                   <div className={EXCHANGE_WRITE_FIELD_LABEL_STACK_CLASS}>
-                    <span className={EXCHANGE_WRITE_FIELD_TITLE_CLASS}>기준 환율</span>
-                    <span className={EXCHANGE_WRITE_FIELD_HINT_CLASS}>1 PHP당 원화</span>
+                    <span className={EXCHANGE_WRITE_FIELD_TITLE_CLASS}>{t("trade_046")}</span>
+                    <span className={EXCHANGE_WRITE_FIELD_HINT_CLASS}>{t("trade_002")}</span>
                   </div>
                   <div className={EXCHANGE_WRITE_INPUT_ROW_CLASS}>
                     <input
@@ -916,15 +918,15 @@ export function ExchangeWriteForm({
                       onChange={(e) => setRate(e.target.value.replace(/[^0-9.]/g, ""))}
                       placeholder="24.99"
                       className={`${EXCHANGE_WRITE_INPUT_CLASS} ${errors.rate ? "text-red-600" : ""}`}
-                      aria-label="기준 환율 1 PHP당 KRW"
+                      aria-label={t("trade_047")}
                     />
                     <span className="shrink-0 text-[13px] font-medium tabular-nums text-sam-muted">₩</span>
                   </div>
                 </div>
                 <div className="flex min-w-0 flex-col">
                   <div className={EXCHANGE_WRITE_FIELD_LABEL_STACK_CLASS}>
-                    <span className={EXCHANGE_WRITE_FIELD_TITLE_CLASS}>가산</span>
-                    <span className={EXCHANGE_WRITE_FIELD_HINT_CLASS}>기준에 더할 ₩</span>
+                    <span className={EXCHANGE_WRITE_FIELD_TITLE_CLASS}>{t("trade_009")}</span>
+                    <span className={EXCHANGE_WRITE_FIELD_HINT_CLASS}>{t("trade_049")}</span>
                   </div>
                   <div className={EXCHANGE_WRITE_INPUT_ROW_CLASS}>
                     <span className="shrink-0 text-[15px] font-medium leading-none text-sam-muted">+</span>
@@ -935,7 +937,7 @@ export function ExchangeWriteForm({
                       onChange={(e) => setRatePlus(e.target.value.replace(/[^0-9.-]/g, ""))}
                       placeholder="0"
                       className={EXCHANGE_WRITE_INPUT_CLASS}
-                      aria-label="기준 환율 가산"
+                      aria-label={t("trade_048")}
                     />
                     <span className="shrink-0 text-[13px] font-medium tabular-nums text-sam-muted">₩</span>
                   </div>
@@ -943,7 +945,7 @@ export function ExchangeWriteForm({
               </div>
 
               <div className="rounded-md bg-[#f0f2f5] px-3 py-3">
-                <p className="text-center text-[12px] font-semibold leading-tight text-[#65676B]">적용 환율</p>
+                <p className="text-center text-[12px] font-semibold leading-tight text-[#65676B]">{t("trade_100")}</p>
                 <p className="mt-1.5 text-center text-[15px] font-semibold tabular-nums leading-snug tracking-tight text-[#050505]">
                   {rateValue > 0 && !Number.isNaN(rateValue)
                     ? `1 PHP = ${rateValue.toFixed(2)} KRW`
@@ -992,7 +994,7 @@ export function ExchangeWriteForm({
         <section className={TRADE_WRITE_FB_SECTION}>
           {direction === "buy" && (
             <>
-              <p className="mb-2 sam-text-body font-medium text-sam-fg">판매자 준비물</p>
+              <p className="mb-2 sam-text-body font-medium text-sam-fg">{t("trade_125")}</p>
               <p className="mb-2 sam-text-helper leading-relaxed text-sam-muted">
                 페소를 파는 분이 갖춰야 할 항목을 선택해 주세요.
               </p>
@@ -1018,7 +1020,7 @@ export function ExchangeWriteForm({
               </div>
             </>
           )}
-          <p className="mb-2 sam-text-body font-medium text-sam-fg">구매자 준비물</p>
+          <p className="mb-2 sam-text-body font-medium text-sam-fg">{t("trade_032")}</p>
           <p className="mb-2 sam-text-helper leading-relaxed text-sam-muted">
             {direction === "sell"
               ? "페소를 사는 분이 준비할 항목을 선택해 주세요."
@@ -1052,7 +1054,7 @@ export function ExchangeWriteForm({
 
         <section className={TRADE_WRITE_FB_SECTION}>
           <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>
-            내용 <span className="font-normal text-[#8a8d91]">(선택)</span>
+            내용 <span className="font-normal text-[#8a8d91]">{t("trade_001")}</span>
           </h4>
           <AutoGrowTextarea
             value={memo}
@@ -1079,10 +1081,10 @@ export function ExchangeWriteForm({
               />
             </>
           ) : null}
-          <p className="mt-1 text-[12px] text-[#8a8d91]">비워 두면 기본 문구로 저장돼요.</p>
+          <p className="mt-1 text-[12px] text-[#8a8d91]">{t("trade_066")}</p>
           {showDescriptionAppend ? (
             <div className="mt-2 border-t border-[#e4e6eb] pt-2">
-              <label className={TRADE_WRITE_FB_FIELD_LABEL}>추가 안내 덧붙이기</label>
+              <label className={TRADE_WRITE_FB_FIELD_LABEL}>{t("trade_117")}</label>
               <AutoGrowTextarea
                 value={descriptionAppend}
                 onChange={(e) => setDescriptionAppend(e.target.value)}

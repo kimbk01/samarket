@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SettingsMainContent } from "@/components/my/settings/SettingsMainContent";
 import Link from "next/link";
 import { buildMypageInfoHubHref } from "@/lib/my/mypage-info-hub";
@@ -23,6 +24,7 @@ const PANEL_PUSH_WIDTH = "min(88vw, 30rem)";
  * 본문: `SettingsMainContent`.
  */
 export function MypageInfoHubSidePanel({ open, onClose }: Props) {
+  const { t } = useI18n();
   const [visible, setVisible] = useState(false);
   const [slideIn, setSlideIn] = useState(false);
   const raf2Ref = useRef(0);
@@ -87,24 +89,24 @@ export function MypageInfoHubSidePanel({ open, onClose }: Props) {
         >
           <div className="min-w-0">
             <h2 id="mypage-info-hub-side-title" className="sam-text-body-lg font-semibold text-sam-fg">
-              앱 · 서비스 설정
+              {t("mypage_comp_info_hub_title")}
             </h2>
             <p className="mt-0.5 sam-text-helper leading-snug text-sam-meta">
-              언어·국가·차단·캐시 등. 알림·계정은 내정보에서 이동해요.
+              {t("mypage_comp_info_hub_panel_subtitle")}
             </p>
             <Link
               href={buildMypageInfoHubHref()}
               onClick={onClose}
               className="mt-1.5 inline-block sam-text-helper font-medium text-sam-primary hover:underline"
             >
-              전체 화면에서 열기
+              {t("mypage_comp_info_hub_open_full")}
             </Link>
           </div>
           <button
             type="button"
             onClick={onClose}
             className="sam-header-action -mr-0.5 h-10 w-10 shrink-0 text-sam-fg"
-            aria-label="닫기"
+            aria-label={t("mypage_comp_close")}
           >
             <CloseIcon />
           </button>
@@ -119,7 +121,7 @@ export function MypageInfoHubSidePanel({ open, onClose }: Props) {
         type="button"
         className="min-h-0 min-w-[1.5rem] flex-1 cursor-default border-0 bg-transparent"
         onClick={onClose}
-        aria-label="배경 닫기"
+        aria-label={t("mypage_comp_backdrop_close")}
       />
     </div>
   );

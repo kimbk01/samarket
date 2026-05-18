@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { OpsRoutineSummaryCards } from "./OpsRoutineSummaryCards";
@@ -17,20 +19,21 @@ type TabId =
   | "operationalization"
   | "carry-over";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "overview", label: "루틴 요약" },
-  { id: "recurring", label: "반복 작업" },
-  { id: "monthly-note", label: "월간 메모" },
-  { id: "operationalization", label: "정착 상태" },
-  { id: "carry-over", label: "이월 보드" },
+const TABS: { id: TabId; labelKey: MessageKey }[] = [
+  { id: "overview", labelKey: "admin_ops_tools_routines_tab_overview" },
+  { id: "recurring", labelKey: "admin_ops_tools_routines_tab_recurring" },
+  { id: "monthly-note", labelKey: "admin_ops_tools_routines_tab_monthly" },
+  { id: "operationalization", labelKey: "admin_ops_tools_routines_tab_ops_status" },
+  { id: "carry-over", labelKey: "admin_ops_tools_routines_tab_carry" },
 ];
 
 export function AdminOpsRoutinesPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
 
   return (
     <>
-      <AdminPageHeader title="장기 운영 / 월간 루틴" />
+      <AdminPageHeader titleKey="admin_ops_tools_routines_page_title" />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {TABS.map((tab) => (
           <button
@@ -43,37 +46,37 @@ export function AdminOpsRoutinesPage() {
                 : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
       {activeTab === "overview" && (
-        <AdminCard title="루틴 요약">
+        <AdminCard titleKey="admin_ops_tools_routines_tab_overview">
           <OpsRoutineSummaryCards />
         </AdminCard>
       )}
       {activeTab === "recurring" && (
         <div className="space-y-4">
-          <AdminCard title="루틴 템플릿">
+          <AdminCard titleKey="admin_ops_tools_routines_card_templates">
             <OpsRoutineTemplateTable />
           </AdminCard>
-          <AdminCard title="실행 항목 (주간/월간/분기)">
+          <AdminCard titleKey="admin_ops_tools_routines_card_executions">
             <OpsRoutineExecutionTable />
           </AdminCard>
         </div>
       )}
       {activeTab === "monthly-note" && (
-        <AdminCard title="월간 운영 메모">
+        <AdminCard titleKey="admin_ops_tools_routines_card_monthly">
           <OpsMonthlyNoteList />
         </AdminCard>
       )}
       {activeTab === "operationalization" && (
-        <AdminCard title="운영 체계 정착 상태">
+        <AdminCard titleKey="admin_ops_tools_routines_card_ops_status">
           <OpsOperationalizationStatusCard />
         </AdminCard>
       )}
       {activeTab === "carry-over" && (
-        <AdminCard title="이월 보드">
+        <AdminCard titleKey="admin_ops_tools_routines_tab_carry">
           <OpsCarryOverBoard />
         </AdminCard>
       )}

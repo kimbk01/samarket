@@ -1,5 +1,19 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  pointActionTypeLabel,
+  pointBoardLabel,
+  pointChargeStatusLabel,
+  pointExecStatusLabel,
+  pointExpireCycleLabel,
+  pointExpireExecStatusLabel,
+  pointLedgerTypeLabel,
+  pointPaymentMethodLabel,
+  pointRewardTypeLabel,
+  pointUserTypeLabel,
+} from "@/components/admin/points/admin-points-notifications-i18n";
+
 import type { PointExpireExecution } from "@/lib/types/point-expire";
 import { POINT_EXPIRE_EXECUTION_STATUS_LABELS } from "@/lib/points/point-expire-utils";
 
@@ -17,10 +31,11 @@ const STATUS_CLASS: Record<string, string> = {
 export function AdminPointExpireTable({
   executions,
 }: AdminPointExpireTableProps) {
+  const { t } = useI18n();
+
   if (executions.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        만료 실행 이력이 없습니다.
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted"> {t("admin_points_expire_history_empty")}
       </div>
     );
   }
@@ -30,20 +45,15 @@ export function AdminPointExpireTable({
       <table className="w-full min-w-[640px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              실행일
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_expire_th_run_date")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              대상 사용자
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_expire_th_target_user")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              만료 P
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_expire_th_expired_p")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              상태
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_th_status")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              일시
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_th_datetime")}
             </th>
           </tr>
         </thead>
@@ -66,7 +76,7 @@ export function AdminPointExpireTable({
                     STATUS_CLASS[e.executionStatus] ?? "bg-sam-surface-muted text-sam-fg"
                   }`}
                 >
-                  {POINT_EXPIRE_EXECUTION_STATUS_LABELS[e.executionStatus]}
+                  {pointExpireExecStatusLabel(t, e.executionStatus)}
                 </span>
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">

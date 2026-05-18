@@ -6,7 +6,7 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { usePathname, useRouter } from "next/navigation";
 import { useRegion } from "@/contexts/RegionContext";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { normalizeAppLanguage } from "@/lib/i18n/config";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
 import { updateMyProfile } from "@/lib/profile/updateMyProfile";
 import type { ProfileRow, ProfileUpdatePayload } from "@/lib/profile/types";
@@ -30,17 +30,20 @@ import { ProfileReadOnlyInfoCard } from "@/components/my/edit/ui/ProfileReadOnly
 
 export const PROFILE_EDIT_FORM_ID = "dibay-profile-edit-form";
 
-function validate(p: { displayName: string }): { displayName?: string } {
+function validate(
+  p: { displayName: string },
+  t: (key: MessageKey, vars?: Record<string, string | number>) => string
+): { displayName?: string } {
   const errors: { displayName?: string } = {};
-  if (!p.displayName?.trim()) errors.displayName = "닉네임을 입력해 주세요.";
-  if (p.displayName && p.displayName.length > 20) errors.displayName = "닉네임은 20자 이내로 입력해 주세요.";
+  if (!p.displayName?.trim()) errors.displayName = t("profile_edit_err_nickname_required");
+  if (p.displayName && p.displayName.length > 20) errors.displayName = t("profile_edit_err_nickname_max");
   return errors;
 }
 
 export function ProfileEditForm() {
   const router = useRouter();
   const pathname = usePathname();
-  const { setLanguage } = useI18n();
+  const { t } = useI18n();
   const { refreshProfileLocation } = useRegion();
   const [profile, setProfile] = useState<ProfileRow | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,7 +63,6 @@ export function ProfileEditForm() {
   const [addressStreetLine, setAddressStreetLine] = useState("");
   const [addressDetail, setAddressDetail] = useState("");
   const [phone, setPhone] = useState("");
-  const [preferredLanguage, setPreferredLanguage] = useState("ko");
   const [preferredCountry, setPreferredCountry] = useState("PH");
   const [errors, setErrors] = useState<{ displayName?: string; phone?: string }>({});
   const [addressList, setAddressList] = useState<UserAddressDTO[] | null>(null);
@@ -175,7 +177,6 @@ export function ProfileEditForm() {
           : (merged.address_detail ?? "").trim(),
     );
     setPhone(parsePhMobileInput(merged.phone ?? ""));
-    setPreferredLanguage(merged.preferred_language ?? "ko");
     setPreferredCountry(merged.preferred_country ?? "PH");
     setLoading(false);
   }, [pathname, router]);
@@ -187,7 +188,7 @@ export function ProfileEditForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
-    const err = validate({ displayName: displayName.trim() });
+    const err = validate({ displayName: displayName.trim() }, t);
     const pr = normalizeOptionalPhMobileDb(phone);
     const nextErr = { ...err, ...(pr.ok ? {} : { phone: pr.error }) };
     setErrors(nextErr);
@@ -197,7 +198,7 @@ export function ProfileEditForm() {
     if (mapLat == null || mapLng == null || !fa) {
       setMessage({
         type: "error",
-        text: "주소 관리에서 대표 주소를 등록하거나, 지도로 위치를 지정해 주세요.",
+        text: t("profile_edit_warn_address_required"),
       });
       return;
     }
@@ -224,17 +225,15 @@ export function ProfileEditForm() {
       address_street_line: addressStreetLine.trim() || null,
       address_detail: addressDetail.trim() || null,
       phone: pr.value,
-      preferred_language: preferredLanguage,
       preferred_country: preferredCountry,
     };
     const result = await updateMyProfile(payload);
     setSaving(false);
     if (result.ok) {
-      setLanguage(normalizeAppLanguage(preferredLanguage));
       const warn = "warning" in result && result.warning ? result.warning : "";
       setMessage({
         type: "ok",
-        text: warn ? `저장되었습니다. ${warn}` : "저장되었습니다.",
+        text: warn ? t("profile_edit_saved_with_warn", { warn }) : t("profile_edit_saved"),
       });
       await load();
       void refreshProfileLocation();
@@ -246,14 +245,14 @@ export function ProfileEditForm() {
   if (loading) {
     return (
       <div className="py-8 text-center sam-text-body text-sam-muted">
-        프로필을 불러오는 중…
+        {t("profile_edit_loading_profile")}
       </div>
     );
   }
   if (!profile) {
     return (
       <div className="py-8 text-center sam-text-body text-sam-muted">
-        로그인 화면으로 이동 중…
+        {t("profile_edit_redirect_login")}
       </div>
     );
   }
@@ -261,31 +260,29 @@ export function ProfileEditForm() {
   return (
     <form id={PROFILE_EDIT_FORM_ID} onSubmit={handleSubmit} className="space-y-0">
       <ProfileEditFormShell>
-        <ProfileEditSection title="프로필 이미지" description="사진은 프로필과 채팅, 게시글에서 함께 사용됩니다.">
+        <ProfileEditSection title={t("profile_edit_section_image")} description={t("profile_edit_section_image_desc")}>
           <ProfileAvatarEditor avatarUrl={avatarUrl} onChangeUrl={setAvatarUrl} />
         </ProfileEditSection>
 
-        <ProfileEditSection title="기본 정보" description="닉네임과 상태, 연락처, 언어/국가를 관리합니다.">
+        <ProfileEditSection title={t("profile_edit_section_basic")} description={t("profile_edit_section_basic_desc")}>
           <ProfileBasicFields
             displayName={displayName}
             bio={bio}
             phone={phone}
-            preferredLanguage={preferredLanguage}
             preferredCountry={preferredCountry}
             onDisplayNameChange={setDisplayName}
             onBioChange={setBio}
             onPhoneChange={setPhone}
-            onPreferredLanguageChange={setPreferredLanguage}
             onPreferredCountryChange={setPreferredCountry}
             errors={errors}
           />
         </ProfileEditSection>
 
-        <ProfileEditSection title="주소" description="대표 주소/지역은 거래·배달·추천에 사용됩니다.">
+        <ProfileEditSection title={t("profile_edit_section_address")} description={t("profile_edit_section_address_desc")}>
           <ProfileMapLocationBlock addresses={addressList} listError={addressListErr} />
         </ProfileEditSection>
 
-        <ProfileEditSection title="전화번호 인증" description="필요 시 안내에 따라 인증을 진행해 주세요.">
+        <ProfileEditSection title={t("profile_edit_section_phone")} description={t("profile_edit_section_phone_desc")}>
           <PhoneVerificationBox
             snapshot={{
               phone: profile.phone,
@@ -297,7 +294,7 @@ export function ProfileEditForm() {
           />
         </ProfileEditSection>
 
-        <ProfileEditSection title="읽기 전용 정보" description="계정 식별과 인증 상태 정보입니다.">
+        <ProfileEditSection title={t("profile_edit_section_readonly")} description={t("profile_edit_section_readonly_desc")}>
           <ProfileReadOnlyInfoCard profile={profile} />
         </ProfileEditSection>
 
@@ -323,14 +320,14 @@ export function ProfileEditForm() {
             href="/my"
             className="flex-1 rounded-[12px] border border-sam-border py-3 text-center text-[15px] font-semibold text-sam-fg hover:bg-sam-app"
           >
-            취소
+            {t("common_cancel")}
           </Link>
           <button
             type="submit"
             disabled={saving}
             className="flex-1 rounded-[12px] bg-[color:#1C8DB8] py-3 text-[15px] font-semibold text-white disabled:opacity-60"
           >
-            {saving ? "저장 중…" : "저장"}
+            {saving ? t("profile_edit_saving") : t("common_save")}
           </button>
         </div>
       </ProfileEditFormShell>

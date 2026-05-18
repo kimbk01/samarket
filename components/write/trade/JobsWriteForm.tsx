@@ -64,6 +64,7 @@ import {
   JOB_WORK_TYPE_OPTIONS,
   PAY_TYPE_OPTIONS,
   WORK_CATEGORY_OPTIONS,
+  WORK_CATEGORY_DB_VALUES,
   WORK_CATEGORY_OTHER,
   WORK_CATEGORY_OTHER_MAX,
   EXPERIENCE_LEVEL_OPTIONS,
@@ -73,6 +74,7 @@ import {
   MIN_WAGE_2026,
   MIN_WAGE_PHP_HOURLY,
   JOB_SEEKER_INDUSTRY_OPTIONS,
+  JOB_SEEKER_INDUSTRY_DB_VALUES,
   JOB_SEEKER_WORK_STYLE_OPTIONS,
   JOB_SEEKER_TIME_SLOT_OPTIONS,
   JOB_SEEKER_PAY_TYPE_OPTIONS,
@@ -106,6 +108,7 @@ import {
   TRADE_WRITE_FB_FIELD_LABEL,
 } from "@/lib/ui/trade-write-fb-ui";
 import { PHILIFE_FB_TEXTAREA_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface JobsWriteFormProps {
   category: CategoryWithSettings;
@@ -171,7 +174,7 @@ function formatPayReadable(num: number, currency: string): string {
 function normalizeJobsWorkCategorySelect(wc: string, wo: string): { category: string; other: string } {
   const t = wc.trim();
   const o = wo.trim();
-  const opts = WORK_CATEGORY_OPTIONS as readonly string[];
+  const opts = WORK_CATEGORY_DB_VALUES;
   if (!t) return { category: "", other: o };
   if (opts.includes(t)) {
     return { category: t, other: t === WORK_CATEGORY_OTHER ? o : "" };
@@ -189,6 +192,7 @@ export function JobsWriteForm({
   ownerEditSnapshot,
   tradePolicy = null,
 }: JobsWriteFormProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const tradeWriteSheet = useTradeWriteSheetOptional();
@@ -672,7 +676,7 @@ export function JobsWriteForm({
     const files = workingImages.map((x) => x.file).filter((f): f is File => !!f);
     if (files.length > 0) {
       if (!user?.id) {
-        window.alert("로그인이 필요합니다. 로그인 후 다시 시도해 주세요.");
+        window.alert(t("trade_056"));
         return false;
       }
       const uploaded = await uploadPostImages(files, user.id);
@@ -811,7 +815,10 @@ export function JobsWriteForm({
   const validate = useCallback((): boolean => {
     const next: Record<string, string> = {};
     if (title.trim().length < JOB_TITLE_MIN || title.trim().length > JOB_TITLE_MAX) {
-      next.title = `제목은 ${JOB_TITLE_MIN}~${JOB_TITLE_MAX}자로 입력해 주세요.`;
+      next.title = t("trade_write_title_length_error", {
+        min: JOB_TITLE_MIN,
+        max: JOB_TITLE_MAX,
+      });
     }
     if (listingKind === "work") {
       if (!workCategory.trim()) next.workCategory = "희망 업종을 선택해 주세요.";
@@ -918,13 +925,13 @@ export function JobsWriteForm({
     const seekSlotsLine =
       listingKind === "work"
         ? JOB_SEEKER_TIME_SLOT_OPTIONS.filter((o) => seekTimeSlots.includes(o.value))
-            .map((o) => o.label)
+            .map((o) => t(o.labelKey))
             .join(", ")
         : "";
     const hireSlotsLine =
       listingKind === "hire"
         ? JOB_SEEKER_TIME_SLOT_OPTIONS.filter((o) => hireTimeSlots.includes(o.value))
-            .map((o) => o.label)
+            .map((o) => t(o.labelKey))
             .join(", ")
         : "";
     const base: Record<string, unknown> = {
@@ -1246,7 +1253,7 @@ export function JobsWriteForm({
       <MobileDualActionBottomSheet
         open={draftResumeGate === "pending_choice"}
         onClose={() => {}}
-        title="작성 중이던 글이 있습니다"
+        title={t("trade_099")}
         description="이전에 입력한 내용을 불러올까요?"
         secondaryLabel="새로 작성"
         onSecondary={handleDiscardJobsPersistedDraft}
@@ -1270,7 +1277,7 @@ export function JobsWriteForm({
         className={`${APP_TRADE_WRITE_FORM_FB_STACK_CLASS} [-webkit-tap-highlight-color:transparent]`}
       >
         <div className={TRADE_WRITE_FB_SECTION}>
-          <p className="text-[13px] font-medium text-[#65676B]">채팅으로 연락 · 전화번호는 글에 노출되지 않아요</p>
+          <p className="text-[13px] font-medium text-[#65676B]">{t("trade_113")}</p>
         </div>
 
         {editPostId && policyHint ? (
@@ -1280,7 +1287,7 @@ export function JobsWriteForm({
         <section
           className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
         >
-          <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>무엇을 올리시나요?</h4>
+          <h4 className={TRADE_WRITE_FB_BLOCK_TITLE}>{t("trade_059")}</h4>
           <div className="grid grid-cols-2 gap-2">
             {JOB_LISTING_KIND_OPTIONS.map((opt) => (
               <button
@@ -1289,7 +1296,7 @@ export function JobsWriteForm({
                 onClick={() => setListingKind(opt.value)}
                 className={jobListingKindClass(listingKind === opt.value)}
               >
-                {opt.label}
+                {t(opt.labelKey)}
               </button>
             ))}
           </div>
@@ -1306,7 +1313,7 @@ export function JobsWriteForm({
         <section
           className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
         >
-          <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>제목</h4>
+          <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>{t("trade_101")}</h4>
           <input
             type="text"
             value={title}
@@ -1329,12 +1336,12 @@ export function JobsWriteForm({
           <section
             className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
           >
-            <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>업체명 (선택)</h4>
+            <h4 className={TRADE_WRITE_FB_FIELD_HEAD}>{t("trade_085")}</h4>
             <input
               type="text"
               value={companyName}
               onChange={(e) => setCompanyName(e.target.value)}
-              placeholder="가게/회사 이름 (선택)"
+              placeholder={t("trade_003")}
               className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body"
             />
           </section>
@@ -1345,7 +1352,7 @@ export function JobsWriteForm({
             <section
               className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
-              <p className="mb-2 sam-text-body font-semibold text-sam-fg">업종</p>
+              <p className="mb-2 sam-text-body font-semibold text-sam-fg">{t("trade_083")}</p>
               <label htmlFor="jobs-work-category-select" className="sr-only">
                 업종 선택
               </label>
@@ -1354,7 +1361,7 @@ export function JobsWriteForm({
                 value={
                   !workCategory.trim()
                     ? ""
-                    : (WORK_CATEGORY_OPTIONS as readonly string[]).includes(workCategory)
+                    : WORK_CATEGORY_DB_VALUES.includes(workCategory)
                       ? workCategory
                       : WORK_CATEGORY_OTHER
                 }
@@ -1367,23 +1374,23 @@ export function JobsWriteForm({
                   errors.workCategory ? "border-red-400 bg-red-50" : "border-sam-border"
                 }`}
               >
-                <option value="">업종을 선택해 주세요</option>
-                {(WORK_CATEGORY_OPTIONS as readonly string[]).map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
+                <option value="">{t("trade_084")}</option>
+                {WORK_CATEGORY_OPTIONS.map((cat) => (
+                  <option key={cat.value} value={cat.value}>
+                    {t(cat.labelKey)}
                   </option>
                 ))}
               </select>
               {workCategory === WORK_CATEGORY_OTHER && (
                 <div className="mt-3">
                   <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
-                    기타 업종 (직접 입력)
+                    {t("jobs_wc_other_detail_label")}
                   </label>
                   <input
                     type="text"
                     value={workCategoryOther}
                     onChange={(e) => setWorkCategoryOther(e.target.value.slice(0, WORK_CATEGORY_OTHER_MAX))}
-                    placeholder="예) 이벤트 스태프, 물류 피킹"
+                    placeholder={t("trade_090")}
                     className={`w-full rounded-ui-rect border px-3 py-2.5 sam-text-body ${
                       errors.workCategoryOther ? "border-red-400 bg-red-50" : "border-sam-border"
                     }`}
@@ -1404,7 +1411,7 @@ export function JobsWriteForm({
             <section
               className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
-              <p className="mb-2 sam-text-body font-semibold text-sam-fg">근무 형태</p>
+              <p className="mb-2 sam-text-body font-semibold text-sam-fg">{t("trade_039")}</p>
               <div className="flex flex-wrap gap-2">
                 {JOB_WORK_TYPE_OPTIONS.map((opt) => (
                   <button
@@ -1413,7 +1420,7 @@ export function JobsWriteForm({
                     onClick={() => setWorkTerm(opt.value)}
                     className={jobChipClass(workTerm === opt.value)}
                   >
-                    {opt.label}
+                    {t(opt.labelKey)}
                   </button>
                 ))}
               </div>
@@ -1423,11 +1430,11 @@ export function JobsWriteForm({
               <section
                 className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
               >
-                <p className="mb-2 sam-text-body font-semibold text-sam-fg">근무 날짜</p>
-                <p className="mb-2 sam-text-helper text-sam-muted">오늘 이전 날짜는 선택할 수 없어요.</p>
+                <p className="mb-2 sam-text-body font-semibold text-sam-fg">{t("trade_035")}</p>
+                <p className="mb-2 sam-text-helper text-sam-muted">{t("trade_093")}</p>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <span className="mb-1 block sam-text-xxs text-sam-muted">시작</span>
+                    <span className="mb-1 block sam-text-xxs text-sam-muted">{t("trade_080")}</span>
                     <input
                       type="date"
                       min={todayMin || undefined}
@@ -1447,7 +1454,7 @@ export function JobsWriteForm({
                     />
                   </div>
                   <div>
-                    <span className="mb-1 block sam-text-xxs text-sam-muted">종료</span>
+                    <span className="mb-1 block sam-text-xxs text-sam-muted">{t("trade_104")}</span>
                     <input
                       type="date"
                       min={
@@ -1482,8 +1489,8 @@ export function JobsWriteForm({
             <section
               className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
-              <p className="mb-2 sam-text-body font-semibold text-sam-fg">근무 시간</p>
-              <p className="mb-2 sam-text-helper text-sam-muted">오전·오후 등 복수 선택 가능해요.</p>
+              <p className="mb-2 sam-text-body font-semibold text-sam-fg">{t("trade_037")}</p>
+              <p className="mb-2 sam-text-helper text-sam-muted">{t("trade_094")}</p>
               <div className="flex flex-wrap gap-2">
                 {JOB_SEEKER_TIME_SLOT_OPTIONS.map((opt) => (
                   <button
@@ -1496,7 +1503,7 @@ export function JobsWriteForm({
                       "disabled:opacity-40 disabled:active:scale-100"
                     )}
                   >
-                    {opt.label}
+                    {t(opt.labelKey)}
                   </button>
                 ))}
               </div>
@@ -1511,14 +1518,14 @@ export function JobsWriteForm({
                   }}
                   className="rounded border-sam-border"
                 />
-                <span className="sam-text-body text-sam-fg">시간 협의 가능</span>
+                <span className="sam-text-body text-sam-fg">{t("trade_079")}</span>
               </label>
             </section>
 
             <section
               className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
-              <p className="mb-2 sam-text-body font-semibold text-sam-fg">근무 요일</p>
+              <p className="mb-2 sam-text-body font-semibold text-sam-fg">{t("trade_038")}</p>
               <div className="flex flex-wrap gap-2">
                 {HIRE_WEEKDAY_OPTIONS.map((opt) => (
                   <button
@@ -1531,7 +1538,7 @@ export function JobsWriteForm({
                       "disabled:opacity-40 disabled:active:scale-100"
                     )}
                   >
-                    {opt.label}
+                    {t(opt.labelKey)}
                   </button>
                 ))}
               </div>
@@ -1546,14 +1553,14 @@ export function JobsWriteForm({
                   }}
                   className="rounded border-sam-border"
                 />
-                <span className="sam-text-body text-sam-fg">요일 협의</span>
+                <span className="sam-text-body text-sam-fg">{t("trade_095")}</span>
               </label>
             </section>
 
             <section
               className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
-              <p className="mb-2 sam-text-body font-semibold text-sam-fg">급여</p>
+              <p className="mb-2 sam-text-body font-semibold text-sam-fg">{t("trade_042")}</p>
               <div className="mb-2 flex flex-wrap gap-2">
                 {PAY_TYPE_OPTIONS.map((opt) => (
                   <button
@@ -1562,7 +1569,7 @@ export function JobsWriteForm({
                     onClick={() => setPayType(opt.value)}
                     className={jobChipClass(payType === opt.value)}
                   >
-                    {opt.label}
+                    {t(opt.labelKey)}
                   </button>
                 ))}
               </div>
@@ -1597,7 +1604,7 @@ export function JobsWriteForm({
                   }}
                   className="rounded border-sam-border"
                 />
-                <span className="sam-text-body text-sam-fg">급여 협의 가능</span>
+                <span className="sam-text-body text-sam-fg">{t("trade_043")}</span>
               </label>
             </section>
 
@@ -1606,17 +1613,17 @@ export function JobsWriteForm({
             <section
               className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
-              <p className="mb-2 sam-text-body font-semibold text-sam-fg">모집 조건</p>
-              <label className="mb-1 block sam-text-body-secondary text-sam-fg">모집 인원 (선택)</label>
+              <p className="mb-2 sam-text-body font-semibold text-sam-fg">{t("trade_058")}</p>
+              <label className="mb-1 block sam-text-body-secondary text-sam-fg">{t("trade_057")}</label>
               <input
                 type="text"
                 inputMode="numeric"
                 value={hireHeadcount}
                 onChange={(e) => setHireHeadcount(e.target.value.replace(/[^\d]/g, "").slice(0, 4))}
-                placeholder="예: 2"
+                placeholder={t("trade_086")}
                 className="mb-3 w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body"
               />
-              <p className="mb-2 sam-text-body-secondary text-sam-fg">경력 요건</p>
+              <p className="mb-2 sam-text-body-secondary text-sam-fg">{t("trade_030")}</p>
               <div className="mb-3 flex flex-wrap gap-2">
                 {EXPERIENCE_LEVEL_OPTIONS.map((opt) => (
                   <button
@@ -1625,11 +1632,11 @@ export function JobsWriteForm({
                     onClick={() => setExperienceLevel(opt.value)}
                     className={jobChipClass(experienceLevel === opt.value)}
                   >
-                    {opt.label}
+                    {t(opt.labelKey)}
                   </button>
                 ))}
               </div>
-              <p className="mb-2 sam-text-body-secondary text-sam-fg">성별</p>
+              <p className="mb-2 sam-text-body-secondary text-sam-fg">{t("trade_077")}</p>
               <div className="mb-3 flex flex-wrap gap-2">
                 {HIRE_GENDER_OPTIONS.map((opt) => (
                   <button
@@ -1638,16 +1645,16 @@ export function JobsWriteForm({
                     onClick={() => setHireGender(opt.value)}
                     className={jobChipClass(hireGender === opt.value)}
                   >
-                    {opt.label}
+                    {t(opt.labelKey)}
                   </button>
                 ))}
               </div>
-              <label className="mb-1 block sam-text-body-secondary text-sam-fg">나이·조건 메모 (선택)</label>
+              <label className="mb-1 block sam-text-body-secondary text-sam-fg">{t("trade_051")}</label>
               <input
                 type="text"
                 value={hireAgeNote}
                 onChange={(e) => setHireAgeNote(e.target.value.slice(0, 80))}
-                placeholder="예: 20대 환영, 주부 가능 등"
+                placeholder={t("trade_088")}
                 className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body"
               />
             </section>
@@ -1655,7 +1662,7 @@ export function JobsWriteForm({
             <section
               className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
-              <p className="mb-2 sam-text-body font-semibold text-sam-fg">추가 제공 조건</p>
+              <p className="mb-2 sam-text-body font-semibold text-sam-fg">{t("trade_118")}</p>
               <label className={`flex items-center gap-2 py-1 ${JOB_LABEL_CHECK_ROW}`}>
                 <input
                   type="checkbox"
@@ -1663,7 +1670,7 @@ export function JobsWriteForm({
                   onChange={(e) => setHireMeal(e.target.checked)}
                   className="rounded border-sam-border"
                 />
-                <span className="sam-text-body text-sam-fg">식사 제공</span>
+                <span className="sam-text-body text-sam-fg">{t("trade_081")}</span>
               </label>
               <label className={`flex items-center gap-2 py-1 ${JOB_LABEL_CHECK_ROW}`}>
                 <input
@@ -1672,17 +1679,17 @@ export function JobsWriteForm({
                   onChange={(e) => setHireHousing(e.target.checked)}
                   className="rounded border-sam-border"
                 />
-                <span className="sam-text-body text-sam-fg">숙소 지원</span>
+                <span className="sam-text-body text-sam-fg">{t("trade_078")}</span>
               </label>
-              <label className="mb-1 mt-2 block sam-text-body-secondary text-sam-fg">비자·근무 안내 (선택)</label>
+              <label className="mb-1 mt-2 block sam-text-body-secondary text-sam-fg">{t("trade_068")}</label>
               <input
                 type="text"
                 value={hireVisaNote}
                 onChange={(e) => setHireVisaNote(e.target.value.slice(0, 120))}
-                placeholder="예: 비자 문의 환영, 9G 확인 필요 등"
+                placeholder={t("trade_089")}
                 className="mb-3 w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body"
               />
-              <p className="mb-2 sam-text-body-secondary text-sam-fg">희망 언어 (복수 선택)</p>
+              <p className="mb-2 sam-text-body-secondary text-sam-fg">{t("trade_135")}</p>
               <div className="flex flex-wrap gap-2">
                 {JOB_SEEKER_LANGUAGE_OPTIONS.map((opt) => (
                   <button
@@ -1691,7 +1698,7 @@ export function JobsWriteForm({
                     onClick={() => toggleHireLanguage(opt.value)}
                     className={jobChipClass(hireLanguagesPreferred.includes(opt.value))}
                   >
-                    {opt.label}
+                    {t(opt.labelKey)}
                   </button>
                 ))}
               </div>
@@ -1702,7 +1709,7 @@ export function JobsWriteForm({
             <section
               className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
-              <p className="mb-2 sam-text-body font-semibold text-sam-fg">희망 업종</p>
+              <p className="mb-2 sam-text-body font-semibold text-sam-fg">{t("trade_136")}</p>
               <label htmlFor="jobs-seeker-industry-select" className="sr-only">
                 희망 업종 선택
               </label>
@@ -1711,7 +1718,7 @@ export function JobsWriteForm({
                 value={
                   !workCategory.trim()
                     ? ""
-                    : (JOB_SEEKER_INDUSTRY_OPTIONS as readonly string[]).includes(workCategory)
+                    : JOB_SEEKER_INDUSTRY_DB_VALUES.includes(workCategory)
                       ? workCategory
                       : WORK_CATEGORY_OTHER
                 }
@@ -1724,23 +1731,23 @@ export function JobsWriteForm({
                   errors.workCategory ? "border-red-400 bg-red-50" : "border-sam-border"
                 }`}
               >
-                <option value="">희망 업종을 선택해 주세요</option>
-                {(JOB_SEEKER_INDUSTRY_OPTIONS as readonly string[]).map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat}
+                <option value="">{t("trade_137")}</option>
+                {JOB_SEEKER_INDUSTRY_OPTIONS.map((cat) => (
+                  <option key={cat.value} value={cat.value}>
+                    {t(cat.labelKey)}
                   </option>
                 ))}
               </select>
               {workCategory === WORK_CATEGORY_OTHER && (
                 <div className="mt-3">
                   <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
-                    기타 (직접 입력)
+                    {t("jobs_wc_other_detail_label")}
                   </label>
                   <input
                     type="text"
                     value={workCategoryOther}
                     onChange={(e) => setWorkCategoryOther(e.target.value.slice(0, WORK_CATEGORY_OTHER_MAX))}
-                    placeholder="예) 행사 안내, 물류"
+                    placeholder={t("trade_091")}
                     className={`w-full rounded-ui-rect border px-3 py-2.5 sam-text-body ${
                       errors.workCategoryOther ? "border-red-400 bg-red-50" : "border-sam-border"
                     }`}
@@ -1761,7 +1768,7 @@ export function JobsWriteForm({
             <section
               className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
-              <p className="mb-2 sam-text-body font-semibold text-sam-fg">희망 근무형태</p>
+              <p className="mb-2 sam-text-body font-semibold text-sam-fg">{t("trade_133")}</p>
               <div className="flex flex-wrap gap-2">
                 {JOB_SEEKER_WORK_STYLE_OPTIONS.map((opt) => (
                   <button
@@ -1770,7 +1777,7 @@ export function JobsWriteForm({
                     onClick={() => setWorkTerm(opt.value)}
                     className={jobChipClass(workTerm === opt.value)}
                   >
-                    {opt.label}
+                    {t(opt.labelKey)}
                   </button>
                 ))}
               </div>
@@ -1779,8 +1786,8 @@ export function JobsWriteForm({
             <section
               className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
-              <p className="mb-2 sam-text-body font-semibold text-sam-fg">근무 가능 시간</p>
-              <p className="mb-2 sam-text-helper text-sam-muted">복수 선택 가능해요.</p>
+              <p className="mb-2 sam-text-body font-semibold text-sam-fg">{t("trade_034")}</p>
+              <p className="mb-2 sam-text-helper text-sam-muted">{t("trade_063")}</p>
               <div className="flex flex-wrap gap-2">
                 {JOB_SEEKER_TIME_SLOT_OPTIONS.map((opt) => (
                   <button
@@ -1789,7 +1796,7 @@ export function JobsWriteForm({
                     onClick={() => toggleSeekTimeSlot(opt.value)}
                     className={jobChipClass(seekTimeSlots.includes(opt.value))}
                   >
-                    {opt.label}
+                    {t(opt.labelKey)}
                   </button>
                 ))}
               </div>
@@ -1800,7 +1807,7 @@ export function JobsWriteForm({
             <section
               className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
-              <p className="mb-2 sam-text-body font-semibold text-sam-fg">경력</p>
+              <p className="mb-2 sam-text-body font-semibold text-sam-fg">{t("trade_029")}</p>
               <div className="flex flex-wrap gap-2">
                 {EXPERIENCE_LEVEL_OPTIONS.map((opt) => (
                   <button
@@ -1809,7 +1816,7 @@ export function JobsWriteForm({
                     onClick={() => setExperienceLevel(opt.value)}
                     className={jobChipClass(experienceLevel === opt.value)}
                   >
-                    {opt.label}
+                    {t(opt.labelKey)}
                   </button>
                 ))}
               </div>
@@ -1827,7 +1834,7 @@ export function JobsWriteForm({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 readOnly={showDescriptionAppend}
-                placeholder="근무 내용, 복장, 지원·문의 방법 등을 적어 주세요."
+                placeholder={t("trade_036")}
                 maxLength={JOB_DESCRIPTION_MAX}
                 className={`w-full ${PHILIFE_FB_TEXTAREA_CLASS} mt-0.5 min-h-[100px] rounded-md border px-3 py-2 text-[15px] outline-none placeholder:text-[#8a8d91] focus:border-sam-primary ${
                   errors.description ? "border-red-400 bg-red-50" : "border-[#ccd0d5] bg-white"
@@ -1855,8 +1862,8 @@ export function JobsWriteForm({
               {errors.description && <p className="sam-text-body-secondary text-red-500">{errors.description}</p>}
               {showDescriptionAppend ? (
                 <div className="mt-2 border-t border-[#e4e6eb] pt-2">
-                  <label className={TRADE_WRITE_FB_FIELD_LABEL}>추가 안내 (선택)</label>
-                  <p className="mb-1 text-[12px] text-[#8a8d91]">기존 본문은 그대로 두고, 아래 내용만 뒤에 붙습니다.</p>
+                  <label className={TRADE_WRITE_FB_FIELD_LABEL}>{t("trade_116")}</label>
+                  <p className="mb-1 text-[12px] text-[#8a8d91]">{t("trade_045")}</p>
                   <AutoGrowTextarea
                     value={descriptionAppend}
                     onChange={(e) => setDescriptionAppend(e.target.value)}
@@ -1883,7 +1890,7 @@ export function JobsWriteForm({
             <section
               className={`${TRADE_WRITE_FB_SECTION} ${coreLocked ? "pointer-events-none opacity-60" : ""}`}
             >
-              <p className="mb-2 sam-text-body font-semibold text-sam-fg">희망 급여</p>
+              <p className="mb-2 sam-text-body font-semibold text-sam-fg">{t("trade_134")}</p>
               <div className="mb-2 flex flex-wrap gap-2">
                 {JOB_SEEKER_PAY_TYPE_OPTIONS.map((opt) => (
                   <button
@@ -1895,7 +1902,7 @@ export function JobsWriteForm({
                     }}
                     className={jobChipClass(payType === opt.value)}
                   >
-                    {opt.label}
+                    {t(opt.labelKey)}
                   </button>
                 ))}
               </div>
@@ -1905,7 +1912,7 @@ export function JobsWriteForm({
                   inputMode="decimal"
                   value={payType === "negotiate" ? "" : payAmount}
                   onChange={(e) => setPayAmount(formatPriceInput(e.target.value))}
-                  placeholder="예: 20,000 또는 협의"
+                  placeholder={t("trade_087")}
                   disabled={payType === "negotiate"}
                   className={`min-w-0 flex-1 border-0 bg-transparent p-0 sam-text-body outline-none ${
                     errors.payAmount ? "text-red-600" : ""
@@ -1929,7 +1936,7 @@ export function JobsWriteForm({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 readOnly={showDescriptionAppend}
-                placeholder="가능한 업무, 경력, 성실함, 가능한 시간 등을 간단히 적어주세요."
+                placeholder={t("trade_008")}
                 maxLength={JOB_DESCRIPTION_MAX}
                 className={`w-full ${PHILIFE_FB_TEXTAREA_CLASS} mt-0.5 min-h-[120px] rounded-md border px-3 py-2 text-[15px] outline-none placeholder:text-[#8a8d91] focus:border-sam-primary ${
                   errors.description ? "border-red-400 bg-red-50" : "border-[#ccd0d5] bg-white"
@@ -1941,7 +1948,7 @@ export function JobsWriteForm({
               {errors.description && <p className="sam-text-body-secondary text-red-500">{errors.description}</p>}
               {showDescriptionAppend ? (
                 <div className="mt-2 border-t border-[#e4e6eb] pt-2">
-                  <label className={TRADE_WRITE_FB_FIELD_LABEL}>추가 안내 (선택)</label>
+                  <label className={TRADE_WRITE_FB_FIELD_LABEL}>{t("trade_116")}</label>
                   <p className="mb-1 text-[12px] text-[#8a8d91]">
                     기존 본문은 그대로 두고, 아래 내용만 뒤에 붙습니다.
                   </p>
@@ -1961,13 +1968,13 @@ export function JobsWriteForm({
                 onClick={() => setSeekOptionalOpen((o) => !o)}
                 className="flex w-full touch-manipulation items-center justify-between gap-2 [-webkit-tap-highlight-color:transparent] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 text-left sam-text-body font-medium text-sam-fg transition-[transform,opacity,background-color] duration-100 active:scale-[0.99] active:bg-sam-surface-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sam-primary focus-visible:ring-offset-2"
               >
-                <span>선택 정보</span>
+                <span>{t("trade_076")}</span>
                 <span className="sam-text-helper text-sam-muted">{seekOptionalOpen ? "접기" : "펼치기"}</span>
               </button>
               {seekOptionalOpen ? (
                 <div className="mt-3 space-y-4 border-t border-[#e4e6eb] pt-3">
                   <div>
-                    <p className="mb-2 sam-text-body font-semibold text-sam-fg">가능한 언어</p>
+                    <p className="mb-2 sam-text-body font-semibold text-sam-fg">{t("trade_007")}</p>
                     <div className="flex flex-wrap gap-2">
                       {JOB_SEEKER_LANGUAGE_OPTIONS.map((opt) => (
                         <button
@@ -1976,13 +1983,13 @@ export function JobsWriteForm({
                           onClick={() => toggleSeekLanguage(opt.value)}
                           className={jobChipClass(seekLanguages.includes(opt.value))}
                         >
-                          {opt.label}
+                          {t(opt.labelKey)}
                         </button>
                       ))}
                     </div>
                   </div>
                   <div>
-                    <p className="mb-2 sam-text-body font-semibold text-sam-fg">비자 상태</p>
+                    <p className="mb-2 sam-text-body font-semibold text-sam-fg">{t("trade_067")}</p>
                     <div className="flex flex-wrap gap-3">
                       {JOB_SEEKER_VISA_OPTIONS.map((opt) => (
                         <label
@@ -1995,13 +2002,13 @@ export function JobsWriteForm({
                             checked={seekVisa === opt.value}
                             onChange={() => setSeekVisa(opt.value)}
                           />
-                          <span className="sam-text-body text-sam-fg">{opt.label}</span>
+                          <span className="sam-text-body text-sam-fg">{t(opt.labelKey)}</span>
                         </label>
                       ))}
                     </div>
                   </div>
                   <div>
-                    <p className="mb-2 sam-text-body font-semibold text-sam-fg">즉시 근무 가능</p>
+                    <p className="mb-2 sam-text-body font-semibold text-sam-fg">{t("trade_107")}</p>
                     <div className="flex flex-wrap gap-3">
                       {JOB_SEEKER_START_OPTIONS.map((opt) => (
                         <label
@@ -2014,7 +2021,7 @@ export function JobsWriteForm({
                             checked={seekStart === opt.value}
                             onChange={() => setSeekStart(opt.value)}
                           />
-                          <span className="sam-text-body text-sam-fg">{opt.label}</span>
+                          <span className="sam-text-body text-sam-fg">{t(opt.labelKey)}</span>
                         </label>
                       ))}
                     </div>

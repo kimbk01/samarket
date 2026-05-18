@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type Row = {
   id: string;
@@ -32,6 +33,7 @@ function JsonBlock({ label, v }: { label: string; v: unknown }) {
 }
 
 export function AdminAuditLogsPage() {
+  const { t } = useI18n();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -46,23 +48,27 @@ export function AdminAuditLogsPage() {
       const res = await fetch(`/api/admin/audit-logs?${q.toString()}`, { credentials: "include" });
       const json = await res.json();
       if (res.status === 403) {
-        setError("관리자 권한이 없습니다.");
+        setError(t("admin_audit_err_no_permission"));
         setRows([]);
         return;
       }
       if (!json?.ok) {
-        setError(json?.error === "table_missing" ? "audit_logs 테이블을 적용해 주세요." : json?.error);
+        setError(
+          json?.error === "table_missing"
+            ? t("admin_audit_err_table_missing")
+            : (json?.error as string | undefined) ?? t("admin_audit_load_failed")
+        );
         setRows([]);
         return;
       }
       setRows(json.logs ?? []);
     } catch {
-      setError("network_error");
+      setError(t("admin_audit_err_network"));
       setRows([]);
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [filter, t]);
 
   useEffect(() => {
     void load();
@@ -70,17 +76,14 @@ export function AdminAuditLogsPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="로그 감사" />
-      <p className="sam-text-body-secondary text-sam-muted">
-        매장 커머스: 관리자 조작, 매장 오너 주문 상태 변경(user), 결제 웹훅(system) 등이 기록됩니다. IP는 프록시
-        환경에 따라 다를 수 있습니다.
-      </p>
+      <AdminPageHeader titleKey="admin_page_log_audit" />
+      <p className="sam-text-body-secondary text-sam-muted">{t("admin_audit_legacy_desc")}</p>
       <div className="flex flex-wrap items-end gap-2">
         <label className="block">
-          <span className="text-xs text-sam-muted">target_type 필터</span>
+          <span className="text-xs text-sam-muted">{t("admin_audit_filter_target_type")}</span>
           <input
             className="mt-0.5 block rounded-ui-rect border border-sam-border px-2 py-1.5 text-sm"
-            placeholder="예: store_order, cron_job"
+            placeholder={t("admin_audit_filter_target_placeholder")}
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
           />
@@ -90,14 +93,14 @@ export function AdminAuditLogsPage() {
           onClick={() => void load()}
           className="rounded-ui-rect bg-sam-ink px-3 py-1.5 text-sm text-white"
         >
-          조회
+          {t("admin_audit_query_btn")}
         </button>
       </div>
       {error ? <p className="text-sm text-red-700">{error}</p> : null}
       {loading ? (
-        <p className="text-sm text-sam-muted">불러오는 중…</p>
+        <p className="text-sm text-sam-muted">{t("admin_dashboard_loading")}</p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-sam-muted">로그가 없습니다.</p>
+        <p className="text-sm text-sam-muted">{t("admin_audit_no_logs")}</p>
       ) : (
         <ul className="space-y-3">
           {rows.map((r) => (
@@ -116,8 +119,8 @@ export function AdminAuditLogsPage() {
                 {r.target_type} · <span className="font-mono">{r.target_id}</span>
                 {r.ip ? ` · ${r.ip}` : ""}
               </p>
-              <JsonBlock label="before" v={r.before_json} />
-              <JsonBlock label="after" v={r.after_json} />
+              <JsonBlock label={t("admin_audit_json_before")} v={r.before_json} />
+              <JsonBlock label={t("admin_audit_json_after")} v={r.after_json} />
             </li>
           ))}
         </ul>

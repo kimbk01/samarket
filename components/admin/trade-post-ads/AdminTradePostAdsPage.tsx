@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import Link from "next/link";
-import { TRADE_PAID_AD_FORMAT_GUIDE } from "@/lib/trade-ads/trade-post-ad-policy";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type TradePostAdRow = {
   id: string;
@@ -38,14 +39,25 @@ type TradePostAdRow = {
   } | null;
 };
 
-const PLACEMENT_LABEL: Record<string, string> = {
-  detail_bottom: "상세 하단",
-  list_top: "목록 상단",
-  home_featured: "홈 추천",
-  premium_all: "프리미엄",
-};
+const FORMAT_GUIDE_KEYS: MessageKey[] = [
+  "admin_trade_post_ads_format_1",
+  "admin_trade_post_ads_format_2",
+  "admin_trade_post_ads_format_3",
+  "admin_trade_post_ads_format_4",
+];
 
 export function AdminTradePostAdsPage() {
+  const { t } = useI18n();
+  const placementLabel = useMemo(
+    () => ({
+      detail_bottom: t("admin_trade_post_ads_placement_detail_bottom"),
+      list_top: t("admin_trade_post_ads_placement_list_top"),
+      home_featured: t("admin_trade_post_ads_placement_home_featured"),
+      premium_all: t("admin_trade_post_ads_placement_premium"),
+    }),
+    [t]
+  );
+
   const [rows, setRows] = useState<TradePostAdRow[]>([]);
   const [holds, setHolds] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
@@ -63,7 +75,7 @@ export function AdminTradePostAdsPage() {
       const j1 = (await r1.json()) as { ok?: boolean; rows?: TradePostAdRow[]; error?: string };
       const j2 = (await r2.json()) as { ok?: boolean; rows?: Record<string, unknown>[] };
       if (!r1.ok || !j1.ok) {
-        setErr(j1.error ?? "목록 로드 실패");
+        setErr(j1.error ?? t("admin_trade_post_ads_list_load_failed"));
         setRows([]);
       } else {
         setRows(j1.rows ?? []);
@@ -72,7 +84,7 @@ export function AdminTradePostAdsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -93,7 +105,7 @@ export function AdminTradePostAdsPage() {
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        setErr(j.error ?? "처리 실패");
+        setErr(j.error ?? t("admin_trade_post_ads_action_failed"));
         return;
       }
       await load();
@@ -103,11 +115,11 @@ export function AdminTradePostAdsPage() {
   };
 
   const activateWithManualPeriod = async (row: TradePostAdRow) => {
-    const start = window.prompt("시작 시각 (ISO, 비우면 지금)", new Date().toISOString());
+    const start = window.prompt(t("admin_trade_post_ads_prompt_start"), new Date().toISOString());
     if (start === null) return;
-    const end = window.prompt("종료 시각 (ISO, 필수)", "");
+    const end = window.prompt(t("admin_trade_post_ads_prompt_end"), "");
     if (end === null || !end.trim()) {
-      setErr("종료 시각이 필요합니다.");
+      setErr(t("admin_trade_post_ads_end_required"));
       return;
     }
     await runAction(row, "activate", {
@@ -144,12 +156,12 @@ export function AdminTradePostAdsPage() {
         <table className="min-w-full text-left sam-text-body-secondary">
           <thead className="bg-sam-surface-muted text-sam-muted">
             <tr>
-              <th className="px-3 py-2">상태</th>
-              <th className="px-3 py-2">상품</th>
-              <th className="px-3 py-2">포인트</th>
-              <th className="px-3 py-2">게시글</th>
-              <th className="px-3 py-2">기간</th>
-              <th className="px-3 py-2">동작</th>
+              <th className="px-3 py-2">{t("admin_trade_completion_status")}</th>
+              <th className="px-3 py-2">{t("admin_trade_post_ads_th_product")}</th>
+              <th className="px-3 py-2">{t("admin_trade_th_points")}</th>
+              <th className="px-3 py-2">{t("admin_trade_post_ads_th_post")}</th>
+              <th className="px-3 py-2">{t("admin_trade_post_ads_th_period")}</th>
+              <th className="px-3 py-2">{t("admin_trade_post_ads_th_action")}</th>
             </tr>
           </thead>
           <tbody>
@@ -157,10 +169,15 @@ export function AdminTradePostAdsPage() {
               <tr key={r.id} className="border-t border-sam-border-soft">
                 <td className="px-3 py-2 font-medium">{r.apply_status}</td>
                 <td className="max-w-[180px] px-3 py-2 sam-text-helper">
-                  <p className="font-medium text-sam-fg">{r.product?.name ?? "상품 미연결"}</p>
+                  <p className="font-medium text-sam-fg">{r.product?.name ?? t("admin_trade_post_ads_product_unlinked")}</p>
                   <p className="text-sam-muted">
-                    {(r.product?.placement && PLACEMENT_LABEL[r.product.placement]) || r.product?.placement || "slot-unknown"} ·{" "}
-                    {Math.max(1, Math.floor(Number(r.product?.duration_days ?? 0) || 0)) || "?"}일
+                    {(r.product?.placement && placementLabel[r.product.placement as keyof typeof placementLabel]) ||
+                      r.product?.placement ||
+                      "slot-unknown"}{" "}
+                    ·{" "}
+                    {t("admin_trade_post_ads_duration_days", {
+                      days: String(Math.max(1, Math.floor(Number(r.product?.duration_days ?? 0) || 0)) || "?"),
+                    })}
                   </p>
                 </td>
                 <td className="px-3 py-2">{r.point_cost}</td>
@@ -169,7 +186,7 @@ export function AdminTradePostAdsPage() {
                     {(r.post?.title && r.post.title.slice(0, 20)) || `${r.post_id.slice(0, 8)}…`}
                   </Link>
                   <p className="sam-text-xxs text-sam-muted">
-                    {r.post?.author_nickname ?? "작성자"} · {r.post?.status ?? "status?"}
+                    {r.post?.author_nickname ?? t("admin_trade_post_ads_author_fallback")} · {r.post?.status ?? "status?"}
                   </p>
                 </td>
                 <td className="max-w-[220px] px-3 py-2 text-sam-muted">
@@ -193,21 +210,18 @@ export function AdminTradePostAdsPage() {
 
   return (
     <div className="space-y-6">
-      <AdminPageHeader
-        title="거래 상세 광고 (trade_post_ads)"
-        description="당근형 유료 광고 운영 흐름(신청→검토→기간 활성)을 여기서 처리합니다. 상품·단가 정책은 「거래 광고 정책」에서 수정하세요."
-      />
+      <AdminPageHeader titleKey="admin_page_trade_post_ads" descriptionKey="admin_trade_post_ads_desc" />
 
       <p className="sam-text-body-secondary text-sam-muted">
         <Link href="/admin/trade-ad-policies" className="text-blue-700 underline">
-          거래 광고 정책 (ad_products)
+          {t("admin_trade_post_ads_policies_link")}
         </Link>
       </p>
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <h2 className="mb-2 sam-text-body font-semibold text-sam-fg">유료 광고 형식 기준</h2>
+        <h2 className="mb-2 sam-text-body font-semibold text-sam-fg">{t("admin_trade_post_ads_format_title")}</h2>
         <ul className="list-disc space-y-1 pl-5 sam-text-helper text-sam-muted">
-          {TRADE_PAID_AD_FORMAT_GUIDE.map((line) => (
-            <li key={line}>{line}</li>
+          {FORMAT_GUIDE_KEYS.map((key) => (
+            <li key={key}>{t(key)}</li>
           ))}
         </ul>
       </section>
@@ -218,27 +232,25 @@ export function AdminTradePostAdsPage() {
         </div>
       ) : null}
 
-      {loading ? <p className="sam-text-body-secondary text-sam-muted">불러오는 중…</p> : null}
+      {loading ? <p className="sam-text-body-secondary text-sam-muted">{t("common_loading")}</p> : null}
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: "판매자 신청", value: stageRows.sellerApplied.length },
-          { label: "관리자 확인", value: stageRows.adminVerified.length },
-          { label: "노출중", value: stageRows.adminActive.length },
-          { label: "종료/반려", value: stageRows.closed.length },
+          { labelKey: "admin_trade_post_ads_stage_seller" as const, value: stageRows.sellerApplied.length },
+          { labelKey: "admin_trade_post_ads_stage_admin_verified" as const, value: stageRows.adminVerified.length },
+          { labelKey: "admin_trade_post_ads_stage_active" as const, value: stageRows.adminActive.length },
+          { labelKey: "admin_trade_post_ads_stage_closed" as const, value: stageRows.closed.length },
         ].map((card) => (
-          <div key={card.label} className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-center">
+          <div key={card.labelKey} className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-center">
             <p className="sam-text-hero font-bold text-sam-fg">{card.value}</p>
-            <p className="sam-text-helper text-sam-muted">{card.label}</p>
+            <p className="sam-text-helper text-sam-muted">{t(card.labelKey)}</p>
           </div>
         ))}
       </section>
 
       <section>
-        <h2 className="mb-2 sam-text-body font-semibold text-sam-fg">1) 판매자 신청 접수</h2>
-        <p className="mb-2 sam-text-helper text-sam-muted">
-          판매자가 신청한 건을 확인하고, 기준 충족 시 `확인완료`로 전환합니다.
-        </p>
+        <h2 className="mb-2 sam-text-body font-semibold text-sam-fg">{t("admin_trade_post_ads_section_1_title")}</h2>
+        <p className="mb-2 sam-text-helper text-sam-muted">{t("admin_trade_post_ads_section_1_desc")}</p>
         {renderRows(
           stageRows.sellerApplied,
           (r) => (
@@ -249,7 +261,7 @@ export function AdminTradePostAdsPage() {
                 onClick={() => void runAction(r, "verify")}
                 className="mr-2 rounded-ui-rect bg-sam-primary px-2 py-1 sam-text-helper text-white hover:bg-sam-primary-hover active:bg-sam-primary-active disabled:bg-sam-primary-disabled disabled:opacity-100"
               >
-                확인완료
+                {t("admin_trade_post_ads_verify")}
               </button>
               <button
                 type="button"
@@ -257,19 +269,17 @@ export function AdminTradePostAdsPage() {
                 onClick={() => void runAction(r, "reject")}
                 className="rounded-ui-rect border border-sam-border px-2 py-1 sam-text-helper disabled:opacity-50"
               >
-                반려
+                {t("admin_report_action_reject")}
               </button>
             </>
           ),
-          "신청 접수 건이 없습니다."
+          t("admin_trade_post_ads_empty_applied")
         )}
       </section>
 
       <section>
-        <h2 className="mb-2 sam-text-body font-semibold text-sam-fg">2) 관리자 심사/집행</h2>
-        <p className="mb-2 sam-text-helper text-sam-muted">
-          확인 완료된 건만 광고 집행(활성)할 수 있습니다. 기본은 상품 기간 자동 적용입니다.
-        </p>
+        <h2 className="mb-2 sam-text-body font-semibold text-sam-fg">{t("admin_trade_post_ads_section_2_title")}</h2>
+        <p className="mb-2 sam-text-helper text-sam-muted">{t("admin_trade_post_ads_section_2_desc")}</p>
         {renderRows(
           stageRows.adminVerified,
           (r) => (
@@ -280,7 +290,7 @@ export function AdminTradePostAdsPage() {
                 onClick={() => void runAction(r, "activate")}
                 className="mr-2 rounded-ui-rect bg-emerald-600 px-2 py-1 sam-text-helper text-white disabled:opacity-50"
               >
-                활성(자동기간)
+                {t("admin_trade_post_ads_activate_auto")}
               </button>
               <button
                 type="button"
@@ -288,7 +298,7 @@ export function AdminTradePostAdsPage() {
                 onClick={() => void activateWithManualPeriod(r)}
                 className="mr-2 rounded-ui-rect border border-sam-border px-2 py-1 sam-text-helper disabled:opacity-50"
               >
-                활성(기간수동)
+                {t("admin_trade_post_ads_activate_manual")}
               </button>
               <button
                 type="button"
@@ -296,19 +306,17 @@ export function AdminTradePostAdsPage() {
                 onClick={() => void runAction(r, "reject")}
                 className="rounded-ui-rect border border-sam-border px-2 py-1 sam-text-helper disabled:opacity-50"
               >
-                반려
+                {t("admin_report_action_reject")}
               </button>
             </>
           ),
-          "심사 대기(확인완료) 건이 없습니다."
+          t("admin_trade_post_ads_empty_verified")
         )}
       </section>
 
       <section>
-        <h2 className="mb-2 sam-text-body font-semibold text-sam-fg">3) 노출 운영/종료</h2>
-        <p className="mb-2 sam-text-helper text-sam-muted">
-          노출중 광고를 조기 종료할 수 있습니다.
-        </p>
+        <h2 className="mb-2 sam-text-body font-semibold text-sam-fg">{t("admin_trade_post_ads_section_3_title")}</h2>
+        <p className="mb-2 sam-text-helper text-sam-muted">{t("admin_trade_post_ads_section_3_desc")}</p>
         {renderRows(
           stageRows.adminActive,
           (r) => (
@@ -318,34 +326,36 @@ export function AdminTradePostAdsPage() {
               onClick={() => void runAction(r, "end")}
               className="rounded-ui-rect border border-sam-border px-2 py-1 sam-text-helper disabled:opacity-50"
             >
-              종료
+              {t("admin_trade_post_ads_end")}
             </button>
           ),
-          "현재 노출중인 광고가 없습니다."
+          t("admin_trade_post_ads_empty_active")
         )}
       </section>
 
       <section>
-        <h2 className="mb-2 sam-text-body font-semibold text-sam-fg">4) 완료/반려 이력</h2>
-        <p className="mb-2 sam-text-helper text-sam-muted">
-          종료·반려·취소 상태를 확인하는 이력 영역입니다.
-        </p>
-        {renderRows(stageRows.closed, () => <span className="sam-text-helper text-sam-muted">이력</span>, "이력이 없습니다.")}
+        <h2 className="mb-2 sam-text-body font-semibold text-sam-fg">{t("admin_trade_post_ads_section_4_title")}</h2>
+        <p className="mb-2 sam-text-helper text-sam-muted">{t("admin_trade_post_ads_section_4_desc")}</p>
+        {renderRows(
+          stageRows.closed,
+          () => <span className="sam-text-helper text-sam-muted">{t("admin_trade_post_ads_history_label")}</span>,
+          t("admin_trade_post_ads_empty_history")
+        )}
       </section>
 
       <section>
-        <h2 className="mb-2 sam-text-body font-semibold text-sam-fg">포인트 hold / 차감 기록</h2>
+        <h2 className="mb-2 sam-text-body font-semibold text-sam-fg">{t("admin_trade_post_ads_holds_title")}</h2>
         {holds.length === 0 ? (
-          <p className="sam-text-body-secondary text-sam-muted">기록 없음</p>
+          <p className="sam-text-body-secondary text-sam-muted">{t("admin_trade_post_ads_no_holds")}</p>
         ) : (
           <div className="overflow-x-auto rounded-ui-rect border border-sam-border">
             <table className="min-w-full text-left sam-text-body-secondary">
               <thead className="bg-sam-surface-muted text-sam-muted">
                 <tr>
-                  <th className="px-3 py-2">상태</th>
-                  <th className="px-3 py-2">금액</th>
-                  <th className="px-3 py-2">광고 ID</th>
-                  <th className="px-3 py-2">시각</th>
+                  <th className="px-3 py-2">{t("admin_trade_completion_status")}</th>
+                  <th className="px-3 py-2">{t("admin_trade_post_ads_th_amount")}</th>
+                  <th className="px-3 py-2">{t("admin_trade_post_ads_th_ad_id")}</th>
+                  <th className="px-3 py-2">{t("admin_trade_th_time")}</th>
                 </tr>
               </thead>
               <tbody>

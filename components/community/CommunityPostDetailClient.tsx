@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
@@ -38,6 +39,7 @@ export function CommunityPostDetailClient({
   post: CommunityPostDetailDTO;
   initialComments: CommunityCommentDTO[];
 }) {
+  const { t } = useI18n();
   const [mounted, setMounted] = useState(false);
   const me = mounted ? getCurrentUser() : getHydrationSafeCurrentUser();
   const [comments, setComments] = useState(initialComments);
@@ -54,7 +56,9 @@ export function CommunityPostDetailClient({
   }, []);
 
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
-  const tier1Title = post.is_meetup ? "모임" : post.topic_name?.trim() || "커뮤니티";
+  const tier1Title = post.is_meetup
+    ? t("community_meeting_label")
+    : post.topic_name?.trim() || t("community_community_label");
   const backToFeedHref = (() => {
     const topic = post.topic_slug?.trim();
     if (!post.is_meetup && topic) {
@@ -71,12 +75,12 @@ export function CommunityPostDetailClient({
         backHref: backToFeedHref,
         /** 글쓰기 -> 보기 진입에서도 항상 커뮤니티 피드(해당 주제)로 복귀 */
         preferHistoryBack: false,
-        ariaLabel: "피드로",
+        ariaLabel: t("community_feed_back_aria"),
         showHubQuickActions: true,
       },
     });
     return () => setMainTier1Extras(null);
-  }, [setMainTier1Extras, tier1Title, backToFeedHref]);
+  }, [setMainTier1Extras, tier1Title, backToFeedHref, t]);
 
   useEffect(() => {
     void (async () => {
@@ -195,7 +199,7 @@ export function CommunityPostDetailClient({
               {post.topic_name}
             </span>
             {post.is_question ? (
-              <span className="rounded-ui-rect bg-amber-100 px-1.5 py-0.5 sam-text-xxs font-medium text-amber-900">질문</span>
+              <span className="rounded-ui-rect bg-amber-100 px-1.5 py-0.5 sam-text-xxs font-medium text-amber-900">{t("community_badge_question")}</span>
             ) : null}
           </div>
           <h1 className={PHILIFE_DETAIL_TITLE_CLASS}>{post.title}</h1>
@@ -203,8 +207,8 @@ export function CommunityPostDetailClient({
             <span>{post.author_name}</span>
             {post.region_label ? <span>{post.region_label}</span> : null}
             <span>{time}</span>
-            <span>조회 {viewCount}</span>
-            <span>댓글 {comments.length}</span>
+            <span>{t("community_stat_views", { count: viewCount })}</span>
+            <span>{t("community_stat_comments", { count: comments.length })}</span>
           </div>
           {post.is_meetup ? (
             <div className={PHILIFE_DETAIL_BODY_CLASS}>{stripMeetupPostMetaFromContent(post.content)}</div>
@@ -242,8 +246,8 @@ export function CommunityPostDetailClient({
 
           {post.is_meetup && (post.meetup_date || post.meetup_place) ? (
             <div className="mt-4 rounded-ui-rect bg-emerald-50 px-3 py-2 sam-text-body-secondary text-emerald-900">
-              {post.meetup_date ? <p>일시: {new Date(post.meetup_date).toLocaleString("ko-KR")}</p> : null}
-              {post.meetup_place ? <p>장소: {post.meetup_place}</p> : null}
+              {post.meetup_date ? <p>{t("community_meetup_datetime")} {new Date(post.meetup_date).toLocaleString("ko-KR")}</p> : null}
+              {post.meetup_place ? <p>{t("community_meetup_place")} {post.meetup_place}</p> : null}
             </div>
           ) : null}
 
@@ -254,7 +258,7 @@ export function CommunityPostDetailClient({
               onClick={() => void onLike()}
               className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 sam-text-body-secondary font-medium text-sam-fg"
             >
-              공감 {likeCount}
+              {t("community_stat_likes", { count: likeCount })}
             </button>
             {me?.id && me.id !== post.author_id ? (
               <button
@@ -265,11 +269,11 @@ export function CommunityPostDetailClient({
                 }}
                 className="rounded-ui-rect border border-red-200 bg-red-50 px-4 py-2 sam-text-body-secondary font-medium text-red-800"
               >
-                신고
+                {t("community_report")}
               </button>
             ) : null}
             <Link href={philifeAppPaths.home} className="rounded-ui-rect border border-sam-border px-4 py-2 sam-text-body-secondary text-sam-muted">
-              목록
+              {t("community_list")}
             </Link>
           </div>
         </div>
@@ -277,14 +281,14 @@ export function CommunityPostDetailClient({
         {reportOpen ? (
           <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" role="dialog">
             <div className="w-full max-w-md rounded-ui-rect border border-sam-border bg-sam-surface p-4 ring-1 ring-black/[0.08]">
-              <p className="sam-text-body font-semibold text-sam-fg">게시글 신고</p>
-              <p className="mt-1 sam-text-helper text-sam-muted">신고 사유를 적어 주세요. 운영팀이 확인합니다.</p>
+              <p className="sam-text-body font-semibold text-sam-fg">{t("community_report_post")}</p>
+              <p className="mt-1 sam-text-helper text-sam-muted">{t("community_report_intro")}</p>
               <textarea
                 value={reportText}
                 onChange={(e) => setReportText(e.target.value)}
                 rows={4}
                 className="mt-3 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
-                placeholder="예: 스팸, 욕설, 사기 의심 등"
+                placeholder={t("community_report_placeholder")}
               />
               {reportErr ? <p className="mt-1 sam-text-helper text-red-600">{reportErr}</p> : null}
               <div className="mt-3 flex gap-2">
@@ -293,7 +297,7 @@ export function CommunityPostDetailClient({
                   onClick={() => setReportOpen((prev) => (prev ? false : prev))}
                   className="flex-1 rounded-ui-rect border border-sam-border py-2.5 sam-text-body text-sam-fg"
                 >
-                  취소
+                  {t("common_cancel")}
                 </button>
                 <button
                   type="button"
@@ -301,7 +305,7 @@ export function CommunityPostDetailClient({
                   onClick={() => void onReport()}
                   className="flex-1 rounded-ui-rect bg-sam-ink py-2.5 sam-text-body font-medium text-white disabled:opacity-40"
                 >
-                  접수
+                  {t("community_receive")}
                 </button>
               </div>
             </div>
@@ -309,7 +313,7 @@ export function CommunityPostDetailClient({
         ) : null}
 
         <section className={`${PHILIFE_DETAIL_COMMENTS_WRAP_CLASS} mt-4`} id="comments">
-          <h2 className="sam-text-body font-semibold text-sam-fg">댓글 {comments.length}</h2>
+          <h2 className="sam-text-body font-semibold text-sam-fg">{t("community_comments_title", { count: comments.length })}</h2>
           <ul className="mt-3 divide-y divide-sam-border-soft">
             {comments.map((c) => (
               <li key={c.id} className="py-3">
@@ -328,7 +332,9 @@ export function CommunityPostDetailClient({
             <textarea
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
-              placeholder={me?.id ? "댓글을 입력하세요" : "로그인 후 댓글을 작성할 수 있어요"}
+              placeholder={
+                me?.id ? t("community_comment_placeholder") : t("community_login_for_comments")
+              }
               disabled={!me?.id || busy}
               rows={3}
               className="w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body outline-none focus:border-sam-border"
@@ -338,7 +344,7 @@ export function CommunityPostDetailClient({
               disabled={!me?.id || busy || !commentText.trim()}
               className="mt-2 w-full rounded-ui-rect bg-sam-ink py-2.5 sam-text-body font-medium text-white disabled:opacity-40"
             >
-              등록
+              {t("community_comment_submit")}
             </button>
           </form>
         </section>

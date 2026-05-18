@@ -1,17 +1,32 @@
 "use client";
 
-import type { PointLedgerEntry } from "@/lib/types/point";
-import { POINT_LEDGER_ENTRY_LABELS } from "@/lib/points/point-utils";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
+import type { PointLedgerEntry, PointLedgerEntryType } from "@/lib/types/point";
+
+const LEDGER_KEYS: Record<PointLedgerEntryType, MessageKey> = {
+  charge: "point_ledger_charge",
+  spend: "point_ledger_spend",
+  refund: "point_ledger_refund",
+  admin_adjust: "point_ledger_admin_adjust",
+  expire: "point_ledger_expire",
+  reward: "point_ledger_reward",
+  reverse: "point_ledger_reverse",
+  ad_purchase: "point_ledger_ad_purchase",
+  ad_refund: "point_ledger_ad_refund",
+};
 
 interface PointLedgerListProps {
   entries: PointLedgerEntry[];
 }
 
 export function PointLedgerList({ entries }: PointLedgerListProps) {
+  const { t } = useI18n();
+
   if (entries.length === 0) {
     return (
       <div className="rounded-ui-rect bg-sam-surface p-8 text-center sam-text-body text-sam-muted">
-        포인트 거래내역이 없습니다.
+        {t("points_ui_ledger_empty")}
       </div>
     );
   }
@@ -25,7 +40,7 @@ export function PointLedgerList({ entries }: PointLedgerListProps) {
         >
           <div>
             <p className="font-medium text-sam-fg">
-              {POINT_LEDGER_ENTRY_LABELS[e.entryType]} {e.description}
+              {t(LEDGER_KEYS[e.entryType])} {e.description}
             </p>
             <p className="sam-text-helper text-sam-muted">
               {new Date(e.createdAt).toLocaleString("ko-KR")}
@@ -41,7 +56,7 @@ export function PointLedgerList({ entries }: PointLedgerListProps) {
               {e.amount.toLocaleString()}P
             </p>
             <p className="sam-text-helper text-sam-muted">
-              잔액 {e.balanceAfter.toLocaleString()}P
+              {t("points_ui_balance_after", { balance: e.balanceAfter.toLocaleString() })}
             </p>
           </div>
         </li>

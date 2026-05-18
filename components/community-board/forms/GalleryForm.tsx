@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -13,6 +14,7 @@ export function GalleryForm({
   defaultCategoryId = null,
   boardCategories = [],
 }: BoardWriteFormProps) {
+  const { t } = useI18n();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [imageUrls, setImageUrls] = useState<string[]>([]);
@@ -69,7 +71,7 @@ export function GalleryForm({
         </div>
       )}
       <div>
-        <label className="block text-sm font-medium text-sam-fg mb-1">사진</label>
+        <label className="block text-sm font-medium text-sam-fg mb-1">{t("community_board_photos_label")}</label>
         <div className="flex flex-wrap gap-2">
           {imageUrls.map((url, i) => (
             <div key={i} className="relative w-20 h-20 rounded overflow-hidden bg-sam-surface-muted">
@@ -103,7 +105,7 @@ export function GalleryForm({
           onChange={(e) => setTitle(e.target.value)}
           required
           maxLength={200}
-          placeholder="제목"
+          placeholder={t("ui_write_title_ph")}
           className="w-full rounded-ui-rect border border-sam-border px-3 py-2 focus:ring-2 focus:ring-sam-primary"
           disabled={isSubmitting}
         />
@@ -117,7 +119,7 @@ export function GalleryForm({
           value={content}
           onChange={(e) => setContent(e.target.value)}
           rows={4}
-          placeholder="설명 (선택)"
+          placeholder={t("community_board_desc_optional_ph")}
           className="w-full resize-y rounded-ui-rect border border-sam-border px-3 py-2 focus:ring-2 focus:ring-sam-primary"
           disabled={isSubmitting}
         />

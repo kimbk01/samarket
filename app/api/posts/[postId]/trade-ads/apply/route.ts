@@ -9,6 +9,7 @@ import { resolveServiceSegment } from "@/lib/posts/listing-service-segment";
 import { loadTradeAdProductById } from "@/lib/trade-ads/load-trade-ad-product";
 import { holdPointsForTradePostAdApply } from "@/lib/trade-ads/trade-post-ad-point-flow";
 import { evaluateTradePostAdEligibility } from "@/lib/trade-ads/trade-post-ad-policy";
+import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -67,6 +68,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pos
 
   const cat = await loadCategoryLite(sb, post.category_id ?? post.trade_category_id ?? null);
   const segment = resolveServiceSegment(post, cat);
+  const lang = await loadNotificationUserLanguage(sb, auth.userId);
 
   const product = await loadTradeAdProductById(sb, adProductId);
   if (!product || !product.is_active) {
@@ -77,6 +79,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ pos
     post,
     product,
     serviceSegment: segment,
+    lang,
   });
   if (!eligibility.eligible) {
     return NextResponse.json(

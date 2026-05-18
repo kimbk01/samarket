@@ -42,6 +42,7 @@ import {
   ADDR_SETTINGS_BODY,
 } from "@/lib/ui/address-flow-viber";
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { fetchMeAddressesListSingleFlight } from "@/lib/addresses/address-list-client-cache";
 
 type LatLng = { lat: number; lng: number };
@@ -143,6 +144,7 @@ function useReverseGeocode(marker: LatLng): { text: string; busy: boolean } {
 }
 
 export function AddressSelectClient() {
+  const { t } = useI18n();
   const router = useRouter();
   const [step, setStep] = useState<Step>("settings");
   const [mapsError, setMapsError] = useState<string | null>(null);
@@ -195,7 +197,7 @@ export function AddressSelectClient() {
         await loadGoogleMaps();
         setMapsError(null);
       } catch (e) {
-        setMapsError(e instanceof Error ? e.message : "지도를 불러올 수 없습니다.");
+        setMapsError(e instanceof Error ? e.message : t("addr_ui_maps_load_failed"));
       }
     })();
   }, []);
@@ -229,10 +231,10 @@ export function AddressSelectClient() {
           return;
         }
         if (res.reason === "deferred") {
-          setGeoHint(res.message ?? "설정에서 권한을 확인하거나 주소를 검색해 주세요.");
+          setGeoHint(res.message ?? t("addr_ui_geo_hint_default"));
           return;
         }
-        setGeoHint(res.message ?? "현재 위치를 가져오지 못했습니다.");
+        setGeoHint(res.message ?? t("addr_ui_geo_failed"));
         return;
       }
       goToMap({ lat: res.position.latitude, lng: res.position.longitude });
@@ -252,10 +254,10 @@ export function AddressSelectClient() {
           return;
         }
         if (res.reason === "deferred") {
-          setGeoHint(res.message ?? "설정에서 권한을 확인하거나 지도에서 핀을 옮겨 주세요.");
+          setGeoHint(res.message ?? t("addr_ui_geo_hint_map"));
           return;
         }
-        setGeoHint(res.message ?? "현재 위치를 가져오지 못했습니다.");
+        setGeoHint(res.message ?? t("addr_ui_geo_failed"));
         return;
       }
       setMarker({ lat: res.position.latitude, lng: res.position.longitude });
@@ -338,11 +340,11 @@ export function AddressSelectClient() {
       : marker;
 
   const openAddressEdit = useCallback(() => {
-    const v = window.prompt("주소 수정", shownAddressPin || displayAddress.trim());
+    const v = window.prompt(t("addr_ui_edit_address_prompt"), shownAddressPin || displayAddress.trim());
     if (v == null) return;
-    const t = v.trim();
-    if (t) {
-      setManualAddress(t);
+    const edited = v.trim();
+    if (edited) {
+      setManualAddress(edited);
       manualAnchorRef.current = marker;
     }
   }, [displayAddress, marker, shownAddressPin]);
@@ -350,10 +352,10 @@ export function AddressSelectClient() {
   return (
     <div className={ADDR_FLOW_MIN_VIEWPORT}>
       {step === "settings" ? (
-        <MySubpageHeader title="주소 설정" backHref="/mypage" hideCtaStrip showHubQuickActions={false} />
+        <MySubpageHeader title={t("addr_ui_settings_title")} backHref="/mypage" hideCtaStrip showHubQuickActions={false} />
       ) : (
         <MySubpageHeader
-          title="위치 선택"
+          title={t("addr_ui_pick_location_title")}
           backHref="/mypage"
           hideCtaStrip
           showHubQuickActions={false}
@@ -401,15 +403,15 @@ export function AddressSelectClient() {
                   strokeLinecap="round"
                 />
               </svg>
-              {locating ? "위치 확인 중…" : "현재 위치로 찾기"}
+              {locating ? t("addr_ui_locating") : t("addr_ui_find_current")}
             </button>
             {geoHint ? <p className="sam-text-body-secondary leading-snug text-red-700">{geoHint}</p> : null}
 
             <div>
-              <p className={ADDR_SECTION_LABEL}>최근 주소</p>
+              <p className={ADDR_SECTION_LABEL}>{t("addr_ui_recent_section")}</p>
               <ul className="space-y-1">
                 {recentMerged.length === 0 ? (
-                  <li className={`sam-text-body-secondary ${ADDR_BODY}`}>최근 검색 기록이 없습니다.</li>
+                  <li className={`sam-text-body-secondary ${ADDR_BODY}`}>{t("addr_ui_recent_empty")}</li>
                 ) : (
                   recentMerged.map((r) => (
                     <li key={mapAddressRecentRowKey(r)} className="flex items-stretch gap-1">
@@ -424,9 +426,9 @@ export function AddressSelectClient() {
                         type="button"
                         onClick={() => removeRecentRow(r)}
                         className="flex h-auto min-w-[44px] shrink-0 items-center justify-center rounded-ui-rect px-2 sam-text-body-secondary text-sam-muted hover:bg-sam-primary-soft/40 hover:text-sam-fg"
-                        aria-label="최근 주소 목록에서 삭제"
+                        aria-label={t("addr_ui_remove_recent_aria")}
                       >
-                        삭제
+                        {t("addr_ui_remove_recent")}
                       </button>
                     </li>
                   ))
@@ -440,7 +442,7 @@ export function AddressSelectClient() {
               disabled={Boolean(mapsError)}
               className="w-full rounded-ui-rect border border-dashed border-sam-primary-border/70 bg-sam-surface py-3 sam-text-body font-medium text-signature disabled:opacity-40"
             >
-              지도에서 직접 선택
+              {t("addr_ui_pick_on_map")}
             </button>
           </div>
         </>
@@ -449,7 +451,7 @@ export function AddressSelectClient() {
           <div className={`relative min-h-0 flex-1 ${ADDR_MAP_HOST}`}>
             {mapsError ? (
               <div className="flex h-full items-center justify-center p-4 text-center text-sm text-sam-muted">
-                환경 변수 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY 를 확인해 주세요.
+                {t("addr_ui_maps_key_hint")}
               </div>
             ) : (
               <>
@@ -465,7 +467,7 @@ export function AddressSelectClient() {
                   onClick={() => void onMapMyLocation()}
                   disabled={locating || mapPhase === "detail"}
                   className="absolute right-3 top-3 z-20 flex h-11 w-11 items-center justify-center rounded-full border border-sam-border bg-sam-surface shadow-md disabled:opacity-50"
-                  aria-label="현재 위치로 이동"
+                  aria-label={t("addr_ui_move_to_current")}
                 >
                   <svg className="h-6 w-6 text-sam-fg" viewBox="0 0 24 24" fill="none" aria-hidden>
                     <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" />
@@ -486,18 +488,18 @@ export function AddressSelectClient() {
               {geoHint ? <p className="sam-text-helper text-red-700">{geoHint}</p> : null}
               {mapPhase === "pin" ? (
                 <>
-                  <p className="sam-text-helper font-medium text-sam-muted">선택한 위치</p>
+                  <p className="sam-text-helper font-medium text-sam-muted">{t("addr_ui_selected_location")}</p>
                   <div className="flex items-start gap-2 rounded-ui-rect bg-sam-app px-3 py-2.5">
                     <p className={`min-h-[44px] flex-1 sam-text-body ${ADDR_BODY} text-sam-fg`}>
                       {geocodeBusy && !manualAddress
-                        ? "주소를 불러오는 중…"
-                        : shownAddressPin || "지도를 움직여 주소를 지정하세요."}
+                        ? t("addr_ui_resolving_address")
+                        : shownAddressPin || t("addr_ui_move_map_hint")}
                     </p>
                     <button
                       type="button"
                       onClick={openAddressEdit}
                       className="shrink-0 rounded-ui-rect p-2 text-sam-muted hover:bg-sam-primary-soft/40 hover:text-sam-fg"
-                      aria-label="주소 수정"
+                      aria-label={t("addr_ui_edit_address")}
                     >
                       <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" aria-hidden>
                         <path
@@ -516,22 +518,22 @@ export function AddressSelectClient() {
                     onClick={onPinConfirm}
                     className={ADDR_BTN_PRIMARY_FULL}
                   >
-                    선택한 위치로 설정
+                    {t("addr_ui_set_location")}
                   </button>
                 </>
               ) : (
                 <>
-                  <p className="sam-text-helper font-medium text-sam-muted">선택한 위치</p>
+                  <p className="sam-text-helper font-medium text-sam-muted">{t("addr_ui_selected_location")}</p>
                   <div className={`rounded-ui-rect bg-sam-app px-3 py-2.5 sam-text-body ${ADDR_BODY} text-sam-fg`}>
                     {pinSnapshot?.baseAddress ?? ""}
                   </div>
                   <label className="block">
-                    <span className="mb-1 block sam-text-helper font-medium text-sam-muted">상세주소</span>
+                    <span className="mb-1 block sam-text-helper font-medium text-sam-muted">{t("addr_ui_detail_address_label")}</span>
                     <textarea
                       value={detailLine}
                       onChange={(e) => setDetailLine(e.target.value)}
                       rows={2}
-                      placeholder="상세주소 (지번, 건물명, 호텔명을 입력하세요)"
+                      placeholder={t("addr_ui_detail_placeholder")}
                       className="w-full resize-none rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2.5 sam-text-body text-sam-fg placeholder:text-sam-muted"
                       autoComplete="street-address"
                     />
@@ -542,7 +544,7 @@ export function AddressSelectClient() {
                     onClick={onFinalConfirm}
                     className={ADDR_BTN_PRIMARY_FULL}
                   >
-                    확인
+                    {t("common_confirm")}
                   </button>
                 </>
               )}
@@ -550,7 +552,7 @@ export function AddressSelectClient() {
                 href={buildMypageItemHref("settings", "address")}
                 className={`block pb-1 text-center ${ADDR_BTN_TERTIARY_FULL}`}
               >
-                주소 목록
+                {t("addr_ui_address_list")}
               </Link>
             </div>
           </div>

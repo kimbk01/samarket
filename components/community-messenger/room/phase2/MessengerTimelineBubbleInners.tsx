@@ -3,6 +3,7 @@
 import { memo } from "react";
 import { FileText } from "lucide-react";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   communityMessengerVoiceAudioSrc,
   extractHttpUrls,
@@ -30,6 +31,7 @@ export const TimelineViberInnerSticker = memo(function TimelineViberInnerSticker
 }: {
   item: TimelineViberBubbleMessage;
 }) {
+  const { t } = useI18n();
   const stickerSrc = item.content.trim();
   return (
     <div className="flex flex-col items-stretch p-1">
@@ -44,7 +46,7 @@ export const TimelineViberInnerSticker = memo(function TimelineViberInnerSticker
         className="h-36 w-36 max-h-[9.5rem] max-w-[9.5rem] object-contain sm:h-40 sm:w-40 sm:max-h-[10rem] sm:max-w-[10rem]"
       />
       {item.pending ? (
-        <span className="mt-1 sam-text-xxs text-sam-muted">전송 중…</span>
+        <span className="mt-1 sam-text-xxs text-sam-muted">{t("common_sending")}</span>
       ) : null}
     </div>
   );
@@ -81,6 +83,7 @@ export const TimelineViberInnerFile = memo(function TimelineViberInnerFile({
   item: TimelineViberBubbleMessage;
   mediaAutoSaveEnabled: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <div className="min-w-[200px] max-w-full">
       <div className="flex items-start gap-3">
@@ -93,7 +96,7 @@ export const TimelineViberInnerFile = memo(function TimelineViberInnerFile({
         </div>
         <div className="min-w-0 flex-1">
           <p className={`truncate text-[14px] font-semibold leading-snug ${item.isMine ? "text-white" : "text-[#050505]"}`}>
-            {item.fileName?.trim() || "첨부 파일"}
+            {item.fileName?.trim() || t("common_attached_file")}
           </p>
           <p className={`mt-1 text-[12px] leading-snug ${item.isMine ? "text-white/80" : "text-[#6b7280]"}`}>
             {formatFileMeta(item.fileMimeType, item.fileSizeBytes)}
@@ -102,7 +105,7 @@ export const TimelineViberInnerFile = memo(function TimelineViberInnerFile({
       </div>
       <div className="mt-3">
         {item.pending ? (
-          <span className={`sam-text-helper ${item.isMine ? "text-sam-muted" : "text-sam-muted"}`}>업로드 중…</span>
+          <span className={`sam-text-helper ${item.isMine ? "text-sam-muted" : "text-sam-muted"}`}>{t("common_uploading")}</span>
         ) : item.content.trim() ? (
           <a
             href={item.content.trim()}
@@ -115,7 +118,7 @@ export const TimelineViberInnerFile = memo(function TimelineViberInnerFile({
                 : "border-[color:var(--cm-room-divider)] bg-sam-surface text-[color:var(--cm-room-text)]"
             }`}
           >
-            {mediaAutoSaveEnabled ? "파일 저장" : "파일 열기"}
+            {mediaAutoSaveEnabled ? t("cm_ui_save_file") : t("cm_ui_open_file")}
           </a>
         ) : null}
       </div>

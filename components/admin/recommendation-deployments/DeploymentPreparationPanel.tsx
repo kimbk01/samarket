@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import type { RecommendationSurface } from "@/lib/types/recommendation";
 import { getFeedVersions } from "@/lib/recommendation-experiments/mock-feed-versions";
@@ -11,6 +14,7 @@ import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-
 const SURFACES: RecommendationSurface[] = ["home", "search", "shop"];
 
 export function DeploymentPreparationPanel() {
+  const { t } = useI18n();
   const [surface, setSurface] = useState<RecommendationSurface>("home");
   const [versionId, setVersionId] = useState("");
   const [deploying, setDeploying] = useState(false);
@@ -49,7 +53,7 @@ export function DeploymentPreparationPanel() {
   return (
     <div className="space-y-4">
       <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4">
-        <p className="sam-text-body font-medium text-sam-fg">배포 시뮬레이션</p>
+        <p className="sam-text-body font-medium text-sam-fg">{t("admin_rec_deploy_deploy_8")}</p>
         <p className="mt-1 sam-text-body-secondary text-sam-muted">
           선택한 버전이 해당 surface의 live 버전으로 설정됩니다. 현재 live:{" "}
           {active?.liveVersionId ?? "-"}
@@ -86,13 +90,13 @@ export function DeploymentPreparationPanel() {
             </option>
           ))}
         </select>
-        <label className="sam-text-body font-medium text-sam-fg">버전</label>
+        <label className="sam-text-body font-medium text-sam-fg">{t("admin_rec_deploy_k593f8a81")}</label>
         <select
           value={versionId}
           onChange={(e) => setVersionId(e.target.value)}
           className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
-          <option value="">선택</option>
+          <option value="">{t("admin_misc_select_option")}</option>
           {versions.map((v) => (
             <option key={v.id} value={v.id}>
               {v.versionName}

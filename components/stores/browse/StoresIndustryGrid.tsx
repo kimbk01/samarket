@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { useMemo, type ReactNode } from "react";
@@ -12,6 +13,7 @@ export function StoresIndustryGrid({
   /** 예: 소유 매장이 있을 때만 노출되는 「매장 관리」— 제목과 같은 행 우측 */
   headerTrailing?: ReactNode;
 }) {
+  const { t } = useI18n();
   const industryVersion = useBrowseIndustryDatasetVersion();
   const primaries = useMemo(
     () => listBrowsePrimaryIndustries(),
@@ -21,7 +23,7 @@ export function StoresIndustryGrid({
   return (
     <section className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-3 shadow-sm">
       <div className="flex items-start justify-between gap-2">
-        <h2 className="min-w-0 shrink text-sm font-semibold text-sam-fg">업종별 둘러보기</h2>
+        <h2 className="min-w-0 shrink text-sm font-semibold text-sam-fg">{t("store_industry_grid_title")}</h2>
         {headerTrailing ? (
           <div className="shrink-0 pt-0.5">{headerTrailing}</div>
         ) : null}

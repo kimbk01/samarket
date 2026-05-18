@@ -1,6 +1,7 @@
 "use client";
 
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 /**
  * 매장 어드민 «기본 정보»·«매장 설정» — 미저장 이탈 시.
@@ -21,14 +22,15 @@ export function OwnerStoreAdminLeavePromptModal({
   onDiscard: () => void;
   onConfirmSave: () => void | Promise<void>;
 }) {
+  const { t } = useI18n();
   return (
     <OwnerStoreAdminConfirmModal
       open={open}
       titleId={titleId}
-      title="변경된 내용을 저장 하시겠습니까?"
-      cancelLabel="취소"
-      confirmLabel="확인"
-      confirmBusyLabel="처리 중…"
+      title={t("business_phase7_125")}
+      cancelLabel={t("common_cancel")}
+      confirmLabel={t("common_confirm")}
+      confirmBusyLabel={t("common_processing")}
       busy={leaveSaving}
       disableActions={disableActions}
       confirmTone="primary"

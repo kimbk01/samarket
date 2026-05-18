@@ -2,6 +2,9 @@
  * 당근형 사용자용 거래·상품 상태 문구 (기술적 enum 노출 최소화)
  */
 
+import type { MessageKey } from "@/lib/i18n/messages";
+import type { TradeReviewTranslate } from "@/lib/trade/trade-review-tags";
+
 export type TradeFlowKey =
   | "chatting"
   | "seller_marked_done"
@@ -28,34 +31,39 @@ export function normalizeTradeFlowKey(raw: string | undefined | null): TradeFlow
 
 /** 채팅 상단·카드용 짧은 거래 진행 문구 */
 export function tradeSituationShortLabel(
+  t: TradeReviewTranslate,
   flowRaw: string | undefined | null,
   perspective: "seller" | "buyer",
   opts?: { hasBuyerReview?: boolean; buyerConfirmSource?: string | null }
 ): string {
   const flow = normalizeTradeFlowKey(flowRaw);
   const hasRev = opts?.hasBuyerReview === true;
-  if (flow === "dispute") return "분쟁 처리 중";
-  if (flow === "archived") return "종료된 거래";
+  if (flow === "dispute") return t("trade_situation_dispute");
+  if (flow === "archived") return t("trade_situation_archived");
   if (flow === "review_completed") {
-    return perspective === "seller" ? "거래·후기 완료" : "후기 작성 완료";
+    return perspective === "seller"
+      ? t("trade_situation_review_done_seller")
+      : t("trade_situation_review_done_buyer");
   }
-  if (perspective === "buyer" && hasRev) return "후기 작성 완료";
+  if (perspective === "buyer" && hasRev) return t("trade_situation_review_done_buyer");
   if (perspective === "seller" && hasRev && (flow === "buyer_confirmed" || flow === "review_pending")) {
-    return "구매자 후기 도착";
+    return t("trade_situation_seller_review_arrived");
   }
   if (flow === "buyer_confirmed" || flow === "review_pending") {
     const src = String(opts?.buyerConfirmSource ?? "");
     if (perspective === "seller") {
-      if (src === "admin") return "관리자 처리 확인 · 평가·후기 대기";
-      if (src === "system") return "자동 확인 · 평가·후기 대기";
-      return "구매자 거래완료 확인 · 평가·후기 대기";
+      if (src === "admin") return t("trade_situation_seller_confirm_admin");
+      if (src === "system") return t("trade_situation_seller_confirm_system");
+      return t("trade_situation_seller_confirm_default");
     }
-    if (src === "admin") return "관리자완료(거래완료 확인)";
-    if (src === "system") return "자동 거래완료 확인됨";
-    return "거래완료 확인됨";
+    if (src === "admin") return t("trade_situation_buyer_confirm_admin");
+    if (src === "system") return t("trade_situation_buyer_confirm_system");
+    return t("trade_situation_buyer_confirm_default");
   }
   if (flow === "seller_marked_done") {
-    return perspective === "seller" ? "구매자 확인 대기" : "판매자가 거래완료 처리함";
+    return perspective === "seller"
+      ? t("trade_situation_seller_marked_seller")
+      : t("trade_situation_seller_marked_buyer");
   }
-  return "판매중";
+  return t("trade_situation_selling");
 }

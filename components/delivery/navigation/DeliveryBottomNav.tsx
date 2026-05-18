@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
@@ -39,6 +40,7 @@ function resolveEffectiveHref(item: DeliveryBottomNavItem, ownerStore: { id: str
 }
 
 export function DeliveryBottomNav({ initialItems }: { initialItems: DeliveryBottomNavItem[] }) {
+  const { t } = useI18n();
   const ownerStoreRow = useOwnerLitePreferredStoreRow();
   const ownerStore = ownerStoreRow ? { id: ownerStoreRow.id, slug: ownerStoreRow.slug } : null;
   const [portalToBody, setPortalToBody] = useState(false);
@@ -80,7 +82,7 @@ export function DeliveryBottomNav({ initialItems }: { initialItems: DeliveryBott
 
   const nav = (
     <nav
-      aria-label="배달 전용 메뉴"
+      aria-label={t("ui_delivery_nav_aria")}
       className={[
         "fixed bottom-0 left-0 right-0 z-20 pointer-events-none",
         "w-full min-w-0 max-w-none overflow-x-clip",

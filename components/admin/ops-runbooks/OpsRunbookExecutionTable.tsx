@@ -1,31 +1,16 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { OPS_DOC_TYPE_KEYS } from "@/components/admin/i18n/admin-ops-doc-label-keys";
+import {
+  OPS_TOOLS_RUNBOOK_EXEC_STATUS_KEYS,
+  OPS_TOOLS_RUNBOOK_LINK_KEYS,
+  opsToolsLabel,
+} from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { useMemo } from "react";
 import Link from "next/link";
 import { getOpsRunbookExecutions } from "@/lib/ops-runbooks/mock-ops-runbook-executions";
 import type { OpsRunbookExecutionStatus, OpsRunbookLinkedType } from "@/lib/types/ops-runbook";
-
-const STATUS_LABELS: Record<OpsRunbookExecutionStatus, string> = {
-  pending: "대기",
-  in_progress: "진행중",
-  completed: "완료",
-  aborted: "중단",
-};
-
-const LINKED_LABELS: Record<OpsRunbookLinkedType, string> = {
-  incident: "이슈",
-  deployment: "배포",
-  rollback: "롤백",
-  fallback: "Fallback",
-  kill_switch: "킬스위치",
-  manual: "수동",
-};
-
-const DOC_TYPE_LABELS: Record<string, string> = {
-  sop: "SOP",
-  playbook: "플레이북",
-  scenario: "시나리오",
-};
 
 interface OpsRunbookExecutionTableProps {
   statusFilter?: OpsRunbookExecutionStatus | "";
@@ -36,6 +21,7 @@ export function OpsRunbookExecutionTable({
   statusFilter = "",
   refresh = 0,
 }: OpsRunbookExecutionTableProps) {
+  const { t } = useI18n();
   const executions = useMemo(
     () =>
       getOpsRunbookExecutions({
@@ -46,9 +32,7 @@ export function OpsRunbookExecutionTable({
 
   if (executions.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        실행 이력이 없습니다. 문서에서 런북을 시작해 주세요.
-      </div>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_runbook_history_empty")}</div>
     );
   }
 
@@ -57,12 +41,12 @@ export function OpsRunbookExecutionTable({
       <table className="w-full min-w-[640px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">문서</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">유형</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">연결</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">상태</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">시작</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">담당</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_node_document")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_kg_th_type")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_routines_th_link")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_board_th_status")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_runbook_th_started")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_board_th_owner")}</th>
           </tr>
         </thead>
         <tbody>
@@ -77,10 +61,10 @@ export function OpsRunbookExecutionTable({
                 </Link>
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
-                {DOC_TYPE_LABELS[e.documentType]}
+                {t(OPS_DOC_TYPE_KEYS[e.documentType])}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
-                {LINKED_LABELS[e.linkedType]}
+                {t(opsToolsLabel(OPS_TOOLS_RUNBOOK_LINK_KEYS, e.linkedType))}
                 {e.linkedId && ` · ${e.linkedId}`}
               </td>
               <td className="px-3 py-2.5">
@@ -95,7 +79,7 @@ export function OpsRunbookExecutionTable({
                           : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >
-                  {STATUS_LABELS[e.executionStatus]}
+                  {t(opsToolsLabel(OPS_TOOLS_RUNBOOK_EXEC_STATUS_KEYS, e.executionStatus))}
                 </span>
               </td>
               <td className="px-3 py-2.5 text-sam-muted">

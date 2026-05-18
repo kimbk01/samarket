@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
 type Row = {
@@ -21,11 +22,21 @@ type Row = {
 };
 
 export function AdminStoreReportsPage() {
+  const { t } = useI18n();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [memoById, setMemoById] = useState<Record<string, string>>({});
+
+  const errorText =
+    error === "forbidden"
+      ? t("admin_audit_err_no_permission")
+      : error === "table_missing"
+        ? t("admin_stores_reports_err_table_missing")
+        : error === "network_error"
+          ? t("common_network_error")
+          : error;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -34,12 +45,12 @@ export function AdminStoreReportsPage() {
       const res = await fetch("/api/admin/store-reports", { credentials: "include" });
       const json = await res.json();
       if (res.status === 403) {
-        setError("관리자 권한이 없습니다.");
+        setError("forbidden");
         setRows([]);
         return;
       }
       if (!json?.ok) {
-        setError(json?.error === "table_missing" ? "store_reports 테이블을 적용해 주세요." : json?.error);
+        setError(json?.error === "table_missing" ? "table_missing" : json?.error);
         setRows([]);
         return;
       }
@@ -79,15 +90,13 @@ export function AdminStoreReportsPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="매장·상품 신고" />
-      <p className="sam-text-body-secondary text-sam-muted">
-        열린 건만 기각·조치할 수 있습니다. 메모는 내부 기록용입니다.
-      </p>
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
+      <AdminPageHeader titleKey="admin_page_store_reports" />
+      <p className="sam-text-body-secondary text-sam-muted">{t("admin_stores_reports_desc")}</p>
+      {errorText ? <p className="text-sm text-red-700">{errorText}</p> : null}
       {loading ? (
-        <p className="text-sm text-sam-muted">불러오는 중…</p>
+        <p className="text-sm text-sam-muted">{t("common_loading")}</p>
       ) : rows.length === 0 ? (
-        <p className="text-sm text-sam-muted">신고가 없습니다.</p>
+        <p className="text-sm text-sam-muted">{t("admin_stores_reports_empty")}</p>
       ) : (
         <ul className="space-y-3">
           {rows.map((r) => (
@@ -97,7 +106,7 @@ export function AdminStoreReportsPage() {
                   {r.store_name || r.store_id}
                   {r.target_type === "product" && r.product_title ? (
                     <span className="block text-xs font-normal text-sam-muted">
-                      상품: {r.product_title}
+                      {t("admin_stores_reports_product_prefix", { title: r.product_title })}
                     </span>
                   ) : null}
                 </span>
@@ -114,20 +123,29 @@ export function AdminStoreReportsPage() {
                 </span>
               </div>
               <p className="mt-1 text-xs text-sam-muted">
-                대상 {r.target_type} · {r.target_id} · 신고자 {r.reporter_user_id}
+                {t("admin_stores_reports_meta", {
+                  targetType: r.target_type,
+                  targetId: r.target_id,
+                  reporterId: r.reporter_user_id,
+                })}
               </p>
-              <p className="mt-1 text-xs text-sam-muted">사유: {r.reason_type}</p>
+              <p className="mt-1 text-xs text-sam-muted">
+                {t("admin_stores_reports_reason", { reason: r.reason_type })}
+              </p>
               <p className="mt-2 whitespace-pre-wrap text-sm text-sam-fg">{r.message}</p>
               {r.status !== "open" ? (
                 <p className="mt-2 text-xs text-sam-muted">
-                  검토: {r.reviewed_at ?? "-"} · {r.action_memo ?? r.action_type ?? ""}
+                  {t("admin_stores_reports_reviewed", {
+                    reviewedAt: r.reviewed_at ?? "-",
+                    memo: r.action_memo ?? r.action_type ?? "",
+                  })}
                 </p>
               ) : (
                 <div className="mt-3 space-y-2">
                   <input
                     type="text"
                     className="w-full rounded-ui-rect border border-sam-border px-2 py-1.5 text-xs"
-                    placeholder="처리 메모 (선택)"
+                    placeholder={t("admin_stores_reports_memo_ph")}
                     value={memoById[r.id] ?? ""}
                     onChange={(e) => setMemoById((m) => ({ ...m, [r.id]: e.target.value }))}
                   />
@@ -138,7 +156,7 @@ export function AdminStoreReportsPage() {
                       className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 text-xs font-medium text-sam-fg disabled:opacity-50"
                       onClick={() => void patchStatus(r.id, "dismissed")}
                     >
-                      기각
+                      {t("admin_stores_reports_dismiss")}
                     </button>
                     <button
                       type="button"
@@ -146,7 +164,7 @@ export function AdminStoreReportsPage() {
                       className="rounded-ui-rect bg-sam-ink px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50"
                       onClick={() => void patchStatus(r.id, "actioned")}
                     >
-                      조치 완료
+                      {t("admin_stores_reports_actioned")}
                     </button>
                   </div>
                 </div>

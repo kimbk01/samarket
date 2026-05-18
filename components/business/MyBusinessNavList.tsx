@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type {
   MyBusinessNavGroup,
   MyBusinessNavIcon,
@@ -160,10 +161,11 @@ const NAV_ICONS: Record<MyBusinessNavIcon, ReactNode> = {
 };
 
 export function MyBusinessNavList({ groups, className = "", onNavigate }: Props) {
+  const { t } = useI18n();
   return (
     <section
       className={`grid grid-cols-1 gap-3 md:grid-cols-2 2xl:grid-cols-3 ${className}`.trim()}
-      aria-label="매장 관리 메뉴"
+      aria-label={t("business_phase7_068")}
     >
       {groups.map((group, gi) => (
         <div

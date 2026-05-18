@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import type { BoardListSkinProps } from "@/lib/community-board/types";
@@ -7,9 +8,10 @@ export function MagazineListSkin({
   posts,
   baseHref,
 }: BoardListSkinProps) {
+  const { t } = useI18n();
   if (posts.length === 0) {
     return (
-      <div className="py-12 text-center text-sam-muted bg-sam-surface rounded-ui-rect">아직 글이 없어요.</div>
+      <div className="py-12 text-center text-sam-muted bg-sam-surface rounded-ui-rect">{t("community_feed_empty")}</div>
     );
   }
   const [featured, ...rest] = posts;

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import type { ReactNode } from "react";
 import { useLayoutEffect } from "react";
@@ -20,6 +21,7 @@ import { APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS } from "@/lib/ui/app-content
  * 메뉴 루트: SlideShell + 내부 헤더. cart/checkout/상품: SlideShell 없음(내부 스크롤).
  */
 export function StoreConsumerShell({ slug, children }: { slug: string; children: ReactNode }) {
+  const { t } = useI18n();
   const pathname = usePathname();
   const decodedSlug = decodeSlugSegment(slug);
 

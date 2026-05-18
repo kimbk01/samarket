@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import type { StoreVerticalCardModel } from "@/components/stores/home/StoreVerticalDiscoveryCard";

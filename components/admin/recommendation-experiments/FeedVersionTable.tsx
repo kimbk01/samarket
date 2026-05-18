@@ -1,7 +1,8 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { FeedVersion } from "@/lib/types/recommendation-experiment";
-import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
+import { recSurfaceLabel } from "@/components/admin/recommendation-admin-i18n";
 
 interface FeedVersionTableProps {
   versions: FeedVersion[];
@@ -12,10 +13,12 @@ export function FeedVersionTable({
   versions,
   onEdit,
 }: FeedVersionTableProps) {
+  const { t } = useI18n();
+
   if (versions.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        등록된 피드 버전이 없습니다.
+        {t("admin_rec_exp_empty_versions")}
       </div>
     );
   }
@@ -26,23 +29,23 @@ export function FeedVersionTable({
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              버전명
+              {t("admin_rec_exp_label_version_name")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              surface
+              {t("admin_rec_th_surface")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              섹션 수
+              {t("admin_rec_th_section_count")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              점수 오버라이드
+              {t("admin_rec_th_score_override")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              상태
+              {t("admin_rec_th_status")}
             </th>
             {onEdit && (
               <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                작업
+                {t("admin_rec_th_work")}
               </th>
             )}
           </tr>
@@ -57,7 +60,7 @@ export function FeedVersionTable({
                 {v.versionName}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
-                {SURFACE_LABELS[v.surface]}
+                {recSurfaceLabel(t, v.surface)}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
                 {v.sectionConfig.filter((s) => s.isActive).length} / {v.sectionConfig.length}
@@ -75,7 +78,7 @@ export function FeedVersionTable({
                     v.isActive ? "bg-emerald-50 text-emerald-800" : "bg-sam-border-soft text-sam-muted"
                   }`}
                 >
-                  {v.isActive ? "활성" : "비활성"}
+                  {v.isActive ? t("admin_rec_exp_status_active") : t("admin_rec_exp_status_inactive")}
                 </span>
               </td>
               {onEdit && (
@@ -85,7 +88,7 @@ export function FeedVersionTable({
                     onClick={() => onEdit(v)}
                     className="sam-text-body-secondary text-signature hover:underline"
                   >
-                    편집
+                    {t("common_edit")}
                   </button>
                 </td>
               )}

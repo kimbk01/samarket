@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -19,6 +20,7 @@ type RealOrderHead = {
 };
 
 export function RestaurantOrderCompleteClient({ storeSlug }: { storeSlug: string }) {
+  const { t } = useI18n();
   const sp = useSearchParams();
   const orderId = sp.get("orderId")?.trim() ?? "";
 
@@ -80,7 +82,7 @@ export function RestaurantOrderCompleteClient({ storeSlug }: { storeSlug: string
 
   if (orderId && isLikelyUuid(orderId)) {
     if (real.kind === "loading" || real.kind === "idle") {
-      return <p className="p-6 text-center text-sm text-sam-muted">불러오는 중…</p>;
+      return <p className="p-6 text-center text-sm text-sam-muted">{t("common_loading")}</p>;
     }
     if (real.kind === "ok") {
       const o = real.order;
@@ -93,18 +95,18 @@ export function RestaurantOrderCompleteClient({ storeSlug }: { storeSlug: string
             <p className="text-center text-sm font-semibold text-emerald-700">
               {o.order_status === "completed" ? "주문이 완료되었습니다" : "주문이 접수되었습니다"}
             </p>
-            <h1 className="mt-2 text-center text-xl font-bold text-sam-fg">감사합니다</h1>
+            <h1 className="mt-2 text-center text-xl font-bold text-sam-fg">{t("store_order_thanks")}</h1>
             <dl className="mt-6 space-y-2 text-sm">
               <div className="flex justify-between">
-                <dt className="text-sam-muted">주문번호</dt>
+                <dt className="text-sam-muted">{t("store_order_number")}</dt>
                 <dd className="font-mono font-semibold">{o.order_no}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-sam-muted">업체</dt>
+                <dt className="text-sam-muted">{t("store_order_vendor")}</dt>
                 <dd className="font-medium">{o.store_name}</dd>
               </div>
               <div className="flex justify-between">
-                <dt className="text-sam-muted">주문 금액</dt>
+                <dt className="text-sam-muted">{t("store_order_amount")}</dt>
                 <dd className="font-bold">{formatMoneyPhp(o.payment_amount)}</dd>
               </div>
             </dl>
@@ -155,7 +157,7 @@ export function RestaurantOrderCompleteClient({ storeSlug }: { storeSlug: string
   const maybeReal = orderId.length > 0 && isLikelyUuid(orderId);
   return (
     <div className="px-4 py-12 text-center">
-      <p className="text-sm text-sam-muted">주문 정보를 불러오지 못했거나 주문 번호가 없습니다.</p>
+      <p className="text-sm text-sam-muted">{t("store_order_load_failed")}</p>
       {maybeReal ? (
         <p className="mt-2 text-sm text-sam-muted">
           실제 배달 주문이면 아래에서 진행 상태를 확인할 수 있습니다.

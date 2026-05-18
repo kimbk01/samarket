@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { ProductBacklogSummaryCards } from "./ProductBacklogSummaryCards";
 import { ProductFeedbackTable } from "./ProductFeedbackTable";
 import { ProductBacklogBoard } from "./ProductBacklogBoard";
@@ -10,21 +12,26 @@ import { OpsDevHandoffTable } from "./OpsDevHandoffTable";
 
 type TabId = "summary" | "feedback" | "backlog" | "handoff";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "summary", label: "요약" },
-  { id: "feedback", label: "피드백 인박스" },
-  { id: "backlog", label: "백로그 보드" },
-  { id: "handoff", label: "운영-개발 handoff" },
-];
-
 export function AdminProductBacklogPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("summary");
+
+  const tabs = useMemo(
+    () =>
+      [
+        { id: "summary" as const, labelKey: "admin_product_backlog_tab_summary" as MessageKey },
+        { id: "feedback" as const, labelKey: "admin_product_backlog_tab_feedback" as MessageKey },
+        { id: "backlog" as const, labelKey: "admin_product_backlog_tab_board" as MessageKey },
+        { id: "handoff" as const, labelKey: "admin_product_backlog_tab_handoff" as MessageKey },
+      ] satisfies { id: TabId; labelKey: MessageKey }[],
+    []
+  );
 
   return (
     <>
-      <AdminPageHeader title="제품 개선 백로그" />
+      <AdminPageHeader titleKey="admin_product_backlog_page_title" />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
-        {TABS.map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab.id}
             type="button"
@@ -35,27 +42,27 @@ export function AdminProductBacklogPage() {
                 : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
       {activeTab === "summary" && (
-        <AdminCard title="백로그 요약">
+        <AdminCard titleKey="admin_product_backlog_card_summary">
           <ProductBacklogSummaryCards />
         </AdminCard>
       )}
       {activeTab === "feedback" && (
-        <AdminCard title="사용자 피드백">
+        <AdminCard titleKey="admin_product_backlog_card_feedback">
           <ProductFeedbackTable />
         </AdminCard>
       )}
       {activeTab === "backlog" && (
-        <AdminCard title="백로그 보드">
+        <AdminCard titleKey="admin_product_backlog_card_board">
           <ProductBacklogBoard />
         </AdminCard>
       )}
       {activeTab === "handoff" && (
-        <AdminCard title="운영-개발 연동">
+        <AdminCard titleKey="admin_product_backlog_card_handoff">
           <OpsDevHandoffTable />
         </AdminCard>
       )}

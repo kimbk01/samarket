@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -23,6 +24,7 @@ export function TradeFrequentPhrasesSheet({
   onClose: () => void;
   onPickPhrase: (text: string) => void;
 }) {
+  const { t } = useI18n();
   const titleId = useId();
   const closingRef = useRef(false);
   const finalizedRef = useRef(false);
@@ -185,7 +187,7 @@ export function TradeFrequentPhrasesSheet({
       <button
         type="button"
         className="absolute inset-0 cursor-default bg-transparent"
-        aria-label="닫기"
+        aria-label={t("common_close")}
         onClick={beginClose}
       />
       <div
@@ -231,7 +233,7 @@ export function TradeFrequentPhrasesSheet({
             <textarea
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              placeholder="문구를 입력하세요"
+              placeholder={t("ui_write_phrase_ph")}
               rows={3}
               maxLength={800}
               className="w-full resize-none rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1.5 text-[11px] leading-snug text-sam-fg outline-none placeholder:text-sam-meta focus:border-sam-primary"
@@ -323,7 +325,7 @@ export function TradeFrequentPhrasesSheet({
                       <button
                         type="button"
                         className="rounded-ui-rect px-1.5 py-0.5 sam-text-xxs text-sam-muted hover:bg-sam-surface-muted hover:text-sam-danger"
-                        aria-label="삭제"
+                        aria-label={t("common_delete")}
                         onClick={(e) => {
                           e.stopPropagation();
                           removeAt(i);

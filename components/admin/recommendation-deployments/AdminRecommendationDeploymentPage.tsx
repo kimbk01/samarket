@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -28,12 +31,12 @@ const TABS: { id: TabId; label: string }[] = [
 ];
 
 export function AdminRecommendationDeploymentPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("active");
 
   return (
     <>
-      <AdminPageHeader
-        title="추천 배포 관리"
+      <AdminPageHeader titleKey="admin_rec_deploy_deploy_13"
         description="운영 버전·배포·롤백·실험 승자 관리"
       />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">

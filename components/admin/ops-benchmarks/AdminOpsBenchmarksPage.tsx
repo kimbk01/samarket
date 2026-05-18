@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -12,6 +15,7 @@ import { OpsBenchmarkSummaryCards } from "./OpsBenchmarkSummaryCards";
 type TabId = "benchmark" | "quarterly" | "performance" | "gap" | "summary";
 
 export function AdminOpsBenchmarksPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("benchmark");
 
   const tabs: { id: TabId; label: string }[] = [
@@ -24,7 +28,7 @@ export function AdminOpsBenchmarksPage() {
 
   return (
     <>
-      <AdminPageHeader title="운영 벤치마크" />
+      <AdminPageHeader titleKey="admin_ops_benchmark_k7cfc1640" />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {tabs.map((tab) => (
           <button
@@ -43,31 +47,31 @@ export function AdminOpsBenchmarksPage() {
       </div>
 
       {activeTab === "benchmark" && (
-        <AdminCard title="내부 운영 기준 벤치마크 (현재 vs 목표 vs 기준)">
+        <AdminCard titleKey="admin_ops_benchmark_kb9064134">
           <OpsBenchmarkCards />
         </AdminCard>
       )}
 
       {activeTab === "quarterly" && (
-        <AdminCard title="분기별 개선 계획">
+        <AdminCard titleKey="admin_ops_benchmark_k8ce25aa7">
           <OpsQuarterlyPlanBoard />
         </AdminCard>
       )}
 
       {activeTab === "performance" && (
-        <AdminCard title="관리자 성과 리뷰">
+        <AdminCard titleKey="admin_ops_benchmark_admin_2">
           <OpsAdminPerformanceReviewTable />
         </AdminCard>
       )}
 
       {activeTab === "gap" && (
-        <AdminCard title="벤치마크 갭 분석 · 개선 우선순위 추천">
+        <AdminCard titleKey="admin_ops_benchmark_priority_3">
           <OpsGapAnalysisCards />
         </AdminCard>
       )}
 
       {activeTab === "summary" && (
-        <AdminCard title="요약">
+        <AdminCard titleKey="admin_launch_week_summary">
           <OpsBenchmarkSummaryCards />
         </AdminCard>
       )}

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 function Shimmer({ className }: { className: string }) {
   return (
@@ -10,6 +11,7 @@ function Shimmer({ className }: { className: string }) {
 }
 
 export function StoreDetailOrderSkeleton() {
+  const { t } = useI18n();
   return (
     <div className="min-h-[100dvh] overflow-x-hidden bg-white pb-8 [-webkit-overflow-scrolling:touch]">
       <div className="pt-[env(safe-area-inset-top,0px)]">

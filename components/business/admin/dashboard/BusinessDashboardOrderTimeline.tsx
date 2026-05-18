@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
-import { buildStoreOrderMessengerRoomHref } from "@/lib/chats/surfaces/order-chat-surface";
-import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
+import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
 
 export type TimelineOrder = {
@@ -17,16 +16,7 @@ export type TimelineOrder = {
   created_at: string;
   buyer_payment_method?: string | null;
   buyer_payment_method_detail?: string | null;
-  community_messenger_room_id?: string | null;
 };
-
-function orderChatHref(order: TimelineOrder): string {
-  const roomId = order.community_messenger_room_id?.trim() ?? "";
-  if (roomId) {
-    return buildStoreOrderMessengerRoomHref(roomId, { entryOrigin: "delivery" });
-  }
-  return `/stores/owner/order-chat/${encodeURIComponent(order.id)}`;
-}
 
 export function BusinessDashboardOrderTimeline({
   storeId,
@@ -35,12 +25,13 @@ export function BusinessDashboardOrderTimeline({
   storeId: string;
   orders: TimelineOrder[];
 }) {
-  const router = useRouter();
+  const { t, language } = useI18n();
+  const dateLocale = language === "ko" ? "ko-KR" : language === "zh" ? "zh-CN" : "en-US";
 
   if (orders.length === 0) {
     return (
       <div className="rounded-ui-rect border border-dashed border-sam-border-soft bg-sam-app/40 px-4 py-14 text-center sam-text-body text-sam-muted">
-        아직 주문이 없습니다.
+        {t("business_phase7_184")}
       </div>
     );
   }
@@ -54,16 +45,20 @@ export function BusinessDashboardOrderTimeline({
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                 <span className="font-mono sam-text-body font-semibold text-sam-fg">{o.order_no}</span>
                 <span className="rounded-ui-rect bg-sam-surface-muted px-2 py-0.5 sam-text-xxs font-semibold text-sam-fg">
-                  {BUYER_ORDER_STATUS_LABEL[o.order_status] ?? o.order_status}
+                  {buyerOrderStatusLabel(o.order_status, language)}
                 </span>
               </div>
               <p className="mt-1 sam-text-helper text-sam-muted">
-                결제 {o.payment_status}
-                {" · "}
-                {formatBuyerPaymentDisplay(o.buyer_payment_method, o.buyer_payment_method_detail)}
+                {t("store_biz_payment_line", {
+                  payment: formatBuyerPaymentDisplay(
+                    o.buyer_payment_method,
+                    o.buyer_payment_method_detail,
+                    language
+                  ),
+                })}
               </p>
               <p className="mt-0.5 sam-text-xxs tabular-nums text-sam-meta">
-                {new Date(o.created_at).toLocaleString("ko-KR")}
+                {new Date(o.created_at).toLocaleString(dateLocale)}
               </p>
             </div>
             <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
@@ -72,18 +67,9 @@ export function BusinessDashboardOrderTimeline({
               </span>
               <Link
                 href={buildStoreOrdersHref({ storeId, orderId: o.id })}
-                className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-semibold text-sam-fg transition hover:border-signature/40 hover:bg-sam-app"
+                className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-semibold text-sam-fg hover:bg-sam-app"
               >
-                상세
-              </Link>
-              <Link
-                href={orderChatHref(o)}
-                prefetch
-                onMouseEnter={() => router.prefetch(orderChatHref(o))}
-                onFocus={() => router.prefetch(orderChatHref(o))}
-                className="rounded-ui-rect bg-signature px-3 py-2 sam-text-body-secondary font-semibold text-white transition hover:opacity-95"
-              >
-                채팅
+                {t("store_owner_view_detail")}
               </Link>
             </div>
           </div>

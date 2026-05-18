@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import type { BoardListSkinProps } from "@/lib/community-board/types";
@@ -8,10 +9,11 @@ export function BasicListSkin({
   board,
   baseHref,
 }: BoardListSkinProps) {
+  const { t } = useI18n();
   return (
     <ul className="divide-y divide-sam-border bg-sam-surface rounded-ui-rect overflow-hidden">
       {posts.length === 0 ? (
-        <li className="px-4 py-8 text-center text-sam-muted">아직 글이 없어요.</li>
+        <li className="px-4 py-8 text-center text-sam-muted">{t("community_feed_empty")}</li>
       ) : (
         posts.map((post) => (
           <li key={post.id}>
@@ -31,7 +33,7 @@ export function BasicListSkin({
               <div className="flex items-center gap-2 mt-2 text-xs text-sam-meta">
                 {post.author?.name && <span>{post.author.name}</span>}
                 <span>{new Date(post.created_at).toLocaleDateString("ko-KR")}</span>
-                {post.view_count > 0 && <span>조회 {post.view_count}</span>}
+                {post.view_count > 0 && <span>{t("community_stat_views_inline", { count: post.view_count })}</span>}
               </div>
             </Link>
           </li>

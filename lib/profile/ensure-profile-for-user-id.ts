@@ -2,7 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ProfileRow } from "./types";
 import { withDefaultAvatar } from "./default-avatar";
 import { fetchProfileRowSafe } from "./fetch-profile-row-safe";
-import { normalizeAppLanguage } from "@/lib/i18n/config";
+import { parseExplicitAppLanguage } from "@/lib/i18n/config";
 import { normalizeStoreAuthProvider } from "@/lib/auth/store-member-policy";
 
 /**
@@ -86,7 +86,7 @@ export async function ensureProfileForUserId(
     metaUser ||
     null;
   const email = user.email?.trim() ?? null;
-  const preferredLanguage = normalizeAppLanguage(meta.preferred_language);
+  const preferredLanguage = parseExplicitAppLanguage(meta.preferred_language);
   const username =
     (metaUser || (email && email.includes("@") ? email.split("@")[0] : null)) ?? null;
   const nicknameRaw =
@@ -129,7 +129,7 @@ export async function ensureProfileForUserId(
     status: dbStatus,
     member_status: isAdminManual ? "verified_member" : "sns_member",
     avatar_url: oauthAvatar,
-    preferred_language: preferredLanguage,
+    ...(preferredLanguage ? { preferred_language: preferredLanguage } : {}),
     preferred_country: "PH",
     provider: dbProvider,
     auth_provider: dbProvider,

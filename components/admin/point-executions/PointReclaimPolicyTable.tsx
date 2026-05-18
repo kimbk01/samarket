@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { PointReclaimPolicy } from "@/lib/types/point-execution";
 import {
   POINT_RECLAIM_TRIGGER_LABELS,
@@ -13,10 +14,11 @@ interface PointReclaimPolicyTableProps {
 export function PointReclaimPolicyTable({
   policies,
 }: PointReclaimPolicyTableProps) {
+  const { t } = useI18n();
+
   if (policies.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        회수 정책이 없습니다.
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted"> {t("admin_points_exec_reclaim_empty")}
       </div>
     );
   }
@@ -26,20 +28,15 @@ export function PointReclaimPolicyTable({
       <table className="w-full min-w-[480px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              대상
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_th_target")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              발동 조건
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_exec_th_trigger")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              회수 방식
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_exec_th_reclaim_mode")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              비율
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_exec_th_ratio")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              상태
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_th_status")}
             </th>
           </tr>
         </thead>
@@ -50,7 +47,9 @@ export function PointReclaimPolicyTable({
               className="border-b border-sam-border-soft hover:bg-sam-app"
             >
               <td className="px-3 py-2.5 text-sam-fg">
-                {p.targetType === "post" ? "글" : "댓글"}
+                {p.targetType === "post"
+                  ? t("admin_points_target_post")
+                  : t("admin_points_target_comment")}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
                 {POINT_RECLAIM_TRIGGER_LABELS[p.triggerType]}
@@ -69,7 +68,7 @@ export function PointReclaimPolicyTable({
                       : "bg-sam-border-soft text-sam-muted"
                   }`}
                 >
-                  {p.isActive ? "활성" : "비활성"}
+                  {p.isActive ? t("admin_points_status_active") : t("admin_points_status_inactive")}
                 </span>
               </td>
             </tr>

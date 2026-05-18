@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { createBanner } from "@/lib/admin-banners/mock-admin-banners";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -10,6 +11,7 @@ const MOCK_ADMIN_ID = "admin-1";
 
 export function AdminBannerCreatePage() {
   const router = useRouter();
+  const { t } = useI18n();
 
   const handleSubmit = (values: AdminBannerFormValues) => {
     const banner = createBanner({
@@ -31,12 +33,12 @@ export function AdminBannerCreatePage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="배너 등록" backHref="/admin/banners" />
-      <AdminCard title="배너 정보">
+      <AdminPageHeader titleKey="admin_banners_page_create" backHref="/admin/banners" />
+      <AdminCard titleKey="admin_banners_card_info">
         <AdminBannerForm
           initial={null}
           onSubmit={handleSubmit}
-          submitLabel="등록"
+          submitLabel={t("admin_banners_submit_register")}
         />
       </AdminCard>
     </div>

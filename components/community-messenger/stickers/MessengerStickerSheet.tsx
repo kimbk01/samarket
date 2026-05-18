@@ -5,6 +5,7 @@ import type { StickerItemDto, StickerPackDto } from "@/lib/stickers/sticker-dto"
 import { readRecentStickerUrls } from "@/lib/stickers/recent-stickers-client";
 import { MessengerStickerLazyImage } from "@/components/community-messenger/stickers/MessengerStickerLazyImage";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const RECENT_PACK_ID = "__recent__";
 
@@ -17,6 +18,7 @@ export function MessengerStickerSheet({
   onClose: () => void;
   onPick: (fileUrl: string, stickerItemId?: string) => void;
 }) {
+  const { t } = useI18n();
   const [packs, setPacks] = useState<StickerPackDto[] | null>(null);
   const [packErr, setPackErr] = useState<string | null>(null);
   const [activePackId, setActivePackId] = useState<string | null>(null);
@@ -38,12 +40,12 @@ export function MessengerStickerSheet({
         if (res.ok && json.ok && json.packs?.length) {
           setPacks(json.packs);
         } else {
-          setPackErr("스티커 목록을 불러오지 못했습니다.");
+          setPackErr(t("cm_ui_sticker_load_failed"));
           setPacks((prev) => (Array.isArray(prev) && prev.length === 0 ? prev : []));
         }
       } catch {
         if (!cancelled) {
-          setPackErr("스티커 목록을 불러오지 못했습니다.");
+          setPackErr(t("cm_ui_sticker_load_failed"));
           setPacks((prev) => (Array.isArray(prev) && prev.length === 0 ? prev : []));
         }
       }
@@ -95,7 +97,7 @@ export function MessengerStickerSheet({
     const recentPack: StickerPackDto = {
       id: RECENT_PACK_ID,
       slug: "recent",
-      name: "최근",
+      name: t("cm_ui_recent"),
       iconUrl: recentUrls[0] ?? "/stickers/packs/basic/1f600.webp",
       sortOrder: -1,
     };
@@ -116,17 +118,17 @@ export function MessengerStickerSheet({
       className="flex max-h-[min(52dvh,420px)] min-h-0 w-full flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface shadow-[0_-8px_28px_rgba(17,24,39,0.12)]"
       role="dialog"
       aria-modal="true"
-      aria-label="스티커"
+      aria-label={t("cm_ui_sticker")}
       onClick={(e) => e.stopPropagation()}
     >
       <div className="flex shrink-0 items-center justify-between border-b border-sam-border-soft px-3 py-2">
-        <span className="sam-text-body font-semibold text-sam-fg">스티커</span>
+        <span className="sam-text-body font-semibold text-sam-fg">{t("cm_ui_sticker")}</span>
         <button
           type="button"
           className="rounded-full px-2 py-1 sam-text-body-secondary font-medium text-sam-muted hover:bg-sam-surface-muted"
           onClick={onClose}
         >
-          닫기
+          {t("nav_close")}
         </button>
       </div>
       {packErr ? <p className="px-3 py-2 sam-text-body-secondary text-red-600">{packErr}</p> : null}
@@ -149,10 +151,10 @@ export function MessengerStickerSheet({
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-2">
         {itemsBusy ? (
-          <p className="py-6 text-center sam-text-body-secondary text-sam-muted">불러오는 중…</p>
+          <p className="py-6 text-center sam-text-body-secondary text-sam-muted">{t("common_loading")}</p>
         ) : !items?.length ? (
           <p className="py-6 text-center sam-text-body-secondary text-sam-muted">
-            {activePackId === RECENT_PACK_ID ? "최근 사용한 스티커가 없습니다." : "스티커가 없습니다."}
+            {activePackId === RECENT_PACK_ID ? t("cm_ui_no_recent_stickers") : t("cm_ui_no_stickers")}
           </p>
         ) : (
           <div className="grid grid-cols-5 gap-2 sm:grid-cols-6">

@@ -26,7 +26,7 @@ export function FavoriteFilterBar({
   sortKey,
   onSortKeyChange,
 }: FavoriteFilterBarProps) {
-  const { tt, t } = useI18n();
+  const { t } = useI18n();
   return (
     <div className="space-y-3 border-b border-sam-border-soft bg-sam-surface px-4 py-3">
       <div className="sam-tabs sam-tabs--scroll">
@@ -39,7 +39,7 @@ export function FavoriteFilterBar({
               statusFilter === opt.value ? APP_TOP_MENU_ROW1_ACTIVE : APP_TOP_MENU_ROW1_INACTIVE
             }`}
           >
-            {tt(opt.label)}
+            {t(opt.labelKey)}
           </button>
         ))}
       </div>
@@ -52,7 +52,7 @@ export function FavoriteFilterBar({
         >
           {FAVORITE_SORT_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
-              {tt(opt.label)}
+              {t(opt.labelKey)}
             </option>
           ))}
         </select>

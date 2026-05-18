@@ -5,6 +5,7 @@ import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { invalidateMeStoresListDedupedCache } from "@/lib/me/fetch-me-stores-deduped";
 import { StoreOpsOnOffSwitch } from "@/components/business/admin/StoreOpsOnOffSwitch";
 import { parsePostgresBool } from "@/lib/community-feed/parse-postgres-bool";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 /** `stores.is_open` — null/미설정은 영업 중(기존 `!== false` 와 동일). 문자열 "false" 등은 parse 로 처리 */
 function isStoreOpen(row: StoreRow): boolean {
@@ -18,6 +19,7 @@ export function BusinessAdminOpenToggle({
   row: StoreRow;
   onUpdated: () => void | Promise<void>;
 }) {
+  const { t } = useI18n();
   const [busy, setBusy] = useState(false);
   const [pendingUi, setPendingUi] = useState<boolean | null>(null);
   const isOpen = isStoreOpen(row);
@@ -62,7 +64,7 @@ export function BusinessAdminOpenToggle({
 
   return (
     <div className="flex shrink-0 items-center gap-2">
-      <span className="sam-text-helper font-semibold text-sam-fg">영업</span>
+      <span className="sam-text-helper font-semibold text-sam-fg">{t("business_phase7_198")}</span>
       <StoreOpsOnOffSwitch
         checked={shownOpen}
         disabled={disabled}

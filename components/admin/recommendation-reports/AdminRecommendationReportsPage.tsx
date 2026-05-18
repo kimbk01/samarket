@@ -16,13 +16,13 @@ export function AdminRecommendationReportsPage() {
   return (
     <>
       <AdminPageHeader
-        title="추천 운영 보고서"
-        description="일간·주간 성과 리포트, KPI, 브리핑 보드"
+        titleKey="admin_rec_report_page_title"
+        descriptionKey="admin_rec_report_page_desc"
       />
       <div className="mb-4">
         <ReportPeriodSelector onGenerated={handleGenerated} />
       </div>
-      <AdminCard title="보고서 목록">
+      <AdminCard titleKey="admin_rec_report_card_list">
         <RecommendationReportTable refresh={refresh} />
       </AdminCard>
     </>

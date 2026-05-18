@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import type { PostListPreviewModel } from "@/lib/posts/post-list-preview-model";
 import { formatPrice } from "@/lib/utils/format";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export type MessengerTradeProductDockRowProps = {
   thumbnailUrl: string | null | undefined;
@@ -24,23 +24,26 @@ export function MessengerTradeProductDockRow({
   detailHref,
   productLabel,
 }: MessengerTradeProductDockRowProps) {
+  const { t } = useI18n();
   return (
     <div className="flex gap-2.5">
       <Link
         href={detailHref}
         className="relative h-12 w-12 shrink-0 overflow-hidden rounded-md bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)] transition active:opacity-90"
-        aria-label={`${productLabel} 상세 보기`}
+        aria-label={t("cm_ui_product_detail_view_aria", { label: productLabel })}
       >
-        <SamarketThumbnail
-          src={thumbnailUrl}
-          fill
-          roundedClassName="rounded-md"
-          className="bg-[color:var(--cm-room-primary-soft)]"
-          fallbackSrc=""
-          fallbackNode={<span className="sam-text-xxs text-[color:var(--cm-room-text-muted)]">상품</span>}
-        />
+        {thumbnailUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center sam-text-xxs text-[color:var(--cm-room-text-muted)]">{t("cm_ui_product")}</div>
+        )}
       </Link>
-      <Link href={detailHref} className="min-w-0 flex-1 text-left transition active:opacity-90" aria-label={`${productLabel} 상세 보기`}>
+      <Link
+        href={detailHref}
+        className="min-w-0 flex-1 text-left transition active:opacity-90"
+        aria-label={t("cm_ui_product_detail_view_aria", { label: productLabel })}
+      >
         <p className="line-clamp-2 sam-text-body-secondary font-medium leading-snug text-[color:var(--cm-room-text)]">{line1}</p>
         <p className="mt-0.5 sam-text-xxs text-[color:var(--cm-room-text-muted)]">{line2}</p>
       </Link>
@@ -51,7 +54,7 @@ export function MessengerTradeProductDockRow({
 /** `팝니다 · 모델 · 연식` 형 제목 → 메뉴·독과 동일하게 앞 두 토큰만(높이 절약) */
 export function compactMessengerTradeTitleHeadline(title: string): string {
   const raw = title.trim();
-  if (!raw) return "상품";
+  if (!raw) return "product";
   const parts = raw.split("·").map((s) => s.trim()).filter(Boolean);
   if (parts.length >= 2) return `${parts[0]} · ${parts[1]}`;
   return raw;

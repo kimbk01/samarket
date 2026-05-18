@@ -11,6 +11,7 @@ import {
 } from "./DeliveryOrderBadges";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { formatKstDatetimeLong } from "@/lib/datetime/format-kst-datetime";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export type OrderTableSelection = {
   selectedIds: ReadonlySet<string>;
@@ -23,33 +24,35 @@ function shortId(id: string, len = 8) {
   return id.length <= len ? id : `${id.slice(0, len)}…`;
 }
 
-function itemsLineSummary(o: AdminDeliveryOrder): string {
-  if (!o.items?.length) return "품목 없음";
-  return o.items.map((it) => `${it.menuName}×${it.qty}`).join(", ");
-}
-
-function fulfillmentSummary(o: AdminDeliveryOrder): string {
-  if (o.orderType === "delivery") {
-    const parts = [o.addressSummary, o.addressDetail].filter((x) => x && String(x).trim());
-    return parts.length ? parts.join(" · ") : "배달지 미입력";
-  }
-  return o.pickupNote?.trim() ? `포장 메모: ${o.pickupNote}` : "포장";
-}
-
-function slaBadgeLabel(o: AdminDeliveryOrder): string | null {
-  const level = (o.slaWarningLevel ?? "").trim();
-  const reason = (o.slaWarningReason ?? "").trim();
-  if (!level && !reason && !o.needsAdminAttention) return null;
-  if (reason === "pending_over_5m") return "주문 방치";
-  if (reason === "eta_overdue") return "ETA 초과";
-  if (reason === "delivery_over_60m") return "장기 배송";
-  if (reason === "unassigned_over_10m") return "미배차";
-  if (reason === "refund_overdue") return "환불 지연";
-  if (o.needsAdminAttention) return "운영 필요";
-  return level ? `SLA ${level}` : "SLA";
-}
-
 export function OrderTable({ rows, selection }: { rows: AdminDeliveryOrder[]; selection?: OrderTableSelection }) {
+  const { t } = useI18n();
+
+  const itemsLineSummary = (o: AdminDeliveryOrder): string => {
+    if (!o.items?.length) return t("admin_do_no_items");
+    return o.items.map((it) => `${it.menuName}×${it.qty}`).join(", ");
+  };
+
+  const fulfillmentSummary = (o: AdminDeliveryOrder): string => {
+    if (o.orderType === "delivery") {
+      const parts = [o.addressSummary, o.addressDetail].filter((x) => x && String(x).trim());
+      return parts.length ? parts.join(" · ") : t("admin_do_no_address");
+    }
+    return o.pickupNote?.trim() ? t("admin_do_pickup_memo", { note: o.pickupNote }) : t("admin_do_pickup");
+  };
+
+  const slaBadgeLabel = (o: AdminDeliveryOrder): string | null => {
+    const level = (o.slaWarningLevel ?? "").trim();
+    const reason = (o.slaWarningReason ?? "").trim();
+    if (!level && !reason && !o.needsAdminAttention) return null;
+    if (reason === "pending_over_5m") return t("admin_do_sla_pending");
+    if (reason === "eta_overdue") return t("admin_do_sla_eta");
+    if (reason === "delivery_over_60m") return t("admin_do_sla_long_delivery");
+    if (reason === "unassigned_over_10m") return t("admin_do_sla_unassigned");
+    if (reason === "refund_overdue") return t("admin_do_sla_refund");
+    if (o.needsAdminAttention) return t("admin_do_needs_attention");
+    return level ? `SLA ${level}` : "SLA";
+  };
+
   const visibleIds = rows.map((r) => r.id);
   const allVisibleSelected =
     selection != null &&
@@ -60,14 +63,14 @@ export function OrderTable({ rows, selection }: { rows: AdminDeliveryOrder[]; se
   const selectAllRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const el = selectAllRef.current;
-    if (el) {
-      el.indeterminate = Boolean(someVisibleSelected && !allVisibleSelected);
+    const elRef = selectAllRef.current;
+    if (elRef) {
+      elRef.indeterminate = Boolean(someVisibleSelected && !allVisibleSelected);
     }
   }, [someVisibleSelected, allVisibleSelected]);
 
   if (rows.length === 0) {
-    return <p className="py-8 text-center text-sm text-sam-muted">조건에 맞는 주문이 없습니다.</p>;
+    return <p className="py-8 text-center text-sm text-sam-muted">{t("admin_do_orders_empty")}</p>;
   }
 
   return (
@@ -83,24 +86,24 @@ export function OrderTable({ rows, selection }: { rows: AdminDeliveryOrder[]; se
                   checked={allVisibleSelected}
                   onChange={(e) => selection.onToggleAllVisible(e.target.checked)}
                   className="rounded border-sam-border"
-                  title="현재 목록 전체 선택"
-                  aria-label="현재 목록 전체 선택"
+                  title={t("admin_do_select_all_aria")}
+                  aria-label={t("admin_do_select_all_aria")}
                 />
               </th>
             ) : null}
-            <th className="px-2 py-2">주문번호</th>
-            <th className="px-2 py-2">일시</th>
-            <th className="px-2 py-2 min-w-[160px]">주문자·연락</th>
-            <th className="px-2 py-2 min-w-[160px]">매장·운영</th>
-            <th className="px-2 py-2 min-w-[220px]">구매·배송·요청</th>
-            <th className="px-2 py-2">방식</th>
-            <th className="px-2 py-2">금액</th>
-            <th className="px-2 py-2">결제</th>
-            <th className="px-2 py-2">주문</th>
-            <th className="px-2 py-2">정산</th>
-            <th className="px-2 py-2">신고</th>
-            <th className="px-2 py-2">조치</th>
-            <th className="px-2 py-2">액션</th>
+            <th className="px-2 py-2">{t("admin_do_th_order_no")}</th>
+            <th className="px-2 py-2">{t("admin_do_th_date")}</th>
+            <th className="px-2 py-2 min-w-[160px]">{t("admin_do_th_buyer_contact")}</th>
+            <th className="px-2 py-2 min-w-[160px]">{t("admin_do_th_store_ops")}</th>
+            <th className="px-2 py-2 min-w-[220px]">{t("admin_do_th_delivery_request")}</th>
+            <th className="px-2 py-2">{t("admin_do_th_method")}</th>
+            <th className="px-2 py-2">{t("admin_do_th_amount")}</th>
+            <th className="px-2 py-2">{t("admin_do_th_payment")}</th>
+            <th className="px-2 py-2">{t("admin_do_th_order_status")}</th>
+            <th className="px-2 py-2">{t("admin_do_th_settlement")}</th>
+            <th className="px-2 py-2">{t("admin_do_th_report")}</th>
+            <th className="px-2 py-2">{t("admin_do_th_measure")}</th>
+            <th className="px-2 py-2">{t("admin_do_common_action")}</th>
           </tr>
         </thead>
         <tbody>
@@ -120,7 +123,7 @@ export function OrderTable({ rows, selection }: { rows: AdminDeliveryOrder[]; se
                       checked={selection.selectedIds.has(o.id)}
                       onChange={(e) => selection.onToggleRow(o.id, e.target.checked)}
                       className="rounded border-sam-border"
-                      aria-label={`주문 ${o.orderNo} 선택`}
+                      aria-label={t("admin_do_select_order_aria", { orderNo: o.orderNo })}
                     />
                   </td>
                 ) : null}
@@ -138,10 +141,10 @@ export function OrderTable({ rows, selection }: { rows: AdminDeliveryOrder[]; se
                 <td className="px-2 py-2 text-sam-fg">
                   <div className="font-medium">{o.buyerName || "—"}</div>
                   <div className="sam-text-helper text-sam-muted" title={o.buyerPhone}>
-                    {o.buyerPhone?.trim() ? o.buyerPhone : "전화 없음"}
+                    {o.buyerPhone?.trim() ? o.buyerPhone : t("admin_do_no_phone")}
                   </div>
                   <div className="font-mono sam-text-xxs text-sam-muted" title={o.buyerUserId}>
-                    회원 {shortId(o.buyerUserId, 12)}
+                    {t("admin_do_member_id", { id: shortId(o.buyerUserId, 12) })}
                   </div>
                 </td>
                 <td className="px-2 py-2 text-sam-fg">
@@ -152,17 +155,17 @@ export function OrderTable({ rows, selection }: { rows: AdminDeliveryOrder[]; se
                     {o.storeSlug ? (
                       <span title={o.storeSlug}>/{o.storeSlug}</span>
                     ) : (
-                      <span className="text-sam-meta">슬러그 없음</span>
+                      <span className="text-sam-meta">{t("admin_do_no_slug")}</span>
                     )}
                   </div>
                   <div className="sam-text-xxs text-sam-muted">
-                    사장님 {o.storeOwnerName || "—"}{" "}
+                    {t("admin_do_owner", { name: o.storeOwnerName || "—" })}{" "}
                     <span className="font-mono text-sam-meta" title={o.storeOwnerUserId}>
                       · {shortId(o.storeOwnerUserId)}
                     </span>
                   </div>
                   <div className="font-mono sam-text-xxs text-sam-meta" title={o.storeId}>
-                    매장 {shortId(o.storeId, 12)}
+                    {t("admin_do_store_id", { id: shortId(o.storeId, 12) })}
                   </div>
                 </td>
                 <td className="px-2 py-2 text-sam-fg">
@@ -177,11 +180,15 @@ export function OrderTable({ rows, selection }: { rows: AdminDeliveryOrder[]; se
                       className="mt-1 rounded bg-signature/5 px-1.5 py-0.5 sam-text-xxs text-sam-fg"
                       title={o.requestNote}
                     >
-                      요청: {o.requestNote.length > 80 ? `${o.requestNote.slice(0, 80)}…` : o.requestNote}
+                      {t("admin_do_request_note", {
+                        note: o.requestNote.length > 80 ? `${o.requestNote.slice(0, 80)}…` : o.requestNote,
+                      })}
                     </div>
                   ) : null}
                 </td>
-                <td className="px-2 py-2 whitespace-nowrap">{o.orderType === "delivery" ? "배달" : "포장"}</td>
+                <td className="px-2 py-2 whitespace-nowrap">
+                  {o.orderType === "delivery" ? t("admin_do_order_type_delivery") : t("admin_do_order_type_pickup")}
+                </td>
                 <td className="px-2 py-2 whitespace-nowrap font-medium">{formatMoneyPhp(o.finalAmount)}</td>
                 <td className="px-2 py-2">
                   <PaymentStatusBadge status={o.paymentStatus} />
@@ -198,7 +205,7 @@ export function OrderTable({ rows, selection }: { rows: AdminDeliveryOrder[]; se
                 </td>
                 <td className="px-2 py-2 whitespace-nowrap">
                   <Link href={detailHref} className="font-medium text-signature hover:underline">
-                    상세
+                    {t("admin_do_common_detail")}
                   </Link>
                 </td>
               </tr>

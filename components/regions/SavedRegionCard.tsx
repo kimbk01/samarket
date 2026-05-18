@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import type { UserRegion } from "@/lib/regions/types";
 import { PrimaryRegionBadge } from "./PrimaryRegionBadge";
@@ -18,6 +19,7 @@ export function SavedRegionCard({
   onRemove,
   canRemove,
 }: SavedRegionCardProps) {
+  const { t } = useI18n();
   return (
     <div className="flex items-center justify-between rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4">
       <div>
@@ -25,7 +27,7 @@ export function SavedRegionCard({
         <div className="mt-1 flex items-center gap-2">
           {region.isPrimary && <PrimaryRegionBadge />}
           {isCurrent && (
-            <span className="sam-text-helper text-sam-muted">현재 보는 동네</span>
+            <span className="sam-text-helper text-sam-muted">{t("ui_region_current_neighborhood")}</span>
           )}
         </div>
       </div>
@@ -39,7 +41,7 @@ export function SavedRegionCard({
             }}
             className="sam-text-body-secondary text-signature"
           >
-            대표로
+            {t("ui_region_set_primary")}
           </button>
         )}
         {canRemove && (
@@ -51,7 +53,7 @@ export function SavedRegionCard({
             }}
             className="sam-text-body-secondary text-sam-muted"
           >
-            삭제
+            {t("ui_region_remove")}
           </button>
         )}
       </div>

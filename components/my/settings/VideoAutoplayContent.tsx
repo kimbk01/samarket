@@ -1,25 +1,30 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
   getUserSettings,
   subscribeUserSettings,
   syncUserSettings,
   updateUserSettings,
-  VIDEO_AUTOPLAY_LABELS,
 } from "@/lib/settings/user-settings-store";
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { VideoAutoplayMode } from "@/lib/types/settings-db";
 
-const OPTIONS: { value: VideoAutoplayMode; label: string }[] = [
-  { value: "always", label: VIDEO_AUTOPLAY_LABELS.always },
-  { value: "wifi_only", label: VIDEO_AUTOPLAY_LABELS.wifi_only },
-  { value: "never", label: VIDEO_AUTOPLAY_LABELS.never },
-];
-
 export function VideoAutoplayContent() {
+  const { t } = useI18n();
   const userId = getCurrentUser()?.id ?? "me";
   const [mode, setMode] = useState<VideoAutoplayMode>("wifi_only");
+
+  const options = useMemo(
+    (): { value: VideoAutoplayMode; labelKey: MessageKey }[] => [
+      { value: "always", labelKey: "settings_video_autoplay_always" },
+      { value: "wifi_only", labelKey: "settings_video_autoplay_wifi_only" },
+      { value: "never", labelKey: "settings_video_autoplay_never" },
+    ],
+    []
+  );
 
   const refresh = useCallback(() => {
     const s = getUserSettings(userId);
@@ -40,17 +45,17 @@ export function VideoAutoplayContent() {
 
   return (
     <ul className="divide-y divide-sam-border-soft">
-      {OPTIONS.map((opt) => (
+      {options.map((opt) => (
         <li key={opt.value}>
           <button
             type="button"
             className="flex w-full items-center justify-between py-3 text-left sam-text-body text-sam-fg"
             onClick={() => select(opt.value)}
           >
-            <span>{opt.label}</span>
-            {mode === opt.value && (
-              <span className="sam-text-body-secondary font-medium text-signature">선택됨</span>
-            )}
+            <span>{t(opt.labelKey)}</span>
+            {mode === opt.value ? (
+              <span className="sam-text-body-secondary font-medium text-signature">{t("common_selected")}</span>
+            ) : null}
           </button>
         </li>
       ))}

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { formatTimeAgo } from "@/lib/utils/format";
 
@@ -11,6 +12,7 @@ type Props = {
 };
 
 export function CommunityPostDetailAuthorRow({ authorName, locationLabel, createdAt, subline }: Props) {
+  const { t } = useI18n();
   const time =
     createdAt && !Number.isNaN(Date.parse(createdAt)) ? formatTimeAgo(createdAt, "ko-KR") : "";
   const initial = (authorName?.trim()?.[0] ?? "?").toUpperCase();
@@ -24,7 +26,7 @@ export function CommunityPostDetailAuthorRow({ authorName, locationLabel, create
         {initial}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[15px] font-semibold leading-[1.4] text-[#1F2430]">{authorName || "익명"}</p>
+        <p className="truncate text-[15px] font-semibold leading-[1.4] text-[#1F2430]">{authorName || t("community_anonymous")}</p>
         <p className="mt-0.5 text-[12px] font-normal leading-[1.4] text-[#6B7280]">
           {locationLabel ? <span>{locationLabel}</span> : null}
           {locationLabel && time ? <span className="mx-1">·</span> : null}

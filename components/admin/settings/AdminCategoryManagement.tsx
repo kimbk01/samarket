@@ -12,8 +12,10 @@ import {
 import { AdminCard } from "@/components/admin/AdminCard";
 import { ServiceCategoryTable } from "./ServiceCategoryTable";
 import { SubcategoryTable } from "./SubcategoryTable";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function AdminCategoryManagement() {
+  const { t } = useI18n();
   const [categories, setCategories] = useState<ServiceCategory[]>(() => getServiceCategories());
   const [subcategories, setSubcategories] = useState<ServiceSubcategory[]>(() =>
     getServiceSubcategories()
@@ -61,24 +63,22 @@ export function AdminCategoryManagement() {
   const handleSave = useCallback(() => {
     refreshCategories();
     refreshSubcategories();
-    alert("저장되었습니다.");
-  }, [refreshCategories, refreshSubcategories]);
+    alert(t("admin_settings_saved"));
+  }, [refreshCategories, refreshSubcategories, t]);
 
   const handleReset = useCallback(() => {
-    if (!confirm("카테고리 설정을 초기 상태로 되돌리시겠습니까?")) return;
+    if (!confirm(t("admin_settings_reset_confirm_categories"))) return;
     resetServiceCategories();
     setCategories(getServiceCategories());
     setSubcategories(getServiceSubcategories(parentFilterId || undefined));
-    alert("초기화되었습니다.");
-  }, [parentFilterId]);
+    alert(t("admin_settings_reset_done"));
+  }, [parentFilterId, t]);
 
   return (
     <div className="space-y-6">
-      <p className="sam-text-body-secondary text-sam-muted">
-        서비스 상단 카테고리와 하위 카테고리의 노출/정렬을 관리합니다.
-      </p>
+      <p className="sam-text-body-secondary text-sam-muted">{t("admin_settings_category_intro")}</p>
 
-      <AdminCard title="상단 서비스 카테고리">
+      <AdminCard titleKey="admin_settings_category_top_title">
         <ServiceCategoryTable
           items={categories}
           onToggleActive={handleCategoryToggle}
@@ -86,7 +86,7 @@ export function AdminCategoryManagement() {
         />
       </AdminCard>
 
-      <AdminCard title="하위 운영 카테고리">
+      <AdminCard titleKey="admin_settings_category_sub_title">
         <SubcategoryTable
           items={subcategories}
           parents={categories}
@@ -103,14 +103,14 @@ export function AdminCategoryManagement() {
           onClick={handleSave}
           className="rounded border border-sam-border bg-sam-surface px-4 py-2 sam-text-body font-medium text-sam-fg hover:bg-sam-app"
         >
-          저장
+          {t("common_save")}
         </button>
         <button
           type="button"
           onClick={handleReset}
           className="rounded border border-sam-border bg-sam-surface px-4 py-2 sam-text-body font-medium text-sam-fg hover:bg-sam-app"
         >
-          초기화
+          {t("admin_settings_reset")}
         </button>
       </div>
     </div>

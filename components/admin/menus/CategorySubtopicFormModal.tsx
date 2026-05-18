@@ -9,6 +9,7 @@ import {
 import { updateCategoryAdmin } from "@/lib/categories/admin/updateCategory";
 import { validateSlugFormat } from "@/lib/categories/validateSlug";
 import { checkSlugAvailable } from "@/lib/categories/admin/checkSlugAvailable";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 function settingsPayloadFrom(cat: CategoryWithSettings): CreateCategorySettingsPayload {
   const s = cat.settings;
@@ -25,7 +26,6 @@ function settingsPayloadFrom(cat: CategoryWithSettings): CreateCategorySettingsP
 
 interface CategorySubtopicFormModalProps {
   parent: CategoryWithSettings;
-  /** 수정 시 */
   category?: CategoryWithSettings | null;
   nextSortOrder: number;
   onDone: () => void;
@@ -40,6 +40,7 @@ export function CategorySubtopicFormModal({
   onDone,
   onClose,
 }: CategorySubtopicFormModalProps) {
+  const { t } = useI18n();
   const [name, setName] = useState(category?.name ?? "");
   const [slug, setSlug] = useState(category?.slug ?? "");
   const [sort_order, setSortOrder] = useState(category?.sort_order ?? nextSortOrder);
@@ -140,14 +141,14 @@ export function CategorySubtopicFormModal({
         onClick={(ev) => ev.stopPropagation()}
       >
         <h2 className="mb-1 sam-text-section-title font-semibold text-sam-fg">
-          {category ? "주제 수정" : "주제 추가"}
+          {category ? t("admin_menu_subtopic_form_edit") : t("admin_menu_subtopic_form_add")}
         </h2>
         <p className="mb-4 sam-text-body-secondary text-sam-muted">
-          상위 메뉴: <span className="font-medium text-sam-fg">{parent.name}</span> — 홈·마켓 2행 칩에만 노출됩니다.
+          {t("admin_menu_subtopic_form_parent", { name: parent.name })}
         </p>
         <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label className="block sam-text-body-secondary font-medium text-sam-fg">주제명 *</label>
+            <label className="block sam-text-body-secondary font-medium text-sam-fg">{t("admin_menu_subtopic_label_name")}</label>
             <input
               type="text"
               value={name}
@@ -157,7 +158,7 @@ export function CategorySubtopicFormModal({
             />
           </div>
           <div>
-            <label className="block sam-text-body-secondary font-medium text-sam-fg">slug * (영문 소문자, 숫자, 하이픈)</label>
+            <label className="block sam-text-body-secondary font-medium text-sam-fg">{t("admin_menu_subtopic_label_slug")}</label>
             <input
               type="text"
               value={slug}
@@ -168,11 +169,11 @@ export function CategorySubtopicFormModal({
               className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
               required
             />
-            {slugError && <p className="mt-1 sam-text-helper text-red-600">{slugError}</p>}
+            {slugError ? <p className="mt-1 sam-text-helper text-red-600">{slugError}</p> : null}
           </div>
           <div className="flex flex-wrap items-center gap-4">
             <div>
-              <label className="block sam-text-body-secondary font-medium text-sam-fg">순서</label>
+              <label className="block sam-text-body-secondary font-medium text-sam-fg">{t("admin_menu_subtopic_label_sort")}</label>
               <input
                 type="number"
                 value={sort_order}
@@ -187,7 +188,7 @@ export function CategorySubtopicFormModal({
                 onChange={(e) => setIsActive(e.target.checked)}
                 className="rounded border-sam-border"
               />
-              사용
+              {t("admin_menu_status_active")}
             </label>
           </div>
           <div className="flex justify-end gap-2 pt-2">
@@ -196,14 +197,14 @@ export function CategorySubtopicFormModal({
               onClick={onClose}
               className="rounded-ui-rect border border-sam-border px-4 py-2 sam-text-body text-sam-fg hover:bg-sam-app"
             >
-              취소
+              {t("common_cancel")}
             </button>
             <button
               type="submit"
               disabled={submitting}
               className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white hover:bg-signature/90 disabled:opacity-50"
             >
-              {submitting ? "저장 중…" : "저장"}
+              {submitting ? t("admin_menu_saving") : t("common_save")}
             </button>
           </div>
         </form>

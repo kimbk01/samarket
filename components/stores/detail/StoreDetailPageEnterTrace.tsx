@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useLayoutEffect } from "react";
 import { deliveryShellEntryMark } from "@/lib/dibay/delivery-shell-entry-trace";

@@ -20,6 +20,7 @@ import { TrustPolicyForm } from "./TrustPolicyForm";
 import { RegionPolicyForm } from "./RegionPolicyForm";
 import Link from "next/link";
 import { SettingChangeLogList } from "./SettingChangeLogList";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 function getDisplaySettings(
   settings: AppSettings,
@@ -29,6 +30,7 @@ function getDisplaySettings(
 }
 
 export function AdminSettingsPage() {
+  const { t } = useI18n();
   // localStorage는 클라 전용이라 SSR·첫 클램프와 값이 달라지면 하이드레이션 오류가 난다.
   // 기본값으로 첫 페인트를 맞춘 뒤 마운트 후에만 저장본을 불러온다.
   const [settings, setSettings] = useState<AppSettings>(() => ({ ...DEFAULT_APP_SETTINGS }));
@@ -87,17 +89,15 @@ export function AdminSettingsPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="운영설정" />
+      <AdminPageHeader titleKey="admin_page_settings" />
 
-      <AdminCard title="알림·알림음 (도메인)">
-        <p className="sam-text-body text-sam-fg">
-          거래 채팅·커뮤니티·주문·매장 알림을 분리해 알림음·쿨다운·반복을 설정합니다.
-        </p>
+      <AdminCard titleKey="admin_settings_notifications_domain_title">
+        <p className="sam-text-body text-sam-fg">{t("admin_settings_notifications_card_desc")}</p>
         <Link
           href="/admin/settings/notifications"
           className="mt-3 inline-block rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white"
         >
-          도메인별 알림 설정 열기
+          {t("admin_settings_notifications_open")}
         </Link>
       </AdminCard>
 
@@ -127,14 +127,12 @@ export function AdminSettingsPage() {
         )}
         {activeSection === "categories" && (
           <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4">
-            <p className="sam-text-body text-sam-fg">
-              카테고리(거래/서비스/커뮤니티/기능) 및 기능 토글은 전용 페이지에서 관리합니다.
-            </p>
+            <p className="sam-text-body text-sam-fg">{t("admin_settings_categories_desc")}</p>
             <Link
               href="/admin/categories"
               className="mt-3 inline-block rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white"
             >
-              카테고리 관리로 이동
+              {t("admin_settings_categories_link")}
             </Link>
           </div>
         )}
@@ -142,7 +140,7 @@ export function AdminSettingsPage() {
         {activeSection !== "categories" && (
         <div className="mt-6 flex flex-wrap items-center gap-2 border-t border-sam-border-soft pt-4">
           {isDirty && (
-            <span className="sam-text-body-secondary text-amber-600">저장하지 않은 변경이 있습니다</span>
+            <span className="sam-text-body-secondary text-amber-600">{t("admin_settings_unsaved")}</span>
           )}
           <button
             type="button"
@@ -150,20 +148,20 @@ export function AdminSettingsPage() {
             disabled={!isDirty}
             className="rounded border border-sam-border bg-sam-surface px-4 py-2 sam-text-body font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            저장
+            {t("common_save")}
           </button>
           <button
             type="button"
             onClick={handleReset}
             className="rounded border border-sam-border bg-sam-surface px-4 py-2 sam-text-body font-medium text-sam-fg hover:bg-sam-app"
           >
-            초기화
+            {t("admin_settings_reset")}
           </button>
         </div>
         )}
       </AdminCard>
 
-      <AdminCard title="설정 변경 이력">
+      <AdminCard titleKey="admin_settings_changelog_title">
         <SettingChangeLogList refreshKey={logRefreshKey} />
       </AdminCard>
     </div>

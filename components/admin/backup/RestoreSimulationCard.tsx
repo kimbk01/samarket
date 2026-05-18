@@ -1,31 +1,41 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getBackupSnapshots } from "@/lib/backup/mock-backup-snapshots";
 import { getBackupRestores } from "@/lib/backup/mock-backup-restores";
-import { getRestoreStatusLabel, getRestoreTypeLabel } from "@/lib/backup/backup-utils";
+import {
+  BACKUP_RESTORE_STATUS_LABEL_KEYS,
+  BACKUP_RESTORE_TYPE_LABEL_KEYS,
+} from "@/lib/backup/backup-i18n-keys";
+
+function backupLocale(language: string): string {
+  if (language === "en") return "en-US";
+  return "ko-KR";
+}
 
 export function RestoreSimulationCard() {
+  const { t, language } = useI18n();
+  const locale = backupLocale(language);
   const [selectedSnapshotId, setSelectedSnapshotId] = useState<string>("");
   const [simulateResult, setSimulateResult] = useState<string | null>(null);
 
-  const snapshots = useMemo(
-    () => getBackupSnapshots({ status: "completed" }),
-    []
-  );
+  const snapshots = useMemo(() => getBackupSnapshots({ status: "completed" }), []);
   const restores = useMemo(() => getBackupRestores(), []);
 
   const handleSimulate = () => {
     if (!selectedSnapshotId) return;
     setSimulateResult(
-      `복구 시뮬레이션: 스냅샷 ${selectedSnapshotId} 선택. 대상 테이블·행 수 검증 완료 (mock). 실제 복구는 "복구 실행"으로 진행합니다.`
+      t("admin_backup_restore_simulate_result", { id: selectedSnapshotId })
     );
   };
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">스냅샷 (완료된 것만)</span>
+        <span className="sam-text-body-secondary text-sam-muted">
+          {t("admin_backup_restore_snapshot_label")}
+        </span>
         <select
           value={selectedSnapshotId}
           onChange={(e) => {
@@ -34,7 +44,7 @@ export function RestoreSimulationCard() {
           }}
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">선택</option>
+          <option value="">{t("admin_backup_restore_select")}</option>
           {snapshots.map((s) => (
             <option key={s.id} value={s.id}>
               {s.snapshotName} ({s.size})
@@ -47,27 +57,32 @@ export function RestoreSimulationCard() {
           disabled={!selectedSnapshotId}
           className="rounded border border-sam-border bg-sam-app px-3 py-1.5 sam-text-body-secondary text-sam-fg hover:bg-sam-surface-muted disabled:opacity-50"
         >
-          복구 시뮬레이션
+          {t("admin_backup_restore_simulate_btn")}
         </button>
       </div>
-      {simulateResult && (
+      {simulateResult ? (
         <div className="rounded-ui-rect border border-emerald-200 bg-emerald-50/30 p-4 sam-text-body-secondary text-sam-fg">
           {simulateResult}
         </div>
-      )}
+      ) : null}
       <div className="rounded-ui-rect border border-sam-border bg-sam-app/50 p-4">
-        <p className="sam-text-body-secondary font-medium text-sam-fg">최근 복구 로그</p>
+        <p className="sam-text-body-secondary font-medium text-sam-fg">
+          {t("admin_backup_restore_recent_log")}
+        </p>
         {restores.length === 0 ? (
-          <p className="mt-2 sam-text-body-secondary text-sam-muted">복구 이력 없음</p>
+          <p className="mt-2 sam-text-body-secondary text-sam-muted">
+            {t("admin_backup_restore_log_empty")}
+          </p>
         ) : (
           <ul className="mt-2 space-y-2">
             {restores.slice(0, 5).map((r) => (
               <li key={r.id} className="sam-text-body-secondary text-sam-muted">
-                스냅샷 {r.snapshotId} · {getRestoreTypeLabel(r.restoreType)} ·{" "}
-                {getRestoreStatusLabel(r.restoreStatus)} ·{" "}
+                {t("admin_backup_restore_log_snapshot", { snapshotId: r.snapshotId })} ·{" "}
+                {t(BACKUP_RESTORE_TYPE_LABEL_KEYS[r.restoreType])} ·{" "}
+                {t(BACKUP_RESTORE_STATUS_LABEL_KEYS[r.restoreStatus])} ·{" "}
                 {r.completedAt
-                  ? new Date(r.completedAt).toLocaleString()
-                  : "진행 중"}
+                  ? new Date(r.completedAt).toLocaleString(locale)
+                  : t("admin_backup_restore_in_progress")}
               </li>
             ))}
           </ul>

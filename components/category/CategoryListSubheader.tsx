@@ -1,7 +1,8 @@
 "use client";
 
 import type { CategoryWithSettings } from "@/lib/categories/types";
-import { CATEGORY_TYPE_LABELS } from "@/lib/types/category";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { CATEGORY_TYPE_MESSAGE_KEYS } from "@/lib/types/category-label-i18n";
 import { CategoryIcon } from "@/components/home/CategoryIcon";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
@@ -16,6 +17,7 @@ export function CategoryListSubheader({
   category: CategoryWithSettings | null;
   showTypeBadge?: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <div className="min-w-0 overflow-x-hidden border-t border-sam-border-soft bg-sam-surface py-2.5">
       <div className={`flex min-h-[52px] min-w-0 items-center gap-3 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
@@ -29,13 +31,13 @@ export function CategoryListSubheader({
             <h1 className="truncate sam-text-body-lg font-semibold leading-snug text-sam-fg">{category.name}</h1>
             {showTypeBadge && (
               <span className="mt-0.5 inline-block sam-text-helper text-sam-muted">
-                {CATEGORY_TYPE_LABELS[category.type]}
+                {t(CATEGORY_TYPE_MESSAGE_KEYS[category.type])}
               </span>
             )}
           </div>
         </>
       ) : (
-        <p className="sam-text-body text-sam-muted">불러오는 중…</p>
+        <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
       )}
       </div>
     </div>

@@ -2,6 +2,7 @@
 
 import { useCallback, useState, type ReactNode } from "react";
 import { MessengerChatListItem } from "@/components/community-messenger/MessengerChatListItem";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMessengerLongPress } from "@/lib/community-messenger/use-messenger-long-press";
 import type {
   CommunityMessengerDiscoverableGroupSummary,
@@ -101,18 +102,19 @@ function SearchActionsSheet({
   onMarkRead: (room: CommunityMessengerRoomSummary) => void;
   onToggleArchive: (room: CommunityMessengerRoomSummary) => void;
 }) {
+  const { t } = useI18n();
   const row =
     "w-full rounded-ui-rect px-4 py-3 text-left text-[14px] font-normal leading-[1.5] text-[color:var(--messenger-text)] active:bg-[color:var(--messenger-primary-soft)]";
 
   return (
     <div className="fixed inset-0 z-[44] flex flex-col justify-end bg-black/30" role="dialog" aria-modal="true">
-      <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={onDismiss} />
+      <button type="button" className="min-h-0 flex-1 cursor-default" aria-label={t("nav_close")} onClick={onDismiss} />
       <div
         data-messenger-shell
         className="rounded-t-ui-rect border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[var(--messenger-shadow-soft)]"
       >
         {action.kind === "recent" ? (
-          <nav className="flex flex-col p-1" aria-label="최근 검색 작업">
+          <nav className="flex flex-col p-1" aria-label={t("cm_ui_recent_search_actions")}>
             <button
               type="button"
               className={row}
@@ -121,7 +123,7 @@ function SearchActionsSheet({
                 onDismiss();
               }}
             >
-              검색창에 넣기
+              {t("cm_ui_put_in_search_box")}
             </button>
             <button
               type="button"
@@ -131,12 +133,12 @@ function SearchActionsSheet({
                 onDismiss();
               }}
             >
-              최근 검색에서 삭제
+              {t("cm_ui_remove_from_recent_searches")}
             </button>
           </nav>
         ) : null}
         {action.kind === "friend" ? (
-          <nav className="flex flex-col p-1" aria-label="친구 검색 결과">
+          <nav className="flex flex-col p-1" aria-label={t("cm_ui_friend_search_results")}>
             <button
               type="button"
               className={row}
@@ -147,12 +149,12 @@ function SearchActionsSheet({
                 onDismiss();
               }}
             >
-              프로필 열기
+              {t("cm_ui_open_profile")}
             </button>
           </nav>
         ) : null}
         {action.kind === "room" || action.kind === "message" ? (
-          <nav className="flex flex-col p-1" aria-label="대화 작업">
+          <nav className="flex flex-col p-1" aria-label={t("cm_ui_chat_actions")}>
             <button
               type="button"
               className={row}
@@ -164,7 +166,7 @@ function SearchActionsSheet({
                 onDismiss();
               }}
             >
-              대화 열기
+              {t("cm_ui_open_conversation")}
             </button>
             <button
               type="button"
@@ -174,7 +176,7 @@ function SearchActionsSheet({
                 onDismiss();
               }}
             >
-              {action.item.room.isPinned ? "고정 해제" : "대화 고정"}
+              {action.item.room.isPinned ? t("cm_ui_unpin") : t("cm_ui_pin_conversation")}
             </button>
             <button
               type="button"
@@ -184,7 +186,7 @@ function SearchActionsSheet({
                 onDismiss();
               }}
             >
-              {action.item.room.isArchivedByViewer ? "보관 해제" : "보관함으로"}
+              {action.item.room.isArchivedByViewer ? t("cm_ui_unarchive") : t("cm_ui_move_to_archive")}
             </button>
             <button
               type="button"
@@ -194,7 +196,7 @@ function SearchActionsSheet({
                 onDismiss();
               }}
             >
-              읽음 처리
+              {t("cm_ui_mark_as_read")}
             </button>
             <button
               type="button"
@@ -204,12 +206,12 @@ function SearchActionsSheet({
                 onDismiss();
               }}
             >
-              {action.item.room.isMuted ? "알림 켜기" : "알림 끄기"}
+              {action.item.room.isMuted ? t("cm_ui_turn_on_notifications") : t("cm_ui_turn_off_notifications")}
             </button>
           </nav>
         ) : null}
         {action.kind === "open" ? (
-          <nav className="flex flex-col p-1" aria-label="모임">
+          <nav className="flex flex-col p-1" aria-label={t("nav_messenger_open_group")}>
             <button
               type="button"
               className={row}
@@ -220,7 +222,7 @@ function SearchActionsSheet({
                 onDismiss();
               }}
             >
-              열기
+              {t("cm_ui_open")}
             </button>
           </nav>
         ) : null}
@@ -229,7 +231,7 @@ function SearchActionsSheet({
           className="mt-1 w-full border-t border-[color:var(--messenger-divider)] py-2.5 text-[14px] font-semibold text-[color:var(--messenger-text-secondary)]"
           onClick={onDismiss}
         >
-          취소
+          {t("common_cancel")}
         </button>
       </div>
     </div>
@@ -277,6 +279,7 @@ function FriendSearchRow({
   onSelectFriend: (f: CommunityMessengerProfileLite) => void;
   onOpenMenu: () => void;
 }) {
+  const { t } = useI18n();
   const { bind, consumeClickSuppression } = useMessengerLongPress(onOpenMenu, { thresholdMs: 480 });
   return (
     <button
@@ -294,7 +297,7 @@ function FriendSearchRow({
         <div className="flex items-center gap-1.5">
           <p className="truncate sam-text-body-secondary font-medium text-[color:var(--messenger-text)]">{friend.label}</p>
           <span className="rounded-ui-rect bg-[color:var(--messenger-primary-soft)] px-1.5 py-0.5 text-[11px] font-medium text-[color:var(--messenger-primary)]">
-            친구
+            {t("nav_messenger_friend")}
           </span>
           {friend.isFavoriteFriend ? (
             <span className="rounded-ui-rect bg-[color:var(--messenger-surface-muted)] px-1.5 py-0.5 text-[11px] font-medium text-[color:var(--messenger-text-secondary)]">
@@ -303,13 +306,13 @@ function FriendSearchRow({
           ) : null}
           {friend.isHiddenFriend ? (
             <span className="rounded-ui-rect bg-[color:var(--messenger-surface-muted)] px-1.5 py-0.5 text-[11px] font-medium text-[color:var(--messenger-text-secondary)]">
-              숨김
+              {t("common_hide")}
             </span>
           ) : null}
         </div>
         <p className="truncate sam-text-xxs text-[color:var(--messenger-text-secondary)]">{friend.subtitle ?? ""}</p>
       </div>
-      <span className="sam-text-xxs text-[color:var(--messenger-text-secondary)]">열기</span>
+      <span className="sam-text-xxs text-[color:var(--messenger-text-secondary)]">{t("cm_ui_open")}</span>
     </button>
   );
 }
@@ -329,6 +332,7 @@ function OpenGroupSearchRow({
   onSelectOpenGroup: (id: string) => void;
   onOpenMenu: () => void;
 }) {
+  const { t } = useI18n();
   const { bind, consumeClickSuppression } = useMessengerLongPress(onOpenMenu, { thresholdMs: 480 });
   return (
     <button
@@ -346,20 +350,20 @@ function OpenGroupSearchRow({
         <div className="flex items-center gap-1.5">
           <p className="truncate sam-text-body-secondary font-medium text-[color:var(--messenger-text)]">{group.title}</p>
           <span className="rounded-full bg-[color:var(--messenger-badge-openchat-bg)] px-1.5 py-0.5 sam-text-xxs font-semibold text-sky-800">
-            모임
+            {t("nav_messenger_open_group")}
           </span>
           {group.isJoined ? (
             <span className="rounded-full bg-[color:var(--messenger-primary-soft)] px-1.5 py-0.5 sam-text-xxs font-medium text-[color:var(--messenger-primary)]">
-              참여
+              {t("cm_ui_joined")}
             </span>
           ) : null}
         </div>
         <p className="truncate sam-text-xxs text-[color:var(--messenger-text-secondary)]">
-          {group.summary || `${group.regionText || group.ownerLabel} · ${group.categoryText || "모임"} · ${group.memberCount}명`}
+          {group.summary || `${group.regionText || group.ownerLabel} · ${group.categoryText || t("nav_messenger_open_group")} · ${t("nav_chat_count_people", { count: group.memberCount })}`}
         </p>
       </div>
       <span className="sam-text-xxs font-medium text-[color:var(--messenger-primary)]">
-        {group.isJoined ? "입장" : group.meetingId ? "모임 보기" : "보기"}
+        {group.isJoined ? t("cm_ui_enter") : group.meetingId ? t("cm_ui_view_meeting") : t("cm_ui_view")}
       </span>
     </button>
   );
@@ -432,6 +436,7 @@ export function MessengerSearchSheet({
   onSelectOpenGroup,
   onSelectMessageRoom,
 }: Props) {
+  const { t } = useI18n();
   const [action, setAction] = useState<SearchSheetAction | null>(null);
 
   const openRoomMenu = useCallback((item: UnifiedRoomListItem) => {
@@ -443,13 +448,13 @@ export function MessengerSearchSheet({
   return (
     <>
       <div className="fixed inset-0 z-[42] flex flex-col justify-end bg-black/25">
-        <button type="button" className="min-h-0 flex-1 cursor-default" aria-label="닫기" onClick={onClose} />
+        <button type="button" className="min-h-0 flex-1 cursor-default" aria-label={t("nav_close")} onClick={onClose} />
         <div
           data-messenger-shell
           className="max-h-[min(82vh,640px)] overflow-y-auto rounded-t-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 shadow-[var(--messenger-shadow-soft)]"
         >
           <p className="text-center sam-text-body font-semibold" style={{ color: "var(--messenger-text)" }}>
-            검색
+            {t("common_search")}
           </p>
           <input
             value={keyword}
@@ -460,13 +465,13 @@ export function MessengerSearchSheet({
                 onCommitRecentSearch(keyword);
               }
             }}
-            placeholder="친구, 방, 메시지, 모임"
+            placeholder={t("cm_ui_friend_room_message_meeting")}
             className="mt-2 min-h-[var(--ui-tap-min)] w-full rounded-[var(--messenger-radius-md)] border border-transparent bg-[color:var(--messenger-primary-soft)] px-2.5 sam-text-body outline-none transition-[box-shadow,border-color] placeholder:text-[color:var(--messenger-text-secondary)] focus:border-[color:var(--messenger-primary)] focus:bg-[color:var(--messenger-surface)] focus:ring-1 focus:ring-[color:var(--messenger-primary)]"
             style={{ color: "var(--messenger-text)" }}
           />
           <div className="mt-2 space-y-2.5">
             {!queryActive ? (
-              <MessengerSearchSection title="최근 검색">
+              <MessengerSearchSection title={t("cm_ui_recent_searches")}>
                 {recentSearches.length ? (
                   <div className="flex flex-wrap gap-1.5">
                     {recentSearches.map((k) => (
@@ -479,12 +484,12 @@ export function MessengerSearchSheet({
                     ))}
                   </div>
                 ) : (
-                  <EmptyHint>최근 검색이 없습니다.</EmptyHint>
+                  <EmptyHint>{t("cm_ui_no_recent_searches")}</EmptyHint>
                 )}
               </MessengerSearchSection>
             ) : (
               <>
-                <MessengerSearchSection title="친구">
+                <MessengerSearchSection title={t("nav_messenger_friends")}>
                   {searchFriendMatches.length ? (
                     <div className="overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] shadow-[var(--messenger-shadow-soft)]">
                       {searchFriendMatches.map((friend) => (
@@ -500,10 +505,10 @@ export function MessengerSearchSheet({
                       ))}
                     </div>
                   ) : (
-                    <EmptyHint>일치하는 친구가 없습니다.</EmptyHint>
+                    <EmptyHint>{t("cm_ui_no_matching_friends")}</EmptyHint>
                   )}
                 </MessengerSearchSection>
-                <MessengerSearchSection title="채팅방">
+                <MessengerSearchSection title={t("cm_ui_chat_room")}>
                   {searchRoomMatches.length ? (
                     <div
                       className="space-y-1.5 rounded-[var(--messenger-radius-md)] p-0.5"
@@ -526,10 +531,10 @@ export function MessengerSearchSheet({
                       ))}
                     </div>
                   ) : (
-                    <EmptyHint>일치하는 채팅방이 없습니다.</EmptyHint>
+                    <EmptyHint>{t("cm_ui_no_matching_chat_rooms")}</EmptyHint>
                   )}
                 </MessengerSearchSection>
-                <MessengerSearchSection title="모임">
+                <MessengerSearchSection title={t("nav_messenger_open_group")}>
                   {searchOpenChatMatches.length ? (
                     <div className="overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] shadow-[var(--messenger-shadow-soft)]">
                       {searchOpenChatMatches.map((group) => (
@@ -545,10 +550,10 @@ export function MessengerSearchSheet({
                       ))}
                     </div>
                   ) : (
-                    <EmptyHint>일치하는 모임이 없습니다.</EmptyHint>
+                    <EmptyHint>{t("cm_ui_no_matching_meetings")}</EmptyHint>
                   )}
                 </MessengerSearchSection>
-                <MessengerSearchSection title="메시지">
+                <MessengerSearchSection title={t("cm_ui_message")}>
                   {searchMessageMatches.length ? (
                     <div className="overflow-hidden rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface-muted)] shadow-[var(--messenger-shadow-soft)]">
                       {searchMessageMatches.map((item) => (
@@ -564,7 +569,7 @@ export function MessengerSearchSheet({
                       ))}
                     </div>
                   ) : (
-                    <EmptyHint>일치하는 메시지가 없습니다.</EmptyHint>
+                    <EmptyHint>{t("cm_ui_no_matching_messages")}</EmptyHint>
                   )}
                 </MessengerSearchSection>
               </>
@@ -576,7 +581,7 @@ export function MessengerSearchSheet({
             style={{ color: "var(--messenger-text-secondary)" }}
             onClick={onClose}
           >
-            닫기
+            {t("nav_close")}
           </button>
         </div>
       </div>

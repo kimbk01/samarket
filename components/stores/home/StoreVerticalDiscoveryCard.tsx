@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -143,6 +144,7 @@ export function StoreVerticalDiscoveryCard({
   /** 광고·추천 등 부가 라벨 */
   adHint?: string | null;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const viewportRef = useDeliveryStoreDetailViewportPrefetch(store.slug);
   const flags = [
@@ -257,13 +259,13 @@ export function StoreVerticalDiscoveryCard({
 
           <div className={`flex flex-wrap gap-x-2 gap-y-1 ${FB.metaSm}`}>
             <span className="font-semibold text-[#050505] dark:text-[#E4E6EB]">★ {store.rating.toFixed(1)}</span>
-            <span>리뷰 {store.reviewCount.toLocaleString("en-PH")}</span>
+            <span>{t("store_reviews_count", { count: store.reviewCount.toLocaleString("en-PH") })}</span>
             {distLabel ?
               <span className="font-semibold text-[#1877F2] dark:text-[#4599FF]">{distLabel}</span>
             : null}
             {store.etaLabel?.trim() ?
               <span>{store.etaLabel}</span>
-            : <span>예상 {store.estPrepLabel}</span>}
+            : <span>{t("store_est_prep", { label: store.estPrepLabel })}</span>}
             {store.deliveryFeeLabel === "배달비 무료 적용 중" ?
               <span className="inline-flex flex-wrap items-center gap-1">
                 <span className="text-[13px] font-semibold text-[#2563EB] dark:text-[#8AB4FF]">
@@ -278,7 +280,7 @@ export function StoreVerticalDiscoveryCard({
             : store.deliveryFeeLabel ?
               <span>{store.deliveryFeeLabel}</span>
             : store.deliveryAvailable ?
-              <span>배달비 매장별</span>
+              <span>{t("store_delivery_fee_per_store")}</span>
             : null}
           </div>
 
@@ -302,7 +304,7 @@ export function StoreVerticalDiscoveryCard({
               className="line-clamp-2 sam-text-xxs font-medium leading-snug text-[#6B7280] dark:text-[#9AA3AD]"
               title={store.paymentMethodsLine}
             >
-              <span className="font-semibold text-[#4B5563] dark:text-[#B8C0CA]">결제</span> · {store.paymentMethodsLine}
+              <span className="font-semibold text-[#4B5563] dark:text-[#B8C0CA]">{t("store_label_payment")}</span> · {store.paymentMethodsLine}
             </p>
           : null}
         </div>

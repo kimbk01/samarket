@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { getQaPilotChecks } from "@/lib/qa-board/mock-qa-pilot-checks";
 import { AdminTable } from "@/components/admin/AdminTable";
@@ -13,6 +16,7 @@ import type {
 } from "@/lib/types/qa-board";
 
 export function QaPilotCheckTable() {
+  const { t } = useI18n();
   const [category, setCategory] = useState<QaPilotCategory | "">("");
   const checks = useMemo(
     () =>
@@ -26,8 +30,8 @@ export function QaPilotCheckTable() {
     { value: "" as const, label: "전체" },
     { value: "onboarding" as const, label: "온보딩" },
     { value: "browsing" as const, label: "둘러보기" },
-    { value: "posting" as const, label: "등록" },
-    { value: "chat" as const, label: "채팅" },
+    { value: "posting" as const, labelKey: "admin_feed_emergency_posting" as const },
+    { value: "chat" as const, labelKey: "admin_review_chat_2" as const },
     { value: "reporting" as const, label: "신고" },
     { value: "points" as const, label: "포인트" },
     { value: "admin_response" as const, label: "관리자 응답" },
@@ -36,7 +40,7 @@ export function QaPilotCheckTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">분류</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_qa_category")}</span>
         <select
           value={category}
           onChange={(e) =>
@@ -75,7 +79,7 @@ export function QaPilotCheckTable() {
                 {c.title}
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">
-                {getPilotCategoryLabel(c.category)}
+                {getPilotCategoryLabel(t, c.category)}
               </td>
               <td className="px-3 py-2.5">
                 <span
@@ -87,7 +91,7 @@ export function QaPilotCheckTable() {
                         : "bg-amber-100 text-amber-800"
                   }`}
                 >
-                  {getPilotStatusLabel(c.status)}
+                  {getPilotStatusLabel(t, c.status)}
                 </span>
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">

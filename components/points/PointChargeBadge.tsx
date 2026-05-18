@@ -1,12 +1,16 @@
+"use client";
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { PointChargeRequestStatus } from "@/lib/types/point";
 
-const LABELS: Record<PointChargeRequestStatus, string> = {
-  pending: "대기중",
-  waiting_confirm: "입금확인대기",
-  on_hold: "보류",
-  approved: "승인완료",
-  rejected: "반려",
-  cancelled: "취소",
+const STATUS_KEYS: Record<PointChargeRequestStatus, MessageKey> = {
+  pending: "points_ui_badge_pending",
+  waiting_confirm: "point_status_waiting_confirm",
+  on_hold: "point_status_on_hold",
+  approved: "points_ui_badge_approved",
+  rejected: "point_status_rejected",
+  cancelled: "point_status_cancelled",
 };
 
 const STYLES: Record<PointChargeRequestStatus, string> = {
@@ -19,9 +23,11 @@ const STYLES: Record<PointChargeRequestStatus, string> = {
 };
 
 export function PointChargeBadge({ status }: { status: PointChargeRequestStatus }) {
+  const { t } = useI18n();
+
   return (
     <span className={`inline-flex items-center rounded-full px-2 py-0.5 sam-text-xxs font-semibold ${STYLES[status]}`}>
-      {LABELS[status]}
+      {t(STATUS_KEYS[status])}
     </span>
   );
 }

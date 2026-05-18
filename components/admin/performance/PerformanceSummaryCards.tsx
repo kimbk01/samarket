@@ -1,9 +1,13 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo } from "react";
 import { getPerformanceMetricsSummary } from "@/lib/performance/mock-performance-metrics";
 
 export function PerformanceSummaryCards() {
+  const { t } = useI18n();
   const summary = useMemo(() => getPerformanceMetricsSummary(), []);
 
   const status =
@@ -30,19 +34,19 @@ export function PerformanceSummaryCards() {
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="sam-text-helper text-sam-muted">평균 로딩 시간</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_performance_k4fc4db70")}</p>
           <p className="sam-text-page-title font-semibold text-sam-fg">
             {summary.avgLoadTime} ms
           </p>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="sam-text-helper text-sam-muted">평균 API 응답</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_performance_k848fec55")}</p>
           <p className="sam-text-page-title font-semibold text-sam-fg">
             {summary.avgApiTime} ms
           </p>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="sam-text-helper text-sam-muted">평균 DB 쿼리</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_performance_k23566a99")}</p>
           <p className="sam-text-page-title font-semibold text-sam-fg">
             {summary.avgDbQueryTime} ms
           </p>

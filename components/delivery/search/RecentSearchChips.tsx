@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -47,6 +48,7 @@ function writeLocalRecents(rows: RecentKeyword[]) {
 }
 
 export function RecentSearchChips({ onPick }: { onPick: (keyword: string) => void }) {
+  const { t } = useI18n();
   const [localRows, setLocalRows] = useState<RecentKeyword[]>([]);
 
   useEffect(() => {
@@ -80,9 +82,9 @@ export function RecentSearchChips({ onPick }: { onPick: (keyword: string) => voi
     return (
       <section>
         <div className="flex items-center justify-between">
-          <h2 className="sam-text-body-secondary font-semibold text-sam-fg">최근 검색어</h2>
+          <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("ui_delivery_search_recent_heading")}</h2>
         </div>
-        <p className="mt-2 sam-text-body text-sam-muted">최근 검색어가 없습니다.</p>
+        <p className="mt-2 sam-text-body text-sam-muted">{t("ui_delivery_search_recent_heading")}가 없습니다.</p>
       </section>
     );
   }
@@ -90,7 +92,7 @@ export function RecentSearchChips({ onPick }: { onPick: (keyword: string) => voi
   return (
     <section>
       <div className="flex items-center justify-between gap-2">
-        <h2 className="sam-text-body-secondary font-semibold text-sam-fg">최근 검색어</h2>
+        <h2 className="sam-text-body-secondary font-semibold text-sam-fg">{t("ui_delivery_search_recent_heading")}</h2>
         <button type="button" className="sam-text-helper font-semibold text-sam-muted hover:text-sam-fg" onClick={clearAll}>
           전체 삭제
         </button>

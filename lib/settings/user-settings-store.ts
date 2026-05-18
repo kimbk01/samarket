@@ -4,7 +4,14 @@
  */
 import type { UserSettingsRow } from "@/lib/types/settings-db";
 import { DEFAULT_USER_SETTINGS } from "@/lib/types/settings-db";
-import { APP_LANGUAGE_CHANGED_EVENT, normalizeAppLanguage } from "@/lib/i18n/config";
+import {
+  APP_LANGUAGE_CHANGED_EVENT,
+  getBrowserLanguage,
+  normalizeLanguagePreferenceForStorage,
+  parseExplicitAppLanguage,
+  preferredLanguageFromDbColumn,
+  preferredLanguageToDbColumn,
+} from "@/lib/i18n/config";
 
 const STORAGE_KEY = "kasama_user_settings";
 export const USER_SETTINGS_CHANGED_EVENT = "samarket:user-settings-changed";
@@ -29,17 +36,17 @@ function setStored(userId: string, partial: Partial<UserSettingsRow>): void {
 }
 
 function normalizeSettings(userId: string, partial?: Partial<UserSettingsRow> | null): Partial<UserSettingsRow> {
-  const next = {
+  const next: Partial<UserSettingsRow> = {
     ...DEFAULT_USER_SETTINGS,
     ...partial,
-  };
-  if (partial?.preferred_language) {
-    next.preferred_language = normalizeAppLanguage(partial.preferred_language);
-  }
-  return {
-    ...next,
     user_id: userId,
   };
+  if (partial && "preferred_language" in partial) {
+    next.preferred_language = normalizeLanguagePreferenceForStorage(partial.preferred_language);
+  } else if (!("preferred_language" in (partial ?? {}))) {
+    next.preferred_language = null;
+  }
+  return next;
 }
 
 function emitChange(userId: string, settings: Partial<UserSettingsRow>) {
@@ -50,6 +57,17 @@ function emitChange(userId: string, settings: Partial<UserSettingsRow>) {
         userId,
         settings,
       },
+    })
+  );
+}
+
+function emitLanguageFromPreference(preference: string | null | undefined): void {
+  if (typeof window === "undefined") return;
+  const explicit = parseExplicitAppLanguage(preference);
+  const resolved = explicit ?? getBrowserLanguage();
+  window.dispatchEvent(
+    new CustomEvent(APP_LANGUAGE_CHANGED_EVENT, {
+      detail: resolved,
     })
   );
 }
@@ -113,12 +131,8 @@ export function updateUserSettings(userId: string, partial: Partial<UserSettings
     ...(cache.get(userId) ?? getStored(userId)),
     ...partial,
   });
-  if (typeof window !== "undefined" && "preferred_language" in partial && partial.preferred_language) {
-    window.dispatchEvent(
-      new CustomEvent(APP_LANGUAGE_CHANGED_EVENT, {
-        detail: normalizeAppLanguage(partial.preferred_language),
-      })
-    );
+  if (typeof window !== "undefined" && "preferred_language" in partial) {
+    emitLanguageFromPreference(next.preferred_language);
   }
   void fetch("/api/me/settings", {
     method: "PATCH",

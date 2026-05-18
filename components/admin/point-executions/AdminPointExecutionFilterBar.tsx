@@ -1,13 +1,15 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  pointActionTypeLabel,
+  pointBoardLabel,
+  pointExecStatusLabel,
+} from "@/components/admin/points/admin-points-notifications-i18n";
 import type {
   AdminPointExecutionFilters,
   PointRewardExecutionStatus,
   PointRewardActionType,
-} from "@/lib/point-executions/point-execution-utils";
-import {
-  EXECUTION_STATUS_OPTIONS,
-  POINT_REWARD_ACTION_LABELS,
 } from "@/lib/point-executions/point-execution-utils";
 import { BOARD_OPTIONS } from "@/lib/point-policies/point-policy-utils";
 
@@ -16,10 +18,14 @@ interface AdminPointExecutionFilterBarProps {
   onFiltersChange: (f: AdminPointExecutionFilters) => void;
 }
 
+const EXEC_STATUSES: PointRewardExecutionStatus[] = ["success", "blocked", "reversed"];
+
 export function AdminPointExecutionFilterBar({
   filters,
   onFiltersChange,
 }: AdminPointExecutionFilterBarProps) {
+  const { t } = useI18n();
+
   return (
     <div className="flex flex-wrap items-center gap-2">
       <select
@@ -32,9 +38,10 @@ export function AdminPointExecutionFilterBar({
         }
         className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body"
       >
-        {EXECUTION_STATUS_OPTIONS.map((o) => (
-          <option key={o.value || "all"} value={o.value}>
-            {o.label}
+        <option value="">{t("common_all")}</option>
+        {EXEC_STATUSES.map((status) => (
+          <option key={status} value={status}>
+            {pointExecStatusLabel(t, status)}
           </option>
         ))}
       </select>
@@ -45,10 +52,10 @@ export function AdminPointExecutionFilterBar({
         }
         className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body"
       >
-        <option value="">전체 게시판</option>
+        <option value="">{t("admin_points_filter_all_boards")}</option>
         {BOARD_OPTIONS.map((b) => (
           <option key={b.key} value={b.key}>
-            {b.name}
+            {pointBoardLabel(t, b.key)}
           </option>
         ))}
       </select>
@@ -62,18 +69,18 @@ export function AdminPointExecutionFilterBar({
         }
         className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body"
       >
-        <option value="">전체 행동</option>
-        <option value="write">{POINT_REWARD_ACTION_LABELS.write}</option>
-        <option value="comment">{POINT_REWARD_ACTION_LABELS.comment}</option>
+        <option value="">{t("admin_points_filter_all_actions")}</option>
+        <option value="write">{pointActionTypeLabel(t, "write")}</option>
+        <option value="comment">{pointActionTypeLabel(t, "comment")}</option>
       </select>
       <input
         type="text"
-        placeholder="사용자 ID"
+        placeholder={t("admin_points_ph_user_id")}
         value={filters.userId}
         onChange={(e) =>
           onFiltersChange({ ...filters, userId: e.target.value })
         }
-        className="min-w-[120px] rounded border border-sam-border px-3 py-2 sam-text-body"
+        className="min-w-[120px) rounded border border-sam-border px-3 py-2 sam-text-body"
       />
     </div>
   );

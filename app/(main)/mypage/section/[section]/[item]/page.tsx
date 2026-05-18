@@ -29,6 +29,11 @@ async function MypageSectionItemPageBody({
   const initialMyPageData = await loadMypageServer();
 
   return (
-    <MyPageItemRouteClient initialMyPageData={initialMyPageData} section={s} item={i} itemLabel={meta.label} />
+    <MyPageItemRouteClient
+      initialMyPageData={initialMyPageData}
+      section={s}
+      item={i}
+      itemLabelKey={meta.labelKey}
+    />
   );
 }

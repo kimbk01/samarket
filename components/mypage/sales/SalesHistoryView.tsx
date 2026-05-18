@@ -18,8 +18,10 @@ import {
   fetchTradeHistorySalesBySession,
   invalidateTradeHistoryCache,
 } from "@/lib/mypage/trade-history-client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function SalesHistoryView({ initialTab }: { initialTab?: SellerManageTabId } = {}) {
+  const { t } = useI18n();
   const currency = getAppSettings().defaultCurrency ?? "KRW";
   const [items, setItems] = useState<SalesHistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -67,13 +69,13 @@ export function SalesHistoryView({ initialTab }: { initialTab?: SellerManageTabI
       .catch(() => {
         if (!silent) {
           setItems((prev) => (prev.length === 0 ? prev : []));
-          setLoadError((prev) => (prev === "판매 내역을 불러오지 못했어요." ? prev : "판매 내역을 불러오지 못했어요."));
+          setLoadError((prev) => (prev === t("mypage_comp_sales_load_failed") ? prev : t("mypage_comp_sales_load_failed")));
         }
       })
       .finally(() => {
         if (!silent) setLoading((prev) => (prev ? false : prev));
       });
-  }, []);
+  }, [t]);
 
   const reload = useCallback(() => {
     void load({ force: true });
@@ -106,7 +108,7 @@ export function SalesHistoryView({ initialTab }: { initialTab?: SellerManageTabI
   );
 
   if (loading) {
-    return <p className="py-12 text-center sam-text-body text-sam-muted">불러오는 중...</p>;
+    return <p className="py-12 text-center sam-text-body text-sam-muted">{t("mypage_comp_loading")}</p>;
   }
 
   if (loadError) {
@@ -116,17 +118,17 @@ export function SalesHistoryView({ initialTab }: { initialTab?: SellerManageTabI
   if (items.length === 0) {
     return (
       <p className="py-12 text-center sam-text-body text-sam-muted">
-        판매 중인 내 상품이 없어요. 상품을 올리면 여기에 표시돼요.
+        {t("mypage_comp_sales_empty_all")}
       </p>
     );
   }
 
   const emptyTabMsg: Record<SellerManageTabId, string> = {
-    selling: "해당 상태의 판매가 없어요.",
-    reserved: "예약 중인 거래가 없어요.",
-    completed: "판매완료된 내역이 없어요.",
-    cancelled: "취소된 판매가 없어요.",
-    review_wait: "구매자 후기를 기다리는 거래가 없어요.",
+    selling: t("mypage_comp_sales_empty_selling"),
+    reserved: t("mypage_comp_sales_empty_reserved"),
+    completed: t("mypage_comp_sales_empty_completed"),
+    cancelled: t("mypage_comp_sales_empty_cancelled"),
+    review_wait: t("mypage_comp_sales_empty_review_wait"),
   };
 
   return (

@@ -6,6 +6,7 @@ import {
   buildCommunityMessengerInstantOutgoingCallHref,
 } from "@/lib/community-messenger/call-session-navigation-seed";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type OutgoingDialParams = {
   roomId: string;
@@ -32,6 +33,7 @@ function readOutgoingDialParamsFromLocation(): OutgoingDialParams {
  * 실제 세션 POST 는 `CommunityMessengerCallClient` 가 백그라운드에서 수행한다.
  */
 export function CommunityMessengerOutgoingDialPageClient() {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +41,7 @@ export function CommunityMessengerOutgoingDialPageClient() {
   useLayoutEffect(() => {
     const p = readOutgoingDialParamsFromLocation();
     if (!p.roomId && !p.peerUserId) {
-      setError("방 정보가 없어 통화를 시작할 수 없습니다.");
+      setError(t("cm_ui_call_outgoing_missing_room"));
       return;
     }
     const href = buildCommunityMessengerInstantOutgoingCallHref({
@@ -64,7 +66,7 @@ export function CommunityMessengerOutgoingDialPageClient() {
             router.back();
           }}
         >
-          돌아가기
+          {t("nav_back")}
         </button>
       </div>
     );
@@ -81,7 +83,7 @@ export function CommunityMessengerOutgoingDialPageClient() {
         className="h-10 w-10 animate-spin rounded-full border-2 border-white/30 border-t-white"
         aria-hidden
       />
-      <p className="mt-6 text-center sam-text-body text-white/90">통화 화면으로 이동 중…</p>
+      <p className="mt-6 text-center sam-text-body text-white/90">{t("cm_ui_moving_to_call_screen")}</p>
     </div>
   );
 }

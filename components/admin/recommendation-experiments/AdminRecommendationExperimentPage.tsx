@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import {
@@ -23,15 +25,16 @@ import { ExperimentLogList } from "./ExperimentLogList";
 
 type TabId = "experiments" | "versions" | "assignments" | "metrics" | "logs";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "experiments", label: "실험 목록" },
-  { id: "versions", label: "피드 버전" },
-  { id: "assignments", label: "사용자 배정" },
-  { id: "metrics", label: "성과 비교" },
-  { id: "logs", label: "로그" },
+const EXP_TABS: { id: TabId; labelKey: MessageKey }[] = [
+  { id: "experiments", labelKey: "admin_rec_exp_tab_experiments" },
+  { id: "versions", labelKey: "admin_rec_exp_tab_versions" },
+  { id: "assignments", labelKey: "admin_rec_exp_tab_assignments" },
+  { id: "metrics", labelKey: "admin_rec_exp_tab_metrics" },
+  { id: "logs", labelKey: "admin_rec_exp_tab_logs" },
 ];
 
 export function AdminRecommendationExperimentPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("experiments");
   const [refresh, setRefresh] = useState(0);
   const [editingExperimentId, setEditingExperimentId] = useState<string | null>(
@@ -62,7 +65,11 @@ export function AdminRecommendationExperimentPage() {
   const handleSaveExperiment = (values: Partial<RecommendationExperiment>) => {
     if (!editingExperiment) return;
     saveRecommendationExperiment({ ...editingExperiment, ...values });
-    addExperimentLog(editingExperiment.id, "update", "정책 수정");
+    addExperimentLog(
+      editingExperiment.id,
+      "update",
+      "admin_rec_log_note_policy_update"
+    );
     setRefresh((r) => r + 1);
     setEditingExperimentId(null);
   };
@@ -72,16 +79,22 @@ export function AdminRecommendationExperimentPage() {
     status: RecommendationExperiment["status"]
   ) => {
     setExperimentStatus(exp.id, status);
+    const noteKey: MessageKey =
+      status === "running"
+        ? "admin_rec_log_note_experiment_start"
+        : status === "paused"
+          ? "admin_rec_log_note_experiment_pause"
+          : "admin_rec_log_note_experiment_end";
     addExperimentLog(
       exp.id,
       status === "running" ? "start" : status === "paused" ? "pause" : "end",
-      status === "running" ? "실험 시작" : status === "paused" ? "일시중지" : "실험 종료"
+      noteKey
     );
     setRefresh((r) => r + 1);
   };
 
   const handleChooseWinner = (exp: RecommendationExperiment) => {
-    addExperimentLog(exp.id, "choose_winner", "승자 버전 선택 (placeholder)");
+    addExperimentLog(exp.id, "choose_winner", "admin_rec_log_note_choose_winner");
     setRefresh((r) => r + 1);
   };
 
@@ -94,27 +107,27 @@ export function AdminRecommendationExperimentPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="추천 A/B 실험" />
+      <AdminPageHeader titleKey="admin_rec_exp_page_title" />
 
       <div className="flex flex-wrap gap-2 border-b border-sam-border">
-        {TABS.map((t) => (
+        {EXP_TABS.map((tab) => (
           <button
-            key={t.id}
+            key={tab.id}
             type="button"
-            onClick={() => setActiveTab(t.id)}
+            onClick={() => setActiveTab(tab.id)}
             className={`border-b-2 px-3 py-2 sam-text-body font-medium ${
-              activeTab === t.id
+              activeTab === tab.id
                 ? "border-signature text-signature"
                 : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
-            {t.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
 
       {activeTab === "experiments" && (
-        <AdminCard title="추천 실험 (A/B 테스트)">
+        <AdminCard titleKey="admin_rec_exp_card_ab">
           {editingExperiment && (
             <div className="mb-4 rounded border border-sam-border bg-sam-app p-4">
               <ExperimentForm
@@ -138,7 +151,7 @@ export function AdminRecommendationExperimentPage() {
       )}
 
       {activeTab === "versions" && (
-        <AdminCard title="피드 버전">
+        <AdminCard titleKey="admin_rec_exp_card_versions">
           {editingVersion && (
             <div className="mb-4 rounded border border-sam-border bg-sam-app p-4">
               <FeedVersionForm
@@ -158,24 +171,24 @@ export function AdminRecommendationExperimentPage() {
       )}
 
       {activeTab === "assignments" && (
-        <AdminCard title="사용자 배정">
+        <AdminCard titleKey="admin_rec_exp_card_assignments">
           <UserAssignmentTable />
         </AdminCard>
       )}
 
       {activeTab === "metrics" && (
         <>
-          <AdminCard title="버전별 성과 카드">
+          <AdminCard titleKey="admin_rec_exp_card_metrics_cards">
             <ExperimentMetricsCards />
           </AdminCard>
-          <AdminCard title="버전 비교 표">
+          <AdminCard titleKey="admin_rec_exp_card_metrics_table">
             <ExperimentComparisonTable />
           </AdminCard>
         </>
       )}
 
       {activeTab === "logs" && (
-        <AdminCard title="실험 로그">
+        <AdminCard titleKey="admin_rec_exp_card_logs">
           <ExperimentLogList />
         </AdminCard>
       )}

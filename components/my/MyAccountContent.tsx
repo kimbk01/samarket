@@ -98,7 +98,7 @@ export function MyAccountContent() {
             <dd className="mt-0.5 text-sam-fg">{displayNickname}</dd>
           </div>
           <div>
-            <dt className="text-sam-muted">@아이디</dt>
+            <dt className="text-sam-muted">{t("my_account_username")}</dt>
             <dd className="mt-0.5 font-mono text-sam-fg tabular-nums">{atUsername || "—"}</dd>
           </div>
           <div>
@@ -116,7 +116,7 @@ export function MyAccountContent() {
             </dd>
           </div>
           <div>
-            <dt className="text-sam-muted">회원 상태</dt>
+            <dt className="text-sam-muted">{t("my_account_member_status")}</dt>
             <dd className="mt-0.5 text-sam-fg">{storeMemberStatus}</dd>
           </div>
           <div>
@@ -130,8 +130,10 @@ export function MyAccountContent() {
             </dd>
           </div>
           <div>
-            <dt className="text-sam-muted">약관 동의</dt>
-            <dd className="mt-0.5 text-sam-fg">{consentDone ? "완료" : "필요"}</dd>
+            <dt className="text-sam-muted">{t("my_account_terms")}</dt>
+            <dd className="mt-0.5 text-sam-fg">
+              {consentDone ? t("my_account_terms_done") : t("my_account_terms_required")}
+            </dd>
           </div>
         </dl>
         {!contactFormal ? (

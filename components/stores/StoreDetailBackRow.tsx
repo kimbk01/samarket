@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { usePathname, useRouter } from "next/navigation";
 import { AppBackIcon, AppCloseIcon } from "@/components/navigation/AppBackButton";
@@ -27,6 +28,7 @@ export function StoreDetailBackLink({
   /** 투명 헤더·히어로 위 등 — 기본은 text-sam-fg */
   className?: string;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname() ?? "";
   const animatedBack = useStoreDetailAnimatedBack();

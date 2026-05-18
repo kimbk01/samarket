@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { useLayoutEffect, useState, useCallback, useRef, useEffect, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { usePhilifeHeaderMessengerStack } from "@/contexts/PhilifeHeaderMessengerStackContext";
 import { isMessengerFromHeaderStackSurface } from "@/lib/layout/messenger-from-header-stack-surface";
 
@@ -23,6 +24,7 @@ const CommunityMessengerHome = dynamic(
  * 아래에만 메신저가 잡혀 — `fixed inset-0` + `z` 상위로 **전체**를 덮어 “메신저만” 보이게 한다.
  */
 export function PhilifeMessengerFromHeaderStack({ children }: { children: ReactNode }) {
+  const { t } = useI18n();
   const pathname = usePathname() ?? "";
   const { isOpen, setIsOpen, setRequestClose } = usePhilifeHeaderMessengerStack();
   const [exiting, setExiting] = useState(false);
@@ -123,7 +125,7 @@ export function PhilifeMessengerFromHeaderStack({ children }: { children: ReactN
           }}
           role="dialog"
           aria-modal="true"
-          aria-label="메신저"
+          aria-label={t("philife_messenger_aria")}
         >
           <div className="flex min-h-0 min-w-0 w-full max-w-full flex-1 flex-col">
             <CommunityMessengerHome initialSection="chats" fromPhilifeHeaderStack />

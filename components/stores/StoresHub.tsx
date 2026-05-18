@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -112,6 +113,7 @@ function StoresHubOwnerOperChip({
 }
 
 export function StoresHub() {
+  const { t } = useI18n();
   const pathname = usePathname();
   const listScrollRouteKey = useMemo(
     () => buildDeliveryListScrollRouteKey(pathname ?? "/stores", ""),

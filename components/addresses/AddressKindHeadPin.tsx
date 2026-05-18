@@ -1,13 +1,16 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+
 /** 주소 본문 앞 머리 핀 — 대표 / 일반 / 매장(연결) 시각 구분 */
 export function AddressKindHeadPin(props: {
   kind: "master" | "store" | "general";
   className?: string;
 }) {
+  const { t } = useI18n();
   const { kind, className = "" } = props;
   const aria =
-    kind === "master" ? "대표 주소" : kind === "store" ? "매장 연결 주소" : "일반 주소";
+    kind === "master" ? t("addr_ui_kind_master") : kind === "store" ? t("addr_ui_kind_store") : t("addr_ui_kind_general");
   const tone =
     kind === "master" ? "text-rose-600" : kind === "store" ? "text-slate-600" : "text-slate-400";
   return (

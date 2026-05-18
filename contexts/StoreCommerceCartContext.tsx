@@ -21,7 +21,7 @@ import {
   emptyCommerceCartV2,
 } from "@/lib/stores/store-commerce-cart-add-merge";
 import {
-  isCommerceCartSnapshotExpired,
+  sanitizeCommerceCartSnapshot,
   touchCommerceCartSnapshot,
 } from "@/lib/stores/store-commerce-cart-expiry";
 import { bindCommerceCartResync } from "@/lib/stores/store-commerce-cart-resync";
@@ -34,7 +34,8 @@ import {
   shouldApplyExternalCommerceCartSnapshot,
   snapshotGeneration,
 } from "@/lib/stores/store-commerce-cart-sync-guard";
-import { STORE_CART_EXPIRED_TOAST } from "@/lib/stores/store-cart-policy";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+import { translate } from "@/lib/i18n/messages";
 import { showCommerceCartPolicyToast } from "@/lib/stores/store-detail-toast-ui-store";
 import { publishCommerceCartSnapshot } from "@/lib/stores/store-commerce-cart-snapshot-bus";
 import { publishDeliveryCartPatch } from "@/lib/dibay/delivery-cart-patch-bus";
@@ -51,19 +52,18 @@ import { markDeliveryCartPatchAnchor } from "@/lib/dibay/delivery-render-trace";
 import {
   mutateCartLineQuantity,
   mutateCartRemoveLine,
-  mutateCartReplaceLineAt,
 } from "@/lib/stores/store-commerce-cart-line-mutate";
 
-/** 담기·수량 변경 등 핫패스 — TTL만 검사(로드 시 sanitize·consolidate는 storage 1회) */
 function prepareSnapshotForWrite(
   s: StoreCommerceCartSnapshotV2 | null
 ): StoreCommerceCartSnapshotV2 | null {
   if (!s) return null;
-  if (isCommerceCartSnapshotExpired(s)) {
-    showCommerceCartPolicyToast(STORE_CART_EXPIRED_TOAST);
+  const { snapshot, expired } = sanitizeCommerceCartSnapshot(s);
+  if (expired) {
+    showCommerceCartPolicyToast(translate(getRuntimeAppLanguage(), "store_cart_expired_toast"));
     return null;
   }
-  return s;
+  return snapshot;
 }
 
 export type { AddStoreCartLineInput, StoreCartAddResult } from "@/lib/stores/store-commerce-cart-types";
@@ -88,7 +88,6 @@ type Ctx = {
   otherBucketsExcluding: (storeId: string) => StoreCartBucketSummary[];
   addOrMergeLine: (input: AddStoreCartLineInput) => StoreCartAddResult;
   replaceWithLine: (input: AddStoreCartLineInput) => StoreCartAddResult;
-  replaceCartLineAt: (lineId: string, input: AddStoreCartLineInput) => StoreCartAddResult;
   updateLineQuantity: (lineId: string, qty: number) => void;
   removeLine: (lineId: string) => void;
   clearStoreCart: (storeId: string) => void;
@@ -131,7 +130,6 @@ export type StoreCommerceCartActions = Pick<
   Ctx,
   | "addOrMergeLine"
   | "replaceWithLine"
-  | "replaceCartLineAt"
   | "updateLineQuantity"
   | "removeLine"
   | "clearStoreCart"
@@ -167,7 +165,7 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
   useEffect(() => {
     const loaded = readCommerceCartFromStorage();
     if (loaded.expired) {
-      showCommerceCartPolicyToast(STORE_CART_EXPIRED_TOAST);
+      showCommerceCartPolicyToast(translate(getRuntimeAppLanguage(), "store_cart_expired_toast"));
     }
     setSnapshot(loaded.snapshot);
     setHydrated(true);
@@ -178,7 +176,8 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
     return bindCommerceCartResync({
       getCurrent: () => snapshotRef.current,
       apply: applyExternalSnapshot,
-      onExpired: () => showCommerceCartPolicyToast(STORE_CART_EXPIRED_TOAST),
+      onExpired: () =>
+        showCommerceCartPolicyToast(translate(getRuntimeAppLanguage(), "store_cart_expired_toast")),
     });
   }, [hydrated, applyExternalSnapshot]);
 
@@ -276,31 +275,6 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
     }
     return result;
   }, [flushCartSnapshot]);
-
-  const replaceCartLineAt = useCallback(
-    (lineId: string, input: AddStoreCartLineInput): StoreCartAddResult => {
-      const patchT0 = markDeliveryCartPatchAnchor();
-      let ok = false;
-      let nextSnap: StoreCommerceCartSnapshotV2 | null = null;
-      let storeId: string | null = null;
-      setSnapshot((prev) => {
-        const out = mutateCartReplaceLineAt(prepareSnapshotForWrite(prev), lineId, input);
-        ok = out.ok;
-        nextSnap = out.next;
-        storeId = out.storeId;
-        return out.next;
-      });
-      if (ok && nextSnap && storeId) {
-        flushCartSnapshot(nextSnap, storeId, patchT0, {
-          kind: "optimistic",
-          productId: input.productId,
-        });
-        return { ok: true, reason: "added" };
-      }
-      return { ok: false, reason: "invalid_option" };
-    },
-    [flushCartSnapshot]
-  );
 
   const updateLineQuantity = useCallback(
     (lineId: string, qty: number) => {
@@ -459,7 +433,6 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
       otherBucketsExcluding,
       addOrMergeLine,
       replaceWithLine,
-      replaceCartLineAt,
       updateLineQuantity,
       removeLine,
       clearStoreCart,
@@ -471,7 +444,6 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
     snapshot,
     addOrMergeLine,
     replaceWithLine,
-    replaceCartLineAt,
     updateLineQuantity,
     removeLine,
     clearStoreCart,
@@ -483,7 +455,6 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
     () => ({
       addOrMergeLine,
       replaceWithLine,
-      replaceCartLineAt,
       updateLineQuantity,
       removeLine,
       clearStoreCart,
@@ -493,7 +464,6 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
     [
       addOrMergeLine,
       replaceWithLine,
-      replaceCartLineAt,
       updateLineQuantity,
       removeLine,
       clearStoreCart,

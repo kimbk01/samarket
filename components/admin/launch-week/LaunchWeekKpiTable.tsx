@@ -1,10 +1,14 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { getLaunchWeekKpis } from "@/lib/launch-week/mock-launch-week-kpis";
 import { AdminTable } from "@/components/admin/AdminTable";
 
 export function LaunchWeekKpiTable() {
+  const { t } = useI18n();
   const [observedDate, setObservedDate] = useState<string>("");
   const kpis = useMemo(
     () =>
@@ -22,13 +26,13 @@ export function LaunchWeekKpiTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">일자</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_launch_week_kdf8167af")}</span>
         <select
           value={observedDate}
           onChange={(e) => setObservedDate(e.target.value)}
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체 (Day 1~7)</option>
+          <option value="">{t("admin_launch_week_filter_all_days")}</option>
           {dates.map((d) => (
             <option key={d} value={d}>
               {d}

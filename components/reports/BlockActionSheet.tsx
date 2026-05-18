@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useState } from "react";
 import { blockUserDaangn } from "@/lib/reports/blockUserDaangn";
@@ -23,11 +24,12 @@ export function BlockActionSheet({
   onClose,
   onSuccess,
 }: BlockActionSheetProps) {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   const handleBlock = async () => {
-    if (!confirm(`"${targetLabel}"님을 차단하면 서로 채팅을 보낼 수 없습니다. 차단할까요?`)) return;
+    if (!confirm(t("ui_report_block_chat_confirm", { label: targetLabel }))) return;
     setLoading(true);
     setError("");
     const res = await blockUserDaangn(targetUserId, { roomId });
@@ -45,12 +47,12 @@ export function BlockActionSheet({
         });
         if (!r.ok) {
           const d = await r.json().catch(() => ({}));
-          setError(d?.error ?? "채팅방 차단 반영에 실패했습니다.");
+          setError(d?.error ?? t("ui_report_room_block_failed"));
           setLoading(false);
           return;
         }
       } catch (e) {
-        setError((e as Error)?.message ?? "채팅방 차단 반영에 실패했습니다.");
+        setError((e as Error)?.message ?? t("ui_report_room_block_failed"));
         setLoading(false);
         return;
       }
@@ -63,7 +65,7 @@ export function BlockActionSheet({
   return (
     <div className="p-4">
       <p className="sam-text-body text-sam-muted">
-        {targetLabel}님을 차단하면 서로의 메시지 전송이 불가하며, 기존 대화는 보관됩니다.
+        {t("ui_report_block_chat_desc", { label: targetLabel })}
       </p>
       {error && <p className="mt-2 sam-text-body-secondary text-red-600">{error}</p>}
       <div className="mt-4 flex gap-2">
@@ -72,7 +74,7 @@ export function BlockActionSheet({
           onClick={onClose}
           className="flex-1 rounded-ui-rect border border-sam-border py-2.5 sam-text-body text-sam-fg"
         >
-          취소
+          {t("common_cancel")}
         </button>
         <button
           type="button"
@@ -80,7 +82,7 @@ export function BlockActionSheet({
           disabled={loading}
           className="flex-1 rounded-ui-rect bg-red-600 py-2.5 sam-text-body font-medium text-white disabled:opacity-50"
         >
-          {loading ? "처리 중..." : "차단하기"}
+          {loading ? t("ui_report_block_submitting") : t("ui_report_block_action")}
         </button>
       </div>
     </div>

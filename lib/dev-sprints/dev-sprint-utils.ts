@@ -1,7 +1,8 @@
 /**
- * 52단계: 스프린트 / 릴리즈 / 배포 후 검증 라벨 유틸
+ * 52단계: 스프린트 / 릴리즈 / 배포 후 검증 라벨 유틸 (i18n MessageKey)
  */
 
+import type { MessageKey } from "@/lib/i18n/messages";
 import type {
   DevSprintStatus,
   DevSprintItemStatus,
@@ -14,102 +15,107 @@ import type {
   PostReleaseCheckPriority,
 } from "@/lib/types/dev-sprints";
 
-const SPRINT_STATUS_LABELS: Record<DevSprintStatus, string> = {
-  planned: "예정",
-  active: "진행중",
-  completed: "완료",
-  archived: "보관",
+export type DevSprintTranslate = (
+  key: MessageKey,
+  params?: Record<string, string | number>
+) => string;
+
+const SPRINT_STATUS_KEYS: Record<DevSprintStatus, MessageKey> = {
+  planned: "admin_dev_sprint_sprint_planned",
+  active: "admin_dev_sprint_sprint_active",
+  completed: "admin_dev_sprint_sprint_completed",
+  archived: "admin_dev_sprint_sprint_archived",
 };
 
-const SPRINT_ITEM_STATUS_LABELS: Record<DevSprintItemStatus, string> = {
-  todo: "할 일",
-  in_progress: "진행중",
-  review: "리뷰",
-  qa_ready: "QA 대기",
-  done: "완료",
-  blocked: "블로킹",
+const SPRINT_ITEM_STATUS_KEYS: Record<DevSprintItemStatus, MessageKey> = {
+  todo: "admin_dev_sprint_status_todo",
+  in_progress: "admin_dev_sprint_status_in_progress",
+  review: "admin_dev_sprint_status_review",
+  qa_ready: "admin_dev_sprint_status_qa_ready",
+  done: "admin_dev_sprint_status_done",
+  blocked: "admin_dev_sprint_status_blocked",
 };
 
-const PRIORITY_LABELS: Record<DevSprintItemPriority, string> = {
-  low: "낮음",
-  medium: "중간",
-  high: "높음",
-  critical: "긴급",
+const PRIORITY_KEYS: Record<DevSprintItemPriority, MessageKey> = {
+  low: "admin_dev_sprint_priority_low",
+  medium: "admin_dev_sprint_priority_medium",
+  high: "admin_dev_sprint_priority_high",
+  critical: "admin_dev_sprint_priority_critical",
 };
 
-const OWNER_TYPE_LABELS: Record<DevSprintItemOwnerType, string> = {
-  dev: "개발",
-  ops: "운영",
-  shared: "공유",
+const OWNER_TYPE_KEYS: Record<DevSprintItemOwnerType, MessageKey> = {
+  dev: "admin_dev_sprint_owner_dev",
+  ops: "admin_dev_sprint_owner_ops",
+  shared: "admin_dev_sprint_owner_shared",
 };
 
-const RELEASE_NOTE_STATUS_LABELS: Record<ReleaseNoteStatus, string> = {
-  draft: "초안",
-  published: "배포됨",
-  archived: "보관",
+const RELEASE_NOTE_STATUS_KEYS: Record<ReleaseNoteStatus, MessageKey> = {
+  draft: "admin_dev_sprint_release_draft",
+  published: "admin_dev_sprint_release_published",
+  archived: "admin_dev_sprint_release_archived",
 };
 
-const RELEASE_NOTE_ITEM_TYPE_LABELS: Record<ReleaseNoteItemType, string> = {
-  feature: "기능",
-  bugfix: "버그수정",
-  improvement: "개선",
-  ops_change: "운영변경",
-  hotfix: "핫픽스",
+const RELEASE_NOTE_ITEM_TYPE_KEYS: Record<ReleaseNoteItemType, MessageKey> = {
+  feature: "admin_dev_sprint_release_item_feature",
+  bugfix: "admin_dev_sprint_release_item_bugfix",
+  improvement: "admin_dev_sprint_release_item_improvement",
+  ops_change: "admin_dev_sprint_release_item_ops_change",
+  hotfix: "admin_dev_sprint_release_item_hotfix",
 };
 
-const POST_RELEASE_PHASE_LABELS: Record<PostReleaseCheckPhase, string> = {
-  before_release: "배포 전",
-  just_after_release: "배포 직후",
-  after_24h: "24시간 후",
-  after_72h: "72시간 후",
+const POST_RELEASE_PHASE_KEYS: Record<PostReleaseCheckPhase, MessageKey> = {
+  before_release: "admin_dev_sprint_post_release_before",
+  just_after_release: "admin_dev_sprint_post_release_just_after",
+  after_24h: "admin_dev_sprint_post_release_24h",
+  after_72h: "admin_dev_sprint_post_release_72h",
 };
 
-const POST_RELEASE_STATUS_LABELS: Record<PostReleaseCheckStatus, string> = {
-  todo: "할 일",
-  in_progress: "진행중",
-  done: "완료",
-  blocked: "블로킹",
+const POST_RELEASE_STATUS_KEYS: Record<PostReleaseCheckStatus, MessageKey> = {
+  todo: "admin_dev_sprint_status_todo",
+  in_progress: "admin_dev_sprint_status_in_progress",
+  done: "admin_dev_sprint_status_done",
+  blocked: "admin_dev_sprint_status_blocked",
 };
 
-const POST_RELEASE_PRIORITY_LABELS: Record<PostReleaseCheckPriority, string> = {
-  low: "낮음",
-  medium: "중간",
-  high: "높음",
-  critical: "긴급",
+const POST_RELEASE_PRIORITY_KEYS: Record<PostReleaseCheckPriority, MessageKey> = {
+  low: "admin_dev_sprint_priority_low",
+  medium: "admin_dev_sprint_priority_medium",
+  high: "admin_dev_sprint_priority_high",
+  critical: "admin_dev_sprint_priority_critical",
 };
 
-export function getSprintStatusLabel(v: DevSprintStatus): string {
-  return SPRINT_STATUS_LABELS[v] ?? v;
+export function getSprintStatusLabel(t: DevSprintTranslate, v: DevSprintStatus): string {
+  return t(SPRINT_STATUS_KEYS[v] ?? "common_need_check");
 }
 
-export function getSprintItemStatusLabel(v: DevSprintItemStatus): string {
-  return SPRINT_ITEM_STATUS_LABELS[v] ?? v;
+export function getSprintItemStatusLabel(t: DevSprintTranslate, v: DevSprintItemStatus): string {
+  return t(SPRINT_ITEM_STATUS_KEYS[v] ?? "common_need_check");
 }
 
-export function getSprintItemPriorityLabel(v: DevSprintItemPriority): string {
-  return PRIORITY_LABELS[v] ?? v;
+export function getSprintItemPriorityLabel(t: DevSprintTranslate, v: DevSprintItemPriority): string {
+  return t(PRIORITY_KEYS[v] ?? "common_need_check");
 }
 
-export function getSprintItemOwnerTypeLabel(v: DevSprintItemOwnerType): string {
-  return OWNER_TYPE_LABELS[v] ?? v;
+export function getSprintItemOwnerTypeLabel(t: DevSprintTranslate, v: DevSprintItemOwnerType): string {
+  return t(OWNER_TYPE_KEYS[v] ?? "common_need_check");
 }
 
-export function getReleaseNoteStatusLabel(v: ReleaseNoteStatus): string {
-  return RELEASE_NOTE_STATUS_LABELS[v] ?? v;
+export function getReleaseNoteStatusLabel(t: DevSprintTranslate, v: ReleaseNoteStatus): string {
+  return t(RELEASE_NOTE_STATUS_KEYS[v] ?? "common_need_check");
 }
 
-export function getReleaseNoteItemTypeLabel(v: ReleaseNoteItemType): string {
-  return RELEASE_NOTE_ITEM_TYPE_LABELS[v] ?? v;
+export function getReleaseNoteItemTypeLabel(t: DevSprintTranslate, v: ReleaseNoteItemType): string {
+  return t(RELEASE_NOTE_ITEM_TYPE_KEYS[v] ?? "common_need_check");
 }
 
-export function getPostReleasePhaseLabel(v: PostReleaseCheckPhase): string {
-  return POST_RELEASE_PHASE_LABELS[v] ?? v;
+export function getPostReleasePhaseLabel(t: DevSprintTranslate, v: PostReleaseCheckPhase): string {
+  return t(POST_RELEASE_PHASE_KEYS[v] ?? "common_need_check");
 }
 
-export function getPostReleaseStatusLabel(v: PostReleaseCheckStatus): string {
-  return POST_RELEASE_STATUS_LABELS[v] ?? v;
+export function getPostReleaseStatusLabel(t: DevSprintTranslate, v: PostReleaseCheckStatus): string {
+  return t(POST_RELEASE_STATUS_KEYS[v] ?? "common_need_check");
 }
 
-export function getPostReleasePriorityLabel(v: PostReleaseCheckPriority): string {
-  return POST_RELEASE_PRIORITY_LABELS[v] ?? v;
+export function getPostReleasePriorityLabel(t: DevSprintTranslate, v: PostReleaseCheckPriority): string {
+  return t(POST_RELEASE_PRIORITY_KEYS[v] ?? "common_need_check");
 }

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 /**
  * @deprecated 허브에서는 `StorePrimaryIndustrySwitcher` + `StoreCategoryExploreSection` 로 통합됨.

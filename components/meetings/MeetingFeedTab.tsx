@@ -1,32 +1,12 @@
 "use client";
 
-import { useState, useTransition, useEffect } from "react";
+import { useState, useTransition, useEffect, useMemo } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { redirectForBlockedAction } from "@/lib/auth/client-access-flow";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MeetingFeedPostDTO } from "@/lib/neighborhood/types";
 import { MeetingReportModal } from "@/components/meetings/MeetingReportModal";
 import { formatKorDateTime } from "@/lib/ui/format-meeting-date";
-
-const POST_TYPE_LABELS: Record<string, string> = {
-  notice: "공지",
-  intro: "자기소개",
-  attendance: "참석",
-  review: "후기",
-  normal: "",
-};
-
-const WRITABLE_TYPES: { value: MeetingFeedPostDTO["post_type"]; label: string }[] = [
-  { value: "normal", label: "일반" },
-  { value: "intro", label: "자기소개" },
-  { value: "attendance", label: "참석" },
-  { value: "review", label: "후기" },
-];
-
-const HOST_TYPES: { value: MeetingFeedPostDTO["post_type"]; label: string }[] = [
-  ...WRITABLE_TYPES,
-  { value: "notice", label: "공지" },
-];
 
 function formatTime(iso: string | null | undefined): string {
   return formatKorDateTime(iso);
@@ -49,8 +29,37 @@ export function MeetingFeedTab({
   isHost,
   allowFeed = true,
 }: MeetingFeedTabProps) {
-  const { tt } = useI18n();
+  const { t } = useI18n();
   const router = useRouter();
+
+  const postTypeLabels = useMemo(
+    (): Record<string, string> => ({
+      notice: t("meeting_feed_type_notice"),
+      intro: t("meeting_feed_type_intro"),
+      attendance: t("meeting_feed_type_attendance"),
+      review: t("meeting_feed_type_review"),
+      normal: "",
+    }),
+    [t],
+  );
+
+  const writableTypes = useMemo(
+    (): { value: MeetingFeedPostDTO["post_type"]; label: string }[] => [
+      { value: "normal", label: t("meeting_feed_type_normal") },
+      { value: "intro", label: t("meeting_feed_type_intro") },
+      { value: "attendance", label: t("meeting_feed_type_attendance") },
+      { value: "review", label: t("meeting_feed_type_review") },
+    ],
+    [t],
+  );
+
+  const hostTypes = useMemo(
+    (): { value: MeetingFeedPostDTO["post_type"]; label: string }[] => [
+      ...writableTypes,
+      { value: "notice", label: t("meeting_feed_type_notice") },
+    ],
+    [t, writableTypes],
+  );
   const pathname = usePathname() ?? "";
   const [isPending, startTransition] = useTransition();
   const canWrite = Boolean(isHost) || allowFeed !== false;
@@ -128,10 +137,10 @@ export function MeetingFeedTab({
     return tb - ta;
   });
 
-  const typeOptions = isHost ? HOST_TYPES : WRITABLE_TYPES;
+  const typeOptions = isHost ? hostTypes : writableTypes;
 
   const handleDelete = async (postId: string) => {
-    if (!confirm(tt("이 글을 삭제하시겠어요?"))) return;
+    if (!confirm(t("meeting_feed_confirm_delete"))) return;
     setDeletingId(postId);
     try {
       const res = await fetch(`/api/philife/meetings/${meetingId}/feed/${postId}`, {
@@ -169,10 +178,10 @@ export function MeetingFeedTab({
         const code = (j as { error?: string }).error;
         setErr(
           code === "too_long"
-            ? "글이 너무 깁니다 (최대 2000자)."
+            ? t("meeting_feed_err_too_long")
             : code === "feed_disabled"
-              ? "모임 설정상 피드 글 작성이 비활성화되어 있습니다. 운영자만 작성할 수 있습니다."
-              : "작성에 실패했습니다.",
+              ? t("meeting_feed_err_disabled")
+              : t("meeting_feed_err_submit_failed"),
         );
         return;
       }
@@ -184,7 +193,7 @@ export function MeetingFeedTab({
       setShowForm(false);
       startTransition(() => router.refresh());
     } catch {
-      setErr("네트워크 오류가 발생했습니다.");
+      setErr(t("common_network_error"));
     } finally {
       setSubmitting(false);
     }
@@ -193,23 +202,22 @@ export function MeetingFeedTab({
   return (
     <div className="space-y-3">
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface px-3.5 py-3 shadow-sm">
-        <p className="sam-text-helper font-semibold text-sam-fg">연동 상태</p>
+        <p className="sam-text-helper font-semibold text-sam-fg">{t("meeting_sync_status_title")}</p>
         <ul className="mt-2 space-y-1 sam-text-helper text-sam-muted">
           <li className="flex justify-between gap-2">
-            <span>피드 글 (표시)</span>
-            <span className="font-medium text-sam-fg">{sorted.length}건</span>
+            <span>{t("meeting_feed_posts_visible")}</span>
+            <span className="font-medium text-sam-fg">{t("meeting_count_unit", { count: sorted.length })}</span>
           </li>
           <li className="flex justify-between gap-2">
-            <span>회원 작성</span>
+            <span>{t("meeting_feed_member_write")}</span>
             <span className={allowFeed !== false ? "font-medium text-emerald-700" : "font-medium text-amber-700"}>
-              {allowFeed !== false ? "허용 · 모두 읽기/쓰기" : "제한 · 운영자만 작성"}
+              {allowFeed !== false ? t("meeting_feed_allow_all") : t("meeting_feed_restrict_host")}
             </span>
           </li>
         </ul>
         {!canWrite ? (
           <p className="mt-2 rounded-ui-rect bg-amber-50 px-2.5 py-2 sam-text-xxs leading-relaxed text-amber-900">
-            모임 설정에서 피드 글 작성이 꺼져 있어 일반 멤버는 글을 쓸 수 없습니다. 글 목록은 모두 볼 수
-            있습니다.
+            {t("meeting_feed_disabled_hint")}
           </p>
         ) : null}
       </div>
@@ -251,7 +259,7 @@ export function MeetingFeedTab({
             rows={4}
             maxLength={2000}
             autoFocus
-            placeholder="모임 멤버들에게 전하고 싶은 이야기를 남겨보세요."
+            placeholder={t("meeting_feed_placeholder")}
             className="w-full resize-none px-4 py-3 sam-text-body leading-relaxed text-sam-fg placeholder-sam-meta outline-none"
           />
 
@@ -266,14 +274,14 @@ export function MeetingFeedTab({
                 onClick={() => { setShowForm(false); setContent(""); setErr(""); }}
                 className="rounded-ui-rect px-3 py-1.5 sam-text-helper font-medium text-sam-muted hover:bg-sam-surface-muted"
               >
-                취소
+                {t("common_cancel")}
               </button>
               <button
                 type="submit"
                 disabled={submitting || !content.trim()}
                 className="rounded-ui-rect bg-emerald-500 px-4 py-1.5 sam-text-body-secondary font-semibold text-white disabled:opacity-40"
               >
-                {submitting ? "게시 중…" : "게시"}
+                {submitting ? t("meeting_feed_posting") : t("meeting_feed_post_submit")}
               </button>
             </div>
           </div>
@@ -288,7 +296,7 @@ export function MeetingFeedTab({
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sam-surface-muted sam-text-body font-semibold text-sam-muted">
             +
           </div>
-          <span className="flex-1 sam-text-body text-sam-meta">모임 멤버들에게 글을 남겨보세요…</span>
+          <span className="flex-1 sam-text-body text-sam-meta">{t("meeting_feed_compose_cta")}</span>
         </button>
       ) : null}
 
@@ -296,12 +304,12 @@ export function MeetingFeedTab({
       {sorted.length === 0 ? (
         <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-14 text-center">
           <p className="sam-text-hero">📝</p>
-          <p className="mt-2 sam-text-body text-sam-meta">아직 피드 글이 없어요.</p>
-          <p className="mt-1 sam-text-helper text-sam-meta">첫 글을 남겨보세요.</p>
+          <p className="mt-2 sam-text-body text-sam-meta">{t("meeting_feed_empty")}</p>
+          <p className="mt-1 sam-text-helper text-sam-meta">{t("meeting_feed_empty_hint")}</p>
         </div>
       ) : (
         sorted.map((post) => {
-          const typeLabel = POST_TYPE_LABELS[post.post_type] ?? "";
+          const typeLabel = postTypeLabels[post.post_type] ?? "";
           const isMine = post.author_user_id === currentUserId;
           const authorIsHost = isHost && post.author_user_id === currentUserId;
           return (
@@ -315,7 +323,7 @@ export function MeetingFeedTab({
                 <div className="mb-2 flex flex-wrap gap-1.5">
                   {post.is_pinned && (
                     <span className="rounded-full bg-amber-100 px-2 py-0.5 sam-text-xxs font-semibold text-amber-800">
-                      📌 고정
+                      {t("meeting_feed_pinned")}
                     </span>
                   )}
                   {typeLabel && (
@@ -333,13 +341,13 @@ export function MeetingFeedTab({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className="sam-text-body-secondary font-medium text-sam-fg">
-                      {post.author_name || "알 수 없음"}
+                      {post.author_name || t("meeting_unknown_member")}
                     </span>
                     {isMine && (
-                      <span className="rounded-full bg-sky-50 px-1.5 py-0 sam-text-xxs text-sky-600">나</span>
+                      <span className="rounded-full bg-sky-50 px-1.5 py-0 sam-text-xxs text-sky-600">{t("community_me")}</span>
                     )}
                     {authorIsHost && (
-                      <span className="rounded-full bg-amber-50 px-1.5 py-0 sam-text-xxs text-amber-700">모임장</span>
+                      <span className="rounded-full bg-amber-50 px-1.5 py-0 sam-text-xxs text-amber-700">{t("community_role_owner")}</span>
                     )}
                   </div>
                   <p className="sam-text-xxs text-sam-meta">{formatTime(post.created_at)}</p>
@@ -352,7 +360,7 @@ export function MeetingFeedTab({
                       disabled={deletingId === post.id}
                       onClick={() => void handleDelete(post.id)}
                       className="rounded-full p-1.5 sam-text-helper text-sam-meta hover:bg-red-50 hover:text-red-500"
-                      title="삭제"
+                      title={t("common_delete")}
                     >
                       🗑
                     </button>
@@ -363,7 +371,7 @@ export function MeetingFeedTab({
                       disabled={deletingId === post.id}
                       onClick={() => void handleDelete(post.id)}
                       className="rounded-full p-1.5 sam-text-helper text-sam-meta hover:bg-red-50 hover:text-red-500"
-                      title="삭제 (모임장)"
+                      title={t("meeting_feed_delete_host_title")}
                     >
                       🗑
                     </button>
@@ -373,7 +381,7 @@ export function MeetingFeedTab({
                       type="button"
                       onClick={() => setReportTarget({ id: post.id })}
                       className="rounded-full p-1.5 sam-text-body text-sam-meta hover:bg-sam-surface-muted hover:text-sam-muted"
-                      title="신고"
+                      title={t("community_report")}
                     >
                       ···
                     </button>
@@ -390,7 +398,7 @@ export function MeetingFeedTab({
       )}
 
       {isPending && (
-        <p className="text-center sam-text-helper text-sam-meta">새로고침 중…</p>
+        <p className="text-center sam-text-helper text-sam-meta">{t("meeting_refreshing")}</p>
       )}
     </div>
   );

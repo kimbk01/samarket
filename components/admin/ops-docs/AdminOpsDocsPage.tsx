@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { OpsDocumentFilterBar, type OpsDocumentFilterState } from "./OpsDocumentFilterBar";
@@ -17,30 +18,31 @@ const INIT_FILTER: OpsDocumentFilterState = {
 };
 
 export function AdminOpsDocsPage() {
+  const { t } = useI18n();
   const [filterState, setFilterState] = useState<OpsDocumentFilterState>(INIT_FILTER);
   const [activeTab, setActiveTab] = useState<"list" | "summary">("list");
   const [refresh, setRefresh] = useState(0);
 
   return (
     <>
-      <AdminPageHeader title="운영 문서 (SOP / 플레이북 / 시나리오)" />
+      <AdminPageHeader titleKey="admin_ops_doc_page_title" />
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Link
           href="/admin/ops-docs/create"
           className="rounded border border-signature bg-signature px-3 py-2 sam-text-body font-medium text-white"
         >
-          문서 생성
+          {t("admin_ops_doc_create")}
         </Link>
         <button
           type="button"
           onClick={() => setActiveTab(activeTab === "list" ? "summary" : "list")}
           className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
         >
-          {activeTab === "list" ? "요약 보기" : "목록 보기"}
+          {activeTab === "list" ? t("admin_ops_doc_view_summary") : t("admin_ops_doc_view_list")}
         </button>
       </div>
       {activeTab === "summary" ? (
-        <AdminCard title="문서 요약">
+        <AdminCard titleKey="admin_ops_doc_card_summary">
           <OpsDocumentSummaryCards />
         </AdminCard>
       ) : (
@@ -48,7 +50,7 @@ export function AdminOpsDocsPage() {
           <div className="mb-4">
             <OpsDocumentFilterBar state={filterState} onChange={setFilterState} />
           </div>
-          <AdminCard title="문서 목록">
+          <AdminCard titleKey="admin_ops_doc_card_list">
             <OpsDocumentTable filterState={filterState} refresh={refresh} />
           </AdminCard>
         </>

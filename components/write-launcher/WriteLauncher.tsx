@@ -4,7 +4,8 @@ import { createPortal } from "react-dom";
 import { useEffect, useLayoutEffect, useState } from "react";
 import { useWriteCategory } from "@/contexts/WriteCategoryContext";
 import type { CategoryType } from "@/lib/categories/types";
-import { CATEGORY_TYPE_LABELS } from "@/lib/types/category";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { CATEGORY_TYPE_MESSAGE_KEYS } from "@/lib/types/category-label-i18n";
 import {
   BOTTOM_NAV_FAB_LAYOUT,
   HOME_TRADE_HUB_SUB_FAB_BUTTON_CLASS,
@@ -30,6 +31,7 @@ export function WriteLauncherPanel({
   hideFabClose?: boolean;
   subFabClose?: boolean;
 }) {
+  const { t } = useI18n();
   const writeCtx = useWriteCategory();
   const categories = writeCtx?.launcherRootCategories ?? [];
   const loading = writeCtx?.launcherCategoriesLoading ?? true;
@@ -42,7 +44,7 @@ export function WriteLauncherPanel({
   const sections = typeOrder
     .map((type) => ({
       type,
-      title: CATEGORY_TYPE_LABELS[type],
+      title: t(CATEGORY_TYPE_MESSAGE_KEYS[type]),
       list: categories.filter((c) => c.type === type),
     }))
     .filter((s) => s.list.length > 0);
@@ -53,12 +55,12 @@ export function WriteLauncherPanel({
     >
       <div className="w-full rounded-ui-rect bg-sam-surface py-2 shadow-xl">
         {loading ? (
-          <p className="py-8 text-center sam-text-body text-sam-muted">불러오는 중…</p>
+          <p className="py-8 text-center sam-text-body text-sam-muted">{t("common_loading")}</p>
         ) : categories.length === 0 ? (
           <div className="px-4 py-8 text-center sam-text-body text-sam-muted">
-            <p>노출할 주제가 없습니다.</p>
+            <p>{t("ui_write_launcher_no_topics")}</p>
             <p className="mt-2 sam-text-helper leading-relaxed text-sam-meta">
-              관리자 → 메뉴 관리에서 항목의 「런처 노출」을 켜 주세요.
+              {t("ui_write_launcher_admin_hint")}
             </p>
           </div>
         ) : (
@@ -86,7 +88,7 @@ export function WriteLauncherPanel({
               ? HOME_TRADE_HUB_SUB_FAB_BUTTON_CLASS
               : "flex h-12 w-12 items-center justify-center rounded-full bg-sam-surface text-sam-muted shadow-sam-elevated hover:bg-sam-app"
           }
-          aria-label="닫기"
+          aria-label={t("common_close")}
         >
           <CloseIcon className={subFabClose ? "text-white" : undefined} />
         </button>

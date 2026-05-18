@@ -28,6 +28,7 @@ const TAB_INACTIVE_CLASS =
  * 홈 플로팅 「거래내역」시트 — `/mypage/trade` 구매·판매·찜·후기 탭과 동일 구성(채팅 탭 제외).
  */
 export function HomeTradeHistorySheetContent() {
+  const { t } = useI18n();
   const { tt } = useI18n();
   const [tab, setTab] = useState<TradeHistorySheetTab>("purchases");
 

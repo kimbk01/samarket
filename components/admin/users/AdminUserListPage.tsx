@@ -274,7 +274,7 @@ export function AdminUserListPage() {
 
   return (
     <div className="space-y-4 bg-[#f0f2f5] text-[#050505]">
-      <AdminPageHeader titleKey="admin_users_page_title" />
+      <AdminPageHeader titleKey="admin_page_user_management" />
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex rounded-full border border-[#dadde1] bg-white p-1 shadow-sm">
           <button
@@ -309,7 +309,7 @@ export function AdminUserListPage() {
                   disabled={cleanupLoading}
                   className="rounded-full border border-[#fad2cf] bg-[#fff3f2] px-4 py-2 text-sm font-bold text-[#b42318] transition hover:bg-[#ffe7e5] disabled:opacity-50"
                 >
-                  {cleanupLoading ? t("common_saving") : t("admin_users_cleanup_button")}
+                  {cleanupLoading ? t("admin_users_saving") : t("admin_users_cleanup_button")}
                 </button>
               )}
             </>

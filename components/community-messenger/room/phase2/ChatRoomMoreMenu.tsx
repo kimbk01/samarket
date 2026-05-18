@@ -12,7 +12,8 @@ import {
   UserPlus,
   Video,
 } from "lucide-react";
-import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { useMemo } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { CommunityMessengerPeerPresenceSnapshot } from "@/lib/community-messenger/types";
 import {
   formatMessengerTradeDockPriceLine,
@@ -77,13 +78,6 @@ export type ChatRoomMoreMenuProps = {
   onLeaveRoom: () => void;
 };
 
-const PRODUCT_STATUS_LABEL: Record<Product["status"], string> = {
-  selling: "판매중",
-  inquiring: "문의중",
-  reserved: "예약중",
-  sold: "거래완료",
-};
-
 function mannerTemperatureLabel(score0to100: number): string {
   const s = Math.max(0, Math.min(100, Number.isFinite(score0to100) ? score0to100 : 50));
   const c = 36.5 + (s - 50) * 0.03;
@@ -126,6 +120,16 @@ function listRowClass(interactive: boolean): string {
 }
 
 export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
+  const { t } = useI18n();
+  const productStatusLabel = useMemo(
+    (): Record<Product["status"], string> => ({
+      selling: t("cm_ui_trade_product_selling"),
+      inquiring: t("cm_ui_trade_product_inquiring"),
+      reserved: t("cm_ui_trade_product_reserved"),
+      sold: t("cm_ui_trade_product_sold"),
+    }),
+    [t]
+  );
   const {
     roomType,
     relation,
@@ -154,12 +158,12 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
     otherUser.peerPresence != null
       ? formatMessengerPeerPresenceLine(otherUser.peerPresence)
       : otherUser.isOnline === true
-        ? "온라인"
+        ? t("cm_ui_online")
         : otherUser.isOnline === false
-          ? "오프라인"
+          ? t("cm_ui_offline")
           : formatMessengerPeerPresenceLine(null);
 
-  const friendLabelNone = roomType === "direct" ? "친구 추가" : "친구 신청";
+  const friendLabelNone = roomType === "direct" ? t("cm_ui_add_friend") : t("cm_ui_friend_request");
 
   const showVoice =
     roomType === "direct" || (roomType === "trade" && Boolean(tradeContext?.product.allow_call));
@@ -171,14 +175,16 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
     <div className="flex flex-col pb-[env(safe-area-inset-bottom,0px)]">
       <div className="border-b border-[color:var(--cm-room-divider)] px-3 py-3">
         <div className="flex items-center gap-3">
-          <SamarketThumbnail
-            src={otherUser.avatarUrl}
-            size={48}
-            roundedClassName="rounded-full"
-            className="bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]"
-            fallbackSrc=""
-            fallbackNode={<span className="sam-text-body-secondary font-semibold text-[color:var(--cm-room-primary)]">{otherUser.nickname.trim().slice(0, 1) || "?"}</span>}
-          />
+          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]">
+            {otherUser.avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={otherUser.avatarUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center sam-text-body-secondary font-semibold text-[color:var(--cm-room-primary)]">
+                {otherUser.nickname.trim().slice(0, 1) || "?"}
+              </div>
+            )}
+          </div>
           <div className="min-w-0 flex-1">
             <p className="truncate font-semibold text-[color:var(--cm-room-text)]">{otherUser.nickname}</p>
             <div className="mt-0.5 flex items-center gap-1.5 sam-text-xxs text-[color:var(--cm-room-text-muted)]">
@@ -218,7 +224,7 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
             line2={formatMessengerTradeDockPriceLine(
               tradeContext.product.price,
               "PHP",
-              PRODUCT_STATUS_LABEL[tradeContext.product.status]
+              productStatusLabel[tradeContext.product.status]
             )}
             detailHref={`/post/${encodeURIComponent(tradeContext.product.id)}`}
             productLabel={tradeContext.product.title}
@@ -226,14 +232,14 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
         </div>
       ) : null}
 
-      <nav className="flex flex-col" aria-label="채팅방 메뉴">
+      <nav className="flex flex-col" aria-label={t("cm_ui_chat_room_menu")}>
         <button type="button" onClick={onSearch} className={listRowClass(true)}>
           <Search className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
-          <span className="min-w-0 flex-1 font-medium">대화 내 검색</span>
+          <span className="min-w-0 flex-1 font-medium">{t("cm_ui_search_in_chat")}</span>
         </button>
         <button type="button" onClick={onOpenMediaFiles} className={listRowClass(true)}>
           <ImageIcon className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
-          <span className="min-w-0 flex-1 font-medium">사진/파일 보기</span>
+          <span className="min-w-0 flex-1 font-medium">{t("cm_ui_view_photo_file")}</span>
         </button>
 
         {relation === "none" ? (
@@ -249,12 +255,12 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
         ) : relation === "requested" ? (
           <div className={listRowClass(false)} aria-disabled>
             <UserPlus className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-text-muted)]" strokeWidth={2} aria-hidden />
-            <span className="min-w-0 flex-1 font-medium text-[color:var(--cm-room-text-muted)]">요청중</span>
+            <span className="min-w-0 flex-1 font-medium text-[color:var(--cm-room-text-muted)]">{t("cm_ui_pending")}</span>
           </div>
         ) : (
           <div className={listRowClass(false)}>
             <CheckCircle2 className="h-[18px] w-[18px] shrink-0 text-emerald-600" strokeWidth={2} aria-hidden />
-            <span className="min-w-0 flex-1 font-medium text-[color:var(--cm-room-text)]">친구입니다</span>
+            <span className="min-w-0 flex-1 font-medium text-[color:var(--cm-room-text)]">{t("cm_ui_is_friend")}</span>
           </div>
         )}
 
@@ -266,7 +272,7 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
             className={`${listRowClass(!disableVoiceCall)} disabled:opacity-40`}
           >
             <Phone className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
-            <span className="min-w-0 flex-1 font-medium">음성 통화</span>
+            <span className="min-w-0 flex-1 font-medium">{t("cm_ui_voice_call")}</span>
           </button>
         ) : null}
 
@@ -278,7 +284,7 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
             className={`${listRowClass(!disableVideoCall)} disabled:opacity-40`}
           >
             <Video className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
-            <span className="min-w-0 flex-1 font-medium">영상 통화</span>
+            <span className="min-w-0 flex-1 font-medium">{t("cm_ui_video_call")}</span>
           </button>
         ) : null}
 
@@ -294,7 +300,7 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
             <BellOff className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
           )}
           <span className="min-w-0 flex-1 font-medium">
-            {isMuted ? "이 채팅방 알림 켜기" : "이 채팅방 알림 끄기"}
+            {isMuted ? t("cm_ui_turn_on_room_notifications") : t("cm_ui_turn_off_room_notifications")}
           </span>
         </button>
         <button
@@ -304,7 +310,7 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
           className={`${listRowClass(!disableArchiveToggle)} disabled:opacity-40`}
         >
           <Archive className="h-[18px] w-[18px] shrink-0 text-[color:var(--cm-room-primary)]" strokeWidth={2} aria-hidden />
-          <span className="min-w-0 flex-1 font-medium">{isArchived ? "보관 해제" : "채팅방 보관"}</span>
+          <span className="min-w-0 flex-1 font-medium">{isArchived ? t("cm_ui_unarchive") : t("cm_ui_archive_chat_room")}</span>
         </button>
         <button
           type="button"
@@ -313,7 +319,7 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
           className={`${listRowClass(!disableLeaveRoom)} border-b-0 text-red-600 disabled:opacity-40`}
         >
           <LogOut className="h-[18px] w-[18px] shrink-0" strokeWidth={2} aria-hidden />
-          <span className="min-w-0 flex-1 font-medium">채팅방 나가기</span>
+          <span className="min-w-0 flex-1 font-medium">{t("cm_ui_leave_chat_room")}</span>
         </button>
       </nav>
     </div>

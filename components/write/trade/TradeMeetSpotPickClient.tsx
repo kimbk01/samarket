@@ -39,6 +39,7 @@ import {
 import { matchRegionCityFromFullAddress } from "@/lib/profile/match-region-from-full-address";
 import { MobileConfirmBottomSheet } from "@/components/ui/MobileConfirmBottomSheet";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type LatLng = { lat: number; lng: number };
 
@@ -130,6 +131,7 @@ function useReverseGeocode(
  * 중고 거래 — 거래 희망 장소(지도 핀 + 간단 주소) 선택 후 확인 시 글쓰기로 복귀
  */
 export function TradeMeetSpotPickClient() {
+  const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const returnTo = useMemo(
@@ -687,7 +689,7 @@ export function TradeMeetSpotPickClient() {
       }`}
     >
       <header className="flex shrink-0 items-center justify-center border-b border-sam-border bg-sam-surface px-4 py-2.5">
-        <h1 className="truncate text-center text-[15px] font-bold text-sam-fg">거래 희망 장소</h1>
+        <h1 className="truncate text-center text-[15px] font-bold text-sam-fg">{t("trade_018")}</h1>
       </header>
 
       {mapsError ? (
@@ -711,7 +713,7 @@ export function TradeMeetSpotPickClient() {
             >
               <div className="sam-form-field block">
                 <div className="mb-1 flex items-center justify-between gap-2">
-                  <span className="text-[13px] font-semibold text-sam-fg">주소로 지도 찾기</span>
+                  <span className="text-[13px] font-semibold text-sam-fg">{t("trade_106")}</span>
                   {representativeCenter ? (
                     <button
                       type="button"
@@ -730,7 +732,7 @@ export function TradeMeetSpotPickClient() {
                     inputMode="search"
                     enterKeyHint="search"
                     autoComplete="off"
-                    aria-label="건물명 또는 주소로 지도 위치 검색"
+                    aria-label={t("trade_023")}
                     aria-autocomplete="list"
                     aria-expanded={addressPredictions.length > 0 && !addressPredictionsBusy}
                     onChange={(e) => {
@@ -738,14 +740,14 @@ export function TradeMeetSpotPickClient() {
                       setManualSearchQuery(e.target.value);
                     }}
                     maxLength={200}
-                    placeholder="검색 후 목록에서 선택"
+                    placeholder={t("trade_026")}
                     disabled={closing || predictionPickBusy}
                     className={`${Sam.input.base} rounded-ui-rect bg-sam-app shadow-[inset_0_1px_2px_rgba(15,23,42,0.06)] ring-1 ring-inset ring-sam-border disabled:opacity-60`}
                   />
                   {!addressPredictionsBusy && addressPredictions.length > 0 ? (
                     <ul
                       role="listbox"
-                      aria-label="주소 검색 결과"
+                      aria-label={t("trade_105")}
                       className="absolute left-0 right-0 top-full z-[130] mt-1 max-h-52 overflow-y-auto rounded-ui-rect border border-sam-border bg-sam-surface py-1 shadow-lg"
                     >
                       {addressPredictions.map((row) => (
@@ -788,13 +790,13 @@ export function TradeMeetSpotPickClient() {
               </div>
 
               <label className="sam-form-field mt-3 block border-t border-sam-border pt-3">
-                <span className="mb-1 block text-[13px] font-semibold text-sam-fg">표시할 주소</span>
+                <span className="mb-1 block text-[13px] font-semibold text-sam-fg">{t("trade_127")}</span>
                 <textarea
                   value={displayLine}
                   inputMode="text"
                   enterKeyHint="done"
                   autoComplete="street-address"
-                  aria-label="거래 글에 표시할 주소 문구"
+                  aria-label={t("trade_012")}
                   onChange={(e) => {
                     userInteractionRef.current = true;
                     setAddressTouched(true);
@@ -816,7 +818,7 @@ export function TradeMeetSpotPickClient() {
             ? createPortal(
                 <div
                   role="toolbar"
-                  aria-label="거래 희망 장소 확인"
+                  aria-label={t("trade_020")}
                   className={`fixed inset-x-0 bottom-0 z-[140] border-t border-sam-border bg-sam-surface px-3 pt-2 shadow-[0_-12px_32px_rgba(15,23,42,0.18)] pb-[max(0.65rem,env(safe-area-inset-bottom,0px))] transition-transform duration-500 ease-[cubic-bezier(0.22,0.9,0.32,1)] ${
                     closing ? "-translate-y-full opacity-95" : entered ? "translate-y-0 opacity-100" : "-translate-y-full opacity-95"
                   }`}
@@ -849,7 +851,7 @@ export function TradeMeetSpotPickClient() {
     <MobileConfirmBottomSheet
       open={cancelChangeConfirmOpen}
       onCancel={() => setCancelChangeConfirmOpen(false)}
-      title="거래 희망 장소 변경을 취소할까요?"
+      title={t("trade_019")}
       description="지도에서 바꾼 위치는 저장되지 않고 글쓰기로 돌아갑니다."
       cancelLabel="계속 수정"
       confirmLabel="변경 취소 후 나가기"

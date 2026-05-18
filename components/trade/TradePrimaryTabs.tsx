@@ -26,6 +26,7 @@ import {
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { useLongPressOrTap } from "@/lib/ui/use-long-press-or-tap";
 import { menuHrefMatchesIntent, useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface TradePrimaryTabsProps {
   embed?: boolean;
@@ -67,6 +68,7 @@ function TradePrimaryTabsInner({
   embed: _embed = false,
   embedInAppHeader = false,
 }: TradePrimaryTabsProps) {
+  const { t } = useI18n();
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -230,7 +232,7 @@ function TradePrimaryTabsInner({
         className={`${PHILIFE_TOPIC_TAB_ROW_CLASS} min-w-0 max-w-full`}
         style={{ WebkitOverflowScrolling: "touch" }}
         role="tablist"
-        aria-label="TRADE 메뉴"
+        aria-label={t("trade_138")}
       >
         {displayTabs.map((tab) => {
           if (tab.key === "all") {
@@ -338,7 +340,7 @@ function TradePrimaryTabsInner({
               <ul
                 ref={allSortMenuRef}
                 role="listbox"
-                aria-label="거래 전체 정렬"
+                aria-label={t("trade_015")}
                 className="min-w-[10rem] rounded-sam-md border border-sam-border bg-sam-surface py-1 shadow-sam-elevated"
                 style={{ position: "fixed", top: allSortMenuPos.top, left: allSortMenuPos.left, zIndex: 200 }}
               >

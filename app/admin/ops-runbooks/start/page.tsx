@@ -5,7 +5,7 @@ import { OpsRunbookStartForm } from "@/components/admin/ops-runbooks/OpsRunbookS
 export default function OpsRunbookStartPage() {
   return (
     <>
-      <AdminPageHeader title="런북 실행 시작" backHref="/admin/ops-runbooks" />
+      <AdminPageHeader titleKey="admin_page_runbook_start" backHref="/admin/ops-runbooks" />
       <AdminCard>
         <OpsRunbookStartForm />
       </AdminCard>

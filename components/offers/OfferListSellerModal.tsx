@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useEffect, useId } from "react";
 import Link from "next/link";
 import { OfferListSeller } from "@/components/offers/OfferListSeller";
@@ -36,6 +37,7 @@ export function OfferListSellerModal({
   productTitle,
   listPrice,
 }: Props) {
+  const { t } = useI18n();
   const titleId = useId();
 
   useEffect(() => {
@@ -57,7 +59,7 @@ export function OfferListSellerModal({
     <div className="fixed inset-0 z-[45] flex flex-col justify-end sm:items-center sm:justify-center sm:p-4">
       <button
         type="button"
-        aria-label="닫기"
+        aria-label={t("ui_sheet_close_aria")}
         className="absolute inset-0 bg-black/50 backdrop-blur-[1px] sm:bg-black/40"
         onClick={onClose}
       />
@@ -87,7 +89,7 @@ export function OfferListSellerModal({
             type="button"
             onClick={onClose}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full sam-text-body-lg leading-none text-sam-muted transition-colors hover:bg-sam-surface-muted"
-            aria-label="닫기"
+            aria-label={t("ui_sheet_close_aria")}
           >
             ×
           </button>

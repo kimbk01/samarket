@@ -1,6 +1,7 @@
 "use client";
 
 import type { AppSettings } from "@/lib/types/admin-settings";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface ChatPolicyFormProps {
   values: Pick<
@@ -11,11 +12,11 @@ interface ChatPolicyFormProps {
 }
 
 export function ChatPolicyForm({ values, onChange }: ChatPolicyFormProps) {
+  const { t } = useI18n();
+
   return (
     <div className="space-y-4">
-      <p className="sam-text-body-secondary text-sam-muted">
-        채팅 정책 (6단계 연동 placeholder)
-      </p>
+      <p className="sam-text-body-secondary text-sam-muted">{t("admin_settings_chat_intro")}</p>
       <div className="flex items-center gap-2">
         <input
           type="checkbox"
@@ -25,7 +26,7 @@ export function ChatPolicyForm({ values, onChange }: ChatPolicyFormProps) {
           className="rounded border-sam-border"
         />
         <label htmlFor="chatEnabled" className="sam-text-body text-sam-fg">
-          채팅 사용
+          {t("admin_settings_chat_enabled")}
         </label>
       </div>
       <div className="flex items-center gap-2">
@@ -37,12 +38,12 @@ export function ChatPolicyForm({ values, onChange }: ChatPolicyFormProps) {
           className="rounded border-sam-border"
         />
         <label htmlFor="allowChatAfterSold" className="sam-text-body text-sam-fg">
-          판매 완료 후 채팅 허용
+          {t("admin_settings_chat_after_sold")}
         </label>
       </div>
       <div>
         <label className="block sam-text-body-secondary font-medium text-sam-fg">
-          최대 메시지 길이
+          {t("admin_settings_chat_max_length")}
         </label>
         <input
           type="number"

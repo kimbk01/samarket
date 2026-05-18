@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { RecentViewedProduct } from "@/lib/types/recommendation";
@@ -14,12 +15,19 @@ import {
 } from "@/lib/posts/post-list-preview-model";
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
 
-const SOURCE_LABELS: Record<RecentViewedProduct["source"], string> = {
-  home: "홈",
-  search: "검색",
-  chat: "채팅",
-  recommendation: "추천",
-  shop: "상점",
+const SOURCE_LABEL_KEY: Record<
+  RecentViewedProduct["source"],
+  | "ui_recent_source_home"
+  | "ui_recent_source_search"
+  | "ui_recent_source_chat"
+  | "ui_recent_source_recommendation"
+  | "ui_recent_source_shop"
+> = {
+  home: "ui_recent_source_home",
+  search: "ui_recent_source_search",
+  chat: "ui_recent_source_chat",
+  recommendation: "ui_recent_source_recommendation",
+  shop: "ui_recent_source_shop",
 };
 
 interface RecentViewedCardProps {
@@ -27,9 +35,10 @@ interface RecentViewedCardProps {
 }
 
 export function RecentViewedCard({ record }: RecentViewedCardProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const product = getProductById(record.productId);
-  const sourceLabel = SOURCE_LABELS[record.source];
+  const sourceLabel = t(SOURCE_LABEL_KEY[record.source]);
 
   if (!product) return null;
   const detailHref = `/post/${record.productId}`;

@@ -9,6 +9,7 @@ import { resolveNeighborhoodFeedListThumbnail } from "@/lib/community-feed/feed-
 import { philifeAppPaths } from "@domain/philife/paths";
 import { normalizeFeedListBodyPreview } from "../feed-list-layouts";
 import { PHILIFE_FB_CARD_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type Props = {
   currentPostId: string;
@@ -16,6 +17,7 @@ type Props = {
 };
 
 export function CommunitySimilarPostsSection({ currentPostId, posts }: Props) {
+  const { t } = useI18n();
   const list = posts.filter((p) => p.id !== currentPostId).slice(0, 6);
   if (list.length === 0) return null;
 
@@ -23,11 +25,11 @@ export function CommunitySimilarPostsSection({ currentPostId, posts }: Props) {
     <section className="mt-2 px-4 pb-6">
       <div className={PHILIFE_FB_CARD_CLASS}>
         <div className="px-4 py-4">
-          <h2 className="m-0 text-[17px] font-bold leading-[1.35] text-[#1F2430]">이 글과 비슷한 게시글</h2>
+          <h2 className="m-0 text-[17px] font-bold leading-[1.35] text-[#1F2430]">{t("community_similar_posts")}</h2>
           <ul className="m-0 mt-3 list-none divide-y divide-[#E5E7EB] p-0">
             {list.map((p) => {
               const url = resolveNeighborhoodFeedListThumbnail(p);
-              const t =
+              const timeLabel =
                 p.created_at && !Number.isNaN(Date.parse(p.created_at))
                   ? formatTimeAgo(p.created_at, "ko-KR")
                   : "";
@@ -41,17 +43,17 @@ export function CommunitySimilarPostsSection({ currentPostId, posts }: Props) {
                       <span className="inline-block max-w-full truncate rounded-[4px] bg-[#F7F8FA] px-2 py-0.5 text-[11px] font-medium text-[#6B7280]">
                         {p.category_label}
                       </span>
-                      <p className="mt-1 line-clamp-1 text-[15px] font-semibold leading-[1.4] text-[#1F2430]">{p.title || "제목 없음"}</p>
+                      <p className="mt-1 line-clamp-1 text-[15px] font-semibold leading-[1.4] text-[#1F2430]">{p.title || t("community_no_title")}</p>
                       {preview ? (
                         <p className="mt-0.5 line-clamp-1 text-[13px] font-normal leading-[1.45] text-[#6B7280]">{preview}</p>
                       ) : null}
                       <div className="mt-1.5 flex min-w-0 items-center justify-between gap-2">
                         <p className="min-w-0 flex-1 truncate text-[12px] font-normal leading-[1.4] text-[#9CA3AF]">
                           {p.location_label}
-                          {p.location_label && t ? " · " : null}
-                          {t}
+                          {p.location_label && timeLabel ? " · " : null}
+                          {timeLabel}
                           {" · "}
-                          조회 {p.view_count}
+                          {t("community_stat_views_inline", { count: p.view_count })}
                         </p>
                         <div className="flex shrink-0 items-center gap-2 text-[12px] font-normal text-[#6B7280]">
                           <span className="inline-flex items-center gap-0.5">

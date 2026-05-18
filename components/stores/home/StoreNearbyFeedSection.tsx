@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import type { ReactNode } from "react";
 import Link from "next/link";
@@ -102,6 +103,7 @@ export function StoreNearbyFeedSection({
   ownerStore: StoreRow | null;
   externalSearchQ: string;
 }) {
+  const { t } = useI18n();
   const [stores, setStores] = useState<StoreHomeFeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [meta, setMeta] = useState<{ source?: string } | null>(null);
@@ -194,7 +196,7 @@ export function StoreNearbyFeedSection({
     <section className="space-y-5 pb-4">
       <div className="flex items-end justify-between px-0.5">
         <div>
-          <p className={`sam-text-helper font-semibold uppercase tracking-wide ${FB.metaSm}`}>피드</p>
+          <p className={`sam-text-helper font-semibold uppercase tracking-wide ${FB.metaSm}`}>{t("store_feed_eyebrow")}</p>
           <h2 className={`mt-0.5 sam-text-page-title font-bold leading-tight text-[#050505] dark:text-[#E4E6EB]`}>
             매장
           </h2>
@@ -231,7 +233,7 @@ export function StoreNearbyFeedSection({
         <RowSkeletonList />
       : stores.length === 0 ?
         <div className={`border border-dashed px-4 py-8 text-center ${FB.cardFlat} ${FB.hairline}`}>
-          <p className={FB.body}>등록된 매장이 없습니다</p>
+          <p className={FB.body}>{t("store_no_registered_stores")}</p>
           <div className="mt-4 flex justify-center gap-2">
             <Link href="/stores#store-industry-explore" className={FB.secondaryBtn}>
               업종별 찾기
@@ -245,13 +247,13 @@ export function StoreNearbyFeedSection({
           {sections.premium.length > 0 ?
             <SectionBlock
               eyebrow="큐레이션"
-              title="추천 스폿"
-              subtitle="에디터가 고른 동네 매장 — 카드를 옆으로 넘겨 보세요."
+              title={t("store_spot_recommended_title")}
+              subtitle={t("store_spot_recommended_subtitle")}
             >
               <HorizontalDragScroll
                 className={spotRailScroll}
                 style={{ WebkitOverflowScrolling: "touch" }}
-                aria-label="추천 매장"
+                aria-label={t("store_recommended_stores_aria")}
               >
                 {sections.premium.map((s) => (
                   <div key={s.id} className="w-[min(88vw,300px)] shrink-0">
@@ -263,7 +265,7 @@ export function StoreNearbyFeedSection({
           : null}
 
           {sections.openDelivery.length > 0 ?
-            <SectionBlock eyebrow="실시간" title="지금 주문 가능" subtitle="영업 중 · 배달 또는 포장이 열려 있어요">
+            <SectionBlock eyebrow={t("store_live_eyebrow")} title={t("store_order_now_title")} subtitle={t("store_order_now_subtitle")}>
               <ul className="space-y-2">
                 {sections.openDelivery.map((s) => (
                   <StoreDeliveryRowCard key={s.id} data={homeFeedToRowCard(s)} />
@@ -275,8 +277,8 @@ export function StoreNearbyFeedSection({
           {tailList.length > 0 ?
             <SectionBlock
               eyebrow="동네"
-              title="이 동네 더보기"
-              subtitle="거리와 인기를 섞어 보여 드려요"
+              title={t("store_neighborhood_more_title")}
+              subtitle={t("store_neighborhood_more_subtitle")}
               action={
                 <div className="flex flex-wrap items-center justify-end gap-x-2">
                   <Link href={storesBrowsePrimaryPath("restaurant")} className={`sam-text-body ${FB.link}`}>

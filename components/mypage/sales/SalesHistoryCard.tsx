@@ -18,7 +18,7 @@ import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 import { SELLER_LISTING_LABEL, type SellerListingState } from "@/lib/products/seller-listing-state";
 import { SELLER_CANCEL_SALE_CONFIRM_MESSAGE } from "@/lib/posts/seller-cancel-sale-ui";
 import { beginRouteEntryPerf } from "@/lib/runtime/samarket-runtime-debug";
-import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export interface SalesHistoryRow {
   chatId: string;
@@ -61,6 +61,7 @@ export function SalesHistoryCard({
   viewerId: string;
   onReload: () => void;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [readBuyerReview, setReadBuyerReview] = useState(false);
@@ -71,9 +72,9 @@ export function SalesHistoryCard({
 
   const hasChat = Boolean(row.chatId?.trim()) && !row.noActiveChat;
 
-  const tradeBadge = salesTradeStatusBadge(row.tradeFlowStatus ?? "chatting");
+  const tradeBadge = salesTradeStatusBadge(t, row.tradeFlowStatus ?? "chatting");
   const productBadge = salesProductStatusBadge(row.sellerListingState, row.status);
-  const tradeLine = salesCardTradeLine(row.tradeFlowStatus, row.hasBuyerReview, row.buyerConfirmSource);
+  const tradeLine = salesCardTradeLine(t, row.tradeFlowStatus, row.hasBuyerReview, row.buyerConfirmSource);
   const canListing = salesCanChangeListing(row.status);
   const canSellerComplete =
     hasChat && salesCanSellerCompleteTrade(row.tradeFlowStatus, row.status);
@@ -85,7 +86,7 @@ export function SalesHistoryCard({
 
   const persistListing = async (next: SellerListingState) => {
     const label = SELLER_LISTING_LABEL[next];
-    if (typeof window !== "undefined" && !window.confirm(`물품 상태를 "${label}"(으)로 바꿀까요?`)) {
+    if (typeof window !== "undefined" && !window.confirm(t("mypage_comp_sales_listing_change_confirm", { label }))) {
       return;
     }
     setActionBusy("listing");
@@ -131,7 +132,7 @@ export function SalesHistoryCard({
 
   const runSellerComplete = async () => {
     if (!hasChat) return;
-    if (typeof window !== "undefined" && !window.confirm("이 구매자와 거래를 완료하고 상품을 판매완료로 표시할까요?")) {
+    if (typeof window !== "undefined" && !window.confirm(t("mypage_comp_sales_complete_confirm"))) {
       return;
     }
     setActionBusy("complete");
@@ -180,46 +181,49 @@ export function SalesHistoryCard({
           onClick={() => beginRouteEntryPerf("product_detail", detailHref)}
           className="flex min-w-0 flex-1 gap-3"
         >
-          <SamarketThumbnail
-            src={row.thumbnail && !thumbFailed ? row.thumbnail : null}
-            size={72}
-            roundedClassName="rounded-ui-rect"
-            className="bg-sam-surface-muted"
-            fallbackSrc=""
-            fallbackNode={<span className="sam-text-xxs text-sam-meta">이미지</span>}
-            onImageError={() => setThumbFailed(true)}
-          />
+          <div className="relative h-[72px] w-[72px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
+            {row.thumbnail && !thumbFailed ? (
+              <img
+                src={row.thumbnail}
+                alt=""
+                className="h-full w-full object-cover"
+                onError={() => setThumbFailed(true)}
+              />
+            ) : (
+              <div className="flex h-full items-center justify-center sam-text-xxs text-sam-meta">{t("mypage_comp_image_placeholder")}</div>
+            )}
+          </div>
           <div className="min-w-0 flex-1 pr-1">
-            <p className="line-clamp-2 sam-text-body font-medium text-sam-fg">{row.title || "상품"}</p>
+            <p className="line-clamp-2 sam-text-body font-medium text-sam-fg">{row.title || t("mypage_comp_image_placeholder")}</p>
             <p className="mt-0.5 sam-text-body font-bold text-sam-fg">{formatPrice(row.price, currency)}</p>
             <p className="mt-0.5 truncate sam-text-helper text-sam-muted">
-              {hasChat ? `구매자 ${row.buyerNickname}` : "아직 문의·채팅이 없어요"}
+              {hasChat ? `${t("mypage_comp_actor_buyer")} ${row.buyerNickname}` : t("mypage_comp_sales_no_chat_yet")}
             </p>
-            <p className="mt-0.5 sam-text-xxs text-sam-meta">거래 {formatTradeListDatetime(tradeAt)}</p>
+            <p className="mt-0.5 sam-text-xxs text-sam-meta">{t("mypage_comp_trade_at_line", { datetime: formatTradeListDatetime(tradeAt) })}</p>
             <p className="mt-0.5 sam-text-xxs text-sam-fg">{tradeLine}</p>
             <div className="mt-1.5 flex flex-wrap gap-1">
               <span className="rounded-ui-rect bg-amber-50 px-1.5 py-0.5 sam-text-xxs font-medium text-amber-900">
-                상품 · {productBadge}
+                {t("mypage_comp_order_items_heading")} · {productBadge}
               </span>
               <span className="rounded-ui-rect bg-sam-surface-muted px-1.5 py-0.5 sam-text-xxs font-medium text-sam-fg">
-                진행 · {tradeBadge}
+                {t("mypage_comp_timeline_section")} · {tradeBadge}
               </span>
               <span
                 className={`rounded-ui-rect px-1.5 py-0.5 sam-text-xxs font-medium ${
                   row.hasBuyerReview ? "bg-emerald-50 text-emerald-800" : "bg-sam-surface-muted text-sam-muted"
                 }`}
               >
-                {row.hasBuyerReview ? "구매자 후기 도착" : "구매자 후기 없음"}
+                {row.hasBuyerReview ? t("mypage_comp_sales_buyer_review_arrived") : t("mypage_comp_sales_buyer_review_none")}
               </span>
             </div>
             <div className="mt-2 flex flex-wrap gap-2 sam-text-helper">
               {hasChat ? (
                 <span className="rounded-full border border-sam-border bg-signature/5 px-2.5 py-1 font-medium text-sam-fg">
-                  이 거래는 채팅으로 다시 이어서 조율할 수 있어요
+                  {t("mypage_comp_sales_chat_available_hint")}
                 </span>
               ) : (
                 <span className="rounded-full border border-sam-border bg-sam-app px-2.5 py-1 font-medium text-sam-muted">
-                  아직 연결된 거래 채팅이 없습니다
+                  {t("mypage_comp_sales_chat_unavailable_hint")}
                 </span>
               )}
             </div>
@@ -230,7 +234,7 @@ export function SalesHistoryCard({
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
             className="rounded-ui-rect p-2 text-sam-muted hover:bg-sam-surface-muted"
-            aria-label="더보기"
+            aria-label={t("mypage_comp_more_aria")}
           >
             <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 24 24">
               <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z" />
@@ -244,11 +248,11 @@ export function SalesHistoryCard({
                   onClick={() => setMenuOpen(false)}
                   className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
                 >
-                  채팅 보기
+                  {t("mypage_comp_order_chat_view")}
                 </Link>
               ) : (
                 <span className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-meta">
-                  채팅 없음 (상품에서 문의를 받으면 표시돼요)
+                  {t("mypage_comp_sales_chat_none_menu")}
                 </span>
               )}
               {canListing ? (
@@ -259,7 +263,7 @@ export function SalesHistoryCard({
                     onClick={() => void persistListing("inquiry")}
                     className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app disabled:opacity-50"
                   >
-                    {actionBusy === "listing" ? "저장 중…" : "판매중으로 변경"}
+                    {actionBusy === "listing" ? t("mypage_comp_processing") : t("mypage_comp_sales_to_inquiry")}
                   </button>
                   <button
                     type="button"
@@ -267,7 +271,7 @@ export function SalesHistoryCard({
                     onClick={() => void persistListing("negotiating")}
                     className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app disabled:opacity-50"
                   >
-                    문의중으로 변경
+                    {t("mypage_comp_sales_to_negotiating")}
                   </button>
                   <button
                     type="button"
@@ -275,7 +279,7 @@ export function SalesHistoryCard({
                     onClick={() => void persistListing("reserved")}
                     className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app disabled:opacity-50"
                   >
-                    예약중으로 변경
+                    {t("mypage_comp_sales_to_reserved")}
                   </button>
                 </>
               ) : null}
@@ -286,7 +290,7 @@ export function SalesHistoryCard({
                   onClick={() => void runSellerComplete()}
                   className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app disabled:opacity-50"
                 >
-                  {actionBusy === "complete" ? "처리 중…" : "거래완료 (되돌리기 불가)"}
+                  {actionBusy === "complete" ? t("mypage_comp_processing") : t("mypage_comp_sales_complete_irreversible")}
                 </button>
               ) : null}
               {canCancelSale ? (
@@ -296,7 +300,7 @@ export function SalesHistoryCard({
                   onClick={() => void runCancelSale()}
                   className="block w-full border-t border-sam-border-soft px-4 py-2.5 text-left sam-text-body text-red-700 hover:bg-red-50 disabled:opacity-50"
                 >
-                  {actionBusy === "cancel" ? "처리 중…" : "물품 판매 취소"}
+                  {actionBusy === "cancel" ? t("mypage_comp_processing") : t("mypage_comp_product_cancel_sale")}
                 </button>
               ) : null}
               {hasChat && row.hasBuyerReview ? (
@@ -308,7 +312,7 @@ export function SalesHistoryCard({
                   }}
                   className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
                 >
-                  구매자 후기 보기
+                  {t("mypage_comp_sales_buyer_review_view")}
                 </button>
               ) : null}
               <Link
@@ -321,7 +325,7 @@ export function SalesHistoryCard({
                 }}
                 className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
               >
-                게시글 보기
+                {t("mypage_comp_sales_view_post")}
               </Link>
               {hasChat && row.buyerId ? (
                 <button
@@ -332,7 +336,7 @@ export function SalesHistoryCard({
                   }}
                   className="block w-full px-4 py-2.5 text-left sam-text-body text-sam-fg hover:bg-sam-app"
                 >
-                  신고·차단
+                  {t("mypage_comp_sales_report_block")}
                 </button>
               ) : null}
             </div>
@@ -346,7 +350,7 @@ export function SalesHistoryCard({
             href={tradeHubChatRoomHref(row.chatId, "product_chat")}
             className="block w-full rounded-ui-rect border border-sam-border bg-signature/5 py-2.5 text-center sam-text-body-secondary font-semibold text-sam-fg"
           >
-            관련 채팅으로 돌아가기
+            {t("mypage_comp_order_chat_revisit")}
           </Link>
         </div>
       ) : null}

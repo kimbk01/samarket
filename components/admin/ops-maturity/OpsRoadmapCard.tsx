@@ -1,38 +1,21 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  OPS_TOOLS_PRIORITY_KEYS,
+  OPS_TOOLS_ROADMAP_AREA_KEYS,
+  OPS_TOOLS_ROADMAP_STATUS_KEYS,
+  opsToolsLabel,
+} from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import Link from "next/link";
 import type { OpsImprovementRoadmapItem } from "@/lib/types/ops-maturity";
-
-const STATUS_LABELS: Record<string, string> = {
-  planned: "예정",
-  approved: "승인",
-  in_progress: "진행중",
-  blocked: "차단",
-  completed: "완료",
-  deferred: "보류",
-};
-
-const PRIORITY_LABELS: Record<string, string> = {
-  low: "낮음",
-  medium: "중간",
-  high: "높음",
-  critical: "긴급",
-};
-
-const DOMAIN_LABELS: Record<string, string> = {
-  monitoring: "모니터링",
-  automation: "자동화",
-  documentation: "문서화",
-  response: "대응",
-  recommendation_quality: "추천품질",
-  learning: "학습",
-};
 
 interface OpsRoadmapCardProps {
   item: OpsImprovementRoadmapItem;
 }
 
 export function OpsRoadmapCard({ item }: OpsRoadmapCardProps) {
+  const { t } = useI18n();
   return (
     <div
       className={`rounded-ui-rect border p-4 ${
@@ -44,14 +27,16 @@ export function OpsRoadmapCard({ item }: OpsRoadmapCardProps) {
       }`}
     >
       <div className="flex flex-wrap items-center gap-2 sam-text-helper text-sam-muted">
-        <span>{DOMAIN_LABELS[item.domain]}</span>
-        <span className="rounded bg-sam-surface-muted px-1.5 py-0.5">{PRIORITY_LABELS[item.priority]}</span>
-        <span className="rounded bg-sam-surface-muted px-1.5 py-0.5">{STATUS_LABELS[item.status]}</span>
+        <span>{t(opsToolsLabel(OPS_TOOLS_ROADMAP_AREA_KEYS, item.domain))}</span>
+        <span className="rounded bg-sam-surface-muted px-1.5 py-0.5">{t(opsToolsLabel(OPS_TOOLS_PRIORITY_KEYS, item.priority))}</span>
+        <span className="rounded bg-sam-surface-muted px-1.5 py-0.5">{t(opsToolsLabel(OPS_TOOLS_ROADMAP_STATUS_KEYS, item.status))}</span>
       </div>
       <h3 className="mt-2 font-medium text-sam-fg">{item.title}</h3>
       <p className="mt-1 line-clamp-2 sam-text-body-secondary text-sam-muted">{item.description}</p>
       {item.milestone && (
-        <p className="mt-2 sam-text-helper text-sam-muted">마일스톤: {item.milestone}</p>
+        <p className="mt-2 sam-text-helper text-sam-muted">
+          {t("admin_ops_tools_maturity_roadmap_milestone", { text: item.milestone })}
+        </p>
       )}
       {item.sourceId && (
         <p className="mt-1 sam-text-helper text-sam-muted">

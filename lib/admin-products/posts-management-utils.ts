@@ -4,6 +4,7 @@
 
 import type { Product, ProductStatus } from "@/lib/types/product";
 import { postMetaMatchesJobListingKind } from "@/lib/jobs/matches-job-listing-kind";
+import { postsManagementTabLabel } from "@/lib/admin-products/posts-management-label-i18n";
 
 export type PostsManagementTab =
   | "all"
@@ -14,16 +15,10 @@ export type PostsManagementTab =
   | "exchange"
   | "etc";
 
-/** 웹 마켓 상단 탭과 동일한 순서: 전체 · 중고거래 · 중고차 · 부동산 · 알바 · 환전 · 기타 */
-export const POSTS_MANAGEMENT_TABS: { value: PostsManagementTab; label: string }[] = [
-  { value: "all", label: "전체" },
-  { value: "trade", label: "중고거래" },
-  { value: "used-car", label: "중고차" },
-  { value: "real-estate", label: "부동산" },
-  { value: "jobs", label: "알바" },
-  { value: "exchange", label: "환전" },
-  { value: "etc", label: "기타" },
-];
+export {
+  POSTS_MANAGEMENT_TAB_VALUES,
+  POSTS_MANAGEMENT_TAB_VALUES as POSTS_MANAGEMENT_TABS,
+} from "@/lib/admin-products/posts-management-label-i18n";
 
 /** slug / icon_key / 표시명(미해석 제외)을 소문자·하이픈 기준으로 통일 */
 function normalizedCategoryTokens(p: Product): string[] {
@@ -221,8 +216,7 @@ export function inferPostsManagementSection(p: Product): PostsManagementTab {
 }
 
 export function getPostsManagementSectionLabel(p: Product): string {
-  const t = inferPostsManagementSection(p);
-  return POSTS_MANAGEMENT_TABS.find((x) => x.value === t)?.label ?? t;
+  return postsManagementTabLabel(inferPostsManagementSection(p));
 }
 
 /** 홈·카테고리 목록과 동일하게 웹에 노출되는 글 (숨김·삭제·블라인드·visibility hidden 제외) */
@@ -234,28 +228,16 @@ export function isWebListedProduct(p: Product): boolean {
   return true;
 }
 
-export const DEAL_TYPE_OPTIONS: { value: "all" | "sale" | "free"; label: string }[] = [
-  { value: "all", label: "전체" },
-  { value: "sale", label: "판매" },
-  { value: "free", label: "무료나눔" },
-];
-
-export const STATUS_OPTIONS_POSTS: { value: ProductStatus | ""; label: string }[] = [
-  { value: "", label: "전체" },
-  { value: "active", label: "판매중" },
-  { value: "reserved", label: "예약중" },
-  { value: "sold", label: "완료" },
-  { value: "hidden", label: "숨김" },
-];
+export {
+  DEAL_TYPE_FILTER_VALUES,
+  DEAL_TYPE_FILTER_VALUES as DEAL_TYPE_OPTIONS,
+  STATUS_FILTER_VALUES_POSTS,
+  STATUS_FILTER_VALUES_POSTS as STATUS_OPTIONS_POSTS,
+  SORT_FILTER_VALUES_POSTS,
+  SORT_FILTER_VALUES_POSTS as SORT_OPTIONS_POSTS,
+} from "@/lib/admin-products/posts-management-label-i18n";
 
 export type PostsManagementSortKey = "popular" | "latest" | "id_asc" | "id_desc";
-
-export const SORT_OPTIONS_POSTS: { value: PostsManagementSortKey; label: string }[] = [
-  { value: "popular", label: "인기순" },
-  { value: "latest", label: "최신순" },
-  { value: "id_asc", label: "상품ID 오름차순" },
-  { value: "id_desc", label: "상품ID 내림차순" },
-];
 
 export interface PostsManagementFilters {
   dealType: "all" | "sale" | "free";

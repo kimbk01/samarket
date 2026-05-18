@@ -4,7 +4,11 @@ import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { DEFAULT_USER_SETTINGS, type UserSettingsRow } from "@/lib/types/settings-db";
 import { USER_SETTINGS_ROW_SELECT } from "@/lib/me/user-settings-select";
-import { normalizeAppLanguage } from "@/lib/i18n/config";
+import {
+  normalizeLanguagePreferenceForStorage,
+  preferredLanguageFromDbColumn,
+  preferredLanguageToDbColumn,
+} from "@/lib/i18n/config";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { jsonErrorWithRequest, jsonOkWithRequest } from "@/lib/http/api-route";
 
@@ -43,7 +47,7 @@ function normalizePatch(body: Record<string, unknown>): Partial<UserSettingsRow>
       value === "always" || value === "never" ? value : "wifi_only";
   }
   if ("preferred_language" in body) {
-    patch.preferred_language = normalizeAppLanguage(body.preferred_language);
+    patch.preferred_language = normalizeLanguagePreferenceForStorage(body.preferred_language);
   }
   if ("preferred_country" in body) {
     patch.preferred_country = String(body.preferred_country ?? "PH").trim() || "PH";
@@ -60,15 +64,22 @@ function normalizePatch(body: Record<string, unknown>): Partial<UserSettingsRow>
   return patch;
 }
 
-async function readProfileFallback(userId: string) {
+/** 앱 언어 source of truth는 user_settings — profiles.preferred_country만 폴백 */
+async function readProfileCountryFallback(userId: string) {
   const sb = tryCreateSupabaseServiceClient();
   if (!sb) return null;
   const { data } = await sb
     .from("profiles")
-    .select("preferred_language, preferred_country")
+    .select("preferred_country")
     .eq("id", userId)
     .maybeSingle();
   return data ?? null;
+}
+
+function withClientPreferredLanguage(settings: Partial<UserSettingsRow>): Partial<UserSettingsRow> {
+  const next = { ...settings };
+  next.preferred_language = preferredLanguageFromDbColumn(next.preferred_language);
+  return next;
 }
 
 export async function GET(req: NextRequest) {
@@ -76,12 +87,10 @@ export async function GET(req: NextRequest) {
   if (!auth.ok) return auth.response;
 
   const sb = tryCreateSupabaseServiceClient();
-  const profileFallback = await readProfileFallback(auth.userId);
-  const baseSettings = {
+  const profileFallback = await readProfileCountryFallback(auth.userId);
+  const baseSettings: Partial<UserSettingsRow> = {
     ...DEFAULT_USER_SETTINGS,
-    ...(profileFallback?.preferred_language
-      ? { preferred_language: normalizeAppLanguage(profileFallback.preferred_language) }
-      : {}),
+    preferred_language: null,
     ...(profileFallback?.preferred_country
       ? { preferred_country: String(profileFallback.preferred_country) }
       : {}),
@@ -89,7 +98,10 @@ export async function GET(req: NextRequest) {
   };
 
   if (!sb) {
-    return jsonOkWithRequest(req, { settings: baseSettings, source: "profile_fallback" });
+    return jsonOkWithRequest(req, {
+      settings: withClientPreferredLanguage(baseSettings),
+      source: "defaults",
+    });
   }
 
   const { data, error } = await sb
@@ -100,16 +112,18 @@ export async function GET(req: NextRequest) {
 
   if (error) {
     if (isUserSettingsSchemaUnavailable(error)) {
-      return jsonOkWithRequest(req, { settings: baseSettings, source: "profile_fallback" });
+      return jsonOkWithRequest(req, {
+        settings: withClientPreferredLanguage(baseSettings),
+        source: "defaults",
+      });
     }
     return jsonErrorWithRequest(req, error.message ?? "settings_fetch_failed", 500);
   }
 
+  const merged = withClientPreferredLanguage({ ...baseSettings, ...(data ?? {}) });
+
   return jsonOkWithRequest(req, {
-    settings: {
-      ...baseSettings,
-      ...(data ?? {}),
-    },
+    settings: merged,
     source: data ? "user_settings" : "defaults",
   });
 }
@@ -130,12 +144,10 @@ export async function PATCH(req: NextRequest) {
 
   const patch = normalizePatch(raw as Record<string, unknown>);
   const sb = tryCreateSupabaseServiceClient();
-  const profileFallback = await readProfileFallback(auth.userId);
-  const baseSettings = {
+  const profileFallback = await readProfileCountryFallback(auth.userId);
+  const baseSettings: Partial<UserSettingsRow> = {
     ...DEFAULT_USER_SETTINGS,
-    ...(profileFallback?.preferred_language
-      ? { preferred_language: normalizeAppLanguage(profileFallback.preferred_language) }
-      : {}),
+    preferred_language: null,
     ...(profileFallback?.preferred_country
       ? { preferred_country: String(profileFallback.preferred_country) }
       : {}),
@@ -143,7 +155,10 @@ export async function PATCH(req: NextRequest) {
   };
 
   if (!sb) {
-    return jsonOkWithRequest(req, { settings: { ...baseSettings, ...patch }, source: "profile_fallback" });
+    return jsonOkWithRequest(req, {
+      settings: withClientPreferredLanguage({ ...baseSettings, ...patch }),
+      source: "defaults",
+    });
   }
 
   const { data: before, error: beforeError } = await sb
@@ -157,7 +172,10 @@ export async function PATCH(req: NextRequest) {
   }
 
   if (beforeError && isUserSettingsSchemaUnavailable(beforeError)) {
-    return jsonOkWithRequest(req, { settings: { ...baseSettings, ...patch }, source: "profile_fallback" });
+    return jsonOkWithRequest(req, {
+      settings: withClientPreferredLanguage({ ...baseSettings, ...patch }),
+      source: "defaults",
+    });
   }
 
   const nextRow = {
@@ -165,6 +183,9 @@ export async function PATCH(req: NextRequest) {
     ...patch,
     user_id: auth.userId,
     updated_at: new Date().toISOString(),
+    ...(patch.preferred_language !== undefined
+      ? { preferred_language: preferredLanguageToDbColumn(patch.preferred_language) }
+      : {}),
   };
 
   const { data, error } = await sb
@@ -175,7 +196,10 @@ export async function PATCH(req: NextRequest) {
 
   if (error) {
     if (isUserSettingsSchemaUnavailable(error)) {
-      return jsonOkWithRequest(req, { settings: { ...baseSettings, ...patch }, source: "profile_fallback" });
+      return jsonOkWithRequest(req, {
+        settings: withClientPreferredLanguage({ ...baseSettings, ...patch }),
+        source: "defaults",
+      });
     }
     return jsonErrorWithRequest(req, error.message ?? "settings_update_failed", 500);
   }
@@ -193,5 +217,8 @@ export async function PATCH(req: NextRequest) {
     user_agent: userAgent,
   });
 
-  return jsonOkWithRequest(req, { settings: { ...baseSettings, ...(data ?? nextRow) }, source: "user_settings" });
+  return jsonOkWithRequest(req, {
+    settings: withClientPreferredLanguage({ ...baseSettings, ...(data ?? nextRow) }),
+    source: "user_settings",
+  });
 }

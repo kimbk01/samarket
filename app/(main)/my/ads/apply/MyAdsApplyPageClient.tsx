@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   createAdApplication,
   CURRENT_USER_ID,
@@ -14,6 +15,7 @@ import { getMyProducts } from "@/lib/products/my-products-mock";
 const MOCK_NICKNAME = "KASAMA";
 
 export function MyAdsApplyPageClient() {
+  const { t } = useI18n();
   const router = useRouter();
   const [submitError, setSubmitError] = useState<string | null>(null);
   const productOptions = useMemo(() => {
@@ -39,7 +41,7 @@ export function MyAdsApplyPageClient() {
       applicantMemo: values.applicantMemo,
     });
     if (!app) {
-      setSubmitError("선택한 광고 플랜을 찾을 수 없어요. 다시 시도해 주세요.");
+      setSubmitError(t("ads_apply_plan_not_found"));
       return;
     }
     router.push("/my/ads");
@@ -48,8 +50,8 @@ export function MyAdsApplyPageClient() {
   return (
     <div className="min-h-screen bg-background">
       <MySubpageHeader
-        title="광고 신청"
-        subtitle="노출 플랜 선택"
+        title={t("mypage_ads_apply_title")}
+        subtitle={t("mypage_ads_apply_subtitle")}
         backHref="/my/ads"
         section="store"
         hideCtaStrip
@@ -64,7 +66,7 @@ export function MyAdsApplyPageClient() {
           productOptions={productOptions}
           shopOptions={shopOptions}
           onSubmit={handleSubmit}
-          submitLabel="신청하기"
+          submitLabel={t("ads_apply_submit")}
         />
       </div>
     </div>

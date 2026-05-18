@@ -1,0 +1,1042 @@
+[
+  {
+    "file": "components\\stores\\browse\\StoresBrowsePrimaryView.tsx:134",
+    "snippet": "aria-label=\"검색\""
+  },
+  {
+    "file": "components\\stores\\browse\\StoresBrowsePrimaryView.tsx:565",
+    "snippet": "aria-label=\"하위 업종\""
+  },
+  {
+    "file": "components\\stores\\browse\\StoresBrowsePrimaryView.tsx:716",
+    "snippet": "<p className=\"text-sm text-sam-muted\">존재하지 않는 업종입니다.</p>"
+  },
+  {
+    "file": "components\\stores\\browse\\StoresBrowsePrimaryView.tsx:729",
+    "snippet": "<p className=\"py-4 text-center text-sm text-sam-muted\">실매장 연동 확인 중…</p>"
+  },
+  {
+    "file": "components\\stores\\browse\\StoresBrowsePrimaryView.tsx:739",
+    "snippet": "<p className=\"text-sm text-sam-muted dark:text-sam-meta\">표시할 매장이 없습니다.</p>"
+  },
+  {
+    "file": "components\\stores\\browse\\StoresBrowsePrimaryView.tsx:747",
+    "snippet": "<p className=\"mb-2 sam-text-xxs font-semibold text-sam-muted dark:text-sam-meta\">다른 업종 둘러보기</p>"
+  },
+  {
+    "file": "components\\stores\\browse\\StoresIndustryGrid.tsx:24",
+    "snippet": "<h2 className=\"min-w-0 shrink text-sm font-semibold text-sam-fg\">업종별 둘러보기</h2>"
+  },
+  {
+    "file": "components\\stores\\cart\\StoreCheckoutSubmitConfirmDialog.tsx:30",
+    "snippet": "title=\"주문 내용을 확인해 주세요\""
+  },
+  {
+    "file": "components\\stores\\cart\\StoreCheckoutSubmitConfirmDialog.tsx:47",
+    "snippet": "<dt className=\"font-semibold text-neutral-500\">연락처</dt>"
+  },
+  {
+    "file": "components\\stores\\cart\\StoreCheckoutSubmitConfirmDialog.tsx:51",
+    "snippet": "<dt className=\"font-semibold text-neutral-500\">주소</dt>"
+  },
+  {
+    "file": "components\\stores\\cart\\StoreCheckoutSubmitConfirmDialog.tsx:55",
+    "snippet": "<dt className=\"font-semibold text-neutral-500\">결제</dt>"
+  },
+  {
+    "file": "components\\stores\\cart\\StoreCommerceCartBottomSheet.tsx:36",
+    "snippet": "aria-label=\"닫기\""
+  },
+  {
+    "file": "components\\stores\\cart\\StoreCommerceCartCenterPopup.tsx:66",
+    "snippet": "aria-label=\"닫기\""
+  },
+  {
+    "file": "components\\stores\\delivery\\RestaurantOrderCompleteClient.tsx:83",
+    "snippet": "return <p className=\"p-6 text-center text-sm text-sam-muted\">불러오는 중…</p>;"
+  },
+  {
+    "file": "components\\stores\\delivery\\RestaurantOrderCompleteClient.tsx:96",
+    "snippet": "<h1 className=\"mt-2 text-center text-xl font-bold text-sam-fg\">감사합니다</h1>"
+  },
+  {
+    "file": "components\\stores\\delivery\\RestaurantOrderCompleteClient.tsx:99",
+    "snippet": "<dt className=\"text-sam-muted\">주문번호</dt>"
+  },
+  {
+    "file": "components\\stores\\delivery\\RestaurantOrderCompleteClient.tsx:103",
+    "snippet": "<dt className=\"text-sam-muted\">업체</dt>"
+  },
+  {
+    "file": "components\\stores\\delivery\\RestaurantOrderCompleteClient.tsx:107",
+    "snippet": "<dt className=\"text-sam-muted\">주문 금액</dt>"
+  },
+  {
+    "file": "components\\stores\\delivery\\RestaurantOrderCompleteClient.tsx:158",
+    "snippet": "<p className=\"text-sm text-sam-muted\">주문 정보를 불러오지 못했거나 주문 번호가 없습니다.</p>"
+  },
+  {
+    "file": "components\\stores\\delivery\\RestaurantOrderDetailClient.tsx:26",
+    "snippet": "aria-label=\"매장으로\""
+  },
+  {
+    "file": "components\\stores\\delivery\\RestaurantOrderDetailClient.tsx:31",
+    "snippet": "<p className=\"text-sm text-sam-muted\">주문을 찾을 수 없거나 올바른 주문 번호가 아닙니다.</p>"
+  },
+  {
+    "file": "components\\stores\\detail\\CategoryStickyTabs.tsx:36",
+    "snippet": "placeholder=\"메뉴명을 검색해보세요\""
+  },
+  {
+    "file": "components\\stores\\detail\\PopularMenuSection.tsx:28",
+    "snippet": "aria-label=\"인기 메뉴\""
+  },
+  {
+    "file": "components\\stores\\detail\\ProductMenuCard.tsx:87",
+    "snippet": "<span className=\"ml-1.5 text-[11px] font-semibold text-neutral-400\">품절</span>"
+  },
+  {
+    "file": "components\\stores\\home\\StoreCardFavoriteIcon.tsx:34",
+    "snippet": "window.alert(\"로그인 후 찜할 수 있습니다.\");"
+  },
+  {
+    "file": "components\\stores\\home\\StoreCategoryExploreSection.tsx:121",
+    "snippet": "aria-label=\"대분류 업종\""
+  },
+  {
+    "file": "components\\stores\\home\\StoreCategoryExploreSection.tsx:191",
+    "snippet": "<span className=\"text-sam-muted dark:text-[#B0B3B8]\"> · 세부 주제</span>"
+  },
+  {
+    "file": "components\\stores\\home\\StoreCategoryExploreSection.tsx:248",
+    "snippet": "<span className=\"sam-text-xxs font-semibold leading-none text-sam-muted dark:text-[#B0B3B8]\">모아보기</span>"
+  },
+  {
+    "file": "components\\stores\\home\\StoreDeliveryRowCard.tsx:385",
+    "snippet": "aria-label=\"대표 메뉴 이미지\""
+  },
+  {
+    "file": "components\\stores\\home\\StoreDeliveryRowCard.tsx:464",
+    "snippet": "<span className=\"text-[13px] font-semibold leading-none text-[#111]/70 dark:text-white/70\">더보기</span>"
+  },
+  {
+    "file": "components\\stores\\home\\StoreDeliveryRowCard.tsx:537",
+    "snippet": "title=\"직선 거리\""
+  },
+  {
+    "file": "components\\stores\\home\\StoreDeliveryRowCard.tsx:545",
+    "snippet": "title=\"직선 거리\""
+  },
+  {
+    "file": "components\\stores\\home\\StoreDeliveryRowCard.tsx:590",
+    "snippet": "<span className=\"font-semibold text-[#4B5563] dark:text-[#B8C0CA]\">결제</span> ·{\" \"}"
+  },
+  {
+    "file": "components\\stores\\home\\StoreHubMyZoneSection.tsx:29",
+    "snippet": "<h2 className={FB.name}>내 주문 · 매장 운영</h2>"
+  },
+  {
+    "file": "components\\stores\\home\\StoreHubSearchStrip.tsx:35",
+    "snippet": "placeholder=\"매장 검색\""
+  },
+  {
+    "file": "components\\stores\\home\\StoreMyBusinessHubBanner.tsx:29",
+    "snippet": "<p className={`sam-text-helper ${FB.metaSm}`}>내 매장 상태 확인 중…</p>"
+  },
+  {
+    "file": "components\\stores\\home\\StoreMyBusinessHubBanner.tsx:57",
+    "snippet": "<p className={`sam-text-xxs font-semibold uppercase tracking-wide ${FB.metaSm}`}>내 매장</p>"
+  },
+  {
+    "file": "components\\stores\\home\\StoreMyBusinessHubBanner.tsx:64",
+    "snippet": "<span className=\"sam-text-xxs font-medium text-emerald-700 dark:text-emerald-300\">/stores 노출</span>"
+  },
+  {
+    "file": "components\\stores\\home\\StoreMyBusinessHubBanner.tsx:72",
+    "snippet": "<p className={`mt-1 sam-text-xxs ${FB.metaSm}`}>다른 소유 매장 {extraCount}건 — 운영 센터에서 전환할 수 있어요.</p>"
+  },
+  {
+    "file": "components\\stores\\home\\StoreNearbyFeedSection.tsx:197",
+    "snippet": "<p className={`sam-text-helper font-semibold uppercase tracking-wide ${FB.metaSm}`}>피드</p>"
+  },
+  {
+    "file": "components\\stores\\home\\StoreNearbyFeedSection.tsx:234",
+    "snippet": "<p className={FB.body}>등록된 매장이 없습니다</p>"
+  },
+  {
+    "file": "components\\stores\\home\\StoreNearbyFeedSection.tsx:248",
+    "snippet": "title=\"추천 스폿\""
+  },
+  {
+    "file": "components\\stores\\home\\StoreNearbyFeedSection.tsx:249",
+    "snippet": "subtitle=\"에디터가 고른 동네 매장 — 카드를 옆으로 넘겨 보세요.\""
+  },
+  {
+    "file": "components\\stores\\home\\StoreNearbyFeedSection.tsx:254",
+    "snippet": "aria-label=\"추천 매장\""
+  },
+  {
+    "file": "components\\stores\\home\\StoreNearbyFeedSection.tsx:266",
+    "snippet": "<SectionBlock eyebrow=\"실시간\" title=\"지금 주문 가능\" subtitle=\"영업 중 · 배달 또는 포장이 열려 있어요\">"
+  },
+  {
+    "file": "components\\stores\\home\\StoreNearbyFeedSection.tsx:278",
+    "snippet": "title=\"이 동네 더보기\""
+  },
+  {
+    "file": "components\\stores\\home\\StoreNearbyFeedSection.tsx:279",
+    "snippet": "subtitle=\"거리와 인기를 섞어 보여 드려요\""
+  },
+  {
+    "file": "components\\stores\\home\\StoreOrderDashboardSection.tsx:60",
+    "snippet": "<h2 className=\"sam-text-body font-bold text-sam-fg\">내 주문</h2>"
+  },
+  {
+    "file": "components\\stores\\home\\StoreOrderDashboardSection.tsx:89",
+    "snippet": "<h2 className=\"sam-text-body font-bold tracking-tight text-sam-fg\">내 주문</h2>"
+  },
+  {
+    "file": "components\\stores\\home\\StoreOrderDashboardSection.tsx:113",
+    "snippet": "<HorizontalDragScroll className={RAIL} aria-label=\"주문 바로가기\">"
+  },
+  {
+    "file": "components\\stores\\home\\StoreOrderDashboardSection.tsx:118",
+    "snippet": "<span className=\"sam-text-xxs font-medium text-sam-muted\">진행 중</span>"
+  },
+  {
+    "file": "components\\stores\\home\\StoreOrderDashboardSection.tsx:120",
+    "snippet": "<span className=\"mt-2 sam-text-xxs font-semibold text-signature\">내역</span>"
+  },
+  {
+    "file": "components\\stores\\home\\StoreOrderDashboardSection.tsx:126",
+    "snippet": "<span className=\"sam-text-xxs font-medium text-sam-muted\">주문 채팅</span>"
+  },
+  {
+    "file": "components\\stores\\home\\StoreOrderDashboardSection.tsx:137",
+    "snippet": "<span className=\"sam-text-xxs font-medium text-sam-muted\">최근</span>"
+  },
+  {
+    "file": "components\\stores\\home\\StoreOrderDashboardSection.tsx:141",
+    "snippet": "<span className=\"mt-auto pt-2 sam-text-xxs font-semibold text-signature\">상세</span>"
+  },
+  {
+    "file": "components\\stores\\home\\StoreOrderDashboardSection.tsx:147",
+    "snippet": "<span className=\"sam-text-xxs font-medium text-sam-muted\">최근</span>"
+  },
+  {
+    "file": "components\\stores\\home\\StoreOrderDashboardSection.tsx:148",
+    "snippet": "<span className=\"mt-2 sam-text-helper text-sam-muted\">주문 없음</span>"
+  },
+  {
+    "file": "components\\stores\\home\\StoreOrderDashboardSection.tsx:149",
+    "snippet": "<span className=\"mt-auto pt-2 sam-text-xxs font-semibold text-signature\">업종 찾기</span>"
+  },
+  {
+    "file": "components\\stores\\home\\StoreOrderDashboardSection.tsx:155",
+    "snippet": "<p className=\"mb-1.5 px-0.5 sam-text-xxs font-semibold uppercase tracking-wide text-sam-meta\">상태</p>"
+  },
+  {
+    "file": "components\\stores\\home\\StoreOrderDashboardSection.tsx:156",
+    "snippet": "<HorizontalDragScroll className={RAIL} aria-label=\"주문 상태 필터\">"
+  },
+  {
+    "file": "components\\stores\\home\\StoreOwnerOpsSection.tsx:85",
+    "snippet": "<h2 className=\"truncate sam-text-body font-bold text-violet-950\">매장 운영</h2>"
+  },
+  {
+    "file": "components\\stores\\home\\StoreOwnerOpsSection.tsx:90",
+    "snippet": ": <h2 className=\"truncate sam-text-body-secondary font-bold text-violet-950\">매장주 바로가기</h2>}"
+  },
+  {
+    "file": "components\\stores\\home\\StoreOwnerOpsSection.tsx:111",
+    "snippet": "<HorizontalDragScroll className={RAIL} aria-label=\"매장 운영 메뉴\">"
+  },
+  {
+    "file": "components\\stores\\home\\StorePrimaryIndustrySwitcher.tsx:100",
+    "snippet": "aria-label=\"대분류 업종\""
+  },
+  {
+    "file": "components\\stores\\home\\StorePromoHeroBanner.tsx:13",
+    "snippet": "<p className={`sam-text-helper font-semibold uppercase tracking-wide ${FB.metaSm}`}>한눈에</p>"
+  },
+  {
+    "file": "components\\stores\\home\\StorePromoHeroBanner.tsx:14",
+    "snippet": "<p className={`mt-1 ${FB.name}`}>업종 골라 바로 들어가기</p>"
+  },
+  {
+    "file": "components\\stores\\home\\StorePromoHeroBanner.tsx:15",
+    "snippet": "<p className={`mt-1 ${FB.meta}`}>식당·마트·생활까지 탭만 바꾸면 세부가 바뀌어요.</p>"
+  },
+  {
+    "file": "components\\stores\\home\\StorePromoHeroBanner.tsx:16",
+    "snippet": "<span className={`mt-2 inline-block sam-text-body ${FB.link}`}>업종 열기</span>"
+  },
+  {
+    "file": "components\\stores\\home\\StoreVerticalDiscoveryCard.tsx:267",
+    "snippet": "<span>리뷰 {store.reviewCount.toLocaleString(\"en-PH\")}</span>"
+  },
+  {
+    "file": "components\\stores\\home\\StoreVerticalDiscoveryCard.tsx:273",
+    "snippet": ": <span>예상 {store.estPrepLabel}</span>}"
+  },
+  {
+    "file": "components\\stores\\home\\StoreVerticalDiscoveryCard.tsx:288",
+    "snippet": "<span>배달비 매장별</span>"
+  },
+  {
+    "file": "components\\stores\\home\\StoreVerticalDiscoveryCard.tsx:312",
+    "snippet": "<span className=\"font-semibold text-[#4B5563] dark:text-[#B8C0CA]\">결제</span> · {store.paymentMethodsLine}"
+  },
+  {
+    "file": "components\\stores\\modifiers\\StoreModifierPicker.tsx:108",
+    "snippet": "<span className={STORE_ORDER_BADGE_REQUIRED}>필수</span>"
+  },
+  {
+    "file": "components\\stores\\modifiers\\StoreModifierPicker.tsx:110",
+    "snippet": "<span className={STORE_ORDER_BADGE_OPTIONAL}>선택 {rangeHint}</span>"
+  },
+  {
+    "file": "components\\stores\\modifiers\\StoreModifierPicker.tsx:161",
+    "snippet": "<span className=\"sam-text-xxs font-medium text-amber-700\">품절</span>"
+  },
+  {
+    "file": "components\\stores\\modifiers\\StoreModifierPicker.tsx:210",
+    "snippet": "<p className=\"px-3 pb-2 sam-text-xxs text-amber-700\">품절</p>"
+  },
+  {
+    "file": "components\\stores\\modifiers\\StoreModifierPicker.tsx:338",
+    "snippet": "<span className=\"sam-text-xxs font-medium text-amber-700\">품절</span>"
+  },
+  {
+    "file": "components\\stores\\modifiers\\StoreModifierPicker.tsx:374",
+    "snippet": "<p className=\"mt-0.5 sam-text-xxs text-amber-700\">품절 · 선택 불가</p>"
+  },
+  {
+    "file": "components\\stores\\product-sheet\\StoreProductSheetHeader.tsx:26",
+    "snippet": "aria-label=\"닫기\""
+  },
+  {
+    "file": "components\\stores\\product-sheet\\StoreProductSheetShell.tsx:23",
+    "snippet": "aria-label=\"시트 닫기\""
+  },
+  {
+    "file": "components\\stores\\store-detail\\StoreDetailDeferredInfoSection.tsx:103",
+    "snippet": "<p className=\"text-[12px] text-neutral-500\">리뷰 요약을 불러오지 못했어요.</p>"
+  },
+  {
+    "file": "components\\stores\\store-detail\\StoreDetailDeferredInfoSection.tsx:146",
+    "snippet": "<div className=\"text-[15px] font-bold text-neutral-900\">리뷰</div>"
+  },
+  {
+    "file": "components\\stores\\store-order-detail\\StoreCartPreviewLineRow.tsx:37",
+    "snippet": "aria-label=\"수량 감소\""
+  },
+  {
+    "file": "components\\stores\\store-order-detail\\StoreCartPreviewLineRow.tsx:47",
+    "snippet": "aria-label=\"수량 증가\""
+  },
+  {
+    "file": "components\\stores\\store-order-detail\\StoreCartPreviewSheet.tsx:70",
+    "snippet": "<button type=\"button\" className=\"absolute inset-0 bg-black/45 transition-opacity duration-[220ms]\" aria-label=\"닫기\" onCli"
+  },
+  {
+    "file": "components\\stores\\store-order-detail\\StoreCartPreviewSheet.tsx:87",
+    "snippet": "<p className=\"py-10 text-center text-[14px] text-neutral-500\">담긴 메뉴가 없어요</p>"
+  },
+  {
+    "file": "components\\stores\\store-order-detail\\StoreCartPreviewSheet.tsx:106",
+    "snippet": "<span className=\"text-neutral-600\">총금액</span>"
+  },
+  {
+    "file": "components\\stores\\store-order-detail\\StoreOrderHeroSummary.tsx:153",
+    "snippet": "<span className=\"font-bold text-[#2563EB]\">배달비 무료 적용 중</span>"
+  },
+  {
+    "file": "components\\stores\\store-order-detail\\StoreOrderHeroSummary.tsx:338",
+    "snippet": "aria-label=\"리뷰 전체 보기\""
+  },
+  {
+    "file": "components\\stores\\store-order-detail\\StoreOrderHeroSummary.tsx:350",
+    "snippet": "<span className=\"rounded-full bg-neutral-100 px-1.5 py-0.5 text-[10px] font-bold text-neutral-700\">주문 {formatOrderCount("
+  },
+  {
+    "file": "components\\stores\\store-order-detail\\StoreOrderHeroSummary.tsx:354",
+    "snippet": "{isOpenForOrder ? <span>영업중</span> : <span>준비중</span>}"
+  },
+  {
+    "file": "components\\stores\\store-order-detail\\StoreOrderHeroSummary.tsx:355",
+    "snippet": "{deliveryAvailable ? <span>배달가능</span> : null}"
+  },
+  {
+    "file": "components\\stores\\store-order-detail\\StoreOrderHeroSummary.tsx:356",
+    "snippet": "{pickupAvailable ? <span>픽업가능</span> : null}"
+  },
+  {
+    "file": "components\\stores\\store-order-detail\\StoreOrderHeroSummary.tsx:416",
+    "snippet": "aria-label=\"구글 지도에서 내 위치에서 이 매장까지 길찾기\""
+  },
+  {
+    "file": "components\\stores\\store-order-detail\\StoreOrderStickyHeader.tsx:104",
+    "snippet": "aria-label=\"메뉴 검색\""
+  },
+  {
+    "file": "components\\stores\\store-order-detail\\StoreOrderStickyHeader.tsx:115",
+    "snippet": "aria-label=\"공유\""
+  },
+  {
+    "file": "components\\stores\\StoreCartEntrySwitch.tsx:93",
+    "snippet": "<div className=\"min-h-[40vh] px-4 py-12 text-center sam-text-body text-sam-muted\">불러오는 중…</div>"
+  },
+  {
+    "file": "components\\stores\\StoreCartOtherStoreConflictDialog.tsx:120",
+    "snippet": "<p className=\"px-2.5 py-3 text-center text-[12px] text-neutral-500\">담긴 메뉴 없음</p>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceCartEntryFallback.tsx:48",
+    "snippet": "<p className=\"font-medium\">담아 둔 장바구니가 있으면 아래에서 열 수 있어요.</p>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceCartPageClient.tsx:180",
+    "snippet": "<p className=\"sam-text-xxs font-semibold text-sam-muted\">현재 카트</p>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceCartPageClient.tsx:209",
+    "snippet": "<dt>최소 주문</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceCartPageClient.tsx:214",
+    "snippet": "<dt>현재 상품 금액</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceCartPageClient.tsx:219",
+    "snippet": "<dt>부족한 금액</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceCartPageClient.tsx:261",
+    "snippet": "aria-label=\"뒤로가기\""
+  },
+  {
+    "file": "components\\stores\\StoreCommerceCartPageClient.tsx:273",
+    "snippet": "aria-label=\"친구 추가\""
+  },
+  {
+    "file": "components\\stores\\StoreCommerceCartPageClient.tsx:1209",
+    "snippet": "<p className=\"sam-text-body-lg font-semibold text-emerald-800\">주문이 접수되었습니다.</p>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceCartPageClient.tsx:1244",
+    "snippet": "<p className=\"sam-text-body-lg font-semibold text-sam-fg\">장바구니가 비어 있어요</p>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceCartPageClient.tsx:1245",
+    "snippet": "<p className=\"mt-1 sam-text-body text-sam-muted\">먹고 싶은 가게를 찾아보세요</p>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceCartPageClient.tsx:1471",
+    "snippet": "aria-label=\"수량 줄이기\""
+  },
+  {
+    "file": "components\\stores\\StoreCommerceCartPageClient.tsx:1483",
+    "snippet": "aria-label=\"수량 늘리기\""
+  },
+  {
+    "file": "components\\stores\\StoreCommerceCartPageClient.tsx:1507",
+    "snippet": "<dt className=\"text-sam-muted\">총상품금액</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceCartPageClient.tsx:1528",
+    "snippet": "<dt className=\"text-sam-muted\">예상배달비</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceCartPageClient.tsx:1539",
+    "snippet": "<span className=\"text-[13px] font-semibold text-[#2563EB]\">배달비 무료 적용 중</span>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceCartPageClient.tsx:1555",
+    "snippet": "<span className=\"sam-text-body font-bold text-sam-fg\">결제예정금액</span>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceCartPageClient.tsx:1577",
+    "snippet": "aria-label=\"무료배달까지 주문 금액 진행률\""
+  },
+  {
+    "file": "components\\stores\\StoreCommerceCartPageClient.tsx:1618",
+    "snippet": "<p className=\"sam-text-body font-medium text-sam-muted\">수령 방식</p>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceCartPageClient.tsx:1662",
+    "snippet": "aria-label=\"결제 방법\""
+  },
+  {
+    "file": "components\\stores\\StoreCommerceCartPageClient.tsx:1691",
+    "snippet": "<p className=\"sam-text-helper font-semibold text-sky-950\">픽업 장소 (매장 주소)</p>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceCartPageClient.tsx:1727",
+    "snippet": "<span className=\"font-normal text-sam-meta\"> (선택)</span>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceCartPageClient.tsx:1745",
+    "snippet": "<p className=\"sam-text-helper text-sam-muted\">배달 주소 정보를 불러오는 중입니다…</p>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceCartPageClient.tsx:1781",
+    "snippet": "aria-label=\"배달주소 1 (마이페이지) 선택\""
+  },
+  {
+    "file": "components\\stores\\StoreCommerceCartPageClient.tsx:1784",
+    "snippet": "<p className=\"sam-text-body-secondary font-bold text-sam-fg\">배달주소 1</p>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceCartPageClient.tsx:1870",
+    "snippet": "<span className=\"ml-1 font-normal text-sam-muted\">매장 입력·조리 안내 기준</span>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceCartPageClient.tsx:1880",
+    "snippet": "<span className=\"ml-1 font-normal text-sam-muted\">오토바이 경로 기준</span>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceOrderDetailClient.tsx:109",
+    "snippet": "return <p className=\"px-4 py-8 text-center text-sm text-sam-muted\">불러오는 중…</p>;"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceOrderDetailClient.tsx:133",
+    "snippet": "aria-label=\"매장으로\""
+  },
+  {
+    "file": "components\\stores\\StoreCommerceOrderDetailClient.tsx:138",
+    "snippet": "<h1 className=\"text-lg font-bold text-sam-fg\">주문 상세</h1>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceOrderDetailClient.tsx:146",
+    "snippet": "<h2 className=\"text-sm font-bold text-sam-fg\">진행 상태</h2>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceOrderDetailClient.tsx:161",
+    "snippet": "<h2 className=\"text-sm font-bold text-sam-fg\">매장 문의 채팅</h2>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceOrderDetailClient.tsx:201",
+    "snippet": "<h2 className=\"text-sm font-bold text-sam-fg\">주문 정보</h2>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceOrderDetailClient.tsx:204",
+    "snippet": "<dt className=\"text-sam-muted\">업체</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceOrderDetailClient.tsx:209",
+    "snippet": "<dt className=\"text-sam-muted\">요청</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceOrderDetailClient.tsx:215",
+    "snippet": "<dt className=\"text-sam-muted\">연락처</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceOrderDetailClient.tsx:236",
+    "snippet": "<h2 className=\"text-sm font-bold text-sam-fg\">메뉴</h2>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceOrderDetailClient.tsx:251",
+    "snippet": "<span className=\"text-sam-muted\">상품</span>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceOrderDetailClient.tsx:255",
+    "snippet": "<span className=\"text-sam-muted\">배달비</span>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceOrderDetailClient.tsx:259",
+    "snippet": "<span>합계</span>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceOrderTimeline.tsx:95",
+    "snippet": "aria-label=\"주문 진행 단계\""
+  },
+  {
+    "file": "components\\stores\\StoreCommerceOrderTimeline.tsx:181",
+    "snippet": "aria-label=\"주문 진행 단계\""
+  },
+  {
+    "file": "components\\stores\\StoreCommerceSummaryCard.tsx:86",
+    "snippet": "<dt className=\"text-sam-muted\">최소주문</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceSummaryCard.tsx:88",
+    "snippet": "<dt className=\"text-sam-muted\">배달비</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceSummaryCard.tsx:90",
+    "snippet": "<dt className=\"text-sam-muted\">예상 조리</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceSummaryCard.tsx:92",
+    "snippet": "<dt className=\"text-sam-muted\">지역</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreCommerceSummaryCard.tsx:96",
+    "snippet": "<dt className=\"text-sam-muted\">연락처</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailBottomStrip.tsx:137",
+    "snippet": "aria-label=\"주문 확인으로 이동\""
+  },
+  {
+    "file": "components\\stores\\StoreDetailBottomStrip.tsx:146",
+    "snippet": "aria-label=\"장바구니 미리보기\""
+  },
+  {
+    "file": "components\\stores\\StoreDetailDeliveryRows.tsx:94",
+    "snippet": "aria-label=\"배달·주문 요약\""
+  },
+  {
+    "file": "components\\stores\\StoreDetailDeliveryRows.tsx:105",
+    "snippet": "<span className=\"font-medium text-sam-fg\">배달 안내</span> · {courier}"
+  },
+  {
+    "file": "components\\stores\\StoreDetailDeliveryRows.tsx:129",
+    "snippet": "<StoreDetailSectionTitle level=\"h2\">배달·주문 안내</StoreDetailSectionTitle>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailDeliveryRows.tsx:162",
+    "snippet": "<StoreDetailSectionTitle level=\"h2\">문의</StoreDetailSectionTitle>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailDeliveryRows.tsx:169",
+    "snippet": "<span className={disabled}>전화 문의</span>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoCard.tsx:56",
+    "snippet": "aria-label=\"매장 정보\""
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoCard.tsx:58",
+    "snippet": "<StoreDetailSectionTitle level=\"h2\">매장 정보</StoreDetailSectionTitle>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoCard.tsx:66",
+    "snippet": "<p className=\"sam-text-xxs font-medium text-sam-muted\">평점</p>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoCard.tsx:74",
+    "snippet": "<p className=\"sam-text-xxs font-medium text-sam-muted\">리뷰</p>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoCard.tsx:85",
+    "snippet": "<p className=\"sam-text-xxs font-medium text-sam-muted\">찜</p>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoCard.tsx:92",
+    "snippet": "<p className=\"sam-text-xxs font-medium text-sam-muted\">찜</p>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoCard.tsx:99",
+    "snippet": "<p className=\"sam-text-xxs font-medium text-sam-muted\">최근 주문</p>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoCard.tsx:107",
+    "snippet": "<p className=\"sam-text-helper font-semibold text-sam-muted\">이용 가능</p>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoCard.tsx:156",
+    "snippet": "<span className=\"mt-0.5 block sam-text-helper font-normal text-white/75\">주소 · 영업 · 안내</span>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoPublic.tsx:280",
+    "snippet": "<h2 className=\"text-center sam-text-body-lg font-bold text-sam-fg\">가게 정보</h2>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoPublic.tsx:282",
+    "snippet": "<p className=\"py-16 text-center text-sm text-sam-muted\">불러오는 중…</p>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoPublic.tsx:291",
+    "snippet": "<h2 className=\"text-center sam-text-body-lg font-bold text-sam-fg\">가게 정보</h2>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoPublic.tsx:311",
+    "snippet": "<h2 className=\"text-center sam-text-body-lg font-bold text-sam-fg\">가게 정보</h2>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoPublic.tsx:361",
+    "snippet": "<dt className=\"w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta\">영업시간</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoPublic.tsx:368",
+    "snippet": "<dt className=\"w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta\">토 영업시간</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoPublic.tsx:374",
+    "snippet": "<dt className=\"w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta\">일 영업시간</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoPublic.tsx:379",
+    "snippet": "<dt className=\"w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta\">휴무일</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoPublic.tsx:384",
+    "snippet": "<dt className=\"w-full sam-text-body-secondary text-sam-meta sm:w-[100px] sm:shrink-0\">전화번호</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoPublic.tsx:404",
+    "snippet": "<dt className=\"w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta\">위치</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoPublic.tsx:424",
+    "snippet": "<span className=\"w-11 shrink-0 sam-text-body-secondary text-sam-meta\">동네</span>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoPublic.tsx:428",
+    "snippet": "<span className=\"w-11 shrink-0 sam-text-body-secondary text-sam-meta\">지역</span>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoPublic.tsx:457",
+    "snippet": "<dt className=\"w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta\">배달·픽업</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoPublic.tsx:464",
+    "snippet": "<dt className=\"w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta\">배달 시간</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoPublic.tsx:470",
+    "snippet": "<dt className=\"w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta\">결제</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoPublic.tsx:477",
+    "snippet": "<dt className=\"w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta\">최소주문</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoPublic.tsx:485",
+    "snippet": "<dt className=\"w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta\">배달비(안내)</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoPublic.tsx:489",
+    "snippet": "<span className=\"font-semibold text-[#2563EB] dark:text-[#8AB4FF]\">배달비 무료 적용 중</span>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoPublic.tsx:505",
+    "snippet": "<dt className=\"sam-text-body-secondary text-sam-meta\">배달·지역 안내</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoPublic.tsx:512",
+    "snippet": "<dt className=\"w-[100px] shrink-0 pt-0.5 sam-text-body-secondary text-sam-meta\">등록·수정</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoPublic.tsx:523",
+    "snippet": "<h3 className=\"sam-text-body-lg font-bold text-sam-fg\">소개글 및 혜택</h3>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoPublic.tsx:530",
+    "snippet": "<p className=\"mt-3 sam-text-body text-sam-meta\">등록된 소개글이 없습니다.</p>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoPublic.tsx:537",
+    "snippet": "<h3 className=\"sam-text-body-lg font-bold text-sam-fg\">매장 통계</h3>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoPublic.tsx:540",
+    "snippet": "<dt className=\"w-[100px] shrink-0 sam-text-body-secondary text-sam-meta\">주문수</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoPublic.tsx:543",
+    "snippet": "<span className=\"ml-1 sam-text-helper font-normal text-sam-muted\">(최근 90일)</span>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoPublic.tsx:547",
+    "snippet": "<dt className=\"w-[100px] shrink-0 sam-text-body-secondary text-sam-meta\">리뷰수</dt>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailInfoPublic.tsx:564",
+    "snippet": "<h3 className=\"sam-text-body-lg font-bold text-sam-fg\">전단지·소개</h3>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailPublic.tsx:1246",
+    "snippet": "window.alert(\"링크를 복사했습니다.\");"
+  },
+  {
+    "file": "components\\stores\\StoreDetailPublic.tsx:1267",
+    "snippet": "window.alert(\"링크를 복사했습니다.\");"
+  },
+  {
+    "file": "components\\stores\\StoreDetailStickyTopRow.tsx:102",
+    "snippet": "window.alert(\"링크를 복사했습니다.\");"
+  },
+  {
+    "file": "components\\stores\\StoreDetailStickyTopRow.tsx:188",
+    "snippet": "aria-label=\"메뉴 검색\""
+  },
+  {
+    "file": "components\\stores\\StoreDetailStickyTopRow.tsx:197",
+    "snippet": "<button type=\"button\" className={iconBtnClass} aria-label=\"공유\" onClick={() => void onShare()}>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailStickyTopRow.tsx:208",
+    "snippet": "aria-label=\"더보기\""
+  },
+  {
+    "file": "components\\stores\\StoreDetailStickyTopRow.tsx:267",
+    "snippet": "aria-label=\"수령 방식\""
+  },
+  {
+    "file": "components\\stores\\StoreDetailStorefrontPanel.tsx:79",
+    "snippet": "<span className=\"font-semibold text-[#2563EB]\">배달비 무료 적용 중</span>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailStorefrontPanel.tsx:113",
+    "snippet": "aria-label=\"주문 요약\""
+  },
+  {
+    "file": "components\\stores\\StoreDetailStorefrontPanel.tsx:129",
+    "snippet": "aria-label=\"최소주문·배달·준비·결제 요약\""
+  },
+  {
+    "file": "components\\stores\\StoreDetailStorefrontPanel.tsx:181",
+    "snippet": "매장에 등록된 영업·결제·공지입니다. 주소·지도는 우측 <strong className=\"text-sam-muted\">가게 정보</strong>"
+  },
+  {
+    "file": "components\\stores\\StoreDetailStorefrontPanel.tsx:211",
+    "snippet": "<span className=\"font-semibold text-sam-fg\">배달 담당(착불)</span> · {commerceExtras.deliveryCourierLabel}"
+  },
+  {
+    "file": "components\\stores\\StoreDetailStorefrontPanel.tsx:218",
+    "snippet": "<span className=\"font-semibold text-sam-fg\">배달 안내</span>"
+  },
+  {
+    "file": "components\\stores\\StoreGlobalCartEntry.tsx:26",
+    "snippet": "return <div className=\"min-h-[30vh] px-4 py-12 text-center sam-text-body text-sam-muted\">이동 중…</div>;"
+  },
+  {
+    "file": "components\\stores\\StoreGlobalCartEntry.tsx:31",
+    "snippet": "<p className=\"sam-text-body font-medium text-sam-fg\">장바구니가 비어 있어요.</p>"
+  },
+  {
+    "file": "components\\stores\\StoreGlobalCartEntry.tsx:32",
+    "snippet": "<p className=\"mt-1 sam-text-body text-sam-muted\">매장 상세에서 메뉴를 담아 주세요.</p>"
+  },
+  {
+    "file": "components\\stores\\StoreMenuBoardPreamble.tsx:30",
+    "snippet": "<section className=\"px-4 pb-3 pt-3\" aria-label=\"사장님 추천\">"
+  },
+  {
+    "file": "components\\stores\\StoreMenuBoardPreamble.tsx:31",
+    "snippet": "<h2 className=\"text-[15px] font-extrabold tracking-[-0.02em] text-neutral-900\">사장님 추천</h2>"
+  },
+  {
+    "file": "components\\stores\\StoreMenuBoardPreamble.tsx:65",
+    "snippet": "<section className=\"border-t border-neutral-100 px-4 pb-3 pt-3\" aria-label=\"인기 메뉴\">"
+  },
+  {
+    "file": "components\\stores\\StoreMenuBoardPreamble.tsx:66",
+    "snippet": "<h2 className=\"text-[15px] font-extrabold tracking-[-0.02em] text-neutral-900\">인기 메뉴</h2>"
+  },
+  {
+    "file": "components\\stores\\StoreMenuCategoryChips.tsx:61",
+    "snippet": "<HorizontalDragScroll className={scrollCls} role=\"tablist\" aria-label=\"메뉴 카테고리\">"
+  },
+  {
+    "file": "components\\stores\\StoreMenuCategoryChips.tsx:67",
+    "snippet": "aria-label=\"메뉴 검색\""
+  },
+  {
+    "file": "components\\stores\\StoreMenuReviewFlowLink.tsx:66",
+    "snippet": "<section className=\"border-b border-neutral-100 bg-white py-2\" aria-label=\"리뷰\">"
+  },
+  {
+    "file": "components\\stores\\StoreProductAddSheet.tsx:788",
+    "snippet": "<span className=\"text-[12px] font-medium text-neutral-500\">메뉴</span>"
+  },
+  {
+    "file": "components\\stores\\StoreProductAddSheet.tsx:801",
+    "snippet": "<span className=\"text-neutral-500\">옵션 추가</span>"
+  },
+  {
+    "file": "components\\stores\\StoreProductAddSheet.tsx:808",
+    "snippet": "<span className=\"text-[12px] font-bold text-neutral-800\">1개당</span>"
+  },
+  {
+    "file": "components\\stores\\StoreProductAddSheet.tsx:816",
+    "snippet": "<span className=\"pt-0.5 text-[12px] font-medium text-neutral-500\">메뉴 금액</span>"
+  },
+  {
+    "file": "components\\stores\\StoreProductAddSheet.tsx:826",
+    "snippet": "<span className=\"ml-0.5 text-[11px] font-semibold text-neutral-500\">/개</span>"
+  },
+  {
+    "file": "components\\stores\\StoreProductAddSheet.tsx:832",
+    "snippet": "<span className=\"text-[13px] font-bold text-neutral-900\">수량</span>"
+  },
+  {
+    "file": "components\\stores\\StoreProductAddSheet.tsx:839",
+    "snippet": "aria-label=\"수량 감소\""
+  },
+  {
+    "file": "components\\stores\\StoreProductAddSheet.tsx:851",
+    "snippet": "aria-label=\"수량 증가\""
+  },
+  {
+    "file": "components\\stores\\StoreProductAddSheet.tsx:860",
+    "snippet": "<span className=\"text-[12px] font-semibold text-neutral-600\">주문 합계</span>"
+  },
+  {
+    "file": "components\\stores\\StoreProductAddSheet.tsx:870",
+    "snippet": "요청사항 <span className=\"font-medium text-neutral-500\">(선택)</span>"
+  },
+  {
+    "file": "components\\stores\\StoreProductAddSheet.tsx:878",
+    "snippet": "placeholder=\"예: 덜 맵게, 양파 빼주세요\""
+  },
+  {
+    "file": "components\\stores\\StoreProductAddSheet.tsx:895",
+    "snippet": "<p className=\"mt-1 px-4 text-[11px] text-amber-800\">옵션을 올바르게 선택해 주세요.</p>"
+  },
+  {
+    "file": "components\\stores\\StoreProductPublic.tsx:858",
+    "snippet": "<p className=\"font-semibold text-sam-fg\">선택한 옵션</p>"
+  },
+  {
+    "file": "components\\stores\\StoreProductPublic.tsx:863",
+    "snippet": "<p className=\"mt-2 text-xs text-amber-800\">필수 옵션을 확인해 주세요.</p>"
+  },
+  {
+    "file": "components\\stores\\StoreProductPublic.tsx:879",
+    "snippet": "placeholder=\"예) 국물 많이 주세요\""
+  },
+  {
+    "file": "components\\stores\\StoreProductPublic.tsx:885",
+    "snippet": "<p className=\"text-xs font-medium text-sam-muted\">수량</p>"
+  },
+  {
+    "file": "components\\stores\\StoreProductPublic.tsx:912",
+    "snippet": "<p className=\"text-xs font-medium text-sam-muted\">수령 방식</p>"
+  },
+  {
+    "file": "components\\stores\\StoreProductPublic.tsx:936",
+    "snippet": "<span className=\"font-normal text-sam-meta\">(선택)</span>"
+  },
+  {
+    "file": "components\\stores\\StoreProductPublic.tsx:950",
+    "snippet": "aria-label=\"주문 연락처\""
+  },
+  {
+    "file": "components\\stores\\StoreProductPublic.tsx:965",
+    "snippet": "placeholder=\"픽업 시간 등\""
+  },
+  {
+    "file": "components\\stores\\StoreProductPublic.tsx:972",
+    "snippet": "<span className=\"text-sam-muted\">상품 금액</span>"
+  },
+  {
+    "file": "components\\stores\\StoreProductPublic.tsx:977",
+    "snippet": "<span className=\"text-sam-muted\">배달비</span>"
+  },
+  {
+    "file": "components\\stores\\StoreProductPublic.tsx:986",
+    "snippet": "<span className=\"text-[13px] font-semibold text-[#2563EB]\">배달비 무료 적용 중</span>"
+  },
+  {
+    "file": "components\\stores\\StoreProductPublic.tsx:1013",
+    "snippet": "<span>주문 예정 금액</span>"
+  },
+  {
+    "file": "components\\stores\\StorePublicNoticesList.tsx:22",
+    "snippet": "<span className=\"shrink-0 sam-text-helper font-bold tracking-tight text-sam-muted\">공지</span>"
+  },
+  {
+    "file": "components\\stores\\StoreReportForm.tsx:80",
+    "snippet": "<p className=\"font-medium\">신고가 접수되었습니다.</p>"
+  },
+  {
+    "file": "components\\stores\\StoreReportForm.tsx:81",
+    "snippet": "<p className=\"mt-1 sam-text-body-secondary text-sam-success\">검토 후 필요 시 조치합니다. 허위 신고는 제재 대상이 될 수 있습니다.</p>"
+  },
+  {
+    "file": "components\\stores\\StoreReportForm.tsx:101",
+    "snippet": "<span className=\"sam-form-label\">사유</span>"
+  },
+  {
+    "file": "components\\stores\\StoreReportForm.tsx:115",
+    "snippet": "<span className=\"sam-form-label\">상세 내용 (최대 2000자)</span>"
+  },
+  {
+    "file": "components\\stores\\StoreReportForm.tsx:121",
+    "snippet": "placeholder=\"구체적으로 적어 주시면 검토에 도움이 됩니다.\""
+  },
+  {
+    "file": "components\\stores\\StoreReportPageClient.tsx:19",
+    "snippet": "<p className=\"text-sm text-sam-muted\">잘못된 주소입니다.</p>"
+  },
+  {
+    "file": "components\\stores\\StoreReviewsPageClient.tsx:13",
+    "snippet": "<h1 className=\"mb-3 text-[18px] font-bold text-neutral-900\">리뷰</h1>"
+  },
+  {
+    "file": "components\\stores\\StoreReviewsSection.tsx:177",
+    "snippet": "<StoreDetailSectionTitle level=\"h2\">리뷰</StoreDetailSectionTitle>"
+  },
+  {
+    "file": "components\\stores\\StoreReviewsSection.tsx:178",
+    "snippet": "<p className={Sam.text.bodySecondary}>리뷰 불러오는 중…</p>"
+  },
+  {
+    "file": "components\\stores\\StoreReviewsSection.tsx:195",
+    "snippet": "<StoreDetailSectionTitle level=\"h2\">리뷰</StoreDetailSectionTitle>"
+  },
+  {
+    "file": "components\\stores\\StoreReviewsSection.tsx:198",
+    "snippet": "<p className={`${Sam.text.body} text-sam-muted`}>아직 등록된 리뷰가 없습니다.</p>"
+  },
+  {
+    "file": "components\\stores\\StoreReviewsSection.tsx:201",
+    "snippet": "<p className={`${Sam.text.body} text-sam-muted`}>아직 등록된 리뷰가 없습니다.</p>"
+  },
+  {
+    "file": "components\\stores\\StoreReviewsSection.tsx:295",
+    "snippet": "<option value=\"recommended\">추천순</option>"
+  },
+  {
+    "file": "components\\stores\\StoreReviewsSection.tsx:296",
+    "snippet": "<option value=\"latest\">최신순</option>"
+  },
+  {
+    "file": "components\\stores\\StoreReviewsSection.tsx:297",
+    "snippet": "<option value=\"rating_desc\">별점 높은순</option>"
+  },
+  {
+    "file": "components\\stores\\StoreReviewsSection.tsx:298",
+    "snippet": "<option value=\"rating_asc\">별점 낮은순</option>"
+  },
+  {
+    "file": "components\\stores\\StoreReviewsSection.tsx:383",
+    "snippet": "<StoreDetailSectionTitle level=\"h2\">리뷰 {count.toLocaleString(\"ko-KR\")}</StoreDetailSectionTitle>"
+  },
+  {
+    "file": "components\\stores\\StoreReviewsSection.tsx:384",
+    "snippet": "<p className={`mt-0.5 ${Sam.text.bodySecondary}`}>사장님 댓글 {ownerReplyCount.toLocaleString(\"ko-KR\")}</p>"
+  },
+  {
+    "file": "components\\stores\\StoreReviewsSection.tsx:423",
+    "snippet": "<option value=\"recommended\">추천순</option>"
+  },
+  {
+    "file": "components\\stores\\StoreReviewsSection.tsx:424",
+    "snippet": "<option value=\"latest\">최신순</option>"
+  },
+  {
+    "file": "components\\stores\\StoreReviewsSection.tsx:425",
+    "snippet": "<option value=\"rating_desc\">별점 높은순</option>"
+  },
+  {
+    "file": "components\\stores\\StoreReviewsSection.tsx:426",
+    "snippet": "<option value=\"rating_asc\">별점 낮은순</option>"
+  },
+  {
+    "file": "components\\stores\\StoreReviewsSection.tsx:432",
+    "snippet": "<p className={`${Sam.text.body} text-sam-muted`}>조건에 맞는 리뷰가 없습니다.</p>"
+  },
+  {
+    "file": "components\\stores\\StoreReviewsSection.tsx:466",
+    "snippet": "<p className={`font-semibold text-sam-fg ${Sam.text.helper}`}>사장님 댓글</p>"
+  },
+  {
+    "file": "components\\stores\\StoreSlugStickyBar.tsx:225",
+    "snippet": "<p className=\"sam-text-body-secondary text-sam-meta\">불러오는 중…</p>"
+  }
+]

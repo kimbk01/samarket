@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useState } from "react";
 import type { StoreNoticePublicRow } from "@/lib/stores/store-banners-notices-public";
@@ -17,6 +18,7 @@ export function StoreOwnerNoticeCards({
   notices: StoreNoticePublicRow[];
   infoHrefBase: string;
 }) {
+  const { t } = useI18n();
   const [openId, setOpenId] = useState<string | null>(null);
   if (!notices.length) return null;
 

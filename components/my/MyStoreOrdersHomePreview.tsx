@@ -1,18 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
+import { useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { fetchMeStoreOrdersListDeduped } from "@/lib/stores/store-delivery-api-client";
 
-const ORDER_LABEL: Record<string, string> = { ...BUYER_ORDER_STATUS_LABEL };
-
-const FULFILL_LABEL: Record<string, string> = {
-  pickup: "포장 픽업",
-  local_delivery: "배달",
-  shipping: "배달",
-};
 
 type PreviewItem = {
   product_title_snapshot: string;
@@ -77,6 +71,15 @@ type Props = {
  * UI·데이터는 `/mypage/store-orders`(MyStoreOrdersView)와 동일 API·카드 톤.
  */
 export function MyStoreOrdersHomePreview({ enabled = true }: Props) {
+  const { t, language } = useI18n();
+  const fulfillLabel = useMemo(
+    (): Record<string, string> => ({
+      pickup: t("my_store_fulfill_pickup"),
+      local_delivery: t("my_store_fulfill_delivery"),
+      shipping: t("my_store_fulfill_delivery"),
+    }),
+    [t]
+  );
   const [state, setState] = useState<State>({ kind: "idle" });
 
   useEffect(() => {
@@ -109,9 +112,9 @@ export function MyStoreOrdersHomePreview({ enabled = true }: Props) {
     return (
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4" aria-busy="true">
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="sam-text-body font-semibold text-foreground">배달 주문</h2>
+          <h2 className="sam-text-body font-semibold text-foreground">{t("my_store_orders_title")}</h2>
         </div>
-        <p className="sam-text-body-secondary text-muted">불러오는 중…</p>
+        <p className="sam-text-body-secondary text-muted">{t("common_loading")}</p>
       </section>
     );
   }
@@ -123,8 +126,8 @@ export function MyStoreOrdersHomePreview({ enabled = true }: Props) {
   if (state.kind === "unavailable") {
     return (
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <h2 className="sam-text-body font-semibold text-foreground">배달 주문</h2>
-        <p className="mt-2 sam-text-body-secondary text-muted">주문 정보를 불러올 수 없습니다. (서버 설정)</p>
+        <h2 className="sam-text-body font-semibold text-foreground">{t("my_store_orders_title")}</h2>
+        <p className="mt-2 sam-text-body-secondary text-muted">{t("my_store_orders_load_failed")}</p>
       </section>
     );
   }
@@ -133,13 +136,13 @@ export function MyStoreOrdersHomePreview({ enabled = true }: Props) {
     return (
       <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="sam-text-body font-semibold text-foreground">배달 주문</h2>
+          <h2 className="sam-text-body font-semibold text-foreground">{t("my_store_orders_title")}</h2>
           <button
             type="button"
             onClick={() => retry()}
             className="sam-text-body-secondary font-medium text-signature"
           >
-            다시 시도
+            {t("common_retry")}
           </button>
         </div>
       </section>
@@ -149,20 +152,20 @@ export function MyStoreOrdersHomePreview({ enabled = true }: Props) {
   return (
     <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="sam-text-body font-semibold text-foreground">배달 주문</h2>
+        <h2 className="sam-text-body font-semibold text-foreground">{t("my_store_orders_title")}</h2>
         <Link href="/my/store-orders" className="shrink-0 sam-text-body-secondary font-medium text-signature">
-          전체 보기
+          {t("my_store_orders_view_all")}
         </Link>
       </div>
 
       {state.kind === "empty" ? (
         <div className="space-y-3">
-          <p className="sam-text-body-secondary leading-relaxed text-muted">아직 배달 주문이 없습니다.</p>
+          <p className="sam-text-body-secondary leading-relaxed text-muted">{t("my_store_orders_empty")}</p>
           <Link
             href="/stores"
             className="inline-block sam-text-body-secondary font-medium text-signature underline underline-offset-2"
           >
-            매장 둘러보기
+            {t("my_store_orders_browse_stores")}
           </Link>
         </div>
       ) : (
@@ -178,7 +181,7 @@ export function MyStoreOrdersHomePreview({ enabled = true }: Props) {
               >
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <p className="sam-text-body font-semibold text-foreground">
-                    {o.store_name?.trim() || "매장"}
+                    {o.store_name?.trim() || t("my_store_orders_store_fallback")}
                   </p>
                   <span className="text-xs text-muted">{o.order_no}</span>
                 </div>
@@ -189,28 +192,28 @@ export function MyStoreOrdersHomePreview({ enabled = true }: Props) {
                   </p>
                 ) : null}
                 <p className="mt-1 text-xs text-muted">
-                  {FULFILL_LABEL[o.fulfillment_type] ?? o.fulfillment_type}
+                  {fulfillLabel[o.fulfillment_type] ?? o.fulfillment_type}
                   {" · "}
-                  {ORDER_LABEL[o.order_status] ?? o.order_status}
+                  {buyerOrderStatusLabel(o.order_status, language)}
                 </p>
                 {(o.order_status === "ready_for_pickup" ||
                   o.order_status === "delivering" ||
                   o.order_status === "arrived") &&
                 o.auto_complete_at ? (
                   <p className="mt-2 sam-text-xxs leading-snug text-muted">
-                    자동 완료 예정:{" "}
+                    {t("my_store_orders_auto_complete")}{" "}
                     <span className="font-medium text-foreground">
-                      {new Date(o.auto_complete_at).toLocaleString("ko-KR")}
+                      {new Date(o.auto_complete_at).toLocaleString(language === "ko" ? "ko-KR" : "en-US")}
                     </span>
                   </p>
                 ) : null}
                 {o.buyer_note ? (
-                  <p className="mt-2 text-xs text-muted">요청: {o.buyer_note}</p>
+                  <p className="mt-2 text-xs text-muted">{t("my_store_orders_request_note", { note: o.buyer_note })}</p>
                 ) : null}
                 <p className="mt-2 sam-text-xxs text-muted">
-                  {new Date(o.created_at).toLocaleString("ko-KR")}
+                  {new Date(o.created_at).toLocaleString(language === "ko" ? "ko-KR" : "en-US")}
                 </p>
-                <p className="mt-2 text-right text-xs text-signature">상세 보기 →</p>
+                <p className="mt-2 text-right text-xs text-signature">{t("my_store_orders_view_detail")}</p>
               </Link>
             </li>
           ))}

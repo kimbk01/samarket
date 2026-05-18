@@ -12,7 +12,6 @@ import {
 } from "@/lib/chats/prewarm-chat-room-route";
 import { defaultTradeChatRoomHref } from "@/lib/chats/trade-chat-notification-href";
 import { orderMessengerRoomHref, storeOrderChatEnsureRedirectHref } from "@/lib/chats/surfaces/order-chat-surface";
-import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 
 interface Props {
   room: ChatRoom;
@@ -90,14 +89,24 @@ export function GeneralChatRoomCard({ room, onRoomMutated, getRoomHref, onSelect
       )}
       {product?.thumbnail || product?.title ? (
         <div className="flex gap-3 border-t border-sam-border-soft pt-2">
-          <SamarketThumbnail
-            src={product?.thumbnail}
-            size={100}
-            roundedClassName="rounded-ui-rect"
-            className="bg-sam-primary-soft"
-            fallbackSrc=""
-            fallbackNode={<div className="sam-text-xxs text-sam-meta">{t("common_image")}</div>}
-          />
+          <div className="h-[100px] w-[100px] shrink-0 overflow-hidden rounded-ui-rect bg-sam-primary-soft">
+            {product?.thumbnail ? (
+              <img
+                src={product.thumbnail}
+                alt=""
+                width={100}
+                height={100}
+                className="h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
+                fetchPriority="low"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center sam-text-xxs text-sam-meta">
+                {t("common_image")}
+              </div>
+            )}
+          </div>
           <div className="flex min-h-[100px] min-w-0 flex-1 flex-col">
             <p className="line-clamp-2 sam-text-body font-medium text-sam-fg">
               {product?.title || title}

@@ -3,13 +3,14 @@
 import type { PostWithMeta } from "@/lib/posts/schema";
 import { getLocationLabel } from "@/lib/products/form-options";
 import { formatPrice } from "@/lib/utils/format";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { EXPERIENCE_LEVEL_LABELS, jobWorkCategoryDisplay } from "@/lib/jobs/form-options";
 import {
-  EXPERIENCE_LEVEL_LABELS,
-  JOB_LISTING_KIND_LABELS,
-  PAY_TYPE_LABELS,
-  WORK_TERM_LABELS,
-  jobWorkCategoryDisplay,
-} from "@/lib/jobs/form-options";
+  jobListingKindLabel,
+  jobOptionLabel,
+  jobPayTypeLabel,
+  jobWorkTermLabel,
+} from "@/lib/jobs/job-label-keys";
 import { JOB_SEEKER_LANGUAGE_OPTIONS } from "@/lib/jobs/form-options";
 import {
   formatJobHireTimeSlotsPipe,
@@ -19,13 +20,19 @@ import {
 import { JobDetailSectionCard } from "@/components/jobs/JobDetailSectionCard";
 import { TRADE_FB_DETAIL_BODY, TRADE_WRITE_FB_FIELD_HEAD } from "@/lib/ui/trade-write-fb-ui";
 
-function formatHireLanguagesPipe(meta: Record<string, unknown>): string {
+function formatHireLanguagesPipe(
+  t: ReturnType<typeof useI18n>["t"],
+  meta: Record<string, unknown>
+): string {
   const raw = String(meta.hire_languages ?? "").trim();
   if (!raw) return "";
   return raw
     .split("|")
     .filter(Boolean)
-    .map((v) => JOB_SEEKER_LANGUAGE_OPTIONS.find((o) => o.value === v)?.label ?? v)
+    .map((v) => {
+      const opt = JOB_SEEKER_LANGUAGE_OPTIONS.find((o) => o.value === v);
+      return opt ? jobOptionLabel(t, opt.labelKey) : v;
+    })
     .join(", ");
 }
 
@@ -38,7 +45,8 @@ export function JobHiringDetailCards({
   meta: Record<string, unknown>;
   currency: string;
 }) {
-  const workCategory = jobWorkCategoryDisplay(meta);
+  const { t, language } = useI18n();
+  const workCategory = jobWorkCategoryDisplay(meta, language);
   const workTerm = String(meta.work_term ?? "").trim();
   const workDateStart = String(meta.work_date_start ?? "").trim();
   const workDateEnd = String(meta.work_date_end ?? "").trim();
@@ -61,7 +69,7 @@ export function JobHiringDetailCards({
 
   const payAmountLabel =
     payAmount != null && !Number.isNaN(payAmount)
-      ? `${PAY_TYPE_LABELS[payType] ?? payType} ${formatPrice(payAmount, currency)}`
+      ? `${jobPayTypeLabel(t, payType)} ${formatPrice(payAmount, currency)}`
       : hirePayNegotiable
         ? "협의"
         : "";
@@ -95,9 +103,9 @@ export function JobHiringDetailCards({
   const locLine = [workAddress, geoLine].filter(Boolean).join(" · ");
 
   const recruitRows: { label: string; value: string }[] = [];
-  recruitRows.push({ label: "글 유형", value: JOB_LISTING_KIND_LABELS.hire ?? "사람 구해요" });
+  recruitRows.push({ label: "글 유형", value: jobListingKindLabel(t, "hire") });
   if (workCategory) recruitRows.push({ label: "업종", value: workCategory });
-  if (workTerm) recruitRows.push({ label: "근무 형태", value: WORK_TERM_LABELS[workTerm] ?? workTerm });
+  if (workTerm) recruitRows.push({ label: "근무 형태", value: jobWorkTermLabel(t, workTerm) });
   if (showDates) recruitRows.push({ label: "근무 날짜", value: dateRange ?? "" });
   if (hireDaysLabel) recruitRows.push({ label: "근무 요일", value: hireDaysLabel });
   if (workTimeCombined) recruitRows.push({ label: "근무 시간", value: workTimeCombined });
@@ -106,7 +114,9 @@ export function JobHiringDetailCards({
   if (experienceRequired) {
     recruitRows.push({
       label: "경력",
-      value: EXPERIENCE_LEVEL_LABELS[experienceRequired] ?? experienceRequired,
+      value: EXPERIENCE_LEVEL_LABELS[experienceRequired]
+        ? t(EXPERIENCE_LEVEL_LABELS[experienceRequired])
+        : experienceRequired,
     });
   }
   if (locLine) recruitRows.push({ label: "근무 위치", value: locLine });
@@ -116,7 +126,7 @@ export function JobHiringDetailCards({
   if (meta.hire_housing === true) condRows.push({ label: "숙소 제공", value: "제공" });
   const visaNote = String(meta.hire_visa_note ?? "").trim();
   if (visaNote) condRows.push({ label: "비자 안내", value: visaNote });
-  const langs = formatHireLanguagesPipe(meta);
+  const langs = formatHireLanguagesPipe(t, meta);
   if (langs) condRows.push({ label: "필요 언어", value: langs });
   condRows.push({ label: "당일 지급 여부", value: sameDayPay ? "예" : "아니오" });
 
@@ -124,10 +134,10 @@ export function JobHiringDetailCards({
 
   return (
     <div className="flex flex-col gap-2">
-      <JobDetailSectionCard title="모집 정보" rows={recruitRows} />
-      <JobDetailSectionCard title="근무 조건" rows={condRows} />
+      <JobDetailSectionCard title={t("ui_jobs_detail_recruit_section")} rows={recruitRows} />
+      <JobDetailSectionCard title={t("ui_jobs_detail_conditions_section")} rows={condRows} />
       <div className="rounded-ui-rect border border-[#e4e6eb] bg-[#fafbfc] px-3 py-2.5">
-        <h3 className={`${TRADE_WRITE_FB_FIELD_HEAD} mb-0`}>상세 설명</h3>
+        <h3 className={`${TRADE_WRITE_FB_FIELD_HEAD} mb-0`}>{t("ui_jobs_detail_description_heading")}</h3>
         <p className={`mt-1 ${TRADE_FB_DETAIL_BODY}`}>{content || "—"}</p>
       </div>
     </div>

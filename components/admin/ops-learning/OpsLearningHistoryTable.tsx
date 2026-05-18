@@ -1,46 +1,22 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  OPS_TOOLS_KB_SOURCE_KEYS,
+  OPS_TOOLS_LEARNING_TYPE_KEYS,
+  OPS_TOOLS_PATTERN_STATUS_KEYS,
+  opsToolsLabel,
+} from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import { useMemo } from "react";
 import type { OpsLearningStatus } from "@/lib/types/ops-learning";
 import { getOpsLearningHistories } from "@/lib/ops-learning/mock-ops-learning-histories";
-
-const SOURCE_LABELS: Record<string, string> = {
-  incident: "이슈",
-  runbook: "런북",
-  report: "보고서",
-  automation: "자동화",
-  manual: "수동",
-};
-
-const LEARNING_TYPE_LABELS: Record<string, string> = {
-  repeated_issue: "반복 이슈",
-  recovery_gap: "복구 갭",
-  document_gap: "문서 갭",
-  automation_gap: "자동화 갭",
-  quality_improvement: "품질 개선",
-};
-
-const STATUS_LABELS: Record<OpsLearningStatus, string> = {
-  detected: "탐지",
-  reviewing: "검토중",
-  action_created: "액션생성",
-  mitigated: "완화",
-  monitoring: "모니터링",
-  closed: "종료",
-};
-
-const SURFACE_LABELS: Record<string, string> = {
-  home: "홈",
-  search: "검색",
-  shop: "상점",
-  all: "전체",
-};
 
 interface OpsLearningHistoryTableProps {
   statusFilter?: OpsLearningStatus | "";
 }
 
 export function OpsLearningHistoryTable({ statusFilter = "" }: OpsLearningHistoryTableProps) {
+  const { t } = useI18n();
   const histories = useMemo(
     () => getOpsLearningHistories({ status: statusFilter || undefined }),
     [statusFilter]
@@ -48,9 +24,7 @@ export function OpsLearningHistoryTable({ statusFilter = "" }: OpsLearningHistor
 
   if (histories.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
-        학습 히스토리가 없습니다.
-      </div>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_learning_history_empty")}</div>
     );
   }
 
@@ -59,12 +33,12 @@ export function OpsLearningHistoryTable({ statusFilter = "" }: OpsLearningHistor
       <table className="w-full min-w-[600px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">제목</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">출처</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">학습 유형</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">상태</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">탐지일</th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">담당</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_board_th_title")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_learning_th_source")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_learning_th_type")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_board_th_status")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_learning_th_detected")}</th>
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_ops_tools_board_th_owner")}</th>
           </tr>
         </thead>
         <tbody>
@@ -75,15 +49,15 @@ export function OpsLearningHistoryTable({ statusFilter = "" }: OpsLearningHistor
                 <p className="mt-0.5 sam-text-helper text-sam-muted line-clamp-1">{h.summary}</p>
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
-                {SOURCE_LABELS[h.sourceType]}
+                {t(opsToolsLabel(OPS_TOOLS_KB_SOURCE_KEYS, h.sourceType))}
                 {h.sourceId && ` · ${h.sourceId}`}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
-                {LEARNING_TYPE_LABELS[h.learningType]}
+                {t(opsToolsLabel(OPS_TOOLS_LEARNING_TYPE_KEYS, h.learningType))}
               </td>
               <td className="px-3 py-2.5">
                 <span className="rounded bg-sam-surface-muted px-2 py-0.5 sam-text-helper text-sam-fg">
-                  {STATUS_LABELS[h.status]}
+                  {t(opsToolsLabel(OPS_TOOLS_PATTERN_STATUS_KEYS, h.status))}
                 </span>
               </td>
               <td className="px-3 py-2.5 text-sam-muted">

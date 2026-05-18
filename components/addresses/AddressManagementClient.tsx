@@ -27,7 +27,7 @@ import { isLinkedSamarketStoreAddressRow } from "@/lib/addresses/is-linked-samar
 import { isStoreOwnerAdminReturnTo } from "@/lib/business/owner-hub-path";
 
 export function AddressManagementClient({ embedded = false }: { embedded?: boolean } = {}) {
-  const { tt } = useI18n();
+  const { t } = useI18n();
   const pathname = usePathname();
   const sp = useSearchParams();
   const router = useRouter();
@@ -158,7 +158,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
     try {
       const result = await fetchMeAddressesListSingleFlight();
       if (!result.ok) {
-        setLoadErr(describeMeAddressesListFailure(result, tt("목록을 불러오지 못했어요.")));
+        setLoadErr(describeMeAddressesListFailure(result, t("address_load_failed")));
         return;
       }
       const rows = result.rows;
@@ -202,13 +202,13 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   }, [linkedStoreIdsInList]);
 
   async function removeRow(id: string) {
-    if (!confirm(tt("이 주소를 삭제할까요?"))) return;
+    if (!confirm(t("address_delete_confirm"))) return;
     setBusyId(id);
     try {
       const res = await fetch(`/api/me/addresses/${id}`, { method: "DELETE", credentials: "include" });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        alert(typeof j.error === "string" ? j.error : tt("삭제 실패"));
+        alert(typeof j.error === "string" ? j.error : t("address_delete_failed"));
         return;
       }
       await load();
@@ -266,7 +266,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        alert(typeof j.error === "string" ? j.error : tt("대표 주소 설정 실패"));
+        alert(typeof j.error === "string" ? j.error : t("addr_ui_set_default_failed"));
         return;
       }
       await load();
@@ -283,7 +283,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
       if (selectingForReturn) {
         const id = pickedId || list.find((a) => a.isDefaultMaster)?.id || "";
         if (!id) {
-          alert(tt("먼저 주소를 추가해 주세요."));
+          alert(t("addr_ui_add_first"));
           return;
         }
         /** 매장 설정 복귀 — 매장 주소 연결만 확인, 대표 주소 PATCH 금지(서버 400 방지) */
@@ -311,7 +311,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
     >
       {!embedded ? (
         <MySubpageHeader
-          title={tt("주소 관리")}
+          title={t("address_manage_title")}
           backHref={returnTo || "/mypage"}
           hideCtaStrip
         />
@@ -321,12 +321,11 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
           {loadErr ? (
             <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-3 sam-text-body-secondary text-amber-950">
               {loadErr === "user_addresses_table_missing"
-                ? "주소 테이블(user_addresses)이 없습니다."
+                ? t("addr_ui_table_missing")
                 : loadErr}
               {shouldShowMigrationHint ? (
                 <p className="mt-2 sam-text-helper text-amber-900/90">
-                  Supabase에 <code className="rounded bg-sam-surface/60 px-1">user_addresses</code> 마이그레이션을 적용했는지
-                  확인해 주세요.
+                  {t("addr_ui_migration_hint")}
                 </p>
               ) : null}
             </div>
@@ -335,11 +334,11 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
           <div>
             {list.length === 0 && !loadErr && listBootstrapping ? (
               <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-8 text-center sam-text-body-secondary text-sam-muted">
-                불러오는 중…
+                {t("common_loading")}
               </p>
             ) : list.length === 0 && !loadErr ? (
               <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-8 text-center sam-text-body-secondary text-sam-muted">
-                {tt("등록된 주소가 없어요. 아래에서 추가해 주세요.")}
+                {t("address_empty")}
               </p>
             ) : (
               <ul className={`divide-y divide-sam-primary-border/35 ${ADDR_LIST_CARD}`}>
@@ -376,10 +375,10 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
               disabled={confirming || (selectingForReturn && list.length > 0 && !pickedId)}
               className="w-full rounded-ui-rect bg-signature py-3.5 sam-text-body font-semibold text-white disabled:opacity-50"
             >
-              {confirming ? tt("처리 중…") : tt("확인")}
+              {confirming ? t("common_processing") : t("common_confirm")}
             </button>
             <button type="button" onClick={openCreate} className={ADDR_ADD_CTA}>
-              {tt("+ 주소 추가")}
+              {t("address_add")}
             </button>
           </div>
         </div>
@@ -389,12 +388,11 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
             {loadErr ? (
               <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-3 sam-text-body-secondary text-amber-950">
                 {loadErr === "user_addresses_table_missing"
-                  ? "주소 테이블(user_addresses)이 없습니다."
+                  ? t("addr_ui_table_missing")
                   : loadErr}
                 {shouldShowMigrationHint ? (
                   <p className="mt-2 sam-text-helper text-amber-900/90">
-                    Supabase에 <code className="rounded bg-sam-surface/60 px-1">user_addresses</code> 마이그레이션을 적용했는지
-                    확인해 주세요.
+                    {t("addr_ui_migration_hint")}
                   </p>
                 ) : null}
               </div>
@@ -403,11 +401,11 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
             <div>
               {list.length === 0 && !loadErr && listBootstrapping ? (
                 <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-8 text-center sam-text-body-secondary text-sam-muted">
-                  불러오는 중…
+                  {t("common_loading")}
                 </p>
               ) : list.length === 0 && !loadErr ? (
                 <p className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface py-8 text-center sam-text-body-secondary text-sam-muted">
-                  {tt("등록된 주소가 없어요. 아래에서 추가해 주세요.")}
+                  {t("address_empty")}
                 </p>
               ) : (
                 <ul className={`divide-y divide-sam-primary-border/35 ${ADDR_LIST_CARD}`}>
@@ -444,10 +442,10 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
                 disabled={confirming || (selectingForReturn && list.length > 0 && !pickedId)}
                 className="w-full rounded-ui-rect bg-signature py-3.5 sam-text-body font-semibold text-white disabled:opacity-50"
               >
-                {confirming ? tt("처리 중…") : tt("확인")}
+                {confirming ? t("common_processing") : t("common_confirm")}
               </button>
               <button type="button" onClick={openCreate} className={ADDR_ADD_CTA}>
-                {tt("+ 주소 추가")}
+                {t("address_add")}
               </button>
             </div>
           </div>

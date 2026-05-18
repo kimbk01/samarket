@@ -1,9 +1,11 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useState } from "react";
 import { getOpsMonthlyNotes } from "@/lib/ops-routines/mock-ops-monthly-notes";
 
 export function OpsMonthlyNoteList() {
+  const { t } = useI18n();
   const [monthKey, setMonthKey] = useState<string>("");
   const notes = useMemo(
     () =>
@@ -19,13 +21,13 @@ export function OpsMonthlyNoteList() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">월</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_ops_tools_routines_month_label")}</span>
         <select
           value={monthKey}
           onChange={(e) => setMonthKey(e.target.value)}
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
+          <option value="">{t("admin_ops_tools_surface_all")}</option>
           {months.map((m) => (
             <option key={m} value={m}>
               {m}
@@ -34,14 +36,10 @@ export function OpsMonthlyNoteList() {
         </select>
       </div>
 
-      <p className="sam-text-helper text-sam-muted">
-        월간 운영 회의 아젠다·handoff / owner rotation 은 placeholder로 확장 가능합니다.
-      </p>
+      <p className="sam-text-helper text-sam-muted">{t("admin_ops_tools_routines_month_hint")}</p>
 
       {notes.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          해당 월 메모가 없습니다.
-        </div>
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_routines_month_empty")}</div>
       ) : (
         <div className="space-y-4">
           {notes.map((n) => (
@@ -56,15 +54,15 @@ export function OpsMonthlyNoteList() {
                   {new Date(n.createdAt).toLocaleString()}
                 </span>
               </div>
-              <p className="mt-2 sam-text-body font-medium text-sam-fg">요약</p>
+              <p className="mt-2 sam-text-body font-medium text-sam-fg">{t("admin_ops_tools_board_label_summary")}</p>
               <p className="mt-1 sam-text-body-secondary text-sam-fg">{n.summary}</p>
-              <p className="mt-2 sam-text-body-secondary font-medium text-sam-fg">주요 리스크</p>
+              <p className="mt-2 sam-text-body-secondary font-medium text-sam-fg">{t("admin_ops_tools_routines_month_risks")}</p>
               <p className="mt-1 sam-text-body-secondary text-sam-muted">{n.topRisks}</p>
-              <p className="mt-2 sam-text-body-secondary font-medium text-sam-fg">주요 성과</p>
+              <p className="mt-2 sam-text-body-secondary font-medium text-sam-fg">{t("admin_ops_tools_routines_month_wins")}</p>
               <p className="mt-1 sam-text-body-secondary text-sam-muted">{n.topWins}</p>
               {n.followUpFocus && (
                 <>
-                  <p className="mt-2 sam-text-body-secondary font-medium text-sam-fg">후속 포커스</p>
+                  <p className="mt-2 sam-text-body-secondary font-medium text-sam-fg">{t("admin_ops_tools_routines_month_followup")}</p>
                   <p className="mt-1 sam-text-body-secondary text-sam-muted">{n.followUpFocus}</p>
                 </>
               )}

@@ -1,5 +1,19 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  pointActionTypeLabel,
+  pointBoardLabel,
+  pointChargeStatusLabel,
+  pointExecStatusLabel,
+  pointExpireCycleLabel,
+  pointExpireExecStatusLabel,
+  pointLedgerTypeLabel,
+  pointPaymentMethodLabel,
+  pointRewardTypeLabel,
+  pointUserTypeLabel,
+} from "@/components/admin/points/admin-points-notifications-i18n";
+
 import { useMemo, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -11,19 +25,13 @@ import {
   filterPointRewardExecutions,
   type AdminPointExecutionFilters,
 } from "@/lib/point-executions/point-execution-utils";
-import { BOARD_OPTIONS, USER_TYPE_LABELS } from "@/lib/point-policies/point-policy-utils";
+import { BOARD_OPTIONS } from "@/lib/point-policies/point-policy-utils";
 import { AdminPointExecutionFilterBar } from "./AdminPointExecutionFilterBar";
 import { AdminPointExecutionTable } from "./AdminPointExecutionTable";
 import { PointReclaimPolicyTable } from "./PointReclaimPolicyTable";
 import { PointRewardLogList } from "./PointRewardLogList";
 
 type TabId = "executions" | "reclaim" | "logs";
-
-const TABS: { id: TabId; label: string }[] = [
-  { id: "executions", label: "지급/실행 이력" },
-  { id: "reclaim", label: "회수 정책" },
-  { id: "logs", label: "지급·회수 로그" },
-];
 
 const DEFAULT_FILTERS: AdminPointExecutionFilters = {
   status: "",
@@ -33,6 +41,12 @@ const DEFAULT_FILTERS: AdminPointExecutionFilters = {
 };
 
 export function AdminPointExecutionPage() {
+  const { t } = useI18n();
+  const tabs: { id: TabId; label: string }[] = [
+    { id: "executions", label: t("admin_points_exec_tab_executions") },
+    { id: "reclaim", label: t("admin_points_exec_tab_reclaim") },
+    { id: "logs", label: t("admin_points_exec_tab_logs") },
+  ];
   const [activeTab, setActiveTab] = useState<TabId>("executions");
   const [filters, setFilters] = useState<AdminPointExecutionFilters>(DEFAULT_FILTERS);
   const [refresh, setRefresh] = useState(0);
@@ -53,7 +67,7 @@ export function AdminPointExecutionPage() {
     const targetId = (form.querySelector('[name="targetId"]') as HTMLInputElement)?.value ?? "post-test-1";
     const targetType = ((form.querySelector('[name="targetType"]') as HTMLSelectElement)?.value ?? "post") as "post" | "comment";
     const userId = (form.querySelector('[name="userId"]') as HTMLInputElement)?.value ?? "me";
-    const userNickname = (form.querySelector('[name="userNickname"]') as HTMLInputElement)?.value ?? "테스트";
+    const userNickname = (form.querySelector('[name="userNickname"]') as HTMLInputElement)?.value ?? t("admin_points_test_nickname");
     const userType = ((form.querySelector('[name="userType"]') as HTMLSelectElement)?.value ?? "free") as "free" | "premium";
     executePointReward({
       boardKey,
@@ -69,76 +83,84 @@ export function AdminPointExecutionPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="포인트 지급/회수 실행" />
+      <AdminPageHeader titleKey="admin_points_exec_page" />
 
       <div className="flex flex-wrap gap-2 border-b border-sam-border">
-        {TABS.map((t) => (
+        {tabs.map((tab) => (
           <button
-            key={t.id}
+            key={tab.id}
             type="button"
-            onClick={() => setActiveTab(t.id)}
+            onClick={() => setActiveTab(tab.id)}
             className={`border-b-2 px-3 py-2 sam-text-body font-medium ${
-              activeTab === t.id
+              activeTab === tab.id
                 ? "border-signature text-signature"
                 : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
-            {t.label}
+            {tab.label}
           </button>
         ))}
       </div>
 
       {activeTab === "executions" && (
         <>
-          <AdminCard title="테스트 지급 실행">
+          <AdminCard titleKey="admin_points_exec_card_test">
             <form onSubmit={handleTestExecute} className="flex flex-wrap items-end gap-2 sam-text-body">
               <div>
-                <label className="mb-0.5 block sam-text-helper text-sam-muted">게시판</label>
+                <label className="mb-0.5 block sam-text-helper text-sam-muted">{t("admin_points_th_board")}</label>
                 <select name="boardKey" className="rounded border border-sam-border px-2 py-1.5" defaultValue="general">
                   {BOARD_OPTIONS.map((b) => (
-                    <option key={b.key} value={b.key}>{b.name}</option>
+                    <option key={b.key} value={b.key}>
+                      {pointBoardLabel(t, b.key)}
+                    </option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="mb-0.5 block sam-text-helper text-sam-muted">행동</label>
+                <label className="mb-0.5 block sam-text-helper text-sam-muted">{t("admin_points_th_action")}</label>
                 <select name="actionType" className="rounded border border-sam-border px-2 py-1.5" defaultValue="write">
-                  <option value="write">글쓰기</option>
-                  <option value="comment">댓글</option>
+                  <option value="write">{t("admin_points_policy_th_write")}</option>
+                  <option value="comment">{t("admin_points_policy_th_comment")}</option>
                 </select>
               </div>
               <div>
-                <label className="mb-0.5 block sam-text-helper text-sam-muted">대상 ID</label>
+                <label className="mb-0.5 block sam-text-helper text-sam-muted">{t("admin_points_exec_label_target_id")}</label>
                 <input name="targetId" type="text" className="w-28 rounded border border-sam-border px-2 py-1.5" defaultValue="post-test-1" />
               </div>
               <div>
-                <label className="mb-0.5 block sam-text-helper text-sam-muted">대상 유형</label>
+                <label className="mb-0.5 block sam-text-helper text-sam-muted">{t("admin_points_exec_label_target_type")}</label>
                 <select name="targetType" className="rounded border border-sam-border px-2 py-1.5" defaultValue="post">
-                  <option value="post">글</option>
-                  <option value="comment">댓글</option>
+                  <option value="post">{t("admin_points_target_post")}</option>
+                  <option value="comment">{t("admin_points_policy_th_comment")}</option>
                 </select>
               </div>
               <div>
-                <label className="mb-0.5 block sam-text-helper text-sam-muted">사용자 ID</label>
+                <label className="mb-0.5 block sam-text-helper text-sam-muted">{t("admin_points_ph_user_id")}</label>
                 <input name="userId" type="text" className="w-24 rounded border border-sam-border px-2 py-1.5" defaultValue="me" />
               </div>
               <div>
-                <label className="mb-0.5 block sam-text-helper text-sam-muted">닉네임</label>
-                <input name="userNickname" type="text" className="w-24 rounded border border-sam-border px-2 py-1.5" defaultValue="테스트" />
+                <label className="mb-0.5 block sam-text-helper text-sam-muted">{t("admin_points_exec_label_nickname")}</label>
+                <input
+                  name="userNickname"
+                  type="text"
+                  className="w-24 rounded border border-sam-border px-2 py-1.5"
+                  defaultValue={t("admin_points_test_nickname")}
+                />
               </div>
               <div>
-                <label className="mb-0.5 block sam-text-helper text-sam-muted">회원 유형</label>
+                <label className="mb-0.5 block sam-text-helper text-sam-muted">
+                  {t("admin_points_th_user")} {t("admin_points_th_type")}
+                </label>
                 <select name="userType" className="rounded border border-sam-border px-2 py-1.5" defaultValue="free">
-                  <option value="free">{USER_TYPE_LABELS.free}</option>
-                  <option value="premium">{USER_TYPE_LABELS.premium}</option>
+                  <option value="free">{pointUserTypeLabel(t, "free")}</option>
+                  <option value="premium">{pointUserTypeLabel(t, "premium")}</option>
                 </select>
               </div>
-              <button type="submit" className="rounded border border-signature bg-signature px-3 py-1.5 sam-text-body-secondary font-medium text-white">
-                실행
+              <button type="submit" className="rounded border border-signature bg-signature px-3 py-1.5 sam-text-body-secondary font-medium text-white"> {t("admin_points_btn_run")}
               </button>
             </form>
           </AdminCard>
-          <AdminCard title="지급/차단 실행 이력">
+          <AdminCard titleKey="admin_points_exec_card_history">
             <div className="mb-3">
               <AdminPointExecutionFilterBar
               filters={filters}
@@ -151,13 +173,13 @@ export function AdminPointExecutionPage() {
       )}
 
       {activeTab === "reclaim" && (
-        <AdminCard title="포인트 회수 정책">
+        <AdminCard titleKey="admin_points_exec_card_reclaim">
           <PointReclaimPolicyTable policies={reclaimPolicies} />
         </AdminCard>
       )}
 
       {activeTab === "logs" && (
-        <AdminCard title="지급·회수 로그">
+        <AdminCard titleKey="admin_points_exec_card_logs">
           <PointRewardLogList logs={rewardLogs} />
         </AdminCard>
       )}

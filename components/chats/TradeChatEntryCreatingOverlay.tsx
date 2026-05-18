@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { TradeChatEntryRingSpinner } from "@/components/chats/TradeChatEntryRingSpinner";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   KASAMA_TRADE_CHAT_ENTRY_CREATING_OVERLAY,
   setTradeChatEntryCreatingOverlayVisible,
@@ -14,6 +15,7 @@ const ROOM_PATH_CM = /^\/community-messenger\/rooms\/[^/]+/;
 const ROOM_PATH_LEGACY = /^\/chats\/[^/]+/;
 
 export function TradeChatEntryCreatingOverlay() {
+  const { t } = useI18n();
   const pathname = usePathname();
   const [visible, setVisible] = useState(false);
   const [phase, setPhase] = useState<TradeChatEntryCreatingOverlayPhase>("resolving");
@@ -53,11 +55,11 @@ export function TradeChatEntryCreatingOverlay() {
     paddingTop: "max(1.5rem, env(safe-area-inset-top))",
   } as const;
 
-  const title = phase === "entering" ? "채팅방으로 이동 중" : "거래 채팅방 준비 중";
+  const title = phase === "entering" ? t("chats_overlay_entering_title") : t("chats_overlay_resolving_title");
   const subtitle =
     phase === "entering"
-      ? "해당 상품 대화 화면을 여는 중입니다."
-      : "방을 만들고 연결하는 동안 잠시만 기다려 주세요.";
+      ? t("chats_overlay_entering_subtitle")
+      : t("chats_overlay_resolving_subtitle");
 
   return (
     <div

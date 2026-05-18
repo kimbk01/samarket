@@ -1,3 +1,5 @@
+"use client";
+
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { AddressManagementClient } from "@/components/addresses/AddressManagementClient";
@@ -17,13 +19,15 @@ import { VideoAutoplayContent } from "@/components/my/settings/VideoAutoplayCont
 import { DevicePermissionsSettingsContent } from "@/components/my/settings/DevicePermissionsSettingsContent";
 import { MyPageMobileFold } from "@/components/mypage/MyPageMobileFold";
 import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function SettingsTab({ section }: { section: string }) {
+  const { t } = useI18n();
   if (section === "address") {
     return (
       <TabShell
-        title="주소 관리"
-        description="생활주소, 거래주소, 배달주소를 주소 관리 한 곳에서 분리해 관리합니다."
+        title={t("mypage_comp_nav_sec_settings_address_label")}
+        description={t("mypage_comp_nav_sec_settings_address_desc")}
       >
         <AddressManagementClient embedded />
       </TabShell>
@@ -33,8 +37,8 @@ export function SettingsTab({ section }: { section: string }) {
   if (section === "device-permissions") {
     return (
       <TabShell
-        title="기기 권한"
-        description="위치·마이크·소리 출력은 기기 단위로 적용됩니다. 브라우저 권한과 앱 안내는 설정에서 확인할 수 있습니다."
+        title={t("mypage_comp_nav_sec_settings_device_permissions_label")}
+        description={t("mypage_comp_nav_sec_settings_device_permissions_desc")}
       >
         <DevicePermissionsSettingsContent />
       </TabShell>
@@ -44,19 +48,19 @@ export function SettingsTab({ section }: { section: string }) {
   if (section === "service") {
     return (
       <TabShell
-        title="서비스"
-        description="채팅 설정, 알림, 동영상 자동 재생, 맞춤 설정을 관리합니다."
+        title={t("mypage_comp_nav_sec_settings_service_label")}
+        description={t("mypage_comp_nav_sec_settings_service_desc")}
       >
-        <SettingsBlock title="채팅 설정">
+        <SettingsBlock title={t("mypage_comp_chat_settings")}>
           <ChatSettingsContent />
         </SettingsBlock>
-        <SettingsBlock title="알림 설정">
+        <SettingsBlock title={t("mypage_comp_notifications_settings_title")}>
           <NotificationsSettingsContent />
         </SettingsBlock>
-        <SettingsBlock title="동영상 자동 재생">
+        <SettingsBlock title={t("mypage_comp_settings_block_video_autoplay")}>
           <VideoAutoplayContent />
         </SettingsBlock>
-        <SettingsBlock title="맞춤 설정">
+        <SettingsBlock title={t("mypage_comp_settings_block_personalization")}>
           <PersonalizationContent />
         </SettingsBlock>
       </TabShell>
@@ -66,17 +70,17 @@ export function SettingsTab({ section }: { section: string }) {
   if (section === "users") {
     return (
       <TabShell
-        title="사용자 관리"
-        description="친구 / 관심 사용자, 차단 사용자, 숨긴 사용자를 공통 사용자 관리로 묶습니다."
+        title={t("mypage_comp_nav_sec_settings_users_label")}
+        description={t("mypage_comp_nav_sec_settings_users_desc")}
       >
-        <SettingsBlock title="친구 / 관심 사용자">
-          <UserListContent type="favorite" emptyMessage="모아보는 사용자가 없습니다." />
+        <SettingsBlock title={t("mypage_comp_settings_block_favorite_users")}>
+          <UserListContent type="favorite" emptyMessage={t("mypage_comp_settings_users_empty_favorite")} />
         </SettingsBlock>
-        <SettingsBlock title="차단 사용자">
-          <UserListContent type="blocked" emptyMessage="차단한 사용자가 없습니다." />
+        <SettingsBlock title={t("mypage_comp_settings_block_blocked_users")}>
+          <UserListContent type="blocked" emptyMessage={t("mypage_comp_settings_users_empty_blocked")} />
         </SettingsBlock>
-        <SettingsBlock title="숨긴 사용자">
-          <UserListContent type="hidden" emptyMessage="숨긴 사용자가 없습니다." />
+        <SettingsBlock title={t("mypage_comp_settings_block_hidden_users")}>
+          <UserListContent type="hidden" emptyMessage={t("mypage_comp_settings_users_empty_hidden")} />
         </SettingsBlock>
       </TabShell>
     );
@@ -85,16 +89,16 @@ export function SettingsTab({ section }: { section: string }) {
   if (section === "region-language") {
     return (
       <TabShell
-        title="지역 / 언어 / 국가"
-        description="서비스 전체 공통 값으로 지역, 언어, 국가를 한곳에서 관리합니다."
+        title={t("mypage_comp_nav_sec_settings_region_language_label")}
+        description={t("mypage_comp_nav_sec_settings_region_language_desc")}
       >
-        <SettingsBlock title="언어 설정">
+        <SettingsBlock title={t("mypage_comp_settings_block_language")}>
           <LanguageSettingsContent />
         </SettingsBlock>
-        <SettingsBlock title="국가 설정">
+        <SettingsBlock title={t("mypage_comp_settings_block_country")}>
           <CountrySettingsContent />
         </SettingsBlock>
-        <SettingsBlock title="판매 글 동네 일괄 변경">
+        <SettingsBlock title={t("mypage_comp_settings_block_bulk_region")}>
           <BulkRegionChangeContent />
         </SettingsBlock>
       </TabShell>
@@ -104,19 +108,19 @@ export function SettingsTab({ section }: { section: string }) {
   if (section === "system") {
     return (
       <TabShell
-        title="시스템"
-        description="캐시 삭제, 버전 정보, 로그아웃, 계정 관리 같은 시스템 단위 작업을 모읍니다."
+        title={t("mypage_comp_nav_sec_settings_system_label")}
+        description={t("mypage_comp_nav_sec_settings_system_desc")}
       >
-        <SettingsBlock title="캐시 삭제">
+        <SettingsBlock title={t("mypage_comp_settings_block_cache")}>
           <CacheSettingsContent />
         </SettingsBlock>
-        <SettingsBlock title="버전 정보">
+        <SettingsBlock title={t("mypage_comp_settings_block_version")}>
           <VersionContent />
         </SettingsBlock>
-        <SettingsBlock title="로그아웃">
+        <SettingsBlock title={t("mypage_comp_settings_block_logout")}>
           <LogoutContent />
         </SettingsBlock>
-        <SettingsBlock title="계정 관리 > 계정 삭제">
+        <SettingsBlock title={t("mypage_comp_settings_block_leave")}>
           <LeaveContent />
         </SettingsBlock>
       </TabShell>
@@ -126,30 +130,30 @@ export function SettingsTab({ section }: { section: string }) {
   if (section === "support") {
     return (
       <TabShell
-        title="공지 / 고객센터 / 약관"
-        description="공지사항과 운영 안내, 도움말 영역을 설정 하단 보조 영역으로 분리합니다."
+        title={t("mypage_comp_nav_sec_settings_support_label")}
+        description={t("mypage_comp_nav_sec_settings_support_desc")}
       >
-        <SettingsBlock title="공지사항">
+        <SettingsBlock title={t("mypage_comp_settings_block_notices")}>
           <NoticesContent />
         </SettingsBlock>
-        <SettingsBlock title="고객센터">
+        <SettingsBlock title={t("mypage_comp_settings_block_support_center")}>
           <div className="space-y-2 sam-text-helper leading-5 text-sam-muted">
-            <p>주문 문제는 주문 내역과 주문 상세에서 먼저 상태를 확인하세요.</p>
-            <p>거래 문제는 거래 채팅과 거래 후기 화면에서 먼저 확인하세요.</p>
-            <p>그래도 해결되지 않으면 운영 문의 흐름으로 접수하는 구조를 유지합니다.</p>
-            <p>게시글, 댓글, 사용자, 채팅방은 신고/차단 기능으로 즉시 접수할 수 있습니다.</p>
+            <p>{t("mypage_comp_settings_support_p1")}</p>
+            <p>{t("mypage_comp_settings_support_p2")}</p>
+            <p>{t("mypage_comp_settings_support_p3")}</p>
+            <p>{t("mypage_comp_settings_support_p4")}</p>
           </div>
         </SettingsBlock>
-        <SettingsBlock title="이용약관">
+        <SettingsBlock title={t("mypage_comp_settings_block_terms")}>
           <div className="space-y-2 sam-text-helper leading-5 text-sam-muted">
-            <p>계정, 거래, 주문, 커뮤니티 사용 정책은 서비스 공통 규칙으로 적용됩니다.</p>
-            <p>정확한 프로필, 지역, 연락처 정보는 거래와 주문 신뢰도에 직접 연결됩니다.</p>
+            <p>{t("mypage_comp_settings_terms_p1")}</p>
+            <p>{t("mypage_comp_settings_terms_p2")}</p>
             <p>
-              <Link href="/terms" className="text-signature underline">이용약관</Link>
+              <Link href="/terms" className="text-signature underline">{t("mypage_comp_settings_terms_anchor")}</Link>
               {" · "}
-              <Link href="/privacy" className="text-signature underline">개인정보처리방침</Link>
+              <Link href="/privacy" className="text-signature underline">{t("mypage_comp_settings_privacy_link")}</Link>
               {" · "}
-              <Link href="/account/delete-request" className="text-signature underline">계정 삭제 요청</Link>
+              <Link href="/account/delete-request" className="text-signature underline">{t("mypage_comp_settings_delete_account_link")}</Link>
             </p>
           </div>
         </SettingsBlock>
@@ -159,8 +163,8 @@ export function SettingsTab({ section }: { section: string }) {
 
   return (
     <TabShell
-      title="주소 관리"
-      description="생활주소, 거래주소, 배달주소를 주소 관리 한 곳에서 분리해 관리합니다."
+      title={t("mypage_comp_nav_sec_settings_address_label")}
+      description={t("mypage_comp_nav_sec_settings_address_desc")}
     >
       <AddressManagementClient embedded />
     </TabShell>

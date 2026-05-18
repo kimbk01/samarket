@@ -1,13 +1,46 @@
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { MyBusinessNavContext } from "@/lib/business/my-business-nav";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 
+export type BusinessAdminNavItemId =
+  | "dashboard"
+  | "basic_info"
+  | "store_settings"
+  | "inquiries"
+  | "delivery_orders"
+  | "delivery_ops"
+  | "products"
+  | "categories"
+  | "banners"
+  | "notices"
+  | "ops_review"
+  | "public_store"
+  | "settlements"
+  | "ads"
+  | "notifications";
+
+export type BusinessAdminSidebarItemDef = {
+  id: BusinessAdminNavItemId;
+  labelKey: MessageKey;
+  href: string;
+  badge?: number;
+  disabled?: boolean;
+  hint?: string;
+  descriptionKey?: MessageKey;
+};
+
+export type BusinessAdminSidebarSectionDef = {
+  titleKey: MessageKey;
+  items: BusinessAdminSidebarItemDef[];
+};
+
 export type BusinessAdminSidebarItem = {
+  id: BusinessAdminNavItemId;
   label: string;
   href: string;
   badge?: number;
   disabled?: boolean;
   hint?: string;
-  /** 모바일·접근성용 짧은 설명 */
   description?: string;
 };
 
@@ -15,6 +48,26 @@ export type BusinessAdminSidebarSection = {
   title: string;
   items: BusinessAdminSidebarItem[];
 };
+
+type TranslateFn = (key: MessageKey) => string;
+
+export function resolveBusinessAdminSidebar(
+  defs: BusinessAdminSidebarSectionDef[],
+  t: TranslateFn
+): BusinessAdminSidebarSection[] {
+  return defs.map((section) => ({
+    title: t(section.titleKey),
+    items: section.items.map((item) => ({
+      id: item.id,
+      label: t(item.labelKey),
+      href: item.href,
+      badge: item.badge,
+      disabled: item.disabled,
+      hint: item.hint,
+      description: item.descriptionKey ? t(item.descriptionKey) : undefined,
+    })),
+  }));
+}
 
 /** 허브 메뉴·사이드바 공통 — 활성 행 판별 */
 export function isBusinessAdminNavHrefActive(
@@ -45,116 +98,144 @@ export function isBusinessAdminNavHrefActive(
 /**
  * 매장 어드민 좌측 네비 — `buildMyBusinessNavGroups`와 동일한 노출 조건을 유지합니다.
  */
-export function buildBusinessAdminSidebar(ctx: MyBusinessNavContext): BusinessAdminSidebarSection[] {
+export function buildBusinessAdminSidebar(ctx: MyBusinessNavContext): BusinessAdminSidebarSectionDef[] {
   const { storeId, slug, approvalStatus, isVisible, canSell, orderAlertsBadge } = ctx;
   const approved = approvalStatus === "approved";
   const showOps = approved && isVisible;
 
-  const sections: BusinessAdminSidebarSection[] = [];
+  const sections: BusinessAdminSidebarSectionDef[] = [];
 
-  const opsItems: BusinessAdminSidebarItem[] = [
-    { label: "대시보드", href: OwnerRoutes.hub(storeId), description: "지표·주문·문의 요약" },
+  const opsItems: BusinessAdminSidebarItemDef[] = [
     {
-      label: "기본 정보",
-      href: OwnerRoutes.basicInfo(storeId),
-      description: "대표 이미지·이름·소개·연락처·위치",
+      id: "dashboard",
+      labelKey: "biz_nav_dashboard",
+      href: OwnerRoutes.hub(storeId),
+      descriptionKey: "biz_nav_dashboard_desc",
     },
     {
-      label: "매장 설정",
+      id: "basic_info",
+      labelKey: "biz_nav_basic_info",
+      href: OwnerRoutes.basicInfo(storeId),
+      descriptionKey: "biz_nav_basic_info_desc",
+    },
+    {
+      id: "store_settings",
+      labelKey: "biz_nav_store_settings",
       href: OwnerRoutes.profile(storeId),
-      description: "영업시간·배달·갤러리·서비스 형태",
+      descriptionKey: "biz_nav_store_settings_desc",
     },
   ];
   if (showOps) {
     opsItems.push({
-      label: "채팅 · 문의",
+      id: "inquiries",
+      labelKey: "biz_nav_inquiries",
       href: OwnerRoutes.inquiries(storeId),
-      description: "매장 문의 답변",
+      descriptionKey: "biz_nav_inquiries_desc",
     });
   }
-  sections.push({ title: "운영", items: opsItems });
+  sections.push({ titleKey: "biz_nav_section_ops", items: opsItems });
 
-  // 배달 운영(주문 중심) 섹션
   if (approved) {
-    const deliveryItems: BusinessAdminSidebarItem[] = [];
+    const deliveryItems: BusinessAdminSidebarItemDef[] = [];
     if (showOps && canSell) {
       deliveryItems.push({
-        label: "배달 주문",
+        id: "delivery_orders",
+        labelKey: "biz_nav_delivery_orders",
         href: OwnerRoutes.orders(storeId),
         badge: orderAlertsBadge > 0 ? orderAlertsBadge : undefined,
-        description: "신규·환불 요청·상태 변경",
+        descriptionKey: "biz_nav_delivery_orders_desc",
       });
     }
     deliveryItems.push({
-      label: "배달 운영 설정",
+      id: "delivery_ops",
+      labelKey: "biz_nav_delivery_ops",
       href: OwnerRoutes.opsStatus(storeId),
-      description: "영업·배달·노출",
+      descriptionKey: "biz_nav_delivery_ops_desc",
     });
-    sections.push({ title: "배달", items: deliveryItems });
+    sections.push({ titleKey: "biz_nav_section_delivery", items: deliveryItems });
   }
 
   if (approved) {
     sections.push({
-      title: "상품",
+      titleKey: "biz_nav_section_products",
       items: [
         {
-          label: "상품 관리 , 등록",
+          id: "products",
+          labelKey: "biz_nav_products",
           href: OwnerRoutes.products(storeId),
-          description: "목록·노출·신규 등록",
+          descriptionKey: "biz_nav_products_desc",
         },
         {
-          label: "카테고리",
+          id: "categories",
+          labelKey: "biz_nav_categories",
           href: OwnerRoutes.menuCategories(storeId),
         },
         {
-          label: "배너 관리",
+          id: "banners",
+          labelKey: "biz_nav_banners",
           href: OwnerRoutes.banners(storeId),
-          description: "매장 상단 배너",
+          descriptionKey: "biz_nav_banners_desc",
         },
         {
-          label: "공지 관리",
+          id: "notices",
+          labelKey: "biz_nav_notices",
           href: OwnerRoutes.notices(storeId),
-          description: "위치별 공지",
+          descriptionKey: "biz_nav_notices_desc",
         },
       ],
     });
   }
 
-  const storeItems: BusinessAdminSidebarItem[] = [{ label: "운영 · 심사", href: OwnerRoutes.opsStatus(storeId) }];
+  const storeItems: BusinessAdminSidebarItemDef[] = [
+    {
+      id: "ops_review",
+      labelKey: "biz_nav_ops_review",
+      href: OwnerRoutes.opsStatus(storeId),
+    },
+  ];
   if (approved && isVisible && slug) {
     storeItems.push({
-      label: "공개 매장 페이지",
+      id: "public_store",
+      labelKey: "biz_nav_public_store",
       href: `/stores/${encodeURIComponent(slug)}`,
-      description: "고객 화면 미리보기",
+      descriptionKey: "biz_nav_public_store_desc",
     });
   }
-  sections.push({ title: "매장", items: storeItems });
+  sections.push({ titleKey: "biz_nav_section_store", items: storeItems });
 
   if (showOps) {
     sections.push({
-      title: "정산",
-      items: [{ label: "정산 내역", href: OwnerRoutes.settlements(storeId) }],
+      titleKey: "biz_nav_section_settlement",
+      items: [
+        {
+          id: "settlements",
+          labelKey: "biz_nav_settlements",
+          href: OwnerRoutes.settlements(storeId),
+        },
+      ],
     });
   }
 
   sections.push({
-    title: "성장",
+    titleKey: "biz_nav_section_growth",
     items: [
       {
-        label: "광고 · 프로모션",
+        id: "ads",
+        labelKey: "biz_nav_ads",
         href: "/my/ads",
-        description: "노출·광고 신청",
+        descriptionKey: "biz_nav_ads_desc",
       },
     ],
   });
 
   sections.push({
-    title: "설정",
+    titleKey: "biz_nav_section_settings",
     items: [
       {
-        label: "알림 · 운영",
+        id: "notifications",
+        labelKey: "biz_nav_notifications",
         href: OwnerRoutes.settings(storeId),
-        description: "배달 알림음 안내(관리자 전역 설정)",
+        descriptionKey: "biz_nav_notifications_desc",
       },
     ],
   });

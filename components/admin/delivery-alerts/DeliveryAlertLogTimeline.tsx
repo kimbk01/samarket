@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export type AuditLogRow = {
   id: string;
@@ -16,6 +17,8 @@ export type AuditLogRow = {
 };
 
 export function DeliveryAlertLogTimeline({ eventId }: { eventId: string }) {
+  const { t } = useI18n();
+  const dash = t("admin_del_common_dash");
   const [logs, setLogs] = useState<AuditLogRow[]>([]);
   const [state, setState] = useState<"idle" | "loading" | "ready" | "error">("idle");
 
@@ -47,18 +50,14 @@ export function DeliveryAlertLogTimeline({ eventId }: { eventId: string }) {
   }, [load]);
 
   if (state === "loading" || state === "idle") {
-    return <p className="sam-text-xxs text-sam-muted">이력 불러오는 중…</p>;
+    return <p className="sam-text-xxs text-sam-muted">{t("admin_del_alert_log_loading")}</p>;
   }
   if (state === "error") {
-    return (
-      <p className="sam-text-xxs text-sam-warning">
-        이력을 불러오지 못했습니다. 마이그레이션 적용 여부를 확인하세요.
-      </p>
-    );
+    return <p className="sam-text-xxs text-sam-warning">{t("admin_del_alert_log_error")}</p>;
   }
 
   if (!logs.length) {
-    return <p className="sam-text-xxs text-sam-muted">기록된 이력이 없습니다.</p>;
+    return <p className="sam-text-xxs text-sam-muted">{t("admin_del_alert_log_empty")}</p>;
   }
 
   return (
@@ -79,12 +78,18 @@ export function DeliveryAlertLogTimeline({ eventId }: { eventId: string }) {
           <div className="mt-0.5">
             {(log.previous_status || log.next_status) && (
               <span>
-                상태 {log.previous_status ?? "—"} → {log.next_status ?? "—"}
+                {t("admin_del_alert_log_status_change", {
+                  prev: log.previous_status ?? dash,
+                  next: log.next_status ?? dash,
+                })}
               </span>
             )}
             {(log.previous_assignee_label || log.next_assignee_label) && (
               <span className="ml-2">
-                담당 {(log.previous_assignee_label || "—") + " → " + (log.next_assignee_label || "—")}
+                {t("admin_del_alert_log_assignee_change", {
+                  prev: log.previous_assignee_label || dash,
+                  next: log.next_assignee_label || dash,
+                })}
               </span>
             )}
           </div>

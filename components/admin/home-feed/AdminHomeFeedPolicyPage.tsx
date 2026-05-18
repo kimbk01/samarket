@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -19,6 +22,7 @@ const TABS: { id: TabId; label: string }[] = [
 ];
 
 export function AdminHomeFeedPolicyPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("policy");
   const [refresh, setRefresh] = useState(0);
   const [editingPolicyId, setEditingPolicyId] = useState<string | null>(null);
@@ -39,7 +43,7 @@ export function AdminHomeFeedPolicyPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="홈 피드 정책" />
+      <AdminPageHeader titleKey="admin_home_feed_home_2" />
 
       <div className="flex flex-wrap gap-2 border-b border-sam-border">
         {TABS.map((t) => (
@@ -59,7 +63,7 @@ export function AdminHomeFeedPolicyPage() {
       </div>
 
       {activeTab === "policy" && (
-        <AdminCard title="섹션별 정책 (활성/정렬/최대 노출/지역범위)">
+        <AdminCard titleKey="admin_home_feed_active_2">
           {editingPolicy && (
             <div className="mb-4 rounded border border-sam-border bg-sam-app p-4">
               <HomeFeedPolicyForm
@@ -79,13 +83,13 @@ export function AdminHomeFeedPolicyPage() {
       )}
 
       {activeTab === "preview" && (
-        <AdminCard title="피드 결과 미리보기">
+        <AdminCard titleKey="admin_home_feed_kd9fbb1e3">
           <HomeFeedPreview refreshKey={refresh} />
         </AdminCard>
       )}
 
       {activeTab === "logs" && (
-        <AdminCard title="피드 생성 로그">
+        <AdminCard titleKey="admin_home_feed_create_3">
           <HomeFeedGenerationLogList logs={logs} />
         </AdminCard>
       )}

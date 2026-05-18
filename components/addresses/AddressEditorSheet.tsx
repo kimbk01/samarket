@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { UserAddressDTO, UserAddressLabelType } from "@/lib/addresses/user-address-types";
 import { normalizeOptionalPhMobileDb, parsePhMobileInput } from "@/lib/utils/ph-mobile";
@@ -33,8 +34,6 @@ import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 type Mode = "create" | "edit";
 
 type LabelPreset = null | "home" | "shop" | "office" | "custom";
-
-const STORE_ADDRESS_PERMISSION_MESSAGE = "승인된 매장 오너만 Store Address를 등록할 수 있습니다.";
 
 function deriveLabelPresetFromDto(row: UserAddressDTO): LabelPreset {
   if (row.labelType === "shop") return "shop";
@@ -71,6 +70,7 @@ export function AddressEditorSheet(props: {
     allAddresses = [],
     layout = "modal",
   } = props;
+  const { t } = useI18n();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -149,7 +149,7 @@ export function AddressEditorSheet(props: {
     setSearch(anchor);
     selectionAnchorSearchRef.current = anchor.length >= 2 ? anchor : null;
     if (!(row.place_id ?? "").trim()) {
-      setErr("이 매장은 지도 주소(place)가 등록되어 있지 않아요. 매장 기본 정보에서 지도를 먼저 등록해 주세요.");
+      setErr(t("addr_ui_store_no_place"));
     } else {
       setErr(null);
     }
@@ -319,7 +319,7 @@ export function AddressEditorSheet(props: {
         const res = await fetch("/api/me/stores", { credentials: "include" });
         const j = (await res.json()) as { ok?: boolean; stores?: StoreRow[]; error?: string };
         if (!res.ok || !j.ok) {
-          throw new Error(typeof j.error === "string" ? j.error : "매장 목록을 불러오지 못했습니다.");
+          throw new Error(typeof j.error === "string" ? j.error : t("addr_ui_shop_list_failed"));
         }
         const approvedStores = Array.isArray(j.stores)
           ? j.stores.filter((store) => store.approval_status === "approved")
@@ -327,7 +327,7 @@ export function AddressEditorSheet(props: {
         if (!cancelled) setMeStores(approvedStores);
       } catch (e) {
         if (!cancelled) {
-          setShopListErr(e instanceof Error ? e.message : "오류가 났습니다.");
+          setShopListErr(e instanceof Error ? e.message : t("common_error"));
           setMeStores([]);
         }
       } finally {
@@ -382,7 +382,7 @@ export function AddressEditorSheet(props: {
       const lng = typeof loc?.lng === "function" ? loc.lng() : null;
       const formatted = (detail?.formatted_address ?? row.description ?? "").trim();
       if (!formatted || lat == null || lng == null || !Number.isFinite(lat) || !Number.isFinite(lng)) {
-        setErr("장소 좌표를 확인할 수 없습니다. 다른 검색 결과를 선택해 주세요.");
+        setErr(t("addr_ui_coords_invalid"));
         return;
       }
       const ph = parsePhFromGooglePlaceResult(detail);
@@ -423,7 +423,7 @@ export function AddressEditorSheet(props: {
       return;
     }
     if (!labelPreset) {
-      setErr("지정 주소 유형을 선택해 주세요.");
+      setErr(t("addr_ui_pick_label_type"));
       setBusy(false);
       return;
     }
@@ -432,17 +432,17 @@ export function AddressEditorSheet(props: {
       !nickname.trim() &&
       !(mode === "edit" && initial && isLocationOnlyAddressNickname(initial.nickname))
     ) {
-      setErr("직접 입력 이름을 적어 주세요.");
+      setErr(t("addr_ui_custom_name_required"));
       setBusy(false);
       return;
     }
     if (labelPreset === "shop" && !selectedStoreId.trim()) {
-      setErr("매장을 선택해 주세요.");
+      setErr(t("addr_ui_pick_shop"));
       setBusy(false);
       return;
     }
     if (labelPreset === "shop" && !meStores.some((store) => store.id === selectedStoreId.trim())) {
-      setErr(STORE_ADDRESS_PERMISSION_MESSAGE);
+      setErr(t("addr_ui_store_permission"));
       setBusy(false);
       return;
     }
@@ -451,7 +451,7 @@ export function AddressEditorSheet(props: {
       if (reservedId != null) {
         const allowedSelf = mode === "edit" && initial && reservedId === initial.id.trim();
         if (!allowedSelf) {
-          setErr("사용할 수 없는 이름입니다.");
+          setErr(t("addr_ui_name_invalid"));
           setBusy(false);
           return;
         }
@@ -477,17 +477,17 @@ export function AddressEditorSheet(props: {
 
     try {
       if (!placeId.trim()) {
-        setErr("검색 결과에서 주소를 선택해 주세요.");
+        setErr(t("addr_ui_pick_search_result"));
         setBusy(false);
         return;
       }
       if (latitude == null || longitude == null || !formattedAddress.trim()) {
-        setErr("장소 좌표를 확인할 수 없습니다. 다시 검색해 주세요.");
+        setErr(t("addr_ui_coords_retry"));
         setBusy(false);
         return;
       }
       if (!unitFloorRoom.trim()) {
-        setErr("상세주소를 입력해 주세요.");
+        setErr(t("addr_ui_detail_required"));
         setBusy(false);
         return;
       }
@@ -553,7 +553,7 @@ export function AddressEditorSheet(props: {
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        setErr(typeof j.error === "string" ? j.error : "저장에 실패했어요.");
+        setErr(typeof j.error === "string" ? j.error : t("addr_ui_save_failed"));
         return;
       }
       onSaved();
@@ -585,7 +585,7 @@ export function AddressEditorSheet(props: {
         });
         const j = (await d.json()) as { ok?: boolean; error?: string };
         if (!d.ok || !j.ok) {
-          setErr(typeof j.error === "string" ? j.error : "기존 주소의 지정만 해제하지 못했어요.");
+          setErr(typeof j.error === "string" ? j.error : t("addr_ui_unset_designation_failed"));
           setBusy(false);
           return;
         }
@@ -607,8 +607,8 @@ export function AddressEditorSheet(props: {
 
   if (!open) return null;
 
-  const pageTitle = mode === "edit" ? "주소 수정" : "주소 추가";
-  const saveLabel = layout === "page" ? "이 주소 저장" : "저장";
+  const pageTitle = mode === "edit" ? t("addr_ui_edit_title") : t("addr_ui_add_title");
+  const saveLabel = layout === "page" ? t("addr_ui_save_address") : t("common_save");
   const detailViol = detailAttempted && latitude != null && longitude != null && !unitFloorRoom.trim();
   const geoReady = latitude != null && longitude != null && !!formattedAddress.trim();
   const saveDisabled =
@@ -632,10 +632,10 @@ export function AddressEditorSheet(props: {
   const editorScrollBody = (
     <div className={scrollShellClass}>
       <div className={OWNER_STORE_STACK_Y_CLASS}>
-        <OwnerStoreAdminDashSection title="지정 주소">
+        <OwnerStoreAdminDashSection title={t("addr_ui_designation_section")}>
           <div>
             <p className="mb-3 sam-text-xxs leading-snug text-sam-muted sm:mb-3.5">
-              우리집·회사·직접 입력 중 하나를 고른 뒤 저장할 수 있어요.
+              {t("addr_ui_designation_hint")}
             </p>
             <div className="-mx-1 flex min-w-0 flex-nowrap gap-2 overflow-x-auto px-1 pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <button
@@ -647,7 +647,7 @@ export function AddressEditorSheet(props: {
                 }}
                 className={`${chipBase} ${labelPreset === "home" ? chipOn : chipOff}`}
               >
-                우리집
+                {t("addr_ui_preset_home")}
               </button>
               {hasApprovedStoreAddressSource ? (
                 <button
@@ -658,7 +658,7 @@ export function AddressEditorSheet(props: {
                   }}
                   className={`${chipBase} ${labelPreset === "shop" ? chipOn : chipOff}`}
                 >
-                  매장
+                  {t("addr_ui_preset_shop")}
                 </button>
               ) : null}
               <button
@@ -670,7 +670,7 @@ export function AddressEditorSheet(props: {
                 }}
                 className={`${chipBase} ${labelPreset === "office" ? chipOn : chipOff}`}
               >
-                회사
+                {t("addr_ui_preset_office")}
               </button>
               <button
                 type="button"
@@ -681,32 +681,32 @@ export function AddressEditorSheet(props: {
                 }}
                 className={`${chipBase} ${labelPreset === "custom" ? chipOn : chipOff}`}
               >
-                직접 입력
+                {t("addr_ui_preset_custom")}
               </button>
             </div>
             {!labelPreset ? (
-              <p className="mt-2 sam-text-helper font-medium text-sam-danger">유형을 선택해 주세요.</p>
+              <p className="mt-2 sam-text-helper font-medium text-sam-danger">{t("addr_ui_pick_type_err")}</p>
             ) : null}
             {!meStoresLoading && !hasApprovedStoreAddressSource ? (
               <p className="mt-2 sam-text-helper font-medium text-sam-muted">
-                {STORE_ADDRESS_PERMISSION_MESSAGE}
+                {t("addr_ui_store_permission")}
               </p>
             ) : null}
           </div>
 
           {labelPreset === "shop" ? (
             <div className="space-y-2">
-              <span className={fieldLabelClass}>연결 매장</span>
+              <span className={fieldLabelClass}>{t("addr_ui_linked_store")}</span>
               {meStoresLoading ? (
-                <p className="sam-text-helper text-sam-muted">매장 목록을 불러오는 중…</p>
+                <p className="sam-text-helper text-sam-muted">{t("addr_ui_shop_list_loading")}</p>
               ) : null}
               <p className="sam-text-helper leading-relaxed text-sam-muted">
-                선택한 매장 ID로 Store Address를 연결합니다. 실제 매장 위치와 주문자 거리/시간 기준은 매장 기본 정보의 주소를 사용합니다.
+                {t("addr_ui_store_link_hint")}
               </p>
               {shopListErr ? <p className="sam-text-helper text-sam-danger">{shopListErr}</p> : null}
               {!meStoresLoading && !shopListErr && meStores.length === 0 ? (
                 <p className="sam-text-body-secondary leading-relaxed text-sam-danger">
-                  {STORE_ADDRESS_PERMISSION_MESSAGE}
+                  {t("addr_ui_store_permission")}
                 </p>
               ) : !meStoresLoading && meStores.length > 0 ? (
                 <select
@@ -719,9 +719,9 @@ export function AddressEditorSheet(props: {
                     if (row) applyStoreRow(row);
                   }}
                   className={fieldInputClass}
-                  aria-label="연결할 매장 선택"
+                  aria-label={t("addr_ui_pick_store_aria")}
                 >
-                  <option value="">매장을 선택해 주세요</option>
+                  <option value="">{t("addr_ui_pick_store")}</option>
                   {meStores.map((s) => (
                     <option key={s.id} value={s.id}>
                       {(s.slug || s.store_name || s.id).trim()}
@@ -735,7 +735,7 @@ export function AddressEditorSheet(props: {
           {labelPreset === "custom" ? (
             <div>
               <label htmlFor="addr-editor-nick-custom" className={fieldLabelClass}>
-                직접 입력 이름
+                {t("addr_ui_custom_name_label")}
               </label>
               <input
                 id="addr-editor-nick-custom"
@@ -744,7 +744,7 @@ export function AddressEditorSheet(props: {
                   setNickname(e.target.value);
                   setErr(null);
                 }}
-                placeholder="예: 본가, 작업실"
+                placeholder={t("addr_ui_custom_name_ph")}
                 autoComplete="off"
                 className={fieldInputClass}
               />
@@ -752,10 +752,10 @@ export function AddressEditorSheet(props: {
           ) : null}
         </OwnerStoreAdminDashSection>
 
-        <OwnerStoreAdminDashSection title="주소 검색">
+        <OwnerStoreAdminDashSection title={t("addr_ui_search_section")}>
           <div>
             <label htmlFor="addr-editor-search" className={fieldLabelClass}>
-              검색어
+              {t("addr_ui_search_label")}
             </label>
             <input
               id="addr-editor-search"
@@ -779,7 +779,7 @@ export function AddressEditorSheet(props: {
               className={fieldInputClass}
             />
             {searching ? (
-              <p className="mt-2 sam-text-helper text-sam-muted">검색 중…</p>
+              <p className="mt-2 sam-text-helper text-sam-muted">{t("addr_ui_searching")}</p>
             ) : predictions.length > 0 ? (
               <ul className="mt-2 overflow-hidden rounded-lg border border-sam-border bg-sam-surface">
                 {predictions.map((p) => (
@@ -802,13 +802,13 @@ export function AddressEditorSheet(props: {
           </div>
         </OwnerStoreAdminDashSection>
 
-        <OwnerStoreAdminDashSection title="상세 주소 · 배달 안내">
+        <OwnerStoreAdminDashSection title={t("addr_ui_detail_delivery_section")}>
           {latitude != null && longitude != null ? (
             <>
               <div>
-                <span className={fieldLabelClass}>선택한 장소 요약</span>
+                <span className={fieldLabelClass}>{t("addr_ui_place_summary")}</span>
                 <p className="mb-2 sam-text-xxs leading-snug text-sam-muted">
-                  왼쪽 지도를 탭하면 작은 창에서 핀을 옮기고, 그 위치 기준으로 건물명·도로 주소를 다시 맞출 수 있어요.
+                  {t("addr_ui_map_tap_hint")}
                 </p>
                 <div className="flex gap-3 rounded-lg border border-sam-border bg-sam-app px-3 py-2.5">
                   <div className="relative shrink-0">
@@ -816,7 +816,7 @@ export function AddressEditorSheet(props: {
                     <button
                       type="button"
                       className="absolute inset-0 rounded-ui-rect bg-transparent transition-colors hover:bg-black/[0.06] active:bg-black/[0.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sam-primary/35"
-                      aria-label="위치 미세 조정 열기"
+                      aria-label={t("addr_ui_open_fine_tune")}
                       onClick={() => setFineTuneOpen(true)}
                     />
                   </div>
@@ -837,30 +837,30 @@ export function AddressEditorSheet(props: {
               </div>
               <div>
                 <label htmlFor="addr-editor-detail" className={fieldLabelClass}>
-                  상세주소 (필수) — Unit / Block / Lot / Floor
+                  {t("addr_ui_detail_required_label")}
                 </label>
                 <input
                   id="addr-editor-detail"
                   value={unitFloorRoom}
                   onChange={(e) => setUnitFloorRoom(e.target.value)}
-                  placeholder="예: Tower 2, 12F, Unit 1204 / Block 5 Lot 12"
+                  placeholder={t("addr_ui_detail_ph")}
                   autoComplete="address-line2"
                   aria-invalid={detailViol}
                   className={`${fieldInputClass} ${detailViol ? "border-sam-danger focus-visible:border-sam-danger focus-visible:ring-sam-danger/25" : ""}`}
                 />
                 {detailViol ? (
-                  <p className="mt-1.5 sam-text-helper font-medium text-sam-danger">상세주소를 입력해 주세요.</p>
+                  <p className="mt-1.5 sam-text-helper font-medium text-sam-danger">{t("addr_ui_detail_required_err")}</p>
                 ) : null}
               </div>
               <div>
                 <label htmlFor="addr-editor-note" className={fieldLabelClass}>
-                  배달 요청사항
+                  {t("addr_ui_delivery_note")}
                 </label>
                 <textarea
                   id="addr-editor-note"
                   value={deliveryNote}
                   onChange={(e) => setDeliveryNote(e.target.value)}
-                  placeholder="예: 문 앞에 놓아 주세요"
+                  placeholder={t("addr_ui_delivery_ph")}
                   rows={2}
                   autoComplete="off"
                   className={`${fieldInputClass} min-h-[4.5rem] resize-y`}
@@ -871,20 +871,20 @@ export function AddressEditorSheet(props: {
             <>
               <div>
                 <label htmlFor="addr-editor-detail-empty" className={fieldLabelClass}>
-                  상세주소 (검색 후 입력)
+                  {t("addr_ui_detail_after_search")}
                 </label>
                 <input
                   id="addr-editor-detail-empty"
                   value={unitFloorRoom}
                   onChange={(e) => setUnitFloorRoom(e.target.value)}
-                  placeholder="위에서 검색 결과를 고른 뒤 Unit / Block / Lot을 입력합니다"
+                  placeholder={t("addr_ui_detail_after_search_ph")}
                   autoComplete="off"
                   disabled
                   className={fieldInputClass}
                 />
               </div>
               <p className="rounded-lg border border-dashed border-sam-border bg-sam-app/60 px-3 py-2.5 text-center sam-text-body-secondary text-sam-muted">
-                위 검색창에서 건물·몰·도로·바랑가이를 검색한 뒤 결과를 선택해 주세요.
+                {t("addr_ui_search_first_hint")}
               </p>
             </>
           )}
@@ -907,7 +907,7 @@ export function AddressEditorSheet(props: {
           onClick={() => void saveAddress()}
           className="min-h-[44px] w-full rounded-lg bg-sam-primary py-2.5 sam-text-body font-semibold text-white shadow-sm transition-opacity hover:bg-sam-primary-hover disabled:opacity-40 sm:min-h-[48px]"
         >
-          {busy ? "저장 중…" : saveLabel}
+          {busy ? t("addr_ui_saving") : saveLabel}
         </button>
       </div>
     </div>
@@ -937,19 +937,19 @@ export function AddressEditorSheet(props: {
           onClick={(e) => e.stopPropagation()}
         >
           <h3 id="addr-preflight-title" className="text-[17px] font-bold leading-6">
-            저장 확인
+            {t("addr_ui_save_confirm_title")}
           </h3>
           {preflightSave.includeStoreLinkNotice ? (
             <div className="mt-2 space-y-1 sam-text-body-secondary leading-relaxed text-sam-fg">
               <p>
-                선택한 매장에 Store Address를 연결합니다. 지도에서 고른 위치는 매장 주소·주문자 거리·시간 계산에 반영될 수
-                있습니다.
+                {t("addr_ui_store_save_hint")}
+                
               </p>
               {selectedStoreDisplayName ? (
                 <p>
-                  <span className="font-semibold text-sam-fg">연결 매장(프로필) 이름</span>{" "}
+                  <span className="font-semibold text-sam-fg">{t("addr_ui_store_profile_name")}</span>{" "}
                   <span translate="no">{selectedStoreDisplayName}</span>
-                  <span className="text-sam-muted"> · 검색창에 적힌 상호와 다를 수 있습니다.</span>
+                  <span className="text-sam-muted">{t("addr_ui_store_name_mismatch")}</span>
                 </p>
               ) : null}
             </div>
@@ -957,7 +957,7 @@ export function AddressEditorSheet(props: {
           {preflightSave.conflict ? (
             <>
               <p className="mt-2 sam-text-body-secondary leading-relaxed text-sam-fg">
-                같은 지정 이름은 하나만 둘 수 있어요. 아래 주소는 삭제하지 않고 지정만 해제한 뒤, 지금 주소를 저장합니다.
+                {t("addr_ui_conflict_hint")}
               </p>
               <div className="mt-3 rounded-lg border border-sam-border bg-sam-app px-3 py-2.5">
                 <div className="flex min-h-[1.25em] items-center sam-text-body font-semibold text-sam-fg">
@@ -983,7 +983,7 @@ export function AddressEditorSheet(props: {
               onClick={() => !busy && setPreflightSave(null)}
               className="w-full rounded-lg border border-sam-border bg-sam-app py-2.5 sam-text-body font-semibold text-sam-fg sm:w-auto sm:px-4"
             >
-              취소
+              {t("common_cancel")}
             </button>
             <button
               type="button"
@@ -991,7 +991,7 @@ export function AddressEditorSheet(props: {
               onClick={() => void confirmPreflightSave()}
               className="w-full rounded-lg bg-sam-primary py-2.5 sam-text-body font-semibold text-white sm:w-auto sm:px-4"
             >
-              {busy ? "처리 중…" : preflightSave.conflict ? "지정 해제 후 저장" : "저장"}
+              {busy ? t("common_processing") : preflightSave.conflict ? t("addr_ui_unset_then_save") : t("common_save")}
             </button>
           </div>
         </div>
@@ -1043,13 +1043,13 @@ export function AddressEditorSheet(props: {
         >
           <div className="flex shrink-0 items-center justify-between border-b border-sam-border px-4 py-3">
             <h2 id="addr-editor-title" className="text-[17px] font-bold leading-6 tracking-tight text-sam-fg">
-              주소상세
+              {t("addr_ui_address_detail_header")}
             </h2>
             <button
               type="button"
               onClick={onClose}
               className="flex h-9 w-9 items-center justify-center rounded-full text-sam-muted transition-colors hover:bg-sam-app hover:text-sam-fg"
-              aria-label="닫기"
+              aria-label={t("common_close")}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden>
                 <path

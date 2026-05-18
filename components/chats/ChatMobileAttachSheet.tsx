@@ -3,6 +3,7 @@
 import { useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 /**
  * 모바일·태블릿: + 탭 후 네이티브 앨범/카메라로 가기 전 단계.
@@ -23,6 +24,7 @@ export function ChatMobileAttachSheet({
   onPickCamera: () => void;
   onPickGallery: () => void;
 }) {
+  const { t } = useI18n();
   useEffect(() => {
     if (!open || typeof document === "undefined") return;
     const prev = document.body.style.overflow;
@@ -69,7 +71,7 @@ export function ChatMobileAttachSheet({
       <button
         type="button"
         className="absolute inset-0 bg-black/50 backdrop-blur-[1px]"
-        aria-label="닫기"
+        aria-label={t("common_close")}
         onClick={onClose}
       />
       <div
@@ -82,12 +84,12 @@ export function ChatMobileAttachSheet({
       >
         <header className="sticky top-0 z-[1] flex items-center justify-between gap-2 border-b border-sam-fg/[0.06] bg-sam-surface px-3 py-3">
           <h2 id="chat-attach-sheet-title" className="min-w-0 flex-1 pl-1 sam-text-body-lg font-semibold text-sam-fg">
-            사진 보내기
+            {t("chats_attach_sheet_title")}
           </h2>
           <button
             type="button"
             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sam-fg hover:bg-black/5"
-            aria-label="닫기"
+            aria-label={t("common_close")}
             disabled={disabled}
             onClick={onClose}
           >
@@ -96,7 +98,7 @@ export function ChatMobileAttachSheet({
             </svg>
           </button>
         </header>
-        <nav className="flex flex-col px-2 pb-5 pt-2" aria-label="첨부 방법">
+        <nav className="flex flex-col px-2 pb-5 pt-2" aria-label={t("chats_attach_methods_aria")}>
           <button
             type="button"
             className={rowClass}
@@ -104,7 +106,7 @@ export function ChatMobileAttachSheet({
             onClick={() => runThenPick(onPickCamera)}
           >
             <CameraGlyph className="h-6 w-6 shrink-0 opacity-85" />
-            사진 촬영
+            {t("common_take_photo")}
           </button>
           <button
             type="button"
@@ -113,7 +115,7 @@ export function ChatMobileAttachSheet({
             onClick={() => runThenPick(onPickGallery)}
           >
             <GalleryGlyph className="h-6 w-6 shrink-0 opacity-85" />
-            앨범에서 선택
+            {t("common_choose_from_album")}
           </button>
         </nav>
       </div>

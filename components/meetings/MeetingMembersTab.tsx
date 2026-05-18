@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { philifeMeetingApi } from "@domain/philife/api";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MeetingReportModal } from "@/components/meetings/MeetingReportModal";
 import { JoinRequestMessagePreview } from "@/components/meetings/JoinRequestMessagePreview";
 import type { ReportTargetType } from "@/components/meetings/MeetingReportModal";
@@ -48,21 +49,15 @@ interface MeetingMembersTabProps {
   isHost?: boolean;
 }
 
-const ROLE_LABEL: Record<string, string> = {
-  host: "모임장",
-  co_host: "운영진",
-  member: "",
-};
-
 const ROLE_COLOR: Record<string, string> = {
   host: "bg-emerald-500 text-white",
   co_host: "bg-emerald-100 text-emerald-800",
   member: "bg-sam-surface-muted text-sam-muted",
 };
 
-function formatJoinedAt(iso: string | null | undefined): string {
+function formatJoinedAt(iso: string | null | undefined, joinedSuffix: string): string {
   const s = formatKorDate(iso);
-  return s ? `${s} 참여` : "";
+  return s ? `${s} ${joinedSuffix}` : "";
 }
 
 function AvatarBubble({
@@ -74,6 +69,7 @@ function AvatarBubble({
   role?: string;
   isMe?: boolean;
 }) {
+  const { t } = useI18n();
   const isHost = role === "host";
   return (
     <div className="flex flex-col items-center gap-1">
@@ -85,7 +81,7 @@ function AvatarBubble({
         {(name || "?").charAt(0)}
         {isMe && (
           <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-sky-500 sam-text-xxs font-bold text-white ring-1 ring-sam-surface">
-            나
+            {t("community_me")}
           </span>
         )}
       </div>
@@ -100,6 +96,7 @@ function MemberItem({
   meetingId,
   onKicked,
   onReport,
+  joinedSuffix,
 }: {
   member: MemberRow;
   isMe: boolean;
@@ -107,8 +104,15 @@ function MemberItem({
   meetingId?: string;
   onKicked?: (userId: string) => void;
   onReport?: (userId: string) => void;
+  joinedSuffix: string;
 }) {
-  const roleLabel = member.role ? (ROLE_LABEL[member.role] ?? "") : "";
+  const { t } = useI18n();
+  const roleLabels: Record<string, string> = {
+    host: t("community_role_owner"),
+    co_host: t("community_role_cohost"),
+    member: "",
+  };
+  const roleLabel = member.role ? (roleLabels[member.role] ?? "") : "";
   const roleColor = member.role ? (ROLE_COLOR[member.role] ?? ROLE_COLOR.member) : ROLE_COLOR.member;
   const [showActions, setShowActions] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -128,10 +132,10 @@ function MemberItem({
         body: JSON.stringify({ userId: member.userId }),
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
-      if (!res.ok || !j.ok) { setErrMsg(j.error ?? "강퇴 실패"); return; }
+      if (!res.ok || !j.ok) { setErrMsg(j.error ?? t("meeting_members_kick_failed")); return; }
       setShowActions(false);
       onKicked?.(member.userId);
-    } catch { setErrMsg("네트워크 오류"); }
+    } catch { setErrMsg(t("common_network_error")); }
     finally { setBusy(false); }
   };
 
@@ -147,10 +151,10 @@ function MemberItem({
         body: JSON.stringify({ userId: member.userId }),
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
-      if (!res.ok || !j.ok) { setErrMsg(j.error ?? "차단 실패"); return; }
+      if (!res.ok || !j.ok) { setErrMsg(j.error ?? t("community_meeting_ban_failed")); return; }
       setShowActions(false);
       onKicked?.(member.userId);
-    } catch { setErrMsg("네트워크 오류"); }
+    } catch { setErrMsg(t("common_network_error")); }
     finally { setBusy(false); }
   };
 
@@ -170,10 +174,10 @@ function MemberItem({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <span className="truncate sam-text-body font-medium text-sam-fg">
-              {member.name || "알 수 없음"}
+              {member.name || t("meeting_unknown_member")}
             </span>
             {isMe && (
-              <span className="rounded-full bg-sky-50 px-1.5 py-0 sam-text-xxs text-sky-600">나</span>
+              <span className="rounded-full bg-sky-50 px-1.5 py-0 sam-text-xxs text-sky-600">{t("community_me")}</span>
             )}
           </div>
           <div className="mt-0.5 flex items-center gap-2">
@@ -183,7 +187,7 @@ function MemberItem({
               </span>
             ) : null}
             {member.joinedAt ? (
-              <span className="sam-text-xxs text-sam-meta">{formatJoinedAt(member.joinedAt)}</span>
+              <span className="sam-text-xxs text-sam-meta">{formatJoinedAt(member.joinedAt, joinedSuffix)}</span>
             ) : null}
           </div>
         </div>
@@ -213,7 +217,7 @@ function MemberItem({
               onClick={() => { setShowActions(false); onReport?.(member.userId); }}
               className="rounded-ui-rect bg-sam-surface-muted px-3 py-1.5 sam-text-helper font-medium text-sam-fg"
             >
-              🚨 신고
+              {t("meeting_members_report")}
             </button>
           )}
           {canHostAct && (
@@ -224,7 +228,7 @@ function MemberItem({
                 onClick={() => void doKick()}
                 className="rounded-ui-rect bg-orange-50 px-3 py-1.5 sam-text-helper font-medium text-orange-700 disabled:opacity-50"
               >
-                내보내기
+                {t("meeting_members_kick")}
               </button>
               <button
                 type="button"
@@ -232,7 +236,7 @@ function MemberItem({
                 onClick={() => void doBan()}
                 className="rounded-ui-rect bg-red-50 px-3 py-1.5 sam-text-helper font-medium text-red-700 disabled:opacity-50"
               >
-                재참여 차단
+                {t("community_meeting_ban_rejoin")}
               </button>
             </>
           )}
@@ -241,7 +245,7 @@ function MemberItem({
             onClick={() => setShowActions(false)}
             className="rounded-ui-rect border border-sam-border px-3 py-1.5 sam-text-helper text-sam-meta"
           >
-            닫기
+            {t("common_close")}
           </button>
           {errMsg && <p className="w-full sam-text-xxs text-red-500">{errMsg}</p>}
         </div>
@@ -254,11 +258,16 @@ function PendingMemberRow({
   member,
   meetingId,
   onDone,
+  joinedSuffix,
+  requestedSuffix,
 }: {
   member: MemberRow;
   meetingId: string;
   onDone: (userId: string, action: "approved" | "rejected") => void;
+  joinedSuffix: string;
+  requestedSuffix: string;
 }) {
+  const { t } = useI18n();
   const [busy, setBusy] = useState(false);
   const [errMsg, setErrMsg] = useState("");
   const mApi = philifeMeetingApi(meetingId);
@@ -275,9 +284,9 @@ function PendingMemberRow({
         body: JSON.stringify({ userId: member.userId }),
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
-      if (!res.ok || !j.ok) { setErrMsg(j.error ?? "처리 실패"); return; }
+      if (!res.ok || !j.ok) { setErrMsg(j.error ?? t("community_meeting_action_failed")); return; }
       onDone(member.userId, action === "approve" ? "approved" : "rejected");
-    } catch { setErrMsg("네트워크 오류"); }
+    } catch { setErrMsg(t("common_network_error")); }
     finally { setBusy(false); }
   };
 
@@ -289,10 +298,10 @@ function PendingMemberRow({
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate sam-text-body font-medium text-sam-fg">
-            {member.name || "알 수 없음"}
+            {member.name || t("meeting_unknown_member")}
           </p>
           {member.joinedAt && (
-            <p className="sam-text-xxs text-sam-muted">{formatJoinedAt(member.joinedAt)?.replace("참여", "신청")}</p>
+            <p className="sam-text-xxs text-sam-muted">{formatJoinedAt(member.joinedAt, requestedSuffix)}</p>
           )}
           {member.requestMessage ? (
             <div className="mt-2">
@@ -308,7 +317,7 @@ function PendingMemberRow({
           onClick={() => void handle("approve")}
           className="flex-1 rounded-ui-rect bg-emerald-600 py-2.5 sam-text-body-secondary font-semibold text-white shadow-sm active:bg-emerald-700 disabled:opacity-50"
         >
-          승인
+          {t("meeting_members_approve")}
         </button>
         <button
           type="button"
@@ -316,7 +325,7 @@ function PendingMemberRow({
           onClick={() => void handle("reject")}
           className="flex-1 rounded-ui-rect border border-amber-200 bg-amber-50/80 py-2.5 sam-text-body-secondary font-semibold text-amber-900 disabled:opacity-50"
         >
-          거절
+          {t("common_reject")}
         </button>
       </div>
       {errMsg && <p className="mt-2 sam-text-xxs text-red-600">{errMsg}</p>}
@@ -332,7 +341,10 @@ export function MeetingMembersTab({
   meetingId,
   isHost,
 }: MeetingMembersTabProps) {
+  const { t } = useI18n();
   const router = useRouter();
+  const joinedSuffix = t("meeting_members_joined_suffix");
+  const requestedSuffix = t("meeting_members_requested_suffix");
   const searchParams = useSearchParams();
   const memberSection = searchParams.get("memberSection");
   const [, startTransition] = useTransition();
@@ -397,9 +409,9 @@ export function MeetingMembersTab({
       {/* ── 정원 현황 + 아바타 미리보기 ────────────────── */}
       <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-4 py-4 shadow-sm">
         <div className="flex items-center justify-between">
-          <span className="sam-text-body font-semibold text-sam-fg">참여 멤버</span>
+          <span className="sam-text-body font-semibold text-sam-fg">{t("meeting_members_title")}</span>
           <span className="sam-text-body-secondary text-sam-muted">
-            {totalJoined}<span className="text-sam-meta">/{maxMembers}</span>명
+            {t("meeting_members_count", { joined: totalJoined, max: maxMembers })}
           </span>
         </div>
 
@@ -441,8 +453,8 @@ export function MeetingMembersTab({
           id="meeting-members-pending"
           className="scroll-mt-4 rounded-ui-rect border border-dashed border-amber-200 bg-amber-50/40 px-4 py-6 text-center shadow-sm"
         >
-          <p className="sam-text-body-secondary font-medium text-amber-950">가입 대기 관리</p>
-          <p className="mt-1 sam-text-helper text-amber-800/80">대기 중인 가입 요청이 없습니다.</p>
+          <p className="sam-text-body-secondary font-medium text-amber-950">{t("meeting_members_pending_manage")}</p>
+          <p className="mt-1 sam-text-helper text-amber-800/80">{t("meeting_members_pending_empty")}</p>
         </div>
       ) : null}
 
@@ -452,7 +464,7 @@ export function MeetingMembersTab({
           className="scroll-mt-4 rounded-ui-rect border border-amber-200 bg-amber-50/70 p-3 shadow-sm"
         >
           <div className="mb-2.5 flex items-center justify-between gap-2 px-0.5">
-            <h2 className="sam-text-body-secondary font-semibold text-amber-950">가입 대기</h2>
+            <h2 className="sam-text-body-secondary font-semibold text-amber-950">{t("meeting_members_pending_title")}</h2>
             <span className="rounded-full bg-amber-200/90 px-2.5 py-0.5 sam-text-xxs font-bold text-amber-950 tabular-nums">
               {localPending.length}
             </span>
@@ -464,6 +476,8 @@ export function MeetingMembersTab({
                 member={m}
                 meetingId={meetingId}
                 onDone={handleDone}
+                joinedSuffix={joinedSuffix}
+                requestedSuffix={requestedSuffix}
               />
             ))}
           </ul>
@@ -476,7 +490,7 @@ export function MeetingMembersTab({
         className="scroll-mt-4 rounded-ui-rect border border-sam-border-soft bg-sam-surface px-4 shadow-sm"
       >
         {sorted.length === 0 ? (
-          <p className="py-8 text-center sam-text-body-secondary text-sam-meta">아직 참여자가 없습니다.</p>
+          <p className="py-8 text-center sam-text-body-secondary text-sam-meta">{t("meeting_members_empty")}</p>
         ) : (
           <ul className="divide-y divide-sam-border-soft">
             {sorted.map((m) => (
@@ -488,6 +502,7 @@ export function MeetingMembersTab({
                 meetingId={meetingId}
                 onKicked={handleKicked}
                 onReport={(uid) => setReportUserId(uid)}
+                joinedSuffix={joinedSuffix}
               />
             ))}
           </ul>

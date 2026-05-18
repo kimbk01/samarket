@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { getLaunchApprovals } from "@/lib/launch-readiness/mock-launch-approvals";
 import { AdminTable } from "@/components/admin/AdminTable";
@@ -20,6 +23,7 @@ const DECISION_LABELS: Record<string, string> = {
 };
 
 export function LaunchApprovalTable() {
+  const { t } = useI18n();
   const [phase, setPhase] = useState<LaunchReadinessPhase | "">("");
   const approvals = useMemo(
     () => getLaunchApprovals(phase ? { phase } : undefined),
@@ -29,7 +33,7 @@ export function LaunchApprovalTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">단계</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_launch_readiness_k0e685c7c")}</span>
         <select
           value={phase}
           onChange={(e) =>
@@ -37,7 +41,7 @@ export function LaunchApprovalTable() {
           }
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
+          <option value="">{t("common_all")}</option>
           <option value="pre_launch">Pre-Launch</option>
           <option value="launch_day">Launch Day</option>
           <option value="post_launch">Post-Launch</option>

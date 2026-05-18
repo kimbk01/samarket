@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { NOTIFICATION_SOUND_ASSET_PATH } from "@/lib/notifications/play-notification-sound";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 function formatTime(sec: number): string {
   if (!Number.isFinite(sec) || sec < 0) return "0:00";
@@ -22,6 +23,7 @@ export function AdminNotificationSoundPreview({
   soundUrl: string | null;
   volume: number;
 }) {
+  const { t } = useI18n();
   const resolvedSrc = (soundUrl?.trim() || NOTIFICATION_SOUND_ASSET_PATH).trim();
   const [peaks, setPeaks] = useState<number[] | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -121,13 +123,13 @@ export function AdminNotificationSoundPreview({
 
   return (
     <div className="rounded-ui-rect border border-ui-border bg-ui-surface p-3 shadow-sm">
-      <p className="mb-2 sam-text-helper font-medium text-ui-fg">미리듣기</p>
+      <p className="mb-2 sam-text-helper font-medium text-ui-fg">{t("admin_settings_notif_preview")}</p>
       <div className="flex items-stretch gap-3">
         <button
           type="button"
           onClick={() => void toggle()}
           className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-ui-primary text-white shadow-sm transition hover:opacity-95"
-          aria-label={playing ? "일시정지" : "재생"}
+          aria-label={playing ? t("common_pause") : t("common_play")}
         >
           {playing ? (
             <span className="flex gap-0.5" aria-hidden>
@@ -168,9 +170,7 @@ export function AdminNotificationSoundPreview({
         </div>
       </div>
       <p className="mt-2 sam-text-xxs leading-snug text-ui-muted">
-        {soundUrl?.trim()
-          ? "위에 올린 파일 기준으로 재생합니다. 볼륨 슬라이더 값이 반영됩니다."
-          : "앱 기본 알림음으로 재생합니다. 파일을 올리면 해당 음원으로 바뀝니다."}
+        {soundUrl?.trim() ? t("admin_settings_notif_preview_custom") : t("admin_settings_notif_preview_default")}
       </p>
     </div>
   );

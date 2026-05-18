@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
@@ -21,6 +22,7 @@ export function FavoriteProductsView({
   embedded?: boolean;
   initialTab?: FavoriteManageTabId;
 } = {}) {
+  const { t } = useI18n();
   const router = useRouter();
   const [posts, setPosts] = useState<FavoritedPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,7 +67,7 @@ export function FavoriteProductsView({
     return () => window.removeEventListener(POST_FAVORITE_CHANGED_EVENT, onPostFav);
   }, [load]);
 
-  /** 서버 세션 없음 → 로그인 화면 (머물러 있던 탭에서도 동일) */
+  /** 서버 세션 없음 → 로그인 화면 */
   useLayoutEffect(() => {
     if (loading || sessionAuthenticated === null) return;
     if (!sessionAuthenticated) {
@@ -81,7 +83,7 @@ export function FavoriteProductsView({
     return (
       <div className={`flex flex-col items-center justify-center text-center ${embedded ? "py-8" : "py-12"}`}>
         <div className="h-8 w-8 animate-pulse rounded-full bg-sam-border-soft" />
-        <p className="mt-3 text-[14px] text-sam-muted">불러오는 중...</p>
+        <p className="mt-3 text-[14px] text-sam-muted">{t("common_loading")}</p>
       </div>
     );
   }
@@ -90,7 +92,7 @@ export function FavoriteProductsView({
     return (
       <div className={`flex flex-col items-center justify-center text-center ${embedded ? "py-8" : "py-12"}`}>
         <div className="h-8 w-8 animate-pulse rounded-full bg-sam-border-soft" />
-        <p className="mt-3 text-[14px] text-sam-muted">불러오는 중...</p>
+        <p className="mt-3 text-[14px] text-sam-muted">{t("common_loading")}</p>
       </div>
     );
   }
@@ -99,7 +101,7 @@ export function FavoriteProductsView({
     return (
       <div className={`flex flex-col items-center justify-center text-center ${embedded ? "py-8" : "py-16"}`}>
         <div className="h-8 w-8 animate-pulse rounded-full bg-sam-border-soft" />
-        <p className="mt-3 text-[14px] text-sam-muted">로그인 화면으로 이동합니다...</p>
+        <p className="mt-3 text-[14px] text-sam-muted">{t("ui_fav_redirect_login")}</p>
       </div>
     );
   }
@@ -107,25 +109,28 @@ export function FavoriteProductsView({
   if (posts.length === 0) {
     return (
       <div className={`flex flex-col items-center justify-center text-center ${embedded ? "py-8" : "py-16"}`}>
-        <p className="text-[14px] text-sam-muted">찜한 상품이 없어요</p>
+        <p className="text-[14px] text-sam-muted">{t("ui_fav_empty_title")}</p>
         <p className="mt-1 text-[12px] text-sam-meta">
-          홈이나 상품 상세에서 하트를 눌러 관심 상품을 담아 보세요.
+          {t("ui_fav_empty_hint")}
         </p>
         {!embedded ? (
           <a href="/philife" className="mt-4 text-[14px] font-medium text-signature">
-            홈으로 가기
+            {t("ui_fav_go_home")}
           </a>
         ) : null}
       </div>
     );
   }
 
-  const emptyTabMsg: Record<FavoriteManageTabId, string> = {
-    all: "표시할 찜이 없어요.",
-    active: "판매 중인 찜 상품이 없어요.",
-    sold: "거래가 끝난 찜 상품이 없어요.",
-    gone: "품절·삭제된 찜 상품이 없어요.",
-  };
+  const emptyTabMsg = useMemo(
+    (): Record<FavoriteManageTabId, string> => ({
+      all: t("ui_fav_tab_empty_all"),
+      active: t("ui_fav_tab_empty_active"),
+      sold: t("ui_fav_tab_empty_sold"),
+      gone: t("ui_fav_tab_empty_gone"),
+    }),
+    [t]
+  );
 
   return (
     <div className={embedded ? "flex flex-col gap-2" : "mx-auto flex max-w-lg flex-col gap-2 px-4 py-3 pb-24"}>

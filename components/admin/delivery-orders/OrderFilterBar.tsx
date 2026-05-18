@@ -1,12 +1,13 @@
 "use client";
 
 import type { OrderListFilters } from "@/lib/admin/delivery-orders-admin/types";
-import { ORDER_STATUS_LABEL, PAYMENT_LABEL, SETTLEMENT_LABEL } from "@/lib/admin/delivery-orders-admin/labels";
-import type { OrderStatus, PaymentStatus, SettlementStatus } from "@/lib/admin/delivery-orders-admin/types";
-
-const OS_KEYS = Object.keys(ORDER_STATUS_LABEL) as OrderStatus[];
-const PS_KEYS = Object.keys(PAYMENT_LABEL) as PaymentStatus[];
-const SS_KEYS = Object.keys(SETTLEMENT_LABEL) as SettlementStatus[];
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  DO_ORDER_STATUS_LIST,
+  DO_PAYMENT_STATUS_LIST,
+  DO_SETTLEMENT_STATUS_LIST,
+  useDoAdminStatusLabels,
+} from "./useDoAdminStatusLabels";
 
 export function OrderFilterBar({
   filters,
@@ -15,6 +16,9 @@ export function OrderFilterBar({
   filters: OrderListFilters;
   onChange: (f: OrderListFilters) => void;
 }) {
+  const { t } = useI18n();
+  const { orderStatus, paymentStatus, settlementStatus } = useDoAdminStatusLabels();
+
   const patch = (p: Partial<OrderListFilters>) => {
     const next = { ...filters, ...p };
     if ("orderStatus" in p && p.orderStatus !== undefined) next.pipelineBucket = "";
@@ -24,10 +28,10 @@ export function OrderFilterBar({
 
   return (
     <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-      <p className="text-sm font-semibold text-sam-fg">필터</p>
+      <p className="text-sm font-semibold text-sam-fg">{t("admin_do_filter_title")}</p>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <label className="block text-xs text-sam-muted">
-          시작일
+          {t("admin_do_filter_start")}
           <input
             type="date"
             value={filters.dateFrom}
@@ -36,7 +40,7 @@ export function OrderFilterBar({
           />
         </label>
         <label className="block text-xs text-sam-muted">
-          종료일
+          {t("admin_do_filter_end")}
           <input
             type="date"
             value={filters.dateTo}
@@ -45,82 +49,82 @@ export function OrderFilterBar({
           />
         </label>
         <label className="block text-xs text-sam-muted">
-          주문 상태
+          {t("admin_do_filter_order_status")}
           <select
             value={filters.orderStatus}
             onChange={(e) => patch({ orderStatus: e.target.value })}
             className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
           >
-            <option value="">전체</option>
-            {OS_KEYS.map((k) => (
+            <option value="">{t("admin_do_common_all")}</option>
+            {DO_ORDER_STATUS_LIST.map((k) => (
               <option key={k} value={k}>
-                {ORDER_STATUS_LABEL[k]}
+                {orderStatus(k)}
               </option>
             ))}
           </select>
         </label>
         <label className="block text-xs text-sam-muted">
-          결제 상태
+          {t("admin_do_filter_payment_status")}
           <select
             value={filters.paymentStatus}
             onChange={(e) => patch({ paymentStatus: e.target.value })}
             className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
           >
-            <option value="">전체</option>
-            {PS_KEYS.map((k) => (
+            <option value="">{t("admin_do_common_all")}</option>
+            {DO_PAYMENT_STATUS_LIST.map((k) => (
               <option key={k} value={k}>
-                {PAYMENT_LABEL[k]}
+                {paymentStatus(k)}
               </option>
             ))}
           </select>
         </label>
         <label className="block text-xs text-sam-muted">
-          정산 상태
+          {t("admin_do_filter_settlement_status")}
           <select
             value={filters.settlementStatus}
             onChange={(e) => patch({ settlementStatus: e.target.value })}
             className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
           >
-            <option value="">전체</option>
-            {SS_KEYS.map((k) => (
+            <option value="">{t("admin_do_common_all")}</option>
+            {DO_SETTLEMENT_STATUS_LIST.map((k) => (
               <option key={k} value={k}>
-                {SETTLEMENT_LABEL[k]}
+                {settlementStatus(k)}
               </option>
             ))}
           </select>
         </label>
         <label className="block text-xs text-sam-muted">
-          주문 방식
+          {t("admin_do_filter_order_type")}
           <select
             value={filters.orderType}
             onChange={(e) => patch({ orderType: e.target.value })}
             className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
           >
-            <option value="">전체</option>
-            <option value="delivery">배달</option>
-            <option value="pickup">포장</option>
+            <option value="">{t("admin_do_common_all")}</option>
+            <option value="delivery">{t("admin_do_filter_type_delivery")}</option>
+            <option value="pickup">{t("admin_do_filter_type_pickup")}</option>
           </select>
         </label>
         <label className="block text-xs text-sam-muted">
-          매장·운영자
+          {t("admin_do_filter_store_owner")}
           <input
             value={filters.storeQuery}
             onChange={(e) => patch({ storeQuery: e.target.value })}
             className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
-            placeholder="매장명·슬러그·ID·사장님"
+            placeholder={t("admin_do_filter_store_placeholder")}
           />
         </label>
         <label className="block text-xs text-sam-muted">
-          주문자
+          {t("admin_do_filter_buyer")}
           <input
             value={filters.buyerQuery}
             onChange={(e) => patch({ buyerQuery: e.target.value })}
             className="mt-1 w-full rounded border border-sam-border px-2 py-1.5 text-sm"
-            placeholder="이름·전화·회원 ID"
+            placeholder={t("admin_do_filter_buyer_placeholder")}
           />
         </label>
         <label className="block text-xs text-sam-muted">
-          주문번호
+          {t("admin_do_filter_order_no")}
           <input
             value={filters.orderNoQuery}
             onChange={(e) => patch({ orderNoQuery: e.target.value })}
@@ -136,7 +140,7 @@ export function OrderFilterBar({
             checked={filters.reportsOnly}
             onChange={(e) => patch({ reportsOnly: e.target.checked })}
           />
-          신고 건만
+          {t("admin_do_filter_report_only")}
         </label>
         <label className="flex items-center gap-2">
           <input
@@ -144,7 +148,7 @@ export function OrderFilterBar({
             checked={filters.heldSettlementOnly}
             onChange={(e) => patch({ heldSettlementOnly: e.target.checked })}
           />
-          정산 보류만
+          {t("admin_do_filter_settlement_hold")}
         </label>
       </div>
     </div>

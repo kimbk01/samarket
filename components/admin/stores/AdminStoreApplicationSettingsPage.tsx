@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminGlobalAlertSoundSection } from "@/components/admin/stores/AdminGlobalAlertSoundSection";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
@@ -20,6 +21,7 @@ function slugifyLoose(raw: string): string {
 }
 
 export function AdminStoreApplicationSettingsPage() {
+  const { t } = useI18n();
   const searchParams = useSearchParams();
   const menu = (searchParams.get("menu") ?? "").trim().toLowerCase();
   const activeMenu: "alerts" | "stores" = menu === "stores" ? "stores" : "alerts";
@@ -106,7 +108,7 @@ export function AdminStoreApplicationSettingsPage() {
         setRideTimeSourceSaved(j.ride_time_source);
         setRideTimeSourceDraft(j.ride_time_source);
       }
-      setMsg("저장했습니다.");
+      setMsg(t("admin_stores_saved"));
       window.setTimeout(() => setMsg(null), 2800);
     } catch {
       setRiderLocationError("network_error");
@@ -138,7 +140,7 @@ export function AdminStoreApplicationSettingsPage() {
       const src = j.ride_time_source === "google" ? "google" : "store";
       setRideTimeSourceSaved(src);
       setRideTimeSourceDraft(src);
-      setMsg("배달 시간 소스를 저장했습니다.");
+      setMsg(t("admin_stores_app_ride_time_saved"));
       window.setTimeout(() => setMsg(null), 2800);
     } catch {
       setRideTimeSourceError("network_error");
@@ -226,10 +228,10 @@ export function AdminStoreApplicationSettingsPage() {
         });
         const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string; message?: string; url?: string };
         if (!res.ok || !j?.ok) {
-          window.alert(j.message ?? j.error ?? "이미지 업로드에 실패했습니다.");
+          window.alert(j.message ?? j.error ?? t("admin_stores_app_taxonomy_err_upload"));
           return;
         }
-        setMsg("이미지를 저장했습니다. /stores 에 반영됩니다.");
+        setMsg(t("admin_stores_app_taxonomy_msg_image"));
         window.setTimeout(() => setMsg(null), 4000);
         await reloadTaxonomy();
       } catch {
@@ -242,7 +244,7 @@ export function AdminStoreApplicationSettingsPage() {
   );
 
   const seedDefaults = useCallback(async () => {
-    if (!window.confirm("기본 업종/세부 주제를 DB에 생성합니다. 계속할까요?")) return;
+    if (!window.confirm(t("admin_stores_app_taxonomy_confirm_seed"))) return;
     setTaxonomyLoading(true);
     setTaxonomySeeding(true);
     try {
@@ -259,10 +261,15 @@ export function AdminStoreApplicationSettingsPage() {
         seeded?: { categories?: number; topics?: number };
       };
       if (!res.ok || !j.ok) {
-        window.alert(j.error ?? "시드 생성에 실패했습니다.");
+        window.alert(j.error ?? t("admin_stores_app_taxonomy_err_seed"));
         return;
       }
-      setMsg(`기본 업종을 생성했습니다. (1차 ${j.seeded?.categories ?? 0} / 2차 ${j.seeded?.topics ?? 0})`);
+      setMsg(
+        t("admin_stores_app_taxonomy_msg_seed", {
+          categories: j.seeded?.categories ?? 0,
+          topics: j.seeded?.topics ?? 0,
+        })
+      );
       window.setTimeout(() => setMsg(null), 4000);
       await reloadTaxonomy();
     } finally {
@@ -284,12 +291,12 @@ export function AdminStoreApplicationSettingsPage() {
     });
     const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
     if (!res.ok || !j.ok) {
-      window.alert(j.error ?? "생성에 실패했습니다.");
+      window.alert(j.error ?? t("admin_stores_app_taxonomy_err_create"));
       return;
     }
     setNewCategoryName("");
     setNewCategorySlug("");
-    setMsg("생성했습니다. /stores 에 반영됩니다.");
+    setMsg(t("admin_stores_app_taxonomy_msg_created"));
     window.setTimeout(() => setMsg(null), 4000);
     await reloadTaxonomy();
   }, [newCategoryName, newCategorySlug, categories, reloadTaxonomy]);
@@ -314,12 +321,12 @@ export function AdminStoreApplicationSettingsPage() {
     });
     const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
     if (!res.ok || !j.ok) {
-      window.alert(j.error ?? "생성에 실패했습니다.");
+      window.alert(j.error ?? t("admin_stores_app_taxonomy_err_create"));
       return;
     }
     setNewTopicName("");
     setNewTopicSlug("");
-    setMsg("생성했습니다. /stores 에 반영됩니다.");
+    setMsg(t("admin_stores_app_taxonomy_msg_created"));
     window.setTimeout(() => setMsg(null), 4000);
     await reloadTaxonomy();
   }, [newTopicName, newTopicSlug, pickedCategoryId, topicsForPicked, reloadTaxonomy]);
@@ -340,10 +347,10 @@ export function AdminStoreApplicationSettingsPage() {
     });
     const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
     if (!res.ok || !j.ok) {
-      window.alert(j.error ?? "저장에 실패했습니다.");
+      window.alert(j.error ?? t("admin_stores_app_taxonomy_err_save"));
       return;
     }
-    setMsg("저장했습니다. /stores 에 반영됩니다.");
+    setMsg(t("admin_stores_app_taxonomy_msg_saved"));
     window.setTimeout(() => setMsg(null), 4000);
     setEditingCategoryId(null);
     setEditingCategoryDraft(null);
@@ -366,10 +373,10 @@ export function AdminStoreApplicationSettingsPage() {
     });
     const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
     if (!res.ok || !j.ok) {
-      window.alert(j.error ?? "저장에 실패했습니다.");
+      window.alert(j.error ?? t("admin_stores_app_taxonomy_err_save"));
       return;
     }
-    setMsg("저장했습니다. /stores 에 반영됩니다.");
+    setMsg(t("admin_stores_app_taxonomy_msg_saved"));
     window.setTimeout(() => setMsg(null), 4000);
     setEditingTopicId(null);
     setEditingTopicDraft(null);
@@ -390,10 +397,10 @@ export function AdminStoreApplicationSettingsPage() {
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        window.alert(j.error ?? "변경에 실패했습니다.");
+        window.alert(j.error ?? t("admin_stores_app_taxonomy_err_toggle"));
         return;
       }
-      setMsg("반영했습니다. /stores 에 반영됩니다.");
+      setMsg(t("admin_stores_app_taxonomy_msg_applied"));
       window.setTimeout(() => setMsg(null), 4000);
       await reloadTaxonomy();
     },
@@ -414,10 +421,10 @@ export function AdminStoreApplicationSettingsPage() {
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        window.alert(j.error ?? "변경에 실패했습니다.");
+        window.alert(j.error ?? t("admin_stores_app_taxonomy_err_toggle"));
         return;
       }
-      setMsg("반영했습니다. /stores 에 반영됩니다.");
+      setMsg(t("admin_stores_app_taxonomy_msg_applied"));
       window.setTimeout(() => setMsg(null), 4000);
       await reloadTaxonomy();
     },
@@ -427,8 +434,8 @@ export function AdminStoreApplicationSettingsPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-6">
       <AdminPageHeader
-        title="매장 설정 (매장 신청 연동)"
-        description="매장 신청 폼과 매장 둘러보기에 쓰는 1·2차 업종(DB: store_categories / store_topics)을 관리합니다."
+        titleKey="admin_page_store_application_settings"
+        descriptionKey="admin_page_store_application_settings_desc"
       />
 
       <nav className="mt-5 flex items-center gap-2">
@@ -441,7 +448,7 @@ export function AdminStoreApplicationSettingsPage() {
           }`}
           aria-current={activeMenu === "alerts" ? "page" : undefined}
         >
-          알림 설정
+          {t("admin_stores_app_menu_alerts")}
         </Link>
         <Link
           href="/admin/stores/application-settings?menu=stores"
@@ -452,17 +459,15 @@ export function AdminStoreApplicationSettingsPage() {
           }`}
           aria-current={activeMenu === "stores" ? "page" : undefined}
         >
-          매장 설정
+          {t("admin_stores_app_menu_stores")}
         </Link>
       </nav>
 
       {activeMenu === "alerts" ? (
         <>
           <section className="mt-6 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
-            <h2 className="sam-text-body font-semibold text-sam-fg">배송 추적 적용</h2>
-            <p className="mt-1 sam-text-helper text-sam-muted">
-              필리핀 배송 시스템이 별도 운영되는 경우를 위해, 라이더 위치 업데이트(외부 webhook)의 DB 반영을 on/off 할 수 있습니다.
-            </p>
+            <h2 className="sam-text-body font-semibold text-sam-fg">{t("admin_stores_app_rider_tracking")}</h2>
+            <p className="mt-1 sam-text-helper text-sam-muted">{t("admin_stores_app_rider_tracking_desc")}</p>
             <p className="mt-1 sam-text-xxs text-sam-meta">
               <code className="rounded bg-sam-surface-muted px-1">admin_settings.delivery_rider_location_enabled</code>
             </p>
@@ -481,12 +486,12 @@ export function AdminStoreApplicationSettingsPage() {
                 }`}
               >
                 {riderLocationLoading
-                  ? "불러오는 중…"
+                  ? t("common_loading")
                   : riderLocationSaving
-                    ? "저장 중…"
+                    ? t("admin_stores_saving")
                     : riderLocationEnabled
-                      ? "ON (위치 업데이트 적용)"
-                      : "OFF (위치 업데이트 미적용)"}
+                      ? t("admin_stores_app_rider_on")
+                      : t("admin_stores_app_rider_off")}
               </button>
               <button
                 type="button"
@@ -494,34 +499,22 @@ export function AdminStoreApplicationSettingsPage() {
                 onClick={() => void loadRiderLocationSetting()}
                 className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-helper text-sam-fg disabled:opacity-50"
               >
-                새로고침
+                {t("admin_stores_fee_refresh")}
               </button>
             </div>
           </section>
 
           <AdminGlobalAlertSoundSection
-            title="매장 알림음 (배달 신규 주문)"
-            description={
-              <>
-                아래에서 <strong className="text-sam-fg">프리셋을 고르거나</strong>,{" "}
-                <strong className="text-sam-fg">내 PC에서 오디오 파일을 업로드</strong>하면 전역 기본 알림으로
-                저장됩니다. (매장별로는 &quot;매장 설정&quot; 프로필에서 따로 지정 가능)
-              </>
-            }
+            titleKey="admin_stores_app_alert_delivery_title"
+            descriptionKey="admin_stores_app_alert_delivery_desc"
             codeKey="admin_settings.store_delivery_alert_sound"
             apiPath="/api/admin/store-delivery-alert-sound"
             onAfterMutation={invalidateStoreDeliveryAlertSoundCache}
           />
 
           <AdminGlobalAlertSoundSection
-            title="배달채팅 알림음 (일치 확인)"
-            description={
-              <>
-                구매자가 「주문 내용이 일치합니다」를 보낼 때{" "}
-                <strong className="text-sam-fg">입점 측</strong> 배달채팅에서 재생되는 소리입니다. 프리셋·PC
-                업로드·미리듣기는 위 배달 알림음과 동일합니다.
-              </>
-            }
+            titleKey="admin_stores_app_alert_match_title"
+            descriptionKey="admin_stores_app_alert_match_desc"
             codeKey="admin_settings.order_match_chat_alert_sound"
             apiPath="/api/admin/order-match-chat-alert-sound"
             onAfterMutation={bustOrderMatchAlertSoundCache}
@@ -532,15 +525,9 @@ export function AdminStoreApplicationSettingsPage() {
       {activeMenu === "stores" ? (
         <>
           <section className="mt-6 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
-            <h2 className="sam-text-body font-semibold text-sam-fg">배달 시간 표시</h2>
-            <p className="mt-1 sam-text-helper text-sam-muted">
-              목록·상세·체크아웃에서 배달 구간(오토바이) 시간을 <strong className="text-sam-fg">구글 Routes 추정</strong>으로
-              쓸지, <strong className="text-sam-fg">매장이 입력한 수기 문구</strong>로 쓸지 전역에서 정합니다. 기본은 매장
-              수기이며, 이 경우 Google Routes 호출을 하지 않습니다.
-            </p>
-            <p className="mt-1 sam-text-helper text-sam-muted">
-              라디오로 선택한 뒤 <strong className="text-sam-fg">저장</strong>을 눌러야 DB에 반영됩니다.
-            </p>
+            <h2 className="sam-text-body font-semibold text-sam-fg">{t("admin_stores_app_ride_time_title")}</h2>
+            <p className="mt-1 sam-text-helper text-sam-muted">{t("admin_stores_app_ride_time_desc")}</p>
+            <p className="mt-1 sam-text-helper text-sam-muted">{t("admin_stores_app_ride_time_save_hint")}</p>
             <p className="mt-1 sam-text-xxs text-sam-meta">
               <code className="rounded bg-sam-surface-muted px-1">admin_settings.delivery_ride_time_source</code>
             </p>
@@ -548,7 +535,7 @@ export function AdminStoreApplicationSettingsPage() {
               <p className="mt-2 sam-text-body-secondary text-red-700">({rideTimeSourceError})</p>
             ) : null}
             <fieldset className="mt-3 space-y-2" disabled={riderLocationLoading || rideTimeSourceSaving}>
-              <legend className="sr-only">배달 시간 소스</legend>
+              <legend className="sr-only">{t("admin_stores_app_ride_time_legend")}</legend>
               <label className="flex cursor-pointer items-start gap-2 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
                 <input
                   type="radio"
@@ -558,9 +545,9 @@ export function AdminStoreApplicationSettingsPage() {
                   onChange={() => setRideTimeSourceDraft("store")}
                 />
                 <span>
-                  <span className="font-semibold text-sam-fg">매장 설정</span>
+                  <span className="font-semibold text-sam-fg">{t("admin_stores_app_ride_time_store")}</span>
                   <span className="mt-0.5 block sam-text-helper text-sam-muted">
-                    매장 프로필의 수기 배달 시간 문구를 사용합니다. (비어 있으면 목록 등에서 배달 슬롯은 &quot;—&quot;)
+                    {t("admin_stores_app_ride_time_store_desc")}
                   </span>
                 </span>
               </label>
@@ -573,9 +560,9 @@ export function AdminStoreApplicationSettingsPage() {
                   onChange={() => setRideTimeSourceDraft("google")}
                 />
                 <span>
-                  <span className="font-semibold text-sam-fg">구글 설정</span>
+                  <span className="font-semibold text-sam-fg">{t("admin_stores_app_ride_time_google")}</span>
                   <span className="mt-0.5 block sam-text-helper text-sam-muted">
-                    Google Routes API로 거리·소요 시간을 추정합니다. (API 비용·지연 발생 가능)
+                    {t("admin_stores_app_ride_time_google_desc")}
                   </span>
                 </span>
               </label>
@@ -587,7 +574,7 @@ export function AdminStoreApplicationSettingsPage() {
                 onClick={() => void commitRideTimeSource()}
                 className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body-secondary font-semibold text-white disabled:opacity-50"
               >
-                {rideTimeSourceSaving ? "저장 중…" : "저장"}
+                {rideTimeSourceSaving ? t("admin_stores_saving") : t("common_save")}
               </button>
               <button
                 type="button"
@@ -595,52 +582,54 @@ export function AdminStoreApplicationSettingsPage() {
                 onClick={() => setRideTimeSourceDraft(rideTimeSourceSaved)}
                 className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-semibold text-sam-fg disabled:opacity-50"
               >
-                선택 취소
+                {t("admin_stores_app_ride_time_cancel")}
               </button>
               <span className="sam-text-helper text-sam-muted">
-                현재 저장값: {rideTimeSourceSaved === "google" ? "구글 설정" : "매장 설정"}
+                {t("admin_stores_app_ride_time_current", {
+                  value:
+                    rideTimeSourceSaved === "google"
+                      ? t("admin_stores_app_ride_time_google")
+                      : t("admin_stores_app_ride_time_store"),
+                })}
               </span>
             </div>
             <p className="mt-2 sam-text-helper text-sam-muted">
-              {rideTimeSourceSaving ? "저장 중…" : riderLocationLoading ? "불러오는 중…" : null}
+              {rideTimeSourceSaving ? t("admin_stores_saving") : riderLocationLoading ? t("common_loading") : null}
             </p>
           </section>
 
           <section className="mt-6 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
-            <h2 className="sam-text-body font-semibold text-sam-fg">연동 여부</h2>
+            <h2 className="sam-text-body font-semibold text-sam-fg">{t("admin_stores_app_integration_title")}</h2>
             <ul className="mt-3 space-y-2 sam-text-body-secondary text-sam-fg">
               <li className="flex flex-wrap items-center gap-2">
                 <span className="text-green-600">✓</span>
-                <span>매장 신청</span>
+                <span>{t("admin_stores_app_integration_apply")}</span>
                 <Link href="/stores/owner/apply" className="text-signature underline">
                   /stores/owner/apply
                 </Link>
-                <span className="text-sam-muted">
-                  — 1차·2차 업종 각각 선택, 슬러그는 아래 병합 목록과 동일. DB에 같은 slug 행이 있으면 신청 시
-                  연결되어 승인 후 /stores/browse 에 노출됩니다.
-                </span>
+                <span className="text-sam-muted">{t("admin_stores_app_integration_apply_desc")}</span>
               </li>
               <li className="flex flex-wrap items-center gap-2">
                 <span className="text-green-600">✓</span>
-                <span>매장 둘러보기</span>
+                <span>{t("admin_stores_app_integration_browse")}</span>
                 <Link href="/stores" className="text-signature underline">
                   /stores
                 </Link>
                 <span className="text-sam-muted">
-                  — 1·2차 업종·링크 슬러그 동일 소스(
+                  {t("admin_stores_app_integration_browse_desc")}{" "}
                   <code className="rounded bg-sam-surface-muted px-1">/stores/browse/[primary]/[sub]</code>)
                 </span>
               </li>
               <li className="flex flex-wrap items-center gap-2">
                 <span className="text-amber-600">△</span>
-                <span>매장 심사(DB)</span>
+                <span>{t("admin_stores_app_integration_review")}</span>
                 <Link href="/admin/stores" className="text-signature underline">
                   /admin/stores
                 </Link>
-                <span className="text-sam-muted">— 별도 DB 흐름; 이 화면의 목록과 자동 동기화되지 않음</span>
+                <span className="text-sam-muted">{t("admin_stores_app_integration_review_desc")}</span>
               </li>
             </ul>
-            <p className="mt-2 sam-text-helper text-sam-muted">이 화면에서 저장하면 DB에 반영되며 모든 사용자에게 동일하게 적용됩니다.</p>
+            <p className="mt-2 sam-text-helper text-sam-muted">{t("admin_stores_app_integration_save_hint")}</p>
           </section>
         </>
       ) : null}
@@ -656,13 +645,11 @@ export function AdminStoreApplicationSettingsPage() {
           <section className="mt-6 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div>
-                <h2 className="sam-text-body font-semibold text-sam-fg">업종 관리</h2>
-                <p className="mt-1 sam-text-helper text-sam-muted">
-                  DB에 있는 업종(1차)·세부 주제(2차)를 수정/숨김 처리합니다. 숨김 처리(is_active=false) 시 /stores 에서 노출되지 않습니다.
-                </p>
+                <h2 className="sam-text-body font-semibold text-sam-fg">{t("admin_stores_app_taxonomy_title")}</h2>
+                <p className="mt-1 sam-text-helper text-sam-muted">{t("admin_stores_app_taxonomy_desc")}</p>
               </div>
               <button type="button" onClick={() => void reloadTaxonomy()} className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-semibold text-sam-fg">
-                새로고침
+                {t("admin_stores_fee_refresh")}
               </button>
             </div>
 
@@ -671,28 +658,28 @@ export function AdminStoreApplicationSettingsPage() {
               <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
                 <div className="flex items-end justify-between gap-2">
                   <div>
-                    <h3 className="sam-text-body font-semibold text-sam-fg">1차 업종</h3>
-                    <p className="mt-0.5 sam-text-helper text-sam-muted">행 단위로 이름/정렬 수정, 숨김(삭제)할 수 있어요.</p>
+                    <h3 className="sam-text-body font-semibold text-sam-fg">{t("admin_stores_app_taxonomy_primary")}</h3>
+                    <p className="mt-0.5 sam-text-helper text-sam-muted">{t("admin_stores_app_taxonomy_primary_hint")}</p>
                   </div>
                 </div>
 
                 <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
                   <label className="flex flex-col sam-text-helper text-sam-muted">
-                    이름
+                    {t("admin_stores_app_taxonomy_ph_name")}
                     <input
                       value={newCategoryName}
                       onChange={(e) => setNewCategoryName(e.target.value)}
                       className="mt-1 rounded border border-sam-border px-2 py-2 sam-text-body text-sam-fg"
-                      placeholder="예: 약국"
+                      placeholder={t("admin_stores_app_taxonomy_ph_category_example")}
                     />
                   </label>
                   <label className="flex flex-col sam-text-helper text-sam-muted">
-                    슬러그 (선택)
+                    {t("admin_stores_app_taxonomy_label_slug")}
                     <input
                       value={newCategorySlug}
                       onChange={(e) => setNewCategorySlug(e.target.value)}
                       className="mt-1 rounded border border-sam-border px-2 py-2 sam-text-body text-sam-fg"
-                      placeholder="비우면 자동"
+                      placeholder={t("admin_stores_app_taxonomy_ph_slug_auto")}
                     />
                   </label>
                   <div className="flex items-end justify-end">
@@ -702,29 +689,29 @@ export function AdminStoreApplicationSettingsPage() {
                       className="w-full rounded-ui-rect bg-signature px-4 py-2 sam-text-body-secondary font-semibold text-white disabled:opacity-50"
                       disabled={!newCategoryName.trim()}
                     >
-                      1차 추가
+                      {t("admin_stores_app_taxonomy_add_primary")}
                     </button>
                   </div>
                 </div>
 
                 <div className="mt-3 overflow-hidden rounded-ui-rect border border-sam-border">
                   <div className="grid grid-cols-[40px_minmax(0,1fr)_128px] gap-0 border-b border-sam-border bg-sam-app px-3 py-2 sam-text-helper font-semibold text-sam-muted">
-                    <span>이미지</span>
-                    <span>업종</span>
-                    <span className="text-right">작업</span>
+                    <span>{t("admin_stores_app_taxonomy_th_image")}</span>
+                    <span>{t("admin_stores_app_taxonomy_th_category")}</span>
+                    <span className="text-right">{t("admin_stores_app_taxonomy_th_actions")}</span>
                   </div>
                   <ul className="divide-y divide-sam-border-soft">
                     {taxonomyLoading && categories.length === 0 ? (
-                      <li className="px-3 py-3 sam-text-body-secondary text-sam-muted">불러오는 중…</li>
+                      <li className="px-3 py-3 sam-text-body-secondary text-sam-muted">{t("common_loading")}</li>
                     ) : categories.length === 0 ? (
                       <li className="px-3 py-3">
-                        <p className="sam-text-body-secondary text-sam-muted">업종이 없습니다.</p>
+                        <p className="sam-text-body-secondary text-sam-muted">{t("admin_stores_app_taxonomy_empty_category")}</p>
                         <button
                           type="button"
                           onClick={() => void seedDefaults()}
                           className="mt-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-semibold text-sam-fg"
                         >
-                          기본 업종 생성(시드)
+                          {t("admin_stores_app_taxonomy_seed")}
                         </button>
                       </li>
                     ) : (
@@ -748,7 +735,7 @@ export function AdminStoreApplicationSettingsPage() {
                                   />
                                 ) : (
                                   <div className="flex h-9 w-9 items-center justify-center rounded-ui-rect border border-dashed border-sam-border bg-sam-app sam-text-xxs font-semibold text-sam-muted">
-                                    없음
+                                    {t("common_none")}
                                   </div>
                                 )}
                               </div>
@@ -760,7 +747,7 @@ export function AdminStoreApplicationSettingsPage() {
                                       setEditingCategoryDraft((prev) => (prev ? { ...prev, name: e.target.value } : prev))
                                     }
                                     className="rounded border border-sam-border px-2 py-1.5 sam-text-body text-sam-fg"
-                                    placeholder="이름"
+                                    placeholder={t("admin_stores_app_taxonomy_ph_name")}
                                   />
                                   <input
                                     value={String(editingCategoryDraft.sort_order)}
@@ -778,7 +765,7 @@ export function AdminStoreApplicationSettingsPage() {
                                   <div className="flex flex-wrap items-center gap-2">
                                     <span className="font-semibold text-sam-fg">{c.name}</span>
                                     <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 sam-text-xxs font-semibold text-sam-muted">
-                                      {c.is_active ? "활성" : "숨김"}
+                                      {c.is_active ? t("common_active") : t("common_hidden")}
                                     </span>
                                   </div>
                                   <p className="mt-0.5 truncate sam-text-xxs text-sam-meta">slug: {c.slug}</p>
@@ -790,7 +777,7 @@ export function AdminStoreApplicationSettingsPage() {
                               {isEditing ? (
                                 <div className="flex items-center gap-2">
                                   <button type="button" onClick={() => void saveCategory()} className="sam-text-helper font-semibold text-signature underline">
-                                    저장
+                                    {t("common_save")}
                                   </button>
                                   <button
                                     type="button"
@@ -800,7 +787,7 @@ export function AdminStoreApplicationSettingsPage() {
                                     }}
                                     className="sam-text-helper font-semibold text-sam-muted underline"
                                   >
-                                    취소
+                                    {t("common_cancel")}
                                   </button>
                                 </div>
                               ) : (
@@ -818,7 +805,11 @@ export function AdminStoreApplicationSettingsPage() {
                                         void uploadTaxonomyImage("category", c.id, f);
                                       }}
                                     />
-                                    {isUploading ? "업로드…" : c.image_url ? "이미지 변경" : "이미지 추가"}
+                                    {isUploading
+                                      ? t("admin_stores_app_taxonomy_uploading")
+                                      : c.image_url
+                                        ? t("admin_stores_app_taxonomy_change_image")
+                                        : t("admin_stores_app_taxonomy_add_image")}
                                   </label>
                                   <button
                                     type="button"
@@ -830,19 +821,21 @@ export function AdminStoreApplicationSettingsPage() {
                                     }}
                                     className="sam-text-helper font-semibold text-signature underline"
                                   >
-                                    수정
+                                    {t("common_edit")}
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => {
                                       const nextActive = !c.is_active;
-                                      const label = nextActive ? "다시 노출할까요?" : "숨김 처리할까요? (/stores에서 사라짐)";
+                                      const label = nextActive
+                                        ? t("admin_stores_app_taxonomy_confirm_show")
+                                        : t("admin_stores_app_taxonomy_confirm_hide");
                                       if (!window.confirm(label)) return;
                                       void toggleCategoryActive(c.id, nextActive);
                                     }}
                                     className="sam-text-helper font-semibold text-red-600 underline"
                                   >
-                                    {c.is_active ? "삭제" : "복구"}
+                                    {c.is_active ? t("common_delete") : t("admin_stores_app_taxonomy_restore")}
                                   </button>
                                 </div>
                               )}
@@ -860,15 +853,13 @@ export function AdminStoreApplicationSettingsPage() {
               <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3">
                 <div className="flex items-end justify-between gap-2">
                   <div>
-                    <h3 className="sam-text-body font-semibold text-sam-fg">2차 업종</h3>
-                    <p className="mt-0.5 sam-text-helper text-sam-muted">
-                      1차를 선택하면 해당 2차 목록이 나옵니다. 행 단위로 수정/숨김할 수 있어요.
-                    </p>
+                    <h3 className="sam-text-body font-semibold text-sam-fg">{t("admin_stores_app_taxonomy_secondary")}</h3>
+                    <p className="mt-0.5 sam-text-helper text-sam-muted">{t("admin_stores_app_taxonomy_secondary_hint")}</p>
                   </div>
                 </div>
 
                 <label className="mt-3 block sam-text-helper text-sam-muted">
-                  1차 선택
+                  {t("admin_stores_app_taxonomy_pick_primary")}
                   <select
                     value={pickedCategoryId}
                     onChange={(e) => setPickedCategoryId(e.target.value)}
@@ -884,22 +875,22 @@ export function AdminStoreApplicationSettingsPage() {
 
                 <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
                   <label className="flex flex-col sam-text-helper text-sam-muted">
-                    하위 이름
+                    {t("admin_stores_app_taxonomy_sub_name")}
                     <input
                       value={newTopicName}
                       onChange={(e) => setNewTopicName(e.target.value)}
                       className="mt-1 rounded border border-sam-border px-2 py-2 sam-text-body text-sam-fg"
-                      placeholder="예: 한의원"
+                      placeholder={t("admin_stores_app_taxonomy_ph_topic_example")}
                       disabled={!pickedCategoryId}
                     />
                   </label>
                   <label className="flex flex-col sam-text-helper text-sam-muted">
-                    슬러그 (선택)
+                    {t("admin_stores_app_taxonomy_label_slug")}
                     <input
                       value={newTopicSlug}
                       onChange={(e) => setNewTopicSlug(e.target.value)}
                       className="mt-1 rounded border border-sam-border px-2 py-2 sam-text-body text-sam-fg"
-                      placeholder="비우면 자동"
+                      placeholder={t("admin_stores_app_taxonomy_ph_slug_auto")}
                       disabled={!pickedCategoryId}
                     />
                   </label>
@@ -910,46 +901,46 @@ export function AdminStoreApplicationSettingsPage() {
                       className="w-full rounded-ui-rect bg-signature px-4 py-2 sam-text-body-secondary font-semibold text-white disabled:opacity-50"
                       disabled={!pickedCategoryId || !newTopicName.trim()}
                     >
-                      2차 추가
+                      {t("admin_stores_app_taxonomy_add_secondary")}
                     </button>
                   </div>
                 </div>
 
                 <div className="mt-3 overflow-hidden rounded-ui-rect border border-sam-border">
                   <div className="grid grid-cols-[40px_minmax(0,1fr)_128px] gap-0 border-b border-sam-border bg-sam-app px-3 py-2 sam-text-helper font-semibold text-sam-muted">
-                    <span>이미지</span>
-                    <span>하위 업종</span>
-                    <span className="text-right">작업</span>
+                    <span>{t("admin_stores_app_taxonomy_th_image")}</span>
+                    <span>{t("admin_stores_app_taxonomy_th_subcategory")}</span>
+                    <span className="text-right">{t("admin_stores_app_taxonomy_th_actions")}</span>
                   </div>
                   <ul className="divide-y divide-sam-border-soft">
                     {taxonomyLoading && topicsForPicked.length === 0 ? (
-                      <li className="px-3 py-3 sam-text-body-secondary text-sam-muted">불러오는 중…</li>
+                      <li className="px-3 py-3 sam-text-body-secondary text-sam-muted">{t("common_loading")}</li>
                     ) : topicsForPicked.length === 0 ? (
                       <li className="px-3 py-3">
-                        <p className="sam-text-body-secondary text-sam-muted">하위 업종이 없습니다.</p>
+                        <p className="sam-text-body-secondary text-sam-muted">{t("admin_stores_app_taxonomy_empty_topic")}</p>
                         <button
                           type="button"
                           onClick={() => void seedDefaults()}
                           disabled={taxonomySeeding}
                           className="mt-2 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-semibold text-sam-fg"
                         >
-                          {taxonomySeeding ? "생성 중…" : "기본 2차 업종 생성(시드)"}
+                          {taxonomySeeding ? t("admin_stores_app_taxonomy_seeding") : t("admin_stores_app_taxonomy_seed_topic")}
                         </button>
                       </li>
                     ) : (
-                      topicsForPicked.map((t) => {
-                        const isEditing = editingTopicId === t.id && editingTopicDraft != null;
-                        const uploadKey = `topic:${t.id}`;
+                      topicsForPicked.map((topicRow) => {
+                        const isEditing = editingTopicId === topicRow.id && editingTopicDraft != null;
+                        const uploadKey = `topic:${topicRow.id}`;
                         const isUploading = taxonomyImageUploading === uploadKey;
                         return (
-                          <li key={t.id} className="px-3 py-2">
+                          <li key={topicRow.id} className="px-3 py-2">
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex min-w-0 flex-1 gap-2">
                                 <div className="pt-0.5">
-                                  {t.image_url ? (
+                                  {topicRow.image_url ? (
                                     // eslint-disable-next-line @next/next/no-img-element
                                     <img
-                                      src={t.image_url}
+                                      src={topicRow.image_url}
                                       alt=""
                                       aria-hidden
                                       className="h-9 w-9 rounded-ui-rect border border-sam-border object-cover"
@@ -957,7 +948,7 @@ export function AdminStoreApplicationSettingsPage() {
                                     />
                                   ) : (
                                     <div className="flex h-9 w-9 items-center justify-center rounded-ui-rect border border-dashed border-sam-border bg-sam-app sam-text-xxs font-semibold text-sam-muted">
-                                      없음
+                                      {t("common_none")}
                                     </div>
                                   )}
                                 </div>
@@ -969,7 +960,7 @@ export function AdminStoreApplicationSettingsPage() {
                                         setEditingTopicDraft((prev) => (prev ? { ...prev, name: e.target.value } : prev))
                                       }
                                       className="rounded border border-sam-border px-2 py-1.5 sam-text-body text-sam-fg"
-                                      placeholder="이름"
+                                      placeholder={t("admin_stores_app_taxonomy_ph_name")}
                                     />
                                     <input
                                       value={String(editingTopicDraft.sort_order)}
@@ -985,12 +976,12 @@ export function AdminStoreApplicationSettingsPage() {
                                 ) : (
                                   <div className="min-w-0">
                                     <div className="flex flex-wrap items-center gap-2">
-                                      <span className="font-semibold text-sam-fg">{t.name}</span>
+                                      <span className="font-semibold text-sam-fg">{topicRow.name}</span>
                                       <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 sam-text-xxs font-semibold text-sam-muted">
-                                        {t.is_active ? "활성" : "숨김"}
+                                        {topicRow.is_active ? t("common_active") : t("common_hidden")}
                                       </span>
                                     </div>
-                                    <p className="mt-0.5 truncate sam-text-xxs text-sam-meta">slug: {t.slug}</p>
+                                    <p className="mt-0.5 truncate sam-text-xxs text-sam-meta">slug: {topicRow.slug}</p>
                                   </div>
                                 )}
                               </div>
@@ -998,7 +989,7 @@ export function AdminStoreApplicationSettingsPage() {
                                 {isEditing ? (
                                   <div className="flex items-center gap-2">
                                     <button type="button" onClick={() => void saveTopic()} className="sam-text-helper font-semibold text-signature underline">
-                                      저장
+                                      {t("common_save")}
                                     </button>
                                     <button
                                       type="button"
@@ -1008,7 +999,7 @@ export function AdminStoreApplicationSettingsPage() {
                                       }}
                                       className="sam-text-helper font-semibold text-sam-muted underline"
                                     >
-                                      취소
+                                      {t("common_cancel")}
                                     </button>
                                   </div>
                                 ) : (
@@ -1023,34 +1014,40 @@ export function AdminStoreApplicationSettingsPage() {
                                           const f = e.target.files?.[0];
                                           e.target.value = "";
                                           if (!f) return;
-                                          void uploadTaxonomyImage("topic", t.id, f);
+                                          void uploadTaxonomyImage("topic", topicRow.id, f);
                                         }}
                                       />
-                                      {isUploading ? "업로드…" : t.image_url ? "이미지 변경" : "이미지 추가"}
+                                      {isUploading
+                                        ? t("admin_stores_app_taxonomy_uploading")
+                                        : topicRow.image_url
+                                          ? t("admin_stores_app_taxonomy_change_image")
+                                          : t("admin_stores_app_taxonomy_add_image")}
                                     </label>
                                     <button
                                       type="button"
                                       onClick={() => {
                                         setEditingCategoryId(null);
                                         setEditingCategoryDraft(null);
-                                        setEditingTopicId(t.id);
-                                        setEditingTopicDraft({ name: t.name, sort_order: t.sort_order });
+                                        setEditingTopicId(topicRow.id);
+                                        setEditingTopicDraft({ name: topicRow.name, sort_order: topicRow.sort_order });
                                       }}
                                       className="sam-text-helper font-semibold text-signature underline"
                                     >
-                                      수정
+                                      {t("common_edit")}
                                     </button>
                                     <button
                                       type="button"
                                       onClick={() => {
-                                        const nextActive = !t.is_active;
-                                        const label = nextActive ? "다시 노출할까요?" : "숨김 처리할까요? (/stores에서 사라짐)";
+                                        const nextActive = !topicRow.is_active;
+                                        const label = nextActive
+                                          ? t("admin_stores_app_taxonomy_confirm_show")
+                                          : t("admin_stores_app_taxonomy_confirm_hide");
                                         if (!window.confirm(label)) return;
-                                        void toggleTopicActive(t.id, nextActive);
+                                        void toggleTopicActive(topicRow.id, nextActive);
                                       }}
                                       className="sam-text-helper font-semibold text-red-600 underline"
                                     >
-                                      {t.is_active ? "삭제" : "복구"}
+                                      {topicRow.is_active ? t("common_delete") : t("admin_stores_app_taxonomy_restore")}
                                     </button>
                                   </div>
                                 )}

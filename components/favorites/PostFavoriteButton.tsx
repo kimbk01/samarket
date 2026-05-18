@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -31,6 +32,7 @@ export function PostFavoriteButton({
   favorited: favoritedProp = false,
   onFavoriteChange,
 }: PostFavoriteButtonProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const listMode = onFavoriteChange != null;
 
@@ -118,7 +120,7 @@ export function PostFavoriteButton({
       type="button"
       onClick={handleClick}
       className="flex shrink-0 flex-col items-center justify-center text-sam-muted"
-      aria-label={displayFavorited ? "관심 해제" : "관심"}
+      aria-label={displayFavorited ? t("store_favorite_remove_aria") : t("store_favorite_add_aria")}
     >
       {displayFavorited ? (
         <HeartFilledIcon className={`${iconClassName} text-red-500`} />

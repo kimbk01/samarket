@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { CommunityMessengerMessage } from "@/lib/community-messenger/types";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   cmRenderAnalysisEnabled,
   recordCmRenderImageDecodeSample,
@@ -19,6 +20,7 @@ export function MessengerChatImageBubble(props: {
   item: CommunityMessengerMessage & { pending?: boolean };
   onOpenLightbox: (urls: string[], originals: string[], index: number) => void;
 }) {
+  const { t } = useI18n();
   const { item, onOpenLightbox } = props;
   const pending = Boolean(item.pending);
   const album = item.imageAlbumUrls && item.imageAlbumUrls.length > 1 ? item.imageAlbumUrls : null;
@@ -49,7 +51,7 @@ export function MessengerChatImageBubble(props: {
           <p
             className={`mt-1 text-center sam-text-xxs ${item.isMine ? "text-white/85" : "text-sam-muted"}`}
           >
-            전송 중…
+            {t("common_sending")}
           </p>
         ) : null}
       </div>
@@ -68,6 +70,7 @@ function AlbumLayout({
   pending?: boolean;
   onOpenCell: (i: number) => void;
 }) {
+  const { t } = useI18n();
   const n = urls.length;
   const restCount = n > 4 ? n - 4 : 0;
 
@@ -77,7 +80,7 @@ function AlbumLayout({
       type="button"
       className={`relative overflow-hidden bg-black/10 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--cm-room-primary)] ${className}`}
       onClick={() => onOpenCell(i)}
-      aria-label={`사진 ${i + 1} 크게 보기`}
+      aria-label={`${t("cm_ui_photo")} ${i + 1} ${t("cm_ui_view_photo_large")}`}
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
@@ -129,7 +132,7 @@ function AlbumLayout({
           type="button"
           className="relative overflow-hidden bg-black/15 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--cm-room-primary)]"
           onClick={() => onOpenCell(4)}
-          aria-label={`외 ${restCount}장 보기`}
+          aria-label={`${t("cm_ui_view")} ${restCount + 1}`}
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -159,6 +162,7 @@ function SingleChatImage({
   isMine: boolean;
   onOpen: () => void;
 }) {
+  const { t } = useI18n();
   const imgDecodeStartRef = useRef<number | null>(null);
   useLayoutEffect(() => {
     if (!cmRenderAnalysisEnabled()) return;
@@ -175,7 +179,7 @@ function SingleChatImage({
         type="button"
         onClick={onOpen}
         className="relative block w-full overflow-hidden rounded-[16px] border-0 bg-transparent text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--cm-room-primary)]"
-        aria-label="사진 크게 보기"
+        aria-label={t("cm_ui_view_photo_large")}
       >
         <div
           className="relative max-h-[360px] w-full overflow-hidden"
@@ -215,7 +219,7 @@ function SingleChatImage({
         </div>
       </button>
       {pending ? (
-        <p className={`mt-1 text-center sam-text-xxs ${isMine ? "text-white/85" : "text-sam-muted"}`}>전송 중…</p>
+        <p className={`mt-1 text-center sam-text-xxs ${isMine ? "text-white/85" : "text-sam-muted"}`}>{t("common_sending")}</p>
       ) : null}
     </div>
   );

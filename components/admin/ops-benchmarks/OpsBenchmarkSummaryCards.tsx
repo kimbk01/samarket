@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo } from "react";
 import { getOpsBenchmarkSummary } from "@/lib/ops-benchmarks/mock-ops-benchmark-summary";
 import { getOpsQuarterlyPlanSummary } from "@/lib/ops-benchmarks/mock-ops-quarterly-plan-summary";
@@ -7,6 +10,7 @@ import { getOpsPerformanceReviewSummary } from "@/lib/ops-benchmarks/mock-ops-pe
 import Link from "next/link";
 
 export function OpsBenchmarkSummaryCards() {
+  const { t } = useI18n();
   const benchmarkSummary = useMemo(
     () => getOpsBenchmarkSummary("quarterly"),
     []
@@ -20,7 +24,7 @@ export function OpsBenchmarkSummaryCards() {
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <p className="sam-text-helper text-sam-muted">벤치마크 요약</p>
+        <p className="sam-text-helper text-sam-muted">{t("admin_ops_benchmark_summary_3")}</p>
         <p className="sam-text-page-title font-semibold text-sam-fg">
           현재 평균 {benchmarkSummary.averageCurrentScore} / 목표 평균{" "}
           {benchmarkSummary.averageTargetScore}
@@ -37,7 +41,7 @@ export function OpsBenchmarkSummaryCards() {
         )}
       </div>
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <p className="sam-text-helper text-sam-muted">분기 계획 요약</p>
+        <p className="sam-text-helper text-sam-muted">{t("admin_ops_benchmark_summary_4")}</p>
         <p className="sam-text-page-title font-semibold text-sam-fg">
           총 {planSummary.totalPlans}건 · 완료 {planSummary.completedCount}
         </p>
@@ -51,7 +55,7 @@ export function OpsBenchmarkSummaryCards() {
         </p>
       </div>
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <p className="sam-text-helper text-sam-muted">성과 리뷰 요약</p>
+        <p className="sam-text-helper text-sam-muted">{t("admin_ops_benchmark_summary_5")}</p>
         <p className="sam-text-page-title font-semibold text-sam-fg">
           리뷰 {reviewSummary.totalReviewedAdmins}명 · 평균 점수{" "}
           {reviewSummary.averageOverallPerformanceScore}
@@ -67,7 +71,7 @@ export function OpsBenchmarkSummaryCards() {
         )}
       </div>
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 sm:col-span-2 lg:col-span-3">
-        <p className="sam-text-helper text-sam-muted">바로가기</p>
+        <p className="sam-text-helper text-sam-muted">{t("admin_ops_benchmark_k0448a340")}</p>
         <p className="mt-1 sam-text-body text-sam-fg">
           <Link href="/admin/ops-maturity" className="text-signature hover:underline">
             운영 성숙도

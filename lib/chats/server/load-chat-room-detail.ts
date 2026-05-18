@@ -689,10 +689,15 @@ export async function loadChatRoomDetailForUser(input: {
     const partnerIdSo = amISellerSo ? bRow : sRow;
     const partnerPromise = fetchPartnerDisplayFieldsMap(sbAny, [partnerIdSo]);
     const oid = crSo.store_order_id ?? "";
-    let titleSo = "배달 주문";
+    const { translate } = await import("@/lib/i18n/messages");
+    const { buyerOrderStatusLabel } = await import("@/lib/stores/buyer-order-status-labels");
+    const { loadNotificationUserLanguage } = await import("@/lib/notifications/notification-user-language");
+    const viewerLang = await loadNotificationUserLanguage(sbAny, bRow);
+    let titleSo = translate(viewerLang, "store_messenger_delivery_order_title");
     let storeIdForRoom: string | null = null;
     let partnerDispSo: ReturnType<typeof partnerDisplayFromMap> | null = null;
     let partnerNickSo = partnerIdSo.slice(0, 8);
+    let statusLabel = "";
     if (oid) {
       const { data: ordRow } = await sbAny
         .from("store_orders")
@@ -708,15 +713,16 @@ export async function loadChatRoomDetailForUser(input: {
           .maybeSingle();
         const sn = (stRow as { store_name?: string } | null)?.store_name ?? "";
         titleSo = sn
-          ? `${sn} · 주문 ${(ordRow as { order_no: string }).order_no}`
-          : `주문 ${(ordRow as { order_no: string }).order_no}`;
+          ? translate(viewerLang, "store_messenger_order_title", {
+              store: sn,
+              orderNo: (ordRow as { order_no: string }).order_no,
+            })
+          : translate(viewerLang, "store_messenger_delivery_order_title");
+        statusLabel =
+          typeof (ordRow as { order_status?: string }).order_status === "string"
+            ? buyerOrderStatusLabel((ordRow as { order_status: string }).order_status, viewerLang)
+            : "";
       }
-      const { BUYER_ORDER_STATUS_LABEL } = await import("@/lib/stores/store-order-process-criteria");
-      const statusLabel =
-        ordRow && typeof (ordRow as { order_status?: string }).order_status === "string"
-          ? BUYER_ORDER_STATUS_LABEL[(ordRow as { order_status: string }).order_status] ??
-            (ordRow as { order_status: string }).order_status
-          : "";
       partnerDispSo = partnerDisplayFromMap(await partnerPromise, partnerIdSo, partnerIdSo.slice(0, 8));
       partnerNickSo = partnerDispSo.partnerNickname;
       const payload = {

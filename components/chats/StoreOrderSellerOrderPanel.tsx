@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { createPortal } from "react-dom";
@@ -10,26 +11,9 @@ import {
   type ChatSummaryItemFields,
   type ChatSummaryOrderFields,
 } from "@/lib/stores/format-store-order-chat-summary";
-import {
-  OwnerStoreOrderDeliveryActionsDrawerSection,
-  OwnerStoreOrderPeekCancelBar,
-} from "@/components/business/owner/OwnerStoreOrderDeliveryActions";
-import {
-  buildStoreOrderChatCardView,
-  type StoreOrderChatCardView,
-} from "@/lib/store-order-chat/build-store-order-chat-card-view";
-import { StoreOrderReceiptCard } from "@/components/community-messenger/room/phase2/StoreOrderReceiptCard";
-import { VoiceCallIcon } from "@/components/community-messenger/room/community-messenger-room-helpers";
-import {
-  STORE_ORDER_DELIVERY_DETAIL_DRAWER_BACKDROP_TRANSITION_CLASS,
-  STORE_ORDER_DELIVERY_DETAIL_DRAWER_TRANSFORM_CLASS,
-  STORE_ORDER_DELIVERY_DETAIL_DRAWER_WIDTH_CLASS,
-} from "@/lib/store-order-chat/store-order-delivery-detail-drawer-layout";
+import { OwnerStoreOrderDeliveryActionsDrawerSection } from "@/components/business/owner/OwnerStoreOrderDeliveryActions";
 
 export type StoreOrderSellerOrderPanelPresentation = "drawer" | "modal";
-
-/** `peek` — 메신저 방: 우→좌 75vw, 채팅 25% peek */
-export type StoreOrderSellerOrderPanelDrawerVariant = "default" | "peek";
 
 type Props = {
   presentation: StoreOrderSellerOrderPanelPresentation;
@@ -46,18 +30,8 @@ type Props = {
   sendSummaryDisabled?: boolean;
   /** 주문 패치 후 채팅 메타·메시지 갱신 */
   onRoomReload?: () => void;
-  /** 레거시 오너 채팅 모달 위에 띄우던 호환 옵션 */
+  /** `OwnerStoreOrderChatModal`(z-190) 위에 드로어·딤 표시 */
   stackAboveOwnerChatModal?: boolean;
-  /** 메신저 방 — 자동 요약이 있으면 수동 전송 숨김 */
-  hideSendSummary?: boolean;
-  /** 메신저 방 — 진행 CTA는 composer 위 액션 바만 사용 */
-  hideDeliveryActions?: boolean;
-  /** 메신저 방 — 주문 상세 헤더 음성 통화 */
-  onVoiceCall?: () => void;
-  voiceCallDisabled?: boolean;
-  drawerVariant?: StoreOrderSellerOrderPanelDrawerVariant;
-  /** 메신저 peek drawer — 헤더 ⋯(관리자 메뉴) 숨김. 취소·상세는 패널 본문 */
-  hidePeekDrawerMoreMenu?: boolean;
 };
 
 export function StoreOrderSellerOrderPanel({
@@ -74,20 +48,13 @@ export function StoreOrderSellerOrderPanel({
   sendSummaryDisabled = false,
   onRoomReload,
   stackAboveOwnerChatModal = false,
-  hideSendSummary = false,
-  hideDeliveryActions = false,
-  onVoiceCall,
-  voiceCallDisabled = false,
-  drawerVariant = "default",
-  hidePeekDrawerMoreMenu = false,
 }: Props) {
-  const peekDrawer = drawerVariant === "peek";
+  const { t } = useI18n();
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [orderSnap, setOrderSnap] = useState<ChatSummaryOrderFields | null>(null);
   const [itemsSnap, setItemsSnap] = useState<ChatSummaryItemFields[]>([]);
-  const [orderCard, setOrderCard] = useState<StoreOrderChatCardView | null>(null);
   const [sendBusy, setSendBusy] = useState(false);
   const [sendToast, setSendToast] = useState<string | null>(null);
 
@@ -125,30 +92,19 @@ export function StoreOrderSellerOrderPanel({
     setLoading(true);
     setLoadErr(null);
     try {
-      const [res, eventsRes] = await Promise.all([
-        fetch(`/api/me/stores/${encodeURIComponent(storeId)}/orders/${encodeURIComponent(orderId)}`, {
-          credentials: "include",
-          cache: "no-store",
-        }),
-        fetch(`/api/me/store-orders/${encodeURIComponent(orderId)}/events`, {
-          credentials: "include",
-          cache: "no-store",
-        }),
-      ]);
+      const res = await fetch(
+        `/api/me/stores/${encodeURIComponent(storeId)}/orders/${encodeURIComponent(orderId)}`,
+        { credentials: "include", cache: "no-store" }
+      );
       const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
         order?: Record<string, unknown> & { items?: ChatSummaryItemFields[] };
         meta?: { store_name?: string };
       };
-      const eventsJson = (await eventsRes.json().catch(() => ({}))) as {
-        ok?: boolean;
-        events?: Array<{ to_status?: string | null; created_at?: string | null }>;
-      };
       if (!res.ok || !json?.ok || !json.order) {
         setOrderSnap(null);
         setItemsSnap([]);
-        setOrderCard(null);
         setLoadErr(
           res.status === 404
             ? "주문을 찾을 수 없습니다."
@@ -161,17 +117,8 @@ export function StoreOrderSellerOrderPanel({
       const o = json.order;
       const sn = (json.meta?.store_name as string | undefined) ?? "";
       const lines = Array.isArray(o.items) ? o.items : [];
-      setOrderCard(
-        buildStoreOrderChatCardView({
-          order: o,
-          items: lines as Array<Record<string, unknown>>,
-          events: eventsJson.ok && Array.isArray(eventsJson.events) ? eventsJson.events : [],
-          storeName: sn || undefined,
-        })
-      );
       setOrderSnap({
         store_name: sn || undefined,
-        created_at: typeof o.created_at === "string" ? o.created_at : null,
         order_no: typeof o.order_no === "string" ? o.order_no : undefined,
         order_status: typeof o.order_status === "string" ? o.order_status : undefined,
         fulfillment_type:
@@ -183,32 +130,16 @@ export function StoreOrderSellerOrderPanel({
         buyer_phone: (o.buyer_phone as string | null) ?? null,
         buyer_note: (o.buyer_note as string | null) ?? null,
         payment_amount: Number(o.payment_amount ?? 0),
-        discount_amount:
-          o.discount_amount != null && o.discount_amount !== ""
-            ? Number(o.discount_amount)
-            : null,
         delivery_fee_amount:
           o.delivery_fee_amount != null && o.delivery_fee_amount !== ""
             ? Number(o.delivery_fee_amount)
             : null,
-        buyer_payment_method:
-          typeof o.buyer_payment_method === "string" ? o.buyer_payment_method : null,
-        buyer_payment_method_detail:
-          typeof o.buyer_payment_method_detail === "string" ? o.buyer_payment_method_detail : null,
-        accepted_at: typeof o.accepted_at === "string" ? o.accepted_at : null,
-        estimated_prep_minutes:
-          o.estimated_prep_minutes != null && o.estimated_prep_minutes !== ""
-            ? Number(o.estimated_prep_minutes)
-            : null,
-        estimated_ready_at:
-          typeof o.estimated_ready_at === "string" ? o.estimated_ready_at : null,
       });
       setItemsSnap(
         lines.map((row) => ({
           product_title_snapshot: String((row as ChatSummaryItemFields).product_title_snapshot ?? ""),
           price_snapshot: Number((row as ChatSummaryItemFields).price_snapshot ?? 0),
           qty: Number((row as ChatSummaryItemFields).qty ?? 0),
-          subtotal: Number((row as ChatSummaryItemFields).subtotal ?? 0) || null,
           options_snapshot_json: (row as ChatSummaryItemFields).options_snapshot_json,
         }))
       );
@@ -216,7 +147,6 @@ export function StoreOrderSellerOrderPanel({
       setLoadErr("네트워크 오류");
       setOrderSnap(null);
       setItemsSnap([]);
-      setOrderCard(null);
     } finally {
       setLoading(false);
     }
@@ -264,7 +194,6 @@ export function StoreOrderSellerOrderPanel({
   }, [loadOrder, onRoomReload]);
 
   const deliverySection =
-    !hideDeliveryActions &&
     !loading &&
     !loadErr &&
     orderSnap?.order_status &&
@@ -292,42 +221,29 @@ export function StoreOrderSellerOrderPanel({
       >
         {heading}
       </h2>
-      {onVoiceCall ? (
+      <div className="relative flex shrink-0 items-center" ref={menuRef}>
         <button
           type="button"
-          onClick={onVoiceCall}
-          disabled={voiceCallDisabled}
-          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-signature transition hover:bg-black/[0.05] disabled:opacity-35"
-          aria-label="음성 통화"
+          onClick={onMoreMenuClick}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full sam-text-page-title font-normal leading-none text-foreground hover:bg-black/[0.05]"
+          aria-label={t("ui_home_rail_menu_open")}
         >
-          <VoiceCallIcon className="h-5 w-5" />
+          ⋯
         </button>
-      ) : null}
-      {peekDrawer && hidePeekDrawerMoreMenu ? null : (
-        <div className="relative flex shrink-0 items-center" ref={menuRef}>
-          <button
-            type="button"
-            onClick={onMoreMenuClick}
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full sam-text-page-title font-normal leading-none text-foreground hover:bg-black/[0.05]"
-            aria-label="메뉴"
-          >
-            ⋯
-          </button>
-          {moreMenuPanel}
-        </div>
-      )}
+        {moreMenuPanel}
+      </div>
       <button
         type="button"
         onClick={() => onOpenChange(false)}
         className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full sam-text-hero font-light leading-none text-foreground hover:bg-black/[0.05]"
-        aria-label="닫기"
+        aria-label={t("ui_sheet_close_aria")}
       >
         ×
       </button>
     </div>
   );
 
-  const sendBlock = hideSendSummary ? null : (
+  const sendBlock = (
     <div className="shrink-0 border-b border-sam-border px-3 py-3">
       <button
         type="button"
@@ -338,7 +254,7 @@ export function StoreOrderSellerOrderPanel({
         {sendBusy ? "전송 중…" : "주문 내용 채팅으로 보내기"}
       </button>
       {sendSummaryDisabled ? (
-        <p className="mt-2 text-center sam-text-helper text-amber-700">이 채팅에서는 전송할 수 없습니다.</p>
+        <p className="mt-2 text-center sam-text-helper text-amber-700">{t("ui_store_order_chat_send_blocked")}</p>
       ) : null}
       {sendToast ? (
         <p className="mt-2 text-center sam-text-body-secondary text-muted">{sendToast}</p>
@@ -349,11 +265,9 @@ export function StoreOrderSellerOrderPanel({
   const orderPreviewBlock = (
     <div className="px-3 py-3 sam-text-body text-foreground">
       {loading ? (
-        <p className="text-center text-muted">주문 불러오는 중…</p>
+        <p className="text-center text-muted">{t("ui_store_order_loading")}</p>
       ) : loadErr ? (
         <p className="text-center text-red-600">{loadErr}</p>
-      ) : orderCard ? (
-        <StoreOrderReceiptCard view={orderCard} viewer="owner" />
       ) : orderSnap ? (
         <pre className="whitespace-pre-wrap break-words font-sans sam-text-body-secondary leading-[1.45] text-foreground">
           {formatStoreOrderSummaryForChatMessage(orderSnap, itemsSnap, "seller")}
@@ -365,11 +279,9 @@ export function StoreOrderSellerOrderPanel({
   const scrollBody = (
     <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3 sam-text-body text-foreground">
       {loading ? (
-        <p className="text-center text-muted">주문 불러오는 중…</p>
+        <p className="text-center text-muted">{t("ui_store_order_loading")}</p>
       ) : loadErr ? (
         <p className="text-center text-red-600">{loadErr}</p>
-      ) : orderCard ? (
-        <StoreOrderReceiptCard view={orderCard} viewer="owner" />
       ) : orderSnap ? (
         <pre className="whitespace-pre-wrap break-words font-sans sam-text-body-secondary leading-[1.45] text-foreground">
           {formatStoreOrderSummaryForChatMessage(orderSnap, itemsSnap, "seller")}
@@ -412,7 +324,6 @@ export function StoreOrderSellerOrderPanel({
               이 채팅 · 주문
             </p>
             {!stackAboveOwnerChatModal ? deliverySection : null}
-            {hideSendSummary ? null : (
             <div className="border-b border-sam-border px-3 py-3">
               <button
                 type="button"
@@ -424,14 +335,13 @@ export function StoreOrderSellerOrderPanel({
               </button>
               {sendSummaryDisabled ? (
                 <p className="mt-2 text-center sam-text-helper text-amber-700">
-                  이 채팅에서는 전송할 수 없습니다.
+                  {t("ui_store_order_chat_send_blocked")}
                 </p>
               ) : null}
               {sendToast ? (
                 <p className="mt-2 text-center sam-text-body-secondary text-muted">{sendToast}</p>
               ) : null}
             </div>
-            )}
             {orderPreviewBlock}
           </div>
         </div>
@@ -439,23 +349,10 @@ export function StoreOrderSellerOrderPanel({
     </>
   );
 
-  const peekCancelBar =
-    peekDrawer && orderSnap?.order_status && orderId.trim() ? (
-      <OwnerStoreOrderPeekCancelBar
-        storeId={storeId}
-        order={{
-          id: orderId.trim(),
-          order_status: orderSnap.order_status,
-          fulfillment_type: orderSnap.fulfillment_type?.trim() || "pickup",
-        }}
-        onUpdated={onOrderPatched}
-      />
-    ) : null;
-
   const drawerPanelInner = (
     <>
       {headerRow}
-      {peekDrawer ? peekCancelBar : !stackAboveOwnerChatModal ? deliverySection : null}
+      {!stackAboveOwnerChatModal ? deliverySection : null}
       {sendBlock}
       {scrollBody}
     </>
@@ -469,22 +366,18 @@ export function StoreOrderSellerOrderPanel({
           <>
             <div
               role="presentation"
-              className={`fixed inset-0 ${dimZ} bg-black/40 ${
-                peekDrawer
-                  ? STORE_ORDER_DELIVERY_DETAIL_DRAWER_BACKDROP_TRANSITION_CLASS
-                  : "transition-opacity duration-300 ease-out"
-              } ${open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}
+              className={`fixed inset-0 ${dimZ} bg-black/40 transition-opacity duration-300 ease-out ${
+                open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+              }`}
               onClick={() => onOpenChange(false)}
               aria-hidden={!open}
             />
             {presentation === "drawer" ? (
               <div
                 id={surfaceId}
-                className={`fixed top-0 right-0 ${surfaceZ} flex h-[100dvh] flex-col border-l border-sam-border bg-sam-surface shadow-none ${
-                  peekDrawer
-                    ? `${STORE_ORDER_DELIVERY_DETAIL_DRAWER_WIDTH_CLASS} ${STORE_ORDER_DELIVERY_DETAIL_DRAWER_TRANSFORM_CLASS}`
-                    : "w-[min(100vw,22rem)] transition-transform duration-300 ease-out"
-                } ${open ? "translate-x-0" : "pointer-events-none translate-x-full"}`}
+                className={`fixed top-0 right-0 ${surfaceZ} flex h-[100dvh] w-[min(100vw,22rem)] flex-col bg-sam-surface shadow-[-6px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-out ${
+                  open ? "translate-x-0" : "translate-x-full"
+                }`}
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby={titleId}

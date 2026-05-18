@@ -1,9 +1,13 @@
+"use client";
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { FavoriteProductsView } from "@/components/favorites/FavoriteProductsView";
 import { TradeHubSectionShell } from "@/components/mypage/trade/TradeHubSectionShell";
 
 export default function TradeFavoritesPage() {
+  const { t } = useI18n();
   return (
-    <TradeHubSectionShell title="찜 목록">
+    <TradeHubSectionShell title={t("nav_trade_hub_favorites")}>
       <FavoriteProductsView embedded />
     </TradeHubSectionShell>
   );

@@ -1,33 +1,40 @@
 /** 키는 DB·API에 그대로 저장 (다국어 라벨만 UI에서 매핑) */
 
+import type { MessageKey } from "@/lib/i18n/messages";
+
+export type TradeReviewTranslate = (
+  key: MessageKey,
+  params?: Record<string, string | number>
+) => string;
+
 export const BUYER_TO_SELLER_POSITIVE = [
-  { key: "kind", label: "친절했어요" },
-  { key: "fast_reply", label: "응답이 빨랐어요" },
-  { key: "accurate_desc", label: "상품 설명이 정확했어요" },
-  { key: "punctual", label: "시간 약속을 잘 지켰어요" },
-  { key: "satisfied", label: "거래가 만족스러웠어요" },
+  { key: "kind", labelKey: "trade_review_tag_kind" as const },
+  { key: "fast_reply", labelKey: "trade_review_tag_fast_reply" as const },
+  { key: "accurate_desc", labelKey: "trade_review_tag_accurate_desc" as const },
+  { key: "punctual", labelKey: "trade_review_tag_punctual" as const },
+  { key: "satisfied", labelKey: "trade_review_tag_satisfied" as const },
 ] as const;
 
 export const BUYER_TO_SELLER_NEGATIVE = [
-  { key: "desc_mismatch", label: "상품 설명과 달라요" },
-  { key: "slow_reply", label: "응답이 느려요" },
-  { key: "changed_plan", label: "약속을 자주 바꿨어요" },
-  { key: "unkind", label: "불친절했어요" },
-  { key: "uncomfortable", label: "거래가 불편했어요" },
+  { key: "desc_mismatch", labelKey: "trade_review_tag_desc_mismatch" as const },
+  { key: "slow_reply", labelKey: "trade_review_tag_slow_reply" as const },
+  { key: "changed_plan", labelKey: "trade_review_tag_changed_plan" as const },
+  { key: "unkind", labelKey: "trade_review_tag_unkind" as const },
+  { key: "uncomfortable", labelKey: "trade_review_tag_uncomfortable" as const },
 ] as const;
 
 export const SELLER_TO_BUYER_POSITIVE = [
-  { key: "fast_reply_b", label: "응답이 빨랐어요" },
-  { key: "punctual_b", label: "약속을 잘 지켰어요" },
-  { key: "good_manner", label: "매너가 좋아요" },
-  { key: "clean_deal", label: "거래가 깔끔했어요" },
+  { key: "fast_reply_b", labelKey: "trade_review_tag_fast_reply" as const },
+  { key: "punctual_b", labelKey: "trade_review_tag_punctual_b" as const },
+  { key: "good_manner", labelKey: "trade_review_tag_good_manner" as const },
+  { key: "clean_deal", labelKey: "trade_review_tag_clean_deal" as const },
 ] as const;
 
 export const SELLER_TO_BUYER_NEGATIVE = [
-  { key: "no_show", label: "노쇼했어요" },
-  { key: "changed_plan_b", label: "약속을 반복 변경했어요" },
-  { key: "lowball", label: "무리한 가격제안을 했어요" },
-  { key: "bad_messages", label: "비매너 메시지가 있었어요" },
+  { key: "no_show", labelKey: "trade_review_tag_no_show" as const },
+  { key: "changed_plan_b", labelKey: "trade_review_tag_changed_plan_b" as const },
+  { key: "lowball", labelKey: "trade_review_tag_lowball" as const },
+  { key: "bad_messages", labelKey: "trade_review_tag_bad_messages" as const },
 ] as const;
 
 const ALL_KEYS = new Set<string>([
@@ -36,6 +43,19 @@ const ALL_KEYS = new Set<string>([
   ...SELLER_TO_BUYER_POSITIVE.map((x) => x.key),
   ...SELLER_TO_BUYER_NEGATIVE.map((x) => x.key),
 ]);
+
+export function tradeReviewTagLabel(
+  t: TradeReviewTranslate,
+  role: "buyer_to_seller" | "seller_to_buyer",
+  tagKey: string
+): string {
+  const list =
+    role === "buyer_to_seller"
+      ? [...BUYER_TO_SELLER_POSITIVE, ...BUYER_TO_SELLER_NEGATIVE]
+      : [...SELLER_TO_BUYER_POSITIVE, ...SELLER_TO_BUYER_NEGATIVE];
+  const hit = list.find((x) => x.key === tagKey);
+  return hit ? t(hit.labelKey) : tagKey;
+}
 
 export function filterValidTagKeys(keys: string[] | undefined, role: "buyer_to_seller" | "seller_to_buyer"): string[] {
   const allowed: Set<string> =

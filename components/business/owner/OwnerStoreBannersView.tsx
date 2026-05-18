@@ -8,6 +8,8 @@ import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerSt
 import { Biz } from "@/lib/ui/biz-component-classes";
 import { invalidateStoreBannersPublicCache } from "@/lib/stores/store-delivery-api-client";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 
 type BannerRow = {
   id: string;
@@ -24,19 +26,19 @@ type BannerRow = {
 
 type LinkPickRow = { id: string; title: string };
 
-function mergePickList(list: LinkPickRow[], currentId: string | null | undefined): LinkPickRow[] {
+function mergePickList(
+  list: LinkPickRow[],
+  currentId: string | null | undefined,
+  missingLabel: string
+): LinkPickRow[] {
   const id = currentId?.trim() || "";
   if (!id) return list;
   if (list.some((r) => r.id === id)) return list;
-  return [{ id, title: "(목록에 없음) 이전에 연결된 항목" }, ...list];
+  return [{ id, title: missingLabel }, ...list];
 }
 
 /** 사장 화면: 메뉴 상세(product) 연결은 비노출 — 매장에서는 기존 product 배너는 유지 가능, 저장하면 none 으로 정리 */
-const LINK_OPTS = [
-  { v: "none", label: "이동 없음 (이미지만 보여요)" },
-  { v: "notice", label: "공지 내용으로 이동" },
-  { v: "coupon", label: "쿠폰 (준비 중)" },
-] as const;
+const LINK_VALUES = ["none", "notice", "coupon"] as const;
 
 function bannerLinkPayload(linkType: string | undefined, target: string | null | undefined) {
   const lt =
@@ -54,24 +56,34 @@ function bannerLinkSelectValue(linkType: string | undefined): string {
   return lt === "product" ? "none" : lt;
 }
 
-function formatBannerSaveError(code: string): string {
+function formatBannerSaveError(
+  code: string,
+  tr: (key: string) => string
+): string {
   switch (code) {
     case "invalid_link_target":
-      return "연결이 깨졌거나 삭제된 메뉴·공지일 수 있습니다. 링크 타입을 확인한 뒤 목록에서 다시 선택해 주세요.";
+      return tr("business_phase7_447");
     case "invalid_link_target_id":
-      return "연결 대상이 올바르지 않습니다. 메뉴·공지를 목록에서 다시 선택해 주세요.";
+      return tr("business_phase7_448");
     case "image_url_required":
-      return "배너 이미지를 업로드해 주세요.";
+      return tr("business_phase7_485");
     case "storage_bucket_missing":
-      return "이미지 저장소 버킷이 없습니다. 안내에 따라 Supabase에 store-product-images 버킷을 만든 뒤 다시 시도해 주세요.";
+      return tr("business_phase7_449");
     case "store_not_editable":
-      return "매장 상태상 이미지를 올릴 수 없습니다.";
+      return tr("business_phase7_450");
     default:
       return code;
   }
 }
 
 export function OwnerStoreBannersView() {
+  const { t } = useI18n();
+  const linkLabel = (v: string) => {
+    if (v === "none") return t("business_phase7_444");
+    if (v === "notice") return t("business_phase7_445");
+    if (v === "coupon") return t("business_phase7_446");
+    return v;
+  };
   const sp = useSearchParams();
   const storeId = sp.get("storeId")?.trim() ?? "";
   const [resolvedStoreId, setResolvedStoreId] = useState<string>(storeId);
@@ -167,7 +179,7 @@ export function OwnerStoreBannersView() {
           (Array.isArray(rows) ? rows : [])
             .map((x) => ({
               id: String(x.id ?? "").trim(),
-              title: String(x.title ?? "").trim() || "(제목 없음)",
+              title: String(x.title ?? "").trim() || t("business_phase7_451"),
             }))
             .filter((x) => x.id)
             .sort((a, b) => a.title.localeCompare(b.title, "ko"));
@@ -200,7 +212,7 @@ export function OwnerStoreBannersView() {
           typeof j?.message === "string" && j.message.trim()
             ? j.message.trim()
             : typeof j?.error === "string" && j.error.trim()
-              ? formatBannerSaveError(j.error.trim())
+              ? formatBannerSaveError(j.error.trim(), t)
               : "upload_failed";
         setErr(msg);
         return null;
@@ -222,7 +234,7 @@ export function OwnerStoreBannersView() {
         const d = editor.draft;
         const image_url = String(d.image_url ?? "").trim();
         if (!image_url) {
-          setErr("배너 이미지를 업로드해 주세요.");
+          setErr(t("business_phase7_485"));
           setBusy(false);
           return;
         }
@@ -245,7 +257,7 @@ export function OwnerStoreBannersView() {
         const j = (await res.json()) as { ok?: boolean; error?: string };
         if (!res.ok || !j?.ok) {
           const raw = typeof j?.error === "string" ? j.error : "save_failed";
-          setErr(formatBannerSaveError(raw));
+          setErr(formatBannerSaveError(raw, t));
           return;
         }
       } else {
@@ -269,7 +281,7 @@ export function OwnerStoreBannersView() {
         const j = (await res.json()) as { ok?: boolean; error?: string };
         if (!res.ok || !j?.ok) {
           const raw = typeof j?.error === "string" ? j.error : "save_failed";
-          setErr(formatBannerSaveError(raw));
+          setErr(formatBannerSaveError(raw, t));
           return;
         }
       }
@@ -300,7 +312,7 @@ export function OwnerStoreBannersView() {
   };
 
   if (!resolvedStoreId) {
-    return <p className="sam-text-body text-sam-muted">매장을 불러오는 중…</p>;
+    return <p className="sam-text-body text-sam-muted">{t("business_phase7_088")}</p>;
   }
 
   const q = `storeId=${encodeURIComponent(resolvedStoreId)}`;
@@ -308,14 +320,14 @@ export function OwnerStoreBannersView() {
   return (
     <div className={`py-2 ${OWNER_STORE_STACK_Y_CLASS}`}>
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className={Biz.textTitle}>배너 관리</h1>
+        <h1 className={Biz.textTitle}>{t("business_phase7_102")}</h1>
         <Link href={`/stores/owner?${q}`} className={Biz.textMuted}>
-          ← 대시보드
+          {t("business_phase7_429")}
         </Link>
       </div>
-      <p className={`mt-1 ${Biz.textMuted}`}>고객 매장 상단에 가로 스와이프 배너로 노출됩니다.</p>
+      <p className={`mt-1 ${Biz.textMuted}`}>{t("business_phase7_018")}</p>
 
-      {err ? <p className="mt-2 text-sm text-red-600">{err}</p> : null}
+      {err ? <p className="mt-2 text-sm text-red-600">{resolveOwnerApiErrorMessage(err, t)}</p> : null}
 
       <button
         type="button"
@@ -337,10 +349,10 @@ export function OwnerStoreBannersView() {
         }}
         className={`mt-4 ${Biz.btnPrimary}`}
       >
-        배너 추가
+        {t("business_phase7_452")}
       </button>
 
-      {loading ? <p className="mt-3 text-sm text-sam-muted">불러오는 중…</p> : null}
+      {loading ? <p className="mt-3 text-sm text-sam-muted">{t("common_loading")}</p> : null}
 
       <ul className="mt-4 space-y-3">
         {banners.map((b) => (
@@ -350,9 +362,13 @@ export function OwnerStoreBannersView() {
                 <img src={b.image_url} alt="" className="h-full w-full object-cover" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="font-semibold text-[var(--biz-text)]">{b.title?.trim() || "(제목 없음)"}</p>
+                <p className="font-semibold text-[var(--biz-text)]">{b.title?.trim() || t("business_phase7_451")}</p>
                 <p className="text-[12px] text-[var(--biz-text-muted)]">
-                  {b.is_active ? "사용" : "숨김"} · 정렬 {b.sort_order} · {b.link_type}
+                  {t("business_phase7_436", {
+                    v1: b.is_active ? t("business_phase7_135") : t("business_phase7_418"),
+                    v2: String(b.sort_order),
+                    v3: linkLabel(b.link_type),
+                  })}
                 </p>
                 <div className="mt-2 flex flex-wrap gap-2">
                   <button
@@ -364,7 +380,7 @@ export function OwnerStoreBannersView() {
                     }}
                     className={Biz.btnOutline}
                   >
-                    수정
+                    {t("common_edit")}
                   </button>
                   <button
                     type="button"
@@ -372,7 +388,7 @@ export function OwnerStoreBannersView() {
                     onClick={() => setDeleteConfirmId(b.id)}
                     className={Biz.btnOutline}
                   >
-                    삭제
+                    {t("common_delete")}
                   </button>
                 </div>
               </div>
@@ -384,7 +400,9 @@ export function OwnerStoreBannersView() {
       {editor ? (
         <div className="fixed inset-0 z-[95] flex items-end justify-center bg-black/45 p-3 sm:items-center">
           <div className={`max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-[16px] bg-[var(--biz-card-bg)] p-4 sm:rounded-[16px] ${Biz.card}`}>
-            <h2 className={Biz.textCardTitle}>{editor.mode === "new" ? "배너 등록" : "배너 수정"}</h2>
+            <h2 className={Biz.textCardTitle}>
+              {editor.mode === "new" ? t("business_phase7_453") : t("business_phase7_454")}
+            </h2>
             <div className="mt-4 space-y-5">
               <input
                 ref={bannerFileRef}
@@ -410,8 +428,8 @@ export function OwnerStoreBannersView() {
 
               <div>
                 <div className="mb-1.5 flex items-baseline justify-between gap-2">
-                  <span className={`${Biz.textMuted}`}>배너 사진</span>
-                  <span className="text-[11px] text-[var(--biz-text-muted)]">JPG · PNG · WEBP · 최대 5MB</span>
+                  <span className={`${Biz.textMuted}`}>{t("business_phase7_103")}</span>
+                  <span className="text-[11px] text-[var(--biz-text-muted)]">{t("business_phase7_338")}</span>
                 </div>
                 {(() => {
                   const src =
@@ -438,9 +456,9 @@ export function OwnerStoreBannersView() {
                               onClick={() => bannerFileRef.current?.click()}
                               className="flex h-full w-full flex-col items-center justify-center gap-1 px-4 text-center transition hover:bg-black/[0.04] disabled:opacity-50"
                             >
-                              <span className="text-[15px] font-medium text-[var(--biz-text)]">여기를 눌러 사진 추가</span>
+                              <span className="text-[15px] font-medium text-[var(--biz-text)]">{t("business_phase7_192")}</span>
                               <span className="text-[12px] text-[var(--biz-text-muted)]">
-                                매장 상단에 넓게 보이는 가로형 이미지를 권장해요.
+                                {t("business_phase7_455")}
                               </span>
                             </button>
                           )}
@@ -453,14 +471,14 @@ export function OwnerStoreBannersView() {
                               onClick={() => bannerFileRef.current?.click()}
                               className="rounded-[10px] bg-white/95 px-3 py-1.5 text-[12px] font-semibold text-[var(--biz-text)] shadow-sm backdrop-blur-sm transition hover:bg-white disabled:opacity-50"
                             >
-                              사진 바꾸기
+                              {t("business_phase7_456")}
                             </button>
                           </div>
                         ) : null}
                       </div>
                       {has ? (
                         <p className="text-center text-[11px] text-[var(--biz-text-muted)]">
-                          가로로 긴 이미지가 배너에 더 잘 맞아요.
+                          {t("business_phase7_457")}
                         </p>
                       ) : null}
                     </div>
@@ -469,7 +487,7 @@ export function OwnerStoreBannersView() {
               </div>
 
               <label className="block">
-                <span className={Biz.textMuted}>제목</span>
+                <span className={Biz.textMuted}>{t("business_phase7_254")}</span>
                 <input
                   className="mt-1 w-full rounded-[14px] border border-[var(--biz-card-border)] px-3 py-2 text-[14px]"
                   value={editor.mode === "new" ? String(editor.draft.title ?? "") : String(editor.row.title ?? "")}
@@ -483,7 +501,7 @@ export function OwnerStoreBannersView() {
                 />
               </label>
               <label className="block">
-                <span className={Biz.textMuted}>설명</span>
+                <span className={Biz.textMuted}>{t("business_phase7_165")}</span>
                 <textarea
                   className="mt-1 w-full rounded-[14px] border border-[var(--biz-card-border)] px-3 py-2 text-[14px]"
                   rows={2}
@@ -498,12 +516,12 @@ export function OwnerStoreBannersView() {
                 />
               </label>
               <div className="rounded-[14px] border border-[var(--biz-card-border)] bg-[var(--biz-app-bg)]/50 p-3.5">
-                <p className="text-[14px] font-semibold text-[var(--biz-text)]">배너를 눌렀을 때</p>
+                <p className="text-[14px] font-semibold text-[var(--biz-text)]">{t("business_phase7_105")}</p>
                 <p className="mt-1 text-[12px] leading-snug text-[var(--biz-text-muted)]">
-                  손님이 배너를 탭하면 열릴 화면을 골라 주세요. 공지 연결 시 아래에서 제목으로 선택하면 됩니다.
+                  {t("business_phase7_458")}
                 </p>
                 <label htmlFor="owner-banner-link-action" className="mt-3 block">
-                  <span className="sr-only">동작 선택</span>
+                  <span className="sr-only">{t("business_phase7_054")}</span>
                   <select
                     id="owner-banner-link-action"
                     className="w-full rounded-[14px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-2.5 text-[14px] text-[var(--biz-text)]"
@@ -521,9 +539,9 @@ export function OwnerStoreBannersView() {
                       }
                     }}
                   >
-                    {LINK_OPTS.map((o) => (
-                      <option key={o.v} value={o.v}>
-                        {o.label}
+                    {LINK_VALUES.map((v) => (
+                      <option key={v} value={v}>
+                        {linkLabel(v)}
                       </option>
                     ))}
                   </select>
@@ -531,7 +549,7 @@ export function OwnerStoreBannersView() {
 
                 {(editor.mode === "new" ? editor.draft.link_type : editor.row.link_type) === "notice" ? (
                   <label className="mt-3 block border-t border-[var(--biz-card-border)] pt-3">
-                    <span className={`${Biz.textMuted} mb-1.5 block text-[13px]`}>열어 줄 공지</span>
+                    <span className={`${Biz.textMuted} mb-1.5 block text-[13px]`}>{t("business_phase7_197")}</span>
                     <select
                       className="w-full rounded-[14px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-2.5 text-[14px]"
                       disabled={busy || linkPick.loading}
@@ -549,10 +567,11 @@ export function OwnerStoreBannersView() {
                         }
                       }}
                     >
-                      <option value="">선택하지 않음</option>
+                      <option value="">{t("business_phase7_164")}</option>
                       {mergePickList(
                         linkPick.notices,
-                        editor.mode === "new" ? editor.draft.link_target_id : editor.row.link_target_id
+                        editor.mode === "new" ? editor.draft.link_target_id : editor.row.link_target_id,
+                        t("business_phase7_443")
                       ).map((r) => (
                         <option key={r.id} value={r.id}>
                           {r.title}
@@ -560,11 +579,11 @@ export function OwnerStoreBannersView() {
                       ))}
                     </select>
                     {linkPick.loading ? (
-                      <p className="mt-1.5 text-[11px] text-[var(--biz-text-muted)]">공지 목록을 불러오는 중…</p>
+                      <p className="mt-1.5 text-[11px] text-[var(--biz-text-muted)]">{t("business_phase7_031")}</p>
                     ) : linkPick.notices.length === 0 &&
                       !(editor.mode === "new" ? editor.draft.link_target_id : editor.row.link_target_id) ? (
                       <p className="mt-1.5 text-[11px] text-amber-800">
-                        등록된 공지가 없어요. 공지를 만든 뒤 다시 시도해 주세요.
+                        {t("business_phase7_459")}
                       </p>
                     ) : null}
                   </label>
@@ -582,11 +601,11 @@ export function OwnerStoreBannersView() {
                     }
                   }}
                 />
-                <span className={Biz.textBody}>노출 사용</span>
+                <span className={Biz.textBody}>{t("business_phase7_048")}</span>
               </label>
               <div className="grid grid-cols-2 gap-2">
                 <label className="block">
-                  <span className={Biz.textMuted}>시작(선택)</span>
+                  <span className={Biz.textMuted}>{t("business_phase7_174")}</span>
                   <input
                     type="datetime-local"
                     className="mt-1 w-full rounded-[14px] border border-[var(--biz-card-border)] px-2 py-1 text-[12px]"
@@ -604,7 +623,7 @@ export function OwnerStoreBannersView() {
                   />
                 </label>
                 <label className="block">
-                  <span className={Biz.textMuted}>종료(선택)</span>
+                  <span className={Biz.textMuted}>{t("business_phase7_258")}</span>
                   <input
                     type="datetime-local"
                     className="mt-1 w-full rounded-[14px] border border-[var(--biz-card-border)] px-2 py-1 text-[12px]"
@@ -623,10 +642,10 @@ export function OwnerStoreBannersView() {
             </div>
             <div className="mt-5 flex gap-2 border-t border-[var(--biz-card-border)] pt-4">
               <button type="button" disabled={busy} onClick={() => setEditor(null)} className={Biz.btnOutline}>
-                닫기
+                {t("common_close")}
               </button>
               <button type="button" disabled={busy} onClick={() => void saveEditor()} className={Biz.btnPrimaryLg}>
-                {busy ? "저장 중…" : "저장"}
+                {busy ? t("business_phase7_384") : t("business_phase7_385")}
               </button>
             </div>
           </div>
@@ -636,11 +655,9 @@ export function OwnerStoreBannersView() {
       <OwnerStoreAdminConfirmModal
         open={deleteConfirmId != null}
         titleId="owner-store-banners-delete-title"
-        title="배너 삭제"
-        description="이 배너를 삭제할까요?"
-        cancelLabel="취소"
-        confirmLabel="삭제"
-        confirmBusyLabel="삭제 중…"
+        title={t("business_phase7_104")}
+        description={t("business_phase7_460")}
+        confirmBusyLabel={t("business_phase7_442")}
         busy={busy}
         disableActions={busy}
         confirmTone="danger"

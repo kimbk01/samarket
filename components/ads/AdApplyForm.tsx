@@ -1,9 +1,14 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useState, useMemo } from "react";
 import type { AdTargetType, AdPlacement, AdPaymentMethod } from "@/lib/types/ad-application";
 import { getAdPlansByTargetAndPlacement } from "@/lib/ads/mock-ad-plans";
-import { AD_TARGET_LABELS, AD_PLACEMENT_LABELS, AD_PAYMENT_METHOD_LABELS } from "@/lib/ads/ad-utils";
+import {
+  adTargetLabel,
+  adPlacementLabel,
+  adPaymentMethodLabel,
+} from "@/lib/ads/ad-label-i18n";
 import type { AdPlan } from "@/lib/types/ad-application";
 
 export interface AdApplyFormValues {
@@ -37,6 +42,7 @@ export function AdApplyForm({
   onSubmit,
   submitLabel = "신청하기",
 }: AdApplyFormProps) {
+  const { t } = useI18n();
   const [targetType, setTargetType] = useState<AdTargetType>("product");
   const [targetId, setTargetId] = useState("");
   const [placement, setPlacement] = useState<AdPlacement>("home_top");
@@ -101,9 +107,9 @@ export function AdApplyForm({
           }}
           className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
         >
-          <option value="product">{AD_TARGET_LABELS.product}</option>
-          <option value="shop">{AD_TARGET_LABELS.shop}</option>
-          <option value="banner">{AD_TARGET_LABELS.banner} (placeholder)</option>
+          <option value="product">{adTargetLabel("product")}</option>
+          <option value="shop">{adTargetLabel("shop")}</option>
+          <option value="banner">{adTargetLabel("banner")} (placeholder)</option>
         </select>
       </div>
 
@@ -117,7 +123,7 @@ export function AdApplyForm({
             onChange={(e) => setTargetId(e.target.value)}
             className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
           >
-            <option value="">선택</option>
+            <option value="">{t("ui_product_category_select")}</option>
             {productOptions.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.title}
@@ -137,7 +143,7 @@ export function AdApplyForm({
             onChange={(e) => setTargetId(e.target.value)}
             className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
           >
-            <option value="">선택</option>
+            <option value="">{t("ui_product_category_select")}</option>
             {shopOptions.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.shopName}
@@ -161,7 +167,7 @@ export function AdApplyForm({
         >
           {PLACEMENTS.map((p) => (
             <option key={p} value={p}>
-              {AD_PLACEMENT_LABELS[p]}
+              {adPlacementLabel(p)}
             </option>
           ))}
         </select>
@@ -186,7 +192,7 @@ export function AdApplyForm({
 
       {selectedPlan && (
         <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4">
-          <p className="sam-text-body-secondary text-sam-muted">예상 금액</p>
+          <p className="sam-text-body-secondary text-sam-muted">{t("ui_ad_estimated_amount")}</p>
           <p className="mt-1 sam-text-page-title font-semibold text-sam-fg">
             ₩{selectedPlan.price.toLocaleString()}
           </p>
@@ -198,7 +204,7 @@ export function AdApplyForm({
 
       <div>
         <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-          결제 방식 (placeholder)
+          {t("points_ui_payment_method")} (placeholder)
         </label>
         <select
           value={paymentMethod}
@@ -208,11 +214,11 @@ export function AdApplyForm({
           className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
         >
           <option value="bank_transfer">
-            {AD_PAYMENT_METHOD_LABELS.bank_transfer}
+            {adPaymentMethodLabel("bank_transfer")}
           </option>
           <option value="gcash">{AD_PAYMENT_METHOD_LABELS.gcash}</option>
           <option value="manual_confirm">
-            {AD_PAYMENT_METHOD_LABELS.manual_confirm}
+            {adPaymentMethodLabel("manual_confirm")}
           </option>
         </select>
       </div>
@@ -226,7 +232,7 @@ export function AdApplyForm({
           onChange={(e) => setApplicantMemo(e.target.value)}
           rows={2}
           className="w-full rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body text-sam-fg"
-          placeholder="입금 참고용 메모"
+          placeholder={t("ui_ad_deposit_memo_ph")}
         />
       </div>
 

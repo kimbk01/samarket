@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getAdminStaffList } from "@/lib/admin-users/mock-admin-staff";
 import { getRoleLabel } from "@/lib/admin-users/mock-admin-staff";
 import {
@@ -14,6 +15,7 @@ import {
  * NEXT_PUBLIC_ADMIN_TEST_SWITCHER=true 또는 개발 시 노출 권장.
  */
 export function AdminTestSwitcher() {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [currentId, setCurrentId] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement>(null);
@@ -45,17 +47,19 @@ export function AdminTestSwitcher() {
         type="button"
         onClick={() => setOpen((o) => !o)}
         className="flex items-center gap-1.5 rounded border border-amber-200 bg-amber-50 px-2.5 py-1.5 sam-text-helper text-amber-800 hover:bg-amber-100"
-        title="테스트: 로그인할 관리자 전환"
+        title={t("admin_test_switcher_title")}
       >
         <span className="font-medium">
-          테스트: {currentId ? `${currentId}` : "env 기본"}
+          {currentId
+            ? t("admin_test_switcher_label", { id: currentId })
+            : t("admin_test_switcher_inactive")}
         </span>
         <span className="text-amber-600">▼</span>
       </button>
       {open && (
         <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded border border-sam-border bg-sam-surface py-1 shadow-sam-elevated">
           <div className="border-b border-sam-border-soft px-2 py-1.5 sam-text-xxs text-sam-muted">
-            수동 관리자로 로그인 전환 (새로고침)
+            {t("admin_test_switcher_menu_hint")}
           </div>
           <button
             type="button"
@@ -65,7 +69,7 @@ export function AdminTestSwitcher() {
             }}
             className="block w-full px-3 py-2 text-left sam-text-body-secondary text-sam-fg hover:bg-sam-app"
           >
-            env 기본 (NEXT_PUBLIC_ADMIN_ROLE)
+            {t("admin_test_switcher_env_option")}
           </button>
           {staffList.map((s) => (
             <button
@@ -76,7 +80,9 @@ export function AdminTestSwitcher() {
                 setOpen(false);
               }}
               className={`block w-full px-3 py-2 text-left sam-text-body-secondary hover:bg-sam-app ${
-                currentId === s.loginId ? "bg-amber-50 font-medium text-amber-900" : "text-sam-fg"
+                currentId === s.loginId
+                  ? "bg-amber-50 font-medium text-amber-900"
+                  : "text-sam-fg"
               }`}
             >
               <span className="font-medium">{s.loginId}</span>

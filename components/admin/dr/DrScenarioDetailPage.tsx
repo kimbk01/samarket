@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo } from "react";
 import { getDrScenarioById } from "@/lib/dr/mock-dr-scenarios";
 import { getDrScenarioSteps } from "@/lib/dr/mock-dr-scenario-steps";
@@ -11,6 +14,7 @@ interface DrScenarioDetailPageProps {
 }
 
 export function DrScenarioDetailPage({ scenarioId }: DrScenarioDetailPageProps) {
+  const { t } = useI18n();
   const scenario = useMemo(
     () => getDrScenarioById(scenarioId),
     [scenarioId]
@@ -54,9 +58,9 @@ export function DrScenarioDetailPage({ scenarioId }: DrScenarioDetailPageProps) 
       </div>
 
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <h3 className="sam-text-body font-medium text-sam-fg">대응 단계 체크리스트</h3>
+        <h3 className="sam-text-body font-medium text-sam-fg">{t("admin_dr_checklist")}</h3>
         {steps.length === 0 ? (
-          <p className="mt-2 sam-text-body-secondary text-sam-muted">단계 없음</p>
+          <p className="mt-2 sam-text-body-secondary text-sam-muted">{t("admin_dr_k61773cdc")}</p>
         ) : (
           <ol className="mt-2 list-decimal space-y-2 pl-5 sam-text-body text-sam-fg">
             {steps.map((step) => (
@@ -70,9 +74,9 @@ export function DrScenarioDetailPage({ scenarioId }: DrScenarioDetailPageProps) 
       </div>
 
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <h3 className="sam-text-body font-medium text-sam-fg">실행 로그 타임라인</h3>
+        <h3 className="sam-text-body font-medium text-sam-fg">{t("admin_dr_ke68cdd6f")}</h3>
         {executions.length === 0 ? (
-          <p className="mt-2 sam-text-body-secondary text-sam-muted">실행 이력 없음</p>
+          <p className="mt-2 sam-text-body-secondary text-sam-muted">{t("admin_dr_k4571b8f3")}</p>
         ) : (
           <ul className="mt-2 space-y-3">
             {executions.map((e) => (

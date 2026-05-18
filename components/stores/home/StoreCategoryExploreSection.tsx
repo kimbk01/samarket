@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
@@ -51,6 +52,7 @@ export function StoreCategoryExploreSection({
 }: {
   headerTrailing?: ReactNode;
 }) {
+  const { t } = useI18n();
   const industryVersion = useBrowseIndustryDatasetVersion();
   const [taxonomy, setTaxonomy] = useState<{
     categories: StoreTaxonomyCategory[];
@@ -118,7 +120,7 @@ export function StoreCategoryExploreSection({
       <div className={`overflow-hidden rounded-sam-md border border-sam-border bg-sam-surface shadow-sam-elevated dark:border-[#3E4042] dark:bg-[#242526] dark:shadow-none dark:ring-1 dark:ring-sam-surface/[0.08]`}>
         <div
           role="tablist"
-          aria-label="대분류 업종"
+          aria-label={t("store_primary_industry_aria")}
           className="flex snap-x snap-mandatory gap-0 overflow-x-auto overscroll-x-contain border-b border-sam-border px-0.5 py-1 [-ms-overflow-style:none] [scrollbar-width:none] [scrollbar-gutter:stable] touch-pan-x dark:border-[#3E4042] [&::-webkit-scrollbar]:hidden"
         >
           {primaries.map((p) => {
@@ -188,7 +190,7 @@ export function StoreCategoryExploreSection({
             <span className="font-semibold text-sam-fg dark:text-[#E4E6EB]">
               {String(activePrimary?.nameKo ?? activePrimary?.name ?? "매장").trim() || "매장"}
             </span>
-            <span className="text-sam-muted dark:text-[#B0B3B8]"> · 세부 주제</span>
+            <span className="text-sam-muted dark:text-[#B0B3B8]">{t("store_subtopic_suffix")}</span>
           </p>
           <Link
             href={storesBrowsePrimaryPath(activeSlug)}
@@ -245,7 +247,7 @@ export function StoreCategoryExploreSection({
                   loading="lazy"
                 />
               ) : null}
-              <span className="sam-text-xxs font-semibold leading-none text-sam-muted dark:text-[#B0B3B8]">모아보기</span>
+              <span className="sam-text-xxs font-semibold leading-none text-sam-muted dark:text-[#B0B3B8]">{t("store_collect_view")}</span>
               <span className="mt-0.5 text-[13px] font-bold leading-none text-gray-800 dark:text-[#E4E6EB]">
                 전체
               </span>

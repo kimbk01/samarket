@@ -1,15 +1,19 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo } from "react";
 import { getSlowQueries } from "@/lib/performance/mock-slow-queries";
 import { AdminTable } from "@/components/admin/AdminTable";
 
 export function SlowQueryTable() {
+  const { t } = useI18n();
   const queries = useMemo(() => getSlowQueries(), []);
 
   return (
     <div className="space-y-4">
-      <p className="sam-text-helper text-sam-muted">쿼리 병목 리스트 (감지된 느린 쿼리)</p>
+      <p className="sam-text-helper text-sam-muted">{t("admin_performance_k7f4664cc")}</p>
       {queries.length === 0 ? (
         <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
           느린 쿼리가 없습니다.

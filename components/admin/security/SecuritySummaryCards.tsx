@@ -1,10 +1,14 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo } from "react";
 import { getSecurityChecks } from "@/lib/security/mock-security-checks";
 import { getSecurityIssues } from "@/lib/security/mock-security-issues";
 
 export function SecuritySummaryCards() {
+  const { t } = useI18n();
   const summary = useMemo(() => {
     const checks = getSecurityChecks();
     const issues = getSecurityIssues();
@@ -28,13 +32,13 @@ export function SecuritySummaryCards() {
   return (
     <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <p className="sam-text-helper text-sam-muted">점검 항목</p>
+        <p className="sam-text-helper text-sam-muted">{t("admin_security_k45d5aa2b")}</p>
         <p className="sam-text-page-title font-semibold text-sam-fg">
           {summary.totalChecks}건
         </p>
       </div>
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <p className="sam-text-helper text-sam-muted">안전 / 주의 / 위험</p>
+        <p className="sam-text-helper text-sam-muted">{t("admin_security_safe_warning_critical")}</p>
         <p className="sam-text-body text-sam-fg">
           <span className="text-emerald-600">{summary.safe}</span> /{" "}
           <span className="text-amber-600">{summary.warning}</span> /{" "}
@@ -42,13 +46,13 @@ export function SecuritySummaryCards() {
         </p>
       </div>
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <p className="sam-text-helper text-sam-muted">미해결 이슈</p>
+        <p className="sam-text-helper text-sam-muted">{t("admin_launch_week_open_issues")}</p>
         <p className="sam-text-page-title font-semibold text-sam-fg">
           {summary.openIssues}건
         </p>
       </div>
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <p className="sam-text-helper text-sam-muted">critical 이슈</p>
+        <p className="sam-text-helper text-sam-muted">{t("admin_critical_issues")}</p>
         <p
           className={`sam-text-page-title font-semibold ${
             summary.criticalIssues > 0 ? "text-red-600" : "text-sam-fg"

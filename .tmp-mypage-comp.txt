@@ -1,0 +1,98 @@
+﻿  components\mypage\myinfo\MyInfoHeader.tsx:7: title = "내정보",
+  components\mypage\myinfo\MyInfoProfileCard.tsx:35: aria-label="프로필 이미지"
+  components\mypage\myinfo\MyInfoProfileCard.tsx:69: aria-label="주소 관리로 이동"
+  components\mypage\myinfo\MyInfoStatGrid.tsx:14: title = "요약",
+  components\mypage\MyInterestSection.tsx:19: <h2 className="mb-3 sam-text-body-secondary font-semibold text-muted">나의 
+관심</h2>
+  components\mypage\MyPageAdminMenuEntry.tsx:40: const row = <MyPageMobileMenuRow href="/admin" title="관리자 접속" surface=
+{asListItem || wrapInStandaloneCard ? "card" : "gr
+  components\mypage\MyPageHeader.tsx:8: <h1 className="sam-text-section-title font-semibold text-sam-fg">나의 카마켓</h1>
+  components\mypage\MyPageHomeDashboard.tsx:242: <MyInfoStatGrid title="요약" items={statRows} />
+  components\mypage\MyPageHomeDashboard.tsx:245: <MyInfoMenuSection title="거래">
+  components\mypage\MyPageHomeDashboard.tsx:248: title="진행중 거래"
+  components\mypage\MyPageHomeDashboard.tsx:254: title="찜"
+  components\mypage\MyPageHomeDashboard.tsx:260: title="내 가격 제안"
+  components\mypage\MyPageHomeDashboard.tsx:266: <MyInfoMenuSection title="커뮤니티">
+  components\mypage\MyPageHomeDashboard.tsx:269: title="내가 쓴 글"
+  components\mypage\MyPageHomeDashboard.tsx:275: title="댓글/활동"
+  components\mypage\MyPageHomeDashboard.tsx:281: <MyInfoMenuSection title="매장 / 주문">
+  components\mypage\MyPageHomeDashboard.tsx:284: title="내 상점 등록하기"
+  components\mypage\MyPageHomeDashboard.tsx:290: title="주문내역"
+  components\mypage\MyPageHomeDashboard.tsx:296: title="배달K 라이더"
+  components\mypage\MyPageHomeDashboard.tsx:302: <MyInfoMenuSection title="계정">
+  components\mypage\MyPageHomeDashboard.tsx:305: title="주소관리"
+  components\mypage\MyPageHomeDashboard.tsx:311: title="결제정보"
+  components\mypage\MyPageHomeDashboard.tsx:317: title="개인/보안"
+  components\mypage\MyPageHomeDashboard.tsx:323: title="알림"
+  components\mypage\MyPageHomeDashboard.tsx:329: title="언어 Language"
+  components\mypage\MyPageHomeDashboard.tsx:335: title="지역/국가"
+  components\mypage\MyPageHomeDashboard.tsx:341: title="설정"
+  components\mypage\MyPageHomeDashboard.tsx:347: <MyInfoMenuSection title="고객지원">
+  components\mypage\MyPageHomeDashboard.tsx:350: title="고객센터"
+  components\mypage\MyPageHomeDashboard.tsx:356: title="공지사항"
+  components\mypage\MyPageHomeDashboard.tsx:362: title="이벤트"
+  components\mypage\MyPageHomeDashboard.tsx:368: title="이용약관"
+  components\mypage\MypageInfoHubSheet.tsx:52: <button type="button" className="absolute inset-0 bg-black/50" onClick={
+onClose} aria-label="닫기" />
+  components\mypage\MypageInfoHubSidePanel.tsx:107: aria-label="닫기"
+  components\mypage\MypageInfoHubSidePanel.tsx:122: aria-label="배경 닫기"
+  components\mypage\MyPageItemRouteClient.tsx:43: <div className="py-6 text-center sam-text-body text-sam-muted">불러오는 중
+…</div>
+  components\mypage\MyPageItemRouteClient.tsx:51: <div className="py-6 text-center sam-text-body text-sam-muted">로그인이 필
+요합니다.</div>
+  components\mypage\MyPageItemScreen.tsx:98: <p className="sam-text-body font-semibold text-sam-fg">채팅 설정</p>
+  components\mypage\MyPageItemScreen.tsx:102: <p className="sam-text-body font-semibold text-sam-fg">알림 설정</p>
+  components\mypage\MyPageItemScreen.tsx:136: <p className="mb-3 sam-text-body font-semibold text-sam-fg">판매 글 동네 일괄 변경
+</p>
+  components\mypage\MyPageItemScreen.tsx:166: <p className="sam-text-body text-sam-fg">진행 중인 이벤트와 혜택을 확인하세요.</p>
+  components\mypage\MyPageItemScreen.tsx:179: <p>주문 문제는 주문 내역과 주문 상세에서 먼저 확인해 주세요.</p>
+  components\mypage\MyPageItemScreen.tsx:180: <p>거래 문제는 거래 채팅과 거래 후기 화면에서 먼저 확인해 주세요.</p>
+  components\mypage\MyPageItemScreen.tsx:181: <p className="sam-text-helper text-sam-muted">추가 문의가 필요하면 앱 내 공지·안내를 참고해 
+주세요.</p>
+  components\mypage\MyPageItemScreen.tsx:188: <p>서비스 이용 약관·운영 정책은 회원가입 시 동의한 내용을 따릅니다.</p>
+  components\mypage\MyPageItemScreen.tsx:201: <p className="mb-3 sam-text-helper text-sam-muted">현재 로그인된 계정에서 바로 로그아웃할 
+수 있습니다.</p>
+  components\mypage\MyPageItemScreen.tsx:240: <p className="sam-text-helper text-sam-muted">배터리 매너</p>
+  components\mypage\MyPageSidebar.tsx:60: <nav className="pb-2" aria-label="내정보 메뉴">
+  components\mypage\MyPointCard.tsx:35: <p className="sam-text-xxs font-medium text-muted">내 포인트</p>
+  components\mypage\MyStoreCommerceSection.tsx:54: <h2 className="sam-text-body font-semibold text-sam-fg">동네 매장</h2>
+  components\mypage\MyStoreCommerceSection.tsx:69: <h2 className="sam-text-body font-semibold text-sam-fg">동네 매장 (사장님)<
+/h2>
+  components\mypage\MyStoreCommerceSection.tsx:102: <h2 className="sam-text-body font-semibold text-sam-fg">동네 매장 (사장님)
+</h2>
+  components\mypage\MyStoreInquiriesView.tsx:81: return <p className="text-sm text-sam-muted">불러오는 중…</p>;
+  components\mypage\MyStoreInquiriesView.tsx:84: return <p className="text-sm text-sam-muted">로그인 후 문의 내역을 확인할 수 있습니다.<
+/p>;
+  components\mypage\MyStoreInquiriesView.tsx:100: <p>보낸 문의가 없습니다.</p>
+  components\mypage\MyStoreInquiriesView.tsx:120: <p className="text-xs font-medium text-sam-muted">매장 답변</p>
+  components\mypage\MyStoreOrderDetailView.tsx:507: return <p className="text-sm text-sam-muted">불러오는 중…</p>;
+  components\mypage\MyStoreOrderDetailView.tsx:531: <p className="mt-4 sam-text-helper text-sam-muted">주문 정보를 불러오는 중…</
+p>
+  components\mypage\MyStoreOrderDetailView.tsx:546: <p>로그인 후 주문 상세와 매장 채팅을 계속 확인할 수 있습니다.</p>
+  components\mypage\MyStoreOrderDetailView.tsx:559: <p>주문을 찾을 수 없습니다.</p>
+  components\mypage\MyStoreOrderDetailView.tsx:635: <span className="ml-1 text-sam-muted">(사유: {order.sla_warning_reaso
+n.trim()})</span>
+  components\mypage\MyStoreOrderDetailView.tsx:752: <p className="mt-2 text-sm font-medium text-sam-fg">결제 방법: {payDisp
+lay}</p>
+  components\mypage\MyStoreOrderDetailView.tsx:755: <p className="mt-2 text-sm text-sam-fg">요청 사항: {order.buyer_note}</
+p>
+  components\mypage\MyStoreOrderDetailView.tsx:763: <h2 className="text-sm font-semibold text-sam-fg">진행 단계</h2>
+  components\mypage\MyStoreOrderDetailView.tsx:778: <h3 className="text-xs font-semibold uppercase tracking-wide text-s
+am-meta">주문 기록</h3>
+  components\mypage\MyStoreOrderDetailView.tsx:820: <h2 className="sam-text-body font-bold text-sam-fg">주문 상품</h2>
+  components\mypage\MyStoreOrderDetailView.tsx:828: <p className="sam-text-body-secondary text-sam-muted">포장 픽업 · 아래 매장
+에서 수령하세요.</p>
+  components\mypage\MyStoreOrderDetailView.tsx:836: <p className="text-amber-800">매장 주소가 아직 등록되지 않았습니다. 채팅으로 매장에 확인해 주세
+요.</p>
+  components\mypage\MyStoreOrderDetailView.tsx:861: title="주소·매장 위치 변경 시 자동 갱신된 참고 값입니다."
+  components\mypage\MyStoreOrderDetailView.tsx:869: <p className="mt-1.5 text-sm text-amber-800">등록된 배달 주소가 없습니다.</p>
+  components\mypage\MyStoreOrderDetailView.tsx:874: <h3 className="sam-text-xxs font-semibold text-sam-muted">주문자 연락처</
+h3>
+  components\mypage\MyStoreOrderDetailView.tsx:889: <span className="ml-1 sam-text-xxs font-normal text-sam-meta">· 전화 
+문의</span>
+  components\mypage\MyStoreOrderDetailView.tsx:892: <p className="mt-1.5 text-sm text-sam-muted">등록된 연락처가 없습니다.</p>
+  components\mypage\MyStoreOrderDetailView.tsx:897: <h3 className="sam-text-xxs font-semibold text-sam-muted">주문 품목</h3
+>
+  components\mypage\MyStoreOrderDetailView.tsx:898: <p className="mt-1 sam-text-xxs text-sam-meta">이름 · 수량 · 단가 / 할인율 ·
+ 항목 합계</p>
+  … and 168 more

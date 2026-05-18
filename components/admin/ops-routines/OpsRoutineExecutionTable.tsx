@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useState } from "react";
 import { getOpsRoutineExecutions } from "@/lib/ops-routines/mock-ops-routine-executions";
 import { getOpsRoutineTemplateById } from "@/lib/ops-routines/mock-ops-routine-templates";
@@ -17,6 +18,7 @@ import type {
 import Link from "next/link";
 
 export function OpsRoutineExecutionTable() {
+  const { t } = useI18n();
   const [periodType, setPeriodType] = useState<OpsRoutinePeriodType | "">("");
   const [status, setStatus] = useState<OpsRoutineExecutionStatus | "">("");
   const executions = useMemo(
@@ -31,7 +33,7 @@ export function OpsRoutineExecutionTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">주기</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_ops_tools_routines_label_period")}</span>
         <select
           value={periodType}
           onChange={(e) =>
@@ -39,12 +41,12 @@ export function OpsRoutineExecutionTable() {
           }
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
-          <option value="weekly">주간</option>
-          <option value="monthly">월간</option>
-          <option value="quarterly">분기</option>
+          <option value="">{t("admin_ops_tools_surface_all")}</option>
+          <option value="weekly">{t("admin_ops_tools_period_weekly")}</option>
+          <option value="monthly">{t("admin_ops_tools_period_monthly")}</option>
+          <option value="quarterly">{t("admin_ops_tools_period_quarterly")}</option>
         </select>
-        <span className="sam-text-body-secondary text-sam-muted">상태</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_ops_tools_board_th_status")}</span>
         <select
           value={status}
           onChange={(e) =>
@@ -52,23 +54,19 @@ export function OpsRoutineExecutionTable() {
           }
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
-          <option value="todo">할 일</option>
-          <option value="in_progress">진행중</option>
-          <option value="done">완료</option>
-          <option value="skipped">건너뜀</option>
-          <option value="overdue">지연</option>
+          <option value="">{t("admin_ops_tools_surface_all")}</option>
+          <option value="todo">{t("admin_ops_tools_routine_todo")}</option>
+          <option value="in_progress">{t("admin_ops_tools_checklist_in_progress")}</option>
+          <option value="done">{t("admin_ops_tools_checklist_done")}</option>
+          <option value="skipped">{t("admin_ops_tools_routine_skipped")}</option>
+          <option value="overdue">{t("admin_ops_tools_routine_overdue")}</option>
         </select>
       </div>
 
-      <p className="sam-text-helper text-sam-muted">
-        정기 운영 업무 SLA는 dueDate 기준. 누락된 정기 업무는 overdue로 강조됩니다.
-      </p>
+      <p className="sam-text-helper text-sam-muted">{t("admin_ops_tools_routines_sla_hint")}</p>
 
       {executions.length === 0 ? (
-        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          해당 조건 실행 항목이 없습니다.
-        </div>
+        <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_routines_exec_empty")}</div>
       ) : (
         <AdminTable
           headers={[

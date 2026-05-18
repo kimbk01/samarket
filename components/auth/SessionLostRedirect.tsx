@@ -12,6 +12,7 @@ import { fetchAuthSessionNoStore } from "@/lib/auth/fetch-auth-session-client";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { runBrowserAuthRefreshDeduped } from "@/lib/supabase/auth-refresh-telemetry";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const SESSION_CHECK_COOLDOWN_MS = 10_000;
 /** 라우트 전환 직후 쿠키·RSC 타이밍 레이스로 `/api/auth/session` 이 일시 401일 수 있음 — 즉시 검사하지 않음 */
@@ -53,6 +54,7 @@ function isCommunityMessengerCallShellPath(path: string): boolean {
  * - 실제 미인증은 `proxy.ts`·전체 네비게이션 시 서버가 처리.
  */
 export function SessionLostRedirect() {
+  const { t } = useI18n();
   const pathname = usePathname() ?? "";
   const pathnameRef = useRef(pathname);
   const prevPathForSessionRef = useRef<string | null>(null);
@@ -155,14 +157,14 @@ export function SessionLostRedirect() {
   return sessionReplacedOpen ? (
     <div className="fixed inset-0 z-[130] flex items-center justify-center bg-black/45 px-4">
       <div className="w-full max-w-sm rounded-ui-rect bg-sam-surface p-5 shadow-xl">
-        <p className="sam-text-body font-semibold text-sam-fg">{SESSION_REPLACED_MESSAGE}</p>
+        <p className="sam-text-body font-semibold text-sam-fg">{t("auth_session_replaced")}</p>
         <div className="mt-4">
           <button
             type="button"
             onClick={() => void finalizeForcedLogout()}
             className="w-full rounded-ui-rect bg-sam-ink py-2.5 sam-text-body font-medium text-white transition-transform duration-100 active:scale-[0.985] active:brightness-95"
           >
-            확인
+            {t("common_confirm")}
           </button>
         </div>
       </div>

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import type { Product, ProductStatus } from "@/lib/types/product";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { updatePostStatusAdmin, updatePostBumpAdmin } from "@/lib/admin-posts/updatePostAdmin";
 
 interface AdminProductActionPanelProps {
@@ -17,6 +19,16 @@ type ActionType =
   | "mark_sold"
   | "mark_active"
   | "bump";
+
+const ACTION_LABEL_KEYS: Record<ActionType, MessageKey> = {
+  hide: "admin_products_action_hide",
+  blind: "admin_products_action_blind",
+  restore: "admin_products_action_restore",
+  delete: "admin_products_action_delete",
+  mark_sold: "admin_products_action_mark_sold",
+  mark_active: "admin_products_action_mark_active",
+  bump: "admin_products_action_bump",
+};
 
 /** DB posts.status 값 (blinded → hidden) */
 function toDbStatus(productStatus: ProductStatus): string {
@@ -42,20 +54,11 @@ function getActions(status: ProductStatus): ActionType[] {
   }
 }
 
-const ACTION_LABELS: Record<ActionType, string> = {
-  hide: "숨김",
-  blind: "블라인드",
-  restore: "복구",
-  delete: "삭제",
-  mark_sold: "판매완료 처리",
-  mark_active: "판매중 복구",
-  bump: "끌올",
-};
-
 export function AdminProductActionPanel({
   product,
   onActionSuccess,
 }: AdminProductActionPanelProps) {
+  const { t } = useI18n();
   const [loading, setLoading] = useState<ActionType | null>(null);
   const actions = getActions(product.status);
 
@@ -65,7 +68,7 @@ export function AdminProductActionPanel({
       const res = await updatePostBumpAdmin(product.id);
       setLoading(null);
       if (res.ok) onActionSuccess();
-      else alert(res.ok === false ? res.error : "처리 실패");
+      else alert(res.ok === false ? res.error : t("admin_products_action_failed"));
       return;
     }
     let toStatus: string;
@@ -95,13 +98,13 @@ export function AdminProductActionPanel({
     const res = await updatePostStatusAdmin(product.id, toStatus as any);
     setLoading(null);
     if (res.ok) onActionSuccess();
-    else alert(res.ok === false ? res.error : "처리 실패");
+    else alert(res.ok === false ? res.error : t("admin_products_action_failed"));
   };
 
   if (actions.length === 0) {
     return (
       <p className="sam-text-body text-sam-muted">
-        삭제된 상품은 추가 액션을 할 수 없습니다.
+        {t("admin_products_deleted_no_actions")}
       </p>
     );
   }
@@ -116,7 +119,7 @@ export function AdminProductActionPanel({
           onClick={() => run(action)}
           className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app disabled:opacity-50"
         >
-          {loading === action ? "처리 중..." : ACTION_LABELS[action]}
+          {loading === action ? t("admin_products_action_processing") : t(ACTION_LABEL_KEYS[action])}
         </button>
       ))}
     </div>

@@ -30,14 +30,6 @@ type Row = {
 
 const INBOX_PAGE_SIZE = 40;
 
-const INBOX_FILTER_CHIPS: { key: InboxPushKindFilter; label: string }[] = [
-  { key: "all", label: "전체" },
-  { key: "trade", label: "거래" },
-  { key: "chat", label: "채팅" },
-  { key: "notice", label: "공지" },
-  { key: "marketing", label: "광고" },
-];
-
 type TradeOfferNotificationMeta = {
   kind?: string;
   event?: string;
@@ -65,6 +57,16 @@ function resolvePendingTradeOfferMeta(item: InboxGroupItem): TradeOfferNotificat
 export function MyNotificationsView() {
   const router = useRouter();
   const { language, t } = useI18n();
+  const inboxFilterChips = useMemo(
+    (): { key: InboxPushKindFilter; label: string }[] => [
+      { key: "all", label: t("notif_filter_all") },
+      { key: "trade", label: t("notif_filter_trade") },
+      { key: "chat", label: t("notif_filter_chat") },
+      { key: "notice", label: t("notif_filter_notice") },
+      { key: "marketing", label: t("notif_filter_marketing") },
+    ],
+    [t]
+  );
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -108,7 +110,7 @@ export function MyNotificationsView() {
         });
         const j = raw as { ok?: boolean; error?: string; notifications?: Row[]; has_more?: boolean };
         if (status === 401) {
-          setError("로그인이 필요합니다.");
+          setError("login_required");
           rowsLengthRef.current = 0;
           setRows((prev) => (prev.length === 0 ? prev : []));
           setHasMore(false);
@@ -320,7 +322,7 @@ export function MyNotificationsView() {
         });
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json?.ok) {
-          setError(typeof json?.error === "string" ? json.error : "가격 제안을 처리하지 못했습니다.");
+          setError(typeof json?.error === "string" ? json.error : t("notif_inbox_offer_action_failed"));
           return;
         }
         void markIdsRead(item.ids);
@@ -333,21 +335,21 @@ export function MyNotificationsView() {
         setOfferActionBusyId((prev) => (prev === offerId ? null : prev));
       }
     },
-    [broadcastNotificationsUpdated, load, markIdsRead]
+    [broadcastNotificationsUpdated, load, markIdsRead, t]
   );
 
   if (loading) {
-    return <p className="text-sm text-sam-muted">불러오는 중…</p>;
+    return <p className="text-sm text-sam-muted">{t("common_loading")}</p>;
   }
 
-  if (error === "로그인이 필요합니다.") {
-    return <p className="text-sm text-sam-muted">{error}</p>;
+  if (error === "login_required") {
+    return <p className="text-sm text-sam-muted">{t("notif_inbox_login_required")}</p>;
   }
 
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2">
-        {INBOX_FILTER_CHIPS.map(({ key, label }) => (
+        {inboxFilterChips.map(({ key, label }) => (
           <button
             key={key}
             type="button"
@@ -394,7 +396,7 @@ export function MyNotificationsView() {
                 }}
                 className="rounded-ui-rect bg-sam-primary px-3 py-2 text-[12px] font-semibold text-white disabled:opacity-60"
               >
-                수락
+                {t("common_accept")}
               </button>
               <button
                 type="button"
@@ -405,7 +407,7 @@ export function MyNotificationsView() {
                 }}
                 className="rounded-ui-rect border border-sam-border px-3 py-2 text-[12px] font-semibold text-sam-fg disabled:opacity-60"
               >
-                거절
+                {t("common_reject")}
               </button>
             </div>
           );
@@ -422,7 +424,7 @@ export function MyNotificationsView() {
             onClick={() => void loadMore()}
             className="rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-2 text-[13px] font-medium text-sam-fg disabled:opacity-50"
           >
-            {loadMoreBusy ? "불러오는 중…" : "더 보기"}
+            {loadMoreBusy ? t("common_loading") : t("notif_inbox_load_more")}
           </button>
         </div>
       ) : null}

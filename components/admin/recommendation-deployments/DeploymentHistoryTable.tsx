@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { getRecommendationDeployments } from "@/lib/recommendation-deployments/mock-recommendation-deployments";
 import { getFeedVersionById } from "@/lib/recommendation-experiments/mock-feed-versions";
@@ -15,6 +18,7 @@ const STATUS_LABELS: Record<DeploymentStatus, string> = {
 };
 
 export function DeploymentHistoryTable() {
+  const { t } = useI18n();
   const [surfaceFilter, setSurfaceFilter] = useState<string>("");
 
   const deployments = useMemo(
@@ -36,10 +40,10 @@ export function DeploymentHistoryTable() {
             onChange={(e) => setSurfaceFilter(e.target.value)}
             className="rounded border border-sam-border px-3 py-2 sam-text-body"
           >
-            <option value="">전체 surface</option>
-            <option value="home">홈</option>
-            <option value="search">검색</option>
-            <option value="shop">상점</option>
+            <option value="">{t("admin_rec_deploy_all")}</option>
+            <option value="home">{t("admin_surface_home")}</option>
+            <option value="search">{t("admin_surface_search")}</option>
+            <option value="shop">{t("admin_rec_deploy_shop")}</option>
           </select>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
@@ -57,10 +61,10 @@ export function DeploymentHistoryTable() {
           onChange={(e) => setSurfaceFilter(e.target.value)}
           className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
-          <option value="">전체 surface</option>
-          <option value="home">홈</option>
-          <option value="search">검색</option>
-          <option value="shop">상점</option>
+          <option value="">{t("admin_rec_deploy_all")}</option>
+          <option value="home">{t("admin_surface_home")}</option>
+          <option value="search">{t("admin_surface_search")}</option>
+          <option value="shop">{t("admin_rec_deploy_shop")}</option>
         </select>
       </div>
       <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">

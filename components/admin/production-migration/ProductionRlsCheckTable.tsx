@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { getProductionRlsChecks } from "@/lib/production-migration/mock-production-rls-checks";
 import { AdminTable } from "@/components/admin/AdminTable";
@@ -7,6 +10,7 @@ import { getRlsStatusLabel } from "@/lib/production-migration/production-migrati
 import type { ProductionRlsCheckStatus } from "@/lib/types/production-migration";
 
 export function ProductionRlsCheckTable() {
+  const { t } = useI18n();
   const [status, setStatus] = useState<ProductionRlsCheckStatus | "">("");
   const checks = useMemo(
     () =>
@@ -19,7 +23,7 @@ export function ProductionRlsCheckTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">상태</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_qa_status_2")}</span>
         <select
           value={status}
           onChange={(e) =>
@@ -27,11 +31,11 @@ export function ProductionRlsCheckTable() {
           }
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
-          <option value="missing">미작성</option>
-          <option value="draft">초안</option>
-          <option value="ready">준비</option>
-          <option value="verified">검증됨</option>
+          <option value="">{t("common_all")}</option>
+          <option value="missing">{t("admin_prod_migration_kdd9b3e2e")}</option>
+          <option value="draft">{t("admin_prod_migration_kd9aaeb45")}</option>
+          <option value="ready">{t("admin_prod_migration_k0ea2b779")}</option>
+          <option value="verified">{t("admin_qa_verified")}</option>
         </select>
       </div>
 

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { AutomationSummaryCards } from "./AutomationSummaryCards";
@@ -13,35 +15,38 @@ import { loadFullRecommendationAdminState } from "@/lib/recommendation-ops/recom
 
 type TabId = "policy" | "escalation" | "executions" | "recovery" | "simulator";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "policy", label: "자동화 정책" },
-  { id: "escalation", label: "Escalation 규칙" },
-  { id: "executions", label: "자동 조치 실행" },
-  { id: "recovery", label: "Recovery 상태" },
-  { id: "simulator", label: "시뮬레이션" },
+const AUTO_TABS: { id: TabId; labelKey: MessageKey }[] = [
+  { id: "policy", labelKey: "admin_rec_auto_tab_policy" },
+  { id: "escalation", labelKey: "admin_rec_auto_tab_escalation" },
+  { id: "executions", labelKey: "admin_rec_auto_tab_executions" },
+  { id: "recovery", labelKey: "admin_rec_auto_tab_recovery" },
+  { id: "simulator", labelKey: "admin_rec_auto_tab_simulator" },
 ];
 
 export function AdminRecommendationAutomationPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("policy");
   const [hydrated, setHydrated] = useState(false);
   const [hydrateError, setHydrateError] = useState<string | null>(null);
 
   useEffect(() => {
     void loadFullRecommendationAdminState().then((r) => {
-      if (!r.ok) setHydrateError(r.errors?.join(" · ") ?? "불러오기 실패");
+      if (!r.ok) setHydrateError(r.errors?.join(" · ") ?? t("admin_rec_load_failed"));
       setHydrated(true);
     });
-  }, []);
+  }, [t]);
 
   if (!hydrated) {
     return (
       <>
         <AdminPageHeader
-          title="추천 운영 자동화"
-          description="임계치 기반 자동 Fallback·롤백·Escalation·Dry-run"
+          titleKey="admin_rec_auto_page_title"
+          descriptionKey="admin_rec_auto_page_desc"
         />
         <AdminCard>
-          <p className="py-8 text-center sam-text-body text-sam-muted">운영 설정을 불러오는 중…</p>
+          <p className="py-8 text-center sam-text-body text-sam-muted">
+            {t("admin_rec_auto_loading_settings")}
+          </p>
         </AdminCard>
       </>
     );
@@ -50,22 +55,22 @@ export function AdminRecommendationAutomationPage() {
   return (
     <>
       <AdminPageHeader
-        title="추천 운영 자동화"
-        description="임계치 기반 자동 Fallback·롤백·Escalation·Dry-run — 정책·규칙·실행 이력은 DB(admin_settings)에 저장됩니다."
+        titleKey="admin_rec_auto_page_title"
+        descriptionKey="admin_rec_auto_page_desc_db"
       />
-      {hydrateError && (
+      {hydrateError ? (
         <div
           className="mb-4 rounded-ui-rect border border-amber-500/40 bg-amber-500/10 px-4 py-3 sam-text-body-secondary text-sam-fg"
           role="alert"
         >
-          서버에서 추천 운영 설정을 불러오지 못했습니다. 기본값으로 표시 중입니다. ({hydrateError})
+          {t("admin_rec_auto_hydrate_fail")} ({hydrateError})
         </div>
-      )}
+      ) : null}
       <div className="mb-4">
         <AutomationSummaryCards />
       </div>
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
-        {TABS.map((tab) => (
+        {AUTO_TABS.map((tab) => (
           <button
             key={tab.id}
             type="button"
@@ -76,7 +81,7 @@ export function AdminRecommendationAutomationPage() {
                 : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>

@@ -1,24 +1,13 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { OPS_DOC_TYPE_KEYS } from "@/components/admin/i18n/admin-ops-doc-label-keys";
+import {
+  OPS_TOOLS_KB_CATEGORY_KEYS,
+  opsToolsLabel,
+} from "@/components/admin/i18n/admin-ops-tools-label-keys";
 import Link from "next/link";
 import type { OpsKnowledgeBaseIndexItem } from "@/lib/types/ops-knowledge";
-
-const DOC_TYPE_LABELS: Record<string, string> = {
-  sop: "SOP",
-  playbook: "플레이북",
-  scenario: "시나리오",
-};
-
-const CATEGORY_LABELS: Record<string, string> = {
-  incident_response: "인시던트",
-  deployment: "배포",
-  rollback: "롤백",
-  moderation: "검수",
-  recommendation: "추천",
-  ads: "광고",
-  points: "포인트",
-  support: "지원",
-};
 
 interface OpsKnowledgePreviewCardProps {
   item: OpsKnowledgeBaseIndexItem;
@@ -26,12 +15,13 @@ interface OpsKnowledgePreviewCardProps {
 }
 
 export function OpsKnowledgePreviewCard({ item, onView }: OpsKnowledgePreviewCardProps) {
+  const { t } = useI18n();
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
       <div className="flex flex-wrap items-center gap-2 sam-text-helper text-sam-muted">
-        <span>{DOC_TYPE_LABELS[item.docType]}</span>
-        <span>{CATEGORY_LABELS[item.category]}</span>
-        {item.isPinned && <span>📌 고정</span>}
+        <span>{t(OPS_DOC_TYPE_KEYS[item.docType])}</span>
+        <span>{t(opsToolsLabel(OPS_TOOLS_KB_CATEGORY_KEYS, item.category))}</span>
+        {item.isPinned && <span>{t("admin_ops_tools_kb_pinned")}</span>}
       </div>
       <h3 className="mt-2 font-medium text-sam-fg">
         <Link

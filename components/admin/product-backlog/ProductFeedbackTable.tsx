@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getProductFeedbackItems } from "@/lib/product-backlog/mock-product-feedback-items";
 import { AdminTable } from "@/components/admin/AdminTable";
 import {
@@ -8,15 +10,18 @@ import {
   getCategoryLabel,
   getSeverityLabel,
   getFeedbackStatusLabel,
+  PRODUCT_BACKLOG_CATEGORY_FILTER_OPTIONS,
+  PRODUCT_FEEDBACK_SOURCE_FILTER_OPTIONS,
+  PRODUCT_FEEDBACK_STATUS_FILTER_OPTIONS,
 } from "@/lib/product-backlog/product-backlog-utils";
 import type {
   ProductFeedbackCategory,
   ProductFeedbackSourceType,
   ProductFeedbackStatus,
 } from "@/lib/types/product-backlog";
-import Link from "next/link";
 
 export function ProductFeedbackTable() {
+  const { t } = useI18n();
   const [category, setCategory] = useState<ProductFeedbackCategory | "">("");
   const [sourceType, setSourceType] = useState<ProductFeedbackSourceType | "">("");
   const [feedbackStatus, setFeedbackStatus] = useState<ProductFeedbackStatus | "">("");
@@ -31,10 +36,25 @@ export function ProductFeedbackTable() {
     [category, sourceType, feedbackStatus]
   );
 
+  const headers = useMemo(
+    () => [
+      t("admin_product_backlog_th_title"),
+      t("admin_product_backlog_th_source"),
+      t("admin_product_backlog_th_category"),
+      t("admin_product_backlog_th_severity"),
+      t("admin_product_backlog_th_status"),
+      t("admin_product_backlog_th_author"),
+      t("admin_product_backlog_th_link"),
+    ],
+    [t]
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">카테고리</span>
+        <span className="sam-text-body-secondary text-sam-muted">
+          {t("admin_product_backlog_label_category")}
+        </span>
         <select
           value={category}
           onChange={(e) =>
@@ -42,19 +62,15 @@ export function ProductFeedbackTable() {
           }
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
-          <option value="onboarding">온보딩</option>
-          <option value="product_posting">상품 등록</option>
-          <option value="feed_quality">피드 품질</option>
-          <option value="chat">채팅</option>
-          <option value="moderation">신고/제재</option>
-          <option value="points_payment">포인트/결제</option>
-          <option value="ads_business">광고/비즈</option>
-          <option value="admin_console">관리자</option>
-          <option value="performance">성능</option>
-          <option value="bug">버그</option>
+          {PRODUCT_BACKLOG_CATEGORY_FILTER_OPTIONS.map((opt) => (
+            <option key={opt.value || "all"} value={opt.value}>
+              {t(opt.labelKey)}
+            </option>
+          ))}
         </select>
-        <span className="sam-text-body-secondary text-sam-muted">소스</span>
+        <span className="sam-text-body-secondary text-sam-muted">
+          {t("admin_product_backlog_label_source")}
+        </span>
         <select
           value={sourceType}
           onChange={(e) =>
@@ -62,15 +78,15 @@ export function ProductFeedbackTable() {
           }
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
-          <option value="user_feedback">사용자 피드백</option>
-          <option value="cs_inquiry">CS 문의</option>
-          <option value="report">신고</option>
-          <option value="ops_note">운영 메모</option>
-          <option value="qa_issue">QA 이슈</option>
-          <option value="analytics_signal">분석 시그널</option>
+          {PRODUCT_FEEDBACK_SOURCE_FILTER_OPTIONS.map((opt) => (
+            <option key={opt.value || "all"} value={opt.value}>
+              {t(opt.labelKey)}
+            </option>
+          ))}
         </select>
-        <span className="sam-text-body-secondary text-sam-muted">상태</span>
+        <span className="sam-text-body-secondary text-sam-muted">
+          {t("admin_product_backlog_label_status")}
+        </span>
         <select
           value={feedbackStatus}
           onChange={(e) =>
@@ -78,38 +94,28 @@ export function ProductFeedbackTable() {
           }
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
-          <option value="new">신규</option>
-          <option value="reviewed">검토됨</option>
-          <option value="converted">백로그 전환</option>
-          <option value="ignored">무시</option>
+          {PRODUCT_FEEDBACK_STATUS_FILTER_OPTIONS.map((opt) => (
+            <option key={opt.value || "all"} value={opt.value}>
+              {t(opt.labelKey)}
+            </option>
+          ))}
         </select>
       </div>
 
       {items.length === 0 ? (
         <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          해당 조건의 피드백이 없습니다.
+          {t("admin_product_backlog_empty_feedback")}
         </div>
       ) : (
-        <AdminTable
-          headers={[
-            "제목",
-            "소스",
-            "카테고리",
-            "심각도",
-            "상태",
-            "작성자",
-            "연결",
-          ]}
-        >
+        <AdminTable headers={headers}>
           {items.map((i) => (
             <tr key={i.id} className="border-b border-sam-border-soft">
               <td className="px-3 py-2.5 font-medium text-sam-fg">{i.title}</td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {getSourceLabel(i.sourceType)}
+                {getSourceLabel(t, i.sourceType)}
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {getCategoryLabel(i.category)}
+                {getCategoryLabel(t, i.category)}
               </td>
               <td className="px-3 py-2.5">
                 <span
@@ -121,11 +127,11 @@ export function ProductFeedbackTable() {
                         : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >
-                  {getSeverityLabel(i.severity)}
+                  {getSeverityLabel(t, i.severity)}
                 </span>
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {getFeedbackStatusLabel(i.feedbackStatus)}
+                {getFeedbackStatusLabel(t, i.feedbackStatus)}
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {i.sourceUserNickname ?? "-"}
@@ -133,17 +139,17 @@ export function ProductFeedbackTable() {
               <td className="px-3 py-2.5 sam-text-body-secondary">
                 {i.linkedType === "qa_issue" && (
                   <Link href="/admin/qa-board" className="text-signature hover:underline">
-                    QA
+                    {t("admin_product_backlog_link_qa_short")}
                   </Link>
                 )}
                 {i.linkedType === "report" && (
                   <Link href="/admin/reports" className="text-signature hover:underline">
-                    신고
+                    {t("admin_product_backlog_link_report_short")}
                   </Link>
                 )}
                 {i.linkedType === "action_item" && (
                   <Link href="/admin/ops-board" className="text-signature hover:underline">
-                    액션
+                    {t("admin_product_backlog_link_action_short")}
                   </Link>
                 )}
                 {!i.linkedType && "-"}

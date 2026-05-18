@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useRouter } from "next/navigation";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
@@ -38,11 +39,12 @@ function SmallAvatar({ me }: { me: MeAvatarProps | null }) {
 
 /** 대댓글 연결용 L형(↳) */
 export function ReplyLGlyph() {
+  const { t } = useI18n();
   return (
     <span
       className="inline-flex h-8 w-7 shrink-0 select-none items-center justify-center text-[1rem] font-bold leading-none text-[#7360F2]"
       aria-hidden
-      title="답글"
+      title={t("community_reply_title")}
     >
       ↳
     </span>
@@ -60,6 +62,7 @@ export function CommunityCommentComposerForm({
   me,
   className = "",
 }: Props) {
+  const { t } = useI18n();
   const router = useRouter();
 
   return (
@@ -99,7 +102,7 @@ export function CommunityCommentComposerForm({
         type="submit"
         disabled={disabled || busy || !isLoggedIn || !value.trim()}
         className={`h-10 shrink-0 px-4 ${COMMUNITY_BUTTON_PRIMARY_CLASS}`}
-        aria-label="댓글 등록"
+        aria-label={t("community_comment_post_aria")}
       >
         게시
       </button>

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { useMemo, type ReactNode } from "react";
@@ -38,6 +39,7 @@ export function StoreOwnerOpsSection({
   hubAttentionSlot?: ReactNode;
   embedded?: boolean;
 }) {
+  const { t } = useI18n();
   const { goBusinessHubOrModal, hubBlockedModal, openBlockedModalIfNeeded } =
     useStoreBusinessHubEntryModal("확인");
   const shortcuts = useMemo((): OpsShortcut[] => {
@@ -82,12 +84,12 @@ export function StoreOwnerOpsSection({
           <div className="flex min-w-0 items-center gap-2">
             {!embedded ?
               <>
-                <h2 className="truncate sam-text-body font-bold text-violet-950">매장 운영</h2>
+                <h2 className="truncate sam-text-body font-bold text-violet-950">{t("store_ops_title")}</h2>
                 <span className="shrink-0 rounded-full bg-violet-600 px-2 py-0.5 sam-text-xxs font-bold text-white">
                   OWNER
                 </span>
               </>
-            : <h2 className="truncate sam-text-body-secondary font-bold text-violet-950">매장주 바로가기</h2>}
+            : <h2 className="truncate sam-text-body-secondary font-bold text-violet-950">{t("store_owner_shortcut_title")}</h2>}
           </div>
           {String(ownerStore.approval_status) !== "approved" || !ownerStore.is_visible ?
             <p className="truncate sam-text-xxs font-medium text-amber-900/90">
@@ -108,7 +110,7 @@ export function StoreOwnerOpsSection({
         </div>
       </div>
 
-      <HorizontalDragScroll className={RAIL} aria-label="매장 운영 메뉴">
+      <HorizontalDragScroll className={RAIL} aria-label={t("store_ops_menu_aria")}>
         {shortcuts.map((item) => (
           <Link
             key={item.label}

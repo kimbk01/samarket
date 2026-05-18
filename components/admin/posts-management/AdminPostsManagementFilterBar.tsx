@@ -1,15 +1,21 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
-  DEAL_TYPE_OPTIONS,
-  STATUS_OPTIONS_POSTS,
-  SORT_OPTIONS_POSTS,
+  DEAL_TYPE_FILTER_VALUES,
+  STATUS_FILTER_VALUES_POSTS,
+  SORT_FILTER_VALUES_POSTS,
   getCategoryOptionsFromProducts,
   type PostsManagementFilters,
   type PostsManagementSortKey,
   type PostsManagementTab,
 } from "@/lib/admin-products/posts-management-utils";
 import type { Product, ProductStatus } from "@/lib/types/product";
+import {
+  POSTS_MGMT_DEAL_LABEL_KEY,
+  POSTS_MGMT_SORT_LABEL_KEY,
+  POSTS_MGMT_STATUS_LABEL_KEY,
+} from "./posts-management-i18n";
 
 export interface AdminPostsManagementFilterBarProps {
   tab: PostsManagementTab;
@@ -40,6 +46,7 @@ export function AdminPostsManagementFilterBar({
   onProductIdSearchChange,
   onShowProductIdColumnChange,
 }: AdminPostsManagementFilterBarProps) {
+  const { t } = useI18n();
   const categories = getCategoryOptionsFromProducts(products);
 
   return (
@@ -56,9 +63,9 @@ export function AdminPostsManagementFilterBar({
             }
             className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
           >
-            <option value="">구인·구직 전체</option>
-            <option value="hire">사람 구해요</option>
-            <option value="work">일 찾고 있어요</option>
+            <option value="">{t("admin_posts_mgmt_job_listing_all")}</option>
+            <option value="hire">{t("admin_posts_mgmt_job_listing_hire")}</option>
+            <option value="work">{t("admin_posts_mgmt_job_listing_work")}</option>
           </select>
         ) : null}
         <select
@@ -71,9 +78,9 @@ export function AdminPostsManagementFilterBar({
           }
           className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
         >
-          {DEAL_TYPE_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
+          {DEAL_TYPE_FILTER_VALUES.map((value) => (
+            <option key={value} value={value}>
+              {t(POSTS_MGMT_DEAL_LABEL_KEY[value])}
             </option>
           ))}
         </select>
@@ -87,9 +94,9 @@ export function AdminPostsManagementFilterBar({
           }
           className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
         >
-          {STATUS_OPTIONS_POSTS.map((o) => (
-            <option key={o.value || "all"} value={o.value}>
-              {o.label}
+          {STATUS_FILTER_VALUES_POSTS.map((value) => (
+            <option key={value || "all"} value={value}>
+              {t(POSTS_MGMT_STATUS_LABEL_KEY[value])}
             </option>
           ))}
         </select>
@@ -102,7 +109,7 @@ export function AdminPostsManagementFilterBar({
             }
             className="rounded border-sam-border"
           />
-          신고 있음
+          {t("admin_posts_mgmt_filter_has_report")}
         </label>
         <label className="flex items-center gap-1.5 sam-text-body text-sam-fg">
           <input
@@ -113,7 +120,7 @@ export function AdminPostsManagementFilterBar({
             }
             className="rounded border-sam-border"
           />
-          숨김 상품
+          {t("admin_posts_mgmt_filter_hidden_only")}
         </label>
         <label className="flex items-center gap-1.5 sam-text-body text-sam-fg">
           <input
@@ -124,7 +131,7 @@ export function AdminPostsManagementFilterBar({
             }
             className="rounded border-sam-border"
           />
-          금지의심 상품
+          {t("admin_posts_mgmt_filter_banned_suspect")}
         </label>
         <label className="flex items-center gap-1.5 sam-text-body text-sam-fg">
           <input
@@ -135,7 +142,7 @@ export function AdminPostsManagementFilterBar({
             }
             className="rounded border-sam-border"
           />
-          웹 노출만
+          {t("admin_posts_mgmt_filter_web_visible_only")}
         </label>
         <label className="flex items-center gap-1.5 sam-text-body text-sam-fg">
           <input
@@ -144,7 +151,7 @@ export function AdminPostsManagementFilterBar({
             onChange={(e) => onShowProductIdColumnChange(e.target.checked)}
             className="rounded border-sam-border"
           />
-          상품 ID 열 표시
+          {t("admin_posts_mgmt_filter_show_product_id_col")}
         </label>
         <select
           value={filters.sortKey}
@@ -156,9 +163,9 @@ export function AdminPostsManagementFilterBar({
           }
           className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
         >
-          {SORT_OPTIONS_POSTS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
+          {SORT_FILTER_VALUES_POSTS.map((value) => (
+            <option key={value} value={value}>
+              {t(POSTS_MGMT_SORT_LABEL_KEY[value])}
             </option>
           ))}
         </select>
@@ -168,14 +175,14 @@ export function AdminPostsManagementFilterBar({
           type="text"
           inputMode="search"
           autoComplete="off"
-          placeholder="상품 ID 검색 (일부 UUID)"
+          placeholder={t("admin_posts_mgmt_placeholder_product_id")}
           value={productIdSearch}
           onChange={(e) => onProductIdSearchChange(e.target.value)}
           className="min-w-[200px] rounded border border-sam-border bg-sam-surface px-3 py-2 font-mono sam-text-body-secondary text-sam-fg placeholder:text-sam-meta"
         />
         <input
           type="text"
-          placeholder="특정 판매자 검색"
+          placeholder={t("admin_posts_mgmt_placeholder_seller")}
           value={sellerSearch}
           onChange={(e) => onSellerSearchChange(e.target.value)}
           className="min-w-[160px] rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg placeholder:text-sam-meta"
@@ -185,7 +192,7 @@ export function AdminPostsManagementFilterBar({
           onChange={(e) => onCategorySearchChange(e.target.value)}
           className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
         >
-          <option value="">특정 카테고리 전체</option>
+          <option value="">{t("admin_posts_mgmt_category_all")}</option>
           {categories.map((c) => (
             <option key={c} value={c}>
               {c}

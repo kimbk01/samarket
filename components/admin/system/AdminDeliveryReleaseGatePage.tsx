@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
 type GateStatus = "pass" | "warn" | "fail" | "needs_check";
@@ -52,6 +53,7 @@ function overallClass(o: string | undefined): string {
 }
 
 export function AdminDeliveryReleaseGatePage() {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -122,7 +124,7 @@ export function AdminDeliveryReleaseGatePage() {
         <div className="min-w-0">
           <h1 className="text-xl font-semibold text-sam-fg">Delivery Release Gate</h1>
           <p className="mt-1 text-sm text-sam-muted">
-            자동 검사 + 수동 체크 기록 기반으로 출시 가능 여부를 계산합니다. (auto refresh 30s)
+            {t("admin_delivery_gate_subtitle")}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -133,7 +135,7 @@ export function AdminDeliveryReleaseGatePage() {
             Runtime Health
           </Link>
           <button className={Sam.btn.secondary} onClick={() => void load()} disabled={!!busyKey} type="button">
-            새로고침
+            {t("admin_delivery_gate_refresh")}
           </button>
         </div>
       </div>
@@ -144,20 +146,20 @@ export function AdminDeliveryReleaseGatePage() {
         <div className="mt-2 text-xs text-sam-muted">generated_at: {data?.generated_at ?? "—"}</div>
       </div>
 
-      {loading ? <div className="mt-6 text-sam-muted">불러오는 중…</div> : null}
+      {loading ? <div className="mt-6 text-sam-muted">{t("common_loading")}</div> : null}
       {err ? (
         <div className={`mt-6 ${Sam.card.base} ${Sam.card.pad} border border-red-300`}>
-          <div className="font-medium text-red-700">오류</div>
+          <div className="font-medium text-red-700">{t("admin_runtime_health_error_title")}</div>
           <div className="mt-2 text-sm text-red-700 break-all">{err}</div>
           {data?.hint ? <div className="mt-2 text-xs text-sam-muted">{data.hint}</div> : null}
         </div>
       ) : null}
 
       <div className={`mt-6 ${Sam.card.base} ${Sam.card.pad}`}>
-        <div className="font-medium text-sam-fg">자동 검사</div>
+        <div className="font-medium text-sam-fg">{t("admin_delivery_gate_auto_checks")}</div>
         <div className="mt-3 space-y-3">
           {sortedItems.length === 0 ? (
-            <div className="text-sam-muted text-sm">항목이 없습니다.</div>
+            <div className="text-sam-muted text-sm">{t("admin_delivery_gate_no_items")}</div>
           ) : (
             sortedItems.map((it) => (
               <div key={it.key} className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2">
@@ -188,11 +190,11 @@ export function AdminDeliveryReleaseGatePage() {
       </div>
 
       <div className={`mt-6 ${Sam.card.base} ${Sam.card.pad}`}>
-        <div className="font-medium text-sam-fg">수동 체크(기록)</div>
+        <div className="font-medium text-sam-fg">{t("admin_delivery_gate_manual_checks")}</div>
         <div className="mt-3 space-y-3">
           {manual.length === 0 ? (
             <div className="text-sam-muted text-sm">
-              수동 체크 테이블이 없거나(마이그레이션 미적용), 항목이 없습니다.
+              {t("admin_delivery_gate_manual_empty")}
             </div>
           ) : (
             manual.map((m) => (
@@ -208,13 +210,13 @@ export function AdminDeliveryReleaseGatePage() {
                     {m.label}
                   </label>
                   <div className="text-xs text-sam-muted">
-                    {m.checked_at ? `checked_at: ${m.checked_at}` : "미확인"}
+                    {m.checked_at ? `checked_at: ${m.checked_at}` : t("admin_delivery_gate_unchecked")}
                   </div>
                 </div>
                 <div className="mt-2">
                   <input
                     className="w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2 text-sm"
-                    placeholder="메모(선택)"
+                    placeholder={t("admin_delivery_gate_memo_placeholder")}
                     defaultValue={m.note ?? ""}
                     onBlur={(e) => {
                       const next = e.target.value.trim();

@@ -50,6 +50,7 @@ import {
   scheduleWhenBrowserIdle,
 } from "@/lib/ui/network-policy";
 import { useLongPressOrTap } from "@/lib/ui/use-long-press-or-tap";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   buildPhilifeNeighborhoodFeedClientUrl,
   NEIGHBORHOOD_FEED_PAGE_SIZE,
@@ -112,10 +113,6 @@ function resolvePhilifeFeedSortForQuery(
   }
   if (isPhilifeRecommendSortCategory(c) && !sortRaw.trim()) return "recommended";
   return normalizeFeedSort(sortRaw || undefined);
-}
-
-function philifeGlobalFeedSortLabel(mode: "latest" | "recommended"): string {
-  return mode === "recommended" ? "추천순" : "최신순";
 }
 
 /** 주제 미선택(전역) 칩: 최신/추천 전환(별도 `recommended` 주제 탭 없음) */
@@ -299,6 +296,12 @@ export function CommunityFeed({
 }: {
   initialGlobalFeedRsc?: PhilifeGlobalFeedInitialRsc | null;
 } = {}) {
+  const { t } = useI18n();
+  const philifeGlobalFeedSortLabel = useCallback(
+    (mode: "latest" | "recommended") =>
+      mode === "recommended" ? t("community_sort_recommended") : t("community_sort_latest"),
+    [t]
+  );
   const { open: openPhilifeWriteSheet } = usePhilifeWriteSheet();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const router = useRouter();
@@ -654,14 +657,14 @@ export function CommunityFeed({
           }
         } catch {
           if (session !== feedSessionRef.current) return;
-          setErr("응답을 해석하지 못했습니다.");
+          setErr(t("community_feed_parse_failed"));
           /* fetch 실패 ≠ 빈 피드 — 세션 캐시·직전 목록 유지 */
           setHasMore(false);
           return;
         }
         if (session !== feedSessionRef.current) return;
         if (res.status === 401 && neighborOnly) {
-          setErr("관심이웃 필터는 로그인 후 사용할 수 있어요.");
+          setErr(t("community_feed_neighbor_login_required"));
           setNeighborOnly(false);
           setLoadingMore(false);
           if (!append) setLoading(false);
@@ -674,10 +677,10 @@ export function CommunityFeed({
           }
           const human =
             code === "invalid_category"
-              ? "선택한 주제가 더 이상 사용되지 않아요. 상단 주제를 다시 선택해 주세요."
+              ? t("community_feed_invalid_category")
               : code === "server_config"
-                ? "서버 설정을 확인할 수 없습니다."
-                : (j.error ?? "피드를 불러오지 못했습니다.");
+                ? t("community_feed_server_config")
+                : (j.error ?? t("community_feed_load_failed"));
           setErr(human);
           setHasMore(false);
           return;
@@ -777,7 +780,7 @@ export function CommunityFeed({
         if (error instanceof DOMException && error.name === "AbortError") return;
         if (session !== feedSessionRef.current) return;
         setHasMore(false);
-        setErr("피드를 불러오지 못했습니다.");
+        setErr(t("community_feed_load_failed"));
       } finally {
         if (typeof timeoutId === "number") window.clearTimeout(timeoutId);
         if (feedAbortRef.current === controller) {
@@ -790,7 +793,7 @@ export function CommunityFeed({
         }
       }
     },
-    [category, neighborOnly, viewerSig, recSortKey, isAllTabView]
+    [category, neighborOnly, viewerSig, recSortKey, isAllTabView, t]
   );
 
   /** 주제·필터 시 피드 리셋. `categoryParam`은 deps에 넣지 않음 — `category` 낙관 갱신 후 URL이 따라올 때 이중 페치·목록 깜빡임 방지. */
@@ -1287,7 +1290,7 @@ export function CommunityFeed({
                   ref={topicTablistRef}
                   className={PHILIFE_TOPIC_TAB_ROW_CLASS}
                   role="tablist"
-                  aria-label="피드 주제"
+                  aria-label={t("community_feed_topic_aria")}
                 >
                   {!chipsLoadDone ? (
                     <div className="flex w-full min-w-0 flex-nowrap items-center justify-start gap-1 py-1.5" aria-hidden>
@@ -1320,7 +1323,7 @@ export function CommunityFeed({
                             type="button"
                             role="tab"
                             aria-selected={on}
-                            aria-label={`${sortModeLabel}. 한 번 탭하면 최신순으로 바로 정렬하고, 길게 누르면 추천순 등 다른 정렬을 고를 수 있어요.`}
+                            aria-label={t("community_feed_global_sort_tab_aria", { label: sortModeLabel })}
                             aria-haspopup="listbox"
                             aria-expanded={recommendMenuOpen}
                             className={PHILIFE_TOPIC_TAB_PILL_ACTIVE}
@@ -1390,11 +1393,9 @@ export function CommunityFeed({
                       onChange={(e) => setNeighborOnly(e.target.checked)}
                       className="h-4 w-4 rounded-[4px] border-[#E5E7EB] text-[#7360F2] focus:ring-[#7360F2]/30"
                     />
-                    관심이웃 글만 보기
+                    {t("community_feed_neighbor_filter")}
                   </label>
-                  <p className="text-[13px] leading-[1.45] text-[#6B7280]">
-                    글은 지역과 무관하게 모두 보이며, 상단 주제 탭으로 나눠 볼 수 있어요.
-                  </p>
+                  <p className="text-[13px] leading-[1.45] text-[#6B7280]">{t("community_feed_neighbor_strip_hint")}</p>
                 </div>
               </div>
             ) : null}
@@ -1410,7 +1411,7 @@ export function CommunityFeed({
           <ul
             ref={recommendMenuPanelRef}
             role="listbox"
-            aria-label="피드 정렬(최신순·추천순)"
+            aria-label={t("community_feed_sort_aria")}
             className={`min-w-[10rem] text-left ${COMMUNITY_DROPDOWN_PANEL_CLASS}`}
             style={{
               position: "fixed",
@@ -1427,7 +1428,7 @@ export function CommunityFeed({
                 className="block w-full px-3 py-2 text-left text-[13px] font-semibold text-[#1F2430] transition hover:bg-[#F7F8FA]"
                 onClick={() => applyRecommendSort("latest")}
               >
-                최신순
+                {t("community_sort_latest")}
               </button>
             </li>
             <li role="none">
@@ -1438,7 +1439,7 @@ export function CommunityFeed({
                 className="block w-full px-3 py-2 text-left text-[13px] font-semibold text-[#1F2430] transition hover:bg-[#F7F8FA]"
                 onClick={() => applyRecommendSort("recommended")}
               >
-                추천순
+                {t("community_sort_recommended")}
               </button>
             </li>
           </ul>,
@@ -1473,7 +1474,7 @@ export function CommunityFeed({
           <CommunityFeedSkeleton />
         ) : !err && postsForList.length === 0 ? (
           <div className={`${APP_MAIN_GUTTER_X_CLASS} py-12 text-center text-[14px] text-[#6B7280]`}>
-            아직 글이 없어요.
+            {t("community_feed_empty")}
             <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
               {category === "meetup" ? (
                 <Link
@@ -1483,7 +1484,7 @@ export function CommunityFeed({
                     if (!guardBeforeNavigate()) e.preventDefault();
                   }}
                 >
-                  모임 글 쓰기
+                  {t("community_meeting_post_cta")}
                 </Link>
               ) : (
                 <button
@@ -1491,7 +1492,7 @@ export function CommunityFeed({
                   onClick={() => openPhilifeWriteSheet(category)}
                   className="font-semibold text-[#7360F2] underline decoration-[#7360F2]/40 underline-offset-2"
                 >
-                  첫 글 쓰기
+                  {t("community_first_post_cta")}
                 </button>
               )}
             </div>
@@ -1507,10 +1508,10 @@ export function CommunityFeed({
             </ul>
             <div ref={sentinelRef} className="h-4 w-full" aria-hidden />
             {loadingMore ? (
-              <p className="py-4 text-center text-[13px] text-[#65676B]">더 불러오는 중…</p>
+              <p className="py-4 text-center text-[13px] text-[#65676B]">{t("community_feed_loading_more")}</p>
             ) : null}
             {!hasMore && postsForList.length > 0 ? (
-              <p className="pb-8 pt-2 text-center text-[13px] text-[#8A8D91]">모든 글을 불러왔어요</p>
+              <p className="pb-8 pt-2 text-center text-[13px] text-[#8A8D91]">{t("community_feed_all_loaded")}</p>
             ) : null}
           </>
         )}

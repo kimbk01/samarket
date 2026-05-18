@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface WriteLauncherOverlayProps {
   onClose: () => void;
@@ -12,6 +13,7 @@ interface WriteLauncherOverlayProps {
  * dim 배경 + 바깥 클릭 시 닫기 (참고 이미지와 동일한 톤)
  */
 export function WriteLauncherOverlay({ onClose, children, className }: WriteLauncherOverlayProps) {
+  const { t } = useI18n();
   return (
     <div
       className={className ?? "fixed inset-0 z-[130] bg-black/30"}
@@ -19,7 +21,7 @@ export function WriteLauncherOverlay({ onClose, children, className }: WriteLaun
       onKeyDown={(e) => e.key === "Escape" && onClose()}
       role="dialog"
       aria-modal="true"
-      aria-label="글쓰기 메뉴"
+      aria-label={t("ui_write_launcher_menu_aria")}
     >
       {children}
     </div>

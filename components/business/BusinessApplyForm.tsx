@@ -26,6 +26,7 @@ import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { deriveStoreAddressFieldsFromUserAddressMaster } from "@/lib/business/derive-store-address-from-user-address-master";
 import { OwnerAddressBookSnapshotCard } from "@/components/business/OwnerAddressBookSnapshotCard";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 /** `/my/business/apply` — 프로필에서 한 번만 폼에 주입 */
 export type BusinessApplyProfileSeed = {
@@ -100,6 +101,7 @@ export function BusinessApplyForm({
   profileSeed = null,
   computedStoreSlug = "",
 }: BusinessApplyFormProps) {
+  const { t } = useI18n();
   const industryVersion = useBrowseIndustryDatasetVersion();
   const [taxonomy, setTaxonomy] = useState<{ categories: StoreTaxonomyCategory[]; topics: StoreTaxonomyTopic[] } | null>(
     null
@@ -281,10 +283,10 @@ export function BusinessApplyForm({
 
   return (
     <form id="business-apply-form" onSubmit={handleSubmit} className={OWNER_STORE_STACK_Y_CLASS}>
-      <OwnerStoreAdminDashSection title="신청·계정">
+      <OwnerStoreAdminDashSection title={t("business_phase7_178")}>
         <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
           <div className="min-w-0">
-            <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>매장 ID</label>
+            <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_087")}</label>
             <input
               type="text"
               value={ownerHandle || ""}
@@ -294,7 +296,7 @@ export function BusinessApplyForm({
             />
           </div>
           <div className="min-w-0">
-            <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>신청자</label>
+            <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_180")}</label>
             <input
               type="text"
               value={values.applicantNickname}
@@ -306,33 +308,33 @@ export function BusinessApplyForm({
         </div>
       </OwnerStoreAdminDashSection>
 
-      <OwnerStoreAdminDashSection title="상점 정보">
+      <OwnerStoreAdminDashSection title={t("business_phase7_144")}>
         <div>
-          <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>상점 이름 *</label>
+          <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_142")}</label>
           <input
             type="text"
             value={values.shopName}
             onChange={(e) => setValues((v) => ({ ...v, shopName: e.target.value }))}
             required
             className={OWNER_STORE_PROFILE_CONTROL_CLASS}
-            placeholder="상점 이름을 입력하세요"
+            placeholder={t("business_phase7_143")}
           />
         </div>
         <div>
-          <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>상점 소개</label>
+          <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_141")}</label>
           <textarea
             value={values.description}
             onChange={(e) => setValues((v) => ({ ...v, description: e.target.value }))}
             rows={3}
             className={OWNER_STORE_PROFILE_TEXTAREA_BLOCK_CLASS}
-            placeholder="상점을 소개해 주세요"
+            placeholder={t("business_phase7_145")}
           />
         </div>
       </OwnerStoreAdminDashSection>
 
-      <OwnerStoreAdminDashSection title="연락처">
+      <OwnerStoreAdminDashSection title={t("business_phase7_194")}>
         <div>
-          <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>전화번호 *</label>
+          <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_246")}</label>
           <input
             type="tel"
             inputMode="numeric"
@@ -348,18 +350,18 @@ export function BusinessApplyForm({
           />
         </div>
         <div>
-          <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>카카오톡 ID (선택)</label>
+          <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_297")}</label>
           <input
             type="text"
             value={values.kakaoId}
             onChange={(e) => setValues((v) => ({ ...v, kakaoId: e.target.value }))}
             className={OWNER_STORE_PROFILE_CONTROL_CLASS}
-            placeholder="연락 가능한 카카오 ID"
+            placeholder={t("business_phase7_193")}
           />
         </div>
       </OwnerStoreAdminDashSection>
 
-      <OwnerStoreAdminDashSection title="픽업·배달 주소 (내정보 · 주소록)">
+      <OwnerStoreAdminDashSection title={t("business_phase7_323")}>
         <OwnerAddressBookSnapshotCard
           returnToPath="/stores/owner/apply"
           addressReady={addressReady}
@@ -368,14 +370,14 @@ export function BusinessApplyForm({
         />
       </OwnerStoreAdminDashSection>
 
-      <OwnerStoreAdminDashSection title="업종 분류">
+      <OwnerStoreAdminDashSection title={t("business_phase7_190")}>
         <p className={OWNER_STORE_FORM_HINT_CLASS}>
           어드민 «매장 설정»·<span className="font-medium text-sam-muted">/stores</span> 와 같은 1·2차
           업종입니다. 1차 선택 후 세부(예: 한식·중식)를 고르세요.
         </p>
         <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
           <div className="min-w-0">
-            <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>1차 업종</label>
+            <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_005")}</label>
             <select
               value={values.categoryPrimarySlug}
               onChange={(e) => {
@@ -400,7 +402,7 @@ export function BusinessApplyForm({
               className={OWNER_STORE_PROFILE_SELECT_CLASS}
             >
               {primaries.length === 0 ? (
-                <option value="">목록 없음</option>
+                <option value="">{t("business_phase7_093")}</option>
               ) : (
                 primaries.map((p) => (
                   <option key={p.id} value={p.slug}>
@@ -411,7 +413,7 @@ export function BusinessApplyForm({
             </select>
           </div>
           <div className="min-w-0">
-            <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>2차 업종 (세부)</label>
+            <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_006")}</label>
             <select
               value={values.categorySubSlug}
               onChange={(e) => setValues((v) => ({ ...v, categorySubSlug: e.target.value }))}
@@ -420,7 +422,7 @@ export function BusinessApplyForm({
               className={OWNER_STORE_PROFILE_SELECT_CLASS}
             >
               {subOptions.length === 0 ? (
-                <option value="">먼저 1차를 선택</option>
+                <option value="">{t("business_phase7_089")}</option>
               ) : (
                 subOptions.map((s) => (
                   <option key={s.id} value={s.slug}>
@@ -433,7 +435,7 @@ export function BusinessApplyForm({
         </div>
       </OwnerStoreAdminDashSection>
 
-      <OwnerStoreAdminDashSection title="신청 제출">
+      <OwnerStoreAdminDashSection title={t("business_phase7_177")}>
         <button
           type="submit"
           disabled={disabled || !computedStoreSlug.trim() || !addressDefault?.id}

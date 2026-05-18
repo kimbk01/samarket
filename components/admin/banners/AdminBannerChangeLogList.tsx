@@ -1,25 +1,19 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { BannerChangeLog } from "@/lib/types/admin-banner";
-
-const ACTION_LABELS: Record<BannerChangeLog["actionType"], string> = {
-  create: "생성",
-  update: "수정",
-  activate: "활성화",
-  pause: "일시중지",
-  hide: "숨김",
-  reorder: "순서변경",
-  expire: "만료",
-};
+import { ADMIN_BANNER_CHANGELOG_ACTION_KEYS } from "./admin-banner-i18n";
 
 interface AdminBannerChangeLogListProps {
   logs: BannerChangeLog[];
 }
 
 export function AdminBannerChangeLogList({ logs }: AdminBannerChangeLogListProps) {
+  const { t } = useI18n();
+
   if (logs.length === 0) {
     return (
-      <p className="sam-text-body-secondary text-sam-muted">변경 이력이 없습니다.</p>
+      <p className="sam-text-body-secondary text-sam-muted">{t("admin_banners_changelog_empty")}</p>
     );
   }
   return (
@@ -30,12 +24,12 @@ export function AdminBannerChangeLogList({ logs }: AdminBannerChangeLogListProps
           className="flex flex-wrap items-baseline gap-2 border-b border-sam-border-soft pb-2 sam-text-body-secondary last:border-0"
         >
           <span className="font-medium text-sam-fg">
-            {ACTION_LABELS[log.actionType]}
+            {t(ADMIN_BANNER_CHANGELOG_ACTION_KEYS[log.actionType])}
           </span>
           <span className="text-sam-muted">{log.adminNickname}</span>
           <span className="text-sam-muted">{log.note}</span>
           <span className="ml-auto text-sam-meta">
-            {new Date(log.createdAt).toLocaleString("ko-KR")}
+            {new Date(log.createdAt).toLocaleString()}
           </span>
         </li>
       ))}

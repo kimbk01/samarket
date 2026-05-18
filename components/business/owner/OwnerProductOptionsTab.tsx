@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useId, useState } from "react";
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   OWNER_STORE_FORM_GRID_2_CLASS,
   OWNER_STORE_PROFILE_CONTROL_CLASS,
@@ -58,16 +59,17 @@ function OptionAddBadgeButton({
 }
 
 function OptionGroupDeleteBadgeButton({ onClick }: { onClick: () => void }) {
+  const { t } = useI18n();
   return (
     <button
       type="button"
-      aria-label="옵션 그룹 삭제"
+      aria-label={t("business_phase7_217")}
       onClick={onClick}
       className={
         "inline-flex touch-manipulation select-none items-center rounded-[4px] border border-red-200/90 bg-red-50 px-3.5 py-2 shadow-sm transition-[transform,box-shadow,background-color] sam-text-body-secondary font-semibold text-red-800 hover:border-red-300 hover:bg-red-100 active:scale-[0.98]"
       }
     >
-      삭제
+      {t("common_delete")}
     </button>
   );
 }
@@ -99,6 +101,7 @@ export function OwnerProductOptionsTab({
   onOptionGroupsChange,
   priceUnitLabel,
 }: Props) {
+  const { t } = useI18n();
   const optionDeleteTitleId = useId();
   const [deleteConfirm, setDeleteConfirm] = useState<OptionDeleteConfirm>(null);
 
@@ -126,14 +129,14 @@ export function OwnerProductOptionsTab({
     <div className="min-w-0 space-y-2 bg-transparent">
       {optionGroups.length === 0 ? (
         <div className="rounded-ui-rect border-2 border-dashed border-[var(--biz-primary)]/55 bg-[color-mix(in_srgb,var(--biz-primary)_8%,var(--biz-primary-soft))] py-6 text-center">
-          <p className="sam-text-body-secondary text-sam-muted">옵션이 없습니다</p>
+          <p className="sam-text-body-secondary text-sam-muted">{t("business_phase7_222")}</p>
           <div className="mt-4 flex justify-end px-1">
             <OptionAddBadgeButton
               variant="group"
-              aria-label="옵션 그룹 추가"
+              aria-label={t("business_phase7_218")}
               onClick={() => onOptionGroupsChange((prev) => [...prev, emptyOptionGroup()])}
             >
-              그룹 옵션 추가
+              {t("business_phase7_218")}
             </OptionAddBadgeButton>
           </div>
         </div>
@@ -147,7 +150,7 @@ export function OwnerProductOptionsTab({
               <div className="space-y-2 p-3">
                 <div>
                   <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
-                    옵션 그룹명
+                    {t("business_phase7_401")}
                   </label>
                   <input
                     value={group.nameKo}
@@ -158,14 +161,14 @@ export function OwnerProductOptionsTab({
                         return next;
                       })
                     }
-                    placeholder="예) 매운맛 정도"
+                    placeholder={t("business_phase7_210")}
                     className={OWNER_STORE_PROFILE_CONTROL_CLASS}
                   />
                 </div>
 
                 <div>
                   <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
-                    선택 방식
+                    {t("business_phase7_402")}
                   </label>
                   <div className="flex flex-wrap items-center gap-3">
                     <div className="relative min-w-0 flex-1">
@@ -183,9 +186,9 @@ export function OwnerProductOptionsTab({
                         }}
                         className={OWNER_STORE_PROFILE_SELECT_CLASS}
                       >
-                        <option value="single">단일 선택</option>
-                        <option value="multiple">복수 선택</option>
-                        <option value="quantity">수량형 선택</option>
+                        <option value="single">{t("business_phase7_051")}</option>
+                        <option value="multiple">{t("business_phase7_128")}</option>
+                        <option value="quantity">{t("business_phase7_168")}</option>
                       </select>
                       <span
                         aria-hidden
@@ -219,7 +222,7 @@ export function OwnerProductOptionsTab({
                         }}
                         className="h-4 w-4 rounded border-sam-border"
                       />
-                      필수
+                      {t("business_phase7_403")}
                     </label>
                   </div>
                 </div>
@@ -229,7 +232,7 @@ export function OwnerProductOptionsTab({
                   (group.selectionKind === "single" && !group.required)) && (
                   <div className={OWNER_STORE_FORM_GRID_2_CLASS}>
                     <div>
-                      <label className="mb-0.5 block sam-text-xxs text-sam-muted">최소 선택 수</label>
+                      <label className="mb-0.5 block sam-text-xxs text-sam-muted">{t("business_phase7_291")}</label>
                       <input
                         inputMode="numeric"
                         value={group.minSelect}
@@ -244,7 +247,7 @@ export function OwnerProductOptionsTab({
                       />
                     </div>
                     <div>
-                      <label className="mb-0.5 block sam-text-xxs text-sam-muted">최대 선택 수</label>
+                      <label className="mb-0.5 block sam-text-xxs text-sam-muted">{t("business_phase7_290")}</label>
                       <input
                         inputMode="numeric"
                         value={group.maxSelect}
@@ -262,7 +265,7 @@ export function OwnerProductOptionsTab({
                 )}
 
                 <div className="space-y-2">
-                  <p className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">옵션 품목 입력</p>
+                  <p className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">{t("business_phase7_220")}</p>
                   <ul className="space-y-2">
                   {group.options.map((opt, oi) => (
                     <li
@@ -283,7 +286,7 @@ export function OwnerProductOptionsTab({
                               return next;
                             })
                           }
-                          placeholder="예: 순한맛, 보통"
+                          placeholder={t("business_phase7_207")}
                           className="w-full min-w-0 rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-2 sam-text-body text-sam-fg"
                         />
                       </div>
@@ -304,7 +307,7 @@ export function OwnerProductOptionsTab({
                               })
                             }
                             className="min-h-0 min-w-[5rem] flex-1 appearance-none border-0 bg-transparent p-0 text-right text-[15px] leading-none text-sam-fg outline-none [-webkit-appearance:none] [appearance:textfield] focus:border-0 focus:outline-none focus:ring-0 focus-visible:outline-none"
-                            aria-label="추가 금액"
+                            aria-label={t("business_phase7_293")}
                           />
                           <span className="shrink-0 whitespace-nowrap text-[11px] font-semibold uppercase leading-none text-sam-muted">
                             {priceUnitLabel}
@@ -333,7 +336,7 @@ export function OwnerProductOptionsTab({
                               }
                               className="h-4 w-4 shrink-0 rounded border-sam-border"
                             />
-                            품절
+                            {t("business_phase7_317")}
                           </label>
                           <label className="inline-flex items-center gap-1 sam-text-helper text-sam-fg">
                             <input
@@ -360,12 +363,12 @@ export function OwnerProductOptionsTab({
                               }
                               className="h-4 w-4 shrink-0 rounded border-sam-border"
                             />
-                            기본정보
+                            {t("business_phase7_404")}
                           </label>
                           <button
                             type="button"
-                            aria-label="선택지 삭제"
-                            title="삭제"
+                            aria-label={t("business_phase7_162")}
+                            title={t("common_delete")}
                             onClick={() => setDeleteConfirm({ kind: "optionRow", gi, oi })}
                             className="inline-flex h-[36px] min-h-[36px] shrink-0 items-center justify-center border-0 bg-transparent px-1 text-[1.65rem] font-extrabold leading-none text-red-700 hover:text-red-800 active:opacity-80"
                           >
@@ -379,7 +382,7 @@ export function OwnerProductOptionsTab({
                 <div className="flex flex-wrap justify-end gap-2 pt-2">
                   <OptionAddBadgeButton
                     variant="option"
-                    aria-label="선택지 추가"
+                    aria-label={t("business_phase7_163")}
                     onClick={() =>
                       onOptionGroupsChange((prev) => {
                         const next = [...prev];
@@ -390,7 +393,7 @@ export function OwnerProductOptionsTab({
                       })
                     }
                   >
-                    옵션 추가
+                    {t("business_phase7_163")}
                   </OptionAddBadgeButton>
                   <OptionGroupDeleteBadgeButton
                     onClick={() => onOptionGroupsChange((prev) => prev.filter((_, j) => j !== gi))}
@@ -407,10 +410,10 @@ export function OwnerProductOptionsTab({
         <div className="flex justify-end pt-1">
           <OptionAddBadgeButton
             variant="group"
-            aria-label="옵션 그룹 추가"
+            aria-label={t("business_phase7_218")}
             onClick={() => onOptionGroupsChange((prev) => [...prev, emptyOptionGroup()])}
           >
-            그룹 옵션 추가
+            {t("business_phase7_218")}
           </OptionAddBadgeButton>
         </div>
       ) : null}
@@ -418,16 +421,16 @@ export function OwnerProductOptionsTab({
     <OwnerStoreAdminConfirmModal
       open={deleteConfirm != null}
       titleId={optionDeleteTitleId}
-      title="삭제 확인"
+      title={t("business_phase7_139")}
       description={
         deleteConfirm?.kind === "optionGroup"
-          ? "이 옵션 그룹을 삭제하시겠습니까?"
+          ? t("business_phase7_405")
           : deleteConfirm?.kind === "optionRow"
-            ? "이 선택지를 삭제하시겠습니까?"
-            : "삭제하시겠습니까??"
+            ? t("business_phase7_406")
+            : t("business_phase7_407")
       }
-      cancelLabel="취소"
-      confirmLabel="삭제"
+      cancelLabel={t("common_cancel")}
+      confirmLabel={t("common_delete")}
       confirmTone="danger"
       onCancel={() => setDeleteConfirm(null)}
       onConfirm={() => {

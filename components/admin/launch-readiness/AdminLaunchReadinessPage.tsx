@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -12,19 +15,20 @@ import { LaunchApprovalTable } from "./LaunchApprovalTable";
 type TabId = "overview" | "checklist" | "area" | "blocker" | "approval";
 
 export function AdminLaunchReadinessPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
 
-  const tabs: { id: TabId; label: string }[] = [
-    { id: "overview", label: "Readiness 개요" },
-    { id: "checklist", label: "체크리스트" },
-    { id: "area", label: "영역 보드" },
-    { id: "blocker", label: "Blocker 보드" },
-    { id: "approval", label: "승인" },
+  const tabs: { id: TabId; labelKey: MessageKey }[] = [
+    { id: "overview", labelKey: "admin_launch_readiness_k97156b94" },
+    { id: "checklist", labelKey: "admin_launch_week_checklist_2" },
+    { id: "area", labelKey: "admin_launch_readiness_k016b426f" },
+    { id: "blocker", labelKey: "admin_qa_tab_blocker" },
+    { id: "approval", labelKey: "admin_launch_readiness_k0d1cd671" },
   ];
 
   return (
     <>
-      <AdminPageHeader title="런칭 준비" />
+      <AdminPageHeader titleKey="admin_qa_k2ff62175" />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {tabs.map((tab) => (
           <button
@@ -37,37 +41,37 @@ export function AdminLaunchReadinessPage() {
                 : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
 
       {activeTab === "overview" && (
-        <AdminCard title="Readiness 점수 · 영역별 완료율 · Go/No-Go 요약">
+        <AdminCard titleKey="admin_launch_readiness_area_done_summary_2">
           <LaunchReadinessSummaryCards />
         </AdminCard>
       )}
 
       {activeTab === "checklist" && (
-        <AdminCard title="전체 서비스 마감 점검 체크리스트">
+        <AdminCard titleKey="admin_launch_readiness_all_checklist_2">
           <LaunchChecklistTable />
         </AdminCard>
       )}
 
       {activeTab === "area" && (
-        <AdminCard title="영역별 Readiness (Pre-Launch / Launch Day / Post-Launch)">
+        <AdminCard titleKey="admin_launch_readiness_area_3">
           <LaunchAreaBoard />
         </AdminCard>
       )}
 
       {activeTab === "blocker" && (
-        <AdminCard title="Blocker 집중 보드">
+        <AdminCard titleKey="admin_launch_readiness_kead0bf4e">
           <LaunchBlockerBoard />
         </AdminCard>
       )}
 
       {activeTab === "approval" && (
-        <AdminCard title="런칭 승인 (승인자 placeholder)">
+        <AdminCard titleKey="admin_launch_readiness_approved_2">
           <LaunchApprovalTable />
         </AdminCard>
       )}

@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function MyActivitySection() {
+  const { t } = useI18n();
   return (
     <section className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-      <h2 className="mb-3 sam-text-body-secondary font-semibold text-muted">나의 활동</h2>
+      <h2 className="mb-3 sam-text-body-secondary font-semibold text-muted">{t("mypage_comp_section_my_activity")}</h2>
       <Link
         href="/my/community-posts"
         className="flex items-center gap-3 py-3 sam-text-body text-foreground"
@@ -13,7 +15,7 @@ export function MyActivitySection() {
         <span className="flex h-8 w-8 items-center justify-center text-foreground">
           <PencilIcon />
         </span>
-        <span className="flex-1">내 커뮤니티 글</span>
+        <span className="flex-1">{t("mypage_comp_my_community_posts")}</span>
         <ChevronRight />
       </Link>
     </section>

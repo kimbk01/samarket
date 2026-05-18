@@ -542,7 +542,7 @@ const CommunityMessengerRoomClientPhase2Hydrated = memo(function CommunityMessen
     }
     return (
       <div className="flex min-h-[70vh] flex-col items-center justify-center gap-3 px-4 text-center">
-        <p className="sam-text-body-lg font-semibold text-ui-fg">채팅방을 찾을 수 없습니다.</p>
+        <p className="sam-text-body-lg font-semibold text-ui-fg">{room.t("cm_ui_cannot_find_chat_room")}</p>
         <button
           type="button"
           onClick={() => {

@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { PerformanceSummaryCards } from "./PerformanceSummaryCards";
@@ -7,17 +10,18 @@ import { SlowApiTable } from "./SlowApiTable";
 import { SlowQueryTable } from "./SlowQueryTable";
 
 export function AdminPerformancePage() {
+  const { t } = useI18n();
   return (
     <>
-      <AdminPageHeader title="성능 최적화" />
+      <AdminPageHeader titleKey="admin_performance_kd0b3c807" />
       <div className="space-y-4">
-        <AdminCard title="평균 로딩·API·DB 시간 및 성능 상태">
+        <AdminCard titleKey="admin_performance_status_3">
           <PerformanceSummaryCards />
         </AdminCard>
-        <AdminCard title="느린 API 리스트">
+        <AdminCard titleKey="admin_performance_ke743d657">
           <SlowApiTable />
         </AdminCard>
-        <AdminCard title="쿼리 병목 리스트">
+        <AdminCard titleKey="admin_performance_kdcf01eac">
           <SlowQueryTable />
         </AdminCard>
       </div>

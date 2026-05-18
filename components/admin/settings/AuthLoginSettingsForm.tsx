@@ -56,7 +56,7 @@ export function AuthLoginSettingsForm() {
       error?: string;
     } | null;
     if (!providersRes.ok || !providersJson?.ok || !Array.isArray(providersJson.providers)) {
-      throw new Error(providersJson?.error || "SNS Auth 설정을 불러오지 못했습니다.");
+      throw new Error(providersJson?.error || t("admin_auth_err_load_providers"));
     }
     setProviders(providersJson.providers.map(toEditable));
   };
@@ -73,7 +73,7 @@ export function AuthLoginSettingsForm() {
       error?: string;
     } | null;
     if (!policyRes.ok || !policyJson?.ok || !Array.isArray(policyJson.settings) || !policyJson.sessionPolicy) {
-      throw new Error(policyJson?.error || "중복 로그인 정책을 불러오지 못했습니다.");
+      throw new Error(policyJson?.error || t("admin_auth_err_load_policy"));
     }
     setLegacySettings(policyJson.settings);
     setSessionPolicy(policyJson.sessionPolicy);
@@ -90,7 +90,7 @@ export function AuthLoginSettingsForm() {
       error?: string;
     } | null;
     if (!res.ok || !json?.ok || !json.settings) {
-      throw new Error(json?.error || "전화 인증 설정을 불러오지 못했습니다.");
+      throw new Error(json?.error || t("admin_auth_err_load_phone"));
     }
     setPhoneSettings(json.settings);
   };
@@ -100,12 +100,12 @@ export function AuthLoginSettingsForm() {
       try {
         await Promise.all([loadProviders(), loadPolicy(), loadPhoneSettings()]);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "설정을 불러오지 못했습니다.");
+        setError(e instanceof Error ? e.message : t("admin_auth_err_load_settings"));
       } finally {
         setLoading(false);
       }
     })();
-  }, []);
+  }, [t]);
 
   const updateProvider = (provider: OAuthProvider, patch: Partial<EditableProvider>) => {
     setProviders((prev) => prev.map((row) => (row.provider === provider ? { ...row, ...patch } : row)));
@@ -124,7 +124,7 @@ export function AuthLoginSettingsForm() {
   const saveProvider = async (provider: OAuthProvider): Promise<void> => {
     const row = providers.find((item) => item.provider === provider);
     if (!row) {
-      setProviderError((prev) => ({ ...prev, [provider]: "저장할 Provider 데이터를 찾지 못했습니다." }));
+      setProviderError((prev) => ({ ...prev, [provider]: t("admin_auth_err_provider_not_found") }));
       return;
     }
     setProviderSaving((prev) => ({ ...prev, [provider]: true }));
@@ -163,7 +163,10 @@ export function AuthLoginSettingsForm() {
         error?: string;
       } | null;
       if (!res.ok || !json?.ok || !json.provider) {
-        setProviderError((prev) => ({ ...prev, [provider]: json?.error || `${provider} 설정을 저장하지 못했습니다.` }));
+        setProviderError((prev) => ({
+          ...prev,
+          [provider]: json?.error || t("admin_auth_err_provider_save", { provider: getProviderTitle(provider) }),
+        }));
         return;
       }
       const refreshedProvider = json.provider;
@@ -196,7 +199,7 @@ export function AuthLoginSettingsForm() {
         if (!policyRes.ok || !policyJson?.ok || !Array.isArray(policyJson.settings)) {
           setProviderError((prev) => ({
             ...prev,
-            [provider]: policyJson?.error || "로그인 화면 노출/이름 설정 저장에 실패했습니다.",
+            [provider]: policyJson?.error || t("admin_auth_err_login_display_save"),
           }));
           return;
         }
@@ -204,7 +207,10 @@ export function AuthLoginSettingsForm() {
       }
       setProviderStatus((prev) => ({ ...prev, [provider]: "저장되었습니다." }));
     } catch {
-      setProviderError((prev) => ({ ...prev, [provider]: `${provider} 설정을 저장하지 못했습니다.` }));
+      setProviderError((prev) => ({
+        ...prev,
+        [provider]: t("admin_auth_err_provider_save_failed", { provider: getProviderTitle(provider) }),
+      }));
     } finally {
       setProviderSaving((prev) => ({ ...prev, [provider]: false }));
     }
@@ -212,7 +218,7 @@ export function AuthLoginSettingsForm() {
 
   const savePolicy = async (): Promise<void> => {
     if (!sessionPolicy || legacySettings.length === 0) {
-      setPolicyError("중복 로그인 정책 저장 준비가 되지 않았습니다.");
+      setPolicyError(t("admin_auth_err_policy_not_ready"));
       return;
     }
     setPolicySaving((prev) => (prev ? prev : true));
@@ -235,14 +241,14 @@ export function AuthLoginSettingsForm() {
         error?: string;
       } | null;
       if (!res.ok || !json?.ok || !Array.isArray(json.settings) || !json.sessionPolicy) {
-        setPolicyError(json?.error || "중복 로그인 정책을 저장하지 못했습니다.");
+        setPolicyError(json?.error || t("admin_auth_err_policy_save"));
         return;
       }
       setLegacySettings(json.settings);
       setSessionPolicy(json.sessionPolicy);
-      setPolicySuccess("저장되었습니다.");
+      setPolicySuccess(t("admin_settings_saved"));
     } catch {
-      setPolicyError("중복 로그인 정책을 저장하지 못했습니다.");
+      setPolicyError(t("admin_auth_err_policy_save"));
     } finally {
       setPolicySaving((prev) => (prev ? false : prev));
     }
@@ -266,13 +272,13 @@ export function AuthLoginSettingsForm() {
         error?: string;
       } | null;
       if (!res.ok || !json?.ok || !json.settings) {
-        setPhoneError(json?.error || "전화 인증 설정 저장에 실패했습니다.");
+        setPhoneError(json?.error || t("admin_auth_err_phone_save"));
         return;
       }
       setPhoneSettings(json.settings);
-      setPhoneSuccess("저장되었습니다.");
+      setPhoneSuccess(t("admin_settings_saved"));
     } catch {
-      setPhoneError("전화 인증 설정 저장에 실패했습니다.");
+      setPhoneError(t("admin_auth_err_phone_save"));
     } finally {
       setPhoneSaving(false);
     }
@@ -347,7 +353,7 @@ export function AuthLoginSettingsForm() {
                         checked={row.enabled}
                         onChange={(e) => updateProvider(row.provider, { enabled: e.target.checked })}
                       />
-                      사용 여부
+                      {t("admin_auth_label_enabled")}
                     </label>
                     <label className="flex items-center gap-2 sam-text-body text-sam-fg">
                       <input
@@ -357,7 +363,7 @@ export function AuthLoginSettingsForm() {
                           updateLoginSetting(row.provider, { enabled: e.target.checked })
                         }
                       />
-                      로그인 화면 노출 여부
+                      {t("admin_auth_label_login_visible")}
                     </label>
                   </div>
                 </div>
@@ -365,7 +371,7 @@ export function AuthLoginSettingsForm() {
                 })()}
                 <div className="grid gap-3 md:grid-cols-2">
                   <label className="sam-text-body text-sam-fg">
-                    <span className="mb-1 block sam-text-helper text-sam-muted">Provider 이름</span>
+                    <span className="mb-1 block sam-text-helper text-sam-muted">{t("admin_auth_settings_label_provider_name")}</span>
                     <input
                       type="text"
                       value={legacySettings.find((item) => item.provider === row.provider)?.label ?? getProviderTitle(row.provider)}
@@ -376,7 +382,7 @@ export function AuthLoginSettingsForm() {
                     />
                   </label>
                   <label className="sam-text-body text-sam-fg">
-                    <span className="mb-1 block sam-text-helper text-sam-muted">정렬 순서</span>
+                    <span className="mb-1 block sam-text-helper text-sam-muted">{t("admin_auth_settings_label_sort_order")}</span>
                     <input
                       type="number"
                       min={1}
@@ -406,12 +412,16 @@ export function AuthLoginSettingsForm() {
                       autoComplete="new-password"
                     />
                     <span className="mt-1 block sam-text-helper text-sam-muted">
-                      저장 상태: {row.client_secret_configured ? "설정됨" : "미설정"}
+                      {t("admin_auth_secret_status", {
+                        status: row.client_secret_configured
+                          ? t("admin_auth_secret_configured")
+                          : t("admin_auth_secret_not_configured"),
+                      })}
                     </span>
                   </label>
                   <label className="sam-text-body text-sam-fg">
                     <span className="mb-1 block sam-text-helper text-sam-muted">
-                      외부 OAuth 콘솔에 등록할 Supabase Callback URL
+                      {t("admin_auth_callback_url_label")}
                     </span>
                     <input
                       type="url"
@@ -461,17 +471,14 @@ export function AuthLoginSettingsForm() {
           <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
         ) : (
           <div className="space-y-3">
-            <p className="sam-text-body-secondary text-sam-muted">
-              선택한 조건이 모두 같을 때 기존 세션을 종료하고 새 로그인으로 교체합니다. 기본값은
-              `동일 아이디 + 동일 기기 + 동일 브라우저` 입니다.
-            </p>
+            <p className="sam-text-body-secondary text-sam-muted">{t("admin_auth_policy_intro")}</p>
             <label className="flex items-center gap-2 sam-text-body text-sam-fg">
               <input
                 type="checkbox"
                 checked={sessionPolicy.compare_same_login_id}
                 onChange={(e) => updatePolicy({ compare_same_login_id: e.target.checked })}
               />
-              동일 아이디 기준 사용
+              {t("admin_auth_policy_same_login_id")}
             </label>
             <label className="flex items-center gap-2 sam-text-body text-sam-fg">
               <input
@@ -480,7 +487,7 @@ export function AuthLoginSettingsForm() {
                 onChange={(e) => updatePolicy({ compare_same_device: e.target.checked })}
                 disabled={!sessionPolicy.compare_same_login_id}
               />
-              동일 기기일 때만 중복으로 판단
+              {t("admin_auth_policy_same_device")}
             </label>
             <label className="flex items-center gap-2 sam-text-body text-sam-fg">
               <input
@@ -489,7 +496,7 @@ export function AuthLoginSettingsForm() {
                 onChange={(e) => updatePolicy({ compare_same_browser: e.target.checked })}
                 disabled={!sessionPolicy.compare_same_login_id}
               />
-              동일 브라우저일 때만 중복으로 판단
+              {t("admin_auth_policy_same_browser")}
             </label>
             <label className="flex items-center gap-2 sam-text-body text-sam-fg">
               <input
@@ -498,12 +505,10 @@ export function AuthLoginSettingsForm() {
                 onChange={(e) => updatePolicy({ compare_same_ip: e.target.checked })}
                 disabled={!sessionPolicy.compare_same_login_id}
               />
-              동일 IP일 때만 중복으로 판단
+              {t("admin_auth_policy_same_ip")}
             </label>
             {!sessionPolicy.compare_same_login_id ? (
-              <p className="sam-text-body-secondary text-amber-700">
-                `동일 아이디 기준 사용`을 끄면 중복 로그인 제한이 사실상 해제됩니다.
-              </p>
+              <p className="sam-text-body-secondary text-amber-700">{t("admin_auth_policy_disabled_warning")}</p>
             ) : null}
             {policyError ? <p className="sam-text-body-secondary text-red-600">{policyError}</p> : null}
             {policySuccess ? <p className="sam-text-body-secondary text-emerald-600">{policySuccess}</p> : null}
@@ -534,11 +539,11 @@ export function AuthLoginSettingsForm() {
                   setPhoneSettings((prev) => (prev ? { ...prev, enabled: e.target.checked } : prev))
                 }
               />
-              전화 인증 사용
+              {t("admin_auth_phone_enabled")}
             </label>
             <div className="grid gap-3 md:grid-cols-3">
               <label className="sam-text-body text-sam-fg">
-                <span className="mb-1 block sam-text-helper text-sam-muted">국가</span>
+                <span className="mb-1 block sam-text-helper text-sam-muted">{t("admin_auth_settings_label_country")}</span>
                 <input value="PH" disabled className="w-full rounded-ui-rect border border-sam-border px-3 py-2 bg-sam-app" />
               </label>
               <label className="sam-text-body text-sam-fg">
@@ -562,7 +567,7 @@ export function AuthLoginSettingsForm() {
                 </select>
               </label>
               <label className="sam-text-body text-sam-fg">
-                <span className="mb-1 block sam-text-helper text-sam-muted">SMS 발신자명(표시용)</span>
+                <span className="mb-1 block sam-text-helper text-sam-muted">{t("admin_auth_settings_label_sms_from")}</span>
                 <input
                   value={phoneSettings.sms_from_name ?? ""}
                   onChange={(e) =>
@@ -576,7 +581,7 @@ export function AuthLoginSettingsForm() {
             </div>
             <div className="grid gap-3 md:grid-cols-3">
               <label className="sam-text-body text-sam-fg">
-                <span className="mb-1 block sam-text-helper text-sam-muted">OTP 유효시간(초)</span>
+                <span className="mb-1 block sam-text-helper text-sam-muted">{t("admin_auth_settings_label_otp_ttl")}</span>
                 <input
                   type="number"
                   min={60}
@@ -590,7 +595,7 @@ export function AuthLoginSettingsForm() {
                 />
               </label>
               <label className="sam-text-body text-sam-fg">
-                <span className="mb-1 block sam-text-helper text-sam-muted">재발송 대기시간(초)</span>
+                <span className="mb-1 block sam-text-helper text-sam-muted">{t("admin_auth_settings_label_resend_cooldown")}</span>
                 <input
                   type="number"
                   min={10}
@@ -604,7 +609,7 @@ export function AuthLoginSettingsForm() {
                 />
               </label>
               <label className="sam-text-body text-sam-fg">
-                <span className="mb-1 block sam-text-helper text-sam-muted">최대 인증 시도</span>
+                <span className="mb-1 block sam-text-helper text-sam-muted">{t("admin_auth_settings_label_max_attempts")}</span>
                 <input
                   type="number"
                   min={1}
@@ -619,7 +624,7 @@ export function AuthLoginSettingsForm() {
               </label>
             </div>
             <label className="sam-text-body text-sam-fg">
-              <span className="mb-1 block sam-text-helper text-sam-muted">안내 문구</span>
+              <span className="mb-1 block sam-text-helper text-sam-muted">{t("admin_auth_settings_label_guide_text")}</span>
               <textarea
                 rows={3}
                 value={phoneSettings.guide_text}
@@ -633,11 +638,11 @@ export function AuthLoginSettingsForm() {
             </label>
             {phoneSettings.provider === "supabase" ? (
               <div className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-900">
-                Supabase Dashboard &gt; Authentication &gt; Phone Provider 설정이 필요합니다.
+                {t("admin_auth_phone_supabase_hint")}
               </div>
             ) : (
               <div className="rounded-ui-rect border border-amber-300 bg-amber-50 px-3 py-2 sam-text-body-secondary text-amber-900">
-                Semaphore API Key는 Vercel Environment Variables에 설정해야 합니다.
+                {t("admin_auth_phone_semaphore_hint")}
               </div>
             )}
             {phoneError ? <p className="sam-text-body-secondary text-red-600">{phoneError}</p> : null}

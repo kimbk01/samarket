@@ -10,8 +10,9 @@ import {
   parsePhMobileInput,
   telHrefFromPhDb09,
 } from "@/lib/utils/ph-mobile";
-import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
+import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export type StoreOrderBuyerOrderPayload = {
   order_no?: string;
@@ -84,6 +85,7 @@ export function StoreOrderBuyerChatTop({
   buyerChatSoundOn,
   onBuyerChatSoundOnChange,
 }: Props) {
+  const { t, language } = useI18n();
   const [statusBannerVisible, setStatusBannerVisible] = useState(true);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -146,10 +148,7 @@ export function StoreOrderBuyerChatTop({
     return () => window.removeEventListener("keydown", onKey);
   }, [drawerOpen]);
 
-  const statusLabel =
-    order != null
-      ? BUYER_ORDER_STATUS_LABEL[order.order_status] ?? order.order_status
-      : "";
+  const statusLabel = order != null ? buyerOrderStatusLabel(order.order_status, language) : "";
 
   const phone09 =
     order?.buyer_phone != null && String(order.buyer_phone).trim()
@@ -162,13 +161,13 @@ export function StoreOrderBuyerChatTop({
     <>
       {orderLoading ? (
         <p className="text-center sam-text-body font-normal leading-[1.34] tracking-[-0.01em] text-muted">
-          주문 정보 불러오는 중…
+          {t("store_order_info_loading")}
         </p>
       ) : orderError ? (
         <p className="text-center sam-text-body font-normal leading-[1.34] text-red-600">{orderError}</p>
       ) : order == null ? (
         <p className="text-center sam-text-body font-normal leading-[1.34] tracking-[-0.01em] text-muted">
-          주문 정보를 불러올 수 없습니다.
+          {t("store_order_info_unavailable")}
         </p>
       ) : (
         <div className="relative overflow-hidden rounded-ui-rect bg-[var(--sub-bg)] px-3.5 py-3.5 shadow-none ring-1 ring-sam-border">
@@ -180,7 +179,7 @@ export function StoreOrderBuyerChatTop({
                   type="button"
                   onClick={() => setStatusBannerVisible(false)}
                   className="rounded p-0.5 text-amber-800 hover:bg-amber-200/50"
-                  aria-label="상태 배너 닫기"
+                  aria-label={t("store_status_banner_dismiss_aria")}
                 >
                   ×
                 </button>
@@ -197,7 +196,9 @@ export function StoreOrderBuyerChatTop({
                   🏪
                 </span>
                 <span className="min-w-0">
-                  <span className="block sam-text-helper font-semibold text-muted">픽업 (매장 주소)</span>
+                  <span className="block sam-text-helper font-semibold text-muted">
+                    {t("store_pickup_address_heading")}
+                  </span>
                   {order.store_pickup_address_lines.map((line, i) => (
                     <span key={i} className="mt-0.5 block">
                       {line}
@@ -212,7 +213,9 @@ export function StoreOrderBuyerChatTop({
                   🗺️
                 </span>
                 <span className="min-w-0">
-                  <span className="block sam-text-helper font-semibold text-muted">배달 주소</span>
+                  <span className="block sam-text-helper font-semibold text-muted">
+                    {t("store_delivery_address_heading")}
+                  </span>
                   <span className="mt-0.5 block">{order.delivery_address_summary}</span>
                 </span>
               </li>
@@ -222,7 +225,9 @@ export function StoreOrderBuyerChatTop({
                 <span className="shrink-0" aria-hidden>
                   ✏️
                 </span>
-                <span className="min-w-0">상세 : {order.delivery_address_detail}</span>
+                <span className="min-w-0">
+                  {t("store_address_detail_line", { detail: order.delivery_address_detail })}
+                </span>
               </li>
             : null}
             {phoneDisplay ? (
@@ -257,15 +262,15 @@ export function StoreOrderBuyerChatTop({
             order.delivery_fee_amount != null &&
             Number(order.delivery_fee_amount) > 0 ?
               <li className="pl-7 sam-text-body-secondary text-muted">
-                배달비 : {formatMoneyPhp(order.delivery_fee_amount)}
+                {t("store_delivery_fee_line", { amount: formatMoneyPhp(order.delivery_fee_amount) })}
               </li>
             : null}
             <li className="pl-7 sam-text-body font-semibold leading-[1.34] tracking-[-0.02em] text-foreground">
-              주문 금액 합계 : {formatMoneyPhp(order.payment_amount)}
+              {t("store_order_payment_total_line", { amount: formatMoneyPhp(order.payment_amount) })}
             </li>
             {order.buyer_note?.trim() ? (
               <li className="flex gap-2 border-t border-sam-border pt-2.5 sam-text-body text-foreground">
-                <span className="shrink-0 sam-text-helper font-semibold text-muted">요청</span>
+                <span className="shrink-0 sam-text-helper font-semibold text-muted">{t("store_request_label")}</span>
                 <span className="min-w-0">{order.buyer_note.trim()}</span>
               </li>
             ) : null}
@@ -300,14 +305,14 @@ export function StoreOrderBuyerChatTop({
                   id="store-order-drawer-title"
                   className="min-w-0 flex-1 sam-text-body-lg font-semibold leading-[21px] tracking-[-0.02em] text-foreground"
                 >
-                  주문 내역
+                  {t("store_order_history_drawer_title")}
                 </h2>
                 <div className="relative flex shrink-0 items-center" ref={menuRef}>
                   <button
                     type="button"
                     onClick={onMoreMenuClick}
                     className="inline-flex h-9 w-9 items-center justify-center rounded-full sam-text-page-title font-normal leading-none text-foreground hover:bg-black/[0.05]"
-                    aria-label="메뉴"
+                    aria-label={t("store_order_drawer_menu_aria")}
                   >
                     ⋯
                   </button>
@@ -317,7 +322,7 @@ export function StoreOrderBuyerChatTop({
                   type="button"
                   onClick={() => setDrawerOpen(false)}
                   className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full sam-text-hero font-light leading-none text-foreground hover:bg-black/[0.05]"
-                  aria-label="닫기"
+                  aria-label={t("common_close")}
                 >
                   ×
                 </button>
@@ -333,7 +338,7 @@ export function StoreOrderBuyerChatTop({
                     <span className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border border-red-300 sam-text-body-secondary font-normal leading-none">
                       ×
                     </span>
-                    <span className="flex items-center">주문취소</span>
+                    <span className="flex items-center">{t("store_order_cancel_btn")}</span>
                   </button>
                   <Link
                     href={`/my/store-orders/${encodeURIComponent(orderId)}`}
@@ -341,7 +346,7 @@ export function StoreOrderBuyerChatTop({
                     className="inline-flex h-9 shrink-0 items-center justify-center gap-1.5 rounded-full border border-sam-border bg-sam-surface px-3.5 sam-text-body font-normal leading-[18px] tracking-[-0.01em] text-foreground"
                   >
                     <DocIcon className="h-[18px] w-[18px] shrink-0 text-muted" />
-                    <span className="flex items-center">주문상세</span>
+                    <span className="flex items-center">{t("store_order_view_detail_btn")}</span>
                   </Link>
                 </div>
               </div>
@@ -367,7 +372,9 @@ export function StoreOrderBuyerChatTop({
               !matchAcked ? "ring-2 ring-amber-400/80 ring-offset-2 ring-offset-white" : ""
             }`}
             aria-expanded={drawerOpen}
-            aria-label={drawerOpen ? "주문 내역 패널 닫기" : "주문 내역 패널 열기"}
+            aria-label={
+              drawerOpen ? t("store_order_history_panel_close_aria") : t("store_order_history_panel_open_aria")
+            }
           >
             <span className={`${!matchAcked ? "animate-pulse" : ""}`} aria-hidden>
               <svg
@@ -385,7 +392,7 @@ export function StoreOrderBuyerChatTop({
             type="button"
             onClick={() => onBuyerChatSoundOnChange(!buyerChatSoundOn)}
             className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-black/[0.05]"
-            aria-label={buyerChatSoundOn ? "채팅 알림음 켜짐 — 탭하면 끔" : "채팅 알림음 꺼짐 — 탭하면 켬"}
+            aria-label={buyerChatSoundOn ? t("store_chat_notify_on_aria") : t("store_chat_notify_off_aria")}
             aria-pressed={buyerChatSoundOn}
           >
             {buyerChatSoundOn ? (

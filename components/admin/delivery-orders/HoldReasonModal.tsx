@@ -1,8 +1,9 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DeliveryReasonModal } from "./DeliveryReasonModal";
 
-/** 정산 보류 사유 입력 (DeliveryReasonModal 래퍼) */
+/** Settlement hold reason (DeliveryReasonModal wrapper). */
 export function HoldReasonModal({
   open,
   onClose,
@@ -12,12 +13,13 @@ export function HoldReasonModal({
   onClose: () => void;
   onConfirm: (reason: string) => void;
 }) {
+  const { t } = useI18n();
   return (
     <DeliveryReasonModal
       open={open}
-      title="정산 보류"
-      label="보류 사유 (필수)"
-      confirmLabel="보류"
+      title={t("admin_do_hold_modal_title")}
+      label={t("admin_do_hold_modal_label")}
+      confirmLabel={t("admin_do_hold_modal_confirm")}
       required
       onClose={onClose}
       onConfirm={onConfirm}

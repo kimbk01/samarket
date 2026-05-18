@@ -8,6 +8,7 @@ import {
   APP_MAIN_HEADER_INNER_CLASS,
 } from "@/lib/ui/app-content-layout";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const SECTIONS: MessengerMainSection[] = ["friends", "chats", "open_chat", "archive"];
 
@@ -18,6 +19,7 @@ export type MessengerTabsProps = {
 
 /** 메신저 1차 탭 — `TradePrimaryTabs` embed 와 동일 셸·`sam-tab` 밑줄 활성. */
 export function MessengerTabs({ value, onChange }: MessengerTabsProps) {
+  const { t } = useI18n();
   return (
     <div
       data-cm-primary-nav
@@ -28,7 +30,7 @@ export function MessengerTabs({ value, onChange }: MessengerTabsProps) {
           className={`${Sam.tabs.barScroll} min-w-0 max-w-full`}
           style={{ WebkitOverflowScrolling: "touch" }}
           role="tablist"
-          aria-label="메신저 구역"
+          aria-label={t("cm_ui_messenger_section_aria")}
         >
           {SECTIONS.map((id) => {
             const active = value === id;

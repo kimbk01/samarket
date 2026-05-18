@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { STORE_DETAIL_SUBHEADER_STICKY } from "@/lib/stores/store-detail-ui";
 import { StoreReportForm } from "@/components/stores/StoreReportForm";
@@ -10,13 +11,14 @@ export function StoreReportPageClient({
   slug: string;
   productId?: string;
 }) {
+  const { t } = useI18n();
   const safeSlug = typeof slug === "string" ? slug : "";
   const mode = productId ? "product" : "store";
 
   if (!safeSlug) {
     return (
       <div className="min-h-screen bg-sam-app p-4">
-        <p className="text-sm text-sam-muted">잘못된 주소입니다.</p>
+        <p className="text-sm text-sam-muted">{t("store_invalid_address")}</p>
       </div>
     );
   }

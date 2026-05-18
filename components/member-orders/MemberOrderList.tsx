@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MemberOrder } from "@/lib/member-orders/types";
 import { MemberOrderCard } from "./MemberOrderCard";
 
@@ -12,10 +13,11 @@ export function MemberOrderList({
   basePath: string;
   onOpenCancel?: (order: MemberOrder) => void;
 }) {
+  const { t } = useI18n();
   if (orders.length === 0) {
     return (
       <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app py-16 text-center text-sm text-sam-muted">
-        주문 내역이 없어요.
+        {t("member_order_list_empty")}
       </div>
     );
   }

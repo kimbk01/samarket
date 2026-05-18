@@ -3,6 +3,7 @@
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { CategoryTypeBadge } from "@/components/admin/categories/CategoryTypeBadge";
 import { CategoryIcon } from "@/components/home/CategoryIcon";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 function subtopicsForParent(all: CategoryWithSettings[] | undefined, parentId: string): CategoryWithSettings[] {
   if (!all?.length) return [];
@@ -14,14 +15,10 @@ function subtopicsForParent(all: CategoryWithSettings[] | undefined, parentId: s
 
 interface MenuManagementTableProps {
   items: CategoryWithSettings[];
-  /** 거래 메뉴 주제 미리보기용 전체 카테고리( parent_id 포함 ) */
   allCategories?: CategoryWithSettings[];
-  /** 거래/커뮤니티 구분 열 (선택) */
   showTypeColumn?: boolean;
-  /** 중고 메뉴에서만 주제(2행 칩) 관리 버튼 표시 */
   tradeSubtopicsEnabled?: boolean;
   onToggleShowOnMenu: (id: string, current: boolean) => void | Promise<void>;
-  /** 홈 FAB 글쓰기 런처(quick_create_enabled) */
   onToggleQuickLauncher?: (id: string, current: boolean) => void | Promise<void>;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
@@ -43,10 +40,12 @@ export function MenuManagementTable({
   onMoveDown,
   onManageSubtopics,
 }: MenuManagementTableProps) {
+  const { t } = useI18n();
+
   if (items.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        등록된 항목이 없습니다. 항목 추가로 메뉴·카테고리를 등록해 주세요.
+        {t("admin_menu_table_empty")}
       </div>
     );
   }
@@ -56,23 +55,23 @@ export function MenuManagementTable({
       <table className="w-full min-w-[720px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
-            <th className="px-3 py-2 text-left font-medium text-sam-fg">순서</th>
+            <th className="px-3 py-2 text-left font-medium text-sam-fg">{t("admin_menu_th_order")}</th>
             {showTypeColumn ? (
-              <th className="px-3 py-2 text-left font-medium text-sam-fg">메인 글 유형</th>
+              <th className="px-3 py-2 text-left font-medium text-sam-fg">{t("admin_menu_th_main_type")}</th>
             ) : null}
-            <th className="px-3 py-2 text-left font-medium text-sam-fg">이름</th>
-            <th className="px-3 py-2 text-left font-medium text-sam-fg">slug</th>
-            <th className="px-3 py-2 text-left font-medium text-sam-fg">기능 선택</th>
-            <th className="px-3 py-2 text-left font-medium text-sam-fg">메뉴·칩 노출</th>
-            <th className="whitespace-nowrap px-3 py-2 text-center font-medium text-sam-fg">글쓰기 런처</th>
-            <th className="px-3 py-2 text-center font-medium text-sam-fg">아이콘</th>
+            <th className="px-3 py-2 text-left font-medium text-sam-fg">{t("admin_menu_th_name")}</th>
+            <th className="px-3 py-2 text-left font-medium text-sam-fg">{t("admin_menu_th_slug")}</th>
+            <th className="px-3 py-2 text-left font-medium text-sam-fg">{t("admin_menu_th_features")}</th>
+            <th className="px-3 py-2 text-left font-medium text-sam-fg">{t("admin_menu_th_chip_visibility")}</th>
+            <th className="whitespace-nowrap px-3 py-2 text-center font-medium text-sam-fg">{t("admin_menu_th_write_launcher")}</th>
+            <th className="px-3 py-2 text-center font-medium text-sam-fg">{t("admin_menu_th_icon")}</th>
             {tradeSubtopicsEnabled ? (
-              <th className="min-w-[160px] max-w-[240px] px-3 py-2 text-left font-medium text-sam-fg">주제 목록</th>
+              <th className="min-w-[160px] max-w-[240px] px-3 py-2 text-left font-medium text-sam-fg">{t("admin_menu_th_subtopic_list")}</th>
             ) : null}
             {tradeSubtopicsEnabled ? (
-              <th className="whitespace-nowrap px-3 py-2 text-center font-medium text-sam-fg">2행 주제</th>
+              <th className="whitespace-nowrap px-3 py-2 text-center font-medium text-sam-fg">{t("admin_menu_th_subtopic_row2")}</th>
             ) : null}
-            <th className="px-3 py-2 text-right font-medium text-sam-fg">관리</th>
+            <th className="px-3 py-2 text-right font-medium text-sam-fg">{t("admin_menu_th_actions")}</th>
           </tr>
         </thead>
         <tbody>
@@ -83,7 +82,7 @@ export function MenuManagementTable({
                 <td className="px-3 py-2">
                   <CategoryTypeBadge type={c.type} />
                   <p className="mt-0.5 sam-text-xxs text-sam-muted">
-                    {c.type === "trade" ? "홈 상단 칩(중고)" : "게시판형 글"}
+                    {c.type === "trade" ? t("admin_menu_type_trade_chip") : t("admin_menu_type_community_board")}
                   </p>
                 </td>
               ) : null}
@@ -91,22 +90,30 @@ export function MenuManagementTable({
               <td className="px-3 py-2 sam-text-helper text-sam-muted">{c.slug}</td>
               <td className="px-3 py-2">
                 <div className="flex flex-wrap gap-1 sam-text-xxs">
-                  {c.settings?.can_write !== false && <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-sam-muted">글쓰기</span>}
-                  {c.settings?.has_price && <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-sam-muted">가격</span>}
-                  {c.settings?.has_chat && <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-sam-muted">채팅</span>}
-                  {c.settings?.has_location !== false && <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-sam-muted">위치</span>}
-                  {c.settings?.has_direct_deal !== false && <span className="rounded bg-blue-50 px-1.5 py-0.5 text-blue-700">직거래</span>}
-                  {c.settings?.has_free_share !== false && <span className="rounded bg-green-50 px-1.5 py-0.5 text-green-700">나눔</span>}
+                  {c.settings?.can_write !== false && (
+                    <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-sam-muted">{t("admin_menu_feat_write")}</span>
+                  )}
+                  {c.settings?.has_price && (
+                    <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-sam-muted">{t("admin_menu_feat_price")}</span>
+                  )}
+                  {c.settings?.has_chat && (
+                    <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-sam-muted">{t("admin_menu_feat_chat")}</span>
+                  )}
+                  {c.settings?.has_location !== false && (
+                    <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 text-sam-muted">{t("admin_menu_feat_location")}</span>
+                  )}
+                  {c.settings?.has_direct_deal !== false && (
+                    <span className="rounded bg-blue-50 px-1.5 py-0.5 text-blue-700">{t("admin_menu_feat_direct")}</span>
+                  )}
+                  {c.settings?.has_free_share !== false && (
+                    <span className="rounded bg-green-50 px-1.5 py-0.5 text-green-700">{t("admin_menu_feat_free")}</span>
+                  )}
                 </div>
               </td>
               <td className="px-3 py-2">
                 <label
                   className="inline-flex cursor-pointer items-center gap-2"
-                  title={
-                    c.type === "trade"
-                      ? "켜면 홈 상단 칩에 표시됩니다."
-                      : "거래(중고)는 홈 칩, 커뮤니티는 글쓰기 런처 등에 반영됩니다."
-                  }
+                  title={c.type === "trade" ? t("admin_menu_chip_tooltip_trade") : t("admin_menu_chip_tooltip_mixed")}
                 >
                   <input
                     type="checkbox"
@@ -115,16 +122,13 @@ export function MenuManagementTable({
                     className="rounded border-sam-border"
                   />
                   <span className="sam-text-body-secondary text-sam-fg">
-                    {c.show_in_home_chips !== false ? "적용" : "미적용"}
+                    {c.show_in_home_chips !== false ? t("admin_menu_chip_applied") : t("admin_menu_chip_not_applied")}
                   </span>
                 </label>
               </td>
               <td className="px-3 py-2 text-center">
                 {onToggleQuickLauncher ? (
-                  <label
-                    className="inline-flex cursor-pointer flex-col items-center gap-0.5"
-                    title="홈·거래 화면 + 메뉴의 글쓰기 주제 목록에 넣습니다."
-                  >
+                  <label className="inline-flex cursor-pointer flex-col items-center gap-0.5" title={t("admin_menu_launcher_tooltip")}>
                     <input
                       type="checkbox"
                       checked={c.quick_create_enabled === true}
@@ -149,13 +153,13 @@ export function MenuManagementTable({
                   {(() => {
                     const subs = subtopicsForParent(allCategories, c.id);
                     if (subs.length === 0) {
-                      return <span className="text-sam-meta">등록된 주제 없음</span>;
+                      return <span className="text-sam-meta">{t("admin_menu_subtopic_none")}</span>;
                     }
                     return (
                       <ul className="space-y-0.5">
                         {subs.map((s) => (
                           <li key={s.id} className="truncate" title={`${s.name} (${s.slug})`}>
-                            {!s.is_active ? <span className="text-sam-meta">(비활성) </span> : null}
+                            {!s.is_active ? <span className="text-sam-meta">{t("admin_menu_subtopic_inactive")} </span> : null}
                             {s.name}
                             <span className="ml-1 sam-text-xxs text-sam-meta">{s.slug}</span>
                           </li>
@@ -172,9 +176,9 @@ export function MenuManagementTable({
                       type="button"
                       onClick={() => onManageSubtopics(c)}
                       className="rounded-ui-rect border border-signature/40 bg-signature/5 px-3 py-1.5 sam-text-helper font-semibold text-signature hover:bg-signature/15"
-                      title="현대·기아 등 2행 칩·글쓰기 주제"
+                      title={t("admin_menu_subtopic_manage_title")}
                     >
-                      주제 관리
+                      {t("admin_menu_subtopic_manage")}
                     </button>
                   ) : (
                     <span className="sam-text-helper text-sam-meta">—</span>
@@ -188,7 +192,7 @@ export function MenuManagementTable({
                     onClick={() => onMoveUp(c.id)}
                     disabled={index === 0}
                     className="rounded p-1 text-sam-muted hover:bg-sam-border-soft disabled:opacity-40"
-                    title="위로"
+                    title={t("admin_cat_move_up")}
                   >
                     ▲
                   </button>
@@ -197,7 +201,7 @@ export function MenuManagementTable({
                     onClick={() => onMoveDown(c.id)}
                     disabled={index === items.length - 1}
                     className="rounded p-1 text-sam-muted hover:bg-sam-border-soft disabled:opacity-40"
-                    title="아래로"
+                    title={t("admin_cat_move_down")}
                   >
                     ▼
                   </button>
@@ -206,14 +210,14 @@ export function MenuManagementTable({
                     onClick={() => onEdit(c.id)}
                     className="rounded px-1.5 py-0.5 sam-text-helper text-signature hover:bg-signature/10"
                   >
-                    수정
+                    {t("admin_cat_edit")}
                   </button>
                   <button
                     type="button"
                     onClick={() => onDelete(c.id)}
                     className="rounded px-1.5 py-0.5 sam-text-helper text-red-600 hover:bg-red-50"
                   >
-                    삭제
+                    {t("common_delete")}
                   </button>
                 </div>
               </td>

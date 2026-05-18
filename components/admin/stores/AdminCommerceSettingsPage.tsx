@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
 type Overridden = {
   store_auto_complete_days: boolean;
@@ -11,6 +12,7 @@ type Overridden = {
 };
 
 export function AdminCommerceSettingsPage() {
+  const { t } = useI18n();
   const [autoDays, setAutoDays] = useState("");
   const [feeBp, setFeeBp] = useState("");
   const [delayDays, setDelayDays] = useState("");
@@ -28,11 +30,11 @@ export function AdminCommerceSettingsPage() {
       const res = await fetch("/api/admin/commerce-settings", { credentials: "include" });
       const json = await res.json();
       if (res.status === 403) {
-        setError("관리자 권한이 없습니다.");
+        setError("forbidden");
         return;
       }
       if (!json?.ok) {
-        setError(json?.error === "table_missing" ? "admin_settings 테이블을 적용해 주세요." : json?.error);
+        setError(json?.error === "table_missing" ? "table_missing" : json?.error);
         return;
       }
       const e = json.effective;
@@ -67,7 +69,7 @@ export function AdminCommerceSettingsPage() {
         setError(json?.error ?? "save_failed");
         return;
       }
-      setMsg("저장했습니다.");
+      setMsg("saved");
       const e = json.effective;
       setAutoDays(String(e.store_auto_complete_days ?? ""));
       setFeeBp(String(e.store_settlement_fee_bp ?? ""));
@@ -80,21 +82,27 @@ export function AdminCommerceSettingsPage() {
     }
   }
 
+  const errorText =
+    error === "forbidden"
+      ? t("admin_audit_err_no_permission")
+      : error === "table_missing"
+        ? t("admin_stores_commerce_err_table_missing")
+        : error;
+
   return (
     <div className="max-w-lg space-y-6">
-      <AdminPageHeader title="매장 커머스 수치" />
+      <AdminPageHeader titleKey="admin_stores_commerce_settings_title" />
       <p className="sam-text-body-secondary text-sam-muted">
-        DB에 값이 있으면 <strong>.env보다 우선</strong>합니다. &quot;DB 제거&quot;는 해당 항목만 환경변수 기본으로
-        돌립니다. 주문 채팅 일치 알림음은{" "}
+        {t("admin_stores_commerce_settings_desc_prefix")}{" "}
         <Link href="/admin/stores/application-settings" className="text-signature underline">
-          매장 설정 (매장 신청)
+          {t("admin_stores_commerce_settings_link")}
         </Link>
-        에서 프리셋·업로드로 설정합니다.
+        {t("admin_stores_commerce_settings_desc_suffix")}
       </p>
-      {error ? <p className="text-sm text-red-700">{error}</p> : null}
-      {msg ? <p className="text-sm text-green-800">{msg}</p> : null}
+      {errorText ? <p className="text-sm text-red-700">{errorText}</p> : null}
+      {msg === "saved" ? <p className="text-sm text-green-800">{t("admin_stores_saved")}</p> : null}
       {loading ? (
-        <p className="text-sm text-sam-muted">불러오는 중…</p>
+        <p className="text-sm text-sam-muted">{t("common_loading")}</p>
       ) : (
         <form
           className="space-y-5 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm"
@@ -109,7 +117,7 @@ export function AdminCommerceSettingsPage() {
         >
           <label className="block">
             <span className="text-xs font-medium text-sam-fg">
-              자동 구매확정(일) — 픽업 가능·배송중 후{" "}
+              {t("admin_stores_commerce_auto_complete_days")}{" "}
               {overridden?.store_auto_complete_days ? (
                 <span className="text-signature">DB</span>
               ) : (
@@ -129,7 +137,7 @@ export function AdminCommerceSettingsPage() {
           </label>
           <label className="block">
             <span className="text-xs font-medium text-sam-fg">
-              정산 수수료(만분율, 300=3%){" "}
+              {t("admin_stores_commerce_settlement_fee_bp")}{" "}
               {overridden?.store_settlement_fee_bp ? (
                 <span className="text-signature">DB</span>
               ) : (
@@ -148,7 +156,7 @@ export function AdminCommerceSettingsPage() {
           </label>
           <label className="block">
             <span className="text-xs font-medium text-sam-fg">
-              정산 지급 예정(결제일+N일){" "}
+              {t("admin_stores_commerce_settlement_delay_days")}{" "}
               {overridden?.store_settlement_delay_days ? (
                 <span className="text-signature">DB</span>
               ) : (
@@ -171,7 +179,7 @@ export function AdminCommerceSettingsPage() {
               disabled={saving}
               className="rounded-ui-rect bg-sam-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
-              {saving ? "저장 중…" : "세 항목 저장"}
+              {saving ? t("admin_stores_saving") : t("admin_stores_commerce_save_all")}
             </button>
           </div>
         </form>
@@ -190,7 +198,7 @@ export function AdminCommerceSettingsPage() {
               })
             }
           >
-            전부 DB에서 제거(env만 사용)
+            {t("admin_stores_commerce_clear_db")}
           </button>
         </div>
       ) : null}

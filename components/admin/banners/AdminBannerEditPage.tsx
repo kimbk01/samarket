@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AdminBannerFormValues } from "./AdminBannerForm";
 import { getBannerForAdminById, updateBanner } from "@/lib/admin-banners/mock-admin-banners";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -13,12 +14,13 @@ interface AdminBannerEditPageProps {
 
 export function AdminBannerEditPage({ bannerId }: AdminBannerEditPageProps) {
   const router = useRouter();
+  const { t } = useI18n();
   const banner = getBannerForAdminById(bannerId);
 
   if (!banner) {
     return (
       <div className="py-8 text-center sam-text-body text-sam-muted">
-        배너를 찾을 수 없습니다.
+        {t("admin_banners_not_found")}
       </div>
     );
   }
@@ -56,12 +58,12 @@ export function AdminBannerEditPage({ bannerId }: AdminBannerEditPageProps) {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="배너 수정" backHref={`/admin/banners/${bannerId}`} />
-      <AdminCard title="배너 정보">
+      <AdminPageHeader titleKey="admin_banners_page_edit" backHref={`/admin/banners/${bannerId}`} />
+      <AdminCard titleKey="admin_banners_card_info">
         <AdminBannerForm
           initial={initial}
           onSubmit={handleSubmit}
-          submitLabel="저장"
+          submitLabel={t("common_save")}
         />
       </AdminCard>
     </div>

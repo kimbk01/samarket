@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import { getUserAddressDesignationPlainText } from "@/components/addresses/UserAddressDesignationTitle";
 import {
@@ -29,6 +30,7 @@ export function AddressRowCard(props: {
   approvedStoresById?: ReadonlyMap<string, string>;
 }) {
   const { row, onEdit, onDelete, onSetAsRepresentative, busyId: globalBusy, containerClassName, approvedStoresById } = props;
+  const { t } = useI18n();
   const rowBusy = globalBusy === row.id;
   const isPh = (row.countryCode ?? "PH").trim().toUpperCase() === "PH";
   const linkedStoreId = row.linkedStoreId?.trim() ?? "";
@@ -67,11 +69,12 @@ export function AddressRowCard(props: {
     "min-w-0 flex-1 rounded-sam-sm px-0 py-0 pr-1 text-left sm:pr-0" +
     (onSetAsRepresentative ? "" : " cursor-default");
 
+  const detailPart = detailLine ? t("addr_ui_aria_detail_part", { detail: detailLine }) : "";
   const ariaPrimary = onSetAsRepresentative
     ? row.isDefaultMaster
-      ? `${designationPlain}, 현재 대표 주소, ${sub}${detailLine ? `, 상세주소 ${detailLine}` : ""}`
-      : `${designationPlain}, 탭하면 대표 주소로 지정, ${sub}${detailLine ? `, 상세주소 ${detailLine}` : ""}`
-    : `${designationPlain}, 매장 연결 주소${row.isDefaultMaster ? ", 현재 대표 주소" : ""}, ${sub}${detailLine ? `, 상세주소 ${detailLine}` : ""}`;
+      ? `${designationPlain}, ${t("addr_ui_aria_current_master")}, ${sub}${detailPart}`
+      : `${designationPlain}, ${t("addr_ui_aria_tap_master")}, ${sub}${detailPart}`
+    : `${designationPlain}, ${t("addr_ui_aria_store_linked")}${row.isDefaultMaster ? `, ${t("addr_ui_aria_current_master")}` : ""}, ${sub}${detailPart}`;
 
   const primaryInner = (
     <>
@@ -110,7 +113,7 @@ export function AddressRowCard(props: {
             className={`${ADDR_BADGE_BASE} border-dashed border-sam-border/90 bg-sam-app font-semibold text-sam-muted`}
             translate="no"
           >
-            탭하여 대표
+            {t("addr_ui_tap_representative")}
           </span>
         ) : null}
       </div>
@@ -136,7 +139,7 @@ export function AddressRowCard(props: {
       {detailLine ? (
         <div className="mt-2 flex min-w-0 max-w-full flex-nowrap items-end gap-2">
           <span className="shrink-0 pb-0.5 text-[10px] font-semibold uppercase tracking-wide text-sam-primary">
-            상세주소
+            {t("addr_ui_detail_address_label")}
           </span>
           <span
             className="min-w-0 flex-1 border-b border-sam-primary-border/55 pb-0.5 text-left text-[12px] font-bold text-sam-fg"
@@ -172,7 +175,7 @@ export function AddressRowCard(props: {
           onClick={onEdit}
           disabled={rowBusy}
           className="sam-header-action flex h-10 w-10 items-center justify-center text-sam-muted transition-colors hover:text-sam-primary disabled:opacity-40"
-          aria-label="수정"
+          aria-label={t("common_edit")}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
             <path
@@ -189,7 +192,7 @@ export function AddressRowCard(props: {
           onClick={onDelete}
           disabled={rowBusy}
           className="sam-header-action flex h-10 w-10 items-center justify-center text-sam-muted transition-colors hover:text-sam-danger disabled:opacity-40"
-          aria-label="삭제"
+          aria-label={t("common_delete")}
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
             <path

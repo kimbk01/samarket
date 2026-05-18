@@ -1,14 +1,10 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { ownerOrderTabLabel } from "@/lib/stores/owner-order-ui-labels";
 import type { OwnerOrderTab } from "@/lib/store-owner/types";
 
-const TABS: { key: OwnerOrderTab; label: string }[] = [
-  { key: "all", label: "전체" },
-  { key: "new", label: "신규" },
-  { key: "active", label: "진행중" },
-  { key: "done", label: "완료" },
-  { key: "issue", label: "취소·문제" },
-];
+const TAB_KEYS: OwnerOrderTab[] = ["all", "new", "active", "done", "issue"];
 
 export function OwnerOrderTabs({
   active,
@@ -19,9 +15,10 @@ export function OwnerOrderTabs({
   onChange: (t: OwnerOrderTab) => void;
   counts: Record<OwnerOrderTab, number>;
 }) {
+  const { language } = useI18n();
   return (
     <div className="flex gap-1 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-      {TABS.map(({ key, label }) => {
+      {TAB_KEYS.map((key) => {
         const on = active === key;
         return (
           <button
@@ -34,7 +31,7 @@ export function OwnerOrderTabs({
                 : "bg-sam-surface text-sam-fg ring-1 ring-sam-border hover:bg-sam-app"
             }`}
           >
-            {label}
+            {ownerOrderTabLabel(key, language)}
             <span className={`ml-1 tabular-nums ${on ? "text-white/80" : "text-sam-meta"}`}>
               {counts[key]}
             </span>

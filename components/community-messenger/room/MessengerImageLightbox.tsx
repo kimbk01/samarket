@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function MessengerImageLightbox(props: {
   open: boolean;
@@ -10,6 +11,7 @@ export function MessengerImageLightbox(props: {
   onClose: () => void;
   onChangeIndex: (next: number) => void;
 }) {
+  const { t } = useI18n();
   const { open, urls, originals, index, onClose, onChangeIndex } = props;
   if (!open || urls.length === 0) return null;
   const safeIndex = Math.max(0, Math.min(urls.length - 1, index));
@@ -32,7 +34,7 @@ export function MessengerImageLightbox(props: {
       className="fixed inset-0 z-[80] flex flex-col bg-black/92"
       role="dialog"
       aria-modal="true"
-      aria-label="이미지 확대 보기"
+      aria-label={t("cm_ui_image_zoom_view")}
     >
       <div className="flex shrink-0 items-center justify-between gap-2 px-3 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         <button
@@ -40,7 +42,7 @@ export function MessengerImageLightbox(props: {
           onClick={onClose}
           className="rounded-lg px-3 py-2 sam-text-body font-medium text-white/90 active:bg-white/10"
         >
-          닫기
+          {t("nav_close")}
         </button>
         <span className="sam-text-body-secondary tabular-nums text-white/70">
           {safeIndex + 1} / {urls.length}
@@ -51,7 +53,7 @@ export function MessengerImageLightbox(props: {
           rel="noopener noreferrer"
           className="rounded-lg px-3 py-2 sam-text-body font-medium text-white/90 active:bg-white/10"
         >
-          원본
+          {t("cm_ui_original")}
         </a>
       </div>
       <div className="relative min-h-0 flex-1 touch-pan-y">
@@ -62,7 +64,7 @@ export function MessengerImageLightbox(props: {
               disabled={safeIndex <= 0}
               onClick={() => onChangeIndex(safeIndex - 1)}
               className="absolute left-1 top-1/2 z-[1] -translate-y-1/2 rounded-full bg-black/40 px-2 py-3 sam-text-hero leading-none text-white disabled:opacity-25"
-              aria-label="이전"
+              aria-label={t("tier1_back")}
             >
               ‹
             </button>
@@ -71,7 +73,7 @@ export function MessengerImageLightbox(props: {
               disabled={safeIndex >= urls.length - 1}
               onClick={() => onChangeIndex(safeIndex + 1)}
               className="absolute right-1 top-1/2 z-[1] -translate-y-1/2 rounded-full bg-black/40 px-2 py-3 sam-text-hero leading-none text-white disabled:opacity-25"
-              aria-label="다음"
+              aria-label={t("common_next")}
             >
               ›
             </button>

@@ -1,4 +1,7 @@
+"use client";
+
 import { PHILIFE_FB_CARD_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 function SkeletonRow() {
   return (
@@ -19,8 +22,10 @@ function SkeletonRow() {
 
 /** 첫 페인트·캐시 미스 시 — 텍스트 한 줄 대신 카드 골격으로 가벼운 인상 */
 export function CommunityFeedSkeleton({ rows = 6 }: { rows?: number }) {
+  const { t } = useI18n();
+
   return (
-    <div className="space-y-3 px-4 pt-3 pb-3" aria-busy aria-label="피드 불러오는 중">
+    <div className="space-y-3 px-4 pt-3 pb-3" aria-busy aria-label={t("community_feed_loading_aria")}>
       {Array.from({ length: rows }, (_, i) => (
         <SkeletonRow key={i} />
       ))}

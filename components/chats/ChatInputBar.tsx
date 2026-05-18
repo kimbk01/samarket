@@ -66,7 +66,7 @@ function ChatInputBarInner({
   disabled,
   onLeave,
   draftStorageKey,
-  placeholder = "메시지를 입력하세요",
+  placeholder,
   showEmojiButton = true,
   variant = "default",
   onImageFilesSelected,
@@ -76,6 +76,7 @@ function ChatInputBarInner({
   composerDense = false,
 }: ChatInputBarProps) {
   const { t } = useI18n();
+  const resolvedPlaceholder = placeholder ?? t("chats_compose_input_placeholder");
   const ig = variant === "instagram";
   const preferMobileImageSheet = usePreferMobileChatImagePicker();
   const [pickerStagingFiles, setPickerStagingFiles] = useState<File[] | null>(null);
@@ -371,7 +372,7 @@ function ChatInputBarInner({
           }}
           onFocus={() => onComposerFocusChange?.(true)}
           onBlur={() => onComposerFocusChange?.(false)}
-          placeholder={placeholder}
+          placeholder={resolvedPlaceholder}
           rows={1}
           className={`max-h-[120px] w-full flex-1 resize-none border-0 bg-transparent text-sam-fg placeholder:text-sam-meta focus:outline-none focus:ring-0 ${composerDense ? "min-h-[38px] rounded-sam-md px-3 py-1.5 sam-text-body-secondary" : "min-h-[40px] rounded-sam-md px-3 py-2.5 sam-text-body"}`}
           disabled={inputLocked}

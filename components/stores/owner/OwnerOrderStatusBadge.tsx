@@ -1,22 +1,10 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { ownerOrderStatusLabel } from "@/lib/stores/owner-order-ui-labels";
 import type { OwnerOrderStatus } from "@/lib/store-owner/types";
 
 /** 배달K형 카드 뱃지 — 매장 주문 기준(`store-order-process-criteria`)과 톤 맞춤 */
-const LABEL: Record<OwnerOrderStatus, string> = {
-  pending: "신규",
-  accepted: "주문확인",
-  preparing: "상품준비",
-  ready_for_pickup: "픽업준비",
-  delivering: "배송중",
-  arrived: "배송지도착",
-  completed: "주문완료",
-  cancel_requested: "취소요청",
-  cancelled: "취소",
-  refund_requested: "환불요청",
-  refunded: "환불완료",
-};
-
 const CLS: Record<OwnerOrderStatus, string> = {
   pending: "bg-amber-100 text-amber-950 ring-amber-200",
   accepted: "bg-sky-100 text-sky-950 ring-sky-200",
@@ -32,11 +20,12 @@ const CLS: Record<OwnerOrderStatus, string> = {
 };
 
 export function OwnerOrderStatusBadge({ status }: { status: OwnerOrderStatus }) {
+  const { language } = useI18n();
   return (
     <span
       className={`inline-flex items-center rounded-full px-2.5 py-0.5 sam-text-xxs font-bold ring-1 ring-inset ${CLS[status]}`}
     >
-      {LABEL[status]}
+      {ownerOrderStatusLabel(status, language)}
     </span>
   );
 }

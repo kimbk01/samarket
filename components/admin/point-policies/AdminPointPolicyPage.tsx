@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useCallback, useMemo, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -23,15 +24,15 @@ import type { PointEventPolicy } from "@/lib/types/point-policy";
 
 type TabId = "board" | "probability" | "event" | "simulate" | "logs";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "board", label: "게시판 정책" },
-  { id: "probability", label: "확률 구간" },
-  { id: "event", label: "이벤트 배율" },
-  { id: "simulate", label: "시뮬레이션" },
-  { id: "logs", label: "변경 이력" },
-];
-
 export function AdminPointPolicyPage() {
+  const { t } = useI18n();
+  const tabs: { id: TabId; label: string }[] = [
+    { id: "board", label: t("admin_points_policy_tab_board") },
+    { id: "probability", label: t("admin_points_policy_tab_probability") },
+    { id: "event", label: t("admin_points_policy_tab_event") },
+    { id: "simulate", label: t("admin_points_policy_tab_simulate") },
+    { id: "logs", label: t("admin_points_policy_tab_logs") },
+  ];
   const [activeTab, setActiveTab] = useState<TabId>("board");
   const [refresh, setRefresh] = useState(0);
   const [showBoardForm, setShowBoardForm] = useState(false);
@@ -63,7 +64,7 @@ export function AdminPointPolicyPage() {
   const handleSaveBoardPolicy = (values: Partial<BoardPointPolicy>) => {
     const full: Omit<BoardPointPolicy, "id" | "updatedAt"> & { id?: string } = {
       boardKey: values.boardKey ?? "general",
-      boardName: values.boardName ?? "자유게시판",
+      boardName: values.boardName ?? t("admin_points_board_general"),
       isActive: values.isActive ?? true,
       writeRewardType: values.writeRewardType ?? "fixed",
       writeFixedPoint: values.writeFixedPoint ?? 0,
@@ -109,28 +110,28 @@ export function AdminPointPolicyPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="포인트 정책" />
+      <AdminPageHeader titleKey="admin_points_policy_page" />
 
       <div className="flex flex-wrap gap-2 border-b border-sam-border">
-        {TABS.map((t) => (
+        {tabs.map((tab) => (
           <button
-            key={t.id}
+            key={tab.id}
             type="button"
-            onClick={() => setActiveTab(t.id)}
+            onClick={() => setActiveTab(tab.id)}
             className={`border-b-2 px-3 py-2 sam-text-body font-medium ${
-              activeTab === t.id
+              activeTab === tab.id
                 ? "border-signature text-signature"
                 : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
-            {t.label}
+            {tab.label}
           </button>
         ))}
       </div>
 
       {activeTab === "board" && (
         <>
-          <AdminCard title="게시판별 포인트 정책">
+          <AdminCard titleKey="admin_points_policy_card_board">
             <div className="mb-3 flex justify-end">
               <button
                 type="button"
@@ -139,8 +140,7 @@ export function AdminPointPolicyPage() {
                   setShowBoardForm(true);
                 }}
                 className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary text-sam-fg hover:bg-sam-app"
-              >
-                정책 추가
+              > {t("admin_points_policy_btn_add")}
               </button>
             </div>
             {showBoardForm && (
@@ -171,10 +171,9 @@ export function AdminPointPolicyPage() {
       )}
 
       {activeTab === "probability" && (
-        <AdminCard title="확률 구간 (확률형 정책용)">
+        <AdminCard titleKey="admin_points_policy_card_probability">
           <div className="mb-3">
-            <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-              정책 선택
+            <label className="mb-1 block sam-text-body font-medium text-sam-fg"> {t("admin_points_policy_label_select_policy")}
             </label>
             <select
               value={selectedPolicyId ?? ""}
@@ -183,7 +182,7 @@ export function AdminPointPolicyPage() {
               }
               className="rounded border border-sam-border px-3 py-2 sam-text-body"
             >
-              <option value="">선택</option>
+              <option value="">{t("admin_points_select")}</option>
               {policies
                 .filter(
                   (p) =>
@@ -219,7 +218,7 @@ export function AdminPointPolicyPage() {
 
       {activeTab === "event" && (
         <>
-          <AdminCard title="이벤트 포인트 배율">
+          <AdminCard titleKey="admin_points_policy_card_event">
             <div className="mb-3 flex justify-end">
               <button
                 type="button"
@@ -228,8 +227,7 @@ export function AdminPointPolicyPage() {
                   setShowEventForm(true);
                 }}
                 className="rounded border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-body-secondary text-sam-fg hover:bg-sam-app"
-              >
-                이벤트 추가
+              > {t("admin_points_policy_btn_add_event")}
               </button>
             </div>
             {showEventForm && (
@@ -260,13 +258,13 @@ export function AdminPointPolicyPage() {
       )}
 
       {activeTab === "simulate" && (
-        <AdminCard title="포인트 지급 시뮬레이션">
+        <AdminCard titleKey="admin_points_policy_card_simulate">
           <PointRewardSimulator />
         </AdminCard>
       )}
 
       {activeTab === "logs" && (
-        <AdminCard title="정책 변경 이력">
+        <AdminCard titleKey="admin_points_policy_card_logs">
           <PointPolicyLogList logs={logs} />
         </AdminCard>
       )}

@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useEffect, useState } from "react";
 import { SELLER_CANCEL_SALE_CONFIRM_MESSAGE } from "@/lib/posts/seller-cancel-sale-ui";
 
@@ -77,16 +78,16 @@ export function PostDetailSellerMoreSheet({
 
   return (
     <div className="fixed inset-0 z-[45] flex items-end justify-center">
-      <button type="button" className="absolute inset-0 bg-black/50" onClick={onClose} aria-label="닫기" />
+      <button type="button" className="absolute inset-0 bg-black/50" onClick={onClose} aria-label={t("ui_sheet_close_aria")} />
       <div
         className={`relative w-full max-w-lg rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-4 pb-8 pt-2 shadow-xl transition-transform duration-300 ease-out ${
           slideIn ? "translate-y-0" : "translate-y-full"
         }`}
       >
         <div className="mx-auto mb-3 mt-1 h-1 w-10 shrink-0 rounded-full bg-sam-surface-muted" aria-hidden />
-        <h2 className="mb-3 px-1 sam-text-body-lg font-semibold text-sam-fg">내 물품</h2>
+        <h2 className="mb-3 px-1 sam-text-body-lg font-semibold text-sam-fg">{t("ui_post_my_listing_title")}</h2>
         {busy ? (
-          <p className="mb-2 text-center sam-text-body-secondary text-sam-muted">처리 중…</p>
+          <p className="mb-2 text-center sam-text-body-secondary text-sam-muted">{t("community_meeting_join_processing")}</p>
         ) : null}
         <div className="rounded-ui-rect border border-sam-border-soft bg-sam-app p-2">
           {showLockBanner ? (
@@ -115,7 +116,7 @@ export function PostDetailSellerMoreSheet({
             title={dLocked ? deleteLockHint : undefined}
             onClick={() => {
               if (busy || dLocked) return;
-              if (!window.confirm("이 글을 삭제할까요? 삭제 후에는 피드에서 사라져요.")) return;
+              if (!window.confirm(t("ui_post_delete_confirm_feed"))) return;
               onDelete();
             }}
             className="flex w-full items-center gap-3 rounded-ui-rect px-3 py-2.5 text-left sam-text-body text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-45"

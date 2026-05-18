@@ -9,7 +9,7 @@ import { getOnboardingStatus } from "@/lib/auth/get-onboarding-status";
 import { resolvePostLoginRoute } from "@/lib/auth/resolve-post-login-route";
 import { buildRequestSessionMeta } from "@/lib/auth/request-device-info";
 import { syncActiveSessionForUser } from "@/lib/auth/server-guards";
-import { APP_LANGUAGE_COOKIE, normalizeAppLanguage } from "@/lib/i18n/config";
+import { APP_LANGUAGE_COOKIE, parseExplicitAppLanguage } from "@/lib/i18n/config";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 
 export const dynamic = "force-dynamic";
@@ -114,7 +114,10 @@ export async function GET(req: NextRequest) {
         baseMeta.nickname = nick;
       }
       if (localeCookieRaw) {
-        baseMeta.preferred_language = normalizeAppLanguage(localeCookieRaw);
+        const explicitLocale = parseExplicitAppLanguage(localeCookieRaw);
+        if (explicitLocale) {
+          baseMeta.preferred_language = explicitLocale;
+        }
       }
       const mergedUser = { ...user, user_metadata: baseMeta } as User;
       try {

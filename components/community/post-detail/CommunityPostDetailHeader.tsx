@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -17,6 +18,7 @@ type ActionRefs = {
 };
 
 function DetailHeaderRight({ r }: { r: React.MutableRefObject<ActionRefs> }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [moreOpen, setMoreOpen] = useState(false);
 
@@ -42,8 +44,8 @@ function DetailHeaderRight({ r }: { r: React.MutableRefObject<ActionRefs> }) {
       <button
         type="button"
         className="flex h-9 w-9 items-center justify-center rounded-[4px] text-[#1F2430] active:bg-[#F7F8FA]"
-        aria-label="이 글 알림 끄기(준비 중)"
-        title="알림"
+        aria-label={t("community_post_notify_off_aria")}
+        title={t("community_notify")}
       >
         <BellOff className="h-5 w-5" strokeWidth={1.8} />
       </button>
@@ -51,7 +53,7 @@ function DetailHeaderRight({ r }: { r: React.MutableRefObject<ActionRefs> }) {
         type="button"
         className="flex h-9 w-9 items-center justify-center rounded-[4px] text-[#1F2430] active:bg-[#F7F8FA]"
         onClick={() => void onShare()}
-        aria-label="공유"
+        aria-label={t("community_share_aria")}
       >
         <Share2 className="h-5 w-5" strokeWidth={1.8} />
       </button>
@@ -59,7 +61,7 @@ function DetailHeaderRight({ r }: { r: React.MutableRefObject<ActionRefs> }) {
         <button
           type="button"
           className="flex h-9 w-9 items-center justify-center rounded-[4px] text-[#1F2430] active:bg-[#F7F8FA]"
-          aria-label="더보기"
+          aria-label={t("community_more_aria")}
           aria-expanded={moreOpen}
           onClick={() => setMoreOpen((v) => !v)}
         >
@@ -70,7 +72,7 @@ function DetailHeaderRight({ r }: { r: React.MutableRefObject<ActionRefs> }) {
             <button
               type="button"
               className="fixed inset-0 z-40 cursor-default"
-              aria-label="닫기"
+              aria-label={t("common_close")}
               onClick={() => setMoreOpen((prev) => (prev ? false : prev))}
             />
             <ul
@@ -88,7 +90,7 @@ function DetailHeaderRight({ r }: { r: React.MutableRefObject<ActionRefs> }) {
                       r.current.onOpenReport();
                     }}
                   >
-                    신고
+                    {t("community_report")}
                   </button>
                 </li>
               ) : null}
@@ -103,7 +105,7 @@ function DetailHeaderRight({ r }: { r: React.MutableRefObject<ActionRefs> }) {
                       r.current.onDelete?.();
                     }}
                   >
-                    삭제
+                    {t("community_delete")}
                   </button>
                 </li>
               ) : null}
@@ -117,7 +119,7 @@ function DetailHeaderRight({ r }: { r: React.MutableRefObject<ActionRefs> }) {
                     void router.push(r.current.backHref || philifeAppPaths.home);
                   }}
                 >
-                  목록으로
+                  {t("community_back_to_list")}
                 </button>
               </li>
             </ul>
@@ -147,6 +149,7 @@ export function CommunityPostDetailHeader({
   canReport,
   postUrl,
 }: Props) {
+  const { t } = useI18n();
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
   const r = useRef<ActionRefs>({ backHref, onOpenReport, onDelete, canDelete, canReport, postUrl });
   r.current = { backHref, onOpenReport, onDelete, canDelete, canReport, postUrl };
@@ -157,17 +160,17 @@ export function CommunityPostDetailHeader({
     if (!setMainTier1Extras) return;
     setMainTier1Extras({
       tier1: {
-        titleText: titleText || "커뮤니티",
+        titleText: titleText || t("community_community_label"),
         backHref,
         /** 글쓰기 -> 보기 진입에서도 항상 커뮤니티 피드(해당 주제)로 복귀 */
         preferHistoryBack: false,
-        ariaLabel: "피드로",
+        ariaLabel: t("community_feed_back_aria"),
         showHubQuickActions: false,
         rightSlot,
       },
     });
     return () => setMainTier1Extras(null);
-  }, [setMainTier1Extras, titleText, backHref, rightSlot]);
+  }, [setMainTier1Extras, titleText, backHref, rightSlot, t]);
 
   return null;
 }

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -119,6 +120,7 @@ function browseCityLabel(regionId: string, cityId: string): string {
 }
 
 function StoresBrowseCartAction() {
+  const { t } = useI18n();
   const commerceCart = useStoreCommerceCartOptional();
   const cartLineKindCount = commerceCart?.hydrated ? commerceCart.totalItemCountAllStores : 0;
   const cartHref = useMemo(() => {
@@ -131,7 +133,7 @@ function StoresBrowseCartAction() {
       <Link
         href="/search"
         className="flex h-11 w-11 items-center justify-center rounded-full text-foreground hover:bg-sam-primary-soft"
-        aria-label="검색"
+        aria-label={t("common_search")}
       >
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
           <path
@@ -166,6 +168,7 @@ export function StoresBrowsePrimaryView({
   primarySlug: string;
   initialSubSlug: string | null;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -562,7 +565,7 @@ export function StoresBrowsePrimaryView({
             <HorizontalDragScroll
               className={`${STORE_CATEGORY_PILL_SCROLL} gap-0.5`}
               style={{ WebkitOverflowScrolling: "touch" }}
-              aria-label="하위 업종"
+              aria-label={t("store_sub_industry_aria")}
             >
               {(() => {
               const isRestaurant = primarySlug.trim().toLowerCase() === "restaurant";
@@ -713,7 +716,7 @@ export function StoresBrowsePrimaryView({
     return (
       <div className="min-h-[40vh] pb-8">
         <div className={`${APP_MAIN_COLUMN_CLASS} ${PHILIFE_FEED_INSET_X_CLASS} pt-4`}>
-          <p className="text-sm text-sam-muted">존재하지 않는 업종입니다.</p>
+          <p className="text-sm text-sam-muted">{t("store_invalid_industry")}</p>
           <Link href="/stores" className="mt-4 inline-block text-sm text-signature">
             매장 홈으로
           </Link>
@@ -726,7 +729,7 @@ export function StoresBrowsePrimaryView({
     <div className="min-h-[50vh] bg-sam-app pb-8 dark:bg-[#18191A]">
       <section className={`${APP_MAIN_COLUMN_CLASS} ${PHILIFE_FEED_INSET_X_CLASS} space-y-4 pt-2`}>
         {remoteLoading && !listLoaded ?
-          <p className="py-4 text-center text-sm text-sam-muted">실매장 연동 확인 중…</p>
+          <p className="py-4 text-center text-sm text-sam-muted">{t("store_verifying_live_link")}</p>
         : null}
         {useRemoteList ?
           <ul className="space-y-2">
@@ -736,7 +739,7 @@ export function StoresBrowsePrimaryView({
           </ul>
         : showEmptyBlock ?
           <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-4 py-10 text-center dark:border-sam-border dark:bg-[#242526]">
-            <p className="text-sm text-sam-muted dark:text-sam-meta">표시할 매장이 없습니다.</p>
+            <p className="text-sm text-sam-muted dark:text-sam-meta">{t("store_empty_store_list")}</p>
             <p className="mt-1 text-xs text-sam-meta dark:text-sam-muted">
               {feedSource === "supabase_unconfigured" ?
                 "매장 목록을 준비 중입니다. 잠시 후 다시 확인하거나 다른 업종을 먼저 둘러보세요."
@@ -744,7 +747,7 @@ export function StoresBrowsePrimaryView({
             </p>
             {otherPrimaries.length > 0 ?
               <div className="mt-5">
-                <p className="mb-2 sam-text-xxs font-semibold text-sam-muted dark:text-sam-meta">다른 업종 둘러보기</p>
+                <p className="mb-2 sam-text-xxs font-semibold text-sam-muted dark:text-sam-meta">{t("store_browse_other_industries")}</p>
                 <div className="flex flex-wrap justify-center gap-2">
                   {otherPrimaries.map((p) => (
                     <Link

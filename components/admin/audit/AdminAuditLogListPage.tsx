@@ -9,6 +9,7 @@ import {
   type AuditSortKey,
 } from "@/lib/admin-audit/admin-audit-utils";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminAuditSummaryCards } from "./AdminAuditSummaryCards";
 import { AdminAuditFilterBar } from "./AdminAuditFilterBar";
 import { AdminAuditLogTable } from "./AdminAuditLogTable";
@@ -22,6 +23,7 @@ const DEFAULT_FILTERS: AdminAuditFilters = {
 };
 
 export function AdminAuditLogListPage() {
+  const { t } = useI18n();
   const [filters, setFilters] = useState<AdminAuditFilters>(DEFAULT_FILTERS);
   const logs = useMemo(() => getAuditLogs(), []);
   const summary = useMemo(() => getAuditSummary(), []);
@@ -32,10 +34,10 @@ export function AdminAuditLogListPage() {
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="로그감사" />
+      <AdminPageHeader titleKey="admin_menu_dev_audit" />
 
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-        <h2 className="mb-3 sam-text-body font-medium text-sam-fg">감사 요약</h2>
+        <h2 className="mb-3 sam-text-body font-medium text-sam-fg">{t("admin_audit_summary_title")}</h2>
         <AdminAuditSummaryCards summary={summary} />
       </div>
 
@@ -43,19 +45,19 @@ export function AdminAuditLogListPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="sam-text-body-secondary text-sam-muted">
-          총 {filtered.length}건
+          {t("admin_audit_total_count", { count: filtered.length })}
         </span>
         <button
           type="button"
           className="rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg hover:bg-sam-app"
         >
-          로그 다운로드 (placeholder)
+          {t("admin_audit_download_placeholder")}
         </button>
       </div>
 
       {filtered.length === 0 ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          조건에 맞는 로그가 없습니다.
+          {t("admin_audit_empty_filtered")}
         </div>
       ) : (
         <AdminAuditLogTable logs={filtered} />

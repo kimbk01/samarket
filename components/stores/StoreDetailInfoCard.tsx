@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { StoreDetailSectionTitle } from "@/components/stores/StoreDetailSectionTitle";
@@ -48,14 +49,15 @@ export function StoreDetailInfoCard({
   flyerGalleryCount: number;
   ownerManagementHref?: string | null;
 }) {
+  const { t } = useI18n();
   const infoHref = `/stores/${encodeURIComponent(slug)}/info`;
 
   return (
     <section
       className={`${STORE_DETAIL_GUTTER} mt-3 ${STORE_DETAIL_CARD} p-4`}
-      aria-label="매장 정보"
+      aria-label={t("store_info_aria")}
     >
-      <StoreDetailSectionTitle level="h2">매장 정보</StoreDetailSectionTitle>
+      <StoreDetailSectionTitle level="h2">{t("store_info_title")}</StoreDetailSectionTitle>
       <p className="-mt-1 sam-text-xxs font-semibold uppercase tracking-[0.14em] text-sam-meta">
         {subtitle}
       </p>
@@ -63,7 +65,7 @@ export function StoreDetailInfoCard({
 
       <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
         <div className={STORE_DETAIL_METRIC_TILE}>
-          <p className="sam-text-xxs font-medium text-sam-muted">평점</p>
+          <p className="sam-text-xxs font-medium text-sam-muted">{t("store_rating_label")}</p>
           <p className="mt-0.5 sam-text-section-title font-bold tabular-nums text-sam-fg">★ {ratingDisplay}</p>
         </div>
         <button
@@ -71,7 +73,7 @@ export function StoreDetailInfoCard({
           onClick={onReviewClick}
           className={`${STORE_DETAIL_METRIC_TILE} text-left transition-colors active:bg-sam-surface-muted`}
         >
-          <p className="sam-text-xxs font-medium text-sam-muted">리뷰</p>
+          <p className="sam-text-xxs font-medium text-sam-muted">{t("store_reviews_title")}</p>
           <p className="mt-0.5 sam-text-section-title font-bold tabular-nums text-signature">
             {reviewCountDisplay.toLocaleString("en-PH")}
           </p>
@@ -82,21 +84,21 @@ export function StoreDetailInfoCard({
             onClick={() => void onFavoriteClick()}
             className={`${STORE_DETAIL_METRIC_TILE} text-left transition-colors active:bg-sam-surface-muted`}
           >
-            <p className="sam-text-xxs font-medium text-sam-muted">찜</p>
+            <p className="sam-text-xxs font-medium text-sam-muted">{t("store_favorites_label")}</p>
             <p className="mt-0.5 sam-text-section-title font-bold tabular-nums text-sam-fg">
               {favoriteCount.toLocaleString("en-PH")}
             </p>
           </button>
         ) : (
           <div className={STORE_DETAIL_METRIC_TILE}>
-            <p className="sam-text-xxs font-medium text-sam-muted">찜</p>
+            <p className="sam-text-xxs font-medium text-sam-muted">{t("store_favorites_label")}</p>
             <p className="mt-0.5 sam-text-section-title font-bold tabular-nums text-sam-fg">
               {favoriteCount.toLocaleString("en-PH")}
             </p>
           </div>
         )}
         <div className={STORE_DETAIL_METRIC_TILE}>
-          <p className="sam-text-xxs font-medium text-sam-muted">최근 주문</p>
+          <p className="sam-text-xxs font-medium text-sam-muted">{t("store_recent_orders")}</p>
           <p className="mt-0.5 sam-text-section-title font-bold tabular-nums text-sam-fg">
             {recentOrderCount.toLocaleString("en-PH")}+
           </p>
@@ -104,7 +106,7 @@ export function StoreDetailInfoCard({
       </div>
 
       <div className="mt-4 border-t border-sam-border-soft pt-4">
-        <p className="sam-text-helper font-semibold text-sam-muted">이용 가능</p>
+        <p className="sam-text-helper font-semibold text-sam-muted">{t("store_available")}</p>
         <div className="mt-2 flex flex-wrap gap-2">
           <span
             className={`inline-flex items-center rounded-ui-rect px-2.5 py-1 sam-text-helper font-semibold ${
@@ -153,7 +155,7 @@ export function StoreDetailInfoCard({
               주소 · 영업 · 소개 사진 {flyerGalleryCount}장
             </span>
           ) : (
-            <span className="mt-0.5 block sam-text-helper font-normal text-white/75">주소 · 영업 · 안내</span>
+            <span className="mt-0.5 block sam-text-helper font-normal text-white/75">{t("store_info_card_sub")}</span>
           )}
         </span>
         <span className="shrink-0 text-lg text-white/90" aria-hidden>

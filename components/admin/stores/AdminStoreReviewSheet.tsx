@@ -1,11 +1,12 @@
 "use client";
 
 import { useEffect } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminStoreReviewPanel, type AdminStoreReviewPanelProps } from "@/components/admin/stores/AdminStoreReviewPanel";
 
 export type { AdminStoreReviewRow } from "@/components/admin/stores/admin-store-review-model";
 export {
-  ADMIN_STORE_APPROVAL_LABEL,
+  ADMIN_STORE_APPROVAL_LABEL_KEYS,
   formatAdminStoreAddressOneLine,
 } from "@/components/admin/stores/admin-store-review-model";
 
@@ -16,6 +17,7 @@ type AdminStoreReviewSheetProps = AdminStoreReviewPanelProps & { onClose: () => 
  * New admin UI uses `AdminStoreReviewPanel` directly (master-detail).
  */
 export function AdminStoreReviewSheet(props: AdminStoreReviewSheetProps) {
+  const { t } = useI18n();
   const { store, onClose } = props;
 
   useEffect(() => {
@@ -29,21 +31,23 @@ export function AdminStoreReviewSheet(props: AdminStoreReviewSheetProps) {
 
   if (!store) return null;
 
+  const storeName = (store.store_name ?? "").trim();
+
   return (
     <div className="fixed inset-0 z-[60] flex items-end justify-center">
       <button
         type="button"
         className="absolute inset-0 bg-black/40"
-        aria-label="닫기"
+        aria-label={t("common_close")}
         onClick={onClose}
       />
       <aside className="relative w-full max-w-3xl rounded-t-ui-rect border border-sam-border bg-sam-surface shadow-xl">
         <div className="border-b border-sam-border-soft px-4 py-3">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <p className="sam-text-helper font-semibold text-sam-muted">매장 심사</p>
+              <p className="sam-text-helper font-semibold text-sam-muted">{t("admin_stores_review_title")}</p>
               <p className="truncate sam-text-body-lg font-bold text-sam-fg">
-                {(store.store_name ?? "").trim() || "(매장명 없음)"}
+                {storeName || t("admin_stores_field_store_name_ph")}
               </p>
             </div>
             <button
@@ -51,12 +55,12 @@ export function AdminStoreReviewSheet(props: AdminStoreReviewSheetProps) {
               onClick={onClose}
               className="rounded-ui-rect px-3 py-1.5 sam-text-body-secondary font-medium text-sam-muted hover:bg-sam-surface-muted"
             >
-              닫기
+              {t("common_close")}
             </button>
           </div>
           <div className="mt-2">
             <label className="sam-text-xxs font-bold uppercase tracking-wide text-sam-muted">
-              조치
+              {t("admin_stores_review_action")}
             </label>
             <select
               defaultValue=""
@@ -65,25 +69,33 @@ export function AdminStoreReviewSheet(props: AdminStoreReviewSheetProps) {
                 const action = e.target.value;
                 e.target.value = "";
                 if (!action) return;
-                const needsReason = ["reject_store", "request_revision", "suspend_store", "reject_sales", "suspend_sales"].includes(action);
-                const reason = needsReason ? window.prompt("사유", "")?.trim() ?? "" : "";
+                const needsReason = [
+                  "reject_store",
+                  "request_revision",
+                  "suspend_store",
+                  "reject_sales",
+                  "suspend_sales",
+                ].includes(action);
+                const reason = needsReason
+                  ? window.prompt(t("admin_stores_prompt_reason"), "")?.trim() ?? ""
+                  : "";
                 if (needsReason && !reason) return;
                 props.onRunAction?.(action, reason ? { reason } : undefined);
               }}
               disabled={Boolean(props.actionBusy || props.identityActionBusy)}
             >
-              <option value="">선택…</option>
-              <optgroup label="매장 심사">
-                <option value="approve_store">매장 승인</option>
-                <option value="request_revision">보완 요청</option>
-                <option value="reject_store">반려</option>
-                <option value="suspend_store">매장 정지</option>
-                <option value="resume_store">재개(노출 복구)</option>
+              <option value="">{t("admin_stores_review_select_placeholder")}</option>
+              <optgroup label={t("admin_stores_review_group_store")}>
+                <option value="approve_store">{t("admin_stores_action_approve_store")}</option>
+                <option value="request_revision">{t("admin_stores_action_request_revision")}</option>
+                <option value="reject_store">{t("admin_stores_action_reject_store")}</option>
+                <option value="suspend_store">{t("admin_stores_action_suspend_store")}</option>
+                <option value="resume_store">{t("admin_stores_action_resume_store")}</option>
               </optgroup>
-              <optgroup label="판매권한">
-                <option value="approve_sales">판매 승인</option>
-                <option value="reject_sales">판매 거절</option>
-                <option value="suspend_sales">판매 정지</option>
+              <optgroup label={t("admin_stores_review_group_sales")}>
+                <option value="approve_sales">{t("admin_stores_action_approve_sales")}</option>
+                <option value="reject_sales">{t("admin_stores_action_reject_sales")}</option>
+                <option value="suspend_sales">{t("admin_stores_action_suspend_sales")}</option>
               </optgroup>
             </select>
           </div>

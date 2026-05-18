@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -10,17 +13,18 @@ import { SecurityIssueList } from "./SecurityIssueList";
 type TabId = "summary" | "checks" | "issues";
 
 const TABS: { id: TabId; label: string }[] = [
-  { id: "summary", label: "보안 상태 요약" },
+  { id: "summary", labelKey: "admin_security_status_summary_2" as const },
   { id: "checks", label: "점검 리스트" },
   { id: "issues", label: "이슈 목록" },
 ];
 
 export function AdminSecurityPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("summary");
 
   return (
     <>
-      <AdminPageHeader title="보안 / 권한 / RLS 점검" />
+      <AdminPageHeader titleKey="admin_security_k1c4bd70f" />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {TABS.map((tab) => (
           <button
@@ -38,17 +42,17 @@ export function AdminSecurityPage() {
         ))}
       </div>
       {activeTab === "summary" && (
-        <AdminCard title="보안 상태 요약">
+        <AdminCard titleKey="admin_security_status_summary_2">
           <SecuritySummaryCards />
         </AdminCard>
       )}
       {activeTab === "checks" && (
-        <AdminCard title="RLS / API / 권한 점검 리스트">
+        <AdminCard titleKey="admin_security_k4fb870ce">
           <SecurityCheckTable />
         </AdminCard>
       )}
       {activeTab === "issues" && (
-        <AdminCard title="보안 이슈 목록">
+        <AdminCard titleKey="admin_security_issues_3">
           <SecurityIssueList />
         </AdminCard>
       )}

@@ -1,6 +1,6 @@
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
-import { normalizeAppLanguage } from "@/lib/i18n/config";
+import { parseExplicitAppLanguage } from "@/lib/i18n/config";
 import { MANUAL_MEMBER_EMAIL_DOMAIN } from "@/lib/auth/manual-member-email";
 import { isSamarketDefaultAvatarUrl, withDefaultAvatar } from "@/lib/profile/default-avatar";
 import { resolveProfilePhoneDb09 } from "@/lib/profile/resolve-profile-phone";
@@ -253,7 +253,7 @@ export async function ensureAuthProfileRow(
 
   const oauthAvatarRaw = resolveOAuthAvatarUrl(user, meta);
   const oauthAvatar = withDefaultAvatar(oauthAvatarRaw);
-  const preferredLanguage = normalizeAppLanguage(meta.preferred_language);
+  const preferredLanguage = parseExplicitAppLanguage(meta.preferred_language);
   const nowIso = new Date().toISOString();
   const isAdminManual = provider === "admin_manual";
   const dbProvider = normalizeProviderForDb(provider) ?? "email";
@@ -299,7 +299,7 @@ export async function ensureAuthProfileRow(
       provider: dbProvider,
       auth_provider: dbProvider,
       avatar_url: oauthAvatar,
-      preferred_language: preferredLanguage,
+      ...(preferredLanguage ? { preferred_language: preferredLanguage } : {}),
     };
     const fullRow = {
       ...seedRow,

@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { getPersonalizedFeedPolicies } from "@/lib/personalized-feed/mock-personalized-feed-policies";
 import { getOrCreateBehaviorProfile } from "@/lib/personalized-feed/mock-user-behavior-profiles";
@@ -12,6 +15,7 @@ const MOCK_USER_IDS = ["me", "user2"];
 const MOCK_REGION = "마닐라 · Malate · Barangay 1";
 
 export function PersonalizedFeedSimulator() {
+  const { t } = useI18n();
   const [userId, setUserId] = useState("me");
   const [refreshKey, setRefreshKey] = useState(0);
 
@@ -42,7 +46,7 @@ export function PersonalizedFeedSimulator() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="sam-text-body font-medium text-sam-fg">사용자</label>
+        <label className="sam-text-body font-medium text-sam-fg">{t("admin_member_benefit_k5c50d9e5")}</label>
         <select
           value={userId}
           onChange={(e) => setUserId(e.target.value)}
@@ -83,7 +87,7 @@ export function PersonalizedFeedSimulator() {
                   </li>
                 ))}
                 {r.items.length > 5 && (
-                  <li className="text-sam-muted">… 외 {r.items.length - 5}건</li>
+                  <li className="text-sam-muted">{t("admin_more_items")} {r.items.length - 5}{t("admin_more_items_suffix")}</li>
                 )}
               </ul>
             </div>

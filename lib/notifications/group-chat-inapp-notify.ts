@@ -2,6 +2,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendUserNotification } from "@/lib/notifications/append-user-notification";
 import { fetchNicknamesForUserIds } from "@/lib/chats/resolve-author-nickname";
 import { getAdminNotificationCooldownSeconds } from "@/lib/notifications/messenger-notification-cooldown";
+import { translate } from "@/lib/i18n/messages";
+import { loadNotificationUserLanguage } from "@/lib/notifications/notification-user-language";
 
 function groupChatHref(roomId: string): string {
   return `/group-chat/${encodeURIComponent(roomId)}`;
@@ -60,8 +62,6 @@ export async function notifyGroupChatMessageRecipients(
   const cooldownSec = await getAdminNotificationCooldownSeconds(sb, "community_chat");
   const nickMap = await fetchNicknamesForUserIds(sb, [args.senderUserId]);
   const senderLabel = nickMap.get(args.senderUserId.trim())?.trim() || null;
-  const title = "그룹 메시지";
-  const body = (args.preview || "새 메시지").slice(0, 200);
   const link = groupChatHref(roomId);
 
   for (const row of members as { user_id?: string }[]) {
@@ -70,6 +70,12 @@ export async function notifyGroupChatMessageRecipients(
 
     const skip = await shouldSkipDueToCooldown(sb, uid, roomId, cooldownSec);
     if (skip) continue;
+
+    const language = await loadNotificationUserLanguage(sb, uid);
+    const title = translate(language, "notify_group_chat_message_title");
+    const body = (
+      args.preview || translate(language, "notify_group_chat_new_message_preview")
+    ).slice(0, 200);
 
     await appendUserNotification(sb, {
       user_id: uid,

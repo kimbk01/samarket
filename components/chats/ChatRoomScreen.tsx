@@ -548,7 +548,7 @@ export function ChatRoomScreen({
       <div className={`min-h-0 flex-1 ${embeddedEmptyClass}`}>
         <TradeChatLoadingShell
           label={t("common_loading")}
-          description="채팅 화면을 준비 중이에요."
+          description={t("chats_loading_opening_room")}
           className="min-h-[50vh]"
         />
       </div>
@@ -560,7 +560,7 @@ export function ChatRoomScreen({
       <div className={`min-h-0 flex-1 ${embeddedEmptyClass}`}>
         <TradeChatLoadingShell
           label={t("common_loading")}
-          description="대화 내용을 불러오는 중이에요."
+          description={t("chats_loading_opening_messages")}
           className="min-h-[50vh]"
         />
       </div>
@@ -611,7 +611,7 @@ export function ChatRoomScreen({
       <div className={`min-h-0 flex-1 ${embeddedEmptyClass}`}>
         <TradeChatLoadingShell
           label={t("common_loading")}
-          description="채팅 화면을 이어서 준비 중이에요."
+          description={t("chats_loading_resuming_room")}
           className="min-h-[50vh]"
         />
       </div>
@@ -622,7 +622,7 @@ export function ChatRoomScreen({
     <div className={`min-h-0 flex-1 ${embeddedEmptyClass}`}>
       <TradeChatLoadingShell
         label={t("common_loading")}
-        description="채팅 화면을 준비 중이에요."
+        description={t("chats_loading_opening_room")}
         className="min-h-[50vh]"
       />
     </div>

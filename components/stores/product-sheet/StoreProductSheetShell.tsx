@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import type { ReactNode } from "react";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
@@ -10,6 +11,7 @@ export function StoreProductSheetShell({
   children: ReactNode;
   onBackdropClose: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <div
       className="pointer-events-none fixed inset-0 z-[100] flex items-end justify-center"
@@ -20,7 +22,7 @@ export function StoreProductSheetShell({
       <button
         type="button"
         className="pointer-events-auto absolute inset-0 cursor-default bg-transparent"
-        aria-label="시트 닫기"
+        aria-label={t("store_sheet_close_aria")}
         tabIndex={-1}
         onClick={onBackdropClose}
       />

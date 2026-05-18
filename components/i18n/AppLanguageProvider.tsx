@@ -10,11 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
-import { getMyProfile } from "@/lib/profile/getMyProfile";
-import { peekMeProfileCached } from "@/lib/profile/fetch-me-profile-deduped";
-import { peekAppBootProfile } from "@/lib/app-boot/app-boot-store";
-import { APP_BOOT_READY_EVENT } from "@/lib/app-boot/app-boot-types";
-import type { ProfileRow } from "@/lib/profile/types";
+import { getSupabaseClient } from "@/lib/supabase/client";
 import {
   getUserSettings,
   subscribeUserSettings,
@@ -23,17 +19,28 @@ import {
 } from "@/lib/settings/user-settings-store";
 import {
   APP_LANGUAGE_CHANGED_EVENT,
-  APP_LANGUAGE_COOKIE,
   APP_LANGUAGE_STORAGE_KEY,
-  DEFAULT_APP_LANGUAGE,
-  detectBrowserAppLanguage,
-  normalizeAppLanguage,
+  getBrowserLanguage,
+  parseExplicitAppLanguage,
   type AppLanguageCode,
+  type StoredPreferredLanguage,
 } from "@/lib/i18n/config";
+import {
+  clearLanguagePersistence,
+  getStoredLanguagePreference,
+  persistExplicitLanguage,
+  readExplicitLanguageCookie,
+  readExplicitLocalLanguage,
+  resolveAuthenticatedAppLanguageCode,
+  resolveGuestAppLanguageCode,
+} from "@/lib/i18n/language-preference";
 import { translate, translateText, type MessageKey } from "@/lib/i18n/messages";
+import { setRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 
 type AppLanguageContextValue = {
   language: AppLanguageCode;
+  /** null = 기기 언어 따름(명시 ko/en 미선택) */
+  languagePreference: StoredPreferredLanguage;
   setLanguage: (language: AppLanguageCode) => void;
   t: (key: MessageKey, vars?: Record<string, string | number>) => string;
   tt: (text: string, vars?: Record<string, string | number>) => string;
@@ -41,28 +48,34 @@ type AppLanguageContextValue = {
 
 const AppLanguageContext = createContext<AppLanguageContextValue | null>(null);
 
-function resolveInitialLanguage(): AppLanguageCode {
-  if (typeof window === "undefined") return DEFAULT_APP_LANGUAGE;
+function resolveClientAppLanguage(): AppLanguageCode {
+  if (typeof window === "undefined") return getBrowserLanguage();
   const userId = getCurrentUser()?.id;
-  if (userId) {
-    const userSettings = getUserSettings(userId);
-    if (userSettings.preferred_language) {
-      return normalizeAppLanguage(userSettings.preferred_language);
-    }
+  if (!userId) {
+    return resolveGuestAppLanguageCode({
+      localStorageValue: window.localStorage.getItem(APP_LANGUAGE_STORAGE_KEY),
+      cookieValue: readExplicitLanguageCookie(),
+      browserDetect: getBrowserLanguage,
+    });
   }
-  const stored = window.localStorage.getItem(APP_LANGUAGE_STORAGE_KEY);
-  if (stored) return normalizeAppLanguage(stored);
-  return detectBrowserAppLanguage();
+  return resolveAuthenticatedAppLanguageCode({
+    preferredLanguage: getUserSettings(userId).preferred_language,
+    localStorageValue: window.localStorage.getItem(APP_LANGUAGE_STORAGE_KEY),
+    cookieValue: readExplicitLanguageCookie(),
+    browserDetect: getBrowserLanguage,
+  });
 }
 
-function persistLanguage(language: AppLanguageCode): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(APP_LANGUAGE_STORAGE_KEY, language);
-  document.cookie = `${APP_LANGUAGE_COOKIE}=${encodeURIComponent(language)}; path=/; max-age=31536000; SameSite=Lax`;
+function resolveClientStoredPreference(): StoredPreferredLanguage {
+  if (typeof window === "undefined") return null;
   const userId = getCurrentUser()?.id;
   if (userId) {
-    updateUserSettings(userId, { preferred_language: language });
+    return getStoredLanguagePreference(getUserSettings(userId).preferred_language);
   }
+  return readExplicitLocalLanguage() ?? readExplicitLanguageCookie();
+}
+
+function emitLanguageChanged(language: AppLanguageCode): void {
   window.dispatchEvent(
     new CustomEvent<AppLanguageCode>(APP_LANGUAGE_CHANGED_EVENT, {
       detail: language,
@@ -72,97 +85,142 @@ function persistLanguage(language: AppLanguageCode): void {
 
 export function AppLanguageProvider({
   children,
-  initialLanguage = DEFAULT_APP_LANGUAGE,
+  initialLanguage = getBrowserLanguage(),
 }: {
   children: ReactNode;
-  /** 서버에서 읽은 쿠키와 동일해야 BottomNav 등 첫 페인트 하이드레이션이 깨지지 않음 */
+  /** 서버에서 읽은 쿠키·Accept-Language와 동일해야 하이드레이션이 깨지지 않음 */
   initialLanguage?: AppLanguageCode;
 }) {
-  const [language, setLanguageState] = useState<AppLanguageCode>(() =>
-    normalizeAppLanguage(initialLanguage)
+  const [language, setLanguageState] = useState<AppLanguageCode>(
+    () => parseExplicitAppLanguage(initialLanguage) ?? getBrowserLanguage()
   );
 
   useEffect(() => {
-    const resolved = resolveInitialLanguage();
-    setLanguageState((prev) => (prev === resolved ? prev : resolved));
-  }, []);
+    setRuntimeAppLanguage(language);
+  }, [language]);
+  const [languagePreference, setLanguagePreferenceState] = useState<StoredPreferredLanguage>(null);
+
+  const applyResolvedLanguage = useCallback(
+    (preference: StoredPreferredLanguage, resolved: AppLanguageCode) => {
+      setLanguagePreferenceState(preference);
+      setLanguageState(resolved);
+      setRuntimeAppLanguage(resolved);
+      emitLanguageChanged(resolved);
+    },
+    []
+  );
+
+  const setLanguage = useCallback(
+    (next: AppLanguageCode) => {
+      const explicit = parseExplicitAppLanguage(next);
+      if (!explicit) return;
+
+      persistExplicitLanguage(explicit);
+      const userId = getCurrentUser()?.id;
+      if (userId) {
+        updateUserSettings(userId, { preferred_language: explicit });
+      }
+      applyResolvedLanguage(explicit, explicit);
+    },
+    [applyResolvedLanguage]
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const applyFromResolved = () => {
+      const resolved = resolveClientAppLanguage();
+      setLanguageState((prev) => (prev === resolved ? prev : resolved));
+      setLanguagePreferenceState(resolveClientStoredPreference());
+    };
+
+    applyFromResolved();
+
+    async function syncSettingsLanguage() {
+      const userId = getCurrentUser()?.id;
+      if (!userId) return;
+
+      const remoteSettings = await syncUserSettings(userId).catch(() => null);
+      if (cancelled) return;
+
+      const stored = getStoredLanguagePreference(remoteSettings?.preferred_language);
+      const explicit = parseExplicitAppLanguage(remoteSettings?.preferred_language);
+
+      if (explicit) {
+        persistExplicitLanguage(explicit);
+        applyResolvedLanguage(explicit, explicit);
+        return;
+      }
+
+      clearLanguagePersistence();
+      const resolved = resolveAuthenticatedAppLanguageCode({
+        preferredLanguage: stored,
+        browserDetect: getBrowserLanguage,
+      });
+      applyResolvedLanguage(null, resolved);
+    }
+
+    void syncSettingsLanguage();
+
+    const onLanguageChanged = (event: Event) => {
+      const next = parseExplicitAppLanguage(
+        (event as CustomEvent<AppLanguageCode | undefined>).detail
+      );
+      if (next) setLanguageState(next);
+      else setLanguageState(getBrowserLanguage());
+    };
+
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== APP_LANGUAGE_STORAGE_KEY) return;
+      const explicit = parseExplicitAppLanguage(event.newValue);
+      if (explicit) setLanguageState(explicit);
+      else setLanguageState(getBrowserLanguage());
+    };
+
+    window.addEventListener(APP_LANGUAGE_CHANGED_EVENT, onLanguageChanged as EventListener);
+    window.addEventListener("storage", onStorage);
+    const unsubscribeSettings = subscribeUserSettings(({ userId, settings }) => {
+      if (userId !== getCurrentUser()?.id) return;
+      const stored = getStoredLanguagePreference(settings.preferred_language);
+      setLanguagePreferenceState(stored);
+      const explicit = parseExplicitAppLanguage(settings.preferred_language);
+      if (explicit) {
+        setLanguageState(explicit);
+        return;
+      }
+      setLanguageState(getBrowserLanguage());
+    });
+
+    const sb = getSupabaseClient();
+    const authSubscription = sb?.auth.onAuthStateChange((event) => {
+      if (event !== "SIGNED_OUT") return;
+      clearLanguagePersistence();
+      applyResolvedLanguage(null, getBrowserLanguage());
+    });
+
+    return () => {
+      cancelled = true;
+      window.removeEventListener(APP_LANGUAGE_CHANGED_EVENT, onLanguageChanged as EventListener);
+      window.removeEventListener("storage", onStorage);
+      unsubscribeSettings();
+      authSubscription?.data.subscription.unsubscribe();
+    };
+  }, [applyResolvedLanguage]);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
     document.documentElement.lang = language;
   }, [language]);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function syncProfileLanguage() {
-      const userId = getCurrentUser()?.id;
-      if (!userId) return;
-      const remoteSettings = await syncUserSettings(userId).catch(() => null);
-      if (!cancelled && remoteSettings?.preferred_language) {
-        const preferredFromSettings = normalizeAppLanguage(remoteSettings.preferred_language);
-        persistLanguage(preferredFromSettings);
-        setLanguageState(preferredFromSettings);
-      }
-      let profile: ProfileRow | null = peekAppBootProfile();
-      if (!profile?.preferred_language) {
-        const cached = peekMeProfileCached();
-        if (cached?.status === 200) {
-          const json = cached.json as { ok?: boolean; profile?: ProfileRow | null } | null;
-          if (json?.ok && json.profile) profile = json.profile;
-        }
-      }
-      if (!profile?.preferred_language) {
-        profile = await getMyProfile().catch(() => null);
-      }
-      if (cancelled || !profile?.preferred_language) return;
-      const preferred = normalizeAppLanguage(profile.preferred_language);
-      persistLanguage(preferred);
-      setLanguageState(preferred);
-    }
-
-    void syncProfileLanguage();
-
-    const onLanguageChanged = (event: Event) => {
-      const next = normalizeAppLanguage(
-        (event as CustomEvent<AppLanguageCode | undefined>).detail ?? DEFAULT_APP_LANGUAGE
-      );
-      setLanguageState(next);
-    };
-
-    const onStorage = (event: StorageEvent) => {
-      if (event.key !== APP_LANGUAGE_STORAGE_KEY) return;
-      setLanguageState(normalizeAppLanguage(event.newValue));
-    };
-
-    window.addEventListener(APP_LANGUAGE_CHANGED_EVENT, onLanguageChanged as EventListener);
-    window.addEventListener("storage", onStorage);
-    const unsubscribeSettings = subscribeUserSettings(({ userId, settings }) => {
-      if (userId !== getCurrentUser()?.id || !settings.preferred_language) return;
-      setLanguageState(normalizeAppLanguage(settings.preferred_language));
-    });
-    return () => {
-      cancelled = true;
-      window.removeEventListener(APP_LANGUAGE_CHANGED_EVENT, onLanguageChanged as EventListener);
-      window.removeEventListener("storage", onStorage);
-      unsubscribeSettings();
-    };
-  }, []);
-
-  const setLanguage = useCallback((next: AppLanguageCode) => {
-    const resolved = normalizeAppLanguage(next);
-    persistLanguage(resolved);
-    setLanguageState(resolved);
-  }, []);
-
   const value = useMemo<AppLanguageContextValue>(
     () => ({
       language,
+      languagePreference,
       setLanguage,
       t: (key, vars) => translate(language, key, vars),
       tt: (text, vars) => translateText(language, text, vars),
     }),
-    [language, setLanguage]
+    [language, languagePreference, setLanguage]
   );
 
   return <AppLanguageContext.Provider value={value}>{children}</AppLanguageContext.Provider>;
@@ -171,11 +229,13 @@ export function AppLanguageProvider({
 export function useI18n(): AppLanguageContextValue {
   const value = useContext(AppLanguageContext);
   if (!value) {
+    const fallback = getBrowserLanguage();
     return {
-      language: DEFAULT_APP_LANGUAGE,
+      language: fallback,
+      languagePreference: null,
       setLanguage: () => undefined,
-      t: (key, vars) => translate(DEFAULT_APP_LANGUAGE, key, vars),
-      tt: (text, vars) => translateText(DEFAULT_APP_LANGUAGE, text, vars),
+      t: (key, vars) => translate(fallback, key, vars),
+      tt: (text, vars) => translateText(fallback, text, vars),
     };
   }
   return value;

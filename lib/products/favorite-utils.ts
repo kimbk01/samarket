@@ -6,19 +6,25 @@ import type { FavoriteProduct } from "@/lib/types/favorite";
 
 export type FavoriteStatusFilter = "all" | "active" | "reserved" | "sold";
 
-export const FAVORITE_STATUS_OPTIONS: { value: FavoriteStatusFilter; label: string }[] = [
-  { value: "all", label: "전체" },
-  { value: "active", label: "판매중" },
-  { value: "reserved", label: "예약중" },
-  { value: "sold", label: "판매완료" },
+export const FAVORITE_STATUS_OPTIONS: {
+  value: FavoriteStatusFilter;
+  labelKey: "ui_fav_filter_all" | "ui_fav_filter_active" | "ui_fav_filter_reserved" | "ui_fav_filter_sold";
+}[] = [
+  { value: "all", labelKey: "ui_fav_filter_all" },
+  { value: "active", labelKey: "ui_fav_filter_active" },
+  { value: "reserved", labelKey: "ui_fav_filter_reserved" },
+  { value: "sold", labelKey: "ui_fav_filter_sold" },
 ];
 
 export type FavoriteSortKey = "favorited" | "latest" | "price_asc";
 
-export const FAVORITE_SORT_OPTIONS: { value: FavoriteSortKey; label: string }[] = [
-  { value: "favorited", label: "최근 찜순" },
-  { value: "latest", label: "최신 등록순" },
-  { value: "price_asc", label: "가격 낮은순" },
+export const FAVORITE_SORT_OPTIONS: {
+  value: FavoriteSortKey;
+  labelKey: "ui_fav_sort_favorited" | "ui_fav_sort_latest" | "ui_fav_sort_price_asc";
+}[] = [
+  { value: "favorited", labelKey: "ui_fav_sort_favorited" },
+  { value: "latest", labelKey: "ui_fav_sort_latest" },
+  { value: "price_asc", labelKey: "ui_fav_sort_price_asc" },
 ];
 
 export function filterFavoriteByStatus(

@@ -8,6 +8,7 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { UserListContent } from "@/components/my/settings/UserListContent";
 import { MyPageQuickActions } from "@/components/mypage/MyPageQuickActions";
 import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type CommunityPostPreview = {
   id: string;
@@ -53,6 +54,7 @@ function formatDate(iso: string): string {
 }
 
 export function CommunityTab({ section }: { section: string }) {
+  const { t } = useI18n();
   if (section === "posts") {
     return <MyCommunityPostsPanel />;
   }
@@ -60,8 +62,8 @@ export function CommunityTab({ section }: { section: string }) {
   if (section === "comments") {
     return (
       <MyCommunityActivityPanel
-        title="내가 쓴 댓글"
-        description="내가 남긴 커뮤니티 댓글을 최근순으로 확인합니다."
+        title={t("mypage_comp_nav_sec_community_comments_label")}
+        description={t("mypage_comp_nav_sec_community_comments_desc")}
         mode="comments"
       />
     );
@@ -70,8 +72,8 @@ export function CommunityTab({ section }: { section: string }) {
   if (section === "favorites") {
     return (
       <MyCommunityActivityPanel
-        title="찜한 게시물"
-        description="관심 표시한 커뮤니티 게시물을 최근순으로 정리합니다."
+        title={t("mypage_comp_nav_sec_community_favorites_label")}
+        description={t("mypage_comp_nav_sec_community_favorites_desc")}
         mode="favorites"
       />
     );
@@ -80,11 +82,11 @@ export function CommunityTab({ section }: { section: string }) {
   if (section === "users") {
     return (
       <SectionShell
-        title="커뮤니티 친구 / 관심 사용자"
-        description="커뮤니티에서 자주 보는 사용자는 전체 사용자 관리와 같은 단일 데이터 소스를 사용합니다."
+        title={t("mypage_comp_nav_sec_community_users_label")}
+        description={t("mypage_comp_nav_sec_community_users_desc")}
       >
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <UserListContent type="favorite" emptyMessage="관심 사용자가 없습니다." />
+          <UserListContent type="favorite" emptyMessage={t("mypage_comp_community_users_empty")} />
         </div>
       </SectionShell>
     );
@@ -93,8 +95,8 @@ export function CommunityTab({ section }: { section: string }) {
   if (section === "reports") {
     return (
       <MyCommunityActivityPanel
-        title="신고 내역"
-        description="커뮤니티와 메신저 신고 접수 내역을 한곳에서 확인합니다."
+        title={t("mypage_comp_nav_sec_community_reports_label")}
+        description={t("mypage_comp_nav_sec_community_reports_desc")}
         mode="reports"
       />
     );
@@ -104,6 +106,7 @@ export function CommunityTab({ section }: { section: string }) {
 }
 
 function MyCommunityPostsPanel() {
+  const { t } = useI18n();
   const [items, setItems] = useState<CommunityPostPreview[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -136,13 +139,13 @@ function MyCommunityPostsPanel() {
 
   return (
     <div className="space-y-4">
-      <MyPageSectionHeader description="내가 남긴 커뮤니티 글을 최근순으로 확인합니다." />
+      <MyPageSectionHeader description={t("mypage_comp_nav_sec_community_posts_desc")} />
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface">
         {loading ? (
-          <div className="px-4 py-8 text-center sam-text-helper text-sam-muted">불러오는 중입니다.</div>
+          <div className="px-4 py-8 text-center sam-text-helper text-sam-muted">{t("mypage_comp_community_loading")}</div>
         ) : items.length === 0 ? (
           <div className="px-4 py-8 text-center sam-text-helper text-sam-muted">
-            아직 남긴 커뮤니티 글이 없습니다.
+            {t("mypage_comp_community_posts_empty")}
           </div>
         ) : (
           <div className="divide-y divide-sam-border">
@@ -154,8 +157,7 @@ function MyCommunityPostsPanel() {
               >
                 <p className="sam-text-body font-semibold text-sam-fg">{item.title}</p>
                 <p className="mt-1 sam-text-helper text-sam-muted">
-                  {item.topic_name || "커뮤니티"} · {item.region_label || "지역 없음"} · 댓글{" "}
-                  {item.comment_count ?? 0}
+                  {item.topic_name || t("mypage_comp_community_topic_fallback")} · {item.region_label || t("mypage_comp_community_region_none")} · {t("mypage_comp_community_comments_count", { count: item.comment_count ?? 0 })}
                 </p>
               </Link>
             ))}
@@ -163,7 +165,7 @@ function MyCommunityPostsPanel() {
         )}
       </div>
       <MyPageQuickActions
-        items={[{ label: "내 활동 전체 보기", href: "/mypage/community-posts", caption: "기존 활동 화면 열기" }]}
+        items={[{ label: t("mypage_comp_community_view_all"), href: "/mypage/community-posts", caption: t("mypage_comp_community_view_all_caption") }]}
       />
     </div>
   );
@@ -194,6 +196,7 @@ function MyCommunityActivityPanel({
   description: string;
   mode: "comments" | "favorites" | "reports";
 }) {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [comments, setComments] = useState<CommunityCommentItem[]>([]);
@@ -219,14 +222,14 @@ function MyCommunityActivityPanel({
         };
         if (cancelled) return;
         if (!res.ok || !json.ok) {
-          setError(typeof json.error === "string" ? json.error : "활동 내역을 불러오지 못했습니다.");
+          setError(typeof json.error === "string" ? json.error : t("mypage_comp_community_activity_load_failed"));
           return;
         }
         setComments(Array.isArray(json.comments) ? json.comments : []);
         setFavoritePosts(Array.isArray(json.favoritePosts) ? json.favoritePosts : []);
         setReports(Array.isArray(json.reports) ? json.reports : []);
       } catch {
-        if (!cancelled) setError("활동 내역을 불러오지 못했습니다.");
+        if (!cancelled) setError(t("mypage_comp_community_activity_load_failed"));
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -241,7 +244,7 @@ function MyCommunityActivityPanel({
       <ActivityList
         loading={loading}
         error={error}
-        emptyMessage="아직 남긴 댓글이 없습니다."
+        emptyMessage={t("mypage_comp_community_comments_empty")}
         items={comments.map((item) => (
           <Link key={item.id} href={`/philife/${encodeURIComponent(item.postId)}`} className="block px-4 py-3 hover:bg-sam-app">
             <p className="sam-text-body font-medium text-sam-fg">{item.postTitle}</p>
@@ -256,7 +259,7 @@ function MyCommunityActivityPanel({
       <ActivityList
         loading={loading}
         error={error}
-        emptyMessage="찜한 커뮤니티 게시물이 없습니다."
+        emptyMessage={t("mypage_comp_community_favorites_empty")}
         items={favoritePosts.map((item) => (
           <Link key={item.id} href={`/philife/${encodeURIComponent(item.postId)}`} className="block px-4 py-3 hover:bg-sam-app">
             <p className="sam-text-body font-medium text-sam-fg">{item.title}</p>
@@ -270,7 +273,7 @@ function MyCommunityActivityPanel({
       <ActivityList
         loading={loading}
         error={error}
-        emptyMessage="신고 접수 내역이 없습니다."
+        emptyMessage={t("mypage_comp_community_reports_empty")}
         items={reports.map((item) => {
           const href =
             item.channel === "community" && item.targetType === "post" && item.targetId
@@ -281,7 +284,7 @@ function MyCommunityActivityPanel({
               <p className="sam-text-body font-medium text-sam-fg">{item.title}</p>
               <p className="mt-1 sam-text-helper text-sam-muted">
                 {[
-                  item.channel === "community" ? "커뮤니티" : "메신저",
+                  item.channel === "community" ? t("mypage_comp_community_channel_community") : t("mypage_comp_community_channel_messenger"),
                   item.reasonType,
                   item.status,
                   formatDate(item.createdAt),
@@ -322,8 +325,9 @@ function ActivityList({
   emptyMessage: string;
   items: ReactNode[];
 }) {
+  const { t } = useI18n();
   if (loading) {
-    return <div className="px-4 py-8 text-center sam-text-helper text-sam-muted">불러오는 중입니다.</div>;
+    return <div className="px-4 py-8 text-center sam-text-helper text-sam-muted">{t("mypage_comp_community_loading")}</div>;
   }
   if (error) {
     return <div className="px-4 py-8 text-center sam-text-helper text-red-600">{error}</div>;

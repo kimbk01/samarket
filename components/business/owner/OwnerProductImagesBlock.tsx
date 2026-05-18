@@ -26,6 +26,7 @@ import {
   validateOwnerProductImageFileForUpload,
 } from "@/lib/stores/owner-product-images";
 import { OWNER_STORE_PROFILE_FIELD_LABEL_CLASS } from "@/lib/business/owner-store-stack";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export type OwnerProductImageSlot = {
   id: string;
@@ -78,6 +79,7 @@ const SortableStripThumb = memo(function SortableStripThumb({
   onImagePointerUp: (e: React.PointerEvent) => void;
   onImagePointerCancel: (e: React.PointerEvent) => void;
 }) {
+  const { t } = useI18n();
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: slot.id,
     disabled,
@@ -128,14 +130,14 @@ const SortableStripThumb = memo(function SortableStripThumb({
         onPointerUp={onImagePointerUp}
         onPointerCancel={onImagePointerCancel}
         onPointerLeave={onImagePointerUp}
-        aria-label={isRepresentative ? "대표(목록 썸네일)" : "탭하여 대표로 지정 · 길게 눌러도 동일"}
+        aria-label={isRepresentative ? t("business_phase7_400") : t("business_phase7_399")}
       >
         {previewSrc.trim() === "" ? (
           <span className="flex h-full w-full items-center justify-center sam-text-xxs text-neutral-400">…</span>
         ) : null}
         {isRepresentative ? (
           <span className="pointer-events-none absolute bottom-1 left-1 z-[1] rounded-[3px] bg-black/75 px-1.5 py-0.5 text-[9px] font-bold leading-none text-white shadow">
-            대표
+            {t("business_phase7_398")}
           </span>
         ) : null}
       </button>
@@ -143,7 +145,7 @@ const SortableStripThumb = memo(function SortableStripThumb({
         {...listeners}
         {...attributes}
         style={{ touchAction: "none" }}
-        aria-label="순서 변경"
+        aria-label={t("business_phase7_169")}
         className={`pointer-events-auto absolute left-0 top-0 z-20 flex h-8 w-8 touch-none items-start justify-start rounded-br-md bg-gradient-to-br from-black/55 to-transparent p-0.5 ${
           disabled ? "cursor-not-allowed opacity-40" : "cursor-grab active:cursor-grabbing"
         }`}
@@ -162,7 +164,7 @@ const SortableStripThumb = memo(function SortableStripThumb({
           onRemove(slot.id);
         }}
         className="pointer-events-auto absolute right-0 top-0 z-20 flex h-8 w-8 items-start justify-end p-0.5 text-white disabled:opacity-40"
-        aria-label="삭제"
+        aria-label={t("common_delete")}
       >
         <span className="flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-black/60 text-lg font-light leading-none shadow-sm backdrop-blur-[2px]">
           <span aria-hidden>×</span>
@@ -192,6 +194,7 @@ export function OwnerProductImagesBlock({
   disabled = false,
   onClientError,
 }: OwnerProductImagesBlockProps) {
+  const { t } = useI18n();
   const fileInputId = useId();
   const previewBlobByIdRef = useRef<Map<string, string>>(new Map());
   const [previewEpoch, setPreviewEpoch] = useState(0);
@@ -352,7 +355,7 @@ export function OwnerProductImagesBlock({
 
   return (
     <div className="flex flex-col gap-1">
-      <label className={`${OWNER_STORE_PROFILE_FIELD_LABEL_CLASS} mb-0`}>상품 이미지</label>
+      <label className={`${OWNER_STORE_PROFILE_FIELD_LABEL_CLASS} mb-0`}>{t("business_phase7_153")}</label>
 
       <label
         htmlFor={fileInputId}
@@ -379,7 +382,7 @@ export function OwnerProductImagesBlock({
             addDisabled ? "pointer-events-none opacity-40" : ""
           }`}
         >
-          <span className="sam-text-body-secondary text-sam-muted">탭하여 이미지 추가</span>
+          <span className="sam-text-body-secondary text-sam-muted">{t("business_phase7_308")}</span>
         </label>
       ) : (
         <>
@@ -392,11 +395,11 @@ export function OwnerProductImagesBlock({
             >
               {!heroSrc.trim() ? (
                 <div className="flex h-full min-h-[8rem] w-full items-center justify-center sam-text-body-secondary text-sam-muted">
-                  불러오는 중…
+                  {t("common_loading")}
                 </div>
               ) : null}
               <span className="pointer-events-none absolute bottom-3 left-3 rounded-full bg-black/70 px-2.5 py-1 sam-text-xxs font-semibold text-white">
-                대표
+                {t("common_representative")}
               </span>
             </div>
           </div>

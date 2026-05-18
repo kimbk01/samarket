@@ -1,6 +1,7 @@
 "use client";
 
 import type { CommunityMessengerDiscoverableGroupSummary } from "@/lib/community-messenger/types";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export type MeetingJoinPreviewFullScreenProps = {
   group: CommunityMessengerDiscoverableGroupSummary;
@@ -38,6 +39,7 @@ export function MeetingJoinPreviewFullScreen({
   joinAliasBio,
   onJoinAliasBioChange,
 }: MeetingJoinPreviewFullScreenProps) {
+  const { t } = useI18n();
   const joinDisabled =
     busy ||
     (group.joinPolicy === "password" && !joinPassword.trim()) ||
@@ -51,9 +53,9 @@ export function MeetingJoinPreviewFullScreen({
           onClick={onClose}
           className="rounded-ui-rect px-3 py-2 sam-text-body-secondary font-medium text-[color:var(--messenger-text)]"
         >
-          닫기
+          {t("nav_close")}
         </button>
-        <span className="sam-text-body-secondary font-semibold text-[color:var(--messenger-text)]">모임 미리보기</span>
+        <span className="sam-text-body-secondary font-semibold text-[color:var(--messenger-text)]">{t("cm_ui_meeting_preview")}</span>
         <span className="w-14" aria-hidden />
       </header>
 
@@ -66,11 +68,11 @@ export function MeetingJoinPreviewFullScreen({
           <div className="relative z-[1]">
             <h1 className="sam-text-page-title font-bold leading-tight tracking-tight drop-shadow-sm">{group.title}</h1>
             <p className="mt-2 max-h-28 overflow-y-auto sam-text-body-secondary leading-snug text-white/95">
-              {group.summary || "한줄 소개가 없습니다."}
+              {group.summary || t("cm_ui_no_one_line_intro")}
             </p>
             <p className="mt-4 sam-text-xxs font-medium text-white/85">
-              방장 {group.ownerLabel} · {group.memberCount}명
-              {group.memberLimit ? ` / 최대 ${group.memberLimit}명` : ""}
+              {t("cm_ui_owner_label_count", { owner: group.ownerLabel, count: group.memberCount })}
+              {group.memberLimit ? ` / ${t("cm_ui_max_count", { count: group.memberLimit })}` : ""}
             </p>
           </div>
         </div>
@@ -78,10 +80,10 @@ export function MeetingJoinPreviewFullScreen({
         <div className="space-y-3 px-4 py-4">
           <div className="flex flex-wrap gap-2 sam-text-xxs font-semibold">
             <span className="rounded-full border border-sam-border bg-sam-surface px-2 py-1 text-sam-muted">
-              {group.joinPolicy === "password" ? "비밀번호 입장" : "자유 입장"}
+              {group.joinPolicy === "password" ? t("cm_ui_password_join") : t("nav_messenger_join_free")}
             </span>
             <span className="rounded-full border border-sam-border bg-sam-surface px-2 py-1 text-sam-muted">
-              {group.identityPolicy === "alias_allowed" ? "별칭 허용" : "실명 기반"}
+              {group.identityPolicy === "alias_allowed" ? t("nav_messenger_identity_alias") : t("nav_messenger_identity_real")}
             </span>
           </div>
 
@@ -89,13 +91,13 @@ export function MeetingJoinPreviewFullScreen({
             <input
               value={joinPassword}
               onChange={(e) => onJoinPasswordChange(e.target.value)}
-              placeholder="비밀번호 입력"
+              placeholder={t("cm_ui_enter_password")}
               className="h-12 w-full rounded-ui-rect border border-sam-border bg-sam-surface px-3 sam-text-body outline-none focus:border-sam-border"
             />
           ) : null}
 
           <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface px-4 py-4">
-            <p className="sam-text-body-secondary font-semibold text-sam-fg">표시 이름</p>
+            <p className="sam-text-body-secondary font-semibold text-sam-fg">{t("cm_ui_display_name")}</p>
             <div className="mt-2 flex gap-2">
               <button
                 type="button"
@@ -106,7 +108,7 @@ export function MeetingJoinPreviewFullScreen({
                     : "border-sam-border bg-sam-app text-sam-muted"
                 }`}
               >
-                실명 프로필
+                {t("cm_ui_real_name_profile")}
               </button>
               {group.identityPolicy === "alias_allowed" ? (
                 <button
@@ -118,7 +120,7 @@ export function MeetingJoinPreviewFullScreen({
                       : "border-sam-border bg-sam-app text-sam-muted"
                   }`}
                 >
-                  방별 별칭
+                  {t("cm_ui_room_alias")}
                 </button>
               ) : null}
             </div>
@@ -127,20 +129,20 @@ export function MeetingJoinPreviewFullScreen({
                 <input
                   value={joinAliasName}
                   onChange={(e) => onJoinAliasNameChange(e.target.value)}
-                  placeholder="별칭 닉네임"
+                  placeholder={t("cm_ui_alias_nickname")}
                   className="h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
                 />
                 <input
                   value={joinAliasAvatarUrl}
                   onChange={(e) => onJoinAliasAvatarUrlChange(e.target.value)}
-                  placeholder="아바타 URL (선택)"
+                  placeholder={t("cm_ui_avatar_url_optional")}
                   className="h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
                 />
                 <textarea
                   value={joinAliasBio}
                   onChange={(e) => onJoinAliasBioChange(e.target.value)}
                   rows={2}
-                  placeholder="소개 (선택)"
+                  placeholder={t("cm_ui_intro_optional")}
                   className="w-full rounded-ui-rect border border-sam-border px-3 py-3 sam-text-body outline-none focus:border-sam-border"
                 />
               </div>
@@ -156,7 +158,7 @@ export function MeetingJoinPreviewFullScreen({
           onClick={() => void onJoin()}
           className="flex h-12 w-full items-center justify-center rounded-ui-rect bg-[color:var(--messenger-primary)] sam-text-body-secondary font-bold text-white shadow-[var(--messenger-shadow-soft)] disabled:opacity-40"
         >
-          {busy ? "입장 중…" : "모임 참여하기"}
+          {busy ? t("cm_ui_entering") : t("cm_ui_join_meeting")}
         </button>
       </div>
     </div>

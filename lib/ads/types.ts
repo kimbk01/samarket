@@ -181,25 +181,3 @@ export interface AdminPostAdRow {
   createdAt: string;
 }
 
-export const AD_APPLY_STATUS_LABELS: Record<AdApplyStatus, string> = {
-  draft: "임시저장",
-  pending_payment: "결제대기",
-  pending_review: "승인대기",
-  approved: "승인완료",
-  active: "노출중",
-  rejected: "반려",
-  expired: "만료",
-  cancelled: "취소",
-};
-
-export const AD_TYPE_LABELS: Record<AdType, string> = {
-  top_fixed: "상단고정",
-  mid_insert: "중간삽입",
-  highlight: "강조형",
-};
-
-export const AD_PAYMENT_METHOD_LABELS: Record<AdPaymentMethod, string> = {
-  points: "포인트",
-  bank_transfer: "계좌입금",
-  manual: "수동처리",
-};

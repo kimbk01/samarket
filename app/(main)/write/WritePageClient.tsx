@@ -7,6 +7,7 @@ import type { CategoryWithSettings } from "@/lib/types/category";
 import { useAppViewportSize } from "@/lib/ui/use-app-viewport-size";
 import { WriteScreenTier1Sync } from "@/components/write/WriteScreenTier1Sync";
 import { WriteSheetFlowInner } from "@/components/write/WriteSheetFlowInner";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 /** `PhilifeWriteBottomSheet` · `TradeWriteBottomSheet` 과 동일한 패널 전환 시간 */
 const WRITE_SHEET_TRANSITION_MS = 500;
@@ -20,6 +21,7 @@ const WRITE_SHEET_EXIT_GUARD_MS = 520;
  * 시트: 전역 스티키 헤더(`[data-app-sticky-header]`) 바로 아래 ~ 화면 하단, 아래→위 `translate-y` (필라이프·거래 시트와 동일).
  */
 export default function WritePageClient() {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -146,7 +148,7 @@ export default function WritePageClient() {
   return (
     <>
       <WriteScreenTier1Sync
-        title="글쓰기"
+        title={t("trade_041")}
         backHref="/philife"
         onRequestClose={() => tryCloseFromFlowRef.current()}
         subtitle={tierSubtitle}

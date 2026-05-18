@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { philifeMeetingApi } from "@domain/philife/api";
 import { formatKorDateTime } from "@/lib/ui/format-meeting-date";
 
@@ -12,20 +13,21 @@ interface MeetingPendingCardProps {
 }
 
 export function MeetingPendingCard({ meetingId, hostUserId, requestedAt }: MeetingPendingCardProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const mApi = philifeMeetingApi(meetingId);
 
   const onCancel = async () => {
-    if (!confirm("참여 신청을 취소하시겠어요?")) return;
+    if (!confirm(t("meeting_pending_cancel_confirm"))) return;
     setBusy(true);
     setErr("");
     try {
       const res = await fetch(mApi.leave(), { method: "POST" });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        setErr(j.error ?? "신청 취소에 실패했습니다.");
+        setErr(j.error ?? t("meeting_pending_cancel_failed"));
         return;
       }
       router.refresh();
@@ -47,10 +49,8 @@ export function MeetingPendingCard({ meetingId, hostUserId, requestedAt }: Meeti
           <span className="sam-text-page-title">⏳</span>
         </div>
         <div>
-          <p className="sam-text-body font-bold text-amber-900">승인 대기 중</p>
-          <p className="sam-text-helper text-amber-700">
-            운영자가 참여 요청을 검토하고 있어요
-          </p>
+          <p className="sam-text-body font-bold text-amber-900">{t("meeting_pending_title")}</p>
+          <p className="sam-text-helper text-amber-700">{t("meeting_pending_subtitle")}</p>
         </div>
       </div>
 
@@ -59,16 +59,18 @@ export function MeetingPendingCard({ meetingId, hostUserId, requestedAt }: Meeti
         <ul className="space-y-2 sam-text-body-secondary text-sam-muted">
           <li className="flex items-start gap-2">
             <span className="mt-0.5 shrink-0 text-emerald-500">✓</span>
-            승인되면 모임 상세를 이용할 수 있어요.
+            {t("meeting_pending_hint_approved")}
           </li>
           <li className="flex items-start gap-2">
             <span className="mt-0.5 shrink-0 text-emerald-500">✓</span>
-            승인 시 알림을 받을 수 있습니다.
+            {t("meeting_pending_hint_notify")}
           </li>
           {requestedAt && (
             <li className="flex items-start gap-2">
               <span className="mt-0.5 shrink-0 text-sam-meta">·</span>
-              <span className="text-sam-meta">신청일: {formatKorDateTime(requestedAt)}</span>
+              <span className="text-sam-meta">
+                {t("meeting_pending_requested_at", { date: formatKorDateTime(requestedAt) })}
+              </span>
             </li>
           )}
         </ul>
@@ -81,7 +83,7 @@ export function MeetingPendingCard({ meetingId, hostUserId, requestedAt }: Meeti
             onClick={onInquiry}
             className="flex-1 rounded-ui-rect border border-sam-border py-3 sam-text-body-secondary font-semibold text-sam-fg hover:bg-sam-app"
           >
-            운영자 문의
+            {t("meeting_pending_contact_host")}
           </button>
           <button
             type="button"
@@ -89,7 +91,7 @@ export function MeetingPendingCard({ meetingId, hostUserId, requestedAt }: Meeti
             onClick={() => void onCancel()}
             className="flex-1 rounded-ui-rect bg-amber-500 py-3 sam-text-body-secondary font-semibold text-white disabled:opacity-50 hover:bg-amber-600"
           >
-            {busy ? "처리 중…" : "신청 취소"}
+            {busy ? t("community_meeting_join_processing") : t("meeting_pending_cancel_request")}
           </button>
         </div>
       </div>

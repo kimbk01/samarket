@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SettingsMainContent } from "@/components/my/settings/SettingsMainContent";
 
 type Props = {
@@ -13,6 +14,7 @@ type Props = {
  * (알림·포인트·프로필 편집 등은 내정보 본화면·계정 탭에서 담당)
  */
 export function MypageInfoHubSheet({ open, onClose }: Props) {
+  const { t } = useI18n();
   const [slideIn, setSlideIn] = useState(false);
 
   useEffect(() => {
@@ -49,7 +51,7 @@ export function MypageInfoHubSheet({ open, onClose }: Props) {
       aria-modal="true"
       aria-labelledby="mypage-info-hub-title"
     >
-      <button type="button" className="absolute inset-0 bg-black/50" onClick={onClose} aria-label="닫기" />
+      <button type="button" className="absolute inset-0 bg-black/50" onClick={onClose} aria-label={t("mypage_comp_close")} />
       <div
         className={`relative flex max-h-[min(92vh,900px)] w-full max-w-lg flex-col overflow-hidden rounded-t-[length:var(--ui-radius-rect)] border border-sam-border bg-[var(--sub-bg)] shadow-2xl transition-transform duration-300 ease-out sm:rounded-ui-rect ${
           slideIn ? "translate-y-0 sm:scale-100" : "translate-y-full sm:translate-y-0 sm:scale-95"
@@ -59,10 +61,10 @@ export function MypageInfoHubSheet({ open, onClose }: Props) {
 
         <div className="flex shrink-0 flex-col gap-0.5 border-b border-sam-border px-4 py-3">
           <h2 id="mypage-info-hub-title" className="sam-text-body-lg font-semibold text-foreground">
-            앱 · 서비스 설정
+            {t("mypage_comp_info_hub_title")}
           </h2>
           <p className="sam-text-helper leading-snug text-[var(--text-muted)]">
-            언어·국가·차단·캐시 등. 알림·포인트·계정 상세는 내정보 → 계정 탭에서 이동해요.
+            {t("mypage_comp_info_hub_sheet_subtitle")}
           </p>
         </div>
 

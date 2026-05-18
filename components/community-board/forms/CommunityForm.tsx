@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -14,6 +15,7 @@ export function CommunityForm({
   defaultCategoryId = null,
   boardCategories = [],
 }: BoardWriteFormProps) {
+  const { t } = useI18n();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [topicId, setTopicId] = useState(() => communityTopics[0]?.id ?? "");
@@ -28,7 +30,7 @@ export function CommunityForm({
       return;
     }
     if (communityTopics.length > 0 && !topicId.trim()) {
-      alert("주제를 선택하세요.");
+      alert(t("community_write_select_topic_err"));
       return;
     }
     const payload: PostCreatePayload = {
@@ -96,7 +98,7 @@ export function CommunityForm({
           onChange={(e) => setTitle(e.target.value)}
           required
           maxLength={200}
-          placeholder="제목을 입력하세요"
+          placeholder={t("community_board_title_ph")}
           className="w-full rounded-ui-rect border border-sam-border px-3 py-2 focus:border-sam-primary focus:ring-2 focus:ring-sam-primary"
           disabled={isSubmitting}
         />
@@ -111,7 +113,7 @@ export function CommunityForm({
           onChange={(e) => setContent(e.target.value)}
           required
           rows={8}
-          placeholder="내용을 입력하세요"
+          placeholder={t("community_board_content_ph")}
           className="w-full resize-y rounded-ui-rect border border-sam-border px-3 py-2 focus:border-sam-primary focus:ring-2 focus:ring-sam-primary"
           disabled={isSubmitting}
         />

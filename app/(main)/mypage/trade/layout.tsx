@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
-import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { TradeHubLayoutHeader } from "@/components/mypage/trade/TradeHubLayoutHeader";
 import { TradeHubPageBody } from "@/components/mypage/trade/TradeHubPageBody";
-import { TradeHubTopTabs } from "@/components/mypage/trade/TradeHubTopTabs";
 import { COMMUNITY_FONT_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { APP_MAIN_FEED_STACK_CLASS } from "@/lib/ui/app-content-layout";
 
@@ -14,13 +13,7 @@ const TRADE_HUB_PAGE_ROOT_CLASS = [
 export default function TradeHubLayout({ children }: { children: ReactNode }) {
   return (
     <div className={TRADE_HUB_PAGE_ROOT_CLASS}>
-      <MySubpageHeader
-        title="개인 거래 허브"
-        subtitle="구매·판매·찜·후기·채팅"
-        hideCtaStrip
-        registerMainTier1={false}
-        stickyBelow={<TradeHubTopTabs />}
-      />
+      <TradeHubLayoutHeader />
       <div className={`flex-1 ${APP_MAIN_FEED_STACK_CLASS} max-w-none`}>
         <TradeHubPageBody>{children}</TradeHubPageBody>
       </div>

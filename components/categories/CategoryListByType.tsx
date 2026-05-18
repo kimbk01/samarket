@@ -4,7 +4,9 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { getCategories } from "@/lib/categories/getCategories";
 import type { CategoryWithSettings } from "@/lib/types/category";
-import { CATEGORY_TYPE_LABELS } from "@/lib/types/category";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { CATEGORY_TYPE_MESSAGE_KEYS } from "@/lib/types/category-label-i18n";
+import type { CategoryType } from "@/lib/categories/types";
 import { APP_TOP_MENU_ROW1_BASE, APP_TOP_MENU_ROW1_INACTIVE } from "@/lib/ui/app-top-menu";
 
 export type CategoryListVariant = "tabs" | "list" | "grid";
@@ -28,6 +30,7 @@ export function CategoryListByType({
   linkBase,
   linkUseSlug = true,
 }: CategoryListByTypeProps) {
+  const { t } = useI18n();
   const [categories, setCategories] = useState<CategoryWithSettings[]>([]);
 
   useEffect(() => {
@@ -86,7 +89,7 @@ export function CategoryListByType({
         return (
           <div key={type}>
             <h3 className="mb-2 sam-text-helper font-medium uppercase text-sam-muted">
-              {CATEGORY_TYPE_LABELS[type as keyof typeof CATEGORY_TYPE_LABELS]}
+              {t(CATEGORY_TYPE_MESSAGE_KEYS[type as CategoryType])}
             </h3>
             <ul className="space-y-1">
               {list.map((c) => (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   writeSidebarExpanded,
   readAlarmMuted,
@@ -92,6 +93,7 @@ export function AdminShellToolbar({
   sidebarExpanded: boolean;
   onSidebarExpandedChange: (expanded: boolean) => void;
 }) {
+  const { t } = useI18n();
   const [alarmMuted, setAlarmMuted] = useState(false);
 
   useEffect(() => {
@@ -110,15 +112,19 @@ export function AdminShellToolbar({
     writeAlarmMuted(next);
   };
 
+  const sidebarToggleLabel = sidebarExpanded
+    ? t("admin_shell_sidebar_collapse")
+    : t("admin_shell_sidebar_expand");
+
   return (
     <div className="flex items-center gap-0.5 sm:gap-1">
       <button
         type="button"
         onClick={toggleSidebar}
         aria-pressed={sidebarExpanded}
-        aria-label={sidebarExpanded ? "사이드 메뉴 접기" : "사이드 메뉴 펼치기"}
+        aria-label={sidebarToggleLabel}
         className={iconBtnClass}
-        title={sidebarExpanded ? "사이드 메뉴 접기" : "사이드 메뉴 펼치기"}
+        title={sidebarToggleLabel}
       >
         {sidebarExpanded ? <IconSidebarClose /> : <IconSidebarOpen />}
       </button>
@@ -126,12 +132,10 @@ export function AdminShellToolbar({
         type="button"
         onClick={toggleAlarm}
         aria-pressed={alarmMuted}
-        aria-label={alarmMuted ? "알람 소리 켜기" : "알람 음소거"}
+        aria-label={alarmMuted ? t("admin_shell_alarm_unmute") : t("admin_shell_alarm_mute")}
         className={iconBtnClass}
         title={
-          alarmMuted
-            ? "알람 소리 켜기"
-            : "알람 음소거 (벨 클릭 시 소리 없음)"
+          alarmMuted ? t("admin_shell_alarm_unmute") : t("admin_shell_alarm_mute_detail")
         }
       >
         {alarmMuted ? <IconBellOff /> : <IconBellOn />}

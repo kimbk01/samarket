@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { getCurrentUser, getHydrationSafeCurrentUser } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
@@ -15,6 +16,7 @@ import { MannerBatteryIcon } from "@/components/trust/MannerBatteryIcon";
 import { MYPAGE_PROFILE_EDIT_HREF } from "@/lib/mypage/mypage-mobile-nav-registry";
 
 export default function MyTrustPage() {
+  const { t } = useI18n();
   const [temp, setTemp] = useState<number | null>(() => {
     const u = getHydrationSafeCurrentUser();
     return u?.temperature ?? null;
@@ -32,19 +34,20 @@ export default function MyTrustPage() {
 
   const mannerPercent = temp != null ? mannerRawToPercent(temp) : null;
   const mannerTier = mannerPercent != null ? mannerBatteryTier(mannerPercent) : null;
+  const batteryLabel = getAppSettings().speedDisplayLabel ?? t("mypage_trust_title");
 
   return (
     <div className="min-h-screen bg-background">
       <MySubpageHeader
-        title="나의 배터리·신뢰"
-        subtitle="거래 매너 지표"
+        title={t("mypage_trust_title")}
+        subtitle={t("mypage_trust_subtitle")}
         backHref="/mypage"
         section="account"
       />
       <div className="mx-auto max-w-4xl px-4 py-8">
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-6 text-center shadow-sm">
           <p className="sam-text-body-secondary text-sam-muted">
-            {getAppSettings().speedDisplayLabel ?? "배터리"} (프로필 기준)
+            {batteryLabel} {t("mypage_trust_battery_label_suffix")}
           </p>
           {mannerPercent != null && mannerTier != null ? (
             <>
@@ -53,7 +56,7 @@ export default function MyTrustPage() {
               </div>
               <p
                 className={`mt-2 sam-text-hero font-bold tabular-nums ${mannerBatteryAccentClass(
-                  mannerTier
+                  mannerTier,
                 )}`}
               >
                 {mannerPercent}%
@@ -63,15 +66,16 @@ export default function MyTrustPage() {
             <p className="mt-2 sam-text-hero font-bold text-sam-meta">—</p>
           )}
           <p className="mt-4 sam-text-body-secondary leading-relaxed text-sam-muted">
-            거래 후기·매너 평가는 보통 <strong className="text-sam-fg">7~10일 후</strong>에 배터리에
-            반영되는 경우가 많아요. 분쟁 처리 중에는 일시 보류될 수 있습니다.
+            {t("mypage_trust_battery_hint_before")}{" "}
+            <strong className="text-sam-fg">{t("mypage_trust_battery_hint_days")}</strong>
+            {t("mypage_trust_battery_hint_after")}
           </p>
         </div>
         <Link
           href={MYPAGE_PROFILE_EDIT_HREF}
           className="mt-6 block text-center sam-text-body font-medium text-signature underline-offset-2 hover:underline"
         >
-          프로필 수정에서 닉네임·지역 수정
+          {t("mypage_trust_profile_edit_link")}
         </Link>
       </div>
     </div>

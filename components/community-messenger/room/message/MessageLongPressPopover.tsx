@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type {
   CommunityMessengerMessage,
   CommunityMessengerMessageActionAnchorRect,
@@ -38,6 +39,7 @@ export type MessageLongPressPopoverProps = {
 };
 
 export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
+  const { t } = useI18n();
   const { open, busy, roomUnavailable, snapshot, onClose } = props;
   const { item, anchorRect } = open;
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -108,7 +110,7 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
   }, [onClose]);
 
   const copyLabel =
-    item.messageType === "image" ? "이미지 주소 복사" : item.messageType === "file" ? "파일 링크 복사" : "복사";
+    item.messageType === "image" ? t("cm_ui_copy_image_address") : item.messageType === "file" ? t("cm_ui_copy_file_link") : t("common_copy");
   const copyAction = actions.find((a) => a.action === "copy");
   const replyAction = actions.find((a) => a.action === "reply");
   const shareAction = actions.find((a) => a.action === "share");
@@ -129,7 +131,7 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
   const deleteForMe = showDeleteSection
     ? {
         disabled: !canHide || busy === "hide-message",
-        title: !canHide ? "삭제할 수 없는 메시지입니다." : undefined,
+        title: !canHide ? t("cm_ui_cannot_delete_message") : undefined,
         onClick: () => {
           props.onHideForMe();
         },
@@ -139,9 +141,7 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
   const deleteForEveryone = showDeleteSection
     ? {
         disabled: !canEveryone || busy === "delete-for-everyone",
-        title: !canEveryone
-          ? "전송 후 24시간 이내 본인 메시지만 전체 삭제할 수 있습니다."
-          : deleteAction?.reason,
+        title: !canEveryone ? t("cm_ui_delete_own_within_24h_only") : deleteAction?.reason,
         onClick: () => {
           props.onDeleteForEveryone();
         },
@@ -159,7 +159,7 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
 
   const node = (
     <div className="fixed inset-0 z-[60]" role="presentation">
-      <button type="button" className="absolute inset-0 cursor-default bg-black/45" aria-label="닫기" onClick={onClose} />
+      <button type="button" className="absolute inset-0 cursor-default bg-black/45" aria-label={t("nav_close")} onClick={onClose} />
       <div
         ref={panelRef}
         className="absolute z-[61] w-[min(92vw,280px)] overflow-hidden rounded-[14px] border border-neutral-200 bg-white text-neutral-900 shadow-[0_8px_32px_rgba(0,0,0,0.22)] dark:border-neutral-700 dark:bg-neutral-950 dark:text-neutral-100"
@@ -185,7 +185,7 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
           onReply={props.onReply}
           shareExpanded={shareExpanded}
           shareDisabled={!shareAction?.enabled || !shareBranches}
-          shareTitle={shareAction?.reason ?? (!shareBranches ? "이 방에서는 공유할 수 없습니다." : undefined)}
+          shareTitle={shareAction?.reason ?? (!shareBranches ? t("cm_ui_cannot_share_in_this_room") : undefined)}
           onToggleShare={() => {
             setDeleteExpanded(false);
             if (!shareAction?.enabled || !shareBranches) return;
@@ -202,9 +202,9 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
             shareExpanded && shareBranches
               ? {
                   toRoom: {
-                    label: "채팅방으로 공유",
+                    label: t("cm_ui_share_to_chat_room"),
                     disabled: !shareToRoomOk,
-                    title: !shareToRoomOk ? "이 메시지는 다른 방으로 보낼 수 없습니다." : undefined,
+                    title: !shareToRoomOk ? t("cm_ui_cannot_send_to_other_room") : undefined,
                     onClick: () => {
                       setShareExpanded(false);
                       props.onShareToRoom();
@@ -212,7 +212,7 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
                   },
                   external: {
                     disabled: !shareExternalOk,
-                    title: !shareExternalOk ? "거래 방에서는 외부 공유가 제한됩니다." : undefined,
+                    title: !shareExternalOk ? t("cm_ui_external_share_restricted_in_trade_room") : undefined,
                     onClick: () => {
                       setShareExpanded(false);
                       void props.onShareExternal();
@@ -220,7 +220,7 @@ export function MessageLongPressPopover(props: MessageLongPressPopoverProps) {
                   },
                   link: {
                     disabled: !shareLinkOk,
-                    title: !shareLinkOk ? "거래 방에서는 링크 복사가 제한됩니다." : undefined,
+                    title: !shareLinkOk ? t("cm_ui_copy_link_restricted_in_trade_room") : undefined,
                     onClick: () => {
                       setShareExpanded(false);
                       void props.onShareCopyLink();

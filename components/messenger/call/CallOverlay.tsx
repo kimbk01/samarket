@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { CommunityMessengerCallSession } from "@/lib/community-messenger/types";
 import { CallScreen } from "@/components/messenger/call/CallScreen";
 import type { CallScreenViewModel } from "@/components/messenger/call/call-ui.types";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export type CommunityMessengerIncomingCallOverlayProps = {
   session: CommunityMessengerCallSession;
@@ -33,6 +34,7 @@ export function CommunityMessengerIncomingCallOverlay(props: CommunityMessengerI
     ringTimeoutSeconds,
   } = props;
 
+  const { t } = useI18n();
   const [remainSec, setRemainSec] = useState<number | null>(null);
   useEffect(() => {
     const sec = ringTimeoutSeconds;
@@ -59,10 +61,12 @@ export function CommunityMessengerIncomingCallOverlay(props: CommunityMessengerI
   }, [busyId, ringTimeoutSeconds, session.id, session.startedAt]);
 
   const statusMain =
-    session.callKind === "video" ? "영상 통화가 왔습니다" : "전화가 왔습니다";
+    session.callKind === "video" ? t("cm_ui_incoming_video_ringing") : t("cm_ui_incoming_voice_ringing");
   const baseSub = sessionActionError ?? incomingListError ?? "";
   const tail =
-    remainSec != null && remainSec > 0 ? `${baseSub ? " " : ""}· 남은 ${remainSec}초` : "";
+    remainSec != null && remainSec > 0
+      ? `${baseSub ? " " : ""}${t("cm_ui_ring_remaining_seconds", { count: remainSec })}`
+      : "";
   const subStatusText = (baseSub + tail).trim() || null;
 
   const incomingVm: CallScreenViewModel = {
@@ -85,7 +89,7 @@ export function CommunityMessengerIncomingCallOverlay(props: CommunityMessengerI
     primaryActions: [
       {
         id: "reject",
-        label: busyId === `reject:${session.id}` ? "거절 중" : "거절",
+        label: busyId === `reject:${session.id}` ? t("cm_ui_rejecting") : t("cm_ui_reject"),
         icon: "decline",
         tone: "danger",
         disabled: busyId === `reject:${session.id}` || busyId === `accept:${session.id}`,
@@ -93,7 +97,7 @@ export function CommunityMessengerIncomingCallOverlay(props: CommunityMessengerI
       },
       {
         id: "accept",
-        label: busyId === `accept:${session.id}` ? "연결 중" : "수락",
+        label: busyId === `accept:${session.id}` ? t("cm_ui_connecting") : t("cm_ui_accept"),
         icon: "accept",
         tone: "accept",
         disabled: busyId === `accept:${session.id}`,

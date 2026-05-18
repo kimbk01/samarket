@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import type { NeighborhoodCommentNode } from "@/lib/neighborhood/types";
 import { formatTimeAgo } from "@/lib/utils/format";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function CommentItem({
   node,
@@ -13,6 +14,7 @@ export function CommentItem({
   depth?: number;
   onReply?: (id: string) => void;
 }) {
+  const { t } = useI18n();
   const time = useMemo(() => {
     if (!node.created_at || Number.isNaN(Date.parse(node.created_at))) return "";
     return formatTimeAgo(node.created_at, "ko-KR");
@@ -26,7 +28,7 @@ export function CommentItem({
         <p className="sam-text-xxs text-sam-meta">{time}</p>
         {onReply ? (
           <button type="button" className="sam-text-xxs font-medium text-sky-700 underline" onClick={() => onReply(node.id)}>
-            답글
+            {t("community_comment_reply")}
           </button>
         ) : null}
       </div>

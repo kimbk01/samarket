@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { ReleaseArchiveSummaryCards } from "./ReleaseArchiveSummaryCards";
@@ -11,22 +13,23 @@ import { ReleaseLearningCard } from "./ReleaseLearningCard";
 
 type TabId = "summary" | "archive" | "change-history" | "regression" | "learning";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "summary", label: "요약" },
-  { id: "archive", label: "릴리즈 아카이브" },
-  { id: "change-history", label: "변경 이력" },
-  { id: "regression", label: "회귀 보드" },
-  { id: "learning", label: "릴리즈 학습" },
+const TAB_KEYS: { id: TabId; labelKey: MessageKey }[] = [
+  { id: "summary", labelKey: "admin_rel_tab_summary" },
+  { id: "archive", labelKey: "admin_rel_tab_archive" },
+  { id: "change-history", labelKey: "admin_rel_tab_change_history" },
+  { id: "regression", labelKey: "admin_rel_tab_regression" },
+  { id: "learning", labelKey: "admin_rel_tab_learning" },
 ];
 
 export function AdminReleaseArchivePage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("summary");
 
   return (
     <>
-      <AdminPageHeader title="릴리즈 아카이브" />
+      <AdminPageHeader titleKey="admin_rel_page_archive" />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
-        {TABS.map((tab) => (
+        {TAB_KEYS.map((tab) => (
           <button
             key={tab.id}
             type="button"
@@ -37,32 +40,32 @@ export function AdminReleaseArchivePage() {
                 : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
       {activeTab === "summary" && (
-        <AdminCard title="아카이브 요약">
+        <AdminCard titleKey="admin_rel_card_archive_summary">
           <ReleaseArchiveSummaryCards />
         </AdminCard>
       )}
       {activeTab === "archive" && (
-        <AdminCard title="버전별 릴리즈 아카이브">
+        <AdminCard titleKey="admin_rel_card_version_archive">
           <ReleaseArchiveTable />
         </AdminCard>
       )}
       {activeTab === "change-history" && (
-        <AdminCard title="버전별 변경 이력">
+        <AdminCard titleKey="admin_rel_card_version_changes">
           <ReleaseChangeHistoryTable />
         </AdminCard>
       )}
       {activeTab === "regression" && (
-        <AdminCard title="회귀 이슈 추적">
+        <AdminCard titleKey="admin_rel_card_regression">
           <RegressionIssueBoard />
         </AdminCard>
       )}
       {activeTab === "learning" && (
-        <AdminCard title="릴리즈 학습 루프">
+        <AdminCard titleKey="admin_rel_card_learning_loop">
           <ReleaseLearningCard />
         </AdminCard>
       )}

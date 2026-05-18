@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { memo, useLayoutEffect } from "react";
 import { StoreDetailBottomStrip } from "@/components/stores/StoreDetailBottomStrip";

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   getRecentSearches,
   removeRecentSearch,
@@ -13,6 +14,7 @@ interface RecentSearchesProps {
 }
 
 export function RecentSearches({ onSelectKeyword }: RecentSearchesProps) {
+  const { t } = useI18n();
   const [list, setList] = useState<RecentSearch[]>([]);
 
   useEffect(() => {
@@ -36,7 +38,7 @@ export function RecentSearches({ onSelectKeyword }: RecentSearchesProps) {
   return (
     <section className="px-4 py-3">
       <div className="flex items-center justify-between">
-        <p className="sam-text-body-secondary font-medium text-sam-fg">최근 검색어</p>
+        <p className="sam-text-body-secondary font-medium text-sam-fg">{t("trade_115")}</p>
         <button
           type="button"
           onClick={handleClear}
@@ -58,7 +60,7 @@ export function RecentSearches({ onSelectKeyword }: RecentSearchesProps) {
                 type="button"
                 onClick={(e) => handleRemove(e, r.id)}
                 className="rounded-full p-0.5 text-sam-meta hover:text-sam-muted"
-                aria-label="삭제"
+                aria-label={t("trade_070")}
               >
                 ×
               </button>

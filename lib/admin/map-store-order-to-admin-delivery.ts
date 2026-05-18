@@ -1,3 +1,5 @@
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { translate } from "@/lib/i18n/messages";
 import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
 import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
 import type {
@@ -58,13 +60,20 @@ function fulfillmentToOrderType(ft: string): "delivery" | "pickup" {
   return ft === "pickup" ? "pickup" : "delivery";
 }
 
-function mapItem(it: StoreOrderItemRow): AdminDeliveryOrderItem {
+function mapItem(it: StoreOrderItemRow, lang: AppLanguageCode): AdminDeliveryOrderItem {
   const qty = Math.max(1, Math.floor(Number(it.qty) || 1));
   const optLine = orderLineOptionsSummary(it.options_snapshot_json);
+  const dash = translate(lang, "mypage_comp_placeholder_dash");
   return {
     id: it.id,
     menuName: it.product_title_snapshot,
-    options: [{ optionGroupName: "옵션", optionName: optLine || "—", optionPrice: 0 }],
+    options: [
+      {
+        optionGroupName: translate(lang, "admin_do_th_option"),
+        optionName: optLine || dash,
+        optionPrice: 0,
+      },
+    ],
     qty,
     unitPrice: qty > 0 ? Math.round(Number(it.subtotal) / qty) : 0,
     optionExtra: 0,
@@ -83,10 +92,13 @@ export function mapStoreOrderToAdminDelivery(p: {
   storeOwnerUserId: string;
   storeOwnerName: string;
   buyerDisplayName: string;
+  lang?: AppLanguageCode;
 }): AdminDeliveryOrder {
+  const lang = p.lang ?? "ko";
+  const dash = translate(lang, "mypage_comp_placeholder_dash");
   const o = p.order;
-  const payDisp = formatBuyerPaymentDisplay(o.buyer_payment_method, o.buyer_payment_method_detail);
-  const items = p.items.map(mapItem);
+  const payDisp = formatBuyerPaymentDisplay(o.buyer_payment_method, o.buyer_payment_method_detail, lang);
+  const items = p.items.map((it) => mapItem(it, lang));
   const productAmount = items.reduce((s, it) => s + it.lineTotal, 0);
   const deliveryFee = Math.max(0, Math.round(Number(o.delivery_fee_amount) || 0));
   const discountAmount = Math.max(0, Math.round(Number(o.discount_amount) || 0));
@@ -97,8 +109,11 @@ export function mapStoreOrderToAdminDelivery(p: {
   const refundRequest: RefundRequest | undefined =
     os === "refund_requested" || os === "refunded"
       ? {
-          reason: note || "—",
-          category: os === "refunded" ? "완료" : "대기",
+          reason: note || dash,
+          category:
+            os === "refunded"
+              ? translate(lang, "admin_do_refund_done")
+              : translate(lang, "admin_do_refund_pending"),
           requestedBy: "buyer",
           requestedAt: updatedAt,
           status: os === "refunded" ? "approved" : "pending",
@@ -108,7 +123,7 @@ export function mapStoreOrderToAdminDelivery(p: {
   const cancelRequest: CancelRequest | undefined =
     os === "cancelled"
       ? {
-          reason: note || "—",
+          reason: note || dash,
           requestedAt: updatedAt,
           status: "approved",
         }
@@ -119,18 +134,18 @@ export function mapStoreOrderToAdminDelivery(p: {
     orderNo: o.order_no,
     buyerUserId: o.buyer_user_id,
     buyerName: p.buyerDisplayName,
-    buyerPhone: (o.buyer_phone ?? "").trim() || "—",
+    buyerPhone: (o.buyer_phone ?? "").trim() || dash,
     storeId: o.store_id,
-    storeName: p.storeName || "매장",
+    storeName: p.storeName || translate(lang, "store_fallback_name"),
     storeSlug: p.storeSlug,
     storeOwnerUserId: p.storeOwnerUserId,
-    storeOwnerName: p.storeOwnerName || "—",
+    storeOwnerName: p.storeOwnerName || dash,
     orderType: fulfillmentToOrderType(o.fulfillment_type),
     /** 고객 배달·배송지. 매장 영업 주소와 별도(픽업은 비어 있을 수 있음). */
     addressSummary: o.delivery_address_summary ?? undefined,
     addressDetail: o.delivery_address_detail ?? undefined,
     requestNote: o.buyer_note ?? undefined,
-    buyerCheckoutPaymentMethod: payDisp === "—" ? undefined : payDisp,
+    buyerCheckoutPaymentMethod: payDisp === dash ? undefined : payDisp,
     items,
     productAmount,
     optionAmount: 0,

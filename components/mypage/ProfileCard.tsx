@@ -5,12 +5,15 @@ import Image from "next/image";
 import type { Profile } from "@/lib/types/profile";
 import { MannerBatteryInline } from "@/components/trust/MannerBatteryDisplay";
 import { formatAtUsername, resolveDisplayName } from "@/lib/users/user-label";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface ProfileCardProps {
   profile: Profile | null;
 }
 
 export function ProfileCard({ profile }: ProfileCardProps) {
+  const { t } = useI18n();
+
   if (!profile) {
     return (
       <Link href="/mypage/account" className="block">
@@ -18,8 +21,8 @@ export function ProfileCard({ profile }: ProfileCardProps) {
           <div className="flex items-center gap-3">
             <div className="h-14 w-14 shrink-0 rounded-full bg-sam-primary-soft" />
             <div className="min-w-0 flex-1">
-              <p className="sam-text-body font-medium text-muted">로그인해 주세요</p>
-              <p className="sam-text-helper text-muted">프로필 보기</p>
+              <p className="sam-text-body font-medium text-muted">{t("mypage_comp_profile_login_prompt")}</p>
+              <p className="sam-text-helper text-muted">{t("mypage_comp_profile_view_profile")}</p>
             </div>
             <ChevronRight />
           </div>

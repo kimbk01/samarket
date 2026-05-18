@@ -1,9 +1,11 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+
 export function CallHeader({
   onBack,
-  backLabel = "뒤로",
+  backLabel: backLabelProp,
   trailing,
   topLabel,
   onTopLabelClick,
@@ -14,6 +16,8 @@ export function CallHeader({
   topLabel?: string | null;
   onTopLabelClick?: (() => void) | null;
 }) {
+  const { t } = useI18n();
+  const backLabel = backLabelProp ?? t("nav_back");
   const chip =
     topLabel == null || topLabel === "" ? null : onTopLabelClick ? (
       <button

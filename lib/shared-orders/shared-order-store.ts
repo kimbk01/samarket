@@ -1,3 +1,5 @@
+import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
 import { afterSharedOrderMutation, resetSharedOrderChat } from "@/lib/shared-order-chat/order-chat-sync";
 import { emitOrderNotifications } from "@/lib/shared-notifications/order-notification-emit";
 import { resetSharedNotifications } from "@/lib/shared-notifications/shared-notification-store";
@@ -9,6 +11,10 @@ import type {
   SharedPaymentStatus,
   SharedSettlementStatus,
 } from "./types";
+
+function soT(key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(DEFAULT_APP_LANGUAGE, key, vars);
+}
 
 function clone<T>(x: T): T {
   return JSON.parse(JSON.stringify(x)) as T;
@@ -110,7 +116,7 @@ export function validateSharedOrderTransition(
 ): string | null {
   if (force) return null;
   const cur = o.order_status;
-  if (cur === next) return "동일한 상태입니다.";
+  if (cur === next) return soT("shared_order_same_status");
   const delivery = o.order_type === "delivery";
 
   const allowed: Partial<Record<SharedOrderStatus, SharedOrderStatus[]>> = {
@@ -131,13 +137,13 @@ export function validateSharedOrderTransition(
 
   const list = allowed[cur] ?? [];
   if (!list.includes(next)) {
-    return `정상 흐름에서 ${cur} → ${next} 는 허용되지 않습니다. 강제 변경과 사유를 사용하세요.`;
+    return soT("shared_order_transition_invalid", { from: cur, to: next });
   }
   if (!delivery && next === "delivering") {
-    return "포장 주문에는 배달중이 없습니다.";
+    return soT("shared_order_pickup_no_delivering");
   }
   if (!delivery && next === "arrived") {
-    return "포장 주문에는 배송지 도착 단계가 없습니다.";
+    return soT("shared_order_pickup_no_arrived");
   }
   return null;
 }
@@ -151,10 +157,10 @@ function assertStore(_o: SharedOrder) {
 
 export function sharedOwnerAccept(orderId: string): { ok: true } | { ok: false; error: string } {
   const o = findSharedOrder(orderId);
-  if (!o) return { ok: false, error: "주문 없음" };
+  if (!o) return { ok: false, error: soT("shared_order_not_found") };
   const e = assertStore(o);
   if (e) return { ok: false, error: e };
-  if (o.order_status !== "pending") return { ok: false, error: "신규 주문만 수락할 수 있습니다." };
+  if (o.order_status !== "pending") return { ok: false, error: soT("shared_order_accept_pending_only") };
   const prev = o.order_status;
   const from = o.order_status;
   o.order_status = "accepted";
@@ -164,7 +170,7 @@ export function sharedOwnerAccept(orderId: string): { ok: true } | { ok: false; 
     action_type: "accepted",
     from_status: from,
     to_status: "accepted",
-    message: "매장에서 주문을 확인했어요",
+    message: soT("shared_order_log_owner_accepted"),
   });
   touch(o);
   bump();
@@ -174,13 +180,13 @@ export function sharedOwnerAccept(orderId: string): { ok: true } | { ok: false; 
 }
 
 export function sharedOwnerReject(orderId: string, reason: string): { ok: true } | { ok: false; error: string } {
-  if (!reason.trim()) return { ok: false, error: "사유가 필요합니다." };
+  if (!reason.trim()) return { ok: false, error: soT("shared_order_reason_required") };
   const o = findSharedOrder(orderId);
-  if (!o) return { ok: false, error: "주문 없음" };
+  if (!o) return { ok: false, error: soT("shared_order_not_found") };
   const e = assertStore(o);
   if (e) return { ok: false, error: e };
   if (o.order_status !== "pending" && o.order_status !== "accepted") {
-    return { ok: false, error: "조리 시작 후에는 거절 대신 관리자·문제 처리를 이용해 주세요." };
+    return { ok: false, error: soT("shared_order_reject_after_prep") };
   }
   const prev = o.order_status;
   const from = o.order_status;
@@ -195,7 +201,7 @@ export function sharedOwnerReject(orderId: string, reason: string): { ok: true }
     action_type: "owner_rejected",
     from_status: from,
     to_status: "cancelled",
-    message: `매장 거절: ${reason.trim()}`,
+    message: soT("shared_order_log_owner_rejected", { reason: reason.trim() }),
   });
   touch(o);
   bump();
@@ -206,9 +212,9 @@ export function sharedOwnerReject(orderId: string, reason: string): { ok: true }
 
 export function sharedOwnerStartPreparing(orderId: string): { ok: true } | { ok: false; error: string } {
   const o = findSharedOrder(orderId);
-  if (!o) return { ok: false, error: "주문 없음" };
+  if (!o) return { ok: false, error: soT("shared_order_not_found") };
   if (assertStore(o)) return { ok: false, error: assertStore(o)! };
-  if (o.order_status !== "accepted") return { ok: false, error: "주문접수된 주문만 준비(조리)중으로 바꿀 수 있습니다." };
+  if (o.order_status !== "accepted") return { ok: false, error: soT("shared_order_preparing_accepted_only") };
   const prev = o.order_status;
   const from = o.order_status;
   o.order_status = "preparing";
@@ -218,7 +224,7 @@ export function sharedOwnerStartPreparing(orderId: string): { ok: true } | { ok:
     action_type: "preparing",
     from_status: from,
     to_status: "preparing",
-    message: "음식을 준비하고 있어요",
+    message: soT("shared_order_log_preparing"),
   });
   touch(o);
   bump();
@@ -229,11 +235,11 @@ export function sharedOwnerStartPreparing(orderId: string): { ok: true } | { ok:
 
 export function sharedOwnerStartDelivery(orderId: string): { ok: true } | { ok: false; error: string } {
   const o = findSharedOrder(orderId);
-  if (!o) return { ok: false, error: "주문 없음" };
+  if (!o) return { ok: false, error: soT("shared_order_not_found") };
   if (assertStore(o)) return { ok: false, error: assertStore(o)! };
-  if (o.order_type !== "delivery") return { ok: false, error: "배달 주문만 가능합니다." };
+  if (o.order_type !== "delivery") return { ok: false, error: soT("shared_order_delivery_only") };
   if (o.order_status !== "ready_for_pickup") {
-    return { ok: false, error: "픽업·출고 준비 단계인 주문만 배송중으로 넘길 수 있습니다." };
+    return { ok: false, error: soT("shared_order_delivering_ready_only") };
   }
   const prev = o.order_status;
   const from = o.order_status;
@@ -244,7 +250,7 @@ export function sharedOwnerStartDelivery(orderId: string): { ok: true } | { ok: 
     action_type: "delivering",
     from_status: from,
     to_status: "delivering",
-    message: "배달이 출발했어요",
+    message: soT("shared_order_log_delivering"),
   });
   touch(o);
   bump();
@@ -255,9 +261,9 @@ export function sharedOwnerStartDelivery(orderId: string): { ok: true } | { ok: 
 
 export function sharedOwnerMarkPickupReady(orderId: string): { ok: true } | { ok: false; error: string } {
   const o = findSharedOrder(orderId);
-  if (!o) return { ok: false, error: "주문 없음" };
+  if (!o) return { ok: false, error: soT("shared_order_not_found") };
   if (assertStore(o)) return { ok: false, error: assertStore(o)! };
-  if (o.order_status !== "preparing") return { ok: false, error: "상품준비 전 단계에서만 픽업 준비로 넘길 수 있습니다." };
+  if (o.order_status !== "preparing") return { ok: false, error: soT("shared_order_pickup_ready_preparing_only") };
   const prev = o.order_status;
   const from = o.order_status;
   o.order_status = "ready_for_pickup";
@@ -267,7 +273,7 @@ export function sharedOwnerMarkPickupReady(orderId: string): { ok: true } | { ok
     action_type: "ready_for_pickup",
     from_status: from,
     to_status: "ready_for_pickup",
-    message: "픽업할 수 있어요",
+    message: soT("shared_order_log_pickup_ready"),
   });
   touch(o);
   bump();
@@ -278,11 +284,11 @@ export function sharedOwnerMarkPickupReady(orderId: string): { ok: true } | { ok
 
 export function sharedOwnerMarkArrived(orderId: string): { ok: true } | { ok: false; error: string } {
   const o = findSharedOrder(orderId);
-  if (!o) return { ok: false, error: "주문 없음" };
+  if (!o) return { ok: false, error: soT("shared_order_not_found") };
   if (assertStore(o)) return { ok: false, error: assertStore(o)! };
-  if (o.order_type !== "delivery") return { ok: false, error: "배달 주문만 가능합니다." };
+  if (o.order_type !== "delivery") return { ok: false, error: soT("shared_order_delivery_only") };
   if (o.order_status !== "delivering") {
-    return { ok: false, error: "배송중인 주문만 배송지 도착으로 넘길 수 있습니다." };
+    return { ok: false, error: soT("shared_order_arrived_delivering_only") };
   }
   const prev = o.order_status;
   const from = o.order_status;
@@ -293,7 +299,7 @@ export function sharedOwnerMarkArrived(orderId: string): { ok: true } | { ok: fa
     action_type: "arrived",
     from_status: from,
     to_status: "arrived",
-    message: "배송지에 도착했어요",
+    message: soT("shared_order_log_arrived"),
   });
   touch(o);
   bump();
@@ -304,13 +310,13 @@ export function sharedOwnerMarkArrived(orderId: string): { ok: true } | { ok: fa
 
 export function sharedOwnerComplete(orderId: string): { ok: true } | { ok: false; error: string } {
   const o = findSharedOrder(orderId);
-  if (!o) return { ok: false, error: "주문 없음" };
+  if (!o) return { ok: false, error: soT("shared_order_not_found") };
   if (assertStore(o)) return { ok: false, error: assertStore(o)! };
   if (o.order_type === "delivery" && o.order_status !== "arrived") {
-    return { ok: false, error: "배송지 도착 단계에서만 주문완료 처리할 수 있습니다." };
+    return { ok: false, error: soT("shared_order_complete_arrived_only") };
   }
   if (o.order_type === "pickup" && o.order_status !== "ready_for_pickup") {
-    return { ok: false, error: "픽업 준비 단계에서만 완료 처리할 수 있습니다." };
+    return { ok: false, error: soT("shared_order_complete_pickup_ready_only") };
   }
   const prev = o.order_status;
   const from = o.order_status;
@@ -322,7 +328,7 @@ export function sharedOwnerComplete(orderId: string): { ok: true } | { ok: false
     action_type: "completed",
     from_status: from,
     to_status: "completed",
-    message: "주문이 완료되었어요",
+    message: soT("shared_order_log_completed"),
   });
   touch(o);
   bump();
@@ -333,9 +339,9 @@ export function sharedOwnerComplete(orderId: string): { ok: true } | { ok: false
 
 export function sharedOwnerAcknowledgeCancel(orderId: string): { ok: true } | { ok: false; error: string } {
   const o = findSharedOrder(orderId);
-  if (!o) return { ok: false, error: "주문 없음" };
+  if (!o) return { ok: false, error: soT("shared_order_not_found") };
   if (assertStore(o)) return { ok: false, error: assertStore(o)! };
-  if (o.order_status !== "cancel_requested") return { ok: false, error: "취소 요청이 없습니다." };
+  if (o.order_status !== "cancel_requested") return { ok: false, error: soT("shared_order_no_cancel_request") };
   const prev = o.order_status;
   appendLog(o, {
     actor_type: "owner",
@@ -343,7 +349,7 @@ export function sharedOwnerAcknowledgeCancel(orderId: string): { ok: true } | { 
     action_type: "cancel_requested",
     from_status: o.order_status,
     to_status: o.order_status,
-    message: "매장에서 취소 요청을 확인했습니다. 관리자 승인을 기다립니다.",
+    message: soT("shared_order_log_cancel_ack"),
   });
   touch(o);
   bump();
@@ -352,12 +358,12 @@ export function sharedOwnerAcknowledgeCancel(orderId: string): { ok: true } | { 
 }
 
 export function sharedOwnerMarkProblem(orderId: string, memo: string): { ok: true } | { ok: false; error: string } {
-  if (!memo.trim()) return { ok: false, error: "메모가 필요합니다." };
+  if (!memo.trim()) return { ok: false, error: soT("shared_order_memo_required") };
   const o = findSharedOrder(orderId);
-  if (!o) return { ok: false, error: "주문 없음" };
+  if (!o) return { ok: false, error: soT("shared_order_not_found") };
   if (assertStore(o)) return { ok: false, error: assertStore(o)! };
   const allowed = ["preparing", "delivering", "ready_for_pickup", "arrived"];
-  if (!allowed.includes(o.order_status)) return { ok: false, error: "조리 이후만 문제 접수가 가능합니다." };
+  if (!allowed.includes(o.order_status)) return { ok: false, error: soT("shared_order_problem_after_prep") };
   const prev = o.order_status;
   const from = o.order_status;
   o.order_status = "refund_requested";
@@ -378,7 +384,7 @@ export function sharedOwnerMarkProblem(orderId: string, memo: string): { ok: tru
     action_type: "refund_requested",
     from_status: from,
     to_status: "refund_requested",
-    message: `문제·환불 검토 요청: ${memo}`,
+    message: soT("shared_order_log_refund_problem", { memo }),
   });
   touch(o);
   bump();
@@ -394,12 +400,12 @@ export function sharedMemberRequestCancel(
   buyerUserId: string,
   reason: string
 ): { ok: true } | { ok: false; error: string } {
-  if (!reason.trim()) return { ok: false, error: "사유가 필요합니다." };
+  if (!reason.trim()) return { ok: false, error: soT("shared_order_reason_required") };
   const o = findSharedOrder(orderId);
-  if (!o) return { ok: false, error: "주문을 찾을 수 없어요." };
-  if (o.buyer_user_id !== buyerUserId) return { ok: false, error: "본인 주문이 아닙니다." };
+  if (!o) return { ok: false, error: soT("shared_order_member_not_found") };
+  if (o.buyer_user_id !== buyerUserId) return { ok: false, error: soT("shared_order_not_your_order") };
   if (o.order_status !== "pending" && o.order_status !== "accepted") {
-    return { ok: false, error: "지금 단계에서는 취소 요청을 할 수 없어요." };
+    return { ok: false, error: soT("shared_order_cancel_stage_blocked") };
   }
   const prev = o.order_status;
   const from = o.order_status;
@@ -412,7 +418,7 @@ export function sharedMemberRequestCancel(
     action_type: "cancel_requested",
     from_status: from,
     to_status: "cancel_requested",
-    message: "취소 요청이 접수되었어요",
+    message: soT("shared_order_log_cancel_requested"),
   });
   touch(o);
   bump();
@@ -426,13 +432,13 @@ export function sharedMemberRequestRefund(
   buyerUserId: string,
   reason: string
 ): { ok: true } | { ok: false; error: string } {
-  if (!reason.trim()) return { ok: false, error: "사유가 필요합니다." };
+  if (!reason.trim()) return { ok: false, error: soT("shared_order_reason_required") };
   const o = findSharedOrder(orderId);
-  if (!o) return { ok: false, error: "주문 없음" };
-  if (o.buyer_user_id !== buyerUserId) return { ok: false, error: "본인 주문이 아닙니다." };
+  if (!o) return { ok: false, error: soT("shared_order_not_found") };
+  if (o.buyer_user_id !== buyerUserId) return { ok: false, error: soT("shared_order_not_your_order") };
   const allowed = ["preparing", "delivering", "ready_for_pickup", "arrived", "completed"];
-  if (!allowed.includes(o.order_status)) return { ok: false, error: "이 단계에서는 환불 요청이 제한될 수 있어요." };
-  if (o.order_status === "refund_requested") return { ok: false, error: "이미 환불 요청이 있어요." };
+  if (!allowed.includes(o.order_status)) return { ok: false, error: soT("shared_order_refund_stage_blocked") };
+  if (o.order_status === "refund_requested") return { ok: false, error: soT("shared_order_refund_already") };
   const prev = o.order_status;
   const from = o.order_status;
   o.order_status = "refund_requested";
@@ -445,7 +451,7 @@ export function sharedMemberRequestRefund(
   o.settlement_status = "held";
   if (o.settlement) {
     o.settlement.settlement_status = "held";
-    o.settlement.hold_reason = "회원 환불 요청";
+    o.settlement.hold_reason = soT("shared_order_hold_member_refund");
   }
   appendLog(o, {
     actor_type: "member",
@@ -453,7 +459,7 @@ export function sharedMemberRequestRefund(
     action_type: "refund_requested",
     from_status: from,
     to_status: "refund_requested",
-    message: "환불 요청이 접수되었어요",
+    message: soT("shared_order_log_refund_requested"),
   });
   touch(o);
   bump();
@@ -476,10 +482,10 @@ export function sharedAdminSetOrderStatus(
   }
 ): { ok: true } | { ok: false; error: string } {
   const o = findSharedOrder(orderId);
-  if (!o) return { ok: false, error: "주문 없음" };
+  if (!o) return { ok: false, error: soT("shared_order_not_found") };
   const err = validateSharedOrderTransition(o, next, opts.force);
   if (err) return { ok: false, error: err };
-  if (opts.force && !opts.reason?.trim()) return { ok: false, error: "강제 변경 시 사유가 필요합니다." };
+  if (opts.force && !opts.reason?.trim()) return { ok: false, error: soT("shared_order_force_reason_required") };
   const prev = o.order_status;
   const from = o.order_status;
   o.order_status = next;
@@ -494,11 +500,11 @@ export function sharedAdminSetOrderStatus(
   if (next === "completed" && o.payment_status === "paid") ensureSettlementScheduled(o);
   appendLog(o, {
     actor_type: "admin",
-    actor_name: "운영 관리자",
+    actor_name: soT("shared_order_admin_actor"),
     action_type: "admin_force_status",
     from_status: from,
     to_status: next,
-    message: opts.force ? `관리자 강제 변경: ${opts.reason ?? ""}` : `상태 변경: ${from} → ${next}`,
+    message: opts.force ? soT("shared_order_log_admin_force", { reason: opts.reason ?? "" }) : soT("shared_order_log_status_change", { from, to: next }),
   });
   touch(o);
   bump();
@@ -516,9 +522,9 @@ export function sharedAdminApproveCancel(
   memo: string
 ): { ok: true } | { ok: false; error: string } {
   const o = findSharedOrder(orderId);
-  if (!o) return { ok: false, error: "주문 없음" };
+  if (!o) return { ok: false, error: soT("shared_order_not_found") };
   if (o.order_status !== "cancel_requested" || o.cancel_request_status !== "pending") {
-    return { ok: false, error: "대기 중인 취소 요청이 없습니다." };
+    return { ok: false, error: soT("shared_order_no_pending_cancel") };
   }
   const prev = o.order_status;
   const from = o.order_status;
@@ -531,11 +537,11 @@ export function sharedAdminApproveCancel(
   if (memo.trim()) o.admin_memo = memo;
   appendLog(o, {
     actor_type: "admin",
-    actor_name: "운영 관리자",
+    actor_name: soT("shared_order_admin_actor"),
     action_type: "cancel_approved",
     from_status: from,
     to_status: "cancelled",
-    message: "취소 요청이 승인되었어요",
+    message: soT("shared_order_log_cancel_approved"),
   });
   touch(o);
   bump();
@@ -548,11 +554,11 @@ export function sharedAdminRejectCancel(
   orderId: string,
   memo: string
 ): { ok: true } | { ok: false; error: string } {
-  if (!memo.trim()) return { ok: false, error: "거절 사유가 필요합니다." };
+  if (!memo.trim()) return { ok: false, error: soT("shared_order_reject_reason_required") };
   const o = findSharedOrder(orderId);
-  if (!o) return { ok: false, error: "주문 없음" };
+  if (!o) return { ok: false, error: soT("shared_order_not_found") };
   if (o.order_status !== "cancel_requested" || o.cancel_request_status !== "pending") {
-    return { ok: false, error: "대기 중인 취소 요청이 없습니다." };
+    return { ok: false, error: soT("shared_order_no_pending_cancel") };
   }
   const prev = o.order_status;
   const from = o.order_status;
@@ -561,11 +567,11 @@ export function sharedAdminRejectCancel(
   o.admin_memo = memo.trim();
   appendLog(o, {
     actor_type: "admin",
-    actor_name: "운영 관리자",
+    actor_name: soT("shared_order_admin_actor"),
     action_type: "cancel_rejected",
     from_status: from,
     to_status: "accepted",
-    message: `취소 요청 거절: ${memo.trim()}`,
+    message: soT("shared_order_log_cancel_rejected", { memo: memo.trim() }),
   });
   touch(o);
   bump();
@@ -577,9 +583,9 @@ export function sharedAdminApproveRefund(
   orderId: string,
   memo: string
 ): { ok: true } | { ok: false; error: string } {
-  if (!memo.trim()) return { ok: false, error: "승인 메모가 필요합니다." };
+  if (!memo.trim()) return { ok: false, error: soT("shared_order_approve_memo_required") };
   const o = findSharedOrder(orderId);
-  if (!o) return { ok: false, error: "주문 없음" };
+  if (!o) return { ok: false, error: soT("shared_order_not_found") };
   const prev = o.order_status;
   const from = o.order_status;
   o.order_status = "refunded";
@@ -591,11 +597,11 @@ export function sharedAdminApproveRefund(
   o.admin_memo = memo.trim();
   appendLog(o, {
     actor_type: "admin",
-    actor_name: "운영 관리자",
+    actor_name: soT("shared_order_admin_actor"),
     action_type: "refund_approved",
     from_status: from,
     to_status: "refunded",
-    message: "환불이 승인되었어요",
+    message: soT("shared_order_log_refund_approved"),
   });
   touch(o);
   bump();
@@ -608,9 +614,9 @@ export function sharedAdminRejectRefund(
   orderId: string,
   memo: string
 ): { ok: true } | { ok: false; error: string } {
-  if (!memo.trim()) return { ok: false, error: "거절 사유가 필요합니다." };
+  if (!memo.trim()) return { ok: false, error: soT("shared_order_reject_reason_required") };
   const o = findSharedOrder(orderId);
-  if (!o) return { ok: false, error: "주문 없음" };
+  if (!o) return { ok: false, error: soT("shared_order_not_found") };
   if (o.refund_request) o.refund_request.status = "rejected";
   const prev = o.order_status;
   const from = o.order_status;
@@ -624,11 +630,11 @@ export function sharedAdminRejectRefund(
   o.settlement_status = "scheduled";
   appendLog(o, {
     actor_type: "admin",
-    actor_name: "운영 관리자",
+    actor_name: soT("shared_order_admin_actor"),
     action_type: "refund_rejected",
     from_status: from,
     to_status: "preparing",
-    message: `환불 거절: ${memo.trim()}`,
+    message: soT("shared_order_log_refund_rejected", { memo: memo.trim() }),
   });
   touch(o);
   bump();
@@ -640,9 +646,9 @@ export function sharedAdminHoldSettlement(
   orderId: string,
   reason: string
 ): { ok: true } | { ok: false; error: string } {
-  if (!reason.trim()) return { ok: false, error: "보류 사유가 필요합니다." };
+  if (!reason.trim()) return { ok: false, error: soT("shared_order_hold_reason_required") };
   const o = findSharedOrder(orderId);
-  if (!o) return { ok: false, error: "주문 없음" };
+  if (!o) return { ok: false, error: soT("shared_order_not_found") };
   const prev = o.order_status;
   if (!o.settlement) {
     const fee = Math.round(o.final_amount * 0.1);
@@ -663,11 +669,11 @@ export function sharedAdminHoldSettlement(
   }
   appendLog(o, {
     actor_type: "admin",
-    actor_name: "운영 관리자",
+    actor_name: soT("shared_order_admin_actor"),
     action_type: "settlement_held",
     from_status: o.order_status,
     to_status: o.order_status,
-    message: `정산 보류: ${reason}`,
+    message: soT("shared_order_log_settlement_hold", { reason }),
   });
   touch(o);
   bump();
@@ -681,7 +687,7 @@ export function sharedAdminReleaseSettlement(
   memo: string
 ): { ok: true } | { ok: false; error: string } {
   const o = findSharedOrder(orderId);
-  if (!o) return { ok: false, error: "주문 없음" };
+  if (!o) return { ok: false, error: soT("shared_order_not_found") };
   const prev = o.order_status;
   o.settlement_status = "scheduled";
   o.admin_action_status = "none";
@@ -692,11 +698,11 @@ export function sharedAdminReleaseSettlement(
   if (memo.trim()) o.admin_memo = memo;
   appendLog(o, {
     actor_type: "admin",
-    actor_name: "운영 관리자",
+    actor_name: soT("shared_order_admin_actor"),
     action_type: "settlement_released",
     from_status: o.order_status,
     to_status: o.order_status,
-    message: "정산 보류가 해제되었어요",
+    message: soT("shared_order_log_settlement_released"),
   });
   touch(o);
   bump();
@@ -710,7 +716,7 @@ export function sharedAdminMarkSettlementPaid(
   memo: string
 ): { ok: true } | { ok: false; error: string } {
   const o = findSharedOrder(orderId);
-  if (!o) return { ok: false, error: "주문 없음" };
+  if (!o) return { ok: false, error: soT("shared_order_not_found") };
   const prev = o.order_status;
   o.settlement_status = "paid";
   if (o.settlement) {
@@ -720,11 +726,11 @@ export function sharedAdminMarkSettlementPaid(
   if (memo.trim()) o.admin_memo = memo;
   appendLog(o, {
     actor_type: "admin",
-    actor_name: "운영 관리자",
+    actor_name: soT("shared_order_admin_actor"),
     action_type: "settlement_paid",
     from_status: o.order_status,
     to_status: o.order_status,
-    message: "정산 완료 처리",
+    message: soT("shared_order_log_settlement_paid"),
   });
   touch(o);
   bump();
@@ -734,15 +740,15 @@ export function sharedAdminMarkSettlementPaid(
 
 export function sharedAdminSetMemo(orderId: string, memo: string): { ok: true } | { ok: false; error: string } {
   const o = findSharedOrder(orderId);
-  if (!o) return { ok: false, error: "주문 없음" };
+  if (!o) return { ok: false, error: soT("shared_order_not_found") };
   o.admin_memo = memo;
   appendLog(o, {
     actor_type: "admin",
-    actor_name: "운영 관리자",
+    actor_name: soT("shared_order_admin_actor"),
     action_type: "admin_memo",
     from_status: o.order_status,
     to_status: o.order_status,
-    message: `메모: ${memo.slice(0, 120)}`,
+    message: soT("shared_order_log_admin_memo", { memo: memo.slice(0, 120) }),
   });
   touch(o);
   bump();

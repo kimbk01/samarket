@@ -1,5 +1,7 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { LaunchReadinessAreasEntry } from "@/lib/types/launch-readiness";
 import { getAreaLabel, getStatusLabel } from "@/lib/launch-readiness/launch-readiness-utils";
 
@@ -8,6 +10,7 @@ interface LaunchAreaCardProps {
 }
 
 export function LaunchAreaCard({ entry }: LaunchAreaCardProps) {
+  const { t } = useI18n();
   const isBlocked = entry.status === "blocked";
   const isReady = entry.status === "ready";
   const isInProgress = entry.status === "in_progress";
@@ -46,7 +49,7 @@ export function LaunchAreaCard({ entry }: LaunchAreaCardProps) {
       <p className="mt-1 sam-text-body-secondary text-sam-muted">
         완료 {entry.readyItems} / {entry.totalItems}
         {entry.blockedItems > 0 && (
-          <span className="ml-1 text-red-600">· 차단 {entry.blockedItems}</span>
+          <span className="ml-1 text-red-600">· {t("admin_blocked_count")} {entry.blockedItems}</span>
         )}
       </p>
       {entry.ownerAdminNickname && (

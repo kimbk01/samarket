@@ -1,28 +1,31 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { OPS_DOC_TYPE_KEYS } from "@/components/admin/i18n/admin-ops-doc-label-keys";
 import type {
   OpsKnowledgeDocType,
   OpsKnowledgeCategory,
 } from "@/lib/types/ops-knowledge";
 import type { OpsKnowledgeSearchFilters } from "@/lib/ops-knowledge/ops-knowledge-utils";
 
-const DOC_TYPE_OPTIONS: { value: OpsKnowledgeDocType | ""; label: string }[] = [
-  { value: "", label: "전체 유형" },
-  { value: "sop", label: "SOP" },
-  { value: "playbook", label: "플레이북" },
-  { value: "scenario", label: "시나리오" },
+const DOC_TYPE_OPTIONS: { value: OpsKnowledgeDocType | ""; labelKey: MessageKey }[] = [
+  { value: "", labelKey: "admin_ops_tools_kb_filter_all_type" },
+  { value: "sop", labelKey: OPS_DOC_TYPE_KEYS.sop },
+  { value: "playbook", labelKey: OPS_DOC_TYPE_KEYS.playbook },
+  { value: "scenario", labelKey: OPS_DOC_TYPE_KEYS.scenario },
 ];
 
-const CATEGORY_OPTIONS: { value: OpsKnowledgeCategory | ""; label: string }[] = [
-  { value: "", label: "전체 카테고리" },
-  { value: "incident_response", label: "인시던트 대응" },
-  { value: "deployment", label: "배포" },
-  { value: "rollback", label: "롤백" },
-  { value: "moderation", label: "검수" },
-  { value: "recommendation", label: "추천" },
-  { value: "ads", label: "광고" },
-  { value: "points", label: "포인트" },
-  { value: "support", label: "지원" },
+const CATEGORY_OPTIONS: { value: OpsKnowledgeCategory | ""; labelKey: MessageKey }[] = [
+  { value: "", labelKey: "admin_ops_tools_kb_filter_all_category" },
+  { value: "incident_response", labelKey: "admin_ops_doc_cat_incident" },
+  { value: "deployment", labelKey: "admin_ops_tools_kb_cat_deployment" },
+  { value: "rollback", labelKey: "admin_ops_tools_kb_cat_rollback" },
+  { value: "moderation", labelKey: "admin_ops_doc_cat_moderation" },
+  { value: "recommendation", labelKey: "admin_ops_tools_kb_cat_recommendation" },
+  { value: "ads", labelKey: "admin_ops_doc_cat_ads" },
+  { value: "points", labelKey: "admin_ops_doc_cat_points" },
+  { value: "support", labelKey: "admin_ops_doc_cat_support" },
 ];
 
 interface OpsKnowledgeSearchBarProps {
@@ -40,6 +43,7 @@ export function OpsKnowledgeSearchBar({
   onFiltersChange,
   onSearch,
 }: OpsKnowledgeSearchBarProps) {
+  const { t } = useI18n();
   return (
     <div className="space-y-3 rounded-ui-rect border border-sam-border bg-sam-surface p-4">
       <div className="flex flex-wrap gap-2">
@@ -48,7 +52,7 @@ export function OpsKnowledgeSearchBar({
           value={query}
           onChange={(e) => onQueryChange(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && onSearch()}
-          placeholder="제목·요약·태그 검색 (자동완성 placeholder)"
+          placeholder={t("admin_ops_tools_kb_search_ph")}
           className="min-w-[240px] flex-1 rounded border border-sam-border px-3 py-2 sam-text-body"
         />
         <button
@@ -56,7 +60,7 @@ export function OpsKnowledgeSearchBar({
           onClick={onSearch}
           className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white"
         >
-          검색
+          {t("admin_ops_tools_kb_search_btn")}
         </button>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -68,7 +72,9 @@ export function OpsKnowledgeSearchBar({
           className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
           {DOC_TYPE_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
+            <option key={o.value} value={o.value}>
+              {t(o.labelKey)}
+            </option>
           ))}
         </select>
         <select
@@ -79,7 +85,9 @@ export function OpsKnowledgeSearchBar({
           className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
           {CATEGORY_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>{o.label}</option>
+            <option key={o.value} value={o.value}>
+              {t(o.labelKey)}
+            </option>
           ))}
         </select>
       </div>

@@ -1,18 +1,31 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  pointActionTypeLabel,
+  pointBoardLabel,
+  pointChargeStatusLabel,
+  pointExecStatusLabel,
+  pointExpireCycleLabel,
+  pointExpireExecStatusLabel,
+  pointLedgerTypeLabel,
+  pointPaymentMethodLabel,
+  pointRewardTypeLabel,
+  pointUserTypeLabel,
+} from "@/components/admin/points/admin-points-notifications-i18n";
+
 import type { PointRewardLog } from "@/lib/types/point-execution";
-import { POINT_REWARD_LOG_ACTION_LABELS } from "@/lib/point-executions/point-execution-utils";
-import { getBoardName } from "@/lib/point-policies/point-policy-utils";
 
 interface PointRewardLogListProps {
   logs: PointRewardLog[];
 }
 
 export function PointRewardLogList({ logs }: PointRewardLogListProps) {
+  const { t } = useI18n();
+
   if (logs.length === 0) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        지급/회수 로그가 없습니다.
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted"> {t("admin_points_exec_logs_empty")}
       </div>
     );
   }
@@ -22,26 +35,19 @@ export function PointRewardLogList({ logs }: PointRewardLogListProps) {
       <table className="w-full min-w-[640px] border-collapse sam-text-body">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              유형
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_th_type")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              게시판
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_th_board")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              대상
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_th_target")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              사용자
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_th_user")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              포인트
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_th_points")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              잔액
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_th_balance")}
             </th>
-            <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              일시
+            <th className="px-3 py-2.5 text-left font-medium text-sam-fg"> {t("admin_points_th_datetime")}
             </th>
           </tr>
         </thead>
@@ -59,13 +65,15 @@ export function PointRewardLogList({ logs }: PointRewardLogListProps) {
                       : "bg-amber-100 text-amber-800"
                   }`}
                 >
-                  {POINT_REWARD_LOG_ACTION_LABELS[l.actionType]}
+                  {l.actionType === "reward"
+                    ? t("admin_points_reward_log_reward")
+                    : t("admin_points_reward_log_reclaim")}
                 </span>
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
-                {getBoardName(l.boardKey)}
+                {pointBoardLabel(t, l.boardKey)}
               </td>
-              <td className="max-w-[120px] truncate px-3 py-2.5 text-sam-muted">
+              <td className="max-w-[120px) truncate px-3 py-2.5 text-sam-muted">
                 {l.targetType} {l.targetId}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">{l.userId}</td>

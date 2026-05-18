@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useState, useRef, useCallback } from "react";
 
@@ -9,6 +10,7 @@ interface ProductImageGalleryProps {
 
 /** 거래 상세 히어로 — crop 금지, 전체 이미지 표시(contain / width 100% · height auto · max-height 420px) */
 export function ProductImageGallery({ images, title }: ProductImageGalleryProps) {
+  const { t } = useI18n();
   const [current, setCurrent] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const list = images.length > 0 ? images : [""];
@@ -58,7 +60,7 @@ export function ProductImageGallery({ images, title }: ProductImageGalleryProps)
               />
             ) : (
               <div className="flex min-h-[160px] w-full items-center justify-center bg-sam-surface-muted text-sm text-[#999]">
-                이미지
+                {t("ui_product_gallery_fallback")}
               </div>
             )}
           </div>
@@ -72,7 +74,7 @@ export function ProductImageGallery({ images, title }: ProductImageGalleryProps)
             onClick={goPrev}
             disabled={current === 0}
             className="absolute left-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white shadow transition hover:bg-black/55 disabled:invisible"
-            aria-label="이전 이미지"
+            aria-label={t("ui_product_gallery_prev_aria")}
           >
             <ChevronLeft className="h-6 w-6" />
           </button>
@@ -81,7 +83,7 @@ export function ProductImageGallery({ images, title }: ProductImageGalleryProps)
             onClick={goNext}
             disabled={current === list.length - 1}
             className="absolute right-2 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/40 text-white shadow transition hover:bg-black/55 disabled:invisible"
-            aria-label="다음 이미지"
+            aria-label={t("ui_product_gallery_next_aria")}
           >
             <ChevronRight className="h-6 w-6" />
           </button>

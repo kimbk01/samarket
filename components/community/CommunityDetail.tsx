@@ -59,6 +59,7 @@ import {
   PHILIFE_FEED_INSET_X_CLASS,
   PHILIFE_DETAIL_POST_SLAB_CLASS,
 } from "@/lib/philife/philife-flat-ui-classes";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 function countNeighborhoodCommentNodesFlat(nodes: NeighborhoodCommentNode[]): number {
   let n = 0;
@@ -76,8 +77,6 @@ const meetingToolbarBtn =
   "sam-btn sam-btn--outline sam-btn--block px-1 py-2 text-center disabled:opacity-50";
 const meetingToolbarWrap =
   "min-w-0 [&>button]:flex [&>button]:min-h-[44px] [&>button]:w-full [&>button]:items-center [&>button]:justify-center [&>button]:rounded-sam-md [&>button]:border [&>button]:border-sam-border [&>button]:bg-sam-surface [&>button]:px-1 [&>button]:py-2 [&>button]:text-center [&>button]:text-[length:var(--sam-text-body-size)] [&>button]:font-medium [&>button]:leading-[var(--sam-font-body-line)] [&>button]:text-sam-fg";
-const DELETED_COMMENT_TEXT = "댓글이 삭제 되었습니다.";
-
 export function CommunityDetail({
   post,
   meeting,
@@ -95,6 +94,7 @@ export function CommunityDetail({
   initialRouteTotalMs?: number;
   similarPosts?: NeighborhoodFeedPostDTO[];
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const [postUrl, setPostUrl] = useState("");
@@ -130,7 +130,7 @@ export function CommunityDetail({
     setPostUrl(`${window.location.origin}${pathname || ""}`);
   }, [pathname]);
 
-  const tier1Title = meeting ? "모임" : post.category_label?.trim() || "커뮤니티";
+  const tier1Title = meeting ? t("community_meeting_label") : post.category_label?.trim() || t("community_community_label");
   const backToFeedHref =
     !meeting && !post.is_meetup && post.category?.trim()
       ? `${philifeAppPaths.home}?category=${encodeURIComponent(post.category.trim())}`
@@ -209,8 +209,8 @@ export function CommunityDetail({
   const displayCommentCount = useMemo(() => countNeighborhoodCommentNodesFlat(comments), [comments]);
 
   const meForComposer = useMemo(
-    () => (me ? { name: me.nickname || "나", avatarUrl: me.avatar_url ?? null } : null),
-    [me]
+    () => (me ? { name: me.nickname || t("community_me"), avatarUrl: me.avatar_url ?? null } : null),
+    [me, t]
   );
 
   const refreshComments = useCallback(
@@ -406,7 +406,7 @@ export function CommunityDetail({
   const onCommentDelete = useCallback(
     async (commentId: string) => {
       if (!me?.id) return;
-      if (!window.confirm("이 댓글을 삭제할까요?")) return;
+      if (!window.confirm(t("community_confirm_delete_comment"))) return;
       setBusy(true);
       try {
         const res = await fetch(philifePostCommentUrl(post.id, commentId), { method: "DELETE" });
@@ -415,7 +415,7 @@ export function CommunityDetail({
           /** 하드 삭제 응답이어도 UI는 tombstone으로 남겨 "삭제됨" 문구를 유지 */
           setComments((cur) =>
             updateCommentInTree(cur, commentId, {
-              content: DELETED_COMMENT_TEXT,
+              content: t("community_comment_deleted"),
               is_edited: false,
               like_count: 0,
               liked_by_viewer: false,
@@ -427,18 +427,18 @@ export function CommunityDetail({
         setBusy(false);
       }
     },
-    [me?.id, post.id]
+    [me?.id, post.id, t]
   );
 
   const submitComment = useCallback(async () => {
-    const t = commentText.trim();
-    if (!t) return;
+    const trimmed = commentText.trim();
+    if (!trimmed) return;
     setBusy(true);
     try {
       const res = await fetch(philifePostCommentsUrl(post.id), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: t }),
+        body: JSON.stringify({ content: trimmed }),
       });
       const data = (await res.json()) as { ok?: boolean };
       if (data.ok) {
@@ -454,14 +454,14 @@ export function CommunityDetail({
 
   const submitReplyComment = useCallback(
     async (parentId: string, content: string) => {
-      const t = content.trim();
-      if (!t) return;
+      const trimmed = content.trim();
+      if (!trimmed) return;
       setBusy(true);
       try {
         const res = await fetch(philifePostCommentsUrl(post.id), {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content: t, parentId }),
+          body: JSON.stringify({ content: trimmed, parentId }),
         });
         const data = (await res.json()) as { ok?: boolean; id?: string };
         if (data.ok) {
@@ -475,11 +475,11 @@ export function CommunityDetail({
             post_id: post.id,
             user_id: me?.id ?? "unknown",
             parent_id: parentId,
-            content: t,
+            content: trimmed,
             created_at: now,
             updated_at: now,
             is_edited: false,
-            author_name: me?.nickname?.trim() || me?.display_name?.trim() || "나",
+            author_name: me?.nickname?.trim() || me?.display_name?.trim() || t("community_me"),
             like_count: 0,
             liked_by_viewer: false,
             children: [],
@@ -503,14 +503,14 @@ export function CommunityDetail({
 
   const onDeletePost = async () => {
     if (!me?.id || me.id !== post.author_id) return;
-    if (!window.confirm("이 글을 삭제할까요? (복구 불가)")) return;
+    if (!window.confirm(t("community_confirm_delete_post"))) return;
     setBusy((prev) => (prev ? prev : true));
     setDeleteErr((prev) => (prev === "" ? prev : ""));
     try {
       const res = await fetch(philifeNeighborhoodPostUrl(post.id), { method: "DELETE" });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (res.ok && j.ok) router.replace(philifeAppPaths.home);
-      else setDeleteErr(j.error ?? "삭제에 실패했습니다.");
+      else setDeleteErr(j.error ?? t("community_delete_failed"));
     } finally {
       setBusy((prev) => (prev ? false : prev));
     }
@@ -547,7 +547,10 @@ export function CommunityDetail({
   }, [me, post.author_id]);
 
   const authorSubline = meeting
-    ? `조회 ${viewCount.toLocaleString("ko-KR")} · 댓글 ${displayCommentCount}`
+    ? t("community_detail_stats_line", {
+        views: viewCount.toLocaleString("ko-KR"),
+        comments: displayCommentCount,
+      })
     : undefined;
 
   return (
@@ -566,7 +569,7 @@ export function CommunityDetail({
         <div className={`${PHILIFE_DETAIL_POST_SLAB_CLASS} w-full min-w-0`}>
           <div className="max-w-3xl">
           <CommunityPostCategoryRow
-            label={meeting ? "모임" : post.category_label}
+            label={meeting ? t("community_meeting_label") : post.category_label}
             isQuestion={post.is_question && !meeting}
           />
           <CommunityPostDetailAuthorRow
@@ -598,7 +601,7 @@ export function CommunityDetail({
           {meeting ? (
             <div className="grid grid-cols-3 gap-2 border-b border-[#E5E7EB] bg-[#F7F8FA] px-4 py-4 sm:grid-cols-6">
               <button type="button" disabled={busy} onClick={() => void onLike()} className={meetingToolbarBtn}>
-                공감 {likeCount}
+                {t("community_stat_likes", { count: likeCount })}
               </button>
               {me?.id && me.id !== post.author_id ? (
                 <div className={meetingToolbarWrap}>
@@ -619,11 +622,11 @@ export function CommunityDetail({
                   href={philifeAppPaths.meeting(meeting.id)}
                   className={`${meetingToolbarBtn} border-[#7360F2] bg-[#7360F2] text-white hover:bg-[#5B46E8]`}
                 >
-                  문의
+                  {t("community_inquiry")}
                 </Link>
               ) : (
                 <button type="button" onClick={() => router.push("/login")} className={meetingToolbarBtn}>
-                  문의
+                  {t("community_inquiry")}
                 </button>
               )}
               {me?.id && me.id !== post.author_id ? (
@@ -635,13 +638,13 @@ export function CommunityDetail({
                   }}
                   className={`${meetingToolbarBtn} border-red-200 bg-red-50 text-[#E25555]`}
                 >
-                  신고
+                  {t("community_report")}
                 </button>
               ) : (
                 <div className="min-h-[44px]" aria-hidden />
               )}
               <Link href={philifeAppPaths.home} className={`${meetingToolbarBtn} bg-white`}>
-                목록
+                {t("community_list")}
               </Link>
             </div>
           ) : null}
@@ -653,14 +656,14 @@ export function CommunityDetail({
                 onClick={() => void onDeletePost()}
                 className={COMMUNITY_BUTTON_SECONDARY_CLASS}
               >
-                삭제
+                {t("community_delete")}
               </button>
             </div>
           ) : null}
 
           {me?.id && me.id === post.author_id && (
             <div className="border-b border-[#E5E7EB] px-4 py-4">
-              <p className="mb-2 text-[12px] font-normal text-[#6B7280]">내 게시글 광고</p>
+              <p className="mb-2 text-[12px] font-normal text-[#6B7280]">{t("community_my_post_ads")}</p>
               <AdApplyButton postId={post.id} postTitle={post.title} boardKey="plife" />
             </div>
           )}
@@ -674,8 +677,8 @@ export function CommunityDetail({
             locked={commentsLocked}
             lockMessage={
               !me?.id
-                ? "로그인 후 모임에 참여하면 댓글을 작성할 수 있어요."
-                : "모임 참여 후 댓글을 작성할 수 있어요."
+                ? t("community_login_meeting_for_comments")
+                : t("community_join_meeting_for_comments")
             }
             viewerUserId={me?.id ?? null}
             viewerIsAdmin={viewerIsAdmin}
@@ -693,7 +696,7 @@ export function CommunityDetail({
                     busy,
                     disabled: !me?.id || busy,
                     isLoggedIn: !!me?.id,
-                    placeholder: "댓글을 남겨보세요…",
+                    placeholder: t("community_comment_placeholder_detail"),
                     me: meForComposer,
                   }
                 : null
@@ -713,11 +716,11 @@ export function CommunityDetail({
           <button
             type="button"
             className={COMMUNITY_OVERLAY_BACKDROP_CLASS}
-            aria-label="닫기"
+            aria-label={t("common_close")}
             onClick={() => setReportOpen(false)}
           />
           <div className={`${COMMUNITY_MODAL_PANEL_CLASS} relative z-50`}>
-            <p className="text-[16px] font-bold leading-[1.35] text-[#1F2430]">게시글 신고</p>
+            <p className="text-[16px] font-bold leading-[1.35] text-[#1F2430]">{t("community_report_post")}</p>
             <textarea
               value={reportText}
               onChange={(e) => setReportText(e.target.value)}
@@ -731,7 +734,7 @@ export function CommunityDetail({
                 onClick={() => setReportOpen(false)}
                 className={`flex-1 ${COMMUNITY_BUTTON_SECONDARY_CLASS}`}
               >
-                취소
+                {t("common_cancel")}
               </button>
               <button
                 type="button"
@@ -739,7 +742,7 @@ export function CommunityDetail({
                 onClick={() => void onReport()}
                 className={`flex-1 ${COMMUNITY_BUTTON_PRIMARY_CLASS}`}
               >
-                접수
+                {t("community_receive")}
               </button>
             </div>
           </div>

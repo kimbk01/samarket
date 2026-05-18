@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { loadGoogleMaps } from "@/lib/map/load-google-maps";
 import { ADDR_SEARCH_INPUT, ADDR_SEARCH_WRAP } from "@/lib/ui/address-flow-viber";
 
@@ -15,9 +16,11 @@ type AddressSearchProps = {
  */
 export function AddressSearch({
   onPlaceResolved,
-  placeholder = "지번, 건물명, 호텔명으로 검색",
+  placeholder,
   className,
 }: AddressSearchProps) {
+  const { t } = useI18n();
+  const resolvedPlaceholder = placeholder ?? t("addr_ui_search_placeholder");
   const inputRef = useRef<HTMLInputElement>(null);
   const acRef = useRef<google.maps.places.Autocomplete | null>(null);
   const cbRef = useRef(onPlaceResolved);
@@ -76,7 +79,7 @@ export function AddressSearch({
           type="search"
           enterKeyHint="search"
           autoComplete="off"
-          placeholder={placeholder}
+          placeholder={resolvedPlaceholder}
           className={ADDR_SEARCH_INPUT}
         />
       </div>

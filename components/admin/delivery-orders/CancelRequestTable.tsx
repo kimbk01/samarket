@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import type { AdminDeliveryOrder } from "@/lib/admin/delivery-orders-admin/types";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { doAdminLocale } from "./do-admin-locale";
 
 export function CancelRequestTable({
   rows,
@@ -12,23 +14,25 @@ export function CancelRequestTable({
   rows: AdminDeliveryOrder[];
   onApprove: (orderId: string) => void;
   onReject: (orderId: string) => void;
-  /** 시뮬 워크플로 전용. 원장에서 이미 취소 완료된 건은 상세 링크만 표시 */
   showWorkflowActions?: boolean;
 }) {
+  const { t, language } = useI18n();
+  const locale = doAdminLocale(language);
+
   if (rows.length === 0) {
-    return <p className="py-6 text-center text-sm text-sam-muted">대기 중인 취소 요청이 없습니다.</p>;
+    return <p className="py-6 text-center text-sm text-sam-muted">{t("admin_do_cancel_req_empty")}</p>;
   }
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[900px] border-collapse sam-text-body-secondary">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app text-left text-xs font-medium text-sam-muted">
-            <th className="px-2 py-2">주문번호</th>
-            <th className="px-2 py-2">주문자</th>
-            <th className="px-2 py-2">매장</th>
-            <th className="px-2 py-2">요청일</th>
-            <th className="px-2 py-2">사유</th>
-            <th className="px-2 py-2">액션</th>
+            <th className="px-2 py-2">{t("admin_do_th_order_no")}</th>
+            <th className="px-2 py-2">{t("admin_do_th_buyer")}</th>
+            <th className="px-2 py-2">{t("admin_do_th_store")}</th>
+            <th className="px-2 py-2">{t("admin_do_th_request_date")}</th>
+            <th className="px-2 py-2">{t("admin_do_th_reason")}</th>
+            <th className="px-2 py-2">{t("admin_do_common_action")}</th>
           </tr>
         </thead>
         <tbody>
@@ -38,7 +42,7 @@ export function CancelRequestTable({
               <td className="px-2 py-2">{o.buyerName}</td>
               <td className="px-2 py-2 max-w-[160px] truncate">{o.storeName}</td>
               <td className="px-2 py-2 whitespace-nowrap text-sam-muted">
-                {o.cancelRequest ? new Date(o.cancelRequest.requestedAt).toLocaleString("ko-KR") : "—"}
+                {o.cancelRequest ? new Date(o.cancelRequest.requestedAt).toLocaleString(locale) : "—"}
               </td>
               <td className="px-2 py-2 max-w-[280px] text-sam-fg">{o.cancelRequest?.reason ?? "—"}</td>
               <td className="px-2 py-2">
@@ -47,7 +51,7 @@ export function CancelRequestTable({
                     href={`/admin/stores/orders/${encodeURIComponent(o.id)}`}
                     className="text-xs font-medium text-signature underline"
                   >
-                    상세
+                    {t("admin_do_common_detail")}
                   </Link>
                   {showWorkflowActions ? (
                     <>
@@ -56,14 +60,14 @@ export function CancelRequestTable({
                         className="text-xs text-emerald-700 underline"
                         onClick={() => onApprove(o.id)}
                       >
-                        승인
+                        {t("admin_do_common_approve")}
                       </button>
                       <button
                         type="button"
                         className="text-xs text-red-700 underline"
                         onClick={() => onReject(o.id)}
                       >
-                        거절
+                        {t("admin_do_common_reject")}
                       </button>
                     </>
                   ) : (
@@ -71,7 +75,7 @@ export function CancelRequestTable({
                       href={`/admin/store-orders?order_id=${encodeURIComponent(o.id)}`}
                       className="text-xs text-sam-muted underline"
                     >
-                      매장 주문(액션)
+                      {t("admin_do_nav_store_orders")}
                     </Link>
                   )}
                 </div>

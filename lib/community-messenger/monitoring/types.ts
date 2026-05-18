@@ -48,9 +48,13 @@ export type MessengerMonitoringAlert = {
 };
 
 /** 관리자 UI용 — 참조 SLO(목표·경고·치명)와 관측값을 한 행에 */
+import type { MessageKey } from "@/lib/i18n/messages";
+
 export type MessengerSloDigestRow = {
   id: string;
-  label: string;
+  /** i18n catalog key — UI는 `t(labelKey, labelVars)` 로 표시 */
+  labelKey: MessageKey;
+  labelVars?: Record<string, string | number>;
   unit: "ms" | "ratio" | "percent";
   target?: number;
   warning?: number;

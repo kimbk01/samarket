@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OnboardingShell } from "@/components/onboarding/OnboardingShell";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
@@ -21,6 +22,7 @@ function normalizeUsernameInput(v: string): string {
 }
 
 export function OnboardingUsernameClient() {
+  const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const next = useMemo(() => sanitizeNextPath(searchParams?.get("next") ?? null), [searchParams]);
@@ -37,8 +39,8 @@ export function OnboardingUsernameClient() {
 
   useEffect(() => {
     if (!done) return;
-    const t = window.setTimeout(() => router.replace(target), 600);
-    return () => window.clearTimeout(t);
+    const timer = window.setTimeout(() => router.replace(target), 600);
+    return () => window.clearTimeout(timer);
   }, [done, router, target]);
 
   const reserve = async () => {
@@ -55,15 +57,15 @@ export function OnboardingUsernameClient() {
       });
       const json = (await res.json().catch(() => null)) as ReserveResp | null;
       if (!res.ok || !json || json.ok !== true) {
-        setError((json as any)?.error || "중복 확인에 실패했습니다.");
+        setError((json as { error?: string } | null)?.error || t("auth_onboarding_username_check_failed"));
         return;
       }
       setAvailable(json.available);
       if (!json.available) {
-        setError("이미 사용 중인 @아이디입니다.");
+        setError(t("auth_onboarding_username_taken"));
       }
     } catch {
-      setError("네트워크 오류로 중복 확인에 실패했습니다.");
+      setError(t("auth_onboarding_username_check_network"));
     } finally {
       setChecking(false);
     }
@@ -83,7 +85,7 @@ export function OnboardingUsernameClient() {
       });
       const json = (await res.json().catch(() => null)) as ConfirmResp | null;
       if (!res.ok || !json || json.ok !== true) {
-        setError((json as any)?.error || "저장에 실패했습니다.");
+        setError((json as { error?: string } | null)?.error || t("auth_onboarding_save_failed"));
         return;
       }
       try {
@@ -93,7 +95,7 @@ export function OnboardingUsernameClient() {
       }
       setDone(true);
     } catch {
-      setError("네트워크 오류로 저장하지 못했습니다.");
+      setError(t("auth_onboarding_save_network"));
     } finally {
       setSubmitting(false);
     }
@@ -101,12 +103,12 @@ export function OnboardingUsernameClient() {
 
   return (
     <OnboardingShell
-      title="@아이디 설정"
-      description="친구추가·멘션·채팅·주문 등에서 계정을 식별하는 고유 아이디입니다. 한 번 설정하면 변경할 수 없습니다."
+      title={t("auth_onboarding_username_title")}
+      description={t("auth_onboarding_username_desc")}
     >
       <form onSubmit={confirm} className="flex flex-col gap-3">
         <label className="flex flex-col gap-1">
-          <span className="sam-text-helper text-sam-muted">@아이디</span>
+          <span className="sam-text-helper text-sam-muted">{t("auth_onboarding_username_label")}</span>
           <div className="flex items-center gap-2">
             <span className="sam-text-body text-sam-muted">@</span>
             <input
@@ -123,7 +125,7 @@ export function OnboardingUsernameClient() {
               autoCapitalize="none"
               autoCorrect="off"
               spellCheck={false}
-              placeholder="예: boss_market"
+              placeholder="boss_market"
               autoFocus
             />
             <button
@@ -132,14 +134,14 @@ export function OnboardingUsernameClient() {
               disabled={checking || submitting || done || !normalized}
               className={`${Sam.btn.secondary} shrink-0 disabled:opacity-50`}
             >
-              {checking ? "확인 중…" : "중복 확인"}
+              {checking ? t("auth_onboarding_username_checking") : t("auth_onboarding_username_check")}
             </button>
           </div>
         </label>
 
         {available === true && !error ? (
           <p role="status" className="sam-text-body-secondary text-sam-success">
-            사용 가능한 @아이디입니다.
+            {t("auth_onboarding_username_available")}
           </p>
         ) : null}
 
@@ -151,7 +153,7 @@ export function OnboardingUsernameClient() {
 
         {done ? (
           <p role="status" className="sam-text-body-secondary text-sam-success">
-            저장되었습니다. 잠시 후 자동으로 이동합니다…
+            {t("auth_onboarding_saved_redirect")}
           </p>
         ) : null}
 
@@ -160,10 +162,13 @@ export function OnboardingUsernameClient() {
           disabled={submitting || done || available !== true}
           className={`${Sam.btn.primary} mt-2 w-full disabled:opacity-50`}
         >
-          {submitting ? "저장 중…" : done ? "이동 중…" : "확정"}
+          {submitting
+            ? t("auth_consent_submitting")
+            : done
+              ? t("auth_status_navigating")
+              : t("auth_onboarding_confirm")}
         </button>
       </form>
     </OnboardingShell>
   );
 }
-

@@ -1,17 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getRecommendationRecoveryStates } from "@/lib/recommendation-automation/mock-recommendation-recovery-states";
-import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
-import type { RecommendationSurface } from "@/lib/types/recommendation";
-
-const MODE_LABELS: Record<string, string> = {
-  normal: "정상",
-  fallback: "Fallback",
-  kill_switch: "킬스위치",
-};
+import {
+  recRecoveryModeLabel,
+  recSurfaceLabel,
+} from "@/components/admin/recommendation-admin-i18n";
 
 export function RecoveryStateTable() {
+  const { t } = useI18n();
   const [refresh, setRefresh] = useState(0);
   const states = useMemo(
     () => getRecommendationRecoveryStates(),
@@ -21,7 +19,7 @@ export function RecoveryStateTable() {
   if (states.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        복귀 상태가 없습니다.
+        {t("admin_rec_auto_empty_recovery")}
       </div>
     );
   }
@@ -32,19 +30,19 @@ export function RecoveryStateTable() {
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              surface
+              {t("admin_rec_th_surface")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              현재 모드
+              {t("admin_rec_th_current_mode")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              복귀 가능
+              {t("admin_rec_th_can_recover")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              사유
+              {t("admin_rec_th_reason")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              확인 시각
+              {t("admin_rec_th_checked_at")}
             </th>
           </tr>
         </thead>
@@ -55,7 +53,7 @@ export function RecoveryStateTable() {
               className="border-b border-sam-border-soft hover:bg-sam-app"
             >
               <td className="px-3 py-2.5 font-medium text-sam-fg">
-                {SURFACE_LABELS[s.surface]}
+                {recSurfaceLabel(t, s.surface)}
               </td>
               <td className="px-3 py-2.5">
                 <span
@@ -67,12 +65,14 @@ export function RecoveryStateTable() {
                         : "bg-red-50 text-red-800"
                   }`}
                 >
-                  {MODE_LABELS[s.currentMode]}
+                  {recRecoveryModeLabel(t, s.currentMode)}
                 </span>
               </td>
               <td className="px-3 py-2.5">
                 {s.recoveryEligible ? (
-                  <span className="sam-text-body-secondary text-emerald-600">가능</span>
+                  <span className="sam-text-body-secondary text-emerald-600">
+                    {t("admin_rec_recovery_possible")}
+                  </span>
                 ) : (
                   <span className="sam-text-body-secondary text-sam-muted">-</span>
                 )}
@@ -81,7 +81,7 @@ export function RecoveryStateTable() {
                 {s.recoveryReason || "-"}
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(s.checkedAt).toLocaleString("ko-KR", { hour12: false })}
+                {new Date(s.checkedAt).toLocaleString(undefined, { hour12: false })}
               </td>
             </tr>
           ))}

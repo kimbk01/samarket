@@ -1,12 +1,15 @@
 import { SalesHistoryView } from "@/components/mypage/sales/SalesHistoryView";
 import { HomePurchaseSalesHubTabs } from "@/components/mypage/HomePurchaseSalesHubTabs";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
+import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
+import { translate } from "@/lib/i18n/messages";
 
 export default function PhilifeSalesPage() {
+  const lang = resolveServerInitialLanguage({});
   return (
     <div className="min-h-screen bg-background">
       <MySubpageHeader
-        title="거래 관리"
+        title={translate(lang, "philife_trade_manage_title")}
         backHref="/philife"
         stickyBelow={<HomePurchaseSalesHubTabs />}
       />

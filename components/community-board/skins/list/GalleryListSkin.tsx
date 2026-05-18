@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import type { BoardListSkinProps } from "@/lib/community-board/types";
@@ -7,10 +8,11 @@ export function GalleryListSkin({
   posts,
   baseHref,
 }: BoardListSkinProps) {
+  const { t } = useI18n();
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
       {posts.length === 0 ? (
-        <div className="col-span-full py-12 text-center text-sam-muted">아직 글이 없어요.</div>
+        <div className="col-span-full py-12 text-center text-sam-muted">{t("community_feed_empty")}</div>
       ) : (
         posts.map((post) => {
           const thumb = post.images?.[0]?.url ?? null;

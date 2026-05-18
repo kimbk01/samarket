@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export type ReportTargetType =
   | "meeting"
@@ -9,25 +10,6 @@ export type ReportTargetType =
   | "feed_comment"
   | "chat_message"
   | "album_item";
-
-const REASON_OPTIONS = [
-  { value: "spam", label: "스팸·도배" },
-  { value: "abuse", label: "욕설·혐오" },
-  { value: "sexual", label: "음란·성적" },
-  { value: "illegal", label: "불법 행위" },
-  { value: "impersonation", label: "사칭" },
-  { value: "off_topic", label: "주제 무관" },
-  { value: "etc", label: "기타" },
-] as const;
-
-const TARGET_LABEL: Record<ReportTargetType, string> = {
-  meeting: "모임",
-  member: "멤버",
-  feed_post: "피드 글",
-  feed_comment: "피드 댓글",
-  chat_message: "채팅 메시지",
-  album_item: "앨범 사진",
-};
 
 interface MeetingReportModalProps {
   meetingId: string;
@@ -42,6 +24,31 @@ export function MeetingReportModal({
   targetId,
   onClose,
 }: MeetingReportModalProps) {
+  const { t } = useI18n();
+  const reasonOptions = useMemo(
+    () =>
+      [
+        { value: "spam", label: t("meeting_report_reason_spam") },
+        { value: "abuse", label: t("meeting_report_reason_abuse") },
+        { value: "sexual", label: t("meeting_report_reason_sexual") },
+        { value: "illegal", label: t("meeting_report_reason_illegal") },
+        { value: "impersonation", label: t("meeting_report_reason_impersonation") },
+        { value: "off_topic", label: t("meeting_report_reason_off_topic") },
+        { value: "etc", label: t("meeting_report_reason_etc") },
+      ] as const,
+    [t],
+  );
+  const targetLabels = useMemo(
+    (): Record<ReportTargetType, string> => ({
+      meeting: t("meeting_report_target_meeting"),
+      member: t("meeting_report_target_member"),
+      feed_post: t("meeting_report_target_feed_post"),
+      feed_comment: t("meeting_report_target_feed_comment"),
+      chat_message: t("meeting_report_target_chat_message"),
+      album_item: t("meeting_report_target_album_item"),
+    }),
+    [t],
+  );
   const [reasonType, setReasonType] = useState<string>("");
   const [detail, setDetail] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -50,7 +57,7 @@ export function MeetingReportModal({
 
   const onSubmit = async () => {
     if (!reasonType) {
-      setErr("신고 사유를 선택해 주세요.");
+      setErr(t("meeting_report_err_reason_required"));
       return;
     }
     setSubmitting(true);
@@ -69,15 +76,15 @@ export function MeetingReportModal({
       const j = (await res.json()) as { ok: boolean; error?: string };
       if (!j.ok) {
         if (j.error === "already_reported") {
-          setErr("이미 신고한 내용입니다.");
+          setErr(t("meeting_report_err_already"));
         } else {
-          setErr("신고 접수에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+          setErr(t("meeting_report_err_failed"));
         }
         return;
       }
       setDone(true);
     } catch {
-      setErr("네트워크 오류가 발생했습니다.");
+      setErr(t("common_network_error"));
     } finally {
       setSubmitting(false);
     }
@@ -98,30 +105,26 @@ export function MeetingReportModal({
           /* 완료 화면 */
           <div className="py-6 text-center">
             <p className="sam-text-hero">✅</p>
-            <p className="mt-3 sam-text-body-lg font-semibold text-sam-fg">신고가 접수되었습니다</p>
-            <p className="mt-1 sam-text-body-secondary text-sam-muted">
-              검토 후 필요한 조치를 취하겠습니다.
-            </p>
+            <p className="mt-3 sam-text-body-lg font-semibold text-sam-fg">{t("meeting_report_submitted_title")}</p>
+            <p className="mt-1 sam-text-body-secondary text-sam-muted">{t("meeting_report_submitted_body")}</p>
             <button
               type="button"
               onClick={onClose}
               className="mt-5 w-full rounded-ui-rect bg-sam-ink py-3 sam-text-body font-semibold text-white"
             >
-              닫기
+              {t("common_close")}
             </button>
           </div>
         ) : (
           /* 신고 폼 */
           <>
             <h2 className="sam-text-body-lg font-semibold text-sam-fg">
-              {TARGET_LABEL[targetType]} 신고
+              {t("meeting_report_title", { target: targetLabels[targetType] })}
             </h2>
-            <p className="mt-0.5 sam-text-helper text-sam-muted">
-              신고 사유를 선택해 주세요.
-            </p>
+            <p className="mt-0.5 sam-text-helper text-sam-muted">{t("meeting_report_pick_reason")}</p>
 
             <div className="mt-4 grid grid-cols-2 gap-2">
-              {REASON_OPTIONS.map((r) => (
+              {reasonOptions.map((r) => (
                 <button
                   key={r.value}
                   type="button"
@@ -142,7 +145,7 @@ export function MeetingReportModal({
               onChange={(e) => setDetail(e.target.value)}
               rows={3}
               maxLength={500}
-              placeholder="상세 내용을 입력해 주세요. (선택)"
+              placeholder={t("meeting_report_detail_placeholder")}
               className="mt-3 w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2.5 sam-text-body-secondary text-sam-fg placeholder-sam-meta outline-none focus:border-red-300 focus:ring-1 focus:ring-red-100"
             />
 
@@ -154,7 +157,7 @@ export function MeetingReportModal({
                 onClick={onClose}
                 className="flex-1 rounded-ui-rect border border-sam-border py-3 sam-text-body font-medium text-sam-muted"
               >
-                취소
+                {t("common_cancel")}
               </button>
               <button
                 type="button"
@@ -162,7 +165,7 @@ export function MeetingReportModal({
                 onClick={() => void onSubmit()}
                 className="flex-1 rounded-ui-rect bg-red-500 py-3 sam-text-body font-semibold text-white disabled:opacity-50"
               >
-                {submitting ? "신고 중…" : "신고하기"}
+                {submitting ? t("meeting_report_submitting") : t("meeting_report_submit")}
               </button>
             </div>
           </>

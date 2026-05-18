@@ -10,6 +10,8 @@ import { AdminNotificationSoundPreview } from "@/components/admin/settings/Admin
 import { AdminMessengerCallSoundsSection } from "@/components/admin/settings/AdminMessengerCallSoundsSection";
 import { invalidateStoreDeliveryAlertSoundCache } from "@/lib/business/store-order-alert-sound";
 import { bustOrderMatchAlertSoundCache } from "@/lib/notifications/play-order-match-alert";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type Row = {
   type: NotificationDomain;
@@ -20,13 +22,13 @@ type Row = {
   enabled: boolean;
 };
 
-const LABELS: Record<NotificationDomain, string> = {
-  trade_chat: "거래 채팅",
-  community_direct_chat: "1:1 채팅",
-  community_group_chat: "그룹채팅",
-  community_chat: "커뮤니티 채팅(레거시)",
-  order: "주문 알림",
-  store: "매장 알림",
+const DOMAIN_TITLE_KEYS: Record<NotificationDomain, MessageKey> = {
+  trade_chat: "admin_order_notif_row_trade_chat",
+  community_direct_chat: "admin_settings_notif_domain_direct",
+  community_group_chat: "admin_settings_notif_domain_group",
+  community_chat: "admin_settings_notif_domain_community_legacy",
+  order: "admin_order_notif_row_order",
+  store: "admin_order_notif_row_store",
 };
 
 const VISIBLE_NOTIFICATION_DOMAINS: NotificationDomain[] = [
@@ -38,6 +40,7 @@ const VISIBLE_NOTIFICATION_DOMAINS: NotificationDomain[] = [
 ];
 
 export function AdminNotificationDomainsSettings() {
+  const { t } = useI18n();
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -52,7 +55,7 @@ export function AdminNotificationDomainsSettings() {
       const res = await fetch("/api/admin/notification-settings", { credentials: "include" });
       const j = (await res.json()) as { ok?: boolean; items?: Row[]; error?: string };
       if (!res.ok || !j.ok) {
-        setErr(j.error ?? "불러오지 못했습니다.");
+        setErr(j.error ?? t("admin_settings_notif_load_failed"));
         return;
       }
       const byType = new Map((j.items ?? []).map((r) => [r.type, r]));
@@ -72,11 +75,11 @@ export function AdminNotificationDomainsSettings() {
       });
       setRows(merged);
     } catch {
-      setErr("네트워크 오류");
+      setErr(t("common_network_error_generic"));
     } finally {
       setLoading((prev) => (prev ? false : prev));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -98,16 +101,16 @@ export function AdminNotificationDomainsSettings() {
       });
       const j = (await res.json()) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        setErr(j.error ?? "저장 실패");
+        setErr(j.error ?? t("admin_settings_notif_save_failed"));
         return;
       }
       invalidateNotificationSoundConfigCache();
     } catch {
-      setErr("네트워크 오류");
+      setErr(t("common_network_error_generic"));
     } finally {
       setSaving((prev) => (prev ? false : prev));
     }
-  }, [rows]);
+  }, [rows, t]);
 
   const uploadSoundFile = useCallback(async (type: NotificationDomain, file: File) => {
     setUploadBusy(type);
@@ -128,7 +131,7 @@ export function AdminNotificationDomainsSettings() {
         message?: string;
       };
       if (!res.ok || !j.ok) {
-        setErr(j.message ?? j.error ?? "업로드에 실패했습니다.");
+        setErr(j.message ?? j.error ?? t("admin_settings_notif_upload_failed"));
         return;
       }
       if (typeof j.sound_url === "string") {
@@ -136,11 +139,11 @@ export function AdminNotificationDomainsSettings() {
       }
       invalidateNotificationSoundConfigCache();
     } catch {
-      setErr("네트워크 오류");
+      setErr(t("common_network_error_generic"));
     } finally {
       setUploadBusy(null);
     }
-  }, [patchRow]);
+  }, [patchRow, t]);
 
   const clearUploadedSound = useCallback(async (type: NotificationDomain) => {
     setClearBusy(type);
@@ -154,33 +157,30 @@ export function AdminNotificationDomainsSettings() {
       });
       const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !j.ok) {
-        setErr(j.error ?? "초기화 실패");
+        setErr(j.error ?? t("admin_settings_notif_clear_failed"));
         return;
       }
       patchRow(type, { sound_url: null });
       invalidateNotificationSoundConfigCache();
     } catch {
-      setErr("네트워크 오류");
+      setErr(t("common_network_error_generic"));
     } finally {
       setClearBusy(null);
     }
-  }, [patchRow]);
+  }, [patchRow, t]);
 
   if (loading) {
     return (
       <div className="rounded-ui-rect border border-ui-border bg-ui-surface p-6 sam-text-body text-ui-muted">
-        불러오는 중…
+        {t("common_loading")}
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="알림·알림음 (도메인)" />
-      <p className="sam-text-body text-ui-muted">
-        1:1 채팅, 그룹채팅, 거래채팅, 주문, 매장 알림음을 각각 분리해 설정합니다. 통화 수발신/연결음과
-        매장·배달 전용 알림음도 이 화면에서 함께 관리할 수 있습니다.
-      </p>
+      <AdminPageHeader titleKey="admin_settings_notifications_domain_title" />
+      <p className="sam-text-body text-ui-muted">{t("admin_settings_notifications_intro")}</p>
       {err ? (
         <div className="rounded-ui-rect border border-red-200 bg-red-50 px-3 py-2 sam-text-body-secondary text-red-800">
           {err}
@@ -189,10 +189,10 @@ export function AdminNotificationDomainsSettings() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         {rows.map((r) => (
-        <AdminCard key={r.type} title={LABELS[r.type]}>
+        <AdminCard key={r.type} titleKey={DOMAIN_TITLE_KEYS[r.type]}>
           <div className="space-y-3 px-1 py-2">
             <label className="flex items-center justify-between gap-3 sam-text-body">
-              <span>알림 사용</span>
+              <span>{t("admin_settings_notif_enabled")}</span>
               <input
                 type="checkbox"
                 checked={r.enabled}
@@ -200,7 +200,7 @@ export function AdminNotificationDomainsSettings() {
               />
             </label>
             <div className="space-y-2">
-              <span className="sam-text-body-secondary text-ui-muted">알림음 파일</span>
+              <span className="sam-text-body-secondary text-ui-muted">{t("admin_settings_notif_sound_file")}</span>
               <div className="flex flex-wrap items-center gap-2">
                 <input
                   type="file"
@@ -220,7 +220,7 @@ export function AdminNotificationDomainsSettings() {
                     uploadBusy === r.type ? "pointer-events-none opacity-60" : ""
                   }`}
                 >
-                  {uploadBusy === r.type ? "업로드 중…" : "내 PC에서 파일 선택"}
+                  {uploadBusy === r.type ? t("admin_settings_notif_uploading") : t("admin_settings_notif_pick_file")}
                 </label>
                 <button
                   type="button"
@@ -228,13 +228,13 @@ export function AdminNotificationDomainsSettings() {
                   className="rounded-ui-rect border border-ui-border px-3 py-1.5 sam-text-body-secondary text-ui-muted hover:bg-ui-hover disabled:opacity-50"
                   onClick={() => void clearUploadedSound(r.type)}
                 >
-                  {clearBusy === r.type ? "해제 중…" : "업로드 해제(기본음)"}
+                  {clearBusy === r.type ? t("admin_settings_notif_clearing") : t("admin_settings_notif_clear_upload")}
                 </button>
               </div>
               <AdminNotificationSoundPreview soundUrl={r.sound_url} volume={r.volume} />
             </div>
             <label className="flex items-center gap-3 sam-text-body">
-              볼륨
+              {t("admin_settings_notif_volume")}
               <input
                 type="range"
                 min={0}
@@ -246,7 +246,7 @@ export function AdminNotificationDomainsSettings() {
               <span className="text-ui-muted">{r.volume.toFixed(2)}</span>
             </label>
             <label className="flex items-center gap-3 sam-text-body">
-              반복 (1~5)
+              {t("admin_settings_notif_repeat")}
               <input
                 type="number"
                 min={1}
@@ -261,7 +261,7 @@ export function AdminNotificationDomainsSettings() {
               />
             </label>
             <label className="flex items-center gap-3 sam-text-body">
-              쿨다운(초)
+              {t("admin_settings_notif_cooldown")}
               <input
                 type="number"
                 min={0}
@@ -282,15 +282,15 @@ export function AdminNotificationDomainsSettings() {
 
       <div className="grid gap-4 xl:grid-cols-2">
         <AdminGlobalAlertSoundSection
-          title="매장·배달 알림음"
-          description="배달 신규 주문, 매장 측 즉시 확인용 기본 알림음입니다. 기본음으로 두거나 업로드 파일로 교체할 수 있습니다."
+          titleKey="admin_settings_notification_delivery_sound_title"
+          descriptionKey="admin_settings_notification_delivery_sound_desc"
           codeKey="admin_settings.store_delivery_alert_sound"
           apiPath="/api/admin/store-delivery-alert-sound"
           onAfterMutation={invalidateStoreDeliveryAlertSoundCache}
         />
         <AdminGlobalAlertSoundSection
-          title="매장·배달 채팅 연결음"
-          description="주문 확인, 배달채팅 일치 확인 등 매장·배달 대화 흐름에서 쓰는 전용 연결음입니다."
+          titleKey="admin_settings_notification_match_sound_title"
+          descriptionKey="admin_settings_notification_match_sound_desc"
           codeKey="admin_settings.order_match_chat_alert_sound"
           apiPath="/api/admin/order-match-chat-alert-sound"
           onAfterMutation={bustOrderMatchAlertSoundCache}
@@ -303,7 +303,7 @@ export function AdminNotificationDomainsSettings() {
         className="rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white disabled:opacity-50"
         onClick={() => void save()}
       >
-        {saving ? "저장 중…" : "저장"}
+        {saving ? t("common_saving") : t("common_save")}
       </button>
 
       <div className="border-t border-ui-border pt-8">

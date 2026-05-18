@@ -13,12 +13,10 @@ import {
   deleteProduct,
   CURRENT_USER_ID,
 } from "@/lib/products/my-products-mock";
-import {
-  SELLER_LISTING_LABEL,
-  normalizeSellerListingState,
-  type SellerListingState,
-} from "@/lib/products/seller-listing-state";
+import { normalizeSellerListingState, type SellerListingState } from "@/lib/products/seller-listing-state";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { sellerListingLabel } from "@/lib/mypage/seller-listing-i18n";
 import { MyProductFilter } from "./MyProductFilter";
 import { MyProductCard } from "./MyProductCard";
 import {
@@ -39,6 +37,7 @@ function filterByStatus(products: Product[], filter: MyProductFilterKey): Produc
 }
 
 export function MyProductsView() {
+  const { t } = useI18n();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [filter, setFilter] = useState<MyProductFilterKey>("all");
   const [rawProducts, setRawProducts] = useState<Product[]>([]);
@@ -153,10 +152,10 @@ export function MyProductsView() {
         }
         refresh();
       } catch {
-        window.alert("네트워크 오류로 변경하지 못했습니다.");
+        window.alert(t("mypage_comp_product_network_change_failed"));
       }
     },
-    [currentUserId, refresh]
+    [currentUserId, refresh, t]
   );
 
   const handleBump = useCallback(
@@ -184,19 +183,17 @@ export function MyProductsView() {
         product.status
       );
       if (state === current) return;
-      const label = SELLER_LISTING_LABEL[state];
+      const label = sellerListingLabel(t, state);
 
       if (typeof window === "undefined") return;
 
       if (state === "completed") {
         if (
-          !window.confirm(
-            "거래완료하면 선택한 구매자에게 확인·후기 안내가 전달되고, 글이 판매완료로 표시됩니다. 진행할까요?"
-          )
+          !window.confirm(t("mypage_comp_product_complete_confirm"))
         ) {
           return;
         }
-      } else if (!window.confirm(`판매 진행 상황을 "${label}"으로 변경할까요?`)) {
+      } else if (!window.confirm(t("mypage_comp_product_listing_change_confirm", { label }))) {
         return;
       }
 
@@ -223,7 +220,7 @@ export function MyProductsView() {
           if (listingIsReserved && reservedId) {
             const row = items.find((i) => i.buyerId === reservedId);
             if (!row?.chatId) {
-              window.alert("예약된 구매자와의 활성 채팅을 찾을 수 없습니다.");
+              window.alert(t("mypage_comp_product_reserved_chat_missing"));
               return;
             }
             const done = await postSellerCompleteRequest(row.chatId);
@@ -237,7 +234,7 @@ export function MyProductsView() {
 
           const candidates = dedupeBuyerCandidates(items);
           if (candidates.length === 0) {
-            window.alert("문의 중인 채팅이 없으면 거래완료를 진행할 수 없습니다.");
+            window.alert(t("mypage_comp_product_no_inquiry_for_complete"));
             return;
           }
           if (candidates.length === 1) {
@@ -262,7 +259,7 @@ export function MyProductsView() {
           const items = (data.items ?? []).filter(isActiveTradeChat);
           const candidates = dedupeBuyerCandidates(items);
           if (candidates.length === 0) {
-            window.alert("문의 채팅이 있는 구매자만 예약할 수 있습니다.");
+            window.alert(t("mypage_comp_product_reserve_inquiry_only"));
             return;
           }
           if (candidates.length === 1) {
@@ -287,12 +284,12 @@ export function MyProductsView() {
         if (saved.warning) window.alert(saved.warning);
         refresh();
       } catch {
-        window.alert("네트워크 오류로 저장하지 못했습니다.");
+        window.alert(t("mypage_comp_product_network_save_failed"));
       } finally {
         setSavingListingId(null);
       }
     },
-    [currentUserId, rawProducts, refresh]
+    [currentUserId, rawProducts, refresh, t]
   );
 
   const onBuyerPicked = useCallback(
@@ -318,23 +315,27 @@ export function MyProductsView() {
         }
         refresh();
       } catch {
-        window.alert("네트워크 오류입니다.");
+        window.alert(t("mypage_comp_product_network_error_short"));
       } finally {
         setSavingListingId(null);
       }
     },
-    [buyerPicker, refresh]
+    [buyerPicker, refresh, t]
   );
 
   return (
     <div className="flex min-w-0 flex-col gap-4">
       <TradeBuyerPickerModal
         open={buyerPicker != null}
-        title={buyerPicker?.mode === "reserve" ? "예약할 구매자 선택" : "거래완료할 구매자 선택"}
+        title={
+          buyerPicker?.mode === "reserve"
+            ? t("mypage_comp_product_pick_reserve_title")
+            : t("mypage_comp_product_pick_complete_title")
+        }
         subtitle={
           buyerPicker?.mode === "reserve"
-            ? "선택한 분과만 이어서 채팅할 수 있어요. 다른 문의 채팅은 비활성화됩니다."
-            : "여러 분과 동시에 문의 중이면, 거래를 마칠 구매자를 골라 주세요."
+            ? t("mypage_comp_product_pick_reserve_subtitle")
+            : t("mypage_comp_product_pick_complete_subtitle")
         }
         candidates={buyerPicker?.candidates ?? []}
         onClose={() => setBuyerPicker(null)}
@@ -343,14 +344,12 @@ export function MyProductsView() {
       <MyProductFilter value={filter} onChange={handleFilterChange} />
       {loading ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
-          <p className="sam-text-body text-sam-muted">불러오는 중...</p>
+          <p className="sam-text-body text-sam-muted">{t("mypage_comp_loading_short")}</p>
         </div>
       ) : products.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <p className="sam-text-body text-sam-muted">
-            {filter === "all"
-              ? "등록한 상품이 없어요"
-              : "이 상태의 상품이 없어요"}
+            {filter === "all" ? t("mypage_comp_product_empty_all") : t("mypage_comp_product_empty_filter")}
           </p>
         </div>
       ) : (

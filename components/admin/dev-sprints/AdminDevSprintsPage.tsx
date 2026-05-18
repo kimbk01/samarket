@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { DevSprintSummaryCards } from "./DevSprintSummaryCards";
@@ -9,20 +11,25 @@ import { DevSprintItemTable } from "./DevSprintItemTable";
 
 type TabId = "summary" | "board" | "items";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "summary", label: "요약" },
-  { id: "board", label: "스프린트 보드" },
-  { id: "items", label: "스프린트 작업" },
-];
-
 export function AdminDevSprintsPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("summary");
+
+  const tabs = useMemo(
+    () =>
+      [
+        { id: "summary" as const, labelKey: "admin_dev_sprint_tab_summary" as MessageKey },
+        { id: "board" as const, labelKey: "admin_dev_sprint_tab_board" as MessageKey },
+        { id: "items" as const, labelKey: "admin_dev_sprint_tab_items" as MessageKey },
+      ] satisfies { id: TabId; labelKey: MessageKey }[],
+    []
+  );
 
   return (
     <>
-      <AdminPageHeader title="개발 스프린트" />
+      <AdminPageHeader titleKey="admin_dev_sprint_page_title" />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
-        {TABS.map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab.id}
             type="button"
@@ -33,22 +40,22 @@ export function AdminDevSprintsPage() {
                 : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
       {activeTab === "summary" && (
-        <AdminCard title="스프린트 요약">
+        <AdminCard titleKey="admin_dev_sprint_card_summary">
           <DevSprintSummaryCards />
         </AdminCard>
       )}
       {activeTab === "board" && (
-        <AdminCard title="스프린트 보드">
+        <AdminCard titleKey="admin_dev_sprint_card_board">
           <DevSprintBoard />
         </AdminCard>
       )}
       {activeTab === "items" && (
-        <AdminCard title="스프린트 작업 목록">
+        <AdminCard titleKey="admin_dev_sprint_card_items">
           <DevSprintItemTable />
         </AdminCard>
       )}

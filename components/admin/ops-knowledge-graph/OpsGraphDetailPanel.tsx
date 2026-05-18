@@ -1,21 +1,15 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo } from "react";
 import Link from "next/link";
 import type { OpsKnowledgeGraphNodeType } from "@/lib/types/ops-knowledge-graph";
 import { getOpsKnowledgeGraphNodeById } from "@/lib/ops-knowledge-graph/mock-ops-knowledge-graph-nodes";
 import { getEdgesForNode, getConnectedNodes } from "@/lib/ops-knowledge-graph/ops-knowledge-graph-utils";
-
-const NODE_TYPE_LABELS: Record<OpsKnowledgeGraphNodeType, string> = {
-  document: "문서",
-  incident: "이슈",
-  deployment: "배포",
-  rollback: "롤백",
-  fallback: "Fallback",
-  report: "보고서",
-  runbook_execution: "런북실행",
-  action_item: "액션",
-};
+import {
+  OPS_TOOLS_NODE_TYPE_KEYS,
+  opsToolsLabel,
+} from "@/components/admin/i18n/admin-ops-tools-label-keys";
 
 interface OpsGraphDetailPanelProps {
   nodeId: string | null;
@@ -23,6 +17,7 @@ interface OpsGraphDetailPanelProps {
 }
 
 export function OpsGraphDetailPanel({ nodeId, onClose }: OpsGraphDetailPanelProps) {
+  const { t } = useI18n();
   const node = useMemo(
     () => (nodeId ? getOpsKnowledgeGraphNodeById(nodeId) : null),
     [nodeId]
@@ -38,9 +33,7 @@ export function OpsGraphDetailPanel({ nodeId, onClose }: OpsGraphDetailPanelProp
 
   if (!nodeId || !node) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-center sam-text-body text-sam-muted">
-        노드를 선택하면 상세가 표시됩니다.
-      </div>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_kg_detail_empty")}</div>
     );
   }
 
@@ -66,25 +59,25 @@ export function OpsGraphDetailPanel({ nodeId, onClose }: OpsGraphDetailPanelProp
         )}
       </div>
       <p className="mt-1 sam-text-helper text-sam-muted">
-        {NODE_TYPE_LABELS[node.nodeType]} · {node.refId}
+        {t(opsToolsLabel(OPS_TOOLS_NODE_TYPE_KEYS, node.nodeType))} · {node.refId}
       </p>
       {node.category && (
-        <p className="mt-1 sam-text-body-secondary text-sam-muted">카테고리: {node.category}</p>
+        <p className="mt-1 sam-text-body-secondary text-sam-muted">
+          {t("admin_ops_tools_kg_category_label", { category: node.category })}
+        </p>
       )}
       {docHref && (
         <Link
           href={docHref}
           className="mt-2 inline-block sam-text-body text-signature hover:underline"
-        >
-          상세 보기 →
-        </Link>
+        >{t("admin_ops_tools_kg_view_detail")}</Link>
       )}
       <div className="mt-4 border-t border-sam-border-soft pt-3">
         <p className="sam-text-helper font-medium text-sam-fg">
-          나가는 관계 {outgoing.length} / 들어오는 관계 {incoming.length}
+          {t("admin_ops_tools_kg_outgoing", { out: outgoing.length, in: incoming.length })}
         </p>
         <p className="mt-1 sam-text-helper text-sam-muted">
-          연결 노드 {connected.length}개
+          {t("admin_ops_tools_kg_connected", { count: connected.length })}
         </p>
       </div>
     </div>

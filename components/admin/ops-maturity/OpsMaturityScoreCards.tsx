@@ -1,17 +1,13 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useMemo, useState } from "react";
 import { getLatestOpsMaturityScore } from "@/lib/ops-maturity/mock-ops-maturity-scores";
 import { getMaturityScoreComparison } from "@/lib/ops-maturity/ops-maturity-utils";
-
-const DOMAIN_LABELS: Record<string, string> = {
-  monitoringScore: "모니터링",
-  automationScore: "자동화",
-  documentationScore: "문서화",
-  responseScore: "대응속도",
-  recommendationQualityScore: "추천 품질",
-  learningScore: "학습/회고",
-};
+import {
+  OPS_TOOLS_MATURITY_SCORE_KEYS,
+  opsToolsLabel,
+} from "@/components/admin/i18n/admin-ops-tools-label-keys";
 
 const domainKeys = [
   "monitoringScore",
@@ -23,6 +19,7 @@ const domainKeys = [
 ] as const;
 
 export function OpsMaturityScoreCards() {
+  const { t } = useI18n();
   const [scope, setScope] = useState<"weekly" | "monthly">("weekly");
   const [targetScore, setTargetScore] = useState(75);
 
@@ -37,9 +34,7 @@ export function OpsMaturityScoreCards() {
 
   if (!latest) {
     return (
-      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">
-        성숙도 점수 데이터가 없습니다.
-      </div>
+      <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-8 text-center sam-text-body text-sam-muted">{t("admin_ops_tools_maturity_scores_empty")}</div>
     );
   }
 
@@ -53,12 +48,10 @@ export function OpsMaturityScoreCards() {
           onChange={(e) => setScope(e.target.value as "weekly" | "monthly")}
           className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
-          <option value="weekly">주간</option>
-          <option value="monthly">월간</option>
+          <option value="weekly">{t("admin_ops_tools_period_weekly")}</option>
+          <option value="monthly">{t("admin_ops_tools_period_monthly")}</option>
         </select>
-        <label className="flex items-center gap-2 sam-text-body text-sam-fg">
-          목표 점수
-          <input
+        <label className="flex items-center gap-2 sam-text-body text-sam-fg">{t("admin_ops_tools_maturity_target")}<input
             type="number"
             min={0}
             max={100}
@@ -70,7 +63,7 @@ export function OpsMaturityScoreCards() {
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="sam-text-helper text-sam-muted">종합 점수</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_ops_tools_maturity_overall")}</p>
           <p className="sam-text-hero font-semibold text-sam-fg">{latest.overallScore}</p>
           {comparison && (
             <p className={`sam-text-body-secondary ${comparison.delta >= 0 ? "text-emerald-600" : "text-red-600"}`}>
@@ -78,12 +71,14 @@ export function OpsMaturityScoreCards() {
             </p>
           )}
           {gap > 0 && (
-            <p className="mt-1 sam-text-helper text-amber-600">목표 대비 {gap}pt 부족</p>
+            <p className="mt-1 sam-text-helper text-amber-600">{t("admin_ops_tools_maturity_gap")}</p>
           )}
         </div>
         {domainKeys.map((key) => (
           <div key={key} className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-            <p className="sam-text-helper text-sam-muted">{DOMAIN_LABELS[key] ?? key}</p>
+            <p className="sam-text-helper text-sam-muted">
+              {t(opsToolsLabel(OPS_TOOLS_MATURITY_SCORE_KEYS, key))}
+            </p>
             <p className="sam-text-page-title font-semibold text-sam-fg">
               {latest[key]}
             </p>

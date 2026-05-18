@@ -5,6 +5,7 @@ import { createClient } from "@supabase/supabase-js";
 import { requireAdminApiUser } from "@/lib/admin/require-admin-api";
 import { batchNicknamesByUserIds } from "@/lib/admin-reviews/batch-nicknames-server";
 import { formatAdminReviewTagKeys } from "@/lib/admin-reviews/admin-review-utils";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
 import { chatProductSummaryFromPostRow } from "@/lib/chats/chat-product-from-post";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { POST_TRADE_RELATION_SELECT } from "@/lib/posts/post-query-select";
@@ -134,6 +135,7 @@ export async function POST(_req: NextRequest) {
       });
     }
     const nick = await batchNicknamesByUserIds(sbAny, uids);
+    const adminT = (key: MessageKey) => translate("ko", key);
     transactionReviews = raw.map((r) => {
       const post = postById.get(r.product_id);
       const title = chatProductSummaryFromPostRow(post, r.product_id).title;
@@ -142,8 +144,8 @@ export async function POST(_req: NextRequest) {
         product_title: title,
         reviewer_nickname: nick[r.reviewer_id] ?? r.reviewer_id.slice(0, 8) + "…",
         reviewee_nickname: nick[r.reviewee_id] ?? r.reviewee_id.slice(0, 8) + "…",
-        positive_tag_labels: formatAdminReviewTagKeys(r.role_type, r.positive_tag_keys),
-        negative_tag_labels: formatAdminReviewTagKeys(r.role_type, r.negative_tag_keys),
+        positive_tag_labels: formatAdminReviewTagKeys(adminT, r.role_type, r.positive_tag_keys),
+        negative_tag_labels: formatAdminReviewTagKeys(adminT, r.role_type, r.negative_tag_keys),
       };
     });
   } catch {

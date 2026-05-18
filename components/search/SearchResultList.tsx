@@ -2,16 +2,18 @@
 
 import type { Product } from "@/lib/types/product";
 import { ProductCard } from "@/components/product/ProductCard";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface SearchResultListProps {
   products: Product[];
 }
 
 export function SearchResultList({ products }: SearchResultListProps) {
+  const { t } = useI18n();
   if (products.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <p className="sam-text-body text-sam-muted">검색 결과가 없어요</p>
+        <p className="sam-text-body text-sam-muted">{t("trade_025")}</p>
         <p className="mt-1 sam-text-helper text-sam-meta">
           다른 키워드나 필터를 시도해 보세요.
         </p>

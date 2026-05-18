@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getCurrentUser, isAdminUser } from "@/lib/auth/get-current-user";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import Link from "next/link";
@@ -52,18 +53,24 @@ interface ReviewRow {
   created_at: string;
 }
 
-const REVIEW_ROLE_LABELS: Record<string, string> = {
-  buyer_to_seller: "구매→판매",
-  seller_to_buyer: "판매→구매",
-};
-
-const PUBLIC_REVIEW_LABELS: Record<string, string> = {
-  good: "좋아요",
-  normal: "보통",
-  bad: "별로",
-};
-
 export function AdminTradeFlowPage() {
+  const { t } = useI18n();
+  const reviewRoleLabels = useMemo(
+    () => ({
+      buyer_to_seller: t("admin_trade_flow_review_role_buyer_seller"),
+      seller_to_buyer: t("admin_trade_flow_review_role_seller_buyer"),
+    }),
+    [t]
+  );
+  const publicReviewLabels = useMemo(
+    () => ({
+      good: t("admin_trade_flow_review_good"),
+      normal: t("admin_trade_flow_review_normal"),
+      bad: t("admin_trade_flow_review_bad"),
+    }),
+    [t]
+  );
+
   const [sessions, setSessions] = useState<SessionRow[]>([]);
   const [logs, setLogs] = useState<RepRow[]>([]);
   const [reviews, setReviews] = useState<ReviewRow[]>([]);
@@ -75,7 +82,7 @@ export function AdminTradeFlowPage() {
     const user = getCurrentUser();
     const uid = user?.id?.trim() ?? "";
     if (!uid || !isAdminUser(user)) {
-      setError("관리자(테스트) 로그인이 필요합니다.");
+      setError(t("admin_trade_flow_admin_test_login"));
       setSessions([]);
       setLogs([]);
       setReviews([]);
@@ -92,7 +99,7 @@ export function AdminTradeFlowPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "조회 실패");
+        setError(data.error ?? t("admin_trade_completion_fetch_failed"));
         setSessions([]);
         setLogs([]);
         setReviews([]);
@@ -102,14 +109,14 @@ export function AdminTradeFlowPage() {
       setLogs(Array.isArray(data.reputationLogs) ? data.reputationLogs : []);
       setReviews(Array.isArray(data.transactionReviews) ? data.transactionReviews : []);
     } catch {
-      setError("네트워크 오류");
+      setError(t("common_network_error"));
       setSessions([]);
       setLogs([]);
       setReviews([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     load();
@@ -121,9 +128,7 @@ export function AdminTradeFlowPage() {
       const uid = user?.id?.trim() ?? "";
       if (!uid || !isAdminUser(user)) return;
       if (
-        !window.confirm(
-          "이 채팅방의 거래·후기를 되돌립니다.\n· product_chats → 판매중(chatting)\n· 동일 글 다른 채팅도 다시 열림\n· 해당 방 후기 삭제 + 매너 로그 되돌림\n· 글이 이 구매자에게만 판매완료였다면 글 상태를 판매중(active)으로 복구\n\n계속할까요?"
-        )
+        !window.confirm(t("admin_trade_flow_revert_confirm"))
       ) {
         return;
       }
@@ -137,49 +142,49 @@ export function AdminTradeFlowPage() {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok || !data.ok) {
-          setError((data as { error?: string }).error ?? "되돌리기 실패");
+          setError((data as { error?: string }).error ?? t("admin_trade_flow_revert_failed"));
           return;
         }
         await load();
       } catch {
-        setError("네트워크 오류");
+        setError(t("common_network_error"));
       } finally {
         setRevertingId(null);
       }
     },
-    [load]
+    [load, t]
   );
 
   return (
     <div className="space-y-6">
-      <AdminPageHeader title="거래 흐름 · 온도 로그" />
+      <AdminPageHeader titleKey="admin_page_trade_flow" />
       {error && (
         <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-4 py-3 sam-text-body text-amber-900">
           {error}
         </div>
       )}
       {loading ? (
-        <p className="sam-text-body text-sam-muted">불러오는 중…</p>
+        <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>
       ) : (
         <>
           <section className="rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
             <h2 className="border-b border-sam-border-soft px-4 py-3 sam-text-body font-semibold text-sam-fg">
-              product_chats 거래 상태 (최대 200건)
+              {t("admin_trade_flow_sessions_title")}
             </h2>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[800px] border-collapse sam-text-body-secondary">
                 <thead>
                   <tr className="border-b border-sam-border-soft bg-sam-app text-left text-sam-muted">
-                    <th className="px-3 py-2 font-medium">채팅방</th>
-                    <th className="px-3 py-2 font-medium">글</th>
-                    <th className="px-3 py-2 font-medium">글상태</th>
-                    <th className="px-3 py-2 font-medium">판매표시</th>
-                    <th className="px-3 py-2 font-medium">거래흐름</th>
-                    <th className="px-3 py-2 font-medium">구매자후기</th>
-                    <th className="px-3 py-2 font-medium">채팅모드</th>
-                    <th className="px-3 py-2 font-medium">판매자완료</th>
-                    <th className="px-3 py-2 font-medium">거래완료 확인</th>
-                    <th className="px-3 py-2 font-medium">관리</th>
+                    <th className="px-3 py-2 font-medium">{t("admin_trade_completion_chat")}</th>
+                    <th className="px-3 py-2 font-medium">{t("admin_trade_completion_post")}</th>
+                    <th className="px-3 py-2 font-medium">{t("admin_trade_flow_th_post_status")}</th>
+                    <th className="px-3 py-2 font-medium">{t("admin_trade_flow_th_seller_listing")}</th>
+                    <th className="px-3 py-2 font-medium">{t("admin_trade_flow_th_trade_flow")}</th>
+                    <th className="px-3 py-2 font-medium">{t("admin_trade_flow_th_buyer_review")}</th>
+                    <th className="px-3 py-2 font-medium">{t("admin_trade_flow_th_chat_mode")}</th>
+                    <th className="px-3 py-2 font-medium">{t("admin_trade_flow_th_seller_completed")}</th>
+                    <th className="px-3 py-2 font-medium">{t("admin_trade_flow_th_buyer_confirmed")}</th>
+                    <th className="px-3 py-2 font-medium">{t("admin_trade_completion_manage")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -218,7 +223,7 @@ export function AdminTradeFlowPage() {
                             onClick={() => void revertTrade(s.id)}
                             className="rounded border border-amber-300 bg-amber-50 px-2 py-1 sam-text-xxs font-medium text-amber-900 hover:bg-amber-100 disabled:opacity-50"
                           >
-                            {revertingId === s.id ? "처리 중…" : "거래 되돌리기"}
+                            {revertingId === s.id ? t("admin_trade_flow_processing") : t("admin_trade_flow_revert_trade")}
                           </button>
                         ) : (
                           <span className="text-sam-meta">—</span>
@@ -229,30 +234,30 @@ export function AdminTradeFlowPage() {
                 </tbody>
               </table>
               {sessions.length === 0 && (
-                <p className="px-4 py-8 text-center sam-text-body text-sam-muted">데이터가 없습니다.</p>
+                <p className="px-4 py-8 text-center sam-text-body text-sam-muted">{t("admin_trade_flow_no_data")}</p>
               )}
             </div>
           </section>
 
           <section className="rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
             <h2 className="flex flex-wrap items-baseline gap-x-2 border-b border-sam-border-soft px-4 py-3 sam-text-body font-semibold text-sam-fg">
-              거래 후기 (최근 60건)
+              {t("admin_trade_flow_reviews_title")}
               <Link href="/admin/reviews" className="sam-text-body-secondary font-normal text-signature hover:underline">
-                전체 목록 (최대 500건) →
+                {t("admin_trade_flow_reviews_all_link")}
               </Link>
             </h2>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[960px] border-collapse sam-text-body-secondary">
                 <thead>
                   <tr className="border-b border-sam-border-soft bg-sam-app text-left text-sam-muted">
-                    <th className="px-3 py-2 font-medium">시각</th>
-                    <th className="px-3 py-2 font-medium">역할</th>
-                    <th className="px-3 py-2 font-medium">공개</th>
-                    <th className="px-3 py-2 font-medium">작성 → 대상</th>
-                    <th className="px-3 py-2 font-medium">긍정 태그</th>
-                    <th className="px-3 py-2 font-medium">부정 태그</th>
-                    <th className="px-3 py-2 font-medium">코멘트</th>
-                    <th className="px-3 py-2 font-medium">상품 · 채팅 · 상세</th>
+                    <th className="px-3 py-2 font-medium">{t("admin_trade_th_time")}</th>
+                    <th className="px-3 py-2 font-medium">{t("admin_users_label_role")}</th>
+                    <th className="px-3 py-2 font-medium">{t("admin_trade_flow_th_public")}</th>
+                    <th className="px-3 py-2 font-medium">{t("admin_trade_flow_th_author_target")}</th>
+                    <th className="px-3 py-2 font-medium">{t("admin_trade_flow_th_positive_tags")}</th>
+                    <th className="px-3 py-2 font-medium">{t("admin_trade_flow_th_negative_tags")}</th>
+                    <th className="px-3 py-2 font-medium">{t("admin_trade_flow_th_comment")}</th>
+                    <th className="px-3 py-2 font-medium">{t("admin_trade_flow_th_product_chat_detail")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -261,9 +266,10 @@ export function AdminTradeFlowPage() {
                       <td className="whitespace-nowrap px-3 py-2 text-sam-muted">
                         {rv.created_at ? new Date(rv.created_at).toLocaleString("ko-KR") : "—"}
                       </td>
-                      <td className="px-3 py-2">{REVIEW_ROLE_LABELS[rv.role_type] ?? rv.role_type}</td>
+                      <td className="px-3 py-2">{reviewRoleLabels[rv.role_type as keyof typeof reviewRoleLabels] ?? rv.role_type}</td>
                       <td className="px-3 py-2">
-                        {PUBLIC_REVIEW_LABELS[rv.public_review_type] ?? rv.public_review_type}
+                        {publicReviewLabels[rv.public_review_type as keyof typeof publicReviewLabels] ??
+                          rv.public_review_type}
                       </td>
                       <td className="max-w-[160px] truncate px-3 py-2 text-sam-fg" title={`${rv.reviewer_nickname ?? ""} → ${rv.reviewee_nickname ?? ""}`}>
                         {rv.reviewer_nickname ?? rv.reviewer_id.slice(0, 8) + "…"} →{" "}
@@ -285,13 +291,13 @@ export function AdminTradeFlowPage() {
                         <span className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
                           {rv.room_id ? (
                             <Link href={tradeChatNotificationHref(rv.room_id, "product_chat")} className="text-signature hover:underline" target="_blank">
-                              채팅
+                              {t("admin_trade_flow_chat_link")}
                             </Link>
                           ) : (
-                            <span className="text-sam-meta">채팅 —</span>
+                            <span className="text-sam-meta">{t("admin_trade_flow_chat_none")}</span>
                           )}
                           <Link href={`/admin/reviews/${rv.id}`} className="text-signature hover:underline">
-                            어드민 상세
+                            {t("admin_trade_flow_admin_detail")}
                           </Link>
                         </span>
                       </td>
@@ -300,25 +306,25 @@ export function AdminTradeFlowPage() {
                 </tbody>
               </table>
               {reviews.length === 0 && (
-                <p className="px-4 py-8 text-center sam-text-body text-sam-muted">후기가 없습니다.</p>
+                <p className="px-4 py-8 text-center sam-text-body text-sam-muted">{t("admin_trade_flow_no_reviews")}</p>
               )}
             </div>
           </section>
 
           <section className="rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm">
             <h2 className="border-b border-sam-border-soft px-4 py-3 sam-text-body font-semibold text-sam-fg">
-              reputation_logs (최근 80건)
+              {t("admin_trade_flow_rep_logs_title")}
             </h2>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[640px] border-collapse sam-text-body-secondary">
                 <thead>
                   <tr className="border-b border-sam-border-soft bg-sam-app text-left text-sam-muted">
-                    <th className="px-3 py-2 font-medium">시각</th>
-                    <th className="px-3 py-2 font-medium">사용자</th>
-                    <th className="px-3 py-2 font-medium">유형</th>
+                    <th className="px-3 py-2 font-medium">{t("admin_trade_th_time")}</th>
+                    <th className="px-3 py-2 font-medium">{t("admin_report_target_user")}</th>
+                    <th className="px-3 py-2 font-medium">{t("admin_chat_type_label")}</th>
                     <th className="px-3 py-2 font-medium">Δ</th>
-                    <th className="px-3 py-2 font-medium">상태</th>
-                    <th className="px-3 py-2 font-medium">사유</th>
+                    <th className="px-3 py-2 font-medium">{t("admin_trade_completion_status")}</th>
+                    <th className="px-3 py-2 font-medium">{t("admin_trade_flow_th_reason")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -339,7 +345,7 @@ export function AdminTradeFlowPage() {
                 </tbody>
               </table>
               {logs.length === 0 && (
-                <p className="px-4 py-8 text-center sam-text-body text-sam-muted">로그가 없습니다.</p>
+                <p className="px-4 py-8 text-center sam-text-body text-sam-muted">{t("admin_trade_flow_no_logs")}</p>
               )}
             </div>
           </section>

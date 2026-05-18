@@ -1,6 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
 import type { ChatRoom } from "@/lib/types/chat";
 import { normalizeSellerListingState } from "@/lib/products/seller-listing-state";
 import {
@@ -55,7 +57,7 @@ function buildTradeContextFromDetail(
   const policy = normalizeTradeChatCallPolicy(p.tradeChatCallPolicy);
   const product: Product = {
     id: p.id,
-    title: (p.title ?? "").trim() || "상품",
+    title: (p.title ?? "").trim() || translateCmUi("cm_ui_product_label_fallback"),
     price: typeof p.price === "number" && Number.isFinite(p.price) ? p.price : 0,
     thumbnailUrl: p.thumbnail?.trim() ? p.thumbnail.trim() : null,
     status: mapSellerListingToProductStatus(p.sellerListingState, p.status),
@@ -73,7 +75,7 @@ function buildTradeContextFromMeta(
   viewerUserId: string
 ): TradeRoomContext {
   const pid = (meta.productChatId ?? "").trim() || "trade";
-  const headline = (meta.headline ?? "").trim() || "거래";
+  const headline = (meta.headline ?? "").trim() || translateCmUi("cm_ui_trade_headline_fallback");
   const priceMatch = (meta.priceLabel ?? "").replace(/[^\d.]/g, "");
   const priceNum = priceMatch ? Number(priceMatch) : 0;
   const product: Product = {
@@ -93,6 +95,7 @@ function buildTradeContextFromMeta(
 }
 
 export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: MessengerRoomPhase2ViewModel }) {
+  const { t } = useI18n();
   const [friendRequests, setFriendRequests] = useState<CommunityMessengerFriendRequest[]>([]);
 
   const loadFriendRequests = useCallback(async () => {
@@ -138,7 +141,7 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
   const otherUser: OtherUserProfile = useMemo(
     () => ({
       id: peerUserId || "peer",
-      nickname: peerProfile?.label?.trim() || vm.snapshot.room.title?.trim() || "상대",
+      nickname: peerProfile?.label?.trim() || vm.snapshot.room.title?.trim() || t("cm_ui_peer_fallback"),
       avatarUrl: peerProfile?.avatarUrl?.trim() || vm.snapshot.room.avatarUrl,
       peerPresence: livePeerPresence,
       mannerScore,
@@ -177,7 +180,7 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
   const onFriendRequest = useCallback(async () => {
     if (!peerUserId) return;
     if (peerProfile?.blocked) {
-      showMessengerSnackbar("차단된 사용자에게는 친구 요청을 보낼 수 없습니다.", { variant: "error" });
+      showMessengerSnackbar(t("cm_ui_friend_request_blocked_user"), { variant: "error" });
       return;
     }
     const res = await fetch("/api/community-messenger/friend-requests", {
@@ -187,15 +190,16 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
     });
     const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
     if (!res.ok || !json.ok) {
-      showMessengerSnackbar(json.error === "already_friend" ? "이미 친구입니다." : "친구 요청을 보내지 못했습니다.", {
-        variant: "error",
-      });
+      showMessengerSnackbar(
+        json.error === "already_friend" ? t("cm_ui_already_friend") : t("cm_ui_friend_request_send_failed"),
+        { variant: "error" }
+      );
       return;
     }
-    showMessengerSnackbar("친구 요청을 보냈습니다.");
+    showMessengerSnackbar(t("cm_ui_sent_friend_request"));
     await loadFriendRequests();
     void vm.refresh(true);
-  }, [loadFriendRequests, peerProfile?.blocked, peerUserId, vm]);
+  }, [loadFriendRequests, peerProfile?.blocked, peerUserId, t, vm]);
 
   return (
     <ChatRoomMoreMenu

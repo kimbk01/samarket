@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import type { ParsedOptionGroup } from "@/lib/stores/product-line-options";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -12,6 +13,7 @@ type Props = {
 
 /** 배달 샘플과 동일: 전폭 버튼 + 선택 시 signature 테두리 */
 export function StoreProductOptionPicker({ groups, value, onChange, disabled }: Props) {
+  const { t } = useI18n();
   if (groups.length === 0) return null;
 
   const setGroup = (key: string, names: string[]) => {

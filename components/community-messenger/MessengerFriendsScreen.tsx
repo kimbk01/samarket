@@ -2,6 +2,7 @@
 
 import type { MutableRefObject } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessengerResetTransientUiFn } from "@/lib/community-messenger/messenger-reset-transient-ui";
 import { MessengerFriendRowQuickPopup } from "@/components/community-messenger/MessengerFriendRowQuickPopup";
 import { MessengerFriendsMyProfileStrip } from "@/components/community-messenger/MessengerFriendsMyProfileStrip";
@@ -64,6 +65,7 @@ export function MessengerFriendsScreen({
   messengerOverlayGeneration,
   friendQuickMenuBlocksTabSwipeRef,
 }: Props) {
+  const { t } = useI18n();
   const [quickMenuUserId, setQuickMenuUserId] = useState<string | null>(null);
 
   useLayoutEffect(() => {
@@ -160,17 +162,17 @@ export function MessengerFriendsScreen({
         <MessengerFriendsMyProfileStrip me={me} />
 
         {favoriteFriends.length > 0
-          ? renderFriendSection("즐겨찾기", favoriteFriends, "var(--messenger-primary)", { topDivider: false })
+          ? renderFriendSection(t("cm_ui_favorite"), favoriteFriends, "var(--messenger-primary)", { topDivider: false })
           : null}
         {normalFriends.length > 0
-          ? renderFriendSection("친구", normalFriends, undefined, { topDivider: favoriteFriends.length > 0 })
+          ? renderFriendSection(t("nav_messenger_friend"), normalFriends, undefined, { topDivider: favoriteFriends.length > 0 })
           : null}
         {sortedFriends.length === 0 ? (
           <div
             className="border-b border-t border-[color:var(--messenger-divider)] px-3 py-6 text-center sam-text-body-secondary"
             style={{ color: "var(--messenger-text-secondary)" }}
           >
-            아직 친구가 없습니다.
+            {t("cm_ui_no_friends_yet")}
           </div>
         ) : null}
 
@@ -182,9 +184,9 @@ export function MessengerFriendsScreen({
             style={{ color: "var(--messenger-text)" }}
           >
             <div>
-              <p className="sam-text-body font-medium">숨김 · 차단 · 알림 끔</p>
+              <p className="sam-text-body font-medium">{t("cm_ui_hidden_blocked_notifications_off")}</p>
               <p className="mt-0.5 sam-text-xxs tabular-nums" style={{ color: "var(--messenger-text-secondary)" }}>
-                숨김 {friendStateModel.hidden.length} · 차단 {friendStateModel.blocked.length} · 끔 {friendStateModel.muted.length}
+                {t("cm_ui_hidden_count", { count: friendStateModel.hidden.length })} · {t("cm_ui_block_count", { count: friendStateModel.blocked.length })} · {t("cm_ui_off_count", { count: friendStateModel.muted.length })}
               </p>
             </div>
             <span className="sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }} aria-hidden>

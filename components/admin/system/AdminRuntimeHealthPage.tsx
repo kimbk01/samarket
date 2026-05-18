@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
 type RuntimeHealthPayload = {
@@ -36,6 +37,7 @@ function toBool(v: unknown): boolean {
 }
 
 export function AdminRuntimeHealthPage() {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -109,7 +111,7 @@ export function AdminRuntimeHealthPage() {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold text-sam-fg">{titleLine}</h1>
-          <p className="mt-1 text-sm text-sam-muted">PostgreSQL capability 감지 + 운영 ON/OFF + fallback 상태.</p>
+          <p className="mt-1 text-sm text-sam-muted">{t("admin_runtime_health_subtitle")}</p>
         </div>
         <button
           className={Sam.btn.secondary}
@@ -117,7 +119,7 @@ export function AdminRuntimeHealthPage() {
           onClick={() => void load(true)}
           type="button"
         >
-          감지 새로고침
+          {t("admin_runtime_health_refresh")}
         </button>
       </div>
 
@@ -128,10 +130,10 @@ export function AdminRuntimeHealthPage() {
       </div>
 
       {loading ? (
-        <div className="mt-6 text-sam-muted">불러오는 중…</div>
+        <div className="mt-6 text-sam-muted">{t("common_loading")}</div>
       ) : err ? (
         <div className={`mt-6 ${Sam.card.base} ${Sam.card.pad} border border-red-300`}>
-          <div className="text-red-700 font-medium">오류</div>
+          <div className="text-red-700 font-medium">{t("admin_runtime_health_error_title")}</div>
           <div className="mt-2 text-sm text-red-700 break-all">{err}</div>
           {data?.hint ? <div className="mt-2 text-xs text-sam-muted">{data.hint}</div> : null}
         </div>
@@ -139,7 +141,7 @@ export function AdminRuntimeHealthPage() {
 
       {data?.warnings?.length ? (
         <div className={`mt-6 ${Sam.card.base} ${Sam.card.pad} border border-amber-300`}>
-          <div className="font-medium text-amber-800">Fallback / 위험 경고</div>
+          <div className="font-medium text-amber-800">{t("admin_runtime_health_warnings_title")}</div>
           <ul className="mt-2 space-y-1 text-sm text-amber-900">
             {data.warnings.map((w) => (
               <li key={w.code}>
@@ -216,7 +218,7 @@ export function AdminRuntimeHealthPage() {
           ))}
         </div>
         <div className="mt-4 text-xs text-sam-muted">
-          effective는 capability 기반으로 자동 보정됩니다. (지원 안 하면 on으로 저장돼도 runtime에서는 off로 취급)
+          {t("admin_runtime_health_effective_hint")}
         </div>
       </div>
     </div>

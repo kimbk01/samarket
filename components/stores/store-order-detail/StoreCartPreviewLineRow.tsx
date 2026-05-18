@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { memo } from "react";
 import type { StoreCommerceCartLine } from "@/lib/stores/store-commerce-cart-types";
@@ -18,6 +19,7 @@ export const StoreCartPreviewLineRow = memo(function StoreCartPreviewLineRow({
   onIncrease: () => void;
   onRemove: () => void;
 }) {
+  const { t } = useI18n();
   const qty = Math.floor(Number(line.qty)) || 0;
 
   return (
@@ -35,7 +37,7 @@ export const StoreCartPreviewLineRow = memo(function StoreCartPreviewLineRow({
             <button
               type="button"
               className="flex h-8 w-8 items-center justify-center rounded-full text-lg font-bold text-neutral-700 transition-transform duration-[120ms] active:scale-[0.96]"
-              aria-label="수량 감소"
+              aria-label={t("store_qty_decrease_aria")}
               disabled={!hydrated}
               onClick={onDecrease}
             >
@@ -45,7 +47,7 @@ export const StoreCartPreviewLineRow = memo(function StoreCartPreviewLineRow({
             <button
               type="button"
               className="flex h-8 w-8 items-center justify-center rounded-full text-lg font-bold text-neutral-700 transition-transform duration-[120ms] active:scale-[0.96]"
-              aria-label="수량 증가"
+              aria-label={t("store_qty_increase_aria")}
               disabled={!hydrated}
               onClick={onIncrease}
             >

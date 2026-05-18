@@ -6,6 +6,7 @@ import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 import { fetchPostBuyerChats, postSellerCompleteRequest } from "@/lib/trade/seller-trade-flow-client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface BuyerChatRow {
   chatId: string;
@@ -33,6 +34,7 @@ export function PostSellerTradeStrip({
   isSeller: boolean;
   variant?: "default" | "compact";
 }) {
+  const { t } = useI18n();
   const [rows, setRows] = useState<BuyerChatRow[] | null>(null);
   const [postStatus, setPostStatus] = useState<string>("active");
   const [sellerListingState, setSellerListingState] = useState<string | null>(null);
@@ -116,7 +118,7 @@ export function PostSellerTradeStrip({
 
   return (
     <div className={`border-b border-sam-border bg-signature/5 ${pad}`}>
-      <p className={`${titleCls} font-medium text-sam-fg`}>구매자 채팅 · 거래</p>
+      <p className={`${titleCls} font-medium text-sam-fg`}>{t("trade_033")}</p>
       <p className="mt-0.5 sam-text-xxs text-sam-fg">
         채팅방에서도 거래완료할 수 있어요. 아래에서 바로 처리할 수도 있어요.
       </p>
@@ -157,7 +159,7 @@ export function PostSellerTradeStrip({
                     {busyChatId === r.chatId ? "처리 중…" : "거래완료"}
                   </button>
                 ) : listingReserved && reservedBuyerId && r.buyerId && r.buyerId !== reservedBuyerId ? (
-                  <span className="shrink-0 sam-text-xxs text-sam-muted">예약된 다른 분과 거래 중</span>
+                  <span className="shrink-0 sam-text-xxs text-sam-muted">{t("trade_092")}</span>
                 ) : null}
               </div>
             </li>

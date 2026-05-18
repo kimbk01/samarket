@@ -12,7 +12,8 @@ export interface UserSettingsRow {
   do_not_disturb_start: string | null;
   do_not_disturb_end: string | null;
   video_autoplay_mode: "always" | "wifi_only" | "never";
-  preferred_language: string;
+  /** `ko` | `en` | null(기기 언어). DB NOT NULL 컬럼은 빈 문자열로 저장될 수 있음 */
+  preferred_language: string | null;
   preferred_country: string;
   personalization_enabled: boolean;
   chat_preview_enabled: boolean;
@@ -79,7 +80,6 @@ export const DEFAULT_USER_SETTINGS: Partial<UserSettingsRow> = {
   do_not_disturb_start: null,
   do_not_disturb_end: null,
   video_autoplay_mode: "wifi_only",
-  preferred_language: "ko",
   preferred_country: "PH",
   personalization_enabled: true,
   chat_preview_enabled: true,

@@ -22,8 +22,10 @@ import { SearchFilterBar, getDefaultSearchFilters, type SearchFilters } from "./
 import { SearchResultList } from "./SearchResultList";
 import { POPULAR_SEARCHES } from "@/lib/search/mock-search-data";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function SearchView() {
+  const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
@@ -98,7 +100,7 @@ export function SearchView() {
                 value={keyword}
                 onChange={setKeyword}
                 onSubmit={handleSubmit}
-                placeholder="검색어를 입력하세요"
+                placeholder={t("trade_028")}
                 autoFocus
               />
             </div>

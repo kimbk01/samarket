@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   COMMUNITY_BUTTON_PRIMARY_CLASS,
   COMMUNITY_MODAL_PANEL_CLASS,
@@ -15,21 +16,23 @@ export function MeetingPasswordOnlyModal({
   onSubmit,
   busy,
   error = "",
-  title = "비밀번호로 참여",
-  hint = "모임에서 설정한 비밀번호를 입력하면 바로 참여할 수 있어요.",
-  submitLabel = "참여하기",
+  title,
+  hint,
+  submitLabel,
 }: {
   open: boolean;
   onClose: () => void;
   onSubmit: (password: string) => void;
   busy: boolean;
   error?: string | null;
-  /** 다른 맥락용 제목 */
   title?: string;
-  /** null 이면 안내 문구 숨김 */
   hint?: string | null;
   submitLabel?: string;
 }) {
+  const { t } = useI18n();
+  const resolvedTitle = title ?? t("community_join_password_title");
+  const resolvedHint = hint === undefined ? t("community_meeting_password_modal_hint_open") : hint;
+  const resolvedSubmit = submitLabel ?? t("community_meeting_join_submit");
   const [password, setPassword] = useState("");
 
   useEffect(() => {
@@ -45,11 +48,11 @@ export function MeetingPasswordOnlyModal({
       aria-modal="true"
       aria-labelledby="m-pwd-title"
     >
-      <button type="button" className={COMMUNITY_OVERLAY_BACKDROP_CLASS} aria-label="닫기" onClick={onClose} />
+      <button type="button" className={COMMUNITY_OVERLAY_BACKDROP_CLASS} aria-label={t("common_close")} onClick={onClose} />
       <div className={`relative z-50 ${COMMUNITY_MODAL_PANEL_CLASS}`}>
         <div className="flex items-center justify-between border-b border-[#E5E7EB] px-4 py-3">
           <h2 id="m-pwd-title" className="text-[16px] font-bold leading-[1.35] text-[#1F2430]">
-            {title}
+            {resolvedTitle}
           </h2>
           <button
             type="button"
@@ -57,19 +60,19 @@ export function MeetingPasswordOnlyModal({
             onClick={onClose}
             disabled={busy}
           >
-            닫기
+            {t("common_close")}
           </button>
         </div>
         <div className="space-y-3 px-4 py-4">
-          {hint ? <p className="text-[13px] font-normal leading-[1.45] text-[#6B7280]">{hint}</p> : null}
-          <label className="block text-[13px] font-semibold text-[#1F2430]">비밀번호</label>
+          {resolvedHint ? <p className="text-[13px] font-normal leading-[1.45] text-[#6B7280]">{resolvedHint}</p> : null}
+          <label className="block text-[13px] font-semibold text-[#1F2430]">{t("community_password_label")}</label>
           <input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="off"
             className={`w-full ${PHILIFE_FB_INPUT_CLASS}`}
-            placeholder="비밀번호 입력"
+            placeholder={t("community_password_input_placeholder")}
             disabled={busy}
           />
           {error ? <p className="text-[12px] text-[#E25555]">{error}</p> : null}
@@ -79,7 +82,7 @@ export function MeetingPasswordOnlyModal({
             className={`w-full ${COMMUNITY_BUTTON_PRIMARY_CLASS}`}
             onClick={() => onSubmit(password.trim())}
           >
-            {busy ? "확인 중…" : submitLabel}
+            {busy ? t("community_meeting_password_checking") : resolvedSubmit}
           </button>
         </div>
       </div>

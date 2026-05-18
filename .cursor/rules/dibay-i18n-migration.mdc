@@ -1,0 +1,39 @@
+---
+description: DIBAY 전역 UI i18n(ko/en) 마이그레이션 — 신규·수정 화면 필수
+globs:
+  - app/**/*.tsx
+  - components/**/*.tsx
+  - lib/**/*.ts
+alwaysApply: false
+---
+
+# DIBAY i18n (ko / en only)
+
+## 마스터 순서 (전체 완료)
+
+**반드시** [docs/i18n-migration-roadmap.md](../../docs/i18n-migration-roadmap.md) 단계 번호 순. 진행·체크는 [docs/i18n-migration-track-state.md](../../docs/i18n-migration-track-state.md).
+
+0 인프라 ✅ → 1 셸·에러 → 2 탭·레이아웃 → 3 내정보 → 4 거래 → 5 채팅허브 → 6 스토어주문 → 7 사장님 → 8 메신저 → 9 Philife → 10 온보딩 → 11 Admin → 12 lib → 13 CI
+
+**한 PR = 한 단계(또는 단계 내 폴더 하나).** 전 repo 일괄 치환 금지.
+
+## 금지 (신규·수정)
+
+- JSX·props 한글/영문 하드코딩
+- 신규 `tt("한국어")`
+- `tl` / `ja` / 언어별 라우트 복제
+
+## 단계 게이트
+
+```bash
+npm run check:i18n
+node scripts/check-hardcoded-korean.mjs <이번 단계 경로만>
+```
+
+## 작업 절차
+
+1. `t("domain_*")` — 기존 `common_*` / `mypage_*` / `nav_*` 재사용 우선
+2. catalog ko·en 동시
+3. 단계 hardcoded 0 목표 후 track-state `[x]`
+
+상세: [docs/i18n-development-rules.md](../../docs/i18n-development-rules.md)

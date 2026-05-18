@@ -4,14 +4,11 @@ import { useEffect, useState } from "react";
 import {
   BUYER_TO_SELLER_NEGATIVE,
   BUYER_TO_SELLER_POSITIVE,
+  tradeReviewTagLabel,
 } from "@/lib/trade/trade-review-tags";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
-
-const LABEL = new Map<string, string>([
-  ...BUYER_TO_SELLER_POSITIVE.map((x) => [x.key, x.label] as const),
-  ...BUYER_TO_SELLER_NEGATIVE.map((x) => [x.key, x.label] as const),
-]);
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface ReviewPayload {
   public_review_type: string;
@@ -30,6 +27,7 @@ export function BuyerReviewReadSheet({
   perspective: "buyer_self" | "seller_sees_buyer";
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [rev, setRev] = useState<ReviewPayload | null>(null);
@@ -37,7 +35,7 @@ export function BuyerReviewReadSheet({
   useEffect(() => {
     const u = getCurrentUser()?.id?.trim();
     if (!u) {
-      setErr("로그인이 필요합니다.");
+      setErr(t("mypage_comp_login_required"));
       setLoading(false);
       return;
     }
@@ -54,17 +52,17 @@ export function BuyerReviewReadSheet({
           error?: string;
         };
         if (!res.ok) {
-          setErr(data.error ?? "불러오지 못했습니다.");
+          setErr(data.error ?? t("mypage_comp_orders_list_load_failed"));
           return;
         }
         setRev(data.review ?? null);
       })
-      .catch(() => setErr("네트워크 오류입니다."))
+      .catch(() => setErr(t("mypage_comp_product_network_error_short")))
       .finally(() => setLoading(false));
-  }, [chatId, perspective]);
+  }, [chatId, perspective, t]);
 
   const title =
-    perspective === "buyer_self" ? "내가 남긴 후기" : "구매자 후기";
+    perspective === "buyer_self" ? t("mypage_comp_purchase_card_review_prompt_p2") : t("mypage_comp_review_buy_heading");
 
   return (
     <div className="fixed inset-0 z-30 flex items-end justify-center bg-black/50 sm:items-center">
@@ -72,36 +70,36 @@ export function BuyerReviewReadSheet({
         <div className="flex items-center justify-between border-b border-sam-border-soft px-4 py-3">
           <h2 className="sam-text-body-lg font-semibold text-sam-fg">{title}</h2>
           <button type="button" onClick={onClose} className="sam-text-body text-sam-muted">
-            닫기
+            {t("mypage_comp_close")}
           </button>
         </div>
         <div className="max-h-[calc(85vh-52px)] overflow-y-auto p-4">
           {loading ? (
-            <p className="py-8 text-center sam-text-body text-sam-muted">불러오는 중…</p>
+            <p className="py-8 text-center sam-text-body text-sam-muted">{t("mypage_comp_loading_short")}</p>
           ) : err ? (
             <p className="py-8 text-center sam-text-body text-red-600">{err}</p>
           ) : rev ? (
             <div className="space-y-3 sam-text-body text-sam-fg">
               <p>
-                <span className="text-sam-muted">총평</span>{" "}
+                <span className="text-sam-muted">{t("mypage_comp_review_overall")}</span>{" "}
                 <span className="font-medium">
                   {rev.public_review_type === "good"
-                    ? "좋아요"
+                    ? t("mypage_comp_review_positive")
                     : rev.public_review_type === "bad"
-                      ? "별로예요"
-                      : "보통"}
+                      ? t("mypage_comp_review_negative")
+                      : t("mypage_comp_review_none")}
                 </span>
               </p>
               {(rev.positive_tag_keys?.length ?? 0) > 0 ? (
                 <div>
-                  <p className="mb-1 sam-text-helper font-medium text-sam-muted">긍정</p>
+                  <p className="mb-1 sam-text-helper font-medium text-sam-muted">{t("mypage_comp_review_positive")}</p>
                   <ul className="flex flex-wrap gap-1">
                     {(rev.positive_tag_keys ?? []).map((k) => (
                       <li
                         key={k}
                         className="rounded-full bg-signature/5 px-2 py-0.5 sam-text-xxs text-sam-fg"
                       >
-                        {LABEL.get(k) ?? k}
+                        {tradeReviewTagLabel(t, "buyer_to_seller", k)}
                       </li>
                     ))}
                   </ul>
@@ -109,14 +107,14 @@ export function BuyerReviewReadSheet({
               ) : null}
               {(rev.negative_tag_keys?.length ?? 0) > 0 ? (
                 <div>
-                  <p className="mb-1 sam-text-helper font-medium text-sam-muted">부정</p>
+                  <p className="mb-1 sam-text-helper font-medium text-sam-muted">{t("mypage_comp_review_negative")}</p>
                   <ul className="flex flex-wrap gap-1">
                     {(rev.negative_tag_keys ?? []).map((k) => (
                       <li
                         key={k}
                         className="rounded-full bg-amber-50 px-2 py-0.5 sam-text-xxs text-amber-900"
                       >
-                        {LABEL.get(k) ?? k}
+                        {tradeReviewTagLabel(t, "buyer_to_seller", k)}
                       </li>
                     ))}
                   </ul>
@@ -127,12 +125,12 @@ export function BuyerReviewReadSheet({
               ) : null}
               <p className="sam-text-xxs text-sam-meta">
                 {rev.created_at
-                  ? new Date(rev.created_at).toLocaleString("ko-KR")
+                  ? new Date(rev.created_at).toLocaleString()
                   : ""}
               </p>
             </div>
           ) : (
-            <p className="py-8 text-center text-sam-muted">후기가 없습니다.</p>
+            <p className="py-8 text-center text-sam-muted">{t("mypage_comp_review_none")}</p>
           )}
         </div>
       </div>

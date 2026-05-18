@@ -1,6 +1,9 @@
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
 import type { OwnerOrder } from "@/lib/store-owner/types";
-import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { translate } from "@/lib/i18n/messages";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
 /**
@@ -29,7 +32,8 @@ export type StoreOrderMessengerContextInput = {
 export function buildMessengerContextMetaFromStoreOrder(input: StoreOrderMessengerContextInput): CommunityMessengerRoomContextMetaV1 {
   const ft = (input.fulfillmentType ?? "").trim().toLowerCase();
   /** 주문 채팅은 pickup 이어도 거래 채팅이 아니다. 메신저 안에서는 항상 delivery/store_order pillar 로 분류한다. */
-  const headline = input.productTitle.trim() || "배달·매장 주문";
+  const lang = getRuntimeAppLanguage();
+  const headline = input.productTitle.trim() || translate(lang, "store_messenger_order_fallback");
   const meta: CommunityMessengerRoomContextMetaV1 = { v: 1, kind: "delivery", headline };
   const storeOrderId = input.storeOrderId?.trim();
   if (storeOrderId) meta.storeOrderId = storeOrderId;
@@ -52,20 +56,25 @@ export function buildMessengerContextMetaFromStoreOrder(input: StoreOrderMesseng
 }
 
 /** 구매자 목록·상세 등 `store_orders` 스냅샷 → `StoreOrderMessengerDeepLink` 의 `context` */
-export function buildMessengerContextInputFromStoreOrderSnapshot(args: {
-  orderId?: string | null;
-  storeName: string;
-  orderNo: string;
-  storeId?: string | null;
-  fulfillmentType: string;
-  orderStatus: string;
-  paymentAmount: number;
-  firstLineProductTitle?: string | null;
-  thumbnailUrl?: string | null;
-}): StoreOrderMessengerContextInput {
+export function buildMessengerContextInputFromStoreOrderSnapshot(
+  args: {
+    orderId?: string | null;
+    storeName: string;
+    orderNo: string;
+    storeId?: string | null;
+    fulfillmentType: string;
+    orderStatus: string;
+    paymentAmount: number;
+    firstLineProductTitle?: string | null;
+    thumbnailUrl?: string | null;
+  },
+  lang: AppLanguageCode = getRuntimeAppLanguage()
+): StoreOrderMessengerContextInput {
   const store = args.storeName.trim();
   const line = args.firstLineProductTitle?.trim();
-  const headline = line ? `${store} · ${line}` : `${store} · 주문 ${args.orderNo}`;
+  const headline = line
+    ? `${store} · ${line}`
+    : translate(lang, "store_messenger_order_title", { store, orderNo: args.orderNo });
   const ft = (args.fulfillmentType ?? "").trim().toLowerCase();
   /** `shipping` 은 기존 주문 타입 명칭이고 메신저 컨텍스트에는 local_delivery 로 정규화한다. */
   const fulfillmentForMeta = ft === "shipping" ? "local_delivery" : args.fulfillmentType;
@@ -76,7 +85,7 @@ export function buildMessengerContextInputFromStoreOrderSnapshot(args: {
     fulfillmentType: fulfillmentForMeta,
     productTitle: headline,
     paymentAmount: args.paymentAmount,
-    orderStatusLabel: BUYER_ORDER_STATUS_LABEL[args.orderStatus] ?? args.orderStatus,
+    orderStatusLabel: buyerOrderStatusLabel(args.orderStatus, lang),
     thumbnailUrl: args.thumbnailUrl ?? null,
   };
 }

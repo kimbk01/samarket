@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function AdminMemoBox({
   initial,
@@ -9,12 +10,13 @@ export function AdminMemoBox({
   initial: string;
   onSave: (memo: string) => void;
 }) {
+  const { t } = useI18n();
   const [v, setV] = useState(initial);
   const [saved, setSaved] = useState(false);
 
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-      <h3 className="text-sm font-semibold text-sam-fg">관리자 메모</h3>
+      <h3 className="text-sm font-semibold text-sam-fg">{t("admin_do_admin_memo")}</h3>
       <textarea
         value={v}
         onChange={(e) => {
@@ -32,9 +34,9 @@ export function AdminMemoBox({
         }}
         className="mt-2 rounded-ui-rect bg-sam-ink px-4 py-2 text-sm font-medium text-white"
       >
-        메모 저장
+        {t("admin_do_save_memo")}
       </button>
-      {saved ? <p className="mt-2 text-xs text-emerald-600">저장됨 (시뮬)</p> : null}
+      {saved ? <p className="mt-2 text-xs text-emerald-600">{t("admin_do_admin_memo_saved")}</p> : null}
     </div>
   );
 }

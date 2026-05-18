@@ -5,33 +5,13 @@ import { useCallback, useEffect, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   MEETING_EVENT_TYPES,
+  MEETING_EVENT_TYPE_LABEL_KEYS,
   formatMeetingEventDescription,
   isMeetingEventType,
-  type MeetingEventTypeSlug,
 } from "@/lib/neighborhood/meeting-event-format";
-import type { MessageKey } from "@/lib/i18n/messages";
 import type { AdminMeetingEventRow } from "@/lib/neighborhood/types";
 import { philifeAppPaths } from "@domain/philife/paths";
 import type { AppLanguageCode } from "@/lib/i18n/config";
-
-const MEETING_EVENT_TYPE_KEYS = {
-  join_requested: "admin_meeting_event_type_join_requested",
-  join_approved: "admin_meeting_event_type_join_approved",
-  join_rejected: "admin_meeting_event_type_join_rejected",
-  member_joined: "admin_meeting_event_type_member_joined",
-  member_left: "admin_meeting_event_type_member_left",
-  member_kicked: "admin_meeting_event_type_member_kicked",
-  member_banned: "admin_meeting_event_type_member_banned",
-  member_unbanned: "admin_meeting_event_type_member_unbanned",
-  member_attendance_updated: "admin_meeting_event_type_member_attendance_updated",
-  notice_created: "admin_meeting_event_type_notice_created",
-  notice_updated: "admin_meeting_event_type_notice_updated",
-  notice_deleted: "admin_meeting_event_type_notice_deleted",
-  meeting_closed: "admin_meeting_event_type_meeting_closed",
-  meeting_reopened: "admin_meeting_event_type_meeting_reopened",
-  meeting_ended: "admin_meeting_event_type_meeting_ended",
-  meeting_cancelled: "admin_meeting_event_type_meeting_cancelled",
-} as const satisfies Record<MeetingEventTypeSlug, MessageKey>;
 
 function dateLocaleTag(language: AppLanguageCode): string {
   return language === "en" ? "en-US" : "ko-KR";
@@ -136,7 +116,7 @@ export function AdminPhilifeMeetingEventsClient() {
             <option value="">{t("admin_report_filter_all")}</option>
             {MEETING_EVENT_TYPES.map((ev) => (
               <option key={ev} value={ev}>
-                {t(MEETING_EVENT_TYPE_KEYS[ev])}
+                {t(MEETING_EVENT_TYPE_LABEL_KEYS[ev])}
               </option>
             ))}
           </select>
@@ -177,7 +157,7 @@ export function AdminPhilifeMeetingEventsClient() {
               const typeLabel = isMeetingEventType(e.event_type)
                 ? t(MEETING_EVENT_TYPE_KEYS[e.event_type])
                 : e.event_type;
-              const desc = formatMeetingEventDescription(e);
+              const desc = formatMeetingEventDescription(e, t);
               return (
                 <tr key={e.id} className="border-t border-sam-border-soft align-top">
                   <td className="whitespace-nowrap px-2 py-2 sam-text-xxs text-sam-muted">{time}</td>

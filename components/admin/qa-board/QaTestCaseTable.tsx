@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { getQaTestCases } from "@/lib/qa-board/mock-qa-test-cases";
 import { AdminTable } from "@/components/admin/AdminTable";
@@ -15,6 +18,7 @@ import type {
 import Link from "next/link";
 
 export function QaTestCaseTable() {
+  const { t } = useI18n();
   const [status, setStatus] = useState<QaTestCaseStatus | "">("");
   const [environment, setEnvironment] = useState<QaTestEnvironment | "">("");
   const cases = useMemo(
@@ -31,7 +35,7 @@ export function QaTestCaseTable() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">상태</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_qa_status_2")}</span>
         <select
           value={status}
           onChange={(e) =>
@@ -39,14 +43,14 @@ export function QaTestCaseTable() {
           }
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
-          <option value="not_started">미실행</option>
-          <option value="in_progress">진행중</option>
-          <option value="passed">통과</option>
-          <option value="failed">실패</option>
-          <option value="blocked">차단</option>
+          <option value="">{t("common_all")}</option>
+          <option value="not_started">{t("admin_qa_not_started")}</option>
+          <option value="in_progress">{t("admin_qa_in_progress")}</option>
+          <option value="passed">{t("admin_qa_passed_2")}</option>
+          <option value="failed">{t("admin_qa_failed")}</option>
+          <option value="blocked">{t("admin_qa_blocked")}</option>
         </select>
-        <span className="sam-text-body-secondary text-sam-muted">환경</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_qa_environment")}</span>
         <select
           value={environment}
           onChange={(e) =>
@@ -54,10 +58,10 @@ export function QaTestCaseTable() {
           }
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
+          <option value="">{t("common_all")}</option>
           <option value="local">Local</option>
           <option value="staging">Staging</option>
-          <option value="production_candidate">Production 후보</option>
+          <option value="production_candidate">{t("admin_production_candidate")}</option>
         </select>
       </div>
 
@@ -105,11 +109,11 @@ export function QaTestCaseTable() {
                           : "bg-sam-surface-muted text-sam-muted"
                   }`}
                 >
-                  {getCaseStatusLabel(c.status)}
+                  {getCaseStatusLabel(t, c.status)}
                 </span>
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">
-                {getPriorityLabel(c.priority)}
+                {getPriorityLabel(t, c.priority)}
               </td>
               <td className="px-3 py-2.5">
                 {c.isMustPass ? (
@@ -129,7 +133,7 @@ export function QaTestCaseTable() {
                   : "-"}
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-fg">
-                {getEnvLabel(c.environment)}
+                {getEnvLabel(t, c.environment)}
               </td>
               <td className="max-w-[160px] px-3 py-2.5 sam-text-body-secondary text-sam-muted">
                 {c.failureNote || c.blockerReason || "-"}

@@ -9,7 +9,7 @@ export default async function DrDetailRoute({ params }: PageProps) {
   const { id } = await params;
   return (
     <>
-      <AdminPageHeader title="DR 시나리오 상세" backHref="/admin/dr" />
+      <AdminPageHeader titleKey="admin_page_dr_scenario_detail" backHref="/admin/dr" />
       <DrScenarioDetailPage scenarioId={id} />
     </>
   );

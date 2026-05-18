@@ -1,10 +1,13 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { Fragment } from "react";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 import {
-  TIMELINE_DELIVERY_STEPS,
-  TIMELINE_PICKUP_STEPS,
   buyerDetailSixStepStates,
+  buyerOrderStatusLabel,
+  buyerOrderTimelineDeliveryStepLabels,
+  buyerOrderTimelinePickupStepLabels,
   storeOrderTimelineCurrentStep,
   type BuyerDetailStepState,
 } from "@/lib/stores/store-order-process-criteria";
@@ -13,7 +16,7 @@ import { isDeliveryFulfillment } from "@/lib/stores/order-status-transitions";
 type TimelineVariant = "default" | "buyer_detail";
 
 /** 취소·환불 등 터미널일 때 스테퍼 맨 뒤에 붙이는 단계 */
-function terminalStepperSuffix(orderStatus: string): {
+function terminalStepperSuffix(orderStatus: string, lang: AppLanguageCode): {
   label: string;
   lineClass: string;
   circleClass: string;
@@ -21,32 +24,27 @@ function terminalStepperSuffix(orderStatus: string): {
 } | null {
   switch (orderStatus) {
     case "cancelled":
-      return {
-        label: "주문취소",
-        lineClass: "bg-rose-300",
-        circleClass: "border-rose-500 bg-rose-500 text-white",
-        labelClass: "font-semibold text-rose-600",
-      };
     case "cancel_requested":
-      return {
-        label: "취소 요청",
-        lineClass: "bg-rose-200",
-        circleClass: "border-rose-500 bg-rose-500 text-white",
-        labelClass: "font-semibold text-rose-600",
-      };
     case "refund_requested":
-      return {
-        label: "환불요청",
-        lineClass: "bg-amber-200",
-        circleClass: "border-amber-500 bg-amber-500 text-white",
-        labelClass: "font-semibold text-amber-800",
-      };
     case "refunded":
       return {
-        label: "환불완료",
-        lineClass: "bg-amber-200",
-        circleClass: "border-amber-600 bg-amber-600 text-white",
-        labelClass: "font-semibold text-amber-800",
+        label: buyerOrderStatusLabel(orderStatus, lang),
+        lineClass:
+          orderStatus === "cancelled" || orderStatus === "cancel_requested"
+            ? orderStatus === "cancelled"
+              ? "bg-rose-300"
+              : "bg-rose-200"
+            : "bg-amber-200",
+        circleClass:
+          orderStatus === "refunded"
+            ? "border-amber-600 bg-amber-600 text-white"
+            : orderStatus === "refund_requested"
+              ? "border-amber-500 bg-amber-500 text-white"
+              : "border-rose-500 bg-rose-500 text-white",
+        labelClass:
+          orderStatus === "refund_requested" || orderStatus === "refunded"
+            ? "font-semibold text-amber-800"
+            : "font-semibold text-rose-600",
       };
     default:
       return null;
@@ -81,18 +79,19 @@ export function StoreCommerceOrderTimeline({
   /** 주문 상세: 배달·픽업 모두 4단계 라벨 */
   variant?: TimelineVariant;
 }) {
+  const { t, language } = useI18n();
   const deliveryLike = isDeliveryFulfillment(fulfillmentType);
   const terminal = ["cancelled", "refund_requested", "refunded", "cancel_requested"].includes(orderStatus);
   const allDone = orderStatus === "completed";
-  const terminalSuffix = terminal ? terminalStepperSuffix(orderStatus) : null;
+  const terminalSuffix = terminal ? terminalStepperSuffix(orderStatus, language) : null;
 
   if (variant === "buyer_detail") {
-    const steps = [...TIMELINE_DELIVERY_STEPS];
+    const steps = [...buyerOrderTimelineDeliveryStepLabels(language)];
     const rowStates = buyerDetailSixStepStates(fulfillmentType, orderStatus);
 
     return (
       <nav
-        aria-label="주문 진행 단계"
+        aria-label={t("store_order_timeline_aria")}
         className="overflow-x-auto py-2 [-webkit-overflow-scrolling:touch]"
       >
         <div className="flex w-full min-w-max items-start px-0.5">
@@ -120,7 +119,7 @@ export function StoreCommerceOrderTimeline({
             }
 
             return (
-              <Fragment key={label}>
+              <Fragment key={`${i}-${label}`}>
                 {i > 0 ? (
                   <div
                     className={`mx-0.5 mt-[13px] h-0.5 min-w-2 flex-1 self-start ${segCls}`}
@@ -173,12 +172,14 @@ export function StoreCommerceOrderTimeline({
     );
   }
 
-  const steps = deliveryLike ? [...TIMELINE_DELIVERY_STEPS] : [...TIMELINE_PICKUP_STEPS];
+  const steps = deliveryLike
+    ? [...buyerOrderTimelineDeliveryStepLabels(language)]
+    : [...buyerOrderTimelinePickupStepLabels(language)];
   const cur = storeOrderTimelineCurrentStep(fulfillmentType, orderStatus);
 
   return (
     <nav
-      aria-label="주문 진행 단계"
+      aria-label={t("store_order_timeline_aria")}
       className="overflow-x-auto py-2 [-webkit-overflow-scrolling:touch]"
     >
       <div className="flex w-full min-w-max items-start px-0.5">
@@ -201,7 +202,7 @@ export function StoreCommerceOrderTimeline({
           }
 
           return (
-            <Fragment key={label}>
+            <Fragment key={`step-${i}`}>
               {i > 0 ? (
                 <div
                   className={`mx-0.5 mt-[13px] h-0.5 min-w-2 flex-1 self-start ${connectorBeforeFilled ? "bg-signature" : "bg-sam-border-soft"}`}

@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { CommunityMessengerMessageActionAnchorRect } from "@/lib/community-messenger/types";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -14,6 +15,7 @@ export type MessageReactionRosterSheetProps = {
 
 /** 이모티콘 pill 근처에 붙는 가벼운 ‘반응한 사람’ 팝오버 */
 export function MessageReactionRosterSheet(props: MessageReactionRosterSheetProps) {
+  const { t } = useI18n();
   const { open, streamRoomId, onClose } = props;
   const [users, setUsers] = useState<Array<{ userId: string; label: string }>>([]);
   const [loading, setLoading] = useState(false);
@@ -113,20 +115,20 @@ export function MessageReactionRosterSheet(props: MessageReactionRosterSheetProp
         ref={panelRef}
         role="dialog"
         aria-modal="true"
-        aria-label="반응한 사람"
+        aria-label={t("cm_ui_reacted_people")}
         className="fixed z-[341] w-[min(260px,calc(100vw-16px))] overflow-hidden rounded-xl border border-white/50 bg-white/90 shadow-lg backdrop-blur-md"
         style={{ top: pos.top, left: pos.left }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2 border-b border-black/5 px-3 py-2">
           <span className="text-base leading-none">{open.reactionKey}</span>
-          <span className="sam-text-xxs font-semibold text-[color:var(--cm-room-text-muted)]">반응한 사람</span>
+          <span className="sam-text-xxs font-semibold text-[color:var(--cm-room-text-muted)]">{t("cm_ui_reacted_people")}</span>
         </div>
         <div className="max-h-[min(220px,40vh)] overflow-y-auto px-2 py-1.5">
           {loading ? (
-            <p className="px-2 py-4 text-center sam-text-xxs text-[color:var(--cm-room-text-muted)]">불러오는 중…</p>
+            <p className="px-2 py-4 text-center sam-text-xxs text-[color:var(--cm-room-text-muted)]">{t("common_loading")}</p>
           ) : users.length === 0 ? (
-            <p className="px-2 py-4 text-center sam-text-xxs text-[color:var(--cm-room-text-muted)]">아직 없습니다.</p>
+            <p className="px-2 py-4 text-center sam-text-xxs text-[color:var(--cm-room-text-muted)]">{t("cm_ui_nothing_yet")}</p>
           ) : (
             <ul className="space-y-0.5">
               {users.map((u) => (

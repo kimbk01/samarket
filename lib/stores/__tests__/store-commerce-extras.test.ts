@@ -101,19 +101,21 @@ describe("formatStoreBrowseDeliveryFeeLine", () => {
       delivery_fee_mode: "courier",
       delivery_courier_label: "라라무브",
     });
-    expect(formatStoreBrowseDeliveryFeeLine(courier, { deliveryAvailable: true })).toBe(
+    expect(formatStoreBrowseDeliveryFeeLine(courier, { deliveryAvailable: true }, "ko")).toBe(
       "배달비: 라라무브"
     );
     const self = parseCommerceExtrasFromHoursJson({
       delivery_fee_mode: "self",
       delivery_fee_php: 1200,
     });
-    expect(formatStoreBrowseDeliveryFeeLine(self, { deliveryAvailable: true })).toBe("배달비 ₱1,200");
+    expect(formatStoreBrowseDeliveryFeeLine(self, { deliveryAvailable: true }, "ko")).toBe(
+      "배달비 ₱1,200"
+    );
     const promo = parseCommerceExtrasFromHoursJson({
       delivery_fee_mode: "self_free_promo",
       delivery_fee_strike_reference_php: 100,
     });
-    expect(formatStoreBrowseDeliveryFeeLine(promo, { deliveryAvailable: true })).toBe(
+    expect(formatStoreBrowseDeliveryFeeLine(promo, { deliveryAvailable: true }, "ko")).toBe(
       "배달비 무료 적용 중"
     );
     expect(formatStoreBrowseDeliveryFeeStrikePhp(promo, { deliveryAvailable: true })).toBe(100);
@@ -123,11 +125,16 @@ describe("formatStoreBrowseDeliveryFeeLine", () => {
 describe("buildBrowseStoreListEtaLabel", () => {
   it("shows manual delivery slot when route context present", () => {
     const extras = parseCommerceExtrasFromHoursJson({ prep_time_minutes: 20 });
-    const label = buildBrowseStoreListEtaLabel(extras, null, {
-      deliveryAvailable: true,
-      routeContextPresent: true,
-      manualRideDisplay: "30분 안팎",
-    });
+    const label = buildBrowseStoreListEtaLabel(
+      extras,
+      null,
+      {
+        deliveryAvailable: true,
+        routeContextPresent: true,
+        manualRideDisplay: "30분 안팎",
+      },
+      "ko"
+    );
     expect(label).toBe("조리 약 20분 · 배달 30분 안팎");
   });
 });

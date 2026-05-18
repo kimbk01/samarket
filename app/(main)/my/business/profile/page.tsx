@@ -1,9 +1,13 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { OwnerStoreProfileForm } from "@/components/business/OwnerStoreProfileForm";
+import {
+  OwnerStorePagePhaseGate,
+  type OwnerStorePagePhase,
+} from "@/components/business/owner/OwnerStorePagePhaseGate";
+import { OwnerStoreSuspenseFallback } from "@/components/business/owner/OwnerStoreSuspenseFallback";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
@@ -17,10 +21,15 @@ type Phase =
   | { kind: "error"; message: string }
   | { kind: "ok"; row: StoreRow };
 
+function toGatePhase(phase: Phase): OwnerStorePagePhase {
+  if (phase.kind === "ok") return { kind: "ok" };
+  if (phase.kind === "need_store_id") return { kind: "need_store_id", profile: true };
+  return phase;
+}
+
 function MyBusinessProfilePageInner() {
   const searchParams = useSearchParams();
   const storeIdParam = searchParams.get("storeId")?.trim() ?? "";
-
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
 
   const load = useCallback(async () => {
@@ -66,47 +75,18 @@ function MyBusinessProfilePageInner() {
   return (
     <div className="max-w-full overflow-x-hidden">
       <div className="mx-auto min-w-0 max-w-4xl overflow-x-hidden py-0">
-        {phase.kind === "loading" ? (
-          <p className="sam-text-body text-sam-muted">불러오는 중…</p>
-        ) : phase.kind === "need_store_id" ? (
-          <div className={`${OWNER_STORE_STACK_Y_CLASS} sam-text-body text-sam-muted`}>
-            <p>수정할 매장을 지정할 수 없습니다.</p>
-            <Link href="/stores/owner" className="font-medium text-signature underline">
-              내 매장으로
-            </Link>
-          </div>
-        ) : phase.kind === "unauth" ? (
-          <p className="sam-text-body text-amber-900">로그인이 필요합니다.</p>
-        ) : phase.kind === "config" ? (
-          <p className="sam-text-body text-sam-muted">Supabase 매장 설정을 확인해 주세요.</p>
-        ) : phase.kind === "not_found" ? (
-          <div className={`${OWNER_STORE_STACK_Y_CLASS} sam-text-body text-sam-muted`}>
-            <p>해당 매장을 찾을 수 없거나 내 매장이 아닙니다.</p>
-            <Link href="/stores/owner" className="font-medium text-signature underline">
-              내 매장으로
-            </Link>
-          </div>
-        ) : phase.kind === "error" ? (
-          <div className={OWNER_STORE_STACK_Y_CLASS}>
-            <p className="sam-text-body text-red-600">{phase.message}</p>
-            <button
-              type="button"
-              onClick={() => void load()}
-              className="sam-text-body font-medium text-signature underline"
-            >
-              다시 시도
-            </button>
-          </div>
-        ) : (
-          <div className={`max-w-full min-w-0 ${OWNER_STORE_STACK_Y_CLASS}`}>
-            <OwnerStoreProfileForm
-              storeId={phase.row.id}
-              storeSlug={phase.row.slug}
-              row={phase.row}
-              onSaved={() => void load()}
-            />
-          </div>
-        )}
+        <OwnerStorePagePhaseGate phase={toGatePhase(phase)} onRetry={() => void load()}>
+          {phase.kind === "ok" ? (
+            <div className={`max-w-full min-w-0 ${OWNER_STORE_STACK_Y_CLASS}`}>
+              <OwnerStoreProfileForm
+                storeId={phase.row.id}
+                storeSlug={phase.row.slug}
+                row={phase.row}
+                onSaved={() => void load()}
+              />
+            </div>
+          ) : null}
+        </OwnerStorePagePhaseGate>
       </div>
     </div>
   );
@@ -117,7 +97,7 @@ export default function MyBusinessProfilePage() {
     <Suspense
       fallback={
         <div className="max-w-full overflow-x-hidden py-4">
-          <p className="sam-text-body text-sam-muted">불러오는 중…</p>
+          <OwnerStoreSuspenseFallback />
         </div>
       }
     >

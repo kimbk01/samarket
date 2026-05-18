@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useEffect, useMemo, useState } from "react";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
@@ -114,7 +115,7 @@ export function TradePostAdApplySheet({
     >
       <div className="w-full max-w-xl rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-4 pb-6 pt-4 shadow-2xl">
         <div className="mb-2 flex items-center justify-between">
-          <h2 className="sam-text-body-lg font-semibold text-sam-fg">유료 광고 신청</h2>
+          <h2 className="sam-text-body-lg font-semibold text-sam-fg">{t("ui_post_paid_ad_apply_title")}</h2>
           <button
             type="button"
             onClick={onClose}
@@ -125,7 +126,7 @@ export function TradePostAdApplySheet({
         </div>
 
         {loading ? (
-          <p className="py-8 text-center sam-text-body-secondary text-sam-muted">불러오는 중…</p>
+          <p className="py-8 text-center sam-text-body-secondary text-sam-muted">{t("common_loading")}</p>
         ) : (
           <>
             {err ? (
@@ -145,7 +146,7 @@ export function TradePostAdApplySheet({
               </ul>
             ) : null}
             {products.length === 0 ? (
-              <p className="py-8 text-center sam-text-body-secondary text-sam-muted">신청 가능한 광고 상품이 없습니다.</p>
+              <p className="py-8 text-center sam-text-body-secondary text-sam-muted">{t("ui_post_paid_ad_empty_products")}</p>
             ) : (
               <div className="space-y-2">
                 {products.map((p) => {
@@ -171,7 +172,7 @@ export function TradePostAdApplySheet({
                             onClick={() => void apply(p.id)}
                             className="mt-2 rounded-ui-rect bg-sam-ink px-3 py-1.5 sam-text-helper font-semibold text-white disabled:opacity-40"
                           >
-                            {submittingId === p.id ? "처리 중…" : "신청"}
+                            {submittingId === p.id ? t("community_meeting_join_processing") : t("community_comment_submit")}
                           </button>
                         </div>
                       </div>
@@ -182,7 +183,7 @@ export function TradePostAdApplySheet({
                       ) : null}
                       {Array.isArray(p.checks) && p.checks.length > 0 ? (
                         <div className="mt-2 rounded-ui-rect bg-sam-app px-2 py-2 sam-text-xxs">
-                          <p className="mb-1 font-semibold text-sam-fg">신청 체크리스트</p>
+                          <p className="mb-1 font-semibold text-sam-fg">{t("ui_post_paid_ad_checklist")}</p>
                           <ul className="space-y-1 text-sam-muted">
                             {p.checks.map((c) => (
                               <li key={c.key} className={c.pass ? "text-emerald-700" : "text-red-700"}>

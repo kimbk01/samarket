@@ -5,7 +5,7 @@ import { OpsDocumentForm } from "@/components/admin/ops-docs/OpsDocumentForm";
 export default function OpsDocCreatePage() {
   return (
     <>
-      <AdminPageHeader title="문서 생성" backHref="/admin/ops-docs" />
+      <AdminPageHeader titleKey="admin_page_ops_doc_create" backHref="/admin/ops-docs" />
       <AdminCard>
         <OpsDocumentForm />
       </AdminCard>

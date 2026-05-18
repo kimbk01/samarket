@@ -2,11 +2,19 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { AdminBoardRow } from "@/lib/admin-boards/getBoardsFromDb";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminBoardCreateForm } from "@/components/admin/boards/AdminBoardCreateForm";
 
+const BOARD_LIST_ERROR_KEYS: Record<string, MessageKey> = {
+  supabase_unconfigured: "admin_board_err_supabase",
+  forbidden: "admin_board_err_forbidden",
+};
+
 export function AdminBoardsPage() {
+  const { t } = useI18n();
   const [boards, setBoards] = useState<AdminBoardRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
@@ -24,19 +32,18 @@ export function AdminBoardsPage() {
       };
       if (!res.ok || !j.ok) {
         setBoards([]);
+        const errKey = j.error ? BOARD_LIST_ERROR_KEYS[j.error] : undefined;
         setListError(
-          j.error === "supabase_unconfigured"
-            ? "Supabase 서비스 키가 없어 목록을 불러올 수 없습니다. Vercel 환경변수(SUPABASE_SERVICE_ROLE_KEY 등)를 확인하세요."
-            : j.error === "forbidden"
-              ? "관리자만 볼 수 있습니다."
-              : (j.error ?? `목록을 불러오지 못했습니다. (${res.status})`)
+          errKey
+            ? t(errKey)
+            : j.error ?? t("admin_board_err_list_status", { status: String(res.status) })
         );
         return;
       }
       setBoards(Array.isArray(j.boards) ? j.boards : []);
     } catch {
       setBoards([]);
-      setListError("목록 요청에 실패했습니다.");
+      setListError(t("admin_board_err_list_request"));
     } finally {
       setLoading(false);
     }
@@ -49,14 +56,14 @@ export function AdminBoardsPage() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <AdminPageHeader title="게시판 관리" />
+        <AdminPageHeader titleKey="admin_board_page_title" />
         <button
           type="button"
           disabled={loading}
           onClick={() => setCreateOpen(true)}
           className="shrink-0 rounded-ui-rect bg-signature px-4 py-2 sam-text-body font-medium text-white hover:bg-signature/90 disabled:opacity-50"
         >
-          게시판 추가
+          {t("admin_board_add_btn")}
         </button>
       </div>
 
@@ -68,24 +75,23 @@ export function AdminBoardsPage() {
 
       {loading ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          불러오는 중…
+          {t("admin_board_loading")}
         </div>
       ) : boards.length === 0 && !listError ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          등록된 게시판이 없습니다. 상단 <strong className="text-sam-fg">게시판 추가</strong>로 생성하거나, DB에 services·boards 데이터를
-          넣을 수 있습니다.
+          {t("admin_board_empty_hint")}
         </div>
       ) : boards.length === 0 ? null : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
           <table className="w-full min-w-[640px] border-collapse sam-text-body">
             <thead>
               <tr className="border-b border-sam-border bg-sam-app">
-                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">서비스</th>
-                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">이름</th>
-                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">slug</th>
-                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">스킨/폼</th>
-                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">노출</th>
-                <th className="px-3 py-2.5 text-right font-medium text-sam-fg">웹 보기</th>
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_board_th_service")}</th>
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_board_th_name")}</th>
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_board_th_slug")}</th>
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_board_th_skin_form")}</th>
+                <th className="px-3 py-2.5 text-left font-medium text-sam-fg">{t("admin_board_th_visibility")}</th>
+                <th className="px-3 py-2.5 text-right font-medium text-sam-fg">{t("admin_board_th_web")}</th>
               </tr>
             </thead>
             <tbody>
@@ -105,7 +111,7 @@ export function AdminBoardsPage() {
                         b.is_active ? "bg-green-50 text-green-800" : "bg-sam-surface-muted text-sam-muted"
                       }`}
                     >
-                      {b.is_active ? "노출" : "숨김"}
+                      {b.is_active ? t("admin_board_visible") : t("admin_board_hidden")}
                     </span>
                   </td>
                   <td className="px-3 py-2.5 text-right">
@@ -113,7 +119,7 @@ export function AdminBoardsPage() {
                       href="/community"
                       className="text-signature hover:underline"
                     >
-                      웹에서 보기
+                      {t("admin_board_view_on_web")}
                     </Link>
                   </td>
                 </tr>

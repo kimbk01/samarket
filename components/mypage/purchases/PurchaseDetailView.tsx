@@ -20,7 +20,7 @@ import { PurchaseReviewSheet } from "./PurchaseReviewSheet";
 import { BuyerReviewReadSheet } from "./BuyerReviewReadSheet";
 import type { PurchaseHistoryRow } from "./PurchaseHistoryCard";
 import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
-import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type DetailPayload = PurchaseHistoryRow & {
   reviewDeadlineAt?: string | null;
@@ -34,6 +34,7 @@ export function PurchaseDetailView({
   /** 목록으로 링크 (`/mypage/purchases`) */
   purchasesListPath?: string;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const currency = getAppSettings().defaultCurrency ?? "KRW";
   const [row, setRow] = useState<DetailPayload | null>(null);
@@ -83,14 +84,14 @@ export function PurchaseDetailView({
   const viewerId = getCurrentUser()?.id?.trim() ?? "";
 
   if (loading) {
-    return <p className="py-16 text-center sam-text-body text-sam-muted">불러오는 중…</p>;
+    return <p className="py-16 text-center sam-text-body text-sam-muted">{t("mypage_comp_loading_short")}</p>;
   }
   if (!row || !viewerId) {
     return (
       <div className="py-16 text-center">
-        <p className="sam-text-body text-sam-muted">내역을 찾을 수 없어요.</p>
+        <p className="sam-text-body text-sam-muted">{t("mypage_comp_purchase_not_found")}</p>
         <Link href={purchasesListPath} className="mt-4 inline-block sam-text-body text-signature underline">
-          목록으로
+          {t("mypage_comp_purchase_back_to_list")}
         </Link>
       </div>
     );
@@ -133,42 +134,44 @@ export function PurchaseDetailView({
     <div className="space-y-4 pb-28">
       <section className="overflow-hidden rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
         <div className="flex gap-3">
-          <SamarketThumbnail
-            src={row.thumbnail}
-            size={80}
-            roundedClassName="rounded-ui-rect"
-            className="bg-sam-surface-muted"
-          />
+          <div className="h-20 w-20 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
+            {row.thumbnail ? (
+              <img src={row.thumbnail} alt="" className="h-full w-full object-cover" />
+            ) : null}
+          </div>
           <div className="min-w-0 flex-1">
-            <h2 className="sam-text-body-lg font-semibold text-sam-fg">{row.title || "상품"}</h2>
+            <h2 className="sam-text-body-lg font-semibold text-sam-fg">{row.title || t("mypage_comp_image_placeholder")}</h2>
             <p className="mt-1 sam-text-section-title font-bold">{formatPrice(row.price, currency)}</p>
-            <p className="mt-1 sam-text-body-secondary text-sam-muted">판매자 {row.sellerNickname || "—"}</p>
+            <p className="mt-1 sam-text-body-secondary text-sam-muted">{t("mypage_comp_purchase_seller_line", { name: row.sellerNickname || "—" })}</p>
             <div className="mt-2 flex flex-wrap gap-1">
               <span className="rounded-ui-rect bg-amber-50 px-2 py-0.5 sam-text-xxs font-medium text-amber-900">
-                상품 · {productBadge}
+                {t("mypage_comp_order_items_heading")} · {productBadge}
               </span>
               <span className="rounded-ui-rect bg-sam-surface-muted px-2 py-0.5 sam-text-xxs font-medium text-sam-fg">
-                진행 · {tradeBadge}
+                {t("mypage_comp_timeline_section")} · {tradeBadge}
               </span>
               <span className="rounded-ui-rect bg-signature/5 px-2 py-0.5 sam-text-xxs font-medium text-sam-fg">
-                후기 · {reviewBadge}
+                {t("mypage_comp_nav_sec_trade_reviews_label")} · {reviewBadge}
               </span>
             </div>
           </div>
         </div>
         <div className="mt-3 rounded-ui-rect border border-sam-border bg-signature/5/80 px-3 py-3">
-          <p className="sam-text-xxs font-semibold uppercase tracking-[0.08em] text-signature">구매 맥락</p>
+          <p className="sam-text-xxs font-semibold uppercase tracking-[0.08em] text-signature">{t("mypage_comp_purchase_context_heading")}</p>
           <p className="mt-1 sam-text-body-secondary leading-relaxed text-sam-fg">
-            거래 진행 상태는 이 내역에서 먼저 확인하고, 가격·약속·거래완료 조율은 관련 채팅으로 다시 돌아가 이어서
-            진행하세요.
+            {t("mypage_comp_purchase_context_body")}
           </p>
         </div>
         {flow === "seller_marked_done" ? (
           <>
             <p className="mt-3 rounded-ui-rect bg-signature/5 px-3 py-2.5 sam-text-helper leading-snug text-sam-fg">
-              판매자가 <strong className="font-semibold">거래완료</strong>를 처리했어요. 물품을 받았다면 아래{" "}
-              <strong className="font-semibold">거래완료 확인</strong>을 눌러 마무리한 뒤,{" "}
-              <strong className="font-semibold">평가·후기</strong> 단계로 넘어가요.
+              {t("mypage_comp_purchase_seller_done_p1")}
+              <strong className="font-semibold">{t("mypage_comp_purchase_trade_complete")}</strong>
+              {t("mypage_comp_purchase_seller_done_p2")}
+              <strong className="font-semibold">{t("mypage_comp_purchase_buyer_confirm")}</strong>
+              {t("mypage_comp_purchase_seller_done_p3")}
+              <strong className="font-semibold">{t("mypage_comp_purchase_review_step")}</strong>
+              {t("mypage_comp_purchase_seller_done_p4")}
             </p>
             <div className="mt-3 flex flex-col gap-2">
               <button
@@ -177,7 +180,7 @@ export function PurchaseDetailView({
                 onClick={() => post(`${base}/buyer-confirm`)}
                 className="w-full rounded-ui-rect bg-signature py-3 text-center sam-text-body font-medium text-white disabled:opacity-50"
               >
-                {busy?.endsWith("/buyer-confirm") ? "처리 중…" : "거래완료 확인"}
+                {busy?.endsWith("/buyer-confirm") ? t("mypage_comp_processing") : t("mypage_comp_purchase_buyer_confirm")}
               </button>
               <button
                 type="button"
@@ -185,14 +188,14 @@ export function PurchaseDetailView({
                 onClick={() => post(`${base}/buyer-issue`)}
                 className="w-full rounded-ui-rect border border-sam-border bg-sam-surface py-2.5 sam-text-body font-medium text-sam-fg disabled:opacity-50"
               >
-                {busy?.endsWith("/buyer-issue") ? "처리 중…" : "문제 신고"}
+                {busy?.endsWith("/buyer-issue") ? t("mypage_comp_processing") : t("mypage_comp_report_problem")}
               </button>
             </div>
             <Link
               href={chatHref}
               className="mt-3 block w-full rounded-ui-rect border border-sam-border bg-signature/5 py-3 text-center sam-text-body font-medium text-sam-fg"
             >
-              관련 채팅으로 돌아가기
+              {t("mypage_comp_order_chat_revisit")}
             </Link>
           </>
         ) : (
@@ -200,54 +203,55 @@ export function PurchaseDetailView({
             href={chatHref}
             className="mt-4 block w-full rounded-ui-rect bg-signature py-3 text-center sam-text-body font-medium text-white"
           >
-            관련 채팅으로 돌아가기
+            {t("mypage_comp_order_chat_revisit")}
           </Link>
         )}
         {showReview && !row.hasBuyerReview && flow !== "seller_marked_done" ? (
           <div className="mt-4 rounded-ui-rect border border-sam-border bg-signature/10 p-3">
             <p className="sam-text-helper leading-snug text-sam-fg">
-              거래완료 확인이 완료되었어요. 채팅 내용을 다시 확인할 필요가 없다면 아래에서{" "}
-              <strong className="font-semibold">평가·후기</strong>를 작성해 주세요.
+              {t("mypage_comp_purchase_review_prompt_p1")}
+              <strong className="font-semibold">{t("mypage_comp_purchase_review_step")}</strong>
+              {t("mypage_comp_purchase_review_prompt_p2")}
             </p>
             <button
               type="button"
               onClick={() => setReviewOpen(true)}
               className="mt-2 w-full rounded-ui-rect bg-signature py-3 text-center sam-text-body font-medium text-white"
             >
-              평가·후기 보내기
+              {t("mypage_comp_purchase_send_review")}
             </button>
           </div>
         ) : null}
       </section>
 
       <section className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
-        <h3 className="sam-text-body font-semibold text-sam-fg">거래 상태</h3>
+        <h3 className="sam-text-body font-semibold text-sam-fg">{t("mypage_comp_purchase_trade_status_heading")}</h3>
         <ul className="mt-3 space-y-3 border-l-2 border-sam-border pl-4">
           <TimelineItem
             done={!!row.createdAt}
-            label="채팅 시작"
+            label={t("mypage_comp_purchase_timeline_chat_started")}
             sub={formatTradeListDatetime(row.createdAt)}
           />
           <TimelineItem
             done={!!row.sellerCompletedAt || flow !== "chatting"}
-            label="판매자 거래완료 처리"
-            sub={row.sellerCompletedAt ? formatTradeListDatetime(row.sellerCompletedAt) : "대기 중"}
+            label={t("mypage_comp_purchase_timeline_seller_done")}
+            sub={row.sellerCompletedAt ? formatTradeListDatetime(row.sellerCompletedAt) : t("mypage_comp_purchase_waiting")}
           />
           <TimelineItem
             done={!!row.buyerConfirmedAt || ["buyer_confirmed", "review_pending", "review_completed"].includes(flow)}
-            label="거래완료 확인"
-            sub={row.buyerConfirmedAt ? formatTradeListDatetime(row.buyerConfirmedAt) : "대기 중"}
+            label={t("mypage_comp_purchase_buyer_confirm")}
+            sub={row.buyerConfirmedAt ? formatTradeListDatetime(row.buyerConfirmedAt) : t("mypage_comp_purchase_waiting")}
           />
           <TimelineItem
             done={row.hasBuyerReview || flow === "review_completed"}
             label={
-              row.hasBuyerReview || flow === "review_completed" ? "평가·후기 완료" : "평가·후기"
+              row.hasBuyerReview || flow === "review_completed" ? t("mypage_comp_purchase_review_done") : t("mypage_comp_purchase_review_step")
             }
             sub={
               row.hasBuyerReview || flow === "review_completed"
-                ? "완료"
+                ? t("mypage_comp_purchase_done")
                 : showReview
-                  ? "작성 가능"
+                  ? t("mypage_comp_purchase_writable")
                   : "—"
             }
           />
@@ -259,26 +263,26 @@ export function PurchaseDetailView({
           {flow === "seller_marked_done" ? (
             <>
               <ActionBtn onClick={() => post(`${base}/buyer-confirm`)} disabled={!!busy}>
-                {busy?.endsWith("/buyer-confirm") ? "처리 중…" : "거래완료 확인"}
+                {busy?.endsWith("/buyer-confirm") ? t("mypage_comp_processing") : t("mypage_comp_purchase_buyer_confirm")}
               </ActionBtn>
               <ActionBtn outline onClick={() => post(`${base}/buyer-issue`)} disabled={!!busy}>
-                문제 신고
+                {t("mypage_comp_report_problem")}
               </ActionBtn>
             </>
           ) : null}
           {showReview ? (
-            <ActionBtn onClick={() => setReviewOpen(true)}>평가·후기 보내기</ActionBtn>
+            <ActionBtn onClick={() => setReviewOpen(true)}>{t("mypage_comp_purchase_send_review")}</ActionBtn>
           ) : null}
           {row.hasBuyerReview ? (
             <ActionBtn outline onClick={() => setReadOpen(true)}>
-              내가 남긴 평가·후기 보기
+              {t("mypage_comp_purchase_my_review_view")}
             </ActionBtn>
           ) : null}
           <ActionBtn outline onClick={() => router.push(chatHref)}>
-            관련 채팅 보기
+            {t("mypage_comp_order_chat_view")}
           </ActionBtn>
           <ActionBtn outline onClick={() => setReportOpen(true)}>
-            거래 정보 · 신고
+            {t("mypage_comp_purchase_trade_info_report")}
           </ActionBtn>
         </div>
       </div>
@@ -288,7 +292,7 @@ export function PurchaseDetailView({
           chatId={row.chatId}
           postId={row.postId}
           sellerId={row.sellerId}
-          sellerNickname={row.sellerNickname || "판매자"}
+          sellerNickname={row.sellerNickname || t("mypage_comp_actor_owner")}
           productTitle={row.title}
           thumbnail={row.thumbnail}
           onClose={() => setReviewOpen(false)}

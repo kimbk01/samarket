@@ -22,7 +22,7 @@ import { getCurrentUserIdForDb } from "@/lib/auth/get-current-user";
 import { TEST_AUTH_CHANGED_EVENT } from "@/lib/auth/test-auth-store";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getAppSettings } from "@/lib/app-settings";
-import { TRADE_SKIN_LABELS } from "@/lib/types/category";
+import { TRADE_SKIN_MESSAGE_KEYS } from "@/lib/types/category-label-i18n";
 import { resolveJobDetailDirection } from "@/lib/jobs/resolve-job-detail-direction";
 import { JobDetailHeader } from "@/components/jobs/JobDetailHeader";
 import { JobDetailContextNote } from "@/components/jobs/JobDetailContextNote";
@@ -48,6 +48,8 @@ import {
 import { TradeListingStatusBadge } from "@/components/post/TradeListingStatusBadge";
 import { getCarTradeLabelKo } from "@/lib/posts/car-trade-label";
 import { labelForUsedCarBodyTypeKey } from "@/lib/trade/used-car-form-catalog";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { shouldBlockNewItemChatForBuyer } from "@/lib/trade/reserved-item-chat";
 import { POST_DETAIL_SELLER_ANCHOR_ID } from "@/lib/posts/post-detail-anchors";
 import {
@@ -137,31 +139,38 @@ function stripUsedCarTradeDirectionFromDetailTitle(title: string): string {
   return stripped || t;
 }
 
-const META_LABELS: Record<string, Record<string, string>> = {
+const META_LABEL_KEYS: Record<string, Record<string, MessageKey>> = {
   "real-estate": {
-    neighborhood: "동네",
-    building_name: "건물명",
-    estate_type: "타입",
-    deal_type: "거래유형",
-    deposit: "보증금",
-    monthly: "월세",
-    management_fee: "관리비",
-    size_sq: "크기(sq)",
-    room_count: "방수",
-    bathroom_count: "욕실수",
-    move_in_date: "입주 가능일",
+    neighborhood: "ui_meta_neighborhood",
+    building_name: "ui_meta_building_name",
+    estate_type: "ui_meta_estate_type",
+    deal_type: "ui_meta_deal_type",
+    deposit: "ui_meta_deposit",
+    monthly: "ui_meta_monthly",
+    management_fee: "ui_meta_management_fee",
+    size_sq: "ui_meta_size_sq",
+    room_count: "ui_meta_room_count",
+    bathroom_count: "ui_meta_bathroom_count",
+    move_in_date: "ui_meta_move_in_date",
   },
   "used-car": {
-    car_trade: "구분",
-    car_body_type: "차량 유형",
-    car_model: "차종",
-    car_year: "연식",
-    car_year_max: "년식 (이하)",
-    mileage: "주행거리(km)",
-    has_accident: "사고 유무",
+    car_trade: "ui_meta_car_trade",
+    car_body_type: "ui_meta_car_body_type",
+    car_model: "ui_meta_car_model",
+    car_year: "ui_meta_car_year",
+    car_year_max: "ui_meta_car_year_max",
+    mileage: "ui_meta_mileage",
+    has_accident: "ui_meta_has_accident",
   },
-  jobs: { salary: "급여", work_place: "근무지", work_type: "근무형태" },
-  exchange: { currency: "통화", exchange_rate: "환율/비고" },
+  jobs: {
+    salary: "ui_meta_jobs_salary",
+    work_place: "ui_meta_jobs_work_place",
+    work_type: "ui_meta_jobs_work_type",
+  },
+  exchange: {
+    currency: "ui_meta_exchange_currency",
+    exchange_rate: "ui_meta_exchange_rate",
+  },
 };
 
 function hasJobsMeta(meta: Record<string, unknown>): boolean {
@@ -195,7 +204,9 @@ function ExchangeMetaBlock({
   amount?: number | null;
   currency: string;
 }) {
-  const direction = (meta.exchange_direction as string) === "buy" ? "삽니다" : "팝니다";
+  const { t } = useI18n();
+  const direction =
+    (meta.exchange_direction as string) === "buy" ? t("trade_071") : t("trade_126");
   const rateBaseRaw = meta.exchange_rate_base != null ? Number(meta.exchange_rate_base) : null;
   const ratePlus = meta.exchange_rate_plus != null ? Number(meta.exchange_rate_plus) : null;
   const rateSum = meta.exchange_rate != null ? Number(meta.exchange_rate) : null;
@@ -215,27 +226,38 @@ function ExchangeMetaBlock({
       : null;
 
   const rows: { label: string; value: React.ReactNode }[] = [];
-  rows.push({ label: "거래", value: direction });
-  if (rateCriteriaAt) rows.push({ label: "기준", value: `${rateCriteriaAt} 기준 환율` });
-  rows.push({ label: "보유 화폐", value: `PHP ${CURRENCY_SYMBOLS.PHP ?? ""}` });
-  rows.push({ label: "받을 화폐", value: `KRW ${CURRENCY_SYMBOLS.KRW ?? ""}` });
-  if (rateDisplay) rows.push({ label: "환율", value: rateDisplay });
+  rows.push({ label: t("ui_exchange_trade"), value: direction });
+  if (rateCriteriaAt)
+    rows.push({
+      label: t("ui_exchange_criteria"),
+      value: t("ui_exchange_criteria_rate", { date: rateCriteriaAt }),
+    });
+  rows.push({ label: t("ui_exchange_hold_currency"), value: `PHP ${CURRENCY_SYMBOLS.PHP ?? ""}` });
+  rows.push({ label: t("ui_exchange_receive_currency"), value: `KRW ${CURRENCY_SYMBOLS.KRW ?? ""}` });
+  if (rateDisplay) rows.push({ label: t("ui_exchange_rate"), value: rateDisplay });
   if (amountVal != null && !Number.isNaN(amountVal)) {
-    rows.push({ label: "금액", value: `${CURRENCY_SYMBOLS.PHP ?? ""} ${amountVal.toLocaleString()}` });
+    rows.push({
+      label: t("ui_exchange_amount"),
+      value: `${CURRENCY_SYMBOLS.PHP ?? ""} ${amountVal.toLocaleString()}`,
+    });
   }
-  if (converted != null && !Number.isNaN(converted)) rows.push({ label: "환산", value: `${CURRENCY_SYMBOLS.KRW ?? ""} ${converted.toLocaleString()}` });
-  if (direction === "삽니다") {
-    rows.push({ label: "판매자 준비물", value: sellerPrepStr || "—" });
-    rows.push({ label: "구매자 준비물", value: buyerPrepStr || "—" });
+  if (converted != null && !Number.isNaN(converted))
+    rows.push({
+      label: t("ui_exchange_converted"),
+      value: `${CURRENCY_SYMBOLS.KRW ?? ""} ${converted.toLocaleString()}`,
+    });
+  if ((meta.exchange_direction as string) === "buy") {
+    rows.push({ label: t("ui_exchange_seller_prep"), value: sellerPrepStr || "—" });
+    rows.push({ label: t("ui_exchange_buyer_prep"), value: buyerPrepStr || "—" });
   } else {
-    rows.push({ label: "구매자 준비물", value: buyerPrepStr || "—" });
+    rows.push({ label: t("ui_exchange_buyer_prep"), value: buyerPrepStr || "—" });
   }
 
   if (rows.length === 0) return null;
 
   return (
     <>
-      <h3 className={TRADE_WRITE_FB_BLOCK_TITLE}>환전 정보</h3>
+      <h3 className={TRADE_WRITE_FB_BLOCK_TITLE}>{t("trade_132")}</h3>
       <dl className="mt-2 space-y-2 text-[15px] leading-snug">
         {rows.map(({ label, value }) => (
           <div key={label} className={`${TRADE_FB_DETAIL_META_ROW} items-center`}>
@@ -257,46 +279,51 @@ function UsedCarMetaBlock({
   salePrice?: number | null;
   currency?: string;
 }) {
+  const { t } = useI18n();
   const rows: { label: string; value: string }[] = [];
   const ct = meta.car_trade;
   if (ct === "buy" || ct === "sell")
-    rows.push({ label: "구분", value: ct === "buy" ? "삽니다" : "팝니다" });
+    rows.push({
+      label: t("ui_meta_car_trade"),
+      value: ct === "buy" ? t("trade_071") : t("trade_126"),
+    });
   if (ct === "buy") {
     if (meta.car_body_type != null && String(meta.car_body_type).trim())
       rows.push({
-        label: "차량 유형",
-        value: labelForUsedCarBodyTypeKey(String(meta.car_body_type).trim()),
+        label: t("ui_meta_car_body_type"),
+        value: labelForUsedCarBodyTypeKey(String(meta.car_body_type).trim(), t),
       });
     if (meta.car_model != null && String(meta.car_model).trim())
-      rows.push({ label: "희망 모델", value: String(meta.car_model).trim() });
+      rows.push({ label: t("ui_meta_car_model_wish"), value: String(meta.car_model).trim() });
     if (meta.car_year_max != null && String(meta.car_year_max).trim())
       rows.push({
-        label: "년식 (이하)",
-        value: `${String(meta.car_year_max).trim()} 이하`,
+        label: t("ui_meta_car_year_max"),
+        value: t("ui_meta_year_suffix", { year: String(meta.car_year_max).trim() }),
       });
     if (salePrice != null && currency)
       rows.push({
-        label: "희망 금액 (이하)",
-        value: `${formatPrice(salePrice, currency)} 이하`,
+        label: t("ui_meta_price_max"),
+        value: t("ui_meta_year_suffix", { year: formatPrice(salePrice, currency) }),
       });
   } else {
-    if (salePrice != null && currency) rows.push({ label: "가격", value: formatPrice(salePrice, currency) });
+    if (salePrice != null && currency)
+      rows.push({ label: t("ui_meta_price"), value: formatPrice(salePrice, currency) });
     if (meta.car_model != null && String(meta.car_model).trim())
-      rows.push({ label: "차종", value: String(meta.car_model).trim() });
+      rows.push({ label: t("ui_meta_car_model"), value: String(meta.car_model).trim() });
     if (typeof meta.has_accident === "boolean")
       rows.push({
-        label: "사고 유무",
-        value: meta.has_accident ? "사고 이력 있음" : "무사고",
+        label: t("ui_meta_has_accident"),
+        value: meta.has_accident ? t("ui_car_accident_yes") : t("ui_car_accident_no"),
       });
     if (meta.car_year != null && String(meta.car_year).trim())
-      rows.push({ label: "연식", value: String(meta.car_year).trim() });
+      rows.push({ label: t("ui_meta_car_year"), value: String(meta.car_year).trim() });
     if (meta.mileage != null && String(meta.mileage).trim())
-      rows.push({ label: "주행거리(km)", value: String(meta.mileage).trim() });
+      rows.push({ label: t("ui_meta_mileage"), value: String(meta.mileage).trim() });
   }
   if (rows.length === 0) return null;
   return (
     <>
-      <h3 className={TRADE_WRITE_FB_BLOCK_TITLE}>차량 정보</h3>
+      <h3 className={TRADE_WRITE_FB_BLOCK_TITLE}>{t("trade_112")}</h3>
       <dl className="mt-2 space-y-2 text-[15px] leading-snug">
         {rows.map(({ label, value }) => (
           <div key={label} className={TRADE_FB_DETAIL_META_ROW}>
@@ -334,50 +361,54 @@ function RealEstateMetaBlock({
   cityId?: string | null;
   detailHeroDedup?: boolean;
 }) {
+  const { t } = useI18n();
   const dealType = (meta.deal_type as string | undefined)?.trim();
   const regionLabel = regionId && cityId ? getLocationLabel(regionId, cityId) : null;
 
   const rows: { label: string; value: string }[] = [];
 
-  if (!detailHeroDedup && regionLabel) rows.push({ label: "지역", value: regionLabel });
+  if (!detailHeroDedup && regionLabel) rows.push({ label: t("ui_meta_neighborhood"), value: regionLabel });
   if (!detailHeroDedup && meta.neighborhood != null && String(meta.neighborhood).trim())
-    rows.push({ label: "지역 세부", value: String(meta.neighborhood).trim() });
+    rows.push({ label: t("ui_meta_neighborhood"), value: String(meta.neighborhood).trim() });
   if (!detailHeroDedup && meta.building_name != null && String(meta.building_name).trim())
-    rows.push({ label: "건물명", value: String(meta.building_name).trim() });
+    rows.push({ label: t("ui_meta_building_name"), value: String(meta.building_name).trim() });
   if (!detailHeroDedup && meta.estate_type != null && String(meta.estate_type).trim())
-    rows.push({ label: "타입", value: String(meta.estate_type).trim() });
+    rows.push({ label: t("ui_meta_estate_type"), value: String(meta.estate_type).trim() });
   if (!detailHeroDedup && meta.deal_type != null && String(meta.deal_type).trim())
-    rows.push({ label: "거래유형", value: String(meta.deal_type).trim() });
+    rows.push({ label: t("ui_meta_deal_type"), value: String(meta.deal_type).trim() });
 
   if (!detailHeroDedup && dealType === "판매" && salePrice != null)
-    rows.push({ label: "판매가", value: formatPrice(salePrice, currency) });
+    rows.push({ label: t("ui_meta_price"), value: formatPrice(salePrice, currency) });
   if (!detailHeroDedup && dealType === "임대") {
     if (meta.deposit != null && String(meta.deposit).trim())
-      rows.push({ label: "보증금", value: formatPrice(parseMetaAmount(meta.deposit), currency) });
+      rows.push({ label: t("ui_meta_deposit"), value: formatPrice(parseMetaAmount(meta.deposit), currency) });
     if (meta.monthly != null && String(meta.monthly).trim())
-      rows.push({ label: "월세", value: formatPrice(parseMetaAmount(meta.monthly), currency) });
+      rows.push({ label: t("ui_meta_monthly"), value: formatPrice(parseMetaAmount(meta.monthly), currency) });
   }
   if (dealType === "임대") {
     if (meta.management_fee != null && String(meta.management_fee).trim())
-      rows.push({ label: "관리비", value: formatPrice(parseMetaAmount(meta.management_fee), currency) });
-    if (meta.has_premium === true)
-      rows.push({ label: "권리금", value: "있음" });
+      rows.push({
+        label: t("ui_meta_management_fee"),
+        value: formatPrice(parseMetaAmount(meta.management_fee), currency),
+      });
+    if (meta.has_premium === true) rows.push({ label: t("ui_meta_deposit"), value: "—" });
   }
 
   const sizeSq = meta.size_sq ?? meta.area_sqm;
-  if (sizeSq != null && String(sizeSq).trim()) rows.push({ label: "크기(sq)", value: String(sizeSq) });
+  if (sizeSq != null && String(sizeSq).trim())
+    rows.push({ label: t("ui_meta_size_sq"), value: String(sizeSq) });
   if (meta.room_count != null && String(meta.room_count).trim())
-    rows.push({ label: "방수", value: String(meta.room_count) });
+    rows.push({ label: t("ui_meta_room_count"), value: String(meta.room_count) });
   if (meta.bathroom_count != null && String(meta.bathroom_count).trim())
-    rows.push({ label: "욕실수", value: String(meta.bathroom_count) });
+    rows.push({ label: t("ui_meta_bathroom_count"), value: String(meta.bathroom_count) });
   if (meta.move_in_date != null && String(meta.move_in_date).trim())
-    rows.push({ label: "입주 가능일", value: formatMoveInDate(String(meta.move_in_date)) });
+    rows.push({ label: t("ui_meta_move_in_date"), value: formatMoveInDate(String(meta.move_in_date)) });
 
   if (rows.length === 0) return null;
 
   return (
     <div className="mt-3 border-t border-[#e4e6eb] pt-3">
-      <h3 className={TRADE_WRITE_FB_BLOCK_TITLE}>부동산 정보</h3>
+      <h3 className={TRADE_WRITE_FB_BLOCK_TITLE}>{t("ui_post_real_estate_info")}</h3>
       <dl className="mt-2 space-y-2 text-[15px] leading-snug">
         {rows.map(({ label, value }) => (
           <div key={label} className={TRADE_FB_DETAIL_META_ROW}>
@@ -403,6 +434,7 @@ function TradeMetaBlock({
   post?: { price?: number | null; region?: string | null; city?: string | null };
   defaultCurrency?: string;
 }) {
+  const { t } = useI18n();
   if (skinKey === "real-estate") {
     return (
       <RealEstateMetaBlock
@@ -414,15 +446,20 @@ function TradeMetaBlock({
       />
     );
   }
-  const labels = META_LABELS[skinKey];
-  if (!labels || Object.keys(meta).length === 0) return null;
+  const labelKeys = META_LABEL_KEYS[skinKey];
+  if (!labelKeys || Object.keys(meta).length === 0) return null;
   const entries = Object.entries(meta)
     .filter(([, v]) => v != null && String(v).trim() !== "")
-    .map(([k, v]) => [k, labels[k] ?? k, String(v)]);
+    .map(([k, v]) => {
+      const key = labelKeys[k];
+      return [k, key ? t(key) : k, String(v)] as const;
+    });
   if (entries.length === 0) return null;
   return (
     <>
-      <h3 className={TRADE_WRITE_FB_BLOCK_TITLE}>{TRADE_SKIN_LABELS[skinKey] ?? skinKey}</h3>
+      <h3 className={TRADE_WRITE_FB_BLOCK_TITLE}>
+        {TRADE_SKIN_MESSAGE_KEYS[skinKey] ? t(TRADE_SKIN_MESSAGE_KEYS[skinKey]) : skinKey}
+      </h3>
       <dl className="mt-2 space-y-2 text-[15px] leading-snug">
         {entries.map(([key, label, value]) => (
           <div key={key} className={TRADE_FB_DETAIL_META_ROW}>
@@ -559,9 +596,9 @@ function TradePostDetailActionBar({
   onSellerOffersOpen: () => void;
   onTradeAdOpen: () => void;
 }) {
+  const { t } = useI18n();
   return (
-    <div data-post-detail-action-bar="true" className={`${TRADE_POST_DETAIL_BOTTOM_SHELL} z-30`}>
-      {!isOwnPost ? (
+    <motion.div data-post-detail-action-bar="true" className={`${TRADE_POST_DETAIL_BOTTOM_SHELL} z-30`}>
         <div className={TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW}>
           <button
             type="button"
@@ -570,7 +607,7 @@ function TradePostDetailActionBar({
             aria-label={isFavorite ? "관심 해제" : "관심"}
           >
             <span className={isFavorite ? "text-red-500" : ""}>{isFavorite ? "♥" : "♡"}</span>
-            <span className="text-[12px] font-semibold text-[#65676B]">관심</span>
+            <span className="text-[12px] font-semibold text-[#65676B]">{t("ui_fav_interest")}</span>
           </button>
           {reFooterSummary ? (
             <div className={TRADE_POST_DETAIL_BOTTOM_RE_SUMMARY}>
@@ -579,13 +616,13 @@ function TradePostDetailActionBar({
                   ? `판매가 ${reFooterSummary.priceLine}`
                   : reFooterSummary.priceLine}
               </p>
-              <p className="text-[11px] font-medium text-[#65676B]">예상 중개수수료</p>
+              <p className="text-[11px] font-medium text-[#65676B]">{t("ui_post_estimated_broker_fee")}</p>
             </div>
           ) : null}
           <div className={TRADE_POST_DETAIL_BOTTOM_ACTIONS_WRAP}>
             <div className={`${TRADE_POST_DETAIL_BOTTOM_ACTIONS_INNER} ${bottomActionsRowClass}`}>
               {buyerPriceOfferFlowActive && buyerOfferListHydrating ? (
-                <div className={TRADE_POST_DETAIL_BOTTOM_LOADING_PLACEHOLDER}>제안 상태 확인 중…</div>
+                <div className={TRADE_POST_DETAIL_BOTTOM_LOADING_PLACEHOLDER}>{t("ui_post_offer_status_checking")}</div>
               ) : null}
               {buyerPriceOfferFlowActive && showBuyerOfferPendingDisabled ? (
                 <button type="button" disabled className={`${TRADE_POST_DETAIL_BOTTOM_MUTED_CTA} flex-1`}>
@@ -628,7 +665,7 @@ function TradePostDetailActionBar({
                   }
                 >
                   {jobApplyBusy
-                    ? "처리 중…"
+                    ? t("community_meeting_join_processing")
                     : jobApplyDone
                       ? chatCtaBusy
                         ? "이동 중…"
@@ -643,7 +680,7 @@ function TradePostDetailActionBar({
                   disabled={jobApplyBusy || jobApplyDone}
                   className={`${TRADE_POST_DETAIL_BOTTOM_SECONDARY_CTA} flex-1`}
                 >
-                  {jobApplyDone ? "지원 완료" : jobApplyBusy ? "처리 중…" : "지원하기"}
+                  {jobApplyDone ? "지원 완료" : jobApplyBusy ? t("community_meeting_join_processing") : "지원하기"}
                 </button>
               ) : null}
               {!buyerOfferListHydrating && !showBuyerOfferPendingDisabled && showJobSeekContactBtn ? (
@@ -730,18 +767,19 @@ function PostDetailSellerPromoButtons({
   onOpenOffers: () => void;
   onOpenAd: () => void;
 }) {
+  const { t } = useI18n();
   if (!showSellerOfferList && !canApplyTradeAd) return null;
   const btnClass = `${TRADE_POST_DETAIL_BOTTOM_SECONDARY_CTA} flex-1 px-2`;
   return (
     <div className="flex w-full gap-2 sm:gap-2.5">
       {showSellerOfferList ? (
-        <button type="button" className={btnClass} onClick={onOpenOffers} title="받은 가격 제안">
-          받은 제안
+        <button type="button" className={btnClass} onClick={onOpenOffers} title={t("ui_offer_received_title")}>
+          {t("ui_offer_received_title")}
         </button>
       ) : null}
       {canApplyTradeAd ? (
         <button type="button" className={btnClass} onClick={onOpenAd}>
-          유료 광고 신청
+          {t("ui_post_paid_ad_apply_title")}
         </button>
       ) : null}
     </div>
@@ -785,6 +823,7 @@ export function PostDetailView({
   initialSellerPriceOffers,
   initialViewerBuyerOffers,
 }: PostDetailViewProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -1040,7 +1079,7 @@ export function PostDetailView({
                 type="button"
                 onClick={() => setDetailMoreOpen(true)}
                 className="flex h-10 w-10 shrink-0 items-center justify-center text-[#111]"
-                aria-label="더보기"
+                aria-label={t("ui_product_more_aria")}
               >
                 <svg className="h-[22px] w-[22px] shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                   <circle cx="12" cy="5" r="2" />
@@ -1053,7 +1092,7 @@ export function PostDetailView({
                 type="button"
                 onClick={() => setSellerMoreOpen(true)}
                 className="flex h-10 w-10 shrink-0 items-center justify-center text-[#111]"
-                aria-label="더보기"
+                aria-label={t("ui_product_more_aria")}
               >
                 <svg className="h-[22px] w-[22px] shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
                   <circle cx="12" cy="5" r="2" />
@@ -1358,7 +1397,7 @@ export function PostDetailView({
       router.push("/my/products");
       router.refresh();
     } catch {
-      window.alert("네트워크 오류입니다.");
+      window.alert(t("mypage_comp_product_network_error_short"));
     } finally {
       setSellerSheetBusy(false);
     }
@@ -1387,7 +1426,7 @@ export function PostDetailView({
       router.push(backHref || "/my/products");
       router.refresh();
     } catch {
-      window.alert("네트워크 오류로 삭제하지 못했습니다.");
+      window.alert(t("ui_post_delete_network_error"));
     } finally {
       setSellerSheetBusy(false);
     }
@@ -1838,12 +1877,12 @@ export function PostDetailView({
           <div
             className={`mx-auto w-full ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS} rounded-t-[length:var(--ui-radius-rect)] bg-sam-surface px-4 py-4`}
           >
-            <h2 className="sam-text-body-lg font-semibold text-sam-fg">신고하기</h2>
+            <h2 className="sam-text-body-lg font-semibold text-sam-fg">{t("ui_report_submit")}</h2>
             <input
               type="text"
               value={reportReason}
               onChange={(e) => setReportReason(e.target.value)}
-              placeholder="신고 사유"
+              placeholder={t("ui_report_reason_title")}
               className="mt-3 w-full rounded-ui-rect border border-sam-border px-3 py-2 sam-text-body"
             />
             {reportError ? (
@@ -1950,7 +1989,7 @@ export function PostDetailView({
           </section>
 
           <section className={TRADE_WRITE_FB_SECTION}>
-            <h3 className={TRADE_WRITE_FB_FIELD_HEAD}>상품 설명</h3>
+            <h3 className={TRADE_WRITE_FB_FIELD_HEAD}>{t("ui_post_product_description_heading")}</h3>
             <p className={`mt-0.5 ${TRADE_FB_DETAIL_BODY}`}>{post.content || ""}</p>
             <RealEstateMetaBlock
               meta={reMeta}
@@ -2087,7 +2126,7 @@ export function PostDetailView({
                     <span className="text-5xl font-semibold leading-none">₩</span>
                   </div>
                 ) : (
-                  <span className={`py-16 ${TRADE_FB_DETAIL_PLACEHOLDER_TEXT}`}>이미지</span>
+                  <span className={`py-16 ${TRADE_FB_DETAIL_PLACEHOLDER_TEXT}`}>{t("ui_product_gallery_fallback")}</span>
                 )}
               </div>
             ) : (
@@ -2248,7 +2287,7 @@ export function PostDetailView({
                   )}
 
                 <div className={detailMetaAny ? "border-t border-[#e4e6eb] pt-3" : ""}>
-                  <h3 className={TRADE_WRITE_FB_FIELD_HEAD}>상품 설명</h3>
+                  <h3 className={TRADE_WRITE_FB_FIELD_HEAD}>{t("ui_post_product_description_heading")}</h3>
                   <p className={`mt-0.5 ${TRADE_FB_DETAIL_BODY}`}>{post.content || ""}</p>
                 </div>
               </>

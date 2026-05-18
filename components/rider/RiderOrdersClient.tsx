@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
@@ -19,6 +20,7 @@ type OrderRow = {
 };
 
 export function RiderOrdersClient() {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [riderId, setRiderId] = useState<string | null>(null);
@@ -34,12 +36,12 @@ export function RiderOrdersClient() {
       orders?: { delivery: DeliveryRow; order: OrderRow }[];
     };
     if (!r.ok || !j.ok) {
-      setErr(j.error ?? "목록 실패");
+      setErr(j.error ?? t("ui_rider_list_failed"));
       return;
     }
     setRiderId(j.rider?.id ?? null);
     setRows(Array.isArray(j.orders) ? j.orders : []);
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     let alive = true;
@@ -48,10 +50,10 @@ export function RiderOrdersClient() {
       await load();
       if (alive) setLoading(false);
     })();
-    const t = window.setInterval(() => void load(), 28_000);
+    const pollId = window.setInterval(() => void load(), 28_000);
     return () => {
       alive = false;
-      window.clearInterval(t);
+      window.clearInterval(pollId);
     };
   }, [load]);
 
@@ -93,7 +95,7 @@ export function RiderOrdersClient() {
   if (loading) {
     return (
       <div className={`${Sam.page} bg-sam-app min-h-[70vh] flex items-center justify-center text-sam-muted`}>
-        불러오는 중…
+        {t("common_loading")}
       </div>
     );
   }
@@ -101,9 +103,9 @@ export function RiderOrdersClient() {
   if (err === "rider_profile_not_found") {
     return (
       <div className={`${Sam.page} bg-sam-app min-h-[70vh] px-4 py-8`}>
-        <p className="text-sam-muted">라이더 프로필이 없습니다.</p>
+        <p className="text-sam-muted">{t("ui_rider_no_profile")}</p>
         <Link href="/rider" className={`mt-4 inline-flex ${Sam.btn.secondary}`}>
-          돌아가기
+          {t("ui_rider_go_back")}
         </Link>
       </div>
     );
@@ -121,7 +123,9 @@ export function RiderOrdersClient() {
           <span className="font-medium text-sam-fg">{no}</span>
           <span className="text-xs text-sam-muted">{item.delivery.delivery_status}</span>
         </div>
-        <p className={`mt-1 text-xs ${Sam.text.bodySecondary}`}>주문 상태: {item.order.order_status ?? "—"}</p>
+        <p className={`mt-1 text-xs ${Sam.text.bodySecondary}`}>
+          {t("ui_rider_order_status_line", { status: item.order.order_status ?? "—" })}
+        </p>
       </Link>
     );
   };
@@ -129,7 +133,9 @@ export function RiderOrdersClient() {
   const Section = ({ title, items }: { title: string; items: typeof rows }) => (
     <section className="space-y-2">
       <h2 className={Sam.text.sectionTitle}>{title}</h2>
-      {items.length === 0 ? <p className={`${Sam.text.bodySecondary} text-sm`}>없음</p> : null}
+      {items.length === 0 ? (
+        <p className={`${Sam.text.bodySecondary} text-sm`}>{t("common_none")}</p>
+      ) : null}
       <div className="space-y-2">
         {items.map((it) => (
           <OrderCard key={`${it.delivery.order_id}-${it.delivery.delivery_status}`} item={it} />
@@ -141,15 +147,15 @@ export function RiderOrdersClient() {
   return (
     <div className={`${Sam.page} bg-sam-app min-h-[70vh] px-4 py-6 max-w-lg mx-auto space-y-8`}>
       <header className="flex items-center justify-between gap-2">
-        <h1 className={Sam.text.pageTitle}>배달 주문</h1>
+        <h1 className={Sam.text.pageTitle}>{t("ui_rider_orders_title")}</h1>
         <Link href="/rider" className={`${Sam.btn.secondary} text-sm`}>
-          홈
+          {t("ui_rider_home")}
         </Link>
       </header>
       {err ? <p className="text-sm text-red-600">{err}</p> : null}
-      <Section title="대기 · 수락 필요" items={queue} />
-      <Section title="진행 중" items={active} />
-      <Section title="최근 완료" items={done} />
+      <Section title={t("ui_rider_section_queue")} items={queue} />
+      <Section title={t("ui_rider_section_active")} items={active} />
+      <Section title={t("ui_rider_section_done")} items={done} />
     </div>
   );
 }

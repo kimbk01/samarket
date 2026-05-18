@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { ExposureCandidate } from "@/lib/types/exposure";
 import type { ExposureScoreResult } from "@/lib/types/exposure";
 import { MEMBER_TYPE_LABELS } from "@/lib/member-benefits/member-benefit-utils";
@@ -15,6 +18,7 @@ export function ExposureResultDetailCard({
   result,
   onClose,
 }: ExposureResultDetailCardProps) {
+  const { t } = useI18n();
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4">
       <div className="mb-3 flex items-center justify-between">
@@ -31,13 +35,13 @@ export function ExposureResultDetailCard({
       </div>
       <dl className="grid grid-cols-1 gap-2 sam-text-body sm:grid-cols-2">
         <div>
-          <dt className="text-sam-muted">판매자 / 구분</dt>
+          <dt className="text-sam-muted">{t("admin_exposure_kcef8a112")}</dt>
           <dd>
             {candidate.sellerNickname} · {MEMBER_TYPE_LABELS[candidate.memberType]}
           </dd>
         </div>
         <div>
-          <dt className="text-sam-muted">광고 / 포인트 / 상점</dt>
+          <dt className="text-sam-muted">{t("admin_exposure_shop_points")}</dt>
           <dd>
             {candidate.adPromotionStatus} / {candidate.pointPromotionStatus} /{" "}
             {candidate.shopFeaturedStatus}

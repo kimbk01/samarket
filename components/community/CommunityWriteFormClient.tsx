@@ -9,6 +9,7 @@ import type { CommunityTopicDTO } from "@/lib/community-feed/types";
 import { normalizeSectionSlug } from "@/lib/community-feed/constants";
 import { philifePostsRootUrl, philifeUploadImageUrl } from "@domain/philife/api";
 import { philifeAppPaths } from "@domain/philife/paths";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   COMMUNITY_BUTTON_PRIMARY_CLASS,
   PHILIFE_FB_INPUT_CLASS,
@@ -22,6 +23,7 @@ export function CommunityWriteFormClient({
   sectionSlug: string;
   topics: CommunityTopicDTO[];
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const { currentRegionName } = useRegion();
   const sec = normalizeSectionSlug(sectionSlug);
@@ -69,7 +71,7 @@ export function CommunityWriteFormClient({
         const res = await fetch(philifeUploadImageUrl(), { method: "POST", body: fd });
         const j = (await res.json()) as { ok?: boolean; url?: string; error?: string };
         if (j.ok && j.url) next.push(j.url);
-        else setErr(j.error ?? "이미지 업로드 실패");
+        else setErr(j.error ?? t("community_write_image_upload_failed"));
       }
       setImageUrls(next);
     } finally {
@@ -84,18 +86,18 @@ export function CommunityWriteFormClient({
 
   const skinHint =
     selectedTopic?.feed_list_skin === "location_pin"
-      ? "장소·맛집형: 아래 장소를 입력하면 목록에 핀과 함께 강조됩니다. (주제에서 ‘모임’ 허용 필요)"
+      ? t("community_write_skin_location_pin")
       : selectedTopic?.feed_list_skin === "hashtags_below"
-        ? "본문에 #태그 를 넣으면 피드 목록에 태그 미리보기 줄이 표시됩니다."
+        ? t("community_write_skin_hashtags")
         : selectedTopic?.feed_list_skin === "text_primary"
-          ? "이 주제는 목록에서 썸네일 없이 글 위주로 보입니다."
+          ? t("community_write_skin_text_primary")
           : null;
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErr((prev) => (prev === "" ? prev : ""));
     if (!topicSlug) {
-      setErr("주제를 선택하세요.");
+      setErr(t("community_write_select_topic_err"));
       return;
     }
     setBusy(true);
@@ -124,7 +126,7 @@ export function CommunityWriteFormClient({
         router.push(`/philife/${data.id}`);
         return;
       }
-      setErr(data.error ?? "등록에 실패했습니다.");
+      setErr(data.error ?? t("community_write_submit_failed"));
     } finally {
       setBusy(false);
     }
@@ -133,19 +135,21 @@ export function CommunityWriteFormClient({
   return (
     <div className="min-h-screen bg-sam-app pb-10">
       <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-sam-border bg-sam-surface px-4 py-2">
-        <AppBackButton backHref={philifeAppPaths.home} ariaLabel="닫기" />
-        <h1 className="sam-app-header-title">커뮤니티 글쓰기</h1>
+        <AppBackButton backHref={philifeAppPaths.home} ariaLabel={t("common_close")} />
+        <h1 className="sam-app-header-title">{t("tier1_community_write")}</h1>
       </header>
 
       <form onSubmit={onSubmit} className="mx-auto max-w-lg space-y-3 px-4 py-4">
         <div className="sam-form-field">
-          <label className="sam-form-label">주제 <span className="sam-form-required">*</span></label>
+          <label className="sam-form-label">
+            {t("community_write_topic_label")} <span className="sam-form-required">*</span>
+          </label>
           <select
             value={topicSlug}
             onChange={(e) => setTopicSlug(e.target.value)}
             className={`mt-1 w-full ${PHILIFE_FB_INPUT_CLASS}`}
           >
-            {writableTopics.length === 0 ? <option value="">주제 없음 — DB 확인</option> : null}
+            {writableTopics.length === 0 ? <option value="">{t("community_write_topic_empty")}</option> : null}
             {writableTopics.map((t) => (
               <option key={t.id} value={t.slug}>
                 {t.name}
@@ -155,40 +159,40 @@ export function CommunityWriteFormClient({
         </div>
         {skinHint ? <p className="rounded-sam-md border border-sam-info/15 bg-sam-info-soft px-3 py-2 sam-text-body-secondary text-sam-info">{skinHint}</p> : null}
         <div className="sam-form-field">
-          <label className="sam-form-label">제목</label>
+          <label className="sam-form-label">{t("philife_write_title_label")}</label>
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             className={`mt-1 w-full ${PHILIFE_FB_INPUT_CLASS}`}
-            placeholder="제목을 입력하세요"
+            placeholder={t("philife_write_title_placeholder")}
             maxLength={200}
           />
         </div>
         <div className="sam-form-field">
-          <label className="sam-form-label">내용</label>
+          <label className="sam-form-label">{t("philife_write_content_label")}</label>
           <textarea
             value={content}
             onChange={(e) => setContent(e.target.value)}
             rows={10}
             className={`mt-1 ${PHILIFE_FB_TEXTAREA_CLASS}`}
-            placeholder="이웃과 나누고 싶은 이야기를 적어주세요."
+            placeholder={t("community_write_content_neighbor_placeholder")}
           />
         </div>
         {selectedTopic?.allow_meetup ? (
           <div className="sam-section space-y-3">
-            <p className="sam-form-label">모임·장소 (선택)</p>
+            <p className="sam-form-label">{t("community_write_meetup_place_section")}</p>
             <div className="sam-form-field">
-              <label className="sam-form-description">장소명 · 상호</label>
+              <label className="sam-form-description">{t("community_write_place_name")}</label>
               <input
                 value={meetupPlace}
                 onChange={(e) => setMeetupPlace(e.target.value)}
                 className={`mt-1 w-full ${PHILIFE_FB_INPUT_CLASS}`}
-                placeholder="예: 조치원역 2번 출구, ○○식당"
+                placeholder={t("community_write_place_placeholder")}
                 maxLength={200}
               />
             </div>
             <div className="sam-form-field">
-              <label className="sam-form-description">일정 (선택)</label>
+              <label className="sam-form-description">{t("community_write_schedule_optional")}</label>
               <input
                 type="datetime-local"
                 value={meetupDate}
@@ -199,7 +203,7 @@ export function CommunityWriteFormClient({
           </div>
         ) : null}
         <div className="sam-form-field">
-          <label className="sam-form-label">사진 (최대 10장)</label>
+          <label className="sam-form-label">{t("community_write_photos_max")}</label>
           <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/webp" multiple className="hidden" onChange={onPickFiles} />
           <div className="mt-2 flex flex-wrap gap-2">
             {imageUrls.map((url, idx) => (
@@ -215,7 +219,7 @@ export function CommunityWriteFormClient({
                   onClick={() => removeImage(idx)}
                   className="absolute right-0 top-0 rounded-bl-sam-md bg-sam-ink/70 px-1.5 py-0.5 sam-text-xxs text-sam-on-primary"
                 >
-                  삭제
+                  {t("community_delete")}
                 </button>
               </div>
             ))}
@@ -226,7 +230,7 @@ export function CommunityWriteFormClient({
                 onClick={() => fileRef.current?.click()}
                 className="flex h-20 w-20 items-center justify-center rounded-sam-md border border-dashed border-sam-border sam-text-body-secondary"
               >
-                {uploading ? "…" : "+ 추가"}
+                {uploading ? "…" : t("community_write_add_photo")}
               </button>
             ) : null}
           </div>
@@ -234,7 +238,7 @@ export function CommunityWriteFormClient({
         {selectedTopic?.allow_question ? (
           <label className="flex items-center gap-2 sam-text-body">
             <input type="checkbox" checked={isQuestion} onChange={(e) => setIsQuestion(e.target.checked)} />
-            질문글로 올리기
+            {t("community_write_question_toggle")}
           </label>
         ) : null}
         {err ? <p className="sam-text-helper text-sam-danger">{err}</p> : null}
@@ -243,7 +247,7 @@ export function CommunityWriteFormClient({
           disabled={busy || !title.trim() || !content.trim()}
           className={`w-full ${COMMUNITY_BUTTON_PRIMARY_CLASS}`}
         >
-          {busy ? "등록 중…" : "등록하기"}
+          {busy ? t("community_write_submitting") : t("community_write_submit")}
         </button>
       </form>
     </div>

@@ -4,26 +4,29 @@ import Link from "next/link";
 import type { AdminDeliveryOrder } from "@/lib/admin/delivery-orders-admin/types";
 import { SettlementStatusBadge } from "./DeliveryOrderBadges";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function SettlementTable({ rows }: { rows: AdminDeliveryOrder[] }) {
+  const { t } = useI18n();
+
   if (rows.length === 0) {
-    return <p className="py-6 text-center text-sm text-sam-muted">조건에 맞는 정산 행이 없습니다.</p>;
+    return <p className="py-6 text-center text-sm text-sam-muted">{t("admin_do_settlements_empty")}</p>;
   }
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
       <table className="w-full min-w-[1000px] border-collapse sam-text-body-secondary">
         <thead>
           <tr className="border-b border-sam-border bg-sam-app text-left text-xs font-medium text-sam-muted">
-            <th className="px-2 py-2">주문번호</th>
-            <th className="px-2 py-2">매장</th>
-            <th className="px-2 py-2">주문금액</th>
-            <th className="px-2 py-2">수수료</th>
-            <th className="px-2 py-2">정산예정액</th>
-            <th className="px-2 py-2">정산예정일</th>
-            <th className="px-2 py-2">정산상태</th>
-            <th className="px-2 py-2">보류</th>
-            <th className="px-2 py-2">보류사유</th>
-            <th className="px-2 py-2">액션</th>
+            <th className="px-2 py-2">{t("admin_do_th_order_no")}</th>
+            <th className="px-2 py-2">{t("admin_do_th_store")}</th>
+            <th className="px-2 py-2">{t("admin_do_th_order_amount")}</th>
+            <th className="px-2 py-2">{t("admin_do_th_fee")}</th>
+            <th className="px-2 py-2">{t("admin_do_th_settlement_amount")}</th>
+            <th className="px-2 py-2">{t("admin_do_th_settlement_date")}</th>
+            <th className="px-2 py-2">{t("admin_do_th_settlement_status")}</th>
+            <th className="px-2 py-2">{t("admin_do_th_hold")}</th>
+            <th className="px-2 py-2">{t("admin_do_th_hold_reason")}</th>
+            <th className="px-2 py-2">{t("admin_do_common_action")}</th>
           </tr>
         </thead>
         <tbody>
@@ -49,7 +52,7 @@ export function SettlementTable({ rows }: { rows: AdminDeliveryOrder[] }) {
                     href={`/admin/stores/orders/${encodeURIComponent(o.id)}`}
                     className="font-medium text-signature underline"
                   >
-                    주문
+                    {t("admin_do_common_order")}
                   </Link>
                 </td>
               </tr>

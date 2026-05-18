@@ -29,6 +29,12 @@ import {
 } from "@/lib/community-messenger/messenger-call-sound-config-client";
 import { incomingRingTimeoutMsFromConfig } from "@/lib/community-messenger/messenger-call-ring-timeout";
 import { MESSENGER_CALL_USER_MSG, SIGNAL_POLL_SOFT_ERROR } from "@/lib/community-messenger/messenger-call-user-messages";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+
+function cmTr(key: MessageKey, vars?: Record<string, string | number>): string {
+  return translate(getRuntimeAppLanguage(), key, vars);
+}
 import { messengerUserIdsEqual } from "@/lib/community-messenger/messenger-user-id";
 import type {
   CommunityMessengerCallKind,
@@ -419,7 +425,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
                   : "closed";
         setPeerStates((prev) => ({ ...prev, [peer.userId]: mapped }));
         if (mapped === "failed") {
-          setErrorMessage("일부 참여자와 연결이 불안정합니다. 다시 연결을 시도할 수 있습니다.");
+          setErrorMessage(cmTr("cm_ui_group_peer_connection_unstable"));
         }
       };
 
@@ -698,7 +704,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
             cleanupMedia();
             showEndedPanel(args.activeCall!.callKind, args.activeCall!.peerLabel, "missed", Date.now());
             setPanel(null);
-            setErrorMessage("참여자가 없어 그룹 통화 호출을 종료했습니다.");
+            setErrorMessage(cmTr("cm_ui_group_call_ended_no_participants"));
             await args.onRefresh();
           } catch {
             setErrorMessage(MESSENGER_CALL_USER_MSG.groupRingEndFailed);
@@ -960,8 +966,8 @@ export function useCommunityMessengerGroupCall(args: Props) {
       if (!res.ok || !json.ok || !json.session) {
         setErrorMessage(
           json.error === "group_call_limit_exceeded"
-            ? "그룹 통화는 현재 최대 4인까지만 지원합니다."
-            : "그룹 통화 시작에 실패했습니다."
+            ? cmTr("cm_ui_group_call_limit_four")
+            : cmTr("cm_ui_group_call_start_failed")
         );
         return;
       }
@@ -979,7 +985,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
         typeof error === "object" && error && "name" in error
           ? String((error as { name?: unknown }).name ?? "")
           : "";
-      setErrorMessage(errorName ? getCommunityMessengerMediaErrorMessage(error, kind) : "그룹 통화 시작에 실패했습니다.");
+      setErrorMessage(errorName ? getCommunityMessengerMediaErrorMessage(error, kind) : cmTr("cm_ui_group_call_start_failed"));
     } finally {
       setBusy(null);
     }
@@ -999,7 +1005,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
       });
       const acceptJson = (await acceptRes.json().catch(() => ({}))) as { ok?: boolean };
       if (!acceptRes.ok || !acceptJson.ok) {
-        setErrorMessage("그룹 통화 수락에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+        setErrorMessage(cmTr("cm_ui_group_call_accept_failed"));
         return false;
       }
       activeSinceRef.current = Date.now();
@@ -1016,7 +1022,9 @@ export function useCommunityMessengerGroupCall(args: Props) {
         typeof error === "object" && error && "name" in error
           ? String((error as { name?: unknown }).name ?? "")
           : "";
-      setErrorMessage(errorName ? getCommunityMessengerMediaErrorMessage(error, activeCall.callKind) : "그룹 통화 참여를 시작하지 못했습니다.");
+      setErrorMessage(
+        errorName ? getCommunityMessengerMediaErrorMessage(error, activeCall.callKind) : cmTr("cm_ui_group_call_join_failed")
+      );
       return false;
     } finally {
       setBusy(null);
@@ -1111,7 +1119,7 @@ export function useCommunityMessengerGroupCall(args: Props) {
   const retryConnection = useCallback(async () => {
     if (!args.enabled || !currentSessionId || !panel) return;
     setBusy("call-retry");
-    setErrorMessage("그룹 연결을 다시 시도하고 있습니다.");
+    setErrorMessage(cmTr("cm_ui_group_reconnecting"));
     try {
       for (const peer of joinedParticipants) {
         const connection = peerConnectionsRef.current.get(peer.userId);
@@ -1223,22 +1231,23 @@ export function useCommunityMessengerGroupCall(args: Props) {
 
   const callStatusLabel = useMemo(() => {
     if (!panel) return "";
-    if (panel.mode === "dialing") return "참여자에게 거는 중";
-    if (panel.mode === "incoming") return "수신 전화";
-    if (panel.mode === "connecting") return "연결 중";
-    return "그룹 통화 진행 중";
+    if (panel.mode === "dialing") return cmTr("cm_ui_group_dialing_participants");
+    if (panel.mode === "incoming") return cmTr("cm_ui_incoming_phone");
+    if (panel.mode === "connecting") return cmTr("cm_ui_connecting");
+    return cmTr("cm_ui_group_call_active_status");
   }, [panel]);
 
   const connectionBadge = useMemo(() => {
     const states = Object.values(peerStates);
-    if (states.length === 0) return panel?.mode === "active" ? { label: "참여자 연결 대기", tone: "normal" as const } : null;
+    if (states.length === 0)
+      return panel?.mode === "active" ? { label: cmTr("cm_ui_group_waiting_participants"), tone: "normal" as const } : null;
     if (states.some((state) => state === "failed" || state === "disconnected")) {
-      return { label: "일부 연결 불안정", tone: "poor" as const };
+      return { label: cmTr("cm_ui_group_connection_partial_unstable"), tone: "poor" as const };
     }
     if (states.some((state) => state === "connecting" || state === "new")) {
-      return { label: "참여자 연결 중", tone: "normal" as const };
+      return { label: cmTr("cm_ui_group_participants_connecting"), tone: "normal" as const };
     }
-    return { label: "참여자 연결 안정", tone: "good" as const };
+    return { label: cmTr("cm_ui_group_participants_stable"), tone: "good" as const };
   }, [panel?.mode, peerStates]);
 
   const bindRemoteVideo: BindRemoteVideo = useCallback((userId, node) => {

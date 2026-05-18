@@ -17,6 +17,9 @@ import {
 } from "@/lib/dibay/delivery-flow-perf";
 import { r2d1OwnerOrdersTrace, r2d1OwnerOrdersTraceInstallCollector } from "@/lib/dibay/r2-d1-owner-orders-trace";
 import { useOwnerStoreOrdersRealtime, sortOwnerOrdersDesc } from "@/hooks/stores/useOwnerStoreOrdersRealtime";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import { ownerOrderTabLabel } from "@/lib/stores/owner-order-ui-labels";
 
 type Props = {
   slug: string;
@@ -31,6 +34,7 @@ function mergeOwnerOrdersWithServer(prev: OwnerOrder[], server: OwnerOrder[]): O
 }
 
 export function OwnerOrdersPageClient({ slug }: Props) {
+  const { t, language } = useI18n();
   const { state: gate } = useMeStoreBySlug(slug);
   const [tab, setTab] = useState<OwnerOrderTab>("active");
   const [orders, setOrders] = useState<OwnerOrder[]>([]);
@@ -155,14 +159,14 @@ export function OwnerOrdersPageClient({ slug }: Props) {
   const filtered = useMemo(() => filterOwnerOrdersByTab(orders, tab), [orders, tab]);
 
   if (gate.kind === "loading" || gate.kind === "idle") {
-    return <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-6 text-sm text-sam-muted">불러오는 중…</div>;
+    return <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-6 text-sm text-sam-muted">{t("common_loading")}</div>;
   }
   if (gate.kind === "unauth") {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-6 text-sm text-sam-fg">
-        로그인이 필요합니다.{" "}
+        {t("common_login_required")}{" "}
         <Link className="font-bold text-sam-fg underline" href="/login">
-          로그인
+          {t("common_login")}
         </Link>
       </div>
     );
@@ -170,14 +174,14 @@ export function OwnerOrdersPageClient({ slug }: Props) {
   if (gate.kind === "not_owner") {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-6 text-sm text-sam-fg">
-        이 매장에 대한 오너 권한이 없습니다.
+        {t("store_owner_no_permission")}
       </div>
     );
   }
   if (gate.kind === "error") {
     return (
       <div className="rounded-ui-rect border border-rose-200 bg-rose-50 p-6 text-sm text-rose-800">
-        매장 정보를 불러오지 못했습니다. ({gate.message})
+        {t("store_owner_store_load_failed")} ({gate.message})
       </div>
     );
   }
@@ -189,7 +193,7 @@ export function OwnerOrdersPageClient({ slug }: Props) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="text-sm text-sam-muted">주문을 확인하고 상태를 변경할 수 있습니다.</div>
+        <div className="text-sm text-sam-muted">{t("business_phase7_274")}</div>
         <button
           type="button"
           onClick={() => {
@@ -198,18 +202,12 @@ export function OwnerOrdersPageClient({ slug }: Props) {
           }}
           className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-xs font-bold text-sam-fg hover:bg-sam-app"
         >
-          새로고침
+          {t("store_owner_refresh")}
         </button>
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {(
-          [
-            ["active", "진행중"],
-            ["done", "완료"],
-            ["issue", "취소·환불"],
-          ] as const
-        ).map(([k, label]) => (
+        {(["active", "done", "issue"] as const).map((k) => (
           <button
             key={k}
             type="button"
@@ -218,19 +216,21 @@ export function OwnerOrdersPageClient({ slug }: Props) {
               tab === k ? "bg-sam-ink text-white ring-sam-border" : "bg-sam-surface text-sam-fg ring-sam-border hover:bg-sam-app"
             }`}
           >
-            {label}
+            {k === "issue" ? t("store_owner_tab_issue_short") : ownerOrderTabLabel(k, language)}
           </button>
         ))}
       </div>
 
       {error ? (
-        <div className="rounded-ui-rect border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">{error}</div>
+        <div className="rounded-ui-rect border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+          {resolveOwnerApiErrorMessage(error, t)}
+        </div>
       ) : null}
 
       {loading ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-6 text-sm text-sam-muted">주문 불러오는 중…</div>
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-6 text-sm text-sam-muted">{t("business_phase7_262")}</div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-6 text-sm text-sam-muted">표시할 주문이 없습니다.</div>
+        <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-6 text-sm text-sam-muted">{t("business_phase7_316")}</div>
       ) : (
         <div className="space-y-3">
           {filtered.map((o) => (
@@ -247,7 +247,7 @@ export function OwnerOrdersPageClient({ slug }: Props) {
       )}
 
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-xs text-sam-muted">
-        <div className="font-bold text-sam-fg">상태 안내</div>
+        <div className="font-bold text-sam-fg">{t("business_phase7_148")}</div>
         <div className="mt-2 flex flex-wrap gap-2">
           {(
             [

@@ -3,8 +3,10 @@
 import {
   USED_CAR_BODY_TYPES,
   buildUsedCarYearSelectOptions,
+  labelForUsedCarBodyTypeKey,
 } from "@/lib/trade/used-car-form-catalog";
 import { formatPriceInput } from "@/lib/utils/format";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   TRADE_WRITE_FB_CONTROL,
   TRADE_WRITE_FB_CONTROL_ROW,
@@ -46,7 +48,8 @@ export function UsedCarBuyFields({
   errors,
   disabled = false,
 }: Props) {
-  const yearOpts = buildUsedCarYearSelectOptions();
+  const { t } = useI18n();
+  const yearOpts = useMemo(() => buildUsedCarYearSelectOptions(t), [t]);
   return (
     <>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -61,10 +64,10 @@ export function UsedCarBuyFields({
             className={`${TRADE_WRITE_FB_CONTROL} disabled:opacity-60`}
             aria-invalid={!!errors.bodyType}
           >
-            <option value="">선택</option>
-            {USED_CAR_BODY_TYPES.map((t) => (
-              <option key={t.key} value={t.key}>
-                {t.labelKo}
+            <option value="">{t("trade_075")}</option>
+            {USED_CAR_BODY_TYPES.map((entry) => (
+              <option key={entry.key} value={entry.key}>
+                {labelForUsedCarBodyTypeKey(entry.key, t)}
               </option>
             ))}
           </select>
@@ -126,7 +129,7 @@ export function UsedCarBuyFields({
             disabled={disabled}
             className="rounded border-sam-border"
           />
-          <span className="sam-text-body-secondary text-sam-muted">가격 제안받기</span>
+          <span className="sam-text-body-secondary text-sam-muted">{t("trade_005")}</span>
         </label>
       ) : null}
     </>

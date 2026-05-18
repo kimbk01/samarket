@@ -752,7 +752,7 @@ export function CommunityMessengerHome({
         }
         const apiErr =
           typeof json.error === "string" && json.error.trim() ? json.error.trim() : "";
-        const authHint = res.status === 401 ? "로그인이 필요합니다." : "";
+        const authHint = res.status === 401 ? t("common_login_required") : "";
         if (
           redirectForBlockedAction(router, apiErr || authHint || undefined, pathname || "/community-messenger")
         ) {
@@ -1057,7 +1057,7 @@ export function CommunityMessengerHome({
           if (!exists) {
             const nextFriend: CommunityMessengerProfileLite = {
               id: optimisticPeer,
-              label: optimisticPeerLabel || "친구",
+              label: optimisticPeerLabel || t("cm_ui_friend_label"),
               subtitle: "",
               bio: null,
               avatarUrl: null,
@@ -1134,7 +1134,7 @@ export function CommunityMessengerHome({
               {
                 id: ev.requestId,
                 requesterId: ev.requesterUserId,
-                requesterLabel: ev.requesterLabel || "상대",
+                requesterLabel: ev.requesterLabel || t("cm_ui_peer_fallback"),
                 addresseeId: prev.me?.id ?? "",
                 addresseeLabel: "",
                 status: "pending",
@@ -1175,7 +1175,7 @@ export function CommunityMessengerHome({
               const nowIso = new Date().toISOString();
               const nextFriend: CommunityMessengerProfileLite = {
                 id: peerId,
-                label: ev.addresseeLabel || "친구",
+                label: ev.addresseeLabel || t("cm_ui_friend_label"),
                 subtitle: "",
                 bio: null,
                 avatarUrl: null,
@@ -1199,9 +1199,14 @@ export function CommunityMessengerHome({
           );
         }
         if (ev.kind === "friend_accepted") {
-          showMessengerSnackbar(`${ev.addresseeLabel || "상대"}님이 친구 요청을 수락했습니다.`, { variant: "success" });
+          showMessengerSnackbar(
+            t("cm_ui_friend_request_accepted_snackbar", { name: ev.addresseeLabel || t("cm_ui_peer_fallback") }),
+            { variant: "success" }
+          );
         } else {
-          const rejectMsg = `${ev.addresseeLabel || "상대"}님이 친구 요청을 거절했습니다.`;
+          const rejectMsg = t("cm_ui_friend_request_rejected_snackbar", {
+            name: ev.addresseeLabel || t("cm_ui_peer_fallback"),
+          });
           if (peerId) {
             setFriendAddCooldownUntilByPeer((prev) => ({
               ...prev,
@@ -1215,7 +1220,7 @@ export function CommunityMessengerHome({
         }
       }
     },
-    [data?.me?.id, refresh, setData]
+    [data?.me?.id, refresh, setData, t]
   );
 
   useFriendRequestNotificationRealtime(
@@ -1264,7 +1269,7 @@ export function CommunityMessengerHome({
         }
         const apiErr =
           typeof json.error === "string" && json.error.trim() ? json.error.trim() : "";
-        const authHint = res.status === 401 ? "로그인이 필요합니다." : "";
+        const authHint = res.status === 401 ? t("common_login_required") : "";
         if (
           redirectForBlockedAction(router, apiErr || authHint || undefined, pathname || "/community-messenger")
         ) {
@@ -1369,7 +1374,7 @@ export function CommunityMessengerHome({
         }
         const apiErr =
           typeof json.error === "string" && json.error.trim() ? json.error.trim() : "";
-        const authHint = res.status === 401 ? "로그인이 필요합니다." : "";
+        const authHint = res.status === 401 ? t("common_login_required") : "";
         if (
           redirectForBlockedAction(router, apiErr || authHint || undefined, pathname || "/community-messenger")
         ) {
@@ -1420,7 +1425,7 @@ export function CommunityMessengerHome({
       }
       const apiErr =
         typeof json.error === "string" && json.error.trim() ? json.error.trim() : "";
-      const authHint = res.status === 401 ? "로그인이 필요합니다." : "";
+      const authHint = res.status === 401 ? t("common_login_required") : "";
       if (
         redirectForBlockedAction(router, apiErr || authHint || undefined, pathname || "/community-messenger")
       ) {
@@ -1484,7 +1489,7 @@ export function CommunityMessengerHome({
       }
       const apiErr =
         typeof json.error === "string" && json.error.trim() ? json.error.trim() : "";
-      const authHint = res.status === 401 ? "로그인이 필요합니다." : "";
+      const authHint = res.status === 401 ? t("common_login_required") : "";
       if (
         redirectForBlockedAction(router, apiErr || authHint || undefined, pathname || "/community-messenger")
       ) {
@@ -1851,10 +1856,10 @@ export function CommunityMessengerHome({
     (peerUserId: string, kind: "voice" | "video") => {
       const fromFriend = sortedFriends.find((f) => f.id === peerUserId)?.label?.trim();
       const room = data?.chats?.find((r) => r.roomType === "direct" && r.peerUserId === peerUserId);
-      const peerLabel = fromFriend || room?.title?.trim() || "대화 상대";
+      const peerLabel = fromFriend || room?.title?.trim() || t("cm_ui_chat_peer_fallback");
       setOutgoingCallConfirm({ peerUserId, peerLabel, kind });
     },
-    [sortedFriends, data?.chats]
+    [sortedFriends, data?.chats, t]
   );
 
   const onFriendRowVoiceCallStable = useCallback(
@@ -1971,9 +1976,14 @@ export function CommunityMessengerHome({
     if (explicitTitle) return explicitTitle;
     if (selectedGroupFriends.length === 0) return "";
     const labels = selectedGroupFriends.map((friend) => friend.label).filter(Boolean).slice(0, 3);
-    if (groupMembers.length > labels.length) return `${labels.join(", ")} 외 ${groupMembers.length - labels.length}명`;
+    if (groupMembers.length > labels.length) {
+      return t("cm_ui_group_members_and_others", {
+        names: labels.join(", "),
+        count: groupMembers.length - labels.length,
+      });
+    }
     return labels.join(", ");
-  }, [groupMembers.length, groupTitle, selectedGroupFriends]);
+  }, [groupMembers.length, groupTitle, selectedGroupFriends, t]);
 
   const notificationCenterItemsAll = useMemo<MessengerNotificationCenterItem[]>(() => {
     const pending = (data?.requests ?? []).filter((request) => request.status === "pending");
@@ -2299,9 +2309,9 @@ export function CommunityMessengerHome({
       a.remove();
       URL.revokeObjectURL(url);
     } catch {
-      setActionError("설정 백업 파일을 만들지 못했습니다.");
+      setActionError(t("cm_ui_settings_backup_export_failed"));
     }
-  }, [incomingCallBannerEnabled, incomingCallSoundEnabled, localSettings, notificationSettings, recentSearches]);
+  }, [incomingCallBannerEnabled, incomingCallSoundEnabled, localSettings, notificationSettings, recentSearches, t]);
   const importSettingsBackup = useCallback(
     async (backup: CommunityMessengerSettingsBackup) => {
       const importedLocalSettings = writeCommunityMessengerLocalSettings(backup.localSettings ?? {});
@@ -2340,12 +2350,12 @@ export function CommunityMessengerHome({
         const text = await file.text();
         const parsed = JSON.parse(text) as Partial<CommunityMessengerSettingsBackup>;
         if (parsed.version !== 1 || !parsed.localSettings || !parsed.notificationSettings) {
-          setActionError("메신저 설정 백업 형식이 올바르지 않습니다.");
+          setActionError(t("cm_ui_invalid_backup_format"));
           return;
         }
         await importSettingsBackup(parsed as CommunityMessengerSettingsBackup);
       } catch {
-        setActionError("설정 백업을 불러오지 못했습니다.");
+        setActionError(t("cm_ui_failed_to_load_backup"));
       }
     },
     [importSettingsBackup]
@@ -2353,7 +2363,7 @@ export function CommunityMessengerHome({
   const removeFriend = useCallback(
     async (friendUserId: string, options?: { confirm?: boolean }) => {
       const shouldConfirm = options?.confirm !== false;
-      if (shouldConfirm && !window.confirm("이 친구를 삭제할까요? 친구 관계만 해제되고 기존 채팅방은 유지됩니다.")) {
+      if (shouldConfirm && !window.confirm(t("cm_ui_confirm_remove_friend_keep_chat"))) {
         return;
       }
       setBusyId(`remove-friend:${friendUserId}`);
@@ -2391,7 +2401,7 @@ export function CommunityMessengerHome({
   );
 
   const reportCommunityUser = useCallback(async (userId: string) => {
-    const detail = window.prompt("신고 내용을 입력해 주세요.")?.trim() ?? "";
+    const detail = window.prompt(t("cm_ui_prompt_report_detail"))?.trim() ?? "";
     if (!detail) return;
     setBusyId(`report:${userId}`);
     try {
@@ -2407,10 +2417,10 @@ export function CommunityMessengerHome({
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
       if (res.ok && json.ok) {
-        showMessengerSnackbar("접수되었습니다.", { variant: "success" });
+        showMessengerSnackbar(t("cm_ui_report_received"), { variant: "success" });
         setFriendSheet(null);
       } else {
-        setActionError("신고 접수에 실패했습니다.");
+        setActionError(t("cm_ui_report_failed"));
       }
     } finally {
       setBusyId(null);
@@ -2418,7 +2428,7 @@ export function CommunityMessengerHome({
   }, []);
 
   const reportCommunityRoom = useCallback(async (roomId: string) => {
-    const detail = window.prompt("신고 내용을 입력해 주세요.")?.trim() ?? "";
+    const detail = window.prompt(t("cm_ui_prompt_report_detail"))?.trim() ?? "";
     if (!detail) return;
     setBusyId(`report-room:${roomId}`);
     try {
@@ -2434,10 +2444,10 @@ export function CommunityMessengerHome({
       });
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean };
       if (res.ok && json.ok) {
-        showMessengerSnackbar("접수되었습니다.", { variant: "success" });
+        showMessengerSnackbar(t("cm_ui_report_received"), { variant: "success" });
         setRoomActionSheet(null);
       } else {
-        setActionError("신고 접수에 실패했습니다.");
+        setActionError(t("cm_ui_report_failed"));
       }
     } finally {
       setBusyId(null);
@@ -2478,7 +2488,7 @@ export function CommunityMessengerHome({
   const clearLocalRoomPreview = useCallback((roomId: string) => {
     invalidateRoomSnapshot(roomId);
     setRoomActionSheet(null);
-    showMessengerSnackbar("이 기기에서 미리보기 캐시만 정리했습니다.");
+    showMessengerSnackbar(t("cm_ui_cleared_local_preview_cache"));
   }, []);
 
   return (
@@ -2498,7 +2508,7 @@ export function CommunityMessengerHome({
             className={`flex h-12 min-w-0 items-center gap-2 overflow-hidden text-[color:var(--messenger-fg,#0f0f0f)] ${APP_MAIN_HEADER_INNER_CLASS}`}
           >
             <div className="flex w-10 min-w-10 shrink-0 justify-start">
-              <AppBackButton onBack={closePhilifeHeaderMessenger} ariaLabel="뒤로" />
+              <AppBackButton onBack={closePhilifeHeaderMessenger} ariaLabel={t("nav_back")} />
             </div>
             <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
               <h1 className="flex min-w-0 w-full items-center justify-center overflow-hidden text-[color:var(--messenger-fg,#0f0f0f)]">
@@ -2909,25 +2919,25 @@ export function CommunityMessengerHome({
           <button
             type="button"
             className="min-h-0 flex-1 cursor-default"
-            aria-label="닫기"
+            aria-label={t("nav_close")}
             onClick={() => closeHomeOverlay("public-group-find")}
           />
           <div className="flex max-h-[85vh] w-full flex-col overflow-hidden rounded-t-[14px] border border-sam-border bg-sam-surface shadow-[0_-4px_14px_rgba(17,24,39,0.05)]">
             <div className="flex shrink-0 items-center justify-between border-b border-sam-border-soft px-4 py-3.5">
-              <p className="sam-text-section-title font-semibold text-sam-fg">모임 찾기</p>
+              <p className="sam-text-section-title font-semibold text-sam-fg">{t("cm_ui_find_meeting")}</p>
               <button
                 type="button"
                 className="rounded-ui-rect px-3 py-1.5 sam-text-body text-sam-muted"
                 onClick={() => closeHomeOverlay("public-group-find")}
               >
-                닫기
+                {t("nav_close")}
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
               <input
                 value={openGroupSearch}
                 onChange={(e) => setOpenGroupSearch(e.target.value)}
-                placeholder="모임 검색"
+                placeholder={t("cm_ui_search_meeting")}
                 className="h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
               />
               <div className="mt-3 space-y-2">
@@ -2941,7 +2951,7 @@ export function CommunityMessengerHome({
                     />
                   ))
                 ) : (
-                  <div className="py-10 text-center sam-text-body-secondary text-sam-muted">검색 결과가 없습니다.</div>
+                  <div className="py-10 text-center sam-text-body-secondary text-sam-muted">{t("cm_ui_no_search_results")}</div>
                 )}
               </div>
             </div>
@@ -2954,17 +2964,17 @@ export function CommunityMessengerHome({
           <div className="w-full max-w-[520px] rounded-ui-rect border border-sam-border bg-sam-surface p-5 shadow-[0_8px_20px_rgba(17,24,39,0.06)]">
             {groupCreateStep === "select" ? (
               <>
-                <p className="sam-text-body-secondary font-medium text-sam-fg">그룹 생성</p>
-                <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">어떤 그룹을 만들까요?</h2>
+                <p className="sam-text-body-secondary font-medium text-sam-fg">{t("cm_ui_create_group")}</p>
+                <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">{t("cm_ui_which_group_to_create")}</h2>
                 <div className="mt-4 grid gap-3">
                   <button
                     type="button"
                     onClick={() => setGroupCreateStep("private_group")}
                     className="rounded-ui-rect border border-sam-border px-4 py-4 text-left transition hover:border-sam-border hover:bg-sam-app"
                   >
-                    <p className="sam-text-helper text-sam-muted">친구 초대형</p>
-                    <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">비공개 그룹</p>
-                    <p className="mt-1 sam-text-body-secondary text-sam-muted">친구를 선택해 바로 만드는 초대형 그룹입니다.</p>
+                    <p className="sam-text-helper text-sam-muted">{t("cm_ui_friend_invite_type")}</p>
+                    <p className="mt-1 sam-text-body-lg font-semibold text-sam-fg">{t("nav_messenger_private_group")}</p>
+                    <p className="mt-1 sam-text-body-secondary text-sam-muted">{t("cm_ui_private_group_quick_create_hint")}</p>
                   </button>
                 </div>
               </>
@@ -2974,38 +2984,38 @@ export function CommunityMessengerHome({
               <>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="sam-text-body-secondary font-medium text-sam-fg">비공개 그룹</p>
-                    <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">친구 초대형 그룹 만들기</h2>
+                    <p className="sam-text-body-secondary font-medium text-sam-fg">{t("nav_messenger_private_group")}</p>
+                    <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">{t("cm_ui_create_friend_invite_group")}</h2>
                   </div>
                   <button
                     type="button"
                     onClick={() => setGroupCreateStep("closed")}
                     className="rounded-ui-rect border border-sam-border px-3 py-2 sam-text-helper text-sam-fg"
                   >
-                    닫기
+                    {t("nav_close")}
                   </button>
                 </div>
                 <input
                   value={groupTitle}
                   onChange={(e) => setGroupTitle(e.target.value)}
-                  placeholder="예: 사마켓 운영팀 (선택 입력)"
+                  placeholder={t("cm_ui_group_title_placeholder_example")}
                   className="mt-4 h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
                 />
                 <div className="mt-3 flex items-center justify-between gap-3 sam-text-helper text-sam-muted">
-                  <span>선택된 친구 {groupMembers.length}명</span>
+                  <span>{t("cm_ui_selected_friends_count", { count: groupMembers.length })}</span>
                   {groupMembers.length ? (
                     <button
                       type="button"
                       onClick={() => setGroupMembers([])}
                       className="rounded-ui-rect border border-sam-border px-3 py-1.5 sam-text-helper font-medium text-sam-fg"
                     >
-                      선택 해제
+                      {t("cm_ui_clear_selection")}
                     </button>
                   ) : null}
                 </div>
                 {groupTitlePreview ? (
                   <div className="mt-3 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 sam-text-helper text-sam-muted">
-                    생성 예정 그룹명: <span className="font-semibold text-sam-fg">{groupTitlePreview}</span>
+                    {t("cm_ui_upcoming_group_name")}: <span className="font-semibold text-sam-fg">{groupTitlePreview}</span>
                   </div>
                 ) : null}
                 <div className="mt-3 max-h-[280px] space-y-2 overflow-y-auto">
@@ -3013,8 +3023,8 @@ export function CommunityMessengerHome({
                     const checked = groupMembers.includes(friend.id);
                     const hiddenSelected = Boolean(friend.isHiddenFriend);
                     const friendHelper = hiddenSelected
-                      ? [friend.subtitle, "숨김 친구"].filter(Boolean).join(" · ")
-                      : (friend.subtitle ?? "친구");
+                      ? [friend.subtitle, t("cm_ui_hidden_friend")].filter(Boolean).join(" · ")
+                      : (friend.subtitle ?? t("nav_messenger_friend"));
                     return (
                       <label key={friend.id} className="flex items-center justify-between rounded-ui-rect border border-sam-border-soft px-3 py-3">
                         <div>
@@ -3037,7 +3047,7 @@ export function CommunityMessengerHome({
                 </div>
                 {groupSelectableFriends.length === 0 ? (
                   <div className="mt-4 rounded-ui-rect border border-dashed border-sam-border bg-sam-surface px-4 py-5 text-center">
-                    <p className="sam-text-body font-semibold text-sam-fg">초대할 친구가 아직 없습니다.</p>
+                    <p className="sam-text-body font-semibold text-sam-fg">{t("cm_ui_no_friends_to_invite_yet")}</p>
                     <button
                       type="button"
                       onClick={() => {
@@ -3047,7 +3057,7 @@ export function CommunityMessengerHome({
                       }}
                       className="mt-3 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body-secondary font-semibold text-sam-fg"
                     >
-                      친구 탭으로 이동
+                      {t("cm_ui_go_to_friends_tab")}
                     </button>
                   </div>
                 ) : null}
@@ -3058,41 +3068,41 @@ export function CommunityMessengerHome({
               <>
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <p className="sam-text-body-secondary font-medium text-[#111827]">모임</p>
-                    <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">방장 설정형 그룹 만들기</h2>
+                    <p className="sam-text-body-secondary font-medium text-[#111827]">{t("nav_messenger_open_group")}</p>
+                    <h2 className="mt-1 sam-text-page-title font-semibold text-sam-fg">{t("cm_ui_create_owner_config_group")}</h2>
                   </div>
                   <button
                     type="button"
                     onClick={() => setGroupCreateStep("select")}
                     className="rounded-ui-rect border border-sam-border px-3 py-2 sam-text-helper text-sam-fg"
                   >
-                    이전
+                    {t("tier1_back")}
                   </button>
                 </div>
                 <div className="mt-4 grid gap-3">
                   <input
                     value={openGroupTitle}
                     onChange={(e) => setOpenGroupTitle(e.target.value)}
-                    placeholder="모임 이름"
+                    placeholder={t("cm_ui_meeting_name_placeholder")}
                     className="h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
                   />
                   <textarea
                     value={openGroupSummary}
                     onChange={(e) => setOpenGroupSummary(e.target.value)}
                     rows={3}
-                    placeholder="방 소개를 입력하세요"
+                    placeholder={t("cm_ui_enter_room_intro")}
                     className="w-full rounded-ui-rect border border-sam-border px-3 py-3 sam-text-body outline-none focus:border-sam-border"
                   />
                   <div className="grid gap-3 md:grid-cols-2">
                     <label className="rounded-ui-rect border border-sam-border-soft px-3 py-3">
-                      <p className="sam-text-body-secondary font-semibold text-sam-fg">입장 방식</p>
+                      <p className="sam-text-body-secondary font-semibold text-sam-fg">{t("cm_ui_join_method")}</p>
                       <div className="mt-2 grid grid-cols-2 gap-2">
                         <button
                           type="button"
                           onClick={() => setOpenGroupJoinPolicy("password")}
                           className={`rounded-ui-rect border px-3 py-2 sam-text-helper font-semibold ${openGroupJoinPolicy === "password" ? "border-sam-border bg-sam-surface-muted text-sam-fg" : "border-sam-border bg-sam-surface text-sam-muted"}`}
                         >
-                          비밀번호
+                          {t("nav_messenger_password_short")}
                         </button>
                         <button
                           type="button"
@@ -3102,12 +3112,12 @@ export function CommunityMessengerHome({
                           }}
                           className={`rounded-ui-rect border px-3 py-2 sam-text-helper font-semibold ${openGroupJoinPolicy === "free" ? "border-sam-border bg-sam-surface-muted text-sam-fg" : "border-sam-border bg-sam-surface text-sam-muted"}`}
                         >
-                          자유 입장
+                          {t("nav_messenger_join_free")}
                         </button>
                       </div>
                     </label>
                     <label className="rounded-ui-rect border border-sam-border-soft px-3 py-3">
-                      <p className="sam-text-body-secondary font-semibold text-sam-fg">신원 정책</p>
+                      <p className="sam-text-body-secondary font-semibold text-sam-fg">{t("cm_ui_identity_policy")}</p>
                       <div className="mt-2 grid grid-cols-2 gap-2">
                         <button
                           type="button"
@@ -3117,14 +3127,14 @@ export function CommunityMessengerHome({
                           }}
                           className={`rounded-ui-rect border px-3 py-2 sam-text-helper font-semibold ${openGroupIdentityPolicy === "real_name" ? "border-sam-border bg-sam-surface-muted text-sam-fg" : "border-sam-border bg-sam-surface text-sam-muted"}`}
                         >
-                          실명 기반
+                          {t("nav_messenger_identity_real")}
                         </button>
                         <button
                           type="button"
                           onClick={() => setOpenGroupIdentityPolicy("alias_allowed")}
                           className={`rounded-ui-rect border px-3 py-2 sam-text-helper font-semibold ${openGroupIdentityPolicy === "alias_allowed" ? "border-sam-border bg-sam-surface-muted text-sam-fg" : "border-sam-border bg-sam-surface text-sam-muted"}`}
                         >
-                          별칭 허용
+                          {t("nav_messenger_identity_alias")}
                         </button>
                       </div>
                     </label>
@@ -3134,25 +3144,25 @@ export function CommunityMessengerHome({
                       <input
                         value={openGroupPassword}
                         onChange={(e) => setOpenGroupPassword(e.target.value)}
-                        placeholder="입장 비밀번호"
+                        placeholder={t("cm_ui_join_password_placeholder")}
                         className="h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
                       />
                     ) : (
                       <div className="flex h-11 items-center rounded-ui-rect bg-sam-app px-3 sam-text-body-secondary text-sam-muted">
-                        자유 입장 선택됨
+                        {t("cm_ui_free_join_selected")}
                       </div>
                     )}
                     <input
                       value={openGroupMemberLimit}
                       onChange={(e) => setOpenGroupMemberLimit(e.target.value.replace(/[^0-9]/g, ""))}
-                      placeholder="최대 인원"
+                      placeholder={t("nav_messenger_member_limit_placeholder")}
                       className="h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
                     />
                   </div>
                   <label className="flex items-center justify-between rounded-ui-rect border border-sam-border-soft px-3 py-3">
                     <div>
-                      <p className="sam-text-body font-medium text-sam-fg">목록에 공개</p>
-                      <p className="sam-text-helper text-sam-muted">OFF면 채팅방에는 남지만 모임 찾기에는 노출되지 않습니다.</p>
+                      <p className="sam-text-body font-medium text-sam-fg">{t("nav_messenger_discoverable_label")}</p>
+                      <p className="sam-text-helper text-sam-muted">{t("cm_ui_discoverable_off_hint")}</p>
                     </div>
                     <input
                       type="checkbox"
@@ -3169,14 +3179,14 @@ export function CommunityMessengerHome({
                           onClick={() => setOpenGroupCreatorIdentityMode("real_name")}
                           className={`rounded-ui-rect border px-3 py-2 sam-text-helper font-semibold ${openGroupCreatorIdentityMode === "real_name" ? "border-sam-border bg-sam-surface-muted text-sam-fg" : "border-sam-border bg-sam-surface text-sam-muted"}`}
                         >
-                          방장도 실명 사용
+                          {t("cm_ui_owner_use_real_name")}
                         </button>
                         <button
                           type="button"
                           onClick={() => setOpenGroupCreatorIdentityMode("alias")}
                           className={`rounded-ui-rect border px-3 py-2 sam-text-helper font-semibold ${openGroupCreatorIdentityMode === "alias" ? "border-sam-border bg-sam-surface-muted text-sam-fg" : "border-sam-border bg-sam-surface text-sam-muted"}`}
                         >
-                          방장 별칭 사용
+                          {t("cm_ui_owner_use_alias")}
                         </button>
                       </div>
                       {openGroupCreatorIdentityMode === "alias" ? (
@@ -3184,20 +3194,20 @@ export function CommunityMessengerHome({
                           <input
                             value={openGroupCreatorAliasName}
                             onChange={(e) => setOpenGroupCreatorAliasName(e.target.value)}
-                            placeholder="방장 별칭 닉네임"
+                            placeholder={t("cm_ui_owner_alias_nickname_placeholder")}
                             className="h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
                           />
                           <input
                             value={openGroupCreatorAliasAvatarUrl}
                             onChange={(e) => setOpenGroupCreatorAliasAvatarUrl(e.target.value)}
-                            placeholder="아바타 URL (선택)"
+                            placeholder={t("cm_ui_avatar_url_optional")}
                             className="h-11 w-full rounded-ui-rect border border-sam-border px-3 sam-text-body outline-none focus:border-sam-border"
                           />
                           <textarea
                             value={openGroupCreatorAliasBio}
                             onChange={(e) => setOpenGroupCreatorAliasBio(e.target.value)}
                             rows={2}
-                            placeholder="방장 소개 (선택)"
+                            placeholder={t("cm_ui_owner_intro_optional")}
                             className="w-full rounded-ui-rect border border-sam-border px-3 py-3 sam-text-body outline-none focus:border-sam-border"
                           />
                         </div>
@@ -3214,7 +3224,7 @@ export function CommunityMessengerHome({
                 onClick={() => setGroupCreateStep("closed")}
                 className="flex-1 rounded-ui-rect border border-sam-border px-4 py-3 sam-text-body font-medium text-sam-fg"
               >
-                닫기
+                {t("nav_close")}
               </button>
               {groupCreateStep === "private_group" ? (
                 <button
@@ -3223,7 +3233,7 @@ export function CommunityMessengerHome({
                   disabled={busyId === "create-private-group" || groupMembers.length === 0}
                   className="flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-semibold text-sam-fg disabled:opacity-40"
                 >
-                  {busyId === "create-private-group" ? "생성 중..." : "비공개 그룹 생성"}
+                  {busyId === "create-private-group" ? t("cm_ui_creating") : t("cm_ui_create_private_group")}
                 </button>
               ) : null}
               {groupCreateStep === "open_group" ? (
@@ -3238,7 +3248,7 @@ export function CommunityMessengerHome({
                   }
                   className="flex-1 rounded-ui-rect border border-sam-border bg-sam-surface px-4 py-3 sam-text-body font-semibold text-sam-fg disabled:opacity-40"
                 >
-                  {busyId === "create-open-group" ? "생성 중..." : "모임 채팅 생성"}
+                  {busyId === "create-open-group" ? t("cm_ui_creating") : t("cm_ui_create_open_group_chat")}
                 </button>
               ) : null}
             </div>
@@ -3270,7 +3280,7 @@ export function CommunityMessengerHome({
           type="button"
           onClick={() => (mainSection === "friends" ? setFriendManagerOpen(true) : openHomeOverlay("composer"))}
           className={`fixed ${BOTTOM_NAV_FAB_LAYOUT.bottomOffsetClass} right-4 z-[41] flex h-14 w-14 items-center justify-center rounded-ui-rect border border-[color:var(--messenger-primary-soft-2)] bg-[color:var(--messenger-primary)] text-white shadow-[var(--messenger-shadow-soft)] transition active:scale-[0.98] active:opacity-90`}
-          aria-label={mainSection === "friends" ? "친구 추가" : "새 대화"}
+          aria-label={mainSection === "friends" ? t("cm_ui_add_friend") : t("cm_ui_new_conversation")}
         >
           <MessengerHomeFabPlusIcon className="h-6 w-6" />
         </button>

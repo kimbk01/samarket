@@ -1,12 +1,14 @@
 "use client";
 
 import { Suspense } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { SearchView } from "@/components/search/SearchView";
 
 function SearchFallback() {
+  const { t } = useI18n();
   return (
     <div className="flex items-center justify-center py-12">
-      <p className="sam-text-body text-sam-muted">검색</p>
+      <p className="sam-text-body text-sam-muted">{t("common_search")}</p>
     </div>
   );
 }

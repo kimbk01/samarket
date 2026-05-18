@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatTimeAgo } from "@/lib/utils/format";
 import type { CommunityFeedPostDTO } from "@/lib/community-feed/types";
 import { extractHashtagPreview } from "@/lib/community-feed/topic-feed-skin";
@@ -16,7 +17,10 @@ import {
   type FeedListCardViewModel,
 } from "./feed-list-layouts";
 
-function buildCommunityFeedListViewModel(post: CommunityFeedPostDTO): FeedListCardViewModel {
+function buildCommunityFeedListViewModel(
+  post: CommunityFeedPostDTO,
+  noTitleLabel: string
+): FeedListCardViewModel {
   const time =
     post.created_at && !Number.isNaN(Date.parse(post.created_at)) ? formatTimeAgo(post.created_at, "ko-KR") : "";
   const skin = post.feed_list_skin;
@@ -36,7 +40,7 @@ function buildCommunityFeedListViewModel(post: CommunityFeedPostDTO): FeedListCa
     href: philifeAppPaths.post(post.id),
     topicLabel: post.topic_name,
     topicColor: post.topic_color,
-    title: post.title?.trim() || "제목 없음",
+    title: post.title?.trim() || noTitleLabel,
     summary: stripMarkdownImageSyntaxForFeedPreview((post.summary ?? "").trim() || (post.content ?? "")),
     timeLabel: time,
     authorName: post.author_name,
@@ -54,8 +58,9 @@ function buildCommunityFeedListViewModel(post: CommunityFeedPostDTO): FeedListCa
 }
 
 export function CommunityPostCard({ post }: { post: CommunityFeedPostDTO }) {
+  const { t } = useI18n();
   const skin = post.feed_list_skin;
-  const vm = buildCommunityFeedListViewModel(post);
+  const vm = buildCommunityFeedListViewModel(post, t("community_no_title"));
   const hasThumb = Boolean(vm.thumbnailUrl);
 
   if (skin === "text_primary") {

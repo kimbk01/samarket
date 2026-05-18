@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { encodedTradeMarketSegment } from "@/lib/categories/tradeMarketPath";
@@ -30,14 +31,14 @@ export function JobListingKindTabs({
   /** 현재 주제 칩 선택값(topic 쿼리) — 유지 */
   topicKey: string | null;
 }) {
-  const tabs: { kind: JobListingKindTab; label: string }[] = [
-    { kind: "hire", label: "사람 구해요" },
-    { kind: "work", label: "일 찾고 있어요" },
+  const tabs: { kind: JobListingKindTab; labelKey: "jobs_listing_hire" | "jobs_listing_work_short" }[] = [
+    { kind: "hire", labelKey: "jobs_listing_hire" },
+    { kind: "work", labelKey: "jobs_listing_work_short" },
   ];
 
   return (
-    <div className={`${Sam.tabs.bar} min-w-0 max-w-full`} role="tablist" aria-label="구인구직 유형">
-      {tabs.map(({ kind, label }) => {
+    <div className={`${Sam.tabs.bar} min-w-0 max-w-full`} role="tablist" aria-label={t("ui_market_jobs_tab_aria")}>
+      {tabs.map(({ kind, labelKey }) => {
         const active = selectedKind === kind;
         return (
           <Link
@@ -49,7 +50,7 @@ export function JobListingKindTabs({
             prefetch={false}
             className={active ? Sam.tabs.tabActive : Sam.tabs.tab}
           >
-            {label}
+            {t(labelKey)}
           </Link>
         );
       })}

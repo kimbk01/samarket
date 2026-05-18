@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { forwardRef, useImperativeHandle, useMemo } from "react";
 import type { MenuSection } from "@/lib/stores/group-store-products-by-menu";

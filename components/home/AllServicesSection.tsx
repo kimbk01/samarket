@@ -14,6 +14,7 @@ const GROUP_LABELS: Record<keyof Omit<GroupedCategories, "all">, string> = {
 };
 
 export function AllServicesSection() {
+  const { t } = useI18n();
   const { tt } = useI18n();
   const [grouped, setGrouped] = useState<GroupedCategories | null>(null);
   const [loading, setLoading] = useState(true);

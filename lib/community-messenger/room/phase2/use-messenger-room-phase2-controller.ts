@@ -73,6 +73,7 @@ import {
 } from "@/lib/community-messenger/room/messenger-room-read-gate";
 import { buildReplyPreviewSnapshot } from "@/lib/community-messenger/message-actions/message-reply-policy";
 import { registerMessengerRoomComposerPhase2Bridge } from "@/lib/community-messenger/room/messenger-room-composer-phase2-bridge";
+import { translateCmUi } from "@/lib/community-messenger/cm-ui-translate";
 
 export type MessengerRoomPhase2ControllerState = ReturnType<typeof useMessengerRoomPhase2Controller>;
 
@@ -104,10 +105,10 @@ function optimisticOutboundSender(
   if (uid) {
     return {
       senderId: uid,
-      senderLabel: roomMembersDisplay.find((m) => m.id === uid)?.label ?? "나",
+      senderLabel: roomMembersDisplay.find((m) => m.id === uid)?.label ?? translateCmUi("common_me"),
     };
   }
-  return { senderId: CM_OPTIMISTIC_SENDER_FALLBACK_ID, senderLabel: "나" };
+  return { senderId: CM_OPTIMISTIC_SENDER_FALLBACK_ID, senderLabel: translateCmUi("common_me") };
 }
 
 export function useMessengerRoomPhase2Controller() {
@@ -940,17 +941,17 @@ export function useMessengerRoomPhase2Controller() {
         if (res.reason === "later") return;
         if (res.reason === "deferred") {
           showMessengerSnackbar(
-            "설정에서 위치 권한을 확인하거나, 지도 링크 없이 주소를 입력해 주세요.",
+            translateCmUi("cm_ui_location_permission_hint"),
             { variant: "error" },
           );
           return;
         }
-        showMessengerSnackbar(res.message ?? "위치를 가져오지 못했습니다.", { variant: "error" });
+        showMessengerSnackbar(res.message ?? translateCmUi("cm_ui_location_fetch_failed"), { variant: "error" });
         return;
       }
       const { latitude, longitude } = res.position;
       const url = `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=16/${latitude}/${longitude}`;
-      const content = `📍 위치 공유\n${url}`;
+      const content = translateCmUi("cm_ui_location_share_line", { url });
       setAttachmentConfirmDraft({ kind: "location", content });
       setActiveSheet("attach-confirm");
     })();
@@ -1068,7 +1069,7 @@ export function useMessengerRoomPhase2Controller() {
     if (picked.length === 0) return;
     const files = picked.slice(0, MESSENGER_IMAGE_ALBUM_PICK_MAX);
     if (picked.length > MESSENGER_IMAGE_ALBUM_PICK_MAX) {
-      showMessengerSnackbar(`한 번에 선택할 수 있는 사진은 최대 ${MESSENGER_IMAGE_ALBUM_PICK_MAX}장입니다.`, {
+      showMessengerSnackbar(translateCmUi("cm_ui_album_pick_max", { count: MESSENGER_IMAGE_ALBUM_PICK_MAX }), {
         variant: "error",
       });
     }
@@ -1245,7 +1246,7 @@ export function useMessengerRoomPhase2Controller() {
 
   const deleteRoomMessageForEveryone = useCallback(
     async (messageId: string) => {
-      if (!window.confirm("모든 참가자에게서 이 메시지를 삭제할까요?")) return;
+      if (!window.confirm(t("cm_ui_confirm_delete_for_everyone"))) return;
       setBusy("delete-for-everyone");
       try {
         const res = await fetch(
@@ -1268,7 +1269,7 @@ export function useMessengerRoomPhase2Controller() {
         setBusy(null);
       }
     },
-    [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, refresh, setReplyToMessage, streamRoomId]
+    [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, refresh, setReplyToMessage, streamRoomId, t]
   );
 
   const toggleMessageReaction = useCallback(
@@ -1278,7 +1279,7 @@ export function useMessengerRoomPhase2Controller() {
       if (!mid || !rk) return;
       const row = roomMessagesRef.current.find((x) => x.id === mid);
       if (row?.isMine || row?.pending) {
-        showMessengerSnackbar("내 메시지에는 반응할 수 없습니다.", { variant: "error" });
+        showMessengerSnackbar(translateCmUi("cm_ui_cannot_react_own_message"), { variant: "error" });
         return;
       }
       const busy = messageReactionToggleBusyIdsRef.current;
@@ -1318,7 +1319,7 @@ export function useMessengerRoomPhase2Controller() {
     async (messageId: string) => {
       const row = roomMessagesRef.current.find((x) => x.id === messageId);
       if (row?.messageType !== "voice") return;
-      if (!window.confirm("이 음성 메시지를 삭제할까요?")) return;
+      if (!window.confirm(t("cm_ui_confirm_delete_voice_message"))) return;
       setBusy("delete-message");
       try {
         const res = await fetch(
@@ -1338,12 +1339,12 @@ export function useMessengerRoomPhase2Controller() {
         setBusy(null);
       }
     },
-    [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, refresh, setReplyToMessage, setRoomMessages, streamRoomId]
+    [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, refresh, setReplyToMessage, setRoomMessages, streamRoomId, t]
   );
 
   const blockPeerFromMessage = useCallback(
     async (targetUserId: string) => {
-      if (!window.confirm("이 사용자를 차단할까요? 친구·대화 일부가 제한될 수 있습니다.")) return;
+      if (!window.confirm(t("cm_ui_confirm_block_peer_messenger"))) return;
       setBusy("block-peer");
       try {
         const res = await fetch("/api/community/block-relations", {
@@ -1354,16 +1355,16 @@ export function useMessengerRoomPhase2Controller() {
         const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
         if (!res.ok || !json.ok) {
           if (redirectIfMessengerAuthBlocked(res, json)) return;
-          showMessengerSnackbar(json.error ?? "차단 처리에 실패했습니다.", { variant: "error" });
+          showMessengerSnackbar(json.error ?? translateCmUi("cm_ui_block_action_failed"), { variant: "error" });
           return;
         }
-        showMessengerSnackbar("차단되었습니다.", { variant: "success" });
+        showMessengerSnackbar(translateCmUi("cm_ui_blocked_success"), { variant: "success" });
         void refresh(true);
       } finally {
         setBusy(null);
       }
     },
-    [redirectIfMessengerAuthBlocked, refresh]
+    [redirectIfMessengerAuthBlocked, refresh, t]
   );
 
   const inviteMembers = useCallback(async () => {
@@ -1405,7 +1406,10 @@ export function useMessengerRoomPhase2Controller() {
         return;
       }
       await refresh(true);
-      showMessengerSnackbar(isOpenGroupRoom ? "모임 공지를 저장했습니다." : "공지를 저장했습니다.", { variant: "success" });
+      showMessengerSnackbar(
+        isOpenGroupRoom ? translateCmUi("cm_ui_meeting_notice_saved") : translateCmUi("cm_ui_notice_saved"),
+        { variant: "success" }
+      );
     } finally {
       setBusy(null);
     }
@@ -1486,7 +1490,7 @@ export function useMessengerRoomPhase2Controller() {
 
   const transferGroupOwner = useCallback(
     async (targetUserId: string, label: string) => {
-      if (!window.confirm(`${label}님에게 방장을 위임할까요? 위임 후에는 내가 관리자 권한으로 내려갑니다.`)) return;
+      if (!window.confirm(t("cm_ui_confirm_transfer_group_owner", { name: label }))) return;
       setBusy(`group-owner:${targetUserId}`);
       try {
         const res = await fetch(communityMessengerRoomResourcePath(streamRoomId), {
@@ -1506,7 +1510,7 @@ export function useMessengerRoomPhase2Controller() {
         setBusy(null);
       }
     },
-    [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, refresh, streamRoomId]
+    [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, refresh, streamRoomId, t]
   );
 
   const startDirectChatWithMember = useCallback(
@@ -1568,7 +1572,7 @@ export function useMessengerRoomPhase2Controller() {
 
   const removeGroupMember = useCallback(
     async (targetUserId: string, label: string) => {
-      if (!window.confirm(`${label}님을 이 그룹에서 내보낼까요?`)) return;
+      if (!window.confirm(t("cm_ui_confirm_remove_group_member", { name: label }))) return;
       setBusy(`group-remove:${targetUserId}`);
       try {
         const res = await fetch(communityMessengerRoomResourcePath(streamRoomId), {
@@ -1588,13 +1592,13 @@ export function useMessengerRoomPhase2Controller() {
         setBusy(null);
       }
     },
-    [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, refresh, streamRoomId]
+    [getRoomActionErrorMessage, redirectIfMessengerAuthBlocked, refresh, streamRoomId, t]
   );
 
   const startGroupCall = useCallback(
     async (kind: "voice" | "video") => {
       if (!canStartGroupCall) {
-        showMessengerSnackbar("이 그룹에서는 현재 멤버 통화 시작 권한이 없습니다.", { variant: "error" });
+        showMessengerSnackbar(translateCmUi("cm_ui_group_member_call_forbidden"), { variant: "error" });
         return;
       }
       dismissRoomSheet();
@@ -1651,7 +1655,7 @@ export function useMessengerRoomPhase2Controller() {
 
   const reportTarget = useCallback(
     async (input: { reportType: "room" | "message" | "user"; messageId?: string; reportedUserId?: string }) => {
-      const reasonDetail = window.prompt("신고 사유를 입력해 주세요.");
+      const reasonDetail = window.prompt(translateCmUi("cm_ui_report_reason_prompt"));
       if (!reasonDetail || !reasonDetail.trim()) return;
       const res = await fetch("/api/community-messenger/reports", {
         method: "POST",
@@ -1668,11 +1672,11 @@ export function useMessengerRoomPhase2Controller() {
       const json = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!res.ok || !json.ok) {
         if (redirectIfMessengerAuthBlocked(res, json)) return;
-        showMessengerSnackbar(json.error ?? "신고 접수에 실패했습니다.", { variant: "error" });
+        showMessengerSnackbar(json.error ?? translateCmUi("cm_ui_report_failed"), { variant: "error" });
         return;
       }
       setMemberActionTarget(null);
-      showMessengerSnackbar("신고가 접수되었습니다.", { variant: "success" });
+      showMessengerSnackbar(translateCmUi("cm_ui_report_submitted"), { variant: "success" });
     },
     [redirectIfMessengerAuthBlocked, roomId]
   );
@@ -1696,14 +1700,14 @@ export function useMessengerRoomPhase2Controller() {
     async (item: CommunityMessengerMessage & { pending?: boolean }) => {
       const text = getMessageCopyText(item);
       if (!text) {
-        showMessengerSnackbar("복사할 수 없는 메시지입니다.", { variant: "error" });
+        showMessengerSnackbar(translateCmUi("cm_ui_cannot_copy_message"), { variant: "error" });
         return;
       }
       try {
         await navigator.clipboard.writeText(text);
-        showMessengerSnackbar("복사했습니다.", { variant: "success" });
+        showMessengerSnackbar(translateCmUi("cm_ui_copied_success"), { variant: "success" });
       } catch {
-        showMessengerSnackbar("복사하지 못했습니다.", { variant: "error" });
+        showMessengerSnackbar(translateCmUi("cm_ui_copy_failed"), { variant: "error" });
       }
       setMessageActionItem(null);
     },
@@ -1713,20 +1717,24 @@ export function useMessengerRoomPhase2Controller() {
   const shareMessageExternally = useCallback(
     async (item: CommunityMessengerMessage & { pending?: boolean }) => {
       const text = getMessageCopyText(item);
-      const payload = text || `[${item.messageType} 메시지]`;
+      const payload =
+        text || translateCmUi("cm_ui_message_type_bracket", { type: item.messageType });
       try {
         if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
-          await navigator.share({ title: snapshot?.room.title ?? "대화", text: payload });
+          await navigator.share({
+            title: snapshot?.room.title ?? translateCmUi("cm_ui_chat_fallback"),
+            text: payload,
+          });
         } else {
           await navigator.clipboard.writeText(payload);
-          showMessengerSnackbar("내용을 클립보드에 복사했습니다.", { variant: "success" });
+          showMessengerSnackbar(translateCmUi("cm_ui_content_copied_clipboard"), { variant: "success" });
         }
       } catch {
         try {
           await navigator.clipboard.writeText(payload);
-          showMessengerSnackbar("내용을 클립보드에 복사했습니다.", { variant: "success" });
+          showMessengerSnackbar(translateCmUi("cm_ui_content_copied_clipboard"), { variant: "success" });
         } catch {
-          showMessengerSnackbar("전달할 수 없습니다.", { variant: "error" });
+          showMessengerSnackbar(translateCmUi("cm_ui_cannot_forward_message"), { variant: "error" });
         }
       }
       setMessageActionItem(null);
@@ -1742,9 +1750,9 @@ export function useMessengerRoomPhase2Controller() {
       const url = `${origin}/community-messenger/rooms/${encodeURIComponent(canon)}?msg=${encodeURIComponent(item.id)}`;
       try {
         await navigator.clipboard.writeText(url);
-        showMessengerSnackbar("메시지 링크를 복사했습니다.", { variant: "success" });
+        showMessengerSnackbar(translateCmUi("cm_ui_message_link_copied"), { variant: "success" });
       } catch {
-        showMessengerSnackbar("복사하지 못했습니다.", { variant: "error" });
+        showMessengerSnackbar(translateCmUi("cm_ui_copy_failed"), { variant: "error" });
       }
       setMessageActionItem(null);
     },
@@ -1754,8 +1762,8 @@ export function useMessengerRoomPhase2Controller() {
   const shareMessageToOtherRoom = useCallback(
     async (item: CommunityMessengerMessage & { pending?: boolean }) => {
       const text = getMessageCopyText(item);
-      const roomTitle = snapshot?.room.title?.trim() || "대화";
-      const preview = text || `[${item.messageType} 메시지]`;
+      const roomTitle = snapshot?.room.title?.trim() || translateCmUi("cm_ui_chat_fallback");
+      const preview = text || translateCmUi("cm_ui_message_type_bracket", { type: item.messageType });
       const canon = streamRoomId.trim();
       const block = buildCommunityMessengerInternalShareClipboard({
         roomTitle,
@@ -1766,12 +1774,12 @@ export function useMessengerRoomPhase2Controller() {
       try {
         await navigator.clipboard.writeText(block);
       } catch {
-        showMessengerSnackbar("복사하지 못했습니다.", { variant: "error" });
+        showMessengerSnackbar(translateCmUi("cm_ui_copy_failed"), { variant: "error" });
         return;
       }
       setMessageActionItem(null);
       router.push("/community-messenger?section=chats");
-      showMessengerSnackbar("메시지 카드가 클립보드에 복사되었습니다. 다른 방에서 붙여넣기 하세요.", { variant: "success" });
+      showMessengerSnackbar(translateCmUi("cm_ui_message_card_copied_paste"), { variant: "success" });
     },
     [getMessageCopyText, router, setMessageActionItem, snapshot?.room.title, streamRoomId]
   );

@@ -1,28 +1,43 @@
 "use client";
 
 import { useMemo } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { getPromotedItems } from "@/lib/ads/mock-promoted-items";
-import { AD_PLACEMENT_LABELS } from "@/lib/ads/ad-utils";
-import type { PromotedItem } from "@/lib/types/ad-application";
+import type { AdPlacement, PromotedItem } from "@/lib/types/ad-application";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 
-const STATUS_LABELS: Record<PromotedItem["status"], string> = {
-  scheduled: "예정",
-  active: "노출중",
-  expired: "만료",
-  paused: "일시중지",
-};
+const PLACEMENT_KEYS = {
+  home_top: "admin_ads_placement_home_top",
+  home_middle: "admin_ads_placement_home_middle",
+  search_top: "admin_ads_placement_search_top",
+  product_detail: "admin_ads_placement_product_detail",
+  shop_featured: "admin_ads_placement_shop_featured",
+} as const satisfies Record<AdPlacement, MessageKey>;
+
+const STATUS_KEYS = {
+  scheduled: "admin_ads_promoted_scheduled",
+  active: "admin_ads_promoted_active",
+  expired: "admin_ads_promoted_expired",
+  paused: "admin_ads_promoted_paused",
+} as const satisfies Record<PromotedItem["status"], MessageKey>;
+
+function dateLocaleTag(language: AppLanguageCode): string {
+  return language === "en" ? "en-US" : "ko-KR";
+}
 
 export function AdminPromotedItemListPage() {
+  const { t, language } = useI18n();
+  const dateLocale = dateLocaleTag(language);
   const items = useMemo(() => getPromotedItems(), []);
 
   return (
     <div className="space-y-4">
-      <h1 className="sam-text-page-title font-semibold text-sam-fg">
-        유료 노출 상품
-      </h1>
+      <AdminPageHeader titleKey="admin_ads_promoted_page_title" />
       {items.length === 0 ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-          유료 노출 중인 항목이 없습니다.
+          {t("admin_ads_promoted_empty")}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
@@ -30,16 +45,16 @@ export function AdminPromotedItemListPage() {
             <thead>
               <tr className="border-b border-sam-border bg-sam-app">
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  대상
+                  {t("admin_ads_col_target")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  위치
+                  {t("admin_ads_col_placement")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  상태
+                  {t("admin_ads_col_status")}
                 </th>
                 <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-                  노출 기간
+                  {t("admin_ads_col_exposure_period")}
                 </th>
               </tr>
             </thead>
@@ -49,12 +64,8 @@ export function AdminPromotedItemListPage() {
                   key={p.id}
                   className="border-b border-sam-border-soft hover:bg-sam-app"
                 >
-                  <td className="px-3 py-2.5 font-medium text-sam-fg">
-                    {p.targetTitle}
-                  </td>
-                  <td className="px-3 py-2.5 text-sam-fg">
-                    {AD_PLACEMENT_LABELS[p.placement]}
-                  </td>
+                  <td className="px-3 py-2.5 font-medium text-sam-fg">{p.targetTitle}</td>
+                  <td className="px-3 py-2.5 text-sam-fg">{t(PLACEMENT_KEYS[p.placement])}</td>
                   <td className="px-3 py-2.5">
                     <span
                       className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${
@@ -65,12 +76,12 @@ export function AdminPromotedItemListPage() {
                             : "bg-sam-surface-muted text-sam-fg"
                       }`}
                     >
-                      {STATUS_LABELS[p.status]}
+                      {t(STATUS_KEYS[p.status])}
                     </span>
                   </td>
                   <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                    {new Date(p.startAt).toLocaleDateString("ko-KR")} ~{" "}
-                    {new Date(p.endAt).toLocaleDateString("ko-KR")}
+                    {new Date(p.startAt).toLocaleDateString(dateLocale)} ~{" "}
+                    {new Date(p.endAt).toLocaleDateString(dateLocale)}
                   </td>
                 </tr>
               ))}

@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -9,7 +10,6 @@ import { getAppSettings } from "@/lib/app-settings";
 import { openCreateTradeChat } from "@/lib/chats/trade-chat-entry-navigation";
 import { formatPrice, formatTimeAgo } from "@/lib/utils/format";
 import type { PriceOfferListItem, PriceOfferStatus } from "@/lib/offers/types";
-import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 
 const OFFER_STATUS_KO: Record<PriceOfferStatus, string> = {
   pending: "판매자 응답 대기",
@@ -38,6 +38,7 @@ type Props = {
 };
 
 export function MyOffersView({ mode, title, emptyLabel }: Props) {
+  const { t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const currency = getAppSettings().defaultCurrency || "PHP";
@@ -106,7 +107,7 @@ export function MyOffersView({ mode, title, emptyLabel }: Props) {
           </p>
         </div>
 
-        {loading ? <p className="text-[13px] text-sam-muted">불러오는 중…</p> : null}
+        {loading ? <p className="text-[13px] text-sam-muted">{t("common_loading")}</p> : null}
         {error ? <p className="text-[13px] text-sam-danger">{error}</p> : null}
         {!loading && offers.length === 0 ? (
           <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 text-[13px] text-sam-muted">
@@ -117,14 +118,18 @@ export function MyOffersView({ mode, title, emptyLabel }: Props) {
         {offers.map((offer) => (
           <article key={offer.id} className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
             <div className="flex flex-wrap items-start gap-3">
-              <SamarketThumbnail
-                src={offer.productThumbnailUrl}
-                size={64}
-                roundedClassName="rounded-ui-rect"
-                className="bg-sam-surface-muted"
-                fallbackSrc=""
-                fallbackNode={<span className="text-[10px] text-sam-muted">이미지</span>}
-              />
+              <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
+                {offer.productThumbnailUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- 저장소·CDN 혼재 썸네일
+                  <img
+                    src={offer.productThumbnailUrl}
+                    alt=""
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-[10px] text-sam-muted">{t("ui_product_gallery_fallback")}</div>
+                )}
+              </div>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <Link href={offer.productHref} className="text-[15px] font-semibold text-sam-fg hover:underline">
@@ -139,7 +144,7 @@ export function MyOffersView({ mode, title, emptyLabel }: Props) {
                 <p className="mt-1 text-[12px] text-sam-muted">
                   제안가 {formatPrice(offer.offeredPrice, currency)} · 판매가 {formatPrice(offer.originalPrice, currency)}
                 </p>
-                <p className="mt-1 text-[11px] text-sam-muted">제안일 {formatTimeAgo(offer.createdAt)}</p>
+                <p className="mt-1 text-[11px] text-sam-muted">{t("ui_offer_date_label", { time: formatTimeAgo(offer.createdAt) })}</p>
               </div>
 
               <div className="flex shrink-0 flex-wrap justify-end gap-2">
@@ -173,7 +178,7 @@ export function MyOffersView({ mode, title, emptyLabel }: Props) {
                     onClick={() => router.push(offer.productHref)}
                     className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 text-[12px] font-semibold text-sam-fg"
                   >
-                    다시 제안하기
+                    {t("ui_offer_retry_label")}
                   </button>
                 ) : null}
                 {mode === "received" && offer.status === "pending" ? (

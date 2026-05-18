@@ -1,12 +1,8 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { ReviewStatus } from "@/lib/types/review";
-
-const LABELS: Record<ReviewStatus, string> = {
-  visible: "표시",
-  hidden: "숨김",
-  reported: "신고됨",
-};
+import { REVIEW_STATUS_KEYS } from "@/components/admin/i18n/admin-review-label-keys";
 
 const CLASSES: Record<ReviewStatus, string> = {
   visible: "bg-emerald-50 text-emerald-800",
@@ -23,11 +19,12 @@ export function AdminReviewStatusBadge({
   status,
   className = "",
 }: AdminReviewStatusBadgeProps) {
+  const { t } = useI18n();
   return (
     <span
       className={`inline-block rounded px-2 py-0.5 sam-text-helper font-medium ${CLASSES[status]} ${className}`}
     >
-      {LABELS[status]}
+      {t(REVIEW_STATUS_KEYS[status])}
     </span>
   );
 }

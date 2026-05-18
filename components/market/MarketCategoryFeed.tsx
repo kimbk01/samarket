@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -43,7 +44,7 @@ import { capRecordByOldestTimestamps } from "@/lib/http/memory-map-prune";
  * (`/admin/trade/feed-topics` · TradeSubtopicsPanel 과 동일 소스. 하위가 없으면 2행 숨김)
  */
 
-/** 1차 거래 탭 `href`는 쿼리 없음 — 진입 시 기본 정렬(`latest`)만 유효. 현재 화면 `fs`/`sort`를 쓰면 캐시 키가 어긋난다. */
+/** 1차 거래 탭 `href`는 쿼리 {t("common_none")} — 진입 시 기본 정렬(`latest`)만 유효. 현재 화면 `fs`/`sort`를 쓰면 캐시 키가 어긋난다. */
 const NEIGHBOR_MARKET_TAB_FEED_SORT = "latest" as const;
 
 type FeedFilterChild = { id: string; slug: string | null };
@@ -74,7 +75,7 @@ export function MarketCategoryFeed({
   const searchParams = useSearchParams();
   const topicRaw = (searchParams.get("topic")?.trim() ?? "").normalize("NFC");
   const [children, setChildren] = useState<CategoryWithSettings[]>(() => initialChildren ?? []);
-  /** null = 아직 로드 전 · [] = 직계 하위 없음(부모 id 만 필터) */
+  /** null = 아직 로드 전 · [] = 직계 하위 {t("common_none")}(부모 id 만 필터) */
   const [filterRows, setFilterRows] = useState<FeedFilterChild[] | null>(() =>
     initialChildrenForFilter !== undefined ? initialChildrenForFilter : null
   );
@@ -205,7 +206,7 @@ export function MarketCategoryFeed({
 
   /**
    * 인접 탭·스와이프: 즉시 `router.prefetch` + URL 기반 피드 선채움,
-   * 탭 key 기반 이웃 카테고리 피드는 idle(380ms)로 한 묶음 정리·취소.
+   * 탭 key 기반 이웃 카테고리 피드는 idle(380ms)로 한 묶음 정리·{t("common_cancel")}.
    */
   useEffect(() => {
     if (tabs.length === 0 || activeIndex < 0) return;
@@ -388,7 +389,7 @@ export function MarketCategoryFeed({
             className={`${Sam.tabs.barScroll} min-w-0 max-w-full`}
             style={{ WebkitOverflowScrolling: "touch" }}
             role="tablist"
-            aria-label="주제 필터"
+            aria-label={t("ui_market_topic_filter_aria")}
           >
             <TradeTopicChipsRow
               marketBasePath={marketBase}

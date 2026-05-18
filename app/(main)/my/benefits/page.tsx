@@ -1,20 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { MemberBenefitList } from "@/components/member-benefits/MemberBenefitList";
 import type { MemberBenefitPolicy } from "@/lib/types/member-benefit";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 
-function roleLabel(role: string | null | undefined): string {
-  const r = (role ?? "").toLowerCase();
-  if (r === "admin" || r === "super_admin") return "운영";
-  if (r === "store_owner" || r === "business") return "사업자";
-  return "일반";
-}
-
 export default function MyBenefitsPage() {
+  const { t } = useI18n();
   const [role, setRole] = useState<string | null | undefined>(undefined);
 
   useEffect(() => {
@@ -47,26 +42,31 @@ export default function MyBenefitsPage() {
     };
   }, []);
 
+  function roleLabel(roleValue: string | null | undefined): string {
+    const r = (roleValue ?? "").toLowerCase();
+    if (r === "admin" || r === "super_admin") return t("benefits_role_admin");
+    if (r === "store_owner" || r === "business") return t("benefits_role_business");
+    return t("benefits_role_general");
+  }
+
   const policies: MemberBenefitPolicy[] = [];
 
   return (
     <div className="min-h-screen bg-background">
       <MySubpageHeader
-        title="회원 혜택"
-        subtitle="이벤트·프로모션"
+        title={t("route_benefits_title")}
+        subtitle={t("route_benefits_subtitle")}
         backHref="/mypage"
         section="account"
       />
       <div className="mx-auto max-w-lg space-y-4 p-4">
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="sam-text-body-secondary text-sam-muted">내 회원 구분 (profiles.role)</p>
+          <p className="sam-text-body-secondary text-sam-muted">{t("benefits_member_tier_role_note")}</p>
           <div className="mt-1 flex items-center gap-2">
             {role === undefined ? (
-              <span className="sam-text-body text-sam-meta">불러오는 중…</span>
+              <span className="sam-text-body text-sam-meta">{t("common_loading")}</span>
             ) : role === null ? (
-              <span className="sam-text-body text-sam-muted">
-                로그인 후 프로필을 불러올 수 있습니다.
-              </span>
+              <span className="sam-text-body text-sam-muted">{t("benefits_my_profile_login")}</span>
             ) : (
               <span className="rounded bg-sam-primary-soft px-2 py-1 sam-text-body font-medium text-foreground">
                 {roleLabel(role)}
@@ -75,14 +75,11 @@ export default function MyBenefitsPage() {
           </div>
         </div>
         <div className="rounded-ui-rect border border-amber-100 bg-amber-50 px-4 py-3 sam-text-body-secondary text-amber-900">
-          혜택 정책 목록은 DB 설계·관리자 연동 후 표시됩니다. 샘플 정책은 사용하지 않습니다.
+          {t("benefits_policy_db_notice")}
         </div>
         <div>
-          <h2 className="mb-2 sam-text-body font-semibold text-sam-fg">적용 혜택</h2>
-          <MemberBenefitList
-            policies={policies}
-            emptyMessage="등록된 혜택이 없습니다. 공지를 확인해 주세요."
-          />
+          <h2 className="mb-2 sam-text-body font-semibold text-sam-fg">{t("benefits_applied_section")}</h2>
+          <MemberBenefitList policies={policies} emptyMessage={t("benefits_empty_registered")} />
         </div>
       </div>
     </div>

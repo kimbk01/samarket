@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { POST_REPORT_REASONS } from "@/lib/reports/report-utils";
@@ -27,6 +28,7 @@ export function ReportReasonModal({
   onClose,
   onSuccess,
 }: ReportReasonModalProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -56,7 +58,7 @@ export function ReportReasonModal({
     <div className="fixed inset-0 z-40 flex flex-col bg-sam-surface">
       <header className="flex shrink-0 items-center justify-between border-b border-sam-border bg-sam-surface px-4 py-3">
         <AppBackButton onBack={onClose} ariaLabel="닫기" />
-        <span className="sam-text-body-lg font-medium text-sam-fg">신고</span>
+        <span className="sam-text-body-lg font-medium text-sam-fg">{t("common_report")}</span>
         <span className="w-11 shrink-0" />
       </header>
 

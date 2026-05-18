@@ -1,24 +1,41 @@
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { translate, type MessageKey } from "@/lib/i18n/messages";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import type { MemberOrderStatus, PaymentStatus } from "./types";
 
-/** 회원 노출용 한 줄 안내 */
-export const MEMBER_STATUS_USER_MESSAGE: Record<MemberOrderStatus, string> = {
-  pending: "주문이 접수되었어요",
-  accepted: "주문확인이 완료되었어요",
-  preparing: "상품을 준비하고 있어요",
-  delivering: "배송 중이에요",
-  ready_for_pickup: "픽업 준비가 되었어요",
-  arrived: "배송지에 도착했어요",
-  completed: "주문이 완료되었어요",
-  cancelled: "주문이 취소되었어요",
-  cancel_requested: "취소 요청이 접수되었어요",
-  refund_requested: "환불 검토중이에요",
-  refunded: "환불이 완료되었어요",
+const STATUS_MSG_KEYS: Record<MemberOrderStatus, MessageKey> = {
+  pending: "member_order_status_msg_pending",
+  accepted: "member_order_status_msg_accepted",
+  preparing: "member_order_status_msg_preparing",
+  delivering: "member_order_status_msg_delivering",
+  ready_for_pickup: "member_order_status_msg_ready_for_pickup",
+  arrived: "member_order_status_msg_arrived",
+  completed: "member_order_status_msg_completed",
+  cancelled: "member_order_status_msg_cancelled",
+  cancel_requested: "member_order_status_msg_cancel_requested",
+  refund_requested: "member_order_status_msg_refund_requested",
+  refunded: "member_order_status_msg_refunded",
 };
 
-export const MEMBER_PAYMENT_LABEL: Record<PaymentStatus, string> = {
-  pending: "결제 대기",
-  paid: "결제 완료",
-  failed: "결제 실패",
-  cancelled: "결제 취소",
-  refunded: "환불 완료",
+const PAYMENT_KEYS: Record<PaymentStatus, MessageKey> = {
+  pending: "member_order_payment_pending",
+  paid: "member_order_payment_paid",
+  failed: "member_order_payment_failed",
+  cancelled: "member_order_payment_cancelled",
+  refunded: "member_order_payment_refunded",
 };
+
+/** 회원 노출용 한 줄 안내 */
+export function memberOrderStatusUserMessage(
+  status: MemberOrderStatus,
+  lang: AppLanguageCode = getRuntimeAppLanguage()
+): string {
+  return translate(lang, STATUS_MSG_KEYS[status]);
+}
+
+export function memberOrderPaymentLabel(
+  status: PaymentStatus,
+  lang: AppLanguageCode = getRuntimeAppLanguage()
+): string {
+  return translate(lang, PAYMENT_KEYS[status]);
+}

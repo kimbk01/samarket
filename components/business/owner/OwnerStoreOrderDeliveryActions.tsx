@@ -2,13 +2,14 @@
 
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { allowedOrderTransitions } from "@/lib/stores/order-status-transitions";
-import {
-  BUYER_ORDER_STATUS_LABEL,
-  labelForOwnerTransition,
-} from "@/lib/stores/store-order-process-criteria";
+import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
+import { labelForOwnerTransition } from "@/lib/stores/store-order-process-criteria";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
 import { OwnerOrderAcceptSheet } from "@/components/business/owner/OwnerOrderAcceptSheet";
 import { OwnerOrderRejectSheet } from "@/components/business/owner/OwnerOrderRejectSheet";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 
 const BTN_PRIMARY =
   "flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-md bg-[#2D7FF9] px-2 py-2 text-center text-[14px] font-semibold leading-snug text-white shadow-sm transition hover:bg-[#1a6fe8] active:bg-[#155ed0] disabled:opacity-50";
@@ -37,20 +38,21 @@ export function ownerOrderHasTransitionButtons(order: OwnerDeliveryOrderRef): bo
   );
 }
 
-function formatPatchErr(code: string): string {
+function formatPatchErr(code: string, t: (key: MessageKey) => string): string {
   switch (code) {
     case "prep_minutes_required":
-      return "예상 준비 시간(1–180분)을 선택해 주세요.";
+      return t("store_biz_patch_err_prep_minutes");
     case "invalid_transition":
-      return "지금 단계에서는 해당 처리를 할 수 없습니다.";
+      return t("store_biz_patch_err_invalid_transition");
     case "order_admin_locked":
-      return "플랫폼에서 이 주문을 잠갔습니다. 운영센터로 문의해 주세요.";
+      return t("store_biz_patch_err_admin_locked");
     default:
       return code;
   }
 }
 
 function usePatchOrder(storeId: string, order: OwnerDeliveryOrderRef, onUpdated: () => void) {
+  const { t } = useI18n();
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [prepModalOpen, setPrepModalOpen] = useState(false);
@@ -77,7 +79,7 @@ function usePatchOrder(storeId: string, order: OwnerDeliveryOrderRef, onUpdated:
         const j = (await res.json()) as { ok?: boolean; error?: string };
         if (!j?.ok) {
           const code = typeof j?.error === "string" ? j.error : "update_failed";
-          setErr(formatPatchErr(code));
+          setErr(formatPatchErr(code, t));
           return false;
         }
         dispatchOwnerHubBadgeRefresh({
@@ -160,6 +162,7 @@ export function OwnerStoreOrderDeliveryActionsAside({
   acceptSheetOverlayClassName?: string;
   rowBelowButtonLayout?: "column" | "row";
 }) {
+  const { t, language } = useI18n();
   const next = allowedOrderTransitions(order.order_status, order.fulfillment_type);
   const showTransitionButtons =
     order.order_status !== "refund_requested" &&
@@ -191,7 +194,7 @@ export function OwnerStoreOrderDeliveryActionsAside({
       <div className={wrapClass}>
         {err ? (
           <p className="max-w-full text-left sam-text-xxs leading-snug text-red-600 [overflow-wrap:anywhere] [word-break:break-word]">
-            {err}
+            {resolveOwnerApiErrorMessage(err, t)}
           </p>
         ) : null}
         <div
@@ -212,8 +215,8 @@ export function OwnerStoreOrderDeliveryActionsAside({
               className={s === "cancelled" ? BTN_DANGER : BTN_PRIMARY}
             >
               {busy === s
-                ? "처리 중…"
-                : labelForOwnerTransition(order.order_status, s, order.fulfillment_type)}
+                ? t("store_owner_notif_mark_all_busy")
+                : labelForOwnerTransition(order.order_status, s, order.fulfillment_type, language)}
             </button>
           ))}
         </div>
@@ -245,6 +248,7 @@ export function OwnerStoreOrderDeliveryActionsDrawerSection({
   order: OwnerDeliveryOrderRef;
   onUpdated: () => void;
 }) {
+  const { t, language } = useI18n();
   const next = allowedOrderTransitions(order.order_status, order.fulfillment_type);
   const showTransitionButtons =
     order.order_status !== "refund_requested" &&
@@ -268,31 +272,31 @@ export function OwnerStoreOrderDeliveryActionsDrawerSection({
     if (order.order_status === "refund_requested") {
       return (
         <p className="rounded-ui-rect border border-amber-100 bg-amber-50/80 px-2 py-2 sam-text-helper leading-snug text-amber-950">
-          구매자가 환불을 요청했습니다. 관리자 화면(배달 주문)에서 승인하면 재고·정산이 반영됩니다.
+          {t("store_biz_refund_requested_owner_notice")}
         </p>
       );
     }
     if (order.order_status === "refunded") {
-      return <p className={OC_SM}>환불 처리된 주문입니다.</p>;
+      return <p className={OC_SM}>{t("business_phase7_332")}</p>;
     }
     if (!showTransitionButtons) {
       return (
-        <p className={`${OC_SM} text-sam-meta`}>이 주문은 더 이상 상태를 바꿀 수 없습니다.</p>
+        <p className={`${OC_SM} text-sam-meta`}>{t("business_phase7_232")}</p>
       );
     }
     return null;
   }, [order.order_status, showTransitionButtons]);
 
-  const statusLabel = BUYER_ORDER_STATUS_LABEL[order.order_status] ?? order.order_status;
+  const statusLabel = buyerOrderStatusLabel(order.order_status, language);
 
   return (
     <>
       <div className="shrink-0 border-b border-sam-border px-3 py-3">
         <p className="mb-1 sam-text-xxs font-semibold uppercase tracking-wide text-muted">
-          배달·주문 처리
+          {t("store_biz_delivery_actions_title")}
         </p>
         <p className="mb-2 sam-text-helper text-muted">
-          진행 단계 변경·주문취소는 채팅과 함께 이곳에서 할 수 있습니다. ({statusLabel})
+          {t("store_biz_delivery_actions_hint", { status: statusLabel })}
         </p>
         {noticeEl}
         {err ? (
@@ -309,8 +313,8 @@ export function OwnerStoreOrderDeliveryActionsDrawerSection({
                 className={s === "cancelled" ? BTN_DANGER : BTN_PRIMARY}
               >
                 {busy === s
-                  ? "처리 중…"
-                  : labelForOwnerTransition(order.order_status, s, order.fulfillment_type)}
+                  ? t("common_processing")
+                  : labelForOwnerTransition(order.order_status, s, order.fulfillment_type, language)}
               </button>
             ))}
           </div>
@@ -346,6 +350,7 @@ export function OwnerStoreOrderDeliveryActionsChatToolbar({
   orderNo: string;
   onUpdated: () => void;
 }) {
+  const { t, language } = useI18n();
   const next = allowedOrderTransitions(order.order_status, order.fulfillment_type);
   const showTransitionButtons =
     order.order_status !== "refund_requested" &&
@@ -365,21 +370,21 @@ export function OwnerStoreOrderDeliveryActionsChatToolbar({
     rejectBusy,
   } = usePatchOrder(storeId, order, onUpdated);
 
-  const statusLabel = BUYER_ORDER_STATUS_LABEL[order.order_status] ?? order.order_status;
+  const statusLabel = buyerOrderStatusLabel(order.order_status, language);
 
   const noticeEl: ReactNode = useMemo(() => {
     if (order.order_status === "refund_requested") {
       return (
         <p className="rounded-ui-rect border border-amber-100 bg-amber-50/90 px-2 py-1.5 sam-text-xxs leading-snug text-amber-950">
-          환불 요청됨 — 관리자 배달 주문에서 승인 시 반영됩니다.
+          {t("store_biz_refund_requested_banner")}
         </p>
       );
     }
     if (order.order_status === "refunded") {
-      return <p className="sam-text-xxs leading-snug text-sam-muted">환불 처리 완료</p>;
+      return <p className="sam-text-xxs leading-snug text-sam-muted">{t("business_phase7_331")}</p>;
     }
     if (!showTransitionButtons) {
-      return <p className="sam-text-xxs leading-snug text-sam-meta">이 단계에서는 변경할 수 없습니다.</p>;
+      return <p className="sam-text-xxs leading-snug text-sam-meta">{t("business_phase7_231")}</p>;
     }
     return null;
   }, [order.order_status, showTransitionButtons]);
@@ -389,16 +394,16 @@ export function OwnerStoreOrderDeliveryActionsChatToolbar({
       <div className="shrink-0 border-b border-sam-border bg-background px-3 py-2">
         <div className="mb-1.5 flex min-w-0 flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5">
           <p className="min-w-0 truncate sam-text-body-secondary font-semibold text-sam-fg">
-            <span className="text-muted">주문</span> {orderNo}
+            <span className="text-muted">{t("business_phase7_260")}</span> {orderNo}
           </p>
           <p className="shrink-0 sam-text-helper font-medium text-[#555]">{statusLabel}</p>
         </div>
-        <p className="mb-2 sam-text-xxs leading-snug text-muted">
-          배달·접수 처리는 여기서 진행하고, 주문 전문·채팅 전송은 우측 ⋯에서 확인하세요.
-        </p>
+        <p className="mb-2 sam-text-xxs leading-snug text-muted">{t("store_biz_modal_delivery_hint")}</p>
         {noticeEl}
         {err ? (
-          <p className="mt-1.5 sam-text-xxs leading-snug text-red-600 [overflow-wrap:anywhere]">{err}</p>
+          <p className="mt-1.5 sam-text-xxs leading-snug text-red-600 [overflow-wrap:anywhere]">
+            {resolveOwnerApiErrorMessage(err, t)}
+          </p>
         ) : null}
         {showTransitionButtons ? (
           <div className="mt-2 flex min-w-0 flex-row flex-wrap gap-2">
@@ -411,8 +416,8 @@ export function OwnerStoreOrderDeliveryActionsChatToolbar({
                 className={s === "cancelled" ? `${TB_BTN_DANGER} sm:max-w-[50%]` : `${TB_BTN_PRIMARY} sm:max-w-[50%]`}
               >
                 {busy === s
-                  ? "처리 중…"
-                  : labelForOwnerTransition(order.order_status, s, order.fulfillment_type)}
+                  ? t("common_processing")
+                  : labelForOwnerTransition(order.order_status, s, order.fulfillment_type, language)}
               </button>
             ))}
           </div>
@@ -436,6 +441,7 @@ export function OwnerStoreOrderDeliveryActionsChatToolbar({
 
 /** 주문 카드 하단 안내 (환불·종료 등) — 기존 UI와 동일 조건 */
 export function ownerOrderCardNoticeFooter(order: OwnerDeliveryOrderRef): ReactNode | null {
+  const { t } = useI18n();
   const next = allowedOrderTransitions(order.order_status, order.fulfillment_type);
   const showTransitionButtons =
     order.order_status !== "refund_requested" &&
@@ -445,15 +451,15 @@ export function ownerOrderCardNoticeFooter(order: OwnerDeliveryOrderRef): ReactN
   if (order.order_status === "refund_requested") {
     return (
       <p className="rounded-ui-rect border border-amber-100 bg-amber-50/80 px-2 py-2 sam-text-body-secondary leading-snug text-amber-950">
-        구매자가 환불을 요청했습니다. 관리자 화면(배달 주문)에서 승인하면 재고·정산이 반영됩니다.
+        {t("store_biz_refund_requested_owner_notice")}
       </p>
     );
   }
   if (order.order_status === "refunded") {
-    return <p className={OC_SM}>환불 처리된 주문입니다.</p>;
+    return <p className={OC_SM}>{t("business_phase7_332")}</p>;
   }
   if (!showTransitionButtons) {
-    return <p className={`${OC_SM} text-sam-meta`}>이 주문은 더 이상 상태를 바꿀 수 없습니다.</p>;
+    return <p className={`${OC_SM} text-sam-meta`}>{t("business_phase7_232")}</p>;
   }
   return null;
 }

@@ -1,0 +1,118 @@
+﻿node : [check:i18n-hardcoded] 166 possible hardcoded Korean string(s):
+At C:\Users\im2pa\AppData\Local\Temp\ps-script-862cde36-3f12-4213-93c4-bdae192d656b.ps1:82 char:1
++ node scripts/check-hardcoded-korean.mjs components/admin/community-me ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([check:i18n-har...rean string(s)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:222: alert("강제 종료 사유 코드를 선택해 주세요.");
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:226: alert("강제 종료 사유를 운영 메모에 입력해 주세요.");
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:298: return <div className="py-10 text-cen
+ter sam-text-body text-sam-muted">불러오는 중...</div>;
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:302: return <div className="py-10 text-cen
+ter sam-text-body text-sam-muted">메신저 방을 찾을 수 없습니다.</div>;
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:310: title="메신저 방 상세"
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:315: <AdminCard title="방 정보">
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:342: <AdminCard title="운영 조치">
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:349: <option value="">강제 종료 사유 코드를 선택하세요</
+option>
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:360: placeholder="운영 메모를 남기세요. 강제 종료 시에는 선
+택한 사유 코드에 대한 상세 설명을 적어 주세요."
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:363: <p className="sam-text-helper text-am
+ber-700">통화 강제 종료에는 사유 코드 선택과 운영 메모 입력이 모두 필수입니다.</p>
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:385: <AdminCard title="참여자">
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:397: <div>참여 {participant.joinedAt ? forma
+tDateTime(participant.joinedAt) : "-"}</div>
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:398: <div className="mt-1">읽음 {participant
+.lastReadAt ? formatDateTime(participant.lastReadAt) : "-"}</div>
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:406: <AdminCard title="최근 통화">
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:417: <option value="">모든 기록 상태</option>
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:430: <option value="">모든 통화 종류</option>
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:437: <div className="py-8 text-center sam-
+text-body text-sam-muted">통화 기록이 없습니다.</div>
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:455: <AdminCard title="활성 통화 세션">
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:462: <option value="">모든 활성 상태</option>
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:471: <option value="">모든 통화 종류</option>
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:478: <div className="py-8 text-center sam-
+text-body text-sam-muted">현재 진행 중인 통화 세션이 없습니다.</div>
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:512: <AdminCard title="강제 종료 감사 로그">
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:517: placeholder="관리자, 세션 ID, 메모 검색"
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:525: <option value="">전체 기간</option>
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:526: <option value="24h">최근 24시간</option>
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:527: <option value="7d">최근 7일</option>
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:528: <option value="30d">최근 30일</option>
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:530: <div className="flex items-center sam
+-text-helper text-sam-muted">결과 {filteredCallAudits.length}건</div>
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:534: <div className="py-8 text-center sam-
+text-body text-sam-muted">이 방의 강제 종료 감사 로그가 없습니다.</div>
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:542: <span className="ml-2 rounded bg-red-
+50 px-1.5 py-0.5 sam-text-xxs text-red-700">강제 종료</span>
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:553: {log.note ? <p className="mt-1 sam-te
+xt-helper text-amber-700">메모: {log.note}</p> : null}
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:563: <AdminCard title="메시지 타임라인">
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:573: <span className="ml-2 rounded bg-red-
+50 px-1.5 py-0.5 sam-text-xxs text-red-700">숨김</span>
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:613: <AdminCard title="방 신고 내역">
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:616: <div className="py-8 text-center sam-
+text-body text-sam-muted">이 방에 접수된 신고가 없습니다.</div>
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:632: <p className="mt-1 sam-text-helper te
+xt-amber-700">관리 메모: {report.adminNote}</p>
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:778: <h2 className="text-base font-bold te
+xt-sam-fg">통화 강제 종료 확인</h2>
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:784: <span className="text-sam-muted">대상 통
+화</span>
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:790: <span className="text-sam-muted">시작자<
+/span>
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:794: <span className="text-sam-muted">참여 인
+원</span>
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:800: <span className="text-sam-muted">사유 코
+드</span>
+  components\admin\community-messenger\AdminCommunityMessengerDetailPage.tsx:807: <span className="text-sam-muted">상세 메
+모</span>
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:330: title="커뮤니티 메신저 운영"
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:347: <AdminCard title="강제 종료 분석">
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:354: <option value="">모든 사유 코드</option>
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:366: <option value="">전체 기간</option>
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:367: <option value="24h">최근 24시간</option>
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:368: <option value="7d">최근 7일</option>
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:369: <option value="30d">최근 30일</option>
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:381: <div className="flex items-center sam-text-
+helper text-sam-muted">분석 대상 {filteredAnalyticsAudits.length}건</div>
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:385: <AdminCard title="강제 종료 사유 KPI">
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:393: <AdminCard title="강제 종료 추이">
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:408: <AdminCard title="관리자별 강제 종료 집계">
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:411: <div className="py-8 text-center sam-text-b
+ody text-sam-muted">강제 종료 집계가 없습니다.</div>
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:420: <AdminCard title="방 유형별 강제 종료 분석">
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:433: <AdminCard title="강제 종료 재발 분석">
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:454: <p className="sam-text-body-secondary font-
+medium text-sam-fg">반복 발생 방 TOP</p>
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:472: <p className="sam-text-body-secondary font-
+medium text-sam-fg">반복 발생 발신자 TOP</p>
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:492: <AdminCard title="사유 코드 x 재발 여부">
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:517: <AdminCard title="관리자별 재발 억제 효과">
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:520: <div className="py-8 text-center sam-text-b
+ody text-sam-muted">재발 억제 효과를 계산할 데이터가 없습니다.</div>
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:538: <AdminCard title="시간대별 강제 종료/재발 히트맵">
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:541: title="강제 종료 분포"
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:549: title="후속 재발 분포"
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:559: <AdminCard title="사유 코드 x 시간대 히트맵">
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:583: <AdminCard title="사유 코드 x 관리자">
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:604: <AdminCard title="메신저 방 목록">
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:609: placeholder="방 제목, 참여자, 최근 메시지 검색"
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:617: <option value="">모든 상태</option>
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:627: <option value="">모든 유형</option>
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:629: <option value="private_group">비공개 그룹</optio
+n>
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:630: <option value="open_group">공개 그룹</option>
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:642: <div className="py-10 text-center sam-text-
+body text-sam-muted">불러오는 중...</div>
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:644: <div className="py-10 text-center sam-text-
+body text-sam-muted">표시할 메신저 방이 없습니다.</div>
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:650: <th className="px-3 py-2">방</th>
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:651: <th className="px-3 py-2">유형</th>
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:652: <th className="px-3 py-2">상태</th>
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:653: <th className="px-3 py-2">생성자</th>
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:654: <th className="px-3 py-2">참여자</th>
+  components\admin\community-messenger\AdminCommunityMessengerPage.tsx:655: <th className="px-3 py-2">최근 메시지</th>
+  … and 86 more

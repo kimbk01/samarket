@@ -1,5 +1,5 @@
 /**
- * 16단계: 관리자 리뷰 필터·검색·정렬
+ * 16단계: 관리자 리뷰 필터·검색·정렬 (i18n)
  */
 
 import {
@@ -7,31 +7,40 @@ import {
   BUYER_TO_SELLER_POSITIVE,
   SELLER_TO_BUYER_NEGATIVE,
   SELLER_TO_BUYER_POSITIVE,
+  tradeReviewTagLabel,
 } from "@/lib/trade/trade-review-tags";
+import type { MessageKey } from "@/lib/i18n/messages";
 import type { AdminReview } from "@/lib/types/admin-review";
 import type { ReviewStatus } from "@/lib/types/review";
 import type { ReviewRole } from "@/lib/types/review";
+import {
+  REVIEW_STATUS_KEYS,
+} from "@/components/admin/i18n/admin-review-label-keys";
 
-export const REVIEW_STATUS_OPTIONS: { value: ReviewStatus | ""; label: string }[] = [
-  { value: "", label: "전체" },
-  { value: "visible", label: "표시" },
-  { value: "hidden", label: "숨김" },
-  { value: "reported", label: "신고됨" },
+export type AdminReviewTranslate = (
+  key: MessageKey,
+  params?: Record<string, string | number>
+) => string;
+
+export const REVIEW_STATUS_FILTER_OPTIONS: { value: ReviewStatus | ""; labelKey: MessageKey }[] = [
+  { value: "", labelKey: "common_all" },
+  { value: "visible", labelKey: REVIEW_STATUS_KEYS.visible },
+  { value: "hidden", labelKey: REVIEW_STATUS_KEYS.hidden },
+  { value: "reported", labelKey: REVIEW_STATUS_KEYS.reported },
 ];
 
-export const RATING_OPTIONS = [1, 2, 3, 4, 5].map((n) => ({
-  value: n as number | "",
-  label: `${n}점`,
-}));
-export const RATING_FILTER_OPTIONS: { value: number | ""; label: string }[] = [
-  { value: "", label: "전체" },
-  ...RATING_OPTIONS,
+export const RATING_FILTER_OPTIONS: { value: number | ""; labelKey: MessageKey }[] = [
+  { value: "", labelKey: "common_all" },
+  ...([1, 2, 3, 4, 5] as const).map((n) => ({
+    value: n as number | "",
+    labelKey: `admin_review_rating_${n}` as MessageKey,
+  })),
 ];
 
-export const ROLE_OPTIONS: { value: ReviewRole | ""; label: string }[] = [
-  { value: "", label: "전체" },
-  { value: "buyer_to_seller", label: "구매자→판매자" },
-  { value: "seller_to_buyer", label: "판매자→구매자" },
+export const ROLE_FILTER_OPTIONS: { value: ReviewRole | ""; labelKey: MessageKey }[] = [
+  { value: "", labelKey: "common_all" },
+  { value: "buyer_to_seller", labelKey: "admin_review_role_buyer_to_seller" },
+  { value: "seller_to_buyer", labelKey: "admin_review_role_seller_to_buyer" },
 ];
 
 export interface AdminReviewFilters {
@@ -41,32 +50,30 @@ export interface AdminReviewFilters {
   sortKey: "createdAt";
 }
 
-function tagLabelMapForRole(roleType: string): Map<string, string> {
-  const role = roleType === "seller_to_buyer" ? "seller_to_buyer" : "buyer_to_seller";
-  const pairs =
-    role === "seller_to_buyer"
-      ? [...SELLER_TO_BUYER_POSITIVE, ...SELLER_TO_BUYER_NEGATIVE]
-      : [...BUYER_TO_SELLER_POSITIVE, ...BUYER_TO_SELLER_NEGATIVE];
-  return new Map(pairs.map((x) => [x.key, x.label]));
-}
-
-/** 거래 후기 태그 키 → 한글 라벨 (역할별) */
-export function formatAdminReviewTagKeys(roleType: string, keys: string[] | null | undefined): string {
+/** 거래 후기 태그 키 → 라벨 (역할별, 태그 정의는 trade-review-tags) */
+export function formatAdminReviewTagKeys(
+  t: AdminReviewTranslate,
+  roleType: string,
+  keys: string[] | null | undefined
+): string {
   if (!keys?.length) return "—";
-  const m = tagLabelMapForRole(roleType);
-  return keys.map((k) => m.get(k) ?? k).join(", ");
+  const role = roleType === "seller_to_buyer" ? "seller_to_buyer" : "buyer_to_seller";
+  return keys.map((k) => tradeReviewTagLabel(t, role, k)).join(", ");
 }
 
 /** AdminReview 한 행용: 긍정·부정 라벨 요약 */
-export function formatAdminReviewSelectedTags(r: AdminReview): string {
+export function formatAdminReviewSelectedTags(
+  t: AdminReviewTranslate,
+  r: AdminReview
+): string {
   const role = r.role;
-  const pos = formatAdminReviewTagKeys(role, r.positiveTagKeys);
-  const neg = formatAdminReviewTagKeys(role, r.negativeTagKeys);
+  const pos = formatAdminReviewTagKeys(t, role, r.positiveTagKeys);
+  const neg = formatAdminReviewTagKeys(t, role, r.negativeTagKeys);
   const legacy = (r.privateTags ?? []).length ? r.privateTags!.join(", ") : "";
   const parts: string[] = [];
-  if (pos !== "—") parts.push(`긍정: ${pos}`);
-  if (neg !== "—") parts.push(`부정: ${neg}`);
-  if (legacy) parts.push(`기타: ${legacy}`);
+  if (pos !== "—") parts.push(`${t("admin_review_positive_tags")}: ${pos}`);
+  if (neg !== "—") parts.push(`${t("admin_review_negative_tags")}: ${neg}`);
+  if (legacy) parts.push(`${t("admin_review_legacy_tags")}: ${legacy}`);
   return parts.length ? parts.join(" · ") : "—";
 }
 

@@ -2,7 +2,8 @@
 
 import { useMemo } from "react";
 import type { AdminDeliveryOrder, OrderListFilters, OrderStatus } from "@/lib/admin/delivery-orders-admin/types";
-import { ORDER_STATUS_LABEL } from "@/lib/admin/delivery-orders-admin/labels";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { useDoAdminStatusLabels } from "./useDoAdminStatusLabels";
 
 type Bucket = "" | "in_progress" | "issues";
 
@@ -25,6 +26,8 @@ export function DeliveryOrdersProgressPanel({
   filters: OrderListFilters;
   onChange: (f: OrderListFilters) => void;
 }) {
+  const { t } = useI18n();
+  const { orderStatus } = useDoAdminStatusLabels();
   const stats = useMemo(() => {
     const total = orders.length;
     const pending = countBy(orders, (o) => o.orderStatus === "pending");
@@ -63,42 +66,42 @@ export function DeliveryOrdersProgressPanel({
   return (
     <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-sm font-semibold text-sam-fg">배달·포장 진행 현황</h2>
-        <p className="sam-text-xxs text-sam-muted">불러온 실주문 기준 · 칩을 누르면 아래 목록 필터가 맞춰집니다</p>
+        <h2 className="text-sm font-semibold text-sam-fg">{t("admin_do_progress_title")}</h2>
+        <p className="sam-text-xxs text-sam-muted">{t("admin_do_progress_hint")}</p>
       </div>
       <div className="mt-3 flex flex-wrap gap-2">
         {chip(
-          "전체",
+          t("admin_do_progress_all"),
           stats.total,
           !filters.orderStatus && !filters.pipelineBucket,
           () => onChange({ ...filters, orderStatus: "", pipelineBucket: "" })
         )}
         {chip(
-          ORDER_STATUS_LABEL.pending,
+          orderStatus("pending"),
           stats.pending,
           singleActive("pending"),
           () => onChange({ ...filters, orderStatus: "pending", pipelineBucket: "" })
         )}
         {chip(
-          "진행 중",
+          t("admin_do_progress_active"),
           stats.ing,
           bucketActive("in_progress"),
           () => onChange({ ...filters, orderStatus: "", pipelineBucket: "in_progress" })
         )}
         {chip(
-          ORDER_STATUS_LABEL.delivering,
+          orderStatus("delivering"),
           countBy(orders, (o) => o.orderStatus === "delivering"),
           singleActive("delivering"),
           () => onChange({ ...filters, orderStatus: "delivering", pipelineBucket: "" })
         )}
         {chip(
-          ORDER_STATUS_LABEL.completed,
+          orderStatus("completed"),
           stats.done,
           singleActive("completed"),
           () => onChange({ ...filters, orderStatus: "completed", pipelineBucket: "" })
         )}
         {chip(
-          "취소·환불",
+          t("admin_do_progress_cancel_refund"),
           stats.issues,
           bucketActive("issues"),
           () => onChange({ ...filters, orderStatus: "", pipelineBucket: "issues" })

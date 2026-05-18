@@ -44,9 +44,9 @@ export function AdminProductFilterBar({
             value={tradeMenuRootId}
             onChange={(e) => onTradeMenuRootIdChange(e.target.value)}
             className="min-w-[140px] rounded border border-sam-border bg-sam-surface px-3 py-2 sam-text-body text-sam-fg"
-            aria-label="거래 메뉴(홈 탭)"
+            aria-label={t("admin_products_trade_menu_aria")}
           >
-            <option value="">거래 메뉴 전체</option>
+            <option value="">{t("admin_products_trade_menu_all")}</option>
             {tradeMenuRoots.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}

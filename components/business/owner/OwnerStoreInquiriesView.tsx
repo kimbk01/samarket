@@ -8,6 +8,8 @@ import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
 import { useCallback, useEffect, useState } from "react";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 
 type Row = {
   id: string;
@@ -20,19 +22,27 @@ type Row = {
   created_at: string;
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  open: "미답변",
-  answered: "답변함",
-  closed: "종료",
-  escalated: "이관",
-};
-
 function formatDate(iso: string | null) {
   if (!iso) return "";
   return new Date(iso).toLocaleString("ko-KR");
 }
 
 export function OwnerStoreInquiriesView() {
+  const { t } = useI18n();
+  const inquiryStatusLabel = (status: string) => {
+    switch (status) {
+      case "open":
+        return t("business_phase7_461");
+      case "answered":
+        return t("business_phase7_462");
+      case "closed":
+        return t("business_phase7_257");
+      case "escalated":
+        return t("business_phase7_463");
+      default:
+        return status;
+    }
+  };
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const preferredStoreId = (searchParams.get("storeId") ?? "").trim();
@@ -88,7 +98,7 @@ export function OwnerStoreInquiriesView() {
       setState({
         kind: "ok",
         storeId: store.id,
-        storeName: String(store.store_name ?? "내 매장"),
+        storeName: String(store.store_name ?? t("business_phase7_484")),
         rows: (ij.inquiries ?? []) as Row[],
       });
     } catch {
@@ -156,27 +166,27 @@ export function OwnerStoreInquiriesView() {
   }
 
   if (state.kind === "loading") {
-    return <p className="text-sm text-sam-muted">불러오는 중…</p>;
+    return <p className="text-sm text-sam-muted">{t("common_loading")}</p>;
   }
   if (state.kind === "unauth") {
     return (
       <div className="rounded-ui-rect bg-sam-surface p-6 text-sm text-sam-muted shadow-sm">
-        <p>로그인 후 고객 문의를 확인하고 바로 답변할 수 있습니다.</p>
+        <p>{t("business_phase7_062")}</p>
         <Link href={loginHref} className="mt-3 inline-flex rounded-ui-rect bg-signature px-4 py-2 font-semibold text-white">
-          로그인하고 문의 보기
+          {t("business_phase7_464")}
         </Link>
       </div>
     );
   }
   if (state.kind === "config") {
-    return <p className="text-sm text-sam-muted">서버 설정을 확인해 주세요.</p>;
+    return <p className="text-sm text-sam-muted">{t("business_phase7_158")}</p>;
   }
   if (state.kind === "no_store") {
     return (
       <div className="rounded-ui-rect bg-sam-surface p-6 text-sm text-sam-muted shadow-sm">
-        <p>등록된 매장이 없습니다.</p>
+        <p>{t("business_phase7_057")}</p>
         <Link href="/stores/owner/apply" className="mt-2 inline-block text-signature">
-          매장 신청
+          {t("business_phase7_465")}
         </Link>
       </div>
     );
@@ -184,9 +194,9 @@ export function OwnerStoreInquiriesView() {
   if (state.kind === "error") {
     return (
       <div className={OWNER_STORE_STACK_Y_CLASS}>
-        <p className="text-sm text-red-600">({state.message})</p>
+        <p className="text-sm text-red-600">{resolveOwnerApiErrorMessage(state.message, t)}</p>
         <button type="button" onClick={() => void load()} className="text-sm text-signature underline">
-          다시 시도
+          {t("business_phase7_466")}
         </button>
       </div>
     );
@@ -196,13 +206,13 @@ export function OwnerStoreInquiriesView() {
     <div className={OWNER_STORE_STACK_Y_CLASS}>
       <p className="text-sm text-sam-muted">{state.storeName}</p>
       {state.rows.length === 0 ? (
-        <p className="rounded-ui-rect bg-sam-surface p-6 text-sm text-sam-muted shadow-sm">받은 문의가 없습니다.</p>
+        <p className="rounded-ui-rect bg-sam-surface p-6 text-sm text-sam-muted shadow-sm">{t("business_phase7_101")}</p>
       ) : (
         <ul className={OWNER_STORE_STACK_Y_CLASS}>
           {state.rows.map((r) => (
             <li key={r.id} className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
               <p className="text-xs text-sam-muted">
-                {STATUS_LABEL[r.status] ?? r.status} ·{" "}
+                {inquiryStatusLabel(r.status)} ·{" "}
                 <span className="font-mono sam-text-xxs">{r.from_user_id}</span>
               </p>
               <p className="mt-1 text-sm font-semibold text-sam-fg">{r.subject}</p>
@@ -210,7 +220,7 @@ export function OwnerStoreInquiriesView() {
               <p className="mt-1 sam-text-xxs text-sam-meta">{formatDate(r.created_at)}</p>
               {r.answer ? (
                 <div className="mt-2 rounded-ui-rect bg-sam-app px-3 py-2 text-sm text-sam-fg">
-                  <span className="text-xs text-sam-muted">내 답변</span>
+                  <span className="text-xs text-sam-muted">{t("business_phase7_043")}</span>
                   <p className="mt-1 whitespace-pre-wrap">{r.answer}</p>
                 </div>
               ) : null}
@@ -221,7 +231,7 @@ export function OwnerStoreInquiriesView() {
                     onChange={(e) =>
                       setDraftById((d) => ({ ...d, [r.id]: e.target.value }))
                     }
-                    placeholder="답변을 입력하세요"
+                    placeholder={t("business_phase7_052")}
                     rows={3}
                     disabled={busyId !== null}
                     className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2 text-sm"
@@ -233,7 +243,7 @@ export function OwnerStoreInquiriesView() {
                       onClick={() => void sendAnswer(r.id)}
                       className="rounded-ui-rect bg-signature px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
                     >
-                      {busyId === r.id ? "…" : "답변 등록"}
+                      {busyId === r.id ? "…" : t("business_phase7_467")}
                     </button>
                     <button
                       type="button"
@@ -241,7 +251,7 @@ export function OwnerStoreInquiriesView() {
                       onClick={() => setCloseConfirmId(r.id)}
                       className="rounded-ui-rect border border-sam-border px-4 py-2 text-sm text-sam-fg"
                     >
-                      종료
+                      {t("business_phase7_257")}
                     </button>
                   </div>
                 </div>
@@ -254,11 +264,9 @@ export function OwnerStoreInquiriesView() {
       <OwnerStoreAdminConfirmModal
         open={closeConfirmId != null && state.kind === "ok"}
         titleId="owner-store-inquiries-close-title"
-        title="문의 종료"
-        description="이 문의를 종료할까요?"
-        cancelLabel="취소"
-        confirmLabel="종료"
-        confirmBusyLabel="처리 중…"
+        title={t("business_phase7_097")}
+        description={t("business_phase7_468")}
+        confirmLabel={t("business_phase7_257")}
         busy={closeConfirmId != null && busyId === closeConfirmId}
         disableActions={busyId !== null}
         confirmTone="danger"

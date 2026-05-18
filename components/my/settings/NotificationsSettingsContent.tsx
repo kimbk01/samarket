@@ -255,9 +255,7 @@ export function NotificationsSettingsContent() {
                   {t("notifications_commerce_email_desc")}
                   {commerceEmailColumnMissing ? (
                     <span className="mt-1 block text-[11px] leading-snug text-amber-700">
-                      DB에 컬럼이 없어 저장할 수 없습니다.{" "}
-                      <code className="rounded bg-sam-surface-muted px-0.5">manual-apply-notifications-full.sql</code> 을 적용해
-                      주세요.
+                      {t("settings_notif_db_migration", { file: "manual-apply-notifications-full.sql" })}
                     </span>
                   ) : null}
                   {commerceEmailPatchError ? (
@@ -319,11 +317,9 @@ export function NotificationsSettingsContent() {
         {domainLoaded ? (
           <>
             <div className="border-b border-sam-border-soft px-3 py-2.5">
-              <p className="mb-2 text-[11px] leading-snug text-sam-muted">
-                인앱 알림 (거래/커뮤니티/주문/매장) — 채팅방을 보고 있을 때는 같은 방 알림음이 울리지 않습니다.
-              </p>
+              <p className="mb-2 text-[11px] leading-snug text-sam-muted">{t("settings_notif_domain_hint")}</p>
               <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-sam-fg">인앱 알림음</span>
+                <span className="text-[14px] font-medium text-sam-fg">{t("settings_notif_inapp_sound")}</span>
                 <button
                   type="button"
                   role="switch"
@@ -347,7 +343,7 @@ export function NotificationsSettingsContent() {
             </div>
             <div className="border-b border-sam-border-soft px-3 py-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-sam-fg">거래 채팅 알림</span>
+                <span className="text-[14px] font-medium text-sam-fg">{t("settings_notif_trade_chat")}</span>
                 <button
                   type="button"
                   role="switch"
@@ -371,7 +367,7 @@ export function NotificationsSettingsContent() {
             </div>
             <div className="border-b border-sam-border-soft px-3 py-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-sam-fg">커뮤니티·모임 채팅</span>
+                <span className="text-[14px] font-medium text-sam-fg">{t("settings_notif_community_chat")}</span>
                 <button
                   type="button"
                   role="switch"
@@ -395,7 +391,7 @@ export function NotificationsSettingsContent() {
             </div>
             <div className="border-b border-sam-border-soft px-3 py-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-sam-fg">주문·배달 알림</span>
+                <span className="text-[14px] font-medium text-sam-fg">{t("settings_notif_order")}</span>
                 <button
                   type="button"
                   role="switch"
@@ -419,7 +415,7 @@ export function NotificationsSettingsContent() {
             </div>
             <div className="border-b border-sam-border-soft px-3 py-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-sam-fg">거래 알림 (제안·예약 등)</span>
+                <span className="text-[14px] font-medium text-sam-fg">{t("settings_notif_trade_events")}</span>
                 <button
                   type="button"
                   role="switch"
@@ -443,7 +439,7 @@ export function NotificationsSettingsContent() {
             </div>
             <div className="border-b border-sam-border-soft px-3 py-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-sam-fg">커뮤니티 활동 (댓글·좋아요 등)</span>
+                <span className="text-[14px] font-medium text-sam-fg">{t("settings_notif_community_social")}</span>
                 <button
                   type="button"
                   role="switch"
@@ -467,7 +463,7 @@ export function NotificationsSettingsContent() {
             </div>
             <div className="border-b border-sam-border-soft px-3 py-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-sam-fg">공지·운영 알림</span>
+                <span className="text-[14px] font-medium text-sam-fg">{t("settings_notif_notice")}</span>
                 <button
                   type="button"
                   role="switch"
@@ -491,7 +487,7 @@ export function NotificationsSettingsContent() {
             </div>
             <div className="border-b border-sam-border-soft px-3 py-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-sam-fg">매장·상점 알림</span>
+                <span className="text-[14px] font-medium text-sam-fg">{t("settings_notif_store")}</span>
                 <button
                   type="button"
                   role="switch"
@@ -514,11 +510,9 @@ export function NotificationsSettingsContent() {
               </div>
             </div>
             <div className="border-b border-sam-border-soft px-3 py-2.5">
-              <p className="mb-2 text-[11px] leading-snug text-sam-muted">
-                방해금지(계정 설정의 방해금지와 별도로, 푸시 정책용 시간대를 둘 수 있습니다.)
-              </p>
+              <p className="mb-2 text-[11px] leading-snug text-sam-muted">{t("settings_notif_quiet_hint")}</p>
               <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-sam-fg">방해금지 시간 (알림 설정)</span>
+                <span className="text-[14px] font-medium text-sam-fg">{t("settings_notif_quiet_hours")}</span>
                 <button
                   type="button"
                   role="switch"
@@ -567,7 +561,7 @@ export function NotificationsSettingsContent() {
             </div>
             <div className="border-b border-sam-border-soft px-3 py-2.5">
               <div className="flex items-center justify-between">
-                <span className="text-[14px] font-medium text-sam-fg">진동 (지원 기기)</span>
+                <span className="text-[14px] font-medium text-sam-fg">{t("settings_notif_vibration")}</span>
                 <button
                   type="button"
                   role="switch"

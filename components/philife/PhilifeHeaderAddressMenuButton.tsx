@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { UserAddressDesignationTitle } from "@/components/addresses/UserAddressDesignationTitle";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRegion } from "@/contexts/RegionContext";
 import { useRepresentativeAddressLine } from "@/hooks/use-representative-address-line";
 import { buildAddressManagementListPrimaryLine } from "@/lib/addresses/user-address-format";
@@ -38,6 +39,7 @@ export function PhilifeHeaderAddressMenuButton({
   const [listLoading, setListLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const { t } = useI18n();
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const prevViewRef = useRef<"menu" | "picker">("menu");
@@ -47,7 +49,10 @@ export function PhilifeHeaderAddressMenuButton({
   const meta = neighborhoodLocationMetaFromRegion(currentRegion);
   const label = neighborhoodLocationLabelFromRegion(currentRegion);
   const fallback = formatNeighborhoodRegionSubtitle(meta, (label || currentRegion?.label || "").trim());
-  const addressLine = rep.status === "loading" ? "주소 확인 중..." : rep.line?.trim() || fallback || "주소 미설정";
+  const addressLine =
+    rep.status === "loading"
+      ? t("philife_addr_loading_line")
+      : rep.line?.trim() || fallback || t("philife_addr_not_set");
 
   useEffect(() => {
     setMounted(true);
@@ -134,7 +139,7 @@ export function PhilifeHeaderAddressMenuButton({
       .then((result) => {
         if (ignore) return;
         if (!result.ok) {
-          setListError(describeMeAddressesListFailure(result, "주소 목록을 불러오지 못했어요."));
+          setListError(describeMeAddressesListFailure(result, t("philife_addr_list_load_failed")));
           return;
         }
         const rows = result.rows;
@@ -143,7 +148,7 @@ export function PhilifeHeaderAddressMenuButton({
       })
       .catch(() => {
         if (ignore) return;
-        setListError("네트워크 오류로 주소 목록을 불러오지 못했어요.");
+        setListError(t("philife_addr_list_network_failed"));
       })
       .finally(() => {
         if (ignore) return;
@@ -211,7 +216,7 @@ export function PhilifeHeaderAddressMenuButton({
       });
       const j = (await res.json()) as { ok?: boolean; error?: string; address?: UserAddressDTO };
       if (!res.ok || !j.ok) {
-        setListError(typeof j.error === "string" ? j.error : "대표 주소를 바꾸지 못했어요.");
+        setListError(typeof j.error === "string" ? j.error : t("philife_addr_change_failed"));
         return;
       }
       const updated = list.map((item) => ({
@@ -228,7 +233,7 @@ export function PhilifeHeaderAddressMenuButton({
       }
       setView("menu");
     } catch {
-      setListError("네트워크 오류로 대표 주소를 바꾸지 못했어요.");
+      setListError(t("philife_addr_change_network_failed"));
     } finally {
       setBusyId(null);
     }
@@ -240,7 +245,7 @@ export function PhilifeHeaderAddressMenuButton({
         ref={buttonRef}
         type="button"
         className="sam-header-action h-10 w-10 text-sam-primary transition-[transform,background-color,opacity] duration-300 ease-out active:duration-100 active:scale-[0.88] active:bg-sam-primary/10 active:opacity-85"
-        aria-label="주소 메뉴 열기"
+        aria-label={t("philife_addr_open_menu_aria")}
         aria-expanded={open}
         onClick={toggleMenu}
       >
@@ -259,7 +264,7 @@ export function PhilifeHeaderAddressMenuButton({
               <button
                 type="button"
                 className="absolute inset-0 cursor-default bg-transparent"
-                aria-label="주소 메뉴 닫기"
+                aria-label={t("philife_addr_close_menu_aria")}
                 onClick={closeMenu}
               />
               <div
@@ -296,7 +301,7 @@ export function PhilifeHeaderAddressMenuButton({
                 {view === "menu" ? (
                   <>
                     <div className="border-b border-black/10 px-3 py-2.5">
-                      <p className="text-[12px] leading-4 text-neutral-500">현재 주소</p>
+                      <p className="text-[12px] leading-4 text-neutral-500">{t("philife_addr_current_label")}</p>
                       <p className="mt-1 truncate text-[14px] font-medium leading-5 text-neutral-900">{addressLine}</p>
                     </div>
                     <button
@@ -304,7 +309,7 @@ export function PhilifeHeaderAddressMenuButton({
                       className="flex w-full items-center justify-between px-3 py-3 text-left text-[14px] leading-5 hover:bg-neutral-50"
                       onClick={() => setView("picker")}
                     >
-                      <span>주소 변경</span>
+                      <span>{t("philife_addr_change")}</span>
                       <svg
                         className="h-4 w-4 text-neutral-500"
                         fill="none"
@@ -325,19 +330,19 @@ export function PhilifeHeaderAddressMenuButton({
                         className="rounded px-1 py-0.5 text-[13px] text-neutral-600 hover:bg-neutral-100"
                         onClick={() => setView("menu")}
                       >
-                        뒤로
+                        {t("philife_addr_back")}
                       </button>
-                      <p className="text-[13px] font-semibold text-neutral-800">주소 변경</p>
+                      <p className="text-[13px] font-semibold text-neutral-800">{t("philife_addr_change")}</p>
                       <span className="w-[28px]" aria-hidden />
                     </div>
                     {listError ? (
                       <p className="px-3 py-2 text-[12px] leading-4 text-amber-700">{listError}</p>
                     ) : null}
                     {listLoading && list.length === 0 ? (
-                      <p className="px-3 py-3 text-[13px] text-neutral-600">주소를 불러오는 중...</p>
+                      <p className="px-3 py-3 text-[13px] text-neutral-600">{t("philife_addr_list_loading")}</p>
                     ) : null}
                     {!listLoading && list.length === 0 ? (
-                      <p className="px-3 py-3 text-[13px] text-neutral-600">등록된 주소가 없어요.</p>
+                      <p className="px-3 py-3 text-[13px] text-neutral-600">{t("philife_addr_empty")}</p>
                     ) : null}
                     {list.map((row) => {
                       const isActive = row.isDefaultMaster;
@@ -367,13 +372,13 @@ export function PhilifeHeaderAddressMenuButton({
                               />
                               {isActive ? (
                                 <span className="rounded-full bg-sam-primary-soft px-1.5 py-[1px] text-[11px] font-medium text-sam-primary">
-                                  현재
+                                  {t("philife_addr_current_badge")}
                                 </span>
                               ) : null}
                             </span>
                             <span className="mt-0.5 block truncate text-[13px] leading-5 text-neutral-700">{mainLine}</span>
                           </span>
-                          {busy ? <span className="text-[11px] text-neutral-500">변경중...</span> : null}
+                          {busy ? <span className="text-[11px] text-neutral-500">{t("philife_addr_changing")}</span> : null}
                         </button>
                       );
                     })}

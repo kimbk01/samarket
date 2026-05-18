@@ -1,14 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getOpsDevHandoffItems } from "@/lib/product-backlog/mock-ops-dev-handoff-items";
 import { getProductBacklogItemById } from "@/lib/product-backlog/mock-product-backlog-items";
 import { AdminTable } from "@/components/admin/AdminTable";
-import { getHandoffStatusLabel } from "@/lib/product-backlog/product-backlog-utils";
+import {
+  getHandoffStatusLabel,
+  OPS_DEV_HANDOFF_STATUS_FILTER_OPTIONS,
+} from "@/lib/product-backlog/product-backlog-utils";
 import type { OpsDevHandoffStatus } from "@/lib/types/product-backlog";
-import Link from "next/link";
 
 export function OpsDevHandoffTable() {
+  const { t } = useI18n();
   const [statusFilter, setStatusFilter] = useState<OpsDevHandoffStatus | "">("");
   const items = useMemo(
     () =>
@@ -18,10 +22,24 @@ export function OpsDevHandoffTable() {
     [statusFilter]
   );
 
+  const headers = useMemo(
+    () => [
+      t("admin_product_backlog_th_backlog_item"),
+      t("admin_product_backlog_th_status"),
+      t("admin_product_backlog_th_ops_summary"),
+      t("admin_product_backlog_th_dev_note"),
+      t("admin_product_backlog_th_requester"),
+      t("admin_product_backlog_th_dev_assignee"),
+    ],
+    [t]
+  );
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">handoff 상태</span>
+        <span className="sam-text-body-secondary text-sam-muted">
+          {t("admin_product_backlog_label_handoff_status")}
+        </span>
         <select
           value={statusFilter}
           onChange={(e) =>
@@ -29,33 +47,23 @@ export function OpsDevHandoffTable() {
           }
           className="rounded border border-sam-border px-3 py-1.5 sam-text-body-secondary text-sam-fg"
         >
-          <option value="">전체</option>
-          <option value="pending">대기</option>
-          <option value="accepted">수락</option>
-          <option value="in_progress">진행중</option>
-          <option value="shipped">완료</option>
-          <option value="returned">반려</option>
+          {OPS_DEV_HANDOFF_STATUS_FILTER_OPTIONS.map((opt) => (
+            <option key={opt.value || "all"} value={opt.value}>
+              {t(opt.labelKey)}
+            </option>
+          ))}
         </select>
       </div>
       <p className="sam-text-helper text-sam-muted">
-        운영→개발 handoff note. acceptanceCriteria·assignedDevName은 placeholder 확장 가능.
+        {t("admin_product_backlog_handoff_hint")}
       </p>
 
       {items.length === 0 ? (
         <div className="rounded-ui-rect border border-dashed border-sam-border bg-sam-app/50 py-12 text-center sam-text-body text-sam-muted">
-          handoff 항목이 없습니다.
+          {t("admin_product_backlog_empty_handoff")}
         </div>
       ) : (
-        <AdminTable
-          headers={[
-            "백로그 항목",
-            "상태",
-            "운영 요약",
-            "개발 메모",
-            "요청자",
-            "담당(개발)",
-          ]}
-        >
+        <AdminTable headers={headers}>
           {items.map((h) => {
             const backlog = getProductBacklogItemById(h.backlogItemId);
             return (
@@ -75,7 +83,7 @@ export function OpsDevHandoffTable() {
                             : "bg-sam-surface-muted text-sam-muted"
                     }`}
                   >
-                    {getHandoffStatusLabel(h.handoffStatus)}
+                    {getHandoffStatusLabel(t, h.handoffStatus)}
                   </span>
                 </td>
                 <td className="max-w-[200px] px-3 py-2.5 sam-text-body-secondary text-sam-muted line-clamp-2">

@@ -7,13 +7,9 @@ import { AppLanguageProvider } from "@/components/i18n/AppLanguageProvider";
 import { AppTitle } from "@/components/layout/AppTitle";
 import { CallIncomingChrome } from "@/components/layout/providers/CallIncomingChrome";
 import { MainShellMessengerParticipantBridge } from "@/components/layout/MainShellMessengerParticipantBridge";
-import {
-  APP_LANGUAGE_COOKIE,
-  DEFAULT_APP_LANGUAGE,
-  normalizeAppLanguage,
-  type AppLanguageCode,
-} from "@/lib/i18n/config";
 import { APP_PRODUCT_DISPLAY_NAME } from "@/lib/brand/app-display-name";
+import { APP_LANGUAGE_COOKIE, type AppLanguageCode } from "@/lib/i18n/config";
+import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import "./globals.css";
 
 const notoSansKr = Noto_Sans_KR({
@@ -66,9 +62,13 @@ export default async function RootLayout({
 }>) {
   const jar = await cookies();
   const langCookie = jar.get(APP_LANGUAGE_COOKIE)?.value;
-  const initialLanguage: AppLanguageCode = normalizeAppLanguage(langCookie ?? DEFAULT_APP_LANGUAGE);
-
   const hdr = await headers();
+  const acceptLanguage = hdr.get("accept-language");
+  const initialLanguage: AppLanguageCode = resolveServerInitialLanguage({
+    cookieValue: langCookie ?? null,
+    acceptLanguage,
+  });
+
   const forwardedHost = hdr.get("x-forwarded-host");
   const host = (forwardedHost ?? hdr.get("host") ?? "").split(",")[0]?.trim() ?? "";
   const forwardedProto = hdr.get("x-forwarded-proto");

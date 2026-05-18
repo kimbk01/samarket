@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import type { ReactNode, RefObject } from "react";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef } from "react";

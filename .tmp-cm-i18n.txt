@@ -1,0 +1,142 @@
+﻿node : [check:i18n-hardcoded] 326 possible hardcoded Korean string(s):
+At C:\Users\im2pa\AppData\Local\Temp\ps-script-18c0073d-28fe-4331-81f7-d76a6cec1817.ps1:82 char:1
++ node scripts/check-hardcoded-korean.mjs "app/(main)/community-messeng ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([check:i18n-har...rean string(s)::String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+  app\(main)\community-messenger\calls\outgoing\CommunityMessengerOutgoingDialPageClient.tsx:84: <p className="mt-6 tex
+t-center sam-text-body text-white/90">통화 화면으로 이동 중…</p>
+  components\community-messenger\CommunityMessengerCallClient.tsx:2861: <span className="sam-text-body-secondary text-w
+hite/40">불러오는 중…</span>
+  components\community-messenger\CommunityMessengerCallClient.tsx:2876: <p className="sam-text-page-title font-semibold
+ text-ui-fg">통화를 찾을 수 없습니다.</p>
+  components\community-messenger\CommunityMessengerCallClient.tsx:3373: <span className="text-center sam-text-xxs font-
+semibold leading-tight text-white/95">카메라 꺼짐</span>
+  components\community-messenger\CommunityMessengerCallClient.tsx:3546: <p className="sam-text-body font-semibold text-
+white">자판</p>
+  components\community-messenger\CommunityMessengerCallClient.tsx:3555: <p className="mb-3 sam-text-xxs leading-snug te
+xt-white/45">로컬에서만 톤이 재생됩니다. 상대에게는 전달되지 않을 수 있습니다.</p>
+  components\community-messenger\CommunityMessengerCallLogsClient.tsx:104: aria-label="뒤로"
+  components\community-messenger\CommunityMessengerCallLogsClient.tsx:108: <h1 className="min-w-0 flex-1 truncate sam-t
+ext-page-title font-semibold text-sam-fg">통화 기록</h1>
+  components\community-messenger\CommunityMessengerCallLogsClient.tsx:119: <p className="py-10 text-center sam-text-bod
+y-secondary text-sam-muted">불러오는 중…</p>
+  components\community-messenger\CommunityMessengerCallLogsClient.tsx:123: <p className="py-10 text-center sam-text-bod
+y-secondary text-sam-muted">통화 기록이 없습니다.</p>
+  components\community-messenger\CommunityMessengerCallRouteLoading.tsx:25: <p className="mt-3 sam-text-body-lg font-me
+dium text-white/76 sm:sam-text-section-title">통화 화면을 불러오는 중</p>
+  components\community-messenger\CommunityMessengerDeviceSettingsSection.tsx:82: <p className="mb-2 sam-text-body-secon
+dary font-semibold text-sam-muted">통화 장치</p>
+  components\community-messenger\CommunityMessengerDeviceSettingsSection.tsx:94: <span className="mb-1 block sam-text-h
+elper font-medium text-sam-fg">마이크</span>
+  components\community-messenger\CommunityMessengerDeviceSettingsSection.tsx:108: <span className="mb-1 block sam-text-
+helper font-medium text-sam-fg">카메라</span>
+  components\community-messenger\CommunityMessengerHeaderActions.tsx:41: <button type="button" onClick={onOpenSearch} c
+lassName={iconBtn} aria-label="메신저 검색">
+  components\community-messenger\CommunityMessengerHeaderActions.tsx:44: <Link href="/community-messenger/calls/logs" c
+lassName={iconBtn} aria-label="통화 기록">
+  components\community-messenger\CommunityMessengerHeaderActions.tsx:60: <button type="button" onClick={onOpenSettings}
+ className={iconBtn} aria-label="메신저 설정">
+  components\community-messenger\CommunityMessengerHome.tsx:2356: if (shouldConfirm && !window.confirm("이 친구를 삭제할까요? 친구
+ 관계만 해제되고 기존 채팅방은 유지됩니다.")) {
+  components\community-messenger\CommunityMessengerHome.tsx:2912: aria-label="닫기"
+  components\community-messenger\CommunityMessengerHome.tsx:2917: <p className="sam-text-section-title font-semibold te
+xt-sam-fg">모임 찾기</p>
+  components\community-messenger\CommunityMessengerHome.tsx:2930: placeholder="모임 검색"
+  components\community-messenger\CommunityMessengerHome.tsx:2944: <div className="py-10 text-center sam-text-body-secon
+dary text-sam-muted">검색 결과가 없습니다.</div>
+  components\community-messenger\CommunityMessengerHome.tsx:2957: <p className="sam-text-body-secondary font-medium tex
+t-sam-fg">그룹 생성</p>
+  components\community-messenger\CommunityMessengerHome.tsx:2958: <h2 className="mt-1 sam-text-page-title font-semibold
+ text-sam-fg">어떤 그룹을 만들까요?</h2>
+  components\community-messenger\CommunityMessengerHome.tsx:2965: <p className="sam-text-helper text-sam-muted">친구 초대형<
+/p>
+  components\community-messenger\CommunityMessengerHome.tsx:2966: <p className="mt-1 sam-text-body-lg font-semibold tex
+t-sam-fg">비공개 그룹</p>
+  components\community-messenger\CommunityMessengerHome.tsx:2967: <p className="mt-1 sam-text-body-secondary text-sam-m
+uted">친구를 선택해 바로 만드는 초대형 그룹입니다.</p>
+  components\community-messenger\CommunityMessengerHome.tsx:2977: <p className="sam-text-body-secondary font-medium tex
+t-sam-fg">비공개 그룹</p>
+  components\community-messenger\CommunityMessengerHome.tsx:2978: <h2 className="mt-1 sam-text-page-title font-semibold
+ text-sam-fg">친구 초대형 그룹 만들기</h2>
+  components\community-messenger\CommunityMessengerHome.tsx:2991: placeholder="예: 사마켓 운영팀 (선택 입력)"
+  components\community-messenger\CommunityMessengerHome.tsx:2995: <span>선택된 친구 {groupMembers.length}명</span>
+  components\community-messenger\CommunityMessengerHome.tsx:3040: <p className="sam-text-body font-semibold text-sam-fg
+">초대할 친구가 아직 없습니다.</p>
+  components\community-messenger\CommunityMessengerHome.tsx:3061: <p className="sam-text-body-secondary font-medium tex
+t-[#111827]">모임</p>
+  components\community-messenger\CommunityMessengerHome.tsx:3062: <h2 className="mt-1 sam-text-page-title font-semibold
+ text-sam-fg">방장 설정형 그룹 만들기</h2>
+  components\community-messenger\CommunityMessengerHome.tsx:3076: placeholder="모임 이름"
+  components\community-messenger\CommunityMessengerHome.tsx:3083: placeholder="방 소개를 입력하세요"
+  components\community-messenger\CommunityMessengerHome.tsx:3088: <p className="sam-text-body-secondary font-semibold t
+ext-sam-fg">입장 방식</p>
+  components\community-messenger\CommunityMessengerHome.tsx:3110: <p className="sam-text-body-secondary font-semibold t
+ext-sam-fg">신원 정책</p>
+  components\community-messenger\CommunityMessengerHome.tsx:3137: placeholder="입장 비밀번호"
+  components\community-messenger\CommunityMessengerHome.tsx:3148: placeholder="최대 인원"
+  components\community-messenger\CommunityMessengerHome.tsx:3154: <p className="sam-text-body font-medium text-sam-fg">
+목록에 공개</p>
+  components\community-messenger\CommunityMessengerHome.tsx:3155: <p className="sam-text-helper text-sam-muted">OFF면 채팅
+방에는 남지만 모임 찾기에는 노출되지 않습니다.</p>
+  components\community-messenger\CommunityMessengerHome.tsx:3187: placeholder="방장 별칭 닉네임"
+  components\community-messenger\CommunityMessengerHome.tsx:3193: placeholder="아바타 URL (선택)"
+  components\community-messenger\CommunityMessengerHome.tsx:3200: placeholder="방장 소개 (선택)"
+  components\community-messenger\CommunityMessengerHomeListPane.tsx:267: <p className="sam-text-body-lg font-semibold">
+로그인이 필요합니다.</p>
+  components\community-messenger\CommunityMessengerHomeListPane.tsx:279: <p className="sam-text-body-lg font-semibold">
+메신저를 불러오지 못했습니다.</p>
+  components\community-messenger\CommunityMessengerTradeProcessSection.tsx:213: if (typeof window !== "undefined" && !w
+indow.confirm(`물품의 상태를 "${label}"으로 변경할까요?`)) {
+  components\community-messenger\CommunityMessengerTradeProcessSection.tsx:371: <h2 className="sam-text-body-lg font-se
+mibold text-sam-fg">후기 작성</h2>
+  components\community-messenger\line-ui\messenger-tabs.tsx:31: aria-label="메신저 구역"
+  components\community-messenger\meetings\MeetingJoinPreviewFullScreen.tsx:56: <span className="sam-text-body-secondary
+ font-semibold text-[color:var(--messenger-text)]">모임 미리보기</span>
+  components\community-messenger\meetings\MeetingJoinPreviewFullScreen.tsx:92: placeholder="비밀번호 입력"
+  components\community-messenger\meetings\MeetingJoinPreviewFullScreen.tsx:98: <p className="sam-text-body-secondary fo
+nt-semibold text-sam-fg">표시 이름</p>
+  components\community-messenger\meetings\MeetingJoinPreviewFullScreen.tsx:130: placeholder="별칭 닉네임"
+  components\community-messenger\meetings\MeetingJoinPreviewFullScreen.tsx:136: placeholder="아바타 URL (선택)"
+  components\community-messenger\meetings\MeetingJoinPreviewFullScreen.tsx:143: placeholder="소개 (선택)"
+  components\community-messenger\MessengerArchiveScreen.tsx:44: title="숨김 친구"
+  components\community-messenger\MessengerArchiveScreen.tsx:49: title="차단 친구"
+  components\community-messenger\MessengerArchiveScreen.tsx:54: title="알림 끔"
+  components\community-messenger\MessengerArchiveScreen.tsx:59: title="보관 채팅"
+  components\community-messenger\MessengerChatFilterSheet.tsx:96: <nav className="min-h-0 flex-1 overflow-y-auto bg-sam
+-surface px-3 py-3" aria-label="대화 유형 선택">
+  components\community-messenger\MessengerChatListItem.tsx:633: <span style={{ color: "var(--messenger-text-secondary)"
+ }} aria-label="고정됨">
+  components\community-messenger\MessengerChatListItem.tsx:638: <span style={{ color: "var(--messenger-text-secondary)"
+ }} aria-label="알림 끔">
+  components\community-messenger\MessengerChatListItem.tsx:696: title="Philife 모임"
+  components\community-messenger\MessengerChatRoomActionSheet.tsx:150: <button type="button" className="absolute inset-
+0 cursor-default bg-transparent" aria-label="닫기" onClick={onClose} />
+  components\community-messenger\MessengerChatRoomActionSheet.tsx:156: <nav className="flex flex-col" aria-label="대화방 작
+업">
+  components\community-messenger\MessengerFriendAddSheet.tsx:98: <button type="button" className="min-h-0 flex-1 cursor
+-default" aria-label="닫기" onClick={onClose} />
+  components\community-messenger\MessengerFriendAddSheet.tsx:110: aria-label="닫기"
+  components\community-messenger\MessengerFriendAddSheet.tsx:161: title="전화번호로 친구 추가"
+  components\community-messenger\MessengerFriendAddSheet.tsx:167: title="연락처 자동 추가"
+  components\community-messenger\MessengerFriendAddSheet.tsx:253: placeholder="@아이디 (예: @samarket)"
+  components\community-messenger\MessengerFriendProfileSheet.tsx:83: <button type="button" className="min-h-0 flex-1 cu
+rsor-default" aria-label="닫기" onClick={onClose} />
+  components\community-messenger\MessengerFriendProfileSheet.tsx:121: {bChat ? <p className="mt-0.5 sam-text-xxs text-u
+i-muted">열기…</p> : null}
+  components\community-messenger\MessengerFriendProfileSheet.tsx:129: <p className="sam-text-body-secondary font-semibo
+ld text-ui-fg">음성</p>
+  components\community-messenger\MessengerFriendProfileSheet.tsx:130: {bVoice ? <p className="mt-0.5 sam-text-xxs text-
+ui-muted">연결…</p> : null}
+  components\community-messenger\MessengerFriendProfileSheet.tsx:138: <p className="sam-text-body-secondary font-semibo
+ld text-ui-fg">영상</p>
+  components\community-messenger\MessengerFriendProfileSheet.tsx:139: {bVideo ? <p className="mt-0.5 sam-text-xxs text-
+ui-muted">연결…</p> : null}
+  components\community-messenger\MessengerFriendProfileSheet.tsx:143: <p className="mt-2 text-center sam-text-xxs text-
+ui-muted">친구가 되면 메시지·음성·영상을 이용할 수 있습니다.</p>
+  components\community-messenger\MessengerFriendProfileSheet.tsx:208: <p className="mt-1 sam-text-helper leading-snug t
+ext-ui-muted">차단 상태에서는 친구 추가·대화를 할 수 없습니다.</p>
+  components\community-messenger\MessengerFriendProfileSheet.tsx:255: <p className="text-center sam-text-body-secondary
+ text-ui-fg">이 사용자가 친구 요청을 보냈습니다.</p>
+  … and 246 more

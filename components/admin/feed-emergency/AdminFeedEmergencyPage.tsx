@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useEffect, useState } from "react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
@@ -21,6 +24,7 @@ const TABS: { id: TabId; label: string }[] = [
 ];
 
 export function AdminFeedEmergencyPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("policy");
   const [hydrated, setHydrated] = useState(false);
   const [hydrateError, setHydrateError] = useState<string | null>(null);
@@ -35,12 +39,11 @@ export function AdminFeedEmergencyPage() {
   if (!hydrated) {
     return (
       <>
-        <AdminPageHeader
-          title="피드 장애 대응"
+        <AdminPageHeader titleKey="admin_feed_emergency_kca379512"
           description="킬스위치·섹션 비활성화·Fallback·긴급 조치 로그"
         />
         <AdminCard>
-          <p className="py-8 text-center sam-text-body text-sam-muted">운영 설정을 불러오는 중…</p>
+          <p className="py-8 text-center sam-text-body text-sam-muted">{t("admin_loading_ops_settings")}</p>
         </AdminCard>
       </>
     );
@@ -48,8 +51,7 @@ export function AdminFeedEmergencyPage() {
 
   return (
     <>
-      <AdminPageHeader
-        title="피드 장애 대응"
+      <AdminPageHeader titleKey="admin_feed_emergency_kca379512"
         description="킬스위치·섹션 비활성화·Fallback·긴급 조치 로그 — 변경 시 DB(admin_settings)에 저장됩니다."
       />
       {hydrateError && (

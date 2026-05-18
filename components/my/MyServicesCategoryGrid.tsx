@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getActiveCategories } from "@/lib/categories/getActiveCategories";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { ServiceCategoryGrid } from "@/components/home/ServiceCategoryGrid";
@@ -10,6 +11,7 @@ import { ServiceCategoryGrid } from "@/components/home/ServiceCategoryGrid";
  * 나의 카마켓 서비스 영역: DB 카테고리 기준 그리드 + 전체 서비스 링크
  */
 export function MyServicesCategoryGrid() {
+  const { t } = useI18n();
   const [categories, setCategories] = useState<CategoryWithSettings[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -36,11 +38,11 @@ export function MyServicesCategoryGrid() {
         return prev;
       });
     } catch (e) {
-      setError((e as Error).message ?? "카테고리를 불러올 수 없습니다.");
+      setError((e as Error).message ?? t("my_services_load_failed"));
     } finally {
       setLoading((prev) => (prev ? false : prev));
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     load();
@@ -49,7 +51,7 @@ export function MyServicesCategoryGrid() {
   if (loading) {
     return (
       <div className="rounded-ui-rect bg-sam-surface py-8 text-center sam-text-body text-sam-muted shadow-sm">
-        불러오는 중…
+        {t("common_loading")}
       </div>
     );
   }
@@ -65,9 +67,9 @@ export function MyServicesCategoryGrid() {
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <h2 className="mb-2 px-1 sam-text-body-secondary font-medium text-sam-muted">서비스</h2>
+        <h2 className="mb-2 px-1 sam-text-body-secondary font-medium text-sam-muted">{t("my_services_title")}</h2>
         <Link href="/services" className="sam-text-body-secondary text-signature">
-          전체 서비스
+          {t("my_services_all")}
         </Link>
       </div>
       <ServiceCategoryGrid categories={categories} maxItems={8} />

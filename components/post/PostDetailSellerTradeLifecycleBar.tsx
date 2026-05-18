@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { useCallback, useState, type ReactNode } from "react";
 import {
@@ -42,6 +43,7 @@ export function PostDetailSellerTradeLifecycleBar({
   meta,
   onRefresh,
 }: Props) {
+  const { t } = useI18n();
   const [busy, setBusy] = useState(false);
   const [buyerPicker, setBuyerPicker] = useState<{
     mode: "reserve" | "complete";
@@ -64,7 +66,7 @@ export function PostDetailSellerTradeLifecycleBar({
         const ok = await fn();
         if (ok !== false) onRefresh();
       } catch {
-        window.alert("네트워크 오류입니다.");
+        window.alert(t("mypage_comp_product_network_error_short"));
       } finally {
         setBusy(false);
       }
@@ -74,7 +76,7 @@ export function PostDetailSellerTradeLifecycleBar({
 
   const onHideListing = () =>
     wrap(async () => {
-      if (!window.confirm("이 글을 숨길까요? 목록에서 보이지 않게 됩니다.")) return false;
+      if (!window.confirm(t("ui_post_hide_confirm"))) return false;
       const data = await postOwnerStatusHidden(postId);
       if (!data.ok) {
         window.alert(data.error ?? "숨김 처리에 실패했습니다.");
@@ -85,7 +87,7 @@ export function PostDetailSellerTradeLifecycleBar({
 
   const onDeletePost = () =>
     wrap(async () => {
-      if (!window.confirm("글을 삭제할까요? 삭제 후에는 목록에서 제거됩니다.")) return false;
+      if (!window.confirm(t("ui_post_delete_confirm_list"))) return false;
       const data = await postOwnerDeleteRequest(postId);
       if (!data.ok) {
         window.alert(data.error ?? "삭제에 실패했습니다.");
@@ -98,7 +100,7 @@ export function PostDetailSellerTradeLifecycleBar({
   const transitionListing = (next: SellerListingState, reservedBuyerId?: string) =>
     wrap(async () => {
       const label = SELLER_LISTING_LABEL[next];
-      if (!window.confirm(`판매 진행 상황을 "${label}"(으)로 변경할까요?`)) return false;
+      if (!window.confirm(t("mypage_comp_product_listing_change_confirm", { label }))) return false;
       const data = await postSellerListingStateRequest(postId, next, reservedBuyerId);
       if (!data.ok) {
         window.alert(data.error ?? "저장에 실패했습니다.");
@@ -111,7 +113,7 @@ export function PostDetailSellerTradeLifecycleBar({
   const startReserveFlow = () =>
     wrap(async () => {
       if (isOfflineMockPostId(postId)) {
-        window.alert("미리보기 글에서는 예약할 수 없습니다.");
+        window.alert(t("ui_post_preview_no_reserve"));
         return false;
       }
       const data = await fetchPostBuyerChats(postId);
@@ -122,12 +124,12 @@ export function PostDetailSellerTradeLifecycleBar({
       const items = (data.items ?? []).filter(isActiveTradeChat);
       const candidates = dedupeBuyerCandidates(items);
       if (candidates.length === 0) {
-        window.alert("문의 채팅이 있는 구매자만 예약할 수 있습니다.");
+        window.alert(t("mypage_comp_product_reserve_inquiry_only"));
         return false;
       }
       if (candidates.length === 1) {
         const label = SELLER_LISTING_LABEL.reserved;
-        if (!window.confirm(`판매 진행 상황을 "${label}"(으)로 변경할까요?`)) return false;
+        if (!window.confirm(t("mypage_comp_product_listing_change_confirm", { label }))) return false;
         const saved = await postSellerListingStateRequest(postId, "reserved", candidates[0].buyerId);
         if (!saved.ok) {
           window.alert(saved.error ?? "저장에 실패했습니다.");
@@ -150,7 +152,7 @@ export function PostDetailSellerTradeLifecycleBar({
         return false;
       }
       if (isOfflineMockPostId(postId)) {
-        window.alert("미리보기 글에서는 완료 처리할 수 없습니다.");
+        window.alert(t("ui_post_preview_no_complete"));
         return false;
       }
       const data = await fetchPostBuyerChats(postId);
@@ -166,7 +168,7 @@ export function PostDetailSellerTradeLifecycleBar({
       if (listingIsReserved && reservedId) {
         const row = items.find((i) => i.buyerId === reservedId);
         if (!row?.chatId) {
-          window.alert("예약된 구매자와의 활성 채팅을 찾을 수 없습니다.");
+          window.alert(t("mypage_comp_product_reserved_chat_missing"));
           return false;
         }
         const done = await postSellerCompleteRequest(row.chatId);
@@ -179,7 +181,7 @@ export function PostDetailSellerTradeLifecycleBar({
 
       const candidates = dedupeBuyerCandidates(items);
       if (candidates.length === 0) {
-        window.alert("문의 중인 채팅이 없으면 거래완료를 진행할 수 없습니다.");
+        window.alert(t("mypage_comp_product_no_inquiry_for_complete"));
         return false;
       }
       if (candidates.length === 1) {
@@ -216,14 +218,14 @@ export function PostDetailSellerTradeLifecycleBar({
       }
       onRefresh();
     } catch {
-      window.alert("네트워크 오류입니다.");
+      window.alert(t("mypage_comp_product_network_error_short"));
     } finally {
       setBusy((prev) => (prev ? false : prev));
     }
   };
 
   if (lifecycle === "hidden") {
-    return <p className="text-center sam-text-xxs text-sam-muted">숨김 처리된 글입니다.</p>;
+    return <p className="text-center sam-text-xxs text-sam-muted">{t("ui_post_hidden_listing")}</p>;
   }
 
   const row = (children: ReactNode) => (
@@ -261,7 +263,7 @@ export function PostDetailSellerTradeLifecycleBar({
         <TradeBuyerPickerModal
           open={!!buyerPicker}
           title={buyerPicker?.mode === "reserve" ? "예약할 구매자 선택" : "거래완료할 구매자 선택"}
-          subtitle="채팅 문의가 있는 구매자만 표시됩니다."
+          subtitle={t("ui_post_buyer_picker_subtitle")}
           candidates={buyerPicker?.candidates ?? []}
           onClose={() => setBuyerPicker((prev) => (prev === null ? prev : null))}
           onSelect={onBuyerPicked}
@@ -293,8 +295,8 @@ export function PostDetailSellerTradeLifecycleBar({
         )}
         <TradeBuyerPickerModal
           open={!!buyerPicker}
-          title="예약할 구매자 선택"
-          subtitle="채팅 문의가 있는 구매자만 표시됩니다."
+          title={t("mypage_comp_product_pick_reserve_title")}
+          subtitle={t("ui_post_buyer_picker_subtitle")}
           candidates={buyerPicker?.candidates ?? []}
           onClose={() => setBuyerPicker((prev) => (prev === null ? prev : null))}
           onSelect={onBuyerPicked}
@@ -317,7 +319,7 @@ export function PostDetailSellerTradeLifecycleBar({
               disabled={busy}
               onClick={() =>
                 void wrap(async () => {
-                  if (!window.confirm("거래를 취소하고 판매 조정 가능 상태로 돌아갈까요?")) return false;
+                  if (!window.confirm(t("ui_post_cancel_trade_confirm"))) return false;
                   const data = await postTradeLifecycleRequest(postId, "cancel_trade");
                   if (!data.ok) {
                     window.alert(data.error ?? "처리에 실패했습니다.");
@@ -333,8 +335,8 @@ export function PostDetailSellerTradeLifecycleBar({
         )}
         <TradeBuyerPickerModal
           open={!!buyerPicker && buyerPicker.mode === "complete"}
-          title="거래완료할 구매자 선택"
-          subtitle="채팅 문의가 있는 구매자만 표시됩니다."
+          title={t("mypage_comp_product_pick_complete_title")}
+          subtitle={t("ui_post_buyer_picker_subtitle")}
           candidates={buyerPicker?.candidates ?? []}
           onClose={() => setBuyerPicker((prev) => (prev === null ? prev : null))}
           onSelect={onBuyerPicked}
@@ -365,7 +367,7 @@ export function PostDetailSellerTradeLifecycleBar({
           disabled={busy}
           onClick={() =>
             void wrap(async () => {
-              if (!window.confirm("다시 판매중으로 올릴까요?")) return false;
+              if (!window.confirm(t("ui_post_relist_confirm"))) return false;
               const data = await postTradeLifecycleRequest(postId, "resume_active");
               if (!data.ok) {
                 window.alert(data.error ?? "처리에 실패했습니다.");

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import type { BoardListSkinProps } from "@/lib/community-board/types";
@@ -7,10 +8,11 @@ export function QnaListSkin({
   posts,
   baseHref,
 }: BoardListSkinProps) {
+  const { t } = useI18n();
   return (
     <ul className="divide-y divide-sam-border bg-sam-surface rounded-ui-rect overflow-hidden">
       {posts.length === 0 ? (
-        <li className="px-4 py-8 text-center text-sam-muted">아직 질문이 없어요.</li>
+        <li className="px-4 py-8 text-center text-sam-muted">{t("community_board_empty_questions")}</li>
       ) : (
         posts.map((post) => (
           <li key={post.id}>
@@ -26,7 +28,7 @@ export function QnaListSkin({
                 {post.author?.name && <span>{post.author.name}</span>}
                 <span>{new Date(post.created_at).toLocaleDateString("ko-KR")}</span>
                 {(post.comment_count ?? 0) > 0 && (
-                  <span>댓글 {post.comment_count}</span>
+                  <span>{t("community_board_comments_count", { count: post.comment_count })}</span>
                 )}
               </div>
             </Link>

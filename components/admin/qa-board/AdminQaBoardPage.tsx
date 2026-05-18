@@ -1,8 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
+import { QA_TAB_KEYS } from "@/components/admin/i18n/admin-qa-label-keys";
 import { QaSummaryCards } from "./QaSummaryCards";
 import { QaSuiteTable } from "./QaSuiteTable";
 import { QaTestCaseTable } from "./QaTestCaseTable";
@@ -10,27 +13,24 @@ import { QaPilotCheckTable } from "./QaPilotCheckTable";
 import { QaIssueTable } from "./QaIssueTable";
 import { QaBlockerBoard } from "./QaBlockerBoard";
 
-type TabId =
-  | "overview"
-  | "cases"
-  | "pilot"
-  | "issues"
-  | "blocker";
+type TabId = keyof typeof QA_TAB_KEYS;
 
 export function AdminQaBoardPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<TabId>("overview");
 
-  const tabs: { id: TabId; label: string }[] = [
-    { id: "overview", label: "QA 개요" },
-    { id: "cases", label: "테스트 케이스" },
-    { id: "pilot", label: "파일럿 운영" },
-    { id: "issues", label: "QA 이슈" },
-    { id: "blocker", label: "Blocker 보드" },
-  ];
+  const tabs = useMemo(
+    () =>
+      (Object.entries(QA_TAB_KEYS) as [TabId, MessageKey][]).map(([id, labelKey]) => ({
+        id,
+        labelKey,
+      })),
+    []
+  );
 
   return (
     <>
-      <AdminPageHeader title="최종 통합 QA" />
+      <AdminPageHeader titleKey="admin_qa_page_title" />
       <div className="mb-4 flex flex-wrap gap-1 border-b border-sam-border">
         {tabs.map((tab) => (
           <button
@@ -43,42 +43,42 @@ export function AdminQaBoardPage() {
                 : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>
 
       {activeTab === "overview" && (
-        <AdminCard title="Pass Rate · Must-Pass · 파일럿 · Go-Live QA 판정">
+        <AdminCard titleKey="admin_qa_k7925d720">
           <QaSummaryCards />
         </AdminCard>
       )}
 
       {activeTab === "cases" && (
         <>
-          <AdminCard title="QA 테스트 스위트 목록">
+          <AdminCard titleKey="admin_qa_k87f186b1">
             <QaSuiteTable />
           </AdminCard>
-          <AdminCard title="테스트 케이스 실행 상태" className="mt-4">
+          <AdminCard titleKey="admin_qa_status_3" className="mt-4">
             <QaTestCaseTable />
           </AdminCard>
         </>
       )}
 
       {activeTab === "pilot" && (
-        <AdminCard title="실사용자 시범운영 체크리스트">
+        <AdminCard titleKey="admin_qa_checklist_2">
           <QaPilotCheckTable />
         </AdminCard>
       )}
 
       {activeTab === "issues" && (
-        <AdminCard title="QA 버그/이슈 (재현 가능 placeholder)">
+        <AdminCard titleKey="admin_qa_issues_3">
           <QaIssueTable />
         </AdminCard>
       )}
 
       {activeTab === "blocker" && (
-        <AdminCard title="Blocker 집중 보드 (Must-Pass 강조)">
+        <AdminCard titleKey="admin_qa_ka3c87f13">
           <QaBlockerBoard />
         </AdminCard>
       )}

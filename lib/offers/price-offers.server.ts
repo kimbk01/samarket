@@ -21,6 +21,7 @@ import type { PriceOfferListItem, PriceOfferRow, PriceOfferTransitionResult } fr
 import { enrichPriceOffersToListItems, mapPriceOfferRow } from "@/lib/offers/offers-map";
 import { normalizeOfferProductId } from "@/lib/offers/normalize-offer-product-id";
 import { isPostgresUniqueViolation } from "@/lib/postgres/unique-violation";
+import { offerServerT } from "@/lib/offers/offer-server-i18n";
 
 /** 읽기·쓰기 반환 공통 — `amount` 레거시 컬럼 미존재 DB 에서 select 실패 방지 */
 const PRICE_OFFER_SELECT_READ =
@@ -244,7 +245,7 @@ async function loadPostOfferContext(
   const sellerId = postTradeListingOwnerUserId(row) ?? "";
   const price = toNumber(row.price);
   if (!sellerId || !Number.isFinite(price)) return null;
-  const title = trimString(row.title) || "상품";
+  const title = trimString(row.title) || offerServerT("offer_fallback_product");
   const thumbnailUrl = toNullableTrimmedString(row.thumbnail_url);
   const status = toNullableTrimmedString(row.status);
   const statusNorm = String(status ?? "").toLowerCase();
@@ -365,12 +366,12 @@ async function ensureTradeChatRoomForOffer(
     ) {
       return ensureTradeChatRoomForOffer(sb, args, true);
     }
-    throw new Error(insertedRoomRes.error?.message ?? "채팅방 생성에 실패했습니다.");
+    throw new Error(insertedRoomRes.error?.message ?? offerServerT("offer_err_chat_room_create"));
   }
 
   const roomId = trimString(insertedRoomRes.data.id);
   if (!roomId) {
-    throw new Error("채팅방 생성에 실패했습니다.");
+    throw new Error(offerServerT("offer_err_chat_room_create"));
   }
 
   const participantsRes = await sb.from("chat_room_participants").insert([
@@ -378,7 +379,7 @@ async function ensureTradeChatRoomForOffer(
     { room_id: roomId, user_id: args.buyerId, role_in_room: "buyer", is_active: true, hidden: false },
   ]);
   if (participantsRes.error) {
-    throw new Error(participantsRes.error.message ?? "채팅 참여자 등록에 실패했습니다.");
+    throw new Error(participantsRes.error.message ?? offerServerT("offer_err_participants"));
   }
 
   const [messengerRoomId] = await Promise.all([
@@ -417,7 +418,7 @@ async function insertAcceptedOfferSystemMessage(
   }
 ): Promise<void> {
   const now = new Date().toISOString();
-  const body = `${formatOfferAmount(args.offeredPrice)} 가격 제안을 수락했습니다`;
+  const body = offerServerT("offer_msg_accepted", { amount: formatOfferAmount(args.offeredPrice) });
   const metadata = {
     kind: "price_offer_accepted",
     offer_id: args.offerId,
@@ -438,7 +439,7 @@ async function insertAcceptedOfferSystemMessage(
     .maybeSingle();
 
   if (insertedChatMessage.error) {
-    throw new Error(insertedChatMessage.error.message ?? "거래 채팅 시스템 메시지 저장에 실패했습니다.");
+    throw new Error(insertedChatMessage.error.message ?? offerServerT("offer_err_system_message"));
   }
 
   await sb
@@ -501,11 +502,11 @@ async function notifyOfferCreated(
     buyerNickname: string | null;
   }
 ): Promise<void> {
-  const titleSnippet = args.post.title?.trim() ? args.post.title.trim().slice(0, 40) : "상품";
+  const titleSnippet = args.post.title?.trim() ? args.post.title.trim().slice(0, 40) : offerServerT("offer_fallback_product");
   await appendUserNotification(sb, {
     user_id: args.offer.seller_id,
     notification_type: "status",
-    title: "가격 제안이 도착했습니다",
+    title: offerServerT("offer_notif_received_title"),
     body: `${titleSnippet} · ${formatOfferAmount(args.offer.original_price)} → ${formatOfferAmount(args.offer.offered_price)}`,
     /** 판매자 알림 탭 시 상세 진입과 함께 받은 제안 모달 자동 오픈 (`PostDetailView`) */
     link_url: `/post/${encodeURIComponent(args.offer.product_id)}?${OPEN_RECEIVED_OFFERS_SEARCH_PARAM}=1`,
@@ -540,8 +541,8 @@ async function notifyOfferAccepted(
   await appendUserNotification(sb, {
     user_id: args.offer.buyer_id,
     notification_type: "status",
-    title: "가격 제안이 수락되었습니다",
-    body: `${formatOfferAmount(args.offer.offered_price)} 제안이 승인되어 채팅으로 이어집니다.`,
+    title: offerServerT("offer_notif_accepted_title"),
+    body: offerServerT("offer_notif_accepted_body", { amount: formatOfferAmount(args.offer.offered_price) }),
     link_url: tradeChatNotificationHref(args.chatRoomId, args.chatRoomSource),
     ref_id: args.offer.id,
     meta: {
@@ -570,8 +571,8 @@ async function notifyOfferRejected(
   await appendUserNotification(sb, {
     user_id: args.offer.buyer_id,
     notification_type: "status",
-    title: "가격 제안이 거절되었습니다",
-    body: `${formatOfferAmount(args.offer.offered_price)} 제안이 거절되었습니다.`,
+    title: offerServerT("offer_notif_rejected_title"),
+    body: offerServerT("offer_notif_rejected_body", { amount: formatOfferAmount(args.offer.offered_price) }),
     link_url: `/post/${encodeURIComponent(args.offer.product_id)}`,
     ref_id: args.offer.id,
     meta: {
@@ -599,31 +600,35 @@ export async function createPriceOffer(
   const offeredPrice = Math.floor(input.offeredPrice);
   const message = toNullableTrimmedString(input.message)?.slice(0, 500) ?? null;
   if (!buyerUserId || !productId) {
-    return serviceError(400, "상품 정보가 올바르지 않습니다.", "invalid_offer_target");
+    return serviceError(400, offerServerT("offer_err_invalid_target"), "invalid_offer_target");
   }
   if (!Number.isFinite(offeredPrice) || offeredPrice <= 0) {
-    return serviceError(400, "제안 가격을 정확히 입력해 주세요.", "invalid_offer_price");
+    return serviceError(400, offerServerT("offer_err_invalid_price"), "invalid_offer_price");
   }
 
   const post = await loadPostOfferContext(sb, productId);
   if (!post) {
-    return serviceError(404, "상품을 찾을 수 없습니다.", "offer_product_not_found");
+    return serviceError(404, offerServerT("offer_err_product_not_found"), "offer_product_not_found");
   }
   if (post.sellerId === buyerUserId) {
-    return serviceError(400, "내 상품에는 가격 제안을 보낼 수 없습니다.", "offer_own_product");
+    return serviceError(400, offerServerT("offer_err_own_product"), "offer_own_product");
   }
   if (!post.isPriceOfferEnabled) {
-    return serviceError(403, "이 상품은 가격 제안을 받지 않습니다.", "offer_disabled");
+    return serviceError(403, offerServerT("offer_err_disabled"), "offer_disabled");
   }
   if (post.isDeleted || post.isHidden || post.status === "sold") {
-    return serviceError(403, "판매 완료된 상품에는 가격 제안을 보낼 수 없습니다.", "offer_product_closed");
+    return serviceError(403, offerServerT("offer_err_product_closed"), "offer_product_closed");
   }
   if (post.price <= 0) {
-    return serviceError(400, "정가가 있는 상품에만 가격 제안을 보낼 수 있습니다.", "offer_requires_price");
+    return serviceError(400, offerServerT("offer_err_requires_price"), "offer_requires_price");
   }
   const minAllowed = Math.ceil(post.price * 0.5);
   if (offeredPrice < minAllowed) {
-    return serviceError(400, `판매가의 50% 이상만 제안할 수 있습니다. 최소 ${formatOfferAmount(minAllowed)}부터 가능해요.`, "offer_price_too_low");
+    return serviceError(
+      400,
+      offerServerT("offer_err_price_too_low", { min: formatOfferAmount(minAllowed) }),
+      "offer_price_too_low"
+    );
   }
 
   const [existingPendingRes, existingAcceptedRes, dailyCountRes, buyerNickMap] = await Promise.all([
@@ -653,16 +658,16 @@ export async function createPriceOffer(
   if ((existingAcceptedRes.data?.length ?? 0) > 0) {
     return serviceError(
       409,
-      "이미 수락된 제안이 있습니다. 거래 채팅에서 이어가 주세요.",
+      offerServerT("offer_err_already_accepted"),
       "offer_accepted_exists"
     );
   }
 
   if ((existingPendingRes.data?.length ?? 0) > 0) {
-    return serviceError(409, "이 상품에는 이미 대기 중인 가격 제안이 있습니다.", "offer_pending_exists");
+    return serviceError(409, offerServerT("offer_err_pending_exists"), "offer_pending_exists");
   }
   if ((dailyCountRes.count ?? 0) >= 3) {
-    return serviceError(429, "이 상품에는 하루 최대 3회까지만 가격 제안을 보낼 수 있습니다.", "offer_daily_limit");
+    return serviceError(429, offerServerT("offer_err_daily_limit"), "offer_daily_limit");
   }
 
   const insertRes = await sb
@@ -681,14 +686,14 @@ export async function createPriceOffer(
 
   if (insertRes.error || !insertRes.data) {
     if (String(insertRes.error?.message ?? "").includes("price_offers_pending_unique_idx")) {
-      return serviceError(409, "이 상품에는 이미 대기 중인 가격 제안이 있습니다.", "offer_pending_exists");
+      return serviceError(409, offerServerT("offer_err_pending_exists"), "offer_pending_exists");
     }
-    return serviceError(500, insertRes.error?.message ?? "가격 제안 생성에 실패했습니다.", "offer_create_failed");
+    return serviceError(500, insertRes.error?.message ?? offerServerT("offer_err_create_failed"), "offer_create_failed");
   }
 
   const offer = mapPriceOfferRow(insertRes.data as Record<string, unknown>);
   if (!offer) {
-    return serviceError(500, "가격 제안 생성에 실패했습니다.", "offer_create_invalid");
+    return serviceError(500, offerServerT("offer_err_create_invalid"), "offer_create_invalid");
   }
 
   await notifyOfferCreated(sb, {
@@ -712,16 +717,16 @@ export async function listSellerPriceOffersForProduct(
   const uid = trimString(userId);
   const pid = normalizeOfferProductId(productId);
   if (!uid || !pid) {
-    return serviceError(400, "요청이 올바르지 않습니다.", "offer_list_invalid_params");
+    return serviceError(400, offerServerT("offer_err_list_invalid_params"), "offer_list_invalid_params");
   }
 
   const postRow =
     (await loadPostRowMinimalForOfferGate(sb, pid)) ?? (await fetchPostRowForTradeChatById(sb, pid));
   if (!postRow) {
-    return serviceError(404, "상품을 찾을 수 없습니다.", "offer_post_not_found");
+    return serviceError(404, offerServerT("offer_err_post_not_found"), "offer_post_not_found");
   }
   if (!postOwnedByUserId(postRow, uid)) {
-    return serviceError(403, "이 상품의 판매자만 가격 제안을 볼 수 있습니다.", "offer_list_not_owner");
+    return serviceError(403, offerServerT("offer_err_list_not_owner"), "offer_list_not_owner");
   }
 
   const inferredSellerId = postTradeListingOwnerUserId(postRow) ?? "";
@@ -748,7 +753,7 @@ export async function listPriceOffers(
 ): Promise<Ok<PriceOfferListItem[]> | Err> {
   const userId = trimString(input.userId);
   if (!userId) {
-    return serviceError(401, "로그인이 필요합니다.", "offer_list_unauthorized");
+    return serviceError(401, offerServerT("offer_err_list_unauthorized"), "offer_list_unauthorized");
   }
   const limit = Math.min(Math.max(input.limit ?? 100, 1), 100);
   const rawProductId = trimString(input.productId ?? "");
@@ -783,7 +788,7 @@ export async function listPriceOffers(
       .limit(limit);
 
     if (inErr) {
-      return serviceError(500, inErr.message ?? "가격 제안 목록을 불러오지 못했습니다.", "offer_list_failed");
+      return serviceError(500, inErr.message ?? offerServerT("offer_err_list_failed"), "offer_list_failed");
     }
     for (const raw of inRows ?? []) {
       const rid = trimString((raw as Record<string, unknown>).id);
@@ -799,7 +804,7 @@ export async function listPriceOffers(
         .order("created_at", { ascending: false })
         .limit(scanLimit);
       if (scanErr) {
-        return serviceError(500, scanErr.message ?? "가격 제안 목록을 불러오지 못했습니다.", "offer_list_failed");
+        return serviceError(500, scanErr.message ?? offerServerT("offer_err_list_failed"), "offer_list_failed");
       }
       for (const raw of scanRows ?? []) {
         const row = raw as Record<string, unknown>;
@@ -842,7 +847,7 @@ export async function listPriceOffers(
 
   const { data, error } = await query;
   if (error) {
-    return serviceError(500, error.message ?? "가격 제안 목록을 불러오지 못했습니다.", "offer_list_failed");
+    return serviceError(500, error.message ?? offerServerT("offer_err_list_failed"), "offer_list_failed");
   }
 
   const offers = (data ?? [])
@@ -859,31 +864,31 @@ export async function acceptPriceOffer(
   const actorUserId = trimString(input.actorUserId);
   const offerId = trimString(input.offerId);
   if (!actorUserId || !offerId) {
-    return serviceError(400, "가격 제안 정보가 올바르지 않습니다.", "offer_accept_invalid");
+    return serviceError(400, offerServerT("offer_err_accept_invalid"), "offer_accept_invalid");
   }
 
   const offer = await loadOfferRowById(sb, offerId);
   if (!offer) {
-    return serviceError(404, "가격 제안을 찾을 수 없습니다.", "offer_not_found");
+    return serviceError(404, offerServerT("offer_err_not_found"), "offer_not_found");
   }
   if (offer.status !== "pending") {
-    return serviceError(409, "대기 중인 제안만 수락할 수 있습니다.", "offer_accept_invalid_state");
+    return serviceError(409, offerServerT("offer_err_accept_invalid_state"), "offer_accept_invalid_state");
   }
 
   const postRow = await loadPostRowForSellerOfferAction(sb, offer.product_id);
   if (!postRow || !sellerActorCanManageOffer(offer, actorUserId, postRow)) {
-    return serviceError(403, "판매자만 제안을 수락할 수 있습니다.", "offer_accept_forbidden");
+    return serviceError(403, offerServerT("offer_err_accept_forbidden"), "offer_accept_forbidden");
   }
 
   const post = await loadPostOfferContext(sb, offer.product_id);
   if (!post) {
-    return serviceError(404, "상품을 찾을 수 없습니다.", "offer_accept_post_missing");
+    return serviceError(404, offerServerT("offer_err_accept_post_missing"), "offer_accept_post_missing");
   }
   if (post.isDeleted || post.isHidden || post.status === "sold") {
-    return serviceError(409, "판매 완료된 상품에는 제안을 수락할 수 없습니다.", "offer_accept_product_closed");
+    return serviceError(409, offerServerT("offer_err_accept_product_closed"), "offer_accept_product_closed");
   }
   if (post.reservedBuyerId && post.reservedBuyerId !== offer.buyer_id) {
-    return serviceError(409, "다른 구매자와 예약이 진행 중인 상품입니다.", "offer_accept_reserved_other");
+    return serviceError(409, offerServerT("offer_err_accept_reserved_other"), "offer_accept_reserved_other");
   }
 
   const updateRes = await sb
@@ -896,7 +901,7 @@ export async function acceptPriceOffer(
 
   const updatedOffer = updateRes.data ? mapPriceOfferRow(updateRes.data as Record<string, unknown>) : null;
   if (updateRes.error || !updatedOffer) {
-    return serviceError(409, "이미 처리된 가격 제안입니다.", "offer_accept_race_lost");
+    return serviceError(409, offerServerT("offer_err_accept_race_lost"), "offer_accept_race_lost");
   }
 
   let ensuredRoom: EnsureTradeChatRoomResult;
@@ -915,7 +920,7 @@ export async function acceptPriceOffer(
     if (revertRes.error) {
       console.error("[price_offers] accept revert to pending failed after chat error", revertRes.error);
     }
-    const message = error instanceof Error ? error.message : "채팅 연결에 실패했습니다.";
+    const message = error instanceof Error ? error.message : offerServerT("offer_err_chat_connect_failed");
     return serviceError(500, message, "offer_accept_chat_failed");
   }
 
@@ -959,20 +964,20 @@ export async function rejectPriceOffer(
   const actorUserId = trimString(input.actorUserId);
   const offerId = trimString(input.offerId);
   if (!actorUserId || !offerId) {
-    return serviceError(400, "가격 제안 정보가 올바르지 않습니다.", "offer_reject_invalid");
+    return serviceError(400, offerServerT("offer_err_reject_invalid"), "offer_reject_invalid");
   }
 
   const offer = await loadOfferRowById(sb, offerId);
   if (!offer) {
-    return serviceError(404, "가격 제안을 찾을 수 없습니다.", "offer_not_found");
+    return serviceError(404, offerServerT("offer_err_not_found"), "offer_not_found");
   }
   if (offer.status !== "pending") {
-    return serviceError(409, "대기 중인 제안만 거절할 수 있습니다.", "offer_reject_invalid_state");
+    return serviceError(409, offerServerT("offer_err_reject_invalid_state"), "offer_reject_invalid_state");
   }
 
   const postRowReject = await loadPostRowForSellerOfferAction(sb, offer.product_id);
   if (!postRowReject || !sellerActorCanManageOffer(offer, actorUserId, postRowReject)) {
-    return serviceError(403, "판매자만 제안을 거절할 수 있습니다.", "offer_reject_forbidden");
+    return serviceError(403, offerServerT("offer_err_reject_forbidden"), "offer_reject_forbidden");
   }
 
   const updateRes = await sb
@@ -985,7 +990,7 @@ export async function rejectPriceOffer(
 
   const updatedOffer = updateRes.data ? mapPriceOfferRow(updateRes.data as Record<string, unknown>) : null;
   if (updateRes.error || !updatedOffer) {
-    return serviceError(409, "이미 처리된 가격 제안입니다.", "offer_reject_race_lost");
+    return serviceError(409, offerServerT("offer_err_reject_race_lost"), "offer_reject_race_lost");
   }
 
   await notifyOfferRejected(sb, { offer: updatedOffer });

@@ -94,7 +94,10 @@ export function AdminChatTable({
               </td>
               <td className="px-3 py-2.5 text-center sam-text-body-secondary text-sam-muted">
                 {(r.unreadSeller ?? 0) + (r.unreadBuyer ?? 0) > 0
-                  ? `판${r.unreadSeller ?? 0}/구${r.unreadBuyer ?? 0}`
+                  ? t("admin_chat_unread_seller_buyer", {
+                      seller: r.unreadSeller ?? 0,
+                      buyer: r.unreadBuyer ?? 0,
+                    })
                   : "-"}
               </td>
               <td className="px-3 py-2.5">

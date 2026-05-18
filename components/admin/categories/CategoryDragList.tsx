@@ -2,7 +2,8 @@
 
 import { useCallback, useState } from "react";
 import type { CategoryWithSettings } from "@/lib/types/category";
-import { CATEGORY_TYPE_LABELS } from "@/lib/types/category";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { adminCategoryTypeLabelKey } from "@/lib/admin/categories/admin-category-label-keys";
 
 interface CategoryDragListProps {
   items: CategoryWithSettings[];
@@ -17,6 +18,7 @@ export function CategoryDragList({
   onToggleActive,
   onEdit,
 }: CategoryDragListProps) {
+  const { t } = useI18n();
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
 
@@ -62,7 +64,7 @@ export function CategoryDragList({
   if (items.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-6 text-center sam-text-body text-sam-muted">
-        등록된 카테고리가 없습니다.
+        {t("admin_cat_empty")}
       </div>
     );
   }
@@ -82,14 +84,14 @@ export function CategoryDragList({
             draggedId === c.id ? "opacity-50" : ""
           } ${overId === c.id ? "border-signature bg-signature/5" : "border-sam-border"}`}
         >
-          <span className="cursor-grab text-sam-meta" aria-label="드래그">
+          <span className="cursor-grab text-sam-meta" aria-label={t("admin_cat_drag_aria")}>
             ⋮⋮
           </span>
           <span className="w-8 sam-text-body-secondary text-sam-muted">{c.sort_order + 1}</span>
           <span className="min-w-[100px] font-medium text-sam-fg">{c.name}</span>
           <span className="sam-text-body-secondary text-sam-muted">{c.slug}</span>
           <span className="rounded bg-sam-surface-muted px-1.5 py-0.5 sam-text-helper text-sam-muted">
-            {CATEGORY_TYPE_LABELS[c.type]}
+            {t(adminCategoryTypeLabelKey(c.type))}
           </span>
           <button
             type="button"
@@ -105,7 +107,7 @@ export function CategoryDragList({
             onClick={() => onEdit(c.id)}
             className="ml-auto sam-text-body-secondary text-signature"
           >
-            수정
+            {t("admin_cat_edit")}
           </button>
         </li>
       ))}

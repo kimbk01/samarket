@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function JobChatPhoneStrip({ roomId, active }: { roomId: string; active: boolean }) {
+  const { t } = useI18n();
   const [phone, setPhone] = useState<string | null>(null);
   const [done, setDone] = useState(false);
 
@@ -45,9 +47,9 @@ export function JobChatPhoneStrip({ roomId, active }: { roomId: string; active: 
 
   return (
     <div className="border-b border-emerald-100 bg-emerald-50/90 px-3 py-2.5 sam-text-body-secondary text-emerald-950">
-      <span className="font-medium">작성자 연락처</span>
+      <span className="font-medium">{t("chats_job_author_contact")}</span>
       <span className="mx-1.5 text-emerald-700/80">·</span>
-      <span className="text-emerald-800">이 채팅방에서만 표시됩니다</span>
+      <span className="text-emerald-800">{t("chats_job_contact_visible_in_room_only")}</span>
       <div className="mt-1">
         <a href={`tel:${tel}`} className="font-semibold text-emerald-900 underline">
           {phone}

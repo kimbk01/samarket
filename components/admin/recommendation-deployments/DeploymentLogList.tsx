@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { getRecommendationDeploymentLogs } from "@/lib/recommendation-deployments/mock-recommendation-deployment-logs";
 import { getRecommendationDeployments } from "@/lib/recommendation-deployments/mock-recommendation-deployments";
@@ -14,6 +17,7 @@ const ACTION_LABELS: Record<string, string> = {
 };
 
 export function DeploymentLogList() {
+  const { t } = useI18n();
   const [deploymentId, setDeploymentId] = useState("");
 
   const deployments = useMemo(() => getRecommendationDeployments(), []);
@@ -25,13 +29,13 @@ export function DeploymentLogList() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="sam-text-body font-medium text-sam-fg">배포</label>
+        <label className="sam-text-body font-medium text-sam-fg">{t("admin_rec_deploy_deploy_5")}</label>
         <select
           value={deploymentId}
           onChange={(e) => setDeploymentId(e.target.value)}
           className="rounded border border-sam-border px-3 py-2 sam-text-body"
         >
-          <option value="">전체</option>
+          <option value="">{t("common_all")}</option>
           {deployments.map((d) => (
             <option key={d.id} value={d.id}>
               {d.deploymentName}

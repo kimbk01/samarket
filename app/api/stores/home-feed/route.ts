@@ -21,6 +21,7 @@ import {
   resolveStoreListDeliveryOrigin,
   resolveEffectiveStoreRouteAddress,
 } from "@/lib/stores/store-list-delivery-origin";
+import { detectAcceptLanguageAppLanguage } from "@/lib/i18n/language-preference";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -89,6 +90,7 @@ type FeedRow = {
  * 매장 탭 홈 피드 — 지역·거리 정렬 + 카드용 부가 필드
  */
 export async function GET(req: Request) {
+  const uiLang = detectAcceptLanguageAppLanguage(req.headers.get("accept-language"));
   const supabase = tryGetSupabaseForStores();
   if (!supabase) {
     return NextResponse.json(
@@ -279,9 +281,13 @@ export async function GET(req: Request) {
       const cat = embedOne(r.store_categories as RelOne | RelOne[] | null | undefined);
       const openNow = resolveStoreFrontOpen(r.business_hours_json, r.is_open);
       const extras = parseCommerceExtrasFromHoursJson(r.business_hours_json);
-      const deliveryFeeLabel = formatStoreBrowseDeliveryFeeLine(extras, {
-        deliveryAvailable: !!r.delivery_available,
-      });
+      const deliveryFeeLabel = formatStoreBrowseDeliveryFeeLine(
+        extras,
+        {
+          deliveryAvailable: !!r.delivery_available,
+        },
+        uiLang
+      );
       const deliveryFeeStrikePhp = formatStoreBrowseDeliveryFeeStrikePhp(extras, {
         deliveryAvailable: !!r.delivery_available,
       });
@@ -307,11 +313,16 @@ export async function GET(req: Request) {
       const routeCtx = userLat != null && userLng != null;
       const manualForEta =
         deliveryRideTimeSource === "store" ? extras.deliveryRideDisplayManual : null;
-      const etaLabel = buildBrowseStoreListEtaLabel(extras, rideMinutes, {
-        deliveryAvailable: !!r.delivery_available,
-        routeContextPresent: routeCtx,
-        manualRideDisplay: manualForEta,
-      });
+      const etaLabel = buildBrowseStoreListEtaLabel(
+        extras,
+        rideMinutes,
+        {
+          deliveryAvailable: !!r.delivery_available,
+          routeContextPresent: routeCtx,
+          manualRideDisplay: manualForEta,
+        },
+        uiLang
+      );
 
       return {
         id: r.id,

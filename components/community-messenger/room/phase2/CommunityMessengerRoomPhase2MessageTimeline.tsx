@@ -642,7 +642,9 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
             {vm.roomTypeLabel}
             {vm.roomJoinLabel ? ` · ${vm.roomJoinLabel}` : ""}
             {vm.roomIdentityLabel ? ` · ${vm.roomIdentityLabel}` : ""}
-            {vm.snapshot.room.memberCount > 0 ? ` · ${vm.snapshot.room.memberCount}명` : ""}
+            {vm.snapshot.room.memberCount > 0
+              ? vm.t("cm_ui_member_count_suffix", { count: vm.snapshot.room.memberCount })
+              : ""}
             {vm.snapshot.room.myIdentityMode
               ? ` · ${vm.t("nav_messenger_my_identity", {
                   mode: vm.snapshot.room.myIdentityMode === "alias" ? vm.t("nav_messenger_identity_alias") : vm.t("nav_messenger_identity_real"),
@@ -657,7 +659,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
               className="flex w-full items-center justify-between gap-2 rounded-[12px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-2 text-left active:bg-[color:var(--cm-room-primary-soft)]"
             >
               <div className="min-w-0">
-                <p className="sam-text-xxs font-semibold uppercase tracking-wide text-[color:var(--cm-room-text-muted)]">공지</p>
+                <p className="sam-text-xxs font-semibold uppercase tracking-wide text-[color:var(--cm-room-text-muted)]">{vm.t("cm_ui_notice")}</p>
                 <p className="mt-0.5 line-clamp-2 sam-text-helper leading-snug text-[color:var(--cm-room-text)]">
                   {vm.snapshot.room.summary.trim()}
                 </p>
@@ -671,9 +673,9 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
               className="flex min-h-[24px] flex-col items-center justify-center gap-1 py-2"
             >
               {vm.loadingOlderMessages ? (
-                <span className="sam-text-helper text-ui-muted">이전 대화를 불러오는 중…</span>
+                <span className="sam-text-helper text-ui-muted">{vm.t("cm_ui_loading_previous_conversations")}</span>
               ) : (
-                <span className="sam-text-xxs text-ui-muted">맨 위로 스크롤하면 이전 대화를 불러옵니다</span>
+                <span className="sam-text-xxs text-ui-muted">{vm.t("cm_ui_scroll_top_to_load_previous")}</span>
               )}
             </div>
           ) : null}
@@ -830,7 +832,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
               })}
             </div>
           ) : vm.snapshot.clientShellPlaceholder ? (
-            <div className="space-y-3 px-6 py-10" aria-busy="true" aria-label="대화 불러오는 중">
+            <div className="space-y-3 px-6 py-10" aria-busy="true" aria-label={vm.t("cm_ui_loading_conversation")}>
               <div className="h-3 w-[72%] max-w-sm animate-pulse rounded-full bg-[color:var(--cm-room-divider)]" />
               <div className="h-3 w-[88%] max-w-md animate-pulse rounded-full bg-[color:var(--cm-room-divider)]" />
               <div className="h-3 w-[56%] max-w-xs animate-pulse rounded-full bg-[color:var(--cm-room-divider)]" />
@@ -839,15 +841,15 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
             <div className="px-4 py-12 text-center sam-text-body-secondary text-[color:var(--cm-room-text-muted)]">
               {shouldRecoverEmptyTimeline ? (
                 <>
-                  대화 내용을 동기화하는 중입니다.
+                  {vm.t("cm_ui_synchronizing_conversation")}
                   <br />
-                  <span className="mt-1 inline-block sam-text-helper">잠시만 기다려 주세요.</span>
+                  <span className="mt-1 inline-block sam-text-helper">{vm.t("cm_ui_please_wait_moment")}</span>
                 </>
               ) : (
                 <>
-                  아직 메시지가 없습니다.
+                  {vm.t("cm_ui_no_messages_yet")}
                   <br />
-                  <span className="mt-1 inline-block sam-text-helper">첫 인사를 남겨보세요.</span>
+                  <span className="mt-1 inline-block sam-text-helper">{vm.t("cm_ui_leave_first_greeting")}</span>
                 </>
               )}
             </div>

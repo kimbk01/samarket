@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { useCallback, useLayoutEffect } from "react";
@@ -10,7 +11,6 @@ import {
 import { deliveryRenderTraceBump } from "@/lib/dibay/delivery-render-trace";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { DIBAY_CART_PRIMARY_BTN_CLASS } from "@/components/stores/cart/StoreCommerceCartBottomSheet";
-import { STORE_CART_PAGE_TITLE } from "@/lib/stores/store-cart-policy";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
 import { StoreCartPreviewLineRow } from "@/components/stores/store-order-detail/StoreCartPreviewLineRow";
 
@@ -25,6 +25,7 @@ export function StoreCartPreviewSheet({
   storeId: string;
   storeSlug: string;
 }) {
+  const { t } = useI18n();
   const commerceCart = useStoreCommerceCartActionsOptional();
   const lines = useStoreCommerceCartLines(storeId);
   const { subtotalPhp: subtotal, hydrated } = useStoreCommerceCartBucketStats(storeId);
@@ -67,7 +68,7 @@ export function StoreCartPreviewSheet({
 
   return (
     <div className="fixed inset-0 z-[110]" role="dialog" aria-modal aria-labelledby="store-cart-preview-title">
-      <button type="button" className="absolute inset-0 bg-black/45 transition-opacity duration-[220ms]" aria-label="닫기" onClick={onClose} />
+      <button type="button" className="absolute inset-0 bg-black/45 transition-opacity duration-[220ms]" aria-label={t("common_close")} onClick={onClose} />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 top-[18dvh] flex justify-center p-0 sm:p-3">
         <div
           className={`pointer-events-auto flex h-full w-full min-w-0 flex-col overflow-hidden rounded-t-[24px] bg-white shadow-2xl transition-transform duration-[220ms] ease-out ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}
@@ -78,13 +79,13 @@ export function StoreCartPreviewSheet({
           <div className="flex shrink-0 flex-col items-center pt-2 pb-1">
             <span className="h-1 w-10 rounded-full bg-neutral-300" aria-hidden />
             <h2 id="store-cart-preview-title" className="mt-2 px-4 text-center text-[16px] font-bold text-neutral-900">
-              {STORE_CART_PAGE_TITLE}
+              {t("store_cart_page_title")}
             </h2>
           </div>
 
           <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 [-webkit-overflow-scrolling:touch]">
             {lines.length === 0 ? (
-              <p className="py-10 text-center text-[14px] text-neutral-500">담긴 메뉴가 없어요</p>
+              <p className="py-10 text-center text-[14px] text-neutral-500">{t("store_cart_preview_empty")}</p>
             ) : (
               <ul className="divide-y divide-neutral-100 pb-2">
                 {lines.map((ln) => (
@@ -103,7 +104,7 @@ export function StoreCartPreviewSheet({
 
           <div className="shrink-0 border-t border-neutral-100 px-4 pt-3">
             <div className="mb-3 flex items-center justify-between text-[15px] font-bold">
-              <span className="text-neutral-600">총금액</span>
+              <span className="text-neutral-600">{t("store_cart_total")}</span>
               <span className="tabular-nums text-neutral-900">{formatMoneyPhp(subtotal)}</span>
             </div>
             <Link href={cartHref} className={DIBAY_CART_PRIMARY_BTN_CLASS}>

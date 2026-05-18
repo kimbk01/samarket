@@ -1,11 +1,26 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import {
+  pointActionTypeLabel,
+  pointBoardLabel,
+  pointChargeStatusLabel,
+  pointExecStatusLabel,
+  pointExpireCycleLabel,
+  pointExpireExecStatusLabel,
+  pointLedgerTypeLabel,
+  pointPaymentMethodLabel,
+  pointRewardTypeLabel,
+  pointUserTypeLabel,
+} from "@/components/admin/points/admin-points-notifications-i18n";
+
 import { useState } from "react";
 import type { PointRewardSimulation } from "@/lib/types/point-policy";
 import { simulatePointReward } from "@/lib/point-policies/point-reward-simulate";
 import { BOARD_OPTIONS, USER_TYPE_LABELS } from "@/lib/point-policies/point-policy-utils";
 
 export function PointRewardSimulator() {
+  const { t } = useI18n();
   const [boardKey, setBoardKey] = useState("general");
   const [actionType, setActionType] = useState<"write" | "comment">("write");
   const [userType, setUserType] = useState<"free" | "premium">("free");
@@ -27,8 +42,7 @@ export function PointRewardSimulator() {
     <div className="space-y-4">
       <form onSubmit={handleSimulate} className="space-y-3">
         <div>
-          <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-            게시판
+          <label className="mb-1 block sam-text-body font-medium text-sam-fg"> {t("admin_points_th_board")}
           </label>
           <select
             value={boardKey}
@@ -43,8 +57,7 @@ export function PointRewardSimulator() {
           </select>
         </div>
         <div>
-          <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-            행동
+          <label className="mb-1 block sam-text-body font-medium text-sam-fg"> {t("admin_points_th_action")}
           </label>
           <select
             value={actionType}
@@ -53,13 +66,13 @@ export function PointRewardSimulator() {
             }
             className="w-full rounded border border-sam-border px-3 py-2 sam-text-body"
           >
-            <option value="write">글쓰기</option>
-            <option value="comment">댓글</option>
+            <option value="write">{t("admin_points_policy_th_write")}</option>
+            <option value="comment">{t("admin_points_policy_th_comment")}</option>
           </select>
         </div>
         <div>
           <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-            회원 유형
+            {t("admin_points_th_user")} {t("admin_points_th_type")}
           </label>
           <select
             value={userType}
@@ -73,8 +86,7 @@ export function PointRewardSimulator() {
           </select>
         </div>
         <div>
-          <label className="mb-1 block sam-text-body font-medium text-sam-fg">
-            현재 포인트 잔액
+          <label className="mb-1 block sam-text-body font-medium text-sam-fg"> {t("admin_points_policy_sim_label_balance")}
           </label>
           <input
             type="number"
@@ -89,30 +101,29 @@ export function PointRewardSimulator() {
         <button
           type="submit"
           className="rounded border border-signature bg-signature px-4 py-2 sam-text-body font-medium text-white"
-        >
-          시뮬레이션
+        > {t("admin_points_policy_log_action_simulate")}
         </button>
       </form>
 
       {result && (
         <div className="rounded-ui-rect border border-sam-border bg-sam-app p-4">
-          <h3 className="sam-text-body font-medium text-sam-fg">결과</h3>
+          <h3 className="sam-text-body font-medium text-sam-fg">{t("admin_points_policy_sim_result")}</h3>
           <dl className="mt-2 space-y-1 sam-text-body">
             <div className="flex justify-between">
-              <dt className="text-sam-muted">지급 포인트</dt>
+              <dt className="text-sam-muted">{t("admin_points_policy_sim_reward_points")}</dt>
               <dd className="font-semibold text-sam-fg">
                 +{result.rewardPoint}P
               </dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-sam-muted">적용 배율</dt>
+              <dt className="text-sam-muted">{t("admin_points_policy_sim_multiplier")}</dt>
               <dd>{result.appliedMultiplier}x</dd>
             </div>
             {result.capped && (
-              <div className="text-amber-700">무상 한도로 인해 상한 적용됨</div>
+              <div className="text-amber-700">{t("admin_points_policy_sim_cap_applied")}</div>
             )}
             {result.cooldownBlocked && (
-              <div className="text-amber-700">쿨다운으로 차단됨</div>
+              <div className="text-amber-700">{t("admin_points_policy_sim_cooldown_blocked")}</div>
             )}
           </dl>
         </div>

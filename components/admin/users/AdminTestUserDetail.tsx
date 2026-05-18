@@ -1,11 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useAdminMemberUuidVisibility } from "@/hooks/useAdminMemberUuidVisibility";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminCard } from "@/components/admin/AdminCard";
 import { formatPhMobileDisplay } from "@/lib/utils/ph-mobile";
 import { AdminUserPointsSection } from "./AdminUserPointsSection";
+import type { MessageKey } from "@/lib/i18n/messages";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 
 export type ApiTestUserRow = {
   id: string;
@@ -24,19 +27,15 @@ export type ApiTestUserRow = {
   created_at: string | null;
 };
 
-function roleLabelKo(role: string): string {
-  switch (role) {
-    case "admin":
-      return "관리자";
-    case "master":
-      return "최고 관리자";
-    case "special":
-      return "특별 회원";
-    case "member":
-      return "일반 회원";
-    default:
-      return role;
-  }
+const ROLE_LABEL_KEYS: Record<string, MessageKey> = {
+  admin: "admin_users_test_role_admin",
+  master: "admin_users_test_role_master",
+  special: "admin_users_test_role_special",
+  member: "admin_users_test_role_member",
+};
+
+function dateLocaleTag(language: AppLanguageCode): string {
+  return language === "en" ? "en-US" : "ko-KR";
 }
 
 function contactPhoneDisplay(raw: string | null | undefined): string {
@@ -47,30 +46,34 @@ function contactPhoneDisplay(raw: string | null | undefined): string {
 }
 
 export function AdminTestUserDetail({ user }: { user: ApiTestUserRow }) {
+  const { t, language } = useI18n();
+  const dateLocale = dateLocaleTag(language);
   const { showMemberUuid, setShowMemberUuid } = useAdminMemberUuidVisibility();
   const display =
     user.nickname?.trim() || user.display_name?.trim() || user.username || (showMemberUuid ? user.id : "—");
 
+  const roleLabelKey = ROLE_LABEL_KEYS[user.role];
+
   return (
     <div className="space-y-4">
-      <AdminPageHeader title="회원 상세 (아이디 로그인)" backHref="/admin/users" />
+      <AdminPageHeader titleKey="admin_users_detail_test_title" backHref="/admin/users" />
 
-      <AdminCard title="회원 계정">
+      <AdminCard titleKey="admin_users_card_member_account">
         <dl className="grid gap-3 sam-text-body">
           <div>
-            <dt className="sam-text-helper font-medium text-sam-muted">로그인 아이디</dt>
+            <dt className="sam-text-helper font-medium text-sam-muted">{t("admin_users_test_label_login_id")}</dt>
             <dd className="mt-0.5 font-mono sam-text-body font-semibold text-sam-fg">{user.username ?? "—"}</dd>
           </div>
           <div>
-            <dt className="sam-text-helper font-medium text-sam-muted">닉네임</dt>
+            <dt className="sam-text-helper font-medium text-sam-muted">{t("admin_users_label_nickname")}</dt>
             <dd className="mt-0.5 text-sam-fg">{display}</dd>
           </div>
           <div>
-            <dt className="sam-text-helper font-medium text-sam-muted">이메일</dt>
+            <dt className="sam-text-helper font-medium text-sam-muted">{t("admin_users_label_email")}</dt>
             <dd className="mt-0.5 text-sam-fg">{user.email?.trim() || "—"}</dd>
           </div>
           <div>
-            <dt className="sam-text-helper font-medium text-sam-muted">회원 UUID (DB PK)</dt>
+            <dt className="sam-text-helper font-medium text-sam-muted">{t("admin_users_test_label_uuid")}</dt>
             <dd className="mt-0.5 sam-text-body-secondary text-sam-fg">
               {showMemberUuid ? (
                 <>
@@ -83,73 +86,77 @@ export function AdminTestUserDetail({ user }: { user: ApiTestUserRow }) {
                         void navigator.clipboard.writeText(user.id).catch(() => {});
                       }}
                     >
-                      UUID 복사
+                      {t("admin_users_action_copy_uuid")}
                     </button>
                     <button
                       type="button"
                       className="sam-text-helper font-medium text-sam-muted hover:underline"
                       onClick={() => setShowMemberUuid(false)}
                     >
-                      숨기기
+                      {t("admin_users_action_hide")}
                     </button>
                   </div>
                 </>
               ) : (
                 <span className="text-sam-muted">
-                  숨김{" "}
+                  {t("admin_users_test_hidden")}{" "}
                   <button
                     type="button"
                     className="font-medium text-signature hover:underline"
                     onClick={() => setShowMemberUuid(true)}
                   >
-                    표시
+                    {t("admin_users_action_show")}
                   </button>
                 </span>
               )}
             </dd>
           </div>
           <div>
-            <dt className="sam-text-helper font-medium text-sam-muted">권한(role)</dt>
-            <dd className="mt-0.5 text-sam-fg">{roleLabelKo(user.role)}</dd>
+            <dt className="sam-text-helper font-medium text-sam-muted">{t("admin_users_test_label_role")}</dt>
+            <dd className="mt-0.5 text-sam-fg">{roleLabelKey ? t(roleLabelKey) : user.role}</dd>
           </div>
           <div>
-            <dt className="sam-text-helper font-medium text-sam-muted">전화번호 인증</dt>
+            <dt className="sam-text-helper font-medium text-sam-muted">{t("admin_users_test_label_phone_verify")}</dt>
             <dd className="mt-0.5 text-sam-fg">
-              {user.phone_verified ? "완료" : user.phone_verification_status === "pending" ? "승인 대기" : "미인증"}
+              {user.phone_verified
+                ? t("admin_users_test_phone_done")
+                : user.phone_verification_status === "pending"
+                  ? t("admin_users_test_phone_pending")
+                  : t("admin_users_phone_unverified")}
             </dd>
           </div>
           <div>
-            <dt className="sam-text-helper font-medium text-sam-muted">전화 인증 일시</dt>
+            <dt className="sam-text-helper font-medium text-sam-muted">{t("admin_users_test_label_phone_verified_at")}</dt>
             <dd className="mt-0.5 text-sam-fg">
-              {user.phone_verified_at ? new Date(user.phone_verified_at).toLocaleString("ko-KR") : "—"}
+              {user.phone_verified_at ? new Date(user.phone_verified_at).toLocaleString(dateLocale) : "—"}
             </dd>
           </div>
           <div>
-            <dt className="sam-text-helper font-medium text-sam-muted">회원상태</dt>
+            <dt className="sam-text-helper font-medium text-sam-muted">{t("admin_users_test_label_member_status")}</dt>
             <dd className="mt-0.5 text-sam-fg">
               {user.phone_verified && String(user.member_status ?? "").toLowerCase() === "active"
-                ? "정상회원"
+                ? t("admin_users_test_member_active")
                 : !user.phone_verified
-                  ? "전화미인증"
+                  ? t("admin_users_test_member_need_phone")
                   : String(user.member_status ?? "").toLowerCase() === "pending"
-                    ? "대기회원"
+                    ? t("admin_users_test_member_pending")
                     : (user.member_status ?? "—")}
             </dd>
           </div>
           <div>
-            <dt className="sam-text-helper font-medium text-sam-muted">정상회원 전환 일시</dt>
+            <dt className="sam-text-helper font-medium text-sam-muted">{t("admin_users_test_label_verified_at")}</dt>
             <dd className="mt-0.5 text-sam-fg">
-              {user.verified_member_at ? new Date(user.verified_member_at).toLocaleString("ko-KR") : "—"}
+              {user.verified_member_at ? new Date(user.verified_member_at).toLocaleString(dateLocale) : "—"}
             </dd>
           </div>
           <div>
-            <dt className="sam-text-helper font-medium text-sam-muted">등록일</dt>
+            <dt className="sam-text-helper font-medium text-sam-muted">{t("admin_users_test_label_created")}</dt>
             <dd className="mt-0.5 text-sam-fg">
-              {user.created_at ? new Date(user.created_at).toLocaleString("ko-KR") : "—"}
+              {user.created_at ? new Date(user.created_at).toLocaleString(dateLocale) : "—"}
             </dd>
           </div>
           <div>
-            <dt className="sam-text-helper font-medium text-sam-muted">연락처 (수동 입력)</dt>
+            <dt className="sam-text-helper font-medium text-sam-muted">{t("admin_users_test_label_contact")}</dt>
             <dd className="mt-0.5 whitespace-pre-wrap text-sam-fg">
               {user.contact_phone?.trim() ? (
                 contactPhoneDisplay(user.contact_phone)
@@ -159,7 +166,7 @@ export function AdminTestUserDetail({ user }: { user: ApiTestUserRow }) {
             </dd>
           </div>
           <div>
-            <dt className="sam-text-helper font-medium text-sam-muted">주소 (수동 입력)</dt>
+            <dt className="sam-text-helper font-medium text-sam-muted">{t("admin_users_test_label_address")}</dt>
             <dd className="mt-0.5 whitespace-pre-wrap text-sam-fg">
               {user.contact_address?.trim() ? (
                 user.contact_address.trim()
@@ -171,7 +178,7 @@ export function AdminTestUserDetail({ user }: { user: ApiTestUserRow }) {
         </dl>
       </AdminCard>
 
-      <AdminCard title="전화번호 인증 처리">
+      <AdminCard titleKey="admin_users_card_phone_verify">
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
@@ -184,14 +191,14 @@ export function AdminTestUserDetail({ user }: { user: ApiTestUserRow }) {
               });
               const data = await res.json().catch(() => null);
               if (!res.ok || !data?.ok) {
-                alert(data?.error || "승인 실패");
+                alert(data?.error || t("admin_users_test_approve_failed"));
                 return;
               }
               window.location.reload();
             }}
             className="rounded bg-signature px-4 py-2 sam-text-body-secondary font-medium text-white"
           >
-            전화 인증 승인
+            {t("admin_users_test_approve_phone")}
           </button>
           <button
             type="button"
@@ -204,37 +211,38 @@ export function AdminTestUserDetail({ user }: { user: ApiTestUserRow }) {
               });
               const data = await res.json().catch(() => null);
               if (!res.ok || !data?.ok) {
-                alert(data?.error || "초기화 실패");
+                alert(data?.error || t("admin_users_test_reset_failed"));
                 return;
               }
               window.location.reload();
             }}
             className="rounded border border-sam-border px-4 py-2 sam-text-body-secondary font-medium text-sam-fg"
           >
-            인증 초기화
+            {t("admin_users_test_reset_phone")}
           </button>
         </div>
       </AdminCard>
 
       <AdminUserPointsSection userId={user.id} />
 
-      <AdminCard title="로그인·테스트 안내">
+      <AdminCard titleKey="admin_users_card_login_test_guide">
         <ul className="list-disc space-y-2 pl-5 sam-text-body-secondary leading-relaxed text-sam-fg">
           <li>
             <Link href="/login" className="text-signature underline">
-              로그인 페이지
+              {t("admin_users_test_guide_login_page")}
             </Link>
-            의 <strong>이메일 또는 아이디</strong> 칸에 로그인 아이디(또는 전체 이메일)와 비밀번호를 넣거나,{" "}
+            {t("admin_users_test_guide_login_a")}{" "}
+            <strong>{t("admin_users_test_guide_login_b")}</strong>
+            {t("admin_users_test_guide_login_c")}{" "}
             <Link href="/my" className="text-signature underline">
-              내 정보
+              {t("admin_users_test_guide_my_page")}
             </Link>
-            의 보조 로그인으로 들어가면 매장·주문 API가 이 UUID와 연결됩니다.
+            {t("admin_users_test_guide_login_d")}
           </li>
           <li>
-            동시에 여러 계정을 쓰려면 <strong>브라우저를 나누세요</strong>(예: Chrome vs Edge). 같은 브라우저
-            프로필의 탭만 여러 개 쓰면 쿠키가 공유되어 한 명으로 섞일 수 있습니다.
+            {t("admin_users_test_guide_multi_account")}
           </li>
-          <li>프로필 분리(Chrome 사용자별)나 일반 창+시크릿 창 조합도 서로 다른 사용자로 동작합니다.</li>
+          <li>{t("admin_users_test_guide_profile_split")}</li>
         </ul>
       </AdminCard>
     </div>

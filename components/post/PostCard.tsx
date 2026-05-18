@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { memo, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -188,7 +189,7 @@ export const PostCard = memo(function PostCard({
                 FX
               </div>
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-[11px] text-sam-meta" aria-hidden>이미지</div>
+              <div className="flex h-full w-full items-center justify-center text-[11px] text-sam-meta" aria-hidden>{t("ui_product_gallery_fallback")}</div>
             )}
           </div>
           <div className="flex min-h-full min-w-0 flex-1 flex-col justify-end">
@@ -243,7 +244,7 @@ export const PostCard = memo(function PostCard({
                       setMenuOpen((prev) => (prev ? prev : true));
                     }}
                     className="sam-header-action flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center text-sam-muted"
-                    aria-label="메뉴"
+                    aria-label={t("ui_home_rail_menu_open")}
                   >
                     <span className="text-[18px] leading-none">⋮</span>
                   </button>
@@ -291,7 +292,7 @@ export const PostCard = memo(function PostCard({
                   }
                   onMenuAction?.(post.id, "delete_own");
                 } catch {
-                  window.alert("네트워크 오류로 삭제하지 못했습니다.");
+                  window.alert(t("ui_post_delete_network_error"));
                 }
               })();
               return;

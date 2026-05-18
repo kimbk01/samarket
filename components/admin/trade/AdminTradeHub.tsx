@@ -1,136 +1,158 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import type { MessageKey } from "@/lib/i18n/messages";
 
 type HubCard = {
   href: string;
-  title: string;
-  description: string;
-  note?: string;
+  titleKey: MessageKey;
+  descriptionKey: MessageKey;
+  noteKey?: MessageKey;
 };
 
-const SECTIONS: { title: string; items: HubCard[] }[] = [
+type HubSection = {
+  titleKey: MessageKey;
+  items: HubCard[];
+};
+
+const SECTIONS: HubSection[] = [
   {
-    title: "메뉴 · 홈 칩",
+    titleKey: "admin_trade_hub_section_menu_chips",
     items: [
       {
         href: "/admin/trade/settings",
-        title: "거래 설정",
-        description: "상세 하단 추천 규칙·지역 fallback·광고/유사상품 개수",
+        titleKey: "admin_menu_trade_settings",
+        descriptionKey: "admin_trade_hub_desc_settings",
       },
       {
         href: "/admin/menus/trade",
-        title: "메뉴 (거래)",
-        description: "홈 상단 칩·거래 종류(일반·중고차 등)·글쓰기 런처 노출",
+        titleKey: "admin_menu_menu_trade",
+        descriptionKey: "admin_trade_hub_desc_menu_trade",
       },
     ],
   },
   {
-    title: "피드 · 주제",
+    titleKey: "admin_trade_hub_section_feed_topics",
     items: [
       {
         href: "/admin/trade/feed-topics",
-        title: "거래 피드 주제",
-        description: "마켓 2행 주제·세부 칩(현대·기아 등)",
+        titleKey: "admin_menu_trade_topics",
+        descriptionKey: "admin_trade_hub_desc_feed_topics",
       },
     ],
   },
   {
-    title: "게시 · 상품",
+    titleKey: "admin_trade_hub_section_posts_products",
     items: [
       {
         href: "/admin/products",
-        title: "상품관리",
-        description: "등록된 거래 상품(게시) 목록",
+        titleKey: "admin_menu_trade_products",
+        descriptionKey: "admin_trade_hub_desc_products",
       },
       {
         href: "/admin/posts-management",
-        title: "게시물 관리",
-        description: "전체 게시물(거래·기타 탭 포함)",
+        titleKey: "admin_menu_posts_management",
+        descriptionKey: "admin_trade_hub_desc_posts_management",
       },
     ],
   },
   {
-    title: "찜 · 제안 · 상태",
+    titleKey: "admin_trade_hub_section_favorites_offers",
     items: [
       {
         href: "/admin/favorites",
-        title: "찜/관심관리",
-        description: "사용자 찜 목록",
+        titleKey: "admin_menu_trade_likes",
+        descriptionKey: "admin_trade_hub_desc_favorites",
       },
       {
         href: "/admin/price-offers",
-        title: "가격제안관리",
-        description: "가격 제안 흐름(페이지 연결 시)",
-        note: "라우트 미연결 시 404일 수 있음",
+        titleKey: "admin_menu_trade_offers",
+        descriptionKey: "admin_trade_hub_desc_offers",
+        noteKey: "admin_trade_hub_note_route_404",
       },
       {
         href: "/admin/trade-status",
-        title: "거래상태관리",
-        description: "거래 단계·상태 운영",
-        note: "페이지 준비 중일 수 있음",
+        titleKey: "admin_menu_trade_status",
+        descriptionKey: "admin_trade_hub_desc_trade_status",
+        noteKey: "admin_trade_hub_note_page_prep",
       },
     ],
   },
   {
-    title: "채팅 · 거래 흐름",
+    titleKey: "admin_trade_hub_section_chat_flow",
     items: [
       {
         href: "/admin/chats/trade",
-        title: "거래채팅",
-        description: "중고 거래 관련 채팅방",
+        titleKey: "admin_menu_chat_trade",
+        descriptionKey: "admin_trade_hub_desc_trade_chat",
       },
       {
         href: "/admin/trade-flow",
-        title: "거래흐름·온도",
-        description: "거래 단계·온도/알림 운영",
+        titleKey: "admin_menu_chat_flow",
+        descriptionKey: "admin_trade_hub_desc_trade_flow",
       },
     ],
   },
   {
-    title: "후기 · 광고(연동)",
+    titleKey: "admin_trade_hub_section_reviews_ads",
     items: [
       {
         href: "/admin/reviews",
-        title: "거래후기",
-        description: "거래 완료 후 리뷰",
+        titleKey: "admin_menu_trade_reviews",
+        descriptionKey: "admin_trade_hub_desc_reviews",
       },
       {
         href: "/admin/post-ads",
-        title: "게시글광고",
-        description: "거래 게시 노출·광고",
+        titleKey: "admin_menu_ads_posts",
+        descriptionKey: "admin_trade_hub_desc_post_ads",
       },
       {
         href: "/admin/trade-post-ads",
-        title: "거래 광고 신청",
-        description: "거래 상세/목록 광고 신청 심사·활성 운영",
+        titleKey: "admin_menu_trade_post_ads",
+        descriptionKey: "admin_trade_hub_desc_trade_post_ads",
       },
       {
         href: "/admin/trade-ad-policies",
-        title: "거래 광고 정책",
-        description: "광고 상품(기간·포인트·슬롯) 정책 운영",
+        titleKey: "admin_menu_trade_ad_policies",
+        descriptionKey: "admin_trade_hub_desc_ad_policies",
       },
       {
         href: "/admin/home-feed",
-        title: "홈피드",
-        description: "홈 노출·피드 운영",
+        titleKey: "admin_menu_ads_home_feed",
+        descriptionKey: "admin_trade_hub_desc_home_feed",
       },
     ],
   },
 ];
 
 export function AdminTradeHub() {
+  const { t } = useI18n();
+  const sections = useMemo(
+    () =>
+      SECTIONS.map((section) => ({
+        title: t(section.titleKey),
+        items: section.items.map((card) => ({
+          href: card.href,
+          title: t(card.titleKey),
+          description: t(card.descriptionKey),
+          note: card.noteKey ? t(card.noteKey) : undefined,
+        })),
+      })),
+    [t]
+  );
+
   return (
     <div className="space-y-6" data-admin>
-      <AdminPageHeader
-        title="거래 통합"
-        description="홈 거래·마켓과 연결된 관리 화면을 한곳에서 이동합니다. (채팅·리뷰 등은 기존 메뉴 그룹에도 그대로 있습니다.)"
-      />
+      <AdminPageHeader titleKey="admin_menu_trade_hub" descriptionKey="admin_trade_hub_desc" />
       <div className="space-y-6">
-        {SECTIONS.map((section) => (
+        {sections.map((section) => (
           <section key={section.title}>
-            <h2 className="mb-2 sam-text-body-secondary font-semibold uppercase tracking-wide text-sam-muted">{section.title}</h2>
+            <h2 className="mb-2 sam-text-body-secondary font-semibold uppercase tracking-wide text-sam-muted">
+              {section.title}
+            </h2>
             <ul className="grid gap-3 sm:grid-cols-2">
               {section.items.map((card) => (
                 <li key={card.href}>

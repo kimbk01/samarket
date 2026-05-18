@@ -1,22 +1,20 @@
 "use client";
 
-import type { ReviewModerationLog } from "@/lib/types/admin-review";
 
-const ACTION_LABELS: Record<string, string> = {
-  hide_review: "리뷰 숨김",
-  restore_review: "리뷰 복구",
-  review_only: "검토만",
-  recalculate_trust: "신뢰도 재계산",
-};
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
+import type { ReviewModerationLog } from "@/lib/types/admin-review";
+import { REVIEW_MODERATION_ACTION_KEYS } from "@/components/admin/i18n/admin-review-label-keys";
 
 interface AdminReviewModerationLogListProps {
   logs: ReviewModerationLog[];
 }
 
 export function AdminReviewModerationLogList({ logs }: AdminReviewModerationLogListProps) {
+  const { t } = useI18n();
   if (logs.length === 0) {
     return (
-      <p className="sam-text-body-secondary text-sam-muted">조치 이력이 없습니다.</p>
+      <p className="sam-text-body-secondary text-sam-muted">{t("admin_review_empty_3")}</p>
     );
   }
   const sorted = [...logs].sort(
@@ -30,14 +28,14 @@ export function AdminReviewModerationLogList({ logs }: AdminReviewModerationLogL
           className="flex flex-wrap items-center gap-2 border-b border-sam-border-soft pb-2 sam-text-body-secondary"
         >
           <span className="font-medium text-sam-fg">
-            {ACTION_LABELS[log.actionType] ?? log.actionType}
+            {t(REVIEW_MODERATION_ACTION_KEYS[log.actionType] ?? ("admin_review_action_review_only" as MessageKey))}
           </span>
           <span className="text-sam-muted">
             {new Date(log.createdAt).toLocaleString("ko-KR")}
           </span>
           <span className="text-sam-muted">· {log.adminNickname}</span>
           {log.note && (
-            <span className="w-full text-sam-muted">메모: {log.note}</span>
+            <span className="w-full text-sam-muted">{t("admin_log_note_prefix")}: {log.note}</span>
           )}
         </li>
       ))}

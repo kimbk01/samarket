@@ -1,11 +1,12 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { RecommendationExperiment } from "@/lib/types/recommendation-experiment";
 import {
-  EXPERIMENT_STATUS_LABELS,
-  TRAFFIC_ALLOCATION_LABELS,
-} from "@/lib/recommendation-experiments/mock-recommendation-experiments";
-import { SURFACE_LABELS } from "@/lib/recommendation-experiments/recommendation-experiment-utils";
+  recExperimentStatusLabel,
+  recSurfaceLabel,
+  recTrafficAllocLabel,
+} from "@/components/admin/recommendation-admin-i18n";
 
 interface ExperimentTableProps {
   experiments: RecommendationExperiment[];
@@ -20,10 +21,12 @@ export function ExperimentTable({
   onStatusChange,
   onChooseWinner,
 }: ExperimentTableProps) {
+  const { t } = useI18n();
+
   if (experiments.length === 0) {
     return (
       <div className="rounded-ui-rect border border-sam-border bg-sam-surface py-12 text-center sam-text-body text-sam-muted">
-        등록된 실험이 없습니다.
+        {t("admin_rec_exp_empty_experiments")}
       </div>
     );
   }
@@ -34,19 +37,19 @@ export function ExperimentTable({
         <thead>
           <tr className="border-b border-sam-border bg-sam-app">
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              실험명
+              {t("admin_rec_exp_label_experiment_name")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              surface
+              {t("admin_rec_th_surface")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              대조/실험 비율
+              {t("admin_rec_th_control_variant_ratio")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              상태
+              {t("admin_rec_th_status")}
             </th>
             <th className="px-3 py-2.5 text-left font-medium text-sam-fg">
-              작업
+              {t("admin_rec_th_work")}
             </th>
           </tr>
         </thead>
@@ -63,10 +66,14 @@ export function ExperimentTable({
                 )}
               </td>
               <td className="px-3 py-2.5 text-sam-fg">
-                {SURFACE_LABELS[e.targetSurface]}
+                {recSurfaceLabel(t, e.targetSurface)}
               </td>
               <td className="px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {TRAFFIC_ALLOCATION_LABELS[e.trafficAllocationType]} · 대조 {e.controlPercentage}% / 실험 {e.variantPercentages.join(",")}%
+                {t("admin_rec_exp_ratio_line", {
+                  alloc: recTrafficAllocLabel(t, e.trafficAllocationType),
+                  control: e.controlPercentage,
+                  variants: e.variantPercentages.join(","),
+                })}
               </td>
               <td className="px-3 py-2.5">
                 <span
@@ -80,7 +87,7 @@ export function ExperimentTable({
                           : "bg-sam-surface-muted text-sam-fg"
                   }`}
                 >
-                  {EXPERIMENT_STATUS_LABELS[e.status]}
+                  {recExperimentStatusLabel(t, e.status)}
                 </span>
               </td>
               <td className="px-3 py-2.5">
@@ -91,7 +98,7 @@ export function ExperimentTable({
                       onClick={() => onEdit(e)}
                       className="sam-text-body-secondary text-signature hover:underline"
                     >
-                      편집
+                      {t("common_edit")}
                     </button>
                   )}
                   {onStatusChange && e.status === "draft" && (
@@ -100,7 +107,7 @@ export function ExperimentTable({
                       onClick={() => onStatusChange(e, "running")}
                       className="sam-text-body-secondary text-emerald-600 hover:underline"
                     >
-                      시작
+                      {t("admin_rec_exp_btn_start")}
                     </button>
                   )}
                   {onStatusChange && e.status === "running" && (
@@ -110,14 +117,14 @@ export function ExperimentTable({
                         onClick={() => onStatusChange(e, "paused")}
                         className="sam-text-body-secondary text-amber-600 hover:underline"
                       >
-                        일시중지
+                        {t("admin_rec_exp_btn_pause")}
                       </button>
                       <button
                         type="button"
                         onClick={() => onStatusChange(e, "ended")}
                         className="sam-text-body-secondary text-sam-muted hover:underline"
                       >
-                        종료
+                        {t("admin_rec_exp_btn_end")}
                       </button>
                     </>
                   )}
@@ -127,7 +134,7 @@ export function ExperimentTable({
                       onClick={() => onStatusChange(e, "running")}
                       className="sam-text-body-secondary text-emerald-600 hover:underline"
                     >
-                      재개
+                      {t("admin_rec_exp_btn_resume")}
                     </button>
                   )}
                   {onChooseWinner && e.status === "ended" && (
@@ -136,7 +143,7 @@ export function ExperimentTable({
                       onClick={() => onChooseWinner(e)}
                       className="sam-text-body-secondary text-signature hover:underline"
                     >
-                      승자 선택
+                      {t("admin_rec_exp_btn_choose_winner")}
                     </button>
                   )}
                 </div>

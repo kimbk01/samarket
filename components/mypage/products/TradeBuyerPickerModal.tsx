@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+
 export type TradeBuyerPickCandidate = {
   buyerId: string;
   chatId: string;
@@ -21,6 +23,7 @@ export function TradeBuyerPickerModal({
   onClose: () => void;
   onSelect: (c: TradeBuyerPickCandidate) => void;
 }) {
+  const { t } = useI18n();
   if (!open) return null;
 
   return (
@@ -33,7 +36,7 @@ export function TradeBuyerPickerModal({
       <button
         type="button"
         className="absolute inset-0 cursor-default"
-        aria-label="닫기"
+        aria-label={t("mypage_comp_close")}
         onClick={onClose}
       />
       <div className="relative z-[1] w-full max-w-md rounded-t-[length:var(--ui-radius-rect)] border border-sam-border bg-sam-surface shadow-xl sm:rounded-ui-rect">
@@ -52,7 +55,7 @@ export function TradeBuyerPickerModal({
                 className="flex w-full items-center justify-between px-4 py-3 text-left sam-text-body text-sam-fg hover:bg-signature/5 active:bg-signature/10"
               >
                 <span className="truncate font-medium">{c.buyerNickname}</span>
-                <span className="ml-2 shrink-0 sam-text-helper text-signature">선택</span>
+                <span className="ml-2 shrink-0 sam-text-helper text-signature">{t("mypage_comp_select")}</span>
               </button>
             </li>
           ))}
@@ -63,7 +66,7 @@ export function TradeBuyerPickerModal({
             onClick={onClose}
             className="w-full rounded-ui-rect border border-sam-border py-2.5 sam-text-body font-medium text-sam-fg hover:bg-sam-app"
           >
-            취소
+            {t("common_cancel")}
           </button>
         </div>
       </div>

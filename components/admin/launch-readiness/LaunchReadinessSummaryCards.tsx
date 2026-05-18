@@ -1,5 +1,8 @@
 "use client";
 
+
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { useMemo, useState } from "react";
 import { getLaunchReadinessSummary } from "@/lib/launch-readiness/mock-launch-readiness-summary";
 import {
@@ -16,6 +19,7 @@ const PHASE_OPTIONS: { value: LaunchReadinessPhase | ""; label: string }[] = [
 ];
 
 export function LaunchReadinessSummaryCards() {
+  const { t } = useI18n();
   const [phase, setPhase] = useState<LaunchReadinessPhase | "">("pre_launch");
   const summary = useMemo(
     () =>
@@ -35,7 +39,7 @@ export function LaunchReadinessSummaryCards() {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="sam-text-body-secondary text-sam-muted">단계</span>
+        <span className="sam-text-body-secondary text-sam-muted">{t("admin_launch_readiness_k0e685c7c")}</span>
         <select
           value={phase}
           onChange={(e) =>
@@ -53,7 +57,7 @@ export function LaunchReadinessSummaryCards() {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="sam-text-helper text-sam-muted">Readiness 점수</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_readiness_score")}</p>
           <p className="sam-text-hero font-semibold text-sam-fg">
             {summary.overallScore}%
           </p>
@@ -64,7 +68,7 @@ export function LaunchReadinessSummaryCards() {
             {summary.mustHaveReady} / {summary.mustHaveTotal}
           </p>
           {summary.mustHaveReady < summary.mustHaveTotal && (
-            <p className="mt-1 sam-text-helper text-amber-600">미완료 항목 있음</p>
+            <p className="mt-1 sam-text-helper text-amber-600">{t("admin_launch_readiness_done_2")}</p>
           )}
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
@@ -82,7 +86,7 @@ export function LaunchReadinessSummaryCards() {
                 : "border-emerald-200 bg-emerald-50/30"
           }`}
         >
-          <p className="sam-text-helper text-sam-muted">최종 Go / No-Go</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_launch_readiness_k91aaa88b")}</p>
           <p className={`sam-text-page-title font-semibold ${goClass}`}>
             {getGoLiveLabel(summary.goLiveRecommendation)}
           </p>
@@ -96,7 +100,7 @@ export function LaunchReadinessSummaryCards() {
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="sam-text-helper text-sam-muted">준비 완료 영역</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_launch_readiness_area_done")}</p>
           <p className="sam-text-body text-sam-fg">
             {summary.readyAreas.length > 0
               ? summary.readyAreas.map(getAreaLabel).join(", ")
@@ -104,7 +108,7 @@ export function LaunchReadinessSummaryCards() {
           </p>
         </div>
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
-          <p className="sam-text-helper text-sam-muted">미준비 영역</p>
+          <p className="sam-text-helper text-sam-muted">{t("admin_launch_readiness_area_2")}</p>
           <p className="sam-text-body text-sam-fg">
             {summary.notReadyAreas.length > 0
               ? summary.notReadyAreas.map(getAreaLabel).join(", ")

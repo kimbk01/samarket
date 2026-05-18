@@ -1,18 +1,20 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { UserAddressDefaultsDTO } from "@/lib/addresses/user-address-types";
 import { buildTradePublicLine, stripCountryFromAddressDisplayLine } from "@/lib/addresses/user-address-format";
 
-function Line({ label, text }: { label: string; text: string | null }) {
+function Line({ label, text, unsetLabel }: { label: string; text: string | null; unsetLabel: string }) {
   return (
     <div className="rounded-ui-rect bg-sam-app px-3 py-2">
       <p className="sam-text-xxs font-medium text-sam-muted">{label}</p>
-      <p className="mt-0.5 sam-text-body-secondary text-sam-fg">{text?.trim() || "미설정"}</p>
+      <p className="mt-0.5 sam-text-body-secondary text-sam-fg">{text?.trim() || unsetLabel}</p>
     </div>
   );
 }
 
 export function AddressDefaultsSummary({ defaults }: { defaults: UserAddressDefaultsDTO | null }) {
+  const { t } = useI18n();
   if (!defaults) return null;
   const life = defaults.life
     ? stripCountryFromAddressDisplayLine(buildTradePublicLine(defaults.life), defaults.life.countryName)
@@ -25,9 +27,9 @@ export function AddressDefaultsSummary({ defaults }: { defaults: UserAddressDefa
     : null;
   return (
     <section className="grid gap-2 sm:grid-cols-3">
-      <Line label="기본 생활 동네" text={life} />
-      <Line label="기본 거래 주소" text={trade} />
-      <Line label="기본 배달 주소" text={del} />
+      <Line label={t("addr_ui_default_life")} text={life} unsetLabel={t("addr_ui_unset")} />
+      <Line label={t("addr_ui_default_trade")} text={trade} unsetLabel={t("addr_ui_unset")} />
+      <Line label={t("addr_ui_default_delivery")} text={del} unsetLabel={t("addr_ui_unset")} />
     </section>
   );
 }

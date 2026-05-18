@@ -1,37 +1,51 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { MeetingReportRow, MeetingReportStatus } from "@/lib/neighborhood/admin-meeting-reports";
 
-const STATUS_LABEL: Record<MeetingReportStatus, { label: string; className: string }> = {
-  pending: { label: "대기", className: "bg-amber-100 text-amber-800" },
-  reviewing: { label: "검토중", className: "bg-sky-100 text-sky-800" },
-  resolved: { label: "처리완료", className: "bg-emerald-100 text-emerald-800" },
-  rejected: { label: "반려", className: "bg-sam-surface-muted text-sam-muted" },
+const MEETING_REPORT_STATUS_KEYS = {
+  pending: "admin_dashboard_report_pending",
+  reviewing: "admin_report_status_reviewing",
+  resolved: "admin_report_status_resolved",
+  rejected: "admin_dashboard_report_rejected",
+} as const satisfies Record<MeetingReportStatus, MessageKey>;
+
+const STATUS_CLASS: Record<MeetingReportStatus, string> = {
+  pending: "bg-amber-100 text-amber-800",
+  reviewing: "bg-sky-100 text-sky-800",
+  resolved: "bg-emerald-100 text-emerald-800",
+  rejected: "bg-sam-surface-muted text-sam-muted",
 };
 
-const TARGET_LABEL: Record<string, string> = {
-  meeting: "모임",
-  member: "멤버",
-  feed_post: "피드 글",
-  feed_comment: "피드 댓글",
-  chat_message: "채팅 메시지",
-  album_item: "앨범 사진",
+const TARGET_TYPE_KEYS: Record<string, MessageKey> = {
+  meeting: "admin_meeting_reports_target_meeting",
+  member: "admin_meeting_reports_target_member",
+  feed_post: "admin_meeting_reports_target_feed_post",
+  feed_comment: "admin_meeting_reports_target_feed_comment",
+  chat_message: "admin_meeting_reports_target_chat_message",
+  album_item: "admin_meeting_reports_target_album_item",
 };
 
-const REASON_LABEL: Record<string, string> = {
-  spam: "스팸",
-  abuse: "욕설/혐오",
-  sexual: "음란물",
-  illegal: "불법",
-  impersonation: "사칭",
-  off_topic: "주제 무관",
-  etc: "기타",
+const REASON_TYPE_KEYS: Record<string, MessageKey> = {
+  spam: "admin_report_reason_spam",
+  abuse: "admin_meeting_reports_reason_abuse",
+  sexual: "admin_meeting_reports_reason_sexual",
+  illegal: "admin_meeting_reports_reason_illegal",
+  impersonation: "admin_meeting_reports_reason_impersonation",
+  off_topic: "admin_meeting_reports_reason_off_topic",
+  etc: "admin_report_reason_other",
 };
 
-function formatDate(iso: string | null | undefined): string {
+function dateLocaleTag(language: AppLanguageCode): string {
+  return language === "en" ? "en-US" : "ko-KR";
+}
+
+function formatDate(iso: string | null | undefined, locale: string): string {
   if (!iso || Number.isNaN(Date.parse(iso))) return "-";
-  return new Date(iso).toLocaleString("ko-KR", {
+  return new Date(iso).toLocaleString(locale, {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
@@ -45,11 +59,20 @@ interface ReportRowProps {
 }
 
 function ReportItem({ report, onStatusChange }: ReportRowProps) {
+  const { t: tr, language } = useI18n();
+  const dateLocale = dateLocaleTag(language);
   const [expanded, setExpanded] = useState(false);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState(report.action_result ?? "");
   const [localStatus, setLocalStatus] = useState<MeetingReportStatus>(report.status);
-  const statusBadge = STATUS_LABEL[localStatus];
+  const statusClass = STATUS_CLASS[localStatus];
+
+  const targetLabel = TARGET_TYPE_KEYS[report.target_type]
+    ? tr(TARGET_TYPE_KEYS[report.target_type]!)
+    : report.target_type;
+  const reasonLabel = REASON_TYPE_KEYS[report.reason_type]
+    ? tr(REASON_TYPE_KEYS[report.reason_type]!)
+    : report.reason_type;
 
   const handle = async (nextStatus: MeetingReportStatus) => {
     setBusy(true);
@@ -63,48 +86,48 @@ function ReportItem({ report, onStatusChange }: ReportRowProps) {
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className={`rounded-full px-2 py-0.5 sam-text-xxs font-semibold ${statusBadge.className}`}>
-              {statusBadge.label}
+            <span className={`rounded-full px-2 py-0.5 sam-text-xxs font-semibold ${statusClass}`}>
+              {tr(MEETING_REPORT_STATUS_KEYS[localStatus])}
             </span>
             <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 sam-text-xxs text-sam-muted">
-              {TARGET_LABEL[report.target_type] ?? report.target_type}
+              {targetLabel}
             </span>
             <span className="rounded-full bg-sam-surface-muted px-2 py-0.5 sam-text-xxs text-sam-muted">
-              {REASON_LABEL[report.reason_type] ?? report.reason_type}
+              {reasonLabel}
             </span>
           </div>
           <p className="mt-1.5 truncate sam-text-body-secondary font-medium text-sam-fg">
             {report.meeting_title
               ? `[${report.meeting_title}] `
               : ""}
-            신고자: {report.reporter_name}
+            {tr("admin_meeting_reports_reporter", { name: report.reporter_name })}
           </p>
-          <p className="sam-text-xxs text-sam-meta">{formatDate(report.created_at)}</p>
+          <p className="sam-text-xxs text-sam-meta">{formatDate(report.created_at, dateLocale)}</p>
         </div>
         <button
           type="button"
           onClick={() => setExpanded((v) => !v)}
           className="shrink-0 rounded-ui-rect border border-sam-border px-3 py-1.5 sam-text-helper text-sam-muted hover:bg-sam-app"
         >
-          {expanded ? "닫기" : "상세"}
+          {expanded ? tr("nav_close") : tr("admin_do_common_detail")}
         </button>
       </div>
 
       {expanded && (
         <div className="mt-3 space-y-2 border-t border-sam-border-soft pt-3">
           <div className="sam-text-helper text-sam-muted">
-            <span className="font-medium">대상 ID: </span>
+            <span className="font-medium">{tr("admin_meeting_reports_target_id")} </span>
             <span className="font-mono sam-text-xxs">{report.target_id}</span>
           </div>
           {report.reason_detail && (
             <div className="rounded-ui-rect bg-sam-app p-2.5 sam-text-helper text-sam-fg">
-              <p className="font-medium">신고 상세:</p>
+              <p className="font-medium">{tr("admin_meeting_reports_reason_detail")}</p>
               <p className="mt-1 whitespace-pre-wrap">{report.reason_detail}</p>
             </div>
           )}
           {report.action_result && (
             <div className="sam-text-helper text-sam-muted">
-              <span className="font-medium">조치 내용: </span>
+              <span className="font-medium">{tr("admin_meeting_reports_action_result")} </span>
               {report.action_result}
             </div>
           )}
@@ -113,7 +136,7 @@ function ReportItem({ report, onStatusChange }: ReportRowProps) {
             value={note}
             onChange={(e) => setNote(e.target.value)}
             rows={2}
-            placeholder="조치 메모 (선택)"
+            placeholder={tr("admin_report_sanction_note_label")}
             className="w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2 sam-text-helper text-sam-fg placeholder-sam-meta outline-none focus:border-sky-400"
           />
 
@@ -125,7 +148,7 @@ function ReportItem({ report, onStatusChange }: ReportRowProps) {
                 onClick={() => void handle("reviewing")}
                 className="rounded-ui-rect bg-sky-100 px-3 py-1.5 sam-text-helper font-semibold text-sky-800 disabled:opacity-50 hover:bg-sky-200"
               >
-                검토 시작
+                {tr("admin_meeting_reports_action_start_review")}
               </button>
             )}
             {localStatus !== "resolved" && (
@@ -135,7 +158,7 @@ function ReportItem({ report, onStatusChange }: ReportRowProps) {
                 onClick={() => void handle("resolved")}
                 className="rounded-ui-rect bg-emerald-100 px-3 py-1.5 sam-text-helper font-semibold text-emerald-800 disabled:opacity-50 hover:bg-emerald-200"
               >
-                처리 완료
+                {tr("admin_meeting_reports_action_resolve")}
               </button>
             )}
             {localStatus !== "rejected" && (
@@ -145,7 +168,7 @@ function ReportItem({ report, onStatusChange }: ReportRowProps) {
                 onClick={() => void handle("rejected")}
                 className="rounded-ui-rect bg-sam-surface-muted px-3 py-1.5 sam-text-helper font-semibold text-sam-muted disabled:opacity-50 hover:bg-sam-border-soft"
               >
-                반려
+                {tr("admin_report_action_reject")}
               </button>
             )}
             {localStatus !== "pending" && (
@@ -155,7 +178,7 @@ function ReportItem({ report, onStatusChange }: ReportRowProps) {
                 onClick={() => void handle("pending")}
                 className="rounded-ui-rect bg-amber-100 px-3 py-1.5 sam-text-helper font-semibold text-amber-800 disabled:opacity-50"
               >
-                대기 복원
+                {tr("admin_meeting_reports_action_restore_pending")}
               </button>
             )}
           </div>
@@ -167,12 +190,12 @@ function ReportItem({ report, onStatusChange }: ReportRowProps) {
 
 type FilterTab = "all" | MeetingReportStatus;
 
-const FILTER_TABS: { id: FilterTab; label: string }[] = [
-  { id: "all", label: "전체" },
-  { id: "pending", label: "대기" },
-  { id: "reviewing", label: "검토중" },
-  { id: "resolved", label: "처리완료" },
-  { id: "rejected", label: "반려" },
+const FILTER_TABS: { id: FilterTab; labelKey: MessageKey }[] = [
+  { id: "all", labelKey: "admin_report_filter_all" },
+  { id: "pending", labelKey: "admin_dashboard_report_pending" },
+  { id: "reviewing", labelKey: "admin_report_status_reviewing" },
+  { id: "resolved", labelKey: "admin_report_status_resolved" },
+  { id: "rejected", labelKey: "admin_dashboard_report_rejected" },
 ];
 
 interface AdminMeetingReportsPageProps {
@@ -180,6 +203,7 @@ interface AdminMeetingReportsPageProps {
 }
 
 export function AdminMeetingReportsPage({ initialRows }: AdminMeetingReportsPageProps) {
+  const { t: tr } = useI18n();
   const [rows, setRows] = useState(initialRows);
   const [filter, setFilter] = useState<FilterTab>("all");
 
@@ -215,16 +239,16 @@ export function AdminMeetingReportsPage({ initialRows }: AdminMeetingReportsPage
       <div className="flex flex-wrap gap-2 sam-text-helper">
         {pendingCount > 0 && (
           <span className="rounded-full bg-amber-100 px-3 py-1 font-semibold text-amber-800">
-            대기 {pendingCount}건
+            {tr("admin_meeting_reports_count_pending", { count: pendingCount })}
           </span>
         )}
         {reviewingCount > 0 && (
           <span className="rounded-full bg-sky-100 px-3 py-1 font-semibold text-sky-800">
-            검토중 {reviewingCount}건
+            {tr("admin_meeting_reports_count_reviewing", { count: reviewingCount })}
           </span>
         )}
         <span className="rounded-full bg-sam-surface-muted px-3 py-1 text-sam-muted">
-          전체 {rows.length}건
+          {tr("admin_meeting_reports_count_total", { count: rows.length })}
         </span>
       </div>
 
@@ -241,7 +265,7 @@ export function AdminMeetingReportsPage({ initialRows }: AdminMeetingReportsPage
                 : "bg-sam-surface-muted text-sam-muted hover:bg-sam-border-soft"
             }`}
           >
-            {t.label}
+            {tr(t.labelKey)}
           </button>
         ))}
       </div>
@@ -250,7 +274,11 @@ export function AdminMeetingReportsPage({ initialRows }: AdminMeetingReportsPage
       {filtered.length === 0 ? (
         <div className="rounded-ui-rect border border-dashed border-sam-border py-12 text-center">
           <p className="sam-text-body text-sam-meta">
-            {filter === "all" ? "접수된 신고가 없습니다." : `'${FILTER_TABS.find((t) => t.id === filter)?.label}' 상태 신고 없음`}
+            {filter === "all"
+              ? tr("admin_meeting_reports_empty_all")
+              : tr("admin_meeting_reports_empty_filtered", {
+                  status: tr(FILTER_TABS.find((tab) => tab.id === filter)!.labelKey),
+                })}
           </p>
         </div>
       ) : (

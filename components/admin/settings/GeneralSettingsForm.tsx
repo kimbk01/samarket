@@ -6,6 +6,7 @@ import {
   DEFAULT_LOCALE_OPTIONS,
   DEFAULT_CURRENCY_OPTIONS,
 } from "@/lib/admin-settings/admin-settings-utils";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 interface GeneralSettingsFormProps {
   values: Pick<AppSettings, "siteName" | "defaultCurrency" | "defaultLocale" | "alarmSoundDataUrl">;
@@ -13,13 +14,14 @@ interface GeneralSettingsFormProps {
 }
 
 export function GeneralSettingsForm({ values, onChange }: GeneralSettingsFormProps) {
+  const { t } = useI18n();
   const alarmInputRef = useRef<HTMLInputElement>(null);
 
   const handleAlarmFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     if (!file.type.startsWith("audio/")) {
-      alert("MP3 등 오디오 파일만 선택해 주세요.");
+      alert(t("admin_settings_alarm_audio_only"));
       return;
     }
     const reader = new FileReader();
@@ -42,29 +44,27 @@ export function GeneralSettingsForm({ values, onChange }: GeneralSettingsFormPro
 
   return (
     <div className="space-y-4">
-      <p className="sam-text-body-secondary text-sam-muted">
-        사이트 기본 정보 · 사이트명은 앱 내 운영 표시값에 사용됩니다.
-      </p>
+      <p className="sam-text-body-secondary text-sam-muted">{t("admin_settings_general_intro")}</p>
       <div>
         <label className="block sam-text-body-secondary font-medium text-sam-fg">
-          사이트명
+          {t("admin_settings_label_site_name")}
         </label>
         <input
           type="text"
           value={values.siteName}
           onChange={(e) => onChange("siteName", e.target.value)}
-          placeholder="dibaY"
+          placeholder="KASAMA"
           className="mt-1 w-full max-w-xs rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
         />
         {values.siteName && (
           <p className="mt-1 sam-text-helper text-sam-muted">
-            현재: <strong>{values.siteName}</strong> (저장 후 앱 내 운영 표시값에 반영)
+            {t("admin_settings_site_name_current", { name: values.siteName })}
           </p>
         )}
       </div>
       <div>
         <label className="block sam-text-body-secondary font-medium text-sam-fg">
-          기본 통화
+          {t("admin_settings_label_default_currency")}
         </label>
         <select
           value={currencyValue}
@@ -80,7 +80,7 @@ export function GeneralSettingsForm({ values, onChange }: GeneralSettingsFormPro
       </div>
       <div>
         <label className="block sam-text-body-secondary font-medium text-sam-fg">
-          기본 로케일
+          {t("admin_settings_label_default_locale")}
         </label>
         <select
           value={localeValue}
@@ -96,11 +96,9 @@ export function GeneralSettingsForm({ values, onChange }: GeneralSettingsFormPro
       </div>
       <div>
         <label className="block sam-text-body-secondary font-medium text-sam-fg">
-          알람 등록
+          {t("admin_settings_alarm_title")}
         </label>
-        <p className="mt-0.5 sam-text-helper text-sam-muted">
-          알람(벨) 버튼 클릭 시 재생할 MP3를 선택하세요. 내 PC에서 파일을 저장하면 알람 사운드로 설정됩니다.
-        </p>
+        <p className="mt-0.5 sam-text-helper text-sam-muted">{t("admin_settings_alarm_help")}</p>
         <input
           ref={alarmInputRef}
           type="file"
@@ -109,9 +107,9 @@ export function GeneralSettingsForm({ values, onChange }: GeneralSettingsFormPro
           className="mt-2 block w-full max-w-xs sam-text-body-secondary text-sam-muted file:mr-2 file:rounded file:border-0 file:bg-signature file:px-3 file:py-1.5 file:sam-text-body-secondary file:text-white file:hover:opacity-90"
         />
         {values.alarmSoundDataUrl ? (
-          <p className="mt-2 sam-text-helper text-green-600">알람 사운드가 설정되어 있습니다.</p>
+          <p className="mt-2 sam-text-helper text-green-600">{t("admin_settings_alarm_configured")}</p>
         ) : (
-          <p className="mt-2 sam-text-helper text-sam-muted">알람 사운드가 없습니다. MP3 파일을 선택해 주세요.</p>
+          <p className="mt-2 sam-text-helper text-sam-muted">{t("admin_settings_alarm_not_configured")}</p>
         )}
       </div>
     </div>

@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useState } from "react";
 import Link from "next/link";
@@ -13,6 +14,7 @@ export function QuestionForm({
   defaultCategoryId = null,
   boardCategories = [],
 }: BoardWriteFormProps) {
+  const { t } = useI18n();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const { needCategory, boardCategoryId, setBoardCategoryId, validateCategory, categoryPayload } =
@@ -58,7 +60,7 @@ export function QuestionForm({
         </div>
       )}
       <div className="rounded-ui-rect border border-sam-primary-border bg-sam-primary-soft p-3">
-        <span className="text-sm font-medium text-sam-primary">질문하기</span>
+        <span className="text-sm font-medium text-sam-primary">{t("community_board_ask_question")}</span>
       </div>
       <div>
         <label htmlFor="q-title" className="block text-sm font-medium text-sam-fg mb-1">
@@ -71,7 +73,7 @@ export function QuestionForm({
           onChange={(e) => setTitle(e.target.value)}
           required
           maxLength={200}
-          placeholder="질문을 한 줄로 요약해 주세요"
+          placeholder={t("community_board_question_title_ph")}
           className="w-full rounded-ui-rect border border-sam-border px-3 py-2 focus:border-sam-primary focus:ring-2 focus:ring-sam-primary"
           disabled={isSubmitting}
         />
@@ -86,7 +88,7 @@ export function QuestionForm({
           onChange={(e) => setContent(e.target.value)}
           required
           rows={6}
-          placeholder="질문 내용을 자세히 적어 주세요"
+          placeholder={t("community_board_question_content_ph")}
           className="w-full resize-y rounded-ui-rect border border-sam-border px-3 py-2 focus:ring-2 focus:ring-sam-primary"
           disabled={isSubmitting}
         />

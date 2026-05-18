@@ -1,4 +1,5 @@
 "use client";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { useState } from "react";
 import { REGIONS } from "@/lib/products/form-options";
@@ -22,6 +23,7 @@ export function RegionSelectorForm({
   onSubmit,
   onCancel,
 }: RegionSelectorFormProps) {
+  const { t } = useI18n();
   const [regionId, setRegionId] = useState(initialRegionId);
   const [cityId, setCityId] = useState(initialCityId);
   const [barangay, setBarangay] = useState("");
@@ -40,7 +42,7 @@ export function RegionSelectorForm({
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
         <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
-          지역
+          {t("ui_region_label")}
         </label>
         <select
           value={regionId}
@@ -78,7 +80,7 @@ export function RegionSelectorForm({
       </div>
       <div>
         <label className="mb-1 block sam-text-body-secondary font-medium text-sam-fg">
-          바랑가이 (선택)
+          {t("ui_region_barangay_optional")}
         </label>
         <input
           type="text"
@@ -95,7 +97,7 @@ export function RegionSelectorForm({
           onChange={(e) => setSetAsPrimary(e.target.checked)}
           className="rounded border-sam-border"
         />
-        대표 동네로 설정
+        {t("ui_region_set_primary_checkbox")}
       </label>
       <div className="flex gap-2">
         <button
@@ -103,14 +105,14 @@ export function RegionSelectorForm({
           onClick={onCancel}
           className="rounded-ui-rect border border-sam-border px-4 py-2.5 sam-text-body text-sam-muted"
         >
-          취소
+          {t("common_cancel")}
         </button>
         <button
           type="submit"
           disabled={!regionId || !cityId}
           className="flex-1 rounded-ui-rect bg-signature py-2.5 sam-text-body font-medium text-white disabled:opacity-50"
         >
-          추가
+          {t("ui_region_add")}
         </button>
       </div>
     </form>
