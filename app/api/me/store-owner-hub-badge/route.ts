@@ -10,11 +10,17 @@
  * 세그먼트(동일 집계 로직 분리): `.../unreads`, `.../store-attention`
  */
 import { NextResponse } from "next/server";
-import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
+import { getOptionalRouteHandlerCookieAuth } from "@/lib/auth/get-optional-authenticated-user-id";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
-import { getCachedOwnerHubBadge, peekOwnerHubBadgeCacheHit } from "@/lib/chats/owner-hub-badge-cache";
-import { buildOwnerHubBadgePayloadMerged } from "@/lib/chats/build-owner-hub-badge-payload";
+import {
+  getCachedOwnerHubBadge,
+  peekOwnerHubBadgeCacheHit,
+  peekOwnerHubBadgeInflight,
+  OWNER_HUB_BADGE_TTL_MS,
+} from "@/lib/chats/owner-hub-badge-cache";
+import { buildRoutePerfDedupeFields } from "@/lib/http/route-perf-dedupe-fields";
+import { buildOwnerHubBadgePayloadWithMeta } from "@/lib/chats/build-owner-hub-badge-payload";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
 import { logRoutePerf } from "@/lib/http/route-perf-log";
@@ -31,11 +37,12 @@ export async function GET(request: Request) {
   const bypassShortCache = cmFresh && (!isDevSafeMode() || hubBadgeBypass);
 
   const parallel0 = devPerfNow();
-  const [sb, userId] = await Promise.all([
+  const [sb, cookieAuth] = await Promise.all([
     Promise.resolve(tryCreateSupabaseServiceClient()),
-    getOptionalAuthenticatedUserId(),
+    getOptionalRouteHandlerCookieAuth(),
   ]);
   const authMs = Math.round(devPerfNow() - parallel0);
+  const userId = cookieAuth.userId;
 
   if (!sb) {
     if (process.env.NODE_ENV === "production") {
@@ -79,22 +86,52 @@ export async function GET(request: Request) {
   const storesSb = tryGetSupabaseForStores();
   const storesClientMs = devPerfNow() - stores0;
 
-  const hubMemoryHitBefore = !bypassShortCache && peekOwnerHubBadgeCacheHit(userId);
+  const requestDedupeKey = `owner-hub-badge:${userId.trim()}`;
+  const ttlCacheHit = !bypassShortCache && peekOwnerHubBadgeCacheHit(userId);
+  const inFlightBefore = !bypassShortCache && !ttlCacheHit && peekOwnerHubBadgeInflight(userId);
   const build0 = devPerfNow();
-  const payload = bypassShortCache
-    ? await buildOwnerHubBadgePayloadMerged(sbAny, storesSb, userId)
-    : await getCachedOwnerHubBadge(userId, async () => buildOwnerHubBadgePayloadMerged(sbAny, storesSb, userId));
+  let payload: Awaited<ReturnType<typeof buildOwnerHubBadgePayloadWithMeta>>["payload"];
+  let badgeMeta: Awaited<ReturnType<typeof buildOwnerHubBadgePayloadWithMeta>>["meta"];
+  if (bypassShortCache) {
+    const built = await buildOwnerHubBadgePayloadWithMeta(sbAny, storesSb, userId);
+    payload = built.payload;
+    badgeMeta = built.meta;
+  } else {
+    payload = await getCachedOwnerHubBadge(userId, async () => {
+      const built = await buildOwnerHubBadgePayloadWithMeta(sbAny, storesSb, userId);
+      return built.payload;
+    });
+    badgeMeta = {
+      queryType: "owner_hub_badge_light",
+      aggregateFallbackUsed: 0,
+      aggregateRemovedSuccess: 1,
+      existsQueryUsed: 1,
+    };
+  }
   const badgeAggregateMs = devPerfNow() - build0;
 
   const totalRouteMs = Math.round(devPerfNow() - t0);
   logRoutePerf({
     route: "/api/me/store-owner-hub-badge",
     total_ms: totalRouteMs,
-    db_ms: Math.round(badgeAggregateMs),
-    cache_hit: bypassShortCache ? 0 : hubMemoryHitBefore ? 1 : 0,
+    db_ms: ttlCacheHit ? 0 : Math.round(badgeAggregateMs),
+    cache_hit: ttlCacheHit ? 1 : 0,
     auth_ms: authMs,
     serialize_ms: 0,
     store_query_ms: Math.round(storesClientMs),
+    query_type: badgeMeta.queryType,
+    aggregate_fallback_used: badgeMeta.aggregateFallbackUsed,
+    aggregate_removed_success: badgeMeta.aggregateRemovedSuccess,
+    exists_query_used: badgeMeta.existsQueryUsed,
+    ...buildRoutePerfDedupeFields({
+      userId,
+      dedupeKey: requestDedupeKey,
+      inFlightHit: inFlightBefore,
+      responseCacheHit: false,
+      ttlCacheHit,
+      queryType: badgeMeta.queryType,
+    }),
+    hub_badge_ttl_ms: OWNER_HUB_BADGE_TTL_MS,
   });
 
   logDevApiPerf("/api/me/store-owner-hub-badge", {

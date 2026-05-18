@@ -7,7 +7,6 @@ import {
   COMMUNITY_MESSENGER_HOME_SYNC_FULL_ROOM_CAP,
 } from "@/lib/community-messenger/home-sync-room-caps";
 import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/messenger-api-route-timing";
-import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import { messengerApiEdgeCacheHeaders } from "@/lib/http/messenger-api-edge-cache";
 import { homeSyncBreakdownEnabled } from "@/lib/community-messenger/home-sync-breakdown-log";
 import {
@@ -39,11 +38,14 @@ import {
   logHomeSyncDeepTrace,
 } from "@/lib/community-messenger/home-sync-deep-trace-log";
 import { emitHomeSyncRuntimeProfile } from "@/lib/community-messenger/home-sync-runtime-profile";
+import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const COMMUNITY_MESSENGER_HOME_SYNC_TTL_MS = 5_000;
+/** fresh TTL 만료 후에도 응답은 즉시 반환하고 백그라운드에서 번들 재생(stale-while-revalidate) */
+const COMMUNITY_MESSENGER_HOME_SYNC_STALE_MS = 30_000;
 /** 사용자당 1키이나 트래픽이 몰릴 때 프로세스 메모리가 비한정 증가하지 않게 */
 const COMMUNITY_MESSENGER_HOME_SYNC_CACHE_MAX_ENTRIES = 4_000;
 
@@ -97,19 +99,60 @@ function mergeHomeSyncTraceFromRouteCache(trace: HomeSyncTrace, snap: HomeSyncRo
 
 type CommunityMessengerHomeSyncCacheEntry = {
   payload: CommunityMessengerHomeSyncBundlePayload;
-  expiresAt: number;
+  storedAt: number;
+  freshUntil: number;
+  staleUntil: number;
   traceSnapshot?: HomeSyncRouteCacheTraceSnapshot;
 };
 
 const communityMessengerHomeSyncCache = new Map<string, CommunityMessengerHomeSyncCacheEntry>();
 
-type HomeSyncInflightEntry = {
-  promise: Promise<CommunityMessengerHomeSyncBundlePayload>;
-  leaderTrace: HomeSyncTrace | undefined;
-};
+/** single-flight 합류 시 leader trace 복원용 */
+const homeSyncInflightLeaderTraces = new Map<string, HomeSyncTrace>();
 
-/** 동일 사용자·tier·cap 키로 동시에 들어온 요청이 홈 sync 번들을 한 번만 실행 */
-const communityMessengerHomeSyncInflight = new Map<string, HomeSyncInflightEntry>();
+function pruneHomeSyncRouteCache(now: number): void {
+  for (const [key, entry] of communityMessengerHomeSyncCache) {
+    if (entry.staleUntil <= now) communityMessengerHomeSyncCache.delete(key);
+  }
+  while (communityMessengerHomeSyncCache.size > COMMUNITY_MESSENGER_HOME_SYNC_CACHE_MAX_ENTRIES) {
+    const first = communityMessengerHomeSyncCache.keys().next().value;
+    if (first === undefined) break;
+    communityMessengerHomeSyncCache.delete(first);
+  }
+}
+
+function homeSyncBundleFlightKey(cacheKey: string): string {
+  return `community-messenger:home-sync-bundle:${cacheKey}`;
+}
+
+async function loadHomeSyncBundle(
+  userId: string,
+  tier: "critical" | "full",
+  trace: HomeSyncTrace | undefined
+): Promise<CommunityMessengerHomeSyncBundlePayload> {
+  const { getCommunityMessengerHomeSyncBundle } = await import(
+    "@/lib/community-messenger/get-community-messenger-home-sync-bundle"
+  );
+  return getCommunityMessengerHomeSyncBundle(userId, tier, { trace });
+}
+
+function scheduleHomeSyncStaleRevalidate(
+  cacheKey: string,
+  userId: string,
+  tier: "critical" | "full"
+): void {
+  void runSingleFlight(`home-sync-swr:${cacheKey}`, async () => {
+    const bundle = await loadHomeSyncBundle(userId, tier, undefined);
+    const now = Date.now();
+    communityMessengerHomeSyncCache.set(cacheKey, {
+      payload: bundle,
+      storedAt: now,
+      freshUntil: now + COMMUNITY_MESSENGER_HOME_SYNC_TTL_MS,
+      staleUntil: now + COMMUNITY_MESSENGER_HOME_SYNC_STALE_MS,
+    });
+    return bundle;
+  });
+}
 
 /**
  * 홈 사일런트 갱신 전용 — `rooms` + `friend-requests` + `friends` 를 한 HTTP 왕복으로 묶어
@@ -176,11 +219,7 @@ export async function GET(req: NextRequest) {
           }
         : undefined;
   if (enableInMemoryCache) {
-    pruneByExpiresAtAndMaxSize(
-      communityMessengerHomeSyncCache,
-      now,
-      COMMUNITY_MESSENGER_HOME_SYNC_CACHE_MAX_ENTRIES
-    );
+    pruneHomeSyncRouteCache(now);
   }
 
   /** 상한·스킵 enrich 변경 시 캐시 오염 방지 — cap 버전을 키에 포함 */
@@ -192,13 +231,26 @@ export async function GET(req: NextRequest) {
   const cachedEntry: CommunityMessengerHomeSyncCacheEntry | undefined =
     enableInMemoryCache && !fresh ? communityMessengerHomeSyncCache.get(cacheKey) : undefined;
   const homeSyncCacheLookupMs = performance.now() - tCacheLookup;
-  let bundle = cachedEntry?.payload;
-  /** 5s in-process 라우트 캐시 히트 — `SAMARKET_HOME_SYNC_DISABLE_ROUTE_CACHE=1` 이면 비활성 */
-  const shortTtlHit = Boolean(bundle);
+  let bundle: CommunityMessengerHomeSyncBundlePayload | undefined;
+  let shortTtlHit = false;
+  let staleWhileRevalidateServe = false;
+  let replayFromProcessCache = false;
+  if (cachedEntry && enableInMemoryCache && !fresh) {
+    const ageMs = Math.max(0, now - cachedEntry.storedAt);
+    if (now < cachedEntry.freshUntil) {
+      bundle = cachedEntry.payload;
+      shortTtlHit = true;
+      replayFromProcessCache = true;
+    } else if (now < cachedEntry.staleUntil) {
+      bundle = cachedEntry.payload;
+      shortTtlHit = true;
+      staleWhileRevalidateServe = true;
+      replayFromProcessCache = true;
+      scheduleHomeSyncStaleRevalidate(cacheKey, auth.userId, tier);
+    }
+  }
   const homeSyncCacheApproxAgeMs =
-    shortTtlHit && cachedEntry
-      ? Math.max(0, now - (cachedEntry.expiresAt - COMMUNITY_MESSENGER_HOME_SYNC_TTL_MS))
-      : null;
+    shortTtlHit && cachedEntry ? Math.max(0, now - cachedEntry.storedAt) : null;
   let homeSyncCacheStoreMs = 0;
 
   const tBeforeBundleResolution = performance.now();
@@ -218,35 +270,20 @@ export async function GET(req: NextRequest) {
 
   if (!bundle) {
     try {
-      const inflightEntry = communityMessengerHomeSyncInflight.get(cacheKey);
-      const tAwaitStart = performance.now();
-      const joinedSingleflight = Boolean(inflightEntry);
-      if (joinedSingleflight) homeSyncSingleflightJoined = true;
-      let flight: Promise<CommunityMessengerHomeSyncBundlePayload>;
-      if (inflightEntry) {
-        flight = inflightEntry.promise;
-      } else {
-        const { getCommunityMessengerHomeSyncBundle } = await import(
-          "@/lib/community-messenger/get-community-messenger-home-sync-bundle"
-        );
-        const leaderTrace = trace;
-        const started = getCommunityMessengerHomeSyncBundle(auth.userId, tier, { trace: leaderTrace });
-        const wrapped = started.finally(() => {
-          const cur = communityMessengerHomeSyncInflight.get(cacheKey);
-          if (cur?.promise === wrapped) {
-            communityMessengerHomeSyncInflight.delete(cacheKey);
-          }
-        });
-        communityMessengerHomeSyncInflight.set(cacheKey, {
-          promise: wrapped,
-          leaderTrace,
-        });
-        flight = wrapped;
+      const flightKey = homeSyncBundleFlightKey(cacheKey);
+      const inflightBefore = getSingleFlightPromise<CommunityMessengerHomeSyncBundlePayload>(flightKey);
+      if (inflightBefore) {
+        homeSyncSingleflightJoined = true;
+      } else if (trace) {
+        homeSyncInflightLeaderTraces.set(cacheKey, trace);
       }
-      bundle = await flight;
+      const tAwaitStart = performance.now();
+      bundle = await runSingleFlight(flightKey, () => loadHomeSyncBundle(auth.userId, tier, trace));
       routeBundleAwaitMs = performance.now() - tAwaitStart;
-      if (joinedSingleflight && trace && inflightEntry?.leaderTrace) {
-        mergeHomeSyncDeepStepsAfterSingleflightJoin(trace, inflightEntry.leaderTrace, routeBundleAwaitMs);
+      const leaderTrace = homeSyncInflightLeaderTraces.get(cacheKey);
+      homeSyncInflightLeaderTraces.delete(cacheKey);
+      if (homeSyncSingleflightJoined && trace && leaderTrace) {
+        mergeHomeSyncDeepStepsAfterSingleflightJoin(trace, leaderTrace, routeBundleAwaitMs);
       }
     } catch (e) {
       if (trace) {
@@ -259,15 +296,13 @@ export async function GET(req: NextRequest) {
       const tStore0 = performance.now();
       communityMessengerHomeSyncCache.set(cacheKey, {
         payload: bundle,
-        expiresAt: tSet + COMMUNITY_MESSENGER_HOME_SYNC_TTL_MS,
+        storedAt: tSet,
+        freshUntil: tSet + COMMUNITY_MESSENGER_HOME_SYNC_TTL_MS,
+        staleUntil: tSet + COMMUNITY_MESSENGER_HOME_SYNC_STALE_MS,
         traceSnapshot: trace ? captureHomeSyncRouteCacheTraceSnapshot(trace) : undefined,
       });
       homeSyncCacheStoreMs = performance.now() - tStore0;
-      pruneByExpiresAtAndMaxSize(
-        communityMessengerHomeSyncCache,
-        tSet,
-        COMMUNITY_MESSENGER_HOME_SYNC_CACHE_MAX_ENTRIES
-      );
+      pruneHomeSyncRouteCache(tSet);
     }
   } else if (trace && cachedEntry?.traceSnapshot) {
     mergeHomeSyncTraceFromRouteCache(trace, cachedEntry.traceSnapshot);
@@ -775,6 +810,8 @@ export async function GET(req: NextRequest) {
           storeMs: homeSyncCacheStoreMs,
           ttlMs: COMMUNITY_MESSENGER_HOME_SYNC_TTL_MS,
           approximateAgeMs: homeSyncCacheApproxAgeMs,
+          staleWhileRevalidateServe,
+          replayFromProcessCache,
         },
       });
     } catch {
@@ -807,6 +844,12 @@ export async function GET(req: NextRequest) {
     tier,
     log_kind: shortTtlHit ? ("cache_hit" as const) : ("critical" as const),
     cache_hit: shortTtlHit ? 1 : 0,
+    route_cache_enabled: enableInMemoryCache ? 1 : 0,
+    short_ttl_hit: shortTtlHit,
+    stale_while_revalidate_serve: staleWhileRevalidateServe,
+    replay_from_process_cache: replayFromProcessCache,
+    cache_age_ms: homeSyncCacheApproxAgeMs != null ? Math.round(homeSyncCacheApproxAgeMs) : 0,
+    cache_store_ms: Math.round(homeSyncCacheStoreMs),
     critical_ms: criticalMs,
     deferred_ms: deferredMs,
     trade_meta_deferred: tradeMetaDeferred,
@@ -815,8 +858,13 @@ export async function GET(req: NextRequest) {
     rooms_count: roomsCount,
     route_bundle_await_ms: ms(routeBundleAwaitMs),
     rooms_fetch_ms: ms(bsLog?.roomsFetchMs ?? 0),
+    rooms_base_query_ms: ms(bsLog?.roomsBaseQueryMs ?? bsLog?.roomsRound2RoomsDbFetchMs ?? 0),
+    participants_join_query_ms: ms(bsLog?.participantsJoinQueryMs ?? 0),
+    room_ids_resolution_ms: ms(bsLog?.roomIdsResolutionMs ?? 0),
+    room_meta_query_ms: ms(bsLog?.roomMetaQueryMs ?? 0),
     unread_badge_ms: ms(bsLog?.unreadBadgeMs ?? 0),
     last_message_ms: ms(bsLog?.roomsRound2RoomsDbFetchMs ?? 0),
+    last_message_from_room_row: 1,
     rooms_cache_hit: roomsCacheHit,
     unread_cache_hit: unreadCacheHit,
     route_cache_disabled_env: routeCacheDisabledEnv,

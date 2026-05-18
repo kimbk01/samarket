@@ -10,13 +10,11 @@ import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
 import { resolveRouteHandlerUserIdFromSupabase } from "@/lib/auth/resolve-route-handler-user-id";
 import { readActiveSessionIdCookie } from "@/lib/auth/active-session";
 import { validateActiveSessionLight } from "@/lib/auth/server-guards";
-import {
-  peekAuthSessionValidatedOk,
-  setAuthSessionValidatedOk,
-} from "@/lib/auth/auth-session-response-cache";
+import { authSessionValidateDedupeKey, validateActiveSessionLightDeduped } from "@/lib/auth/auth-session-validate-dedupe";
 import { jsonErrorWithRequest, jsonOkWithRequest } from "@/lib/http/api-route";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { logRoutePerf } from "@/lib/http/route-perf-log";
+import { buildRoutePerfDedupeFields } from "@/lib/http/route-perf-dedupe-fields";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -97,19 +95,15 @@ export async function GET(request: NextRequest) {
   }
 
   const sessionFp = ((await readActiveSessionIdCookie()) ?? "").trim() || "∅";
-  const cacheKey = `${userId}:${sessionFp}`;
-  const cacheHit = peekAuthSessionValidatedOk(userId, sessionFp) ? 1 : 0;
+  const requestDedupeKey = authSessionValidateDedupeKey(userId, sessionFp);
 
   let dbMs = 0;
-  if (!cacheHit) {
-    const db0 = devPerfNow();
-    const validated = await validateActiveSessionLight(userId);
-    dbMs = devPerfNow() - db0;
-    if (!validated.ok) {
-      mergeAuthCookies(cookieCarrier, validated.response);
-      return validated.response;
-    }
-    setAuthSessionValidatedOk(userId, sessionFp);
+  const validate0 = devPerfNow();
+  const validated = await validateActiveSessionLightDeduped(userId, sessionFp);
+  dbMs = devPerfNow() - validate0;
+  if (!validated.ok) {
+    mergeAuthCookies(cookieCarrier, validated.response);
+    return validated.response;
   }
 
   const res = jsonOkWithRequest(request, { authenticated: true });
@@ -118,10 +112,18 @@ export async function GET(request: NextRequest) {
   logRoutePerf({
     route: "/api/auth/session",
     total_ms: totalMs,
-    db_ms: Math.round(dbMs),
-    cache_hit: cacheHit,
+    db_ms: validated.ttlCacheHit ? 0 : Math.round(dbMs),
+    cache_hit: validated.ttlCacheHit ? 1 : 0,
     auth_ms: Math.round(authMs),
     serialize_ms: 0,
+    ...buildRoutePerfDedupeFields({
+      userId,
+      dedupeKey: requestDedupeKey,
+      inFlightHit: validated.inFlightHit,
+      responseCacheHit: false,
+      ttlCacheHit: validated.ttlCacheHit,
+      queryType: "active_session_light",
+    }),
   });
   return res;
 }

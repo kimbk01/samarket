@@ -1,7 +1,7 @@
 /**
  * 매장 오너 허브 배지 — 전역 단일 폴링·fetch.
  * (BottomNav + StoresHub 등) 여러 컴포넌트가 구독해도 GET /api/me/store-owner-hub-badge 는 한 갈래만 나감
- * (서버 28s 캐시). `/unreads`·`/store-attention` 세그먼트는 동일 집계 로직 분리용.
+ * (서버 TTL 캐시 `owner-hub-badge-cache`). `/unreads`·`/store-attention` 세그먼트는 동일 집계 로직 분리용.
  */
 import {
   OWNER_HUB_BADGE_EMPTY,
@@ -45,7 +45,7 @@ const PATH_FETCH_PREFIXES = [
 /** `BottomNav`·`useOwnerHubBadgeBreakdown` 등 여러 곳에서 경로 변경 시 호출해도 한 번으로 합침 */
 const HUB_PATH_REFRESH_DEBOUNCE_MS = 420;
 let hubPathRefreshTimer: ReturnType<typeof setTimeout> | null = null;
-/** 클라 최소 fetch 간격 — 서버 `HUB_BADGE_TTL_MS`(28s, owner-hub-badge-cache)·폴링과 함께 조정 */
+/** 클라 최소 fetch 간격 — 서버 `OWNER_HUB_BADGE_TTL_MS`·폴링과 함께 조정 */
 const MIN_FETCH_GAP_MS = 22_000;
 /** force=true 연타 시 inFlight 합류 — 거래 탭 배지·알림 즉시성과의 균형 */
 const MIN_FORCE_FETCH_GAP_MS = 1_600;

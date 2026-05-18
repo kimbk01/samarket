@@ -4,6 +4,7 @@ import { cache } from "react";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import { resolveRouteHandlerAuthFromSupabase } from "@/lib/auth/resolve-route-handler-user-id";
 import { createSupabaseRouteHandlerClient } from "@/lib/supabase/supabase-server-route";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 /** `getOptionalRouteHandlerCookieAuth` / `getOptionalAuthenticatedUserId` 공통 합류 결과 */
 export type RouteHandlerCookieAuth = {
@@ -13,16 +14,13 @@ export type RouteHandlerCookieAuth = {
   supabase: SupabaseClient | null;
 };
 
-/**
- * 동일 HTTP 요청·동일 쿠키로 `getOptionalAuthenticatedUserId` 가 동시에 여러 번 호출될 때
- * JWT 해석(`getClaims`/`getUser`)·클라이언트 생성을 **한 번만** 수행하도록 합류.
- * 키: `Cookie` 헤더 SHA-256 — 서버 부하·중복 Auth 호출 감소.
- */
-const AUTH_COOKIE_AUTH_INFLIGHT = new Map<string, Promise<RouteHandlerCookieAuth>>();
-
 function inflightKeyFromCookieHeader(cookieHeader: string): string {
   if (!cookieHeader) return "∅";
   return createHash("sha256").update(cookieHeader, "utf8").digest("hex");
+}
+
+function authCookieFlightKey(cookieHeader: string): string {
+  return `route-handler-cookie-auth:${inflightKeyFromCookieHeader(cookieHeader)}`;
 }
 
 /**
@@ -39,12 +37,7 @@ async function resolveRouteHandlerCookieAuthOnce(): Promise<RouteHandlerCookieAu
   } catch {
     /* next/headers 미사용 컨텍스트 */
   }
-  const key = inflightKeyFromCookieHeader(cookieHeader);
-
-  const existing = AUTH_COOKIE_AUTH_INFLIGHT.get(key);
-  if (existing) return existing;
-
-  const p = (async (): Promise<RouteHandlerCookieAuth> => {
+  return runSingleFlight(authCookieFlightKey(cookieHeader), async (): Promise<RouteHandlerCookieAuth> => {
     try {
       const supabase = await createSupabaseRouteHandlerClient();
       if (!supabase) {
@@ -59,13 +52,8 @@ async function resolveRouteHandlerCookieAuthOnce(): Promise<RouteHandlerCookieAu
       };
     } catch {
       return { userId: null, user: null, claimsOnly: false, supabase: null };
-    } finally {
-      AUTH_COOKIE_AUTH_INFLIGHT.delete(key);
     }
-  })();
-
-  AUTH_COOKIE_AUTH_INFLIGHT.set(key, p);
-  return p;
+  });
 }
 
 export const getOptionalRouteHandlerCookieAuth = cache(resolveRouteHandlerCookieAuthOnce);

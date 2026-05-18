@@ -36,10 +36,12 @@ import {
 } from "@/lib/profile/profile-response-cache";
 import { jsonError } from "@/lib/http/api-route";
 import { logRoutePerf } from "@/lib/http/route-perf-log";
+import { buildRoutePerfDedupeFields } from "@/lib/http/route-perf-dedupe-fields";
+import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
 export const dynamic = "force-dynamic";
 
 /**
- * GET /api/me/profile — 동일 userId 동시 요청이 `runMeProfileReadPipeline` 을 한 번만 타도록 (userId 키 분리, 실패 응답은 캐시하지 않음).
+ * GET /api/me/profile — 동일 userId·mode 동시 요청이 `runMeProfileReadPipeline` 을 한 번만 타도록 (userId 키 분리, 실패 응답은 캐시하지 않음).
  * @see `PROFILE_ROUTE_PIPELINE_COALESCE_MS` — `[dev-api-perf]` 의 `profile_cache_ttl_ms` 설계 상한
  */
 type MeProfilePipelineFlight = {
@@ -48,8 +50,15 @@ type MeProfilePipelineFlight = {
   profileFetchMetrics: ProfileFetchMetrics;
   pipelineStepMs: MeProfilePipelinePerf;
 };
-const ME_PROFILE_PIPELINE_INFLIGHT = new Map<string, Promise<MeProfilePipelineFlight>>();
 const PROFILE_ROUTE_PIPELINE_COALESCE_MS = 1500;
+
+function meProfilePipelineFlightKey(userId: string, mode: "full" | "lite"): string {
+  return `me-profile-pipeline:${userId.trim()}\0${mode}`;
+}
+
+function meProfileRequestDedupeKey(userId: string, mode: "full" | "lite"): string {
+  return `${userId.trim()}\0${mode}`;
+}
 
 function buildProfilePipelineStepsJson(perf: MeProfilePipelinePerf): string {
   return JSON.stringify({
@@ -477,7 +486,15 @@ export async function GET(request: NextRequest) {
       cache_hit: 1,
       auth_ms: Math.round(requireAuthMs),
       serialize_ms: json_payload_serialize_probe_ms,
-        prod_profile_response_cache_lookup_ms,
+      prod_profile_response_cache_lookup_ms,
+      query_type: "profile_row",
+      ...buildRoutePerfDedupeFields({
+        userId,
+        dedupeKey: meProfileRequestDedupeKey(userId, mode),
+        responseCacheHit: true,
+        ttlCacheHit: true,
+        queryType: "profile_row",
+      }),
     });
     finalizeMeProfileGetPerfLog(
       {
@@ -716,6 +733,13 @@ export async function GET(request: NextRequest) {
       cache_hit: cached ? 1 : 0,
       auth_ms: Math.round(requireAuthMs),
       serialize_ms: json_payload_serialize_probe_ms,
+      query_type: "profile_row",
+      ...buildRoutePerfDedupeFields({
+        userId,
+        dedupeKey: meProfileRequestDedupeKey(userId, mode),
+        responseCacheHit: true,
+        queryType: "profile_row",
+      }),
     });
     finalizeMeProfileGetPerfLog(
       {
@@ -804,41 +828,29 @@ export async function GET(request: NextRequest) {
   }
 
   const serviceSb = tryCreateSupabaseServiceClient();
-  const pipelineFlightKey = `${userId.trim()}\0${mode}`;
-  let profileSingleflightHit = 0;
-  const existingFlight = ME_PROFILE_PIPELINE_INFLIGHT.get(pipelineFlightKey);
-  let flightPromise: Promise<MeProfilePipelineFlight>;
-  if (existingFlight) {
-    profileSingleflightHit = 1;
-    flightPromise = existingFlight;
-  } else {
-    flightPromise = (async (): Promise<MeProfilePipelineFlight> => {
-      const profileFetchMetrics = createEmptyProfileFetchMetrics();
-      const pipelineStepMs = createEmptyMeProfilePipelinePerf();
-      const pipe0 = devPerfNow();
-      const profile = await runMeProfileReadPipeline({
-        authUserId: userId,
-        supabaseUser,
-        routeSb: cookieAuth.supabase!,
-        serviceSb,
-        profileFetchMetrics,
-        profileSelectMode: mode,
-        pipelineStepMs,
-      });
-      return {
-        profile,
-        profilePipelineMs: devPerfNow() - pipe0,
-        profileFetchMetrics,
-        pipelineStepMs,
-      };
-    })();
-    ME_PROFILE_PIPELINE_INFLIGHT.set(pipelineFlightKey, flightPromise);
-    void flightPromise.finally(() => {
-      ME_PROFILE_PIPELINE_INFLIGHT.delete(pipelineFlightKey);
-    });
-  }
+  const pipelineFlightKey = meProfilePipelineFlightKey(userId, mode);
+  const profileSingleflightHit = getSingleFlightPromise<MeProfilePipelineFlight>(pipelineFlightKey) !== undefined ? 1 : 0;
 
-  const flight = await flightPromise;
+  const flight = await runSingleFlight(pipelineFlightKey, async (): Promise<MeProfilePipelineFlight> => {
+    const profileFetchMetrics = createEmptyProfileFetchMetrics();
+    const pipelineStepMs = createEmptyMeProfilePipelinePerf();
+    const pipe0 = devPerfNow();
+    const profile = await runMeProfileReadPipeline({
+      authUserId: userId,
+      supabaseUser,
+      routeSb: cookieAuth.supabase!,
+      serviceSb,
+      profileFetchMetrics,
+      profileSelectMode: mode,
+      pipelineStepMs,
+    });
+    return {
+      profile,
+      profilePipelineMs: devPerfNow() - pipe0,
+      profileFetchMetrics,
+      pipelineStepMs,
+    };
+  });
   const { profile, profilePipelineMs, profileFetchMetrics, pipelineStepMs } = flight;
 
   if (mode === "full") {
@@ -905,6 +917,13 @@ export async function GET(request: NextRequest) {
     cache_hit: 0,
     auth_ms: Math.round(requireAuthMs),
     serialize_ms: json_payload_serialize_probe_ms,
+    query_type: "profile_pipeline",
+    ...buildRoutePerfDedupeFields({
+      userId,
+      dedupeKey: meProfileRequestDedupeKey(userId, mode),
+      inFlightHit: profileSingleflightHit === 1,
+      queryType: "profile_pipeline",
+    }),
   });
   finalizeMeProfileGetPerfLog(
     {

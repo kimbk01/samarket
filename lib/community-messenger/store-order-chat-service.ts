@@ -609,21 +609,21 @@ export async function sumBuyerStoreOrderMessengerUnread(
   return (parts ?? []).reduce((sum, row) => sum + Math.max(0, Math.floor(Number(row.unread_count ?? 0) || 0)), 0);
 }
 
-/** 사장님 매장 주문 채팅 미읽음 — `communityMessengerUnread` 와 별도 필드로만 노출(합산 total 에는 중복 포함하지 않음). */
-export async function countOwnerStoreOrderMessengerUnread(
+/** 허브 매장 1건 기준 주문 채팅 미읽음 합 — 전체 매장·전체 주문 스캔 금지 */
+export async function countOwnerStoreOrderMessengerUnreadForHubStore(
   sb: SupabaseClient<any>,
-  ownerUserId: string
+  ownerUserId: string,
+  hubStoreId: string
 ): Promise<number> {
   const uid = ownerUserId.trim();
-  if (!uid) return 0;
-  const { data: stores } = await sb.from("stores").select("id").eq("owner_user_id", uid);
-  const storeIds = ((stores ?? []) as Array<{ id?: unknown }>).map((row) => trimText(row.id)).filter(Boolean);
-  if (!storeIds.length) return 0;
+  const sid = hubStoreId.trim();
+  if (!uid || !sid) return 0;
   const { data: orders } = await sb
     .from("store_orders")
     .select("community_messenger_room_id")
-    .in("store_id", storeIds)
-    .not("community_messenger_room_id", "is", null);
+    .eq("store_id", sid)
+    .not("community_messenger_room_id", "is", null)
+    .limit(80);
   const roomIds = ((orders ?? []) as Array<{ community_messenger_room_id?: unknown }>)
     .map((row) => trimText(row.community_messenger_room_id))
     .filter(Boolean);
@@ -634,5 +634,18 @@ export async function countOwnerStoreOrderMessengerUnread(
     .eq("user_id", uid)
     .in("room_id", roomIds);
   return (parts ?? []).reduce((sum, row) => sum + Math.max(0, Math.floor(Number(row.unread_count ?? 0) || 0)), 0);
+}
+
+/** @deprecated 배지·허브는 `countOwnerStoreOrderMessengerUnreadForHubStore` 우선 */
+export async function countOwnerStoreOrderMessengerUnread(
+  sb: SupabaseClient<any>,
+  ownerUserId: string
+): Promise<number> {
+  const uid = ownerUserId.trim();
+  if (!uid) return 0;
+  const { data: storeRow } = await sb.from("stores").select("id").eq("owner_user_id", uid).limit(1).maybeSingle();
+  const hubStoreId = trimText((storeRow as { id?: unknown } | null)?.id);
+  if (!hubStoreId) return 0;
+  return countOwnerStoreOrderMessengerUnreadForHubStore(sb, uid, hubStoreId);
 }
 

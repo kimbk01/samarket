@@ -4,10 +4,11 @@
  * 미읽음 관련 변경 시 invalidateOwnerHubBadgeCache 를 함께 호출한다.
  */
 import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
+import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
 
 /** 짧은 서버 캐시 — 클라이언트 폴링·다중 탭과 겹쳐도 한 번 계산으로 흡수. 클라 최소 간격은 `lib/chats/owner-hub-badge-store.ts` `MIN_FETCH_GAP_MS` 와 맞춤 */
-/** 짧을수록 수신 직후 교차 지연 완화, 길수록 GET 부하 감소 — 무효화 누락 시에도 15s 내 자연 정합 */
-const HUB_BADGE_TTL_MS = 15_000;
+/** warm 요청 5~30ms 목표 — 무효화·cmFresh·클라 `MIN_FETCH_GAP_MS` 와 함께 조정 */
+const HUB_BADGE_TTL_MS = 5_000;
 
 export type OwnerHubBadgePayload = {
   ok: true;
@@ -27,7 +28,17 @@ export type OwnerHubBadgePayload = {
 };
 
 const hubBadgeCache = new Map<string, { expiresAt: number; value: OwnerHubBadgePayload }>();
-const hubBadgeFlights = new Map<string, Promise<OwnerHubBadgePayload>>();
+
+function hubBadgeFlightKey(userId: string): string {
+  return `owner-hub-badge:${userId.trim()}`;
+}
+
+/** 라우트 `[route-perf]` in_flight_hit — TTL miss 후 동시 요청 합류 여부 */
+export function peekOwnerHubBadgeInflight(userId: string): boolean {
+  const k = userId.trim();
+  if (!k) return false;
+  return getSingleFlightPromise(hubBadgeFlightKey(k)) !== undefined;
+}
 
 /** 라우트 `[route-perf]` cache_hit — 메모리 TTL 엔트리 존재 여부(인플라이트 제외) */
 export function peekOwnerHubBadgeCacheHit(userId: string): boolean {
@@ -72,28 +83,21 @@ export async function getCachedOwnerHubBadge(
     return cached.value;
   }
 
-  const existingFlight = hubBadgeFlights.get(cacheKey);
-  if (existingFlight) {
-    return existingFlight;
-  }
-
   pruneExpiredHubBadgeCache(now);
 
   console.log("[hub-badge-cache-miss]", { userId: cacheKey });
-  const flight = factory()
-    .then((value) => {
-      hubBadgeCache.set(cacheKey, {
-        value,
-        expiresAt: Date.now() + HUB_BADGE_TTL_MS,
-      });
-      return value;
-    })
-    .finally(() => {
-      if (hubBadgeFlights.get(cacheKey) === flight) {
-        hubBadgeFlights.delete(cacheKey);
-      }
+  return runSingleFlight(hubBadgeFlightKey(cacheKey), async () => {
+    const again = hubBadgeCache.get(cacheKey);
+    if (again && again.expiresAt > Date.now()) {
+      return again.value;
+    }
+    const value = await factory();
+    hubBadgeCache.set(cacheKey, {
+      value,
+      expiresAt: Date.now() + HUB_BADGE_TTL_MS,
     });
-
-  hubBadgeFlights.set(cacheKey, flight);
-  return flight;
+    return value;
+  });
 }
+
+export const OWNER_HUB_BADGE_TTL_MS = HUB_BADGE_TTL_MS;

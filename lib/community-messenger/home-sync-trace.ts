@@ -377,8 +377,18 @@ export type HomeSyncDeepStepsBundleSteps = {
   payloadBuildMs: number;
   listSplitFilterMs: number;
   listMyChatsWallMs: number;
-  /** `fetchMyRoomsPayload` round2 — `community_messenger_rooms` last_message_at chunk 조회 벽시계 */
+  /** `fetchMyRoomsPayload` round2 — `community_messenger_rooms` 행 select( last_message* 는 room 행 비정규화 컬럼) */
   roomsRound2RoomsDbFetchMs?: number;
+  /** round1 room id 해상도(RPC·participant fallback·meta sort) */
+  roomIdsResolutionMs?: number;
+  /** round2 participants join */
+  participantsJoinQueryMs?: number;
+  /** round2 rooms base select */
+  roomsBaseQueryMs?: number;
+  /** round3 room_profiles 테이블 */
+  roomMetaQueryMs?: number;
+  roomRowsCount?: number;
+  messageRowsCount?: number;
   /** critical in-process rooms payload TTL(2s) hit */
   homeSyncCriticalRoomsCacheHit?: number;
   /** critical: `hydrateProfilesLabelsOnly` ‖ `prefetchHs5LegacyUnreadRows` 벽시계 */

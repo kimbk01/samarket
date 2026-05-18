@@ -2443,6 +2443,8 @@ export async function fetchMyRoomsPayload(
           logMessengerPerfMs("rooms_meta_fetch", diagnostics.round2RoomsDbFetchMs);
           logMessengerPerfMs("participants_join", diagnostics.round2ParticipantsMs);
           logMessengerPerfMs("last_message_fetch", diagnostics.round2RoomsDbFetchMs);
+          logMessengerPerfMs("rooms_base_query", diagnostics.round2RoomsDbFetchMs);
+          logMessengerPerfMs("participants_join_query", diagnostics.round2ParticipantsMs);
         }
       }
       roomRows = rooms;
@@ -3491,6 +3493,12 @@ export async function listCommunityMessengerMyChatsAndGroups(
       listSplitFilterMs: ms(listSplitFilterMs),
       listMyChatsWallMs: ms(listWall),
       roomsRound2RoomsDbFetchMs: ms(roomsDiagForBreakdown?.round2RoomsDbFetchMs ?? 0),
+      roomIdsResolutionMs: ms(roomsDiagForBreakdown?.round1Ms ?? 0),
+      participantsJoinQueryMs: ms(roomsDiagForBreakdown?.round2ParticipantsMs ?? 0),
+      roomsBaseQueryMs: ms(roomsDiagForBreakdown?.round2RoomsDbFetchMs ?? 0),
+      roomMetaQueryMs: ms(roomsDiagForBreakdown?.round3Ms ?? 0),
+      roomRowsCount: roomsDiagForBreakdown?.round2RoomRowCount ?? 0,
+      messageRowsCount: 0,
       homeSyncCriticalRoomsCacheHit: roomsCacheHit,
       homeSyncHs5HydrateUnreadParallelWallMs: isCritical ? ms(hs5HydrateUnreadParallelWallMs) : undefined,
     };

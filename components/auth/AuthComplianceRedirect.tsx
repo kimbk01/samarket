@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { fetchMeProfileDeduped } from "@/lib/profile/fetch-me-profile-deduped";
+import { fetchMeProfileDeduped, peekMeProfileCached } from "@/lib/profile/fetch-me-profile-deduped";
 import { hasStoreTermsConsent } from "@/lib/auth/store-member-policy";
 import type { ProfileRow } from "@/lib/profile/types";
 
@@ -28,7 +28,10 @@ export function AuthComplianceRedirect() {
     if (shouldSkip(pathname) || typeof window === "undefined") return;
     let cancelled = false;
     void (async () => {
-      const { status, json } = await fetchMeProfileDeduped().catch(() => ({ status: 500, json: null }));
+      const cached = peekMeProfileCached();
+      const { status, json } =
+        cached ??
+        (await fetchMeProfileDeduped().catch(() => ({ status: 500, json: null })));
       if (cancelled || status !== 200) return;
       const profile = (json as { profile?: ProfileRow | null } | null)?.profile ?? null;
       if (!profile?.id) return;

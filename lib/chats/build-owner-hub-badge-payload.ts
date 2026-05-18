@@ -13,7 +13,16 @@ import {
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { ORDER_CHAT_MESSENGER_LIST_HREF } from "@/lib/chats/surfaces/order-chat-surface";
 import { sumCommunityMessengerParticipantUnread } from "@/lib/community-messenger/community-messenger-unread-total";
-import { countOwnerStoreOrderMessengerUnread } from "@/lib/community-messenger/store-order-chat-service";
+import {
+  countOwnerStoreOrderMessengerUnreadForHubStore,
+} from "@/lib/community-messenger/store-order-chat-service";
+
+export type OwnerHubBadgeBuildMeta = {
+  queryType: "owner_hub_badge_light";
+  aggregateFallbackUsed: 0;
+  aggregateRemovedSuccess: 1;
+  existsQueryUsed: 1;
+};
 
 export type OwnerHubBadgeApiPayload = {
   ok: true;
@@ -30,6 +39,21 @@ export type OwnerHubBadgeApiPayload = {
 };
 
 type HubStoreLiteRow = { id: string; slug?: string | null };
+
+/** 점주 매장 1건 존재 여부 — 허브 카운트·주문 채팅 unread 생략 판단용 */
+async function ownerHasAnyStore(
+  storesSb: SupabaseClient<any> | null,
+  userId: string
+): Promise<boolean> {
+  if (!storesSb) return false;
+  const { data, error } = await storesSb
+    .from("stores")
+    .select("id")
+    .eq("owner_user_id", userId)
+    .limit(1);
+  if (error || !Array.isArray(data) || data.length === 0) return false;
+  return typeof (data[0] as { id?: unknown }).id === "string" && !!(data[0] as { id: string }).id.trim();
+}
 
 export type OwnerHubBadgeUnreadPartial = {
   chatUnread: number;
@@ -52,9 +76,13 @@ export async function buildOwnerHubBadgeUnreadSegment(
   userId: string
 ): Promise<OwnerHubBadgeUnreadPartial> {
   const unreadParts = await getCachedUserChatUnreadParts(sbAny, userId);
+  const hasOwnerStore = await ownerHasAnyStore(storesSb, userId);
+  const hubStore = hasOwnerStore ? await findOwnerHubStore(storesSb, userId) : null;
   const [communityMessengerUnread, storeOrderChatUnread] = await Promise.all([
     sumCommunityMessengerParticipantUnread(sbAny, userId).catch(() => 0),
-    storesSb ? countOwnerStoreOrderMessengerUnread(storesSb as any, userId).catch(() => 0) : Promise.resolve(0),
+    hasOwnerStore && storesSb && hubStore
+      ? countOwnerStoreOrderMessengerUnreadForHubStore(storesSb as any, userId, hubStore.id).catch(() => 0)
+      : Promise.resolve(0),
   ]);
   return {
     chatUnread: sumTradeChatUnread(unreadParts),
@@ -169,14 +197,33 @@ export async function buildOwnerHubBadgePayloadMerged(
   storesSb: SupabaseClient<any> | null,
   userId: string
 ): Promise<OwnerHubBadgeApiPayload> {
-  const [unreadParts, hubStore] = await Promise.all([
+  return (await buildOwnerHubBadgePayloadWithMeta(sbAny, storesSb, userId)).payload;
+}
+
+/** 경량 배지 빌드 — head count·limit(1)·허브 매장 scoped 주문 채팅 unread (full aggregate 스캔 없음) */
+export async function buildOwnerHubBadgePayloadWithMeta(
+  sbAny: SupabaseClient<any>,
+  storesSb: SupabaseClient<any> | null,
+  userId: string
+): Promise<{ payload: OwnerHubBadgeApiPayload; meta: OwnerHubBadgeBuildMeta }> {
+  const meta: OwnerHubBadgeBuildMeta = {
+    queryType: "owner_hub_badge_light",
+    aggregateFallbackUsed: 0,
+    aggregateRemovedSuccess: 1,
+    existsQueryUsed: 1,
+  };
+
+  const [unreadParts, hasOwnerStore] = await Promise.all([
     getCachedUserChatUnreadParts(sbAny, userId),
-    findOwnerHubStore(storesSb, userId),
+    ownerHasAnyStore(storesSb, userId),
   ]);
+  const hubStore = hasOwnerStore ? await findOwnerHubStore(storesSb, userId) : null;
 
   const [communityMessengerUnread, storeOrderChatUnread] = await Promise.all([
     sumCommunityMessengerParticipantUnread(sbAny, userId).catch(() => 0),
-    storesSb ? countOwnerStoreOrderMessengerUnread(storesSb as any, userId).catch(() => 0) : Promise.resolve(0),
+    hasOwnerStore && storesSb && hubStore
+      ? countOwnerStoreOrderMessengerUnreadForHubStore(storesSb as any, userId, hubStore.id).catch(() => 0)
+      : Promise.resolve(0),
   ]);
 
   const unread: OwnerHubBadgeUnreadPartial = {
@@ -187,6 +234,8 @@ export async function buildOwnerHubBadgePayloadMerged(
     storeOrderChatUnread: Math.max(0, storeOrderChatUnread),
   };
 
-  const store = await resolveOwnerHubBadgeStoreAttentionFromHubStore(storesSb, hubStore, unread.storeOrderChatUnread);
-  return mergeOwnerHubBadgeUnreadAndStore(unread, store);
+  const store = hasOwnerStore
+    ? await resolveOwnerHubBadgeStoreAttentionFromHubStore(storesSb, hubStore, unread.storeOrderChatUnread)
+    : { orderAttention: 0, inquiryAttention: 0, storeDeepLink: null };
+  return { payload: mergeOwnerHubBadgeUnreadAndStore(unread, store), meta };
 }

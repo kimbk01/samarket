@@ -48,6 +48,8 @@ export function logHomeSyncDeepTrace(input: {
     storeMs: number;
     ttlMs: number;
     approximateAgeMs: number | null;
+    staleWhileRevalidateServe?: boolean;
+    replayFromProcessCache?: boolean;
   };
 }): void {
   const bs = input.trace.deepSteps.bundleSteps ?? {};
@@ -62,8 +64,16 @@ export function logHomeSyncDeepTrace(input: {
   const home_sync_participants_fetch_ms = ms(bs.participantsProfilesMs ?? 0);
   const home_sync_profiles_fetch_ms = ms(pp?.dbFetchMs ?? 0);
   const home_sync_trade_meta_ms = ms(trade?.totalMs ?? bs.tradeMetaEnrichTotalMs ?? 0);
-  /** `fetchMyRoomsPayload` round2 `community_messenger_rooms` last_message_at 보조 조회 벽시계(있을 때만) */
-  const home_sync_last_message_ms = ms(bs.roomsRound2RoomsDbFetchMs ?? 0);
+  /**
+   * `community_messenger_rooms` 행 select — `last_message*` 는 messages 테이블 스캔이 아니라 room 비정규화 컬럼.
+   */
+  const home_sync_last_message_ms = ms(bs.roomsBaseQueryMs ?? bs.roomsRound2RoomsDbFetchMs ?? 0);
+  const rooms_base_query_ms = ms(bs.roomsBaseQueryMs ?? bs.roomsRound2RoomsDbFetchMs ?? 0);
+  const participants_join_query_ms = ms(bs.participantsJoinQueryMs ?? 0);
+  const room_ids_resolution_ms = ms(bs.roomIdsResolutionMs ?? 0);
+  const room_meta_query_ms = ms(bs.roomMetaQueryMs ?? 0);
+  const room_rows_count = bs.roomRowsCount ?? 0;
+  const message_rows_count = bs.messageRowsCount ?? 0;
   const home_sync_realtime_merge_ms = 0;
   const home_sync_payload_build_ms = ms(bs.payloadBuildMs ?? 0);
   const home_sync_json_serialize_ms = ms(input.devJsonSerializeMs);
@@ -181,6 +191,17 @@ export function logHomeSyncDeepTrace(input: {
     home_sync_cache_reason,
     home_sync_cache_bypass_reason,
     route_cache_disabled_env,
+    route_cache_enabled: input.cache.prodCacheEnabled ? 1 : 0,
+    short_ttl_hit: input.cache.hit,
+    replay_from_process_cache: input.cache.replayFromProcessCache ? 1 : 0,
+    stale_while_revalidate_serve: input.cache.staleWhileRevalidateServe ? 1 : 0,
+    rooms_base_query_ms,
+    participants_join_query_ms,
+    room_ids_resolution_ms,
+    room_meta_query_ms,
+    room_rows_count,
+    message_rows_count,
+    last_message_from_room_row: 1,
     unread_legacy_fetch_path: ur.unreadLegacyFetchPath ?? null,
     unread_skip_reason: ur.unreadSkipReason ?? null,
     unread_slowest_query: ur.unreadSlowestQuery ?? null,
