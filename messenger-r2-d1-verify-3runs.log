@@ -1,0 +1,9 @@
+{"verdict":"FAIL","counts":{"full_reload":1,"listener_attach":2,"realtime_event":5,"row_patch_insert":1,"full_reload_blocked":5,"row_patch_update":4,"delivery_realtime_event":5,"delivery_row_patch_insert":1,"delivery_full_reload_blocked":5,"delivery_row_patch_update":4,"poll_fetch":1},"order_id":"18569f80-fef5-44cb-b87f-25f8f2ddad0b"}
+Wrote messenger-r2-d1-verify.log
+
+{"verdict":"FAIL","counts":{"full_reload":1,"listener_attach":2},"order_id":null}
+Wrote messenger-r2-d1-verify.log
+
+{"verdict":"PASS","counts":{"full_reload":1,"listener_attach":2,"realtime_event":5,"row_patch_insert":1,"full_reload_blocked":5,"row_patch_update":4,"delivery_realtime_event":5,"delivery_row_patch_insert":1,"delivery_full_reload_blocked":5,"delivery_row_patch_update":4,"poll_fetch":1},"order_id":"64ac05a9-a60c-413b-8130-1c48977fdb80"}
+Wrote messenger-r2-d1-verify.log
+

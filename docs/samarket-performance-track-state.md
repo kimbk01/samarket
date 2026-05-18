@@ -62,7 +62,7 @@
 | **트랙 상태** | **코드 LOCK · E2E 최종 검증 FAIL (2026-05-17)** — login 환경 · `COMPLETE` 보류 |
 | 이번 원인 1개 | **ownership split** — list derive KPI는 RT 즉시 · meta chip/banner는 `load()`/poll only (실측). |
 | 이번 조치 | `deriveOwnerStoreOrderMetaCounts` + `OwnerStoreOrdersView.metaCounts` — **list owner = KPI owner**. |
-| E2E | 3회 `r2-d1-kpi-meta-measure` — **FAIL** (login timeout). 로그 `messenger-r2-d1-kpi-final-verify.log`. [r2-d1-kpi-meta-analysis.md](./r2-d1-kpi-meta-analysis.md) § FINAL LOCK VERIFICATION |
+| E2E | 2026-05-18 `r2-d1-kpi-meta-measure` 3회 — **FAIL** (`/login` 미이탈, 120s). 로그 `messenger-r2-d1-completion-e2e.log`. 원인 가설: **Supabase 비밀번호 로그인 미성공** — [r2-d1-kpi-meta-analysis.md](./r2-d1-kpi-meta-analysis.md) § 로그인 게이트 |
 | 실측 | [r2-d1-kpi-meta-analysis.md](./r2-d1-kpi-meta-analysis.md) § Real Event Measurement · `messenger-r2-d1-kpi-measure.log` |
 | 분석 문서 | [r2-d1-kpi-meta-analysis.md](./r2-d1-kpi-meta-analysis.md) |
 | LOCK 금지 | poll 제거 · RT list reload 복구 · router.refresh · invalidate masking · row-patch ownership 분산 |

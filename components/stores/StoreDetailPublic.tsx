@@ -111,6 +111,10 @@ import {
 } from "@/lib/dibay/delivery-menu-visible-trace";
 import { normalizeStoreMenusForClient } from "@/lib/dibay/store-menus-client-normalize";
 import { hideStoreDetailTransitionShell } from "@/lib/dibay/store-detail-transition-shell-store";
+import {
+  dibayDeliveryDetailPhase2Log,
+  dibayDeliveryDetailPhase2SinceMountOrNav,
+} from "@/lib/dibay/delivery-detail-phase2-trace";
 
 type StoreDetail = {
   id: string;
@@ -205,6 +209,10 @@ export function StoreDetailPublic({
   const seedSummaryPatchTracedRef = useRef<string | null>(null);
   const menuMarkedStoreIdRef = useRef<string | null>(null);
   const menuNormalizeGenerationRef = useRef(0);
+  /** Phase 2 실측: slug 전환 시점 클라 마운트 기준 t0 */
+  const detailPhase2MountT0Ref = useRef<number | null>(null);
+  const phase2FirstProductsLoggedRef = useRef(false);
+  const phase2MenuSectionsLoggedRef = useRef(false);
   const storeIdRef = useRef<string | null>(null);
   const storeRef = useRef(store);
   const productRowsByIdRef = useRef(productRowsById);
@@ -225,6 +233,29 @@ export function StoreDetailPublic({
   useLayoutEffect(() => {
     deliveryRenderTraceBump("detail-public", { slug: decodedSlug });
   });
+
+  useLayoutEffect(() => {
+    if (!decodedSlug) return;
+    detailPhase2MountT0Ref.current = performance.now();
+    phase2FirstProductsLoggedRef.current = false;
+    phase2MenuSectionsLoggedRef.current = false;
+    dibayDeliveryDetailPhase2Log("component_mount", {
+      slug: decodedSlug,
+      hydration_blocked: false,
+      ...dibayDeliveryDetailPhase2SinceMountOrNav(detailPhase2MountT0Ref.current),
+    });
+  }, [decodedSlug]);
+
+  useLayoutEffect(() => {
+    if (!decodedSlug || products.length === 0 || phase2FirstProductsLoggedRef.current) return;
+    phase2FirstProductsLoggedRef.current = true;
+    dibayDeliveryDetailPhase2Log("first_menu_card_data_ready", {
+      slug: decodedSlug,
+      product_count: products.length,
+      menus_loading: menusLoading,
+      ...dibayDeliveryDetailPhase2SinceMountOrNav(detailPhase2MountT0Ref.current),
+    });
+  }, [decodedSlug, products.length, menusLoading]);
 
   useLayoutEffect(() => {
     if (!decodedSlug) return;
@@ -550,24 +581,58 @@ export function StoreDetailPublic({
 
   const loadSplitDetail = useCallback(async () => {
     const startedSlugDecode = decodeSlugSegment(slug);
-    setSummaryLoading(true);
-    setMenusLoading(true);
-    setDbOff(false);
+    const mountT0 = detailPhase2MountT0Ref.current;
     deliveryMenuVisibleBeginNavSession(startedSlugDecode);
     deliveryMenuVisibleMarkFetchStart(startedSlugDecode);
 
+    /**
+     * 메뉴 GET 은 summary/setState 로 인한 페인트·레이아웃보다 먼저 시작 — 워터폴 단축(B).
+     * 동일 runSingleFlight 키로 loadSplitDetail 내부와 합류, 중복 요청 없음.
+     */
+    dibayDeliveryDetailPhase2Log("waterfall", {
+      slug: startedSlugDecode,
+      step: "menus_fetch_scheduled_before_loading_flags",
+      ...dibayDeliveryDetailPhase2SinceMountOrNav(mountT0),
+    });
     const menusPromise = fetchStoreMenusDeduped(slug);
+
+    setSummaryLoading(true);
+    setMenusLoading(true);
+    setDbOff(false);
     const banPromise = fetchStoreBannersDeduped(slug);
     const notPromise = fetchStoreNoticesDeduped(slug);
 
     const menusApplyPromise = menusPromise
       .then((menuRes) => {
+        dibayDeliveryDetailPhase2Log("menus_fetch_response", {
+          slug: startedSlugDecode,
+          status: menuRes.status,
+          fetch_path: "loadSplitDetail",
+          ...dibayDeliveryDetailPhase2SinceMountOrNav(mountT0),
+        });
         if (decodeSlugSegment(latestSlugPropRef.current) !== startedSlugDecode) return false;
-        return applyMenusResponseIfReady(menuRes, startedSlugDecode);
+        const applied = applyMenusResponseIfReady(menuRes, startedSlugDecode);
+        if (applied) {
+          dibayDeliveryDetailPhase2Log("menus_apply_complete", {
+            slug: startedSlugDecode,
+            fetch_path: "loadSplitDetail",
+            ...dibayDeliveryDetailPhase2SinceMountOrNav(mountT0),
+          });
+        }
+        return applied;
       })
       .catch(() => false);
 
+    dibayDeliveryDetailPhase2Log("summary_fetch_start", {
+      slug: startedSlugDecode,
+      ...dibayDeliveryDetailPhase2SinceMountOrNav(mountT0),
+    });
     const sumRes = await fetchStoreSummaryDeduped(slug);
+    dibayDeliveryDetailPhase2Log("summary_fetch_end", {
+      slug: startedSlugDecode,
+      status: sumRes.status,
+      ...dibayDeliveryDetailPhase2SinceMountOrNav(mountT0),
+    });
 
     if (decodeSlugSegment(latestSlugPropRef.current) !== startedSlugDecode) {
       setSummaryLoading(false);
@@ -635,9 +700,18 @@ export function StoreDetailPublic({
 
     applyBannersAndNotices(banRes, notRes);
     applySummaryPayload(sumParsed);
+    dibayDeliveryDetailPhase2Log("header_summary_apply", {
+      slug: startedSlugDecode,
+      ...dibayDeliveryDetailPhase2SinceMountOrNav(mountT0),
+    });
     setSummaryLoading(false);
 
     const menusReady = await menusApplyPromise;
+    dibayDeliveryDetailPhase2Log("menus_apply_await_settled", {
+      slug: startedSlugDecode,
+      menus_ready: menusReady,
+      ...dibayDeliveryDetailPhase2SinceMountOrNav(mountT0),
+    });
     if (menusReady) {
       /* menusLoading 은 core 적용 직후 해제됨 */
     } else {
@@ -671,20 +745,49 @@ export function StoreDetailPublic({
 
   const loadSplitDetailSilent = useCallback(async () => {
     const startedSlugDecode = decodeSlugSegment(slug);
+    const mountT0 = detailPhase2MountT0Ref.current;
     deliveryMenuVisibleBeginNavSession(startedSlugDecode);
     deliveryMenuVisibleMarkFetchStart(startedSlugDecode);
+    dibayDeliveryDetailPhase2Log("waterfall_silent", {
+      slug: startedSlugDecode,
+      step: "menus_fetch_scheduled_first",
+      ...dibayDeliveryDetailPhase2SinceMountOrNav(mountT0),
+    });
     const menusPromise = fetchStoreMenusDeduped(slug);
     const banPromise = fetchStoreBannersDeduped(slug);
     const notPromise = fetchStoreNoticesDeduped(slug);
 
     const menusApplyPromise = menusPromise
       .then((menuRes) => {
+        dibayDeliveryDetailPhase2Log("menus_fetch_response", {
+          slug: startedSlugDecode,
+          status: menuRes.status,
+          fetch_path: "loadSplitDetailSilent",
+          ...dibayDeliveryDetailPhase2SinceMountOrNav(mountT0),
+        });
         if (decodeSlugSegment(latestSlugPropRef.current) !== startedSlugDecode) return false;
-        return applyMenusResponseIfReady(menuRes, startedSlugDecode);
+        const applied = applyMenusResponseIfReady(menuRes, startedSlugDecode);
+        if (applied) {
+          dibayDeliveryDetailPhase2Log("menus_apply_complete", {
+            slug: startedSlugDecode,
+            fetch_path: "loadSplitDetailSilent",
+            ...dibayDeliveryDetailPhase2SinceMountOrNav(mountT0),
+          });
+        }
+        return applied;
       })
       .catch(() => false);
 
+    dibayDeliveryDetailPhase2Log("summary_fetch_start_silent", {
+      slug: startedSlugDecode,
+      ...dibayDeliveryDetailPhase2SinceMountOrNav(mountT0),
+    });
     const sumRes = await fetchStoreSummaryDeduped(slug);
+    dibayDeliveryDetailPhase2Log("summary_fetch_end_silent", {
+      slug: startedSlugDecode,
+      status: sumRes.status,
+      ...dibayDeliveryDetailPhase2SinceMountOrNav(mountT0),
+    });
 
     if (decodeSlugSegment(latestSlugPropRef.current) !== startedSlugDecode) return;
 
@@ -816,6 +919,16 @@ export function StoreDetailPublic({
     }
     return sections;
   }, [menuSections, menuQuery, focusProductId]);
+
+  useLayoutEffect(() => {
+    if (!decodedSlug || menuSectionsFiltered.length === 0 || phase2MenuSectionsLoggedRef.current) return;
+    phase2MenuSectionsLoggedRef.current = true;
+    dibayDeliveryDetailPhase2Log("first_category_sections_ready", {
+      slug: decodedSlug,
+      section_count: menuSectionsFiltered.length,
+      ...dibayDeliveryDetailPhase2SinceMountOrNav(detailPhase2MountT0Ref.current),
+    });
+  }, [decodedSlug, menuSectionsFiltered.length]);
 
   useEffect(() => {
     setActiveMenuSection((i) =>
@@ -1088,6 +1201,12 @@ export function StoreDetailPublic({
   const onOpenProductSheet = useCallback((id: string) => {
     const st = storeRef.current;
     if (!st) return;
+    dibayDeliveryDetailPhase2Log("option_sheet_open_request", {
+      slug: st.slug,
+      product_id: id,
+      list_row_seed: productRowsByIdRef.current[id] != null,
+      ...dibayDeliveryDetailPhase2SinceMountOrNav(detailPhase2MountT0Ref.current),
+    });
     const commerceSnap = resolveStoreFrontCommerceState(st.business_hours_json, st.is_open);
     const blocked = !commerceSnap.isOpenForCommerce;
     const hint = blocked

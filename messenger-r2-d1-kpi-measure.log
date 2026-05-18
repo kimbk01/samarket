@@ -1,0 +1,31 @@
+{
+  "captured_at": "2026-05-17T16:11:32.142Z",
+  "origin": "http://localhost:3000",
+  "owner": "aa11",
+  "buyer": "aaaa",
+  "poll_wait_ms": 10000,
+  "runs": [
+    {
+      "run": 1,
+      "order_id": null,
+      "snapshots": [],
+      "errors": [
+        "page.waitForURL: Timeout 90000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n  navigated to \"http://localhost:3000/login?\"\n  navigated to \"http://localhost:3000/login\"\n============================================================"
+      ],
+      "http_log": [],
+      "timeline": [
+        {
+          "step": "owner_login",
+          "at": 1779034201563
+        }
+      ],
+      "pass": false,
+      "kpi_counts": {}
+    }
+  ],
+  "aggregate": {
+    "pass_runs": 0,
+    "total_runs": 1,
+    "ownership_split_proven": false
+  }
+}

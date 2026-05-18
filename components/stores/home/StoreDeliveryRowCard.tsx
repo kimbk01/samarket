@@ -237,7 +237,7 @@ export function browseItemToRowCard(s: BrowseStoreListItem): StoreRowCardData {
 /**
  * Facebook 피드 게시물형 — 40px 아바타, 이름+메타 줄, 본문, 하단 액션 바
  */
-export const StoreDeliveryRowCard = memo(function StoreDeliveryRowCard({ data }: { data: StoreRowCardData }) {
+function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
   const router = useRouter();
   const viewportRef = useDeliveryStoreDetailViewportPrefetch(data.slug);
   const prefetchStoreDetail = useCallback(
@@ -583,6 +583,11 @@ export const StoreDeliveryRowCard = memo(function StoreDeliveryRowCard({ data }:
       </div>
     </li>
   );
-});
+}
+
+/** 목록이 `homeFeedToRowCard(s)` 처럼 매 렌더 새 참조를 넘겨도, 표시 값 동일 시 행 리렌더 생략 */
+export const StoreDeliveryRowCard = memo(StoreDeliveryRowCardInner, (prev, next) =>
+  storeRowCardDataEqual(prev.data, next.data)
+);
 
 StoreDeliveryRowCard.displayName = "StoreDeliveryRowCard";

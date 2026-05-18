@@ -461,6 +461,9 @@ node scripts/perf/r2-d1-kpi-meta-measure.mjs
 $env:PLAYWRIGHT_BASE_URL='http://localhost:3000'
 $env:E2E_OWNER_USERNAME='aa11'
 $env:E2E_OWNER_PASSWORD='1234'
+# 또는 문서용 별칭 (스크립트가 동일하게 인식):
+$env:E2E_TEST_USERNAME='aa11'
+$env:E2E_TEST_PASSWORD='1234'
 $env:E2E_BUYER_USERNAME='aaaa'
 $env:E2E_BUYER_PASSWORD='1234'
 $env:NEXT_PUBLIC_DIBAY_R2_D1_TRACE='1'
@@ -470,12 +473,78 @@ node scripts/perf/r2-d1-real-event-verify.mjs
 
 ---
 
+## 로그인 게이트 (E2E) — 원인·체크리스트
+
+> **목적**: 최종 E2E가 `page.waitForURL(/login 이탈)` 에서 멈출 때의 **구조적 원인** 정리.  
+> **우회 로그인·앱 패치 없음** — 운영 플로우와 계정·환경 점검만.
+
+### 1. 앱 로그인 플로우 (비밀번호)
+
+1. 브라우저에서 `POST /api/auth/password-login/resolve-identifier`  
+   - `profiles` 조회(서비스 롤)로 `aa11` 등 **로그인 ID → 이메일** 매핑.  
+   - 이메일을 직접 넣으면 조회 없이 그대로 사용.
+2. 브라우저 Supabase JS `signInWithPassword({ email, password })`  
+   - **Auth에 등록된 해당 이메일 + 비밀번호**가 맞아야 세션 생성.
+3. 성공 시 `window.location.replace(postLoginDestination)`  
+   - 기본 `postLoginDestination`은 `next` 없으면 **`/philife`** (`POST_LOGIN_PATH`).
+
+즉, **`aa11`/`1234`가 맞으려면** resolve된 **이메일 계정**의 Supabase Auth 비밀번호가 `1234`여야 하며, ID만 맞고 비밀번호가 틀리면 화면은 `/login`에 남고 Playwright는 타임아웃한다.
+
+### 2. identifier resolve (참고)
+
+| 입력   | 서버 동작 |
+|--------|-----------|
+| `aa11` | `profiles.username` 등으로 lookup → `auth_login_email` 또는 `email` 반환 |
+| `aaaa` | 동일 |
+
+로컬에서 이전에 확인된 예: `aa11` → `ok` + `identifier` 이메일 문자열.  
+(실제 값·비밀번호는 저장소에 비밀번호를 적지 않는다. Supabase Dashboard에서 해당 유저 비밀번호 재설정으로 검증.)
+
+### 3. 콘솔 401 / “로그인 실패” 구분
+
+- 로그인 **전** `GET /api/me/...` 등은 **401**이 정상일 수 있음(미인증).
+- **`signInWithPassword` 실패** 시 UI에 “비밀번호가 올바르지 않습니다” 등 메시지, **URL은 `/login` 유지**.
+- Playwright 로그에 `waiting for navigation until "load"` 만 있고 이탈 없으면, 대부분 **세션 미수립**(비밀번호·환경 불일치) 또는 **dev 서버 미기동**.
+
+### 4. 환경 변수 (스크립트)
+
+| 변수 | 용도 |
+|------|------|
+| `E2E_OWNER_USERNAME` / `E2E_OWNER_PASSWORD` | 오너 로그인 |
+| `E2E_TEST_USERNAME` / `E2E_TEST_PASSWORD` | **동일 오너 별칭** (`kpi-meta-measure` · `real-event-verify`에서 위와 동일 우선순위로 인식) |
+| `E2E_BUYER_*` | 구매자 컨텍스트 (기본 `aaaa` / `1234`) |
+
+**과거 이슈**: 문서만 `E2E_TEST_*` 로 적혀 있고 스크립트는 `E2E_OWNER_*` 만 보던 경우 → **오너 인증 미적용**(기본값 aa11 사용). 현재 스크립트는 둘 다 허용.
+
+### 5. dev / prod 혼선
+
+- Playwright는 `PLAYWRIGHT_BASE_URL` **한 호스트**만 본다.  
+- `.env.local` 의 `NEXT_PUBLIC_SUPABASE_*` 가 **그 인스턴스와 맞는지** 확인.  
+- prod URL로 E2E 돌리면 **로컬 DB·계정과 다른 Auth** → 동일 증상.
+
+### 6. 네비게이션 대기
+
+- 로그인 성공 후 **전체 페이지 이동**(`location.replace`)이라 경로는 `/login` → `/philife` 등으로 바뀜.  
+- 스크립트는 `waitForURL`에 **`waitUntil: domcontentloaded`** · **120s** 를 사용해 `load` 지연에 덜 민감하게 함 (첫 방문 compile 지연은 여전히 짧은 warm-up 권장).
+
+### 7. 실측 (2026-05-18)
+
+| 점검 | 결과 |
+|------|------|
+| 에이전트 사전 | `localhost:3000` 미기동 시 resolve API 연결 불가 |
+| `npm run dev:fast` + `r2-d1-kpi-meta-measure.mjs` 3회 (`E2E_TEST_*`, `waitUntil: domcontentloaded`, 120s) | **전부 owner login 단계 FAIL** — `/login` 이탈 없음. 로그: `messenger-r2-d1-completion-e2e.log` |
+| 해석 | **Supabase `signInWithPassword` 미성공**(비밀번호·Auth 사용자·`NEXT_PUBLIC_SUPABASE_*` 불일치) 또는 폼 검증 실패로 **전체 네비게이션 미발생**. 앱/우회 패치 없이 **계정·환경 대조 필요**. |
+
+**R2-D1 FINAL COMPLETE LOCK** 섹션은 **추가하지 않음** (E2E 3회 PASS 미달).
+
+---
+
 ## 부록 A — 핵심 코드 앵커
 
 | 항목 | 경로 |
 |------|------|
 | KPI 카드 derive | `components/business/owner/OwnerStoreOrdersView.tsx` — `summaryCounts`, `tabBadges` |
-| meta state | 동일 — `load()` → `pendingAcceptCount` 등 |
+| meta chip/banner | 동일 — `metaCounts` ← `deriveOwnerStoreOrderMetaCounts(state.orders)` |
 | row-patch writer | 동일 — `setOrdersForRealtime`, `useOwnerStoreOrdersRealtime` |
 | 서버 meta counts | `app/api/me/stores/[storeId]/orders/route.ts` L95–99 |
 | count helpers | `lib/stores/owner-store-pending-counts.ts`, `owner-store-refund-count.ts` |

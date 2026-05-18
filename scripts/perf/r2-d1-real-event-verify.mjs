@@ -12,8 +12,12 @@ import { chromium } from "playwright";
 import { writeFileSync } from "node:fs";
 
 const origin = (process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
-const ownerUser = process.env.E2E_OWNER_USERNAME?.trim() || "aa11";
-const ownerPass = process.env.E2E_OWNER_PASSWORD ?? "1234";
+const ownerUser =
+  process.env.E2E_OWNER_USERNAME?.trim() ||
+  process.env.E2E_TEST_USERNAME?.trim() ||
+  "aa11";
+const ownerPass =
+  process.env.E2E_OWNER_PASSWORD ?? process.env.E2E_TEST_PASSWORD ?? "1234";
 const buyerUser = process.env.E2E_BUYER_USERNAME?.trim() || "aaaa";
 const buyerPass = process.env.E2E_BUYER_PASSWORD ?? "1234";
 const outPath = process.env.R2D1_VERIFY_OUT ?? "messenger-r2-d1-verify.log";
@@ -29,7 +33,8 @@ async function login(page, user, pass) {
   await submit.waitFor({ state: "visible", timeout: 30_000 });
   await Promise.all([
     page.waitForURL((url) => !url.pathname.startsWith("/login"), {
-      timeout: 90_000,
+      timeout: 120_000,
+      waitUntil: "domcontentloaded",
     }),
     submit.click(),
   ]);

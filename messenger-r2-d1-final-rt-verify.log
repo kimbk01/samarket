@@ -1,0 +1,17 @@
+{
+  "captured_at": "2026-05-17T16:20:28.651Z",
+  "origin": "http://localhost:3000",
+  "owner": "aa11",
+  "buyer": "aaaa",
+  "store_name": null,
+  "store_id": null,
+  "order_id": null,
+  "order_created_at": null,
+  "delivery_patches": [],
+  "errors": [
+    "page.waitForURL: Timeout 90000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n  navigated to \"http://localhost:3000/login?\"\n  navigated to \"http://localhost:3000/login\"\n============================================================"
+  ],
+  "order_list_fetch_timeline": [],
+  "verdict": "FAIL",
+  "dibay_counts": {}
+}

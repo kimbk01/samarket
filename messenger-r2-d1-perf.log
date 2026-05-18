@@ -1,0 +1,51 @@
+{
+  "captured_at": "2026-05-17T12:58:42.142Z",
+  "origin": "http://127.0.0.1:3000",
+  "runs": [
+    {
+      "run": 1,
+      "authOk": false,
+      "dashboardOk": false,
+      "counts": {
+        "realtime_event": 0,
+        "row_patch_insert": 0,
+        "row_patch_update": 0,
+        "row_patch_remove": 0,
+        "full_reload": 0,
+        "full_reload_blocked": 0,
+        "poll_fetch": 0,
+        "pageshow_fetch": 0,
+        "delivery_reload": 0,
+        "delivery_realtime_event": 0,
+        "delivery_row_patch_insert": 0,
+        "delivery_row_patch_update": 0,
+        "delivery_row_patch_delete": 0,
+        "delivery_row_patch_miss": 0,
+        "delivery_full_reload_blocked": 0,
+        "duplicate_fetch": 0,
+        "duplicate_fetch_candidate": 0,
+        "listener_attach": 0,
+        "listener_detach": 0
+      },
+      "duplicate_fetch_lines": 0,
+      "memory_mb_end": null,
+      "order_list_fetch_count": 0,
+      "me_stores_fetch_count": 0,
+      "dibay_r2d1_console_lines": 0,
+      "error": "page.waitForURL: Timeout 90000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"domcontentloaded\"\n  navigated to \"http://127.0.0.1:3000/login?\"\n  navigated to \"http://127.0.0.1:3000/login\"\n  navigated to \"http://127.0.0.1:3000/login\"\n  navigated to \"http://127.0.0.1:3000/login\"\n============================================================"
+    }
+  ],
+  "aggregate": {
+    "full_reload_avg": 0,
+    "poll_fetch_avg": 0,
+    "realtime_event_avg": 0,
+    "row_patch_insert_avg": 0,
+    "full_reload_blocked_avg": 0,
+    "delivery_reload_avg": 0,
+    "delivery_full_reload_blocked_avg": 0,
+    "delivery_row_patch_update_avg": 0,
+    "duplicate_fetch_total": 0,
+    "order_list_fetch_avg": 0,
+    "dibay_r2d1_lines_avg": 0
+  }
+}

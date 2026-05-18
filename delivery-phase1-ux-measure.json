@@ -1,0 +1,94 @@
+{
+  "origin": "http://localhost:3000",
+  "slug": "aa11",
+  "captured_at": "2026-05-17T23:21:38.376Z",
+  "routes": {
+    "stores": [
+      {
+        "label": "/stores #1",
+        "api": {
+          "totalGets": 0,
+          "duplicatePaths": 0,
+          "topDupes": []
+        },
+        "error": "locator.waitFor: Timeout 90000ms exceeded.\nCall log:\n  - waiting for locator('#store-industry-explore') to be visible\n"
+      },
+      {
+        "label": "/stores #2",
+        "api": {
+          "totalGets": 0,
+          "duplicatePaths": 0,
+          "topDupes": []
+        },
+        "error": "locator.waitFor: Timeout 90000ms exceeded.\nCall log:\n  - waiting for locator('#store-industry-explore') to be visible\n"
+      },
+      {
+        "label": "/stores #3",
+        "api": {
+          "totalGets": 0,
+          "duplicatePaths": 0,
+          "topDupes": []
+        },
+        "error": "locator.waitFor: Timeout 90000ms exceeded.\nCall log:\n  - waiting for locator('#store-industry-explore') to be visible\n"
+      }
+    ],
+    "search": [
+      {
+        "label": "/stores/search #1",
+        "api": {
+          "totalGets": 0,
+          "duplicatePaths": 0,
+          "topDupes": []
+        },
+        "error": "locator.waitFor: Timeout 90000ms exceeded.\nCall log:\n  - waiting for getByRole('searchbox', { name: '배달 검색어 입력' }) to be visible\n"
+      },
+      {
+        "label": "/stores/search #2",
+        "api": {
+          "totalGets": 0,
+          "duplicatePaths": 0,
+          "topDupes": []
+        },
+        "error": "locator.waitFor: Timeout 90000ms exceeded.\nCall log:\n  - waiting for getByRole('searchbox', { name: '배달 검색어 입력' }) to be visible\n"
+      },
+      {
+        "label": "/stores/search #3",
+        "api": {
+          "totalGets": 0,
+          "duplicatePaths": 0,
+          "topDupes": []
+        },
+        "error": "locator.waitFor: Timeout 90000ms exceeded.\nCall log:\n  - waiting for getByRole('searchbox', { name: '배달 검색어 입력' }) to be visible\n"
+      }
+    ],
+    "detail": [
+      {
+        "label": "/stores/aa11 #1",
+        "api": {
+          "totalGets": 0,
+          "duplicatePaths": 0,
+          "topDupes": []
+        },
+        "error": "locator.waitFor: Timeout 90000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: '메뉴 검색' }) to be visible\n"
+      },
+      {
+        "label": "/stores/aa11 #2",
+        "api": {
+          "totalGets": 0,
+          "duplicatePaths": 0,
+          "topDupes": []
+        },
+        "error": "locator.waitFor: Timeout 90000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: '메뉴 검색' }) to be visible\n"
+      },
+      {
+        "label": "/stores/aa11 #3",
+        "api": {
+          "totalGets": 0,
+          "duplicatePaths": 0,
+          "topDupes": []
+        },
+        "error": "locator.waitFor: Timeout 90000ms exceeded.\nCall log:\n  - waiting for getByRole('button', { name: '메뉴 검색' }) to be visible\n"
+      }
+    ]
+  }
+}

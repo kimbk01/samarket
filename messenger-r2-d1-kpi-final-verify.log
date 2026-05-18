@@ -1,0 +1,65 @@
+{
+  "captured_at": "2026-05-17T16:20:03.615Z",
+  "origin": "http://localhost:3000",
+  "owner": "aa11",
+  "buyer": "aaaa",
+  "poll_wait_ms": 48000,
+  "runs": [
+    {
+      "run": 1,
+      "order_id": null,
+      "snapshots": [],
+      "errors": [
+        "page.waitForURL: Timeout 90000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n  navigated to \"http://localhost:3000/login?\"\n  navigated to \"http://localhost:3000/login\"\n============================================================"
+      ],
+      "http_log": [],
+      "timeline": [
+        {
+          "step": "owner_login",
+          "at": 1779034531526
+        }
+      ],
+      "pass": false,
+      "kpi_counts": {}
+    },
+    {
+      "run": 2,
+      "order_id": null,
+      "snapshots": [],
+      "errors": [
+        "page.waitForURL: Timeout 90000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n  navigated to \"http://localhost:3000/login?\"\n  navigated to \"http://localhost:3000/login\"\n============================================================"
+      ],
+      "http_log": [],
+      "timeline": [
+        {
+          "step": "owner_login",
+          "at": 1779034622378
+        }
+      ],
+      "pass": false,
+      "kpi_counts": {}
+    },
+    {
+      "run": 3,
+      "order_id": null,
+      "snapshots": [],
+      "errors": [
+        "page.waitForURL: Timeout 90000ms exceeded.\n=========================== logs ===========================\nwaiting for navigation until \"load\"\n  navigated to \"http://localhost:3000/login?\"\n  navigated to \"http://localhost:3000/login\"\n============================================================"
+      ],
+      "http_log": [],
+      "timeline": [
+        {
+          "step": "owner_login",
+          "at": 1779034713115
+        }
+      ],
+      "pass": false,
+      "kpi_counts": {}
+    }
+  ],
+  "aggregate": {
+    "pass_runs": 0,
+    "total_runs": 3,
+    "ownership_split_proven": false
+  }
+}

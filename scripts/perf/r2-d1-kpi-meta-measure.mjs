@@ -6,8 +6,13 @@ import { chromium } from "playwright";
 import { writeFileSync } from "node:fs";
 
 const origin = (process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000").replace(/\/$/, "");
-const ownerUser = process.env.E2E_OWNER_USERNAME?.trim() || "aa11";
-const ownerPass = process.env.E2E_OWNER_PASSWORD ?? "1234";
+/** 문서 `E2E_TEST_*` 와 기존 `E2E_OWNER_*` 모두 허용 (우회가 아니라 env 일치) */
+const ownerUser =
+  process.env.E2E_OWNER_USERNAME?.trim() ||
+  process.env.E2E_TEST_USERNAME?.trim() ||
+  "aa11";
+const ownerPass =
+  process.env.E2E_OWNER_PASSWORD ?? process.env.E2E_TEST_PASSWORD ?? "1234";
 const buyerUser = process.env.E2E_BUYER_USERNAME?.trim() || "aaaa";
 const buyerPass = process.env.E2E_BUYER_PASSWORD ?? "1234";
 const runs = Math.max(1, Number(process.env.R2D1_KPI_RUNS) || 3);
@@ -22,7 +27,10 @@ async function login(page, user, pass) {
   await page.locator('input[type="password"]').fill(pass);
   const submit = page.getByRole("button", { name: /^로그인$/ });
   await Promise.all([
-    page.waitForURL((url) => !url.pathname.startsWith("/login"), { timeout: 90_000 }),
+    page.waitForURL((url) => !url.pathname.startsWith("/login"), {
+      timeout: 120_000,
+      waitUntil: "domcontentloaded",
+    }),
     submit.click(),
   ]);
 }

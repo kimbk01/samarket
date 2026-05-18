@@ -8,6 +8,10 @@ import {
   parseStoreReviewsSummaryPayload,
   type StoreReviewsSummaryRecentItem,
 } from "@/lib/stores/store-detail-split-types";
+import {
+  dibayDeliveryDetailPhase2Log,
+  dibayDeliveryDetailPhase2SinceMountOrNav,
+} from "@/lib/dibay/delivery-detail-phase2-trace";
 
 function starsLabel(rating: number): string {
   const n = Math.min(5, Math.max(0, Math.round(rating)));
@@ -36,9 +40,18 @@ export function StoreDetailDeferredInfoSection({
 
   const load = useCallback(async () => {
     if (!storeSlug.trim()) return;
+    dibayDeliveryDetailPhase2Log("reviews_summary_fetch_start", {
+      slug: storeSlug.trim(),
+      ...dibayDeliveryDetailPhase2SinceMountOrNav(null),
+    });
     setPhase("loading");
     try {
       const { status, json } = await fetchStoreReviewsSummaryDeduped(storeSlug);
+      dibayDeliveryDetailPhase2Log("reviews_summary_fetch_end", {
+        slug: storeSlug.trim(),
+        status,
+        ...dibayDeliveryDetailPhase2SinceMountOrNav(null),
+      });
       const p = parseStoreReviewsSummaryPayload(json);
       if (status === 200 && p.ok) {
         const cnt = Number.isFinite(Number(p.count)) ? Math.max(0, Math.floor(Number(p.count))) : 0;

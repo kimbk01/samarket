@@ -1,0 +1,186 @@
+{
+  "origin": "http://localhost:3000",
+  "slug": "aa11",
+  "captured_at": "2026-05-17T23:55:37.271Z",
+  "auth": {
+    "ok": true,
+    "source": "DELIVERY_PHASE1_STORAGE",
+    "path": "C:\\samarket\\tests\\e2e\\.auth\\cm-storage.json"
+  },
+  "routes": {
+    "stores": [
+      {
+        "dom_content_loaded_ms": 6854,
+        "shell_visible_ms": 7267,
+        "category_tab_usable_ms": 7303,
+        "first_usable_ms": 7303,
+        "header_visible_ms": null,
+        "first_menu_card_ms": null,
+        "navigation": {
+          "domContentLoaded": 6846.5,
+          "loadEventEnd": 0,
+          "type": "navigate"
+        },
+        "api": {
+          "totalGets": 0,
+          "duplicatePaths": 0,
+          "topDupes": []
+        },
+        "error": null
+      },
+      {
+        "dom_content_loaded_ms": 1065,
+        "shell_visible_ms": 1435,
+        "category_tab_usable_ms": 1456,
+        "first_usable_ms": 1456,
+        "header_visible_ms": null,
+        "first_menu_card_ms": null,
+        "navigation": {
+          "domContentLoaded": 1055.9000000003725,
+          "loadEventEnd": 0,
+          "type": "navigate"
+        },
+        "api": {
+          "totalGets": 0,
+          "duplicatePaths": 0,
+          "topDupes": []
+        },
+        "error": null
+      },
+      {
+        "dom_content_loaded_ms": 1118,
+        "shell_visible_ms": 1475,
+        "category_tab_usable_ms": 1492,
+        "first_usable_ms": 1492,
+        "header_visible_ms": null,
+        "first_menu_card_ms": null,
+        "navigation": {
+          "domContentLoaded": 1116.1000000000931,
+          "loadEventEnd": 0,
+          "type": "navigate"
+        },
+        "api": {
+          "totalGets": 0,
+          "duplicatePaths": 0,
+          "topDupes": []
+        },
+        "error": null
+      }
+    ],
+    "search": [
+      {
+        "dom_content_loaded_ms": 3617,
+        "shell_visible_ms": 3670,
+        "first_usable_ms": 3670,
+        "category_tab_usable_ms": null,
+        "header_visible_ms": 3670,
+        "first_menu_card_ms": null,
+        "navigation": {
+          "domContentLoaded": 3614.399999999907,
+          "type": "navigate"
+        },
+        "api": {
+          "totalGets": 0,
+          "duplicatePaths": 0,
+          "topDupes": []
+        },
+        "error": null
+      },
+      {
+        "dom_content_loaded_ms": 1416,
+        "shell_visible_ms": 1476,
+        "first_usable_ms": 1476,
+        "category_tab_usable_ms": null,
+        "header_visible_ms": 1476,
+        "first_menu_card_ms": null,
+        "navigation": {
+          "domContentLoaded": 1410.5999999996275,
+          "type": "navigate"
+        },
+        "api": {
+          "totalGets": 0,
+          "duplicatePaths": 0,
+          "topDupes": []
+        },
+        "error": null
+      },
+      {
+        "dom_content_loaded_ms": 740,
+        "shell_visible_ms": 790,
+        "first_usable_ms": 790,
+        "category_tab_usable_ms": null,
+        "header_visible_ms": 790,
+        "first_menu_card_ms": null,
+        "navigation": {
+          "domContentLoaded": 719.1999999997206,
+          "type": "navigate"
+        },
+        "api": {
+          "totalGets": 0,
+          "duplicatePaths": 0,
+          "topDupes": []
+        },
+        "error": null
+      }
+    ],
+    "detail": [
+      {
+        "dom_content_loaded_ms": 18868,
+        "shell_visible_ms": 18909,
+        "header_visible_ms": 18909,
+        "category_tab_usable_ms": 26514,
+        "first_menu_card_ms": 26522,
+        "first_usable_ms": 18909,
+        "navigation": {
+          "domContentLoaded": 18864,
+          "loadEventEnd": 0,
+          "type": "navigate"
+        },
+        "api": {
+          "totalGets": 5,
+          "duplicatePaths": 0,
+          "topDupes": []
+        },
+        "error": null
+      },
+      {
+        "dom_content_loaded_ms": 6196,
+        "shell_visible_ms": 6259,
+        "header_visible_ms": 6259,
+        "category_tab_usable_ms": 10381,
+        "first_menu_card_ms": 10401,
+        "first_usable_ms": 6259,
+        "navigation": {
+          "domContentLoaded": 6193.0999999996275,
+          "loadEventEnd": 8372.5,
+          "type": "navigate"
+        },
+        "api": {
+          "totalGets": 5,
+          "duplicatePaths": 0,
+          "topDupes": []
+        },
+        "error": null
+      },
+      {
+        "dom_content_loaded_ms": 10734,
+        "shell_visible_ms": 10784,
+        "header_visible_ms": 10784,
+        "category_tab_usable_ms": 19896,
+        "first_menu_card_ms": 20097,
+        "first_usable_ms": 10784,
+        "navigation": {
+          "domContentLoaded": 10729.100000000093,
+          "loadEventEnd": 18039.799999999814,
+          "type": "navigate"
+        },
+        "api": {
+          "totalGets": 5,
+          "duplicatePaths": 0,
+          "topDupes": []
+        },
+        "error": null
+      }
+    ]
+  }
+}
