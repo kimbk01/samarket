@@ -223,6 +223,8 @@ export type CommunityMessengerMessage = {
   messageType: CommunityMessengerMessageType;
   content: string;
   createdAt: string;
+  /** DB `community_messenger_messages.metadata` — system 요약·이미지·통화 등 */
+  metadata?: Record<string, unknown> | null;
   /** 클라이언트 idempotency 키(전송 중복 방지/ACK 정합성). 서버는 metadata.client_message_id 로 저장 */
   clientMessageId?: string | null;
   isMine: boolean;

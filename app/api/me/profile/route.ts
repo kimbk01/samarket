@@ -24,7 +24,8 @@ import {
 import { createEmptyProfileFetchMetrics, type ProfileFetchMetrics } from "@/lib/profile/fetch-profile-row-safe";
 import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
 import { normalizeAppLanguage } from "@/lib/i18n/config";
-import { isValidPhilippinesMobilePhone, normalizePhilippinesPhoneNumber } from "@/lib/phone/philippines-phone";
+import { profilePhoneStorageFieldsFromDb09 } from "@/lib/profile/resolve-profile-phone";
+import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 import { enforceProfileEnsureQuota } from "@/lib/security/rate-limit-presets";
 import { clearMeProfileGetRouteCache } from "@/lib/profile/me-profile-get-route-cache";
 import {
@@ -382,12 +383,17 @@ function parsePatchBody(body: unknown): { ok: true; patch: Record<string, unknow
     const v = b.phone;
     if (v === null || v === "") {
       patch.phone = null;
+      patch.phone_country_code = null;
+      patch.phone_number = null;
     } else {
-      const normalizedPhone = normalizePhilippinesPhoneNumber(String(v));
-      if (!isValidPhilippinesMobilePhone(normalizedPhone)) {
-        return { ok: false, error: "필리핀 휴대폰 번호 형식을 확인해 주세요. 예: +639171234567" };
+      const phNorm = normalizeOptionalPhMobileDb(String(v));
+      if (!phNorm.ok) {
+        return { ok: false, error: phNorm.error };
       }
-      patch.phone = normalizedPhone;
+      const fields = profilePhoneStorageFieldsFromDb09(phNorm.value);
+      patch.phone = fields.phone;
+      patch.phone_country_code = fields.phone_country_code;
+      patch.phone_number = fields.phone_number;
     }
   }
   if ("preferred_language" in b) {

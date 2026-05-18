@@ -241,6 +241,13 @@ export function ChatDetailView({
     storeOrderId.length > 0;
   const isStoreOrderChat =
     isGeneralPurposeChat && room.generalChat?.kind === "store_order";
+  const storeOrderMessengerRoomId = room.communityMessengerRoomId?.trim() || "";
+  useEffect(() => {
+    if (!isStoreOrderChat || !storeOrderMessengerRoomId) return;
+    router.replace(
+      `/community-messenger/rooms/${encodeURIComponent(storeOrderMessengerRoomId)}?from=delivery&cm_list=delivery`
+    );
+  }, [isStoreOrderChat, router, storeOrderMessengerRoomId]);
   /** 상품 거래 1:1 (스토어 주문·일반 목적 채팅 제외) — presence·typing */
   const isTradeProductPresenceRoom =
     room.chatDomain === "trade" && !isGeneralPurposeChat && !!partnerId?.trim();

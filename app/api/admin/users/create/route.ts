@@ -14,6 +14,7 @@ import {
 } from "@/lib/profile/profile-location";
 import { REGIONS } from "@/lib/products/form-options";
 import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
+import { profilePhoneStorageFieldsFromDb09 } from "@/lib/profile/resolve-profile-phone";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -88,13 +89,12 @@ export async function POST(req: NextRequest) {
   }
 
   const contactPhone = phNorm.value;
+  const phoneFields = profilePhoneStorageFieldsFromDb09(contactPhone);
   const region_code = encodeProfileAppLocationStorage(regionId, cityId);
   const region_name = buildProfileRegionNameForStorage(regionId, cityId);
   const address_street_line = streetIn || null;
   const address_detail = detailIn || null;
   const email = emailRaw;
-  const phoneCountryCode = contactPhone ? "+63" : null;
-  const phoneNumber = contactPhone ? contactPhone.replace(/^\+63/, "") : null;
   const nowIso = new Date().toISOString();
 
   if (!username || username.length < 2 || username.length > 64) {
@@ -165,9 +165,9 @@ export async function POST(req: NextRequest) {
     verified_member_at: nowIso,
     manual_account_type: accountTypeRaw,
     is_special_member: false,
-    phone: contactPhone,
-    phone_country_code: phoneCountryCode,
-    phone_number: phoneNumber,
+    phone: phoneFields.phone,
+    phone_country_code: phoneFields.phone_country_code,
+    phone_number: phoneFields.phone_number,
     phone_verified: true,
     phone_verification_status: "verified",
     phone_verified_at: nowIso,
@@ -213,7 +213,7 @@ export async function POST(req: NextRequest) {
         labelType: "home",
         nickname: "대표",
         recipientName: name || nickname,
-        phoneNumber: phoneNumber,
+        phoneNumber: phoneFields.phone_number,
         countryCode: "PH",
         countryName: "Philippines",
         province: provinceLabel,

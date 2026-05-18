@@ -79,6 +79,9 @@ export type ConditionalAppShellResolvedFlags = {
   mountPhilifeWarmPrefetch: boolean;
   mainBottomClass: string;
   showRegionBar: boolean;
+  /** `/stores/[slug]/cart|checkout` — 헤더·주문바 고정용 뷰포트 잠금 */
+  isStoreCommerceCartCheckoutPage: boolean;
+  isMainColumnViewportLocked: boolean;
 };
 
 /**
@@ -116,6 +119,10 @@ export function resolveConditionalAppShellFlags(
   /** 배달(/stores) 허브도 전역 통합 BottomNav를 쓴다. 상세·주문 플로우만 아래 별도 조건으로 숨긴다. */
   const isStoreCheckoutOrDetailFlow =
     isStoreSection && !isStoresHubBottomNavSurface && !isStoreOwnerAdminRoute;
+  /** `/stores/[slug]/cart|checkout` — 헤더·주문 CTA 고정, `main` 하단 pb 0 */
+  const isStoreCommerceCartCheckoutPage =
+    /^\/stores\/[^/]+\/(cart|checkout)(\/|$)/.test(normalizedStorePath);
+  const isMainColumnViewportLocked = isStoreCommerceCartCheckoutPage;
   const isMypageTradeChatRoom = Boolean(pathname?.match(/^\/mypage\/trade\/chat\/[^/]+$/));
   const isCommunityMessengerRoom = isCommunityMessengerRoomPathname(pathname);
   const isCommunityMessengerCallPage = Boolean(pathname?.match(/^\/community-messenger\/calls\/[^/]+$/));
@@ -138,11 +145,15 @@ export function resolveConditionalAppShellFlags(
    * 여기서도 `bg-sam-app` 를 붙이면 Tailwind 유틸 우선순위가 꼬여 당김 시 배경이 어긋날 수 있다.
    */
   const appShellRootViewportDefaultClass = `min-h-[100dvh] min-w-0 max-w-full overflow-x-clip${isStoreOrderHeroMenuSurface ? "" : " bg-sam-app"}`;
+  const storeCartViewportLockedShellClass =
+    "flex h-[100dvh] max-h-[100dvh] min-w-0 max-w-full flex-col overflow-hidden bg-sam-app";
   const appShellRootClass = isViewportLockedChatDetail
     ? topTier1RuleSet.showRegionBar
       ? "flex h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px))] max-h-[calc(100dvh-3.5rem-env(safe-area-inset-top,0px))] min-w-0 max-w-full flex-col overflow-hidden bg-sam-app"
-      : "flex h-[100dvh] max-h-[100dvh] min-w-0 max-w-full flex-col overflow-hidden bg-sam-app"
-    : appShellRootViewportDefaultClass;
+      : storeCartViewportLockedShellClass
+    : isMainColumnViewportLocked
+      ? storeCartViewportLockedShellClass
+      : appShellRootViewportDefaultClass;
   const isChatRoomDetail = isAnyChatRoomDetail;
   const isSearch = pathname === "/search";
   const isServicesSection = pathname === "/services" || (pathname?.startsWith("/services/") ?? false);
@@ -241,6 +252,8 @@ export function resolveConditionalAppShellFlags(
       ? "pb-0"
       : isTradeMeetSpotPickRoute
         ? "pb-0"
+      : isStoreCommerceCartCheckoutPage
+        ? "pb-0"
         : showBottomNav || isPostDetail
           ? showHomeTradeHubFloatingBar
             ? MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS
@@ -291,5 +304,7 @@ export function resolveConditionalAppShellFlags(
     mountPhilifeWarmPrefetch,
     mainBottomClass,
     showRegionBar: showRegionBarComputed,
+    isStoreCommerceCartCheckoutPage,
+    isMainColumnViewportLocked: isChatRoomDetail || isMainColumnViewportLocked,
   };
 }

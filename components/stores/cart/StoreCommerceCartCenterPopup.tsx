@@ -1,6 +1,7 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 /** 디바이 장바구니 — 가운데 팝업 (radius 4px) */
 export const CART_POPUP_RADIUS_CLASS = "rounded-[4px]";
@@ -16,6 +17,12 @@ export const CART_POPUP_BTN_DANGER =
 
 export const CART_POPUP_BTN_GHOST =
   "w-full rounded-[4px] py-2 text-[14px] font-semibold text-neutral-600 disabled:opacity-50";
+
+/** 주문 확인 — 고정 주문 바 바로 위 여백 */
+const CHECKOUT_CONFIRM_POPUP_ABOVE_FOOTER_PAD =
+  "pb-[calc(5.25rem+env(safe-area-inset-bottom,0px))]";
+
+export type StoreCommerceCartPopupPlacement = "center" | "above-checkout-footer";
 
 export function StoreCommerceCartAlert({
   children,
@@ -42,6 +49,7 @@ export function StoreCommerceCartCenterPopup({
   onBackdropClose,
   children,
   footer,
+  placement = "center",
 }: {
   open: boolean;
   title: string;
@@ -50,12 +58,25 @@ export function StoreCommerceCartCenterPopup({
   onBackdropClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
+  /** `above-checkout-footer`: 가게배달 주문하기 바 위에 확인 팝업 */
+  placement?: StoreCommerceCartPopupPlacement;
 }) {
-  if (!open) return null;
+  const [portalReady, setPortalReady] = useState(false);
 
-  return (
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
+
+  if (!open || !portalReady) return null;
+
+  const shellAlign =
+    placement === "above-checkout-footer"
+      ? `items-end ${CHECKOUT_CONFIRM_POPUP_ABOVE_FOOTER_PAD}`
+      : "items-center";
+
+  const node = (
     <div
-      className="fixed inset-0 z-[110] flex items-center justify-center px-4"
+      className={`fixed inset-0 z-[110] flex justify-center px-4 ${shellAlign}`}
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
@@ -68,7 +89,7 @@ export function StoreCommerceCartCenterPopup({
         disabled={busy}
       />
       <div
-        className={`relative z-[1] w-full max-w-[min(92vw,24rem)] bg-white p-4 shadow-xl ${CART_POPUP_RADIUS_CLASS}`}
+        className={`relative z-[1] mb-2 w-full max-w-[min(92vw,24rem)] bg-white p-4 shadow-xl ${CART_POPUP_RADIUS_CLASS}`}
       >
         <h2 id={titleId} className="text-[15px] font-bold leading-snug text-neutral-900">
           {title}
@@ -78,4 +99,6 @@ export function StoreCommerceCartCenterPopup({
       </div>
     </div>
   );
+
+  return createPortal(node, document.body);
 }

@@ -5,6 +5,8 @@ import { jsonError, jsonOk } from "@/lib/http/api-route";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { enforcePhoneVerificationCheckQuota } from "@/lib/security/rate-limit-presets";
 import { verifyPhoneOtpForUser } from "@/lib/auth/phone-otp-service";
+import { profilePhoneStorageFieldsFromDb09 } from "@/lib/profile/resolve-profile-phone";
+import { normalizePhMobileDb, parsePhMobileInput } from "@/lib/utils/ph-mobile";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -36,12 +38,18 @@ export async function POST(req: NextRequest) {
   if (!verified.ok) {
     return jsonError(verified.message, verified.status);
   }
-  const normalizedPhone = verified.data.phone;
+  const db09 =
+    normalizePhMobileDb(parsePhMobileInput(verified.data.phone)) ??
+    normalizePhMobileDb(parsePhMobileInput(inputPhone));
+  const phoneFields = profilePhoneStorageFieldsFromDb09(db09);
   const now = new Date().toISOString();
   const patch: Record<string, unknown> = {
     ...(displayName ? { display_name: displayName } : {}),
-    phone_country_code: "+63",
-    phone_number: normalizedPhone.replace(/^\+63/, ""),
+    phone: phoneFields.phone,
+    phone_country_code: phoneFields.phone_country_code,
+    phone_number: phoneFields.phone_number,
+    phone_verified: true,
+    phone_verified_at: now,
     phone_verification_status: "verified",
     phone_verification_method: verified.data.verification_method,
     preferred_country: "PH",
@@ -53,7 +61,7 @@ export async function POST(req: NextRequest) {
   }
   return jsonOk({
     verification: {
-      phone: normalizedPhone,
+      phone: phoneFields.phone ?? verified.data.phone,
       phone_verified: true,
       phone_verification_status: "verified",
       nickname: displayName,

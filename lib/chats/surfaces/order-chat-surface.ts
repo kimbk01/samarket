@@ -1,7 +1,9 @@
+import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
+import { encodeCommunityMessengerRoomCmCtx } from "@/lib/community-messenger/cm-ctx-url";
+
 /**
  * 주문 채팅 표면 — 문구·경로만 이 파일에서 관리.
  */
-
 /**
  * 메신저 「배달 채팅」 묶음 → 배달·매장 주문 메신저 방만 모아 보는 서브 라우트.
  *
@@ -30,15 +32,32 @@ export const ORDER_CHAT_SURFACE = {
 export type OrderChatSurface = typeof ORDER_CHAT_SURFACE;
 
 /** 배달·매장 주문 채팅방 — 메신저 앱 라우트 (`/community-messenger/rooms/[roomId]`). */
-export function orderMessengerRoomHref(roomId: string): string {
+export function buildStoreOrderMessengerRoomHref(
+  roomId: string,
+  options?: {
+    contextMeta?: CommunityMessengerRoomContextMetaV1 | null;
+    entryOrigin?: "delivery" | null;
+  }
+): string {
   const id = roomId.trim();
   if (!id) return ORDER_CHAT_MESSENGER_LIST_HREF;
-  return `/community-messenger/rooms/${encodeURIComponent(id)}?from=delivery`;
+  const u = new URL(`/community-messenger/rooms/${encodeURIComponent(id)}`, "https://samarket.local");
+  u.searchParams.set("from", options?.entryOrigin ?? "delivery");
+  u.searchParams.set("cm_list", "delivery");
+  const meta = options?.contextMeta;
+  if (meta?.kind === "delivery") {
+    u.searchParams.set("cm_ctx", encodeCommunityMessengerRoomCmCtx(meta));
+  }
+  return `${u.pathname}${u.search}`;
 }
 
-/** 메신저 방 id 가 없을 때 — RSC 가 방을 확보한 뒤 메신저로 리다이렉트 */
+export function orderMessengerRoomHref(roomId: string): string {
+  return buildStoreOrderMessengerRoomHref(roomId);
+}
+
+/** 메신저 방 id 가 없을 때 — RSC 가 `ensureStoreOrderMessengerRoom` 후 메신저로 리다이렉트 */
 export function storeOrderChatEnsureRedirectHref(orderId: string): string {
   const id = orderId.trim();
   if (!id) return ORDER_CHAT_MESSENGER_LIST_HREF;
-  return `/orders/store/${encodeURIComponent(id)}/chat`;
+  return `/my/business/store-order-chat/${encodeURIComponent(id)}`;
 }

@@ -45,7 +45,7 @@ export function OwnerOrderStatusTimeline({
   const terminal = new Set(["cancelled", "refunded", "refund_requested"]);
   if (terminal.has(orderStatus)) {
     return (
-      <div className="mt-2 rounded-[14px] border border-[var(--biz-card-border)] bg-[var(--biz-primary-soft)] px-3 py-2">
+      <div className="mt-2 rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-primary-soft)] px-3 py-2">
         <p className={Biz.textMuted}>
           {orderStatus === "refund_requested"
             ? "환불 요청 처리 중입니다."

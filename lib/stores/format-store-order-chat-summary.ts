@@ -1,5 +1,9 @@
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
+import { orderStatusLabelForSummary } from "@/lib/store-order-chat/store-order-summary-timeline";
+
+/** 채팅·서버 idempotent 요약 — 단일 헤더 (구매자/매장 동일) */
+export const STORE_ORDER_SUMMARY_HEADER = "📋 주문 요약";
 
 export type ChatSummaryOrderFields = {
   store_name?: string;
@@ -12,27 +16,41 @@ export type ChatSummaryOrderFields = {
   buyer_phone?: string | null;
   buyer_note?: string | null;
   payment_amount?: number;
+  discount_amount?: number | null;
   delivery_fee_amount?: number | null;
+  buyer_payment_method?: string | null;
+  buyer_payment_method_detail?: string | null;
+  created_at?: string | null;
+  accepted_at?: string | null;
+  estimated_prep_minutes?: number | null;
+  estimated_ready_at?: string | null;
 };
 
 export type ChatSummaryItemFields = {
   product_title_snapshot: string;
   price_snapshot: number;
   qty: number;
+  subtotal?: number | null;
   options_snapshot_json?: unknown;
 };
 
-/** 채팅방에 붙여넣기 좋은 주문 요약 텍스트 (매장 → 구매자 안내용) */
+/** 채팅방 주문 요약 — 자동·수동 전송 모두 동일 포맷 */
 export function formatStoreOrderSummaryForChatMessage(
   order: ChatSummaryOrderFields,
   items: ChatSummaryItemFields[],
-  role: "seller" | "buyer" = "seller"
+  _role: "seller" | "buyer" = "seller"
 ): string {
   const lines: string[] = [];
-  lines.push(role === "seller" ? "📋 [매장] 주문 내용 전달" : "📋 [주문 요약]");
+  lines.push(STORE_ORDER_SUMMARY_HEADER);
   if (order.store_name) lines.push(`매장: ${order.store_name}`);
   if (order.order_no) lines.push(`주문번호: ${order.order_no}`);
-  if (order.order_status) lines.push(`상태: ${order.order_status}`);
+  if (order.order_status) {
+    const labeled =
+      order.order_status.includes("주문") || order.order_status.includes("배달") || order.order_status.includes("조리")
+        ? order.order_status
+        : orderStatusLabelForSummary(order.order_status);
+    lines.push(`상태: ${labeled}`);
+  }
   if (order.delivery_address_summary?.trim()) {
     lines.push(`배달지역: ${order.delivery_address_summary.trim()}`);
   }
@@ -47,8 +65,12 @@ export function formatStoreOrderSummaryForChatMessage(
     for (const it of items) {
       const opt = orderLineOptionsSummary(it.options_snapshot_json);
       const titleLine = [it.product_title_snapshot, opt].filter(Boolean).join(" · ");
-      lines.push(`· ${titleLine} ${formatMoneyPhp(it.price_snapshot)} × ${it.qty}`);
+      const subtotal = Number(it.subtotal ?? it.price_snapshot * it.qty) || 0;
+      lines.push(`· ${titleLine} ${formatMoneyPhp(it.price_snapshot)} × ${it.qty} = ${formatMoneyPhp(subtotal)}`);
     }
+  }
+  if (order.discount_amount != null && Number(order.discount_amount) > 0) {
+    lines.push(`할인: -${formatMoneyPhp(order.discount_amount)}`);
   }
   if (order.delivery_fee_amount != null && Number(order.delivery_fee_amount) > 0) {
     lines.push(`배달비: ${formatMoneyPhp(order.delivery_fee_amount)}`);

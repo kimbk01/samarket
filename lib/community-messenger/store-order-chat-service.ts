@@ -1,9 +1,21 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { serializeCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
+import {
+  buildMessengerContextInputFromStoreOrderSnapshot,
+  buildMessengerContextMetaFromStoreOrder,
+} from "@/lib/community-messenger/store-order-messenger-context";
 import { systemChatLineForOrderStatus, type OrderChatFlow } from "@/lib/shared-order-chat/chat-message-builder";
 import type { SharedOrderStatus } from "@/lib/shared-orders/types";
 import { storeOrderStatusToShared } from "@/lib/store-commerce/map-order-status";
+import { isStoreOrderSummarySystemContent } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
+import {
+  formatStoreOrderSummaryForChatMessage,
+  type ChatSummaryItemFields,
+  type ChatSummaryOrderFields,
+} from "@/lib/stores/format-store-order-chat-summary";
+import { buildStoreOrderSummaryTimelineSteps } from "@/lib/store-order-chat/store-order-summary-timeline";
+import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
 
 function trimText(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -64,19 +76,261 @@ function contextMetaFromOrder(row: StoreOrderMessengerOrderRow): CommunityMessen
   const orderNo = trimText(row.order_no);
   const fulfillmentType = trimText(row.fulfillment_type);
   const orderStatus = trimText(row.order_status);
-  const meta: CommunityMessengerRoomContextMetaV1 = {
-    v: 1,
-    kind: "delivery",
-    headline: orderNo ? `${storeName} · 주문 ${orderNo}` : `${storeName} · 주문`,
-    storeOrderId: orderId,
-    storeId: trimText(row.store_id),
-    orderNo,
-    fulfillmentType,
+  const paymentRaw = Number(row.payment_amount ?? row.total_amount ?? 0);
+  const paymentAmount = Number.isFinite(paymentRaw) ? paymentRaw : 0;
+  return buildMessengerContextMetaFromStoreOrder(
+    buildMessengerContextInputFromStoreOrderSnapshot({
+      orderId,
+      storeName,
+      orderNo,
+      storeId: trimText(row.store_id),
+      fulfillmentType,
+      orderStatus,
+      paymentAmount,
+    })
+  );
+}
+
+type StoreOrderSummaryRow = StoreOrderMessengerOrderRow & {
+  created_at?: unknown;
+  delivery_address_summary?: unknown;
+  delivery_address_detail?: unknown;
+  buyer_phone?: unknown;
+  buyer_note?: unknown;
+  delivery_fee_amount?: unknown;
+  discount_amount?: unknown;
+  buyer_payment_method?: unknown;
+  buyer_payment_method_detail?: unknown;
+  accepted_at?: unknown;
+  estimated_prep_minutes?: unknown;
+  estimated_ready_at?: unknown;
+};
+
+async function loadStoreOrderSummaryFields(
+  sb: SupabaseClient<any>,
+  orderId: string
+): Promise<{ order: ChatSummaryOrderFields; items: ChatSummaryItemFields[] } | null> {
+  const { data, error } = await sb
+    .from("store_orders")
+    .select(
+      "id, order_no, order_status, fulfillment_type, payment_amount, total_amount, discount_amount, created_at, accepted_at, estimated_prep_minutes, estimated_ready_at, delivery_address_summary, delivery_address_detail, buyer_phone, buyer_note, delivery_fee_amount, buyer_payment_method, buyer_payment_method_detail, stores(store_name)"
+    )
+    .eq("id", orderId)
+    .maybeSingle();
+  if (error || !data) return null;
+  const row = data as StoreOrderSummaryRow;
+  const store = storeRowFromOrder(row);
+  const status = trimText(row.order_status);
+  const order: ChatSummaryOrderFields = {
+    store_name: trimText(store?.store_name) || "매장",
+    order_no: trimText(row.order_no),
+    order_status: BUYER_ORDER_STATUS_LABEL[status] ?? status,
+    fulfillment_type: trimText(row.fulfillment_type),
+    delivery_address_summary:
+      typeof row.delivery_address_summary === "string" ? row.delivery_address_summary : null,
+    delivery_address_detail:
+      typeof row.delivery_address_detail === "string" ? row.delivery_address_detail : null,
+    buyer_phone: typeof row.buyer_phone === "string" ? row.buyer_phone : null,
+    buyer_note: typeof row.buyer_note === "string" ? row.buyer_note : null,
+    payment_amount: Number(row.payment_amount ?? row.total_amount ?? 0) || 0,
+    discount_amount:
+      row.discount_amount != null ? Number(row.discount_amount) : null,
+    delivery_fee_amount:
+      row.delivery_fee_amount != null ? Number(row.delivery_fee_amount) : null,
+    buyer_payment_method:
+      typeof row.buyer_payment_method === "string" ? row.buyer_payment_method : null,
+    buyer_payment_method_detail:
+      typeof row.buyer_payment_method_detail === "string" ? row.buyer_payment_method_detail : null,
+    created_at: typeof row.created_at === "string" ? row.created_at : null,
+    accepted_at: typeof row.accepted_at === "string" ? row.accepted_at : null,
+    estimated_prep_minutes:
+      row.estimated_prep_minutes != null ? Number(row.estimated_prep_minutes) : null,
+    estimated_ready_at:
+      typeof row.estimated_ready_at === "string" ? row.estimated_ready_at : null,
   };
-  const priceLabel = moneyLabel(row.payment_amount ?? row.total_amount);
-  if (priceLabel) meta.priceLabel = priceLabel;
-  if (orderStatus) meta.stepLabel = orderStatus;
-  return meta;
+  const { data: itemRows } = await sb
+    .from("store_order_items")
+    .select("product_title_snapshot, price_snapshot, qty, subtotal, options_snapshot_json")
+    .eq("order_id", orderId);
+  const items = ((itemRows ?? []) as ChatSummaryItemFields[]).map((it) => ({
+    product_title_snapshot: trimText(it.product_title_snapshot) || "상품",
+    price_snapshot: Number(it.price_snapshot) || 0,
+    qty: Math.max(1, Math.floor(Number(it.qty) || 1)),
+    subtotal: Number((it as { subtotal?: unknown }).subtotal ?? 0) || undefined,
+    options_snapshot_json: it.options_snapshot_json,
+  }));
+  return { order, items };
+}
+
+/** 상태·결제 변경 후 방 `summary` 의 stepLabel·headline 을 주문 스냅샷과 맞춘다. */
+export async function syncStoreOrderMessengerRoomContextMeta(
+  sb: SupabaseClient<any>,
+  orderId: string
+): Promise<void> {
+  const oid = orderId.trim();
+  if (!oid) return;
+  const { data: orderRow, error } = await sb
+    .from("store_orders")
+    .select(
+      "id, order_no, store_id, order_status, fulfillment_type, payment_amount, total_amount, community_messenger_room_id, stores(store_name)"
+    )
+    .eq("id", oid)
+    .maybeSingle();
+  if (error || !orderRow) return;
+  const roomId = trimText((orderRow as StoreOrderMessengerOrderRow).community_messenger_room_id);
+  if (!roomId) return;
+  const meta = contextMetaFromOrder(orderRow as StoreOrderMessengerOrderRow);
+  const payload = serializeCommunityMessengerRoomContextMeta(meta);
+  await sb
+    .from("community_messenger_rooms")
+    .update({ summary: payload, updated_at: nowIso() })
+    .eq("id", roomId);
+}
+
+async function loadStoreOrderSummaryMessageState(
+  sb: SupabaseClient<any>,
+  roomId: string,
+  orderId: string
+): Promise<{ metadataSummaryId: string; legacySystemSummaryId: string }> {
+  const { data: byMeta, error: metaErr } = await sb
+    .from("community_messenger_messages")
+    .select("id")
+    .eq("room_id", roomId)
+    .eq("message_type", "system")
+    .filter("metadata->>kind", "eq", "store_order_summary")
+    .filter("metadata->>storeOrderId", "eq", orderId)
+    .limit(1)
+    .maybeSingle();
+  const metadataSummaryId = !metaErr ? trimText((byMeta as { id?: unknown } | null)?.id) : "";
+  if (metadataSummaryId) return { metadataSummaryId, legacySystemSummaryId: "" };
+
+  const { data: rows } = await sb
+    .from("community_messenger_messages")
+    .select("id, content")
+    .eq("room_id", roomId)
+    .eq("message_type", "system")
+    .order("created_at", { ascending: true })
+    .limit(40);
+  for (const row of (rows ?? []) as Array<{ content?: unknown }>) {
+    if (isStoreOrderSummarySystemContent(String(row.content ?? ""))) {
+      return {
+        metadataSummaryId,
+        legacySystemSummaryId: trimText((row as { id?: unknown }).id),
+      };
+    }
+  }
+  return { metadataSummaryId, legacySystemSummaryId: "" };
+}
+
+async function loadStoreOrderStatusEvents(
+  sb: SupabaseClient<any>,
+  orderId: string
+): Promise<Array<{ to_status?: string | null; created_at?: string | null }>> {
+  const { data, error } = await sb
+    .from("store_order_events")
+    .select("to_status, created_at")
+    .eq("order_id", orderId)
+    .order("created_at", { ascending: true });
+  if (error) return [];
+  return (data ?? []) as Array<{ to_status?: string | null; created_at?: string | null }>;
+}
+
+/** 방 최초 연결 시 주문 요약 system 메시지 1회 (idempotent). */
+export async function appendStoreOrderMessengerOrderSummaryIfNeeded(
+  sb: SupabaseClient<any>,
+  orderId: string,
+  ensuredRoom?: Extract<StoreOrderMessengerEnsureResult, { ok: true }>
+): Promise<void> {
+  const ensured =
+    ensuredRoom ?? (await ensureStoreOrderMessengerRoom(sb, { orderId }));
+  if (!ensured.ok) return;
+  const summaryState = await loadStoreOrderSummaryMessageState(sb, ensured.roomId, orderId.trim());
+  const loaded = await loadStoreOrderSummaryFields(sb, orderId.trim());
+  if (!loaded) return;
+  const content = formatStoreOrderSummaryForChatMessage(loaded.order, loaded.items, "buyer");
+  if (!content.trim()) return;
+
+  const { data: orderRow } = await sb
+    .from("store_orders")
+    .select("created_at, fulfillment_type, order_status")
+    .eq("id", orderId.trim())
+    .maybeSingle();
+  const fulfillmentType = trimText((orderRow as { fulfillment_type?: unknown } | null)?.fulfillment_type) || loaded.order.fulfillment_type || "pickup";
+  const orderStatus = trimText((orderRow as { order_status?: unknown } | null)?.order_status) || loaded.order.order_status || "pending";
+  const orderCreatedAt = trimText((orderRow as { created_at?: unknown } | null)?.created_at);
+  const statusEvents = await loadStoreOrderStatusEvents(sb, orderId.trim());
+  const timeline = buildStoreOrderSummaryTimelineSteps({
+    fulfillmentType,
+    orderStatus,
+    orderCreatedAt: orderCreatedAt || null,
+    statusEvents,
+  });
+
+  const createdAt = nowIso();
+  const metadata = {
+    domain: "store_order",
+    kind: "store_order_summary",
+    storeOrderId: orderId.trim(),
+    orderNo: loaded.order.order_no ?? null,
+    fulfillmentType,
+    orderStatus,
+    timeline,
+    order: {
+      id: orderId.trim(),
+      ...loaded.order,
+      order_status: orderStatus,
+    },
+    items: loaded.items,
+  };
+  const updateSummaryId = summaryState.metadataSummaryId || summaryState.legacySystemSummaryId;
+  if (updateSummaryId) {
+    await sb
+      .from("community_messenger_messages")
+      .update({
+        message_type: "system",
+        content,
+        metadata,
+      })
+      .eq("id", updateSummaryId)
+      .eq("room_id", ensured.roomId);
+    return;
+  }
+  const { data: inserted, error } = await sb
+    .from("community_messenger_messages")
+    .insert({
+      room_id: ensured.roomId,
+      sender_id: null,
+      message_type: "system",
+      content,
+      metadata,
+      created_at: createdAt,
+    })
+    .select("id")
+    .single();
+  if (error) return;
+  await sb
+    .from("community_messenger_rooms")
+    .update({
+      last_message: content.slice(0, 200),
+      last_message_type: "system",
+      last_message_at: createdAt,
+      updated_at: createdAt,
+    })
+    .eq("id", ensured.roomId);
+  const actor = ensured.buyerUserId;
+  await sb.rpc("community_messenger_apply_unread_for_text_message", {
+    p_room_id: ensured.roomId,
+    p_sender_id: actor,
+    p_read_at: createdAt,
+  });
+  const messageId = trimText((inserted as { id?: unknown } | null)?.id);
+  if (messageId) {
+    await sb
+      .from("community_messenger_participants")
+      .update({ last_read_message_id: messageId, last_read_at: createdAt, unread_count: 0 })
+      .eq("room_id", ensured.roomId)
+      .eq("user_id", actor);
+  }
 }
 
 export async function ensureStoreOrderMessengerRoom(
@@ -178,7 +432,7 @@ export async function ensureStoreOrderMessengerRoom(
   }
   await sb.from("store_orders").update({ community_messenger_room_id: roomId }).eq("id", orderId);
 
-  return {
+  const ensured: Extract<StoreOrderMessengerEnsureResult, { ok: true }> = {
     ok: true,
     roomId,
     buyerUserId,
@@ -188,6 +442,14 @@ export async function ensureStoreOrderMessengerRoom(
     storeName: trimText(store?.store_name) || "매장",
     orderNo: trimText(row.order_no),
   };
+
+  try {
+    await appendStoreOrderMessengerOrderSummaryIfNeeded(sb, orderId, ensured);
+  } catch {
+    /* ignore */
+  }
+
+  return ensured;
 }
 
 async function appendStoreOrderMessengerSystemMessage(
@@ -247,7 +509,7 @@ export async function appendStoreOrderMessengerPaymentCompletedLine(
 ): Promise<void> {
   await appendStoreOrderMessengerSystemMessage(sb, {
     orderId,
-    content: "주문이 등록되었어요. 매장에서 확인한 뒤 접수·준비가 진행되면 여기서도 안내가 올라와요.",
+    content: "결제·금액이 확정되었어요. 매장에서 확인하면 접수·준비 안내가 이어집니다.",
   });
 }
 

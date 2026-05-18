@@ -73,5 +73,11 @@ async function OrdersStoreOrderChatPageBody({
       </div>
     );
   }
-  redirect(`/community-messenger/rooms/${encodeURIComponent(result.roomId)}?from=delivery`);
+  const roomUrl = new URL(
+    `/community-messenger/rooms/${encodeURIComponent(result.roomId)}`,
+    "https://samarket.local"
+  );
+  roomUrl.searchParams.set("from", "delivery");
+  roomUrl.searchParams.set("cm_list", "delivery");
+  redirect(`${roomUrl.pathname}${roomUrl.search}`);
 }

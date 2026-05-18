@@ -10,6 +10,7 @@ import { useMessengerRoomPhase2View } from "@/components/community-messenger/roo
 import { useMessengerRoomMobileViewport } from "@/components/community-messenger/room/phase2/messenger-room-mobile-viewport-context";
 import { useMessengerUIStore } from "@/lib/community-messenger/stores/useMessengerUIStore";
 import { useMatchMaxWidthMd } from "@/lib/ui/use-match-max-width";
+import { CommunityMessengerRoomPhase2StoreOrderChrome } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2StoreOrderChrome";
 
 export function CommunityMessengerRoomPhase2AttachmentsAndTrade() {
   const vm = useMessengerRoomPhase2View();
@@ -39,6 +40,10 @@ export function CommunityMessengerRoomPhase2AttachmentsAndTrade() {
         onChange={vm.onPickImageFile}
       />
       <input ref={vm.fileInputRef} type="file" className="hidden" onChange={vm.onPickFile} />
+
+      {vm.showMessengerStoreOrderDock ? (
+        <CommunityMessengerRoomPhase2StoreOrderChrome keyboardCompact={keyboardCompact} />
+      ) : null}
 
       {vm.showMessengerTradeProcessDock ? (
         <>

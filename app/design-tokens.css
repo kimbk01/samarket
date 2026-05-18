@@ -314,6 +314,18 @@
   --cm-room-header-bg: color-mix(in srgb, var(--sam-info) 7%, var(--messenger-surface));
 }
 
+[data-cm-room][data-delivery-viewer-role="seller"] {
+  --cm-room-page-bg: color-mix(in srgb, var(--sam-warning-soft) 35%, var(--messenger-surface));
+  --cm-room-header-bg: color-mix(in srgb, var(--sam-warning) 8%, var(--messenger-surface));
+  --cm-room-delivery-chrome-bg: color-mix(in srgb, var(--sam-warning-soft) 50%, var(--messenger-surface));
+}
+
+[data-cm-room][data-delivery-viewer-role="buyer"] {
+  --cm-room-page-bg: color-mix(in srgb, var(--sam-info-soft) 40%, var(--messenger-surface));
+  --cm-room-header-bg: color-mix(in srgb, var(--sam-info) 8%, var(--messenger-surface));
+  --cm-room-delivery-chrome-bg: color-mix(in srgb, var(--sam-info-soft) 45%, var(--messenger-surface));
+}
+
 /**
  * 관리자 콘솔 — 소비자/피드 `var(--app-*)` 와 분리해 배경·본문 대비를 고정.
  * `AdminShell` 루트 `data-admin` (및 이전 호환: 자식 `data-admin`).

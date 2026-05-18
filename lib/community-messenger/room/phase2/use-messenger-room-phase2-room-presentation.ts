@@ -50,6 +50,17 @@ export function useMessengerRoomPhase2RoomPresentation({
     return typeof m.productChatId === "string" ? m.productChatId.trim() : "";
   }, [snapshot?.room.contextMeta]);
   const showMessengerTradeProcessDock = !isGroupRoom && tradeProductChatIdForDock.length > 0;
+  const storeOrderIdForDock = useMemo(() => {
+    const m = snapshot?.room.contextMeta;
+    if (!m || m.kind !== "delivery") return "";
+    return typeof m.storeOrderId === "string" ? m.storeOrderId.trim() : "";
+  }, [snapshot?.room.contextMeta]);
+  const storeIdForDock = useMemo(() => {
+    const m = snapshot?.room.contextMeta;
+    if (!m || m.kind !== "delivery") return "";
+    return typeof m.storeId === "string" ? m.storeId.trim() : "";
+  }, [snapshot?.room.contextMeta]);
+  const showMessengerStoreOrderDock = !isGroupRoom && storeOrderIdForDock.length > 0;
   const permissionGuide = callPanel ? getCommunityMessengerPermissionGuide(callPanel.kind) : null;
   const isPrivateGroupRoom = snapshot?.room.roomType === "private_group";
   const isOpenGroupRoom = snapshot?.room.roomType === "open_group";
@@ -180,6 +191,9 @@ export function useMessengerRoomPhase2RoomPresentation({
     roomSummaryHoldsOnlyTradeOrDeliveryMeta,
     tradeProductChatIdForDock,
     showMessengerTradeProcessDock,
+    storeOrderIdForDock,
+    storeIdForDock,
+    showMessengerStoreOrderDock,
     permissionGuide,
     isPrivateGroupRoom,
     isOpenGroupRoom,

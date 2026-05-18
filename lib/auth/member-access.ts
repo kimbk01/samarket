@@ -3,6 +3,7 @@ import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 import { normalizeAppLanguage } from "@/lib/i18n/config";
 import { MANUAL_MEMBER_EMAIL_DOMAIN } from "@/lib/auth/manual-member-email";
 import { isSamarketDefaultAvatarUrl, withDefaultAvatar } from "@/lib/profile/default-avatar";
+import { resolveProfilePhoneDb09 } from "@/lib/profile/resolve-profile-phone";
 import {
   deriveStoreMemberStatus,
   hasPhilippinePhoneVerification,
@@ -454,9 +455,11 @@ export async function loadMemberAccessState(
   const status = normalizeMemberStatus(pickTrimmed(profile?.status));
   const phoneCountryCode = pickTrimmed((profile as { phone_country_code?: string | null } | null)?.phone_country_code) ?? "+63";
   const phoneNumber = pickTrimmed((profile as { phone_number?: string | null } | null)?.phone_number);
-  const phone =
-    pickTrimmed(profile?.phone) ??
-    (phoneNumber ? `${phoneCountryCode}${phoneNumber}` : null);
+  const phone = resolveProfilePhoneDb09({
+    phone: profile?.phone,
+    phone_country_code: phoneCountryCode,
+    phone_number: phoneNumber,
+  });
   const phoneVerifiedAt = pickTrimmed((profile as { phone_verified_at?: string | null } | null)?.phone_verified_at);
   const phoneVerified = profile?.phone_verified === true || Boolean(phoneVerifiedAt);
   const authLoginEmail = pickTrimmed((profile as { auth_login_email?: string | null } | null)?.auth_login_email);

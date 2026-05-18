@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { buildCommunityMessengerRoomUrlWithContext } from "@/lib/community-messenger/cm-ctx-url";
+import { buildStoreOrderMessengerRoomHref } from "@/lib/chats/surfaces/order-chat-surface";
 import {
   buildMessengerContextMetaFromStoreOrder,
   type StoreOrderMessengerContextInput,
@@ -29,9 +29,10 @@ export function StoreOrderMessengerDeepLink({
     variant === "compact"
       ? t("nav_messenger_open_store_order_short")
       : t("nav_messenger_open_store_order");
-  const href = context
-    ? buildCommunityMessengerRoomUrlWithContext(id, buildMessengerContextMetaFromStoreOrder(context))
-    : `/community-messenger/rooms/${encodeURIComponent(id)}`;
+  const href = buildStoreOrderMessengerRoomHref(
+    id,
+    context ? { contextMeta: buildMessengerContextMetaFromStoreOrder(context) } : undefined
+  );
   return (
     <Link
       href={href}

@@ -174,6 +174,11 @@ function peekSlugPublicCache(
   return { status: hit.value.status, json: hit.value.json };
 }
 
+/** 탭·마운트 직후 동기 적용 — `fetchStorePublicBySlugDeduped` 왕복 전 */
+export function peekStorePublicCache(slug: string): StoreApiJsonResponse | null {
+  return peekSlugPublicCache(storePublicCache, slug);
+}
+
 /** 탭·마운트 직후 동기 적용 — `fetchStoreSummaryDeduped` 왕복 전 */
 export function peekStoreSummaryPublicCache(slug: string): StoreApiJsonResponse | null {
   return peekSlugPublicCache(storeSummaryPublicCache, slug);

@@ -2,6 +2,7 @@ import type { Profile } from "@/lib/types/profile";
 import type { ProfileRow } from "@/lib/profile/types";
 import { withDefaultAvatar } from "@/lib/profile/default-avatar";
 import { resolveDisplayName } from "@/lib/users/user-label";
+import { resolveProfilePhoneDb09 } from "@/lib/profile/resolve-profile-phone";
 
 /** `/api/me/profile`·RLS 조회 결과를 앱 `Profile`(헤더·게이트) 형태로 맞춘다. */
 export function profileRowToClientProfile(row: ProfileRow): Profile {
@@ -17,7 +18,7 @@ export function profileRowToClientProfile(row: ProfileRow): Profile {
     role: row.role,
     status: row.status,
     member_type: row.member_type,
-    phone: row.phone,
+    phone: resolveProfilePhoneDb09(row),
     phone_country_code: row.phone_country_code ?? null,
     phone_number: row.phone_number ?? null,
     phone_verified: row.phone_verified === true,

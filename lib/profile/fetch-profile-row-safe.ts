@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { ProfileRow } from "./types";
 import { DEFAULT_PROFILE_ROW } from "./types";
+import { hydrateProfileRowPhone } from "@/lib/profile/resolve-profile-phone";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 
 /** `GET /api/me/profile` 등 — `fetchProfileRowSafe` 호출·merge·폴백 계측 */
@@ -152,7 +153,7 @@ const SELECT_MEMBER =
 
 /** username·auth_provider 가 아주 옛 스키마에 없을 때 */
 const SELECT_LEGACY =
-  "id, email, nickname, avatar_url, role, member_type, status, phone, phone_verified, phone_verification_status";
+  "id, email, nickname, avatar_url, role, member_type, status, phone, phone_country_code, phone_number, phone_verified, phone_verification_status";
 
 const SELECT_OPTIONAL =
   "address_street_line, address_detail, latitude, longitude, full_address, notify_commerce_email";
@@ -174,7 +175,12 @@ const SELECT_ME_PROFILE_LITE = [
   "trust_score",
   "region_name",
   "region_code",
+  "phone",
+  "phone_country_code",
+  "phone_number",
   "phone_verified",
+  "phone_verified_at",
+  "phone_verification_status",
   "realname_verified",
   "status",
   "member_status",
@@ -233,7 +239,7 @@ function toProfileRow(userId: string, row: Record<string, unknown>): ProfileRow 
       : lngRaw != null && String(lngRaw).trim() !== ""
         ? Number(lngRaw)
         : null;
-  return {
+  const merged = {
     ...DEFAULT_PROFILE_ROW,
     ...row,
     latitude: lat != null && Number.isFinite(lat) ? lat : null,
@@ -246,6 +252,7 @@ function toProfileRow(userId: string, row: Record<string, unknown>): ProfileRow 
     manner_score: Number(row.manner_score ?? 50) || 50,
     trust_score: row.trust_score != null ? Number(row.trust_score) : 50,
   } as ProfileRow;
+  return hydrateProfileRowPhone(merged);
 }
 
 async function selectProfileRaw(

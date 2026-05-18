@@ -6,6 +6,8 @@ import { normalizeAdminRole } from "@/lib/auth/admin-policy";
 import { resolveProfileLocationAddressLines } from "@/lib/profile/profile-location";
 import type { MemberType } from "@/lib/types/admin-user";
 import { buildManualMemberAuthEmail } from "@/lib/auth/manual-member-email";
+import { profilePhoneStorageFieldsFromDb09 } from "@/lib/profile/resolve-profile-phone";
+import { normalizeOptionalPhMobileDb } from "@/lib/utils/ph-mobile";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -233,9 +235,14 @@ async function ensureProfileRow(
   const member_type =
     role === "master" || role === "admin" ? "admin" : role === "special" ? "premium" : "normal";
   const is_special_member = role === "special";
-  const phone = tu?.contact_phone?.trim() || null;
+  const phoneRaw = tu?.contact_phone?.trim() || null;
   const nowIso = new Date().toISOString();
-  const phone_verification_status = tu ? "verified" : phone ? "pending" : "unverified";
+  const phone_verification_status = tu ? "verified" : phoneRaw ? "pending" : "unverified";
+  const phoneNorm = phoneRaw ? normalizeOptionalPhMobileDb(phoneRaw) : { ok: true as const, value: null };
+  const phoneFields =
+    phoneNorm.ok && phoneNorm.value
+      ? profilePhoneStorageFieldsFromDb09(phoneNorm.value)
+      : { phone: null, phone_country_code: null, phone_number: null };
 
   const row: Record<string, unknown> = {
     id: userId,
@@ -249,7 +256,9 @@ async function ensureProfileRow(
     member_status: tu ? "active" : "pending",
     manual_account_type: role === "admin" || role === "master" ? "admin" : "operations_member",
     is_special_member,
-    phone,
+    phone: phoneFields.phone,
+    phone_country_code: phoneFields.phone_country_code,
+    phone_number: phoneFields.phone_number,
     phone_verified: Boolean(tu),
     phone_verification_status,
     phone_verified_at: tu ? nowIso : null,

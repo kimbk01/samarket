@@ -65,10 +65,10 @@ import {
 } from "@/lib/dibay/r2-d1-kpi-meta-trace";
 import { deriveOwnerStoreOrderMetaCounts } from "@/lib/stores/derive-owner-store-order-meta-counts";
 import { fetchStoreOrdersListDeduped } from "@/lib/stores/fetch-store-orders-list-deduped";
-import { OwnerStoreOrderChatModal } from "@/components/business/owner/OwnerStoreOrderChatModal";
 import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
 import { BUYER_PUBLIC_LABEL_FALLBACK } from "@/lib/stores/buyer-public-label";
 import { formatStoreOrderCheckoutEtaSummary } from "@/lib/stores/format-store-order-checkout-display";
+import { ownerStoreOrderChatHref } from "@/lib/business/owner-store-order-messenger-link";
 
 /** 주문 카드 본문 — 매장 관리 폼과 동일 계열(14px 라벨/본문) */
 const OC_LBL = "sam-text-body font-medium leading-snug text-sam-muted";
@@ -224,7 +224,7 @@ function OwnerOrderCard({
   order: OrderRow;
   onUpdated: () => void;
   isHighlight: boolean;
-  onOpenChat: (orderId: string) => void;
+  onOpenChat: (order: OrderRow) => void;
 }) {
   const noticeFooter: ReactNode = ownerOrderCardNoticeFooter({
     id: order.id,
@@ -233,22 +233,22 @@ function OwnerOrderCard({
   });
 
   const isNewPending = order.order_status === "pending";
-  const newPulse =
-    isNewPending && order.fulfillment_type !== "local_delivery"
-      ? `${Biz.newOrderAccent} owner-new-order-pulse rounded-[16px] border-[var(--biz-card-border)] bg-[var(--biz-card-bg)]`
-      : isNewPending && order.fulfillment_type === "local_delivery"
-        ? `${Biz.newOrderAccent} owner-new-order-pulse rounded-[16px] border-rose-200 bg-rose-50/30`
+  const newPendingSurface =
+    isNewPending && order.fulfillment_type === "local_delivery"
+      ? "border-rose-200 bg-rose-50/30"
+      : isNewPending
+        ? "border-[var(--biz-primary)]/40 bg-[var(--biz-primary-soft)]/50"
         : "";
 
   return (
     <li
       id={`owner-order-${order.id}`}
-      className={`scroll-mt-[4.75rem] w-full min-w-0 overflow-hidden rounded-[16px] border p-3 shadow-[var(--biz-card-shadow)] sm:p-4 ${
+      className={`scroll-mt-[4.75rem] w-full min-w-0 overflow-hidden rounded-ui-rect border p-3 shadow-[var(--biz-card-shadow)] sm:p-4 ${
         order.order_status === "refund_requested"
           ? "border-amber-300 bg-amber-50/40"
           : isNewPending
-            ? newPulse
-            : "border-sam-border-soft bg-sam-surface"
+            ? newPendingSurface
+            : "border-[var(--biz-card-border)] bg-[var(--biz-card-bg)]"
       } ${isHighlight ? "ring-2 ring-[var(--biz-primary)] ring-offset-2 ring-offset-[var(--biz-app-bg)]" : ""}`}
     >
       <div className="flex min-w-0 flex-nowrap items-start justify-between gap-2">
@@ -270,7 +270,7 @@ function OwnerOrderCard({
             <button
               type="button"
               className={CHAT_LINK_CLASS}
-              onClick={() => onOpenChat(order.id)}
+              onClick={() => onOpenChat(order)}
             >
               채팅 연결
             </button>
@@ -509,32 +509,6 @@ export function OwnerStoreOrdersView() {
   const tab = useMemo(() => parseOwnerOrderMainTab(searchParams.get("tab")), [searchParams]);
   const loginHref = "/login";
   const ownerNotifAckRef = useRef(false);
-  const [chatModal, setChatModal] = useState<{
-    orderId: string;
-    anchorTopPx: number;
-  } | null>(null);
-
-  const openOrderChat = useCallback((orderId: string) => {
-    const id = orderId.trim();
-    if (!id) return;
-
-    const measureAnchor = (): number => {
-      const card = document.getElementById(`owner-order-${id}`);
-      const gray = card?.querySelector<HTMLElement>("[data-owner-order-gray]");
-      const bottom = gray?.getBoundingClientRect().bottom;
-      return typeof bottom === "number" && Number.isFinite(bottom) ? bottom : 120;
-    };
-
-    const el = typeof document !== "undefined" ? document.getElementById(`owner-order-${id}`) : null;
-    if (el) {
-      el.scrollIntoView({ block: "start", behavior: "smooth" });
-      window.setTimeout(() => {
-        setChatModal({ orderId: id, anchorTopPx: measureAnchor() });
-      }, 420);
-    } else {
-      setChatModal({ orderId: id, anchorTopPx: measureAnchor() });
-    }
-  }, []);
 
   const [state, setState] = useState<
     | { kind: "loading" }
@@ -549,6 +523,19 @@ export function OwnerStoreOrdersView() {
         orders: OrderRow[];
       }
   >({ kind: "loading" });
+
+  const openOrderChat = useCallback(
+    (order: OrderRow) => {
+      if (state.kind !== "ok") return;
+      router.push(
+        ownerStoreOrderChatHref(order, {
+          storeId: state.storeId,
+          storeName: state.storeName,
+        })
+      );
+    },
+    [router, state]
+  );
 
   const prevPendingDeliveryRef = useRef<number | null>(null);
   const alertStoreIdRef = useRef<string | null>(null);
@@ -1065,24 +1052,24 @@ export function OwnerStoreOrdersView() {
       <div className={OWNER_STORE_STACK_Y_CLASS}>
         <div className="sticky top-0 z-10 -mx-1 mb-3 border-b border-[var(--biz-card-border)] bg-[var(--biz-app-bg)]/95 px-1 py-2 backdrop-blur-sm">
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <div className="rounded-[14px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-2 shadow-[var(--biz-card-shadow)]">
+            <div className="rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-2 shadow-[var(--biz-card-shadow)]">
               <p className="text-[11px] font-medium text-[var(--biz-text-muted)]">신규 주문</p>
               <p className="text-[18px] font-bold tabular-nums text-[var(--biz-text)]">{summaryCounts.pending}</p>
             </div>
-            <div className="rounded-[14px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-2 shadow-[var(--biz-card-shadow)]">
+            <div className="rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-2 shadow-[var(--biz-card-shadow)]">
               <p className="text-[11px] font-medium text-[var(--biz-text-muted)]">조리중</p>
               <p className="text-[18px] font-bold tabular-nums text-[var(--biz-text)]">{summaryCounts.preparing}</p>
             </div>
-            <div className="rounded-[14px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-2 shadow-[var(--biz-card-shadow)]">
+            <div className="rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-2 shadow-[var(--biz-card-shadow)]">
               <p className="text-[11px] font-medium text-[var(--biz-text-muted)]">배달중</p>
               <p className="text-[18px] font-bold tabular-nums text-[var(--biz-text)]">{summaryCounts.delivering}</p>
             </div>
-            <div className="rounded-[14px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-2 shadow-[var(--biz-card-shadow)]">
+            <div className="rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-2 shadow-[var(--biz-card-shadow)]">
               <p className="text-[11px] font-medium text-[var(--biz-text-muted)]">오늘 완료</p>
               <p className="text-[18px] font-bold tabular-nums text-[var(--biz-primary)]">{summaryCounts.doneToday}</p>
             </div>
           </div>
-          <div className="mt-2 flex min-h-[48px] w-full flex-nowrap rounded-[14px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] p-1 shadow-sm">
+          <div className="mt-2 flex min-h-[48px] w-full flex-nowrap rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] p-1 shadow-sm">
             {OWNER_ORDER_TABS.map((t) => {
               const active = tab === t.id;
               const badge =
@@ -1098,7 +1085,7 @@ export function OwnerStoreOrdersView() {
                   scroll={false}
                   className={[
                     Biz.tabBase,
-                    "relative flex min-h-[48px] flex-1 flex-col items-center justify-center rounded-[12px] px-1",
+                    "relative flex min-h-[48px] flex-1 flex-col items-center justify-center rounded-ui-rect px-1",
                     active ? Biz.tabActive : "",
                   ].join(" ")}
                 >
@@ -1175,7 +1162,7 @@ export function OwnerStoreOrdersView() {
           </div>
         </div>
       ) : filteredOrders.length === 0 ? (
-        <div className="rounded-[16px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] p-6 text-[14px] text-[var(--biz-text-muted)] shadow-[var(--biz-card-shadow)]">
+        <div className="rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] p-6 text-[14px] text-[var(--biz-text-muted)] shadow-[var(--biz-card-shadow)]">
           <p className="font-semibold text-[var(--biz-text)]">이 탭에 표시할 주문이 없습니다.</p>
           <p className="mt-1">다른 탭을 선택해 보세요.</p>
         </div>
@@ -1200,15 +1187,6 @@ export function OwnerStoreOrdersView() {
   return (
     <div className="max-w-full min-w-0 overflow-x-hidden">
       <div className="mx-auto min-w-0 max-w-4xl py-1">{body}</div>
-      {state.kind === "ok" && chatModal ? (
-        <OwnerStoreOrderChatModal
-          open
-          onClose={() => setChatModal(null)}
-          storeId={state.storeId}
-          orderId={chatModal.orderId}
-          anchorTopPx={chatModal.anchorTopPx}
-        />
-      ) : null}
     </div>
   );
 }

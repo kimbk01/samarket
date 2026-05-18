@@ -26,13 +26,21 @@ export type StoreOrderBuyerOrderPayload = {
   buyer_phone?: string | null;
   buyer_note?: string | null;
   payment_amount: number;
+  discount_amount?: number | null;
   delivery_fee_amount?: number | null;
+  buyer_payment_method?: string | null;
+  buyer_payment_method_detail?: string | null;
+  created_at?: string | null;
+  accepted_at?: string | null;
+  estimated_prep_minutes?: number | null;
+  estimated_ready_at?: string | null;
 };
 
 export type StoreOrderBuyerItemPayload = {
   product_title_snapshot: string;
   price_snapshot: number;
   qty: number;
+  subtotal?: number | null;
   options_snapshot_json?: unknown;
 };
 

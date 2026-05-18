@@ -27,6 +27,7 @@ export function StoreCheckoutSubmitConfirmDialog({
   return (
     <StoreCommerceCartCenterPopup
       open={open}
+      placement="center"
       title="주문 내용을 확인해 주세요"
       titleId="store-checkout-confirm-title"
       busy={busy}

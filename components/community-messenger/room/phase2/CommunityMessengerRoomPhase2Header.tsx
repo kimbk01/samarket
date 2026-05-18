@@ -66,6 +66,15 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
     return vm.roomHeaderStatus;
   }, [peerPresence, typingPeerCount, vm.roomHeaderStatus, vm.snapshot.room.roomType]);
 
+  const peerDeliveryOrderLabel = useMemo(() => {
+    const ctx = vm.snapshot.room.contextMeta as CommunityMessengerRoomContextMetaV1 | null | undefined;
+    if (ctx?.kind !== "delivery") return null;
+    const orderNo = ctx.orderNo?.trim();
+    const step = ctx.stepLabel?.trim();
+    if (orderNo && step) return `${orderNo} · ${step}`;
+    return orderNo || step || "배달·매장 주문";
+  }, [vm.snapshot.room.contextMeta]);
+
   /** 상대방 역할 — `ctx.roleLabel` 은 조회자(나) 기준이므로 헤더에 붙일 땐 반대로 표시 */
   const peerTradeRoleLabel = useMemo(() => {
     const ctx = vm.snapshot.room.contextMeta as CommunityMessengerRoomContextMetaV1 | null | undefined;
@@ -129,6 +138,17 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
                 </span>
                 <span aria-hidden> | </span>
                 <span>{peerTradeRoleLabel}</span>
+              </p>
+            ) : peerDeliveryOrderLabel ? (
+              <p className="truncate sam-text-xxs text-[color:var(--cm-room-text-muted)]">
+                <span className="mr-1 inline-flex shrink-0 items-center rounded-ui-rect bg-[color:var(--messenger-badge-delivery-bg)] px-1 py-0.5 sam-text-xxs font-bold text-[color:var(--cm-room-text)]">
+                  배달
+                </span>
+                <span className="inline-block -translate-y-[1pt] font-semibold leading-snug text-[color:var(--cm-room-text)] sam-text-helper">
+                  {vm.snapshot.room.title}
+                </span>
+                <span aria-hidden> | </span>
+                <span>{peerDeliveryOrderLabel}</span>
               </p>
             ) : (
               <p className="-translate-y-[1pt] truncate sam-text-body font-semibold leading-tight text-[color:var(--cm-room-text)]">

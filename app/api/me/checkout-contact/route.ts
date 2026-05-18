@@ -8,6 +8,7 @@ import {
   pickAddressRowForDeliveryRouting,
 } from "@/lib/addresses/user-address-service";
 import { resolveProfileLocationAddressOneLine } from "@/lib/profile/profile-location";
+import { resolveProfilePhoneDb09 } from "@/lib/profile/resolve-profile-phone";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,10 +60,23 @@ export async function GET() {
     /* user_addresses 미마이그레이션 등 */
   }
 
-  if (!contact_phone) {
-    const { data: prof } = await sb.from("profiles").select("phone").eq("id", uid).maybeSingle();
-    const ph = typeof prof?.phone === "string" ? prof.phone.trim() : "";
-    if (ph) contact_phone = ph;
+  const { data: prof } = await sb
+    .from("profiles")
+    .select("phone, phone_country_code, phone_number")
+    .eq("id", uid)
+    .maybeSingle();
+  const profilePhoneResolved = prof
+    ? resolveProfilePhoneDb09({
+        phone: typeof prof.phone === "string" ? prof.phone : null,
+        phone_country_code:
+          typeof prof.phone_country_code === "string" ? prof.phone_country_code : null,
+        phone_number: typeof prof.phone_number === "string" ? prof.phone_number : null,
+      })
+    : null;
+  if (!contact_phone && profilePhoneResolved) contact_phone = profilePhoneResolved;
+
+  if (default_delivery && !default_delivery.phone?.trim() && profilePhoneResolved) {
+    default_delivery = { ...default_delivery, phone: profilePhoneResolved };
   }
 
   const { data: prof2 } = await sb
@@ -83,6 +97,8 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     contact_phone,
+    /** `profiles`·기본 배달 주소에서 복원한 연락처(클라이언트 자동 채움용) */
+    profile_phone: profilePhoneResolved,
     contact_address,
     default_delivery,
   });

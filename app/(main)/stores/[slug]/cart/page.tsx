@@ -19,7 +19,7 @@ async function StoreCartPageBody({ params }: { params: Promise<{ slug: string }>
   const verified = raw?.status === 200 && !!j?.ok && !!j?.store;
   const initialApiForPrime = raw != null ? { status: raw.status, json: raw.json } : null;
   return (
-    <div className="px-0 py-0">
+    <div className="flex min-h-0 flex-1 flex-col px-0 py-0">
       <StoreCartEntrySwitch
         key={safe}
         storeSlug={safe}

@@ -11,16 +11,16 @@ import { OwnerOrderAcceptSheet } from "@/components/business/owner/OwnerOrderAcc
 import { OwnerOrderRejectSheet } from "@/components/business/owner/OwnerOrderRejectSheet";
 
 const BTN_PRIMARY =
-  "flex min-h-[52px] min-w-0 flex-1 items-center justify-center rounded-[14px] bg-[var(--biz-primary)] px-2 py-2 text-center text-[14px] font-semibold leading-snug text-white [overflow-wrap:anywhere] [word-break:break-word] shadow-sm transition hover:bg-[var(--biz-primary-hover)] active:bg-[var(--biz-primary-active)] disabled:opacity-50 sm:min-w-[6rem] sm:px-2.5 sm:py-2";
+  "flex min-h-[52px] min-w-0 flex-1 items-center justify-center rounded-ui-rect bg-[var(--biz-primary)] px-2 py-2 text-center text-[14px] font-semibold leading-snug text-white [overflow-wrap:anywhere] [word-break:break-word] shadow-sm transition hover:bg-[var(--biz-primary-hover)] active:bg-[var(--biz-primary-active)] disabled:opacity-50 sm:min-w-[6rem] sm:px-2.5 sm:py-2";
 const BTN_DANGER =
-  "flex min-h-[52px] min-w-0 flex-1 items-center justify-center rounded-[14px] border border-red-200 bg-[var(--biz-card-bg)] px-2 py-2 text-center text-[14px] font-semibold leading-snug text-red-700 [overflow-wrap:anywhere] [word-break:break-word] shadow-sm disabled:opacity-50 sm:min-w-[6rem] sm:px-2.5 sm:py-2";
+  "flex min-h-[52px] min-w-0 flex-1 items-center justify-center rounded-ui-rect border border-red-200 bg-[var(--biz-card-bg)] px-2 py-2 text-center text-[14px] font-semibold leading-snug text-red-700 [overflow-wrap:anywhere] [word-break:break-word] shadow-sm disabled:opacity-50 sm:min-w-[6rem] sm:px-2.5 sm:py-2";
 const OC_SM =
   "sam-text-body-secondary font-normal leading-snug text-sam-muted [overflow-wrap:anywhere] [word-break:break-word]";
 
 const TB_BTN_PRIMARY =
-  "flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-[12px] bg-[var(--biz-primary)] px-2 py-1.5 text-center sam-text-helper font-semibold leading-snug text-white [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50";
+  "flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-ui-rect bg-[var(--biz-primary)] px-2 py-1.5 text-center sam-text-helper font-semibold leading-snug text-white [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50";
 const TB_BTN_DANGER =
-  "flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-[12px] border border-red-200 bg-[var(--biz-card-bg)] px-2 py-1.5 text-center sam-text-helper font-semibold leading-snug text-red-700 [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50";
+  "flex min-h-9 min-w-0 flex-1 items-center justify-center rounded-ui-rect border border-red-200 bg-[var(--biz-card-bg)] px-2 py-1.5 text-center sam-text-helper font-semibold leading-snug text-red-700 [overflow-wrap:anywhere] [word-break:break-word] disabled:opacity-50";
 
 export type OwnerDeliveryOrderRef = {
   id: string;
@@ -150,11 +150,15 @@ export function OwnerStoreOrderDeliveryActionsAside({
   order,
   onUpdated,
   variant = "aside",
+  acceptSheetOverlayClassName,
+  rowBelowButtonLayout = "column",
 }: {
   storeId: string;
   order: OwnerDeliveryOrderRef;
   onUpdated: () => void;
   variant?: "aside" | "rowBelow";
+  acceptSheetOverlayClassName?: string;
+  rowBelowButtonLayout?: "column" | "row";
 }) {
   const next = allowedOrderTransitions(order.order_status, order.fulfillment_type);
   const showTransitionButtons =
@@ -190,7 +194,15 @@ export function OwnerStoreOrderDeliveryActionsAside({
             {err}
           </p>
         ) : null}
-        <div className="flex min-w-0 flex-row flex-nowrap gap-2 sm:gap-2">
+        <div
+          className={
+            variant === "rowBelow"
+              ? rowBelowButtonLayout === "row"
+                ? "flex w-full min-w-0 flex-row gap-2"
+                : "flex w-full min-w-0 flex-col gap-2"
+              : "flex min-w-0 flex-row flex-nowrap gap-2 sm:gap-2"
+          }
+        >
           {next.map((s) => (
             <button
               key={s}
@@ -211,6 +223,7 @@ export function OwnerStoreOrderDeliveryActionsAside({
         busy={prepBusy}
         onClose={closePrepModal}
         onConfirm={confirmPrepAccept}
+        overlayClassName={acceptSheetOverlayClassName}
       />
       <OwnerOrderRejectSheet
         open={rejectModalOpen}

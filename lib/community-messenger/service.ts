@@ -8195,49 +8195,23 @@ export async function ensureCommunityMessengerDirectRoomFromStoreOrderChat(
   if (!oid) return { ok: false, error: "bad_order" };
   const sb = getSupabaseOrNull();
   if (!sb) return { ok: false, error: "server_unavailable" };
-  const { data } = await (sb as any)
-    .from("store_orders")
-    .select("id, order_no, store_id, buyer_user_id, order_status, fulfillment_type, payment_amount, total_amount, stores(store_name, owner_user_id)")
-    .eq("id", oid)
-    .maybeSingle();
-  if (!data) return { ok: false, error: "store_order_not_found" };
-  const orderRow = data as {
-    id?: unknown;
-    order_no?: unknown;
-    store_id?: unknown;
-    buyer_user_id?: unknown;
-    order_status?: unknown;
-    fulfillment_type?: unknown;
-    payment_amount?: unknown;
-    total_amount?: unknown;
-    stores?: { store_name?: unknown; owner_user_id?: unknown } | Array<{ store_name?: unknown; owner_user_id?: unknown }> | null;
-  };
-  const storeRow = Array.isArray(orderRow.stores) ? orderRow.stores[0] : orderRow.stores;
-  const buyer = trimText(orderRow.buyer_user_id);
-  const owner = trimText(storeRow?.owner_user_id);
-  if (!buyer || !owner) return { ok: false, error: "order_chat_invalid" };
-  if (userId !== buyer && userId !== owner) return { ok: false, error: "not_participant" };
-  const peer = userId === buyer ? owner : buyer;
-  const out = await ensureCommunityMessengerDirectRoom(userId, peer, { storeOrderId: oid });
-  if (!out.ok || !out.roomId) return { ok: false, error: out.error ?? "room_failed" };
-  const storeName = trimText(storeRow?.store_name) || "매장";
-  const orderNo = trimText(orderRow.order_no);
-  const status = trimText(orderRow.order_status);
-  const fulfillmentType = trimText(orderRow.fulfillment_type);
-  const amountRaw = Number(orderRow.payment_amount ?? orderRow.total_amount ?? 0);
-  const contextMeta: CommunityMessengerRoomContextMetaV1 = {
-    v: 1,
-    kind: "delivery",
-    storeOrderId: oid,
-    orderNo,
-    storeId: trimText(orderRow.store_id),
-    fulfillmentType,
-    headline: orderNo ? `${storeName} · 주문 ${orderNo}` : `${storeName} · 주문`,
-    ...(Number.isFinite(amountRaw) && amountRaw >= 0 ? { priceLabel: `₱${amountRaw.toLocaleString("en-US")}` } : {}),
-    ...(status ? { stepLabel: status } : {}),
-  };
-  await updateCommunityMessengerRoomContextMeta({ userId, roomId: out.roomId, contextMeta }).catch(() => ({ ok: false }));
-  return { ok: true, roomId: out.roomId, peerUserId: peer };
+  const { ensureStoreOrderMessengerRoom } = await import(
+    "@/lib/community-messenger/store-order-chat-service"
+  );
+  const ensured = await ensureStoreOrderMessengerRoom(sb as never, { orderId: oid, userId });
+  if (!ensured.ok) {
+    const err = ensured.error;
+    const status =
+      err === "forbidden"
+        ? "not_participant"
+        : err === "order_not_found"
+          ? "store_order_not_found"
+          : err;
+    return { ok: false, error: status };
+  }
+  const peer =
+    userId === ensured.buyerUserId ? ensured.ownerUserId : ensured.buyerUserId;
+  return { ok: true, roomId: ensured.roomId, peerUserId: peer };
 }
 
 /**

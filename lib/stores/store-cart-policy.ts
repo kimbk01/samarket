@@ -33,5 +33,13 @@ export const STORE_CART_CLEAR_CONFIRM = {
 export const STORE_CART_SUMMARY_HINT = "이 가게 메뉴만 함께 주문할 수 있어요.";
 export const STORE_CART_PAGE_TITLE = "카트";
 
+/** @deprecated `STORE_CART_CHECKOUT_ACTION_CLASS` */
+export const STORE_CART_CHECKOUT_FOOTER_CLASS =
+  "fixed bottom-0 left-0 right-0 z-30 border-t border-sam-border bg-white pt-3 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] pb-[max(0.75rem,env(safe-area-inset-bottom,0px))]";
+
+/** @deprecated `STORE_CART_PAGE_CONTENT_PAD_CLASS` */
+export const STORE_CART_PAGE_SCROLL_BOTTOM_PAD_CLASS =
+  "pb-[calc(4.75rem+env(safe-area-inset-bottom,0px))]";
+
 /** 클라이언트 `replaceWithLine` ≡ 서버 `replace=true` add-to-cart (로컬 장바구니 전용) */
 export const STORE_CART_REPLACE_FLAG = "replace" as const;

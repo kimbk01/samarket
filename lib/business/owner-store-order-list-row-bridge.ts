@@ -42,6 +42,8 @@ export type OwnerStoreOrderListRow = {
   needs_admin_attention?: boolean | null;
   checkout_eta_minutes?: number | null;
   checkout_route_distance_meters?: number | null;
+  /** `store_orders.community_messenger_room_id` — 배달 채팅(메신저) 방 */
+  community_messenger_room_id?: string | null;
   delivery?: {
     order_id: string;
     rider_id: string | null;

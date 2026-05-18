@@ -10,11 +10,14 @@ export function OwnerOrderAcceptSheet({
   busy,
   onClose,
   onConfirm,
+  overlayClassName = "z-[90]",
 }: {
   open: boolean;
   busy: boolean;
   onClose: () => void;
   onConfirm: (minutes: number) => void;
+  /** 메신저 Phase2 등 상위 셸 위에 띄울 때 `z-[280]` 등 */
+  overlayClassName?: string;
 }) {
   const [mode, setMode] = useState<"preset" | "custom">("preset");
   const [presetPick, setPresetPick] = useState<number | null>(null);
@@ -40,7 +43,7 @@ export function OwnerOrderAcceptSheet({
 
   return (
     <div
-      className="fixed inset-0 z-[90] flex items-end justify-center bg-black/45 sm:items-center sm:p-4"
+      className={`fixed inset-0 flex items-end justify-center bg-black/75 sm:items-center sm:p-4 ${overlayClassName}`}
       role="dialog"
       aria-modal="true"
       aria-labelledby="owner-order-accept-title"
@@ -56,53 +59,46 @@ export function OwnerOrderAcceptSheet({
       />
       <div
         className={[
-          "relative z-[1] w-full max-w-md rounded-t-[16px] border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] p-4 shadow-2xl sm:rounded-[16px]",
+          "relative z-[1] w-full max-w-md rounded-t-[16px] border border-sam-border bg-sam-surface p-4 text-sam-fg shadow-2xl sm:rounded-[16px]",
           "max-h-[min(90vh,560px)] overflow-y-auto pb-[max(1rem,env(safe-area-inset-bottom))]",
         ].join(" ")}
       >
         <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-[var(--biz-card-border)] sm:hidden" aria-hidden />
         <h2 id="owner-order-accept-title" className={Biz.textCardTitle}>
-          주문 수락
+          주문 접수확인
         </h2>
         <p className={`mt-1 ${Biz.textMuted}`}>
-          예상 조리 시간을 선택하면 고객 화면에 안내 시간이 표시됩니다.
+          예상 준비 시간만 선택하면 바로 다음 진행 단계로 넘어갑니다.
         </p>
 
-        <div className="mt-3 flex flex-wrap gap-2">
-          {PRESET_PREP_MINUTES.map((m) => (
-            <button
-              key={m}
-              type="button"
-              disabled={busy}
-              onClick={() => {
-                setMode("preset");
-                setPresetPick(m);
-              }}
-              className={`min-h-[40px] rounded-full border px-3 py-2 text-[14px] font-medium ${
-                mode === "preset" && presetPick === m
-                  ? "border-[var(--biz-primary)] bg-[var(--biz-primary-soft)] text-[var(--biz-primary)]"
-                  : "border-[var(--biz-card-border)] bg-[var(--biz-app-bg)] text-[var(--biz-text)]"
-              }`}
-            >
-              {m}분
-            </button>
-          ))}
-          <button
-            type="button"
+        <label className="mt-3 block">
+          <span className="text-[12px] font-medium text-sam-muted">예상 준비 시간</span>
+          <select
             disabled={busy}
-            onClick={() => {
-              setMode("custom");
-              setPresetPick(null);
+            value={mode === "custom" ? "custom" : presetPick ?? ""}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v === "custom") {
+                setMode("custom");
+                setPresetPick(null);
+                return;
+              }
+              setMode("preset");
+              setPresetPick(Number(v));
             }}
-            className={`min-h-[40px] rounded-full border px-3 py-2 text-[14px] font-medium ${
-              mode === "custom"
-                ? "border-[var(--biz-primary)] bg-[var(--biz-primary-soft)] text-[var(--biz-primary)]"
-                : "border-[var(--biz-card-border)] bg-[var(--biz-app-bg)] text-[var(--biz-text)]"
-            }`}
+            className="mt-1 w-full rounded-ui-rect border border-sam-border bg-sam-app px-3 py-3 text-[15px] font-medium text-sam-fg"
           >
-            직접입력
-          </button>
-        </div>
+            <option value="" disabled>
+              시간을 선택하세요
+            </option>
+            {PRESET_PREP_MINUTES.map((m) => (
+              <option key={m} value={m}>
+                {m}분
+              </option>
+            ))}
+            <option value="custom">직접입력</option>
+          </select>
+        </label>
 
         {mode === "custom" ? (
           <label className="mt-3 block">
@@ -115,7 +111,7 @@ export function OwnerOrderAcceptSheet({
               disabled={busy}
               value={customRaw}
               onChange={(e) => setCustomRaw(e.target.value)}
-              className="mt-1 w-full rounded-[14px] border border-[var(--biz-card-border)] bg-[var(--biz-app-bg)] px-3 py-3 text-[15px] text-[var(--biz-text)]"
+              className="mt-1 w-full rounded-[14px] border border-sam-border bg-sam-app px-3 py-3 text-[15px] text-sam-fg"
             />
           </label>
         ) : null}
@@ -138,7 +134,7 @@ export function OwnerOrderAcceptSheet({
             }}
             className={[Biz.btnPrimaryLg, "w-full sm:w-auto"].join(" ")}
           >
-            {busy ? "처리 중…" : "주문 수락"}
+            {busy ? "처리 중…" : "접수확인"}
           </button>
         </div>
       </div>

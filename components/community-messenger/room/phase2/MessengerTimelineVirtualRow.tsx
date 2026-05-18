@@ -32,6 +32,9 @@ import {
   TimelineViberInnerVoice,
   type TimelineViberBubbleMessage,
 } from "@/components/community-messenger/room/phase2/MessengerTimelineBubbleInners";
+import { MessengerStoreOrderSummaryCard } from "@/components/community-messenger/room/phase2/MessengerStoreOrderSummaryCard";
+import { isStoreOrderSummarySystemContent } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
+import type { StoreOrderSummaryTimelineStep } from "@/lib/store-order-chat/store-order-summary-timeline";
 
 function messengerMessageAnchorRectFromDomRect(r: DOMRectReadOnly): CommunityMessengerMessageActionAnchorRect {
   return {
@@ -394,8 +397,19 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
           </span>
         </div>
       ) : null}
-      {item.messageType === "system" ? (
-        <div className="max-w-[92%] px-2">
+      {isStoreOrderSummarySystemContent(item.content) ? (
+        <div className="max-w-[min(100%,22rem)] px-2">
+          <MessengerStoreOrderSummaryCard
+            content={item.content}
+            metadata={item.metadata ?? null}
+            timeline={
+              (item.metadata as { timeline?: StoreOrderSummaryTimelineStep[] } | null | undefined)
+                ?.timeline ?? null
+            }
+          />
+        </div>
+      ) : item.messageType === "system" ? (
+        <div className="max-w-[min(100%,22rem)] px-2">
           <div className={systemBubbleClass}>
             <p className="text-center sam-text-helper leading-5">{item.content}</p>
           </div>

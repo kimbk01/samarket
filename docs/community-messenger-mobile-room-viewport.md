@@ -77,5 +77,6 @@
 | 2026-05-03 | 모바일 셸: `useChatViewportResize`, 콜백 ref·`chatShellMounted`, CSS 변수; 스크롤: 하단 거리 보존 + RO/vv/window; vv `scheduleSync`·부트 rAF 취소; Android `interactive-widget` 문서화 | Phase2, `use-chat-viewport-resize`, `use-messenger-room-reader-scroll-bottom`, `use-messenger-room-client-phase1`(인라인 `useVirtualizer`) |
 | 2026-05-04 | 방 페이지 외곽 전환: ViewTransition 없이 CSS transform 진입(240ms)·뒤로가기/엣지 제스처 exit(220ms, 30% threshold)만 추가. viewport 높이·스크롤·키보드 훅은 미변경 | `MessengerRoomSwipeBackShell`, `messenger-view-transitions.css`, `messenger-list-room-slide`, Phase2 header |
 | 2026-05-05 | read ack 판정을 방 진입 즉시가 아니라 visible/focus/메시지 DOM/하단 근접 조건 이후 350ms dwell 로 통일. 스크롤 위 새 메시지는 unread 유지 | `use-messenger-room-open-mark-read-effect`, `use-messenger-room-client-phase1`, `messenger-realtime-store`, `messenger-room-ui-constants` |
+| 2026-05-18 | 배달 주문 chrome: trade 와 동일 `keyboardCompact` (narrow + composer focus / keyboard open) 시 1줄 스트립만 표시. 셸·스크롤 훅 미변경 | `CommunityMessengerRoomPhase2StoreOrderChrome`, `CommunityMessengerRoomPhase2AttachmentsAndTrade` |
 
 **규칙:** 이 영역을 고치면 **반드시 한 줄이라도 §7 변경 이력 테이블에 추가**한다. 되돌리기 전에 이전 행과 diff를 비교한다. 숫자만 바꿀 때는 **`lib/ui/messenger-chat-viewport-tuning.ts`** 만 수정했는지 확인한다.

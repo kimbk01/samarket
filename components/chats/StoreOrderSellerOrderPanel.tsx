@@ -11,6 +11,11 @@ import {
   type ChatSummaryOrderFields,
 } from "@/lib/stores/format-store-order-chat-summary";
 import { OwnerStoreOrderDeliveryActionsDrawerSection } from "@/components/business/owner/OwnerStoreOrderDeliveryActions";
+import {
+  buildStoreOrderChatCardView,
+  type StoreOrderChatCardView,
+} from "@/lib/store-order-chat/build-store-order-chat-card-view";
+import { StoreOrderReceiptCard } from "@/components/community-messenger/room/phase2/StoreOrderReceiptCard";
 
 export type StoreOrderSellerOrderPanelPresentation = "drawer" | "modal";
 
@@ -29,8 +34,12 @@ type Props = {
   sendSummaryDisabled?: boolean;
   /** 주문 패치 후 채팅 메타·메시지 갱신 */
   onRoomReload?: () => void;
-  /** `OwnerStoreOrderChatModal`(z-190) 위에 드로어·딤 표시 */
+  /** 레거시 오너 채팅 모달 위에 띄우던 호환 옵션 */
   stackAboveOwnerChatModal?: boolean;
+  /** 메신저 방 — 자동 요약이 있으면 수동 전송 숨김 */
+  hideSendSummary?: boolean;
+  /** 메신저 방 — 진행 CTA는 composer 위 액션 바만 사용 */
+  hideDeliveryActions?: boolean;
 };
 
 export function StoreOrderSellerOrderPanel({
@@ -47,12 +56,15 @@ export function StoreOrderSellerOrderPanel({
   sendSummaryDisabled = false,
   onRoomReload,
   stackAboveOwnerChatModal = false,
+  hideSendSummary = false,
+  hideDeliveryActions = false,
 }: Props) {
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [orderSnap, setOrderSnap] = useState<ChatSummaryOrderFields | null>(null);
   const [itemsSnap, setItemsSnap] = useState<ChatSummaryItemFields[]>([]);
+  const [orderCard, setOrderCard] = useState<StoreOrderChatCardView | null>(null);
   const [sendBusy, setSendBusy] = useState(false);
   const [sendToast, setSendToast] = useState<string | null>(null);
 
@@ -90,19 +102,30 @@ export function StoreOrderSellerOrderPanel({
     setLoading(true);
     setLoadErr(null);
     try {
-      const res = await fetch(
-        `/api/me/stores/${encodeURIComponent(storeId)}/orders/${encodeURIComponent(orderId)}`,
-        { credentials: "include", cache: "no-store" }
-      );
+      const [res, eventsRes] = await Promise.all([
+        fetch(`/api/me/stores/${encodeURIComponent(storeId)}/orders/${encodeURIComponent(orderId)}`, {
+          credentials: "include",
+          cache: "no-store",
+        }),
+        fetch(`/api/me/store-orders/${encodeURIComponent(orderId)}/events`, {
+          credentials: "include",
+          cache: "no-store",
+        }),
+      ]);
       const json = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         error?: string;
         order?: Record<string, unknown> & { items?: ChatSummaryItemFields[] };
         meta?: { store_name?: string };
       };
+      const eventsJson = (await eventsRes.json().catch(() => ({}))) as {
+        ok?: boolean;
+        events?: Array<{ to_status?: string | null; created_at?: string | null }>;
+      };
       if (!res.ok || !json?.ok || !json.order) {
         setOrderSnap(null);
         setItemsSnap([]);
+        setOrderCard(null);
         setLoadErr(
           res.status === 404
             ? "주문을 찾을 수 없습니다."
@@ -115,8 +138,17 @@ export function StoreOrderSellerOrderPanel({
       const o = json.order;
       const sn = (json.meta?.store_name as string | undefined) ?? "";
       const lines = Array.isArray(o.items) ? o.items : [];
+      setOrderCard(
+        buildStoreOrderChatCardView({
+          order: o,
+          items: lines as Array<Record<string, unknown>>,
+          events: eventsJson.ok && Array.isArray(eventsJson.events) ? eventsJson.events : [],
+          storeName: sn || undefined,
+        })
+      );
       setOrderSnap({
         store_name: sn || undefined,
+        created_at: typeof o.created_at === "string" ? o.created_at : null,
         order_no: typeof o.order_no === "string" ? o.order_no : undefined,
         order_status: typeof o.order_status === "string" ? o.order_status : undefined,
         fulfillment_type:
@@ -128,16 +160,32 @@ export function StoreOrderSellerOrderPanel({
         buyer_phone: (o.buyer_phone as string | null) ?? null,
         buyer_note: (o.buyer_note as string | null) ?? null,
         payment_amount: Number(o.payment_amount ?? 0),
+        discount_amount:
+          o.discount_amount != null && o.discount_amount !== ""
+            ? Number(o.discount_amount)
+            : null,
         delivery_fee_amount:
           o.delivery_fee_amount != null && o.delivery_fee_amount !== ""
             ? Number(o.delivery_fee_amount)
             : null,
+        buyer_payment_method:
+          typeof o.buyer_payment_method === "string" ? o.buyer_payment_method : null,
+        buyer_payment_method_detail:
+          typeof o.buyer_payment_method_detail === "string" ? o.buyer_payment_method_detail : null,
+        accepted_at: typeof o.accepted_at === "string" ? o.accepted_at : null,
+        estimated_prep_minutes:
+          o.estimated_prep_minutes != null && o.estimated_prep_minutes !== ""
+            ? Number(o.estimated_prep_minutes)
+            : null,
+        estimated_ready_at:
+          typeof o.estimated_ready_at === "string" ? o.estimated_ready_at : null,
       });
       setItemsSnap(
         lines.map((row) => ({
           product_title_snapshot: String((row as ChatSummaryItemFields).product_title_snapshot ?? ""),
           price_snapshot: Number((row as ChatSummaryItemFields).price_snapshot ?? 0),
           qty: Number((row as ChatSummaryItemFields).qty ?? 0),
+          subtotal: Number((row as ChatSummaryItemFields).subtotal ?? 0) || null,
           options_snapshot_json: (row as ChatSummaryItemFields).options_snapshot_json,
         }))
       );
@@ -145,6 +193,7 @@ export function StoreOrderSellerOrderPanel({
       setLoadErr("네트워크 오류");
       setOrderSnap(null);
       setItemsSnap([]);
+      setOrderCard(null);
     } finally {
       setLoading(false);
     }
@@ -192,6 +241,7 @@ export function StoreOrderSellerOrderPanel({
   }, [loadOrder, onRoomReload]);
 
   const deliverySection =
+    !hideDeliveryActions &&
     !loading &&
     !loadErr &&
     orderSnap?.order_status &&
@@ -241,7 +291,7 @@ export function StoreOrderSellerOrderPanel({
     </div>
   );
 
-  const sendBlock = (
+  const sendBlock = hideSendSummary ? null : (
     <div className="shrink-0 border-b border-sam-border px-3 py-3">
       <button
         type="button"
@@ -266,6 +316,8 @@ export function StoreOrderSellerOrderPanel({
         <p className="text-center text-muted">주문 불러오는 중…</p>
       ) : loadErr ? (
         <p className="text-center text-red-600">{loadErr}</p>
+      ) : orderCard ? (
+        <StoreOrderReceiptCard view={orderCard} viewer="owner" />
       ) : orderSnap ? (
         <pre className="whitespace-pre-wrap break-words font-sans sam-text-body-secondary leading-[1.45] text-foreground">
           {formatStoreOrderSummaryForChatMessage(orderSnap, itemsSnap, "seller")}
@@ -280,6 +332,8 @@ export function StoreOrderSellerOrderPanel({
         <p className="text-center text-muted">주문 불러오는 중…</p>
       ) : loadErr ? (
         <p className="text-center text-red-600">{loadErr}</p>
+      ) : orderCard ? (
+        <StoreOrderReceiptCard view={orderCard} viewer="owner" />
       ) : orderSnap ? (
         <pre className="whitespace-pre-wrap break-words font-sans sam-text-body-secondary leading-[1.45] text-foreground">
           {formatStoreOrderSummaryForChatMessage(orderSnap, itemsSnap, "seller")}
@@ -322,6 +376,7 @@ export function StoreOrderSellerOrderPanel({
               이 채팅 · 주문
             </p>
             {!stackAboveOwnerChatModal ? deliverySection : null}
+            {hideSendSummary ? null : (
             <div className="border-b border-sam-border px-3 py-3">
               <button
                 type="button"
@@ -340,6 +395,7 @@ export function StoreOrderSellerOrderPanel({
                 <p className="mt-2 text-center sam-text-body-secondary text-muted">{sendToast}</p>
               ) : null}
             </div>
+            )}
             {orderPreviewBlock}
           </div>
         </div>

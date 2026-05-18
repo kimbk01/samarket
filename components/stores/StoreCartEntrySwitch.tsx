@@ -83,7 +83,9 @@ export function StoreCartEntrySwitch({
   }, [normalizedSlug, initialApiForPrime]);
 
   useEffect(() => {
-    void detect({ silent: !!initialVerifiedReal });
+    /** 서버에서 이미 검증·캐시 primed — 마운트 시 중복 GET 생략(체감 속도) */
+    if (initialVerifiedReal) return;
+    void detect();
   }, [detect, initialVerifiedReal]);
 
   useRefetchOnPageShowRestore(() => void detect({ silent: true }));

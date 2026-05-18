@@ -18,6 +18,7 @@ import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
   appendStoreOrderMessengerStatusTransition,
   ensureStoreOrderMessengerRoom,
+  syncStoreOrderMessengerRoomContextMeta,
 } from "@/lib/community-messenger/store-order-chat-service";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
@@ -390,6 +391,10 @@ export async function PATCH(
         order.order_status as string,
         "refund_requested"
       );
+      await syncStoreOrderMessengerRoomContextMeta(
+        sb as import("@supabase/supabase-js").SupabaseClient<any>,
+        oid
+      );
     } catch {
       /* ignore */
     }
@@ -499,6 +504,10 @@ export async function PATCH(
       oid,
       order.order_status as string,
       "cancelled"
+    );
+    await syncStoreOrderMessengerRoomContextMeta(
+      sb as import("@supabase/supabase-js").SupabaseClient<any>,
+      oid
     );
   } catch {
     /* ignore */

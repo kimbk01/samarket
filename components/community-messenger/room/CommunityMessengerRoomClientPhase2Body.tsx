@@ -54,6 +54,7 @@ import {
   resetCmRenderAnalysisSession,
 } from "@/lib/community-messenger/monitoring/cm-render-analysis";
 import { useMessengerRoomAnimatedBack } from "@/components/community-messenger/room/MessengerRoomSwipeBackShell";
+import { messengerDeliveryViewerRole } from "@/lib/community-messenger/messenger-delivery-viewer-role";
 import { messengerTradeViewerRoleFromContextMeta } from "@/lib/community-messenger/messenger-trade-viewer-role";
 import { CmReactCommitProbe, useCmDevRenderTrace, useCmStrictModeEffectProbe } from "@/lib/community-messenger/dev/cm-event-loop-dev";
 import { logCmRenderRoomEntry } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
@@ -230,6 +231,14 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
   const tradeViewerRole = useMemo(
     () => messengerTradeViewerRoleFromContextMeta(view.snapshot.room.contextMeta ?? undefined),
     [view.snapshot.room.contextMeta]
+  );
+  const deliveryViewerRole = useMemo(
+    () =>
+      messengerDeliveryViewerRole(
+        view.snapshot.room.contextMeta ?? undefined,
+        view.snapshot.myRole
+      ),
+    [view.snapshot.room.contextMeta, view.snapshot.myRole]
   );
   const headerView = useMemo(
     () => ({
@@ -423,6 +432,7 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
           data-cm-room
           data-cm-room-hydration-pass={hydrationPass}
           data-trade-viewer-role={tradeViewerRole ?? undefined}
+          data-delivery-viewer-role={deliveryViewerRole ?? undefined}
           className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[color:var(--cm-room-page-bg)] text-[color:var(--cm-room-text)]"
           style={
             narrowViewport
