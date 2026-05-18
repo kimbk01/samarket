@@ -1,4 +1,7 @@
-import { emptyCommerceCartV2 } from "@/lib/stores/store-commerce-cart-add-merge";
+import {
+  consolidateCommerceCartBucketLines,
+  emptyCommerceCartV2,
+} from "@/lib/stores/store-commerce-cart-add-merge";
 import { storeCartTtlMs } from "@/lib/stores/store-cart-policy";
 import { withBumpedGeneration } from "@/lib/stores/store-commerce-cart-sync-guard";
 import type {
@@ -83,7 +86,7 @@ export function isCommerceCartSnapshotExpired(snap: StoreCommerceCartSnapshotV2 
   return Date.now() - touched > storeCartTtlMs();
 }
 
-/** localStorage 로드 직후 — TTL·단일 매장 정리 */
+/** localStorage 로드·탭 복구 1회 — TTL·단일 매장·상품당 1줄 정리 (런타임 수량± 에는 쓰지 않음) */
 export function sanitizeCommerceCartSnapshot(
   raw: StoreCommerceCartSnapshotV2 | null
 ): { snapshot: StoreCommerceCartSnapshotV2 | null; expired: boolean; droppedOtherStores: boolean } {
@@ -93,8 +96,18 @@ export function sanitizeCommerceCartSnapshot(
     return { snapshot: null, expired: true, droppedOtherStores: false };
   }
   const single = enforceSingleActiveStoreCart(migrated);
+  const carts: StoreCommerceCartSnapshotV2["carts"] = {};
+  for (const [k, b] of Object.entries(single.snapshot.carts ?? {})) {
+    const storeId = normalizeStoreIdKey(b.storeId) || b.storeId;
+    carts[k] = {
+      ...b,
+      storeId,
+      lines: consolidateCommerceCartBucketLines(storeId, b.lines ?? []),
+    };
+  }
+  const consolidated: StoreCommerceCartSnapshotV2 = { ...single.snapshot, carts };
   return {
-    snapshot: single.snapshot,
+    snapshot: consolidated,
     expired: false,
     droppedOtherStores: single.droppedOtherStores,
   };

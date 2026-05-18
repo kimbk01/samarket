@@ -18,6 +18,7 @@ export function StoreProductSheetPortal() {
   const sheetStoreContext = useStoreProductSheetUIStore((s) => s.sheetStoreContext);
   const commerceBlocked = useStoreProductSheetUIStore((s) => s.commerceBlocked);
   const commerceBlockedHint = useStoreProductSheetUIStore((s) => s.commerceBlockedHint);
+  const editCartLine = useStoreProductSheetUIStore((s) => s.editCartLine);
   const closeSheet = useStoreProductSheetUIStore((s) => s.closeSheet);
 
   useLayoutEffect(() => {
@@ -35,12 +36,17 @@ export function StoreProductSheetPortal() {
       pageStoreSlug={pageStoreSlug}
       prefetchedListRow={prefetchedListRow}
       sheetStoreContext={sheetStoreContext}
+      editCartLine={editCartLine}
       onClose={closeSheet}
       commerceBlocked={commerceBlocked}
       commerceBlockedHint={commerceBlockedHint}
       onAddedToCart={() => {
         const sid = sheetStoreContext?.store?.id;
-        if (sid) showStoreDetailToast(sid, "카트에 담았어요");
+        if (!sid) return;
+        showStoreDetailToast(
+          sid,
+          editCartLine ? "옵션을 변경했어요" : "카트에 담았어요"
+        );
       }}
     />,
     portalRoot

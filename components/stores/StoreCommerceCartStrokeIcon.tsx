@@ -2,6 +2,10 @@
 export const STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME =
   "pointer-events-none flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-sam-primary px-1 sam-text-xxs font-bold leading-none text-white ring-2 ring-sam-surface";
 
+/** 히어로 글래스 버튼 위 카트 수량 — 매장·물품 상세 공통 (sam-primary + 흰 링) */
+export const STORE_COMMERCE_CART_COUNT_BADGE_ON_HERO_GLASS_CLASSNAME =
+  "pointer-events-none absolute -right-1 -top-1 z-[1] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-sam-primary px-1 sam-text-xxs font-bold leading-none text-white ring-2 ring-white";
+
 /** primary CTA(파란 버튼) 위 장바구니 수량 뱃지 */
 export const STORE_COMMERCE_CART_COUNT_BADGE_ON_PRIMARY_CLASSNAME =
   "pointer-events-none absolute -right-2 -top-2 z-[1] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-white px-1 text-[10px] font-bold leading-none text-[var(--delivery-primary)] ring-2 ring-[var(--delivery-primary)]";

@@ -67,6 +67,14 @@ export function computeCartLineMergeKey({
   ].join("\t");
 }
 
+/** 매장 장바구니: 동일 매장·동일 상품 = 한 줄 (옵션·메모와 무관) */
+export function computeCommerceCartProductMergeKey(
+  storeId: string,
+  productId: string
+): string {
+  return `${String(storeId ?? "").trim()}\t${String(productId ?? "").trim()}`;
+}
+
 export function stableOptionSelectionsKey(selections: Record<string, string[]> | undefined): string {
   return stablePickOnlyKey(selections);
 }

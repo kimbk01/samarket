@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { StoreCommerceCartLine } from "@/lib/stores/store-commerce-cart-types";
+import { commerceCartLineSubtotalPhp } from "@/lib/stores/store-commerce-cart-add-merge";
 import { BAEMIN_CART_TYPE } from "@/lib/stores/store-baemin-cart-ui";
 import { resolveCartLineListUnitPhp } from "@/lib/stores/store-product-pricing";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -30,9 +31,10 @@ export function StoreBaeminCartLineRow({
   const prevQtyRef = useRef(line.qty);
   const [newLineFlash, setNewLineFlash] = useState(true);
   const [qtyBump, setQtyBump] = useState(false);
-  const lineTotal = line.unitPricePhp * line.qty;
+  const lineTotal = commerceCartLineSubtotalPhp(line);
+  const unitPhp = Math.max(0, Math.floor(Number(line.unitPricePhp) || 0));
   const listU = resolveCartLineListUnitPhp(line);
-  const baseUnit = listU ?? line.unitPricePhp;
+  const showListStrike = listU != null && listU > unitPhp;
   const showTrash = line.qty <= line.minOrderQty;
   const optionsText = line.optionsSummary?.trim() || noneLabel;
 
@@ -64,7 +66,15 @@ export function StoreBaeminCartLineRow({
         <div className="min-w-0 flex-1">
           <p className={`${BAEMIN_CART_TYPE.itemTitle} text-[#111111]`}>{line.title}</p>
           <p className={`mt-1 ${BAEMIN_CART_TYPE.priceMeta}`}>
-            {"\uac00\uaca9"} : {formatMoneyPhp(baseUnit)}
+            {"\uac00\uaca9"} :{" "}
+            {showListStrike ? (
+              <>
+                <span className="text-[#999] line-through">{formatMoneyPhp(listU)}</span>{" "}
+                <span className="font-semibold text-[#111]">{formatMoneyPhp(unitPhp)}</span>
+              </>
+            ) : (
+              formatMoneyPhp(unitPhp)
+            )}
           </p>
           <p className={`mt-1 whitespace-pre-wrap ${BAEMIN_CART_TYPE.bodyMuted}`}>{optionsText}</p>
           {line.lineNote?.trim() ? (

@@ -98,7 +98,6 @@ import {
   markStoreDetailListSeedPass1Visible,
   traceStoreDetailSeedSummaryPatch,
 } from "@/lib/dibay/store-detail-seed-patch-trace";
-import { openStoreProductSheet } from "@/lib/stores/store-product-sheet-ui-store";
 import { showStoreDetailToast } from "@/lib/stores/store-detail-toast-ui-store";
 import {
   resolveStoreBrowseListHref,
@@ -1312,37 +1311,25 @@ export function StoreDetailPublic({
 
   const noopCartPreviewClick = useCallback(() => {}, []);
 
-  const onOpenProductSheet = useCallback((id: string) => {
-    const st = storeRef.current;
-    if (!st) return;
-    dibayDeliveryDetailPhase2Log("option_sheet_open_request", {
-      slug: st.slug,
-      product_id: id,
-      list_row_seed: productRowsByIdRef.current[id] != null,
-      ...dibayDeliveryDetailPhase2SinceMountOrNav(detailPhase2MountT0Ref.current),
-    });
-    const commerceSnap = resolveStoreFrontCommerceState(st.business_hours_json, st.is_open);
-    const blocked = storeOrderability.canOrderStore === false || !commerceSnap.isOpenForCommerce;
-    const hint = storeOrderability.canOrderStore === false
-      ? storeOrderability.ownerBlockMessage ?? OWN_STORE_ORDER_BLOCK_MESSAGE
-      : blocked
-      ? commerceSnap.inBreak
-        ? `준비중 · Break time: ${commerceSnap.breakRangeLabel}. 쉬는 시간에는 메뉴를 선택할 수 없습니다.`
-        : "지금은 영업 시간이 아니어서 메뉴를 선택할 수 없습니다. 목록은 볼 수 있습니다."
-      : undefined;
-    openStoreProductSheet({
-      productId: id,
-      pageStoreSlug: st.slug,
-      prefetchedListRow: productRowsByIdRef.current[id] ?? null,
-      sheetStoreContext: {
-        store: st,
-        favoriteCount: favoriteSeedRef.current.favoriteCount,
-        recentOrderCount: recentOrderCountMetaRef.current,
-      },
-      commerceBlocked: blocked,
-      commerceBlockedHint: hint,
-    });
-  }, [storeOrderability]);
+  /** 매장 메뉴 탭 — 옵션 시트가 아니라 상품 상세(`/p/[id]`)로 이동. 카트 옵션 변경은 별도 모달. */
+  const onOpenProductSheet = useCallback(
+    (id: string) => {
+      const st = storeRef.current;
+      const productId = String(id ?? "").trim();
+      if (!st || !productId) return;
+      dibayDeliveryDetailPhase2Log("product_detail_nav", {
+        slug: st.slug,
+        product_id: productId,
+        list_row_seed: productRowsByIdRef.current[productId] != null,
+        ...dibayDeliveryDetailPhase2SinceMountOrNav(detailPhase2MountT0Ref.current),
+      });
+      router.push(
+        `/stores/${encodeURIComponent(st.slug)}/p/${encodeURIComponent(productId)}`,
+        { scroll: false }
+      );
+    },
+    [router]
+  );
 
   const sectionScrollMarginCss = useMemo(
     () =>

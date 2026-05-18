@@ -61,16 +61,28 @@ import {
   traceDeliveryOptionValidationMs,
 } from "@/lib/dibay/delivery-option-sheet-trace";
 import { getStoreProductSheetOpenMark } from "@/lib/stores/store-product-sheet-ui-store";
+import type { StoreCommerceCartLine } from "@/lib/stores/store-commerce-cart-types";
 
 type PublicStore = SheetPublicStore;
 
 type ReviewSnippet = { content: string; created_at: string; rating: number | null };
+
+function modifierWireFromCartLine(line: StoreCommerceCartLine): ModifierSelectionsWire {
+  if (line.modifierWire?.pick) {
+    return {
+      pick: { ...line.modifierWire.pick },
+      qty: { ...(line.modifierWire.qty ?? {}) },
+    };
+  }
+  return { pick: { ...(line.optionSelections ?? {}) }, qty: {} };
+}
 
 export function StoreProductAddSheet({
   productId,
   pageStoreSlug,
   prefetchedListRow,
   sheetStoreContext,
+  editCartLine = null,
   onClose,
   commerceBlocked,
   commerceBlockedHint,
@@ -84,6 +96,8 @@ export function StoreProductAddSheet({
     favoriteCount: number;
     recentOrderCount: number;
   } | null;
+  /** 카트 줄 옵션 변경 — 동일 lineId 로 replace */
+  editCartLine?: StoreCommerceCartLine | null;
   onClose: () => void;
   commerceBlocked: boolean;
   commerceBlockedHint?: string;
@@ -154,12 +168,22 @@ export function StoreProductAddSheet({
 
   useEffect(() => {
     if (!product?.id) return;
-    const minQ = Math.max(1, Number(product.min_order_qty) || 1);
-    setQty(minQ);
-    setModifierWire({ pick: {}, qty: {} });
-    setLineNote("");
+    const editing =
+      editCartLine != null && editCartLine.productId === product.id ? editCartLine : null;
+    if (editing) {
+      const minQ = Math.max(1, Number(product.min_order_qty) || 1);
+      const maxQ = Math.max(minQ, Number(product.max_order_qty) || 99);
+      setQty(Math.min(maxQ, Math.max(minQ, Math.floor(editing.qty) || minQ)));
+      setModifierWire(modifierWireFromCartLine(editing));
+      setLineNote(editing.lineNote?.trim() ?? "");
+    } else {
+      const minQ = Math.max(1, Number(product.min_order_qty) || 1);
+      setQty(minQ);
+      setModifierWire({ pick: {}, qty: {} });
+      setLineNote("");
+    }
     setSheetErr(null);
-  }, [product?.id]);
+  }, [product?.id, editCartLine?.lineId, editCartLine?.productId]);
 
   const optionGroups = useMemo(
     () => (product ? parseProductOptionsJson(product.options_json) : []),
@@ -521,7 +545,8 @@ export function StoreProductAddSheet({
       title: pr.title,
       thumbnailUrl: pr.thumbnail_url?.trim() || null,
       qty,
-      unitPricePhp: unitWithOptions,
+      mergeQtyMode: "set",
+      unitPricePhp: Math.max(0, Math.floor(unitWithOptions) || 0),
       listUnitPricePhp: hasLineDiscount ? listWithOptions : null,
       discountPercent: hasLineDiscount && lineDiscountPct > 0 ? lineDiscountPct : null,
       optionSelections: { ...modifierWire.pick },
@@ -535,6 +560,27 @@ export function StoreProductAddSheet({
       minOrderQty: minQ,
       maxOrderQty: maxForCart,
     };
+
+    const editingLine =
+      editCartLine != null && editCartLine.productId === pr.id ? editCartLine : null;
+
+    if (editingLine) {
+      const replaceResult = commerceCart.replaceCartLineAt(editingLine.lineId, lineInput);
+      if (!replaceResult.ok) {
+        setSheetErr("옵션을 변경할 수 없습니다.");
+        traceDeliveryOptionAddSubmitMs(deliveryOptionTraceNow() - submitStart, optionTraceBase, {
+          status: "failed",
+        });
+        return;
+      }
+      traceDeliveryOptionAddSubmitMs(deliveryOptionTraceNow() - submitStart, optionTraceBase, {
+        status: "ok",
+      });
+      cartBarBump(st.id);
+      onAddedToCart?.();
+      onClose();
+      return;
+    }
 
     const addResult = commerceCart.addOrMergeLine(lineInput);
     if (!addResult.ok && addResult.reason === "blocked_by_other_store") {
@@ -597,7 +643,12 @@ export function StoreProductAddSheet({
   const showLineTotalInCard =
     qty > 1 || hasOptionDelta || (showListStrike && product !== null);
 
-  const headerTitle = product?.title ?? (showFullLoadingBody ? "불러오는 중…" : "메뉴 담기");
+  const isEditingCartLine =
+    editCartLine != null && product != null && editCartLine.productId === product.id;
+
+  const headerTitle = isEditingCartLine
+    ? "옵션 변경"
+    : product?.title ?? (showFullLoadingBody ? "불러오는 중…" : "메뉴 담기");
 
   const ctaDisabled =
     soldOut ||
@@ -612,7 +663,9 @@ export function StoreProductAddSheet({
     ? "옵션을 불러오는 중…"
     : optionHydrationFailed
       ? "옵션을 불러올 수 없음"
-      : "카트 담기";
+      : isEditingCartLine
+        ? "변경 적용"
+        : "카트 담기";
 
   return (
     <StoreProductSheetShell onBackdropClose={onClose}>

@@ -1398,7 +1398,6 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       />
 
       <StoreBaeminCartOrderSummaryCard
-        listSubtotalPhp={listSubtotalPhp}
         subtotalPhp={subtotalPhp}
         discountAmountPhp={discountAmountPhp}
         discountPercentOverall={discountPercentOverall}

@@ -21,7 +21,7 @@ import {
   emptyCommerceCartV2,
 } from "@/lib/stores/store-commerce-cart-add-merge";
 import {
-  sanitizeCommerceCartSnapshot,
+  isCommerceCartSnapshotExpired,
   touchCommerceCartSnapshot,
 } from "@/lib/stores/store-commerce-cart-expiry";
 import { bindCommerceCartResync } from "@/lib/stores/store-commerce-cart-resync";
@@ -54,16 +54,16 @@ import {
   mutateCartReplaceLineAt,
 } from "@/lib/stores/store-commerce-cart-line-mutate";
 
+/** 담기·수량 변경 등 핫패스 — TTL만 검사(로드 시 sanitize·consolidate는 storage 1회) */
 function prepareSnapshotForWrite(
   s: StoreCommerceCartSnapshotV2 | null
 ): StoreCommerceCartSnapshotV2 | null {
   if (!s) return null;
-  const { snapshot, expired } = sanitizeCommerceCartSnapshot(s);
-  if (expired) {
+  if (isCommerceCartSnapshotExpired(s)) {
     showCommerceCartPolicyToast(STORE_CART_EXPIRED_TOAST);
     return null;
   }
-  return snapshot;
+  return s;
 }
 
 export type { AddStoreCartLineInput, StoreCartAddResult } from "@/lib/stores/store-commerce-cart-types";

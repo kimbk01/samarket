@@ -5,6 +5,7 @@ import {
   getCommerceCartSnapshotBus,
   subscribeCommerceCartSnapshot,
 } from "@/lib/stores/store-commerce-cart-snapshot-bus";
+import { commerceCartLineSubtotalPhp } from "@/lib/stores/store-commerce-cart-add-merge";
 import type { StoreCommerceCartLine } from "@/lib/stores/store-commerce-cart-types";
 
 function normalizeStoreIdKey(id: string | undefined | null): string {
@@ -74,7 +75,7 @@ function computeBucketStats(storeId: string): StoreCommerceCartBucketStats {
       const q = lineQtyNumber(l);
       if (q <= 0) continue;
       itemCount += 1;
-      subtotalPhp += Math.max(0, Number(l.unitPricePhp) || 0) * q;
+      subtotalPhp += commerceCartLineSubtotalPhp(l);
       totalQty += q;
     }
   }

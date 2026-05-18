@@ -7,6 +7,7 @@ export type StoreCommerceCartLine = {
   title: string;
   thumbnailUrl: string | null;
   qty: number;
+  /** 1개당(옵션 포함) — 줄 합계는 항상 unitPricePhp × qty */
   unitPricePhp: number;
   /** 할인 전 단가+옵션(정가 기준). 없으면 할인 표시 안 함 */
   listUnitPricePhp?: number | null;
@@ -77,6 +78,7 @@ export type AddStoreCartLineInput = {
   title: string;
   thumbnailUrl: string | null;
   qty: number;
+  /** 1개당(옵션 포함) — 줄 합계는 항상 unitPricePhp × qty */
   unitPricePhp: number;
   listUnitPricePhp?: number | null;
   discountPercent?: number | null;
@@ -89,4 +91,10 @@ export type AddStoreCartLineInput = {
   shippingAvailable: boolean;
   minOrderQty: number;
   maxOrderQty: number;
+  /**
+   * 동일 productId 줄이 이미 있을 때 수량 처리 (장바구니는 상품당 1줄).
+   * - set: 기본 — 선택 수량으로 교체(5개 담고 다시 담아도 5개)
+   * - increment: 명시 시에만 누적
+   */
+  mergeQtyMode?: "increment" | "set";
 };

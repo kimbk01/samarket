@@ -5,7 +5,6 @@ import { formatMoneyPhp } from "@/lib/utils/format";
 import { BAEMIN_CART_SECTION_CARD_CLASS } from "@/lib/stores/store-baemin-cart-ui";
 
 export function StoreBaeminCartOrderSummaryCard(props: {
-  listSubtotalPhp: number;
   subtotalPhp: number;
   discountAmountPhp: number;
   discountPercentOverall: number;
@@ -21,7 +20,6 @@ export function StoreBaeminCartOrderSummaryCard(props: {
   freeDeliveryMet: boolean;
 }) {
   const {
-    listSubtotalPhp,
     subtotalPhp,
     discountAmountPhp,
     discountPercentOverall,
@@ -40,7 +38,7 @@ export function StoreBaeminCartOrderSummaryCard(props: {
   return (
     <section className={`${BAEMIN_CART_SECTION_CARD_CLASS} overflow-hidden`}>
       <dl className="space-y-2.5 px-4 py-4 text-[14px]">
-        <Row label="총상품금액" value={formatMoneyPhp(listSubtotalPhp)} />
+        <Row label="총상품금액" value={formatMoneyPhp(subtotalPhp)} />
         {discountAmountPhp > 0 ? (
           <Row
             label={

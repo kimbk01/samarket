@@ -10,91 +10,50 @@ import {
   useStoreCommerceCartActionsOptional,
   useStoreCommerceCartOptional,
 } from "@/contexts/StoreCommerceCartContext";
+import { useStoreCommerceCartBucketStats } from "@/lib/stores/use-store-commerce-cart-selector";
 import { openStoreCartConflict } from "@/lib/stores/store-cart-conflict-ui-store";
 import { storeCartConflictExistingFromBlockedAdd } from "@/lib/stores/store-cart-conflict-meta";
-import { itemTypeShortLabel } from "@/lib/stores/group-store-products-by-menu";
 import { parseMediaUrlsJson } from "@/lib/stores/parse-media-urls-json";
 import type { ModifierSelectionsWire } from "@/lib/stores/modifiers/types";
 import {
   parseProductOptionsJson,
   validateModifierSelection,
 } from "@/lib/stores/product-line-options";
-import { PH_LOCAL_09_PLACEHOLDER } from "@/lib/constants/philippines-contact";
-import { formatMoneyPhp } from "@/lib/utils/format";
-import {
-  formatPhMobileDisplay,
-  isCompletePhMobile,
-  parsePhMobileInput,
-  telHrefFromLoosePhPhone,
-} from "@/lib/utils/ph-mobile";
-import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
-import { StoreDetailBottomStrip } from "@/components/stores/StoreDetailBottomStrip";
-import { StoreModifierPicker } from "@/components/stores/modifiers/StoreModifierPicker";
-import { STORE_DETAIL_SUBHEADER_STICKY } from "@/lib/stores/store-detail-ui";
-import {
-  parseCommerceExtrasFromHoursJson,
-  resolveChargedDeliveryFeePhp,
-} from "@/lib/stores/store-commerce-extras";
+import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
 import { resolveStoreFrontCommerceState } from "@/lib/stores/store-auto-hours";
-import { KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH } from "@/lib/chats/chat-channel-events";
 import { approximateDiscountPercent } from "@/lib/stores/store-product-pricing";
-import { fetchStoreProductPublicDeduped, postMeStoreOrder } from "@/lib/stores/store-delivery-api-client";
-import { generateStoreOrderClientKey } from "@/lib/stores/store-order-client-key";
-import {
-  buildStoreOrderDetailSeedFromPostSuccess,
-  setStoreOrderDetailSeed,
-} from "@/lib/stores/store-order-detail-seed-cache";
+import { fetchStoreProductPublicDeduped } from "@/lib/stores/store-delivery-api-client";
+import { showStoreDetailToast } from "@/lib/stores/store-detail-toast-ui-store";
 import {
   dibayPerfOnCartbarUpdated,
   dibayPerfRecordAddToCartClick,
   dibayPerfRecordCartBlockedByOtherStore,
 } from "@/lib/dibay/delivery-flow-perf";
+import { StoreProductDetailPageChrome } from "@/components/stores/product-detail/baemin/StoreProductDetailPageChrome";
+import { StoreBaeminProductDetailView } from "@/components/stores/product-detail/baemin/StoreBaeminProductDetailView";
 
 type PublicStore = {
   id: string;
   slug: string;
   store_name: string;
-  phone: string | null;
-  region: string | null;
-  city: string | null;
-  district: string | null;
   profile_image_url?: string | null;
   delivery_available?: boolean | null;
-  pickup_available?: boolean | null;
   is_open?: boolean | null;
   business_hours_json?: unknown;
-  viewer_is_owner?: boolean;
-  viewer_is_admin?: boolean;
   can_order_store?: boolean;
   owner_block_message?: string | null;
+  rating_avg?: number | null;
+  review_count?: number | null;
 };
-
-type Fulfillment = "pickup" | "local_delivery" | "shipping";
 
 const OWN_STORE_ORDER_BLOCK_MESSAGE = "본인 매장은 주문할 수 없습니다";
 
-type CatEmbed = { name?: string } | { name?: string }[] | null | undefined;
-type MenuSecEmbed = { name?: string } | { name?: string }[] | null | undefined;
-
-function categoryNameFromEmbed(v: CatEmbed): string | null {
-  if (v == null) return null;
-  if (Array.isArray(v)) return v[0]?.name?.trim() || null;
-  return v.name?.trim() || null;
-}
-
-function menuSectionNameFromEmbed(v: MenuSecEmbed): string | null {
-  if (v == null) return null;
-  if (Array.isArray(v)) return v[0]?.name?.trim() || null;
-  return v.name?.trim() || null;
-}
-
-/** 경로 슬러그와 DB slug 일치 판단 — 퍼센트 인코딩·NFC 정규화·대소문자 차이 흡수 */
 function normalizeStoreSlugSegment(raw: string): string {
   let s = raw.trim();
   try {
     s = decodeURIComponent(s);
   } catch {
-    /* 이미 디코딩된 문자열 */
+    /* noop */
   }
   return s.normalize("NFC").trim();
 }
@@ -112,9 +71,7 @@ type PublicProduct = {
   summary: string | null;
   price: number;
   discount_price: number | null;
-  discount_percent?: number | null;
   stock_qty: number;
-  /** false·미정: 재고 무시(주문 시 차감 없음) */
   track_inventory?: boolean | null;
   min_order_qty: number | null;
   max_order_qty: number | null;
@@ -125,9 +82,7 @@ type PublicProduct = {
   is_featured?: boolean;
   is_owner_recommended?: boolean;
   is_representative?: boolean;
-  item_type?: string | null;
-  store_menu_sections?: MenuSecEmbed;
-  store_product_categories?: CatEmbed;
+  has_options?: boolean;
   images_json?: unknown;
   options_json?: unknown;
 };
@@ -142,29 +97,19 @@ export function StoreProductPublic({
   const { t } = useI18n();
   const router = useRouter();
   const commerceCart = useStoreCommerceCartOptional();
+  const commerceCartActions = useStoreCommerceCartActionsOptional();
   const [product, setProduct] = useState<PublicProduct | null>(null);
   const [store, setStore] = useState<PublicStore | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [qty, setQty] = useState(1);
-  const [fulfillment, setFulfillment] = useState<Fulfillment>("pickup");
-  const [buyerNote, setBuyerNote] = useState("");
-  const [buyerPhone, setBuyerPhone] = useState("");
-  const [orderBusy, setOrderBusy] = useState(false);
-  const clientOrderKeyRef = useRef<string | null>(null);
-  const orderSubmitFlightRef = useRef(false);
-  const [orderErr, setOrderErr] = useState<string | null>(null);
-  const [orderOk, setOrderOk] = useState<string | null>(null);
-  const [lastPlacedOrderId, setLastPlacedOrderId] = useState<string | null>(null);
   const [detailGalleryIdx, setDetailGalleryIdx] = useState(0);
   const [modifierWire, setModifierWire] = useState<ModifierSelectionsWire>({ pick: {}, qty: {} });
   const [lineMemo, setLineMemo] = useState("");
+  const [cartErr, setCartErr] = useState<string | null>(null);
+  const [addBusy, setAddBusy] = useState(false);
+  const addInFlightRef = useRef(false);
   const [hoursTick, setHoursTick] = useState(0);
-  const commerceCartActions = useStoreCommerceCartActionsOptional();
-
-  useEffect(() => {
-    void router.prefetch("/my/store-orders");
-  }, [router]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -196,17 +141,18 @@ export function StoreProductPublic({
   }, [product, detailGalleryUrls]);
 
   useEffect(() => {
-    setDetailGalleryIdx((prev) => (prev === 0 ? prev : 0));
+    setDetailGalleryIdx(0);
   }, [product?.id]);
 
   useEffect(() => {
     setModifierWire({ pick: {}, qty: {} });
     setLineMemo("");
+    setCartErr(null);
   }, [product?.id]);
 
   const optionGroups = useMemo(
     () => (product ? parseProductOptionsJson(product.options_json) : []),
-    [product]
+    [product?.options_json]
   );
 
   useEffect(() => {
@@ -235,24 +181,6 @@ export function StoreProductPublic({
     () => validateModifierSelection(optionGroups, modifierWire, baseUnitPhp),
     [optionGroups, modifierWire, baseUnitPhp]
   );
-
-  const directOrderFingerprint = useMemo(() => {
-    if (!product?.id || !store?.id) return "";
-    return JSON.stringify({
-      store_id: store.id,
-      product_id: product.id,
-      qty,
-      fulfillment_type: fulfillment,
-      buyer_note: buyerNote.trim(),
-      buyer_phone: parsePhMobileInput(buyerPhone),
-      modifier_selections: modifierWire,
-      line_note: lineMemo.trim(),
-    });
-  }, [store?.id, product?.id, qty, fulfillment, buyerNote, buyerPhone, modifierWire, lineMemo]);
-
-  useEffect(() => {
-    clientOrderKeyRef.current = null;
-  }, [directOrderFingerprint]);
 
   const storeExtras = useMemo(
     () => parseCommerceExtrasFromHoursJson(store?.business_hours_json),
@@ -287,27 +215,8 @@ export function StoreProductPublic({
         const maxQ = Math.max(minQ, Number(p.max_order_qty) || 99);
         const tr = p.track_inventory === true;
         const cap = tr ? Math.min(maxQ, p.stock_qty) : maxQ;
-        if (silent) {
-          setQty((q) => Math.max(minQ, Math.min(cap, q)));
-        } else {
-          setQty(minQ);
-          setOrderErr(null);
-          setOrderOk(null);
-          setLastPlacedOrderId(null);
-        }
-        const stRow = j.store as { delivery_available?: boolean | null };
-        const opts: Fulfillment[] = [];
-        if (p.pickup_available) opts.push("pickup");
-        if (p.local_delivery_available || stRow.delivery_available === true) {
-          opts.push("local_delivery");
-        } else if (p.shipping_available) {
-          opts.push("shipping");
-        }
-        if (silent) {
-          setFulfillment((f) => (opts.includes(f) ? f : opts[0] ?? "pickup"));
-        } else {
-          setFulfillment(opts[0] ?? "pickup");
-        }
+        setQty((q) => (silent ? Math.max(minQ, Math.min(cap, q)) : minQ));
+        if (!silent) setCartErr(null);
       } catch {
         if (!silent) setNotFound(true);
       } finally {
@@ -317,275 +226,150 @@ export function StoreProductPublic({
     [productId, storeSlug, router]
   );
 
-  const reloadProduct = useCallback(() => void loadProductPage({ silent: true }), [loadProductPage]);
-
   useLayoutEffect(() => {
     void loadProductPage();
   }, [loadProductPage]);
 
   useRefetchOnPageShowRestore(() => void loadProductPage({ silent: true }));
 
+  const onShare = useCallback(() => {
+    if (typeof window === "undefined" || !product) return;
+    const url = window.location.href;
+    const title = product.title;
+    void (async () => {
+      try {
+        if (navigator.share) {
+          await navigator.share({ title, text: title, url });
+        } else if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(url);
+          window.alert("링크를 복사했습니다.");
+        }
+      } catch {
+        /* noop */
+      }
+    })();
+  }, [product]);
+
+  const cartBucketStats = useStoreCommerceCartBucketStats(store?.id ?? "");
+  const cartTotalPhp = cartBucketStats.hydrated ? cartBucketStats.subtotalPhp : 0;
+
+  const goToStoreMenu = useCallback(
+    (slug: string) => {
+      router.push(`/stores/${encodeURIComponent(slug)}`, { scroll: false });
+    },
+    [router]
+  );
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-sam-app px-4 py-8">
-        <p className="text-sm text-sam-muted">{t("common_loading")}</p>
+      <div className="flex min-h-[100dvh] items-center justify-center bg-white px-4">
+        <p className="text-sm text-[#888888]">{t("common_loading")}</p>
       </div>
     );
   }
 
-  if (notFound) {
+  if (notFound || !product || !store) {
     return (
-      <div className="min-h-screen bg-sam-app px-4 py-8">
-        <p className="text-sm text-sam-muted">{t("common_product_not_found")}</p>
-        <Link href={`/stores/${encodeURIComponent(storeSlug)}`} className="mt-4 inline-block text-sm text-signature">
+      <div className="min-h-[100dvh] bg-white px-4 py-10">
+        <p className="text-sm text-[#888888]">{t("common_product_not_found")}</p>
+        <Link
+          href={`/stores/${encodeURIComponent(storeSlug)}`}
+          className="mt-4 inline-block text-sm font-semibold text-[#2386B1]"
+        >
           {t("common_back_to_store")}
         </Link>
       </div>
     );
   }
 
-  if (!product || !store) return null;
-
   const trackInv = product.track_inventory === true;
-
   const commerce = resolveStoreFrontCommerceState(
     store.business_hours_json,
     store.is_open,
     new Date()
   );
   void hoursTick;
+
   const orderBlocked = commerce.inBreak || !commerce.isOpenForCommerce;
   const ownerOrderBlocked = store.can_order_store === false;
   const ownerOrderBlockedMessage = store.owner_block_message ?? OWN_STORE_ORDER_BLOCK_MESSAGE;
 
-  const rawPhone = store.phone?.trim() ?? "";
-  const phDigits = rawPhone ? parsePhMobileInput(rawPhone) : "";
-  const stripPhone = rawPhone
-    ? {
-        label: phDigits.length === 11 ? formatPhMobileDisplay(phDigits) : rawPhone,
-        href: telHrefFromLoosePhPhone(rawPhone) ?? `tel:${rawPhone.replace(/\s/g, "")}`,
-      }
-    : null;
-
   const minQ = Math.max(1, Number(product.min_order_qty) || 1);
   const maxQ = Math.max(minQ, Number(product.max_order_qty) || 99);
   const capQty = trackInv ? Math.min(maxQ, product.stock_qty) : maxQ;
-  const fulfillmentOptions: { value: Fulfillment; label: string }[] = [];
-  if (product.pickup_available) {
-    fulfillmentOptions.push({ value: "pickup", label: t("common_pickup_label") });
-  }
-  const productDeliveryMode: Fulfillment | null =
-    product.local_delivery_available || store?.delivery_available === true
-      ? "local_delivery"
-      : product.shipping_available
-        ? "shipping"
-        : null;
-  if (productDeliveryMode != null) {
-    fulfillmentOptions.push({ value: productDeliveryMode, label: t("common_delivery_label") });
-  }
-
-  async function submitOrder() {
-    const st = store;
-    const pr = product;
-    if (!st || !pr) return;
-    if (typeof navigator !== "undefined" && navigator.onLine === false) {
-      setOrderErr("네트워크에 연결된 뒤 다시 주문해 주세요.");
-      return;
-    }
-    if (orderBusy || orderSubmitFlightRef.current) return;
-    if (ownerOrderBlocked) {
-      setOrderErr(ownerOrderBlockedMessage);
-      return;
-    }
-    if (commerce.inBreak) {
-      setOrderErr(
-        t("common_break_time_order_blocked", { time: commerce.breakRangeLabel })
-      );
-      return;
-    }
-    if (!commerce.isOpenForCommerce) {
-      setOrderErr(t("common_preparing_order_blocked"));
-      return;
-    }
-    if (!optionValidation.ok) {
-      setOrderErr(t("common_check_option_selection"));
-      return;
-    }
-    if (
-      (fulfillment === "local_delivery" || fulfillment === "shipping") &&
-      !isCompletePhMobile(buyerPhone)
-    ) {
-      setOrderErr(t("common_enter_contact", { placeholder: PH_LOCAL_09_PLACEHOLDER }));
-      return;
-    }
-    if (
-      fulfillment === "pickup" &&
-      parsePhMobileInput(buyerPhone) &&
-      !isCompletePhMobile(buyerPhone)
-    ) {
-      setOrderErr(t("common_check_contact_format"));
-      return;
-    }
-    const uwo = baseUnitPhp + (optionValidation.ok ? optionValidation.unitDelta : 0);
-    const minStorePhp =
-      parseCommerceExtrasFromHoursJson(st.business_hours_json).minOrderPhp ?? 0;
-    if (minStorePhp > 0 && uwo * qty < minStorePhp) {
-      setOrderErr(
-        `이 매장 최소 주문 금액은 ${formatMoneyPhp(minStorePhp)}입니다. 수량을 늘리거나 장바구니에서 합계를 맞춰 주세요.`
-      );
-      return;
-    }
-    setOrderErr(null);
-    setOrderOk(null);
-    orderSubmitFlightRef.current = true;
-    setOrderBusy(true);
-    try {
-      if (!clientOrderKeyRef.current) {
-        clientOrderKeyRef.current = generateStoreOrderClientKey();
-      }
-      const client_order_key = clientOrderKeyRef.current;
-      const { status, json } = await postMeStoreOrder({
-        store_id: st.id,
-        items: [
-          {
-            product_id: pr.id,
-            qty,
-            client_unit_php: unitWithOptions,
-            modifier_selections:
-              Object.keys(modifierWire.pick).length > 0 || Object.keys(modifierWire.qty).length > 0
-                ? modifierWire
-                : undefined,
-            line_note: lineMemo.trim() || undefined,
-          },
-        ],
-        fulfillment_type: fulfillment,
-        buyer_note: buyerNote.trim() || undefined,
-        buyer_phone: parsePhMobileInput(buyerPhone) || undefined,
-        client_order_key,
-      });
-      if (status === 401) {
-        clientOrderKeyRef.current = null;
-        setOrderErr(t("common_login_required"));
-        return;
-      }
-      const orderJ = json as {
-        ok?: boolean;
-        error?: string;
-        idempotent?: boolean;
-        order?: { id?: string; order_no?: string; payment_amount?: number };
-      };
-      if (!orderJ?.ok) {
-        clientOrderKeyRef.current = null;
-        const code = typeof orderJ.error === "string" ? orderJ.error : "order_failed";
-        const msg =
-          code === "insufficient_stock"
-            ? "재고가 부족합니다. 수량을 줄이거나 새로고침 후 다시 시도해 주세요."
-            : code === "store_not_selling"
-              ? "이 매장은 현재 주문을 받지 않습니다."
-              : code === "store_closed"
-                ? "지금은 준비 중이라 주문할 수 없습니다."
-                : code === "below_min_order"
-                  ? "최소 주문 금액에 맞지 않습니다. 금액을 늘린 뒤 다시 시도해 주세요."
-                  : code === "cannot_order_own_store"
-                ? "본인 매장 상품은 주문할 수 없습니다."
-                : code === "options_too_few"
-                  ? "필수 옵션을 모두 선택해 주세요."
-                  : code === "options_too_many"
-                    ? "옵션 선택 개수가 너무 많습니다."
-                    : code === "options_invalid_choice"
-                      ? "선택할 수 없는 옵션이 포함되어 있습니다."
-                      : code === "options_unknown_group"
-                        ? "옵션 정보가 맞지 않습니다. 새로고침 후 다시 시도해 주세요."
-                        : code === "options_not_configured"
-                          ? "이 상품은 옵션을 지원하지 않습니다. 새로고침 후 다시 시도해 주세요."
-                          : code === "options_duplicate_choice"
-                            ? "같은 옵션을 중복 선택했습니다."
-                            : code === "duplicate_line_in_order"
-                              ? "주문에 같은 구성의 상품이 중복되었습니다."
-                              : `주문에 실패했습니다. (${code})`;
-        setOrderErr(msg);
-        return;
-      }
-      const placedId = typeof orderJ.order?.id === "string" ? orderJ.order.id : null;
-      const placedOrder = orderJ.order;
-      clientOrderKeyRef.current = null;
-      if (placedId) {
-        try {
-          sessionStorage.setItem(`dibay:buyer_order_placed_wall:${placedId}`, String(Date.now()));
-        } catch {
-          /* ignore */
-        }
-        if (
-          placedOrder &&
-          typeof placedOrder.order_no === "string" &&
-          typeof placedOrder.payment_amount === "number"
-        ) {
-          setStoreOrderDetailSeed(
-            placedId,
-            buildStoreOrderDetailSeedFromPostSuccess({
-              orderId: placedId,
-              order_no: placedOrder.order_no,
-              payment_amount: placedOrder.payment_amount,
-              store_id: st.id,
-              store_name: st.store_name,
-              idempotent: orderJ.idempotent === true,
-            })
-          );
-        }
-        void router.prefetch("/orders");
-        void router.prefetch(`/orders/store/${encodeURIComponent(placedId)}`);
-        void router.prefetch(`/orders/store/${encodeURIComponent(placedId)}/chat`);
-        window.dispatchEvent(new CustomEvent(KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH));
-        router.replace(`/orders/store/${encodeURIComponent(placedId)}`);
-        return;
-      }
-      setOrderOk(`${t("notify_order_received_message")} ${orderJ.order?.order_no ?? ""}`.trim());
-      setLastPlacedOrderId(null);
-      await reloadProduct();
-    } catch {
-      setOrderErr(t("common_network_error_generic"));
-    } finally {
-      orderSubmitFlightRef.current = false;
-      setOrderBusy(false);
-    }
-  }
+  const soldOut =
+    trackInv && product.stock_qty <= 0;
 
   const unitWithOptions = baseUnitPhp + (optionValidation.ok ? optionValidation.unitDelta : 0);
-
+  const cartLineQty = Math.max(minQ, Math.min(capQty, Math.floor(qty) || minQ));
+  const cartUnitPhp = Math.max(0, Math.floor(unitWithOptions) || 0);
+  const lineTotalPhp = cartUnitPhp * cartLineQty;
   const minOrderStorePhp = storeExtras.minOrderPhp ?? 0;
-  const lineSubtotalPhp = unitWithOptions * qty;
-  const deliveryFeeLine = resolveChargedDeliveryFeePhp(storeExtras, lineSubtotalPhp, fulfillment);
-  const orderGrandDisplayPhp =
-    lineSubtotalPhp + (fulfillment === "local_delivery" ? deliveryFeeLine : 0);
-  const belowStoreMinOrder =
-    minOrderStorePhp > 0 && lineSubtotalPhp < minOrderStorePhp;
+  const deliveryAvailable = store.delivery_available === true;
+
+  const showListStrike = Math.floor(product.price) !== Math.floor(baseUnitPhp);
+
+  const commerceBlockedMessage = ownerOrderBlocked
+    ? ownerOrderBlockedMessage
+    : orderBlocked
+      ? commerce.inBreak
+        ? t("common_break_time_menu_blocked", { time: commerce.breakRangeLabel })
+        : t("common_preparing_order_cart_blocked")
+      : soldOut
+        ? t("common_sold_out_product")
+        : trackInv && product.stock_qty < minQ
+          ? `재고가 최소 주문 수량(${minQ}개)보다 적습니다.`
+          : null;
+
+  const badges: string[] = [];
+  if (product.is_owner_recommended) badges.push("사장님 추천");
+  if (product.is_featured || product.is_representative) badges.push("인기");
+
+  const reviewCount = Math.max(0, Math.floor(Number(store.review_count) || 0));
+  const profileUrl = store.profile_image_url?.trim() || "";
+  const qtyStepperDisabled = soldOut || orderBlocked || ownerOrderBlocked;
+  const ctaDisabled =
+    soldOut ||
+    orderBlocked ||
+    ownerOrderBlocked ||
+    !optionValidation.ok ||
+    !commerceCartActions ||
+    capQty < minQ ||
+    qtyStepperDisabled ||
+    addBusy;
+
+  function releaseAddInFlight() {
+    addInFlightRef.current = false;
+    setAddBusy(false);
+  }
 
   function addToCart() {
+    if (addInFlightRef.current) return;
+
     const st = store;
     const pr = product;
     if (!st || !pr || !commerceCartActions) return;
     if (ownerOrderBlocked) {
-      setOrderErr(ownerOrderBlockedMessage);
+      setCartErr(ownerOrderBlockedMessage);
       return;
     }
     if (commerce.inBreak) {
-      setOrderErr(
-        t("common_break_time_cart_blocked", { time: commerce.breakRangeLabel })
-      );
+      setCartErr(t("common_break_time_cart_blocked", { time: commerce.breakRangeLabel }));
       return;
     }
     if (!commerce.isOpenForCommerce) {
-      setOrderErr(t("common_preparing_cart_blocked"));
+      setCartErr(t("common_preparing_cart_blocked"));
       return;
     }
     if (!optionValidation.ok) {
-      setOrderErr(t("common_check_option_selection"));
+      setCartErr(t("common_check_option_selection"));
       return;
     }
-    setOrderErr(null);
-    setLastPlacedOrderId(null);
-    const tr = pr.track_inventory === true;
-    const maxForCart = tr ? Math.min(maxQ, pr.stock_qty) : maxQ;
+    setCartErr(null);
+    addInFlightRef.current = true;
+    setAddBusy(true);
+
+    const maxForCart = trackInv ? Math.min(maxQ, pr.stock_qty) : maxQ;
     const listBaseUnit = Math.floor(pr.price);
     const listWithOptions = listBaseUnit + (optionValidation.ok ? optionValidation.unitDelta : 0);
     const hasLineDiscount =
@@ -599,10 +383,7 @@ export function StoreProductPublic({
     let lineDiscountPct = 0;
     if (hasLineDiscount) {
       if (productHasBaseDiscount && pr.discount_price != null) {
-        lineDiscountPct = approximateDiscountPercent(
-          listBaseUnit,
-          Math.floor(pr.discount_price)
-        );
+        lineDiscountPct = approximateDiscountPercent(listBaseUnit, Math.floor(pr.discount_price));
       } else {
         lineDiscountPct = Math.max(
           0,
@@ -618,8 +399,9 @@ export function StoreProductPublic({
       productId: pr.id,
       title: pr.title,
       thumbnailUrl: pr.thumbnail_url?.trim() || null,
-      qty,
-      unitPricePhp: unitWithOptions,
+      qty: cartLineQty,
+      unitPricePhp: cartUnitPhp,
+      mergeQtyMode: "set",
       listUnitPricePhp: hasLineDiscount ? listWithOptions : null,
       discountPercent: hasLineDiscount && lineDiscountPct > 0 ? lineDiscountPct : null,
       optionSelections: { ...modifierWire.pick },
@@ -634,13 +416,9 @@ export function StoreProductPublic({
       maxOrderQty: maxForCart,
     };
 
-    const cartActions = commerceCartActions;
-    if (!cartActions) {
-      setOrderErr("장바구니에 담을 수 없습니다.");
-      return;
-    }
-    const addResult = cartActions.addOrMergeLine(lineInput);
+    const addResult = commerceCartActions.addOrMergeLine(lineInput);
     if (!addResult.ok && addResult.reason === "blocked_by_other_store") {
+      releaseAddInFlight();
       dibayPerfRecordCartBlockedByOtherStore({
         existingStoreId: addResult.existingStoreId,
         nextStoreId: addResult.nextStoreId,
@@ -649,16 +427,20 @@ export function StoreProductPublic({
         lineInput,
         storeCartConflictExistingFromBlockedAdd(addResult),
         () => {
+          addInFlightRef.current = true;
+          setAddBusy(true);
           requestAnimationFrame(() => {
             requestAnimationFrame(() => dibayPerfOnCartbarUpdated(st.id));
           });
-          setOrderOk(t("common_add_to_cart"));
+          showStoreDetailToast(st.id, "카트에 담았어요");
+          goToStoreMenu(st.slug);
         }
       );
       return;
     }
     if (!addResult.ok) {
-      setOrderErr("장바구니에 담을 수 없습니다.");
+      releaseAddInFlight();
+      setCartErr("카트에 담을 수 없습니다.");
       return;
     }
 
@@ -666,465 +448,54 @@ export function StoreProductPublic({
     requestAnimationFrame(() => {
       requestAnimationFrame(() => dibayPerfOnCartbarUpdated(st.id));
     });
-    setOrderOk(t("common_add_to_cart"));
+    showStoreDetailToast(st.id, "카트에 담았어요");
+    goToStoreMenu(st.slug);
   }
 
-  const menuGroup =
-    menuSectionNameFromEmbed(product.store_menu_sections) ??
-    categoryNameFromEmbed(product.store_product_categories);
-  const itemTypeLabel = itemTypeShortLabel(product.item_type);
-  const showRepresentativeBadge = !!(product.is_representative || product.is_featured);
-  const badges = [
-    showRepresentativeBadge ? t("common_representative") : null,
-    itemTypeLabel,
-    product.pickup_available ? t("common_pickup_label") : null,
-    product.local_delivery_available ||
-    product.shipping_available ||
-    store?.delivery_available === true
-      ? t("common_delivery_label")
-      : null,
-  ].filter(Boolean) as string[];
-
-  const hasBaseDiscount =
-    product.discount_price != null &&
-    Number.isFinite(product.discount_price) &&
-    product.discount_price >= 0 &&
-    product.discount_price < product.price &&
-    product.price > 0;
-
-  const displayDiscountPct = (() => {
-    const dp = product.discount_percent;
-    if (dp != null && Number.isFinite(Number(dp)) && Number(dp) > 0) {
-      return Math.floor(Number(dp));
-    }
-    if (hasBaseDiscount && product.discount_price != null) {
-      return approximateDiscountPercent(Math.floor(product.price), Math.floor(product.discount_price));
-    }
-    return 0;
-  })();
-
-  const profileUrl = store.profile_image_url?.trim() || "";
-  const cartQtyThisStore = commerceCart?.hydrated ? commerceCart.getTotalQtyForStoreId(store.id) : 0;
-
   return (
-    <div className={`min-h-screen bg-sam-app ${cartQtyThisStore > 0 ? "pb-28" : "pb-10"}`}>
-      <header className={`${STORE_DETAIL_SUBHEADER_STICKY} flex items-center justify-center px-4 py-2.5`}>
-        <h1 className="truncate text-center sam-text-body font-semibold text-sam-fg">{product.title}</h1>
-      </header>
-
-      <nav className="border-b border-sam-border-soft bg-sam-surface px-4 py-2 sam-text-helper text-sam-muted" aria-label={t("common_location")}>
-        <Link href={`/stores/${encodeURIComponent(store.slug)}`} className="text-signature">
-          {store.store_name}
-        </Link>
-        {menuGroup ? (
-          <>
-            <span className="mx-1 text-sam-meta">/</span>
-            <span className="text-sam-muted">{menuGroup}</span>
-          </>
-        ) : null}
-      </nav>
-
-      <div className="bg-sam-surface">
-        <div className="relative aspect-square w-full bg-sam-surface-muted">
-          {heroImageUrl ? (
-            <img src={heroImageUrl} alt="" className="h-full w-full object-cover" />
-          ) : profileUrl ? (
-            <div className="relative flex h-full w-full items-center justify-center bg-gradient-to-br from-sam-border-soft via-sam-surface-muted to-sam-surface-muted">
-              <img
-                src={profileUrl}
-                alt=""
-                className="max-h-[58%] max-w-[58%] rounded-ui-rect object-contain shadow-sam-elevated ring-4 ring-sam-surface/80"
-              />
-            </div>
-          ) : (
-            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-sam-surface-muted to-sam-muted text-7xl text-white/95">
-              🍽️
-            </div>
-          )}
-          {showRepresentativeBadge ? (
-            <span className="absolute bottom-3 left-3 rounded-full bg-black/70 px-2.5 py-1 sam-text-xxs font-semibold text-amber-200">
-              {t("common_representative")}
-            </span>
-          ) : null}
-        </div>
-        {detailGalleryUrls.length > 0 ? (
-          <>
-            <div className="relative aspect-[4/3] w-full border-b border-sam-border-soft bg-sam-surface-muted">
-              <img
-                src={detailGalleryUrls[detailGalleryIdx] ?? ""}
-                alt=""
-                loading={detailGalleryIdx === 0 ? "eager" : "lazy"}
-                className="h-full w-full object-cover"
-              />
-            </div>
-            <HorizontalDragScroll
-              className="flex snap-x snap-mandatory gap-2 overflow-x-auto border-b border-sam-border-soft px-3 py-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-              aria-label={t("common_image")}
-            >
-              {detailGalleryUrls.map((u, i) => (
-                <button
-                  key={`${u}-${i}`}
-                  type="button"
-                  onClick={() => setDetailGalleryIdx(i)}
-                  className={`relative h-14 w-14 shrink-0 snap-start overflow-hidden rounded-ui-rect ring-2 ring-offset-1 ${
-                    i === detailGalleryIdx ? "ring-signature" : "ring-transparent opacity-80"
-                  }`}
-                >
-                  <img src={u} alt="" loading="lazy" className="h-full w-full object-cover" />
-                </button>
-              ))}
-            </HorizontalDragScroll>
-          </>
-        ) : null}
-        <div className="border-b border-sam-border-soft px-4 py-4">
-          <p className="text-lg font-semibold text-sam-fg">{product.title}</p>
-          {product.summary?.trim() ? (
-            <p className="mt-1 text-sm text-sam-muted">{product.summary.trim()}</p>
-          ) : null}
-          <p className="mt-3 text-xl font-bold text-sam-fg">{formatMoneyPhp(unitWithOptions)}</p>
-          {hasBaseDiscount ? (
-            <p className="mt-1 text-sm text-sam-meta line-through">{formatMoneyPhp(product.price)}</p>
-          ) : null}
-          {optionValidation.ok && optionValidation.unitDelta > 0 ? (
-            <p className="mt-1 text-xs text-sam-muted">
-              옵션 추가 {formatMoneyPhp(optionValidation.unitDelta)}
-            </p>
-          ) : null}
-          <p className="mt-2 text-xs text-sam-muted">
-            {trackInv ? `재고 ${product.stock_qty}개` : "재고 확인 없음 · 수량 제한 없음"}
-          </p>
-          {displayDiscountPct > 0 ? (
-            <p className="mt-1 text-xs font-medium text-rose-600">{displayDiscountPct}% 할인 적용</p>
-          ) : null}
-          {badges.length > 0 ? (
-            <p className="mt-2 text-xs text-sam-muted">{badges.join(" · ")}</p>
-          ) : null}
-          <p className="mt-3 text-center">
-            <Link
-              href={`/stores/${encodeURIComponent(store.slug)}/report?product=${encodeURIComponent(product.id)}`}
-              className="text-xs text-sam-meta underline decoration-sam-meta underline-offset-2"
-            >
-              상품 신고
-            </Link>
-          </p>
-        </div>
-      </div>
-
-      <div className="mx-4 mt-4 space-y-4 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
-        {commerce.breakConfigured ? (
-          <p className="sam-text-helper font-medium text-sam-fg">
-            Break time: {commerce.breakRangeLabel}
-          </p>
-        ) : null}
-        {commerce.inBreak ? (
-          <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper font-medium leading-snug text-amber-950">
-            {t("common_break_time_menu_blocked", { time: commerce.breakRangeLabel })}
-          </p>
-        ) : !commerce.isOpenForCommerce ? (
-          <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 sam-text-helper font-medium leading-snug text-amber-950">
-            {t("common_preparing_order_cart_blocked")}
-          </p>
-        ) : null}
-        <div>
-          <p className="text-sm font-medium text-sam-fg">{store.store_name}</p>
-          <Link
-            href={`/stores/${encodeURIComponent(store.slug)}`}
-            className="mt-2 inline-block text-sm text-signature"
-          >
-            {t("common_view_store")}
-          </Link>
-          {store.phone ? (
-            <p className="mt-2 text-sm text-sam-muted">
-              {(() => {
-                const href = telHrefFromLoosePhPhone(store.phone) ?? `tel:${String(store.phone).replace(/\s/g, "")}`;
-                const label =
-                  parsePhMobileInput(store.phone).length === 11
-                    ? formatPhMobileDisplay(parsePhMobileInput(store.phone))
-                    : store.phone;
-                return (
-                  <a href={href} className="text-signature">
-                    {label}
-                  </a>
-                );
-              })()}
-            </p>
-          ) : null}
-        </div>
-
-        {fulfillmentOptions.length === 0 ? (
-          <p className="text-sm text-sam-muted">{t("common_preparing_order_blocked")}</p>
-        ) : trackInv && product.stock_qty <= 0 ? (
-          <p className="text-sm text-sam-muted">{t("common_sold_out_product")}</p>
-        ) : trackInv && product.stock_qty < minQ ? (
-          <p className="text-sm text-amber-800">
-            재고가 최소 주문 수량({minQ}개)보다 적어 주문할 수 없습니다.
-          </p>
-        ) : (
-          <>
-            {optionGroups.length > 0 ? (
-              <div>
-                <StoreModifierPicker
-                  groups={optionGroups}
-                  value={modifierWire}
-                  onChange={setModifierWire}
-                  disabled={orderBusy || orderBlocked}
-                />
-                {optionValidation.ok && optionValidation.snapshot.summary ? (
-                  <div className="mt-3 rounded-ui-rect bg-sam-app px-3 py-2 sam-text-helper text-sam-fg">
-                    <p className="font-semibold text-sam-fg">선택한 옵션</p>
-                    <p className="mt-1 leading-relaxed">{optionValidation.snapshot.summary}</p>
-                  </div>
-                ) : null}
-                {!optionValidation.ok ? (
-                  <p className="mt-2 text-xs text-amber-800">필수 옵션을 확인해 주세요.</p>
-                ) : null}
-              </div>
-            ) : null}
-
-            <div>
-              <label htmlFor="store-product-line-memo" className="text-xs font-medium text-sam-muted">
-                상품 요청 (선택 · 가격에 반영되지 않음)
-              </label>
-              <textarea
-                id="store-product-line-memo"
-                rows={2}
-                value={lineMemo}
-                disabled={orderBusy || orderBlocked}
-                onChange={(e) => setLineMemo(e.target.value)}
-                className="mt-2 w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2 text-sm text-sam-fg placeholder:text-sam-meta"
-                placeholder="예) 국물 많이 주세요"
-                maxLength={300}
-              />
-            </div>
-
-            <div>
-              <p className="text-xs font-medium text-sam-muted">수량</p>
-              <div className="mt-2 flex items-center gap-3">
-                <button
-                  type="button"
-                  disabled={qty <= minQ || orderBusy || orderBlocked}
-                  onClick={() => setQty((q) => Math.max(minQ, q - 1))}
-                  className="h-9 w-9 rounded-ui-rect border border-sam-border text-lg leading-none text-sam-fg disabled:opacity-40"
-                >
-                  −
-                </button>
-                <span className="min-w-[2rem] text-center sam-text-body font-medium">{qty}</span>
-                <button
-                  type="button"
-                  disabled={qty >= capQty || orderBusy || orderBlocked}
-                  onClick={() => setQty((q) => Math.min(capQty, q + 1))}
-                  className="h-9 w-9 rounded-ui-rect border border-sam-border text-lg leading-none text-sam-fg disabled:opacity-40"
-                >
-                  +
-                </button>
-              </div>
-              <p className="mt-1 sam-text-xxs text-sam-meta">
-                최소 {minQ}개 · 최대 {maxQ}개
-                {trackInv ? ` (재고 ${product.stock_qty}개)` : ""}
-              </p>
-            </div>
-
-            <div>
-              <p className="text-xs font-medium text-sam-muted">수령 방식</p>
-              <div className="mt-2 flex flex-wrap gap-2">
-                {fulfillmentOptions.map((o) => (
-                  <button
-                    key={o.value}
-                    type="button"
-                    disabled={orderBusy || orderBlocked}
-                    onClick={() => setFulfillment((prev) => (prev === o.value ? prev : o.value))}
-                    className={`rounded-full px-3 py-1.5 sam-text-body-secondary ${
-                      fulfillment === o.value
-                        ? "bg-signature text-white"
-                        : "border border-sam-border bg-sam-surface text-sam-fg"
-                    }`}
-                  >
-                    {o.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div>
-              <p className="text-xs font-medium text-sam-muted">
-                연락처{" "}
-                {fulfillment === "pickup" ? (
-                  <span className="font-normal text-sam-meta">(선택)</span>
-                ) : (
-                  <span className="text-red-600">*</span>
-                )}
-              </p>
-              <input
-                type="tel"
-                inputMode="numeric"
-                autoComplete="tel"
-                value={formatPhMobileDisplay(buyerPhone)}
-                disabled={orderBusy || orderBlocked}
-                onChange={(e) => setBuyerPhone(parsePhMobileInput(e.target.value))}
-                placeholder={PH_LOCAL_09_PLACEHOLDER}
-                className="mt-2 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm text-sam-fg placeholder:text-sam-meta"
-                aria-label="주문 연락처"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="store-order-note" className="text-xs font-medium text-sam-muted">
-                요청 사항 (선택)
-              </label>
-              <textarea
-                id="store-order-note"
-                rows={2}
-                value={buyerNote}
-                disabled={orderBusy || orderBlocked}
-                onChange={(e) => setBuyerNote(e.target.value)}
-                className="mt-2 w-full resize-none rounded-ui-rect border border-sam-border px-3 py-2 text-sm text-sam-fg placeholder:text-sam-meta"
-                placeholder="픽업 시간 등"
-                maxLength={500}
-              />
-            </div>
-
-            <div className="space-y-1.5 rounded-ui-rect bg-sam-app px-3 py-2.5 text-sm text-sam-fg">
-              <div className="flex justify-between">
-                <span className="text-sam-muted">상품 금액</span>
-                <span className="font-semibold">{formatMoneyPhp(lineSubtotalPhp)}</span>
-              </div>
-              {fulfillment === "local_delivery" ? (
-                <div className="flex justify-between">
-                  <span className="text-sam-muted">배달비</span>
-                  <span className="text-right font-semibold">
-                    {storeExtras.deliveryFeeMode === "courier" ?
-                      storeExtras.deliveryCourierLabel?.trim() ?
-                        `착불 · ${storeExtras.deliveryCourierLabel.trim()}`
-                      : "착불"
-                    : storeExtras.deliveryFeeMode === "self_free_promo" ?
-                      <span className="inline-flex flex-col items-end gap-0.5">
-                        <span className="inline-flex flex-wrap items-center justify-end gap-1.5">
-                          <span className="text-[13px] font-semibold text-[#2563EB]">배달비 무료 적용 중</span>
-                          {storeExtras.deliveryFeeStrikeReferencePhp != null &&
-                          storeExtras.deliveryFeeStrikeReferencePhp > 0 ? (
-                            <span className="text-[13px] font-medium text-sam-meta line-through">
-                              {formatMoneyPhp(storeExtras.deliveryFeeStrikeReferencePhp)}
-                            </span>
-                          ) : null}
-                        </span>
-                        <span className="tabular-nums">{formatMoneyPhp(deliveryFeeLine)}</span>
-                      </span>
-                    : formatMoneyPhp(deliveryFeeLine)}
-                  </span>
-                </div>
-              ) : null}
-              {fulfillment === "local_delivery" &&
-              storeExtras.deliveryFeeMode === "self" &&
-              deliveryFeeLine === 0 &&
-              storeExtras.deliveryFeePhp != null &&
-              storeExtras.deliveryFeePhp > 0 &&
-              storeExtras.freeDeliveryOverPhp != null &&
-              storeExtras.freeDeliveryOverPhp > 0 &&
-              lineSubtotalPhp >= storeExtras.freeDeliveryOverPhp ? (
-                <p className="sam-text-xxs text-emerald-800">
-                  무료배달 기준({formatMoneyPhp(storeExtras.freeDeliveryOverPhp)} 이상) 충족으로 배달비 면제
-                </p>
-              ) : null}
-              <div className="flex justify-between border-t border-sam-border pt-1.5 sam-text-body font-bold text-sam-fg">
-                <span>주문 예정 금액</span>
-                <span>{formatMoneyPhp(orderGrandDisplayPhp)}</span>
-              </div>
-            </div>
-            {belowStoreMinOrder && !orderBlocked ? (
-              <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-center sam-text-helper font-medium leading-snug text-amber-950">
-                최소 주문 {formatMoneyPhp(minOrderStorePhp)} 이상부터 주문할 수 있습니다. (부족{" "}
-                {formatMoneyPhp(minOrderStorePhp - lineSubtotalPhp)}) · 장바구니에 더 담거나 수량을
-                늘려 주세요.
-              </p>
-            ) : null}
-
-            {ownerOrderBlocked && !orderErr ? (
-              <p className="text-sm font-semibold text-sam-muted">{ownerOrderBlockedMessage}</p>
-            ) : null}
-            {orderErr ? <p className="text-sm text-red-600">{orderErr}</p> : null}
-            {orderOk ? (
-              <div className="space-y-2 rounded-ui-rect bg-green-50 px-3 py-2">
-                <p className="text-sm text-green-800">{orderOk}</p>
-                <div className="flex flex-col gap-2">
-                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm font-medium">
-                    <Link href="/my/store-orders" className="font-semibold text-signature underline">
-                      주문 내역 확인
-                    </Link>
-                    {lastPlacedOrderId ? (
-                      <Link
-                        href={`/my/store-orders/${encodeURIComponent(lastPlacedOrderId)}`}
-                        className="text-signature underline"
-                      >
-                        이 주문 진행 보기
-                      </Link>
-                    ) : null}
-                    {lastPlacedOrderId ? (
-                      <Link
-                        href={`/my/store-orders/${encodeURIComponent(lastPlacedOrderId)}/chat`}
-                        className="text-signature underline"
-                      >
-                        매장 문의 남기기
-                      </Link>
-                    ) : null}
-                  </div>
-                </div>
-              </div>
-            ) : null}
-
-            <div className="flex gap-2">
-              {commerceCart ? (
-                <button
-                  type="button"
-                  disabled={orderBusy || !optionValidation.ok || orderBlocked || ownerOrderBlocked}
-                  onClick={() => addToCart()}
-                  className="flex-1 rounded-ui-rect border border-sam-border bg-sam-surface py-3 sam-text-body font-semibold text-sam-fg disabled:cursor-not-allowed disabled:bg-sam-surface-muted disabled:text-sam-muted disabled:opacity-60"
-                >
-                  장바구니 담기
-                </button>
-              ) : null}
-              <button
-                type="button"
-                disabled={
-                  orderBusy ||
-                  !optionValidation.ok ||
-                  orderBlocked ||
-                  belowStoreMinOrder ||
-                  ownerOrderBlocked
-                }
-                onClick={() => void submitOrder()}
-                className={`rounded-ui-rect bg-signature py-3 sam-text-body font-semibold text-white disabled:cursor-not-allowed disabled:bg-sam-border disabled:text-sam-muted disabled:opacity-100 ${
-                  commerceCart ? "flex-1" : "w-full"
-                }`}
-              >
-                {orderBusy ? t("common_processing") : t("common_order_now")}
-              </button>
-            </div>
-            <p className="text-center sam-text-xxs text-sam-meta">
-              주문 접수와 상태 확인은 주문 상세에서 이어지고, 매장과 조율이 필요할 때만 배달채팅을 이용하면
-              됩니다. 금액 정산은 매장과 직접 하시면 됩니다.
-            </p>
-          </>
-        )}
-      </div>
-
-      <StoreDetailBottomStrip
-        slug={store.slug}
-        isOpen={commerce.isOpenForCommerce}
-        deliveryAvailable={store.delivery_available === true}
-        fulfillmentMode={fulfillment === "pickup" ? "pickup" : "local_delivery"}
-        cartTotalPhp={commerceCart?.hydrated ? commerceCart.getSubtotalForStoreId(store.id) : 0}
-        cartQtyTotal={commerceCart?.hydrated ? commerceCart.getTotalQtyForStoreId(store.id) : 0}
-        cartLineKindCount={
-          commerceCart?.hydrated ? commerceCart.getItemCountForStoreId(store.id) : 0
-        }
-        minOrderPhp={storeExtras.minOrderPhp}
-        closedDetail={
-          commerce.inBreak && commerce.breakConfigured ? `Break time: ${commerce.breakRangeLabel}` : null
-        }
-        onCartPreviewOpen={() =>
-          router.push(`/stores/${encodeURIComponent(store.slug)}/cart`)
-        }
-      />
-    </div>
+    <StoreProductDetailPageChrome
+      storeSlug={store.slug}
+      storeId={store.id}
+      headerTitle={product.title}
+      heroImageUrl={heroImageUrl}
+      profileFallbackUrl={profileUrl}
+      galleryUrls={detailGalleryUrls}
+      galleryIndex={detailGalleryIdx}
+      onGalleryIndexChange={setDetailGalleryIdx}
+      onShare={onShare}
+    >
+      <StoreBaeminProductDetailView
+      storeSlug={store.slug}
+      productId={product.id}
+      title={product.title}
+      summary={product.summary}
+      reviewCount={reviewCount}
+      badges={badges}
+      baseUnitPhp={baseUnitPhp}
+      listPricePhp={Math.floor(product.price)}
+      showListStrike={showListStrike}
+      lineTotalPhp={lineTotalPhp}
+      qty={qty}
+      qtyMinusDisabled={qtyStepperDisabled || qty <= minQ}
+      qtyPlusDisabled={qtyStepperDisabled || qty >= capQty}
+      onQtyDecrease={() => setQty((q) => Math.max(minQ, q - 1))}
+      onQtyIncrease={() => setQty((q) => Math.min(capQty, q + 1))}
+      optionGroups={optionGroups}
+      modifierWire={modifierWire}
+      onModifierChange={setModifierWire}
+      optionsDisabled={qtyStepperDisabled}
+      awaitingOptionHydration={false}
+      optionHydrationFailed={false}
+      commerceBlockedMessage={commerceBlockedMessage}
+      soldOut={soldOut}
+      minOrderPhp={minOrderStorePhp > 0 ? minOrderStorePhp : null}
+      cartTotalPhp={cartTotalPhp}
+      deliveryAvailable={deliveryAvailable}
+      ctaDisabled={ctaDisabled}
+      cartBusy={addBusy}
+      errorMessage={cartErr}
+      onAddToCart={addToCart}
+    />
+    </StoreProductDetailPageChrome>
   );
 }

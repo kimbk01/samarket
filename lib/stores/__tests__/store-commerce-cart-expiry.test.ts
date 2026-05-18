@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { computeStoreCartAddOrMerge, emptyCommerceCartV2 } from "@/lib/stores/store-commerce-cart-add-merge";
+import {
+  computeStoreCartAddOrMerge,
+  consolidateCommerceCartBucketLines,
+  emptyCommerceCartV2,
+} from "@/lib/stores/store-commerce-cart-add-merge";
 import {
   enforceSingleActiveStoreCart,
   isCommerceCartSnapshotExpired,
@@ -132,7 +136,7 @@ describe("computeStoreCartAddOrMerge", () => {
     expect(merged.result).toEqual({ ok: true, reason: "merged" });
     const bucket = Object.values(merged.nextSnapshot!.carts)[0]!;
     expect(bucket.lines).toHaveLength(1);
-    expect(bucket.lines[0]?.qty).toBe(3);
+    expect(bucket.lines[0]?.qty).toBe(2);
 
     const blocked = computeStoreCartAddOrMerge(merged.nextSnapshot!, {
       ...baseLine,
@@ -147,28 +151,26 @@ describe("computeStoreCartAddOrMerge", () => {
     });
   });
 
-  it("keeps same product+options separate when line memo differs", () => {
+  it("one line per productId — line memo on re-add replaces prior line", () => {
     let snap = emptyCommerceCartV2();
     const first = computeStoreCartAddOrMerge(snap, { ...baseLine, lineNote: "소스 많이" });
-    expect(first.result).toEqual({ ok: true, reason: "added" });
     snap = first.nextSnapshot!;
 
     const second = computeStoreCartAddOrMerge(snap, { ...baseLine, lineNote: "젓가락 제외" });
-    expect(second.result).toEqual({ ok: true, reason: "added" });
+    expect(second.result).toEqual({ ok: true, reason: "merged" });
 
     const bucket = Object.values(second.nextSnapshot!.carts)[0]!;
-    expect(bucket.lines).toHaveLength(2);
-    expect(bucket.lines.map((l) => l.lineNote)).toEqual(["소스 많이", "젓가락 제외"]);
+    expect(bucket.lines).toHaveLength(1);
+    expect(bucket.lines[0]?.lineNote).toBe("젓가락 제외");
   });
 
-  it("keeps same product separate when option selections differ", () => {
+  it("one line per productId — different options on re-add replace prior line", () => {
     let snap = emptyCommerceCartV2();
     const first = computeStoreCartAddOrMerge(snap, {
       ...baseLine,
       modifierWire: { pick: { sauce: ["fried"] }, qty: {} },
       optionSelections: { sauce: ["fried"] },
     });
-    expect(first.result).toEqual({ ok: true, reason: "added" });
     snap = first.nextSnapshot!;
 
     const second = computeStoreCartAddOrMerge(snap, {
@@ -176,9 +178,100 @@ describe("computeStoreCartAddOrMerge", () => {
       modifierWire: { pick: { sauce: ["spicy"] }, qty: {} },
       optionSelections: { sauce: ["spicy"] },
     });
-    expect(second.result).toEqual({ ok: true, reason: "added" });
+    expect(second.result).toEqual({ ok: true, reason: "merged" });
 
     const bucket = Object.values(second.nextSnapshot!.carts)[0]!;
-    expect(bucket.lines).toHaveLength(2);
+    expect(bucket.lines).toHaveLength(1);
+    expect(bucket.lines[0]?.optionSelections).toEqual({ sauce: ["spicy"] });
+  });
+
+  it("re-add with qty 5 keeps 5 (set, not stack)", () => {
+    let snap = emptyCommerceCartV2();
+    snap = computeStoreCartAddOrMerge(snap, { ...baseLine, qty: 5 }).nextSnapshot!;
+    const again = computeStoreCartAddOrMerge(snap, { ...baseLine, qty: 5 });
+    const bucket = Object.values(again.nextSnapshot!.carts)[0]!;
+    expect(bucket.lines).toHaveLength(1);
+    expect(bucket.lines[0]?.qty).toBe(5);
+  });
+
+  it("merges duplicate lines with same options (pick-only vs full wire)", () => {
+    const dupLines = [
+      {
+        lineId: "l1",
+        productId: "p1",
+        title: "Menu",
+        thumbnailUrl: null,
+        qty: 2,
+        unitPricePhp: 250,
+        optionSelections: { sauce: ["red"] },
+        modifierWire: null,
+        optionsSummary: "red",
+        lineNote: null,
+        pickupAvailable: true,
+        localDeliveryAvailable: true,
+        shippingAvailable: false,
+        minOrderQty: 1,
+        maxOrderQty: 99,
+      },
+      {
+        lineId: "l2",
+        productId: "p1",
+        title: "Menu",
+        thumbnailUrl: null,
+        qty: 1,
+        unitPricePhp: 300,
+        optionSelections: { sauce: ["red"] },
+        modifierWire: { pick: { sauce: ["red"] }, qty: {} },
+        optionsSummary: "red",
+        lineNote: null,
+        pickupAvailable: true,
+        localDeliveryAvailable: true,
+        shippingAvailable: false,
+        minOrderQty: 1,
+        maxOrderQty: 99,
+      },
+    ];
+    const out = consolidateCommerceCartBucketLines("store-a", dupLines);
+    expect(out).toHaveLength(1);
+    expect(out[0]?.qty).toBe(1);
+    expect(out[0]?.unitPricePhp).toBe(300);
+    expect(out[0]?.modifierWire).toEqual({ pick: { sauce: ["red"] }, qty: {} });
+  });
+
+  it("subtotal equals sum of line unitPricePhp × qty with options", () => {
+    let snap = emptyCommerceCartV2();
+    const withOpts = computeStoreCartAddOrMerge(snap, {
+      ...baseLine,
+      unitPricePhp: 300,
+      qty: 3,
+      modifierWire: { pick: { sauce: ["red"] }, qty: {} },
+      optionSelections: { sauce: ["red"] },
+    });
+    snap = withOpts.nextSnapshot!;
+    const bucket = Object.values(snap.carts)[0]!;
+    const sum = bucket.lines.reduce(
+      (n, l) => n + Math.floor(l.unitPricePhp) * Math.floor(l.qty),
+      0
+    );
+    expect(sum).toBe(900);
+    expect(bucket.lines).toHaveLength(1);
+  });
+
+  it("mergeQtyMode set keeps qty at selection (no double increment)", () => {
+    let snap = emptyCommerceCartV2();
+    const first = computeStoreCartAddOrMerge(snap, { ...baseLine, qty: 1, mergeQtyMode: "set" });
+    snap = first.nextSnapshot!;
+
+    const second = computeStoreCartAddOrMerge(snap, {
+      ...baseLine,
+      qty: 2,
+      mergeQtyMode: "set",
+    });
+    const bucket = Object.values(second.nextSnapshot!.carts)[0]!;
+    expect(bucket.lines[0]?.qty).toBe(2);
+    expect(bucket.lines[0]?.unitPricePhp).toBe(baseLine.unitPricePhp);
+    expect(bucket.lines[0]?.unitPricePhp! * bucket.lines[0]!.qty).toBe(
+      baseLine.unitPricePhp * 2
+    );
   });
 });

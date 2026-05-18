@@ -1,4 +1,8 @@
 import { wireFromLegacyPickOnly } from "@/lib/stores/product-line-options";
+import {
+  cloneModifierWire,
+  consolidateCommerceCartBucketLines,
+} from "@/lib/stores/store-commerce-cart-add-merge";
 import { touchCommerceCartSnapshot } from "@/lib/stores/store-commerce-cart-expiry";
 import type {
   AddStoreCartLineInput,
@@ -72,7 +76,7 @@ function lineFromAddInput(input: AddStoreCartLineInput, lineId: string): StoreCo
     unitPricePhp: input.unitPricePhp,
     listUnitPricePhp: input.listUnitPricePhp ?? null,
     discountPercent: input.discountPercent ?? null,
-    modifierWire: input.modifierWire ?? null,
+    modifierWire: cloneModifierWire(wire),
     optionSelections: { ...wire.pick },
     optionsSummary: input.optionsSummary,
     lineNote: input.lineNote?.trim() || null,
@@ -102,7 +106,8 @@ export function mutateCartReplaceLineAt(
     const storeId = normalizeStoreIdKey(bucket.storeId) || bucket.storeId;
     const lines = [...bucket.lines];
     lines[idx] = lineFromAddInput(input, lid);
-    carts[bid] = { ...bucket, lines };
+    const consolidated = consolidateCommerceCartBucketLines(storeId, lines);
+    carts[bid] = { ...bucket, lines: consolidated };
     const next =
       Object.keys(carts).length === 0
         ? null

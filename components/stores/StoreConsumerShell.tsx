@@ -33,12 +33,13 @@ export function StoreConsumerShell({ slug, children }: { slug: string; children:
   }
   const normalizedSlug = encodeURIComponent(decodeURIComponent((slug || "").trim()));
   const pathNoQuery = (pathname ?? "").split("?")[0] ?? "";
-  /** 장바구니/체크아웃은 자체 헤더를 쓰거나(또는 헤더 없이) 풀스크린 구성 */
+  /** 장바구니/체크아웃·메뉴 상세는 자체 헤더(히어로 오버레이) — Tier1 바 생략 */
   if (
     pathNoQuery === `/stores/${normalizedSlug}/cart` ||
     pathNoQuery.startsWith(`/stores/${normalizedSlug}/cart/`) ||
     pathNoQuery === `/stores/${normalizedSlug}/checkout` ||
-    pathNoQuery.startsWith(`/stores/${normalizedSlug}/checkout/`)
+    pathNoQuery.startsWith(`/stores/${normalizedSlug}/checkout/`) ||
+    /^\/stores\/[^/]+\/p\/[^/]+$/.test(pathNoQuery)
   ) {
     return <>{children}</>;
   }

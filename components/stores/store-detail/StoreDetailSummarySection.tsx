@@ -176,6 +176,7 @@ export function StoreDetailSummarySection({
         sticky={
           <StoreOrderStickyHeader
             elevated={headerElevated}
+            heroGlassOverlayButtons
             fallbackHref={fallbackHref}
             storeSlug={store.slug}
             storeName={store.store_name}
