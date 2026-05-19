@@ -39,8 +39,6 @@ import {
   scheduleRouteEntryToPaint,
 } from "@/lib/runtime/samarket-runtime-debug";
 import { useMessengerRoomUrlSearchParams } from "@/lib/community-messenger/room/use-messenger-room-url-search-params";
-import { buildMessengerRoomListBackHref } from "@/lib/community-messenger/messenger-entry-origin";
-import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
 import {
   finalizeCmRoomEntryShellVisibleMs,
   recordCmRoomEntryMilestone,
@@ -55,6 +53,11 @@ import {
   resetCmRenderAnalysisSession,
 } from "@/lib/community-messenger/monitoring/cm-render-analysis";
 import { useMessengerRoomAnimatedBack } from "@/components/community-messenger/room/MessengerRoomSwipeBackShell";
+import { StoreOrderBuyerMessengerRoomBackRegistrar } from "@/components/community-messenger/room/StoreOrderBuyerMessengerRoomBackRegistrar";
+import {
+  resolveMessengerRoomBackNavigation,
+  runMessengerRoomBackNavigation,
+} from "@/lib/community-messenger/room/messenger-room-back-navigation";
 import { messengerDeliveryViewerRole } from "@/lib/community-messenger/messenger-delivery-viewer-role";
 import { messengerTradeViewerRoleFromContextMeta } from "@/lib/community-messenger/messenger-trade-viewer-role";
 import { CmReactCommitProbe, useCmDevRenderTrace, useCmStrictModeEffectProbe } from "@/lib/community-messenger/dev/cm-event-loop-dev";
@@ -435,6 +438,11 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
           isOwnerApi={storeOrderDeliveryIsOwnerApi}
           enabled={storeOrderDeliveryRoomEnabled}
         >
+        <StoreOrderBuyerMessengerRoomBackRegistrar
+          roomId={view.snapshot.room.id}
+          contextMeta={view.snapshot.room.contextMeta}
+          myRole={view.snapshot.myRole}
+        />
         <CmRoomPhase2HydrationProvider pass={hydrationPass}>
         <div
           ref={setMessengerShellRef}
@@ -542,8 +550,18 @@ const CommunityMessengerRoomClientPhase2Hydrated = memo(function CommunityMessen
               requestAnimatedBack();
               return;
             }
-            const fallback = buildMessengerRoomListBackHref(searchParams);
-            runHistoryBackWithFallback(room.router, fallback);
+            const plan = resolveMessengerRoomBackNavigation({
+              roomId: room.snapshot?.room.id ?? "",
+              searchParams,
+              buyerBack: {
+                contextMeta: room.snapshot?.room.contextMeta,
+                myRole: room.snapshot?.myRole,
+                storeSlug: undefined,
+                storeCategorySlug: undefined,
+                businessType: undefined,
+              },
+            });
+            runMessengerRoomBackNavigation(room.router, plan);
           }}
           className="rounded-ui-rect bg-ui-fg px-4 py-3 sam-text-body font-semibold text-ui-surface"
         >

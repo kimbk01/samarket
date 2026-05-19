@@ -11,6 +11,7 @@ import {
   type MobileTopTier1RuleSet,
 } from "@/lib/layout/mobile-top-tier1-rules";
 import { buildMessengerRoomListBackHref } from "@/lib/community-messenger/messenger-entry-origin";
+import { getMessengerRoomBackOverride } from "@/lib/community-messenger/room/messenger-room-back-navigation";
 import { normalizeAppPathnameForTier1 } from "@/lib/layout/normalize-app-pathname";
 import { resolveMainTier1Subpage } from "@/lib/layout/resolve-main-tier1";
 import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
@@ -208,14 +209,23 @@ export function RegionBar({
   const o = extras?.tier1;
   const hideBack = o?.hideBack ?? base.hideBack ?? false;
   const isMessengerRoom = /^\/community-messenger\/rooms\/[^/]+$/.test(pathNoQuery);
+  const messengerRoomId = isMessengerRoom
+    ? decodeURIComponent(pathNoQuery.split("/").pop() ?? "").trim()
+    : "";
+  const messengerRoomBackOverride =
+    messengerRoomId ? getMessengerRoomBackOverride(messengerRoomId) : null;
   /**
-   * 메신저 채팅방 뒤로가기: **직전 화면(목록) 우선** — `runHistoryBackWithFallback`.
-   * 폴백은 방 URL 의 `cm_list`·`from` 으로 `buildMessengerRoomListBackHref` (쿼리 누락·새 탭 등).
+   * 메신저 채팅방 뒤로가기: 기본은 **직전 화면(목록) 우선** — `runHistoryBackWithFallback`.
+   * 배달 주문 **구매자** 방은 override 로 배달 매장 목록·해당 매장으로 **직행** (`preferHistoryBack: false`).
    */
   const backHref = isMessengerRoom
-    ? buildMessengerRoomListBackHref(searchParams)
+    ? (messengerRoomBackOverride?.href ?? buildMessengerRoomListBackHref(searchParams))
     : o?.backHref ?? base.backHref;
-  const preferHistoryBack = isMessengerRoom ? true : o?.preferHistoryBack ?? base.preferHistoryBack;
+  const preferHistoryBack =
+    isMessengerRoom ?
+      messengerRoomBackOverride ? false
+      : true
+    : o?.preferHistoryBack ?? base.preferHistoryBack;
   const ariaLabel = tt(o?.ariaLabel ?? base.ariaLabel);
   const subtitleRaw = o?.subtitle ?? base.subtitle;
   const subtitle = subtitleRaw ? tt(subtitleRaw) : undefined;

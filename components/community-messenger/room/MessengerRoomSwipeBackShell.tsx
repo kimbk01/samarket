@@ -15,8 +15,10 @@ import {
 import { useRouter } from "next/navigation";
 import { useMessengerRoomUrlSearchParams } from "@/lib/community-messenger/room/use-messenger-room-url-search-params";
 import { markCommunityMessengerHomeReturn } from "@/lib/community-messenger/home-return-timing";
-import { buildMessengerRoomListBackHref } from "@/lib/community-messenger/messenger-entry-origin";
-import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
+import {
+  resolveMessengerRoomBackNavigation,
+  runMessengerRoomBackNavigation,
+} from "@/lib/community-messenger/room/messenger-room-back-navigation";
 import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 import {
   MESSENGER_LIST_ROOM_ENTER_MS,
@@ -33,6 +35,7 @@ type AnimPhase = "enter" | "enter-active" | "idle" | "dragging" | "snap-back" | 
 
 type Props = {
   children: ReactNode;
+  roomId: string | null | undefined;
   /** 스냅샷 전에는 비활성 */
   roomType: string | null | undefined;
 };
@@ -58,13 +61,20 @@ export function useMessengerRoomAnimatedBack(): (() => void) | null {
 
 /**
  * 채팅방: 화면 **왼쪽 가장자리**에서 오른쪽으로 드래그하면 목록으로 돌아가는 방향과 동일하게 화면이 손가락을 따라 이동.
- * 임계값 이상이면 복귀, 미만이면 스냅백. 헤더 뒤로와 동일한 복귀 규칙(`runHistoryBackWithFallback`).
+ * 임계값 이상이면 복귀, 미만이면 스냅백. 헤더 뒤로와 동일한 `runMessengerRoomBackNavigation` 규칙.
  */
-export function MessengerRoomSwipeBackShell({ children, roomType }: Props) {
+export function MessengerRoomSwipeBackShell({ children, roomId, roomType }: Props) {
   const router = useRouter();
   const searchParams = useMessengerRoomUrlSearchParams();
   const reducedMotion = usePrefersReducedMotion();
-  const fallbackHref = useMemo(() => buildMessengerRoomListBackHref(searchParams), [searchParams]);
+  const backPlan = useMemo(
+    () =>
+      resolveMessengerRoomBackNavigation({
+        roomId: roomId?.trim() ?? "",
+        searchParams,
+      }),
+    [roomId, searchParams]
+  );
 
   const [phase, setPhase] = useState<AnimPhase>("enter");
   const [dragPx, setDragPx] = useState(0);
@@ -103,8 +113,8 @@ export function MessengerRoomSwipeBackShell({ children, roomType }: Props) {
       router.replace(SAMARKET_ROUTES.chat.messengerMeetingsHub, { scroll: false });
       return;
     }
-    runHistoryBackWithFallback(router, fallbackHref);
-  }, [router, fallbackHref, roomType]);
+    runMessengerRoomBackNavigation(router, backPlan);
+  }, [router, backPlan, roomType]);
 
   const requestAnimatedBack = useCallback(() => {
     if (committedNavRef.current || pendingNavRef.current) return;

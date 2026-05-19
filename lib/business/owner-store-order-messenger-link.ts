@@ -8,7 +8,7 @@ export function buildOwnerStoreOrderMessengerContext(
   storeName: string,
   storeId: string
 ) {
-  const firstLine = order.items[0]?.product_title_snapshot?.trim();
+  const firstLine = (order.items ?? [])[0]?.product_title_snapshot?.trim();
   const headline = firstLine
     ? `${storeName.trim() || "매장"} · ${firstLine}`
     : `${storeName.trim() || "매장"} · 주문 ${order.order_no}`;

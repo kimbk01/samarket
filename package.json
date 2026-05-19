@@ -16,6 +16,7 @@
     "verify:routes": "node scripts/verify-app-routes.cjs",
     "verify:app-boot-consent-contract": "node scripts/verify-app-boot-consent-contract.cjs",
     "verify:trade-hot-path-contract": "node scripts/verify-trade-hot-path-contract.cjs",
+    "verify:owner-store-orders-list-contract": "node scripts/verify-owner-store-orders-list-contract.mjs",
     "verify:store-cart-sheet-contract": "node scripts/verify-store-cart-sheet-contract.cjs",
     "verify:store-cart-hooks-contract": "node scripts/verify-store-cart-hooks-contract.cjs",
     "verify:thumbnail-contract": "node scripts/verify-samarket-thumbnail-contract.cjs",

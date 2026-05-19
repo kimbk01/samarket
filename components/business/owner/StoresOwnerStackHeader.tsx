@@ -15,6 +15,8 @@ export function StoresOwnerStackHeader({
   pageTitle,
   rightSlot,
   desktopInsetLeft = false,
+  /** 허브 대시보드 — 본문 `OwnerDashboardHeader`와 제목 중복 방지 */
+  hideTitle = false,
 }: {
   variant: "hub" | "admin";
   backHref?: string;
@@ -30,6 +32,7 @@ export function StoresOwnerStackHeader({
   rightSlot: ReactNode;
   /** 좌측 고정 사이드바(260px)만큼 헤더 시작 위치 보정 */
   desktopInsetLeft?: boolean;
+  hideTitle?: boolean;
 }) {
   const adminTitle = pageTitle?.trim() ? pageTitle : "운영 대시보드";
 
@@ -55,10 +58,13 @@ export function StoresOwnerStackHeader({
           : null}
           {variant === "hub" ?
             <>
-              <div className="min-w-0 flex-1">
-                <p className="truncate sam-text-body font-semibold leading-tight text-sam-fg">{shopName}</p>
-                <p className="truncate sam-text-xxs leading-tight text-sam-muted">{hubSubtitle}</p>
-              </div>
+              {hideTitle ?
+                <div className="min-w-0 flex-1" />
+              : <div className="min-w-0 flex-1">
+                  <p className="truncate sam-text-body font-semibold leading-tight text-sam-fg">{shopName}</p>
+                  <p className="truncate sam-text-xxs leading-tight text-sam-muted">{hubSubtitle}</p>
+                </div>
+              }
               <div className="flex shrink-0 items-center gap-1">{rightSlot}</div>
             </>
           : <>

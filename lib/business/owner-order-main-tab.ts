@@ -46,3 +46,12 @@ export function countOrdersMatchingTab(
   }
   return n;
 }
+
+/** 주문 상태 → 상단 탭(딥링크 `order_id` 복귀용) */
+export function ownerOrderMainTabForStatus(orderStatus: string): OwnerOrderMainTab {
+  const s = orderStatus.trim();
+  if (s === "pending") return "new";
+  if (s === "completed") return "done";
+  if (s === "cancelled" || s === "refunded") return "cancelled";
+  return "progress";
+}

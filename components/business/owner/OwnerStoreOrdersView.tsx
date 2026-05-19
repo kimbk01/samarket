@@ -28,7 +28,11 @@ import {
 } from "@/lib/business/owner-store-order-delivery-row-rt";
 import {
   listRowToOwnerOrder,
+  normalizeOwnerStoreOrderListRow,
+  normalizeOwnerStoreOrderListRows,
   ownerOrdersToListRows,
+  parseOwnerStoreOrderListRowFromApi,
+  parseOwnerStoreOrdersListFromApiJson,
   sortOwnerStoreOrderListRowsDesc,
   type OwnerStoreOrderListRow,
 } from "@/lib/business/owner-store-order-list-row-bridge";
@@ -38,9 +42,11 @@ import { buildStoreOrdersHref, type StoreOrderTabId } from "@/lib/business/store
 import {
   countOrdersMatchingTab,
   orderMatchesOwnerMainTab,
+  ownerOrderMainTabForStatus,
   parseOwnerOrderMainTab,
   type OwnerOrderMainTab,
 } from "@/lib/business/owner-order-main-tab";
+import { pickOwnerStoreFromMeList } from "@/lib/business/pick-owner-store-from-me-list";
 import { OwnerOrderStatusTimeline } from "@/components/business/owner/OwnerOrderStatusTimeline";
 import { Biz } from "@/lib/ui/biz-component-classes";
 import {
@@ -453,7 +459,7 @@ function OwnerOrderCard({
         </div>
       ) : null}
       <ul className="mt-3 space-y-1.5 border-t border-sam-border-soft pt-3">
-        {order.items.map((it) => {
+        {(order.items ?? []).map((it) => {
           const opt = orderLineOptionsSummary(it.options_snapshot_json);
           return (
             <li key={it.id} className="flex justify-between gap-3">
@@ -507,8 +513,11 @@ export function OwnerStoreOrdersView() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const tab = useMemo(() => parseOwnerOrderMainTab(searchParams.get("tab")), [searchParams]);
+  const urlStoreId = useMemo(() => searchParams.get("storeId")?.trim() ?? "", [searchParams]);
+  const highlightOrderId = useMemo(() => searchParams.get("order_id")?.trim() ?? "", [searchParams]);
   const loginHref = "/login";
   const ownerNotifAckRef = useRef(false);
+  const deepLinkEnrichAttemptedRef = useRef(false);
 
   const [state, setState] = useState<
     | { kind: "loading" }
@@ -596,7 +605,14 @@ export function OwnerStoreOrdersView() {
         if (!silent) setState({ kind: "no_store" });
         return;
       }
-      const store = sj.stores[0] as { id: string; store_name?: string; slug?: string };
+      const store = pickOwnerStoreFromMeList(
+        sj.stores as { id: string; store_name?: string; slug?: string }[],
+        urlStoreId
+      );
+      if (!store) {
+        if (!silent) setState({ kind: "no_store" });
+        return;
+      }
       storeListCtxRef.current = {
         storeSlug: String(store.slug ?? "").trim(),
         storeName: String(store.store_name ?? "내 매장"),
@@ -621,12 +637,12 @@ export function OwnerStoreOrdersView() {
         kind: "ok",
         storeId: store.id,
         storeName: String(store.store_name ?? "내 매장"),
-        orders: (oj.orders ?? []) as OrderRow[],
+        orders: parseOwnerStoreOrdersListFromApiJson(oj),
       });
     } catch {
       if (!silent) setState({ kind: "error", message: "network_error" });
     }
-  }, []);
+  }, [urlStoreId]);
 
   useEffect(() => {
     r2d1OwnerOrdersTraceInstallCollector();
@@ -634,12 +650,25 @@ export function OwnerStoreOrdersView() {
     void load({ reason: "mount" });
   }, [load]);
 
-  const highlightOrderId = searchParams.get("order_id")?.trim() ?? "";
+  useEffect(() => {
+    deepLinkEnrichAttemptedRef.current = false;
+  }, [highlightOrderId, urlStoreId]);
 
   const filteredOrders = useMemo(() => {
     if (state.kind !== "ok") return [];
     return state.orders.filter((o) => orderMatchesOwnerMainTab(o, tab));
   }, [state, tab]);
+
+  const highlightedOrder = useMemo(() => {
+    if (state.kind !== "ok" || !highlightOrderId) return null;
+    return state.orders.find((o) => o.id === highlightOrderId) ?? null;
+  }, [state, highlightOrderId]);
+
+  const awaitingHighlightOrder =
+    state.kind === "ok" && !!highlightOrderId && highlightedOrder == null;
+
+  const highlightTabSyncPending =
+    highlightedOrder != null && !orderMatchesOwnerMainTab(highlightedOrder, tab);
 
   const summaryCounts = useMemo(() => {
     if (state.kind !== "ok") {
@@ -820,7 +849,7 @@ export function OwnerStoreOrdersView() {
         const nextOwner =
           typeof action === "function" ? action(prevOwner) : action;
         const orders = sortOwnerStoreOrderListRowsDesc(
-          ownerOrdersToListRows(prev.orders, nextOwner)
+          normalizeOwnerStoreOrderListRows(ownerOrdersToListRows(prev.orders, nextOwner))
         );
         return { ...prev, orders };
       });
@@ -841,15 +870,22 @@ export function OwnerStoreOrdersView() {
           delivery?: OrderRow["delivery"];
         };
         if (!json?.ok || !json.order) return;
+        const parsed = parseOwnerStoreOrderListRowFromApi({
+          ...json.order,
+          delivery: json.delivery ?? undefined,
+          buyer_public_label: json.order.buyer_public_label,
+        });
+        if (!parsed) return;
         setState((cur) => {
           if (cur.kind !== "ok") return cur;
           const idx = cur.orders.findIndex((o) => o.id === oid);
           const merged: OrderRow = {
-            ...json.order!,
-            items: json.order!.items ?? [],
+            ...parsed,
             delivery: json.delivery ?? cur.orders[idx]?.delivery ?? null,
             buyer_public_label:
-              cur.orders[idx]?.buyer_public_label ?? json.order!.buyer_public_label,
+              cur.orders[idx]?.buyer_public_label ?? parsed.buyer_public_label,
+            items:
+              parsed.items.length > 0 ? parsed.items : (cur.orders[idx]?.items ?? []),
           };
           if (idx < 0) {
             return {
@@ -858,7 +894,10 @@ export function OwnerStoreOrdersView() {
             };
           }
           const next = [...cur.orders];
-          next[idx] = { ...next[idx]!, ...merged };
+          next[idx] = normalizeOwnerStoreOrderListRow({
+            ...next[idx]!,
+            ...merged,
+          });
           return { ...cur, orders: sortOwnerStoreOrderListRowsDesc(next) };
         });
         r2d1OwnerOrdersTrace({
@@ -871,6 +910,29 @@ export function OwnerStoreOrdersView() {
         });
       });
   }, []);
+
+  useEffect(() => {
+    if (state.kind !== "ok" || !highlightOrderId) return;
+    const order = state.orders.find((o) => o.id === highlightOrderId);
+    if (!order) {
+      if (!deepLinkEnrichAttemptedRef.current) {
+        deepLinkEnrichAttemptedRef.current = true;
+        enrichOrder(highlightOrderId);
+      }
+      return;
+    }
+    const wantTab = ownerOrderMainTabForStatus(order.order_status);
+    if (tab !== wantTab) {
+      router.replace(
+        buildStoreOrdersHref({
+          storeId: state.storeId,
+          tab: wantTab,
+          orderId: highlightOrderId,
+        }),
+        { scroll: false }
+      );
+    }
+  }, [state, highlightOrderId, tab, router, enrichOrder]);
 
   useOwnerStoreOrdersRealtime({
     storeId: pollStoreId,
@@ -961,7 +1023,7 @@ export function OwnerStoreOrdersView() {
       });
 
       const orders = [...prev.orders];
-      orders[idx] = { ...row, delivery: nextDelivery };
+      orders[idx] = normalizeOwnerStoreOrderListRow({ ...row, delivery: nextDelivery });
       return { ...prev, orders };
     });
   }, []);
@@ -1081,7 +1143,11 @@ export function OwnerStoreOrdersView() {
               return (
                 <Link
                   key={t.id}
-                  href={buildStoreOrdersHref({ storeId: state.storeId, tab: t.id as StoreOrderTabId })}
+                  href={buildStoreOrdersHref({
+                    storeId: state.storeId,
+                    tab: t.id as StoreOrderTabId,
+                    orderId: highlightOrderId || undefined,
+                  })}
                   scroll={false}
                   className={[
                     Biz.tabBase,
@@ -1160,6 +1226,11 @@ export function OwnerStoreOrdersView() {
               매장 정보 점검
             </Link>
           </div>
+        </div>
+      ) : awaitingHighlightOrder || highlightTabSyncPending ? (
+        <div className="rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] p-6 text-[14px] text-[var(--biz-text-muted)] shadow-[var(--biz-card-shadow)]">
+          <p className="font-semibold text-[var(--biz-text)]">주문 불러오는 중…</p>
+          <p className="mt-1">대시보드에서 선택한 주문을 표시합니다.</p>
         </div>
       ) : filteredOrders.length === 0 ? (
         <div className="rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] p-6 text-[14px] text-[var(--biz-text-muted)] shadow-[var(--biz-card-shadow)]">

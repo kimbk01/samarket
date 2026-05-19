@@ -1,5 +1,6 @@
 /**
- * `/stores/owner` RSC 선로딩 → 클라 `fetchStoreOrdersListDeduped` 첫 왕복 제거.
+ * `/stores/owner` 허브 **타임라인·KPI meta** 전용 (라인아이템 없음).
+ * 주문 관리 전체 목록은 `owner-store-orders-list-cache.ts` 만 사용.
  */
 import type { OwnerHubDashboardPack } from "@/lib/business/load-owner-hub-dashboard-server";
 
@@ -9,7 +10,6 @@ export type OwnerHubDashboardOrdersCacheValue = {
   meta: OwnerHubDashboardPack["meta"];
 };
 
-/** 허브 체류 중 peek 히트로 orders 네트워크 0회 유지 */
 const TTL_MS = 120_000;
 
 let cached: { storeId: string; expiresAt: number; value: OwnerHubDashboardOrdersCacheValue } | null =
@@ -38,33 +38,6 @@ export function peekOwnerHubDashboardOrdersCache(
     return null;
   }
   return cached.value;
-}
-
-/** GET …/orders 응답으로 캐시 갱신 — RSC 시드 TTL 만료 후 재조회·pull-to-refresh */
-export function seedOwnerHubDashboardOrdersCacheFromListJson(
-  storeId: string,
-  json: unknown
-): void {
-  const sid = storeId.trim();
-  if (!sid || typeof json !== "object" || json == null) return;
-  const body = json as {
-    ok?: boolean;
-    orders?: OwnerHubDashboardPack["orders"];
-    meta?: {
-      pending_accept_count?: unknown;
-      refund_requested_count?: unknown;
-      pending_delivery_count?: unknown;
-    };
-  };
-  if (!body.ok || !Array.isArray(body.orders) || !body.meta) return;
-  seedOwnerHubDashboardOrdersCache(sid, {
-    orders: body.orders,
-    meta: {
-      pending_accept_count: Math.max(0, Math.floor(Number(body.meta.pending_accept_count) || 0)),
-      refund_requested_count: Math.max(0, Math.floor(Number(body.meta.refund_requested_count) || 0)),
-      pending_delivery_count: Math.max(0, Math.floor(Number(body.meta.pending_delivery_count) || 0)),
-    },
-  });
 }
 
 export function invalidateOwnerHubDashboardOrdersCache(storeId?: string): void {

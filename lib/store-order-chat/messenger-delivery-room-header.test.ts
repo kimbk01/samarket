@@ -27,6 +27,9 @@ describe("resolveStoreOrderDeliveryHeaderMode", () => {
           orderNo: "1",
           orderCard: null,
           storeProfileImageUrl: null,
+          storeSlug: null,
+          storeBusinessType: null,
+          storeCategorySlug: null,
         },
       })
     ).toBe("buyer_store");
@@ -44,6 +47,9 @@ describe("resolveStoreOrderDeliveryHeaderMode", () => {
           orderNo: "1",
           orderCard: null,
           storeProfileImageUrl: null,
+          storeSlug: null,
+          storeBusinessType: null,
+          storeCategorySlug: null,
         },
       })
     ).toBe("owner_buyer_peer");

@@ -470,6 +470,7 @@ export function BusinessAdminShell({
       <div className="min-h-screen min-w-0 overflow-x-hidden bg-sam-app">
         <StoresOwnerStackHeader
           variant="hub"
+          hideTitle
           backHref="/mypage/section/store/manage"
           shopName={shopName}
           hubSubtitle="매장 운영 센터"
@@ -491,6 +492,26 @@ export function BusinessAdminShell({
       </div>
     );
   }
+
+  const hubHeaderRightSlot = (
+    <>
+      {(isMobile || !desktopSidebarOpen) ?
+        <button
+          type="button"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
+          aria-label={isMobile ? "메뉴 열기" : "운영 메뉴 펼치기"}
+          onClick={() => {
+            if (isMobile) setMobileMenuOpen(true);
+            else setDesktopSidebarOpen(true);
+          }}
+        >
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+      : null}
+    </>
+  );
 
   const headerRightSlot = (
     <>
@@ -694,17 +715,20 @@ export function BusinessAdminShell({
           }`}
         >
           <StoresOwnerStackHeader
-            variant="admin"
-            backHref={adminHeaderBackHref}
-            backIntercept={combinedAdminHeaderBackIntercept}
+            variant={isHub ? "hub" : "admin"}
+            hideTitle={isHub}
+            backHref={isHub ? "/mypage/section/store/manage" : adminHeaderBackHref}
+            backIntercept={isHub ? undefined : combinedAdminHeaderBackIntercept}
+            backPreferHistory={!isHub}
             backAriaLabel="이전 화면으로"
             shopName={shopName}
-            pageTitle={pageTitle}
-            rightSlot={headerRightSlot}
+            pageTitle={isHub ? null : pageTitle}
+            rightSlot={isHub ? hubHeaderRightSlot : headerRightSlot}
+            desktopInsetLeft={desktopSidebarOpen}
           />
 
         <main
-          className={`mx-auto w-full max-w-6xl min-w-0 bg-[var(--biz-app-bg)] px-2 pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] sm:px-2 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem+1rem)] ${ownerMainBottomPadForChildren}${
+          className={`mx-auto w-full max-w-6xl min-w-0 px-2 pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] sm:px-2 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem+1rem)] ${isHub ? "bg-[#F3F4F6]" : "bg-[var(--biz-app-bg)]"} ${ownerMainBottomPadForChildren}${
             isOwnerStoreProductComposerRoute ? " flex min-h-0 flex-1 flex-col overflow-hidden" : ""
           }`}
         >

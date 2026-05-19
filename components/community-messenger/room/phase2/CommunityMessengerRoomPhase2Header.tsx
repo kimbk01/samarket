@@ -5,8 +5,11 @@ import { useMessengerRoomUrlSearchParams } from "@/lib/community-messenger/room/
 import { BackIcon, MoreIcon } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { useMessengerRoomPhase2HeaderView } from "@/components/community-messenger/room/phase2/messenger-room-phase2-header-context";
 import { markCommunityMessengerHomeReturn } from "@/lib/community-messenger/home-return-timing";
-import { buildMessengerRoomListBackHref } from "@/lib/community-messenger/messenger-entry-origin";
-import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
+import {
+  resolveMessengerRoomBackNavigation,
+  runMessengerRoomBackNavigation,
+} from "@/lib/community-messenger/room/messenger-room-back-navigation";
+import { useStoreOrderDeliveryRoomOptional } from "@/components/community-messenger/room/phase2/store-order-delivery-room-context";
 import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
 import { formatMessengerPeerPresenceLine } from "@/lib/community-messenger/realtime/presence/format-messenger-peer-presence-line";
 import { useMessengerTypingStore } from "@/lib/community-messenger/stores/useMessengerTypingStore";
@@ -29,7 +32,32 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
     noteCmRoomPass1HeaderMs();
   }, [vm.snapshot.room.id]);
   const searchParams = useMessengerRoomUrlSearchParams();
+  const deliveryRoom = useStoreOrderDeliveryRoomOptional();
   const requestAnimatedBack = useMessengerRoomAnimatedBack();
+  const roomBackPlan = useMemo(
+    () =>
+      resolveMessengerRoomBackNavigation({
+        roomId: vm.snapshot.room.id,
+        searchParams,
+        buyerBack: {
+          contextMeta: vm.snapshot.room.contextMeta,
+          myRole: vm.snapshot.myRole,
+          storeSlug: deliveryRoom?.snapshot?.storeSlug,
+          storeCategorySlug: deliveryRoom?.snapshot?.storeCategorySlug,
+          businessType: deliveryRoom?.snapshot?.storeBusinessType,
+          fromQuery: searchParams.get("from"),
+        },
+      }),
+    [
+      deliveryRoom?.snapshot?.storeBusinessType,
+      deliveryRoom?.snapshot?.storeCategorySlug,
+      deliveryRoom?.snapshot?.storeSlug,
+      searchParams,
+      vm.snapshot.myRole,
+      vm.snapshot.room.contextMeta,
+      vm.snapshot.room.id,
+    ]
+  );
   const bindPresenceAndTyping = hydrationPass >= 2;
   const peerPresence = useCommunityMessengerPeerPresence(
     bindPresenceAndTyping ? vm.snapshot.room.peerUserId ?? null : null,
@@ -125,8 +153,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
                 vm.router.replace(SAMARKET_ROUTES.chat.messengerMeetingsHub, { scroll: false });
                 return;
               }
-              const fallback = buildMessengerRoomListBackHref(searchParams);
-              runHistoryBackWithFallback(vm.router, fallback);
+              runMessengerRoomBackNavigation(vm.router, roomBackPlan);
             }}
             className="flex h-9 w-9 shrink-0 items-center justify-center self-center rounded-full text-[color:var(--cm-room-text)] transition active:bg-[color:var(--cm-room-primary-soft)]"
             aria-label={vm.t("tier1_back")}

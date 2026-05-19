@@ -190,7 +190,7 @@ export function CommunityMessengerRoomClientInner(props: {
         />
       ) : null}
       <MessengerRoomGroupCallShell isGroupRoom={isGroupRoomForShell} bridgeDeps={groupCallBridgeDeps}>
-        <MessengerRoomSwipeBackShell roomType={phase1.snapshot?.room.roomType}>
+        <MessengerRoomSwipeBackShell roomId={phase1.roomId} roomType={phase1.snapshot?.room.roomType}>
           <CommunityMessengerRoomClientPhase2 />
         </MessengerRoomSwipeBackShell>
       </MessengerRoomGroupCallShell>

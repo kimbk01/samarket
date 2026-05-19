@@ -3,10 +3,9 @@
 import { useLayoutEffect } from "react";
 import type { OwnerHubDashboardPack } from "@/lib/business/load-owner-hub-dashboard-server";
 import { seedOwnerHubDashboardOrdersCache } from "@/lib/stores/owner-hub-dashboard-orders-cache";
-import { seedOwnerHubOrderCountsCache } from "@/lib/stores/owner-hub-order-counts-cache";
-
 /**
- * `/stores/owner` RSC `loadOwnerHubDashboardPackServer` 결과를 클라 주문 목록 캐시에 시드.
+ * `/stores/owner` RSC `loadOwnerHubDashboardPackServer` 결과를 타임라인 캐시에만 시드.
+ * KPI 숫자(진행 중·매출 등)는 `GET …/order-counts` 가 SoT — 타임라인 meta 만으로 order-counts 캐시를 채우지 않는다.
  */
 export function OwnerHubDashboardOrdersCacheSeed({
   storeId,
@@ -16,10 +15,8 @@ export function OwnerHubDashboardOrdersCacheSeed({
   pack: OwnerHubDashboardPack;
 }) {
   seedOwnerHubDashboardOrdersCache(storeId, pack);
-  seedOwnerHubOrderCountsCache(storeId, pack.meta);
   useLayoutEffect(() => {
     seedOwnerHubDashboardOrdersCache(storeId, pack);
-    seedOwnerHubOrderCountsCache(storeId, pack.meta);
   }, [storeId, pack]);
   return null;
 }

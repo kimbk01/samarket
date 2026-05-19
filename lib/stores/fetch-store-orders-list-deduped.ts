@@ -1,11 +1,12 @@
 /**
  * 오너용 GET …/api/me/stores/:storeId/orders — 폴링·포커스·수동 새로고침 겹침 시 합류.
+ * 응답은 `owner-store-orders-list-cache` 에 파싱·정규화 후 보관 (허브 타임라인 캐시와 분리).
  */
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
-  peekOwnerHubDashboardOrdersCache,
-  seedOwnerHubDashboardOrdersCacheFromListJson,
-} from "@/lib/stores/owner-hub-dashboard-orders-cache";
+  peekOwnerStoreOrdersListCache,
+  seedOwnerStoreOrdersListCacheFromJson,
+} from "@/lib/stores/owner-store-orders-list-cache";
 
 export type StoreOrdersListResult = {
   status: number;
@@ -17,7 +18,7 @@ export function fetchStoreOrdersListDeduped(
   opts?: { forceNetwork?: boolean }
 ): Promise<StoreOrdersListResult> {
   const sid = storeId.trim();
-  const peek = opts?.forceNetwork ? null : peekOwnerHubDashboardOrdersCache(sid);
+  const peek = opts?.forceNetwork ? null : peekOwnerStoreOrdersListCache(sid);
   if (peek) {
     return Promise.resolve({
       status: 200,
@@ -39,7 +40,18 @@ export function fetchStoreOrdersListDeduped(
     });
     const json: unknown = await res.json().catch(() => ({}));
     if (res.ok) {
-      seedOwnerHubDashboardOrdersCacheFromListJson(sid, json);
+      seedOwnerStoreOrdersListCacheFromJson(sid, json);
+      const cached = peekOwnerStoreOrdersListCache(sid);
+      if (cached) {
+        return {
+          status: res.status,
+          json: {
+            ok: true,
+            orders: cached.orders,
+            meta: cached.meta,
+          },
+        };
+      }
     }
     return { status: res.status, json };
   });

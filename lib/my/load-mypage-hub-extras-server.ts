@@ -11,11 +11,7 @@ import {
 } from "@/lib/mypage/trade-history-load-server";
 import { loadMeStoresListForUser } from "@/lib/me/load-me-stores-for-user";
 import { getOwnerStoreGateState } from "@/lib/stores/store-admin-access";
-import {
-  countPendingAcceptForStore,
-  countPendingDeliveryAcceptForStore,
-} from "@/lib/stores/owner-store-pending-counts";
-import { countRefundRequestedForStore } from "@/lib/stores/owner-store-refund-count";
+import { fetchOwnerStoreOrderCounts } from "@/lib/stores/fetch-owner-store-order-counts";
 import { getCachedStoreOrderCounts } from "@/lib/stores/store-order-counts-cache";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
@@ -118,17 +114,8 @@ export async function loadMypageHubExtrasServer(
         if (hubId) {
           try {
             const { payload } = await getCachedStoreOrderCounts(hubId, async () => {
-              const [refund_requested_count, pending_accept_count, pending_delivery_count] = await Promise.all([
-                countRefundRequestedForStore(sbStores, hubId),
-                countPendingAcceptForStore(sbStores, hubId),
-                countPendingDeliveryAcceptForStore(sbStores, hubId),
-              ]);
-              return {
-                ok: true as const,
-                refund_requested_count,
-                pending_accept_count,
-                pending_delivery_count,
-              };
+              const counts = await fetchOwnerStoreOrderCounts(sbStores, hubId);
+              return { ok: true as const, ...counts };
             });
             const refund = Math.max(0, Math.floor(Number(payload.refund_requested_count) || 0));
             const pending = Math.max(0, Math.floor(Number(payload.pending_accept_count) || 0));

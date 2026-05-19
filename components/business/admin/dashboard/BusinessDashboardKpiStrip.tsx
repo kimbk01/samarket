@@ -1,9 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
-import { getAppSettings } from "@/lib/admin-settings/mock-app-settings";
-import { formatPrice } from "@/lib/utils/format";
+import { formatMoneyPhp } from "@/lib/utils/format";
 
 export type DashboardKpi = {
   newOrders: number;
@@ -27,8 +25,6 @@ export function BusinessDashboardKpiStrip({
   productsHubHref: string;
   orderAlertsBadge?: number;
 }) {
-  const currency = useMemo(() => getAppSettings().defaultCurrency ?? "KRW", []);
-
   const withOrderTab = (tab: string) =>
     tab === "all" ? ordersBaseHref : `${ordersBaseHref}&tab=${encodeURIComponent(tab)}`;
 
@@ -60,7 +56,7 @@ export function BusinessDashboardKpiStrip({
       label: "환불 요청",
       value: String(kpi.refundRequested),
       sub: "처리 필요",
-      href: withOrderTab("refund"),
+      href: withOrderTab("progress"),
       emphasize: kpi.refundRequested > 0,
     },
     {
@@ -74,7 +70,7 @@ export function BusinessDashboardKpiStrip({
     {
       key: "sales",
       label: "오늘 매출",
-      value: formatPrice(Math.round(kpi.todaySalesPhp), currency),
+      value: formatMoneyPhp(Math.round(kpi.todaySalesPhp)),
       sub: "완료 기준",
       href: withOrderTab("done"),
     },

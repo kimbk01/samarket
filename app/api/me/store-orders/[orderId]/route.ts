@@ -14,6 +14,7 @@ import {
 } from "@/lib/stores/store-order-events";
 import { canBuyerRequestStoreRefund } from "@/lib/stores/order-status-transitions";
 import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
+import { storeCategorySlugFromStoreRow } from "@/lib/stores/resolve-store-browse-list-href";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
   appendStoreOrderMessengerStatusTransition,
@@ -175,7 +176,7 @@ export async function GET(
     sb
       .from("stores")
       .select(
-        "store_name, slug, owner_user_id, region, city, district, address_line1, address_line2, profile_image_url"
+        "store_name, slug, owner_user_id, business_type, region, city, district, address_line1, address_line2, profile_image_url, store_categories ( slug, name )"
       )
       .eq("id", storeId)
       .maybeSingle(),
@@ -230,6 +231,8 @@ export async function GET(
       ...(ens.ok ? { community_messenger_room_id: ens.roomId } : {}),
       store_name: (store?.store_name as string) ?? "",
       store_slug: (store?.slug as string) ?? "",
+      store_business_type: (store?.business_type as string) ?? "",
+      store_category_slug: storeCategorySlugFromStoreRow(store as Parameters<typeof storeCategorySlugFromStoreRow>[0]) ?? "",
       owner_user_id: (store?.owner_user_id as string) ?? "",
       store_profile_image_url:
         typeof store?.profile_image_url === "string" ? store.profile_image_url.trim() || null : null,

@@ -24,6 +24,7 @@ import {
   peekMeStoresListClientCache,
 } from "@/lib/me/fetch-me-stores-deduped";
 import { pickPreferredOwnerStore } from "@/lib/stores/owner-lite-external-store";
+import { parseOwnerStoreOpsSnapshotFromJson } from "@/lib/stores/owner-store-ops-snapshot";
 import {
   invalidateOwnerHubOrderCountsCache,
   ownerHubOrderAlertsFromMeta,
@@ -179,27 +180,16 @@ export function OwnerHubRuntimeProvider({
     }
     try {
       const { json: raw } = await fetchStoreOrderCountsDeduped(orderCountsStoreId);
-      const j = raw as {
-        ok?: boolean;
-        refund_requested_count?: unknown;
-        pending_accept_count?: unknown;
-        pending_delivery_count?: unknown;
-      };
-      if (!j?.ok) {
+      const parsed = parseOwnerStoreOpsSnapshotFromJson(raw);
+      if (!parsed) {
         setOrderAlertsBadge(0);
         prevPendingDeliveryRef.current = null;
         return;
       }
-      const refund = Math.max(0, Math.floor(Number(j.refund_requested_count) || 0));
-      const pending = Math.max(0, Math.floor(Number(j.pending_accept_count) || 0));
-      const delivery = Math.max(0, Math.floor(Number(j.pending_accept_count) || 0));
-      seedOwnerHubOrderCountsCache(orderCountsStoreId, {
-        pending_accept_count: pending,
-        refund_requested_count: refund,
-        pending_delivery_count: delivery,
-      });
-      const nextBadge = refund + pending;
+      seedOwnerHubOrderCountsCache(orderCountsStoreId, parsed);
+      const nextBadge = ownerHubOrderAlertsFromMeta(parsed);
       setOrderAlertsBadge((prev) => (prev === nextBadge ? prev : nextBadge));
+      const delivery = parsed.pending_delivery_count;
       const prev = prevPendingDeliveryRef.current;
       if (prev !== null && delivery > prev) {
         playDeliveryOrderAlertDebounced(orderCountsStoreId);
@@ -247,8 +237,10 @@ export function OwnerHubRuntimeProvider({
     onChange: () => {
       if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
       dispatchOwnerHubBadgeRefresh({ source: "owner_hub_runtime_store_orders" });
-      void refreshOrderAttention();
-      notifyOrdersRefresh();
+      void (async () => {
+        await refreshOrderAttention();
+        notifyOrdersRefresh();
+      })();
     },
   });
 

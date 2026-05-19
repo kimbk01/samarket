@@ -75,6 +75,65 @@ export type OwnerStoreOrderListCtx = {
   storeName: string;
 };
 
+/** 목록·캐시·enrich 병합 후 `items` 누락 방지 — `OwnerOrderCard` 계약 */
+export function normalizeOwnerStoreOrderListRow(
+  row: OwnerStoreOrderListRow
+): OwnerStoreOrderListRow {
+  return {
+    ...row,
+    items: Array.isArray(row.items) ? row.items : [],
+  };
+}
+
+export function normalizeOwnerStoreOrderListRows(
+  rows: OwnerStoreOrderListRow[]
+): OwnerStoreOrderListRow[] {
+  return rows.map(normalizeOwnerStoreOrderListRow);
+}
+
+function coerceOwnerStoreOrderListItem(
+  raw: unknown
+): OwnerStoreOrderListRow["items"][number] | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const id = String(r.id ?? "").trim();
+  if (!id) return null;
+  return {
+    id,
+    product_id: String(r.product_id ?? "").trim(),
+    product_title_snapshot: String(r.product_title_snapshot ?? "").trim() || "품목",
+    price_snapshot: Number(r.price_snapshot) || 0,
+    qty: Math.max(1, Math.floor(Number(r.qty) || 1)),
+    subtotal: Number(r.subtotal) || 0,
+    options_snapshot_json: r.options_snapshot_json,
+  };
+}
+
+/** GET …/orders·단건 enrich 응답 — `items` 항상 배열 */
+export function parseOwnerStoreOrderListRowFromApi(raw: unknown): OwnerStoreOrderListRow | null {
+  if (!raw || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  const id = String(r.id ?? "").trim();
+  if (!id) return null;
+  const items = (Array.isArray(r.items) ? r.items : [])
+    .map(coerceOwnerStoreOrderListItem)
+    .filter((x): x is OwnerStoreOrderListRow["items"][number] => x != null);
+  return normalizeOwnerStoreOrderListRow({
+    ...(raw as OwnerStoreOrderListRow),
+    id,
+    items,
+  });
+}
+
+export function parseOwnerStoreOrdersListFromApiJson(json: unknown): OwnerStoreOrderListRow[] {
+  if (typeof json !== "object" || json == null) return [];
+  const orders = (json as { orders?: unknown }).orders;
+  if (!Array.isArray(orders)) return [];
+  return orders
+    .map(parseOwnerStoreOrderListRowFromApi)
+    .filter((row): row is OwnerStoreOrderListRow => row != null);
+}
+
 export function sortOwnerStoreOrderListRowsDesc(
   list: OwnerStoreOrderListRow[]
 ): OwnerStoreOrderListRow[] {
@@ -113,6 +172,7 @@ export function ownerOrderToListRow(
     const [summary, detail] = splitDeliveryAddress(o.delivery_address);
     return {
       ...prev,
+      items: Array.isArray(prev.items) ? prev.items : [],
       order_no: o.order_no,
       order_status: o.order_status,
       payment_status: o.payment_status ?? prev.payment_status,
@@ -176,7 +236,9 @@ export function ownerOrdersToListRows(
   nextOwner: OwnerOrder[]
 ): OwnerStoreOrderListRow[] {
   const prevById = new Map(prevRows.map((r) => [r.id, r]));
-  return nextOwner.map((o) => ownerOrderToListRow(o, prevById.get(o.id)));
+  return normalizeOwnerStoreOrderListRows(
+    nextOwner.map((o) => ownerOrderToListRow(o, prevById.get(o.id)))
+  );
 }
 
 export function mapRealtimeRecordToListRow(
@@ -185,7 +247,7 @@ export function mapRealtimeRecordToListRow(
 ): OwnerStoreOrderListRow | null {
   const o = mapRealtimeRecordToOwnerOrder(record, ctx);
   if (!o) return null;
-  return ownerOrderToListRow(o);
+  return normalizeOwnerStoreOrderListRow(ownerOrderToListRow(o));
 }
 
 export function mergeRealtimeRecordIntoListRow(
@@ -196,7 +258,7 @@ export function mergeRealtimeRecordIntoListRow(
   const asOwner = listRowToOwnerOrder(prev, ctx);
   const merged = mergeRealtimeRecordIntoOwnerOrder(asOwner, record);
   if (merged === asOwner) return prev;
-  return ownerOrderToListRow(merged, prev);
+  return normalizeOwnerStoreOrderListRow(ownerOrderToListRow(merged, prev));
 }
 
 function fulfillmentFromOwnerOrder(o: OwnerOrder): string {

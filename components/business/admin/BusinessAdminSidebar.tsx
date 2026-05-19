@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { ChevronRight } from "lucide-react";
 import type {
   BusinessAdminSidebarItem,
   BusinessAdminSidebarSection,
@@ -84,15 +85,28 @@ export function BusinessAdminSidebar({
               const iconCls = active ? "text-signature" : "text-sam-muted";
               const inner = (
                 <>
-                  <span className="flex min-w-0 flex-1 items-center gap-2.5">
-                    <Icon className={`h-[1.125rem] w-[1.125rem] shrink-0 ${iconCls}`} strokeWidth={2} aria-hidden />
-                    <span className="min-w-0 truncate">{item.label}</span>
-                  </span>
-                  {item.badge != null && item.badge > 0 ? (
-                    <span className="inline-flex min-h-[20px] min-w-[20px] shrink-0 items-center justify-center rounded-full bg-red-600 px-1 sam-text-xxs font-bold text-white">
-                      {item.badge > 99 ? "99+" : item.badge}
+                  <span className="flex min-w-0 flex-1 items-start gap-2.5">
+                    <Icon className={`mt-0.5 h-[1.125rem] w-[1.125rem] shrink-0 ${iconCls}`} strokeWidth={2} aria-hidden />
+                    <span className="min-w-0">
+                      <span className="block truncate">{item.label}</span>
+                      {item.description ? (
+                        <span className="mt-0.5 block truncate text-[11px] font-normal leading-snug text-sam-muted">
+                          {item.description}
+                        </span>
+                      ) : null}
                     </span>
-                  ) : null}
+                  </span>
+                  <span className="flex shrink-0 flex-col items-end gap-1">
+                    {item.badge != null && item.badge > 0 ? (
+                      <span className="inline-flex min-h-[20px] min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1 sam-text-xxs font-bold text-white">
+                        {item.badge > 99 ? "99+" : item.badge}
+                      </span>
+                    ) : null}
+                    <span className="inline-flex items-center gap-0.5 text-[11px] font-medium text-sam-muted">
+                      상세
+                      <ChevronRight className="h-3 w-3" aria-hidden />
+                    </span>
+                  </span>
                 </>
               );
               if (isExternal) {
