@@ -11,7 +11,9 @@ import {
 } from "react";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import { getMyProfile } from "@/lib/profile/getMyProfile";
-import { isMeProfileCacheFresh, peekMeProfileCached } from "@/lib/profile/fetch-me-profile-deduped";
+import { peekMeProfileCached } from "@/lib/profile/fetch-me-profile-deduped";
+import { peekAppBootProfile } from "@/lib/app-boot/app-boot-store";
+import { APP_BOOT_READY_EVENT } from "@/lib/app-boot/app-boot-types";
 import type { ProfileRow } from "@/lib/profile/types";
 import {
   getUserSettings,
@@ -102,24 +104,15 @@ export function AppLanguageProvider({
         persistLanguage(preferredFromSettings);
         setLanguageState(preferredFromSettings);
       }
-      /** SupabaseAuthSync 초기 하이드레이션과 GET 합류 — 동시 2회 서버 miss 방지 */
-      if (!isMeProfileCacheFresh()) {
-        await new Promise<void>((resolve) => {
-          if (typeof requestAnimationFrame === "function") {
-            requestAnimationFrame(() => resolve());
-          } else {
-            setTimeout(resolve, 0);
-          }
-        });
-        if (cancelled) return;
+      let profile: ProfileRow | null = peekAppBootProfile();
+      if (!profile?.preferred_language) {
+        const cached = peekMeProfileCached();
+        if (cached?.status === 200) {
+          const json = cached.json as { ok?: boolean; profile?: ProfileRow | null } | null;
+          if (json?.ok && json.profile) profile = json.profile;
+        }
       }
-      let profile: ProfileRow | null = null;
-      const cached = peekMeProfileCached();
-      if (cached?.status === 200) {
-        const json = cached.json as { ok?: boolean; profile?: ProfileRow | null } | null;
-        if (json?.ok && json.profile) profile = json.profile;
-      }
-      if (!profile) {
+      if (!profile?.preferred_language) {
         profile = await getMyProfile().catch(() => null);
       }
       if (cancelled || !profile?.preferred_language) return;

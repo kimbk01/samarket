@@ -4,6 +4,10 @@
  * 미읽음 관련 변경 시 invalidateOwnerHubBadgeCache 를 함께 호출한다.
  */
 import { invalidateUserChatUnreadCache } from "@/lib/chat/user-chat-unread-parts";
+import { invalidateCommunityMessengerUnreadTotalCache } from "@/lib/community-messenger/community-messenger-unread-total";
+import { invalidateHubStoreOrderUnreadMemory } from "@/lib/community-messenger/hub-store-order-unread-memory-cache";
+import { invalidateHubStoreAttentionMemory } from "@/lib/stores/hub-store-attention-memory-cache";
+import { invalidateOwnerHubStoreLookupCache } from "@/lib/chats/owner-hub-store-lookup-cache";
 import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
 
 /** 짧은 서버 캐시 — 클라이언트 폴링·다중 탭과 겹쳐도 한 번 계산으로 흡수. 클라 최소 간격은 `lib/chats/owner-hub-badge-store.ts` `MIN_FETCH_GAP_MS` 와 맞춤 */
@@ -29,8 +33,12 @@ export type OwnerHubBadgePayload = {
 
 const hubBadgeCache = new Map<string, { expiresAt: number; value: OwnerHubBadgePayload }>();
 
-function hubBadgeFlightKey(userId: string): string {
+export function ownerHubBadgeRouteCacheKey(userId: string): string {
   return `owner-hub-badge:${userId.trim()}`;
+}
+
+function hubBadgeFlightKey(userId: string): string {
+  return ownerHubBadgeRouteCacheKey(userId);
 }
 
 /** 라우트 `[route-perf]` in_flight_hit — TTL miss 후 동시 요청 합류 여부 */
@@ -52,8 +60,12 @@ export function invalidateOwnerHubBadgeCache(userId: string): void {
   const k = userId.trim();
   if (!k) return;
   hubBadgeCache.delete(k);
-  /** `getCachedUserChatUnreadParts` 4s TTL 이 남아 `chatUnread` 만 오래된 값으로 남는 경우 방지(메신저 수신 직후 배지 정합) */
+  /** `getCachedUserChatUnreadParts` memory TTL(5s) 이 남아 `chatUnread` 만 오래된 값으로 남는 경우 방지(메신저 수신 직후 배지 정합) */
   invalidateUserChatUnreadCache(k);
+  invalidateOwnerHubStoreLookupCache(k);
+  invalidateCommunityMessengerUnreadTotalCache(k);
+  invalidateHubStoreOrderUnreadMemory(k);
+  invalidateHubStoreAttentionMemory();
 }
 
 function pruneExpiredHubBadgeCache(now: number) {
@@ -79,13 +91,20 @@ export async function getCachedOwnerHubBadge(
   const now = Date.now();
   const cached = hubBadgeCache.get(cacheKey);
   if (cached && cached.expiresAt > now) {
-    console.log("[hub-badge-cache-hit]", { userId: cacheKey, ttl_remaining_ms: cached.expiresAt - now });
+    console.log("[hub-badge-cache-hit]", {
+      route_cache_key: hubBadgeFlightKey(cacheKey),
+      userId: cacheKey,
+      ttl_remaining_ms: cached.expiresAt - now,
+    });
     return cached.value;
   }
 
   pruneExpiredHubBadgeCache(now);
 
-  console.log("[hub-badge-cache-miss]", { userId: cacheKey });
+  console.log("[hub-badge-cache-miss]", {
+    route_cache_key: hubBadgeFlightKey(cacheKey),
+    userId: cacheKey,
+  });
   return runSingleFlight(hubBadgeFlightKey(cacheKey), async () => {
     const again = hubBadgeCache.get(cacheKey);
     if (again && again.expiresAt > Date.now()) {
@@ -95,6 +114,11 @@ export async function getCachedOwnerHubBadge(
     hubBadgeCache.set(cacheKey, {
       value,
       expiresAt: Date.now() + HUB_BADGE_TTL_MS,
+    });
+    console.log("[hub-badge-cache-set]", {
+      route_cache_key: hubBadgeFlightKey(cacheKey),
+      userId: cacheKey,
+      ttl_ms: HUB_BADGE_TTL_MS,
     });
     return value;
   });

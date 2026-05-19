@@ -1,473 +1,1249 @@
 /**
+
  * 매장 오너 허브 배지 — 전역 단일 폴링·fetch.
+
  * (BottomNav + StoresHub 등) 여러 컴포넌트가 구독해도 GET /api/me/store-owner-hub-badge 는 한 갈래만 나감
+
  * (서버 TTL 캐시 `owner-hub-badge-cache`). `/unreads`·`/store-attention` 세그먼트는 동일 집계 로직 분리용.
+
  */
+
 import {
+
   OWNER_HUB_BADGE_EMPTY,
+
   parseOwnerHubBadgeJson,
+
   sameOwnerHubBadge,
+
   type OwnerHubBadgeBreakdown,
+
 } from "@/lib/chats/owner-hub-badge-types";
+
 import {
+
   KASAMA_OWNER_HUB_BADGE_REFRESH,
+
   KASAMA_TRADE_CHAT_UNREAD_UPDATED,
+
 } from "@/lib/chats/chat-channel-events";
+
 import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
+
 import {
+
   cancelScheduledWhenBrowserIdle,
+
   isConstrainedNetwork,
+
   scheduleWhenBrowserIdle,
+
 } from "@/lib/ui/network-policy";
+
 import {
+
   SAMARKET_OWNER_HUB_BADGE_LEADER_SCOPE,
+
   SAMARKET_OWNER_HUB_BADGE_SYNC_CHANNEL,
+
   subscribeTabLeader,
+
 } from "@/lib/runtime/leader-tab-coordinator";
+
+import { recordBootVerifyFetch } from "@/lib/app-boot/client-boot-request-journal";
+
+import { isAppBootReady } from "@/lib/app-boot/app-boot-store";
+
 import { samarketRuntimeDebugLog } from "@/lib/runtime/samarket-runtime-debug";
+
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
+
 import { runDevSafeSingleFlight } from "@/lib/dev/dev-safe-dedupe";
 
+
+
 const PATH_FETCH_PREFIXES = [
+
   "/chats",
+
   "/community-messenger",
+
   "/mypage/trade/chat",
+
   "/philife",
+
   "/orders",
+
   "/stores/owner/orders",
+
   "/stores/owner/order-chat",
+
   "/stores/owner/inquiries",
+
   // 옛 경로(레거시 안전망) — 라우트 레벨 리다이렉트 직전에 일시적으로 매칭되는 경우 대비
+
   "/my/business/store-orders",
+
   "/my/business/store-order-chat",
+
   "/my/business/inquiries",
+
 ] as const;
+
 /** `BottomNav`·`useOwnerHubBadgeBreakdown` 등 여러 곳에서 경로 변경 시 호출해도 한 번으로 합침 */
+
 const HUB_PATH_REFRESH_DEBOUNCE_MS = 420;
+
 let hubPathRefreshTimer: ReturnType<typeof setTimeout> | null = null;
-/** 클라 최소 fetch 간격 — 서버 `OWNER_HUB_BADGE_TTL_MS`·폴링과 함께 조정 */
+
+/** 클라 장주기 폴링 간격 — 서버 TTL·5초 중복 방지와 별도 */
+
 const MIN_FETCH_GAP_MS = 22_000;
+
+/** 5초 이내 plain 재호출 금지 — 서버 `OWNER_HUB_BADGE_TTL_MS`·클라 응답 캐시와 동일 */
+
+const MIN_REPEAT_PLAIN_FETCH_GAP_MS = 5_000;
+
+/** 서버 `OWNER_HUB_BADGE_TTL_MS` 와 동일 — 첫 페인트 이후 idle 조회 시 cache_hit 유도 */
+
+const CLIENT_HUB_BADGE_RESPONSE_TTL_MS = 5_000;
+
+
+
+let clientHubBadgeResponseCache: { expiresAt: number; data: unknown } | null = null;
+
 /** force=true 연타 시 inFlight 합류 — 거래 탭 배지·알림 즉시성과의 균형 */
+
 const MIN_FORCE_FETCH_GAP_MS = 1_600;
+
 const MIN_EVENT_REFRESH_GAP_MS = 5_000;
+
 const EVENT_FORCE_REFRESH_DEBOUNCE_MS = 120;
+
 /** 가시 탭 주기 폴링 — 포커스·이벤트 갱신과 별도 (`docs/messenger-realtime-policy.md`) */
+
 const OWNER_HUB_BADGE_POLL_INTERVAL_MS = 180_000;
+
 const MIN_VISIBILITY_FETCH_GAP_MS = 45_000;
+
 /** 메신저 참가자 이벤트(source=community_messenger) 강제 갱신 최소 간격 */
+
 const MESSENGER_PARTICIPANT_FORCE_REFRESH_MIN_GAP_MS = 5_000;
+
 /** 메신저 이벤트에서도 최근 배지 스냅샷이 신선하면 `cmFresh=1` 강제를 피한다. */
+
 const MESSENGER_PARTICIPANT_FORCE_STALE_MS = 30_000;
 
+
+
 let snapshot: OwnerHubBadgeBreakdown = OWNER_HUB_BADGE_EMPTY;
+
 const listeners = new Set<() => void>();
 
+
+
 let pollInterval: ReturnType<typeof setInterval> | null = null;
+
 /** React Strict Mode: 리스너가 잠깐 비었다가 곧바로 다시 붙을 때 허브 중복 기동·해제 완화 */
+
 let hubStopTimer: ReturnType<typeof setTimeout> | null = null;
+
 let initialHydrateIdleId: number | null = null;
+
 let hubStarted = false;
+
 let globalEventsAttached = false;
+
 let lastFetchStartedAt = 0;
+
 let lastFetchCompletedAt = 0;
+
+let lastPlainFetchCompletedAt = 0;
+
 let lastEventRefreshAt = 0;
+
 let eventForceRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
 /** 메신저 `community_messenger_participants` unread — 5초 이벤트 갭·일반 허브 스케줄과 분리해 탭 배지 즉시성 */
+
 let messengerHubBadgeCoalesceTimer: ReturnType<typeof setTimeout> | null = null;
+
 let lastMessengerParticipantForceRefreshAt = 0;
 
-function emit() {
-  for (const l of listeners) l();
+/** App Boot background 전까지 HTTP fetch 금지 — BottomNav 구독만 허용 */
+
+let hubBadgeBackgroundEnabled = false;
+
+/** 라우트 전환·idle 취소용 — bump 시 pending rAF/idle fetch 폐기 */
+
+let hubBadgeScheduleGeneration = 0;
+
+
+
+export function enableOwnerHubBadgeBackgroundHydration(): void {
+
+  hubBadgeBackgroundEnabled = true;
+
+  if (listeners.size > 0) startHub();
+
 }
+
+
+
+function emit() {
+
+  for (const l of listeners) l();
+
+}
+
+
 
 function applyFromNetwork(data: unknown) {
+
   const next = parseOwnerHubBadgeJson(data);
+
   if (sameOwnerHubBadge(snapshot, next)) return;
+
   snapshot = next;
+
   emit();
+
 }
 
+
+
 export function applyCommunityMessengerUnreadOptimistic(unread: number): void {
+
   const nextUnread = Math.max(0, Math.floor(Number(unread) || 0));
+
   const next = {
+
     ...snapshot,
+
     communityMessengerUnread: nextUnread,
+
     total: Math.max(0, snapshot.socialChatUnread) + Math.max(0, snapshot.storesTabAttention) + nextUnread,
+
   };
+
   if (sameOwnerHubBadge(snapshot, next)) return;
+
   snapshot = next;
+
   emit();
+
   broadcastOwnerHubBadgeSnapshot({ ok: true, ...next });
+
 }
+
+
 
 const HUB_BADGE_FLIGHT_KEY = "me:store-owner-hub-badge";
 
+
+
 let ownerHubLeaderUnsub: (() => void) | null = null;
+
 let ownerHubSyncBc: BroadcastChannel | null = null;
+
 let ownerHubSyncOnMessage: ((ev: MessageEvent) => void) | null = null;
+
 const isLeaderOwnerHubBadgeRef = { current: false };
 
+
+
 function broadcastOwnerHubBadgeSnapshot(data: unknown) {
+
   if (!ownerHubSyncBc) return;
+
   try {
+
     ownerHubSyncBc.postMessage({ v: 1 as const, type: "snapshot" as const, data });
+
   } catch {
+
     /* ignore */
+
   }
+
 }
+
+
 
 function postOwnerHubBadgeRefreshRequest(force: boolean) {
+
   if (!ownerHubSyncBc) return;
+
   try {
+
     ownerHubSyncBc.postMessage({ v: 1 as const, type: "request" as const, force, at: Date.now() });
+
   } catch {
+
     /* ignore */
+
   }
+
 }
+
+
 
 function ensureOwnerHubLeaderAndSync() {
+
   if (typeof window === "undefined") return;
+
   if (ownerHubLeaderUnsub) return;
+
   ownerHubLeaderUnsub = subscribeTabLeader(SAMARKET_OWNER_HUB_BADGE_LEADER_SCOPE, (leader) => {
+
     isLeaderOwnerHubBadgeRef.current = leader;
+
   });
+
   try {
+
     ownerHubSyncBc = new BroadcastChannel(SAMARKET_OWNER_HUB_BADGE_SYNC_CHANNEL);
+
   } catch {
+
     ownerHubSyncBc = null;
+
   }
+
   ownerHubSyncOnMessage = (ev: MessageEvent) => {
+
     const d = ev.data as {
+
       v?: number;
+
       type?: string;
+
       data?: unknown;
+
       force?: boolean;
+
       at?: number;
+
     };
+
     if (!d || d.v !== 1) return;
+
     if (d.type === "snapshot") {
+
       applyFromNetwork(d.data ?? null);
+
       return;
+
     }
+
     if (d.type === "request" && isLeaderOwnerHubBadgeRef.current) {
+
       const force = d.force === true;
+
       const now = Date.now();
+
       if (!force && now - lastEventRefreshAt < MIN_EVENT_REFRESH_GAP_MS) return;
+
       lastEventRefreshAt = now;
-      void fetchOwnerHubBadgeNow(force);
+
+      scheduleDeferredHubBadgeFetch("leader_tab_sync", force, {
+
+        callerComponent: "owner_hub_badge_leader",
+
+      });
+
     }
+
   };
+
   ownerHubSyncBc?.addEventListener("message", ownerHubSyncOnMessage);
+
 }
+
+
 
 function teardownOwnerHubLeaderAndSync() {
+
   ownerHubLeaderUnsub?.();
+
   ownerHubLeaderUnsub = null;
+
   isLeaderOwnerHubBadgeRef.current = false;
+
   if (ownerHubSyncBc && ownerHubSyncOnMessage) {
+
     ownerHubSyncBc.removeEventListener("message", ownerHubSyncOnMessage);
+
   }
+
   ownerHubSyncOnMessage = null;
+
   try {
+
     ownerHubSyncBc?.close();
+
   } catch {
+
     /* ignore */
+
   }
+
   ownerHubSyncBc = null;
+
 }
+
+
 
 export type FetchOwnerHubBadgeNowOptions = {
+
   /** dev-safe: 허브 GET 장주기 스로틀(plain 45s / cmFresh 15s)을 끔 — 명시 새로고침·버튼 등 */
+
   skipDevCmFreshDedupe?: boolean;
+
   /** 서버 `hubBadgeBypass=1` — dev-safe 에서 cmFresh 시 짧은 캐시 우회(읽음 직후 등) */
+
   serverHubBadgeBypass?: boolean;
+
+  /** 읽음 직후 등 — boot·background gate 우회(여전히 deferred 헤더·idle 스케줄은 유지) */
+
+  allowImmediateUserAction?: boolean;
+
+  callerComponent?: string;
+
+  routeTransitionSource?: string;
+
 };
 
+
+
 function hubBadgeLeaderFetchUrl(force: boolean, serverHubBadgeBypass?: boolean): string {
+
   if (!force) return "/api/me/store-owner-hub-badge";
+
   const q = new URLSearchParams();
+
   q.set("cmFresh", "1");
+
   if (serverHubBadgeBypass) q.set("hubBadgeBypass", "1");
+
   return `/api/me/store-owner-hub-badge?${q.toString()}`;
+
 }
 
+
+
+function buildHubBadgeFetchHeaders(opts?: FetchOwnerHubBadgeNowOptions): HeadersInit {
+
+  const h: Record<string, string> = {
+
+    "x-samarket-hub-badge-deferred": "1",
+
+    "x-samarket-first-paint-blocking": "0",
+
+    "x-samarket-client-call-source": "owner_hub_badge_store",
+
+  };
+
+  if (opts?.callerComponent) {
+
+    h["x-samarket-caller-component"] = opts.callerComponent.slice(0, 64);
+
+  }
+
+  if (opts?.routeTransitionSource) {
+
+    h["x-samarket-route-transition-source"] = opts.routeTransitionSource.slice(0, 120);
+
+  }
+
+  return h;
+
+}
+
+
+
+function peekClientHubBadgeResponseCache(): unknown | null {
+
+  if (!clientHubBadgeResponseCache || clientHubBadgeResponseCache.expiresAt <= Date.now()) {
+
+    clientHubBadgeResponseCache = null;
+
+    return null;
+
+  }
+
+  return clientHubBadgeResponseCache.data;
+
+}
+
+
+
+function storeClientHubBadgeResponseCache(data: unknown): void {
+
+  clientHubBadgeResponseCache = { data, expiresAt: Date.now() + CLIENT_HUB_BADGE_RESPONSE_TTL_MS };
+
+}
+
+
+
+function canIssueHubBadgeNetworkFetch(force: boolean, opts?: FetchOwnerHubBadgeNowOptions): boolean {
+
+  if (typeof window === "undefined") return false;
+
+  if (typeof document !== "undefined" && document.visibilityState === "hidden") return false;
+
+  if (!opts?.allowImmediateUserAction) {
+
+    if (!hubBadgeBackgroundEnabled) return false;
+
+    if (!isAppBootReady()) return false;
+
+  }
+
+  return true;
+
+}
+
+
+
+/** 라우트 전환·탭 숨김 시 pending idle/rAF fetch 취소 */
+
+export function cancelPendingOwnerHubBadgeFetch(reason = "route_transition"): void {
+
+  hubBadgeScheduleGeneration += 1;
+
+  if (hubPathRefreshTimer != null) {
+
+    clearTimeout(hubPathRefreshTimer);
+
+    hubPathRefreshTimer = null;
+
+  }
+
+  if (eventForceRefreshTimer != null) {
+
+    clearTimeout(eventForceRefreshTimer);
+
+    eventForceRefreshTimer = null;
+
+  }
+
+  samarketRuntimeDebugLog("owner-hub-badge", "cancel pending fetch", { reason });
+
+}
+
+
+
+function scheduleDeferredHubBadgeFetch(
+
+  source: string,
+
+  force = false,
+
+  opts?: FetchOwnerHubBadgeNowOptions
+
+): void {
+
+  if (!canIssueHubBadgeNetworkFetch(force, opts)) return;
+
+  const gen = ++hubBadgeScheduleGeneration;
+
+  scheduleOwnerHubBadgeAfterFirstPaint(() => {
+
+    if (gen !== hubBadgeScheduleGeneration) return;
+
+    if (!canIssueHubBadgeNetworkFetch(force, opts)) return;
+
+    void fetchOwnerHubBadgeNow(force, {
+
+      ...opts,
+
+      callerComponent: opts?.callerComponent ?? source,
+
+    });
+
+  });
+
+}
+
+
+
 function fetchOwnerHubBadgeLeaderNetwork(force: boolean, opts?: FetchOwnerHubBadgeNowOptions): Promise<boolean> {
+
   const now = Date.now();
-  if (!force && now - lastFetchStartedAt < MIN_FETCH_GAP_MS) {
-    const inFlight = getSingleFlightPromise<void>(HUB_BADGE_FLIGHT_KEY);
-    if (inFlight) {
-      return inFlight.then(() => false);
+
+  if (!force) {
+
+    const cachedPayload = peekClientHubBadgeResponseCache();
+
+    if (cachedPayload != null) {
+
+      applyFromNetwork(cachedPayload);
+
+      broadcastOwnerHubBadgeSnapshot(cachedPayload);
+
+      lastFetchCompletedAt = now;
+
+      return Promise.resolve(true);
+
     }
-    return Promise.resolve(false);
+
+    if (now - lastPlainFetchCompletedAt < MIN_REPEAT_PLAIN_FETCH_GAP_MS) {
+
+      return Promise.resolve(false);
+
+    }
+
   }
-  if (force && now - lastFetchStartedAt < MIN_FORCE_FETCH_GAP_MS) {
+
+  if (!force && now - lastFetchStartedAt < MIN_FETCH_GAP_MS) {
+
     const inFlight = getSingleFlightPromise<void>(HUB_BADGE_FLIGHT_KEY);
-    if (inFlight) return inFlight.then(() => false);
-    /** 진행 중 비행이 없으면 이전 구현은 fetch 를 통째로 건너뛰어 메신저 연속 unread 시 탭 배지가 최대 1.6초 이상 밀릴 수 있음 */
+
+    if (inFlight) {
+
+      return inFlight.then(() => false);
+
+    }
+
+    return Promise.resolve(false);
+
   }
+
+  if (force && now - lastFetchStartedAt < MIN_FORCE_FETCH_GAP_MS) {
+
+    const inFlight = getSingleFlightPromise<void>(HUB_BADGE_FLIGHT_KEY);
+
+    if (inFlight) return inFlight.then(() => false);
+
+    /** 진행 중 비행이 없으면 이전 구현은 fetch 를 통째로 건너뛰어 메신저 연속 unread 시 탭 배지가 최대 1.6초 이상 밀릴 수 있음 */
+
+  }
+
+
 
   lastFetchStartedAt = now;
 
+
+
   return runSingleFlight(HUB_BADGE_FLIGHT_KEY, async (): Promise<boolean> => {
+
     try {
-      const res = await fetch(hubBadgeLeaderFetchUrl(force, opts?.serverHubBadgeBypass), {
+
+      const hubUrl = hubBadgeLeaderFetchUrl(force, opts?.serverHubBadgeBypass);
+
+      recordBootVerifyFetch(hubUrl, "owner_hub_badge_store");
+
+      const res = await fetch(hubUrl, {
+
         credentials: "include",
+
         cache: "no-store",
+
+        headers: buildHubBadgeFetchHeaders(opts),
+
       });
+
       const data = res.ok ? await res.json() : null;
-      samarketRuntimeDebugLog("owner-hub-badge", "leader HTTP fetch completed", { ok: res.ok });
+
+      samarketRuntimeDebugLog("owner-hub-badge", "leader HTTP fetch completed", {
+
+        ok: res.ok,
+
+        force,
+
+        caller: opts?.callerComponent ?? null,
+
+      });
+
+      if (res.ok && data != null) {
+
+        storeClientHubBadgeResponseCache(data);
+
+      }
+
       applyFromNetwork(data);
+
       broadcastOwnerHubBadgeSnapshot(data);
+
       lastFetchCompletedAt = Date.now();
+
+      if (!force) lastPlainFetchCompletedAt = lastFetchCompletedAt;
+
       return res.ok;
+
     } catch {
+
       applyFromNetwork(null);
+
       broadcastOwnerHubBadgeSnapshot(null);
+
       lastFetchCompletedAt = Date.now();
+
       return false;
+
     }
+
   });
+
 }
+
+
 
 export function fetchOwnerHubBadgeNow(force = false, opts?: FetchOwnerHubBadgeNowOptions): Promise<void> {
+
   if (typeof window === "undefined") {
+
     return Promise.resolve();
+
   }
+
+  if (!canIssueHubBadgeNetworkFetch(force, opts)) {
+
+    return Promise.resolve();
+
+  }
+
+
+
   ensureOwnerHubLeaderAndSync();
 
+
+
   if (!isLeaderOwnerHubBadgeRef.current) {
+
     postOwnerHubBadgeRefreshRequest(force);
+
     return Promise.resolve();
+
   }
+
+
 
   if (isDevSafeMode() && !opts?.skipDevCmFreshDedupe) {
+
     const k = force ? "owner-hub-badge:cmFresh" : "owner-hub-badge:plain";
+
     const ttl = force ? 15_000 : 45_000;
+
     return runDevSafeSingleFlight(k, ttl, () => fetchOwnerHubBadgeLeaderNetwork(force, opts), {
+
       onlyCacheIf: (ok) => ok === true,
+
     }).then(() => undefined);
+
   }
 
+
+
   return fetchOwnerHubBadgeLeaderNetwork(force, opts).then(() => undefined);
+
 }
 
+
+
 function onTradeUnreadUpdated() {
+
   if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+
   scheduleEventDrivenOwnerHubRefresh();
+
 }
+
+
 
 type OwnerHubBadgeRefreshDetail = { source?: string; key?: string; at?: number };
 
+
+
 function scheduleMessengerParticipantHubBadgeRefresh() {
+
   /**
+
    * source=community_messenger 는 이벤트 빈도가 높아, 이전 구현처럼 매번 `force`를 때리면
+
    * 하단 탭 왕복 시 `/api/me/store-owner-hub-badge?cmFresh=1` 가 연속 호출되어 체감 전환을 갉아먹는다.
+
    * 첫 이벤트는 즉시 반영하고, 이후 5초 창에서는 trailing 1회만 허용한다.
+
    */
+
   const now = Date.now();
+
   const shouldForceFresh = now - lastFetchCompletedAt >= MESSENGER_PARTICIPANT_FORCE_STALE_MS;
+
   const elapsed = now - lastMessengerParticipantForceRefreshAt;
+
   if (elapsed >= MESSENGER_PARTICIPANT_FORCE_REFRESH_MIN_GAP_MS) {
+
     lastMessengerParticipantForceRefreshAt = now;
+
     if (messengerHubBadgeCoalesceTimer != null) {
+
       clearTimeout(messengerHubBadgeCoalesceTimer);
+
       messengerHubBadgeCoalesceTimer = null;
+
     }
-    /**
-     * 탭 전환 체감 저하를 막기 위해 메신저 이벤트마다 `cmFresh=1`를 강제하지 않는다.
-     * 최근 스냅샷이 충분히 신선하면 일반 조회로 합류하고, stale 구간에서만 강제 fresh를 허용한다.
-     */
-    void fetchOwnerHubBadgeNow(shouldForceFresh);
+
+    scheduleDeferredHubBadgeFetch("community_messenger_event", shouldForceFresh, {
+
+      callerComponent: "community_messenger_participant",
+
+    });
+
     return;
+
   }
+
   if (messengerHubBadgeCoalesceTimer != null) return;
+
   messengerHubBadgeCoalesceTimer = setTimeout(() => {
+
     messengerHubBadgeCoalesceTimer = null;
+
     lastMessengerParticipantForceRefreshAt = Date.now();
+
     const trailingShouldForceFresh =
+
       Date.now() - lastFetchCompletedAt >= MESSENGER_PARTICIPANT_FORCE_STALE_MS;
-    void fetchOwnerHubBadgeNow(trailingShouldForceFresh);
+
+    scheduleDeferredHubBadgeFetch("community_messenger_event_trailing", trailingShouldForceFresh, {
+
+      callerComponent: "community_messenger_participant",
+
+    });
+
   }, MESSENGER_PARTICIPANT_FORCE_REFRESH_MIN_GAP_MS - elapsed);
+
 }
+
+
 
 function onOwnerHubRefresh(ev?: Event) {
+
   const detail = (ev as CustomEvent<OwnerHubBadgeRefreshDetail> | undefined)?.detail;
+
   if (detail?.source === "community_messenger") {
+
     /**
+
      * 일반 participant 이벤트는 짧은 간격·비-force 로 왕복을 줄인다.
+
      * 방 안 읽음 처리 직후에는 `fetchOwnerHubBadgeNow(false)` 가 22s MIN_FETCH_GAP 에 걸려
+
      * 탭 배지가 안 줄어드는 경우가 있어 mark_read 계열만 즉시 `cmFresh=1` 조회한다.
+
      */
+
     const immediateFresh =
+
       detail.key === "room_open_mark_read" ||
+
       detail.key === "room_phase2_mark_read";
+
     if (immediateFresh) {
+
       lastMessengerParticipantForceRefreshAt = Date.now();
-      void fetchOwnerHubBadgeNow(true, { skipDevCmFreshDedupe: true, serverHubBadgeBypass: true });
+
+      scheduleDeferredHubBadgeFetch("messenger_mark_read", true, {
+
+        skipDevCmFreshDedupe: true,
+
+        serverHubBadgeBypass: true,
+
+        allowImmediateUserAction: true,
+
+        callerComponent: "messenger_mark_read",
+
+      });
+
       return;
+
     }
+
     scheduleMessengerParticipantHubBadgeRefresh();
+
     return;
+
   }
+
   if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
+
   scheduleEventDrivenOwnerHubRefresh();
+
 }
+
+
 
 function scheduleEventDrivenOwnerHubRefresh() {
+
   const now = Date.now();
+
   if (now - lastEventRefreshAt < MIN_EVENT_REFRESH_GAP_MS) return;
+
   lastEventRefreshAt = now;
+
   if (eventForceRefreshTimer != null) {
+
     clearTimeout(eventForceRefreshTimer);
+
   }
+
   eventForceRefreshTimer = setTimeout(() => {
+
     eventForceRefreshTimer = null;
-    void fetchOwnerHubBadgeNow(true);
+
+    scheduleDeferredHubBadgeFetch("hub_badge_refresh_event", true, {
+
+      callerComponent: "KASAMA_OWNER_HUB_BADGE_REFRESH",
+
+    });
+
   }, EVENT_FORCE_REFRESH_DEBOUNCE_MS);
+
 }
+
+
 
 function onVisibility() {
+
   if (typeof document === "undefined") return;
+
   if (isDevSafeMode()) {
+
     if (pollInterval) {
+
       clearInterval(pollInterval);
+
       pollInterval = null;
+
     }
+
     return;
+
   }
+
   if (document.visibilityState === "visible") {
+
     if (Date.now() - lastFetchStartedAt >= MIN_VISIBILITY_FETCH_GAP_MS) {
-      void fetchOwnerHubBadgeNow();
+
+      scheduleDeferredHubBadgeFetch("visibility_visible", false, {
+
+        callerComponent: "document_visibility",
+
+      });
+
     }
+
     if (hubStarted && pollInterval == null) {
+
       pollInterval = setInterval(() => {
+
         if (typeof document !== "undefined" && document.visibilityState === "visible") {
-          void fetchOwnerHubBadgeNow();
+
+          scheduleDeferredHubBadgeFetch("poll_interval", false, {
+
+            callerComponent: "owner_hub_badge_poll",
+
+          });
+
         }
+
       }, OWNER_HUB_BADGE_POLL_INTERVAL_MS);
+
     }
+
   } else if (pollInterval) {
+
     clearInterval(pollInterval);
+
     pollInterval = null;
+
+    cancelPendingOwnerHubBadgeFetch("visibility_hidden");
+
   }
+
 }
+
+
 
 function attachGlobalEventsOnce() {
+
   if (globalEventsAttached) return;
+
   globalEventsAttached = true;
+
   ensureOwnerHubLeaderAndSync();
+
   window.addEventListener(KASAMA_TRADE_CHAT_UNREAD_UPDATED, onTradeUnreadUpdated);
+
   window.addEventListener(KASAMA_OWNER_HUB_BADGE_REFRESH, onOwnerHubRefresh);
+
   document.addEventListener("visibilitychange", onVisibility);
+
 }
+
+
 
 function detachGlobalEvents() {
+
   if (!globalEventsAttached) return;
+
   globalEventsAttached = false;
+
   window.removeEventListener(KASAMA_TRADE_CHAT_UNREAD_UPDATED, onTradeUnreadUpdated);
+
   window.removeEventListener(KASAMA_OWNER_HUB_BADGE_REFRESH, onOwnerHubRefresh);
+
   document.removeEventListener("visibilitychange", onVisibility);
+
 }
+
+
 
 function stopHub() {
+
   hubStarted = false;
+
+  cancelPendingOwnerHubBadgeFetch("stop_hub");
+
   if (initialHydrateIdleId != null) {
+
     cancelScheduledWhenBrowserIdle(initialHydrateIdleId);
+
     initialHydrateIdleId = null;
+
   }
+
   if (pollInterval != null) {
+
     clearInterval(pollInterval);
+
     pollInterval = null;
+
   }
+
   if (eventForceRefreshTimer != null) {
+
     clearTimeout(eventForceRefreshTimer);
+
     eventForceRefreshTimer = null;
+
   }
+
   if (messengerHubBadgeCoalesceTimer != null) {
+
     clearTimeout(messengerHubBadgeCoalesceTimer);
+
     messengerHubBadgeCoalesceTimer = null;
+
   }
+
   lastMessengerParticipantForceRefreshAt = 0;
+
   detachGlobalEvents();
+
   teardownOwnerHubLeaderAndSync();
+
 }
 
-function startHub() {
-  if (hubStarted) return;
-  hubStarted = true;
-  attachGlobalEventsOnce();
-  if (isDevSafeMode()) {
-    void fetchOwnerHubBadgeNow(false);
-    return;
-  }
-  if (initialHydrateIdleId != null) {
-    cancelScheduledWhenBrowserIdle(initialHydrateIdleId);
-    initialHydrateIdleId = null;
-  }
-  if (typeof document === "undefined" || document.visibilityState === "visible") {
-    const initialDelay = isConstrainedNetwork() ? 2600 : 1200;
-    initialHydrateIdleId = scheduleWhenBrowserIdle(() => {
-      initialHydrateIdleId = null;
-      void fetchOwnerHubBadgeNow(true);
-    }, initialDelay);
-  }
-  if (typeof document === "undefined" || document.visibilityState === "visible") {
-    pollInterval = setInterval(() => {
-      if (typeof document !== "undefined" && document.visibilityState === "visible") {
-        void fetchOwnerHubBadgeNow();
-      }
-    }, OWNER_HUB_BADGE_POLL_INTERVAL_MS);
-  }
-}
 
-export function subscribeOwnerHubBadge(listener: () => void) {
-  if (hubStopTimer != null) {
-    clearTimeout(hubStopTimer);
-    hubStopTimer = null;
-  }
-  listeners.add(listener);
-  startHub();
-  return () => {
-    listeners.delete(listener);
-    if (listeners.size > 0) return;
-    if (hubStopTimer != null) clearTimeout(hubStopTimer);
-    hubStopTimer = setTimeout(() => {
-      hubStopTimer = null;
-      if (listeners.size > 0) return;
-      stopHub();
-    }, 0);
-  };
-}
 
-export function getOwnerHubBadgeSnapshot() {
-  return snapshot;
-}
+function scheduleOwnerHubBadgeAfterFirstPaint(run: () => void): void {
 
-export function getOwnerHubBadgeServerSnapshot() {
-  return OWNER_HUB_BADGE_EMPTY;
-}
-
-/** 채팅·주문·문의 화면 진입 시 한 번 더 갱신 — 호출부마다 타이머를 두지 않고 스토어에서만 디바운스 */
-export function refreshOwnerHubBadgeIfHubPath(pathname: string | null) {
   if (typeof window === "undefined") return;
 
+  if (typeof requestAnimationFrame === "function") {
+
+    requestAnimationFrame(() => {
+
+      requestAnimationFrame(() => {
+
+        if (typeof requestIdleCallback === "function") {
+
+          requestIdleCallback(() => run(), { timeout: 2500 });
+
+        } else {
+
+          window.setTimeout(run, 0);
+
+        }
+
+      });
+
+    });
+
+    return;
+
+  }
+
+  initialHydrateIdleId = scheduleWhenBrowserIdle(run, isConstrainedNetwork() ? 2600 : 800);
+
+}
+
+
+
+function startHub() {
+
+  if (!hubBadgeBackgroundEnabled) return;
+
+  if (hubStarted) return;
+
+  hubStarted = true;
+
+  attachGlobalEventsOnce();
+
+  if (initialHydrateIdleId != null) {
+
+    cancelScheduledWhenBrowserIdle(initialHydrateIdleId);
+
+    initialHydrateIdleId = null;
+
+  }
+
+  if (typeof document === "undefined" || document.visibilityState === "visible") {
+
+    scheduleDeferredHubBadgeFetch("start_hub_initial", false, {
+
+      callerComponent: "owner_hub_badge_start_hub",
+
+    });
+
+  }
+
+  if (typeof document === "undefined" || document.visibilityState === "visible") {
+
+    pollInterval = setInterval(() => {
+
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+
+        scheduleDeferredHubBadgeFetch("poll_interval", false, {
+
+          callerComponent: "owner_hub_badge_poll",
+
+        });
+
+      }
+
+    }, OWNER_HUB_BADGE_POLL_INTERVAL_MS);
+
+  }
+
+}
+
+
+
+export function subscribeOwnerHubBadge(listener: () => void) {
+
+  if (hubStopTimer != null) {
+
+    clearTimeout(hubStopTimer);
+
+    hubStopTimer = null;
+
+  }
+
+  listeners.add(listener);
+
+  startHub();
+
+  return () => {
+
+    listeners.delete(listener);
+
+    if (listeners.size > 0) return;
+
+    if (hubStopTimer != null) clearTimeout(hubStopTimer);
+
+    hubStopTimer = setTimeout(() => {
+
+      hubStopTimer = null;
+
+      if (listeners.size > 0) return;
+
+      stopHub();
+
+    }, 0);
+
+  };
+
+}
+
+
+
+export function getOwnerHubBadgeSnapshot() {
+
+  return snapshot;
+
+}
+
+
+
+export function getOwnerHubBadgeServerSnapshot() {
+
+  return OWNER_HUB_BADGE_EMPTY;
+
+}
+
+
+
+/** 채팅·주문·문의 화면 진입 시 한 번 더 갱신 — 호출부마다 타이머를 두지 않고 스토어에서만 디바운스 */
+
+export function refreshOwnerHubBadgeIfHubPath(pathname: string | null) {
+
+  if (typeof window === "undefined") return;
+
+
+
+  cancelPendingOwnerHubBadgeFetch("pathname_change");
+
+
+
   const onHub =
+
     Boolean(pathname) && PATH_FETCH_PREFIXES.some((p) => (pathname as string).startsWith(p));
 
+
+
   if (!onHub) {
+
     if (hubPathRefreshTimer != null) {
+
       clearTimeout(hubPathRefreshTimer);
+
       hubPathRefreshTimer = null;
+
     }
+
     return;
+
   }
 
+
+
   if (hubPathRefreshTimer != null) {
+
     clearTimeout(hubPathRefreshTimer);
+
     hubPathRefreshTimer = null;
+
   }
+
   hubPathRefreshTimer = setTimeout(() => {
+
     hubPathRefreshTimer = null;
-    void fetchOwnerHubBadgeNow();
+
+    scheduleDeferredHubBadgeFetch("hub_path_refresh", false, {
+
+      callerComponent: "OwnerHubBadgeRuntime",
+
+      routeTransitionSource: pathname ?? undefined,
+
+    });
+
   }, HUB_PATH_REFRESH_DEBOUNCE_MS);
+
 }
+
+

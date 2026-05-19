@@ -9,13 +9,52 @@ import { isLikelyFetchAbortError, logFetchClientTelemetry } from "@/lib/http/fet
 const SESSION_GET_FLIGHT = "client:GET:/api/auth/session";
 
 const SESSION_401_RETRY_MS = 160;
+/** 서버 `auth-session-response-cache` TTL 과 맞춤 — 동일 탭 연속 session 검사 왕복 제거 */
+const SESSION_CLIENT_OK_TTL_MS = 3_000;
+
+let sessionOkClientCache: { expiresAt: number } | null = null;
+
+function peekAuthSessionClientCacheHit(): boolean {
+  return !!sessionOkClientCache && sessionOkClientCache.expiresAt > Date.now();
+}
+
+function setAuthSessionClientCacheOk(): void {
+  sessionOkClientCache = { expiresAt: Date.now() + SESSION_CLIENT_OK_TTL_MS };
+}
+
+export function clearAuthSessionClientCache(): void {
+  sessionOkClientCache = null;
+}
 
 /**
  * 여러 클라이언트 컴포넌트가 동시에 세션을 확인할 때 요청을 하나로 합칩니다.
  * (레이아웃·게이트·리다이렉트·로그인 직후 동기화 등이 같은 틱에 겹칠 때 대기 시간·부하 감소)
  */
-export function fetchAuthSessionNoStore(): Promise<Response> {
+export function fetchAuthSessionNoStore(clientCallSource?: string): Promise<Response> {
+  if (peekAuthSessionClientCacheHit()) {
+    bumpAppWidePerf("auth_session_resolve_success");
+    recordAppWidePhaseLastMs("auth_session_resolve_ms", 0);
+    return Promise.resolve(
+      new Response(JSON.stringify({ ok: true, authenticated: true }), {
+        status: 200,
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "x-samarket-session-client-cache-hit": "1",
+          ...(clientCallSource ? { "x-samarket-client-call-source": clientCallSource } : {}),
+        },
+      })
+    );
+  }
   return runSingleFlight(SESSION_GET_FLIGHT, async () => {
+    if (peekAuthSessionClientCacheHit()) {
+      return new Response(JSON.stringify({ ok: true, authenticated: true }), {
+        status: 200,
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+          "x-samarket-session-client-cache-hit": "1",
+        },
+      });
+    }
     bumpAppWidePerf("auth_session_resolve_start");
     const t0 = performance.now();
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -23,7 +62,13 @@ export function fetchAuthSessionNoStore(): Promise<Response> {
         const res = await fetch("/api/auth/session", {
           credentials: "include",
           cache: "no-store",
+          headers: clientCallSource ? { "x-samarket-client-call-source": clientCallSource } : undefined,
         });
+        if (res.ok) {
+          setAuthSessionClientCacheOk();
+        } else if (res.status === 401) {
+          clearAuthSessionClientCache();
+        }
         if (res.status === 401 && attempt === 0) {
           logFetchClientTelemetry("auth_401", {
             auth_401_url: "/api/auth/session",

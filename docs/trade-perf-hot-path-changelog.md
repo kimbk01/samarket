@@ -117,3 +117,73 @@
 | 2026-05-13 | dev 메모리 · compile 5차 · mega 계측 | **CM 서비스 캐시 footprint**: `getCommunityMessengerServiceCacheFootprint`(mega/bridge/category/room snapshot inflight 등 **엔트리 수만**). **`instrumentation-dev-memory-watch`**: `cm_service_cache_footprint`·`memory_cm_cache_total_entries`·`memory_module_cache_suspicion_flag`(rss≥3500 & 캐시 합≥80). **mega LRU** 192→128·**category batch 스냅샷** 상한 512→384. **mega 무결성 실패** 시 `tradeDirectKeysDetail.phaseDependencyReason=mega_bundle_incomplete_legacy_fallback` + `mega_bundle_integrity_*`·성공 경로에 `mega_bundle_integrity_ok: true`. **`GET /api/chat/room/.../bootstrap`**: trade bootstrap 체인 **`Promise.all` 동적 import**. **CM rooms/messages**: `messenger-room-canonical-resolve-api`·`context_meta` 의 `room-context-meta` 를 요청 시 동적 import. 응답·의미·unread·realtime 동일 | `lib/community-messenger/service.ts`, `lib/community-messenger/home-sync-trace.ts`, `lib/dev/instrumentation-dev-memory-watch.ts`, `app/api/chat/room/[roomId]/bootstrap/route.ts`, `app/api/community-messenger/rooms/[roomId]/route.ts`, `.../messages/route.ts`, `docs/trade-perf-hot-path-changelog.md` | `npx tsc --noEmit`, `npm run verify:trade-hot-path-contract` | 캐시 상한 축소는 적중률·짧은 스테일 창만 영향 |
 | 2026-05-13 | instrumentation 번들 | **Webpack `Can't resolve 'crypto'` 수정**: `instrumentation` → `instrumentation-dev-memory-watch` 가 **`service` 동적 import**를 분석하면서 `service.ts` 의 Node `crypto` 가 클라이언트/Edge 그래프에 끌림. **해결**: `cm-service-cache-footprint-registry`(Node·crypto 무의존)에 getter 등록·`service` 로드 시 `registerCommunityMessengerServiceCacheFootprintGetter`·memory-watch 는 registry 만 호출. footprint·의미 동일·첫 CM API 전까지 `cm_service_cache_footprint` 는 null 가능 | `lib/community-messenger/dev/cm-service-cache-footprint-registry.ts`, `lib/community-messenger/service.ts`, `lib/dev/instrumentation-dev-memory-watch.ts`, `docs/trade-perf-hot-path-changelog.md` | `npx tsc --noEmit` | registry 없이 `service` 를 instrumentation 경로에서 다시 import하지 말 것 |
 | 2026-05-13 | home-sync mega bridge | **mega RPC `rpc_cold` 완화**: mega 스냅샷 TTL 을 bridge 레거시(20s)와 분리·**기본 28s**(`SAMARKET_DIRECT_KEYS_MEGA_BUNDLE_CACHE_TTL_MS`, 12~60s). `directKeysMegaBundleCache` prune **128→192**. integrity 통과 후에만 기록·응답·RPC 의미 동일 | `lib/community-messenger/service.ts`, `docs/trade-perf-hot-path-changelog.md` | `npx tsc --noEmit`, `npm run verify:trade-hot-path-contract` | TTL 상한을 과하게 올리면 목록 trade 메타만 길게 스테일 가능 |
+| 2026-05-19 | 오너 허브 배지 unread | **cold unread parts RPC**: `hub_badge_user_chat_unread_parts` — participants+rooms+product_chats+item_trade hint 단일 SQL. TS는 RPC 우선·legacy multi-query 폴백·`[unread-parts-query]` 계측. `route-perf` `unread_parts_ms`·`unread_parts_via`. 응답 JSON·4s unread TTL·hub TTL warm 구조 불변 | `supabase/migrations/20260519120000_hub_badge_user_chat_unread_parts_rpc.sql`, `lib/chat/user-chat-unread-parts.ts`, `app/api/me/store-owner-hub-badge/route.ts`, `scripts/apply-hub-badge-unread-rpc.mjs` | `node scripts/apply-hub-badge-unread-rpc.mjs`, `node scripts/measure-owner-hub-badge-perf.mjs`, `tsc` | RPC 미적용 시 legacy ~1.2s 유지 |
+| 2026-05-19 | 오너 허브 배지 store_attention memory | **process memory TTL(5s)**: `hub-store-attention-memory-cache` — key `hub_store_id`, memory→RPC→legacy 3-count. prefetch 유지·wave3 memory hit 시 prefetch await 생략. `store_attention_via=memory`·`store_attention_memory_*` | `hub-store-attention-memory-cache.ts`, `get-owner-hub-store-attention-counts.ts`, `build-owner-hub-badge-payload.ts` | `measure-owner-hub-badge-perf.mjs`, `tsc` | wave1·wave2 memory 캐시 불변 |
+| 2026-05-19 | 오너 허브 배지 store_order_unread memory | **process memory TTL(5s)**: `hub-store-order-unread-memory-cache` — key `user_id\|hub_store_id`, memory→store_orders+participants query. `store_order_unread_via` memory\|query\|empty_orders. `invalidateHubStoreOrderUnreadMemory` — hub badge invalidate 연동 | `hub-store-order-unread-memory-cache.ts`, `store-order-chat-service.ts` | `measure-owner-hub-badge-perf.mjs`, `tsc` | wave1·cm_unread·find_hub 불변 |
+| 2026-05-19 | 오너 허브 배지 cm_unread memory | **process memory TTL(5s)**: `cm-unread-room-count-memory-cache` — memory→`get_community_messenger_unread_room_count` RPC→PostgREST count head. `cm_unread_via=memory`·`cm_unread_memory_*` 계측. `invalidateCommunityMessengerUnreadTotalCache` — hub badge invalidate 연동 | `cm-unread-room-count-memory-cache.ts`, `community-messenger-unread-total.ts`, `hub-badge-wave2-perf.ts` | `measure-owner-hub-badge-perf.mjs`, `tsc` | unread_parts·find_hub_store 불변 |
+| 2026-05-19 | 오너 허브 배지 unread_parts memory | **process memory TTL(5s)**: `hub-badge-unread-parts-memory-cache` — memory→counter→RPC/legacy. `unread_parts_via=memory`·`unread_memory_*` 계측. counter/RPC fallback·의미·JSON 불변 | `hub-badge-unread-parts-memory-cache.ts`, `user-chat-unread-parts.ts`, `hub-badge-breakdown.ts` | `measure-owner-hub-badge-perf.mjs`, `tsc` | invalidate 시 memory+counter bypass 유지 |
+| 2026-05-19 | 오너 허브 배지 find_hub_store | **process memory TTL(45s)**: `owner-hub-store-lookup-cache` — `findOwnerHubStore` memory hit 시 PostgREST 생략·miss 시 기존 embed fallback. `find_hub_store_via` memory\|postgrest·`find_hub_store_cache_*` 계측. `invalidateOwnerHubStoreLookupCache` — hub badge invalidate 연동. 응답 JSON·unread counter·cm_unread·store_attention 불변 | `lib/chats/owner-hub-store-lookup-cache.ts`, `build-owner-hub-badge-payload.ts`, `find-owner-hub-store-perf.ts`, `owner-hub-badge-cache.ts` | `measure-owner-hub-badge-perf.mjs`, `tsc` | TTL 내 매장·권한 변경은 지연 가능 — 관리자 변경 후 invalidate 호출 권장 |
+| 2026-05-19 | 오너 허브 배지 unread counter | **wave1 read-through**: `hub_badge_user_unread_counters` — RPC 4필드 스냅샷·TTL 5s·miss 시 `hub_badge_user_chat_unread_parts` upsert. `unread_parts_via` counter\|rpc\|legacy·audit `HUB_BADGE_UNREAD_COUNTER_AUDIT`. 응답 JSON·cm_unread·find_hub_store·store_attention 불변 | `supabase/migrations/20260522120000_hub_badge_user_unread_counters.sql`, `lib/chat/hub-badge-unread-counter.ts`, `lib/chat/user-chat-unread-parts.ts`, `hub-badge-breakdown.ts` | `apply-hub-badge-unread-counter-table`, `measure-owner-hub-badge-perf.mjs`, `tsc` | 테이블 없으면 RPC 경로·invalidate 시 5s bypass |
+| 2026-05-19 | 오너 허브 배지 cm_unread | **wave2 CM unread RPC**: `get_community_messenger_unread_room_count(p_user_id)` + `idx_cmp_user_unread_positive`. TS RPC 우선·PostgREST count head legacy·`cm_unread_via`·`cm_unread_rpc_ms`·`cm_unread_legacy_ms`. 응답 JSON·wave1 unread·store_order_unread·cache/defer 불변 | `supabase/migrations/20260521120000_get_community_messenger_unread_room_count_rpc.sql`, `lib/community-messenger/community-messenger-unread-total.ts`, `lib/chats/hub-badge-wave2-perf.ts`, `hub-badge-breakdown.ts`, `scripts/apply-hub-badge-cm-unread-rpc.mjs` | `node scripts/apply-hub-badge-cm-unread-rpc.mjs`, `node scripts/measure-owner-hub-badge-perf.mjs`, `tsc` | RPC 미적용 시 legacy ~222ms cm_unread 유지 |
+| 2026-05-19 | 오너 허브 배지 store_attention | **wave3 단일 RPC** + **wave1 직후 prefetch**(wave2와 RTT 겹침, `store_attention_rpc_ms`는 prefetch 시작~완료): `get_owner_hub_store_attention_counts(p_store_id)` — refund_requested·pending 주문·open 문의 count를 1 RTT. TS RPC 우선·legacy 3× count 폴백. `[hub-badge-breakdown]` `store_attention_via`·`store_attention_rpc_ms`·`store_attention_legacy_ms`. 응답 JSON·unread·find_hub_store·cache/defer 불변 | `supabase/migrations/20260520120000_get_owner_hub_store_attention_counts_rpc.sql`, `lib/stores/get-owner-hub-store-attention-counts.ts`, `lib/chats/build-owner-hub-badge-payload.ts`, `lib/chats/hub-badge-breakdown.ts`, `scripts/measure-owner-hub-badge-perf.mjs` | `npx supabase db push`, `node scripts/measure-owner-hub-badge-perf.mjs`, `tsc` | RPC 미적용 시 legacy ~227ms wave3 유지 |
+| 2026-05-19 | 오너 허브 배지 | **first paint blocking 제거**: `fetchOwnerHubBadgeNow` 는 App Boot·`enableOwnerHubBadgeBackgroundHydration` 이후 rAF×2·idle·visible 에서만 네트워크. 경로·visibility·이벤트는 `scheduleDeferred`·5s plain 중복 방지·라우트 전환 시 `cancelPending`. **쿼리**: `ownerHasAnyStore`+`findOwnerHubStore` 이중 조회 → `findOwnerHubStore` 1회. **캐시 계측**: `hub_badge_route_cache_key`·`exists_query_used` TTL hit 시 0. 응답 JSON·UI·RLS 불변 | `lib/chats/owner-hub-badge-store.ts`, `build-owner-hub-badge-payload.ts`, `owner-hub-badge-cache.ts`, `app/api/me/store-owner-hub-badge/route.ts`, `OwnerHubBadgeRuntime.tsx`, `route-perf-dedupe-fields.ts` | `npx tsc --noEmit`, 수동 `[route-perf]` 3회 warm | 헤더 없는 비-store 호출은 여전히 `deferred:false` 로 남음(관측용)·store 경로만 deferred:true 보장 |
+| 2026-05-19 | 오너 허브 배지 **최종 검증·회귀 방지** | **5단 process memory + route TTL + DB counter** — cold run2 stage `*_via=memory`(≤20ms), run3 `cache_hit=1`·`db_ms≈0`. 측정: `node scripts/measure-owner-hub-badge-perf.mjs`(dev 재시작 후). **금지**: TTL·응답 JSON·defer 헤더 계약 역행 | 아래 「Hub badge 회귀 방지」절 | `measure-owner-hub-badge-perf.mjs` 3-run | hub badge 단일 RTT 병목 종료 → 앱 전체 `[route-perf]` 재선정 |
+
+---
+
+## Hub badge 회귀 방지 (2026-05-19 확정)
+
+### 캐시 계층 (바깥 → 안)
+
+| 계층 | 키 | TTL | invalidate | fallback |
+|------|-----|-----|------------|----------|
+| Route 응답 | `owner-hub-badge:{userId}` | 5s (`OWNER_HUB_BADGE_TTL_MS`) | `invalidateOwnerHubBadgeCache` | cold rebuild |
+| unread_parts memory | `userId` | 5s | `invalidateUserChatUnreadCache` / hub invalidate | counter → RPC → legacy |
+| unread DB counter | `user_id` PK | 5s row `updated_at` | bypass 5s on invalidate | RPC → legacy |
+| find_hub_store memory | `userId` | 45s | `invalidateOwnerHubStoreLookupCache` | PostgREST embed |
+| cm_unread memory | `userId` | 5s | `invalidateCommunityMessengerUnreadTotalCache` | RPC → count head |
+| store_order_unread memory | `userId\|hubStoreId` | 5s | `invalidateHubStoreOrderUnreadMemory` | store_orders+parts |
+| store_attention memory | `hubStoreId` | 5s | `invalidateHubStoreAttentionMemory` (hub 시 전체 clear) | RPC → 3× legacy count |
+
+### 고정 성능 기준 (측정 스크립트·qqqq dev)
+
+- **헤더**: `x-samarket-hub-badge-deferred:1`, `x-samarket-first-paint-blocking:0` → `[route-perf]` `deferred:true`, `first_paint_blocking:false`
+- **run1**: `hubBadgeBypass=1&cmFresh=1&*Fresh=1` — stage fill(RPC/query/postgrest)
+- **run2** (4.2s gap): `unread_parts_via`·`find_hub_store_via`·`cm_unread_via`·`store_order_unread_via`·`store_attention_via` = **memory**, stage ms ≤20, `db_ms` ≤50
+- **run3** (6s gap): `cache_hit:1`, `db_ms` 0~50
+- **로그 태그**: `[hub-badge-unread-parts-memory-hit]`, `[find-hub-store-memory-hit]`, `[cm-unread-memory-hit]`, `[store-order-unread-memory-hit]`, `[store-attention-memory-hit]`
+
+### Before / After (cold path, 대표)
+
+| 지표 | before (단일 RTT 병목) | after (run2 memory) |
+|------|------------------------|---------------------|
+| unread_parts | ~200–460ms RPC/counter | 0–20ms memory |
+| find_hub_store | ~205ms PostgREST | 0ms memory |
+| cm_unread | ~204ms RPC | 0–20ms memory |
+| store_order_unread | ~198–225ms query | 0–20ms memory |
+| store_attention | ~25–250ms RPC | 0–20ms memory |
+| db_ms (cold rebuild) | ~420–700 | ≤50 (stage memory 합) |
+| run3 route | — | cache_hit:1, db_ms≈0 (plain GET, run2 후 **&lt;5s**) |
+
+### 최종 3-run 확정 (2026-05-19, qqqq, dev 재시작·`caller_component=measure_script` 필터)
+
+측정: `HUB_BADGE_TERMINAL_LOG=<dev 터미널>` · `node scripts/measure-owner-hub-badge-perf.mjs`  
+로그 5종 memory-hit 태그 전부 확인됨.
+
+| run | total_ms | db_ms | cache_hit | unread_parts_via | find_hub_store_via | cm_unread_via | store_order_unread_via | store_attention_via | deferred | first_paint_blocking | 판정 |
+|-----|----------|-------|-----------|------------------|--------------------|--------------|-------------------------|---------------------|----------|----------------------|------|
+| 1 | 694 | 672 | 0 | rpc | postgrest | rpc | empty_orders | rpc | true | false | run1 fill (`*Fresh=1`) |
+| 2 | **11** | **3** | 0 | **memory** | **memory** | **memory** | **memory** | **memory** | true | false | **✓ 합격** |
+| 3 | 21* | 3* | 0* | memory | memory | memory | memory | memory | true | false | stage warm (*`cmFresh` bypass, route TTL은 plain GET·&lt;5s) |
+
+run2: wave1/2/3 각 0–1ms, `[route-perf]` `badge_query_ms: 3`. run3 route JSON TTL hit 재현: run2 직후 **4.2s 이내** plain `GET /api/me/store-owner-hub-badge` (쿼리 없음) → `cache_hit:1`·`db_ms:0` 기대.
+
+### 회귀 체크리스트 (PR·성능 라운드)
+
+1. `npm run verify:trade-hot-path-contract` — hub badge 건드린 경우 선택
+2. `npx tsc --noEmit`
+3. dev 재시작 → `node scripts/measure-owner-hub-badge-perf.mjs` — run2 memory·run3 warm
+4. `[route-perf]` / `[hub-badge-breakdown]` — `deferred`·`first_paint_blocking`·`*_via` 역행 없음
+5. `invalidateOwnerHubBadgeCache` 호출 경로(읽음·CM 송신·주문)에서 hub+stage memory 함께 비움
+6. 응답 JSON 필드·합산(`total`, `storesTabAttention` 등) diff 없음
+7. **다음 병목**은 hub badge가 아닌 전역 `[route-perf]` (bootstrap, profile, notifications 등)

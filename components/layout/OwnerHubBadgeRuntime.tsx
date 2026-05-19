@@ -2,7 +2,10 @@
 
 import { useEffect } from "react";
 import { usePathname } from "next/navigation";
-import { refreshOwnerHubBadgeIfHubPath } from "@/lib/chats/owner-hub-badge-store";
+import {
+  cancelPendingOwnerHubBadgeFetch,
+  refreshOwnerHubBadgeIfHubPath,
+} from "@/lib/chats/owner-hub-badge-store";
 
 /**
  * owner hub 경로 기반 refresh 트리거는 전역 1개로만 유지한다.
@@ -13,6 +16,7 @@ export function OwnerHubBadgeRuntime() {
 
   useEffect(() => {
     refreshOwnerHubBadgeIfHubPath(pathname ?? null);
+    return () => cancelPendingOwnerHubBadgeFetch("pathname_effect_cleanup");
   }, [pathname]);
 
   return null;

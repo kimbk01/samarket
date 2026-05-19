@@ -6,6 +6,8 @@ import { useState } from "react";
 import { invalidateMeProfileDedupedCache, fetchMeProfileDeduped } from "@/lib/profile/fetch-me-profile-deduped";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
 import { setSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
+import { mergeAppBootProfileFull } from "@/lib/app-boot/app-boot-store";
+import { invalidateAppBootProfileCache } from "@/lib/app-boot/fetch-app-boot-profile";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import type { ProfileRow } from "@/lib/profile/types";
 import { POST_LOGIN_PATH } from "@/lib/auth/post-login-path";
@@ -41,10 +43,12 @@ export function AuthConsentForm() {
         return;
       }
       invalidateMeProfileDedupedCache();
+      invalidateAppBootProfileCache();
       try {
         const { status, json } = await fetchMeProfileDeduped();
         const raw = json as { ok?: boolean; profile?: ProfileRow } | null;
         if (status === 200 && raw?.ok && raw.profile?.id) {
+          mergeAppBootProfileFull(raw.profile);
           const fromDb = profileRowToClientProfile(raw.profile);
           const prev = getCurrentUser();
           setSupabaseProfileCache({

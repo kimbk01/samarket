@@ -36,7 +36,11 @@ import {
 } from "@/lib/profile/profile-response-cache";
 import { jsonError } from "@/lib/http/api-route";
 import { logRoutePerf } from "@/lib/http/route-perf-log";
-import { buildRoutePerfDedupeFields } from "@/lib/http/route-perf-dedupe-fields";
+import {
+  buildRoutePerfClientObservability,
+  buildRoutePerfDedupeFields,
+  readClientCallSourceFromRequest,
+} from "@/lib/http/route-perf-dedupe-fields";
 import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
 export const dynamic = "force-dynamic";
 
@@ -422,7 +426,20 @@ function parsePatchBody(body: unknown): { ok: true; patch: Record<string, unknow
  */
 export async function GET(request: NextRequest) {
   const tRoute0 = devPerfNow();
-  const mode: "full" | "lite" = request.nextUrl.searchParams.get("lite") === "1" ? "lite" : "full";
+  const modeParam = request.nextUrl.searchParams.get("mode")?.trim().toLowerCase();
+  const mode: "full" | "lite" =
+    modeParam === "minimal" || modeParam === "lite" || request.nextUrl.searchParams.get("lite") === "1"
+      ? "lite"
+      : "full";
+  const profileModeLabel = modeParam === "minimal" ? "minimal" : mode;
+  const profileClientObs = {
+    ...buildRoutePerfClientObservability({
+      request,
+      firstPaintBlocking: mode === "lite",
+    }),
+    mode: profileModeLabel,
+    snapshotTier: mode === "lite" ? "boot_minimal" : "full",
+  };
 
   const auth0 = devPerfNow();
   const cookieAuth = await getOptionalRouteHandlerCookieAuth();
@@ -488,12 +505,14 @@ export async function GET(request: NextRequest) {
       serialize_ms: json_payload_serialize_probe_ms,
       prod_profile_response_cache_lookup_ms,
       query_type: "profile_row",
+      ...profileClientObs,
       ...buildRoutePerfDedupeFields({
         userId,
         dedupeKey: meProfileRequestDedupeKey(userId, mode),
         responseCacheHit: true,
         ttlCacheHit: true,
         queryType: "profile_row",
+        cacheHitReason: "prod_profile_response_ttl",
       }),
     });
     finalizeMeProfileGetPerfLog(
@@ -910,6 +929,21 @@ export async function GET(request: NextRequest) {
   if (profile) {
     setProfileResponseCache(userId, mode, profile);
   }
+  if (profileModeLabel === "minimal" && process.env.NODE_ENV === "development") {
+    // eslint-disable-next-line no-console -- boot layer verify
+    console.log(
+      "[app-boot]",
+      JSON.stringify({
+        route: "/api/me/profile",
+        mode: profileModeLabel,
+        total_ms: total_route_ms,
+        db_ms: Math.round(profilePipelineMs),
+        cache_hit: 0,
+        client_call_source: readClientCallSourceFromRequest(request),
+        first_paint_blocking: mode === "lite",
+      })
+    );
+  }
   logRoutePerf({
     route: "/api/me/profile",
     total_ms: total_route_ms,
@@ -918,11 +952,14 @@ export async function GET(request: NextRequest) {
     auth_ms: Math.round(requireAuthMs),
     serialize_ms: json_payload_serialize_probe_ms,
     query_type: "profile_pipeline",
+    surface: "app_boot",
+    ...profileClientObs,
     ...buildRoutePerfDedupeFields({
       userId,
       dedupeKey: meProfileRequestDedupeKey(userId, mode),
       inFlightHit: profileSingleflightHit === 1,
       queryType: "profile_pipeline",
+      dedupeHitReason: profileSingleflightHit === 1 ? "pipeline_singleflight" : undefined,
     }),
   });
   finalizeMeProfileGetPerfLog(

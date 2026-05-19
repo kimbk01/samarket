@@ -1,150 +1,197 @@
 "use client";
 
+
+
 import { useEffect } from "react";
+
 import type { SupabaseClient } from "@supabase/supabase-js";
+
 import { getSupabaseClient } from "@/lib/supabase/client";
+
 import {
+
   setSupabaseProfileCache,
+
   userToProfile,
+
 } from "@/lib/auth/supabase-profile-cache";
+
 import { dispatchTestAuthChanged } from "@/lib/auth/test-auth-store";
-import {
-  cancelScheduledWhenBrowserIdle,
-  scheduleWhenBrowserIdle,
-} from "@/lib/ui/network-policy";
-import { invalidateMeProfileDedupedCache, fetchMeProfileDeduped } from "@/lib/profile/fetch-me-profile-deduped";
+
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
-import type { ProfileRow } from "@/lib/profile/types";
+
 import { clearBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
+
 import { resetMessengerNotificationSurfacesAfterSignOut } from "@/lib/community-messenger/notifications/messenger-notification-surfaces-reset";
-import { bumpAppWidePerf, recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
+
+import { invalidateAppBootAll } from "@/components/app/AppBootProvider";
+
+import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
+
+import { peekAppBootProfile } from "@/lib/app-boot/app-boot-store";
+
+import { APP_BOOT_READY_EVENT } from "@/lib/app-boot/app-boot-types";
+
 import { shouldClearProfileCacheOnGetUserFailure } from "@/lib/auth/supabase-get-user-cache-policy";
 
-let profileHydrateInFlight: Promise<void> | null = null;
+
 
 function clearSignedOutClientCaches(): void {
-  invalidateMeProfileDedupedCache();
+
+  invalidateAppBootAll();
+
   setSupabaseProfileCache(null);
+
   clearBootstrapCache();
+
   resetMessengerNotificationSurfacesAfterSignOut();
+
   dispatchTestAuthChanged();
+
 }
 
-/**
- * 세션 + 서버 `GET /api/me/profile`(단일 파이프라인)으로 프로필 캐시를 맞춤.
- * - DB `avatar_url` 이 세션 메타만 쓸 때 덮어씌워지는 문제 방지
- */
-async function hydrateProfileCacheFromSession(sb: SupabaseClient) {
-  bumpAppWidePerf("profile_resolve_start");
-  const t0 = performance.now();
-  try {
-    let user: Awaited<ReturnType<SupabaseClient["auth"]["getUser"]>>["data"]["user"] = null;
-    try {
-      const {
-        data: { user: u },
-        error,
-      } = await sb.auth.getUser();
-      if (!u) {
-        if (shouldClearProfileCacheOnGetUserFailure(u, error)) {
-          clearSignedOutClientCaches();
-        }
-        return;
+
+
+function applySupabaseProfileCacheFromBoot(sb: SupabaseClient): void {
+
+  const bootProfile = peekAppBootProfile();
+
+  void sb.auth.getUser().then(({ data: { user }, error }) => {
+
+    if (!user) {
+
+      if (shouldClearProfileCacheOnGetUserFailure(user, error)) {
+
+        clearSignedOutClientCaches();
+
       }
-      user = u;
-    } catch (e) {
-      if (process.env.NODE_ENV === "development") {
-        console.warn("[SupabaseAuthSync] getUser 예외(네트워크 등) — 프로필 캐시 유지:", e);
-      }
+
       return;
+
     }
-    if (!user) return;
+
     let nextProfile = userToProfile(user);
-    try {
-      const { status, json } = await fetchMeProfileDeduped();
-      const data = json as { ok?: boolean; profile?: ProfileRow } | null;
-      if (status === 200 && data?.ok && data.profile) {
-        const p = profileRowToClientProfile(data.profile);
-        nextProfile = {
-          ...nextProfile,
-          ...p,
-          avatar_url: p.avatar_url ?? nextProfile?.avatar_url ?? null,
-          temperature: p.temperature ?? nextProfile?.temperature ?? 50,
-          auth_provider: p.auth_provider ?? nextProfile?.auth_provider ?? null,
-        };
-      }
-    } catch {
-      /* ignore */
+
+    if (bootProfile) {
+
+      const p = profileRowToClientProfile(bootProfile);
+
+      nextProfile = {
+
+        ...nextProfile,
+
+        ...p,
+
+        avatar_url: p.avatar_url ?? nextProfile?.avatar_url ?? null,
+
+        temperature: p.temperature ?? nextProfile?.temperature ?? 50,
+
+        auth_provider: p.auth_provider ?? nextProfile?.auth_provider ?? null,
+
+      };
+
     }
+
     setSupabaseProfileCache(nextProfile);
+
     dispatchTestAuthChanged();
-  } finally {
-    bumpAppWidePerf("profile_resolve_success");
-    recordAppWidePhaseLastMs("profile_resolve_ms", Math.round(performance.now() - t0));
-  }
+
+  });
+
 }
 
-function hydrateProfileCacheFromSessionDeduped(sb: SupabaseClient): Promise<void> {
-  if (!profileHydrateInFlight) {
-    profileHydrateInFlight = hydrateProfileCacheFromSession(sb).finally(() => {
-      profileHydrateInFlight = null;
-    });
-  }
-  return profileHydrateInFlight;
-}
+
 
 /**
- * Supabase 브라우저 세션을 프로필 캐시에 반영하고, 기존 화면이 listen 하는 인증 변경 이벤트를 발행한다.
+
+ * Supabase 브라우저 세션 ↔ 프로필 캐시 — **GET /api/me/profile 은 AppBootProvider 1회만**.
+
  */
+
 export function SupabaseAuthSync() {
+
   useEffect(() => {
+
     const sb = getSupabaseClient();
+
     if (!sb) return;
 
-    /**
-     * 첫 프로필 하이드레이션: rIC idle(최대 ~240ms) 대기는 첫 홈·채팅 체감 지연로 이어질 수 있어
-     * 다음 페인트 프레임으로만 미룸(메인 스택 직후·레이아웃 직전). rAF 없는 환경은 기존 idle 폴백.
-     */
-    let initialHydrateCancel: (() => void) | null = null;
-    if (typeof requestAnimationFrame === "function" && typeof cancelAnimationFrame === "function") {
-      const rafId = requestAnimationFrame(() => {
-        void hydrateProfileCacheFromSessionDeduped(sb).catch(() => {});
-      });
-      initialHydrateCancel = () => cancelAnimationFrame(rafId);
-    } else {
-      const idleId = scheduleWhenBrowserIdle(() => {
-        void hydrateProfileCacheFromSessionDeduped(sb).catch(() => {});
-      }, 240);
-      initialHydrateCancel = () => cancelScheduledWhenBrowserIdle(idleId);
-    }
+
+
+    const onBootReady = () => applySupabaseProfileCacheFromBoot(sb);
+
+    window.addEventListener(APP_BOOT_READY_EVENT, onBootReady);
+
+    void ensureAppBoot().then(() => applySupabaseProfileCacheFromBoot(sb));
+
+
+
     const {
+
       data: { subscription },
+
     } = sb.auth.onAuthStateChange((event, session) => {
+
       if (event === "SIGNED_OUT") {
+
         clearSignedOutClientCaches();
+
         return;
+
       }
+
       if (event === "INITIAL_SESSION") {
+
         if (!session) {
+
           clearSignedOutClientCaches();
+
         } else {
-          invalidateMeProfileDedupedCache();
-          void hydrateProfileCacheFromSessionDeduped(sb).catch(() => {});
+
+          void ensureAppBoot().then(() => applySupabaseProfileCacheFromBoot(sb));
+
         }
+
         return;
+
       }
+
       if (!session) {
+
         return;
+
       }
-      /** 이전 탭·401 캐시 등으로 GET /api/me/profile 이 오래된 결과를 쓰지 않도록 */
-      invalidateMeProfileDedupedCache();
-      void hydrateProfileCacheFromSessionDeduped(sb).catch(() => {});
+
+      if (event === "SIGNED_IN") {
+
+        invalidateAppBootAll();
+
+        void ensureAppBoot().then(() => applySupabaseProfileCacheFromBoot(sb));
+
+      } else {
+
+        applySupabaseProfileCacheFromBoot(sb);
+
+      }
+
     });
 
+
+
     return () => {
-      initialHydrateCancel?.();
+
       subscription.unsubscribe();
+
+      window.removeEventListener(APP_BOOT_READY_EVENT, onBootReady);
+
     };
+
   }, []);
 
+
+
   return null;
+
 }
+
+

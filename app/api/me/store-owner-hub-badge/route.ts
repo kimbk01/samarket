@@ -15,12 +15,22 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
   getCachedOwnerHubBadge,
+  ownerHubBadgeRouteCacheKey,
   peekOwnerHubBadgeCacheHit,
   peekOwnerHubBadgeInflight,
   OWNER_HUB_BADGE_TTL_MS,
 } from "@/lib/chats/owner-hub-badge-cache";
-import { buildRoutePerfDedupeFields } from "@/lib/http/route-perf-dedupe-fields";
+import {
+  buildRoutePerfClientObservability,
+  buildRoutePerfDedupeFields,
+} from "@/lib/http/route-perf-dedupe-fields";
 import { buildOwnerHubBadgePayloadWithMeta } from "@/lib/chats/build-owner-hub-badge-payload";
+import {
+  hubBadgeBreakdownForUser,
+  logHubBadgeBreakdown,
+  peekLastHubBadgeBreakdown,
+} from "@/lib/chats/hub-badge-breakdown";
+import { peekLastUnreadPartsComputeMeta } from "@/lib/chat/user-chat-unread-parts";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
 import { logRoutePerf } from "@/lib/http/route-perf-log";
@@ -33,6 +43,11 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const cmFresh = url.searchParams.get("cmFresh") === "1";
   const hubBadgeBypass = url.searchParams.get("hubBadgeBypass") === "1";
+  const findHubFresh = url.searchParams.get("findHubFresh") === "1";
+  const unreadPartsFresh = url.searchParams.get("unreadPartsFresh") === "1";
+  const cmUnreadFresh = url.searchParams.get("cmUnreadFresh") === "1";
+  const storeOrderUnreadFresh = url.searchParams.get("storeOrderUnreadFresh") === "1";
+  const storeAttentionFresh = url.searchParams.get("storeAttentionFresh") === "1";
   /** prod: cmFresh → 짧은 캐시 bypass. dev-safe: cmFresh 만으로는 bypass 안 함 — `hubBadgeBypass=1` 필요 */
   const bypassShortCache = cmFresh && (!isDevSafeMode() || hubBadgeBypass);
 
@@ -82,23 +97,76 @@ export async function GET(request: Request) {
 
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 
+  const findHubStoreFresh =
+    findHubFresh && hubBadgeBypass && process.env.NODE_ENV === "development";
+  const unreadPartsStoreFresh =
+    unreadPartsFresh && hubBadgeBypass && process.env.NODE_ENV === "development";
+  const cmUnreadStoreFresh =
+    cmUnreadFresh && hubBadgeBypass && process.env.NODE_ENV === "development";
+  const storeOrderUnreadStoreFresh =
+    storeOrderUnreadFresh && hubBadgeBypass && process.env.NODE_ENV === "development";
+  const storeAttentionStoreFresh =
+    storeAttentionFresh && hubBadgeBypass && process.env.NODE_ENV === "development";
+
   const stores0 = devPerfNow();
   const storesSb = tryGetSupabaseForStores();
   const storesClientMs = devPerfNow() - stores0;
 
-  const requestDedupeKey = `owner-hub-badge:${userId.trim()}`;
+  const requestDedupeKey = ownerHubBadgeRouteCacheKey(userId);
   const ttlCacheHit = !bypassShortCache && peekOwnerHubBadgeCacheHit(userId);
   const inFlightBefore = !bypassShortCache && !ttlCacheHit && peekOwnerHubBadgeInflight(userId);
   const build0 = devPerfNow();
   let payload: Awaited<ReturnType<typeof buildOwnerHubBadgePayloadWithMeta>>["payload"];
   let badgeMeta: Awaited<ReturnType<typeof buildOwnerHubBadgePayloadWithMeta>>["meta"];
+  let hubBreakdown = peekLastHubBadgeBreakdown();
   if (bypassShortCache) {
-    const built = await buildOwnerHubBadgePayloadWithMeta(sbAny, storesSb, userId);
+    const built = await buildOwnerHubBadgePayloadWithMeta(sbAny, storesSb, userId, {
+      findHubStoreFresh,
+      unreadPartsFresh: unreadPartsStoreFresh,
+      cmUnreadFresh: cmUnreadStoreFresh,
+      storeOrderUnreadFresh: storeOrderUnreadStoreFresh,
+      storeAttentionFresh: storeAttentionStoreFresh,
+    });
     payload = built.payload;
     badgeMeta = built.meta;
+    hubBreakdown = built.breakdown;
+  } else if (ttlCacheHit) {
+    payload = await getCachedOwnerHubBadge(userId, async () => {
+      const built = await buildOwnerHubBadgePayloadWithMeta(sbAny, storesSb, userId);
+      hubBreakdown = built.breakdown;
+      return built.payload;
+    });
+    badgeMeta = {
+      queryType: "owner_hub_badge_light",
+      aggregateFallbackUsed: 0,
+      aggregateRemovedSuccess: 1,
+      existsQueryUsed: 0,
+    };
+    logHubBadgeBreakdown({
+      total_ms: 0,
+      find_hub_store_ms: 0,
+      unread_parts_ms: 0,
+      cm_unread_ms: 0,
+      store_order_unread_ms: 0,
+      store_attention_total_ms: 0,
+      refund_pending_ms: 0,
+      order_pending_ms: 0,
+      inquiry_pending_ms: 0,
+      payload_build_ms: 0,
+      cache_hit: 1,
+      cache_hit_reason: "hub_badge_memory_ttl",
+      has_hub_store: 0,
+      query_wave_1_ms: 0,
+      query_wave_2_ms: 0,
+      query_wave_3_ms: 0,
+      worst_stage: "hub_badge_memory_ttl",
+      worst_stage_ms: 0,
+      ...hubBadgeBreakdownForUser(userId),
+    });
   } else {
     payload = await getCachedOwnerHubBadge(userId, async () => {
       const built = await buildOwnerHubBadgePayloadWithMeta(sbAny, storesSb, userId);
+      hubBreakdown = built.breakdown;
       return built.payload;
     });
     badgeMeta = {
@@ -109,8 +177,18 @@ export async function GET(request: Request) {
     };
   }
   const badgeAggregateMs = devPerfNow() - build0;
+  const unreadPartsMeta = peekLastUnreadPartsComputeMeta();
+  const unreadPartsMs =
+    hubBreakdown?.unread_parts_ms ?? unreadPartsMeta?.total_ms ?? 0;
+  const unreadPartsVia = unreadPartsMeta?.via ?? "unknown";
+  const findHubStoreMs = hubBreakdown?.find_hub_store_ms ?? 0;
+  const cmUnreadMs = hubBreakdown?.cm_unread_ms ?? 0;
+  const storeAttentionMs = hubBreakdown?.store_attention_total_ms ?? 0;
 
   const totalRouteMs = Math.round(devPerfNow() - t0);
+  const hubBadgeDeferred =
+    request.headers.get("x-samarket-hub-badge-deferred") === "1" ||
+    request.headers.get("x-samarket-first-paint-blocking") === "0";
   logRoutePerf({
     route: "/api/me/store-owner-hub-badge",
     total_ms: totalRouteMs,
@@ -123,6 +201,11 @@ export async function GET(request: Request) {
     aggregate_fallback_used: badgeMeta.aggregateFallbackUsed,
     aggregate_removed_success: badgeMeta.aggregateRemovedSuccess,
     exists_query_used: badgeMeta.existsQueryUsed,
+    ...buildRoutePerfClientObservability({
+      request,
+      deferred: hubBadgeDeferred,
+      firstPaintBlocking: !hubBadgeDeferred,
+    }),
     ...buildRoutePerfDedupeFields({
       userId,
       dedupeKey: requestDedupeKey,
@@ -130,8 +213,31 @@ export async function GET(request: Request) {
       responseCacheHit: false,
       ttlCacheHit,
       queryType: badgeMeta.queryType,
+      cacheHitReason: ttlCacheHit
+        ? "hub_badge_memory_ttl"
+        : bypassShortCache
+          ? "cmFresh_bypass"
+          : inFlightBefore
+            ? undefined
+            : "hub_badge_memory_miss",
+      dedupeHitReason: inFlightBefore ? "hub_badge_singleflight" : undefined,
     }),
     hub_badge_ttl_ms: OWNER_HUB_BADGE_TTL_MS,
+    hub_badge_route_cache_key: requestDedupeKey,
+    unread_parts_ms: Math.round(unreadPartsMs),
+    unread_parts_via: unreadPartsVia,
+    ...(unreadPartsMeta?.unread_memory_hit != null
+      ? { unread_memory_hit: unreadPartsMeta.unread_memory_hit }
+      : {}),
+    find_hub_store_ms: Math.round(findHubStoreMs),
+    ...(hubBreakdown?.find_hub_store_via
+      ? { find_hub_store_via: hubBreakdown.find_hub_store_via }
+      : {}),
+    cm_unread_ms: Math.round(cmUnreadMs),
+    ...(hubBreakdown?.cm_unread_via ? { cm_unread_via: hubBreakdown.cm_unread_via } : {}),
+    store_attention_ms: Math.round(storeAttentionMs),
+    hub_worst_stage: hubBreakdown?.worst_stage,
+    hub_worst_stage_ms: hubBreakdown?.worst_stage_ms,
   });
 
   logDevApiPerf("/api/me/store-owner-hub-badge", {
@@ -145,6 +251,7 @@ export async function GET(request: Request) {
     cmFresh: cmFresh ? 1 : 0,
     hubBadgeBypass: hubBadgeBypass ? 1 : 0,
     bypass_short_cache: bypassShortCache ? 1 : 0,
+    unread_parts_ms: Math.round(unreadPartsMs),
   });
 
   return NextResponse.json(payload);

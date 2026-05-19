@@ -6,7 +6,7 @@
 import { clearBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import { resetMessengerNotificationSurfacesAfterSignOut } from "@/lib/community-messenger/notifications/messenger-notification-surfaces-reset";
 import { fetchWithTimeout } from "@/lib/http/fetch-with-timeout";
-import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
+import { invalidateAppBootAll } from "@/components/app/AppBootProvider";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 /**
@@ -71,7 +71,7 @@ export async function performClientLogout(): Promise<LogoutResult> {
     };
   }
 
-  invalidateMeProfileDedupedCache();
+  invalidateAppBootAll();
   clearBootstrapCache();
   resetMessengerNotificationSurfacesAfterSignOut();
 

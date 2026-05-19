@@ -1,4 +1,14 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { HubBadgeStoreOrderUnreadTiming } from "@/lib/chats/hub-badge-wave2-perf";
+import {
+  hubStoreOrderUnreadMemoryTtlMs,
+  invalidateHubStoreOrderUnreadMemory,
+  readHubStoreOrderUnreadMemory,
+  writeHubStoreOrderUnreadMemory,
+} from "@/lib/community-messenger/hub-store-order-unread-memory-cache";
+import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
+
+export { invalidateHubStoreOrderUnreadMemory };
 import { serializeCommunityMessengerRoomContextMeta } from "@/lib/community-messenger/room-context-meta";
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
 import {
@@ -609,31 +619,115 @@ export async function sumBuyerStoreOrderMessengerUnread(
   return (parts ?? []).reduce((sum, row) => sum + Math.max(0, Math.floor(Number(row.unread_count ?? 0) || 0)), 0);
 }
 
+function applyStoreOrderUnreadMemoryHitTiming(
+  timingOut: HubBadgeStoreOrderUnreadTiming,
+  totalMs: number,
+  unreadTotal: number,
+  ageMs: number
+): void {
+  timingOut.store_order_unread_ms = Math.round(totalMs);
+  timingOut.store_order_unread_query_ms = 0;
+  timingOut.store_order_unread_via = "memory";
+  timingOut.store_order_unread_rows = 0;
+  timingOut.store_order_unread_memory_hit = 1;
+  timingOut.store_order_unread_memory_age_ms = Math.round(ageMs);
+  timingOut.store_order_unread_orders_ms = 0;
+  timingOut.store_order_unread_parts_ms = 0;
+  timingOut.store_order_unread_parts_rows = 0;
+}
+
 /** 허브 매장 1건 기준 주문 채팅 미읽음 합 — 전체 매장·전체 주문 스캔 금지 */
 export async function countOwnerStoreOrderMessengerUnreadForHubStore(
   sb: SupabaseClient<any>,
   ownerUserId: string,
-  hubStoreId: string
+  hubStoreId: string,
+  timingOut?: HubBadgeStoreOrderUnreadTiming
 ): Promise<number> {
   const uid = ownerUserId.trim();
   const sid = hubStoreId.trim();
-  if (!uid || !sid) return 0;
-  const { data: orders } = await sb
+  if (!uid || !sid) {
+    if (timingOut) timingOut.store_order_unread_via = "skipped_no_hub";
+    return 0;
+  }
+
+  const total0 = devPerfNow();
+  const mem = readHubStoreOrderUnreadMemory(uid, sid);
+  if (mem.hit) {
+    const totalMs = devPerfNow() - total0;
+    if (timingOut) {
+      applyStoreOrderUnreadMemoryHitTiming(timingOut, totalMs, mem.unreadTotal, mem.ageMs);
+    }
+    if (process.env.NODE_ENV === "development") {
+      // eslint-disable-next-line no-console -- TTL 내 store_orders+parts 생략
+      console.info("[store-order-unread-memory-hit]", {
+        user_id_short: uid.slice(0, 8),
+        hub_store_id_short: sid.slice(0, 8),
+        store_order_unread_memory_age_ms: Math.round(mem.ageMs),
+        ttl_ms: hubStoreOrderUnreadMemoryTtlMs(),
+        unread_total: mem.unreadTotal,
+        stale_snapshot_within_ttl: true,
+      });
+    }
+    return mem.unreadTotal;
+  }
+
+  const orders0 = devPerfNow();
+  const { data: orders, error: ordersErr } = await sb
     .from("store_orders")
     .select("community_messenger_room_id")
     .eq("store_id", sid)
     .not("community_messenger_room_id", "is", null)
     .limit(80);
+  const ordersMs = devPerfNow() - orders0;
   const roomIds = ((orders ?? []) as Array<{ community_messenger_room_id?: unknown }>)
     .map((row) => trimText(row.community_messenger_room_id))
     .filter(Boolean);
-  if (!roomIds.length) return 0;
-  const { data: parts } = await sb
+  if (!roomIds.length) {
+    const totalMs = devPerfNow() - total0;
+    const result = 0;
+    if (!ordersErr) {
+      writeHubStoreOrderUnreadMemory(uid, sid, result);
+    }
+    if (timingOut) {
+      timingOut.store_order_unread_ms = Math.round(totalMs);
+      timingOut.store_order_unread_query_ms = Math.round(totalMs);
+      timingOut.store_order_unread_via = ordersErr ? "error" : "empty_orders";
+      timingOut.store_order_unread_rows = 0;
+      timingOut.store_order_unread_orders_ms = Math.round(ordersMs);
+      timingOut.store_order_unread_memory_hit = 0;
+      if (ordersErr?.message) timingOut.store_order_unread_error = ordersErr.message.slice(0, 120);
+    }
+    return result;
+  }
+  const parts0 = devPerfNow();
+  const { data: parts, error: partsErr } = await sb
     .from("community_messenger_participants")
     .select("unread_count")
     .eq("user_id", uid)
     .in("room_id", roomIds);
-  return (parts ?? []).reduce((sum, row) => sum + Math.max(0, Math.floor(Number(row.unread_count ?? 0) || 0)), 0);
+  const partsMs = devPerfNow() - parts0;
+  const totalMs = devPerfNow() - total0;
+  const err = ordersErr ?? partsErr;
+  const sum = (parts ?? []).reduce(
+    (acc, row) => acc + Math.max(0, Math.floor(Number(row.unread_count ?? 0) || 0)),
+    0
+  );
+  if (!err) {
+    writeHubStoreOrderUnreadMemory(uid, sid, sum);
+  }
+  if (timingOut) {
+    timingOut.store_order_unread_ms = Math.round(totalMs);
+    timingOut.store_order_unread_query_ms = Math.round(totalMs);
+    timingOut.store_order_unread_via = err ? "error" : "query";
+    timingOut.store_order_unread_rows = roomIds.length;
+    timingOut.store_order_unread_orders_ms = Math.round(ordersMs);
+    timingOut.store_order_unread_parts_ms = Math.round(partsMs);
+    timingOut.store_order_unread_parts_rows = Array.isArray(parts) ? parts.length : 0;
+    timingOut.store_order_unread_memory_hit = 0;
+    if (err?.message) timingOut.store_order_unread_error = err.message.slice(0, 120);
+  }
+  if (err) return 0;
+  return sum;
 }
 
 /** @deprecated 배지·허브는 `countOwnerStoreOrderMessengerUnreadForHubStore` 우선 */

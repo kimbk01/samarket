@@ -233,6 +233,8 @@ function logCmBootstrapBreakdown(params: {
       timings_valid: timingsValid,
       cache_hit: params.cacheHit,
       mode: params.mode,
+      lite_trade_enrich_skipped: params.mode === "lite",
+      background_hydration_scheduled: params.mode === "lite",
       note: timingsValid ? undefined : "per-stage timings require cache miss or ?fresh=1",
     })
   );

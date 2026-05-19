@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Noto_Sans_KR } from "next/font/google";
 import { cookies, headers } from "next/headers";
+import { AppBootProvider } from "@/components/app/AppBootProvider";
 import { SupabaseAuthSync } from "@/components/auth/SupabaseAuthSync";
 import { AppLanguageProvider } from "@/components/i18n/AppLanguageProvider";
 import { CallIncomingChrome } from "@/components/layout/providers/CallIncomingChrome";
@@ -82,10 +83,12 @@ export default async function RootLayout({
       </head>
       <body className={`${notoSansKr.variable} font-sans antialiased`} suppressHydrationWarning>
         <AppLanguageProvider initialLanguage={initialLanguage}>
-          <SupabaseAuthSync />
-          <CallIncomingChrome />
-          <MainShellMessengerParticipantBridge regionBarInLayout={true} />
-          {children}
+          <AppBootProvider>
+            <SupabaseAuthSync />
+            <CallIncomingChrome />
+            <MainShellMessengerParticipantBridge regionBarInLayout={true} />
+            {children}
+          </AppBootProvider>
         </AppLanguageProvider>
       </body>
     </html>

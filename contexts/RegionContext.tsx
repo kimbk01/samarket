@@ -19,10 +19,9 @@ import {
 import { useRegionMockUserId } from "@/hooks/useRegionMockUserId";
 import { userRegionFromProfileSlice } from "@/lib/regions/profile-to-user-region";
 import { getRegionName } from "@/lib/regions/region-utils";
-import {
-  fetchMeProfileDeduped,
-  ME_PROFILE_CACHE_INVALIDATED_EVENT,
-} from "@/lib/profile/fetch-me-profile-deduped";
+import { fetchMeProfileDeduped, ME_PROFILE_CACHE_INVALIDATED_EVENT } from "@/lib/profile/fetch-me-profile-deduped";
+import { peekAppBootProfile } from "@/lib/app-boot/app-boot-store";
+import { APP_BOOT_READY_EVENT, APP_BOOT_PROFILE_UPDATED_EVENT } from "@/lib/app-boot/app-boot-types";
 import {
   cancelScheduledWhenBrowserIdle,
   scheduleWhenBrowserIdle,
@@ -63,15 +62,7 @@ export function RegionProvider({ children }: { children: React.ReactNode }) {
     setUserRegions(getUserRegions(userId));
   }, [userId]);
 
-  const refreshProfileLocation = useCallback(async () => {
-    try {
-      const { status, json: raw } = await fetchMeProfileDeduped();
-      const json = raw as { ok?: boolean; profile?: Record<string, unknown> | null };
-      if (status < 200 || status >= 300 || !json?.ok || !json.profile) {
-        setProfileSourcedRegion(null);
-        return;
-      }
-      const p = json.profile;
+  const applyProfileSlice = useCallback((p: Record<string, unknown>) => {
       const next = userRegionFromProfileSlice({
         region_code: typeof p.region_code === "string" ? p.region_code : null,
         region_name: typeof p.region_name === "string" ? p.region_name : null,
@@ -92,20 +83,53 @@ export function RegionProvider({ children }: { children: React.ReactNode }) {
         }
         return next;
       });
+  }, []);
+
+  const refreshProfileLocation = useCallback(async () => {
+    try {
+      const boot = peekAppBootProfile();
+      if (boot) {
+        applyProfileSlice(boot as unknown as Record<string, unknown>);
+        return;
+      }
+      const { status, json: raw } = await fetchMeProfileDeduped("region_provider");
+      const json = raw as { ok?: boolean; profile?: Record<string, unknown> | null };
+      if (status < 200 || status >= 300 || !json?.ok || !json.profile) {
+        setProfileSourcedRegion(null);
+        return;
+      }
+      const p = json.profile;
+      applyProfileSlice(p);
     } catch {
       setProfileSourcedRegion(null);
     }
-  }, []);
+  }, [applyProfileSlice]);
 
   /** 로그인 계정이 바뀌면 mock 동네 버킷·현재 선택을 분리하고 프로필 지역을 다시 맞춤 */
   useEffect(() => {
     setUserRegions(getUserRegions(userId));
     setCurrentRegionId(null);
+    const boot = peekAppBootProfile();
+    if (boot) {
+      applyProfileSlice(boot as unknown as Record<string, unknown>);
+      return;
+    }
     const idleId = scheduleWhenBrowserIdle(() => {
       void refreshProfileLocation();
     }, 0);
     return () => cancelScheduledWhenBrowserIdle(idleId);
-  }, [userId, refreshProfileLocation]);
+  }, [userId, refreshProfileLocation, applyProfileSlice]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onBoot = () => void refreshProfileLocation();
+    window.addEventListener(APP_BOOT_READY_EVENT, onBoot);
+    window.addEventListener(APP_BOOT_PROFILE_UPDATED_EVENT, onBoot);
+    return () => {
+      window.removeEventListener(APP_BOOT_READY_EVENT, onBoot);
+      window.removeEventListener(APP_BOOT_PROFILE_UPDATED_EVENT, onBoot);
+    };
+  }, [refreshProfileLocation]);
 
   /** 프로필 캐시 무효화(저장·아바타·세션) — 단일 이벤트로 지역 상태 동기화 */
   useEffect(() => {

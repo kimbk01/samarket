@@ -4,6 +4,7 @@
  * 메신저 앱 부트스트랩 GET — 동시 호출(React Strict Mode 이중 마운트·탭 전환 레이스)을 한 번의 fetch 로 합친다.
  * @see docs/trade-lightweight-design.md — `SAMARKET_LIGHTWEIGHT_GOALS.fetchOnceOnServer` 의 클라이언트 대응(단일 비행).
  */
+import { recordBootVerifyFetch } from "@/lib/app-boot/client-boot-request-journal";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { peekBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
 import {
@@ -94,7 +95,13 @@ export function fetchCommunityMessengerBootstrapClient(
     const t0 = performance.now();
     recordMessengerHomeBootstrapClientNetworkFetch(mode);
     const tNet0 = performance.now();
-    const res = await fetch(url, { cache: "no-store", credentials: "include", ...(signal ? { signal } : {}) });
+    recordBootVerifyFetch(url, `messenger_bootstrap_${mode}`);
+    const res = await fetch(url, {
+      cache: "no-store",
+      credentials: "include",
+      headers: { "x-samarket-client-call-source": `messenger_bootstrap_${mode}` },
+      ...(signal ? { signal } : {}),
+    });
     recordAppWidePhaseLastMs("messenger_bootstrap_fetch_network_ms", Math.round(performance.now() - tNet0));
     captureResponseSizeBytes(res, url);
     bumpAppWidePerf("messenger_list_fetch_success");
@@ -133,7 +140,13 @@ export function fetchCommunityMessengerBootstrapCriticalClient(opts: { signal?: 
     const t0 = performance.now();
     recordMessengerHomeBootstrapClientNetworkFetch("critical");
     const tNet0 = performance.now();
-    const res = await fetch(url, { cache: "no-store", credentials: "include", ...(signal ? { signal } : {}) });
+    recordBootVerifyFetch(url, "messenger_bootstrap_critical");
+    const res = await fetch(url, {
+      cache: "no-store",
+      credentials: "include",
+      headers: { "x-samarket-client-call-source": "messenger_bootstrap_critical" },
+      ...(signal ? { signal } : {}),
+    });
     recordAppWidePhaseLastMs("messenger_bootstrap_fetch_network_ms", Math.round(performance.now() - tNet0));
     captureResponseSizeBytes(res, url);
     bumpAppWidePerf("messenger_list_fetch_success");

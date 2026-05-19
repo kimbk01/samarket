@@ -4131,12 +4131,14 @@ export async function getCommunityMessengerBootstrap(
         diagnostics && (diagnostics.callsLogRowsFetchMs = elapsed);
         return rows;
       })();
-  const acceptedFriendRowsPromise = (async () => {
-    const t = performance.now();
-    const rows = await fetchCommunityFriendRequestsAcceptedRowsForViewer(userId);
-    diagnostics && (diagnostics.parallelAcceptedFriendsBundleMs = Math.round(performance.now() - t));
-    return rows;
-  })();
+  const acceptedFriendRowsPromise = isMinimalLiteBootstrap
+    ? Promise.resolve<Awaited<ReturnType<typeof fetchCommunityFriendRequestsAcceptedRowsForViewer>>>([])
+    : (async () => {
+        const t = performance.now();
+        const rows = await fetchCommunityFriendRequestsAcceptedRowsForViewer(userId);
+        diagnostics && (diagnostics.parallelAcceptedFriendsBundleMs = Math.round(performance.now() - t));
+        return rows;
+      })();
   const tParallelInitial = performance.now();
   const [
     acceptedFriendRows,
@@ -4150,36 +4152,46 @@ export async function getCommunityMessengerBootstrap(
     callRows,
   ] = await Promise.all([
     acceptedFriendRowsPromise,
-    (async () => {
-      const t = performance.now();
-      const r = await listFavoriteFriendIds(userId);
-      diagnostics && (diagnostics.parallelFavoriteFriendsMs = Math.round(performance.now() - t));
-      return r;
-    })(),
-    (async () => {
-      const t = performance.now();
-      const r = await listFollowingIds(userId, "neighbor_follow");
-      diagnostics && (diagnostics.parallelFollowingNeighborMs = Math.round(performance.now() - t));
-      return r;
-    })(),
-    (async () => {
-      const t = performance.now();
-      const r = await listFollowingIds(userId, "hidden");
-      diagnostics && (diagnostics.parallelFollowingHiddenMs = Math.round(performance.now() - t));
-      return r;
-    })(),
-    (async () => {
-      const t = performance.now();
-      const r = await listFollowingIds(userId, "blocked");
-      diagnostics && (diagnostics.parallelFollowingBlockedMs = Math.round(performance.now() - t));
-      return r;
-    })(),
-    (async () => {
-      const t = performance.now();
-      const r = await listCommunityMessengerFriendRequestRows(userId);
-      diagnostics && (diagnostics.parallelFriendRequestsMs = Math.round(performance.now() - t));
-      return r;
-    })(),
+    isMinimalLiteBootstrap
+      ? Promise.resolve<string[]>([])
+      : (async () => {
+          const t = performance.now();
+          const r = await listFavoriteFriendIds(userId);
+          diagnostics && (diagnostics.parallelFavoriteFriendsMs = Math.round(performance.now() - t));
+          return r;
+        })(),
+    isMinimalLiteBootstrap
+      ? Promise.resolve<string[]>([])
+      : (async () => {
+          const t = performance.now();
+          const r = await listFollowingIds(userId, "neighbor_follow");
+          diagnostics && (diagnostics.parallelFollowingNeighborMs = Math.round(performance.now() - t));
+          return r;
+        })(),
+    isMinimalLiteBootstrap
+      ? Promise.resolve<string[]>([])
+      : (async () => {
+          const t = performance.now();
+          const r = await listFollowingIds(userId, "hidden");
+          diagnostics && (diagnostics.parallelFollowingHiddenMs = Math.round(performance.now() - t));
+          return r;
+        })(),
+    isMinimalLiteBootstrap
+      ? Promise.resolve<string[]>([])
+      : (async () => {
+          const t = performance.now();
+          const r = await listFollowingIds(userId, "blocked");
+          diagnostics && (diagnostics.parallelFollowingBlockedMs = Math.round(performance.now() - t));
+          return r;
+        })(),
+    isMinimalLiteBootstrap
+      ? Promise.resolve<Awaited<ReturnType<typeof listCommunityMessengerFriendRequestRows>>>([])
+      : (async () => {
+          const t = performance.now();
+          const r = await listCommunityMessengerFriendRequestRows(userId);
+          diagnostics && (diagnostics.parallelFriendRequestsMs = Math.round(performance.now() - t));
+          return r;
+        })(),
     myPayloadPromise,
     skipDiscoverable
       ? Promise.resolve<DiscoverableOpenGroupsRawState>({
@@ -4296,11 +4308,21 @@ export async function getCommunityMessengerBootstrap(
   diagnostics && (diagnostics.roomsQueryRound2RoomsHydrateLabelMs = Math.round(performance.now() - tRoomsHydrateLabel));
   diagnostics && (diagnostics.transformMs += Math.round(performance.now() - tTransformCore));
   /**
-   * Lite 부트스트랩도 거래 채팅 목록 썸네일·제목에 `posts` 를 써야 한다 — 예전에는 이 블록 전체를 lite 에서 생략해
-   * 첫 GET(`?lite=1`)·세션 캐시에 썸네일 없는 채팅 배열만 남았다.
-   * Philife 오픈그룹 라벨 보강만 lite 에서 생략한다.
+   * Lite(`?lite=1`): 거래 `contextMeta` full enrich 는 `trade-chat-list-meta` 백그라운드로 — unread 병합만 동기.
+   * Full: 썸네일·제목 enrich + Philife 오픈그룹은 아래 `!isMinimalLiteBootstrap` 분기.
    */
-  {
+  if (isMinimalLiteBootstrap) {
+    diagnostics && (diagnostics.tradeContextMs = 0);
+    diagnostics && (diagnostics.enrichTradeDirectKeysMs = 0);
+    diagnostics && (diagnostics.enrichTradeMiddlePipelineMs = 0);
+    diagnostics && (diagnostics.enrichTradeSellerHydrateMs = 0);
+    const sbBoot = getSupabaseOrNull();
+    if (sbBoot) {
+      const tUnread = performance.now();
+      await enrichMessengerTradeUnreadWithLegacyTrade(sbBoot as any, userId, mySummaries).catch(() => {});
+      diagnostics && (diagnostics.unreadMs = Math.round(performance.now() - tUnread));
+    }
+  } else {
     const tTrade = performance.now();
     await enrichTradeRoomContextMetaForBootstrap(userId, mySummaries, diagnostics, undefined);
     diagnostics && (diagnostics.tradeContextMs = Math.round(performance.now() - tTrade));

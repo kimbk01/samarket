@@ -1,0 +1,49 @@
+"use client";
+
+import { createContext, useContext, useEffect, useSyncExternalStore, type ReactNode } from "react";
+import {
+  cancelAppBootBackgroundHydration,
+} from "@/lib/app-boot/schedule-app-boot-background";
+import { invalidateAppBootProfileCache } from "@/lib/app-boot/fetch-app-boot-profile";
+import { resetAppBootStore, subscribeAppBoot, getAppBootSnapshot } from "@/lib/app-boot/app-boot-store";
+import type { AppBootState } from "@/lib/app-boot/app-boot-types";
+import type { ProfileRow } from "@/lib/profile/types";
+import { markBootVerifyFirstPaint } from "@/lib/app-boot/client-boot-request-journal";
+import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
+import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
+import { clearAuthSessionClientCache } from "@/lib/auth/fetch-auth-session-client";
+
+const AppBootContext = createContext<AppBootState | null>(null);
+
+export function invalidateAppBootAll(): void {
+  invalidateAppBootProfileCache();
+  invalidateMeProfileDedupedCache();
+  clearAuthSessionClientCache();
+  resetAppBootStore();
+  cancelAppBootBackgroundHydration();
+}
+
+export function AppBootProvider({ children }: { children: ReactNode }) {
+  const boot = useSyncExternalStore(subscribeAppBoot, getAppBootSnapshot, getAppBootSnapshot);
+
+  useEffect(() => {
+    if (typeof requestAnimationFrame === "function") {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => markBootVerifyFirstPaint());
+      });
+    }
+    void ensureAppBoot();
+    return () => cancelAppBootBackgroundHydration();
+  }, []);
+
+  return <AppBootContext.Provider value={boot}>{children}</AppBootContext.Provider>;
+}
+
+export function useAppBoot(): AppBootState {
+  const ctx = useContext(AppBootContext);
+  return ctx ?? getAppBootSnapshot();
+}
+
+export function useAppBootProfile(): ProfileRow | null {
+  return useAppBoot().profile;
+}

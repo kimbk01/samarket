@@ -14,7 +14,10 @@ import { authSessionValidateDedupeKey, validateActiveSessionLightDeduped } from 
 import { jsonErrorWithRequest, jsonOkWithRequest } from "@/lib/http/api-route";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { logRoutePerf } from "@/lib/http/route-perf-log";
-import { buildRoutePerfDedupeFields } from "@/lib/http/route-perf-dedupe-fields";
+import {
+  buildRoutePerfClientObservability,
+  buildRoutePerfDedupeFields,
+} from "@/lib/http/route-perf-dedupe-fields";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -116,6 +119,7 @@ export async function GET(request: NextRequest) {
     cache_hit: validated.ttlCacheHit ? 1 : 0,
     auth_ms: Math.round(authMs),
     serialize_ms: 0,
+    ...buildRoutePerfClientObservability({ request, firstPaintBlocking: false }),
     ...buildRoutePerfDedupeFields({
       userId,
       dedupeKey: requestDedupeKey,
@@ -123,6 +127,8 @@ export async function GET(request: NextRequest) {
       responseCacheHit: false,
       ttlCacheHit: validated.ttlCacheHit,
       queryType: "active_session_light",
+      cacheHitReason: validated.ttlCacheHit ? "active_session_ok_ttl" : undefined,
+      dedupeHitReason: validated.inFlightHit ? "validate_singleflight" : undefined,
     }),
   });
   return res;

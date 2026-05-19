@@ -78,7 +78,7 @@ export function SessionLostRedirect() {
       (async (): Promise<void> => {
         try {
           for (let attempt = 0; attempt < SESSION_UNAUTH_MAX_ATTEMPTS; attempt++) {
-            const res = await fetchAuthSessionNoStore();
+            const res = await fetchAuthSessionNoStore("session_lost_redirect");
             if (res.ok) return;
             if (res.status >= 500 || res.status === 429) return;
             if (res.status === 403) return;
