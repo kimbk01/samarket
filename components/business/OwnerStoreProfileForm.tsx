@@ -21,6 +21,7 @@ import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { parsePhMobileInput } from "@/lib/utils/ph-mobile";
 import { splitStoreDescriptionAndKakao } from "@/lib/stores/split-store-description-kakao";
 import { parseMediaUrlsJson } from "@/lib/stores/parse-media-urls-json";
+import { fetchDeliveryRideTimeSourceDeduped } from "@/lib/app/delivery-ride-time-source-client";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { coerceBusinessHoursRecord } from "@/lib/stores/coerce-business-hours-json";
 import {
@@ -494,16 +495,9 @@ export function OwnerStoreProfileForm({
 
   useEffect(() => {
     let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch("/api/app/delivery-ride-time-source", { cache: "no-store" });
-        const j = (await res.json().catch(() => ({}))) as { ok?: boolean; source?: unknown };
-        if (cancelled) return;
-        setGlobalRideTimeSource(j.source === "google" ? "google" : "store");
-      } catch {
-        if (!cancelled) setGlobalRideTimeSource("store");
-      }
-    })();
+    void fetchDeliveryRideTimeSourceDeduped().then((source) => {
+      if (!cancelled) setGlobalRideTimeSource(source);
+    });
     return () => {
       cancelled = true;
     };

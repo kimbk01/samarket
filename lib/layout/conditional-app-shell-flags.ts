@@ -231,7 +231,7 @@ export function resolveConditionalAppShellFlags(
   const mountGlobalRealtimeChrome =
     !isHome &&
     (isMyTab ||
-      isStoreSection ||
+      (isStoreSection && !isStoreOwnerAdminRoute) ||
       isOrdersHub ||
       isCommunityMessengerSurface ||
       mountGlobalRealtimeChromeOnTradeOrStoreDetail) &&
@@ -239,6 +239,7 @@ export function resolveConditionalAppShellFlags(
   const mountNotificationSoundPrime =
     mountGlobalRealtimeChrome || (isCommunityMessengerSurface && !isCommunityMessengerCallPage);
   const mountPhilifeWarmPrefetch =
+    !isStoreOwnerAdminRoute &&
     !isCommunityApp &&
     !isCommunityMessengerSurface &&
     !isWritePage &&

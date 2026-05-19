@@ -43,7 +43,7 @@ export function OwnerStoreAdminDashSection({
   const shell =
     typeof className === "string" && className.trim() !== ""
       ? className.trim()
-      : "border border-sam-border-soft shadow-sm";
+      : "border border-sam-border-soft";
 
   return (
     <section

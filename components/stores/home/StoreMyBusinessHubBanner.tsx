@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
+import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
 import { pickPreferredOwnerStore } from "@/lib/stores/owner-lite-external-store";
+import { resolveOwnerOperationsCenterAttentionCount } from "@/lib/stores/owner-store-badge-display-policy";
 import {
   formatStoreApprovalStatusKo,
   isStorePubliclyListed,
 } from "@/lib/stores/store-approval-label-ko";
+import { OWNER_HUB_BADGE_DOT_CLASS } from "@/lib/chats/hub-badge-ui";
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
 
 function pickPrimaryStore(stores: StoreRow[]): StoreRow | null {
@@ -23,6 +26,9 @@ export function StoreMyBusinessHubBanner({
   loading: boolean;
   ownerStores: StoreRow[];
 }) {
+  const hubBreakdown = useOwnerHubBadgeBreakdown();
+  const opsAttention = resolveOwnerOperationsCenterAttentionCount(hubBreakdown);
+
   if (loading && ownerStores.length === 0) {
     return (
       <div className={`rounded-ui-rect border border-[#E4E6EB] bg-sam-surface/90 px-4 py-3 dark:border-[#3E4042] dark:bg-[#242526]`}>
@@ -50,7 +56,7 @@ export function StoreMyBusinessHubBanner({
 
   return (
     <section
-      className={`rounded-ui-rect border border-[#E4E6EB] bg-sam-surface px-4 py-3 shadow-[0_1px_2px_rgba(0,0,0,0.04)] dark:border-[#3E4042] dark:bg-[#242526] dark:shadow-none`}
+      className={`rounded-ui-rect border border-[#E4E6EB] bg-sam-surface px-4 py-3 dark:border-[#3E4042] dark:bg-[#242526]`}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
@@ -75,9 +81,20 @@ export function StoreMyBusinessHubBanner({
         <div className="flex shrink-0 flex-col gap-2 sm:flex-row sm:items-center">
           <Link
             href={`/stores/owner?${q}`}
-            className="inline-flex items-center justify-center rounded-full bg-[#1877F2] px-4 py-2 sam-text-helper font-bold text-white active:opacity-90"
+            className="relative inline-flex items-center justify-center rounded-full bg-[#1877F2] px-4 py-2 sam-text-helper font-bold text-white active:opacity-90"
+            aria-label={
+              opsAttention > 0 ? `운영 센터 · 확인할 일 ${opsAttention}건` : "운영 센터"
+            }
           >
             운영 센터
+            {opsAttention > 0 ? (
+              <span
+                className={`${OWNER_HUB_BADGE_DOT_CLASS} ring-[#1877F2]`}
+                aria-hidden
+              >
+                {opsAttention > 99 ? "99+" : opsAttention}
+              </span>
+            ) : null}
           </Link>
           {listed && primary.slug ?
             <Link

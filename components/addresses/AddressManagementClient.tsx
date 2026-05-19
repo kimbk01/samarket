@@ -23,6 +23,8 @@ import {
   writeCachedMeAddressList,
 } from "@/lib/addresses/address-list-client-cache";
 import { invalidateAddressDefaultsSnapshotCache } from "@/lib/addresses/fetch-address-defaults-client";
+import { isLinkedSamarketStoreAddressRow } from "@/lib/addresses/is-linked-samarket-store-address";
+import { isStoreOwnerAdminReturnTo } from "@/lib/business/owner-hub-path";
 
 export function AddressManagementClient({ embedded = false }: { embedded?: boolean } = {}) {
   const { tt } = useI18n();
@@ -143,6 +145,12 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
     applyMapPickAsCreate();
   }, [pathname, list, embedded, router]);
 
+  const notifyAddressesUpdated = useCallback(() => {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent(SAMARKET_ADDRESSES_UPDATED_EVENT));
+    }
+  }, []);
+
   const load = useCallback(async () => {
     setLoadErr(null);
     const showWait = listRef.current.length === 0;
@@ -156,9 +164,6 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
       const rows = result.rows;
       setList(rows);
       if (rows.length > 0) writeCachedMeAddressList(rows);
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent(SAMARKET_ADDRESSES_UPDATED_EVENT));
-      }
     } finally {
       if (showWait) setListBootstrapping(false);
     }
@@ -207,6 +212,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
         return;
       }
       await load();
+      notifyAddressesUpdated();
     } finally {
       setBusyId(null);
     }
@@ -237,6 +243,14 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
   async function setAsRepresentative(id: string) {
     const row = list.find((a) => a.id === id);
     if (!row || row.isDefaultMaster) return;
+    if (isLinkedSamarketStoreAddressRow(row)) {
+      alert(
+        tt(
+          "매장 연결 주소는 대표 주소로 둘 수 없어요. 우리집·회사 등 일반 주소를 대표로 지정해 주세요.",
+        ),
+      );
+      return;
+    }
     setBusyId(id);
     try {
       const res = await fetch(`/api/me/addresses/${id}`, {
@@ -256,6 +270,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
         return;
       }
       await load();
+      notifyAddressesUpdated();
     } finally {
       setBusyId(null);
     }
@@ -271,12 +286,13 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
           alert(tt("먼저 주소를 추가해 주세요."));
           return;
         }
-        await setAsRepresentative(id);
+        /** 매장 설정 복귀 — 매장 주소 연결만 확인, 대표 주소 PATCH 금지(서버 400 방지) */
+        if (!isStoreOwnerAdminReturnTo(returnTo)) {
+          await setAsRepresentative(id);
+        }
       }
       invalidateAddressDefaultsSnapshotCache();
-      if (typeof window !== "undefined") {
-        window.dispatchEvent(new CustomEvent(SAMARKET_ADDRESSES_UPDATED_EVENT));
-      }
+      notifyAddressesUpdated();
       if (returnTo) {
         router.push(returnTo);
         return;
@@ -451,7 +467,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
           }}
           onSaved={() => {
             invalidateAddressDefaultsSnapshotCache();
-            void load();
+            void load().then(() => notifyAddressesUpdated());
           }}
         />
       ) : null}

@@ -20,6 +20,7 @@ import { useRegionMockUserId } from "@/hooks/useRegionMockUserId";
 import { userRegionFromProfileSlice } from "@/lib/regions/profile-to-user-region";
 import { getRegionName } from "@/lib/regions/region-utils";
 import { fetchMeProfileDeduped, ME_PROFILE_CACHE_INVALIDATED_EVENT } from "@/lib/profile/fetch-me-profile-deduped";
+import { isStoreOwnerAdminPathname } from "@/lib/business/owner-hub-path";
 import { peekAppBootProfile } from "@/lib/app-boot/app-boot-store";
 import { APP_BOOT_READY_EVENT, APP_BOOT_PROFILE_UPDATED_EVENT } from "@/lib/app-boot/app-boot-types";
 import {
@@ -92,6 +93,10 @@ export function RegionProvider({ children }: { children: React.ReactNode }) {
         applyProfileSlice(boot as unknown as Record<string, unknown>);
         return;
       }
+      /** 매장 운영 — boot minimal 만 사용, `profile?mode=full` 왕복 금지 */
+      if (isStoreOwnerAdminPathname()) {
+        return;
+      }
       const { status, json: raw } = await fetchMeProfileDeduped("region_provider");
       const json = raw as { ok?: boolean; profile?: Record<string, unknown> | null };
       if (status < 200 || status >= 300 || !json?.ok || !json.profile) {
@@ -112,6 +117,10 @@ export function RegionProvider({ children }: { children: React.ReactNode }) {
     const boot = peekAppBootProfile();
     if (boot) {
       applyProfileSlice(boot as unknown as Record<string, unknown>);
+      return;
+    }
+    /** 허브 첫 페인트 — boot minimal·`APP_BOOT_READY` 전에 profile full 금지 */
+    if (isStoreOwnerAdminPathname()) {
       return;
     }
     const idleId = scheduleWhenBrowserIdle(() => {

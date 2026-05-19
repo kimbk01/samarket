@@ -379,7 +379,7 @@
   --biz-app-bg: #f6f7f9;
   --biz-card-bg: #ffffff;
   --biz-card-border: #e7eaef;
-  --biz-card-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+  --biz-card-shadow: none;
   --biz-text: #1f2937;
   --biz-text-muted: #667085;
 }
@@ -477,7 +477,7 @@
     --biz-app-bg: #12161d;
     --biz-card-bg: #1a2029;
     --biz-card-border: #2d3747;
-    --biz-card-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);
+    --biz-card-shadow: none;
     --biz-text: #eef2f7;
     --biz-text-muted: #93a0b5;
     --biz-primary-soft: color-mix(in srgb, #1c8db8 22%, var(--biz-card-bg));

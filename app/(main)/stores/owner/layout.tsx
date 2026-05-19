@@ -1,6 +1,10 @@
+import type { ReactNode } from "react";
 import { headers } from "next/headers";
+import { OwnerHubDashboardOrdersCacheSeed } from "@/components/business/owner/OwnerHubDashboardOrdersCacheSeed";
 import { OwnerHubMeStoresCacheSeed } from "@/components/business/owner/OwnerHubMeStoresCacheSeed";
+import { loadOwnerHubDashboardPackServer } from "@/lib/business/load-owner-hub-dashboard-server";
 import { loadOwnerStoresPackCached } from "@/lib/me/load-owner-stores-pack-cached";
+import { pickPreferredOwnerStore } from "@/lib/stores/owner-lite-external-store";
 import { StoresOwnerLayoutClient } from "./StoresOwnerLayoutClient";
 
 /**
@@ -14,17 +18,30 @@ export default async function StoresOwnerLayout({ children }: { children: React.
   const skipServerStores = ownerPath.startsWith("/stores/owner/apply");
 
   let seedStores: import("@/lib/stores/db-store-mapper").StoreRow[] | null = null;
+  let hubDashboardSeed: ReactNode = null;
+  const isOwnerHubPath = ownerPath.replace(/\/+$/, "") === "/stores/owner";
+
   if (!skipServerStores) {
     const pack = await loadOwnerStoresPackCached();
     if (pack.ok && pack.stores.length > 0) {
       seedStores = pack.stores;
+      if (isOwnerHubPath) {
+        const hubRow = pickPreferredOwnerStore(pack.stores) ?? pack.stores[0]!;
+        const dashboard = await loadOwnerHubDashboardPackServer(hubRow.id);
+        if (dashboard) {
+          hubDashboardSeed = (
+            <OwnerHubDashboardOrdersCacheSeed storeId={hubRow.id} pack={dashboard} />
+          );
+        }
+      }
     }
   }
 
   return (
     <>
       {seedStores ? <OwnerHubMeStoresCacheSeed stores={seedStores} /> : null}
-      <StoresOwnerLayoutClient>{children}</StoresOwnerLayoutClient>
+      {hubDashboardSeed}
+      <StoresOwnerLayoutClient initialStores={seedStores}>{children}</StoresOwnerLayoutClient>
     </>
   );
 }

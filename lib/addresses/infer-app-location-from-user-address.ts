@@ -38,18 +38,35 @@ export function inferAppLocationIdsFromUserAddress(a: UserAddressDTO): {
   const fromLine = matchFromCommaLocationLine(publicLine);
   if (fromLine) return fromLine;
 
+  for (const raw of [a.formattedAddress, a.roadAddress, a.fullAddress]) {
+    const t = raw?.trim();
+    if (!t) continue;
+    const fromRaw = matchFromCommaLocationLine(t);
+    if (fromRaw) return fromRaw;
+  }
+
   return matchFromStructuredFields(a);
 }
 
-/** `buildTradePublicLine` 결과(예: Quiapo, Manila / 170 Commonwealth Ave, Quezon City) */
+/** `buildTradePublicLine`·구글 한 줄 — 뒤쪽 `도시, 광역` 쌍을 우선 탐색 */
 function matchFromCommaLocationLine(line: string): { regionId: string; cityId: string } | null {
   const parts = line
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
   if (parts.length < 2) return null;
-  const parent = parts[parts.length - 1];
-  const area = parts[parts.length - 2];
+
+  for (let i = parts.length - 1; i >= 1; i--) {
+    const parent = parts[i]!;
+    const area = parts[i - 1]!;
+    const hit = matchRegionCityPair(area, parent);
+    if (hit) return hit;
+  }
+
+  return null;
+}
+
+function matchRegionCityPair(area: string, parent: string): { regionId: string; cityId: string } | null {
   const pl = parent.toLowerCase();
   const al = area.toLowerCase();
 

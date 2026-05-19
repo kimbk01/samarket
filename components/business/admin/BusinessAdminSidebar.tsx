@@ -62,7 +62,7 @@ export function BusinessAdminSidebar({
       {sections.map((section) => (
         <section
           key={section.title}
-          className="rounded-ui-rect border border-sam-border-soft bg-[var(--biz-card-bg)] p-1.5 shadow-sm"
+          className="rounded-ui-rect border border-sam-border-soft bg-[var(--biz-card-bg)] p-1.5"
           aria-labelledby={`biz-admin-nav-${section.title}`}
         >
           <h2

@@ -1,5 +1,6 @@
 import { BOTTOM_NAV_ITEMS, type BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import { bottomNavMessengerHrefWithOrigin } from "@/lib/community-messenger/messenger-entry-origin";
+import { mainBottomNavPrefetchTriggerKey } from "@/lib/main-menu/main-bottom-nav-prefetch-domain";
 
 /**
  * `/community-messenger` 셸 — 교차 탭 RSC idle 프리페치 생략 판별용(미사용 preload·현재 화면과 네트워크 경쟁 완화).
@@ -62,6 +63,8 @@ export function pickMainBottomNavPrefetchHrefs(
   tabs: readonly BottomNavItemConfig[]
 ): string[] {
   if (isMainBottomNavMessengerShellPathname(pathname)) return [];
+  /** 매장 운영 허브 — 현재 화면 데이터·Realtime만; 타 탭 RSC·philife feed prewarm 금지 */
+  if (mainBottomNavPrefetchTriggerKey(pathname) === "store_owner") return [];
 
   const list = tabs.length > 0 ? tabs : BOTTOM_NAV_ITEMS;
   const out: string[] = [];

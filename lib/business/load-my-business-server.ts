@@ -6,13 +6,24 @@ import {
 import { pickPreferredOwnerStore } from "@/lib/stores/owner-lite-external-store";
 import type { BusinessProduct, BusinessProfile } from "@/lib/types/business";
 import { loadOwnerStoresPackCached } from "@/lib/me/load-owner-stores-pack-cached";
+import {
+  loadOwnerHubDashboardPackServer,
+  type OwnerHubDashboardPack,
+} from "@/lib/business/load-owner-hub-dashboard-server";
 
 export type MyBusinessServerInitial =
   | { kind: "unauth" }
   | { kind: "config" }
   | { kind: "error"; message: string }
   | { kind: "empty" }
-  | { kind: "remote"; row: StoreRow; profile: BusinessProfile; products: BusinessProduct[]; stores: StoreRow[] };
+  | {
+      kind: "remote";
+      row: StoreRow;
+      profile: BusinessProfile;
+      products: BusinessProduct[];
+      stores: StoreRow[];
+      dashboard: OwnerHubDashboardPack | null;
+    };
 
 function pickStoreRow(stores: StoreRow[], preferredStoreId: string): StoreRow {
   const preferred = preferredStoreId.trim();
@@ -46,5 +57,7 @@ export const loadMyBusinessServer = cache(async (preferredStoreId: string): Prom
     productCount: products.length,
   };
 
-  return { kind: "remote", row, profile, products, stores };
+  const dashboard = await loadOwnerHubDashboardPackServer(row.id);
+
+  return { kind: "remote", row, profile, products, stores, dashboard };
 });

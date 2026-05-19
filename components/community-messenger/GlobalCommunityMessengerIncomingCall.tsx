@@ -13,6 +13,11 @@ import {
   startCommunityMessengerCallTone,
   stopCommunityMessengerCallTone,
 } from "@/lib/community-messenger/call-feedback-sound";
+import { isStoreOwnerAdminPathname } from "@/lib/business/owner-hub-path";
+import {
+  OWNER_HUB_SECONDARY_AFTER_MS,
+  runNowOrScheduleOnStoreOwnerAdmin,
+} from "@/lib/business/owner-hub-secondary-fetch-queue";
 import {
   fetchMessengerCallSoundConfig,
   getMessengerCallSoundConfigCache,
@@ -283,6 +288,8 @@ export function GlobalCommunityMessengerIncomingCall() {
   }, [sessions]);
 
   useEffect(() => {
+    /** 매장 운영 허브 — 수신 벨이 없으면 기본 타임아웃만 쓰고 API 생략 */
+    if (isStoreOwnerAdminPathname()) return;
     void fetchMessengerCallSoundConfig();
   }, []);
 
@@ -595,7 +602,28 @@ export function GlobalCommunityMessengerIncomingCall() {
       ringMissedScheduleRef.current.clear();
       return;
     }
-    void fetchMessengerCallSoundConfig();
+    const hasRingingCallee = sessions.some(
+      (s) =>
+        s.sessionMode === "direct" &&
+        s.status === "ringing" &&
+        !s.isMineInitiator &&
+        s.recipientUserId &&
+        uid &&
+        messengerUserIdsEqual(s.recipientUserId, uid)
+    );
+    if (hasRingingCallee) {
+      if (isStoreOwnerAdminPathname()) {
+        runNowOrScheduleOnStoreOwnerAdmin(
+          async () => {
+            await fetchMessengerCallSoundConfig();
+          },
+          OWNER_HUB_SECONDARY_AFTER_MS.messengerCallSound,
+          "messenger-call-sound"
+        );
+      } else {
+        void fetchMessengerCallSoundConfig();
+      }
+    }
     const timeoutMs = incomingRingTimeoutMsFromConfig(getMessengerCallSoundConfigCache());
     const now = Date.now();
     const wanted = new Map<string, number>();

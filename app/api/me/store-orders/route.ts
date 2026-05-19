@@ -44,6 +44,8 @@ import {
   resolveStoreOrderability,
 } from "@/lib/stores/store-orderability-policy";
 import { mergeStoreOrderLineItems } from "@/lib/stores/store-order-line-merge";
+import { resolveCheckoutDeliveryGeoFromUserAddress } from "@/lib/addresses/resolve-checkout-delivery-geo";
+import { loadUserAddressDtoForBuyer } from "@/lib/stores/sync-store-orders-checkout-geo";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -506,10 +508,27 @@ export async function POST(req: NextRequest) {
   const phoneRaw = String(body.buyer_phone ?? "").trim();
   const buyer_phone_norm = phoneRaw ? normalizePhMobileDb(phoneRaw) : null;
   /** 주문자 배달·배송지(매장 주소와 별도). 픽업이면 비워도 됨 — 픽업 장소는 `stores` 주소로 안내 */
-  const addrSummaryRaw = String(body.delivery_address_summary ?? "").trim();
-  const addrDetailRaw = String(body.delivery_address_detail ?? "").trim();
-  const delivery_region_raw = String(body.delivery_region ?? "").trim();
-  const delivery_city_raw = String(body.delivery_city ?? "").trim();
+  let addrSummaryRaw = String(body.delivery_address_summary ?? "").trim();
+  let addrDetailRaw = String(body.delivery_address_detail ?? "").trim();
+  let delivery_region_raw = String(body.delivery_region ?? "").trim();
+  let delivery_city_raw = String(body.delivery_city ?? "").trim();
+
+  const deliveryUserAddressIdForGeo = String(body.delivery_user_address_id ?? "").trim() || null;
+  if (
+    (fulfillment === "local_delivery" || fulfillment === "shipping") &&
+    deliveryUserAddressIdForGeo
+  ) {
+    const addrDto = await loadUserAddressDtoForBuyer(sb, buyerId, deliveryUserAddressIdForGeo);
+    if (addrDto) {
+      const geo = resolveCheckoutDeliveryGeoFromUserAddress(addrDto);
+      if (geo) {
+        if (!delivery_region_raw) delivery_region_raw = geo.regionId;
+        if (!delivery_city_raw) delivery_city_raw = geo.cityId;
+        if (!addrSummaryRaw) addrSummaryRaw = geo.summaryLine;
+        if (!addrDetailRaw) addrDetailRaw = geo.detailLine;
+      }
+    }
+  }
 
   // 주문 주소 저장 규격 고정 (PH):
   // - 지역(delivery_region/city)은 운영/권역 키
@@ -563,7 +582,7 @@ export async function POST(req: NextRequest) {
     storeRow.lat != null && Number.isFinite(Number(storeRow.lat)) ? Number(storeRow.lat) : null;
   const storeLng =
     storeRow.lng != null && Number.isFinite(Number(storeRow.lng)) ? Number(storeRow.lng) : null;
-  const deliveryUserAddressId = String(body.delivery_user_address_id ?? "").trim() || null;
+  const deliveryUserAddressId = deliveryUserAddressIdForGeo;
 
   let deliveryAddressSnapshot: DeliveryAddressOrderSnapshot | null = null;
 

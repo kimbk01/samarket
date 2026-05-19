@@ -3,9 +3,6 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { playDeliveryOrderAlertDebounced } from "@/lib/business/delivery-order-alert-debounce";
-import { primeStoreOrderAlertAudio } from "@/lib/business/store-order-alert-sound";
-import { useSupabaseStoreOrdersRealtime } from "@/hooks/useSupabaseStoreOrdersRealtime";
 import {
   getBusinessProfileByOwnerUserId,
   CURRENT_USER_ID,
@@ -29,24 +26,33 @@ import {
 import { pickPreferredOwnerStore } from "@/lib/stores/owner-lite-external-store";
 import { storeRowCanSell } from "@/lib/business/store-can-sell";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
-import { fetchStoreOrderCountsDeduped } from "@/lib/business/fetch-store-order-counts-deduped";
+import {
+  fetchOwnerStoreProductsForHub,
+  mergeOwnerHubProductCount,
+} from "@/lib/business/hydrate-owner-store-products-client";
+import {
+  cancelOwnerHubSecondaryFetchKey,
+  OWNER_HUB_SECONDARY_AFTER_MS,
+  scheduleOwnerHubSecondaryFetch,
+} from "@/lib/business/owner-hub-secondary-fetch-queue";
+import { useOwnerHubRuntime } from "@/components/business/owner/OwnerHubRuntimeProvider";
 import { BusinessAdminDashboard } from "@/components/business/admin/dashboard/BusinessAdminDashboard";
 import type { MyBusinessServerInitial } from "@/lib/business/load-my-business-server";
+import type { OwnerHubDashboardPack } from "@/lib/business/load-owner-hub-dashboard-server";
+import {
+  buildOwnerHubLoadStateFromMeStoresPeek,
+  buildOwnerHubLoadStateFromMeStoresResult,
+  buildOwnerHubLoadStateFromStoreRows,
+  type OwnerHubPageLoadState,
+} from "@/lib/business/build-owner-hub-load-state";
+import {
+  getOwnerLiteStoreSnapshot,
+  subscribeOwnerLiteStore,
+} from "@/lib/stores/owner-lite-external-store";
 
-type LoadState =
-  | { kind: "loading" }
-  | { kind: "unauth" }
-  | { kind: "config" }
-  | { kind: "error"; message: string }
-  | { kind: "empty" }
-  | {
-      kind: "remote";
-      row: StoreRow;
-      profile: BusinessProfile;
-      products: BusinessProduct[];
-    };
+type LoadState = { kind: "loading" } | OwnerHubPageLoadState;
 
-function loadStateFromServerInitial(s: MyBusinessServerInitial): LoadState {
+function loadStateFromServerInitial(s: MyBusinessServerInitial): OwnerHubPageLoadState {
   switch (s.kind) {
     case "unauth":
       return { kind: "unauth" };
@@ -57,7 +63,13 @@ function loadStateFromServerInitial(s: MyBusinessServerInitial): LoadState {
     case "empty":
       return { kind: "empty" };
     case "remote":
-      return { kind: "remote", row: s.row, profile: s.profile, products: s.products };
+      return {
+        kind: "remote",
+        row: s.row,
+        profile: s.profile,
+        products: s.products,
+        dashboard: s.dashboard ?? null,
+      };
   }
 }
 
@@ -69,23 +81,18 @@ export function MyBusinessPage({
   const searchParams = useSearchParams();
   const preferredStoreId = searchParams.get("storeId")?.trim() ?? "";
 
-  const [state, setState] = useState<LoadState>(() =>
-    initialServerState != null ? loadStateFromServerInitial(initialServerState) : { kind: "loading" }
+  const [state, setState] = useState<LoadState>(() => {
+    if (initialServerState == null) return { kind: "loading" };
+    const fromServer = loadStateFromServerInitial(initialServerState);
+    if (fromServer.kind !== "empty") return fromServer;
+    return buildOwnerHubLoadStateFromMeStoresPeek(preferredStoreId) ?? fromServer;
+  });
+  /** RSC `empty` 이지만 클라 세션·캐시에 매장이 있을 때 — 신청 CTA 깜빡임 방지 */
+  const [clientStoresProbe, setClientStoresProbe] = useState<"pending" | "done">(() =>
+    initialServerState?.kind === "empty" ? "pending" : "done"
   );
-  const [orderAlertsBadge, setOrderAlertsBadge] = useState(0);
-  const prevPendingDeliveryRef = useRef<number | null>(null);
-  const alertStoreIdRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    const fn = () => primeStoreOrderAlertAudio();
-    document.addEventListener("pointerdown", fn, { once: true });
-    return () => document.removeEventListener("pointerdown", fn);
-  }, []);
-
-  const onStoreOrderInsert = useCallback((row: Record<string, unknown>) => {
-    if (String(row.fulfillment_type ?? "") !== "local_delivery") return;
-    playDeliveryOrderAlertDebounced(alertStoreIdRef.current);
-  }, []);
+  const hubRuntime = useOwnerHubRuntime();
+  const orderAlertsBadge = hubRuntime?.orderAlertsBadge ?? 0;
 
   const loadRemote = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent === true;
@@ -135,119 +142,93 @@ export function MyBusinessPage({
         ...baseProfile,
         productCount: products.length,
       };
-      setState({ kind: "remote", row, profile, products });
+      setState((prev) => ({
+        kind: "remote",
+        row,
+        profile,
+        products,
+        dashboard:
+          prev.kind === "remote" && prev.row.id === row.id ? prev.dashboard : null,
+      }));
     } catch {
       setState({ kind: "error", message: "network_error" });
     }
   }, [preferredStoreId]);
 
-  const shouldSkipFirstRemote =
-    initialServerState != null &&
-    // If server seed didn't include products (perf), allow a client refresh once.
-    !(
-      initialServerState.kind === "remote" &&
-      initialServerState.row?.approval_status === "approved" &&
-      Array.isArray(initialServerState.products) &&
-      initialServerState.products.length === 0
-    );
-  const skipFirstRemoteRef = useRef(shouldSkipFirstRemote);
-  /** 서버가 상품 배열을 비워 둔 승인 매장: 첫 페치만 무음으로(전체 화면 '불러오는 중' 없이 목록만 채움) */
-  const deferredProductsHydrateRef = useRef(
+  const needsProductsHydrate =
     initialServerState?.kind === "remote" &&
-      initialServerState.row?.approval_status === "approved" &&
-      Array.isArray(initialServerState.products) &&
-      initialServerState.products.length === 0
+    initialServerState.row.approval_status === "approved" &&
+    initialServerState.products.length === 0;
+
+  const productsHydrateStoreIdRef = useRef(
+    needsProductsHydrate && initialServerState?.kind === "remote" ?
+      initialServerState.row.id
+    : null
   );
+  const productsHydrateGenRef = useRef(0);
 
   useEffect(() => {
-    if (skipFirstRemoteRef.current) {
-      skipFirstRemoteRef.current = false;
-      return;
-    }
-    if (deferredProductsHydrateRef.current) {
-      deferredProductsHydrateRef.current = false;
-      void loadRemote({ silent: true });
-      return;
-    }
-    void loadRemote();
-  }, [loadRemote]);
-
-  const orderCountsStoreId =
-    state.kind === "remote" &&
-    state.row.approval_status === "approved" &&
-    state.row.is_visible === true &&
-    storeRowCanSell(state.row)
-      ? state.row.id
-      : null;
+    const storeId = productsHydrateStoreIdRef.current;
+    if (!storeId) return;
+    const gen = ++productsHydrateGenRef.current;
+    scheduleOwnerHubSecondaryFetch(
+      async () => {
+        const products = await fetchOwnerStoreProductsForHub(storeId);
+        if (gen !== productsHydrateGenRef.current) return;
+        setState((prev) => {
+          if (prev.kind !== "remote" || prev.row.id !== storeId) return prev;
+          return {
+            ...prev,
+            products,
+            profile: mergeOwnerHubProductCount(prev.profile, products),
+          };
+        });
+      },
+      { afterMs: OWNER_HUB_SECONDARY_AFTER_MS.products, key: "products" }
+    );
+    return () => {
+      productsHydrateGenRef.current += 1;
+      cancelOwnerHubSecondaryFetchKey("products");
+    };
+  }, [needsProductsHydrate]);
 
   useLayoutEffect(() => {
-    alertStoreIdRef.current = orderCountsStoreId;
-  }, [orderCountsStoreId]);
-
-  const tickOrderCountsRef = useRef<() => Promise<void>>(async () => {});
-
-  useSupabaseStoreOrdersRealtime(orderCountsStoreId, {
-    debounceMs: 450,
-    onChange: () => {
-      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-      void tickOrderCountsRef.current();
-    },
-    onInsert: onStoreOrderInsert,
-  });
-
-  useEffect(() => {
-    if (!orderCountsStoreId) {
-      tickOrderCountsRef.current = async () => {};
-      setOrderAlertsBadge(0);
-      prevPendingDeliveryRef.current = null;
+    if (clientStoresProbe !== "pending") return;
+    const fromPeek = buildOwnerHubLoadStateFromMeStoresPeek(preferredStoreId);
+    if (fromPeek && fromPeek.kind !== "empty") {
+      setState(fromPeek);
+      setClientStoresProbe("done");
       return;
     }
-    prevPendingDeliveryRef.current = null;
     let cancelled = false;
-
-    const tick = async () => {
-      try {
-        const { json: rawCounts } = await fetchStoreOrderCountsDeduped(orderCountsStoreId);
-        const j = rawCounts as {
-          ok?: boolean;
-          refund_requested_count?: unknown;
-          pending_accept_count?: unknown;
-          pending_delivery_count?: unknown;
-        };
-        if (cancelled) return;
-        if (j?.ok) {
-          const refund = Math.max(0, Math.floor(Number(j.refund_requested_count) || 0));
-          const pending = Math.max(0, Math.floor(Number(j.pending_accept_count) || 0));
-          const delivery = Math.max(0, Math.floor(Number(j.pending_delivery_count) || 0));
-          setOrderAlertsBadge(refund + pending);
-          const prev = prevPendingDeliveryRef.current;
-          if (prev !== null && delivery > prev) {
-            playDeliveryOrderAlertDebounced(orderCountsStoreId);
-          }
-          prevPendingDeliveryRef.current = delivery;
-        } else {
-          setOrderAlertsBadge(0);
-          prevPendingDeliveryRef.current = null;
-        }
-      } catch {
-        if (!cancelled) {
-          setOrderAlertsBadge(0);
-          prevPendingDeliveryRef.current = null;
-        }
-      }
-    };
-
-    tickOrderCountsRef.current = tick;
-
-    void tick();
-    const id = window.setInterval(() => {
-      if (typeof document !== "undefined" && document.visibilityState === "visible") void tick();
-    }, 30_000);
+    void fetchMeStoresListDeduped().then((result) => {
+      if (cancelled) return;
+      const next = buildOwnerHubLoadStateFromMeStoresResult(preferredStoreId, result);
+      if (next) setState(next);
+      setClientStoresProbe("done");
+    });
     return () => {
       cancelled = true;
-      window.clearInterval(id);
     };
-  }, [orderCountsStoreId]);
+  }, [clientStoresProbe, preferredStoreId]);
+
+  const ownerLiteReconcileRef = useRef(false);
+  useEffect(() => {
+    if (state.kind !== "empty" || ownerLiteReconcileRef.current) return;
+    return subscribeOwnerLiteStore(() => {
+      if (ownerLiteReconcileRef.current) return;
+      const snap = getOwnerLiteStoreSnapshot();
+      if (!snap.ownerStores.length || snap.loading) return;
+      ownerLiteReconcileRef.current = true;
+      setState(buildOwnerHubLoadStateFromStoreRows(snap.ownerStores, preferredStoreId));
+      setClientStoresProbe("done");
+    });
+  }, [state.kind, preferredStoreId]);
+
+  useEffect(() => {
+    if (initialServerState != null) return;
+    void loadRemote();
+  }, [initialServerState, loadRemote]);
 
   if (state.kind === "loading") {
     return <p className="sam-text-body text-sam-muted">불러오는 중…</p>;
@@ -293,6 +274,9 @@ export function MyBusinessPage({
   }
 
   if (state.kind === "empty") {
+    if (clientStoresProbe === "pending") {
+      return <p className="sam-text-body text-sam-muted">불러오는 중…</p>;
+    }
     return (
       <div className={OWNER_STORE_STACK_Y_CLASS}>
         <div className="rounded-ui-rect bg-[#111827] px-5 py-5 text-white shadow-sam-elevated md:px-6 md:py-6">
@@ -322,7 +306,7 @@ export function MyBusinessPage({
     );
   }
 
-  const { row, profile, products } = state;
+  const { row, profile, products, dashboard } = state;
   const canSell = storeRowCanSell(row);
   const managementQuery = `storeId=${encodeURIComponent(row.id)}`;
 
@@ -409,6 +393,7 @@ export function MyBusinessPage({
       products={products}
       canSell={canSell}
       orderAlertsBadge={orderAlertsBadge}
+      initialDashboard={dashboard}
       loadRemote={loadRemote}
     />
   );

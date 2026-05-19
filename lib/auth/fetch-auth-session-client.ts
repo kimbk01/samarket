@@ -1,3 +1,4 @@
+import { awaitClientSupabaseSessionReady } from "@/lib/auth/await-client-supabase-session-ready";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
   bumpAppWidePerf,
@@ -9,6 +10,8 @@ import { isLikelyFetchAbortError, logFetchClientTelemetry } from "@/lib/http/fet
 const SESSION_GET_FLIGHT = "client:GET:/api/auth/session";
 
 const SESSION_401_RETRY_MS = 160;
+/** Supabase `INITIAL_SESSION` 전에 GET 하면 일시 401 — 짧게 대기 */
+const SESSION_PREFETCH_WAIT_MS = 320;
 /** 서버 `auth-session-response-cache` TTL 과 맞춤 — 동일 탭 연속 session 검사 왕복 제거 */
 const SESSION_CLIENT_OK_TTL_MS = 3_000;
 
@@ -57,6 +60,7 @@ export function fetchAuthSessionNoStore(clientCallSource?: string): Promise<Resp
     }
     bumpAppWidePerf("auth_session_resolve_start");
     const t0 = performance.now();
+    await awaitClientSupabaseSessionReady(SESSION_PREFETCH_WAIT_MS);
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const res = await fetch("/api/auth/session", {

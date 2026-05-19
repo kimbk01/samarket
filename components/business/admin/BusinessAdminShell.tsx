@@ -27,8 +27,11 @@ import { BusinessAdminSidebar } from "@/components/business/admin/BusinessAdminS
 import { BusinessAdminOpenToggle } from "@/components/business/admin/BusinessAdminOpenToggle";
 import { BusinessAdminVisibleToggle } from "@/components/business/admin/BusinessAdminVisibleToggle";
 import { BusinessStatusBadge } from "@/components/business/admin/BusinessStatusBadge";
-import { useOwnerCommerceNotificationUnreadCount } from "@/hooks/useOwnerCommerceNotificationUnreadCount";
+import { useOwnerCommerceNotificationUnreadCountDeferred } from "@/hooks/useOwnerCommerceNotificationUnreadCount";
+import { useOwnerHubBadgeBreakdownWhenEnabled } from "@/lib/chats/use-owner-hub-badge-total";
+import { useOwnerHubRuntime } from "@/components/business/owner/OwnerHubRuntimeProvider";
 import { OWNER_HUB_BADGE_DOT_CLASS } from "@/lib/chats/hub-badge-ui";
+import { resolveOwnerOperationsCenterAttentionCount } from "@/lib/stores/owner-store-badge-display-policy";
 import { BusinessAdminStoreProvider } from "@/components/business/admin/business-admin-store-context";
 import { StoresOwnerStackHeader } from "@/components/business/owner/StoresOwnerStackHeader";
 import { OwnerHubStoreAvatar } from "@/components/business/owner/OwnerHubStoreAvatar";
@@ -40,6 +43,7 @@ import {
   getOwnerBasicInfoDirty,
   isOwnerStoreAdminDirtyGuardPath,
 } from "@/lib/business/owner-basic-info-guard";
+import { isStoreOwnerAdminPathname } from "@/lib/business/owner-hub-path";
 import { setStoreOwnerMainBottomNavSuppressed } from "@/lib/business/store-owner-main-bottom-nav-suppress";
 import { useIsMobileViewport } from "@/hooks/use-is-mobile-viewport";
 import { ChevronRight, MapPin } from "lucide-react";
@@ -53,17 +57,24 @@ function readInitialStoresFromMeListCache(): StoreRow[] | null {
 export function BusinessAdminShell({
   children,
   entry = "guarded",
+  initialStores = null,
 }: {
   children: React.ReactNode;
   /** `hub`: `/stores/owner` — 심사 전·매장 없음도 본문을 막지 않음. `guarded`: 기존 매장 관리 서브 라우트. */
   entry?: "hub" | "guarded";
+  /** RSC `layout` 선로딩 매장 목록 — 허브 첫 페인트 전 `GET /api/me/stores` 제거 */
+  initialStores?: StoreRow[] | null;
 }) {
   const isHub = entry === "hub";
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
   const storeIdParam = searchParams.get("storeId")?.trim() ?? "";
 
-  const [stores, setStores] = useState<StoreRow[] | null>(() => readInitialStoresFromMeListCache());
+  const hubRuntime = useOwnerHubRuntime();
+  const [stores, setStores] = useState<StoreRow[] | null>(() => {
+    if (initialStores != null && initialStores.length > 0) return initialStores;
+    return readInitialStoresFromMeListCache();
+  });
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   /** md 이상: 우측 도킹 패널 — 기본 펼침, 접으면 본문 전폭 */
@@ -116,6 +127,15 @@ export function BusinessAdminShell({
 
   const reloadStores = useCallback(async () => {
     try {
+      const peek = peekMeStoresListClientCache();
+      if (peek?.status === 200) {
+        const fromPeek = parseStoreRowsFromMeStoresJson(peek.json);
+        if (fromPeek && fromPeek.length > 0) {
+          setStores(fromPeek);
+          setLoadErr(null);
+          return;
+        }
+      }
       const { status, json: raw } = await fetchMeStoresListDeduped();
       const json = raw as { ok?: boolean; stores?: StoreRow[]; error?: string };
       if (status === 401 || !json?.ok) {
@@ -131,9 +151,35 @@ export function BusinessAdminShell({
     }
   }, []);
 
+  const shellStoresHydrateRef = useRef(
+    (initialStores != null && initialStores.length > 0) ||
+      (readInitialStoresFromMeListCache()?.length ?? 0) > 0
+  );
+
   useEffect(() => {
+    if (stores != null && stores.length > 0) return;
+    if (initialStores != null && initialStores.length > 0) {
+      setStores(initialStores);
+      shellStoresHydrateRef.current = true;
+      return;
+    }
+    const peek = readInitialStoresFromMeListCache();
+    if (peek?.length) {
+      setStores(peek);
+      shellStoresHydrateRef.current = true;
+      return;
+    }
+    if (isHub) {
+      if (hubRuntime?.stores?.length) {
+        setStores(hubRuntime.stores);
+        shellStoresHydrateRef.current = true;
+      }
+      return;
+    }
+    if (shellStoresHydrateRef.current) return;
+    shellStoresHydrateRef.current = true;
     void reloadStores();
-  }, [reloadStores]);
+  }, [reloadStores, stores, initialStores, isHub, hubRuntime?.stores?.length, hubRuntime?.stores]);
 
   useLayoutEffect(() => {
     setOwnerBizDrawerPortalReady(true);
@@ -183,6 +229,7 @@ export function BusinessAdminShell({
       : null;
 
   useEffect(() => {
+    if (isHub && hubRuntime) return;
     if (!orderCountsStoreId) {
       setOrderAlertsBadge(0);
       return;
@@ -210,12 +257,21 @@ export function BusinessAdminShell({
     void tick();
     const id = window.setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") void tick();
-    }, 30_000);
+    }, 45_000);
     return () => {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [orderCountsStoreId]);
+  }, [orderCountsStoreId, isHub, hubRuntime]);
+
+  const ownerCommerceUnread = useOwnerCommerceNotificationUnreadCountDeferred(isHub);
+  const isOwnerAdminRoute = isStoreOwnerAdminPathname(pathname);
+  const ownerHubBreakdown = useOwnerHubBadgeBreakdownWhenEnabled(!isOwnerAdminRoute);
+  const ownerOpsAttention = resolveOwnerOperationsCenterAttentionCount(ownerHubBreakdown);
+  const hubOrderAlertsBadge = hubRuntime?.orderAlertsBadge ?? orderAlertsBadge;
+  const ownerHeaderBellCount = isHub
+    ? Math.max(hubOrderAlertsBadge, ownerCommerceUnread ?? 0)
+    : Math.max(ownerOpsAttention, orderAlertsBadge, ownerCommerceUnread ?? 0);
 
   const navCtx = useMemo(() => {
     if (!selectedRow) {
@@ -234,9 +290,9 @@ export function BusinessAdminShell({
       approvalStatus: String(selectedRow.approval_status),
       isVisible: selectedRow.is_visible === true,
       canSell: storeRowCanSell(selectedRow),
-      orderAlertsBadge,
+      orderAlertsBadge: isHub ? hubOrderAlertsBadge : orderAlertsBadge,
     };
-  }, [selectedRow, orderAlertsBadge]);
+  }, [selectedRow, orderAlertsBadge, isHub, hubOrderAlertsBadge]);
 
   const sections = useMemo(() => buildBusinessAdminSidebar(navCtx), [navCtx]);
   const pageTitle = getBusinessAdminPageTitle(pathname);
@@ -248,7 +304,6 @@ export function BusinessAdminShell({
     selectedRow.slug
       ? `/stores/${encodeURIComponent(selectedRow.slug)}`
       : null;
-  const ownerCommerceUnread = useOwnerCommerceNotificationUnreadCount();
 
   const ownerNotificationsHref = useMemo(() => {
     const fromRow = resolveOwnerStoreNotificationsHref(selectedRow);
@@ -265,9 +320,7 @@ export function BusinessAdminShell({
         href={ownerNotificationsHref}
         className="relative flex h-10 w-10 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
         aria-label={
-          ownerCommerceUnread != null && ownerCommerceUnread > 0
-            ? `알림 · 미읽음 ${ownerCommerceUnread}건`
-            : "알림"
+          ownerHeaderBellCount > 0 ? `알림 · 확인할 일 ${ownerHeaderBellCount}건` : "알림"
         }
       >
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -277,9 +330,9 @@ export function BusinessAdminShell({
             d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
           />
         </svg>
-        {ownerCommerceUnread != null && ownerCommerceUnread > 0 ? (
+        {ownerHeaderBellCount > 0 ? (
           <span className={`${OWNER_HUB_BADGE_DOT_CLASS} ring-sam-surface/80`}>
-            {ownerCommerceUnread > 99 ? "99+" : ownerCommerceUnread}
+            {ownerHeaderBellCount > 99 ? "99+" : ownerHeaderBellCount}
           </span>
         ) : null}
       </Link>
@@ -537,7 +590,7 @@ export function BusinessAdminShell({
   /** 모바일(`max-md`): 오버레이 드로어 + 뷰포트 높이·내부 스크롤. `md`+: 기존 sticky 우측 패널(태블릿·가로). */
   const asideClassName = [
     "flex flex-col border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] transition-[transform,width] duration-200 ease-out max-md:[backdrop-filter:none]",
-    "max-md:min-h-0 max-md:overflow-hidden max-md:fixed max-md:inset-y-0 max-md:right-0 max-md:z-[1003] max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:w-[280px] max-md:max-w-[88vw] max-md:border-l max-md:shadow-xl",
+    "max-md:min-h-0 max-md:overflow-hidden max-md:fixed max-md:inset-y-0 max-md:right-0 max-md:z-[1003] max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:w-[280px] max-md:max-w-[88vw] max-md:border-l max-md:shadow-none",
     mobileMenuOpen ? "max-md:translate-x-0" : "max-md:translate-x-full",
     "md:relative md:shrink-0 md:z-0 md:h-screen md:sticky md:top-0 md:border-l md:shadow-none md:max-w-none",
     desktopSidebarOpen ? "md:w-[260px]" : "md:w-0 md:min-w-0 md:overflow-hidden md:border-transparent",

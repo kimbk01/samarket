@@ -11,6 +11,10 @@ import {
 import { usePathname } from "next/navigation";
 import { stopNotificationPlayback } from "@/lib/notifications/notification-sound-engine";
 import type { NotificationDomain } from "@/lib/notifications/notification-domains";
+import {
+  OWNER_HUB_SECONDARY_AFTER_MS,
+  runNowOrScheduleOnStoreOwnerAdmin,
+} from "@/lib/business/owner-hub-secondary-fetch-queue";
 import { fetchMeNotificationSettingsSnapshot } from "@/lib/me/fetch-me-notification-settings-client";
 import {
   shouldPlayGroupChatInAppSoundFromGate,
@@ -109,7 +113,11 @@ export function NotificationSurfaceProvider({ children }: { children: React.Reac
   }, []);
 
   useEffect(() => {
-    void refreshUserNotificationSettings();
+    runNowOrScheduleOnStoreOwnerAdmin(
+      () => refreshUserNotificationSettings(),
+      OWNER_HUB_SECONDARY_AFTER_MS.notificationSettings,
+      "notification-settings"
+    );
   }, [refreshUserNotificationSettings]);
 
   useEffect(() => {

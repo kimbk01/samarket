@@ -1,5 +1,6 @@
 "use client";
 
+import { isStoreOwnerHubPathname } from "@/lib/business/owner-hub-path";
 import { enableOwnerHubBadgeBackgroundHydration } from "@/lib/chats/owner-hub-badge-store";
 import { mergeAppBootProfileFull } from "@/lib/app-boot/app-boot-store";
 import { fetchMeProfileFullBackground } from "@/lib/profile/fetch-me-profile-deduped";
@@ -52,14 +53,18 @@ export function scheduleAppBootBackgroundHydration(): void {
     if (armId !== backgroundArmId) return;
     if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
 
-    void fetchMeProfileFullBackground("app_boot_background")
-      .then(({ status, json }) => {
-        const data = json as { ok?: boolean; profile?: ProfileRow } | null;
-        if (status === 200 && data?.ok && data.profile) {
-          mergeAppBootProfileFull(data.profile);
-        }
-      })
-      .catch(() => {});
+    const onStoreOwnerHub = isStoreOwnerHubPathname();
+
+    if (!onStoreOwnerHub) {
+      void fetchMeProfileFullBackground("app_boot_background")
+        .then(({ status, json }) => {
+          const data = json as { ok?: boolean; profile?: ProfileRow } | null;
+          if (status === 200 && data?.ok && data.profile) {
+            mergeAppBootProfileFull(data.profile);
+          }
+        })
+        .catch(() => {});
+    }
 
     enableOwnerHubBadgeBackgroundHydration();
   });

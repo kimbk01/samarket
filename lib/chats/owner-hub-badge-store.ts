@@ -20,6 +20,8 @@ import {
 
 } from "@/lib/chats/owner-hub-badge-types";
 
+import { isStoreOwnerAdminPathname } from "@/lib/business/owner-hub-path";
+
 import {
 
   KASAMA_OWNER_HUB_BADGE_REFRESH,
@@ -184,8 +186,13 @@ export function enableOwnerHubBadgeBackgroundHydration(): void {
 
   hubBadgeBackgroundEnabled = true;
 
-  if (listeners.size > 0) startHub();
+  if (listeners.size > 0 && !shouldDeferHubBadgeOnStoreOwnerAdmin()) startHub();
 
+}
+
+/** 허브·매장 설정 등 `/stores/owner*` — 첫 페인트에 배지 API 가 경쟁하지 않도록 */
+function shouldDeferHubBadgeOnStoreOwnerAdmin(): boolean {
+  return typeof window !== "undefined" && isStoreOwnerAdminPathname();
 }
 
 
@@ -1090,6 +1097,8 @@ function startHub() {
 
   if (hubStarted) return;
 
+  if (shouldDeferHubBadgeOnStoreOwnerAdmin()) return;
+
   hubStarted = true;
 
   attachGlobalEventsOnce();
@@ -1146,7 +1155,9 @@ export function subscribeOwnerHubBadge(listener: () => void) {
 
   listeners.add(listener);
 
-  startHub();
+  if (!shouldDeferHubBadgeOnStoreOwnerAdmin()) {
+    startHub();
+  }
 
   return () => {
 

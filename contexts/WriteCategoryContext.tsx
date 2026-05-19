@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { getWritableRootCategoriesForWriteLauncher } from "@/lib/categories/getWritableRootCategoriesForWriteLauncher";
 import type { CategoryWithSettings } from "@/lib/categories/types";
+import { isStoreOwnerAdminPathname } from "@/lib/business/owner-hub-path";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
   cancelScheduledWhenBrowserIdle,
@@ -60,6 +61,12 @@ export function WriteCategoryProvider({ children }: { children: React.ReactNode 
   }, [refreshLauncherCategories]);
 
   useEffect(() => {
+    /** 매장 운영 허브 — 거래 글쓰기 런처 미노출, Supabase `categories` 2회 왕복 금지 */
+    if (isStoreOwnerAdminPathname()) {
+      setLauncherCategoriesLoading(false);
+      initialFetchAttemptedRef.current = true;
+      return;
+    }
     deferredIdleIdRef.current = scheduleWhenBrowserIdle(() => {
       deferredIdleIdRef.current = -1;
       if (initialFetchAttemptedRef.current) return;

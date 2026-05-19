@@ -42,7 +42,7 @@ export function StoreOrderOwnerMessengerActionBar({
 
   return (
     <div
-      className="shrink-0 border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-surface)] shadow-[0_-4px_16px_rgba(0,0,0,0.06)]"
+      className="shrink-0 border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-surface)]"
       data-store-order-owner-actions
       style={
         {

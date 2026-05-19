@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { rowToUserAddressDTO } from "@/lib/addresses/user-address-mapper";
 import { toCheckoutDeliveryPayload } from "@/lib/addresses/user-address-format";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
+import { resolveCheckoutDeliveryGeoFromUserAddress } from "@/lib/addresses/resolve-checkout-delivery-geo";
 import { normalizeStoreAddressPh } from "@/lib/stores/normalize-store-address-ph";
 import { computeStoreOrderCheckoutEtaSnapshot } from "@/lib/stores/compute-store-order-checkout-eta-snapshot";
 
@@ -19,6 +20,15 @@ const ACTIVE_DELIVERY_ORDER_STATUSES = [
 ] as const;
 
 function deliveryAddressPatchFromUserAddressDto(addr: UserAddressDTO) {
+  const resolved = resolveCheckoutDeliveryGeoFromUserAddress(addr);
+  if (resolved) {
+    return {
+      delivery_region: resolved.regionId,
+      delivery_city: resolved.cityId,
+      delivery_address_summary: resolved.summaryLine,
+      delivery_address_detail: resolved.detailLine || null,
+    };
+  }
   const p = toCheckoutDeliveryPayload(addr);
   const norm = normalizeStoreAddressPh({
     region: p.app_region_id,

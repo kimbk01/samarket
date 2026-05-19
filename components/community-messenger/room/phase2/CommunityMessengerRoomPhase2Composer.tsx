@@ -346,7 +346,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
       <footer
         data-cm-composer
         {...(!vm.voiceRecording ? { "data-cm-line-composer-footer": true } : {})}
-        className={`sticky bottom-0 z-[5] shrink-0 border-t px-3 pt-2 transition-[background-color] duration-200 ${
+        className={`sticky bottom-0 z-[5] shrink-0 border-t px-3 pt-2 shadow-none transition-[background-color] duration-200 ${
           vm.voiceRecording
             ? "border-sky-200/90 bg-gradient-to-b from-sky-50/95 via-white to-white"
             : "border-[#e5e7eb] bg-white"

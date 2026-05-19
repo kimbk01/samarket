@@ -10,6 +10,7 @@ export type MainBottomNavPrefetchDomain =
   | "trade"
   | "philife"
   | "stores"
+  | "store_owner"
   | "messenger"
   | "my"
   | "root"
@@ -23,6 +24,7 @@ export function mainBottomNavPrefetchTriggerKey(pathname: string | null): MainBo
   if (p === "/philife" || p.startsWith("/philife/")) return "philife";
   /** 레거시 커뮤니티 경로 — 필라이프와 동일 셸(스크롤·idle 프리페치 도메인 일치) */
   if (p === "/community" || p.startsWith("/community/")) return "philife";
+  if (p === "/stores/owner" || p.startsWith("/stores/owner/")) return "store_owner";
   if (p === "/stores" || p.startsWith("/stores/")) return "stores";
   if (p === "/community-messenger" || p.startsWith("/community-messenger/")) return "messenger";
   /** 하단 「내정보」는 `/mypage` 링크이나 앱 내 `/my/*` 가 동일 셸로 오래 머무는 경우가 많다 */

@@ -2,6 +2,7 @@
 import type { Profile } from "@/lib/types/profile";
 import { isAdminUser as checkAdminUser } from "@/lib/auth/admin-policy";
 import { getSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
+import { dedupeSupabaseAuthGetUser } from "@/lib/auth/dedupe-supabase-get-user-client";
 import { getSupabaseClient } from "@/lib/supabase/client";
 
 const CURRENT_USER_ID_CACHE_TTL_MS = 15_000;
@@ -61,7 +62,7 @@ export async function getCurrentUserIdForDb(): Promise<string | null> {
       const {
         data: { user },
         error,
-      } = await supabase.auth.getUser();
+      } = await dedupeSupabaseAuthGetUser(supabase);
       if (!error && user?.id) {
         resolvedUserId = user.id;
       }

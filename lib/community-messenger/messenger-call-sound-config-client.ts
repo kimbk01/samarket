@@ -1,4 +1,8 @@
+import { awaitClientSupabaseSessionReady } from "@/lib/auth/await-client-supabase-session-ready";
 import type { CommunityMessengerCallKind } from "@/lib/community-messenger/types";
+
+const AUTH_READY_WAIT_MS = 400;
+const AUTH_401_RETRY_MS = 180;
 
 export type MessengerCallSoundConfig = {
   voice_incoming_enabled: boolean;
@@ -48,7 +52,19 @@ export async function fetchMessengerCallSoundConfig(opts?: { force?: boolean }):
   const genAtStart = loadGeneration;
   inflight = (async () => {
     try {
-      const res = await fetch("/api/app/messenger-call-sound-config", { credentials: "include", cache: "no-store" });
+      await awaitClientSupabaseSessionReady(AUTH_READY_WAIT_MS);
+      let res = await fetch("/api/app/messenger-call-sound-config", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (res.status === 401) {
+        await new Promise((r) => setTimeout(r, AUTH_401_RETRY_MS));
+        await awaitClientSupabaseSessionReady(AUTH_READY_WAIT_MS);
+        res = await fetch("/api/app/messenger-call-sound-config", {
+          credentials: "include",
+          cache: "no-store",
+        });
+      }
       const j = (await res.json().catch(() => ({}))) as {
         ok?: boolean;
         config?: MessengerCallSoundConfig | null;

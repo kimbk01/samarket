@@ -32,6 +32,8 @@ import { peekAppBootProfile } from "@/lib/app-boot/app-boot-store";
 
 import { APP_BOOT_READY_EVENT } from "@/lib/app-boot/app-boot-types";
 
+import { dedupeSupabaseAuthGetUser } from "@/lib/auth/dedupe-supabase-get-user-client";
+import { getSupabaseProfileCache } from "@/lib/auth/supabase-profile-cache";
 import { shouldClearProfileCacheOnGetUserFailure } from "@/lib/auth/supabase-get-user-cache-policy";
 
 
@@ -55,8 +57,11 @@ function clearSignedOutClientCaches(): void {
 function applySupabaseProfileCacheFromBoot(sb: SupabaseClient): void {
 
   const bootProfile = peekAppBootProfile();
+  if (bootProfile && getSupabaseProfileCache()?.id) {
+    return;
+  }
 
-  void sb.auth.getUser().then(({ data: { user }, error }) => {
+  void dedupeSupabaseAuthGetUser(sb).then(({ data: { user }, error }) => {
 
     if (!user) {
 

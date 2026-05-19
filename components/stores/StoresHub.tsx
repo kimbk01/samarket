@@ -15,6 +15,7 @@ import { useOwnerLiteStore } from "@/lib/stores/use-owner-lite-store";
 import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-entry-modal";
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
 import { resolveOwnerLiteStoreShortcuts } from "@/lib/stores/owner-lite-store-shortcuts";
+import { resolveOwnerOperationsCenterAttentionCount } from "@/lib/stores/owner-store-badge-display-policy";
 import type { OwnerHubBadgeBreakdown } from "@/lib/chats/owner-hub-badge-types";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import type {
@@ -74,7 +75,7 @@ function StoresHubOwnerOperChip({
   breakdown: OwnerHubBadgeBreakdown;
 }): ReactNode {
   const { openBlockedModalIfNeeded, hubBlockedModal } = useStoreBusinessHubEntryModal("확인");
-  const storeOpsAttention = breakdown.storesTabAttention;
+  const storeOpsAttention = resolveOwnerOperationsCenterAttentionCount(breakdown);
   const ownerOperHref =
     storeOpsAttention > 0
       ? resolveOwnerLiteStoreShortcuts(ownerStore, breakdown).primary.href
@@ -216,7 +217,7 @@ export function StoresHub() {
         buyerState={buyerOrderSummary}
         recentOrder={recentOrder}
         ownerStore={ownerStore}
-        ownerStoreTabAttention={ownerHubBreakdown.storesTabAttention}
+        ownerStoreTabAttention={resolveOwnerOperationsCenterAttentionCount(ownerHubBreakdown)}
         ownerOrderAttention={ownerHubBreakdown.orderAttention}
       />
     </div>

@@ -7,6 +7,18 @@ import { useSupabaseStoreOrdersRealtime } from "@/hooks/useSupabaseStoreOrdersRe
 import { playDeliveryOrderAlertDebounced } from "@/lib/business/delivery-order-alert-debounce";
 import { primeStoreOrderAlertAudio } from "@/lib/business/store-order-alert-sound";
 import { fetchStoreOrdersListDeduped } from "@/lib/stores/fetch-store-orders-list-deduped";
+import type { OwnerHubDashboardPack } from "@/lib/business/load-owner-hub-dashboard-server";
+import {
+  invalidateOwnerHubDashboardOrdersCache,
+  peekOwnerHubDashboardOrdersCache,
+} from "@/lib/stores/owner-hub-dashboard-orders-cache";
+import { invalidateOwnerHubOrderCountsCache } from "@/lib/stores/owner-hub-order-counts-cache";
+import { coalesceOwnerHubOrdersNetworkRefresh } from "@/lib/stores/owner-hub-orders-network-coalesce";
+import {
+  cancelOwnerHubSecondaryFetchKey,
+  OWNER_HUB_SECONDARY_AFTER_MS,
+  scheduleOwnerHubSecondaryFetch,
+} from "@/lib/business/owner-hub-secondary-fetch-queue";
 import type { BusinessProduct, BusinessProfile } from "@/lib/types/business";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { BusinessDashboardKpiStrip, type DashboardKpi } from "@/components/business/admin/dashboard/BusinessDashboardKpiStrip";
@@ -14,7 +26,9 @@ import { BusinessDashboardOrderTimeline, type TimelineOrder } from "@/components
 import { BusinessDashboardQuickRow } from "@/components/business/admin/dashboard/BusinessDashboardQuickRow";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
 import { usePullToRefreshAtDocumentTop } from "@/lib/ui/use-pull-to-refresh-document-top";
+import { useOwnerHubRuntime } from "@/components/business/owner/OwnerHubRuntimeProvider";
 
 type InquiryRow = { id: string; status: string };
 
@@ -28,6 +42,7 @@ export function BusinessAdminDashboard({
   products,
   canSell,
   orderAlertsBadge,
+  initialDashboard = null,
   loadRemote,
 }: {
   row: StoreRow;
@@ -35,20 +50,37 @@ export function BusinessAdminDashboard({
   products: BusinessProduct[];
   canSell: boolean;
   orderAlertsBadge: number;
+  initialDashboard?: OwnerHubDashboardPack | null;
   loadRemote: () => Promise<void>;
 }) {
+  const hubRuntime = useOwnerHubRuntime();
   const q = `storeId=${encodeURIComponent(row.id)}`;
   const ordersBaseHref = buildStoreOrdersHref({ storeId: row.id });
   const inquiriesHref = `/stores/owner/inquiries?${q}`;
   const productsHubHref = `/stores/owner/products?${q}`;
 
-  const [orders, setOrders] = useState<TimelineOrder[]>([]);
-  const [meta, setMeta] = useState({
-    pending_accept: 0,
-    refund_requested: 0,
-    pending_delivery: 0,
-  });
+  const dashboardSeed =
+    initialDashboard ??
+    (() => {
+      const peek = peekOwnerHubDashboardOrdersCache(row.id);
+      return peek ? { orders: peek.orders, meta: peek.meta } : null;
+    })();
+
+  const [orders, setOrders] = useState<TimelineOrder[]>(() => dashboardSeed?.orders ?? []);
+  const [meta, setMeta] = useState(() => ({
+    pending_accept: dashboardSeed?.meta.pending_accept_count ?? 0,
+    refund_requested: dashboardSeed?.meta.refund_requested_count ?? 0,
+    pending_delivery: dashboardSeed?.meta.pending_delivery_count ?? 0,
+  }));
   const [inquiries, setInquiries] = useState<InquiryRow[]>([]);
+  const hasDashboardSeedRef = useRef(dashboardSeed != null);
+  const hubMountDataLoadDoneRef = useRef(false);
+  const inquiriesScheduleGenRef = useRef(0);
+  const loadDashboardOrdersRef = useRef<
+    ((opts?: { silent?: boolean; forceNetwork?: boolean }) => Promise<void>) | null
+  >(null);
+  const loadInquiriesRef = useRef<(() => Promise<void>) | null>(null);
+  const loadDashboardRef = useRef<((opts?: { silent?: boolean }) => Promise<void>) | null>(null);
 
   const alertStoreIdRef = useRef<string | null>(null);
   useLayoutEffect(() => {
@@ -66,14 +98,23 @@ export function BusinessAdminDashboard({
     playDeliveryOrderAlertDebounced(alertStoreIdRef.current);
   }, []);
 
-  const loadDashboard = useCallback(async (_opts?: { silent?: boolean }) => {
+  const loadInquiries = useCallback(async () => {
     try {
-      const [oj, ir] = await Promise.all([
-        fetchStoreOrdersListDeduped(row.id),
-        runSingleFlight(`me:stores:${row.id}:inquiries:get`, () =>
-          fetch(`/api/me/stores/${encodeURIComponent(row.id)}/inquiries`, { credentials: "include" })
-        ),
-      ]);
+      const ir = await runSingleFlight(`me:stores:${row.id}:inquiries:get`, () =>
+        fetch(`/api/me/stores/${encodeURIComponent(row.id)}/inquiries`, { credentials: "include" })
+      );
+      const ij = await ir.json().catch(() => ({}));
+      setInquiries(ij?.ok && Array.isArray(ij.inquiries) ? (ij.inquiries as InquiryRow[]) : []);
+    } catch {
+      setInquiries([]);
+    }
+  }, [row.id]);
+
+  const loadDashboardOrders = useCallback(async (opts?: { silent?: boolean; forceNetwork?: boolean }) => {
+    try {
+      const oj = await fetchStoreOrdersListDeduped(row.id, {
+        forceNetwork: opts?.forceNetwork === true,
+      });
       const ordersJson = oj.json as {
         ok?: boolean;
         orders?: TimelineOrder[];
@@ -84,45 +125,116 @@ export function BusinessAdminDashboard({
         };
       };
       if (ordersJson?.ok && Array.isArray(ordersJson.orders)) {
-        setOrders(ordersJson.orders);
-        setMeta({
+        const nextMeta = {
           pending_accept: Math.max(0, Math.floor(Number(ordersJson.meta?.pending_accept_count) || 0)),
           refund_requested: Math.max(0, Math.floor(Number(ordersJson.meta?.refund_requested_count) || 0)),
           pending_delivery: Math.max(0, Math.floor(Number(ordersJson.meta?.pending_delivery_count) || 0)),
+        };
+        setOrders((prev) => {
+          if (
+            prev.length === ordersJson.orders!.length &&
+            prev.every((o, i) => o.id === ordersJson.orders![i]?.id && o.order_status === ordersJson.orders![i]?.order_status)
+          ) {
+            return prev;
+          }
+          return ordersJson.orders!;
         });
+        setMeta((prev) =>
+          prev.pending_accept === nextMeta.pending_accept &&
+          prev.refund_requested === nextMeta.refund_requested &&
+          prev.pending_delivery === nextMeta.pending_delivery
+            ? prev
+            : nextMeta
+        );
       } else {
         setOrders([]);
         setMeta({ pending_accept: 0, refund_requested: 0, pending_delivery: 0 });
       }
-
-      const ij = await ir.json().catch(() => ({}));
-      setInquiries(ij?.ok && Array.isArray(ij.inquiries) ? (ij.inquiries as InquiryRow[]) : []);
     } catch {
       setOrders([]);
-      setInquiries([]);
     }
   }, [row.id]);
 
-  useSupabaseStoreOrdersRealtime(row.id, {
+  const refreshDashboardOrdersFromNetwork = useCallback(() => {
+    return coalesceOwnerHubOrdersNetworkRefresh(row.id, () =>
+      loadDashboardOrders({ silent: true, forceNetwork: true })
+    );
+  }, [row.id, loadDashboardOrders]);
+
+  const loadDashboard = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      await loadDashboardOrders(opts);
+      await loadInquiries();
+    },
+    [loadDashboardOrders, loadInquiries]
+  );
+
+  loadDashboardOrdersRef.current = loadDashboardOrders;
+  loadInquiriesRef.current = loadInquiries;
+  loadDashboardRef.current = loadDashboard;
+
+  useSupabaseStoreOrdersRealtime(hubRuntime ? null : row.id, {
     debounceMs: 450,
-    onChange: () => void loadDashboard({ silent: true }),
+    onChange: () => {
+      dispatchOwnerHubBadgeRefresh({ source: "owner_dashboard_store_orders" });
+      void refreshDashboardOrdersFromNetwork();
+    },
     onInsert: onStoreOrderInsert,
   });
 
+  const subscribeOrdersRefresh = hubRuntime?.subscribeOrdersRefresh;
+
   useEffect(() => {
-    void loadDashboard({ silent: true });
-  }, [loadDashboard]);
+    if (!subscribeOrdersRefresh) return;
+    return subscribeOrdersRefresh(() => {
+      dispatchOwnerHubBadgeRefresh({ source: "owner_dashboard_store_orders" });
+      void coalesceOwnerHubOrdersNetworkRefresh(row.id, async () => {
+        await loadDashboardOrdersRef.current?.({ silent: true, forceNetwork: true });
+      });
+    });
+  }, [subscribeOrdersRefresh, row.id]);
+
+  useEffect(() => {
+    if (hubMountDataLoadDoneRef.current) return;
+    hubMountDataLoadDoneRef.current = true;
+
+    if (hasDashboardSeedRef.current) {
+      hasDashboardSeedRef.current = false;
+      const gen = ++inquiriesScheduleGenRef.current;
+      scheduleOwnerHubSecondaryFetch(
+        async () => {
+          if (gen !== inquiriesScheduleGenRef.current) return;
+          await (loadInquiriesRef.current?.() ?? Promise.resolve());
+        },
+        { afterMs: OWNER_HUB_SECONDARY_AFTER_MS.inquiries, key: "inquiries" }
+      );
+      return () => {
+        inquiriesScheduleGenRef.current += 1;
+        cancelOwnerHubSecondaryFetchKey("inquiries");
+      };
+    }
+    void loadDashboardRef.current?.({ silent: true });
+    return undefined;
+  }, []);
 
   useEffect(() => {
     const id = window.setInterval(() => {
-      if (typeof document !== "undefined" && document.visibilityState === "visible") void loadDashboard({ silent: true });
+      if (typeof document !== "undefined" && document.visibilityState === "visible") {
+        void refreshDashboardOrdersFromNetwork();
+      }
     }, 45_000);
     return () => window.clearInterval(id);
-  }, [loadDashboard]);
+  }, [refreshDashboardOrdersFromNetwork]);
 
   const handlePullRefresh = useCallback(async () => {
-    await Promise.all([loadRemote(), loadDashboard({ silent: true })]);
-  }, [loadRemote, loadDashboard]);
+    invalidateOwnerHubDashboardOrdersCache(row.id);
+    invalidateOwnerHubOrderCountsCache(row.id);
+    await Promise.all([
+      loadRemote(),
+      loadDashboardOrders({ silent: true, forceNetwork: true }),
+      loadInquiries(),
+    ]);
+  }, [loadRemote, loadDashboardOrders, loadInquiries, row.id]);
 
   const { pullPx, refreshing, willReleaseRefresh } = usePullToRefreshAtDocumentTop(handlePullRefresh);
 
@@ -250,7 +362,7 @@ export function BusinessAdminDashboard({
             transform: `translateY(${Math.min(pullPx, 56)}px)`,
           }}
         >
-          <div className="flex items-center gap-2 rounded-full border border-sam-border-soft bg-sam-surface/95 px-3 py-1.5 shadow-sm backdrop-blur-sm">
+          <div className="flex items-center gap-2 rounded-full border border-sam-border-soft bg-sam-surface/95 px-3 py-1.5 backdrop-blur-sm">
             {refreshing ?
               <>
                 <Loader2 className="h-4 w-4 shrink-0 animate-spin text-sam-muted" aria-hidden />
@@ -271,7 +383,7 @@ export function BusinessAdminDashboard({
         }}
       >
         <section
-          className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm"
+          className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface"
           aria-labelledby="owner-dash-order-status"
         >
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sam-border-soft bg-sam-app/50 px-3 py-2 sm:px-4">
@@ -299,6 +411,7 @@ export function BusinessAdminDashboard({
                 <Link
                   key={c.href + c.label}
                   href={c.href}
+                  prefetch={false}
                   role="listitem"
                   className={`rounded-full border px-3 py-1.5 sam-text-xxs font-semibold transition ${chipClass(c.tone)}`}
                 >
@@ -311,7 +424,7 @@ export function BusinessAdminDashboard({
         </section>
 
         <section
-          className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm"
+          className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface"
           aria-labelledby="owner-dash-recent-orders"
         >
         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-sam-border-soft bg-sam-app/50 px-3 py-2 sm:px-4">
@@ -331,7 +444,7 @@ export function BusinessAdminDashboard({
         </section>
 
         <section
-          className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface shadow-sm"
+          className="overflow-hidden rounded-ui-rect border border-sam-border bg-sam-surface"
           aria-labelledby="owner-dash-shortcuts"
         >
         <div className="border-b border-sam-border-soft bg-sam-app/50 px-3 py-2 sm:px-4">

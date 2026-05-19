@@ -5,6 +5,7 @@
 import {
   fetchMeStoresListDeduped,
   invalidateMeStoresListDedupedCache,
+  seedMeStoresListClientCacheFromStores,
 } from "@/lib/me/fetch-me-stores-deduped";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { computeOwnerCanSell } from "@/lib/stores/owner-lite-store-shortcuts";
@@ -104,6 +105,9 @@ async function loadFromNetwork(options?: { withLoadingSpinner?: boolean }): Prom
     }
     const json = raw as { ok?: boolean; stores?: StoreRow[] };
     const stores = Array.isArray(json?.stores) ? json.stores : [];
+    if (json?.ok && stores.length > 0) {
+      seedMeStoresListClientCacheFromStores(stores);
+    }
     hasLoadedOnce = true;
     snapshot = {
       loading: false,

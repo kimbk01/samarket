@@ -1,5 +1,6 @@
 "use client";
 
+import { dedupeSupabaseAuthGetUser } from "@/lib/auth/dedupe-supabase-get-user-client";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { profileRowToClientProfile } from "@/lib/auth/profile-row-to-client-profile";
 import { setSupabaseProfileCache, userToProfile } from "@/lib/auth/supabase-profile-cache";
@@ -36,7 +37,7 @@ async function runAppBootOnce(): Promise<void> {
   const {
     data: { user },
     error,
-  } = await sb.auth.getUser();
+  } = await dedupeSupabaseAuthGetUser(sb);
   if (!user || error) {
     setAppBootAnonymous();
     recordAppWidePhaseLastMs("app_boot_layer_ms", Math.round(performance.now() - t0));

@@ -48,7 +48,10 @@ import { shouldDeferUnreadBadgeRepaint } from "@/lib/community-messenger/room/cm
 import { isCommunityMessengerRoomPathname } from "@/lib/layout/conditional-app-shell-flags";
 import { bumpMessengerRenderPerf, samarketRuntimeDebugLog } from "@/lib/runtime/samarket-runtime-debug";
 import { scheduleWarmMessengerListBootstrapClient } from "@/lib/community-messenger/warm-messenger-list-bootstrap-client-loader";
-import { mainBottomNavPrefetchTriggerKey } from "@/lib/main-menu/main-bottom-nav-prefetch-domain";
+import {
+  mainBottomNavPrefetchTriggerKey,
+  type MainBottomNavPrefetchDomain,
+} from "@/lib/main-menu/main-bottom-nav-prefetch-domain";
 import {
   isBottomNavTabActive,
   isMainBottomNavMessengerShellPathname,
@@ -69,6 +72,12 @@ import {
   navPerfSetOptimisticTotalMs,
 } from "@/lib/navigation/nav-perf-browser";
 import { useRegion } from "@/contexts/RegionContext";
+
+/** 매장 운영 허브 — cross-tab RSC·taxonomy·philife prewarm 금지 (`pickMainBottomNavPrefetchHrefs` 와 동일) */
+function shouldSkipBottomNavBackgroundPrefetch(pathname: string | null): boolean {
+  const domain: MainBottomNavPrefetchDomain = mainBottomNavPrefetchTriggerKey(pathname);
+  return domain === "store_owner" || isMainBottomNavMessengerShellPathname(pathname);
+}
 
 /** `/market` 에서만 push — 그 외 탭 간 이동은 replace(히스토리 누적·뒤로가기 꼬임 완화) */
 function mainTabLinkUsesReplace(pathname: string | null, targetHref: string): boolean {
@@ -749,7 +758,7 @@ export function BottomNav({
       /* ignore storage failures */
     }
     const at = pathnameForPrefetchRef.current;
-    if (isMainBottomNavMessengerShellPathname(at)) return;
+    if (shouldSkipBottomNavBackgroundPrefetch(at)) return;
     const hrefs = tabsRef.current
       .map((tab) => resolveBottomNavTabProgrammaticPrefetchHref(tab, at))
       .filter((href, idx, arr) => arr.indexOf(href) === idx)

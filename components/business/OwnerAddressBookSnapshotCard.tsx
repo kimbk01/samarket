@@ -69,6 +69,7 @@ export function OwnerAddressBookSnapshotCard({
       <div className="mt-2 flex flex-wrap gap-2">
         <Link
           href={`/mypage/addresses?returnTo=${encodeURIComponent(returnToPath)}`}
+          prefetch={false}
           className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-helper font-semibold text-sam-fg hover:bg-sam-app"
         >
           주소록 열기

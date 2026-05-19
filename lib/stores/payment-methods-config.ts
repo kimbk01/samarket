@@ -183,7 +183,7 @@ export function formatBuyerPaymentDisplay(
 export function labelCheckoutPaymentMethodKo(id: string): string {
   switch (id) {
     case "cod":
-      return "현금(착불·만나서)";
+      return "현금결제";
     case "gcash":
       return "GCash";
     case "bank_transfer":

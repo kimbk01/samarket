@@ -9,7 +9,6 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { scrollAppShellForStoreCheckoutConfirm } from "@/lib/stores/store-cart-checkout-scroll";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
-import { flushSync } from "react-dom";
 import { useStoreCommerceCart } from "@/contexts/StoreCommerceCartContext";
 import {
   parseCommerceExtrasFromHoursJson,
@@ -75,9 +74,11 @@ import {
 } from "@/lib/store-commerce/last-checkout-order-session";
 import {
   clearDeliveryAddressBookStorage,
+  isCartDeliverySelectionValid,
   loadDeliveryAddressBook,
   parseUserAddressIdFromDeliverySelection,
   PROFILE_DELIVERY_SELECTION_ID,
+  resolveCartDefaultDeliverySelectionId,
   userAddressDeliverySelectionId,
 } from "@/lib/store-commerce/delivery-address-book";
 import { KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH } from "@/lib/chats/chat-channel-events";
@@ -104,6 +105,7 @@ import {
   buildStoreOrderDetailSeedFromPostSuccess,
   setStoreOrderDetailSeed,
 } from "@/lib/stores/store-order-detail-seed-cache";
+import { navigateToBuyerStoreOrderDetail } from "@/lib/stores/navigate-to-buyer-store-order-detail";
 import { checkoutPaymentOptionsForCart } from "@/lib/stores/payment-methods-config";
 import {
   STORE_ADDRESS_STREET_LABEL,
@@ -115,12 +117,14 @@ import {
 } from "@/lib/stores/store-fulfillment-pref";
 import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
-import {
-  getUserAddressDesignationPlainText,
-  UserAddressDesignationTitle,
-} from "@/components/addresses/UserAddressDesignationTitle";
+import { getUserAddressDesignationPlainText } from "@/components/addresses/UserAddressDesignationTitle";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
-import { formatPhDeliveryBlockForCheckout } from "@/lib/addresses/ph-address-display";
+import { StoreCartCheckoutAddressRowBody } from "@/components/stores/cart/StoreCartCheckoutAddressRowBody";
+import {
+  isCheckoutDeliveryGeoReady,
+  resolveCheckoutDeliveryGeoFromUserAddress,
+} from "@/lib/addresses/resolve-checkout-delivery-geo";
+import { normalizeStoreAddressPh } from "@/lib/stores/normalize-store-address-ph";
 import {
   fetchMeAddressesListSingleFlight,
   writeCachedMeAddressList,
@@ -182,7 +186,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const [storeLoading, setStoreLoading] = useState(() =>
     typeof window === "undefined" ? true : !peekStoreCartHeadFromPublicCache(storeSlug)
   );
-  const [fulfillment, setFulfillment] = useState<Fulfillment>("pickup");
+  const [fulfillment, setFulfillment] = useState<Fulfillment>("local_delivery");
   const [buyerNote, setBuyerNote] = useState("");
   const [buyerPhone, setBuyerPhone] = useState(readInitialBuyerPhoneFromProfileCache);
   const profilePhoneDigitsRef = useRef("");
@@ -191,7 +195,6 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const clientOrderKeyRef = useRef<string | null>(null);
   const orderSubmitFlightRef = useRef(false);
   const [err, setErr] = useState<string | null>(null);
-  const [lastOrderId, setLastOrderId] = useState<string | null>(null);
   const [deliveryEtaLabel, setDeliveryEtaLabel] = useState<string | null>(null);
   const [deliveryEtaBusy, setDeliveryEtaBusy] = useState(false);
   const [globalRideTimeSource, setGlobalRideTimeSource] = useState<"store" | "google" | null>(null);
@@ -206,6 +209,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   });
   const checkoutContactFetchGenRef = useRef(0);
   const checkoutFooterRef = useRef<HTMLDivElement>(null);
+  /** 배송지 라디오 — 사용자가 직접 고른 뒤에는 자동 대표 주소 보정하지 않음 */
+  const userPickedDeliveryAddressRef = useRef(false);
 
   const [savedAddresses, setSavedAddresses] = useState<UserAddressDTO[]>(() => {
     if (typeof window === "undefined") return [];
@@ -401,14 +406,13 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     if (!cart.hydrated || !store) return;
     if (lines.length > 0) {
       clearLastCheckoutOrderId(store.id);
-      setLastOrderId(null);
       return;
     }
-    setLastOrderId((prev) => {
-      const remembered = getLastCheckoutOrderId(store.id);
-      return remembered ?? prev;
-    });
-  }, [cart.hydrated, store?.id, lines.length]);
+    const remembered = getLastCheckoutOrderId(store.id);
+    if (!remembered) return;
+    clearLastCheckoutOrderId(store.id);
+    navigateToBuyerStoreOrderDetail(remembered, router);
+  }, [cart.hydrated, store?.id, lines.length, router]);
 
   useEffect(() => {
     const { entries } = loadDeliveryAddressBook();
@@ -418,6 +422,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     }
     setAddressBookHydrated(true);
   }, []);
+
+  useEffect(() => {
+    userPickedDeliveryAddressRef.current = false;
+  }, [storeSlug]);
 
   const profileAddressSummary = useMemo(() => {
     if (!profileSnap) return "";
@@ -440,38 +448,64 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     return parts.join("\n");
   }, [profileSnap]);
 
-  const resolvedDelivery = useMemo(() => {
-    if (selectedAddressId === PROFILE_DELIVERY_SELECTION_ID && profileSnap) {
-      return {
-        region: profileSnap.region,
-        city: profileSnap.city,
-        freeSummaryLine: profileSnap.freeSummaryLine,
-        addressDetail: profileSnap.addressDetail,
-      };
-    }
+  const profileLinkedAddressRow = useMemo((): UserAddressDTO | null => {
+    const id = profileSnap?.userAddressId?.trim();
+    if (!id) return null;
+    return savedAddresses.find((a) => a.id === id) ?? null;
+  }, [profileSnap?.userAddressId, savedAddresses]);
+
+  const profileAddressFallbackParts = useMemo(() => {
+    if (!profileSnap || profileLinkedAddressRow) return null;
+    const primaryLines: string[] = [];
+    const region = getLocationLabelIfValid(profileSnap.region, profileSnap.city)?.trim();
+    if (region) primaryLines.push(region);
+    if (profileSnap.freeSummaryLine.trim()) primaryLines.push(profileSnap.freeSummaryLine.trim());
+    const detailLine = profileSnap.addressDetail.trim() || null;
+    return { primaryLines, detailLine };
+  }, [profileSnap, profileLinkedAddressRow]);
+
+  const resolvedCheckoutGeo = useMemo(() => {
     const savedId = parseUserAddressIdFromDeliverySelection(selectedAddressId);
-    if (savedId) {
-      const row = savedAddresses.find((x) => x.id === savedId);
-      if (row) {
-        return {
-          region: row.appRegionId ?? "",
-          city: row.appCityId ?? "",
-          freeSummaryLine: row.roadAddress ?? row.formattedAddress ?? row.fullAddress ?? "",
-          addressDetail: row.detailAddress ?? row.unitFloorRoom ?? "",
-        };
+    const row =
+      selectedAddressId === PROFILE_DELIVERY_SELECTION_ID
+        ? profileLinkedAddressRow
+        : savedId
+          ? (savedAddresses.find((x) => x.id === savedId) ?? null)
+          : null;
+    if (row) return resolveCheckoutDeliveryGeoFromUserAddress(row);
+
+    if (selectedAddressId === PROFILE_DELIVERY_SELECTION_ID && profileSnap) {
+      const rid = profileSnap.region.trim();
+      const cid = profileSnap.city.trim();
+      if (rid && cid && getLocationLabelIfValid(rid, cid)) {
+        const norm = normalizeStoreAddressPh({
+          region: rid,
+          city: cid,
+          address1: profileSnap.freeSummaryLine.trim() || getLocationLabelIfValid(rid, cid) || "",
+          address2: profileSnap.addressDetail.trim(),
+        });
+        if (norm.region && norm.city && norm.address1) {
+          return {
+            regionId: norm.region,
+            cityId: norm.city,
+            summaryLine: norm.address1,
+            detailLine: norm.address2 ?? "",
+          };
+        }
       }
     }
     return null;
-  }, [selectedAddressId, profileSnap, savedAddresses]);
+  }, [selectedAddressId, profileLinkedAddressRow, savedAddresses, profileSnap]);
 
-  const region = resolvedDelivery?.region ?? "";
-  const city = resolvedDelivery?.city ?? "";
-  const freeSummaryLine = resolvedDelivery?.freeSummaryLine ?? "";
-  const addressDetail = resolvedDelivery?.addressDetail ?? "";
-
+  const region = resolvedCheckoutGeo?.regionId ?? "";
+  const city = resolvedCheckoutGeo?.cityId ?? "";
+  const addressDetail = resolvedCheckoutGeo?.detailLine ?? "";
   const summaryForSubmit = useMemo(
-    () => getLocationLabelIfValid(region, city)?.trim() || freeSummaryLine.trim(),
-    [region, city, freeSummaryLine]
+    () =>
+      resolvedCheckoutGeo?.summaryLine.trim() ||
+      getLocationLabelIfValid(region, city)?.trim() ||
+      "",
+    [resolvedCheckoutGeo?.summaryLine, region, city]
   );
 
   const deliveryUserAddressIdForSubmit = useMemo(() => {
@@ -504,6 +538,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       payment_method: selectedPaymentMethod,
       delivery_address_summary: summaryForSubmit.trim(),
       delivery_address_detail: addressDetail.trim(),
+      delivery_region: region.trim(),
+      delivery_city: city.trim(),
+      delivery_user_address_id: deliveryUserAddressIdForSubmit ?? "",
       selected_address_id: selectedAddressId ?? "",
     });
   }, [
@@ -515,6 +552,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     selectedPaymentMethod,
     summaryForSubmit,
     addressDetail,
+    region,
+    city,
+    deliveryUserAddressIdForSubmit,
     selectedAddressId,
   ]);
 
@@ -593,8 +633,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   /** 배달: 저장 주소 + 프로필 기본 배달만. 장바구니 전용 localStorage 주소는 제거됨 */
   const deliveryAddressReady =
     fulfillment === "local_delivery"
-      ? Boolean(deliveryUserAddressIdForSubmit) && summaryForSubmit.trim().length >= 3
-      : summaryForSubmit.trim().length >= 3;
+      ? Boolean(deliveryUserAddressIdForSubmit) && isCheckoutDeliveryGeoReady(resolvedCheckoutGeo)
+      : isCheckoutDeliveryGeoReady(resolvedCheckoutGeo);
 
   /** 장바구니 카드 — `+63 956 188 6313` */
   const formattedPhoneDisplay = useMemo(() => {
@@ -775,27 +815,26 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   useEffect(() => {
     if (!addressBookHydrated) return;
     setSelectedAddressId((sel) => {
-      if (sel === PROFILE_DELIVERY_SELECTION_ID && profileSnap) return sel;
-      if (
-        parseUserAddressIdFromDeliverySelection(sel) &&
-        savedAddresses.some((x) => userAddressDeliverySelectionId(x.id) === sel)
-      ) {
-        return sel;
+      const defaultSel = resolveCartDefaultDeliverySelectionId(savedAddresses, profileSnap);
+      if (userPickedDeliveryAddressRef.current) {
+        if (isCartDeliverySelectionValid(sel, savedAddresses, profileSnap)) return sel;
+        return defaultSel;
       }
-      if (profileDeliveryReady && profileSnap) return PROFILE_DELIVERY_SELECTION_ID;
-      const deliveryDefault =
-        savedAddresses.find((x) => x.isDefaultDelivery || x.isDefaultMaster) ?? savedAddresses[0];
-      if (deliveryDefault?.id) return userAddressDeliverySelectionId(deliveryDefault.id);
-      if (profileSnap) return PROFILE_DELIVERY_SELECTION_ID;
+      if (defaultSel) return defaultSel;
+      if (isCartDeliverySelectionValid(sel, savedAddresses, profileSnap)) return sel;
       return null;
     });
-  }, [addressBookHydrated, profileDeliveryReady, profileSnap, savedAddresses]);
+  }, [addressBookHydrated, profileSnap, savedAddresses]);
+
+  const selectDeliveryAddressId = useCallback((selectionId: string) => {
+    userPickedDeliveryAddressRef.current = true;
+    setSelectedAddressId(selectionId);
+  }, []);
 
   useEffect(() => {
     if (!store) return;
     const del = deliveryFulfillmentMode;
     setFulfillment((prev) => {
-      if (prev === "pickup" && offerPickup) return prev;
       if (del && prev === del) return prev;
       if (del && offerPickup) {
         if (store.delivery_available === true) return del;
@@ -995,7 +1034,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       setErr(t("common_enter_contact", { placeholder: PH_LOCAL_09_PLACEHOLDER }));
       return;
     }
-    if (needsAddressAndPhone && !resolvedDelivery) {
+    if (needsAddressAndPhone && !resolvedCheckoutGeo) {
       setErr(
         "배달: 마이페이지 주소를 확인하거나 배송지 추가 후, 라디오로 배달 주소를 선택해 주세요."
       );
@@ -1007,7 +1046,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     }
     if (needsAddressAndPhone && !deliveryAddressReady) {
       setErr(
-        `배달: 선택한 배달주소에 지역·동네 또는 ${STORE_ADDRESS_STREET_LABEL}(3자 이상)이 필요합니다. 다른 배달주소를 선택하거나 마이페이지에서 주소를 저장해 주세요.`
+        resolvedCheckoutGeo && summaryForSubmit.trim().length >= 3
+          ? "배달 지역(지역/도시)을 선택해 주세요. 주소 관리에서 Google 주소를 저장할 때 동네·도시가 맞는지 확인해 주세요."
+          : `배달: 선택한 배달주소에 지역·동네 또는 ${STORE_ADDRESS_STREET_LABEL}(3자 이상)이 필요합니다. 다른 배달주소를 선택하거나 마이페이지에서 주소를 저장해 주세요.`
       );
       return;
     }
@@ -1053,7 +1094,6 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     setCheckoutConfirmPayload(null);
 
     setErr(null);
-    setLastOrderId(null);
     orderSubmitFlightRef.current = true;
     setBusy(true);
     dibayPerfRecordOrderSubmitClick(store.id);
@@ -1079,6 +1119,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           const row: Record<string, unknown> = {
             product_id: l.productId,
             qty: l.qty,
+            /** 서버 `validate-store-order-checkout` — 스냅샷 단가와 DB 재계산 단가 대조 */
+            client_unit_php: Math.max(0, Math.floor(Number(l.unitPricePhp) || 0)),
           };
           if (hasPick || hasQty) row.modifier_selections = wire;
           if (l.lineNote?.trim()) row.line_note = l.lineNote.trim();
@@ -1113,6 +1155,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       const orderJson = json as {
         ok?: boolean;
         error?: string;
+        message?: string;
         idempotent?: boolean;
         order?: { id?: string; order_no?: string; payment_amount?: number };
       };
@@ -1126,24 +1169,33 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         if (redirectForBlockedAction(router, code, pathname || `/stores/${storeSlug}/cart`)) {
           return;
         }
+        const apiMessage =
+          typeof orderJson.message === "string" && orderJson.message.trim() ?
+            orderJson.message.trim()
+          : null;
         setErr(
-          code === "insufficient_stock"
-            ? "재고가 부족합니다. 장바구니를 수정한 뒤 다시 시도해 주세요."
-            : code === "cannot_order_own_store"
-              ? "본인 매장은 주문할 수 없습니다."
-              : code === "store_closed"
-                ? "지금은 준비 중이라 주문할 수 없습니다."
-                : code === "below_min_order"
-                  ? "최소 주문 금액에 맞지 않습니다. 장바구니 금액을 늘린 뒤 다시 시도해 주세요."
-                  : code === "delivery_address_required"
-                    ? "배달·배송 주소를 입력해 주세요."
-                    : code === "store_pickup_disabled"
-                      ? "이 매장은 포장 픽업 주문을 받지 않습니다. 수령 방식을 바꿔 주세요."
-                      : code === "store_delivery_disabled"
-                        ? "이 매장은 배달을 제공하지 않습니다. 수령 방식을 바꿔 주세요."
-                        : code === "payment_method_required" || code === "payment_method_invalid"
-                          ? "결제 방법을 확인해 주세요. 매장에서 허용한 수단만 선택할 수 있습니다."
-                          : `주문에 실패했습니다. (${code})`
+          apiMessage ??
+            (code === "insufficient_stock"
+              ? "재고가 부족합니다. 장바구니를 수정한 뒤 다시 시도해 주세요."
+              : code === "cannot_order_own_store"
+                ? "본인 매장은 주문할 수 없습니다."
+                : code === "store_closed"
+                  ? "지금은 준비 중이라 주문할 수 없습니다."
+                  : code === "below_min_order"
+                    ? "최소 주문 금액에 맞지 않습니다. 장바구니 금액을 늘린 뒤 다시 시도해 주세요."
+                    : code === "delivery_address_required"
+                      ? "배달·배송 주소를 입력해 주세요."
+                      : code === "client_unit_php_required" || code === "price_changed"
+                        ? "메뉴 가격이 변경되어 장바구니를 다시 확인해 주세요."
+                        : code === "delivery_region_city_required"
+                          ? "배달 지역(지역/도시)을 선택해 주세요. 주소 관리에서 Google 주소를 저장할 때 동네·도시가 맞는지 확인해 주세요."
+                          : code === "store_pickup_disabled"
+                          ? "이 매장은 포장 픽업 주문을 받지 않습니다. 수령 방식을 바꿔 주세요."
+                          : code === "store_delivery_disabled"
+                            ? "이 매장은 배달을 제공하지 않습니다. 수령 방식을 바꿔 주세요."
+                            : code === "payment_method_required" || code === "payment_method_invalid"
+                              ? "결제 방법을 확인해 주세요. 매장에서 허용한 수단만 선택할 수 있습니다."
+                              : `주문에 실패했습니다. (${code})`)
         );
         return;
       }
@@ -1174,24 +1226,20 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           })
         );
       }
-      /* Context 비우기와 동시에 리렌더되면 lines===0이 lastOrderId보다 먼저 적용될 수 있음 → id 먼저 동기 반영 */
-      flushSync(() => {
-        setLastOrderId(oid);
-      });
-      if (oid) setLastCheckoutOrderId(store.id, oid);
-      cart.clearStoreCart(store.id);
-      if (oid) {
-        try {
-          sessionStorage.setItem(`dibay:buyer_order_placed_wall:${oid}`, String(Date.now()));
-        } catch {
-          /* ignore */
-        }
-        void router.prefetch("/orders");
-        void router.prefetch(`/orders/store/${encodeURIComponent(oid)}`);
-        void router.prefetch(`/orders/store/${encodeURIComponent(oid)}/chat`);
-        window.dispatchEvent(new CustomEvent(KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH));
-        router.replace(`/orders/store/${encodeURIComponent(oid)}`);
+      if (!oid) {
+        setErr("주문은 접수됐지만 상세 화면으로 이동할 수 없습니다. 주문 내역에서 확인해 주세요.");
+        return;
       }
+
+      setLastCheckoutOrderId(store.id, oid);
+      try {
+        sessionStorage.setItem(`dibay:buyer_order_placed_wall:${oid}`, String(Date.now()));
+      } catch {
+        /* ignore */
+      }
+      window.dispatchEvent(new CustomEvent(KASAMA_BUYER_STORE_ORDERS_HUB_REFRESH));
+      navigateToBuyerStoreOrderDetail(oid, router);
+      cart.clearStoreCart(store.id);
     } catch {
       dibayPerfOnOrderApiDone(store.id);
       setErr(t("common_network_error_generic"));
@@ -1226,39 +1274,6 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
           <Link href="/stores" className="text-sm font-medium text-signature">
             {t("common_store")}
           </Link>
-        </div>
-      </StoreCommerceCartPageShell>
-    );
-  }
-
-  if (lines.length === 0 && lastOrderId) {
-    return (
-      <StoreCommerceCartPageShell header={<StoreBaeminCartTopBar onBack={() => router.back()} />}>
-        <div className="px-4 py-10 text-center">
-          <p className="sam-text-body-lg font-semibold text-emerald-800">주문이 접수되었습니다.</p>
-          <div className="mt-6 flex flex-col items-center gap-3">
-            <Link href="/orders" className="sam-text-body font-semibold text-signature underline">
-              주문 내역 확인
-            </Link>
-            <Link
-              href={`/orders/store/${encodeURIComponent(lastOrderId)}`}
-              className="sam-text-body text-sam-fg underline"
-            >
-              이 주문 진행 보기
-            </Link>
-            <Link
-              href={`/orders/store/${encodeURIComponent(lastOrderId)}/chat`}
-              className="sam-text-body text-sam-fg underline"
-            >
-              매장 문의 남기기
-            </Link>
-            <Link
-              href={`/stores/${encodeURIComponent(store?.slug ?? storeSlug)}`}
-              className="sam-text-body text-sam-muted underline"
-            >
-              매장으로 돌아가기
-            </Link>
-          </div>
         </div>
       </StoreCommerceCartPageShell>
     );
@@ -1343,10 +1358,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   }
 
   const fulfillmentOptions: { value: Fulfillment; label: string }[] = [];
-  if (offerPickup) fulfillmentOptions.push({ value: "pickup", label: t("common_pickup_label") });
   if (deliveryFulfillmentMode) {
     fulfillmentOptions.push({ value: deliveryFulfillmentMode, label: t("common_delivery_label") });
   }
+  if (offerPickup) fulfillmentOptions.push({ value: "pickup", label: t("common_pickup_label") });
 
   const displayGrand =
     fulfillment === "local_delivery" ? paymentGrandTotalPhp : pickupGrandTotalPhp;
@@ -1644,22 +1659,23 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                       className="mt-1"
                       checked={selectedAddressId === PROFILE_DELIVERY_SELECTION_ID}
                       onChange={() => {
-                        setSelectedAddressId(PROFILE_DELIVERY_SELECTION_ID);
+                        selectDeliveryAddressId(PROFILE_DELIVERY_SELECTION_ID);
                         applyCheckoutBuyerPhone({
                           checkoutContactPhone: profileSnap?.phone ?? profilePhoneDigitsRef.current,
                         });
                       }}
-                      aria-label="배달주소 1 (마이페이지) 선택"
+                      aria-label={
+                        profileLinkedAddressRow
+                          ? `${getUserAddressDesignationPlainText(profileLinkedAddressRow)}, 배달 주소 선택`
+                          : "마이페이지 배달 주소 선택"
+                      }
                     />
                     <div className="min-w-0 flex-1">
-                      <p className="sam-text-body-secondary font-bold text-sam-fg">배달주소 1</p>
-                      <p className="mt-0.5 sam-text-xxs font-medium text-sam-muted">
-                        내정보 · 주소 관리 기본 배달
-                      </p>
-                      <p className="mt-1 whitespace-pre-wrap sam-text-helper font-normal leading-relaxed text-sam-fg">
-                        {profileAddressBodyText ||
-                          "마이페이지에 저장된 배달 주소가 없습니다. 프로필에서 입력하거나 주소 관리에서 저장 주소를 추가하세요."}
-                      </p>
+                      <StoreCartCheckoutAddressRowBody
+                        row={profileLinkedAddressRow}
+                        profileFallback={profileAddressFallbackParts}
+                        emptyFallback="마이페이지에 저장된 배달 주소가 없습니다. 프로필에서 입력하거나 주소 관리에서 저장 주소를 추가하세요."
+                      />
                       {!profileDeliveryReady && profileAddressBodyText ? (
                         <p className="mt-1.5 sam-text-xxs leading-snug text-amber-800">
                           주문 전 지역·주소 한 줄이 3자 이상인지 확인해 주세요.
@@ -1673,7 +1689,6 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 .filter((a) => a.id !== profileSnap?.userAddressId)
                 .map((a, idx) => {
                   const selectionId = userAddressDeliverySelectionId(a.id);
-                  const body = formatPhDeliveryBlockForCheckout(a);
                   const isSel = selectedAddressId === selectionId;
                   return (
                     <li
@@ -1689,24 +1704,13 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                           className="mt-1"
                           checked={isSel}
                           onChange={() => {
-                            setSelectedAddressId(selectionId);
+                            selectDeliveryAddressId(selectionId);
                             applyCheckoutBuyerPhone({ selectedAddressPhone: a.phoneNumber ?? null });
                           }}
                           aria-label={`${getUserAddressDesignationPlainText(a)}, 저장 주소 ${idx + 1} 선택`}
                         />
                         <div className="min-w-0 flex-1">
-                          <div className="flex min-h-[1.25em] items-center gap-1">
-                            <UserAddressDesignationTitle
-                              row={a}
-                              className="sam-text-body-secondary font-bold text-sam-fg"
-                            />
-                          </div>
-                          <p className="mt-0.5 sam-text-xxs font-medium text-sam-muted">
-                            내정보 · 주소 관리
-                          </p>
-                          <p className="mt-1 whitespace-pre-wrap sam-text-helper font-normal leading-relaxed text-sam-fg">
-                            {body || "—"}
-                          </p>
+                          <StoreCartCheckoutAddressRowBody row={a} emptyFallback="—" />
                         </div>
                       </div>
                     </li>
@@ -1723,7 +1727,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             </div>
             {!deliveryAddressReady && checkoutContactReady && (profileSnap || savedAddresses.length > 0) ? (
               <p className="mt-2 sam-text-xxs leading-snug text-amber-800">
-                선택한 배송지 내용을 확인해 주세요. 지역·동네 또는 {STORE_ADDRESS_STREET_LABEL}이 필요합니다.
+                {resolvedCheckoutGeo && summaryForSubmit.trim().length >= 3
+                  ? "배달 지역(지역/도시)을 확인할 수 없습니다. 주소 관리에서 주소를 다시 저장하거나 동네·도시를 맞춰 주세요."
+                  : `선택한 배송지 내용을 확인해 주세요. 지역·동네 또는 ${STORE_ADDRESS_STREET_LABEL}(3자 이상)이 필요합니다.`}
               </p>
             ) : null}
             {checkoutContactReady && profileSnap && !profileDeliveryReady && savedAddresses.length === 0 ? (

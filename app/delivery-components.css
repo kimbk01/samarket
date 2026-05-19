@@ -800,3 +800,14 @@
   background-color: var(--delivery-btn-disabled) !important;
   opacity: 1;
 }
+
+/* /stores 배달 UI — 카드·하단 스트립 box-shadow 플랫(테두리만) */
+.delivery-page.delivery-ui :where(.shadow-sm, .shadow, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl) {
+  --tw-shadow: 0 0 #0000;
+  --tw-shadow-colored: 0 0 #0000;
+  box-shadow: none !important;
+}
+
+.delivery-page.delivery-ui :where([class*="shadow-["]):not([class*="shadow-none"]) {
+  box-shadow: none !important;
+}

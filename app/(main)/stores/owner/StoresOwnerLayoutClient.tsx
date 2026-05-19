@@ -1,17 +1,33 @@
 "use client";
 
+import { useLayoutEffect } from "react";
 import { usePathname } from "next/navigation";
+import { enterOwnerHubSecondaryFetchSchedule, leaveOwnerHubSecondaryFetchSchedule } from "@/lib/business/owner-hub-secondary-fetch-queue";
 import { StoreBusinessGuard } from "@/components/business/StoreBusinessGuard";
 import { BusinessAdminShell } from "@/components/business/admin/BusinessAdminShell";
+import { OwnerHubRuntimeProvider } from "@/components/business/owner/OwnerHubRuntimeProvider";
+import type { StoreRow } from "@/lib/stores/db-store-mapper";
 
 /**
  * `/stores/owner/*` 클라이언트 분기 — 서버 `layout.tsx` 가 매장 목록 시드 후에도
  * 클라 내비게이션·쿼리 변화에 맞춰 apply / hub / guarded 를 구분한다.
  */
-export function StoresOwnerLayoutClient({ children }: { children: React.ReactNode }) {
+export function StoresOwnerLayoutClient({
+  children,
+  initialStores = null,
+}: {
+  children: React.ReactNode;
+  initialStores?: StoreRow[] | null;
+}) {
   const pathname = (usePathname() ?? "").replace(/\/+$/, "") || "/";
   const isApply = pathname.startsWith("/stores/owner/apply");
   const isHub = pathname === "/stores/owner";
+
+  useLayoutEffect(() => {
+    if (!isHub) return;
+    enterOwnerHubSecondaryFetchSchedule(pathname);
+    return () => leaveOwnerHubSecondaryFetchSchedule();
+  }, [isHub, pathname]);
 
   if (isApply) {
     return (
@@ -22,7 +38,13 @@ export function StoresOwnerLayoutClient({ children }: { children: React.ReactNod
   }
 
   if (isHub) {
-    return <BusinessAdminShell entry="hub">{children}</BusinessAdminShell>;
+    return (
+      <OwnerHubRuntimeProvider initialStores={initialStores}>
+        <BusinessAdminShell entry="hub" initialStores={initialStores}>
+          {children}
+        </BusinessAdminShell>
+      </OwnerHubRuntimeProvider>
+    );
   }
 
   return (

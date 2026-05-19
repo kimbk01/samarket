@@ -17,7 +17,7 @@ export function StoreOrderReceiptCard({ view, viewer, compact = false }: Props) 
       ? Math.round((view.totals.discount / view.totals.itemsSubtotal) * 100)
       : 0;
   return (
-    <article className="overflow-hidden rounded-ui-rect border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-surface)] text-left shadow-[0_2px_10px_rgba(0,0,0,0.06)]">
+    <article className="overflow-hidden rounded-ui-rect border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-surface)] text-left">
       <header className="border-b border-[color:var(--cm-room-divider)] bg-[color:var(--messenger-badge-delivery-bg)] px-3 py-2.5">
         <div className="mb-1 flex items-center justify-between gap-2">
           <span className="rounded-ui-rect bg-white/65 px-2 py-0.5 sam-text-xxs font-bold text-[color:var(--cm-room-text)]">

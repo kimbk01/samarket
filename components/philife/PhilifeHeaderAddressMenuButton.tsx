@@ -13,6 +13,7 @@ import {
   readCachedMeAddressList,
   writeCachedMeAddressList,
 } from "@/lib/addresses/address-list-client-cache";
+import { isLinkedSamarketStoreAddressRow } from "@/lib/addresses/is-linked-samarket-store-address";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
 import {
   formatNeighborhoodRegionSubtitle,
@@ -189,6 +190,12 @@ export function PhilifeHeaderAddressMenuButton({
   async function setAsRepresentative(id: string) {
     const row = list.find((a) => a.id === id);
     if (!row || row.isDefaultMaster || busyId) return;
+    if (isLinkedSamarketStoreAddressRow(row)) {
+      setListError(
+        "매장 연결 주소는 대표 주소로 둘 수 없어요. 우리집·회사 등 일반 주소를 대표로 지정해 주세요.",
+      );
+      return;
+    }
     setBusyId(id);
     try {
       const res = await fetch(`/api/me/addresses/${id}`, {

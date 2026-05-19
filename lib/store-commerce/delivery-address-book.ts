@@ -3,6 +3,8 @@
  * 선택된 항목이 주문 API delivery_address_* 로 전달됩니다.
  */
 
+import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
+
 export type DeliveryAddressBookEntry = {
   id: string;
   /** 표시용 슬롯 이름(예: 배달주소 1). 목록 순서와 함께 쓰입니다. */
@@ -29,6 +31,42 @@ export function parseUserAddressIdFromDeliverySelection(selectedId: string | nul
   if (!selectedId?.startsWith(USER_ADDRESS_DELIVERY_PREFIX)) return null;
   const id = selectedId.slice(USER_ADDRESS_DELIVERY_PREFIX.length).trim();
   return id || null;
+}
+
+type CartDeliveryProfileSnap = { userAddressId?: string | null } | null;
+
+/** 카트 배송지 라디오 — 현재 선택이 목록·프로필과 맞는지 */
+export function isCartDeliverySelectionValid(
+  selectedId: string | null,
+  savedAddresses: readonly UserAddressDTO[],
+  profileSnap: CartDeliveryProfileSnap
+): boolean {
+  if (!selectedId) return false;
+  if (selectedId === PROFILE_DELIVERY_SELECTION_ID) return !!profileSnap;
+  const uid = parseUserAddressIdFromDeliverySelection(selectedId);
+  return !!uid && savedAddresses.some((a) => a.id === uid);
+}
+
+/**
+ * 카트 배송지 라디오 기본값 — **대표 주소(`isDefaultMaster`)** 우선.
+ * 대표가 프로필 checkout 행과 같으면 `PROFILE_DELIVERY_SELECTION_ID`.
+ */
+export function resolveCartDefaultDeliverySelectionId(
+  savedAddresses: readonly UserAddressDTO[],
+  profileSnap: CartDeliveryProfileSnap
+): string | null {
+  const masterRow = savedAddresses.find((x) => x.isDefaultMaster);
+  if (masterRow?.id) {
+    if (profileSnap?.userAddressId === masterRow.id) return PROFILE_DELIVERY_SELECTION_ID;
+    return userAddressDeliverySelectionId(masterRow.id);
+  }
+  const deliveryDefault = savedAddresses.find((x) => x.isDefaultDelivery) ?? savedAddresses[0];
+  if (deliveryDefault?.id) {
+    if (profileSnap?.userAddressId === deliveryDefault.id) return PROFILE_DELIVERY_SELECTION_ID;
+    return userAddressDeliverySelectionId(deliveryDefault.id);
+  }
+  if (profileSnap) return PROFILE_DELIVERY_SELECTION_ID;
+  return null;
 }
 
 type StoredShape = {

@@ -1,5 +1,9 @@
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
-import { stripCountryFromAddressDisplayLine } from "@/lib/addresses/user-address-format";
+import {
+  buildAddressListDetailLine,
+  buildAddressManagementListPrimaryLine,
+  stripCountryFromAddressDisplayLine,
+} from "@/lib/addresses/user-address-format";
 
 function isPhRow(row: UserAddressDTO): boolean {
   const cc = (row.countryCode ?? "PH").trim().toUpperCase();
@@ -183,6 +187,51 @@ export function formatPhDeliveryListPrimaryLine(row: UserAddressDTO): string {
   const head = b && street && !street.toLowerCase().includes(b.toLowerCase()) ? `${b} · ${street}` : street || b || "";
   if (admin && head) return `${head} — ${admin}`;
   return head || admin || "—";
+}
+
+/** 장바구니 배송지 카드 — 본문(일반) / 상세(굵게) / 부가 줄 분리 */
+export type CheckoutAddressBodyParts = {
+  primaryLines: string[];
+  detailLine: string | null;
+  extraLines: string[];
+};
+
+export function splitCheckoutAddressBodyParts(row: UserAddressDTO): CheckoutAddressBodyParts {
+  if (!isPhRow(row)) {
+    const main = stripCountryFromAddressDisplayLine(
+      buildAddressManagementListPrimaryLine(row),
+      row.countryName,
+    );
+    const detail = buildAddressListDetailLine(row, main);
+    const primaryLines = main && main !== "—" ? [main] : [];
+    return { primaryLines, detailLine: detail, extraLines: [] };
+  }
+
+  const primaryLines: string[] = [];
+  const street = formatPhDeliveryStreetSummary(row);
+  if (street) primaryLines.push(dedupePhCommaDuplicateHead(street));
+  const admin = formatPhDeliveryAdminLine(row);
+  if (admin) primaryLines.push(admin);
+
+  const streetLower = street.toLowerCase();
+  const detailParts = [row.detailAddress, row.unitFloorRoom]
+    .map((x) => x?.trim())
+    .filter((x): x is string => !!x);
+  let detailJoined = detailParts.join(" · ");
+  if (detailJoined) {
+    const dl = detailJoined.toLowerCase();
+    if (streetLower.startsWith(dl) || streetLower === dl) detailJoined = "";
+  }
+
+  const extraLines: string[] = [];
+  if (row.landmark?.trim()) extraLines.push(`Near: ${row.landmark.trim()}`);
+  if (row.deliveryNote?.trim()) extraLines.push(`Delivery note: ${row.deliveryNote.trim()}`);
+
+  return {
+    primaryLines,
+    detailLine: detailJoined || null,
+    extraLines,
+  };
 }
 
 /** 체크아웃·확인 모달용 여러 줄(원문 `formatted_address` 전체 덤프 지양) */

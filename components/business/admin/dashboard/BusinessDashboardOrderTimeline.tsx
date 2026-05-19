@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
+import { buildStoreOrderMessengerRoomHref } from "@/lib/chats/surfaces/order-chat-surface";
 import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
 import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
 
@@ -15,7 +17,16 @@ export type TimelineOrder = {
   created_at: string;
   buyer_payment_method?: string | null;
   buyer_payment_method_detail?: string | null;
+  community_messenger_room_id?: string | null;
 };
+
+function orderChatHref(order: TimelineOrder): string {
+  const roomId = order.community_messenger_room_id?.trim() ?? "";
+  if (roomId) {
+    return buildStoreOrderMessengerRoomHref(roomId, { entryOrigin: "delivery" });
+  }
+  return `/stores/owner/order-chat/${encodeURIComponent(order.id)}`;
+}
 
 export function BusinessDashboardOrderTimeline({
   storeId,
@@ -24,6 +35,8 @@ export function BusinessDashboardOrderTimeline({
   storeId: string;
   orders: TimelineOrder[];
 }) {
+  const router = useRouter();
+
   if (orders.length === 0) {
     return (
       <div className="rounded-ui-rect border border-dashed border-sam-border-soft bg-sam-app/40 px-4 py-14 text-center sam-text-body text-sam-muted">
@@ -64,8 +77,11 @@ export function BusinessDashboardOrderTimeline({
                 상세
               </Link>
               <Link
-                href={`/stores/owner/order-chat/${encodeURIComponent(o.id)}`}
-                className="rounded-ui-rect bg-signature px-3 py-2 sam-text-body-secondary font-semibold text-white shadow-sm transition hover:opacity-95"
+                href={orderChatHref(o)}
+                prefetch
+                onMouseEnter={() => router.prefetch(orderChatHref(o))}
+                onFocus={() => router.prefetch(orderChatHref(o))}
+                className="rounded-ui-rect bg-signature px-3 py-2 sam-text-body-secondary font-semibold text-white transition hover:opacity-95"
               >
                 채팅
               </Link>

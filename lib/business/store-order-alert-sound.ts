@@ -3,8 +3,11 @@
  * `/admin/stores/application-settings` 에서 설정한 admin_settings `store_delivery_alert_sound` URL이 있으면 재생, 없으면 비프.
  */
 
+import { runSingleFlight } from "@/lib/http/run-single-flight";
+
 const RESOLVE_TTL_MS = 60_000;
 const APP_SOUND_URL = "/api/app/store-delivery-alert-sound";
+const SOUND_RESOLVE_FLIGHT_KEY = "app:store-delivery-alert-sound";
 
 let sharedCtx: AudioContext | null = null;
 let resolvedCache: { url: string | null; at: number } | null = null;
@@ -29,16 +32,22 @@ async function resolveGlobalCustomSoundUrl(): Promise<string | null> {
   if (resolvedCache && n - resolvedCache.at < RESOLVE_TTL_MS) {
     return resolvedCache.url;
   }
-  try {
-    const res = await fetch(APP_SOUND_URL, { credentials: "same-origin", cache: "no-store" });
-    const j = (await res.json().catch(() => ({}))) as { ok?: boolean; url?: unknown };
-    const u = typeof j.url === "string" ? j.url.trim() : "";
-    resolvedCache = { url: u || null, at: n };
-    return resolvedCache.url;
-  } catch {
-    resolvedCache = { url: null, at: n };
-    return null;
-  }
+  return runSingleFlight(SOUND_RESOLVE_FLIGHT_KEY, async () => {
+    const n2 = Date.now();
+    if (resolvedCache && n2 - resolvedCache.at < RESOLVE_TTL_MS) {
+      return resolvedCache.url;
+    }
+    try {
+      const res = await fetch(APP_SOUND_URL, { credentials: "same-origin", cache: "no-store" });
+      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; url?: unknown };
+      const u = typeof j.url === "string" ? j.url.trim() : "";
+      resolvedCache = { url: u || null, at: n2 };
+      return resolvedCache.url;
+    } catch {
+      resolvedCache = { url: null, at: n2 };
+      return null;
+    }
+  });
 }
 
 function playBuiltinBeeps(): void {

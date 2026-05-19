@@ -95,6 +95,7 @@ export function BusinessDashboardKpiStrip({
           <Link
             key={c.key}
             href={c.href}
+            prefetch={false}
             className={`flex min-h-[5.25rem] flex-col justify-center bg-sam-surface px-2.5 py-2.5 transition sm:min-h-[5.75rem] sm:px-3 ${
               c.emphasize ? "ring-2 ring-inset ring-signature/35 hover:bg-signature/[0.06]" : "hover:bg-sam-app"
             }`}

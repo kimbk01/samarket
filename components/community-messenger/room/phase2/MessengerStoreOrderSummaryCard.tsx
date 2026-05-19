@@ -48,7 +48,7 @@ export function MessengerStoreOrderSummaryCard({ content, timeline, metadata }: 
   const bodyLines = lines.slice(1);
 
   return (
-    <div className="w-full max-w-[min(100%,21rem)] overflow-hidden rounded-ui-rect border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-surface)] text-left shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+    <div className="w-full max-w-[min(100%,21rem)] overflow-hidden rounded-ui-rect border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-surface)] text-left">
       <div className="border-b border-[color:var(--cm-room-divider)] bg-[color:var(--messenger-badge-delivery-bg)] px-3 py-2">
         <p className="sam-text-helper font-bold text-[color:var(--cm-room-text)]">{header}</p>
       </div>

@@ -1,4 +1,6 @@
 import { MyBusinessPage } from "@/components/business/MyBusinessPage";
+import { OwnerHubDashboardOrdersCacheSeed } from "@/components/business/owner/OwnerHubDashboardOrdersCacheSeed";
+import { OwnerHubMeStoresCacheSeed } from "@/components/business/owner/OwnerHubMeStoresCacheSeed";
 import { loadMyBusinessServer } from "@/lib/business/load-my-business-server";
 
 function firstQueryString(v: string | string[] | undefined): string | undefined {
@@ -17,5 +19,22 @@ export default async function StoresOwnerHubRoute({ searchParams }: PageProps) {
   const sp = await searchParams;
   const storeId = firstQueryString(sp.storeId)?.trim() ?? "";
   const initialServerState = await loadMyBusinessServer(storeId);
-  return <MyBusinessPage initialServerState={initialServerState} />;
+  const remoteSeed =
+    initialServerState.kind === "remote" ?
+      <>
+        <OwnerHubMeStoresCacheSeed stores={initialServerState.stores} />
+        {initialServerState.dashboard ?
+          <OwnerHubDashboardOrdersCacheSeed
+            storeId={initialServerState.row.id}
+            pack={initialServerState.dashboard}
+          />
+        : null}
+      </>
+    : null;
+  return (
+    <>
+      {remoteSeed}
+      <MyBusinessPage initialServerState={initialServerState} />
+    </>
+  );
 }

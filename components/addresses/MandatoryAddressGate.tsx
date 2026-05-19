@@ -4,6 +4,10 @@ import { useRouter, usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { buildPhoneVerificationHref } from "@/lib/auth/client-access-flow";
 import { LogoutActionTrigger } from "@/components/my/settings/LogoutContent";
+import {
+  OWNER_HUB_SECONDARY_AFTER_MS,
+  runNowOrScheduleOnStoreOwnerAdmin,
+} from "@/lib/business/owner-hub-secondary-fetch-queue";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
@@ -86,7 +90,7 @@ export function MandatoryAddressGate() {
     setFullInteractiveMemberOk(j.fullInteractiveMemberOk !== false);
   }, []);
 
-  const runGateFetch = useCallback(async () => {
+  const runGateFetchNow = useCallback(async () => {
     const p = pathRef.current;
     if (isGateExcludedPath(p)) {
       setBlocked(false);
@@ -104,6 +108,14 @@ export function MandatoryAddressGate() {
       setBlocked(false);
     }
   }, [applyGateJson]);
+
+  const runGateFetch = useCallback(() => {
+    runNowOrScheduleOnStoreOwnerAdmin(
+      () => runGateFetchNow(),
+      OWNER_HUB_SECONDARY_AFTER_MS.addressGate,
+      "address-gate"
+    );
+  }, [runGateFetchNow]);
 
   useEffect(() => {
     pathRef.current = pathname;

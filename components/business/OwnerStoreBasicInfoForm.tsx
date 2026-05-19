@@ -15,7 +15,13 @@ import {
   describeMeAddressesListFailure,
   fetchMeAddressesListSingleFlight,
   invalidateMeAddressesListClientCache,
+  readCachedMeAddressList,
+  writeCachedMeAddressList,
 } from "@/lib/addresses/address-list-client-cache";
+import {
+  cancelOwnerHubSecondaryFetchKey,
+  runNowOrScheduleOnStoreOwnerAdmin,
+} from "@/lib/business/owner-hub-secondary-fetch-queue";
 import { deriveStoreAddressFieldsFromUserAddressMaster } from "@/lib/business/derive-store-address-from-user-address-master";
 import { pickUserAddressLinkedToStore } from "@/lib/business/pick-user-address-linked-to-store";
 import { OwnerAddressBookSnapshotCard } from "@/components/business/OwnerAddressBookSnapshotCard";
@@ -421,7 +427,7 @@ export function OwnerStoreBasicInfoForm({
   useEffect(() => {
     let cancelled = false;
     setTaxonomyLoading(true);
-    void (async () => {
+    const loadTaxonomy = async () => {
       try {
         const { json: jRaw } = await fetchStoresTaxonomyDeduped();
         const j = jRaw as {
@@ -454,9 +460,11 @@ export function OwnerStoreBasicInfoForm({
       } finally {
         if (!cancelled) setTaxonomyLoading(false);
       }
-    })();
+    };
+    runNowOrScheduleOnStoreOwnerAdmin(loadTaxonomy, 480, "owner-basic-info-taxonomy");
     return () => {
       cancelled = true;
+      cancelOwnerHubSecondaryFetchKey("owner-basic-info-taxonomy");
     };
   }, []);
 
@@ -490,9 +498,23 @@ export function OwnerStoreBasicInfoForm({
   useEffect(() => {
     let cancelled = false;
     let focusDebounce: number | null = null;
+    const applyRows = (rows: UserAddressDTO[]) => {
+      const linked = pickUserAddressLinkedToStore(storeId, rows);
+      setStoreLinkedUserAddress(linked);
+    };
+
     const load = async (opts?: { force?: boolean }) => {
       const seq = ++addressLoadSeqRef.current;
-      setAddressReady(false);
+      if (!opts?.force) {
+        const cached = readCachedMeAddressList();
+        if (cached && cached.length > 0) {
+          setAddressBookListError(null);
+          applyRows(cached);
+          setAddressReady(true);
+        }
+      } else {
+        setAddressReady(false);
+      }
       setAddressBookListError(null);
       if (opts?.force) {
         invalidateMeAddressesListClientCache();
@@ -507,8 +529,8 @@ export function OwnerStoreBasicInfoForm({
           setStoreLinkedUserAddress(null);
         } else {
           setAddressBookListError(null);
-          const linked = pickUserAddressLinkedToStore(storeId, listResult.rows);
-          setStoreLinkedUserAddress(linked);
+          if (listResult.rows.length > 0) writeCachedMeAddressList(listResult.rows);
+          applyRows(listResult.rows);
         }
       } catch {
         if (!cancelled && seq === addressLoadSeqRef.current) {
@@ -520,7 +542,7 @@ export function OwnerStoreBasicInfoForm({
       }
     };
 
-    void load({ force: true });
+    void load({ force: false });
     const onFocus = () => {
       if (focusDebounce != null) window.clearTimeout(focusDebounce);
       focusDebounce = window.setTimeout(() => {
