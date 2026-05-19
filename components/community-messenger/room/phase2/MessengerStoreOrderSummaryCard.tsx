@@ -9,6 +9,7 @@ import {
 } from "@/lib/store-order-chat/build-store-order-chat-card-view";
 import { StoreOrderReceiptCard } from "@/components/community-messenger/room/phase2/StoreOrderReceiptCard";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
+import { useStoreOrderDeliveryRoomOptional } from "@/components/community-messenger/room/phase2/store-order-delivery-room-context";
 import { useStoreOrderRoomSnapshot } from "@/lib/store-order-chat/use-store-order-room-snapshot";
 
 type Props = {
@@ -29,12 +30,14 @@ export function MessengerStoreOrderSummaryCard({ content, timeline, metadata }: 
       ? roomMeta.storeId.trim()
       : "";
   const needsLiveOrderCard = Boolean(storeOrderId && !metadata?.order);
-  const { snapshot } = useStoreOrderRoomSnapshot({
+  const deliveryRoom = useStoreOrderDeliveryRoomOptional();
+  const fallbackSnapshot = useStoreOrderRoomSnapshot({
     storeOrderId,
     storeId,
     isOwner: Boolean(storeId),
-    enabled: needsLiveOrderCard,
+    enabled: needsLiveOrderCard && !deliveryRoom,
   });
+  const snapshot = deliveryRoom?.snapshot ?? fallbackSnapshot.snapshot;
   const structured = viewFromMetadata(metadata, timeline) ?? snapshot?.orderCard ?? null;
   if (structured) {
     return (

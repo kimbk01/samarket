@@ -14,6 +14,8 @@ as $$
     and n.notification_type = 'commerce'
     and (n.meta->>'kind') in (
       'store_order_created',
+      'store_order_accept_reminder_30s',
+      'store_order_accept_reminder_60s',
       'store_order_payment_completed',
       'store_order_buyer_cancelled',
       'store_order_refund_requested'
@@ -40,6 +42,8 @@ as $$
         n.notification_type = 'commerce'
         and coalesce(n.meta->>'kind', '') not in (
           'store_order_created',
+          'store_order_accept_reminder_30s',
+          'store_order_accept_reminder_60s',
           'store_order_payment_completed',
           'store_order_buyer_cancelled',
           'store_order_refund_requested',

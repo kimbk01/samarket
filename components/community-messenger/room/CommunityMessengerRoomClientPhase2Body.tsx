@@ -24,6 +24,7 @@ import { CommunityMessengerRoomPhase2RoomSheets } from "@/components/community-m
 import { CommunityMessengerRoomPhase2MemberActionModal } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2MemberActionModal";
 import { CommunityMessengerRoomPhase2CallLayer } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2CallLayer";
 import { CommunityMessengerRoomPhase2Composer } from "@/components/community-messenger/room/phase2/CommunityMessengerRoomPhase2Composer";
+import { StoreOrderDeliveryRoomProvider } from "@/components/community-messenger/room/phase2/store-order-delivery-room-context";
 import {
   MessengerRoomPhase2ComposerProvider,
   type MessengerRoomPhase2ComposerViewModel,
@@ -240,6 +241,9 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
       ),
     [view.snapshot.room.contextMeta, view.snapshot.myRole]
   );
+  const storeOrderDeliveryRoomEnabled = view.showMessengerStoreOrderDock && view.storeOrderIdForDock.length > 0;
+  const storeOrderDeliveryIsOwnerApi =
+    deliveryViewerRole === "seller" && view.storeIdForDock.length > 0;
   const headerView = useMemo(
     () => ({
       snapshot: view.snapshot,
@@ -425,6 +429,12 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
       value={{ keyboardOverlapSuppressed, messengerKeyboardChromeOpen }}
     >
       <MessengerRoomPhase2ViewProvider value={view}>
+        <StoreOrderDeliveryRoomProvider
+          storeOrderId={view.storeOrderIdForDock}
+          storeId={view.storeIdForDock}
+          isOwnerApi={storeOrderDeliveryIsOwnerApi}
+          enabled={storeOrderDeliveryRoomEnabled}
+        >
         <CmRoomPhase2HydrationProvider pass={hydrationPass}>
         <div
           ref={setMessengerShellRef}
@@ -475,6 +485,7 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
           </div>
         </div>
         </CmRoomPhase2HydrationProvider>
+        </StoreOrderDeliveryRoomProvider>
       </MessengerRoomPhase2ViewProvider>
     </MessengerRoomMobileViewportProvider>
   );

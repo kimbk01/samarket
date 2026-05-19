@@ -128,6 +128,85 @@ export async function notifyStoreOwnerNewOrder(
   });
 }
 
+/** 미접수 주문 서버 리마인드 (30s/60s bucket). */
+export async function notifyStoreOwnerAcceptReminder(
+  sb: SupabaseClient,
+  opts: {
+    storeId: string;
+    orderId: string;
+    orderNo: string;
+    paymentAmount: number;
+    lineCount: number;
+    reminderBucketSec: 30 | 60;
+    storeName?: string;
+    storeOrderEventId?: string | null;
+  }
+): Promise<void> {
+  const sid = opts.storeId.trim();
+  const oid = opts.orderId.trim();
+  if (!sid || !oid) return;
+
+  const { data: store, error } = await sb
+    .from("stores")
+    .select("owner_user_id, store_name")
+    .eq("id", sid)
+    .maybeSingle();
+  if (error || !store?.owner_user_id) return;
+
+  const ownerId = store.owner_user_id as string;
+  const language = await loadUserLanguage(sb, ownerId);
+  const name = (opts.storeName ?? (store.store_name as string) ?? "").trim();
+  const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
+  const amt = formatMoneyPhp(opts.paymentAmount);
+  const lines = Math.max(0, opts.lineCount);
+  const bucketSec = opts.reminderBucketSec;
+  const evTrim = (opts.storeOrderEventId ?? "").trim();
+  const kind =
+    bucketSec === 30 ? "store_order_accept_reminder_30s" : "store_order_accept_reminder_60s";
+  const dedupe = `commerce:owner:accept_reminder:${oid}:${bucketSec}s`;
+
+  const title = nt(language, "notify_commerce_owner_accept_reminder_title");
+  const bodyNamed = nt(language, "notify_commerce_owner_accept_reminder_body_named", {
+    store: name,
+    orderNo,
+    amount: amt,
+    lineCount: lines,
+    seconds: bucketSec,
+  });
+  const body = nt(language, "notify_commerce_owner_accept_reminder_body", {
+    orderNo,
+    amount: amt,
+    lineCount: lines,
+    seconds: bucketSec,
+  });
+
+  await appendUserNotification(sb, {
+    user_id: ownerId,
+    notification_type: "commerce",
+    domain: "store",
+    ref_id: oid,
+    ...(evTrim ? { store_order_event_id: evTrim } : {}),
+    dedupe_key: dedupe,
+    title,
+    body: name ? bodyNamed : body,
+    link_url: buildStoreOrdersHref({
+      storeId: sid,
+      orderId: oid,
+      ackOwnerNotifications: true,
+    }),
+    meta: {
+      kind,
+      store_id: sid,
+      order_id: oid,
+      order_no: orderNo,
+      payment_amount: Math.round(opts.paymentAmount),
+      line_count: lines,
+      reminder_bucket_sec: bucketSec,
+      ...(evTrim ? { store_order_event_id: evTrim } : {}),
+    },
+  });
+}
+
 /** 결제 완료 시 구매자 — 주문 상세·채팅 안내 */
 export async function notifyBuyerStorePaymentCompleted(
   sb: SupabaseClient,
@@ -420,6 +499,7 @@ export async function notifyBuyerStoreOrderOwnerStatus(
     orderNo: string;
     storeId: string;
     nextStatus: string;
+    estimatedPrepMinutes?: number | null;
     storeOrderEventId?: string | null;
   }
 ): Promise<void> {
@@ -434,6 +514,13 @@ export async function notifyBuyerStoreOrderOwnerStatus(
   const orderNo = opts.orderNo.trim() || oid.slice(0, 8);
   const copy = buyerCopyForOwnerStatus(language, opts.nextStatus, label, orderNo);
   if (!copy) return;
+  const etaSuffix =
+    opts.nextStatus === "accepted" &&
+    opts.estimatedPrepMinutes != null &&
+    Number.isFinite(Number(opts.estimatedPrepMinutes)) &&
+    Number(opts.estimatedPrepMinutes) > 0
+      ? ` (예상 소요 약 ${Math.floor(Number(opts.estimatedPrepMinutes))}분)`
+      : "";
 
   const evTrim = (opts.storeOrderEventId ?? "").trim();
   const dedupe = `commerce:buyer:owner_status:${oid}:${opts.nextStatus}`;
@@ -446,7 +533,7 @@ export async function notifyBuyerStoreOrderOwnerStatus(
     ...(evTrim ? { store_order_event_id: evTrim } : {}),
     dedupe_key: dedupe,
     title: copy.title,
-    body: copy.body,
+    body: `${copy.body}${etaSuffix}`,
     link_url: BUYER_STORE_ORDERS_NOTIFICATION_HREF,
     meta: {
       kind: "store_order_owner_status",
@@ -454,6 +541,9 @@ export async function notifyBuyerStoreOrderOwnerStatus(
       order_no: orderNo,
       store_id: opts.storeId.trim(),
       order_status: opts.nextStatus,
+      ...(opts.estimatedPrepMinutes != null
+        ? { estimated_prep_minutes: Math.floor(Number(opts.estimatedPrepMinutes)) }
+        : {}),
       ...(evTrim ? { store_order_event_id: evTrim } : {}),
     },
   });

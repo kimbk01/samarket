@@ -9,16 +9,18 @@ import { buildMessengerRoomListBackHref } from "@/lib/community-messenger/messen
 import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
 import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
 import { formatMessengerPeerPresenceLine } from "@/lib/community-messenger/realtime/presence/format-messenger-peer-presence-line";
-import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
 import { useMessengerTypingStore } from "@/lib/community-messenger/stores/useMessengerTypingStore";
 import { MessengerHeader } from "@/components/community-messenger/line-ui";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
-import { Search } from "lucide-react";
+import { Menu, Search } from "lucide-react";
 import { SAMARKET_ROUTES } from "@/lib/app/samarket-route-map";
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
 import { useMessengerRoomAnimatedBack } from "@/components/community-messenger/room/MessengerRoomSwipeBackShell";
 import { noteCmRoomPass1HeaderMs } from "@/lib/community-messenger/room/cm-room-pass-instrumentation";
 import { useCmRoomPhase2HydrationPass } from "@/lib/community-messenger/room/cm-room-phase2-hydration-context";
+import { useStoreOrderDeliveryMessengerHeader } from "@/lib/store-order-chat/use-store-order-delivery-messenger-header";
+import { StoreOrderDeliveryMessengerHeaderBlock } from "@/components/community-messenger/room/phase2/StoreOrderDeliveryMessengerHeaderBlock";
+import { useStoreOrderDeliveryDetailDrawerOptional } from "@/components/community-messenger/room/phase2/store-order-delivery-detail-drawer-context";
 
 export const CommunityMessengerRoomPhase2Header = memo(function CommunityMessengerRoomPhase2Header() {
   const vm = useMessengerRoomPhase2HeaderView();
@@ -33,7 +35,6 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
     bindPresenceAndTyping ? vm.snapshot.room.peerUserId ?? null : null,
     bindPresenceAndTyping ? (vm.snapshot.peerPresence ?? null) : null
   );
-  /** 1:1 은 0/1, 그룹·오픈은 동시에 입력 중인 다른 참가자 수 */
   const typingPeerCount = useMessengerTypingStore((state) => {
     if (!bindPresenceAndTyping) return 0;
     const roomId = vm.snapshot.room.id.trim().toLowerCase();
@@ -67,16 +68,32 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
     return vm.roomHeaderStatus;
   }, [peerPresence, typingPeerCount, vm.roomHeaderStatus, vm.snapshot.room.roomType]);
 
-  const peerDeliveryOrderLabel = useMemo(() => {
-    const ctx = vm.snapshot.room.contextMeta as CommunityMessengerRoomContextMetaV1 | null | undefined;
-    if (ctx?.kind !== "delivery") return null;
-    const orderNo = ctx.orderNo?.trim();
-    const step = ctx.stepLabel?.trim();
-    if (orderNo && step) return `${orderNo} · ${step}`;
-    return orderNo || step || "배달·매장 주문";
-  }, [vm.snapshot.room.contextMeta]);
+  const deliveryCtx = vm.snapshot.room.contextMeta as CommunityMessengerRoomContextMetaV1 | null | undefined;
+  const isDeliveryRoom = deliveryCtx?.kind === "delivery";
+  const storeOrderIdForHeader =
+    isDeliveryRoom && typeof deliveryCtx.storeOrderId === "string" ? deliveryCtx.storeOrderId.trim() : "";
+  const storeIdForHeader =
+    isDeliveryRoom && typeof deliveryCtx.storeId === "string" ? deliveryCtx.storeId.trim() : "";
 
-  /** 상대방 역할 — `ctx.roleLabel` 은 조회자(나) 기준이므로 헤더에 붙일 땐 반대로 표시 */
+  const deliveryHeader = useStoreOrderDeliveryMessengerHeader({
+    isDeliveryRoom,
+    deliveryHeadline: deliveryCtx?.headline,
+    storeOrderId: storeOrderIdForHeader,
+    storeId: storeIdForHeader,
+    myRole: vm.snapshot.myRole,
+    roomTitle: vm.snapshot.room.title,
+    roomAvatarUrl: vm.snapshot.room.avatarUrl,
+    peerUserId: vm.snapshot.room.peerUserId ?? "",
+    viewerUserId: vm.snapshot.viewerUserId ?? "",
+    members: vm.snapshot.members,
+    thumbnailUrl: deliveryCtx?.thumbnailUrl ?? null,
+  });
+
+  const useDeliveryHeaderBlock =
+    isDeliveryRoom && deliveryHeader.mode !== "none" && deliveryHeader.mode !== "generic_delivery";
+  const orderDetailDrawer = useStoreOrderDeliveryDetailDrawerOptional();
+  const deliveryOrderDetailMenu = Boolean(isDeliveryRoom && storeOrderIdForHeader && orderDetailDrawer);
+
   const peerTradeRoleLabel = useMemo(() => {
     const ctx = vm.snapshot.room.contextMeta as CommunityMessengerRoomContextMetaV1 | null | undefined;
     if (ctx?.kind !== "trade") return null;
@@ -94,8 +111,8 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
 
   return (
     <>
-      <MessengerHeader>
-        <div className="flex items-stretch gap-1.5">
+      <MessengerHeader className="min-h-[52px] bg-white py-1">
+        <div className="flex min-w-0 items-stretch gap-1.5">
           <button
             type="button"
             onClick={() => {
@@ -116,46 +133,55 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
           >
             <BackIcon className="h-[18px] w-[18px]" />
           </button>
-          <div className="relative shrink-0 self-center">
-            <SamarketThumbnail
-              src={vm.snapshot.room.avatarUrl}
-              size={36}
-              roundedClassName="rounded-full"
-              className="bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]"
-              fallbackSrc=""
-              fallbackNode={<div className="sam-text-body-secondary font-semibold text-[color:var(--cm-room-primary)]">{vm.snapshot.room.title.trim().slice(0, 1).toUpperCase() || "?"}</div>}
+
+          {useDeliveryHeaderBlock ? (
+            <StoreOrderDeliveryMessengerHeaderBlock
+              model={deliveryHeader}
+              presenceState={peerPresence?.state ?? null}
+              showPresence={bindPresenceAndTyping && vm.snapshot.room.roomType === "direct"}
             />
-            {bindPresenceAndTyping && vm.snapshot.room.roomType === "direct" && peerPresence ? (
-              <CommunityMessengerPresenceDot state={peerPresence.state} />
-            ) : null}
-          </div>
-          <div className="flex min-h-9 min-w-0 flex-1 flex-col justify-center self-center gap-0 leading-tight">
-            {peerTradeRoleLabel ? (
-              <p className="truncate sam-text-xxs text-[color:var(--cm-room-text-muted)]">
-                <span className="inline-block -translate-y-[1pt] font-semibold leading-snug text-[color:var(--cm-room-text)] sam-text-helper">
+          ) : !isDeliveryRoom ? (
+            <div className="relative shrink-0 self-center">
+              <SamarketThumbnail
+                src={vm.snapshot.room.avatarUrl}
+                size={36}
+                roundedClassName="rounded-full"
+                className="bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]"
+                fallbackSrc=""
+                fallbackNode={
+                  <div className="sam-text-body-secondary font-semibold text-[color:var(--cm-room-primary)]">
+                    {vm.snapshot.room.title.trim().slice(0, 1).toUpperCase() || "?"}
+                  </div>
+                }
+              />
+            </div>
+          ) : null}
+
+          {!useDeliveryHeaderBlock ? (
+            <div className="flex min-h-9 min-w-0 flex-1 flex-col justify-center self-center gap-0 overflow-hidden leading-tight">
+              {peerTradeRoleLabel ? (
+                <p className="truncate sam-text-xxs text-[color:var(--cm-room-text-muted)]">
+                  <span className="inline-block -translate-y-[1pt] font-semibold leading-snug text-[color:var(--cm-room-text)] sam-text-helper">
+                    {vm.snapshot.room.title}
+                  </span>
+                  <span aria-hidden> | </span>
+                  <span>{peerTradeRoleLabel}</span>
+                </p>
+              ) : isDeliveryRoom && deliveryHeader.mode === "generic_delivery" ? (
+                <p className="truncate text-[15px] font-semibold leading-tight text-[#111827]">
+                  {deliveryHeader.title}
+                </p>
+              ) : (
+                <p className="-translate-y-[1pt] truncate sam-text-body font-semibold leading-tight text-[color:var(--cm-room-text)]">
                   {vm.snapshot.room.title}
-                </span>
-                <span aria-hidden> | </span>
-                <span>{peerTradeRoleLabel}</span>
-              </p>
-            ) : peerDeliveryOrderLabel ? (
-              <p className="truncate sam-text-xxs text-[color:var(--cm-room-text-muted)]">
-                <span className="mr-1 inline-flex shrink-0 items-center rounded-ui-rect bg-[color:var(--messenger-badge-delivery-bg)] px-1 py-0.5 sam-text-xxs font-bold text-[color:var(--cm-room-text)]">
-                  배달
-                </span>
-                <span className="inline-block -translate-y-[1pt] font-semibold leading-snug text-[color:var(--cm-room-text)] sam-text-helper">
-                  {vm.snapshot.room.title}
-                </span>
-                <span aria-hidden> | </span>
-                <span>{peerDeliveryOrderLabel}</span>
-              </p>
-            ) : (
-              <p className="-translate-y-[1pt] truncate sam-text-body font-semibold leading-tight text-[color:var(--cm-room-text)]">
-                {vm.snapshot.room.title}
-              </p>
-            )}
-            <p className="truncate sam-text-xxs leading-tight text-[color:var(--cm-room-text-muted)]">{statusLine}</p>
-          </div>
+                </p>
+              )}
+              {!isDeliveryRoom ? (
+                <p className="truncate sam-text-xxs leading-tight text-[color:var(--cm-room-text-muted)]">{statusLine}</p>
+              ) : null}
+            </div>
+          ) : null}
+
           <div className="flex shrink-0 items-center gap-0 self-center">
             {vm.isGroupRoom ? (
               <button
@@ -172,11 +198,21 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
             ) : null}
             <button
               type="button"
-              onClick={() => vm.setActiveSheet("menu")}
+              onClick={() => {
+                if (deliveryOrderDetailMenu) {
+                  orderDetailDrawer!.toggle();
+                  return;
+                }
+                vm.setActiveSheet("menu");
+              }}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text-muted)] transition active:bg-[color:var(--cm-room-primary-soft)]"
-              aria-label={vm.t("nav_messenger_room_menu")}
+              aria-label={deliveryOrderDetailMenu ? "주문 상세" : vm.t("nav_messenger_room_menu")}
             >
-              <MoreIcon className="h-[18px] w-[18px]" />
+              {deliveryOrderDetailMenu ? (
+                <Menu className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
+              ) : (
+                <MoreIcon className="h-[18px] w-[18px]" />
+              )}
             </button>
           </div>
         </div>

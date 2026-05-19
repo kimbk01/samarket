@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { Biz } from "@/lib/ui/biz-component-classes";
 
-const PRESET_PREP_MINUTES = [10, 15, 20, 30, 40, 50, 60] as const;
+const PRESET_PREP_MINUTES = [20, 30, 40, 50] as const;
 
 export function OwnerOrderAcceptSheet({
   open,

@@ -150,6 +150,7 @@ export async function adminForceCancelStoreOrder(
         orderNo: String(order.order_no ?? ""),
         storeId: sid,
         nextStatus: "cancelled",
+        estimatedPrepMinutes: null,
         storeOrderEventId: cancelEv.row.id,
       });
     }
@@ -160,6 +161,7 @@ export async function adminForceCancelStoreOrder(
       orderNo: String(order.order_no ?? ""),
       storeId: sid,
       nextStatus: "cancelled",
+      estimatedPrepMinutes: null,
     });
   }
 

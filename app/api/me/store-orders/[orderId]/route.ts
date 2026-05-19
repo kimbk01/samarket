@@ -175,7 +175,7 @@ export async function GET(
     sb
       .from("stores")
       .select(
-        "store_name, slug, owner_user_id, region, city, district, address_line1, address_line2"
+        "store_name, slug, owner_user_id, region, city, district, address_line1, address_line2, profile_image_url"
       )
       .eq("id", storeId)
       .maybeSingle(),
@@ -231,6 +231,8 @@ export async function GET(
       store_name: (store?.store_name as string) ?? "",
       store_slug: (store?.slug as string) ?? "",
       owner_user_id: (store?.owner_user_id as string) ?? "",
+      store_profile_image_url:
+        typeof store?.profile_image_url === "string" ? store.profile_image_url.trim() || null : null,
       store_pickup_address_lines,
     },
     items: items ?? [],

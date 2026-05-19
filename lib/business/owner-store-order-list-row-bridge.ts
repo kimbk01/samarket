@@ -78,9 +78,12 @@ export type OwnerStoreOrderListCtx = {
 export function sortOwnerStoreOrderListRowsDesc(
   list: OwnerStoreOrderListRow[]
 ): OwnerStoreOrderListRow[] {
-  return [...list].sort(
-    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-  );
+  return [...list].sort((a, b) => {
+    const aPending = a.order_status === "pending" ? 1 : 0;
+    const bPending = b.order_status === "pending" ? 1 : 0;
+    if (aPending !== bPending) return bPending - aPending;
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
 }
 
 export function listRowToOwnerOrder(

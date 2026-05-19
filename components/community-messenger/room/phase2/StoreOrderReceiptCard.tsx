@@ -3,6 +3,7 @@
 import type { StoreOrderChatCardView } from "@/lib/store-order-chat/build-store-order-chat-card-view";
 import { formatStoreOrderSummaryTimelineTime } from "@/lib/store-order-chat/store-order-summary-timeline";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { formatPhMobileDisplay, parsePhMobileInput } from "@/lib/utils/ph-mobile";
 
 type Props = {
   view: StoreOrderChatCardView;
@@ -12,6 +13,7 @@ type Props = {
 
 export function StoreOrderReceiptCard({ view, viewer, compact = false }: Props) {
   const showPrivate = viewer !== "system";
+  const showFulfillmentDetails = viewer === "buyer" || viewer === "owner";
   const discountRate =
     view.totals.itemsSubtotal > 0
       ? Math.round((view.totals.discount / view.totals.itemsSubtotal) * 100)
@@ -38,7 +40,11 @@ export function StoreOrderReceiptCard({ view, viewer, compact = false }: Props) 
       </header>
 
       <section className="px-3 py-2.5">
-        <StoreOrderMiniTimeline view={view} />
+        {viewer === "system" ? (
+          <StoreOrderMiniTimeline view={view} />
+        ) : (
+          <StoreOrderFulfillmentInfo view={view} />
+        )}
       </section>
 
       <section className="border-t border-[color:var(--cm-room-divider)] px-3 py-2.5">
@@ -75,12 +81,12 @@ export function StoreOrderReceiptCard({ view, viewer, compact = false }: Props) 
         <div className="mt-2 border-t border-[color:var(--cm-room-divider)] pt-2">
           <MoneyRow label="결제금액" value={view.totals.paymentTotal} strong />
         </div>
-        {view.paymentMethodLabel ? (
+        {view.paymentMethodLabel && !showFulfillmentDetails ? (
           <MoneyRow label="결제방법" valueLabel={view.paymentMethodLabel} always />
         ) : null}
       </section>
 
-      {!compact && (showPrivate || view.buyerNote) ? (
+      {!compact && !showFulfillmentDetails && (showPrivate || view.buyerNote) ? (
         <section className="border-t border-[color:var(--cm-room-divider)] px-3 py-2.5 sam-text-xxs leading-relaxed text-[color:var(--cm-room-text)]">
           {showPrivate && view.addressLines.length > 0 ? (
             <InfoBlock title={view.isDelivery ? "배달 주소" : "픽업 주소"} lines={view.addressLines} />
@@ -93,6 +99,33 @@ export function StoreOrderReceiptCard({ view, viewer, compact = false }: Props) 
         </section>
       ) : null}
     </article>
+  );
+}
+
+function StoreOrderFulfillmentInfo({ view }: { view: StoreOrderChatCardView }) {
+  const phone09 =
+    view.buyerPhone != null && String(view.buyerPhone).trim()
+      ? parsePhMobileInput(String(view.buyerPhone))
+      : "";
+  const phoneDisplay = phone09 ? formatPhMobileDisplay(phone09) : null;
+  const addressTitle = view.isDelivery ? "배달 주소" : "픽업 주소";
+  const addressText = view.addressLines.filter(Boolean).join(" ") || "—";
+  return (
+    <dl className="space-y-2.5 sam-text-xxs leading-relaxed">
+      <DetailRow label={addressTitle} value={addressText} />
+      <DetailRow label="연락처" value={phoneDisplay ?? "—"} />
+      <DetailRow label="결제 방법" value={view.paymentMethodLabel?.trim() || "—"} />
+      <DetailRow label="요청 사항" value={view.buyerNote?.trim() || "없음"} />
+    </dl>
+  );
+}
+
+function DetailRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid grid-cols-[4.25rem_1fr] gap-x-2 gap-y-0.5">
+      <dt className="font-semibold text-[color:var(--cm-room-text-muted)]">{label}</dt>
+      <dd className="text-[color:var(--cm-room-text)] [overflow-wrap:anywhere]">{value}</dd>
+    </div>
   );
 }
 

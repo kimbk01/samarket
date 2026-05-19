@@ -16,7 +16,6 @@ import { allowedOrderTransitions, isDeliveryFulfillment } from "@/lib/stores/ord
 type Props = {
   storeId: string;
   order: OwnerDeliveryOrderRef;
-  orderNo: string;
   onUpdated: () => void;
   onOpenOrderPanel: () => void;
 };
@@ -28,7 +27,6 @@ type Props = {
 export function StoreOrderOwnerMessengerActionBar({
   storeId,
   order,
-  orderNo,
   onUpdated,
   onOpenOrderPanel,
 }: Props) {
@@ -57,21 +55,11 @@ export function StoreOrderOwnerMessengerActionBar({
     >
       <div className="flex items-center justify-between gap-2 border-b border-[color:var(--cm-room-divider)]/80 px-3 py-2">
         <div className="min-w-0">
-          <p className="truncate sam-text-helper font-semibold text-[color:var(--cm-room-text)]">
-            주문 {orderNo}
-          </p>
           <p className="sam-text-xxs text-[color:var(--cm-room-primary)]">
             {statusLabel}
             {nextLabel ? <span className="text-[color:var(--cm-room-text-muted)]"> → 다음: {nextLabel}</span> : null}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onOpenOrderPanel}
-          className="shrink-0 rounded-ui-rect border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-surface-muted)] px-2.5 py-1.5 sam-text-xxs font-semibold text-[color:var(--cm-room-text)]"
-        >
-          주문 패널
-        </button>
       </div>
 
       {showActions ? (

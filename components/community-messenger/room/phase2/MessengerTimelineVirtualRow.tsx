@@ -32,10 +32,8 @@ import {
   TimelineViberInnerVoice,
   type TimelineViberBubbleMessage,
 } from "@/components/community-messenger/room/phase2/MessengerTimelineBubbleInners";
-import { MessengerStoreOrderSummaryCard } from "@/components/community-messenger/room/phase2/MessengerStoreOrderSummaryCard";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { isStoreOrderSummarySystemContent } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
-import type { StoreOrderSummaryTimelineStep } from "@/lib/store-order-chat/store-order-summary-timeline";
 
 function messengerMessageAnchorRectFromDomRect(r: DOMRectReadOnly): CommunityMessengerMessageActionAnchorRect {
   return {
@@ -337,7 +335,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   );
 
   const systemBubbleClass =
-    "rounded-[14px] border border-[color:var(--cm-room-divider)]/90 bg-[color:var(--cm-room-primary-soft)] px-3.5 py-1.5 text-center sam-text-xxs leading-snug text-[color:var(--cm-room-text-muted)] shadow-[0_1px_3px_rgba(115,96,242,0.08)]";
+    "rounded-full bg-white px-3 py-1.5 text-center text-[12px] leading-snug text-[#6B7280]";
 
   const viberInnerBody: ReactNode =
     item.messageType === "image" ? (
@@ -400,14 +398,9 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
       ) : null}
       {isStoreOrderSummarySystemContent(item.content) ? (
         <div className="max-w-[min(100%,22rem)] px-2">
-          <MessengerStoreOrderSummaryCard
-            content={item.content}
-            metadata={item.metadata ?? null}
-            timeline={
-              (item.metadata as { timeline?: StoreOrderSummaryTimelineStep[] } | null | undefined)
-                ?.timeline ?? null
-            }
-          />
+          <div className={systemBubbleClass}>
+            <p className="text-center sam-text-helper leading-5">주문 요약이 갱신되었습니다.</p>
+          </div>
         </div>
       ) : item.messageType === "system" ? (
         <div className="max-w-[min(100%,22rem)] px-2">

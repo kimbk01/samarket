@@ -17,6 +17,14 @@ import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-crite
 import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
 import type { StoreOrderChatCardView } from "@/lib/store-order-chat/build-store-order-chat-card-view";
 import { StoreOrderReceiptCard } from "@/components/community-messenger/room/phase2/StoreOrderReceiptCard";
+import { VoiceCallIcon } from "@/components/community-messenger/room/community-messenger-room-helpers";
+import {
+  STORE_ORDER_DELIVERY_DETAIL_DRAWER_BACKDROP_TRANSITION_CLASS,
+  STORE_ORDER_DELIVERY_DETAIL_DRAWER_TRANSFORM_CLASS,
+  STORE_ORDER_DELIVERY_DETAIL_DRAWER_WIDTH_CLASS,
+} from "@/lib/store-order-chat/store-order-delivery-detail-drawer-layout";
+
+export type StoreOrderBuyerRoomSheetVariant = "bottom_sheet" | "peek";
 
 type Props = {
   open: boolean;
@@ -32,6 +40,10 @@ type Props = {
   onCancel: () => void;
   chatRoomId: string;
   onSendOrderMatchAck: () => Promise<boolean>;
+  onVoiceCall: () => void;
+  voiceCallDisabled?: boolean;
+  /** 메신저 방 — 우→좌 75vw peek (기본 bottom_sheet) */
+  sheetVariant?: StoreOrderBuyerRoomSheetVariant;
 };
 
 export function StoreOrderBuyerRoomSheet({
@@ -48,7 +60,11 @@ export function StoreOrderBuyerRoomSheet({
   onCancel,
   chatRoomId,
   onSendOrderMatchAck,
+  onVoiceCall,
+  voiceCallDisabled = false,
+  sheetVariant = "bottom_sheet",
 }: Props) {
+  const peekDrawer = sheetVariant === "peek";
   const [mounted, setMounted] = useState(false);
   const [statusBannerVisible, setStatusBannerVisible] = useState(true);
   const ackDoneRef = useRef(false);
@@ -121,15 +137,24 @@ export function StoreOrderBuyerRoomSheet({
     <>
       <div
         role="presentation"
-        className={`fixed inset-0 z-[260] bg-black/65 transition-opacity duration-300 ease-out ${
-          open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
-        }`}
+        className={`fixed inset-0 z-[260] bg-black/40 ${
+          peekDrawer
+            ? STORE_ORDER_DELIVERY_DETAIL_DRAWER_BACKDROP_TRANSITION_CLASS
+            : "transition-opacity duration-300 ease-out"
+        } ${open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}
         onClick={() => onOpenChange(false)}
         aria-hidden={!open}
       />
-      <BuyerOrderDrawerShell open={open} onClose={() => onOpenChange(false)}>
+      <BuyerOrderDrawerShell
+        open={open}
+        peekDrawer={peekDrawer}
+        onClose={() => onOpenChange(false)}
+        onVoiceCall={onVoiceCall}
+        voiceCallDisabled={voiceCallDisabled}
+      >
         <div className="shrink-0 border-b border-[color:var(--cm-room-divider)] px-3 py-2.5">
           <BuyerOrderDrawerActions
+            peekDrawer={peekDrawer}
             canCancel={canCancel}
             cancelBusy={cancelBusy}
             onCancel={onCancel}
@@ -159,41 +184,81 @@ export function StoreOrderBuyerRoomSheet({
 
 function BuyerOrderDrawerShell({
   open,
+  peekDrawer,
   onClose,
+  onVoiceCall,
+  voiceCallDisabled,
   children,
 }: {
   open: boolean;
+  peekDrawer: boolean;
   onClose: () => void;
+  onVoiceCall: () => void;
+  voiceCallDisabled: boolean;
   children: ReactNode;
 }) {
   return (
     <div
-      className={`fixed inset-x-0 bottom-0 z-[270] mx-auto flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[18px] border border-sam-border bg-sam-surface shadow-[0_-10px_32px_rgba(0,0,0,0.22)] transition-transform duration-300 ease-out sm:inset-y-4 sm:right-4 sm:left-auto sm:max-h-none sm:w-[24rem] sm:rounded-ui-rect ${
-        open
-          ? "translate-y-0 sm:translate-x-0"
-          : "translate-y-full pointer-events-none sm:translate-x-full sm:translate-y-0"
-      }`}
+      className={
+        peekDrawer
+          ? `fixed top-0 right-0 z-[270] flex h-[100dvh] ${STORE_ORDER_DELIVERY_DETAIL_DRAWER_WIDTH_CLASS} flex-col overflow-hidden border-l border-sam-border bg-sam-surface shadow-none ${STORE_ORDER_DELIVERY_DETAIL_DRAWER_TRANSFORM_CLASS} ${
+              open ? "translate-x-0" : "pointer-events-none translate-x-full"
+            }`
+          : `fixed inset-x-0 bottom-0 z-[270] mx-auto flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[18px] border border-sam-border bg-sam-surface shadow-none transition-transform duration-300 ease-out sm:inset-y-4 sm:right-4 sm:left-auto sm:max-h-none sm:w-[24rem] sm:rounded-ui-rect ${
+              open
+                ? "translate-y-0 sm:translate-x-0"
+                : "pointer-events-none invisible translate-y-full sm:translate-x-full sm:translate-y-0"
+            }`
+      }
       onClick={(e) => e.stopPropagation()}
       role="dialog"
       aria-modal="true"
       aria-labelledby="store-order-phase2-drawer-title"
     >
-      <BuyerOrderDrawerHeader onClose={onClose} />
+      <BuyerOrderDrawerHeader
+        onClose={onClose}
+        onVoiceCall={onVoiceCall}
+        voiceCallDisabled={voiceCallDisabled}
+        peekDrawer={peekDrawer}
+      />
       {children}
     </div>
   );
 }
 
-function BuyerOrderDrawerHeader({ onClose }: { onClose: () => void }) {
+function BuyerOrderDrawerHeader({
+  onClose,
+  onVoiceCall,
+  voiceCallDisabled,
+  peekDrawer,
+}: {
+  onClose: () => void;
+  onVoiceCall: () => void;
+  voiceCallDisabled: boolean;
+  peekDrawer: boolean;
+}) {
   return (
-    <div className="relative flex shrink-0 items-center gap-2 border-b border-[color:var(--cm-room-divider)] px-3 py-3 pt-4">
-      <div className="absolute left-1/2 top-1.5 h-1 w-10 -translate-x-1/2 rounded-full bg-[color:var(--cm-room-divider)] sm:hidden" aria-hidden />
+    <div
+      className={`relative flex shrink-0 items-center gap-2 border-b border-[color:var(--cm-room-divider)] px-3 py-3 ${peekDrawer ? "" : "pt-4"}`}
+    >
+      {!peekDrawer ? (
+        <div className="absolute left-1/2 top-1.5 h-1 w-10 -translate-x-1/2 rounded-full bg-[color:var(--cm-room-divider)] sm:hidden" aria-hidden />
+      ) : null}
       <h2
         id="store-order-phase2-drawer-title"
         className="min-w-0 flex-1 sam-text-body-lg font-semibold text-[color:var(--cm-room-text)]"
       >
-        주문 내역
+        주문
       </h2>
+      <button
+        type="button"
+        onClick={onVoiceCall}
+        disabled={voiceCallDisabled}
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-primary)] transition hover:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-35"
+        aria-label="음성 통화"
+      >
+        <VoiceCallIcon className="h-5 w-5" />
+      </button>
       <button
         type="button"
         onClick={onClose}
@@ -207,18 +272,40 @@ function BuyerOrderDrawerHeader({ onClose }: { onClose: () => void }) {
 }
 
 function BuyerOrderDrawerActions({
+  peekDrawer,
   canCancel,
   cancelBusy,
   onCancel,
   orderId,
   onNavigate,
 }: {
+  peekDrawer: boolean;
   canCancel: boolean;
   cancelBusy: boolean;
   onCancel: () => void;
   orderId: string;
   onNavigate: () => void;
 }) {
+  if (peekDrawer) {
+    return (
+      <div>
+        <button
+          type="button"
+          disabled={!canCancel || cancelBusy}
+          onClick={onCancel}
+          className="inline-flex h-10 w-full items-center justify-center rounded-ui-rect border border-red-200/90 px-3 sam-text-body font-semibold text-red-600 transition active:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          {cancelBusy ? "처리 중…" : "주문취소"}
+        </button>
+        {!canCancel ? (
+          <p className="mt-1.5 sam-text-xxs leading-snug text-[#6B7280]">
+            매장이 주문을 접수한 뒤에는 여기서 취소할 수 없습니다.
+          </p>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-wrap gap-2">
       <button

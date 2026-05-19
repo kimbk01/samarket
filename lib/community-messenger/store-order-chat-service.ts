@@ -523,6 +523,17 @@ export async function appendStoreOrderMessengerPaymentCompletedLine(
   });
 }
 
+export async function appendStoreOrderMessengerOrderCreatedLine(
+  sb: SupabaseClient<any>,
+  orderId: string
+): Promise<void> {
+  await appendStoreOrderMessengerSystemMessage(sb, {
+    orderId,
+    content: "신규 주문이 들어왔습니다.",
+    relatedOrderStatus: "pending",
+  });
+}
+
 export async function appendStoreOrderMessengerStatusTransition(
   sb: SupabaseClient<any>,
   orderId: string,
@@ -545,7 +556,18 @@ export async function appendStoreOrderMessengerStatusTransition(
       ensured
     );
   }
-  const line = systemChatLineForOrderStatus(next, ensured.orderFlow);
+  let line = systemChatLineForOrderStatus(next, ensured.orderFlow);
+  if (next === "accepted") {
+    const { data: orderRow } = await sb
+      .from("store_orders")
+      .select("estimated_prep_minutes")
+      .eq("id", orderId.trim())
+      .maybeSingle();
+    const mins = Math.floor(Number((orderRow as { estimated_prep_minutes?: unknown } | null)?.estimated_prep_minutes ?? 0));
+    if (Number.isFinite(mins) && mins > 0) {
+      line = `매장에서 주문을 확인했습니다. 예상 소요시간은 약 ${mins}분입니다.`;
+    }
+  }
   if (!line) return;
   await appendStoreOrderMessengerSystemMessage(
     sb,

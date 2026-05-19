@@ -17,9 +17,16 @@ export function CommunityMessengerRoomPhase2AttachmentsAndTrade() {
   const { messengerKeyboardChromeOpen } = useMessengerRoomMobileViewport();
   const composerFocused = useMessengerUIStore((s) => s.composerFocused);
   const isNarrowViewport = useMatchMaxWidthMd();
-  /** 입력란 바로 위 도크 — 모바일 키보드·포커스 시 1줄 접기(TradeFlowBanner keyboardCompact) */
+  /** 거래 도크 — 모바일 키보드·포커스 시 1줄 접기(TradeFlowBanner keyboardCompact) */
   const keyboardCompact = Boolean(
     isNarrowViewport && !vm.voiceRecording && (messengerKeyboardChromeOpen || composerFocused)
+  );
+  /**
+   * 배달 주문 chrome — 포커스만으로 접으면 composer 위 레이아웃이 먼저 밀려 입력창이 “튐”.
+   * 실제 키보드가 열린 뒤에만 1줄로 접는다.
+   */
+  const storeOrderKeyboardCompact = Boolean(
+    isNarrowViewport && !vm.voiceRecording && messengerKeyboardChromeOpen
   );
   return (
     <>
@@ -42,7 +49,7 @@ export function CommunityMessengerRoomPhase2AttachmentsAndTrade() {
       <input ref={vm.fileInputRef} type="file" className="hidden" onChange={vm.onPickFile} />
 
       {vm.showMessengerStoreOrderDock ? (
-        <CommunityMessengerRoomPhase2StoreOrderChrome keyboardCompact={keyboardCompact} />
+        <CommunityMessengerRoomPhase2StoreOrderChrome keyboardCompact={storeOrderKeyboardCompact} />
       ) : null}
 
       {vm.showMessengerTradeProcessDock ? (

@@ -211,7 +211,7 @@ const FULFILL_LABEL: Record<string, string> = {
 const STATUS_LABEL: Record<string, string> = { ...BUYER_ORDER_STATUS_LABEL };
 
 const CHAT_LINK_CLASS =
-  "inline-flex w-full min-w-0 cursor-pointer items-center justify-center rounded-ui-rect border border-signature/35 bg-sam-surface px-3 py-3 text-center sam-text-body font-semibold leading-snug text-sam-fg shadow-sm transition hover:bg-signature/5 [overflow-wrap:anywhere] [word-break:break-word]";
+  "inline-flex w-full min-w-0 cursor-pointer items-center justify-center rounded-ui-rect border border-signature/45 bg-sam-surface px-3 py-3 text-center sam-text-body font-semibold leading-snug text-sam-fg transition hover:bg-signature/5 [overflow-wrap:anywhere] [word-break:break-word]";
 
 function OwnerOrderCard({
   storeId,
@@ -676,13 +676,13 @@ export function OwnerStoreOrdersView() {
 
   useEffect(() => {
     if (state.kind !== "ok") return;
-    const delivery = metaCounts.pendingDeliveryCount;
-    const prev = prevPendingDeliveryRef.current;
-    if (prev !== null && delivery > prev) {
+      const pending = metaCounts.pendingAcceptCount;
+      const prev = prevPendingDeliveryRef.current;
+      if (prev !== null && pending > prev) {
       playDeliveryOrderAlertDebounced(state.storeId);
     }
-    prevPendingDeliveryRef.current = delivery;
-  }, [state, metaCounts.pendingDeliveryCount]);
+      prevPendingDeliveryRef.current = pending;
+  }, [state, metaCounts.pendingAcceptCount]);
 
   useLayoutEffect(() => {
     if (state.kind !== "ok") return;

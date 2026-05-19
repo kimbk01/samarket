@@ -32,6 +32,8 @@ export function commerceMetaKindLabel(
   if (typeof kind !== "string" || !kind) return null;
   const m: Record<string, Parameters<typeof translate>[1]> = {
     store_order_created: "notify_kind_store_order_created",
+    store_order_accept_reminder_30s: "notify_kind_store_order_created",
+    store_order_accept_reminder_60s: "notify_kind_store_order_created",
     store_order_payment_completed: "notify_kind_store_order_payment_completed",
     store_order_buyer_cancelled: "notify_kind_store_order_buyer_cancelled",
     store_order_refund_requested: "notify_kind_store_order_refund_requested",

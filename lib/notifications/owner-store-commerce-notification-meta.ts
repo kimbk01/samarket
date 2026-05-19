@@ -4,6 +4,8 @@
  */
 export const OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS = new Set([
   "store_order_created",
+  "store_order_accept_reminder_30s",
+  "store_order_accept_reminder_60s",
   "store_order_payment_completed",
   "store_order_buyer_cancelled",
   "store_order_refund_requested",

@@ -457,3 +457,62 @@ export function ownerOrderCardNoticeFooter(order: OwnerDeliveryOrderRef): ReactN
   }
   return null;
 }
+
+const PEEK_CANCEL_BTN =
+  "inline-flex h-10 w-full items-center justify-center rounded-ui-rect border border-red-200/90 px-3 sam-text-body font-semibold text-red-600 transition active:opacity-90 disabled:cursor-not-allowed disabled:opacity-40";
+
+/** 메신저 peek 주문 상세 패널 — 주문 취소만 (진행 CTA는 composer 위 액션 바) */
+export function OwnerStoreOrderPeekCancelBar({
+  storeId,
+  order,
+  onUpdated,
+}: {
+  storeId: string;
+  order: OwnerDeliveryOrderRef;
+  onUpdated: () => void;
+}) {
+  const next = allowedOrderTransitions(order.order_status, order.fulfillment_type);
+  const canCancel = next.includes("cancelled");
+  const {
+    busy,
+    err,
+    rejectModalOpen,
+    closeRejectModal,
+    onTransitionClick,
+    confirmReject,
+    rejectBusy,
+  } = usePatchOrder(storeId, order, onUpdated);
+
+  if (order.order_status === "cancelled" || order.order_status === "refunded") {
+    return null;
+  }
+
+  return (
+    <>
+      <div className="shrink-0 border-b border-sam-border px-3 py-2.5">
+        <button
+          type="button"
+          disabled={!canCancel || busy !== null}
+          onClick={() => onTransitionClick("cancelled")}
+          className={PEEK_CANCEL_BTN}
+        >
+          {rejectBusy ? "처리 중…" : "주문취소"}
+        </button>
+        {!canCancel ? (
+          <p className="mt-1.5 sam-text-xxs leading-snug text-sam-muted">
+            이 단계에서는 주문을 취소할 수 없습니다.
+          </p>
+        ) : null}
+        {err ? (
+          <p className="mt-1.5 sam-text-xxs leading-snug text-red-600 [overflow-wrap:anywhere]">{err}</p>
+        ) : null}
+      </div>
+      <OwnerOrderRejectSheet
+        open={rejectModalOpen}
+        busy={rejectBusy}
+        onClose={closeRejectModal}
+        onConfirm={confirmReject}
+      />
+    </>
+  );
+}

@@ -92,6 +92,7 @@ import {
   formatReplyQuoteKakaoHeader,
 } from "@/lib/community-messenger/message-actions/message-reply-policy";
 import { MessengerInputBar } from "@/components/community-messenger/line-ui";
+import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
 
 function isDomTextareaLikelyVisible(el: HTMLTextAreaElement): boolean {
   const st = window.getComputedStyle(el);
@@ -294,6 +295,10 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
   const globallyUsable = vm.snapshot ? communityMessengerRoomIsGloballyUsable(vm.snapshot.room) : false;
   const tradeOnlyBlocked =
     Boolean(vm.snapshot?.tradeMessaging) && vm.snapshot.tradeMessaging?.canSendMessage === false && globallyUsable;
+  const ctx = vm.snapshot.room.contextMeta as CommunityMessengerRoomContextMetaV1 | null | undefined;
+  const isDeliveryRoom = ctx?.kind === "delivery";
+  const isOwnerDeliveryRoom = isDeliveryRoom && vm.snapshot.myRole === "owner";
+  const deliveryPlaceholder = isOwnerDeliveryRoom ? "고객에게 메시지 보내기" : isDeliveryRoom ? "매장에 문의하기" : null;
 
   const commitTextSend = useCallback(() => {
     if (
@@ -341,18 +346,23 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
       : iosMessengerSlack
         ? MESSENGER_COMPOSER_FOOTER_PADDING_IOS_SLACK_PX
         : MESSENGER_COMPOSER_FOOTER_PADDING_DEFAULT_PX;
+  /** vv 셸이 높이·safe-bottom 을 이미 맞춤 — sticky·추가 px 패딩은 키보드 시 composer 점프 원인 */
+  const composerAnchoredByShell = keyboardOverlapSuppressed;
+  const footerPaddingBottom = composerAnchoredByShell
+    ? "calc(env(safe-area-inset-bottom, 0px) + var(--chat-safe-bottom, 0px))"
+    : `calc(env(safe-area-inset-bottom, 0px) + ${footerExtraBottomPx}px)`;
   return (
     <>
       <footer
         data-cm-composer
         {...(!vm.voiceRecording ? { "data-cm-line-composer-footer": true } : {})}
-        className={`sticky bottom-0 z-[5] shrink-0 border-t px-3 pt-2 shadow-none transition-[background-color] duration-200 ${
+        className={`${composerAnchoredByShell ? "shrink-0" : "sticky bottom-0"} z-[5] shrink-0 border-t px-3 pt-2 shadow-none transition-[background-color] duration-200 ${
           vm.voiceRecording
             ? "border-sky-200/90 bg-gradient-to-b from-sky-50/95 via-white to-white"
             : "border-[#e5e7eb] bg-white"
         }`}
         style={{
-          paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${footerExtraBottomPx}px)`,
+          paddingBottom: footerPaddingBottom,
         }}
       >
         {replyToMessage && !vm.voiceRecording ? (
@@ -493,7 +503,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
                             : "보관된 방입니다"
                         : vm.snapshot.clientShellPlaceholder
                           ? "메시지를 입력하세요"
-                          : "메시지"
+                          : (deliveryPlaceholder ?? "메시지")
                   }
                   className={`h-[38px] max-h-[38px] min-h-[38px] w-full min-w-0 resize-none border-0 bg-transparent pr-11 text-[14px] leading-[1.35] outline-none ring-0 placeholder:text-[#65676b] focus:outline-none disabled:opacity-50 ${
                     messengerComposerDense ? "min-h-[38px]" : "min-h-[38px]"

@@ -19,6 +19,8 @@ export type StoreOrderRoomSnapshot = {
   ownerOrder: OwnerDeliveryOrderRef | null;
   orderNo: string;
   orderCard: StoreOrderChatCardView | null;
+  /** 구매자 헤더·카드용 매장 프로필 이미지 */
+  storeProfileImageUrl: string | null;
 };
 
 function mapBuyerOrder(raw: Record<string, unknown>, storeName: string): StoreOrderBuyerOrderPayload {
@@ -134,6 +136,7 @@ export function useStoreOrderRoomSnapshot(input: {
               fulfillment_type: String(o.fulfillment_type ?? ""),
             },
             orderNo: String(o.order_no ?? ""),
+            storeProfileImageUrl: null,
             orderCard: buildStoreOrderChatCardView({
               order: o,
               items: Array.isArray(o.items) ? o.items : [],
@@ -154,6 +157,7 @@ export function useStoreOrderRoomSnapshot(input: {
         error?: string;
         order?: Record<string, unknown> & {
           store_name?: string;
+          store_profile_image_url?: string | null;
           store_pickup_address_lines?: string[];
         };
         items?: StoreOrderBuyerItemPayload[];
@@ -173,11 +177,16 @@ export function useStoreOrderRoomSnapshot(input: {
       ) {
         buyerOrder.store_pickup_address_lines = orderRow.store_pickup_address_lines as string[];
       }
+      const storeProfileImageUrl =
+        typeof orderRow.store_profile_image_url === "string"
+          ? orderRow.store_profile_image_url.trim() || null
+          : null;
       setSnapshot({
         buyerOrder,
         buyerItems: Array.isArray(json.items) ? json.items : [],
         ownerOrder: null,
         orderNo: String(json.order.order_no ?? ""),
+        storeProfileImageUrl,
         orderCard: buildStoreOrderChatCardView({
           order: orderRow,
           items: Array.isArray(json.items) ? (json.items as Array<Record<string, unknown>>) : [],

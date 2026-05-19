@@ -212,6 +212,10 @@ export async function applyStoreOrderStatusTransition(
         orderNo: String(order.order_no ?? ""),
         storeId: sid,
         nextStatus,
+        estimatedPrepMinutes:
+          current === "pending" && nextStatus === "accepted"
+            ? (updatePayload.estimated_prep_minutes as number | undefined) ?? null
+            : null,
         storeOrderEventId: statusEv.row.id,
       });
     }
@@ -223,6 +227,10 @@ export async function applyStoreOrderStatusTransition(
       orderNo: String(order.order_no ?? ""),
       storeId: sid,
       nextStatus,
+      estimatedPrepMinutes:
+        current === "pending" && nextStatus === "accepted"
+          ? (updatePayload.estimated_prep_minutes as number | undefined) ?? null
+          : null,
     });
   }
 

@@ -3,6 +3,7 @@ import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { clientSafeInternalErrorMessage } from "@/lib/http/api-route";
 import { notifyBuyerStoreOrderAutoCompleted } from "@/lib/notifications/notify-store-commerce";
+import { appendStoreOrderMessengerStatusTransition } from "@/lib/community-messenger/store-order-chat-service";
 import { verifyCronRequestAuthorization } from "@/lib/security/cron-auth";
 import {
   buildStoreOrderAutoCompleteDedupeKey,
@@ -117,6 +118,16 @@ async function runStoreOrdersAutoComplete(req: Request) {
         orderNo: String(row.order_no ?? ""),
         storeId: sid,
       });
+    }
+    try {
+      await appendStoreOrderMessengerStatusTransition(
+        sb as import("@supabase/supabase-js").SupabaseClient<any>,
+        id,
+        prevStatus,
+        "completed"
+      );
+    } catch {
+      /* ignore */
     }
   }
 

@@ -26,6 +26,7 @@ import { normalizeStoreOrderStatusForBuyer } from "@/lib/stores/normalize-store-
 import { STORE_ORDER_STATUS_LIST } from "@/lib/stores/order-status-transitions";
 import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
 import {
+  appendStoreOrderMessengerOrderCreatedLine,
   ensureStoreOrderMessengerRoom,
   getBuyerStoreOrderMessengerUnreadMap,
 } from "@/lib/community-messenger/store-order-chat-service";
@@ -802,6 +803,7 @@ export async function POST(req: NextRequest) {
   try {
     const ens = await ensureStoreOrderMessengerRoom(sb as SupabaseClient<any>, { orderId, userId: buyerId });
     if (!ens.ok) console.error("[POST store-orders] ensure order chat", ens.error);
+    else await appendStoreOrderMessengerOrderCreatedLine(sb as SupabaseClient<any>, orderId);
   } catch (e) {
     console.error("[POST store-orders] ensure order chat", e);
   }

@@ -89,6 +89,11 @@ export const notificationMessages = {
       "「{store}」 {orderNo} · {amount} · 품목 {lineCount}종{extra} — 접수·채팅에서 확인해 주세요.",
     notify_commerce_new_order_body:
       "{orderNo} · {amount} · 품목 {lineCount}종{extra} — 접수·채팅에서 확인해 주세요.",
+    notify_commerce_owner_accept_reminder_title: "미접수 주문 리마인드",
+    notify_commerce_owner_accept_reminder_body_named:
+      "「{store}」 {orderNo} · {amount} · 품목 {lineCount}종 — 접수 대기 {seconds}초 경과",
+    notify_commerce_owner_accept_reminder_body:
+      "{orderNo} · {amount} · 품목 {lineCount}종 — 접수 대기 {seconds}초 경과",
     notify_commerce_payment_done_title: "결제가 완료됐어요",
     notify_commerce_payment_done_body:
       "「{store}」 {orderNo} — 매장이 확인·접수하면 채팅과 알림으로 단계가 안내돼요.",
@@ -217,6 +222,11 @@ export const notificationMessages = {
       "\"{store}\" {orderNo} · {amount} · {lineCount} item(s){extra} — Check it in incoming orders and chat.",
     notify_commerce_new_order_body:
       "{orderNo} · {amount} · {lineCount} item(s){extra} — Check it in incoming orders and chat.",
+    notify_commerce_owner_accept_reminder_title: "Unaccepted order reminder",
+    notify_commerce_owner_accept_reminder_body_named:
+      "\"{store}\" {orderNo} · {amount} · {lineCount} item(s) — still pending after {seconds}s",
+    notify_commerce_owner_accept_reminder_body:
+      "{orderNo} · {amount} · {lineCount} item(s) — still pending after {seconds}s",
     notify_commerce_payment_done_title: "Payment completed",
     notify_commerce_payment_done_body:
       "\"{store}\" {orderNo} — Once the store confirms it, the next steps will be guided through chat and notifications.",
@@ -345,6 +355,11 @@ export const notificationMessages = {
       "「{store}」{orderNo} · {amount} · {lineCount}个品项{extra} — 请在接单与聊天中查看。",
     notify_commerce_new_order_body:
       "{orderNo} · {amount} · {lineCount}个品项{extra} — 请在接单与聊天中查看。",
+    notify_commerce_owner_accept_reminder_title: "待受理订单提醒",
+    notify_commerce_owner_accept_reminder_body_named:
+      "「{store}」{orderNo} · {amount} · {lineCount}个品项 — 已等待受理 {seconds} 秒",
+    notify_commerce_owner_accept_reminder_body:
+      "{orderNo} · {amount} · {lineCount}个品项 — 已等待受理 {seconds} 秒",
     notify_commerce_payment_done_title: "支付已完成",
     notify_commerce_payment_done_body:
       "「{store}」{orderNo} — 店铺确认受理后，后续步骤会通过聊天和通知告知您。",

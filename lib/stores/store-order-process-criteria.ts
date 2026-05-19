@@ -9,30 +9,30 @@ import { isDeliveryFulfillment } from "@/lib/stores/order-status-transitions";
 
 /** 구매자 화면·알림용 상태 라벨 */
 export const BUYER_ORDER_STATUS_LABEL: Record<string, string> = {
-  pending: "주문접수",
-  accepted: "접수확인",
+  pending: "주문 확인중",
+  accepted: "주문 접수됨",
   preparing: "조리중",
-  ready_for_pickup: "포장완료",
-  delivering: "배달출발",
+  ready_for_pickup: "준비 완료",
+  delivering: "배달중",
   arrived: "도착",
   completed: "배달완료",
-  cancelled: "주문취소",
+  cancelled: "주문 취소",
   refund_requested: "환불요청",
   refunded: "환불완료",
 };
 
 /** 배달·택배 — 6단계 (진행 스테퍼 열 기준: 접수 → 준비 → 포장 → 배달 출발 → 도착; 완료는 completed 로 종결) */
 export const TIMELINE_DELIVERY_STEPS = [
-  "주문접수",
-  "접수확인",
+  "주문 확인중",
+  "주문 접수",
   "조리중",
-  "포장완료",
-  "배달출발",
-  "도착",
+  "준비 완료",
+  "배달중",
+  "완료",
 ] as const;
 
 /** 픽업·포장 — 4단계 (배송 단계 없음; 마지막 이후 완료는 completed·타임라인 allDone) */
-export const TIMELINE_PICKUP_STEPS = ["주문접수", "접수확인", "조리중", "포장완료"] as const;
+export const TIMELINE_PICKUP_STEPS = ["주문 확인중", "주문 접수", "조리중", "준비 완료"] as const;
 
 /**
  * 사장님·비즈 콘솔: 현재 상태 → 다음 상태로 보낼 때 버튼 문구
@@ -42,12 +42,12 @@ export function labelForOwnerTransition(
   next: string,
   fulfillment: string
 ): string {
-  if (next === "accepted") return "접수확인";
-  if (next === "preparing") return "조리중";
-  if (next === "ready_for_pickup") return "포장완료";
-  if (next === "delivering") return "배달출발";
+  if (next === "accepted") return "주문 접수";
+  if (next === "preparing") return "조리 시작";
+  if (next === "ready_for_pickup") return "준비 완료";
+  if (next === "delivering") return "배달 시작";
   if (next === "arrived") return "도착";
-  if (next === "completed") return "배달완료";
+  if (next === "completed") return "배달 완료";
   if (next === "cancelled") {
     return current === "pending" ? "주문 거절" : "주문취소";
   }

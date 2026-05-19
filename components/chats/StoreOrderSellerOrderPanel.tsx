@@ -10,14 +10,26 @@ import {
   type ChatSummaryItemFields,
   type ChatSummaryOrderFields,
 } from "@/lib/stores/format-store-order-chat-summary";
-import { OwnerStoreOrderDeliveryActionsDrawerSection } from "@/components/business/owner/OwnerStoreOrderDeliveryActions";
+import {
+  OwnerStoreOrderDeliveryActionsDrawerSection,
+  OwnerStoreOrderPeekCancelBar,
+} from "@/components/business/owner/OwnerStoreOrderDeliveryActions";
 import {
   buildStoreOrderChatCardView,
   type StoreOrderChatCardView,
 } from "@/lib/store-order-chat/build-store-order-chat-card-view";
 import { StoreOrderReceiptCard } from "@/components/community-messenger/room/phase2/StoreOrderReceiptCard";
+import { VoiceCallIcon } from "@/components/community-messenger/room/community-messenger-room-helpers";
+import {
+  STORE_ORDER_DELIVERY_DETAIL_DRAWER_BACKDROP_TRANSITION_CLASS,
+  STORE_ORDER_DELIVERY_DETAIL_DRAWER_TRANSFORM_CLASS,
+  STORE_ORDER_DELIVERY_DETAIL_DRAWER_WIDTH_CLASS,
+} from "@/lib/store-order-chat/store-order-delivery-detail-drawer-layout";
 
 export type StoreOrderSellerOrderPanelPresentation = "drawer" | "modal";
+
+/** `peek` — 메신저 방: 우→좌 75vw, 채팅 25% peek */
+export type StoreOrderSellerOrderPanelDrawerVariant = "default" | "peek";
 
 type Props = {
   presentation: StoreOrderSellerOrderPanelPresentation;
@@ -40,6 +52,12 @@ type Props = {
   hideSendSummary?: boolean;
   /** 메신저 방 — 진행 CTA는 composer 위 액션 바만 사용 */
   hideDeliveryActions?: boolean;
+  /** 메신저 방 — 주문 상세 헤더 음성 통화 */
+  onVoiceCall?: () => void;
+  voiceCallDisabled?: boolean;
+  drawerVariant?: StoreOrderSellerOrderPanelDrawerVariant;
+  /** 메신저 peek drawer — 헤더 ⋯(관리자 메뉴) 숨김. 취소·상세는 패널 본문 */
+  hidePeekDrawerMoreMenu?: boolean;
 };
 
 export function StoreOrderSellerOrderPanel({
@@ -58,7 +76,12 @@ export function StoreOrderSellerOrderPanel({
   stackAboveOwnerChatModal = false,
   hideSendSummary = false,
   hideDeliveryActions = false,
+  onVoiceCall,
+  voiceCallDisabled = false,
+  drawerVariant = "default",
+  hidePeekDrawerMoreMenu = false,
 }: Props) {
+  const peekDrawer = drawerVariant === "peek";
   const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadErr, setLoadErr] = useState<string | null>(null);
@@ -269,17 +292,30 @@ export function StoreOrderSellerOrderPanel({
       >
         {heading}
       </h2>
-      <div className="relative flex shrink-0 items-center" ref={menuRef}>
+      {onVoiceCall ? (
         <button
           type="button"
-          onClick={onMoreMenuClick}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full sam-text-page-title font-normal leading-none text-foreground hover:bg-black/[0.05]"
-          aria-label="메뉴"
+          onClick={onVoiceCall}
+          disabled={voiceCallDisabled}
+          className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-signature transition hover:bg-black/[0.05] disabled:opacity-35"
+          aria-label="음성 통화"
         >
-          ⋯
+          <VoiceCallIcon className="h-5 w-5" />
         </button>
-        {moreMenuPanel}
-      </div>
+      ) : null}
+      {peekDrawer && hidePeekDrawerMoreMenu ? null : (
+        <div className="relative flex shrink-0 items-center" ref={menuRef}>
+          <button
+            type="button"
+            onClick={onMoreMenuClick}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-full sam-text-page-title font-normal leading-none text-foreground hover:bg-black/[0.05]"
+            aria-label="메뉴"
+          >
+            ⋯
+          </button>
+          {moreMenuPanel}
+        </div>
+      )}
       <button
         type="button"
         onClick={() => onOpenChange(false)}
@@ -403,10 +439,23 @@ export function StoreOrderSellerOrderPanel({
     </>
   );
 
+  const peekCancelBar =
+    peekDrawer && orderSnap?.order_status && orderId.trim() ? (
+      <OwnerStoreOrderPeekCancelBar
+        storeId={storeId}
+        order={{
+          id: orderId.trim(),
+          order_status: orderSnap.order_status,
+          fulfillment_type: orderSnap.fulfillment_type?.trim() || "pickup",
+        }}
+        onUpdated={onOrderPatched}
+      />
+    ) : null;
+
   const drawerPanelInner = (
     <>
       {headerRow}
-      {!stackAboveOwnerChatModal ? deliverySection : null}
+      {peekDrawer ? peekCancelBar : !stackAboveOwnerChatModal ? deliverySection : null}
       {sendBlock}
       {scrollBody}
     </>
@@ -420,18 +469,22 @@ export function StoreOrderSellerOrderPanel({
           <>
             <div
               role="presentation"
-              className={`fixed inset-0 ${dimZ} bg-black/40 transition-opacity duration-300 ease-out ${
-                open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
-              }`}
+              className={`fixed inset-0 ${dimZ} bg-black/40 ${
+                peekDrawer
+                  ? STORE_ORDER_DELIVERY_DETAIL_DRAWER_BACKDROP_TRANSITION_CLASS
+                  : "transition-opacity duration-300 ease-out"
+              } ${open ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"}`}
               onClick={() => onOpenChange(false)}
               aria-hidden={!open}
             />
             {presentation === "drawer" ? (
               <div
                 id={surfaceId}
-                className={`fixed top-0 right-0 ${surfaceZ} flex h-[100dvh] w-[min(100vw,22rem)] flex-col bg-sam-surface shadow-[-6px_0_24px_rgba(0,0,0,0.12)] transition-transform duration-300 ease-out ${
-                  open ? "translate-x-0" : "translate-x-full"
-                }`}
+                className={`fixed top-0 right-0 ${surfaceZ} flex h-[100dvh] flex-col border-l border-sam-border bg-sam-surface shadow-none ${
+                  peekDrawer
+                    ? `${STORE_ORDER_DELIVERY_DETAIL_DRAWER_WIDTH_CLASS} ${STORE_ORDER_DELIVERY_DETAIL_DRAWER_TRANSFORM_CLASS}`
+                    : "w-[min(100vw,22rem)] transition-transform duration-300 ease-out"
+                } ${open ? "translate-x-0" : "pointer-events-none translate-x-full"}`}
                 role="dialog"
                 aria-modal="true"
                 aria-labelledby={titleId}

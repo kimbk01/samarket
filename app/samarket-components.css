@@ -898,6 +898,90 @@
     background-color: var(--cm-room-chat-bg) !important;
   }
 
+  [data-cm-room][data-delivery-viewer-role] [data-cm-line-timeline] {
+    background-color: #eef5fb !important;
+  }
+
+  [data-cm-room][data-delivery-viewer-role] [data-cm-line-timeline] main {
+    padding-top: 8px !important;
+  }
+
+  /** 배달 주문 chrome·composer — 플랫(테두리만). 닫힌 오너 드로어 shadow bleed 방지는 TSX border-l */
+  [data-cm-room][data-delivery-viewer-role] [data-store-order-delivery-chrome],
+  [data-cm-room][data-delivery-viewer-role] [data-store-order-delivery-chrome] > *,
+  [data-cm-room][data-delivery-viewer-role] footer[data-cm-composer],
+  [data-cm-room][data-delivery-viewer-role] footer[data-cm-line-composer-footer] {
+    box-shadow: none !important;
+  }
+
+  [data-cm-room][data-delivery-viewer-role] footer[data-cm-composer],
+  [data-cm-room][data-delivery-viewer-role] footer[data-cm-line-composer-footer] {
+    filter: none !important;
+  }
+
+  /* 배달 주문 채팅 — 좌→우 채움 → 채워진 채 정지 → 비움(회색) 정지 → 다시 좌→우 (되감기 없음) */
+  @keyframes sam-delivery-order-progress-fill-loop {
+    0% {
+      transform: scaleX(0);
+    }
+    40% {
+      transform: scaleX(1);
+    }
+    52% {
+      transform: scaleX(1);
+    }
+    52.001% {
+      transform: scaleX(0);
+    }
+    82% {
+      transform: scaleX(0);
+    }
+    100% {
+      transform: scaleX(0);
+    }
+  }
+
+  [data-cm-room][data-delivery-viewer-role] .sam-delivery-order-progress__track {
+    position: relative;
+    height: 6px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #e5e7eb;
+  }
+
+  [data-cm-room][data-delivery-viewer-role] .sam-delivery-order-progress__fill-clip {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    overflow: hidden;
+    border-radius: 999px;
+    transition: width 0.55s cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+
+  [data-cm-room][data-delivery-viewer-role] .sam-delivery-order-progress__fill {
+    width: 100%;
+    height: 100%;
+    border-radius: 999px;
+    background: #1c8db8;
+    transform: scaleX(0);
+    transform-origin: left center;
+    animation: sam-delivery-order-progress-fill-loop 3.2s linear infinite;
+    will-change: transform;
+  }
+
+  [data-cm-room][data-delivery-viewer-role] .sam-delivery-order-progress__fill--static {
+    animation: none;
+    transform: scaleX(1);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-cm-room][data-delivery-viewer-role] .sam-delivery-order-progress__fill {
+      animation: none;
+      transform: scaleX(1);
+    }
+  }
+
   [data-messenger-friend-row="true"] [role="button"]:active {
     background-color: rgba(0, 0, 0, 0.04) !important;
   }

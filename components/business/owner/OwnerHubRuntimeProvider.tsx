@@ -192,7 +192,7 @@ export function OwnerHubRuntimeProvider({
       }
       const refund = Math.max(0, Math.floor(Number(j.refund_requested_count) || 0));
       const pending = Math.max(0, Math.floor(Number(j.pending_accept_count) || 0));
-      const delivery = Math.max(0, Math.floor(Number(j.pending_delivery_count) || 0));
+      const delivery = Math.max(0, Math.floor(Number(j.pending_accept_count) || 0));
       seedOwnerHubOrderCountsCache(orderCountsStoreId, {
         pending_accept_count: pending,
         refund_requested_count: refund,
