@@ -11,6 +11,12 @@ import {
   useStoreCommerceCartOptional,
 } from "@/contexts/StoreCommerceCartContext";
 import { useStoreCommerceCartBucketStats } from "@/lib/stores/use-store-commerce-cart-selector";
+import { useStoreCommerceCartLinesForStorePage } from "@/lib/stores/use-store-commerce-cart-lines-for-store-page";
+import {
+  clampCartSeedQty,
+  findCommerceCartLineByProductId,
+  modifierWireFromCartLine,
+} from "@/lib/stores/store-commerce-cart-line-seed";
 import { openStoreCartConflict } from "@/lib/stores/store-cart-conflict-ui-store";
 import { storeCartConflictExistingFromBlockedAdd } from "@/lib/stores/store-cart-conflict-meta";
 import { parseMediaUrlsJson } from "@/lib/stores/parse-media-urls-json";
@@ -23,6 +29,7 @@ import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-ex
 import { resolveStoreFrontCommerceState } from "@/lib/stores/store-auto-hours";
 import { approximateDiscountPercent } from "@/lib/stores/store-product-pricing";
 import { fetchStoreProductPublicDeduped } from "@/lib/stores/store-delivery-api-client";
+import { markStoreDetailMenuTabsLanding } from "@/lib/dibay/store-detail-nav-intent";
 import { showStoreDetailToast } from "@/lib/stores/store-detail-toast-ui-store";
 import {
   dibayPerfOnCartbarUpdated,
@@ -102,10 +109,17 @@ export function StoreProductPublic({
   const [store, setStore] = useState<PublicStore | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
-  const [qty, setQty] = useState(1);
+  /** 사용자가 스테퍼로 바꾼 수량 — null 이면 카트 줄 수량을 그대로 표시 */
+  const [qtyUserOverride, setQtyUserOverride] = useState<number | null>(null);
   const [detailGalleryIdx, setDetailGalleryIdx] = useState(0);
   const [modifierWire, setModifierWire] = useState<ModifierSelectionsWire>({ pick: {}, qty: {} });
+  const [modifierSeededFromCartLineId, setModifierSeededFromCartLineId] = useState<string | null>(
+    null
+  );
   const [lineMemo, setLineMemo] = useState("");
+  const [lineMemoSeededFromCartLineId, setLineMemoSeededFromCartLineId] = useState<string | null>(
+    null
+  );
   const [cartErr, setCartErr] = useState<string | null>(null);
   const [addBusy, setAddBusy] = useState(false);
   const addInFlightRef = useRef(false);
@@ -144,11 +158,39 @@ export function StoreProductPublic({
     setDetailGalleryIdx(0);
   }, [product?.id]);
 
+  const { lines: cartLines, hydrated: cartHydrated } = useStoreCommerceCartLinesForStorePage(
+    storeSlug,
+    store?.id
+  );
+
+  const cartLineForProduct = useMemo(() => {
+    const pid = String(productId ?? product?.id ?? "").trim();
+    if (!pid) return null;
+    return findCommerceCartLineByProductId(cartLines, pid);
+  }, [cartLines, productId, product?.id]);
+
   useEffect(() => {
-    setModifierWire({ pick: {}, qty: {} });
-    setLineMemo("");
-    setCartErr(null);
-  }, [product?.id]);
+    setQtyUserOverride(null);
+    setModifierSeededFromCartLineId(null);
+    setLineMemoSeededFromCartLineId(null);
+  }, [productId]);
+
+  useLayoutEffect(() => {
+    if (!cartLineForProduct) return;
+    const lid = cartLineForProduct.lineId;
+    if (modifierSeededFromCartLineId !== lid) {
+      setModifierWire(modifierWireFromCartLine(cartLineForProduct));
+      setModifierSeededFromCartLineId(lid);
+    }
+    if (lineMemoSeededFromCartLineId !== lid) {
+      setLineMemo(cartLineForProduct.lineNote?.trim() ?? "");
+      setLineMemoSeededFromCartLineId(lid);
+    }
+  }, [
+    cartLineForProduct,
+    modifierSeededFromCartLineId,
+    lineMemoSeededFromCartLineId,
+  ]);
 
   const optionGroups = useMemo(
     () => (product ? parseProductOptionsJson(product.options_json) : []),
@@ -210,12 +252,6 @@ export function StoreProductPublic({
         }
         setProduct(j.product);
         setStore(j.store);
-        const p = j.product;
-        const minQ = Math.max(1, Number(p.min_order_qty) || 1);
-        const maxQ = Math.max(minQ, Number(p.max_order_qty) || 99);
-        const tr = p.track_inventory === true;
-        const cap = tr ? Math.min(maxQ, p.stock_qty) : maxQ;
-        setQty((q) => (silent ? Math.max(minQ, Math.min(cap, q)) : minQ));
         if (!silent) setCartErr(null);
       } catch {
         if (!silent) setNotFound(true);
@@ -253,8 +289,25 @@ export function StoreProductPublic({
   const cartBucketStats = useStoreCommerceCartBucketStats(store?.id ?? "");
   const cartTotalPhp = cartBucketStats.hydrated ? cartBucketStats.subtotalPhp : 0;
 
+  const minQForSeed = product
+    ? Math.max(1, Number(product.min_order_qty) || 1)
+    : 1;
+  const maxQForSeed = product
+    ? Math.max(minQForSeed, Number(product.max_order_qty) || 99)
+    : 99;
+  const capForSeed =
+    product && product.track_inventory === true
+      ? Math.min(maxQForSeed, product.stock_qty)
+      : maxQForSeed;
+  const qtyFromCart =
+    cartLineForProduct && product && cartHydrated
+      ? clampCartSeedQty(cartLineForProduct, minQForSeed, capForSeed)
+      : null;
+  const displayQty = qtyUserOverride ?? qtyFromCart ?? minQForSeed;
+
   const goToStoreMenu = useCallback(
     (slug: string) => {
+      markStoreDetailMenuTabsLanding();
       router.push(`/stores/${encodeURIComponent(slug)}`, { scroll: false });
     },
     [router]
@@ -301,7 +354,7 @@ export function StoreProductPublic({
     trackInv && product.stock_qty <= 0;
 
   const unitWithOptions = baseUnitPhp + (optionValidation.ok ? optionValidation.unitDelta : 0);
-  const cartLineQty = Math.max(minQ, Math.min(capQty, Math.floor(qty) || minQ));
+  const cartLineQty = Math.max(minQ, Math.min(capQty, Math.floor(displayQty) || minQ));
   const cartUnitPhp = Math.max(0, Math.floor(unitWithOptions) || 0);
   const lineTotalPhp = cartUnitPhp * cartLineQty;
   const minOrderStorePhp = storeExtras.minOrderPhp ?? 0;
@@ -475,11 +528,11 @@ export function StoreProductPublic({
       listPricePhp={Math.floor(product.price)}
       showListStrike={showListStrike}
       lineTotalPhp={lineTotalPhp}
-      qty={qty}
-      qtyMinusDisabled={qtyStepperDisabled || qty <= minQ}
-      qtyPlusDisabled={qtyStepperDisabled || qty >= capQty}
-      onQtyDecrease={() => setQty((q) => Math.max(minQ, q - 1))}
-      onQtyIncrease={() => setQty((q) => Math.min(capQty, q + 1))}
+      qty={displayQty}
+      qtyMinusDisabled={qtyStepperDisabled || displayQty <= minQ}
+      qtyPlusDisabled={qtyStepperDisabled || displayQty >= capQty}
+      onQtyDecrease={() => setQtyUserOverride(Math.max(minQ, displayQty - 1))}
+      onQtyIncrease={() => setQtyUserOverride(Math.min(capQty, displayQty + 1))}
       optionGroups={optionGroups}
       modifierWire={modifierWire}
       onModifierChange={setModifierWire}

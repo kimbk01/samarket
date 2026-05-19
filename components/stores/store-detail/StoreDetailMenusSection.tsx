@@ -8,6 +8,8 @@ import { deliveryMenuVisibleMarkFirstSectionReady } from "@/lib/dibay/delivery-m
 import type { StoreMenuBoardListHandle } from "@/components/stores/detail/StoreMenuBoardList";
 import { deliveryRenderTraceBump } from "@/lib/dibay/delivery-render-trace";
 import { CategoryStickyTabs } from "@/components/stores/detail/CategoryStickyTabs";
+import { useStoreDetailCategoryTabsPin } from "@/lib/stores/use-store-detail-category-tabs-pin";
+import { storeDetailCategoryTabsStickyTopCss } from "@/lib/ui/store-detail-menu-tabs-viewport";
 import { PopularMenuSection } from "@/components/stores/detail/PopularMenuSection";
 import { RecommendedMenuSection } from "@/components/stores/detail/RecommendedMenuSection";
 import { StoreMenuBoardList } from "@/components/stores/detail/StoreMenuBoardList";
@@ -75,6 +77,12 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
 }) {
   const canInteract = canSell && !menuSelectBlocked;
   const menuBoardRef = useRef<StoreMenuBoardListHandle>(null);
+  const tabsSentinelRef = useRef<HTMLDivElement>(null);
+  const { pinned, tabsHeightPx, tabsBottomPx } = useStoreDetailCategoryTabsPin({
+    sentinelRef: tabsSentinelRef,
+    tabsRef: menuStickyMeasureRef,
+    enabled: true,
+  });
   const firstSectionReadyRef = useRef(false);
   const firstVisibleRef = useRef(false);
   const focusHandledRef = useRef<string | null>(null);
@@ -95,8 +103,7 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
       return;
     }
 
-    const stickyBottom = () =>
-      menuStickyMeasureRef.current?.getBoundingClientRect().bottom ?? 120;
+    const stickyBottom = () => tabsBottomPx();
 
     const focusCategorySection = () => {
       menuBoardRef.current?.ensureSectionsHydratedThrough(sectionIndex);
@@ -140,6 +147,7 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
     scrollStoreSectionIntoView,
     setActiveMenuSection,
     onFocusProductHandled,
+    tabsBottomPx,
   ]);
 
   useMenuSubtreeCartStabilityGuard(commerceCartStoreId);
@@ -193,27 +201,17 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
     [recommendedMenuCards, popularRankById]
   );
 
-  const stickyTop = "calc(env(safe-area-inset-top, 0px) + 56px)";
+  const stickyTop = storeDetailCategoryTabsStickyTopCss();
 
   return (
     <div id="store-menu-panel">
-      {!menusLoading ? (
-        <>
-          <RecommendedMenuSection
-            cards={recommendedForUi}
-            canInteract={canInteract}
-            menuSelectBlocked={menuSelectBlocked}
-            onOpenProduct={onOpenProductSheet}
-          />
-          <PopularMenuSection
-            cards={popularMenuCards}
-            canInteract={canInteract}
-            menuSelectBlocked={menuSelectBlocked}
-            onOpenProduct={onOpenProductSheet}
-          />
-        </>
-      ) : null}
-
+      <div
+        id="store-menu-tabs-sentinel"
+        ref={tabsSentinelRef}
+        className="h-px w-full shrink-0"
+        aria-hidden
+      />
+      {pinned ? <div className="w-full shrink-0" style={{ height: tabsHeightPx }} aria-hidden /> : null}
       <CategoryStickyTabs
         measureRef={menuStickyMeasureRef}
         sections={menuSectionsFiltered.map((s) => ({ label: s.heading }))}
@@ -223,12 +221,30 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
         setMenuQuery={setMenuQuery}
         setMenuSearchOpen={setMenuSearchOpen}
         stickyTopCss={stickyTop}
+        pinned={pinned}
         onSelect={(i) => {
           menuBoardRef.current?.ensureSectionsHydratedThrough(i);
           setActiveMenuSection(i);
           scrollStoreSectionIntoView(i);
         }}
       />
+
+      {!menusLoading ? (
+        <>
+          <PopularMenuSection
+            cards={popularMenuCards}
+            canInteract={canInteract}
+            menuSelectBlocked={menuSelectBlocked}
+            onOpenProduct={onOpenProductSheet}
+          />
+          <RecommendedMenuSection
+            cards={recommendedForUi}
+            canInteract={canInteract}
+            menuSelectBlocked={menuSelectBlocked}
+            onOpenProduct={onOpenProductSheet}
+          />
+        </>
+      ) : null}
 
       {menuTopSlot ? (
         <div className="border-b border-neutral-100 bg-white px-4 pb-2 pt-1">{menuTopSlot}</div>

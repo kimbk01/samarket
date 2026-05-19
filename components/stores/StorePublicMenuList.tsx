@@ -13,7 +13,7 @@ import { approximateDiscountPercent } from "@/lib/stores/store-product-pricing";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
 
 const PLUS_BTN =
-  "absolute -bottom-1.5 -right-1.5 flex h-[31px] w-[31px] shrink-0 touch-manipulation select-none items-center justify-center rounded-full bg-[#1C8DB8] text-[21px] font-normal leading-none text-white shadow-[0_2px_8px_rgba(28,141,184,0.35)] ring-1 ring-[#1C8DB8]/40 transition-all duration-150 hover:bg-[#197DA3] active:scale-[0.92] active:bg-[#166F92]";
+  "absolute bottom-1 right-1 z-10 flex h-[28px] w-[28px] shrink-0 touch-manipulation select-none items-center justify-center rounded-full bg-[#1C8DB8] text-[19px] font-normal leading-none text-white shadow-[0_2px_6px_rgba(28,141,184,0.35)] ring-1 ring-[#1C8DB8]/40 transition-all duration-150 hover:bg-[#197DA3] active:scale-[0.92] active:bg-[#166F92]";
 
 type RowProps = {
   storeSlug: string;
@@ -69,48 +69,47 @@ const StorePublicMenuRow = memo(function StorePublicMenuRow({
     <div className="flex flex-wrap gap-1">
       {p.is_owner_recommended ? (
         <span className="inline-flex h-[18px] items-center rounded-[3px] bg-[#E6F4F9] px-1.5 text-[10px] font-bold text-[#1C8DB8] ring-1 ring-[#1C8DB8]/15">
-          사장님 추천
+          ?�장??추천
         </span>
       ) : null}
       {p.is_representative ? (
         <span className="inline-flex h-[18px] items-center rounded-[3px] bg-[#FFF4E5] px-1.5 text-[10px] font-bold text-[#B45309] ring-1 ring-amber-200/80">
-          대표메뉴
-        </span>
+          ?�?�메??        </span>
       ) : null}
-      {typeLabel && typeLabel !== "상품" ? (
+      {typeLabel && typeLabel !== "?�품" ? (
         <span className="inline-flex h-[18px] items-center rounded-[3px] bg-[#EEF8FC] px-1.5 text-[10px] font-bold text-[#1C8DB8] ring-1 ring-[#1C8DB8]/12">
           {typeLabel}
         </span>
       ) : null}
       {p.has_options ? (
         <span className="inline-flex h-[18px] items-center rounded-[3px] border border-neutral-200 bg-white px-1.5 text-[10px] font-bold text-neutral-600">
-          옵션
+          ?�션
         </span>
       ) : null}
       {soldOut ? (
         <span className="inline-flex h-[18px] items-center rounded-[3px] bg-red-50 px-1.5 text-[10px] font-bold text-red-700">
-          품절
+          ?�절
         </span>
       ) : null}
     </div>
   );
 
   const thumb = (
-    <div className="relative h-[88px] w-[88px] shrink-0 overflow-visible">
-      <div className="relative h-full w-full">
-      {hasDiscount && badgePct > 0 ? (
-        <span className="absolute left-1 top-1 z-10 rounded-[3px] bg-red-600 px-1.5 py-0.5 text-[9px] font-bold leading-none text-white shadow">
-          {badgePct}%
-        </span>
-      ) : null}
-      <StoreProductThumbnail src={thumbSrc} size={88} roundedClassName="rounded-[10px]" />
-      {soldOut ? <div className="absolute inset-0 bg-white/45" aria-hidden /> : null}
+    <div className="relative h-[88px] w-[88px] shrink-0">
+      <div className="relative h-full w-full overflow-hidden rounded-[10px]">
+        {hasDiscount && badgePct > 0 ? (
+          <span className="absolute left-1 top-1 z-10 rounded-[3px] bg-red-600 px-1.5 py-0.5 text-[9px] font-bold leading-none text-white shadow">
+            {badgePct}%
+          </span>
+        ) : null}
+        <StoreProductThumbnail src={thumbSrc} size={88} roundedClassName="rounded-[10px]" />
+        {soldOut ? <div className="absolute inset-0 bg-white/45" aria-hidden /> : null}
+        {!menuSelectBlocked && onOpenProduct && !soldOut ? (
+          <button type="button" onClick={onAddPress} className={PLUS_BTN} aria-label={`${p.title} 담기`}>
+            +
+          </button>
+        ) : null}
       </div>
-      {!menuSelectBlocked && onOpenProduct && !soldOut ? (
-        <button type="button" onClick={onAddPress} className={PLUS_BTN} aria-label={`${p.title} 담기`}>
-          +
-        </button>
-      ) : null}
     </div>
   );
 
@@ -185,7 +184,7 @@ export function StorePublicMenuList({
   sectionDomId,
   sectionScrollMarginClass = "scroll-mt-[132px]",
   sectionScrollMarginTopPx,
-  /** 예: calc(env(safe-area)+sticky헤더+블록) */
+  /** ?? calc(env(safe-area)+sticky?�더+블록) */
   sectionScrollMarginCss,
   onOpenProduct,
   onQuickAddProduct,
@@ -206,7 +205,7 @@ export function StorePublicMenuList({
     return (
       <div className="mt-4 px-4">
         <p className="rounded-[14px] border border-neutral-200 bg-white px-4 py-8 text-center text-[14px] leading-relaxed text-neutral-500 shadow-sm">
-          이 매장은 상품 판매 승인 전이거나 판매가 일시 중지된 상태입니다.
+          ??매장?� ?�품 ?�매 ?�인 ?�이거나 ?�매가 ?�시 중�????�태?�니??
         </p>
       </div>
     );
@@ -217,7 +216,7 @@ export function StorePublicMenuList({
     return (
       <div className="mt-4 px-4">
         <p className="rounded-[14px] border border-neutral-200 bg-white px-4 py-8 text-center text-[14px] leading-relaxed text-neutral-500 shadow-sm">
-          {sections.length === 0 ? "검색 결과가 없습니다." : "등록된 상품이 없습니다."}
+          {sections.length === 0 ? "검??결과가 ?�습?�다." : "?�록???�품???�습?�다."}
         </p>
       </div>
     );
@@ -229,7 +228,7 @@ export function StorePublicMenuList({
     <div className="space-y-0 bg-white px-4 pb-4">
       {menuSelectBlocked ? (
         <p className="rounded-[14px] border border-amber-200 bg-amber-50 px-3 py-2.5 text-[13px] font-medium leading-snug text-amber-950">
-          {menuSelectHint?.trim() || "지금은 메뉴를 선택할 수 없습니다. 목록은 볼 수 있습니다."}
+          {menuSelectHint?.trim() || "지금�? 메뉴�??�택?????�습?�다. 목록?� �????�습?�다."}
         </p>
       ) : null}
       {sections.map((section, sectionIndex) => (
@@ -255,9 +254,9 @@ export function StorePublicMenuList({
             <h3 className="text-[16px] font-extrabold tracking-[-0.02em] text-neutral-900">
               {section.listHeading ?? section.heading}
             </h3>
-            {section.listHeading && section.heading === "인기" ? (
+            {section.listHeading && section.heading === "?�기" ? (
               <p className="mt-0.5 text-[12px] font-medium text-neutral-500">
-                한 달간 주문수가 많고 만족도가 높은 메뉴예요.
+                ???�간 주문?��? 많고 만족?��? ?��? 메뉴?�요.
               </p>
             ) : null}
           </div>

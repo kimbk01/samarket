@@ -7,6 +7,7 @@ import {
   isTradeFloatingMenuSurface,
 } from "@/lib/layout/mobile-top-tier1-rules";
 import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
+import { isStoreCommerceCartCheckoutPath } from "@/lib/stores/store-cart-page-layout";
 import { isStoresConsumerSlugMenuRoute } from "@/lib/stores/store-consumer-route";
 
 /** 통화 전용 라우트에서 수신 오버레이 억제 — `CallIncomingChrome` 등 경량 판별용 */
@@ -120,8 +121,7 @@ export function resolveConditionalAppShellFlags(
   const isStoreCheckoutOrDetailFlow =
     isStoreSection && !isStoresHubBottomNavSurface && !isStoreOwnerAdminRoute;
   /** `/stores/[slug]/cart|checkout` — 헤더·주문 CTA 고정, `main` 하단 pb 0 */
-  const isStoreCommerceCartCheckoutPage =
-    /^\/stores\/[^/]+\/(cart|checkout)(\/|$)/.test(normalizedStorePath);
+  const isStoreCommerceCartCheckoutPage = isStoreCommerceCartCheckoutPath(normalizedStorePath);
   const isMainColumnViewportLocked = isStoreCommerceCartCheckoutPage;
   const isMypageTradeChatRoom = Boolean(pathname?.match(/^\/mypage\/trade\/chat\/[^/]+$/));
   const isCommunityMessengerRoom = isCommunityMessengerRoomPathname(pathname);

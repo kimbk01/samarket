@@ -32,7 +32,15 @@ import {
   type StoreDetailProductCard,
 } from "@/lib/stores/group-store-products-by-menu";
 import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
-import { decodeSlugSegment } from "@/lib/stores/store-consumer-route";
+import { decodeSlugSegment, isStoreSlugOrderMenuRoot } from "@/lib/stores/store-consumer-route";
+import { useStoreDetailMenuTabsViewport } from "@/lib/stores/use-store-detail-menu-tabs-viewport";
+import { useStoreDetailScrollRootScroll } from "@/lib/stores/use-store-detail-scroll-root-scroll";
+import {
+  getStoreDetailAppScrollRoot,
+  getStoreDetailScrollTop,
+  setStoreDetailScrollTop,
+} from "@/lib/ui/store-detail-scroll-root";
+import { readStoreDetailFixedHeaderOffsetPxCached } from "@/lib/ui/store-detail-viewport-metrics";
 import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
 import { resolveStoreFrontCommerceState } from "@/lib/stores/store-auto-hours";
 import {
@@ -239,7 +247,6 @@ export function StoreDetailPublic({
   });
   const [menuSoldOutBottom, setMenuSoldOutBottom] = useState(false);
 
-  const scrollHeaderGate = useRef(false);
   const menuStickyMeasureRef = useRef<HTMLDivElement>(null);
   const [menuStickyStackPx, setMenuStickyStackPx] = useState(118);
   const shellMarkedSlugRef = useRef<string | null>(null);
@@ -981,30 +988,28 @@ export function StoreDetailPublic({
 
   useRefetchOnPageShowRestore(() => void loadSplitDetailSilent());
 
-  useEffect(() => {
-    const onScroll = () => {
-      if (scrollHeaderGate.current) return;
-      scrollHeaderGate.current = true;
-      window.requestAnimationFrame(() => {
-        scrollHeaderGate.current = false;
-        setHeaderSolid((prev) => {
-          // 히어로(커버·배너) 하단이 헤더(약 56px) 아래로 지나가면 → 흰 배경 + 검은 아이콘
-          const hero = document.getElementById("store-hero-media");
-          const headerH = 56; // h-14
-          if (!hero) return true;
-          const bottom = hero.getBoundingClientRect().bottom;
-          const hysteresisPx = 10;
-          const next = prev
-            ? bottom <= headerH + hysteresisPx
-            : bottom <= headerH - hysteresisPx;
-          return prev === next ? prev : next;
-        });
-      });
-    };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [publicBanners.length, store?.slug]);
+  const syncHeaderSolidFromScroll = useCallback(() => {
+    const hero = document.getElementById("store-hero-media");
+    const headerH = readStoreDetailFixedHeaderOffsetPxCached();
+    if (!hero) {
+      setHeaderSolid(true);
+      return;
+    }
+    const bottom = hero.getBoundingClientRect().bottom;
+    const hysteresisPx = 10;
+    setHeaderSolid((prev) => {
+      const next = prev
+        ? bottom <= headerH + hysteresisPx
+        : bottom <= headerH - hysteresisPx;
+      return prev === next ? prev : next;
+    });
+  }, []);
+
+  useStoreDetailScrollRootScroll(
+    syncHeaderSolidFromScroll,
+    [publicBanners.length, store?.slug, syncHeaderSolidFromScroll],
+    Boolean(store?.slug)
+  );
 
   const ownerManagementHref = useOwnerManagementHref(
     store ? { id: store.id, slug: store.slug } : null
@@ -1091,35 +1096,30 @@ export function StoreDetailPublic({
     return () => window.removeEventListener(STORE_FULFILLMENT_PREF_CHANGED_EVENT, h);
   }, [store?.slug]);
 
-  const scrollTicking = useRef(false);
-  useEffect(() => {
+  const syncActiveMenuSectionFromScroll = useCallback(() => {
     if (menuSectionsFiltered.length <= 1) return;
-    const onScroll = () => {
-      if (scrollTicking.current) return;
-      scrollTicking.current = true;
-      window.requestAnimationFrame(() => {
-        scrollTicking.current = false;
-        const lock = menuScrollSpyLockRef.current;
-        if (lock && performance.now() < lock.until) {
-          setActiveMenuSection((prev) => (prev === lock.target ? prev : lock.target));
-          return;
-        }
-        const stickyEl = menuStickyMeasureRef.current;
-        const stickyBottom = stickyEl ? stickyEl.getBoundingClientRect().bottom : 120;
-        let best = 0;
-        menuSectionsFiltered.forEach((_, i) => {
-          const el = document.getElementById(`store-sec-${i}`);
-          if (!el) return;
-          const top = el.getBoundingClientRect().top;
-          if (top <= stickyBottom + 6) best = i;
-        });
-        setActiveMenuSection((prev) => (prev === best ? prev : best));
-      });
-    };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, [menuSectionsFiltered.length, menuSectionScrollKey]);
+    const lock = menuScrollSpyLockRef.current;
+    if (lock && performance.now() < lock.until) {
+      setActiveMenuSection((prev) => (prev === lock.target ? prev : lock.target));
+      return;
+    }
+    const stickyEl = menuStickyMeasureRef.current;
+    const stickyBottom = stickyEl ? stickyEl.getBoundingClientRect().bottom : 120;
+    let best = 0;
+    menuSectionsFiltered.forEach((_, i) => {
+      const el = document.getElementById(`store-sec-${i}`);
+      if (!el) return;
+      const top = el.getBoundingClientRect().top;
+      if (top <= stickyBottom + 6) best = i;
+    });
+    setActiveMenuSection((prev) => (prev === best ? prev : best));
+  }, [menuSectionsFiltered]);
+
+  useStoreDetailScrollRootScroll(
+    syncActiveMenuSectionFromScroll,
+    [menuSectionsFiltered.length, menuSectionScrollKey, syncActiveMenuSectionFromScroll],
+    menuSectionsFiltered.length > 1
+  );
 
   const commerce = useMemo(() => {
     if (!store) return null;
@@ -1193,6 +1193,16 @@ export function StoreDetailPublic({
       if (menuStickyMeasureTimerRef.current) clearTimeout(menuStickyMeasureTimerRef.current);
     };
   }, [summaryLoading, menusLoading, store?.id, menuQuery, menuSearchOpen]);
+
+  const storeMenuRootActive = isStoreSlugOrderMenuRoot(pathname ?? "", decodedSlug);
+  const { menuTabsViewportReady } = useStoreDetailMenuTabsViewport({
+    pathname,
+    decodedSlug,
+    summaryLoading,
+    menusLoading,
+    menuTabsMeasurable: storeMenuRootActive && !menusLoading && menuSectionsFiltered.length > 0,
+    menuStickyMeasureRef,
+  });
 
   const quickAddFromCard = useCallback(
     (p: StoreDetailProductCard): boolean => {
@@ -1316,10 +1326,11 @@ export function StoreDetailPublic({
       const sticky = menuStickyMeasureRef.current;
       if (!el || !sticky) return;
       armMenuScrollSpyLock(sectionIndex);
+      const scrollRoot = getStoreDetailAppScrollRoot();
       const stickyBottom = sticky.getBoundingClientRect().bottom;
       const sectionTop = el.getBoundingClientRect().top;
-      const y = window.scrollY + (sectionTop - stickyBottom);
-      window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+      const y = getStoreDetailScrollTop(scrollRoot) + (sectionTop - stickyBottom);
+      setStoreDetailScrollTop(Math.max(0, y), { behavior: "smooth", scrollRoot });
     },
     [armMenuScrollSpyLock]
   );
@@ -1410,8 +1421,12 @@ export function StoreDetailPublic({
   }, [menuTopNotices, storeForPaint?.slug]);
 
   /** 메인 컬럼(`APP_MAIN_COLUMN`) 폭에 맞춤 — 가로·태블릿에서 좌우 인공 보라 띠(430 고정) 제거 */
-  const viewportShell = (inner: ReactNode) => (
-    <div className="w-full min-w-0 min-h-[100dvh] overflow-x-hidden bg-white [-webkit-overflow-scrolling:touch]">
+  const viewportShell = (inner: ReactNode, opts?: { anchorPaintGate?: boolean }) => (
+    <div
+      className={`w-full min-w-0 min-h-[100dvh] overflow-x-hidden bg-white [-webkit-overflow-scrolling:touch]${
+        opts?.anchorPaintGate && storeMenuRootActive && !menuTabsViewportReady ? " invisible" : ""
+      }`}
+    >
       {inner}
     </div>
   );
@@ -1622,6 +1637,7 @@ export function StoreDetailPublic({
         </Link>
       </div>
 
-    </StoreDetailCartChrome>
+    </StoreDetailCartChrome>,
+    { anchorPaintGate: true }
   );
 }

@@ -5,15 +5,19 @@ import { useLayoutEffect } from "react";
 import { usePathname } from "next/navigation";
 import { isStoreConsumerDetailPath } from "@/lib/dibay/delivery-list-scroll-restore";
 import { deliveryShellEntryMark } from "@/lib/dibay/delivery-shell-entry-trace";
-import { decodeSlugSegment } from "@/lib/stores/store-consumer-route";
+import { isStoreCommerceCartCheckoutPath } from "@/lib/stores/store-cart-page-layout";
+import {
+  decodeSlugSegment,
+  isStoreSlugOrderMenuRoot,
+  shouldWrapStoreDetailSlideShell,
+} from "@/lib/stores/store-consumer-route";
 import { StoreDetailSlideShell } from "@/components/stores/detail/StoreDetailSlideShell";
 import { StoreSlugStickyBar } from "@/components/stores/StoreSlugStickyBar";
 import { APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
-import { isStoreSlugOrderMenuRoot } from "@/lib/stores/store-consumer-route";
 
 /**
- * 소비자용 `/stores/[slug]/*` — 오너(/owner/) 제외 시 매장별 1단 스티키(이름·액션) 고정.
- * 주문 메뉴 루트(`/stores/[slug]` 단일 세그먼트)는 Baemin형 전용 헤더가 페이지 내부에 있으므로 Tier1 바 생략.
+ * 소비자용 `/stores/[slug]/*` — 오너(/owner/) 제외.
+ * 메뉴 루트: SlideShell + 내부 헤더. cart/checkout/상품: SlideShell 없음(내부 스크롤).
  */
 export function StoreConsumerShell({ slug, children }: { slug: string; children: ReactNode }) {
   const pathname = usePathname();
@@ -28,21 +32,22 @@ export function StoreConsumerShell({ slug, children }: { slug: string; children:
   if (pathname?.includes("/owner/")) {
     return <>{children}</>;
   }
-  if (isStoreSlugOrderMenuRoot(pathname, slug)) {
-    return <StoreDetailSlideShell>{children}</StoreDetailSlideShell>;
-  }
-  const normalizedSlug = encodeURIComponent(decodeURIComponent((slug || "").trim()));
-  const pathNoQuery = (pathname ?? "").split("?")[0] ?? "";
-  /** 장바구니/체크아웃·메뉴 상세는 자체 헤더(히어로 오버레이) — Tier1 바 생략 */
-  if (
-    pathNoQuery === `/stores/${normalizedSlug}/cart` ||
-    pathNoQuery.startsWith(`/stores/${normalizedSlug}/cart/`) ||
-    pathNoQuery === `/stores/${normalizedSlug}/checkout` ||
-    pathNoQuery.startsWith(`/stores/${normalizedSlug}/checkout/`) ||
-    /^\/stores\/[^/]+\/p\/[^/]+$/.test(pathNoQuery)
-  ) {
+
+  const path = (pathname ?? "").split("?")[0] ?? "";
+  if (isStoreCommerceCartCheckoutPath(path)) {
     return <>{children}</>;
   }
+
+  if (shouldWrapStoreDetailSlideShell(pathname, slug)) {
+    return (
+      <StoreDetailSlideShell storeSlug={decodedSlug}>{children}</StoreDetailSlideShell>
+    );
+  }
+
+  if (isStoreSlugOrderMenuRoot(pathname, decodedSlug)) {
+    return <>{children}</>;
+  }
+
   return (
     <>
       <div className={APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS}>

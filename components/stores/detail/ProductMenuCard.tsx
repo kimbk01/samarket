@@ -12,7 +12,7 @@ import { storeMenuProductDomId } from "@/lib/dibay/store-menu-product-focus";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
 
 const PLUS_BTN =
-  "absolute -bottom-1.5 -right-1.5 flex h-[31px] w-[31px] shrink-0 touch-manipulation select-none items-center justify-center rounded-full bg-[#2386B1] text-[21px] font-normal leading-none text-white shadow-[0_2px_8px_rgba(35,134,177,0.35)] ring-1 ring-[#2386B1]/40 transition-all duration-150 hover:bg-[#1F769C] active:scale-[0.92] active:bg-[#1A6A8F]";
+  "absolute bottom-1 right-1 z-10 flex h-[28px] w-[28px] shrink-0 touch-manipulation select-none items-center justify-center rounded-full bg-[#2386B1] text-[19px] font-normal leading-none text-white shadow-[0_2px_6px_rgba(35,134,177,0.35)] ring-1 ring-[#2386B1]/40 transition-all duration-150 hover:bg-[#1F769C] active:scale-[0.92] active:bg-[#1A6A8F]";
 
 type Props = {
   storeSlug: string;
@@ -122,7 +122,7 @@ export const ProductMenuCard = memo(function ProductMenuCard({
 
   const thumb = (
     <div className="relative shrink-0" style={{ width: sz, height: sz }}>
-      <div className="relative h-full w-full">
+      <div className="relative h-full w-full overflow-hidden rounded-[12px]">
         <StoreProductThumbnail
           src={thumbSrc}
           size={sz}
@@ -134,12 +134,12 @@ export const ProductMenuCard = memo(function ProductMenuCard({
           </span>
         ) : null}
         {soldOut ? <SoldOutOverlay /> : null}
+        {!menuSelectBlocked && onOpenProduct && !soldOut ? (
+          <button type="button" onClick={onAddPress} className={PLUS_BTN} aria-label={`${p.title} 담기`}>
+            +
+          </button>
+        ) : null}
       </div>
-      {!menuSelectBlocked && onOpenProduct && !soldOut ? (
-        <button type="button" onClick={onAddPress} className={PLUS_BTN} aria-label={`${p.title} 담기`}>
-          +
-        </button>
-      ) : null}
     </div>
   );
 

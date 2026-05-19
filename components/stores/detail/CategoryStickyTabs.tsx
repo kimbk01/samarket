@@ -1,8 +1,11 @@
 "use client";
 
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { StoreMenuCategoryChips } from "@/components/stores/StoreMenuCategoryChips";
+import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 
-export function CategoryStickyTabs(props: {
+function CategoryTabsBar(props: {
   measureRef?: React.RefObject<HTMLDivElement | null>;
   sections: { label: string }[];
   activeIndex: number;
@@ -11,14 +14,9 @@ export function CategoryStickyTabs(props: {
   setMenuQuery: (v: string) => void;
   setMenuSearchOpen: (v: boolean) => void;
   onSelect: (i: number) => void;
-  stickyTopCss: string;
 }) {
   return (
-    <div
-      ref={props.measureRef}
-      className="sticky z-[40] border-b border-neutral-100 bg-white"
-      style={{ top: props.stickyTopCss }}
-    >
+    <>
       <label className="sr-only" htmlFor="store-menu-search">
         메뉴 검색
       </label>
@@ -38,7 +36,6 @@ export function CategoryStickyTabs(props: {
               onChange={(e) => props.setMenuQuery(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key !== "Enter") return;
-                /** 기본 submit·페이지 스크롤 점프 방지 — 필터는 이미 onChange 로 반영됨 */
                 e.preventDefault();
               }}
               className="min-w-0 flex-1 bg-transparent text-[14px] font-semibold text-neutral-900 outline-none placeholder:text-neutral-400"
@@ -69,6 +66,60 @@ export function CategoryStickyTabs(props: {
         }}
         onSelect={props.onSelect}
       />
+    </>
+  );
+}
+
+export function CategoryStickyTabs(props: {
+  measureRef?: React.RefObject<HTMLDivElement | null>;
+  sections: { label: string }[];
+  activeIndex: number;
+  menuSearchOpen: boolean;
+  menuQuery: string;
+  setMenuQuery: (v: string) => void;
+  setMenuSearchOpen: (v: boolean) => void;
+  onSelect: (i: number) => void;
+  stickyTopCss: string;
+  pinned?: boolean;
+}) {
+  const [portalReady, setPortalReady] = useState(false);
+  useEffect(() => {
+    setPortalReady(true);
+  }, []);
+
+  const bar = (
+    <CategoryTabsBar
+      sections={props.sections}
+      activeIndex={props.activeIndex}
+      menuSearchOpen={props.menuSearchOpen}
+      menuQuery={props.menuQuery}
+      setMenuQuery={props.setMenuQuery}
+      setMenuSearchOpen={props.setMenuSearchOpen}
+      onSelect={props.onSelect}
+    />
+  );
+
+  if (props.pinned && portalReady && typeof document !== "undefined") {
+    return createPortal(
+      <div
+        ref={props.measureRef}
+        className="fixed inset-x-0 z-[55] border-b border-neutral-100 bg-white"
+        style={{ top: props.stickyTopCss }}
+        data-store-category-tabs="pinned"
+      >
+        <div className={`${APP_MAIN_COLUMN_CLASS} bg-white`}>{bar}</div>
+      </div>,
+      document.body
+    );
+  }
+
+  return (
+    <div
+      ref={props.measureRef}
+      className="relative z-[40] border-b border-neutral-100 bg-white"
+      data-store-category-tabs="flow"
+    >
+      {bar}
     </div>
   );
 }

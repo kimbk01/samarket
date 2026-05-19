@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import type { ReactNode } from "react";
 
@@ -7,9 +7,9 @@ import type { ReactNode } from "react";
  */
 export function StoreNoticeBar({ legacyStrip, managedSlot }: { legacyStrip?: ReactNode; managedSlot?: ReactNode }) {
   return (
-    <>
+    <section id="store-detail-notice-bar">
       {legacyStrip}
-      {managedSlot ? <div className="mt-2 px-4">{managedSlot}</div> : null}
-    </>
+      {managedSlot ? <section className="mt-2 px-4">{managedSlot}</section> : null}
+    </section>
   );
 }

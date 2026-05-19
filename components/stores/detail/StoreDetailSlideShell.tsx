@@ -10,8 +10,13 @@ import {
   type ReactNode,
   type TransitionEvent,
 } from "react";
+import { usePathname } from "next/navigation";
 import { StoreDetailAnimatedBackProvider } from "@/lib/dibay/store-detail-animated-back-context";
 import { consumeStoreDetailShellCoveredEnter } from "@/lib/dibay/store-detail-nav-intent";
+import {
+  decodeSlugSegment,
+  isStoreSlugConsumerSubtree,
+} from "@/lib/stores/store-consumer-route";
 import {
   STORE_DETAIL_SLIDE_COVER_SHADOW,
   STORE_DETAIL_SLIDE_ENTER_EASING,
@@ -37,9 +42,32 @@ function usePrefersReducedMotion(): boolean {
 /**
  * `/stores/[slug]` 메뉴 루트 ???�→�???�� 진입, 좌→??복�?(?�더 ?�로).
  */
-export function StoreDetailSlideShell({ children }: { children: ReactNode }) {
+function pathsUnderSameStoreSlug(prevPath: string, nextPath: string, slug: string): boolean {
+  const slugDec = decodeSlugSegment(slug);
+  if (!slugDec) return false;
+  return (
+    isStoreSlugConsumerSubtree(prevPath, slugDec) && isStoreSlugConsumerSubtree(nextPath, slugDec)
+  );
+}
+
+export function StoreDetailSlideShell({
+  children,
+  storeSlug,
+}: {
+  children: ReactNode;
+  storeSlug: string;
+}) {
+  const pathname = usePathname() ?? "";
   const reducedMotion = usePrefersReducedMotion();
-  const skipEnterRef = useRef(consumeStoreDetailShellCoveredEnter());
+  const prevPathRef = useRef<string | null>(null);
+  const skipEnterRef = useRef(
+    consumeStoreDetailShellCoveredEnter() ||
+      (prevPathRef.current != null &&
+        pathsUnderSameStoreSlug(prevPathRef.current, pathname, storeSlug))
+  );
+  if (prevPathRef.current !== pathname) {
+    prevPathRef.current = pathname;
+  }
   const [phase, setPhase] = useState<SlidePhase>(() =>
     reducedMotion || skipEnterRef.current ? "idle" : "enter"
   );
@@ -128,8 +156,9 @@ export function StoreDetailSlideShell({ children }: { children: ReactNode }) {
       };
     }
     return {
-      transform: "translate3d(0,0,0)",
+      transform: "none",
       boxShadow: "none",
+      willChange: "auto",
     };
   }, [phase, reducedMotion]);
 

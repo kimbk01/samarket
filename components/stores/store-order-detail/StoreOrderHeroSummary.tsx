@@ -361,7 +361,7 @@ export function StoreOrderHeroSummary({
       </div>
 
       {collapseTopFulfillmentCard ? null : (
-        <div className="bg-white px-4 pb-2.5">
+        <section className="bg-white px-4 pb-2.5" data-store-fulfillment-card>
           <div className="rounded-[12px] border border-neutral-200 bg-white shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
             <div className="flex w-full items-center gap-1 rounded-t-[12px] bg-[#F3F4F6] p-0.5">
               <button
@@ -436,7 +436,7 @@ export function StoreOrderHeroSummary({
               </p>
             ) : null}
           </div>
-        </div>
+        </section>
       )}
     </div>
   );

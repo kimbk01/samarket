@@ -63,20 +63,16 @@ import {
 } from "@/lib/dibay/delivery-option-sheet-trace";
 import { getStoreProductSheetOpenMark } from "@/lib/stores/store-product-sheet-ui-store";
 import type { StoreCommerceCartLine } from "@/lib/stores/store-commerce-cart-types";
+import { useStoreCommerceCartLinesForStorePage } from "@/lib/stores/use-store-commerce-cart-lines-for-store-page";
+import {
+  clampCartSeedQty,
+  findCommerceCartLineByProductId,
+  modifierWireFromCartLine,
+} from "@/lib/stores/store-commerce-cart-line-seed";
 
 type PublicStore = SheetPublicStore;
 
 type ReviewSnippet = { content: string; created_at: string; rating: number | null };
-
-function modifierWireFromCartLine(line: StoreCommerceCartLine): ModifierSelectionsWire {
-  if (line.modifierWire?.pick) {
-    return {
-      pick: { ...line.modifierWire.pick },
-      qty: { ...(line.modifierWire.qty ?? {}) },
-    };
-  }
-  return { pick: { ...(line.optionSelections ?? {}) }, qty: {} };
-}
 
 export function StoreProductAddSheet({
   productId,
@@ -105,6 +101,19 @@ export function StoreProductAddSheet({
   onAddedToCart?: () => void;
 }) {
   const commerceCart = useStoreCommerceCartActionsOptional();
+  const sheetSlug = sheetStoreContext?.store?.slug ?? pageStoreSlug;
+  const sheetStoreId = sheetStoreContext?.store?.id ?? null;
+  const { lines: cartLines, hydrated: cartHydrated } = useStoreCommerceCartLinesForStorePage(
+    sheetSlug,
+    sheetStoreId
+  );
+
+  const resolvedCartLine = useMemo((): StoreCommerceCartLine | null => {
+    if (editCartLine != null && editCartLine.productId === productId) return editCartLine;
+    const pid = String(productId ?? "").trim();
+    if (!pid) return null;
+    return findCommerceCartLineByProductId(cartLines, pid);
+  }, [editCartLine, cartLines, productId]);
 
   const seedPair = useMemo(() => {
     const row = prefetchedListRow ?? null;
@@ -168,13 +177,17 @@ export function StoreProductAddSheet({
   }, [productId, onClose]);
 
   useEffect(() => {
-    if (!product?.id) return;
+    if (!product?.id || !cartHydrated) return;
     const editing =
-      editCartLine != null && editCartLine.productId === product.id ? editCartLine : null;
+      resolvedCartLine != null && resolvedCartLine.productId === product.id
+        ? resolvedCartLine
+        : null;
     if (editing) {
       const minQ = Math.max(1, Number(product.min_order_qty) || 1);
       const maxQ = Math.max(minQ, Number(product.max_order_qty) || 99);
-      setQty(Math.min(maxQ, Math.max(minQ, Math.floor(editing.qty) || minQ)));
+      const trackInv = product.track_inventory === true;
+      const cap = trackInv ? Math.min(maxQ, product.stock_qty) : maxQ;
+      setQty(clampCartSeedQty(editing, minQ, cap));
       setModifierWire(modifierWireFromCartLine(editing));
       setLineNote(editing.lineNote?.trim() ?? "");
     } else {
@@ -184,7 +197,7 @@ export function StoreProductAddSheet({
       setLineNote("");
     }
     setSheetErr(null);
-  }, [product?.id, editCartLine?.lineId, editCartLine?.productId]);
+  }, [product?.id, cartHydrated, cartLines, resolvedCartLine]);
 
   const optionGroups = useMemo(
     () => (product ? parseProductOptionsJson(product.options_json) : []),
@@ -563,7 +576,7 @@ export function StoreProductAddSheet({
     };
 
     const editingLine =
-      editCartLine != null && editCartLine.productId === pr.id ? editCartLine : null;
+      resolvedCartLine != null && resolvedCartLine.productId === pr.id ? resolvedCartLine : null;
 
     if (editingLine) {
       const replaceResult = commerceCart.replaceCartLineAt(editingLine.lineId, lineInput);
@@ -645,7 +658,7 @@ export function StoreProductAddSheet({
     qty > 1 || hasOptionDelta || (showListStrike && product !== null);
 
   const isEditingCartLine =
-    editCartLine != null && product != null && editCartLine.productId === product.id;
+    resolvedCartLine != null && product != null && resolvedCartLine.productId === product.id;
 
   const headerTitle = isEditingCartLine
     ? "옵션 변경"

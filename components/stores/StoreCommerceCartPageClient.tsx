@@ -4,6 +4,7 @@ import type { ModifierSelectionsWire } from "@/lib/stores/modifiers/types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { markStoreDetailMenuTabsLanding } from "@/lib/dibay/store-detail-nav-intent";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { scrollAppShellForStoreCheckoutConfirm } from "@/lib/stores/store-cart-checkout-scroll";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
@@ -880,7 +881,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     const slugFromCart = cartBucket?.storeSlug?.trim();
     const slug = slugFromStore || slugFromCart || storeSlug.trim();
     if (slug) {
-      router.push(`/stores/${encodeURIComponent(slug)}`);
+      markStoreDetailMenuTabsLanding();
+      router.push(`/stores/${encodeURIComponent(slug)}`, { scroll: false });
       return;
     }
     const sid = store?.id?.trim() || cartBucket?.storeId?.trim();
@@ -890,7 +892,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         const j = json as { ok?: boolean; store?: { slug?: string } };
         const resolved = j?.ok && j.store?.slug?.trim() ? j.store.slug.trim() : "";
         if (resolved) {
-          router.push(`/stores/${encodeURIComponent(resolved)}`);
+          markStoreDetailMenuTabsLanding();
+          router.push(`/stores/${encodeURIComponent(resolved)}`, { scroll: false });
           return;
         }
       } catch {

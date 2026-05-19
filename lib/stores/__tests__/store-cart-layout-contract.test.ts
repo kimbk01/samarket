@@ -24,6 +24,7 @@ describe("store cart layout contract", () => {
 
     const flags = readRepo("lib/layout/conditional-app-shell-flags.ts");
     expect(flags).toContain("isStoreCommerceCartCheckoutPage");
+    expect(flags).toContain("isStoreCommerceCartCheckoutPath");
     expect(flags).toContain("isMainColumnViewportLocked");
   });
 });

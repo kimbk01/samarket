@@ -6,10 +6,15 @@ import {
   subscribeCommerceCartSnapshot,
 } from "@/lib/stores/store-commerce-cart-snapshot-bus";
 import { commerceCartLineSubtotalPhp } from "@/lib/stores/store-commerce-cart-add-merge";
+import { findCommerceCartBucketBySlug } from "@/lib/stores/find-commerce-cart-bucket-by-slug";
 import type { StoreCommerceCartLine } from "@/lib/stores/store-commerce-cart-types";
 
 function normalizeStoreIdKey(id: string | undefined | null): string {
   return String(id ?? "").trim();
+}
+
+function normalizeStoreSlugKey(slug: string | undefined | null): string {
+  return String(slug ?? "").trim().toLowerCase();
 }
 
 function lineQtyNumber(l: StoreCommerceCartLine): number {
@@ -52,8 +57,15 @@ type LinesCache = {
   lines: StoreCommerceCartLine[];
 };
 
+type SlugLinesCache = {
+  generation: number;
+  storeSlug: string;
+  lines: StoreCommerceCartLine[];
+};
+
 let statsCache: StatsCache | null = null;
 let linesCache: LinesCache | null = null;
+let slugLinesCache: SlugLinesCache | null = null;
 
 function computeBucketStats(storeId: string): StoreCommerceCartBucketStats {
   const bus = getCommerceCartSnapshotBus();
@@ -117,10 +129,31 @@ function readCartLines(storeId: string): StoreCommerceCartLine[] {
   return lines;
 }
 
+function readCartLinesBySlug(storeSlug: string): StoreCommerceCartLine[] {
+  const bus = getCommerceCartSnapshotBus();
+  const sk = normalizeStoreSlugKey(storeSlug);
+  if (
+    slugLinesCache &&
+    slugLinesCache.generation === bus.generation &&
+    slugLinesCache.storeSlug === sk
+  ) {
+    return slugLinesCache.lines;
+  }
+  if (!bus.hydrated || !sk || !bus.snapshot?.carts) {
+    slugLinesCache = { generation: bus.generation, storeSlug: sk, lines: EMPTY_LINES };
+    return EMPTY_LINES;
+  }
+  const bucket = findCommerceCartBucketBySlug(bus.snapshot, sk);
+  const lines = bucket?.lines ?? EMPTY_LINES;
+  slugLinesCache = { generation: bus.generation, storeSlug: sk, lines };
+  return lines;
+}
+
 /** vitest — 셀렉터 모듈 캐시 초기화 */
 export function resetStoreCommerceCartSelectorCachesForTests(): void {
   statsCache = null;
   linesCache = null;
+  slugLinesCache = null;
 }
 
 /** @internal useSyncExternalStore getSnapshot과 동일 경로 — 참조 안정성 테스트 */
@@ -152,6 +185,26 @@ export function useStoreCommerceCartLines(storeId: string | null | undefined): S
     subscribeCommerceCartSnapshot,
     () => (sid ? readCartLines(sid) : EMPTY_LINES),
     () => EMPTY_LINES
+  );
+}
+
+/** URL slug 기준 — API store.id 로드 전에도 카트 줄 조회 */
+export function useStoreCommerceCartLinesBySlug(
+  storeSlug: string | null | undefined
+): StoreCommerceCartLine[] {
+  const sk = useMemo(() => normalizeStoreSlugKey(storeSlug), [storeSlug]);
+  return useSyncExternalStore(
+    subscribeCommerceCartSnapshot,
+    () => (sk ? readCartLinesBySlug(sk) : EMPTY_LINES),
+    () => EMPTY_LINES
+  );
+}
+
+export function useStoreCommerceCartHydrated(): boolean {
+  return useSyncExternalStore(
+    subscribeCommerceCartSnapshot,
+    () => getCommerceCartSnapshotBus().hydrated,
+    () => false
   );
 }
 

@@ -1,9 +1,15 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { AppBackIcon, AppCloseIcon } from "@/components/navigation/AppBackButton";
 import { useStoreDetailAnimatedBack } from "@/lib/dibay/store-detail-animated-back-context";
+import { markStoreDetailMenuTabsLanding } from "@/lib/dibay/store-detail-nav-intent";
 import { runStoreDetailDirectBack } from "@/lib/navigation/store-detail-animated-back";
+import {
+  decodeSlugSegment,
+  isStoreSlugConsumerSubtree,
+  isStoreSlugOrderMenuRoot,
+} from "@/lib/stores/store-consumer-route";
 
 type Variant = "back" | "close";
 
@@ -22,13 +28,31 @@ export function StoreDetailBackLink({
   className?: string;
 }) {
   const router = useRouter();
+  const pathname = usePathname() ?? "";
   const animatedBack = useStoreDetailAnimatedBack();
   const label = variant === "close" ? "닫기" : "뒤로가기";
+
+  const onBackPress = () => {
+    const fallbackPath = (fallbackHref || "").split("?")[0] ?? "";
+    const menuRootMatch = fallbackPath.match(/^\/stores\/([^/]+)$/);
+    const targetSlug = menuRootMatch ? decodeSlugSegment(menuRootMatch[1] ?? "") : "";
+    const onStoreChildRoute =
+      targetSlug &&
+      isStoreSlugConsumerSubtree(pathname, targetSlug) &&
+      !isStoreSlugOrderMenuRoot(pathname, targetSlug);
+
+    if (onStoreChildRoute) {
+      markStoreDetailMenuTabsLanding();
+      router.push(fallbackHref, { scroll: false });
+      return;
+    }
+    runStoreDetailDirectBack(router, fallbackHref, animatedBack);
+  };
 
   return (
     <button
       type="button"
-      onClick={() => runStoreDetailDirectBack(router, fallbackHref, animatedBack)}
+      onClick={onBackPress}
       className={
         className ??
         "flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect text-sam-fg hover:bg-sam-surface-muted/90 active:bg-sam-border-soft/80"
