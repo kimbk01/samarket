@@ -41,11 +41,9 @@ export function isMeProfileCacheFresh(): boolean {
   return !!cachedFull && cachedFull.expiresAt > Date.now();
 }
 
-/** App boot minimal 응답을 full dedupe 캐시에도 반영(동일 user·shape). */
+/** App boot minimal 응답은 full profile 캐시로 승격하지 않는다. */
 export function primeMeProfileDedupedFromBoot(result: MeProfileGetResult): void {
-  if (result.status >= 200 && result.status < 300) {
-    cachedFull = { value: result, expiresAt: Date.now() + TTL_MS };
-  }
+  void result;
 }
 
 function profileFetchHeaders(clientCallSource: string | undefined, extra: Record<string, string> = {}): HeadersInit {

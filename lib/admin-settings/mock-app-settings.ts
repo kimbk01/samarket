@@ -4,19 +4,35 @@
  */
 
 import type { AppSettings } from "@/lib/types/admin-settings";
+import { isLegacyAppDisplayName, resolveAppDisplayName } from "@/lib/brand/app-display-name";
 import { DEFAULT_APP_SETTINGS } from "./admin-settings-utils";
 import { addSettingChangeLog } from "./mock-setting-change-logs";
 
 const STORAGE_KEY = "kasama_app_settings";
+
+function normalizeStoredSettings(parsed: Partial<AppSettings>): Partial<AppSettings> {
+  if (parsed.defaultCurrency && typeof parsed.defaultCurrency === "string") {
+    parsed.defaultCurrency = parsed.defaultCurrency.toUpperCase();
+  }
+  if (isLegacyAppDisplayName(parsed.siteName)) {
+    parsed.siteName = resolveAppDisplayName(parsed.siteName);
+  }
+  return parsed;
+}
+
+function normalizeSettingsInput(settings: Partial<AppSettings>): Partial<AppSettings> {
+  return normalizeStoredSettings({ ...settings });
+}
 
 function loadFromStorage(): Partial<AppSettings> {
   if (typeof window === "undefined") return {};
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY);
     if (!raw) return {};
-    const parsed = JSON.parse(raw) as Partial<AppSettings>;
-    if (parsed.defaultCurrency && typeof parsed.defaultCurrency === "string") {
-      parsed.defaultCurrency = parsed.defaultCurrency.toUpperCase();
+    const rawParsed = JSON.parse(raw) as Partial<AppSettings>;
+    const parsed = normalizeStoredSettings({ ...rawParsed });
+    if (isLegacyAppDisplayName(rawParsed.siteName)) {
+      saveToStorage({ ...DEFAULT_APP_SETTINGS, ...parsed });
     }
     return parsed;
   } catch {
@@ -50,7 +66,7 @@ export function getAppSettings(): AppSettings {
 }
 
 export function setAppSettings(settings: Partial<AppSettings>): AppSettings {
-  current = { ...current, ...settings, updatedAt: new Date().toISOString() };
+  current = { ...current, ...normalizeSettingsInput(settings), updatedAt: new Date().toISOString() };
   saveToStorage(current);
   return current;
 }
@@ -60,17 +76,21 @@ export function updateSetting<K extends keyof AppSettings>(
   key: K,
   value: AppSettings[K]
 ): void {
+  const nextValue =
+    key === "siteName"
+      ? (resolveAppDisplayName(String(value ?? "")) as AppSettings[K])
+      : value;
   const oldVal = String(current[key] ?? "");
-  const newVal = String(value);
+  const newVal = String(nextValue);
   if (oldVal === newVal) return;
-  current = { ...current, [key]: value, updatedAt: new Date().toISOString() };
+  current = { ...current, [key]: nextValue, updatedAt: new Date().toISOString() };
   saveToStorage(current);
   addSettingChangeLog(key, oldVal, newVal);
 }
 
 /** 여러 키 한 번에 저장 + 변경 이력 */
 export function updateSettings(partial: Partial<AppSettings>): void {
-  const normalized = { ...partial };
+  const normalized = normalizeSettingsInput(partial);
   if (typeof normalized.defaultCurrency === "string") {
     normalized.defaultCurrency = normalized.defaultCurrency.toUpperCase();
   }

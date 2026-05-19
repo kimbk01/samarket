@@ -43,7 +43,7 @@ export function GeneralSettingsForm({ values, onChange }: GeneralSettingsFormPro
   return (
     <div className="space-y-4">
       <p className="sam-text-body-secondary text-sam-muted">
-        사이트 기본 정보 · 사이트명은 웹 탭 제목과 앱 내 노출에 사용됩니다.
+        사이트 기본 정보 · 사이트명은 앱 내 운영 표시값에 사용됩니다.
       </p>
       <div>
         <label className="block sam-text-body-secondary font-medium text-sam-fg">
@@ -53,12 +53,12 @@ export function GeneralSettingsForm({ values, onChange }: GeneralSettingsFormPro
           type="text"
           value={values.siteName}
           onChange={(e) => onChange("siteName", e.target.value)}
-          placeholder="KASAMA"
+          placeholder="dibaY"
           className="mt-1 w-full max-w-xs rounded border border-sam-border px-3 py-2 sam-text-body text-sam-fg"
         />
         {values.siteName && (
           <p className="mt-1 sam-text-helper text-sam-muted">
-            현재: <strong>{values.siteName}</strong> (저장 후 웹 탭 제목에 반영)
+            현재: <strong>{values.siteName}</strong> (저장 후 앱 내 운영 표시값에 반영)
           </p>
         )}
       </div>

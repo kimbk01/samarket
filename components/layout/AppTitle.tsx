@@ -3,11 +3,14 @@
 import { useEffect } from "react";
 import { getAppSettings } from "@/lib/app-settings";
 
-/** 어드민 일반 설정의 사이트명을 document.title에 반영 */
+/**
+ * 운영설정 localStorage 마이그레이션 트리거.
+ * 브라우저 탭 제목은 Next metadata 가 단일 권한으로 관리한다.
+ */
 export function AppTitle() {
   useEffect(() => {
-    const name = getAppSettings().siteName?.trim();
-    if (name) document.title = name;
+    void getAppSettings();
   }, []);
+
   return null;
 }

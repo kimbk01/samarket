@@ -20,6 +20,49 @@ async function loginViaTestApi(page: import("@playwright/test").Page, origin: st
 }
 
 test.describe("dibaY rename smoke", () => {
+  test("legacy brand storage is migrated without overriding the title", async ({ page, baseURL }) => {
+    const origin = baseURL ?? "http://127.0.0.1:3000";
+
+    await page.addInitScript(() => {
+      window.localStorage.setItem(
+        "kasama_app_settings",
+        JSON.stringify({
+          siteName: "KASAMA",
+          defaultCurrency: "PHP",
+          defaultLocale: "en-PH",
+        })
+      );
+    });
+
+    await page.goto(`${origin}/`, { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveTitle(/^dibaY$/i);
+    await expect
+      .poll(() => page.evaluate(() => JSON.parse(window.localStorage.getItem("kasama_app_settings") ?? "{}").siteName))
+      .toBe("dibaY");
+  });
+
+  test("bottom nav Enter keeps dibaY title stable when authenticated shell is available", async ({ page, baseURL }) => {
+    const origin = baseURL ?? "http://127.0.0.1:3000";
+
+    await page.goto(origin, { waitUntil: "domcontentloaded" });
+    const loggedIn = await loginViaTestApi(page, origin);
+    test.skip(!loggedIn, "test-login unavailable; authenticated bottom nav shell cannot be reached");
+    await page.goto(`${origin}/market`, { waitUntil: "domcontentloaded" });
+    await expect(page).toHaveTitle(/dibaY/i);
+
+    const firstDifferentTab = page.locator('a.app-bottom-nav-item:not([aria-current="page"])').first();
+    try {
+      await firstDifferentTab.waitFor({ state: "visible", timeout: 15_000 });
+    } catch {
+      test.skip(true, `authenticated bottom nav unavailable at ${page.url()}`);
+    }
+    await firstDifferentTab.focus();
+    await page.keyboard.press("Enter");
+    await page.waitForLoadState("domcontentloaded");
+    await expect(page).toHaveTitle(/dibaY/i);
+    await expect(page).not.toHaveTitle(/KASAMA/i);
+  });
+
   test("brand/login/chat/post/admin/favicon/oauth redirect", async ({ page, baseURL, request }) => {
     const origin = baseURL ?? "http://127.0.0.1:3000";
 

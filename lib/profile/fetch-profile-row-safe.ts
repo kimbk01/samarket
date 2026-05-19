@@ -195,6 +195,10 @@ const SELECT_ME_PROFILE_LITE = [
   "last_login_at",
   "last_device_info",
   "auth_login_email",
+  "terms_accepted_at",
+  "terms_version",
+  "privacy_accepted_at",
+  "privacy_version",
 ].join(", ");
 
 export function isProfileSelectSchemaError(message: string | undefined): boolean {

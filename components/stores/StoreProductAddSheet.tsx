@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import {
   type AddStoreCartLineInput,
   useStoreCommerceCartActionsOptional,
@@ -705,12 +706,14 @@ export function StoreProductAddSheet({
             ) : null}
 
             <div className="relative aspect-[16/10] max-h-[200px] min-h-[160px] w-full overflow-hidden bg-neutral-100">
-              {sheetPrimaryImage ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={sheetPrimaryImage} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <div className="h-full w-full bg-neutral-100" />
-              )}
+              <SamarketThumbnail
+                src={sheetPrimaryImage}
+                alt=""
+                fill
+                priority
+                className="h-full w-full"
+                roundedClassName="rounded-none"
+              />
             </div>
 
             <div className="bg-white px-4 pb-3 pt-3">
@@ -729,18 +732,13 @@ export function StoreProductAddSheet({
 
             <div className="hidden mx-3 mt-3 gap-3 rounded-ui-rect bg-sam-surface p-3 shadow-sm ring-1 ring-sam-border/70">
               <div className="h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-ui-rect bg-sam-surface-muted">
-                {sheetPrimaryImage ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={sheetPrimaryImage}
-                    alt=""
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center sam-text-xxs text-sam-meta">
-                    이미지 없음
-                  </div>
-                )}
+                <SamarketThumbnail
+                  src={sheetPrimaryImage}
+                  alt=""
+                  fill
+                  className="h-full w-full"
+                  roundedClassName="rounded-ui-rect"
+                />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-start justify-between gap-2">

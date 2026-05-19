@@ -147,15 +147,71 @@ const BottomNavHubBadgeDot = memo(function BottomNavHubBadgeDot({ count }: { cou
   );
 });
 
-function onBottomNavTabActivate(
-  pathname: string | null,
-  currentSearchNoQuestion: string,
-  tabHref: string,
-  e: MouseEvent<HTMLAnchorElement>
+type BottomNavActivateEvent = Pick<MouseEvent<HTMLAnchorElement>, "preventDefault">;
+
+/**
+ * 하단 탭 활성화 단일 경로.
+ * Enter 는 브라우저 기본 anchor click, Space 는 click 합성으로만 들어온다.
+ */
+function runBottomNavTabClick(
+  e: BottomNavActivateEvent,
+  opts: {
+    pathname: string | null;
+    navSearch: string;
+    href: string;
+    tabId: string;
+    isActive: boolean;
+    beginMenuNavigation: (href: string) => void;
+    onNavigationIntent: (tabId: string) => void;
+    guardBeforeNavigate: (nextHref?: string) => boolean;
+    router: Pick<ReturnType<typeof useRouter>, "prefetch">;
+    /** stores 탭 등 — `prewarmBottomNavTapTargetClientCache` 대신 */
+    onPrewarm?: () => void;
+  }
 ): void {
-  if (!shouldBottomNavTapScrollOnlyNoNavigate(pathname, currentSearchNoQuestion, tabHref)) return;
-  e.preventDefault();
-  scrollAppShellToTop();
+  const {
+    pathname,
+    navSearch,
+    href,
+    tabId,
+    isActive,
+    beginMenuNavigation,
+    onNavigationIntent,
+    guardBeforeNavigate,
+    router,
+    onPrewarm,
+  } = opts;
+
+  if (shouldBottomNavTapScrollOnlyNoNavigate(pathname, navSearch, href)) {
+    e.preventDefault();
+    scrollAppShellToTop();
+    return;
+  }
+  if (!guardBeforeNavigate(href)) {
+    e.preventDefault();
+    return;
+  }
+
+  const navClickT0 = performance.now();
+  markBottomNavRouteIntentForBackgroundWarm();
+  navPerfMarkBottomNavClickStart(navClickT0);
+  beginMenuNavigation(href);
+  onNavigationIntent(tabId);
+  navPerfSetOptimisticTotalMs(performance.now() - navClickT0);
+
+  if (!isActive) {
+    try {
+      void router.prefetch(href);
+    } catch {
+      /* noop */
+    }
+    try {
+      if (onPrewarm) onPrewarm();
+      else prewarmBottomNavTapTargetClientCache(href);
+    } catch {
+      /* noop */
+    }
+  }
 }
 
 const BottomNavTabStandard = memo(function BottomNavTabStandard({
@@ -291,50 +347,23 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
         }
       }}
       onKeyDown={(e: KeyboardEvent<HTMLAnchorElement>) => {
-        if (e.key === "Enter" || e.key === " ") {
-          if (
-            !shouldBottomNavTapScrollOnlyNoNavigate(pathname, navSearch, effectiveHref) &&
-            !guardBeforeNavigate(effectiveHref)
-          ) {
-            e.preventDefault();
-            return;
-          }
-          const navClickT0 = performance.now();
-          markBottomNavRouteIntentForBackgroundWarm();
-          navPerfMarkBottomNavClickStart(navClickT0);
-          beginMenuNavigation(effectiveHref);
-          onNavigationIntent(tab.id);
-          navPerfSetOptimisticTotalMs(performance.now() - navClickT0);
-          if (!isActive) {
-            try {
-              void router.prefetch(effectiveHref);
-            } catch {
-              /* noop */
-            }
-            try {
-              prewarmBottomNavTapTargetClientCache(effectiveHref);
-            } catch {
-              /* noop */
-            }
-          }
-        }
+        if (e.key === "Enter") return;
+        if (e.key !== " ") return;
+        e.preventDefault();
+        e.currentTarget.click();
       }}
       onClick={(e) => {
-        if (shouldBottomNavTapScrollOnlyNoNavigate(pathname, navSearch, effectiveHref)) {
-          onBottomNavTabActivate(pathname, navSearch, effectiveHref, e);
-          return;
-        }
-        if (!guardBeforeNavigate(effectiveHref)) {
-          e.preventDefault();
-          return;
-        }
-        const navClickT0 = performance.now();
-        markBottomNavRouteIntentForBackgroundWarm();
-        navPerfMarkBottomNavClickStart(navClickT0);
-        beginMenuNavigation(effectiveHref);
-        onNavigationIntent(tab.id);
-        navPerfSetOptimisticTotalMs(performance.now() - navClickT0);
-        onBottomNavTabActivate(pathname, navSearch, effectiveHref, e);
+        runBottomNavTabClick(e, {
+          pathname,
+          navSearch,
+          href: effectiveHref,
+          tabId: tab.id,
+          isActive,
+          beginMenuNavigation,
+          onNavigationIntent,
+          guardBeforeNavigate,
+          router,
+        });
       }}
     >
       {inner}
@@ -479,50 +508,24 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
         }
       }}
       onKeyDown={(e: KeyboardEvent<HTMLAnchorElement>) => {
-        if (e.key === "Enter" || e.key === " ") {
-          if (
-            !shouldBottomNavTapScrollOnlyNoNavigate(pathname, navSearch, tab.href) &&
-            !guardBeforeNavigate(tab.href)
-          ) {
-            e.preventDefault();
-            return;
-          }
-          const navClickT0 = performance.now();
-          markBottomNavRouteIntentForBackgroundWarm();
-          navPerfMarkBottomNavClickStart(navClickT0);
-          beginMenuNavigation(tab.href);
-          onNavigationIntent(tab.id);
-          navPerfSetOptimisticTotalMs(performance.now() - navClickT0);
-          if (!isActive) {
-            try {
-              void router.prefetch(tab.href);
-            } catch {
-              /* noop */
-            }
-            try {
-              prewarmStoresTabClientCache();
-            } catch {
-              /* noop */
-            }
-          }
-        }
+        if (e.key === "Enter") return;
+        if (e.key !== " ") return;
+        e.preventDefault();
+        e.currentTarget.click();
       }}
       onClick={(e) => {
-        if (shouldBottomNavTapScrollOnlyNoNavigate(pathname, navSearch, tab.href)) {
-          onBottomNavTabActivate(pathname, navSearch, tab.href, e);
-          return;
-        }
-        if (!guardBeforeNavigate(tab.href)) {
-          e.preventDefault();
-          return;
-        }
-        const navClickT0 = performance.now();
-        markBottomNavRouteIntentForBackgroundWarm();
-        navPerfMarkBottomNavClickStart(navClickT0);
-        beginMenuNavigation(tab.href);
-        onNavigationIntent(tab.id);
-        navPerfSetOptimisticTotalMs(performance.now() - navClickT0);
-        onBottomNavTabActivate(pathname, navSearch, tab.href, e);
+        runBottomNavTabClick(e, {
+          pathname,
+          navSearch,
+          href: tab.href,
+          tabId: tab.id,
+          isActive,
+          beginMenuNavigation,
+          onNavigationIntent,
+          guardBeforeNavigate,
+          router,
+          onPrewarm: prewarmStoresTabClientCache,
+        });
       }}
     >
       {inner}

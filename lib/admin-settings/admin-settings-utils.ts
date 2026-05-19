@@ -3,6 +3,7 @@
  */
 
 import type { AppSettings } from "@/lib/types/admin-settings";
+import { APP_PRODUCT_DISPLAY_NAME } from "@/lib/brand/app-display-name";
 
 /** 기본 로케일 옵션: 필리핀 / 한국 (기본: 필리핀) */
 export const DEFAULT_LOCALE_OPTIONS: { value: string; label: string }[] = [
@@ -17,7 +18,7 @@ export const DEFAULT_CURRENCY_OPTIONS: { value: string; label: string }[] = [
 ];
 
 export const DEFAULT_APP_SETTINGS: AppSettings = {
-  siteName: "KASAMA",
+  siteName: APP_PRODUCT_DISPLAY_NAME,
   defaultCurrency: "PHP",
   defaultLocale: "en-PH",
   alarmSoundDataUrl: "",

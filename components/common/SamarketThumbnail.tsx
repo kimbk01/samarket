@@ -24,7 +24,7 @@ export type SamarketThumbnailProps = {
 };
 
 /**
- * SAMarket thumbnail contract:
+ * dibaY thumbnail contract:
  * fixed frame + no distortion + center crop + cover + skeleton + fallback.
  */
 export function SamarketThumbnail({

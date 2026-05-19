@@ -13,7 +13,6 @@ import { PhoneVerificationRequiredDialog } from "@/components/auth/PhoneVerifica
 import { ConditionalAppShell } from "@/components/layout/ConditionalAppShell";
 import { AppStickyHeader } from "@/components/layout/AppStickyHeader";
 import { OwnerHubBadgeRuntime } from "@/components/layout/OwnerHubBadgeRuntime";
-import { AppTitle } from "@/components/layout/AppTitle";
 import { MainTier1ChromeProvider } from "@/components/layout/MainTier1ChromeProvider";
 import { MypageInfoHubPanelProvider, useMypageInfoHubPanel } from "@/contexts/MypageInfoHubPanelContext";
 import { CategoryListHeaderProvider } from "@/contexts/CategoryListHeaderContext";
@@ -165,7 +164,6 @@ export function MainAppProviderTree({
                             <MainTier1ChromeProvider>
                               <TradePresenceActivityProvider>
                                 <MainShellPushLayer>
-                                  <AppTitle />
                                   <div className="flex w-full min-w-0 min-h-0 flex-1 flex-col">
                                     <AppStickyHeader />
                                     <PhilifeMessengerFromHeaderStack>

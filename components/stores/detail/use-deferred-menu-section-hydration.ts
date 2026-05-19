@@ -13,7 +13,14 @@ import {
 } from "@/lib/dibay/store-menu-viewport-policy";
 
 export function useDeferredMenuSectionHydration(sections: MenuSection[]) {
-  const deferEnabled = useMemo(() => shouldDeferMenuSectionHydration(sections), [sections]);
+  const sectionsStructureKey = useMemo(
+    () => sections.map((s) => `${s.heading}:${s.items.length}`).join("|"),
+    [sections]
+  );
+  const deferEnabled = useMemo(
+    () => shouldDeferMenuSectionHydration(sections),
+    [sections, sectionsStructureKey]
+  );
   const maxIndex = Math.max(0, sections.length - 1);
 
   const [hydratedThrough, setHydratedThrough] = useState(() =>
@@ -31,7 +38,7 @@ export function useDeferredMenuSectionHydration(sections: MenuSection[]) {
     }
     setHydratedThrough(initialDeferredHydratedThroughIndex(sections));
     deferLoggedRef.current = false;
-  }, [deferEnabled, maxIndex, sections]);
+  }, [deferEnabled, maxIndex, sections, sectionsStructureKey]);
 
   useEffect(() => {
     if (!deferEnabled || deferLoggedRef.current) return;
@@ -106,7 +113,7 @@ export function useDeferredMenuSectionHydration(sections: MenuSection[]) {
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, [deferEnabled, ensureHydratedThrough, sections]);
+  }, [deferEnabled, ensureHydratedThrough, sections.length, sectionsStructureKey]);
 
   useEffect(() => {
     if (!deferEnabled) return;

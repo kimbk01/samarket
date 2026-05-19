@@ -36,6 +36,11 @@ export function CategoryStickyTabs(props: {
               placeholder="메뉴명을 검색해보세요"
               value={props.menuQuery}
               onChange={(e) => props.setMenuQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return;
+                /** 기본 submit·페이지 스크롤 점프 방지 — 필터는 이미 onChange 로 반영됨 */
+                e.preventDefault();
+              }}
               className="min-w-0 flex-1 bg-transparent text-[14px] font-semibold text-neutral-900 outline-none placeholder:text-neutral-400"
             />
             <button

@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 const ROOT = process.cwd();
-const CHECK_DIRS = ["app", "components", "public", "tests/e2e"];
+const CHECK_DIRS = ["app", "components", "lib/admin-settings", "lib/brand", "public", "tests/e2e"];
 const TEXT_EXTS = new Set([
   ".ts",
   ".tsx",
@@ -37,6 +37,10 @@ const FORBIDDEN_PATTERNS = [
   /\bSAMARKET\b/g,
   /\bSaMarket\b/g,
   /samarket\.vercel\.app/gi,
+  /document\.title\s*=/g,
+  /siteName\s*:\s*["'`]KASAMA["'`]/g,
+  /placeholder\s*=\s*["'`]KASAMA["'`]/g,
+  />\s*KASAMA\s*</g,
 ];
 
 const errors = [];

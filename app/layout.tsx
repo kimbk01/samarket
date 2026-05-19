@@ -4,6 +4,7 @@ import { cookies, headers } from "next/headers";
 import { AppBootProvider } from "@/components/app/AppBootProvider";
 import { SupabaseAuthSync } from "@/components/auth/SupabaseAuthSync";
 import { AppLanguageProvider } from "@/components/i18n/AppLanguageProvider";
+import { AppTitle } from "@/components/layout/AppTitle";
 import { CallIncomingChrome } from "@/components/layout/providers/CallIncomingChrome";
 import { MainShellMessengerParticipantBridge } from "@/components/layout/MainShellMessengerParticipantBridge";
 import {
@@ -12,6 +13,7 @@ import {
   normalizeAppLanguage,
   type AppLanguageCode,
 } from "@/lib/i18n/config";
+import { APP_PRODUCT_DISPLAY_NAME } from "@/lib/brand/app-display-name";
 import "./globals.css";
 
 const notoSansKr = Noto_Sans_KR({
@@ -24,15 +26,15 @@ const notoSansKr = Noto_Sans_KR({
 });
 
 export const metadata: Metadata = {
-  title: "dibaY",
-  description: "dibaY marketplace",
-  applicationName: "dibaY",
+  title: APP_PRODUCT_DISPLAY_NAME,
+  description: `${APP_PRODUCT_DISPLAY_NAME} marketplace`,
+  applicationName: APP_PRODUCT_DISPLAY_NAME,
   icons: {
     icon: [{ url: "/favicon.svg", type: "image/svg+xml" }, { url: "/favicon.ico" }],
   },
   appleWebApp: {
     capable: true,
-    title: "dibaY",
+    title: APP_PRODUCT_DISPLAY_NAME,
     statusBarStyle: "default",
   },
   formatDetection: {
@@ -84,6 +86,7 @@ export default async function RootLayout({
       <body className={`${notoSansKr.variable} font-sans antialiased`} suppressHydrationWarning>
         <AppLanguageProvider initialLanguage={initialLanguage}>
           <AppBootProvider>
+            <AppTitle />
             <SupabaseAuthSync />
             <CallIncomingChrome />
             <MainShellMessengerParticipantBridge regionBarInLayout={true} />

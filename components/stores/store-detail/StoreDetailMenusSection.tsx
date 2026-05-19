@@ -160,7 +160,7 @@ export const StoreDetailMenusSection = memo(function StoreDetailMenusSection({
         product_id: sheetProductId,
       });
     }
-  });
+  }, [storeSlug]);
 
   const reportFirstVisible = (source: string) => {
     if (firstVisibleRef.current) return;

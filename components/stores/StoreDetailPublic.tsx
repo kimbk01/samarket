@@ -255,13 +255,21 @@ export function StoreDetailPublic({
   const phase2MenuSectionsLoggedRef = useRef(false);
   const storeIdRef = useRef<string | null>(null);
   const storeRef = useRef(store);
+  const productsRef = useRef(products);
   const productRowsByIdRef = useRef(productRowsById);
   const favoriteSeedRef = useRef(favoriteSeed);
   const recentOrderCountMetaRef = useRef(recentOrderCountMeta);
+  /** slug 당 layout fetch 1회 — `loadSplitDetail` identity 변경 시 재호출 방지 */
+  const splitDetailLoadSlugRef = useRef<string | null>(null);
+  const loadSplitDetailRef = useRef<() => Promise<void>>(async () => {});
+  /** 칩 탭·포커스 스크롤 중 scroll spy 가 섹션 인덱스를 왔다 갔다 하지 않게 */
+  const menuScrollSpyLockRef = useRef<{ target: number; until: number } | null>(null);
+  const menuStickyMeasureTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** 비동기 `loadSplitDetail*` 완료 시점에 URL slug 가 바뀌었는지 판별 */
   const latestSlugPropRef = useRef(slug);
   latestSlugPropRef.current = slug;
   storeRef.current = store ?? storeForPaint;
+  productsRef.current = products;
   productRowsByIdRef.current = productRowsById;
   favoriteSeedRef.current = favoriteSeed;
   recentOrderCountMetaRef.current = recentOrderCountMeta;
@@ -272,7 +280,7 @@ export function StoreDetailPublic({
 
   useLayoutEffect(() => {
     deliveryRenderTraceBump("detail-public", { slug: decodedSlug });
-  });
+  }, [decodedSlug]);
 
   useLayoutEffect(() => {
     if (!decodedSlug) return;
@@ -700,12 +708,14 @@ export function StoreDetailPublic({
     const hasInstantPaint =
       Boolean(instantPeek.summaryParsed?.store) ||
       Boolean(instantPeek.listSeed) ||
-      isStoreDetailListSeedId(storeRef.current?.id);
+      isStoreDetailListSeedId(storeRef.current?.id) ||
+      Boolean(storeRef.current?.id && !isStoreDetailListSeedId(storeRef.current.id));
+    const hasVisibleMenus = productsRef.current.length > 0;
 
     if (!hasInstantPaint) {
       setSummaryLoading(true);
     }
-    if (!instantPeek.menusParsed?.ok) {
+    if (!instantPeek.menusParsed?.ok && !hasVisibleMenus) {
       setMenusLoading(true);
     }
     setDbOff(false);
@@ -950,6 +960,8 @@ export function StoreDetailPublic({
     mergeLegacyProductsOnly,
   ]);
 
+  loadSplitDetailRef.current = loadSplitDetail;
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const id = window.setInterval(() => setOpenTick((n) => n + 1), 60_000);
@@ -960,8 +972,12 @@ export function StoreDetailPublic({
     if (initialApiResponse?.status === 200) {
       primeStorePublicCache(slug, initialApiResponse);
     }
-    void loadSplitDetail();
-  }, [slug, loadSplitDetail, initialApiResponse]);
+    const startedSlugDecode = decodeSlugSegment(slug);
+    if (!startedSlugDecode) return;
+    if (splitDetailLoadSlugRef.current === startedSlugDecode) return;
+    splitDetailLoadSlugRef.current = startedSlugDecode;
+    void loadSplitDetailRef.current();
+  }, [slug, initialApiResponse]);
 
   useRefetchOnPageShowRestore(() => void loadSplitDetailSilent());
 
@@ -975,7 +991,12 @@ export function StoreDetailPublic({
           // 히어로(커버·배너) 하단이 헤더(약 56px) 아래로 지나가면 → 흰 배경 + 검은 아이콘
           const hero = document.getElementById("store-hero-media");
           const headerH = 56; // h-14
-          const next = hero ? hero.getBoundingClientRect().bottom <= headerH : true;
+          if (!hero) return true;
+          const bottom = hero.getBoundingClientRect().bottom;
+          const hysteresisPx = 10;
+          const next = prev
+            ? bottom <= headerH + hysteresisPx
+            : bottom <= headerH - hysteresisPx;
           return prev === next ? prev : next;
         });
       });
@@ -1022,6 +1043,11 @@ export function StoreDetailPublic({
     }
     return sections;
   }, [menuSections, menuQuery, focusProductId]);
+
+  const menuSectionScrollKey = useMemo(
+    () => menuSectionsFiltered.map((s) => `${s.heading}:${s.items.length}`).join("\0"),
+    [menuSectionsFiltered]
+  );
 
   useLayoutEffect(() => {
     if (!decodedSlug || menuSectionsFiltered.length === 0 || phase2MenuSectionsLoggedRef.current) return;
@@ -1073,6 +1099,11 @@ export function StoreDetailPublic({
       scrollTicking.current = true;
       window.requestAnimationFrame(() => {
         scrollTicking.current = false;
+        const lock = menuScrollSpyLockRef.current;
+        if (lock && performance.now() < lock.until) {
+          setActiveMenuSection((prev) => (prev === lock.target ? prev : lock.target));
+          return;
+        }
         const stickyEl = menuStickyMeasureRef.current;
         const stickyBottom = stickyEl ? stickyEl.getBoundingClientRect().bottom : 120;
         let best = 0;
@@ -1088,7 +1119,7 @@ export function StoreDetailPublic({
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, [menuSectionsFiltered]);
+  }, [menuSectionsFiltered.length, menuSectionScrollKey]);
 
   const commerce = useMemo(() => {
     if (!store) return null;
@@ -1147,11 +1178,21 @@ export function StoreDetailPublic({
         return prev === h ? prev : h;
       });
     };
+    const scheduleMeasure = () => {
+      if (menuStickyMeasureTimerRef.current) clearTimeout(menuStickyMeasureTimerRef.current);
+      menuStickyMeasureTimerRef.current = setTimeout(() => {
+        menuStickyMeasureTimerRef.current = null;
+        measure();
+      }, 48);
+    };
     measure();
-    const ro = new ResizeObserver(() => measure());
+    const ro = new ResizeObserver(() => scheduleMeasure());
     ro.observe(el);
-    return () => ro.disconnect();
-  }, [summaryLoading, menusLoading, store?.id, menuQuery]);
+    return () => {
+      ro.disconnect();
+      if (menuStickyMeasureTimerRef.current) clearTimeout(menuStickyMeasureTimerRef.current);
+    };
+  }, [summaryLoading, menusLoading, store?.id, menuQuery, menuSearchOpen]);
 
   const quickAddFromCard = useCallback(
     (p: StoreDetailProductCard): boolean => {
@@ -1260,16 +1301,28 @@ export function StoreDetailPublic({
     router.replace(`${url.pathname}${qs ? `?${qs}` : ""}${url.hash}`, { scroll: false });
   }, [focusProductId, router]);
 
-  const scrollStoreSectionIntoView = useCallback((sectionIndex: number) => {
-    if (typeof window === "undefined") return;
-    const el = document.getElementById(`store-sec-${sectionIndex}`);
-    const sticky = menuStickyMeasureRef.current;
-    if (!el || !sticky) return;
-    const stickyBottom = sticky.getBoundingClientRect().bottom;
-    const sectionTop = el.getBoundingClientRect().top;
-    const y = window.scrollY + (sectionTop - stickyBottom);
-    window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+  const armMenuScrollSpyLock = useCallback((sectionIndex: number, durationMs = 720) => {
+    menuScrollSpyLockRef.current = {
+      target: sectionIndex,
+      until: performance.now() + durationMs,
+    };
+    setActiveMenuSection((prev) => (prev === sectionIndex ? prev : sectionIndex));
   }, []);
+
+  const scrollStoreSectionIntoView = useCallback(
+    (sectionIndex: number) => {
+      if (typeof window === "undefined") return;
+      const el = document.getElementById(`store-sec-${sectionIndex}`);
+      const sticky = menuStickyMeasureRef.current;
+      if (!el || !sticky) return;
+      armMenuScrollSpyLock(sectionIndex);
+      const stickyBottom = sticky.getBoundingClientRect().bottom;
+      const sectionTop = el.getBoundingClientRect().top;
+      const y = window.scrollY + (sectionTop - stickyBottom);
+      window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+    },
+    [armMenuScrollSpyLock]
+  );
 
   const onShareClick = useCallback(() => {
     if (typeof window === "undefined" || !store) return;

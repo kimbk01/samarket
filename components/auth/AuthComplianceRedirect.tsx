@@ -2,7 +2,7 @@
 
 
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 import { usePathname, useRouter } from "next/navigation";
 
@@ -57,6 +57,8 @@ export function AuthComplianceRedirect() {
   const pathname = usePathname() ?? "";
 
   const router = useRouter();
+  const checkInFlightRef = useRef<Promise<void> | null>(null);
+  const redirectInFlightTargetRef = useRef<string | null>(null);
 
 
 
@@ -65,38 +67,33 @@ export function AuthComplianceRedirect() {
     if (shouldSkip(pathname) || typeof window === "undefined") return;
 
     let cancelled = false;
+    redirectInFlightTargetRef.current = null;
 
 
-
-    let consentVerifyFlight: Promise<boolean> | null = null;
 
     const profileHasStoreConsent = (
       p: { terms_accepted_at?: string | null; terms_version?: string | null; privacy_accepted_at?: string | null; privacy_version?: string | null } | null | undefined
     ): boolean => Boolean(p?.terms_accepted_at != null && hasStoreTermsConsent(p));
 
     const verifyConsentFromServer = (): Promise<boolean> => {
-      if (!consentVerifyFlight) {
-        consentVerifyFlight = (async () => {
-          try {
-            const { status, json } = await fetchMeProfileDeduped();
-            const raw = json as { ok?: boolean; profile?: ProfileRow } | null;
-            if (status === 200 && raw?.ok && raw.profile?.id && hasStoreTermsConsent(raw.profile)) {
-              mergeAppBootProfileFull(raw.profile);
-              return true;
-            }
-          } catch {
-            /* ignore */
+      return (async () => {
+        try {
+          const { status, json } = await fetchMeProfileDeduped("auth_compliance_consent_check");
+          const raw = json as { ok?: boolean; profile?: ProfileRow } | null;
+          if (status === 200 && raw?.ok && raw.profile?.id) {
+            mergeAppBootProfileFull(raw.profile);
+            return hasStoreTermsConsent(raw.profile);
           }
-          return false;
-        })().finally(() => {
-          consentVerifyFlight = null;
-        });
-      }
-      return consentVerifyFlight;
+        } catch {
+          /* ignore */
+        }
+        return false;
+      })();
     };
 
     const checkConsent = () => {
-      void (async () => {
+      if (checkInFlightRef.current) return;
+      checkInFlightRef.current = (async () => {
         const boot = peekAppBootProfile();
         if (!boot?.id) return;
         if (profileHasStoreConsent(boot)) return;
@@ -115,10 +112,14 @@ export function AuthComplianceRedirect() {
         }
         if (await verifyConsentFromServer()) return;
         if (cancelled) return;
-        router.replace(
-          `/auth/consent?next=${encodeURIComponent(window.location.pathname + window.location.search)}`
-        );
-      })();
+        const next = window.location.pathname + window.location.search;
+        const target = `/auth/consent?next=${encodeURIComponent(next)}`;
+        if (redirectInFlightTargetRef.current === target) return;
+        redirectInFlightTargetRef.current = target;
+        router.replace(target);
+      })().finally(() => {
+        checkInFlightRef.current = null;
+      });
     };
 
 
