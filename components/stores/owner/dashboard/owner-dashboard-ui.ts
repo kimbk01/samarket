@@ -2,14 +2,13 @@ import { formatMoneyPhp } from "@/lib/utils/format";
 
 export { formatMoneyPhp };
 
-export const OWNER_DASH_BRAND = "#1C8DB8";
-export const OWNER_DASH_DANGER = "#DC2626";
+export const OWNER_DASH_BRAND = "#2D7FF9";
+export const OWNER_DASH_DANGER = "#FF4D4F";
 
 export const OWNER_DASH_PAGE_CLASS = "bg-[#F3F4F6]";
 
-/** 고정 빠른 액션(3rem) + BottomNav(3.5rem) + 여유 1rem */
-export const OWNER_HUB_OPS_SCROLL_PADDING_CLASS =
-  "pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))]";
+/** @deprecated shell `OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS` 사용 — 중복 pb 방지 */
+export const OWNER_HUB_OPS_SCROLL_PADDING_CLASS = "";
 
 export const ownerDashTypography = {
   sectionTitle: "text-[14px] font-semibold leading-snug text-gray-900",

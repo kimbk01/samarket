@@ -70,6 +70,20 @@ export function orderMatchesStoreTab(
 }
 
 /** 주문 관리 URL (대시보드·사이드바·알림 배지 등에서 공통 사용) — 캐노니컬 `/stores/owner/orders`. */
+/** 주문 상태 → URL `tab` (딥링크·하이라이트 동기화) */
+export function storeOrderTabForStatus(orderStatus: string): StoreOrderTabId {
+  const s = orderStatus.trim();
+  if (s === "pending") return "new";
+  if (s === "completed") return "done";
+  if (s === "cancelled" || s === "refunded") return "cancelled";
+  if (s === "accepted") return "accepted";
+  if (s === "preparing") return "preparing";
+  if (s === "ready_for_pickup") return "ready";
+  if (s === "delivering" || s === "arrived") return "shipping";
+  if (s === "refund_requested") return "refund";
+  return "progress";
+}
+
 export function buildStoreOrdersHref(params: {
   storeId: string;
   tab?: StoreOrderTabId;

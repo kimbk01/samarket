@@ -7,8 +7,18 @@ import type { OwnerStoreOpsMeta } from "@/lib/stores/owner-store-ops-snapshot";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { resolveOwnerStoreNotificationsHref } from "@/lib/business/owner-store-notifications-route";
-import { ownerDashCardClass, ownerDashTypography } from "./owner-dashboard-ui";
+import { useBusinessAdminStore } from "@/components/business/admin/business-admin-store-context";
+import { ownerDashCardClass } from "./owner-dashboard-ui";
 import { useOwnerHubRuntime } from "@/components/business/owner/OwnerHubRuntimeProvider";
+import { OWNER_HUB_HEADER_BODY_MIN_H_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
+
+function OwnerMenuIcon() {
+  return (
+    <svg className="h-6 w-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  );
+}
 
 export function OwnerDashboardHeader({
   storeName,
@@ -28,6 +38,7 @@ export function OwnerDashboardHeader({
   const router = useRouter();
   const searchParams = useSearchParams();
   const hubRuntime = useOwnerHubRuntime();
+  const biz = useBusinessAdminStore();
   const storeList = stores ?? hubRuntime?.stores ?? null;
   const settingsHref = OwnerRoutes.settings(storeId);
   const notificationsHref =
@@ -47,22 +58,27 @@ export function OwnerDashboardHeader({
   };
 
   return (
-    <header className={ownerDashCardClass("px-3 py-2.5")} aria-label="매장 운영 상태">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`inline-flex shrink-0 items-center rounded-[4px] px-2 py-0.5 text-[11px] font-bold ${
-                open ? "bg-emerald-500 text-white" : "bg-gray-400 text-white"
-              }`}
-            >
-              {open ? "영업중" : "일시중지"}
-            </span>
+    <header
+      className={`${ownerDashCardClass(`px-2.5 py-1.5 shadow-sm ${OWNER_HUB_HEADER_BODY_MIN_H_CLASS}`)} flex flex-col justify-center`}
+      aria-label="매장 운영 상태"
+    >
+      <div className={`flex items-center gap-1.5 ${OWNER_HUB_HEADER_BODY_MIN_H_CLASS}`}>
+        <button
+          type="button"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#262626] hover:bg-[#F5F5F5] active:bg-[#EBEBEB]"
+          aria-label="메뉴 열기"
+          onClick={() => biz?.openMobileOwnerMenu?.()}
+        >
+          <OwnerMenuIcon />
+        </button>
+
+        <div className="min-w-0 flex-1 py-0.5">
+          <div className="flex flex-wrap items-center gap-1">
             {storeList && storeList.length > 1 ? (
-              <label className="relative flex min-w-0 flex-1 items-center gap-0.5">
+              <label className="relative flex min-w-0 max-w-[55%] items-center">
                 <span className="sr-only">매장 선택</span>
                 <select
-                  className={`max-w-full cursor-pointer appearance-none truncate border-0 bg-transparent pr-5 ${ownerDashTypography.sectionTitle} focus:outline-none focus:ring-0`}
+                  className="max-w-full cursor-pointer appearance-none truncate border-0 bg-transparent pr-4 text-[15px] font-bold leading-tight text-[#262626] focus:outline-none"
                   value={storeId}
                   onChange={(e) => onStoreChange(e.target.value)}
                 >
@@ -72,35 +88,43 @@ export function OwnerDashboardHeader({
                     </option>
                   ))}
                 </select>
-                <ChevronDown className="pointer-events-none absolute right-0 h-4 w-4 shrink-0 text-gray-500" aria-hidden />
+                <ChevronDown className="pointer-events-none absolute right-0 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#8C8C8C]" aria-hidden />
               </label>
             ) : (
-              <p className={`truncate ${ownerDashTypography.sectionTitle}`}>{storeName}</p>
+              <p className="truncate text-[15px] font-bold leading-tight text-[#262626]">{storeName}</p>
             )}
             {(!storeList || storeList.length <= 1) && (
-              <ChevronDown className="h-4 w-4 shrink-0 text-gray-400" aria-hidden />
+              <ChevronDown className="h-3.5 w-3.5 shrink-0 text-[#8C8C8C]" aria-hidden />
             )}
+            <span
+              className={`inline-flex shrink-0 items-center rounded px-1.5 py-px text-[10px] font-bold leading-none ${
+                open ? "bg-[#52C41A] text-white" : "bg-[#8C8C8C] text-white"
+              }`}
+            >
+              {open ? "영업중" : "일시중지"}
+            </span>
           </div>
-          <p className={`mt-1 ${ownerDashTypography.helper}`}>
+          <p className="mt-0.5 truncate text-[11px] leading-tight text-[#8C8C8C]">
             {[storeOps.hours_label, prep].filter(Boolean).join(" · ") || "영업 시간을 설정해 주세요"}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-0.5">
+
+        <div className="flex shrink-0 items-center">
           <Link
             href={notificationsHref}
-            className="relative flex h-11 w-11 items-center justify-center rounded-[4px] text-gray-700 hover:bg-gray-50"
+            className="relative flex h-10 w-10 items-center justify-center rounded-full text-[#262626] hover:bg-[#F5F5F5]"
             aria-label={`알림 ${urgentAlertCount}건`}
           >
             <Bell className="h-5 w-5" aria-hidden />
             {urgentAlertCount > 0 ? (
-              <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#DC2626] px-1 text-[10px] font-bold leading-none text-white">
+              <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#FF4D4F] px-1 text-[10px] font-bold leading-none text-white">
                 {urgentAlertCount > 99 ? "99+" : urgentAlertCount}
               </span>
             ) : null}
           </Link>
           <Link
             href={settingsHref}
-            className="flex h-11 w-11 items-center justify-center rounded-[4px] text-gray-700 hover:bg-gray-50"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-[#262626] hover:bg-[#F5F5F5]"
             aria-label="매장 설정"
           >
             <Settings className="h-5 w-5" aria-hidden />

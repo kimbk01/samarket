@@ -11,9 +11,9 @@ import { OwnerOrderAcceptSheet } from "@/components/business/owner/OwnerOrderAcc
 import { OwnerOrderRejectSheet } from "@/components/business/owner/OwnerOrderRejectSheet";
 
 const BTN_PRIMARY =
-  "flex min-h-[52px] min-w-0 flex-1 items-center justify-center rounded-ui-rect bg-[var(--biz-primary)] px-2 py-2 text-center text-[14px] font-semibold leading-snug text-white [overflow-wrap:anywhere] [word-break:break-word] shadow-sm transition hover:bg-[var(--biz-primary-hover)] active:bg-[var(--biz-primary-active)] disabled:opacity-50 sm:min-w-[6rem] sm:px-2.5 sm:py-2";
+  "flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-md bg-[#2D7FF9] px-2 py-2 text-center text-[14px] font-semibold leading-snug text-white shadow-sm transition hover:bg-[#1a6fe8] active:bg-[#155ed0] disabled:opacity-50";
 const BTN_DANGER =
-  "flex min-h-[52px] min-w-0 flex-1 items-center justify-center rounded-ui-rect border border-red-200 bg-[var(--biz-card-bg)] px-2 py-2 text-center text-[14px] font-semibold leading-snug text-red-700 [overflow-wrap:anywhere] [word-break:break-word] shadow-sm disabled:opacity-50 sm:min-w-[6rem] sm:px-2.5 sm:py-2";
+  "flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-md border border-[#FF4D4F] bg-white px-2 py-2 text-center text-[14px] font-semibold leading-snug text-[#FF4D4F] shadow-sm disabled:opacity-50";
 const OC_SM =
   "sam-text-body-secondary font-normal leading-snug text-sam-muted [overflow-wrap:anywhere] [word-break:break-word]";
 

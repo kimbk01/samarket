@@ -1,19 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { Loader2 } from "lucide-react";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { useSupabaseStoreOrdersRealtime } from "@/hooks/useSupabaseStoreOrdersRealtime";
 import { playDeliveryOrderAlertDebounced } from "@/lib/business/delivery-order-alert-debounce";
 import { primeStoreOrderAlertAudio } from "@/lib/business/store-order-alert-sound";
 import { fetchStoreOrderCountsDeduped } from "@/lib/business/fetch-store-order-counts-deduped";
-import { fetchStoreOrdersListDeduped } from "@/lib/stores/fetch-store-orders-list-deduped";
 import type { OwnerHubDashboardPack } from "@/lib/business/load-owner-hub-dashboard-server";
-import {
-  invalidateOwnerHubDashboardOrdersCache,
-  peekOwnerHubDashboardOrdersCache,
-} from "@/lib/stores/owner-hub-dashboard-orders-cache";
-import { coalesceOwnerHubOrdersNetworkRefresh } from "@/lib/stores/owner-hub-orders-network-coalesce";
 import {
   invalidateOwnerHubOrderCountsCache,
   peekOwnerStoreOpsSnapshotFromHubCache,
@@ -24,13 +17,10 @@ import {
   EMPTY_OWNER_STORE_OPS_SNAPSHOT,
   type OwnerStoreOpsSnapshot,
 } from "@/lib/stores/owner-store-ops-snapshot";
-import { BusinessDashboardOrderTimeline, type TimelineOrder } from "@/components/business/admin/dashboard/BusinessDashboardOrderTimeline";
-import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { dispatchOwnerHubBadgeRefresh } from "@/lib/chats/chat-channel-events";
 import { usePullToRefreshAtDocumentTop } from "@/lib/ui/use-pull-to-refresh-document-top";
 import { useOwnerHubRuntime } from "@/components/business/owner/OwnerHubRuntimeProvider";
 import { useOwnerHubBadgeBreakdownWhenEnabled } from "@/lib/chats/use-owner-hub-badge-total";
-import { OwnerDashSectionHeader } from "@/components/stores/owner/dashboard/OwnerDashSectionHeader";
 import {
   OwnerOperationsDashboard,
   parseOpsSnapshotFromCountsJson,
@@ -43,7 +33,6 @@ export function BusinessAdminDashboard({
   products: _products,
   canSell: _canSell,
   orderAlertsBadge: _orderAlertsBadge,
-  initialDashboard = null,
   loadRemote,
 }: {
   row: StoreRow;
@@ -58,16 +47,6 @@ export function BusinessAdminDashboard({
   const badge = useOwnerHubBadgeBreakdownWhenEnabled(!hubRuntime);
   const orderChatUnread = badge.storeOrderChatUnread;
 
-  const ordersBaseHref = buildStoreOrdersHref({ storeId: row.id });
-
-  const dashboardSeed =
-    initialDashboard ??
-    (() => {
-      const peek = peekOwnerHubDashboardOrdersCache(row.id);
-      return peek ? { orders: peek.orders, meta: peek.meta } : null;
-    })();
-
-  const [orders, setOrders] = useState<TimelineOrder[]>(() => dashboardSeed?.orders ?? []);
   const [opsSnapshot, setOpsSnapshot] = useState<OwnerStoreOpsSnapshot | null>(() =>
     peekOwnerStoreOpsSnapshotFromHubCache(row.id)
   );
@@ -76,10 +55,6 @@ export function BusinessAdminDashboard({
   const [fetchFailed, setFetchFailed] = useState(false);
   const [snapshotUpdatedAt, setSnapshotUpdatedAt] = useState<Date | null>(null);
   const [opsRefreshing, setOpsRefreshing] = useState(false);
-  const hasDashboardSeedRef = useRef(dashboardSeed != null);
-  const loadDashboardOrdersRef = useRef<
-    ((opts?: { silent?: boolean; forceNetwork?: boolean }) => Promise<void>) | null
-  >(null);
   const loadOpsSnapshotRef = useRef<
     ((opts?: { force?: boolean; quiet?: boolean }) => Promise<void>) | null
   >(null);
@@ -136,50 +111,13 @@ export function BusinessAdminDashboard({
     }
   }, [row.id]);
 
-  const loadDashboardOrders = useCallback(async (opts?: { silent?: boolean; forceNetwork?: boolean }) => {
-    try {
-      const oj = await fetchStoreOrdersListDeduped(row.id, {
-        forceNetwork: opts?.forceNetwork === true,
-      });
-      const ordersJson = oj.json as {
-        ok?: boolean;
-        orders?: TimelineOrder[];
-      };
-      if (ordersJson?.ok && Array.isArray(ordersJson.orders)) {
-        setOrders((prev) => {
-          if (
-            prev.length === ordersJson.orders!.length &&
-            prev.every((o, i) => o.id === ordersJson.orders![i]?.id && o.order_status === ordersJson.orders![i]?.order_status)
-          ) {
-            return prev;
-          }
-          return ordersJson.orders!;
-        });
-      } else {
-        setOrders([]);
-      }
-    } catch {
-      setOrders([]);
-    }
-  }, [row.id]);
-
-  const refreshDashboardOrdersFromNetwork = useCallback(() => {
-    return coalesceOwnerHubOrdersNetworkRefresh(row.id, () =>
-      loadDashboardOrders({ silent: true, forceNetwork: true })
-    );
-  }, [row.id, loadDashboardOrders]);
-
   const loadDashboard = useCallback(
     async (opts?: { silent?: boolean }) => {
-      await Promise.all([
-        loadDashboardOrders(opts),
-        loadOpsSnapshot({ force: opts?.silent !== true, quiet: opts?.silent === true }),
-      ]);
+      await loadOpsSnapshot({ force: opts?.silent !== true, quiet: opts?.silent === true });
     },
-    [loadDashboardOrders, loadOpsSnapshot]
+    [loadOpsSnapshot]
   );
 
-  loadDashboardOrdersRef.current = loadDashboardOrders;
   loadOpsSnapshotRef.current = loadOpsSnapshot;
   loadDashboardRef.current = loadDashboard;
 
@@ -187,7 +125,6 @@ export function BusinessAdminDashboard({
     debounceMs: 450,
     onChange: () => {
       dispatchOwnerHubBadgeRefresh({ source: "owner_dashboard_store_orders" });
-      void refreshDashboardOrdersFromNetwork();
       void loadOpsSnapshotRef.current?.({ force: true, quiet: true });
     },
     onInsert: onStoreOrderInsert,
@@ -208,9 +145,6 @@ export function BusinessAdminDashboard({
       } else {
         void loadOpsSnapshotRef.current?.({ force: false, quiet: true });
       }
-      void coalesceOwnerHubOrdersNetworkRefresh(row.id, async () => {
-        await loadDashboardOrdersRef.current?.({ silent: true, forceNetwork: true });
-      });
     });
   }, [subscribeOrdersRefresh, row.id]);
 
@@ -221,15 +155,6 @@ export function BusinessAdminDashboard({
     setSnapshotUpdatedAt(peekOps ? new Date() : null);
     setFetchFailed(false);
     setOpsRefreshing(false);
-
-    const peekOrders = peekOwnerHubDashboardOrdersCache(row.id);
-    if (peekOrders?.orders) {
-      setOrders(peekOrders.orders);
-    }
-
-    if (hasDashboardSeedRef.current) {
-      hasDashboardSeedRef.current = false;
-    }
     void loadDashboardRef.current?.({ silent: true });
   }, [row.id]);
 
@@ -237,30 +162,26 @@ export function BusinessAdminDashboard({
     if (hubRuntime) return;
     const id = window.setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") {
-        void refreshDashboardOrdersFromNetwork();
         void loadOpsSnapshotRef.current?.({ force: true, quiet: true });
       }
     }, 45_000);
     return () => window.clearInterval(id);
-  }, [hubRuntime, refreshDashboardOrdersFromNetwork]);
+  }, [hubRuntime]);
 
   const handlePullRefresh = useCallback(async () => {
-    invalidateOwnerHubDashboardOrdersCache(row.id);
     invalidateOwnerHubOrderCountsCache(row.id);
     await Promise.all([
       loadRemote(),
-      loadDashboardOrders({ silent: true, forceNetwork: true }),
       loadOpsSnapshot({ force: true }),
     ]);
-  }, [loadRemote, loadDashboardOrders, loadOpsSnapshot, row.id]);
+  }, [loadRemote, loadOpsSnapshot, row.id]);
 
   const { pullPx, refreshing, willReleaseRefresh } = usePullToRefreshAtDocumentTop(handlePullRefresh);
 
-  const timelineOrders = useMemo(() => orders.slice(0, 8), [orders]);
   const pulseNew = useOwnerOpsPulse(opsSnapshot?.pending_accept_count ?? 0);
 
   return (
-    <div className="relative">
+    <div className="relative flex h-full min-h-0 flex-1 flex-col">
       {(refreshing || pullPx > 6) && (
         <div
           aria-live="polite"
@@ -284,7 +205,7 @@ export function BusinessAdminDashboard({
       )}
 
       <div
-        className="space-y-3"
+        className="flex min-h-0 flex-1 flex-col"
         style={{
           transform: pullPx > 0 ? `translateY(${pullPx}px)` : undefined,
           transition: pullPx === 0 ? "transform 0.2s ease-out" : undefined,
@@ -302,21 +223,6 @@ export function BusinessAdminDashboard({
           onRefresh={() => void loadOpsSnapshot({ force: true })}
           refreshing={opsRefreshing}
           snapshotUpdatedAt={snapshotUpdatedAt}
-          belowCards={
-            <section
-              className="overflow-hidden rounded-[4px] border border-[#E5E7EB] bg-white p-3 shadow-none"
-              aria-labelledby="owner-dash-recent-orders"
-            >
-              <OwnerDashSectionHeader
-                id="owner-dash-recent-orders"
-                title="최근 주문"
-                href={ordersBaseHref}
-              />
-              <div className="pt-1">
-                <BusinessDashboardOrderTimeline storeId={row.id} orders={timelineOrders} />
-              </div>
-            </section>
-          }
         />
       </div>
     </div>

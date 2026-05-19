@@ -1,6 +1,5 @@
 "use client";
 
-import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import {
@@ -9,6 +8,7 @@ import {
   type OwnerStoreOpsSnapshot,
 } from "@/lib/stores/owner-store-ops-snapshot";
 import { buildStoreOpsMetaFromRow } from "@/lib/stores/owner-store-ops-snapshot";
+import { OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
 import { OwnerDashboardHeader } from "./OwnerDashboardHeader";
 import { OwnerUrgentOrdersCard } from "./OwnerUrgentOrdersCard";
 import { OwnerOrderFlowCard } from "./OwnerOrderFlowCard";
@@ -16,9 +16,10 @@ import { OwnerSalesSummaryCard } from "./OwnerSalesSummaryCard";
 import { OwnerCustomerCareCard } from "./OwnerCustomerCareCard";
 import { OwnerInventoryIssueCard } from "./OwnerInventoryIssueCard";
 import { OwnerQuickActions } from "./OwnerQuickActions";
-import { OWNER_DASH_PAGE_CLASS, OWNER_HUB_OPS_SCROLL_PADDING_CLASS } from "./owner-dashboard-ui";
+import { OWNER_DASH_PAGE_CLASS } from "./owner-dashboard-ui";
 import { OwnerDashOfflineBanner, OwnerDashSkeleton } from "./owner-dashboard-primitives";
 
+/** 모바일 전용 — 헤더·하단 네비 고정, 카드만 스크롤 */
 export function OwnerOperationsDashboard({
   row,
   snapshot,
@@ -31,7 +32,6 @@ export function OwnerOperationsDashboard({
   onRefresh,
   refreshing,
   snapshotUpdatedAt,
-  belowCards,
 }: {
   row: StoreRow;
   snapshot: OwnerStoreOpsSnapshot | null;
@@ -44,8 +44,6 @@ export function OwnerOperationsDashboard({
   onRefresh?: () => void;
   refreshing?: boolean;
   snapshotUpdatedAt?: Date | null;
-  /** 최근 주문 등 하단 카드 — 스크롤 패딩 영역 안에 포함 */
-  belowCards?: ReactNode;
 }) {
   const data = snapshot ?? EMPTY_OWNER_STORE_OPS_SNAPSHOT;
   const storeOps = useMemo(() => {
@@ -63,11 +61,8 @@ export function OwnerOperationsDashboard({
     data.pending_over_3m_count;
 
   return (
-    <>
-      <div
-        className={`space-y-2.5 ${OWNER_DASH_PAGE_CLASS} ${OWNER_HUB_OPS_SCROLL_PADDING_CLASS} -mx-0.5 px-0.5`}
-      >
-        {offline ? <OwnerDashOfflineBanner stale={stale} /> : null}
+    <div className={`flex h-full min-h-0 w-full flex-col ${OWNER_DASH_PAGE_CLASS}`}>
+      <div className="shrink-0 bg-[#F3F4F6] px-2 pb-1 pt-[max(0px,env(safe-area-inset-top,0px))]">
         <OwnerDashboardHeader
           storeName={row.store_name}
           storeId={row.id}
@@ -76,35 +71,41 @@ export function OwnerOperationsDashboard({
           urgentAlertCount={urgentCount}
           stores={stores}
         />
-        {loading && !snapshot ? (
-          <>
-            <OwnerDashSkeleton lines={4} />
-            <OwnerDashSkeleton lines={2} />
-          </>
-        ) : (
-          <>
-            <OwnerUrgentOrdersCard
-              storeId={row.id}
-              snapshot={data}
-              pulseNew={pulseNew}
-              updatedAt={snapshotUpdatedAt ?? null}
-              onRefresh={onRefresh}
-              refreshing={refreshing}
-            />
-            <OwnerOrderFlowCard storeId={row.id} snapshot={data} />
-            <OwnerSalesSummaryCard storeId={row.id} snapshot={data} />
-            <OwnerCustomerCareCard
-              storeId={row.id}
-              snapshot={data}
-              orderChatUnread={orderChatUnread}
-            />
-            <OwnerInventoryIssueCard storeId={row.id} snapshot={data} />
-          </>
-        )}
-        {belowCards}
       </div>
-      <OwnerQuickActions storeId={row.id} />
-    </>
+
+      <main className={`min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-0.5 ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}>
+        <div className="space-y-2.5 pb-2">
+          {offline ? <OwnerDashOfflineBanner stale={stale} /> : null}
+          {loading && !snapshot ? (
+            <>
+              <OwnerDashSkeleton lines={4} />
+              <OwnerDashSkeleton lines={2} />
+            </>
+          ) : (
+            <>
+              <OwnerUrgentOrdersCard
+                storeId={row.id}
+                snapshot={data}
+                pulseNew={pulseNew}
+                updatedAt={snapshotUpdatedAt ?? null}
+                onRefresh={onRefresh}
+                refreshing={refreshing}
+              />
+              <OwnerOrderFlowCard storeId={row.id} snapshot={data} />
+              <OwnerSalesSummaryCard storeId={row.id} snapshot={data} />
+              <OwnerCustomerCareCard
+                storeId={row.id}
+                snapshot={data}
+                orderChatUnread={orderChatUnread}
+              />
+              <OwnerInventoryIssueCard storeId={row.id} snapshot={data} />
+            </>
+          )}
+        </div>
+      </main>
+
+      <OwnerQuickActions storeId={row.id} chatBadge={orderChatUnread > 0 ? 1 : 0} />
+    </div>
   );
 }
 

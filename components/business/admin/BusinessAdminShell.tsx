@@ -47,6 +47,10 @@ import { isStoreOwnerAdminPathname } from "@/lib/business/owner-hub-path";
 import { setStoreOwnerMainBottomNavSuppressed } from "@/lib/business/store-owner-main-bottom-nav-suppress";
 import { useIsMobileViewport } from "@/hooks/use-is-mobile-viewport";
 import { ChevronRight, MapPin } from "lucide-react";
+import {
+  OWNER_HUB_MAIN_TOP_PAD_CLASS,
+  OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS,
+} from "@/lib/stores/owner-mobile-ui-tokens";
 
 function readInitialStoresFromMeListCache(): StoreRow[] | null {
   const peek = peekMeStoresListClientCache();
@@ -91,16 +95,23 @@ export function BusinessAdminShell({
   /** 서브 화면(예: 메뉴 카테고리 편집)이 운영 헤더 뒤로가기를 가로챌 때 */
   const ownerHeaderBackInterceptRef = useRef<(() => boolean) | null>(null);
 
+  const ownerPathNorm = useMemo(
+    () => pathname.split("?")[0]?.replace(/\/+$/, "") ?? "",
+    [pathname]
+  );
+  const isOwnerHubRoute = ownerPathNorm === "/stores/owner";
+  const isOwnerOrdersRoute = ownerPathNorm.includes("/stores/owner/orders");
+
   const ownerMainBottomPad = useMemo(() => {
     const f = resolveConditionalAppShellFlags(pathname, false);
-    const p = pathname.split("?")[0]?.replace(/\/+$/, "") ?? "";
-    const isStoreOwnerAdminSubroute = p.startsWith("/stores/owner/");
+    const isStoreOwnerAdminSubroute = ownerPathNorm.startsWith("/stores/owner/");
+    if (isOwnerHubRoute || isOwnerOrdersRoute) return OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS;
     if (f.showBottomNav) return "pb-4 sm:pb-5 lg:pb-6";
     if (isStoreOwnerAdminSubroute) {
       return "pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] sm:pb-3 md:pb-4 lg:pb-6";
     }
     return "pb-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:pb-8";
-  }, [pathname]);
+  }, [pathname, ownerPathNorm, isOwnerHubRoute, isOwnerOrdersRoute]);
 
   /** 상품 목록 허브 — 하단 탭 없음, 과한 main pb·클라 pb-8 중복 제거 대상 */
   const isOwnerStoreProductsHubRoute = useMemo(() => {
@@ -431,13 +442,22 @@ export function BusinessAdminShell({
     return fn ? fn() : false;
   }, [basicInfoBackIntercept]);
 
+  const openMobileOwnerMenu = useCallback(() => {
+    if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
+      setMobileMenuOpen(true);
+      return;
+    }
+    setDesktopSidebarOpen(true);
+  }, []);
+
   const ctxValue = useMemo(
     () => ({
       storeRow: selectedRow,
       reloadStores,
       registerOwnerAdminHeaderBackIntercept,
+      openMobileOwnerMenu,
     }),
-    [selectedRow, reloadStores, registerOwnerAdminHeaderBackIntercept]
+    [selectedRow, reloadStores, registerOwnerAdminHeaderBackIntercept, openMobileOwnerMenu]
   );
 
   if (!isHub) {
@@ -697,7 +717,7 @@ export function BusinessAdminShell({
       <div
         data-biz="1"
         className={`flex min-w-0 flex-col bg-[var(--biz-app-bg)] md:flex-row-reverse ${
-          isOwnerStoreProductComposerRoute
+          isOwnerStoreProductComposerRoute || (isMobile && (isOwnerHubRoute || isOwnerOrdersRoute))
             ? "h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden"
             : "min-h-screen"
         }`}
@@ -711,24 +731,44 @@ export function BusinessAdminShell({
 
         <div
           className={`flex min-w-0 flex-1 flex-col bg-[var(--biz-app-bg)] md:border-r md:border-sam-border-soft ${
-            isOwnerStoreProductComposerRoute ? "min-h-0 overflow-hidden" : "min-h-screen"
+            isOwnerStoreProductComposerRoute
+              ? "min-h-0 overflow-hidden"
+              : isMobile && (isOwnerHubRoute || isOwnerOrdersRoute)
+                ? "h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden"
+                : "min-h-screen"
           }`}
         >
-          <StoresOwnerStackHeader
-            variant={isHub ? "hub" : "admin"}
-            hideTitle={isHub}
-            backHref={isHub ? "/mypage/section/store/manage" : adminHeaderBackHref}
-            backIntercept={isHub ? undefined : combinedAdminHeaderBackIntercept}
-            backPreferHistory={!isHub}
-            backAriaLabel="이전 화면으로"
-            shopName={shopName}
-            pageTitle={isHub ? null : pageTitle}
-            rightSlot={isHub ? hubHeaderRightSlot : headerRightSlot}
-            desktopInsetLeft={desktopSidebarOpen}
-          />
+          {isMobile && (isHub || isOwnerOrdersRoute) ? null : (
+            <StoresOwnerStackHeader
+              variant={isHub ? "hub" : "admin"}
+              hideTitle={isHub}
+              backHref={isHub ? "/mypage/section/store/manage" : adminHeaderBackHref}
+              backIntercept={isHub ? undefined : combinedAdminHeaderBackIntercept}
+              backPreferHistory={!isHub}
+              backAriaLabel="이전 화면으로"
+              shopName={shopName}
+              pageTitle={isHub ? null : pageTitle}
+              rightSlot={isHub ? hubHeaderRightSlot : headerRightSlot}
+              desktopInsetLeft={desktopSidebarOpen}
+            />
+          )}
 
         <main
-          className={`mx-auto w-full max-w-6xl min-w-0 px-2 pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] sm:px-2 md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem+1rem)] ${isHub ? "bg-[#F3F4F6]" : "bg-[var(--biz-app-bg)]"} ${ownerMainBottomPadForChildren}${
+          className={`mx-auto w-full min-w-0 px-2 sm:px-2 ${
+            isMobile && (isOwnerHubRoute || isOwnerOrdersRoute)
+              ? "flex h-full min-h-0 max-w-lg flex-1 flex-col overflow-hidden px-0 pt-0"
+              : "max-w-6xl"
+          } ${
+            isMobile && isHub
+              ? OWNER_HUB_MAIN_TOP_PAD_CLASS
+              : isMobile && isOwnerOrdersRoute
+                ? "pt-0"
+                : "pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem+1rem)]"
+          } ${isHub || isOwnerOrdersRoute ? "bg-[#F3F4F6]" : "bg-[var(--biz-app-bg)]"} ${
+            isMobile && (isOwnerHubRoute || isOwnerOrdersRoute)
+              ? ""
+              : ownerMainBottomPadForChildren
+          }${
             isOwnerStoreProductComposerRoute ? " flex min-h-0 flex-1 flex-col overflow-hidden" : ""
           }`}
         >

@@ -11,6 +11,8 @@ export type BusinessAdminStoreContextValue = {
    * 예: 기본 정보 미저장 이탈 확인, 카테고리 편집 가드.
    */
   registerOwnerAdminHeaderBackIntercept: (handler: (() => boolean) | null) => void;
+  /** 모바일 햄버거 — 운영 사이드 드로어 */
+  openMobileOwnerMenu?: () => void;
 };
 
 const Ctx = createContext<BusinessAdminStoreContextValue | null>(null);
