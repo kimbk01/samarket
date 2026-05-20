@@ -12,6 +12,12 @@
   --sm-color-primary-soft: #E6F4F9;
   --sm-color-primary-active: #166F92;
   --sm-color-primary-disabled: #A7CDD9;
+  --store-order-ops-primary: #1C8DB8;
+  --store-order-ops-primary-strong: #166F92;
+  --store-order-ops-primary-soft: #EAF6FB;
+  --store-order-ops-text: #123B4A;
+  --store-order-ops-bg: #F6F6F6;
+  --store-order-ops-border: #DDE5E0;
   /* 앱 캔버스 — 전역 흰색(카드·리스트 뮤트는 app-subtle-* ) */
   --sm-color-bg-page: #ffffff;
   --sm-color-bg-card: #ffffff;

@@ -1,20 +1,25 @@
-/** Devai-style store owner mobile dashboard — mockup-aligned tokens */
+/** Store owner mobile operations dashboard — Dibay delivery console tokens */
 
-export const OWNER_MOBILE_BLUE = "#2D7FF9";
-export const OWNER_MOBILE_BLUE_SOFT = "#E8F1FF";
+export const OWNER_MOBILE_BLUE = "#1C8DB8";
+export const OWNER_MOBILE_BLUE_SOFT = "#EAF6FB";
+export const OWNER_OPS_GREEN = "#1C8DB8";
+export const OWNER_OPS_DEEP_GREEN = "#123B4A";
+export const OWNER_OPS_APP_BG = "#f6f6f6";
+export const OWNER_OPS_SURFACE = "#ffffff";
+export const OWNER_OPS_BORDER = "#DDE5E0";
 
 /** 오너 하단 탭 기본 활성 — 주문·대시보드 등 운영 메뉴 */
 export const OWNER_MOBILE_BOTTOM_NAV_ACCENT = OWNER_MOBILE_BLUE;
-export const OWNER_MOBILE_BOTTOM_NAV_ACCENT_SHADOW = "rgba(45, 127, 249, 0.24)";
+export const OWNER_MOBILE_BOTTOM_NAV_ACCENT_SHADOW = "rgba(28, 141, 184, 0.24)";
 
 /** 모바일 헤더 「나가기」— 소비자 배달·매장 탐색 허브 */
 export const OWNER_MOBILE_EXIT_HREF = "/stores";
 export const OWNER_MOBILE_RED = "#FF4D4F";
 export const OWNER_MOBILE_ORANGE = "#FA8C16";
-export const OWNER_MOBILE_GREEN = "#52C41A";
+export const OWNER_MOBILE_GREEN = OWNER_OPS_GREEN;
 export const OWNER_MOBILE_GRAY = "#8C8C8C";
-export const OWNER_MOBILE_PAGE_BG = "#F3F4F6";
-export const OWNER_MOBILE_CARD_BORDER = "#E5E7EB";
+export const OWNER_MOBILE_PAGE_BG = OWNER_OPS_APP_BG;
+export const OWNER_MOBILE_CARD_BORDER = OWNER_OPS_BORDER;
 
 /** `OwnerMobileBottomNav` 루트 — `app-bottom-nav.css` 오너 활성 색 스코프 */
 export const OWNER_MOBILE_BOTTOM_NAV_ROOT_CLASS = "owner-mobile-bottom-nav";
@@ -32,7 +37,7 @@ export const OWNER_MOBILE_PAGE_HEADER_Z_CLASS = "z-[56]";
 export const OWNER_MOBILE_ORDER_DETAIL_OVERLAY_Z_CLASS = "z-[80]";
 
 /** `OwnerStoreOrderDetailPanel` 루트 — viewport 전체, safe-area 상단 */
-export const OWNER_MOBILE_ORDER_DETAIL_OVERLAY_SHELL_CLASS = `fixed inset-0 flex min-h-0 flex-col bg-[#F3F4F6] ${OWNER_MOBILE_ORDER_DETAIL_OVERLAY_Z_CLASS} pt-[env(safe-area-inset-top,0px)]`;
+export const OWNER_MOBILE_ORDER_DETAIL_OVERLAY_SHELL_CLASS = `fixed inset-0 flex min-h-0 flex-col bg-[#f6f6f6] ${OWNER_MOBILE_ORDER_DETAIL_OVERLAY_Z_CLASS} pt-[env(safe-area-inset-top,0px)]`;
 
 /** 상세 하단 액션 푸터 — 홈 인디케이터 여백 */
 export const OWNER_MOBILE_ORDER_DETAIL_FOOTER_PAD_CLASS =
@@ -43,7 +48,7 @@ export const OWNER_MOBILE_ORDER_DETAIL_FOOTER_PAD_CLASS =
  * 반드시 `BodyPortal` 로 `document.body` 에 렌더(슬라이드 transform 조상 회피).
  * 스크롤은 본문만; safe-area + 툴바 `h-14` → `OWNER_MOBILE_PAGE_HEADER_MAIN_OFFSET_CLASS`.
  */
-export const OWNER_MOBILE_PAGE_HEADER_SHELL_CLASS = `fixed inset-x-0 top-0 ${OWNER_MOBILE_PAGE_HEADER_Z_CLASS} w-full max-w-[100vw] border-b border-[#E5E7EB] bg-white pt-[env(safe-area-inset-top,0px)]`;
+export const OWNER_MOBILE_PAGE_HEADER_SHELL_CLASS = `fixed inset-x-0 top-0 ${OWNER_MOBILE_PAGE_HEADER_Z_CLASS} w-full max-w-[100vw] border-b border-[#DDE5E0] bg-white pt-[env(safe-area-inset-top,0px)]`;
 
 /** 고정 헤더 아래 본문 시작 offset (safe-area + 3.5rem 툴바) */
 export const OWNER_MOBILE_PAGE_HEADER_MAIN_OFFSET_CLASS =
@@ -112,15 +117,21 @@ export function ownerOrderStatusTone(status: string): {
     case "delivering":
     case "arrived":
       return {
-        badgeBg: "bg-[#1890FF]",
+        badgeBg: "bg-[#1C8DB8]",
         badgeText: "text-white",
-        stepActive: "#1890FF",
+        stepActive: OWNER_OPS_GREEN,
       };
     case "completed":
       return {
-        badgeBg: "bg-[#52C41A]",
+        badgeBg: "bg-[#E5E5E5]",
+        badgeText: "text-[#123B4A]",
+        stepActive: OWNER_MOBILE_GRAY,
+      };
+    case "refund_requested":
+      return {
+        badgeBg: "bg-[#B45309]",
         badgeText: "text-white",
-        stepActive: OWNER_MOBILE_GREEN,
+        stepActive: OWNER_MOBILE_ORANGE,
       };
     case "cancelled":
     case "refunded":

@@ -21,6 +21,7 @@ import {
 } from "@/lib/community-messenger/store-order-chat-service";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
+import { loadBuyerStoreOrderReviewForOrder } from "@/lib/stores/buyer-store-order-review-meta";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -66,34 +67,6 @@ function sanitizeBuyerDeliveryPublic(raw: Record<string, unknown> | null): Recor
     ...rest,
     delivered_receiver_hint: hint,
   };
-}
-
-async function loadStoreOrderReviewMeta(
-  sb: import("@supabase/supabase-js").SupabaseClient<any>,
-  orderId: string
-): Promise<{
-  reviewRow: { id?: string; visible_to_public?: boolean } | null;
-  revErr: { message?: string } | null;
-}> {
-  let reviewRow: { id?: string; visible_to_public?: boolean } | null = null;
-  let revErr: { message?: string } | null = null;
-  const sel = await sb
-    .from("store_reviews")
-    .select("id, visible_to_public")
-    .eq("order_id", orderId)
-    .maybeSingle();
-  reviewRow = sel.data as typeof reviewRow;
-  revErr = sel.error;
-  if (
-    revErr &&
-    /visible_to_public|column/i.test(String(revErr.message)) &&
-    /does not exist/i.test(String(revErr.message))
-  ) {
-    const fb = await sb.from("store_reviews").select("id").eq("order_id", orderId).maybeSingle();
-    reviewRow = fb.data ? { id: fb.data.id as string, visible_to_public: true } : null;
-    revErr = fb.error;
-  }
-  return { reviewRow, revErr };
 }
 
 async function isBuyerHiddenStoreOrder(
@@ -178,7 +151,7 @@ export async function GET(
       )
       .eq("id", storeId)
       .maybeSingle(),
-    loadStoreOrderReviewMeta(sb, oid),
+    loadBuyerStoreOrderReviewForOrder(sbAny, oid),
     (async () => {
       try {
         return await ensureStoreOrderMessengerRoom(sbAny, { orderId: oid, userId: buyerId });
@@ -208,16 +181,13 @@ export async function GET(
       })
     : [];
 
-  const { reviewRow, revErr } = reviewMeta;
+  const { review: buyerReview, revErr } = reviewMeta;
 
   const completed = order.order_status === "completed";
   const reviewsUnavailable = !!(
     revErr?.message?.includes("store_reviews") && revErr.message.includes("does not exist")
   );
-  const reviewId =
-    !revErr && reviewRow?.id ? (reviewRow.id as string) : undefined;
-  const reviewVisibleToPublic = reviewRow?.visible_to_public !== false;
-  const canSubmitReview = completed && !reviewId && !reviewsUnavailable;
+  const canSubmitReview = completed && !buyerReview && !reviewsUnavailable;
 
   let order_chat_ready = false;
   if (ens.ok) order_chat_ready = true;
@@ -234,7 +204,14 @@ export async function GET(
     },
     items: items ?? [],
     delivery: deliverySnap.ok ? sanitizeBuyerDeliveryPublic(deliverySnap.delivery) : null,
-    review: reviewId ? { id: reviewId, visible_to_public: reviewVisibleToPublic } : null,
+    review: buyerReview,
+    review_status: completed
+      ? buyerReview
+        ? "completed"
+        : reviewsUnavailable
+          ? "unavailable"
+          : "pending"
+      : "not_applicable",
     can_submit_review: canSubmitReview,
     order_chat_ready,
   });

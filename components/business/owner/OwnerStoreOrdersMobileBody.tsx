@@ -3,13 +3,7 @@
 import Link from "next/link";
 import { Filter, Search } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import type { MessageKey } from "@/lib/i18n/messages";
 import { OwnerStoreOrderChatSlidePanel } from "@/components/business/owner/OwnerStoreOrderChatSlidePanel";
-import {
-  OwnerStoreOrderDetailLoadingPanel,
-  OwnerStoreOrderDetailPanel,
-} from "@/components/business/owner/OwnerStoreOrderDetailPanel";
 import { OwnerStoreOrderMockCard } from "@/components/business/owner/OwnerStoreOrderMockCard";
 import { useRegisterOwnerMobileAdminHeaderTrailing } from "@/components/business/owner/OwnerMobileAdminHeaderTrailingContext";
 import { OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
@@ -18,13 +12,31 @@ import {
   orderMatchesStoreTab,
   type StoreOrderTabId,
 } from "@/lib/business/store-orders-tab";
-const TAB_I18N: Array<{ id: StoreOrderTabId; key: MessageKey }> = [
-  { id: "all", key: "store_owner_tab_all" },
-  { id: "new", key: "store_owner_tab_new" },
-  { id: "progress", key: "store_owner_tab_active" },
-  { id: "done", key: "store_owner_tab_done" },
-  { id: "cancelled", key: "store_biz_tab_cancelled" },
+const TABS: Array<{ id: StoreOrderTabId; label: string }> = [
+  { id: "new", label: "신규주문" },
+  { id: "progress", label: "진행중" },
+  { id: "shipping", label: "배달중" },
+  { id: "done", label: "완료" },
+  { id: "cancelled", label: "취소" },
 ];
+
+function orderMatchesOwnerOpsTab(order: { order_status: string }, tab: StoreOrderTabId): boolean {
+  const s = order.order_status;
+  switch (tab) {
+    case "new":
+      return s === "pending";
+    case "progress":
+      return s === "accepted" || s === "preparing" || s === "ready_for_pickup";
+    case "shipping":
+      return s === "delivering" || s === "arrived";
+    case "done":
+      return s === "completed";
+    case "cancelled":
+      return s === "cancelled" || s === "refunded" || s === "refund_requested";
+    default:
+      return orderMatchesStoreTab(order, tab);
+  }
+}
 
 export function OwnerStoreOrdersMobileBody({
   storeId,
@@ -57,25 +69,25 @@ export function OwnerStoreOrdersMobileBody({
   onOpenChat: (orderId: string) => void;
   onCloseChat: () => void;
 }) {
-  const { t } = useI18n();
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterFulfillment, setFilterFulfillment] = useState<"all" | "local_delivery" | "pickup">("all");
   const [sortNewestFirst, setSortNewestFirst] = useState(true);
+  const effectiveTab: StoreOrderTabId = tab === "all" ? "new" : tab;
 
   const tabCounts = useMemo(() => {
     const m = new Map<StoreOrderTabId, number>();
-    for (const tabDef of TAB_I18N) {
+    for (const t of TABS) {
       m.set(
-        tabDef.id,
-        orders.filter((o) => orderMatchesStoreTab(o, tabDef.id)).length
+        t.id,
+        orders.filter((o) => orderMatchesOwnerOpsTab(o, t.id)).length
       );
     }
     return m;
   }, [orders]);
 
   const displayOrders = useMemo(() => {
-    let list = orders.filter((o) => orderMatchesStoreTab(o, tab));
+    let list = orders.filter((o) => orderMatchesOwnerOpsTab(o, effectiveTab));
     const q = searchQuery.trim().toLowerCase();
     if (q) {
       list = list.filter((o) => {
@@ -100,22 +112,18 @@ export function OwnerStoreOrdersMobileBody({
       return sortNewestFirst ? tb - ta : ta - tb;
     });
     return list;
-  }, [orders, tab, searchQuery, filterFulfillment, sortNewestFirst]);
+  }, [orders, effectiveTab, searchQuery, filterFulfillment, sortNewestFirst]);
 
-  const detailOrder =
-    highlightOrderId && !highlightChatOrderId
-      ? orders.find((o) => o.id === highlightOrderId) ?? null
-      : null;
   const chatOrder = highlightChatOrderId
     ? orders.find((o) => o.id === highlightChatOrderId) ?? null
     : null;
 
   const filterLabel =
     filterFulfillment === "all"
-      ? t("store_owner_mobile_filter_all_types")
+      ? "전체 유형"
       : filterFulfillment === "local_delivery"
-        ? t("store_owner_mobile_filter_delivery_only")
-        : t("store_owner_mobile_filter_pickup_only");
+        ? "배달만"
+        : "포장만";
 
   const onOpenSearch = useCallback(() => setSearchOpen((v) => !v), []);
   const onOpenFilter = useCallback(
@@ -133,7 +141,7 @@ export function OwnerStoreOrdersMobileBody({
           type="button"
           onClick={onOpenSearch}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#262626] hover:bg-[#F5F5F5]"
-          aria-label={t("store_owner_mobile_aria_search")}
+          aria-label="주문 검색"
         >
           <Search className="h-[18px] w-[18px]" aria-hidden />
         </button>
@@ -141,39 +149,36 @@ export function OwnerStoreOrdersMobileBody({
           type="button"
           onClick={onOpenFilter}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#262626] hover:bg-[#F5F5F5]"
-          aria-label={t("store_owner_mobile_aria_filter")}
+          aria-label="주문 필터"
         >
           <Filter className="h-[18px] w-[18px]" aria-hidden />
         </button>
       </div>
     ),
-    [onOpenFilter, onOpenSearch, t]
+    [onOpenFilter, onOpenSearch]
   );
   useRegisterOwnerMobileAdminHeaderTrailing(headerTrailing);
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col bg-[#F3F4F6]">
-      <div className="shrink-0 border-b border-[#E5E7EB] bg-[#F3F4F6] px-3 pb-2 pt-2">
-        <div className="flex border-b border-[#E5E7EB] bg-white">
-          {TAB_I18N.map((tabDef) => {
-              const active = tab === tabDef.id;
-              const count = tabCounts.get(tabDef.id) ?? 0;
+    <div className="flex h-full min-h-0 w-full flex-col bg-[#f6f6f6]">
+      <div className="shrink-0 border-b border-[#DDE5E0] bg-[#f6f6f6] px-3 pb-2 pt-2">
+        <div className="flex rounded-[4px] border border-[#DDE5E0] bg-white p-1">
+          {TABS.map((t) => {
+              const active = effectiveTab === t.id;
+              const count = tabCounts.get(t.id) ?? 0;
               return (
                 <Link
-                  key={tabDef.id}
-                  href={onTabHref(tabDef.id)}
+                  key={t.id}
+                  href={onTabHref(t.id)}
                   scroll={false}
-                  className={`relative flex min-h-11 flex-1 flex-col items-center justify-center px-1 py-2 text-[13px] font-medium ${
-                    active ? "font-bold text-[#2D7FF9]" : "text-[#595959]"
+                  className={`relative flex min-h-10 flex-1 flex-col items-center justify-center rounded-[4px] px-1 py-1.5 text-[12px] font-bold leading-[1.35] ${
+                    active ? "bg-[#1C8DB8] text-white" : "text-[#123B4A]"
                   }`}
                 >
                   <span>
-                    {t(tabDef.key)}
+                    {t.label}
                     {count > 0 ? ` ${count}` : ""}
                   </span>
-                  {active ? (
-                    <span className="absolute inset-x-2 bottom-0 h-0.5 rounded-full bg-[#2D7FF9]" />
-                  ) : null}
                 </Link>
               );
             })}
@@ -181,27 +186,27 @@ export function OwnerStoreOrdersMobileBody({
 
           <div className="mt-2 grid grid-cols-4 gap-1.5">
             <KpiCard
-              label={t("store_owner_mobile_kpi_new")}
+              label="신규 주문"
               value={summaryCounts.pending}
-              tone="text-[#FF4D4F]"
+              tone="text-[#B42318]"
               href={onTabHref("new")}
             />
             <KpiCard
-              label={t("store_owner_mobile_kpi_preparing")}
+              label="준비(조리)중"
               value={summaryCounts.preparing}
-              tone="text-[#FA8C16]"
+              tone="text-[#B45309]"
               href={onTabHref("preparing")}
             />
             <KpiCard
-              label={t("store_owner_mobile_kpi_delivering")}
+              label="배달중"
               value={summaryCounts.delivering}
-              tone="text-[#1890FF]"
+              tone="text-[#1C8DB8]"
               href={onTabHref("shipping")}
             />
             <KpiCard
-              label={t("store_owner_mobile_kpi_done_today")}
+              label="오늘 완료"
               value={summaryCounts.doneToday}
-              tone="text-[#52C41A]"
+              tone="text-[#123B4A]"
               href={onTabHref("done")}
             />
           </div>
@@ -211,19 +216,19 @@ export function OwnerStoreOrdersMobileBody({
               type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder={t("store_owner_mobile_search_placeholder")}
-              className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-white px-3 py-2.5 text-[14px] outline-none focus:border-[#2D7FF9]"
+              placeholder="주문번호·구매자·전화번호 검색"
+              className="mt-2 w-full rounded-[4px] border border-[#DDE5E0] bg-white px-3 py-2.5 text-[14px] leading-[1.35] outline-none placeholder:text-[#9CA3AF] focus:border-[#1C8DB8]"
             />
           ) : null}
 
           <div className="mt-2 flex items-center justify-between gap-2">
-            <span className="text-[12px] text-[#8C8C8C]">{filterLabel}</span>
+            <span className="text-[12px] leading-[1.35] text-[#6B7280]">{filterLabel}</span>
             <button
               type="button"
               onClick={() => setSortNewestFirst((v) => !v)}
-              className="rounded-md border border-[#E5E7EB] bg-white px-2.5 py-1 text-[12px] font-medium text-[#595959]"
+              className="rounded-[4px] border border-[#DDE5E0] bg-white px-2.5 py-1 text-[12px] font-bold leading-[1.35] text-[#123B4A]"
             >
-              {sortNewestFirst ? t("store_owner_mobile_sort_newest") : t("store_owner_mobile_sort_oldest")}
+              {sortNewestFirst ? "최신순 ▾" : "오래된순 ▾"}
             </button>
           </div>
       </div>
@@ -231,14 +236,14 @@ export function OwnerStoreOrdersMobileBody({
       <main
         className={`min-h-0 flex-1 overflow-y-auto overscroll-y-contain ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}
       >
-        <div className="space-y-3 px-3 py-3">
+        <div className="space-y-2.5 px-3 py-3">
           {displayOrders.length === 0 ? (
-            <div className="rounded-lg border border-[#E8E8E8] bg-white p-6 text-center text-[14px] text-[#8C8C8C]">
-              <p className="font-semibold text-[#262626]">{t("store_owner_mobile_empty_title")}</p>
-              <p className="mt-1">{t("store_owner_mobile_empty_hint")}</p>
+            <div className="rounded-[4px] border border-[#DDE5E0] bg-white p-6 text-center text-[14px] leading-[1.35] text-[#6B7280]">
+              <p className="font-bold text-[#123B4A]">표시할 주문이 없습니다</p>
+              <p className="mt-1">다른 탭을 선택하거나 필터를 바꿔 보세요.</p>
             </div>
           ) : (
-            <ul className="space-y-3">
+            <ul className="space-y-2.5">
               {displayOrders.map((o) => (
                 <OwnerStoreOrderMockCard
                   key={o.id}
@@ -247,7 +252,14 @@ export function OwnerStoreOrdersMobileBody({
                   onUpdated={onUpdated}
                   onOrderStatusPatched={onOrderStatusPatched}
                   isHighlight={highlightOrderId === o.id || highlightChatOrderId === o.id}
-                  onViewDetail={() => onOpenDetail(o.id)}
+                  isExpanded={highlightOrderId === o.id && !highlightChatOrderId}
+                  onToggleExpanded={() => {
+                    if (highlightOrderId === o.id && !highlightChatOrderId) {
+                      onCloseDetail();
+                    } else {
+                      onOpenDetail(o.id);
+                    }
+                  }}
                   onOpenChat={() => onOpenChat(o.id)}
                 />
               ))}
@@ -255,17 +267,6 @@ export function OwnerStoreOrdersMobileBody({
           )}
         </div>
       </main>
-
-      {highlightOrderId && !highlightChatOrderId ?
-        detailOrder ?
-          <OwnerStoreOrderDetailPanel
-            order={detailOrder}
-            storeId={storeId}
-            onClose={onCloseDetail}
-            onUpdated={onUpdated}
-          />
-        : <OwnerStoreOrderDetailLoadingPanel onClose={onCloseDetail} />
-      : null}
 
       {highlightChatOrderId ?
         <OwnerStoreOrderChatSlidePanel
@@ -295,9 +296,9 @@ function KpiCard({
     <Link
       href={href}
       scroll={false}
-      className="rounded-lg border border-[#E8E8E8] bg-white px-2 py-2 text-center shadow-sm active:bg-[#FAFAFA]"
+      className="rounded-[4px] border border-[#DDE5E0] bg-white px-2 py-2 text-center shadow-sm active:bg-[#EEF6F2]"
     >
-      <p className="text-[10px] font-medium text-[#8C8C8C]">{label}</p>
+      <p className="text-[10px] font-semibold leading-[1.35] text-[#6B7280]">{label}</p>
       <p className={`mt-0.5 text-[17px] font-bold tabular-nums ${tone}`}>{value}</p>
     </Link>
   );

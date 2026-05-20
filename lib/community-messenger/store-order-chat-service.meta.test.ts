@@ -27,6 +27,14 @@ describe("store order messenger context meta", () => {
 describe("appendStoreOrderMessengerOrderSummaryIfNeeded idempotency", () => {
   it("skips insert when summary message already exists", async () => {
     const insert = vi.fn();
+    const messageUpdate = vi.fn(() => ({
+      eq: () => ({
+        eq: async () => ({ data: null, error: null }),
+      }),
+    }));
+    const roomUpdate = vi.fn(() => ({
+      eq: async () => ({ data: null, error: null }),
+    }));
     const messagesTable = {
       select: () => ({
         eq: () => ({
@@ -42,10 +50,64 @@ describe("appendStoreOrderMessengerOrderSummaryIfNeeded idempotency", () => {
         }),
       }),
       insert,
+      update: messageUpdate,
     };
     const sb = {
       from: vi.fn((table: string) => {
         if (table === "community_messenger_messages") return messagesTable;
+        if (table === "community_messenger_rooms") {
+          return {
+            update: roomUpdate,
+          };
+        }
+        if (table === "store_orders") {
+          return {
+            select: () => ({
+              eq: () => ({
+                maybeSingle: async () => ({
+                  data: {
+                    id: "ord-1",
+                    order_no: "1001",
+                    order_status: "pending",
+                    fulfillment_type: "local_delivery",
+                    payment_amount: 120,
+                    total_amount: 120,
+                    created_at: "2026-05-20T00:00:00.000Z",
+                    stores: { store_name: "Store" },
+                  },
+                  error: null,
+                }),
+              }),
+            }),
+          };
+        }
+        if (table === "store_order_items") {
+          return {
+            select: () => ({
+              eq: async () => ({
+                data: [
+                  {
+                    product_title_snapshot: "Coffee",
+                    price_snapshot: 120,
+                    qty: 1,
+                    subtotal: 120,
+                    options_snapshot_json: null,
+                  },
+                ],
+                error: null,
+              }),
+            }),
+          };
+        }
+        if (table === "store_order_events") {
+          return {
+            select: () => ({
+              eq: () => ({
+                order: async () => ({ data: [], error: null }),
+              }),
+            }),
+          };
+        }
         return {
           select: () => ({
             eq: () => ({
@@ -69,5 +131,7 @@ describe("appendStoreOrderMessengerOrderSummaryIfNeeded idempotency", () => {
       orderNo: "1",
     });
     expect(insert).not.toHaveBeenCalled();
+    expect(messageUpdate).toHaveBeenCalled();
+    expect(roomUpdate).toHaveBeenCalled();
   });
 });

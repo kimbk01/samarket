@@ -41,6 +41,7 @@ export function serializeCommunityMessengerMessageForBump(
     callStatus: msg.callStatus ?? null,
     callSessionId: msg.callSessionId ?? null,
   };
+  if (msg.metadata && typeof msg.metadata === "object") row.metadata = msg.metadata;
   if (msg.clientMessageId) row.clientMessageId = String(msg.clientMessageId).trim();
   if (msg.voiceDurationSeconds != null) row.voiceDurationSeconds = msg.voiceDurationSeconds;
   if (msg.voiceMimeType) row.voiceMimeType = String(msg.voiceMimeType).slice(0, 120);
@@ -120,6 +121,7 @@ export function parseCommunityMessengerBumpMessageSnapshot(
     messageType,
     content,
     createdAt,
+    metadata: m.metadata && typeof m.metadata === "object" ? (m.metadata as Record<string, unknown>) : null,
     clientMessageId,
     isMine,
     callKind: (m.callKind as CommunityMessengerMessage["callKind"]) ?? null,

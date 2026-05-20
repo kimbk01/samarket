@@ -135,9 +135,15 @@ export function mergeRoomMessages(
     mergedConfirmed.set(item.id, item);
   }
   for (const item of next) {
+    const existing = mergedConfirmed.get(item.id);
+    const itemMetadata =
+      item.metadata && Object.keys(item.metadata).length > 0
+        ? item.metadata
+        : existing?.metadata;
     mergedConfirmed.set(item.id, {
-      ...mergedConfirmed.get(item.id),
+      ...existing,
       ...item,
+      ...(itemMetadata ? { metadata: itemMetadata } : {}),
       pending: false,
     });
   }
@@ -344,6 +350,7 @@ export function mapRealtimeRoomMessage(
     messageType: message.messageType,
     content: message.content,
     createdAt: message.createdAt,
+    metadata: message.metadata,
     clientMessageId,
     isMine: message.senderId === snapshot.viewerUserId,
     callKind,

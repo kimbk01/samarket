@@ -170,13 +170,16 @@ export async function GET(
   const buyerIds = list.map((o) => String((o as { buyer_user_id?: string }).buyer_user_id ?? "").trim());
   const orderIds = list.map((o) => o.id as string);
 
-  const [buyerPublicById, itemsRes] = await Promise.all([
+  const [buyerPublicById, itemsRes, revRes] = await Promise.all([
     mapBuyerUserIdsToPublicLabels(sb, buyerIds),
     orderIds.length > 0
       ? sb
           .from("store_order_items")
           .select(ORDER_ITEMS_LIST_SELECT)
           .in("order_id", orderIds)
+      : Promise.resolve({ data: [] as Record<string, unknown>[], error: null as null }),
+    orderIds.length > 0
+      ? sb.from("store_reviews").select("id, order_id").in("order_id", orderIds)
       : Promise.resolve({ data: [] as Record<string, unknown>[], error: null as null }),
   ]);
 
@@ -201,6 +204,21 @@ export async function GET(
     itemsByOrder[oid].push(row);
   }
 
+  const reviewedOrderIds = new Set<string>();
+  let reviewsUnavailable = false;
+  if (revRes.error) {
+    if (revRes.error.message?.includes("store_reviews") && revRes.error.message.includes("does not exist")) {
+      reviewsUnavailable = true;
+    } else {
+      console.error("[GET owner store orders reviews]", revRes.error);
+    }
+  } else {
+    for (const row of revRes.data ?? []) {
+      const oid = String((row as { order_id?: unknown }).order_id ?? "").trim();
+      if (oid) reviewedOrderIds.add(oid);
+    }
+  }
+
   const orders = list.map((o) => {
     const bid = String((o as { buyer_user_id?: string }).buyer_user_id ?? "").trim();
     return {
@@ -209,6 +227,14 @@ export async function GET(
         ? (buyerPublicById[bid] ?? BUYER_PUBLIC_LABEL_FALLBACK)
         : BUYER_PUBLIC_LABEL_FALLBACK,
       items: itemsByOrder[o.id as string] ?? [],
+      review_status:
+        o.order_status !== "completed"
+          ? "not_applicable"
+          : reviewedOrderIds.has(o.id as string)
+            ? "completed"
+            : reviewsUnavailable
+              ? "unavailable"
+              : "pending",
     };
   });
   transform_ms = Math.round(perfNowMs() - transform0);

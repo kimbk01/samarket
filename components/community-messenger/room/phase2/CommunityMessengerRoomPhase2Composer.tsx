@@ -92,7 +92,7 @@ import {
   formatReplyQuoteKakaoHeader,
 } from "@/lib/community-messenger/message-actions/message-reply-policy";
 import { MessengerInputBar } from "@/components/community-messenger/line-ui";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
 
 function isDomTextareaLikelyVisible(el: HTMLTextAreaElement): boolean {
   const st = window.getComputedStyle(el);
@@ -132,7 +132,6 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
   /** R2-M7: phase1 선커밋 surface vs phase2 본체(마일스톤 중복 방지) */
   composerSurfaceMode?: "phase1" | "phase2";
 }) {
-  const { t } = useI18n();
   const composerRenderPassStartRef = useRef(typeof performance !== "undefined" ? performance.now() : 0);
   composerRenderPassStartRef.current = typeof performance !== "undefined" ? performance.now() : 0;
   if (cmPolishAnalysisEnabled()) bumpCmPolishComposerRender();
@@ -296,6 +295,13 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
   const globallyUsable = vm.snapshot ? communityMessengerRoomIsGloballyUsable(vm.snapshot.room) : false;
   const tradeOnlyBlocked =
     Boolean(vm.snapshot?.tradeMessaging) && vm.snapshot.tradeMessaging?.canSendMessage === false && globallyUsable;
+  const ctx = vm.snapshot.room.contextMeta as CommunityMessengerRoomContextMetaV1 | null | undefined;
+  const isDeliveryRoom = ctx?.kind === "delivery";
+  const isOwnerDeliveryRoom = isDeliveryRoom && vm.snapshot.myRole === "owner";
+  const deliveryPlaceholder = isOwnerDeliveryRoom ? "운영 안내를 입력하세요" : isDeliveryRoom ? "주문 관련 요청을 입력하세요" : null;
+  const deliveryQuickReplies = isOwnerDeliveryRoom
+    ? ["조금 늦어집니다", "문앞 배달 예정", "재료 확인중", "전화 부탁드립니다"]
+    : ["네, 확인했습니다", "문 앞에 두어 주세요", "주소 설명 드릴게요", "전화 주세요"];
 
   const commitTextSend = useCallback(() => {
     if (
@@ -343,18 +349,23 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
       : iosMessengerSlack
         ? MESSENGER_COMPOSER_FOOTER_PADDING_IOS_SLACK_PX
         : MESSENGER_COMPOSER_FOOTER_PADDING_DEFAULT_PX;
+  /** vv 셸이 높이·safe-bottom 을 이미 맞춤 — sticky·추가 px 패딩은 키보드 시 composer 점프 원인 */
+  const composerAnchoredByShell = keyboardOverlapSuppressed;
+  const footerPaddingBottom = composerAnchoredByShell
+    ? "calc(env(safe-area-inset-bottom, 0px) + var(--chat-safe-bottom, 0px))"
+    : `calc(env(safe-area-inset-bottom, 0px) + ${footerExtraBottomPx}px)`;
   return (
     <>
       <footer
         data-cm-composer
         {...(!vm.voiceRecording ? { "data-cm-line-composer-footer": true } : {})}
-        className={`sticky bottom-0 z-[5] shrink-0 border-t px-3 pt-2 transition-[background-color] duration-200 ${
+        className={`${composerAnchoredByShell ? "shrink-0" : "sticky bottom-0"} z-[5] shrink-0 border-t px-3 pt-2 shadow-none transition-[background-color] duration-200 ${
           vm.voiceRecording
             ? "border-sky-200/90 bg-gradient-to-b from-sky-50/95 via-white to-white"
             : "border-[#e5e7eb] bg-white"
         }`}
         style={{
-          paddingBottom: `calc(env(safe-area-inset-bottom, 0px) + ${footerExtraBottomPx}px)`,
+          paddingBottom: footerPaddingBottom,
         }}
       >
         {replyToMessage && !vm.voiceRecording ? (
@@ -365,7 +376,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
               onClick={() => {
                 void focusTimelineMessage(replyToMessage.id);
               }}
-              aria-label={t("cm_ui_go_to_reply_target_message")}
+              aria-label="답장 대상 메시지로 이동"
             >
               <p className="sam-text-xxs font-bold leading-snug text-[color:var(--cm-room-primary)]">
                 {formatReplyQuoteKakaoHeader(replyToMessage.senderLabel)}
@@ -379,7 +390,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
               onClick={() => setReplyToMessage(null)}
               className="shrink-0 rounded-ui-rect px-2 py-1 text-[12px] font-semibold text-[color:var(--cm-room-text-muted)] active:bg-sam-surface/80"
             >
-              {t("common_cancel")}
+              취소
             </button>
           </div>
         ) : null}
@@ -389,7 +400,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
             role="status"
           >
             <p className="font-semibold break-words">
-              {vm.snapshot.tradeMessaging?.denyMessage ?? t("cm_ui_cannot_send_seller_closed_chat")}
+              {vm.snapshot.tradeMessaging?.denyMessage ?? "판매자가 대화를 종료했습니다. 새 메시지를 보낼 수 없습니다."}
             </p>
             <div className="mt-2 flex flex-wrap gap-2">
               {vm.snapshot.room.peerUserId ? (
@@ -397,7 +408,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
                   href="/community-messenger?section=friends"
                   className="sam-btn sam-btn--primary sam-btn--sm"
                 >
-                  {t("cm_ui_add_friend")}
+                  친구 추가
                 </Link>
               ) : null}
               {vm.snapshot.room.contextMeta?.kind === "trade" &&
@@ -407,21 +418,38 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
                   href={defaultTradeChatRoomHref(vm.snapshot.room.contextMeta.productChatId.trim(), "product_chat")}
                   className="sam-btn sam-btn--outline sam-btn--sm"
                 >
-                  {t("cm_ui_view_product_detail")}
+                  상품 상세보기
                 </Link>
               ) : null}
             </div>
           </div>
         ) : null}
+        {isDeliveryRoom && !vm.voiceRecording ? (
+          <div className="mb-2 flex gap-1.5 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {deliveryQuickReplies.map((reply) => (
+              <button
+                key={reply}
+                type="button"
+                disabled={vm.roomUnavailable || vm.busy === "send"}
+                onClick={() => {
+                  void vm.sendMessage(reply);
+                }}
+                className="shrink-0 rounded-[4px] border border-[#BDE7F4] bg-[#EAF6FB] px-2.5 py-1.5 text-[12px] font-bold leading-[1.35] text-[#1C8DB8] disabled:opacity-45"
+              >
+                {reply}
+              </button>
+            ))}
+          </div>
+        ) : null}
         <MessengerInputBar>
           <div className="flex min-h-[54px] min-w-0 items-center justify-center justify-self-stretch self-stretch">
-            {!vm.voiceRecording ? (
+            {!vm.voiceRecording && !isDeliveryRoom ? (
               <button
                 type="button"
                 data-cm-line-plus-btn
                 onClick={() => vm.setActiveSheet("attach")}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-transparent text-[#1f2937] transition hover:bg-black/[0.06] active:bg-black/[0.08]"
-                aria-label={t("cm_ui_attachment_menu")}
+                aria-label="첨부 메뉴"
               >
                 <Plus className="h-[21px] w-[21px]" strokeWidth={2} />
               </button>
@@ -486,16 +514,16 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
                   }
                   placeholder={
                     tradeOnlyBlocked
-                      ? vm.snapshot.tradeMessaging?.denyMessage ?? t("cm_ui_cannot_send_message")
+                      ? vm.snapshot.tradeMessaging?.denyMessage ?? "메시지를 보낼 수 없습니다"
                       : vm.roomUnavailable
                         ? vm.snapshot.room.isReadonly
-                          ? t("cm_ui_read_only_room")
+                          ? "읽기 전용 방입니다"
                           : vm.snapshot.room.roomStatus === "blocked"
-                            ? t("cm_ui_blocked_room")
-                            : t("cm_ui_archived_room")
+                            ? "차단된 방입니다"
+                            : "보관된 방입니다"
                         : vm.snapshot.clientShellPlaceholder
-                          ? t("nav_messenger_input_placeholder")
-                          : t("cm_ui_message")
+                          ? "메시지를 입력하세요"
+                          : (deliveryPlaceholder ?? "메시지")
                   }
                   className={`h-[38px] max-h-[38px] min-h-[38px] w-full min-w-0 resize-none border-0 bg-transparent pr-11 text-[14px] leading-[1.35] outline-none ring-0 placeholder:text-[#65676b] focus:outline-none disabled:opacity-50 ${
                     messengerComposerDense ? "min-h-[38px]" : "min-h-[38px]"
@@ -525,11 +553,11 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
                       ? "bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)] ring-2 ring-[color:var(--cm-room-primary)]/45"
                       : "bg-transparent text-[#1f2937] hover:bg-black/[0.06] active:bg-black/[0.08]"
                   }`}
-                  aria-label={t("cm_ui_voice_message_recording_guide")}
+                  aria-label="음성 메시지 — 길게 눌러 녹음, 왼쪽으로 밀어 취소, 위로 밀어 잠금"
                   title={
                     draft.trim()
-                      ? t("cm_ui_clear_text_for_voice_recording")
-                      : t("cm_ui_hold_record_send_slide_cancel_lock")
+                      ? "글자를 지우면 음성 녹음을 사용할 수 있습니다"
+                      : "길게 눌러 녹음 · 손 떼면 전송 · 왼쪽 밀면 취소 · 위로 밀면 잠금"
                   }
                 >
                   <Mic className="h-5 w-5" strokeWidth={2} />
@@ -543,13 +571,13 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
                 </span>
                 <div className="flex min-w-0 flex-1 items-center gap-1.5">
                   <VoiceRecordingLiveWaveform peaks={vm.voiceLivePreviewBars} />
-                  <span className="shrink-0 text-center sam-text-xxs font-medium leading-tight text-sam-fg">{t("cm_ui_locked_recording")}</span>
+                  <span className="shrink-0 text-center sam-text-xxs font-medium leading-tight text-sam-fg">잠금 녹음 중</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => void vm.finalizeVoiceRecording(false)}
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-sam-border bg-sam-surface text-sam-muted shadow-none"
-                  aria-label={t("cm_ui_delete_recording")}
+                  aria-label="녹음 삭제"
                 >
                   <Trash2 className="h-4 w-4" strokeWidth={2} />
                 </button>
@@ -557,7 +585,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
                   type="button"
                   onClick={() => void vm.finalizeVoiceRecording(true)}
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sam-primary text-sam-on-primary shadow-none"
-                  aria-label={t("cm_ui_send_voice")}
+                  aria-label="음성 전송"
                 >
                   <ArrowUp className="h-4 w-4 text-sam-on-primary" strokeWidth={2.25} />
                 </button>
@@ -574,7 +602,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
                     vm.voiceCancelHint ? "font-medium text-sam-danger" : "text-sam-muted"
                   }`}
                 >
-                  {t("cm_ui_slide_to_cancel")}
+                  ‹ 밀어서 취소
                 </span>
               </div>
             )}
@@ -597,7 +625,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
                   vm.busy === "delete-message"
                 }
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[color:var(--cm-room-primary)] text-white shadow-none transition active:scale-[0.98] disabled:bg-[color:var(--cm-room-primary-disabled)] disabled:text-white"
-                aria-label={t("common_send")}
+                aria-label="전송"
               >
                 <ArrowUp className="h-5 w-5" strokeWidth={2.25} />
               </button>

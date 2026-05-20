@@ -43,7 +43,7 @@ export function allowedOrderTransitions(current: string, fulfillment: string): s
       if (deliveryLike) return ["delivering", "cancelled"];
       return ["completed", "cancelled"];
     case "delivering":
-      /** 오너 4단계 UI: 배달완료(→completed) 우선. arrived 는 레거시·세부 추적용 */
+      /** 오너 운영 CTA: 배달완료를 우선. 서버 채팅은 완료 시 주소근처도착 라인을 보강한다. */
       return ["completed", "arrived", "cancelled"];
     case "arrived":
       return ["completed", "cancelled"];

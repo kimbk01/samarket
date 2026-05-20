@@ -2,6 +2,7 @@ import { allowedOrderTransitions, isDeliveryFulfillment } from "@/lib/stores/ord
 import {
   TIMELINE_DELIVERY_STEPS,
   TIMELINE_PICKUP_STEPS,
+  labelForOwnerTransition,
 } from "@/lib/stores/store-order-process-criteria";
 import type { BuyerDetailStepState } from "@/lib/stores/store-order-process-criteria";
 
@@ -16,6 +17,23 @@ const C: BuyerDetailStepState = "current";
 export function ownerOrderForwardTransition(current: string, fulfillment: string): string | null {
   const allowed = allowedOrderTransitions(current, fulfillment).filter((s) => s !== "cancelled");
   return allowed[0] ?? null;
+}
+
+export type OwnerNextOrderAction = {
+  status: string;
+  label: string;
+};
+
+export function resolveOwnerNextOrderAction(
+  current: string,
+  fulfillment: string
+): OwnerNextOrderAction | null {
+  const next = ownerOrderForwardTransition(current, fulfillment);
+  if (!next) return null;
+  return {
+    status: next,
+    label: labelForOwnerTransition(current, next, fulfillment),
+  };
 }
 
 export type OwnerOrderCardStepperModel = {

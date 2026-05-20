@@ -141,8 +141,17 @@ export function useMessengerRoomBumpBroadcastSubscription({
       if (!communityMessengerBumpPayloadMatchesKnownRooms(payload, known)) return;
 
       const from = typeof payload.fromUserId === "string" ? payload.fromUserId.trim() : "";
-      // 내 bump는 이미 optimistic/confirm 처리되므로 스킵.
-      if (from && from === viewer) return;
+      const rawMessage = payload.message;
+      const messageMetadata =
+        rawMessage && typeof rawMessage === "object" && rawMessage !== null
+          ? (rawMessage as { metadata?: unknown }).metadata
+          : null;
+      const isStoreOrderSystemBump =
+        messageMetadata &&
+        typeof messageMetadata === "object" &&
+        (messageMetadata as { domain?: unknown }).domain === "store_order";
+      // 내 일반 채팅 bump는 optimistic/confirm 처리되지만, 주문 system line은 catch-up까지 받아야 한다.
+      if (from && from === viewer && !isStoreOrderSystemBump) return;
 
       const hint =
         typeof payload.messageId === "string"

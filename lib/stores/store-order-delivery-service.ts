@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
 import { allowedDeliveryTransitions, isValidDeliveryStatus, type StoreOrderDeliveryStatus } from "@/lib/stores/store-order-delivery-status";
 import { createStoreOrderDeliveryLifecycleEvent } from "@/lib/stores/store-order-events";
+import type { StoreOrderDeliveryMilestone } from "@/lib/stores/store-order-events";
 
 export type StoreOrderDeliveryRow = {
   order_id: string;
@@ -228,6 +229,21 @@ function orderBlocksDelivery(orderStatus: string): boolean {
 
 function orderAllowsDispatch(orderStatus: string): boolean {
   return ["ready_for_pickup", "delivering", "arrived"].includes(orderStatus);
+}
+
+function deliveryMilestoneForStatus(status: string): StoreOrderDeliveryMilestone {
+  switch (status) {
+    case "rider_assigned":
+      return "rider_assigned";
+    case "pickup_in_progress":
+      return "rider_pickup";
+    case "delivering":
+      return "rider_pickup";
+    case "delivered":
+      return "rider_delivered";
+    default:
+      return "delivery_status";
+  }
 }
 
 async function ensureDeliveryRow(
@@ -460,7 +476,7 @@ export async function adminPatchStoreOrderDelivery(
       storeId: ensured.row.store_id,
       actorRole: "admin",
       actorUserId: opts.adminUserId,
-      milestone: "delivery_status",
+      milestone: deliveryMilestoneForStatus(nextDeliveryStatus),
       fromDeliveryStatus: prev,
       toDeliveryStatus: nextDeliveryStatus,
       metadata: { source: "store_order.delivery.admin_patch" },
@@ -596,7 +612,7 @@ export async function ownerPatchStoreOrderDelivery(
       storeId: guard.store_id,
       actorRole: "owner",
       actorUserId: opts.ownerUserId,
-      milestone: "delivery_status",
+      milestone: deliveryMilestoneForStatus(nextDeliveryOwner),
       fromDeliveryStatus: prev,
       toDeliveryStatus: nextDeliveryOwner,
       metadata: { source: "store_order.delivery.owner_patch" },
@@ -1066,7 +1082,7 @@ export async function riderPatchStoreOrderDelivery(
   } else if (action.type === "customer_arrived") {
     void createStoreOrderDeliveryLifecycleEvent(sb, {
       ...evCommon,
-      milestone: "customer_arrived",
+      milestone: "rider_near_customer",
       toDeliveryStatus: nextDs,
     });
   } else if (action.type === "report_delivery_failure") {
@@ -1078,7 +1094,7 @@ export async function riderPatchStoreOrderDelivery(
   } else if (action.type === "set_delivery_status") {
     void createStoreOrderDeliveryLifecycleEvent(sb, {
       ...evCommon,
-      milestone: "delivery_status",
+      milestone: deliveryMilestoneForStatus(safeTrim(action.delivery_status)),
       toDeliveryStatus: safeTrim(action.delivery_status),
     });
   }

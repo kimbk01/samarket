@@ -42,6 +42,7 @@ export type OwnerStoreOrderListRow = {
   needs_admin_attention?: boolean | null;
   checkout_eta_minutes?: number | null;
   checkout_route_distance_meters?: number | null;
+  review_status?: "not_applicable" | "pending" | "completed" | "unavailable" | string | null;
   /** `store_orders.community_messenger_room_id` — 배달 채팅(메신저) 방 */
   community_messenger_room_id?: string | null;
   delivery?: {
@@ -190,6 +191,12 @@ export function ownerOrderToListRow(
       checkout_eta_minutes: o.checkout_eta_minutes ?? prev.checkout_eta_minutes,
       checkout_route_distance_meters:
         o.checkout_route_distance_meters ?? prev.checkout_route_distance_meters,
+      community_messenger_room_id:
+        o.community_messenger_room_id ?? prev.community_messenger_room_id,
+      estimated_prep_minutes: prev.estimated_prep_minutes,
+      estimated_ready_at: prev.estimated_ready_at,
+      accepted_at: prev.accepted_at,
+      review_status: prev.review_status,
     };
   }
 

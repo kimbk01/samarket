@@ -963,7 +963,7 @@
     width: 100%;
     height: 100%;
     border-radius: 999px;
-    background: #1c8db8;
+    background: #1C8DB8;
     transform: scaleX(0);
     transform-origin: left center;
     animation: sam-delivery-order-progress-fill-loop 3.2s linear infinite;

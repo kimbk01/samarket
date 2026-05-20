@@ -59,6 +59,27 @@ async function loadDeliverySnapshot(
   return { ok: true, delivery: (data as any) ?? null };
 }
 
+async function loadOwnerOrderReviewStatus(
+  sb: import("@supabase/supabase-js").SupabaseClient<any>,
+  orderId: string,
+  orderStatus: string
+): Promise<"not_applicable" | "pending" | "completed" | "unavailable"> {
+  if (orderStatus !== "completed") return "not_applicable";
+  const { data, error } = await sb
+    .from("store_reviews")
+    .select("id")
+    .eq("order_id", orderId)
+    .maybeSingle();
+  if (error) {
+    if (error.message?.includes("store_reviews") && error.message.includes("does not exist")) {
+      return "unavailable";
+    }
+    console.error("[GET owner store-order review]", error);
+    return "unavailable";
+  }
+  return data?.id ? "completed" : "pending";
+}
+
 /** 매장 오너: 단일 주문 + 라인 */
 export async function GET(
   _req: Request,
@@ -126,9 +147,13 @@ export async function GET(
 
   let order_chat_ready = false;
   let communityMessengerRoomId = "";
-  const deliverySnap = await loadDeliverySnapshot(sb as import("@supabase/supabase-js").SupabaseClient<any>, oid);
+  const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
+  const [deliverySnap, reviewStatus] = await Promise.all([
+    loadDeliverySnapshot(sbAny, oid),
+    loadOwnerOrderReviewStatus(sbAny, oid, String(order.order_status ?? "")),
+  ]);
   try {
-    const ens = await ensureStoreOrderMessengerRoom(sb as import("@supabase/supabase-js").SupabaseClient<any>, {
+    const ens = await ensureStoreOrderMessengerRoom(sbAny, {
       orderId: oid,
       userId,
     });
@@ -150,7 +175,7 @@ export async function GET(
       order_chat_ready,
       store_pickup_address_lines,
     },
-    order: { ...order, ...(communityMessengerRoomId ? { community_messenger_room_id: communityMessengerRoomId } : {}), items: items ?? [] },
+    order: { ...order, ...(communityMessengerRoomId ? { community_messenger_room_id: communityMessengerRoomId } : {}), review_status: reviewStatus, items: items ?? [] },
     delivery: deliverySnap.ok ? deliverySnap.delivery : null,
   });
 }

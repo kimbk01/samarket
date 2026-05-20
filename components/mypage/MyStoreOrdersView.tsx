@@ -7,17 +7,19 @@ import { CommerceCartHubHeaderRight } from "@/components/layout/CommerceCartHubH
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { MemberOrderStatusBadge } from "@/components/member-orders/MemberOrderStatusBadge";
 import { MemberOrderTabs } from "@/components/member-orders/MemberOrderTabs";
-import { memberOrderStatusUserMessage } from "@/lib/member-orders/member-order-labels";
+import { MEMBER_STATUS_USER_MESSAGE } from "@/lib/member-orders/member-order-labels";
 import type { MemberOrderStatus, MemberOrderTab } from "@/lib/member-orders/types";
-import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
-import type { AppLanguageCode } from "@/lib/i18n/config";
+import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
 import { isStoreOrderChatDisabledForBuyer } from "@/lib/stores/order-status-transitions";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { PHILIFE_FEED_INSET_NEG_X_CLASS, PHILIFE_FEED_INSET_X_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import type { CompletedOrderReorderPayload } from "@/lib/stores/apply-completed-order-to-commerce-cart";
 import { StoreOrderReorderAgainButton } from "@/components/mypage/StoreOrderReorderAgainButton";
+import { BuyerStoreOrderCompletedReviewBlock } from "@/components/mypage/BuyerStoreOrderCompletedReviewBlock";
+import type { BuyerStoreOrderReviewSummary } from "@/lib/stores/buyer-store-order-review-meta";
 import { StoreOrderMessengerDeepLink } from "@/components/stores/StoreOrderMessengerDeepLink";
+import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { buildMessengerContextInputFromStoreOrderSnapshot } from "@/lib/community-messenger/store-order-messenger-context";
 import {
   deleteMeStoreOrder,
@@ -26,7 +28,6 @@ import {
 } from "@/lib/stores/store-delivery-api-client";
 import { useSupabaseBuyerStoreOrdersRealtime } from "@/hooks/useSupabaseBuyerStoreOrdersRealtime";
 import { formatStoreOrderCheckoutEtaSummary } from "@/lib/stores/format-store-order-checkout-display";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 type ItemRow = {
   id: string;
@@ -55,6 +56,9 @@ type OrderRow = {
   items?: ItemRow[];
   /** `GET /api/me/store-orders` — 완료·미작성·store_reviews 테이블 있을 때만 true */
   can_submit_review?: boolean;
+  has_review?: boolean;
+  review?: BuyerStoreOrderReviewSummary | null;
+  review_status?: "not_applicable" | "pending" | "completed" | "unavailable" | string | null;
   /** 매장 프로필(채팅 목록 카드와 동일 톤의 썸네일) */
   store_profile_image_url?: string | null;
   order_chat_unread_count?: number;
@@ -118,38 +122,41 @@ function isDeliveryFulfillment(ft: string) {
   return ft === "local_delivery" || ft === "shipping";
 }
 
-function statusUserLine(status: string, lang: AppLanguageCode) {
+function statusUserLine(status: string) {
   if (isMemberOrderStatus(status)) {
-    return memberOrderStatusUserMessage(status, lang);
+    return MEMBER_STATUS_USER_MESSAGE[status];
   }
-  return buyerOrderStatusLabel(status, lang);
+  return BUYER_ORDER_STATUS_LABEL[status] ?? status;
 }
 
 /** 피드형 메타 — 페이스북 스타일 상대 시각 */
-function formatFeedRelativeTime(
-  iso: string,
-  lang: AppLanguageCode,
-  tr: (key: "mypage_hub_time_just_now" | "mypage_hub_time_minutes_ago" | "mypage_hub_time_hours_ago" | "mypage_hub_time_days_ago", vars?: Record<string, string | number>) => string
-): string {
-  const ms = new Date(iso).getTime();
-  if (!Number.isFinite(ms)) return "";
-  const diff = Date.now() - ms;
+function formatFeedRelativeTime(iso: string): string {
+  const t = new Date(iso).getTime();
+  if (!Number.isFinite(t)) return "";
+  const diff = Date.now() - t;
   const sec = Math.floor(diff / 1000);
-  if (sec < 45) return tr("mypage_hub_time_just_now");
+  if (sec < 45) return "방금 전";
   const min = Math.floor(sec / 60);
-  if (min < 60) return tr("mypage_hub_time_minutes_ago", { count: min });
+  if (min < 60) return `${min}분 전`;
   const hr = Math.floor(min / 60);
-  if (hr < 24) return tr("mypage_hub_time_hours_ago", { count: hr });
+  if (hr < 24) return `${hr}시간 전`;
   const day = Math.floor(hr / 24);
-  if (day < 7) return tr("mypage_hub_time_days_ago", { count: day });
-  const locale = lang === "ko" ? "ko-KR" : "en-US";
-  return new Date(iso).toLocaleDateString(locale, { month: "short", day: "numeric" });
+  if (day < 7) return `${day}일 전`;
+  return new Date(iso).toLocaleDateString("ko-KR", { month: "short", day: "numeric" });
 }
 
 const FB_MUTED = "text-[#65676B] dark:text-[#B0B3B8]";
 const FB_BODY = "text-[#050505] dark:text-[#E4E6EB]";
 const FB_HOVER_ROW = "hover:bg-sam-surface-muted dark:hover:bg-[#3A3B3C]";
 const FB_DIVIDER = "border-[#CED0D4]/80 dark:border-[#3E4042]";
+
+function buyerReviewStatusLabel(order: OrderRow): string | null {
+  if (order.order_status !== "completed") return null;
+  if (order.review_status === "completed" || order.has_review) return "리뷰 완료";
+  if (order.can_submit_review) return "리뷰 작성 필요";
+  if (order.review_status === "unavailable") return "리뷰 확인 불가";
+  return "리뷰 대기";
+}
 
 function FeedActionRow({ children }: { children: React.ReactNode }) {
   return (
@@ -189,7 +196,10 @@ function MyStoreOrderCard({
   detailHref,
   chatHref,
   reviewHref,
+  ordersListHref,
   canSubmitReview,
+  review,
+  reviewStatus,
   chatDisabled,
   orderChatUnread,
   onCancelPending,
@@ -202,7 +212,10 @@ function MyStoreOrderCard({
   detailHref: string;
   chatHref: string;
   reviewHref: string;
+  ordersListHref: string;
   canSubmitReview: boolean;
+  review: BuyerStoreOrderReviewSummary | null;
+  reviewStatus: string | null;
   chatDisabled: boolean;
   /** 주문 채팅 미읽음 — 배달/포장 뱃지 우측 상단 표시 */
   orderChatUnread: number;
@@ -212,7 +225,6 @@ function MyStoreOrderCard({
   onDelete?: (id: string) => void;
   deleteBusy?: boolean;
 }) {
-  const { t, language } = useI18n();
   const router = useRouter();
   const reorderPayload = reorderPayloadFromListOrder(o);
   const onChatPointerEnter = useCallback(() => {
@@ -222,7 +234,8 @@ function MyStoreOrderCard({
   const delivery = isDeliveryFulfillment(o.fulfillment_type);
 
   const storeImg = o.store_profile_image_url?.trim() || "";
-  const relTime = formatFeedRelativeTime(o.created_at, language, t);
+  const relTime = formatFeedRelativeTime(o.created_at);
+  const reviewLabel = buyerReviewStatusLabel(o);
   const actionCell = `flex min-h-[44px] min-w-0 flex-1 items-center justify-center px-1 text-center sam-text-body-secondary font-semibold transition-colors sm:text-sm ${FB_BODY} ${FB_HOVER_ROW}`;
   const actionCellSignature = `flex min-h-[44px] min-w-0 flex-1 items-center justify-center px-1 text-center sam-text-body-secondary font-semibold transition-colors sm:text-sm text-signature ${FB_HOVER_ROW}`;
 
@@ -232,19 +245,15 @@ function MyStoreOrderCard({
     >
       <div className="px-3 pb-2 pt-3 sm:px-4">
         <div className="flex gap-2.5">
-          <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full bg-[#E4E6EB] dark:bg-[#3A3B3C]">
-            {storeImg ? (
-              <img
-                src={storeImg}
-                alt={o.store_name || t("store_fallback_name")}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <div className={`flex h-full w-full items-center justify-center sam-text-xxs font-semibold ${FB_MUTED}`}>
-                매장
-              </div>
-            )}
-          </div>
+          <SamarketThumbnail
+            src={storeImg}
+            alt={o.store_name || "매장"}
+            size={40}
+            roundedClassName="rounded-full"
+            className="bg-[#E4E6EB] dark:bg-[#3A3B3C]"
+            fallbackSrc=""
+            fallbackNode={<div className={`sam-text-xxs font-semibold ${FB_MUTED}`}>매장</div>}
+          />
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
@@ -269,7 +278,7 @@ function MyStoreOrderCard({
                   <MemberOrderStatusBadge status={o.order_status} />
                 ) : (
                   <span className="inline-flex max-w-[7rem] shrink-0 truncate rounded-full bg-sam-surface-muted px-2 py-0.5 sam-text-xxs font-bold text-sam-fg dark:bg-[#3A3B3C] dark:text-[#E4E6EB]">
-                    {buyerOrderStatusLabel(o.order_status, language)}
+                    {BUYER_ORDER_STATUS_LABEL[o.order_status] ?? o.order_status}
                   </span>
                 )}
                 <span className="relative inline-flex shrink-0 overflow-visible">
@@ -297,8 +306,8 @@ function MyStoreOrderCard({
                     onClick={() => onDelete(o.id)}
                     disabled={deleteBusy}
                     className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full sam-text-body font-semibold leading-none text-[#65676B] transition-colors hover:bg-sam-surface-muted disabled:opacity-50 dark:text-[#B0B3B8] dark:hover:bg-[#3A3B3C]`}
-                    aria-label={t("mypage_comp_orders_list_delete_aria")}
-                    title={t("mypage_comp_orders_list_delete_title")}
+                    aria-label="주문 내역 삭제"
+                    title="내역에서 삭제"
                   >
                     {deleteBusy ? "…" : "×"}
                   </button>
@@ -308,16 +317,43 @@ function MyStoreOrderCard({
 
             <div className={`mt-3 border-t ${FB_DIVIDER} pt-3`}>
               <div className="flex items-center justify-between gap-2">
-                <span className={`sam-text-body-secondary font-medium sm:text-sm ${FB_MUTED}`}>
-                  {t("mypage_comp_order_payment_amount_label")}
-                </span>
+                <span className={`sam-text-body-secondary font-medium sm:text-sm ${FB_MUTED}`}>결제 금액</span>
                 <span className={`sam-text-body font-semibold tabular-nums sm:text-base ${FB_BODY}`}>
                   {formatMoneyPhp(o.payment_amount)}
                 </span>
               </div>
-              <p className={`mt-2 sam-text-body-secondary leading-snug sm:text-sm ${FB_MUTED}`}>
-                {statusUserLine(o.order_status, language)}
-              </p>
+              <div className="mt-2 rounded-[4px] border border-[#DDE5E0] bg-[#F6FAFC] px-3 py-2">
+                <p className="text-[12px] font-bold leading-[1.35] text-[#1C8DB8]">
+                  {statusUserLine(o.order_status)}
+                </p>
+                {reviewLabel ? (
+                  <p className="mt-1 text-[12px] font-semibold leading-[1.35] text-[#123B4A]">
+                    {reviewLabel}
+                    {review && review.rating > 0 ? (
+                      <span className="ml-1.5 text-amber-500" aria-hidden>
+                        {"★".repeat(Math.min(5, review.rating))}
+                      </span>
+                    ) : null}
+                  </p>
+                ) : null}
+              </div>
+              {o.order_status === "completed" ? (
+                <BuyerStoreOrderCompletedReviewBlock
+                  variant="list"
+                  listHref={ordersListHref}
+                  reviewHref={reviewHref}
+                  storeReviewsHref={
+                    o.store_slug?.trim()
+                      ? `/stores/${encodeURIComponent(o.store_slug.trim())}/reviews`
+                      : null
+                  }
+                  review={review}
+                  canSubmitReview={canSubmitReview}
+                  reviewStatus={reviewStatus}
+                  chatHref={chatDisabled ? undefined : chatHref}
+                  orderChatDisabled={chatDisabled}
+                />
+              ) : null}
               {delivery
                 ? (() => {
                     const line = formatStoreOrderCheckoutEtaSummary({
@@ -385,31 +421,17 @@ function MyStoreOrderCard({
               firstLineProductTitle: o.items?.[0]?.product_title_snapshot ?? null,
               thumbnailUrl: o.store_profile_image_url ?? null,
             })}
-            className={`flex min-h-[40px] w-full items-center justify-center px-3 sam-text-body-secondary font-semibold text-signature ${FB_HOVER_ROW}`}
+            className="flex min-h-[40px] w-full items-center justify-center px-3 sam-text-body-secondary font-bold text-[#1C8DB8] hover:bg-[#EAF6FB]"
           />
         </div>
       ) : null}
 
       {o.order_status === "completed" && reorderPayload ? (
         <FeedActionRow>
-          {canSubmitReview ? (
-            <Link
-              href={reviewHref}
-              className={`${actionCell} text-amber-800 dark:text-amber-200`}
-            >
-              리뷰 작성
-            </Link>
-          ) : null}
           <StoreOrderReorderAgainButton
             payload={reorderPayload}
             className={`${actionCellSignature} min-w-0 border-0 bg-transparent`}
           />
-        </FeedActionRow>
-      ) : canSubmitReview ? (
-        <FeedActionRow>
-          <Link href={reviewHref} className={`${actionCell} text-amber-800 dark:text-amber-200`}>
-            리뷰 작성
-          </Link>
         </FeedActionRow>
       ) : null}
 
@@ -434,7 +456,6 @@ export function MyStoreOrdersView({
   embedded?: boolean;
   suppressTier1Sync?: boolean;
 }) {
-  const { t, language } = useI18n();
   const pathname = usePathname();
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
   const [tab, setTab] = useState<MemberOrderTab>("all");
@@ -523,7 +544,7 @@ export function MyStoreOrdersView({
 
   const requestCancelPending = useCallback(
     async (orderId: string) => {
-      if (!confirm(t("mypage_comp_orders_list_confirm_cancel"))) return;
+      if (!confirm("주문을 취소할까요? 매장이 아직 접수하지 않은 경우에만 가능합니다.")) return;
       setCancelBusyId(orderId);
       try {
         const { status, json } = await patchMeStoreOrder(orderId, { cancel: true });
@@ -532,28 +553,28 @@ export function MyStoreOrdersView({
           const code = typeof j?.error === "string" ? j.error : "cancel_failed";
           const msg =
             code === "cannot_cancel_after_accepted"
-              ? t("mypage_comp_orders_cancel_err_short")
-              : t("mypage_comp_cancel_failed_code", { code });
+              ? "매장이 접수한 뒤에는 여기서 취소할 수 없습니다."
+              : `취소에 실패했습니다. (${code})`;
           setToast(msg);
           setTimeout(() => setToast(null), 3200);
           return;
         }
-        setToast(t("mypage_comp_orders_cancel_success"));
+        setToast("주문이 취소되었어요.");
         setTimeout(() => setToast(null), 2800);
         await load({ silent: true });
       } catch {
-        setToast(t("mypage_comp_network_error"));
+        setToast("네트워크 오류가 발생했습니다.");
         setTimeout(() => setToast(null), 2800);
       } finally {
         setCancelBusyId(null);
       }
     },
-    [load, t]
+    [load]
   );
 
   const requestHideOrder = useCallback(
     async (orderId: string) => {
-      if (!confirm(t("mypage_comp_orders_list_confirm_hide"))) return;
+      if (!confirm("이 주문 내역을 내 목록에서 삭제할까요? 매장/관리자 화면에는 유지됩니다.")) return;
       setDeleteBusyId(orderId);
       try {
         const { status, json } = await deleteMeStoreOrder(orderId);
@@ -562,23 +583,23 @@ export function MyStoreOrdersView({
           const code = typeof j?.error === "string" ? j.error : "hide_failed";
           const msg =
             code === "buyer_hide_schema_missing"
-              ? t("mypage_comp_orders_hide_schema_missing")
-              : t("mypage_comp_orders_hide_failed", { code });
+              ? "서버 설정이 아직 적용되지 않아 삭제를 처리할 수 없습니다."
+              : `삭제에 실패했습니다. (${code})`;
           setToast(msg);
           setTimeout(() => setToast(null), 3200);
           return;
         }
-        setToast(t("mypage_comp_orders_hide_success"));
+        setToast("주문 내역을 삭제했어요.");
         setTimeout(() => setToast(null), 2400);
         await load({ silent: true });
       } catch {
-        setToast(t("mypage_comp_network_error"));
+        setToast("네트워크 오류가 발생했습니다.");
         setTimeout(() => setToast(null), 2800);
       } finally {
         setDeleteBusyId(null);
       }
     },
-    [load, t]
+    [load]
   );
 
   return (
@@ -606,7 +627,7 @@ export function MyStoreOrdersView({
           <div
             className={`mb-3 rounded-ui-rect bg-sam-surface px-4 py-10 text-center text-sm ${FB_MUTED} shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-sam-surface/[0.08]`}
           >
-            {t("mypage_comp_loading_ellipsis")}
+            불러오는 중…
           </div>
         ) : null}
 
@@ -614,12 +635,12 @@ export function MyStoreOrdersView({
           <div
             className={`rounded-ui-rect border ${FB_DIVIDER} bg-sam-surface px-4 py-4 text-center sam-text-body text-amber-900 dark:bg-[#242526] dark:text-amber-200`}
           >
-            <p>{t("mypage_comp_orders_list_login_prompt")}</p>
+            <p>로그인 후 매장 주문 내역과 주문 채팅을 확인할 수 있습니다.</p>
             <Link
               href={loginHref}
               className="mt-3 inline-flex rounded-ui-rect bg-signature px-4 py-2.5 sam-text-body font-semibold text-white"
             >
-              {t("mypage_comp_orders_list_login_cta")}
+              로그인하고 주문 보기
             </Link>
           </div>
         ) : null}
@@ -630,18 +651,16 @@ export function MyStoreOrdersView({
           >
             {state.message === "supabase_unconfigured" ? (
               <p className={`sam-text-body text-amber-800 dark:text-amber-200`}>
-                {t("mypage_comp_orders_supabase_unconfigured")}
+                서버에 Supabase(매장 주문) 설정이 없어 목록을 불러올 수 없습니다.
               </p>
             ) : null}
-            <p className={`sam-text-body text-[#F02849]`}>
-              {t("mypage_comp_orders_list_load_failed")} ({state.message})
-            </p>
+            <p className={`sam-text-body text-[#F02849]`}>불러오지 못했습니다. ({state.message})</p>
             <button
               type="button"
               onClick={() => void load()}
               className="sam-text-body font-semibold text-signature hover:underline"
             >
-              {t("mypage_comp_retry")}
+              다시 시도
             </button>
           </div>
         ) : null}
@@ -665,12 +684,12 @@ export function MyStoreOrdersView({
               <div
                 className={`rounded-ui-rect bg-sam-surface px-4 py-8 text-center text-sm ${FB_MUTED} shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-sam-surface/[0.08]`}
               >
-                <p className={FB_BODY}>{t("mypage_comp_orders_list_empty")}</p>
+                <p className={FB_BODY}>아직 매장 주문이 없습니다.</p>
                 <Link
                   href="/stores"
                   className="mt-4 inline-block rounded-ui-rect bg-signature px-4 py-2.5 text-sm font-semibold text-white hover:opacity-95"
                 >
-                  {t("mypage_comp_browse_stores")}
+                  매장 둘러보기
                 </Link>
               </div>
             ) : (
@@ -695,7 +714,10 @@ export function MyStoreOrdersView({
                           ? `/orders/store/${encodeURIComponent(o.id)}/review`
                           : `/mypage/store-orders/${encodeURIComponent(o.id)}/review`
                       }
+                      ordersListHref={embedded ? "/orders?tab=store" : "/mypage/store-orders"}
                       canSubmitReview={o.can_submit_review === true}
+                      review={o.review ?? null}
+                      reviewStatus={o.review_status ?? null}
                       onCancelPending={requestCancelPending}
                       cancelBusy={cancelBusyId === o.id}
                       allowDelete={!embedded}

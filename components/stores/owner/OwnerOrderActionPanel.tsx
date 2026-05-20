@@ -1,13 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { allowedOrderTransitions } from "@/lib/stores/order-status-transitions";
+import { resolveOwnerNextOrderAction } from "@/lib/business/owner-order-stepper-transition";
 import { labelForOwnerTransition } from "@/lib/stores/store-order-process-criteria";
 import { patchOwnerOrderStatusRemote } from "@/lib/store-owner/owner-order-remote";
 import type { OwnerOrder } from "@/lib/store-owner/types";
 import { RejectOrderModal } from "./RejectOrderModal";
 import { dibayPerfBridgeOwnerStatusChange } from "@/lib/dibay/delivery-flow-perf";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 function btnClass(primary?: boolean) {
   return primary
@@ -26,25 +25,24 @@ export function OwnerOrderActionPanel({
   layout?: "default" | "detail";
   onAfterAction?: () => void | Promise<void>;
 }) {
-  const { t, language } = useI18n();
   const [toast, setToast] = useState<string | null>(null);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
   const fulfillment =
     order.fulfillment_type ?? (order.order_type === "delivery" ? "local_delivery" : "pickup");
-  const nextStatuses = allowedOrderTransitions(order.order_status, fulfillment);
+  const nextAction = resolveOwnerNextOrderAction(order.order_status, fulfillment);
 
   const s = order.order_status;
 
   const patch = async (order_status: string) => {
-    const label = labelForOwnerTransition(s, order_status, fulfillment, language);
+    const label = labelForOwnerTransition(s, order_status, fulfillment);
     dibayPerfBridgeOwnerStatusChange(order.id);
     setBusy(order_status);
     const r = await patchOwnerOrderStatusRemote(storeId, order.id, order_status);
     setBusy((prev) => (prev === null ? prev : null));
     if (r.ok) {
-      setToast(t("store_owner_action_applied", { label }));
+      setToast(`${label} 반영됨`);
       await onAfterAction?.();
     } else {
       setToast(r.error);
@@ -52,16 +50,13 @@ export function OwnerOrderActionPanel({
     setTimeout(() => setToast((prev) => (prev === null ? prev : null)), 2600);
   };
 
-  const isDeliveryLike =
-    fulfillment === "local_delivery" || fulfillment === "shipping";
-
   const wrap = layout === "detail" ? "flex flex-col gap-2 sm:flex-row sm:flex-wrap" : "flex flex-wrap gap-2";
 
   if (s === "refund_requested") {
     return (
       <div className="space-y-2">
         <p className="rounded-ui-rect bg-amber-50 px-3 py-2 text-center text-xs text-amber-950 ring-1 ring-amber-200">
-          {t("store_owner_refund_requested_notice")}
+          구매자가 환불을 요청했습니다. 비즈니스 콘솔 또는 관리자 처리 흐름을 이용해 주세요.
         </p>
       </div>
     );
@@ -70,7 +65,7 @@ export function OwnerOrderActionPanel({
   if (s === "refunded") {
     return (
       <p className="rounded-ui-rect bg-sam-surface-muted px-3 py-2 text-center text-xs text-sam-muted ring-1 ring-sam-border">
-        {t("store_owner_refunded_notice")}
+        환불 처리된 주문입니다.
       </p>
     );
   }
@@ -85,152 +80,31 @@ export function OwnerOrderActionPanel({
 
       {order.buyer_cancel_request ? (
         <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
-          <p className="font-semibold text-amber-950">{t("business_phase7_022")}</p>
+          <p className="font-semibold text-amber-950">고객 취소 요청</p>
           <p className="mt-1 text-xs text-amber-900">{order.buyer_cancel_request.reason}</p>
         </div>
       ) : null}
 
       <div className={wrap}>
-        {s === "pending" && nextStatuses.includes("accepted") ? (
-          <button
-            type="button"
-            disabled={busy !== null}
-            className={btnClass(true)}
-            onClick={() => void patch("accepted")}
-          >
-            {labelForOwnerTransition(s, "accepted", fulfillment, language)}
-          </button>
-        ) : null}
-
-        {s === "pending" && nextStatuses.includes("cancelled") ? (
+        {s === "pending" ? (
           <button
             type="button"
             disabled={busy !== null}
             className={btnClass()}
             onClick={() => setRejectOpen((prev) => (prev ? prev : true))}
           >
-            {t("store_owner_action_reject_order")}
+            주문 거절
           </button>
         ) : null}
 
-        {s === "accepted" && nextStatuses.includes("preparing") ? (
+        {nextAction ? (
           <button
             type="button"
             disabled={busy !== null}
             className={btnClass(true)}
-            onClick={() => void patch("preparing")}
+            onClick={() => void patch(nextAction.status)}
           >
-            {labelForOwnerTransition(s, "preparing", fulfillment, language)}
-          </button>
-        ) : null}
-
-        {s === "accepted" && nextStatuses.includes("cancelled") ? (
-          <button
-            type="button"
-            disabled={busy !== null}
-            className={btnClass()}
-            onClick={() => setRejectOpen((prev) => (prev ? prev : true))}
-          >
-            {t("store_owner_action_cancel_order")}
-          </button>
-        ) : null}
-
-        {s === "preparing" && nextStatuses.includes("ready_for_pickup") ? (
-          <button
-            type="button"
-            disabled={busy !== null}
-            className={btnClass(true)}
-            onClick={() => void patch("ready_for_pickup")}
-          >
-            {labelForOwnerTransition(s, "ready_for_pickup", fulfillment, language)}
-          </button>
-        ) : null}
-
-        {s === "preparing" && nextStatuses.includes("cancelled") ? (
-          <button
-            type="button"
-            disabled={busy !== null}
-            className={btnClass()}
-            onClick={() => setRejectOpen((prev) => (prev ? prev : true))}
-          >
-            {t("store_owner_action_cancel_order")}
-          </button>
-        ) : null}
-
-        {s === "ready_for_pickup" && nextStatuses.includes("delivering") && isDeliveryLike ? (
-          <button
-            type="button"
-            disabled={busy !== null}
-            className={btnClass(true)}
-            onClick={() => void patch("delivering")}
-          >
-            {labelForOwnerTransition(s, "delivering", fulfillment, language)}
-          </button>
-        ) : null}
-
-        {s === "ready_for_pickup" && nextStatuses.includes("completed") && !isDeliveryLike ? (
-          <button
-            type="button"
-            disabled={busy !== null}
-            className={btnClass(true)}
-            onClick={() => void patch("completed")}
-          >
-            {labelForOwnerTransition(s, "completed", fulfillment, language)}
-          </button>
-        ) : null}
-
-        {s === "ready_for_pickup" && nextStatuses.includes("cancelled") ? (
-          <button
-            type="button"
-            disabled={busy !== null}
-            className={btnClass()}
-            onClick={() => setRejectOpen((prev) => (prev ? prev : true))}
-          >
-            {t("store_owner_action_cancel_order")}
-          </button>
-        ) : null}
-
-        {s === "delivering" && nextStatuses.includes("arrived") ? (
-          <button
-            type="button"
-            disabled={busy !== null}
-            className={btnClass(true)}
-            onClick={() => void patch("arrived")}
-          >
-            {labelForOwnerTransition(s, "arrived", fulfillment, language)}
-          </button>
-        ) : null}
-
-        {s === "delivering" && nextStatuses.includes("cancelled") ? (
-          <button
-            type="button"
-            disabled={busy !== null}
-            className={btnClass()}
-            onClick={() => setRejectOpen((prev) => (prev ? prev : true))}
-          >
-            {t("store_owner_action_cancel_order")}
-          </button>
-        ) : null}
-
-        {s === "arrived" && nextStatuses.includes("completed") ? (
-          <button
-            type="button"
-            disabled={busy !== null}
-            className={btnClass(true)}
-            onClick={() => void patch("completed")}
-          >
-            {labelForOwnerTransition(s, "completed", fulfillment, language)}
-          </button>
-        ) : null}
-
-        {s === "arrived" && nextStatuses.includes("cancelled") ? (
-          <button
-            type="button"
-            disabled={busy !== null}
-            className={btnClass()}
-            onClick={() => setRejectOpen((prev) => (prev ? prev : true))}
-          >
-            {t("store_owner_action_cancel_order")}
+            {nextAction.label}
           </button>
         ) : null}
       </div>

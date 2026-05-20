@@ -1,14 +1,24 @@
-import {
-  TIMELINE_DELIVERY_STEPS,
-  TIMELINE_PICKUP_STEPS,
-} from "@/lib/stores/store-order-process-criteria";
 import { isDeliveryFulfillment } from "@/lib/stores/order-status-transitions";
 
-/** 메신저 배달 주문 채팅 — composer 위 4단계 진행 라벨 */
-export const MESSENGER_DELIVERY_PROGRESS_STEPS = TIMELINE_DELIVERY_STEPS;
+/** 메신저 배달 주문 채팅 — 배달 운영형 전체 흐름 */
+export const MESSENGER_DELIVERY_PROGRESS_STEPS = [
+  "신규주문",
+  "주문접수",
+  "조리중",
+  "배달준비",
+  "배달중",
+  "주소근처",
+  "완료",
+] as const;
 
-/** 메신저 픽업 주문 채팅 — 4단계 진행 라벨 */
-export const MESSENGER_PICKUP_PROGRESS_STEPS = TIMELINE_PICKUP_STEPS;
+/** 메신저 픽업 주문 채팅 — 배달 단계 없이 분리 */
+export const MESSENGER_PICKUP_PROGRESS_STEPS = [
+  "신규주문",
+  "주문접수",
+  "조리중",
+  "픽업준비",
+  "수령완료",
+] as const;
 
 const TERMINAL_FAIL_STATUSES = new Set([
   "cancelled",
@@ -30,16 +40,18 @@ export function messengerDeliveryProgressCurrentStep(
   if (deliveryLike) {
     if (status === "pending") return 0;
     if (status === "accepted") return 1;
-    if (status === "preparing" || status === "ready_for_pickup") return 2;
-    if (status === "delivering" || status === "arrived") return 3;
-    if (status === "completed") return 3;
+    if (status === "preparing") return 2;
+    if (status === "ready_for_pickup") return 3;
+    if (status === "delivering") return 4;
+    if (status === "arrived") return 5;
+    if (status === "completed") return 6;
     return 0;
   }
   if (status === "pending") return 0;
   if (status === "accepted") return 1;
   if (status === "preparing") return 2;
   if (status === "ready_for_pickup") return 3;
-  if (status === "completed") return 3;
+  if (status === "completed") return 4;
   return 0;
 }
 
@@ -58,7 +70,7 @@ export function messengerDeliveryProgressFillRatio(
     : MESSENGER_PICKUP_PROGRESS_STEPS;
   const lastIndex = Math.max(1, steps.length - 1);
   const current = messengerDeliveryProgressCurrentStep(status, fulfillmentType);
-  return Math.min(1, Math.max(0, (current + 1) / lastIndex));
+  return Math.min(1, Math.max(0, current / lastIndex));
 }
 
 export function messengerDeliveryProgressSteps(fulfillmentType: string): readonly string[] {

@@ -116,6 +116,14 @@ export function useMessengerRoomRemoteCatchup({
     async (hintMessageId?: string | null) => {
       const hint = typeof hintMessageId === "string" ? hintMessageId.trim() : "";
       if (hint && (await tryMergeSingleMessageFromBump(hint))) {
+        const merged = roomMessagesRef.current.find((m) => String(m.id ?? "").trim() === hint);
+        const meta =
+          merged?.metadata && typeof merged.metadata === "object"
+            ? (merged.metadata as { domain?: unknown; orderStatus?: unknown })
+            : null;
+        if (meta?.domain === "store_order" && meta.orderStatus) {
+          void refresh(true, { triggerReason: "store_order_status_bump" });
+        }
         return;
       }
       const backoffMs = [14, 32, 72];
@@ -128,7 +136,7 @@ export function useMessengerRoomRemoteCatchup({
       }
       void refresh(true, { triggerReason: "realtime_bump_catchup" });
     },
-    [catchUpNewerMessages, refresh, tryMergeSingleMessageFromBump]
+    [catchUpNewerMessages, refresh, roomMessagesRef, tryMergeSingleMessageFromBump]
   );
 
   return { catchUpNewerMessages, catchUpAfterRemoteBump };

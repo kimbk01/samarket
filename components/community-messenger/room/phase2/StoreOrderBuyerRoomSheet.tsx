@@ -15,6 +15,7 @@ import {
 } from "@/lib/utils/ph-mobile";
 import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
 import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
+import { isDeliveryFulfillment } from "@/lib/stores/order-status-transitions";
 import type { StoreOrderChatCardView } from "@/lib/store-order-chat/build-store-order-chat-card-view";
 import { StoreOrderReceiptCard } from "@/components/community-messenger/room/phase2/StoreOrderReceiptCard";
 import { VoiceCallIcon } from "@/components/community-messenger/room/community-messenger-room-helpers";
@@ -204,7 +205,7 @@ function BuyerOrderDrawerShell({
           ? `fixed top-0 right-0 z-[270] flex h-[100dvh] ${STORE_ORDER_DELIVERY_DETAIL_DRAWER_WIDTH_CLASS} flex-col overflow-hidden border-l border-sam-border bg-sam-surface shadow-none ${STORE_ORDER_DELIVERY_DETAIL_DRAWER_TRANSFORM_CLASS} ${
               open ? "translate-x-0" : "pointer-events-none translate-x-full"
             }`
-          : `fixed inset-x-0 bottom-0 z-[270] mx-auto flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[18px] border border-sam-border bg-sam-surface shadow-none transition-transform duration-300 ease-out sm:inset-y-4 sm:right-4 sm:left-auto sm:max-h-none sm:w-[24rem] sm:rounded-ui-rect ${
+          : `fixed inset-x-0 bottom-0 z-[270] mx-auto flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[4px] border border-[#DDE5E0] bg-white shadow-none transition-transform duration-300 ease-out sm:inset-y-4 sm:right-4 sm:left-auto sm:max-h-none sm:w-[24rem] sm:rounded-[4px] ${
               open
                 ? "translate-y-0 sm:translate-x-0"
                 : "pointer-events-none invisible translate-y-full sm:translate-x-full sm:translate-y-0"
@@ -239,22 +240,22 @@ function BuyerOrderDrawerHeader({
 }) {
   return (
     <div
-      className={`relative flex shrink-0 items-center gap-2 border-b border-[color:var(--cm-room-divider)] px-3 py-3 ${peekDrawer ? "" : "pt-4"}`}
+      className={`relative flex shrink-0 items-center gap-2 border-b border-[#DDE5E0] bg-white px-3 py-3 ${peekDrawer ? "" : "pt-4"}`}
     >
       {!peekDrawer ? (
-        <div className="absolute left-1/2 top-1.5 h-1 w-10 -translate-x-1/2 rounded-full bg-[color:var(--cm-room-divider)] sm:hidden" aria-hidden />
+        <div className="absolute left-1/2 top-1.5 h-1 w-10 -translate-x-1/2 rounded-full bg-[#DDE5E0] sm:hidden" aria-hidden />
       ) : null}
       <h2
         id="store-order-phase2-drawer-title"
-        className="min-w-0 flex-1 sam-text-body-lg font-semibold text-[color:var(--cm-room-text)]"
+        className="min-w-0 flex-1 sam-text-body-lg font-bold text-[#123B4A]"
       >
-        주문
+        주문 진행 상황
       </h2>
       <button
         type="button"
         onClick={onVoiceCall}
         disabled={voiceCallDisabled}
-        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-primary)] transition hover:bg-[color:var(--cm-room-primary-soft)] disabled:opacity-35"
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[4px] text-[#1C8DB8] transition hover:bg-[#EAF6FB] disabled:opacity-35"
         aria-label="음성 통화"
       >
         <VoiceCallIcon className="h-5 w-5" />
@@ -262,7 +263,7 @@ function BuyerOrderDrawerHeader({
       <button
         type="button"
         onClick={onClose}
-        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text)] hover:bg-black/[0.05]"
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[4px] text-[#123B4A] hover:bg-[#EAF6FB]"
         aria-label="닫기"
       >
         ×
@@ -293,7 +294,7 @@ function BuyerOrderDrawerActions({
           type="button"
           disabled={!canCancel || cancelBusy}
           onClick={onCancel}
-          className="inline-flex h-10 w-full items-center justify-center rounded-ui-rect border border-red-200/90 px-3 sam-text-body font-semibold text-red-600 transition active:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          className="inline-flex h-10 w-full items-center justify-center rounded-[4px] border border-red-200/90 px-3 sam-text-body font-bold text-red-600 transition active:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {cancelBusy ? "처리 중…" : "주문취소"}
         </button>
@@ -312,14 +313,14 @@ function BuyerOrderDrawerActions({
         type="button"
         disabled={!canCancel || cancelBusy}
         onClick={onCancel}
-        className="inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-red-200/90 px-3.5 sam-text-body text-red-600 disabled:opacity-40"
+        className="inline-flex h-9 shrink-0 items-center justify-center rounded-[4px] border border-red-200/90 px-3.5 sam-text-body text-red-600 disabled:opacity-40"
       >
         주문취소
       </button>
       <Link
         href={`/mypage/store-orders/${encodeURIComponent(orderId)}`}
         onClick={onNavigate}
-        className="inline-flex h-9 shrink-0 items-center justify-center rounded-full border border-[color:var(--cm-room-divider)] px-3.5 sam-text-body text-[color:var(--cm-room-primary)]"
+        className="inline-flex h-9 shrink-0 items-center justify-center rounded-[4px] border border-[#DDE5E0] px-3.5 sam-text-body font-semibold text-[#1C8DB8]"
       >
         주문상세
       </Link>
@@ -365,23 +366,26 @@ function BuyerOrderDetailBody({
   }
   return (
     <div className="space-y-3">
-      {statusBannerVisible && statusLabel ? (
-        <StatusBanner statusLabel={statusLabel} onDismiss={onDismissBanner} />
-      ) : null}
+      <BuyerOpsStatusCard
+        order={order}
+        statusLabel={statusLabel}
+        visible={statusBannerVisible}
+        onDismiss={onDismissBanner}
+      />
       {orderCard ? <StoreOrderReceiptCard view={orderCard} viewer="buyer" /> : null}
       {!orderCard ? (
-        <div className="relative overflow-hidden rounded-ui-rect bg-[color:var(--cm-room-surface-muted)] px-3.5 py-3.5 ring-1 ring-[color:var(--cm-room-divider)]">
-          <ul className="space-y-2.5 sam-text-body text-[color:var(--cm-room-text)]">
+        <div className="relative overflow-hidden rounded-[4px] border border-[#DDE5E0] bg-white px-3.5 py-3.5">
+          <ul className="space-y-2.5 sam-text-body text-[#123B4A]">
         {order.fulfillment_type === "pickup" &&
         order.store_pickup_address_lines &&
         order.store_pickup_address_lines.length > 0 ? (
           <li className="flex gap-2">
-            <span className="shrink-0" aria-hidden>
-              🏪
+            <span className="shrink-0 rounded-[4px] bg-[#EAF6FB] px-1.5 py-0.5 text-[11px] font-bold text-[#1C8DB8]">
+              픽업
             </span>
             <span className="min-w-0">
-              <span className="block sam-text-helper font-semibold text-[color:var(--cm-room-text-muted)]">
-                픽업 (매장 주소)
+              <span className="block sam-text-helper font-bold text-[#6B7280]">
+                매장 주소
               </span>
               {order.store_pickup_address_lines.map((line, i) => (
                 <span key={i} className="mt-0.5 block">
@@ -393,11 +397,11 @@ function BuyerOrderDetailBody({
         ) : null}
         {order.fulfillment_type !== "pickup" && order.delivery_address_summary ? (
           <li className="flex gap-2">
-            <span className="shrink-0" aria-hidden>
-              🗺️
+            <span className="shrink-0 rounded-[4px] bg-[#EAF6FB] px-1.5 py-0.5 text-[11px] font-bold text-[#1C8DB8]">
+              배달
             </span>
             <span className="min-w-0">
-              <span className="block sam-text-helper font-semibold text-[color:var(--cm-room-text-muted)]">
+              <span className="block sam-text-helper font-bold text-[#6B7280]">
                 배달 주소
               </span>
               <span className="mt-0.5 block">{order.delivery_address_summary}</span>
@@ -406,19 +410,19 @@ function BuyerOrderDetailBody({
         ) : null}
         {order.fulfillment_type !== "pickup" && order.delivery_address_detail ? (
           <li className="flex gap-2">
-            <span className="shrink-0" aria-hidden>
-              ✏️
+            <span className="shrink-0 rounded-[4px] bg-[#EAF6FB] px-1.5 py-0.5 text-[11px] font-bold text-[#1C8DB8]">
+              상세
             </span>
-            <span className="min-w-0">상세 : {order.delivery_address_detail}</span>
+            <span className="min-w-0">{order.delivery_address_detail}</span>
           </li>
         ) : null}
         {phoneDisplay ? (
           <li className="flex gap-2">
-            <span className="shrink-0" aria-hidden>
-              📞
+            <span className="shrink-0 rounded-[4px] bg-[#EAF6FB] px-1.5 py-0.5 text-[11px] font-bold text-[#1C8DB8]">
+              전화
             </span>
             {phoneHref != null ? (
-              <a href={phoneHref} className="min-w-0 font-medium text-[color:var(--cm-room-primary)] underline">
+              <a href={phoneHref} className="min-w-0 font-bold text-[#1C8DB8] underline">
                 {phoneDisplay}
               </a>
             ) : (
@@ -431,8 +435,8 @@ function BuyerOrderDetailBody({
           const titleLine = [it.product_title_snapshot, opt].filter(Boolean).join(" · ");
           return (
             <li key={idx} className="flex gap-2">
-              <span className="shrink-0" aria-hidden>
-                🍲
+              <span className="shrink-0 rounded-[4px] bg-[#EAF6FB] px-1.5 py-0.5 text-[11px] font-bold text-[#1C8DB8]">
+                메뉴
               </span>
               <span className="min-w-0">
                 {titleLine} {formatMoneyPhp(it.price_snapshot)} × {it.qty}
@@ -443,14 +447,14 @@ function BuyerOrderDetailBody({
         {order.fulfillment_type !== "pickup" &&
         order.delivery_fee_amount != null &&
         Number(order.delivery_fee_amount) > 0 ? (
-          <li className="pl-7 sam-text-body-secondary text-[color:var(--cm-room-text-muted)]">
+          <li className="pl-7 sam-text-body-secondary text-[#6B7280]">
             배달비 : {formatMoneyPhp(order.delivery_fee_amount)}
           </li>
         ) : null}
         <li className="pl-7 font-semibold">주문 금액 합계 : {formatMoneyPhp(order.payment_amount)}</li>
         {order.buyer_note?.trim() ? (
-          <li className="flex gap-2 border-t border-[color:var(--cm-room-divider)] pt-2.5">
-            <span className="shrink-0 sam-text-helper font-semibold text-[color:var(--cm-room-text-muted)]">요청</span>
+          <li className="flex gap-2 border-t border-[#DDE5E0] pt-2.5">
+            <span className="shrink-0 sam-text-helper font-bold text-[#1C8DB8]">요청</span>
             <span className="min-w-0">{order.buyer_note.trim()}</span>
           </li>
         ) : null}
@@ -461,20 +465,82 @@ function BuyerOrderDetailBody({
   );
 }
 
-function StatusBanner({ statusLabel, onDismiss }: { statusLabel: string; onDismiss: () => void }) {
+function BuyerOpsStatusCard({
+  order,
+  statusLabel,
+  visible,
+  onDismiss,
+}: {
+  order: StoreOrderBuyerOrderPayload;
+  statusLabel: string;
+  visible: boolean;
+  onDismiss: () => void;
+}) {
+  const steps = buyerChatFlowSteps(order.fulfillment_type ?? "pickup");
+  const current = buyerChatCurrentStep(order.order_status, order.fulfillment_type ?? "pickup");
   return (
-    <div className="mb-3 flex items-start justify-end gap-1">
-      <span className="inline-flex max-w-[85%] items-center gap-1 rounded-full bg-amber-100 px-3 py-1.5 sam-text-helper font-semibold text-amber-900 ring-1 ring-amber-200/80">
-        {statusLabel}
+    <section className="rounded-[4px] border border-[#DDE5E0] bg-[#1C8DB8] p-3 text-white">
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-[11px] font-semibold leading-[1.35] text-white/75">{order.order_no ?? "주문"}</p>
+          <p className="mt-0.5 text-[15px] font-bold leading-[1.35]">{statusLabel || "주문 진행중"}</p>
+          <p className="mt-1 text-[12px] leading-[1.35] text-white/75">
+            {order.fulfillment_type === "pickup" ? "픽업 주문" : "배달 주문"} · {formatMoneyPhp(order.payment_amount)}
+          </p>
+        </div>
+        {visible ? (
         <button
           type="button"
           onClick={onDismiss}
-          className="rounded p-0.5 text-amber-800 hover:bg-amber-200/50"
-          aria-label="상태 배너 닫기"
+          className="rounded-[4px] px-2 py-1 text-[12px] font-bold text-white/80 hover:bg-white/10"
+          aria-label="주문 상태 요약 접기"
         >
           ×
         </button>
-      </span>
-    </div>
+        ) : null}
+      </div>
+      {visible ? (
+        <div
+          className="mt-3 grid gap-1"
+          style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}
+        >
+          {steps.map((step, idx) => {
+            const active = idx === current;
+            const done = idx < current;
+            return (
+              <div key={step} className="min-w-0">
+                <div className={`h-1.5 rounded-full ${done || active ? "bg-white" : "bg-white/25"}`} />
+                <p className={`mt-1 truncate text-center text-[10px] font-bold leading-[1.25] ${done || active ? "text-white" : "text-white/45"}`}>
+                  {step}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
+    </section>
   );
+}
+
+function buyerChatFlowSteps(fulfillmentType: string): string[] {
+  return isDeliveryFulfillment(fulfillmentType)
+    ? ["신규", "접수", "조리", "배달준비", "배달중", "주소근처", "완료"]
+    : ["신규", "접수", "조리", "픽업준비", "수령완료"];
+}
+
+function buyerChatCurrentStep(status: string, fulfillmentType: string): number {
+  if (isDeliveryFulfillment(fulfillmentType)) {
+    if (status === "accepted") return 1;
+    if (status === "preparing") return 2;
+    if (status === "ready_for_pickup") return 3;
+    if (status === "delivering") return 4;
+    if (status === "arrived") return 5;
+    if (status === "completed") return 6;
+    return 0;
+  }
+  if (status === "accepted") return 1;
+  if (status === "preparing") return 2;
+  if (status === "ready_for_pickup") return 3;
+  if (status === "completed") return 4;
+  return 0;
 }

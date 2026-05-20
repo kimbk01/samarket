@@ -284,6 +284,8 @@ export async function appendStoreOrderMessengerOrderSummaryIfNeeded(
   const metadata = {
     domain: "store_order",
     kind: "store_order_summary",
+    lineKind: "summary",
+    actorRole: "system",
     storeOrderId: orderId.trim(),
     orderNo: loaded.order.order_no ?? null,
     fulfillmentType,
@@ -307,6 +309,16 @@ export async function appendStoreOrderMessengerOrderSummaryIfNeeded(
       })
       .eq("id", updateSummaryId)
       .eq("room_id", ensured.roomId);
+    await sb
+      .from("community_messenger_rooms")
+      .update({
+        last_message: content.slice(0, 200),
+        last_message_type: "system",
+        last_message_at: createdAt,
+        updated_at: createdAt,
+      })
+      .eq("id", ensured.roomId);
+    await publishStoreOrderMessengerSystemMessageBump(ensured, updateSummaryId, createdAt, content, metadata);
     return;
   }
   const { data: inserted, error } = await sb
@@ -344,7 +356,7 @@ export async function appendStoreOrderMessengerOrderSummaryIfNeeded(
       .update({ last_read_message_id: messageId, last_read_at: createdAt, unread_count: 0 })
       .eq("room_id", ensured.roomId)
       .eq("user_id", actor);
-    await publishStoreOrderMessengerSystemMessageBump(ensured, messageId, createdAt, content);
+    await publishStoreOrderMessengerSystemMessageBump(ensured, messageId, createdAt, content, metadata);
   }
 }
 
@@ -486,11 +498,16 @@ function storeOrderMessengerOwnerStatusLine(next: SharedOrderStatus, flow: Order
   }
 }
 
+function storeOrderSystemLineKind(status: SharedOrderStatus | null | undefined): "status" | "summary" | "warning" | "delivery" {
+  return status === "delivering" || status === "arrived" || status === "completed" ? "delivery" : "status";
+}
+
 async function publishStoreOrderMessengerSystemMessageBump(
   ensured: Extract<StoreOrderMessengerEnsureResult, { ok: true }>,
   messageId: string,
   createdAt: string,
-  content: string
+  content: string,
+  metadata?: Record<string, unknown>
 ): Promise<void> {
   const fromUserId = trimText(ensured.ownerUserId);
   if (!fromUserId) return;
@@ -512,6 +529,7 @@ async function publishStoreOrderMessengerSystemMessageBump(
         messageType: "system",
         content,
         createdAt,
+        metadata: metadata ?? null,
         isMine: false,
         clientMessageId: null,
         callKind: null,
@@ -536,6 +554,22 @@ async function appendStoreOrderMessengerSystemMessage(
   const content = input.content.trim();
   if (!content) return;
   const createdAt = nowIso();
+  const metadata = {
+    domain: "store_order",
+    lineKind: storeOrderSystemLineKind(input.relatedOrderStatus),
+    actorRole: input.actorUserId ? "store" : "system",
+    storeOrderId: input.orderId,
+    orderStatus: input.relatedOrderStatus ?? null,
+    deliveryStatus:
+      input.relatedOrderStatus === "delivering"
+        ? "delivering"
+        : input.relatedOrderStatus === "arrived"
+          ? "rider_near_customer"
+          : input.relatedOrderStatus === "completed" && ensured.orderFlow === "delivery"
+            ? "delivered"
+            : null,
+    audience: "buyer_seller",
+  };
   const { data: inserted, error } = await sb
     .from("community_messenger_messages")
     .insert({
@@ -543,11 +577,7 @@ async function appendStoreOrderMessengerSystemMessage(
       sender_id: null,
       message_type: "system",
       content,
-      metadata: {
-        domain: "store_order",
-        storeOrderId: input.orderId,
-        ...(input.relatedOrderStatus ? { orderStatus: input.relatedOrderStatus } : {}),
-      },
+      metadata,
       created_at: createdAt,
     })
     .select("id")
@@ -572,7 +602,7 @@ async function appendStoreOrderMessengerSystemMessage(
       .update({ last_read_message_id: messageId, last_read_at: createdAt, unread_count: 0 })
       .eq("room_id", ensured.roomId)
       .eq("user_id", actor);
-    await publishStoreOrderMessengerSystemMessageBump(ensured, messageId, createdAt, content);
+    await publishStoreOrderMessengerSystemMessageBump(ensured, messageId, createdAt, content, metadata);
   }
 }
 
@@ -656,6 +686,8 @@ export async function appendStoreOrderMessengerStatusTransition(
     },
     ensured
   );
+  /** 요약 카드(metadata.order·timeline)를 최신 `order_status` 로 맞춘다 — 완료·배달 단계 포함 */
+  await appendStoreOrderMessengerOrderSummaryIfNeeded(sb, orderId.trim(), ensured);
 }
 
 export async function getBuyerStoreOrderMessengerUnreadMap(

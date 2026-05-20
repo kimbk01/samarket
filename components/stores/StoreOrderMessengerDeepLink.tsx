@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { buildStoreOrderMessengerRoomHref } from "@/lib/chats/surfaces/order-chat-surface";
 import {
   buildMessengerContextMetaFromStoreOrder,
@@ -22,13 +21,12 @@ export function StoreOrderMessengerDeepLink({
   variant?: "default" | "compact";
   context?: StoreOrderMessengerContextInput | null;
 }) {
-  const { t } = useI18n();
   const id = roomId.trim();
   if (!id) return null;
   const label =
     variant === "compact"
-      ? t("nav_messenger_open_store_order_short")
-      : t("nav_messenger_open_store_order");
+      ? "주문 채팅"
+      : "주문 진행 채팅 열기";
   const href = buildStoreOrderMessengerRoomHref(
     id,
     context ? { contextMeta: buildMessengerContextMetaFromStoreOrder(context) } : undefined
@@ -38,7 +36,7 @@ export function StoreOrderMessengerDeepLink({
       href={href}
       className={
         className ??
-        "inline-flex w-full items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-sm font-semibold text-sam-fg shadow-sm"
+        "inline-flex w-full items-center justify-center rounded-[4px] border border-[#1C8DB8] bg-[#EAF6FB] px-3 py-3 text-sm font-bold text-[#1C8DB8] shadow-sm"
       }
     >
       {label}

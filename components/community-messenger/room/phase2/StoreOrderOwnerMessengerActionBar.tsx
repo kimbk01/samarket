@@ -8,10 +8,10 @@ import {
   TIMELINE_DELIVERY_STEPS,
   TIMELINE_PICKUP_STEPS,
   buyerDetailSixStepStates,
-  labelForOwnerTransition,
 } from "@/lib/stores/store-order-process-criteria";
 import { ownerOrderHasTransitionButtons } from "@/components/business/owner/OwnerStoreOrderDeliveryActions";
-import { allowedOrderTransitions, isDeliveryFulfillment } from "@/lib/stores/order-status-transitions";
+import { isDeliveryFulfillment } from "@/lib/stores/order-status-transitions";
+import { resolveOwnerNextOrderAction } from "@/lib/business/owner-order-stepper-transition";
 
 type Props = {
   storeId: string;
@@ -32,11 +32,7 @@ export function StoreOrderOwnerMessengerActionBar({
 }: Props) {
   const statusLabel = BUYER_ORDER_STATUS_LABEL[order.order_status] ?? order.order_status;
   const showActions = ownerOrderHasTransitionButtons(order);
-  const next = allowedOrderTransitions(order.order_status, order.fulfillment_type);
-  const nextLabel = next
-    .filter((s) => s !== "cancelled")
-    .map((s) => labelForOwnerTransition(order.order_status, s, order.fulfillment_type))
-    .join(" · ");
+  const nextAction = resolveOwnerNextOrderAction(order.order_status, order.fulfillment_type);
 
   return (
     <div
@@ -57,7 +53,7 @@ export function StoreOrderOwnerMessengerActionBar({
         <div className="min-w-0">
           <p className="sam-text-xxs text-[color:var(--cm-room-primary)]">
             {statusLabel}
-            {nextLabel ? <span className="text-[color:var(--cm-room-text-muted)]"> → 다음: {nextLabel}</span> : null}
+            {nextAction ? <span className="text-[color:var(--cm-room-text-muted)]"> → 다음: {nextAction.label}</span> : null}
           </p>
         </div>
       </div>

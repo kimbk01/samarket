@@ -34,6 +34,7 @@ import {
 } from "@/components/community-messenger/room/phase2/MessengerTimelineBubbleInners";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { isStoreOrderSummarySystemContent } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
+import { MessengerStoreOrderSummaryCard } from "@/components/community-messenger/room/phase2/MessengerStoreOrderSummaryCard";
 
 function messengerMessageAnchorRectFromDomRect(r: DOMRectReadOnly): CommunityMessengerMessageActionAnchorRect {
   return {
@@ -336,6 +337,16 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
 
   const systemBubbleClass =
     "rounded-full bg-white px-3 py-1.5 text-center text-[12px] leading-snug text-[#6B7280]";
+  const metadata = item.metadata && typeof item.metadata === "object" ? item.metadata : null;
+  const isStoreOrderSystem = item.messageType === "system" && metadata?.domain === "store_order";
+  const isStoreOrderSummary =
+    isStoreOrderSystem &&
+    (metadata?.kind === "store_order_summary" || isStoreOrderSummarySystemContent(item.content));
+  const storeOrderLineKind = typeof metadata?.lineKind === "string" ? metadata.lineKind : "status";
+  const storeOrderStatusLabel =
+    typeof metadata?.orderStatus === "string" && metadata.orderStatus.trim()
+      ? metadata.orderStatus.trim()
+      : "status";
 
   const viberInnerBody: ReactNode =
     item.messageType === "image" ? (
@@ -396,12 +407,20 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
           </span>
         </div>
       ) : null}
-      {isStoreOrderSummarySystemContent(item.content) ? (
-        <div className="max-w-[min(100%,22rem)] px-2">
-          <div className={systemBubbleClass}>
-            <p className="text-center sam-text-helper leading-5">주문 요약이 갱신되었습니다.</p>
-          </div>
+      {isStoreOrderSummary ? (
+        <div className="flex w-full justify-center px-2">
+          <MessengerStoreOrderSummaryCard
+            content={item.content}
+            timeline={Array.isArray(metadata?.timeline) ? (metadata.timeline as any) : null}
+            metadata={metadata}
+          />
         </div>
+      ) : isStoreOrderSystem ? (
+        <StoreOrderOpsSystemRow
+          content={item.content}
+          lineKind={storeOrderLineKind}
+          statusLabel={storeOrderStatusLabel}
+        />
       ) : item.messageType === "system" ? (
         <div className="max-w-[min(100%,22rem)] px-2">
           <div className={systemBubbleClass}>
@@ -470,3 +489,63 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
     </div>
   );
 }, messengerTimelineVirtualRowPropsAreEqual);
+
+function StoreOrderOpsSystemRow({
+  content,
+  lineKind,
+  statusLabel,
+}: {
+  content: string;
+  lineKind: string;
+  statusLabel: string;
+}) {
+  const tone =
+    lineKind === "warning"
+      ? {
+          wrap: "border-amber-200 bg-amber-50 text-amber-950",
+          badge: "bg-amber-100 text-amber-800",
+          label: "주의",
+        }
+      : lineKind === "delivery"
+        ? {
+            wrap: "border-[#BDE7F4] bg-[#EAF6FB] text-[#123B4A]",
+            badge: "bg-[#1C8DB8] text-white",
+            label: opsStatusLabel(statusLabel),
+          }
+        : {
+            wrap: "border-[#DDE5E0] bg-white text-[#123B4A]",
+            badge: "bg-[#EAF6FB] text-[#1C8DB8]",
+            label: opsStatusLabel(statusLabel),
+          };
+  return (
+    <div className="flex w-full justify-center px-2">
+      <div className={`max-w-[min(100%,22rem)] rounded-[4px] border px-3 py-2 text-center shadow-sm ${tone.wrap}`}>
+        <span className={`inline-flex rounded-[4px] px-2 py-0.5 text-[11px] font-bold leading-[1.35] ${tone.badge}`}>
+          {tone.label}
+        </span>
+        <p className="mt-1 text-[12px] font-semibold leading-[1.45] [overflow-wrap:anywhere]">{content}</p>
+      </div>
+    </div>
+  );
+}
+
+function opsStatusLabel(status: string): string {
+  switch (status) {
+    case "pending":
+      return "신규 주문";
+    case "accepted":
+      return "주문 접수";
+    case "preparing":
+      return "조리 시작";
+    case "ready_for_pickup":
+      return "조리 완료";
+    case "delivering":
+      return "배달 시작";
+    case "arrived":
+      return "주소 근처 도착";
+    case "completed":
+      return "완료";
+    default:
+      return "주문 진행";
+  }
+}

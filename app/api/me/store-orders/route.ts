@@ -29,6 +29,7 @@ import {
   ensureStoreOrderMessengerRoom,
   getBuyerStoreOrderMessengerUnreadMap,
 } from "@/lib/community-messenger/store-order-chat-service";
+import { loadBuyerStoreOrderReviewsByOrderIds } from "@/lib/stores/buyer-store-order-review-meta";
 import { loadBuyerStoreOrdersHubSummary } from "@/lib/stores/load-buyer-store-orders-hub-summary";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
@@ -183,7 +184,7 @@ export async function GET(req: NextRequest) {
   }
 
   /** 숨김·라인아이템·리뷰는 서로 독립 — 한 번에 병렬 조회해 왕복 지연을 줄임 */
-  const [hiddenRes, itemsRes, revRes] = await Promise.all([
+  const [hiddenRes, itemsRes, revBundle] = await Promise.all([
     sb.from("store_order_buyer_hides").select("order_id").eq("buyer_user_id", buyerId).in("order_id", rawOrderIds),
     sb
       .from("store_order_items")
@@ -191,7 +192,7 @@ export async function GET(req: NextRequest) {
         "id, order_id, product_id, product_title_snapshot, price_snapshot, qty, subtotal, options_snapshot_json"
       )
       .in("order_id", rawOrderIds),
-    sb.from("store_reviews").select("order_id").in("order_id", rawOrderIds),
+    loadBuyerStoreOrderReviewsByOrderIds(sb as SupabaseClient<any>, rawOrderIds),
   ]);
 
   let list = rawList;
@@ -230,19 +231,7 @@ export async function GET(req: NextRequest) {
     itemsByOrder[oid].push(row);
   }
 
-  const reviewedOrderIds = new Set<string>();
-  let reviewsUnavailable = false;
-  const { data: revRows, error: revErr } = revRes;
-  if (revErr) {
-    if (revErr.message?.includes("store_reviews") && revErr.message.includes("does not exist")) {
-      reviewsUnavailable = true;
-    }
-  } else if (revRows) {
-    for (const r of revRows) {
-      const oid = String((r as { order_id?: string }).order_id ?? "").trim();
-      if (oid) reviewedOrderIds.add(oid);
-    }
-  }
+  const { byOrderId: reviewsByOrderId, reviewsUnavailable } = revBundle;
 
   const storeIds = [...new Set(list.map((o) => o.store_id as string))];
   const orderIdsForChat = list.map((o) => String(o.id ?? "").trim()).filter(Boolean);
@@ -273,10 +262,10 @@ export async function GET(req: NextRequest) {
       const id = o.id as string;
       const norm = normalizeStoreOrderStatusForBuyer(o.order_status);
       const status = norm || String(o.order_status ?? "").trim() || "pending";
-      const hasReview = reviewedOrderIds.has(id);
+      const buyerReview = reviewsByOrderId.get(id) ?? null;
       const completed = status === "completed";
       /** 상세 GET /api/me/store-orders/[id] 의 can_submit_review 와 동일 조건 */
-      const canSubmitReview = completed && !hasReview && !reviewsUnavailable;
+      const canSubmitReview = completed && !buyerReview && !reviewsUnavailable;
       const sid = o.store_id as string;
       return {
         ...o,
@@ -285,8 +274,17 @@ export async function GET(req: NextRequest) {
         store_slug: slugs[sid] ?? "",
         store_profile_image_url: profileImages[sid] ?? null,
         items: itemsByOrder[id] ?? [],
-        has_review: hasReview,
+        has_review: !!buyerReview,
+        review: buyerReview,
         can_submit_review: canSubmitReview,
+        review_status:
+          completed
+            ? buyerReview
+              ? "completed"
+              : reviewsUnavailable
+                ? "unavailable"
+                : "pending"
+            : "not_applicable",
         order_chat_unread_count: unreadMap[id] ?? 0,
       };
     }),

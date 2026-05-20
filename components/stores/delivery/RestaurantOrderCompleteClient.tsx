@@ -131,6 +131,12 @@ export function RestaurantOrderCompleteClient({ storeSlug }: { storeSlug: string
               주문 상세 보기
             </Link>
             <Link
+              href="/mypage/store-orders"
+              className="mt-2 block w-full rounded-ui-rect border border-[#1C8DB8]/40 bg-[#EAF6FB] py-3 text-center text-sm font-bold text-[#1C8DB8]"
+            >
+              주문 목록으로
+            </Link>
+            <Link
               href={`/my/store-orders/${encodeURIComponent(o.id)}/chat`}
               className="mt-3 block w-full rounded-ui-rect border border-signature bg-signature/5 py-3 text-center text-sm font-semibold text-signature"
             >

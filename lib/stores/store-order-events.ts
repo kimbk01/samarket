@@ -240,7 +240,11 @@ export async function createStoreOrderEvent(
 
 /** 배달 세부 단계(주문 order_status 외 별도 머신) — 라이더·관리자·오너 배달 패치에서 공통 사용 */
 export type StoreOrderDeliveryMilestone =
+  | "rider_assigned"
   | "rider_accepted"
+  | "rider_pickup"
+  | "rider_near_customer"
+  | "rider_delivered"
   | "rider_declined"
   | "customer_arrived"
   | "failure_report"
@@ -256,8 +260,16 @@ export function buildStoreOrderDeliveryDedupeKey(input: {
   const au = (input.actorUserId ?? "").trim();
   const td = (input.toDeliveryStatus ?? "").trim();
   switch (input.milestone) {
+    case "rider_assigned":
+      return `${oid}:delivery:rider_assigned:${td}:${au}`;
     case "rider_accepted":
       return `${oid}:delivery:rider_accepted:${au}`;
+    case "rider_pickup":
+      return `${oid}:delivery:rider_pickup:${td}:${au}`;
+    case "rider_near_customer":
+      return `${oid}:delivery:rider_near_customer:${td}:${au}`;
+    case "rider_delivered":
+      return `${oid}:delivery:rider_delivered:${td}:${au}`;
     case "customer_arrived":
       return `${oid}:delivery:customer_arrived:${au}`;
     case "failure_report":
@@ -294,9 +306,23 @@ export async function createStoreOrderDeliveryLifecycleEvent(
   });
 
   const fromStatusCol =
-    input.milestone === "rider_declined" || input.milestone === "delivery_status" ? (fromDs || null) : null;
+    input.milestone === "rider_declined" ||
+    input.milestone === "delivery_status" ||
+    input.milestone === "rider_assigned" ||
+    input.milestone === "rider_pickup" ||
+    input.milestone === "rider_near_customer" ||
+    input.milestone === "rider_delivered"
+      ? (fromDs || null)
+      : null;
   const toStatusCol =
-    input.milestone === "rider_declined" || input.milestone === "delivery_status" ? (toDs || null) : null;
+    input.milestone === "rider_declined" ||
+    input.milestone === "delivery_status" ||
+    input.milestone === "rider_assigned" ||
+    input.milestone === "rider_pickup" ||
+    input.milestone === "rider_near_customer" ||
+    input.milestone === "rider_delivered"
+      ? (toDs || null)
+      : null;
 
   return createStoreOrderEvent(sb, {
     orderId: input.orderId,
