@@ -1,12 +1,26 @@
 /** API 응답의 store_products 행(임베드 포함) → 카드용 + 그룹핑 */
 
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { safeTranslate } from "@/lib/i18n/safe-translate";
 import { parseProductOptionsJson } from "@/lib/stores/product-line-options";
 
-export function itemTypeShortLabel(item_type: unknown): string | null {
+export function itemTypeShortLabel(item_type: unknown, lang: AppLanguageCode): string | null {
   const t = typeof item_type === "string" ? item_type : null;
-  if (t === "menu") return "메뉴";
-  if (t === "service") return "서비스";
-  if (t === "product") return "상품";
+  if (t === "menu") {
+    return safeTranslate(lang, "store_item_type_menu", { fallbackKo: "메뉴", fallbackEn: "Menu" });
+  }
+  if (t === "service") {
+    return safeTranslate(lang, "store_item_type_service", {
+      fallbackKo: "서비스",
+      fallbackEn: "Service",
+    });
+  }
+  if (t === "product") {
+    return safeTranslate(lang, "store_item_type_product", {
+      fallbackKo: "상품",
+      fallbackEn: "Product",
+    });
+  }
   return null;
 }
 

@@ -381,10 +381,18 @@ export async function fetchStoresTaxonomyDeduped(): Promise<StoreApiJsonResponse
 }
 
 /** GET /api/stores/browse?… */
-export async function fetchStoresBrowseDeduped(queryString: string): Promise<StoreApiJsonResponse> {
+export async function fetchStoresBrowseDeduped(
+  queryString: string,
+  opts?: { language?: import("@/lib/i18n/config").AppLanguageCode }
+): Promise<StoreApiJsonResponse> {
   const qs = queryString.trim().replace(/^\?/, "");
-  return runSingleFlight(`stores:api:browse:${qs}`, async () => {
-    const res = await fetch(`/api/stores/browse?${qs}`, { cache: "no-store" });
+  const lang = opts?.language ?? "en";
+  return runSingleFlight(`stores:api:browse:${lang}:${qs}`, async () => {
+    const { storesApiAcceptLanguageHeader } = await import("@/lib/i18n/language-preference");
+    const res = await fetch(`/api/stores/browse?${qs}`, {
+      cache: "no-store",
+      headers: storesApiAcceptLanguageHeader(lang),
+    });
     const json = await res.json().catch(() => ({}));
     return { status: res.status, json };
   });
@@ -393,11 +401,17 @@ export async function fetchStoresBrowseDeduped(queryString: string): Promise<Sto
 /** GET /api/stores/home-feed… (쿼리 포함 전체 path 뒷부분, 예: `?lat=…` 또는 빈 문자열) */
 export async function fetchStoresHomeFeedDeduped(
   pathAndQuery: string,
-  opts: { signal?: AbortSignal } = {}
+  opts: { signal?: AbortSignal; language?: import("@/lib/i18n/config").AppLanguageCode } = {}
 ): Promise<StoreApiJsonResponse> {
   const suffix = pathAndQuery.startsWith("?") ? pathAndQuery : pathAndQuery ? `?${pathAndQuery}` : "";
-  const flight = runSingleFlight(`stores:api:home-feed:${suffix}`, async () => {
-    const res = await fetch(`/api/stores/home-feed${suffix}`, { cache: "no-store" });
+  const lang = opts.language ?? "en";
+  const flight = runSingleFlight(`stores:api:home-feed:${lang}:${suffix}`, async () => {
+    const { storesApiAcceptLanguageHeader } = await import("@/lib/i18n/language-preference");
+    const res = await fetch(`/api/stores/home-feed${suffix}`, {
+      cache: "no-store",
+      headers: storesApiAcceptLanguageHeader(lang),
+      signal: opts.signal,
+    });
     const json = await res.json().catch(() => ({}));
     return { status: res.status, json };
   });

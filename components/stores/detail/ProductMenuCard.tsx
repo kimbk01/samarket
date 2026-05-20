@@ -137,7 +137,12 @@ export const ProductMenuCard = memo(function ProductMenuCard({
         ) : null}
         {soldOut ? <SoldOutOverlay /> : null}
         {!menuSelectBlocked && onOpenProduct && !soldOut ? (
-          <button type="button" onClick={onAddPress} className={PLUS_BTN} aria-label={`${p.title} 담기`}>
+          <button
+            type="button"
+            onClick={onAddPress}
+            className={PLUS_BTN}
+            aria-label={t("store_add_to_cart_aria", { title: p.title })}
+          >
             +
           </button>
         ) : null}

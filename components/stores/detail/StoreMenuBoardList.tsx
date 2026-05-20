@@ -47,6 +47,7 @@ export const StoreMenuBoardList = forwardRef<
   },
   ref
 ) {
+  const { t } = useI18n();
   const boardFlatCount = useMemo(() => countMenuBoardItems(sections), [sections]);
   const { deferEnabled, sentinelRef, ensureHydratedThrough, isSectionHydrated } =
     useDeferredMenuSectionHydration(sections);
@@ -65,7 +66,7 @@ export const StoreMenuBoardList = forwardRef<
     return (
       <div className="mt-4 px-4">
         <p className="rounded-[14px] border border-neutral-200 bg-white px-4 py-8 text-center text-[14px] leading-relaxed text-neutral-500 shadow-sm">
-          이 매장은 상품 판매 승인 전이거나 판매가 일시 중지된 상태입니다.
+          {t("store_menu_sales_paused")}
         </p>
       </div>
     );
@@ -75,7 +76,9 @@ export const StoreMenuBoardList = forwardRef<
     return (
       <div className="mt-4 px-4">
         <p className="rounded-[14px] border border-neutral-200 bg-white px-4 py-8 text-center text-[14px] leading-relaxed text-neutral-500 shadow-sm">
-          {sections.length === 0 ? "검색 결과가 없습니다." : "등록된 상품이 없습니다."}
+          {sections.length === 0
+            ? t("store_menu_search_no_results")
+            : t("store_menu_no_items_registered")}
         </p>
       </div>
     );

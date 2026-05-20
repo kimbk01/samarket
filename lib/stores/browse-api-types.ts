@@ -1,3 +1,5 @@
+import type { BrowseStoreCommerceSnapshot } from "@/lib/stores/browse-store-commerce-snapshot";
+
 /** GET /api/stores/browse 응답 — 카드 UI 공용 */
 export type BrowseStoreListItem = {
   id: string;
@@ -45,4 +47,6 @@ export type BrowseStoreListItem = {
   straightDistanceKm?: number | null;
   /** @deprecated 목록 API에서 미포함. 주문·상세 전용. */
   routeDistanceKm?: number | null;
+  /** 카드 라벨 클라이언트 생성용 — 언어 중립 영업·결제 스냅샷 */
+  commerce: BrowseStoreCommerceSnapshot;
 };

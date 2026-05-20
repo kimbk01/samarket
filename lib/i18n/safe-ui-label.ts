@@ -1,5 +1,6 @@
 import type { AppLanguageCode } from "./config";
-import { translate, type MessageKey } from "./messages";
+import type { MessageKey } from "./messages";
+import { safeTranslate, type SafeTranslateOptions } from "./safe-translate";
 
 /** 화면에 그대로 노출되면 안 되는 i18n 토큰 형태 (예: store_browse_food_all, nav_bottom_trade) */
 const MESSAGE_KEY_PATTERN = /^[a-z][a-z0-9]*(_[a-z0-9]+)+$/;
@@ -24,20 +25,16 @@ export function sanitizeUiDisplayLabel(candidate: string, fallbackLabel: string)
   return s;
 }
 
-/** 카탈로그 `t(key)` — 비었거나 key·토큰이면 ko → 짧은 humanize */
+/** 카탈로그 `t(key)` — 비었거나 key·토큰이면 언어별 fallback → humanize */
 export function resolveSafeMessageKey(
   lang: AppLanguageCode,
   key: MessageKey,
   fallbackLabel?: string
 ): string {
-  const fb = (fallbackLabel ?? humanizeMessageKeySlug(key)).trim() || "…";
-  const raw = translate(lang, key).trim();
-  if (!raw || raw === key || looksLikeMessageKey(raw)) {
-    const ko = translate("ko", key).trim();
-    if (ko && ko !== key && !looksLikeMessageKey(ko)) return ko;
-    return fb;
-  }
-  return raw;
+  const opts: SafeTranslateOptions | undefined = fallbackLabel
+    ? { fallbackKo: fallbackLabel, fallbackEn: fallbackLabel }
+    : undefined;
+  return safeTranslate(lang, key, opts);
 }
 
 export function safeMessageT(
@@ -46,5 +43,5 @@ export function safeMessageT(
   key: MessageKey,
   fallbackLabel?: string
 ): string {
-  return resolveSafeMessageKey(lang, key, fallbackLabel ?? sanitizeUiDisplayLabel(t(key), humanizeMessageKeySlug(key)));
+  return resolveSafeMessageKey(lang, key, fallbackLabel ?? humanizeMessageKeySlug(key));
 }

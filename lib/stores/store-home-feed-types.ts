@@ -1,3 +1,5 @@
+import type { BrowseStoreCommerceSnapshot } from "@/lib/stores/browse-store-commerce-snapshot";
+
 /** GET /api/stores/home-feed — 매장 탭 피드 카드 */
 export type StoreHomeFeedItem = {
   id: string;
@@ -32,4 +34,5 @@ export type StoreHomeFeedItem = {
   featuredItems: { productId: string; name: string; price: number }[];
   profileImageUrl: string | null;
   isFeatured: boolean;
+  commerce: BrowseStoreCommerceSnapshot;
 };

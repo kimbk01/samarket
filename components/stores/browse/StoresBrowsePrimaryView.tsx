@@ -85,7 +85,8 @@ function browseStableTieBreak(a: BrowseStoreListItem, b: BrowseStoreListItem): n
 function sortBrowseStores(
   rows: BrowseStoreListItem[],
   sort: StoreBrowseSortId,
-  hasGeo: boolean
+  hasGeo: boolean,
+  locale: string
 ): BrowseStoreListItem[] {
   const r = [...rows];
   switch (sort) {
@@ -113,7 +114,10 @@ function sortBrowseStores(
         const pa = a.deliveryAvailable ? 0 : 1;
         const pb = b.deliveryAvailable ? 0 : 1;
         if (pa !== pb) return pa - pb;
-        const prep = (a.etaLabel ?? a.estPrepLabel).localeCompare(b.etaLabel ?? b.estPrepLabel, "ko");
+        const prep = (a.etaLabel ?? a.estPrepLabel).localeCompare(
+          b.etaLabel ?? b.estPrepLabel,
+          locale
+        );
         return prep !== 0 ? prep : browseStableTieBreak(a, b);
       });
     default:
@@ -202,6 +206,7 @@ export function StoresBrowsePrimaryView({
   const [listSort, setListSort] = useState<StoreBrowseSortId>("default");
   /** browse `user_lat`/`user_lng` — 주소 기본→프로필→GPS 순으로 matrix ETA·직선 거리 */
   const [browseUserGeo, setBrowseUserGeo] = useState<{ lat: number; lng: number } | null>(null);
+  const [deliveryRideTimeSource, setDeliveryRideTimeSource] = useState("google");
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -440,13 +445,15 @@ export function StoresBrowsePrimaryView({
         setFeedSource((prev) => (prev === null ? prev : null));
       }
       try {
-        const { json } = await fetchStoresBrowseDeduped(browseQuerySuffix);
+        const { json } = await fetchStoresBrowseDeduped(browseQuerySuffix, { language });
         const j = json as {
           ok?: boolean;
           stores?: unknown;
-          meta?: { source?: string };
+          meta?: { source?: string; delivery_ride_time_source?: string };
         };
         const src = j?.meta?.source;
+        const rideSrc = j?.meta?.delivery_ride_time_source?.trim();
+        if (rideSrc) setDeliveryRideTimeSource(rideSrc);
         const okSources = src === "supabase" || src === "supabase_unconfigured";
         if (j?.ok && Array.isArray(j.stores) && okSources) {
           const rows = j.stores as BrowseStoreListItem[];
@@ -470,7 +477,7 @@ export function StoresBrowsePrimaryView({
         if (!silent) setRemoteLoading((prev) => (prev ? false : prev));
       }
     },
-    [browseQuerySuffix, browseListContextKey]
+    [browseQuerySuffix, browseListContextKey, language]
   );
 
   useEffect(() => {
@@ -503,11 +510,17 @@ export function StoresBrowsePrimaryView({
   const useRemoteList = listLoaded && remoteRows.length > 0;
   const sortedRemoteRows = useMemo(() => {
     if (!remoteRows?.length) return remoteRows;
-    return sortBrowseStores(remoteRows, listSort, hasGeo);
-  }, [remoteRows, listSort, hasGeo]);
+    return sortBrowseStores(remoteRows, listSort, hasGeo, language);
+  }, [remoteRows, listSort, hasGeo, language]);
 
   const browseRowCardCacheRef = useRef<Map<string, StoreRowCardData>>(new Map());
   const browseRowCardListRef = useRef<StoreRowCardData[] | null>(null);
+
+  useEffect(() => {
+    remoteCacheRef.current.clear();
+    browseRowCardCacheRef.current.clear();
+    browseRowCardListRef.current = null;
+  }, [language]);
 
   const storeDeliveryRowDataList = useMemo(() => {
     const rows = sortedRemoteRows ?? [];
@@ -744,7 +757,12 @@ export function StoresBrowsePrimaryView({
         {useRemoteList ?
           <ul className="space-y-2">
             {storeDeliveryRowDataList.map((data) => (
-              <StoreDeliveryRowCard key={data.slug} data={data} />
+              <StoreDeliveryRowCard
+                key={data.slug}
+                data={data}
+                locale={language}
+                deliveryRideTimeSource={deliveryRideTimeSource}
+              />
             ))}
           </ul>
         : showEmptyBlock ?

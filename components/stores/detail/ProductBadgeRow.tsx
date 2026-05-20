@@ -55,6 +55,7 @@ export function ProductBadgeRow({
   /** true면 할인 뱃지만(가격 줄 왼쪽) */
   inPriceRow?: boolean;
 }) {
+  const { t } = useI18n();
   const hasDiscount =
     p.discount_price != null &&
     Number.isFinite(p.discount_price) &&
@@ -63,7 +64,7 @@ export function ProductBadgeRow({
 
   if (inPriceRow) {
     if (!hasDiscount) return null;
-    return <BadgeChip kind="discount" label={DibayMenuBoard.badge.discount.text} />;
+    return <BadgeChip kind="discount" label={t("store_badge_menu_discount")} />;
   }
 
   const pool: { kind: BadgeKind; show: boolean }[] = [
@@ -82,13 +83,13 @@ export function ProductBadgeRow({
     >
       {ordered.map((o) =>
         o.kind === "popular" ? (
-          <BadgeChip key="popular" kind="popular" label={DibayMenuBoard.badge.popular.text} />
+          <BadgeChip key="popular" kind="popular" label={t("store_badge_menu_popular")} />
         ) : o.kind === "owner" ? (
-          <BadgeChip key="owner" kind="owner" label={DibayMenuBoard.badge.ownerRecommended.text} />
+          <BadgeChip key="owner" kind="owner" label={t("store_badge_owner_recommended")} />
         ) : o.kind === "rep" ? (
-          <BadgeChip key="rep" kind="rep" label={DibayMenuBoard.badge.representative.text} />
+          <BadgeChip key="rep" kind="rep" label={t("store_badge_menu_representative")} />
         ) : (
-          <BadgeChip key="discount" kind="discount" label={DibayMenuBoard.badge.discount.text} />
+          <BadgeChip key="discount" kind="discount" label={t("store_badge_menu_discount")} />
         )
       )}
     </div>

@@ -32,6 +32,7 @@ import {
   pinFocusedProductInMenuSections,
   type StoreDetailProductCard,
 } from "@/lib/stores/group-store-products-by-menu";
+import { localizeMenuSectionHeadings } from "@/lib/stores/localize-menu-section-headings";
 import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
 import { decodeSlugSegment, isStoreSlugOrderMenuRoot } from "@/lib/stores/store-consumer-route";
 import { useStoreDetailMenuTabsViewport } from "@/lib/stores/use-store-detail-menu-tabs-viewport";
@@ -177,7 +178,7 @@ export function StoreDetailPublic({
   /** 서버에서 동일 API 선조회 — 첫 페인트·캐시 프라임·카트 진입 가속 */
   initialApiResponse?: StoreApiJsonResponse | null;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -1048,8 +1049,8 @@ export function StoreDetailPublic({
     if (focusProductId && !q) {
       sections = pinFocusedProductInMenuSections(sections, focusProductId);
     }
-    return sections;
-  }, [menuSections, menuQuery, focusProductId]);
+    return localizeMenuSectionHeadings(sections, language);
+  }, [menuSections, menuQuery, focusProductId, language]);
 
   const menuSectionScrollKey = useMemo(
     () => menuSectionsFiltered.map((s) => `${s.heading}:${s.items.length}`).join("\0"),
@@ -1479,10 +1480,10 @@ export function StoreDetailPublic({
     ownerOrderBlocked
       ? ownerOrderBlockedMessage
       : commerce && !commerce.isOpenForCommerce
-      ? commerce.inBreak
-        ? `준비중 · Break time: ${commerce.breakRangeLabel}. 쉬는 시간에는 메뉴를 선택할 수 없습니다.`
-        : "지금은 영업 시간이 아니어서 메뉴를 선택할 수 없습니다. 목록은 볼 수 있습니다."
-      : undefined;
+        ? commerce.inBreak
+          ? t("store_menu_blocked_break", { range: commerce.breakRangeLabel })
+          : t("store_menu_blocked_hours")
+        : undefined;
 
   const storeRootPath = `/stores/${encodeURIComponent(detailStore.slug)}`;
   const infoPath = `${storeRootPath}/info`;
@@ -1536,9 +1537,7 @@ export function StoreDetailPublic({
       fulfillmentMode={fulfillmentMode}
       minOrderPhp={commerceExtras.minOrderPhp}
       closedDetail={
-        commerce?.inBreak && commerce.breakConfigured
-          ? `Break time: ${commerce.breakRangeLabel}`
-          : null
+        commerce?.inBreak && commerce.breakConfigured ? commerce.breakRangeLabel : null
       }
     >
       <StoreDetailSummarySection

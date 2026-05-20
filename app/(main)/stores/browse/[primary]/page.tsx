@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
+import { safeTranslate } from "@/lib/i18n/safe-translate";
 import { Suspense } from "react";
 import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { StoresBrowsePrimaryView } from "@/components/stores/browse/StoresBrowsePrimaryView";
@@ -20,12 +22,21 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
   const sp = await searchParams;
   const sub = typeof sp.sub === "string" ? sp.sub.trim().toLowerCase() : "";
   const p = typeof primary === "string" ? primary.trim().toLowerCase() : "";
-  if (!p) return { title: "매장 둘러보기" };
-
   const h = await headers();
+  const cookieStore = await cookies();
+  const lang = resolveServerInitialLanguage({
+    cookieValue: cookieStore.get("sam_lang")?.value ?? cookieStore.get("app_lang")?.value,
+    acceptLanguage: h.get("accept-language"),
+  });
+  const metaDefaultTitle = safeTranslate(lang, "store_browse_meta_default", {
+    fallbackKo: "매장 둘러보기",
+    fallbackEn: "Browse stores",
+  });
+  if (!p) return { title: metaDefaultTitle };
+
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "";
   const proto = (h.get("x-forwarded-proto") ?? "http").split(",")[0]?.trim() || "http";
-  if (!host) return { title: "매장 둘러보기" };
+  if (!host) return { title: metaDefaultTitle };
   const base = `${proto}://${host}`;
 
   let primaryName = p;
@@ -51,15 +62,27 @@ export async function generateMetadata({ params, searchParams }: PageProps): Pro
 
   const label = subName ? `${primaryName} · ${subName}` : primaryName;
   const description = subName
-    ? `${subName} ${primaryName} 매장을 동네 기준으로 찾아보세요.`
-    : `${primaryName} 업종 매장을 동네 기준으로 찾아보세요.`;
+    ? safeTranslate(lang, "store_browse_meta_desc_sub", {
+        vars: { sub: subName, primary: primaryName },
+        fallbackKo: `${subName} ${primaryName} 매장을 동네 기준으로 찾아보세요.`,
+        fallbackEn: `Find ${subName} ${primaryName} stores near you.`,
+      })
+    : safeTranslate(lang, "store_browse_meta_desc_primary", {
+        vars: { primary: primaryName },
+        fallbackKo: `${primaryName} 업종 매장을 동네 기준으로 찾아보세요.`,
+        fallbackEn: `Find ${primaryName} stores near you.`,
+      });
 
   const path = sub
     ? `/stores/browse/${encodeURIComponent(p)}?sub=${encodeURIComponent(sub)}`
     : `/stores/browse/${encodeURIComponent(p)}`;
 
   return {
-    title: `${label} 매장`,
+    title: safeTranslate(lang, "store_browse_meta_title_suffix", {
+      vars: { label },
+      fallbackKo: `${label} 매장`,
+      fallbackEn: `${label} stores`,
+    }),
     description: description.slice(0, 160),
     alternates: { canonical: `${base}${path}` },
   };

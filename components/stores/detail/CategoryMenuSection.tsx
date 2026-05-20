@@ -41,6 +41,7 @@ export function CategoryMenuSection({
   onQuickAddProduct?: (product: StoreDetailProductCard) => boolean;
   onFirstProductPaint?: () => void;
 }) {
+  const { t } = useI18n();
   const canInteract = canSell && !menuSelectBlocked;
 
   useLayoutEffect(() => {
@@ -72,7 +73,7 @@ export function CategoryMenuSection({
       </div>
       {menuSelectBlocked && sectionIndex === 0 ? (
         <p className="mt-2 rounded-[14px] border border-amber-200 bg-amber-50 px-3 py-2.5 text-[13px] font-medium leading-snug text-amber-950">
-          {menuSelectHint?.trim() || "지금은 메뉴를 선택할 수 없습니다. 목록은 볼 수 있습니다."}
+          {menuSelectHint?.trim() || t("store_menu_select_blocked_default")}
         </p>
       ) : null}
       <div className="mt-2" style={{ background: DibayMenuBoard.pageBg, paddingBottom: 4 }}>

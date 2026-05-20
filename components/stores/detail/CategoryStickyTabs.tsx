@@ -20,7 +20,7 @@ function CategoryTabsBar(props: {
   return (
     <>
       <label className="sr-only" htmlFor="store-menu-search">
-        메뉴 검색
+        {t("store_menu_search_aria")}
       </label>
       {props.menuSearchOpen ? (
         <div className="px-5 pb-2 pt-2">
@@ -50,7 +50,7 @@ function CategoryTabsBar(props: {
               }}
               className="text-[13px] font-bold text-neutral-500"
             >
-              닫기
+              {t("common_close")}
             </button>
           </div>
         </div>

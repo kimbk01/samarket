@@ -33,6 +33,7 @@ const StorePublicMenuRow = memo(function StorePublicMenuRow({
   onOpenProduct,
   onQuickAddProduct,
 }: RowProps) {
+  const { t, language } = useI18n();
   const hasDiscount =
     p.discount_price != null &&
     Number.isFinite(p.discount_price) &&
@@ -47,7 +48,7 @@ const StorePublicMenuRow = memo(function StorePublicMenuRow({
   const statusSoldOut = p.product_status === "sold_out";
   const stockSoldOut = p.track_inventory && p.stock_qty <= 0;
   const soldOut = statusSoldOut || stockSoldOut;
-  const typeLabel = itemTypeShortLabel(p.item_type);
+  const typeLabel = itemTypeShortLabel(p.item_type, language);
   const thumbSrc = p.thumbnail_url?.trim() || "";
 
   const openSheet = useCallback(() => {
@@ -106,7 +107,12 @@ const StorePublicMenuRow = memo(function StorePublicMenuRow({
         <StoreProductThumbnail src={thumbSrc} size={88} roundedClassName="rounded-[10px]" />
         {soldOut ? <div className="absolute inset-0 bg-white/45" aria-hidden /> : null}
         {!menuSelectBlocked && onOpenProduct && !soldOut ? (
-          <button type="button" onClick={onAddPress} className={PLUS_BTN} aria-label={`${p.title} 담기`}>
+          <button
+            type="button"
+            onClick={onAddPress}
+            className={PLUS_BTN}
+            aria-label={t("store_add_to_cart_aria", { title: p.title })}
+          >
             +
           </button>
         ) : null}
@@ -185,7 +191,6 @@ export function StorePublicMenuList({
   sectionDomId,
   sectionScrollMarginClass = "scroll-mt-[132px]",
   sectionScrollMarginTopPx,
-  /** ?? calc(env(safe-area)+sticky?�더+블록) */
   sectionScrollMarginCss,
   onOpenProduct,
   onQuickAddProduct,
@@ -202,22 +207,25 @@ export function StorePublicMenuList({
   onOpenProduct?: (productId: string) => void;
   onQuickAddProduct?: (product: StoreDetailProductCard) => boolean;
 }) {
+  const { t } = useI18n();
   if (!canSell) {
     return (
       <div className="mt-4 px-4">
         <p className="rounded-[14px] border border-neutral-200 bg-white px-4 py-8 text-center text-[14px] leading-relaxed text-neutral-500 shadow-sm">
-          ??매장?� ?�품 ?�매 ?�인 ?�이거나 ?�매가 ?�시 중�????�태?�니??
+          {t("store_menu_sales_paused")}
         </p>
       </div>
     );
   }
 
-  const flatCount = sections.reduce((n, s) => n + s.items.length, 0);
+  const flatCount = sections.reduce((n, sec) => n + sec.items.length, 0);
   if (flatCount === 0) {
     return (
       <div className="mt-4 px-4">
         <p className="rounded-[14px] border border-neutral-200 bg-white px-4 py-8 text-center text-[14px] leading-relaxed text-neutral-500 shadow-sm">
-          {sections.length === 0 ? "검??결과가 ?�습?�다." : "?�록???�품???�습?�다."}
+          {sections.length === 0
+            ? t("store_menu_search_no_results")
+            : t("store_menu_no_items_registered")}
         </p>
       </div>
     );
@@ -229,7 +237,7 @@ export function StorePublicMenuList({
     <div className="space-y-0 bg-white px-4 pb-4">
       {menuSelectBlocked ? (
         <p className="rounded-[14px] border border-amber-200 bg-amber-50 px-3 py-2.5 text-[13px] font-medium leading-snug text-amber-950">
-          {menuSelectHint?.trim() || "지금�? 메뉴�??�택?????�습?�다. 목록?� �????�습?�다."}
+          {menuSelectHint?.trim() || t("store_menu_select_blocked_default")}
         </p>
       ) : null}
       {sections.map((section, sectionIndex) => (
@@ -255,18 +263,13 @@ export function StorePublicMenuList({
             <h3 className="text-[16px] font-extrabold tracking-[-0.02em] text-neutral-900">
               {section.listHeading ?? section.heading}
             </h3>
-            {section.listHeading && section.heading === "?�기" ? (
-              <p className="mt-0.5 text-[12px] font-medium text-neutral-500">
-                ???�간 주문?��? 많고 만족?��? ?��? 메뉴?�요.
-              </p>
-            ) : null}
           </div>
           <ul className="mt-0.5 divide-y-0">
-            {section.items.map((p) => (
-              <li key={p.id}>
+            {section.items.map((item) => (
+              <li key={item.id}>
                 <StorePublicMenuRow
                   storeSlug={storeSlug}
-                  p={p}
+                  p={item}
                   canInteract={canInteract}
                   menuSelectBlocked={menuSelectBlocked}
                   onOpenProduct={onOpenProduct}

@@ -33,7 +33,7 @@ export function PopularMenuSection({
         className="tracking-[-0.02em] text-neutral-900"
         style={{ fontSize: DibayMenuBoard.title.fontSizePx, fontWeight: DibayMenuBoard.title.fontWeight }}
       >
-        인기 메뉴
+        {t("store_popular_menu_title")}
       </h2>
       <ul className="mt-1 divide-y divide-[#F1F1F1]">
         {cards.map((p, idx) => {

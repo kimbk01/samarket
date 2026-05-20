@@ -2,7 +2,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { StoreCommerceCartStrokeIcon } from "@/components/stores/StoreCommerceCartStrokeIcon";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -28,6 +28,7 @@ export function StoreDetailBottomStrip({
   cartQtyTotal,
   cartLineKindCount,
   minOrderPhp,
+  /** 브레이크 시간 등 — `store_bottom_status_break` 의 `{detail}` */
   closedDetail,
   onCartPreviewOpen,
 }: {
@@ -50,20 +51,27 @@ export function StoreDetailBottomStrip({
     setPortalToBody(true);
   }, []);
 
-  const modeLabel =
-    fulfillmentMode === "local_delivery"
-      ? deliveryAvailable
-        ? "배달"
-        : "배달 불가"
-      : "포장·픽업";
+  const modeLabel = useMemo(() => {
+    if (fulfillmentMode === "local_delivery") {
+      return deliveryAvailable
+        ? t("store_bottom_fulfillment_delivery")
+        : t("store_delivery_no_short");
+    }
+    return t("store_bottom_fulfillment_pickup");
+  }, [deliveryAvailable, fulfillmentMode, t]);
 
-  const statusText = !isOpen
-    ? closedDetail?.trim()
-      ? `준비중 · ${closedDetail.trim()}`
-      : "지금은 준비 중이에요"
-    : deliveryAvailable && fulfillmentMode === "local_delivery"
-      ? "지금 배달 주문 가능해요"
-      : "지금 포장·픽업 주문 가능해요";
+  const statusText = useMemo(() => {
+    if (!isOpen) {
+      const detail = closedDetail?.trim();
+      return detail
+        ? t("store_bottom_status_break", { detail })
+        : t("store_bottom_status_closed");
+    }
+    if (deliveryAvailable && fulfillmentMode === "local_delivery") {
+      return t("store_bottom_status_delivery_open");
+    }
+    return t("store_bottom_status_pickup_open");
+  }, [closedDetail, deliveryAvailable, fulfillmentMode, isOpen, t]);
 
   const minNeed =
     fulfillmentMode === "local_delivery" &&
@@ -74,10 +82,10 @@ export function StoreDetailBottomStrip({
       ? Math.max(0, Math.ceil(minOrderPhp - cartTotalPhp))
       : 0;
 
-  const minLine =
-    minOrderPhp != null && minOrderPhp > 0
-      ? `최소주문 ${formatMoneyPhp(minOrderPhp)}`
-      : `최소주문 ${formatMoneyPhp(0)}`;
+  const minLine = t("store_min_order_amount_colon", {
+    amount:
+      minOrderPhp != null && minOrderPhp > 0 ? formatMoneyPhp(minOrderPhp) : formatMoneyPhp(0),
+  });
 
   const cartHref = `/stores/${encodeURIComponent(slug)}/cart`;
 
@@ -106,8 +114,8 @@ export function StoreDetailBottomStrip({
         <div className="min-w-0 flex-1">
           {active ? (
             <>
-              <p className="text-[14px] font-bold text-neutral-900">
-                담은 메뉴 <span className="tabular-nums">{cartLineKindCount}</span>개
+              <p className="sam-i18n-card-title text-[14px] font-bold text-neutral-900">
+                {t("store_bottom_cart_line_count", { count: cartLineKindCount })}
               </p>
               <p className="mt-0.5 text-[17px] font-bold tabular-nums text-neutral-900">
                 {formatMoneyPhp(cartTotalPhp)}
@@ -115,7 +123,7 @@ export function StoreDetailBottomStrip({
             </>
           ) : (
             <>
-              <p className="text-[13px] font-semibold text-neutral-800">{statusText}</p>
+              <p className="sam-i18n-card-title text-[13px] font-semibold text-neutral-800">{statusText}</p>
               <p className="mt-0.5 text-[12px] font-medium text-neutral-500">
                 {minLine}
                 <span className="mx-1 text-neutral-300">·</span>
@@ -127,7 +135,7 @@ export function StoreDetailBottomStrip({
           )}
           {minNeed > 0 ? (
             <p className="mt-1 text-[11px] font-semibold text-amber-800">
-              최소주문까지 {formatMoneyPhp(minNeed)} 남았어요
+              {t("store_bottom_min_order_remaining", { amount: formatMoneyPhp(minNeed) })}
             </p>
           ) : null}
         </div>
@@ -135,10 +143,10 @@ export function StoreDetailBottomStrip({
           <Link
             href={cartHref}
             onClick={onCheckoutNavigate}
-            className="flex h-[52px] shrink-0 touch-manipulation select-none items-center justify-center rounded-[14px] bg-[#1C8DB8] px-5 text-[15px] font-bold text-white transition-all duration-150 hover:bg-[#197DA3] active:scale-[0.97] active:bg-[#166F92]"
+            className="sam-i18n-btn-label flex h-[52px] shrink-0 touch-manipulation select-none items-center justify-center rounded-[14px] bg-[#1C8DB8] px-5 text-[15px] font-bold text-white transition-all duration-150 hover:bg-[#197DA3] active:scale-[0.97] active:bg-[#166F92]"
             aria-label={t("store_go_checkout_aria")}
           >
-            주문 확인
+            {t("store_bottom_checkout_btn")}
           </Link>
         ) : (
           <button

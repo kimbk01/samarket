@@ -99,6 +99,13 @@ export function detectAcceptLanguageAppLanguage(acceptLanguage: string | null | 
   return resolveLanguageFromCandidates(candidates);
 }
 
+/** 스토어 browse/home-feed API — 서버 `uiLang`과 맞추는 Accept-Language */
+export function storesApiAcceptLanguageHeader(language: AppLanguageCode): HeadersInit {
+  return {
+    "Accept-Language": language === "ko" ? "ko-KR,ko;q=0.9,en;q=0.3" : "en-US,en;q=0.9,ko;q=0.3",
+  };
+}
+
 export function resolveServerInitialLanguage(options: {
   cookieValue?: string | null;
   acceptLanguage?: string | null;

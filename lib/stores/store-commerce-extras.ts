@@ -1,6 +1,7 @@
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
-import { translate, type MessageKey } from "@/lib/i18n/messages";
+import type { MessageKey } from "@/lib/i18n/messages";
+import { safeTranslate } from "@/lib/i18n/safe-translate";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
 function scT(
@@ -8,7 +9,7 @@ function scT(
   key: MessageKey,
   vars?: Record<string, string | number>
 ): string {
-  return translate(lang, key, vars);
+  return safeTranslate(lang, key, { vars });
 }
 
 /** `business_hours_json.delivery_fee_mode` */

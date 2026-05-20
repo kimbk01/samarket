@@ -126,6 +126,8 @@ export const storeCommerceUiMessages = {
 
     store_browse_food_late_night: "야식",
 
+    store_browse_food_western: "양식",
+
     store_stores_home: "매장 홈",
 
     store_browse_loading_list: "실매장 목록을 불러오는 중…",
@@ -377,6 +379,16 @@ export const storeCommerceUiMessages = {
     store_go_checkout_aria: "주문 확인으로 이동",
 
     store_cart_preview_aria: "장바구니 미리보기",
+
+    store_bottom_status_break: "준비중 · {detail}",
+    store_bottom_status_closed: "지금은 준비 중이에요",
+    store_bottom_status_delivery_open: "지금 배달 주문 가능해요",
+    store_bottom_status_pickup_open: "지금 포장·픽업 주문 가능해요",
+    store_bottom_fulfillment_delivery: "배달",
+    store_bottom_fulfillment_pickup: "포장·픽업",
+    store_bottom_cart_line_count: "담은 메뉴 {count}개",
+    store_bottom_checkout_btn: "주문 확인",
+    store_bottom_min_order_remaining: "최소주문까지 {amount} 남았어요",
 
     store_delivery_order_summary_aria: "배달·주문 요약",
 
@@ -731,6 +743,28 @@ export const storeCommerceUiMessages = {
       "준비중 · Break time: {range}. 쉬는 시간에는 메뉴를 선택할 수 없습니다.",
     store_menu_blocked_hours:
       "지금은 영업 시간이 아니어서 메뉴를 선택할 수 없습니다. 목록은 볼 수 있습니다.",
+    store_menu_uncategorized: "기타 메뉴",
+    store_item_type_menu: "메뉴",
+    store_item_type_service: "서비스",
+    store_item_type_product: "상품",
+    store_recommended_menu_title: "추천 메뉴",
+    store_popular_menu_title: "인기 메뉴",
+    store_badge_menu_popular: "인기",
+    store_badge_owner_recommended: "사장님 추천",
+    store_badge_menu_representative: "대표",
+    store_badge_menu_discount: "할인",
+    store_menu_sales_paused:
+      "이 매장은 상품 판매 승인 전이거나 판매가 일시 중지된 상태입니다.",
+    store_menu_search_no_results: "검색 결과가 없습니다.",
+    store_menu_no_items_registered: "등록된 상품이 없습니다.",
+    store_menu_select_blocked_default:
+      "지금은 메뉴를 선택할 수 없습니다. 목록은 볼 수 있습니다.",
+    store_add_to_cart_aria: "{title} 담기",
+    store_menu_options_badge: "옵션",
+    store_browse_meta_default: "매장 둘러보기",
+    store_browse_meta_title_suffix: "{label} 매장",
+    store_browse_meta_desc_sub: "{sub} {primary} 매장을 동네 기준으로 찾아보세요.",
+    store_browse_meta_desc_primary: "{primary} 업종 매장을 동네 기준으로 찾아보세요.",
     store_report_store: "매장 신고",
     store_fallback_name: "매장",
     store_hub_owner_ops: "운영",
@@ -1223,6 +1257,8 @@ export const storeCommerceUiMessages = {
 
     store_browse_food_late_night: "Late night",
 
+    store_browse_food_western: "Western",
+
     store_stores_home: "Store home",
 
     store_browse_loading_list: "Loading store list…",
@@ -1474,6 +1510,16 @@ export const storeCommerceUiMessages = {
     store_go_checkout_aria: "Go to checkout",
 
     store_cart_preview_aria: "Cart preview",
+
+    store_bottom_status_break: "Preparing · {detail}",
+    store_bottom_status_closed: "Not taking orders right now",
+    store_bottom_status_delivery_open: "Delivery orders are open",
+    store_bottom_status_pickup_open: "Pickup orders are open",
+    store_bottom_fulfillment_delivery: "Delivery",
+    store_bottom_fulfillment_pickup: "Pickup",
+    store_bottom_cart_line_count: "{count} items",
+    store_bottom_checkout_btn: "Review order",
+    store_bottom_min_order_remaining: "{amount} more for minimum order",
 
     store_delivery_order_summary_aria: "Delivery and order summary",
 
@@ -1828,6 +1874,28 @@ export const storeCommerceUiMessages = {
       "Preparing · Break time: {range}. Menu selection is unavailable during break.",
     store_menu_blocked_hours:
       "Outside business hours — you can browse the menu but cannot select items.",
+    store_menu_uncategorized: "Other menu",
+    store_item_type_menu: "Menu",
+    store_item_type_service: "Service",
+    store_item_type_product: "Product",
+    store_recommended_menu_title: "Recommended",
+    store_popular_menu_title: "Popular menu",
+    store_badge_menu_popular: "Popular",
+    store_badge_owner_recommended: "Owner's pick",
+    store_badge_menu_representative: "Featured",
+    store_badge_menu_discount: "Sale",
+    store_menu_sales_paused:
+      "This store is not approved for sales yet or sales are temporarily paused.",
+    store_menu_search_no_results: "No search results.",
+    store_menu_no_items_registered: "No items listed yet.",
+    store_menu_select_blocked_default:
+      "You cannot select menu items right now. You can still browse the list.",
+    store_add_to_cart_aria: "Add {title} to cart",
+    store_menu_options_badge: "Options",
+    store_browse_meta_default: "Browse stores",
+    store_browse_meta_title_suffix: "{label} stores",
+    store_browse_meta_desc_sub: "Find {sub} {primary} stores near you.",
+    store_browse_meta_desc_primary: "Find {primary} stores near you.",
     store_report_store: "Report store",
     store_fallback_name: "Store",
     store_hub_owner_ops: "Manage",

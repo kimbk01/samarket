@@ -133,7 +133,7 @@ export function StoreProductPublic({
   storeSlug: string;
   productId: string;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
   const commerceCart = useStoreCommerceCartOptional();
   const [product, setProduct] = useState<PublicProduct | null>(null);
@@ -654,7 +654,7 @@ export function StoreProductPublic({
   const menuGroup =
     menuSectionNameFromEmbed(product.store_menu_sections) ??
     categoryNameFromEmbed(product.store_product_categories);
-  const itemTypeLabel = itemTypeShortLabel(product.item_type);
+  const itemTypeLabel = itemTypeShortLabel(product.item_type, language);
   const showRepresentativeBadge = !!(product.is_representative || product.is_featured);
   const badges = [
     showRepresentativeBadge ? t("common_representative") : null,
@@ -1097,7 +1097,7 @@ export function StoreProductPublic({
         }
         minOrderPhp={storeExtras.minOrderPhp}
         closedDetail={
-          commerce.inBreak && commerce.breakConfigured ? `Break time: ${commerce.breakRangeLabel}` : null
+          commerce.inBreak && commerce.breakConfigured ? commerce.breakRangeLabel : null
         }
         onCartPreviewOpen={() =>
           router.push(`/stores/${encodeURIComponent(store.slug)}/cart`)

@@ -19,7 +19,7 @@ export function SoldOutOverlay() {
           padding: s.padding,
         }}
       >
-        {s.text}
+        {t("store_sold_out")}
       </span>
     </div>
   );

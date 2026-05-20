@@ -29,6 +29,7 @@ export function buildStoreHomeFeedCacheKey(input: {
   userLng: number | null;
   originKey?: string | null;
   deliveryRideTimeSource?: "store" | "google";
+  uiLang?: string;
 }): string {
   return [
     input.region ?? "",
@@ -38,6 +39,7 @@ export function buildStoreHomeFeedCacheKey(input: {
     normalizeCoordForCache(input.userLat),
     normalizeCoordForCache(input.userLng),
     input.deliveryRideTimeSource ?? "store",
+    input.uiLang ?? "",
   ].join("|");
 }
 

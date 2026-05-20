@@ -1343,4 +1343,37 @@
     align-items: center;
     justify-content: center;
   }
+
+  /* -------------------------------------------------------------------------- */
+  /* i18n — 영문 길이·390px 폭 (key 노출 방지는 safeTranslate) */
+  /* -------------------------------------------------------------------------- */
+
+  .sam-i18n-btn-label {
+    @apply min-w-0 max-w-full truncate text-left;
+  }
+
+  .sam-i18n-tab-label {
+    @apply min-w-0 max-w-[8.5rem] truncate whitespace-nowrap sm:max-w-[10rem];
+  }
+
+  .sam-i18n-card-title {
+    @apply line-clamp-2 min-w-0 break-words;
+  }
+
+  .sam-i18n-modal-title {
+    @apply min-w-0 break-words text-balance;
+  }
+
+  .sam-i18n-modal-body {
+    @apply min-w-0 break-words leading-relaxed;
+  }
+
+  .sam-i18n-input-placeholder {
+    @apply min-w-0 truncate placeholder:truncate;
+  }
+
+  .sam-i18n-chip-row {
+    @apply flex min-w-0 gap-1 overflow-x-auto overscroll-x-contain;
+    -webkit-overflow-scrolling: touch;
+  }
 }

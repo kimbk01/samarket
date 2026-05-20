@@ -34,8 +34,8 @@ import {
   resolveAuthenticatedAppLanguageCode,
   resolveGuestAppLanguageCode,
 } from "@/lib/i18n/language-preference";
-import { translate, translateText, type MessageKey } from "@/lib/i18n/messages";
-import { resolveSafeMessageKey } from "@/lib/i18n/safe-ui-label";
+import { translateText, type MessageKey } from "@/lib/i18n/messages";
+import { safeTranslate, type SafeTranslateOptions } from "@/lib/i18n/safe-translate";
 import { setRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 
 type AppLanguageContextValue = {
@@ -43,9 +43,10 @@ type AppLanguageContextValue = {
   /** null = 기기 언어 따름(명시 ko/en 미선택) */
   languagePreference: StoredPreferredLanguage;
   setLanguage: (language: AppLanguageCode) => void;
+  /** UI 표시용 — key·빈값·미치환 placeholder 노출 방지 (전역 기본) */
   t: (key: MessageKey, vars?: Record<string, string | number>) => string;
-  /** UI 표시용 — key·토큰 노출 방지, ko 폴백 */
-  safeT: (key: MessageKey, fallbackLabel?: string) => string;
+  /** `fallbackKo` / `fallbackEn` 를 명시할 때 */
+  safeT: (key: MessageKey, fallbacks?: string | SafeTranslateOptions) => string;
   tt: (text: string, vars?: Record<string, string | number>) => string;
 };
 
@@ -220,8 +221,13 @@ export function AppLanguageProvider({
       language,
       languagePreference,
       setLanguage,
-      t: (key, vars) => translate(language, key, vars),
-      safeT: (key, fallbackLabel) => resolveSafeMessageKey(language, key, fallbackLabel),
+      t: (key, vars) => safeTranslate(language, key, { vars }),
+      safeT: (key, fallbacks) => {
+        if (typeof fallbacks === "string") {
+          return safeTranslate(language, key, { fallbackKo: fallbacks, fallbackEn: fallbacks });
+        }
+        return safeTranslate(language, key, fallbacks);
+      },
       tt: (text, vars) => translateText(language, text, vars),
     }),
     [language, languagePreference, setLanguage]
@@ -238,8 +244,13 @@ export function useI18n(): AppLanguageContextValue {
       language: fallback,
       languagePreference: null,
       setLanguage: () => undefined,
-      t: (key, vars) => translate(fallback, key, vars),
-      safeT: (key, fallbackLabel) => resolveSafeMessageKey(fallback, key, fallbackLabel),
+      t: (key, vars) => safeTranslate(fallback, key, { vars }),
+      safeT: (key, fallbacks) => {
+        if (typeof fallbacks === "string") {
+          return safeTranslate(fallback, key, { fallbackKo: fallbacks, fallbackEn: fallbacks });
+        }
+        return safeTranslate(fallback, key, fallbacks);
+      },
       tt: (text, vars) => translateText(fallback, text, vars),
     };
   }

@@ -370,7 +370,7 @@
   "admin_feed_settings_min_comment_interval": "댓글 최소 간격(초, 0 = 제한 없음)",
   "admin_feed_settings_saved_ok": "저장했습니다.",
   "admin_feed_reports_page_title": "커뮤니티 피드 신고",
-  "admin_feed_reports_card_title": "community_reports",
+  "admin_feed_reports_card_title": "피드 신고 목록",
   "admin_feed_reports_intro": "사용자가 피드 글에서 접수한 신고입니다. 글 제목을 누르면 앱 상세로 이동합니다.",
   "admin_feed_reports_empty": "접수된 신고가 없습니다.",
   "admin_feed_reports_col_time": "일시",

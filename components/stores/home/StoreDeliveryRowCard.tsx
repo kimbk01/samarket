@@ -1,9 +1,12 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { resolveStoreDeliveryFeeUILabel } from "@/lib/i18n/store-browse-label-i18n";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import type { BrowseStoreCommerceSnapshot } from "@/lib/stores/browse-store-commerce-snapshot";
+import { browseCommerceSnapshotEqual } from "@/lib/stores/browse-store-commerce-snapshot";
+import { formatBrowseStoreRowLabels } from "@/lib/stores/browse-store-row-labels";
 
 import { useRouter } from "next/navigation";
-import { memo, useCallback } from "react";
+import { memo, useCallback, useMemo } from "react";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -79,6 +82,9 @@ export type StoreRowCardData = {
   coverEmoji?: string;
   /** browse·home-feed 진입 시 상세 뒤로가기용 1차 업종 slug */
   browsePrimarySlug?: string | null;
+  /** 언어 중립 영업·결제 — 카드 문구는 `locale`로만 생성 */
+  commerce: BrowseStoreCommerceSnapshot | null;
+  rideMinutes?: number | null;
 };
 
 /** 목록 행 `data` 참조 재사용용 — 카드에 보이는 필드 전부 포함 */
@@ -121,7 +127,10 @@ export function storeRowCardDataEqual(a: StoreRowCardData, b: StoreRowCardData):
     a.heroBannerImageUrl === b.heroBannerImageUrl &&
     featuredEqual &&
     a.isFeatured === b.isFeatured &&
-    a.coverEmoji === b.coverEmoji
+    a.coverEmoji === b.coverEmoji &&
+    (a.browsePrimarySlug ?? null) === (b.browsePrimarySlug ?? null) &&
+    browseCommerceSnapshotEqual(a.commerce, b.commerce) &&
+    (a.rideMinutes ?? null) === (b.rideMinutes ?? null)
   );
 }
 
@@ -197,6 +206,8 @@ export function homeFeedToRowCard(s: StoreHomeFeedItem): StoreRowCardData {
     })),
     isFeatured: s.isFeatured,
     browsePrimarySlug: s.primarySlug?.trim() || null,
+    commerce: s.commerce ?? null,
+    rideMinutes: s.rideMinutes ?? null,
   };
 }
 
@@ -244,14 +255,25 @@ export function browseItemToRowCard(s: BrowseStoreListItem): StoreRowCardData {
     })),
     isFeatured: s.isFeatured,
     browsePrimarySlug: s.primarySlug?.trim() || null,
+    commerce: s.commerce ?? null,
+    rideMinutes: s.rideMinutes ?? null,
   };
 }
 
 /**
  * Facebook 피드 게시물형 — 40px 아바타, 이름+메타 줄, 본문, 하단 액션 바
  */
-function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
-  const { t, language } = useI18n();
+function StoreDeliveryRowCardInner({
+  data,
+  locale,
+  deliveryRideTimeSource = "google",
+}: {
+  data: StoreRowCardData;
+  /** `memo`가 언어 변경 시 행을 다시 그리도록 — `useI18n().language` 와 동일 값 */
+  locale: AppLanguageCode;
+  deliveryRideTimeSource?: string;
+}) {
+  const { t } = useI18n();
   const router = useRouter();
   const viewportRef = useDeliveryStoreDetailViewportPrefetch(data.slug);
   const prefetchStoreDetail = useCallback(
@@ -278,16 +300,41 @@ function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
   const showBrowseStraightPin = data.showStraightLineMapPin === true && !!d;
   const showPinHaversine = !showBrowseStraightPin && d;
 
-  const deliveryFeeUi = resolveStoreDeliveryFeeUILabel(language, data.deliveryFeeLabel);
+  const rowLabels = useMemo(() => {
+    if (!data.commerce) return null;
+    return formatBrowseStoreRowLabels(locale, data.commerce, {
+      deliveryAvailable: data.deliveryAvailable,
+      rideMinutes: data.rideMinutes ?? null,
+      routeContextPresent:
+        data.straightDistanceKm != null ||
+        data.distanceKm != null ||
+        data.routeDistanceKm != null,
+      deliveryRideTimeSource,
+    });
+  }, [
+    locale,
+    data.commerce,
+    data.deliveryAvailable,
+    data.rideMinutes,
+    data.straightDistanceKm,
+    data.distanceKm,
+    data.routeDistanceKm,
+    deliveryRideTimeSource,
+  ]);
+
+  const deliveryFeeUi = rowLabels?.deliveryFeeLabel ?? null;
+  const deliveryFeeStrikePhp = rowLabels?.deliveryFeeStrikePhp ?? data.deliveryFeeStrikePhp;
+  const paymentMethodsUi = rowLabels?.paymentMethodsLine ?? "";
+  const timeLabel = rowLabels?.etaLabel?.trim() || null;
+  const minOrderLine = rowLabels?.minOrderLabel ?? null;
+  const minOrderShort =
+    minOrderLine?.includes(":") ? (minOrderLine.split(":").pop()?.trim() ?? null) : null;
+
   const hasFreeDelivery =
     data.deliveryAvailable &&
     (deliveryFeeUi === t("store_delivery_fee_free_line") ||
       deliveryFeeUi === t("store_free_delivery_applied"));
   const hasDiscountHint = data.isFeatured;
-  const timeLabel =
-    data.etaLabel?.trim() ||
-    (data.estPrepLabel?.trim() ? `약 ${data.estPrepLabel.trim()}` : null);
-  const minOrderShort = data.minOrderLabel?.replace(/^최소주문\s*/g, "")?.trim() || null;
 
   const featuredMenuImages = data.featuredItems
     .filter((x) => typeof x.imageUrl === "string" && x.imageUrl.trim().length > 0)
@@ -502,9 +549,9 @@ function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
                     <span className="font-semibold text-[#2563EB] dark:text-[#8AB4FF]">
                       {deliveryFeeUi}
                     </span>
-                    {data.deliveryFeeStrikePhp != null && data.deliveryFeeStrikePhp > 0 ?
+                    {deliveryFeeStrikePhp != null && deliveryFeeStrikePhp > 0 ?
                       <span className="text-[13px] font-medium text-[#9CA3AF] line-through dark:text-[#6B7280]">
-                        {formatMoneyPhp(data.deliveryFeeStrikePhp)}
+                        {formatMoneyPhp(deliveryFeeStrikePhp)}
                       </span>
                     : null}
                   </span>
@@ -572,7 +619,8 @@ function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
                 ) : null}
                 {minOrderShort ? (
                   <span className="min-w-0 truncate font-normal">
-                    최소주문 <span className="font-medium text-[#4B5563] dark:text-[#B8C0CA]">{minOrderShort}</span>
+                    {t("store_min_order_short")}{" "}
+                    <span className="font-medium text-[#4B5563] dark:text-[#B8C0CA]">{minOrderShort}</span>
                   </span>
                 ) : null}
               </div>
@@ -586,13 +634,13 @@ function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
                   </span>
                 ))}
               </div>
-              {data.paymentMethodsLine?.trim() ?
+              {paymentMethodsUi ?
                 <p
                   className="mt-1 line-clamp-2 text-[12px] font-medium leading-snug text-[#6B7280] dark:text-[#9AA3AD]"
-                  title={data.paymentMethodsLine}
+                  title={paymentMethodsUi}
                 >
                   <span className="font-semibold text-[#4B5563] dark:text-[#B8C0CA]">{t("store_label_payment")}</span> ·{" "}
-                  {data.paymentMethodsLine}
+                  {paymentMethodsUi}
                 </p>
               : null}
             </div>
@@ -604,8 +652,12 @@ function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
 }
 
 /** 목록이 `homeFeedToRowCard(s)` 처럼 매 렌더 새 참조를 넘겨도, 표시 값 동일 시 행 리렌더 생략 */
-export const StoreDeliveryRowCard = memo(StoreDeliveryRowCardInner, (prev, next) =>
-  storeRowCardDataEqual(prev.data, next.data)
+export const StoreDeliveryRowCard = memo(
+  StoreDeliveryRowCardInner,
+  (prev, next) =>
+    prev.locale === next.locale &&
+    prev.deliveryRideTimeSource === next.deliveryRideTimeSource &&
+    storeRowCardDataEqual(prev.data, next.data)
 );
 
 StoreDeliveryRowCard.displayName = "StoreDeliveryRowCard";

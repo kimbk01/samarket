@@ -5,11 +5,10 @@ import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
-import { formatStoreBrowseDeliveryFeeLine, formatStoreBrowseDeliveryFeeStrikePhp, parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
-import { buildBrowseStoreListEtaLabel } from "@/lib/stores/store-delivery-eta-label";
+import { buildBrowseStoreCommerceSnapshot } from "@/lib/stores/browse-store-commerce-snapshot";
+import { formatBrowseStoreRowLabels } from "@/lib/stores/browse-store-row-labels";
+import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
 import { loadDeliveryRideTimeSource } from "@/lib/delivery/delivery-ops-settings";
-import { resolvePublicPaymentMethodsLine } from "@/lib/stores/store-detail-meta";
-import { formatMoneyPhp } from "@/lib/utils/format";
 import { isSameDeliveryAddressForList } from "@/lib/stores/store-list-delivery-origin";
 import { resolveBrowseRouteOrigin } from "@/lib/stores/browse-route-origin";
 import { logBrowsePerfSteps } from "@/lib/stores/browse-perf-steps-log";
@@ -240,6 +239,7 @@ export async function GET(req: Request) {
     geoPart: origin.cacheGeoPart,
     page: pageQ,
     limit: limitQ,
+    uiLang,
   });
 
   const cachedBrowse = peekStoresBrowseCache(browseCacheKey);
@@ -565,21 +565,7 @@ export async function GET(req: Request) {
       const status: BrowseStoreListItem["status"] = openNow ? "open" : "preparing";
       const regionLabel = formatStoreLocationLine(r) ?? "위치 미등록";
       const extras = parseCommerceExtrasFromHoursJson(r.business_hours_json);
-      const deliveryFeeLabel = formatStoreBrowseDeliveryFeeLine(
-        extras,
-        {
-          deliveryAvailable: !!r.delivery_available,
-        },
-        uiLang
-      );
-      const deliveryFeeStrikePhp = formatStoreBrowseDeliveryFeeStrikePhp(extras, {
-        deliveryAvailable: !!r.delivery_available,
-      });
-      const paymentMethodsLine = resolvePublicPaymentMethodsLine(r.business_hours_json);
-
-      const minPhp = extras.minOrderPhp;
-      const minOrderLabel =
-        minPhp != null && Number.isFinite(minPhp) && minPhp > 0 ? `최소주문 ${formatMoneyPhp(minPhp)}` : null;
+      const commerce = buildBrowseStoreCommerceSnapshot(r.business_hours_json);
 
       let distanceKm: number | null = null;
       if (distById) {
@@ -604,18 +590,12 @@ export async function GET(req: Request) {
       const rideRaw = isSameAddress ? 0 : null;
       const rideMinutes = r.delivery_available ? rideRaw : null;
       const routeCtx = userLat != null && userLng != null;
-      const manualForEta =
-        deliveryRideTimeSource === "store" ? extras.deliveryRideDisplayManual : null;
-      const etaLabel = buildBrowseStoreListEtaLabel(
-        extras,
+      const rowLabels = formatBrowseStoreRowLabels(uiLang, commerce, {
+        deliveryAvailable: !!r.delivery_available,
         rideMinutes,
-        {
-          deliveryAvailable: !!r.delivery_available,
-          routeContextPresent: routeCtx,
-          manualRideDisplay: manualForEta,
-        },
-        uiLang
-      );
+        routeContextPresent: routeCtx,
+        deliveryRideTimeSource,
+      });
 
       return {
         id: r.id,
@@ -643,11 +623,12 @@ export async function GET(req: Request) {
         estPrepLabel: extras.estPrepLabel,
         prepMinutes: extras.prepMinutes,
         rideMinutes,
-        etaLabel,
-        deliveryFeeLabel,
-        deliveryFeeStrikePhp,
-        paymentMethodsLine,
-        minOrderLabel,
+        etaLabel: rowLabels.etaLabel,
+        deliveryFeeLabel: rowLabels.deliveryFeeLabel,
+        deliveryFeeStrikePhp: rowLabels.deliveryFeeStrikePhp,
+        paymentMethodsLine: rowLabels.paymentMethodsLine,
+        minOrderLabel: rowLabels.minOrderLabel,
+        commerce,
         distanceKm: displayDistanceKm,
         straightDistanceKm: distanceKm,
       };
@@ -667,6 +648,7 @@ export async function GET(req: Request) {
             : "district_featured_rating",
         origin_source: origin.source,
         origin_address_id: null,
+        delivery_ride_time_source: deliveryRideTimeSource,
       },
     };
     const transformMs = devPerfNow() - transform0;

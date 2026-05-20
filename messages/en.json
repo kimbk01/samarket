@@ -370,7 +370,7 @@
   "admin_feed_settings_min_comment_interval": "Min seconds between comments (0 = none)",
   "admin_feed_settings_saved_ok": "Saved.",
   "admin_feed_reports_page_title": "Community feed reports",
-  "admin_feed_reports_card_title": "community_reports",
+  "admin_feed_reports_card_title": "Feed reports",
   "admin_feed_reports_intro": "Reports filed from feed posts. Click the title to open the in-app detail.",
   "admin_feed_reports_empty": "No reports yet.",
   "admin_feed_reports_col_time": "Time",

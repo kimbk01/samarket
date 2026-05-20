@@ -37,6 +37,13 @@ npm run check:i18n-hardcoded
 
 개발 중 `translate()` 는 **en/ko 키 누락 시 `console.warn`** (`[i18n-missing-en]`, `[i18n-missing-ko]`, production 제외).
 
+## UI key 노출 방지 (전역)
+
+- **`useI18n().t`** 는 `lib/i18n/safe-translate.ts` 의 **`safeTranslate`** 를 사용한다 — 빈 값·`key` 와 동일·snake_case 토큰·미치환 `{var}` 는 화면에 노출하지 않는다.
+- 언어별 fallback: `safeT(key, { fallbackKo: "…", fallbackEn: "…" })`
+- 서버·역검색·로그: `translate()` (raw) 유지
+- 검사: `npm run check:i18n` — ko/en 대칭, 빈 값, 값=key, 도메인별 리포트
+
 ## 공통 키 예시
 
 | Key | 용도 |

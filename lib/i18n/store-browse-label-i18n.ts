@@ -1,7 +1,12 @@
 import type { AppLanguageCode } from "./config";
 import { resolveLocalizedAdminLabel } from "./resolve-localized-admin-label";
-import { translateText, type MessageKey } from "./messages";
-import { humanizeMessageKeySlug, sanitizeUiDisplayLabel } from "./safe-ui-label";
+import { translate, translateText, type MessageKey } from "./messages";
+import {
+  humanizeMessageKeySlug,
+  looksLikeMessageKey,
+  resolveSafeMessageKey,
+  sanitizeUiDisplayLabel,
+} from "./safe-ui-label";
 import {
   fallbackLabelForStoreBrowseKey,
   translateStoreBrowseMessage,
@@ -25,8 +30,9 @@ const STORE_PRIMARY_SLUG_KEYS: Record<string, MessageKey> = {
 const STORE_FOOD_SUB_SLUG_KEYS: Record<string, MessageKey> = {
   korean: "store_browse_food_korean",
   chicken: "store_browse_food_chicken",
-  snack: "store_browse_food_noodles",
+  snack: "store_browse_food_snack",
   noodles: "store_browse_food_noodles",
+  western: "store_browse_food_western",
   chinese: "store_browse_food_chinese",
   japanese: "store_browse_food_japanese",
   pizza: "store_browse_food_pizza",
@@ -119,6 +125,9 @@ export function resolveStoreDeliveryFeeUILabel(
 ): string | null {
   const s = typeof raw === "string" ? raw.trim() : "";
   if (!s) return null;
+  if (looksLikeMessageKey(s)) {
+    return resolveSafeMessageKey(lang, s as MessageKey);
+  }
   const key = STORE_DELIVERY_FEE_UI_CANONICAL[s];
   if (key) return translateStoreBrowseMessage(lang, key);
   if (s.startsWith("배달비 ") || s.startsWith("Delivery fee ")) {
@@ -130,8 +139,70 @@ export function resolveStoreDeliveryFeeUILabel(
   if (s.startsWith("배달비:") || s.startsWith("Delivery fee:")) {
     const label = s.replace(/^(배달비:|Delivery fee:)\s*/, "").trim();
     if (label) {
-      return translateText(lang, "store_delivery_fee_courier_colon", { label });
+      return translate(lang, "store_delivery_fee_courier_colon", { label });
     }
+  }
+  return s;
+}
+
+const STORE_PAYMENT_PART_CANONICAL: Record<string, MessageKey> = {
+  GCash: "store_pay_label_gcash",
+  "만나서 현금": "store_pay_display_cash_meet",
+  "Cash on meet-up": "store_pay_display_cash_meet",
+  "계좌이체": "store_pay_label_bank_transfer",
+  "Bank transfer": "store_pay_label_bank_transfer",
+  "현금(착불·만나서)": "store_pay_label_cod",
+  "Cash (COD / meet-up)": "store_pay_label_cod",
+  "기타": "store_pay_label_other",
+  Other: "store_pay_label_other",
+  "카드(배달 시 결제)": "store_pay_label_card_on_delivery",
+  "Card (pay on delivery)": "store_pay_label_card_on_delivery",
+  "GCash · 만나서 결제 등 (매장 확인)": "store_pay_methods_fallback",
+  "GCash, cash on delivery, etc. (confirm with store)": "store_pay_methods_fallback",
+};
+
+function resolveStorePaymentPartUILabel(lang: AppLanguageCode, part: string): string {
+  const p = part.trim();
+  if (!p) return "";
+  const key = STORE_PAYMENT_PART_CANONICAL[p];
+  if (key) return translateStoreBrowseMessage(lang, key);
+  if (looksLikeMessageKey(p)) return resolveSafeMessageKey(lang, p as MessageKey);
+  const viaKo = translateText(lang, p);
+  return viaKo !== p ? viaKo : p;
+}
+
+/** browse/home-feed API 결제 한 줄 — ko·en 혼재·레거시 구분자 보정 */
+export function resolveStorePaymentMethodsUILabel(
+  lang: AppLanguageCode,
+  raw: string | null | undefined
+): string {
+  const s = typeof raw === "string" ? raw.trim() : "";
+  if (!s) return "";
+  const key = STORE_PAYMENT_PART_CANONICAL[s];
+  if (key) return translateStoreBrowseMessage(lang, key);
+  const parts = s.split(/\s*[·]\s*|\s+-\s+/).map((x) => x.trim()).filter(Boolean);
+  if (parts.length <= 1) return resolveStorePaymentPartUILabel(lang, s);
+  return parts.map((part) => resolveStorePaymentPartUILabel(lang, part)).join(" · ");
+}
+
+/** API `최소주문 ₱…` / `Min. order …` → 현재 언어 */
+export function resolveStoreMinOrderUILabel(
+  lang: AppLanguageCode,
+  raw: string | null | undefined
+): string | null {
+  const s = typeof raw === "string" ? raw.trim() : "";
+  if (!s) return null;
+  const koMatch = s.match(/^최소주문\s+(.+)$/);
+  if (koMatch?.[1]) {
+    return translate(lang, "store_min_order_amount_colon", { amount: koMatch[1].trim() });
+  }
+  const enMatch = s.match(/^Min\.?\s*order\s+(.+)$/i);
+  if (enMatch?.[1]) {
+    return translate(lang, "store_min_order_amount_colon", { amount: enMatch[1].trim() });
+  }
+  const colonMatch = s.match(/^(?:최소\s*주문|Minimum order)\s*:\s*(.+)$/i);
+  if (colonMatch?.[1]) {
+    return translate(lang, "store_min_order_amount_colon", { amount: colonMatch[1].trim() });
   }
   return s;
 }

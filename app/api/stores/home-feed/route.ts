@@ -3,13 +3,12 @@ import { districtRank, haversineKm } from "@/lib/geo/haversine-km";
 import { devLogRoutesSkipped } from "@/lib/geo/google-routes-client";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import { resolveStoreFrontOpen } from "@/lib/stores/store-auto-hours";
-import { formatStoreBrowseDeliveryFeeLine, formatStoreBrowseDeliveryFeeStrikePhp, parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
-import { buildBrowseStoreListEtaLabel } from "@/lib/stores/store-delivery-eta-label";
+import { buildBrowseStoreCommerceSnapshot } from "@/lib/stores/browse-store-commerce-snapshot";
+import { formatBrowseStoreRowLabels } from "@/lib/stores/browse-store-row-labels";
+import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
 import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { loadDeliveryRideTimeSource } from "@/lib/delivery/delivery-ops-settings";
-import { resolvePublicPaymentMethodsLine } from "@/lib/stores/store-detail-meta";
-import { formatMoneyPhp } from "@/lib/utils/format";
 import {
   buildStoreHomeFeedCacheKey,
   getStoreHomeFeedCache,
@@ -121,6 +120,7 @@ export async function GET(req: Request) {
     userLng,
     originKey: origin.cacheKeyPart,
     deliveryRideTimeSource,
+    uiLang,
   });
 
   const cached = getStoreHomeFeedCache(cacheKey);
@@ -281,21 +281,7 @@ export async function GET(req: Request) {
       const cat = embedOne(r.store_categories as RelOne | RelOne[] | null | undefined);
       const openNow = resolveStoreFrontOpen(r.business_hours_json, r.is_open);
       const extras = parseCommerceExtrasFromHoursJson(r.business_hours_json);
-      const deliveryFeeLabel = formatStoreBrowseDeliveryFeeLine(
-        extras,
-        {
-          deliveryAvailable: !!r.delivery_available,
-        },
-        uiLang
-      );
-      const deliveryFeeStrikePhp = formatStoreBrowseDeliveryFeeStrikePhp(extras, {
-        deliveryAvailable: !!r.delivery_available,
-      });
-      const paymentMethodsLine = resolvePublicPaymentMethodsLine(r.business_hours_json);
-
-      const minPhp = extras.minOrderPhp;
-      const minOrderLabel =
-        minPhp != null && Number.isFinite(minPhp) && minPhp > 0 ? `최소주문 ${formatMoneyPhp(minPhp)}` : null;
+      const commerce = buildBrowseStoreCommerceSnapshot(r.business_hours_json);
 
       let distanceKm: number | null = null;
       if (userLat != null && userLng != null) {
@@ -311,18 +297,12 @@ export async function GET(req: Request) {
       const rideRaw = isSameAddress ? 0 : null;
       const rideMinutes = r.delivery_available ? rideRaw : null;
       const routeCtx = userLat != null && userLng != null;
-      const manualForEta =
-        deliveryRideTimeSource === "store" ? extras.deliveryRideDisplayManual : null;
-      const etaLabel = buildBrowseStoreListEtaLabel(
-        extras,
+      const rowLabels = formatBrowseStoreRowLabels(uiLang, commerce, {
+        deliveryAvailable: !!r.delivery_available,
         rideMinutes,
-        {
-          deliveryAvailable: !!r.delivery_available,
-          routeContextPresent: routeCtx,
-          manualRideDisplay: manualForEta,
-        },
-        uiLang
-      );
+        routeContextPresent: routeCtx,
+        deliveryRideTimeSource,
+      });
 
       return {
         id: r.id,
@@ -337,14 +317,15 @@ export async function GET(req: Request) {
         reviewCount: r.review_count ?? 0,
         deliveryAvailable: !!r.delivery_available,
         pickupAvailable: r.pickup_available !== false,
-        minOrderLabel,
+        minOrderLabel: rowLabels.minOrderLabel,
         estPrepLabel: extras.estPrepLabel,
         prepMinutes: extras.prepMinutes,
         rideMinutes,
-        etaLabel,
-        deliveryFeeLabel,
-        deliveryFeeStrikePhp,
-        paymentMethodsLine,
+        etaLabel: rowLabels.etaLabel,
+        deliveryFeeLabel: rowLabels.deliveryFeeLabel,
+        deliveryFeeStrikePhp: rowLabels.deliveryFeeStrikePhp,
+        paymentMethodsLine: rowLabels.paymentMethodsLine,
+        commerce,
         distanceKm: displayDistanceKm,
         straightDistanceKm: distanceKm,
         featuredItems: featuredByStore.get(r.id) ?? [],
@@ -373,6 +354,7 @@ export async function GET(req: Request) {
             : "open_delivery_featured_rating",
         origin_source: origin.source,
         origin_address_id: origin.addressId,
+        delivery_ride_time_source: deliveryRideTimeSource,
       },
     };
     setStoreHomeFeedCache(cacheKey, payload);

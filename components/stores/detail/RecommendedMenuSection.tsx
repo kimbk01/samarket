@@ -17,6 +17,7 @@ export function RecommendedMenuSection({
   menuSelectBlocked?: boolean;
   onOpenProduct: (id: string) => void;
 }) {
+  const { t } = useI18n();
   if (cards.length === 0) return null;
   const dimmed = menuSelectBlocked || !canInteract;
   const sz = DibayMenuBoard.thumbSize;
@@ -30,7 +31,7 @@ export function RecommendedMenuSection({
         className="tracking-[-0.02em] text-neutral-900"
         style={{ fontSize: DibayMenuBoard.title.fontSizePx, fontWeight: DibayMenuBoard.title.fontWeight }}
       >
-        추천메뉴
+        {t("store_recommended_menu_title")}
       </h2>
       <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {cards.map((p) => {
@@ -70,7 +71,7 @@ export function RecommendedMenuSection({
                         border: DibayMenuBoard.badge.popular.text ? "1px solid #FFCACA" : undefined,
                       }}
                     >
-                      인기
+                      {t("store_badge_menu_popular")}
                     </span>
                   ) : null}
                   {showOwner ? (
@@ -81,7 +82,7 @@ export function RecommendedMenuSection({
                         color: DibayMenuBoard.badge.ownerRecommended.fg,
                       }}
                     >
-                      사장님 추천
+                      {t("store_badge_owner_recommended")}
                     </span>
                   ) : null}
                 </div>
