@@ -1,11 +1,11 @@
 "use client";
 
-import { OwnerMobileBottomNav } from "@/components/stores/owner/OwnerMobileBottomNav";
-
-/** Hub dashboard bottom bar — mockup: 주문관리·메뉴·품절·채팅·매출 */
+/**
+ * @deprecated 하단 탭은 `BusinessAdminShell` → `OwnerMobileBottomNav` 단일 마운트.
+ * 호환용 — `storeId` 만 전달.
+ */
 export function OwnerQuickActions({
   storeId,
-  variant = "hub",
   chatBadge,
 }: {
   storeId: string;
@@ -13,5 +13,7 @@ export function OwnerQuickActions({
   variant?: "hub" | "orders";
   chatBadge?: number;
 }) {
-  return <OwnerMobileBottomNav storeId={storeId} variant={variant} chatBadge={chatBadge} />;
+  void storeId;
+  void chatBadge;
+  return null;
 }

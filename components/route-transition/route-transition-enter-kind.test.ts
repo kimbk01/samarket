@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { resolveCanonicalNavIndex } from "@/components/route-transition/route-transition-config";
-import { computeRouteTransitionEnterKind } from "@/components/route-transition/route-transition-enter-kind";
+import {
+  computeRouteTransitionEnterKind,
+  computeStoresOwnerStackTransitionKind,
+} from "@/components/route-transition/route-transition-enter-kind";
 import { buildCanonicalNavIndexResolver } from "@/lib/main-menu/canonical-nav-index-resolver";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 
@@ -60,23 +63,41 @@ describe("computeRouteTransitionEnterKind", () => {
     expect(k).toBe("none");
   });
 
-  it("stores owner hub to child uses rtl-forward (우→좌)", () => {
+  it("stores owner stack internal nav suppresses main-shell slide (OwnerStackPageSlideShell)", () => {
     const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
     const k = computeRouteTransitionEnterKind("/stores/owner", "/stores/owner/orders", {
       popstateBack: false,
       lastForwardAxisRef,
     });
-    expect(k).toBe("rtl-forward");
-    expect(lastForwardAxisRef.current).toBe("rtl");
+    expect(k).toBe("none");
+  });
+
+  it("stores owner hub to child: main shell none, OwnerStackPageSlideShell rtl-forward", () => {
+    const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
+    const mainShell = computeRouteTransitionEnterKind("/stores/owner", "/stores/owner/orders", {
+      popstateBack: false,
+      lastForwardAxisRef,
+    });
+    expect(mainShell).toBe("none");
+    const stackKind = computeStoresOwnerStackTransitionKind("/stores/owner", "/stores/owner/orders", {
+      popstateBack: false,
+      lastForwardAxisRef: { current: null },
+    });
+    expect(stackKind).toBe("rtl-forward");
   });
 
   it("stores owner child to hub uses ltr-back without popstate (좌→우)", () => {
     const lastForwardAxisRef = { current: null as "ltr" | "rtl" | null };
-    const k = computeRouteTransitionEnterKind("/stores/owner/orders", "/stores/owner", {
+    const mainShell = computeRouteTransitionEnterKind("/stores/owner/orders", "/stores/owner", {
       popstateBack: false,
       lastForwardAxisRef,
     });
-    expect(k).toBe("ltr-back");
+    expect(mainShell).toBe("none");
+    const stackKind = computeStoresOwnerStackTransitionKind("/stores/owner/orders", "/stores/owner", {
+      popstateBack: false,
+      lastForwardAxisRef: { current: null },
+    });
+    expect(stackKind).toBe("ltr-back");
   });
 
   it("leaving stores owner stack to non-stack uses ltr-back", () => {

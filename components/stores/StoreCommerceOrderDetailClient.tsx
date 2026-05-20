@@ -146,7 +146,7 @@ export function StoreCommerceOrderDetailClient({
       <section className="mt-4 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
         <h2 className="text-sm font-bold text-sam-fg">진행 상태</h2>
         <p className="mt-1 text-xs text-sam-muted">
-          주문확인부터 주문완료까지 6단계로 보여 드립니다. 포장 픽업은 배송 단계가 생략 표시됩니다. 매장에서
+          주문접수부터 배달완료(또는 픽업완료)까지 4단계로 보여 드립니다. 매장에서
           상태를 바꾸면 갱신되고 채팅에도 안내가 올라갑니다.
         </p>
         <div className="mt-4">

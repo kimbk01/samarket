@@ -4,7 +4,24 @@ import { useEffect, useRef, useState } from "react";
 import { isTradeFloatingMenuSurface } from "@/lib/layout/mobile-top-tier1-rules";
 
 /** 마지막 스크롤 이후 이 시간이 지나면 (탭이 접혀 있을 때) 다시 펼침 */
-const BOTTOM_NAV_REVEAL_AFTER_SCROLL_IDLE_MS = 1800;
+export const BOTTOM_NAV_REVEAL_AFTER_SCROLL_IDLE_MS = 1800;
+
+function readScrollTopFromScrollTarget(target: EventTarget | null): number {
+  if (target instanceof Element) {
+    const el =
+      target === document.documentElement ?
+        (document.scrollingElement ?? document.documentElement)
+      : target;
+    if (
+      el instanceof HTMLElement &&
+      el !== document.body &&
+      (el.scrollHeight > el.clientHeight + 1 || el === document.scrollingElement)
+    ) {
+      return el.scrollTop;
+    }
+  }
+  return window.scrollY || document.documentElement.scrollTop;
+}
 
 /**
  * `/philife`(헤더 메신저 푸시가 아닐 때)·거래 플로팅면·배달(`/stores`) : 아래로 스크롤 시 하단 탭을 접기.
@@ -36,7 +53,7 @@ export function useBottomNavScrollHide(enabled: boolean): boolean {
       setHidden(false);
       return;
     }
-    lastYRef.current = window.scrollY || document.documentElement.scrollTop;
+    lastYRef.current = readScrollTopFromScrollTarget(document.scrollingElement);
 
     const clearIdleReveal = () => {
       if (idleRevealTimerRef.current != null) {
@@ -45,8 +62,8 @@ export function useBottomNavScrollHide(enabled: boolean): boolean {
       }
     };
 
-    const onScroll = () => {
-      const y = window.scrollY || document.documentElement.scrollTop;
+    const onScroll = (event: Event) => {
+      const y = readScrollTopFromScrollTarget(event.target);
       const last = lastYRef.current;
       if (y < 8) {
         setHidden(false);
@@ -64,9 +81,9 @@ export function useBottomNavScrollHide(enabled: boolean): boolean {
       }, BOTTOM_NAV_REVEAL_AFTER_SCROLL_IDLE_MS);
     };
 
-    window.addEventListener("scroll", onScroll, { passive: true });
+    document.addEventListener("scroll", onScroll, { passive: true, capture: true });
     return () => {
-      window.removeEventListener("scroll", onScroll);
+      document.removeEventListener("scroll", onScroll, true);
       clearIdleReveal();
     };
   }, [enabled]);

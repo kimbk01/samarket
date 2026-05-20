@@ -1,11 +1,12 @@
 "use client";
 
 import { Suspense } from "react";
+import { OwnerStoreOrdersPageFallback } from "@/components/business/owner/OwnerStoreOrdersPageFallback";
 import { OwnerStoreOrdersView } from "@/components/business/owner/OwnerStoreOrdersView";
 
 export default function OwnerStoreOrdersPage() {
   return (
-    <Suspense fallback={<p className="px-4 pt-4 text-sm text-sam-muted">불러오는 중…</p>}>
+    <Suspense fallback={<OwnerStoreOrdersPageFallback />}>
       <OwnerStoreOrdersView />
     </Suspense>
   );

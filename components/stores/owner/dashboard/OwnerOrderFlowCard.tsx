@@ -6,6 +6,7 @@ import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import {
   OwnerFlowStepArrow,
   OwnerFlowStepCircle,
+  OWNER_FLOW_CIRCLE_PX,
   type OwnerFlowStepVariant,
 } from "@/components/stores/owner/dashboard/owner-order-flow-icons";
 import { OwnerDashSectionHeader } from "./OwnerDashSectionHeader";
@@ -16,10 +17,10 @@ const STEPS: Array<{
   label: string;
   tab: "new" | "progress" | "shipping" | "done";
 }> = [
-  { key: "waiting", label: "접수대기", tab: "new" },
-  { key: "cooking", label: "조리중", tab: "progress" },
+  { key: "waiting", label: "주문접수", tab: "new" },
+  { key: "cooking", label: "준비(조리)중", tab: "progress" },
   { key: "delivering", label: "배달중", tab: "shipping" },
-  { key: "done", label: "완료", tab: "done" },
+  { key: "done", label: "배달완료", tab: "done" },
 ];
 
 export function OwnerOrderFlowCard({
@@ -61,7 +62,10 @@ export function OwnerOrderFlowCard({
                 prefetch={false}
                 className="flex min-w-0 flex-1 flex-col items-center active:opacity-85"
               >
-                <div className="flex h-[52px] items-center justify-center">
+                <div
+                  className="flex items-center justify-center"
+                  style={{ height: OWNER_FLOW_CIRCLE_PX }}
+                >
                   <OwnerFlowStepCircle variant={step.key} />
                 </div>
                 <span className="mt-1.5 text-[11px] font-medium leading-tight text-[#8C8C8C]">
@@ -79,7 +83,10 @@ export function OwnerOrderFlowCard({
                 )}
               </Link>
               {idx < STEPS.length - 1 ? (
-                <div className="flex h-[52px] shrink-0 items-center px-0.5">
+                <div
+                  className="flex shrink-0 items-center px-0.5"
+                  style={{ height: OWNER_FLOW_CIRCLE_PX }}
+                >
                   <OwnerFlowStepArrow className="text-[14px]" />
                 </div>
               ) : null}

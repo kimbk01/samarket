@@ -2,25 +2,26 @@
 
 import { isDeliveryFulfillment } from "@/lib/stores/order-status-transitions";
 import {
+  TIMELINE_DELIVERY_STEPS,
+  TIMELINE_PICKUP_STEPS,
+} from "@/lib/stores/store-order-process-criteria";
+import {
   OwnerFlowStepIconMini,
   ownerFlowIconForStepIndex,
 } from "@/components/stores/owner/dashboard/owner-order-flow-icons";
 
 function activeStepIndex(status: string, deliveryLike: boolean): number {
-  if (status === "pending") return -1;
-  if (status === "completed") return deliveryLike ? 4 : 3;
-  if (status === "accepted") return 0;
+  if (status === "pending") return 0;
+  if (status === "completed") return 4;
+  if (status === "accepted") return 1;
   if (status === "preparing") return 1;
-  if (status === "ready_for_pickup") return 2;
-  if (deliveryLike && (status === "delivering" || status === "arrived")) return 3;
+  if (status === "ready_for_pickup") return deliveryLike ? 1 : 2;
+  if (deliveryLike && (status === "delivering" || status === "arrived")) return 2;
   return 0;
 }
 
-function stepsFor(deliveryLike: boolean): string[] {
-  if (deliveryLike) {
-    return ["주문접수", "조리중", "배달준비", "배달중", "완료"];
-  }
-  return ["주문접수", "조리중", "포장준비", "완료"];
+function stepsFor(deliveryLike: boolean): readonly string[] {
+  return deliveryLike ? TIMELINE_DELIVERY_STEPS : TIMELINE_PICKUP_STEPS;
 }
 
 export function OwnerOrderCardProgressSteps({

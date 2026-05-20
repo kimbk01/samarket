@@ -1,109 +1,160 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
+import { createPortal } from "react-dom";
 import {
-  BarChart3,
   ClipboardList,
   LayoutGrid,
   MessageCircle,
-  MoreHorizontal,
-  PackageX,
+  Settings,
   UtensilsCrossed,
 } from "lucide-react";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
-import { BOTTOM_NAV_SHELL } from "@/lib/main-menu/bottom-nav-config";
-import { OWNER_MOBILE_BOTTOM_NAV_Z_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
+import {
+  BOTTOM_NAV_BADGE_RING_CLASS,
+  BOTTOM_NAV_OUTER_MOTION,
+  BOTTOM_NAV_SHELL,
+} from "@/lib/main-menu/bottom-nav-config";
+import { OWNER_HUB_BADGE_DOT_CLASS } from "@/lib/chats/hub-badge-ui";
+import { useBottomNavScrollHide } from "@/lib/layout/use-bottom-nav-scroll-hide-behavior";
+import {
+  isOwnerBottomNavTabActive,
+  type OwnerBottomNavTabId,
+} from "@/lib/stores/owner-bottom-nav-active";
+import {
+  OWNER_MOBILE_BOTTOM_NAV_ACCENT,
+  OWNER_MOBILE_BOTTOM_NAV_ACCENT_SHADOW,
+  OWNER_MOBILE_BOTTOM_NAV_ROOT_CLASS,
+} from "@/lib/stores/owner-mobile-ui-tokens";
+
+const BOTTOM_NAV_ITEM_TOUCH_CLASS =
+  "touch-manipulation select-none [-webkit-tap-highlight-color:transparent]";
+
+const OWNER_NAV_ITEMS: Array<{
+  id: OwnerBottomNavTabId;
+  label: string;
+  icon: typeof LayoutGrid;
+  href: (storeId: string) => string;
+}> = [
+  { id: "dashboard", label: "대시보드", icon: LayoutGrid, href: (id) => OwnerRoutes.hub(id) },
+  {
+    id: "order-chat",
+    label: "주문채팅",
+    icon: MessageCircle,
+    href: (id) => OwnerRoutes.orderChats(id),
+  },
+  { id: "orders", label: "주문관리", icon: ClipboardList, href: (id) => OwnerRoutes.orders(id) },
+  { id: "menu", label: "메뉴관리", icon: UtensilsCrossed, href: (id) => OwnerRoutes.menu(id) },
+  { id: "settings", label: "매장설정", icon: Settings, href: (id) => OwnerRoutes.settings(id) },
+];
 
 function cn(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");
 }
 
-type NavVariant = "hub" | "orders";
-
-const HUB_ITEMS = [
-  { id: "orders", label: "주문관리", icon: ClipboardList, href: (id: string) => OwnerRoutes.orders(id) },
-  { id: "menu", label: "메뉴관리", icon: UtensilsCrossed, href: (id: string) => OwnerRoutes.menu(id) },
-  {
-    id: "soldout",
-    label: "품절처리",
-    icon: PackageX,
-    href: (id: string) => {
-      const base = OwnerRoutes.products(id);
-      return `${base}${base.includes("?") ? "&" : "?"}status=sold_out`;
-    },
-  },
-  { id: "chat", label: "채팅", icon: MessageCircle, href: (id: string) => OwnerRoutes.inquiries(id) },
-  { id: "sales", label: "매출보기", icon: BarChart3, href: (id: string) => OwnerRoutes.settlements(id) },
-] as const;
-
-const ORDERS_ITEMS = [
-  { id: "hub", label: "대시보드", icon: LayoutGrid, href: (id: string) => OwnerRoutes.hub(id) },
-  { id: "orders", label: "주문관리", icon: ClipboardList, href: (id: string) => OwnerRoutes.orders(id) },
-  { id: "menu", label: "메뉴관리", icon: UtensilsCrossed, href: (id: string) => OwnerRoutes.menu(id) },
-  { id: "chat", label: "채팅", icon: MessageCircle, href: (id: string) => OwnerRoutes.inquiries(id) },
-  { id: "more", label: "더보기", icon: MoreHorizontal, href: (id: string) => OwnerRoutes.settings(id) },
-] as const;
-
-function isActivePath(pathname: string, href: string, id: string): boolean {
-  const pathOnly = href.split("?")[0] ?? href;
-  const norm = pathname.replace(/\/+$/, "") || "/";
-  if (id === "hub") return norm === "/stores/owner";
-  if (id === "orders") return norm.includes("/stores/owner/orders");
-  if (id === "soldout") return pathname.includes("/products") && href.includes("sold_out");
-  if (id === "more") return pathname.includes("/stores/owner/settings");
-  return norm === pathOnly || norm.startsWith(`${pathOnly}/`);
-}
-
-/** 하단 고정 — 라벨 숨김, 메인 앱 `app-bottom-nav-*` 활성 아이콘 형태 */
+/**
+ * 매장 오너 모바일 하단 탭 — 대시보드 · 주문채팅 · 주문 · 메뉴 · 설정.
+ * `BusinessAdminShell` 에서만 마운트한다.
+ */
 export function OwnerMobileBottomNav({
   storeId,
-  variant,
   chatBadge,
+  scrollHideEnabled = true,
 }: {
   storeId: string;
-  variant: NavVariant;
   chatBadge?: number;
+  scrollHideEnabled?: boolean;
 }) {
   const pathname = usePathname() ?? "";
-  const items = variant === "hub" ? HUB_ITEMS : ORDERS_ITEMS;
+  const searchParams = useSearchParams();
+  const hiddenByScroll = useBottomNavScrollHide(scrollHideEnabled);
+  const [portalToBody, setPortalToBody] = useState(false);
+  const [pendingActiveId, setPendingActiveId] = useState<OwnerBottomNavTabId | null>(null);
+  const lastPathKeyRef = useRef("");
 
-  return (
+  useEffect(() => {
+    setPortalToBody(true);
+  }, []);
+
+  const pathKey = `${pathname}?${searchParams.toString()}`;
+
+  useEffect(() => {
+    if (lastPathKeyRef.current === pathKey) return;
+    lastPathKeyRef.current = pathKey;
+    setPendingActiveId(null);
+  }, [pathKey]);
+
+  const markTabIntent = useCallback((tabId: OwnerBottomNavTabId) => {
+    setPendingActiveId(tabId);
+  }, []);
+
+  const isTabActive = useCallback(
+    (tabId: OwnerBottomNavTabId) => {
+      const pathActive = isOwnerBottomNavTabActive(pathname, searchParams, tabId);
+      if (pendingActiveId != null) return tabId === pendingActiveId;
+      return pathActive;
+    },
+    [pathname, searchParams, pendingActiveId]
+  );
+
+  const outerClass = cn(
+    BOTTOM_NAV_SHELL.outerClassName,
+    BOTTOM_NAV_OUTER_MOTION,
+    hiddenByScroll ? "translate-y-full" : "translate-y-0"
+  );
+
+  const navStyle = {
+    ["--owner-nav-accent" as string]: OWNER_MOBILE_BOTTOM_NAV_ACCENT,
+    ["--owner-nav-accent-shadow" as string]: OWNER_MOBILE_BOTTOM_NAV_ACCENT_SHADOW,
+  } as CSSProperties;
+
+  const nav = (
     <nav
-      className={cn(
-        "fixed inset-x-0 bottom-0 border-t border-[#E5E7EB] bg-white pb-[env(safe-area-inset-bottom,0px)] shadow-[0_-2px_12px_rgba(0,0,0,0.06)]",
-        OWNER_MOBILE_BOTTOM_NAV_Z_CLASS,
-        BOTTOM_NAV_SHELL.outerClassName
-      )}
-      aria-label={variant === "hub" ? "빠른 운영 메뉴" : "매장 운영 메뉴"}
+      className={cn(outerClass, OWNER_MOBILE_BOTTOM_NAV_ROOT_CLASS)}
+      style={navStyle}
+      data-biz="1"
+      aria-label="매장 운영 메뉴"
     >
-      <div className={cn(BOTTOM_NAV_SHELL.innerBarClassName, BOTTOM_NAV_SHELL.heightClass, "mx-auto max-w-lg")}>
-        <div className="app-bottom-nav-grid">
-          {items.map((a) => {
+      <div className={`${BOTTOM_NAV_SHELL.innerBarClassName} ${BOTTOM_NAV_SHELL.heightClass}`}>
+        <div className="app-bottom-nav-grid owner-mobile-bottom-nav-grid">
+          {OWNER_NAV_ITEMS.map((a) => {
             const href = a.href(storeId);
-            const active = isActivePath(pathname, href, a.id);
+            const active = isTabActive(a.id);
             const Icon = a.icon;
-            const showChatBadge = a.id === "chat" && (chatBadge ?? 0) > 0;
+            const showChatBadge = a.id === "order-chat" && (chatBadge ?? 0) > 0;
             return (
               <Link
                 key={a.id}
                 href={href}
                 prefetch={false}
+                scroll={false}
                 data-active={active ? "true" : "false"}
                 aria-label={a.label}
-                className="app-bottom-nav-item group"
+                aria-current={active ? "page" : undefined}
+                className={cn("app-bottom-nav-item group", BOTTOM_NAV_ITEM_TOUCH_CLASS)}
+                onClick={() => {
+                  if (!active) markTabIntent(a.id);
+                }}
               >
                 <div className="app-bottom-nav-icon-slot">
                   <span className="app-bottom-nav-inline-icon" key={active ? "on" : "off"}>
                     <Icon className="app-bottom-nav-icon-svg" strokeWidth={active ? 2.25 : 1.75} aria-hidden />
-                    {showChatBadge ? (
-                      <span className="bottom-nav-hub-badge absolute -right-1 -top-1 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-[#FF4D4F] px-0.5 text-[9px] font-bold leading-none text-white ring-2 ring-white">
-                        {(chatBadge ?? 0) > 99 ? "9+" : chatBadge}
+                    {showChatBadge ?
+                      <span
+                        className={cn(
+                          "bottom-nav-hub-badge",
+                          OWNER_HUB_BADGE_DOT_CLASS,
+                          BOTTOM_NAV_BADGE_RING_CLASS
+                        )}
+                      >
+                        {(chatBadge ?? 0) > 99 ? "99+" : chatBadge}
                       </span>
-                    ) : null}
+                    : null}
                   </span>
                 </div>
-                <span className="sr-only">{a.label}</span>
+                <span className="app-bottom-nav-label">{a.label}</span>
               </Link>
             );
           })}
@@ -111,4 +162,9 @@ export function OwnerMobileBottomNav({
       </div>
     </nav>
   );
+
+  if (portalToBody && typeof document !== "undefined") {
+    return createPortal(nav, document.body);
+  }
+  return nav;
 }

@@ -208,7 +208,7 @@ export function sharedOwnerStartPreparing(orderId: string): { ok: true } | { ok:
   const o = findSharedOrder(orderId);
   if (!o) return { ok: false, error: "주문 없음" };
   if (assertStore(o)) return { ok: false, error: assertStore(o)! };
-  if (o.order_status !== "accepted") return { ok: false, error: "접수 완료 주문만 조리중으로 바꿀 수 있습니다." };
+  if (o.order_status !== "accepted") return { ok: false, error: "주문접수된 주문만 준비(조리)중으로 바꿀 수 있습니다." };
   const prev = o.order_status;
   const from = o.order_status;
   o.order_status = "preparing";

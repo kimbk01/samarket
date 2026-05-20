@@ -564,7 +564,7 @@ function formatSystemPreview(value: string): string {
   if (text.startsWith("방장 위임")) return text;
   if (text.startsWith("멤버 초대")) return text;
   if (text.startsWith("멤버 내보내기")) return text;
-  if (text.includes("주문") && (text.includes("접수") || text.includes("접수됨"))) return "주문 접수됨";
+  if (text.includes("주문") && (text.includes("접수") || text.includes("접수됨"))) return "주문접수";
   if (text.includes("거래") && text.includes("제안")) {
     const m = text.match(/[\d,.\s]+[₱₩$€원]/);
     return m ? `거래 제안 ${m[0].trim()}` : "거래 제안";

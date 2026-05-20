@@ -2,15 +2,19 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Bell, ChevronDown, Settings } from "lucide-react";
+import { Bell, ChevronDown } from "lucide-react";
 import type { OwnerStoreOpsMeta } from "@/lib/stores/owner-store-ops-snapshot";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { resolveOwnerStoreNotificationsHref } from "@/lib/business/owner-store-notifications-route";
 import { useBusinessAdminStore } from "@/components/business/admin/business-admin-store-context";
-import { ownerDashCardClass } from "./owner-dashboard-ui";
 import { useOwnerHubRuntime } from "@/components/business/owner/OwnerHubRuntimeProvider";
-import { OWNER_HUB_HEADER_BODY_MIN_H_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
+import {
+  OWNER_MOBILE_PAGE_HEADER_ROW_CLASS,
+  OWNER_MOBILE_PAGE_HEADER_SHELL_BLEED_CLASS,
+  OWNER_MOBILE_PAGE_HEADER_SHELL_CLASS,
+} from "@/lib/stores/owner-mobile-ui-tokens";
+import { cn } from "./owner-dashboard-ui";
 
 function OwnerMenuIcon() {
   return (
@@ -40,7 +44,6 @@ export function OwnerDashboardHeader({
   const hubRuntime = useOwnerHubRuntime();
   const biz = useBusinessAdminStore();
   const storeList = stores ?? hubRuntime?.stores ?? null;
-  const settingsHref = OwnerRoutes.settings(storeId);
   const notificationsHref =
     resolveOwnerStoreNotificationsHref({ slug: storeSlug }) ?? OwnerRoutes.settings(storeId);
   const open = storeOps.is_open;
@@ -59,21 +62,15 @@ export function OwnerDashboardHeader({
 
   return (
     <header
-      className={`${ownerDashCardClass(`px-2.5 py-1.5 shadow-sm ${OWNER_HUB_HEADER_BODY_MIN_H_CLASS}`)} flex flex-col justify-center`}
+      className={cn(
+        OWNER_MOBILE_PAGE_HEADER_SHELL_CLASS,
+        OWNER_MOBILE_PAGE_HEADER_SHELL_BLEED_CLASS
+      )}
       aria-label="매장 운영 상태"
     >
-      <div className={`flex items-center gap-1.5 ${OWNER_HUB_HEADER_BODY_MIN_H_CLASS}`}>
-        <button
-          type="button"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#262626] hover:bg-[#F5F5F5] active:bg-[#EBEBEB]"
-          aria-label="메뉴 열기"
-          onClick={() => biz?.openMobileOwnerMenu?.()}
-        >
-          <OwnerMenuIcon />
-        </button>
-
-        <div className="min-w-0 flex-1 py-0.5">
-          <div className="flex flex-wrap items-center gap-1">
+      <div className={OWNER_MOBILE_PAGE_HEADER_ROW_CLASS}>
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col justify-center gap-0">
+          <div className="flex min-w-0 items-center gap-1">
             {storeList && storeList.length > 1 ? (
               <label className="relative flex min-w-0 max-w-[55%] items-center">
                 <span className="sr-only">매장 선택</span>
@@ -104,7 +101,7 @@ export function OwnerDashboardHeader({
               {open ? "영업중" : "일시중지"}
             </span>
           </div>
-          <p className="mt-0.5 truncate text-[11px] leading-tight text-[#8C8C8C]">
+          <p className="truncate text-[11px] leading-tight text-[#8C8C8C]">
             {[storeOps.hours_label, prep].filter(Boolean).join(" · ") || "영업 시간을 설정해 주세요"}
           </p>
         </div>
@@ -122,13 +119,14 @@ export function OwnerDashboardHeader({
               </span>
             ) : null}
           </Link>
-          <Link
-            href={settingsHref}
-            className="flex h-10 w-10 items-center justify-center rounded-full text-[#262626] hover:bg-[#F5F5F5]"
-            aria-label="매장 설정"
+          <button
+            type="button"
+            className="flex h-10 w-10 items-center justify-center rounded-full text-[#262626] hover:bg-[#F5F5F5] active:bg-[#EBEBEB]"
+            aria-label="메뉴 열기"
+            onClick={() => biz?.openMobileOwnerMenu?.()}
           >
-            <Settings className="h-5 w-5" aria-hidden />
-          </Link>
+            <OwnerMenuIcon />
+          </button>
         </div>
       </div>
     </header>

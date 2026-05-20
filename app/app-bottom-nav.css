@@ -258,3 +258,42 @@
     opacity: 0;
   }
 }
+
+/**
+ * 매장 오너 모바일 하단 탭 — twist·ripple 공통 (`--owner-nav-accent`, `owner-mobile-ui-tokens.ts`).
+ */
+.owner-mobile-bottom-nav {
+  --owner-nav-accent: #2d7ff9;
+  --owner-nav-accent-shadow: rgba(45, 127, 249, 0.24);
+}
+
+.owner-mobile-bottom-nav.app-bottom-nav-shell::before {
+  background: linear-gradient(
+    to top,
+    rgba(45, 127, 249, 0.06) 0%,
+    rgba(45, 127, 249, 0) 100%
+  );
+}
+
+.owner-mobile-bottom-nav .app-bottom-nav-item[data-active="true"] .app-bottom-nav-label {
+  color: var(--owner-nav-accent);
+}
+
+.owner-mobile-bottom-nav .app-bottom-nav-item[data-active="true"] .app-bottom-nav-inline-icon {
+  background: var(--owner-nav-accent);
+  box-shadow: 0 6px 14px var(--owner-nav-accent-shadow);
+}
+
+.owner-mobile-bottom-nav .owner-mobile-bottom-nav-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.owner-mobile-bottom-nav .app-bottom-nav-label {
+  font-size: 9px;
+  letter-spacing: -0.03em;
+}
+
+.owner-mobile-bottom-nav .app-bottom-nav-item {
+  padding: 5px 0 6px;
+  gap: 2px;
+}

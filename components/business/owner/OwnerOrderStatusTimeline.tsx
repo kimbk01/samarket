@@ -1,36 +1,27 @@
 "use client";
 
 import { isDeliveryFulfillment } from "@/lib/stores/order-status-transitions";
+import {
+  TIMELINE_DELIVERY_STEPS,
+  TIMELINE_PICKUP_STEPS,
+} from "@/lib/stores/store-order-process-criteria";
 import { Biz } from "@/lib/ui/biz-component-classes";
 
 type Step = { label: string };
 
 function activeStepIndex(status: string, deliveryLike: boolean): number {
-  if (status === "pending") return -1;
-  if (status === "completed") {
-    return deliveryLike ? 5 : 4;
-  }
-  if (status === "accepted") return 0;
+  if (status === "pending") return 0;
+  if (status === "completed") return 4;
+  if (status === "accepted") return 1;
   if (status === "preparing") return 1;
-  if (status === "ready_for_pickup") return 2;
-  if (deliveryLike) {
-    if (status === "delivering" || status === "arrived") return 3;
-    return 0;
-  }
+  if (status === "ready_for_pickup") return deliveryLike ? 1 : 2;
+  if (deliveryLike && (status === "delivering" || status === "arrived")) return 2;
   return 0;
 }
 
 function stepsFor(deliveryLike: boolean): Step[] {
-  if (deliveryLike) {
-    return [
-      { label: "주문접수" },
-      { label: "조리중" },
-      { label: "배달준비" },
-      { label: "배달중" },
-      { label: "완료" },
-    ];
-  }
-  return [{ label: "주문접수" }, { label: "조리중" }, { label: "포장준비" }, { label: "완료" }];
+  const labels = deliveryLike ? TIMELINE_DELIVERY_STEPS : TIMELINE_PICKUP_STEPS;
+  return labels.map((label) => ({ label }));
 }
 
 export function OwnerOrderStatusTimeline({

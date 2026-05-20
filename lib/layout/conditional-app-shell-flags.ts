@@ -83,6 +83,8 @@ export type ConditionalAppShellResolvedFlags = {
   /** `/stores/[slug]/cart|checkout` — 헤더·주문바 고정용 뷰포트 잠금 */
   isStoreCommerceCartCheckoutPage: boolean;
   isMainColumnViewportLocked: boolean;
+  /** `/stores/owner/*` 매장 오너 운영 센터 */
+  isStoreOwnerAdminRoute: boolean;
 };
 
 /**
@@ -307,5 +309,6 @@ export function resolveConditionalAppShellFlags(
     showRegionBar: showRegionBarComputed,
     isStoreCommerceCartCheckoutPage,
     isMainColumnViewportLocked: isChatRoomDetail || isMainColumnViewportLocked,
+    isStoreOwnerAdminRoute,
   };
 }

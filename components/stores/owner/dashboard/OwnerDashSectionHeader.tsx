@@ -23,7 +23,7 @@ export function OwnerDashSectionHeader({
       </h2>
       <Link
         href={href}
-        prefetch={false}
+        prefetch
         className="inline-flex shrink-0 items-center gap-0.5 text-[12px] font-medium text-gray-500 hover:text-[#1C8DB8]"
       >
         {linkLabel}

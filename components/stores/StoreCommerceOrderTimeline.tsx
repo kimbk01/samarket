@@ -78,7 +78,7 @@ export function StoreCommerceOrderTimeline({
 }: {
   fulfillmentType: string;
   orderStatus: string;
-  /** 주문 상세: 배달·픽업 모두 6단계 라벨, 픽업은 배송 단계 생략 표시 */
+  /** 주문 상세: 배달·픽업 모두 4단계 라벨 */
   variant?: TimelineVariant;
 }) {
   const deliveryLike = isDeliveryFulfillment(fulfillmentType);

@@ -28,20 +28,29 @@ export function buildStoreOrderSummaryTimelineSteps(input: {
   const deliveryLike = isDeliveryFulfillment(input.fulfillmentType);
   const labels = deliveryLike ? [...TIMELINE_DELIVERY_STEPS] : [...TIMELINE_PICKUP_STEPS];
   const statusKeys = deliveryLike
-    ? (["pending", "accepted", "preparing", "ready_for_pickup", "delivering", "arrived"] as const)
-    : (["pending", "accepted", "preparing", "ready_for_pickup"] as const);
+    ? (["accepted", "preparing", "delivering", "completed"] as const)
+    : (["accepted", "preparing", "ready_for_pickup", "completed"] as const);
 
   const states = buyerDetailSixStepStates(input.fulfillmentType, input.orderStatus);
   const atByStatus = new Map<string, string>();
 
   if (input.orderCreatedAt?.trim()) {
-    atByStatus.set("pending", input.orderCreatedAt.trim());
+    const createdAt = input.orderCreatedAt.trim();
+    atByStatus.set("pending", createdAt);
+    if (!atByStatus.has("accepted")) atByStatus.set("accepted", createdAt);
   }
 
   for (const ev of input.statusEvents ?? []) {
     const to = typeof ev.to_status === "string" ? ev.to_status.trim() : "";
     const at = typeof ev.created_at === "string" ? ev.created_at.trim() : "";
     if (to && at) atByStatus.set(to, at);
+  }
+
+  if (!atByStatus.has("preparing") && atByStatus.has("ready_for_pickup")) {
+    atByStatus.set("preparing", atByStatus.get("ready_for_pickup")!);
+  }
+  if (!atByStatus.has("delivering") && atByStatus.has("arrived")) {
+    atByStatus.set("delivering", atByStatus.get("arrived")!);
   }
 
   return labels.map((label, i) => {

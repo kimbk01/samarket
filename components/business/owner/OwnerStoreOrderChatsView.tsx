@@ -1,0 +1,179 @@
+"use client";
+
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
+import { MessageCircle } from "lucide-react";
+import { OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
+
+type ChatRow = {
+  order_id: string;
+  order_no: string;
+  room_id: string;
+  buyer_public_label: string;
+  order_status_label: string;
+  unread_count: number;
+  last_message_at: string;
+  last_message_preview: string;
+  messenger_href: string;
+};
+
+type ViewState =
+  | { kind: "loading" }
+  | { kind: "need_store" }
+  | { kind: "error"; message: string }
+  | { kind: "ok"; storeName: string; chats: ChatRow[] };
+
+function formatListTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const now = new Date();
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+  if (sameDay) {
+    return d.toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" });
+  }
+  return d.toLocaleDateString("ko-KR", { month: "numeric", day: "numeric" });
+}
+
+export function OwnerStoreOrderChatsView() {
+  const searchParams = useSearchParams();
+  const storeId = searchParams.get("storeId")?.trim() ?? "";
+  const [state, setState] = useState<ViewState>({ kind: "loading" });
+
+  const load = useCallback(async () => {
+    if (!storeId) {
+      setState({ kind: "need_store" });
+      return;
+    }
+    setState({ kind: "loading" });
+    try {
+      const res = await runSingleFlight(`owner-order-chats:${storeId}`, () =>
+        fetch(`/api/me/stores/${encodeURIComponent(storeId)}/order-chats`, {
+          credentials: "include",
+          cache: "no-store",
+        })
+      );
+      const json = (await res.json()) as {
+        ok?: boolean;
+        error?: string;
+        store?: { store_name?: string };
+        chats?: ChatRow[];
+      };
+      if (res.status === 401) {
+        setState({ kind: "error", message: "로그인이 필요합니다." });
+        return;
+      }
+      if (!json.ok || !Array.isArray(json.chats)) {
+        setState({ kind: "error", message: json.error ?? "목록을 불러오지 못했습니다." });
+        return;
+      }
+      setState({
+        kind: "ok",
+        storeName: json.store?.store_name?.trim() || "매장",
+        chats: json.chats,
+      });
+    } catch {
+      setState({ kind: "error", message: "네트워크 오류" });
+    }
+  }, [storeId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (state.kind === "loading") {
+    return (
+      <div
+        className={`flex h-full min-h-0 flex-col bg-[#F3F4F6] ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}
+      >
+        <div className="space-y-2 p-2 animate-pulse">
+          <div className="h-16 rounded-[4px] bg-white" />
+          <div className="h-16 rounded-[4px] bg-white" />
+          <div className="h-16 rounded-[4px] bg-white" />
+        </div>
+      </div>
+    );
+  }
+
+  if (state.kind === "need_store") {
+    return (
+      <div
+        className={`flex h-full flex-col items-center justify-center bg-[#F3F4F6] px-4 text-sm text-[#8C8C8C] ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}
+      >
+        매장을 선택한 뒤 다시 시도해 주세요.
+      </div>
+    );
+  }
+
+  if (state.kind === "error") {
+    return (
+      <div
+        className={`flex h-full flex-col items-center justify-center gap-3 bg-[#F3F4F6] px-4 text-sm text-red-600 ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}
+      >
+        {state.message}
+        <button type="button" className="text-[#2D7FF9] underline" onClick={() => void load()}>
+          다시 시도
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`flex h-full min-h-0 flex-col bg-[#F3F4F6] ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}>
+      <div className="shrink-0 border-b border-[#E5E7EB] bg-white px-3 py-2">
+        <p className="text-[13px] text-[#8C8C8C]">
+          {state.storeName} · 이 매장 주문에 연결된 채팅만 표시합니다.
+        </p>
+      </div>
+      <ul className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-2">
+        {state.chats.length === 0 ?
+          <li className="flex flex-col items-center justify-center gap-2 rounded-[4px] bg-white px-4 py-12 text-center">
+            <MessageCircle className="h-10 w-10 text-[#D9D9D9]" strokeWidth={1.5} aria-hidden />
+            <p className="text-[14px] font-medium text-[#262626]">주문 채팅이 없습니다</p>
+            <p className="text-[12px] text-[#8C8C8C]">주문이 들어오면 채팅방이 여기에 표시됩니다.</p>
+          </li>
+        : state.chats.map((c) => (
+            <li key={c.order_id}>
+              <Link
+                href={c.messenger_href}
+                className="mb-2 flex gap-3 rounded-[4px] border border-[#E5E7EB] bg-white px-3 py-3 active:bg-[#F5F5F5]"
+              >
+                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#E8F1FF] text-[#2D7FF9]">
+                  <MessageCircle className="h-5 w-5" aria-hidden />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="truncate text-[14px] font-semibold text-[#262626]">
+                      {c.buyer_public_label}
+                    </p>
+                    <span className="shrink-0 text-[11px] text-[#8C8C8C]">
+                      {formatListTime(c.last_message_at)}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 truncate text-[12px] text-[#8C8C8C]">주문 {c.order_no}</p>
+                  <div className="mt-1 flex items-center justify-between gap-2">
+                    <p className="min-w-0 flex-1 truncate text-[13px] text-[#595959]">
+                      {c.last_message_preview}
+                    </p>
+                    {c.unread_count > 0 ?
+                      <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-[#FF4D4F] px-1.5 text-[10px] font-bold text-white">
+                        {c.unread_count > 99 ? "99+" : c.unread_count}
+                      </span>
+                    : null}
+                  </div>
+                  <span className="mt-1 inline-block rounded bg-[#F5F5F5] px-1.5 py-px text-[10px] font-medium text-[#8C8C8C]">
+                    {c.order_status_label}
+                  </span>
+                </div>
+              </Link>
+            </li>
+          ))
+        }
+      </ul>
+    </div>
+  );
+}

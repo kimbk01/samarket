@@ -17,6 +17,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   BOTTOM_NAV_BADGE_RING_CLASS,
+  BOTTOM_NAV_OUTER_MOTION,
   BOTTOM_NAV_SHELL,
   BOTTOM_NAV_THEME,
   type BottomNavIconKey,
@@ -552,9 +553,6 @@ const TAB_ICONS: Record<BottomNavIconKey, (props: { className?: string }) => Rea
   my: MyIcon,
 };
 
-/** 필라이프(포털) · 거래·스토어 하단 탭 `translate` 전환 */
-const BOTTOM_NAV_OUTER_MOTION =
-  "transition-transform duration-150 will-change-transform [transition-timing-function:cubic-bezier(0.25,0.1,0.2,1)]";
 const BOTTOM_NAV_BOOT_WARM_SESSION_KEY = "samarket:bottom-nav:boot-warm:v1";
 
 export function BottomNav({

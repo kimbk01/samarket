@@ -1,20 +1,20 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { OwnerStoreOrderDetailPanel } from "@/components/business/owner/OwnerStoreOrderDetailPanel";
+import { Filter, Search } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+import {
+  OwnerStoreOrderDetailLoadingPanel,
+  OwnerStoreOrderDetailPanel,
+} from "@/components/business/owner/OwnerStoreOrderDetailPanel";
 import { OwnerStoreOrderMockCard } from "@/components/business/owner/OwnerStoreOrderMockCard";
-import { OwnerOrdersPageHeader } from "@/components/business/owner/OwnerOrdersPageHeader";
-import { OwnerQuickActions } from "@/components/stores/owner/dashboard/OwnerQuickActions";
-import { OwnerRoutes } from "@/lib/business/owner-routes";
+import { useRegisterOwnerMobileAdminHeaderTrailing } from "@/components/business/owner/OwnerMobileAdminHeaderTrailingContext";
 import { OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
 import type { OwnerStoreOrderListRow } from "@/lib/business/owner-store-order-list-row-bridge";
 import {
   orderMatchesStoreTab,
   type StoreOrderTabId,
 } from "@/lib/business/store-orders-tab";
-import type { StoreRow } from "@/lib/stores/db-store-mapper";
-
 const TABS: Array<{ id: StoreOrderTabId; label: string }> = [
   { id: "all", label: "전체" },
   { id: "new", label: "신규" },
@@ -25,12 +25,9 @@ const TABS: Array<{ id: StoreOrderTabId; label: string }> = [
 
 export function OwnerStoreOrdersMobileBody({
   storeId,
-  storeName,
-  storeRow,
   orders,
   tab,
   highlightOrderId,
-  bellCount,
   summaryCounts,
   onTabHref,
   onUpdated,
@@ -38,12 +35,9 @@ export function OwnerStoreOrdersMobileBody({
   onCloseDetail,
 }: {
   storeId: string;
-  storeName: string;
-  storeRow: Pick<StoreRow, "id" | "slug"> | null;
   orders: OwnerStoreOrderListRow[];
   tab: StoreOrderTabId;
   highlightOrderId: string;
-  bellCount: number;
   summaryCounts: { pending: number; preparing: number; delivering: number; doneToday: number };
   onTabHref: (tabId: StoreOrderTabId) => string;
   onUpdated: () => void;
@@ -105,25 +99,45 @@ export function OwnerStoreOrdersMobileBody({
         ? "배달만"
         : "포장만";
 
+  const onOpenSearch = useCallback(() => setSearchOpen((v) => !v), []);
+  const onOpenFilter = useCallback(
+    () =>
+      setFilterFulfillment((f) =>
+        f === "all" ? "local_delivery" : f === "local_delivery" ? "pickup" : "all"
+      ),
+    []
+  );
+
+  const headerTrailing = useMemo(
+    () => (
+      <div className="flex shrink-0 items-center justify-end gap-0">
+        <button
+          type="button"
+          onClick={onOpenSearch}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#262626] hover:bg-[#F5F5F5]"
+          aria-label="주문 검색"
+        >
+          <Search className="h-[18px] w-[18px]" aria-hidden />
+        </button>
+        <button
+          type="button"
+          onClick={onOpenFilter}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#262626] hover:bg-[#F5F5F5]"
+          aria-label="주문 필터"
+        >
+          <Filter className="h-[18px] w-[18px]" aria-hidden />
+        </button>
+      </div>
+    ),
+    [onOpenFilter, onOpenSearch]
+  );
+  useRegisterOwnerMobileAdminHeaderTrailing(headerTrailing);
+
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-[#F3F4F6]">
-      <OwnerOrdersPageHeader
-        storeName={storeName}
-        storeRow={storeRow}
-        bellCount={bellCount}
-        backHref={OwnerRoutes.hub(storeId)}
-        onOpenSearch={() => setSearchOpen((v) => !v)}
-        onOpenFilter={() =>
-          setFilterFulfillment((f) =>
-            f === "all" ? "local_delivery" : f === "local_delivery" ? "pickup" : "all"
-          )
-        }
-      />
-
-      <main className={`min-h-0 flex-1 overflow-y-auto overscroll-y-contain ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}>
-        <div className="sticky top-0 z-20 border-b border-[#E5E7EB] bg-[#F3F4F6] px-3 pb-2 pt-2">
-          <div className="flex border-b border-[#E5E7EB] bg-white">
-            {TABS.map((t) => {
+      <div className="shrink-0 border-b border-[#E5E7EB] bg-[#F3F4F6] px-3 pb-2 pt-2">
+        <div className="flex border-b border-[#E5E7EB] bg-white">
+          {TABS.map((t) => {
               const active = tab === t.id;
               const count = tabCounts.get(t.id) ?? 0;
               return (
@@ -155,7 +169,7 @@ export function OwnerStoreOrdersMobileBody({
               href={onTabHref("new")}
             />
             <KpiCard
-              label="조리중"
+              label="준비(조리)중"
               value={summaryCounts.preparing}
               tone="text-[#FA8C16]"
               href={onTabHref("preparing")}
@@ -194,8 +208,11 @@ export function OwnerStoreOrdersMobileBody({
               {sortNewestFirst ? "최신순 ▾" : "오래된순 ▾"}
             </button>
           </div>
-        </div>
+      </div>
 
+      <main
+        className={`min-h-0 flex-1 overflow-y-auto overscroll-y-contain ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}
+      >
         <div className="space-y-3 px-3 py-3">
           {displayOrders.length === 0 ? (
             <div className="rounded-lg border border-[#E8E8E8] bg-white p-6 text-center text-[14px] text-[#8C8C8C]">
@@ -219,16 +236,16 @@ export function OwnerStoreOrdersMobileBody({
         </div>
       </main>
 
-      <OwnerQuickActions storeId={storeId} variant="orders" chatBadge={bellCount > 0 ? 1 : 0} />
-
-      {detailOrder ? (
-        <OwnerStoreOrderDetailPanel
-          order={detailOrder}
-          storeId={storeId}
-          onClose={onCloseDetail}
-          onUpdated={onUpdated}
-        />
-      ) : null}
+      {highlightOrderId ?
+        detailOrder ?
+          <OwnerStoreOrderDetailPanel
+            order={detailOrder}
+            storeId={storeId}
+            onClose={onCloseDetail}
+            onUpdated={onUpdated}
+          />
+        : <OwnerStoreOrderDetailLoadingPanel onClose={onCloseDetail} />
+      : null}
     </div>
   );
 }

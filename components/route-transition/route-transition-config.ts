@@ -5,6 +5,8 @@
 
 import { isCommunityMessengerRoomPathname } from "@/lib/layout/conditional-app-shell-flags";
 
+export { shouldSuppressOwnerStackMainShellSlide } from "@/lib/business/owner-stack-path";
+
 /** philife(0) → market(1) → delivery(2) → messenger(3) → mypage(4) */
 export const CANONICAL_NAV_INDICES = {
   philife: 0,
@@ -96,6 +98,28 @@ export function routeTransitionClassForKind(kind: RouteTransitionEnterKind): str
       return "main-shell-route-enter-ltr-back";
     case "rtl-back":
       return "main-shell-route-enter-rtl-back";
+    default: {
+      const _exhaustive: never = kind;
+      return _exhaustive;
+    }
+  }
+}
+
+/** `OwnerStackPageSlideShell` — 270ms 우→좌 / 좌→우 */
+export function ownerStackRouteTransitionClassForKind(
+  kind: RouteTransitionEnterKind
+): string | null {
+  switch (kind) {
+    case "none":
+      return null;
+    case "subtle":
+      return "owner-stack-route-enter-subtle";
+    case "ltr-forward":
+    case "rtl-forward":
+      return "owner-stack-route-enter-rtl-forward";
+    case "ltr-back":
+    case "rtl-back":
+      return "owner-stack-route-enter-ltr-back";
     default: {
       const _exhaustive: never = kind;
       return _exhaustive;

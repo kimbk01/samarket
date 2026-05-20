@@ -3,6 +3,7 @@
  *
  * - DB: store_orders.order_status 중심. payment_status 는 금액 확정·정산 호환용 메타에 가깝게 둠.
  * - 구매자 화면 상태 문구는 단일 표준으로 고정 (뱃지·목록·상세·채팅 등 BUYER_ORDER_STATUS_LABEL 참조).
+ * - 배달 진행 스테퍼·채팅 진행 바: 4단계 — 주문접수 → 준비(조리)중 → 배달중 → 배달완료
  */
 
 import { isDeliveryFulfillment } from "@/lib/stores/order-status-transitions";
@@ -10,29 +11,32 @@ import { isDeliveryFulfillment } from "@/lib/stores/order-status-transitions";
 /** 구매자 화면·알림용 상태 라벨 */
 export const BUYER_ORDER_STATUS_LABEL: Record<string, string> = {
   pending: "주문 확인중",
-  accepted: "주문 접수됨",
-  preparing: "조리중",
-  ready_for_pickup: "준비 완료",
+  accepted: "주문접수",
+  preparing: "준비(조리)중",
+  ready_for_pickup: "준비(조리)중",
   delivering: "배달중",
-  arrived: "도착",
+  arrived: "배달중",
   completed: "배달완료",
   cancelled: "주문 취소",
   refund_requested: "환불요청",
   refunded: "환불완료",
 };
 
-/** 배달·택배 — 6단계 (진행 스테퍼 열 기준: 접수 → 준비 → 포장 → 배달 출발 → 도착; 완료는 completed 로 종결) */
+/** 배달·택배 — 4단계 진행 스테퍼 (pending 은 1단계 대기, completed 는 4단계 종결) */
 export const TIMELINE_DELIVERY_STEPS = [
-  "주문 확인중",
-  "주문 접수",
-  "조리중",
-  "준비 완료",
+  "주문접수",
+  "준비(조리)중",
   "배달중",
-  "완료",
+  "배달완료",
 ] as const;
 
-/** 픽업·포장 — 4단계 (배송 단계 없음; 마지막 이후 완료는 completed·타임라인 allDone) */
-export const TIMELINE_PICKUP_STEPS = ["주문 확인중", "주문 접수", "조리중", "준비 완료"] as const;
+/** 픽업·포장 — 4단계 (배송 단계 없음) */
+export const TIMELINE_PICKUP_STEPS = [
+  "주문접수",
+  "준비(조리)중",
+  "픽업대기",
+  "픽업완료",
+] as const;
 
 /**
  * 사장님·비즈 콘솔: 현재 상태 → 다음 상태로 보낼 때 버튼 문구
@@ -42,12 +46,15 @@ export function labelForOwnerTransition(
   next: string,
   fulfillment: string
 ): string {
-  if (next === "accepted") return "주문 접수";
-  if (next === "preparing") return "조리 시작";
+  void fulfillment;
+  if (next === "accepted") return "주문접수";
+  if (next === "preparing") return "준비(조리) 시작";
   if (next === "ready_for_pickup") return "준비 완료";
   if (next === "delivering") return "배달 시작";
-  if (next === "arrived") return "도착";
-  if (next === "completed") return "배달 완료";
+  if (next === "arrived") return "배달중";
+  if (next === "completed") {
+    return isDeliveryFulfillment(fulfillment) ? "배달완료" : "픽업완료";
+  }
   if (next === "cancelled") {
     return current === "pending" ? "주문 거절" : "주문취소";
   }
@@ -56,7 +63,7 @@ export function labelForOwnerTransition(
 
 /**
  * 현재 진행 중인 타임라인 단계 인덱스 (0..n). completed면 n(=단계 수)과 같게 두고 UI에서 전체 완료 처리.
- * 배달 6열: pending … arrived → 인덱스 0..5, completed=6.
+ * 배달 4열: pending … arrived → 인덱스 0..3, completed=4.
  * 픽업 4열: pending … ready_for_pickup → 인덱스 0..3, completed=4.
  */
 export function storeOrderTimelineCurrentStep(fulfillmentType: string, orderStatus: string): number {
@@ -66,10 +73,10 @@ export function storeOrderTimelineCurrentStep(fulfillmentType: string, orderStat
       pending: 0,
       accepted: 1,
       preparing: 2,
-      ready_for_pickup: 3,
-      delivering: 4,
-      arrived: 5,
-      completed: 6,
+      ready_for_pickup: 2,
+      delivering: 3,
+      arrived: 3,
+      completed: 4,
     };
     return m[orderStatus] ?? 0;
   }
@@ -85,13 +92,12 @@ export function storeOrderTimelineCurrentStep(fulfillmentType: string, orderStat
 
 export type BuyerDetailStepState = "done" | "current" | "upcoming" | "na";
 
-/** 주문 상세용 6단계 — 픽업·포장은 배송 단계(3,4)를 생략 행으로 표시 */
+/** 주문 상세·채팅용 4단계 진행 상태 */
 export function buyerDetailSixStepStates(
   fulfillmentType: string,
   orderStatus: string
 ): BuyerDetailStepState[] {
   const deliveryLike = isDeliveryFulfillment(fulfillmentType);
-  const na: BuyerDetailStepState = "na";
   const u: BuyerDetailStepState = "upcoming";
   const d: BuyerDetailStepState = "done";
   const c: BuyerDetailStepState = "current";
@@ -99,42 +105,40 @@ export function buyerDetailSixStepStates(
   if (
     ["cancelled", "cancel_requested", "refund_requested", "refunded"].includes(orderStatus)
   ) {
-    return [u, u, u, na, na, u];
+    return [u, u, u, u];
   }
 
   if (deliveryLike) {
     switch (orderStatus) {
       case "pending":
-        return [c, u, u, u, u, u];
+        return [c, u, u, u];
       case "accepted":
-        return [d, c, u, u, u, u];
+        return [d, c, u, u];
       case "preparing":
-        return [d, d, c, u, u, u];
       case "ready_for_pickup":
-        return [d, d, d, c, u, u];
+        return [d, d, c, u];
       case "delivering":
-        return [d, d, d, d, c, u];
       case "arrived":
-        return [d, d, d, d, d, c];
+        return [d, d, d, c];
       case "completed":
-        return [d, d, d, d, d, d];
+        return [d, d, d, d];
       default:
-        return [u, u, u, u, u, u];
+        return [u, u, u, u];
     }
   }
 
   switch (orderStatus) {
     case "pending":
-      return [c, u, u, na, na, u];
+      return [c, u, u, u];
     case "accepted":
-      return [d, c, u, na, na, u];
+      return [d, c, u, u];
     case "preparing":
-      return [d, d, c, na, na, u];
+      return [d, d, c, u];
     case "ready_for_pickup":
-      return [d, d, d, na, na, c];
+      return [d, d, d, c];
     case "completed":
-      return [d, d, d, na, na, d];
+      return [d, d, d, d];
     default:
-      return [u, u, u, na, na, u];
+      return [u, u, u, u];
   }
 }

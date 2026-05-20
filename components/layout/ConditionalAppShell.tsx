@@ -139,7 +139,9 @@ export function ConditionalAppShell({
       {f.showOwnerLiteStoreBar ? <OwnerLiteStoreBarLazy /> : null}
       <main
         className={`${mainBottomClassLive} min-w-0 overflow-x-hidden ${heroMenuSurface ? "bg-transparent" : "bg-sam-app"} ${
-          f.isMainColumnViewportLocked ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-y-hidden" : ""
+          f.isMainColumnViewportLocked || f.isStoreOwnerAdminRoute
+            ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-y-hidden"
+            : ""
         }`}
       >
         <div
@@ -150,7 +152,9 @@ export function ConditionalAppShell({
           <MainShellTabContentTransition
             initialNavItems={initialMainBottomNavItems}
             contentStretchClass={
-              f.isMainColumnViewportLocked ? "flex min-h-0 min-w-0 flex-1 flex-col" : "min-w-0"
+              f.isMainColumnViewportLocked || f.isStoreOwnerAdminRoute
+                ? "flex h-full min-h-0 min-w-0 flex-1 flex-col"
+                : "min-w-0"
             }
           >
             {children}

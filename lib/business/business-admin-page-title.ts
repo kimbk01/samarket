@@ -25,6 +25,7 @@ export function getBusinessAdminPageTitle(pathname: string): string | null {
   )
     return null;
 
+  if (matchAny("/order-chats")) return "주문 채팅";
   if (matchAny("/orders") || matchAny("/store-orders")) return "주문 관리";
   if (matchAny("/inquiries")) return "채팅 · 문의";
   if (matchAny("/settlements")) return "정산";

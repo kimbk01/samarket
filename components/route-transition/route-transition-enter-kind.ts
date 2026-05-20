@@ -2,9 +2,14 @@ import type { MutableRefObject } from "react";
 import {
   resolveCanonicalNavIndex,
   shouldSuppressMessengerRoomMainShellSlide,
+  shouldSuppressOwnerStackMainShellSlide,
   type RouteTransitionEnterKind,
 } from "@/components/route-transition/route-transition-config";
 import type { CanonicalNavIndexResolver } from "@/lib/main-menu/canonical-nav-index-resolver";
+import {
+  isStoresOwnerStackPath,
+  storesOwnerStackDepth,
+} from "@/lib/business/owner-stack-path";
 
 function normalizePathKey(path: string | null | undefined): string {
   return String(path ?? "").split("?")[0]?.trim() ?? "";
@@ -13,26 +18,6 @@ function normalizePathKey(path: string | null | undefined): string {
 function isMypageStoreSectionPath(path: string | null | undefined): boolean {
   const p = normalizePathKey(path);
   return p === "/mypage/section/store" || p.startsWith("/mypage/section/store/");
-}
-
-/** `/stores/owner` 허브 및 하위 운영 경로 — 신청(`/stores/owner/apply`)은 제외 */
-function isStoresOwnerStackPath(path: string | null | undefined): boolean {
-  const p = normalizePathKey(path);
-  if (p === "/stores/owner") return true;
-  if (p.startsWith("/stores/owner/")) {
-    if (p === "/stores/owner/apply" || p.startsWith("/stores/owner/apply/")) return false;
-    return true;
-  }
-  return false;
-}
-
-function storesOwnerStackDepth(path: string | null | undefined): number {
-  const p = normalizePathKey(path);
-  if (!isStoresOwnerStackPath(p)) return -1;
-  if (p === "/stores/owner") return 0;
-  const rest = p.slice("/stores/owner".length).replace(/^\//, "");
-  if (!rest) return 0;
-  return rest.split("/").filter(Boolean).length;
 }
 
 function syncLastForwardAxisAfterKind(
@@ -52,18 +37,44 @@ function syncLastForwardAxisAfterKind(
   }
 }
 
+type RouteTransitionOpts = {
+  popstateBack: boolean;
+  lastForwardAxisRef: MutableRefObject<"ltr" | "rtl" | null>;
+  resolveIndex?: CanonicalNavIndexResolver;
+};
+
+/** `OwnerStackPageSlideShell` — 스택 내부 270ms 슬라이드 방향 */
+export function computeStoresOwnerStackTransitionKind(
+  prevPath: string,
+  nextPath: string,
+  opts: Pick<RouteTransitionOpts, "popstateBack" | "lastForwardAxisRef">
+): RouteTransitionEnterKind {
+  if (prevPath === nextPath) return "none";
+  if (isStoresOwnerStackPath(prevPath) && !isStoresOwnerStackPath(nextPath)) {
+    return "ltr-back";
+  }
+  if (!isStoresOwnerStackPath(nextPath)) return "none";
+
+  if (opts.popstateBack) return "ltr-back";
+  if (!isStoresOwnerStackPath(prevPath)) {
+    opts.lastForwardAxisRef.current = "rtl";
+    return "rtl-forward";
+  }
+  const dPrev = storesOwnerStackDepth(prevPath);
+  const dNext = storesOwnerStackDepth(nextPath);
+  if (dNext > dPrev) {
+    opts.lastForwardAxisRef.current = "rtl";
+    return "rtl-forward";
+  }
+  if (dNext < dPrev) return "ltr-back";
+  opts.lastForwardAxisRef.current = "rtl";
+  return "rtl-forward";
+}
+
 export function computeRouteTransitionEnterKind(
   prevPath: string,
   nextPath: string,
-  opts: {
-    popstateBack: boolean;
-    lastForwardAxisRef: MutableRefObject<"ltr" | "rtl" | null>;
-    /**
-     * 동적 인덱스 resolver — admin(`/admin/menus/main-bottom-nav`)에서 변경한 5탭(+ `custom_*`)
-     * **현재 순서**를 기반으로 인덱스를 계산한다. 미지정 시 정적 fallback(`resolveCanonicalNavIndex`).
-     */
-    resolveIndex?: CanonicalNavIndexResolver;
-  }
+  opts: RouteTransitionOpts
 ): RouteTransitionEnterKind {
   const resolveIndex: CanonicalNavIndexResolver = opts.resolveIndex ?? resolveCanonicalNavIndex;
   let kind: RouteTransitionEnterKind;
@@ -72,29 +83,16 @@ export function computeRouteTransitionEnterKind(
     kind = "none";
   } else if (shouldSuppressMessengerRoomMainShellSlide(prevPath, nextPath)) {
     kind = "none";
+  } else if (shouldSuppressOwnerStackMainShellSlide(prevPath, nextPath)) {
+    kind = "none";
+    const stackKind = computeStoresOwnerStackTransitionKind(prevPath, nextPath, opts);
+    syncLastForwardAxisAfterKind(stackKind, opts.lastForwardAxisRef);
+    return kind;
   } else if (isStoresOwnerStackPath(prevPath) && !isStoresOwnerStackPath(nextPath)) {
     /** 매장 운영 스택에서 탭 밖으로 나갈 때 — 좌→우 퇴장 */
     kind = "ltr-back";
   } else if (isStoresOwnerStackPath(nextPath)) {
-    /** 매장 운영 스택 진입·내부 이동 — 우→좌, 뒤로(popstate)는 좌→우 */
-    if (opts.popstateBack) {
-      kind = "ltr-back";
-    } else if (!isStoresOwnerStackPath(prevPath)) {
-      kind = "rtl-forward";
-      opts.lastForwardAxisRef.current = "rtl";
-    } else {
-      const dPrev = storesOwnerStackDepth(prevPath);
-      const dNext = storesOwnerStackDepth(nextPath);
-      if (dNext > dPrev) {
-        kind = "rtl-forward";
-        opts.lastForwardAxisRef.current = "rtl";
-      } else if (dNext < dPrev) {
-        kind = "ltr-back";
-      } else {
-        kind = "rtl-forward";
-        opts.lastForwardAxisRef.current = "rtl";
-      }
-    }
+    kind = computeStoresOwnerStackTransitionKind(prevPath, nextPath, opts);
   } else if (opts.popstateBack && isMypageStoreSectionPath(prevPath)) {
     /**
      * `/mypage/section/store` 트리: 뒤로가기는 항상 좌→우.

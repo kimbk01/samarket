@@ -47,6 +47,7 @@ import {
   countOrdersMatchingTab,
   ownerOrderMainTabForStatus,
 } from "@/lib/business/owner-order-main-tab";
+import { buildOwnerOrdersViewInitialState } from "@/lib/business/build-owner-orders-view-initial-state";
 import { pickOwnerStoreFromMeList } from "@/lib/business/pick-owner-store-from-me-list";
 import { OwnerStoreOrdersMobileBody } from "@/components/business/owner/OwnerStoreOrdersMobileBody";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
@@ -62,7 +63,12 @@ import {
   r2d1KpiMetaTraceInstallCollector,
 } from "@/lib/dibay/r2-d1-kpi-meta-trace";
 import { deriveOwnerStoreOrderMetaCounts } from "@/lib/stores/derive-owner-store-order-meta-counts";
+import { setOwnerOrdersAttentionBridge } from "@/lib/business/owner-orders-attention-bridge";
 import { fetchStoreOrdersListDeduped } from "@/lib/stores/fetch-store-orders-list-deduped";
+import {
+  parseStoreRowsFromMeStoresJson,
+  peekMeStoresListClientCache,
+} from "@/lib/me/fetch-me-stores-deduped";
 type OrderRow = OwnerStoreOrderListRow;
 
 function ownerOrdersUiTabForStatus(orderStatus: string): StoreOrderTabId {
@@ -98,19 +104,7 @@ export function OwnerStoreOrdersView() {
   const ownerNotifAckRef = useRef(false);
   const deepLinkEnrichAttemptedRef = useRef(false);
 
-  const [state, setState] = useState<
-    | { kind: "loading" }
-    | { kind: "unauth" }
-    | { kind: "config" }
-    | { kind: "no_store" }
-    | { kind: "error"; message: string }
-    | {
-        kind: "ok";
-        storeId: string;
-        storeName: string;
-        orders: OrderRow[];
-      }
-  >({ kind: "loading" });
+  const [state, setState] = useState(() => buildOwnerOrdersViewInitialState(urlStoreId));
 
   const prevPendingDeliveryRef = useRef<number | null>(null);
   const alertStoreIdRef = useRef<string | null>(null);
@@ -127,6 +121,19 @@ export function OwnerStoreOrdersView() {
 
   useLayoutEffect(() => {
     alertStoreIdRef.current = state.kind === "ok" ? state.storeId : null;
+  }, [state]);
+
+  useLayoutEffect(() => {
+    if (state.kind !== "ok") {
+      setOwnerOrdersAttentionBridge(null, null);
+      return;
+    }
+    const meta = deriveOwnerStoreOrderMetaCounts(state.orders);
+    setOwnerOrdersAttentionBridge(
+      state.storeId,
+      meta.pendingAcceptCount + meta.refundRequestedCount
+    );
+    return () => setOwnerOrdersAttentionBridge(null, null);
   }, [state]);
 
   useEffect(() => {
@@ -157,7 +164,28 @@ export function OwnerStoreOrdersView() {
     });
     if (!silent) setState({ kind: "loading" });
     try {
-      const { status: srStatus, json: rawSj } = await fetchMeStoresListDeduped();
+      const storesPeek = peekMeStoresListClientCache();
+      let prefetchStore: { id: string; store_name?: string; slug?: string } | null = null;
+      if (storesPeek?.status === 200) {
+        const cachedStores = parseStoreRowsFromMeStoresJson(storesPeek.json);
+        if (cachedStores?.length) {
+          prefetchStore = pickOwnerStoreFromMeList(
+            cachedStores as { id: string; store_name?: string; slug?: string }[],
+            urlStoreId
+          );
+        }
+      }
+
+      const storesTask = fetchMeStoresListDeduped();
+      const ordersTask = prefetchStore
+        ? fetchStoreOrdersListDeduped(prefetchStore.id)
+        : null;
+
+      const [{ status: srStatus, json: rawSj }, prefetchedOrders] = await Promise.all([
+        storesTask,
+        ordersTask ?? Promise.resolve(null),
+      ]);
+
       const sj = rawSj as { ok?: boolean; stores?: { id: string; store_name?: string }[] };
       if (srStatus === 401) {
         if (!silent) setState({ kind: "unauth" });
@@ -183,7 +211,18 @@ export function OwnerStoreOrdersView() {
         storeSlug: String(store.slug ?? "").trim(),
         storeName: String(store.store_name ?? "내 매장"),
       };
-      const { json: rawOj } = await fetchStoreOrdersListDeduped(store.id);
+
+      let rawOj: unknown;
+      if (
+        prefetchStore?.id === store.id &&
+        prefetchedOrders &&
+        prefetchedOrders.status === 200
+      ) {
+        rawOj = prefetchedOrders.json;
+      } else {
+        const ordersRes = await fetchStoreOrdersListDeduped(store.id);
+        rawOj = ordersRes.json;
+      }
       const oj = rawOj as {
         ok?: boolean;
         error?: string;
@@ -213,7 +252,11 @@ export function OwnerStoreOrdersView() {
   useEffect(() => {
     r2d1OwnerOrdersTraceInstallCollector();
     r2d1KpiMetaTraceInstallCollector();
-    void load({ reason: "mount" });
+    void load({
+      reason: "mount",
+      silent: state.kind === "ok",
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount: 초기 ok 캐시면 silent 백그라운드 정합만
   }, [load]);
 
   useEffect(() => {
@@ -365,19 +408,6 @@ export function OwnerStoreOrdersView() {
       }
     })();
   }, [state.kind, searchParams, pathname, router]);
-
-  useEffect(() => {
-    if (state.kind !== "ok" || !highlightOrderId) return;
-    const exists = state.orders.some((o) => o.id === highlightOrderId);
-    if (!exists) return;
-    const t = window.setTimeout(() => {
-      document.getElementById(`owner-order-${highlightOrderId}`)?.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-    }, 250);
-    return () => clearTimeout(t);
-  }, [state, highlightOrderId]);
 
   useRefetchOnPageShowRestore(() => void load({ silent: true, reason: "page_show_restore" }));
 
@@ -698,19 +728,12 @@ export function OwnerStoreOrdersView() {
   }
 
   if (state.kind === "ok") {
-    const bellCount = Math.max(summaryCounts.pending, metaCounts.pendingAcceptCount);
     return (
       <OwnerStoreOrdersMobileBody
         storeId={state.storeId}
-        storeName={state.storeName}
-        storeRow={{
-          id: state.storeId,
-          slug: storeListCtxRef.current.storeSlug,
-        }}
         orders={state.orders}
         tab={tab}
         highlightOrderId={highlightOrderId}
-        bellCount={bellCount}
         summaryCounts={summaryCounts}
         onTabHref={onTabHref}
         onUpdated={() => void load()}

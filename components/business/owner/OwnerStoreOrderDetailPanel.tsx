@@ -1,15 +1,33 @@
 "use client";
 
+import { type ReactNode } from "react";
 import { X, MapPin } from "lucide-react";
+import { BodyPortal } from "@/components/layout/BodyPortal";
 import { OwnerOrderCardProgressSteps } from "@/components/business/owner/OwnerOrderCardProgressSteps";
 import { OwnerStoreOrderDeliveryActionsAside } from "@/components/business/owner/OwnerStoreOrderDeliveryActions";
 import type { OwnerStoreOrderListRow } from "@/lib/business/owner-store-order-list-row-bridge";
 import { formatOwnerOrderElapsedKo } from "@/components/business/owner/owner-order-elapsed";
-import { ownerOrderStatusLabelKo, ownerOrderStatusTone } from "@/lib/stores/owner-mobile-ui-tokens";
+import {
+  OWNER_MOBILE_ORDER_DETAIL_FOOTER_PAD_CLASS,
+  OWNER_MOBILE_ORDER_DETAIL_OVERLAY_SHELL_CLASS,
+  ownerOrderStatusLabelKo,
+  ownerOrderStatusTone,
+} from "@/lib/stores/owner-mobile-ui-tokens";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
 import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
 import { BUYER_PUBLIC_LABEL_FALLBACK } from "@/lib/stores/buyer-public-label";
+
+/** `order_id` 딥링크·목록 로딩 중 — 상세 본문 대신 동일 오버레이 셸 */
+export function OwnerStoreOrderDetailLoadingPanel({ onClose }: { onClose: () => void }) {
+  return (
+    <OwnerStoreOrderDetailOverlay onClose={onClose}>
+      <div className="flex min-h-0 flex-1 items-center justify-center px-4">
+        <p className="text-[14px] text-[#8C8C8C]">주문 정보를 불러오는 중…</p>
+      </div>
+    </OwnerStoreOrderDetailOverlay>
+  );
+}
 
 export function OwnerStoreOrderDetailPanel({
   order,
@@ -38,21 +56,8 @@ export function OwnerStoreOrderDetailPanel({
       : "—";
 
   return (
-    <div className="fixed inset-0 z-[70] flex flex-col bg-[#F3F4F6] pt-[env(safe-area-inset-top,0px)]">
-      <div className="flex h-12 shrink-0 items-center justify-between border-b border-[#E5E7EB] bg-white px-3">
-        <button
-          type="button"
-          onClick={onClose}
-          className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-[#F5F5F5]"
-          aria-label="닫기"
-        >
-          <X className="h-5 w-5" aria-hidden />
-        </button>
-        <p className="text-[16px] font-bold text-[#262626]">주문 상세</p>
-        <span className="h-10 w-10" aria-hidden />
-      </div>
-
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3 pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]">
+    <OwnerStoreOrderDetailOverlay onClose={onClose}>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 py-3">
         <section className="rounded-lg border border-[#E8E8E8] bg-white p-3.5">
           <OrderDetailStatusHeader tone={tone} statusLabel={statusLabel} elapsed={elapsed} />
           <p className="mt-2 text-[12px] text-[#595959]">{order.order_no}</p>
@@ -120,7 +125,9 @@ export function OwnerStoreOrderDetailPanel({
         </section>
       </div>
 
-      <footer className="shrink-0 border-t border-[#E5E7EB] bg-white px-3 py-3 pb-[env(safe-area-inset-bottom,0px)]">
+      <footer
+        className={`shrink-0 border-t border-[#E5E7EB] bg-white px-3 pt-3 ${OWNER_MOBILE_ORDER_DETAIL_FOOTER_PAD_CLASS}`}
+      >
         <OwnerStoreOrderDeliveryActionsAside
           storeId={storeId}
           order={{
@@ -133,7 +140,40 @@ export function OwnerStoreOrderDetailPanel({
           rowBelowButtonLayout="row"
         />
       </footer>
-    </div>
+    </OwnerStoreOrderDetailOverlay>
+  );
+}
+
+function OwnerStoreOrderDetailOverlay({
+  onClose,
+  children,
+}: {
+  onClose: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <BodyPortal>
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="주문 상세"
+        className={OWNER_MOBILE_ORDER_DETAIL_OVERLAY_SHELL_CLASS}
+      >
+        <div className="flex h-12 shrink-0 items-center justify-between border-b border-[#E5E7EB] bg-white px-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-[#F5F5F5]"
+            aria-label="닫기"
+          >
+            <X className="h-5 w-5" aria-hidden />
+          </button>
+          <p className="text-[16px] font-bold text-[#262626]">주문 상세</p>
+          <span className="h-10 w-10" aria-hidden />
+        </div>
+        {children}
+      </div>
+    </BodyPortal>
   );
 }
 

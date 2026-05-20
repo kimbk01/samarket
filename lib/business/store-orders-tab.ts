@@ -101,8 +101,8 @@ export function buildStoreOrdersHref(params: {
 export const STORE_ORDER_TAB_CHIPS: Array<{ id: StoreOrderTabId; label: string }> = [
   { id: "all", label: "전체" },
   { id: "new", label: "신규" },
-  { id: "accepted", label: "접수완료" },
-  { id: "preparing", label: "조리·준비" },
+  { id: "accepted", label: "주문접수" },
+  { id: "preparing", label: "준비(조리)중" },
   { id: "ready", label: "픽업준비" },
   { id: "shipping", label: "배달중" },
   { id: "done", label: "완료" },

@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { createPortal } from "react-dom";
 import { buildBusinessAdminSidebar } from "@/lib/business/business-admin-nav";
 import { getBusinessAdminPageTitle } from "@/lib/business/business-admin-page-title";
@@ -33,7 +41,15 @@ import { useOwnerHubRuntime } from "@/components/business/owner/OwnerHubRuntimeP
 import { OWNER_HUB_BADGE_DOT_CLASS } from "@/lib/chats/hub-badge-ui";
 import { resolveOwnerOperationsCenterAttentionCount } from "@/lib/stores/owner-store-badge-display-policy";
 import { BusinessAdminStoreProvider } from "@/components/business/admin/business-admin-store-context";
+import { OwnerMobileAdminHeader } from "@/components/business/owner/OwnerMobileAdminHeader";
+import { OwnerMobileAdminHeaderTrailingProvider } from "@/components/business/owner/OwnerMobileAdminHeaderTrailingContext";
+import { OwnerStackPageSlideShell } from "@/components/business/owner/OwnerStackPageSlideShell";
+import { OwnerMobileBottomNav } from "@/components/stores/owner/OwnerMobileBottomNav";
 import { StoresOwnerStackHeader } from "@/components/business/owner/StoresOwnerStackHeader";
+import { OwnerRoutes } from "@/lib/business/owner-routes";
+import { isStoresOwnerStackPath } from "@/lib/business/owner-stack-path";
+import { useOwnerMobileStackViewportLock } from "@/lib/business/use-owner-mobile-stack-viewport-lock";
+import { buildStoreOpsMetaFromRow } from "@/lib/stores/owner-store-ops-snapshot";
 import { OwnerHubStoreAvatar } from "@/components/business/owner/OwnerHubStoreAvatar";
 import { resolveOwnerStoreNotificationsHref } from "@/lib/business/owner-store-notifications-route";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
@@ -44,12 +60,16 @@ import {
   isOwnerStoreAdminDirtyGuardPath,
 } from "@/lib/business/owner-basic-info-guard";
 import { isStoreOwnerAdminPathname } from "@/lib/business/owner-hub-path";
-import { setStoreOwnerMainBottomNavSuppressed } from "@/lib/business/store-owner-main-bottom-nav-suppress";
+import {
+  peekOwnerOrdersAttentionBridge,
+  subscribeOwnerOrdersAttentionBridge,
+} from "@/lib/business/owner-orders-attention-bridge";
+import { pushStoreOwnerMainBottomNavSuppressed } from "@/lib/business/store-owner-main-bottom-nav-suppress";
 import { useIsMobileViewport } from "@/hooks/use-is-mobile-viewport";
 import { ChevronRight, MapPin } from "lucide-react";
 import {
-  OWNER_HUB_MAIN_TOP_PAD_CLASS,
   OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS,
+  OWNER_MOBILE_PAGE_HEADER_MAIN_OFFSET_CLASS,
 } from "@/lib/stores/owner-mobile-ui-tokens";
 
 function readInitialStoresFromMeListCache(): StoreRow[] | null {
@@ -101,17 +121,22 @@ export function BusinessAdminShell({
   );
   const isOwnerHubRoute = ownerPathNorm === "/stores/owner";
   const isOwnerOrdersRoute = ownerPathNorm.includes("/stores/owner/orders");
+  const ownerOrderDetailOpen = useMemo(
+    () => isOwnerOrdersRoute && Boolean(searchParams.get("order_id")?.trim()),
+    [isOwnerOrdersRoute, searchParams]
+  );
+  const isOwnerMobileAdminShell = isMobile && isStoresOwnerStackPath(ownerPathNorm);
 
   const ownerMainBottomPad = useMemo(() => {
     const f = resolveConditionalAppShellFlags(pathname, false);
     const isStoreOwnerAdminSubroute = ownerPathNorm.startsWith("/stores/owner/");
-    if (isOwnerHubRoute || isOwnerOrdersRoute) return OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS;
+    if (isOwnerMobileAdminShell) return OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS;
     if (f.showBottomNav) return "pb-4 sm:pb-5 lg:pb-6";
     if (isStoreOwnerAdminSubroute) {
       return "pb-[max(0.5rem,env(safe-area-inset-bottom,0px))] sm:pb-3 md:pb-4 lg:pb-6";
     }
     return "pb-[calc(5rem+env(safe-area-inset-bottom,0px))] lg:pb-8";
-  }, [pathname, ownerPathNorm, isOwnerHubRoute, isOwnerOrdersRoute]);
+  }, [pathname, ownerPathNorm, isOwnerMobileAdminShell]);
 
   /** 상품 목록 허브 — 하단 탭 없음, 과한 main pb·클라 pb-8 중복 제거 대상 */
   const isOwnerStoreProductsHubRoute = useMemo(() => {
@@ -129,6 +154,11 @@ export function BusinessAdminShell({
       /^\/my\/business\/products\/[^/]+\/edit$/.test(p)
     );
   }, [pathname]);
+
+  const isOwnerMobileStackViewport =
+    isOwnerMobileAdminShell && !isOwnerStoreProductComposerRoute;
+
+  useOwnerMobileStackViewportLock(isOwnerMobileStackViewport);
 
   /** 상품 작성·목록 허브: 하단 고정 UI 없음 — main 과패딩으로 짜투리 공간이 생기지 않게 */
   const ownerMainBottomPadForChildren = useMemo(() => {
@@ -239,8 +269,21 @@ export function BusinessAdminShell({
       ? selectedRow.id
       : null;
 
+  const bridgedOrdersAttentionBadge = useSyncExternalStore(
+    subscribeOwnerOrdersAttentionBridge,
+    () =>
+      orderCountsStoreId ? peekOwnerOrdersAttentionBridge(orderCountsStoreId) : null,
+    () => null
+  );
+
+  const shellOrderAlertsBadge =
+    isOwnerOrdersRoute && bridgedOrdersAttentionBadge != null
+      ? bridgedOrdersAttentionBadge
+      : orderAlertsBadge;
+
   useEffect(() => {
     if (isHub && hubRuntime) return;
+    if (isOwnerOrdersRoute) return;
     if (!orderCountsStoreId) {
       setOrderAlertsBadge(0);
       return;
@@ -273,16 +316,18 @@ export function BusinessAdminShell({
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [orderCountsStoreId, isHub, hubRuntime]);
+  }, [orderCountsStoreId, isHub, hubRuntime, isOwnerOrdersRoute]);
 
   const ownerCommerceUnread = useOwnerCommerceNotificationUnreadCountDeferred(isHub);
   const isOwnerAdminRoute = isStoreOwnerAdminPathname(pathname);
   const ownerHubBreakdown = useOwnerHubBadgeBreakdownWhenEnabled(!isOwnerAdminRoute);
   const ownerOpsAttention = resolveOwnerOperationsCenterAttentionCount(ownerHubBreakdown);
-  const hubOrderAlertsBadge = hubRuntime?.orderAlertsBadge ?? orderAlertsBadge;
+  const hubOrderAlertsBadge = hubRuntime?.orderAlertsBadge ?? shellOrderAlertsBadge;
+  const ownerMobileBottomNavChatBadge =
+    hubOrderAlertsBadge > 0 ? Math.min(hubOrderAlertsBadge, 99) : 0;
   const ownerHeaderBellCount = isHub
     ? Math.max(hubOrderAlertsBadge, ownerCommerceUnread ?? 0)
-    : Math.max(ownerOpsAttention, orderAlertsBadge, ownerCommerceUnread ?? 0);
+    : Math.max(ownerOpsAttention, shellOrderAlertsBadge, ownerCommerceUnread ?? 0);
 
   const navCtx = useMemo(() => {
     if (!selectedRow) {
@@ -301,9 +346,9 @@ export function BusinessAdminShell({
       approvalStatus: String(selectedRow.approval_status),
       isVisible: selectedRow.is_visible === true,
       canSell: storeRowCanSell(selectedRow),
-      orderAlertsBadge: isHub ? hubOrderAlertsBadge : orderAlertsBadge,
+      orderAlertsBadge: isHub ? hubOrderAlertsBadge : shellOrderAlertsBadge,
     };
-  }, [selectedRow, orderAlertsBadge, isHub, hubOrderAlertsBadge]);
+  }, [selectedRow, shellOrderAlertsBadge, isHub, hubOrderAlertsBadge]);
 
   const sections = useMemo(() => buildBusinessAdminSidebar(navCtx), [navCtx]);
   const pageTitle = getBusinessAdminPageTitle(pathname);
@@ -350,12 +395,17 @@ export function BusinessAdminShell({
     : null;
 
   useEffect(() => {
-    const open = isMobile && mobileMenuOpen;
-    setStoreOwnerMainBottomNavSuppressed(open);
+    const releases: Array<() => void> = [];
+    if (isMobile && mobileMenuOpen) {
+      releases.push(pushStoreOwnerMainBottomNavSuppressed());
+    }
+    if (ownerOrderDetailOpen) {
+      releases.push(pushStoreOwnerMainBottomNavSuppressed());
+    }
     return () => {
-      setStoreOwnerMainBottomNavSuppressed(false);
+      for (const release of releases) release();
     };
-  }, [isMobile, mobileMenuOpen]);
+  }, [isMobile, mobileMenuOpen, ownerOrderDetailOpen]);
 
   /**
    * 모바일 전용: 드로어 열릴 때 배경 스크롤 잠금.
@@ -420,6 +470,21 @@ export function BusinessAdminShell({
     const sid = selectedRow.id;
     return `/stores/owner?storeId=${encodeURIComponent(sid)}`;
   }, [isHub, selectedRow]);
+
+  const storeOpsForMobileHeader = useMemo(() => {
+    if (!selectedRow) {
+      return buildStoreOpsMetaFromRow({ is_open: false, business_hours_json: null });
+    }
+    return buildStoreOpsMetaFromRow({
+      is_open: selectedRow.is_open,
+      business_hours_json: selectedRow.business_hours_json,
+    });
+  }, [selectedRow]);
+
+  const mobileAdminHeaderBackHref =
+    isOwnerHubRoute ? undefined : (
+      adminHeaderBackHref ?? (selectedRow ? OwnerRoutes.hub(selectedRow.id) : OwnerRoutes.hub())
+    );
 
   const basicInfoBackIntercept = useCallback(() => {
     if (!isOwnerStoreAdminDirtyGuardPath(pathname)) return false;
@@ -630,7 +695,9 @@ export function BusinessAdminShell({
 
   /** 모바일(`max-md`): 오버레이 드로어 + 뷰포트 높이·내부 스크롤. `md`+: 기존 sticky 우측 패널(태블릿·가로). */
   const asideClassName = [
-    "flex flex-col border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] transition-[transform,width] duration-200 ease-out max-md:[backdrop-filter:none]",
+    "flex flex-col border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] max-md:[backdrop-filter:none]",
+    "max-md:transition-transform max-md:duration-[270ms] max-md:ease-out",
+    "md:transition-[width] md:duration-200 md:ease-out",
     "max-md:min-h-0 max-md:overflow-hidden max-md:fixed max-md:inset-y-0 max-md:right-0 max-md:z-[1003] max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:w-[280px] max-md:max-w-[88vw] max-md:border-l max-md:shadow-none",
     mobileMenuOpen ? "max-md:translate-x-0" : "max-md:translate-x-full",
     "md:relative md:shrink-0 md:z-0 md:h-screen md:sticky md:top-0 md:border-l md:shadow-none md:max-w-none",
@@ -644,18 +711,25 @@ export function BusinessAdminShell({
    */
   const mobileOwnerDrawerPortaled = ownerBizDrawerPortalReady && isMobile;
   const mobileOwnerOverlay =
-    isMobile && mobileMenuOpen ?
+    isMobile ?
       /**
        * 스크림: 뷰포트 전체(`inset-0`)를 동일한 불투명도로 덮는다. 드로어는 DOM·z-index(1003)로 그 위에만 올라가며,
        * `right: min(...)` 로 잘라 내는 방식은 오른쪽에 딤이 비어 본문이 그대로 비치는 버그를 만든다.
+       * 닫힘 시에도 270ms 페이드아웃을 위해 언마운트하지 않고 opacity 만 토글한다.
        */
       <div
         role="button"
-        tabIndex={-1}
+        tabIndex={mobileMenuOpen ? 0 : -1}
         aria-label="메뉴 닫기"
-        className="fixed inset-0 z-[1002] m-0 min-h-[100dvh] min-h-[100svh] w-full max-w-[100vw] cursor-pointer touch-none border-0 bg-black/45 p-0 [overscroll-behavior:none] md:hidden"
+        aria-hidden={!mobileMenuOpen}
+        className={`fixed inset-0 z-[1002] m-0 min-h-[100dvh] min-h-[100svh] w-full max-w-[100vw] touch-none border-0 bg-black/45 p-0 transition-opacity duration-[270ms] ease-out [overscroll-behavior:none] md:hidden ${
+          mobileMenuOpen ?
+            "cursor-pointer opacity-100"
+          : "pointer-events-none cursor-default opacity-0"
+        }`}
         onClick={() => setMobileMenuOpen(false)}
         onKeyDown={(e) => {
+          if (!mobileMenuOpen) return;
           if (e.key === "Escape" || e.key === "Enter" || e.key === " ") {
             e.preventDefault();
             setMobileMenuOpen(false);
@@ -717,7 +791,7 @@ export function BusinessAdminShell({
       <div
         data-biz="1"
         className={`flex min-w-0 flex-col bg-[var(--biz-app-bg)] md:flex-row-reverse ${
-          isOwnerStoreProductComposerRoute || (isMobile && (isOwnerHubRoute || isOwnerOrdersRoute))
+          isOwnerStoreProductComposerRoute || isOwnerMobileStackViewport
             ? "h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden"
             : "min-h-screen"
         }`}
@@ -729,52 +803,70 @@ export function BusinessAdminShell({
           </>
         : null}
 
-        <div
-          className={`flex min-w-0 flex-1 flex-col bg-[var(--biz-app-bg)] md:border-r md:border-sam-border-soft ${
-            isOwnerStoreProductComposerRoute
-              ? "min-h-0 overflow-hidden"
-              : isMobile && (isOwnerHubRoute || isOwnerOrdersRoute)
-                ? "h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden"
-                : "min-h-screen"
-          }`}
-        >
-          {isMobile && (isHub || isOwnerOrdersRoute) ? null : (
-            <StoresOwnerStackHeader
-              variant={isHub ? "hub" : "admin"}
-              hideTitle={isHub}
-              backHref={isHub ? "/mypage/section/store/manage" : adminHeaderBackHref}
-              backIntercept={isHub ? undefined : combinedAdminHeaderBackIntercept}
-              backPreferHistory={!isHub}
-              backAriaLabel="이전 화면으로"
-              shopName={shopName}
-              pageTitle={isHub ? null : pageTitle}
-              rightSlot={isHub ? hubHeaderRightSlot : headerRightSlot}
-              desktopInsetLeft={desktopSidebarOpen}
-            />
-          )}
+        <OwnerMobileAdminHeaderTrailingProvider>
+          <div
+            className={`flex min-w-0 flex-1 flex-col overflow-x-hidden bg-[var(--biz-app-bg)] md:border-r md:border-sam-border-soft ${
+              isOwnerStoreProductComposerRoute
+                ? "min-h-0 overflow-hidden"
+                : isOwnerMobileStackViewport
+                  ? "h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden"
+                  : "min-h-screen"
+            }`}
+          >
+            {isOwnerMobileAdminShell && !isOwnerStoreProductComposerRoute && selectedRow ?
+              <OwnerMobileAdminHeader
+                variant={isOwnerHubRoute ? "hub" : "page"}
+                storeName={shopName}
+                storeId={selectedRow.id}
+                storeSlug={selectedRow.slug}
+                storeOps={storeOpsForMobileHeader}
+                urgentAlertCount={ownerHeaderBellCount}
+                stores={hubRuntime?.stores ?? initialStores ?? null}
+                pageTitle={pageTitle}
+                backHref={mobileAdminHeaderBackHref}
+              />
+            : null}
+            {!(isOwnerMobileAdminShell && !isOwnerStoreProductComposerRoute) ?
+              <StoresOwnerStackHeader
+                variant={isHub ? "hub" : "admin"}
+                hideTitle={isHub}
+                backHref={isHub ? "/mypage/section/store/manage" : adminHeaderBackHref}
+                backIntercept={isHub ? undefined : combinedAdminHeaderBackIntercept}
+                backPreferHistory={!isHub}
+                backAriaLabel="이전 화면으로"
+                shopName={shopName}
+                pageTitle={isHub ? null : pageTitle}
+                rightSlot={isHub ? hubHeaderRightSlot : headerRightSlot}
+                desktopInsetLeft={desktopSidebarOpen}
+              />
+            : null}
 
-        <main
-          className={`mx-auto w-full min-w-0 px-2 sm:px-2 ${
-            isMobile && (isOwnerHubRoute || isOwnerOrdersRoute)
-              ? "flex h-full min-h-0 max-w-lg flex-1 flex-col overflow-hidden px-0 pt-0"
-              : "max-w-6xl"
-          } ${
-            isMobile && isHub
-              ? OWNER_HUB_MAIN_TOP_PAD_CLASS
-              : isMobile && isOwnerOrdersRoute
-                ? "pt-0"
-                : "pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem+1rem)]"
-          } ${isHub || isOwnerOrdersRoute ? "bg-[#F3F4F6]" : "bg-[var(--biz-app-bg)]"} ${
-            isMobile && (isOwnerHubRoute || isOwnerOrdersRoute)
-              ? ""
-              : ownerMainBottomPadForChildren
-          }${
-            isOwnerStoreProductComposerRoute ? " flex min-h-0 flex-1 flex-col overflow-hidden" : ""
-          }`}
-        >
-          {children}
-        </main>
-        </div>
+            <main
+              className={`mx-auto w-full min-w-0 ${
+                isOwnerMobileStackViewport
+                  ? `flex max-w-lg flex-1 flex-col overflow-hidden px-0 ${OWNER_MOBILE_PAGE_HEADER_MAIN_OFFSET_CLASS}`
+                  : "max-w-6xl px-2 sm:px-2"
+              } ${
+                isOwnerMobileStackViewport
+                  ? "min-h-0"
+                  : "pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem+1rem)]"
+              } ${isOwnerMobileAdminShell ? "bg-[#F3F4F6]" : "bg-[var(--biz-app-bg)]"} ${
+                isOwnerMobileStackViewport ? "" : ownerMainBottomPadForChildren
+              }${
+                isOwnerStoreProductComposerRoute ? " flex min-h-0 flex-1 flex-col overflow-hidden" : ""
+              }`}
+            >
+              <OwnerStackPageSlideShell>{children}</OwnerStackPageSlideShell>
+            </main>
+            {isOwnerMobileStackViewport && selectedRow && !ownerOrderDetailOpen ?
+              <OwnerMobileBottomNav
+                storeId={selectedRow.id}
+                chatBadge={ownerMobileBottomNavChatBadge}
+                scrollHideEnabled
+              />
+            : null}
+          </div>
+        </OwnerMobileAdminHeaderTrailingProvider>
       </div>
     </BusinessAdminStoreProvider>
   );

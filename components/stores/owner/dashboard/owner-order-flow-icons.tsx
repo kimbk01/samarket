@@ -10,13 +10,13 @@ const STEP_STYLE: Record<
   { bg: string; Icon: LucideIcon; ariaLabel: string }
 > = {
   waiting: { bg: "#2D7FF9", Icon: ClipboardList, ariaLabel: "접수대기" },
-  cooking: { bg: "#FA8C16", Icon: ChefHat, ariaLabel: "조리중" },
+  cooking: { bg: "#FA8C16", Icon: ChefHat, ariaLabel: "준비(조리)중" },
   delivering: { bg: "#1890FF", Icon: Truck, ariaLabel: "배달중" },
   done: { bg: "#BFBFBF", Icon: Check, ariaLabel: "완료" },
 };
 
-/** 모바일 목업 원형 직경 */
-export const OWNER_FLOW_CIRCLE_PX = 52;
+/** 대시보드 「주문 진행 현황」 원형 직경 (기준 52px 대비 −20%) */
+export const OWNER_FLOW_CIRCLE_PX = 42;
 
 export function OwnerFlowStepCircle({
   variant,
@@ -83,7 +83,6 @@ export function ownerFlowIconForStepIndex(
     const list = [
       { Icon: ClipboardList, bg: "#2D7FF9" },
       { Icon: ChefHat, bg: "#FA8C16" },
-      { Icon: Package, bg: "#FA8C16" },
       { Icon: Truck, bg: "#1890FF" },
       { Icon: Check, bg: "#BFBFBF" },
     ];

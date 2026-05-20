@@ -30,6 +30,8 @@ export const OwnerRoutes = {
   edit: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/edit`, storeId),
   settings: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/settings`, storeId),
   orders: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/orders`, storeId),
+  /** 이 매장(`storeId`) 주문에 붙은 메신저 방만 — 타 매장 주문 혼합 없음 */
+  orderChats: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/order-chats`, storeId),
   orderChat: (orderId: string) => `${OWNER_ROUTES_BASE}/order-chat/${encodeURIComponent(orderId)}`,
   inquiries: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/inquiries`, storeId),
   settlements: (storeId?: string | null) => withStoreId(`${OWNER_ROUTES_BASE}/settlements`, storeId),

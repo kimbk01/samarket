@@ -73,10 +73,10 @@ const STORE_ORDER_EVENT_LABEL_KO: Record<string, string> = {
   order_created: "주문 생성",
   order_accepted: "매장 접수",
   order_rejected: "접수 거절",
-  order_preparing: "준비 중",
-  order_ready: "준비 완료·픽업 대기",
-  order_delivering: "배달 진행",
-  order_completed: "완료",
+  order_preparing: "준비(조리)중",
+  order_ready: "준비(조리)중",
+  order_delivering: "배달중",
+  order_completed: "배달완료",
   order_cancelled: "취소",
   refund_requested: "환불 요청",
   refund_approved: "환불 처리",
@@ -218,12 +218,12 @@ function buyerStoreOrderProgressCopy(order: OrderDetail): { headline: string; li
       };
     case "preparing":
       return {
-        headline: "조리중",
+        headline: "준비(조리)중",
         lines: clock ? [`예상 준비완료 ${clock}`] : ["매장에서 준비 중입니다."],
       };
     case "delivering":
       return {
-        headline: "배달 출발",
+        headline: "배달중",
         lines:
           [
             deliveryLine,

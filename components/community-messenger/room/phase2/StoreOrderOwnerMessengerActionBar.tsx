@@ -97,7 +97,7 @@ function OwnerProgressRail({ order }: { order: OwnerDeliveryOrderRef }) {
   const labels = deliveryLike ? TIMELINE_DELIVERY_STEPS : TIMELINE_PICKUP_STEPS;
   const states = buyerDetailSixStepStates(order.fulfillment_type, order.order_status);
   return (
-    <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-6" aria-label="주문 진행 단계">
+    <div className="grid grid-cols-4 gap-1.5" aria-label="주문 진행 단계">
       {labels.map((label, idx) => {
         const state = states[idx] ?? "upcoming";
         return (
