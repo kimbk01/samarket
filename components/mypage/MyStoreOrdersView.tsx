@@ -5,10 +5,12 @@ import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
 import { CommerceCartHubHeaderRight } from "@/components/layout/CommerceCartHubHeaderRight";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { MemberOrderStatusBadge } from "@/components/member-orders/MemberOrderStatusBadge";
 import { MemberOrderTabs } from "@/components/member-orders/MemberOrderTabs";
-import { MEMBER_STATUS_USER_MESSAGE } from "@/lib/member-orders/member-order-labels";
+import { memberOrderStatusUserMessage } from "@/lib/member-orders/member-order-labels";
 import type { MemberOrderStatus, MemberOrderTab } from "@/lib/member-orders/types";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
 import { isStoreOrderChatDisabledForBuyer } from "@/lib/stores/order-status-transitions";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -122,9 +124,9 @@ function isDeliveryFulfillment(ft: string) {
   return ft === "local_delivery" || ft === "shipping";
 }
 
-function statusUserLine(status: string) {
+function statusUserLine(status: string, lang: AppLanguageCode) {
   if (isMemberOrderStatus(status)) {
-    return MEMBER_STATUS_USER_MESSAGE[status];
+    return memberOrderStatusUserMessage(status, lang);
   }
   return BUYER_ORDER_STATUS_LABEL[status] ?? status;
 }
@@ -225,6 +227,7 @@ function MyStoreOrderCard({
   onDelete?: (id: string) => void;
   deleteBusy?: boolean;
 }) {
+  const { language } = useI18n();
   const router = useRouter();
   const reorderPayload = reorderPayloadFromListOrder(o);
   const onChatPointerEnter = useCallback(() => {
@@ -324,7 +327,7 @@ function MyStoreOrderCard({
               </div>
               <div className="mt-2 rounded-[4px] border border-[#DDE5E0] bg-[#F6FAFC] px-3 py-2">
                 <p className="text-[12px] font-bold leading-[1.35] text-[#1C8DB8]">
-                  {statusUserLine(o.order_status)}
+                  {statusUserLine(o.order_status, language)}
                 </p>
                 {reviewLabel ? (
                   <p className="mt-1 text-[12px] font-semibold leading-[1.35] text-[#123B4A]">

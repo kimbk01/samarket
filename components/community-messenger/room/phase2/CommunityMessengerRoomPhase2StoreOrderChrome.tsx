@@ -1,11 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { StoreOrderSellerOrderPanel } from "@/components/chats/StoreOrderSellerOrderPanel";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { StoreOrderBuyerRoomSheet } from "@/components/community-messenger/room/phase2/StoreOrderBuyerRoomSheet";
 import { useStoreOrderDeliveryRoom } from "@/components/community-messenger/room/phase2/store-order-delivery-room-context";
-import { roomHasStoreOrderAutoSummary } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
 import { storeOrderAwaitingFirstPayment } from "@/lib/stores/store-order-awaiting-payment";
 import { patchMeStoreOrder } from "@/lib/stores/store-delivery-api-client";
@@ -101,11 +100,6 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
     }
   }, [vm]);
 
-  const hasAutoSummary = useMemo(
-    () => roomHasStoreOrderAutoSummary(vm.snapshot.messages),
-    [vm.snapshot.messages]
-  );
-
   const openOrderDetailDrawer = useCallback(() => {
     setDetailDrawerOpen(true);
   }, [setDetailDrawerOpen]);
@@ -148,7 +142,6 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
     isSeller && storeId ? (
       <StoreOrderSellerOrderPanel
         presentation="drawer"
-        drawerVariant="peek"
         open={detailDrawerOpen}
         onOpenChange={setDetailDrawerOpen}
         chatRoomId={vm.snapshot.room.id}
@@ -160,10 +153,6 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
         postChatText={postChatText}
         sendSummaryDisabled={vm.roomUnavailable}
         onRoomReload={onRoomReload}
-        hideSendSummary={hasAutoSummary}
-        hidePeekDrawerMoreMenu
-        onVoiceCall={() => void vm.startManagedDirectCall("voice")}
-        voiceCallDisabled={vm.roomUnavailable || vm.outgoingDialLocked}
       />
     ) : null;
 
