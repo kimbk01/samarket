@@ -11,5 +11,8 @@ export function resolveTradeCategoryUILabel(
 ): string {
   const fb = humanizeMessageKeySlug(slugFallback ?? koName);
   const admin = resolveLocalizedAdminLabel(lang, koName, nameEn);
-  return sanitizeUiDisplayLabel(admin, fb);
+  const raw =
+    admin.trim() ||
+    (lang === "en" ? (nameEn ?? "").trim() || fb : koName.trim() || fb);
+  return sanitizeUiDisplayLabel(raw, fb);
 }

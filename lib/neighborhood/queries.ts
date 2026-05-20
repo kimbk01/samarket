@@ -10,8 +10,10 @@ import { normalizeCommunityFeedListSkin } from "@/lib/community-feed/topic-feed-
 import {
   buildPhilifeTopicColorLookup,
   buildPhilifeTopicFeedListSkinLookup,
+  buildPhilifeTopicNameEnLookup,
   buildPhilifeTopicNameLookup,
   labelForNeighborhoodPostCategory,
+  labelForNeighborhoodPostCategoryEn,
   loadPhilifeDefaultSectionTopics,
   neighborhoodPostTopicUiSlug,
 } from "@/lib/neighborhood/philife-neighborhood-topics";
@@ -201,6 +203,7 @@ export async function listNeighborhoodFeed(options: {
   socialPreflightMs = performance.now() - tSoc0;
 
   const topicNameBySlug = buildPhilifeTopicNameLookup(topics);
+  const topicNameEnBySlug = buildPhilifeTopicNameEnLookup(topics);
   const topicFeedSkinBySlug = buildPhilifeTopicFeedListSkinLookup(topics);
   const topicColorBySlug = buildPhilifeTopicColorLookup(topics);
 
@@ -461,6 +464,7 @@ export async function listNeighborhoodFeed(options: {
       id: String(r.id),
       category: topicUiSlug,
       category_label: labelForNeighborhoodPostCategory(topicUiSlug, topicNameBySlug),
+      category_name_en: labelForNeighborhoodPostCategoryEn(topicUiSlug, topicNameEnBySlug),
       feed_list_skin: feedSkin,
       topic_color: topicColor,
       is_question: isQuestion,
@@ -668,6 +672,7 @@ export async function getNeighborhoodPostDetail(
 
   const locationLabel = String(row.region_label ?? "").trim();
   const topicNameBySlug = buildPhilifeTopicNameLookup(topics);
+  const topicNameEnBySlug = buildPhilifeTopicNameEnLookup(topics);
   const topicFeedSkinBySlug = buildPhilifeTopicFeedListSkinLookup(topics);
   const topicColorBySlug = buildPhilifeTopicColorLookup(topics);
   const enumCat = String(row.category ?? "etc").trim().toLowerCase() || "etc";
@@ -688,6 +693,7 @@ export async function getNeighborhoodPostDetail(
     id: String(row.id),
     category: topicUiSlug,
     category_label: labelForNeighborhoodPostCategory(topicUiSlug, topicNameBySlug),
+    category_name_en: labelForNeighborhoodPostCategoryEn(topicUiSlug, topicNameEnBySlug),
     feed_list_skin: topicFeedSkinBySlug.get(topicUiSlug) ?? defaultSkin,
     topic_color: topicColorBySlug.get(topicUiSlug) ?? null,
     is_question: isQuestion,

@@ -366,6 +366,25 @@ export function buildPhilifeWriteTopicOptionsFromTopics(
 }
 
 /** 글 카드·상세 라벨 — DB 주제명 우선, 없으면 레거시 상수, 없으면 slug */
+export function buildPhilifeTopicNameEnLookup(topics: CommunityTopicDTO[]): Map<string, string> {
+  const m = new Map<string, string>();
+  for (const t of topics) {
+    if (!t.is_visible) continue;
+    const en = t.name_en?.trim();
+    if (en) m.set(t.slug.trim().toLowerCase(), en);
+  }
+  return m;
+}
+
+export function labelForNeighborhoodPostCategoryEn(
+  categorySlug: string,
+  topicNameEnBySlug: Map<string, string>
+): string | null {
+  const s = categorySlug.trim().toLowerCase();
+  if (!s) return null;
+  return topicNameEnBySlug.get(s) ?? null;
+}
+
 export function buildPhilifeTopicNameLookup(topics: CommunityTopicDTO[]): Map<string, string> {
   const m = new Map<string, string>();
   for (const t of topics) {

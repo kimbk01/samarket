@@ -8,7 +8,7 @@
 import type { CategoryWithSettings } from "./types";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { writeCategoryCache } from "./category-memory-cache";
-import { CATEGORY_WITH_SETTINGS_SELECT } from "./category-select-fragment";
+import { selectCategoriesWithSettings } from "./query-categories-select";
 import { toCategoryWithSettings, type CategoryDbRow } from "./to-category-with-settings";
 import { normalizeMarketSlugParam } from "./tradeMarketPath";
 
@@ -37,15 +37,15 @@ export async function getCategories(filters?: {
 
   try {
      
-    const q = (supabase as any)
-      .from("categories")
-      .select(CATEGORY_WITH_SETTINGS_SELECT);
-    const applied = activeOnly ? q.eq("is_active", true) : q;
-    const { data, error } = await applied.order("sort_order", { ascending: true });
+    const { data, error } = await selectCategoriesWithSettings(supabase as never, (cols) => {
+      let q = (supabase as any).from("categories").select(cols);
+      if (activeOnly) q = q.eq("is_active", true);
+      if (filters?.type) q = q.eq("type", filters.type);
+      return q.order("sort_order", { ascending: true });
+    });
 
     if (error || !Array.isArray(data)) return [];
-    let list = (data as CategoryDbRow[]).map(toCategoryWithSettings);
-    if (filters?.type) list = list.filter((c) => c.type === filters.type);
+    const list = (data as CategoryDbRow[]).map(toCategoryWithSettings);
     primeCategoryByKeyMemoryCache(list);
     return list;
   } catch {

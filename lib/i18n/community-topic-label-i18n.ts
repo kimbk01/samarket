@@ -1,4 +1,8 @@
 import type { AppLanguageCode } from "./config";
+import {
+  getNeighborhoodCategoryLabel,
+  normalizeNeighborhoodCategory,
+} from "@/lib/neighborhood/categories";
 import { resolveLocalizedAdminLabel } from "./resolve-localized-admin-label";
 import { humanizeMessageKeySlug, sanitizeUiDisplayLabel } from "./safe-ui-label";
 
@@ -9,7 +13,15 @@ export function resolveCommunityTopicUILabel(
   enName?: string | null,
   slugFallback?: string
 ): string {
-  const fb = humanizeMessageKeySlug(slugFallback ?? koName);
+  const slug = (slugFallback ?? "").trim().toLowerCase();
+  const legacy = normalizeNeighborhoodCategory(slug);
+  const fb =
+    lang === "en" && legacy
+      ? getNeighborhoodCategoryLabel(legacy, "en")
+      : humanizeMessageKeySlug(slug || koName);
   const admin = resolveLocalizedAdminLabel(lang, koName, enName);
-  return sanitizeUiDisplayLabel(admin, fb);
+  const raw =
+    admin.trim() ||
+    (lang === "en" ? (enName ?? "").trim() || fb : koName.trim() || fb);
+  return sanitizeUiDisplayLabel(raw, fb);
 }

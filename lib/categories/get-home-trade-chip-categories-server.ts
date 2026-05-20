@@ -7,7 +7,8 @@ import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import type { CategoryWithSettings } from "./types";
 import { queryTradeHomeRootCategories } from "./trade-home-root-query";
 
-const CACHE_KEY = "home-trade-tab-categories-v1" as const;
+/** `name_en` 레거시 폴백 반영 — 빈 탭 캐시 무효화 */
+const CACHE_KEY = "home-trade-tab-categories-v2" as const;
 
 export async function getHomeTradeChipCategoriesForServer(): Promise<CategoryWithSettings[]> {
   try {

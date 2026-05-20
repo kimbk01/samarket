@@ -7,7 +7,7 @@
  */
 import type { CategoryWithSettings } from "./types";
 import { getSupabaseClient } from "@/lib/supabase/client";
-import { CATEGORY_WITH_SETTINGS_SELECT } from "./category-select-fragment";
+import { selectCategoriesWithSettings } from "./query-categories-select";
 import { toCategoryWithSettings, type CategoryDbRow } from "./to-category-with-settings";
 
 export async function getQuickCreateCategories(): Promise<CategoryWithSettings[]> {
@@ -15,14 +15,16 @@ export async function getQuickCreateCategories(): Promise<CategoryWithSettings[]
   if (!supabase) return [];
 
   try {
-    const { data, error } = await (supabase as any)
-      .from("categories")
-      .select(CATEGORY_WITH_SETTINGS_SELECT)
-      .eq("is_active", true)
-      .eq("quick_create_enabled", true)
-      .is("parent_id", null)
-      .order("quick_create_group", { ascending: true, nullsFirst: false })
-      .order("quick_create_order", { ascending: true });
+    const { data, error } = await selectCategoriesWithSettings(supabase as never, (cols) =>
+      (supabase as any)
+        .from("categories")
+        .select(cols)
+        .eq("is_active", true)
+        .eq("quick_create_enabled", true)
+        .is("parent_id", null)
+        .order("quick_create_group", { ascending: true, nullsFirst: false })
+        .order("quick_create_order", { ascending: true })
+    );
 
     if (error || !Array.isArray(data)) return [];
     return (data as CategoryDbRow[]).map(toCategoryWithSettings);

@@ -10,6 +10,8 @@ export function resolveLocalizedAdminLabel(
   if (lang === "en") {
     const en = (enName ?? "").trim();
     if (en) return en;
+    /** en 미입력 시 ko 로 되돌리지 않음 — 호출부 slug·카탈로그 폴백 */
+    return "";
   }
   return ko;
 }

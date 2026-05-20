@@ -5,6 +5,8 @@ export type NeighborhoodFeedPostDTO = {
   /** `community_topics.slug` 와 동기(어드민 피드 주제) */
   category: string;
   category_label: string;
+  /** `community_topics.name_en` — 카드 뱃지 en 표시(본문 아님) */
+  category_name_en?: string | null;
   /** 어드민 주제별 목록 카드 스킨 (`community_topics.feed_list_skin`) */
   feed_list_skin: CommunityFeedListSkin;
   topic_color: string | null;

@@ -5,7 +5,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { CategoryWithSettings } from "./types";
 import { parseQuickCreateGroup } from "./parseQuickCreateGroup";
-import { CATEGORY_WITH_SETTINGS_SELECT } from "./category-select-fragment";
+import { selectCategoriesWithSettings } from "./query-categories-select";
 
 interface TradeHomeRootDbRow {
   id: string;
@@ -82,14 +82,16 @@ export async function queryTradeHomeRootCategories(
   supabase: SupabaseClient<any>
 ): Promise<TradeHomeRootQueryResult> {
   try {
-    const { data, error } = await supabase
-      .from("categories")
-      .select(CATEGORY_WITH_SETTINGS_SELECT)
-      .eq("is_active", true)
-      .eq("type", "trade")
-      .eq("show_in_home_chips", true)
-      .is("parent_id", null)
-      .order("sort_order", { ascending: true });
+    const { data, error } = await selectCategoriesWithSettings(supabase, (cols) =>
+      supabase
+        .from("categories")
+        .select(cols)
+        .eq("is_active", true)
+        .eq("type", "trade")
+        .eq("show_in_home_chips", true)
+        .is("parent_id", null)
+        .order("sort_order", { ascending: true })
+    );
 
     if (error || !Array.isArray(data)) return { ok: false };
     return { ok: true, categories: (data as TradeHomeRootDbRow[]).map(mapTradeHomeRootRow) };

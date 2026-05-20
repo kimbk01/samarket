@@ -9,6 +9,8 @@ import { stripMeetupPostMetaFromContent } from "@/lib/neighborhood/meeting-post-
 import { resolveNeighborhoodFeedListThumbnail } from "@/lib/community-feed/feed-list-thumbnail";
 import { stripMarkdownImageSyntaxForFeedPreview } from "@/lib/philife/interleaved-body-markdown";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { resolveCommunityTopicUILabel } from "@/lib/i18n/community-topic-label-i18n";
 import {
   FeedListLayoutCarrotThumbLeft,
   FeedListLayoutCarrotThumbRight,
@@ -19,7 +21,11 @@ import {
   type FeedListCardViewModel,
 } from "./feed-list-layouts";
 
-function buildNeighborhoodFeedListViewModel(post: NeighborhoodFeedPostDTO, untitledLabel: string): FeedListCardViewModel {
+function buildNeighborhoodFeedListViewModel(
+  post: NeighborhoodFeedPostDTO,
+  untitledLabel: string,
+  language: AppLanguageCode
+): FeedListCardViewModel {
   const time =
     post.created_at && !Number.isNaN(Date.parse(post.created_at))
       ? formatTimeAgo(post.created_at)
@@ -46,7 +52,12 @@ function buildNeighborhoodFeedListViewModel(post: NeighborhoodFeedPostDTO, untit
         ? philifeAppPaths.meeting(post.meeting_id)
         : philifeAppPaths.post(post.id),
     meetupMeetingId: post.is_meetup && post.meeting_id ? post.meeting_id : null,
-    topicLabel: post.category_label,
+    topicLabel: resolveCommunityTopicUILabel(
+      language,
+      post.category_label,
+      post.category_name_en,
+      post.category
+    ),
     topicColor: post.topic_color,
     title: post.title?.trim() || untitledLabel,
     summary: normalizeFeedListBodyPreview(summaryForList),
@@ -76,6 +87,7 @@ function isSameCommunityCardPost(prev: NeighborhoodFeedPostDTO, next: Neighborho
     prev.content === next.content &&
     prev.author_name === next.author_name &&
     prev.category_label === next.category_label &&
+    prev.category_name_en === next.category_name_en &&
     prev.topic_color === next.topic_color &&
     prev.location_label === next.location_label &&
     prev.meetup_place === next.meetup_place &&
@@ -91,9 +103,9 @@ function isSameCommunityCardPost(prev: NeighborhoodFeedPostDTO, next: Neighborho
 }
 
 export const CommunityCard = memo(function CommunityCard({ post }: { post: NeighborhoodFeedPostDTO }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const skin = post.feed_list_skin;
-  const vm = buildNeighborhoodFeedListViewModel(post, t("community_no_title"));
+  const vm = buildNeighborhoodFeedListViewModel(post, t("community_no_title"), language);
   const hasThumb = Boolean(vm.thumbnailUrl);
   /** `text_primary` 는 일반 주제용 「썸네일 숨김」— 모임은 `meetings.cover`·`images` 로 썸네일이 있으면 우선 표시 */
   const useTextOnlySkin = skin === "text_primary" && !(post.is_meetup && hasThumb);

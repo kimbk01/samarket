@@ -17,7 +17,7 @@ export async function getHomeChipCategories(): Promise<CategoryWithSettings[]> {
   const supabase = getSupabaseClient();
   if (!supabase) return [];
 
-  return cachedCategoryFetch("homeChips:trade:v1", HOME_CHIP_TRADE_TTL_MS, async () => {
+  return cachedCategoryFetch("homeChips:trade:v2", HOME_CHIP_TRADE_TTL_MS, async () => {
     const r = await queryTradeHomeRootCategories(supabase as any);
     if (r.ok) return r.categories;
     const fallback = await getActiveCategories({ type: "trade" });
