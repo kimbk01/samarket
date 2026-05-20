@@ -109,7 +109,9 @@ export function MessengerChatFilterSheet({
                           : "border-sam-border bg-sam-surface-muted text-sam-fg active:bg-sam-surface",
                       ].join(" ")}
                     >
-                      {messengerChatListChipLabel(chip)}
+                      <span className="block min-w-0 truncate text-[12px] leading-[1.25]">
+                        {messengerChatListChipLabel(chip)}
+                      </span>
                     </button>
                   </li>
                 );

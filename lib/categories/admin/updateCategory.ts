@@ -13,6 +13,7 @@ import type { QuickCreateGroup } from "@/lib/categories/types";
 
 export interface UpdateCategoryPayload {
   name: string;
+  name_en?: string | null;
   slug: string;
   icon_key: string;
   type: CategoryType;

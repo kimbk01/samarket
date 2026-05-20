@@ -18,6 +18,17 @@ import {
   resolveStorePrimaryIndustryLabel,
   resolveStoreTopicLabel,
 } from "@/lib/i18n/store-browse-label-i18n";
+import {
+  STORE_BROWSE_PRIMARY_TABLIST,
+  STORE_BROWSE_PRIMARY_TAB_BUTTON,
+  STORE_BROWSE_PRIMARY_TAB_ICON,
+  STORE_BROWSE_PRIMARY_TAB_LABEL,
+  STORE_BROWSE_SECTION_TITLE,
+  STORE_BROWSE_SUB_CARD,
+  STORE_BROWSE_SUB_CARD_ICON,
+  STORE_BROWSE_SUB_CARD_ICON_WRAP,
+  STORE_BROWSE_SUB_CARD_LABEL,
+} from "@/components/stores/store-browse-category-ui";
 
 const FOOD_CATEGORIES: readonly { icon: string; subSlug?: string }[] = [
   { icon: "/icons/food/icon_0_0.png" },
@@ -55,7 +66,7 @@ export function StoreCategoryExploreSection({
 }: {
   headerTrailing?: ReactNode;
 }) {
-  const { t, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const industryVersion = useBrowseIndustryDatasetVersion();
   const [taxonomy, setTaxonomy] = useState<{
     categories: StoreTaxonomyCategory[];
@@ -124,7 +135,7 @@ export function StoreCategoryExploreSection({
         <div
           role="tablist"
           aria-label={t("store_primary_industry_aria")}
-          className="flex snap-x snap-mandatory gap-0 overflow-x-auto overscroll-x-contain border-b border-sam-border px-0.5 py-1 [-ms-overflow-style:none] [scrollbar-width:none] [scrollbar-gutter:stable] touch-pan-x dark:border-[#3E4042] [&::-webkit-scrollbar]:hidden"
+          className={STORE_BROWSE_PRIMARY_TABLIST}
         >
           {primaries.map((p) => {
             const on = p.slug === activeSlug;
@@ -136,7 +147,7 @@ export function StoreCategoryExploreSection({
                 role="tab"
                 aria-selected={on}
                 onClick={() => setPickedSlug((prev) => (prev === p.slug ? prev : p.slug))}
-                className={`flex w-[58px] shrink-0 snap-start flex-col items-center justify-center gap-0.5 rounded-sam-md px-0.5 py-1.5 text-center transition-[transform,color] duration-150 will-change-transform active:scale-[0.97] ${
+                className={`${STORE_BROWSE_PRIMARY_TAB_BUTTON} ${
                   on ? "text-sam-fg dark:text-[#E4E6EB]" : "text-sam-muted dark:text-[#B0B3B8]"
                 }`}
               >
@@ -146,7 +157,7 @@ export function StoreCategoryExploreSection({
                     src={icon}
                     alt=""
                     aria-hidden
-                    className={`h-10 w-10 object-contain ${on ? "opacity-100" : "opacity-90"}`}
+                    className={`${STORE_BROWSE_PRIMARY_TAB_ICON} ${on ? "opacity-100" : "opacity-90"}`}
                     loading="lazy"
                   />
                 ) : (
@@ -171,11 +182,7 @@ export function StoreCategoryExploreSection({
                                     : "🏷️"}
                   </span>
                 )}
-                <span
-                  className={`text-[12.5px] font-semibold leading-none tracking-[-0.01em] ${
-                    on ? "text-sam-fg dark:text-[#E4E6EB]" : ""
-                  }`}
-                >
+                <span className={STORE_BROWSE_PRIMARY_TAB_LABEL}>
                   {resolveStorePrimaryIndustryLabel(
                     language,
                     p.slug,
@@ -194,8 +201,8 @@ export function StoreCategoryExploreSection({
         </div>
 
         <div className={`flex items-center justify-between gap-2 px-4 py-3 ${FB.hairline} border-b border-sam-border dark:border-[#3E4042]`}>
-          <p className={`truncate sam-text-body-secondary ${FB.meta}`}>
-            <span className="font-semibold text-sam-fg dark:text-[#E4E6EB]">
+          <p className={`min-w-0 sam-text-body-secondary ${FB.meta}`}>
+            <span className={`${STORE_BROWSE_SECTION_TITLE} text-sam-fg dark:text-[#E4E6EB]`}>
               {resolveStorePrimaryIndustryLabel(
                 language,
                 activeSlug,
@@ -226,18 +233,18 @@ export function StoreCategoryExploreSection({
                 <Link
                   key={cat.subSlug ?? "all"}
                   href={href}
-                  className="group flex min-h-[78px] flex-col items-center justify-center rounded-xl border border-sam-border bg-white p-2.5 text-center shadow-sm transition will-change-transform hover:shadow-md active:scale-[0.97] dark:border-[#3E4042] dark:bg-[#2A2B2C] dark:hover:shadow-none"
+                  className={STORE_BROWSE_SUB_CARD}
                 >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={cat.icon}
-                    alt={label}
-                    className="mb-1 h-12 w-12 object-contain"
-                    loading="lazy"
-                  />
-                  <span className="text-[13px] font-medium leading-none text-gray-700 dark:text-[#E4E6EB]">
-                    {label}
+                  <span className={STORE_BROWSE_SUB_CARD_ICON_WRAP}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={cat.icon}
+                      alt={label}
+                      className={STORE_BROWSE_SUB_CARD_ICON}
+                      loading="lazy"
+                    />
                   </span>
+                  <span className={STORE_BROWSE_SUB_CARD_LABEL}>{label}</span>
                 </Link>
               );
             })}
@@ -246,21 +253,25 @@ export function StoreCategoryExploreSection({
           <div className="grid grid-cols-3 gap-3 p-4 sm:grid-cols-4">
             <Link
               href={storesBrowsePrimaryPath(activeSlug)}
-              className="group flex min-h-[78px] flex-col items-center justify-center rounded-xl border border-sam-border bg-white p-2.5 text-center shadow-sm transition will-change-transform hover:shadow-md active:scale-[0.97] dark:border-[#3E4042] dark:bg-[#2A2B2C] dark:hover:shadow-none"
+              className={STORE_BROWSE_SUB_CARD}
             >
               {secondaryBrowseAllIconSrc ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={secondaryBrowseAllIconSrc}
-                  alt=""
-                  aria-hidden
-                  className="mb-1 h-12 w-12 object-contain"
-                  loading="lazy"
-                />
+                <span className={STORE_BROWSE_SUB_CARD_ICON_WRAP}>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={secondaryBrowseAllIconSrc}
+                    alt=""
+                    aria-hidden
+                    className={STORE_BROWSE_SUB_CARD_ICON}
+                    loading="lazy"
+                  />
+                </span>
               ) : null}
-              <span className="sam-text-xxs font-semibold leading-none text-sam-muted dark:text-[#B0B3B8]">{t("store_collect_view")}</span>
-              <span className="mt-0.5 text-[13px] font-bold leading-none text-gray-800 dark:text-[#E4E6EB]">
-                {t("store_browse_food_all")}
+              <span className="block w-full truncate text-center text-[10px] font-semibold leading-[1.2] text-sam-muted dark:text-[#B0B3B8]">
+                {t("store_collect_view")}
+              </span>
+              <span className={`${STORE_BROWSE_SUB_CARD_LABEL} font-bold`}>
+                {safeT("store_browse_food_all")}
               </span>
             </Link>
             {subs.map((s, idx) => {
@@ -276,18 +287,20 @@ export function StoreCategoryExploreSection({
                 <Link
                   key={s.id}
                   href={storesBrowsePath(activeSlug, s.slug)}
-                  className="group flex min-h-[78px] flex-col items-center justify-center rounded-xl border border-sam-border bg-white p-2.5 text-center shadow-sm transition will-change-transform hover:shadow-md active:scale-[0.97] dark:border-[#3E4042] dark:bg-[#2A2B2C] dark:hover:shadow-none"
+                  className={STORE_BROWSE_SUB_CARD}
                 >
                   {src ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={src}
-                      alt={label}
-                      className={`mb-1 h-12 w-12 ${uploaded ? "object-cover rounded-ui-rect" : "object-contain"}`}
-                      loading="lazy"
-                    />
+                    <span className={STORE_BROWSE_SUB_CARD_ICON_WRAP}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={src}
+                        alt={label}
+                        className={`${STORE_BROWSE_SUB_CARD_ICON} ${uploaded ? "object-cover rounded-ui-rect" : "object-contain"}`}
+                        loading="lazy"
+                      />
+                    </span>
                   ) : null}
-                  <span className="text-[13px] font-medium leading-none text-gray-700 dark:text-[#E4E6EB]">{label}</span>
+                  <span className={STORE_BROWSE_SUB_CARD_LABEL}>{label}</span>
                 </Link>
               );
             })}

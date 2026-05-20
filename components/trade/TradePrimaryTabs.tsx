@@ -27,6 +27,7 @@ import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-
 import { useLongPressOrTap } from "@/lib/ui/use-long-press-or-tap";
 import { menuHrefMatchesIntent, useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { I18N_COMPACT_CHIP_LABEL } from "@/lib/ui/i18n-compact-label-classes";
 
 interface TradePrimaryTabsProps {
   embed?: boolean;
@@ -68,7 +69,7 @@ function TradePrimaryTabsInner({
   embed: _embed = false,
   embedInAppHeader = false,
 }: TradePrimaryTabsProps) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -84,7 +85,24 @@ function TradePrimaryTabsInner({
   const tradeState = tradeStateRaw === "active" || tradeStateRaw === "reserved" || tradeStateRaw === "sold"
     ? tradeStateRaw
     : "latest";
-  const allSortLabel = tradeState === "active" ? "판매중" : tradeState === "reserved" ? "예약중" : tradeState === "sold" ? "거래 완료" : "최신순";
+  const allSortLabel =
+    tradeState === "active"
+      ? safeT("trade_market_sort_active")
+      : tradeState === "reserved"
+        ? safeT("trade_market_sort_reserved")
+        : tradeState === "sold"
+          ? safeT("trade_market_sort_sold")
+          : safeT("trade_market_sort_latest");
+  const tradeSortOptions = useMemo(
+    () =>
+      [
+        { key: "latest" as const, label: safeT("trade_market_sort_latest") },
+        { key: "active" as const, label: safeT("trade_market_sort_active") },
+        { key: "reserved" as const, label: safeT("trade_market_sort_reserved") },
+        { key: "sold" as const, label: safeT("trade_market_sort_sold") },
+      ],
+    [safeT]
+  );
   const allTradeHref = tradeState === "latest" ? "/market" : `/market?tradeState=${encodeURIComponent(tradeState)}`;
   const setTradeState = useCallback(
     (next: "latest" | "active" | "reserved" | "sold") => {
@@ -248,7 +266,7 @@ function TradePrimaryTabsInner({
                 aria-selected={onAllTrade}
                 aria-haspopup="listbox"
                 aria-expanded={allSortOpen}
-                aria-label={`${allSortLabel}. 한 번 탭하면 최신순 정렬로 바로 적용하고, 길게 누르면 판매중·예약중 등 다른 정렬을 고를 수 있어요.`}
+                aria-label={t("trade_market_sort_chip_aria", { label: allSortLabel })}
                 ref={allSortButtonRef}
                 {...tradeAllSortChipGestures.buttonProps}
                 onKeyDown={(e) => {
@@ -273,9 +291,7 @@ function TradePrimaryTabsInner({
                     }`}
                   />
                 ) : null}
-                <span className="relative z-[1] block min-w-0 max-w-[min(10rem,36vw)] truncate px-0.5">
-                  {allSortLabel}
-                </span>
+                <span className={`relative z-[1] ${I18N_COMPACT_CHIP_LABEL}`}>{allSortLabel}</span>
                 {allSortOpen ? (
                   <ChevronUp
                     className="relative z-[1] h-3.5 w-3.5 shrink-0 text-sam-primary"
@@ -322,9 +338,7 @@ function TradePrimaryTabsInner({
                   }`}
                 />
               ) : null}
-              <span className="relative z-[1] block min-w-0 max-w-[min(10rem,36vw)] truncate px-0.5">
-                {tab.label}
-              </span>
+              <span className={`relative z-[1] ${I18N_COMPACT_CHIP_LABEL}`}>{tab.label}</span>
             </Link>
           );
         })}
@@ -344,12 +358,7 @@ function TradePrimaryTabsInner({
                 className="min-w-[10rem] rounded-sam-md border border-sam-border bg-sam-surface py-1 shadow-sam-elevated"
                 style={{ position: "fixed", top: allSortMenuPos.top, left: allSortMenuPos.left, zIndex: 200 }}
               >
-                {[
-                  { key: "latest", label: "최신순" },
-                  { key: "active", label: "판매중" },
-                  { key: "reserved", label: "예약중" },
-                  { key: "sold", label: "거래 완료" },
-                ].map((opt) => (
+                {tradeSortOptions.map((opt) => (
                   <li key={opt.key} role="none">
                     <button
                       type="button"

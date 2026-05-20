@@ -14,6 +14,7 @@ import { CATEGORY_WITH_SETTINGS_SELECT } from "@/lib/categories/category-select-
 interface CategoryDbRow {
   id: string;
   name: string;
+  name_en?: string | null;
   slug: string;
   icon_key: string;
   type: string;
@@ -34,6 +35,7 @@ function mapRow(row: CategoryDbRow): CategoryWithSettings {
   return {
     id: row.id,
     name: row.name,
+    name_en: typeof row.name_en === "string" ? row.name_en.trim() || null : null,
     slug: row.slug,
     icon_key: row.icon_key,
     type: row.type as CategoryWithSettings["type"],

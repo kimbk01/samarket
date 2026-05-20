@@ -1,19 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getRegionOptions } from "@/lib/regions/region-utils";
 import { getCategories } from "@/lib/categories/getCategories";
 import type { CategoryWithSettings } from "@/lib/types/category";
 import type { SearchSortKey } from "@/lib/search/search-utils";
 import { SEARCH_SORT_OPTIONS } from "@/lib/search/search-utils";
-
-const STATUS_OPTIONS = [
-  { value: "all", label: "전체" },
-  { value: "active", label: "판매중" },
-  { value: "reserved", label: "예약중" },
-  { value: "sold", label: "판매완료" },
-];
+import { resolveTradeCategoryUILabel } from "@/lib/i18n/trade-category-label-i18n";
 
 export interface SearchFilters {
   regionId: string;
@@ -44,11 +38,21 @@ export function SearchFilterBar({
   onChange,
   onReset,
 }: SearchFilterBarProps) {
-  const { tt, t } = useI18n();
+  const { t, tt, safeT, language } = useI18n();
   const [categories, setCategories] = useState<CategoryWithSettings[]>([]);
   useEffect(() => {
     getCategories({ type: "trade", activeOnly: true }).then(setCategories);
   }, []);
+
+  const statusOptions = useMemo(
+    () => [
+      { value: "all", label: safeT("common_all") },
+      { value: "active", label: safeT("trade_market_sort_active") },
+      { value: "reserved", label: safeT("trade_market_sort_reserved") },
+      { value: "sold", label: safeT("trade_market_sort_sold") },
+    ],
+    [safeT]
+  );
 
   const hasActive =
     filters.regionId ||
@@ -80,10 +84,10 @@ export function SearchFilterBar({
           }
           className="min-h-[44px] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg"
         >
-          <option value="">{t("common_all_category")}</option>
+          <option value="">{safeT("common_all_category")}</option>
           {categories.map((c) => (
             <option key={c.id} value={c.slug}>
-              {c.name}
+              {resolveTradeCategoryUILabel(language, c.name, c.name_en, c.slug)}
             </option>
           ))}
         </select>
@@ -94,9 +98,9 @@ export function SearchFilterBar({
           }
           className="min-h-[44px] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-medium text-sam-fg"
         >
-          {STATUS_OPTIONS.map((o) => (
+          {statusOptions.map((o) => (
             <option key={o.value} value={o.value}>
-              {tt(o.label)}
+              {o.label}
             </option>
           ))}
         </select>

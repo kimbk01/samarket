@@ -42,6 +42,7 @@ export function CategorySubtopicFormModal({
 }: CategorySubtopicFormModalProps) {
   const { t } = useI18n();
   const [name, setName] = useState(category?.name ?? "");
+  const [name_en, setNameEn] = useState(category?.name_en ?? "");
   const [slug, setSlug] = useState(category?.slug ?? "");
   const [sort_order, setSortOrder] = useState(category?.sort_order ?? nextSortOrder);
   const [is_active, setIsActive] = useState(category?.is_active ?? true);
@@ -51,6 +52,7 @@ export function CategorySubtopicFormModal({
   useEffect(() => {
     if (category) {
       setName(category.name);
+      setNameEn(category.name_en ?? "");
       setSlug(category.slug);
       setSortOrder(category.sort_order);
       setIsActive(category.is_active);
@@ -84,6 +86,7 @@ export function CategorySubtopicFormModal({
             category.id,
             {
               name: name.trim(),
+              name_en: name_en.trim() || null,
               slug: slugTrim,
               icon_key: category.icon_key,
               type: category.type,
@@ -106,6 +109,7 @@ export function CategorySubtopicFormModal({
           const res = await createCategory(
             {
               name: name.trim(),
+              name_en: name_en.trim() || null,
               slug: slugTrim,
               icon_key: parent.icon_key,
               type: parent.type,
@@ -131,7 +135,7 @@ export function CategorySubtopicFormModal({
         setSubmitting(false);
       }
     },
-    [name, slug, sort_order, is_active, category, parent, onDone, onClose]
+    [name, name_en, slug, sort_order, is_active, category, parent, onDone, onClose]
   );
 
   return (
@@ -155,6 +159,18 @@ export function CategorySubtopicFormModal({
               onChange={(e) => setName(e.target.value)}
               className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
               required
+            />
+          </div>
+          <div>
+            <label className="block sam-text-body-secondary font-medium text-sam-fg">
+              {t("admin_stores_app_taxonomy_ph_name_en")}
+            </label>
+            <input
+              type="text"
+              value={name_en}
+              onChange={(e) => setNameEn(e.target.value)}
+              placeholder={t("admin_stores_app_taxonomy_ph_name_en")}
+              className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
             />
           </div>
           <div>

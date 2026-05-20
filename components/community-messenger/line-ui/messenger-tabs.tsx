@@ -8,6 +8,7 @@ import {
   APP_MAIN_HEADER_INNER_CLASS,
 } from "@/lib/ui/app-content-layout";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { I18N_COMPACT_CHIP_LABEL } from "@/lib/ui/i18n-compact-label-classes";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const SECTIONS: MessengerMainSection[] = ["friends", "chats", "open_chat", "archive"];
@@ -43,7 +44,7 @@ export function MessengerTabs({ value, onChange }: MessengerTabsProps) {
                 onClick={() => onChange(id)}
                 className={active ? Sam.tabs.tabActive : Sam.tabs.tab}
               >
-                {messengerSectionLabel(id)}
+                <span className={I18N_COMPACT_CHIP_LABEL}>{messengerSectionLabel(id)}</span>
               </button>
             );
           })}

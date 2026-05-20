@@ -9,6 +9,7 @@ import { getSupabaseClient } from "@/lib/supabase/client";
 
 export interface CreateCategoryPayload {
   name: string;
+  name_en?: string | null;
   slug: string;
   icon_key: string;
   type: CategoryType;
@@ -52,6 +53,7 @@ export async function createCategory(
       .from("categories")
       .insert({
         name: payload.name,
+        name_en: payload.name_en?.trim() || null,
         slug: payload.slug,
         icon_key: payload.icon_key,
         type: payload.type,

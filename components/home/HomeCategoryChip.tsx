@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { menuHrefMatchesIntent, useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 import type { CategoryWithSettings } from "@/lib/categories/types";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { isTradeMarketRouteActive } from "@/lib/categories/tradeMarketPath";
+import { resolveTradeCategoryUILabel } from "@/lib/i18n/trade-category-label-i18n";
+import { I18N_COMPACT_CHIP_LABEL } from "@/lib/ui/i18n-compact-label-classes";
 import {
   APP_MARKET_MENU_TEXT_ACTIVE,
   APP_MARKET_MENU_TEXT_BASE,
@@ -29,10 +32,12 @@ export function HomeCategoryChip({
   isActive: isActiveProp,
   appearance = "pill",
 }: HomeCategoryChipProps) {
+  const { language } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
   const { beginMenuNavigation, pendingMenuIntent } = useLatestMenuNavigation();
   const href = getCategoryHref(category);
+  const label = resolveTradeCategoryUILabel(language, category.name, category.name_en, category.slug);
   const pathNoQuery = pathname.split("?")[0] ?? "";
   const safeDec = (s: string) => {
     try {
@@ -89,7 +94,9 @@ export function HomeCategoryChip({
               : pillCls
       }
     >
-      {category.name}
+      <span className={appearance === "feed-chip" || appearance === "pill" ? I18N_COMPACT_CHIP_LABEL : "block truncate"}>
+        {label}
+      </span>
     </Link>
   );
 }

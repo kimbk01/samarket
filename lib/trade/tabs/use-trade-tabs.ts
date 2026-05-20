@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { getCategoryHref } from "@/lib/categories/getCategoryHref";
 import { getHomeChipCategories } from "@/lib/categories/getHomeChipCategories";
 import { isTradeMarketRouteActive } from "@/lib/categories/tradeMarketPath";
 import type { CategoryWithSettings } from "@/lib/categories/types";
+import { resolveTradeCategoryUILabel } from "@/lib/i18n/trade-category-label-i18n";
 import type { TradePrimaryTab } from "./types";
 
 let cachedTradePrimaryCategories: CategoryWithSettings[] | null = null;
@@ -40,6 +42,7 @@ async function loadTradePrimaryCategories(): Promise<CategoryWithSettings[]> {
 }
 
 export function useTradeTabs(pathname: string) {
+  const { language, safeT } = useI18n();
   const [tradeCategories, setTradeCategories] = useState<CategoryWithSettings[]>(
     cachedTradePrimaryCategories ?? []
   );
@@ -76,18 +79,23 @@ export function useTradeTabs(pathname: string) {
     () => [
       {
         key: "all",
-        label: "전체",
+        label: safeT("trade_market_tab_all"),
         href: "/market",
         isActive: pathname === "/market",
       },
       ...tradeCategories.map((category) => ({
         key: category.id,
-        label: category.name,
+        label: resolveTradeCategoryUILabel(
+          language,
+          category.name,
+          category.name_en,
+          category.slug
+        ),
         href: getCategoryHref(category),
         isActive: isTradeMarketRouteActive(pathname, category),
       })),
     ],
-    [pathname, tradeCategories]
+    [pathname, tradeCategories, language, safeT]
   );
 
   const activeIndex = tabs.findIndex((tab) => tab.isActive);

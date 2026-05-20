@@ -30,6 +30,7 @@ import {
 } from "@/lib/stores/store-delivery-api-client";
 import { useSupabaseBuyerStoreOrdersRealtime } from "@/hooks/useSupabaseBuyerStoreOrdersRealtime";
 import { formatStoreOrderCheckoutEtaSummary } from "@/lib/stores/format-store-order-checkout-display";
+import { formatAppDateTime } from "@/lib/i18n/locale-for-app-language";
 
 type ItemRow = {
   id: string;
@@ -227,7 +228,7 @@ function MyStoreOrderCard({
   onDelete?: (id: string) => void;
   deleteBusy?: boolean;
 }) {
-  const { language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const router = useRouter();
   const reorderPayload = reorderPayloadFromListOrder(o);
   const onChatPointerEnter = useCallback(() => {
@@ -250,18 +251,22 @@ function MyStoreOrderCard({
         <div className="flex gap-2.5">
           <SamarketThumbnail
             src={storeImg}
-            alt={o.store_name || "매장"}
+            alt={o.store_name || safeT("mypage_comp_store_fallback_name")}
             size={40}
             roundedClassName="rounded-full"
             className="bg-[#E4E6EB] dark:bg-[#3A3B3C]"
             fallbackSrc=""
-            fallbackNode={<div className={`sam-text-xxs font-semibold ${FB_MUTED}`}>매장</div>}
+            fallbackNode={
+              <div className={`sam-text-xxs font-semibold ${FB_MUTED}`}>
+                {safeT("mypage_comp_store_fallback_name")}
+              </div>
+            }
           />
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
                 <p className={`truncate sam-text-body font-semibold leading-snug ${FB_BODY}`}>
-                  {o.store_name || "매장"}
+                  {o.store_name || safeT("mypage_comp_store_fallback_name")}
                 </p>
                 <p className={`mt-0.5 sam-text-body-secondary leading-snug ${FB_MUTED}`}>
                   <span>{relTime}</span>
@@ -272,7 +277,7 @@ function MyStoreOrderCard({
                 </p>
                 {o.buyer_note?.trim() ? (
                   <p className={`mt-1.5 sam-text-body-secondary font-medium text-amber-800 dark:text-amber-200`}>
-                    요청 사항 있음
+                    {safeT("mypage_comp_buyer_note_present")}
                   </p>
                 ) : null}
               </div>
@@ -292,12 +297,14 @@ function MyStoreOrderCard({
                         : "bg-emerald-50 text-emerald-900 dark:bg-emerald-900/25 dark:text-emerald-200"
                     }`}
                   >
-                    {delivery ? "배달" : "포장"}
+                    {delivery ? safeT("common_delivery_label") : safeT("member_order_pickup_short")}
                   </span>
                   {orderChatUnread > 0 ? (
                     <span
                       className="pointer-events-none absolute -right-1 -top-1 z-[2] flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[#F02849] px-0.5 sam-text-xxs font-bold leading-none text-white ring-2 ring-sam-surface dark:ring-[#242526]"
-                      aria-label={`주문 채팅 읽지 않은 메시지 ${orderChatUnread > 99 ? "99+" : orderChatUnread}건`}
+                      aria-label={t("mypage_comp_order_chat_unread_aria", {
+                        count: orderChatUnread > 99 ? "99+" : orderChatUnread,
+                      })}
                     >
                       {orderChatUnread > 99 ? "99+" : orderChatUnread}
                     </span>
@@ -309,8 +316,8 @@ function MyStoreOrderCard({
                     onClick={() => onDelete(o.id)}
                     disabled={deleteBusy}
                     className={`inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full sam-text-body font-semibold leading-none text-[#65676B] transition-colors hover:bg-sam-surface-muted disabled:opacity-50 dark:text-[#B0B3B8] dark:hover:bg-[#3A3B3C]`}
-                    aria-label="주문 내역 삭제"
-                    title="내역에서 삭제"
+                    aria-label={t("mypage_comp_orders_list_delete_aria")}
+                    title={t("mypage_comp_orders_list_delete_title")}
                   >
                     {deleteBusy ? "…" : "×"}
                   </button>
@@ -375,9 +382,9 @@ function MyStoreOrderCard({
                 o.order_status === "arrived") &&
               o.auto_complete_at ? (
                 <p className={`mt-2 sam-text-body-secondary leading-snug ${FB_MUTED}`}>
-                  자동 완료 예정{" "}
+                  {t("my_store_orders_auto_complete")}{" "}
                   <span className={`font-semibold ${FB_BODY}`}>
-                    {new Date(o.auto_complete_at).toLocaleString("ko-KR")}
+                    {formatAppDateTime(o.auto_complete_at, language)}
                   </span>
                 </p>
               ) : null}

@@ -6,13 +6,11 @@
  * - mock 미의존, Supabase 없으면 빈 배열
  */
 import type { CategoryWithSettings } from "./types";
-import { parseQuickCreateGroup } from "./parseQuickCreateGroup";
-import type { CategorySettingsRaw } from "./normalizeCategorySettings";
-import { normalizeCategorySettings } from "./normalizeCategorySettings";
 import { getSupabaseClient } from "@/lib/supabase/client";
 import { writeCategoryCache } from "./category-memory-cache";
-import { normalizeMarketSlugParam } from "./tradeMarketPath";
 import { CATEGORY_WITH_SETTINGS_SELECT } from "./category-select-fragment";
+import { toCategoryWithSettings, type CategoryDbRow } from "./to-category-with-settings";
+import { normalizeMarketSlugParam } from "./tradeMarketPath";
 
 /** `getCategoryBySlugOrId` 와 동일 키 규칙으로 채워, 목록 직후 단건 조회 네트워크를 피함 */
 function primeCategoryByKeyMemoryCache(list: CategoryWithSettings[]): void {
@@ -26,47 +24,6 @@ function primeCategoryByKeyMemoryCache(list: CategoryWithSettings[]): void {
       writeCategoryCache(`cat:${normalizeMarketSlugParam(slugRaw)}:${slugRaw}`, c);
     }
   }
-}
-
-/** Supabase 조인 결과 행 */
-interface CategoryDbRow {
-  id: string;
-  name: string;
-  slug: string;
-  icon_key: string;
-  type: string;
-  sort_order: number;
-  is_active: boolean;
-  description: string | null;
-  created_at: string;
-  updated_at: string;
-  quick_create_enabled?: boolean;
-  quick_create_group?: string | null;
-  quick_create_order?: number;
-  show_in_home_chips?: boolean;
-  parent_id?: string | null;
-  category_settings?: CategorySettingsRaw;
-}
-
-function toCategoryWithSettings(row: CategoryDbRow): CategoryWithSettings {
-  return {
-    id: row.id,
-    name: row.name,
-    slug: row.slug,
-    icon_key: row.icon_key,
-    type: row.type as CategoryWithSettings["type"],
-    parent_id: row.parent_id ?? null,
-    sort_order: row.sort_order,
-    is_active: row.is_active,
-    description: row.description,
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-    quick_create_enabled: row.quick_create_enabled ?? false,
-    quick_create_group: parseQuickCreateGroup(row.quick_create_group),
-    quick_create_order: row.quick_create_order ?? 0,
-    show_in_home_chips: row.show_in_home_chips ?? true,
-    settings: normalizeCategorySettings(row.category_settings),
-  };
 }
 
 export async function getCategories(filters?: {

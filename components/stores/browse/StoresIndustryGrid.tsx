@@ -7,6 +7,7 @@ import { listBrowsePrimaryIndustries, listBrowseSubIndustries } from "@/lib/stor
 import { useBrowseIndustryDatasetVersion } from "@/lib/stores/browse-mock/use-browse-industry-dataset-version";
 import { storesBrowsePrimaryPath, storesBrowsePath } from "./stores-browse-paths";
 import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
+import { I18N_COMPACT_SUB_CARD_LABEL } from "@/lib/ui/i18n-compact-label-classes";
 
 export function StoresIndustryGrid({
   headerTrailing,
@@ -43,7 +44,7 @@ export function StoresIndustryGrid({
                 <span className="text-2xl leading-none" aria-hidden>
                   {p.symbol}
                 </span>
-                <span className="sam-text-body-secondary font-semibold text-sam-fg">
+                <span className={`${I18N_COMPACT_SUB_CARD_LABEL} font-semibold text-sam-fg`}>
                   {resolveStorePrimaryIndustryLabel(language, p.slug, p.nameKo)}
                 </span>
               </Link>

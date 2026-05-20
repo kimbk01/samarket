@@ -10,6 +10,7 @@ import { normalizeCategorySettings } from "./normalizeCategorySettings";
 export interface CategoryDbRow {
   id: string;
   name: string;
+  name_en?: string | null;
   slug: string;
   icon_key: string;
   type: string;
@@ -30,6 +31,7 @@ export function toCategoryWithSettings(row: CategoryDbRow): CategoryWithSettings
   return {
     id: row.id,
     name: row.name,
+    name_en: typeof row.name_en === "string" ? row.name_en.trim() || null : null,
     slug: row.slug,
     icon_key: row.icon_key,
     type: row.type as CategoryWithSettings["type"],

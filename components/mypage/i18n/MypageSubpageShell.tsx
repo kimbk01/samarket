@@ -28,12 +28,12 @@ export function MypageSubpageShell({
   children,
   bodyClassName = APP_MAIN_TAB_SCROLL_BODY_CLASS,
 }: Props) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   return (
     <div className="flex min-h-screen min-w-0 flex-col bg-sam-app">
       <MySubpageHeader
-        title={t(titleKey)}
-        subtitle={t(subtitleKey)}
+        title={safeT(titleKey)}
+        subtitle={safeT(subtitleKey)}
         backHref={backHref}
         hideCtaStrip={hideCtaStrip}
         stickyBelow={stickyBelow}

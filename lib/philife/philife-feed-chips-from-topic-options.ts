@@ -8,10 +8,10 @@ export type PhilifeFeedTopicChip = {
   sort_slot: "recommend" | "popular" | null;
 };
 
-/** 상단 첫 칩: 주제 없음(전역) — 라벨은 `최신순` / `추천순` 만 표기(“전체” 문구 없음) */
+/** 상단 첫 칩: 주제 없음(전역) — 화면 라벨은 `CommunityFeed` 의 `philifeGlobalFeedSortLabel` 만 사용 */
 export const PHILIFE_FEED_ALL_TAB_CHIP: PhilifeFeedTopicChip = {
   slug: "",
-  label: "최신순",
+  label: "",
   is_feed_sort: false,
   sort_slot: null,
 };

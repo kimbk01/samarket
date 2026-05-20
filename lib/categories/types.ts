@@ -12,6 +12,8 @@ export type QuickCreateGroup = "content" | "trade";
 export interface CategoryRow {
   id: string;
   name: string;
+  /** UI 표시명 영문 — 앱 언어 en 일 때 탭·칩에 사용 (게시글 본문 아님) */
+  name_en?: string | null;
   slug: string;
   icon_key: string;
   type: CategoryType;
@@ -60,6 +62,7 @@ export type CategoryUpdatePayload = Partial<
   Pick<
     CategoryRow,
     | "name"
+    | "name_en"
     | "slug"
     | "icon_key"
     | "type"

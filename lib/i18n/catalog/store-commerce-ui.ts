@@ -96,6 +96,14 @@ export const storeCommerceUiMessages = {
 
     store_browse_primary_life: "서비스",
 
+    store_browse_primary_lifestyle: "라이프",
+
+    store_browse_primary_restaurant_desc: "식당·음식 배달",
+
+    store_browse_primary_mart_desc: "마트·생필품",
+
+    store_browse_primary_lifestyle_desc: "생활·서비스",
+
     store_browse_food_korean: "한식",
 
     store_browse_food_chicken: "치킨·고기",
@@ -1185,25 +1193,33 @@ export const storeCommerceUiMessages = {
 
     store_browse_primary_life: "Services",
 
+    store_browse_primary_lifestyle: "Lifestyle",
+
+    store_browse_primary_restaurant_desc: "Restaurants and food delivery",
+
+    store_browse_primary_mart_desc: "Mart and groceries",
+
+    store_browse_primary_lifestyle_desc: "Lifestyle and local services",
+
     store_browse_food_korean: "Korean",
 
-    store_browse_food_chicken: "Chicken & meat",
+    store_browse_food_chicken: "Chicken",
 
-    store_browse_food_noodles: "Noodles & soup",
+    store_browse_food_noodles: "Noodles",
 
     store_browse_food_chinese: "Chinese",
 
     store_browse_food_japanese: "Japanese",
 
-    store_browse_food_pizza: "Pizza & Western",
+    store_browse_food_pizza: "Pizza",
 
     store_browse_food_snack: "Snacks",
 
-    store_browse_food_lunchbox: "Lunch boxes",
+    store_browse_food_lunchbox: "Lunch",
 
-    store_browse_food_local: "Local cuisine",
+    store_browse_food_local: "Local",
 
-    store_browse_food_dessert: "Cafe & dessert",
+    store_browse_food_dessert: "Dessert",
 
     store_browse_food_late_night: "Late night",
 

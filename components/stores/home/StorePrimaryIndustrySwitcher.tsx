@@ -112,9 +112,18 @@ export function StorePrimaryIndustrySwitcher({
           const slug = p.slug.toLowerCase();
           const on = activeSlug === slug;
           return (
-            <Link key={p.id} href={storesBrowsePrimaryPath(p.slug)} scroll={false} className={pillClass(on)}>
-              <span aria-hidden>{p.symbol}</span>
-              {resolveStorePrimaryIndustryLabel(language, p.slug, p.nameKo, (p as { name_en?: string | null }).name_en)}
+            <Link
+              key={p.id}
+              href={storesBrowsePrimaryPath(p.slug)}
+              scroll={false}
+              className={`${pillClass(on)} max-w-[9.5rem]`}
+            >
+              <span aria-hidden className="shrink-0">
+                {p.symbol}
+              </span>
+              <span className="min-w-0 truncate text-[12px] leading-[1.2]">
+                {resolveStorePrimaryIndustryLabel(language, p.slug, p.nameKo, (p as { name_en?: string | null }).name_en)}
+              </span>
             </Link>
           );
         })}

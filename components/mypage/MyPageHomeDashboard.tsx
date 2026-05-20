@@ -69,7 +69,7 @@ export function MyPageHomeDashboard({
   /** From RSC — skips client list fetches for order/post counts. */
   homeDashboardCounts?: MyPageHomeDashboardCounts | null;
 }) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const formatCount = (n: number | null | undefined): string => {
     if (n == null || Number.isNaN(n)) return t("mypage_comp_placeholder_dash");
     if (n > 99) return t("mypage_comp_stat_overflow_99plus");
@@ -243,130 +243,130 @@ export function MyPageHomeDashboard({
         <MyInfoStatGrid items={statRows} />
 
         <div className="space-y-4">
-          <MyInfoMenuSection title={t("mypage_comp_section_trade")}>
+          <MyInfoMenuSection title={safeT("mypage_comp_section_trade")}>
             <MyInfoMenuItem
               href="/mypage/section/trade/sales"
-              title={t("mypage_comp_menu_trade_active_title")}
+              title={safeT("mypage_comp_menu_trade_active_title")}
               description={t("mypage_comp_menu_trade_active_desc")}
               icon={icon(<Package className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/mypage/section/trade/favorites"
-              title={t("mypage_comp_menu_trade_favorites_title")}
+              title={safeT("mypage_comp_menu_trade_favorites_title")}
               description={t("mypage_comp_menu_trade_favorites_desc")}
               icon={icon(<Heart className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/my/offers"
-              title={t("mypage_comp_menu_trade_offers_title")}
+              title={safeT("mypage_comp_menu_trade_offers_title")}
               description={t("mypage_comp_menu_trade_offers_desc")}
               icon={icon(<ReceiptText className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
           </MyInfoMenuSection>
 
-          <MyInfoMenuSection title={t("mypage_comp_section_community")}>
+          <MyInfoMenuSection title={safeT("mypage_comp_section_community")}>
             <MyInfoMenuItem
               href="/mypage/section/community/posts"
-              title={t("mypage_comp_menu_community_posts_title")}
+              title={safeT("mypage_comp_menu_community_posts_title")}
               description={t("mypage_comp_menu_community_posts_desc")}
               icon={icon(<BookOpen className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/mypage/section/community/comments"
-              title={t("mypage_comp_menu_community_activity_title")}
+              title={safeT("mypage_comp_menu_community_activity_title")}
               description={t("mypage_comp_menu_community_activity_desc")}
               icon={icon(<MessageCircle className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
           </MyInfoMenuSection>
 
-          <MyInfoMenuSection title={t("mypage_comp_section_store_orders")}>
+          <MyInfoMenuSection title={safeT("mypage_comp_section_store_orders")}>
             <MyInfoMenuItem
               href="/mypage/section/store/manage"
-              title={t("mypage_comp_menu_store_register_title")}
+              title={safeT("mypage_comp_menu_store_register_title")}
               description={t("mypage_comp_menu_store_register_desc")}
               icon={icon(<Store className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/mypage/section/store/orders"
-              title={t("mypage_comp_menu_store_order_history_title")}
+              title={safeT("mypage_comp_menu_store_order_history_title")}
               description={t("mypage_comp_menu_store_order_history_desc")}
               icon={icon(<ShoppingBag className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/mypage/section/store/rider"
-              title={t("mypage_comp_menu_store_rider_title")}
+              title={safeT("mypage_comp_menu_store_rider_title")}
               description={t("mypage_comp_menu_store_rider_desc")}
               icon={icon(<Truck className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
           </MyInfoMenuSection>
 
-          <MyInfoMenuSection title={t("mypage_comp_section_account_menu")}>
+          <MyInfoMenuSection title={safeT("mypage_comp_section_account_menu")}>
             <MyInfoMenuItem
               href="/mypage/addresses"
-              title={t("mypage_comp_menu_account_address_title")}
+              title={safeT("mypage_comp_menu_account_address_title")}
               description={t("mypage_comp_menu_account_address_desc")}
               icon={icon(<MapPin className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/mypage/section/store/payment"
-              title={t("mypage_comp_menu_account_payment_title")}
+              title={safeT("mypage_comp_menu_account_payment_title")}
               description={t("mypage_comp_menu_account_payment_desc")}
               icon={icon(<CreditCard className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/mypage/section/settings/device-permissions"
-              title={t("mypage_comp_menu_account_security_title")}
+              title={safeT("mypage_comp_menu_account_security_title")}
               description={t("mypage_comp_menu_account_security_desc")}
               icon={icon(<Shield className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/mypage/section/settings/notifications"
-              title={t("mypage_comp_menu_account_notifications_title")}
+              title={safeT("mypage_comp_menu_account_notifications_title")}
               description={t("mypage_comp_menu_account_notifications_desc")}
               icon={icon(<Bell className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/mypage/section/settings/language"
-              title={t("mypage_comp_menu_account_language_title")}
+              title={safeT("mypage_comp_menu_account_language_title")}
               description={t("mypage_comp_menu_account_language_desc")}
               icon={icon(<Languages className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/mypage/section/settings/country"
-              title={t("mypage_comp_menu_account_region_title")}
+              title={safeT("mypage_comp_menu_account_region_title")}
               description={t("mypage_comp_menu_account_region_desc")}
               icon={icon(<Globe className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/mypage/settings"
-              title={t("mypage_comp_menu_account_settings_title")}
+              title={safeT("mypage_comp_menu_account_settings_title")}
               description={t("mypage_comp_menu_account_settings_desc")}
               icon={icon(<Settings className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
           </MyInfoMenuSection>
 
-          <MyInfoMenuSection title={t("mypage_comp_section_support")}>
+          <MyInfoMenuSection title={safeT("mypage_comp_section_support")}>
             <MyInfoMenuItem
               href="/mypage/section/settings/support"
-              title={t("mypage_comp_menu_support_cs_title")}
+              title={safeT("mypage_comp_menu_support_cs_title")}
               description={t("mypage_comp_menu_support_cs_desc")}
               icon={icon(<HelpCircle className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/mypage/section/settings/notices"
-              title={t("mypage_comp_menu_support_notices_title")}
+              title={safeT("mypage_comp_menu_support_notices_title")}
               description={t("mypage_comp_menu_support_notices_desc")}
               icon={icon(<UserRound className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/mypage/section/settings/events"
-              title={t("mypage_comp_menu_support_events_title")}
+              title={safeT("mypage_comp_menu_support_events_title")}
               description={t("mypage_comp_menu_support_events_desc")}
               icon={icon(<CalendarDays className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />
             <MyInfoMenuItem
               href="/mypage/section/settings/terms"
-              title={t("mypage_comp_menu_support_terms_title")}
+              title={safeT("mypage_comp_menu_support_terms_title")}
               description={t("mypage_comp_menu_support_terms_desc")}
               icon={icon(<Shield className="h-[22px] w-[22px]" strokeWidth={2} />)}
             />

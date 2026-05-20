@@ -35,6 +35,7 @@ import {
   resolveGuestAppLanguageCode,
 } from "@/lib/i18n/language-preference";
 import { translate, translateText, type MessageKey } from "@/lib/i18n/messages";
+import { resolveSafeMessageKey } from "@/lib/i18n/safe-ui-label";
 import { setRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 
 type AppLanguageContextValue = {
@@ -43,6 +44,8 @@ type AppLanguageContextValue = {
   languagePreference: StoredPreferredLanguage;
   setLanguage: (language: AppLanguageCode) => void;
   t: (key: MessageKey, vars?: Record<string, string | number>) => string;
+  /** UI 표시용 — key·토큰 노출 방지, ko 폴백 */
+  safeT: (key: MessageKey, fallbackLabel?: string) => string;
   tt: (text: string, vars?: Record<string, string | number>) => string;
 };
 
@@ -218,6 +221,7 @@ export function AppLanguageProvider({
       languagePreference,
       setLanguage,
       t: (key, vars) => translate(language, key, vars),
+      safeT: (key, fallbackLabel) => resolveSafeMessageKey(language, key, fallbackLabel),
       tt: (text, vars) => translateText(language, text, vars),
     }),
     [language, languagePreference, setLanguage]
@@ -235,6 +239,7 @@ export function useI18n(): AppLanguageContextValue {
       languagePreference: null,
       setLanguage: () => undefined,
       t: (key, vars) => translate(fallback, key, vars),
+      safeT: (key, fallbackLabel) => resolveSafeMessageKey(fallback, key, fallbackLabel),
       tt: (text, vars) => translateText(fallback, text, vars),
     };
   }

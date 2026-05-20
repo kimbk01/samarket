@@ -49,7 +49,7 @@ type CommunityReportItem = {
 };
 
 export function CommunityTab({ section }: { section: string }) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   if (section === "posts") {
     return <MyCommunityPostsPanel />;
   }
@@ -57,7 +57,7 @@ export function CommunityTab({ section }: { section: string }) {
   if (section === "comments") {
     return (
       <MyCommunityActivityPanel
-        title={t("mypage_comp_nav_sec_community_comments_label")}
+        title={safeT("mypage_comp_nav_sec_community_comments_label")}
         description={t("mypage_comp_nav_sec_community_comments_desc")}
         mode="comments"
       />
@@ -67,7 +67,7 @@ export function CommunityTab({ section }: { section: string }) {
   if (section === "favorites") {
     return (
       <MyCommunityActivityPanel
-        title={t("mypage_comp_nav_sec_community_favorites_label")}
+        title={safeT("mypage_comp_nav_sec_community_favorites_label")}
         description={t("mypage_comp_nav_sec_community_favorites_desc")}
         mode="favorites"
       />
@@ -77,7 +77,7 @@ export function CommunityTab({ section }: { section: string }) {
   if (section === "users") {
     return (
       <SectionShell
-        title={t("mypage_comp_nav_sec_community_users_label")}
+        title={safeT("mypage_comp_nav_sec_community_users_label")}
         description={t("mypage_comp_nav_sec_community_users_desc")}
       >
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4">
@@ -90,7 +90,7 @@ export function CommunityTab({ section }: { section: string }) {
   if (section === "reports") {
     return (
       <MyCommunityActivityPanel
-        title={t("mypage_comp_nav_sec_community_reports_label")}
+        title={safeT("mypage_comp_nav_sec_community_reports_label")}
         description={t("mypage_comp_nav_sec_community_reports_desc")}
         mode="reports"
       />

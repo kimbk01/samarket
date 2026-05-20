@@ -9,11 +9,11 @@ import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function MessengerTab({ section }: { section: string }) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   if (section === "dm") {
     return (
       <TabShell
-        title={t("mypage_comp_nav_sec_messenger_dm_label")}
+        title={safeT("mypage_comp_nav_sec_messenger_dm_label")}
         description={t("mypage_comp_nav_sec_messenger_dm_desc")}
       >
         <MessengerOverviewPanel mode="dm" />
@@ -32,7 +32,7 @@ export function MessengerTab({ section }: { section: string }) {
   if (section === "groups") {
     return (
       <TabShell
-        title={t("mypage_comp_nav_sec_messenger_groups_label")}
+        title={safeT("mypage_comp_nav_sec_messenger_groups_label")}
         description={t("mypage_comp_nav_sec_messenger_groups_desc")}
       >
         <MessengerOverviewPanel mode="groups" />
@@ -43,7 +43,7 @@ export function MessengerTab({ section }: { section: string }) {
   if (section === "chat-settings") {
     return (
       <TabShell
-        title={t("mypage_comp_nav_sec_messenger_chat_settings_label")}
+        title={safeT("mypage_comp_nav_sec_messenger_chat_settings_label")}
         description={t("mypage_comp_nav_sec_messenger_chat_settings_desc")}
       >
         <ChatSettingsContent />
@@ -54,7 +54,7 @@ export function MessengerTab({ section }: { section: string }) {
   if (section === "alerts") {
     return (
       <TabShell
-        title={t("mypage_comp_nav_sec_messenger_alerts_label")}
+        title={safeT("mypage_comp_nav_sec_messenger_alerts_label")}
         description={t("mypage_comp_nav_sec_messenger_alerts_desc")}
       >
         <NotificationsSettingsContent />
@@ -64,7 +64,7 @@ export function MessengerTab({ section }: { section: string }) {
 
   return (
     <TabShell
-      title={t("mypage_comp_nav_sec_messenger_dm_label")}
+      title={safeT("mypage_comp_nav_sec_messenger_dm_label")}
       description={t("mypage_comp_nav_sec_messenger_dm_desc")}
     >
       <MessengerOverviewPanel mode="dm" />

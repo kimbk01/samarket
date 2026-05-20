@@ -21,6 +21,7 @@ import { FlatListContainer } from "@/components/community-messenger/line-ui";
 import { MessengerChatFilterSheet } from "@/components/community-messenger/MessengerChatFilterSheet";
 import { MessengerPillarSummaryRow } from "@/components/community-messenger/MessengerPillarSummaryRow";
 import { CmReactCommitProbe, useCmDevRenderTrace } from "@/lib/community-messenger/dev/cm-event-loop-dev";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 /** `measureElement`로 보정 — 행+`space-y-1.5` 간격을 대략 반영 */
 const MESSENGER_CHAT_LIST_VIRTUAL_THRESHOLD = 16;
@@ -281,6 +282,7 @@ export function MessengerChatsScreen({
   entryOriginQuery = null,
   chatListVisual = "default",
 }: Props) {
+  const { t, safeT } = useI18n();
   const [filterSheetOpen, setFilterSheetOpen] = useState(false);
   const useVirt = items.length >= MESSENGER_CHAT_LIST_VIRTUAL_THRESHOLD;
   const onDocumentScroll = useCallback(() => {
@@ -311,10 +313,12 @@ export function MessengerChatsScreen({
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
               <p className="sam-text-body font-bold leading-tight" style={{ color: "var(--messenger-text)" }}>
-                {listContext === "archive" ? "보관된 대화" : "대화 목록"}
+                {listContext === "archive"
+                  ? safeT("cm_ui_chat_list_heading_archived")
+                  : safeT("cm_ui_chat_list_heading_default")}
               </p>
               <p className="mt-0.5 sam-text-xxs leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
-                필터 · 안읽음 · 고정은 목록에서 확인합니다.
+                {t("cm_ui_chat_list_filter_hint")}
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
@@ -328,10 +332,10 @@ export function MessengerChatsScreen({
                 style={{ color: "var(--messenger-text)" }}
               >
                 <FilterIcon />
-                필터
+                <span className="truncate">{safeT("cm_ui_filter_button_short")}</span>
               </button>
               <span
-                className="inline-flex h-9 max-w-[7rem] items-center truncate rounded-full bg-[color:var(--messenger-surface-muted)] px-2.5 sam-text-xxs font-semibold"
+                className="inline-flex h-9 max-w-[min(7rem,32vw)] min-w-0 items-center truncate rounded-full bg-[color:var(--messenger-surface-muted)] px-2.5 text-[12px] font-semibold leading-[1.2]"
                 style={{ color: "var(--messenger-text-secondary)" }}
               >
                 {messengerChatListChipLabel(chatListChip)}
@@ -441,6 +445,7 @@ export function MessengerOpenChatScreen({
   onResetTransientUi: MessengerResetTransientUiFn;
   onListScrollStart: () => void;
 }) {
+  const { safeT } = useI18n();
   const useVirtJoined = joinedItems.length >= MESSENGER_CHAT_LIST_VIRTUAL_THRESHOLD;
   useMessengerHomeListDocumentScroll(onListScrollStart);
 
@@ -457,17 +462,17 @@ export function MessengerOpenChatScreen({
     >
       <div className="border-b border-[color:var(--messenger-divider)] px-1 py-2">
         <p className="sam-text-body font-bold leading-tight" style={{ color: "var(--messenger-text)" }}>
-          모임
+          {safeT("cm_ia_section_open_chat")}
         </p>
         <p className="mt-0.5 sam-text-xxs leading-snug" style={{ color: "var(--messenger-text-secondary)" }}>
-          참여 중인 모임 채팅과 새 모임을 한곳에서 확인합니다.
+          {safeT("cm_ui_open_chat_hub_desc")}
         </p>
       </div>
 
       <div>
         <div className="mb-0.5 px-0.5 pt-1">
           <h2 className="sam-text-body-secondary font-bold" style={{ color: "var(--messenger-text)" }}>
-            참여 중
+            {safeT("cm_ui_open_chat_joined_heading")}
           </h2>
         </div>
         {joinedItems.length ? (
@@ -491,7 +496,7 @@ export function MessengerOpenChatScreen({
           />
         ) : (
           <div className="px-1 py-4 text-center sam-text-helper" style={{ color: "var(--messenger-text-secondary)" }}>
-            참여 중인 모임이 없습니다.
+            {safeT("cm_ui_open_chat_empty_joined")}
           </div>
         )}
       </div>
@@ -505,7 +510,7 @@ export function MessengerOpenChatScreen({
           }}
           className="flex w-full items-center justify-center gap-2 rounded-[var(--messenger-radius-md)] border border-[color:var(--messenger-divider)] bg-[color:var(--messenger-surface)] px-4 py-3.5 sam-text-body-secondary font-semibold text-[color:var(--messenger-text)] shadow-[var(--messenger-shadow-soft)] active:bg-[color:var(--messenger-surface-muted)]"
         >
-          모임 찾기
+          {safeT("cm_ui_find_meeting")}
         </button>
       </div>
     </section>

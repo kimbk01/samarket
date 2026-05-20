@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { menuHrefMatchesIntent, useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
 import type { CategoryWithSettings } from "@/lib/categories/types";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveTradeCategoryUILabel } from "@/lib/i18n/trade-category-label-i18n";
 import { Sam } from "@/lib/ui/sam-component-classes";
+import { I18N_COMPACT_CHIP_LABEL } from "@/lib/ui/i18n-compact-label-classes";
 
 interface TradeTopicChipsRowProps {
   /** 예: /market/ukay */
@@ -27,6 +30,7 @@ export function TradeTopicChipsRow({
   extraQuery,
   onTopicIntent,
 }: TradeTopicChipsRowProps) {
+  const { language } = useI18n();
   const base = marketBasePath.replace(/\/$/, "");
   const { beginMenuNavigation, pendingMenuIntent } = useLatestMenuNavigation();
 
@@ -64,7 +68,9 @@ export function TradeTopicChipsRow({
             onFocus={() => onTopicIntent?.(raw)}
             className={on ? Sam.tabs.tabActive : Sam.tabs.tab}
           >
-            {t.name}
+            <span className={I18N_COMPACT_CHIP_LABEL}>
+              {resolveTradeCategoryUILabel(language, t.name, t.name_en, t.slug?.trim() || t.id)}
+            </span>
           </Link>
         );
       })}

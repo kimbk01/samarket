@@ -242,10 +242,11 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
   beginMenuNavigation: (href: string) => void;
   guardBeforeNavigate: (nextHref?: string) => boolean;
 }) {
-  const { tt, t } = useI18n();
+  const { tt, t, safeT } = useI18n();
   const router = useRouter();
   const hasOwnerStore = useOwnerLiteHasPreferredStore();
   const tabBadgeCount = useOwnerHubBadgeTabUnreadCount(tab.icon);
+  const tabLabel = tab.labelKey ? safeT(tab.labelKey) : tt(tab.label);
   const isActive =
     pendingActiveTabId != null
       ? tab.id === pendingActiveTabId
@@ -269,7 +270,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
 
   const ariaLbl =
     tabBadgeCount > 0
-      ? t("nav_attention_needed", { label: tab.labelKey ? t(tab.labelKey) : tt(tab.label), count: tabBadgeCount })
+      ? t("nav_attention_needed", { label: tabLabel, count: tabBadgeCount })
       : undefined;
 
   const inner = (
@@ -281,7 +282,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
         </span>
       </div>
       <span className={`app-bottom-nav-label ${tab.labelFontFamilyClass ?? ""}`} suppressHydrationWarning>
-        {tab.labelKey ? t(tab.labelKey) : tt(tab.label)}
+        {tabLabel}
       </span>
     </>
   );
@@ -398,9 +399,10 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   beginMenuNavigation: (href: string) => void;
   guardBeforeNavigate: (nextHref?: string) => boolean;
 }) {
-  const { tt, t } = useI18n();
+  const { tt, t, safeT } = useI18n();
   const router = useRouter();
   const ownerStore = useOwnerLitePreferredStoreRow();
+  const tabLabel = tab.labelKey ? safeT(tab.labelKey) : tt(tab.label);
   const { primaryRegion } = useRegion();
   const tabBadgeCount = useOwnerHubBadgeTabUnreadCount("stores");
   const _storeDeepLink = useOwnerHubBadgeStoreDeepLink();
@@ -430,9 +432,9 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
 
   const ariaLbl =
     tabBadgeCount > 0
-      ? t("nav_attention_needed", { label: tab.labelKey ? t(tab.labelKey) : tt(tab.label), count: tabBadgeCount })
+      ? t("nav_attention_needed", { label: tabLabel, count: tabBadgeCount })
       : storesTabOwnerLite && ownerStore?.store_name
-        ? t("nav_store_owner", { label: tab.labelKey ? t(tab.labelKey) : tt(tab.label), storeName: ownerStore.store_name })
+        ? t("nav_store_owner", { label: tabLabel, storeName: ownerStore.store_name })
         : undefined;
 
   const inner = (
@@ -444,7 +446,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
         </span>
       </div>
       <span className={`app-bottom-nav-label ${tab.labelFontFamilyClass ?? ""}`} suppressHydrationWarning>
-        {tab.labelKey ? t(tab.labelKey) : tt(tab.label)}
+        {tabLabel}
       </span>
     </>
   );

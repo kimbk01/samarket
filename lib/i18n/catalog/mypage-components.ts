@@ -197,6 +197,10 @@ export const mypageComponentsMessages = {
     mypage_comp_nav_sec_community_reports_label: "신고 내역",
     mypage_comp_nav_sec_community_reports_desc: "커뮤니티와 메신저 신고 접수 내역을 한곳에서 확인합니다.",
 
+    mypage_comp_quick_open_orders_label: "주문 내역 열기",
+    mypage_comp_quick_open_orders_caption: "주문 카드에서 채팅 바로 이동",
+    mypage_comp_buyer_note_present: "요청 사항 있음",
+    mypage_comp_order_chat_unread_aria: "주문 채팅 읽지 않은 메시지 {count}건",
     mypage_comp_nav_sec_store_orders_label: "주문 내역",
     mypage_comp_nav_sec_store_orders_desc: "내 주문 상태와 주문 채팅, 리뷰 작성 흐름을 한곳에서 확인합니다.",
     mypage_comp_nav_sec_store_order_chat_label: "주문 채팅",
@@ -876,6 +880,10 @@ export const mypageComponentsMessages = {
     mypage_comp_nav_sec_community_reports_label: "Reports",
     mypage_comp_nav_sec_community_reports_desc: "See reports filed in community and messenger.",
 
+    mypage_comp_quick_open_orders_label: "Open orders",
+    mypage_comp_quick_open_orders_caption: "Jump to chat from order cards",
+    mypage_comp_buyer_note_present: "Has special requests",
+    mypage_comp_order_chat_unread_aria: "{count} unread order chat messages",
     mypage_comp_nav_sec_store_orders_label: "Orders",
     mypage_comp_nav_sec_store_orders_desc: "Track order status, order chat, and review flow in one place.",
     mypage_comp_nav_sec_store_order_chat_label: "Order chat",

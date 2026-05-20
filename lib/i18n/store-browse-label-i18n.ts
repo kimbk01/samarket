@@ -1,6 +1,14 @@
 import type { AppLanguageCode } from "./config";
 import { resolveLocalizedAdminLabel } from "./resolve-localized-admin-label";
 import { translateText, type MessageKey } from "./messages";
+import { humanizeMessageKeySlug, sanitizeUiDisplayLabel } from "./safe-ui-label";
+import {
+  fallbackLabelForStoreBrowseKey,
+  translateStoreBrowseMessage,
+} from "./store-browse-safe-label";
+
+const humanizeStoreBrowseSlug = humanizeMessageKeySlug;
+const sanitizeStoreBrowseDisplayLabel = sanitizeUiDisplayLabel;
 
 const STORE_PRIMARY_SLUG_KEYS: Record<string, MessageKey> = {
   restaurant: "store_browse_primary_restaurant",
@@ -11,12 +19,14 @@ const STORE_PRIMARY_SLUG_KEYS: Record<string, MessageKey> = {
   beauty: "store_browse_primary_beauty",
   academy: "store_browse_primary_academy",
   life: "store_browse_primary_life",
+  lifestyle: "store_browse_primary_lifestyle",
 };
 
 const STORE_FOOD_SUB_SLUG_KEYS: Record<string, MessageKey> = {
   korean: "store_browse_food_korean",
   chicken: "store_browse_food_chicken",
   snack: "store_browse_food_noodles",
+  noodles: "store_browse_food_noodles",
   chinese: "store_browse_food_chinese",
   japanese: "store_browse_food_japanese",
   pizza: "store_browse_food_pizza",
@@ -26,15 +36,27 @@ const STORE_FOOD_SUB_SLUG_KEYS: Record<string, MessageKey> = {
   late_night: "store_browse_food_late_night",
 };
 
+function resolvePrimaryKey(slug: string): MessageKey | undefined {
+  return STORE_PRIMARY_SLUG_KEYS[slug.trim().toLowerCase()];
+}
+
+function resolveFoodSubKey(subSlug: string): MessageKey | undefined {
+  return STORE_FOOD_SUB_SLUG_KEYS[subSlug.trim().toLowerCase()];
+}
+
 export function resolveStorePrimaryIndustryLabel(
   lang: AppLanguageCode,
   slug: string,
   fallbackKo: string,
   nameEn?: string | null
 ): string {
-  const key = STORE_PRIMARY_SLUG_KEYS[slug.trim().toLowerCase()];
-  if (key) return translateText(lang, key);
-  return resolveLocalizedAdminLabel(lang, fallbackKo, nameEn);
+  const key = resolvePrimaryKey(slug);
+  if (key) {
+    return translateStoreBrowseMessage(lang, key);
+  }
+  const admin = resolveLocalizedAdminLabel(lang, fallbackKo, nameEn);
+  const fb = humanizeStoreBrowseSlug(slug);
+  return sanitizeStoreBrowseDisplayLabel(admin, fb);
 }
 
 export function resolveStoreFoodSubtopicLabel(
@@ -42,10 +64,22 @@ export function resolveStoreFoodSubtopicLabel(
   subSlug: string | undefined,
   fallbackKo: string
 ): string {
-  if (!subSlug) return translateText(lang, "store_browse_food_all");
-  const key = STORE_FOOD_SUB_SLUG_KEYS[subSlug.trim().toLowerCase()];
-  if (key) return translateText(lang, key);
-  return fallbackKo.trim();
+  if (!subSlug) {
+    return translateStoreBrowseMessage(lang, "store_browse_food_all");
+  }
+  const key = resolveFoodSubKey(subSlug);
+  if (key) {
+    return translateStoreBrowseMessage(lang, key);
+  }
+  const ko = fallbackKo.trim();
+  const fb = humanizeStoreBrowseSlug(subSlug);
+  if (ko) {
+    return sanitizeStoreBrowseDisplayLabel(
+      lang === "en" ? resolveLocalizedAdminLabel(lang, ko, null) : ko,
+      fb
+    );
+  }
+  return fb;
 }
 
 export function resolveStoreTopicLabel(
@@ -54,7 +88,13 @@ export function resolveStoreTopicLabel(
   fallbackKo: string,
   nameEn?: string | null
 ): string {
-  return resolveLocalizedAdminLabel(lang, fallbackKo, nameEn);
+  const foodKey = resolveFoodSubKey(slug);
+  if (foodKey) {
+    return translateStoreBrowseMessage(lang, foodKey);
+  }
+  const admin = resolveLocalizedAdminLabel(lang, fallbackKo, nameEn);
+  const fb = humanizeStoreBrowseSlug(slug);
+  return sanitizeStoreBrowseDisplayLabel(admin, fb);
 }
 
 /** browse/home-feed API가 ko·en 중 하나로 내려준 배달비 UI 문구 → 현재 앱 언어 */
@@ -80,7 +120,7 @@ export function resolveStoreDeliveryFeeUILabel(
   const s = typeof raw === "string" ? raw.trim() : "";
   if (!s) return null;
   const key = STORE_DELIVERY_FEE_UI_CANONICAL[s];
-  if (key) return translateText(lang, key);
+  if (key) return translateStoreBrowseMessage(lang, key);
   if (s.startsWith("배달비 ") || s.startsWith("Delivery fee ")) {
     const amount = s.replace(/^(배달비 |Delivery fee )/, "").trim();
     if (amount) {
@@ -95,3 +135,5 @@ export function resolveStoreDeliveryFeeUILabel(
   }
   return s;
 }
+
+export { fallbackLabelForStoreBrowseKey, safeStoreBrowseT } from "./store-browse-safe-label";

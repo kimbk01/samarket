@@ -54,10 +54,13 @@ import { resolveBrowseListUserOriginCoords } from "@/lib/stores/browse-list-user
 import { ME_PROFILE_CACHE_INVALIDATED_EVENT } from "@/lib/profile/fetch-me-profile-deduped";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import {
-  resolveStoreFoodSubtopicLabel,
   resolveStorePrimaryIndustryLabel,
   resolveStoreTopicLabel,
 } from "@/lib/i18n/store-browse-label-i18n";
+import {
+  STORE_BROWSE_SUB_CHIP_BUTTON,
+  STORE_BROWSE_SUB_CHIP_LABEL,
+} from "@/components/stores/store-browse-category-ui";
 
 const RESTAURANT_SUB_ICON: Record<string, string> = {
   korean: "/icons/food/icon_0_1.png",
@@ -173,7 +176,7 @@ export function StoresBrowsePrimaryView({
   primarySlug: string;
   initialSubSlug: string | null;
 }) {
-  const { t, language } = useI18n();
+  const { t, safeT, language } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -576,8 +579,7 @@ export function StoresBrowsePrimaryView({
               const isRestaurant = primarySlug.trim().toLowerCase() === "restaurant";
               const allIconSrc = isRestaurant ? "/icons/food/icon_0_0.png" : storeSecondaryBrowseIconPath(primarySlug, 0);
 
-              const baseItemClass =
-                "flex w-[54px] shrink-0 snap-start flex-col items-center justify-center gap-0.5 rounded-sam-md border border-transparent px-0.5 py-1.5 text-center transition-[transform,color] duration-150 will-change-transform active:scale-[0.97]";
+              const baseItemClass = `${STORE_BROWSE_SUB_CHIP_BUTTON}`;
               const activeClass = "text-sam-fg dark:text-[#E4E6EB]";
               const idleClass =
                 "text-sam-muted active:bg-sam-surface-muted dark:text-[#B0B3B8] dark:active:bg-[#4E4F50]";
@@ -626,9 +628,7 @@ export function StoresBrowsePrimaryView({
                       <span className="h-10 w-10 rounded-full bg-sam-surface-muted" aria-hidden />
                     )}
                   </span>
-                  <span className={`text-[12.5px] font-semibold leading-none tracking-[-0.01em] ${on ? "" : ""}`}>
-                    {label}
-                  </span>
+                  <span className={STORE_BROWSE_SUB_CHIP_LABEL}>{label}</span>
                   <span
                     className="mt-1 h-1 w-10 rounded-full"
                     style={{ backgroundColor: on ? "#1C8DB8" : "transparent" }}
@@ -642,7 +642,7 @@ export function StoresBrowsePrimaryView({
                   <Item
                     href={storesBrowsePrimaryPath(primarySlug)}
                     on={allSubChipActive}
-                    label={t("store_browse_food_all")}
+                    label={safeT("store_browse_food_all")}
                     iconSrc={allIconSrc}
                     subValue="all"
                   />

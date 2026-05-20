@@ -35,6 +35,7 @@ function slugifyForIconKey(s: string): string {
 
 export interface CategoryFormPayload {
   name: string;
+  name_en?: string | null;
   slug: string;
   icon_key: string;
   type: CategoryType;
@@ -82,6 +83,7 @@ export function CategoryFormModal({
   const isMenuMode = mode === "menu";
   const fixedType = forceType;
   const [name, setName] = useState(category?.name ?? "");
+  const [name_en, setNameEn] = useState(category?.name_en ?? "");
   const [slug, setSlug] = useState(category?.slug ?? "");
   const [icon_key, setIconKey] = useState(category?.icon_key ?? "default");
   const [type, setType] = useState<CategoryType>(category?.type ?? (fixedType as CategoryType) ?? "trade");
@@ -125,6 +127,7 @@ export function CategoryFormModal({
   useEffect(() => {
     if (category) {
       setName(category.name);
+      setNameEn(category.name_en ?? "");
       setSlug(category.slug);
       setIconKey(category.icon_key);
       setType(category.type);
@@ -232,6 +235,7 @@ export function CategoryFormModal({
         await onSave(
           {
             name: name.trim(),
+            name_en: name_en.trim() || null,
             slug: slugTrim,
             icon_key: resolvedIconKey,
             type: resolvedType,
@@ -252,6 +256,7 @@ export function CategoryFormModal({
     },
     [
       name,
+      name_en,
       slug,
       icon_key,
       type,
@@ -307,6 +312,18 @@ export function CategoryFormModal({
               onChange={(e) => setName(e.target.value)}
               className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
               required
+            />
+          </div>
+          <div>
+            <label className="block sam-text-body-secondary font-medium text-sam-fg">
+              {t("admin_stores_app_taxonomy_ph_name_en")}
+            </label>
+            <input
+              type="text"
+              value={name_en}
+              onChange={(e) => setNameEn(e.target.value)}
+              placeholder={t("admin_stores_app_taxonomy_ph_name_en")}
+              className="mt-1 w-full rounded border border-sam-border px-3 py-2 sam-text-body"
             />
           </div>
           <div>

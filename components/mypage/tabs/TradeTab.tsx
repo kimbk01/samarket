@@ -12,11 +12,11 @@ import { tradeHubChatRoomHref } from "@/lib/chats/surfaces/trade-chat-surface";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function TradeTab({ section }: { section: string }) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   if (section === "sales") {
     return (
       <TabShell
-        title={t("mypage_comp_nav_sec_trade_sales_label")}
+        title={safeT("mypage_comp_nav_sec_trade_sales_label")}
         description={t("mypage_comp_nav_sec_trade_sales_desc")}
       >
         <SalesHistoryView />
@@ -27,7 +27,7 @@ export function TradeTab({ section }: { section: string }) {
   if (section === "purchases") {
     return (
       <TabShell
-        title={t("mypage_comp_nav_sec_trade_purchases_label")}
+        title={safeT("mypage_comp_nav_sec_trade_purchases_label")}
         description={t("mypage_comp_nav_sec_trade_purchases_desc")}
       >
         <PurchasesView />
@@ -38,7 +38,7 @@ export function TradeTab({ section }: { section: string }) {
   if (section === "favorites") {
     return (
       <TabShell
-        title={t("mypage_comp_nav_sec_trade_favorites_label")}
+        title={safeT("mypage_comp_nav_sec_trade_favorites_label")}
         description={t("mypage_comp_nav_sec_trade_favorites_desc")}
       >
         <FavoriteProductsView embedded />
@@ -49,7 +49,7 @@ export function TradeTab({ section }: { section: string }) {
   if (section === "recent") {
     return (
       <TabShell
-        title={t("mypage_comp_nav_sec_trade_recent_label")}
+        title={safeT("mypage_comp_nav_sec_trade_recent_label")}
         description={t("mypage_comp_nav_sec_trade_recent_desc")}
       >
         <RecentViewedList />
@@ -60,7 +60,7 @@ export function TradeTab({ section }: { section: string }) {
   if (section === "chat") {
     return (
       <TabShell
-        title={t("mypage_comp_nav_sec_trade_chat_label")}
+        title={safeT("mypage_comp_nav_sec_trade_chat_label")}
         description={t("mypage_comp_nav_sec_trade_chat_desc")}
       >
         <div className="space-y-2 pb-6">
@@ -76,7 +76,7 @@ export function TradeTab({ section }: { section: string }) {
   if (section === "reviews") {
     return (
       <TabShell
-        title={t("mypage_comp_nav_sec_trade_reviews_label")}
+        title={safeT("mypage_comp_nav_sec_trade_reviews_label")}
         description={t("mypage_comp_nav_sec_trade_reviews_desc")}
       >
         <TradeReviewsManagementView />
@@ -86,7 +86,7 @@ export function TradeTab({ section }: { section: string }) {
 
   return (
     <TabShell
-      title={t("mypage_comp_nav_sec_trade_sales_label")}
+      title={safeT("mypage_comp_nav_sec_trade_sales_label")}
       description={t("mypage_comp_nav_sec_trade_sales_desc")}
     >
       <SalesHistoryView />

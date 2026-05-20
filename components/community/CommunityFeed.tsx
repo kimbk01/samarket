@@ -1307,7 +1307,7 @@ export function CommunityFeed({
                       const sortModeLabel =
                         c.slug === ""
                           ? philifeGlobalFeedSortLabel(recSortKey)
-                          : resolveCommunityTopicUILabel(language, c.label, c.name_en);
+                          : resolveCommunityTopicUILabel(language, c.label, c.name_en, c.slug);
                       const subjectChipClass = on ? PHILIFE_TOPIC_TAB_SUBJECT_ACTIVE : PHILIFE_TOPIC_TAB_SUBJECT_IDLE;
                       if (isGlobalSortDropdownChip(c)) {
                         const globalSortInteractionProps =
@@ -1378,7 +1378,9 @@ export function CommunityFeed({
                           onFocus={() => prefetchCategoryFeedByIntent(c)}
                           className={subjectChipClass}
                         >
-                          <span className="block min-w-0 max-w-[min(12rem,40vw)] truncate">{c.label}</span>
+                          <span className="block min-w-0 max-w-[min(12rem,40vw)] truncate text-[12px] leading-[1.2]">
+                            {sortModeLabel}
+                          </span>
                         </button>
                       );
                     })

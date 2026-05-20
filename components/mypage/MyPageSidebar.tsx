@@ -23,7 +23,7 @@ export function MyPageSidebar({
   mannerScore: number;
 }) {
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
 
   const navigate = (tab: MyPageTabId, section?: string) => {
     router.replace(buildMyPageHref(tab, section), { scroll: false });
@@ -65,7 +65,7 @@ export function MyPageSidebar({
             <p
               className={`border-t border-sam-border-soft bg-sam-app px-3 py-2 ${MYPAGE_TYPO.meta} font-semibold uppercase tracking-wide text-sam-muted`}
             >
-              {t(tab.labelKey)}
+              <span className="block truncate">{safeT(tab.labelKey)}</span>
             </p>
             <ul className="divide-y divide-sam-border-soft">
               {tab.sections.map((section) => {
@@ -82,7 +82,9 @@ export function MyPageSidebar({
                           : "text-sam-fg hover:bg-sam-app"
                       }`}
                     >
-                      <span className="min-w-0 flex-1">{t(section.labelKey)}</span>
+                      <span className="min-w-0 flex-1 truncate text-[12px] leading-[1.25]">
+                        {safeT(section.labelKey)}
+                      </span>
                       <ChevronIcon
                         className={isActive ? "text-sam-primary" : "text-sam-meta"}
                       />

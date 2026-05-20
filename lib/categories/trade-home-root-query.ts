@@ -10,6 +10,7 @@ import { CATEGORY_WITH_SETTINGS_SELECT } from "./category-select-fragment";
 interface TradeHomeRootDbRow {
   id: string;
   name: string;
+  name_en?: string | null;
   slug: string;
   icon_key: string;
   type: string;
@@ -41,6 +42,7 @@ function mapTradeHomeRootRow(row: TradeHomeRootDbRow): CategoryWithSettings {
   return {
     id: row.id,
     name: row.name,
+    name_en: typeof row.name_en === "string" ? row.name_en.trim() || null : null,
     slug: row.slug,
     icon_key: row.icon_key,
     type: row.type as CategoryWithSettings["type"],

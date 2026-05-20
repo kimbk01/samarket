@@ -16,7 +16,7 @@ export function StoreTab({
   ownerHubStoreId,
   storeAttentionSummary,
 }: Props & { section: string }) {
-  const { t } = useI18n();
+  const { t, safeT } = useI18n();
   const businessHref = ownerHubStoreId?.trim()
     ? `/stores/owner?storeId=${encodeURIComponent(ownerHubStoreId.trim())}`
     : "/stores/owner";
@@ -28,7 +28,7 @@ export function StoreTab({
     return (
       <TabShell
         variant="flush"
-        title={t("mypage_comp_nav_sec_store_orders_label")}
+        title={safeT("mypage_comp_nav_sec_store_orders_label")}
         description={t("mypage_comp_nav_sec_store_orders_desc")}
       >
         <MyStoreOrdersView embedded />
@@ -39,12 +39,16 @@ export function StoreTab({
   if (section === "order-chat") {
     return (
       <TabShell
-        title={t("mypage_comp_nav_sec_store_order_chat_label")}
+        title={safeT("mypage_comp_nav_sec_store_order_chat_label")}
         description={t("mypage_comp_nav_sec_store_order_chat_desc")}
       >
         <MyPageQuickActions
           items={[
-            { label: "주문 내역 열기", href: "/mypage/section/store/orders", caption: "주문 카드에서 채팅 바로 이동" },
+            {
+              label: safeT("mypage_comp_quick_open_orders_label"),
+              href: "/mypage/section/store/orders",
+              caption: safeT("mypage_comp_quick_open_orders_caption"),
+            },
             { label: t("mypage_comp_nav_sec_store_orders_label"), href: "/mypage/section/store/orders", caption: t("mypage_comp_nav_sec_store_orders_desc") },
             { label: t("mypage_comp_view_order_list"), href: "/mypage/store-orders", caption: t("mypage_comp_back_to_list_full") },
           ]}
@@ -56,7 +60,7 @@ export function StoreTab({
   if (section === "payment") {
     return (
       <TabShell
-        title={t("mypage_comp_nav_sec_store_payment_label")}
+        title={safeT("mypage_comp_nav_sec_store_payment_label")}
         description={t("mypage_comp_nav_sec_store_payment_desc")}
       >
         <MyPageQuickActions
@@ -72,7 +76,7 @@ export function StoreTab({
   if (section === "address") {
     return (
       <TabShell
-        title={t("mypage_comp_nav_sec_store_address_label")}
+        title={safeT("mypage_comp_nav_sec_store_address_label")}
         description={t("mypage_comp_nav_sec_store_address_desc")}
       >
         <AddressManagementClient embedded />
@@ -83,7 +87,7 @@ export function StoreTab({
   if (section === "member") {
     return (
       <TabShell
-        title={t("mypage_comp_nav_sec_store_member_label")}
+        title={safeT("mypage_comp_nav_sec_store_member_label")}
         description={t("mypage_comp_nav_sec_store_member_desc")}
       >
         <MyPageQuickActions
@@ -103,7 +107,7 @@ export function StoreTab({
   if (section === "manage") {
     return (
       <TabShell
-        title={t("mypage_comp_nav_sec_store_manage_label")}
+        title={safeT("mypage_comp_nav_sec_store_manage_label")}
         description={t("mypage_comp_nav_sec_store_manage_desc")}
       >
         <MyPageQuickActions
@@ -127,7 +131,7 @@ export function StoreTab({
   if (section === "rider") {
     return (
       <TabShell
-        title={t("mypage_comp_nav_sec_store_rider_label")}
+        title={safeT("mypage_comp_nav_sec_store_rider_label")}
         description={t("mypage_comp_nav_sec_store_rider_desc")}
       >
         <MyPageQuickActions
@@ -140,7 +144,7 @@ export function StoreTab({
   return (
     <TabShell
       variant="flush"
-      title={t("mypage_comp_nav_sec_store_orders_label")}
+      title={safeT("mypage_comp_nav_sec_store_orders_label")}
       description={t("mypage_comp_nav_sec_store_orders_desc")}
     >
       <MyStoreOrdersView embedded />
