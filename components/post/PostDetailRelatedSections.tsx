@@ -28,6 +28,7 @@ function itemThumb(item: PostWithMeta): string | null {
 }
 
 function PostMiniCard({ item }: { item: PostWithMeta }) {
+  const { t } = useI18n();
   const router = useRouter();
   const thumb = itemThumb(item);
   const app = getAppSettings();
@@ -81,6 +82,7 @@ function chunkPosts(rows: PostWithMeta[], size: number): PostWithMeta[][] {
 }
 
 function PostAdCompactCard({ item }: { item: PostWithMeta }) {
+  const { t } = useI18n();
   const router = useRouter();
   const thumb = itemThumb(item);
   const currency = getAppSettings().defaultCurrency || "KRW";
@@ -126,6 +128,7 @@ function PostAdCompactCard({ item }: { item: PostWithMeta }) {
 }
 
 function RelatedAdsCarouselSection({ items }: { items: PostWithMeta[] }) {
+  const { t } = useI18n();
   const pages = useMemo(() => chunkPosts(items, 6), [items]);
   const [page, setPage] = useState(0);
   const scrollerRef = useRef<HTMLDivElement | null>(null);

@@ -22,7 +22,7 @@ import {
 function buildNeighborhoodFeedListViewModel(post: NeighborhoodFeedPostDTO, untitledLabel: string): FeedListCardViewModel {
   const time =
     post.created_at && !Number.isNaN(Date.parse(post.created_at))
-      ? formatTimeAgo(post.created_at, "ko-KR")
+      ? formatTimeAgo(post.created_at)
       : "";
   const skin = post.feed_list_skin;
   const thumbnailUrl = resolveNeighborhoodFeedListThumbnail(post);

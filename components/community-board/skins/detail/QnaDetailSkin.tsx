@@ -9,7 +9,7 @@ export function QnaDetailSkin({
   showLike = true,
   showReport = true,
 }: BoardDetailSkinProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   return (
     <article className="bg-sam-surface rounded-ui-rect border border-sam-border overflow-hidden">
       <div className="border-l-4 border-sam-primary bg-sam-primary-soft/50 p-4">
@@ -17,7 +17,7 @@ export function QnaDetailSkin({
         <h1 className="text-xl font-semibold text-sam-fg mt-1">{post.title}</h1>
         <div className="flex items-center gap-2 mt-2 text-sm text-sam-muted">
           {post.author?.name && <span>{post.author.name}</span>}
-          <span>{new Date(post.created_at).toLocaleString("ko-KR")}</span>
+          <span>{new Date(post.created_at).toLocaleString(language === "en" ? "en-US" : "ko-KR")}</span>
         </div>
       </div>
       <div className="p-4">

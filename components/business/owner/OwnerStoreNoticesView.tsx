@@ -10,6 +10,7 @@ import { invalidateStoreNoticesPublicCache } from "@/lib/stores/store-delivery-a
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
 import { parseNoticeImages } from "@/lib/stores/store-banners-notices-public";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
 
 type NoticeRow = {
@@ -26,7 +27,7 @@ type NoticeRow = {
 
 const PLACEMENT_VALUES = ["store_top", "menu_top", "review_top", "info_tab"] as const;
 
-const PLACEMENT_I18N: Record<(typeof PLACEMENT_VALUES)[number], string> = {
+const PLACEMENT_I18N: Record<(typeof PLACEMENT_VALUES)[number], MessageKey> = {
   store_top: "business_phase7_432",
   menu_top: "business_phase7_433",
   review_top: "business_phase7_434",

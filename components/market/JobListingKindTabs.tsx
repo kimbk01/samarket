@@ -31,6 +31,7 @@ export function JobListingKindTabs({
   /** 현재 주제 칩 선택값(topic 쿼리) — 유지 */
   topicKey: string | null;
 }) {
+  const { t } = useI18n();
   const tabs: { kind: JobListingKindTab; labelKey: "jobs_listing_hire" | "jobs_listing_work_short" }[] = [
     { kind: "hire", labelKey: "jobs_listing_hire" },
     { kind: "work", labelKey: "jobs_listing_work_short" },

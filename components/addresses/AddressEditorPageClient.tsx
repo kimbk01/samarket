@@ -142,15 +142,18 @@ function AddressEditorPageInner() {
   );
 }
 
+function AddressEditorPageFallback() {
+  const { t } = useI18n();
+  return (
+    <div className="flex min-h-[40vh] items-center justify-center bg-sam-app sam-text-body-secondary text-sam-muted">
+      {t("common_loading")}
+    </div>
+  );
+}
+
 export function AddressEditorPageClient() {
   return (
-    <Suspense
-      fallback={
-        <div className="flex min-h-[40vh] items-center justify-center bg-sam-app sam-text-body-secondary text-sam-muted">
-          {t("common_loading")}
-        </div>
-      }
-    >
+    <Suspense fallback={<AddressEditorPageFallback />}>
       <AddressEditorPageInner />
     </Suspense>
   );

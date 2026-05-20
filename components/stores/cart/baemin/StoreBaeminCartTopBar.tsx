@@ -4,10 +4,11 @@ import {
   APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS,
   APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS,
 } from "@/lib/ui/app-content-layout";
-import { STORE_CART_PAGE_TITLE } from "@/lib/stores/store-cart-policy";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BAEMIN_CART_TYPE } from "@/lib/stores/store-baemin-cart-ui";
 
 export function StoreBaeminCartTopBar({ onBack }: { onBack: () => void }) {
+  const { t } = useI18n();
   return (
     <header className={APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS}>
       <div className="w-full border-b border-[var(--delivery-border-section)] bg-white">
@@ -24,7 +25,7 @@ export function StoreBaeminCartTopBar({ onBack }: { onBack: () => void }) {
               </svg>
             </button>
             <h1 className={`mx-auto text-center text-[#111111] ${BAEMIN_CART_TYPE.pageTitle}`}>
-              {STORE_CART_PAGE_TITLE}
+              {t("store_cart_page_title")}
             </h1>
             <button
               type="button"

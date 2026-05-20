@@ -110,7 +110,7 @@ test.describe("messenger composer + snapshot three stable", () => {
   test.beforeAll(async ({ request }) => {
     const user = process.env.E2E_TEST_USERNAME?.trim() || "aaaa";
     const pass = process.env.E2E_TEST_PASSWORD ?? "1234";
-    await assertPlaywrightOriginAndTestLogin(request, { username: user, password: pass });
+    await assertPlaywrightOriginAndTestLogin(request, undefined, { username: user, password: pass });
   });
 
   test("three runs: new browser context each + fixed room URL (composer_wall_ms)", async ({ browser, baseURL }) => {

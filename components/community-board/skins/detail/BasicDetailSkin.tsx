@@ -15,7 +15,7 @@ export function BasicDetailSkin({
   showLike = true,
   showReport = true,
 }: BoardDetailSkinProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
   const [reportBusy, setReportBusy] = useState(false);
   const me = getCurrentUser()?.id ?? "";
@@ -51,7 +51,7 @@ export function BasicDetailSkin({
         </div>
         <div className="flex flex-wrap items-center gap-2 mt-2 text-sm text-sam-muted">
           {post.author?.name && <span>{post.author.name}</span>}
-          <span>{new Date(post.created_at).toLocaleString("ko-KR")}</span>
+          <span>{new Date(post.created_at).toLocaleString(language === "en" ? "en-US" : "ko-KR")}</span>
           {post.view_count > 0 && <span>{t("community_stat_views_inline", { count: post.view_count })}</span>}
         </div>
         <div className="mt-4 prose prose-sm max-w-none text-sam-fg whitespace-pre-wrap">

@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerStoreOrderCardStepperWithActions } from "@/components/business/owner/OwnerStoreOrderCardStepperWithActions";
 import { OwnerStoreOrderCardFooterActions } from "@/components/business/owner/OwnerStoreOrderCardFooterActions";
 import {
@@ -7,19 +8,15 @@ import {
   ownerOrderHasTransitionButtons,
 } from "@/components/business/owner/OwnerStoreOrderDeliveryActions";
 import type { OwnerStoreOrderListRow } from "@/lib/business/owner-store-order-list-row-bridge";
-import { formatOwnerOrderElapsedKo } from "@/components/business/owner/owner-order-elapsed";
-import { ownerOrderStatusLabelKo, ownerOrderStatusTone } from "@/lib/stores/owner-mobile-ui-tokens";
+import { formatOwnerOrderElapsed } from "@/components/business/owner/owner-order-elapsed";
+import { ownerOrderStatusTone } from "@/lib/stores/owner-mobile-ui-tokens";
+import { ownerOrderStatusLabel } from "@/lib/stores/owner-order-ui-labels";
+import type { OwnerOrderStatus } from "@/lib/store-owner/types";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { formatPhMobileDisplay, parsePhMobileInput, telHrefFromLoosePhPhone } from "@/lib/utils/ph-mobile";
 import { BUYER_PUBLIC_LABEL_FALLBACK } from "@/lib/stores/buyer-public-label";
 import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
 import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
-
-const FULFILL_LABEL: Record<string, string> = {
-  pickup: "포장",
-  local_delivery: "배달",
-  shipping: "배달",
-};
 
 export function OwnerStoreOrderMockCard({
   storeId,
@@ -38,9 +35,14 @@ export function OwnerStoreOrderMockCard({
   onViewDetail: () => void;
   onOpenChat: () => void;
 }) {
+  const { t, language } = useI18n();
   const tone = ownerOrderStatusTone(order.order_status);
-  const statusLabel = ownerOrderStatusLabelKo(order.order_status);
-  const elapsed = formatOwnerOrderElapsedKo(order.created_at);
+  const statusLabel = ownerOrderStatusLabel(order.order_status as OwnerOrderStatus, language);
+  const elapsed = formatOwnerOrderElapsed(order.created_at, language);
+  const fulfillLabel =
+    order.fulfillment_type === "pickup"
+      ? t("store_owner_fulfillment_pickup_short")
+      : t("store_owner_fulfillment_delivery_short");
   const buyerLabel =
     typeof order.buyer_public_label === "string" && order.buyer_public_label.trim()
       ? order.buyer_public_label.trim()
@@ -95,7 +97,7 @@ export function OwnerStoreOrderMockCard({
         </p>
         <p className="text-[12px] text-[#8C8C8C]">
           <span className="mr-1.5 inline-flex rounded bg-[#F5F5F5] px-1.5 py-0.5 font-medium text-[#595959]">
-            {FULFILL_LABEL[order.fulfillment_type] ?? order.fulfillment_type}
+            {fulfillLabel}
           </span>
           {new Date(order.created_at).toLocaleString("ko-KR", {
             hour: "numeric",

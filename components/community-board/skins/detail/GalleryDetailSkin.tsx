@@ -9,7 +9,7 @@ export function GalleryDetailSkin({
   showLike = true,
   showReport = true,
 }: BoardDetailSkinProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const images = post.images ?? [];
   const firstUrl = images[0]?.url;
 
@@ -45,7 +45,7 @@ export function GalleryDetailSkin({
       <div className="p-4">
         <h1 className="text-lg font-semibold text-sam-fg">{post.title}</h1>
         <p className="text-sm text-sam-muted mt-1">
-          {post.author?.name} · {new Date(post.created_at).toLocaleDateString("ko-KR")}
+          {post.author?.name} · {new Date(post.created_at).toLocaleDateString(language === "en" ? "en-US" : "ko-KR")}
         </p>
         {post.content && (
           <p className="mt-3 text-sam-fg text-sm whitespace-pre-wrap">{post.content}</p>

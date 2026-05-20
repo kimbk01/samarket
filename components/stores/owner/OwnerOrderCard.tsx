@@ -32,7 +32,7 @@ export function OwnerOrderCard({
 }) {
   const { t, language } = useI18n();
   const detailHref = buildStoreOrdersHref({ storeId, orderId: order.id });
-  const dateLocale = language === "ko" ? "ko-KR" : language === "zh" ? "zh-CN" : "en-US";
+  const dateLocale = language === "ko" ? "ko-KR" : "en-US";
   const typeBadge =
     order.order_type === "delivery" || order.order_type === "shipping"
       ? { cls: "bg-signature/5 text-sam-fg", text: t("common_delivery") }

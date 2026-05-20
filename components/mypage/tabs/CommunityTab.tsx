@@ -9,6 +9,7 @@ import { UserListContent } from "@/components/my/settings/UserListContent";
 import { MyPageQuickActions } from "@/components/mypage/MyPageQuickActions";
 import { MyPageSectionHeader } from "@/components/mypage/MyPageSectionHeader";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatAppDate } from "@/lib/i18n/locale-for-app-language";
 
 type CommunityPostPreview = {
   id: string;
@@ -46,12 +47,6 @@ type CommunityReportItem = {
   status: string;
   createdAt: string;
 };
-
-function formatDate(iso: string): string {
-  const value = new Date(iso);
-  if (Number.isNaN(value.getTime())) return "";
-  return value.toLocaleDateString("ko-KR");
-}
 
 export function CommunityTab({ section }: { section: string }) {
   const { t } = useI18n();
@@ -196,7 +191,7 @@ function MyCommunityActivityPanel({
   description: string;
   mode: "comments" | "favorites" | "reports";
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [comments, setComments] = useState<CommunityCommentItem[]>([]);
@@ -250,7 +245,7 @@ function MyCommunityActivityPanel({
             <p className="sam-text-body font-medium text-sam-fg">{item.postTitle}</p>
             <p className="mt-1 line-clamp-2 sam-text-body-secondary text-sam-muted">{item.content}</p>
             <p className="mt-1 sam-text-helper text-sam-meta">
-              {[item.regionLabel, formatDate(item.createdAt)].filter(Boolean).join(" · ")}
+              {[item.regionLabel, formatAppDate(item.createdAt, language)].filter(Boolean).join(" · ")}
             </p>
           </Link>
         ))}
@@ -264,7 +259,7 @@ function MyCommunityActivityPanel({
           <Link key={item.id} href={`/philife/${encodeURIComponent(item.postId)}`} className="block px-4 py-3 hover:bg-sam-app">
             <p className="sam-text-body font-medium text-sam-fg">{item.title}</p>
             <p className="mt-1 sam-text-helper text-sam-meta">
-              {[item.regionLabel, formatDate(item.createdAt)].filter(Boolean).join(" · ")}
+              {[item.regionLabel, formatAppDate(item.createdAt, language)].filter(Boolean).join(" · ")}
             </p>
           </Link>
         ))}
@@ -287,7 +282,7 @@ function MyCommunityActivityPanel({
                   item.channel === "community" ? t("mypage_comp_community_channel_community") : t("mypage_comp_community_channel_messenger"),
                   item.reasonType,
                   item.status,
-                  formatDate(item.createdAt),
+                  formatAppDate(item.createdAt, language),
                 ]
                   .filter(Boolean)
                   .join(" · ")}

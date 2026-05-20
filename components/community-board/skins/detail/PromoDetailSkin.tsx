@@ -9,7 +9,7 @@ export function PromoDetailSkin({
   showLike = true,
   showReport = true,
 }: BoardDetailSkinProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const thumb = post.images?.[0]?.url;
 
   return (
@@ -23,7 +23,7 @@ export function PromoDetailSkin({
         <span className="text-xs font-bold text-amber-700 uppercase">{t("community_board_promo_label")}</span>
         <h1 className="text-xl font-bold text-sam-fg mt-1">{post.title}</h1>
         <p className="text-sm text-sam-muted mt-1">
-          {post.author?.name} · {new Date(post.created_at).toLocaleDateString("ko-KR")}
+          {post.author?.name} · {new Date(post.created_at).toLocaleDateString(language === "en" ? "en-US" : "ko-KR")}
         </p>
         <div className="mt-4 text-sam-fg text-sm whitespace-pre-wrap">{post.content}</div>
         {post.images && post.images.length > 1 && (

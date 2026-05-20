@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
 import type { AdminChatMessage } from "@/lib/types/admin-chat";
 
 interface AdminChatMessageTimelineProps {
@@ -8,7 +9,7 @@ interface AdminChatMessageTimelineProps {
 }
 
 export function AdminChatMessageTimeline({ messages }: AdminChatMessageTimelineProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
 
   if (messages.length === 0) {
     return (
@@ -30,7 +31,7 @@ export function AdminChatMessageTimeline({ messages }: AdminChatMessageTimelineP
         >
           <div className="flex flex-wrap items-center gap-2 sam-text-helper text-sam-muted">
             <span className="font-medium text-sam-fg">{m.senderNickname}</span>
-            <span>{new Date(m.createdAt).toLocaleString("ko-KR")}</span>
+            <span>{formatAdminDateTime(m.createdAt, language)}</span>
             {m.isReported && (
               <span className="rounded bg-amber-100 px-1.5 py-0.5 text-amber-800">
                 {t("admin_chat_status_reported")}

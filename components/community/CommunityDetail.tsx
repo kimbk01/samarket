@@ -94,7 +94,7 @@ export function CommunityDetail({
   initialRouteTotalMs?: number;
   similarPosts?: NeighborhoodFeedPostDTO[];
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const [postUrl, setPostUrl] = useState("");
@@ -548,7 +548,7 @@ export function CommunityDetail({
 
   const authorSubline = meeting
     ? t("community_detail_stats_line", {
-        views: viewCount.toLocaleString("ko-KR"),
+        views: viewCount.toLocaleString(language === "en" ? "en-US" : "ko-KR"),
         comments: displayCommentCount,
       })
     : undefined;

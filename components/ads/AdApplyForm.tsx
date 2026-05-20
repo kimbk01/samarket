@@ -216,7 +216,7 @@ export function AdApplyForm({
           <option value="bank_transfer">
             {adPaymentMethodLabel("bank_transfer")}
           </option>
-          <option value="gcash">{AD_PAYMENT_METHOD_LABELS.gcash}</option>
+          <option value="gcash">{adPaymentMethodLabel("gcash")}</option>
           <option value="manual_confirm">
             {adPaymentMethodLabel("manual_confirm")}
           </option>

@@ -1,4 +1,6 @@
 import { Suspense } from "react";
+import { cookies, headers } from "next/headers";
+import { APP_LANGUAGE_COOKIE } from "@/lib/i18n/config";
 import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
 import { translate } from "@/lib/i18n/messages";
 import Link from "next/link";
@@ -8,6 +10,12 @@ import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenti
 import { loadGroupChatBootstrapForUser } from "@/lib/group-chat/load-group-chat-bootstrap-server";
 
 async function GroupChatRoomPageBody({ paramsPromise }: { paramsPromise: Promise<{ roomId: string }> }) {
+  const jar = await cookies();
+  const hdr = await headers();
+  const lang = resolveServerInitialLanguage({
+    cookieValue: jar.get(APP_LANGUAGE_COOKIE)?.value ?? null,
+    acceptLanguage: hdr.get("accept-language"),
+  });
   const { roomId } = await paramsPromise;
   const id = roomId?.trim() ?? "";
   if (!id) {

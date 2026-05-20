@@ -8,7 +8,13 @@ import {
   normalizeLanguagePreferenceForStorage,
   preferredLanguageFromDbColumn,
   preferredLanguageToDbColumn,
+  type StoredPreferredLanguage,
 } from "@/lib/i18n/config";
+
+/** PATCH 본문 정규화 결과 — `preferred_language`는 API·앱 의미(ko|en|null)만 담는다. DB `""` 변환은 upsert 직전. */
+type UserSettingsClientPatch = Partial<Omit<UserSettingsRow, "preferred_language">> & {
+  preferred_language?: StoredPreferredLanguage;
+};
 import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-server";
 import { jsonErrorWithRequest, jsonOkWithRequest } from "@/lib/http/api-route";
 
@@ -27,8 +33,8 @@ function isUserSettingsSchemaUnavailable(error: { message?: string; code?: strin
   return false;
 }
 
-function normalizePatch(body: Record<string, unknown>): Partial<UserSettingsRow> {
-  const patch: Partial<UserSettingsRow> = {};
+function normalizePatch(body: Record<string, unknown>): UserSettingsClientPatch {
+  const patch: UserSettingsClientPatch = {};
   if ("push_enabled" in body) patch.push_enabled = body.push_enabled !== false;
   if ("chat_push_enabled" in body) patch.chat_push_enabled = body.chat_push_enabled !== false;
   if ("marketing_push_enabled" in body) patch.marketing_push_enabled = body.marketing_push_enabled === true;

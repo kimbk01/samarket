@@ -8,7 +8,7 @@ export function GalleryListSkin({
   posts,
   baseHref,
 }: BoardListSkinProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
       {posts.length === 0 ? (
@@ -38,7 +38,7 @@ export function GalleryListSkin({
               <div className="p-2">
                 <h3 className="text-sm font-medium text-sam-fg line-clamp-2">{post.title}</h3>
                 <p className="text-xs text-sam-muted mt-0.5">
-                  {new Date(post.created_at).toLocaleDateString("ko-KR")}
+                  {new Date(post.created_at).toLocaleDateString(language === "en" ? "en-US" : "ko-KR")}
                 </p>
               </div>
             </Link>

@@ -31,7 +31,7 @@ export function CommunitySimilarPostsSection({ currentPostId, posts }: Props) {
               const url = resolveNeighborhoodFeedListThumbnail(p);
               const timeLabel =
                 p.created_at && !Number.isNaN(Date.parse(p.created_at))
-                  ? formatTimeAgo(p.created_at, "ko-KR")
+                  ? formatTimeAgo(p.created_at)
                   : "";
               const preview = normalizeFeedListBodyPreview(
                 p.summary || (p.content && p.content.length < 200 ? p.content : "") || ""

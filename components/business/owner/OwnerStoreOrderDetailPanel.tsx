@@ -1,6 +1,7 @@
 "use client";
 
 import { type ReactNode, useEffect, useRef } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { X, MapPin } from "lucide-react";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { OwnerStoreOrderCardStepperWithActions } from "@/components/business/owner/OwnerStoreOrderCardStepperWithActions";
@@ -8,13 +9,15 @@ import { patchOwnerStoreOrderStatus } from "@/lib/business/patch-owner-store-ord
 import { OWNER_AUTO_ACCEPT_PREP_MINUTES } from "@/lib/business/owner-order-stepper-transition";
 import { OwnerStoreOrderDeliveryActionsAside } from "@/components/business/owner/OwnerStoreOrderDeliveryActions";
 import type { OwnerStoreOrderListRow } from "@/lib/business/owner-store-order-list-row-bridge";
-import { formatOwnerOrderElapsedKo } from "@/components/business/owner/owner-order-elapsed";
+import { formatOwnerOrderElapsed } from "@/components/business/owner/owner-order-elapsed";
 import {
   OWNER_MOBILE_ORDER_DETAIL_FOOTER_PAD_CLASS,
   OWNER_MOBILE_ORDER_DETAIL_OVERLAY_SHELL_CLASS,
-  ownerOrderStatusLabelKo,
   ownerOrderStatusTone,
 } from "@/lib/stores/owner-mobile-ui-tokens";
+import { ownerOrderStatusLabel } from "@/lib/stores/owner-order-ui-labels";
+import type { OwnerOrderStatus } from "@/lib/store-owner/types";
+import { formatAppDateTime } from "@/lib/i18n/locale-for-app-language";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
 import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
@@ -22,10 +25,11 @@ import { BUYER_PUBLIC_LABEL_FALLBACK } from "@/lib/stores/buyer-public-label";
 
 /** `order_id` 딥링크·목록 로딩 중 — 상세 본문 대신 동일 오버레이 셸 */
 export function OwnerStoreOrderDetailLoadingPanel({ onClose }: { onClose: () => void }) {
+  const { t } = useI18n();
   return (
     <OwnerStoreOrderDetailOverlay onClose={onClose}>
       <div className="flex min-h-0 flex-1 items-center justify-center px-4">
-        <p className="text-[14px] text-[#8C8C8C]">주문 정보를 불러오는 중…</p>
+        <p className="text-[14px] text-[#8C8C8C]">{t("store_owner_order_detail_loading")}</p>
       </div>
     </OwnerStoreOrderDetailOverlay>
   );
@@ -42,9 +46,10 @@ export function OwnerStoreOrderDetailPanel({
   onClose: () => void;
   onUpdated: () => void;
 }) {
+  const { t, language } = useI18n();
   const tone = ownerOrderStatusTone(order.order_status);
-  const statusLabel = ownerOrderStatusLabelKo(order.order_status);
-  const elapsed = formatOwnerOrderElapsedKo(order.created_at);
+  const statusLabel = ownerOrderStatusLabel(order.order_status as OwnerOrderStatus, language);
+  const elapsed = formatOwnerOrderElapsed(order.created_at, language);
   const buyerLabel =
     typeof order.buyer_public_label === "string" && order.buyer_public_label.trim()
       ? order.buyer_public_label.trim()
@@ -54,7 +59,9 @@ export function OwnerStoreOrderDetailPanel({
     .join("\n");
   const prepMin =
     order.estimated_prep_minutes != null && Number(order.estimated_prep_minutes) > 0
-      ? `약 ${Math.floor(Number(order.estimated_prep_minutes))}분`
+      ? t("store_owner_prep_about_minutes", {
+          minutes: String(Math.floor(Number(order.estimated_prep_minutes))),
+        })
       : "—";
 
   const autoAcceptStartedRef = useRef(false);
@@ -87,23 +94,25 @@ export function OwnerStoreOrderDetailPanel({
         </section>
 
         <section className="mt-3 rounded-lg border border-[#E8E8E8] bg-white p-3.5">
-          <h2 className="text-[14px] font-bold text-[#262626]">주문 정보</h2>
+          <h2 className="text-[14px] font-bold text-[#262626]">{t("store_owner_order_info_section")}</h2>
           <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-2 text-[13px]">
-            <dt className="text-[#8C8C8C]">주문 유형</dt>
+            <dt className="text-[#8C8C8C]">{t("store_owner_order_type_label")}</dt>
             <dd className="font-medium text-[#262626]">
-              {order.fulfillment_type === "local_delivery" ? "배달 주문" : "포장 주문"}
+              {order.fulfillment_type === "local_delivery"
+                ? t("store_owner_order_type_delivery")
+                : t("store_owner_order_type_pickup")}
             </dd>
-            <dt className="text-[#8C8C8C]">결제 방법</dt>
+            <dt className="text-[#8C8C8C]">{t("store_owner_payment_method_label")}</dt>
             <dd className="font-medium text-[#262626]">
               {formatBuyerPaymentDisplay(order.buyer_payment_method, order.buyer_payment_method_detail)}
             </dd>
-            <dt className="text-[#8C8C8C]">결제 금액</dt>
+            <dt className="text-[#8C8C8C]">{t("store_owner_payment_amount_label")}</dt>
             <dd className="font-bold text-[#262626]">{formatMoneyPhp(order.payment_amount)}</dd>
-            <dt className="text-[#8C8C8C]">주문 시간</dt>
+            <dt className="text-[#8C8C8C]">{t("store_owner_order_time_label")}</dt>
             <dd className="font-medium text-[#262626]">
-              {new Date(order.created_at).toLocaleString("ko-KR")}
+              {formatAppDateTime(order.created_at, language)}
             </dd>
-            <dt className="text-[#8C8C8C]">예상 조리</dt>
+            <dt className="text-[#8C8C8C]">{t("store_owner_prep_estimate_label")}</dt>
             <dd className="font-medium text-[#262626]">{prepMin}</dd>
           </dl>
         </section>
@@ -111,7 +120,7 @@ export function OwnerStoreOrderDetailPanel({
         {address ? (
           <section className="mt-3 rounded-lg border border-[#E8E8E8] bg-white p-3.5">
             <div className="flex items-start justify-between gap-2">
-              <h2 className="text-[14px] font-bold text-[#262626]">배송지</h2>
+              <h2 className="text-[14px] font-bold text-[#262626]">{t("store_owner_delivery_address_section")}</h2>
               <MapPin className="h-5 w-5 shrink-0 text-[#2D7FF9]" aria-hidden />
             </div>
             <p className="mt-2 whitespace-pre-wrap text-[13px] leading-relaxed text-[#595959]">{address}</p>
@@ -119,7 +128,7 @@ export function OwnerStoreOrderDetailPanel({
         ) : null}
 
         <section className="mt-3 rounded-lg border border-[#E8E8E8] bg-white p-3.5">
-          <h2 className="text-[14px] font-bold text-[#262626]">주문 메뉴</h2>
+          <h2 className="text-[14px] font-bold text-[#262626]">{t("store_owner_order_menu_section")}</h2>
           <ul className="mt-2 space-y-2">
             {(order.items ?? []).map((it) => (
               <li key={it.id} className="flex justify-between gap-2 text-[13px]">
@@ -169,12 +178,13 @@ function OwnerStoreOrderDetailOverlay({
   onClose: () => void;
   children: ReactNode;
 }) {
+  const { t } = useI18n();
   return (
     <BodyPortal>
       <div
         role="dialog"
         aria-modal="true"
-        aria-label="주문 상세"
+        aria-label={t("store_owner_aria_order_detail")}
         className={OWNER_MOBILE_ORDER_DETAIL_OVERLAY_SHELL_CLASS}
       >
         <div className="flex h-12 shrink-0 items-center justify-between border-b border-[#E5E7EB] bg-white px-3">
@@ -182,11 +192,11 @@ function OwnerStoreOrderDetailOverlay({
             type="button"
             onClick={onClose}
             className="flex h-10 w-10 items-center justify-center rounded-full hover:bg-[#F5F5F5]"
-            aria-label="닫기"
+            aria-label={t("common_close")}
           >
             <X className="h-5 w-5" aria-hidden />
           </button>
-          <p className="text-[16px] font-bold text-[#262626]">주문 상세</p>
+          <p className="text-[16px] font-bold text-[#262626]">{t("store_owner_order_detail_title")}</p>
           <span className="h-10 w-10" aria-hidden />
         </div>
         {children}
@@ -217,9 +227,10 @@ function OrderDetailStatusHeader({
 }
 
 function BuyerNoteBlock({ note }: { note: string }) {
+  const { t } = useI18n();
   return (
     <div className="mt-3 rounded-md border border-[#FFE58F] bg-[#FFFBE6] px-3 py-2">
-      <p className="text-[12px] font-semibold text-[#AD6800]">특이사항</p>
+      <p className="text-[12px] font-semibold text-[#AD6800]">{t("store_owner_buyer_note_title")}</p>
       <p className="mt-1 text-[13px] text-[#614700]">{note}</p>
     </div>
   );

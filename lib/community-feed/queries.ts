@@ -25,6 +25,7 @@ export function mapCommunityTopicRowsToDto(rows: Record<string, unknown>[]): Com
     id: String(row.id),
     section_id: String(row.section_id ?? ""),
     name: String(row.name ?? ""),
+    name_en: row.name_en != null && String(row.name_en).trim() ? String(row.name_en) : null,
     slug: String(row.slug ?? ""),
     color: row.color != null ? String(row.color) : null,
     icon: row.icon != null ? String(row.icon) : null,
@@ -102,6 +103,7 @@ export async function listTopicsForSectionSlug(
     }
 
     const selectAttempts = [
+      "id, section_id, name, name_en, slug, color, icon, sort_order, is_visible, is_feed_sort, allow_question, allow_meetup, feed_list_skin, feed_sort_mode",
       "id, section_id, name, slug, color, icon, sort_order, is_visible, is_feed_sort, allow_question, allow_meetup, feed_list_skin, feed_sort_mode",
       "id, section_id, name, slug, color, icon, sort_order, is_visible, is_feed_sort, allow_question, allow_meetup, feed_list_skin",
       "id, section_id, name, slug, color, icon, sort_order, is_visible, is_feed_sort, allow_question, allow_meetup, feed_sort_mode",
@@ -261,6 +263,7 @@ export async function listCommunityFeedPosts(options: {
     const uid = String(r.user_id ?? "");
     const topic = r.community_topics as {
       name?: string;
+      name_en?: string | null;
       slug?: string;
       color?: string | null;
       feed_list_skin?: unknown;
@@ -271,6 +274,7 @@ export async function listCommunityFeedPosts(options: {
       section_slug: String(r.section_slug ?? sectionSlug),
       topic_slug: String(r.topic_slug ?? ""),
       topic_name: String(topic?.name ?? r.topic_slug ?? ""),
+      topic_name_en: topic?.name_en != null && String(topic.name_en).trim() ? String(topic.name_en) : null,
       topic_color: topic?.color ?? null,
       feed_list_skin: normalizeCommunityFeedListSkin(topic?.feed_list_skin),
       title: String(r.title ?? ""),
@@ -334,9 +338,9 @@ export async function getCommunityPostDetail(postId: string): Promise<CommunityP
   }
 
   const selDetailWith =
-    "id, section_slug, topic_slug, title, content, summary, region_label, is_question, is_meetup, meetup_date, meetup_place, view_count, like_count, comment_count, created_at, user_id, community_topics ( name, slug, color, feed_list_skin ), community_post_images ( id, image_url, sort_order )";
+    "id, section_slug, topic_slug, title, content, summary, region_label, is_question, is_meetup, meetup_date, meetup_place, view_count, like_count, comment_count, created_at, user_id, community_topics ( name, name_en, slug, color, feed_list_skin ), community_post_images ( id, image_url, sort_order )";
   const selDetailNo =
-    "id, section_slug, topic_slug, title, content, summary, region_label, is_question, is_meetup, meetup_date, meetup_place, view_count, like_count, comment_count, created_at, user_id, community_topics ( name, slug, color ), community_post_images ( id, image_url, sort_order )";
+    "id, section_slug, topic_slug, title, content, summary, region_label, is_question, is_meetup, meetup_date, meetup_place, view_count, like_count, comment_count, created_at, user_id, community_topics ( name, name_en, slug, color ), community_post_images ( id, image_url, sort_order )";
 
   const d1 = await sb.from("community_posts").select(selDetailWith).eq("id", postId).eq("is_hidden", false).maybeSingle();
   let detailRaw: unknown = d1.data;
@@ -353,6 +357,7 @@ export async function getCommunityPostDetail(postId: string): Promise<CommunityP
   const nickMap = await fetchNicknamesForUserIds(sb as never, [uid]);
   const topic = row.community_topics as {
     name?: string;
+    name_en?: string | null;
     slug?: string;
     color?: string | null;
     feed_list_skin?: unknown;
@@ -375,6 +380,7 @@ export async function getCommunityPostDetail(postId: string): Promise<CommunityP
     section_slug: String(row.section_slug ?? ""),
     topic_slug: String(row.topic_slug ?? ""),
     topic_name: String(topic?.name ?? row.topic_slug ?? ""),
+    topic_name_en: topic?.name_en != null && String(topic.name_en).trim() ? String(topic.name_en) : null,
     topic_color: topic?.color ?? null,
     feed_list_skin: normalizeCommunityFeedListSkin(topic?.feed_list_skin),
     title: String(row.title ?? ""),
@@ -519,9 +525,9 @@ export async function listCommunityPostsForUser(
   }
 
   const selUserWith =
-    "id, section_slug, topic_slug, title, summary, region_label, is_question, is_meetup, meetup_date, meetup_place, view_count, like_count, comment_count, created_at, user_id, community_topics ( name, slug, color, feed_list_skin )";
+    "id, section_slug, topic_slug, title, summary, region_label, is_question, is_meetup, meetup_date, meetup_place, view_count, like_count, comment_count, created_at, user_id, community_topics ( name, name_en, slug, color, feed_list_skin )";
   const selUserNo =
-    "id, section_slug, topic_slug, title, summary, region_label, is_question, is_meetup, meetup_date, meetup_place, view_count, like_count, comment_count, created_at, user_id, community_topics ( name, slug, color )";
+    "id, section_slug, topic_slug, title, summary, region_label, is_question, is_meetup, meetup_date, meetup_place, view_count, like_count, comment_count, created_at, user_id, community_topics ( name, name_en, slug, color )";
 
   const u1 = await sb
     .from("community_posts")
@@ -568,6 +574,7 @@ export async function listCommunityPostsForUser(
   return rows.map((r) => {
     const topic = r.community_topics as {
       name?: string;
+      name_en?: string | null;
       slug?: string;
       color?: string | null;
       feed_list_skin?: unknown;
@@ -578,6 +585,7 @@ export async function listCommunityPostsForUser(
       section_slug: String(r.section_slug ?? ""),
       topic_slug: String(r.topic_slug ?? ""),
       topic_name: String(topic?.name ?? r.topic_slug ?? ""),
+      topic_name_en: topic?.name_en != null && String(topic.name_en).trim() ? String(topic.name_en) : null,
       topic_color: topic?.color ?? null,
       feed_list_skin: normalizeCommunityFeedListSkin(topic?.feed_list_skin),
       title: String(r.title ?? ""),

@@ -39,7 +39,7 @@ export function CommunityPostDetailClient({
   post: CommunityPostDetailDTO;
   initialComments: CommunityCommentDTO[];
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [mounted, setMounted] = useState(false);
   const me = mounted ? getCurrentUser() : getHydrationSafeCurrentUser();
   const [comments, setComments] = useState(initialComments);
@@ -184,7 +184,7 @@ export function CommunityPostDetailClient({
 
   const time =
     post.created_at && !Number.isNaN(Date.parse(post.created_at))
-      ? formatTimeAgo(post.created_at, "ko-KR")
+      ? formatTimeAgo(post.created_at)
       : "";
 
   return (
@@ -246,7 +246,12 @@ export function CommunityPostDetailClient({
 
           {post.is_meetup && (post.meetup_date || post.meetup_place) ? (
             <div className="mt-4 rounded-ui-rect bg-emerald-50 px-3 py-2 sam-text-body-secondary text-emerald-900">
-              {post.meetup_date ? <p>{t("community_meetup_datetime")} {new Date(post.meetup_date).toLocaleString("ko-KR")}</p> : null}
+              {post.meetup_date ? (
+                <p>
+                  {t("community_meetup_datetime")}{" "}
+                  {new Date(post.meetup_date).toLocaleString(language === "en" ? "en-US" : "ko-KR")}
+                </p>
+              ) : null}
               {post.meetup_place ? <p>{t("community_meetup_place")} {post.meetup_place}</p> : null}
             </div>
           ) : null}
@@ -321,7 +326,7 @@ export function CommunityPostDetailClient({
                 <p className="mt-1 sam-text-body text-sam-fg">{c.content}</p>
                 <p className="mt-1 sam-text-xxs text-sam-meta">
                   {c.created_at && !Number.isNaN(Date.parse(c.created_at))
-                    ? formatTimeAgo(c.created_at, "ko-KR")
+                    ? formatTimeAgo(c.created_at)
                     : ""}
                 </p>
               </li>

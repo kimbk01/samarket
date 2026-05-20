@@ -1552,7 +1552,9 @@ export const adminMessages = {
     admin_stores_app_taxonomy_primary_hint: "행 단위로 이름/정렬 수정, 숨김(삭제)할 수 있어요.",
     admin_stores_app_taxonomy_secondary: "2차 업종",
     admin_stores_app_taxonomy_secondary_hint: "1차를 선택하면 해당 2차 목록이 나옵니다. 행 단위로 수정/숨김할 수 있어요.",
-    admin_stores_app_taxonomy_ph_name: "이름",
+    admin_stores_app_taxonomy_ph_name: "이름 (한국어)",
+
+    admin_stores_app_taxonomy_ph_name_en: "이름 (English)",
     admin_stores_app_taxonomy_ph_slug_auto: "비우면 자동",
     admin_stores_app_taxonomy_ph_category_example: "예: 약국",
     admin_stores_app_taxonomy_ph_topic_example: "예: 한의원",
@@ -3128,7 +3130,10 @@ export const adminMessages = {
     admin_stores_app_taxonomy_primary_hint: "Edit name/sort per row; hide (soft delete).",
     admin_stores_app_taxonomy_secondary: "Secondary category",
     admin_stores_app_taxonomy_secondary_hint: "Pick primary to list secondary rows; edit or hide per row.",
-    admin_stores_app_taxonomy_ph_name: "Name",
+    admin_stores_app_taxonomy_ph_name: "Name (Korean)",
+
+    admin_stores_app_taxonomy_ph_name_en: "Name (English)",
+
     admin_stores_app_taxonomy_ph_slug_auto: "Auto if empty",
     admin_stores_app_taxonomy_ph_category_example: "e.g. Pharmacy",
     admin_stores_app_taxonomy_ph_topic_example: "e.g. Herbal clinic",

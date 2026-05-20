@@ -17,7 +17,7 @@ export function CommentItem({
   const { t } = useI18n();
   const time = useMemo(() => {
     if (!node.created_at || Number.isNaN(Date.parse(node.created_at))) return "";
-    return formatTimeAgo(node.created_at, "ko-KR");
+    return formatTimeAgo(node.created_at);
   }, [node.created_at]);
 
   return (

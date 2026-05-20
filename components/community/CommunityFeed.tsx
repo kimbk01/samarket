@@ -9,6 +9,7 @@ import {
   peekPhilifeNeighborhoodTopicOptionsFromCache,
   seedPhilifeNeighborhoodTopicOptionsCache,
 } from "@/lib/philife/fetch-neighborhood-topic-options-client";
+import { resolveCommunityTopicUILabel } from "@/lib/i18n/community-topic-label-i18n";
 import {
   buildFeedChipsFromPhilifeTopicOptionsJson,
   isPhilifeRecommendSortCategory,
@@ -296,7 +297,7 @@ export function CommunityFeed({
 }: {
   initialGlobalFeedRsc?: PhilifeGlobalFeedInitialRsc | null;
 } = {}) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const philifeGlobalFeedSortLabel = useCallback(
     (mode: "latest" | "recommended") =>
       mode === "recommended" ? t("community_sort_recommended") : t("community_sort_latest"),
@@ -1304,7 +1305,9 @@ export function CommunityFeed({
                       const slugKey = (c.slug ?? "").trim().toLowerCase();
                       const on = c.slug === "" ? isAllTabView : catKey === slugKey;
                       const sortModeLabel =
-                        c.slug === "" ? philifeGlobalFeedSortLabel(recSortKey) : c.label;
+                        c.slug === ""
+                          ? philifeGlobalFeedSortLabel(recSortKey)
+                          : resolveCommunityTopicUILabel(language, c.label, c.name_en);
                       const subjectChipClass = on ? PHILIFE_TOPIC_TAB_SUBJECT_ACTIVE : PHILIFE_TOPIC_TAB_SUBJECT_IDLE;
                       if (isGlobalSortDropdownChip(c)) {
                         const globalSortInteractionProps =

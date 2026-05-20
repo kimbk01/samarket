@@ -8,7 +8,7 @@ export function MagazineListSkin({
   posts,
   baseHref,
 }: BoardListSkinProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   if (posts.length === 0) {
     return (
       <div className="py-12 text-center text-sam-muted bg-sam-surface rounded-ui-rect">{t("community_feed_empty")}</div>
@@ -46,7 +46,7 @@ export function MagazineListSkin({
             <h3 className="text-lg font-semibold text-sam-fg">{featured.title}</h3>
             <p className="text-sm text-sam-muted mt-1 line-clamp-2">{featured.content}</p>
             <p className="text-xs text-sam-muted mt-2">
-              {new Date(featured.created_at).toLocaleDateString("ko-KR")}
+              {new Date(featured.created_at).toLocaleDateString(language === "en" ? "en-US" : "ko-KR")}
             </p>
           </div>
         </Link>
@@ -79,7 +79,7 @@ export function MagazineListSkin({
             <div className="min-w-0 flex-1">
               <h3 className="font-medium text-sam-fg line-clamp-1">{post.title}</h3>
               <p className="text-xs text-sam-muted mt-0.5">
-                {new Date(post.created_at).toLocaleDateString("ko-KR")}
+                {new Date(post.created_at).toLocaleDateString(language === "en" ? "en-US" : "ko-KR")}
               </p>
             </div>
           </Link>

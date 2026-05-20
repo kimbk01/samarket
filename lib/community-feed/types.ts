@@ -16,6 +16,8 @@ export type CommunityTopicDTO = {
   id: string;
   section_id: string;
   name: string;
+  /** UI en 표시명 (어드민) */
+  name_en?: string | null;
   slug: string;
   color: string | null;
   icon: string | null;
@@ -38,6 +40,7 @@ export type CommunityFeedPostDTO = {
   section_slug: string;
   topic_slug: string;
   topic_name: string;
+  topic_name_en?: string | null;
   topic_color: string | null;
   /** 주제에 설정된 목록 카드 스킨 */
   feed_list_skin: CommunityFeedListSkin;

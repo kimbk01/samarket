@@ -155,7 +155,7 @@ export function AdminPhilifeMeetingEventsClient() {
                   ? new Date(e.created_at).toLocaleString(dateLocale)
                   : e.created_at;
               const typeLabel = isMeetingEventType(e.event_type)
-                ? t(MEETING_EVENT_TYPE_KEYS[e.event_type])
+                ? t(MEETING_EVENT_TYPE_LABEL_KEYS[e.event_type])
                 : e.event_type;
               const desc = formatMeetingEventDescription(e, t);
               return (

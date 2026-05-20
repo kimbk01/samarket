@@ -16,6 +16,12 @@ export {
   buyerOrderTimelinePickupStepLabels,
 } from "@/lib/stores/buyer-order-status-labels";
 
+import {
+  buyerOrderStatusLabel as resolveBuyerOrderStatusLabel,
+  buyerOrderTimelineDeliveryStepLabels,
+  buyerOrderTimelinePickupStepLabels,
+} from "@/lib/stores/buyer-order-status-labels";
+
 /**
  * 사장님·비즈 콘솔: 현재 상태 → 다음 상태로 보낼 때 버튼 문구
  */
@@ -112,3 +118,23 @@ export function buyerDetailSixStepStates(
       return [u, u, u, na, na, u];
   }
 }
+
+/**
+ * 레거시 `BUYER_ORDER_STATUS_LABEL[status]` 호환 — 런타임 언어 기준.
+ * 신규 코드는 `buyerOrderStatusLabel(status, lang)` 사용.
+ */
+export const BUYER_ORDER_STATUS_LABEL: Record<string, string> = new Proxy(
+  {} as Record<string, string>,
+  {
+    get(_target, prop: string | symbol) {
+      if (typeof prop !== "string") return undefined;
+      return resolveBuyerOrderStatusLabel(prop);
+    },
+  }
+);
+
+/** @deprecated `buyerOrderTimelineDeliveryStepLabels(lang)` 사용 */
+export const TIMELINE_DELIVERY_STEPS = buyerOrderTimelineDeliveryStepLabels();
+
+/** @deprecated `buyerOrderTimelinePickupStepLabels(lang)` 사용 */
+export const TIMELINE_PICKUP_STEPS = buyerOrderTimelinePickupStepLabels();

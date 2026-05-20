@@ -1,5 +1,6 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatAppDate, formatAppNumber } from "@/lib/i18n/locale-for-app-language";
 
 import { useCallback, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
@@ -52,7 +53,7 @@ export function StoreReviewsSection({
   variant?: "card" | "plain";
   surface?: "default" | "orderDetail";
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [avg, setAvg] = useState<number | null>(null);
   const [count, setCount] = useState(0);
@@ -216,10 +217,10 @@ export function StoreReviewsSection({
                 {avg != null ? avg.toFixed(1) : "—"}
               </p>
               <p className="mt-2 text-[12px] font-medium" style={{ color: STORE_ORDER_BRAND.secondary }}>
-                {t("store_reviews_total", { count: count.toLocaleString("ko-KR") })}
+                {t("store_reviews_total", { count: formatAppNumber(count, language) })}
               </p>
               <p className="mt-0.5 text-[12px]" style={{ color: STORE_ORDER_BRAND.secondary }}>
-                {t("store_owner_reply_count", { count: ownerReplyCount.toLocaleString("ko-KR") })}
+                {t("store_owner_reply_count", { count: formatAppNumber(ownerReplyCount, language) })}
               </p>
             </div>
             <p className="text-[13px] font-semibold leading-none" style={{ color: STORE_ORDER_BRAND.star }}>
@@ -248,7 +249,7 @@ export function StoreReviewsSection({
                     className="w-8 text-right text-[12px] tabular-nums"
                     style={{ color: STORE_ORDER_BRAND.secondary }}
                   >
-                    {n.toLocaleString("ko-KR")}
+                    {formatAppNumber(n, language)}
                   </span>
                 </div>
               );
@@ -323,7 +324,7 @@ export function StoreReviewsSection({
                   {r.buyer_public_label || t("store_member_fallback")}
                 </p>
                 <p className="shrink-0 text-[12px] leading-snug tabular-nums" style={{ color: STORE_ORDER_BRAND.secondary }}>
-                  {new Date(r.created_at).toLocaleDateString("ko-KR")}
+                  {formatAppDate(r.created_at, language)}
                 </p>
               </div>
               <p className="mt-1 text-[14px] font-medium leading-snug text-amber-500">
@@ -365,7 +366,7 @@ export function StoreReviewsSection({
                   </p>
                   {r.owner_reply_created_at ? (
                     <p className="mt-1 text-right text-[12px] tabular-nums" style={{ color: STORE_ORDER_BRAND.muted }}>
-                      {new Date(r.owner_reply_created_at).toLocaleDateString("ko-KR")}
+                      {formatAppDate(r.owner_reply_created_at, language)}
                     </p>
                   ) : null}
                 </div>
@@ -383,10 +384,10 @@ export function StoreReviewsSection({
         <div className="flex items-end justify-between gap-2">
           <div>
             <StoreDetailSectionTitle level="h2">
-              {t("store_reviews_with_count", { count: count.toLocaleString("ko-KR") })}
+              {t("store_reviews_with_count", { count: formatAppNumber(count, language) })}
             </StoreDetailSectionTitle>
             <p className={`mt-0.5 ${Sam.text.bodySecondary}`}>
-              {t("store_owner_reply_count", { count: ownerReplyCount.toLocaleString("ko-KR") })}
+              {t("store_owner_reply_count", { count: formatAppNumber(ownerReplyCount, language) })}
             </p>
           </div>
           <div className="text-right">
@@ -404,7 +405,9 @@ export function StoreReviewsSection({
                 <div className="h-2 flex-1 overflow-hidden rounded-full bg-sam-border-soft">
                   <div className="h-full rounded-full bg-amber-400" style={{ width: `${pct}%` }} />
                 </div>
-                <span className={`w-10 text-right text-sam-muted ${Sam.text.helper}`}>{n.toLocaleString("ko-KR")}</span>
+                <span className={`w-10 text-right text-sam-muted ${Sam.text.helper}`}>
+                  {formatAppNumber(n, language)}
+                </span>
               </div>
             );
           })}
@@ -447,7 +450,7 @@ export function StoreReviewsSection({
                 {r.buyer_public_label || t("store_member_fallback")}
               </p>
               <p className={`${Sam.text.helper}`}>
-                {new Date(r.created_at).toLocaleDateString("ko-KR")}
+                {formatAppDate(r.created_at, language)}
               </p>
             </div>
             <p className={`mt-1 text-amber-600 ${Sam.text.body}`}>{"★".repeat(r.rating)}{"☆".repeat(5 - r.rating)}</p>
@@ -475,7 +478,7 @@ export function StoreReviewsSection({
                 </p>
                 {r.owner_reply_created_at ? (
                   <p className={`mt-1 text-right text-sam-meta ${Sam.text.xxs}`}>
-                    {new Date(r.owner_reply_created_at).toLocaleDateString("ko-KR")}
+                    {formatAppDate(r.owner_reply_created_at, language)}
                   </p>
                 ) : null}
               </div>

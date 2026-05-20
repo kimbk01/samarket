@@ -1,6 +1,8 @@
 export type StoreTaxonomyCategory = {
   id: string;
   name: string;
+  /** UI en 표시명 (어드민) */
+  name_en?: string | null;
   slug: string;
   sort_order: number;
   /** 관리자 업로드 이미지 (있으면 UI에서 우선 사용) */
@@ -13,6 +15,7 @@ export type StoreTaxonomyTopic = {
   id: string;
   store_category_id: string;
   name: string;
+  name_en?: string | null;
   slug: string;
   sort_order: number;
   /** 관리자 업로드 이미지 (있으면 UI에서 우선 사용) */

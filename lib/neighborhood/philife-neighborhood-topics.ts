@@ -26,6 +26,7 @@ import { runSingleFlight } from "@/lib/http/run-single-flight";
 export type PhilifeNeighborhoodFeedChip = {
   slug: string;
   name: string;
+  name_en?: string | null;
   /** 어드민 `is_feed_sort` — 정렬 전용 토픽(추천/인기 등) */
   is_feed_sort: boolean;
   /**
@@ -318,6 +319,7 @@ export function buildPhilifeFeedChipsFromTopics(topics: CommunityTopicDTO[]): Ph
         chips.push({
           slug: "meetup",
           name,
+          name_en: t.name_en ?? null,
           is_feed_sort: false,
           sort_slot: null,
         });
@@ -334,6 +336,7 @@ export function buildPhilifeFeedChipsFromTopics(topics: CommunityTopicDTO[]): Ph
       chips.push({
         slug: t.slug,
         name: t.name,
+        name_en: t.name_en ?? null,
         is_feed_sort: t.is_feed_sort,
         sort_slot,
       });

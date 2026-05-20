@@ -58,7 +58,7 @@ function computePersonalizedScore(
 
   if (sectionKey === "interest_based" && profile.favoriteCategories.includes(c.category)) {
     score += policy.categoryAffinityWeight * 0.5;
-    reasons.push(REASON_LABELS.interest_match);
+    reasons.push(personalizedFeedReasonLabel("interest_match"));
   }
 
   const sameRegion = c.region === profile.preferredRegion;

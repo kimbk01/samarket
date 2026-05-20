@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 type StoreCategoryRow = {
   id: string;
   name: string;
+  name_en?: string | null;
   slug: string;
   sort_order: number;
   is_active: boolean;
@@ -22,6 +23,7 @@ type StoreTopicRow = {
   id: string;
   store_category_id: string;
   name: string;
+  name_en?: string | null;
   slug: string;
   sort_order: number;
   is_active: boolean;
@@ -35,16 +37,33 @@ export async function GET() {
   const sb = tryGetSupabaseForStores();
   if (!sb) return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
 
-  const [{ data: categories, error: cErr }, { data: topics, error: tErr }] = await Promise.all([
-    sb
-      .from("store_categories")
-      .select("id, name, slug, sort_order, is_active, image_url")
-      .order("sort_order", { ascending: true }),
-    sb
-      .from("store_topics")
-      .select("id, store_category_id, name, slug, sort_order, is_active, image_url")
-      .order("sort_order", { ascending: true }),
-  ]);
+  const catSelectAttempts = ["id, name, name_en, slug, sort_order, is_active, image_url", "id, name, slug, sort_order, is_active, image_url"] as const;
+  const topicSelectAttempts = [
+    "id, store_category_id, name, name_en, slug, sort_order, is_active, image_url",
+    "id, store_category_id, name, slug, sort_order, is_active, image_url",
+  ] as const;
+  let categories: StoreCategoryRow[] | null = null;
+  let cErr: { message: string } | null = null;
+  for (const sel of catSelectAttempts) {
+    const r = await sb.from("store_categories").select(sel).order("sort_order", { ascending: true });
+    if (!r.error && Array.isArray(r.data)) {
+      categories = r.data as unknown as StoreCategoryRow[];
+      cErr = null;
+      break;
+    }
+    cErr = r.error;
+  }
+  let topics: StoreTopicRow[] | null = null;
+  let tErr: { message: string } | null = null;
+  for (const sel of topicSelectAttempts) {
+    const r = await sb.from("store_topics").select(sel).order("sort_order", { ascending: true });
+    if (!r.error && Array.isArray(r.data)) {
+      topics = r.data as unknown as StoreTopicRow[];
+      tErr = null;
+      break;
+    }
+    tErr = r.error;
+  }
 
   if (cErr) return NextResponse.json({ ok: false, error: cErr.message }, { status: 500 });
   if (tErr) return NextResponse.json({ ok: false, error: tErr.message }, { status: 500 });
@@ -75,8 +94,8 @@ export async function PATCH(req: Request) {
 
   const allowKeys =
     kind === "category"
-      ? new Set(["name", "sort_order", "is_active", "image_url"])
-      : new Set(["name", "sort_order", "is_active", "store_category_id", "image_url"]);
+      ? new Set(["name", "name_en", "sort_order", "is_active", "image_url"])
+      : new Set(["name", "name_en", "sort_order", "is_active", "store_category_id", "image_url"]);
   const safePatch: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(patch)) {
     if (!allowKeys.has(k)) continue;
@@ -117,6 +136,8 @@ export async function POST(req: Request) {
   // ---- Mode 2: create single ----
   if (kind === "category") {
     const name = String(body?.name ?? "").trim();
+    const name_en =
+      body?.name_en != null && String(body.name_en).trim() ? String(body.name_en).trim().slice(0, 120) : null;
     const slug = String(body?.slug ?? "").trim().toLowerCase();
     const sort_order = Number(body?.sort_order ?? 0) || 0;
     if (!name || !slug) {
@@ -124,7 +145,7 @@ export async function POST(req: Request) {
     }
     const { data, error } = await sb
       .from("store_categories")
-      .upsert({ name, slug, sort_order, is_active: true }, { onConflict: "slug" })
+      .upsert({ name, name_en, slug, sort_order, is_active: true }, { onConflict: "slug" })
       .select()
       .maybeSingle();
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
@@ -134,6 +155,8 @@ export async function POST(req: Request) {
   if (kind === "topic") {
     const store_category_id = String(body?.store_category_id ?? "").trim();
     const name = String(body?.name ?? "").trim();
+    const name_en =
+      body?.name_en != null && String(body.name_en).trim() ? String(body.name_en).trim().slice(0, 120) : null;
     const slug = String(body?.slug ?? "").trim().toLowerCase();
     const sort_order = Number(body?.sort_order ?? 0) || 0;
     if (!store_category_id || !name || !slug) {
@@ -142,7 +165,7 @@ export async function POST(req: Request) {
     const { data, error } = await sb
       .from("store_topics")
       .upsert(
-        { store_category_id, name, slug, sort_order, is_active: true },
+        { store_category_id, name, name_en, slug, sort_order, is_active: true },
         { onConflict: "slug" }
       )
       .select()

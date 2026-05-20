@@ -1,7 +1,7 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { formatPrice } from "@/lib/utils/format";
 import type { PriceOfferListItem } from "@/lib/offers/types";
@@ -78,13 +78,20 @@ export function OfferStatusBuyer({
 
   const [historyOpen, setHistoryOpen] = useState(false);
 
+  const offerStatusTitle = useCallback(
+    (status: PriceOfferListItem["status"]) => {
+      if (status === "pending") return t("ui_offer_status_pending");
+      if (status === "accepted") return t("ui_offer_status_accepted");
+      if (status === "rejected") return t("ui_offer_status_rejected");
+      return t("ui_offer_status_expired");
+    },
+    [t],
+  );
+
   const title = useMemo(() => {
     if (!primaryOffer) return null;
-    if (primaryOffer.status === "pending") return t("ui_offer_status_pending");
-    if (primaryOffer.status === "accepted") return t("ui_offer_status_accepted");
-    if (primaryOffer.status === "rejected") return t("ui_offer_status_rejected");
-    return t("ui_offer_status_expired");
-  }, [primaryOffer, t]);
+    return offerStatusTitle(primaryOffer.status);
+  }, [primaryOffer, offerStatusTitle]);
 
   if (!viewerUserId) return null;
   if ((loadingState && !primaryOffer) || !primaryOffer || !title) return null;
@@ -149,7 +156,7 @@ export function OfferStatusBuyer({
                   key={o.id}
                   className="rounded-ui-rect border border-sam-border-soft bg-sam-surface/60 px-2 py-1.5 text-[12px] text-sam-muted"
                 >
-                  <span className="font-medium text-sam-fg">{cardTitle(o.status)}</span>
+                  <span className="font-medium text-sam-fg">{offerStatusTitle(o.status)}</span>
                   {" · "}
                   {formatPrice(o.offeredPrice, currency)}
                 </li>

@@ -40,7 +40,7 @@ export function StoresOwnerLayoutClient({
   if (isHub) {
     return (
       <OwnerHubRuntimeProvider initialStores={initialStores}>
-        <BusinessAdminShell entry="hub" initialStores={initialStores}>
+        <BusinessAdminShell entry="hub">
           {children}
         </BusinessAdminShell>
       </OwnerHubRuntimeProvider>

@@ -38,7 +38,6 @@ export function StoreProductSheetPortal() {
       pageStoreSlug={pageStoreSlug}
       prefetchedListRow={prefetchedListRow}
       sheetStoreContext={sheetStoreContext}
-      editCartLine={editCartLine}
       onClose={closeSheet}
       commerceBlocked={commerceBlocked}
       commerceBlockedHint={commerceBlockedHint}

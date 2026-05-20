@@ -1,3 +1,7 @@
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { formatRelativeTimeAgo } from "@/lib/i18n/format-relative-time";
+import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
+
 /**
  * 상품 카드용 포맷 유틸
  * - currency: 어드민 기본 통화 (KRW → ₩, PHP → ₱, 미지정 시 PHP)
@@ -73,21 +77,17 @@ export function sqToPyeong(sq: number): string {
   return (sq / 3.3058).toFixed(1);
 }
 
-/** locale: 어드민 기본 로케일 (예: ko-KR, en-PH). 미지정 시 ko-KR */
-export function formatTimeAgo(isoString: string, locale?: string): string {
-  const loc = locale ?? "ko-KR";
-  const date = new Date(isoString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMin = Math.floor(diffMs / (1000 * 60));
-  const diffHour = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDay = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-
-  if (diffMin < 1) return "방금 전";
-  if (diffMin < 60) return `${diffMin}분 전`;
-  if (diffHour < 24) return `${diffHour}시간 전`;
-  if (diffDay < 7) return `${diffDay}일 전`;
-  return date.toLocaleDateString(loc, { month: "short", day: "numeric" });
+/** 앱 UI 상대 시각 — `localeOrLang`: `ko`/`en` 또는 BCP 47(레거시). 미지정 시 런타임 언어 */
+export function formatTimeAgo(isoString: string, localeOrLang?: string): string {
+  const lang: AppLanguageCode =
+    localeOrLang === "en" || localeOrLang === "ko"
+      ? localeOrLang
+      : localeOrLang?.toLowerCase().startsWith("en")
+        ? "en"
+        : localeOrLang?.toLowerCase().startsWith("ko")
+          ? "ko"
+          : getRuntimeAppLanguage();
+  return formatRelativeTimeAgo(isoString, lang);
 }
 
 /** 채팅 목록/방 내 시간 표시 */

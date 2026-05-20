@@ -66,7 +66,7 @@ import {
 } from "@/lib/dibay/r2-d1-kpi-meta-trace";
 import { deriveOwnerStoreOrderMetaCounts } from "@/lib/stores/derive-owner-store-order-meta-counts";
 import { fetchStoreOrdersListDeduped } from "@/lib/stores/fetch-store-orders-list-deduped";
-import { OwnerStoreOrderChatModal } from "@/components/business/owner/OwnerStoreOrderChatModal";
+import { OwnerStoreOrderChatSlidePanel } from "@/components/business/owner/OwnerStoreOrderChatSlidePanel";
 import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
 import { BUYER_PUBLIC_LABEL_FALLBACK } from "@/lib/stores/buyer-public-label";
 import { formatStoreOrderCheckoutEtaSummary } from "@/lib/stores/format-store-order-checkout-display";
@@ -97,12 +97,12 @@ function formatBuyerPhoneDisplay(raw: string | null | undefined): string | null 
   return s.length ? s : null;
 }
 
-function formatPrepClockKo(iso: string | null | undefined): string | null {
+function formatPrepClock(iso: string | null | undefined, lang: "ko" | "en"): string | null {
   const s = typeof iso === "string" ? iso.trim() : "";
   if (!s) return null;
   const t = new Date(s).getTime();
   if (!Number.isFinite(t)) return null;
-  return new Date(t).toLocaleTimeString("ko-KR", {
+  return new Date(t).toLocaleTimeString(lang === "ko" ? "ko-KR" : "en-US", {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
@@ -226,7 +226,7 @@ function OwnerOrderCard({
   onOpenChat: (orderId: string) => void;
 }) {
   const { t, language } = useI18n();
-  const dateLocale = language === "ko" ? "ko-KR" : language === "zh" ? "zh-CN" : "en-US";
+  const dateLocale = language === "ko" ? "ko-KR" : "en-US";
   const noticeFooter: ReactNode = ownerOrderCardNoticeFooter({
     id: order.id,
     order_status: order.order_status,
@@ -346,11 +346,11 @@ function OwnerOrderCard({
             <dd className="text-right font-medium text-sam-fg">{t("business_phase7_186", { v1: Math.floor(Number(order.estimated_prep_minutes)) })}</dd>
           </div>
         ) : null}
-        {formatPrepClockKo(order.estimated_ready_at) ? (
+        {formatPrepClock(order.estimated_ready_at, language) ? (
           <div className="flex justify-between gap-2">
             <dt>{t("business_phase7_213")}</dt>
             <dd className="text-right font-medium text-sam-fg">
-              {formatPrepClockKo(order.estimated_ready_at)}
+              {formatPrepClock(order.estimated_ready_at, language)}
             </dd>
           </div>
         ) : null}
@@ -520,30 +520,18 @@ export function OwnerStoreOrdersView() {
   const tab = useMemo(() => parseOwnerOrderMainTab(searchParams.get("tab")), [searchParams]);
   const loginHref = "/login";
   const ownerNotifAckRef = useRef(false);
-  const [chatModal, setChatModal] = useState<{
-    orderId: string;
-    anchorTopPx: number;
-  } | null>(null);
+  const [chatOrderId, setChatOrderId] = useState<string | null>(null);
 
   const openOrderChat = useCallback((orderId: string) => {
     const id = orderId.trim();
     if (!id) return;
 
-    const measureAnchor = (): number => {
-      const card = document.getElementById(`owner-order-${id}`);
-      const gray = card?.querySelector<HTMLElement>("[data-owner-order-gray]");
-      const bottom = gray?.getBoundingClientRect().bottom;
-      return typeof bottom === "number" && Number.isFinite(bottom) ? bottom : 120;
-    };
-
     const el = typeof document !== "undefined" ? document.getElementById(`owner-order-${id}`) : null;
     if (el) {
       el.scrollIntoView({ block: "start", behavior: "smooth" });
-      window.setTimeout(() => {
-        setChatModal({ orderId: id, anchorTopPx: measureAnchor() });
-      }, 420);
+      window.setTimeout(() => setChatOrderId(id), 420);
     } else {
-      setChatModal({ orderId: id, anchorTopPx: measureAnchor() });
+      setChatOrderId(id);
     }
   }, []);
 
@@ -560,6 +548,11 @@ export function OwnerStoreOrdersView() {
         orders: OrderRow[];
       }
   >({ kind: "loading" });
+
+  const chatOrder = useMemo(() => {
+    if (state.kind !== "ok" || !chatOrderId) return null;
+    return state.orders.find((o) => o.id === chatOrderId) ?? null;
+  }, [chatOrderId, state]);
 
   const prevPendingDeliveryRef = useRef<number | null>(null);
   const alertStoreIdRef = useRef<string | null>(null);
@@ -1211,13 +1204,13 @@ export function OwnerStoreOrdersView() {
   return (
     <div className="max-w-full min-w-0 overflow-x-hidden">
       <div className="mx-auto min-w-0 max-w-4xl py-1">{body}</div>
-      {state.kind === "ok" && chatModal ? (
-        <OwnerStoreOrderChatModal
-          open
-          onClose={() => setChatModal(null)}
+      {state.kind === "ok" && chatOrderId ? (
+        <OwnerStoreOrderChatSlidePanel
+          orderId={chatOrderId}
+          order={chatOrder}
           storeId={state.storeId}
-          orderId={chatModal.orderId}
-          anchorTopPx={chatModal.anchorTopPx}
+          storeName={state.storeName}
+          onClose={() => setChatOrderId(null)}
         />
       ) : null}
     </div>

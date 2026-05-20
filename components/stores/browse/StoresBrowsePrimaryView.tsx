@@ -53,6 +53,11 @@ import { storeSecondaryBrowseIconPath } from "@/lib/stores/store-secondary-brows
 import { resolveBrowseListUserOriginCoords } from "@/lib/stores/browse-list-user-origin-coords";
 import { ME_PROFILE_CACHE_INVALIDATED_EVENT } from "@/lib/profile/fetch-me-profile-deduped";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
+import {
+  resolveStoreFoodSubtopicLabel,
+  resolveStorePrimaryIndustryLabel,
+  resolveStoreTopicLabel,
+} from "@/lib/i18n/store-browse-label-i18n";
 
 const RESTAURANT_SUB_ICON: Record<string, string> = {
   korean: "/icons/food/icon_0_1.png",
@@ -146,7 +151,7 @@ function StoresBrowseCartAction() {
       <Link
         href={cartHref}
         className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-sam-primary-soft"
-        aria-label={cartLineKindCount > 0 ? "장바구니" : "매장"}
+        aria-label={cartLineKindCount > 0 ? t("common_cart") : t("store_browse_primary_fallback")}
       >
         <StoreCommerceCartStrokeIcon className="h-5 w-5" />
         {cartLineKindCount > 0 ? (
@@ -168,7 +173,7 @@ export function StoresBrowsePrimaryView({
   primarySlug: string;
   initialSubSlug: string | null;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -537,18 +542,18 @@ export function StoresBrowsePrimaryView({
 
   const browseSubtitle = useMemo(() => {
     if (!primary || subs.length === 0) return "";
-    if (!listLoaded && remoteLoading) return "실매장 목록을 불러오는 중…";
+    if (!listLoaded && remoteLoading) return t("store_browse_loading_list");
     if (feedSource === "supabase_unconfigured") {
-      return "지금은 이 업종의 매장 목록을 준비 중입니다. 잠시 후 다시 확인해 주세요.";
+      return t("store_browse_list_preparing");
     }
     if (useRemoteList) {
-      return "등록된 실매장입니다. 동네·위치 설정에 따라 정렬됩니다.";
+      return t("store_browse_list_live");
     }
     if (feedSource === "supabase") {
-      return "이 업종·세부 주제에 노출된 매장이 없습니다. 업종·승인·노출을 확인해 주세요.";
+      return t("store_browse_list_empty");
     }
-    return "목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.";
-  }, [primary, subs.length, listLoaded, remoteLoading, feedSource, useRemoteList]);
+    return t("store_browse_list_fetch_failed");
+  }, [primary, subs.length, listLoaded, remoteLoading, feedSource, useRemoteList, t]);
 
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
 
@@ -637,13 +642,18 @@ export function StoresBrowsePrimaryView({
                   <Item
                     href={storesBrowsePrimaryPath(primarySlug)}
                     on={allSubChipActive}
-                    label="전체"
+                    label={t("store_browse_food_all")}
                     iconSrc={allIconSrc}
                     subValue="all"
                   />
                   {subs.map((s, idx) => {
                     const on = activeSub !== "all" && activeSub === s.slug;
-                    const label = String((s as any).nameKo ?? (s as any).name ?? "").trim();
+                    const label = resolveStoreTopicLabel(
+                      language,
+                      s.slug,
+                      String((s as { nameKo?: string; name?: string }).nameKo ?? (s as { name?: string }).name ?? "").trim(),
+                      (s as { name_en?: string | null }).name_en,
+                    );
                     const uploaded = typeof (s as any).imageUrl === "string" ? String((s as any).imageUrl).trim() : "";
                     const iconSrc =
                       isRestaurant ?
@@ -680,10 +690,10 @@ export function StoresBrowsePrimaryView({
     if (!primary || subs.length === 0) {
       setMainTier1Extras({
         tier1: {
-          titleText: "업종",
+          titleText: t("store_primary_industry_aria"),
           backHref: "/stores",
           preferHistoryBack: false,
-          ariaLabel: "이전 화면",
+          ariaLabel: t("nav_back"),
           showHubQuickActions: false,
           rightSlot: <StoresBrowseCartAction />,
         },
@@ -693,10 +703,10 @@ export function StoresBrowsePrimaryView({
 
     setMainTier1Extras({
       tier1: {
-        titleText: primary.nameKo,
+        titleText: resolveStorePrimaryIndustryLabel(language, primary.slug, primary.nameKo),
         backHref: "/stores",
         preferHistoryBack: false,
-        ariaLabel: "이전 화면",
+        ariaLabel: t("nav_back"),
         showHubQuickActions: false,
         rightSlot: <StoresBrowseCartAction />,
       },
@@ -718,7 +728,7 @@ export function StoresBrowsePrimaryView({
         <div className={`${APP_MAIN_COLUMN_CLASS} ${PHILIFE_FEED_INSET_X_CLASS} pt-4`}>
           <p className="text-sm text-sam-muted">{t("store_invalid_industry")}</p>
           <Link href="/stores" className="mt-4 inline-block text-sm text-signature">
-            매장 홈으로
+            {t("store_browse_home_link")}
           </Link>
         </div>
       </div>
@@ -742,8 +752,8 @@ export function StoresBrowsePrimaryView({
             <p className="text-sm text-sam-muted dark:text-sam-meta">{t("store_empty_store_list")}</p>
             <p className="mt-1 text-xs text-sam-meta dark:text-sam-muted">
               {feedSource === "supabase_unconfigured" ?
-                "매장 목록을 준비 중입니다. 잠시 후 다시 확인하거나 다른 업종을 먼저 둘러보세요."
-              : "다른 세부 업종을 선택하거나, 매장의 업종·세부 주제·승인·노출 상태를 확인해 주세요."}
+                t("store_browse_empty_preparing")
+              : t("store_browse_empty_hint")}
             </p>
             {otherPrimaries.length > 0 ?
               <div className="mt-5">
@@ -756,7 +766,7 @@ export function StoresBrowsePrimaryView({
                       className="inline-flex items-center gap-1 rounded-full border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-helper font-semibold text-sam-fg active:bg-sam-surface-muted dark:border-sam-border dark:bg-[#3A3B3C] dark:text-[#E4E6EB]"
                     >
                       <span aria-hidden>{p.symbol}</span>
-                      {p.nameKo}
+                      {resolveStorePrimaryIndustryLabel(language, p.slug, p.nameKo)}
                     </Link>
                   ))}
                 </div>
@@ -764,7 +774,7 @@ export function StoresBrowsePrimaryView({
                   href="/stores#store-industry-explore"
                   className="mt-4 inline-block sam-text-body-secondary font-semibold text-signature"
                 >
-                  매장 홈 업종 지도로
+                  {t("store_browse_industry_map_link")}
                 </Link>
               </div>
             : null}

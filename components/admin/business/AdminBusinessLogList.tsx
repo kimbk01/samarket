@@ -3,6 +3,7 @@
 import type { BusinessProfileLog } from "@/lib/types/business";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
 
 const ACTION_LABEL_KEYS: Record<BusinessProfileLog["actionType"], MessageKey> = {
   apply: "admin_biz_log_apply",
@@ -18,7 +19,7 @@ interface AdminBusinessLogListProps {
 }
 
 export function AdminBusinessLogList({ logs }: AdminBusinessLogListProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   if (logs.length === 0) {
     return (
       <p className="sam-text-body-secondary text-sam-muted">{t("admin_biz_log_empty")}</p>
@@ -37,7 +38,7 @@ export function AdminBusinessLogList({ logs }: AdminBusinessLogListProps) {
           <span className="text-sam-muted">{log.adminNickname}</span>
           <span className="text-sam-muted">{log.note}</span>
           <span className="ml-auto text-sam-meta">
-            {new Date(log.createdAt).toLocaleString("ko-KR")}
+            {formatAdminDateTime(log.createdAt, language)}
           </span>
         </li>
       ))}

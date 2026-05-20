@@ -15,6 +15,7 @@ import {
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
 import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
 import type { StoreTaxonomyCategory } from "@/lib/stores/store-taxonomy-types";
+import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
 
 function pillClass(active: boolean): string {
   return `${storeCategoryPillClass(active)} inline-flex items-center gap-1`;
@@ -32,7 +33,7 @@ export function StorePrimaryIndustrySwitcher({
   /** browse 상단에서는 매장 홈 칩을 숨기고 업종만 촘촘히 */
   showHomeChip?: boolean;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const industryVersion = useBrowseIndustryDatasetVersion();
   const pathname = usePathname();
   const [taxonomyCats, setTaxonomyCats] = useState<StoreTaxonomyCategory[] | null>(null);
@@ -69,6 +70,7 @@ export function StorePrimaryIndustrySwitcher({
         id: c.id,
         slug: c.slug,
         nameKo: c.name,
+        name_en: c.name_en,
         sortOrder: c.sort_order,
         symbol: fb?.symbol ?? "🏷️",
       };
@@ -88,11 +90,11 @@ export function StorePrimaryIndustrySwitcher({
     <div className="space-y-1.5">
       <div className="flex items-center justify-between gap-2 px-0.5">
         <p className={`${FB.metaSm} font-semibold uppercase tracking-wide text-[#65676B] dark:text-[#B0B3B8]`}>
-          업종
+          {t("store_primary_industry_aria")}
         </p>
         {!showHomeChip ?
           <Link href="/stores" className={`shrink-0 sam-text-helper ${FB.link}`}>
-            매장 홈
+            {t("store_stores_home")}
           </Link>
         : null}
       </div>
@@ -103,7 +105,7 @@ export function StorePrimaryIndustrySwitcher({
       >
         {showHomeChip ?
           <Link href="/stores" className={pillClass(onStoresHome && activeSlug == null)}>
-            홈
+            {t("common_homepage")}
           </Link>
         : null}
         {primaries.map((p) => {
@@ -112,7 +114,7 @@ export function StorePrimaryIndustrySwitcher({
           return (
             <Link key={p.id} href={storesBrowsePrimaryPath(p.slug)} scroll={false} className={pillClass(on)}>
               <span aria-hidden>{p.symbol}</span>
-              {p.nameKo}
+              {resolveStorePrimaryIndustryLabel(language, p.slug, p.nameKo, (p as { name_en?: string | null }).name_en)}
             </Link>
           );
         })}

@@ -22,6 +22,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   let body: {
     section_id?: string;
     name?: string;
+    name_en?: string | null;
     slug?: string;
     sort_order?: number;
     is_active?: boolean;
@@ -50,6 +51,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     const n = String(body.name).trim();
     if (!n) return NextResponse.json({ ok: false, error: "invalid_name" }, { status: 400 });
     patch.name = n;
+  }
+  if (body.name_en !== undefined) {
+    patch.name_en =
+      body.name_en != null && String(body.name_en).trim() ? String(body.name_en).trim().slice(0, 120) : null;
   }
   let newSlug: string | undefined;
   if (body.slug != null) {

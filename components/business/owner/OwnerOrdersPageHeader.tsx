@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { Bell, ChevronLeft, Filter, Search } from "lucide-react";
 import { resolveOwnerStoreNotificationsHref } from "@/lib/business/owner-store-notifications-route";
@@ -34,6 +35,7 @@ export function OwnerOrdersPageHeader({
   onOpenFilter: () => void;
   backHref: string;
 }) {
+  const { t } = useI18n();
   const biz = useBusinessAdminStore();
   const notificationsHref =
     resolveOwnerStoreNotificationsHref(storeRow) ??
@@ -47,19 +49,21 @@ export function OwnerOrdersPageHeader({
         <Link
           href={backHref}
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#262626] hover:bg-[#F5F5F5]"
-          aria-label="대시보드로"
+          aria-label={t("store_owner_aria_dashboard")}
         >
           <ChevronLeft className="h-5 w-5" aria-hidden />
         </Link>
         <div className="min-w-0 flex-1 overflow-hidden pr-1">
-          <h1 className="truncate text-[14px] font-bold leading-none text-[#262626]">주문 관리</h1>
+          <h1 className="truncate text-[14px] font-bold leading-none text-[#262626]">
+            {t("store_owner_go_order_management")}
+          </h1>
         </div>
         <div className={OWNER_MOBILE_PAGE_HEADER_ACTIONS_CLASS}>
           <button
             type="button"
             onClick={onOpenSearch}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#262626] hover:bg-[#F5F5F5]"
-            aria-label="주문 검색"
+            aria-label={t("store_owner_mobile_aria_search")}
           >
             <Search className="h-[18px] w-[18px]" aria-hidden />
           </button>
@@ -67,14 +71,14 @@ export function OwnerOrdersPageHeader({
             type="button"
             onClick={onOpenFilter}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#262626] hover:bg-[#F5F5F5]"
-            aria-label="주문 필터"
+            aria-label={t("store_owner_mobile_aria_filter")}
           >
             <Filter className="h-[18px] w-[18px]" aria-hidden />
           </button>
           <Link
             href={notificationsHref}
             className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#262626] hover:bg-[#F5F5F5]"
-            aria-label={`알림 ${bellCount}건`}
+            aria-label={t("store_owner_aria_notifications", { count: String(bellCount) })}
           >
             <Bell className="h-5 w-5" aria-hidden />
             {bellCount > 0 ? (
@@ -86,7 +90,7 @@ export function OwnerOrdersPageHeader({
           <button
             type="button"
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#262626] hover:bg-[#F5F5F5]"
-            aria-label="메뉴 열기"
+            aria-label={t("store_owner_aria_open_menu")}
             onClick={() => biz?.openMobileOwnerMenu?.()}
           >
             <OwnerMenuIcon />

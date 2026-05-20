@@ -11,8 +11,11 @@ import type {
   CommunityMessengerCallLogDisplayType,
 } from "@/lib/community-messenger/types";
 
-function displayTypeLabel(t: CommunityMessengerCallLogDisplayType, tr: (key: string) => string): string {
-  switch (t) {
+function displayTypeLabel(
+  type: CommunityMessengerCallLogDisplayType,
+  tr: ReturnType<typeof useI18n>["t"],
+): string {
+  switch (type) {
     case "missed_outgoing":
       return tr("cm_ui_call_type_missed_outgoing");
     case "missed_incoming":

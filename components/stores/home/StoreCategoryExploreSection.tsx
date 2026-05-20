@@ -13,22 +13,25 @@ import { FB } from "@/components/stores/store-facebook-feed-tokens";
 import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 import { storeSecondaryBrowseIconPath } from "@/lib/stores/store-secondary-browse-icons";
+import {
+  resolveStoreFoodSubtopicLabel,
+  resolveStorePrimaryIndustryLabel,
+  resolveStoreTopicLabel,
+} from "@/lib/i18n/store-browse-label-i18n";
 
-const FOOD_CATEGORIES: readonly { name: string; icon: string; subSlug?: string }[] = [
-  { name: "전체", icon: "/icons/food/icon_0_0.png" },
-  { name: "한식", icon: "/icons/food/icon_0_1.png", subSlug: "korean" },
-  { name: "치킨·고기", icon: "/icons/food/icon_0_2.png", subSlug: "chicken" },
-  { name: "면·국물", icon: "/icons/food/icon_0_3.png", subSlug: "snack" },
-
-  { name: "중식", icon: "/icons/food/icon_1_0.png", subSlug: "chinese" },
-  { name: "일식", icon: "/icons/food/icon_1_1.png", subSlug: "japanese" },
-  { name: "피자·양식", icon: "/icons/food/icon_1_2.png", subSlug: "pizza" },
-  { name: "분식", icon: "/icons/food/icon_1_3.png", subSlug: "snack" },
-
-  { name: "도시락", icon: "/icons/food/icon_2_0.png", subSlug: "lunchbox" },
-  { name: "현지식", icon: "/icons/food/icon_2_1.png", subSlug: "local" },
-  { name: "카페·디저트", icon: "/icons/food/icon_2_2.png", subSlug: "dessert" },
-  { name: "야식", icon: "/icons/food/icon_2_3.png", subSlug: "late_night" },
+const FOOD_CATEGORIES: readonly { icon: string; subSlug?: string }[] = [
+  { icon: "/icons/food/icon_0_0.png" },
+  { icon: "/icons/food/icon_0_1.png", subSlug: "korean" },
+  { icon: "/icons/food/icon_0_2.png", subSlug: "chicken" },
+  { icon: "/icons/food/icon_0_3.png", subSlug: "snack" },
+  { icon: "/icons/food/icon_1_0.png", subSlug: "chinese" },
+  { icon: "/icons/food/icon_1_1.png", subSlug: "japanese" },
+  { icon: "/icons/food/icon_1_2.png", subSlug: "pizza" },
+  { icon: "/icons/food/icon_1_3.png", subSlug: "snack" },
+  { icon: "/icons/food/icon_2_0.png", subSlug: "lunchbox" },
+  { icon: "/icons/food/icon_2_1.png", subSlug: "local" },
+  { icon: "/icons/food/icon_2_2.png", subSlug: "dessert" },
+  { icon: "/icons/food/icon_2_3.png", subSlug: "late_night" },
 ] as const;
 
 const PRIMARY_CATEGORY_ICONS: Record<string, string> = {
@@ -52,7 +55,7 @@ export function StoreCategoryExploreSection({
 }: {
   headerTrailing?: ReactNode;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const industryVersion = useBrowseIndustryDatasetVersion();
   const [taxonomy, setTaxonomy] = useState<{
     categories: StoreTaxonomyCategory[];
@@ -173,7 +176,12 @@ export function StoreCategoryExploreSection({
                     on ? "text-sam-fg dark:text-[#E4E6EB]" : ""
                   }`}
                 >
-                  {(p as any).nameKo ?? (p as any).name ?? ""}
+                  {resolveStorePrimaryIndustryLabel(
+                    language,
+                    p.slug,
+                    String((p as { nameKo?: string; name?: string }).nameKo ?? (p as { name?: string }).name ?? ""),
+                    (p as { name_en?: string | null; name?: string }).name_en,
+                  )}
                 </span>
                 <span
                   className="mt-1 h-1 w-10 rounded-full"
@@ -188,7 +196,12 @@ export function StoreCategoryExploreSection({
         <div className={`flex items-center justify-between gap-2 px-4 py-3 ${FB.hairline} border-b border-sam-border dark:border-[#3E4042]`}>
           <p className={`truncate sam-text-body-secondary ${FB.meta}`}>
             <span className="font-semibold text-sam-fg dark:text-[#E4E6EB]">
-              {String(activePrimary?.nameKo ?? activePrimary?.name ?? "매장").trim() || "매장"}
+              {resolveStorePrimaryIndustryLabel(
+                language,
+                activeSlug,
+                String(activePrimary?.nameKo ?? activePrimary?.name ?? "").trim() || t("store_browse_primary_fallback"),
+                (activePrimary as { name_en?: string | null })?.name_en,
+              )}
             </span>
             <span className="text-sam-muted dark:text-[#B0B3B8]">{t("store_subtopic_suffix")}</span>
           </p>
@@ -196,36 +209,34 @@ export function StoreCategoryExploreSection({
             href={storesBrowsePrimaryPath(activeSlug)}
             className={`shrink-0 sam-text-body-secondary font-semibold ${FB.link}`}
           >
-            전체 보기
+            {t("store_browse_view_all")}
           </Link>
         </div>
 
         {isRestaurant ? (
           <div className="grid grid-cols-3 gap-3 p-4 sm:grid-cols-4">
             {FOOD_CATEGORIES.filter((cat) => {
-              if (cat.name === "전체") return true;
-              if (!cat.subSlug) return false;
+              if (!cat.subSlug) return true;
               return subs.some((s) => s.slug === cat.subSlug);
             }).map((cat) => {
+              const label = resolveStoreFoodSubtopicLabel(language, cat.subSlug, "");
               const href =
-                cat.name === "전체" || !cat.subSlug
-                  ? storesBrowsePrimaryPath(activeSlug)
-                  : storesBrowsePath(activeSlug, cat.subSlug);
+                !cat.subSlug ? storesBrowsePrimaryPath(activeSlug) : storesBrowsePath(activeSlug, cat.subSlug);
               return (
                 <Link
-                  key={cat.name}
+                  key={cat.subSlug ?? "all"}
                   href={href}
                   className="group flex min-h-[78px] flex-col items-center justify-center rounded-xl border border-sam-border bg-white p-2.5 text-center shadow-sm transition will-change-transform hover:shadow-md active:scale-[0.97] dark:border-[#3E4042] dark:bg-[#2A2B2C] dark:hover:shadow-none"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={cat.icon}
-                    alt={cat.name}
+                    alt={label}
                     className="mb-1 h-12 w-12 object-contain"
                     loading="lazy"
                   />
                   <span className="text-[13px] font-medium leading-none text-gray-700 dark:text-[#E4E6EB]">
-                    {cat.name}
+                    {label}
                   </span>
                 </Link>
               );
@@ -249,13 +260,18 @@ export function StoreCategoryExploreSection({
               ) : null}
               <span className="sam-text-xxs font-semibold leading-none text-sam-muted dark:text-[#B0B3B8]">{t("store_collect_view")}</span>
               <span className="mt-0.5 text-[13px] font-bold leading-none text-gray-800 dark:text-[#E4E6EB]">
-                전체
+                {t("store_browse_food_all")}
               </span>
             </Link>
             {subs.map((s, idx) => {
               const uploaded = typeof (s as any).image_url === "string" ? String((s as any).image_url).trim() : "";
               const src = uploaded || storeSecondaryBrowseIconPath(activeSlug, idx + 1);
-              const label = String((s as any).nameKo ?? (s as any).name ?? "").trim();
+              const label = resolveStoreTopicLabel(
+                language,
+                s.slug,
+                String((s as { nameKo?: string; name?: string }).nameKo ?? (s as { name?: string }).name ?? "").trim(),
+                (s as { name_en?: string | null }).name_en,
+              );
               return (
                 <Link
                   key={s.id}

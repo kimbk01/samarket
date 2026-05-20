@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { isDeliveryFulfillment } from "@/lib/stores/order-status-transitions";
 import {
   TIMELINE_DELIVERY_STEPS,
@@ -31,6 +32,7 @@ export function OwnerOrderStatusTimeline({
   orderStatus: string;
   fulfillmentType: string;
 }) {
+  const { t } = useI18n();
   const deliveryLike = isDeliveryFulfillment(fulfillmentType);
   const steps = stepsFor(deliveryLike);
   const terminal = new Set(["cancelled", "refunded", "refund_requested"]);
@@ -39,10 +41,10 @@ export function OwnerOrderStatusTimeline({
       <div className="mt-2 rounded-ui-rect border border-[var(--biz-card-border)] bg-[var(--biz-primary-soft)] px-3 py-2">
         <p className={Biz.textMuted}>
           {orderStatus === "refund_requested"
-            ? "환불 요청 처리 중입니다."
+            ? t("store_owner_timeline_refund_pending")
             : orderStatus === "refunded"
-              ? "환불 완료된 주문입니다."
-              : "취소된 주문입니다."}
+              ? t("store_owner_timeline_refund_done")
+              : t("store_owner_timeline_cancelled")}
         </p>
       </div>
     );

@@ -12,10 +12,10 @@ import { SecurityIssueList } from "./SecurityIssueList";
 
 type TabId = "summary" | "checks" | "issues";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "summary", labelKey: "admin_security_status_summary_2" as const },
-  { id: "checks", label: "점검 리스트" },
-  { id: "issues", label: "이슈 목록" },
+const TABS: { id: TabId; labelKey: MessageKey }[] = [
+  { id: "summary", labelKey: "admin_security_status_summary_2" },
+  { id: "checks", labelKey: "admin_security_k043f6998" },
+  { id: "issues", labelKey: "admin_security_k971de5cf" },
 ];
 
 export function AdminSecurityPage() {
@@ -37,7 +37,7 @@ export function AdminSecurityPage() {
                 : "border-transparent text-sam-muted hover:text-sam-fg"
             }`}
           >
-            {tab.label}
+            {t(tab.labelKey)}
           </button>
         ))}
       </div>

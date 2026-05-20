@@ -34,12 +34,22 @@ export function AdminStoreApplicationSettingsPage() {
   const [pickedCategoryId, setPickedCategoryId] = useState<string>("");
   const [msg, setMsg] = useState<string | null>(null);
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
-  const [editingCategoryDraft, setEditingCategoryDraft] = useState<{ name: string; sort_order: number } | null>(null);
+  const [editingCategoryDraft, setEditingCategoryDraft] = useState<{
+    name: string;
+    name_en: string;
+    sort_order: number;
+  } | null>(null);
   const [editingTopicId, setEditingTopicId] = useState<string | null>(null);
-  const [editingTopicDraft, setEditingTopicDraft] = useState<{ name: string; sort_order: number } | null>(null);
+  const [editingTopicDraft, setEditingTopicDraft] = useState<{
+    name: string;
+    name_en: string;
+    sort_order: number;
+  } | null>(null);
   const [newCategoryName, setNewCategoryName] = useState("");
+  const [newCategoryNameEn, setNewCategoryNameEn] = useState("");
   const [newCategorySlug, setNewCategorySlug] = useState("");
   const [newTopicName, setNewTopicName] = useState("");
+  const [newTopicNameEn, setNewTopicNameEn] = useState("");
   const [newTopicSlug, setNewTopicSlug] = useState("");
   const [taxonomyImageUploading, setTaxonomyImageUploading] = useState<string | null>(null);
   const [riderLocationEnabled, setRiderLocationEnabled] = useState(false);
@@ -287,7 +297,13 @@ export function AdminStoreApplicationSettingsPage() {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ kind: "category", name, slug, sort_order }),
+      body: JSON.stringify({
+        kind: "category",
+        name,
+        name_en: newCategoryNameEn.trim() || null,
+        slug,
+        sort_order,
+      }),
     });
     const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
     if (!res.ok || !j.ok) {
@@ -295,6 +311,7 @@ export function AdminStoreApplicationSettingsPage() {
       return;
     }
     setNewCategoryName("");
+    setNewCategoryNameEn("");
     setNewCategorySlug("");
     setMsg(t("admin_stores_app_taxonomy_msg_created"));
     window.setTimeout(() => setMsg(null), 4000);
@@ -315,6 +332,7 @@ export function AdminStoreApplicationSettingsPage() {
         kind: "topic",
         store_category_id: pickedCategoryId,
         name,
+        name_en: newTopicNameEn.trim() || null,
         slug,
         sort_order,
       }),
@@ -325,6 +343,7 @@ export function AdminStoreApplicationSettingsPage() {
       return;
     }
     setNewTopicName("");
+    setNewTopicNameEn("");
     setNewTopicSlug("");
     setMsg(t("admin_stores_app_taxonomy_msg_created"));
     window.setTimeout(() => setMsg(null), 4000);
@@ -342,7 +361,11 @@ export function AdminStoreApplicationSettingsPage() {
       body: JSON.stringify({
         kind: "category",
         id: editingCategoryId,
-        patch: { name, sort_order: editingCategoryDraft.sort_order },
+        patch: {
+          name,
+          name_en: editingCategoryDraft.name_en.trim() || null,
+          sort_order: editingCategoryDraft.sort_order,
+        },
       }),
     });
     const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
@@ -368,7 +391,11 @@ export function AdminStoreApplicationSettingsPage() {
       body: JSON.stringify({
         kind: "topic",
         id: editingTopicId,
-        patch: { name, sort_order: editingTopicDraft.sort_order },
+        patch: {
+          name,
+          name_en: editingTopicDraft.name_en.trim() || null,
+          sort_order: editingTopicDraft.sort_order,
+        },
       }),
     });
     const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
@@ -663,7 +690,7 @@ export function AdminStoreApplicationSettingsPage() {
                   </div>
                 </div>
 
-                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
                   <label className="flex flex-col sam-text-helper text-sam-muted">
                     {t("admin_stores_app_taxonomy_ph_name")}
                     <input
@@ -671,6 +698,14 @@ export function AdminStoreApplicationSettingsPage() {
                       onChange={(e) => setNewCategoryName(e.target.value)}
                       className="mt-1 rounded border border-sam-border px-2 py-2 sam-text-body text-sam-fg"
                       placeholder={t("admin_stores_app_taxonomy_ph_category_example")}
+                    />
+                  </label>
+                  <label className="flex flex-col sam-text-helper text-sam-muted">
+                    {t("admin_stores_app_taxonomy_ph_name_en")}
+                    <input
+                      value={newCategoryNameEn}
+                      onChange={(e) => setNewCategoryNameEn(e.target.value)}
+                      className="mt-1 rounded border border-sam-border px-2 py-2 sam-text-body text-sam-fg"
                     />
                   </label>
                   <label className="flex flex-col sam-text-helper text-sam-muted">
@@ -740,7 +775,7 @@ export function AdminStoreApplicationSettingsPage() {
                                 )}
                               </div>
                               {isEditing ? (
-                                <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
+                                <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-3">
                                   <input
                                     value={editingCategoryDraft.name}
                                     onChange={(e) =>
@@ -748,6 +783,16 @@ export function AdminStoreApplicationSettingsPage() {
                                     }
                                     className="rounded border border-sam-border px-2 py-1.5 sam-text-body text-sam-fg"
                                     placeholder={t("admin_stores_app_taxonomy_ph_name")}
+                                  />
+                                  <input
+                                    value={editingCategoryDraft.name_en}
+                                    onChange={(e) =>
+                                      setEditingCategoryDraft((prev) =>
+                                        prev ? { ...prev, name_en: e.target.value } : prev
+                                      )
+                                    }
+                                    className="rounded border border-sam-border px-2 py-1.5 sam-text-body text-sam-fg"
+                                    placeholder={t("admin_stores_app_taxonomy_ph_name_en")}
                                   />
                                   <input
                                     value={String(editingCategoryDraft.sort_order)}
@@ -817,7 +862,11 @@ export function AdminStoreApplicationSettingsPage() {
                                       setEditingTopicId(null);
                                       setEditingTopicDraft(null);
                                       setEditingCategoryId(c.id);
-                                      setEditingCategoryDraft({ name: c.name, sort_order: c.sort_order });
+                                      setEditingCategoryDraft({
+                                        name: c.name,
+                                        name_en: c.name_en ?? "",
+                                        sort_order: c.sort_order,
+                                      });
                                     }}
                                     className="sam-text-helper font-semibold text-signature underline"
                                   >
@@ -873,7 +922,7 @@ export function AdminStoreApplicationSettingsPage() {
                   </select>
                 </label>
 
-                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">
+                <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
                   <label className="flex flex-col sam-text-helper text-sam-muted">
                     {t("admin_stores_app_taxonomy_sub_name")}
                     <input
@@ -881,6 +930,15 @@ export function AdminStoreApplicationSettingsPage() {
                       onChange={(e) => setNewTopicName(e.target.value)}
                       className="mt-1 rounded border border-sam-border px-2 py-2 sam-text-body text-sam-fg"
                       placeholder={t("admin_stores_app_taxonomy_ph_topic_example")}
+                      disabled={!pickedCategoryId}
+                    />
+                  </label>
+                  <label className="flex flex-col sam-text-helper text-sam-muted">
+                    {t("admin_stores_app_taxonomy_ph_name_en")}
+                    <input
+                      value={newTopicNameEn}
+                      onChange={(e) => setNewTopicNameEn(e.target.value)}
+                      className="mt-1 rounded border border-sam-border px-2 py-2 sam-text-body text-sam-fg"
                       disabled={!pickedCategoryId}
                     />
                   </label>
@@ -953,7 +1011,7 @@ export function AdminStoreApplicationSettingsPage() {
                                   )}
                                 </div>
                                 {isEditing ? (
-                                  <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
+                                  <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-3">
                                     <input
                                       value={editingTopicDraft.name}
                                       onChange={(e) =>
@@ -961,6 +1019,16 @@ export function AdminStoreApplicationSettingsPage() {
                                       }
                                       className="rounded border border-sam-border px-2 py-1.5 sam-text-body text-sam-fg"
                                       placeholder={t("admin_stores_app_taxonomy_ph_name")}
+                                    />
+                                    <input
+                                      value={editingTopicDraft.name_en}
+                                      onChange={(e) =>
+                                        setEditingTopicDraft((prev) =>
+                                          prev ? { ...prev, name_en: e.target.value } : prev
+                                        )
+                                      }
+                                      className="rounded border border-sam-border px-2 py-1.5 sam-text-body text-sam-fg"
+                                      placeholder={t("admin_stores_app_taxonomy_ph_name_en")}
                                     />
                                     <input
                                       value={String(editingTopicDraft.sort_order)}
@@ -1029,7 +1097,11 @@ export function AdminStoreApplicationSettingsPage() {
                                         setEditingCategoryId(null);
                                         setEditingCategoryDraft(null);
                                         setEditingTopicId(topicRow.id);
-                                        setEditingTopicDraft({ name: topicRow.name, sort_order: topicRow.sort_order });
+                                        setEditingTopicDraft({
+                                          name: topicRow.name,
+                                          name_en: topicRow.name_en ?? "",
+                                          sort_order: topicRow.sort_order,
+                                        });
                                       }}
                                       className="sam-text-helper font-semibold text-signature underline"
                                     >

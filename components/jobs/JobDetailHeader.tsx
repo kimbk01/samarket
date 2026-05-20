@@ -39,6 +39,7 @@ function jobStatusLabel(post: PostWithMeta, direction: JobDetailDirection): { la
 }
 
 function jobPayHeroLine(
+  t: ReturnType<typeof useI18n>["t"],
   meta: Record<string, unknown>,
   price: number | null | undefined,
   currency: string,

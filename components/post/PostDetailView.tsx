@@ -336,13 +336,17 @@ function UsedCarMetaBlock({
   );
 }
 
-/** YYYY-MM-DD → 2025년 4월 1일 */
-function formatMoveInDate(value: string): string {
+/** YYYY-MM-DD → locale-aware long date */
+function formatMoveInDate(value: string, lang: "ko" | "en"): string {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) return value;
   const [y, m, d] = value.trim().split("-").map(Number);
   const date = new Date(y, m - 1, d);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" });
+  return date.toLocaleDateString(lang === "en" ? "en-US" : "ko-KR", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
 }
 
 function RealEstateMetaBlock({
@@ -361,7 +365,7 @@ function RealEstateMetaBlock({
   cityId?: string | null;
   detailHeroDedup?: boolean;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const dealType = (meta.deal_type as string | undefined)?.trim();
   const regionLabel = regionId && cityId ? getLocationLabel(regionId, cityId) : null;
 
@@ -402,7 +406,10 @@ function RealEstateMetaBlock({
   if (meta.bathroom_count != null && String(meta.bathroom_count).trim())
     rows.push({ label: t("ui_meta_bathroom_count"), value: String(meta.bathroom_count) });
   if (meta.move_in_date != null && String(meta.move_in_date).trim())
-    rows.push({ label: t("ui_meta_move_in_date"), value: formatMoveInDate(String(meta.move_in_date)) });
+    rows.push({
+      label: t("ui_meta_move_in_date"),
+      value: formatMoveInDate(String(meta.move_in_date), language),
+    });
 
   if (rows.length === 0) return null;
 
@@ -598,7 +605,7 @@ function TradePostDetailActionBar({
 }) {
   const { t } = useI18n();
   return (
-    <motion.div data-post-detail-action-bar="true" className={`${TRADE_POST_DETAIL_BOTTOM_SHELL} z-30`}>
+    <div data-post-detail-action-bar="true" className={`${TRADE_POST_DETAIL_BOTTOM_SHELL} z-30`}>
         <div className={TRADE_POST_DETAIL_BOTTOM_PRIMARY_ROW}>
           <button
             type="button"
@@ -740,7 +747,6 @@ function TradePostDetailActionBar({
             </div>
           </div>
         </div>
-      ) : null}
       {showSellerTradeControls ? (
         <div className={TRADE_POST_DETAIL_BOTTOM_SELLER_BAND}>
           <PostDetailSellerPromoButtons

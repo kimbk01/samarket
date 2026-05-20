@@ -10,6 +10,7 @@ export type CommunityTopicAdminRow = {
   section_slug: string | null;
   section_name: string | null;
   name: string;
+  name_en: string | null;
   slug: string;
   icon: string | null;
   color: string | null;
@@ -56,9 +57,9 @@ export async function listCommunityTopicsByScope(
 }
 
 const ADMIN_TOPICS_SELECT_WITH_SKIN =
-  "id, section_id, name, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question, allow_meetup, feed_list_skin, community_sections ( slug, name )";
+  "id, section_id, name, name_en, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question, allow_meetup, feed_list_skin, community_sections ( slug, name )";
 const ADMIN_TOPICS_SELECT_NO_SKIN =
-  "id, section_id, name, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question, allow_meetup, community_sections ( slug, name )";
+  "id, section_id, name, name_en, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question, allow_meetup, community_sections ( slug, name )";
 
 export async function listAllCommunityTopicsForAdmin(): Promise<CommunityTopicAdminRow[]> {
   try {
@@ -69,6 +70,16 @@ export async function listAllCommunityTopicsForAdmin(): Promise<CommunityTopicAd
       .order("sort_order", { ascending: true });
     let adminRows: unknown = a1.data;
     let error = a1.error;
+    if (error && isMissingDbColumnError(error, "name_en")) {
+      const aEn = await sb
+        .from("community_topics")
+        .select(
+          "id, section_id, name, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, feed_sort_mode, allow_question, allow_meetup, feed_list_skin, community_sections ( slug, name )"
+        )
+        .order("sort_order", { ascending: true });
+      adminRows = aEn.data;
+      error = aEn.error;
+    }
     if (error && isMissingDbColumnError(error, "feed_sort_mode")) {
       const sel =
         "id, section_id, name, slug, icon, color, sort_order, is_active, is_visible, is_feed_sort, allow_question, allow_meetup, feed_list_skin, community_sections ( slug, name )";
@@ -92,6 +103,7 @@ export async function listAllCommunityTopicsForAdmin(): Promise<CommunityTopicAd
         section_slug: sec?.slug ?? null,
         section_name: sec?.name ?? null,
         name: String(r.name ?? ""),
+        name_en: r.name_en != null && String(r.name_en).trim() ? String(r.name_en) : null,
         slug: String(r.slug ?? ""),
         icon: r.icon != null ? String(r.icon) : null,
         color: r.color != null ? String(r.color) : null,

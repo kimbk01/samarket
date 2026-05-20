@@ -7,6 +7,7 @@ export type PhilifeNeighborhoodTopicOptionsJson = {
   feedChips?: {
     slug: string;
     name: string;
+    name_en?: string | null;
     is_feed_sort?: boolean;
     sort_slot?: "recommend" | "popular" | null;
   }[];

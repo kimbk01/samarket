@@ -7,6 +7,7 @@ interface CategoryStatusBadgeProps {
 }
 
 export function CategoryStatusBadge({ isActive }: CategoryStatusBadgeProps) {
+  const { t } = useI18n();
   return (
     <span
       className={`inline-flex rounded px-1.5 py-0.5 sam-text-helper font-medium ${

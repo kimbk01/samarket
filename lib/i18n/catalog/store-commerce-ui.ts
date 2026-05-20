@@ -57,6 +57,113 @@ export const storeCommerceUiMessages = {
 
     store_collect_view: "모아보기",
 
+    store_browse_view_all: "전체 보기",
+
+    store_browse_food_all: "전체",
+
+    store_feed_stores_title: "매장",
+
+    store_more_food_link: "음식 더보기",
+
+    store_by_industry_link: "업종별",
+
+    store_register_store: "매장 등록",
+
+    store_add_store: "매장 추가",
+
+    store_region_settings_btn: "동네 설정",
+
+    store_browse_by_industry_find: "업종별 찾기",
+
+    store_browse_primary_fallback: "매장",
+
+    store_supabase_unconfigured_hint:
+      "Supabase가 연결되지 않았거나 매장 테이블이 아직 없습니다.",
+
+    store_browse_primary_restaurant: "식당",
+
+    store_browse_primary_mart: "마트",
+
+    store_browse_primary_hardware: "공구류",
+
+    store_browse_primary_pet: "펫샵",
+
+    store_browse_primary_cafe: "카페",
+
+    store_browse_primary_beauty: "미용",
+
+    store_browse_primary_academy: "학원",
+
+    store_browse_primary_life: "서비스",
+
+    store_browse_food_korean: "한식",
+
+    store_browse_food_chicken: "치킨·고기",
+
+    store_browse_food_noodles: "면·국물",
+
+    store_browse_food_chinese: "중식",
+
+    store_browse_food_japanese: "일식",
+
+    store_browse_food_pizza: "피자·양식",
+
+    store_browse_food_snack: "분식",
+
+    store_browse_food_lunchbox: "도시락",
+
+    store_browse_food_local: "현지식",
+
+    store_browse_food_dessert: "카페·디저트",
+
+    store_browse_food_late_night: "야식",
+
+    store_stores_home: "매장 홈",
+
+    store_browse_loading_list: "실매장 목록을 불러오는 중…",
+
+    store_browse_list_preparing:
+      "지금은 이 업종의 매장 목록을 준비 중입니다. 잠시 후 다시 확인해 주세요.",
+
+    store_browse_list_live: "등록된 실매장입니다. 동네·위치 설정에 따라 정렬됩니다.",
+
+    store_browse_list_empty:
+      "이 업종·세부 주제에 노출된 매장이 없습니다. 업종·승인·노출을 확인해 주세요.",
+
+    store_browse_list_fetch_failed: "목록을 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.",
+
+    store_browse_home_link: "매장 홈으로",
+
+    store_browse_empty_preparing:
+      "매장 목록을 준비 중입니다. 잠시 후 다시 확인하거나 다른 업종을 먼저 둘러보세요.",
+
+    store_browse_empty_hint:
+      "다른 세부 업종을 선택하거나, 매장의 업종·세부 주제·승인·노출 상태를 확인해 주세요.",
+
+    store_browse_industry_map_link: "매장 홈 업종 지도로",
+
+    store_order_dash_chip_receiving: "접수",
+
+    store_order_dash_chip_preparing: "준비",
+
+    store_order_dash_chip_delivering: "배달",
+
+    store_order_dash_loading_hint: "주문 요약을 불러오는 중이에요. 바로가기부터 먼저 사용할 수 있어요.",
+
+    store_order_dash_guest_hint: "로그인 후 주문·채팅을 가로로 빠르게 열 수 있어요.",
+
+    store_order_dash_login: "로그인",
+
+    store_order_dash_hub: "주문 허브",
+
+    store_order_dash_all_count: "전체 {count}",
+
+    store_order_dash_open: "열기",
+
+    store_row_menu_view_aria: "{store} · {item} 메뉴 보기",
+
+    store_row_store_more_aria: "{store} 매장 더보기",
+
     store_featured_menu_image_aria: "대표 메뉴 이미지",
 
     store_show_more: "더보기",
@@ -170,6 +277,12 @@ export const storeCommerceUiMessages = {
     store_delivery_available: "배달가능",
 
     store_pickup_available: "픽업가능",
+
+    store_badge_delivery: "배달가능",
+
+    store_badge_instant_discount: "즉시할인",
+
+    store_badge_reservation: "예약가능",
 
     store_directions_google_aria: "구글 지도에서 내 위치에서 이 매장까지 길찾기",
 
@@ -807,6 +920,15 @@ export const storeCommerceUiMessages = {
     store_owner_chats_title: "주문 채팅",
     store_owner_chats_open_delivery: "배달 채팅함 열기",
     store_owner_chats_go_orders: "주문 관리로",
+    store_owner_chats_need_store: "매장을 선택한 뒤 다시 시도해 주세요.",
+    store_owner_chats_list_hint: "{storeName} · 이 매장 주문에 연결된 채팅만 표시합니다.",
+    store_owner_chats_empty_title: "주문 채팅이 없습니다",
+    store_owner_chats_empty_hint: "주문이 들어오면 채팅방이 여기에 표시됩니다.",
+    store_owner_step_confirm_title: "진행 단계 변경",
+    store_owner_open_chat_btn: "채팅 하기",
+    store_owner_chat_connecting: "채팅방 연결 중…",
+    store_owner_back_to_orders: "주문 관리로 돌아가기",
+    store_owner_buyer_note_title: "특이사항",
     store_owner_open_in_messenger: "메신저에서 열기",
     store_owner_view_order_detail_short: "주문 상세 보기",
     store_owner_inquiry_shortcut: "문의함",
@@ -870,6 +992,102 @@ export const storeCommerceUiMessages = {
     store_pay_label_card_on_delivery: "카드(배달 시 결제)",
     store_pay_display_cash_meet: "만나서 현금",
     store_pay_methods_fallback: "GCash · 만나서 결제 등 (매장 확인)",
+    store_owner_mobile_filter_all_types: "전체 유형",
+    store_owner_mobile_filter_delivery_only: "배달만",
+    store_owner_mobile_filter_pickup_only: "포장만",
+    store_owner_mobile_kpi_new: "신규 주문",
+    store_owner_mobile_kpi_preparing: "준비(조리)중",
+    store_owner_mobile_kpi_delivering: "배달중",
+    store_owner_mobile_kpi_done_today: "오늘 완료",
+    store_owner_mobile_search_placeholder: "주문번호·구매자·전화번호 검색",
+    store_owner_mobile_sort_newest: "최신순 ▾",
+    store_owner_mobile_sort_oldest: "오래된순 ▾",
+    store_owner_mobile_empty_title: "표시할 주문이 없습니다",
+    store_owner_mobile_empty_hint: "다른 탭을 선택하거나 필터를 바꿔 보세요.",
+    store_owner_mobile_aria_search: "주문 검색",
+    store_owner_mobile_aria_filter: "주문 필터",
+    store_owner_fulfillment_pickup_short: "포장",
+    store_owner_fulfillment_delivery_short: "배달",
+    store_owner_order_type_delivery: "배달 주문",
+    store_owner_order_type_pickup: "포장 주문",
+    store_owner_order_detail_title: "주문 상세",
+    store_owner_order_detail_loading: "주문 정보를 불러오는 중…",
+    store_owner_order_info_section: "주문 정보",
+    store_owner_order_type_label: "주문 유형",
+    store_owner_payment_method_label: "결제 방법",
+    store_owner_payment_amount_label: "결제 금액",
+    store_owner_order_time_label: "주문 시간",
+    store_owner_prep_estimate_label: "예상 조리",
+    store_owner_prep_about_minutes: "약 {minutes}분",
+    store_owner_delivery_address_section: "배송지",
+    store_owner_order_menu_section: "주문 메뉴",
+    store_owner_order_line_short: "주문 {no}",
+    store_owner_order_chat_line: "{orderNo} · {storeName}",
+    store_owner_order_fallback: "주문",
+    store_owner_store_fallback: "매장",
+    store_owner_elapsed_hours: "{hours}시간 {minutes}분 경과",
+    store_owner_elapsed_minutes: "{minutes}분 {seconds}초 경과",
+    store_owner_timeline_refund_pending: "환불 요청 처리 중입니다.",
+    store_owner_timeline_refund_done: "환불 완료된 주문입니다.",
+    store_owner_timeline_cancelled: "취소된 주문입니다.",
+    store_owner_cancel_order_btn: "주문취소",
+    store_owner_order_card_actions_aria: "주문 카드 작업",
+    store_owner_aria_order_detail: "주문 상세",
+    store_owner_aria_back_orders: "주문 관리로 돌아가기",
+    store_owner_aria_order_chat: "주문 채팅",
+    store_owner_aria_exit_orders: "주문 관리로 나가기",
+    store_owner_aria_dashboard: "대시보드로",
+    store_owner_aria_open_menu: "메뉴 열기",
+    store_owner_aria_exit_delivery_home: "배달 홈으로 나가기",
+    store_owner_aria_store_ops: "매장 운영 상태",
+    store_owner_aria_select_store: "매장 선택",
+    store_owner_aria_notifications: "알림 {count}건",
+    store_owner_ops_open: "영업중",
+    store_owner_ops_paused: "일시중지",
+    store_owner_ops_prep_minutes: "예상조리 {minutes}분",
+    store_owner_ops_set_hours: "영업 시간을 설정해 주세요",
+    store_owner_hub_avatar_fallback: "샵",
+    store_owner_chat_room_open_failed: "채팅방을 열 수 없습니다.",
+    store_owner_chat_room_missing: "연결된 채팅방이 없습니다.",
+    store_owner_chat_network_failed: "네트워크 오류로 채팅을 열 수 없습니다.",
+    store_owner_settlement_guide_title: "정산 안내",
+    store_owner_settlement_pick_store_body: "정산 내역은 운영 중인 매장을 선택한 뒤 확인할 수 있습니다.",
+    store_owner_settlement_go_hub: "내 매장으로 이동",
+    store_owner_settlement_intro:
+      "주문이 완료(completed)되면 정산 예정 건이 생성됩니다. 실제 입금·보류 해제는 플랫폼 운영에서 처리하며, 이 화면에서는 조회만 가능합니다.",
+    store_owner_settlement_delay_days: "완료 후 약 {days}일 뒤 지급 예정일이 잡힙니다.",
+    store_owner_settlement_fee_percent: "플랫폼 수수료 기본 {percent}% (매장·카테고리 정책에 따라 달라질 수 있음)",
+    store_owner_settlement_refreshing: "새로고침 중…",
+    store_owner_settlement_manage_orders: "주문 관리",
+    store_owner_settlement_loading: "불러오는 중…",
+    store_owner_settlement_empty: "아직 정산 내역이 없습니다. 완료된 주문이 생기면 여기에 표시됩니다.",
+    store_owner_settlement_list_title: "정산 내역",
+    store_owner_settlement_summary_title: "정산 요약",
+    store_owner_settlement_filter_title: "상태별 보기",
+    store_owner_settlement_summary_basis:
+      "예정금은 scheduled·processing·held, 완료금은 paid 상태만 합산합니다.",
+    store_owner_settlement_summary_count: "{label} {count}건 기준",
+    store_owner_settlement_summary_gross: "총 매출",
+    store_owner_settlement_summary_platform_fee: "플랫폼·고정 수수료",
+    store_owner_settlement_summary_delivery: "배달비 차감",
+    store_owner_settlement_summary_refund: "환불 차감",
+    store_owner_settlement_summary_pending: "정산 예정금",
+    store_owner_settlement_summary_paid: "정산 완료금",
+    store_owner_settlement_row_order: "주문 {no}",
+    store_owner_settlement_due_date: "정산 예정일 {date}",
+    store_owner_settlement_paid_at: "지급 {date}",
+    store_owner_settlement_amount_line: "매출 {gross} · 수수료 {fee} · 환불 {refund}",
+    store_owner_settlement_fee_line: "플랫폼 {platform} · 고정 {fixed} · 배달 차감 {delivery}",
+    store_owner_settlement_hold: "보류: {reason}",
+    store_owner_settlement_payout: "입금 확인 {date}",
+    store_owner_settlement_view_order: "해당 주문 보기",
+    store_owner_settlement_err_table_missing: "정산 테이블이 아직 적용되지 않았습니다.",
+    store_owner_settlement_status_scheduled: "지급 예정",
+    store_owner_settlement_status_processing: "처리 중",
+    store_owner_settlement_status_paid: "지급 완료",
+    store_owner_settlement_status_held: "보류",
+    store_owner_settlement_status_cancelled: "취소",
+    store_owner_settlement_filter_empty: "선택한 상태의 정산 건이 없습니다.",
 
   },
 
@@ -927,6 +1145,113 @@ export const storeCommerceUiMessages = {
     store_subtopic_suffix: " · Subtopics",
 
     store_collect_view: "View all",
+
+    store_browse_view_all: "View all",
+
+    store_browse_food_all: "All",
+
+    store_feed_stores_title: "Stores",
+
+    store_more_food_link: "More food",
+
+    store_by_industry_link: "By category",
+
+    store_register_store: "Register store",
+
+    store_add_store: "Add store",
+
+    store_region_settings_btn: "Neighborhood",
+
+    store_browse_by_industry_find: "Browse by category",
+
+    store_browse_primary_fallback: "Store",
+
+    store_supabase_unconfigured_hint:
+      "Supabase is not connected or store tables are not set up yet.",
+
+    store_browse_primary_restaurant: "Restaurant",
+
+    store_browse_primary_mart: "Mart",
+
+    store_browse_primary_hardware: "Hardware",
+
+    store_browse_primary_pet: "Pet shop",
+
+    store_browse_primary_cafe: "Cafe",
+
+    store_browse_primary_beauty: "Beauty",
+
+    store_browse_primary_academy: "Academy",
+
+    store_browse_primary_life: "Services",
+
+    store_browse_food_korean: "Korean",
+
+    store_browse_food_chicken: "Chicken & meat",
+
+    store_browse_food_noodles: "Noodles & soup",
+
+    store_browse_food_chinese: "Chinese",
+
+    store_browse_food_japanese: "Japanese",
+
+    store_browse_food_pizza: "Pizza & Western",
+
+    store_browse_food_snack: "Snacks",
+
+    store_browse_food_lunchbox: "Lunch boxes",
+
+    store_browse_food_local: "Local cuisine",
+
+    store_browse_food_dessert: "Cafe & dessert",
+
+    store_browse_food_late_night: "Late night",
+
+    store_stores_home: "Store home",
+
+    store_browse_loading_list: "Loading store list…",
+
+    store_browse_list_preparing:
+      "Store listings for this category are being prepared. Please check back soon.",
+
+    store_browse_list_live: "Live stores. Sorted by your neighborhood and location settings.",
+
+    store_browse_list_empty:
+      "No stores in this category and subtopic. Check category, approval, and visibility.",
+
+    store_browse_list_fetch_failed: "Could not load the list. Please try again shortly.",
+
+    store_browse_home_link: "Back to store home",
+
+    store_browse_empty_preparing:
+      "Store listings are being prepared. Try again later or browse another category first.",
+
+    store_browse_empty_hint:
+      "Try another subtopic, or check the store’s category, subtopic, approval, and visibility.",
+
+    store_browse_industry_map_link: "Category map on store home",
+
+    store_order_dash_chip_receiving: "Received",
+
+    store_order_dash_chip_preparing: "Preparing",
+
+    store_order_dash_chip_delivering: "Delivery",
+
+    store_order_dash_loading_hint: "Loading order summary. Shortcuts are available now.",
+
+    store_order_dash_guest_hint: "Sign in to open orders and chats quickly.",
+
+    store_order_dash_login: "Sign in",
+
+    store_order_dash_hub: "Order hub",
+
+    store_order_dash_all_count: "All {count}",
+
+    store_order_dash_open: "Open",
+
+    store_row_menu_view_aria: "View menu · {store} · {item}",
+
+    store_row_store_more_aria: "More from {store}",
 
     store_featured_menu_image_aria: "Featured menu image",
 
@@ -1041,6 +1366,12 @@ export const storeCommerceUiMessages = {
     store_delivery_available: "Delivery",
 
     store_pickup_available: "Pickup",
+
+    store_badge_delivery: "Delivery",
+
+    store_badge_instant_discount: "Instant discount",
+
+    store_badge_reservation: "Reservation",
 
     store_directions_google_aria: "Directions from my location on Google Maps",
 
@@ -1679,6 +2010,15 @@ export const storeCommerceUiMessages = {
     store_owner_chats_title: "Order chat",
     store_owner_chats_open_delivery: "Open delivery inbox",
     store_owner_chats_go_orders: "Order management",
+    store_owner_chats_need_store: "Select a store and try again.",
+    store_owner_chats_list_hint: "{storeName} · Chats linked to this store’s orders only.",
+    store_owner_chats_empty_title: "No order chats",
+    store_owner_chats_empty_hint: "Chats appear here when orders arrive.",
+    store_owner_step_confirm_title: "Change step",
+    store_owner_open_chat_btn: "Open chat",
+    store_owner_chat_connecting: "Connecting chat…",
+    store_owner_back_to_orders: "Back to orders",
+    store_owner_buyer_note_title: "Special notes",
     store_owner_open_in_messenger: "Open in Messenger",
     store_owner_view_order_detail_short: "View order details",
     store_owner_inquiry_shortcut: "Inquiries",
@@ -1742,6 +2082,101 @@ export const storeCommerceUiMessages = {
     store_pay_label_card_on_delivery: "Card (pay on delivery)",
     store_pay_display_cash_meet: "Cash on meet-up",
     store_pay_methods_fallback: "GCash, cash on delivery, etc. (confirm with store)",
+    store_owner_mobile_filter_all_types: "All types",
+    store_owner_mobile_filter_delivery_only: "Delivery only",
+    store_owner_mobile_filter_pickup_only: "Pickup only",
+    store_owner_mobile_kpi_new: "New orders",
+    store_owner_mobile_kpi_preparing: "Preparing",
+    store_owner_mobile_kpi_delivering: "Out for delivery",
+    store_owner_mobile_kpi_done_today: "Completed today",
+    store_owner_mobile_search_placeholder: "Search order no., buyer, or phone",
+    store_owner_mobile_sort_newest: "Newest ▾",
+    store_owner_mobile_sort_oldest: "Oldest ▾",
+    store_owner_mobile_empty_title: "No orders to show",
+    store_owner_mobile_empty_hint: "Try another tab or change filters.",
+    store_owner_mobile_aria_search: "Search orders",
+    store_owner_mobile_aria_filter: "Filter orders",
+    store_owner_fulfillment_pickup_short: "Pickup",
+    store_owner_fulfillment_delivery_short: "Delivery",
+    store_owner_order_type_delivery: "Delivery order",
+    store_owner_order_type_pickup: "Pickup order",
+    store_owner_order_detail_title: "Order details",
+    store_owner_order_detail_loading: "Loading order…",
+    store_owner_order_info_section: "Order info",
+    store_owner_order_type_label: "Order type",
+    store_owner_payment_method_label: "Payment",
+    store_owner_payment_amount_label: "Amount",
+    store_owner_order_time_label: "Ordered at",
+    store_owner_prep_estimate_label: "Prep estimate",
+    store_owner_prep_about_minutes: "About {minutes} min",
+    store_owner_delivery_address_section: "Delivery address",
+    store_owner_order_menu_section: "Items",
+    store_owner_order_line_short: "Order {no}",
+    store_owner_order_chat_line: "{orderNo} · {storeName}",
+    store_owner_order_fallback: "Order",
+    store_owner_store_fallback: "Store",
+    store_owner_elapsed_hours: "{hours}h {minutes}m ago",
+    store_owner_elapsed_minutes: "{minutes}m {seconds}s ago",
+    store_owner_timeline_refund_pending: "Refund request in progress.",
+    store_owner_timeline_refund_done: "This order was refunded.",
+    store_owner_timeline_cancelled: "This order was cancelled.",
+    store_owner_cancel_order_btn: "Cancel order",
+    store_owner_order_card_actions_aria: "Order card actions",
+    store_owner_aria_order_detail: "Order details",
+    store_owner_aria_back_orders: "Back to orders",
+    store_owner_aria_order_chat: "Order chat",
+    store_owner_aria_exit_orders: "Leave order chat",
+    store_owner_aria_dashboard: "Back to dashboard",
+    store_owner_aria_open_menu: "Open menu",
+    store_owner_aria_exit_delivery_home: "Back to delivery home",
+    store_owner_aria_store_ops: "Store operations",
+    store_owner_aria_select_store: "Select store",
+    store_owner_aria_notifications: "Notifications ({count})",
+    store_owner_ops_open: "Open",
+    store_owner_ops_paused: "Paused",
+    store_owner_ops_prep_minutes: "Prep ~{minutes} min",
+    store_owner_ops_set_hours: "Set business hours",
+    store_owner_hub_avatar_fallback: "S",
+    store_owner_chat_room_open_failed: "Could not open chat.",
+    store_owner_chat_room_missing: "No chat room linked.",
+    store_owner_chat_network_failed: "Network error. Could not open chat.",
+    store_owner_settlement_guide_title: "Settlement guide",
+    store_owner_settlement_pick_store_body: "Select an active store to view settlements.",
+    store_owner_settlement_go_hub: "Back to my stores",
+    store_owner_settlement_intro:
+      "A settlement entry is created when an order is completed. Payouts and holds are handled by platform ops; this screen is read-only.",
+    store_owner_settlement_delay_days: "Payout is scheduled about {days} days after completion.",
+    store_owner_settlement_fee_percent: "Default platform fee {percent}% (may vary by store/category).",
+    store_owner_settlement_refreshing: "Refreshing…",
+    store_owner_settlement_manage_orders: "Manage orders",
+    store_owner_settlement_loading: "Loading…",
+    store_owner_settlement_empty: "No settlements yet. They appear after orders complete.",
+    store_owner_settlement_list_title: "Settlement history",
+    store_owner_settlement_summary_title: "Summary",
+    store_owner_settlement_filter_title: "Filter by status",
+    store_owner_settlement_summary_basis: "Pending = scheduled/processing/held; paid = paid only.",
+    store_owner_settlement_summary_count: "{label} · {count} orders",
+    store_owner_settlement_summary_gross: "Gross sales",
+    store_owner_settlement_summary_platform_fee: "Platform & fixed fees",
+    store_owner_settlement_summary_delivery: "Delivery deductions",
+    store_owner_settlement_summary_refund: "Refunds",
+    store_owner_settlement_summary_pending: "Pending payout",
+    store_owner_settlement_summary_paid: "Paid out",
+    store_owner_settlement_row_order: "Order {no}",
+    store_owner_settlement_due_date: "Due {date}",
+    store_owner_settlement_paid_at: "Paid {date}",
+    store_owner_settlement_amount_line: "Sales {gross} · Fee {fee} · Refund {refund}",
+    store_owner_settlement_fee_line: "Platform {platform} · Fixed {fixed} · Delivery {delivery}",
+    store_owner_settlement_hold: "Hold: {reason}",
+    store_owner_settlement_payout: "Payout confirmed {date}",
+    store_owner_settlement_view_order: "View order",
+    store_owner_settlement_err_table_missing: "Settlement table is not deployed yet.",
+    store_owner_settlement_status_scheduled: "Scheduled",
+    store_owner_settlement_status_processing: "Processing",
+    store_owner_settlement_status_paid: "Paid",
+    store_owner_settlement_status_held: "On hold",
+    store_owner_settlement_status_cancelled: "Cancelled",
+    store_owner_settlement_filter_empty: "No settlements in this status.",
 
   },
 

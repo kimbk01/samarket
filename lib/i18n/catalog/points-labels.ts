@@ -22,6 +22,8 @@ export const pointsLabelsMessages = {
 
     point_pay_bank_transfer: "계좌이체",
 
+    point_pay_gcash: "GCash",
+
     point_pay_manual_confirm: "수동확인",
 
     point_ledger_charge: "충전",
@@ -73,6 +75,8 @@ export const pointsLabelsMessages = {
     point_status_expired: "Expired",
 
     point_pay_bank_transfer: "Bank transfer",
+
+    point_pay_gcash: "GCash",
 
     point_pay_manual_confirm: "Manual confirm",
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { ChevronLeft } from "lucide-react";
@@ -38,6 +39,7 @@ export function OwnerStoreOrderChatSlidePanel({
   storeName: string;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const [phase, setPhase] = useState<SlidePhase>("enter-from-right");
   const [roomId, setRoomId] = useState<string | null>(() => {
     const rid = order?.community_messenger_room_id?.trim();
@@ -99,19 +101,21 @@ export function OwnerStoreOrderChatSlidePanel({
         };
         if (cancelled) return;
         if (!res.ok || !j?.ok) {
-          setRoomErr(typeof j?.error === "string" ? j.error : "채팅방을 열 수 없습니다.");
+          setRoomErr(
+            typeof j?.error === "string" ? j.error : t("store_owner_chat_room_open_failed")
+          );
           setRoomId(null);
           return;
         }
         const rid = String(j.order?.community_messenger_room_id ?? "").trim();
         if (!rid) {
-          setRoomErr("연결된 채팅방이 없습니다.");
+          setRoomErr(t("store_owner_chat_room_missing"));
           setRoomId(null);
           return;
         }
         setRoomId(rid);
       } catch {
-        if (!cancelled) setRoomErr("네트워크 오류로 채팅을 열 수 없습니다.");
+        if (!cancelled) setRoomErr(t("store_owner_chat_network_failed"));
       } finally {
         if (!cancelled) setRoomLoading(false);
       }
@@ -138,13 +142,13 @@ export function OwnerStoreOrderChatSlidePanel({
             transitionDuration: `${OWNER_ORDER_CHAT_SLIDE_MS}ms`,
             transitionTimingFunction: OWNER_ORDER_CHAT_SLIDE_EASING,
           }}
-          aria-label="주문 관리로 돌아가기"
+          aria-label={t("store_owner_aria_back_orders")}
           onClick={requestClose}
         />
         <aside
           role="dialog"
           aria-modal="true"
-          aria-label="주문 채팅"
+          aria-label={t("store_owner_aria_order_chat")}
           className={`flex h-[100dvh] max-h-[100dvh] min-h-0 flex-col border-l border-[#E5E7EB] bg-white shadow-2xl ${OWNER_ORDER_CHAT_SLIDE_WIDTH_CLASS} ${OWNER_ORDER_CHAT_SLIDE_PANEL_Z_CLASS} pt-[env(safe-area-inset-top,0px)]`}
           style={{
             transform: panelOpen ? "translate3d(0, 0, 0)" : "translate3d(100%, 0, 0)",
@@ -157,14 +161,17 @@ export function OwnerStoreOrderChatSlidePanel({
               type="button"
               onClick={requestClose}
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full hover:bg-[#F5F5F5]"
-              aria-label="주문 관리로 나가기"
+              aria-label={t("store_owner_aria_exit_orders")}
             >
               <ChevronLeft className="h-5 w-5 text-[#262626]" aria-hidden />
             </button>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[15px] font-bold text-[#262626]">주문 채팅</p>
+              <p className="truncate text-[15px] font-bold text-[#262626]">{t("store_owner_chats_title")}</p>
               <p className="truncate text-[12px] text-[#8C8C8C]">
-                {order?.order_no ?? "주문"} · {storeName}
+                {t("store_owner_order_chat_line", {
+                  orderNo: order?.order_no ?? t("store_owner_order_fallback"),
+                  storeName,
+                })}
               </p>
             </div>
           </header>
@@ -179,7 +186,7 @@ export function OwnerStoreOrderChatSlidePanel({
 
           <div className="relative min-h-0 flex-1 overflow-hidden bg-[#F3F4F6]">
             {roomLoading ?
-              <p className="px-4 py-8 text-center text-[14px] text-[#8C8C8C]">채팅방 연결 중…</p>
+              <p className="px-4 py-8 text-center text-[14px] text-[#8C8C8C]">{t("store_owner_chat_connecting")}</p>
             : roomErr ?
               <div className="px-4 py-8 text-center">
                 <p className="text-[14px] text-[#FF4D4F]">{roomErr}</p>
@@ -188,7 +195,7 @@ export function OwnerStoreOrderChatSlidePanel({
                   onClick={requestClose}
                   className="mt-3 text-[14px] font-semibold text-[#2D7FF9]"
                 >
-                  주문 관리로 돌아가기
+                  {t("store_owner_back_to_orders")}
                 </button>
               </div>
             : roomId ?

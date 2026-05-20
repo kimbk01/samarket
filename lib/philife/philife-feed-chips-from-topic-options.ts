@@ -3,6 +3,7 @@ import type { PhilifeNeighborhoodTopicOptionsJson } from "@/lib/philife/neighbor
 export type PhilifeFeedTopicChip = {
   slug: string;
   label: string;
+  name_en?: string | null;
   is_feed_sort: boolean;
   sort_slot: "recommend" | "popular" | null;
 };
@@ -48,6 +49,7 @@ export function buildFeedChipsFromPhilifeTopicOptionsJson(
       return {
         slug: x.slug,
         label: x.name,
+        name_en: x.name_en ?? null,
         is_feed_sort: isFs,
         sort_slot,
       };

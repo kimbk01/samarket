@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { AdminAuditLog, AuditLogResult } from "@/lib/types/admin-audit";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
 import {
   AUDIT_CATEGORY_LABEL_KEYS,
   AUDIT_RESULT_LABEL_KEYS,
@@ -14,18 +15,12 @@ const RESULT_CLASS: Record<AuditLogResult, string> = {
   error: "bg-red-50 text-red-700",
 };
 
-function auditLocale(language: string): string {
-  if (language === "en") return "en-US";
-  return "ko-KR";
-}
-
 interface AdminAuditLogTableProps {
   logs: AdminAuditLog[];
 }
 
 export function AdminAuditLogTable({ logs }: AdminAuditLogTableProps) {
   const { t, language } = useI18n();
-  const locale = auditLocale(language);
 
   return (
     <div className="overflow-x-auto rounded-ui-rect border border-sam-border bg-sam-surface">
@@ -74,7 +69,7 @@ export function AdminAuditLogTable({ logs }: AdminAuditLogTableProps) {
                 {l.summary}
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(l.createdAt).toLocaleString(locale)}
+                {formatAdminDateTime(l.createdAt, language)}
               </td>
             </tr>
           ))}

@@ -26,7 +26,7 @@ export function BusinessDashboardOrderTimeline({
   orders: TimelineOrder[];
 }) {
   const { t, language } = useI18n();
-  const dateLocale = language === "ko" ? "ko-KR" : language === "zh" ? "zh-CN" : "en-US";
+  const dateLocale = language === "ko" ? "ko-KR" : "en-US";
 
   if (orders.length === 0) {
     return (

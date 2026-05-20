@@ -40,7 +40,7 @@ export function OwnerOrderDetail({
   const { t, language } = useI18n();
   const listHref = buildStoreOrdersHref({ storeId });
   const fl = fulfillmentLabel(order.order_type, t);
-  const dateLocale = language === "ko" ? "ko-KR" : language === "zh" ? "zh-CN" : "en-US";
+  const dateLocale = language === "ko" ? "ko-KR" : "en-US";
 
   const terminal = ["completed", "cancelled", "refunded", "refund_requested"].includes(order.order_status);
 

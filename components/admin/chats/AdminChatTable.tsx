@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { formatAdminDateTime } from "@/components/admin/i18n/admin-date-locale";
 import type { AdminChatRoom } from "@/lib/types/admin-chat";
 import { AdminChatRoomStatusBadge } from "./AdminChatRoomStatusBadge";
 
@@ -19,7 +20,7 @@ export function AdminChatTable({
   onToggleRow,
   onToggleAllVisible,
 }: AdminChatTableProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const visibleIds = rooms.map((r) => r.id);
   const allVisibleSelected =
     visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
@@ -90,7 +91,7 @@ export function AdminChatTable({
                 {r.lastMessage || "-"}
               </td>
               <td className="whitespace-nowrap px-3 py-2.5 sam-text-body-secondary text-sam-muted">
-                {new Date(r.lastMessageAt).toLocaleString("ko-KR")}
+                {formatAdminDateTime(r.lastMessageAt, language)}
               </td>
               <td className="px-3 py-2.5 text-center sam-text-body-secondary text-sam-muted">
                 {(r.unreadSeller ?? 0) + (r.unreadBuyer ?? 0) > 0

@@ -147,7 +147,6 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
     isSeller && storeId ? (
       <StoreOrderSellerOrderPanel
         presentation="drawer"
-        drawerVariant="peek"
         open={detailDrawerOpen}
         onOpenChange={setDetailDrawerOpen}
         chatRoomId={vm.snapshot.room.id}
@@ -159,11 +158,7 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
         postChatText={postChatText}
         sendSummaryDisabled={vm.roomUnavailable}
         onRoomReload={onRoomReload}
-        hideSendSummary={hasAutoSummary}
-        hideDeliveryActions
-        hidePeekDrawerMoreMenu
-        onVoiceCall={() => void vm.startManagedDirectCall("voice")}
-        voiceCallDisabled={vm.roomUnavailable || vm.outgoingDialLocked}
+        stackAboveOwnerChatModal
       />
     ) : null;
 

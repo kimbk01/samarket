@@ -3,13 +3,14 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import type { BoardListSkinProps } from "@/lib/community-board/types";
+import { formatAppDate } from "@/lib/i18n/locale-for-app-language";
 
 export function BasicListSkin({
   posts,
   board,
   baseHref,
 }: BoardListSkinProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   return (
     <ul className="divide-y divide-sam-border bg-sam-surface rounded-ui-rect overflow-hidden">
       {posts.length === 0 ? (
@@ -32,7 +33,7 @@ export function BasicListSkin({
               <p className="text-sm text-sam-muted mt-0.5 line-clamp-1">{post.content}</p>
               <div className="flex items-center gap-2 mt-2 text-xs text-sam-meta">
                 {post.author?.name && <span>{post.author.name}</span>}
-                <span>{new Date(post.created_at).toLocaleDateString("ko-KR")}</span>
+                <span>{formatAppDate(post.created_at, language)}</span>
                 {post.view_count > 0 && <span>{t("community_stat_views_inline", { count: post.view_count })}</span>}
               </div>
             </Link>

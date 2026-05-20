@@ -1,7 +1,9 @@
 "use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveCommunityTopicUILabel } from "@/lib/i18n/community-topic-label-i18n";
 import { formatTimeAgo } from "@/lib/utils/format";
+import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { CommunityFeedPostDTO } from "@/lib/community-feed/types";
 import { extractHashtagPreview } from "@/lib/community-feed/topic-feed-skin";
 import { stripMeetupPostMetaFromContent } from "@/lib/neighborhood/meeting-post-content";
@@ -19,10 +21,11 @@ import {
 
 function buildCommunityFeedListViewModel(
   post: CommunityFeedPostDTO,
-  noTitleLabel: string
+  noTitleLabel: string,
+  lang: AppLanguageCode
 ): FeedListCardViewModel {
   const time =
-    post.created_at && !Number.isNaN(Date.parse(post.created_at)) ? formatTimeAgo(post.created_at, "ko-KR") : "";
+    post.created_at && !Number.isNaN(Date.parse(post.created_at)) ? formatTimeAgo(post.created_at, lang) : "";
   const skin = post.feed_list_skin;
   const thumbnailUrl = resolveCommunityFeedListThumbnail(post);
   const previewSource = (post.summary ?? "").trim() || post.content;
@@ -38,7 +41,7 @@ function buildCommunityFeedListViewModel(
 
   return {
     href: philifeAppPaths.post(post.id),
-    topicLabel: post.topic_name,
+    topicLabel: resolveCommunityTopicUILabel(lang, post.topic_name, post.topic_name_en),
     topicColor: post.topic_color,
     title: post.title?.trim() || noTitleLabel,
     summary: stripMarkdownImageSyntaxForFeedPreview((post.summary ?? "").trim() || (post.content ?? "")),
@@ -58,9 +61,9 @@ function buildCommunityFeedListViewModel(
 }
 
 export function CommunityPostCard({ post }: { post: CommunityFeedPostDTO }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const skin = post.feed_list_skin;
-  const vm = buildCommunityFeedListViewModel(post, t("community_no_title"));
+  const vm = buildCommunityFeedListViewModel(post, t("community_no_title"), language);
   const hasThumb = Boolean(vm.thumbnailUrl);
 
   if (skin === "text_primary") {

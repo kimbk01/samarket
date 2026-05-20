@@ -49,6 +49,7 @@ export function PostDetailMoreBottomSheet({
   /** false면 시트에서 「신고하기」만 숨김 (더보기 메뉴는 계속 사용) */
   reportEnabled?: boolean;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const [slideIn, setSlideIn] = useState(false);
 

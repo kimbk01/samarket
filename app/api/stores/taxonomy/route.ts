@@ -31,20 +31,49 @@ export async function GET(request: Request) {
   try {
     // CONTRACT: categories / topics 는 서로 독립 — 직렬 await 는 벽시계 RTT 2배.
     // 병렬 조회로 `/stores` 첫 페인트에서 taxonomy 가 slowest 가 되는 구간을 줄인다.
-    const [catResult, topicResult] = await Promise.all([
-      sb
-        .from("store_categories")
-        .select("id, name, slug, sort_order, image_url")
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true }),
-      sb
-        .from("store_topics")
-        .select("id, store_category_id, name, slug, sort_order, image_url")
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true }),
-    ]);
+    const catSelectAttempts = [
+      "id, name, name_en, slug, sort_order, image_url",
+      "id, name, slug, sort_order, image_url",
+    ] as const;
+    const topicSelectAttempts = [
+      "id, store_category_id, name, name_en, slug, sort_order, image_url",
+      "id, store_category_id, name, slug, sort_order, image_url",
+    ] as const;
 
-    const { data: categories, error: cErr } = catResult;
+    let categories: StoreTaxonomyCategory[] | null = null;
+    let cErr: { message: string } | null = null;
+    for (const sel of catSelectAttempts) {
+      const r = await sb
+        .from("store_categories")
+        .select(sel)
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+      if (!r.error && Array.isArray(r.data)) {
+        categories = r.data as unknown as StoreTaxonomyCategory[];
+        cErr = null;
+        break;
+      }
+      cErr = r.error;
+    }
+
+    let topics: StoreTaxonomyTopic[] | null = null;
+    let tErr: { message: string } | null = null;
+    for (const sel of topicSelectAttempts) {
+      const r = await sb
+        .from("store_topics")
+        .select(sel)
+        .eq("is_active", true)
+        .order("sort_order", { ascending: true });
+      if (!r.error && Array.isArray(r.data)) {
+        topics = r.data as unknown as StoreTaxonomyTopic[];
+        tErr = null;
+        break;
+      }
+      tErr = r.error;
+    }
+
+    const catResult = { data: categories, error: cErr };
+    const topicResult = { data: topics, error: tErr };
 
     if (cErr) {
       console.error("[GET /api/stores/taxonomy] categories", cErr);
@@ -55,8 +84,6 @@ export async function GET(request: Request) {
     }
 
     const catList = (categories ?? []) as StoreTaxonomyCategory[];
-
-    const { data: topics, error: tErr } = topicResult;
 
     if (tErr) {
       const msg = String(tErr.message ?? "");

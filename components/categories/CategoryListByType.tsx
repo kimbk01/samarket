@@ -73,7 +73,7 @@ export function CategoryListByType({
             >
               <span className="sam-text-body-secondary font-medium text-sam-fg">{c.name}</span>
               <span className="mt-0.5 sam-text-xxs text-sam-muted">
-                {CATEGORY_TYPE_LABELS[c.type]}
+                {t(CATEGORY_TYPE_MESSAGE_KEYS[c.type as CategoryType])}
               </span>
             </Link>
           ))}

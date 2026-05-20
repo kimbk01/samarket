@@ -111,6 +111,7 @@ export function AdminCommunityTopicsPage({
     };
   }, []);
   const [name, setName] = useState("");
+  const [nameEn, setNameEn] = useState("");
   const [slug, setSlug] = useState("");
   const [sortOrder, setSortOrder] = useState(0);
   const [isActive, setIsActive] = useState(true);
@@ -194,6 +195,7 @@ export function AdminCommunityTopicsPage({
         body: JSON.stringify({
           section_id: sectionId,
           name,
+          name_en: nameEn.trim() || null,
           slug: finalSlug,
           sort_order: sortOrder,
           is_active: isActive,
@@ -214,6 +216,7 @@ export function AdminCommunityTopicsPage({
         return;
       }
       setName("");
+      setNameEn("");
       setSlug("");
       setSortOrder(0);
       setIsActive(true);
@@ -247,6 +250,7 @@ export function AdminCommunityTopicsPage({
         body: JSON.stringify({
           section_id: edit.section_id,
           name: edit.name,
+          name_en: edit.name_en,
           slug: edit.slug,
           sort_order: edit.sort_order,
           is_active: edit.is_active,
@@ -484,6 +488,14 @@ export function AdminCommunityTopicsPage({
               />
             </label>
             <label className="flex min-w-0 flex-col gap-0.5">
+              <span className="text-sam-muted sam-text-helper">{tr("admin_topics_label_name_en")}</span>
+              <input
+                className="min-h-10 min-w-[6rem] rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 text-sam-fg"
+                value={nameEn}
+                onChange={(e) => setNameEn(e.target.value)}
+              />
+            </label>
+            <label className="flex min-w-0 flex-col gap-0.5">
               <span className="text-sam-muted sam-text-helper">{tr("admin_topics_label_slug_field")}</span>
               <input
                 className="min-h-10 rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 font-mono text-sam-fg sam-text-helper"
@@ -609,6 +621,13 @@ export function AdminCommunityTopicsPage({
                           className="w-full rounded border px-1 py-1"
                           value={edit.name}
                           onChange={(e) => setEdit({ ...edit, name: e.target.value })}
+                        />
+                      </td>
+                      <td className="py-2.5 pr-2">
+                        <input
+                          className="w-full rounded border px-1 py-1"
+                          value={edit.name_en ?? ""}
+                          onChange={(e) => setEdit({ ...edit, name_en: e.target.value.trim() || null })}
                         />
                       </td>
                       <td className="py-2.5 pr-2 align-top">

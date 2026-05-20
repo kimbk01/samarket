@@ -62,6 +62,7 @@ export const PostCard = memo(function PostCard({
   isFirstCard = false,
   footer,
 }: PostCardProps) {
+  const { t } = useI18n();
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
   const [thumbnailFailed, setThumbnailFailed] = useState(false);
@@ -97,7 +98,7 @@ export const PostCard = memo(function PostCard({
   const locationLine = resolveTradePostListingLocationLine(metaRecord, post.region, post.city);
   const timeLabel =
     post.created_at && !Number.isNaN(Date.parse(post.created_at))
-      ? formatTimeAgo(post.created_at, "ko-KR")
+      ? formatTimeAgo(post.created_at)
       : "";
   const viewCount = typeof post.view_count === "number" ? post.view_count : 0;
   const listKind = listPreview?.listKind ?? "trade";

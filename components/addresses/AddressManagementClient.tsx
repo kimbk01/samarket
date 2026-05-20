@@ -167,7 +167,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
     } finally {
       if (showWait) setListBootstrapping(false);
     }
-  }, [tt]);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -244,11 +244,7 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
     const row = list.find((a) => a.id === id);
     if (!row || row.isDefaultMaster) return;
     if (isLinkedSamarketStoreAddressRow(row)) {
-      alert(
-        tt(
-          "매장 연결 주소는 대표 주소로 둘 수 없어요. 우리집·회사 등 일반 주소를 대표로 지정해 주세요.",
-        ),
-      );
+      alert(t("addr_ui_store_not_master"));
       return;
     }
     setBusyId(id);

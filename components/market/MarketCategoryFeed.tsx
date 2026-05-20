@@ -70,6 +70,7 @@ export function MarketCategoryFeed({
     favoriteMap?: Record<string, boolean>;
   } | null;
 }) {
+  const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();

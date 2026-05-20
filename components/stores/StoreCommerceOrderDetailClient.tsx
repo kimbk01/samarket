@@ -57,7 +57,7 @@ export function StoreCommerceOrderDetailClient({
   storeSlug: string;
   orderId: string;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const [state, setState] = useState<
     | { kind: "loading" }
     | { kind: "error"; message: string }

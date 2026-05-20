@@ -1,5 +1,7 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+
 /** 주문 카드·상세 스테퍼 — 단계 전환 확인 */
 export function OwnerOrderStepConfirmDialog({
   open,
@@ -14,6 +16,7 @@ export function OwnerOrderStepConfirmDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const { t } = useI18n();
   if (!open) return null;
 
   return (
@@ -26,7 +29,7 @@ export function OwnerOrderStepConfirmDialog({
       <button
         type="button"
         className="absolute inset-0 cursor-default"
-        aria-label="닫기"
+        aria-label={t("common_close")}
         disabled={busy}
         onClick={() => {
           if (!busy) onCancel();
@@ -34,7 +37,7 @@ export function OwnerOrderStepConfirmDialog({
       />
       <div className="relative z-[1] w-full max-w-sm rounded-lg border border-[#E8E8E8] bg-white p-4 shadow-xl">
         <h2 id="owner-order-step-confirm-title" className="text-[16px] font-bold text-[#262626]">
-          진행 단계 변경
+          {t("store_owner_step_confirm_title")}
         </h2>
         <p className="mt-2 text-[14px] leading-relaxed text-[#595959]">{message}</p>
         <div className="mt-4 flex gap-2">
@@ -44,7 +47,7 @@ export function OwnerOrderStepConfirmDialog({
             onClick={onCancel}
             className="flex min-h-11 flex-1 touch-manipulation select-none items-center justify-center rounded-md border border-[#E5E7EB] bg-white text-[14px] font-semibold text-[#595959] transition active:scale-[0.98] active:bg-[#F5F5F5] disabled:opacity-50"
           >
-            취소
+            {t("common_cancel")}
           </button>
           <button
             type="button"
@@ -52,7 +55,7 @@ export function OwnerOrderStepConfirmDialog({
             onClick={onConfirm}
             className="flex min-h-11 flex-1 touch-manipulation select-none items-center justify-center rounded-md bg-[#2D7FF9] text-[14px] font-semibold text-white transition hover:bg-[#1a6fe8] active:scale-[0.98] active:bg-[#155ed0] disabled:opacity-50"
           >
-            {busy ? "처리 중…" : "확인"}
+            {busy ? t("common_processing") : t("common_confirm")}
           </button>
         </div>
       </div>

@@ -42,6 +42,7 @@ export function TradePostAdApplySheet({
   open: boolean;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const [loading, setLoading] = useState(false);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
   const [err, setErr] = useState("");

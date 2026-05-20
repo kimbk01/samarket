@@ -42,7 +42,7 @@ export function StoreConsumerShell({ slug, children }: { slug: string; children:
 
   if (shouldWrapStoreDetailSlideShell(pathname, slug)) {
     return (
-      <StoreDetailSlideShell storeSlug={decodedSlug}>{children}</StoreDetailSlideShell>
+      <StoreDetailSlideShell>{children}</StoreDetailSlideShell>
     );
   }
 

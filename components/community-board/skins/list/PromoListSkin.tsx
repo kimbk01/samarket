@@ -8,7 +8,7 @@ export function PromoListSkin({
   posts,
   baseHref,
 }: BoardListSkinProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   return (
     <div className="space-y-3">
       {posts.length === 0 ? (
@@ -45,7 +45,7 @@ export function PromoListSkin({
                 <h3 className="font-semibold text-sam-fg mt-0.5 line-clamp-2">{post.title}</h3>
                 <p className="text-xs text-sam-muted mt-1 line-clamp-1">{post.content}</p>
                 <p className="text-xs text-sam-muted mt-2">
-                  {new Date(post.created_at).toLocaleDateString("ko-KR")}
+                  {new Date(post.created_at).toLocaleDateString(language === "en" ? "en-US" : "ko-KR")}
                 </p>
               </div>
             </Link>

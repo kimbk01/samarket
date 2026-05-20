@@ -5,7 +5,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 
 function fmt(iso: string, lang: AppLanguageCode) {
-  const locale = lang === "ko" ? "ko-KR" : lang === "zh" ? "zh-CN" : "en-US";
+  const locale = lang === "ko" ? "ko-KR" : "en-US";
   return new Date(iso).toLocaleString(locale, {
     month: "short",
     day: "numeric",

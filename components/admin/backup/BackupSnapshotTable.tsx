@@ -14,10 +14,7 @@ import type {
   BackupSnapshotType,
 } from "@/lib/types/backup";
 
-function backupLocale(language: string): string {
-  if (language === "en") return "en-US";
-  return "ko-KR";
-}
+import { adminDateLocaleTag } from "@/components/admin/i18n/admin-date-locale";
 
 /** 서버/클라이언트 로케일 차이로 인한 hydration 방지: 마운트 후에만 날짜 표시 */
 function ClientDate({ value, locale }: { value: string; locale: string }) {
@@ -29,7 +26,7 @@ function ClientDate({ value, locale }: { value: string; locale: string }) {
 
 export function BackupSnapshotTable() {
   const { t, language } = useI18n();
-  const locale = backupLocale(language);
+  const locale = adminDateLocaleTag(language);
   const [statusFilter, setStatusFilter] = useState<BackupSnapshotStatus | "">("");
   const [typeFilter, setTypeFilter] = useState<BackupSnapshotType | "">("");
 

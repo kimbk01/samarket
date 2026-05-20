@@ -7,14 +7,15 @@ import {
   type StoreOrdersHubFilter,
   ordersHubHref,
 } from "@/lib/stores/store-orders-hub-filter";
+import type { MessageKey } from "@/lib/i18n/messages";
 
-const FILTER_CHIPS: { key: StoreOrdersHubFilter; label: string }[] = [
-  { key: "all", label: "전체" },
-  { key: "receiving", label: "접수" },
-  { key: "preparing", label: "준비" },
-  { key: "delivering", label: "배달" },
-  { key: "done", label: "완료" },
-  { key: "issue", label: "취소" },
+const FILTER_CHIP_KEYS: { key: StoreOrdersHubFilter; labelKey: MessageKey }[] = [
+  { key: "all", labelKey: "store_owner_tab_all" },
+  { key: "receiving", labelKey: "store_order_dash_chip_receiving" },
+  { key: "preparing", labelKey: "store_order_dash_chip_preparing" },
+  { key: "delivering", labelKey: "store_order_dash_chip_delivering" },
+  { key: "done", labelKey: "store_owner_tab_done" },
+  { key: "issue", labelKey: "store_owner_tab_issue_short" },
 ];
 
 const RAIL =
@@ -55,27 +56,27 @@ export function StoreOrderDashboardSection({
 
   if (buyerState.kind !== "ready") {
     const loadingHint =
-      buyerState.kind === "loading" ? "주문 요약을 불러오는 중이에요. 바로가기부터 먼저 사용할 수 있어요." : null;
+      buyerState.kind === "loading" ? t("store_order_dash_loading_hint") : null;
     return (
       <section className={shell}>
         {!embedded ?
           <h2 className="sam-text-body font-bold text-sam-fg">{t("store_my_orders_title")}</h2>
         : null}
         <p className="mt-1 sam-text-xxs text-sam-muted">
-          {loadingHint ?? "로그인 후 주문·채팅을 가로로 빠르게 열 수 있어요."}
+          {loadingHint ?? t("store_order_dash_guest_hint")}
         </p>
         <div className={`mt-3 ${RAIL}`}>
           <Link
             href="/login"
             className="flex w-[120px] shrink-0 flex-col justify-center rounded-ui-rect bg-sam-ink px-3 py-3 text-center sam-text-helper font-bold text-white"
           >
-            로그인
+            {t("store_order_dash_login")}
           </Link>
           <Link
             href="/orders"
             className="flex w-[120px] shrink-0 flex-col justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-center sam-text-helper font-semibold text-sam-fg"
           >
-            주문 허브
+            {t("store_order_dash_hub")}
           </Link>
         </div>
       </section>
@@ -96,7 +97,7 @@ export function StoreOrderDashboardSection({
               </span>
             : null}
             <Link href="/orders" className="sam-text-helper font-semibold text-signature">
-              전체 {b.totalOrders}
+              {t("store_order_dash_all_count", { count: b.totalOrders })}
             </Link>
           </div>
         </div>
@@ -107,7 +108,7 @@ export function StoreOrderDashboardSection({
             </span>
           : null}
           <Link href="/orders" className="sam-text-helper font-semibold text-signature">
-            전체 {b.totalOrders}
+            {t("store_order_dash_all_count", { count: b.totalOrders })}
           </Link>
         </div>
       }
@@ -128,7 +129,7 @@ export function StoreOrderDashboardSection({
           <span className="sam-text-xxs font-medium text-sam-muted">{t("store_order_chat")}</span>
           <span className="mt-1 sam-text-hero font-bold tabular-nums text-sam-fg">{b.orderChatRooms}</span>
           <span className="mt-2 sam-text-xxs font-semibold text-signature">
-            {b.unreadChats > 0 ? `+${b.unreadChats}` : "열기"}
+            {b.unreadChats > 0 ? `+${b.unreadChats}` : t("store_order_dash_open")}
           </span>
         </Link>
         {recentOrder ?
@@ -156,13 +157,13 @@ export function StoreOrderDashboardSection({
       <div className="mt-3 border-t border-sam-border-soft pt-2">
         <p className="mb-1.5 px-0.5 sam-text-xxs font-semibold uppercase tracking-wide text-sam-meta">{t("store_status_label")}</p>
         <HorizontalDragScroll className={RAIL} aria-label={t("store_order_status_filter_aria")}>
-          {FILTER_CHIPS.map(({ key, label }) => (
+          {FILTER_CHIP_KEYS.map(({ key, labelKey }) => (
             <Link
               key={key}
               href={ordersHubHref(key)}
               className="shrink-0 rounded-full border border-sam-border bg-sam-surface px-3 py-1.5 sam-text-xxs font-semibold text-sam-fg shadow-sm"
             >
-              {label}
+              {t(labelKey)}
             </Link>
           ))}
         </HorizontalDragScroll>

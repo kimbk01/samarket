@@ -1,4 +1,10 @@
-export function formatOwnerOrderElapsedKo(createdAt: string): string {
+import type { AppLanguageCode } from "@/lib/i18n/config";
+import { translate } from "@/lib/i18n/messages";
+
+export function formatOwnerOrderElapsed(
+  createdAt: string,
+  lang: AppLanguageCode = "ko"
+): string {
   const t = new Date(createdAt).getTime();
   if (!Number.isFinite(t)) return "";
   const sec = Math.max(0, Math.floor((Date.now() - t) / 1000));
@@ -7,7 +13,18 @@ export function formatOwnerOrderElapsedKo(createdAt: string): string {
   if (m >= 60) {
     const h = Math.floor(m / 60);
     const mm = m % 60;
-    return `${h}시간 ${mm}분 경과`;
+    return translate(lang, "store_owner_elapsed_hours", {
+      hours: String(h),
+      minutes: String(mm),
+    });
   }
-  return `${m}분 ${s.toString().padStart(2, "0")}초 경과`;
+  return translate(lang, "store_owner_elapsed_minutes", {
+    minutes: String(m),
+    seconds: s.toString().padStart(2, "0"),
+  });
+}
+
+/** @deprecated use `formatOwnerOrderElapsed` */
+export function formatOwnerOrderElapsedKo(createdAt: string): string {
+  return formatOwnerOrderElapsed(createdAt, "ko");
 }

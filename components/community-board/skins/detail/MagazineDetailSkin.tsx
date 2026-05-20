@@ -9,7 +9,7 @@ export function MagazineDetailSkin({
   showLike = true,
   showReport = true,
 }: BoardDetailSkinProps) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const thumb = post.images?.[0]?.url;
 
   return (
@@ -22,7 +22,7 @@ export function MagazineDetailSkin({
       <div className="p-6 max-w-3xl mx-auto">
         <h1 className="text-2xl font-bold text-sam-fg">{post.title}</h1>
         <p className="text-sm text-sam-muted mt-2">
-          {post.author?.name} · {new Date(post.created_at).toLocaleDateString("ko-KR")}
+          {post.author?.name} · {new Date(post.created_at).toLocaleDateString(language === "en" ? "en-US" : "ko-KR")}
         </p>
         <div className="mt-6 prose prose-gray max-w-none text-sam-fg whitespace-pre-wrap">
           {post.content}

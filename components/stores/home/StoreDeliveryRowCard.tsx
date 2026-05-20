@@ -1,5 +1,6 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { resolveStoreDeliveryFeeUILabel } from "@/lib/i18n/store-browse-label-i18n";
 
 import { useRouter } from "next/navigation";
 import { memo, useCallback } from "react";
@@ -250,7 +251,7 @@ export function browseItemToRowCard(s: BrowseStoreListItem): StoreRowCardData {
  * Facebook 피드 게시물형 — 40px 아바타, 이름+메타 줄, 본문, 하단 액션 바
  */
 function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const router = useRouter();
   const viewportRef = useDeliveryStoreDetailViewportPrefetch(data.slug);
   const prefetchStoreDetail = useCallback(
@@ -277,9 +278,11 @@ function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
   const showBrowseStraightPin = data.showStraightLineMapPin === true && !!d;
   const showPinHaversine = !showBrowseStraightPin && d;
 
+  const deliveryFeeUi = resolveStoreDeliveryFeeUILabel(language, data.deliveryFeeLabel);
   const hasFreeDelivery =
     data.deliveryAvailable &&
-    (data.deliveryFeeLabel === "배달비 무료" || data.deliveryFeeLabel === "배달비 무료 적용 중");
+    (deliveryFeeUi === t("store_delivery_fee_free_line") ||
+      deliveryFeeUi === t("store_free_delivery_applied"));
   const hasDiscountHint = data.isFeatured;
   const timeLabel =
     data.etaLabel?.trim() ||
@@ -294,19 +297,19 @@ function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
     "bg-[#F3F4F6] text-[#4B5563] dark:bg-[#2A2C2E] dark:text-[#B8C0CA]";
   const badgeLabels: { label: string; className: string }[] = [];
   if (data.deliveryAvailable) {
-    badgeLabels.push({ label: "배달가능", className: serviceBadgeClass });
+    badgeLabels.push({ label: t("store_badge_delivery"), className: serviceBadgeClass });
   }
   if (data.pickupAvailable) {
-    badgeLabels.push({ label: "픽업가능", className: serviceBadgeClass });
+    badgeLabels.push({ label: t("store_pickup_available"), className: serviceBadgeClass });
   }
   if (hasFreeDelivery) {
-    badgeLabels.push({ label: "무료배달", className: "bg-[#DDF8EE] text-[#0C7B63]" });
+    badgeLabels.push({ label: t("store_free_delivery_short"), className: "bg-[#DDF8EE] text-[#0C7B63]" });
   }
   if (hasDiscountHint) {
-    badgeLabels.push({ label: "즉시할인", className: "bg-[#EFE7FF] text-[#6D28D9]" });
+    badgeLabels.push({ label: t("store_badge_instant_discount"), className: "bg-[#EFE7FF] text-[#6D28D9]" });
   }
   if (data.reservationAvailable) {
-    badgeLabels.push({ label: "예약가능", className: serviceBadgeClass });
+    badgeLabels.push({ label: t("store_badge_reservation"), className: serviceBadgeClass });
   }
 
   const navigateToStore = useCallback(
@@ -393,7 +396,7 @@ function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
                   <button
                     key={item.productId}
                     type="button"
-                    aria-label={`${data.nameKo} ${item.name} 메뉴 보기`}
+                    aria-label={t("store_row_menu_view_aria", { store: data.nameKo, item: item.name })}
                     className={[
                       "relative shrink-0 snap-start overflow-hidden rounded-[10px] bg-[#F3F4F6] text-left dark:bg-[#2B2D30]",
                       "w-[calc((100%-8px)/3)] aspect-square",
@@ -421,7 +424,7 @@ function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
               })}
               <button
                 type="button"
-                aria-label={`${data.nameKo} 매장 더보기`}
+                aria-label={t("store_row_store_more_aria", { store: data.nameKo })}
                 className={[
                   "flex shrink-0 snap-start items-center justify-center rounded-[10px] bg-[#F7F7F7] text-[#111]",
                   "w-[calc((100%-8px)/3)] aspect-square",
@@ -448,7 +451,7 @@ function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
           ) : (
             <button
               type="button"
-              aria-label={`${data.nameKo} 매장 더보기`}
+              aria-label={t("store_row_store_more_aria", { store: data.nameKo })}
               className="flex h-[116px] w-full items-center justify-center overflow-hidden rounded-[10px] bg-[#F7F7F7] text-[#111] transition-[transform,opacity,background-color] duration-120 active:scale-[0.98] active:bg-[#ECEFF3] dark:bg-[#2A2C2E] dark:text-[#E4E6EB] dark:active:bg-[#34373A]"
               onClick={() => navigateToStore("see_more")}
             >
@@ -493,11 +496,11 @@ function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
               </h3>
               <p className="mt-1 line-clamp-1 text-[13px] font-medium leading-snug text-[#374151] dark:text-[#C7CDD4]">
                 {!data.deliveryAvailable ?
-                  "배달 불가"
-                : data.deliveryFeeLabel === "배달비 무료 적용 중" ?
+                  t("store_delivery_no_short")
+                : deliveryFeeUi === t("store_free_delivery_applied") ?
                   <span className="inline-flex flex-wrap items-center gap-1.5">
                     <span className="font-semibold text-[#2563EB] dark:text-[#8AB4FF]">
-                      {data.deliveryFeeLabel}
+                      {deliveryFeeUi}
                     </span>
                     {data.deliveryFeeStrikePhp != null && data.deliveryFeeStrikePhp > 0 ?
                       <span className="text-[13px] font-medium text-[#9CA3AF] line-through dark:text-[#6B7280]">
@@ -505,9 +508,9 @@ function StoreDeliveryRowCardInner({ data }: { data: StoreRowCardData }) {
                       </span>
                     : null}
                   </span>
-                : data.deliveryFeeLabel ?
-                  <span className="font-semibold text-[#111] dark:text-[#F3F4F6]">{data.deliveryFeeLabel}</span>
-                : "배달비 매장별"}
+                : deliveryFeeUi ?
+                  <span className="font-semibold text-[#111] dark:text-[#F3F4F6]">{deliveryFeeUi}</span>
+                : t("store_delivery_fee_per_store")}
               </p>
               <div className="mt-1 flex min-w-0 items-center gap-1 overflow-hidden text-[12.5px] leading-snug text-[#666] dark:text-[#9AA3AD]">
                 {timeLabel ? (

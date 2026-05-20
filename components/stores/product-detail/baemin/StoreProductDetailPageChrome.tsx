@@ -83,7 +83,6 @@ export function StoreProductDetailPageChrome({
     <div className="min-h-[100dvh] bg-white">
       <StoreOrderStickyHeader
         elevated={headerElevated}
-        heroGlassOverlayButtons
         fallbackHref={storeRootHref}
         storeSlug={storeSlug}
         storeName={headerTitle}

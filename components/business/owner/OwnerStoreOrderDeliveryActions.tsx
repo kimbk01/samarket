@@ -477,6 +477,7 @@ export function OwnerStoreOrderPeekCancelBar({
   order: OwnerDeliveryOrderRef;
   onUpdated: () => void;
 }) {
+  const { t } = useI18n();
   const next = allowedOrderTransitions(order.order_status, order.fulfillment_type);
   const canCancel = next.includes("cancelled");
   const {
@@ -502,11 +503,11 @@ export function OwnerStoreOrderPeekCancelBar({
           onClick={() => onTransitionClick("cancelled")}
           className={PEEK_CANCEL_BTN}
         >
-          {rejectBusy ? "처리 중…" : "주문취소"}
+          {rejectBusy ? t("common_processing") : t("store_owner_cancel_order_btn")}
         </button>
         {!canCancel ? (
           <p className="mt-1.5 sam-text-xxs leading-snug text-sam-muted">
-            이 단계에서는 주문을 취소할 수 없습니다.
+            {t("store_biz_patch_err_invalid_transition")}
           </p>
         ) : null}
         {err ? (

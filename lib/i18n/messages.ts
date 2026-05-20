@@ -46,6 +46,9 @@ import { businessMessages } from "./catalog/business";
 import { ownerProductOptionsMessages } from "./catalog/owner-product-options";
 import { authUiMessages } from "./catalog/auth-ui";
 import { uiPhaseFinishMessages } from "./catalog/ui-phase-finish";
+import { uiFinishPagesMessages } from "./catalog/ui-finish-pages";
+import { addressesUiMessages } from "./catalog/addresses-ui";
+import { pointsUiMessages } from "./catalog/points-ui";
 import koJson from "@/messages/ko.json";
 import enJson from "@/messages/en.json";
 
@@ -97,6 +100,9 @@ export const MESSAGES = {
     ...ownerProductOptionsMessages.ko,
     ...authUiMessages.ko,
     ...uiPhaseFinishMessages.ko,
+    ...uiFinishPagesMessages.ko,
+    ...addressesUiMessages.ko,
+    ...pointsUiMessages.ko,
     ...adminMessages.ko,
     ...koJson,
   },
@@ -147,6 +153,9 @@ export const MESSAGES = {
     ...ownerProductOptionsMessages.en,
     ...authUiMessages.en,
     ...uiPhaseFinishMessages.en,
+    ...uiFinishPagesMessages.en,
+    ...addressesUiMessages.en,
+    ...pointsUiMessages.en,
     ...adminMessages.en,
     ...enJson,
   },

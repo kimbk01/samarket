@@ -58,7 +58,7 @@ function bannerLinkSelectValue(linkType: string | undefined): string {
 
 function formatBannerSaveError(
   code: string,
-  tr: (key: string) => string
+  tr: ReturnType<typeof useI18n>["t"],
 ): string {
   switch (code) {
     case "invalid_link_target":

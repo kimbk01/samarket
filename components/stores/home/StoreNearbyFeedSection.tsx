@@ -198,34 +198,34 @@ export function StoreNearbyFeedSection({
         <div>
           <p className={`sam-text-helper font-semibold uppercase tracking-wide ${FB.metaSm}`}>{t("store_feed_eyebrow")}</p>
           <h2 className={`mt-0.5 sam-text-page-title font-bold leading-tight text-[#050505] dark:text-[#E4E6EB]`}>
-            매장
+            {t("store_feed_stores_title")}
           </h2>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-x-2 gap-y-1 pb-0.5">
           <Link href={storesBrowsePrimaryPath("restaurant")} className={`sam-text-body ${FB.link}`}>
-            음식 더보기
+            {t("store_more_food_link")}
           </Link>
           <span className="sam-text-body-secondary text-[#CED0D4] dark:text-[#5F6062]" aria-hidden>
             ·
           </span>
           <Link href="/stores#store-industry-explore" className={`sam-text-body ${FB.link}`}>
-            업종별
+            {t("store_by_industry_link")}
           </Link>
         </div>
       </div>
 
       {meta?.source === "supabase_unconfigured" ?
         <p className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-          Supabase가 연결되지 않았거나 매장 테이블이 아직 없습니다.
+          {t("store_supabase_unconfigured_hint")}
         </p>
       : null}
 
       <div className="flex flex-wrap gap-2">
         <Link href="/stores/owner/apply" className={FB.primaryBtn}>
-          {ownerStore ? "매장 추가" : "매장 등록"}
+          {ownerStore ? t("store_add_store") : t("store_register_store")}
         </Link>
         <Link href="/regions" className={FB.secondaryBtn}>
-          동네 설정
+          {t("store_region_settings_btn")}
         </Link>
       </div>
 
@@ -236,7 +236,7 @@ export function StoreNearbyFeedSection({
           <p className={FB.body}>{t("store_no_registered_stores")}</p>
           <div className="mt-4 flex justify-center gap-2">
             <Link href="/stores#store-industry-explore" className={FB.secondaryBtn}>
-              업종별 찾기
+              {t("store_browse_by_industry_find")}
             </Link>
             <Link href="/stores/owner/apply" className={FB.primaryBtn}>
               등록하기

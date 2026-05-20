@@ -11,11 +11,14 @@ export function OwnerOrderAcceptSheet({
   busy,
   onClose,
   onConfirm,
+  overlayClassName,
 }: {
   open: boolean;
   busy: boolean;
   onClose: () => void;
   onConfirm: (minutes: number) => void;
+  /** 접수 시트 z-index — 상세 모달·스테퍼 위에 올릴 때 */
+  overlayClassName?: string;
 }) {
   const { t } = useI18n();
   const [mode, setMode] = useState<"preset" | "custom">("preset");
@@ -42,7 +45,10 @@ export function OwnerOrderAcceptSheet({
 
   return (
     <div
-      className="fixed inset-0 z-[90] flex items-end justify-center bg-black/45 sm:items-center sm:p-4"
+      className={[
+        "fixed inset-0 z-[90] flex items-end justify-center bg-black/45 sm:items-center sm:p-4",
+        overlayClassName ?? "",
+      ].join(" ")}
       role="dialog"
       aria-modal="true"
       aria-labelledby="owner-order-accept-title"

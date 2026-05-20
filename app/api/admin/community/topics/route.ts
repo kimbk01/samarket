@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
   let body: {
     section_id?: string;
     name?: string;
+    name_en?: string | null;
     slug?: string;
     sort_order?: number;
     is_active?: boolean;
@@ -48,6 +49,8 @@ export async function POST(req: NextRequest) {
 
   const section_id = String(body.section_id ?? "").trim();
   const name = String(body.name ?? "").trim();
+  const name_en =
+    body.name_en != null && String(body.name_en).trim() ? String(body.name_en).trim().slice(0, 120) : null;
   const slug = normalizeFeedSlug(body.slug || body.name || "");
   if (!section_id) return NextResponse.json({ ok: false, error: "section_id_required" }, { status: 400 });
   if (!name) return NextResponse.json({ ok: false, error: "name_required" }, { status: 400 });
@@ -79,6 +82,7 @@ export async function POST(req: NextRequest) {
   const baseRow = {
     section_id,
     name,
+    name_en,
     slug,
     sort_order,
     is_active,
@@ -98,9 +102,17 @@ export async function POST(req: NextRequest) {
       .insert({ ...baseRow, feed_list_skin })
       .select(selectWithSkin)
       .single();
+    if (error && isMissingDbColumnError(error, "name_en")) {
+      const sub = { ...baseRow, feed_list_skin } as Record<string, unknown>;
+      delete sub.name_en;
+      const rEn = await sb.from("community_topics").insert(sub).select(selectWithSkin).single();
+      data = rEn.data as typeof data;
+      error = rEn.error;
+    }
     if (error && isMissingDbColumnError(error, "feed_sort_mode")) {
       const sub = { ...baseRow, feed_list_skin } as Record<string, unknown>;
       delete sub.feed_sort_mode;
+      delete sub.name_en;
       const r0 = await sb
         .from("community_topics")
         .insert(sub)

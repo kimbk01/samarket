@@ -15,6 +15,7 @@ import {
   jobExperienceLabel,
   jobListingKindLabel,
   jobPayTypeLabel,
+  jobPayTypeLabelDefault,
   jobWorkTermLabel,
 } from "@/lib/jobs/job-label-keys";
 import type { MessageKey } from "@/lib/i18n/messages";

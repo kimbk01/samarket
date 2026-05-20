@@ -51,6 +51,7 @@ export function PostDetailSellerMoreSheet({
   editLockHint?: string;
   deleteLockHint?: string;
 }) {
+  const { t } = useI18n();
   const [slideIn, setSlideIn] = useState(false);
 
   useEffect(() => {

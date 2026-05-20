@@ -6,6 +6,7 @@ import { useMemo, type ReactNode } from "react";
 import { listBrowsePrimaryIndustries, listBrowseSubIndustries } from "@/lib/stores/browse-mock/queries";
 import { useBrowseIndustryDatasetVersion } from "@/lib/stores/browse-mock/use-browse-industry-dataset-version";
 import { storesBrowsePrimaryPath, storesBrowsePath } from "./stores-browse-paths";
+import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
 
 export function StoresIndustryGrid({
   headerTrailing,
@@ -13,7 +14,7 @@ export function StoresIndustryGrid({
   /** 예: 소유 매장이 있을 때만 노출되는 「매장 관리」— 제목과 같은 행 우측 */
   headerTrailing?: ReactNode;
 }) {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const industryVersion = useBrowseIndustryDatasetVersion();
   const primaries = useMemo(
     () => listBrowsePrimaryIndustries(),
@@ -42,7 +43,9 @@ export function StoresIndustryGrid({
                 <span className="text-2xl leading-none" aria-hidden>
                   {p.symbol}
                 </span>
-                <span className="sam-text-body-secondary font-semibold text-sam-fg">{p.nameKo}</span>
+                <span className="sam-text-body-secondary font-semibold text-sam-fg">
+                  {resolveStorePrimaryIndustryLabel(language, p.slug, p.nameKo)}
+                </span>
               </Link>
             </li>
           );
