@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import type { LucideIcon } from "lucide-react";
 import { Check, ChefHat, ClipboardList, Package, Truck } from "lucide-react";
 
@@ -66,8 +67,17 @@ export function OwnerFlowStepIconMini({
   const iconColor = active || done ? "#FFFFFF" : "#BFBFBF";
   return (
     <span
-      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full"
-      style={{ backgroundColor: circleBg }}
+      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${
+        active ? "owner-order-card-step-active" : ""
+      }`}
+      style={
+        active
+          ? ({
+              backgroundColor: circleBg,
+              ["--owner-step-pulse" as string]: bg,
+            } as CSSProperties)
+          : { backgroundColor: circleBg }
+      }
       aria-hidden
     >
       <Icon size={14} color={iconColor} strokeWidth={2} />

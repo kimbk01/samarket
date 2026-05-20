@@ -295,6 +295,36 @@ a,
   will-change: opacity, transform;
 }
 
+/* 오너 주문 카드·상세 — 현재 진행 단계 원형 깜빡임 (`--owner-step-pulse` = 단계 색) */
+@keyframes owner-order-card-step-blink {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--owner-step-pulse, #2d7ff9) 48%, transparent);
+  }
+  50% {
+    opacity: 0.58;
+    transform: scale(1.1);
+    box-shadow: 0 0 0 7px color-mix(in srgb, var(--owner-step-pulse, #2d7ff9) 16%, transparent);
+  }
+}
+
+.owner-order-card-step-active {
+  animation: owner-order-card-step-blink 1.1s ease-in-out infinite;
+  transform-origin: center;
+  will-change: opacity, transform, box-shadow;
+}
+
+/* 오너 주문 카드 진행 스텝 — 아이콘·라벨 열 중앙, 하단 클립 방지 */
+.owner-order-card-stepper {
+  overflow: visible;
+}
+
+.owner-order-card-stepper > li {
+  overflow: visible;
+}
+
 /* 거래 채팅 상단 — 현재 단계 원형: 은은한 글로우 + 가독성 있는 깜빡임(스케일 변화 없음) */
 @keyframes sam-trade-step-soft-pulse {
   0%,

@@ -245,8 +245,8 @@ export async function applyStoreOrderStatusTransition(
       sb as import("@supabase/supabase-js").SupabaseClient<any>,
       oid
     );
-  } catch {
-    /* ignore */
+  } catch (chatErr) {
+    console.error("[applyStoreOrderStatusTransition] store order messenger", chatErr);
   }
 
   return { ok: true, order_status: nextStatus, previous: current };

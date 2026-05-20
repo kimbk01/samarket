@@ -125,6 +125,11 @@ export function BusinessAdminShell({
     () => isOwnerOrdersRoute && Boolean(searchParams.get("order_id")?.trim()),
     [isOwnerOrdersRoute, searchParams]
   );
+  const ownerOrderChatSlideOpen = useMemo(
+    () => isOwnerOrdersRoute && Boolean(searchParams.get("chat_order_id")?.trim()),
+    [isOwnerOrdersRoute, searchParams]
+  );
+  const ownerOrderOverlayOpen = ownerOrderDetailOpen || ownerOrderChatSlideOpen;
   const isOwnerMobileAdminShell = isMobile && isStoresOwnerStackPath(ownerPathNorm);
 
   const ownerMainBottomPad = useMemo(() => {
@@ -399,13 +404,13 @@ export function BusinessAdminShell({
     if (isMobile && mobileMenuOpen) {
       releases.push(pushStoreOwnerMainBottomNavSuppressed());
     }
-    if (ownerOrderDetailOpen) {
+    if (ownerOrderOverlayOpen) {
       releases.push(pushStoreOwnerMainBottomNavSuppressed());
     }
     return () => {
       for (const release of releases) release();
     };
-  }, [isMobile, mobileMenuOpen, ownerOrderDetailOpen]);
+  }, [isMobile, mobileMenuOpen, ownerOrderOverlayOpen]);
 
   /**
    * 모바일 전용: 드로어 열릴 때 배경 스크롤 잠금.
@@ -858,7 +863,7 @@ export function BusinessAdminShell({
             >
               <OwnerStackPageSlideShell>{children}</OwnerStackPageSlideShell>
             </main>
-            {isOwnerMobileStackViewport && selectedRow && !ownerOrderDetailOpen ?
+            {isOwnerMobileStackViewport && selectedRow && !ownerOrderOverlayOpen ?
               <OwnerMobileBottomNav
                 storeId={selectedRow.id}
                 chatBadge={ownerMobileBottomNavChatBadge}

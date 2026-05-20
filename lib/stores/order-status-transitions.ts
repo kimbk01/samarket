@@ -43,7 +43,8 @@ export function allowedOrderTransitions(current: string, fulfillment: string): s
       if (deliveryLike) return ["delivering", "cancelled"];
       return ["completed", "cancelled"];
     case "delivering":
-      return ["arrived", "cancelled"];
+      /** 오너 4단계 UI: 배달완료(→completed) 우선. arrived 는 레거시·세부 추적용 */
+      return ["completed", "arrived", "cancelled"];
     case "arrived":
       return ["completed", "cancelled"];
     default:

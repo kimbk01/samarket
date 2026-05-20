@@ -1,6 +1,7 @@
 "use client";
 
-import { OwnerOrderCardProgressSteps } from "@/components/business/owner/OwnerOrderCardProgressSteps";
+import { OwnerStoreOrderCardStepperWithActions } from "@/components/business/owner/OwnerStoreOrderCardStepperWithActions";
+import { OwnerStoreOrderCardFooterActions } from "@/components/business/owner/OwnerStoreOrderCardFooterActions";
 import {
   OwnerStoreOrderDeliveryActionsAside,
   ownerOrderHasTransitionButtons,
@@ -24,14 +25,18 @@ export function OwnerStoreOrderMockCard({
   storeId,
   order,
   onUpdated,
+  onOrderStatusPatched,
   isHighlight,
   onViewDetail,
+  onOpenChat,
 }: {
   storeId: string;
   order: OwnerStoreOrderListRow;
-  onUpdated: () => void;
+  onUpdated: () => void | Promise<void>;
+  onOrderStatusPatched?: (orderId: string) => void;
   isHighlight: boolean;
   onViewDetail: () => void;
+  onOpenChat: () => void;
 }) {
   const tone = ownerOrderStatusTone(order.order_status);
   const statusLabel = ownerOrderStatusLabelKo(order.order_status);
@@ -101,9 +106,14 @@ export function OwnerStoreOrderMockCard({
         </p>
       </div>
 
-      <OwnerOrderCardProgressSteps
+      <OwnerStoreOrderCardStepperWithActions
+        storeId={storeId}
+        orderId={order.id}
         orderStatus={order.order_status}
         fulfillmentType={order.fulfillment_type}
+        buyerPublicLabel={order.buyer_public_label}
+        onUpdated={onUpdated}
+        onOrderStatusPatched={onOrderStatusPatched}
       />
 
       {isPending && hasActions ? (
@@ -120,17 +130,8 @@ export function OwnerStoreOrderMockCard({
             rowBelowButtonLayout="row"
           />
         </div>
-      ) : (
-        <div className="mt-3 border-t border-[#F0F0F0] pt-3 text-center">
-          <button
-            type="button"
-            onClick={onViewDetail}
-            className="text-[14px] font-semibold text-[#2D7FF9] hover:underline"
-          >
-            상세 보기
-          </button>
-        </div>
-      )}
+      ) : null}
+      <OwnerStoreOrderCardFooterActions onViewDetail={onViewDetail} onOpenChat={onOpenChat} />
     </li>
   );
 }

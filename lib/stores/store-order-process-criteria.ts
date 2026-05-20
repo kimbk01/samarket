@@ -15,7 +15,7 @@ export const BUYER_ORDER_STATUS_LABEL: Record<string, string> = {
   preparing: "준비(조리)중",
   ready_for_pickup: "준비(조리)중",
   delivering: "배달중",
-  arrived: "배달중",
+  arrived: "배송지 도착",
   completed: "배달완료",
   cancelled: "주문 취소",
   refund_requested: "환불요청",
@@ -51,7 +51,7 @@ export function labelForOwnerTransition(
   if (next === "preparing") return "준비(조리) 시작";
   if (next === "ready_for_pickup") return "준비 완료";
   if (next === "delivering") return "배달 시작";
-  if (next === "arrived") return "배달중";
+  if (next === "arrived") return "배송지 도착";
   if (next === "completed") {
     return isDeliveryFulfillment(fulfillment) ? "배달완료" : "픽업완료";
   }

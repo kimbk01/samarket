@@ -1,9 +1,11 @@
 "use client";
 
-import { type ReactNode } from "react";
+import { type ReactNode, useEffect, useRef } from "react";
 import { X, MapPin } from "lucide-react";
 import { BodyPortal } from "@/components/layout/BodyPortal";
-import { OwnerOrderCardProgressSteps } from "@/components/business/owner/OwnerOrderCardProgressSteps";
+import { OwnerStoreOrderCardStepperWithActions } from "@/components/business/owner/OwnerStoreOrderCardStepperWithActions";
+import { patchOwnerStoreOrderStatus } from "@/lib/business/patch-owner-store-order-status";
+import { OWNER_AUTO_ACCEPT_PREP_MINUTES } from "@/lib/business/owner-order-stepper-transition";
 import { OwnerStoreOrderDeliveryActionsAside } from "@/components/business/owner/OwnerStoreOrderDeliveryActions";
 import type { OwnerStoreOrderListRow } from "@/lib/business/owner-store-order-list-row-bridge";
 import { formatOwnerOrderElapsedKo } from "@/components/business/owner/owner-order-elapsed";
@@ -55,6 +57,18 @@ export function OwnerStoreOrderDetailPanel({
       ? `약 ${Math.floor(Number(order.estimated_prep_minutes))}분`
       : "—";
 
+  const autoAcceptStartedRef = useRef(false);
+  useEffect(() => {
+    if (order.order_status !== "pending" || autoAcceptStartedRef.current) return;
+    autoAcceptStartedRef.current = true;
+    void patchOwnerStoreOrderStatus(storeId, order.id, {
+      order_status: "accepted",
+      estimated_prep_minutes: OWNER_AUTO_ACCEPT_PREP_MINUTES,
+    }).then((res) => {
+      if (res.ok) onUpdated();
+    });
+  }, [onUpdated, order.id, order.order_status, storeId]);
+
   return (
     <OwnerStoreOrderDetailOverlay onClose={onClose}>
       <div className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain px-3 py-3">
@@ -62,9 +76,13 @@ export function OwnerStoreOrderDetailPanel({
           <OrderDetailStatusHeader tone={tone} statusLabel={statusLabel} elapsed={elapsed} />
           <p className="mt-2 text-[12px] text-[#595959]">{order.order_no}</p>
           <p className="mt-1 text-[15px] font-semibold text-[#262626]">{buyerLabel}</p>
-          <OwnerOrderCardProgressSteps
+          <OwnerStoreOrderCardStepperWithActions
+            storeId={storeId}
+            orderId={order.id}
             orderStatus={order.order_status}
             fulfillmentType={order.fulfillment_type}
+            buyerPublicLabel={order.buyer_public_label}
+            onUpdated={onUpdated}
           />
         </section>
 

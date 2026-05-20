@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Filter, Search } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
+import { OwnerStoreOrderChatSlidePanel } from "@/components/business/owner/OwnerStoreOrderChatSlidePanel";
 import {
   OwnerStoreOrderDetailLoadingPanel,
   OwnerStoreOrderDetailPanel,
@@ -25,24 +26,34 @@ const TABS: Array<{ id: StoreOrderTabId; label: string }> = [
 
 export function OwnerStoreOrdersMobileBody({
   storeId,
+  storeName,
   orders,
   tab,
   highlightOrderId,
+  highlightChatOrderId,
   summaryCounts,
   onTabHref,
   onUpdated,
+  onOrderStatusPatched,
   onOpenDetail,
   onCloseDetail,
+  onOpenChat,
+  onCloseChat,
 }: {
   storeId: string;
+  storeName: string;
   orders: OwnerStoreOrderListRow[];
   tab: StoreOrderTabId;
   highlightOrderId: string;
+  highlightChatOrderId: string;
   summaryCounts: { pending: number; preparing: number; delivering: number; doneToday: number };
   onTabHref: (tabId: StoreOrderTabId) => string;
-  onUpdated: () => void;
+  onUpdated: () => void | Promise<void>;
+  onOrderStatusPatched?: (orderId: string) => void;
   onOpenDetail: (orderId: string) => void;
   onCloseDetail: () => void;
+  onOpenChat: (orderId: string) => void;
+  onCloseChat: () => void;
 }) {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -88,8 +99,12 @@ export function OwnerStoreOrdersMobileBody({
     return list;
   }, [orders, tab, searchQuery, filterFulfillment, sortNewestFirst]);
 
-  const detailOrder = highlightOrderId
-    ? orders.find((o) => o.id === highlightOrderId) ?? null
+  const detailOrder =
+    highlightOrderId && !highlightChatOrderId
+      ? orders.find((o) => o.id === highlightOrderId) ?? null
+      : null;
+  const chatOrder = highlightChatOrderId
+    ? orders.find((o) => o.id === highlightChatOrderId) ?? null
     : null;
 
   const filterLabel =
@@ -227,8 +242,10 @@ export function OwnerStoreOrdersMobileBody({
                   storeId={storeId}
                   order={o}
                   onUpdated={onUpdated}
-                  isHighlight={highlightOrderId === o.id}
+                  onOrderStatusPatched={onOrderStatusPatched}
+                  isHighlight={highlightOrderId === o.id || highlightChatOrderId === o.id}
                   onViewDetail={() => onOpenDetail(o.id)}
+                  onOpenChat={() => onOpenChat(o.id)}
                 />
               ))}
             </ul>
@@ -236,7 +253,7 @@ export function OwnerStoreOrdersMobileBody({
         </div>
       </main>
 
-      {highlightOrderId ?
+      {highlightOrderId && !highlightChatOrderId ?
         detailOrder ?
           <OwnerStoreOrderDetailPanel
             order={detailOrder}
@@ -245,6 +262,16 @@ export function OwnerStoreOrdersMobileBody({
             onUpdated={onUpdated}
           />
         : <OwnerStoreOrderDetailLoadingPanel onClose={onCloseDetail} />
+      : null}
+
+      {highlightChatOrderId ?
+        <OwnerStoreOrderChatSlidePanel
+          orderId={highlightChatOrderId}
+          order={chatOrder}
+          storeId={storeId}
+          storeName={storeName}
+          onClose={onCloseChat}
+        />
       : null}
     </div>
   );

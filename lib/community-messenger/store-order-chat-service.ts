@@ -15,7 +15,11 @@ import {
   buildMessengerContextInputFromStoreOrderSnapshot,
   buildMessengerContextMetaFromStoreOrder,
 } from "@/lib/community-messenger/store-order-messenger-context";
-import { systemChatLineForOrderStatus, type OrderChatFlow } from "@/lib/shared-order-chat/chat-message-builder";
+import {
+  SYSTEM_LINE_DELIVERY_ARRIVED,
+  systemChatLineForOrderStatus,
+  type OrderChatFlow,
+} from "@/lib/shared-order-chat/chat-message-builder";
 import type { SharedOrderStatus } from "@/lib/shared-orders/types";
 import { storeOrderStatusToShared } from "@/lib/store-commerce/map-order-status";
 import { isStoreOrderSummarySystemContent } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
@@ -340,6 +344,7 @@ export async function appendStoreOrderMessengerOrderSummaryIfNeeded(
       .update({ last_read_message_id: messageId, last_read_at: createdAt, unread_count: 0 })
       .eq("room_id", ensured.roomId)
       .eq("user_id", actor);
+    await publishStoreOrderMessengerSystemMessageBump(ensured, messageId, createdAt, content);
   }
 }
 
@@ -462,6 +467,63 @@ export async function ensureStoreOrderMessengerRoom(
   return ensured;
 }
 
+function storeOrderMessengerOwnerStatusLine(next: SharedOrderStatus, flow: OrderChatFlow): string | null {
+  switch (next) {
+    case "preparing":
+      return "주문을 준비(조리) 중입니다.";
+    case "ready_for_pickup":
+      return flow === "delivery"
+        ? "음식 준비가 완료되었습니다. 곧 배달을 시작합니다."
+        : "음식 준비가 완료되었습니다. 픽업 대기 중입니다.";
+    case "delivering":
+      return "배달을 시작했습니다.";
+    case "arrived":
+      return SYSTEM_LINE_DELIVERY_ARRIVED;
+    case "completed":
+      return flow === "delivery" ? "배달이 완료되었습니다." : "주문이 완료되었습니다. 픽업해 주세요.";
+    default:
+      return systemChatLineForOrderStatus(next, flow);
+  }
+}
+
+async function publishStoreOrderMessengerSystemMessageBump(
+  ensured: Extract<StoreOrderMessengerEnsureResult, { ok: true }>,
+  messageId: string,
+  createdAt: string,
+  content: string
+): Promise<void> {
+  const fromUserId = trimText(ensured.ownerUserId);
+  if (!fromUserId) return;
+  try {
+    const { publishMessengerRoomBumpAfterMutation } = await import(
+      "@/lib/community-messenger/server/publish-messenger-room-bump"
+    );
+    await publishMessengerRoomBumpAfterMutation({
+      rawRouteRoomId: ensured.roomId,
+      canonicalRoomId: ensured.roomId,
+      fromUserId,
+      messageId,
+      messageCreatedAt: createdAt,
+      messageForBump: {
+        id: messageId,
+        roomId: ensured.roomId,
+        senderId: fromUserId,
+        senderLabel: "시스템",
+        messageType: "system",
+        content,
+        createdAt,
+        isMine: false,
+        clientMessageId: null,
+        callKind: null,
+        callStatus: null,
+        callSessionId: null,
+      },
+    });
+  } catch (err) {
+    console.error("[store-order-chat] publish bump", err);
+  }
+}
+
 async function appendStoreOrderMessengerSystemMessage(
   sb: SupabaseClient<any>,
   input: { orderId: string; actorUserId?: string | null; content: string; relatedOrderStatus?: SharedOrderStatus | null },
@@ -510,6 +572,7 @@ async function appendStoreOrderMessengerSystemMessage(
       .update({ last_read_message_id: messageId, last_read_at: createdAt, unread_count: 0 })
       .eq("room_id", ensured.roomId)
       .eq("user_id", actor);
+    await publishStoreOrderMessengerSystemMessageBump(ensured, messageId, createdAt, content);
   }
 }
 
@@ -556,18 +619,32 @@ export async function appendStoreOrderMessengerStatusTransition(
       ensured
     );
   }
-  let line = systemChatLineForOrderStatus(next, ensured.orderFlow);
   if (next === "accepted") {
+    await appendStoreOrderMessengerOrderSummaryIfNeeded(sb, orderId.trim(), ensured);
     const { data: orderRow } = await sb
       .from("store_orders")
       .select("estimated_prep_minutes")
       .eq("id", orderId.trim())
       .maybeSingle();
     const mins = Math.floor(Number((orderRow as { estimated_prep_minutes?: unknown } | null)?.estimated_prep_minutes ?? 0));
+    let line = "주문을 접수 했습니다.";
     if (Number.isFinite(mins) && mins > 0) {
-      line = `매장에서 주문을 확인했습니다. 예상 소요시간은 약 ${mins}분입니다.`;
+      line += ` 예상 준비 시간은 약 ${mins}분입니다.`;
     }
+    await appendStoreOrderMessengerSystemMessage(
+      sb,
+      {
+        orderId,
+        actorUserId: ensured.ownerUserId,
+        content: line,
+        relatedOrderStatus: "accepted",
+      },
+      ensured
+    );
+    return;
   }
+
+  const line = storeOrderMessengerOwnerStatusLine(next, ensured.orderFlow);
   if (!line) return;
   await appendStoreOrderMessengerSystemMessage(
     sb,

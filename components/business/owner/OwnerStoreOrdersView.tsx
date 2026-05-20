@@ -26,6 +26,8 @@ import {
   mapRealtimeRecordToOrderDelivery,
   mergeRealtimeRecordIntoOrderDelivery,
 } from "@/lib/business/owner-store-order-delivery-row-rt";
+import { patchOwnerStoreOrderStatus } from "@/lib/business/patch-owner-store-order-status";
+import { OWNER_AUTO_ACCEPT_PREP_MINUTES } from "@/lib/business/owner-order-stepper-transition";
 import {
   listRowToOwnerOrder,
   normalizeOwnerStoreOrderListRow,
@@ -100,9 +102,14 @@ export function OwnerStoreOrdersView() {
   const tab = useMemo(() => parseStoreOrderTab(searchParams.get("tab")), [searchParams]);
   const urlStoreId = useMemo(() => searchParams.get("storeId")?.trim() ?? "", [searchParams]);
   const highlightOrderId = useMemo(() => searchParams.get("order_id")?.trim() ?? "", [searchParams]);
+  const highlightChatOrderId = useMemo(
+    () => searchParams.get("chat_order_id")?.trim() ?? "",
+    [searchParams]
+  );
   const loginHref = "/login";
   const ownerNotifAckRef = useRef(false);
   const deepLinkEnrichAttemptedRef = useRef(false);
+  const deepLinkChatEnrichAttemptedRef = useRef(false);
 
   const [state, setState] = useState(() => buildOwnerOrdersViewInitialState(urlStoreId));
 
@@ -262,6 +269,10 @@ export function OwnerStoreOrdersView() {
   useEffect(() => {
     deepLinkEnrichAttemptedRef.current = false;
   }, [highlightOrderId, urlStoreId]);
+
+  useEffect(() => {
+    deepLinkChatEnrichAttemptedRef.current = false;
+  }, [highlightChatOrderId, urlStoreId]);
 
   const summaryCounts = useMemo(() => {
     if (state.kind !== "ok") {
@@ -516,6 +527,15 @@ export function OwnerStoreOrdersView() {
     }
   }, [state, highlightOrderId, tab, router, enrichOrder]);
 
+  useEffect(() => {
+    if (state.kind !== "ok" || !highlightChatOrderId) return;
+    const exists = state.orders.some((o) => o.id === highlightChatOrderId);
+    if (!exists && !deepLinkChatEnrichAttemptedRef.current) {
+      deepLinkChatEnrichAttemptedRef.current = true;
+      enrichOrder(highlightChatOrderId);
+    }
+  }, [state, highlightChatOrderId, enrichOrder]);
+
   useOwnerStoreOrdersRealtime({
     storeId: pollStoreId,
     storeSlug: storeListCtxRef.current.storeSlug,
@@ -670,14 +690,38 @@ export function OwnerStoreOrdersView() {
   const onOpenDetail = useCallback(
     (orderId: string) => {
       if (state.kind !== "ok") return;
-      router.push(
-        buildStoreOrdersHref({ storeId: state.storeId, tab, orderId })
-      );
+      const row = state.orders.find((o) => o.id === orderId);
+      const open = () => router.push(buildStoreOrdersHref({ storeId: state.storeId, tab, orderId }));
+      if (row?.order_status !== "pending") {
+        open();
+        return;
+      }
+      void (async () => {
+        const res = await patchOwnerStoreOrderStatus(state.storeId, orderId, {
+          order_status: "accepted",
+          estimated_prep_minutes: OWNER_AUTO_ACCEPT_PREP_MINUTES,
+        });
+        if (res.ok) await load();
+        open();
+      })();
+    },
+    [load, router, state, tab]
+  );
+
+  const onCloseDetail = useCallback(() => {
+    if (state.kind !== "ok") return;
+    router.replace(buildStoreOrdersHref({ storeId: state.storeId, tab }));
+  }, [router, state, tab]);
+
+  const onOpenChat = useCallback(
+    (orderId: string) => {
+      if (state.kind !== "ok") return;
+      router.push(buildStoreOrdersHref({ storeId: state.storeId, tab, chatOrderId: orderId }));
     },
     [router, state, tab]
   );
 
-  const onCloseDetail = useCallback(() => {
+  const onCloseChat = useCallback(() => {
     if (state.kind !== "ok") return;
     router.replace(buildStoreOrdersHref({ storeId: state.storeId, tab }));
   }, [router, state, tab]);
@@ -731,14 +775,19 @@ export function OwnerStoreOrdersView() {
     return (
       <OwnerStoreOrdersMobileBody
         storeId={state.storeId}
+        storeName={state.storeName}
         orders={state.orders}
         tab={tab}
         highlightOrderId={highlightOrderId}
+        highlightChatOrderId={highlightChatOrderId}
         summaryCounts={summaryCounts}
         onTabHref={onTabHref}
-        onUpdated={() => void load()}
+        onUpdated={() => load({ silent: true, reason: "order_status_patch" })}
+        onOrderStatusPatched={(orderId) => enrichOrder(orderId)}
         onOpenDetail={onOpenDetail}
         onCloseDetail={onCloseDetail}
+        onOpenChat={onOpenChat}
+        onCloseChat={onCloseChat}
       />
     );
   }

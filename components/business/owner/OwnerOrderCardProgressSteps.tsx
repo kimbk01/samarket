@@ -6,19 +6,24 @@ import {
   TIMELINE_PICKUP_STEPS,
 } from "@/lib/stores/store-order-process-criteria";
 import {
+  ownerOrderCardStepColumnLabel,
+  ownerOrderCardStepperModel,
+} from "@/lib/business/owner-order-stepper-transition";
+import {
   OwnerFlowStepIconMini,
   ownerFlowIconForStepIndex,
 } from "@/components/stores/owner/dashboard/owner-order-flow-icons";
 
-function activeStepIndex(status: string, deliveryLike: boolean): number {
-  if (status === "pending") return 0;
-  if (status === "completed") return 4;
-  if (status === "accepted") return 1;
-  if (status === "preparing") return 1;
-  if (status === "ready_for_pickup") return deliveryLike ? 1 : 2;
-  if (deliveryLike && (status === "delivering" || status === "arrived")) return 2;
-  return 0;
-}
+/** `OwnerFlowStepIconMini` h-7 - connector vertical center */
+const OWNER_ORDER_STEP_ICON_CENTER_Y = "0.875rem";
+
+/** Next process column only - tap press feedback */
+const STEP_NEXT_PRESSABLE_CLASS =
+  "relative z-[1] flex w-full min-w-0 flex-col items-center gap-1.5 rounded-md border-0 bg-transparent p-1 touch-manipulation select-none outline-none [-webkit-tap-highlight-color:transparent] transition-[transform,background-color,opacity] duration-150 ease-out hover:bg-[#F8FAFF] active:scale-[0.96] active:bg-[#E0EDFF] active:opacity-90 focus-visible:ring-2 focus-visible:ring-[#2D7FF9]/40 disabled:pointer-events-none disabled:opacity-60 sm:gap-2";
+
+/** Done / waiting columns - no press */
+const STEP_STATIC_CLASS =
+  "relative z-[1] flex w-full flex-col items-center gap-1.5 p-1 pointer-events-none cursor-default select-none sm:gap-2";
 
 function stepsFor(deliveryLike: boolean): readonly string[] {
   return deliveryLike ? TIMELINE_DELIVERY_STEPS : TIMELINE_PICKUP_STEPS;
@@ -27,9 +32,15 @@ function stepsFor(deliveryLike: boolean): readonly string[] {
 export function OwnerOrderCardProgressSteps({
   orderStatus,
   fulfillmentType,
+  interactive = false,
+  stepBusy = false,
+  onStepClick,
 }: {
   orderStatus: string;
   fulfillmentType: string;
+  interactive?: boolean;
+  stepBusy?: boolean;
+  onStepClick?: (stepIndex: number) => void;
 }) {
   const deliveryLike = isDeliveryFulfillment(fulfillmentType);
   const steps = stepsFor(deliveryLike);
@@ -38,45 +49,85 @@ export function OwnerOrderCardProgressSteps({
     return (
       <p className="mt-2 text-center text-[12px] text-[#8C8C8C]">
         {orderStatus === "refund_requested"
-          ? "환불 요청 처리 중"
+          ? "?? ?? ?? ?"
           : orderStatus === "refunded"
-            ? "환불 완료"
-            : "취소된 주문"}
+            ? "?? ??"
+            : "??? ??"}
       </p>
     );
   }
 
-  const cur = activeStepIndex(orderStatus, deliveryLike);
+  const { visual, actionableIndex } = ownerOrderCardStepperModel(fulfillmentType, orderStatus);
+  const actionableClickable = interactive ? actionableIndex : null;
   const allDone = orderStatus === "completed";
 
   return (
-    <div className="mt-3 flex items-center justify-between px-0.5">
-      {steps.map((label, i) => {
-        const done = allDone || cur > i;
-        const active = !allDone && cur === i;
+    <ol
+      className="owner-order-card-stepper mt-3 grid list-none grid-cols-4 gap-x-1 gap-y-0 overflow-visible px-0.5 pb-1 sm:gap-x-1.5 md:gap-x-2"
+      aria-label="?? ?? ??"
+    >
+      {steps.map((defaultLabel, i) => {
+        const state = visual[i] ?? "upcoming";
+        const done = allDone || state === "done";
+        const active = !allDone && state === "current";
+        const isNextAction = actionableClickable === i && onStepClick != null;
+        const displayLabel = ownerOrderCardStepColumnLabel(
+          i,
+          orderStatus,
+          fulfillmentType,
+          actionableClickable
+        );
         const { Icon, bg } = ownerFlowIconForStepIndex(i, deliveryLike);
+        const segmentDone = allDone || (i > 0 && visual[i - 1] === "done");
+
+        const labelClass = `text-[10px] font-medium sm:text-[11px] ${
+          active ? "font-semibold" : done ? "text-[#262626]" : "text-[#BFBFBF]"
+        }`;
+
         return (
-          <div key={label} className="flex min-w-0 flex-1 items-center">
-            <div className="flex min-w-0 flex-1 flex-col items-center">
-              <OwnerFlowStepIconMini Icon={Icon} bg={bg} active={active} done={done} />
+          <li key={`${defaultLabel}-${i}`} className="relative flex min-w-0 flex-col items-center">
+            {i > 0 ? (
               <span
-                className={`mt-1 line-clamp-1 w-full text-center text-[10px] font-medium leading-tight ${
-                  active ? "text-[#2D7FF9]" : done ? "text-[#262626]" : "text-[#BFBFBF]"
-                }`}
-              >
-                {label}
-              </span>
-            </div>
-            {i < steps.length - 1 ? (
-              <span
-                className="mx-0.5 mb-4 h-0.5 min-w-[6px] flex-1 rounded-full"
-                style={{ backgroundColor: done ? "#2D7FF9" : "#E8E8E8" }}
+                className="pointer-events-none absolute z-0 h-0.5 -translate-y-1/2 rounded-full"
+                style={{
+                  top: OWNER_ORDER_STEP_ICON_CENTER_Y,
+                  left: "-50%",
+                  width: "100%",
+                  backgroundColor: segmentDone ? "#2D7FF9" : "#E8E8E8",
+                }}
                 aria-hidden
               />
             ) : null}
-          </div>
+
+            {isNextAction ? (
+              <button
+                type="button"
+                disabled={stepBusy}
+                onClick={() => onStepClick(i)}
+                className={STEP_NEXT_PRESSABLE_CLASS}
+                aria-label={`${displayLabel} ??? ??`}
+              >
+                <OwnerFlowStepIconMini Icon={Icon} bg={bg} active={active} done={false} />
+                <span
+                  className={`block w-full min-h-[2.6em] px-0.5 text-center leading-[1.35] break-keep sm:min-h-[2.4em] md:text-[11px] ${labelClass}`}
+                  style={active ? { color: bg } : undefined}
+                >
+                  {displayLabel}
+                </span>
+              </button>
+            ) : (
+              <div className={STEP_STATIC_CLASS}>
+                <OwnerFlowStepIconMini Icon={Icon} bg={bg} active={false} done={done} />
+                <span
+                  className={`block w-full min-h-[2.6em] px-0.5 text-center leading-[1.35] break-keep sm:min-h-[2.4em] md:text-[11px] ${labelClass}`}
+                >
+                  {displayLabel}
+                </span>
+              </div>
+            )}
+          </li>
         );
       })}
-    </div>
+    </ol>
   );
 }

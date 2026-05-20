@@ -88,12 +88,14 @@ export function buildStoreOrdersHref(params: {
   storeId: string;
   tab?: StoreOrderTabId;
   orderId?: string;
+  chatOrderId?: string;
   ackOwnerNotifications?: boolean;
 }): string {
   const p = new URLSearchParams();
   p.set("storeId", params.storeId.trim());
   if (params.tab && params.tab !== "all") p.set("tab", params.tab);
   if (params.orderId?.trim()) p.set("order_id", params.orderId.trim());
+  if (params.chatOrderId?.trim()) p.set("chat_order_id", params.chatOrderId.trim());
   if (params.ackOwnerNotifications) p.set("ack_owner_notifications", "1");
   return `/stores/owner/orders?${p.toString()}`;
 }

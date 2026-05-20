@@ -148,8 +148,9 @@ export function ownerOrderStatusLabelKo(status: string): string {
     case "ready_for_pickup":
       return "준비(조리)중";
     case "delivering":
-    case "arrived":
       return "배달중";
+    case "arrived":
+      return "배송지 도착";
     case "completed":
       return "배달완료";
     case "cancelled":
