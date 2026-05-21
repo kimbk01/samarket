@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "env": {
+    "SAMARKET_PROD_PERF_MEASURE": "1",
+    "NEXT_PUBLIC_SAMARKET_PROD_PERF_MEASURE": "1",
+    "OWNER_DASHBOARD_PERF_ENV": "prod_same_region",
+    "SUPABASE_REGION": "ap-northeast-2"
+  }
+}

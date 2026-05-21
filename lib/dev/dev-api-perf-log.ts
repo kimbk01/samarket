@@ -9,15 +9,12 @@ export function logDevApiPerf(
   phases: Record<string, number>,
   extras?: Record<string, string | number | boolean | null | undefined>
 ): void {
-  if (process.env.NODE_ENV !== "development") return;
   const total = typeof phases.total_route_ms === "number" ? phases.total_route_ms : null;
   const payload = {
     ...phases,
     ...(extras ?? {}),
     ...(total != null ? { total_route_ms: total } : {}),
   };
-  // eslint-disable-next-line no-console
-  console.info("[dev-api-perf]", route, payload);
 
   const serverHandlerMs = total ?? phases.api_handler_only_ms ?? 0;
   const compileMs =
@@ -47,6 +44,10 @@ export function logDevApiPerf(
     wall_ms: wallMs,
     extras: payload as Record<string, unknown>,
   });
+
+  if (process.env.NODE_ENV !== "development") return;
+  // eslint-disable-next-line no-console
+  console.info("[dev-api-perf]", route, payload);
 }
 
 export function devPerfNow(): number {

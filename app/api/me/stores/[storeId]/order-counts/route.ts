@@ -18,11 +18,15 @@ import {
   invalidateStoreOrderCountsCache,
   peekStoreOrderCountsCacheHit,
   peekStoreOrderCountsInflight,
+  primeStoreOrderCountsCache,
 } from "@/lib/stores/store-order-counts-cache";
+import {
+  buildPerfMeasureResponseHeaders,
+  isOwnerDashboardMeasureInvalidateEnabled,
+} from "@/lib/performance/prod-same-region-perf";
 import {
   emptyOrderCountsColdBreakdown,
   logOrderCountsColdBreakdown,
-  pickOrderCountsSlowestStage,
 } from "@/lib/stores/order-counts-cold-breakdown";
 import { jsonPayloadBytes, logOwnerDashboardPerf, perfNowMs } from "@/lib/stores/owner-dashboard-perf";
 
@@ -61,7 +65,7 @@ export async function GET(
   }
 
   if (
-    process.env.NODE_ENV === "development" &&
+    isOwnerDashboardMeasureInvalidateEnabled() &&
     _req.headers.get("x-samarket-owner-dashboard-measure") === "1"
   ) {
     invalidateStoreOrderCountsCache(id);
@@ -73,6 +77,8 @@ export async function GET(
   const cacheLookup0 = perfNowMs();
   const countsCacheHitBefore = peekStoreOrderCountsCacheHit(id);
   const coldBreakdown = emptyOrderCountsColdBreakdown();
+  coldBreakdown.auth_ms = auth_ms;
+  coldBreakdown.ownership_ms = ownershipCachedBefore ? 0 : 0;
   coldBreakdown.cache_lookup_ms = Math.round(perfNowMs() - cacheLookup0);
 
   let orderCountsVia: "rpc_snapshot" | "rpc" | "legacy" = "legacy";
@@ -94,22 +100,31 @@ export async function GET(
     orderCountsVia = fetched.via;
     fallbackUsed = fetched.via === "legacy" ? 1 : 0;
     orderCountRpcMs = coldBreakdown.rpc_wall_ms;
+    const payloadBuild0 = perfNowMs();
+    const snapshotPayload: StoreOrderCountsPayload = { ok: true as const, ...fetched.snapshot };
+    coldBreakdown.payload_build_ms = Math.round(perfNowMs() - payloadBuild0);
+
+    const cacheSet0 = perfNowMs();
+    primeStoreOrderCountsCache(id, snapshotPayload);
+    coldBreakdown.cache_set_ms = Math.round(perfNowMs() - cacheSet0);
+    coldBreakdown.cache_store_ms = coldBreakdown.cache_set_ms;
+
+    countsResult = { payload: snapshotPayload, cache_hit: false };
+    count_ms = orderCountRpcMs + coldBreakdown.cache_set_ms + coldBreakdown.payload_build_ms;
+
     if (fetched.via === "rpc_snapshot") {
-      seedOwnerStoreOwnershipCache(userId, id, {
-        ok: true,
-        store: {
-          id,
-          owner_user_id: userId,
-          approval_status: "approved",
-          owner_can_edit_store_identity: true,
-        },
+      queueMicrotask(() => {
+        seedOwnerStoreOwnershipCache(userId, id, {
+          ok: true,
+          store: {
+            id,
+            owner_user_id: userId,
+            approval_status: "approved",
+            owner_can_edit_store_identity: true,
+          },
+        });
       });
     }
-    const snapshotPayload: StoreOrderCountsPayload = { ok: true as const, ...fetched.snapshot };
-    const cacheStore0 = perfNowMs();
-    countsResult = await getCachedStoreOrderCounts(id, async () => snapshotPayload);
-    coldBreakdown.cache_store_ms = Math.round(perfNowMs() - cacheStore0);
-    count_ms = orderCountRpcMs + coldBreakdown.cache_store_ms;
   }
 
   const { payload: body, cache_hit: countsCacheHit } = countsResult;
@@ -117,7 +132,7 @@ export async function GET(
   const total_ms = Math.round(perfNowMs() - wall0);
 
   if (!cache_hit) {
-    coldBreakdown.order_counts_slowest_stage = pickOrderCountsSlowestStage(coldBreakdown);
+    coldBreakdown.response_return_ms = Math.round(perfNowMs() - wall0);
     logOrderCountsColdBreakdown(id, orderCountsVia, coldBreakdown);
   }
 
@@ -156,7 +171,15 @@ export async function GET(
             store_ops_meta_ms: coldBreakdown.store_ops_meta_ms,
             rpc_wall_ms: coldBreakdown.rpc_wall_ms,
             rpc_parse_ms: coldBreakdown.rpc_parse_ms,
+            auth_ms: coldBreakdown.auth_ms,
+            ownership_ms: coldBreakdown.ownership_ms,
             cache_lookup_ms: coldBreakdown.cache_lookup_ms,
+            cache_set_ms: coldBreakdown.cache_set_ms,
+            payload_build_ms: coldBreakdown.payload_build_ms,
+            rpc_transport_estimated_ms: coldBreakdown.rpc_transport_estimated_ms,
+            rpc_estimated_db_ms: coldBreakdown.rpc_estimated_db_ms,
+            rpc_rtt_limited: coldBreakdown.rpc_rtt_limited ? 1 : 0,
+            cold_bottleneck_cause: coldBreakdown.cold_bottleneck_cause,
             cache_store_ms: coldBreakdown.cache_store_ms,
             order_counts_cold_parallel_wall_ms: coldBreakdown.order_counts_cold_parallel_wall_ms,
             order_counts_slowest_stage: coldBreakdown.order_counts_slowest_stage,
@@ -171,5 +194,12 @@ export async function GET(
     })
   );
 
-  return NextResponse.json(body);
+  return NextResponse.json(body, {
+    headers: buildPerfMeasureResponseHeaders({
+      actual_handler_ms: total_ms,
+      cache_hit,
+      transport_ms: coldBreakdown.rpc_transport_estimated_ms,
+      db_execution_ms: coldBreakdown.rpc_estimated_db_ms,
+    }),
+  });
 }

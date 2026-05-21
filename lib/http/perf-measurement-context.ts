@@ -1,8 +1,8 @@
 /**
  * dev compile wall vs 핸들러 내부(DB/API) 시간 분리 — `[perf-measurement-context]`.
- * Production: no-op.
+ * Production: `SAMARKET_PROD_PERF_MEASURE=1` 일 때 `[perf-real-api-cost]` 만 출력.
  */
-
+import { isProdPerfLogEnabled, isProdPerfMeasureEnabled } from "@/lib/performance/prod-same-region-perf";
 export type PerfRouteClassification = {
   is_messenger_route: boolean;
   is_home_sync_route: boolean;
@@ -90,8 +90,18 @@ export function logMessengerPerfMeasurementGuideOnce(): void {
   });
 }
 
+function devMeasureMode(): boolean {
+  return process.env.SAMARKET_DEV_MEASURE_MODE?.trim() === "1";
+}
+
+function perfRealApiCostDisabled(): boolean {
+  const v = process.env.SAMARKET_PERF_REAL_API_COST?.trim().toLowerCase();
+  return v === "0" || v === "false" || v === "off";
+}
+
 export function logPerfMeasurementContext(input: PerfMeasurementContextInput): void {
-  if (process.env.NODE_ENV !== "development") return;
+  if (!isProdPerfLogEnabled()) return;
+  const prodMeasureOnly = isProdPerfMeasureEnabled() && process.env.NODE_ENV !== "development";
 
   const { is_messenger_route, is_home_sync_route, is_room_bootstrap_route } = classifyPerfRoute(input.route);
   const serverHandlerMs = Math.round(input.server_handler_ms);
@@ -103,6 +113,24 @@ export function logPerfMeasurementContext(input: PerfMeasurementContextInput): v
     compileMs >= 500 || (wallMs > 0 && realApiMs > 0 && wallMs >= realApiMs + 400);
 
   const hint = !is_messenger_route ? nonMessengerBottleneckHint(input.route) : null;
+
+  const perfRealApiPayload = {
+    route: input.route,
+    compile_ms: compileMs,
+    render_ms: renderMs,
+    wall_ms: wallMs,
+    actual_handler_ms: realApiMs,
+    wall_ms_without_compile: realApiMs,
+    is_dev_compile_noise,
+    ...(input.extras ?? {}),
+  };
+
+  if (!perfRealApiCostDisabled()) {
+    // eslint-disable-next-line no-console -- unified real API cost (dev or prod measure)
+    console.log("[perf-real-api-cost]", perfRealApiPayload);
+  }
+
+  if (prodMeasureOnly || devMeasureMode()) return;
 
   // eslint-disable-next-line no-console -- perf measurement split (dev only)
   console.log("[perf-measurement-context]", {

@@ -15,11 +15,16 @@ import { tryCreateSupabaseServiceClient } from "@/lib/supabase/try-supabase-serv
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
   getCachedOwnerHubBadge,
+  invalidateOwnerHubBadgeCache,
   ownerHubBadgeRouteCacheKey,
   peekOwnerHubBadgeCacheHit,
   peekOwnerHubBadgeInflight,
   OWNER_HUB_BADGE_TTL_MS,
 } from "@/lib/chats/owner-hub-badge-cache";
+import {
+  buildHubColdClientWallBreakdown,
+  logHubColdClientWallBreakdown,
+} from "@/lib/chats/hub-cold-client-wall-breakdown";
 import {
   buildRoutePerfClientObservability,
   buildRoutePerfDedupeFields,
@@ -39,6 +44,12 @@ import {
   logOwnerDashboardPerfV2,
 } from "@/lib/stores/owner-dashboard-perf-v2";
 import { observeCmUnreadAggregateOnHubRouteCacheHit } from "@/lib/community-messenger/cm-unread-room-count-aggregate";
+import { invalidateCommunityMessengerUnreadTotalCache } from "@/lib/community-messenger/community-messenger-unread-total";
+import {
+  buildPerfMeasureResponseHeaders,
+  isOwnerDashboardMeasureInvalidateEnabled,
+  logProdRegionContextOnce,
+} from "@/lib/performance/prod-same-region-perf";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -102,6 +113,22 @@ export async function GET(request: Request) {
 
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
 
+  if (isOwnerDashboardMeasureInvalidateEnabled()) {
+    if (request.headers.get("x-samarket-hub-badge-measure") === "1") {
+      invalidateOwnerHubBadgeCache(userId);
+    }
+    if (request.headers.get("x-samarket-cm-unread-measure") === "1") {
+      invalidateOwnerHubBadgeCache(userId);
+      invalidateCommunityMessengerUnreadTotalCache(userId);
+    }
+    if (
+      request.headers.get("x-samarket-prod-same-region-measure") === "1" ||
+      request.headers.get("x-samarket-hub-badge-measure") === "1"
+    ) {
+      logProdRegionContextOnce({ runtime: "nodejs" });
+    }
+  }
+
   const findHubStoreFresh =
     findHubFresh && hubBadgeBypass && process.env.NODE_ENV === "development";
   const unreadPartsStoreFresh =
@@ -117,9 +144,11 @@ export async function GET(request: Request) {
   const storesSb = tryGetSupabaseForStores();
   const storesClientMs = devPerfNow() - stores0;
 
+  const cacheLookup0 = devPerfNow();
   const requestDedupeKey = ownerHubBadgeRouteCacheKey(userId);
   const ttlCacheHit = !bypassShortCache && peekOwnerHubBadgeCacheHit(userId);
   const inFlightBefore = !bypassShortCache && !ttlCacheHit && peekOwnerHubBadgeInflight(userId);
+  const cache_lookup_ms = Math.round(devPerfNow() - cacheLookup0);
   const build0 = devPerfNow();
   let payload: Awaited<ReturnType<typeof buildOwnerHubBadgePayloadWithMeta>>["payload"];
   let badgeMeta: Awaited<ReturnType<typeof buildOwnerHubBadgePayloadWithMeta>>["meta"];
@@ -183,6 +212,9 @@ export async function GET(request: Request) {
     };
   }
   const badgeAggregateMs = devPerfNow() - build0;
+  const hubBuildMs = hubBreakdown?.total_ms ?? Math.round(badgeAggregateMs);
+  const cache_set_ms =
+    ttlCacheHit ? 0 : Math.max(0, Math.round(badgeAggregateMs - hubBuildMs));
   const unreadPartsMeta = peekLastUnreadPartsComputeMeta();
   const unreadPartsMs =
     hubBreakdown?.unread_parts_ms ?? unreadPartsMeta?.total_ms ?? 0;
@@ -283,5 +315,27 @@ export async function GET(request: Request) {
     unread_parts_ms: Math.round(unreadPartsMs),
   });
 
-  return NextResponse.json(payload);
+  if (!ttlCacheHit) {
+    logHubColdClientWallBreakdown(
+      buildHubColdClientWallBreakdown({
+        cache_hit: 0,
+        server_actual_handler_ms: totalRouteMs,
+        auth_ms: authMs,
+        hub: hubBreakdown,
+        cache_lookup_ms,
+        cache_set_ms,
+        server_build_ms: Math.round(badgeAggregateMs),
+        singleflight_hit: singleflightHit,
+        duplicate_inflight_join: inFlightBefore ? 1 : 0,
+        hub_badge_deferred: hubBadgeDeferred,
+      })
+    );
+  }
+
+  return NextResponse.json(payload, {
+    headers: buildPerfMeasureResponseHeaders({
+      actual_handler_ms: totalRouteMs,
+      cache_hit: ttlCacheHit ? 1 : 0,
+    }),
+  });
 }

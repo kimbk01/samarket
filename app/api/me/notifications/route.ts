@@ -15,6 +15,10 @@ import {
   buildOwnerDashboardPerfV2,
   logOwnerDashboardPerfV2,
 } from "@/lib/stores/owner-dashboard-perf-v2";
+import {
+  buildPerfMeasureResponseHeaders,
+  isOwnerDashboardMeasureInvalidateEnabled,
+} from "@/lib/performance/prod-same-region-perf";
 import { jsonPayloadBytes, logOwnerDashboardPerf, perfNowMs } from "@/lib/stores/owner-dashboard-perf";
 
 export const runtime = "nodejs";
@@ -76,6 +80,13 @@ export async function GET(req: NextRequest) {
   }
   const sbx = sb;
 
+  if (
+    isOwnerDashboardMeasureInvalidateEnabled() &&
+    req.headers.get("x-samarket-notifications-measure") === "1"
+  ) {
+    invalidateNotificationUnreadCountCache(userId);
+  }
+
   if (searchParams.get("unread_count_only") === "1") {
     const db0 = perfNowMs();
     const excludeOwner = searchParams.get("exclude_owner_store_commerce") === "1";
@@ -132,7 +143,12 @@ export async function GET(req: NextRequest) {
           stages: [{ stage: "notification_count", ms: cache_hit ? 0 : db_ms }],
         })
       );
-      return NextResponse.json(body);
+      return NextResponse.json(body, {
+        headers: buildPerfMeasureResponseHeaders({
+          actual_handler_ms: total_ms,
+          cache_hit,
+        }),
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "unknown_error";
       const logPrefix = excludeOwner || ownerOnly

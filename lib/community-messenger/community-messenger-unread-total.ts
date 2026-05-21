@@ -1,5 +1,9 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { HubBadgeCmUnreadTiming } from "@/lib/chats/hub-badge-wave2-perf";
+import {
+  buildCmUnreadDeepBreakdown,
+  logCmUnreadDeepBreakdown,
+} from "@/lib/community-messenger/cm-unread-deep-breakdown";
 import { emptyCmUnreadAggregatePerf } from "@/lib/community-messenger/cm-unread-aggregate-perf";
 import {
   emitCmUnreadAggregatePerfFromTiming,
@@ -13,10 +17,13 @@ import {
   writeCmUnreadRoomCountMemory,
 } from "@/lib/community-messenger/cm-unread-room-count-memory-cache";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 export { invalidateCommunityMessengerUnreadTotalCache };
 
 export const CM_UNREAD_ROOM_COUNT_RPC = "get_community_messenger_unread_room_count";
+
+const CM_UNREAD_SINGLE_FLIGHT_PREFIX = "cm-unread-sum:";
 
 /**
  * 하단 「메신저」탭 배지용 — `community_messenger_participants.unread_count > 0` 인 방 개수.
@@ -29,43 +36,71 @@ export const CM_UNREAD_ROOM_COUNT_RPC = "get_community_messenger_unread_room_cou
  * 즉, unread 메시지 총합이 아니라 unread 방 수만 센다.
  */
 
+type CmUnreadRpcProbe = {
+  result: number | null;
+  wallMs: number;
+  payloadBytes: number;
+  parseMs: number;
+};
+
 async function sumCommunityMessengerParticipantUnreadViaRpc(
   sbAny: SupabaseClient<any>,
   uid: string
-): Promise<number | null> {
+): Promise<CmUnreadRpcProbe> {
+  const rpc0 = devPerfNow();
   const { data, error } = await sbAny.rpc(CM_UNREAD_ROOM_COUNT_RPC, {
     p_user_id: uid,
   });
+  const wallMs = devPerfNow() - rpc0;
+  const payloadBytes = Buffer.byteLength(JSON.stringify(error ?? data ?? null), "utf8");
+  const parse0 = devPerfNow();
   if (error) {
     if (process.env.NODE_ENV === "development") {
       // eslint-disable-next-line no-console -- dev RPC deploy probe
       console.warn("[cm-unread-rpc-miss]", error.message);
     }
-    return null;
+    return { result: null, wallMs, payloadBytes, parseMs: devPerfNow() - parse0 };
   }
+  let result: number | null = null;
   if (typeof data === "number" && Number.isFinite(data)) {
-    return Math.max(0, Math.floor(data));
+    result = Math.max(0, Math.floor(data));
+  } else if (data != null && typeof data === "object" && "unread_room_count" in (data as object)) {
+    result = Math.max(
+      0,
+      Math.floor(Number((data as { unread_room_count: unknown }).unread_room_count) || 0)
+    );
+  } else {
+    result = Math.max(0, Math.floor(Number(data) || 0));
   }
-  if (data != null && typeof data === "object" && "unread_room_count" in (data as object)) {
-    return Math.max(0, Math.floor(Number((data as { unread_room_count: unknown }).unread_room_count) || 0));
-  }
-  return Math.max(0, Math.floor(Number(data) || 0));
+  const parseMs = devPerfNow() - parse0;
+  return { result, wallMs, payloadBytes, parseMs };
 }
 
 /** Legacy PostgREST count head — RPC 실패 시만 */
 async function sumCommunityMessengerParticipantUnreadLegacy(
   sbAny: SupabaseClient<any>,
   uid: string
-): Promise<{ result: number; error?: string }> {
+): Promise<{ result: number; error?: string; wallMs: number; payloadBytes: number }> {
+  const legacy0 = devPerfNow();
   const { count, error } = await sbAny
     .from("community_messenger_participants")
     .select("id", { count: "exact", head: true })
     .eq("user_id", uid)
     .gt("unread_count", 0);
+  const wallMs = devPerfNow() - legacy0;
+  const payloadBytes = Buffer.byteLength(JSON.stringify({ count, error: error?.message ?? null }), "utf8");
   if (error) {
-    return { result: 0, error: error.message };
+    return { result: 0, error: error.message, wallMs, payloadBytes };
   }
-  return { result: Math.max(0, Math.floor(Number(count) || 0)) };
+  return { result: Math.max(0, Math.floor(Number(count) || 0)), wallMs, payloadBytes };
+}
+
+function scheduleCmUnreadAggregateUpsert(
+  sbAny: SupabaseClient<any>,
+  uid: string,
+  unreadRoomCount: number
+): void {
+  void writeCmUnreadRoomCountAggregate(sbAny, uid, unreadRoomCount).catch(() => {});
 }
 
 function applyCmUnreadMemoryHitTiming(
@@ -84,10 +119,49 @@ function applyCmUnreadMemoryHitTiming(
   timingOut.cm_unread_memory_age_ms = Math.round(ageMs);
 }
 
-export async function sumCommunityMessengerParticipantUnread(
+function logCmUnreadDeepFromPath(input: {
+  mountMs: number;
+  totalMs: number;
+  cacheLookupMs: number;
+  cacheSetMs: number;
+  cacheSetUpsertDeferred?: boolean;
+  postgrestWallMs: number;
+  responseParseMs: number;
+  aggregationMs: number;
+  payloadBytes: number;
+  unreadRoomCount: number;
+  via: string;
+  cacheHit: boolean;
+  actualHandlerMs?: number | null;
+}): void {
+  logCmUnreadDeepBreakdown(
+    buildCmUnreadDeepBreakdown({
+      mountMs: input.mountMs,
+      totalMs: input.totalMs,
+      cacheLookupMs: input.cacheLookupMs,
+      cacheSetMs: input.cacheSetMs,
+      cacheSetUpsertDeferred: input.cacheSetUpsertDeferred,
+      postgrestWallMs: input.postgrestWallMs,
+      responseParseMs: input.responseParseMs,
+      aggregationMs: input.aggregationMs,
+      payloadBytes: input.payloadBytes,
+      unreadRoomCount: input.unreadRoomCount,
+      via: input.via,
+      cacheHit: input.cacheHit,
+      actualHandlerMs: input.actualHandlerMs,
+    })
+  );
+}
+
+export type SumCommunityMessengerParticipantUnreadOpts = {
+  actualHandlerMs?: number | null;
+};
+
+async function sumCommunityMessengerParticipantUnreadInner(
   sbAny: SupabaseClient<any>,
   userId: string,
-  timingOut?: HubBadgeCmUnreadTiming
+  timingOut?: HubBadgeCmUnreadTiming,
+  opts?: SumCommunityMessengerParticipantUnreadOpts
 ): Promise<number> {
   const uid = userId.trim();
   if (!uid) {
@@ -95,11 +169,18 @@ export async function sumCommunityMessengerParticipantUnread(
     return 0;
   }
 
-  const total0 = devPerfNow();
+  const mountMs = devPerfNow();
   const aggregatePerf = emptyCmUnreadAggregatePerf();
+  let cacheLookupMs = 0;
+  let cacheSetMs = 0;
+  let aggregationMs = 0;
+
+  const memLookup0 = devPerfNow();
   const mem = readCmUnreadRoomCountMemory(uid);
+  cacheLookupMs += devPerfNow() - memLookup0;
+
   if (mem.hit) {
-    const totalMs = devPerfNow() - total0;
+    const totalMs = devPerfNow() - mountMs;
     if (timingOut) {
       applyCmUnreadMemoryHitTiming(timingOut, totalMs, mem.unreadRoomCount, mem.ageMs);
     }
@@ -120,15 +201,33 @@ export async function sumCommunityMessengerParticipantUnread(
         stale_snapshot_within_ttl: true,
       });
     }
+    logCmUnreadDeepFromPath({
+      mountMs,
+      totalMs,
+      cacheLookupMs,
+      cacheSetMs: 0,
+      postgrestWallMs: 0,
+      responseParseMs: 0,
+      aggregationMs,
+      payloadBytes: 0,
+      unreadRoomCount: mem.unreadRoomCount,
+      via: "memory",
+      cacheHit: true,
+      actualHandlerMs: opts?.actualHandlerMs,
+    });
     return mem.unreadRoomCount;
   }
 
-  const agg0 = devPerfNow();
+  const aggLookup0 = devPerfNow();
   const agg = await readCmUnreadRoomCountAggregate(sbAny, uid);
-  const aggMs = devPerfNow() - agg0;
+  const aggMs = devPerfNow() - aggLookup0;
+  cacheLookupMs += aggMs;
+
   if (agg.hit) {
+    const memSet0 = devPerfNow();
     writeCmUnreadRoomCountMemory(uid, agg.unreadRoomCount);
-    const totalMs = devPerfNow() - total0;
+    cacheSetMs += devPerfNow() - memSet0;
+    const totalMs = devPerfNow() - mountMs;
     if (timingOut) {
       timingOut.cm_unread_ms = Math.round(totalMs);
       timingOut.cm_unread_query_ms = Math.round(aggMs);
@@ -155,61 +254,122 @@ export async function sumCommunityMessengerParticipantUnread(
         aggregate_staleness_ms: Math.round(agg.stalenessMs),
       });
     }
+    logCmUnreadDeepFromPath({
+      mountMs,
+      totalMs,
+      cacheLookupMs,
+      cacheSetMs,
+      postgrestWallMs: aggMs,
+      responseParseMs: 0,
+      aggregationMs,
+      payloadBytes: 64,
+      unreadRoomCount: agg.unreadRoomCount,
+      via: "counter_row",
+      cacheHit: true,
+      actualHandlerMs: opts?.actualHandlerMs,
+    });
     return agg.unreadRoomCount;
   }
 
-  const rpc0 = devPerfNow();
-  const rpcResult = await sumCommunityMessengerParticipantUnreadViaRpc(sbAny, uid);
-  const rpcMs = devPerfNow() - rpc0;
+  const rpcProbe = await sumCommunityMessengerParticipantUnreadViaRpc(sbAny, uid);
 
-  if (rpcResult != null) {
-    writeCmUnreadRoomCountMemory(uid, rpcResult);
-    const upsert = await writeCmUnreadRoomCountAggregate(sbAny, uid, rpcResult);
+  if (rpcProbe.result != null) {
+    const memSet0 = devPerfNow();
+    writeCmUnreadRoomCountMemory(uid, rpcProbe.result);
+    cacheSetMs += devPerfNow() - memSet0;
+    scheduleCmUnreadAggregateUpsert(sbAny, uid, rpcProbe.result);
     emitCmUnreadAggregatePerfFromTiming(aggregatePerf, {
       via: "rpc",
-      totalMs: devPerfNow() - total0,
-      rpcMs,
+      totalMs: devPerfNow() - mountMs,
+      rpcMs: rpcProbe.wallMs,
       dbTrips: 1,
-      counterUpserted: upsert.upserted,
+      counterUpserted: false,
     });
     if (timingOut) {
-      timingOut.cm_unread_ms = Math.round(devPerfNow() - total0);
-      timingOut.cm_unread_query_ms = Math.round(rpcMs);
-      timingOut.cm_unread_rpc_ms = Math.round(rpcMs);
+      timingOut.cm_unread_ms = Math.round(devPerfNow() - mountMs);
+      timingOut.cm_unread_query_ms = Math.round(rpcProbe.wallMs);
+      timingOut.cm_unread_rpc_ms = Math.round(rpcProbe.wallMs);
       timingOut.cm_unread_legacy_ms = 0;
       timingOut.cm_unread_via = "rpc";
-      timingOut.cm_unread_rows = rpcResult;
+      timingOut.cm_unread_rows = rpcProbe.result;
       timingOut.cm_unread_memory_hit = 0;
     }
-    return rpcResult;
+    const totalMs = devPerfNow() - mountMs;
+    logCmUnreadDeepFromPath({
+      mountMs,
+      totalMs,
+      cacheLookupMs,
+      cacheSetMs,
+      cacheSetUpsertDeferred: true,
+      postgrestWallMs: rpcProbe.wallMs,
+      responseParseMs: rpcProbe.parseMs,
+      aggregationMs,
+      payloadBytes: rpcProbe.payloadBytes,
+      unreadRoomCount: rpcProbe.result,
+      via: "rpc",
+      cacheHit: false,
+      actualHandlerMs: opts?.actualHandlerMs,
+    });
+    return rpcProbe.result;
   }
 
-  const legacy0 = devPerfNow();
-  const { result, error } = await sumCommunityMessengerParticipantUnreadLegacy(sbAny, uid);
-  const legacyMs = devPerfNow() - legacy0;
+  const legacy = await sumCommunityMessengerParticipantUnreadLegacy(sbAny, uid);
   let counterUpserted = false;
-  if (!error) {
-    writeCmUnreadRoomCountMemory(uid, result);
-    const upsert = await writeCmUnreadRoomCountAggregate(sbAny, uid, result);
-    counterUpserted = upsert.upserted;
+  if (!legacy.error) {
+    const memSet0 = devPerfNow();
+    writeCmUnreadRoomCountMemory(uid, legacy.result);
+    cacheSetMs += devPerfNow() - memSet0;
+    scheduleCmUnreadAggregateUpsert(sbAny, uid, legacy.result);
+    counterUpserted = false;
   }
   emitCmUnreadAggregatePerfFromTiming(aggregatePerf, {
     via: "legacy",
-    totalMs: devPerfNow() - total0,
-    rpcMs,
+    totalMs: devPerfNow() - mountMs,
+    rpcMs: rpcProbe.wallMs,
     dbTrips: 2,
     counterUpserted,
   });
   if (timingOut) {
-    timingOut.cm_unread_ms = Math.round(devPerfNow() - total0);
-    timingOut.cm_unread_query_ms = Math.round(legacyMs);
-    timingOut.cm_unread_rpc_ms = Math.round(rpcMs);
-    timingOut.cm_unread_legacy_ms = Math.round(legacyMs);
-    timingOut.cm_unread_via = error ? "error" : "postgrest_count_head";
-    timingOut.cm_unread_rows = result;
+    timingOut.cm_unread_ms = Math.round(devPerfNow() - mountMs);
+    timingOut.cm_unread_query_ms = Math.round(legacy.wallMs);
+    timingOut.cm_unread_rpc_ms = Math.round(rpcProbe.wallMs);
+    timingOut.cm_unread_legacy_ms = Math.round(legacy.wallMs);
+    timingOut.cm_unread_via = legacy.error ? "error" : "postgrest_count_head";
+    timingOut.cm_unread_rows = legacy.result;
     timingOut.cm_unread_memory_hit = 0;
-    if (error) timingOut.cm_unread_error = error.slice(0, 120);
+    if (legacy.error) timingOut.cm_unread_error = legacy.error.slice(0, 120);
   }
-  return result;
+  const totalMs = devPerfNow() - mountMs;
+  logCmUnreadDeepFromPath({
+    mountMs,
+    totalMs,
+    cacheLookupMs,
+    cacheSetMs,
+    cacheSetUpsertDeferred: !legacy.error,
+    postgrestWallMs: rpcProbe.wallMs + legacy.wallMs,
+    responseParseMs: 0,
+    aggregationMs,
+    payloadBytes: legacy.payloadBytes + rpcProbe.payloadBytes,
+    unreadRoomCount: legacy.result,
+    via: legacy.error ? "error" : "postgrest_count_head",
+    cacheHit: false,
+    actualHandlerMs: opts?.actualHandlerMs,
+  });
+  return legacy.result;
 }
 
+export async function sumCommunityMessengerParticipantUnread(
+  sbAny: SupabaseClient<any>,
+  userId: string,
+  timingOut?: HubBadgeCmUnreadTiming,
+  opts?: SumCommunityMessengerParticipantUnreadOpts
+): Promise<number> {
+  const uid = userId.trim();
+  if (!uid) {
+    if (timingOut) timingOut.cm_unread_via = "skipped";
+    return 0;
+  }
+  return runSingleFlight(`${CM_UNREAD_SINGLE_FLIGHT_PREFIX}${uid}`, () =>
+    sumCommunityMessengerParticipantUnreadInner(sbAny, userId, timingOut, opts)
+  );
+}
