@@ -52,12 +52,11 @@ export function logOrderCountsColdBreakdown(
   b: OrderCountsColdBreakdown
 ): void {
   if (process.env.NODE_ENV !== "development") return;
-  const order_counts_slowest_stage = pickOrderCountsSlowestStage(b);
   const payload = {
     store_id: storeId,
     order_counts_via: via,
-    order_counts_slowest_stage,
     ...b,
+    order_counts_slowest_stage: pickOrderCountsSlowestStage(b),
   };
   // eslint-disable-next-line no-console -- order-counts cold breakdown (JSON line for measure)
   console.info(`[order-counts-cold-breakdown] ${JSON.stringify(payload)}`);
