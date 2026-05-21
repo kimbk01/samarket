@@ -38,6 +38,19 @@ export function peekStoreOrderCountsCacheHit(storeId: string): boolean {
   return !!hit && hit.expiresAt > Date.now();
 }
 
+/**
+ * Cold miss 직후 — 이미 계산된 payload 를 TTL 캐시에 동기 반영(추가 RPC·single-flight 대기 없음).
+ * warm 경로는 `getCachedStoreOrderCounts` peek hit 만 사용.
+ */
+export function primeStoreOrderCountsCache(storeId: string, value: StoreOrderCountsPayload): void {
+  const key = cacheKey(storeId);
+  if (!key) return;
+  const now = Date.now();
+  pruneExpired(now);
+  cache.set(key, { value, expiresAt: now + ORDER_COUNTS_TTL_MS });
+  flights.delete(key);
+}
+
 function pruneExpired(now: number) {
   for (const [k, e] of cache) {
     if (e.expiresAt <= now) cache.delete(k);

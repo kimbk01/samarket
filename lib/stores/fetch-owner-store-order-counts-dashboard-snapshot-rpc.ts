@@ -70,7 +70,14 @@ export async function fetchOwnerStoreOrderCountsDashboardSnapshot(
   const parse0 = Date.now();
   const mapped = mapDashboardSnapshotPayload(data);
   const parseMs = Date.now() - parse0;
-  if (breakdown) breakdown.rpc_parse_ms = parseMs;
+  if (breakdown) {
+    breakdown.rpc_parse_ms = parseMs;
+    try {
+      breakdown.rpc_response_bytes = JSON.stringify(data ?? null).length;
+    } catch {
+      breakdown.rpc_response_bytes = 0;
+    }
+  }
 
   if (!mapped) return null;
 
