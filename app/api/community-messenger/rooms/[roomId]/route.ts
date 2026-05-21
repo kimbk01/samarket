@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { enforceRateLimit, getRateLimitKey } from "@/lib/http/api-route";
 import type {
@@ -6,6 +6,7 @@ import type {
   CommunityMessengerMarkReadResult,
 } from "@/lib/community-messenger/service";
 import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
+import { warnMarkReadPerformanceLockIfNeeded } from "@/lib/community-messenger/mark-read-performance-lock";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,9 +17,7 @@ const communityMessengerMarkReadInflight = new Map<
   Promise<{
     result: CommunityMessengerMarkReadResult;
     diag: CommunityMessengerMarkReadDiag;
-    broadcastMs: number;
     markWallMs: number;
-    broadcastDuplicateDetected: number;
   }>
 >();
 
@@ -62,15 +61,18 @@ export async function GET(
   });
   if (!rateLimit.ok) return rateLimit.response;
 
-  const { messengerRoomCanonicalOrJsonError } = await import(
-    "@/lib/community-messenger/server/messenger-room-canonical-resolve-api"
-  );
+  const {
+    messengerRoomCanonicalOrJsonError,
+    seedMessengerRoomMembershipFromRouteCanonical,
+  } = await import("@/lib/community-messenger/server/messenger-room-canonical-resolve-api");
 
   const { roomId: rawRoomId } = await params;
-  const canon = await messengerRoomCanonicalOrJsonError(auth.userId, String(rawRoomId ?? "").trim());
+  const rawRouteRoomId = String(rawRoomId ?? "").trim();
+  const canon = await messengerRoomCanonicalOrJsonError(auth.userId, rawRouteRoomId);
   if (!canon.ok) {
     return canon.response;
   }
+  seedMessengerRoomMembershipFromRouteCanonical(auth.userId, rawRouteRoomId, canon.canonicalRoomId);
   const roomId = canon.canonicalRoomId;
   const rawLimit = req.nextUrl.searchParams.get("messages");
   const memberHydration = req.nextUrl.searchParams.get("memberHydration")?.trim().toLowerCase();
@@ -137,17 +139,32 @@ export async function PATCH(
   }
   const patch_room_body_parse_ms = devPerfNow() - tParse0;
 
-  const { messengerRoomCanonicalOrJsonError } = await import(
-    "@/lib/community-messenger/server/messenger-room-canonical-resolve-api"
-  );
+  const {
+    messengerRoomCanonicalOrJsonError,
+    seedMessengerRoomMembershipFromRouteCanonical,
+  } = await import("@/lib/community-messenger/server/messenger-room-canonical-resolve-api");
 
   const tPerm0 = devPerfNow();
   const { roomId: rawRoomId } = await params;
-  const canon = await messengerRoomCanonicalOrJsonError(auth.userId, String(rawRoomId ?? "").trim());
+  const rawRouteRoomId = String(rawRoomId ?? "").trim();
+  const canon = await messengerRoomCanonicalOrJsonError(auth.userId, rawRouteRoomId);
   const patch_room_permission_ms = devPerfNow() - tPerm0;
+  const permission_query_ms = canon.permission_query_ms;
+  const membership_cache_hit = canon.membership_cache_hit;
+  const permissionBreakdown = {
+    permission_cache_lookup_ms: canon.permission_cache_lookup_ms,
+    permission_db_query_ms: canon.permission_db_query_ms,
+    permission_profile_join_ms: canon.permission_profile_join_ms,
+    permission_room_fetch_ms: canon.permission_room_fetch_ms,
+    permission_canonical_build_ms: canon.permission_canonical_build_ms,
+    permission_cache_store_ms: canon.permission_cache_store_ms,
+    permission_source: canon.permission_source,
+    permission_cache_reason: canon.permission_cache_reason,
+  };
   if (!canon.ok) {
     return canon.response;
   }
+  seedMessengerRoomMembershipFromRouteCanonical(auth.userId, rawRouteRoomId, canon.canonicalRoomId);
   const roomId = canon.canonicalRoomId;
   const svc = await import("@/lib/community-messenger/service");
 
@@ -175,7 +192,12 @@ export async function PATCH(
       let flight = communityMessengerMarkReadInflight.get(inflightKey);
       if (!flight) {
         flight = (async () => {
-          const diag: CommunityMessengerMarkReadDiag = {};
+          const diag: CommunityMessengerMarkReadDiag = {
+            permission_query_ms,
+            ...permissionBreakdown,
+            membership_cache_hit,
+            optimistic_ack_possible: 1,
+          };
           const tMark0 = devPerfNow();
           const result = await svc.markCommunityMessengerRoomAsRead({
             userId: auth.userId,
@@ -185,32 +207,63 @@ export async function PATCH(
             diag,
           });
           const markWallMs = devPerfNow() - tMark0;
-          let broadcastMs = 0;
-          let broadcastDuplicateDetected = 0;
-          if (result.ok && !result.broadcastSkipped) {
-            const tb = devPerfNow();
-            const { publishCommunityMessengerReadAckFromServer } = await import(
-              "@/lib/community-messenger/realtime/read-ack-broadcast-server"
-            );
-            const pub = await publishCommunityMessengerReadAckFromServer({
-              roomId,
-              readerUserId: auth.userId,
-              lastReadMessageId: result.lastReadMessageId ?? null,
-              lastReadAt: result.lastReadAt ?? null,
-            });
-            broadcastMs = devPerfNow() - tb;
-            if (pub.deduped) broadcastDuplicateDetected = 1;
-          }
-          return { result, diag, broadcastMs, markWallMs, broadcastDuplicateDetected };
+          return { result, diag, markWallMs };
         })().finally(() => {
           communityMessengerMarkReadInflight.delete(inflightKey);
         });
         communityMessengerMarkReadInflight.set(inflightKey, flight);
       }
       const bundle = await flight;
-      const { result, diag, broadcastMs, markWallMs, broadcastDuplicateDetected } = bundle;
+      const { result, diag, markWallMs } = bundle;
+
+      const tBeforeResponse = devPerfNow();
+      const response_before_broadcast = 1;
+      let broadcastDuplicateDetected = 0;
+
+      if (result.ok && !result.broadcastSkipped) {
+        const broadcastPayload = {
+          roomId,
+          readerUserId: auth.userId,
+          lastReadMessageId: result.lastReadMessageId ?? null,
+          lastReadAt: result.lastReadAt ?? null,
+        };
+        after(async () => {
+          const tPost0 = devPerfNow();
+          let emitMs = 0;
+          let waitMs = 0;
+          let deduped = 0;
+          try {
+            const { publishCommunityMessengerReadAckFromServer } = await import(
+              "@/lib/community-messenger/realtime/read-ack-broadcast-server"
+            );
+            const pub = await publishCommunityMessengerReadAckFromServer(broadcastPayload);
+            emitMs = pub.broadcast_emit_ms ?? 0;
+            waitMs = pub.broadcast_wait_ms ?? 0;
+            if (pub.deduped) deduped = 1;
+          } catch {
+            /* best-effort — HTTP 응답·낙관 UI는 이미 확정 */
+          } finally {
+            const postMs = Math.round(devPerfNow() - tPost0);
+            logDevApiPerf(
+              "/api/community-messenger/rooms/[roomId] PATCH mark_read post_response",
+              {
+                post_response_work_ms: postMs,
+                broadcast_after_response_ms: postMs,
+                broadcast_emit_ms: emitMs,
+                broadcast_wait_ms: waitMs,
+                response_before_broadcast: 1,
+              },
+              {
+                roomId,
+                patch_room_broadcast_duplicate_detected: deduped,
+              }
+            );
+          }
+        });
+      }
 
       const patch_room_total_ms = devPerfNow() - tPatchRouteStart;
+      const patch_room_response_wall_ms = Math.round(tBeforeResponse - tPatchRouteStart);
       const dbMs = (diag.rpc_ms ?? 0) + (diag.legacy_participant_update_ms ?? 0);
       const compareMs = diag.message_order_compare_ms ?? 0;
       const existingMs = diag.existing_read_fetch_ms ?? 0;
@@ -223,13 +276,13 @@ export async function PATCH(
         ["patch_room_rate_limit_ms", patch_room_rate_limit_ms],
         ["patch_room_body_parse_ms", patch_room_body_parse_ms],
         ["patch_room_permission_ms", patch_room_permission_ms],
+        ["permission_query_ms", permission_query_ms],
         ["mark_read_fetch_existing_ms", diag.mark_read_fetch_existing_ms ?? existingMs],
         ["mark_read_compare_ms", diag.mark_read_compare_ms ?? compareMs],
         ["mark_read_db_update_ms", diag.mark_read_db_update_ms ?? dbMs],
         ["mark_read_registry_sync_ms", diag.mark_read_registry_sync_ms ?? 0],
         ["mark_read_trade_sync_ms", mrTrade],
         ["mark_read_cache_invalidate_ms", mrBadge],
-        ["patch_room_broadcast_ms", broadcastMs],
         ["mark_read_total_ms", mrTotal],
         ["patch_room_mark_handler_wall_ms", markWallMs],
       ];
@@ -271,6 +324,14 @@ export async function PATCH(
           patch_room_rate_limit_ms: Math.round(patch_room_rate_limit_ms),
           patch_room_body_parse_ms: Math.round(patch_room_body_parse_ms),
           patch_room_permission_ms: Math.round(patch_room_permission_ms),
+          permission_query_ms: Math.round(permission_query_ms),
+          membership_cache_hit,
+          permission_cache_lookup_ms: Math.round(permissionBreakdown.permission_cache_lookup_ms),
+          permission_db_query_ms: Math.round(permissionBreakdown.permission_db_query_ms),
+          permission_profile_join_ms: Math.round(permissionBreakdown.permission_profile_join_ms),
+          permission_room_fetch_ms: Math.round(permissionBreakdown.permission_room_fetch_ms),
+          permission_canonical_build_ms: Math.round(permissionBreakdown.permission_canonical_build_ms),
+          permission_cache_store_ms: Math.round(permissionBreakdown.permission_cache_store_ms),
           mark_read_total_ms: Math.round(mrTotal),
           mark_read_fetch_existing_ms: Math.round(diag.mark_read_fetch_existing_ms ?? existingMs),
           mark_read_compare_ms: Math.round(diag.mark_read_compare_ms ?? compareMs),
@@ -278,7 +339,22 @@ export async function PATCH(
           mark_read_db_update_ms: Math.round(diag.mark_read_db_update_ms ?? dbMs),
           mark_read_registry_sync_ms: Math.round(diag.mark_read_registry_sync_ms ?? 0),
           mark_read_broadcast_prepare_ms: 0,
-          mark_read_broadcast_send_ms: Math.round(broadcastMs),
+          mark_read_broadcast_send_ms: 0,
+          broadcast_emit_ms: 0,
+          broadcast_wait_ms: 0,
+          broadcast_after_response_ms: 0,
+          response_before_broadcast,
+          post_response_work_ms: 0,
+          patch_room_response_wall_ms,
+          db_update_round_trip_ms: Math.round(diag.db_update_round_trip_ms ?? dbMs),
+          ack_coalesce_hit: diag.ack_coalesce_hit ?? 0,
+          optimistic_ack_possible: diag.optimistic_ack_possible ?? 1,
+          snapshot_lookup_cache_hit: diag.snapshot_lookup_cache_hit ?? diag.mark_read_existing_snapshot_cache_hit ?? 0,
+          mark_read_combined_rpc_ms: Math.round(diag.mark_read_combined_rpc_ms ?? 0),
+          mark_read_combined_rpc_used: diag.mark_read_combined_rpc_used ?? 0,
+          mark_read_fetch_existing_eliminated: diag.mark_read_fetch_existing_eliminated ?? 0,
+          mark_read_db_round_trips: diag.mark_read_db_round_trips ?? 0,
+          mark_read_cold_open_path: diag.mark_read_cold_open_path ?? 0,
           mark_read_cache_invalidate_ms: Math.round(mrBadge),
           mark_read_realtime_wait_ms: 0,
           mark_read_post_commit_ms: 0,
@@ -301,7 +377,7 @@ export async function PATCH(
           patch_room_existing_read_fetch_ms: Math.round(existingMs),
           patch_room_message_order_compare_ms: Math.round(compareMs),
           patch_room_db_update_ms: Math.round(dbMs),
-          patch_room_broadcast_ms: Math.round(broadcastMs),
+          patch_room_broadcast_ms: 0,
           patch_room_payload_build_ms: 0,
           patch_room_mark_handler_wall_ms: Math.round(markWallMs),
           patch_room_top_bottleneck_ms: Math.round(topMs),
@@ -315,6 +391,15 @@ export async function PATCH(
           patch_room_regression_blocked: result.regressionBlocked ? 1 : 0,
           patch_room_top_bottleneck: topKey,
           patch_room_inflight_dedupe_hit: patch_room_inflight_dedupe_hit,
+          permission_source: permissionBreakdown.permission_source,
+          permission_cache_reason: permissionBreakdown.permission_cache_reason,
+          dedupe_hit: patch_room_inflight_dedupe_hit || broadcastDuplicateDetected ? 1 : 0,
+          coalesce_hit: diag.ack_coalesce_hit ?? 0,
+          mark_read_combined_rpc_used: diag.mark_read_combined_rpc_used ?? 0,
+          mark_read_combined_rpc_mode: diag.mark_read_combined_rpc_mode ?? "legacy_two_round",
+          mark_read_cold_open_path: diag.mark_read_cold_open_path ?? 0,
+          mark_read_fetch_existing_eliminated: diag.mark_read_fetch_existing_eliminated ?? 0,
+          response_before_broadcast,
           patch_room_inflight_key: inflightKey,
           patch_room_broadcast_duplicate_detected: broadcastDuplicateDetected,
           mark_read_top_bottleneck: mrTopKey,
@@ -338,6 +423,34 @@ export async function PATCH(
               : "n/a",
         }
       );
+
+      const expectSeededPermission =
+        membership_cache_hit === 1 &&
+        (permissionBreakdown.permission_cache_reason === "hit" ||
+          permissionBreakdown.permission_source === "membership_cache");
+      warnMarkReadPerformanceLockIfNeeded({
+        sample: {
+          permission_query_ms: Math.round(permission_query_ms),
+          membership_cache_hit: membership_cache_hit === 1 ? 1 : 0,
+          permission_source: permissionBreakdown.permission_source,
+          permission_cache_reason: permissionBreakdown.permission_cache_reason,
+          mark_read_combined_rpc_used: diag.mark_read_combined_rpc_used === 1 ? 1 : 0,
+          mark_read_fetch_existing_ms: Math.round(diag.mark_read_fetch_existing_ms ?? existingMs),
+          mark_read_db_round_trips: diag.mark_read_db_round_trips ?? 0,
+          mark_read_combined_rpc_ms: Math.round(diag.mark_read_combined_rpc_ms ?? 0),
+          patch_room_response_wall_ms,
+          response_before_broadcast: response_before_broadcast === 1 ? 1 : 0,
+          patch_room_inflight_dedupe_hit: patch_room_inflight_dedupe_hit === 1 ? 1 : 0,
+          patch_room_duplicate_ack_skipped: result.duplicateAckSkipped ? 1 : 0,
+          mark_read_cold_open_path: diag.mark_read_cold_open_path === 1 ? 1 : 0,
+          expect_seeded_permission: expectSeededPermission,
+          expect_cold_combined_open:
+            body.flushOpen === true &&
+            !result.duplicateAckSkipped &&
+            (diag.mark_read_cold_open_path === 1 || (diag.mark_read_combined_rpc_used ?? 0) === 1),
+        },
+        requestKey: `${roomId}:${diag.mark_read_combined_rpc_used}:${membership_cache_hit}:${result.duplicateAckSkipped ? "dup" : "open"}`,
+      });
 
       return NextResponse.json(jsonMarkReadResponse(result), { status: result.ok ? 200 : 400 });
     } catch (e) {

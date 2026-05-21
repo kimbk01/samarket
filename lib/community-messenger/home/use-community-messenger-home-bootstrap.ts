@@ -12,6 +12,7 @@ import {
   type MutableRefObject,
   type SetStateAction,
 } from "react";
+import { unstable_batchedUpdates } from "react-dom";
 import { fetchCommunityMessengerHomeSilentLists } from "@/lib/community-messenger/cm-home-silent-lists-fetch";
 import {
   messengerMonitorHomeListBootstrapUiAlign,
@@ -30,6 +31,29 @@ import {
 } from "@/lib/community-messenger/bootstrap-cache";
 import { fetchCommunityMessengerBootstrapCriticalClient } from "@/lib/community-messenger/cm-bootstrap-client-fetch";
 import {
+  anchorCmClientMergeBreakdownFromResponse,
+  finalizeCmClientMergeBreakdown,
+  scheduleCmClientMergeBreakdownFinalize,
+  markCmClientMergeStart,
+  recordCmClientMergePatchStats,
+  recordCmClientMergeStoreEmitMs,
+  resetCmClientMergeBreakdown,
+} from "@/lib/community-messenger/cm-client-merge-breakdown";
+import {
+  getCmClientFirstPaintActiveSessionId,
+  markCmClientFirstPaint,
+  probeCmLiteFirstPaintDomIfReady,
+} from "@/lib/community-messenger/cm-client-first-paint-perf";
+import {
+  beginLiteClientMergeGate,
+  deferHomeSyncPatchDuringLiteMerge,
+  endLiteClientMergeGate,
+  isLiteClientMergeGateActive,
+  markLiteMergeFollowUpsUnblocked,
+  registerDeferredHomeSyncRunner,
+  shouldDeferPostLiteFollowUp,
+} from "@/lib/community-messenger/home/lite-merge-gate";
+import {
   logCmBootstrapV2ClientFinalize,
   markCmBootstrapV2ClientFlowAnchor,
 } from "@/lib/community-messenger/cm-bootstrap-v2-client-log";
@@ -41,7 +65,7 @@ import type {
   CommunityMessengerFriendRequest,
   CommunityMessengerRoomSummary,
 } from "@/lib/community-messenger/types";
-import { applyHomeListPatch } from "@/lib/community-messenger/home-list-patch";
+import { applyHomeListPatch, peekLastHomeListPatchStats } from "@/lib/community-messenger/home-list-patch";
 import { finishSilentRefreshRound, tryEnterSilentRefreshRound } from "@/lib/http/silent-refresh-coalesce";
 import { isLikelyFetchAbortError, logFetchClientTelemetry } from "@/lib/http/fetch-client-telemetry";
 import { fetchCommunityMessengerBootstrapClient } from "@/lib/community-messenger/cm-bootstrap-client-fetch";
@@ -69,11 +93,45 @@ import {
 /** lite/full·open-groups 보강 — 셸 페인트 이후 `requestIdleCallback`(폴백 `setTimeout`) */
 function scheduleMessengerDeferredOnIdle(run: () => void): void {
   if (typeof window === "undefined") return;
+  try {
+    if (sessionStorage.getItem("samarket:cm:eager-lite-merge") === "1") {
+      queueMicrotask(run);
+      return;
+    }
+  } catch {
+    /* */
+  }
   if (typeof requestIdleCallback === "function") {
     requestIdleCallback(() => run(), { timeout: 2000 });
   } else {
     window.setTimeout(run, 0);
   }
+}
+
+/** lite `setData` 직후·rAF2 — DOM 프로브 후 gate 해제·breakdown (home-sync flush 가 paint 를 막지 않게) */
+function runAfterLiteClientMergePaint(complete: () => void): void {
+  probeCmLiteFirstPaintDomIfReady();
+  if (typeof requestAnimationFrame !== "function") {
+    queueMicrotask(() => {
+      probeCmLiteFirstPaintDomIfReady();
+      complete();
+    });
+    return;
+  }
+  requestAnimationFrame(() => {
+    probeCmLiteFirstPaintDomIfReady();
+    requestAnimationFrame(() => {
+      probeCmLiteFirstPaintDomIfReady();
+      complete();
+    });
+  });
+}
+
+function completeLiteClientMergeAfterPaint(): void {
+  endLiteClientMergeGate();
+  markLiteMergeFollowUpsUnblocked();
+  finalizeCmClientMergeBreakdown();
+  scheduleCmClientMergeBreakdownFinalize();
 }
 
 /** lite/full API JSON → 클라 `CommunityMessengerBootstrap` (deferred 단계 전용) */
@@ -212,6 +270,12 @@ export function useCommunityMessengerHomeBootstrap({
     setListAwaitingCritical(false);
   }, [initialServerBootstrap]);
 
+  useLayoutEffect(() => {
+    if (!getCmClientFirstPaintActiveSessionId()) return;
+    markCmClientFirstPaint("room_list_state_apply_end");
+    probeCmLiteFirstPaintDomIfReady();
+  }, [data]);
+
   useEffect(() => {
     return () => {
       refreshAbortRef.current?.abort();
@@ -278,7 +342,7 @@ export function useCommunityMessengerHomeBootstrap({
     }
   }, []);
 
-  const mergeHomeSyncIntoBootstrap = useCallback(
+  const applyHomeSyncPayload = useCallback(
     (
       payload: {
         chats?: CommunityMessengerBootstrap["chats"];
@@ -288,7 +352,6 @@ export function useCommunityMessengerHomeBootstrap({
       },
       roomMode: "replace" | "critical_patch" = "replace"
     ) => {
-      const apply = () => {
       setData((prev) => {
         const tUiAlign0 = typeof performance !== "undefined" ? performance.now() : null;
         try {
@@ -315,12 +378,33 @@ export function useCommunityMessengerHomeBootstrap({
           }
         }
       });
-      };
+    },
+    []
+  );
+
+  useEffect(() => {
+    registerDeferredHomeSyncRunner((payload) => {
+      applyHomeSyncPayload(payload, payload.roomMode ?? "replace");
+    });
+  }, [applyHomeSyncPayload]);
+
+  const mergeHomeSyncIntoBootstrap = useCallback(
+    (
+      payload: {
+        chats?: CommunityMessengerBootstrap["chats"];
+        groups?: CommunityMessengerBootstrap["groups"];
+        requests?: CommunityMessengerBootstrap["requests"];
+        friends?: CommunityMessengerBootstrap["friends"];
+      },
+      roomMode: "replace" | "critical_patch" = "replace"
+    ) => {
+      if (deferHomeSyncPatchDuringLiteMerge({ ...payload, roomMode })) return;
+      const apply = () => applyHomeSyncPayload(payload, roomMode);
       const run = () => deferHomeSyncMerge(apply);
       if (shouldDeferDuringRoomEntryQuiet(run)) return;
       run();
     },
-    []
+    [applyHomeSyncPayload]
   );
 
   const parseBootstrapJson = useCallback(
@@ -568,22 +652,40 @@ export function useCommunityMessengerHomeBootstrap({
                   refreshDataOk = true;
                   samarketMessengerHomeDebugEvent("messenger_home_bootstrap_success", { mode: "lite" });
                   const next = messengerBootstrapFromLiteApiJson(jsonLite);
+                  const responseAt =
+                    typeof performance !== "undefined" ? performance.now() : 0;
+                  resetCmClientMergeBreakdown(true);
+                  anchorCmClientMergeBreakdownFromResponse(responseAt);
+                  markCmClientFirstPaint("bootstrap_response_received");
                   primeMessengerBootstrapMinimal(next);
-                  setAuthRequired(false);
-                  setPageError(null);
-                  setData((prev) => {
-                    const merged = applyHomeListPatch(
-                      prev,
-                      { kind: "bootstrap_apply_full", next, mergeStaleOutgoingRequests: true },
-                      "bootstrap"
-                    );
-                    if (!merged) return next;
-                    primeMessengerBootstrapFull(merged);
-                    return merged;
+                  markCmClientFirstPaint("room_list_state_apply_start");
+                  markCmClientMergeStart();
+                  const tStore0 = typeof performance !== "undefined" ? performance.now() : 0;
+                  unstable_batchedUpdates(() => {
+                    setAuthRequired(false);
+                    setPageError(null);
+                    setData((prev) => {
+                      const merged = applyHomeListPatch(
+                        prev,
+                        { kind: "bootstrap_apply_full", next, mergeStaleOutgoingRequests: true },
+                        "bootstrap"
+                      );
+                      const stats = peekLastHomeListPatchStats();
+                      if (stats) recordCmClientMergePatchStats(stats);
+                      if (!merged) return prev ?? next;
+                      if (merged === prev) return prev;
+                      primeMessengerBootstrapFull(merged);
+                      return merged;
+                    });
                   });
+                  recordCmClientMergeStoreEmitMs(
+                    typeof performance !== "undefined" ? Math.round(performance.now() - tStore0) : 0
+                  );
+                  runAfterLiteClientMergePaint(completeLiteClientMergeAfterPaint);
                   deferredFinishAt = typeof performance !== "undefined" ? performance.now() : 0;
 
                   armFollowUp(250, () => {
+                    if (shouldDeferPostLiteFollowUp()) return;
                     sch.schedule({
                       id: `messenger:followup:silent-refresh:${hydrateRequestId}`,
                       dedupeKey: "messenger:followup:silent-refresh",
@@ -595,6 +697,7 @@ export function useCommunityMessengerHomeBootstrap({
                   });
                   if (next.deferredCallLog) {
                     armFollowUp(1200, () => {
+                      if (shouldDeferPostLiteFollowUp()) return;
                       sch.schedule({
                         id: `messenger:followup:calls-log:${hydrateRequestId}`,
                         dedupeKey: "messenger:followup:calls-log",
@@ -606,6 +709,7 @@ export function useCommunityMessengerHomeBootstrap({
                     });
                   }
                   armFollowUp(1800, () => {
+                    if (shouldDeferPostLiteFollowUp()) return;
                     sch.schedule({
                       id: `messenger:followup:discoverable:${hydrateRequestId}`,
                       dedupeKey: "messenger:followup:discoverable-open-groups",
@@ -635,6 +739,10 @@ export function useCommunityMessengerHomeBootstrap({
               } catch {
                 /* ignore */
               } finally {
+                if (isLiteClientMergeGateActive()) {
+                  endLiteClientMergeGate();
+                  markLiteMergeFollowUpsUnblocked();
+                }
                 logCmBootstrapV2ClientFinalize({
                   shellVisibleAt,
                   criticalRequestStartAt,
@@ -776,23 +884,43 @@ export function useCommunityMessengerHomeBootstrap({
                 mode: useLiteBootstrapFallback ? "lite" : "full",
               });
               const next = messengerBootstrapFromLiteApiJson(json);
-              setListAwaitingCritical(false);
+              if (useLiteBootstrapFallback) {
+                const responseAt =
+                  typeof performance !== "undefined" ? performance.now() : 0;
+                markCmClientFirstPaint("bootstrap_response_received");
+                resetCmClientMergeBreakdown();
+                anchorCmClientMergeBreakdownFromResponse(responseAt);
+              }
               logMessengerCriticalDone();
-              setAuthRequired(false);
-              setPageError(null);
-              setData((prev) => {
-                const merged = applyHomeListPatch(
-                  prev,
-                  { kind: "bootstrap_apply_full", next, mergeStaleOutgoingRequests: true },
-                  "bootstrap"
-                );
-                if (!merged) {
-                  primeMessengerBootstrapFull(next);
-                  return next;
+              const tStoreFb0 = typeof performance !== "undefined" ? performance.now() : 0;
+              unstable_batchedUpdates(() => {
+                setListAwaitingCritical(false);
+                setAuthRequired(false);
+                setPageError(null);
+                if (useLiteBootstrapFallback) {
+                  markCmClientFirstPaint("room_list_state_apply_start");
+                  markCmClientMergeStart();
                 }
-                primeMessengerBootstrapFull(merged);
-                return merged;
+                setData((prev) => {
+                  const merged = applyHomeListPatch(
+                    prev,
+                    { kind: "bootstrap_apply_full", next, mergeStaleOutgoingRequests: true },
+                    "bootstrap"
+                  );
+                  const stats = peekLastHomeListPatchStats();
+                  if (stats) recordCmClientMergePatchStats(stats);
+                  if (!merged) return prev ?? next;
+                  if (merged === prev) return prev;
+                  primeMessengerBootstrapFull(merged);
+                  return merged;
+                });
               });
+              if (useLiteBootstrapFallback) {
+                recordCmClientMergeStoreEmitMs(
+                  typeof performance !== "undefined" ? Math.round(performance.now() - tStoreFb0) : 0
+                );
+                runAfterLiteClientMergePaint(completeLiteClientMergeAfterPaint);
+              }
               const fallbackLogAt = typeof performance !== "undefined" ? performance.now() : 0;
               logCmBootstrapV2ClientFinalize({
                 shellVisibleAt,

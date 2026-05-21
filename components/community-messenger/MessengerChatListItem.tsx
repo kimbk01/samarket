@@ -42,6 +42,7 @@ import { communityMessengerRoomIsInboxHidden, type CommunityMessengerRoomSummary
 import {
   formatConversationTimestamp,
   getRoomTypeBadgeLabel,
+  unifiedListItemRowVisualEqual,
   type UnifiedRoomListItem,
 } from "@/lib/community-messenger/use-community-messenger-home-state";
 import {
@@ -115,6 +116,32 @@ type Props = {
   /** 거래 채팅 서브라우트(`/trade-chats`) 전용 레이아웃 */
   listVisual?: MessengerChatListVisual;
 };
+
+function messengerChatListItemPropsEqual(prev: Props, next: Props): boolean {
+  if (prev.item === next.item) {
+    return (
+      prev.viewerUserId === next.viewerUserId &&
+      prev.favoriteFriendIds === next.favoriteFriendIds &&
+      prev.busyId === next.busyId &&
+      prev.openedSwipeItemId === next.openedSwipeItemId &&
+      prev.listContext === next.listContext &&
+      prev.compact === next.compact &&
+      prev.listVisual === next.listVisual
+    );
+  }
+  if (prev.item.room === next.item.room && unifiedListItemRowVisualEqual(prev.item, next.item)) {
+    return (
+      prev.viewerUserId === next.viewerUserId &&
+      prev.favoriteFriendIds === next.favoriteFriendIds &&
+      prev.busyId === next.busyId &&
+      prev.openedSwipeItemId === next.openedSwipeItemId &&
+      prev.listContext === next.listContext &&
+      prev.compact === next.compact &&
+      prev.listVisual === next.listVisual
+    );
+  }
+  return false;
+}
 
 export const MessengerChatListItem = memo(function MessengerChatListItem({
   item,
@@ -644,7 +671,10 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
             </span>
           ) : null}
           {displayedUnreadCount > 0 ? (
-            <span className="min-h-[18px] min-w-[18px] rounded-full bg-[color:var(--messenger-primary)] px-1 text-center sam-text-xxs font-semibold leading-[18px] text-white">
+            <span
+              data-cm-unread-badge="true"
+              className="min-h-[18px] min-w-[18px] rounded-full bg-[color:var(--messenger-primary)] px-1 text-center sam-text-xxs font-semibold leading-[18px] text-white"
+            >
               {displayedUnreadCount > 999 ? "999+" : displayedUnreadCount}
             </span>
           ) : null}
@@ -873,7 +903,7 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
       </div>
     </div>
   );
-});
+}, messengerChatListItemPropsEqual);
 
 MessengerChatListItem.displayName = "MessengerChatListItem";
 

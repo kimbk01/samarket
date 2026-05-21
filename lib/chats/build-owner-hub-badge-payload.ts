@@ -19,6 +19,7 @@ import {
   getCachedUserChatUnreadParts,
   sumSocialChatUnread,
   sumTradeChatUnread,
+  zeroUnreadPartsForNoHubStore,
 } from "@/lib/chat/user-chat-unread-parts";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import { ORDER_CHAT_MESSENGER_LIST_HREF } from "@/lib/chats/surfaces/order-chat-surface";
@@ -121,9 +122,11 @@ export async function buildOwnerHubBadgeUnreadSegment(
   storesSb: SupabaseClient<any> | null,
   userId: string
 ): Promise<OwnerHubBadgeUnreadPartial> {
-  const unreadParts = await getCachedUserChatUnreadParts(sbAny, userId);
-  const hasOwnerStore = await ownerHasAnyStore(storesSb, userId);
-  const hubStore = hasOwnerStore ? await findOwnerHubStore(storesSb, userId) : null;
+  const hubStore = await findOwnerHubStore(storesSb, userId);
+  const hasOwnerStore = hubStore != null;
+  const unreadParts = hasOwnerStore
+    ? await getCachedUserChatUnreadParts(sbAny, userId)
+    : zeroUnreadPartsForNoHubStore();
   const [communityMessengerUnread, storeOrderChatUnread] = await Promise.all([
     sumCommunityMessengerParticipantUnread(sbAny, userId).catch(() => 0),
     hasOwnerStore && storesSb && hubStore
@@ -167,6 +170,9 @@ async function findOwnerHubStoreViaPostgrest(
   };
 }
 
+/** empty/postgrest 동시 요청 — 동일 userId 단일 RTT (empty TTL 120s write 공유) */
+const findOwnerHubStoreInflight = new Map<string, Promise<HubStoreLiteRow | null>>();
+
 async function findOwnerHubStore(
   storesSb: SupabaseClient<any> | null,
   userId: string,
@@ -204,23 +210,48 @@ async function findOwnerHubStore(
     return mem.hubStore;
   }
 
-  const query0 = devPerfNow();
-  const { hubStore, rows, error } = await findOwnerHubStoreViaPostgrest(storesSb, uid);
-  const queryMs = devPerfNow() - query0;
-  writeOwnerHubStoreLookupMemory(uid, hubStore);
-  const totalMs = devPerfNow() - total0;
-  if (timingOut) {
-    timingOut.find_hub_store_ms = Math.round(totalMs);
-    timingOut.find_hub_store_query_ms = Math.round(queryMs);
-    timingOut.find_hub_store_permission_join_ms = 0;
-    timingOut.find_hub_store_rows = rows;
-    timingOut.find_hub_store_via = error ? "error" : rows > 0 ? "postgrest" : "empty";
-    timingOut.find_hub_store_cache_hit = 0;
-    timingOut.find_hub_store_cache_age_ms = 0;
-    if (error) timingOut.find_hub_store_error = error.slice(0, 120);
-    logFindHubStorePerf(timingOut, uid.slice(0, 8));
+  const existing = findOwnerHubStoreInflight.get(uid);
+  if (existing) {
+    const hubStore = await existing;
+    const totalMs = devPerfNow() - total0;
+    if (timingOut) {
+      timingOut.find_hub_store_ms = Math.round(totalMs);
+      timingOut.find_hub_store_query_ms = 0;
+      timingOut.find_hub_store_permission_join_ms = 0;
+      timingOut.find_hub_store_rows = hubStore ? 1 : 0;
+      timingOut.find_hub_store_via = "memory";
+      timingOut.find_hub_store_cache_hit = 1;
+      timingOut.find_hub_store_cache_age_ms = 0;
+    }
+    return hubStore;
   }
-  return hubStore;
+
+  const flight = (async (): Promise<HubStoreLiteRow | null> => {
+    const query0 = devPerfNow();
+    const { hubStore, rows, error } = await findOwnerHubStoreViaPostgrest(storesSb, uid);
+    const queryMs = devPerfNow() - query0;
+    writeOwnerHubStoreLookupMemory(uid, hubStore);
+    const totalMs = devPerfNow() - total0;
+    if (timingOut) {
+      timingOut.find_hub_store_ms = Math.round(totalMs);
+      timingOut.find_hub_store_query_ms = Math.round(queryMs);
+      timingOut.find_hub_store_permission_join_ms = 0;
+      timingOut.find_hub_store_rows = rows;
+      timingOut.find_hub_store_via = error ? "error" : rows > 0 ? "postgrest" : "empty";
+      timingOut.find_hub_store_cache_hit = 0;
+      timingOut.find_hub_store_cache_age_ms = 0;
+      if (error) timingOut.find_hub_store_error = error.slice(0, 120);
+      logFindHubStorePerf(timingOut, uid.slice(0, 8));
+    }
+    return hubStore;
+  })().finally(() => {
+    if (findOwnerHubStoreInflight.get(uid) === flight) {
+      findOwnerHubStoreInflight.delete(uid);
+    }
+  });
+
+  findOwnerHubStoreInflight.set(uid, flight);
+  return flight;
 }
 
 export type OwnerHubBadgeStoreAttentionTiming = {
@@ -475,27 +506,68 @@ export async function buildOwnerHubBadgePayloadWithMeta(
   const findHubStoreTiming = emptyFindOwnerHubStoreTiming();
   let findHubStoreError = false;
   const wave1Start = devPerfNow();
-  const unreadPartsPromise = getCachedUserChatUnreadParts(sbAny, userId);
-  const hubStorePromise = (async () => {
+  const cmUnreadTiming = emptyCmUnreadTiming();
+  const storeOrderUnreadTiming = emptyStoreOrderUnreadTiming();
+  let cmUnreadFallback = false;
+  let storeOrderUnreadFallback = false;
+
+  /**
+   * wave1: find_hub_store 선행 → no_hub 이면 unread_parts·store_order 경로 RPC 생략(cm_unread만).
+   * cm_unread 는 community_messenger_participants — unread_parts(philife/trade chat_rooms)와 소스 분리(이중 집계 없음).
+   */
+  const cmUnreadPromise = (async () => {
     try {
-      return await findOwnerHubStore(storesSb, userId, findHubStoreTiming);
+      return await sumCommunityMessengerParticipantUnread(sbAny, userId, cmUnreadTiming);
     } catch {
-      findHubStoreError = true;
-      findHubStoreTiming.find_hub_store_via = "error";
-      return null;
+      cmUnreadFallback = true;
+      cmUnreadTiming.cm_unread_via = "error";
+      return 0;
     }
   })();
-  const [unreadParts, hubStore] = await Promise.all([unreadPartsPromise, hubStorePromise]);
+
+  let hubStore: HubStoreLiteRow | null = null;
+  try {
+    /** find_hub 선행(병렬 cm_unread 와 RTT 겹침) — no_hub 판정 후 unread_parts 만 생략 */
+    hubStore = await findOwnerHubStore(storesSb, userId, findHubStoreTiming);
+  } catch {
+    findHubStoreError = true;
+    findHubStoreTiming.find_hub_store_via = "error";
+    hubStore = null;
+  }
+
+  const hasOwnerStoreEarly = hubStore != null;
+  const noHubFastPath = !hasOwnerStoreEarly;
+
+  let unreadParts: Awaited<ReturnType<typeof getCachedUserChatUnreadParts>>;
+  let communityMessengerUnread: number;
+  if (hasOwnerStoreEarly) {
+    [unreadParts, communityMessengerUnread] = await Promise.all([
+      getCachedUserChatUnreadParts(sbAny, userId),
+      cmUnreadPromise,
+    ]);
+  } else {
+    unreadParts = zeroUnreadPartsForNoHubStore();
+    communityMessengerUnread = await cmUnreadPromise;
+    if (process.env.NODE_ENV === "development") {
+      // eslint-disable-next-line no-console -- no-hub fast path verify
+      console.info("[hub-badge-no-hub-fast-path]", {
+        user_id_short: userId.slice(0, 8),
+        find_hub_store_rows: findHubStoreTiming.find_hub_store_rows ?? 0,
+        unread_parts_skipped: 1,
+      });
+    }
+  }
   const queryWave1Ms = devPerfNow() - wave1Start;
   const unreadPartsMeta = peekLastUnreadPartsComputeMeta();
   const unreadPartsMs = Math.round(unreadPartsMeta?.total_ms ?? 0);
   const unreadPartsVia = unreadPartsMeta?.via;
   const findHubStoreMs = findHubStoreTiming.find_hub_store_ms;
+  const cmUnreadMsEarly = cmUnreadTiming.cm_unread_ms;
   const wave1ParallelSlackMs = Math.max(
     0,
-    Math.round(queryWave1Ms - Math.max(unreadPartsMs, findHubStoreMs))
+    Math.round(queryWave1Ms - Math.max(unreadPartsMs, findHubStoreMs, cmUnreadMsEarly))
   );
-  const hasOwnerStore = hubStore != null;
+  const hasOwnerStore = hasOwnerStoreEarly;
 
   const storeAttentionPrefetchStartedAt =
     hasOwnerStore && storesSb && hubStore ? devPerfNow() : undefined;
@@ -504,23 +576,10 @@ export async function buildOwnerHubBadgePayloadWithMeta(
       ? getOwnerHubStoreAttentionCounts(storesSb!, hubStore.id)
       : null;
 
-  const cmUnreadTiming = emptyCmUnreadTiming();
-  const storeOrderUnreadTiming = emptyStoreOrderUnreadTiming();
-  let cmUnreadFallback = false;
-  let storeOrderUnreadFallback = false;
   const wave2Start = devPerfNow();
-  const [communityMessengerUnread, storeOrderChatUnread] = await Promise.all([
-    (async () => {
-      try {
-        return await sumCommunityMessengerParticipantUnread(sbAny, userId, cmUnreadTiming);
-      } catch {
-        cmUnreadFallback = true;
-        cmUnreadTiming.cm_unread_via = "error";
-        return 0;
-      }
-    })(),
+  const storeOrderChatUnread =
     hasOwnerStore && storesSb && hubStore
-      ? (async () => {
+      ? await (async () => {
           try {
             return await countOwnerStoreOrderMessengerUnreadForHubStore(
               storesSb as SupabaseClient<any>,
@@ -534,11 +593,10 @@ export async function buildOwnerHubBadgePayloadWithMeta(
             return 0;
           }
         })()
-      : (async () => {
+      : await (async () => {
           storeOrderUnreadTiming.store_order_unread_via = "skipped_no_hub";
           return 0;
-        })(),
-  ]);
+        })();
   const queryWave2Ms = devPerfNow() - wave2Start;
   const cmUnreadMs = cmUnreadTiming.cm_unread_ms;
   const storeOrderUnreadMs = storeOrderUnreadTiming.store_order_unread_ms;
@@ -583,10 +641,13 @@ export async function buildOwnerHubBadgePayloadWithMeta(
   const payloadBuildMs = devPerfNow() - merge0;
   const payloadBuildTotalMs = devPerfNow() - build0;
 
+  const wave1WorstMs = Math.max(unreadPartsMs, findHubStoreMs, cmUnreadMsEarly);
   const wave1Worst =
-    unreadPartsMs >= findHubStoreMs ?
-      { stage: "unread_parts" as const, ms: unreadPartsMs }
-    : { stage: "find_hub_store" as const, ms: findHubStoreMs };
+    wave1WorstMs === unreadPartsMs
+      ? { stage: "unread_parts" as const, ms: unreadPartsMs }
+      : wave1WorstMs === findHubStoreMs
+        ? { stage: "find_hub_store" as const, ms: findHubStoreMs }
+        : { stage: "cm_unread" as const, ms: cmUnreadMsEarly };
 
   const { worst_stage, worst_stage_ms } = pickWorstStage([
     { stage: "unread_parts", ms: unreadPartsMs },
@@ -607,6 +668,7 @@ export async function buildOwnerHubBadgePayloadWithMeta(
     find_hub_store_ms: Math.round(findHubStoreMs),
     unread_parts_ms: unreadPartsMs,
     ...(unreadPartsVia ? { unread_parts_via: unreadPartsVia } : {}),
+    ...(noHubFastPath ? { no_hub_fast_path: 1 as const } : {}),
     ...(unreadPartsMeta?.unread_memory_hit != null
       ? { unread_memory_hit: unreadPartsMeta.unread_memory_hit }
       : {}),

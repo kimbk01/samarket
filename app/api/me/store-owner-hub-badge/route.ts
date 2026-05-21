@@ -34,6 +34,11 @@ import { peekLastUnreadPartsComputeMeta } from "@/lib/chat/user-chat-unread-part
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
 import { logRoutePerf } from "@/lib/http/route-perf-log";
+import {
+  buildOwnerDashboardPerfV2,
+  logOwnerDashboardPerfV2,
+} from "@/lib/stores/owner-dashboard-perf-v2";
+import { observeCmUnreadAggregateOnHubRouteCacheHit } from "@/lib/community-messenger/cm-unread-room-count-aggregate";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -131,6 +136,7 @@ export async function GET(request: Request) {
     badgeMeta = built.meta;
     hubBreakdown = built.breakdown;
   } else if (ttlCacheHit) {
+    observeCmUnreadAggregateOnHubRouteCacheHit(userId);
     payload = await getCachedOwnerHubBadge(userId, async () => {
       const built = await buildOwnerHubBadgePayloadWithMeta(sbAny, storesSb, userId);
       hubBreakdown = built.breakdown;
@@ -189,6 +195,7 @@ export async function GET(request: Request) {
   const hubBadgeDeferred =
     request.headers.get("x-samarket-hub-badge-deferred") === "1" ||
     request.headers.get("x-samarket-first-paint-blocking") === "0";
+  const singleflightHit = inFlightBefore ? 1 : 0;
   logRoutePerf({
     route: "/api/me/store-owner-hub-badge",
     total_ms: totalRouteMs,
@@ -239,6 +246,28 @@ export async function GET(request: Request) {
     hub_worst_stage: hubBreakdown?.worst_stage,
     hub_worst_stage_ms: hubBreakdown?.worst_stage_ms,
   });
+
+  logOwnerDashboardPerfV2(
+    buildOwnerDashboardPerfV2({
+      route: "/api/me/store-owner-hub-badge",
+      total_ms: totalRouteMs,
+      auth_ms: authMs,
+      store_lookup_ms: Math.round(findHubStoreMs),
+      unread_rpc_ms: Math.round(unreadPartsMs + cmUnreadMs),
+      order_count_rpc_ms: Math.round(storeAttentionMs),
+      cache_hit: ttlCacheHit ? 1 : 0,
+      singleflight_hit: singleflightHit,
+      first_paint_blocking: !hubBadgeDeferred,
+      ...(hubBreakdown?.no_hub_fast_path ? { no_hub_fast_path: hubBreakdown.no_hub_fast_path } : {}),
+      db_round_trips: ttlCacheHit ? 0 : hubBreakdown?.no_hub_fast_path ? 2 : 3,
+      stages: [
+        { stage: "unread_parts", ms: unreadPartsMs },
+        { stage: "find_hub_store", ms: findHubStoreMs },
+        { stage: "cm_unread", ms: cmUnreadMs },
+        { stage: "store_attention", ms: storeAttentionMs },
+      ],
+    })
+  );
 
   logDevApiPerf("/api/me/store-owner-hub-badge", {
     auth_session_ms: authMs,

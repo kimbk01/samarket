@@ -2,23 +2,19 @@ import { type NextRequest, NextResponse } from "next/server";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { getSupabaseServer } from "@/lib/chat/supabase-server";
 import { filterOwnerStoreCommerceByStoreId } from "@/lib/notifications/filter-owner-store-commerce-notifications";
+import { isOwnerStoreCommerceNotificationRow } from "@/lib/notifications/owner-store-commerce-notification-meta";
 import {
-  isBuyerStoreCommerceNotificationRow,
-  isOwnerStoreCommerceNotificationRow,
-} from "@/lib/notifications/owner-store-commerce-notification-meta";
-import {
-
   getCachedNotificationUnreadCount,
   invalidateNotificationUnreadCountCache,
   type UnreadCountMode,
 } from "@/lib/notifications/notification-unread-count-cache";
 import { isInAppChatMessageNotificationRow } from "@/lib/notifications/inapp-chat-message-notification";
+import { countNotificationUnreadSegmentedServer } from "@/lib/notifications/fetch-segmented-unread-count-server";
+import { fetchOwnerStoreCommerceNotificationsRpc } from "@/lib/notifications/fetch-owner-store-commerce-notifications-rpc";
 import {
-  countBottomNavUnreadServer,
-  countConsumerUnreadNoChatServer,
-  countOwnerStoreCommerceUnreadServer,
-  countUnreadExcludingOwnerCommerceServer,
-} from "@/lib/notifications/fetch-segmented-unread-count-server";
+  buildOwnerDashboardPerfV2,
+  logOwnerDashboardPerfV2,
+} from "@/lib/stores/owner-dashboard-perf-v2";
 import { jsonPayloadBytes, logOwnerDashboardPerf, perfNowMs } from "@/lib/stores/owner-dashboard-perf";
 
 export const runtime = "nodejs";
@@ -38,8 +34,6 @@ function sbOr503() {
     return null;
   }
 }
-
-const UNREAD_SCAN_CAP = 2500;
 
 const INBOX_PUSH_KIND_PARAMS = new Set([
   "chat",
@@ -101,148 +95,43 @@ export async function GET(req: NextRequest) {
           : "all";
 
     try {
-        const unreadCount = await getCachedNotificationUnreadCount(userId, mode, async () => {
-        if (ownerOnly) {
-          try {
-            return await countOwnerStoreCommerceUnreadServer(sb, userId);
-          } catch (fastErr) {
-            console.warn("[GET notifications] owner commerce count fast-path failed, fallback scan", fastErr);
-          }
-        } else if (mode === "consumer_no_chat") {
-          try {
-            return await countConsumerUnreadNoChatServer(sb, userId);
-          } catch (fastErr) {
-            console.warn("[GET notifications] consumer_no_chat count fast-path failed, fallback scan", fastErr);
-          }
-        } else if (mode === "bottom_nav_no_chat") {
-          try {
-            return await countBottomNavUnreadServer(sb, userId);
-          } catch (fastErr) {
-            console.warn("[GET notifications] bottom_nav_no_chat count fast-path failed, fallback scan", fastErr);
-          }
-        } else if (mode === "consumer" && excludeOwner && !excludeBuyerStore && !excludeChatMessage) {
-          try {
-            return await countUnreadExcludingOwnerCommerceServer(sb, userId);
-          } catch (fastErr) {
-            console.warn("[GET notifications] consumer count fast-path failed, fallback scan", fastErr);
-          }
-        }
-
-        if (!excludeOwner && !ownerOnly) {
-          const { count, error } = await sb
-            .from("notifications")
-            .select("id", { count: "exact", head: true })
-            .eq("user_id", userId)
-            .eq("is_read", false);
-
-          if (error) {
-            if (error.message?.includes("notifications") && error.message.includes("does not exist")) {
-              return 0;
-            }
-            throw error;
-          }
-          return count ?? 0;
-        }
-
-        type UnreadScanRow = {
-          id?: unknown;
-          meta?: unknown;
-          notification_type?: string;
-          push_kind?: unknown;
-        };
-
-        let scanQ = sb
-          .from("notifications")
-          .select("id, meta, notification_type, push_kind")
-          .eq("user_id", userId)
-          .eq("is_read", false);
-        /** owner/buyer commerce 분기는 notification_type=commerce 로 1차 축소(응답 shape 동일) */
-        if (ownerOnly || excludeOwner || excludeBuyerStore) {
-          scanQ = scanQ.eq("notification_type", "commerce");
-        }
-        const scanWithPk = await scanQ.limit(UNREAD_SCAN_CAP);
-
-        let data = scanWithPk.data as UnreadScanRow[] | null;
-        let error = scanWithPk.error;
-        if (
-          error &&
-          /push_kind|column|schema cache/i.test(String(error.message ?? ""))
-        ) {
-          let scanFallbackQ = sb
-            .from("notifications")
-            .select("id, meta, notification_type")
-            .eq("user_id", userId)
-            .eq("is_read", false);
-          if (ownerOnly || excludeOwner || excludeBuyerStore) {
-            scanFallbackQ = scanFallbackQ.eq("notification_type", "commerce");
-          }
-          const scanFallback = await scanFallbackQ.limit(UNREAD_SCAN_CAP);
-          data = scanFallback.data as UnreadScanRow[] | null;
-          error = scanFallback.error;
-        }
-
-        if (error) {
-          if (error.message?.includes("notifications") && error.message.includes("does not exist")) {
-            return 0;
-          }
-          if (error.message?.includes("meta") && error.message.includes("does not exist")) {
-            const { count, error: cErr } = await sb
-              .from("notifications")
-              .select("id", { count: "exact", head: true })
-              .eq("user_id", userId)
-              .eq("is_read", false);
-            if (cErr) {
-              throw cErr;
-            }
-            const raw = count ?? 0;
-            return ownerOnly ? 0 : raw;
-          }
-          throw error;
-        }
-
-        const rows = data ?? [];
-        if (ownerOnly) {
-          return rows.filter((r) => isOwnerStoreCommerceNotificationRow(r)).length;
-        }
-        if (mode === "bottom_nav") {
-          return rows.filter(
-            (r) =>
-              !isOwnerStoreCommerceNotificationRow(r) && !isBuyerStoreCommerceNotificationRow(r)
-          ).length;
-        }
-        if (mode === "bottom_nav_no_chat") {
-          return rows.filter(
-            (r) =>
-              !isOwnerStoreCommerceNotificationRow(r) &&
-              !isBuyerStoreCommerceNotificationRow(r) &&
-              !isInAppChatMessageNotificationRow(r)
-          ).length;
-        }
-        if (mode === "consumer_no_chat") {
-          return rows.filter(
-            (r) =>
-              !isOwnerStoreCommerceNotificationRow(r) &&
-              !isInAppChatMessageNotificationRow(r)
-          ).length;
-        }
-        return rows.filter((r) => !isOwnerStoreCommerceNotificationRow(r)).length;
-      });
+      const { value: unreadCount, cache_hit: notifCacheHit, singleflight_hit: notifSingleflightHit } =
+        await getCachedNotificationUnreadCount(userId, mode, async () =>
+          countNotificationUnreadSegmentedServer(sbx, userId, mode)
+        );
 
       const db_ms = Math.round(perfNowMs() - db0);
+      const total_ms = Math.round(perfNowMs() - wall0);
+      const cache_hit: 0 | 1 = notifCacheHit ? 1 : 0;
       const body = { ok: true as const, unread_count: unreadCount };
       if (ownerOnly || excludeOwner) {
         logOwnerDashboardPerf({
           route: "/api/me/notifications",
-          total_ms: Math.round(perfNowMs() - wall0),
+          total_ms,
           auth_ms,
           db_ms,
           count_ms: db_ms,
+          cache_hit,
           owner_store_commerce_unread_only: ownerOnly ? 1 : 0,
           exclude_owner_store_commerce: excludeOwner ? 1 : 0,
           result_count: unreadCount,
           payload_bytes: jsonPayloadBytes(body),
         });
       }
+      logOwnerDashboardPerfV2(
+        buildOwnerDashboardPerfV2({
+          route: "/api/me/notifications",
+          total_ms,
+          auth_ms,
+          notification_count_ms: cache_hit ? 0 : db_ms,
+          cache_hit,
+          singleflight_hit: notifSingleflightHit ? 1 : 0,
+          first_paint_blocking: req.headers.get("x-samarket-first-paint-blocking") !== "0",
+          db_round_trips: cache_hit ? 0 : 1,
+          notifications_via: cache_hit ? "cache" : "rpc_segmented",
+          stages: [{ stage: "notification_count", ms: cache_hit ? 0 : db_ms }],
+        })
+      );
       return NextResponse.json(body);
     } catch (error) {
       const message = error instanceof Error ? error.message : "unknown_error";
@@ -267,6 +156,39 @@ export async function GET(req: NextRequest) {
   const excludeChatMessageList = searchParams.get("exclude_chat_message") === "1";
   const ownerStoreId = searchParams.get("owner_store_id")?.trim() ?? "";
   const ownerListDb0 = ownerStoreId ? perfNowMs() : 0;
+
+  if (ownerStoreId) {
+    const listRpc0 = perfNowMs();
+    const listRpc = await fetchOwnerStoreCommerceNotificationsRpc(sbx, userId, ownerStoreId, 200);
+    const listRpcMs = Math.round(perfNowMs() - listRpc0);
+    if (listRpc?.ok) {
+      const notifications = listRpc.notifications;
+      const body = { ok: true as const, notifications };
+      logOwnerDashboardPerf({
+        route: "/api/me/notifications",
+        store_id: ownerStoreId,
+        total_ms: Math.round(perfNowMs() - wall0),
+        auth_ms,
+        db_ms: listRpcMs,
+        list_ms: listRpcMs,
+        result_count: notifications.length,
+        payload_bytes: jsonPayloadBytes(body),
+      });
+      logOwnerDashboardPerfV2(
+        buildOwnerDashboardPerfV2({
+          route: "/api/me/notifications",
+          total_ms: Math.round(perfNowMs() - wall0),
+          auth_ms,
+          notification_count_ms: listRpcMs,
+          cache_hit: 0,
+          db_round_trips: 1,
+          notifications_via: "rpc_owner_store_list",
+          stages: [{ stage: "owner_store_list", ms: listRpcMs }],
+        })
+      );
+      return NextResponse.json(body);
+    }
+  }
 
   const rawLimitParam = searchParams.get("limit");
   const rawOffsetParam = searchParams.get("offset");

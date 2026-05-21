@@ -11,6 +11,7 @@ export type MarkReadParticipantSnapshotDiag = {
   snapshot_cache_hit?: number;
   snapshot_request_local_hit?: number;
   snapshot_singleflight_hit?: number;
+  snapshot_lookup_cache_hit?: 0 | 1;
 };
 
 export const MARK_READ_PARTICIPANT_SNAPSHOT_TTL_MS = (() => {
@@ -112,6 +113,36 @@ export function storeMarkReadParticipantSnapshotsFromRow(
   rememberSnapshotKeys(keys, snap);
 }
 
+/**
+ * TTL 메모리만 조회 — cold open combined RPC 전 warm duplicate 판정용(네트워크 SELECT 없음).
+ */
+export function probeMarkReadParticipantSnapshotCacheOnly(
+  userId: string,
+  roomId: string,
+  requestedLastReadMessageId: string,
+  flushOpen: boolean
+): MarkReadParticipantSnapshot | null {
+  const normReq = requestedLastReadMessageId ? normalizeMessengerReadCursorKey(requestedLastReadMessageId) : "";
+  const keysToProbe: string[] = [markReadSnapshotStorageKey(userId, roomId, requestedLastReadMessageId, flushOpen)];
+  if (normReq && flushOpen) keysToProbe.push(markReadSnapshotStorageKey(userId, roomId, "", true));
+  if (flushOpen && !normReq) keysToProbe.push(markReadSnapshotStorageKey(userId, roomId, "", true));
+
+  const nowMs = Date.now();
+  for (const fk of keysToProbe) {
+    const ent = markReadParticipantSnapshotByKey.get(fk);
+    if (!ent || ent.expiresAt <= nowMs) continue;
+    if (normReq) {
+      if (!snapshotTtlHit(ent.snap, normReq)) continue;
+    } else if (flushOpen) {
+      if (ent.snap.unreadCount !== 0) continue;
+    } else {
+      continue;
+    }
+    return ent.snap;
+  }
+  return null;
+}
+
 export async function loadMarkReadParticipantRowWithSnapshotCache(
   sb: any,
   userId: string,
@@ -127,27 +158,30 @@ export async function loadMarkReadParticipantRowWithSnapshotCache(
     diag.mark_read_snapshot_cache_key = primaryKey.length > 220 ? primaryKey.slice(0, 220) : primaryKey;
   }
 
-  /**
-   * TTL 스킵은 **요청 커서가 있을 때만** — `flushOpen` 만 있고 message id 가 없으면
-   * 짧은 창 내 unread 변동을 놓칠 수 있어 SELECT 생략하지 않는다(정합).
-   */
-  if (normReq) {
-    const keysToProbe: string[] = [primaryKey];
-    if (flushOpen) keysToProbe.push(markReadSnapshotStorageKey(userId, roomId, "", true));
-    const nowMs = Date.now();
-    for (const fk of keysToProbe) {
-      const ent = markReadParticipantSnapshotByKey.get(fk);
-      if (!ent || ent.expiresAt <= nowMs) continue;
-      if (snapshotTtlHit(ent.snap, normReq)) {
-        if (diag) {
-          diag.mark_read_existing_snapshot_cache_hit = 1;
-          diag.mark_read_existing_snapshot_reuse = 1;
-          diag.snapshot_cache_hit = 1;
-          diag.snapshot_request_local_hit = 1;
-        }
-        return markReadSnapshotToParticipantRow(ent.snap);
-      }
+  const keysToProbe: string[] = [primaryKey];
+  if (normReq && flushOpen) keysToProbe.push(markReadSnapshotStorageKey(userId, roomId, "", true));
+  if (flushOpen && !normReq) keysToProbe.push(markReadSnapshotStorageKey(userId, roomId, "", true));
+
+  const nowMs = Date.now();
+  for (const fk of keysToProbe) {
+    const ent = markReadParticipantSnapshotByKey.get(fk);
+    if (!ent || ent.expiresAt <= nowMs) continue;
+    if (normReq) {
+      if (!snapshotTtlHit(ent.snap, normReq)) continue;
+    } else if (flushOpen) {
+      /** open_tail 반복 — unread 0 일 때만 TTL 적중(짧은 창, 신규 메시지는 다음 요청에서 SELECT) */
+      if (ent.snap.unreadCount !== 0) continue;
+    } else {
+      continue;
     }
+    if (diag) {
+      diag.mark_read_existing_snapshot_cache_hit = 1;
+      diag.mark_read_existing_snapshot_reuse = 1;
+      diag.snapshot_cache_hit = 1;
+      diag.snapshot_request_local_hit = 1;
+      diag.snapshot_lookup_cache_hit = 1;
+    }
+    return markReadSnapshotToParticipantRow(ent.snap);
   }
 
   const infl = markReadParticipantSnapshotInflight.get(primaryKey);

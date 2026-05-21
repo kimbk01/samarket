@@ -6,6 +6,7 @@ import { cache } from "react";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { loadOwnerProductsListSnapshot } from "@/lib/stores/owner-products-list-snapshot";
 
 const ownerStoreReadCtx = cache(
   async (
@@ -105,31 +106,14 @@ export const loadOwnerProductsListForRsc = cache(
     const ctx = await ownerStoreReadCtx(storeId);
     if (!ctx.ok) return { ok: false, error: ctx.error };
 
-    const { data: products, error: pErr } = await ctx.sb
-      .from("store_products")
-      .select(
-        [
-          "id, store_id, title, summary, price, discount_price, discount_percent, stock_qty, track_inventory",
-          "thumbnail_url, product_status, pickup_available, local_delivery_available, shipping_available",
-          "category_id, menu_section_id, item_type, is_featured, is_owner_recommended, is_representative, sort_order",
-          "created_at, updated_at",
-          "store_menu_sections ( id, name, sort_order, is_hidden )",
-          "store_product_categories ( name, slug )",
-        ].join(", ")
-      )
-      .eq("store_id", ctx.sid)
-      .not("product_status", "eq", "deleted")
-      .order("is_featured", { ascending: false })
-      .order("sort_order", { ascending: true })
-      .order("created_at", { ascending: false });
-
-    if (pErr) {
-      return { ok: false, error: pErr.message };
+    const loaded = await loadOwnerProductsListSnapshot(ctx.sb as import("@supabase/supabase-js").SupabaseClient<any>, ctx.sid);
+    if (!loaded.ok) {
+      return { ok: false, error: loaded.error };
     }
 
     return {
       ok: true,
-      products: (products ?? []) as unknown as OwnerRscHubProduct[],
+      products: loaded.snapshot.products as unknown as OwnerRscHubProduct[],
     };
   }
 );

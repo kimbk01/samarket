@@ -1,0 +1,29 @@
+{
+  "recordedAt": "2026-05-21",
+  "scenario": "GET /api/community-messenger/bootstrap?lite=1&fresh=1 (warm run 2+, bundle_rpc deployed)",
+  "baseline": {
+    "rooms_fetch_path": "bundle_rpc",
+    "warm_total_api_ms": 310,
+    "warm_rooms_query_ms": 281,
+    "warm_parallel_initial_wall_ms": 282,
+    "profiles_query_ms": 0,
+    "trade_enrich_ms": 2,
+    "enrich_trade_middle_ms": 0,
+    "enrich_trade_direct_keys_ms": 2,
+    "friends_query_ms": 0,
+    "requests_query_ms": 0,
+    "payload_kb": 23.312,
+    "room_count": 22,
+    "participant_count": 43
+  },
+  "thresholds": {
+    "warm_total_api_ms_max": 500,
+    "warm_rooms_query_ms_max": 300,
+    "warm_profiles_query_ms_max": 50,
+    "warm_parallel_initial_wall_ms_max": 320,
+    "trade_enrich_ms_max": 20,
+    "enrich_trade_middle_ms_max": 0,
+    "payload_kb_max": 35,
+    "room_count_min": 1
+  }
+}

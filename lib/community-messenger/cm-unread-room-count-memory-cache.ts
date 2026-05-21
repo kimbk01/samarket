@@ -10,7 +10,17 @@ type MemoryEntry = {
   expiresAt: number;
 };
 
-const memoryByUser = new Map<string, MemoryEntry>();
+type CmUnreadMemoryCacheGlobal = {
+  __samarketCmUnreadRoomCountMemoryCache?: Map<string, MemoryEntry>;
+};
+
+function memoryByUser(): Map<string, MemoryEntry> {
+  const g = globalThis as CmUnreadMemoryCacheGlobal;
+  if (!g.__samarketCmUnreadRoomCountMemoryCache) {
+    g.__samarketCmUnreadRoomCountMemoryCache = new Map();
+  }
+  return g.__samarketCmUnreadRoomCountMemoryCache;
+}
 
 export function communityMessengerUnreadMemoryTtlMs(): number {
   const raw = process.env.HUB_BADGE_CM_UNREAD_MEMORY_TTL_MS?.trim();
@@ -22,17 +32,18 @@ export function communityMessengerUnreadMemoryTtlMs(): number {
 export function invalidateCommunityMessengerUnreadTotalCache(userId: string): void {
   const k = userId.trim();
   if (!k) return;
-  memoryByUser.delete(k);
+  memoryByUser().delete(k);
 }
 
 function pruneExpired(now: number) {
-  for (const [key, row] of memoryByUser) {
-    if (row.expiresAt <= now) memoryByUser.delete(key);
+  const mem = memoryByUser();
+  for (const [key, row] of mem) {
+    if (row.expiresAt <= now) mem.delete(key);
   }
-  while (memoryByUser.size > 500) {
-    const first = memoryByUser.keys().next().value;
+  while (mem.size > 500) {
+    const first = mem.keys().next().value;
     if (first === undefined) break;
-    memoryByUser.delete(first);
+    mem.delete(first);
   }
 }
 
@@ -45,10 +56,10 @@ export function readCmUnreadRoomCountMemory(userId: string): CmUnreadRoomCountMe
   if (!k) return { hit: false, reason: "miss" };
   const now = Date.now();
   pruneExpired(now);
-  const row = memoryByUser.get(k);
+  const row = memoryByUser().get(k);
   if (!row) return { hit: false, reason: "miss" };
   if (row.expiresAt <= now) {
-    memoryByUser.delete(k);
+    memoryByUser().delete(k);
     return { hit: false, reason: "expired" };
   }
   return {
@@ -63,7 +74,7 @@ export function writeCmUnreadRoomCountMemory(userId: string, unreadRoomCount: nu
   if (!k) return;
   const now = Date.now();
   const ttl = communityMessengerUnreadMemoryTtlMs();
-  memoryByUser.set(k, {
+  memoryByUser().set(k, {
     unreadRoomCount: Math.max(0, Math.floor(unreadRoomCount) || 0),
     cachedAt: now,
     expiresAt: now + ttl,

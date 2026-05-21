@@ -17,6 +17,12 @@ import {
   type StoreOrderCountsPayload,
 } from "@/lib/stores/store-order-counts-cache";
 import { jsonPayloadBytes, logOwnerDashboardPerf, perfNowMs } from "@/lib/stores/owner-dashboard-perf";
+import { mapBuyerUserIdsToPublicLabelsCached } from "@/lib/stores/buyer-public-label-cache";
+import { logOwnerOrdersListPerf } from "@/lib/stores/owner-orders-list-perf";
+import {
+  peekOwnerStoreOrdersListServerCache,
+  setOwnerStoreOrdersListServerCache,
+} from "@/lib/stores/owner-store-orders-list-server-cache";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -80,6 +86,43 @@ export async function GET(
   }
 
   const metaOnly = new URL(req.url).searchParams.get("meta_only") === "1";
+
+  if (!metaOnly) {
+    const listCached = peekOwnerStoreOrdersListServerCache(id, userId);
+    if (listCached) {
+      const body = { ok: true as const, meta: listCached.meta, orders: listCached.orders };
+      const total_ms = Math.round(perfNowMs() - wall0);
+      logOwnerDashboardPerf({
+        route: ROUTE,
+        store_id: id,
+        total_ms,
+        auth_ms,
+        ownership_ms,
+        db_ms: 0,
+        list_ms: 0,
+        transform_ms: 0,
+        ownership_cache_hit: ownershipCachedBefore ? 1 : 0,
+        result_count: listCached.orders.length,
+        payload_bytes: jsonPayloadBytes(body),
+      });
+      logOwnerOrdersListPerf({
+        route: ROUTE,
+        rpc_ms: 0,
+        transform_ms: 0,
+        payload_kb: jsonPayloadBytes(body) / 1024,
+        normalize_ms: 0,
+        attach_ms: 0,
+        serialization_ms: 0,
+        list_snapshot_hit: 1,
+        list_snapshot_singleflight_hit: 0,
+        detail_fields_removed: 0,
+        db_round_trips: 0,
+        buyer_label_cache_hit: 1,
+        total_ms,
+      });
+      return NextResponse.json(body);
+    }
+  }
 
   const db0 = perfNowMs();
 
@@ -170,8 +213,10 @@ export async function GET(
   const buyerIds = list.map((o) => String((o as { buyer_user_id?: string }).buyer_user_id ?? "").trim());
   const orderIds = list.map((o) => o.id as string);
 
-  const [buyerPublicById, itemsRes, revRes] = await Promise.all([
-    mapBuyerUserIdsToPublicLabels(sb, buyerIds),
+  const label0 = perfNowMs();
+  const buyerLabelPromise = mapBuyerUserIdsToPublicLabelsCached(sb, buyerIds);
+  const [buyerLabelRes, itemsRes, revRes] = await Promise.all([
+    buyerLabelPromise,
     orderIds.length > 0
       ? sb
           .from("store_order_items")
@@ -182,6 +227,9 @@ export async function GET(
       ? sb.from("store_reviews").select("id, order_id").in("order_id", orderIds)
       : Promise.resolve({ data: [] as Record<string, unknown>[], error: null as null }),
   ]);
+
+  const { labels: buyerPublicById, cache_hit: buyer_label_cache_hit } = buyerLabelRes;
+  const normalize_ms = Math.round(perfNowMs() - label0);
 
   if (itemsRes.error) {
     console.error("[GET store order items]", itemsRes.error);
@@ -219,6 +267,7 @@ export async function GET(
     }
   }
 
+  const attach0 = perfNowMs();
   const orders = list.map((o) => {
     const bid = String((o as { buyer_user_id?: string }).buyer_user_id ?? "").trim();
     return {
@@ -237,10 +286,37 @@ export async function GET(
               : "pending",
     };
   });
+  const attach_ms = Math.round(perfNowMs() - attach0);
   transform_ms = Math.round(perfNowMs() - transform0);
 
   const body = { ok: true as const, meta, orders };
   const total_ms = Math.round(perfNowMs() - wall0);
+
+  setOwnerStoreOrdersListServerCache(id, userId, {
+    ok: true,
+    orders: orders as import("@/lib/business/owner-store-order-list-row-bridge").OwnerStoreOrderListRow[],
+    meta: {
+      pending_accept_count: meta.pending_accept_count,
+      refund_requested_count: meta.refund_requested_count,
+      pending_delivery_count: meta.pending_delivery_count,
+    },
+  });
+
+  logOwnerOrdersListPerf({
+    route: ROUTE,
+    rpc_ms: list_ms,
+    transform_ms,
+    payload_kb: jsonPayloadBytes(body) / 1024,
+    normalize_ms,
+    attach_ms,
+    serialization_ms: 0,
+    list_snapshot_hit: 0,
+    list_snapshot_singleflight_hit: 0,
+    detail_fields_removed: 0,
+    db_round_trips: 3,
+    buyer_label_cache_hit: buyer_label_cache_hit ? 1 : 0,
+    total_ms,
+  });
 
   logOwnerDashboardPerf({
     route: ROUTE,

@@ -13,7 +13,20 @@ import {
 import { isPrivilegedAdminRole } from "@/lib/auth/admin-policy";
 import type { RequestSessionMeta } from "@/lib/auth/request-device-info";
 import { hasPhilippinePhoneVerification, STORE_PHONE_GATE_MESSAGE } from "@/lib/auth/store-member-policy";
-import { invalidateUserSessionRegistry, syncUserSessionRegistry, validateUserSessionRegistry } from "@/lib/auth/user-session-registry";
+import {
+  emptyAuthHotPathBreakdown,
+  logAuthHotPathBreakdown,
+  type AuthHotPathBreakdown,
+} from "@/lib/auth/auth-hot-path-breakdown";
+import {
+  peekAuthLightSessionSnapshot,
+  setAuthLightSessionSnapshot,
+} from "@/lib/auth/auth-light-session-snapshot-cache";
+import {
+  invalidateUserSessionRegistry,
+  syncUserSessionRegistry,
+  validateUserSessionRegistryCached,
+} from "@/lib/auth/user-session-registry";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { jsonError } from "@/lib/http/api-route";
 import { ensureProfileForUserId } from "@/lib/profile/ensure-profile-for-user-id";
@@ -60,7 +73,7 @@ export async function validateActiveSession(
   }
   const sb = tryCreateSupabaseServiceClient();
   if (sb) {
-    const registryOk = await validateUserSessionRegistry(sb, userId, sessionId);
+    const { ok: registryOk } = await validateUserSessionRegistryCached(sb, userId, sessionId);
     if (!registryOk) {
       if (activeSessionId && activeSessionId !== sessionId) {
         return { ok: false, response: sessionReplacedResponse(), profile };
@@ -84,43 +97,101 @@ export async function validateActiveSession(
  */
 export async function validateActiveSessionLight(
   userId: string,
-  currentSessionId?: string | null
-): Promise<{ ok: true } | { ok: false; response: NextResponse }> {
+  currentSessionId?: string | null,
+  opts?: { route?: string; logBreakdown?: boolean }
+): Promise<{ ok: true; breakdown?: AuthHotPathBreakdown } | { ok: false; response: NextResponse; breakdown?: AuthHotPathBreakdown }> {
+  const total0 = devPerfNow();
+  const breakdown = emptyAuthHotPathBreakdown();
+  const cacheLookup0 = devPerfNow();
+  breakdown.auth_cache_lookup_ms = Math.round(devPerfNow() - cacheLookup0);
+
+  const cookie0 = devPerfNow();
+  const sessionId = (currentSessionId ?? (await readActiveSessionIdCookie()) ?? "").trim();
+  breakdown.auth_cookie_parse_ms = Math.round(devPerfNow() - cookie0);
+
+  if (!sessionId) {
+    breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
+    if (opts?.logBreakdown) logAuthHotPathBreakdown({ ...breakdown, route: opts.route, phase: "light" });
+    return { ok: false, response: jsonError("로그인이 필요합니다.", 401, { authenticated: false }), breakdown };
+  }
+
+  const snap = peekAuthLightSessionSnapshot(userId, sessionId);
+  if (snap.hit) {
+    breakdown.auth_cache_hit = 1;
+    breakdown.auth_same_session_hit = 1;
+    breakdown.auth_ttl_remaining_ms = Math.round(snap.ttlRemainingMs);
+    breakdown.auth_db_round_trips = 0;
+    breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
+    if (opts?.logBreakdown) {
+      logAuthHotPathBreakdown({
+        ...breakdown,
+        route: opts.route,
+        phase: "light_snapshot",
+        auth_source: "light_snapshot",
+      });
+    }
+    return { ok: true, breakdown };
+  }
+
   const sbRead = tryCreateSupabaseServiceClient() ?? (await createSupabaseRouteHandlerClient());
   if (!sbRead) {
-    return { ok: false, response: jsonError("인증 설정이 준비되지 않았습니다.", 503, { authenticated: false }) };
+    breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
+    return { ok: false, response: jsonError("인증 설정이 준비되지 않았습니다.", 503, { authenticated: false }), breakdown };
   }
+
+  let activeSessionId = "";
+  let dbTrips = 0;
+  const profile0 = devPerfNow();
   const { data: pr, error } = await sbRead
     .from("profiles")
     .select("active_session_id")
     .eq("id", userId)
     .maybeSingle();
+  breakdown.auth_profile_sync_ms = Math.round(devPerfNow() - profile0);
+  dbTrips += 1;
   if (error || !pr) {
-    return { ok: false, response: jsonError("프로필을 찾을 수 없습니다.", 404) };
+    breakdown.auth_db_round_trips = dbTrips;
+    breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
+    return { ok: false, response: jsonError("프로필을 찾을 수 없습니다.", 404), breakdown };
   }
-  const activeSessionId = String((pr as { active_session_id?: string | null }).active_session_id ?? "").trim();
-  const sessionId = (currentSessionId ?? (await readActiveSessionIdCookie()) ?? "").trim();
-  if (!sessionId) {
-    return { ok: false, response: jsonError("로그인이 필요합니다.", 401, { authenticated: false }) };
-  }
+  activeSessionId = String((pr as { active_session_id?: string | null }).active_session_id ?? "").trim();
+
   const sb = tryCreateSupabaseServiceClient();
   if (sb) {
-    const registryOk = await validateUserSessionRegistry(sb, userId, sessionId);
+    const reg0 = devPerfNow();
+    const { ok: registryOk, cacheHit: regCacheHit } = await validateUserSessionRegistryCached(sb, userId, sessionId);
+    breakdown.auth_registry_ms = Math.round(devPerfNow() - reg0);
+    if (!regCacheHit) dbTrips += 1;
+    else breakdown.auth_cache_hit = 1;
     if (!registryOk) {
       if (activeSessionId && activeSessionId !== sessionId) {
-        return { ok: false, response: sessionReplacedResponse() };
+        breakdown.auth_db_round_trips = dbTrips;
+        breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
+        return { ok: false, response: sessionReplacedResponse(), breakdown };
       }
-      return { ok: false, response: jsonError("로그인이 필요합니다.", 401, { authenticated: false }) };
+      breakdown.auth_db_round_trips = dbTrips;
+      breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
+      return { ok: false, response: jsonError("로그인이 필요합니다.", 401, { authenticated: false }), breakdown };
     }
   } else {
     if (activeSessionId && activeSessionId !== sessionId) {
-      return { ok: false, response: sessionReplacedResponse() };
+      breakdown.auth_db_round_trips = dbTrips;
+      breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
+      return { ok: false, response: sessionReplacedResponse(), breakdown };
     }
     if (!activeSessionId && !sessionId) {
-      return { ok: false, response: jsonError("로그인이 필요합니다.", 401, { authenticated: false }) };
+      breakdown.auth_db_round_trips = dbTrips;
+      breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
+      return { ok: false, response: jsonError("로그인이 필요합니다.", 401, { authenticated: false }), breakdown };
     }
   }
-  return { ok: true };
+
+  setAuthLightSessionSnapshot(userId, sessionId, activeSessionId);
+  breakdown.auth_db_round_trips = dbTrips;
+  breakdown.auth_validate_ms = breakdown.auth_profile_sync_ms + breakdown.auth_registry_ms;
+  breakdown.auth_total_ms = Math.round(devPerfNow() - total0);
+  if (opts?.logBreakdown) logAuthHotPathBreakdown({ ...breakdown, route: opts.route, phase: "light" });
+  return { ok: true, breakdown };
 }
 
 export async function requirePhoneVerified(

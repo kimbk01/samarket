@@ -10,7 +10,9 @@ export type HubBadgeBreakdown = {
   auth_ms?: number;
   find_hub_store_ms: number;
   unread_parts_ms: number;
-  unread_parts_via?: "memory" | "counter" | "rpc" | "legacy";
+  unread_parts_via?: "memory" | "counter" | "rpc" | "legacy" | "skipped_no_hub";
+  /** find_hub_store_rows=0 — unread_parts·store_order unread RPC 생략 */
+  no_hub_fast_path?: 0 | 1;
   unread_memory_hit?: 0 | 1;
   unread_memory_age_ms?: number;
   unread_counter_hit?: 0 | 1;

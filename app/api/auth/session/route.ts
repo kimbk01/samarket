@@ -103,6 +103,7 @@ export async function GET(request: NextRequest) {
   let dbMs = 0;
   const validate0 = devPerfNow();
   const validated = await validateActiveSessionLightDeduped(userId, sessionFp);
+  // breakdown logged inside validateActiveSessionLight on cache miss
   dbMs = devPerfNow() - validate0;
   if (!validated.ok) {
     mergeAuthCookies(cookieCarrier, validated.response);

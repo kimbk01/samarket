@@ -1,0 +1,7 @@
+{
+  "response_to_first_room_row_ms": 50,
+  "response_to_skeleton_removed_ms": 80,
+  "response_to_list_interactive_ms": 100,
+  "room_list_re_render_max": 2,
+  "server_lite_ms_recommended": 350
+}

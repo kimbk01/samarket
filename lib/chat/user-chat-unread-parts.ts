@@ -52,7 +52,35 @@ export type UnreadPartsQueryStepLog = {
   cache_hit_reason?: string;
 };
 
-export type UnreadPartsComputeVia = "memory" | "counter" | "rpc" | "legacy";
+export type UnreadPartsComputeVia = "memory" | "counter" | "rpc" | "legacy" | "skipped_no_hub";
+
+const EMPTY_UNREAD_PARTS: UserChatUnreadParts = {
+  storeOrderParticipantUnread: 0,
+  itemTradeParticipantUnread: 0,
+  communityParticipantUnread: 0,
+  productChatUnreadDeduped: 0,
+};
+
+/** 오너 허브 매장 없음 — store_order·trade·philife unread_parts RPC 생략 (응답 JSON 0 유지) */
+export function zeroUnreadPartsForNoHubStore(): UserChatUnreadParts {
+  lastUnreadPartsComputeMeta = {
+    total_ms: 0,
+    via: "skipped_no_hub",
+    steps: [
+      {
+        query_name: "skipped_no_hub_store",
+        table: "n/a",
+        total_ms: 0,
+        cache_hit_reason: "no_hub_fast_path",
+      },
+    ],
+    unread_parts_rpc_ms: 0,
+    unread_memory_hit: 0,
+    unread_counter_hit: 0,
+    unread_counter_refresh_ms: 0,
+  };
+  return { ...EMPTY_UNREAD_PARTS };
+}
 
 const unreadPartsFlights = new Map<string, Promise<UserChatUnreadParts>>();
 

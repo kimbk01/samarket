@@ -494,7 +494,7 @@ export function formatConversationTimestamp(value: string): string {
   return `${date.getFullYear()}.${String(month).padStart(2, "0")}.${String(day).padStart(2, "0")} ${hh}:${mm}`;
 }
 
-function unifiedListItemRowVisualEqual(a: UnifiedRoomListItem, b: UnifiedRoomListItem): boolean {
+export function unifiedListItemRowVisualEqual(a: UnifiedRoomListItem, b: UnifiedRoomListItem): boolean {
   return (
     messengerRoomTradeThumbKeyPart(a.room) === messengerRoomTradeThumbKeyPart(b.room) &&
     messengerRoomTradeListMetaSig(a.room) === messengerRoomTradeListMetaSig(b.room) &&

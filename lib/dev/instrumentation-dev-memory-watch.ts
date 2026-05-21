@@ -130,6 +130,9 @@ export function registerDevMemoryWatch(): void {
   };
 
   const startPeriodic = () => {
+    void import("./dev-module-graph-probe").then(({ logDevModuleGraphProbe }) => {
+      logDevModuleGraphProbe("dev-memory-watch-startup");
+    });
     tick(startupDelayMs === 0 ? "startup" : "startup-delayed");
     setInterval(() => tick("interval"), intervalMs);
   };

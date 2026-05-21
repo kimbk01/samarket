@@ -1,0 +1,38 @@
+{
+  "recordedAt": "2026-05-21",
+  "scenario": "PATCH mark_read flushOpen — structure lock PASS (permission cache + combined RPC 1 RTT); local_linked RTT on combined RPC",
+  "structure_pass": {
+    "permission_source": "membership_cache",
+    "membership_cache_hit": 1,
+    "permission_query_ms": 0,
+    "permission_cache_reason": "hit",
+    "mark_read_combined_rpc_used": 1,
+    "mark_read_fetch_existing_ms": 0,
+    "mark_read_db_round_trips": 1,
+    "response_before_broadcast": 1,
+    "warm_duplicate_wall_ms": 11,
+    "patch_room_inflight_dedupe_hit": 1
+  },
+  "local_linked_observed": {
+    "mark_read_combined_rpc_ms": 384,
+    "patch_room_response_wall_ms_cold": 411,
+    "note": "combined_rpc_ms dominated by Supabase linked DB RTT — not a structure regression"
+  },
+  "thresholds": {
+    "local_linked": {
+      "permission_query_ms_seeded_max": 50,
+      "permission_query_ms_cold_no_seed_max": 250,
+      "warm_duplicate_wall_ms_pass": 50,
+      "warm_duplicate_wall_ms_fail": 100,
+      "cold_combined_rpc_ms_warn": 400,
+      "cold_route_wall_ms_warn": 500
+    },
+    "prod_same_region": {
+      "permission_query_ms_max": 10,
+      "cold_open_wall_ms_target": 200,
+      "cold_open_wall_ms_hard": 250,
+      "warm_duplicate_wall_ms_pass": 50,
+      "warm_duplicate_wall_ms_fail": 100
+    }
+  }
+}

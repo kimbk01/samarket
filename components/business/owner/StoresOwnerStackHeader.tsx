@@ -3,19 +3,20 @@
 import type { ReactNode } from "react";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 export function StoresOwnerStackHeader({
   variant,
   backHref,
   backPreferHistory = true,
   backIntercept,
-  backAriaLabel,
+  backAriaLabel = "이전 화면으로",
   shopName,
-  hubSubtitle,
+  hubSubtitle = "매장 운영 센터",
   pageTitle,
   rightSlot,
   desktopInsetLeft = false,
+  /** 허브 대시보드 — 본문 `OwnerDashboardHeader`와 제목 중복 방지 */
+  hideTitle = false,
 }: {
   variant: "hub" | "admin";
   backHref?: string;
@@ -31,11 +32,9 @@ export function StoresOwnerStackHeader({
   rightSlot: ReactNode;
   /** 좌측 고정 사이드바(260px)만큼 헤더 시작 위치 보정 */
   desktopInsetLeft?: boolean;
+  hideTitle?: boolean;
 }) {
-  const { t } = useI18n();
-  const resolvedBackAriaLabel = backAriaLabel ?? t("business_phase7_351");
-  const resolvedHubSubtitle = hubSubtitle ?? t("business_phase7_079");
-  const adminTitle = pageTitle?.trim() ? pageTitle : t("business_phase7_350");
+  const adminTitle = pageTitle?.trim() ? pageTitle : "운영 대시보드";
 
   return (
     <BodyPortal>
@@ -47,22 +46,25 @@ export function StoresOwnerStackHeader({
         <div className="flex h-14 w-full min-w-0 items-center gap-2 pl-[max(0.75rem,env(safe-area-inset-left,0px))] pr-[max(0.75rem,env(safe-area-inset-right,0px))] sm:pl-[max(1rem,env(safe-area-inset-left,0px))] sm:pr-[max(1rem,env(safe-area-inset-right,0px))]">
           {variant === "hub" ?
             backHref ?
-              <AppBackButton backHref={backHref} ariaLabel={resolvedBackAriaLabel} />
+              <AppBackButton backHref={backHref} ariaLabel={backAriaLabel} />
             : <div className="h-10 w-10 shrink-0" aria-hidden />
           : backHref ?
             <AppBackButton
               backHref={backHref}
               interceptBack={backIntercept}
               preferHistoryBack={backPreferHistory}
-              ariaLabel={resolvedBackAriaLabel}
+              ariaLabel={backAriaLabel}
             />
           : null}
           {variant === "hub" ?
             <>
-              <div className="min-w-0 flex-1">
-                <p className="truncate sam-text-body font-semibold leading-tight text-sam-fg">{shopName}</p>
-                <p className="truncate sam-text-xxs leading-tight text-sam-muted">{resolvedHubSubtitle}</p>
-              </div>
+              {hideTitle ?
+                <div className="min-w-0 flex-1" />
+              : <div className="min-w-0 flex-1">
+                  <p className="truncate sam-text-body font-semibold leading-tight text-sam-fg">{shopName}</p>
+                  <p className="truncate sam-text-xxs leading-tight text-sam-muted">{hubSubtitle}</p>
+                </div>
+              }
               <div className="flex shrink-0 items-center gap-1">{rightSlot}</div>
             </>
           : <>

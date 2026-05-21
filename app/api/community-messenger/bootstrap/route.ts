@@ -6,6 +6,10 @@ import type { CommunityMessengerBootstrapDiagnostics } from "@/lib/community-mes
 import type { MessengerBootstrapBreakdown } from "@/lib/community-messenger/monitoring/types";
 import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
 import { messengerVerboseTraceConsoleEnabled } from "@/lib/community-messenger/messenger-trace-console";
+import {
+  sampleFromBootstrapDiagnostics,
+  warnBootstrapLitePerformanceLockIfNeeded,
+} from "@/lib/community-messenger/bootstrap-lite-performance-lock";
 
 /** 1단계: `[cm-bootstrap-v2]` — 동작 변경 없이 관측만 (critical tier 분리 전) */
 function logCmBootstrapV2(params: {
@@ -16,9 +20,22 @@ function logCmBootstrapV2(params: {
   payloadUtf8Bytes: number;
   /** 라우트에서 `getCommunityMessengerBootstrap` 대기 구간(ms); critical 분리 전엔 곧 full monolith */
   fullPayloadMs: number;
+  /** `?lite=1` — perf lock warn 대상 */
+  isLite?: boolean;
 }) {
-  if (!messengerVerboseTraceConsoleEnabled()) return;
   const d = params.diagnostics;
+  if (params.isLite) {
+    const payloadKb = Math.round((params.payloadUtf8Bytes / 1024) * 1000) / 1000;
+    warnBootstrapLitePerformanceLockIfNeeded({
+      sample: sampleFromBootstrapDiagnostics({
+        diagnostics: d,
+        routeTotalMs: params.routeTotalMs,
+        payloadKb,
+      }),
+      requestKey: `${params.routeTotalMs}:${d.bootstrapLiteRoomsFetchPath}:${d.roomCount}`,
+    });
+  }
+  if (!messengerVerboseTraceConsoleEnabled()) return;
   const friendsQueryMs = d.parallelAcceptedFriendsBundleMs + d.parallelFavoriteFriendsMs;
   const dbRoundTrips =
     d.roomsPayloadDbRoundTrips +
@@ -41,6 +58,11 @@ function logCmBootstrapV2(params: {
     ["friends_query_ms", friendsQueryMs],
     ["requests_query_ms", d.parallelFriendRequestsMs],
     ["trade_enrich_ms", tradeEnrichMs],
+    ["enrich_trade_posts_fetch_ms", d.enrichTradePostsFetchMs],
+    ["enrich_trade_category_fetch_ms", d.enrichTradeCategoryFetchMs],
+    ["enrich_trade_seller_fetch_ms", d.enrichTradeSellerHydrateMs],
+    ["enrich_trade_cpu_merge_ms", d.enrichTradeCpuMergeMs],
+    ["enrich_trade_hidden_fallback_ms", d.enrichTradeHiddenFallbackMs],
     ["serialization_ms", params.serializationMs],
   ];
   let worstStage = "";
@@ -67,6 +89,51 @@ function logCmBootstrapV2(params: {
       friends_query_ms: friendsQueryMs,
       requests_query_ms: d.parallelFriendRequestsMs,
       trade_enrich_ms: tradeEnrichMs,
+      enrich_trade_posts_fetch_ms: d.enrichTradePostsFetchMs,
+      enrich_trade_category_fetch_ms: d.enrichTradeCategoryFetchMs,
+      enrich_trade_seller_fetch_ms: d.enrichTradeSellerHydrateMs,
+      enrich_trade_cpu_merge_ms: d.enrichTradeCpuMergeMs,
+      enrich_trade_normalize_ms: d.enrichTradeNormalizeMs,
+      enrich_trade_hidden_fallback_ms: d.enrichTradeHiddenFallbackMs,
+      bootstrap_lite_trade_enrich_fast_path: d.bootstrapLiteTradeEnrichFastPath,
+      bootstrap_lite_trade_heavy_pipeline_skipped: d.bootstrapLiteTradeHeavyPipelineSkipped,
+      bootstrap_lite_heavy_target_count_before: d.bootstrapLiteHeavyTargetCountBefore,
+      bootstrap_lite_heavy_target_count_after_direct_keys: d.bootstrapLiteHeavyTargetCountAfterDirectKeys,
+      bootstrap_lite_heavy_target_reasons_top: d.bootstrapLiteHeavyTargetReasonsTop,
+      bootstrap_lite_missing_only_batch_ms: d.bootstrapLiteMissingOnlyBatchMs,
+      bootstrap_lite_middle_pipeline_blocked: d.bootstrapLiteMiddlePipelineBlocked,
+      bootstrap_lite_deferred_hydration_count: d.bootstrapLiteDeferredHydrationCount,
+      bootstrap_lite_direct_keys_mega_rpc_ms: d.bootstrapLiteDirectKeysMegaRpcMs,
+      bootstrap_lite_direct_keys_mega_cache_reason: d.bootstrapLiteDirectKeysMegaCacheReason,
+      bootstrap_lite_direct_keys_prefetch_wait_ms: d.bootstrapLiteDirectKeysPrefetchWaitMs,
+      bootstrap_lite_direct_keys_parse_apply_ms: d.bootstrapLiteDirectKeysParseApplyMs,
+      bootstrap_lite_direct_keys_mega_network_ms: d.bootstrapLiteDirectKeysMegaNetworkMs,
+      bootstrap_lite_rooms_fetch_ms: d.bootstrapLiteRoomsFetchMs,
+      bootstrap_lite_friends_fetch_ms: d.bootstrapLiteFriendsFetchMs,
+      bootstrap_lite_requests_fetch_ms: d.bootstrapLiteRequestsFetchMs,
+      bootstrap_lite_favorite_fetch_ms: d.bootstrapLiteFavoriteFetchMs,
+      bootstrap_lite_discoverable_fetch_ms: d.bootstrapLiteDiscoverableFetchMs,
+      bootstrap_lite_meetings_fetch_ms: d.bootstrapLiteMeetingsFetchMs,
+      bootstrap_lite_parallel_slowest_stage: d.bootstrapLiteParallelSlowestStage,
+      bootstrap_lite_parallel_slowest_ms: d.bootstrapLiteParallelSlowestMs,
+      bootstrap_lite_social_graph_source: d.bootstrapLiteSocialGraphSource,
+      bootstrap_lite_room_ids_rpc_ms: d.bootstrapLiteRoomIdsRpcMs,
+      bootstrap_lite_rooms_meta_fetch_ms: d.bootstrapLiteRoomsMetaFetchMs,
+      bootstrap_lite_participants_join_ms: d.bootstrapLiteParticipantsJoinMs,
+      bootstrap_lite_last_message_fetch_ms: d.bootstrapLiteLastMessageFetchMs,
+      bootstrap_lite_room_payload_map_ms: d.bootstrapLiteRoomPayloadMapMs,
+      bootstrap_lite_rooms_query_slowest_stage: d.bootstrapLiteRoomsQuerySlowestStage,
+      bootstrap_lite_rooms_query_slowest_ms: d.bootstrapLiteRoomsQuerySlowestMs,
+      bootstrap_lite_rooms_rpc_cache_hit: d.bootstrapLiteRoomsRpcCacheHit,
+      bootstrap_lite_rooms_cache_bypass: d.bootstrapLiteRoomsCacheBypass,
+      bootstrap_lite_room_count_diag: d.bootstrapLiteRoomCount,
+      bootstrap_lite_participant_count_diag: d.bootstrapLiteParticipantCount,
+      bootstrap_lite_rooms_fetch_path: d.bootstrapLiteRoomsFetchPath,
+      bootstrap_lite_profiles_fetch_ms: d.bootstrapLiteProfilesFetchMs,
+      bootstrap_lite_profiles_bundle_embedded_count: d.bootstrapLiteProfilesBundleEmbeddedCount,
+      bootstrap_lite_profiles_miss_fetch_count: d.bootstrapLiteProfilesMissFetchCount,
+      lite_trade_enrich_skipped: d.bootstrapLiteTradeHeavyPipelineSkipped,
+      lite_trade_enrich_ran: tradeEnrichMs > 0,
       serialization_ms: params.serializationMs,
       payload_kb: Math.round((params.payloadUtf8Bytes / 1024) * 1000) / 1000,
       db_round_trips: dbRoundTrips,
@@ -228,12 +295,49 @@ function logCmBootstrapBreakdown(params: {
       enrich_trade_direct_keys_ms: d.enrichTradeDirectKeysMs,
       enrich_trade_middle_ms: d.enrichTradeMiddlePipelineMs,
       enrich_trade_seller_ms: d.enrichTradeSellerHydrateMs,
+      enrich_trade_posts_fetch_ms: d.enrichTradePostsFetchMs,
+      enrich_trade_category_fetch_ms: d.enrichTradeCategoryFetchMs,
+      enrich_trade_cpu_merge_ms: d.enrichTradeCpuMergeMs,
+      enrich_trade_normalize_ms: d.enrichTradeNormalizeMs,
+      enrich_trade_hidden_fallback_ms: d.enrichTradeHiddenFallbackMs,
+      bootstrap_lite_trade_enrich_fast_path: d.bootstrapLiteTradeEnrichFastPath,
+      bootstrap_lite_trade_heavy_pipeline_skipped: d.bootstrapLiteTradeHeavyPipelineSkipped,
+      bootstrap_lite_heavy_target_count_before: d.bootstrapLiteHeavyTargetCountBefore,
+      bootstrap_lite_heavy_target_count_after_direct_keys: d.bootstrapLiteHeavyTargetCountAfterDirectKeys,
+      bootstrap_lite_heavy_target_reasons_top: d.bootstrapLiteHeavyTargetReasonsTop,
+      bootstrap_lite_missing_only_batch_ms: d.bootstrapLiteMissingOnlyBatchMs,
+      bootstrap_lite_middle_pipeline_blocked: d.bootstrapLiteMiddlePipelineBlocked,
+      bootstrap_lite_deferred_hydration_count: d.bootstrapLiteDeferredHydrationCount,
+      bootstrap_lite_direct_keys_mega_rpc_ms: d.bootstrapLiteDirectKeysMegaRpcMs,
+      bootstrap_lite_direct_keys_mega_cache_reason: d.bootstrapLiteDirectKeysMegaCacheReason,
+      bootstrap_lite_direct_keys_prefetch_wait_ms: d.bootstrapLiteDirectKeysPrefetchWaitMs,
+      bootstrap_lite_direct_keys_parse_apply_ms: d.bootstrapLiteDirectKeysParseApplyMs,
+      bootstrap_lite_direct_keys_mega_network_ms: d.bootstrapLiteDirectKeysMegaNetworkMs,
+      bootstrap_lite_rooms_fetch_ms: d.bootstrapLiteRoomsFetchMs,
+      bootstrap_lite_friends_fetch_ms: d.bootstrapLiteFriendsFetchMs,
+      bootstrap_lite_requests_fetch_ms: d.bootstrapLiteRequestsFetchMs,
+      bootstrap_lite_favorite_fetch_ms: d.bootstrapLiteFavoriteFetchMs,
+      bootstrap_lite_discoverable_fetch_ms: d.bootstrapLiteDiscoverableFetchMs,
+      bootstrap_lite_meetings_fetch_ms: d.bootstrapLiteMeetingsFetchMs,
+      bootstrap_lite_parallel_slowest_stage: d.bootstrapLiteParallelSlowestStage,
+      bootstrap_lite_parallel_slowest_ms: d.bootstrapLiteParallelSlowestMs,
+      bootstrap_lite_social_graph_source: d.bootstrapLiteSocialGraphSource,
+      bootstrap_lite_room_ids_rpc_ms: d.bootstrapLiteRoomIdsRpcMs,
+      bootstrap_lite_rooms_meta_fetch_ms: d.bootstrapLiteRoomsMetaFetchMs,
+      bootstrap_lite_participants_join_ms: d.bootstrapLiteParticipantsJoinMs,
+      bootstrap_lite_last_message_fetch_ms: d.bootstrapLiteLastMessageFetchMs,
+      bootstrap_lite_room_payload_map_ms: d.bootstrapLiteRoomPayloadMapMs,
+      bootstrap_lite_rooms_query_slowest_stage: d.bootstrapLiteRoomsQuerySlowestStage,
+      bootstrap_lite_rooms_query_slowest_ms: d.bootstrapLiteRoomsQuerySlowestMs,
+      bootstrap_lite_rooms_rpc_cache_hit: d.bootstrapLiteRoomsRpcCacheHit,
+      bootstrap_lite_rooms_cache_bypass: d.bootstrapLiteRoomsCacheBypass,
       worst_stage: worstStage,
       worst_stage_ms: worstMs,
       timings_valid: timingsValid,
       cache_hit: params.cacheHit,
       mode: params.mode,
-      lite_trade_enrich_skipped: params.mode === "lite",
+      lite_trade_enrich_skipped: d.bootstrapLiteTradeHeavyPipelineSkipped,
+      lite_trade_enrich_ran: d.tradeContextMs > 0,
       background_hydration_scheduled: params.mode === "lite",
       note: timingsValid ? undefined : "per-stage timings require cache miss or ?fresh=1",
     })
@@ -408,7 +512,49 @@ export async function GET(request: NextRequest) {
     enrichTradeDirectKeysMs: 0,
     enrichTradeSellerHydrateMs: 0,
     enrichTradeMiddlePipelineMs: 0,
+    enrichTradePostsFetchMs: 0,
+    enrichTradeCategoryFetchMs: 0,
+    enrichTradeCpuMergeMs: 0,
+    enrichTradeNormalizeMs: 0,
+    enrichTradeHiddenFallbackMs: 0,
+    bootstrapLiteTradeEnrichFastPath: false,
+    bootstrapLiteTradeHeavyPipelineSkipped: false,
+    bootstrapLiteHeavyTargetCountBefore: 0,
+    bootstrapLiteHeavyTargetCountAfterDirectKeys: 0,
+    bootstrapLiteHeavyTargetReasonsTop: "",
+    bootstrapLiteMissingOnlyBatchMs: 0,
+    bootstrapLiteMiddlePipelineBlocked: false,
+    bootstrapLiteDeferredHydrationCount: 0,
+    bootstrapLiteDirectKeysMegaRpcMs: 0,
+    bootstrapLiteDirectKeysMegaCacheReason: "",
+    bootstrapLiteDirectKeysPrefetchWaitMs: 0,
+    bootstrapLiteDirectKeysParseApplyMs: 0,
+    bootstrapLiteDirectKeysMegaNetworkMs: 0,
     bootstrapMonolithWallMs: 0,
+    bootstrapLiteRoomsFetchMs: 0,
+    bootstrapLiteFriendsFetchMs: 0,
+    bootstrapLiteRequestsFetchMs: 0,
+    bootstrapLiteFavoriteFetchMs: 0,
+    bootstrapLiteDiscoverableFetchMs: 0,
+    bootstrapLiteMeetingsFetchMs: 0,
+    bootstrapLiteParallelSlowestStage: "",
+    bootstrapLiteParallelSlowestMs: 0,
+    bootstrapLiteSocialGraphSource: "n/a",
+    bootstrapLiteRoomIdsRpcMs: 0,
+    bootstrapLiteRoomsMetaFetchMs: 0,
+    bootstrapLiteParticipantsJoinMs: 0,
+    bootstrapLiteLastMessageFetchMs: 0,
+    bootstrapLiteRoomPayloadMapMs: 0,
+    bootstrapLiteRoomsQuerySlowestStage: "",
+    bootstrapLiteRoomsQuerySlowestMs: 0,
+    bootstrapLiteRoomsRpcCacheHit: false,
+    bootstrapLiteRoomsCacheBypass: fresh,
+    bootstrapLiteRoomCount: 0,
+    bootstrapLiteParticipantCount: 0,
+    bootstrapLiteRoomsFetchPath: "legacy",
+    bootstrapLiteProfilesBundleEmbeddedCount: 0,
+    bootstrapLiteProfilesMissFetchCount: 0,
+    bootstrapLiteProfilesFetchMs: 0,
   };
   const cacheHit = Boolean(data) && !fresh;
   let fullPayloadAwaitMs = 0;
@@ -423,6 +569,7 @@ export async function GET(request: NextRequest) {
         deferCallLog: lite,
         diagnostics,
         detailedTimingBreakdown: bootstrapDiag,
+        bypassLiteRoomsCache: fresh,
       });
       if (!bootstrapDiag) {
         communityMessengerBootstrapInflight.set(inflightKey, loadPromise);
@@ -544,6 +691,7 @@ export async function GET(request: NextRequest) {
       serializationMs,
       payloadUtf8Bytes,
       fullPayloadMs: fullPayloadAwaitMs,
+      isLite: lite,
     });
     logCmBootstrapBreakdown({
       diagnostics,
@@ -616,6 +764,7 @@ export async function GET(request: NextRequest) {
     serializationMs: serializationMsMain,
     payloadUtf8Bytes: payloadUtf8BytesMain,
     fullPayloadMs: fullPayloadAwaitMs,
+    isLite: lite,
   });
   logCmBootstrapBreakdown({
     diagnostics,

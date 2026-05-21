@@ -1,4 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { fetchOwnerStoreOrderCountsDashboardSnapshot } from "@/lib/stores/fetch-owner-store-order-counts-dashboard-snapshot-rpc";
+import { fetchOwnerStoreOrderCountsViaRpc } from "@/lib/stores/fetch-owner-store-order-counts-rpc";
+import type { OrderCountsColdBreakdown } from "@/lib/stores/order-counts-cold-breakdown";
 import {
   countInProgressOrdersForStore,
   countOpenInquiriesForStore,
@@ -26,19 +29,11 @@ import {
   sumYesterdayCompletedSalesForStore,
 } from "@/lib/stores/owner-store-ops-queries";
 import type { OwnerStoreOpsSnapshot } from "@/lib/stores/owner-store-ops-snapshot";
-import {
-  countPendingAcceptForStore,
-  countPendingDeliveryAcceptForStore,
-} from "@/lib/stores/owner-store-pending-counts";
-import { countRefundRequestedForStore } from "@/lib/stores/owner-store-refund-count";
 
-export type OwnerStoreOrderCounts = OwnerStoreOpsSnapshot;
-
-/** count-only — 목록·join 없음 (허브 KPI·운영 스냅샷 단일 SoT) */
-export async function fetchOwnerStoreOrderCounts(
+async function fetchOwnerStoreOrderCountsLegacySnapshot(
   sb: SupabaseClient<any>,
   storeId: string
-): Promise<OwnerStoreOrderCounts> {
+): Promise<OwnerStoreOpsSnapshot> {
   const [
     refund_requested_count,
     pending_accept_count,
@@ -128,4 +123,55 @@ export async function fetchOwnerStoreOrderCounts(
     option_error_health_available: false,
     store_ops,
   };
+}
+import {
+  countPendingAcceptForStore,
+  countPendingDeliveryAcceptForStore,
+} from "@/lib/stores/owner-store-pending-counts";
+import { countRefundRequestedForStore } from "@/lib/stores/owner-store-refund-count";
+
+export type OwnerStoreOrderCounts = OwnerStoreOpsSnapshot;
+
+export type OwnerStoreOrderCountsVia = "rpc_snapshot" | "rpc" | "legacy";
+
+export type FetchOwnerStoreOrderCountsWithMetaResult =
+  | { snapshot: OwnerStoreOrderCounts; via: OwnerStoreOrderCountsVia }
+  | { gate: { ok: false; status: number; error: string } };
+
+/** count-only — dashboard snapshot 1 RTT → rpc+meta → legacy */
+export async function fetchOwnerStoreOrderCountsWithMeta(
+  sb: SupabaseClient<any>,
+  storeId: string,
+  userId: string,
+  breakdown?: OrderCountsColdBreakdown
+): Promise<FetchOwnerStoreOrderCountsWithMetaResult> {
+  const wall0 = Date.now();
+  const dashboard = await fetchOwnerStoreOrderCountsDashboardSnapshot(sb, storeId, userId, breakdown);
+  if (breakdown) {
+    breakdown.order_counts_cold_parallel_wall_ms = Math.round(Date.now() - wall0);
+  }
+  if (dashboard) {
+    if (!dashboard.ok) return { gate: dashboard };
+    return { snapshot: dashboard.snapshot, via: "rpc_snapshot" };
+  }
+
+  const rpc = await fetchOwnerStoreOrderCountsViaRpc(sb, storeId, breakdown);
+  if (rpc) return { snapshot: rpc.snapshot, via: "rpc" };
+
+  if (process.env.NODE_ENV === "development") {
+    // eslint-disable-next-line no-console -- legacy fallback observability
+    console.warn("[owner-store-ops-counts-legacy-fallback]", { store_id: storeId.trim() });
+  }
+
+  return { snapshot: await fetchOwnerStoreOrderCountsLegacySnapshot(sb, storeId), via: "legacy" };
+}
+
+/** order-counts 외 라우트 — ownership 은 호출측에서 이미 검증된 경우 */
+export async function fetchOwnerStoreOrderCounts(
+  sb: SupabaseClient<any>,
+  storeId: string
+): Promise<OwnerStoreOrderCounts> {
+  const rpc = await fetchOwnerStoreOrderCountsViaRpc(sb, storeId);
+  if (rpc) return rpc.snapshot;
+  return fetchOwnerStoreOrderCountsLegacySnapshot(sb, storeId);
 }

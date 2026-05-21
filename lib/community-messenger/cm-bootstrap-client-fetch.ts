@@ -7,6 +7,8 @@
 import { recordBootVerifyFetch } from "@/lib/app-boot/client-boot-request-journal";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { peekBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
+import { beginCmLiteClientFirstPaintSession } from "@/lib/community-messenger/cm-client-first-paint-perf";
+import { beginLiteClientMergeGate } from "@/lib/community-messenger/home/lite-merge-gate";
 import {
   beginMessengerBootstrapClientPhase,
   bumpAppWidePerf,
@@ -72,8 +74,18 @@ export function fetchCommunityMessengerBootstrapClient(
    * 이 경우 lite 네트워크를 다시 호출하면 탭 전환 체감만 느려지므로, 즉시 캐시 응답으로 단락한다.
    */
   if (mode === "lite") {
-    const cached = peekBootstrapCache();
+    let forceLiteNetwork = false;
+    if (typeof window !== "undefined") {
+      try {
+        forceLiteNetwork = sessionStorage.getItem("samarket:cm:force-lite-network") === "1";
+      } catch {
+        /* */
+      }
+    }
+    const cached = forceLiteNetwork ? null : peekBootstrapCache();
     if (cached) {
+      beginCmLiteClientFirstPaintSession("lite_cache_hit");
+      beginLiteClientMergeGate();
       return Promise.resolve(
         new Response(JSON.stringify({ ok: true, ...cached }), {
           status: 200,
@@ -89,6 +101,10 @@ export function fetchCommunityMessengerBootstrapClient(
         ? "/api/community-messenger/bootstrap?lite=1"
         : "/api/community-messenger/bootstrap";
   const runFetch = async (signal?: AbortSignal): Promise<Response> => {
+    if (mode === "lite") {
+      beginCmLiteClientFirstPaintSession("lite_network");
+      beginLiteClientMergeGate();
+    }
     tryTrackFirstMenuListFetchStart();
     bumpAppWidePerf("messenger_list_fetch_start");
     beginMessengerBootstrapClientPhase(mode);

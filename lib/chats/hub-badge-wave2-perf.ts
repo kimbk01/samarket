@@ -13,7 +13,13 @@ export const STORE_ORDER_UNREAD_HUB_PARTS_SELECT = "unread_count";
 export const STORE_ORDER_UNREAD_HUB_PARTS_FILTERS =
   "community_messenger_participants: user_id=:ownerUserId; room_id IN (:roomIds)";
 
-export type CmUnreadHubVia = "memory" | "rpc" | "postgrest_count_head" | "skipped" | "error";
+export type CmUnreadHubVia =
+  | "memory"
+  | "aggregate"
+  | "rpc"
+  | "postgrest_count_head"
+  | "skipped"
+  | "error";
 export type StoreOrderUnreadHubVia =
   | "memory"
   | "query"

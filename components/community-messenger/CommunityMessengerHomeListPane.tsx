@@ -7,6 +7,18 @@ import {
   recordMessengerBootstrapFullListRender,
   tryTrackFirstMenuListRender,
 } from "@/lib/runtime/samarket-runtime-debug";
+import {
+  getCmClientFirstPaintActiveSessionId,
+  markCmClientFirstPaint,
+  recordCmLiteListPaneRenderForFirstPaint,
+} from "@/lib/community-messenger/cm-client-first-paint-perf";
+import {
+  markCmClientMergeFirstRowRendered,
+  markCmClientMergeInteractive,
+  markCmClientMergeSkeletonRemoved,
+  recordCmClientMergeListRenderMs,
+  recordCmClientMergePaneRender,
+} from "@/lib/community-messenger/cm-client-merge-breakdown";
 import { useLayoutEffect, useRef, type ReactElement } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { shouldFreezeRoomListSubtree } from "@/lib/community-messenger/room/cm-room-list-render-pause";
@@ -108,42 +120,74 @@ export function CommunityMessengerHomeListPane(props: Props) {
   const showRefreshingOverlay = props.loading && canRenderList;
   const showCompactSkeleton = (props.loading || listHold) && !canRenderList && !props.authRequired;
 
+  if (getCmClientFirstPaintActiveSessionId()) {
+    recordCmLiteListPaneRenderForFirstPaint();
+  }
+  recordCmClientMergePaneRender();
+
   useLayoutEffect(() => {
     if (listFrozen) return;
-    if (!canRenderList || !props.data) return;
     const frame = frameRef.current;
     if (!frame) return;
     const rowSelector = '[data-messenger-chat-row="true"]';
-    const rowCountNow = frame.querySelectorAll(rowSelector).length;
-    if (rowCountNow > 0) {
-      recordMessengerBootstrapFirstListItemRender();
-      if (rowCountNow >= props.primaryListItems.length) {
-        recordMessengerBootstrapFullListRender();
+    const skeletonSelector = "[data-cm-home-skeleton]";
+    const unreadBadgeSelector = "[data-cm-unread-badge='true']";
+
+    const probeFirstPaintDom = () => {
+      const trackingLite = Boolean(getCmClientFirstPaintActiveSessionId());
+      const tProbe0 = typeof performance !== "undefined" ? performance.now() : 0;
+      const rowCount = frame.querySelectorAll(rowSelector).length;
+      if (rowCount > 0) {
+        recordMessengerBootstrapFirstListItemRender();
+        if (trackingLite) markCmClientFirstPaint("first_room_row_rendered");
+        markCmClientMergeFirstRowRendered();
+        if (rowCount >= props.primaryListItems.length) {
+          recordMessengerBootstrapFullListRender();
+        }
       }
+      if (!frame.querySelector(skeletonSelector)) {
+        if (trackingLite) markCmClientFirstPaint("skeleton_removed");
+        markCmClientMergeSkeletonRemoved();
+      }
+      if (frame.querySelector(unreadBadgeSelector)) {
+        if (trackingLite) markCmClientFirstPaint("unread_badge_rendered");
+      }
+      const interactiveTarget =
+        frame.querySelector('[data-messenger-chat-row="true"] a[href*="/community-messenger/rooms/"]') ??
+        frame.querySelector('[data-messenger-chat-row="true"] [role="button"]') ??
+        frame.querySelector('[data-messenger-chat-row="true"]');
+      if (interactiveTarget instanceof HTMLElement) {
+        recordMessengerBootstrapFirstInteractive();
+        if (trackingLite) markCmClientFirstPaint("list_interactive");
+        markCmClientMergeInteractive();
+      }
+      if (typeof performance !== "undefined") {
+        recordCmClientMergeListRenderMs(Math.round(performance.now() - tProbe0));
+      }
+    };
+
+    if (!canRenderList || !props.data) {
+      if (!listHold && !props.authRequired && !frame.querySelector(skeletonSelector)) {
+        if (getCmClientFirstPaintActiveSessionId()) markCmClientFirstPaint("skeleton_removed");
+      }
+      return;
     }
+
+    probeFirstPaintDom();
     if (typeof requestAnimationFrame !== "function") return;
     let raf1 = 0;
     let raf2 = 0;
     raf1 = requestAnimationFrame(() => {
-      const rowCountAfterPaint = frame.querySelectorAll(rowSelector).length;
-      if (rowCountAfterPaint > 0) {
-        recordMessengerBootstrapFirstListItemRender();
-        if (rowCountAfterPaint >= props.primaryListItems.length) {
-          recordMessengerBootstrapFullListRender();
-        }
-      }
+      probeFirstPaintDom();
       raf2 = requestAnimationFrame(() => {
-        const interactiveTarget = frame.querySelector('[data-messenger-chat-row="true"] [role="button"]');
-        if (interactiveTarget instanceof HTMLElement) {
-          recordMessengerBootstrapFirstInteractive();
-        }
+        probeFirstPaintDom();
       });
     });
     return () => {
       cancelAnimationFrame(raf1);
       cancelAnimationFrame(raf2);
     };
-  }, [listFrozen, canRenderList, props.data, props.primaryListItems.length]);
+  }, [listFrozen, canRenderList, props.data, props.primaryListItems.length, listHold, props.authRequired]);
 
   if (listFrozen) {
     if (frozenTreeRef.current) return frozenTreeRef.current;

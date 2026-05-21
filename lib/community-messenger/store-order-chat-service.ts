@@ -360,6 +360,11 @@ export async function appendStoreOrderMessengerOrderSummaryIfNeeded(
   }
 }
 
+/**
+ * Mutation-only — do not call from read-only GET order detail.
+ * Use `POST .../ensure-chat`, order create, status transition, or chat entry RSC.
+ * @see docs/store-order-detail-perf-lock.md
+ */
 export async function ensureStoreOrderMessengerRoom(
   sb: SupabaseClient<any>,
   input: { orderId: string; userId?: string | null }

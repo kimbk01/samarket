@@ -1,5 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isDuplicateLoginConflict, loadAuthDuplicateLoginPolicy, type SessionConflictMeta } from "@/lib/auth/session-policy";
+import {
+  invalidateUserSessionRegistryValidateCache,
+  peekUserSessionRegistryValidated,
+  setUserSessionRegistryValidated,
+} from "@/lib/auth/user-session-registry-validate-cache";
 
 function isUserSessionSchemaError(error: { message?: string; code?: string } | null | undefined): boolean {
   const message = String(error?.message ?? "").toLowerCase();
@@ -13,6 +18,21 @@ function isUserSessionSchemaError(error: { message?: string; code?: string } | n
       message.includes("could not find") ||
       message.includes("column"))
   );
+}
+
+/** GET hot path — TTL 캐시 후 miss 시 DB 1회 */
+export async function validateUserSessionRegistryCached(
+  sb: SupabaseClient<any>,
+  userId: string,
+  sessionId: string
+): Promise<{ ok: boolean; cacheHit: boolean }> {
+  const cached = peekUserSessionRegistryValidated(userId, sessionId);
+  if (cached.hit) {
+    return { ok: cached.ok, cacheHit: true };
+  }
+  const ok = await validateUserSessionRegistry(sb, userId, sessionId);
+  setUserSessionRegistryValidated(userId, sessionId, ok);
+  return { ok, cacheHit: false };
 }
 
 export async function validateUserSessionRegistry(
@@ -143,6 +163,7 @@ export async function invalidateUserSessionRegistry(
 ): Promise<void> {
   const normalizedSessionId = sessionId.trim();
   if (!normalizedSessionId) return;
+  invalidateUserSessionRegistryValidateCache(userId);
   const now = new Date().toISOString();
   const { error } = await sb
     .from("user_sessions")

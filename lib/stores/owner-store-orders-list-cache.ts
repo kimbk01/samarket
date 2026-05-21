@@ -6,6 +6,11 @@ import {
   parseOwnerStoreOrdersListFromApiJson,
   type OwnerStoreOrderListRow,
 } from "@/lib/business/owner-store-order-list-row-bridge";
+import {
+  countOwnerStoreOrdersListServerCacheKeys,
+  invalidateOwnerStoreOrdersListServerCache,
+} from "@/lib/stores/owner-store-orders-list-server-cache";
+import { logOwnerOrdersListCacheInvalidate } from "@/lib/stores/owner-orders-list-cache-invalidate-log";
 
 export type OwnerStoreOrdersListCacheMeta = {
   pending_accept_count: number;
@@ -61,10 +66,45 @@ export function peekOwnerStoreOrdersListCache(
   return cached.value;
 }
 
-export function invalidateOwnerStoreOrdersListCache(storeId?: string): void {
+export function invalidateOwnerStoreOrdersListCache(
+  storeId?: string,
+  ownerUserId?: string,
+  logOpts?: {
+    route?: string;
+    orderId?: string;
+    reason?: string;
+    afterMutationSuccess?: boolean;
+  }
+): void {
   if (!storeId?.trim()) {
     cached = null;
+    const removed = invalidateOwnerStoreOrdersListServerCache(undefined, ownerUserId);
+    if (logOpts) {
+      logOwnerOrdersListCacheInvalidate({
+        route: logOpts.route ?? "unknown",
+        store_id: "",
+        order_id: logOpts.orderId,
+        reason: logOpts.reason ?? "invalidate_all",
+        invalidated: removed > 0 || cached === null ? 1 : 0,
+        cache_key_count: countOwnerStoreOrdersListServerCacheKeys(),
+        after_mutation_success: logOpts.afterMutationSuccess ? 1 : 0,
+      });
+    }
     return;
   }
-  if (cached?.storeId === storeId.trim()) cached = null;
+  const sid = storeId.trim();
+  const hadClientCache = cached?.storeId === sid;
+  if (hadClientCache) cached = null;
+  const removed = invalidateOwnerStoreOrdersListServerCache(sid, ownerUserId);
+  if (logOpts) {
+    logOwnerOrdersListCacheInvalidate({
+      route: logOpts.route ?? "unknown",
+      store_id: sid,
+      order_id: logOpts.orderId,
+      reason: logOpts.reason ?? "order_mutation",
+      invalidated: removed > 0 || hadClientCache ? 1 : 0,
+      cache_key_count: countOwnerStoreOrdersListServerCacheKeys(),
+      after_mutation_success: logOpts.afterMutationSuccess ? 1 : 0,
+    });
+  }
 }

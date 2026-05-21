@@ -77,6 +77,16 @@ import {
   prefetchHs5LegacyUnreadRows,
 } from "@/lib/community-messenger/enrich-messenger-trade-unread-with-legacy-trade";
 import {
+  peekBootstrapLiteRoomsPayload,
+  storeBootstrapLiteRoomsPayload,
+} from "@/lib/community-messenger/bootstrap-lite-rooms-payload-cache";
+import {
+  peekBootstrapLiteSocialDeferred,
+  scheduleBootstrapLiteSocialGraphBackgroundHydration,
+  storeBootstrapLiteSocialDeferred,
+  type BootstrapLiteSocialDeferredSnapshot,
+} from "@/lib/community-messenger/bootstrap-lite-social-deferred-cache";
+import {
   peekHomeSyncCriticalRoomsCache,
   setHomeSyncCriticalRoomsCache,
 } from "@/lib/community-messenger/home-sync-critical-rooms-cache";
@@ -1042,6 +1052,77 @@ type FetchProfilesByIdsRowStats = {
   singleflightJoined: boolean;
 };
 
+/** lite bootstrap first paint — bio 제외·컬럼 최소(관계 쿼리 없음) */
+const BOOTSTRAP_LITE_FIRST_PAINT_PROFILE_SELECT =
+  "id, display_name, nickname, username, avatar_url";
+
+async function fetchProfilesByIdsBootstrapLiteFirstPaint(
+  ids: string[],
+  rowStats?: FetchProfilesByIdsRowStats
+): Promise<Map<string, ProfileRow>> {
+  const unique = dedupeIds(ids);
+  if (!unique.length) return new Map();
+  const now = Date.now();
+  const out = new Map<string, ProfileRow>();
+  const missing: string[] = [];
+  for (const id of unique) {
+    const ent = profileIdRowCache.get(id);
+    if (ent && ent.expiresAt > now) {
+      out.set(id, { ...ent.row, bio: null });
+      if (rowStats) rowStats.rowCacheHits += 1;
+    } else {
+      missing.push(id);
+    }
+  }
+  if (!missing.length) return out;
+
+  const sb = getSupabaseOrNull();
+  if (!sb) return out;
+  if (rowStats) rowStats.rowCacheMisses += missing.length;
+
+  const sortedMissing = dedupeIds(missing).slice().sort();
+  const inflightKey = `lite:${sortedMissing.join("\0")}`;
+  let inflight = profileIdsInflight.get(inflightKey);
+  if (!inflight) {
+    inflight = (async (): Promise<Map<string, ProfileRow>> => {
+      const t0 = Date.now();
+      const { data } = await (sb as any)
+        .from("profiles")
+        .select(BOOTSTRAP_LITE_FIRST_PAINT_PROFILE_SELECT)
+        .in("id", sortedMissing);
+      const fresh = new Map<string, ProfileRow>();
+      for (const row of (data ?? []) as ProfileRow[]) {
+        const rid = trimText(row.id);
+        if (!rid) continue;
+        const slim: ProfileRow = {
+          id: rid,
+          display_name: row.display_name ?? null,
+          nickname: row.nickname ?? null,
+          username: row.username ?? null,
+          avatar_url: row.avatar_url ?? null,
+          bio: null,
+        };
+        fresh.set(rid, slim);
+        profileIdRowCache.set(rid, { expiresAt: t0 + PROFILE_ID_ROW_TTL_MS, row: slim });
+      }
+      pruneByExpiresAtAndMaxSize(profileIdRowCache, t0, 4_000);
+      return fresh;
+    })();
+    profileIdsInflight.set(inflightKey, inflight);
+    inflight.finally(() => {
+      profileIdsInflight.delete(inflightKey);
+    });
+  } else if (rowStats) {
+    rowStats.singleflightJoined = true;
+  }
+  const fetched = await inflight;
+  for (const id of sortedMissing) {
+    const row = fetched.get(id);
+    if (row) out.set(id, row);
+  }
+  return out;
+}
+
 async function fetchProfilesByIds(
   ids: string[],
   rowStats?: FetchProfilesByIdsRowStats,
@@ -1459,10 +1540,36 @@ async function hydrateProfiles(
  * 통화 세션 매핑 전용 — `getViewerRelationSets` 생략(친구/팔로우 등 3쿼리)으로 발신·GET TTFB 를 줄인다.
  * 통화 UI는 표시명·아바타 중심이며 관계 뱃지는 불필요하다.
  */
+function parseBootstrapLiteBundleProfileLabels(raw: unknown): Map<string, ProfileRow> {
+  const out = new Map<string, ProfileRow>();
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return out;
+  for (const [key, val] of Object.entries(raw as Record<string, unknown>)) {
+    if (!val || typeof val !== "object") continue;
+    const row = val as Record<string, unknown>;
+    const id = trimText(row.id ?? key);
+    if (!id) continue;
+    out.set(id, {
+      id,
+      display_name: (row.display_name as string | null) ?? null,
+      nickname: (row.nickname as string | null) ?? null,
+      username: (row.username as string | null) ?? null,
+      avatar_url: (row.avatar_url as string | null) ?? null,
+      bio: null,
+    });
+  }
+  return out;
+}
+
 export async function hydrateProfilesLabelsOnlyWithMap(
   viewerId: string,
   targetIds: string[],
-  options?: { includeSelf?: boolean; prefetchedProfiles?: Map<string, ProfileRow>; trace?: HomeSyncTrace }
+  options?: {
+    includeSelf?: boolean;
+    prefetchedProfiles?: Map<string, ProfileRow>;
+    trace?: HomeSyncTrace;
+    /** lite list first paint — bio·full select 생략 */
+    bootstrapLiteFirstPaint?: boolean;
+  }
 ): Promise<{ members: CommunityMessengerProfileLite[]; profileMap: Map<string, ProfileRow> }> {
   const trace = options?.trace;
   const deepSteps = homeSyncTraceMeterEnabled(trace);
@@ -1477,7 +1584,12 @@ export async function hydrateProfilesLabelsOnlyWithMap(
   const missingForFetch = uniqueTargets.filter((tid) => !prefetched.has(tid));
   const missingMs = deepSteps ? performance.now() - tMissing : 0;
   const tFetch = deepSteps ? performance.now() : 0;
-  const fetched = missingForFetch.length ? await fetchProfilesByIds(missingForFetch) : new Map<string, ProfileRow>();
+  const liteFirstPaint = options?.bootstrapLiteFirstPaint === true;
+  const fetched = missingForFetch.length
+    ? liteFirstPaint
+      ? await fetchProfilesByIdsBootstrapLiteFirstPaint(missingForFetch)
+      : await fetchProfilesByIds(missingForFetch)
+    : new Map<string, ProfileRow>();
   const fetchMs = deepSteps ? performance.now() - tFetch : 0;
   const tMerge = deepSteps ? performance.now() : 0;
   const profileMap = new Map<string, ProfileRow>([...prefetched, ...fetched]);
@@ -1489,7 +1601,7 @@ export async function hydrateProfilesLabelsOnlyWithMap(
       id,
       label: profileLabel(profile, id),
       subtitle: trimText(profile?.username) ? `@${trimText(profile?.username)}` : undefined,
-      bio: trimText(profile?.bio) || null,
+      bio: liteFirstPaint ? null : trimText(profile?.bio) || null,
       avatarUrl: trimText(profile?.avatar_url) || null,
       following: false,
       blocked: false,
@@ -2052,6 +2164,8 @@ type MessengerRoomsPayload = {
   participantRows: Array<ParticipantRow | DevParticipant>;
   byRoomId: Map<string, Array<ParticipantRow | DevParticipant>>;
   roomProfileMap: Map<string, RoomProfileRow | DevRoomProfile>;
+  /** lite bundle RPC `profile_labels` — 별도 profiles.in() RTT 생략 */
+  bootstrapLiteProfileLabels?: Map<string, ProfileRow>;
 };
 
 function sliceMessengerRoomsPayloadForHomeSyncCritical(
@@ -2093,6 +2207,16 @@ export type CommunityMessengerBootstrapRoomsDiagnostics = {
   round2RoomRowCount: number;
   round2ParticipantRowCount: number;
   round3RoomProfileCount: number;
+  /** lite bundle RPC 1RTT 경로 */
+  liteBundleUsed: boolean;
+  liteBundleRpcMs: number;
+  liteBundleRoomsParseMs: number;
+  liteBundleParticipantsParseMs: number;
+  liteBundleProfilesParseMs: number;
+  liteBundleMapMs: number;
+  liteRoomsCacheHit: boolean;
+  /** `bundle_rpc` | `participant_embed` | `legacy` */
+  liteRoomsFetchPath: string;
 };
 
 export function createEmptyBootstrapRoomsDiagnostics(): CommunityMessengerBootstrapRoomsDiagnostics {
@@ -2118,7 +2242,55 @@ export function createEmptyBootstrapRoomsDiagnostics(): CommunityMessengerBootst
     round2RoomRowCount: 0,
     round2ParticipantRowCount: 0,
     round3RoomProfileCount: 0,
+    liteBundleUsed: false,
+    liteBundleRpcMs: 0,
+    liteBundleRoomsParseMs: 0,
+    liteBundleParticipantsParseMs: 0,
+    liteBundleProfilesParseMs: 0,
+    liteBundleMapMs: 0,
+    liteRoomsCacheHit: false,
+    liteRoomsFetchPath: "legacy",
   };
+}
+
+function finishBootstrapLiteRoomsQueryBreakdown(
+  bootstrapDiag: CommunityMessengerBootstrapDiagnostics,
+  roomsDiag: CommunityMessengerBootstrapRoomsDiagnostics
+): void {
+  bootstrapDiag.bootstrapLiteRoomIdsRpcMs = roomsDiag.liteBundleUsed
+    ? roomsDiag.liteBundleRpcMs
+    : roomsDiag.round1Ms;
+  bootstrapDiag.bootstrapLiteRoomsMetaFetchMs = roomsDiag.liteBundleUsed
+    ? roomsDiag.liteBundleRoomsParseMs
+    : roomsDiag.round2RoomsDbFetchMs;
+  bootstrapDiag.bootstrapLiteParticipantsJoinMs = roomsDiag.liteBundleUsed
+    ? roomsDiag.liteBundleParticipantsParseMs
+    : roomsDiag.round2ParticipantsMs;
+  bootstrapDiag.bootstrapLiteLastMessageFetchMs = 0;
+  bootstrapDiag.bootstrapLiteRoomPayloadMapMs = roomsDiag.liteBundleUsed
+    ? roomsDiag.liteBundleMapMs
+    : roomsDiag.postprocessMs;
+  bootstrapDiag.bootstrapLiteRoomsRpcCacheHit = roomsDiag.liteRoomsCacheHit;
+  bootstrapDiag.bootstrapLiteRoomCount = roomsDiag.round2RoomRowCount;
+  bootstrapDiag.bootstrapLiteParticipantCount = roomsDiag.round2ParticipantRowCount;
+  bootstrapDiag.bootstrapLiteRoomsFetchPath = roomsDiag.liteRoomsFetchPath;
+  const stages: Array<[string, number]> = [
+    ["room_ids_rpc", bootstrapDiag.bootstrapLiteRoomIdsRpcMs],
+    ["rooms_meta", bootstrapDiag.bootstrapLiteRoomsMetaFetchMs],
+    ["participants_join", bootstrapDiag.bootstrapLiteParticipantsJoinMs],
+    ["last_message", bootstrapDiag.bootstrapLiteLastMessageFetchMs],
+    ["payload_map", bootstrapDiag.bootstrapLiteRoomPayloadMapMs],
+  ];
+  let slowestStage = "room_ids_rpc";
+  let slowestMs = -1;
+  for (const [name, ms] of stages) {
+    if (ms > slowestMs) {
+      slowestMs = ms;
+      slowestStage = name;
+    }
+  }
+  bootstrapDiag.bootstrapLiteRoomsQuerySlowestStage = slowestStage;
+  bootstrapDiag.bootstrapLiteRoomsQuerySlowestMs = Math.max(0, slowestMs);
 }
 
 /** participant-only room id 목록이 최근순이 아닐 때 round2 전에 last_message_at 기준으로 자른다 */
@@ -2209,8 +2381,70 @@ export type CommunityMessengerBootstrapDiagnostics = {
   enrichTradeDirectKeysMs: number;
   enrichTradeSellerHydrateMs: number;
   enrichTradeMiddlePipelineMs: number;
+  /** bootstrap trade enrich 분해 — `[cm-bootstrap-breakdown]` 전용(응답 shape 무관) */
+  enrichTradePostsFetchMs: number;
+  enrichTradeCategoryFetchMs: number;
+  enrichTradeCpuMergeMs: number;
+  enrichTradeNormalizeMs: number;
+  /** lite/fast 의도와 달리 full category·posts fallback·Phase D 등이 실행된 벽시계 합 */
+  enrichTradeHiddenFallbackMs: number;
+  /** true = lite fast path( mega direct_keys + critical posts + fallback_only category ) */
+  bootstrapLiteTradeEnrichFastPath: boolean;
+  /** true = Phase A–D 중개 파이프라인을 생략(direct_keys·seller 만 또는 조기 종료) */
+  bootstrapLiteTradeHeavyPipelineSkipped: boolean;
+  /** direct_keys 직전 trade 목록 heavy 후보 수 */
+  bootstrapLiteHeavyTargetCountBefore: number;
+  /** direct_keys 직후 first-paint 미충족 trade 방 수 */
+  bootstrapLiteHeavyTargetCountAfterDirectKeys: number;
+  /** 미충족 사유 상위(콤마 구분, 로그 전용) */
+  bootstrapLiteHeavyTargetReasonsTop: string;
+  /** lite missing-only posts 배치 벽시계 */
+  bootstrapLiteMissingOnlyBatchMs: number;
+  /** true = Phase A–C legacy middle 미실행 */
+  bootstrapLiteMiddlePipelineBlocked: boolean;
+  /** postId 없어 background hydration 으로 미룬 trade 방 수 */
+  bootstrapLiteDeferredHydrationCount: number;
+  /** lite: `home_sync_direct_keys_critical_bundle` RPC 벽시계(leader) */
+  bootstrapLiteDirectKeysMegaRpcMs: number;
+  /** lite: mega 프로세스 캐시 — `row_cache_hit` | `row_cache_singleflight_join` | `rpc_cold` */
+  bootstrapLiteDirectKeysMegaCacheReason: string;
+  /** lite: enrich 에서 prefetch Promise 대기 벽시계(0 이면 parallel 구간에서 완료) */
+  bootstrapLiteDirectKeysPrefetchWaitMs: number;
+  /** lite: mega JSON 파싱+맵+apply 루프 CPU 근사 */
+  bootstrapLiteDirectKeysParseApplyMs: number;
+  /** lite: PostgREST 클라이언트 대기 추정(RPC − 서버는 분리 불가 시 동일) */
+  bootstrapLiteDirectKeysMegaNetworkMs: number;
   /** `getCommunityMessengerBootstrap` 진입~반환 벽시계 (측정 전용) */
   bootstrapMonolithWallMs: number;
+  /** lite parallel 분해 — `[cm-bootstrap-v2]` / `[cm-bootstrap-breakdown]` */
+  bootstrapLiteRoomsFetchMs: number;
+  bootstrapLiteFriendsFetchMs: number;
+  bootstrapLiteRequestsFetchMs: number;
+  bootstrapLiteFavoriteFetchMs: number;
+  bootstrapLiteDiscoverableFetchMs: number;
+  bootstrapLiteMeetingsFetchMs: number;
+  bootstrapLiteParallelSlowestStage: string;
+  bootstrapLiteParallelSlowestMs: number;
+  /** lite 소셜 그래프 출처 — `cache` | `empty` | `full_fetch` | `n/a` */
+  bootstrapLiteSocialGraphSource: string;
+  bootstrapLiteRoomIdsRpcMs: number;
+  bootstrapLiteRoomsMetaFetchMs: number;
+  bootstrapLiteParticipantsJoinMs: number;
+  bootstrapLiteLastMessageFetchMs: number;
+  bootstrapLiteRoomPayloadMapMs: number;
+  bootstrapLiteRoomsQuerySlowestStage: string;
+  bootstrapLiteRoomsQuerySlowestMs: number;
+  bootstrapLiteRoomsRpcCacheHit: boolean;
+  bootstrapLiteRoomsCacheBypass: boolean;
+  bootstrapLiteRoomCount: number;
+  bootstrapLiteParticipantCount: number;
+  bootstrapLiteRoomsFetchPath: string;
+  /** lite first paint — bundle `profile_labels` 임베드 수 */
+  bootstrapLiteProfilesBundleEmbeddedCount: number;
+  /** lite first paint — 추가 `profiles.in` 대상 수 */
+  bootstrapLiteProfilesMissFetchCount: number;
+  /** lite first paint — `hydrateProfilesLabelsOnlyWithMap` 벽시계( miss fetch 포함) */
+  bootstrapLiteProfilesFetchMs: number;
 };
 
 /** 메신저 홈·부트스트랩에서 한 번에 실을 최대 방 수(최근 활동순). 초과분은 목록에서 제외(방 URL 직접 진입은 `getCommunityMessengerRoomSnapshot` 등 별도). */
@@ -2324,6 +2558,121 @@ async function fetchBootstrapRoomsViaRpc(
   return rpcIncludesDirectKeyColumn ? mapped : attachDirectKeysToRoomRows(sb, mapped);
 }
 
+type BootstrapLiteRoomsBundleRpcJson = {
+  membership_total_count?: number | null;
+  room_ids?: string[] | null;
+  rooms?: Array<{
+    id?: string | null;
+    room_type?: string | null;
+    room_status?: string | null;
+    is_readonly?: boolean | null;
+    direct_key?: string | null;
+    title?: string | null;
+    last_message?: string | null;
+    last_message_at?: string | null;
+    last_message_type?: string | null;
+  }> | null;
+  participants?: Array<{
+    room_id?: string | null;
+    user_id?: string | null;
+    unread_count?: number | null;
+    is_muted?: boolean | null;
+    is_pinned?: boolean | null;
+    is_archived?: boolean | null;
+  }> | null;
+  profile_labels?: Record<string, unknown> | null;
+};
+
+async function fetchBootstrapLiteMyRoomsBundleViaRpc(
+  sb: SupabaseLike,
+  userId: string,
+  roomLimit?: number
+): Promise<{
+  totalCount: number;
+  roomIds: string[];
+  roomRows: RoomRow[];
+  participantRows: ParticipantRow[];
+  profileLabels: Map<string, ProfileRow>;
+  roomsParseMs: number;
+  participantsParseMs: number;
+  profilesParseMs: number;
+} | null> {
+  const pLimit =
+    typeof roomLimit === "number" && roomLimit > 0
+      ? Math.min(roomLimit, COMMUNITY_MESSENGER_MY_ROOMS_LIST_CAP)
+      : COMMUNITY_MESSENGER_MY_ROOMS_LIST_CAP;
+  const { data, error } = await (sb as any).rpc("community_messenger_bootstrap_lite_my_rooms_bundle", {
+    p_user_id: userId,
+    p_limit: pLimit,
+  });
+  if (error) {
+    if (isMissingRpcFunctionError(error) || isMissingTableError(error)) return null;
+    throw error;
+  }
+  const raw = (typeof data === "string" ? JSON.parse(data) : data) as BootstrapLiteRoomsBundleRpcJson | null;
+  if (!raw || typeof raw !== "object") return null;
+  const totalCount =
+    typeof raw.membership_total_count === "number" && Number.isFinite(raw.membership_total_count)
+      ? raw.membership_total_count
+      : 0;
+  const roomIds = dedupeIds(
+    (Array.isArray(raw.room_ids) ? raw.room_ids : []).map((id) => String(id ?? "")).filter(Boolean)
+  );
+  const tRoomsParse = performance.now();
+  const roomRows: RoomRow[] = (Array.isArray(raw.rooms) ? raw.rooms : []).map((row) => ({
+    id: String(row.id ?? ""),
+    room_type: (row.room_type ?? "direct") as RoomRow["room_type"],
+    room_status: (row.room_status ?? "active") as RoomRow["room_status"],
+    is_readonly: row.is_readonly === true,
+    title: row.title ?? null,
+    summary: null,
+    avatar_url: null,
+    created_by: null,
+    direct_key:
+      row.direct_key != null && typeof row.direct_key === "string"
+        ? row.direct_key.trim() || null
+        : row.direct_key != null
+          ? String(row.direct_key).trim() || null
+          : null,
+    last_message: row.last_message ?? null,
+    last_message_at: row.last_message_at ?? null,
+    last_message_type: (row.last_message_type ?? "text") as RoomRow["last_message_type"],
+  }));
+  const roomsParseMs = performance.now() - tRoomsParse;
+  const tPartsParse = performance.now();
+  const participantRows: ParticipantRow[] = (Array.isArray(raw.participants) ? raw.participants : []).map(
+    (row) => {
+      const roomId = String(row.room_id ?? "");
+      const userId = String(row.user_id ?? "");
+      return {
+        id: `${roomId}:${userId}`,
+        room_id: roomId,
+        user_id: userId,
+        role: "member" as const,
+        unread_count: Number(row.unread_count ?? 0),
+        is_muted: row.is_muted === true,
+        is_pinned: row.is_pinned === true,
+        is_archived: row.is_archived === true,
+        joined_at: null,
+      };
+    }
+  );
+  const participantsParseMs = performance.now() - tPartsParse;
+  const tProfilesParse = performance.now();
+  const profileLabels = parseBootstrapLiteBundleProfileLabels(raw.profile_labels);
+  const profilesParseMs = performance.now() - tProfilesParse;
+  return {
+    totalCount: totalCount || roomIds.length,
+    roomIds,
+    roomRows,
+    participantRows,
+    profileLabels,
+    roomsParseMs,
+    participantsParseMs,
+    profilesParseMs,
+  };
+}
+
 /** home-sync critical — DB select 최소(응답 필드는 summarize·hydrate 로 동일 표면 유지) */
 const HOME_SYNC_CRITICAL_ROOMS_SELECT =
   "id, room_type, room_status, is_readonly, direct_key, title, last_message, last_message_at, last_message_type";
@@ -2337,20 +2686,69 @@ export async function fetchMyRoomsPayload(
     roomLimit?: number;
     /** home-sync critical — summary/avatar 등 무거운 room 컬럼 select 생략 */
     criticalSlimRoomSelect?: boolean;
+    /** `?lite=1` — `community_messenger_bootstrap_lite_my_rooms_bundle` 1RTT (RPC 없으면 legacy round1+2) */
+    bootstrapLiteBundle?: boolean;
   }
 ): Promise<MessengerRoomsPayload> {
   const tPayload0 = performance.now();
   const diagnostics = options?.diagnostics;
   const includeRoomProfiles = options?.includeRoomProfiles !== false;
   const criticalSlimRoomSelect = options?.criticalSlimRoomSelect === true;
+  const bootstrapLiteBundle = options?.bootstrapLiteBundle === true;
   const roomsTableSelect = criticalSlimRoomSelect
     ? HOME_SYNC_CRITICAL_ROOMS_SELECT
     : "id, room_type, room_status, is_readonly, direct_key, title, summary, avatar_url, last_message, last_message_at, last_message_type";
   const sb = getSupabaseOrNull();
   let roomRows: Array<RoomRow | DevRoom> = [];
   let participantRows: Array<ParticipantRow | DevParticipant> = [];
+  let bootstrapLiteProfileLabels: Map<string, ProfileRow> | undefined;
+  let liteBundleLoaded = false;
 
-  if (sb) {
+  if (sb && bootstrapLiteBundle) {
+    const tBundleRpc = performance.now();
+    const bundle = await fetchBootstrapLiteMyRoomsBundleViaRpc(sb, userId, options?.roomLimit);
+    const bundleRpcMs = Math.round(performance.now() - tBundleRpc);
+    if (bundle) {
+      liteBundleLoaded = true;
+      roomRows = bundle.roomRows;
+      participantRows = bundle.participantRows;
+      bootstrapLiteProfileLabels = bundle.profileLabels;
+      if (diagnostics) {
+        diagnostics.liteBundleUsed = true;
+        diagnostics.liteBundleRpcMs = bundleRpcMs;
+        diagnostics.liteBundleRoomsParseMs = Math.round(bundle.roomsParseMs);
+        diagnostics.liteBundleParticipantsParseMs = Math.round(bundle.participantsParseMs);
+        diagnostics.liteBundleProfilesParseMs = Math.round(bundle.profilesParseMs);
+        const nowSeed = Date.now();
+        for (const [id, row] of bundle.profileLabels) {
+          profileIdRowCache.set(id, { expiresAt: nowSeed + PROFILE_ID_ROW_TTL_MS, row });
+        }
+        pruneByExpiresAtAndMaxSize(profileIdRowCache, nowSeed, 4_000);
+        diagnostics.rounds = 1;
+        diagnostics.queryCount = 1;
+        diagnostics.round1Ms = bundleRpcMs;
+        diagnostics.round2Ms = 0;
+        diagnostics.round2RoomsDbFetchMs = diagnostics.liteBundleRoomsParseMs;
+        diagnostics.round2ParticipantsMs = diagnostics.liteBundleParticipantsParseMs;
+        diagnostics.roomIdsBeforeCap = bundle.totalCount;
+        diagnostics.round1RoomIdCount = bundle.totalCount;
+        diagnostics.roomIdsAfterCap = bundle.roomIds.length;
+        diagnostics.round2RoomRowCount = roomRows.length;
+        diagnostics.round2ParticipantRowCount = participantRows.length;
+      }
+      if (diagnostics) {
+        diagnostics.liteRoomsFetchPath = "bundle_rpc";
+      }
+      if (homeSyncBreakdownEnabled() && diagnostics) {
+        logHomeSyncBreakdown("bootstrap_lite_my_rooms_bundle_rpc_ms", bundleRpcMs, { ok: true });
+      }
+    }
+  }
+
+  if (sb && !liteBundleLoaded) {
+    if (diagnostics && bootstrapLiteBundle) {
+      diagnostics.liteRoomsFetchPath = "legacy";
+    }
     let roomIdResolution: "rpc" | "fallback_meta_sorted" | "fallback_participant_raw" = "fallback_participant_raw";
     diagnostics && (diagnostics.rounds += 1);
     diagnostics && (diagnostics.queryCount += 1);
@@ -2451,7 +2849,9 @@ export async function fetchMyRoomsPayload(
       const roomsPromise = (async () => {
         const tRoomsTotal = performance.now();
         const tRoomsQuery = performance.now();
-        const rpcRows = await fetchBootstrapRoomsViaRpc(sb, roomIds);
+        /** lite: `bootstrap_rooms` RPC(summary·avatar 포함) 생략 — slim select 1RTT */
+        const rpcRows =
+          bootstrapLiteBundle ? null : await fetchBootstrapRoomsViaRpc(sb, roomIds);
         const roomRowsRaw =
           rpcRows ??
           (((await (sb as any)
@@ -2512,7 +2912,11 @@ export async function fetchMyRoomsPayload(
 
   const tPostprocess = performance.now();
   const byRoomId = buildParticipantsByRoomMap(participantRows);
-  diagnostics && (diagnostics.postprocessMs = Math.round(performance.now() - tPostprocess));
+  const postprocessMs = Math.round(performance.now() - tPostprocess);
+  diagnostics && (diagnostics.postprocessMs = postprocessMs);
+  if (diagnostics?.liteBundleUsed) {
+    diagnostics.liteBundleMapMs = postprocessMs;
+  }
   if (messengerPerfStepsEnabled()) {
     logMessengerPerfMs("final_map", performance.now() - tPostprocess);
     logMessengerPerfMs("unread_calc", 0);
@@ -2533,7 +2937,7 @@ export async function fetchMyRoomsPayload(
   if (messengerPerfStepsEnabled()) {
     logMessengerPerfMs("fetchMyRoomsPayload", performance.now() - tPayload0);
   }
-  return { roomRows, participantRows, byRoomId, roomProfileMap };
+  return { roomRows, participantRows, byRoomId, roomProfileMap, bootstrapLiteProfileLabels };
 }
 
 async function fetchRoomsPayloadByRoomIds(
@@ -4039,6 +4443,55 @@ async function ensureNoBlockedEitherWay(userId: string, targetUserId: string): P
   return ((data ?? []) as Array<unknown>).length === 0;
 }
 
+async function fetchBootstrapLiteSocialGraphSnapshot(
+  userId: string
+): Promise<BootstrapLiteSocialDeferredSnapshot> {
+  const [
+    acceptedFriendRows,
+    favoriteFriendIds,
+    followingIds,
+    hiddenIds,
+    blockedIds,
+    requestRows,
+  ] = await Promise.all([
+    fetchCommunityFriendRequestsAcceptedRowsForViewer(userId),
+    listFavoriteFriendIds(userId),
+    listFollowingIds(userId, "neighbor_follow"),
+    listFollowingIds(userId, "hidden"),
+    listFollowingIds(userId, "blocked"),
+    listCommunityMessengerFriendRequestRows(userId),
+  ]);
+  return {
+    acceptedFriendRows,
+    favoriteFriendIds,
+    followingIds,
+    hiddenIds,
+    blockedIds,
+    requestRows,
+  };
+}
+
+function finishBootstrapLiteParallelBreakdown(diagnostics: CommunityMessengerBootstrapDiagnostics): void {
+  const stages: Array<[string, number]> = [
+    ["rooms", diagnostics.bootstrapLiteRoomsFetchMs],
+    ["friends", diagnostics.bootstrapLiteFriendsFetchMs],
+    ["requests", diagnostics.bootstrapLiteRequestsFetchMs],
+    ["favorite", diagnostics.bootstrapLiteFavoriteFetchMs],
+    ["discoverable", diagnostics.bootstrapLiteDiscoverableFetchMs],
+    ["meetings", diagnostics.bootstrapLiteMeetingsFetchMs],
+  ];
+  let slowestStage = "rooms";
+  let slowestMs = -1;
+  for (const [name, ms] of stages) {
+    if (ms > slowestMs) {
+      slowestMs = ms;
+      slowestStage = name;
+    }
+  }
+  diagnostics.bootstrapLiteParallelSlowestStage = slowestStage;
+  diagnostics.bootstrapLiteParallelSlowestMs = Math.max(0, slowestMs);
+}
+
 export async function getCommunityMessengerBootstrap(
   userId: string,
   options?: {
@@ -4046,6 +4499,8 @@ export async function getCommunityMessengerBootstrap(
     deferCallLog?: boolean;
     diagnostics?: CommunityMessengerBootstrapDiagnostics;
     detailedTimingBreakdown?: boolean;
+    /** `?fresh=1` — lite rooms 프로세스 캐시 우회(측정용) */
+    bypassLiteRoomsCache?: boolean;
   }
 ): Promise<CommunityMessengerBootstrap> {
   const skipDiscoverable = options?.skipDiscoverable === true;
@@ -4053,29 +4508,7 @@ export async function getCommunityMessengerBootstrap(
   const isMinimalLiteBootstrap = skipDiscoverable && deferCallLog;
   const diagnostics = options?.diagnostics;
   const detailedTimingBreakdown = options?.detailedTimingBreakdown === true;
-  const myRoomsDiagnostics: CommunityMessengerBootstrapRoomsDiagnostics = {
-    rounds: 0,
-    queryCount: 0,
-    metaChunkCount: 0,
-    roomIdsBeforeCap: 0,
-    roomIdsAfterCap: 0,
-    round1Ms: 0,
-    round2Ms: 0,
-    round2RoomsMs: 0,
-    round2RoomsDbFetchMs: 0,
-    round2RoomsNormalizeMs: 0,
-    round2RoomsMergeMapMs: 0,
-    round2RoomsHydrateLabelMs: 0,
-    round2RoomsPayloadSerializeMs: 0,
-    round2ParticipantsMs: 0,
-    round3Ms: 0,
-    transformMs: 0,
-    postprocessMs: 0,
-    round1RoomIdCount: 0,
-    round2RoomRowCount: 0,
-    round2ParticipantRowCount: 0,
-    round3RoomProfileCount: 0,
-  };
+  const myRoomsDiagnostics = createEmptyBootstrapRoomsDiagnostics();
   if (diagnostics) {
     diagnostics.parallelInitialWallMs = 0;
     diagnostics.roomsQueryMs = 0;
@@ -4123,15 +4556,79 @@ export async function getCommunityMessengerBootstrap(
     diagnostics.enrichTradeDirectKeysMs = 0;
     diagnostics.enrichTradeSellerHydrateMs = 0;
     diagnostics.enrichTradeMiddlePipelineMs = 0;
+    diagnostics.enrichTradePostsFetchMs = 0;
+    diagnostics.enrichTradeCategoryFetchMs = 0;
+    diagnostics.enrichTradeCpuMergeMs = 0;
+    diagnostics.enrichTradeNormalizeMs = 0;
+    diagnostics.enrichTradeHiddenFallbackMs = 0;
+    diagnostics.bootstrapLiteTradeEnrichFastPath = false;
+    diagnostics.bootstrapLiteTradeHeavyPipelineSkipped = false;
+    diagnostics.bootstrapLiteHeavyTargetCountBefore = 0;
+    diagnostics.bootstrapLiteHeavyTargetCountAfterDirectKeys = 0;
+    diagnostics.bootstrapLiteHeavyTargetReasonsTop = "";
+    diagnostics.bootstrapLiteMissingOnlyBatchMs = 0;
+    diagnostics.bootstrapLiteMiddlePipelineBlocked = false;
+    diagnostics.bootstrapLiteDeferredHydrationCount = 0;
+    diagnostics.bootstrapLiteDirectKeysMegaRpcMs = 0;
+    diagnostics.bootstrapLiteDirectKeysMegaCacheReason = "";
+    diagnostics.bootstrapLiteDirectKeysPrefetchWaitMs = 0;
+    diagnostics.bootstrapLiteDirectKeysParseApplyMs = 0;
+    diagnostics.bootstrapLiteDirectKeysMegaNetworkMs = 0;
     diagnostics.bootstrapMonolithWallMs = 0;
+    diagnostics.bootstrapLiteRoomsFetchMs = 0;
+    diagnostics.bootstrapLiteFriendsFetchMs = 0;
+    diagnostics.bootstrapLiteRequestsFetchMs = 0;
+    diagnostics.bootstrapLiteFavoriteFetchMs = 0;
+    diagnostics.bootstrapLiteDiscoverableFetchMs = 0;
+    diagnostics.bootstrapLiteMeetingsFetchMs = 0;
+    diagnostics.bootstrapLiteParallelSlowestStage = "";
+    diagnostics.bootstrapLiteParallelSlowestMs = 0;
+    diagnostics.bootstrapLiteSocialGraphSource = "n/a";
+    diagnostics.bootstrapLiteRoomIdsRpcMs = 0;
+    diagnostics.bootstrapLiteRoomsMetaFetchMs = 0;
+    diagnostics.bootstrapLiteParticipantsJoinMs = 0;
+    diagnostics.bootstrapLiteLastMessageFetchMs = 0;
+    diagnostics.bootstrapLiteRoomPayloadMapMs = 0;
+    diagnostics.bootstrapLiteRoomsQuerySlowestStage = "";
+    diagnostics.bootstrapLiteRoomsQuerySlowestMs = 0;
+    diagnostics.bootstrapLiteRoomsRpcCacheHit = false;
+    diagnostics.bootstrapLiteRoomsCacheBypass = options?.bypassLiteRoomsCache === true;
+    diagnostics.bootstrapLiteRoomCount = 0;
+    diagnostics.bootstrapLiteParticipantCount = 0;
+    diagnostics.bootstrapLiteRoomsFetchPath = "legacy";
+    diagnostics.bootstrapLiteProfilesBundleEmbeddedCount = 0;
+    diagnostics.bootstrapLiteProfilesMissFetchCount = 0;
+    diagnostics.bootstrapLiteProfilesFetchMs = 0;
   }
   const tBootstrapMonolith0 = performance.now();
   const myPayloadPromise = (async () => {
     const tRooms = performance.now();
+    if (isMinimalLiteBootstrap && !options?.bypassLiteRoomsCache) {
+      const cached = peekBootstrapLiteRoomsPayload(userId);
+      if (cached) {
+        myRoomsDiagnostics.liteRoomsCacheHit = true;
+        const payload = cached as MessengerRoomsPayload;
+        if (diagnostics) {
+          diagnostics.roomsQueryMs = Math.round(performance.now() - tRooms);
+          diagnostics.roomCount = payload.roomRows.length;
+          diagnostics.participantCount = payload.participantRows.length;
+          diagnostics.roomsPayloadDbRoundTrips = 0;
+          myRoomsDiagnostics.round2RoomRowCount = payload.roomRows.length;
+          myRoomsDiagnostics.round2ParticipantRowCount = payload.participantRows.length;
+          finishBootstrapLiteRoomsQueryBreakdown(diagnostics, myRoomsDiagnostics);
+        }
+        return payload;
+      }
+    }
     const payload = await fetchMyRoomsPayload(userId, {
       diagnostics: myRoomsDiagnostics,
       includeRoomProfiles: !isMinimalLiteBootstrap,
+      bootstrapLiteBundle: isMinimalLiteBootstrap,
+      criticalSlimRoomSelect: isMinimalLiteBootstrap,
     });
+    if (isMinimalLiteBootstrap) {
+      storeBootstrapLiteRoomsPayload(userId, payload);
+    }
     if (diagnostics) {
       diagnostics.roomsQueryMs = Math.round(performance.now() - tRooms);
       diagnostics.roomCount = payload.roomRows.length;
@@ -4154,9 +4651,49 @@ export async function getCommunityMessengerBootstrap(
       diagnostics.roomsQueryRound2ParticipantRowCount = myRoomsDiagnostics.round2ParticipantRowCount;
       diagnostics.roomsQueryRound3RoomProfileCount = myRoomsDiagnostics.round3RoomProfileCount;
       diagnostics.roomsPayloadDbRoundTrips = myRoomsDiagnostics.queryCount;
+      if (isMinimalLiteBootstrap) {
+        finishBootstrapLiteRoomsQueryBreakdown(diagnostics, myRoomsDiagnostics);
+      }
     }
     return payload;
   })();
+  /** lite: rooms 직후 mega RPC — enrich 에서 동일 Promise 재사용 */
+  const bootstrapLiteMegaBundlePrefetchPromise: Promise<HomeSyncMegaDirectKeysBundleFetchResult> | null =
+    isMinimalLiteBootstrap
+      ? myPayloadPromise.then((payload) => {
+          const sb = getSupabaseOrNull();
+          if (!sb) {
+            return {
+              data: null,
+              error: { message: "no_supabase" },
+              leaderRpcWallMs: 0,
+              lookupWallMs: 0,
+              megaMapSyncMs: 0,
+              megaInflightOrRpcWaitMs: 0,
+              cacheReason: "rpc_cold" as const,
+              singleflightJoinCount: 0,
+              cacheKey: "",
+            };
+          }
+          const { pcIds, itemTradeRoomIds } = extractTradeDirectKeyIdsFromRoomRows(
+            payload.roomRows as ReadonlyArray<{ direct_key?: string | null }>
+          );
+          if (!pcIds.length && !itemTradeRoomIds.length) {
+            return {
+              data: null,
+              error: null,
+              leaderRpcWallMs: 0,
+              lookupWallMs: 0,
+              megaMapSyncMs: 0,
+              megaInflightOrRpcWaitMs: 0,
+              cacheReason: "rpc_cold" as const,
+              singleflightJoinCount: 0,
+              cacheKey: "mega:empty",
+            };
+          }
+          return fetchHomeSyncMegaDirectKeysBundleCached(sb, pcIds, itemTradeRoomIds);
+        })
+      : null;
   const callRowsPromise = deferCallLog
     ? Promise.resolve<Array<CallRow | DevCall>>([])
     : (async () => {
@@ -4167,75 +4704,133 @@ export async function getCommunityMessengerBootstrap(
         diagnostics && (diagnostics.callsLogRowsFetchMs = elapsed);
         return rows;
       })();
-  const acceptedFriendRowsPromise = (async () => {
-    const t = performance.now();
-    const rows = await fetchCommunityFriendRequestsAcceptedRowsForViewer(userId);
-    diagnostics && (diagnostics.parallelAcceptedFriendsBundleMs = Math.round(performance.now() - t));
-    return rows;
-  })();
+  const emptyDiscoverableState = (): DiscoverableOpenGroupsRawState => ({
+    roomRows: [],
+    participantRows: [],
+    byRoomId: new Map(),
+    roomProfileMap: new Map(),
+    joinedRoomIds: new Set(),
+  });
+
+  let acceptedFriendRows: CommunityFriendRequestAcceptedRow[] = [];
+  let favoriteFriendIds: string[] = [];
+  let followingIds: string[] = [];
+  let hiddenIds: string[] = [];
+  let blockedIds: string[] = [];
+  let requestRows: RequestRow[] = [];
+  let myPayload: Awaited<ReturnType<typeof fetchMyRoomsPayload>>;
+  let discState: DiscoverableOpenGroupsRawState;
+  let callRows: Array<CallRow | DevCall>;
+
   const tParallelInitial = performance.now();
-  const [
-    acceptedFriendRows,
-    favoriteFriendIds,
-    followingIds,
-    hiddenIds,
-    blockedIds,
-    requestRows,
-    myPayload,
-    discState,
-    callRows,
-  ] = await Promise.all([
-    acceptedFriendRowsPromise,
-    (async () => {
+  if (isMinimalLiteBootstrap) {
+    /** lite 첫 페인트: 방 목록만 parallel wall 에 포함 — mega·소셜은 겹치거나 지연 */
+    myPayload = await myPayloadPromise;
+    diagnostics && (diagnostics.bootstrapLiteRoomsFetchMs = diagnostics.roomsQueryMs);
+    const socialPeek = peekBootstrapLiteSocialDeferred(userId);
+    if (socialPeek.snapshot) {
+      acceptedFriendRows = socialPeek.snapshot.acceptedFriendRows;
+      favoriteFriendIds = socialPeek.snapshot.favoriteFriendIds;
+      followingIds = socialPeek.snapshot.followingIds;
+      hiddenIds = socialPeek.snapshot.hiddenIds;
+      blockedIds = socialPeek.snapshot.blockedIds;
+      requestRows = socialPeek.snapshot.requestRows as RequestRow[];
+      diagnostics && (diagnostics.bootstrapLiteSocialGraphSource = "cache");
+      diagnostics && (diagnostics.bootstrapLiteFriendsFetchMs = socialPeek.peekMs);
+    } else {
+      diagnostics && (diagnostics.bootstrapLiteSocialGraphSource = "empty");
+    }
+    diagnostics && (diagnostics.bootstrapLiteRequestsFetchMs = 0);
+    diagnostics && (diagnostics.bootstrapLiteFavoriteFetchMs = 0);
+    diagnostics && (diagnostics.bootstrapLiteDiscoverableFetchMs = 0);
+    diagnostics && (diagnostics.bootstrapLiteMeetingsFetchMs = 0);
+    diagnostics &&
+      (diagnostics.parallelAcceptedFriendsBundleMs = diagnostics.bootstrapLiteFriendsFetchMs);
+    diagnostics && (diagnostics.parallelFavoriteFriendsMs = 0);
+    diagnostics && (diagnostics.parallelFollowingNeighborMs = 0);
+    diagnostics && (diagnostics.parallelFollowingHiddenMs = 0);
+    diagnostics && (diagnostics.parallelFollowingBlockedMs = 0);
+    diagnostics && (diagnostics.parallelFriendRequestsMs = 0);
+    diagnostics && (diagnostics.parallelDiscoverableFetchMs = 0);
+    discState = emptyDiscoverableState();
+    callRows = [];
+    scheduleBootstrapLiteSocialGraphBackgroundHydration(userId, () =>
+      fetchBootstrapLiteSocialGraphSnapshot(userId)
+    );
+  } else {
+    const acceptedFriendRowsPromise = (async () => {
       const t = performance.now();
-      const r = await listFavoriteFriendIds(userId);
-      diagnostics && (diagnostics.parallelFavoriteFriendsMs = Math.round(performance.now() - t));
-      return r;
-    })(),
-    (async () => {
-      const t = performance.now();
-      const r = await listFollowingIds(userId, "neighbor_follow");
-      diagnostics && (diagnostics.parallelFollowingNeighborMs = Math.round(performance.now() - t));
-      return r;
-    })(),
-    (async () => {
-      const t = performance.now();
-      const r = await listFollowingIds(userId, "hidden");
-      diagnostics && (diagnostics.parallelFollowingHiddenMs = Math.round(performance.now() - t));
-      return r;
-    })(),
-    (async () => {
-      const t = performance.now();
-      const r = await listFollowingIds(userId, "blocked");
-      diagnostics && (diagnostics.parallelFollowingBlockedMs = Math.round(performance.now() - t));
-      return r;
-    })(),
-    (async () => {
-      const t = performance.now();
-      const r = await listCommunityMessengerFriendRequestRows(userId);
-      diagnostics && (diagnostics.parallelFriendRequestsMs = Math.round(performance.now() - t));
-      return r;
-    })(),
-    myPayloadPromise,
-    skipDiscoverable
-      ? Promise.resolve<DiscoverableOpenGroupsRawState>({
-          roomRows: [],
-          participantRows: [],
-          byRoomId: new Map(),
-          roomProfileMap: new Map(),
-          joinedRoomIds: new Set(),
-        })
-      : (async () => {
-          const t = performance.now();
-          const r = await fetchDiscoverableOpenGroupsRawState(userId);
-          diagnostics && (diagnostics.parallelDiscoverableFetchMs = Math.round(performance.now() - t));
-          return r;
-        })(),
-    callRowsPromise,
-  ]);
+      const rows = await fetchCommunityFriendRequestsAcceptedRowsForViewer(userId);
+      diagnostics && (diagnostics.parallelAcceptedFriendsBundleMs = Math.round(performance.now() - t));
+      return rows;
+    })();
+    const fullParallel = await Promise.all([
+      acceptedFriendRowsPromise,
+      (async () => {
+        const t = performance.now();
+        const r = await listFavoriteFriendIds(userId);
+        diagnostics && (diagnostics.parallelFavoriteFriendsMs = Math.round(performance.now() - t));
+        return r;
+      })(),
+      (async () => {
+        const t = performance.now();
+        const r = await listFollowingIds(userId, "neighbor_follow");
+        diagnostics && (diagnostics.parallelFollowingNeighborMs = Math.round(performance.now() - t));
+        return r;
+      })(),
+      (async () => {
+        const t = performance.now();
+        const r = await listFollowingIds(userId, "hidden");
+        diagnostics && (diagnostics.parallelFollowingHiddenMs = Math.round(performance.now() - t));
+        return r;
+      })(),
+      (async () => {
+        const t = performance.now();
+        const r = await listFollowingIds(userId, "blocked");
+        diagnostics && (diagnostics.parallelFollowingBlockedMs = Math.round(performance.now() - t));
+        return r;
+      })(),
+      (async () => {
+        const t = performance.now();
+        const r = await listCommunityMessengerFriendRequestRows(userId);
+        diagnostics && (diagnostics.parallelFriendRequestsMs = Math.round(performance.now() - t));
+        return r;
+      })(),
+      myPayloadPromise,
+      bootstrapLiteMegaBundlePrefetchPromise ?? Promise.resolve(null),
+      skipDiscoverable
+        ? Promise.resolve(emptyDiscoverableState())
+        : (async () => {
+            const t = performance.now();
+            const r = await fetchDiscoverableOpenGroupsRawState(userId);
+            diagnostics && (diagnostics.parallelDiscoverableFetchMs = Math.round(performance.now() - t));
+            return r;
+          })(),
+      callRowsPromise,
+    ]);
+    acceptedFriendRows = fullParallel[0]!;
+    favoriteFriendIds = fullParallel[1]!;
+    followingIds = fullParallel[2]!;
+    hiddenIds = fullParallel[3]!;
+    blockedIds = fullParallel[4]!;
+    requestRows = fullParallel[5]!;
+    myPayload = fullParallel[6]!;
+    discState = fullParallel[8]!;
+    callRows = fullParallel[9]!;
+    diagnostics && (diagnostics.bootstrapLiteSocialGraphSource = "full_fetch");
+    diagnostics && (diagnostics.bootstrapLiteRoomsFetchMs = diagnostics.roomsQueryMs);
+    diagnostics && (diagnostics.bootstrapLiteFriendsFetchMs = diagnostics.parallelAcceptedFriendsBundleMs);
+    diagnostics && (diagnostics.bootstrapLiteRequestsFetchMs = diagnostics.parallelFriendRequestsMs);
+    diagnostics && (diagnostics.bootstrapLiteFavoriteFetchMs = diagnostics.parallelFavoriteFriendsMs);
+    diagnostics && (diagnostics.bootstrapLiteDiscoverableFetchMs = diagnostics.parallelDiscoverableFetchMs);
+    diagnostics && (diagnostics.bootstrapLiteMeetingsFetchMs = 0);
+  }
   const friendIds = acceptedPeerIdsFromCommunityFriendRows(userId, acceptedFriendRows);
   const friendshipAcceptedAtByPeer = friendshipAcceptedAtByPeerFromRows(userId, acceptedFriendRows);
   diagnostics && (diagnostics.parallelInitialWallMs = Math.round(performance.now() - tParallelInitial));
+  if (isMinimalLiteBootstrap && diagnostics) {
+    finishBootstrapLiteParallelBreakdown(diagnostics);
+  }
   if (isMinimalLiteBootstrap && diagnostics) {
     /** Lite 도 trade unread 병합·context enrich 를 쓰므로 full 과 동일 문구 */
     diagnostics.unreadAggregation =
@@ -4290,12 +4885,34 @@ export async function getCommunityMessengerBootstrap(
     ...sessionParticipantUserIds,
   ]);
 
+  const liteProfileHydrateIds = isMinimalLiteBootstrap
+    ? dedupeIds([userId, ...dedupeParticipantUserIds(myPayload.participantRows)])
+    : allIds;
+  const litePrefetchedProfiles = isMinimalLiteBootstrap ? myPayload.bootstrapLiteProfileLabels : undefined;
+  if (isMinimalLiteBootstrap && diagnostics) {
+    let embedded = 0;
+    let miss = 0;
+    for (const id of liteProfileHydrateIds) {
+      if (litePrefetchedProfiles?.has(id)) embedded += 1;
+      else miss += 1;
+    }
+    diagnostics.bootstrapLiteProfilesBundleEmbeddedCount = embedded;
+    diagnostics.bootstrapLiteProfilesMissFetchCount = miss;
+  }
+
   const tProfiles = performance.now();
-  const { profileMap } = await hydrateProfilesLabelsOnlyWithMap(userId, allIds, { includeSelf: true });
-  diagnostics && (diagnostics.profilesMs = Math.round(performance.now() - tProfiles));
+  const { profileMap } = await hydrateProfilesLabelsOnlyWithMap(userId, liteProfileHydrateIds, {
+    includeSelf: true,
+    prefetchedProfiles: litePrefetchedProfiles,
+    bootstrapLiteFirstPaint: isMinimalLiteBootstrap,
+  });
+  const profilesWallMs = Math.round(performance.now() - tProfiles);
+  diagnostics && (diagnostics.profilesMs = profilesWallMs);
+  diagnostics && isMinimalLiteBootstrap && (diagnostics.bootstrapLiteProfilesFetchMs = profilesWallMs);
+  const profileBuildTargetIds = isMinimalLiteBootstrap ? liteProfileHydrateIds : allIds;
   const allProfiles = buildProfilesFromKnownRelations({
     viewerId: userId,
-    targetIds: allIds,
+    targetIds: profileBuildTargetIds,
     profileMap,
     friendIds,
     favoriteFriendIds,
@@ -4332,21 +4949,40 @@ export async function getCommunityMessengerBootstrap(
   diagnostics && (diagnostics.roomsQueryRound2RoomsHydrateLabelMs = Math.round(performance.now() - tRoomsHydrateLabel));
   diagnostics && (diagnostics.transformMs += Math.round(performance.now() - tTransformCore));
   /**
-   * Lite 부트스트랩도 거래 채팅 목록 썸네일·제목에 `posts` 를 써야 한다 — 예전에는 이 블록 전체를 lite 에서 생략해
-   * 첫 GET(`?lite=1`)·세션 캐시에 썸네일 없는 채팅 배열만 남았다.
+   * Lite 부트스트랩: 썸네일·제목은 유지하되 home-sync critical 과 동일한 fast enrich
+   * (mega direct_keys · posts critical 1RTT · category fallback_only · Phase D 생략).
    * Philife 오픈그룹 라벨 보강만 lite 에서 생략한다.
+   * @see `bootstrap-lite-policy.ts` — heavy enrich 는 클라 `useTradeChatListMetaHydration` 이 보강.
    */
   {
     const tTrade = performance.now();
-    await enrichTradeRoomContextMetaForBootstrap(userId, mySummaries, diagnostics, undefined);
+    const liteBootstrapTrace: HomeSyncTrace | undefined = isMinimalLiteBootstrap
+      ? {
+          token: "bootstrap-lite",
+          tier: "critical",
+          authSessionMs: 0,
+          deepSteps: {},
+        }
+      : undefined;
+    if (diagnostics && isMinimalLiteBootstrap) {
+      diagnostics.bootstrapLiteTradeEnrichFastPath = true;
+    }
+    await enrichTradeRoomContextMetaForBootstrap(userId, mySummaries, diagnostics, liteBootstrapTrace, {
+      tradeCategoryFetchMode: isMinimalLiteBootstrap ? "fallback_only" : "full",
+      homeSyncMegaBundleForDirectKeys: isMinimalLiteBootstrap,
+      bootstrapLiteFastEnrich: isMinimalLiteBootstrap,
+      megaBundlePrefetchPromise: bootstrapLiteMegaBundlePrefetchPromise ?? undefined,
+    });
     diagnostics && (diagnostics.tradeContextMs = Math.round(performance.now() - tTrade));
     diagnostics &&
-      (diagnostics.enrichTradeMiddlePipelineMs = Math.max(
-        0,
-        diagnostics.tradeContextMs -
-          diagnostics.enrichTradeDirectKeysMs -
-          diagnostics.enrichTradeSellerHydrateMs
-      ));
+      (diagnostics.enrichTradeMiddlePipelineMs = isMinimalLiteBootstrap
+        ? 0
+        : Math.max(
+            0,
+            diagnostics.tradeContextMs -
+              diagnostics.enrichTradeDirectKeysMs -
+              diagnostics.enrichTradeSellerHydrateMs
+          ));
     const sbBoot = getSupabaseOrNull();
     if (sbBoot) {
       const tUnread = performance.now();
@@ -4496,6 +5132,19 @@ export async function getCommunityMessengerBootstrap(
     discoverableGroups,
     calls,
   };
+  if (!isMinimalLiteBootstrap) {
+    storeBootstrapLiteSocialDeferred(userId, {
+      acceptedFriendRows,
+      favoriteFriendIds,
+      followingIds,
+      hiddenIds,
+      blockedIds,
+      requestRows,
+    });
+    if (diagnostics) {
+      finishBootstrapLiteParallelBreakdown(diagnostics);
+    }
+  }
   if (diagnostics) {
     diagnostics.additionalLookupRounds =
       (diagnostics.profilesMs > 0 ? 1 : 0) +
@@ -4557,6 +5206,148 @@ function tradeMessengerTradeListMetaNeedsPcHydration(summary: CommunityMessenger
   return weakHeadline || missingPostId || missingPc;
 }
 
+/** bootstrap lite fast enrich: direct_keys 이후 Phase A–D 가 필요한 direct 방 */
+function tradeSummariesNeedingBootstrapHeavyEnrich(
+  summaries: CommunityMessengerRoomSummary[]
+): CommunityMessengerRoomSummary[] {
+  return summaries.filter(
+    (s) =>
+      s.roomType === "direct" &&
+      (tradeMessengerListThumbnailMissing(s) || tradeMessengerTradeListMetaNeedsPcHydration(s))
+  );
+}
+
+function isBootstrapLiteTradeListSummary(s: CommunityMessengerRoomSummary): boolean {
+  if (s.roomType !== "direct") return false;
+  if (s.contextMeta?.kind === "trade") return true;
+  return parseTradeMessengerDirectKey(s.messengerDirectKey) != null;
+}
+
+/** lite 첫 페인트 최소 메타(썸네일·제목·postId·pc/direct_key) — category·seller 는 background */
+function bootstrapLiteFirstPaintMetaSatisfied(s: CommunityMessengerRoomSummary): boolean {
+  if (!isBootstrapLiteTradeListSummary(s)) return true;
+  const m = s.contextMeta;
+  if (!m || m.kind !== "trade") return false;
+  if (tradeMessengerListThumbnailMissing(s)) return false;
+  const headline = trimText(m.headline);
+  if (!headline || isWeakTradeMessengerHeadline(headline)) return false;
+  if (!trimText(m.postId)) return false;
+  const pcid = trimText(m.productChatId);
+  if (!pcid && !isMessengerAuthoritativeTradeDirectKey(s.messengerDirectKey)) return false;
+  return true;
+}
+
+function bootstrapLiteHeavyTargetReasonCodes(s: CommunityMessengerRoomSummary): string[] {
+  if (!isBootstrapLiteTradeListSummary(s)) return [];
+  const m = s.contextMeta;
+  if (!m || m.kind !== "trade") return ["no_trade_context"];
+  const codes: string[] = [];
+  if (tradeMessengerListThumbnailMissing(s)) codes.push("no_thumbnail");
+  const headline = trimText(m.headline);
+  if (!headline) codes.push("no_title");
+  else if (isWeakTradeMessengerHeadline(headline)) codes.push("weak_headline");
+  if (!trimText(m.postId)) codes.push("no_post_id");
+  if (!trimText(m.productChatId) && !isMessengerAuthoritativeTradeDirectKey(s.messengerDirectKey)) {
+    codes.push("no_product_chat_id");
+  }
+  return codes;
+}
+
+function bootstrapLiteHeavyTargetReasonsTopFromSummaries(
+  rooms: CommunityMessengerRoomSummary[]
+): string {
+  const counts = new Map<string, number>();
+  for (const s of rooms) {
+    for (const code of bootstrapLiteHeavyTargetReasonCodes(s)) {
+      counts.set(code, (counts.get(code) ?? 0) + 1);
+    }
+  }
+  return [...counts.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([k, v]) => `${k}:${v}`)
+    .join(",");
+}
+
+function tradeSummariesBootstrapLiteHeavyTargetBeforeDirectKeys(
+  summaries: CommunityMessengerRoomSummary[]
+): CommunityMessengerRoomSummary[] {
+  return summaries.filter(
+    (s) =>
+      isBootstrapLiteTradeListSummary(s) &&
+      (tradeMessengerListThumbnailMissing(s) || tradeMessengerTradeListMetaNeedsPcHydration(s))
+  );
+}
+
+/** lite: direct_keys 이후에도 first-paint 미충족인 trade 방만 */
+function tradeSummariesBootstrapLiteMissingAfterDirectKeys(
+  summaries: CommunityMessengerRoomSummary[]
+): CommunityMessengerRoomSummary[] {
+  return summaries.filter((s) => isBootstrapLiteTradeListSummary(s) && !bootstrapLiteFirstPaintMetaSatisfied(s));
+}
+
+async function runBootstrapLiteMissingOnlyBatch(args: {
+  userId: string;
+  missing: CommunityMessengerRoomSummary[];
+  fetchPostsCached: (ids: string[]) => Promise<Map<string, Record<string, unknown>>>;
+  tradeDiag?: CommunityMessengerBootstrapDiagnostics;
+  cpuMergeMsRef?: { ms: number };
+}): Promise<number> {
+  const { userId, missing, fetchPostsCached, tradeDiag, cpuMergeMsRef } = args;
+  const t0 = performance.now();
+  let deferred = 0;
+  const withPostId: CommunityMessengerRoomSummary[] = [];
+  for (const s of missing) {
+    const postId = trimText((s.contextMeta as { postId?: string })?.postId);
+    if (!postId) {
+      deferred += 1;
+      continue;
+    }
+    withPostId.push(s);
+  }
+  if (tradeDiag) tradeDiag.bootstrapLiteDeferredHydrationCount = deferred;
+
+  const postIds = dedupeIds(
+    withPostId.map((s) => trimText((s.contextMeta as { postId?: string })?.postId)).filter(Boolean)
+  );
+  if (!postIds.length) return Math.round(performance.now() - t0);
+
+  const postById = await fetchPostsCached(postIds);
+  const emptyCategoryById = new Map<string, TradeChatCategoryMetaLike>();
+  const tCpu = performance.now();
+  for (const s of withPostId) {
+    const m = s.contextMeta;
+    if (!m || m.kind !== "trade") continue;
+    const postId = trimText(m.postId);
+    const pcid = trimText(m.productChatId);
+    if (!postId) continue;
+    const post = postById.get(postId);
+    const priceRaw = post?.price;
+    const price =
+      typeof priceRaw === "number" && Number.isFinite(priceRaw) ? priceRaw : priceRaw != null ? Number(priceRaw) : null;
+    const currency = tradePostCurrencyCodeOrPhp(post as Record<string, unknown> | null | undefined);
+    const sellerIdFromPost = trimText((post as { user_id?: unknown })?.user_id);
+    const role: "seller" | "buyer" =
+      sellerIdFromPost && sellerIdFromPost === userId ? "seller" : "buyer";
+    s.contextMeta = buildTradeMessengerListContextMetaFromLoadedPost({
+      productChatId: pcid || postId,
+      postId,
+      post: post as Record<string, unknown> | null | undefined,
+      price: price != null && !Number.isNaN(price) ? price : null,
+      currency,
+      role,
+      categoryById: emptyCategoryById,
+      sellerListingStateRaw: post?.seller_listing_state,
+      postStatus: (post?.status as string | undefined) ?? null,
+      thumbnailUrl:
+        firstPostThumbnailForMessengerTradeList(post as Record<string, unknown>) ??
+        (typeof m.thumbnailUrl === "string" ? m.thumbnailUrl : null),
+    });
+  }
+  if (cpuMergeMsRef) cpuMergeMsRef.ms += performance.now() - tCpu;
+  return Math.round(performance.now() - t0);
+}
+
 /** `community_messenger_rooms.direct_key` — 거래 스레드 원장 키 (`trade_pc:` / `trade_item:`). */
 type ParsedTradeMessengerDirectKey =
   | { kind: "trade_pc"; productChatId: string }
@@ -4582,8 +5373,38 @@ function isMessengerAuthoritativeTradeDirectKey(directKey: string | null | undef
   return parseTradeMessengerDirectKey(directKey) != null;
 }
 
+/** room 행 `direct_key` → mega RPC 인자(trade_pc / item_trade). */
+function extractTradeDirectKeyIdsFromRoomRows(
+  roomRows: ReadonlyArray<{ direct_key?: string | null }>
+): { pcIds: string[]; itemTradeRoomIds: string[] } {
+  const pcIds: string[] = [];
+  const itemTradeRoomIds: string[] = [];
+  for (const row of roomRows) {
+    const p = parseTradeMessengerDirectKey(row.direct_key);
+    if (!p) continue;
+    if (p.kind === "trade_pc") pcIds.push(p.productChatId);
+    else itemTradeRoomIds.push(p.itemTradeChatRoomId);
+  }
+  return { pcIds: dedupeIds(pcIds), itemTradeRoomIds: dedupeIds(itemTradeRoomIds) };
+}
+
+type HomeSyncMegaDirectKeysBundleFetchResult = {
+  data: unknown;
+  error: unknown;
+  leaderRpcWallMs: number;
+  lookupWallMs: number;
+  megaMapSyncMs: number;
+  megaInflightOrRpcWaitMs: number;
+  cacheReason: "row_cache_hit" | "row_cache_singleflight_join" | "rpc_cold";
+  singleflightJoinCount: number;
+  cacheKey: string;
+};
+
 type TradeEnrichBootstrapSharedCtx = {
   trace?: HomeSyncTrace;
+  tradeDiag?: CommunityMessengerBootstrapDiagnostics;
+  /** bootstrap lite: `Promise.all` 구간에서 선행 시작한 mega RPC — enrich 에서 재호출 금지 */
+  megaBundlePrefetchPromise?: Promise<HomeSyncMegaDirectKeysBundleFetchResult>;
   /** `listCommunityMessengerMyChatsAndGroups` + 양수 `roomListCap`(home-sync) — prod full 도 mega RPC 허용 */
   homeSyncMegaBundleForDirectKeys?: boolean;
   categoryLoader: {
@@ -4912,7 +5733,20 @@ async function enrichTradeRoomContextMetaFromDirectKeys(
       const wantedPcPre = dedupeIds(pcIdsFromKey);
       const wantedRoomsPre = dedupeIds(itemTradeRoomIds);
       const dkNormalizeCpuMs = performance.now() - tDkNorm0;
-      const mf = await fetchHomeSyncMegaDirectKeysBundleCached(sb, wantedPcPre, wantedRoomsPre);
+      const tMegaResolve = performance.now();
+      const mf = shared.megaBundlePrefetchPromise
+        ? await shared.megaBundlePrefetchPromise
+        : await fetchHomeSyncMegaDirectKeysBundleCached(sb, wantedPcPre, wantedRoomsPre);
+      const megaPrefetchWaitMs = shared.megaBundlePrefetchPromise
+        ? performance.now() - tMegaResolve
+        : 0;
+      const isBootstrapLiteMega = trimText(shared?.trace?.token ?? "") === "bootstrap-lite";
+      if (shared.tradeDiag && isBootstrapLiteMega) {
+        shared.tradeDiag.bootstrapLiteDirectKeysMegaRpcMs = Math.round(mf.leaderRpcWallMs);
+        shared.tradeDiag.bootstrapLiteDirectKeysMegaCacheReason = mf.cacheReason;
+        shared.tradeDiag.bootstrapLiteDirectKeysPrefetchWaitMs = Math.round(megaPrefetchWaitMs);
+        shared.tradeDiag.bootstrapLiteDirectKeysMegaNetworkMs = Math.round(mf.leaderRpcWallMs);
+      }
       const megaData = mf.data;
       const megaErr = mf.error;
       if (!megaErr && megaData != null) {
@@ -5011,15 +5845,14 @@ async function enrichTradeRoomContextMetaFromDirectKeys(
         }
         megaBundleCacheStoreMs = performance.now() - tMegaCacheStore0;
         shared.directKeysPrefetchedPosts = postByIdMega;
-        const tPostsWall = performance.now();
-        const postByIdResolved = await shared.fetchPostsCached(allPostIdsMega);
-        const postsFetchMsMega = performance.now() - tPostsWall;
-        const postsStartAfterMsMega = tPostsWall - tDirectWall;
-        if (shared.trace) {
+        const postByIdResolved = postByIdMega;
+        const postsFetchMsMega = 0;
+        const postsStartAfterMsMega = 0;
+        if (shared.trace && !isBootstrapLiteMega) {
           mergeHomeSyncTradePostsFetchDetail(shared.trace, {
             postIdsCount: allPostIdsMega.length,
             postIdsDedupeCount: allPostIdsMega.length,
-            queryCount: 1,
+            queryCount: 0,
             cacheHit: true,
             usedSelect: TRADE_CHAT_LIST_POST_SELECT_CRITICAL,
             selectColumnCount: TRADE_CHAT_LIST_POST_SELECT_CRITICAL.split(",")
@@ -5031,9 +5864,14 @@ async function enrichTradeRoomContextMetaFromDirectKeys(
           });
         }
         const tCat0 = performance.now();
-        await shared.categoryLoader.ensureForPosts(postByIdResolved.values());
-        const categoryByIdMega = shared.categoryLoader.getMergedMap();
-        const categoryEnsureMsMega = performance.now() - tCat0;
+        let categoryByIdMega: Map<string, TradeChatCategoryMetaLike>;
+        if (isBootstrapLiteMega) {
+          categoryByIdMega = new Map();
+        } else {
+          await shared.categoryLoader.ensureForPosts(postByIdResolved.values());
+          categoryByIdMega = shared.categoryLoader.getMergedMap();
+        }
+        const categoryEnsureMsMega = isBootstrapLiteMega ? 0 : performance.now() - tCat0;
         const megaCategoryTableSfJoins = shared.categoryLoader.peekCategoryTableSingleflightJoins();
 
         const applyMega = (
@@ -5085,8 +5923,31 @@ async function enrichTradeRoomContextMetaFromDirectKeys(
           applyMega(s, pcidForMeta, cr.item_id, cr.seller_id, cr.buyer_id);
         }
         const applyLoopMsMega = performance.now() - tApplyMega;
+        if (shared.tradeDiag && isBootstrapLiteMega) {
+          shared.tradeDiag.bootstrapLiteDirectKeysParseApplyMs = Math.round(
+            dkNormalizeCpuMs + applyLoopMsMega
+          );
+        }
 
         const wallMsEndMega = performance.now() - tDirectWall;
+        if (
+          isBootstrapLiteMega &&
+          messengerVerboseTraceConsoleEnabled() &&
+          process.env.NODE_ENV === "development"
+        ) {
+          // eslint-disable-next-line no-console -- gated bootstrap lite direct_keys breakdown
+          console.debug(
+            "[cm-bootstrap-lite-direct-keys]",
+            JSON.stringify({
+              mega_rpc_ms: Math.round(mf.leaderRpcWallMs),
+              mega_cache_reason: mf.cacheReason,
+              mega_prefetch_wait_ms: Math.round(megaPrefetchWaitMs),
+              mega_parse_apply_ms: Math.round(dkNormalizeCpuMs + applyLoopMsMega),
+              mega_lookup_wall_ms: Math.round(mf.lookupWallMs),
+              direct_keys_wall_ms: Math.round(wallMsEndMega),
+            })
+          );
+        }
         const megaSlotDiag = computeDirectKeysCategorySlotDiag(postByIdResolved.values());
         const megaHiddenSequential = Math.max(
           0,
@@ -5977,6 +6838,13 @@ async function enrichTradeRoomContextMetaForBootstrap(
     homeSyncMegaBundleForDirectKeys?: boolean;
     /** trade-chat-list-meta: direct_keys 썸네일·제목만 — seed/bridge/category/seller 직렬 구간 생략 */
     tradeListMetaUltraLight?: boolean;
+    /**
+     * `?lite=1` bootstrap: mega direct_keys + critical posts + fallback_only category.
+     * Phase D(peer pair) 생략 — `useTradeChatListMetaHydration` 이 잔여 방 보강.
+     */
+    bootstrapLiteFastEnrich?: boolean;
+    /** bootstrap lite: `getCommunityMessengerBootstrap` `Promise.all` 선행 mega — 중복 RPC 금지 */
+    megaBundlePrefetchPromise?: Promise<HomeSyncMegaDirectKeysBundleFetchResult>;
   }
 ): Promise<void> {
   const sb = getSupabaseOrNull();
@@ -6056,12 +6924,23 @@ async function enrichTradeRoomContextMetaForBootstrap(
     true
   );
 
+  const bootstrapLiteFast = opts?.bootstrapLiteFastEnrich === true;
+  let bootstrapLiteHeavyPipelineRan = false;
+  let bootstrapTradePostsFetchMs = 0;
+  let bootstrapTradeCategoryFetchMs = 0;
+  let bootstrapTradeCpuMergeMs = 0;
+  let bootstrapTradeNormalizeMs = 0;
+  let bootstrapTradeHiddenFallbackMs = 0;
+
   // 요청 스코프 posts 캐시: Phase A/B/C/D에서 같은 postId를 중복 조회하지 않게 한다.
   // (응답/기능 동일, tradePostsFetchMs만 타겟)
   const postRowCacheById = new Map<string, Record<string, unknown>>();
   const enrichBootstrapCtx: TradeEnrichBootstrapSharedCtx = {
     trace,
-    homeSyncMegaBundleForDirectKeys: opts?.homeSyncMegaBundleForDirectKeys === true,
+    tradeDiag,
+    megaBundlePrefetchPromise: opts?.megaBundlePrefetchPromise,
+    homeSyncMegaBundleForDirectKeys:
+      opts?.homeSyncMegaBundleForDirectKeys === true || bootstrapLiteFast,
     categoryLoader,
     directKeysPrefetchedPosts: undefined,
     fetchPostsCached: async () => new Map(),
@@ -6086,7 +6965,17 @@ async function enrichTradeRoomContextMetaForBootstrap(
       else missing.push(id);
     }
     if (missing.length) {
+      const tPostsFetch = tradeDiag || deepSteps ? performance.now() : 0;
       const fetched = await fetchTradeChatListPostRowsByIds(sb, missing, trace);
+      if (tradeDiag || deepSteps) {
+        const postsWall = performance.now() - tPostsFetch;
+        bootstrapTradePostsFetchMs += postsWall;
+        if (deepSteps) tradePostsFetchMs += postsWall;
+        const tpd = trace?.deepSteps.tradePostsFetchDetail;
+        if (bootstrapLiteFast && tpd && (tpd.fallbackAttemptCount ?? 0) > 0) {
+          bootstrapTradeHiddenFallbackMs += postsWall;
+        }
+      }
       for (const [id, row] of fetched.entries()) {
         postRowCacheById.set(id, row);
         out.set(id, row);
@@ -6095,11 +6984,88 @@ async function enrichTradeRoomContextMetaForBootstrap(
     return out;
   };
 
+  const liteHeavyTargetCountBefore = bootstrapLiteFast
+    ? tradeSummariesBootstrapLiteHeavyTargetBeforeDirectKeys(summaries).length
+    : 0;
+
   const tDirect = performance.now();
   await enrichTradeRoomContextMetaFromDirectKeys(userId, summaries, enrichBootstrapCtx);
   const directWallMs = performance.now() - tDirect;
   tradeDiag && (tradeDiag.enrichTradeDirectKeysMs = Math.round(directWallMs));
   if (listMetaBreakdown) lmDirectMs = directWallMs;
+
+  const flushBootstrapTradeEnrichDiag = (heavyPipelineSkipped: boolean) => {
+    if (!tradeDiag) return;
+    tradeDiag.enrichTradePostsFetchMs = Math.round(bootstrapTradePostsFetchMs);
+    tradeDiag.enrichTradeCategoryFetchMs = Math.round(bootstrapTradeCategoryFetchMs);
+    tradeDiag.enrichTradeCpuMergeMs = Math.round(bootstrapTradeCpuMergeMs);
+    tradeDiag.enrichTradeNormalizeMs = Math.round(bootstrapTradeNormalizeMs);
+    tradeDiag.enrichTradeHiddenFallbackMs = Math.round(bootstrapTradeHiddenFallbackMs);
+    if (bootstrapLiteFast) {
+      tradeDiag.bootstrapLiteTradeHeavyPipelineSkipped = heavyPipelineSkipped
+        ? true
+        : !bootstrapLiteHeavyPipelineRan;
+    }
+  };
+
+  if (bootstrapLiteFast) {
+    const missingAfter = tradeSummariesBootstrapLiteMissingAfterDirectKeys(summaries);
+    if (tradeDiag) {
+      tradeDiag.bootstrapLiteHeavyTargetCountBefore = liteHeavyTargetCountBefore;
+      tradeDiag.bootstrapLiteHeavyTargetCountAfterDirectKeys = missingAfter.length;
+      tradeDiag.bootstrapLiteHeavyTargetReasonsTop = bootstrapLiteHeavyTargetReasonsTopFromSummaries(missingAfter);
+      tradeDiag.bootstrapLiteMiddlePipelineBlocked = true;
+      tradeDiag.bootstrapLiteDeferredHydrationCount = 0;
+    }
+
+    if (missingAfter.length > 0 && tradeDiag) {
+      /** 첫 페인트: mega/direct_keys 이후에도 부족한 방은 background(`useTradeChatListMetaHydration`) — lite 에서 posts RTT 는 warm 1ms 유지 */
+      tradeDiag.bootstrapLiteDeferredHydrationCount += missingAfter.length;
+      tradeDiag.bootstrapLiteMissingOnlyBatchMs = 0;
+    }
+
+    flushBootstrapTradeEnrichDiag(true);
+    if (deepSteps && trace) {
+      const totalRounded = ms(performance.now() - tTop);
+      const dkWall = ms(trace.deepSteps.tradeDirectKeysDetail?.wallMs ?? directWallMs);
+      const batchWall = ms(tradeDiag?.bootstrapLiteMissingOnlyBatchMs ?? 0);
+      trace.deepSteps.tradeMetaEnrich = {
+        tradePostsFetchMs: ms(bootstrapTradePostsFetchMs),
+        categoryFetchMs: 0,
+        sellerProfileAttachMs: 0,
+        sellerProfileAttach: {
+          tradeRows: 0,
+          productChatIds: 0,
+          postIdsNeedingAuthor: 0,
+          sellerIds: 0,
+          sellerIdsDedupeMs: 0,
+          prefetchProductChatsMs: 0,
+          postsFetchMs: 0,
+          sellerProfilesFetchMs: 0,
+          attachCpuMs: 0,
+          totalMs: 0,
+          sellerProfilesFetchLikelyCached: true,
+        },
+        cpuMergeMs: ms(bootstrapTradeCpuMergeMs),
+        totalMs: totalRounded,
+        rooms: ms(summaries.length),
+        tradeCategoryFetchMode: "fallback_only",
+        categoryDbSkipped: true,
+        duplicateTradeMergeCount: 0,
+        seedProductChatsMs: 0,
+        directKeys: trace.deepSteps.tradeDirectKeysDetail,
+        explainedComponentsMs: ms(dkWall + batchWall),
+        explainedPlusCategoryParallelMs: ms(dkWall + batchWall),
+        residualGapAfterCategoryMs: Math.max(0, totalRounded - dkWall - batchWall),
+        gapMs: Math.max(0, totalRounded - dkWall - batchWall),
+        tradeMetaCacheHit: missingAfter.length === 0,
+        tradeMetaCacheMissReason: missingAfter.length > 0 ? "lite_missing_only_batch" : null,
+        tradeMetaTopBottleneck: batchWall >= dkWall ? "lite_missing_only_batch" : "direct_keys",
+        tradeMetaTopBottleneckMs: Math.max(dkWall, batchWall),
+      };
+    }
+    return;
+  }
 
   if (opts?.tradeListMetaUltraLight) {
     if (deepSteps && trace) {
@@ -6320,6 +7286,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
   const needsLedgerPrefetch = roomIdsLedgerSuperset.length > 0;
   const bridgeLedgerPromise = (async (): Promise<void> => {
     if (!(needsBridgeBQuery || needsLedgerPrefetch)) return;
+    bootstrapLiteHeavyPipelineRan = true;
     const tParallelBcLedger = deepSteps ? performance.now() : 0;
     let innerBridgeBMs = 0;
     let innerLedgerMs = 0;
@@ -6372,7 +7339,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
 
   const phaseAParallelPromise = (async (): Promise<void> => {
     /** Phase A: `summary` JSON(v1)에 `productChatId`가 있을 때 — 기존 경로 (direct_key 거래방은 제외: 원장은 Phase 0) */
-    const tPrepPhaseA = deepSteps ? performance.now() : 0;
+    const tPrepPhaseA = deepSteps || tradeDiag ? performance.now() : 0;
     const targetsFromSummaryMeta = summaries.filter(
       (s) =>
         s.contextMeta?.kind === "trade" &&
@@ -6385,6 +7352,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
         : [];
     if (deepSteps) tradeEnrichPhaseTargetsPrepCpuMs += performance.now() - tPrepPhaseA;
     if (targetsFromSummaryMeta.length && productChatIds.length) {
+      bootstrapLiteHeavyPipelineRan = true;
       const byPcId = new Map<string, { postId: string; sellerId: string; buyerId: string }>();
       const missingSeedPcIds: string[] = [];
       const tPhaseASeedLookup = deepSteps ? performance.now() : 0;
@@ -6463,6 +7431,9 @@ async function enrichTradeRoomContextMetaForBootstrap(
   const tPhaseAAndBridgeParallel = performance.now();
   await Promise.all([phaseAParallelPromise, bridgeLedgerPromise, categoryParallelPrimePromise]);
   phaseAAndBridgeParallelWallMs = performance.now() - tPhaseAAndBridgeParallel;
+  if (bootstrapLiteFast && phaseAAndBridgeParallelWallMs > 0) {
+    bootstrapLiteHeavyPipelineRan = true;
+  }
   if (listMetaBreakdown) lmPhaseABridgeParallelMs = phaseAAndBridgeParallelWallMs;
 
   /** Phase B 대상 room id 만 순회(썸네일·PC 보강 필요 + pc 맵 히트). */
@@ -6495,6 +7466,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
    */
   const tLmB = listMetaBreakdown ? performance.now() : 0;
   if (roomIdsForPcLookup.length || pcRowsByRoom.length) {
+    bootstrapLiteHeavyPipelineRan = true;
     const tSyncB = deepSteps ? performance.now() : 0;
     for (const row of pcRowsByRoom as Array<{
       id?: unknown;
@@ -6659,6 +7631,7 @@ async function enrichTradeRoomContextMetaForBootstrap(
 
   const tLmC = listMetaBreakdown ? performance.now() : 0;
   if (roomIdsLedger.length) {
+    bootstrapLiteHeavyPipelineRan = true;
     if (listMetaOrch) {
       listMetaOrch.tPhaseCStart = performance.now();
     }
@@ -6808,7 +7781,8 @@ async function enrichTradeRoomContextMetaForBootstrap(
   );
   if (deepSteps) tradeEnrichPhaseTargetsPrepCpuMs += performance.now() - tPrepPhaseD;
   const tLmD = listMetaBreakdown ? performance.now() : 0;
-  if (peersForPair.length) {
+  if (!bootstrapLiteFast && peersForPair.length) {
+    bootstrapLiteHeavyPipelineRan = true;
     type PcPairRow = {
       id: string;
       postId: string;
@@ -6936,6 +7910,13 @@ async function enrichTradeRoomContextMetaForBootstrap(
   if (listMetaBreakdown) lmSellerHydrateMs = performance.now() - tLmSeller;
   tradeDiag && (tradeDiag.enrichTradeSellerHydrateMs = Math.round(performance.now() - tSeller));
   if (deepSteps) sellerProfileAttachMs += performance.now() - tSellerDeep;
+
+  if (tradeDiag) {
+    bootstrapTradeCpuMergeMs += cpuMergeMs;
+    bootstrapTradeCategoryFetchMs += categoryFetchMs;
+    bootstrapTradeNormalizeMs += tradeEnrichPhaseTargetsPrepCpuMs;
+    flushBootstrapTradeEnrichDiag(false);
+  }
 
   if (deepSteps && trace) {
     const sellerProfileAttach = trace.deepSteps.sellerProfileAttachBreakdown ?? {
@@ -9337,6 +10318,27 @@ export type CommunityMessengerMarkReadDiag = {
   snapshot_cache_hit?: 0 | 1;
   snapshot_request_local_hit?: 0 | 1;
   snapshot_singleflight_hit?: 0 | 1;
+  snapshot_lookup_cache_hit?: 0 | 1;
+  permission_query_ms?: number;
+  permission_cache_lookup_ms?: number;
+  permission_db_query_ms?: number;
+  permission_profile_join_ms?: number;
+  permission_room_fetch_ms?: number;
+  permission_canonical_build_ms?: number;
+  permission_cache_store_ms?: number;
+  permission_source?: string;
+  permission_cache_reason?: string;
+  db_update_round_trip_ms?: number;
+  ack_coalesce_hit?: 0 | 1;
+  optimistic_ack_possible?: 0 | 1;
+  membership_cache_hit?: 0 | 1;
+  /** cold flushOpen open_tail — 단일 combined RPC */
+  mark_read_combined_rpc_ms?: number;
+  mark_read_combined_rpc_used?: 0 | 1;
+  mark_read_combined_rpc_mode?: "open_tail";
+  mark_read_fetch_existing_eliminated?: 0 | 1;
+  mark_read_db_round_trips?: number;
+  mark_read_cold_open_path?: 0 | 1;
 };
 
 export type CommunityMessengerMarkReadResult = {
@@ -9417,10 +10419,293 @@ export async function markCommunityMessengerRoomAsRead(input: {
   const requestedLastReadMessageId = trimText(input.lastReadMessageId);
   const flushOpen = input.flushOpen === true;
   const diag = input.diag;
+
+  const { probeMarkReadOpenTailCoalesce, rememberMarkReadOpenTailCoalesce } = await import(
+    "@/lib/community-messenger/mark-read-open-tail-coalesce"
+  );
+  const openCoalesceProbe = probeMarkReadOpenTailCoalesce(input.userId, roomId, {
+    flushOpen,
+    requestedLastReadMessageId,
+  });
+  if (diag) {
+    diag.ack_coalesce_hit = openCoalesceProbe.ack_coalesce_hit;
+    diag.optimistic_ack_possible = 1;
+  }
+  if (openCoalesceProbe.ack_coalesce_hit) {
+    if (diag) {
+      diag.mark_read_fetch_existing_ms = 0;
+      diag.existing_read_fetch_ms = 0;
+      diag.mark_read_db_update_ms = 0;
+      diag.mark_read_duplicate_skip_eval_ms = 0;
+      diag.snapshot_lookup_cache_hit = 1;
+    }
+    if (openCoalesceProbe.snapshot) {
+      return {
+        ok: true,
+        lastReadAt: openCoalesceProbe.snapshot.lastReadAt,
+        lastReadMessageId: openCoalesceProbe.snapshot.lastReadMessageId,
+        duplicateAckSkipped: true,
+        broadcastSkipped: true,
+        sameLastReadDetected: true,
+        lastReadAdvanced: false,
+      };
+    }
+    return {
+      ok: true,
+      lastReadAt: null,
+      lastReadMessageId: null,
+      duplicateAckSkipped: true,
+      broadcastSkipped: true,
+      sameLastReadDetected: true,
+      lastReadAdvanced: false,
+    };
+  }
+
   const sb = getSupabaseOrNull();
   if (sb) {
     const rpcMode: "open" | "cursor" = flushOpen || !requestedLastReadMessageId ? "open" : "cursor";
     const rpcThrough = rpcMode === "cursor" ? requestedLastReadMessageId : null;
+
+    /** cold unread open: TTL 캐시 warm skip만 로컬, 이외는 combined RPC 1RTT (SELECT+open mark 분리 금지) */
+    const useColdOpenTailCombinedRpc = flushOpen && !requestedLastReadMessageId;
+    if (useColdOpenTailCombinedRpc) {
+      const { probeMarkReadParticipantSnapshotCacheOnly } = await import(
+        "@/lib/community-messenger/mark-read-participant-snapshot"
+      );
+      const warmCachedSnap = probeMarkReadParticipantSnapshotCacheOnly(
+        input.userId,
+        roomId,
+        requestedLastReadMessageId,
+        flushOpen
+      );
+      if (warmCachedSnap && warmCachedSnap.unreadCount === 0 && Boolean(warmCachedSnap.lastReadMessageId)) {
+        if (diag) {
+          diag.mark_read_fetch_existing_ms = 0;
+          diag.existing_read_fetch_ms = 0;
+          diag.mark_read_existing_snapshot_lookup_ms = 0;
+          diag.mark_read_existing_snapshot_cache_hit = 1;
+          diag.mark_read_existing_snapshot_reuse = 1;
+          diag.snapshot_cache_hit = 1;
+          diag.snapshot_lookup_cache_hit = 1;
+          diag.mark_read_duplicate_skip_eval_ms = 0;
+          diag.mark_read_db_update_ms = 0;
+          diag.mark_read_db_round_trips = 0;
+          diag.mark_read_combined_rpc_used = 0;
+          diag.mark_read_cold_open_path = 0;
+          diag.mark_read_rpc_mode = "open";
+        }
+        cmRtReadSyncLog("mark_read_duplicate_same_cursor_skip", {
+          roomId,
+          viewerUserId: input.userId,
+          lastReadMessageId: warmCachedSnap.lastReadMessageId,
+          unreadCount: 0,
+        });
+        storeMarkReadParticipantSnapshotsFromRow(
+          input.userId,
+          roomId,
+          { flushOpen, requestedLastReadMessageId },
+          {
+            id: warmCachedSnap.participantId,
+            last_read_message_id: warmCachedSnap.lastReadMessageId,
+            last_read_at: warmCachedSnap.lastReadAt,
+            unread_count: 0,
+          }
+        );
+        rememberMarkReadOpenTailCoalesce(
+          input.userId,
+          roomId,
+          warmCachedSnap.lastReadAt,
+          warmCachedSnap.lastReadMessageId
+        );
+        return {
+          ok: true,
+          lastReadAt: warmCachedSnap.lastReadAt,
+          lastReadMessageId: warmCachedSnap.lastReadMessageId,
+          duplicateAckSkipped: true,
+          broadcastSkipped: true,
+          sameLastReadDetected: true,
+          lastReadAdvanced: false,
+        };
+      }
+
+      const tCombinedRpc0 = performance.now();
+      const { data: openTailRpcRaw, error: openTailRpcError } = await (sb as any).rpc(
+        "community_messenger_apply_room_read_mark_open_tail",
+        {
+          p_room_id: roomId,
+          p_reader_id: input.userId,
+          p_client_cursor: null,
+        }
+      );
+      const combinedRpcMs = Math.round(performance.now() - tCombinedRpc0);
+      const openTailRpcErrMsg = openTailRpcError
+        ? String((openTailRpcError as { message?: string }).message ?? openTailRpcError)
+        : "";
+      const openTailRpcMissing =
+        !!openTailRpcError &&
+        (/does not exist/i.test(openTailRpcErrMsg) ||
+          /community_messenger_apply_room_read_mark_open_tail/i.test(openTailRpcErrMsg) ||
+          openTailRpcErrMsg.toLowerCase().includes("schema cache"));
+
+      if (!openTailRpcMissing) {
+        if (diag) {
+          diag.mark_read_combined_rpc_used = 1;
+          diag.mark_read_combined_rpc_mode = "open_tail";
+          diag.mark_read_combined_rpc_ms = combinedRpcMs;
+          diag.mark_read_cold_open_path = 1;
+          diag.mark_read_fetch_existing_eliminated = 1;
+          diag.mark_read_fetch_existing_ms = 0;
+          diag.existing_read_fetch_ms = 0;
+          diag.mark_read_existing_snapshot_lookup_ms = 0;
+          diag.mark_read_db_round_trips = 1;
+          diag.rpc_ms = combinedRpcMs;
+          diag.mark_read_db_update_ms = combinedRpcMs;
+          diag.db_update_round_trip_ms = combinedRpcMs;
+          diag.mark_read_rpc_mode = "open";
+        }
+
+        const openTailPayload = openTailRpcRaw as {
+          ok?: unknown;
+          error?: unknown;
+          duplicateSkipped?: unknown;
+          lastReadAdvanced?: unknown;
+          lastReadMessageId?: unknown;
+          lastReadAt?: unknown;
+          participantId?: unknown;
+        } | null;
+
+        if (!openTailRpcError && openTailPayload?.ok === false) {
+          const reason = typeof openTailPayload.error === "string" ? openTailPayload.error.trim() : "";
+          if (reason === "regression_blocked") {
+            cmRtReadSyncLog("mark_read_regression_blocked_skip", {
+              roomId,
+              viewerUserId: input.userId,
+              lastReadMessageId: requestedLastReadMessageId,
+              messageId: "",
+            });
+            return {
+              ok: true,
+              lastReadAt: null,
+              lastReadMessageId: null,
+              duplicateAckSkipped: true,
+              broadcastSkipped: true,
+              regressionBlocked: true,
+              lastReadAdvanced: false,
+              sameLastReadDetected: false,
+            };
+          }
+          console.error("[mark_read_open_tail_rpc_denied]", {
+            roomId,
+            userId: input.userId,
+            error: reason || openTailPayload.error,
+          });
+          return { ok: false, error: reason || "room_read_failed" };
+        }
+
+        if (openTailRpcError) {
+          console.error("[mark_read_open_tail_rpc_error]", {
+            roomId,
+            userId: input.userId,
+            message: openTailRpcErrMsg,
+            code: (openTailRpcError as { code?: string })?.code,
+          });
+          return { ok: false, error: openTailRpcErrMsg || "room_read_failed" };
+        }
+
+        if (openTailPayload?.ok === true) {
+          const duplicateSkipped = openTailPayload.duplicateSkipped === true;
+          const lastReadAdvanced = openTailPayload.lastReadAdvanced === true;
+          const cursorId =
+            typeof openTailPayload.lastReadMessageId === "string"
+              ? trimText(openTailPayload.lastReadMessageId)
+              : openTailPayload.lastReadMessageId != null
+                ? trimText(String(openTailPayload.lastReadMessageId))
+                : null;
+          let readAt: string | null = null;
+          const rawAt = openTailPayload.lastReadAt;
+          if (typeof rawAt === "string" && rawAt.trim()) readAt = rawAt.trim();
+          else if (rawAt instanceof Date && !Number.isNaN(rawAt.getTime())) readAt = rawAt.toISOString();
+          if (!readAt) readAt = nowIso();
+          const participantId =
+            typeof openTailPayload.participantId === "string"
+              ? trimText(openTailPayload.participantId)
+              : openTailPayload.participantId != null
+                ? trimText(String(openTailPayload.participantId))
+                : "";
+
+          if (duplicateSkipped) {
+            cmRtReadSyncLog("mark_read_duplicate_same_cursor_skip", {
+              roomId,
+              viewerUserId: input.userId,
+              lastReadMessageId: cursorId,
+              unreadCount: 0,
+            });
+            if (diag) {
+              diag.mark_read_db_update_ms = 0;
+              diag.db_update_round_trip_ms = 0;
+            }
+            storeMarkReadParticipantSnapshotsFromRow(input.userId, roomId, { flushOpen, requestedLastReadMessageId }, {
+              id: participantId,
+              last_read_message_id: cursorId ?? "",
+              last_read_at: readAt,
+              unread_count: 0,
+            });
+            rememberMarkReadOpenTailCoalesce(input.userId, roomId, readAt, cursorId);
+            return {
+              ok: true,
+              lastReadAt: readAt,
+              lastReadMessageId: cursorId,
+              duplicateAckSkipped: true,
+              broadcastSkipped: true,
+              sameLastReadDetected: true,
+              lastReadAdvanced: false,
+            };
+          }
+
+          const tBridge0 = performance.now();
+          const bridgeSched = scheduleItemTradeReadSyncAfterMessengerMark({
+            userId: input.userId,
+            communityMessengerRoomId: roomId,
+            communityMessengerLastReadMessageId: cursorId,
+          });
+          const bridgeOverheadMs = performance.now() - tBridge0;
+          if (diag) {
+            diag.mark_read_trade_sync_ms = 0;
+            diag.mark_read_registry_sync_ms = 0;
+            diag.registry_sync_required_for_response = 0;
+            diag.registry_sync_broadcast_dependency = "none_cm_open_tail_rpc_then_trade_bridge_after_response";
+            diag.registry_sync_background_scheduled = bridgeSched.scheduled ? 1 : 0;
+            diag.registry_sync_dedupe_hit = bridgeSched.dedupeHit ? 1 : 0;
+            diag.registry_sync_skipped_reason = bridgeSched.skippedReason;
+            diag.registry_background_coalesce_pending = bridgeSched.inflightCoalesce ? 1 : 0;
+            diag.registry_background_inflight_key = bridgeSched.registry_background_inflight_key ?? "";
+            diag.registry_sync_schedule_overhead_ms = Math.round(bridgeOverheadMs);
+          }
+          const tBadge0 = performance.now();
+          invalidateOwnerHubBadgeCache(input.userId);
+          if (diag) diag.mark_read_cache_invalidate_ms = Math.round(performance.now() - tBadge0);
+          storeMarkReadParticipantSnapshotsFromRow(input.userId, roomId, { flushOpen, requestedLastReadMessageId }, {
+            id: participantId,
+            last_read_message_id: cursorId ?? "",
+            last_read_at: readAt,
+            unread_count: 0,
+          });
+          rememberMarkReadOpenTailCoalesce(input.userId, roomId, readAt, cursorId);
+          return {
+            ok: true,
+            lastReadAt: readAt,
+            lastReadMessageId: cursorId,
+            lastReadAdvanced: lastReadAdvanced !== false,
+          };
+        }
+      } else if (openTailRpcMissing) {
+        console.error("[mark_read_open_tail_rpc_fallback_legacy]", {
+          roomId,
+          userId: input.userId,
+          message: openTailRpcErrMsg,
+        });
+      }
+    }
 
     const tExist0 = performance.now();
     const partRowRaw = await loadMarkReadParticipantRowWithSnapshotCache(
@@ -9437,6 +10722,9 @@ export async function markCommunityMessengerRoomAsRead(input: {
       diag.mark_read_fetch_existing_ms = diag.existing_read_fetch_ms;
       diag.mark_read_existing_snapshot_lookup_ms = Math.round(performance.now() - tExist0);
       diag.mark_read_rpc_mode = rpcMode;
+      if (diag.mark_read_db_round_trips == null) {
+        diag.mark_read_db_round_trips = 2;
+      }
     }
 
     const existingLastReadId = trimText((partRow as { last_read_message_id?: unknown } | null)?.last_read_message_id ?? "");
@@ -9454,7 +10742,8 @@ export async function markCommunityMessengerRoomAsRead(input: {
     const tDupEval0 = performance.now();
     /** 클라이언트가 항상 flushOpen 이라도 동일 커서·unread 0 이면 RPC 생략 — 실제 중복 PATCH 방지 */
     const duplicateSameReadState =
-      Boolean(normReq && normExist && normReq === normExist && existingUnread === 0);
+      Boolean(normReq && normExist && normReq === normExist && existingUnread === 0) ||
+      Boolean(flushOpen && !normReq && existingUnread === 0 && Boolean(existingLastReadId));
     if (diag) {
       diag.mark_read_duplicate_skip_eval_ms = Math.round(performance.now() - tDupEval0);
       diag.mark_read_unread_calc_ms = 0;
@@ -9475,10 +10764,18 @@ export async function markCommunityMessengerRoomAsRead(input: {
         diag.mark_read_cache_invalidate_ms = 0;
       }
       storeMarkReadParticipantSnapshotsFromRow(input.userId, roomId, { flushOpen, requestedLastReadMessageId }, partRowRaw);
+      if (flushOpen && !normReq) {
+        rememberMarkReadOpenTailCoalesce(
+          input.userId,
+          roomId,
+          existingLastReadAt,
+          existingLastReadId || null
+        );
+      }
       return {
         ok: true,
         lastReadAt: existingLastReadAt,
-        lastReadMessageId: requestedLastReadMessageId,
+        lastReadMessageId: requestedLastReadMessageId || existingLastReadId || null,
         duplicateAckSkipped: true,
         broadcastSkipped: true,
         sameLastReadDetected: true,
@@ -9528,8 +10825,11 @@ export async function markCommunityMessengerRoomAsRead(input: {
       p_mode: rpcMode,
       p_through_message_id: rpcThrough,
     });
-    if (diag) diag.rpc_ms = Math.round(performance.now() - tRpc0);
-    if (diag) diag.mark_read_db_update_ms = diag.rpc_ms ?? 0;
+    if (diag) {
+      diag.rpc_ms = Math.round(performance.now() - tRpc0);
+      diag.mark_read_db_update_ms = diag.rpc_ms ?? 0;
+      diag.db_update_round_trip_ms = diag.rpc_ms ?? 0;
+    }
 
     const rpcPayload = rpcRaw as { ok?: unknown; lastReadMessageId?: unknown; lastReadAt?: unknown; error?: unknown } | null;
 
@@ -9573,6 +10873,9 @@ export async function markCommunityMessengerRoomAsRead(input: {
         last_read_at: readAt,
         unread_count: 0,
       });
+      if (flushOpen && !normReq) {
+        rememberMarkReadOpenTailCoalesce(input.userId, roomId, readAt, cursorId);
+      }
       return { ok: true, lastReadAt: readAt, lastReadMessageId: cursorId, lastReadAdvanced: true };
     }
 
@@ -9674,6 +10977,9 @@ export async function markCommunityMessengerRoomAsRead(input: {
           last_read_at: readAt,
           unread_count: 0,
         });
+        if (flushOpen && !normReq) {
+          rememberMarkReadOpenTailCoalesce(input.userId, roomId, readAt, cursorId);
+        }
         return { ok: true, lastReadAt: readAt, lastReadMessageId: cursorId, lastReadAdvanced: true };
       }
       if (!isMissingTableError(error)) return { ok: false, error: String(error.message ?? "room_read_failed") };
@@ -10018,18 +11324,7 @@ async function fetchHomeSyncMegaDirectKeysBundleCached(
   sb: any,
   pcIdsRaw: string[],
   roomIdsRaw: string[]
-): Promise<{
-  data: unknown;
-  error: unknown;
-  leaderRpcWallMs: number;
-  /** @deprecated 계측 호환 — 전체 벽시계; `megaMapSyncMs`+`megaInflightOrRpcWaitMs` 분해 권장 */
-  lookupWallMs: number;
-  megaMapSyncMs: number;
-  megaInflightOrRpcWaitMs: number;
-  cacheReason: "row_cache_hit" | "row_cache_singleflight_join" | "rpc_cold";
-  singleflightJoinCount: number;
-  cacheKey: string;
-}> {
+): Promise<HomeSyncMegaDirectKeysBundleFetchResult> {
   const t0 = performance.now();
   const pcIds = dedupeIds(pcIdsRaw);
   const roomIds = dedupeIds(roomIdsRaw);
@@ -11360,55 +12655,10 @@ function collectMinimalSnapshotUserIdsForRoomSnapshot(
  * API·Realtime bump 가 항상 `community_messenger_rooms.id`(원장 UUID)를 쓰도록 URL `roomId` 를 단일화한다.
  * 거래·레거시 키(`product_chats` / `chat_rooms` id 등)는 `resolveProductChat`·`ensureCommunityMessengerDirectRoomFromProductChat` 과 동일 규칙으로 CM 방으로 접는다.
  */
-export async function resolveCommunityMessengerCanonicalRoomIdForUser(
-  userId: string,
-  roomId: string
-): Promise<{ ok: true; canonicalRoomId: string } | { ok: false; error: "bad_request" | "room_not_found" }> {
-  const id = trimText(roomId);
-  if (!id) return { ok: false, error: "bad_request" };
-  const sb = getSupabaseOrNull();
-  if (!sb) {
-    const dev = getDevState();
-    const ok = dev.participants.some((p) => p.roomId === id && p.userId === userId);
-    return ok ? { ok: true, canonicalRoomId: id } : { ok: false, error: "room_not_found" };
-  }
-  const { data: participantAt } = await (sb as any)
-    .from("community_messenger_participants")
-    .select("room_id")
-    .eq("room_id", id)
-    .eq("user_id", userId)
-    .maybeSingle();
-  const atRoom = trimText((participantAt as { room_id?: unknown } | null)?.room_id as string);
-  if (atRoom) {
-    return { ok: true, canonicalRoomId: atRoom };
-  }
-  const { data: roomAtId } = await (sb as any)
-    .from("community_messenger_rooms")
-    .select("id")
-    .eq("id", id)
-    .maybeSingle();
-  if (roomAtId?.id) {
-    return { ok: false, error: "room_not_found" };
-  }
-  const tradeResolved = await resolveProductChat(sb as never, id);
-  const bridgedMessengerId = tradeResolved?.messengerRoomId ? trimText(tradeResolved.messengerRoomId) : "";
-  if (bridgedMessengerId) {
-    const { data: p2 } = await (sb as any)
-      .from("community_messenger_participants")
-      .select("room_id")
-      .eq("room_id", bridgedMessengerId)
-      .eq("user_id", userId)
-      .maybeSingle();
-    if (p2?.room_id) {
-      return { ok: true, canonicalRoomId: bridgedMessengerId };
-    }
-  }
-  const bridged = await ensureCommunityMessengerDirectRoomFromProductChat(userId, id);
-  if (bridged.ok && bridged.roomId) {
-    return { ok: true, canonicalRoomId: bridged.roomId };
-  }
-  return { ok: false, error: "room_not_found" };
-}
+export {
+  resolveCommunityMessengerCanonicalRoomIdForUser,
+  resolveCommunityMessengerCanonicalRoomIdForUserWithBreakdown,
+} from "@/lib/community-messenger/server/messenger-room-canonical-resolve-core";
 
 /**
  * 비프로덕션 E2E trade 진단 전용: RSC 첫 응답과 분리한 `GET .../e2e-room-snapshot-diag` 에서 호출해

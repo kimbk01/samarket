@@ -91,8 +91,8 @@ export function OwnerStoreOrderChatSlidePanel({
     void (async () => {
       try {
         const res = await fetch(
-          `/api/me/stores/${encodeURIComponent(storeId)}/orders/${encodeURIComponent(orderId)}`,
-          { credentials: "include", cache: "no-store" }
+          `/api/me/stores/${encodeURIComponent(storeId)}/orders/${encodeURIComponent(orderId)}/ensure-chat`,
+          { method: "POST", credentials: "include", cache: "no-store" }
         );
         const j = (await res.json().catch(() => ({}))) as {
           ok?: boolean;

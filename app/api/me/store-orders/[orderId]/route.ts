@@ -15,13 +15,19 @@ import {
 import { canBuyerRequestStoreRefund } from "@/lib/stores/order-status-transitions";
 import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
-import {
-  appendStoreOrderMessengerStatusTransition,
-  ensureStoreOrderMessengerRoom,
-} from "@/lib/community-messenger/store-order-chat-service";
+import { appendStoreOrderMessengerStatusTransition } from "@/lib/community-messenger/store-order-chat-service";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
-import { loadBuyerStoreOrderReviewForOrder } from "@/lib/stores/buyer-store-order-review-meta";
+import {
+  loadBuyerStoreOrderReviewForOrder,
+  mapBuyerStoreOrderReviewRow,
+} from "@/lib/stores/buyer-store-order-review-meta";
+import { fetchBuyerStoreOrderDetailSnapshot } from "@/lib/stores/fetch-store-order-detail-snapshot-rpc";
+import {
+  jsonPayloadKb,
+  logStoreOrderDetailPerf,
+  perfNowMs,
+} from "@/lib/stores/store-order-detail-perf";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -89,17 +95,16 @@ async function isBuyerHiddenStoreOrder(
   return !!data;
 }
 
-/** 구매자: 주문 단건 + 라인 */
+/** 구매자: 주문 단건 + 라인 — read-only (ensure/summary → POST ensure-chat·주문 생성·채팅 진입) */
 export async function GET(
   _req: Request,
   context: { params: Promise<{ orderId: string }> }
 ) {
+  const wall0 = perfNowMs();
   const buyerId = await getRouteUserId();
   if (!buyerId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const session = await validateActiveSession(buyerId);
-  if (!session.ok) return session.response;
 
   const { orderId } = await context.params;
   const oid = typeof orderId === "string" ? orderId.trim() : "";
@@ -112,6 +117,82 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
 
+  const tAuth0 = perfNowMs();
+  const [session, snapshotGate] = await Promise.all([
+    validateActiveSession(buyerId),
+    fetchBuyerStoreOrderDetailSnapshot(sb as import("@supabase/supabase-js").SupabaseClient<any>, buyerId, oid),
+  ]);
+  const auth_ms = Math.round(perfNowMs() - tAuth0);
+  if (!session.ok) return session.response;
+
+  if (snapshotGate) {
+    if (!snapshotGate.ok) {
+      return NextResponse.json({ ok: false, error: snapshotGate.error }, { status: snapshotGate.status });
+    }
+    const order = snapshotGate.order;
+    const store = snapshotGate.store;
+    const linkedRoomId =
+      typeof order.community_messenger_room_id === "string" ? order.community_messenger_room_id.trim() : "";
+    const room_id_exists: 0 | 1 = linkedRoomId ? 1 : 0;
+    const store_pickup_address_lines = formatStorePickupAddressLines({
+      region: store.region as string | null | undefined,
+      city: store.city as string | null | undefined,
+      district: store.district as string | null | undefined,
+      address_line1: store.address_line1 as string | null | undefined,
+      address_line2: store.address_line2 as string | null | undefined,
+    });
+    const buyerReview = mapBuyerStoreOrderReviewRow(snapshotGate.review);
+    const completed = order.order_status === "completed";
+    const reviewsUnavailable = false;
+    const canSubmitReview = completed && !buyerReview && !reviewsUnavailable;
+    const order_chat_ready = room_id_exists === 1;
+    const body = {
+      ok: true as const,
+      order: {
+        ...order,
+        store_name: (store.store_name as string) ?? "",
+        store_slug: (store.slug as string) ?? "",
+        owner_user_id: (store.owner_user_id as string) ?? "",
+        store_pickup_address_lines,
+      },
+      items: snapshotGate.items,
+      delivery: snapshotGate.delivery ? sanitizeBuyerDeliveryPublic(snapshotGate.delivery) : null,
+      review: buyerReview,
+      review_status: completed
+        ? buyerReview
+          ? "completed"
+          : reviewsUnavailable
+            ? "unavailable"
+            : "pending"
+        : "not_applicable",
+      can_submit_review: canSubmitReview,
+      order_chat_ready,
+    };
+    logStoreOrderDetailPerf({
+      route: "buyer_get",
+      auth_ms,
+      order_fetch_ms: snapshotGate.rpc_wall_ms,
+      items_fetch_ms: 0,
+      review_meta_ms: 0,
+      delivery_snapshot_ms: 0,
+      ensure_room_ms: 0,
+      append_summary_ms: 0,
+      participant_upsert_ms: 0,
+      room_update_ms: 0,
+      unread_sync_ms: 0,
+      total_ms: Math.round(perfNowMs() - wall0),
+      payload_kb: jsonPayloadKb(body),
+      room_id_exists,
+      ensure_skipped: 1,
+      summary_skipped: 1,
+      snapshot_via: "rpc_snapshot",
+      db_round_trips: 1,
+      rpc_wall_ms: snapshotGate.rpc_wall_ms,
+    });
+    return NextResponse.json(body);
+  }
+
+  const tOrder0 = perfNowMs();
   const { data: order, error: oErr } = await sb
     .from("store_orders")
     .select(
@@ -120,6 +201,7 @@ export async function GET(
     .eq("id", oid)
     .eq("buyer_user_id", buyerId)
     .maybeSingle();
+  const order_fetch_ms = Math.round(perfNowMs() - tOrder0);
 
   if (oErr || !order) {
     return NextResponse.json({ ok: false, error: "not_found" }, { status: 404 });
@@ -137,30 +219,42 @@ export async function GET(
 
   const storeId = order.store_id as string;
   const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
+  const linkedRoomId =
+    typeof order.community_messenger_room_id === "string"
+      ? order.community_messenger_room_id.trim()
+      : "";
+  const room_id_exists: 0 | 1 = linkedRoomId ? 1 : 0;
 
-  const [itemsRes, storeRes, reviewMeta, ens, deliverySnap] = await Promise.all([
-    sb
-      .from("store_order_items")
-      .select("id, product_id, product_title_snapshot, price_snapshot, qty, subtotal, options_snapshot_json")
-      .eq("order_id", oid)
-      .order("id"),
-    sb
-      .from("stores")
-      .select(
-        "store_name, slug, owner_user_id, region, city, district, address_line1, address_line2"
-      )
-      .eq("id", storeId)
-      .maybeSingle(),
-    loadBuyerStoreOrderReviewForOrder(sbAny, oid),
-    (async () => {
-      try {
-        return await ensureStoreOrderMessengerRoom(sbAny, { orderId: oid, userId: buyerId });
-      } catch {
-        return { ok: false as const, error: "exception" };
-      }
-    })(),
-    loadDeliverySnapshot(sbAny, oid),
-  ]);
+  const tItems0 = perfNowMs();
+  const itemsPromise = sb
+    .from("store_order_items")
+    .select("id, product_id, product_title_snapshot, price_snapshot, qty, subtotal, options_snapshot_json")
+    .eq("order_id", oid)
+    .order("id")
+    .then((r) => ({ r, ms: Math.round(perfNowMs() - tItems0) }));
+
+  const tStore0 = perfNowMs();
+  const storePromise = sb
+    .from("stores")
+    .select("store_name, slug, owner_user_id, region, city, district, address_line1, address_line2")
+    .eq("id", storeId)
+    .maybeSingle()
+    .then((r) => ({ r, ms: Math.round(perfNowMs() - tStore0) }));
+
+  const tReview0 = perfNowMs();
+  const reviewPromise = loadBuyerStoreOrderReviewForOrder(sbAny, oid).then((r) => ({
+    r,
+    ms: Math.round(perfNowMs() - tReview0),
+  }));
+
+  const tDelivery0 = perfNowMs();
+  const deliveryPromise = loadDeliverySnapshot(sbAny, oid).then((r) => ({
+    r,
+    ms: Math.round(perfNowMs() - tDelivery0),
+  }));
+
+  const [{ r: itemsRes, ms: items_fetch_ms }, { r: storeRes }, { r: reviewMeta, ms: review_meta_ms }, { r: deliverySnap, ms: delivery_snapshot_ms }] =
+    await Promise.all([itemsPromise, storePromise, reviewPromise, deliveryPromise]);
 
   const { data: items, error: iErr } = itemsRes;
   if (iErr) {
@@ -189,14 +283,12 @@ export async function GET(
   );
   const canSubmitReview = completed && !buyerReview && !reviewsUnavailable;
 
-  let order_chat_ready = false;
-  if (ens.ok) order_chat_ready = true;
+  const order_chat_ready = room_id_exists === 1;
 
-  return NextResponse.json({
-    ok: true,
+  const body = {
+    ok: true as const,
     order: {
       ...order,
-      ...(ens.ok ? { community_messenger_room_id: ens.roomId } : {}),
       store_name: (store?.store_name as string) ?? "",
       store_slug: (store?.slug as string) ?? "",
       owner_user_id: (store?.owner_user_id as string) ?? "",
@@ -214,7 +306,30 @@ export async function GET(
       : "not_applicable",
     can_submit_review: canSubmitReview,
     order_chat_ready,
+  };
+
+  logStoreOrderDetailPerf({
+    route: "buyer_get",
+    auth_ms,
+    order_fetch_ms,
+    items_fetch_ms,
+    review_meta_ms,
+    delivery_snapshot_ms,
+    ensure_room_ms: 0,
+    append_summary_ms: 0,
+    participant_upsert_ms: 0,
+    room_update_ms: 0,
+    unread_sync_ms: 0,
+    total_ms: Math.round(perfNowMs() - wall0),
+    payload_kb: jsonPayloadKb(body),
+    room_id_exists,
+    ensure_skipped: 1,
+    summary_skipped: 1,
+    snapshot_via: "legacy_parallel",
+    db_round_trips: 5,
   });
+
+  return NextResponse.json(body);
 }
 
 type PatchBody = { cancel?: boolean; request_refund?: boolean; refund_reason?: string };

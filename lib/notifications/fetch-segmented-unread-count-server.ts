@@ -3,6 +3,62 @@ import {
   BUYER_STORE_COMMERCE_NOTIFICATION_META_KINDS,
   OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS,
 } from "@/lib/notifications/owner-store-commerce-notification-meta";
+import type { UnreadCountMode } from "@/lib/notifications/notification-unread-count-cache";
+
+export const NOTIFICATION_UNREAD_SEGMENTED_RPC = "count_notification_unread_segmented";
+
+function isRpcMissing(err: { message?: string } | null): boolean {
+  return /count_notification_unread_segmented|schema cache|function/i.test(String(err?.message ?? ""));
+}
+
+/** 단일 RPC — cold 1 RTT (mode별 SQL CASE). */
+export async function countNotificationUnreadSegmentedServer(
+  sb: SupabaseClient<any>,
+  userId: string,
+  mode: UnreadCountMode
+): Promise<number> {
+  const { data, error } = await sb.rpc(NOTIFICATION_UNREAD_SEGMENTED_RPC, {
+    p_user_id: userId,
+    p_segment: mode,
+  });
+  if (!error) {
+    return Math.max(0, Math.floor(Number(data) || 0));
+  }
+  if (!isRpcMissing(error)) {
+    throw error;
+  }
+  return countNotificationUnreadSegmentedLegacy(sb, userId, mode);
+}
+
+async function countNotificationUnreadSegmentedLegacy(
+  sb: SupabaseClient<any>,
+  userId: string,
+  mode: UnreadCountMode
+): Promise<number> {
+  switch (mode) {
+    case "owner_store_commerce":
+      return countOwnerStoreCommerceUnreadServer(sb, userId);
+    case "consumer_no_chat":
+      return countConsumerUnreadNoChatServer(sb, userId);
+    case "bottom_nav_no_chat":
+      return countBottomNavUnreadServer(sb, userId);
+    case "bottom_nav":
+      return countBottomNavUnreadServer(sb, userId);
+    case "consumer":
+      return countUnreadExcludingOwnerCommerceServer(sb, userId);
+    case "all": {
+      const { count, error } = await sb
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("is_read", false);
+      if (error) throw error;
+      return Math.max(0, Math.floor(Number(count) || 0));
+    }
+    default:
+      return 0;
+  }
+}
 
 function ownerCommerceKindOrFilter(): string {
   return Array.from(OWNER_STORE_COMMERCE_NOTIFICATION_META_KINDS)
@@ -14,7 +70,7 @@ function inList(values: Iterable<string>): string {
   return `(${Array.from(values).join(",")})`;
 }
 
-/** 매장 오너 전용 매장주문 미읽음 — RPC 우선, 없으면 head count */
+/** @deprecated — unified RPC miss fallback */
 export async function countOwnerStoreCommerceUnreadServer(
   sb: SupabaseClient<any>,
   userId: string
@@ -41,7 +97,7 @@ export async function countOwnerStoreCommerceUnreadServer(
   return Math.max(0, Math.floor(Number(count) || 0));
 }
 
-/** exclude_owner_store_commerce=1 — 비-commerce + commerce 중 오너 kind 제외 */
+/** @deprecated — unified RPC miss fallback */
 export async function countUnreadExcludingOwnerCommerceServer(
   sb: SupabaseClient<any>,
   userId: string
@@ -65,16 +121,15 @@ export async function countUnreadExcludingOwnerCommerceServer(
 
   if (nonCommerce.error) throw nonCommerce.error;
   if (commerceNonOwner.error) throw commerceNonOwner.error;
-  return Math.max(0, Math.floor(Number(nonCommerce.count) || 0))
-    + Math.max(0, Math.floor(Number(commerceNonOwner.count) || 0));
+  return (
+    Math.max(0, Math.floor(Number(nonCommerce.count) || 0)) +
+    Math.max(0, Math.floor(Number(commerceNonOwner.count) || 0))
+  );
 }
 
 const CHAT_META_KINDS = ["community_chat", "trade_chat", "group_chat"] as const;
 
-/**
- * exclude_owner + exclude_chat_message (상단 종)
- * — notification_type=chat 제외, commerce는 오너·채팅 meta kind 제외
- */
+/** @deprecated — unified RPC miss fallback */
 export async function countConsumerUnreadNoChatServer(
   sb: SupabaseClient<any>,
   userId: string
@@ -111,11 +166,13 @@ export async function countConsumerUnreadNoChatServer(
 
   if (nonCommerce.error) throw nonCommerce.error;
   if (commerceSegment.error) throw commerceSegment.error;
-  return Math.max(0, Math.floor(Number(nonCommerce.count) || 0))
-    + Math.max(0, Math.floor(Number(commerceSegment.count) || 0));
+  return (
+    Math.max(0, Math.floor(Number(nonCommerce.count) || 0)) +
+    Math.max(0, Math.floor(Number(commerceSegment.count) || 0))
+  );
 }
 
-/** 하단 네비 — 오너·구매자 commerce kind 모두 제외 + chat type 제외 */
+/** @deprecated — unified RPC miss fallback */
 export async function countBottomNavUnreadServer(
   sb: SupabaseClient<any>,
   userId: string
@@ -145,6 +202,8 @@ export async function countBottomNavUnreadServer(
 
   if (nonCommerce.error) throw nonCommerce.error;
   if (commerceSegment.error) throw commerceSegment.error;
-  return Math.max(0, Math.floor(Number(nonCommerce.count) || 0))
-    + Math.max(0, Math.floor(Number(commerceSegment.count) || 0));
+  return (
+    Math.max(0, Math.floor(Number(nonCommerce.count) || 0)) +
+    Math.max(0, Math.floor(Number(commerceSegment.count) || 0))
+  );
 }

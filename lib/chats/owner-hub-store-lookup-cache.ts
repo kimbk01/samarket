@@ -15,6 +15,8 @@ type MemoryEntry = {
 };
 
 const DEFAULT_TTL_MS = 45_000;
+/** 허브 매장 없음(empty) — 동일 heavy join 반복 방지 */
+const DEFAULT_EMPTY_TTL_MS = 120_000;
 
 const memoryByUser = new Map<string, MemoryEntry>();
 
@@ -64,6 +66,13 @@ export function readOwnerHubStoreLookupMemory(userId: string): OwnerHubStoreLook
   };
 }
 
+export function ownerHubStoreLookupEmptyTtlMs(): number {
+  const raw = process.env.HUB_BADGE_OWNER_HUB_STORE_EMPTY_MEMORY_TTL_MS?.trim();
+  const n = raw ? Number(raw) : DEFAULT_EMPTY_TTL_MS;
+  if (!Number.isFinite(n) || n < 5_000) return DEFAULT_EMPTY_TTL_MS;
+  return Math.min(300_000, Math.max(5_000, Math.floor(n)));
+}
+
 export function writeOwnerHubStoreLookupMemory(
   userId: string,
   hubStore: HubStoreLiteCached | null
@@ -71,7 +80,7 @@ export function writeOwnerHubStoreLookupMemory(
   const k = userId.trim();
   if (!k) return;
   const now = Date.now();
-  const ttl = ownerHubStoreLookupMemoryTtlMs();
+  const ttl = hubStore ? ownerHubStoreLookupMemoryTtlMs() : ownerHubStoreLookupEmptyTtlMs();
   memoryByUser.set(k, {
     hubStore,
     cachedAt: now,

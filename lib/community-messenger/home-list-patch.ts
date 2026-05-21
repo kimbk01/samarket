@@ -4,6 +4,10 @@
  */
 
 import { peekBootstrapCache, primeBootstrapCache } from "@/lib/community-messenger/bootstrap-cache";
+import {
+  mergeJsonRecordsPreserveRefs,
+  mergeRoomListsPreserveRefs,
+} from "@/lib/community-messenger/home/merge-bootstrap-lists-preserve-refs";
 import { mergeBootstrapRoomSummaryIntoLists } from "@/lib/community-messenger/home/merge-bootstrap-room-summary-into-lists";
 import {
   patchBootstrapRoomListForRealtimeMessageInsert,
@@ -86,7 +90,19 @@ export type HomeListPatchStats = {
   unreadGuardApplied: number;
   duplicateRemoved: number;
   durationMs: number;
+  /** `bootstrap_apply_full` — 변경 없어 reference 유지한 방 수 */
+  changedRoomCount?: number;
+  unchangedRoomCount?: number;
+  listReferenceStable?: boolean;
+  bootstrapReferenceStable?: boolean;
+  patchBuildMs?: number;
 };
+
+let lastHomeListPatchStats: HomeListPatchStats | null = null;
+
+export function peekLastHomeListPatchStats(): HomeListPatchStats | null {
+  return lastHomeListPatchStats;
+}
 
 function homeListOwnerTraceEnabled(): boolean {
   try {
@@ -256,7 +272,9 @@ function applyHomeSyncPatch(
       chats = merged.list;
       unreadGuardApplied += merged.unreadGuardApplied;
     } else {
-      chats = patch.chats;
+      const merged = mergeRoomListsPreserveRefs(base.chats ?? [], patch.chats);
+      chats = merged.list;
+      unreadGuardApplied += 0;
     }
   }
   let groups = base.groups;
@@ -266,7 +284,8 @@ function applyHomeSyncPatch(
       groups = merged.list;
       unreadGuardApplied += merged.unreadGuardApplied;
     } else {
-      groups = patch.groups;
+      const merged = mergeRoomListsPreserveRefs(base.groups ?? [], patch.groups);
+      groups = merged.list;
     }
   }
   const requests =
@@ -329,6 +348,11 @@ export function applyHomeListPatch(
   let droppedStale = 0;
   let unreadGuardApplied = 0;
   let duplicateRemoved = 0;
+  let changedRoomCount = 0;
+  let unchangedRoomCount = 0;
+  let listReferenceStable = false;
+  let bootstrapReferenceStable = false;
+  let patchBuildMs = 0;
 
   if (!prev) {
     if (patch.kind === "bootstrap_full_seed") {
@@ -351,29 +375,111 @@ export function applyHomeListPatch(
           break;
         }
         case "bootstrap_apply_full": {
+          const tBuild0 = typeof performance !== "undefined" ? performance.now() : 0;
           const mergeReq = patch.mergeStaleOutgoingRequests !== false;
-          const synced = applyHomeSyncPatch(base, {
-            kind: "home_sync",
-            chats: patch.next.chats,
-            groups: patch.next.groups,
-            roomMode: "replace",
-          });
-          unreadGuardApplied += synced.unreadGuardApplied;
-          duplicateRemoved += synced.duplicateRemoved;
-          next = {
-            ...patch.next,
-            chats: synced.data.chats,
-            groups: synced.data.groups,
-            requests: mergeReq
-              ? mergeFriendRequestsKeepStaleOutgoingForBootstrap(base, patch.next.requests ?? [])
-              : patch.next.requests,
-            tabs: {
-              ...patch.next.tabs,
-              chats: (synced.data.chats ?? []).length,
-              groups: (synced.data.groups ?? []).length,
-            },
+          const incoming = patch.next;
+          const chatMerge = mergeRoomListsPreserveRefs(base.chats ?? [], incoming.chats ?? []);
+          const groupMerge = mergeRoomListsPreserveRefs(base.groups ?? [], incoming.groups ?? []);
+          const patchBuildMs =
+            typeof performance !== "undefined" ? Math.round(performance.now() - tBuild0) : 0;
+          const requestsMerged = mergeReq
+            ? mergeFriendRequestsKeepStaleOutgoingForBootstrap(base, incoming.requests ?? [])
+            : incoming.requests ?? base.requests;
+          const requestsMerge = mergeJsonRecordsPreserveRefs(
+            (base.requests ?? []) as Array<Record<string, unknown>>,
+            (requestsMerged ?? []) as Array<Record<string, unknown>>
+          );
+          const requests = requestsMerge.list as CommunityMessengerBootstrap["requests"];
+          const friendsMerge = mergeJsonRecordsPreserveRefs(
+            (base.friends ?? []) as Array<Record<string, unknown>>,
+            ((incoming.friends ?? base.friends) ?? []) as Array<Record<string, unknown>>
+          );
+          const friends = friendsMerge.list as CommunityMessengerBootstrap["friends"];
+          const followingMerge = mergeJsonRecordsPreserveRefs(
+            (base.following ?? []) as Array<Record<string, unknown>>,
+            ((incoming.following ?? base.following) ?? []) as Array<Record<string, unknown>>
+          );
+          const following = followingMerge.list as CommunityMessengerBootstrap["following"];
+          const hiddenMerge = mergeJsonRecordsPreserveRefs(
+            (base.hidden ?? []) as Array<Record<string, unknown>>,
+            ((incoming.hidden ?? base.hidden) ?? []) as Array<Record<string, unknown>>
+          );
+          const hidden = hiddenMerge.list as CommunityMessengerBootstrap["hidden"];
+          const blockedMerge = mergeJsonRecordsPreserveRefs(
+            (base.blocked ?? []) as Array<Record<string, unknown>>,
+            ((incoming.blocked ?? base.blocked) ?? []) as Array<Record<string, unknown>>
+          );
+          const blocked = blockedMerge.list as CommunityMessengerBootstrap["blocked"];
+          const discoverableMerge = mergeJsonRecordsPreserveRefs(
+            (base.discoverableGroups ?? []) as Array<Record<string, unknown>>,
+            ((incoming.discoverableGroups ?? base.discoverableGroups) ?? []) as Array<
+              Record<string, unknown>
+            >
+          );
+          const discoverableGroups =
+            discoverableMerge.list as CommunityMessengerBootstrap["discoverableGroups"];
+          const callsMerge = mergeJsonRecordsPreserveRefs(
+            (base.calls ?? []) as Array<Record<string, unknown>>,
+            ((incoming.calls ?? base.calls) ?? []) as Array<Record<string, unknown>>
+          );
+          const calls = callsMerge.list as CommunityMessengerBootstrap["calls"];
+          const meIncoming = incoming.me ?? base.me;
+          const me =
+            meIncoming && base.me && meIncoming.id === base.me.id ? base.me : meIncoming;
+          const chats = chatMerge.list;
+          const groups = groupMerge.list;
+          const tabs = {
+            ...base.tabs,
+            ...incoming.tabs,
+            chats: chats.length,
+            groups: groups.length,
+            friends: friends.length,
           };
-          appliedRooms = countListRooms(next);
+          const tabsStable =
+            tabs.chats === base.tabs.chats &&
+            tabs.groups === base.tabs.groups &&
+            tabs.friends === base.tabs.friends &&
+            tabs.calls === base.tabs.calls;
+          const bootstrapStable =
+            chatMerge.listReferenceStable &&
+            groupMerge.listReferenceStable &&
+            requestsMerge.listReferenceStable &&
+            friendsMerge.listReferenceStable &&
+            followingMerge.listReferenceStable &&
+            hiddenMerge.listReferenceStable &&
+            blockedMerge.listReferenceStable &&
+            discoverableMerge.listReferenceStable &&
+            callsMerge.listReferenceStable &&
+            me === base.me &&
+            tabsStable &&
+            incoming.deferredCallLog === base.deferredCallLog &&
+            incoming.clientHydrationTier === base.clientHydrationTier;
+          bootstrapReferenceStable = bootstrapStable;
+          if (bootstrapStable) {
+            next = base;
+          } else {
+            const tabsOut = tabsStable ? base.tabs : tabs;
+            next = {
+              ...base,
+              me,
+              tabs: tabsOut,
+              friends,
+              following,
+              hidden,
+              blocked,
+              requests,
+              chats,
+              groups,
+              discoverableGroups,
+              calls,
+              ...(incoming.deferredCallLog ? { deferredCallLog: true as const } : {}),
+              ...(incoming.clientHydrationTier ? { clientHydrationTier: incoming.clientHydrationTier } : {}),
+            };
+          }
+          changedRoomCount = chatMerge.changedRoomCount + groupMerge.changedRoomCount;
+          unchangedRoomCount = chatMerge.unchangedRoomCount + groupMerge.unchangedRoomCount;
+          listReferenceStable = chatMerge.listReferenceStable && groupMerge.listReferenceStable;
+          appliedRooms = changedRoomCount;
           break;
         }
         case "home_sync": {
@@ -478,7 +584,7 @@ export function applyHomeListPatch(
   const durationMs =
     typeof performance !== "undefined" ? Math.round(performance.now() - t0) : 0;
 
-  logHomeListOwner({
+  const stats: HomeListPatchStats = {
     source,
     kind: patch.kind,
     beforeCount,
@@ -489,7 +595,14 @@ export function applyHomeListPatch(
     unreadGuardApplied,
     duplicateRemoved,
     durationMs,
-  });
+    changedRoomCount,
+    unchangedRoomCount,
+    listReferenceStable,
+    bootstrapReferenceStable,
+    patchBuildMs,
+  };
+  lastHomeListPatchStats = stats;
+  logHomeListOwner(stats);
 
   return next === prev ? prev : next;
 }

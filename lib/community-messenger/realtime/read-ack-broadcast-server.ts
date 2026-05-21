@@ -28,6 +28,8 @@ export const CM_READ_ACK_BROADCAST_EVENT = "read_ack";
 export type PublishCommunityMessengerReadAckResult = {
   sent: boolean;
   deduped: boolean;
+  broadcast_emit_ms?: number;
+  broadcast_wait_ms?: number;
 };
 
 function waitForChannelSubscribed(sb: SupabaseClient<any>, ch: RealtimeChannel, timeoutMs: number): Promise<void> {
@@ -109,7 +111,10 @@ export async function publishCommunityMessengerReadAckFromServer(args: {
 
   const ch = sb.channel(CM_READ_ACK_CHANNEL_NAME, { config: { broadcast: { ack: false } } });
   try {
+    const tWait0 = performance.now();
     await waitForChannelSubscribed(sb, ch, 6500);
+    const broadcast_wait_ms = Math.round(performance.now() - tWait0);
+    const tEmit0 = performance.now();
     await ch.send({
       type: "broadcast",
       event: CM_READ_ACK_BROADCAST_EVENT,
@@ -120,6 +125,7 @@ export async function publishCommunityMessengerReadAckFromServer(args: {
         lastReadAt: args.lastReadAt,
       },
     });
+    const broadcast_emit_ms = Math.round(performance.now() - tEmit0);
     cmRtReadSyncLog("read_ack_broadcast_sent", {
       roomId,
       viewerUserId: readerUserId,
@@ -127,7 +133,7 @@ export async function publishCommunityMessengerReadAckFromServer(args: {
       lastReadAt: args.lastReadAt,
     });
     readAckDedupUntil.set(dedupKey, Date.now() + readAckDedupTtlMs(roomId));
-    return { sent: true, deduped: false };
+    return { sent: true, deduped: false, broadcast_wait_ms, broadcast_emit_ms };
   } catch {
     /* Realtime 미설정·타임아웃 — HTTP 스냅샷으로 수렴 */
     return { sent: false, deduped: false };

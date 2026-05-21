@@ -17,6 +17,7 @@ import {
   countOwnerRecommendedProducts,
   OWNER_RECOMMENDED_MENU_MAX,
 } from "@/lib/stores/owner-recommended-menu-limit";
+import { invalidateOwnerProductsListCache } from "@/lib/stores/owner-products-list-snapshot";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -461,6 +462,8 @@ export async function PATCH(
     console.error("[PATCH product]", upErr);
     return NextResponse.json({ ok: false, error: upErr.message }, { status: 500 });
   }
+
+  invalidateOwnerProductsListCache(sid);
 
   return NextResponse.json({ ok: true });
 }

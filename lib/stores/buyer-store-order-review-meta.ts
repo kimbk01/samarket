@@ -19,7 +19,9 @@ function clampRating(value: unknown): number {
   return Math.min(5, Math.max(1, n));
 }
 
-function rowToSummary(row: Record<string, unknown> | null | undefined): BuyerStoreOrderReviewSummary | null {
+export function mapBuyerStoreOrderReviewRow(
+  row: Record<string, unknown> | null | undefined
+): BuyerStoreOrderReviewSummary | null {
   if (!row?.id) return null;
   const id = trimText(row.id);
   if (!id) return null;
@@ -54,7 +56,7 @@ export async function loadBuyerStoreOrderReviewForOrder(
 
   let sel = await sb.from("store_reviews").select(FULL_SELECT).eq("order_id", oid).maybeSingle();
   if (!sel.error && sel.data) {
-    return { review: rowToSummary(sel.data as Record<string, unknown>), revErr: null };
+    return { review: mapBuyerStoreOrderReviewRow(sel.data as Record<string, unknown>), revErr: null };
   }
 
   if (sel.error && isMissingColumnError(sel.error, "owner_reply")) {
@@ -64,7 +66,7 @@ export async function loadBuyerStoreOrderReviewForOrder(
       .eq("order_id", oid)
       .maybeSingle();
     if (!sel.error && sel.data) {
-      const base = rowToSummary(sel.data as Record<string, unknown>);
+      const base = mapBuyerStoreOrderReviewRow(sel.data as Record<string, unknown>);
       return {
         review: base
           ? { ...base, owner_reply_content: null, owner_reply_created_at: null }
@@ -81,7 +83,7 @@ export async function loadBuyerStoreOrderReviewForOrder(
       .eq("order_id", oid)
       .maybeSingle();
     if (!fb.error && fb.data) {
-      const base = rowToSummary({ ...(fb.data as object), visible_to_public: true });
+      const base = mapBuyerStoreOrderReviewRow({ ...(fb.data as object), visible_to_public: true });
       return { review: base, revErr: null };
     }
     if (fb.error) return { review: null, revErr: fb.error };
@@ -106,7 +108,7 @@ export async function loadBuyerStoreOrderReviewForOrder(
   }
 
   const revErr = sel.error;
-  return { review: rowToSummary(sel.data as Record<string, unknown> | null), revErr };
+  return { review: mapBuyerStoreOrderReviewRow(sel.data as Record<string, unknown> | null), revErr };
 }
 
 /** 구매자 주문 목록 — order_id 별 리뷰 요약 일괄 조회. */
@@ -131,7 +133,7 @@ export async function loadBuyerStoreOrderReviewsByOrderIds(
     if (!slim.error && slim.data) {
       for (const row of slim.data as Array<Record<string, unknown>>) {
         const oid = trimText(row.order_id);
-        const summary = rowToSummary(row);
+        const summary = mapBuyerStoreOrderReviewRow(row);
         if (oid && summary) {
           byOrderId.set(oid, { ...summary, owner_reply_content: null, owner_reply_created_at: null });
         }
@@ -169,7 +171,7 @@ export async function loadBuyerStoreOrderReviewsByOrderIds(
   if (!res.error && res.data) {
     for (const row of res.data as Array<Record<string, unknown>>) {
       const oid = trimText(row.order_id);
-      const summary = rowToSummary(row);
+      const summary = mapBuyerStoreOrderReviewRow(row);
       if (oid && summary) byOrderId.set(oid, summary);
     }
   }

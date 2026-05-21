@@ -18,7 +18,10 @@ import {
 import { recordMessengerApiTiming } from "@/lib/community-messenger/monitoring/messenger-api-route-timing";
 import { recordMessengerMonitoringEvent } from "@/lib/community-messenger/monitoring/server-store-record";
 import { getCachedRoomBootstrap, setCachedRoomBootstrap } from "@/lib/community-messenger/server/room-bootstrap-route-cache";
-import { messengerRoomCanonicalOrJsonError } from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
+import {
+  messengerRoomCanonicalOrJsonError,
+  seedMessengerRoomMembershipFromRouteCanonical,
+} from "@/lib/community-messenger/server/messenger-room-canonical-resolve-api";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { getOrCreateRequestId } from "@/lib/http/api-route";
 import { SAMARKET_REQUEST_ID_HEADER } from "@/lib/http/request-id";
@@ -50,10 +53,12 @@ export async function GET(
   if (!rateLimit.ok) return rateLimit.response;
 
   const { roomId: rawRoomId } = await params;
-  const canon = await messengerRoomCanonicalOrJsonError(auth.userId, String(rawRoomId ?? "").trim());
+  const rawRouteRoomId = String(rawRoomId ?? "").trim();
+  const canon = await messengerRoomCanonicalOrJsonError(auth.userId, rawRouteRoomId);
   if (!canon.ok) {
     return canon.response;
   }
+  seedMessengerRoomMembershipFromRouteCanonical(auth.userId, rawRouteRoomId, canon.canonicalRoomId);
   const roomKey = canon.canonicalRoomId;
   const mode = req.nextUrl.searchParams.get("mode")?.trim().toLowerCase() ?? "";
   const rawLimit = req.nextUrl.searchParams.get("messages");

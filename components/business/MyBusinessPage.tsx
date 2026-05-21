@@ -3,9 +3,6 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { playDeliveryOrderAlertDebounced } from "@/lib/business/delivery-order-alert-debounce";
-import { primeStoreOrderAlertAudio } from "@/lib/business/store-order-alert-sound";
-import { useSupabaseStoreOrdersRealtime } from "@/hooks/useSupabaseStoreOrdersRealtime";
 import {
   getBusinessProfileByOwnerUserId,
   CURRENT_USER_ID,
@@ -29,25 +26,33 @@ import {
 import { pickPreferredOwnerStore } from "@/lib/stores/owner-lite-external-store";
 import { storeRowCanSell } from "@/lib/business/store-can-sell";
 import { fetchMeStoresListDeduped } from "@/lib/me/fetch-me-stores-deduped";
-import { fetchStoreOrderCountsDeduped } from "@/lib/business/fetch-store-order-counts-deduped";
+import {
+  fetchOwnerStoreProductsForHub,
+  mergeOwnerHubProductCount,
+} from "@/lib/business/hydrate-owner-store-products-client";
+import {
+  cancelOwnerHubSecondaryFetchKey,
+  OWNER_HUB_SECONDARY_AFTER_MS,
+  scheduleOwnerHubSecondaryFetch,
+} from "@/lib/business/owner-hub-secondary-fetch-queue";
+import { useOwnerHubRuntime } from "@/components/business/owner/OwnerHubRuntimeProvider";
 import { BusinessAdminDashboard } from "@/components/business/admin/dashboard/BusinessAdminDashboard";
 import type { MyBusinessServerInitial } from "@/lib/business/load-my-business-server";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { OwnerHubDashboardPack } from "@/lib/business/load-owner-hub-dashboard-server";
+import {
+  buildOwnerHubLoadStateFromMeStoresPeek,
+  buildOwnerHubLoadStateFromMeStoresResult,
+  buildOwnerHubLoadStateFromStoreRows,
+  type OwnerHubPageLoadState,
+} from "@/lib/business/build-owner-hub-load-state";
+import {
+  getOwnerLiteStoreSnapshot,
+  subscribeOwnerLiteStore,
+} from "@/lib/stores/owner-lite-external-store";
 
-type LoadState =
-  | { kind: "loading" }
-  | { kind: "unauth" }
-  | { kind: "config" }
-  | { kind: "error"; message: string }
-  | { kind: "empty" }
-  | {
-      kind: "remote";
-      row: StoreRow;
-      profile: BusinessProfile;
-      products: BusinessProduct[];
-    };
+type LoadState = { kind: "loading" } | OwnerHubPageLoadState;
 
-function loadStateFromServerInitial(s: MyBusinessServerInitial): LoadState {
+function loadStateFromServerInitial(s: MyBusinessServerInitial): OwnerHubPageLoadState {
   switch (s.kind) {
     case "unauth":
       return { kind: "unauth" };
@@ -58,7 +63,13 @@ function loadStateFromServerInitial(s: MyBusinessServerInitial): LoadState {
     case "empty":
       return { kind: "empty" };
     case "remote":
-      return { kind: "remote", row: s.row, profile: s.profile, products: s.products };
+      return {
+        kind: "remote",
+        row: s.row,
+        profile: s.profile,
+        products: s.products,
+        dashboard: s.dashboard ?? null,
+      };
   }
 }
 
@@ -67,27 +78,21 @@ export function MyBusinessPage({
 }: {
   initialServerState?: MyBusinessServerInitial | null;
 } = {}) {
-  const { t } = useI18n();
   const searchParams = useSearchParams();
   const preferredStoreId = searchParams.get("storeId")?.trim() ?? "";
 
-  const [state, setState] = useState<LoadState>(() =>
-    initialServerState != null ? loadStateFromServerInitial(initialServerState) : { kind: "loading" }
+  const [state, setState] = useState<LoadState>(() => {
+    if (initialServerState == null) return { kind: "loading" };
+    const fromServer = loadStateFromServerInitial(initialServerState);
+    if (fromServer.kind !== "empty") return fromServer;
+    return buildOwnerHubLoadStateFromMeStoresPeek(preferredStoreId) ?? fromServer;
+  });
+  /** RSC `empty` 이지만 클라 세션·캐시에 매장이 있을 때 — 신청 CTA 깜빡임 방지 */
+  const [clientStoresProbe, setClientStoresProbe] = useState<"pending" | "done">(() =>
+    initialServerState?.kind === "empty" ? "pending" : "done"
   );
-  const [orderAlertsBadge, setOrderAlertsBadge] = useState(0);
-  const prevPendingDeliveryRef = useRef<number | null>(null);
-  const alertStoreIdRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    const fn = () => primeStoreOrderAlertAudio();
-    document.addEventListener("pointerdown", fn, { once: true });
-    return () => document.removeEventListener("pointerdown", fn);
-  }, []);
-
-  const onStoreOrderInsert = useCallback((row: Record<string, unknown>) => {
-    if (String(row.fulfillment_type ?? "") !== "local_delivery") return;
-    playDeliveryOrderAlertDebounced(alertStoreIdRef.current);
-  }, []);
+  const hubRuntime = useOwnerHubRuntime();
+  const orderAlertsBadge = hubRuntime?.orderAlertsBadge ?? 0;
 
   const loadRemote = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent === true;
@@ -137,128 +142,102 @@ export function MyBusinessPage({
         ...baseProfile,
         productCount: products.length,
       };
-      setState({ kind: "remote", row, profile, products });
+      setState((prev) => ({
+        kind: "remote",
+        row,
+        profile,
+        products,
+        dashboard:
+          prev.kind === "remote" && prev.row.id === row.id ? prev.dashboard : null,
+      }));
     } catch {
       setState({ kind: "error", message: "network_error" });
     }
   }, [preferredStoreId]);
 
-  const shouldSkipFirstRemote =
-    initialServerState != null &&
-    // If server seed didn't include products (perf), allow a client refresh once.
-    !(
-      initialServerState.kind === "remote" &&
-      initialServerState.row?.approval_status === "approved" &&
-      Array.isArray(initialServerState.products) &&
-      initialServerState.products.length === 0
-    );
-  const skipFirstRemoteRef = useRef(shouldSkipFirstRemote);
-  /** 서버가 상품 배열을 비워 둔 승인 매장: 첫 페치만 무음으로(전체 화면 '불러오는 중' 없이 목록만 채움) */
-  const deferredProductsHydrateRef = useRef(
+  const needsProductsHydrate =
     initialServerState?.kind === "remote" &&
-      initialServerState.row?.approval_status === "approved" &&
-      Array.isArray(initialServerState.products) &&
-      initialServerState.products.length === 0
+    initialServerState.row.approval_status === "approved" &&
+    initialServerState.products.length === 0;
+
+  const productsHydrateStoreIdRef = useRef(
+    needsProductsHydrate && initialServerState?.kind === "remote" ?
+      initialServerState.row.id
+    : null
   );
+  const productsHydrateGenRef = useRef(0);
 
   useEffect(() => {
-    if (skipFirstRemoteRef.current) {
-      skipFirstRemoteRef.current = false;
-      return;
-    }
-    if (deferredProductsHydrateRef.current) {
-      deferredProductsHydrateRef.current = false;
-      void loadRemote({ silent: true });
-      return;
-    }
-    void loadRemote();
-  }, [loadRemote]);
-
-  const orderCountsStoreId =
-    state.kind === "remote" &&
-    state.row.approval_status === "approved" &&
-    state.row.is_visible === true &&
-    storeRowCanSell(state.row)
-      ? state.row.id
-      : null;
+    const storeId = productsHydrateStoreIdRef.current;
+    if (!storeId) return;
+    const gen = ++productsHydrateGenRef.current;
+    scheduleOwnerHubSecondaryFetch(
+      async () => {
+        const products = await fetchOwnerStoreProductsForHub(storeId);
+        if (gen !== productsHydrateGenRef.current) return;
+        setState((prev) => {
+          if (prev.kind !== "remote" || prev.row.id !== storeId) return prev;
+          return {
+            ...prev,
+            products,
+            profile: mergeOwnerHubProductCount(prev.profile, products),
+          };
+        });
+      },
+      { afterMs: OWNER_HUB_SECONDARY_AFTER_MS.products, key: "products" }
+    );
+    return () => {
+      productsHydrateGenRef.current += 1;
+      cancelOwnerHubSecondaryFetchKey("products");
+    };
+  }, [needsProductsHydrate]);
 
   useLayoutEffect(() => {
-    alertStoreIdRef.current = orderCountsStoreId;
-  }, [orderCountsStoreId]);
-
-  const tickOrderCountsRef = useRef<() => Promise<void>>(async () => {});
-
-  useSupabaseStoreOrdersRealtime(orderCountsStoreId, {
-    debounceMs: 450,
-    onChange: () => {
-      if (typeof document !== "undefined" && document.visibilityState !== "visible") return;
-      void tickOrderCountsRef.current();
-    },
-    onInsert: onStoreOrderInsert,
-  });
-
-  useEffect(() => {
-    if (!orderCountsStoreId) {
-      tickOrderCountsRef.current = async () => {};
-      setOrderAlertsBadge(0);
-      prevPendingDeliveryRef.current = null;
+    if (clientStoresProbe !== "pending") return;
+    const fromPeek = buildOwnerHubLoadStateFromMeStoresPeek(preferredStoreId);
+    if (fromPeek && fromPeek.kind !== "empty") {
+      setState(fromPeek);
+      setClientStoresProbe("done");
       return;
     }
-    prevPendingDeliveryRef.current = null;
     let cancelled = false;
-
-    const tick = async () => {
-      try {
-        const { json: rawCounts } = await fetchStoreOrderCountsDeduped(orderCountsStoreId);
-        const j = rawCounts as {
-          ok?: boolean;
-          refund_requested_count?: unknown;
-          pending_accept_count?: unknown;
-          pending_delivery_count?: unknown;
-        };
-        if (cancelled) return;
-        if (j?.ok) {
-          const refund = Math.max(0, Math.floor(Number(j.refund_requested_count) || 0));
-          const pending = Math.max(0, Math.floor(Number(j.pending_accept_count) || 0));
-          const delivery = Math.max(0, Math.floor(Number(j.pending_delivery_count) || 0));
-          setOrderAlertsBadge(refund + pending);
-          const prev = prevPendingDeliveryRef.current;
-          if (prev !== null && delivery > prev) {
-            playDeliveryOrderAlertDebounced(orderCountsStoreId);
-          }
-          prevPendingDeliveryRef.current = delivery;
-        } else {
-          setOrderAlertsBadge(0);
-          prevPendingDeliveryRef.current = null;
-        }
-      } catch {
-        if (!cancelled) {
-          setOrderAlertsBadge(0);
-          prevPendingDeliveryRef.current = null;
-        }
-      }
-    };
-
-    tickOrderCountsRef.current = tick;
-
-    void tick();
-    const id = window.setInterval(() => {
-      if (typeof document !== "undefined" && document.visibilityState === "visible") void tick();
-    }, 30_000);
+    void fetchMeStoresListDeduped().then((result) => {
+      if (cancelled) return;
+      const next = buildOwnerHubLoadStateFromMeStoresResult(preferredStoreId, result);
+      if (next) setState(next);
+      setClientStoresProbe("done");
+    });
     return () => {
       cancelled = true;
-      window.clearInterval(id);
     };
-  }, [orderCountsStoreId]);
+  }, [clientStoresProbe, preferredStoreId]);
+
+  const ownerLiteReconcileRef = useRef(false);
+  useEffect(() => {
+    if (state.kind !== "empty" || ownerLiteReconcileRef.current) return;
+    return subscribeOwnerLiteStore(() => {
+      if (ownerLiteReconcileRef.current) return;
+      const snap = getOwnerLiteStoreSnapshot();
+      if (!snap.ownerStores.length || snap.loading) return;
+      ownerLiteReconcileRef.current = true;
+      setState(buildOwnerHubLoadStateFromStoreRows(snap.ownerStores, preferredStoreId));
+      setClientStoresProbe("done");
+    });
+  }, [state.kind, preferredStoreId]);
+
+  useEffect(() => {
+    if (initialServerState != null) return;
+    void loadRemote();
+  }, [initialServerState, loadRemote]);
 
   if (state.kind === "loading") {
-    return <p className="sam-text-body text-sam-muted">{t("common_loading")}</p>;
+    return <p className="sam-text-body text-sam-muted">불러오는 중…</p>;
   }
 
   if (state.kind === "unauth") {
     return (
       <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-amber-50 p-4 sam-text-body text-amber-900`}>
-        <p>{t("business_phase7_063")}</p>
+        <p>로그인 후 매장 신청과 주문 운영을 바로 시작할 수 있습니다.</p>
         <Link
           href="/login"
           className="inline-flex w-fit rounded-ui-rect border border-amber-200 bg-sam-surface px-4 py-2 sam-text-body font-medium text-amber-900"
@@ -272,7 +251,7 @@ export function MyBusinessPage({
   if (state.kind === "config") {
     return (
       <div className={`${OWNER_STORE_STACK_Y_CLASS} sam-text-body text-sam-muted`}>
-        <p>{t("business_phase7_281")}</p>
+        <p>지금은 매장 데이터를 불러오지 못하고 있습니다. 잠시 후 다시 시도해 주세요.</p>
         <MockBusinessFallback />
       </div>
     );
@@ -281,7 +260,7 @@ export function MyBusinessPage({
   if (state.kind === "error") {
     return (
       <div className={OWNER_STORE_STACK_Y_CLASS}>
-        <p className="sam-text-body text-red-600">{t("business_phase7_083", { v1: state.message })}</p>
+        <p className="sam-text-body text-red-600">매장 정보를 불러오지 못했습니다. ({state.message})</p>
         <button
           type="button"
           onClick={() => void loadRemote()}
@@ -295,10 +274,13 @@ export function MyBusinessPage({
   }
 
   if (state.kind === "empty") {
+    if (clientStoresProbe === "pending") {
+      return <p className="sam-text-body text-sam-muted">불러오는 중…</p>;
+    }
     return (
       <div className={OWNER_STORE_STACK_Y_CLASS}>
         <div className="rounded-ui-rect bg-[#111827] px-5 py-5 text-white shadow-sam-elevated md:px-6 md:py-6">
-          <p className="sam-text-helper font-medium text-white/70">{t("business_phase7_108")}</p>
+          <p className="sam-text-helper font-medium text-white/70">배달 매장 시작</p>
           <h2 className="mt-1 sam-text-page-title font-bold leading-tight md:sam-text-hero">
             주문·문의·메뉴를 한곳에서 운영해 보세요.
           </h2>
@@ -324,7 +306,7 @@ export function MyBusinessPage({
     );
   }
 
-  const { row, profile, products } = state;
+  const { row, profile, products, dashboard } = state;
   const canSell = storeRowCanSell(row);
   const managementQuery = `storeId=${encodeURIComponent(row.id)}`;
 
@@ -334,7 +316,7 @@ export function MyBusinessPage({
         <BusinessOperationalChecklistRevision storeId={row.id} />
         <div className="rounded-ui-rect border border-amber-200 bg-amber-50 p-4">
           <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
-          <p className="mt-2 sam-text-body text-amber-900">{t("business_phase7_033")}</p>
+          <p className="mt-2 sam-text-body text-amber-900">관리자 보완 요청 상태입니다.</p>
           {profile.adminMemo ? (
             <p className="mt-2 whitespace-pre-wrap sam-text-body-secondary text-sam-fg">{profile.adminMemo}</p>
           ) : null}
@@ -362,7 +344,7 @@ export function MyBusinessPage({
         <BusinessOperationalChecklistPending storeId={row.id} shopName={profile.shopName} />
         <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-surface p-4 shadow-sm`}>
           <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
-          <p className="sam-text-body text-sam-muted">{t("business_phase7_181")}</p>
+          <p className="sam-text-body text-sam-muted">심사 중입니다. 승인 후 매장이 공개됩니다.</p>
           <span className="mt-2 inline-block rounded bg-amber-100 px-2 py-1 sam-text-body-secondary text-amber-800">
             {BUSINESS_STATUS_LABELS.pending}
           </span>
@@ -381,9 +363,9 @@ export function MyBusinessPage({
     return (
       <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-surface p-4 shadow-sm`}>
         <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
-        <p className="sam-text-body text-sam-muted">{t("business_phase7_179")}</p>
+        <p className="sam-text-body text-sam-muted">신청이 반려되었습니다.</p>
         {profile.adminMemo ? (
-          <p className="sam-text-body-secondary text-sam-fg">{t("business_phase7_136", { v1: profile.adminMemo })}</p>
+          <p className="sam-text-body-secondary text-sam-fg">사유: {profile.adminMemo}</p>
         ) : null}
         <span className="inline-block rounded bg-red-50 px-2 py-1 sam-text-body-secondary text-red-700">
           {BUSINESS_STATUS_LABELS.rejected}
@@ -396,7 +378,7 @@ export function MyBusinessPage({
     return (
       <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-surface p-4 shadow-sm`}>
         <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
-        <p className="sam-text-body text-sam-muted">{t("business_phase7_227")}</p>
+        <p className="sam-text-body text-sam-muted">운영이 정지된 매장입니다.</p>
         <span className="inline-block rounded bg-sam-border-soft px-2 py-1 sam-text-body-secondary text-sam-fg">
           {BUSINESS_STATUS_LABELS.paused}
         </span>
@@ -411,30 +393,29 @@ export function MyBusinessPage({
       products={products}
       canSell={canSell}
       orderAlertsBadge={orderAlertsBadge}
+      initialDashboard={dashboard}
       loadRemote={loadRemote}
     />
   );
 }
 
 function MockBusinessFallback() {
-  const { t } = useI18n();
   const profile = getBusinessProfileByOwnerUserId(CURRENT_USER_ID);
   if (!profile) return null;
   return (
     <div className="border-t border-sam-border pt-4">
-      <p className="mb-2 sam-text-helper font-medium text-sam-muted">{t("business_phase7_065")}</p>
+      <p className="mb-2 sam-text-helper font-medium text-sam-muted">로컬 목업 미리보기</p>
       <MockBusinessBody profile={profile} />
     </div>
   );
 }
 
 function MockBusinessBody({ profile }: { profile: BusinessProfile }) {
-  const { t } = useI18n();
   if (profile.status === "pending") {
     return (
       <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-surface p-4`}>
         <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
-        <p className="sam-text-body text-sam-muted">{t("business_phase7_182")}</p>
+        <p className="sam-text-body text-sam-muted">심사 중입니다. 승인 후 상점이 공개됩니다.</p>
         <span className="inline-block rounded bg-amber-100 px-2 py-1 sam-text-body-secondary text-amber-800">
           {BUSINESS_STATUS_LABELS.pending}
         </span>
@@ -445,7 +426,7 @@ function MockBusinessBody({ profile }: { profile: BusinessProfile }) {
     return (
       <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-surface p-4`}>
         <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
-        <p className="sam-text-body text-sam-muted">{t("business_phase7_179")}</p>
+        <p className="sam-text-body text-sam-muted">신청이 반려되었습니다.</p>
         <span className="inline-block rounded bg-red-50 px-2 py-1 sam-text-body-secondary text-red-700">
           {BUSINESS_STATUS_LABELS.rejected}
         </span>
@@ -456,7 +437,7 @@ function MockBusinessBody({ profile }: { profile: BusinessProfile }) {
     return (
       <div className={`${OWNER_STORE_STACK_Y_CLASS} rounded-ui-rect bg-sam-surface p-4`}>
         <h2 className="sam-text-body-lg font-semibold text-sam-fg">{profile.shopName}</h2>
-        <p className="sam-text-body text-sam-muted">{t("business_phase7_238")}</p>
+        <p className="sam-text-body text-sam-muted">일시중지된 상점입니다.</p>
         <span className="inline-block rounded bg-sam-border-soft px-2 py-1 sam-text-body-secondary text-sam-fg">
           {BUSINESS_STATUS_LABELS.paused}
         </span>
@@ -476,7 +457,7 @@ function MockBusinessBody({ profile }: { profile: BusinessProfile }) {
         </Link>
       </div>
       <div>
-        <h2 className="mb-3 sam-text-body font-semibold text-sam-fg">{t("business_phase7_044")}</h2>
+        <h2 className="mb-3 sam-text-body font-semibold text-sam-fg">내 상점 상품</h2>
         <BusinessProductList
           products={products}
           shopSlug={profile.slug}

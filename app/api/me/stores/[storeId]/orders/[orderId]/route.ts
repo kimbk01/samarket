@@ -1,15 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuditRequestMeta } from "@/lib/audit/request-meta";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
-import { ensureStoreOrderMessengerRoom } from "@/lib/community-messenger/store-order-chat-service";
 import { applyStoreOrderStatusTransition } from "@/lib/stores/apply-store-order-status-transition";
 import { ownerAcceptRequiresRecordedPayment } from "@/lib/stores/owner-order-payment-policy";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
+import { getCachedStoreIfOwner } from "@/lib/stores/owner-store-ownership-cache";
+import { fetchOwnerStoreOrderDetailSnapshot } from "@/lib/stores/fetch-store-order-detail-snapshot-rpc";
 import { isValidOrderStatus } from "@/lib/stores/order-status-transitions";
 import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
 import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache";
+import { invalidateOwnerStoreOrdersListCache } from "@/lib/stores/owner-store-orders-list-cache";
+import {
+  jsonPayloadKb,
+  logStoreOrderDetailPerf,
+  perfNowMs,
+} from "@/lib/stores/store-order-detail-perf";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -85,10 +92,13 @@ export async function GET(
   _req: Request,
   context: { params: Promise<{ storeId: string; orderId: string }> }
 ) {
+  const wall0 = perfNowMs();
+  const tAuth0 = perfNowMs();
   const userId = await getRouteUserId();
   if (!userId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
+  const auth_ms = Math.round(perfNowMs() - tAuth0);
 
   const { storeId, orderId } = await context.params;
   const sid = typeof storeId === "string" ? storeId.trim() : "";
@@ -102,7 +112,67 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
 
-  const gate = await getStoreIfOwner(sb, userId, sid);
+  const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
+  const snapshotGate = await fetchOwnerStoreOrderDetailSnapshot(sbAny, userId, sid, oid);
+  if (snapshotGate) {
+    if (!snapshotGate.ok) {
+      return NextResponse.json({ ok: false, error: snapshotGate.error }, { status: snapshotGate.status });
+    }
+    const storeRow = snapshotGate.store;
+    const order = snapshotGate.order;
+    const store_pickup_address_lines = formatStorePickupAddressLines({
+      region: storeRow.region as string | null | undefined,
+      city: storeRow.city as string | null | undefined,
+      district: storeRow.district as string | null | undefined,
+      address_line1: storeRow.address_line1 as string | null | undefined,
+      address_line2: storeRow.address_line2 as string | null | undefined,
+    });
+    const room_id_exists: 0 | 1 =
+      typeof order.community_messenger_room_id === "string" && order.community_messenger_room_id.trim()
+        ? 1
+        : 0;
+    const order_chat_ready = room_id_exists === 1;
+    const body = {
+      ok: true as const,
+      meta: {
+        owner_accept_requires_payment: ownerAcceptRequiresRecordedPayment(),
+        owner_user_id: userId,
+        store_name: (storeRow.store_name as string) ?? "",
+        store_slug: (storeRow.slug as string) ?? "",
+        order_chat_ready,
+        store_pickup_address_lines,
+      },
+      order: { ...order, review_status: snapshotGate.review_status, items: snapshotGate.items },
+      delivery: snapshotGate.delivery,
+    };
+    logStoreOrderDetailPerf({
+      route: "owner_get",
+      auth_ms,
+      order_fetch_ms: 0,
+      items_fetch_ms: 0,
+      review_meta_ms: 0,
+      delivery_snapshot_ms: 0,
+      ensure_room_ms: 0,
+      append_summary_ms: 0,
+      participant_upsert_ms: 0,
+      room_update_ms: 0,
+      unread_sync_ms: 0,
+      total_ms: Math.round(perfNowMs() - wall0),
+      payload_kb: jsonPayloadKb(body),
+      room_id_exists,
+      ensure_skipped: 1,
+      summary_skipped: 1,
+      snapshot_via: "rpc_snapshot",
+      db_round_trips: 1,
+      rpc_wall_ms: snapshotGate.rpc_wall_ms,
+      ownership_ms: 0,
+    });
+    return NextResponse.json(body);
+  }
+
+  const tOwn0 = perfNowMs();
+  const gate = await getCachedStoreIfOwner(sb, userId, sid);
+  const ownership_ms = Math.round(perfNowMs() - tOwn0);
   if (!gate.ok) {
     return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
   }
@@ -135,38 +205,42 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "order_not_found" }, { status: 404 });
   }
 
-  const { data: items, error: iErr } = await sb
+  const room_id_exists: 0 | 1 =
+    typeof order.community_messenger_room_id === "string" &&
+    order.community_messenger_room_id.trim()
+      ? 1
+      : 0;
+
+  const tItems0 = perfNowMs();
+  const itemsPromise = sb
     .from("store_order_items")
     .select("id, order_id, product_id, product_title_snapshot, price_snapshot, qty, subtotal, options_snapshot_json")
-    .eq("order_id", oid);
+    .eq("order_id", oid)
+    .then((r) => ({ r, ms: Math.round(perfNowMs() - tItems0) }));
 
+  const tReview0 = perfNowMs();
+  const reviewPromise = loadOwnerOrderReviewStatus(sbAny, oid, String(order.order_status ?? "")).then(
+    (r) => ({ r, ms: Math.round(perfNowMs() - tReview0) })
+  );
+  const tDelivery0 = perfNowMs();
+  const deliveryPromise = loadDeliverySnapshot(sbAny, oid).then((r) => ({
+    r,
+    ms: Math.round(perfNowMs() - tDelivery0),
+  }));
+
+  const [{ r: itemsRes, ms: items_fetch_ms }, { r: reviewStatus, ms: review_meta_ms }, { r: deliverySnap, ms: delivery_snapshot_ms }] =
+    await Promise.all([itemsPromise, reviewPromise, deliveryPromise]);
+
+  const { data: items, error: iErr } = itemsRes;
   if (iErr) {
     console.error("[GET store order]", iErr);
     return NextResponse.json({ ok: false, error: iErr.message }, { status: 500 });
   }
 
-  let order_chat_ready = false;
-  let communityMessengerRoomId = "";
-  const sbAny = sb as import("@supabase/supabase-js").SupabaseClient<any>;
-  const [deliverySnap, reviewStatus] = await Promise.all([
-    loadDeliverySnapshot(sbAny, oid),
-    loadOwnerOrderReviewStatus(sbAny, oid, String(order.order_status ?? "")),
-  ]);
-  try {
-    const ens = await ensureStoreOrderMessengerRoom(sbAny, {
-      orderId: oid,
-      userId,
-    });
-    if (ens.ok) {
-      order_chat_ready = true;
-      communityMessengerRoomId = ens.roomId;
-    }
-  } catch {
-    /* ignore */
-  }
+  const order_chat_ready = room_id_exists === 1;
 
-  return NextResponse.json({
-    ok: true,
+  const body = {
+    ok: true as const,
     meta: {
       owner_accept_requires_payment: ownerAcceptRequiresRecordedPayment(),
       owner_user_id: userId,
@@ -175,9 +249,33 @@ export async function GET(
       order_chat_ready,
       store_pickup_address_lines,
     },
-    order: { ...order, ...(communityMessengerRoomId ? { community_messenger_room_id: communityMessengerRoomId } : {}), review_status: reviewStatus, items: items ?? [] },
+    order: { ...order, review_status: reviewStatus, items: items ?? [] },
     delivery: deliverySnap.ok ? deliverySnap.delivery : null,
+  };
+
+  logStoreOrderDetailPerf({
+    route: "owner_get",
+    auth_ms,
+    order_fetch_ms: 0,
+    items_fetch_ms,
+    review_meta_ms,
+    delivery_snapshot_ms,
+    ensure_room_ms: 0,
+    append_summary_ms: 0,
+    participant_upsert_ms: 0,
+    room_update_ms: 0,
+    unread_sync_ms: 0,
+    total_ms: Math.round(perfNowMs() - wall0),
+    payload_kb: jsonPayloadKb(body),
+    room_id_exists,
+    ensure_skipped: 1,
+    summary_skipped: 1,
+    snapshot_via: "legacy_parallel",
+    db_round_trips: 4,
+    ownership_ms,
   });
+
+  return NextResponse.json(body);
 }
 
 /** 매장 오너: 주문 상태 변경 (취소 시 재고 복구) */
@@ -268,6 +366,12 @@ export async function PATCH(
 
   invalidateStoreOrderCountsCache(sid);
   invalidateOwnerHubBadgeCache(userId);
+  invalidateOwnerStoreOrdersListCache(sid, userId, {
+    route: "PATCH /api/me/stores/[storeId]/orders/[orderId]",
+    orderId: oid,
+    reason: "order_status_mutation",
+    afterMutationSuccess: true,
+  });
 
   return NextResponse.json({ ok: true, order_status: applied.order_status });
 }

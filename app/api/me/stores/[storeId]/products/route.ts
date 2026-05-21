@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { readActiveSessionIdCookie } from "@/lib/auth/active-session";
+import { peekAuthSessionValidateCached } from "@/lib/auth/auth-session-validate-cache";
+import { validateActiveSessionLightDeduped } from "@/lib/auth/auth-session-validate-dedupe";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
@@ -6,6 +9,10 @@ import {
   canOwnerSellProducts,
   getStoreIfOwner,
 } from "@/lib/stores/owner-product-gate";
+import {
+  getCachedStoreIfOwner,
+  peekOwnerStoreOwnershipCacheHit,
+} from "@/lib/stores/owner-store-ownership-cache";
 import { parseProductOptionsJsonField } from "@/lib/stores/parse-product-options-json";
 import { loadUserAppLanguage } from "@/lib/i18n/load-user-app-language";
 import { validateOwnerOptionsJsonPayload } from "@/lib/stores/owner-product-options-validate";
@@ -18,6 +25,17 @@ import {
   countOwnerRecommendedProducts,
   OWNER_RECOMMENDED_MENU_MAX,
 } from "@/lib/stores/owner-recommended-menu-limit";
+import {
+  invalidateOwnerProductsListCache,
+  loadOwnerProductsListSnapshot,
+  parseOwnerProductsListLimit,
+  peekOwnerProductsListCacheHit,
+} from "@/lib/stores/owner-products-list-snapshot";
+import {
+  jsonPayloadKb,
+  logOwnerProductsPerf,
+  perfNowMs,
+} from "@/lib/stores/owner-products-perf";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -26,12 +44,20 @@ export async function GET(
   req: NextRequest,
   context: { params: Promise<{ storeId: string }> }
 ) {
+  const wall0 = perfNowMs();
+  const tAuth0 = perfNowMs();
   const userId = await getRouteUserId();
   if (!userId) {
     return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
   }
-  const session = await validateActiveSession(userId);
-  if (!session.ok) return session.response;
+  const sessionFp = ((await readActiveSessionIdCookie()) ?? "").trim() || "∅";
+  const auth_cache_hit_before: 0 | 1 = peekAuthSessionValidateCached(userId, sessionFp) ? 1 : 0;
+  const validated = await validateActiveSessionLightDeduped(userId, sessionFp);
+  const auth_ms = Math.round(perfNowMs() - tAuth0);
+  const auth_cache_hit: 0 | 1 =
+    auth_cache_hit_before || validated.ttlCacheHit ? 1 : 0;
+  if (!validated.ok) return validated.response;
+
   const { storeId } = await context.params;
   const id = typeof storeId === "string" ? storeId.trim() : "";
   if (!id) {
@@ -43,57 +69,86 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "supabase_unconfigured" }, { status: 503 });
   }
 
-  const { data: store, error: sErr } = await supabase
-    .from("stores")
-    .select("id, owner_user_id")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (sErr || !store) {
-    return NextResponse.json({ ok: false, error: "store_not_found" }, { status: 404 });
-  }
-  if (store.owner_user_id !== userId) {
-    return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-  }
-
   const menuSectionId = req.nextUrl.searchParams.get("menu_section_id")?.trim() ?? "";
   const sectionFilter = menuSectionId.length >= 8 ? menuSectionId : "";
+  const limit = parseOwnerProductsListLimit(req.nextUrl.searchParams.get("limit"));
+  const cursor = req.nextUrl.searchParams.get("cursor")?.trim() ?? "";
+  const skipListCache = sectionFilter.length > 0 || limit != null || cursor.length > 0;
 
-  const fullSelect = [
-    "id, store_id, title, summary, price, discount_price, discount_percent, stock_qty, track_inventory",
-    "thumbnail_url, product_status, pickup_available, local_delivery_available, shipping_available",
-    "category_id, menu_section_id, item_type, is_featured, is_owner_recommended, is_representative, sort_order",
-    "created_at, updated_at",
-    "store_menu_sections ( id, name, sort_order, is_hidden )",
-    "store_product_categories ( name, slug )",
-  ].join(", ");
+  const tCacheLookup0 = perfNowMs();
+  const products_list_cache_hit_before: 0 | 1 =
+    skipListCache ? 0 : peekOwnerProductsListCacheHit(id) ? 1 : 0;
+  const ownership_cache_hit_before: 0 | 1 = peekOwnerStoreOwnershipCacheHit(userId, id) ? 1 : 0;
+  const cache_lookup_ms = Math.round(perfNowMs() - tCacheLookup0);
 
-  /** 카테고리 삭제 전 건수 확인 등: 해당 구역만 좁혀 조회 */
-  const selectCols = sectionFilter ? "id, menu_section_id, store_menu_sections ( id )" : fullSelect;
-
-  let pq = supabase
-    .from("store_products")
-    .select(selectCols)
-    .eq("store_id", id)
-    .not("product_status", "eq", "deleted");
-
-  if (sectionFilter) {
-    pq = pq.eq("menu_section_id", sectionFilter);
+  const tOwn0 = perfNowMs();
+  const gate = await getCachedStoreIfOwner(supabase, userId, id);
+  const ownership_ms = Math.round(perfNowMs() - tOwn0);
+  const ownership_cache_hit: 0 | 1 = ownership_cache_hit_before ? 1 : 0;
+  if (!gate.ok) {
+    return NextResponse.json({ ok: false, error: gate.error }, { status: gate.status });
   }
 
-  pq = pq
-    .order("is_featured", { ascending: false })
-    .order("sort_order", { ascending: true })
-    .order("created_at", { ascending: false });
+  const loaded = await loadOwnerProductsListSnapshot(supabase as import("@supabase/supabase-js").SupabaseClient<any>, id, {
+    sectionFilter,
+    limit,
+    cursor: cursor || undefined,
+    skipCache: skipListCache,
+  });
 
-  const { data: products, error: pErr } = await pq;
-
-  if (pErr) {
-    console.error("[GET products]", pErr);
-    return NextResponse.json({ ok: false, error: pErr.message }, { status: 500 });
+  if (!loaded.ok) {
+    console.error("[GET products]", loaded.error);
+    return NextResponse.json({ ok: false, error: loaded.error }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, products: products ?? [] });
+  const { snapshot } = loaded;
+  const products_list_cache_hit: 0 | 1 = snapshot.cache_hit;
+  const sections_cache_hit: 0 | 1 = products_list_cache_hit;
+  const categories_cache_hit: 0 | 1 = products_list_cache_hit;
+  const early_return_from_cache: 0 | 1 =
+    auth_cache_hit === 1 && ownership_cache_hit === 1 && products_list_cache_hit === 1 ? 1 : 0;
+
+  let actual_db_queries_count = 0;
+  if (!auth_cache_hit) actual_db_queries_count += 2;
+  if (!ownership_cache_hit) actual_db_queries_count += 1;
+  if (!products_list_cache_hit) {
+    actual_db_queries_count += 1;
+    if (snapshot.timing.categories_query_ms > 0) actual_db_queries_count += 1;
+    if (snapshot.timing.sections_query_ms > 0) actual_db_queries_count += 1;
+  }
+
+  const body = { ok: true as const, products: snapshot.products };
+  const tSer0 = perfNowMs();
+  const res = NextResponse.json(body);
+  const serialization_ms = Math.round(perfNowMs() - tSer0);
+
+  logOwnerProductsPerf({
+    route: "owner_products_get",
+    auth_ms,
+    ownership_ms,
+    products_query_ms: snapshot.timing.products_query_ms,
+    categories_query_ms: snapshot.timing.categories_query_ms,
+    sections_query_ms: snapshot.timing.sections_query_ms,
+    payload_kb: jsonPayloadKb(body),
+    product_count: snapshot.products.length,
+    options_embed: snapshot.options_embed,
+    images_embed: snapshot.images_embed,
+    sort_ms: snapshot.timing.sort_ms,
+    serialization_ms,
+    total_ms: Math.round(perfNowMs() - wall0),
+    cache_hit: products_list_cache_hit,
+    singleflight_hit: snapshot.singleflight_hit,
+    auth_cache_hit,
+    ownership_cache_hit,
+    products_list_cache_hit,
+    sections_cache_hit,
+    categories_cache_hit,
+    early_return_from_cache,
+    actual_db_queries_count,
+    cache_lookup_ms,
+  });
+
+  return res;
 }
 
 type CreateBody = {
@@ -365,6 +420,8 @@ export async function POST(
     console.error("[POST product]", insErr);
     return NextResponse.json({ ok: false, error: insErr.message }, { status: 500 });
   }
+
+  invalidateOwnerProductsListCache(sid);
 
   return NextResponse.json({ ok: true, product: created });
 }
