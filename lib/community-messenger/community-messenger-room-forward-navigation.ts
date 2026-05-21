@@ -1,6 +1,7 @@
 import type { AppRouterInstance } from "next/dist/shared/lib/app-router-context.shared-runtime";
 import {
   communityMessengerRoomHref,
+  resolveDeliveryMessengerRoomReturnHref,
   type MessengerRoomListSource,
 } from "@/lib/community-messenger/messenger-entry-origin";
 import { runMessengerViewTransition } from "@/lib/community-messenger/messenger-view-transition";
@@ -62,7 +63,15 @@ export async function runCommunityMessengerRoomForwardNavigation(
   const id = String(args.roomId ?? "").trim();
   if (!id) return;
 
-  const dest = communityMessengerRoomHref(id, args.fromEntryOrigin, args.listSource);
+  const returnHref =
+    args.listSource === "delivery" && typeof window !== "undefined"
+      ? resolveDeliveryMessengerRoomReturnHref({
+          pathname: window.location.pathname,
+          search: window.location.search,
+          fromEntryOrigin: args.fromEntryOrigin,
+        })
+      : null;
+  const dest = communityMessengerRoomHref(id, args.fromEntryOrigin, args.listSource, returnHref);
   const vu = args.viewerUserId?.trim() || null;
   const room = args.roomForPrime ?? null;
 

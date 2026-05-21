@@ -1,3 +1,8 @@
+/** 하단 탭 본체 — 본문(흰색)과 구분 */
+:root {
+  --app-bottom-nav-surface: #f6f6f6;
+}
+
 .app-bottom-nav-shell {
   position: fixed;
   left: 0;
@@ -34,7 +39,7 @@
   flex-direction: column;
   width: 100%;
   border-radius: 0;
-  background: #ffffff;
+  background: var(--app-bottom-nav-surface);
   color: var(--sam-fg, #111827);
   border: 1px solid rgba(15, 23, 42, 0.06);
   border-bottom: 0;
@@ -288,56 +293,112 @@
   }
 }
 
-/** 배달 5탭 — 좌우 탭은 네비 본체(3.5rem) 상하 중앙, 홈만 원형 돌출 */
-.app-bottom-nav-shell--delivery {
+/**
+ * 배달 하단 탭·홈 원·다이얼 — 단일 토큰(`:root`).
+ * `delivery-domain-switcher.css` 는 여기 정의를 참조만 한다(중복 정의 금지).
+ */
+:root {
   --delivery-home-orbit-size: 2.75rem;
+  --delivery-home-above-nav-ratio: 0.4;
+  --delivery-home-in-nav-ratio: 0.6;
+  --delivery-home-above-nav: calc(
+    var(--delivery-home-orbit-size) * var(--delivery-home-above-nav-ratio)
+  );
+  --delivery-home-overhang: var(--delivery-home-above-nav);
+  --delivery-tab-label-size: 11px;
+  --delivery-tab-label-weight: 500;
+  --delivery-tab-label-line-height: 11px;
+  --delivery-tab-label-tracking: -0.01em;
+  --delivery-tab-label-bottom-inset: 6px;
+  /** 홈 라벨만 — 다른 4탭 baseline 육안 정렬 */
+  --delivery-tab-label-hub-bottom-offset: 1pt;
+  --delivery-tab-icon-slot-height: 28px;
+  --delivery-tab-label-inactive: #b8bec8;
+  --delivery-tab-label-active: #1c8db8;
+  --delivery-tab-label-hub-active: var(--sam-danger, #d45252);
 }
 
-.app-bottom-nav-shell--delivery .app-bottom-nav-plane {
+/**
+ * 배달 5탭 — 라벨은 탭 셀 하단에 절대 고정(홈은 아이콘 슬롯이 flex 밖이라 baseline 어긋남 방지).
+ * 아이콘 슬롯 높이는 좌·우 4탭만 28px 공통(홈 원은 별도 절대 배치).
+ */
+.app-bottom-nav-shell--delivery .app-bottom-nav-item {
+  position: relative;
   display: flex;
   flex-direction: column;
+  align-items: center;
   justify-content: flex-start;
+  gap: 0;
+  padding: 6px 2px var(--delivery-tab-label-bottom-inset);
+  padding-bottom: calc(
+    var(--delivery-tab-label-bottom-inset) + var(--delivery-tab-label-line-height)
+  );
+  box-sizing: border-box;
 }
 
-.app-bottom-nav-shell--delivery .app-bottom-nav-grid {
-  flex: 0 0 var(--app-bottom-nav-height);
-  align-items: center;
+.app-bottom-nav-shell--delivery .app-bottom-nav-icon-slot:not(.app-bottom-nav-icon-slot--delivery-home) {
+  flex: 0 0 var(--delivery-tab-icon-slot-height);
+  height: var(--delivery-tab-icon-slot-height);
+  align-items: flex-end;
 }
 
-.app-bottom-nav-shell--delivery .app-bottom-nav-item:not(.app-bottom-nav-item--delivery-hub) {
-  justify-content: center;
-  padding: 0 2px;
-  gap: 3px;
+/** 내정보(⋯) — 글로벌 32px 슬롯을 배달 4탭과 동일 28px 로 */
+.app-bottom-nav-shell--delivery .app-bottom-nav-item--my-menu .app-bottom-nav-icon-slot {
+  height: var(--delivery-tab-icon-slot-height);
+  flex: 0 0 var(--delivery-tab-icon-slot-height);
 }
 
-.app-bottom-nav-shell--delivery .app-bottom-nav-item:not(.app-bottom-nav-item--delivery-hub) .app-bottom-nav-icon-slot {
-  height: auto;
-  min-height: 0;
-  align-items: center;
+.app-bottom-nav-shell--delivery .app-bottom-nav-label--delivery-tab {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: var(--delivery-tab-label-bottom-inset);
+  z-index: 4;
+  margin: 0;
+  padding: 0;
+  height: var(--delivery-tab-label-line-height);
+  font-size: var(--delivery-tab-label-size);
+  font-weight: var(--delivery-tab-label-weight);
+  line-height: var(--delivery-tab-label-line-height);
+  letter-spacing: var(--delivery-tab-label-tracking);
+  text-align: center;
+  font-style: normal;
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+  color: var(--delivery-tab-label-inactive);
+}
+
+.app-bottom-nav-shell--delivery .app-bottom-nav-item[data-active="true"]:not(.app-bottom-nav-item--delivery-hub)
+  .app-bottom-nav-label--delivery-tab {
+  color: var(--delivery-tab-label-active);
 }
 
 .app-bottom-nav-item--delivery-hub {
+  position: relative;
   overflow: visible;
-  z-index: 2;
-  justify-content: flex-end;
-  padding: 0 2px 5px;
-  gap: 2px;
+  z-index: 3;
 }
 
 .app-bottom-nav-item--delivery-hub .app-bottom-nav-icon-slot--delivery-home {
-  position: relative;
-  /** 원의 30%만 네비 상단선 위로 — 70%는 탭 영역 안 */
-  height: calc(var(--delivery-home-orbit-size) * 0.7);
+  /** 탭 셀 top = 탭바 상단선 — `top` 음수로 위 40% / 아래 60% 겹침을 고정 */
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(-1 * var(--delivery-home-above-nav));
+  z-index: 2;
   width: 100%;
-  align-items: flex-end;
+  height: var(--delivery-home-orbit-size);
+  margin-top: 0;
+  align-items: flex-start;
   justify-content: center;
   overflow: visible;
+  pointer-events: none;
 }
 
 .app-bottom-nav-item--delivery-hub .app-bottom-nav-delivery-home-orbit {
   position: absolute;
   left: 50%;
-  bottom: 0;
+  top: 0;
   display: flex;
   height: var(--delivery-home-orbit-size);
   width: var(--delivery-home-orbit-size);
@@ -350,6 +411,7 @@
   color: #fff;
   box-shadow: 0 4px 14px rgba(212, 82, 82, 0.45);
   transform: translateX(-50%);
+  pointer-events: auto;
   transition:
     transform 440ms cubic-bezier(0.25, 0.9, 0.35, 1),
     box-shadow 440ms cubic-bezier(0.25, 0.9, 0.35, 1),
@@ -374,19 +436,49 @@
   animation: none;
 }
 
-.app-bottom-nav-item--delivery-hub .app-bottom-nav-label {
-  color: #5c6570;
+.app-bottom-nav-shell--delivery .app-bottom-nav-item--delivery-hub .app-bottom-nav-label--delivery-tab {
+  bottom: calc(var(--delivery-tab-label-bottom-inset) + var(--delivery-tab-label-hub-bottom-offset));
 }
 
-.app-bottom-nav-item--delivery-hub[data-active="true"] .app-bottom-nav-label,
-.app-bottom-nav-item--delivery-hub[data-switcher-open="true"] .app-bottom-nav-label {
-  color: var(--sam-danger, #d45252);
-  font-weight: 600;
+.app-bottom-nav-shell--delivery .app-bottom-nav-item--delivery-hub[data-active="true"] .app-bottom-nav-label--delivery-tab,
+.app-bottom-nav-shell--delivery
+  .app-bottom-nav-item--delivery-hub[data-switcher-open="true"]
+  .app-bottom-nav-label--delivery-tab {
+  color: var(--delivery-tab-label-hub-active);
 }
 
-/** 배달 모드 — 가운데 홈 원이 탭바 위로 걸침 */
+/**
+ * 배달 하단 탭 — 상단 회색선 제거(단일 불투명 면, 그라데이션·블러·그림자 금지).
+ * 원인: (1) `.app-bottom-nav-plane` border/box-shadow/backdrop-filter
+ *       (2) `.app-bottom-nav-shell::before` linear-gradient
+ *       (3) 다이얼 딤 하단 경계 — `delivery-domain-switcher.css` 레이어 분리 + 다이얼 시 z-index 1255
+ */
+.app-bottom-nav-shell--delivery::before {
+  display: none;
+  content: none;
+  background: none;
+}
+
+.app-bottom-nav-shell--delivery .app-bottom-nav-plane {
+  border: 0;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background-color: var(--app-bottom-nav-surface);
+}
+
+/** 다이얼 열림 — 불투명 탭바가 딤(1250) 위, 펼침 칩(1260) 아래 */
+.app-bottom-nav-shell--delivery.app-bottom-nav-shell--switcher-open {
+  z-index: 1255;
+}
+
 .app-bottom-nav-shell--delivery .app-bottom-nav-plane,
 .app-bottom-nav-shell--delivery .app-bottom-nav-grid {
+  overflow: visible;
+}
+
+.app-bottom-nav-shell--delivery.app-bottom-nav-shell--switcher-open .app-bottom-nav-plane,
+.app-bottom-nav-shell--delivery.app-bottom-nav-shell--switcher-open .app-bottom-nav-grid {
   overflow: visible;
 }
 

@@ -5,8 +5,10 @@ import { useMessengerRoomUrlSearchParams } from "@/lib/community-messenger/room/
 import { BackIcon, MoreIcon } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { useMessengerRoomPhase2HeaderView } from "@/components/community-messenger/room/phase2/messenger-room-phase2-header-context";
 import { markCommunityMessengerHomeReturn } from "@/lib/community-messenger/home-return-timing";
-import { buildMessengerRoomListBackHref } from "@/lib/community-messenger/messenger-entry-origin";
-import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
+import {
+  resolveMessengerRoomBackNavigation,
+  runMessengerRoomBackNavigation,
+} from "@/lib/community-messenger/room/messenger-room-back-navigation";
 import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/realtime/presence/use-community-messenger-peer-presence";
 import { formatMessengerPeerPresenceLine } from "@/lib/community-messenger/realtime/presence/format-messenger-peer-presence-line";
 import { CommunityMessengerPresenceDot } from "@/components/community-messenger/CommunityMessengerPresenceDot";
@@ -104,8 +106,11 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
                 vm.router.replace(SAMARKET_ROUTES.chat.messengerMeetingsHub, { scroll: false });
                 return;
               }
-              const fallback = buildMessengerRoomListBackHref(searchParams);
-              runHistoryBackWithFallback(vm.router, fallback);
+              const plan = resolveMessengerRoomBackNavigation({
+                roomId: vm.snapshot.room.id,
+                searchParams,
+              });
+              runMessengerRoomBackNavigation(vm.router, plan);
             }}
             className="flex h-9 w-9 shrink-0 items-center justify-center self-center rounded-full text-[color:var(--cm-room-text)] transition active:bg-[color:var(--cm-room-primary-soft)]"
             aria-label={vm.t("tier1_back")}

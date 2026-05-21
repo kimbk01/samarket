@@ -115,8 +115,8 @@ export const BOTTOM_NAV_SHELL = {
 export const BOTTOM_NAV_OUTER_MOTION =
   "transition-transform duration-150 will-change-transform [transition-timing-function:cubic-bezier(0.25,0.1,0.2,1)]";
 
-/** 하단 탭바 기준색(그라데이션 중간 톤) — 배지 링 등 */
-export const BOTTOM_NAV_DARK_BAR_HEX = "#ffffff";
+/** 하단 탭바 기준색 — `app-bottom-nav.css` `--app-bottom-nav-surface` 와 동기 */
+export const BOTTOM_NAV_DARK_BAR_HEX = "#f6f6f6";
 /** `OWNER_HUB_BADGE_DOT_CLASS` 와 조합 */
 export const BOTTOM_NAV_BADGE_RING_CLASS = "ring-sam-surface";
 

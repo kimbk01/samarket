@@ -18,6 +18,8 @@ export const storeCommerceUiMessages = {
 
     store_checkout_confirm_title: "주문 내용을 확인해 주세요",
 
+    store_checkout_confirm_order_summary: "주문 상품",
+
     store_label_contact: "연락처",
 
     store_label_address: "주소",
@@ -1030,17 +1032,18 @@ export const storeCommerceUiMessages = {
     store_biz_refund_requested_banner: "환불 요청됨 — 관리자 배달 주문에서 승인 시 반영됩니다.",
     store_messenger_order_fallback: "배달·매장 주문",
     store_messenger_order_title: "{store} · 주문 {orderNo}",
+    store_messenger_list_order_no: "주문번호 {orderNo}",
     store_messenger_delivery_order_title: "배달 주문",
     store_biz_my_store_fallback: "내 매장",
     store_biz_order_chat_modal_body:
       "배달·매장 주문 대화는 `/community-messenger/delivery-chats`와 메신저 방에서 이어집니다.",
-    store_pay_label_cod: "현금(착불·만나서)",
+    store_pay_label_cod: "COD",
     store_pay_label_gcash: "GCash",
     store_pay_label_bank_transfer: "계좌이체",
     store_pay_label_other: "기타",
     store_pay_label_card_on_delivery: "카드(배달 시 결제)",
-    store_pay_display_cash_meet: "만나서 현금",
-    store_pay_methods_fallback: "GCash · 만나서 결제 등 (매장 확인)",
+    store_pay_display_cash_meet: "COD",
+    store_pay_methods_fallback: "GCash · COD 등 (매장 확인)",
     store_owner_mobile_filter_all_types: "전체 유형",
     store_owner_mobile_filter_delivery_only: "배달만",
     store_owner_mobile_filter_pickup_only: "포장만",
@@ -1155,6 +1158,8 @@ export const storeCommerceUiMessages = {
     store_industry_grid_title: "Browse by category",
 
     store_checkout_confirm_title: "Please confirm your order",
+
+    store_checkout_confirm_order_summary: "Order items",
 
     store_label_contact: "Contact",
 
@@ -2169,17 +2174,18 @@ export const storeCommerceUiMessages = {
     store_biz_refund_requested_banner: "Refund requested — updates when approved in admin.",
     store_messenger_order_fallback: "Delivery / store order",
     store_messenger_order_title: "{store} · Order {orderNo}",
+    store_messenger_list_order_no: "Order no. {orderNo}",
     store_messenger_delivery_order_title: "Delivery order",
     store_biz_my_store_fallback: "My store",
     store_biz_order_chat_modal_body:
       "Delivery and store order chats continue in the Messenger delivery inbox.",
-    store_pay_label_cod: "Cash (COD / meet-up)",
+    store_pay_label_cod: "COD",
     store_pay_label_gcash: "GCash",
     store_pay_label_bank_transfer: "Bank transfer",
     store_pay_label_other: "Other",
     store_pay_label_card_on_delivery: "Card (pay on delivery)",
-    store_pay_display_cash_meet: "Cash on meet-up",
-    store_pay_methods_fallback: "GCash, cash on delivery, etc. (confirm with store)",
+    store_pay_display_cash_meet: "COD",
+    store_pay_methods_fallback: "GCash, COD, etc. (confirm with store)",
     store_owner_mobile_filter_all_types: "All types",
     store_owner_mobile_filter_delivery_only: "Delivery only",
     store_owner_mobile_filter_pickup_only: "Pickup only",

@@ -127,7 +127,8 @@ function MessengerRoomRows({
   chatListVisual = "default",
 }: MessengerRoomRowsProps) {
   useCmDevRenderTrace("RoomList");
-  const rowEstimatePx = chatListVisual === "trade" ? 78 : MESSENGER_CHAT_LIST_ROW_ESTIMATE_PX;
+  const rowEstimatePx =
+    chatListVisual === "trade" || chatListVisual === "delivery" ? 88 : MESSENGER_CHAT_LIST_ROW_ESTIMATE_PX;
   const rowVirtualizer = useVirtualizer({
     count: useVirtual ? items.length : 0,
     getItemKey: (index) => items[index]?.room.id ?? index,
@@ -253,7 +254,7 @@ type Props = {
    * 출처를 보존하기 위해 전달한다.
    */
   entryOriginQuery?: string | null;
-  /** `/community-messenger/trade-chats` — 거래 글 썸네일·상태 중심 행 */
+  /** `/community-messenger/trade-chats` · `/delivery-chats` 전용 행 */
   chatListVisual?: MessengerChatListVisual;
 };
 

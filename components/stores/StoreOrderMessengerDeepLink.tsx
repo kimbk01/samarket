@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import { buildStoreOrderMessengerRoomHref } from "@/lib/chats/surfaces/order-chat-surface";
 import {
   buildMessengerContextMetaFromStoreOrder,
@@ -21,15 +22,23 @@ export function StoreOrderMessengerDeepLink({
   variant?: "default" | "compact";
   context?: StoreOrderMessengerContextInput | null;
 }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const id = roomId.trim();
   if (!id) return null;
   const label =
     variant === "compact"
       ? "주문 채팅"
       : "주문 진행 채팅 열기";
+  const returnHref = `${pathname ?? ""}${searchParams?.toString() ? `?${searchParams.toString()}` : ""}`;
   const href = buildStoreOrderMessengerRoomHref(
     id,
-    context ? { contextMeta: buildMessengerContextMetaFromStoreOrder(context) } : undefined
+    context
+      ? {
+          contextMeta: buildMessengerContextMetaFromStoreOrder(context),
+          returnHref,
+        }
+      : { returnHref }
   );
   return (
     <Link

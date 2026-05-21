@@ -66,8 +66,8 @@ export function formatBrowseStoreRowLabels(
   const paymentMethodsLine =
     payFromCfg.trim() ||
     safeTranslate(lang, "store_pay_methods_fallback", {
-      fallbackKo: "GCash · 만나서 결제 등 (매장 확인)",
-      fallbackEn: "GCash, cash on delivery, etc. (confirm with store)",
+      fallbackKo: "GCash · COD 등 (매장 확인)",
+      fallbackEn: "GCash, COD, etc. (confirm with store)",
     });
   const minOrderLabel =
     commerce.minOrderPhp != null && Number.isFinite(commerce.minOrderPhp) && commerce.minOrderPhp > 0

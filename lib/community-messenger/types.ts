@@ -121,6 +121,8 @@ export type CommunityMessengerRoomContextMetaV1 = {
   orderNo?: string;
   /** 배달·매장 주문의 매장 id */
   storeId?: string;
+  /** 목록 행 — 매장명(피어 닉네임·id 대신 표시) */
+  storeDisplayName?: string;
   /** `store_orders.fulfillment_type` 스냅샷 */
   fulfillmentType?: string;
 };

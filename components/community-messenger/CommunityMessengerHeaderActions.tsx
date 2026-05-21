@@ -29,11 +29,14 @@ export function CommunityMessengerHeaderActions({
   onOpenSearch,
   onOpenRequestList,
   onOpenSettings,
+  showCallLogsLink = true,
 }: {
   incomingRequestCount: number;
   onOpenSearch: () => void;
   onOpenRequestList: () => void;
   onOpenSettings: () => void;
+  /** 배달 채팅 목록 등 — 상단 통화 기록(전화) 아이콘 숨김 */
+  showCallLogsLink?: boolean;
 }) {
   const { t } = useI18n();
   const iconBtn = `${Sam.headerAction} relative h-10 w-10 shrink-0 text-sam-fg ${samTier1HeaderIconMicro}`;
@@ -43,9 +46,15 @@ export function CommunityMessengerHeaderActions({
       <button type="button" onClick={onOpenSearch} className={iconBtn} aria-label={t("cm_ui_messenger_search")}>
         <Tier1HeaderSearchGlyph />
       </button>
-      <Link href="/community-messenger/calls/logs" className={iconBtn} aria-label={t("cm_ui_call_logs_title")}>
-        <Phone className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS} strokeWidth={SAM_TIER1_HEADER_ICON_STROKE_WIDTH} aria-hidden />
-      </Link>
+      {showCallLogsLink ? (
+        <Link href="/community-messenger/calls/logs" className={iconBtn} aria-label={t("cm_ui_call_logs_title")}>
+          <Phone
+            className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS}
+            strokeWidth={SAM_TIER1_HEADER_ICON_STROKE_WIDTH}
+            aria-hidden
+          />
+        </Link>
+      ) : null}
       <button
         type="button"
         onClick={onOpenRequestList}

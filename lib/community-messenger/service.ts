@@ -72,6 +72,7 @@ import {
   cmTradeChatModeLockedCopy,
 } from "@/lib/community-messenger/cm-home-list-copy";
 import { buildMessengerContextMetaFromProductChatSnapshot } from "@/lib/community-messenger/product-chat-messenger-meta";
+import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import {
   enrichMessengerTradeUnreadWithLegacyTrade,
   prefetchHs5LegacyUnreadRows,
@@ -9221,7 +9222,7 @@ export async function ensureCommunityMessengerDirectRoomFromStoreOrderChat(
   if (!sb) return { ok: false, error: "server_unavailable" };
   const { data } = await (sb as any)
     .from("store_orders")
-    .select("id, order_no, store_id, buyer_user_id, order_status, fulfillment_type, payment_amount, total_amount, stores(store_name, owner_user_id)")
+    .select("id, order_no, store_id, buyer_user_id, order_status, fulfillment_type, payment_amount, total_amount, stores(store_name, owner_user_id, profile_image_url)")
     .eq("id", oid)
     .maybeSingle();
   if (!data) return { ok: false, error: "store_order_not_found" };
@@ -9234,7 +9235,10 @@ export async function ensureCommunityMessengerDirectRoomFromStoreOrderChat(
     fulfillment_type?: unknown;
     payment_amount?: unknown;
     total_amount?: unknown;
-    stores?: { store_name?: unknown; owner_user_id?: unknown } | Array<{ store_name?: unknown; owner_user_id?: unknown }> | null;
+    stores?:
+      | { store_name?: unknown; owner_user_id?: unknown; profile_image_url?: unknown }
+      | Array<{ store_name?: unknown; owner_user_id?: unknown; profile_image_url?: unknown }>
+      | null;
   };
   const storeRow = Array.isArray(orderRow.stores) ? orderRow.stores[0] : orderRow.stores;
   const buyer = trimText(orderRow.buyer_user_id);
@@ -9249,16 +9253,19 @@ export async function ensureCommunityMessengerDirectRoomFromStoreOrderChat(
   const status = trimText(orderRow.order_status);
   const fulfillmentType = trimText(orderRow.fulfillment_type);
   const amountRaw = Number(orderRow.payment_amount ?? orderRow.total_amount ?? 0);
+  const profileUrl = trimText(storeRow?.profile_image_url as string | undefined);
   const contextMeta: CommunityMessengerRoomContextMetaV1 = {
     v: 1,
     kind: "delivery",
     storeOrderId: oid,
     orderNo,
     storeId: trimText(orderRow.store_id),
+    storeDisplayName: storeName,
     fulfillmentType,
     headline: cmStoreOrderHeadline(storeName, orderNo),
+    ...(profileUrl ? { thumbnailUrl: profileUrl } : {}),
     ...(Number.isFinite(amountRaw) && amountRaw >= 0 ? { priceLabel: `₱${amountRaw.toLocaleString("en-US")}` } : {}),
-    ...(status ? { stepLabel: status } : {}),
+    ...(status ? { stepLabel: buyerOrderStatusLabel(status) || status } : {}),
   };
   await updateCommunityMessengerRoomContextMeta({ userId, roomId: out.roomId, contextMeta }).catch(() => ({ ok: false }));
   return { ok: true, roomId: out.roomId, peerUserId: peer };

@@ -1,8 +1,12 @@
 ﻿"use client";
 
 import type { ReactNode } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatMoneyPhp } from "@/lib/utils/format";
-import { BAEMIN_CART_SECTION_CARD_CLASS } from "@/lib/stores/store-baemin-cart-ui";
+import {
+  BAEMIN_CART_FOOTER_MIN_SHORT_CLASS,
+  BAEMIN_CART_SECTION_CARD_CLASS,
+} from "@/lib/stores/store-baemin-cart-ui";
 
 export function StoreBaeminCartOrderSummaryCard(props: {
   subtotalPhp: number;
@@ -19,6 +23,7 @@ export function StoreBaeminCartOrderSummaryCard(props: {
   freeDeliveryProgressPct: number;
   freeDeliveryMet: boolean;
 }) {
+  const { t } = useI18n();
   const {
     subtotalPhp,
     discountAmountPhp,
@@ -34,6 +39,8 @@ export function StoreBaeminCartOrderSummaryCard(props: {
     freeDeliveryProgressPct,
     freeDeliveryMet,
   } = props;
+
+  const showMinOrder = minOrderPhp > 0;
 
   return (
     <section className={`${BAEMIN_CART_SECTION_CARD_CLASS} overflow-hidden`}>
@@ -66,12 +73,17 @@ export function StoreBaeminCartOrderSummaryCard(props: {
             {formatMoneyPhp(displayGrand)}
           </span>
         </div>
-        {minOrderPhp > 0 ? (
-          <p className="mt-2 text-[12px] text-[#999]">최소 주문 금액 : {formatMoneyPhp(minOrderPhp)}</p>
+        {showMinOrder ? (
+          <p className="mt-2 text-[12px] text-[#999]">
+            {t("store_min_order_amount_colon", { amount: formatMoneyPhp(minOrderPhp) })}
+          </p>
         ) : null}
-        {minOrderPhp > 0 && !meetsMin ? (
-          <p className="mt-1 text-[12px] font-medium text-[#B45309]">
-            {formatMoneyPhp(minShortage)} 더 담아 최소 주문을 맞춰 주세요.
+        {showMinOrder && meetsMin ? (
+          <p className="mt-1 text-[12px] font-semibold text-[#16A34A]">{t("store_min_order_met")}</p>
+        ) : null}
+        {showMinOrder && !meetsMin ? (
+          <p className={`mt-1 ${BAEMIN_CART_FOOTER_MIN_SHORT_CLASS}`}>
+            {t("store_min_order_add_more", { amount: formatMoneyPhp(minShortage) })}
           </p>
         ) : null}
       </div>
@@ -79,7 +91,7 @@ export function StoreBaeminCartOrderSummaryCard(props: {
       {showFreeDeliveryProgress && freeDeliveryThresholdPhp != null ? (
         <div className="mx-4 mb-4 rounded-[8px] bg-[#F0F9FF] px-3 py-2.5">
           <p className="text-[13px] font-semibold text-[#0C4A6E]">
-            {formatMoneyPhp(freeDeliveryThresholdPhp)} 이상 주문 시 무료배달
+            {t("store_free_delivery_over", { amount: formatMoneyPhp(freeDeliveryThresholdPhp) })}
           </p>
           <div
             className="mt-2 h-1.5 overflow-hidden rounded-full bg-[#BAE6FD]"
@@ -87,6 +99,7 @@ export function StoreBaeminCartOrderSummaryCard(props: {
             aria-valuenow={Math.round(freeDeliveryProgressPct)}
             aria-valuemin={0}
             aria-valuemax={100}
+            aria-label={t("store_free_delivery_progress_aria")}
           >
             <div
               className="h-full rounded-full bg-[#0EA5E9] transition-[width] duration-300"
@@ -95,8 +108,10 @@ export function StoreBaeminCartOrderSummaryCard(props: {
           </div>
           <p className="mt-1.5 text-[12px] text-[#0C4A6E]/80">
             {freeDeliveryMet
-              ? "무료배달 조건을 충족했습니다."
-              : `${formatMoneyPhp(Math.max(0, freeDeliveryThresholdPhp - subtotalPhp))} 더 담으면 배달비가 면제될 수 있어요.`}
+              ? t("store_free_delivery_met")
+              : t("store_free_delivery_remaining", {
+                  amount: formatMoneyPhp(Math.max(0, freeDeliveryThresholdPhp - subtotalPhp)),
+                })}
           </p>
         </div>
       ) : null}
@@ -126,4 +141,3 @@ function Row({
     </div>
   );
 }
-

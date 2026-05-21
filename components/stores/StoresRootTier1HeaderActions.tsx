@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-entry-modal";
 import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total";
@@ -11,10 +10,10 @@ import {
   STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME,
   StoreCommerceCartStrokeIcon,
 } from "@/components/stores/StoreCommerceCartStrokeIcon";
-import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContext";
 import { resolveOwnerOperationsCenterAttentionCount } from "@/lib/stores/owner-store-badge-display-policy";
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
-import { commerceCartHrefFromBuckets } from "@/lib/stores/store-commerce-cart-nav";
+import { COMMERCE_CART_NAV_FALLBACK_AGGREGATE_CART } from "@/lib/stores/store-commerce-cart-nav";
+import { useCommerceCartNavHref } from "@/components/layout/use-commerce-cart-nav-href";
 import { useOwnerLitePreferredStoreRow } from "@/lib/stores/use-owner-lite-store";
 import { StoreOpsCenterStrokeIcon } from "@/components/main-menu/MainBottomNavTabIcons";
 
@@ -36,16 +35,13 @@ function OrderHistoryIcon({ className }: { className?: string }) {
 /** `/stores` 루트 tier-1 헤더 우측 — 카트 · 주문내역 · (매장주) 운영센터 */
 export function StoresRootTier1HeaderActions() {
   const { t } = useI18n();
-  const commerceCart = useStoreCommerceCartOptional();
   const ownerStore = useOwnerLitePreferredStoreRow();
   const ownerHubBreakdown = useOwnerHubBadgeBreakdown();
   const { openBlockedModalIfNeeded, hubBlockedModal } = useStoreBusinessHubEntryModal("확인");
 
-  const cartLineKindCount = commerceCart?.hydrated ? commerceCart.totalItemCountAllStores : 0;
-  const cartHref = useMemo(() => {
-    if (!commerceCart?.hydrated) return "/stores/cart";
-    return commerceCartHrefFromBuckets(commerceCart.listCartBuckets());
-  }, [commerceCart]);
+  const { href: cartHref, cartCount: cartLineKindCount } = useCommerceCartNavHref(
+    COMMERCE_CART_NAV_FALLBACK_AGGREGATE_CART
+  );
 
   const ownerStoreId = ownerStore?.id?.trim() ?? "";
   const orderHistoryHref = resolveDeliveryOrderHistoryHref(ownerStoreId);

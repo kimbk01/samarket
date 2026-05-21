@@ -1,5 +1,9 @@
 import type { CommunityMessengerRoomContextMetaV1 } from "@/lib/community-messenger/types";
 import { encodeCommunityMessengerRoomCmCtx } from "@/lib/community-messenger/cm-ctx-url";
+import {
+  MESSENGER_ROOM_RETURN_QUERY_KEY,
+  sanitizeMessengerRoomReturnHref,
+} from "@/lib/community-messenger/messenger-entry-origin";
 
 /**
  * 주문 채팅 표면 — 문구·경로만 이 파일에서 관리.
@@ -37,6 +41,8 @@ export function buildStoreOrderMessengerRoomHref(
   options?: {
     contextMeta?: CommunityMessengerRoomContextMetaV1 | null;
     entryOrigin?: "delivery" | null;
+    /** 진입 직전 화면 — 방 뒤로가기·스와이프 복귀용 (`cm_return`) */
+    returnHref?: string | null;
   }
 ): string {
   const id = roomId.trim();
@@ -44,6 +50,8 @@ export function buildStoreOrderMessengerRoomHref(
   const u = new URL(`/community-messenger/rooms/${encodeURIComponent(id)}`, "https://samarket.local");
   u.searchParams.set("from", options?.entryOrigin ?? "delivery");
   u.searchParams.set("cm_list", "delivery");
+  const ret = sanitizeMessengerRoomReturnHref(options?.returnHref);
+  if (ret) u.searchParams.set(MESSENGER_ROOM_RETURN_QUERY_KEY, ret);
   const meta = options?.contextMeta;
   if (meta?.kind === "delivery") {
     u.searchParams.set("cm_ctx", encodeCommunityMessengerRoomCmCtx(meta));

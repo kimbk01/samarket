@@ -1,8 +1,7 @@
-import { buildMessengerRoomListBackHref } from "@/lib/community-messenger/messenger-entry-origin";
 import {
-  resolveStoreOrderBuyerMessengerRoomBackHref,
-  type StoreOrderBuyerMessengerRoomBackInput,
-} from "@/lib/store-order-chat/store-order-buyer-messenger-room-back";
+  buildMessengerRoomListBackHref,
+  shouldForceDirectDeliveryMessengerRoomBack,
+} from "@/lib/community-messenger/messenger-entry-origin";
 import { runHistoryBackWithFallback } from "@/lib/navigation/history-back-fallback";
 
 export type MessengerRoomBackNavigationPlan = {
@@ -34,22 +33,16 @@ export function getMessengerRoomBackOverride(roomId: string): RoomBackOverride |
 export function resolveMessengerRoomBackNavigation(args: {
   roomId: string;
   searchParams: { get: (key: string) => string | null };
-  buyerBack?: StoreOrderBuyerMessengerRoomBackInput | null;
 }): MessengerRoomBackNavigationPlan {
   const override = getMessengerRoomBackOverride(args.roomId);
   if (override) return override;
 
-  const buyerHref =
-    args.buyerBack ?
-      resolveStoreOrderBuyerMessengerRoomBackHref(args.buyerBack)
-    : null;
-  if (buyerHref) {
-    return { href: buyerHref, forceDirect: true };
-  }
+  const href = buildMessengerRoomListBackHref(args.searchParams);
+  const forceDirect = shouldForceDirectDeliveryMessengerRoomBack(args.searchParams);
 
   return {
-    href: buildMessengerRoomListBackHref(args.searchParams),
-    forceDirect: false,
+    href,
+    forceDirect,
   };
 }
 

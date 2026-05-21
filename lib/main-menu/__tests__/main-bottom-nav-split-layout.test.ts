@@ -13,4 +13,10 @@ describe("resolveMainBottomNavSecondaryRailKind", () => {
   it("/mypage/section/store — 배달 5탭 레일", () => {
     expect(resolveMainBottomNavSecondaryRailKind("/mypage/section/store", null)).toBe("stores");
   });
+
+  it("/orders·/mypage/store-orders — 배달 레일(stores)", () => {
+    expect(resolveMainBottomNavSecondaryRailKind("/orders", null)).toBe("stores");
+    expect(resolveMainBottomNavSecondaryRailKind("/orders/store/x", null)).toBe("stores");
+    expect(resolveMainBottomNavSecondaryRailKind("/mypage/store-orders", null)).toBe("stores");
+  });
 });

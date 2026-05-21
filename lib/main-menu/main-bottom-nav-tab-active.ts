@@ -5,16 +5,14 @@ import {
 import { isBottomNavTabActive } from "@/lib/main-menu/main-bottom-nav-prefetch-pick";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import type { MainBottomNavSecondaryRailKind } from "@/lib/main-menu/main-bottom-nav-split-layout";
+import {
+  isDeliveryCartBottomNavPath,
+  isDeliveryOrderHistoryBottomNavPath,
+  normalizeDeliveryBottomNavPath,
+} from "@/lib/main-menu/delivery-bottom-nav-layout";
 
 function pathOnly(pathname: string | null): string {
-  return (pathname ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "/";
-}
-
-function isDeliveryOrdersBottomNavActive(pathname: string | null): boolean {
-  const p = pathOnly(pathname);
-  if (p === "/orders" || p.startsWith("/orders/")) return true;
-  if (p === "/stores/owner/orders" || p.startsWith("/stores/owner/orders/")) return true;
-  return false;
+  return normalizeDeliveryBottomNavPath(pathname);
 }
 
 function isTradeHistoryBottomNavActive(pathname: string | null): boolean {
@@ -32,9 +30,7 @@ function isPhilifeMyPostsBottomNavActive(pathname: string | null): boolean {
 }
 
 function isDeliveryCartBottomNavActive(pathname: string | null): boolean {
-  const p = pathOnly(pathname);
-  if (p === "/stores/cart") return true;
-  return Boolean(p.match(/^\/stores\/[^/]+\/cart\/?$/));
+  return isDeliveryCartBottomNavPath(pathname);
 }
 
 function isDeliveryMyBottomNavActive(pathname: string | null): boolean {
@@ -42,7 +38,8 @@ function isDeliveryMyBottomNavActive(pathname: string | null): boolean {
   return p === "/mypage/section/store" || p.startsWith("/mypage/section/store/");
 }
 
-function isDeliveryHomeHubBottomNavActive(pathname: string | null): boolean {
+/** 배달 홈(`/stores`·검색·browse) — 하단 「홈」 탭·다이얼 「배달」 칩 활성/재탭 스크롤 판정 */
+export function isDeliveryHomeHubBottomNavActive(pathname: string | null): boolean {
   const p = pathOnly(pathname);
   if (p === "/stores") return true;
   if (p === "/stores/search" || p.startsWith("/stores/search/")) return true;
@@ -93,7 +90,7 @@ export function isMainBottomNavDisplayTabActive(
   }
   switch (tab.id) {
     case "delivery-orders":
-      return isDeliveryOrdersBottomNavActive(pathname);
+      return isDeliveryOrderHistoryBottomNavPath(pathname);
     case "delivery-cart":
       return isDeliveryCartBottomNavActive(pathname);
     case "delivery-home-hub":

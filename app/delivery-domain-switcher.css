@@ -1,9 +1,17 @@
 /** 배달 도메인 스위처 — 본문 딤(하단 탭 제외), 토큰 색상, 시계방향 펼침 */
 
-.delivery-domain-switcher-root {
+:root {
+  /** 홈 원·above 비율 — `app-bottom-nav.css` :root 와 동일(여기서 재정의하지 않음) */
   --delivery-dial-chip-size: 2.75rem;
   --delivery-dial-slot-width: 4.25rem;
-  --delivery-dial-pivot-bottom: 1.35rem;
+  /** 탭바·홈 원 위 다이얼 피벗 — `sam-space-4`(16px) 여유 */
+  --delivery-dial-nav-gap: var(--sam-space-4, 16px);
+  /** 원 중심 = 탭바 상단선 + 지름×(0.5 − above-ratio) */
+  --delivery-dial-pivot-bottom: calc(
+    env(safe-area-inset-bottom, 0px) + var(--app-bottom-nav-height, 3.5rem) -
+      var(--delivery-home-orbit-size, 2.75rem) *
+      (0.5 - var(--delivery-home-above-nav-ratio, 0.4)) + var(--delivery-dial-nav-gap)
+  );
   --delivery-dial-anim-ms: 440ms;
   --delivery-dial-ease: cubic-bezier(0.25, 0.9, 0.35, 1);
   --delivery-dial-disk-bg: var(--sam-bg-surface, #ffffff);
@@ -13,25 +21,25 @@
   --delivery-dial-label-border: var(--sam-border, #e2e5ea);
   --delivery-dial-label-fg: var(--sam-fg, #1a1d21);
   --delivery-dial-shadow: var(--sam-shadow-card, 0 4px 14px rgba(15, 23, 42, 0.12));
+}
+
+/** 딤만 — 전 화면 단색(그라데이션·backdrop-blur 없음). 탭바는 z-index 1255 로 위에 덮음 */
+.delivery-domain-switcher-backdrop-layer {
   position: fixed;
   inset: 0;
   z-index: 1250;
   pointer-events: none;
 }
 
-/** 본문만 딤 — 하단 네비·safe-area 는 불투명 처리하지 않음 */
 .delivery-domain-switcher-backdrop {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: calc(var(--app-bottom-nav-height, 3.5rem) + env(safe-area-inset-bottom, 0px));
+  position: absolute;
+  inset: 0;
   border: 0;
   padding: 0;
   margin: 0;
   background: rgba(15, 23, 42, 0.45);
-  -webkit-backdrop-filter: blur(2px);
-  backdrop-filter: blur(2px);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   transition: opacity var(--delivery-dial-anim-ms) var(--delivery-dial-ease);
   pointer-events: none;
   cursor: pointer;
@@ -47,21 +55,26 @@
   pointer-events: auto;
 }
 
-.delivery-domain-switcher-stage {
+/** 펼침 칩 — 딤·탭바 위 */
+.delivery-domain-switcher-stage-layer {
   position: fixed;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: calc(var(--app-bottom-nav-height, 3.5rem) + env(safe-area-inset-bottom, 0px));
+  inset: 0;
+  z-index: 1260;
   pointer-events: none;
-  overflow: hidden;
-  z-index: 1;
+  overflow: visible;
+}
+
+.delivery-domain-switcher-stage {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: visible;
 }
 
 .delivery-domain-switcher-anchor {
   position: absolute;
   left: 50%;
-  bottom: var(--delivery-dial-pivot-bottom, 1.35rem);
+  bottom: var(--delivery-dial-pivot-bottom);
   width: 0;
   height: 0;
   pointer-events: none;

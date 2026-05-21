@@ -149,16 +149,21 @@ const STORE_PAYMENT_PART_CANONICAL: Record<string, MessageKey> = {
   GCash: "store_pay_label_gcash",
   "만나서 현금": "store_pay_display_cash_meet",
   "Cash on meet-up": "store_pay_display_cash_meet",
+  COD: "store_pay_display_cash_meet",
   "계좌이체": "store_pay_label_bank_transfer",
   "Bank transfer": "store_pay_label_bank_transfer",
   "현금(착불·만나서)": "store_pay_label_cod",
   "Cash (COD / meet-up)": "store_pay_label_cod",
+  "현금 (착불·만나서)": "store_pay_label_cod",
+  "현금 (착불 만나서)": "store_pay_label_cod",
   "기타": "store_pay_label_other",
   Other: "store_pay_label_other",
   "카드(배달 시 결제)": "store_pay_label_card_on_delivery",
   "Card (pay on delivery)": "store_pay_label_card_on_delivery",
   "GCash · 만나서 결제 등 (매장 확인)": "store_pay_methods_fallback",
+  "GCash · COD 등 (매장 확인)": "store_pay_methods_fallback",
   "GCash, cash on delivery, etc. (confirm with store)": "store_pay_methods_fallback",
+  "GCash, COD, etc. (confirm with store)": "store_pay_methods_fallback",
 };
 
 function resolveStorePaymentPartUILabel(lang: AppLanguageCode, part: string): string {

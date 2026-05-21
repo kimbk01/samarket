@@ -15,6 +15,9 @@ export const DELIVERY_DIAL_SLOT_WIDTH_PX = 68;
 export const DELIVERY_DIAL_SLOT_GAP = 1.06;
 export const DELIVERY_DIAL_ARC_HALF_SPAN_DEG = 90;
 export const DELIVERY_DIAL_VIEWPORT_EDGE_PADDING_PX = 10;
+/**
+ * @deprecated 피벗은 `app/delivery-domain-switcher.css` 의 `--delivery-dial-pivot-bottom`(홈·탭바 calc) 단일 소스.
+ */
 export const DELIVERY_DIAL_PIVOT_BOTTOM_REM = 1.35;
 
 export function deliveryDialArcStepDeg(total: number): number {

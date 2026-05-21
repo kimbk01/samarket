@@ -1,3 +1,7 @@
+import {
+  formatBuyerPaymentDisplay,
+  normalizeCheckoutPaymentMethodId,
+} from "@/lib/stores/payment-methods-config";
 import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
 import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
 import { isDeliveryFulfillment } from "@/lib/stores/order-status-transitions";
@@ -71,11 +75,9 @@ function nullableInt(value: unknown): number | null {
 function paymentMethodLabel(order: Record<string, unknown>): string | null {
   const method = text(order.buyer_payment_method);
   const detail = text(order.buyer_payment_method_detail);
-  if (detail) return detail;
-  if (method === "cash_on_delivery") return "현금(착불·만나서)";
-  if (method === "bank_transfer") return "계좌이체";
-  if (method === "card_on_delivery") return "카드(만나서)";
-  return method || null;
+  if (!method && !detail) return null;
+  const normalized = normalizeCheckoutPaymentMethodId(method) ?? method;
+  return formatBuyerPaymentDisplay(normalized, detail || null);
 }
 
 function buildAddressLines(input: StoreOrderChatCardInput, fulfillmentType: string): string[] {

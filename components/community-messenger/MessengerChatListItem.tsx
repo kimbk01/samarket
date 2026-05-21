@@ -60,6 +60,13 @@ import {
 import { messengerTradeViewerRoleFromContextMeta } from "@/lib/community-messenger/messenger-trade-viewer-role";
 import { TradeChatListRowContent } from "@/components/community-messenger/trade-chat-list/TradeChatListRowContent";
 import { TradeProductThumb } from "@/components/community-messenger/trade-chat-list/TradeProductThumb";
+import { DeliveryChatListRowContent } from "@/components/community-messenger/delivery-chat-list/DeliveryChatListRowContent";
+import { StoreProfileThumb } from "@/components/community-messenger/delivery-chat-list/StoreProfileThumb";
+import {
+  buildDeliveryChatListRowModel,
+  formatDeliveryChatListTimestamp,
+} from "@/lib/community-messenger/delivery-chat-list/view-model";
+import { prefetchStoreProfileThumbnailIfNeeded } from "@/lib/community-messenger/delivery-chat-list/store-profile-thumbnail-cache";
 import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { prefetchTradePostThumbnailIfNeeded } from "@/lib/community-messenger/trade-chat-list/trade-post-thumbnail-cache";
 import { useTradeChatListPostPreviewFields } from "@/lib/community-messenger/trade-chat-list/use-trade-chat-list-post-preview-fields";
@@ -85,8 +92,8 @@ export type MessengerMenuAnchorRect = {
   height: number;
 };
 
-/** `/trade-chats` 만 `"trade"` — 상품 썸네일 행. 나머지는 `"default"`. */
-export type MessengerChatListVisual = "default" | "trade";
+/** `/trade-chats` · `/delivery-chats` 전용 행 레이아웃 */
+export type MessengerChatListVisual = "default" | "trade" | "delivery";
 
 type Props = {
   item: UnifiedRoomListItem;
@@ -235,11 +242,24 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   const deliveryStepLabel = commerceMeta?.kind === "delivery" ? commerceMeta.stepLabel?.trim() || null : null;
 
   const isTradeChatListVisual = listVisual === "trade";
+  const isDeliveryChatListVisual = listVisual === "delivery";
   const roomStoreId = useMemo(() => normalizeMessengerRealtimeRoomId(room.id), [room.id]);
   const tradeRowModel = useMemo(
     () => (isTradeChatListVisual ? buildTradeChatListRowModel(room) : null),
     [isTradeChatListVisual, room]
   );
+  const deliveryRowModel = useMemo(
+    () => (isDeliveryChatListVisual ? buildDeliveryChatListRowModel(room) : null),
+    [isDeliveryChatListVisual, room]
+  );
+  const deliveryListTimestamp = useMemo(
+    () => (isDeliveryChatListVisual ? formatDeliveryChatListTimestamp(item.lastEventAt) : null),
+    [isDeliveryChatListVisual, item.lastEventAt]
+  );
+  const deliveryOrderNoLine = useMemo(() => {
+    if (!deliveryRowModel?.orderNo) return null;
+    return t("store_messenger_list_order_no", { orderNo: deliveryRowModel.orderNo });
+  }, [deliveryRowModel?.orderNo, t]);
   const tradeListPreview = useTradeChatListPostPreviewFields({
     postId: tradeRowModel?.postId,
     productTitle: tradeRowModel?.productTitle ?? "",
@@ -366,7 +386,10 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
     if (listVisual === "trade" && tradeRowModel?.postId) {
       prefetchTradePostThumbnailIfNeeded(tradeRowModel.postId);
     }
-  }, [listVisual, room, roomHref, roomPrefetchPriority, router, tradeRowModel?.postId, viewerUserId]);
+    if (listVisual === "delivery" && deliveryRowModel?.storeId) {
+      prefetchStoreProfileThumbnailIfNeeded(deliveryRowModel.storeId);
+    }
+  }, [deliveryRowModel?.storeId, listVisual, room, roomHref, roomPrefetchPriority, router, tradeRowModel?.postId, viewerUserId]);
 
   const navigateToCommunityRoom = useCallback(
     (rid: string) => {
@@ -633,7 +656,13 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   );
 
   const avatarBlock =
-    isTradeChatListVisual && tradeRowModel ? (
+    isDeliveryChatListVisual && deliveryRowModel ? (
+      <StoreProfileThumb
+        src={deliveryRowModel.storeThumbnailUrl}
+        storeId={deliveryRowModel.storeId}
+        storeName={deliveryRowModel.storeName}
+      />
+    ) : isTradeChatListVisual && tradeRowModel ? (
       <div className="relative">
         <TradeProductThumb src={tradeRowModel.productThumbnailUrl} postId={tradeRowModel.postId} />
         {room.roomType === "direct" && peerPresence ? <CommunityMessengerPresenceDot state={peerPresence.state} /> : null}
@@ -653,12 +682,21 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
   const productStatusForTrailing =
     isTradeChatListVisual && tradeRowModel?.productStatusText ? tradeRowModel.productStatusText : null;
 
-  const trailingBlock = (
-    <>
-      <span className="sam-text-helper font-normal tabular-nums" style={{ color: "var(--messenger-text-secondary)" }}>
-        {formatConversationTimestamp(item.lastEventAt)}
-      </span>
-      <div className="flex flex-col items-end gap-0.5">
+  const trailingBlock =
+    isDeliveryChatListVisual && deliveryListTimestamp ? (
+      <div className="flex flex-col items-end gap-1">
+        <div className="flex flex-col items-end leading-none tabular-nums">
+          {deliveryListTimestamp.dateLine ? (
+            <span className="sam-text-xxs font-normal" style={{ color: "var(--messenger-text-secondary)" }}>
+              {deliveryListTimestamp.dateLine}
+            </span>
+          ) : null}
+          {deliveryListTimestamp.timeLine ? (
+            <span className="sam-text-helper font-normal" style={{ color: "var(--messenger-text-secondary)" }}>
+              {deliveryListTimestamp.timeLine}
+            </span>
+          ) : null}
+        </div>
         <div className="flex items-center gap-0.5">
           {room.isPinned ? (
             <span style={{ color: "var(--messenger-text-secondary)" }} aria-label={t("cm_ui_pinned")}>
@@ -679,22 +717,60 @@ export const MessengerChatListItem = memo(function MessengerChatListItem({
             </span>
           ) : null}
         </div>
-        {productStatusForTrailing ? (
-          <span
-            className="max-w-[6rem] truncate text-right sam-text-xxs font-normal leading-none"
-            style={{ color: "var(--messenger-text-secondary)" }}
-          >
-            {productStatusForTrailing}
-          </span>
-        ) : null}
       </div>
-    </>
-  );
+    ) : (
+      <>
+        <span className="sam-text-helper font-normal tabular-nums" style={{ color: "var(--messenger-text-secondary)" }}>
+          {formatConversationTimestamp(item.lastEventAt)}
+        </span>
+        <div className="flex flex-col items-end gap-0.5">
+          <div className="flex items-center gap-0.5">
+            {room.isPinned ? (
+              <span style={{ color: "var(--messenger-text-secondary)" }} aria-label={t("cm_ui_pinned")}>
+                <PinIcon />
+              </span>
+            ) : null}
+            {room.isMuted ? (
+              <span style={{ color: "var(--messenger-text-secondary)" }} aria-label={t("cm_ui_notifications_off")}>
+                <MuteIcon />
+              </span>
+            ) : null}
+            {displayedUnreadCount > 0 ? (
+              <span
+                data-cm-unread-badge="true"
+                className="min-h-[18px] min-w-[18px] rounded-full bg-[color:var(--messenger-primary)] px-1 text-center sam-text-xxs font-semibold leading-[18px] text-white"
+              >
+                {displayedUnreadCount > 999 ? "999+" : displayedUnreadCount}
+              </span>
+            ) : null}
+          </div>
+          {productStatusForTrailing ? (
+            <span
+              className="max-w-[6rem] truncate text-right sam-text-xxs font-normal leading-none"
+              style={{ color: "var(--messenger-text-secondary)" }}
+            >
+              {productStatusForTrailing}
+            </span>
+          ) : null}
+        </div>
+      </>
+    );
 
   const rowSurfaceClass = `transition-colors duration-100 ${pressVisualActive ? "bg-[color:var(--messenger-surface-muted)]" : ""}`;
 
   const rowContent =
-    isTradeChatListVisual && tradeRowModel ? (
+    isDeliveryChatListVisual && deliveryRowModel ? (
+      <DeliveryChatListRowContent
+        rowSurfaceClass={rowSurfaceClass}
+        avatar={avatarBlock}
+        trailing={trailingBlock}
+        storeName={deliveryRowModel.storeName}
+        orderNoLine={deliveryOrderNoLine}
+        deliveryStatusLine={deliveryRowModel.orderStatusLabel}
+        lastMessageLine={item.preview}
+        unread={displayedUnreadCount > 0}
+      />
+    ) : isTradeChatListVisual && tradeRowModel ? (
       <TradeChatListRowContent
         rowSurfaceClass={rowSurfaceClass}
         avatar={avatarBlock}

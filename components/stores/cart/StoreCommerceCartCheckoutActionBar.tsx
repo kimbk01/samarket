@@ -1,9 +1,12 @@
 "use client";
 
 import { forwardRef } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
 import {
+  BAEMIN_CART_FOOTER_MIN_MET_CLASS,
+  BAEMIN_CART_FOOTER_MIN_SHORT_CLASS,
   BAEMIN_CART_FOOTER_PROMO_CLASS,
   BAEMIN_CART_ORDER_BTN_CLASS,
   BAEMIN_CART_PAGE_X,
@@ -14,6 +17,8 @@ type Props = {
   displayGrand: number;
   strikeGrand?: number | null;
   promoLine?: string | null;
+  /** 최소 주문 — `minOrderPhp > 0` 일 때만 전달 */
+  minOrderLine?: { met: boolean; text: string } | null;
   busy: boolean;
   submitDisabled: boolean;
   disabledReason?: string | null;
@@ -28,6 +33,7 @@ export const StoreCartCheckoutActionBar = forwardRef<HTMLElement, Props>(
       displayGrand,
       strikeGrand,
       promoLine,
+      minOrderLine,
       busy,
       submitDisabled,
       disabledReason,
@@ -36,6 +42,7 @@ export const StoreCartCheckoutActionBar = forwardRef<HTMLElement, Props>(
     },
     ref
   ) {
+    const { t } = useI18n();
     const showStrike =
       strikeGrand != null && Number.isFinite(strikeGrand) && strikeGrand > displayGrand;
 
@@ -61,6 +68,13 @@ export const StoreCartCheckoutActionBar = forwardRef<HTMLElement, Props>(
               ) : null}
             </div>
             {promoLine ? <p className={`mt-1 ${BAEMIN_CART_FOOTER_PROMO_CLASS}`}>{promoLine}</p> : null}
+            {minOrderLine ? (
+              <p
+                className={`mt-1 ${minOrderLine.met ? BAEMIN_CART_FOOTER_MIN_MET_CLASS : BAEMIN_CART_FOOTER_MIN_SHORT_CLASS}`}
+              >
+                {minOrderLine.text}
+              </p>
+            ) : null}
             {disabledReason ? (
               <p className="mt-1 text-[12px] font-semibold leading-snug text-[#888888]">
                 {disabledReason}
@@ -73,7 +87,7 @@ export const StoreCartCheckoutActionBar = forwardRef<HTMLElement, Props>(
             onClick={onSubmit}
             className={BAEMIN_CART_ORDER_BTN_CLASS}
           >
-            {busy ? processingLabel : "가게 주문하기"}
+            {busy ? processingLabel : t("store_submit_store_delivery")}
           </button>
         </div>
       </section>

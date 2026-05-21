@@ -25,6 +25,14 @@ export const BAEMIN_CART_DIVIDER_CLASS = "mx-4 border-t border-[var(--delivery-b
 export const BAEMIN_CART_FOOTER_PROMO_CLASS =
   "text-[13px] font-semibold leading-snug text-[#2563EB]";
 
+/** 하단 주문 바 — 최소 주문 충족 */
+export const BAEMIN_CART_FOOTER_MIN_MET_CLASS =
+  "text-[12px] font-semibold leading-snug text-[#16A34A]";
+
+/** 하단 주문 바 — 최소 주문 미달 */
+export const BAEMIN_CART_FOOTER_MIN_SHORT_CLASS =
+  "text-[12px] font-medium leading-snug text-[#B45309]";
+
 /** 결제·연락처 카드 본문 */
 export const BAEMIN_CART_CHECKOUT_INNER_CLASS = "space-y-4 px-4 py-4";
 

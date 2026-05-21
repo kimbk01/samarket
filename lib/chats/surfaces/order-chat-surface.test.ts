@@ -9,6 +9,14 @@ describe("buildStoreOrderMessengerRoomHref", () => {
     expect(href).toContain("cm_list=delivery");
   });
 
+  it("attaches cm_return when returnHref provided", () => {
+    const href = buildStoreOrderMessengerRoomHref("room-abc", {
+      returnHref: "/mypage/store-orders/ord-1",
+    });
+    expect(href).toContain("cm_return=");
+    expect(decodeURIComponent(href)).toContain("/mypage/store-orders/ord-1");
+  });
+
   it("attaches cm_ctx for delivery meta", () => {
     const href = buildStoreOrderMessengerRoomHref("room-abc", {
       contextMeta: {

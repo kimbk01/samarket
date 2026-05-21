@@ -20,8 +20,8 @@ describe("formatBrowseStoreRowLabels", () => {
     const labels = formatBrowseStoreRowLabels("ko", commerce, baseCtx);
     expect(labels.deliveryFeeLabel).toBe("배달비: Lalamove");
     expect(labels.deliveryFeeLabel).not.toContain("store_delivery_fee");
-    expect(labels.paymentMethodsLine).toContain("만나서 현금");
-    expect(labels.paymentMethodsLine).not.toContain("Cash on meet-up");
+    expect(labels.paymentMethodsLine).toContain("COD");
+    expect(labels.paymentMethodsLine).not.toContain("만나서 현금");
     expect(labels.etaLabel).toContain("조리");
     expect(labels.minOrderLabel).toBeNull();
   });
@@ -36,8 +36,8 @@ describe("formatBrowseStoreRowLabels", () => {
     });
     const labels = formatBrowseStoreRowLabels("en", commerce, baseCtx);
     expect(labels.deliveryFeeLabel).toBe("Delivery fee: Lalamove");
-    expect(labels.paymentMethodsLine).toContain("Cash on meet-up");
-    expect(labels.paymentMethodsLine).not.toContain("만나서");
+    expect(labels.paymentMethodsLine).toContain("COD");
+    expect(labels.paymentMethodsLine).not.toContain("Cash on meet-up");
     expect(labels.etaLabel).toMatch(/Prep|Cook/i);
     expect(labels.minOrderLabel).toMatch(/Minimum order/i);
   });

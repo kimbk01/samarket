@@ -63,11 +63,16 @@ import {
   composeMainBottomNavDisplayTabs,
   resolveMainBottomNavSecondaryRailKind,
 } from "@/lib/main-menu/main-bottom-nav-split-layout";
-import { isDeliveryBottomNavRail } from "@/lib/main-menu/delivery-bottom-nav-layout";
+import {
+  DELIVERY_BOTTOM_NAV_LABEL_CLASS,
+  isDeliveryBottomNavRail,
+  isDeliveryBottomNavTabId,
+} from "@/lib/main-menu/delivery-bottom-nav-layout";
 import { DeliveryDomainSwitcherOverlay } from "@/components/delivery/navigation/DeliveryDomainSwitcherOverlay";
+import { runDeliveryHomeHubShortTap } from "@/lib/delivery/delivery-home-hub-navigation";
+import { useMessengerLongPress } from "@/lib/community-messenger/use-messenger-long-press";
 import { MAIN_BOTTOM_NAV_TAB_ICONS } from "@/components/main-menu/MainBottomNavTabIcons";
-import { commerceCartHrefFromBuckets } from "@/lib/stores/store-commerce-cart-nav";
-import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContext";
+import { useCommerceCartNavHref } from "@/components/layout/use-commerce-cart-nav-href";
 import { isMainBottomNavDisplayTabActive } from "@/lib/main-menu/main-bottom-nav-tab-active";
 import {
   bottomNavMessengerHrefWithOrigin,
@@ -296,7 +301,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
     "app-bottom-nav-item group",
     BOTTOM_NAV_ITEM_TOUCH_CLASS,
     itemClassName,
-    tab.id === "my" ? "app-bottom-nav-item--my-menu" : "",
+    tab.id === "my" || tab.id === "delivery-my" ? "app-bottom-nav-item--my-menu" : "",
     hasOwnerStore && !isActive ? "opacity-95" : "",
   ]
     .filter(Boolean)
@@ -317,7 +322,14 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
           <BottomNavHubBadgeDot count={tabBadgeCount} />
         </span>
       </div>
-      <span className={`app-bottom-nav-label ${tab.labelFontFamilyClass ?? ""}`} suppressHydrationWarning>
+      <span
+        className={
+          isDeliveryBottomNavTabId(tab.id)
+            ? DELIVERY_BOTTOM_NAV_LABEL_CLASS
+            : `app-bottom-nav-label ${tab.labelFontFamilyClass ?? ""}`
+        }
+        suppressHydrationWarning
+      >
         {tabLabel}
       </span>
     </>
@@ -425,15 +437,23 @@ const BottomNavTabDeliveryHomeHub = memo(function BottomNavTabDeliveryHomeHub({
   pathname,
   switcherOpen,
   onToggleSwitcher,
+  onNavigationIntent,
+  beginMenuNavigation,
+  guardBeforeNavigate,
 }: {
   tab: BottomNavItemConfig;
   itemClassName?: string;
   pathname: string | null;
   switcherOpen: boolean;
   onToggleSwitcher: () => void;
+  onNavigationIntent: (tabId: string) => void;
+  beginMenuNavigation: (href: string) => void;
+  guardBeforeNavigate: (nextHref?: string) => boolean;
 }) {
   const { safeT } = useI18n();
+  const router = useRouter();
   const searchParams = useSearchParams();
+  const navSearch = searchParams.toString();
   const tabLabel = tab.labelKey ? safeT(tab.labelKey) : tab.label;
   const Icon = TAB_ICONS.home;
   const hubPathActive = isMainBottomNavDisplayTabActive(pathname, tab, {
@@ -449,6 +469,39 @@ const BottomNavTabDeliveryHomeHub = memo(function BottomNavTabDeliveryHomeHub({
     .filter(Boolean)
     .join(" ");
 
+  const { bind: longPressBind, consumeClickSuppression } = useMessengerLongPress(
+    () => onToggleSwitcher(),
+    { thresholdMs: 480 }
+  );
+
+  const onHubClick = useCallback(() => {
+    if (consumeClickSuppression()) return;
+    runDeliveryHomeHubShortTap({
+      pathname,
+      currentSearch: navSearch,
+      href: tab.href,
+      switcherOpen,
+      onCloseSwitcher: () => {
+        if (switcherOpen) onToggleSwitcher();
+      },
+      guardBeforeNavigate,
+      beginMenuNavigation,
+      onNavigationIntent,
+      push: (href) => router.push(href),
+    });
+  }, [
+    beginMenuNavigation,
+    consumeClickSuppression,
+    guardBeforeNavigate,
+    navSearch,
+    onNavigationIntent,
+    onToggleSwitcher,
+    pathname,
+    router,
+    switcherOpen,
+    tab.href,
+  ]);
+
   return (
     <button
       type="button"
@@ -458,7 +511,8 @@ const BottomNavTabDeliveryHomeHub = memo(function BottomNavTabDeliveryHomeHub({
       aria-label={tabLabel}
       aria-expanded={switcherOpen}
       aria-haspopup="dialog"
-      onClick={() => onToggleSwitcher()}
+      {...longPressBind}
+      onClick={onHubClick}
     >
       <div className="app-bottom-nav-icon-slot app-bottom-nav-icon-slot--delivery-home">
         <span
@@ -472,7 +526,7 @@ const BottomNavTabDeliveryHomeHub = memo(function BottomNavTabDeliveryHomeHub({
           <Icon className="app-bottom-nav-delivery-home-icon" aria-hidden />
         </span>
       </div>
-      <span className={`app-bottom-nav-label ${tab.labelFontFamilyClass ?? ""}`} suppressHydrationWarning>
+      <span className={DELIVERY_BOTTOM_NAV_LABEL_CLASS} suppressHydrationWarning>
         {tabLabel}
       </span>
     </button>
@@ -502,17 +556,13 @@ const BottomNavTabDeliveryCart = memo(function BottomNavTabDeliveryCart({
 }) {
   const { tt, safeT } = useI18n();
   const router = useRouter();
-  const commerceCart = useStoreCommerceCartOptional();
   const searchParams = useSearchParams();
   const secondaryRail = useMemo(
     () => resolveMainBottomNavSecondaryRailKind(pathname, searchParams),
     [pathname, searchParams]
   );
   const tabLabel = tab.labelKey ? safeT(tab.labelKey) : tt(tab.label);
-  const effectiveHref = useMemo(() => {
-    if (!commerceCart?.hydrated) return tab.href;
-    return commerceCartHrefFromBuckets(commerceCart.listCartBuckets());
-  }, [commerceCart, tab.href]);
+  const { href: effectiveHref } = useCommerceCartNavHref(tab.href);
   const isActive =
     pendingActiveTabId != null
       ? tab.id === pendingActiveTabId
@@ -552,7 +602,7 @@ const BottomNavTabDeliveryCart = memo(function BottomNavTabDeliveryCart({
           <Icon className={iconSize} />
         </span>
       </div>
-      <span className={`app-bottom-nav-label ${tab.labelFontFamilyClass ?? ""}`} suppressHydrationWarning>
+      <span className={DELIVERY_BOTTOM_NAV_LABEL_CLASS} suppressHydrationWarning>
         {tabLabel}
       </span>
     </Link>
@@ -1077,6 +1127,9 @@ export function BottomNav({
             pathname={pathname}
             switcherOpen={deliveryDomainSwitcherOpen}
             onToggleSwitcher={() => setDeliveryDomainSwitcherOpen((open) => !open)}
+            onNavigationIntent={markBottomNavIntent}
+            beginMenuNavigation={beginBottomNavNavigation}
+            guardBeforeNavigate={guardNav}
           />
         );
       }

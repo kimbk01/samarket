@@ -13,6 +13,8 @@ export function StoreCheckoutSubmitConfirmDialog({
   phoneLabel,
   addressLabel,
   paymentLabel,
+  orderSummaryLabel,
+  requestLabel,
   busy = false,
   onCancel,
   onConfirm,
@@ -21,6 +23,8 @@ export function StoreCheckoutSubmitConfirmDialog({
   phoneLabel: string;
   addressLabel: string;
   paymentLabel: string;
+  orderSummaryLabel?: string;
+  requestLabel?: string;
   busy?: boolean;
   onCancel: () => void;
   onConfirm: () => void;
@@ -57,6 +61,18 @@ export function StoreCheckoutSubmitConfirmDialog({
           <dt className="font-semibold text-neutral-500">{t("store_label_payment")}</dt>
           <dd className="mt-0.5 font-medium text-neutral-900">{paymentLabel}</dd>
         </div>
+        {orderSummaryLabel ? (
+          <div>
+            <dt className="font-semibold text-neutral-500">{t("store_checkout_confirm_order_summary")}</dt>
+            <dd className="mt-0.5 whitespace-pre-wrap font-medium text-neutral-900">{orderSummaryLabel}</dd>
+          </div>
+        ) : null}
+        {requestLabel ? (
+          <div>
+            <dt className="font-semibold text-neutral-500">{t("store_request_optional_label")}</dt>
+            <dd className="mt-0.5 whitespace-pre-wrap font-medium text-neutral-900">{requestLabel}</dd>
+          </div>
+        ) : null}
       </dl>
     </StoreCommerceCartCenterPopup>
   );

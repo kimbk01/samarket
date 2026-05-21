@@ -10,6 +10,7 @@ import {
 } from "@/lib/community-messenger/use-community-messenger-home-state";
 import { withMessengerEntryOrigin } from "@/lib/community-messenger/messenger-entry-origin";
 import { runMessengerViewTransition, shouldSkipMessengerNavTransitionModifiers } from "@/lib/community-messenger/messenger-view-transition";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 /**
  * 메신저 받은메시지함 상단의 「거래 채팅」/「배달 채팅」 묶음 행.
@@ -29,10 +30,10 @@ const VARIANT_COPY: Record<Variant, { title: string; href: string; emptyPreview:
     defaultRoomLabel: "거래 채팅",
   },
   delivery: {
-    title: "배달 채팅",
+    title: "",
     href: "/community-messenger/delivery-chats",
-    emptyPreview: "받은 배달 채팅이 아직 없어요.",
-    defaultRoomLabel: "배달 채팅",
+    emptyPreview: "",
+    defaultRoomLabel: "",
   },
 };
 
@@ -104,7 +105,17 @@ type Props = {
 
 export function MessengerPillarSummaryRow({ variant, summary, entryOriginQuery = null }: Props) {
   const router = useRouter();
-  const copy = VARIANT_COPY[variant];
+  const { t } = useI18n();
+  const copy = useMemo(() => {
+    const base = VARIANT_COPY[variant];
+    if (variant !== "delivery") return base;
+    return {
+      ...base,
+      title: t("nav_chat_order_compact"),
+      emptyPreview: t("nav_chat_order_empty"),
+      defaultRoomLabel: t("nav_chat_order_compact"),
+    };
+  }, [t, variant]);
 
   const href = useMemo(() => {
     if (!entryOriginQuery) return copy.href;

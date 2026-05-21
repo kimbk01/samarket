@@ -44,9 +44,10 @@ describe("resolveActiveMainBottomNavTabIndex", () => {
     expect(resolveActiveMainBottomNavTabIndex("/mypage/trade", tradeTabs)).toBe(3);
     expect(resolveActiveMainBottomNavTabIndex("/community-messenger/trade-chats", tradeTabs)).toBe(4);
 
-    const storesTabs = composeMainBottomNavDisplayTabs("/stores", BOTTOM_NAV_ITEMS);
-    expect(resolveActiveMainBottomNavTabIndex("/stores", storesTabs)).toBe(2);
-    expect(resolveActiveMainBottomNavTabIndex("/orders", storesTabs)).toBe(3);
+    const deliveryTabs = composeMainBottomNavDisplayTabs("/stores", BOTTOM_NAV_ITEMS);
+    expect(resolveActiveMainBottomNavTabIndex("/stores", deliveryTabs)).toBe(2);
+    expect(resolveActiveMainBottomNavTabIndex("/stores/cart", deliveryTabs)).toBe(1);
+    expect(resolveActiveMainBottomNavTabIndex("/orders", deliveryTabs)).toBe(0);
 
     expect(resolveActiveMainBottomNavTabIndex("/admin", philifeTabs)).toBe(-1);
   });

@@ -34,6 +34,12 @@ const cartPrefetch = read(cartPrefetchFile);
 
 assertIncludes(cartPage, "openStoreProductSheetFromCart", "cart page must open option sheet via cart helper");
 assertIncludes(cartPage, "StoreBaeminCartStoreBlock", "cart page must use Baemin store block");
+assertIncludes(cartPage, "checkoutMinOrderFooterLine", "cart footer must expose min-order status");
+assertIncludes(cartPage, "store_min_order_met", "cart must use min-order met i18n key");
+assertIncludes(cartPage, "minOrderLine={checkoutMinOrderFooterLine}", "cart must pass min-order line to checkout bar");
+assertIncludes(cartPage, "checkoutPaymentOptionsForCart", "cart must use centralized checkout payment options");
+const paymentConfig = read(path.join(root, "lib", "stores", "payment-methods-config.ts"));
+assertIncludes(paymentConfig, 'store_pay_label_cod', "payment config must map cod to store_pay_label_cod");
 assertIncludes(
   cartPage,
   "if (!cart.hydrated || lines.length === 0) return",

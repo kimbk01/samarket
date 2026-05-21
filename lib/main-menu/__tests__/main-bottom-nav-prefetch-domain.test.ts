@@ -26,7 +26,11 @@ describe("mainBottomNavPrefetchTriggerKey", () => {
     expect(mainBottomNavPrefetchTriggerKey("/mypage")).toBe("my");
     expect(mainBottomNavPrefetchTriggerKey("/mypage/x")).toBe("my");
     expect(mainBottomNavPrefetchTriggerKey("/my")).toBe("my");
-    expect(mainBottomNavPrefetchTriggerKey("/my/store-orders")).toBe("my");
+    expect(mainBottomNavPrefetchTriggerKey("/orders")).toBe("stores");
+    expect(mainBottomNavPrefetchTriggerKey("/orders/store/x")).toBe("stores");
+    expect(mainBottomNavPrefetchTriggerKey("/mypage/store-orders")).toBe("stores");
+    expect(mainBottomNavPrefetchTriggerKey("/my/store-orders")).toBe("stores");
+    expect(mainBottomNavPrefetchTriggerKey("/stores/cart")).toBe("stores");
     expect(mainBottomNavPrefetchTriggerKey("/stores")).toBe("stores");
     expect(mainBottomNavPrefetchTriggerKey("/stores/slug")).toBe("stores");
     expect(mainBottomNavPrefetchTriggerKey("/products/1")).toBe("other");

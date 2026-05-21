@@ -8,6 +8,7 @@ import {
 } from "@/lib/layout/mobile-top-tier1-rules";
 import { isProfileEditPath } from "@/lib/mypage/mypage-mobile-nav-registry";
 import { isStoreCommerceCartCheckoutPath } from "@/lib/stores/store-cart-page-layout";
+import { isDeliveryConsumerBottomNavSurface } from "@/lib/main-menu/delivery-bottom-nav-layout";
 import { isStoresConsumerSlugMenuRoute } from "@/lib/stores/store-consumer-route";
 
 /** 통화 전용 라우트에서 수신 오버레이 억제 — `CallIncomingChrome` 등 경량 판별용 */
@@ -114,11 +115,7 @@ export function resolveConditionalAppShellFlags(
     normalizedStorePath === "/stores/owner" || normalizedStorePath.startsWith("/stores/owner/");
   /** 메인 `BottomNav` — 매장 오너 전 구간 숨김(오너 전용 하단 네비 사용) */
   const suppressBottomNavForStoreOwnerAdminSubroutes = isStoreOwnerAdminRoute;
-  const isStoresHubBottomNavSurface =
-    normalizedStorePath === "/stores" ||
-    normalizedStorePath === "/stores/cart" ||
-    normalizedStorePath === "/stores/search" ||
-    normalizedStorePath.startsWith("/stores/browse/");
+  const isStoresHubBottomNavSurface = isDeliveryConsumerBottomNavSurface(normalizedStorePath);
   /** 배달(/stores) 허브도 전역 통합 BottomNav를 쓴다. 상세·주문 플로우만 아래 별도 조건으로 숨긴다. */
   const isStoreCheckoutOrDetailFlow =
     isStoreSection && !isStoresHubBottomNavSurface && !isStoreOwnerAdminRoute;

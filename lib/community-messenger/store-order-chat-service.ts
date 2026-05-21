@@ -63,7 +63,10 @@ type StoreOrderMessengerOrderRow = {
   payment_amount?: unknown;
   total_amount?: unknown;
   community_messenger_room_id?: unknown;
-  stores?: { store_name?: unknown; owner_user_id?: unknown } | Array<{ store_name?: unknown; owner_user_id?: unknown }> | null;
+  stores?:
+    | { store_name?: unknown; owner_user_id?: unknown; profile_image_url?: unknown }
+    | Array<{ store_name?: unknown; owner_user_id?: unknown; profile_image_url?: unknown }>
+    | null;
 };
 
 export type StoreOrderMessengerEnsureResult =
@@ -92,6 +95,9 @@ function contextMetaFromOrder(row: StoreOrderMessengerOrderRow): CommunityMessen
   const orderStatus = trimText(row.order_status);
   const paymentRaw = Number(row.payment_amount ?? row.total_amount ?? 0);
   const paymentAmount = Number.isFinite(paymentRaw) ? paymentRaw : 0;
+  const profileRaw = store?.profile_image_url;
+  const thumbnailUrl =
+    typeof profileRaw === "string" && profileRaw.trim() ? profileRaw.trim() : null;
   return buildMessengerContextMetaFromStoreOrder(
     buildMessengerContextInputFromStoreOrderSnapshot({
       orderId,
@@ -101,6 +107,7 @@ function contextMetaFromOrder(row: StoreOrderMessengerOrderRow): CommunityMessen
       fulfillmentType,
       orderStatus,
       paymentAmount,
+      thumbnailUrl,
     })
   );
 }
@@ -374,7 +381,7 @@ export async function ensureStoreOrderMessengerRoom(
   const { data, error } = await sb
     .from("store_orders")
     .select(
-      "id, order_no, store_id, buyer_user_id, order_status, fulfillment_type, payment_amount, total_amount, community_messenger_room_id, stores(store_name, owner_user_id)"
+      "id, order_no, store_id, buyer_user_id, order_status, fulfillment_type, payment_amount, total_amount, community_messenger_room_id, stores(store_name, owner_user_id, profile_image_url)"
     )
     .eq("id", orderId)
     .maybeSingle();

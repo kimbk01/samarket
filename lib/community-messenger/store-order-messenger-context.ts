@@ -12,6 +12,8 @@ import { formatMoneyPhp } from "@/lib/utils/format";
  * 채팅방으로 이동할 때는 `buildCommunityMessengerRoomUrlWithContext` (`cm-ctx-url`) 로 `?cm_ctx=` 딥링크를 붙이면 입장 시 자동 동기화된다.
  */
 export type StoreOrderMessengerContextInput = {
+  /** 매장명 — 목록 행·헤더(피어 id 대신) */
+  storeName?: string | null;
   /** `store_orders.fulfillment_type` 등 */
   fulfillmentType?: string | null;
   /** `store_orders.id` — 메신저 delivery pillar 의 안정 식별자 */
@@ -35,6 +37,8 @@ export function buildMessengerContextMetaFromStoreOrder(input: StoreOrderMesseng
   const lang = getRuntimeAppLanguage();
   const headline = input.productTitle.trim() || translate(lang, "store_messenger_order_fallback");
   const meta: CommunityMessengerRoomContextMetaV1 = { v: 1, kind: "delivery", headline };
+  const storeDisplayName = input.storeName?.trim();
+  if (storeDisplayName) meta.storeDisplayName = storeDisplayName;
   const storeOrderId = input.storeOrderId?.trim();
   if (storeOrderId) meta.storeOrderId = storeOrderId;
   const orderNo = input.orderNo?.trim();
@@ -79,6 +83,7 @@ export function buildMessengerContextInputFromStoreOrderSnapshot(
   /** `shipping` 은 기존 주문 타입 명칭이고 메신저 컨텍스트에는 local_delivery 로 정규화한다. */
   const fulfillmentForMeta = ft === "shipping" ? "local_delivery" : args.fulfillmentType;
   return {
+    storeName: store,
     storeOrderId: args.orderId ?? null,
     orderNo: args.orderNo,
     storeId: args.storeId ?? null,

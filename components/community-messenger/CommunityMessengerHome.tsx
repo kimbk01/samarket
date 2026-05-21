@@ -628,10 +628,11 @@ export function CommunityMessengerHome({
           onOpenSearch={() => openHomeOverlay("search")}
           onOpenRequestList={() => openHomeOverlay("requests")}
           onOpenSettings={() => openHomeOverlay("settings")}
+          showCallLogsLink={pillar !== "delivery"}
         />
       </div>
     ),
-    [incomingRequestCount, openHomeOverlay]
+    [incomingRequestCount, openHomeOverlay, pillar]
   );
 
   useCommunityMessengerHomeShellEffects({
@@ -2589,7 +2590,7 @@ export function CommunityMessengerHome({
         onRetry={() => void refresh()}
         pillarSummaries={inboxPillarSummaries}
         entryOriginQuery={entryOriginQuery}
-        chatListVisual={pillar === "trade" ? "trade" : "default"}
+        chatListVisual={pillar === "trade" ? "trade" : pillar === "delivery" ? "delivery" : "default"}
       />
 
       {outgoingCallConfirm ? (
@@ -3275,7 +3276,7 @@ export function CommunityMessengerHome({
         />
       ) : null}
 
-      {!listAwaitingCritical && !authRequired ? (
+      {!listAwaitingCritical && !authRequired && pillar !== "delivery" ? (
         <button
           type="button"
           onClick={() => (mainSection === "friends" ? setFriendManagerOpen(true) : openHomeOverlay("composer"))}

@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
   bottomNavMessengerHrefWithOrigin,
+  buildMessengerRoomListBackHref,
   inferMessengerEntryOriginFromPath,
   mainBottomNavMessengerTabHref,
   messengerEntryOriginBackHref,
   messengerEntryOriginToSecondaryRail,
+  shouldForceDirectDeliveryMessengerRoomBack,
 } from "@/lib/community-messenger/messenger-entry-origin";
 
 describe("messengerEntryOriginBackHref", () => {
@@ -47,5 +49,36 @@ describe("bottomNavMessengerHrefWithOrigin", () => {
     const href = bottomNavMessengerHrefWithOrigin("", "/stores", null);
     expect(href).toContain("delivery-chats");
     expect(href).toContain("from=delivery");
+  });
+});
+
+describe("buildMessengerRoomListBackHref", () => {
+  it("cm_list=delivery 는 메신저 배달 목록이 아닌 출처 탭으로", () => {
+    expect(
+      buildMessengerRoomListBackHref({
+        get: (k) => (k === "cm_list" ? "delivery" : k === "from" ? "delivery" : null),
+      })
+    ).toBe("/stores");
+  });
+
+  it("cm_return 이 있으면 우선", () => {
+    expect(
+      buildMessengerRoomListBackHref({
+        get: (k) =>
+          k === "cm_return" ? "/orders?tab=active"
+          : k === "cm_list" ? "delivery"
+          : null,
+      })
+    ).toBe("/orders?tab=active");
+  });
+});
+
+describe("shouldForceDirectDeliveryMessengerRoomBack", () => {
+  it("배달 주문 방은 직행", () => {
+    expect(
+      shouldForceDirectDeliveryMessengerRoomBack({
+        get: (k) => (k === "cm_list" ? "delivery" : null),
+      })
+    ).toBe(true);
   });
 });

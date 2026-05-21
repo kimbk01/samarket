@@ -23,6 +23,9 @@ export type MessengerRoomListSource = "trade" | "delivery" | "inbox";
 
 export const MESSENGER_ROOM_LIST_SOURCE_QUERY_KEY = "cm_list";
 
+/** 방 뒤로가기 시 복귀할 **진입 직전** 경로(동일 오리진 상대 경로만). 배달 주문 채팅은 메신저 목록 대신 사용 */
+export const MESSENGER_ROOM_RETURN_QUERY_KEY = "cm_return";
+
 export function parseMessengerRoomListSource(value: string | null | undefined): MessengerRoomListSource {
   const v = value?.trim().toLowerCase();
   if (v === "trade") return "trade";
@@ -192,15 +195,73 @@ export function readStoredMessengerEntryOrigin(): MessengerEntryOrigin {
 }
 
 /**
- * 방 화면 헤더 뒤로가기 → 채팅 목록
+ * `cm_return` — 내부 경로만 허용(오픈 리다이렉트 방지).
+ */
+export function sanitizeMessengerRoomReturnHref(raw: string | null | undefined): string | null {
+  const v = raw?.trim() ?? "";
+  if (!v.startsWith("/") || v.startsWith("//")) return null;
+  try {
+    const u = new URL(v, "https://samarket.local");
+    if (u.origin !== "https://samarket.local") return null;
+    return `${u.pathname}${u.search}${u.hash}`;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 배달 목록 → 방 진입 시 `cm_return` 에 실을 경로.
+ * - 현재가 `delivery-chats` 이면 하단 탭 출처(`/stores` 등)로 직행
+ * - 그 외(주문·매장 등)는 현재 URL 을 그대로 보존
+ */
+export function resolveDeliveryMessengerRoomReturnHref(args: {
+  pathname: string;
+  search?: string;
+  fromEntryOrigin?: string | null;
+}): string {
+  const path = (args.pathname ?? "").split("?")[0]?.trim() ?? "";
+  const search = (args.search ?? "").trim();
+  const fullSearch = search ? (search.startsWith("?") ? search : `?${search}`) : "";
+  if (
+    path === "/community-messenger/delivery-chats" ||
+    path.startsWith("/community-messenger/delivery-chats/")
+  ) {
+    const o =
+      parseMessengerEntryOrigin(args.fromEntryOrigin) ??
+      (typeof window !== "undefined" ? readStoredMessengerEntryOrigin() : null) ??
+      "delivery";
+    return messengerEntryOriginBackHref(o);
+  }
+  const candidate = sanitizeMessengerRoomReturnHref(`${path}${fullSearch}`);
+  return candidate ?? messengerEntryOriginBackHref("delivery");
+}
+
+/**
+ * 방 화면 헤더·스와이프 뒤로가기
+ * - `cm_return` → 진입 직전 화면(우선)
  * - `cm_list=trade` → 거래 채팅방 목록
- * - `cm_list=delivery` → 배달 채팅방 목록
+ * - `cm_list=delivery` → **메신저 배달 목록이 아님** — `?from=` 출처 탭(`/stores` 등)
  * - 없음·인박스 → 전체 채팅 목록(`section=chats`)
  */
 export function buildMessengerRoomListBackHref(searchParams: { get: (key: string) => string | null }): string {
+  const explicitReturn = sanitizeMessengerRoomReturnHref(
+    searchParams.get(MESSENGER_ROOM_RETURN_QUERY_KEY)
+  );
+  if (explicitReturn) return explicitReturn;
+
   const source = parseMessengerRoomListSource(searchParams.get(MESSENGER_ROOM_LIST_SOURCE_QUERY_KEY));
   const o = parseMessengerEntryOrigin(searchParams.get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY));
+  if (source === "delivery") {
+    return messengerEntryOriginBackHref(o ?? "delivery");
+  }
   return messengerRoomListDestination(source, o);
+}
+
+/** 배달 주문 채팅 방 — 히스토리 back 이 `delivery-chats` 로 가지 않도록 직행 복귀 */
+export function shouldForceDirectDeliveryMessengerRoomBack(searchParams: {
+  get: (key: string) => string | null;
+}): boolean {
+  return parseMessengerRoomListSource(searchParams.get(MESSENGER_ROOM_LIST_SOURCE_QUERY_KEY)) === "delivery";
 }
 
 /**
@@ -210,7 +271,8 @@ export function buildMessengerRoomListBackHref(searchParams: { get: (key: string
 export function communityMessengerRoomHref(
   roomId: string,
   fromQueryValue: string | null | undefined,
-  listSource: MessengerRoomListSource = "inbox"
+  listSource: MessengerRoomListSource = "inbox",
+  returnHref?: string | null
 ): string {
   const base = `/community-messenger/rooms/${encodeURIComponent(String(roomId).trim())}`;
   const u = new URL(base, "https://samarket.local");
@@ -218,5 +280,7 @@ export function communityMessengerRoomHref(
   if (o) u.searchParams.set(MESSENGER_ENTRY_ORIGIN_QUERY_KEY, o);
   if (listSource === "trade") u.searchParams.set(MESSENGER_ROOM_LIST_SOURCE_QUERY_KEY, "trade");
   if (listSource === "delivery") u.searchParams.set(MESSENGER_ROOM_LIST_SOURCE_QUERY_KEY, "delivery");
+  const ret = sanitizeMessengerRoomReturnHref(returnHref);
+  if (ret) u.searchParams.set(MESSENGER_ROOM_RETURN_QUERY_KEY, ret);
   return `${u.pathname}${u.search}${u.hash}`;
 }

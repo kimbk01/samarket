@@ -10,7 +10,12 @@ import {
   readStoredMessengerEntryOrigin,
 } from "@/lib/community-messenger/messenger-entry-origin";
 import { mainBottomNavPrefetchTriggerKey } from "@/lib/main-menu/main-bottom-nav-prefetch-domain";
-import { composeDeliveryBottomNavDisplayTabs, isDeliveryBottomNavRail } from "@/lib/main-menu/delivery-bottom-nav-layout";
+import {
+  composeDeliveryBottomNavDisplayTabs,
+  isDeliveryBottomNavRail,
+  isDeliveryConsumerBottomNavSurface,
+  normalizeDeliveryBottomNavPath,
+} from "@/lib/main-menu/delivery-bottom-nav-layout";
 import { resolveDeliveryOrderHistoryHref } from "@/lib/stores/delivery-order-history-nav";
 import type { MessageKey } from "@/lib/i18n/messages";
 
@@ -97,9 +102,12 @@ export function resolveMainBottomNavSecondaryRailKind(
   pathname: string | null,
   searchParams?: { get: (key: string) => string | null } | null
 ): MainBottomNavSecondaryRailKind {
-  const raw = (pathname ?? "").split("?")[0]?.trim() ?? "";
-  const p = raw.replace(/\/+$/, "") || "/";
+  const p = normalizeDeliveryBottomNavPath(pathname);
   const domain = mainBottomNavPrefetchTriggerKey(pathname);
+
+  if (isDeliveryConsumerBottomNavSurface(p)) {
+    return "stores";
+  }
 
   if (domain === "messenger") {
     if (p === "/community-messenger/trade-chats" || p.startsWith("/community-messenger/trade-chats/")) {
@@ -132,7 +140,6 @@ export function resolveMainBottomNavSecondaryRailKind(
     ) {
       return "trade";
     }
-    if (p === "/orders" || p.startsWith("/orders/")) return "stores";
     return "philife";
   }
 

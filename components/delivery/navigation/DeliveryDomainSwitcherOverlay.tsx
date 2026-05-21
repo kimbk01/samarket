@@ -13,7 +13,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import { composeDeliveryDomainSwitcherSlots } from "@/lib/delivery/delivery-domain-switcher-slots";
@@ -29,10 +29,8 @@ import {
   snapDeliveryDialRotationDeg,
 } from "@/lib/delivery/delivery-domain-switcher-arc";
 import { resolveDeliveryDialIconComponent } from "@/lib/delivery/delivery-domain-switcher-icons";
-import {
-  mainBottomNavMessengerTabHref,
-  persistMessengerEntryOrigin,
-} from "@/lib/community-messenger/messenger-entry-origin";
+import { mainBottomNavMessengerTabHref } from "@/lib/community-messenger/messenger-entry-origin";
+import { runDeliveryDialItemNavigation } from "@/lib/delivery/delivery-dial-item-navigation";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
   clientHasVerifiedContactForInteractive,
@@ -57,6 +55,7 @@ export function DeliveryDomainSwitcherOverlay({
 }) {
   const { safeT, t } = useI18n();
   const router = useRouter();
+  const pathname = usePathname();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const ownerStore = useOwnerLitePreferredStoreRow();
   const ownerStoreId = ownerStore?.id?.trim() ?? "";
@@ -243,33 +242,26 @@ export function DeliveryDomainSwitcherOverlay({
   const onItemNavigate = useCallback(
     (tab: BottomNavItemConfig) => {
       selectingRef.current = false;
-      if (tab.id === "stores") {
-        onClose();
-        return;
-      }
       const href = resolveHref(tab);
-      if (!guardBeforeNavigate(href)) return;
-      if (tab.id === "delivery-ops-center") {
-        onClose();
-        if (shouldInterceptBusinessHubHref(href)) {
-          goBusinessHubOrModal(href);
-        } else {
-          router.push(href);
-        }
-        return;
-      }
       if (href.includes("/community-messenger")) {
         const user = getCurrentUser();
         if (user?.id && !clientHasVerifiedContactForInteractive(user)) {
           openPhoneVerificationRequiredDialog({ next: href });
           return;
         }
-        persistMessengerEntryOrigin("delivery");
       }
-      onClose();
-      router.push(href);
+      runDeliveryDialItemNavigation({
+        tab,
+        href,
+        pathname,
+        onClose,
+        guardBeforeNavigate,
+        push: (h) => router.push(h),
+        goBusinessHubOrModal,
+        shouldInterceptBusinessHubHref,
+      });
     },
-    [guardBeforeNavigate, goBusinessHubOrModal, onClose, resolveHref, router]
+    [guardBeforeNavigate, goBusinessHubOrModal, onClose, pathname, resolveHref, router]
   );
 
   const runItemSelect = useCallback(
@@ -405,59 +397,67 @@ export function DeliveryDomainSwitcherOverlay({
 
   if (!mounted || !portalReady || typeof document === "undefined") return null;
 
-  return createPortal(
-    <>
-      {hubBlockedModal}
-      <div className="delivery-domain-switcher-root" role="presentation">
-        <button
-          type="button"
-          className={[
-            "delivery-domain-switcher-backdrop",
-            entered ? "delivery-domain-switcher-backdrop--visible" : "delivery-domain-switcher-backdrop--hidden",
-          ].join(" ")}
-          aria-label={t("nav_menu_close")}
-          tabIndex={entered ? 0 : -1}
-          onClick={onClose}
-        />
-        <div className="delivery-domain-switcher-stage">
+  const stageTree = (
+    <div className="delivery-domain-switcher-stage-layer" role="presentation">
+      <div className="delivery-domain-switcher-stage">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={t("nav_delivery_domain_switcher_aria")}
+          className="delivery-domain-switcher-anchor"
+          style={anchorStyle}
+        >
           <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={t("nav_delivery_domain_switcher_aria")}
-            className="delivery-domain-switcher-anchor"
-            style={anchorStyle}
+            className={[
+              "delivery-domain-switcher-rotator",
+              rotatorAnimating ? "delivery-domain-switcher-rotator--animating" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            style={{
+              transform: `translateX(-50%) rotate(${rotatorDeg}deg)`,
+              transition: rotatorAnimating ? `transform ${DELIVERY_DIAL_ANIM_MS}ms ${DIAL_EASE}` : undefined,
+            }}
           >
             <div
               className={[
-                "delivery-domain-switcher-rotator",
-                rotatorAnimating ? "delivery-domain-switcher-rotator--animating" : "",
+                "delivery-domain-switcher-swipe-surface",
+                interactionReady ? "delivery-domain-switcher-swipe-surface--active" : "",
               ]
                 .filter(Boolean)
                 .join(" ")}
-              style={{
-                transform: `translateX(-50%) rotate(${rotatorDeg}deg)`,
-                transition: rotatorAnimating ? `transform ${DELIVERY_DIAL_ANIM_MS}ms ${DIAL_EASE}` : undefined,
-              }}
-            >
-              <div
-                className={[
-                  "delivery-domain-switcher-swipe-surface",
-                  interactionReady ? "delivery-domain-switcher-swipe-surface--active" : "",
-                ]
-                  .filter(Boolean)
-                  .join(" ")}
-                aria-hidden
-                onPointerDown={onSwipePointerDown}
-                onPointerMove={onSwipePointerMove}
-                onPointerUp={onSwipePointerUp}
-                onPointerCancel={onSwipePointerUp}
-              />
-              {dialNodes}
-            </div>
+              aria-hidden
+              onPointerDown={onSwipePointerDown}
+              onPointerMove={onSwipePointerMove}
+              onPointerUp={onSwipePointerUp}
+              onPointerCancel={onSwipePointerUp}
+            />
+            {dialNodes}
           </div>
         </div>
       </div>
-    </>,
-    document.body
+    </div>
+  );
+
+  return (
+    <>
+      {hubBlockedModal}
+      {createPortal(
+        <div className="delivery-domain-switcher-backdrop-layer" role="presentation">
+          <button
+            type="button"
+            className={[
+              "delivery-domain-switcher-backdrop",
+              entered ? "delivery-domain-switcher-backdrop--visible" : "delivery-domain-switcher-backdrop--hidden",
+            ].join(" ")}
+            aria-label={t("nav_menu_close")}
+            tabIndex={entered ? 0 : -1}
+            onClick={onClose}
+          />
+        </div>,
+        document.body
+      )}
+      {createPortal(stageTree, document.body)}
+    </>
   );
 }

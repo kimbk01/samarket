@@ -53,7 +53,6 @@ import {
   resetCmRenderAnalysisSession,
 } from "@/lib/community-messenger/monitoring/cm-render-analysis";
 import { useMessengerRoomAnimatedBack } from "@/components/community-messenger/room/MessengerRoomSwipeBackShell";
-import { StoreOrderBuyerMessengerRoomBackRegistrar } from "@/components/community-messenger/room/StoreOrderBuyerMessengerRoomBackRegistrar";
 import {
   resolveMessengerRoomBackNavigation,
   runMessengerRoomBackNavigation,
@@ -438,11 +437,6 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
           isOwnerApi={storeOrderDeliveryIsOwnerApi}
           enabled={storeOrderDeliveryRoomEnabled}
         >
-        <StoreOrderBuyerMessengerRoomBackRegistrar
-          roomId={view.snapshot.room.id}
-          contextMeta={view.snapshot.room.contextMeta}
-          myRole={view.snapshot.myRole}
-        />
         <CmRoomPhase2HydrationProvider pass={hydrationPass}>
         <div
           ref={setMessengerShellRef}
@@ -553,13 +547,6 @@ const CommunityMessengerRoomClientPhase2Hydrated = memo(function CommunityMessen
             const plan = resolveMessengerRoomBackNavigation({
               roomId: room.snapshot?.room.id ?? "",
               searchParams,
-              buyerBack: {
-                contextMeta: room.snapshot?.room.contextMeta,
-                myRole: room.snapshot?.myRole,
-                storeSlug: undefined,
-                storeCategorySlug: undefined,
-                businessType: undefined,
-              },
             });
             runMessengerRoomBackNavigation(room.router, plan);
           }}

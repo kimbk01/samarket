@@ -4,8 +4,9 @@ import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { coerceBusinessHoursRecord } from "@/lib/stores/coerce-business-hours-json";
 
 /**
- * 코어 결제 코드 (매장 폼: GCash / 만나서 현금 / 계좌이체 / 기타·직접입력).
+ * 코어 결제 코드 (매장 폼: GCash / COD / 계좌이체 / 기타·직접입력).
  * DB `buyer_payment_method` 및 주문 API `payment_method`와 동일.
+ * JSON 저장 키 `cash_meet` 는 하위 호환용 — 화면·주문 id 는 `cod`.
  */
 export const ORDER_CHECKOUT_CORE_IDS = ["cod", "gcash", "bank_transfer", "other"] as const;
 export type OrderCheckoutCorePaymentId = (typeof ORDER_CHECKOUT_CORE_IDS)[number];
@@ -15,6 +16,14 @@ export type OrderCheckoutPaymentId = OrderCheckoutCorePaymentId | "card_on_deliv
 
 const ORDER_CHECKOUT_ID_SET = new Set<string>([...ORDER_CHECKOUT_CORE_IDS, "card_on_delivery"]);
 
+/** 레거시 DB·API 값 → `cod` 등 코어 id */
+const LEGACY_CHECKOUT_PAYMENT_ID: Record<string, OrderCheckoutPaymentId | OrderCheckoutCorePaymentId> = {
+  cash_on_delivery: "cod",
+  cash_on_delivery_meet: "cod",
+  cash_meet: "cod",
+  cashmeet: "cod",
+};
+
 const CHECKOUT_PAYMENT_LABEL_KEYS: Record<string, MessageKey> = {
   cod: "store_pay_label_cod",
   gcash: "store_pay_label_gcash",
@@ -23,14 +32,41 @@ const CHECKOUT_PAYMENT_LABEL_KEYS: Record<string, MessageKey> = {
   card_on_delivery: "store_pay_label_card_on_delivery",
 };
 
+/** 고객·주문 UI 에서 금지하는 구 결제 라벨 (회귀 검증용) */
+export const FORBIDDEN_LEGACY_COD_DISPLAY_STRINGS = [
+  "현금(착불·만나서)",
+  "현금 (착불·만나서)",
+  "현금 (착불 만나서)",
+  "만나서 현금",
+  "Cash on meet-up",
+  "Cash (COD / meet-up)",
+] as const;
+
 export type PaymentMethodsFormValues = {
   payMethodGcash: boolean;
+  /** 매장 설정: COD(착불) — JSON `cash_meet` */
   payMethodCashMeet: boolean;
   payMethodBank: boolean;
   /** 기타 사용 시 자유 입력 */
   payMethodOtherEnabled: boolean;
   payMethodOtherText: string;
 };
+
+export function normalizeCheckoutPaymentMethodId(
+  method: string | null | undefined
+): OrderCheckoutPaymentId | null {
+  const raw = (method ?? "").trim();
+  if (!raw) return null;
+  const lower = raw.toLowerCase();
+  const legacy = LEGACY_CHECKOUT_PAYMENT_ID[lower] ?? LEGACY_CHECKOUT_PAYMENT_ID[raw];
+  if (legacy) return legacy;
+  if (isKnownCheckoutPaymentMethodId(lower)) return lower as OrderCheckoutPaymentId;
+  return null;
+}
+
+function labelCod(lang: AppLanguageCode): string {
+  return translate(lang, "store_pay_label_cod");
+}
 
 export function readPaymentMethodsFormValues(raw: unknown): PaymentMethodsFormValues {
   const o = coerceBusinessHoursRecord(raw);
@@ -76,7 +112,8 @@ export function labelCheckoutPaymentMethod(
   id: string,
   lang: AppLanguageCode = getRuntimeAppLanguage()
 ): string {
-  const key = CHECKOUT_PAYMENT_LABEL_KEYS[id];
+  const normalized = normalizeCheckoutPaymentMethodId(id);
+  const key = normalized ? CHECKOUT_PAYMENT_LABEL_KEYS[normalized] : CHECKOUT_PAYMENT_LABEL_KEYS[id];
   return key ? translate(lang, key) : id;
 }
 
@@ -90,7 +127,7 @@ export function formatPaymentMethodsDisplayLine(
 ): string {
   const parts: string[] = [];
   if (v.payMethodGcash) parts.push(translate(lang, "store_pay_label_gcash"));
-  if (v.payMethodCashMeet) parts.push(translate(lang, "store_pay_display_cash_meet"));
+  if (v.payMethodCashMeet) parts.push(labelCod(lang));
   if (v.payMethodBank) parts.push(translate(lang, "store_pay_label_bank_transfer"));
   if (v.payMethodOtherEnabled) {
     const custom = v.payMethodOtherText.trim();
@@ -127,7 +164,7 @@ export function paymentMethodsLineFromBusinessRecord(
     const parts: string[] = [];
     if (r.gcash === true) parts.push(translate(lang, "store_pay_label_gcash"));
     if (r.cash_meet === true || r.cashMeet === true) {
-      parts.push(translate(lang, "store_pay_display_cash_meet"));
+      parts.push(labelCod(lang));
     }
     if (r.bank_transfer === true || r.bankTransfer === true) {
       parts.push(translate(lang, "store_pay_label_bank_transfer"));
@@ -201,7 +238,7 @@ export function checkoutPaymentOptionsForCart(
   }));
 }
 
-/** 주문 목록·상세·관리자 표시용 */
+/** 주문 목록·상세·관리자·채팅 카드 표시용 — 레거시 `cash_on_delivery` 등은 COD 로 통일 */
 export function formatBuyerPaymentDisplay(
   method: string | null | undefined,
   detail: string | null | undefined,
@@ -213,5 +250,7 @@ export function formatBuyerPaymentDisplay(
     const d = (detail ?? "").trim();
     return d || translate(lang, "store_pay_label_other");
   }
+  const normalized = normalizeCheckoutPaymentMethodId(m);
+  if (normalized) return labelCheckoutPaymentMethod(normalized, lang);
   return labelCheckoutPaymentMethod(m, lang);
 }

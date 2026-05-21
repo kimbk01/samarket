@@ -22,8 +22,7 @@ import {
   StoreCommerceCartStrokeIcon,
 } from "@/components/stores/StoreCommerceCartStrokeIcon";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
-import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContext";
-import { commerceCartHrefFromBuckets } from "@/lib/stores/store-commerce-cart-nav";
+import { useCommerceCartNavHref } from "@/components/layout/use-commerce-cart-nav-href";
 import { PHILIFE_FEED_INSET_X_CLASS } from "@/lib/philife/philife-flat-ui-classes";
 import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import { useRegionOptional } from "@/contexts/RegionContext";
@@ -133,12 +132,7 @@ function browseCityLabel(regionId: string, cityId: string): string {
 
 function StoresBrowseCartAction() {
   const { t } = useI18n();
-  const commerceCart = useStoreCommerceCartOptional();
-  const cartLineKindCount = commerceCart?.hydrated ? commerceCart.totalItemCountAllStores : 0;
-  const cartHref = useMemo(() => {
-    if (!commerceCart?.hydrated) return "/stores";
-    return commerceCartHrefFromBuckets(commerceCart.listCartBuckets());
-  }, [commerceCart]);
+  const { href: cartHref, cartCount: cartLineKindCount } = useCommerceCartNavHref();
 
   return (
     <div className="flex shrink-0 items-center gap-0.5">

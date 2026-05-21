@@ -211,7 +211,10 @@ export function useCommunityMessengerHomeShellEffects({
     if (fromUrl) persistMessengerEntryOrigin(fromUrl);
     const resolvedOrigin: MessengerEntryOrigin = fromUrl ?? readStoredMessengerEntryOrigin();
 
-    const titleText = pillar === "trade" ? "거래 채팅" : pillar === "delivery" ? "배달 채팅" : messengerSectionLabel(mainSection);
+    const titleText =
+      pillar === "trade" ? "nav_trade_chat_label"
+      : pillar === "delivery" ? "nav_chat_order_compact"
+      : messengerSectionLabel(mainSection);
     /**
      * 1단 헤더 뒤로가기:
      * - 인박스·거래/배달 묶음 모두 **명시적 `backHref` + `preferHistoryBack: false`** — 히스토리 back 에 의존하지 않음.
