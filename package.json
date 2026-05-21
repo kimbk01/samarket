@@ -23,6 +23,7 @@
     "start:prod-measure": "node scripts/start-prod-measure.cjs",
     "measure:owner-dashboard-waterfall": "node scripts/measure-owner-dashboard-waterfall.mjs",
     "verify:routes": "node scripts/verify-app-routes.cjs",
+    "verify:deploy-imports": "node scripts/verify-deploy-imports.mjs",
     "verify:app-boot-consent-contract": "node scripts/verify-app-boot-consent-contract.cjs",
     "verify:trade-hot-path-contract": "node scripts/verify-trade-hot-path-contract.cjs",
     "verify:owner-store-orders-list-contract": "node scripts/verify-owner-store-orders-list-contract.mjs",
