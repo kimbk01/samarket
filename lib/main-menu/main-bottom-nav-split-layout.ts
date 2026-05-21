@@ -10,6 +10,7 @@ import {
   readStoredMessengerEntryOrigin,
 } from "@/lib/community-messenger/messenger-entry-origin";
 import { mainBottomNavPrefetchTriggerKey } from "@/lib/main-menu/main-bottom-nav-prefetch-domain";
+import { composeDeliveryBottomNavDisplayTabs, isDeliveryBottomNavRail } from "@/lib/main-menu/delivery-bottom-nav-layout";
 import { resolveDeliveryOrderHistoryHref } from "@/lib/stores/delivery-order-history-nav";
 import type { MessageKey } from "@/lib/i18n/messages";
 
@@ -118,6 +119,9 @@ export function resolveMainBottomNavSecondaryRailKind(
   if (domain === "philife") return "philife";
 
   if (domain === "my") {
+    if (p === "/mypage/section/store" || p.startsWith("/mypage/section/store/")) {
+      return "stores";
+    }
     if (
       p === "/mypage/trade" ||
       p.startsWith("/mypage/trade/") ||
@@ -135,13 +139,18 @@ export function resolveMainBottomNavSecondaryRailKind(
   return "trade";
 }
 
-/** 하단 6탭 — 좌(커뮤니티·거래·배달) + 우(도메인별 3탭) */
+/** 하단 표시 탭 — 배달 레일: 5탭 전용, 그 외 6탭(좌 3 + 우 3) */
 export function composeMainBottomNavDisplayTabs(
   pathname: string | null,
   sourceTabs: readonly BottomNavItemConfig[],
-  searchParams?: { get: (key: string) => string | null } | null
+  searchParams?: { get: (key: string) => string | null } | null,
+  ownerStoreId?: string | null
 ): BottomNavItemConfig[] {
+  const rail = resolveMainBottomNavSecondaryRailKind(pathname, searchParams);
+  if (isDeliveryBottomNavRail(rail)) {
+    return composeDeliveryBottomNavDisplayTabs(ownerStoreId);
+  }
   const primary = pickPrimaryTabs(sourceTabs);
-  const secondary = secondaryTabsForRail(resolveMainBottomNavSecondaryRailKind(pathname, searchParams));
+  const secondary = secondaryTabsForRail(rail);
   return [...primary, ...secondary];
 }

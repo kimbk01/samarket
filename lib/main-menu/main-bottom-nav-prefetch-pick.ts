@@ -29,7 +29,7 @@ export function resolveBottomNavTabProgrammaticPrefetchHref(
   if (tab.id === "delivery-orders") {
     return resolveDeliveryOrderHistoryHref(ctx?.ownerStoreId);
   }
-  if (tab.id === "chat") {
+  if (tab.id === "delivery-order-chat" || tab.id === "chat") {
     return bottomNavMessengerHrefWithOrigin(tab.href, pathname, ctx?.searchParams);
   }
   return tab.href;

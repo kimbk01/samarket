@@ -9,4 +9,8 @@ describe("resolveMainBottomNavSecondaryRailKind", () => {
   it("메신저 delivery-chats 경로는 stores 레일", () => {
     expect(resolveMainBottomNavSecondaryRailKind("/community-messenger/delivery-chats", null)).toBe("stores");
   });
+
+  it("/mypage/section/store — 배달 5탭 레일", () => {
+    expect(resolveMainBottomNavSecondaryRailKind("/mypage/section/store", null)).toBe("stores");
+  });
 });

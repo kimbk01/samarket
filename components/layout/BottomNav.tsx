@@ -63,6 +63,11 @@ import {
   composeMainBottomNavDisplayTabs,
   resolveMainBottomNavSecondaryRailKind,
 } from "@/lib/main-menu/main-bottom-nav-split-layout";
+import { isDeliveryBottomNavRail } from "@/lib/main-menu/delivery-bottom-nav-layout";
+import { DeliveryDomainSwitcherOverlay } from "@/components/delivery/navigation/DeliveryDomainSwitcherOverlay";
+import { MAIN_BOTTOM_NAV_TAB_ICONS } from "@/components/main-menu/MainBottomNavTabIcons";
+import { commerceCartHrefFromBuckets } from "@/lib/stores/store-commerce-cart-nav";
+import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContext";
 import { isMainBottomNavDisplayTabActive } from "@/lib/main-menu/main-bottom-nav-tab-active";
 import {
   bottomNavMessengerHrefWithOrigin,
@@ -83,6 +88,7 @@ import {
   navPerfSetOptimisticTotalMs,
 } from "@/lib/navigation/nav-perf-browser";
 import { useRegion } from "@/contexts/RegionContext";
+import { triggerLightTapFeedback } from "@/lib/ui/light-tap-feedback";
 
 /** 매장 운영 허브 — cross-tab RSC·taxonomy·philife prewarm 금지 (`pickMainBottomNavPrefetchHrefs` 와 동일) */
 function shouldSkipBottomNavBackgroundPrefetch(pathname: string | null): boolean {
@@ -125,18 +131,6 @@ function shouldBottomNavTapScrollOnlyNoNavigate(
 
 const BOTTOM_NAV_ITEM_TOUCH_CLASS =
   "touch-manipulation select-none [-webkit-tap-highlight-color:transparent]";
-
-/** 데스크톱 포인터는 사용자 제스처로 간주되지 않아 vibrate 가 막히며 콘솔 Intervention 이 난다 — 터치만. */
-function triggerLightTapFeedback(ev?: { pointerType?: string }): void {
-  try {
-    if (ev && ev.pointerType !== "touch") return;
-    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") {
-      navigator.vibrate(10);
-    }
-  } catch {
-    /* noop */
-  }
-}
 
 declare global {
   interface Window {
@@ -187,6 +181,8 @@ function runBottomNavTabClick(
     router: Pick<ReturnType<typeof useRouter>, "prefetch">;
     /** stores 탭 등 — `prewarmBottomNavTapTargetClientCache` 대신 */
     onPrewarm?: () => void;
+    /** 배달 도메인 다이얼 열림 시 탭 탭으로 닫기 */
+    onCloseDomainSwitcher?: () => void;
   }
 ): void {
   const {
@@ -200,7 +196,10 @@ function runBottomNavTabClick(
     guardBeforeNavigate,
     router,
     onPrewarm,
+    onCloseDomainSwitcher,
   } = opts;
+
+  onCloseDomainSwitcher?.();
 
   if (shouldBottomNavTapScrollOnlyNoNavigate(pathname, navSearch, href)) {
     e.preventDefault();
@@ -217,7 +216,7 @@ function runBottomNavTabClick(
   navPerfMarkBottomNavClickStart(navClickT0);
   beginMenuNavigation(href);
   onNavigationIntent(tabId);
-  if (tabId === "chat") {
+  if (tabId === "chat" || tabId === "delivery-order-chat") {
     try {
       const u = new URL(href, "https://samarket.local");
       const o = parseMessengerEntryOrigin(u.searchParams.get("from"));
@@ -252,6 +251,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
   onNavigationIntent,
   beginMenuNavigation,
   guardBeforeNavigate,
+  onCloseDomainSwitcher,
 }: {
   tab: BottomNavItemConfig;
   itemClassName?: string;
@@ -262,6 +262,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
   onNavigationIntent: (tabId: string) => void;
   beginMenuNavigation: (href: string) => void;
   guardBeforeNavigate: (nextHref?: string) => boolean;
+  onCloseDomainSwitcher?: () => void;
 }) {
   const { tt, t, safeT } = useI18n();
   const router = useRouter();
@@ -409,10 +410,151 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
           onNavigationIntent,
           guardBeforeNavigate,
           router,
+          onCloseDomainSwitcher,
         });
       }}
     >
       {inner}
+    </Link>
+  );
+});
+
+const BottomNavTabDeliveryHomeHub = memo(function BottomNavTabDeliveryHomeHub({
+  tab,
+  itemClassName = "",
+  pathname,
+  switcherOpen,
+  onToggleSwitcher,
+}: {
+  tab: BottomNavItemConfig;
+  itemClassName?: string;
+  pathname: string | null;
+  switcherOpen: boolean;
+  onToggleSwitcher: () => void;
+}) {
+  const { safeT } = useI18n();
+  const searchParams = useSearchParams();
+  const tabLabel = tab.labelKey ? safeT(tab.labelKey) : tab.label;
+  const Icon = TAB_ICONS.home;
+  const hubPathActive = isMainBottomNavDisplayTabActive(pathname, tab, {
+    searchParams,
+    secondaryRail: "stores",
+  });
+  const isActive = switcherOpen || hubPathActive;
+  const className = [
+    "app-bottom-nav-item group app-bottom-nav-item--delivery-hub",
+    BOTTOM_NAV_ITEM_TOUCH_CLASS,
+    itemClassName,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <button
+      type="button"
+      className={className}
+      data-active={isActive ? "true" : "false"}
+      data-switcher-open={switcherOpen ? "true" : "false"}
+      aria-label={tabLabel}
+      aria-expanded={switcherOpen}
+      aria-haspopup="dialog"
+      onClick={() => onToggleSwitcher()}
+    >
+      <div className="app-bottom-nav-icon-slot app-bottom-nav-icon-slot--delivery-home">
+        <span
+          className={[
+            "app-bottom-nav-delivery-home-orbit",
+            isActive ? "app-bottom-nav-delivery-home-orbit--active" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
+          <Icon className="app-bottom-nav-delivery-home-icon" aria-hidden />
+        </span>
+      </div>
+      <span className={`app-bottom-nav-label ${tab.labelFontFamilyClass ?? ""}`} suppressHydrationWarning>
+        {tabLabel}
+      </span>
+    </button>
+  );
+});
+
+const BottomNavTabDeliveryCart = memo(function BottomNavTabDeliveryCart({
+  tab,
+  itemClassName = "",
+  pathname,
+  navSearch,
+  pendingActiveTabId,
+  onNavigationIntent,
+  beginMenuNavigation,
+  guardBeforeNavigate,
+  onCloseDomainSwitcher,
+}: {
+  tab: BottomNavItemConfig;
+  itemClassName?: string;
+  pathname: string | null;
+  navSearch: string;
+  pendingActiveTabId: string | null;
+  onNavigationIntent: (tabId: string) => void;
+  beginMenuNavigation: (href: string) => void;
+  guardBeforeNavigate: (nextHref?: string) => boolean;
+  onCloseDomainSwitcher?: () => void;
+}) {
+  const { tt, safeT } = useI18n();
+  const router = useRouter();
+  const commerceCart = useStoreCommerceCartOptional();
+  const searchParams = useSearchParams();
+  const secondaryRail = useMemo(
+    () => resolveMainBottomNavSecondaryRailKind(pathname, searchParams),
+    [pathname, searchParams]
+  );
+  const tabLabel = tab.labelKey ? safeT(tab.labelKey) : tt(tab.label);
+  const effectiveHref = useMemo(() => {
+    if (!commerceCart?.hydrated) return tab.href;
+    return commerceCartHrefFromBuckets(commerceCart.listCartBuckets());
+  }, [commerceCart, tab.href]);
+  const isActive =
+    pendingActiveTabId != null
+      ? tab.id === pendingActiveTabId
+      : isMainBottomNavDisplayTabActive(pathname, tab, { searchParams, secondaryRail });
+  const Icon = TAB_ICONS.cart;
+  const iconSize = tab.iconSizeClass ?? BOTTOM_NAV_THEME.iconSizeClass;
+  const className = ["app-bottom-nav-item group", BOTTOM_NAV_ITEM_TOUCH_CLASS, itemClassName].filter(Boolean).join(" ");
+
+  return (
+    <Link
+      href={effectiveHref}
+      prefetch={shouldEnableNextLinkPrefetchOnMainNav() && !isMainBottomNavMessengerShellPathname(pathname)}
+      replace={mainTabLinkUsesReplace(pathname ?? null, effectiveHref)}
+      scroll={false}
+      className={className}
+      data-active={isActive ? "true" : "false"}
+      aria-label={tabLabel}
+      aria-current={isActive ? "page" : undefined}
+      onPointerDown={(e) => triggerLightTapFeedback(e)}
+      onClick={(e) => {
+        runBottomNavTabClick(e, {
+          pathname,
+          navSearch,
+          href: effectiveHref,
+          tabId: tab.id,
+          isActive,
+          beginMenuNavigation,
+          onNavigationIntent,
+          guardBeforeNavigate,
+          router,
+          onCloseDomainSwitcher,
+        });
+      }}
+    >
+      <div className="app-bottom-nav-icon-slot">
+        <span className="app-bottom-nav-inline-icon" key={isActive ? "on" : "off"}>
+          <Icon className={iconSize} />
+        </span>
+      </div>
+      <span className={`app-bottom-nav-label ${tab.labelFontFamilyClass ?? ""}`} suppressHydrationWarning>
+        {tabLabel}
+      </span>
     </Link>
   );
 });
@@ -426,6 +568,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   onNavigationIntent,
   beginMenuNavigation,
   guardBeforeNavigate,
+  onCloseDomainSwitcher,
 }: {
   tab: BottomNavItemConfig;
   itemClassName?: string;
@@ -435,6 +578,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   onNavigationIntent: (tabId: string) => void;
   beginMenuNavigation: (href: string) => void;
   guardBeforeNavigate: (nextHref?: string) => boolean;
+  onCloseDomainSwitcher?: () => void;
 }) {
   const { tt, t, safeT } = useI18n();
   const router = useRouter();
@@ -575,6 +719,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
           guardBeforeNavigate,
           router,
           onPrewarm: prewarmStoresTabClientCache,
+          onCloseDomainSwitcher,
         });
       }}
     >
@@ -583,15 +728,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   );
 });
 
-const TAB_ICONS: Record<BottomNavIconKey, (props: { className?: string }) => React.ReactNode> = {
-  home: HomeIcon,
-  trade: TradeTabIcon,
-  community: CommunityIcon,
-  stores: StoreTabIcon,
-  orders: OrdersTabIcon,
-  chat: ChatIcon,
-  my: MyIcon,
-};
+const TAB_ICONS = MAIN_BOTTOM_NAV_TAB_ICONS;
 
 const BOTTOM_NAV_BOOT_WARM_SESSION_KEY = "samarket:bottom-nav:boot-warm:v1";
 
@@ -647,10 +784,19 @@ export function BottomNav({
    */
   const tabs = useMainBottomNavTabs();
   const ownerStoreRow = useOwnerLitePreferredStoreRow();
-  const displayTabs = useMemo(
-    () => composeMainBottomNavDisplayTabs(pathname ?? null, tabs, searchParams),
-    [pathname, tabs, searchParams]
+  const secondaryRail = useMemo(
+    () => resolveMainBottomNavSecondaryRailKind(pathname ?? null, searchParams),
+    [pathname, searchParams]
   );
+  const isDeliveryNavMode = isDeliveryBottomNavRail(secondaryRail);
+  const displayTabs = useMemo(
+    () => composeMainBottomNavDisplayTabs(pathname ?? null, tabs, searchParams, ownerStoreRow?.id),
+    [pathname, tabs, searchParams, ownerStoreRow?.id]
+  );
+  const [deliveryDomainSwitcherOpen, setDeliveryDomainSwitcherOpen] = useState(false);
+  useEffect(() => {
+    setDeliveryDomainSwitcherOpen(false);
+  }, [pathname]);
   useLayoutEffect(() => {
     bottomNavPickCtxRef.current = { searchParams, ownerStoreId: ownerStoreRow?.id };
   }, [searchParams, ownerStoreRow?.id]);
@@ -877,27 +1023,39 @@ export function BottomNav({
     (pathname?.startsWith("/mypage/business") ?? false) ||
     (pathname?.startsWith("/my/business") ?? false);
 
+  const scrollHideSuppressed =
+    deliveryDomainSwitcherOpen && extraOuterClassName.includes("translate-y-full");
+  const effectiveOuterExtra = scrollHideSuppressed
+    ? extraOuterClassName.replace(/\btranslate-y-full\b/g, "").trim() || "translate-y-0"
+    : extraOuterClassName;
+
   const outerClass = [
     BOTTOM_NAV_SHELL.outerClassName,
-    bodyPortal || (extraOuterClassName.length > 0 && extraOuterClassName.includes("translate-y"))
+    bodyPortal || (effectiveOuterExtra.length > 0 && effectiveOuterExtra.includes("translate-y"))
       ? BOTTOM_NAV_OUTER_MOTION
       : "",
-    extraOuterClassName,
+    effectiveOuterExtra,
+    isDeliveryNavMode && deliveryDomainSwitcherOpen ? "app-bottom-nav-shell--switcher-open" : "",
   ]
     .filter(Boolean)
     .join(" ");
 
+  const closeDomainSwitcher = useCallback(() => {
+    setDeliveryDomainSwitcherOpen(false);
+  }, []);
+
   const renderBottomNavTab = useCallback(
     (tab: BottomNavItemConfig, tabIndex: number) => {
-      const groupEdgeClass =
-        tabIndex === 2
+      const groupEdgeClass = isDeliveryNavMode
+        ? ""
+        : tabIndex === 2
           ? "app-bottom-nav-item--group-gap-after"
           : tabIndex === 3
             ? "app-bottom-nav-item--group-gap-before"
             : "";
       const guardNav = () => {
         const targetHref =
-          tab.id === "chat"
+          tab.id === "chat" || tab.id === "delivery-order-chat"
             ? bottomNavMessengerHrefWithOrigin(tab.href, pathname, searchParams)
             : tab.id === "delivery-orders"
               ? resolveDeliveryOrderHistoryHref(ownerStoreRow?.id)
@@ -910,19 +1068,54 @@ export function BottomNav({
         openPhoneVerificationRequiredDialog({ next: targetHref });
         return false;
       };
-      return tab.icon === "stores" ? (
-        <BottomNavTabStores
-          key={tab.id}
-          tab={tab}
-          itemClassName={groupEdgeClass}
-          pathname={pathname}
-          navSearch={navSearch}
-          pendingActiveTabId={pendingActiveTabId}
-          onNavigationIntent={markBottomNavIntent}
-          beginMenuNavigation={beginBottomNavNavigation}
-          guardBeforeNavigate={guardNav}
-        />
-      ) : (
+      if (tab.id === "delivery-home-hub") {
+        return (
+          <BottomNavTabDeliveryHomeHub
+            key={tab.id}
+            tab={tab}
+            itemClassName={groupEdgeClass}
+            pathname={pathname}
+            switcherOpen={deliveryDomainSwitcherOpen}
+            onToggleSwitcher={() => setDeliveryDomainSwitcherOpen((open) => !open)}
+          />
+        );
+      }
+      const closeSwitcherOnNav =
+        isDeliveryNavMode && deliveryDomainSwitcherOpen ? closeDomainSwitcher : undefined;
+
+      if (tab.id === "delivery-cart") {
+        return (
+          <BottomNavTabDeliveryCart
+            key={tab.id}
+            tab={tab}
+            itemClassName={groupEdgeClass}
+            pathname={pathname}
+            navSearch={navSearch}
+            pendingActiveTabId={pendingActiveTabId}
+            onNavigationIntent={markBottomNavIntent}
+            beginMenuNavigation={beginBottomNavNavigation}
+            guardBeforeNavigate={guardNav}
+            onCloseDomainSwitcher={closeSwitcherOnNav}
+          />
+        );
+      }
+      if (tab.icon === "stores" && !isDeliveryNavMode) {
+        return (
+          <BottomNavTabStores
+            key={tab.id}
+            tab={tab}
+            itemClassName={groupEdgeClass}
+            pathname={pathname}
+            navSearch={navSearch}
+            pendingActiveTabId={pendingActiveTabId}
+            onNavigationIntent={markBottomNavIntent}
+            beginMenuNavigation={beginBottomNavNavigation}
+            guardBeforeNavigate={guardNav}
+            onCloseDomainSwitcher={closeSwitcherOnNav}
+          />
+        );
+      }
+      return (
         <BottomNavTabStandard
           key={tab.id}
           tab={tab}
@@ -933,6 +1126,7 @@ export function BottomNav({
           onNavigationIntent={markBottomNavIntent}
           beginMenuNavigation={beginBottomNavNavigation}
           guardBeforeNavigate={guardNav}
+          onCloseDomainSwitcher={closeSwitcherOnNav}
         />
       );
     },
@@ -945,13 +1139,21 @@ export function BottomNav({
       markBottomNavIntent,
       beginBottomNavNavigation,
       guardBeforeNavigate,
+      isDeliveryNavMode,
+      deliveryDomainSwitcherOpen,
+      closeDomainSwitcher,
     ]
   );
 
+  const navGridClass = isDeliveryNavMode ? "app-bottom-nav-grid" : "app-bottom-nav-split";
+
   const nav = (
-    <nav className={outerClass} aria-label={t("nav_bottom_bar_aria")}>
+    <nav
+      className={[outerClass, isDeliveryNavMode ? "app-bottom-nav-shell--delivery" : ""].filter(Boolean).join(" ")}
+      aria-label={t("nav_bottom_bar_aria")}
+    >
       <div className={`${BOTTOM_NAV_SHELL.innerBarClassName} ${BOTTOM_NAV_SHELL.heightClass}`}>
-        <div className="app-bottom-nav-split">
+        <div className={navGridClass}>
           {displayTabs.map((tab, index) => renderBottomNavTab(tab, index))}
         </div>
       </div>
@@ -960,84 +1162,28 @@ export function BottomNav({
 
   if (hideBottomNavShell) return null;
 
+  const switcherOverlay =
+    isDeliveryNavMode ? (
+      <DeliveryDomainSwitcherOverlay
+        open={deliveryDomainSwitcherOpen}
+        onClose={() => setDeliveryDomainSwitcherOpen(false)}
+      />
+    ) : null;
+
   if (bodyPortal && portalToBody && typeof document !== "undefined") {
-    return createPortal(nav, document.body);
+    return (
+      <>
+        {createPortal(nav, document.body)}
+        {switcherOverlay ? createPortal(switcherOverlay, document.body) : null}
+      </>
+    );
   }
-  return <>{nav}</>;
-}
 
-function HomeIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-    </svg>
+    <>
+      {nav}
+      {switcherOverlay}
+    </>
   );
 }
 
-/** 거래·마켓 피드 탭 — 양방향 화살표(교환·거래 느낌, 집 아이콘과 구분) */
-function TradeTabIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
-      />
-    </svg>
-  );
-}
-
-function CommunityIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z" />
-    </svg>
-  );
-}
-
-function StoreTabIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9zm8 4v2m-4-2v2"
-      />
-    </svg>
-  );
-}
-
-/** 매장·거래 주문 허브 탭 */
-function OrdersTabIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"
-      />
-    </svg>
-  );
-}
-
-function ChatIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-    </svg>
-  );
-}
-
-/** 내정보 — 가로 점 세 개(더보기) */
-function MyIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <circle cx="6" cy="12" r="1.75" />
-      <circle cx="12" cy="12" r="1.75" />
-      <circle cx="18" cy="12" r="1.75" />
-    </svg>
-  );
-}

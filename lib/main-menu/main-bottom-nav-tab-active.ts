@@ -31,6 +31,25 @@ function isPhilifeMyPostsBottomNavActive(pathname: string | null): boolean {
   return p === "/mypage/community-posts" || p.startsWith("/mypage/community-posts/");
 }
 
+function isDeliveryCartBottomNavActive(pathname: string | null): boolean {
+  const p = pathOnly(pathname);
+  if (p === "/stores/cart") return true;
+  return Boolean(p.match(/^\/stores\/[^/]+\/cart\/?$/));
+}
+
+function isDeliveryMyBottomNavActive(pathname: string | null): boolean {
+  const p = pathOnly(pathname);
+  return p === "/mypage/section/store" || p.startsWith("/mypage/section/store/");
+}
+
+function isDeliveryHomeHubBottomNavActive(pathname: string | null): boolean {
+  const p = pathOnly(pathname);
+  if (p === "/stores") return true;
+  if (p === "/stores/search" || p.startsWith("/stores/search/")) return true;
+  if (p === "/stores/browse" || p.startsWith("/stores/browse/")) return true;
+  return false;
+}
+
 function isMessengerBottomNavChatTabActive(
   pathname: string | null,
   searchParams: { get: (key: string) => string | null } | null | undefined,
@@ -69,9 +88,18 @@ export function isMainBottomNavDisplayTabActive(
   if (tab.id === "chat" && options?.secondaryRail) {
     return isMessengerBottomNavChatTabActive(pathname, options.searchParams, options.secondaryRail);
   }
+  if (tab.id === "delivery-order-chat") {
+    return isMessengerBottomNavChatTabActive(pathname, options?.searchParams, "stores");
+  }
   switch (tab.id) {
     case "delivery-orders":
       return isDeliveryOrdersBottomNavActive(pathname);
+    case "delivery-cart":
+      return isDeliveryCartBottomNavActive(pathname);
+    case "delivery-home-hub":
+      return isDeliveryHomeHubBottomNavActive(pathname);
+    case "delivery-my":
+      return isDeliveryMyBottomNavActive(pathname);
     case "trade-history":
       return isTradeHistoryBottomNavActive(pathname);
     case "philife-my-posts":

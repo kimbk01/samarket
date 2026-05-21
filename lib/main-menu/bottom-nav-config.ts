@@ -25,6 +25,8 @@ export const BOTTOM_NAV_ICON_KEYS = [
   "orders",
   /** 거래 탭 전용 (집 아이콘 `home` 과 구분) */
   "trade",
+  /** 배달 하단 탭 장바구니 */
+  "cart",
 ] as const;
 export type BottomNavIconKey = (typeof BOTTOM_NAV_ICON_KEYS)[number];
 

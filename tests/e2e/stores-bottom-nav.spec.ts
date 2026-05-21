@@ -108,14 +108,20 @@ test.describe("stores unified bottom nav (smoke)", () => {
     await expect(deliveryBottomNavLocator(page)).toHaveCount(0);
   });
 
-  test("/stores — 커뮤니티 탭 → /philife", async ({ page, baseURL }) => {
+  test("/stores — 배달 5탭(커뮤니티 링크 없음), 배달홈 → 도메인 스위처", async ({ page, baseURL }) => {
     await ensureAuthenticatedForStores(page, baseURL);
 
     const nav = globalBottomNavLocator(page);
     await expect(nav).toBeVisible({ timeout: 25_000 });
-    const community = nav.locator('a[href="/philife"]').first();
-    await expect(community).toBeVisible();
-    await community.click();
+    await expect(nav.locator('a[href="/philife"]')).toHaveCount(0);
+
+    const deliveryHome = nav.getByRole("button", { name: "홈" });
+    await expect(deliveryHome).toBeVisible();
+    await deliveryHome.click();
+
+    const switcher = page.getByRole("dialog", { name: "앱 메뉴 선택" });
+    await expect(switcher).toBeVisible({ timeout: 10_000 });
+    await switcher.getByRole("link", { name: "커뮤니티" }).click();
     await expect(page).toHaveURL(/\/philife(?:\/|\?|$)/, { timeout: 20_000 });
   });
 });

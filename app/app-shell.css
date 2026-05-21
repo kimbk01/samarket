@@ -51,6 +51,12 @@
     overscroll-behavior-y: contain;
   }
 
+  /** 본문 스크롤·고정 푸터가 하단 탭(z-index 1200) 위로 올라오지 않게 */
+  .app-shell > main {
+    position: relative;
+    z-index: 0;
+  }
+
   /** 노치 회피 — sticky/fixed 헤더 안쪽에서만 추가, 본문 padding 으로는 쓰지 않는다 */
   .app-safe-top {
     padding-top: var(--safe-top);

@@ -1,0 +1,275 @@
+/** 배달 도메인 스위처 — 본문 딤(하단 탭 제외), 토큰 색상, 시계방향 펼침 */
+
+.delivery-domain-switcher-root {
+  --delivery-dial-chip-size: 2.75rem;
+  --delivery-dial-slot-width: 4.25rem;
+  --delivery-dial-pivot-bottom: 1.35rem;
+  --delivery-dial-anim-ms: 440ms;
+  --delivery-dial-ease: cubic-bezier(0.25, 0.9, 0.35, 1);
+  --delivery-dial-disk-bg: var(--sam-bg-surface, #ffffff);
+  --delivery-dial-disk-border: var(--sam-primary-border, rgba(28, 141, 184, 0.22));
+  --delivery-dial-icon: var(--sam-primary, #1c8db8);
+  --delivery-dial-label-bg: var(--sam-bg-surface, #ffffff);
+  --delivery-dial-label-border: var(--sam-border, #e2e5ea);
+  --delivery-dial-label-fg: var(--sam-fg, #1a1d21);
+  --delivery-dial-shadow: var(--sam-shadow-card, 0 4px 14px rgba(15, 23, 42, 0.12));
+  position: fixed;
+  inset: 0;
+  z-index: 1250;
+  pointer-events: none;
+}
+
+/** 본문만 딤 — 하단 네비·safe-area 는 불투명 처리하지 않음 */
+.delivery-domain-switcher-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--app-bottom-nav-height, 3.5rem) + env(safe-area-inset-bottom, 0px));
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: rgba(15, 23, 42, 0.45);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  transition: opacity var(--delivery-dial-anim-ms) var(--delivery-dial-ease);
+  pointer-events: none;
+  cursor: pointer;
+}
+
+.delivery-domain-switcher-backdrop--hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.delivery-domain-switcher-backdrop--visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.delivery-domain-switcher-stage {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: calc(var(--app-bottom-nav-height, 3.5rem) + env(safe-area-inset-bottom, 0px));
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.delivery-domain-switcher-anchor {
+  position: absolute;
+  left: 50%;
+  bottom: var(--delivery-dial-pivot-bottom, 1.35rem);
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.delivery-domain-switcher-rotator {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  transform: translateX(-50%);
+  transform-origin: 50% 100%;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.delivery-domain-switcher-rotator--animating {
+  transition: transform var(--delivery-dial-anim-ms) var(--delivery-dial-ease);
+}
+
+.delivery-domain-switcher-swipe-surface {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  z-index: 0;
+  width: min(100vw, calc(var(--dial-radius, 96px) * 2 + 5.5rem));
+  height: calc(var(--dial-radius, 96px) + 4.5rem);
+  transform: translateX(-50%);
+  touch-action: none;
+  pointer-events: none;
+  background: transparent;
+}
+
+.delivery-domain-switcher-swipe-surface--active {
+  pointer-events: auto;
+}
+
+.delivery-domain-switcher-item {
+  z-index: 1;
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  display: flex;
+  width: var(--delivery-dial-slot-width);
+  margin-left: calc(var(--delivery-dial-slot-width) / -2);
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  transform-origin: 50% 100%;
+  will-change: transform, opacity;
+}
+
+/** 닫힘·열림 전 — 홈 피벗에 모임(시계방향 좌→우 펼침) */
+.delivery-domain-switcher-item--closed {
+  opacity: 0;
+  pointer-events: none;
+  transform: rotate(var(--dial-angle)) translateY(10px) rotate(calc(-1 * var(--dial-angle))) scale(0.08);
+}
+
+.delivery-domain-switcher-item--open {
+  opacity: 1;
+  pointer-events: auto;
+  transform: rotate(var(--dial-angle)) translateY(calc(-1 * var(--dial-radius)))
+    rotate(calc(-1 * var(--dial-angle))) scale(1);
+  transition:
+    transform var(--delivery-dial-anim-ms) var(--delivery-dial-ease),
+    opacity calc(var(--delivery-dial-anim-ms) * 0.82) var(--delivery-dial-ease);
+}
+
+.delivery-domain-switcher-hit {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-decoration: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.delivery-domain-switcher-chip-disk {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: var(--delivery-dial-chip-size);
+  height: var(--delivery-dial-chip-size);
+  flex-shrink: 0;
+  border-radius: 9999px;
+  border: 2px solid var(--delivery-dial-disk-border);
+  background: var(--delivery-dial-disk-bg);
+  color: var(--delivery-dial-icon);
+  box-shadow: var(--delivery-dial-shadow);
+  transition:
+    transform 180ms ease,
+    box-shadow 180ms ease,
+    background-color 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease;
+}
+
+.delivery-domain-switcher-chip-disk .app-bottom-nav-icon-svg {
+  display: block;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.delivery-domain-switcher-chip-label {
+  display: inline-block;
+  flex-shrink: 0;
+  padding: 2px 6px;
+  border-radius: var(--sam-radius-sm, 4px);
+  border: 1px solid var(--delivery-dial-label-border);
+  background: var(--delivery-dial-label-bg);
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  color: var(--delivery-dial-label-fg);
+  white-space: nowrap;
+  text-align: center;
+}
+
+/** 현재 도메인(배달) — 홈 버튼과 동일 레드 톤 */
+.delivery-domain-switcher-hit--stores .delivery-domain-switcher-chip-disk {
+  border-color: #fff;
+  background: var(--sam-danger, #d45252);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(212, 82, 82, 0.38);
+}
+
+.delivery-domain-switcher-hit--stores .delivery-domain-switcher-chip-label {
+  color: var(--sam-danger, #d45252);
+  border-color: color-mix(in srgb, var(--sam-danger, #d45252) 28%, #ffffff);
+  background: #fff;
+}
+
+.delivery-domain-switcher-hit--delivery-ops-center .delivery-domain-switcher-chip-disk {
+  color: var(--sam-primary, #1c8db8);
+  border-color: var(--sam-primary-border);
+  background: var(--sam-primary-soft, #e8f4f9);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .delivery-domain-switcher-hit:hover .delivery-domain-switcher-chip-disk {
+    transform: scale(1.04);
+    box-shadow: 0 5px 16px rgba(15, 23, 42, 0.16);
+  }
+
+  .delivery-domain-switcher-hit:hover .delivery-domain-switcher-chip-label {
+    border-color: var(--sam-primary-border);
+  }
+}
+
+.delivery-domain-switcher-hit--pressed .delivery-domain-switcher-chip-disk {
+  transform: scale(0.88);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.14);
+}
+
+.delivery-domain-switcher-hit--pressed .delivery-domain-switcher-chip-label {
+  transform: scale(0.96);
+}
+
+.delivery-domain-switcher-hit--selected .delivery-domain-switcher-chip-disk {
+  transform: scale(1.06);
+  border-color: var(--sam-primary, #1c8db8);
+  background: var(--sam-primary, #1c8db8);
+  color: #fff;
+  box-shadow: 0 6px 16px rgba(28, 141, 184, 0.35);
+}
+
+.delivery-domain-switcher-hit--selected.delivery-domain-switcher-hit--stores .delivery-domain-switcher-chip-disk {
+  background: var(--sam-danger, #d45252);
+  border-color: #fff;
+  box-shadow: 0 6px 16px rgba(212, 82, 82, 0.42);
+}
+
+.delivery-domain-switcher-hit--selected .delivery-domain-switcher-chip-label {
+  border-color: var(--sam-primary, #1c8db8);
+  color: var(--sam-primary, #1c8db8);
+  font-weight: 600;
+}
+
+.delivery-domain-switcher-hit:focus-visible {
+  outline: 2px solid var(--sam-primary, #1c8db8);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+.delivery-domain-switcher-item--reserved {
+  pointer-events: none;
+}
+
+.delivery-domain-switcher-chip-disk--reserved {
+  visibility: hidden;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .delivery-domain-switcher-rotator--animating,
+  .delivery-domain-switcher-item--open,
+  .delivery-domain-switcher-backdrop,
+  .delivery-domain-switcher-chip-disk {
+    transition: none;
+  }
+}

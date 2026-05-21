@@ -16,6 +16,7 @@ import { resolveOwnerOperationsCenterAttentionCount } from "@/lib/stores/owner-s
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
 import { commerceCartHrefFromBuckets } from "@/lib/stores/store-commerce-cart-nav";
 import { useOwnerLitePreferredStoreRow } from "@/lib/stores/use-owner-lite-store";
+import { StoreOpsCenterStrokeIcon } from "@/components/main-menu/MainBottomNavTabIcons";
 
 const HEADER_BADGE_CLASS = `absolute right-0.5 top-0.5 ${STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME}`;
 
@@ -28,20 +29,6 @@ function OrderHistoryIcon({ className }: { className?: string }) {
         strokeWidth={2}
         d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
       />
-    </svg>
-  );
-}
-
-function OpsCenterIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden>
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth={2}
-        d="M3 9l9-6 9 6v11a1 1 0 01-1 1H4a1 1 0 01-1-1V9z"
-      />
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 21V12h6v9" />
     </svg>
   );
 }
@@ -108,7 +95,7 @@ export function StoresRootTier1HeaderActions() {
                 : undefined
             }
           >
-            <OpsCenterIcon className="h-6 w-6" />
+            <StoreOpsCenterStrokeIcon className="h-6 w-6" />
             {ownerOpsAttention > 0 ? (
               <span className={HEADER_BADGE_CLASS} aria-hidden>
                 {ownerOpsAttention > 99 ? "99+" : ownerOpsAttention}
