@@ -38,7 +38,14 @@ for (const f of files) {
   const content = execSync(`git show ${ref}:${f}`, { encoding: "utf8", maxBuffer: 20e6 });
   for (const m of content.matchAll(re)) {
     const base = m[1].replace(/\\/g, "/");
-    const candidates = [`${base}.ts`, `${base}.tsx`, `${base}/index.ts`, `${base}/index.tsx`];
+    const candidates = [
+      `${base}.ts`,
+      `${base}.tsx`,
+      `${base}.css`,
+      `${base}.json`,
+      `${base}/index.ts`,
+      `${base}/index.tsx`,
+    ];
     if (!candidates.some((c) => tree.has(c))) {
       const imp = `@/${base}`;
       if (!missing.has(imp)) missing.set(imp, []);
