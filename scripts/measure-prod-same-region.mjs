@@ -164,6 +164,11 @@ async function resolveStoreId(cookie) {
   return first?.id ? String(first.id) : null;
 }
 
+function avg(rows, key = "total_ms") {
+  if (!rows?.length) return null;
+  return Math.round(rows.reduce((s, r) => s + (Number(r[key]) || 0), 0) / rows.length);
+}
+
 function avgRuns(runs, key) {
   const vals = runs
     .map((r) => (typeof r === "object" && r != null ? r[key] : null))
@@ -322,11 +327,12 @@ async function main() {
     console.warn("Waterfall Playwright skipped:", e.message);
   }
 
-  const log = readMeasureLogs();
+  const isRemote = !baseUrl.includes("localhost") && !baseUrl.includes("127.0.0.1");
+  const log = isRemote ? "" : readMeasureLogs();
   const perfReal = parseTaggedJsonBlocks(log, "perf-real-api-cost");
   const perfV2 = parseTaggedJsonBlocks(log, "owner-dashboard-perf-v2");
-  const cmDeep = parseTaggedJsonBlocks(log, "cm-unread-deep-breakdown").slice(-3);
-  const ocCold = parseTaggedJsonBlocks(log, "order-counts-cold-breakdown").slice(-2);
+  const cmDeep = isRemote ? [] : parseTaggedJsonBlocks(log, "cm-unread-deep-breakdown").slice(-3);
+  const ocCold = isRemote ? [] : parseTaggedJsonBlocks(log, "order-counts-cold-breakdown").slice(-2);
 
   const hub = pickColdWarm(perfReal.length ? perfReal : perfV2, "store-owner-hub-badge");
   const oc = pickColdWarm(perfReal.length ? perfReal : perfV2, "order-counts");
@@ -344,7 +350,6 @@ async function main() {
   const notifWarmRuns = client.notifications.slice(1);
 
   const headerHandlerCold = (run) => run?.actual_handler_ms ?? null;
-  const isRemote = !baseUrl.includes("localhost") && !baseUrl.includes("127.0.0.1");
   const headersMissing =
     isRemote &&
     headerHandlerCold(hubColdRun) == null &&
