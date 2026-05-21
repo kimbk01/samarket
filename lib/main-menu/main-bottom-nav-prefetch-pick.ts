@@ -1,6 +1,12 @@
 import { BOTTOM_NAV_ITEMS, type BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import { bottomNavMessengerHrefWithOrigin } from "@/lib/community-messenger/messenger-entry-origin";
+import { resolveDeliveryOrderHistoryHref } from "@/lib/stores/delivery-order-history-nav";
 import { mainBottomNavPrefetchTriggerKey } from "@/lib/main-menu/main-bottom-nav-prefetch-domain";
+import { isMainBottomNavDisplayTabActive } from "@/lib/main-menu/main-bottom-nav-tab-active";
+import {
+  resolveMainBottomNavPickTabActiveOptions,
+  type MainBottomNavPickContext,
+} from "@/lib/main-menu/main-bottom-nav-pick-context";
 
 /**
  * `/community-messenger` 셸 — 교차 탭 RSC idle 프리페치 생략 판별용(미사용 preload·현재 화면과 네트워크 경쟁 완화).
@@ -17,10 +23,14 @@ export function isMainBottomNavMessengerShellPathname(pathname: string | null): 
  */
 export function resolveBottomNavTabProgrammaticPrefetchHref(
   tab: BottomNavItemConfig,
-  pathname: string | null
+  pathname: string | null,
+  ctx?: MainBottomNavPickContext
 ): string {
+  if (tab.id === "delivery-orders") {
+    return resolveDeliveryOrderHistoryHref(ctx?.ownerStoreId);
+  }
   if (tab.id === "chat") {
-    return bottomNavMessengerHrefWithOrigin(tab.href, pathname);
+    return bottomNavMessengerHrefWithOrigin(tab.href, pathname, ctx?.searchParams);
   }
   return tab.href;
 }
@@ -43,11 +53,13 @@ export function isBottomNavTabActive(pathname: string | null, tabHref: string): 
  */
 export function resolveActiveMainBottomNavTabIndex(
   pathname: string | null,
-  tabs: readonly BottomNavItemConfig[]
+  tabs: readonly BottomNavItemConfig[],
+  ctx?: MainBottomNavPickContext
 ): number {
   const list = tabs.length > 0 ? tabs : BOTTOM_NAV_ITEMS;
+  const activeOpts = resolveMainBottomNavPickTabActiveOptions(pathname, ctx);
   for (let i = 0; i < list.length; i++) {
-    if (isBottomNavTabActive(pathname, list[i]!.href)) return i;
+    if (isMainBottomNavDisplayTabActive(pathname, list[i]!, activeOpts)) return i;
   }
   return -1;
 }
@@ -60,7 +72,8 @@ export const MAIN_BOTTOM_NAV_PREFETCH_MAX = 4;
  */
 export function pickMainBottomNavPrefetchHrefs(
   pathname: string | null,
-  tabs: readonly BottomNavItemConfig[]
+  tabs: readonly BottomNavItemConfig[],
+  ctx?: MainBottomNavPickContext
 ): string[] {
   if (isMainBottomNavMessengerShellPathname(pathname)) return [];
   /** 매장 운영 허브 — 현재 화면 데이터·Realtime만; 타 탭 RSC·philife feed prewarm 금지 */
@@ -69,17 +82,14 @@ export function pickMainBottomNavPrefetchHrefs(
   const list = tabs.length > 0 ? tabs : BOTTOM_NAV_ITEMS;
   const out: string[] = [];
   const seen = new Set<string>();
-
-  const push = (href: string) => {
-    const h = href.trim();
-    if (!h || seen.has(h)) return;
-    if (isBottomNavTabActive(pathname, h)) return;
-    seen.add(h);
-    out.push(h);
-  };
+  const activeOpts = resolveMainBottomNavPickTabActiveOptions(pathname, ctx);
 
   for (const tab of list) {
-    push(resolveBottomNavTabProgrammaticPrefetchHref(tab, pathname));
+    if (isMainBottomNavDisplayTabActive(pathname, tab, activeOpts)) continue;
+    const href = resolveBottomNavTabProgrammaticPrefetchHref(tab, pathname, ctx).trim();
+    if (!href || seen.has(href)) continue;
+    seen.add(href);
+    out.push(href);
     if (out.length >= MAIN_BOTTOM_NAV_PREFETCH_MAX) break;
   }
 

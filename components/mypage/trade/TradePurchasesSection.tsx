@@ -1,3 +1,5 @@
+"use client";
+
 import { PurchasesView } from "@/components/mypage/PurchasesView";
 import { TradeHubSectionShell } from "@/components/mypage/trade/TradeHubSectionShell";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";

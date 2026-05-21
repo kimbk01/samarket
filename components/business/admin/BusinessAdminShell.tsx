@@ -874,6 +874,7 @@ export function BusinessAdminShell({
             {isOwnerMobileStackViewport && selectedRow && !ownerOrderOverlayOpen ?
               <OwnerMobileBottomNav
                 storeId={selectedRow.id}
+                storeSlug={selectedRow.slug}
                 chatBadge={ownerMobileBottomNavChatBadge}
                 scrollHideEnabled
               />

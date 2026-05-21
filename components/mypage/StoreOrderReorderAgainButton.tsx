@@ -2,7 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useStoreCommerceCart } from "@/contexts/StoreCommerceCartContext";
+import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContext";
 import {
   applyCompletedOrderToCommerceCart,
   type CompletedOrderReorderPayload,
@@ -20,7 +20,7 @@ export function StoreOrderReorderAgainButton({
 }) {
   const { t } = useI18n();
   const router = useRouter();
-  const cart = useStoreCommerceCart();
+  const cart = useStoreCommerceCartOptional();
   const [busy, setBusy] = useState(false);
 
   const onClick = useCallback(async () => {
@@ -28,7 +28,7 @@ export function StoreOrderReorderAgainButton({
       window.alert(t("mypage_comp_store_reorder_store_missing"));
       return;
     }
-    if (!cart.hydrated) return;
+    if (!cart?.hydrated) return;
     setBusy(true);
     try {
       const r = await applyCompletedOrderToCommerceCart(
@@ -54,7 +54,12 @@ export function StoreOrderReorderAgainButton({
   if (!payload) return null;
 
   return (
-    <button type="button" className={className} disabled={busy} onClick={() => void onClick()}>
+    <button
+      type="button"
+      className={className}
+      disabled={busy || !cart?.hydrated}
+      onClick={() => void onClick()}
+    >
       {busy ? t("mypage_comp_store_reorder_adding") : (children ?? t("mypage_comp_store_reorder_default"))}
     </button>
   );

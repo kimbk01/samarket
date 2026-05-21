@@ -6,12 +6,14 @@ import { useCallback, useEffect, useRef, useState, type CSSProperties } from "re
 import { createPortal } from "react-dom";
 import {
   ClipboardList,
+  Home,
   LayoutGrid,
   MessageCircle,
   Settings,
   UtensilsCrossed,
 } from "lucide-react";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
+import { resolveOwnerStoreConsumerHomeHref } from "@/lib/stores/owner-store-consumer-home-href";
 import {
   BOTTOM_NAV_BADGE_RING_CLASS,
   BOTTOM_NAV_OUTER_MOTION,
@@ -36,8 +38,14 @@ const OWNER_NAV_ITEMS: Array<{
   id: OwnerBottomNavTabId;
   label: string;
   icon: typeof LayoutGrid;
-  href: (storeId: string) => string;
+  href: (storeId: string, storeSlug?: string | null) => string;
 }> = [
+  {
+    id: "home",
+    label: "홈",
+    icon: Home,
+    href: (id, slug) => resolveOwnerStoreConsumerHomeHref(id, slug),
+  },
   { id: "dashboard", label: "대시보드", icon: LayoutGrid, href: (id) => OwnerRoutes.hub(id) },
   {
     id: "order-chat",
@@ -55,15 +63,17 @@ function cn(...parts: Array<string | false | null | undefined>): string {
 }
 
 /**
- * 매장 오너 모바일 하단 탭 — 대시보드 · 주문채팅 · 주문 · 메뉴 · 설정.
+ * 매장 오너 모바일 하단 탭 — 홈(매장) · 대시보드 · 주문채팅 · 주문 · 메뉴 · 설정.
  * `BusinessAdminShell` 에서만 마운트한다.
  */
 export function OwnerMobileBottomNav({
   storeId,
+  storeSlug = null,
   chatBadge,
   scrollHideEnabled = true,
 }: {
   storeId: string;
+  storeSlug?: string | null;
   chatBadge?: number;
   scrollHideEnabled?: boolean;
 }) {
@@ -92,11 +102,11 @@ export function OwnerMobileBottomNav({
 
   const isTabActive = useCallback(
     (tabId: OwnerBottomNavTabId) => {
-      const pathActive = isOwnerBottomNavTabActive(pathname, searchParams, tabId);
+      const pathActive = isOwnerBottomNavTabActive(pathname, searchParams, tabId, storeSlug);
       if (pendingActiveId != null) return tabId === pendingActiveId;
       return pathActive;
     },
-    [pathname, searchParams, pendingActiveId]
+    [pathname, searchParams, pendingActiveId, storeSlug]
   );
 
   const outerClass = cn(
@@ -120,7 +130,7 @@ export function OwnerMobileBottomNav({
       <div className={`${BOTTOM_NAV_SHELL.innerBarClassName} ${BOTTOM_NAV_SHELL.heightClass}`}>
         <div className="app-bottom-nav-grid owner-mobile-bottom-nav-grid">
           {OWNER_NAV_ITEMS.map((a) => {
-            const href = a.href(storeId);
+            const href = a.href(storeId, storeSlug);
             const active = isTabActive(a.id);
             const Icon = a.icon;
             const showChatBadge = a.id === "order-chat" && (chatBadge ?? 0) > 0;

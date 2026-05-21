@@ -6,6 +6,7 @@ import {
   pickMainBottomNavPrefetchHrefs,
   resolveActiveMainBottomNavTabIndex,
 } from "@/lib/main-menu/main-bottom-nav-prefetch-pick";
+import { composeMainBottomNavDisplayTabs } from "@/lib/main-menu/main-bottom-nav-split-layout";
 
 describe("isBottomNavTabActive", () => {
   it("거래 탭 — 기본 /market 경로", () => {
@@ -30,40 +31,64 @@ describe("isBottomNavTabActive", () => {
 });
 
 describe("resolveActiveMainBottomNavTabIndex", () => {
-  it("기본 탭 순서(커뮤니티·거래·배달·메신저·내정보)에 맞는 인덱스", () => {
-    expect(resolveActiveMainBottomNavTabIndex("/philife", BOTTOM_NAV_ITEMS)).toBe(0);
-    expect(resolveActiveMainBottomNavTabIndex("/philife/x", BOTTOM_NAV_ITEMS)).toBe(0);
-    expect(resolveActiveMainBottomNavTabIndex("/market", BOTTOM_NAV_ITEMS)).toBe(1);
-    expect(resolveActiveMainBottomNavTabIndex("/market/list", BOTTOM_NAV_ITEMS)).toBe(1);
-    expect(resolveActiveMainBottomNavTabIndex("/stores", BOTTOM_NAV_ITEMS)).toBe(2);
-    expect(resolveActiveMainBottomNavTabIndex("/community-messenger/room/1", BOTTOM_NAV_ITEMS)).toBe(3);
-    expect(resolveActiveMainBottomNavTabIndex("/mypage", BOTTOM_NAV_ITEMS)).toBe(4);
-    expect(resolveActiveMainBottomNavTabIndex("/admin", BOTTOM_NAV_ITEMS)).toBe(-1);
+  it("6탭 분할(좌 3 + 우 3) — 도메인별 활성 인덱스", () => {
+    const philifeTabs = composeMainBottomNavDisplayTabs("/philife", BOTTOM_NAV_ITEMS);
+    expect(resolveActiveMainBottomNavTabIndex("/philife", philifeTabs)).toBe(0);
+    expect(resolveActiveMainBottomNavTabIndex("/philife/x", philifeTabs)).toBe(0);
+    expect(resolveActiveMainBottomNavTabIndex("/mypage/community-posts", philifeTabs)).toBe(3);
+    expect(resolveActiveMainBottomNavTabIndex("/community-messenger", philifeTabs)).toBe(4);
+    expect(resolveActiveMainBottomNavTabIndex("/mypage", philifeTabs)).toBe(5);
+
+    const tradeTabs = composeMainBottomNavDisplayTabs("/market", BOTTOM_NAV_ITEMS);
+    expect(resolveActiveMainBottomNavTabIndex("/market", tradeTabs)).toBe(1);
+    expect(resolveActiveMainBottomNavTabIndex("/mypage/trade", tradeTabs)).toBe(3);
+    expect(resolveActiveMainBottomNavTabIndex("/community-messenger/trade-chats", tradeTabs)).toBe(4);
+
+    const storesTabs = composeMainBottomNavDisplayTabs("/stores", BOTTOM_NAV_ITEMS);
+    expect(resolveActiveMainBottomNavTabIndex("/stores", storesTabs)).toBe(2);
+    expect(resolveActiveMainBottomNavTabIndex("/orders", storesTabs)).toBe(3);
+
+    expect(resolveActiveMainBottomNavTabIndex("/admin", philifeTabs)).toBe(-1);
   });
 });
 
 describe("pickMainBottomNavPrefetchHrefs", () => {
   it("활성 탭 href 는 후보에서 제외(누락 방지 = 빈 배열이 아닌 나머지로 채움)", () => {
-    const hrefs = pickMainBottomNavPrefetchHrefs("/philife/x", BOTTOM_NAV_ITEMS);
-    expect(hrefs.every((h) => !isBottomNavTabActive("/philife/x", h))).toBe(true);
+    const philifeTabs = composeMainBottomNavDisplayTabs("/philife/x", BOTTOM_NAV_ITEMS);
+    const hrefs = pickMainBottomNavPrefetchHrefs("/philife/x", philifeTabs);
+    expect(hrefs).not.toContain("/philife");
     expect(hrefs).toContain("/market");
     expect(hrefs).toContain("/stores");
     expect(hrefs.some((h) => h.startsWith("/community-messenger") && h.includes("section=chats") && h.includes("from=community"))).toBe(
       true
     );
-    expect(hrefs).toContain("/mypage");
-    expect(hrefs).not.toContain("/philife");
+    expect(hrefs.length).toBeLessThanOrEqual(MAIN_BOTTOM_NAV_PREFETCH_MAX);
   });
 
   it("거래 표면에서는 거래·마켓 href 제외", () => {
-    const hrefs = pickMainBottomNavPrefetchHrefs("/market/list", BOTTOM_NAV_ITEMS);
+    const tradeTabs = composeMainBottomNavDisplayTabs("/market/list", BOTTOM_NAV_ITEMS);
+    const hrefs = pickMainBottomNavPrefetchHrefs("/market/list", tradeTabs);
     expect(hrefs).not.toContain("/market");
     expect(hrefs.length).toBeLessThanOrEqual(MAIN_BOTTOM_NAV_PREFETCH_MAX);
   });
 
-  it("거래 표면 idle 후보의 메신저 href 는 탭 링크와 동일하게 from=trade", () => {
-    const hrefs = pickMainBottomNavPrefetchHrefs("/market/list", BOTTOM_NAV_ITEMS);
-    expect(hrefs.some((h) => h.includes("/community-messenger") && h.includes("from=trade"))).toBe(true);
+  it("거래 표면 idle 후보에 거래 메신저 목록 href·from=trade 포함", () => {
+    const tradeTabs = composeMainBottomNavDisplayTabs("/market/list", BOTTOM_NAV_ITEMS);
+    const hrefs = pickMainBottomNavPrefetchHrefs("/market/list", tradeTabs);
+    expect(hrefs.some((h) => h.includes("/community-messenger/trade-chats") && h.includes("from=trade"))).toBe(
+      true
+    );
+  });
+
+  it("매장주 idle prefetch 주문내역 href는 OwnerRoutes.orders", () => {
+    const storesTabs = composeMainBottomNavDisplayTabs("/stores", BOTTOM_NAV_ITEMS);
+    const hrefs = pickMainBottomNavPrefetchHrefs("/stores", storesTabs, {
+      ownerStoreId: "store-uuid-1",
+    });
+    expect(hrefs.some((h) => h.startsWith("/stores/owner/orders") && h.includes("storeId=store-uuid-1"))).toBe(
+      true
+    );
+    expect(hrefs).not.toContain("/orders");
   });
 
   it("메신저 셸에서는 교차 탭 idle 프리페치 생략(미사용 preload·네트워크 경쟁 완화)", () => {
@@ -72,11 +97,13 @@ describe("pickMainBottomNavPrefetchHrefs", () => {
   });
 
   it("동일 href 중복 탭이 있어도 seen 으로 한 번만", () => {
-    const dupTabs = [
-      { id: "a", href: "/market", label: "H", icon: "trade" as const },
-      { id: "b", href: "/market", label: "H2", icon: "trade" as const },
-      { id: "c", href: "/philife", label: "P", icon: "community" as const },
-    ];
+    const dupTabs = composeMainBottomNavDisplayTabs("/stores", [
+      { id: "community", href: "/philife", label: "P", icon: "community" as const },
+      { id: "home", href: "/market", label: "H", icon: "trade" as const },
+      { id: "stores", href: "/stores", label: "S", icon: "stores" as const },
+      { id: "chat", href: "/community-messenger?section=chats", label: "C", icon: "chat" as const },
+      { id: "my", href: "/mypage", label: "M", icon: "my" as const },
+    ]);
     const hrefs = pickMainBottomNavPrefetchHrefs("/stores", dupTabs);
     expect(hrefs.filter((h) => h === "/market").length).toBeLessThanOrEqual(1);
   });

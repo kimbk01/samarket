@@ -14,6 +14,7 @@ import { buildMessengerRoomListBackHref } from "@/lib/community-messenger/messen
 import { getMessengerRoomBackOverride } from "@/lib/community-messenger/room/messenger-room-back-navigation";
 import { normalizeAppPathnameForTier1 } from "@/lib/layout/normalize-app-pathname";
 import { resolveMainTier1Subpage } from "@/lib/layout/resolve-main-tier1";
+import { resolveTier1BarLabel } from "@/lib/layout/resolve-tier1-bar-label";
 import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { Tier1ExplorationTitleRow } from "@/components/layout/Tier1ExplorationTitleRow";
@@ -28,60 +29,8 @@ import {
   BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY,
   BOTTOM_NAV_TRADE_TAB_LABEL_KEY,
 } from "@/lib/main-menu/bottom-nav-config";
-import {
-  STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME,
-  StoreCommerceCartStrokeIcon,
-} from "@/components/stores/StoreCommerceCartStrokeIcon";
-import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContext";
-import { commerceCartHrefFromBuckets } from "@/lib/stores/store-commerce-cart-nav";
+import { StoresRootTier1HeaderActions } from "@/components/stores/StoresRootTier1HeaderActions";
 import type { ReactNode } from "react";
-
-function StoresRootTier1Right() {
-  const { t } = useI18n();
-  const commerceCart = useStoreCommerceCartOptional();
-  const cartLineKindCount = commerceCart?.hydrated ? commerceCart.totalItemCountAllStores : 0;
-  const cartHref = useMemo(() => {
-    if (!commerceCart?.hydrated) return "/stores";
-    return commerceCartHrefFromBuckets(commerceCart.listCartBuckets());
-  }, [commerceCart]);
-
-  return (
-    <>
-      <Link
-        href="/stores/search"
-        className="sam-header-action h-10 w-10 text-sam-fg"
-        aria-label={t("nav_search_aria")}
-      >
-        <svg
-          className="h-6 w-6"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={2.2}
-          aria-hidden
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-          />
-        </svg>
-      </Link>
-      <Link
-        href={cartHref}
-        className="sam-header-action relative h-10 w-10 shrink-0 text-sam-fg"
-        aria-label={cartLineKindCount > 0 ? t("nav_cart_aria") : t("common_delivery")}
-      >
-        <StoreCommerceCartStrokeIcon className="h-6 w-6" />
-        {cartLineKindCount > 0 ? (
-          <span className={`absolute right-0.5 top-0.5 ${STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME}`}>
-            {cartLineKindCount > 99 ? "99+" : cartLineKindCount}
-          </span>
-        ) : null}
-      </Link>
-    </>
-  );
-}
 
 function UnifiedTier1Shell({ children }: { children: ReactNode }) {
   return (
@@ -98,7 +47,7 @@ export function RegionBar({
 }: {
   tier1RuleSet?: MobileTopTier1RuleSet;
 }) {
-  const { tt, t } = useI18n();
+  const { tt, t, safeT } = useI18n();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const pathNoQuery = normalizeAppPathnameForTier1(pathname);
@@ -181,20 +130,13 @@ export function RegionBar({
         <div
           className={`flex h-[length:var(--sam-header-row-height)] min-h-[length:var(--sam-header-row-height)] min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}
         >
-          <div className="flex w-[44px] shrink-0 items-center justify-start self-stretch">
-            <AppBackButton preferHistoryBack backHref="/philife" ariaLabel={t("tier1_back")} />
-          </div>
-          <div className="flex min-h-0 min-w-0 flex-1 items-center self-stretch overflow-hidden px-1 text-center">
-            <h1 className="flex min-h-0 min-w-0 w-full items-center justify-center overflow-hidden text-sam-fg">
+          <div className="flex h-full min-h-0 min-w-0 flex-1 items-center overflow-hidden pr-1 text-left">
+            <h1 className="flex min-h-0 min-w-0 w-full items-center overflow-hidden text-sam-fg">
               <span className="shrink-0 sam-text-page-title leading-none">{segmentTitle}</span>
             </h1>
           </div>
-          <div className="ml-auto flex h-full min-w-0 max-w-[200px] shrink-0 items-center justify-end gap-0.5 pr-0.5">
-            <div className="inline-flex h-full shrink-0 items-center gap-0 [&>*+*]:-ml-1">
-              <StoresRootTier1Right />
-              <PhilifeHeaderMessengerButton />
-              <PhilifeHeaderAddressMenuButton />
-            </div>
+          <div className="ml-auto flex h-full shrink-0 items-center justify-end pr-0.5">
+            <StoresRootTier1HeaderActions />
           </div>
         </div>
       </UnifiedTier1Shell>
@@ -226,18 +168,18 @@ export function RegionBar({
       messengerRoomBackOverride ? false
       : true
     : o?.preferHistoryBack ?? base.preferHistoryBack;
-  const ariaLabel = tt(o?.ariaLabel ?? base.ariaLabel);
+  const ariaLabel = resolveTier1BarLabel(t, tt, o?.ariaLabel ?? base.ariaLabel) ?? safeT("tier1_back");
   const subtitleRaw = o?.subtitle ?? base.subtitle;
-  const subtitle = subtitleRaw ? tt(subtitleRaw) : undefined;
+  const subtitle = resolveTier1BarLabel(t, tt, subtitleRaw);
   const subtitleHref = o?.subtitleHref ?? base.subtitleHref;
   const showHub = o?.showHubQuickActions ?? base.showHubQuickActions;
 
   const centerFromExtras = o?.title != null ? o.title : null;
   const titleTextFromExtras = o?.titleText;
   const rawStringTitle =
-    (typeof centerFromExtras === "string" ? tt(centerFromExtras) : null) ??
-    (titleTextFromExtras ? tt(titleTextFromExtras) : null) ??
-    tt(base.titleText);
+    (typeof centerFromExtras === "string" ? resolveTier1BarLabel(t, tt, centerFromExtras) : null) ??
+    (titleTextFromExtras ? resolveTier1BarLabel(t, tt, titleTextFromExtras) : null) ??
+    resolveTier1BarLabel(t, tt, base.titleText);
   const stringTitle = rawStringTitle?.trim() ? rawStringTitle : undefined;
 
   const centerNode: ReactNode =

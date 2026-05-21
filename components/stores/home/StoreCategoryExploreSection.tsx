@@ -34,7 +34,7 @@ const FOOD_CATEGORIES: readonly { icon: string; subSlug?: string }[] = [
   { icon: "/icons/food/icon_0_0.png" },
   { icon: "/icons/food/icon_0_1.png", subSlug: "korean" },
   { icon: "/icons/food/icon_0_2.png", subSlug: "chicken" },
-  { icon: "/icons/food/icon_0_3.png", subSlug: "snack" },
+  { icon: "/icons/food/icon_0_3.png", subSlug: "western" },
   { icon: "/icons/food/icon_1_0.png", subSlug: "chinese" },
   { icon: "/icons/food/icon_1_1.png", subSlug: "japanese" },
   { icon: "/icons/food/icon_1_2.png", subSlug: "pizza" },
@@ -231,7 +231,7 @@ export function StoreCategoryExploreSection({
                 !cat.subSlug ? storesBrowsePrimaryPath(activeSlug) : storesBrowsePath(activeSlug, cat.subSlug);
               return (
                 <Link
-                  key={cat.subSlug ?? "all"}
+                  key={cat.icon}
                   href={href}
                   className={STORE_BROWSE_SUB_CARD}
                 >

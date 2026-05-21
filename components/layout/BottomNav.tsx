@@ -59,6 +59,17 @@ import {
   pickMainBottomNavPrefetchHrefs,
   resolveBottomNavTabProgrammaticPrefetchHref,
 } from "@/lib/main-menu/main-bottom-nav-prefetch-pick";
+import {
+  composeMainBottomNavDisplayTabs,
+  resolveMainBottomNavSecondaryRailKind,
+} from "@/lib/main-menu/main-bottom-nav-split-layout";
+import { isMainBottomNavDisplayTabActive } from "@/lib/main-menu/main-bottom-nav-tab-active";
+import {
+  bottomNavMessengerHrefWithOrigin,
+  parseMessengerEntryOrigin,
+  persistMessengerEntryOrigin,
+} from "@/lib/community-messenger/messenger-entry-origin";
+import { resolveDeliveryOrderHistoryHref } from "@/lib/stores/delivery-order-history-nav";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
   clientHasVerifiedContactForInteractive,
@@ -67,7 +78,6 @@ import {
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import { scrollAppShellToTop } from "@/lib/layout/scroll-app-shell-to-top";
 import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
-import { bottomNavMessengerHrefWithOrigin } from "@/lib/community-messenger/messenger-entry-origin";
 import {
   navPerfMarkBottomNavClickStart,
   navPerfSetOptimisticTotalMs,
@@ -207,6 +217,15 @@ function runBottomNavTabClick(
   navPerfMarkBottomNavClickStart(navClickT0);
   beginMenuNavigation(href);
   onNavigationIntent(tabId);
+  if (tabId === "chat") {
+    try {
+      const u = new URL(href, "https://samarket.local");
+      const o = parseMessengerEntryOrigin(u.searchParams.get("from"));
+      if (o) persistMessengerEntryOrigin(o);
+    } catch {
+      /* noop */
+    }
+  }
   navPerfSetOptimisticTotalMs(performance.now() - navClickT0);
 
   if (!isActive) {
@@ -226,6 +245,7 @@ function runBottomNavTabClick(
 
 const BottomNavTabStandard = memo(function BottomNavTabStandard({
   tab,
+  itemClassName = "",
   pathname,
   navSearch,
   pendingActiveTabId,
@@ -234,6 +254,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
   guardBeforeNavigate,
 }: {
   tab: BottomNavItemConfig;
+  itemClassName?: string;
   pathname: string | null;
   navSearch: string;
   /** 탭 이동 직후 — pathname 갱신 전에도 **한 탭만** 활성으로 보이게 함(이전 경로 탭이 남는 체감 제거) */
@@ -247,22 +268,34 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
   const hasOwnerStore = useOwnerLiteHasPreferredStore();
   const tabBadgeCount = useOwnerHubBadgeTabUnreadCount(tab.icon);
   const tabLabel = tab.labelKey ? safeT(tab.labelKey) : tt(tab.label);
+  const ownerStore = useOwnerLitePreferredStoreRow();
+  const searchParams = useSearchParams();
+  const secondaryRail = useMemo(
+    () => resolveMainBottomNavSecondaryRailKind(pathname, searchParams),
+    [pathname, searchParams]
+  );
   const isActive =
     pendingActiveTabId != null
       ? tab.id === pendingActiveTabId
-      : isBottomNavTabActive(pathname, tab.href);
+      : isMainBottomNavDisplayTabActive(pathname, tab, { searchParams, secondaryRail });
   const Icon = TAB_ICONS[tab.icon];
   const iconSize = tab.iconSizeClass ?? BOTTOM_NAV_THEME.iconSizeClass;
 
-  /** 메신저 탭: 현재 표면(커뮤니티·거래·배달)에 맞춰 `?from=` 부착 — 상단 헤더 진입과 동일 출처 규칙 */
-  const effectiveHref = useMemo(
-    () => (tab.id === "chat" ? bottomNavMessengerHrefWithOrigin(tab.href, pathname) : tab.href),
-    [tab.id, tab.href, pathname]
-  );
+  const effectiveHref = useMemo(() => {
+    if (tab.id === "delivery-orders") {
+      return resolveDeliveryOrderHistoryHref(ownerStore?.id);
+    }
+    if (tab.id === "chat") {
+      return bottomNavMessengerHrefWithOrigin(tab.href, pathname, searchParams);
+    }
+    return tab.href;
+  }, [tab.id, tab.href, pathname, searchParams, ownerStore?.id]);
 
   const className = [
     "app-bottom-nav-item group",
     BOTTOM_NAV_ITEM_TOUCH_CLASS,
+    itemClassName,
+    tab.id === "my" ? "app-bottom-nav-item--my-menu" : "",
     hasOwnerStore && !isActive ? "opacity-95" : "",
   ]
     .filter(Boolean)
@@ -271,7 +304,9 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
   const ariaLbl =
     tabBadgeCount > 0
       ? t("nav_attention_needed", { label: tabLabel, count: tabBadgeCount })
-      : undefined;
+      : tab.id === "my"
+        ? t("nav_bottom_my")
+        : undefined;
 
   const inner = (
     <>
@@ -384,6 +419,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
 
 const BottomNavTabStores = memo(function BottomNavTabStores({
   tab,
+  itemClassName = "",
   pathname,
   navSearch,
   pendingActiveTabId,
@@ -392,6 +428,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   guardBeforeNavigate,
 }: {
   tab: BottomNavItemConfig;
+  itemClassName?: string;
   pathname: string | null;
   navSearch: string;
   pendingActiveTabId: string | null;
@@ -409,7 +446,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   const isActive =
     pendingActiveTabId != null
       ? tab.id === pendingActiveTabId
-      : isBottomNavTabActive(pathname, tab.href);
+      : isMainBottomNavDisplayTabActive(pathname, tab);
   const Icon = TAB_ICONS.stores;
   const iconSize = tab.iconSizeClass ?? BOTTOM_NAV_THEME.iconSizeClass;
 
@@ -425,6 +462,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
   const className = [
     "app-bottom-nav-item group",
     BOTTOM_NAV_ITEM_TOUCH_CLASS,
+    itemClassName,
     inactiveSurface,
   ]
     .filter(Boolean)
@@ -592,6 +630,10 @@ export function BottomNav({
   }, [primaryRegion]);
   const searchParams = useSearchParams();
   const navSearch = searchParams.toString();
+  const bottomNavPickCtxRef = useRef<{ searchParams: typeof searchParams; ownerStoreId?: string | null }>({
+    searchParams,
+    ownerStoreId: null,
+  });
   const router = useRouter();
   const { beginMenuNavigation } = useLatestMenuNavigation();
   /** `useRouter()` 는 AppRouterContext 갱신 시마다 항상 동일 식별자가 아닐 수 있음 — prefetch effect deps 는 도메인 키만. */
@@ -604,14 +646,22 @@ export function BottomNav({
    * 해당 Provider 가 담당하므로 여기서는 읽기만. (`initialTabs` prop 은 SSR hydrate 호환을 위해 시그니처 유지.)
    */
   const tabs = useMainBottomNavTabs();
+  const ownerStoreRow = useOwnerLitePreferredStoreRow();
+  const displayTabs = useMemo(
+    () => composeMainBottomNavDisplayTabs(pathname ?? null, tabs, searchParams),
+    [pathname, tabs, searchParams]
+  );
+  useLayoutEffect(() => {
+    bottomNavPickCtxRef.current = { searchParams, ownerStoreId: ownerStoreRow?.id };
+  }, [searchParams, ownerStoreRow?.id]);
   const [pendingActiveTabId, setPendingActiveTabId] = useState<string | null>(null);
-  const tabsRef = useRef(tabs);
+  const tabsRef = useRef(displayTabs);
   /** 브라우저 `window.setTimeout` id — `@types/node` 의 `ReturnType<typeof setTimeout>` 과 분리 */
   const pendingActiveResetTimerRef = useRef<number | null>(null);
   const lastPathnameForPendingRef = useRef<string | null>(pathname ?? null);
   useEffect(() => {
-    tabsRef.current = tabs;
-  }, [tabs]);
+    tabsRef.current = displayTabs;
+  }, [displayTabs]);
   const isChatRoomDetail =
     (pathname?.match(/^\/community-messenger\/rooms\/[^/]+\/?$/) ?? false) ||
     (pathname?.match(/^\/chats\/[^/]+\/?$/) ?? false) ||
@@ -680,7 +730,11 @@ export function BottomNav({
       if (cancelled) return;
       idleId = scheduleWhenBrowserIdle(() => {
         if (cancelled) return;
-        const hrefs = pickMainBottomNavPrefetchHrefs(pathnameForPrefetchRef.current, tabsRef.current);
+        const hrefs = pickMainBottomNavPrefetchHrefs(
+          pathnameForPrefetchRef.current,
+          tabsRef.current,
+          bottomNavPickCtxRef.current
+        );
         if (hrefs.length === 0) return;
 
         const scheduleNext = (nextIdx: number) => {
@@ -760,7 +814,7 @@ export function BottomNav({
     const at = pathnameForPrefetchRef.current;
     if (shouldSkipBottomNavBackgroundPrefetch(at)) return;
     const hrefs = tabsRef.current
-      .map((tab) => resolveBottomNavTabProgrammaticPrefetchHref(tab, at))
+      .map((tab) => resolveBottomNavTabProgrammaticPrefetchHref(tab, at, bottomNavPickCtxRef.current))
       .filter((href, idx, arr) => arr.indexOf(href) === idx)
       .slice(0, 5);
     if (hrefs.length === 0) return;
@@ -833,46 +887,72 @@ export function BottomNav({
     .filter(Boolean)
     .join(" ");
 
+  const renderBottomNavTab = useCallback(
+    (tab: BottomNavItemConfig, tabIndex: number) => {
+      const groupEdgeClass =
+        tabIndex === 2
+          ? "app-bottom-nav-item--group-gap-after"
+          : tabIndex === 3
+            ? "app-bottom-nav-item--group-gap-before"
+            : "";
+      const guardNav = () => {
+        const targetHref =
+          tab.id === "chat"
+            ? bottomNavMessengerHrefWithOrigin(tab.href, pathname, searchParams)
+            : tab.id === "delivery-orders"
+              ? resolveDeliveryOrderHistoryHref(ownerStoreRow?.id)
+              : tab.href;
+        if (!guardBeforeNavigate(targetHref)) return false;
+        if (!targetHref.includes("/community-messenger")) return true;
+        const user = getCurrentUser();
+        if (!user?.id) return true;
+        if (clientHasVerifiedContactForInteractive(user)) return true;
+        openPhoneVerificationRequiredDialog({ next: targetHref });
+        return false;
+      };
+      return tab.icon === "stores" ? (
+        <BottomNavTabStores
+          key={tab.id}
+          tab={tab}
+          itemClassName={groupEdgeClass}
+          pathname={pathname}
+          navSearch={navSearch}
+          pendingActiveTabId={pendingActiveTabId}
+          onNavigationIntent={markBottomNavIntent}
+          beginMenuNavigation={beginBottomNavNavigation}
+          guardBeforeNavigate={guardNav}
+        />
+      ) : (
+        <BottomNavTabStandard
+          key={tab.id}
+          tab={tab}
+          itemClassName={groupEdgeClass}
+          pathname={pathname}
+          navSearch={navSearch}
+          pendingActiveTabId={pendingActiveTabId}
+          onNavigationIntent={markBottomNavIntent}
+          beginMenuNavigation={beginBottomNavNavigation}
+          guardBeforeNavigate={guardNav}
+        />
+      );
+    },
+    [
+      pathname,
+      navSearch,
+      searchParams,
+      ownerStoreRow?.id,
+      pendingActiveTabId,
+      markBottomNavIntent,
+      beginBottomNavNavigation,
+      guardBeforeNavigate,
+    ]
+  );
+
   const nav = (
     <nav className={outerClass} aria-label={t("nav_bottom_bar_aria")}>
       <div className={`${BOTTOM_NAV_SHELL.innerBarClassName} ${BOTTOM_NAV_SHELL.heightClass}`}>
-        <div className="app-bottom-nav-grid">
-          {tabs.map((tab) => {
-            const guardNav = () => {
-              const targetHref =
-                tab.id === "chat" ? bottomNavMessengerHrefWithOrigin(tab.href, pathname) : tab.href;
-              if (!guardBeforeNavigate(targetHref)) return false;
-              if (!tab.href.includes("/community-messenger")) return true;
-              const user = getCurrentUser();
-              if (!user?.id) return true;
-              if (clientHasVerifiedContactForInteractive(user)) return true;
-              openPhoneVerificationRequiredDialog({ next: targetHref });
-              return false;
-            };
-            return tab.icon === "stores" ? (
-              <BottomNavTabStores
-                key={tab.id}
-                tab={tab}
-                pathname={pathname}
-                navSearch={navSearch}
-                pendingActiveTabId={pendingActiveTabId}
-                onNavigationIntent={markBottomNavIntent}
-                beginMenuNavigation={beginBottomNavNavigation}
-                guardBeforeNavigate={guardNav}
-              />
-            ) : (
-              <BottomNavTabStandard
-                key={tab.id}
-                tab={tab}
-                pathname={pathname}
-                navSearch={navSearch}
-                pendingActiveTabId={pendingActiveTabId}
-                onNavigationIntent={markBottomNavIntent}
-                beginMenuNavigation={beginBottomNavNavigation}
-                guardBeforeNavigate={guardNav}
-              />
-            );
-          })}
+        <div className="app-bottom-nav-split">
+          {displayTabs.map((tab, index) => renderBottomNavTab(tab, index))}
         </div>
       </div>
     </nav>
@@ -951,10 +1031,13 @@ function ChatIcon({ className }: { className?: string }) {
   );
 }
 
+/** 내정보 — 가로 점 세 개(더보기) */
 function MyIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+      <circle cx="6" cy="12" r="1.75" />
+      <circle cx="12" cy="12" r="1.75" />
+      <circle cx="18" cy="12" r="1.75" />
     </svg>
   );
 }

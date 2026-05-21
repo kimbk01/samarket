@@ -17,7 +17,7 @@ import { useOwnerHubBadgeBreakdown } from "@/lib/chats/use-owner-hub-badge-total
 import { resolveMessengerTabTotalUnreadBadgeCount } from "@/lib/notifications/samarket-messenger-notification-regulations";
 import {
   inferMessengerEntryOriginFromPath,
-  withMessengerEntryOrigin,
+  mainBottomNavMessengerTabHref,
 } from "@/lib/community-messenger/messenger-entry-origin";
 
 /**
@@ -31,15 +31,12 @@ export function PhilifeHeaderMessengerButton() {
   const pathname = usePathname() ?? "";
   const stack = usePhilifeHeaderMessengerStack();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
-  const baseMessengerHref = useMemo(
-    () => BOTTOM_NAV_ITEMS.find((i) => i.id === "chat")?.href ?? "/community-messenger?section=chats",
-    []
-  );
-  /** 커뮤니티·거래·배달 상단 헤더에서 풀 경로로 갈 때 `?from=` — 뒤로가기가 해당 탭과 맞음 */
-  const href = useMemo(
-    () => withMessengerEntryOrigin(baseMessengerHref, inferMessengerEntryOriginFromPath(pathname)),
-    [baseMessengerHref, pathname]
-  );
+  /** 커뮤니티·거래·배달 상단 헤더 — `?from=` + 레일별 메신저 목록(뒤로가기는 `/philife`·`/market`·`/stores`) */
+  const href = useMemo(() => {
+    const inferred = inferMessengerEntryOriginFromPath(pathname) ?? "community";
+    return mainBottomNavMessengerTabHref(inferred);
+  }, [pathname]);
+  const baseMessengerHref = href;
   const label = t("nav_bottom_messenger");
   const useStack = isMessengerFromHeaderStackSurface(pathname);
   const ownerHub = useOwnerHubBadgeBreakdown();

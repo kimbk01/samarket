@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "node scripts/next-dev.cjs",
+    "dev": "cross-env NODE_OPTIONS=--max-old-space-size=8192 node scripts/next-dev.cjs",
     "dev:safe": "cross-env NODE_OPTIONS=--max-old-space-size=8192 DEV_SAFE_MODE=1 node scripts/next-dev.cjs",
     "dev:https": "node scripts/next-dev.cjs --experimental-https",
     "dev:fast": "node scripts/next-dev.cjs --win-fast",

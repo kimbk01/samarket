@@ -111,13 +111,45 @@ export function inferMessengerEntryOriginFromPath(pathname: string | null | unde
   if (p === "/community" || p.startsWith("/community/")) return "community";
   if (p === "/market" || p.startsWith("/market/")) return "trade";
   if (p === "/stores" || p.startsWith("/stores/")) return "delivery";
+  if (p === "/orders" || p.startsWith("/orders/")) return "delivery";
+  if (p === "/my/store-orders" || p.startsWith("/my/store-orders/")) return "delivery";
+  if (p === "/mypage/store-orders" || p.startsWith("/mypage/store-orders/")) return "delivery";
   return null;
 }
 
-/** 하단 탭 메신저 링크에만 `?from=` 부착할 때 사용 */
-export function bottomNavMessengerHrefWithOrigin(baseHref: string, pathname: string | null | undefined): string {
-  const origin = inferMessengerEntryOriginFromPath(pathname);
-  return withMessengerEntryOrigin(baseHref, origin);
+/** 하단 탭 메신저 링크 — 레일별 목록 + `?from=` (1단 뒤로가기·세션 출처) */
+export function mainBottomNavMessengerTabHref(origin: NonNullable<MessengerEntryOrigin>): string {
+  if (origin === "delivery") {
+    return withMessengerEntryOrigin("/community-messenger/delivery-chats", "delivery");
+  }
+  if (origin === "trade") {
+    return withMessengerEntryOrigin("/community-messenger/trade-chats", "trade");
+  }
+  return withMessengerEntryOrigin("/community-messenger?section=chats", "community");
+}
+
+/** `?from=` → 하단 우측 레일(stores|trade|philife) */
+export function messengerEntryOriginToSecondaryRail(
+  origin: MessengerEntryOrigin
+): "stores" | "trade" | "philife" {
+  if (origin === "delivery") return "stores";
+  if (origin === "trade") return "trade";
+  return "philife";
+}
+
+/** 하단 탭 메신저 링크 — 현재 표면 출처로 목록 URL·`?from=` 결정 */
+export function bottomNavMessengerHrefWithOrigin(
+  _baseHref: string,
+  pathname: string | null | undefined,
+  searchParams?: { get: (key: string) => string | null } | null
+): string {
+  const fromQuery = parseMessengerEntryOrigin(searchParams?.get(MESSENGER_ENTRY_ORIGIN_QUERY_KEY));
+  const origin =
+    fromQuery ??
+    inferMessengerEntryOriginFromPath(pathname) ??
+    (typeof window !== "undefined" ? readStoredMessengerEntryOrigin() : null) ??
+    "community";
+  return mainBottomNavMessengerTabHref(origin);
 }
 
 /**
