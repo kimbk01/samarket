@@ -8,7 +8,7 @@ export default function OwnerStoreReviewsPage() {
   return (
     <Suspense
       fallback={
-        <div className="px-4 pt-4">
+        <div className="pt-4">
           <OwnerStoreSuspenseFallback className="text-sm text-sam-muted" />
         </div>
       }

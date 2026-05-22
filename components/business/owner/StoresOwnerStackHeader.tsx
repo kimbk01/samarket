@@ -72,13 +72,11 @@ export function StoresOwnerStackHeader({
               <div className="flex shrink-0 items-center gap-1">{rightSlot}</div>
             </>
           : <>
-              <div className="min-w-0 flex-1 lg:hidden">
+              <div className="flex min-w-0 flex-1 items-center lg:hidden">
                 <h1 className="truncate sam-text-body-lg font-semibold leading-tight text-sam-fg">{adminTitle}</h1>
-                <p className="truncate sam-text-xxs leading-tight text-sam-muted">{shopName}</p>
               </div>
-              <div className="hidden min-w-0 flex-1 items-baseline gap-3 lg:flex">
+              <div className="hidden min-w-0 flex-1 items-center lg:flex">
                 <h1 className="sam-text-page-title font-semibold text-sam-fg">{adminTitle}</h1>
-                <span className="sam-text-body-secondary text-sam-muted">{shopName}</span>
               </div>
               <div className="flex shrink-0 items-center gap-1">{rightSlot}</div>
             </>

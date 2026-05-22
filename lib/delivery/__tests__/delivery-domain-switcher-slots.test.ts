@@ -30,4 +30,9 @@ describe("delivery-domain-switcher-slots", () => {
       expect(slots[5].tab.href).toContain("storeId=abc-store");
     }
   });
+
+  it("오너 어드민 다이얼 — 운영센터 없이 6번째 빈칸", () => {
+    const slots = composeDeliveryDomainSwitcherSlots("abc-store", { includeOpsCenter: false });
+    expect(slots[5]).toEqual({ kind: "placeholder", slotId: "delivery-ops-reserved" });
+  });
 });

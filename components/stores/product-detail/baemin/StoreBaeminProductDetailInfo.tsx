@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { STORE_ORDER_TOUCH_BTN } from "@/components/stores/store-order-detail/store-order-brand";
 
 export function StoreBaeminProductDetailInfo({
@@ -18,6 +19,7 @@ export function StoreBaeminProductDetailInfo({
   reviewCount: number;
   badges: string[];
 }) {
+  const { t } = useI18n();
   const reviewsHref =
     reviewCount > 0
       ? `/stores/${encodeURIComponent(storeSlug)}/reviews`
@@ -50,7 +52,7 @@ export function StoreBaeminProductDetailInfo({
         href={reviewsHref}
         className={`mt-2.5 inline-flex items-center text-[13px] font-bold text-[#111111] underline-offset-2 hover:underline ${STORE_ORDER_TOUCH_BTN}`}
       >
-        메뉴 리뷰 {reviewCount.toLocaleString("ko-KR")}개 ›
+        {t("store_menu_review_link", { count: reviewCount })}
       </Link>
     </div>
   );

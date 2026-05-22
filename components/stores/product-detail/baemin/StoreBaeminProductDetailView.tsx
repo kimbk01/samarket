@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { ParsedOptionGroup } from "@/lib/stores/modifiers/types";
 import type { ModifierSelectionsWire } from "@/lib/stores/modifiers/types";
 import { StoreModifierPicker } from "@/components/stores/modifiers/StoreModifierPicker";
@@ -48,6 +49,7 @@ export type StoreBaeminProductDetailViewProps = {
 };
 
 export function StoreBaeminProductDetailView(props: StoreBaeminProductDetailViewProps) {
+  const { t } = useI18n();
   const {
     storeSlug,
     productId,
@@ -101,7 +103,7 @@ export function StoreBaeminProductDetailView(props: StoreBaeminProductDetailView
         ) : null}
         {soldOut ? (
           <p className="mx-4 mb-2 rounded-[8px] bg-[#F2F3F5] px-3 py-2 text-[13px] font-medium text-[#333333]">
-            품절
+            {t("store_sold_out")}
           </p>
         ) : null}
 
@@ -111,9 +113,9 @@ export function StoreBaeminProductDetailView(props: StoreBaeminProductDetailView
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-[13px] font-bold text-neutral-900">가격</p>
+              <p className="text-[13px] font-bold text-neutral-900">{t("store_product_price_label")}</p>
               <p className="mt-0.5 text-[12px] font-medium text-neutral-500">
-                옵션을 추가하기 전 메뉴 금액입니다.
+                {t("store_product_price_before_options")}
               </p>
             </div>
             <div className="shrink-0 text-right">
@@ -129,26 +131,26 @@ export function StoreBaeminProductDetailView(props: StoreBaeminProductDetailView
           </div>
 
           <div className="mt-4 flex items-center justify-between border-t border-neutral-200/70 pt-4">
-            <span className="text-[13px] font-bold text-neutral-900">수량</span>
+            <span className="text-[13px] font-bold text-neutral-900">{t("store_product_qty_label")}</span>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 disabled={qtyMinusDisabled}
                 onClick={onQtyDecrease}
                 className={`flex h-10 w-10 shrink-0 items-center justify-center text-lg font-bold leading-none ${STORE_ORDER_CTA_STEPPER}`}
-                aria-label="수량 감소"
+                aria-label={t("store_qty_decrease_aria")}
               >
                 −
               </button>
               <span className="min-w-[2.5rem] text-center text-[16px] font-extrabold tabular-nums text-neutral-900">
-                {qty}개
+                {t("store_product_qty_count", { count: qty })}
               </span>
               <button
                 type="button"
                 disabled={qtyPlusDisabled}
                 onClick={onQtyIncrease}
                 className={`flex h-10 w-10 shrink-0 items-center justify-center text-lg font-bold leading-none ${STORE_ORDER_CTA_STEPPER}`}
-                aria-label="수량 증가"
+                aria-label={t("store_qty_increase_aria")}
               >
                 +
               </button>
@@ -160,14 +162,16 @@ export function StoreBaeminProductDetailView(props: StoreBaeminProductDetailView
           <StoreProductSheetOptionsSkeleton />
         ) : optionHydrationFailed ? (
           <div className="border-t-[8px] border-[#EDEDED] px-4 py-6 text-center">
-            <p className="text-[13px] font-medium text-neutral-700">옵션 정보를 불러오지 못했습니다.</p>
+            <p className="text-[13px] font-medium text-neutral-700">
+              {t("store_product_option_load_failed")}
+            </p>
             {onOptionRetry ? (
               <button
                 type="button"
                 onClick={onOptionRetry}
                 className={`mt-3 text-[14px] font-bold text-[#1C8DB8] ${STORE_ORDER_TOUCH_BTN}`}
               >
-                다시 시도
+                {t("common_retry")}
               </button>
             ) : null}
           </div>
@@ -184,7 +188,7 @@ export function StoreBaeminProductDetailView(props: StoreBaeminProductDetailView
         ) : null}
 
         <p className="px-4 pb-4 pt-4 text-center text-[11px] leading-relaxed text-[#AAAAAA]">
-          메뉴 사진은 연출된 이미지로 실제와 다를 수 있습니다.
+          {t("store_product_photo_disclaimer")}
         </p>
       </div>
 

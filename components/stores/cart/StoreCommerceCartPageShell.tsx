@@ -6,6 +6,7 @@ import {
   flushCartHydrationBreakdown,
   markCartHydrationStage,
 } from "@/lib/stores/cart-hydration-breakdown";
+import { StoreCartSwipeBackShell } from "@/components/stores/cart/StoreCartSwipeBackShell";
 import {
   STORE_CART_FOOTER_CHROME_CLASS,
   STORE_CART_HEADER_CHROME_CLASS,
@@ -19,11 +20,14 @@ import {
  * Store cart: pinned header/footer, scrollable middle (flex column).
  */
 export function StoreCommerceCartPageShell({
+  storeSlug,
   header,
   children,
   footer,
   hydrationMeasured,
 }: {
+  /** 스와이프·뒤로 폴백용 매장 slug (`/stores/[slug]/cart`) */
+  storeSlug?: string;
   header?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
@@ -36,7 +40,7 @@ export function StoreCommerceCartPageShell({
     flushCartHydrationBreakdown();
   }, [hydrationMeasured]);
 
-  return (
+  const page = (
     <div
       data-store-commerce-cart-page
       data-samarket-cart-hydrated={hydrationMeasured ? "1" : undefined}
@@ -52,4 +56,10 @@ export function StoreCommerceCartPageShell({
       {footer ? <div className={STORE_CART_FOOTER_CHROME_CLASS}>{footer}</div> : null}
     </div>
   );
+
+  const slug = storeSlug?.trim() ?? "";
+  if (slug) {
+    return <StoreCartSwipeBackShell storeSlug={slug}>{page}</StoreCartSwipeBackShell>;
+  }
+  return page;
 }

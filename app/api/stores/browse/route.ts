@@ -20,6 +20,7 @@ import {
   logBrowsePerfStepsV2,
   resolveBrowsePerfWorstStage,
 } from "@/lib/stores/browse-perf-steps-log";
+import { mapFirstStoreBannerImageByStoreId } from "@/lib/stores/pick-store-hero-banner-image";
 import { loadBrowseTaxonomySlice } from "@/lib/stores/stores-browse-taxonomy-cache";
 import {
   resolveRouteMemoryCacheBypass,
@@ -30,6 +31,7 @@ import { browseListCacheKey, peekStoresBrowseCache, setStoresBrowseCache } from 
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { logRoutePerf } from "@/lib/http/route-perf-log";
 import { detectAcceptLanguageAppLanguage } from "@/lib/i18n/language-preference";
+import { resolveBrowseFeaturedMenuImageUrl } from "@/lib/stores/browse-featured-items-types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -62,6 +64,29 @@ type StoreBrowseRow = {
 };
 
 type RelOne = { slug: string; name: string };
+
+type ProductMini = {
+  id: string;
+  store_id: string;
+  title: string;
+  price: number;
+  thumbnail_url: string | null;
+  is_featured: boolean | null;
+  sort_order: number | null;
+};
+
+type BannerMini = {
+  store_id: string;
+  id: string;
+  image_url: string;
+  sort_order: number | null;
+  is_active: boolean | null;
+  start_at: string | null;
+  end_at: string | null;
+};
+
+/** browse 목록 행 메뉴 미리보기 — `StoreDeliveryRowCard` slice(0,6) 와 맞춤 (2e668b9 계약, 상한 6) */
+const BROWSE_FEATURED_ITEMS_MAX = 6;
 
 /** PostgREST 임베드가 객체 또는 단일행 배열로 올 수 있음 */
 function embedOne(v: RelOne | RelOne[] | null | undefined): RelOne | null {
@@ -562,13 +587,78 @@ export async function GET(req: Request) {
       devLogRoutesSkipped("list_screen_disabled", "api/stores/browse");
     }
 
-    /**
-     * cold 1회차 — `featuredItems: []` 고정. 메뉴 미리보기는
-     * `GET /api/stores/browse-featured-items` deferred hydrate 전용 (query_count·db_related 0 유지).
-     */
-    const productPreviewQueryMs = 0;
+    const ids = rows.map((r) => r.id);
+    const featuredByStore = new Map<
+      string,
+      { productId: string; name: string; price: number; imageUrl: string | null }[]
+    >();
+
     const dbRelated0 = devPerfNow();
-    const dbRelatedMs = devPerfNow() - dbRelated0;
+    const [productsRes, bannersRes] = await Promise.all([
+      ids.length > 0 ?
+        supabase
+          .from("store_products")
+          .select("id, store_id, title, price, thumbnail_url, is_featured, sort_order")
+          .in("store_id", ids)
+          .eq("product_status", "active")
+          .order("is_featured", { ascending: false })
+          .order("sort_order", { ascending: true })
+          .limit(Math.min(ids.length * BROWSE_FEATURED_ITEMS_MAX, 360))
+      : Promise.resolve({ data: [] as ProductMini[], error: null }),
+      ids.length > 0 ?
+        supabase
+          .from("store_banners")
+          .select("store_id, id, image_url, sort_order, is_active, start_at, end_at")
+          .in("store_id", ids)
+          .order("sort_order", { ascending: true })
+          .order("id", { ascending: true })
+      : Promise.resolve({ data: [] as BannerMini[], error: null }),
+    ]);
+    queryCount += ids.length > 0 ? 2 : 0;
+
+    const heroBannerByStore = mapFirstStoreBannerImageByStoreId(
+      ((bannersRes.data ?? []) as BannerMini[]).map((b) => ({
+        store_id: String(b.store_id),
+        id: String(b.id),
+        image_url: String(b.image_url ?? ""),
+        sort_order: b.sort_order,
+        is_active: b.is_active === false ? false : undefined,
+        start_at: b.start_at,
+        end_at: b.end_at,
+      }))
+    );
+
+    const { data: prods, error: pErr } = productsRes;
+    if (pErr) {
+      console.error("[api/stores/browse] products", pErr);
+    } else {
+      const list = (prods ?? []) as ProductMini[];
+      const grouped = new Map<string, ProductMini[]>();
+      for (const p of list) {
+        const arr = grouped.get(p.store_id) ?? [];
+        arr.push(p);
+        grouped.set(p.store_id, arr);
+      }
+      for (const [storeId, arr] of grouped) {
+        const sorted = [...arr].sort((a, b) => {
+          const f = Number(!!b.is_featured) - Number(!!a.is_featured);
+          if (f !== 0) return f;
+          return (a.sort_order ?? 0) - (b.sort_order ?? 0);
+        });
+        featuredByStore.set(
+          storeId,
+          sorted.slice(0, BROWSE_FEATURED_ITEMS_MAX).map((x) => ({
+            productId: String(x.id),
+            name: x.title,
+            price: Number(x.price),
+            imageUrl: resolveBrowseFeaturedMenuImageUrl(x.thumbnail_url),
+          }))
+        );
+      }
+    }
+
+    const productPreviewQueryMs = devPerfNow() - dbRelated0;
+    const dbRelatedMs = productPreviewQueryMs;
     const transform0 = devPerfNow();
 
     const stores: BrowseStoreListItem[] = rows.map((r) => {
@@ -632,9 +722,9 @@ export async function GET(req: Request) {
         pickupAvailable: r.pickup_available !== false,
         visitAvailable: r.visit_available !== false,
         reservationAvailable: r.reservation_available !== false,
-        featuredItems: [],
+        featuredItems: featuredByStore.get(r.id) ?? [],
         profileImageUrl: r.profile_image_url,
-        heroBannerImageUrl: null,
+        heroBannerImageUrl: heroBannerByStore.get(r.id) ?? null,
         isFeatured: !!r.is_featured,
         estPrepLabel: extras.estPrepLabel,
         prepMinutes: extras.prepMinutes,

@@ -48,7 +48,7 @@ import {
   setOwnerBasicInfoDirty,
   type OwnerBasicInfoLeaveDetail,
 } from "@/lib/business/owner-basic-info-guard";
-import { APP_MAIN_COLUMN_CLASS, APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
+import { OWNER_MOBILE_ADMIN_CONTENT_GUTTER_X_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
 import { STORE_LOCATION_SECTION_HINT_STORE_PUBLIC } from "@/lib/stores/store-address-form-ui";
 import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
 import {
@@ -1204,7 +1204,7 @@ export function OwnerStoreBasicInfoForm({
             }`}
           >
             <div
-              className={`${APP_MAIN_COLUMN_CLASS} ${APP_MAIN_GUTTER_X_CLASS} pointer-events-auto mx-auto w-full min-w-0 max-w-full`}
+              className={`pointer-events-auto mx-auto w-full min-w-0 max-w-lg md:max-w-6xl ${OWNER_MOBILE_ADMIN_CONTENT_GUTTER_X_CLASS} md:px-2 md:pr-2`}
             >
               {error ?
                 <div

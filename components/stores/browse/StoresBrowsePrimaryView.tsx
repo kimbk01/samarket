@@ -47,9 +47,6 @@ import {
   type StoreRowCardData,
 } from "@/components/stores/home/StoreDeliveryRowCard";
 import { fetchStoresBrowseDeduped, fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
-import { buildFeaturedMenuPreviewLine } from "@/lib/stores/browse-featured-items-types";
-import { clearBrowseFeaturedItemsClientCache } from "@/lib/stores/fetch-browse-featured-items-client";
-import { useBrowseFeaturedItemsHydration } from "@/lib/stores/use-browse-featured-items-hydration";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 import { storeSecondaryBrowseIconPath } from "@/lib/stores/store-secondary-browse-icons";
 import { resolveBrowseListUserOriginCoords } from "@/lib/stores/browse-list-user-origin-coords";
@@ -523,22 +520,6 @@ export function StoresBrowsePrimaryView({
     browseRowCardListRef.current = null;
   }, [language]);
 
-  useEffect(() => {
-    clearBrowseFeaturedItemsClientCache();
-  }, [browseListContextKey]);
-
-  const browseStoreRefs = useMemo(
-    () => (sortedRemoteRows ?? []).map((s) => ({ id: s.id, slug: s.slug })),
-    [sortedRemoteRows]
-  );
-
-  const {
-    hydratedByStoreId,
-    hydrationEpoch,
-    getPhase: getFeaturedHydrationPhase,
-    registerListItem: registerBrowseListItem,
-  } = useBrowseFeaturedItemsHydration(browseStoreRefs, { enabled: useRemoteList });
-
   const storeDeliveryRowDataList = useMemo(() => {
     const rows = sortedRemoteRows ?? [];
     if (!rows.length) {
@@ -551,16 +532,7 @@ export function StoresBrowsePrimaryView({
     const reconciled: StoreRowCardData[] = [];
     for (const s of rows) {
       nextIds.add(s.id);
-      const base = browseItemToRowCard(s);
-      const hydrated = hydratedByStoreId.get(s.id);
-      const next =
-        hydrated !== undefined ?
-          {
-            ...base,
-            featuredItems: hydrated,
-            menuPreview: buildFeaturedMenuPreviewLine(hydrated) ?? base.menuPreview,
-          }
-        : base;
+      const next = browseItemToRowCard(s);
       const prev = cache.get(s.id);
       if (prev && storeRowCardDataEqual(prev, next)) {
         reconciled.push(prev);
@@ -578,7 +550,7 @@ export function StoresBrowsePrimaryView({
     }
     browseRowCardListRef.current = reconciled;
     return reconciled;
-  }, [sortedRemoteRows, hydratedByStoreId, hydrationEpoch]);
+  }, [sortedRemoteRows]);
 
   const showEmptyBlock = listLoaded && remoteRows.length === 0;
 
@@ -788,11 +760,6 @@ export function StoresBrowsePrimaryView({
                 data={data}
                 locale={language}
                 deliveryRideTimeSource={deliveryRideTimeSource}
-                featuredMenuHydration={
-                  data.storeId ? getFeaturedHydrationPhase(data.storeId) : "idle"
-                }
-                browseStoreId={data.storeId}
-                registerBrowseListItem={registerBrowseListItem}
               />
             ))}
           </ul>

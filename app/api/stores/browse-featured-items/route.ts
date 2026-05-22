@@ -47,8 +47,13 @@ export async function GET(req: Request) {
 
   const supabase = tryGetSupabaseForStores();
   if (!supabase) {
-    const body = { ok: true as const, items: {} as Record<string, { featuredItems: [] }> };
-    return NextResponse.json(body, { headers: { "Cache-Control": STORE_BROWSE_HTTP_CACHE_CONTROL } });
+    const items = Object.fromEntries(
+      storeIds.map((id) => [id, { featuredItems: [] as const }])
+    );
+    return NextResponse.json(
+      { ok: true as const, items },
+      { headers: { "Cache-Control": STORE_BROWSE_HTTP_CACHE_CONTROL } }
+    );
   }
 
   try {

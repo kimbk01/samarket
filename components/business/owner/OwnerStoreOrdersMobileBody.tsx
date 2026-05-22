@@ -168,7 +168,7 @@ export function OwnerStoreOrdersMobileBody({
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col bg-[#f6f6f6]">
-      <div className="shrink-0 border-b border-[#DDE5E0] bg-[#f6f6f6] px-3 pb-2 pt-2">
+      <div className="shrink-0 border-b border-[#DDE5E0] bg-[#f6f6f6] pb-2 pt-2">
         <div className="flex rounded-[4px] border border-[#DDE5E0] bg-white p-1">
           {TABS.map((tabDef) => {
               const active = effectiveTab === tabDef.id;
@@ -243,7 +243,7 @@ export function OwnerStoreOrdersMobileBody({
       <main
         className={`min-h-0 flex-1 overflow-y-auto overscroll-y-contain ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}
       >
-        <div className="space-y-2.5 px-3 py-3">
+        <div className="space-y-2.5 py-3">
           {displayOrders.length === 0 ? (
             <div className="rounded-[4px] border border-[#DDE5E0] bg-white p-6 text-center text-[14px] leading-[1.35] text-[#6B7280]">
               <p className="font-bold text-[#123B4A]">{t("store_owner_mobile_empty_title")}</p>

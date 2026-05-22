@@ -72,6 +72,7 @@ import {
 import { useIsMobileViewport } from "@/hooks/use-is-mobile-viewport";
 import { ChevronRight, MapPin } from "lucide-react";
 import {
+  OWNER_MOBILE_ADMIN_CONTENT_GUTTER_X_CLASS,
   OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS,
   OWNER_MOBILE_PAGE_HEADER_MAIN_OFFSET_CLASS,
 } from "@/lib/stores/owner-mobile-ui-tokens";
@@ -859,6 +860,7 @@ export function BusinessAdminShell({
                 stores={hubRuntime?.stores ?? initialStores ?? null}
                 pageTitle={pageTitle}
                 backHref={mobileAdminHeaderBackHref}
+                backIntercept={combinedAdminHeaderBackIntercept}
               />
             : null}
             {!(isOwnerMobileAdminShell && !isOwnerStoreProductComposerRoute) ?
@@ -867,7 +869,7 @@ export function BusinessAdminShell({
                 hideTitle={isHub}
                 backHref={isHub ? "/mypage/section/store/manage" : adminHeaderBackHref}
                 backIntercept={isHub ? undefined : combinedAdminHeaderBackIntercept}
-                backPreferHistory={!isHub}
+                backPreferHistory
                 backAriaLabel="이전 화면으로"
                 shopName={shopName}
                 pageTitle={isHub ? null : pageTitle}
@@ -878,16 +880,18 @@ export function BusinessAdminShell({
 
             <main
               className={`mx-auto w-full min-w-0 ${
-                isOwnerMobileStackViewport
-                  ? `flex max-w-lg flex-1 flex-col overflow-hidden px-0 ${OWNER_MOBILE_PAGE_HEADER_MAIN_OFFSET_CLASS}`
+                isOwnerMobileAdminShell
+                  ? `flex max-w-lg flex-1 flex-col overflow-hidden ${OWNER_MOBILE_ADMIN_CONTENT_GUTTER_X_CLASS}`
                   : "max-w-6xl px-2 sm:px-2"
               } ${
-                isOwnerMobileStackViewport
-                  ? "min-h-0"
-                  : "pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem+1rem)]"
-              } ${isOwnerMobileAdminShell ? "bg-[#F3F4F6]" : "bg-[var(--biz-app-bg)]"} ${
-                isOwnerMobileStackViewport ? "" : ownerMainBottomPadForChildren
-              }${
+                isOwnerMobileAdminShell && !isOwnerStoreProductComposerRoute
+                  ? OWNER_MOBILE_PAGE_HEADER_MAIN_OFFSET_CLASS
+                  : !isOwnerMobileAdminShell
+                    ? "pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem+1rem)]"
+                    : "pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)]"
+              } ${isOwnerMobileAdminShell ? "min-h-0" : ""} ${
+                isOwnerMobileAdminShell ? "bg-[#F3F4F6]" : "bg-[var(--biz-app-bg)]"
+              } ${isOwnerMobileStackViewport ? "" : ownerMainBottomPadForChildren}${
                 isOwnerStoreProductComposerRoute ? " flex min-h-0 flex-1 flex-col overflow-hidden" : ""
               }`}
             >

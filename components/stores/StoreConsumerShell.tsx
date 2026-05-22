@@ -9,6 +9,7 @@ import { deliveryShellEntryMark } from "@/lib/dibay/delivery-shell-entry-trace";
 import { isStoreCommerceCartCheckoutPath } from "@/lib/stores/store-cart-page-layout";
 import {
   decodeSlugSegment,
+  isStoreProductDetailConsumerPath,
   isStoreSlugOrderMenuRoot,
   shouldWrapStoreDetailSlideShell,
 } from "@/lib/stores/store-consumer-route";
@@ -37,6 +38,10 @@ export function StoreConsumerShell({ slug, children }: { slug: string; children:
 
   const path = (pathname ?? "").split("?")[0] ?? "";
   if (isStoreCommerceCartCheckoutPath(path)) {
+    return <>{children}</>;
+  }
+
+  if (isStoreProductDetailConsumerPath(path)) {
     return <>{children}</>;
   }
 

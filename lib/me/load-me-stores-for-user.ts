@@ -1,4 +1,5 @@
 import { pruneByExpiresAtAndMaxSize } from "@/lib/http/memory-map-prune";
+import { logSupabaseQueryFailure } from "@/lib/supabase/format-supabase-client-error";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { labelFromDisplayAndUsername } from "@/lib/users/user-label";
@@ -79,8 +80,8 @@ export async function loadMeStoresListForUser(
   }
 
   if (error) {
-    console.error("[loadMeStoresListForUser]", error);
-    const failed = { ok: false, error: String(error.message ?? "db_error") } as const;
+    const { errorCode } = logSupabaseQueryFailure("loadMeStoresListForUser", error);
+    const failed = { ok: false, error: errorCode } as const;
     meStoresServerCache.set(key, {
       value: failed,
       expiresAt: Date.now() + 3_000,

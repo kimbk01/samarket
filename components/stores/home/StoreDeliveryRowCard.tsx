@@ -1,4 +1,7 @@
 "use client";
+
+/** CONTRACT — browse 목록: `GET /api/stores/browse` 인라인 `featuredItems.imageUrl`(서버 URL 정규화). */
+
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { AppLanguageCode } from "@/lib/i18n/config";
 import type { BrowseStoreCommerceSnapshot } from "@/lib/stores/browse-store-commerce-snapshot";
@@ -216,6 +219,7 @@ export function homeFeedToRowCard(s: StoreHomeFeedItem): StoreRowCardData {
   };
 }
 
+/** browse API 인라인 `featuredItems` → 카드 썸네일(최대 6, imageUrl 있는 항목만 렌더). */
 export function browseItemToRowCard(s: BrowseStoreListItem): StoreRowCardData {
   const menuPreview =
     s.featuredItems.length > 0 ?

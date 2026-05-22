@@ -39,6 +39,7 @@ import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerSto
 import { OwnerStoreMenuSectionPicker } from "@/components/business/owner/OwnerStoreMenuSectionPicker";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import { OWNER_MOBILE_ADMIN_CONTENT_GUTTER_NEG_X_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
 type FormValues = {
   title: string;
   summary: string;
@@ -703,10 +704,12 @@ export function OwnerProductForm({
 
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col bg-[var(--biz-app-bg)]">
-      <div className="sticky top-0 z-20 shrink-0 border-b border-sam-border bg-sam-surface shadow-sm">
+      <div
+        className={`sticky top-0 z-20 shrink-0 border-b border-sam-border bg-sam-surface shadow-sm ${OWNER_MOBILE_ADMIN_CONTENT_GUTTER_NEG_X_CLASS}`}
+      >
         <div
           ref={categoryStripRef}
-          className="border-t border-sam-border-soft bg-sam-surface px-2 py-1.5"
+          className="border-t border-sam-border-soft bg-sam-surface py-1.5"
           role="group"
           aria-label={t("business_phase7_055")}
         >
@@ -727,7 +730,7 @@ export function OwnerProductForm({
           />
         </div>
 
-        <nav className="flex border-t border-sam-border-soft px-2">
+        <nav className="flex border-t border-sam-border-soft">
           <button
             type="button"
             onClick={() => void scrollBasicTop()}

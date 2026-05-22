@@ -33,11 +33,28 @@ const MY_INFO_SLOT_PLACEHOLDER: DeliveryDomainSwitcherSlot = {
   slotId: "delivery-my-reserved",
 };
 
+export type ComposeDeliveryDomainSwitcherSlotsOptions = {
+  /**
+   * false — 매장 오너 어드민 다이얼: 6번째 칸은 빈칸(이미 `/stores/owner` 셸).
+   * 기본 true — 소비자 배달 홈 다이얼에 매장주일 때 운영센터 노출.
+   */
+  includeOpsCenter?: boolean;
+};
+
+const OPS_CENTER_RESERVED: DeliveryDomainSwitcherSlot = {
+  kind: "placeholder",
+  slotId: "delivery-ops-reserved",
+};
+
 /**
  * 6슬롯 고정: 커뮤니티·거래·배달·메신저 · (내정보 빈칸) · (매장주)운영센터 | (비매장주)빈칸.
  * 5개로 재배치하지 않음 — 각도·간격은 6칸 그대로.
  */
-export function composeDeliveryDomainSwitcherSlots(ownerStoreId?: string | null): DeliveryDomainSwitcherSlot[] {
+export function composeDeliveryDomainSwitcherSlots(
+  ownerStoreId?: string | null,
+  options?: ComposeDeliveryDomainSwitcherSlotsOptions
+): DeliveryDomainSwitcherSlot[] {
+  const includeOpsCenter = options?.includeOpsCenter !== false;
   const sid = typeof ownerStoreId === "string" ? ownerStoreId.trim() : "";
   const base: DeliveryDomainSwitcherSlot[] = DELIVERY_DOMAIN_SWITCHER_BASE_ITEMS.map((tab) => ({
     kind: "action",
@@ -45,7 +62,7 @@ export function composeDeliveryDomainSwitcherSlots(ownerStoreId?: string | null)
     dialIcon: baseDialIcon(tab),
   }));
 
-  if (sid) {
+  if (sid && includeOpsCenter) {
     return [
       ...base,
       MY_INFO_SLOT_PLACEHOLDER,
@@ -63,5 +80,5 @@ export function composeDeliveryDomainSwitcherSlots(ownerStoreId?: string | null)
     ];
   }
 
-  return [...base, MY_INFO_SLOT_PLACEHOLDER, { kind: "placeholder", slotId: "delivery-ops-reserved" }];
+  return [...base, MY_INFO_SLOT_PLACEHOLDER, OPS_CENTER_RESERVED];
 }

@@ -2,15 +2,7 @@
  * 매장 오너 모바일 하단 탭 — 경로별 활성 탭.
  */
 
-import { isOwnerStoreConsumerHomePath } from "@/lib/stores/owner-store-consumer-home-href";
-
-export type OwnerBottomNavTabId =
-  | "home"
-  | "dashboard"
-  | "order-chat"
-  | "orders"
-  | "menu"
-  | "settings";
+export type OwnerBottomNavTabId = "home" | "orders" | "order-chat" | "menu" | "settings";
 
 /** @deprecated 단일 5탭 바 — variant 분기 없음 */
 export type OwnerMobileBottomNavVariant = "default";
@@ -26,13 +18,14 @@ function pathNorm(pathname: string): string {
 export function resolveOwnerBottomNavActiveTabId(
   pathname: string,
   _searchParams: { get(name: string): string | null },
-  storeSlug?: string | null
+  _storeSlug?: string | null
 ): OwnerBottomNavTabId | null {
   const p = pathNorm(pathname);
 
-  if (isOwnerStoreConsumerHomePath(pathname, storeSlug)) return "home";
-  if (p === "/stores/owner") return "dashboard";
-  if (p.includes("/stores/owner/order-chats")) return "order-chat";
+  if (p === "/stores/owner") return "home";
+  if (p.includes("/stores/owner/order-chats") || p.includes("/stores/owner/order-chat/")) {
+    return "order-chat";
+  }
   if (p.includes("/stores/owner/orders") || p.includes("/store-orders")) return "orders";
   if (p.includes("/stores/owner/menu")) return "menu";
   if (
@@ -62,4 +55,3 @@ export function isOwnerBottomNavTabActive(
 ): boolean {
   return resolveOwnerBottomNavActiveTabId(pathname, searchParams, storeSlug) === tabId;
 }
-

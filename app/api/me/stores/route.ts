@@ -33,7 +33,8 @@ export async function GET() {
 
   const result = await loadMeStoresListForUser(supabase, userId);
   if (!result.ok) {
-    return NextResponse.json({ ok: false, error: result.error }, { status: 500 });
+    const status = result.error.startsWith("supabase_") ? 503 : 500;
+    return NextResponse.json({ ok: false, error: result.error }, { status });
   }
 
   return NextResponse.json({

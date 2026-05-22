@@ -58,7 +58,7 @@ function isActiveListed(status: string): boolean {
 
 /** 카테고리 = 1차(크기·시그니처), 상태 = 2차(작고 중립) — 동일 알약 톤만 쓰지 않음 */
 const OWNER_HUB_FILTER_SCROLL_ROW =
-  "flex snap-x snap-proximity flex-nowrap items-center gap-2 overflow-x-auto py-1 pl-0.5 pr-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
+  "flex snap-x snap-proximity flex-nowrap items-center gap-2 overflow-x-auto py-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 function ownerHubCategoryPillClass(active: boolean): string {
   return [
@@ -299,21 +299,29 @@ export function OwnerProductsHubClient({
   };
 
   const hubTopActionClass =
-    "min-h-11 flex-1 touch-manipulation select-none rounded-ui-rect px-3 py-2.5 text-center sam-text-body-secondary font-semibold no-underline transition-[transform,opacity] active:scale-[0.99] active:opacity-90";
+    "min-h-11 min-w-0 flex-1 touch-manipulation select-none rounded-ui-rect px-3 py-2.5 text-center sam-text-body-secondary font-semibold no-underline";
 
   return (
     <div className="max-w-full overflow-x-hidden bg-sam-app pb-[max(0px,env(safe-area-inset-bottom,0px))]">
-      <div className="flex gap-2 border-b border-sam-border-soft bg-sam-surface px-0 py-2.5">
-        <Link href={categoriesHref} className={`${Sam.btn.outlineCombo} ${hubTopActionClass}`}>
+      <div
+        className="flex gap-2 border-b border-sam-border-soft bg-sam-surface py-2.5"
+      >
+        <Link
+          href={categoriesHref}
+          className={`${Sam.btn.secondaryCombo} ${hubTopActionClass} shadow-sm active:scale-[0.98]`}
+        >
           {t("business_phase7_307")}
         </Link>
-        <Link href={newProductHrefForTab} className={`${Sam.btn.primaryCombo} ${hubTopActionClass} !text-white`}>
+        <Link
+          href={newProductHrefForTab}
+          className={`${Sam.btn.primaryCombo} ${hubTopActionClass} !text-white shadow-sm active:scale-[0.98]`}
+        >
           {t("business_phase7_408")}
         </Link>
       </div>
 
       <section
-        className="sticky top-0 z-10 border-b border-sam-border-soft bg-gradient-to-b from-sam-surface-muted to-sam-surface-muted/90 px-0 pt-2 pb-2 backdrop-blur-[6px]"
+        className="sticky top-0 z-10 border-b border-sam-border-soft bg-gradient-to-b from-sam-surface-muted to-sam-surface-muted/90 pt-2 pb-2 backdrop-blur-[6px]"
         aria-label={t("business_phase7_300")}
       >
         <p className="mb-1 sam-text-xxs font-medium text-sam-meta">{t("business_phase7_299")}</p>
@@ -369,7 +377,7 @@ export function OwnerProductsHubClient({
         </div>
       </section>
 
-      <div className="space-y-2 px-0 pt-2 pb-1">
+      <div className="space-y-2 pt-2 pb-1">
         <div className="flex items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-surface px-2.5 py-1.5 shadow-sm">
           <svg
             className="h-5 w-5 shrink-0 text-sam-meta"

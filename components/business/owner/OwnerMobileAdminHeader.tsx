@@ -3,7 +3,8 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Bell, ChevronDown, ChevronLeft } from "lucide-react";
+import { Bell, ChevronDown } from "lucide-react";
+import { AppBackButton } from "@/components/navigation/AppBackButton";
 import type { OwnerStoreOpsMeta } from "@/lib/stores/owner-store-ops-snapshot";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
@@ -47,6 +48,7 @@ export function OwnerMobileAdminHeader({
   stores,
   pageTitle,
   backHref,
+  backIntercept,
   exitHref = OWNER_MOBILE_EXIT_HREF,
 }: {
   variant: "hub" | "page";
@@ -58,6 +60,8 @@ export function OwnerMobileAdminHeader({
   stores?: StoreRow[] | null;
   pageTitle?: string | null;
   backHref?: string;
+  /** true면 뒤로·폴백 이동 차단(미저장 이탈·카테고리 편집 등) */
+  backIntercept?: () => boolean;
   /** 허브 「나가기」— 소비자 배달 홈 (`/stores`) */
   exitHref?: string;
 }) {
@@ -67,7 +71,6 @@ export function OwnerMobileAdminHeader({
   const hubRuntime = useOwnerHubRuntime();
   const biz = useBusinessAdminStore();
   const trailingCtx = useOwnerMobileAdminHeaderTrailing();
-  const hasHeaderTrailing = Boolean(trailingCtx?.trailing);
   const storeList = stores ?? hubRuntime?.stores ?? null;
   const notificationsHref =
     resolveOwnerStoreNotificationsHref({ slug: storeSlug }) ?? OwnerRoutes.settings(storeId);
@@ -98,13 +101,14 @@ export function OwnerMobileAdminHeader({
       <div className={OWNER_MOBILE_PAGE_HEADER_ROW_CLASS}>
         {variant === "hub" ? (
           <>
-            <Link
-              href={exitHref}
+            <AppBackButton
+              backHref={exitHref}
+              preferHistoryBack
+              interceptBack={backIntercept}
               className={`${HEADER_ICON_BTN_CLASS} text-[#1C8DB8] hover:bg-[#E8F1FF] active:bg-[#DBEDF5]`}
-              aria-label={t("store_owner_aria_exit_delivery_home")}
-            >
-              <ChevronLeft className="h-5 w-5 shrink-0" strokeWidth={2.25} aria-hidden />
-            </Link>
+              iconClassName="h-5 w-5 shrink-0"
+              ariaLabel={t("store_owner_aria_exit_delivery_home")}
+            />
             <div className="flex min-h-0 min-w-0 flex-1 flex-col justify-center gap-[1pt] overflow-hidden">
               <div className="flex min-w-0 items-center gap-1">
                 {storeList && storeList.length > 1 ? (
@@ -150,23 +154,21 @@ export function OwnerMobileAdminHeader({
         ) : (
           <>
             {backHref ? (
-              <Link
-                href={backHref}
+              <AppBackButton
+                backHref={backHref}
+                preferHistoryBack
+                interceptBack={backIntercept}
                 className={HEADER_ICON_BTN_CLASS}
-                aria-label={t("store_owner_aria_dashboard")}
-              >
-                <ChevronLeft className="h-5 w-5" aria-hidden />
-              </Link>
+                iconClassName="h-5 w-5"
+                ariaLabel={t("store_owner_aria_dashboard")}
+              />
             ) : (
               <span className="w-0" aria-hidden />
             )}
-            <div className="flex min-h-0 min-w-0 flex-1 flex-col justify-center gap-0 overflow-hidden pr-1">
+            <div className="flex min-h-0 min-w-0 flex-1 items-center overflow-hidden pr-1">
               <h1 className="truncate text-[14px] font-bold leading-none text-[#262626]">
                 {pageTitle?.trim() || t("owner_store_admin_hub")}
               </h1>
-              {!hasHeaderTrailing ? (
-                <p className="truncate text-[10px] leading-none text-[#8C8C8C]">{storeName}</p>
-              ) : null}
             </div>
           </>
         )}

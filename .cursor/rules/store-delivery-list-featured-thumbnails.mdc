@@ -1,0 +1,39 @@
+---
+description: 배달 browse 목록 메뉴 썸네일 — 2e668b9 인라인 계약 (deferred는 보조만)
+globs:
+  - app/api/stores/browse/route.ts
+  - components/stores/browse/StoresBrowsePrimaryView.tsx
+  - components/stores/home/StoreDeliveryRowCard.tsx
+  - components/stores/StoreProductPublic.tsx
+---
+
+# browse 목록 메뉴 미리보기 (2e668b9 기준)
+
+## 계약
+
+- `GET /api/stores/browse` 응답에 **매장별 `featuredItems`(thumbnail 포함)** 를 **같은 요청**에서 채운다.
+- `StoresBrowsePrimaryView` 는 `browseItemToRowCard(s)` 만 사용 — **`useBrowseFeaturedItemsHydration` 으로 browse 목록을 대체하지 않는다.**
+- `StoreDeliveryRowCard` 는 `imageUrl` 이 있는 항목만 타일로 그리고 `slice(0, 6)` + 가로 `overflow-x-auto` 스와이프.
+- `GET /api/stores/browse-featured-items` 는 browse **cold 목록 대체용이 아님** (홈 등 다른 표면만 필요 시).
+
+## 상품 URL `/stores/[slug]/p/[productId]` (50c207c)
+
+- `StoreProductPublic`: `StoreProductDetailPageChrome` + `StoreBaeminProductDetailView` — 옵션·수량·**카트 담기**만.
+- `StoreConsumerShell`: **`StoreSlugStickyBar` 금지** — 히어로·글래스 헤더만 (`isStoreProductDetailConsumerPath`).
+- **금지**: `postMeStoreOrder`, `STORE_DETAIL_SUBHEADER_STICKY` 레거시 주문 UI.
+
+## browse 썸네일 URL
+
+- `GET /api/stores/browse`·`browse-featured-items` batch 모두 `resolveBrowseFeaturedMenuImageUrl` (`lib/stores/browse-featured-items-types.ts`) 로 URL 정규화 — 산식 단일화.
+
+## 금지 (browse)
+
+- browse cold payload `featuredItems: []` 고정
+
+## 검증
+
+`npm run verify:store-delivery-featured-thumbnails-contract`
+
+## `StoreProductPublic.tsx` 인코딩
+
+- **UTF-8 only** — 편집 후 검증 실패 시 `node scripts/patch-store-product-public-utf8.cjs` (UTF-16 이면 tsc·계약 검증 모두 깨짐).

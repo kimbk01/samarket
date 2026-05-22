@@ -79,6 +79,7 @@ export function StoreDetailQuickShell({
     <div className="min-h-[100dvh] overflow-x-hidden bg-white pb-8 [-webkit-overflow-scrolling:touch]">
       <StoreOrderStickyHeader
         elevated={false}
+        heroGlassOverlayButtons
         fallbackHref={fallbackHref}
         storeSlug={decoded || slug}
         storeName={title}

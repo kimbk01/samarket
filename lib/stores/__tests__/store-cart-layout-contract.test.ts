@@ -21,6 +21,10 @@ describe("store cart layout contract", () => {
     const shell = readRepo("components/stores/cart/StoreCommerceCartPageShell.tsx");
     expect(shell).toContain("header");
     expect(shell).toContain("data-store-cart-scroll");
+    expect(shell).toContain("StoreCartSwipeBackShell");
+
+    const backNav = readRepo("lib/stores/store-cart-back-navigation.ts");
+    expect(backNav).toContain("runHistoryBackWithFallback");
 
     const flags = readRepo("lib/layout/conditional-app-shell-flags.ts");
     expect(flags).toContain("isStoreCommerceCartCheckoutPage");

@@ -1,5 +1,11 @@
 "use client";
 
+/**
+ * 배달 목록 행 메뉴 썸네일 — 뷰포트 배치 hydrate.
+ * browse(`StoresBrowsePrimaryView`)·홈 피드(`StoreNearbyFeedSection`) 공통.
+ * 계약: `merge-store-delivery-row-featured-hydration.ts` · `verify:store-delivery-featured-thumbnails-contract`
+ */
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import { logBrowseCardHydration } from "@/lib/stores/browse-featured-items-perf-log";
 import {

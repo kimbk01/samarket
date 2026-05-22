@@ -86,10 +86,10 @@ export async function fetchBrowseFeaturedItemsBatch(
       ok?: boolean;
       items?: Record<string, BrowseFeaturedItemsByStoreDto>;
     };
+    /** DO NOT cache empty featured items on fetch failure — 30s poison causes stuck placeholders. */
     if (!res.ok || !json?.ok || !json.items) {
       for (const id of stillMiss) {
         map.set(id, []);
-        setClientFeatured(id, []);
       }
       return map;
     }
@@ -107,7 +107,6 @@ export async function fetchBrowseFeaturedItemsBatch(
   for (const id of toFetch) {
     if (!byStoreId.has(id)) {
       byStoreId.set(id, []);
-      setClientFeatured(id, []);
     }
   }
 

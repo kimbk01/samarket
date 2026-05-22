@@ -49,6 +49,7 @@ import {
   ownerOrderMainTabForStatus,
 } from "@/lib/business/owner-order-main-tab";
 import { buildOwnerOrdersViewInitialState } from "@/lib/business/build-owner-orders-view-initial-state";
+import { runOwnerAdminBackNavigation } from "@/lib/business/owner-admin-back-navigation";
 import { pickOwnerStoreFromMeList } from "@/lib/business/pick-owner-store-from-me-list";
 import { OwnerStoreOrdersMobileBody } from "@/components/business/owner/OwnerStoreOrdersMobileBody";
 import { OWNER_STORE_STACK_Y_CLASS } from "@/lib/business/owner-store-stack";
@@ -697,7 +698,10 @@ export function OwnerStoreOrdersView() {
 
   const onCloseDetail = useCallback(() => {
     if (state.kind !== "ok") return;
-    router.replace(buildStoreOrdersHref({ storeId: state.storeId, tab }));
+    runOwnerAdminBackNavigation(
+      router,
+      buildStoreOrdersHref({ storeId: state.storeId, tab })
+    );
   }, [router, state, tab]);
 
   const onOpenChat = useCallback(
@@ -710,17 +714,20 @@ export function OwnerStoreOrdersView() {
 
   const onCloseChat = useCallback(() => {
     if (state.kind !== "ok") return;
-    router.replace(buildStoreOrdersHref({ storeId: state.storeId, tab }));
+    runOwnerAdminBackNavigation(
+      router,
+      buildStoreOrdersHref({ storeId: state.storeId, tab })
+    );
   }, [router, state, tab]);
 
   let body: ReactNode;
   if (state.kind === "loading") {
     body = (
-      <p className="px-3 py-8 text-center text-sm text-[#8C8C8C]">{t("store_owner_chats_loading")}</p>
+      <p className="py-8 text-center text-sm text-[#8C8C8C]">{t("store_owner_chats_loading")}</p>
     );
   } else if (state.kind === "unauth") {
     body = (
-      <div className="mx-3 mt-4 rounded-lg border border-[#E8E8E8] bg-white p-6">
+      <div className="mt-4 rounded-lg border border-[#E8E8E8] bg-white p-6">
         <p className="text-sm text-[#595959]">{t("store_owner_orders_login_hint")}</p>
         <Link
           href={loginHref}
@@ -732,11 +739,11 @@ export function OwnerStoreOrdersView() {
     );
   } else if (state.kind === "config") {
     body = (
-      <p className="px-3 py-8 text-center text-sm text-[#8C8C8C]">{t("store_owner_err_server_config")}</p>
+      <p className="py-8 text-center text-sm text-[#8C8C8C]">{t("store_owner_err_server_config")}</p>
     );
   } else if (state.kind === "no_store") {
     body = (
-      <div className="mx-3 mt-4 rounded-lg border border-[#E8E8E8] bg-white p-6">
+      <div className="mt-4 rounded-lg border border-[#E8E8E8] bg-white p-6">
         <p className="text-sm text-[#595959]">{t("business_phase7_057")}</p>
         <Link href="/stores/owner/apply" className="mt-2 inline-block text-[#2D7FF9] font-medium">
           {t("business_phase7_465")}
@@ -745,7 +752,7 @@ export function OwnerStoreOrdersView() {
     );
   } else if (state.kind === "error") {
     body = (
-      <div className="px-3 py-8 text-center">
+      <div className="py-8 text-center">
         <p className="text-sm text-[#FF4D4F]">({state.message})</p>
         <button
           type="button"

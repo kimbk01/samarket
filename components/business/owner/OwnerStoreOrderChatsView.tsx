@@ -104,7 +104,7 @@ export function OwnerStoreOrderChatsView() {
   if (state.kind === "need_store") {
     return (
       <div
-        className={`flex h-full flex-col items-center justify-center bg-[#F3F4F6] px-4 text-sm text-[#8C8C8C] ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}
+        className={`flex h-full flex-col items-center justify-center bg-[#F3F4F6] text-sm text-[#8C8C8C] ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}
       >
         매장을 선택한 뒤 다시 시도해 주세요.
       </div>
@@ -114,7 +114,7 @@ export function OwnerStoreOrderChatsView() {
   if (state.kind === "error") {
     return (
       <div
-        className={`flex h-full flex-col items-center justify-center gap-3 bg-[#F3F4F6] px-4 text-sm text-red-600 ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}
+        className={`flex h-full flex-col items-center justify-center gap-3 bg-[#F3F4F6] text-sm text-red-600 ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}
       >
         {state.message}
         <button type="button" className="text-[#2D7FF9] underline" onClick={() => void load()}>
@@ -126,12 +126,12 @@ export function OwnerStoreOrderChatsView() {
 
   return (
     <div className={`flex h-full min-h-0 flex-col bg-[#F3F4F6] ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}>
-      <div className="shrink-0 border-b border-[#E5E7EB] bg-white px-3 py-2">
+      <div className="shrink-0 border-b border-[#E5E7EB] bg-white py-2">
         <p className="text-[13px] text-[#8C8C8C]">
           {state.storeName} · 이 매장 주문에 연결된 채팅만 표시합니다.
         </p>
       </div>
-      <ul className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain p-2">
+      <ul className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain py-2">
         {state.chats.length === 0 ?
           <li className="flex flex-col items-center justify-center gap-2 rounded-[4px] bg-white px-4 py-12 text-center">
             <MessageCircle className="h-10 w-10 text-[#D9D9D9]" strokeWidth={1.5} aria-hidden />

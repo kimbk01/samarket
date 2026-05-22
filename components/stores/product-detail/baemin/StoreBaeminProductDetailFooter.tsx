@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BAEMIN_CART_ORDER_BTN_CLASS } from "@/lib/stores/store-baemin-cart-ui";
 import { STORE_ORDER_TOUCH_BTN } from "@/components/stores/store-order-detail/store-order-brand";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
@@ -46,6 +47,7 @@ export function StoreBaeminProductDetailFooter({
   errorMessage?: string | null;
   onAdd: () => void;
 }) {
+  const { t } = useI18n();
   const [portalToBody, setPortalToBody] = useState(false);
   useEffect(() => {
     setPortalToBody(true);
@@ -72,23 +74,27 @@ export function StoreBaeminProductDetailFooter({
         <div className="min-w-0 flex-1 pb-0.5">
           {minPhp != null ? (
             <>
-              <p className="text-[11px] font-medium text-[#888888]">배달 최소주문금액</p>
+              <p className="text-[11px] font-medium text-[#888888]">
+                {t("store_product_delivery_min_order_heading")}
+              </p>
               <p className="mt-0.5 text-[14px] font-bold tabular-nums text-[#111111]">
                 {formatMoneyPhp(minPhp)}
               </p>
               {cartTotal > 0 ? (
                 <p className="mt-1 text-[12px] font-semibold tabular-nums text-[#111111]">
-                  카트 합계 {formatMoneyPhp(cartTotal)}
+                  {t("store_product_cart_subtotal_line", { amount: formatMoneyPhp(cartTotal) })}
                 </p>
               ) : null}
               {minNeed > 0 ? (
                 <p className="mt-1 text-[11px] font-semibold text-amber-800">
-                  최소주문까지 {formatMoneyPhp(minNeed)} 남았어요
+                  {t("store_bottom_min_order_remaining", { amount: formatMoneyPhp(minNeed) })}
                 </p>
               ) : null}
             </>
           ) : (
-            <p className="text-[11px] font-medium text-[#888888]">선택 금액</p>
+            <p className="text-[11px] font-medium text-[#888888]">
+              {t("store_product_line_amount_heading")}
+            </p>
           )}
         </div>
         <button
@@ -103,9 +109,11 @@ export function StoreBaeminProductDetailFooter({
             onAdd();
           }}
           className={`${BAEMIN_CART_ORDER_BTN_CLASS} max-w-[min(100%,14rem)] rounded-[8px] !text-[16px] ${STORE_ORDER_TOUCH_BTN}`}
-          aria-label={`${totalLabel} 카트 담기`}
+          aria-label={t("store_add_to_cart_amount_aria", { amount: totalLabel })}
         >
-          {busy ? "처리 중…" : `${totalLabel} 담기`}
+          {busy
+            ? t("common_processing")
+            : t("store_add_to_cart_with_amount", { amount: totalLabel })}
         </button>
       </div>
     </div>

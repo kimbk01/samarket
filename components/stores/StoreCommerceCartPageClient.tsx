@@ -48,6 +48,7 @@ import {
 import { parseStoreSummaryPayload } from "@/lib/stores/store-detail-split-types";
 import { StoreCartCheckoutActionBar } from "@/components/stores/cart/StoreCommerceCartCheckoutActionBar";
 import { StoreCommerceCartPageShell } from "@/components/stores/cart/StoreCommerceCartPageShell";
+import { useStoreCartBack } from "@/components/stores/cart/use-store-cart-back";
 import { StoreBaeminCartFulfillmentHint } from "@/components/stores/cart/baemin/StoreBaeminCartFulfillmentHint";
 import { StoreBaeminCartOrderSummaryCard } from "@/components/stores/cart/baemin/StoreBaeminCartOrderSummaryCard";
 import { StoreBaeminCartStoreBlock } from "@/components/stores/cart/baemin/StoreBaeminCartStoreBlock";
@@ -215,6 +216,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
+  const goCartBack = useStoreCartBack(storeSlug);
   const cartFlowMountT0Ref = useRef(
     typeof performance !== "undefined" ? performance.now() : 0
   );
@@ -1479,7 +1481,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
   if ((storeLoadFailed || !displayStore) && lines.length === 0) {
     return (
-      <StoreCommerceCartPageShell hydrationMeasured={cartShellHydrationReady}>
+      <StoreCommerceCartPageShell storeSlug={storeSlug} hydrationMeasured={cartShellHydrationReady}>
         <p className="px-4 py-12 text-center text-sm text-sam-muted">{t("common_store_info_load_failed")}</p>
         <div className="px-4 text-center">
           <Link href="/stores" className="text-sm font-medium text-signature">
@@ -1493,7 +1495,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   if (lines.length === 0) {
     return (
       <StoreCommerceCartPageShell
-        header={<StoreBaeminCartTopBar onBack={() => router.back()} />}
+        storeSlug={storeSlug}
+        header={<StoreBaeminCartTopBar onBack={goCartBack} />}
         hydrationMeasured={cartShellHydrationReady}
       >
         <div className="px-4 py-10">
@@ -1611,7 +1614,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
   return (
     <StoreCommerceCartPageShell
-      header={<StoreBaeminCartTopBar onBack={() => router.back()} />}
+      storeSlug={storeSlug}
+      header={<StoreBaeminCartTopBar onBack={goCartBack} />}
       hydrationMeasured={cartShellHydrationReady}
       footer={
         <StoreCartCheckoutActionBar

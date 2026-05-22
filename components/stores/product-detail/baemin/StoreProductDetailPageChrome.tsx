@@ -3,10 +3,12 @@
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
 import { StoreOrderStickyHeader } from "@/components/stores/store-order-detail/StoreOrderStickyHeader";
 import { StoreProductDetailHeroMedia } from "@/components/stores/product-detail/baemin/StoreProductDetailHeroMedia";
 import { openStoreCartPreview } from "@/lib/stores/store-cart-preview-ui-store";
+import { readStoreDetailFixedHeaderOffsetPxCached } from "@/lib/ui/store-detail-viewport-metrics";
 
 /**
  * 매장 메뉴 루트와 동일: 포털 고정 헤더(스크롤 시 흰 배경) + 히어로 당김 확대 + 뒤로가기는 항상 해당 매장.
@@ -35,6 +37,7 @@ export function StoreProductDetailPageChrome({
   onShare: () => void;
   children: ReactNode;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const storeRootHref = `/stores/${encodeURIComponent(storeSlug)}`;
   const [headerSolid, setHeaderSolid] = useState(false);
@@ -58,8 +61,8 @@ export function StoreProductDetailPageChrome({
         scrollHeaderGate.current = false;
         setHeaderSolid((prev) => {
           const hero = document.getElementById("store-hero-media");
-          const headerH = 56;
-          const next = hero ? hero.getBoundingClientRect().bottom <= headerH : true;
+          const headerH = readStoreDetailFixedHeaderOffsetPxCached();
+          const next = hero ? hero.getBoundingClientRect().bottom <= headerH : false;
           return prev === next ? prev : next;
         });
       });
@@ -83,6 +86,7 @@ export function StoreProductDetailPageChrome({
     <div className="min-h-[100dvh] bg-white">
       <StoreOrderStickyHeader
         elevated={headerElevated}
+        heroGlassOverlayButtons
         fallbackHref={storeRootHref}
         storeSlug={storeSlug}
         storeName={headerTitle}
@@ -103,7 +107,7 @@ export function StoreProductDetailPageChrome({
       {galleryUrls.length > 1 ? (
         <HorizontalDragScroll
           className="flex gap-2 overflow-x-auto border-b border-[var(--delivery-border-section)] bg-white px-3 py-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-          aria-label={`${headerTitle} 사진`}
+          aria-label={t("store_product_photos_aria", { title: headerTitle })}
         >
           {galleryUrls.map((u, i) => (
             <button

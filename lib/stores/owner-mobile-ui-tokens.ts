@@ -21,8 +21,9 @@ export const OWNER_MOBILE_GRAY = "#8C8C8C";
 export const OWNER_MOBILE_PAGE_BG = OWNER_OPS_APP_BG;
 export const OWNER_MOBILE_CARD_BORDER = OWNER_OPS_BORDER;
 
-/** `OwnerMobileBottomNav` 루트 — `app-bottom-nav.css` 오너 활성 색 스코프 */
-export const OWNER_MOBILE_BOTTOM_NAV_ROOT_CLASS = "owner-mobile-bottom-nav";
+/** `OwnerMobileBottomNav` 루트 — 배달 하단 탭 셸(`app-bottom-nav-shell--delivery`)과 동일 */
+export const OWNER_MOBILE_BOTTOM_NAV_ROOT_CLASS =
+  "owner-mobile-bottom-nav app-bottom-nav-shell--delivery";
 
 /** Fixed owner bottom nav — `BOTTOM_NAV_SHELL.heightClass` 와 동기 */
 export const OWNER_MOBILE_BOTTOM_NAV_HEIGHT_CLASS = "h-[3.5rem]";
@@ -57,6 +58,19 @@ export const OWNER_MOBILE_PAGE_HEADER_MAIN_OFFSET_CLASS =
 /** 오너 모바일 본문·헤더 공통 가로 인셋 — 노치·둥근 모서리 safe-area + 최소 8px */
 export const OWNER_MOBILE_PAGE_GUTTER_X_CLASS =
   "pl-[max(0.5rem,env(safe-area-inset-left,0px))] pr-[max(0.5rem,env(safe-area-inset-right,0px))]";
+
+/**
+ * 매장 오너 모바일 어드민 `BusinessAdminShell` main·페이지 본문 — 헤더와 동일 기준.
+ * (모바일 스택 전 페이지: 허브·주문·상품·설정·카테고리 등)
+ */
+export const OWNER_MOBILE_ADMIN_CONTENT_GUTTER_X_CLASS = OWNER_MOBILE_PAGE_GUTTER_X_CLASS;
+
+/**
+ * main 에 `OWNER_MOBILE_ADMIN_CONTENT_GUTTER_X_CLASS` 가 있을 때 풀폭 스트립(상단 바·스티키 탭)용.
+ * 배경은 화면 끝까지, 내용은 gutter 와 같은 inset.
+ */
+export const OWNER_MOBILE_ADMIN_CONTENT_GUTTER_NEG_X_CLASS =
+  "-ml-[max(0.5rem,env(safe-area-inset-left,0px))] -mr-[max(0.5rem,env(safe-area-inset-right,0px))] pl-[max(0.5rem,env(safe-area-inset-left,0px))] pr-[max(0.5rem,env(safe-area-inset-right,0px))]";
 
 /** 앱 모바일 헤더 툴바 높이 — `StoresOwnerStackHeader` `h-14` 와 동기 */
 export const OWNER_MOBILE_PAGE_HEADER_TOOLBAR_HEIGHT_CLASS = "h-14";

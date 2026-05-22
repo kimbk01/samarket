@@ -64,6 +64,12 @@ export function isStoreSlugOrderMenuRoot(pathname: string | null, slugParam: str
 
 const STORE_PRODUCT_DETAIL_PATH = /^\/stores\/[^/]+\/p\/[^/]+$/;
 
+/** `/stores/[slug]/p/[productId]` — 자체 히어로·글래스 헤더(매장 Tier1 스티키바 제외) */
+export function isStoreProductDetailConsumerPath(pathname: string | null | undefined): boolean {
+  const path = (pathname ?? "").split("?")[0]?.replace(/\/+$/, "") ?? "";
+  return STORE_PRODUCT_DETAIL_PATH.test(path);
+}
+
 /**
  * `StoreDetailSlideShell` 적용 여부 — cart/checkout/상품상세는 자체 스크롤 셸(뷰포트 잠금)이라 제외.
  * `isStoreSlugConsumerSubtree` 보다 먼저 판별해야 cart 가 슬라이드 transform 에 감싸이지 않는다.

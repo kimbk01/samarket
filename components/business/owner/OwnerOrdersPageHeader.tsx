@@ -2,7 +2,8 @@
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
-import { Bell, ChevronLeft, Filter, Search } from "lucide-react";
+import { Bell, Filter, Search } from "lucide-react";
+import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { resolveOwnerStoreNotificationsHref } from "@/lib/business/owner-store-notifications-route";
 import { useBusinessAdminStore } from "@/components/business/admin/business-admin-store-context";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
@@ -46,13 +47,13 @@ export function OwnerOrdersPageHeader({
       className={`${OWNER_MOBILE_PAGE_HEADER_SHELL_CLASS} ${OWNER_MOBILE_PAGE_HEADER_SHELL_BLEED_CLASS}`}
     >
       <div className={OWNER_MOBILE_PAGE_HEADER_ROW_CLASS}>
-        <Link
-          href={backHref}
+        <AppBackButton
+          backHref={backHref}
+          preferHistoryBack
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#262626] hover:bg-[#F5F5F5]"
-          aria-label={t("store_owner_aria_dashboard")}
-        >
-          <ChevronLeft className="h-5 w-5" aria-hidden />
-        </Link>
+          iconClassName="h-5 w-5"
+          ariaLabel={t("store_owner_aria_dashboard")}
+        />
         <div className="min-w-0 flex-1 overflow-hidden pr-1">
           <h1 className="truncate text-[14px] font-bold leading-none text-[#262626]">
             {t("store_owner_go_order_management")}

@@ -560,6 +560,33 @@ export const storeCommerceUiMessages = {
 
     store_added_to_cart_toast: "{title} 담았어요",
 
+    store_menu_review_link: "메뉴 리뷰 {count}개 ›",
+
+    store_product_price_label: "가격",
+
+    store_product_price_before_options: "옵션을 추가하기 전 메뉴 금액입니다.",
+
+    store_product_qty_label: "수량",
+
+    store_product_qty_count: "{count}개",
+
+    store_product_option_load_failed: "옵션 정보를 불러오지 못했습니다.",
+
+    store_product_photo_disclaimer:
+      "메뉴 사진은 연출된 이미지로 실제와 다를 수 있습니다.",
+
+    store_product_photos_aria: "{title} 사진",
+
+    store_product_delivery_min_order_heading: "배달 최소주문금액",
+
+    store_product_cart_subtotal_line: "카트 합계 {amount}",
+
+    store_product_line_amount_heading: "선택 금액",
+
+    store_add_to_cart_with_amount: "{amount} 담기",
+
+    store_add_to_cart_amount_aria: "{amount} 카트 담기",
+
     store_cart_conflict_processing: "처리 중…",
 
     store_cart_clear_title: "카트를 비울까요?",
@@ -1728,6 +1755,32 @@ export const storeCommerceUiMessages = {
     store_other_store: "Another store",
 
     store_added_to_cart_toast: "Added {title}",
+
+    store_menu_review_link: "Menu reviews ({count}) ›",
+
+    store_product_price_label: "Price",
+
+    store_product_price_before_options: "Menu price before add-ons.",
+
+    store_product_qty_label: "Quantity",
+
+    store_product_qty_count: "{count}",
+
+    store_product_option_load_failed: "Could not load options.",
+
+    store_product_photo_disclaimer: "Photos may be styled and differ from the actual dish.",
+
+    store_product_photos_aria: "Photos of {title}",
+
+    store_product_delivery_min_order_heading: "Delivery minimum order",
+
+    store_product_cart_subtotal_line: "Cart subtotal {amount}",
+
+    store_product_line_amount_heading: "Selected amount",
+
+    store_add_to_cart_with_amount: "Add {amount}",
+
+    store_add_to_cart_amount_aria: "Add {amount} to cart",
 
     store_cart_conflict_processing: "Processing…",
 

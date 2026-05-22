@@ -6,6 +6,7 @@ import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { StoreCommerceCartPageShell } from "@/components/stores/cart/StoreCommerceCartPageShell";
 import { StoreBaeminCartTopBar } from "@/components/stores/cart/baemin/StoreBaeminCartTopBar";
+import { useStoreCartBack } from "@/components/stores/cart/use-store-cart-back";
 import { useStoreCommerceCartOptional } from "@/contexts/StoreCommerceCartContext";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { sortedNonemptyCommerceBuckets } from "@/lib/stores/store-commerce-cart-nav";
@@ -23,6 +24,8 @@ export function StoreGlobalCartEntry() {
     () => (cart?.hydrated ? sortedNonemptyCommerceBuckets(cart.listCartBuckets()) : []),
     [cart]
   );
+  const cartSlug = buckets[0]?.storeSlug?.trim() ?? "";
+  const goCartBack = useStoreCartBack(cartSlug);
 
   const target = useMemo(() => {
     const first = buckets[0] ?? null;
@@ -38,7 +41,10 @@ export function StoreGlobalCartEntry() {
 
   if (!cart?.hydrated) {
     return (
-      <StoreCommerceCartPageShell header={<StoreBaeminCartTopBar onBack={() => router.back()} />}>
+      <StoreCommerceCartPageShell
+        storeSlug={cartSlug || undefined}
+        header={<StoreBaeminCartTopBar onBack={goCartBack} />}
+      >
         <div className="px-4 py-12 text-center sam-text-body text-sam-muted">{t("common_loading")}</div>
       </StoreCommerceCartPageShell>
     );
@@ -46,14 +52,17 @@ export function StoreGlobalCartEntry() {
 
   if (target) {
     return (
-      <StoreCommerceCartPageShell header={<StoreBaeminCartTopBar onBack={() => router.back()} />}>
+      <StoreCommerceCartPageShell
+        storeSlug={cartSlug}
+        header={<StoreBaeminCartTopBar onBack={goCartBack} />}
+      >
         <div className="px-4 py-12 text-center sam-text-body text-sam-muted">{t("store_navigating")}</div>
       </StoreCommerceCartPageShell>
     );
   }
 
   return (
-    <StoreCommerceCartPageShell header={<StoreBaeminCartTopBar onBack={() => router.back()} />}>
+    <StoreCommerceCartPageShell header={<StoreBaeminCartTopBar onBack={goCartBack} />}>
       <div className="px-4 py-10">
         <div className="text-center">
           <p className="sam-text-body-lg font-semibold text-sam-fg">{t("store_cart_empty")}</p>

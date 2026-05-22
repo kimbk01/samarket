@@ -49,9 +49,12 @@ const DIAL_SELECT_FLASH_MS = 100;
 export function DeliveryDomainSwitcherOverlay({
   open,
   onClose,
+  includeOpsCenter = true,
 }: {
   open: boolean;
   onClose: () => void;
+  /** 오너 어드민 하단 홈 다이얼 — 운영센터 칩 제외 */
+  includeOpsCenter?: boolean;
 }) {
   const { safeT, t } = useI18n();
   const router = useRouter();
@@ -63,7 +66,10 @@ export function DeliveryDomainSwitcherOverlay({
     eager: false,
   });
 
-  const slots = useMemo(() => composeDeliveryDomainSwitcherSlots(ownerStoreId), [ownerStoreId]);
+  const slots = useMemo(
+    () => composeDeliveryDomainSwitcherSlots(ownerStoreId, { includeOpsCenter }),
+    [ownerStoreId, includeOpsCenter]
+  );
   const slotCount = slots.length;
   const sweepStartDeg = deliveryDialSweepStartDeg(slotCount);
   const animTotalMs = deliveryDialAnimTotalMs(slotCount);

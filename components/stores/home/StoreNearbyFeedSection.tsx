@@ -106,8 +106,7 @@ export function StoreNearbyFeedSection({
   const { t, language } = useI18n();
   const [stores, setStores] = useState<StoreHomeFeedItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [meta, setMeta] = useState<{ source?: string; delivery_ride_time_source?: string } | null>(null);
-  const deliveryRideTimeSource = meta?.delivery_ride_time_source?.trim() || "google";
+  const [meta, setMeta] = useState<{ source?: string } | null>(null);
   const requestIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -148,18 +147,12 @@ export function StoreNearbyFeedSection({
       }
       if (!silent && !cachedEntry) setLoading(true);
       try {
-        const { json } = await fetchStoresHomeFeedDeduped(fetchSuffix, {
-          signal: controller.signal,
-          language,
-        });
+        const { json } = await fetchStoresHomeFeedDeduped(fetchSuffix, { signal: controller.signal });
         if (requestId !== requestIdRef.current || controller.signal.aborted) return;
         if (json && typeof json === "object" && (json as { ok?: boolean }).ok && Array.isArray((json as { stores?: unknown }).stores)) {
           const j = json as { stores: StoreHomeFeedItem[]; meta?: { source?: string } };
           const nextStores = j.stores;
-          const nextMeta = (j.meta ?? null) as {
-            source?: string;
-            delivery_ride_time_source?: string;
-          } | null;
+          const nextMeta = (j.meta ?? null) as { source?: string } | null;
           primeStoreHomeFeedClientCache(fetchSuffix, {
             stores: nextStores,
             meta: nextMeta,
@@ -178,7 +171,7 @@ export function StoreNearbyFeedSection({
         if (!silent && requestId === requestIdRef.current) setLoading(false);
       }
     },
-    [fetchSuffix, language]
+    [fetchSuffix]
   );
 
   useLayoutEffect(() => {
@@ -275,12 +268,7 @@ export function StoreNearbyFeedSection({
             <SectionBlock eyebrow={t("store_live_eyebrow")} title={t("store_order_now_title")} subtitle={t("store_order_now_subtitle")}>
               <ul className="space-y-2">
                 {sections.openDelivery.map((s) => (
-                  <StoreDeliveryRowCard
-                    key={s.id}
-                    data={homeFeedToRowCard(s)}
-                    locale={language}
-                    deliveryRideTimeSource={deliveryRideTimeSource}
-                  />
+                  <StoreDeliveryRowCard key={s.id} data={homeFeedToRowCard(s)} locale={language} />
                 ))}
               </ul>
             </SectionBlock>
@@ -304,12 +292,7 @@ export function StoreNearbyFeedSection({
             >
               <ul className="space-y-2">
                 {tailList.map((s) => (
-                  <StoreDeliveryRowCard
-                    key={s.id}
-                    data={homeFeedToRowCard(s)}
-                    locale={language}
-                    deliveryRideTimeSource={deliveryRideTimeSource}
-                  />
+                  <StoreDeliveryRowCard key={s.id} data={homeFeedToRowCard(s)} locale={language} />
                 ))}
               </ul>
             </SectionBlock>

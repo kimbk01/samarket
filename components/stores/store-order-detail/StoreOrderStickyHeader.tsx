@@ -7,6 +7,7 @@ import { createPortal } from "react-dom";
 import { StoreDetailBackLink } from "@/components/stores/StoreDetailBackRow";
 import {
   STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME,
+  STORE_COMMERCE_CART_COUNT_BADGE_ON_HERO_GLASS_CLASSNAME,
   StoreCommerceCartStrokeIcon,
 } from "@/components/stores/StoreCommerceCartStrokeIcon";
 import { openStoreCartPreview } from "@/lib/stores/store-cart-preview-ui-store";
@@ -15,6 +16,10 @@ import { STORE_ORDER_BRAND } from "@/components/stores/store-order-detail/store-
 
 const iconBtn =
   "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors duration-[180ms] active:scale-[0.96]";
+
+/** 히어로 이미지 위에서 보이는 반투명 글래스 버튼(매장·상품 상세) */
+export const STORE_ORDER_HERO_GLASS_ICON_BTN =
+  "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/40 bg-black/40 text-white shadow-[0_2px_8px_rgba(0,0,0,0.28)] backdrop-blur-sm transition-[background-color,transform,border-color,box-shadow] duration-[180ms] active:scale-[0.96] active:border-white/55 active:bg-black/55";
 
 export function StoreOrderStickyHeader({
   elevated,
@@ -28,6 +33,8 @@ export function StoreOrderStickyHeader({
   onMenuSearchFocus,
   onShareClick,
   onCartPreviewClick,
+  /** true: 스크롤 전 히어로 위 액션을 글래스 버튼으로(밝은 사진에서도 보임) */
+  heroGlassOverlayButtons = false,
 }: {
   elevated: boolean;
   fallbackHref: string;
@@ -41,6 +48,7 @@ export function StoreOrderStickyHeader({
   onShareClick: () => void;
   /** 빈 카트에서도 프리뷰 시트 열기용 — 카트 링크와 병행 */
   onCartPreviewClick: () => void;
+  heroGlassOverlayButtons?: boolean;
 }) {
   const { t } = useI18n();
   const [portalToBody, setPortalToBody] = useState(false);
@@ -72,6 +80,19 @@ export function StoreOrderStickyHeader({
     [cartLineKindCount, openPreview]
   );
 
+  const glassOverlay = heroGlassOverlayButtons && !elevated;
+  const backBtnClass = elevated
+    ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-neutral-900 hover:bg-black/[0.06] active:bg-black/[0.08]"
+    : glassOverlay
+      ? STORE_ORDER_HERO_GLASS_ICON_BTN
+      : "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white drop-shadow hover:bg-white/15 active:bg-white/25";
+  const actionBtnClass = (extra = "") =>
+    elevated
+      ? `${iconBtn} text-neutral-900 ${extra}`.trim()
+      : glassOverlay
+        ? `${STORE_ORDER_HERO_GLASS_ICON_BTN} ${extra}`.trim()
+        : `${iconBtn} text-white drop-shadow-sm ${extra}`.trim();
+
   const header = (
     <header
       className={`fixed inset-x-0 top-0 z-[60] pt-[env(safe-area-inset-top,0px)] transition-[background-color,box-shadow,border-color] duration-[180ms] ease-out ${
@@ -81,14 +102,7 @@ export function StoreOrderStickyHeader({
       }`}
     >
       <div className="flex h-14 items-center gap-1 px-4">
-        <StoreDetailBackLink
-          fallbackHref={fallbackHref}
-          className={
-            elevated
-              ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-neutral-900 hover:bg-black/[0.06] active:bg-black/[0.08]"
-              : "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white drop-shadow hover:bg-white/15 active:bg-white/25"
-          }
-        />
+        <StoreDetailBackLink fallbackHref={fallbackHref} className={backBtnClass} />
         <div
           className="min-w-0 flex-1 text-center transition-opacity duration-[180ms] ease-out"
           style={{ opacity: elevated ? 1 : 0 }}
@@ -98,11 +112,10 @@ export function StoreOrderStickyHeader({
             {storeName}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-0.5">
+        <div className={`flex shrink-0 items-center ${glassOverlay ? "gap-1.5" : "gap-0.5"}`}>
           <button
             type="button"
-            className={`${iconBtn} ${elevated ? "text-neutral-900" : "text-white drop-shadow-sm"}`}
-            style={{ color: elevated ? undefined : "#fff" }}
+            className={actionBtnClass()}
             aria-label={t("store_menu_search_aria")}
             onClick={onMenuSearchFocus}
           >
@@ -113,7 +126,7 @@ export function StoreOrderStickyHeader({
           </button>
           <button
             type="button"
-            className={`${iconBtn} ${elevated ? "text-neutral-900" : "text-white drop-shadow-sm"}`}
+            className={actionBtnClass()}
             aria-label={t("common_share")}
             onClick={onShareClick}
           >
@@ -140,14 +153,22 @@ export function StoreOrderStickyHeader({
           <Link
             href={cartHref}
             onClick={onCartPress}
-            className={`${iconBtn} relative ${elevated ? "text-neutral-900" : "text-white drop-shadow-sm"}`}
+            className={actionBtnClass("relative")}
             aria-label={
-              cartLineKindCount > 0 ? `장바구니, 담긴 종류 ${cartLineKindCount}개` : "장바구니"
+              cartLineKindCount > 0
+                ? `${t("store_cart_preview_aria")}, ${cartLineKindCount}종`
+                : t("store_cart_preview_aria")
             }
           >
             <StoreCommerceCartStrokeIcon className="h-[21px] w-[21px]" />
             {cartLineKindCount > 0 ? (
-              <span className={`absolute -right-0.5 -top-0.5 z-[1] ${STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME}`}>
+              <span
+                className={
+                  glassOverlay
+                    ? STORE_COMMERCE_CART_COUNT_BADGE_ON_HERO_GLASS_CLASSNAME
+                    : `absolute -right-0.5 -top-0.5 z-[1] ${STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME}`
+                }
+              >
                 {cartLineKindCount > 99 ? "99+" : cartLineKindCount}
               </span>
             ) : null}

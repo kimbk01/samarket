@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
+import { resolveBrowseFeaturedMenuImageUrl } from "@/lib/stores/browse-featured-items-types";
 import {
   BROWSE_FEATURED_ITEMS_PER_STORE_MAX,
   type BrowseFeaturedItemDto,
@@ -23,6 +24,72 @@ type ProductRow = {
 const PRODUCT_SELECT =
   "id, store_id, title, price, thumbnail_url, is_featured, sort_order, is_owner_recommended";
 
+const PRODUCT_SELECT_LEGACY =
+  "id, store_id, title, price, thumbnail_url, is_featured, sort_order";
+
+function isMissingStoreProductsColumn(error: { message?: string } | null, column: string): boolean {
+  const m = String(error?.message ?? "");
+  return new RegExp(column, "i").test(m) && /does not exist/i.test(m);
+}
+
+async function queryStoreProductsFeatured(
+  sb: SupabaseClient,
+  storeIds: string[],
+  limit: number
+): Promise<{ data: ProductRow[] | null; error: { message?: string } | null }> {
+  const r = await sb
+    .from("store_products")
+    .select(PRODUCT_SELECT)
+    .in("store_id", storeIds)
+    .eq("product_status", "active")
+    .eq("is_featured", true)
+    .order("sort_order", { ascending: true })
+    .limit(limit);
+  if (!r.error || !isMissingStoreProductsColumn(r.error, "is_owner_recommended")) {
+    return { data: (r.data ?? []) as ProductRow[], error: r.error as { message?: string } | null };
+  }
+  const legacy = await sb
+    .from("store_products")
+    .select(PRODUCT_SELECT_LEGACY)
+    .in("store_id", storeIds)
+    .eq("product_status", "active")
+    .eq("is_featured", true)
+    .order("sort_order", { ascending: true })
+    .limit(limit);
+  return {
+    data: (legacy.data ?? []) as ProductRow[],
+    error: legacy.error as { message?: string } | null,
+  };
+}
+
+async function queryStoreProductsFill(
+  sb: SupabaseClient,
+  storeIds: string[],
+  limit: number
+): Promise<{ data: ProductRow[] | null; error: { message?: string } | null }> {
+  const r = await sb
+    .from("store_products")
+    .select(PRODUCT_SELECT)
+    .in("store_id", storeIds)
+    .eq("product_status", "active")
+    .order("sort_order", { ascending: true })
+    .limit(limit);
+  if (!r.error || !isMissingStoreProductsColumn(r.error, "is_owner_recommended")) {
+    return { data: (r.data ?? []) as ProductRow[], error: r.error as { message?: string } | null };
+  }
+  const legacy = await sb
+    .from("store_products")
+    .select(PRODUCT_SELECT_LEGACY)
+    .in("store_id", storeIds)
+    .eq("product_status", "active")
+    .order("sort_order", { ascending: true })
+    .limit(limit);
+  return {
+    data: (legacy.data ?? []) as ProductRow[],
+    error: legacy.error as { message?: string } | null,
+  };
+}
+
 /** Supabase `.limit` — 배치 32매장 × 매장 6슬롯 이론상한 (분배 손실 여유) */
 const BROWSE_FEATURED_ITEMS_QUERY_ROW_CAP = 512;
 
@@ -36,7 +103,7 @@ function rowToDto(row: ProductRow): BrowseFeaturedItemDto {
   return {
     id: String(row.id),
     name: String(row.title ?? ""),
-    thumbnail_url: row.thumbnail_url?.trim() || null,
+    thumbnail_url: resolveBrowseFeaturedMenuImageUrl(row.thumbnail_url),
     price: Number(row.price) || 0,
     badge: badgeForRow(row),
   };
@@ -129,19 +196,12 @@ export async function loadBrowseFeaturedItemsBatch(
     misses.length * BROWSE_FEATURED_ITEMS_PER_STORE_MAX,
     BROWSE_FEATURED_ITEMS_QUERY_ROW_CAP
   );
-  const featuredRes = await sb
-    .from("store_products")
-    .select(PRODUCT_SELECT)
-    .in("store_id", misses)
-    .eq("product_status", "active")
-    .eq("is_featured", true)
-    .order("sort_order", { ascending: true })
-    .limit(featuredLimit);
+  const featuredRes = await queryStoreProductsFeatured(sb, misses, featuredLimit);
   queryCount += 1;
   if (featuredRes.error) {
     throw new Error(featuredRes.error.message);
   }
-  mergeIntoGrouped(grouped, (featuredRes.data ?? []) as ProductRow[]);
+  mergeIntoGrouped(grouped, featuredRes.data ?? []);
 
   const needFill = storesNeedingFill(misses, grouped);
   if (needFill.length > 0) {
@@ -149,18 +209,12 @@ export async function loadBrowseFeaturedItemsBatch(
       needFill.length * BROWSE_FEATURED_ITEMS_PER_STORE_MAX * 2,
       BROWSE_FEATURED_ITEMS_QUERY_ROW_CAP
     );
-    const fillRes = await sb
-      .from("store_products")
-      .select(PRODUCT_SELECT)
-      .in("store_id", needFill)
-      .eq("product_status", "active")
-      .order("sort_order", { ascending: true })
-      .limit(fillLimit);
+    const fillRes = await queryStoreProductsFill(sb, needFill, fillLimit);
     queryCount += 1;
     if (fillRes.error) {
       throw new Error(fillRes.error.message);
     }
-    mergeIntoGrouped(grouped, (fillRes.data ?? []) as ProductRow[]);
+    mergeIntoGrouped(grouped, fillRes.data ?? []);
   }
 
   const dbMs = devPerfNow() - db0;

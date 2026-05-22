@@ -8,7 +8,7 @@ export function OwnerStoreOrdersPageFallback() {
     <div
       className={`flex h-full min-h-0 w-full flex-col bg-[#F3F4F6] ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}
     >
-      <div className="min-h-0 flex-1 animate-pulse px-2 pt-2">
+      <div className="min-h-0 flex-1 animate-pulse pt-2">
         <div className="h-11 rounded-[4px] bg-white" />
         <div className="mt-2 space-y-2">
           <div className="h-24 rounded-[4px] bg-white" />

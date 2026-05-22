@@ -11,6 +11,7 @@ import { useBusinessAdminStore } from "@/components/business/admin/business-admi
 import type { OwnerRscMenuSection } from "@/lib/stores/owner/load-owner-store-read-bootstrap";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import { OWNER_MOBILE_ADMIN_CONTENT_GUTTER_X_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
 
 type Section = {
   id: string;
@@ -367,7 +368,7 @@ export function OwnerMenuCategoriesClient({
             </button>
           </nav>
 
-          <div className="px-4 py-4">
+          <div className="py-4">
             {error ? (
               <p className="mb-3 sam-text-body-secondary text-red-600">{resolveOwnerApiErrorMessage(error, t)}</p>
             ) : null}
@@ -446,7 +447,9 @@ export function OwnerMenuCategoriesClient({
             aria-label={t("business_phase7_303")}
             className="pointer-events-auto fixed inset-x-0 bottom-0 z-[120] border-t border-sam-border bg-sam-surface shadow-[0_-4px_12px_rgba(0,0,0,0.08)] lg:left-[260px]"
           >
-            <div className="mx-auto flex w-full max-w-6xl gap-2 px-2 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] sm:px-2">
+            <div
+              className={`mx-auto flex w-full max-w-lg min-w-0 gap-2 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] ${OWNER_MOBILE_ADMIN_CONTENT_GUTTER_X_CLASS}`}
+            >
               <button
                 type="button"
                 disabled={saving}
@@ -472,7 +475,7 @@ export function OwnerMenuCategoriesClient({
 
   return (
     <div className="max-w-full overflow-x-hidden bg-sam-app pb-8">
-      <div className="space-y-3 px-0 py-2">
+      <div className="space-y-3 py-2">
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
           <button
             type="button"
