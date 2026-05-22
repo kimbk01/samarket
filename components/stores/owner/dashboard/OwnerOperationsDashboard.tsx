@@ -7,7 +7,10 @@ import {
   parseOwnerStoreOpsSnapshotFromJson,
   type OwnerStoreOpsSnapshot,
 } from "@/lib/stores/owner-store-ops-snapshot";
-import { OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
+import {
+  OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS,
+  OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS,
+} from "@/lib/stores/owner-mobile-ui-tokens";
 import { OwnerUrgentOrdersCard } from "./OwnerUrgentOrdersCard";
 import { OwnerOrderFlowCard } from "./OwnerOrderFlowCard";
 import { OwnerSalesSummaryCard } from "./OwnerSalesSummaryCard";
@@ -50,7 +53,7 @@ export function OwnerOperationsDashboard({
   return (
     <div className={`flex h-full min-h-0 w-full flex-col ${OWNER_DASH_PAGE_CLASS}`}>
       <main
-        className={`min-h-0 flex-1 overflow-y-auto overscroll-y-contain ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}
+        className={`${OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS} ${OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS}`}
       >
         <div className="space-y-2.5 pb-2">
           {offline ? <OwnerDashOfflineBanner stale={stale} /> : null}

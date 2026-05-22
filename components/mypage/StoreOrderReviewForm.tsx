@@ -7,6 +7,11 @@ import { SamarketThumbnail } from "@/components/common/SamarketThumbnail";
 import { dispatchWrittenReviewUpdated } from "@/lib/mypage/written-review-events";
 import { fetchMeStoreOrderDetailDeduped } from "@/lib/stores/store-delivery-api-client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { StoreCommerceBottomActionShell } from "@/components/stores/commerce/StoreCommerceBottomActionShell";
+import {
+  storeCommerceActionContentPadClass,
+  STORE_COMMERCE_ACTION_SUBMIT_FULL_CLASS,
+} from "@/lib/stores/store-commerce-bottom-action-bar";
 
 type ItemRow = { id: string; product_id: string; product_title_snapshot: string; qty?: number };
 
@@ -227,7 +232,7 @@ export function StoreOrderReviewForm({
           </h1>
           <span className="w-11 shrink-0" />
         </header>
-        <div className="mx-auto max-w-lg px-4 pb-28 pt-4">{body}</div>
+        <div className="mx-auto max-w-lg px-4 pt-4">{body}</div>
       </div>
     );
   };
@@ -397,17 +402,22 @@ export function StoreOrderReviewForm({
 
       {err ? <p className="text-center text-sm text-red-600">{err}</p> : null}
 
-      <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-sam-border-soft bg-sam-surface p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <div className="mx-auto max-w-lg">
+      <div aria-hidden className={storeCommerceActionContentPadClass("review-submit")} />
+      <StoreCommerceBottomActionShell
+        variant="review-submit"
+        portal={false}
+        dataAttribute="data-store-review-submit"
+      >
+        <div className="px-4 py-2">
           <button
             type="submit"
             disabled={busy || content.trim().length < 5}
-            className="w-full rounded-ui-rect bg-sam-ink py-3.5 sam-text-body-lg font-semibold text-white disabled:opacity-40"
+            className={STORE_COMMERCE_ACTION_SUBMIT_FULL_CLASS}
           >
             {busy ? t("mypage_comp_store_review_submitting") : t("mypage_comp_store_review_submit")}
           </button>
         </div>
-      </div>
+      </StoreCommerceBottomActionShell>
     </form>
   );
 }

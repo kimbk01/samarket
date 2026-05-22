@@ -292,7 +292,7 @@ function DeliveryChromeStrip({
             ) : null}
           </div>
           <div className="shrink-0 text-right">
-            <span className="inline-flex rounded-[4px] bg-[#1C8DB8] px-2 py-0.5 text-[11px] font-bold leading-[1.35] text-white">
+            <span className="delivery-ui inline-flex rounded-[var(--delivery-radius)] bg-[color:var(--delivery-primary)] px-2 py-0.5 text-[11px] font-bold leading-[1.35] text-white">
               {statusLabel || "진행중"}
             </span>
             {paymentLabel ? (
@@ -337,7 +337,7 @@ function DeliveryOrderProgressRail({
             idx < currentStep
               ? "text-[#123B4A]"
               : idx === currentStep
-                ? "font-bold text-[#1C8DB8]"
+                ? "font-bold text-[color:var(--delivery-primary)]"
                 : "text-[#D1D5DB]";
           return (
             <span key={step} className={`block truncate ${tone}`}>

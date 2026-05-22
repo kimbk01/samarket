@@ -10,12 +10,14 @@ export function StorePromoHeroBanner() {
   return (
     <Link
       href="/stores#store-industry-explore"
-      className={`block p-3 ${FB.card} active:opacity-[0.92]`}
+      className={`block overflow-hidden p-4 ${FB.card} active:opacity-[0.92]`}
     >
-      <p className={`sam-text-helper font-semibold uppercase tracking-wide ${FB.metaSm}`}>{t("store_promo_eyebrow")}</p>
+      <p className={`font-semibold uppercase tracking-wide ${FB.metaSm}`}>{t("store_promo_eyebrow")}</p>
       <p className={`mt-1 ${FB.name}`}>{t("store_promo_title")}</p>
       <p className={`mt-1 ${FB.meta}`}>{t("store_promo_subtitle")}</p>
-      <span className={`mt-2 inline-block sam-text-body ${FB.link}`}>{t("store_open_industries")}</span>
+      <span className={`mt-3 inline-block text-[14px] leading-[var(--delivery-lh-body)] ${FB.link}`}>
+        {t("store_open_industries")}
+      </span>
     </Link>
   );
 }

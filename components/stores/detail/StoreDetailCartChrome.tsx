@@ -92,7 +92,7 @@ export const StoreDetailCartChrome = memo(function StoreDetailCartChrome({
       : STORE_DETAIL_ROOT_BOTTOM_PADDING_NO_STRIP_CLASS;
 
   return (
-    <div className={`pb-[env(safe-area-inset-bottom,0px)] ${rootBottomPadClass}`}>
+    <div className={rootBottomPadClass}>
       {children}
       <StoreDetailBottomStripSheetGate
         storeId={storeId}

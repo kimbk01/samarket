@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { PH_MOBILE_PLACEHOLDER } from "@/lib/constants/philippines-contact";

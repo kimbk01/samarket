@@ -1,46 +1,21 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
+import { DeliveryTheme } from "@/lib/design/delivery-theme";
 import { DibayMenuBoard } from "@/lib/stores/dibay-menu-board-tokens";
 import type { StoreDetailProductCard } from "@/lib/stores/group-store-products-by-menu";
 
 type BadgeKind = "popular" | "owner" | "rep" | "discount";
 
+const BADGE_CLASS: Record<BadgeKind, string> = {
+  popular: DeliveryTheme.badgeMenu.popular,
+  owner: DeliveryTheme.badgeMenu.owner,
+  rep: DeliveryTheme.badgeMenu.rep,
+  discount: DeliveryTheme.badgeMenu.discount,
+};
+
 function BadgeChip({ kind, label }: { kind: BadgeKind; label: string }) {
-  const t =
-    kind === "owner"
-      ? DibayMenuBoard.badge.ownerRecommended
-      : kind === "rep"
-        ? DibayMenuBoard.badge.representative
-        : kind === "discount"
-          ? DibayMenuBoard.badge.discount
-          : DibayMenuBoard.badge.popular;
-  const border =
-    kind === "owner"
-      ? DibayMenuBoard.badge.ownerRecommended.border
-      : kind === "popular"
-        ? "1px solid #FFCACA"
-        : kind === "rep"
-          ? DibayMenuBoard.badge.representative.border
-          : undefined;
-  return (
-    <span
-      className="inline-flex shrink-0 items-center leading-none"
-      style={{
-        backgroundColor: t.bg,
-        color: t.fg,
-        borderRadius: t.radiusPx,
-        fontSize: t.fontSizePx,
-        fontWeight: t.fontWeight,
-        padding: t.padding,
-        lineHeight:
-          kind === "owner" ? `${DibayMenuBoard.badge.ownerRecommended.lineHeightPx}px` : "1.2",
-        border: border || undefined,
-      }}
-    >
-      {label}
-    </span>
-  );
+  return <span className={BADGE_CLASS[kind]}>{label}</span>;
 }
 
 /**
@@ -78,8 +53,8 @@ export function ProductBadgeRow({
 
   return (
     <div
-      className="flex flex-wrap items-center"
-      style={{ gap: DibayMenuBoard.badgeGapPx, marginTop: DibayMenuBoard.badgeRowMarginTopPx }}
+      className="flex flex-wrap items-center gap-1"
+      style={{ marginTop: DibayMenuBoard.badgeRowMarginTopPx }}
     >
       {ordered.map((o) =>
         o.kind === "popular" ? (

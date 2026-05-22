@@ -88,12 +88,10 @@ export function OwnerMobileAdminHeader({
     router.push(`/stores/owner?${p.toString()}`);
   };
 
-  const shellClass = `${OWNER_MOBILE_PAGE_HEADER_SHELL_CLASS} overflow-x-clip`;
-
   return (
     <BodyPortal>
     <header
-      className={shellClass}
+      className={OWNER_MOBILE_PAGE_HEADER_SHELL_CLASS}
       aria-label={
         variant === "hub" ? t("store_owner_aria_store_ops") : pageTitle ?? t("owner_store_admin_hub")
       }

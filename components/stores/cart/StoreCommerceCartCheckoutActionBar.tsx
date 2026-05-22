@@ -2,22 +2,18 @@
 
 import { forwardRef } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
-import { formatMoneyPhp } from "@/lib/utils/format";
-import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
+import { StoreCommerceBottomActionShell } from "@/components/stores/commerce/StoreCommerceBottomActionShell";
+import { DeliveryTheme } from "@/lib/design/delivery-theme";
 import {
-  BAEMIN_CART_FOOTER_MIN_MET_CLASS,
-  BAEMIN_CART_FOOTER_MIN_SHORT_CLASS,
-  BAEMIN_CART_FOOTER_PROMO_CLASS,
-  BAEMIN_CART_ORDER_BTN_CLASS,
-  BAEMIN_CART_PAGE_X,
-} from "@/lib/stores/store-baemin-cart-ui";
-import { STORE_CART_CHECKOUT_ACTION_INNER_CLASS } from "@/lib/stores/store-cart-page-layout";
+  storeCommerceActionBtnClass,
+  storeCommerceActionRowClass,
+} from "@/lib/stores/store-commerce-bottom-action-bar";
+import { formatMoneyPhp } from "@/lib/utils/format";
 
 type Props = {
   displayGrand: number;
   strikeGrand?: number | null;
   promoLine?: string | null;
-  /** 최소 주문 — `minOrderPhp > 0` 일 때만 전달 */
   minOrderLine?: { met: boolean; text: string } | null;
   busy: boolean;
   submitDisabled: boolean;
@@ -26,7 +22,29 @@ type Props = {
   onSubmit: () => void;
 };
 
-/** 배민식 하단 — 좌측 금액(할인 시 취소선) + 우측 primary 버튼 */
+function pickFooterHint(args: {
+  disabledReason?: string | null;
+  minOrderLine?: { met: boolean; text: string } | null;
+  promoLine?: string | null;
+}): { text: string; tone: "warn" | "ok" | "promo" | "muted" } | null {
+  if (args.disabledReason?.trim()) {
+    return { text: args.disabledReason.trim(), tone: "warn" };
+  }
+  if (args.minOrderLine && !args.minOrderLine.met) {
+    return { text: args.minOrderLine.text, tone: "warn" };
+  }
+  if (args.promoLine?.trim()) {
+    return { text: args.promoLine.trim(), tone: "promo" };
+  }
+  if (args.minOrderLine?.met) {
+    return { text: args.minOrderLine.text, tone: "ok" };
+  }
+  return null;
+}
+
+/**
+ * 장바구니 하단 — 배민식 한 줄(결제금액 + 주문 CTA), 보조 안내는 최대 1줄.
+ */
 export const StoreCartCheckoutActionBar = forwardRef<HTMLElement, Props>(
   function StoreCartCheckoutActionBarInner(
     {
@@ -45,51 +63,57 @@ export const StoreCartCheckoutActionBar = forwardRef<HTMLElement, Props>(
     const { t } = useI18n();
     const showStrike =
       strikeGrand != null && Number.isFinite(strikeGrand) && strikeGrand > displayGrand;
+    const ctaDisabled = submitDisabled || busy;
+    const hint = pickFooterHint({ disabledReason, minOrderLine, promoLine });
 
     return (
-      <section
-        ref={ref}
-        data-store-cart-checkout-action=""
-        className="relative z-10 w-full min-w-0 bg-white"
-        aria-label="주문 접수"
-      >
-        <div
-          className={`mx-auto flex min-h-[56px] items-center gap-3 ${BAEMIN_CART_PAGE_X} ${STORE_CART_CHECKOUT_ACTION_INNER_CLASS} ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}
+      <section ref={ref} className="delivery-ui shrink-0 w-full min-w-0" aria-label="주문 접수">
+        <StoreCommerceBottomActionShell
+          variant="cart-checkout"
+          inline
+          portal={false}
+          dataAttribute="data-store-cart-checkout-action"
         >
-          <div className="min-w-0 flex-1 py-0.5">
-            <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0">
-              <p className="text-[20px] font-bold leading-none tabular-nums text-[#111111]">
-                {formatMoneyPhp(displayGrand)}
-              </p>
-              {showStrike ? (
-                <p className="text-[14px] font-medium tabular-nums text-[#999999] line-through">
-                  {formatMoneyPhp(strikeGrand!)}
+          <div className={storeCommerceActionRowClass("cart-checkout")}>
+            <div className={`${DeliveryTheme.cartCheckoutBar.root} min-w-0 flex-1`}>
+              <p className={DeliveryTheme.cartCheckoutBar.label}>{t("store_payment_due")}</p>
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0">
+                <p className={DeliveryTheme.cartCheckoutBar.price}>{formatMoneyPhp(displayGrand)}</p>
+                {showStrike ? (
+                  <p className="text-[14px] font-medium tabular-nums text-[color:var(--delivery-text-muted)] line-through">
+                    {formatMoneyPhp(strikeGrand!)}
+                  </p>
+                ) : null}
+              </div>
+              {hint ? (
+                <p
+                  className={`${DeliveryTheme.cartCheckoutBar.hint} ${
+                    hint.tone === "warn"
+                      ? "delivery-cart-checkout-bar__hint--warn"
+                      : hint.tone === "ok"
+                        ? "delivery-cart-checkout-bar__hint--ok"
+                        : hint.tone === "promo"
+                          ? "delivery-cart-checkout-bar__hint--promo"
+                          : ""
+                  }`}
+                >
+                  {hint.text}
                 </p>
               ) : null}
             </div>
-            {promoLine ? <p className={`mt-1 ${BAEMIN_CART_FOOTER_PROMO_CLASS}`}>{promoLine}</p> : null}
-            {minOrderLine ? (
-              <p
-                className={`mt-1 ${minOrderLine.met ? BAEMIN_CART_FOOTER_MIN_MET_CLASS : BAEMIN_CART_FOOTER_MIN_SHORT_CLASS}`}
-              >
-                {minOrderLine.text}
-              </p>
-            ) : null}
-            {disabledReason ? (
-              <p className="mt-1 text-[12px] font-semibold leading-snug text-[#888888]">
-                {disabledReason}
-              </p>
-            ) : null}
+            <button
+              type="button"
+              disabled={ctaDisabled}
+              onClick={onSubmit}
+              className={storeCommerceActionBtnClass(
+                ctaDisabled,
+                "max-w-[58%] min-w-[9.25rem] shrink-0 whitespace-nowrap"
+              )}
+            >
+              {busy ? processingLabel : t("store_submit_store_delivery")}
+            </button>
           </div>
-          <button
-            type="button"
-            disabled={submitDisabled || busy}
-            onClick={onSubmit}
-            className={BAEMIN_CART_ORDER_BTN_CLASS}
-          >
-            {busy ? processingLabel : t("store_submit_store_delivery")}
-          </button>
-        </div>
+        </StoreCommerceBottomActionShell>
       </section>
     );
   }

@@ -8,17 +8,14 @@ import { HorizontalDragScroll } from "@/components/community/HorizontalDragScrol
 import { listBrowsePrimaryIndustries } from "@/lib/stores/browse-mock/queries";
 import { useBrowseIndustryDatasetVersion } from "@/lib/stores/browse-mock/use-browse-industry-dataset-version";
 import { storesBrowsePrimaryPath } from "@/components/stores/browse/stores-browse-paths";
-import {
-  STORE_CATEGORY_PILL_SCROLL,
-  storeCategoryPillClass,
-} from "@/components/stores/store-category-pill-styles";
+import { STORE_CATEGORY_PILL_SCROLL } from "@/components/stores/store-category-pill-styles";
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
 import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
 import type { StoreTaxonomyCategory } from "@/lib/stores/store-taxonomy-types";
 import { resolveStorePrimaryIndustryLabel } from "@/lib/i18n/store-browse-label-i18n";
 
 function pillClass(active: boolean): string {
-  return `${storeCategoryPillClass(active)} inline-flex items-center gap-1`;
+  return `${active ? "delivery-category-chip delivery-category-chip--active" : "delivery-category-chip"} inline-flex items-center gap-1`;
 }
 
 /**
@@ -87,9 +84,9 @@ export function StorePrimaryIndustrySwitcher({
   const onStoresHome = pathname === "/stores" || pathname === "/stores/";
 
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-2">
       <div className="flex items-center justify-between gap-2 px-0.5">
-        <p className={`${FB.metaSm} font-semibold uppercase tracking-wide text-[#65676B] dark:text-[#B0B3B8]`}>
+        <p className={`${FB.metaSm} font-semibold uppercase tracking-wide`}>
           {t("store_primary_industry_aria")}
         </p>
         {!showHomeChip ?
@@ -121,7 +118,7 @@ export function StorePrimaryIndustrySwitcher({
               <span aria-hidden className="shrink-0">
                 {p.symbol}
               </span>
-              <span className="min-w-0 truncate text-[12px] leading-[1.2]">
+              <span className="min-w-0 truncate text-[12px] leading-none">
                 {resolveStorePrimaryIndustryLabel(language, p.slug, p.nameKo, (p as { name_en?: string | null }).name_en)}
               </span>
             </Link>

@@ -1,12 +1,22 @@
 "use client";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
+import { useMemo } from "react";
 import { StoreCommerceCartStrokeIcon } from "@/components/stores/StoreCommerceCartStrokeIcon";
+import { StoreCommerceBottomActionShell } from "@/components/stores/commerce/StoreCommerceBottomActionShell";
+import {
+  STORE_COMMERCE_ACTION_BTN_CART_BADGE_CLASS,
+  STORE_COMMERCE_ACTION_CAPTION_CLASS,
+  STORE_COMMERCE_ACTION_CART_ICON_BTN_CLASS,
+  STORE_COMMERCE_ACTION_HINT_AMBER_CLASS,
+  STORE_COMMERCE_ACTION_HINT_OK_CLASS,
+  STORE_COMMERCE_ACTION_PRICE_HERO_CLASS,
+  STORE_COMMERCE_ACTION_SECONDARY_TEXT_CLASS,
+  storeCommerceActionBtnClass,
+  storeCommerceActionRowClass,
+} from "@/lib/stores/store-commerce-bottom-action-bar";
 import { formatMoneyPhp } from "@/lib/utils/format";
-import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
 import { getCommerceCartSnapshotBus } from "@/lib/stores/store-commerce-cart-snapshot-bus";
 import { findCommerceCartBucketBySlug } from "@/lib/stores/find-commerce-cart-bucket-by-slug";
 import {
@@ -16,8 +26,9 @@ import {
 import type { StorePublicFulfillmentMode } from "@/components/stores/StoreDetailStorefrontPanel";
 
 /**
- * 매장 메뉴·상품 하단 합계 띠 — 빈 카트여도 노출(레퍼런스 앱형).
- * 포털: `ConditionalAppShell` 조상 transform 시 viewport 고정 유지.
+ * 매장 메뉴 하단 스트립
+ * - 카트 있음: 합계(큰 글씨) + (최소주문 부족 | 배달 가능) + 주문 확인 CTA + 수량 뱃지
+ * - 빈 카트: 영업·최소주문·배달/픽업 + 카트 미리보기
  */
 export function StoreDetailBottomStrip({
   slug,
@@ -28,7 +39,6 @@ export function StoreDetailBottomStrip({
   cartQtyTotal,
   cartLineKindCount,
   minOrderPhp,
-  /** 브레이크 시간 등 — `store_bottom_status_break` 의 `{detail}` */
   closedDetail,
   onCartPreviewOpen,
 }: {
@@ -37,19 +47,13 @@ export function StoreDetailBottomStrip({
   deliveryAvailable: boolean;
   fulfillmentMode: StorePublicFulfillmentMode;
   cartTotalPhp: number;
-  /** 줄별 수량 합 */
   cartQtyTotal: number;
-  /** 담긴 메뉴 종류 수 */
   cartLineKindCount: number;
   minOrderPhp: number | null;
   closedDetail?: string | null;
   onCartPreviewOpen: () => void;
 }) {
   const { t } = useI18n();
-  const [portalToBody, setPortalToBody] = useState(false);
-  useEffect(() => {
-    setPortalToBody(true);
-  }, []);
 
   const modeLabel = useMemo(() => {
     if (fulfillmentMode === "local_delivery") {
@@ -97,73 +101,68 @@ export function StoreDetailBottomStrip({
   };
 
   const active = cartQtyTotal > 0;
+  const variant = active ? "menu-cart-active" : "menu-cart-idle";
 
-  const bar = (
-    <div
-      className={`fixed inset-x-0 bottom-0 z-[45] border-t border-neutral-100 bg-white shadow-[0_-4px_14px_rgba(0,0,0,0.05)] ${
-        active ? "min-h-[92px] pt-2.5" : "min-h-[76px] pt-2.5"
-      }`}
-      style={{
-        paddingBottom: "calc(12px + env(safe-area-inset-bottom, 0px))",
-      }}
-      data-store-cart-strip="1"
-    >
-      <div
-        className={`mx-auto flex w-full min-w-0 items-center justify-between gap-3 px-4 ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}
-      >
-        <div className="min-w-0 flex-1">
+  return (
+    <StoreCommerceBottomActionShell variant={variant} dataAttribute="data-store-cart-strip">
+      <div className={storeCommerceActionRowClass(variant)}>
+        <div className="min-w-0 flex-1 py-0.5">
           {active ? (
             <>
-              <p className="sam-i18n-card-title text-[14px] font-bold text-neutral-900">
-                {t("store_bottom_cart_line_count", { count: cartLineKindCount })}
-              </p>
-              <p className="mt-0.5 text-[17px] font-bold tabular-nums text-neutral-900">
+              <p className={STORE_COMMERCE_ACTION_PRICE_HERO_CLASS}>
                 {formatMoneyPhp(cartTotalPhp)}
+              </p>
+              {minNeed > 0 ? (
+                <p className={STORE_COMMERCE_ACTION_HINT_AMBER_CLASS}>
+                  {t("store_bottom_min_order_remaining", { amount: formatMoneyPhp(minNeed) })}
+                </p>
+              ) : (
+                <p className={STORE_COMMERCE_ACTION_HINT_OK_CLASS}>
+                  {deliveryAvailable && fulfillmentMode === "local_delivery"
+                    ? t("store_bottom_status_delivery_open")
+                    : t("store_bottom_status_pickup_open")}
+                </p>
+              )}
+              <p className={`mt-0.5 ${STORE_COMMERCE_ACTION_CAPTION_CLASS}`}>
+                {t("store_bottom_cart_line_count", { count: cartLineKindCount })}
               </p>
             </>
           ) : (
             <>
-              <p className="sam-i18n-card-title text-[13px] font-semibold text-neutral-800">{statusText}</p>
-              <p className="mt-0.5 text-[12px] font-medium text-neutral-500">
+              <p className={STORE_COMMERCE_ACTION_SECONDARY_TEXT_CLASS}>{statusText}</p>
+              <p className={`mt-0.5 ${STORE_COMMERCE_ACTION_CAPTION_CLASS}`}>
                 {minLine}
-                <span className="mx-1 text-neutral-300">·</span>
-                <span className="rounded-full bg-neutral-100 px-2 py-0.5 text-[11px] font-semibold text-neutral-600">
-                  {modeLabel}
-                </span>
+                <span className="mx-1 text-[color:var(--delivery-border)]">·</span>
+                <span className="font-semibold text-[color:var(--delivery-text-sub)]">{modeLabel}</span>
               </p>
             </>
           )}
-          {minNeed > 0 ? (
-            <p className="mt-1 text-[11px] font-semibold text-amber-800">
-              {t("store_bottom_min_order_remaining", { amount: formatMoneyPhp(minNeed) })}
-            </p>
-          ) : null}
         </div>
         {active ? (
           <Link
             href={cartHref}
             onClick={onCheckoutNavigate}
-            className="sam-i18n-btn-label flex h-[52px] shrink-0 touch-manipulation select-none items-center justify-center rounded-[14px] bg-[#1C8DB8] px-5 text-[15px] font-bold text-white transition-all duration-150 hover:bg-[#197DA3] active:scale-[0.97] active:bg-[#166F92]"
+            className={`sam-i18n-btn-label max-w-[58%] min-w-[9.75rem] ${storeCommerceActionBtnClass(false)}`}
             aria-label={t("store_go_checkout_aria")}
           >
-            {t("store_bottom_checkout_btn")}
+            {cartQtyTotal > 0 ? (
+              <span className={STORE_COMMERCE_ACTION_BTN_CART_BADGE_CLASS} aria-hidden>
+                {cartQtyTotal > 99 ? "99+" : cartQtyTotal}
+              </span>
+            ) : null}
+            <span className="truncate">{t("store_bottom_checkout_btn")}</span>
           </Link>
         ) : (
           <button
             type="button"
             onClick={onCartPreviewOpen}
-            className="flex h-11 w-11 shrink-0 touch-manipulation select-none items-center justify-center rounded-full border-[1.5px] border-[#1C8DB8] bg-white text-[#1C8DB8] transition-all duration-150 hover:bg-[#E6F4F9] active:scale-[0.94] active:bg-[#E6F4F9]"
+            className={STORE_COMMERCE_ACTION_CART_ICON_BTN_CLASS}
             aria-label={t("store_cart_preview_aria")}
           >
             <StoreCommerceCartStrokeIcon className="h-6 w-6 text-current" />
           </button>
         )}
       </div>
-    </div>
+    </StoreCommerceBottomActionShell>
   );
-
-  if (portalToBody && typeof document !== "undefined") {
-    return createPortal(bar, document.body);
-  }
-  return bar;
 }

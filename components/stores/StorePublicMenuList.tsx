@@ -12,9 +12,10 @@ import {
 } from "@/lib/stores/group-store-products-by-menu";
 import { approximateDiscountPercent } from "@/lib/stores/store-product-pricing";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
+import { DeliveryTheme } from "@/lib/design/delivery-theme";
 
 const PLUS_BTN =
-  "absolute bottom-1 right-1 z-10 flex h-[28px] w-[28px] shrink-0 touch-manipulation select-none items-center justify-center rounded-full bg-[#1C8DB8] text-[19px] font-normal leading-none text-white shadow-[0_2px_6px_rgba(28,141,184,0.35)] ring-1 ring-[#1C8DB8]/40 transition-all duration-150 hover:bg-[#197DA3] active:scale-[0.92] active:bg-[#166F92]";
+  DeliveryTheme.menuPlus;
 
 type RowProps = {
   storeSlug: string;
@@ -70,7 +71,7 @@ const StorePublicMenuRow = memo(function StorePublicMenuRow({
   const badges = (
     <div className="flex flex-wrap gap-1">
       {p.is_owner_recommended ? (
-        <span className="inline-flex h-[18px] items-center rounded-[3px] bg-[#E6F4F9] px-1.5 text-[10px] font-bold text-[#1C8DB8] ring-1 ring-[#1C8DB8]/15">
+        <span className="delivery-badge delivery-badge--owner">
           ?�장??추천
         </span>
       ) : null}
@@ -79,7 +80,7 @@ const StorePublicMenuRow = memo(function StorePublicMenuRow({
           ?�?�메??        </span>
       ) : null}
       {typeLabel && typeLabel !== "?�품" ? (
-        <span className="inline-flex h-[18px] items-center rounded-[3px] bg-[#EEF8FC] px-1.5 text-[10px] font-bold text-[#1C8DB8] ring-1 ring-[#1C8DB8]/12">
+        <span className="delivery-badge delivery-badge--primary">
           {typeLabel}
         </span>
       ) : null}

@@ -12,7 +12,7 @@ import {
 } from "@/components/stores/StoreCommerceCartStrokeIcon";
 import { openStoreCartPreview } from "@/lib/stores/store-cart-preview-ui-store";
 import { useStoreCommerceCartHeaderBadgeCount } from "@/lib/stores/use-store-commerce-cart-selector";
-import { STORE_ORDER_BRAND } from "@/components/stores/store-order-detail/store-order-brand";
+import { DELIVERY_STORE_STICKY_TITLE_CLASS } from "@/lib/design/delivery-chrome";
 
 const iconBtn =
   "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors duration-[180ms] active:scale-[0.96]";
@@ -101,16 +101,14 @@ export function StoreOrderStickyHeader({
           : "border-b border-transparent bg-transparent"
       }`}
     >
-      <div className="flex h-14 items-center gap-1 px-4">
+      <div className="delivery-ui mx-auto flex h-[length:var(--delivery-header-h)] min-h-[length:var(--delivery-header-h)] w-full max-w-[42rem] items-center gap-1 px-[length:var(--delivery-page-x)]">
         <StoreDetailBackLink fallbackHref={fallbackHref} className={backBtnClass} />
         <div
           className="min-w-0 flex-1 text-center transition-opacity duration-[180ms] ease-out"
           style={{ opacity: elevated ? 1 : 0 }}
           aria-hidden={!elevated}
         >
-          <p className="truncate text-[15px] font-bold leading-tight" style={{ color: STORE_ORDER_BRAND.title }}>
-            {storeName}
-          </p>
+          <p className={DELIVERY_STORE_STICKY_TITLE_CLASS}>{storeName}</p>
         </div>
         <div className={`flex shrink-0 items-center ${glassOverlay ? "gap-1.5" : "gap-0.5"}`}>
           <button

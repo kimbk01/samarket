@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 /** 방 메시지·메타 Realtime 은 시청자당 단일 `global-messenger:bundle` 채널(`useCommunityMessengerRoomRealtime`)로 수신·`room_id` 로만 분배한다. */
 

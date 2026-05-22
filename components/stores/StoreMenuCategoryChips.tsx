@@ -2,6 +2,7 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
+import { DeliveryTheme } from "@/lib/design/delivery-theme";
 
 /**
  * 매장 메뉴 구역(배민식) — 가로 스크롤 카테고리 칩, 클릭 시 해당 섹션으로 스크롤.
@@ -50,14 +51,14 @@ export function StoreMenuCategoryChips({
     "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
   const scrollCls =
     variant === "orderDetail"
-      ? `sam-i18n-chip-row flex flex-nowrap touch-pan-x gap-1.5 overflow-x-auto px-4 pb-1.5 [-webkit-overflow-scrolling:touch] ${scrollHide}`
+      ? `sam-i18n-chip-row flex flex-nowrap touch-pan-x gap-2 overflow-x-auto px-4 pb-2 [-webkit-overflow-scrolling:touch] ${scrollHide}`
       : `sam-tabs sam-tabs--scroll sam-i18n-chip-row -mx-4 ${scrollHide}`;
 
   const chipCls = (on: boolean) =>
     variant === "orderDetail"
-      ? `shrink-0 whitespace-nowrap rounded-full border px-[12px] text-[12px] font-bold transition-colors duration-[180ms] ${
-          on ? "h-[32px] border-neutral-900 bg-neutral-900 text-white" : "h-[32px] border-neutral-200 bg-white text-neutral-900"
-        }`
+      ? on
+        ? DeliveryTheme.categoryChipActive
+        : DeliveryTheme.categoryChip
       : `sam-tab ${on ? "sam-tab--active" : ""}`;
 
   return (
@@ -67,7 +68,7 @@ export function StoreMenuCategoryChips({
           <button
             type="button"
             onClick={onSearchClick}
-            className="flex h-[32px] w-[32px] shrink-0 items-center justify-center rounded-full border border-neutral-200 bg-white text-neutral-900"
+            className={DeliveryTheme.categorySearch}
             aria-label={t("store_menu_search_aria")}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>

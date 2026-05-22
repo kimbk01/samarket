@@ -1,0 +1,16 @@
+{
+  "converted": [
+    "scripts/_tmp-missing-i18n-keys.json",
+    "components/admin/delivery-operations/DeliveryOperationsDashboardPage.tsx",
+    "components/community-messenger/call-ui/GroupRoomCallOverlay.tsx",
+    "components/community-messenger/CommunityMessengerCallClient.tsx",
+    "components/community-messenger/GlobalCommunityMessengerIncomingCall.tsx",
+    "components/community-messenger/room/CommunityMessengerRoomClientPhase2Body.tsx",
+    "components/my/edit/ProfileBasicFields.tsx",
+    "components/stores/cart/baemin/StoreBaeminCartOrderSummaryCard.tsx",
+    "components/stores/cart/StoreCommerceCartBottomSheet.tsx",
+    "components/stores/StoreCartOtherStoreConflictDialog.tsx",
+    "lib/community-messenger/room/use-messenger-room-client-phase1.ts"
+  ],
+  "json_errors": []
+}

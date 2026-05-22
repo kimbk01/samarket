@@ -93,7 +93,7 @@ export function StoreMenuBoardPreamble({
                       dimmed || soldOut ? "cursor-not-allowed opacity-45" : ""
                     }`}
                   >
-                    <span className="mt-1 w-6 shrink-0 text-center text-[14px] font-black tabular-nums text-[#1C8DB8]">
+                    <span className="mt-1 w-6 shrink-0 text-center text-[14px] font-black tabular-nums text-[color:var(--delivery-primary)]">
                       {rank}
                     </span>
                     <div className="relative h-[72px] w-[72px] shrink-0">

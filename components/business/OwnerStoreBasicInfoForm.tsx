@@ -48,7 +48,8 @@ import {
   setOwnerBasicInfoDirty,
   type OwnerBasicInfoLeaveDetail,
 } from "@/lib/business/owner-basic-info-guard";
-import { OWNER_MOBILE_ADMIN_CONTENT_GUTTER_X_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
+import { OWNER_STORE_ADMIN_FOOTER_BAR_CLASS } from "@/lib/business/owner-compact-shell-layout";
+import { OWNER_DESKTOP_SHELL_MIN_TW } from "@/lib/business/owner-compact-shell-viewport";
 import { STORE_LOCATION_SECTION_HINT_STORE_PUBLIC } from "@/lib/stores/store-address-form-ui";
 import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
 import {
@@ -1204,7 +1205,7 @@ export function OwnerStoreBasicInfoForm({
             }`}
           >
             <div
-              className={`pointer-events-auto mx-auto w-full min-w-0 max-w-lg md:max-w-6xl ${OWNER_MOBILE_ADMIN_CONTENT_GUTTER_X_CLASS} md:px-2 md:pr-2`}
+              className={`pointer-events-auto ${OWNER_STORE_ADMIN_FOOTER_BAR_CLASS} ${OWNER_DESKTOP_SHELL_MIN_TW}:mx-auto ${OWNER_DESKTOP_SHELL_MIN_TW}:max-w-6xl ${OWNER_DESKTOP_SHELL_MIN_TW}:px-2 ${OWNER_DESKTOP_SHELL_MIN_TW}:pr-2`}
             >
               {error ?
                 <div

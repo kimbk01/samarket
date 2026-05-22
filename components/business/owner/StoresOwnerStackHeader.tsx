@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
+import { OWNER_DESKTOP_SHELL_MIN_TW } from "@/lib/business/owner-compact-shell-viewport";
 
 export function StoresOwnerStackHeader({
   variant,
@@ -44,7 +45,9 @@ export function StoresOwnerStackHeader({
     <BodyPortal>
       <header
         className={`fixed inset-x-0 top-0 z-[55] border-b border-sam-border bg-sam-surface/95 pt-[env(safe-area-inset-top,0px)] backdrop-blur-sm ${
-          desktopInsetLeft ? "lg:left-[260px] lg:right-0" : ""
+          desktopInsetLeft ?
+            `${OWNER_DESKTOP_SHELL_MIN_TW}:left-[260px] ${OWNER_DESKTOP_SHELL_MIN_TW}:right-0`
+          : ""
         }`}
       >
         <div className="flex h-14 w-full min-w-0 items-center gap-2 pl-[max(0.75rem,env(safe-area-inset-left,0px))] pr-[max(0.75rem,env(safe-area-inset-right,0px))] sm:pl-[max(1rem,env(safe-area-inset-left,0px))] sm:pr-[max(1rem,env(safe-area-inset-right,0px))]">
@@ -72,10 +75,10 @@ export function StoresOwnerStackHeader({
               <div className="flex shrink-0 items-center gap-1">{rightSlot}</div>
             </>
           : <>
-              <div className="flex min-w-0 flex-1 items-center lg:hidden">
+              <div className={`flex min-w-0 flex-1 items-center ${OWNER_DESKTOP_SHELL_MIN_TW}:hidden`}>
                 <h1 className="truncate sam-text-body-lg font-semibold leading-tight text-sam-fg">{adminTitle}</h1>
               </div>
-              <div className="hidden min-w-0 flex-1 items-center lg:flex">
+              <div className={`hidden min-w-0 flex-1 items-center ${OWNER_DESKTOP_SHELL_MIN_TW}:flex`}>
                 <h1 className="sam-text-page-title font-semibold text-sam-fg">{adminTitle}</h1>
               </div>
               <div className="flex shrink-0 items-center gap-1">{rightSlot}</div>

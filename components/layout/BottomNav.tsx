@@ -18,6 +18,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import {
   BOTTOM_NAV_BADGE_RING_CLASS,
   BOTTOM_NAV_OUTER_MOTION,
+  BOTTOM_NAV_SCROLL_HIDDEN_CLASS,
   BOTTOM_NAV_SHELL,
   BOTTOM_NAV_THEME,
   type BottomNavIconKey,
@@ -72,7 +73,6 @@ import {
 import { writeStoredMypageBottomNavOrigin } from "@/lib/main-menu/mypage-bottom-nav-origin";
 import { DeliveryDomainSwitcherOverlay } from "@/components/delivery/navigation/DeliveryDomainSwitcherOverlay";
 import { runDeliveryHomeHubShortTap } from "@/lib/delivery/delivery-home-hub-navigation";
-import { useMessengerLongPress } from "@/lib/community-messenger/use-messenger-long-press";
 import { MAIN_BOTTOM_NAV_TAB_ICONS } from "@/components/main-menu/MainBottomNavTabIcons";
 import { useCommerceCartNavHref } from "@/components/layout/use-commerce-cart-nav-href";
 import { isMainBottomNavDisplayTabActive } from "@/lib/main-menu/main-bottom-nav-tab-active";
@@ -471,13 +471,11 @@ const BottomNavTabDeliveryHomeHub = memo(function BottomNavTabDeliveryHomeHub({
     .filter(Boolean)
     .join(" ");
 
-  const { bind: longPressBind, consumeClickSuppression } = useMessengerLongPress(
-    () => onToggleSwitcher(),
-    { thresholdMs: 480 }
-  );
-
   const onHubClick = useCallback(() => {
-    if (consumeClickSuppression()) return;
+    if (hubPathActive) {
+      onToggleSwitcher();
+      return;
+    }
     runDeliveryHomeHubShortTap({
       pathname,
       currentSearch: navSearch,
@@ -493,8 +491,8 @@ const BottomNavTabDeliveryHomeHub = memo(function BottomNavTabDeliveryHomeHub({
     });
   }, [
     beginMenuNavigation,
-    consumeClickSuppression,
     guardBeforeNavigate,
+    hubPathActive,
     navSearch,
     onNavigationIntent,
     onToggleSwitcher,
@@ -513,7 +511,6 @@ const BottomNavTabDeliveryHomeHub = memo(function BottomNavTabDeliveryHomeHub({
       aria-label={tabLabel}
       aria-expanded={switcherOpen}
       aria-haspopup="dialog"
-      {...longPressBind}
       onClick={onHubClick}
     >
       <div className="app-bottom-nav-icon-slot app-bottom-nav-icon-slot--delivery-home">
@@ -1092,16 +1089,14 @@ export function BottomNav({
     (pathname?.startsWith("/my/business") ?? false);
 
   const scrollHideSuppressed =
-    deliveryDomainSwitcherOpen && extraOuterClassName.includes("translate-y-full");
+    deliveryDomainSwitcherOpen && extraOuterClassName.includes(BOTTOM_NAV_SCROLL_HIDDEN_CLASS);
   const effectiveOuterExtra = scrollHideSuppressed
-    ? extraOuterClassName.replace(/\btranslate-y-full\b/g, "").trim() || "translate-y-0"
+    ? extraOuterClassName.replace(BOTTOM_NAV_SCROLL_HIDDEN_CLASS, "app-bottom-nav-shell--scroll-visible").trim()
     : extraOuterClassName;
 
   const outerClass = [
     BOTTOM_NAV_SHELL.outerClassName,
-    bodyPortal || (effectiveOuterExtra.length > 0 && effectiveOuterExtra.includes("translate-y"))
-      ? BOTTOM_NAV_OUTER_MOTION
-      : "",
+    bodyPortal || effectiveOuterExtra.length > 0 ? BOTTOM_NAV_OUTER_MOTION : "",
     effectiveOuterExtra,
     isDeliveryNavMode && deliveryDomainSwitcherOpen ? "app-bottom-nav-shell--switcher-open" : "",
   ]

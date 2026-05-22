@@ -26,13 +26,13 @@ import { validateStoreProductRequiredOptions } from "@/lib/stores/product-sheet/
 import { useStoreProductSheetDetail } from "@/lib/stores/product-sheet/use-store-product-sheet-detail";
 import { StoreProductSheetShell } from "@/components/stores/product-sheet/StoreProductSheetShell";
 import { StoreProductSheetHeader } from "@/components/stores/product-sheet/StoreProductSheetHeader";
+import { StoreProductSheetAddToCartBar } from "@/components/stores/product-sheet/StoreProductSheetAddToCartBar";
 import {
   StoreProductSheetBodySkeleton,
   StoreProductSheetOptionsSkeleton,
 } from "@/components/stores/product-sheet/StoreProductSheetSkeleton";
 import {
   STORE_ORDER_BRAND,
-  STORE_ORDER_CTA_PRIMARY,
   STORE_ORDER_CTA_STEPPER,
   STORE_ORDER_TOUCH_BTN,
 } from "@/components/stores/store-order-detail/store-order-brand";
@@ -629,7 +629,7 @@ export function StoreProductAddSheet({
             <button
               type="button"
               onClick={onClose}
-              className={`mt-4 text-sm font-medium text-[#1C8DB8] underline-offset-2 hover:underline ${STORE_ORDER_TOUCH_BTN}`}
+              className={`mt-4 text-sm font-medium text-[color:var(--delivery-primary)] underline-offset-2 hover:underline ${STORE_ORDER_TOUCH_BTN}`}
             >
               닫기
             </button>
@@ -763,7 +763,7 @@ export function StoreProductAddSheet({
                 <button
                   type="button"
                   onClick={() => detail.retry()}
-                  className={`mt-3 text-[14px] font-bold text-[#1C8DB8] ${STORE_ORDER_TOUCH_BTN}`}
+                  className={`mt-3 text-[14px] font-bold text-[color:var(--delivery-primary)] ${STORE_ORDER_TOUCH_BTN}`}
                 >
                   다시 시도
                 </button>
@@ -878,7 +878,7 @@ export function StoreProductAddSheet({
                 onChange={(e) => setLineNote(e.target.value)}
                 disabled={soldOut || orderBlocked}
                 placeholder={t("store_request_placeholder")}
-                className="mt-2 w-full resize-none rounded-[10px] border border-neutral-200 bg-white px-3 py-2 text-[13px] font-medium text-neutral-900 placeholder:text-neutral-400 focus:border-[#1C8DB8] focus:outline-none focus:ring-2 focus:ring-[#1C8DB8]/20 disabled:bg-neutral-100"
+                className="mt-2 w-full resize-none rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-white px-3 py-2 text-[13px] font-medium text-neutral-900 placeholder:text-neutral-400 focus:border-[color:var(--delivery-primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--delivery-primary)]/20 disabled:bg-neutral-100"
               />
             </div>
 
@@ -906,22 +906,14 @@ export function StoreProductAddSheet({
       </div>
 
       {!showNotFound && !showFullLoadingBody && product && store ? (
-        <div
-          className="shrink-0 border-t border-neutral-100 bg-white px-4 pt-3 shadow-[0_-4px_16px_rgba(0,0,0,0.08)]"
-          style={{ paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))" }}
-        >
-          {sheetErr ? (
-            <p className="mb-2 text-center text-[11px] font-medium text-red-600">{sheetErr}</p>
-          ) : null}
-          <button
-            type="button"
-            disabled={ctaDisabled}
-            onClick={addToCart}
-            className={`w-full py-3.5 text-[17px] leading-none ${STORE_ORDER_CTA_PRIMARY}`}
-          >
-            {ctaLabel}
-          </button>
-        </div>
+        <StoreProductSheetAddToCartBar
+          storeId={store.id}
+          lineTotalPhp={lineTotal}
+          label={ctaLabel}
+          disabled={ctaDisabled}
+          errorMessage={sheetErr}
+          onAdd={addToCart}
+        />
       ) : null}
     </StoreProductSheetShell>
   );

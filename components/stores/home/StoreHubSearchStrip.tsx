@@ -13,15 +13,15 @@ export function StoreHubSearchStrip({
 }) {
   const { t } = useI18n();
   return (
-    <div className="-mx-1 px-1 pb-2">
+    <div className="pb-2">
       <label htmlFor="stores-hub-global-search" className="sr-only">
         매장 검색
       </label>
       <div
-        className={`flex items-center gap-2 px-3 py-2 ${FB.searchWell}`}
+        className={`flex items-center gap-2 px-4 ${FB.searchWell}`}
       >
         <svg
-          className="h-4 w-4 shrink-0 text-sam-muted dark:text-[#B0B3B8]"
+          className="h-4 w-4 shrink-0 text-[color:var(--delivery-text-muted)]"
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -37,7 +37,7 @@ export function StoreHubSearchStrip({
           placeholder={t("store_search_placeholder")}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="min-w-0 flex-1 bg-transparent text-[14px] font-normal leading-[1.5] text-sam-fg placeholder:text-[13px] placeholder:font-normal placeholder:leading-[1.45] placeholder:text-sam-meta focus:outline-none dark:text-[#E4E6EB] dark:placeholder:text-[#B0B3B8]"
+          className="min-w-0 flex-1 bg-transparent text-[14px] font-normal leading-[var(--delivery-lh-body)] text-[color:var(--delivery-text-main)] placeholder:text-[13px] placeholder:font-normal placeholder:leading-[var(--delivery-lh-sub)] placeholder:text-[color:var(--delivery-text-muted)] focus:outline-none"
         />
       </div>
     </div>

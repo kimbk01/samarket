@@ -1,0 +1,132 @@
+/**
+ * 매장 오너 컴팩트 셸(≤1024px) — `app/design-tokens.css` 브레이크·safe-area 단일 레이아웃.
+ * `BusinessAdminShell` 이 `document.body` 에 `data-owner-compact-shell` 을 켜면
+ * BodyPortal 헤더·하단 탭·본문이 동일 변수로 리사이즈된다.
+ *
+ * Phone:     max 767px  (--sam-bp-mobile-max)
+ * Tablet:    768–1023   (--sam-bp-sm-tablet-*)
+ * Landscape: compact + orientation landscape + min-width 568px
+ * Cap:       1024px     (--sam-bp-lg-min, JS `OWNER_COMPACT_SHELL_MEDIA_QUERY`)
+ */
+
+body[data-owner-compact-shell] {
+  --owner-shell-toolbar-h: var(--sam-header-row-height, 3.5rem);
+  --owner-shell-safe-top: env(safe-area-inset-top, 0px);
+  --owner-shell-safe-left: env(safe-area-inset-left, 0px);
+  --owner-shell-safe-right: env(safe-area-inset-right, 0px);
+  --owner-shell-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --owner-shell-pad-left: max(0.5rem, var(--owner-shell-safe-left));
+  --owner-shell-pad-right: max(0.5rem, var(--owner-shell-safe-right));
+  /** phone — `APP_MAIN_COLUMN` 32rem(512) 대신 읽기 폭 42rem 과 맞춤 */
+  --owner-shell-content-max: 42rem;
+  --owner-shell-main-pt: calc(var(--owner-shell-safe-top) + var(--owner-shell-toolbar-h));
+  --owner-shell-main-pb: calc(
+    var(--app-bottom-nav-height, 3.5rem) + var(--delivery-home-overhang, 0px) +
+      var(--owner-shell-safe-bottom) + 0.25rem
+  );
+}
+
+/** `--sam-bp-sm-tablet-min` */
+@media (min-width: 768px) {
+  body[data-owner-compact-shell] {
+    --owner-shell-pad-left: max(1rem, var(--owner-shell-safe-left));
+    --owner-shell-pad-right: max(1rem, var(--owner-shell-safe-right));
+    --owner-shell-content-max: 48rem;
+  }
+}
+
+/** 태블릿·폴드 가로 — compact 상한 안에서만 넓힘 (`md:max-w-[52rem]` 과 동일) */
+@media (max-width: 1024px) and (min-width: 568px) and (orientation: landscape) {
+  body[data-owner-compact-shell] {
+    --owner-shell-pad-left: max(1.25rem, var(--owner-shell-safe-left));
+    --owner-shell-pad-right: max(1.25rem, var(--owner-shell-safe-right));
+    --owner-shell-content-max: 52rem;
+  }
+}
+
+/* ----- 고정 헤더 (BodyPortal) ----- */
+.owner-compact-shell__header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 56;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100vw;
+  border-bottom: 1px solid #dde5e0;
+  background-color: #fff;
+  padding-top: var(--owner-shell-safe-top, env(safe-area-inset-top, 0px));
+  overflow-x: clip;
+}
+
+.owner-compact-shell__header-inner {
+  display: flex;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: min(var(--owner-shell-content-max, 42rem), 100%);
+  height: var(--owner-shell-toolbar-h, 3.5rem);
+  margin-inline: auto;
+  padding-left: var(--owner-shell-pad-left, max(0.5rem, env(safe-area-inset-left, 0px)));
+  padding-right: var(--owner-shell-pad-right, max(0.5rem, env(safe-area-inset-right, 0px)));
+  align-items: center;
+  column-gap: 0.25rem;
+}
+
+/* ----- 본문 열 ----- */
+.owner-compact-shell__main {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding-top: var(--owner-shell-main-pt, calc(env(safe-area-inset-top, 0px) + 3.5rem));
+}
+
+.owner-compact-shell__column {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: min(var(--owner-shell-content-max, 42rem), 100%);
+  margin-inline: auto;
+  padding-left: var(--owner-shell-pad-left, max(0.5rem, env(safe-area-inset-left, 0px)));
+  padding-right: var(--owner-shell-pad-right, max(0.5rem, env(safe-area-inset-right, 0px)));
+}
+
+.owner-compact-shell__scroll {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  /** 본문·하단 탭 경계 — 탭 상단선과 맞춘 옅은 그라데이션 */
+  box-shadow: inset 0 -10px 14px -14px rgba(15, 23, 42, 0.1);
+}
+
+.owner-compact-shell__main-pb {
+  padding-bottom: var(--owner-shell-main-pb, calc(3.5rem + env(safe-area-inset-bottom, 0px)));
+}
+
+/**
+ * main 이 column 패딩을 쓸 때 — 스티키 바·풀폭 배경만 좌우로 bleed.
+ * (거터는 column 과 동일 CSS 변수)
+ */
+.owner-compact-shell__bleed-x {
+  margin-left: calc(-1 * var(--owner-shell-pad-left, 0.5rem));
+  margin-right: calc(-1 * var(--owner-shell-pad-right, 0.5rem));
+  padding-left: var(--owner-shell-pad-left, max(0.5rem, env(safe-area-inset-left, 0px)));
+  padding-right: var(--owner-shell-pad-right, max(0.5rem, env(safe-area-inset-right, 0px)));
+}
+
+/** 저장·취소·카테고리 하단 바 — 컴팩트에서 헤더와 동일 읽기 폭 */
+.owner-store-admin-footer-bar {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+}
+
+body[data-owner-compact-shell] .owner-store-admin-footer-bar {
+  max-width: min(var(--owner-shell-content-max, 42rem), 100%);
+  margin-inline: auto;
+  padding-left: var(--owner-shell-pad-left, max(0.5rem, env(safe-area-inset-left, 0px)));
+  padding-right: var(--owner-shell-pad-right, max(0.5rem, env(safe-area-inset-right, 0px)));
+}

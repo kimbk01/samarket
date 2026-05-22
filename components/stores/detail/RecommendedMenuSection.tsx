@@ -1,6 +1,7 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
+import { DeliveryTheme } from "@/lib/design/delivery-theme";
 import { DibayMenuBoard } from "@/lib/stores/dibay-menu-board-tokens";
 import { cardIsMenuSoldOut, type StoreDetailProductCard } from "@/lib/stores/group-store-products-by-menu";
 import { SoldOutOverlay } from "@/components/stores/detail/SoldOutOverlay";
@@ -27,12 +28,7 @@ export function RecommendedMenuSection({
       className="bg-white px-4 pb-3 pt-3"
       style={{ marginBottom: DibayMenuBoard.sectionGapPx }}
     >
-      <h2
-        className="tracking-[-0.02em] text-neutral-900"
-        style={{ fontSize: DibayMenuBoard.title.fontSizePx, fontWeight: DibayMenuBoard.title.fontWeight }}
-      >
-        {t("store_recommended_menu_title")}
-      </h2>
+      <h2 className="delivery-section-heading tracking-[-0.02em]">{t("store_recommended_menu_title")}</h2>
       <div className="mt-2 flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {cards.map((p) => {
           const thumb = p.thumbnail_url?.trim() || "";
@@ -63,27 +59,10 @@ export function RecommendedMenuSection({
                 {soldOut ? <SoldOutOverlay /> : null}
                 <div className="pointer-events-none absolute left-1 top-1 flex flex-wrap gap-1">
                   {showPopular ? (
-                    <span
-                      className="rounded px-1 text-[9px] font-bold"
-                      style={{
-                        background: DibayMenuBoard.badge.popular.bg,
-                        color: DibayMenuBoard.badge.popular.fg,
-                        border: DibayMenuBoard.badge.popular.text ? "1px solid #FFCACA" : undefined,
-                      }}
-                    >
-                      {t("store_badge_menu_popular")}
-                    </span>
+                    <span className={DeliveryTheme.badgeMenu.popular}>{t("store_badge_menu_popular")}</span>
                   ) : null}
                   {showOwner ? (
-                    <span
-                      className="rounded px-1 text-[9px] font-bold"
-                      style={{
-                        background: DibayMenuBoard.badge.ownerRecommended.bg,
-                        color: DibayMenuBoard.badge.ownerRecommended.fg,
-                      }}
-                    >
-                      {t("store_badge_owner_recommended")}
-                    </span>
+                    <span className={DeliveryTheme.badgeMenu.owner}>{t("store_badge_owner_recommended")}</span>
                   ) : null}
                 </div>
               </div>

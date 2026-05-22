@@ -13,7 +13,7 @@ export function StoreProductSheetHeader({
   const { t } = useI18n();
   return (
     <div className="flex shrink-0 flex-col border-b border-neutral-100 bg-white px-4 pb-2.5 pt-3">
-      <div className="mx-auto mb-2 h-1 w-10 shrink-0 rounded-full bg-[#1C8DB8]/25" aria-hidden />
+      <div className="mx-auto mb-2 h-1 w-10 shrink-0 rounded-full bg-[color:var(--delivery-border)]" aria-hidden />
       <div className="relative flex min-h-[36px] w-full items-center justify-center">
         <h2
           id="store-add-sheet-title"

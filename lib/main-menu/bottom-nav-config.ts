@@ -115,6 +115,17 @@ export const BOTTOM_NAV_SHELL = {
 export const BOTTOM_NAV_OUTER_MOTION =
   "transition-transform duration-150 will-change-transform [transition-timing-function:cubic-bezier(0.25,0.1,0.2,1)]";
 
+/**
+ * 스크롤 다운 시 탭 숨김 — `translate-y-full` 만으로는 배달·오너 홈 원(상단 돌출)이 남는다.
+ * `app-bottom-nav.css` `.app-bottom-nav-shell--scroll-hidden` 과 쌍.
+ */
+export const BOTTOM_NAV_SCROLL_HIDDEN_CLASS = "app-bottom-nav-shell--scroll-hidden";
+export const BOTTOM_NAV_SCROLL_VISIBLE_CLASS = "app-bottom-nav-shell--scroll-visible";
+
+export function resolveBottomNavScrollHideOuterClass(hidden: boolean): string {
+  return hidden ? BOTTOM_NAV_SCROLL_HIDDEN_CLASS : BOTTOM_NAV_SCROLL_VISIBLE_CLASS;
+}
+
 /** 하단 탭바 기준색 — `app-bottom-nav.css` `--app-bottom-nav-surface` 와 동기 */
 export const BOTTOM_NAV_DARK_BAR_HEX = "#f6f6f6";
 /** `OWNER_HUB_BADGE_DOT_CLASS` 와 조합 */
@@ -132,13 +143,13 @@ export const BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS =
  */
 export const BOTTOM_NAV_STACK_ABOVE_CLASS = BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS;
 
-/** ConditionalAppShell 등: 탭이 있을 때 본문 하단 패딩(탭 본체 + 1rem + safe-area) */
+/** ConditionalAppShell 등: 탭이 있을 때 본문 하단 패딩(탭 본체 + 홈 원 돌출 + 1rem + safe-area) */
 export const MAIN_SCROLL_PADDING_WITH_BOTTOM_NAV_CLASS =
-  "pb-[calc(5rem+env(safe-area-inset-bottom,0px))]";
+  "pb-[calc(5rem+var(--delivery-home-overhang,0px)+env(safe-area-inset-bottom,0px))]";
 
 /** 거래 플로팅 다이얼(`/market/*` 등) — 탭 위 추가 여유 */
 export const MAIN_SCROLL_PADDING_HOME_WITH_FLOAT_CLASS =
-  "pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]";
+  "pb-[calc(5.5rem+var(--delivery-home-overhang,0px)+env(safe-area-inset-bottom,0px))]";
 
 /**
  * 고정 하단 탭(`BOTTOM_NAV_SHELL.heightClass`) 위까지 쓰는 전체 화면 높이.
@@ -153,20 +164,11 @@ export const VIEWPORT_HEIGHT_MINUS_BOTTOM_NAV_CLASS =
  */
 export const VIEWPORT_HEIGHT_FULL_CLASS = "h-[100dvh] max-h-[100dvh]";
 
-/**
- * 배달(스토어) 상세: 장바구니 띠 + 하단 탭 위까지 스크롤 여유
- * (3.5rem 탭 + safe-area + ~4.5rem 띠)
- */
-export const STORE_DETAIL_ROOT_BOTTOM_PADDING_CLASS =
-  "pb-[calc(8.5rem+env(safe-area-inset-bottom,0px))]";
-
-/** 매장 상세 메뉴: 활성 카트 띠(~92px)+safe 하단 여유 */
-export const STORE_DETAIL_ROOT_BOTTOM_PADDING_WITH_CART_STRIP_CLASS =
-  "pb-[calc(6.75rem+env(safe-area-inset-bottom,0px))]";
-
-/** 매장 상세 메뉴: 빈 카트 띠(~76px)+safe 하단 여유 */
-export const STORE_DETAIL_ROOT_BOTTOM_PADDING_NO_STRIP_CLASS =
-  "pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]";
+export {
+  STORE_DETAIL_ROOT_BOTTOM_PADDING_CLASS,
+  STORE_DETAIL_ROOT_BOTTOM_PADDING_NO_STRIP_CLASS,
+  STORE_DETAIL_ROOT_BOTTOM_PADDING_WITH_CART_STRIP_CLASS,
+} from "@/lib/stores/store-commerce-bottom-action-bar";
 
 /**
  * 기본 테마 — 탭별 override 없을 때 사용.

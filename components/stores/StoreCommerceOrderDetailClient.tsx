@@ -173,7 +173,7 @@ export function StoreCommerceOrderDetailClient({
         ) : (
           <Link
             href={`/my/store-orders/${encodeURIComponent(order.id)}/chat`}
-            className="mt-3 block w-full rounded-[4px] border border-[#1C8DB8] bg-[#EAF6FB] py-3 text-center text-sm font-bold text-[#1C8DB8]"
+            className="delivery-ui mt-3 block w-full rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-primary-soft)] py-3 text-center text-sm font-bold text-[color:var(--delivery-primary)]"
           >
             주문 진행 채팅 열기
           </Link>

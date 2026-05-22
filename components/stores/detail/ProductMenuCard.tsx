@@ -11,9 +11,7 @@ import { ProductBadgeRow } from "@/components/stores/detail/ProductBadgeRow";
 import { SoldOutOverlay } from "@/components/stores/detail/SoldOutOverlay";
 import { storeMenuProductDomId } from "@/lib/dibay/store-menu-product-focus";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
-
-const PLUS_BTN =
-  "absolute bottom-1 right-1 z-10 flex h-[28px] w-[28px] shrink-0 touch-manipulation select-none items-center justify-center rounded-full bg-[#2386B1] text-[19px] font-normal leading-none text-white shadow-[0_2px_6px_rgba(35,134,177,0.35)] ring-1 ring-[#2386B1]/40 transition-all duration-150 hover:bg-[#1F769C] active:scale-[0.92] active:bg-[#1A6A8F]";
+import { DeliveryTheme } from "@/lib/design/delivery-theme";
 
 type Props = {
   storeSlug: string;
@@ -78,10 +76,11 @@ export const ProductMenuCard = memo(function ProductMenuCard({
     <div className="min-w-0 flex-1" style={{ padding: DibayMenuBoard.productCardPadding }}>
       <div className="flex flex-wrap items-start gap-1">
         <h3
-          className="min-w-0 flex-1 leading-snug tracking-[-0.015em] text-neutral-900"
+          className="min-w-0 flex-1 tracking-[-0.015em] text-[color:var(--delivery-text-main)]"
           style={{
             fontSize: DibayMenuBoard.title.fontSizePx,
             fontWeight: DibayMenuBoard.title.fontWeight,
+            lineHeight: "var(--delivery-lh-card-title)",
           }}
         >
           {p.title}
@@ -93,22 +92,24 @@ export const ProductMenuCard = memo(function ProductMenuCard({
       <ProductBadgeRow p={p} />
       {p.summary ? (
         <p
-          className="mt-0.5 line-clamp-2 leading-snug"
+          className="mt-1 line-clamp-2"
           style={{
             fontSize: DibayMenuBoard.desc.fontSizePx,
             color: DibayMenuBoard.desc.color,
+            lineHeight: "var(--delivery-lh-sub)",
           }}
         >
           {p.summary}
         </p>
       ) : null}
-      <div className="mt-1.5 flex flex-wrap items-baseline gap-1.5">
+      <div className="mt-2 flex flex-wrap items-baseline gap-2">
         <ProductBadgeRow p={p} inPriceRow />
         <span
-          className="tabular-nums text-neutral-900"
+          className="tabular-nums text-[color:var(--delivery-text-main)]"
           style={{
             fontSize: DibayMenuBoard.price.fontSizePx,
             fontWeight: DibayMenuBoard.price.fontWeight,
+            lineHeight: "var(--delivery-lh-price)",
           }}
         >
           {formatMoneyPhp(salePrice)}
@@ -123,15 +124,15 @@ export const ProductMenuCard = memo(function ProductMenuCard({
   );
 
   const thumb = (
-    <div className="relative shrink-0" style={{ width: sz, height: sz }}>
-      <div className="relative h-full w-full overflow-hidden rounded-[12px]">
+    <div className="relative shrink-0 p-4 pl-0" style={{ width: sz + 16, height: sz + 32 }}>
+      <div className={`${DeliveryTheme.menuThumb} relative`}>
         <StoreProductThumbnail
           src={thumbSrc}
           size={sz}
-          roundedClassName="rounded-[12px]"
+          roundedClassName="rounded-[var(--delivery-radius-thumb)]"
         />
         {hasDiscount && badgePct > 0 ? (
-          <span className="absolute left-1 top-1 z-10 rounded-[3px] bg-red-600 px-1.5 py-0.5 text-[9px] font-bold leading-none text-white shadow">
+          <span className="absolute left-1 top-1 z-10 inline-flex h-5 items-center rounded-[var(--delivery-radius)] bg-[color:var(--delivery-danger)] px-1.5 text-[11px] font-bold leading-none text-white">
             {badgePct}%
           </span>
         ) : null}
@@ -140,7 +141,7 @@ export const ProductMenuCard = memo(function ProductMenuCard({
           <button
             type="button"
             onClick={onAddPress}
-            className={PLUS_BTN}
+            className={DeliveryTheme.menuPlus}
             aria-label={t("store_add_to_cart_aria", { title: p.title })}
           >
             +
@@ -150,10 +151,9 @@ export const ProductMenuCard = memo(function ProductMenuCard({
     </div>
   );
 
-  const rowWrapClass = `flex min-h-[102px] flex-row items-stretch bg-white`;
+  const rowWrapClass = DeliveryTheme.menuRow;
   const cardStyle = {
     borderRadius: DibayMenuBoard.cardRadiusPx,
-    boxShadow: "0 1px 0 rgba(0,0,0,0.04)",
   };
   const productDomId = storeMenuProductDomId(p.id);
 

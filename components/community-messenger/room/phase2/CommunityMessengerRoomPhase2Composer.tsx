@@ -434,7 +434,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
                 onClick={() => {
                   void vm.sendMessage(reply);
                 }}
-                className="shrink-0 rounded-[4px] border border-[#BDE7F4] bg-[#EAF6FB] px-2.5 py-1.5 text-[12px] font-bold leading-[1.35] text-[#1C8DB8] disabled:opacity-45"
+                className="delivery-ui shrink-0 rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-primary-soft)] px-2.5 py-1.5 text-[12px] font-bold leading-[1.35] text-[color:var(--delivery-primary)] disabled:opacity-45"
               >
                 {reply}
               </button>

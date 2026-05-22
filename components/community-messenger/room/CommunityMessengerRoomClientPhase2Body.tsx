@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { noteCmRoomPhase2HydratedModuleEval } from "@/lib/community-messenger/room/cm-room-phase2-entry-perf";

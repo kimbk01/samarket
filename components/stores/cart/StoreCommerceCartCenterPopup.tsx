@@ -7,16 +7,16 @@ import type { ReactNode } from "react";
 export const CART_POPUP_RADIUS_CLASS = "rounded-[4px]";
 
 export const CART_POPUP_BTN_PRIMARY =
-  "w-full rounded-[4px] bg-[#1C8DB8] py-2.5 text-[14px] font-bold text-white disabled:opacity-50";
+  "w-full rounded-[var(--delivery-radius)] bg-[color:var(--delivery-primary)] py-3 text-[15px] font-bold text-white transition-colors duration-150 disabled:bg-[color:var(--delivery-btn-disabled)]";
 
 export const CART_POPUP_BTN_SECONDARY =
-  "w-full rounded-[4px] border border-neutral-300 bg-white py-2.5 text-[14px] font-semibold text-neutral-800 disabled:opacity-50";
+  "w-full rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-white py-3 text-[15px] font-bold text-[color:var(--delivery-text-main)] disabled:opacity-50";
 
 export const CART_POPUP_BTN_DANGER =
-  "w-full rounded-[4px] bg-red-600 py-2.5 text-[14px] font-bold text-white disabled:opacity-50";
+  "w-full rounded-[var(--delivery-radius)] bg-[color:var(--delivery-danger)] py-3 text-[15px] font-bold text-white disabled:opacity-50";
 
 export const CART_POPUP_BTN_GHOST =
-  "w-full rounded-[4px] py-2 text-[14px] font-semibold text-neutral-600 disabled:opacity-50";
+  "w-full rounded-[var(--delivery-radius)] py-2 text-[14px] font-semibold text-[color:var(--delivery-text-sub)] disabled:opacity-50";
 
 export function StoreCommerceCartAlert({
   children,
@@ -27,7 +27,7 @@ export function StoreCommerceCartAlert({
 }) {
   return (
     <p
-      className={`rounded-[4px] border border-red-200 bg-red-50 px-3 py-2 text-[13px] font-semibold leading-relaxed text-red-700 ${className}`}
+      className={`rounded-[var(--delivery-radius)] border border-[color:var(--delivery-danger)]/20 bg-red-50 px-3 py-2 text-[13px] font-semibold leading-[var(--delivery-lh-sub)] text-[color:var(--delivery-danger)] ${className}`}
       role="alert"
     >
       {children}
@@ -70,13 +70,13 @@ export function StoreCommerceCartCenterPopup({
         disabled={busy}
       />
       <div
-        className={`relative z-[1] w-full max-w-[min(92vw,24rem)] bg-white p-4 shadow-xl ${CART_POPUP_RADIUS_CLASS}`}
+        className={`relative z-[1] w-full max-w-[min(92vw,24rem)] bg-white p-4 shadow-[var(--delivery-shadow-modal)] ${CART_POPUP_RADIUS_CLASS}`}
       >
-        <h2 id={titleId} className="text-[15px] font-bold leading-snug text-neutral-900">
+        <h2 id={titleId} className="text-[22px] font-bold leading-[var(--delivery-lh-page-title)] text-[color:var(--delivery-text-main)]">
           {title}
         </h2>
-        <div className="mt-3">{children}</div>
-        {footer ? <div className="mt-4 flex flex-col gap-2">{footer}</div> : null}
+        <div className="mt-4">{children}</div>
+        {footer ? <div className="mt-5 flex flex-col gap-2">{footer}</div> : null}
       </div>
     </div>
   );

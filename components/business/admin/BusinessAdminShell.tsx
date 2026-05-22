@@ -69,13 +69,18 @@ import {
   pushStoreOwnerMainBottomNavSuppressed,
   subscribeStoreOwnerMainBottomNavSuppressed,
 } from "@/lib/business/store-owner-main-bottom-nav-suppress";
-import { useIsMobileViewport } from "@/hooks/use-is-mobile-viewport";
+import { useOwnerCompactShellViewport } from "@/hooks/use-owner-compact-shell-viewport";
+import { applyOwnerCompactShellBodyFlag } from "@/lib/business/owner-compact-shell-layout";
+import {
+  matchesOwnerCompactShellViewport,
+  OWNER_COMPACT_SHELL_MAX_TW,
+  OWNER_DESKTOP_SHELL_MIN_TW,
+} from "@/lib/business/owner-compact-shell-viewport";
 import { ChevronRight, MapPin } from "lucide-react";
 import {
-  OWNER_MOBILE_ADMIN_CONTENT_GUTTER_X_CLASS,
   OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS,
-  OWNER_MOBILE_PAGE_HEADER_MAIN_OFFSET_CLASS,
 } from "@/lib/stores/owner-mobile-ui-tokens";
+import { OWNER_COMPACT_SHELL_COLUMN_CLASS, OWNER_COMPACT_SHELL_MAIN_CLASS } from "@/lib/business/owner-compact-shell-layout";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 function readInitialStoresFromMeListCache(): StoreRow[] | null {
@@ -115,10 +120,11 @@ export function BusinessAdminShell({
   const sidebarNavScrollRef = useRef<HTMLDivElement | null>(null);
   /** 모바일 드로어용: 닫을 때 복원할 `window` 세로 스크롤 (body 고정 잠금과 짝) */
   const mobileOwnerDrawerLockYRef = useRef(0);
-  /** 클라이언트 마운트 후에만 `body` 포털 — SSR·하이드레이션과 `useIsMobileViewport` 스냅샷 정합 */
+  /** 클라이언트 마운트 후에만 `body` 포털 — SSR·하이드레이션과 컴팩트 뷰포트 스냅샷 정합 */
   const [ownerBizDrawerPortalReady, setOwnerBizDrawerPortalReady] = useState(false);
   const [orderAlertsBadge, setOrderAlertsBadge] = useState(0);
-  const isMobile = useIsMobileViewport();
+  /** ≤1024px — 모바일 헤더·하단 탭·드로어 메뉴 (태블릿·아이패드 세로 포함) */
+  const isOwnerCompactShell = useOwnerCompactShellViewport();
   /** 서브 화면(예: 메뉴 카테고리 편집)이 운영 헤더 뒤로가기를 가로챌 때 */
   const ownerHeaderBackInterceptRef = useRef<(() => boolean) | null>(null);
 
@@ -137,7 +143,8 @@ export function BusinessAdminShell({
     [isOwnerOrdersRoute, searchParams]
   );
   const ownerOrderOverlayOpen = ownerOrderDetailOpen || ownerOrderChatSlideOpen;
-  const isOwnerMobileAdminShell = isMobile && isStoresOwnerStackPath(ownerPathNorm);
+  const isOwnerMobileAdminShell =
+    isOwnerCompactShell && isStoresOwnerStackPath(ownerPathNorm);
 
   const ownerMainBottomPad = useMemo(() => {
     const f = resolveConditionalAppShellFlags(pathname, false);
@@ -261,9 +268,22 @@ export function BusinessAdminShell({
     setOwnerBizDrawerPortalReady(true);
   }, []);
 
+  /** BodyPortal 헤더·하단 탭이 조상 밖에 있어도 동일 기기 변수(safe-area·content-max) 적용 */
+  const ownerCompactShellBodyAppliedRef = useRef(false);
+  useLayoutEffect(() => {
+    const on = isOwnerCompactShell && isStoresOwnerStackPath(ownerPathNorm);
+    if (ownerCompactShellBodyAppliedRef.current === on) return;
+    ownerCompactShellBodyAppliedRef.current = on;
+    applyOwnerCompactShellBodyFlag(on);
+    return () => {
+      ownerCompactShellBodyAppliedRef.current = false;
+      applyOwnerCompactShellBodyFlag(false);
+    };
+  }, [isOwnerCompactShell, ownerPathNorm]);
+
   useEffect(() => {
-    if (isMobile) setMobileMenuOpen(false);
-  }, [isMobile]);
+    if (!isOwnerCompactShell) setMobileMenuOpen(false);
+  }, [isOwnerCompactShell]);
 
   const selectedRow = useMemo(() => {
     if (!stores || stores.length === 0) return null;
@@ -432,7 +452,7 @@ export function BusinessAdminShell({
 
   useEffect(() => {
     const releases: Array<() => void> = [];
-    if (isMobile && mobileMenuOpen) {
+    if (isOwnerCompactShell && mobileMenuOpen) {
       releases.push(pushStoreOwnerMainBottomNavSuppressed());
     }
     if (ownerOrderOverlayOpen) {
@@ -441,7 +461,7 @@ export function BusinessAdminShell({
     return () => {
       for (const release of releases) release();
     };
-  }, [isMobile, mobileMenuOpen, ownerOrderOverlayOpen]);
+  }, [isOwnerCompactShell, mobileMenuOpen, ownerOrderOverlayOpen]);
 
   /**
    * 모바일 전용: 드로어 열릴 때 배경 스크롤 잠금.
@@ -450,7 +470,7 @@ export function BusinessAdminShell({
    * 고정하고, 닫을 때 `scrollTo`로 이전 위치를 복원한다.
    */
   useLayoutEffect(() => {
-    if (!isMobile || !mobileMenuOpen) return;
+    if (!isOwnerCompactShell || !mobileMenuOpen) return;
     const y = window.scrollY || document.documentElement.scrollTop || 0;
     mobileOwnerDrawerLockYRef.current = y;
 
@@ -487,17 +507,17 @@ export function BusinessAdminShell({
         window.scrollTo(0, restoreY);
       });
     };
-  }, [isMobile, mobileMenuOpen]);
+  }, [isOwnerCompactShell, mobileMenuOpen]);
 
   useLayoutEffect(() => {
     const shouldResetNavScroll =
-      (isMobile && mobileMenuOpen) || (!isMobile && desktopSidebarOpen);
+      (isOwnerCompactShell && mobileMenuOpen) || (!isOwnerCompactShell && desktopSidebarOpen);
     if (!shouldResetNavScroll) return;
     const el = sidebarNavScrollRef.current;
     if (!el) return;
     el.scrollTop = 0;
     el.scrollLeft = 0;
-  }, [isMobile, mobileMenuOpen, desktopSidebarOpen]);
+  }, [isOwnerCompactShell, mobileMenuOpen, desktopSidebarOpen]);
 
   const hubPartialHeaderRight = ownerNotificationBell;
 
@@ -544,12 +564,14 @@ export function BusinessAdminShell({
   }, [basicInfoBackIntercept]);
 
   const openMobileOwnerMenu = useCallback(() => {
-    if (typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches) {
+    /** 태블릿(≤1024)은 드로어 — 예전 767px 분기면 햄버거가 데스크톱 사이드만 열어 아무 것도 안 보임 */
+    const compact = isOwnerCompactShell || matchesOwnerCompactShellViewport();
+    if (compact) {
       setMobileMenuOpen(true);
       return;
     }
     setDesktopSidebarOpen(true);
-  }, []);
+  }, [isOwnerCompactShell]);
 
   const ctxValue = useMemo(
     () => ({
@@ -616,13 +638,15 @@ export function BusinessAdminShell({
 
   const hubHeaderRightSlot = (
     <>
-      {(isMobile || !desktopSidebarOpen) ?
+      {(isOwnerCompactShell || !desktopSidebarOpen) ?
         <button
           type="button"
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
-          aria-label={isMobile ? t("store_owner_aria_open_menu") : t("store_owner_expand_ops_menu")}
+          aria-label={
+            isOwnerCompactShell ? t("store_owner_aria_open_menu") : t("store_owner_expand_ops_menu")
+          }
           onClick={() => {
-            if (isMobile) setMobileMenuOpen(true);
+            if (isOwnerCompactShell) setMobileMenuOpen(true);
             else setDesktopSidebarOpen(true);
           }}
         >
@@ -652,13 +676,15 @@ export function BusinessAdminShell({
           </svg>
         </Link>
       : null}
-      {(isMobile || !desktopSidebarOpen) ?
+      {(isOwnerCompactShell || !desktopSidebarOpen) ?
         <button
           type="button"
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
-          aria-label={isMobile ? t("store_owner_aria_open_menu") : t("store_owner_expand_ops_menu")}
+          aria-label={
+            isOwnerCompactShell ? t("store_owner_aria_open_menu") : t("store_owner_expand_ops_menu")
+          }
           onClick={() => {
-            if (isMobile) setMobileMenuOpen(true);
+            if (isOwnerCompactShell) setMobileMenuOpen(true);
             else setDesktopSidebarOpen(true);
           }}
         >
@@ -702,7 +728,7 @@ export function BusinessAdminShell({
       </div>
       <div
         ref={sidebarNavScrollRef}
-        className="flex-1 overflow-y-auto bg-[var(--biz-card-bg)] px-1 py-3 max-md:min-h-0 max-md:overscroll-y-contain max-md:[-webkit-overflow-scrolling:touch]"
+        className={`flex-1 overflow-y-auto bg-[var(--biz-card-bg)] px-1 py-3 ${OWNER_COMPACT_SHELL_MAX_TW}:min-h-0 ${OWNER_COMPACT_SHELL_MAX_TW}:overscroll-y-contain ${OWNER_COMPACT_SHELL_MAX_TW}:[-webkit-overflow-scrolling:touch]`}
       >
         <BusinessAdminSidebar
           sections={sections}
@@ -729,15 +755,19 @@ export function BusinessAdminShell({
     </div>
   );
 
-  /** 모바일(`max-md`): 오버레이 드로어 + 뷰포트 높이·내부 스크롤. `md`+: 기존 sticky 우측 패널(태블릿·가로). */
+  /** 컴팩트(≤1024px): 오버레이 드로어. 넓은 화면: sticky 우측 패널. */
   const asideClassName = [
-    "flex flex-col border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] max-md:[backdrop-filter:none]",
-    "max-md:transition-transform max-md:duration-[270ms] max-md:ease-out",
-    "md:transition-[width] md:duration-200 md:ease-out",
-    "max-md:min-h-0 max-md:overflow-hidden max-md:fixed max-md:inset-y-0 max-md:right-0 max-md:z-[1003] max-md:h-[100dvh] max-md:max-h-[100dvh] max-md:w-[280px] max-md:max-w-[88vw] max-md:border-l max-md:shadow-none",
-    mobileMenuOpen ? "max-md:translate-x-0" : "max-md:translate-x-full",
-    "md:relative md:shrink-0 md:z-0 md:h-screen md:sticky md:top-0 md:border-l md:shadow-none md:max-w-none",
-    desktopSidebarOpen ? "md:w-[260px]" : "md:w-0 md:min-w-0 md:overflow-hidden md:border-transparent",
+    `flex flex-col border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] ${OWNER_COMPACT_SHELL_MAX_TW}:[backdrop-filter:none]`,
+    `${OWNER_COMPACT_SHELL_MAX_TW}:transition-transform ${OWNER_COMPACT_SHELL_MAX_TW}:duration-[270ms] ${OWNER_COMPACT_SHELL_MAX_TW}:ease-out`,
+    `${OWNER_DESKTOP_SHELL_MIN_TW}:transition-[width] ${OWNER_DESKTOP_SHELL_MIN_TW}:duration-200 ${OWNER_DESKTOP_SHELL_MIN_TW}:ease-out`,
+    `${OWNER_COMPACT_SHELL_MAX_TW}:min-h-0 ${OWNER_COMPACT_SHELL_MAX_TW}:overflow-hidden ${OWNER_COMPACT_SHELL_MAX_TW}:fixed ${OWNER_COMPACT_SHELL_MAX_TW}:inset-y-0 ${OWNER_COMPACT_SHELL_MAX_TW}:right-0 ${OWNER_COMPACT_SHELL_MAX_TW}:z-[1003] ${OWNER_COMPACT_SHELL_MAX_TW}:h-[100dvh] ${OWNER_COMPACT_SHELL_MAX_TW}:max-h-[100dvh] ${OWNER_COMPACT_SHELL_MAX_TW}:w-[280px] ${OWNER_COMPACT_SHELL_MAX_TW}:max-w-[88vw] ${OWNER_COMPACT_SHELL_MAX_TW}:border-l ${OWNER_COMPACT_SHELL_MAX_TW}:shadow-none`,
+    mobileMenuOpen ?
+      `${OWNER_COMPACT_SHELL_MAX_TW}:translate-x-0`
+    : `${OWNER_COMPACT_SHELL_MAX_TW}:translate-x-full`,
+    `${OWNER_DESKTOP_SHELL_MIN_TW}:relative ${OWNER_DESKTOP_SHELL_MIN_TW}:shrink-0 ${OWNER_DESKTOP_SHELL_MIN_TW}:z-0 ${OWNER_DESKTOP_SHELL_MIN_TW}:h-screen ${OWNER_DESKTOP_SHELL_MIN_TW}:sticky ${OWNER_DESKTOP_SHELL_MIN_TW}:top-0 ${OWNER_DESKTOP_SHELL_MIN_TW}:border-l ${OWNER_DESKTOP_SHELL_MIN_TW}:shadow-none ${OWNER_DESKTOP_SHELL_MIN_TW}:max-w-none`,
+    desktopSidebarOpen ?
+      `${OWNER_DESKTOP_SHELL_MIN_TW}:w-[260px]`
+    : `${OWNER_DESKTOP_SHELL_MIN_TW}:w-0 ${OWNER_DESKTOP_SHELL_MIN_TW}:min-w-0 ${OWNER_DESKTOP_SHELL_MIN_TW}:overflow-hidden ${OWNER_DESKTOP_SHELL_MIN_TW}:border-transparent`,
   ].join(" ");
 
   /**
@@ -745,9 +775,9 @@ export function BusinessAdminShell({
    * 뷰포트가 아닌 그 조상에 묶여 문서 스크롤과 같이 움직인다. 드로어·딤은 `document.body` 직계로 올려
    * 본문과 스크롤 맥락을 분리한다.
    */
-  const mobileOwnerDrawerPortaled = ownerBizDrawerPortalReady && isMobile;
+  const mobileOwnerDrawerPortaled = ownerBizDrawerPortalReady && isOwnerCompactShell;
   const mobileOwnerOverlay =
-    isMobile ?
+    isOwnerCompactShell ?
       /**
        * 스크림: 뷰포트 전체(`inset-0`)를 동일한 불투명도로 덮는다. 드로어는 DOM·z-index(1003)로 그 위에만 올라가며,
        * `right: min(...)` 로 잘라 내는 방식은 오른쪽에 딤이 비어 본문이 그대로 비치는 버그를 만든다.
@@ -758,7 +788,7 @@ export function BusinessAdminShell({
         tabIndex={mobileMenuOpen ? 0 : -1}
         aria-label={t("business_phase7_090")}
         aria-hidden={!mobileMenuOpen}
-        className={`fixed inset-0 z-[1002] m-0 min-h-[100dvh] min-h-[100svh] w-full max-w-[100vw] touch-none border-0 bg-black/45 p-0 transition-opacity duration-[270ms] ease-out [overscroll-behavior:none] md:hidden ${
+        className={`fixed inset-0 z-[1002] m-0 min-h-[100dvh] min-h-[100svh] w-full max-w-[100vw] touch-none border-0 bg-black/45 p-0 transition-opacity duration-[270ms] ease-out [overscroll-behavior:none] ${OWNER_DESKTOP_SHELL_MIN_TW}:hidden ${
           mobileMenuOpen ?
             "cursor-pointer opacity-100"
           : "pointer-events-none cursor-default opacity-0"
@@ -776,7 +806,9 @@ export function BusinessAdminShell({
   const ownerAdminAside = (
     <aside className={asideClassName}>
           {/** 모바일 드로어 상단 — `StoresOwnerStackHeader` 와 동일 `h-14`, 주소는 최대 2줄 + 말줄임 */}
-          <div className="flex h-14 min-h-14 max-h-14 shrink-0 items-center justify-between gap-2 overflow-hidden border-b border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-0 md:hidden">
+          <div
+            className={`flex h-14 min-h-14 max-h-14 shrink-0 items-center justify-between gap-2 overflow-hidden border-b border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-3 py-0 ${OWNER_DESKTOP_SHELL_MIN_TW}:hidden`}
+          >
             {sidebarAddressLabel ? (
               <div
                 className="flex h-full min-h-0 min-w-0 flex-1 items-center gap-1.5 overflow-hidden pr-1 sam-text-xxs font-medium leading-tight text-sam-muted"
@@ -799,7 +831,9 @@ export function BusinessAdminShell({
               </svg>
             </button>
           </div>
-          <div className="hidden shrink-0 items-center justify-end border-b border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-2 py-1.5 md:flex">
+          <div
+            className={`hidden shrink-0 items-center justify-end border-b border-[var(--biz-card-border)] bg-[var(--biz-card-bg)] px-2 py-1.5 ${OWNER_DESKTOP_SHELL_MIN_TW}:flex`}
+          >
             <button
               type="button"
               className="flex h-10 w-10 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
@@ -826,7 +860,7 @@ export function BusinessAdminShell({
       : null}
       <div
         data-biz="1"
-        className={`flex min-w-0 flex-col bg-[var(--biz-app-bg)] md:flex-row-reverse ${
+        className={`flex min-w-0 flex-col bg-[var(--biz-app-bg)] ${OWNER_DESKTOP_SHELL_MIN_TW}:flex-row-reverse ${
           isOwnerStoreProductComposerRoute || isOwnerMobileStackViewport
             ? "h-[100dvh] max-h-[100dvh] min-h-0 overflow-hidden"
             : "min-h-screen"
@@ -841,7 +875,7 @@ export function BusinessAdminShell({
 
         <OwnerMobileAdminHeaderTrailingProvider>
           <div
-            className={`flex min-w-0 flex-1 flex-col overflow-x-hidden bg-[var(--biz-app-bg)] md:border-r md:border-sam-border-soft ${
+            className={`flex min-w-0 flex-1 flex-col overflow-x-hidden bg-[var(--biz-app-bg)] ${OWNER_DESKTOP_SHELL_MIN_TW}:border-r ${OWNER_DESKTOP_SHELL_MIN_TW}:border-sam-border-soft ${
               isOwnerStoreProductComposerRoute
                 ? "min-h-0 overflow-hidden"
                 : isOwnerMobileStackViewport
@@ -881,19 +915,15 @@ export function BusinessAdminShell({
             <main
               className={`mx-auto w-full min-w-0 ${
                 isOwnerMobileAdminShell
-                  ? `flex max-w-lg flex-1 flex-col overflow-hidden ${OWNER_MOBILE_ADMIN_CONTENT_GUTTER_X_CLASS}`
+                  ? `${OWNER_COMPACT_SHELL_MAIN_CLASS} ${OWNER_COMPACT_SHELL_COLUMN_CLASS} flex flex-1 flex-col overflow-hidden min-h-0`
                   : "max-w-6xl px-2 sm:px-2"
               } ${
-                isOwnerMobileAdminShell && !isOwnerStoreProductComposerRoute
-                  ? OWNER_MOBILE_PAGE_HEADER_MAIN_OFFSET_CLASS
-                  : !isOwnerMobileAdminShell
-                    ? "pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] md:pt-[calc(env(safe-area-inset-top,0px)+3.5rem+1rem)]"
-                    : "pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)]"
-              } ${isOwnerMobileAdminShell ? "min-h-0" : ""} ${
-                isOwnerMobileAdminShell ? "bg-[#F3F4F6]" : "bg-[var(--biz-app-bg)]"
-              } ${isOwnerMobileStackViewport ? "" : ownerMainBottomPadForChildren}${
-                isOwnerStoreProductComposerRoute ? " flex min-h-0 flex-1 flex-col overflow-hidden" : ""
-              }`}
+                !isOwnerMobileAdminShell
+                  ? `pt-[calc(env(safe-area-inset-top,0px)+3.5rem+0.75rem)] ${OWNER_DESKTOP_SHELL_MIN_TW}:pt-[calc(env(safe-area-inset-top,0px)+3.5rem+1rem)]`
+                  : ""
+              } ${isOwnerMobileAdminShell ? "bg-[#F3F4F6]" : "bg-[var(--biz-app-bg)]"} ${
+                isOwnerMobileStackViewport ? "" : ownerMainBottomPadForChildren
+              }${isOwnerStoreProductComposerRoute ? " flex min-h-0 flex-1 flex-col overflow-hidden" : ""}`}
             >
               <OwnerStackPageSlideShell>{children}</OwnerStackPageSlideShell>
             </main>

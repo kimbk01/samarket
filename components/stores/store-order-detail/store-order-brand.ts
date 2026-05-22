@@ -1,18 +1,18 @@
 /**
- * 주문 매장 상세·메뉴 시트 UI — dibaY delivery primary `#2386B1` 단일 축.
+ * 주문 매장 상세·메뉴 시트 UI — delivery token 단일 축.
  */
 import { DeliveryTheme } from "@/lib/design/delivery-theme";
 
 export const STORE_ORDER_BRAND = {
-  accent: "#2386B1",
-  accentHover: "#1F789F",
-  accentPressed: "#1a6a8f",
-  accentSoftBg: "#EAF6FB",
-  accentSoftBgStrong: "#EEF8FC",
-  accentSoftText: "#2386B1",
-  accentRing: "rgba(35, 134, 177, 0.35)",
+  accent: "var(--delivery-primary)",
+  accentHover: "var(--delivery-primary-hover)",
+  accentPressed: "var(--delivery-primary-active)",
+  accentSoftBg: "var(--delivery-primary-soft)",
+  accentSoftBgStrong: "var(--delivery-primary-soft)",
+  accentSoftText: "var(--delivery-primary)",
+  accentRing: "color-mix(in srgb, var(--delivery-primary) 35%, transparent)",
   /** 레거시 이름 유지 — 값은 accent 와 동일 */
-  baeminMint: "#2386B1",
+  baeminMint: "var(--delivery-primary)",
   baeminPurple: "#6B3DF4",
   star: "#FFB400",
   starBright: "#FFC400",
@@ -39,14 +39,14 @@ export const STORE_ORDER_CTA_PRIMARY = [
 
 /** 보조 테두리 버튼 (수량 ± 등) */
 export const STORE_ORDER_CTA_STEPPER =
-  "touch-manipulation select-none rounded-full border border-neutral-200 bg-white text-neutral-900 shadow-sm transition-all duration-150 hover:bg-neutral-50 active:scale-95 active:bg-[#EAF6FB] active:border-[#2386B1]/35 disabled:opacity-40 disabled:active:scale-100";
+  "touch-manipulation select-none rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-white text-[color:var(--delivery-text-main)] shadow-none transition-all duration-150 hover:bg-[color:var(--delivery-bg-soft)] active:scale-95 active:bg-[color:var(--delivery-primary-soft)] active:border-[color:var(--delivery-primary)] disabled:opacity-40 disabled:active:scale-100";
 
 /** 뱃지 구분 — 배경·테두리로 역할이 한눈에 들어오게 */
 export const STORE_ORDER_BADGE_POPULAR =
-  "inline-flex items-center rounded-[4px] bg-[#EAF6FB] px-1.5 py-0.5 text-[11px] font-bold tracking-wide text-[#2386B1] ring-1 ring-[#2386B1]/15";
+  "inline-flex h-[var(--delivery-badge-h)] items-center rounded-[var(--delivery-radius)] bg-[color:var(--delivery-badge-primary-bg)] px-[var(--delivery-badge-px)] text-[11px] font-bold tracking-wide text-[color:var(--delivery-badge-primary-fg)]";
 
 export const STORE_ORDER_BADGE_REQUIRED =
-  "rounded-full bg-[#2386B1] px-2 py-0.5 text-[10px] font-bold text-white shadow-sm ring-1 ring-[#2386B1]/30";
+  "inline-flex h-[var(--delivery-badge-h)] items-center rounded-[var(--delivery-radius)] bg-[color:var(--delivery-primary)] px-[var(--delivery-badge-px)] text-[11px] font-bold text-white";
 
 export const STORE_ORDER_BADGE_OPTIONAL =
   "rounded-full bg-neutral-100 px-2 py-0.5 text-[12px] font-semibold text-neutral-600 ring-1 ring-neutral-200/80";

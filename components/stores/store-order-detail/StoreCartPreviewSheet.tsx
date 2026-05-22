@@ -1,6 +1,6 @@
 "use client";
-import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { useCallback, useLayoutEffect } from "react";
 import { useStoreCommerceCartActionsOptional } from "@/contexts/StoreCommerceCartContext";
@@ -10,8 +10,13 @@ import {
 } from "@/lib/stores/use-store-commerce-cart-selector";
 import { deliveryRenderTraceBump } from "@/lib/dibay/delivery-render-trace";
 import { formatMoneyPhp } from "@/lib/utils/format";
-import { DIBAY_CART_PRIMARY_BTN_CLASS } from "@/components/stores/cart/StoreCommerceCartBottomSheet";
 import { APP_MAIN_COLUMN_MAX_WIDTH_CLASS } from "@/lib/ui/app-content-layout";
+import {
+  STORE_COMMERCE_ACTION_CAPTION_CLASS,
+  STORE_COMMERCE_ACTION_PRICE_HERO_CLASS,
+  storeCommerceActionBtnClass,
+  storeCommerceActionRowClass,
+} from "@/lib/stores/store-commerce-bottom-action-bar";
 import { StoreCartPreviewLineRow } from "@/components/stores/store-order-detail/StoreCartPreviewLineRow";
 
 export function StoreCartPreviewSheet({
@@ -65,16 +70,19 @@ export function StoreCartPreviewSheet({
   if (!open) return null;
 
   const cartHref = `/stores/${encodeURIComponent(storeSlug)}/cart`;
+  const hasLines = lines.length > 0;
 
   return (
     <div className="fixed inset-0 z-[110]" role="dialog" aria-modal aria-labelledby="store-cart-preview-title">
-      <button type="button" className="absolute inset-0 bg-black/45 transition-opacity duration-[220ms]" aria-label={t("common_close")} onClick={onClose} />
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/45 transition-opacity duration-[220ms]"
+        aria-label={t("common_close")}
+        onClick={onClose}
+      />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 top-[18dvh] flex justify-center p-0 sm:p-3">
         <div
           className={`pointer-events-auto flex h-full w-full min-w-0 flex-col overflow-hidden rounded-t-[24px] bg-white shadow-2xl transition-transform duration-[220ms] ease-out ${APP_MAIN_COLUMN_MAX_WIDTH_CLASS}`}
-          style={{
-            paddingBottom: "max(12px, env(safe-area-inset-bottom, 0px))",
-          }}
         >
           <div className="flex shrink-0 flex-col items-center pt-2 pb-1">
             <span className="h-1 w-10 rounded-full bg-neutral-300" aria-hidden />
@@ -102,14 +110,25 @@ export function StoreCartPreviewSheet({
             )}
           </div>
 
-          <div className="shrink-0 border-t border-neutral-100 px-4 pt-3">
-            <div className="mb-3 flex items-center justify-between text-[15px] font-bold">
-              <span className="text-neutral-600">{t("store_cart_total")}</span>
-              <span className="tabular-nums text-neutral-900">{formatMoneyPhp(subtotal)}</span>
+          <div className="store-commerce-action-plane shrink-0 border-t border-[rgba(15,23,42,0.14)]">
+            <div className={storeCommerceActionRowClass("menu-cart-idle")}>
+              <div className="min-w-0 flex-1 py-0.5">
+                <p className={STORE_COMMERCE_ACTION_CAPTION_CLASS}>{t("store_cart_total")}</p>
+                <p className={`mt-0.5 ${STORE_COMMERCE_ACTION_PRICE_HERO_CLASS}`}>
+                  {formatMoneyPhp(subtotal)}
+                </p>
+              </div>
+              <Link
+                href={cartHref}
+                className={`max-w-[58%] min-w-[9rem] ${storeCommerceActionBtnClass(!hasLines)}`}
+                aria-disabled={!hasLines}
+                onClick={(e) => {
+                  if (!hasLines) e.preventDefault();
+                }}
+              >
+                {t("store_cart_view")}
+              </Link>
             </div>
-            <Link href={cartHref} className={DIBAY_CART_PRIMARY_BTN_CLASS}>
-              카트 보기
-            </Link>
           </div>
         </div>
       </div>

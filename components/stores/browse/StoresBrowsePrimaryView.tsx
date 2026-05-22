@@ -642,7 +642,7 @@ export function StoresBrowsePrimaryView({
                   <span className={STORE_BROWSE_SUB_CHIP_LABEL}>{label}</span>
                   <span
                     className="mt-1 h-1 w-10 rounded-full"
-                    style={{ backgroundColor: on ? "#1C8DB8" : "transparent" }}
+                    style={{ backgroundColor: on ? "var(--delivery-primary)" : "transparent" }}
                     aria-hidden
                   />
                 </button>

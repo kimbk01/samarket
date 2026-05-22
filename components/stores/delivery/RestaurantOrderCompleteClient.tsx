@@ -132,7 +132,7 @@ export function RestaurantOrderCompleteClient({ storeSlug }: { storeSlug: string
             </Link>
             <Link
               href="/mypage/store-orders"
-              className="mt-2 block w-full rounded-ui-rect border border-[#1C8DB8]/40 bg-[#EAF6FB] py-3 text-center text-sm font-bold text-[#1C8DB8]"
+              className="delivery-ui mt-2 block w-full rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-primary-soft)] py-3 text-center text-sm font-bold text-[color:var(--delivery-primary)]"
             >
               주문 목록으로
             </Link>

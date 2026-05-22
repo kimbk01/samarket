@@ -7,7 +7,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { DeliveryDomainSwitcherOverlay } from "@/components/delivery/navigation/DeliveryDomainSwitcherOverlay";
-import { useMessengerLongPress } from "@/lib/community-messenger/use-messenger-long-press";
 import { OWNER_HUB_BADGE_DOT_CLASS } from "@/lib/chats/hub-badge-ui";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
 import {
@@ -15,6 +14,7 @@ import {
   BOTTOM_NAV_OUTER_MOTION,
   BOTTOM_NAV_SHELL,
   BOTTOM_NAV_THEME,
+  resolveBottomNavScrollHideOuterClass,
 } from "@/lib/main-menu/bottom-nav-config";
 import { DELIVERY_BOTTOM_NAV_LABEL_CLASS } from "@/lib/main-menu/delivery-bottom-nav-layout";
 import { useBottomNavScrollHide } from "@/lib/layout/use-bottom-nav-scroll-hide-behavior";
@@ -125,13 +125,11 @@ function OwnerMobileBottomNavHomeHub({
     BOTTOM_NAV_ITEM_TOUCH_CLASS
   );
 
-  const { bind: longPressBind, consumeClickSuppression } = useMessengerLongPress(
-    () => onToggleSwitcher(),
-    { thresholdMs: 480 }
-  );
-
   const onHubClick = useCallback(() => {
-    if (consumeClickSuppression()) return;
+    if (hubPathActive) {
+      onToggleSwitcher();
+      return;
+    }
     runOwnerHomeHubShortTap({
       pathname,
       href: homeHref,
@@ -144,9 +142,9 @@ function OwnerMobileBottomNavHomeHub({
       push: (href) => router.push(href),
     });
   }, [
-    consumeClickSuppression,
     guardBeforeNavigate,
     homeHref,
+    hubPathActive,
     onNavigationIntent,
     onToggleSwitcher,
     pathname,
@@ -163,7 +161,6 @@ function OwnerMobileBottomNavHomeHub({
       aria-label={homeLabel}
       aria-expanded={switcherOpen}
       aria-haspopup="dialog"
-      {...longPressBind}
       onClick={onHubClick}
     >
       <div className="app-bottom-nav-icon-slot app-bottom-nav-icon-slot--delivery-home">
@@ -255,7 +252,7 @@ export function OwnerMobileBottomNav({
     BOTTOM_NAV_OUTER_MOTION,
     OWNER_MOBILE_BOTTOM_NAV_ROOT_CLASS,
     domainSwitcherOpen ? "app-bottom-nav-shell--switcher-open" : "",
-    hiddenByScroll ? "translate-y-full" : "translate-y-0"
+    resolveBottomNavScrollHideOuterClass(hiddenByScroll)
   );
 
   const renderSide = (items: OwnerMobileBottomNavItem[]) =>

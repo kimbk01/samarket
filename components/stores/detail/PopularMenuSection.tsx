@@ -29,12 +29,7 @@ export function PopularMenuSection({
       style={{ marginBottom: DibayMenuBoard.sectionGapPx }}
       aria-label={t("store_popular_menu_aria")}
     >
-      <h2
-        className="tracking-[-0.02em] text-neutral-900"
-        style={{ fontSize: DibayMenuBoard.title.fontSizePx, fontWeight: DibayMenuBoard.title.fontWeight }}
-      >
-        {t("store_popular_menu_title")}
-      </h2>
+      <h2 className="delivery-section-heading tracking-[-0.02em]">{t("store_popular_menu_title")}</h2>
       <ul className="mt-1 divide-y divide-[#F1F1F1]">
         {cards.map((p, idx) => {
           const rank = p.popular_rank ?? idx + 1;
@@ -59,7 +54,7 @@ export function PopularMenuSection({
                   dimmed ? "cursor-not-allowed opacity-45" : ""
                 }`}
               >
-                <span className="mt-1 w-6 shrink-0 text-center text-[14px] font-black tabular-nums text-[#1C8DB8]">
+                <span className="mt-1 w-6 shrink-0 text-center text-[14px] font-black tabular-nums text-[color:var(--delivery-primary)]">
                   {rank}
                 </span>
                 <div className="relative shrink-0">

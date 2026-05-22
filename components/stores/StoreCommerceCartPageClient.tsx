@@ -1717,10 +1717,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                       else writeStoreFulfillmentPref(store.slug, "local_delivery");
                     }
                   }}
-                  className={`rounded-full px-3 py-1.5 sam-text-body-secondary ${
-                    fulfillment === o.value
-                      ? "bg-signature text-white"
-                      : "border border-sam-border bg-sam-surface text-sam-fg"
+                  className={`delivery-fulfillment-chip sam-text-body-secondary ${
+                    fulfillment === o.value ? "delivery-fulfillment-chip--active" : ""
                   }`}
                 >
                   {o.label}
@@ -1756,14 +1754,14 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                   key={opt.id}
                   className={`flex shrink-0 cursor-pointer items-center gap-2.5 rounded-ui-rect border px-3 py-2 sam-text-body-secondary font-medium shadow-sm ${
                     selectedPaymentMethod === opt.id
-                      ? "border-signature bg-signature/5 text-sam-fg ring-1 ring-signature/25"
-                      : "border-sam-border bg-sam-surface text-sam-fg"
+                      ? "border-[color:var(--delivery-primary)] bg-[color:var(--delivery-primary-soft)] text-[color:var(--delivery-text-main)] ring-1 ring-[color:var(--delivery-primary-border)]"
+                      : "border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] text-[color:var(--delivery-text-main)]"
                   } ${busy ? "pointer-events-none opacity-60" : ""}`}
                 >
                   <input
                     type="radio"
                     name="cart-checkout-payment"
-                    className="h-4 w-4 shrink-0 border-sam-border accent-signature focus:ring-2 focus:ring-signature/40 focus:ring-offset-0"
+                    className="h-4 w-4 shrink-0 border-[color:var(--delivery-border)] accent-[color:var(--delivery-primary)] focus:ring-2 focus:ring-[color:var(--delivery-primary-border)] focus:ring-offset-0"
                     checked={selectedPaymentMethod === opt.id}
                     onChange={() => setSelectedPaymentMethod(opt.id)}
                     disabled={busy}
@@ -1966,7 +1964,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             <div className="mt-3 flex flex-wrap gap-2">
               <Link
                 href="/mypage/addresses"
-                className="inline-flex items-center rounded border border-signature bg-sam-surface px-3 py-2 sam-text-body-secondary font-bold text-signature shadow-sm"
+                className="inline-flex items-center rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-bg-card)] px-3 py-2 sam-text-body-secondary font-bold text-[color:var(--delivery-primary)] shadow-sm"
               >
                 주소 관리에서 저장
               </Link>
@@ -2030,7 +2028,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             value={buyerNote}
             disabled={busy}
             onChange={(e) => setBuyerNote(e.target.value)}
-            className="mt-2 w-full min-h-[96px] resize-none rounded-[4px] border border-[var(--delivery-border-section)] bg-white px-3 py-2.5 text-[14px] text-[#111] outline-none focus:border-[#2386B1] focus:ring-2 focus:ring-[#2386B1]/20 disabled:bg-[#F5F5F5]"
+            className="mt-2 w-full min-h-[96px] resize-none rounded-[var(--delivery-radius)] border border-[var(--delivery-border-section)] bg-white px-3 py-2.5 text-[14px] text-[#111] outline-none focus:border-[color:var(--delivery-primary)] focus:ring-2 focus:ring-[color:var(--delivery-primary)]/20 disabled:bg-[#F5F5F5]"
             maxLength={500}
           />
           <p className="mt-1 sam-text-xxs leading-snug text-sam-muted">

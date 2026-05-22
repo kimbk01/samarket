@@ -250,7 +250,7 @@ export function StoreOrderHeroSummary({
           className={
             heroBannerSlot
               ? "relative w-full overflow-hidden bg-[#15181b]"
-              : "relative w-full overflow-hidden bg-gradient-to-br from-[#1C8DB8]/88 via-[#197DA3]/82 to-[#0f766e]/78"
+              : "relative w-full overflow-hidden bg-[color:var(--delivery-primary)]"
           }
         >
           <div

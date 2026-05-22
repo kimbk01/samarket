@@ -1,0 +1,88 @@
+/**
+ * 매장 하단 액션 바 — plane 이 뷰포트 하단까지 닿고, safe-area 는 plane 내부 padding.
+ * (셸 `padding-bottom` 시 투명 틈 → 메뉴 비침 — 금지)
+ */
+
+:root {
+  --store-commerce-action-btn-h: 3.25rem;
+  --store-commerce-action-plane-pt: 0.625rem;
+  --store-commerce-action-plane-pb: 0.75rem;
+}
+
+.store-commerce-action-shell {
+  padding-bottom: 0;
+  align-items: stretch;
+}
+
+.store-commerce-action-shell--inline {
+  padding-bottom: 0;
+}
+
+.store-commerce-action-plane {
+  width: 100%;
+  max-width: 100%;
+  border-radius: var(--delivery-radius) var(--delivery-radius) 0 0;
+  border-bottom: 0;
+  padding-top: var(--store-commerce-action-plane-pt);
+  padding-bottom: calc(
+    var(--store-commerce-action-plane-pb) + env(safe-area-inset-bottom, 0px)
+  );
+  box-sizing: border-box;
+}
+
+.store-commerce-action-shell .store-commerce-action-plane {
+  max-width: min(100%, var(--sam-content-max, 32rem));
+  margin-inline: auto;
+}
+
+@media (min-width: 768px) {
+  .store-commerce-action-shell .store-commerce-action-plane {
+    max-width: min(100%, 42rem);
+  }
+}
+
+.store-commerce-action-shell[data-store-action-variant="menu-cart-active"] .store-commerce-action-plane {
+  min-height: 5.75rem;
+}
+
+.store-commerce-action-shell[data-store-action-variant="menu-cart-idle"] .store-commerce-action-plane {
+  min-height: 4.75rem;
+}
+
+.store-commerce-action-shell[data-store-action-variant="product-add"] .store-commerce-action-plane {
+  min-height: 6.5rem;
+}
+
+.store-commerce-action-shell[data-store-action-variant="sheet-add"] .store-commerce-action-plane {
+  min-height: 4.75rem;
+}
+
+.store-commerce-action-shell[data-store-action-variant="cart-checkout"] .store-commerce-action-plane,
+.store-commerce-action-shell--inline[data-store-action-variant="cart-checkout"] .store-commerce-action-plane {
+  min-height: var(--store-commerce-action-cart-checkout-min-h);
+  padding-top: var(--store-commerce-action-cart-checkout-plane-pt);
+  padding-bottom: calc(
+    var(--store-commerce-action-cart-checkout-plane-pb) + env(safe-area-inset-bottom, 0px)
+  );
+}
+
+.store-commerce-action-shell[data-store-action-variant="cart-checkout"] .store-commerce-action-row,
+.store-commerce-action-shell--inline[data-store-action-variant="cart-checkout"] .store-commerce-action-row {
+  min-height: 0;
+  align-items: center;
+}
+
+.store-commerce-action-shell--inline[data-store-action-variant="sheet-add"] .store-commerce-action-plane {
+  min-height: 4.75rem;
+}
+
+.store-commerce-action-shell[data-store-action-variant="review-submit"] .store-commerce-action-plane {
+  min-height: 4.75rem;
+}
+
+.store-commerce-action-row {
+  min-height: calc(
+    var(--store-commerce-action-btn-h) + var(--store-commerce-action-plane-pt) +
+      var(--store-commerce-action-plane-pb) - 1.375rem
+  );
+}

@@ -13,23 +13,23 @@ import {
   BAEMIN_CART_STACK_CLASS,
 } from "@/lib/stores/store-baemin-cart-ui";
 
-/** 페이지 루트 — 흰 배경 */
+/** 페이지 루트 — 스타벅스 배경(#f6f6f6) */
 export const STORE_CART_PAGE_ROOT_CLASS = `flex min-h-0 flex-1 flex-col overflow-hidden w-full min-w-0 ${BAEMIN_CART_PAGE_BG}`;
 
-/** 가운데 스크롤 영역 — 흰 배경 (회색 delivery-page 금지) */
+/** 가운데 스크롤 영역 — 페이지 배경과 동일 */
 export const STORE_CART_SCROLL_BODY_CLASS = `min-h-0 flex-1 overflow-y-auto overscroll-y-contain ${BAEMIN_CART_PAGE_BG}`;
 
 /** 본문 — 좌우 16px 통일, 헤더~첫 카드 간격 최소 */
 /** 하단 고정 CTA에 가리지 않도록 스크롤 하단 여백 */
-export const STORE_CART_SCROLL_BODY_INNER_CLASS = `${APP_MAIN_COLUMN_CLASS} ${BAEMIN_CART_PAGE_X} pt-2 pb-28 ${BAEMIN_CART_STACK_CLASS}`;
+export const STORE_CART_SCROLL_BODY_INNER_CLASS = `${APP_MAIN_COLUMN_CLASS} ${BAEMIN_CART_PAGE_X} pt-2 pb-4 ${BAEMIN_CART_STACK_CLASS}`;
 
 export const STORE_CART_SCROLL_BODY_DATA_ATTR = "store-cart-scroll";
 
 /** 상단 StoreBaeminCartTopBar 래퍼 */
 export const STORE_CART_HEADER_CHROME_CLASS = `shrink-0 z-30 ${BAEMIN_CART_PAGE_BG}`;
 
-/** 하단 주문 바 — 상단 선 없음, 그림자만 (배민) */
-export const STORE_CART_FOOTER_CHROME_CLASS = `shrink-0 z-30 ${BAEMIN_CART_PAGE_BG} pt-2 shadow-[0_-2px_12px_rgba(0,0,0,0.08)] pb-[max(12px,env(safe-area-inset-bottom,0px))]`;
+/** 하단 주문 바 래퍼 — plane·safe-area 는 `StoreCartCheckoutActionBar` 가 담당 */
+export const STORE_CART_FOOTER_CHROME_CLASS = "shrink-0 z-30 w-full min-w-0";
 
 export const STORE_CART_CHECKOUT_ACTION_INNER_CLASS = "flex w-full min-w-0 items-center gap-3";
 

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 /* eslint-disable react-hooks/refs -- `CommunityMessengerGroupCallHandle`는 훅 반환 객체이며 ref가 아님; `.call*`·`panel` 등 접근이 오탐으로 걸립니다. */
 

@@ -12,7 +12,8 @@ export function isOwnerHomeHubBottomNavActive(pathname: string | null): boolean 
 }
 
 /**
- * 오너 하단 「홈」 짧은 탭 — 대시보드로 이동. 이미 대시보드면 스크롤만.
+ * 오너 하단 「홈」 탭 — `/stores/owner` 대시보드로 이동(다른 운영 화면에서 탭할 때).
+ * 이미 허브면 UI 가 다이얼 토글.
  */
 export function runOwnerHomeHubShortTap(args: {
   pathname: string | null;

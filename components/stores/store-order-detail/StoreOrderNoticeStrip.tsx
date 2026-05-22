@@ -49,18 +49,18 @@ export function StoreOrderNoticeStrip({
   const line = text.trim() || fallback;
 
   return (
-    <div className="border-b border-neutral-100 bg-white px-5 py-3">
+    <div className="delivery-ui border-b border-[color:var(--delivery-border)] bg-white px-4 py-3">
       <Link
         href={href}
-        className="flex min-h-[46px] touch-manipulation items-center gap-2.5 rounded-[8px] border border-neutral-200 bg-white px-3 py-2.5 transition-colors active:bg-[#E6F4F9]/60 active:scale-[0.99]"
+        className="flex min-h-[48px] touch-manipulation items-center gap-2.5 rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-white px-3 py-2.5 transition-colors active:scale-[0.99] active:bg-[color:var(--delivery-primary-soft)]"
       >
-        <span className="shrink-0 text-[#1C8DB8]">
+        <span className="shrink-0 text-[color:var(--delivery-primary)]">
           <NoticeGlyph className="opacity-90" />
         </span>
         <p className="min-w-0 flex-1 line-clamp-1 text-[14px] font-bold leading-snug text-neutral-900">{line}</p>
         <div className="flex shrink-0 items-center gap-1.5">
           {showCouponBadge ? (
-            <span className="rounded-full bg-[#1C8DB8]/12 px-2 py-0.5 text-[11px] font-bold text-[#1C8DB8]">
+            <span className="delivery-badge delivery-badge--primary">
               쿠폰
             </span>
           ) : null}

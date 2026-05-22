@@ -125,7 +125,7 @@ export function StoreBaeminCartLineRow({
           </button>
           <span
             className={`flex min-w-[2rem] items-center justify-center border-x border-[#E0E0E0] text-[15px] font-bold tabular-nums text-[#111111] transition-[background-color,transform] duration-200 ${
-              qtyBump ? "scale-110 bg-[#E8F4FA] text-[#2386B1]" : "scale-100 bg-white"
+              qtyBump ? "scale-110 bg-[color:var(--delivery-primary-soft)] text-[color:var(--delivery-primary)]" : "scale-100 bg-white"
             }`}
           >
             {line.qty}

@@ -11,6 +11,7 @@ import {
   type DeliveryBottomNavItem,
 } from "@/lib/delivery/load-delivery-bottom-nav-items-server";
 import { DeliveryBottomNavIcon, DeliveryBottomNavItem as Item } from "./DeliveryBottomNavItem";
+import { resolveBottomNavScrollHideOuterClass } from "@/lib/main-menu/bottom-nav-config";
 import { useDeliveryBottomNavVisibility } from "./useDeliveryBottomNavVisibility";
 
 const BRAND_TEAL = "#1C8DB8";
@@ -88,7 +89,7 @@ export function DeliveryBottomNav({ initialItems }: { initialItems: DeliveryBott
         "w-full min-w-0 max-w-none overflow-x-clip",
         "pb-[env(safe-area-inset-bottom,0px)]",
         transitionClass,
-        hidden ? "translate-y-full" : "translate-y-0",
+        resolveBottomNavScrollHideOuterClass(hidden),
       ]
         .filter(Boolean)
         .join(" ")}

@@ -51,11 +51,11 @@ export function MessengerStoreOrderSummaryCard({ content, timeline, metadata }: 
   const bodyLines = lines.slice(1);
 
   return (
-    <div className="w-full max-w-[min(100%,21rem)] overflow-hidden rounded-ui-rect border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-surface)] text-left">
-      <div className="border-b border-[color:var(--cm-room-divider)] bg-[color:var(--messenger-badge-delivery-bg)] px-3 py-2">
-        <p className="sam-text-helper font-bold text-[color:var(--cm-room-text)]">{header}</p>
+    <div className="delivery-ui w-full max-w-[min(100%,21rem)] overflow-hidden rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] text-left">
+      <div className="border-b border-[color:var(--delivery-border)] bg-[color:var(--delivery-primary-soft)] px-4 py-3">
+        <p className="text-[12px] font-bold leading-[var(--delivery-lh-caption)] text-[color:var(--delivery-dark)]">{header}</p>
       </div>
-      <div className="space-y-1 px-3 py-2.5 sam-text-xxs leading-relaxed text-[color:var(--cm-room-text)]">
+      <div className="space-y-1 px-4 py-3 text-[12px] font-medium leading-[var(--delivery-lh-caption)] text-[color:var(--delivery-text-main)]">
         {bodyLines.map((line, i) => (
           <p key={i} className="[overflow-wrap:anywhere] [word-break:break-word]">
             {line}

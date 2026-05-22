@@ -86,7 +86,7 @@ export function StoreBaeminProductDetailView(props: StoreBaeminProductDetailView
 
   return (
     <>
-      <div className="bg-white pb-[calc(88px+env(safe-area-inset-bottom,0px))]">
+      <div className="bg-white pb-[calc(6.5rem+var(--store-commerce-action-plane-pb,0.75rem)+env(safe-area-inset-bottom,0px))]">
         <StoreBaeminProductDetailInfo
           storeSlug={storeSlug}
           productId={productId}
@@ -169,7 +169,7 @@ export function StoreBaeminProductDetailView(props: StoreBaeminProductDetailView
               <button
                 type="button"
                 onClick={onOptionRetry}
-                className={`mt-3 text-[14px] font-bold text-[#1C8DB8] ${STORE_ORDER_TOUCH_BTN}`}
+                className={`mt-3 text-[14px] font-bold text-[color:var(--delivery-primary)] ${STORE_ORDER_TOUCH_BTN}`}
               >
                 {t("common_retry")}
               </button>

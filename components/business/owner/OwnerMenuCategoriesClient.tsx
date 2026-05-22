@@ -11,7 +11,8 @@ import { useBusinessAdminStore } from "@/components/business/admin/business-admi
 import type { OwnerRscMenuSection } from "@/lib/stores/owner/load-owner-store-read-bootstrap";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
-import { OWNER_MOBILE_ADMIN_CONTENT_GUTTER_X_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
+import { OWNER_STORE_ADMIN_FOOTER_BAR_CLASS } from "@/lib/business/owner-compact-shell-layout";
+import { OWNER_DESKTOP_SHELL_MIN_TW } from "@/lib/business/owner-compact-shell-viewport";
 
 type Section = {
   id: string;
@@ -445,10 +446,10 @@ export function OwnerMenuCategoriesClient({
           <div
             role="toolbar"
             aria-label={t("business_phase7_303")}
-            className="pointer-events-auto fixed inset-x-0 bottom-0 z-[120] border-t border-sam-border bg-sam-surface shadow-[0_-4px_12px_rgba(0,0,0,0.08)] lg:left-[260px]"
+            className={`pointer-events-auto fixed inset-x-0 bottom-0 z-[120] border-t border-sam-border bg-sam-surface shadow-[0_-4px_12px_rgba(0,0,0,0.08)] ${OWNER_DESKTOP_SHELL_MIN_TW}:left-[260px]`}
           >
             <div
-              className={`mx-auto flex w-full max-w-lg min-w-0 gap-2 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] ${OWNER_MOBILE_ADMIN_CONTENT_GUTTER_X_CLASS}`}
+              className={`flex ${OWNER_STORE_ADMIN_FOOTER_BAR_CLASS} min-w-0 gap-2 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] ${OWNER_DESKTOP_SHELL_MIN_TW}:mx-auto ${OWNER_DESKTOP_SHELL_MIN_TW}:max-w-6xl ${OWNER_DESKTOP_SHELL_MIN_TW}:px-2`}
             >
               <button
                 type="button"

@@ -206,7 +206,7 @@ function BuyerOrderDrawerShell({
           ? `fixed top-0 right-0 z-[270] flex h-[100dvh] ${STORE_ORDER_DELIVERY_DETAIL_DRAWER_WIDTH_CLASS} flex-col overflow-hidden border-l border-sam-border bg-sam-surface shadow-none ${STORE_ORDER_DELIVERY_DETAIL_DRAWER_TRANSFORM_CLASS} ${
               open ? "translate-x-0" : "pointer-events-none translate-x-full"
             }`
-          : `fixed inset-x-0 bottom-0 z-[270] mx-auto flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[4px] border border-[#DDE5E0] bg-white shadow-none transition-transform duration-300 ease-out sm:inset-y-4 sm:right-4 sm:left-auto sm:max-h-none sm:w-[24rem] sm:rounded-[4px] ${
+          : `delivery-ui fixed inset-x-0 bottom-0 z-[270] mx-auto flex max-h-[92dvh] w-full max-w-md flex-col overflow-hidden rounded-t-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-white shadow-none transition-transform duration-300 ease-out sm:inset-y-4 sm:right-4 sm:left-auto sm:max-h-none sm:w-[24rem] sm:rounded-[var(--delivery-radius)] ${
               open
                 ? "translate-y-0 sm:translate-x-0"
                 : "pointer-events-none invisible translate-y-full sm:translate-x-full sm:translate-y-0"
@@ -241,14 +241,14 @@ function BuyerOrderDrawerHeader({
 }) {
   return (
     <div
-      className={`relative flex shrink-0 items-center gap-2 border-b border-[#DDE5E0] bg-white px-3 py-3 ${peekDrawer ? "" : "pt-4"}`}
+      className={`relative flex shrink-0 items-center gap-2 border-b border-[color:var(--delivery-border)] bg-white px-4 py-3 ${peekDrawer ? "" : "pt-4"}`}
     >
       {!peekDrawer ? (
-        <div className="absolute left-1/2 top-1.5 h-1 w-10 -translate-x-1/2 rounded-full bg-[#DDE5E0] sm:hidden" aria-hidden />
+        <div className="absolute left-1/2 top-1.5 h-1 w-10 -translate-x-1/2 rounded-full bg-[color:var(--delivery-border)] sm:hidden" aria-hidden />
       ) : null}
       <h2
         id="store-order-phase2-drawer-title"
-        className="min-w-0 flex-1 sam-text-body-lg font-bold text-[#123B4A]"
+        className="min-w-0 flex-1 text-[17px] font-bold leading-[var(--delivery-lh-card-title)] text-[color:var(--delivery-dark)]"
       >
         주문 진행 상황
       </h2>
@@ -256,7 +256,7 @@ function BuyerOrderDrawerHeader({
         type="button"
         onClick={onVoiceCall}
         disabled={voiceCallDisabled}
-        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[4px] text-[#1C8DB8] transition hover:bg-[#EAF6FB] disabled:opacity-35"
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--delivery-radius)] text-[color:var(--delivery-primary)] transition hover:bg-[color:var(--delivery-primary-soft)] disabled:opacity-35"
         aria-label="음성 통화"
       >
         <VoiceCallIcon className="h-5 w-5" />
@@ -264,7 +264,7 @@ function BuyerOrderDrawerHeader({
       <button
         type="button"
         onClick={onClose}
-        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[4px] text-[#123B4A] hover:bg-[#EAF6FB]"
+        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--delivery-radius)] text-[color:var(--delivery-dark)] hover:bg-[color:var(--delivery-primary-soft)]"
         aria-label="닫기"
       >
         ×
@@ -321,7 +321,7 @@ function BuyerOrderDrawerActions({
       <Link
         href={`/mypage/store-orders/${encodeURIComponent(orderId)}`}
         onClick={onNavigate}
-        className="inline-flex h-9 shrink-0 items-center justify-center rounded-[4px] border border-[#DDE5E0] px-3.5 sam-text-body font-semibold text-[#1C8DB8]"
+        className="inline-flex h-9 shrink-0 items-center justify-center rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] px-3.5 text-[14px] font-semibold text-[color:var(--delivery-primary)]"
       >
         주문상세
       </Link>
@@ -381,7 +381,7 @@ function BuyerOrderDetailBody({
         order.store_pickup_address_lines &&
         order.store_pickup_address_lines.length > 0 ? (
           <li className="flex gap-2">
-            <span className="shrink-0 rounded-[4px] bg-[#EAF6FB] px-1.5 py-0.5 text-[11px] font-bold text-[#1C8DB8]">
+            <span className="shrink-0 rounded-[var(--delivery-radius)] bg-[color:var(--delivery-primary-soft)] px-1.5 py-0.5 text-[11px] font-bold text-[color:var(--delivery-primary)]">
               픽업
             </span>
             <span className="min-w-0">
@@ -399,7 +399,7 @@ function BuyerOrderDetailBody({
         {order.fulfillment_type !== "pickup" &&
         (order.delivery_address_summary?.trim() || order.delivery_address_detail?.trim()) ? (
           <li className="flex gap-2">
-            <span className="shrink-0 rounded-[4px] bg-[#EAF6FB] px-1.5 py-0.5 text-[11px] font-bold text-[#1C8DB8]">
+            <span className="shrink-0 rounded-[var(--delivery-radius)] bg-[color:var(--delivery-primary-soft)] px-1.5 py-0.5 text-[11px] font-bold text-[color:var(--delivery-primary)]">
               배달
             </span>
             <span className="min-w-0">
@@ -417,11 +417,11 @@ function BuyerOrderDetailBody({
         ) : null}
         {phoneDisplay ? (
           <li className="flex gap-2">
-            <span className="shrink-0 rounded-[4px] bg-[#EAF6FB] px-1.5 py-0.5 text-[11px] font-bold text-[#1C8DB8]">
+            <span className="shrink-0 rounded-[var(--delivery-radius)] bg-[color:var(--delivery-primary-soft)] px-1.5 py-0.5 text-[11px] font-bold text-[color:var(--delivery-primary)]">
               전화
             </span>
             {phoneHref != null ? (
-              <a href={phoneHref} className="min-w-0 font-bold text-[#1C8DB8] underline">
+              <a href={phoneHref} className="min-w-0 font-bold text-[color:var(--delivery-primary)] underline">
                 {phoneDisplay}
               </a>
             ) : (
@@ -434,7 +434,7 @@ function BuyerOrderDetailBody({
           const titleLine = [it.product_title_snapshot, opt].filter(Boolean).join(" · ");
           return (
             <li key={idx} className="flex gap-2">
-              <span className="shrink-0 rounded-[4px] bg-[#EAF6FB] px-1.5 py-0.5 text-[11px] font-bold text-[#1C8DB8]">
+              <span className="shrink-0 rounded-[var(--delivery-radius)] bg-[color:var(--delivery-primary-soft)] px-1.5 py-0.5 text-[11px] font-bold text-[color:var(--delivery-primary)]">
                 메뉴
               </span>
               <span className="min-w-0">
@@ -453,7 +453,7 @@ function BuyerOrderDetailBody({
         <li className="pl-7 font-semibold">주문 금액 합계 : {formatMoneyPhp(order.payment_amount)}</li>
         {order.buyer_note?.trim() ? (
           <li className="flex gap-2 border-t border-[#DDE5E0] pt-2.5">
-            <span className="shrink-0 sam-text-helper font-bold text-[#1C8DB8]">요청</span>
+            <span className="shrink-0 text-[12px] font-bold text-[color:var(--delivery-primary)]">요청</span>
             <span className="min-w-0">{order.buyer_note.trim()}</span>
           </li>
         ) : null}
@@ -478,7 +478,7 @@ function BuyerOpsStatusCard({
   const steps = buyerChatFlowSteps(order.fulfillment_type ?? "pickup");
   const current = buyerChatCurrentStep(order.order_status, order.fulfillment_type ?? "pickup");
   return (
-    <section className="rounded-[4px] border border-[#DDE5E0] bg-[#1C8DB8] p-3 text-white">
+    <section className="rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-[color:var(--delivery-primary)] p-3 text-white">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-[11px] font-semibold leading-[1.35] text-white/75">{order.order_no ?? "주문"}</p>

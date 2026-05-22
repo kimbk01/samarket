@@ -106,7 +106,7 @@ export function StoreDetailDeferredInfoSection({
         <button
           type="button"
           onClick={() => void load()}
-          className="mt-2 text-[13px] font-semibold text-[#1C8DB8]"
+          className="mt-2 text-[13px] font-semibold text-[color:var(--delivery-primary)]"
         >
           다시 시도
         </button>
@@ -129,7 +129,7 @@ export function StoreDetailDeferredInfoSection({
         <div className="mx-4 mt-4 rounded-[14px] border border-neutral-100 bg-white px-4 py-3 text-center">
         <Link
           href={reviewsHref}
-          className="text-[13px] font-semibold text-[#1C8DB8] underline underline-offset-2"
+          className="text-[13px] font-semibold text-[color:var(--delivery-primary)] underline underline-offset-2"
         >
           리뷰 보기
         </Link>
@@ -146,7 +146,7 @@ export function StoreDetailDeferredInfoSection({
       <div className="mx-4 mt-4 rounded-[14px] border border-neutral-100 bg-white px-4 py-3 shadow-[0_1px_4px_rgba(0,0,0,0.04)]">
       <div className="flex items-baseline justify-between gap-2">
         <div className="text-[15px] font-bold text-neutral-900">{t("store_reviews_title")}</div>
-        <Link href={reviewsHref} className="shrink-0 text-[12px] font-semibold text-[#1C8DB8]">
+        <Link href={reviewsHref} className="shrink-0 text-[12px] font-semibold text-[color:var(--delivery-primary)]">
           {t("store_show_more")}
         </Link>
       </div>

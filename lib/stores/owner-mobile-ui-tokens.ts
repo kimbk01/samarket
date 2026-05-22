@@ -1,3 +1,16 @@
+import {
+  OWNER_COMPACT_SHELL_MAX_TW,
+} from "@/lib/business/owner-compact-shell-viewport";
+import {
+  OWNER_COMPACT_SHELL_BLEED_X_CLASS,
+  OWNER_COMPACT_SHELL_COLUMN_CLASS,
+  OWNER_COMPACT_SHELL_HEADER_CLASS,
+  OWNER_COMPACT_SHELL_HEADER_INNER_CLASS,
+  OWNER_COMPACT_SHELL_MAIN_CLASS,
+  OWNER_COMPACT_SHELL_MAIN_PB_CLASS,
+  OWNER_COMPACT_SHELL_SCROLL_CLASS,
+} from "@/lib/business/owner-compact-shell-layout";
+
 /** Store owner mobile operations dashboard — Dibay delivery console tokens */
 
 export const OWNER_MOBILE_BLUE = "#1C8DB8";
@@ -28,10 +41,10 @@ export const OWNER_MOBILE_BOTTOM_NAV_ROOT_CLASS =
 /** Fixed owner bottom nav — `BOTTOM_NAV_SHELL.heightClass` 와 동기 */
 export const OWNER_MOBILE_BOTTOM_NAV_HEIGHT_CLASS = "h-[3.5rem]";
 
-export const OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS =
-  "pb-[calc(3.5rem+env(safe-area-inset-bottom,0px))]";
+/** 하단 탭 + safe-area — `owner-compact-shell.css` `--owner-shell-main-pb` (body `data-owner-compact-shell`) */
+export const OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS = OWNER_COMPACT_SHELL_MAIN_PB_CLASS;
 
-/** 오너 모바일 고정 헤더 z-index — 하단 네비(`z-[55]`)보다 위 */
+/** 오너 모바일 고정 헤더 z-index — 하단 네비(`z-[55]`)보다 위 (CSS `.owner-compact-shell__header` 와 동기) */
 export const OWNER_MOBILE_PAGE_HEADER_Z_CLASS = "z-[56]";
 
 /** 주문 상세 풀스크린 — `BodyPortal` + 헤더(`z-[56]`)보다 위 */
@@ -45,57 +58,52 @@ export const OWNER_MOBILE_ORDER_DETAIL_FOOTER_PAD_CLASS =
   "pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]";
 
 /**
- * 오너 모바일 페이지 상단 헤더 — `StoresOwnerStackHeader` 와 동일하게 viewport 고정.
- * 반드시 `BodyPortal` 로 `document.body` 에 렌더(슬라이드 transform 조상 회피).
- * 스크롤은 본문만; safe-area + 툴바 `h-14` → `OWNER_MOBILE_PAGE_HEADER_MAIN_OFFSET_CLASS`.
+ * 오너 컴팩트 고정 헤더 — `BodyPortal` + `owner-compact-shell.css`.
+ * 기기별 폭·좌우 패딩·상단 safe-area 는 `body[data-owner-compact-shell]` 변수가 결정한다.
  */
-export const OWNER_MOBILE_PAGE_HEADER_SHELL_CLASS = `fixed inset-x-0 top-0 ${OWNER_MOBILE_PAGE_HEADER_Z_CLASS} w-full max-w-[100vw] border-b border-[#DDE5E0] bg-white pt-[env(safe-area-inset-top,0px)]`;
+export const OWNER_MOBILE_PAGE_HEADER_SHELL_CLASS = OWNER_COMPACT_SHELL_HEADER_CLASS;
 
-/** 고정 헤더 아래 본문 시작 offset (safe-area + 3.5rem 툴바) */
-export const OWNER_MOBILE_PAGE_HEADER_MAIN_OFFSET_CLASS =
-  "pt-[calc(env(safe-area-inset-top,0px)+3.5rem)]";
+/** 헤더 툴바 행 — 본문 column 과 동일 max-width·gutter */
+export const OWNER_MOBILE_PAGE_HEADER_ROW_CLASS = OWNER_COMPACT_SHELL_HEADER_INNER_CLASS;
 
-/** 오너 모바일 본문·헤더 공통 가로 인셋 — 노치·둥근 모서리 safe-area + 최소 8px */
-export const OWNER_MOBILE_PAGE_GUTTER_X_CLASS =
-  "pl-[max(0.5rem,env(safe-area-inset-left,0px))] pr-[max(0.5rem,env(safe-area-inset-right,0px))]";
+/** 고정 헤더 아래 main 시작 — `owner-compact-shell__main` padding-top */
+export const OWNER_MOBILE_PAGE_HEADER_MAIN_OFFSET_CLASS = OWNER_COMPACT_SHELL_MAIN_CLASS;
 
 /**
- * 매장 오너 모바일 어드민 `BusinessAdminShell` main·페이지 본문 — 헤더와 동일 기준.
- * (모바일 스택 전 페이지: 허브·주문·상품·설정·카테고리 등)
+ * @deprecated 컴팩트 셸은 `owner-compact-shell__column` 이 패딩을 담당. 신규 코드는 column 부모만 사용.
  */
+export const OWNER_MOBILE_PAGE_GUTTER_X_CLASS = "";
+
 export const OWNER_MOBILE_ADMIN_CONTENT_GUTTER_X_CLASS = OWNER_MOBILE_PAGE_GUTTER_X_CLASS;
 
-/**
- * main 에 `OWNER_MOBILE_ADMIN_CONTENT_GUTTER_X_CLASS` 가 있을 때 풀폭 스트립(상단 바·스티키 탭)용.
- * 배경은 화면 끝까지, 내용은 gutter 와 같은 inset.
- */
-export const OWNER_MOBILE_ADMIN_CONTENT_GUTTER_NEG_X_CLASS =
-  "-ml-[max(0.5rem,env(safe-area-inset-left,0px))] -mr-[max(0.5rem,env(safe-area-inset-right,0px))] pl-[max(0.5rem,env(safe-area-inset-left,0px))] pr-[max(0.5rem,env(safe-area-inset-right,0px))]";
+/** main column + 풀폭 스트립 bleed — CSS 변수와 동일 inset */
+export const OWNER_MOBILE_ADMIN_CONTENT_GUTTER_NEG_X_CLASS = OWNER_COMPACT_SHELL_BLEED_X_CLASS;
 
-/** 앱 모바일 헤더 툴바 높이 — `StoresOwnerStackHeader` `h-14` 와 동기 */
+/** @deprecated `owner-compact-shell__column` 사용 */
+export const OWNER_MOBILE_ADMIN_MAIN_MAX_WIDTH_CLASS = OWNER_COMPACT_SHELL_COLUMN_CLASS;
+
+/** 앱 모바일 헤더 툴바 높이 — `--sam-header-row-height` / CSS `--owner-shell-toolbar-h` */
 export const OWNER_MOBILE_PAGE_HEADER_TOOLBAR_HEIGHT_CLASS = "h-14";
-
-/**
- * 헤더 툴바 행 — flex(뒤로 · 제목 flex-1 · 액션 우측). `StoresOwnerStackHeader` 와 동일 패턴.
- */
-export const OWNER_MOBILE_PAGE_HEADER_ROW_CLASS = `mx-auto flex w-full max-w-lg min-w-0 items-center gap-x-1 ${OWNER_MOBILE_PAGE_HEADER_TOOLBAR_HEIGHT_CLASS} ${OWNER_MOBILE_PAGE_GUTTER_X_CLASS}`;
 
 /** 헤더 우측 아이콘 묶음 — 알림·메뉴·주문 검색/필터 등 */
 export const OWNER_MOBILE_PAGE_HEADER_ACTIONS_CLASS =
   "ml-auto flex shrink-0 items-center justify-end gap-0";
 
-/** @deprecated 고정 헤더는 `OWNER_MOBILE_PAGE_HEADER_SHELL_CLASS` 가 full-width. 하위 호환용 no-op */
+/** @deprecated no-op */
 export const OWNER_MOBILE_PAGE_HEADER_SHELL_BLEED_CLASS = "";
 
 /** 모바일 운영 메뉴 드로어 — 열림: 우→좌, 닫힘: 좌→우 (ms) */
 export const OWNER_MOBILE_DRAWER_TRANSITION_MS = 270;
 export const OWNER_MOBILE_DRAWER_PANEL_TRANSITION_CLASS =
-  "max-md:transition-transform max-md:duration-[270ms] max-md:ease-out";
+  `${OWNER_COMPACT_SHELL_MAX_TW}:transition-transform ${OWNER_COMPACT_SHELL_MAX_TW}:duration-[270ms] ${OWNER_COMPACT_SHELL_MAX_TW}:ease-out`;
 export const OWNER_MOBILE_DRAWER_SCRIM_TRANSITION_CLASS =
   "transition-opacity duration-[270ms] ease-out";
 
 /** 오너 고정 하단 네비 z-index (헤더·시트보다 낮고 본문보다 높음) */
 export const OWNER_MOBILE_BOTTOM_NAV_Z_CLASS = "z-[55]";
+
+/** 본문 스크롤 영역 — 대시·주문 목록 등 */
+export const OWNER_COMPACT_SHELL_BODY_SCROLL_CLASS = OWNER_COMPACT_SHELL_SCROLL_CLASS;
 
 /** @deprecated `OWNER_MOBILE_PAGE_HEADER_MAIN_OFFSET_CLASS` 사용 */
 export const OWNER_HUB_MAIN_TOP_PAD_CLASS = OWNER_MOBILE_PAGE_HEADER_MAIN_OFFSET_CLASS;

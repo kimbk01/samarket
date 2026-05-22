@@ -16,6 +16,27 @@
   overflow: visible;
 }
 
+/**
+ * 배달·매장 오너 5탭 — 홈 원이 탭바 위로 돌출. 셸 상단 패딩에 원을 포함시켜 숨김 시 같이 내려간다.
+ */
+.app-bottom-nav-shell--delivery {
+  padding-top: var(--delivery-home-overhang, 0px);
+}
+
+/** 스크롤 숨김 — 홈 원·safe-area·여유까지 완전 이탈 (`translate-y-full` 대체) */
+.app-bottom-nav-shell--scroll-hidden {
+  pointer-events: none;
+  transform: translate3d(
+    0,
+    calc(100% + env(safe-area-inset-bottom, 0px) + var(--app-bottom-nav-scroll-hide-buffer, 0.5rem)),
+    0
+  );
+}
+
+.app-bottom-nav-shell--scroll-visible {
+  transform: translate3d(0, 0, 0);
+}
+
 /** 활성 아이콘이 plane 위로 튀어나오는 영역에 옅은 컬러 wash */
 .app-bottom-nav-shell::before {
   content: "";
@@ -313,9 +334,9 @@
   /** 홈 라벨만 — 다른 4탭 baseline 육안 정렬 */
   --delivery-tab-label-hub-bottom-offset: 1pt;
   --delivery-tab-icon-slot-height: 28px;
-  --delivery-tab-label-inactive: #b8bec8;
-  --delivery-tab-label-active: #1c8db8;
-  --delivery-tab-label-hub-active: var(--sam-danger, #d45252);
+  --delivery-tab-label-inactive: #888888;
+  --delivery-tab-label-active: var(--delivery-primary, #006241);
+  --delivery-tab-label-hub-active: var(--delivery-primary, #006241);
 }
 
 /**
@@ -413,9 +434,9 @@
   justify-content: center;
   border-radius: 9999px;
   border: 3px solid #fff;
-  background: var(--sam-danger, #d45252);
+  background: var(--delivery-primary, #006241);
   color: #fff;
-  box-shadow: 0 4px 14px rgba(212, 82, 82, 0.45);
+  box-shadow: 0 4px 14px rgba(0, 98, 65, 0.22);
   transform: translateX(-50%);
   pointer-events: auto;
   transition:
@@ -432,8 +453,9 @@
 .app-bottom-nav-item--delivery-hub[data-switcher-open="true"] .app-bottom-nav-delivery-home-orbit,
 .app-bottom-nav-item--delivery-hub .app-bottom-nav-delivery-home-orbit--active {
   background: #c73e3e;
+  background: var(--delivery-dark, #1e3932);
   color: #fff;
-  box-shadow: 0 6px 18px rgba(199, 62, 62, 0.5);
+  box-shadow: 0 6px 18px rgba(30, 57, 50, 0.24);
   transform: translateX(-50%) scale(1.06);
 }
 
@@ -467,10 +489,32 @@
 
 .app-bottom-nav-shell--delivery .app-bottom-nav-plane {
   border: 0;
+  border-top: 1px solid var(--delivery-border, #e5e5e5);
   box-shadow: none;
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  background-color: var(--app-bottom-nav-surface);
+  background-color: rgba(255, 255, 255, 0.96);
+  isolation: isolate;
+}
+
+/** 본문 스크롤 영역과 탭바 사이 시각 경계(탭 상단선과 맞춤) */
+.app-bottom-nav-shell--delivery::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--delivery-home-overhang, 0px);
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(15, 23, 42, 0.08) 12%,
+    rgba(15, 23, 42, 0.14) 50%,
+    rgba(15, 23, 42, 0.08) 88%,
+    transparent 100%
+  );
+  pointer-events: none;
+  z-index: 4;
 }
 
 /** 다이얼 열림 — 불투명 탭바가 딤(1250) 위, 펼침 칩(1260) 아래 */

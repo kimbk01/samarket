@@ -45,7 +45,7 @@ export function StoreOrderMessengerDeepLink({
       href={href}
       className={
         className ??
-        "inline-flex w-full items-center justify-center rounded-[4px] border border-[#1C8DB8] bg-[#EAF6FB] px-3 py-3 text-sm font-bold text-[#1C8DB8] shadow-sm"
+        "delivery-ui inline-flex w-full items-center justify-center rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-primary-soft)] px-3 py-3 text-sm font-bold text-[color:var(--delivery-primary)] shadow-none"
       }
     >
       {label}

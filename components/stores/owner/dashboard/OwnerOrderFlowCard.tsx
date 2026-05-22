@@ -11,6 +11,7 @@ import {
   type OwnerFlowStepVariant,
 } from "@/components/stores/owner/dashboard/owner-order-flow-icons";
 import { OwnerDashSectionHeader } from "./OwnerDashSectionHeader";
+import { OWNER_COMPACT_SHELL_MAX_TW } from "@/lib/business/owner-compact-shell-viewport";
 import { ownerDashCardClass } from "./owner-dashboard-ui";
 
 const STEPS: Array<{
@@ -45,7 +46,10 @@ export function OwnerOrderFlowCard({
   };
 
   return (
-    <section className={ownerDashCardClass("max-md:mx-0")} aria-labelledby="owner-flow-title">
+    <section
+      className={ownerDashCardClass(`${OWNER_COMPACT_SHELL_MAX_TW}:mx-0`)}
+      aria-labelledby="owner-flow-title"
+    >
       <OwnerDashSectionHeader id="owner-flow-title" title={t("store_owner_dash_order_flow")} href={ordersHref} />
       <div className="flex w-full min-w-0 items-start justify-between">
         {STEPS.map((step, idx) => {

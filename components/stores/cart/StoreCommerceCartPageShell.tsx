@@ -44,7 +44,7 @@ export function StoreCommerceCartPageShell({
     <div
       data-store-commerce-cart-page
       data-samarket-cart-hydrated={hydrationMeasured ? "1" : undefined}
-      className={STORE_CART_PAGE_ROOT_CLASS}
+      className={`${STORE_CART_PAGE_ROOT_CLASS} delivery-ui`}
     >
       {header ? <div className={STORE_CART_HEADER_CHROME_CLASS}>{header}</div> : null}
       <div

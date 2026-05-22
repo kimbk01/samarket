@@ -61,8 +61,8 @@ export function BuyerStoreOrderCompletedReviewBlock({
       href={listHref}
       className={
         compact
-          ? "inline-flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-ui-rect border border-[#DDE5E0] bg-white px-2 py-2.5 text-center text-sm font-semibold text-[#1C8DB8]"
-          : "inline-flex min-h-11 flex-1 items-center justify-center rounded-ui-rect border border-[#1C8DB8]/40 bg-[#EAF6FB] px-3 py-2.5 text-sm font-bold text-[#1C8DB8]"
+          ? "delivery-ui inline-flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-white px-2 py-2.5 text-center text-sm font-semibold text-[color:var(--delivery-primary)]"
+          : "delivery-ui inline-flex min-h-11 flex-1 items-center justify-center rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-primary-soft)] px-3 py-2.5 text-sm font-bold text-[color:var(--delivery-primary)]"
       }
     >
       주문 목록으로
@@ -91,7 +91,7 @@ export function BuyerStoreOrderCompletedReviewBlock({
           {!orderChatDisabled && chatHref ? (
             <Link
               href={chatHref}
-              className="block text-center text-[13px] font-semibold text-[#1C8DB8] underline underline-offset-2"
+              className="delivery-ui block text-center text-[13px] font-semibold text-[color:var(--delivery-primary)] underline underline-offset-2"
             >
               주문 채팅 다시 보기
             </Link>
@@ -145,8 +145,8 @@ export function BuyerStoreOrderCompletedReviewBlock({
                 href={storeReviewsHref}
                 className={
                   compact
-                    ? "inline-flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-ui-rect border border-[#1C8DB8]/40 bg-[#EAF6FB] px-2 py-2.5 text-center text-sm font-semibold text-[#1C8DB8]"
-                    : "inline-flex min-h-11 flex-1 items-center justify-center rounded-ui-rect border border-[#1C8DB8]/40 bg-[#EAF6FB] px-3 py-2.5 text-sm font-bold text-[#1C8DB8]"
+                    ? "delivery-ui inline-flex min-h-[44px] min-w-0 flex-1 items-center justify-center rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-primary-soft)] px-2 py-2.5 text-center text-sm font-semibold text-[color:var(--delivery-primary)]"
+                    : "delivery-ui inline-flex min-h-11 flex-1 items-center justify-center rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-primary-soft)] px-3 py-2.5 text-sm font-bold text-[color:var(--delivery-primary)]"
                 }
               >
                 매장 리뷰 보기

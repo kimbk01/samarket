@@ -92,8 +92,12 @@ export function subscribeTabLeader(scope: string, onChange: (isLeader: boolean) 
   };
 
   let lastDebugLeader: boolean | null = null;
+  /** React `setState` 등 — 동일 값이면 호출하지 않음(연속 `apply` 시 maximum update depth 방지) */
+  let lastAppliedLeader: boolean | null = null;
   const apply = () => {
     const next = pruneAndPickLeader();
+    if (lastAppliedLeader === next) return;
+    lastAppliedLeader = next;
     if (lastDebugLeader !== next) {
       samarketRuntimeDebugLog("leader-tab", "leader flag changed", { scope, isLeader: next });
       lastDebugLeader = next;

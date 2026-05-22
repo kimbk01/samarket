@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import type { StoreCommerceCartLine } from "@/lib/stores/store-commerce-cart-types";
@@ -76,7 +76,7 @@ function CartConflictSection({
     <section className="mt-3">
       <div className="mb-1.5 flex items-baseline justify-between gap-2">
         <p
-          className={`text-[12px] font-bold ${isCurrent ? "text-red-600" : "text-[#1C8DB8]"}`}
+          className={`text-[12px] font-bold ${isCurrent ? "text-[color:var(--delivery-danger)]" : "text-[color:var(--delivery-primary)]"}`}
         >
           {label}
         </p>
@@ -137,7 +137,7 @@ function CartConflictSection({
 
         {!isCurrent && pendingAdd ? (
           <div className="flex items-center justify-between border-t border-neutral-200 bg-[#E6F4F9]/50 px-2.5 py-2">
-            <span className="text-[12px] font-semibold text-[#1C8DB8]">
+            <span className="text-[12px] font-semibold text-[color:var(--delivery-primary)]">
               {t("store_cart_list_total")}
             </span>
             <span className="text-[14px] font-bold tabular-nums text-neutral-900">
@@ -229,7 +229,7 @@ export function StoreCartOtherStoreConflictDialog({
       ) : nextLabel ? (
         <section className="mt-3">
           <div className="mb-1.5 flex items-baseline justify-between gap-2">
-            <p className="text-[12px] font-bold text-[#1C8DB8]">
+            <p className="text-[12px] font-bold text-[color:var(--delivery-primary)]">
               {t("store_cart_pending_label")}
             </p>
             <p className="truncate text-[13px] font-bold text-neutral-900">{nextLabel}</p>

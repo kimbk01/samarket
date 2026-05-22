@@ -333,7 +333,7 @@ function MyStoreOrderCard({
                 </span>
               </div>
               <div className="mt-2 rounded-[4px] border border-[#DDE5E0] bg-[#F6FAFC] px-3 py-2">
-                <p className="text-[12px] font-bold leading-[1.35] text-[#1C8DB8]">
+                <p className="delivery-ui text-[12px] font-bold leading-[var(--delivery-lh-caption)] text-[color:var(--delivery-primary)]">
                   {statusUserLine(o.order_status, language)}
                 </p>
                 {reviewLabel ? (
@@ -431,7 +431,7 @@ function MyStoreOrderCard({
               firstLineProductTitle: o.items?.[0]?.product_title_snapshot ?? null,
               thumbnailUrl: o.store_profile_image_url ?? null,
             })}
-            className="flex min-h-[40px] w-full items-center justify-center px-3 sam-text-body-secondary font-bold text-[#1C8DB8] hover:bg-[#EAF6FB]"
+            className="delivery-ui flex min-h-[40px] w-full items-center justify-center px-3 text-[13px] font-bold leading-[var(--delivery-lh-sub)] text-[color:var(--delivery-primary)] hover:bg-[color:var(--delivery-primary-soft)]"
           />
         </div>
       ) : null}

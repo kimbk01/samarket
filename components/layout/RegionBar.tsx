@@ -32,6 +32,7 @@ import {
   BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY,
   BOTTOM_NAV_TRADE_TAB_LABEL_KEY,
 } from "@/lib/main-menu/bottom-nav-config";
+import { DeliveryTier1Header } from "@/components/stores/chrome/DeliveryTier1Header";
 import { StoresRootTier1HeaderActions } from "@/components/stores/StoresRootTier1HeaderActions";
 import type { ReactNode } from "react";
 
@@ -129,20 +130,10 @@ export function RegionBar({
   if (pathNoQuery === "/stores") {
     const segmentTitle = t(BOTTOM_NAV_DELIVERY_TAB_LABEL_KEY);
     return (
-      <UnifiedTier1Shell>
-        <div
-          className={`flex h-[length:var(--sam-header-row-height)] min-h-[length:var(--sam-header-row-height)] min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}
-        >
-          <div className="flex h-full min-h-0 min-w-0 flex-1 items-center overflow-hidden pr-1 text-left">
-            <h1 className="flex min-h-0 min-w-0 w-full items-center overflow-hidden text-sam-fg">
-              <span className="shrink-0 sam-text-page-title leading-none">{segmentTitle}</span>
-            </h1>
-          </div>
-          <div className="ml-auto flex h-full shrink-0 items-center justify-end pr-0.5">
-            <StoresRootTier1HeaderActions />
-          </div>
-        </div>
-      </UnifiedTier1Shell>
+      <DeliveryTier1Header
+        title={segmentTitle}
+        trailing={<StoresRootTier1HeaderActions />}
+      />
     );
   }
 

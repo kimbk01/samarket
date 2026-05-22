@@ -11,7 +11,10 @@ import {
   useBottomNavScrollHide,
 } from "@/lib/layout/use-bottom-nav-scroll-hide-behavior";
 import { isMessengerFromHeaderStackSurface } from "@/lib/layout/messenger-from-header-stack-surface";
-import { BOTTOM_NAV_SHELL } from "@/lib/main-menu/bottom-nav-config";
+import {
+  BOTTOM_NAV_SHELL,
+  resolveBottomNavScrollHideOuterClass,
+} from "@/lib/main-menu/bottom-nav-config";
 import {
   mainBottomNavPrefetchTriggerKey,
   type MainBottomNavPrefetchDomain,
@@ -173,11 +176,9 @@ export function ConditionalAppShell({
             initialTabs={initialMainBottomNavItems}
             bodyPortal={isMessengerStackSurface}
             extraOuterClassName={
-              bottomNavScrollHideEnabled
-                ? bottomNavHiddenByScroll
-                  ? "translate-y-full"
-                  : "translate-y-0"
-                : ""
+              bottomNavScrollHideEnabled ?
+                resolveBottomNavScrollHideOuterClass(bottomNavHiddenByScroll)
+              : ""
             }
           />
         </Suspense>

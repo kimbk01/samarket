@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import type { ReactNode } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";

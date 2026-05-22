@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 /**
  * 수신 통화 전용 — 발신 진입점은 `lib/community-messenger/outgoing-call-surfaces.ts` 참고.

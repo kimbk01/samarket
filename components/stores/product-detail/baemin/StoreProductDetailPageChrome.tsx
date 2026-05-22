@@ -115,7 +115,7 @@ export function StoreProductDetailPageChrome({
               type="button"
               onClick={() => onGalleryIndexChange(i)}
               className={`relative h-12 w-12 shrink-0 overflow-hidden rounded-[6px] ring-2 ring-offset-1 ${
-                i === galleryIndex ? "ring-[#2386B1]" : "ring-transparent opacity-75"
+                i === galleryIndex ? "ring-[color:var(--delivery-primary)]" : "ring-transparent opacity-75"
               }`}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -641,7 +641,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
           </p>
           <span className="text-xs font-semibold text-[#6B7280]">{order.order_no}</span>
         </div>
-        <div className="mt-3 rounded-[4px] border border-[#DDE5E0] bg-[#1C8DB8] px-3 py-3 text-white">
+        <div className="delivery-ui mt-3 rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-[color:var(--delivery-primary)] px-3 py-3 text-white">
           {order.admin_locked === true ? (
             <p className="mb-3 rounded-ui-rect border border-violet-200 bg-violet-50 px-3 py-2 sam-text-helper leading-snug text-violet-950">
               이 주문은 플랫폼 운영에서 일시적으로 보호 중입니다. 취소·환불 요청 변경은 운영 정책에 따라 처리됩니다.
@@ -694,7 +694,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
           ) : (
             <Link
               href={chatHref}
-              className="inline-flex items-center justify-center rounded-[4px] border border-[#1C8DB8] bg-[#EAF6FB] px-3 py-3 text-sm font-bold text-[#1C8DB8] shadow-sm"
+              className="delivery-ui inline-flex items-center justify-center rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-primary-soft)] px-3 py-3 text-sm font-bold text-[color:var(--delivery-primary)] shadow-none"
             >
               주문 진행 채팅
             </Link>
