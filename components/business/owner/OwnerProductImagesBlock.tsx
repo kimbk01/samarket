@@ -365,19 +365,18 @@ export function OwnerProductImagesBlock({
             return;
           }
           const dims = await readImageFileDimensions(file);
-          if (!dims) {
-            onClientError(t("business_phase7_487"));
-            return;
+          if (dims) {
+            const dimCheck = validateOwnerProductImagePixelDimensions(dims.width, dims.height);
+            if (!dimCheck.ok) {
+              onClientError(
+                dimCheck.error === "image_dimension_too_large"
+                  ? t("business_phase7_488", { v1: OWNER_PRODUCT_IMAGE_MAX_EDGE_PX })
+                  : t("business_phase7_487")
+              );
+              return;
+            }
           }
-          const dimCheck = validateOwnerProductImagePixelDimensions(dims.width, dims.height);
-          if (!dimCheck.ok) {
-            onClientError(
-              dimCheck.error === "image_dimension_too_large"
-                ? t("business_phase7_488", { v1: OWNER_PRODUCT_IMAGE_MAX_EDGE_PX })
-                : t("business_phase7_487")
-            );
-            return;
-          }
+          /** 미리보기 디코드 실패(고해상도)여도 서버 sharp 로 업로드·검증 */
           accepted.push(file);
         }
         if (accepted.length === 0) return;

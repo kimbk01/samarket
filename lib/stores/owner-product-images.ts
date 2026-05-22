@@ -19,8 +19,8 @@ export function newOwnerProductImageSlotId(): string {
   return `img_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
 }
 
-/** 매장 상품 이미지 업로드 상한(바이트) — 오너 폼·upload-image·서버 검증과 동일하게 유지 */
-export const OWNER_PRODUCT_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+/** 매장 상품 이미지 업로드 상한(바이트) — 원본(고해상도) 허용, 서버 WebP 변환 후 저장 */
+export const OWNER_PRODUCT_IMAGE_MAX_BYTES = 20 * 1024 * 1024;
 
 /** UI 권장 정사각 크기 — 최소 요구는 아님 */
 export const OWNER_PRODUCT_IMAGE_RECOMMENDED_EDGE_PX = 512;
@@ -37,6 +37,23 @@ export const OWNER_PRODUCT_IMAGE_ALLOWED_MIMES = new Set([
   "image/png",
   "image/webp",
 ]);
+
+/** 모바일에서 `file.type` 이 비어 있을 때 확장자로 보완 */
+export function inferOwnerProductImageMimeFromFileName(fileName: string): string | null {
+  const n = fileName.trim().toLowerCase();
+  if (/\.jpe?g$/i.test(n)) return "image/jpeg";
+  if (/\.png$/i.test(n)) return "image/png";
+  if (/\.webp$/i.test(n)) return "image/webp";
+  return null;
+}
+
+export function resolveOwnerProductImageMime(file: File): string {
+  const raw = (file.type || "").toLowerCase().trim();
+  if (OWNER_PRODUCT_IMAGE_ALLOWED_MIMES.has(raw)) {
+    return raw === "image/jpg" ? "image/jpeg" : raw;
+  }
+  return inferOwnerProductImageMimeFromFileName(file.name) ?? "";
+}
 
 function normalizeUrl(u: string): string {
   return u.trim();
@@ -78,14 +95,11 @@ export function normalizeOwnerProductDetailImageUrls(
 
 export type ThumbnailDimensions = { width: number; height: number };
 
-function dimOk(n: unknown): n is number {
-  return (
-    typeof n === "number" &&
-    Number.isFinite(n) &&
-    n > 0 &&
-    n <= OWNER_PRODUCT_IMAGE_MAX_EDGE_PX &&
-    Math.floor(n) === n
-  );
+function normalizeDim(n: unknown): number | null {
+  if (typeof n !== "number" || !Number.isFinite(n) || n < 1) return null;
+  const v = Math.floor(n);
+  if (v < 1 || v > OWNER_PRODUCT_IMAGE_MAX_EDGE_PX) return null;
+  return v;
 }
 
 export type OwnerProductImageDimensionError = "image_dimension_too_large" | "image_dimension_invalid";
@@ -116,10 +130,12 @@ export function parseThumbnailDimensions(
   if (width == null && height == null) {
     return { ok: true, dims: null };
   }
-  if (!dimOk(width) || !dimOk(height)) {
+  const w = normalizeDim(width);
+  const h = normalizeDim(height);
+  if (w == null || h == null) {
     return { ok: false, error: "invalid_thumbnail_dimensions" };
   }
-  return { ok: true, dims: { width: width as number, height: height as number } };
+  return { ok: true, dims: { width: w, height: h } };
 }
 
 export function validateOwnerProductImageFileForUpload(file: File): { ok: true } | { ok: false; message: string } {
@@ -127,10 +143,9 @@ export function validateOwnerProductImageFileForUpload(file: File): { ok: true }
     return { ok: false, message: "이미지 파일을 선택해 주세요." };
   }
   if (file.size > OWNER_PRODUCT_IMAGE_MAX_BYTES) {
-    return { ok: false, message: "이미지는 10MB 이하여야 합니다." };
+    return { ok: false, message: "이미지는 20MB 이하여야 합니다." };
   }
-  const mime = (file.type || "").toLowerCase();
-  if (!OWNER_PRODUCT_IMAGE_ALLOWED_MIMES.has(mime)) {
+  if (!resolveOwnerProductImageMime(file)) {
     return { ok: false, message: "이미지는 JPG, PNG 또는 WebP만 사용할 수 있습니다." };
   }
   return { ok: true };

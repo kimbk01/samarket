@@ -492,6 +492,11 @@ export const businessMessages = {
     business_phase7_487: "이미지 크기를 읽을 수 없습니다. 다른 파일로 시도해 주세요.",
     business_phase7_488: "이미지는 가로·세로 각 {v1}px 이하여야 합니다. (512×512 이상 업로드 가능)",
     business_phase7_489: "권장 512×512",
+    business_phase7_490: "사장님 추천·대표 메뉴 한도",
+    business_phase7_491: "사장님 추천 메뉴는 최대 {v1}개까지 지정할 수 있습니다. 추천을 끄거나 다른 메뉴에서 해제한 뒤 다시 저장해 주세요.",
+    business_phase7_492: "추천 해제 후 계속",
+    business_phase7_494: "상품을 등록할 수 없습니다",
+    business_phase7_495: "상품을 저장할 수 없습니다",
   },
   en: {
     business_phase7_001: ")만 저장됩니다.",
@@ -991,5 +996,11 @@ export const businessMessages = {
     business_phase7_487: "Could not read image size. Try another file.",
     business_phase7_488: "Each side must be {v1}px or less. (512×512 and larger uploads are supported)",
     business_phase7_489: "Recommended 512×512",
+    business_phase7_490: "Owner's pick limit",
+    business_phase7_491:
+      "You can mark up to {v1} items as owner's pick. Turn it off here or remove it from another item, then save again.",
+    business_phase7_492: "Turn off pick and continue",
+    business_phase7_494: "Cannot register product",
+    business_phase7_495: "Cannot save product",
   },
 } as const;

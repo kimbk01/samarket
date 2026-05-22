@@ -10,7 +10,7 @@ export async function uploadStoreOwnerProductImage(
   file: File
 ): Promise<UploadStoreOwnerProductImageResult> {
   const fd = new FormData();
-  fd.append("file", file);
+  fd.append("file", file, file.name || "image.jpg");
   const res = await fetch(`/api/me/stores/${encodeURIComponent(storeId)}/upload-image`, {
     method: "POST",
     body: fd,
@@ -39,13 +39,27 @@ export async function uploadStoreOwnerProductImage(
   return { url: String(json.url), width, height };
 }
 
-export function readImageFileDimensions(file: File): Promise<{ width: number; height: number } | null> {
+export async function readImageFileDimensions(
+  file: File
+): Promise<{ width: number; height: number } | null> {
+  if (typeof createImageBitmap === "function") {
+    try {
+      const bmp = await createImageBitmap(file);
+      const out = { width: bmp.width, height: bmp.height };
+      bmp.close();
+      if (out.width > 0 && out.height > 0) return out;
+    } catch {
+      /* fall through — 고해상도는 브라우저 디코드 실패해도 서버 업로드로 검증 */
+    }
+  }
   return new Promise((resolve) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
       URL.revokeObjectURL(url);
-      resolve({ width: img.naturalWidth, height: img.naturalHeight });
+      const w = img.naturalWidth;
+      const h = img.naturalHeight;
+      resolve(w > 0 && h > 0 ? { width: w, height: h } : null);
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);

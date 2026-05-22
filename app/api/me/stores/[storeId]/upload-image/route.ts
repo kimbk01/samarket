@@ -4,10 +4,8 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { enforceStoreOwnerImageUploadQuota } from "@/lib/security/rate-limit-presets";
-import {
-  OWNER_PRODUCT_IMAGE_ALLOWED_MIMES,
-  OWNER_PRODUCT_IMAGE_MAX_BYTES,
-} from "@/lib/stores/owner-product-images";
+import { OWNER_PRODUCT_IMAGE_MAX_BYTES } from "@/lib/stores/owner-product-images";
+import { resolveOwnerProductImageMimeForUpload } from "@/lib/stores/owner-product-image-mime-sniff.server";
 import { processOwnerProductImageBuffer } from "@/lib/stores/owner-product-image-upload.server";
 
 export const runtime = "nodejs";
@@ -70,14 +68,26 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "file_required" }, { status: 400 });
   }
   if (file.size > OWNER_PRODUCT_IMAGE_MAX_BYTES) {
-    return NextResponse.json({ ok: false, error: "file_too_large" }, { status: 413 });
-  }
-  const mime = (file.type || "").toLowerCase();
-  if (!OWNER_PRODUCT_IMAGE_ALLOWED_MIMES.has(mime)) {
-    return NextResponse.json({ ok: false, error: "invalid_type" }, { status: 400 });
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "file_too_large",
+        message: "이미지는 20MB 이하여야 합니다.",
+      },
+      { status: 413 }
+    );
   }
 
   const rawBuf = Buffer.from(await file.arrayBuffer());
+  const mime = resolveOwnerProductImageMimeForUpload(
+    file.type || "",
+    file.name || "",
+    rawBuf
+  );
+  if (!mime) {
+    return NextResponse.json({ ok: false, error: "invalid_type" }, { status: 400 });
+  }
+
   let processed;
   try {
     processed = await processOwnerProductImageBuffer(rawBuf, mime);

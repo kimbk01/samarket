@@ -37,6 +37,10 @@ import { OwnerStoreAdminDashSection } from "@/components/business/owner/OwnerSto
 import { OwnerStoreMenuSectionPicker } from "@/components/business/owner/OwnerStoreMenuSectionPicker";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveOwnerApiErrorMessage } from "@/lib/business/owner-api-error-i18n";
+import {
+  resolveOwnerProductRegisterError,
+  type OwnerProductRegisterErrorModal,
+} from "@/lib/business/owner-product-register-error";
 import { OWNER_MOBILE_ADMIN_CONTENT_GUTTER_NEG_X_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
 type FormValues = {
   title: string;
@@ -215,6 +219,9 @@ export function OwnerProductForm({
     null
   );
   const [cancelDirtyConfirmOpen, setCancelDirtyConfirmOpen] = useState(false);
+  const [registerErrorModal, setRegisterErrorModal] = useState<OwnerProductRegisterErrorModal | null>(
+    null
+  );
   const [error, setError] = useState<string | null>(null);
   const [baselineSnapshot, setBaselineSnapshot] = useState<string | null>(null);
   const [imageSlots, setImageSlots] = useState<OwnerProductImageSlot[]>([]);
@@ -420,44 +427,51 @@ export function OwnerProductForm({
     void load();
   }, [load]);
 
+  const openRegisterErrorModal = useCallback(
+    (payload: OwnerProductRegisterErrorModal) => {
+      setError(null);
+      setRegisterErrorModal(payload);
+    },
+    []
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setError(null);
+    setRegisterErrorModal(null);
     if (!values.title.trim()) {
-      setError(t("business_phase7_354"));
+      openRegisterErrorModal(resolveOwnerProductRegisterError(t("business_phase7_354"), mode, t));
       setFormTab("basic");
       setSaving(false);
       return;
     }
     if (!values.price.trim()) {
-      setError(t("business_phase7_355"));
+      openRegisterErrorModal(resolveOwnerProductRegisterError(t("business_phase7_355"), mode, t));
       setFormTab("basic");
       setSaving(false);
       return;
     }
     const price = parseInt(values.price.replace(/\D/g, ""), 10);
     if (!Number.isFinite(price) || price < 0) {
-      setError(t("business_phase7_356"));
+      openRegisterErrorModal(resolveOwnerProductRegisterError(t("business_phase7_356"), mode, t));
       setFormTab("basic");
       setSaving(false);
       return;
     }
     if (menuSections.length === 0) {
-      setError(t("business_phase7_357"));
       setCategoryGateModal("no_sections");
       setSaving(false);
       return;
     }
     if (!values.menu_section_id.trim()) {
-      setError(t("business_phase7_358"));
       setCategoryGateModal("pick_required");
       setSaving(false);
       return;
     }
     const optRes = validateProductOptionGroups(values.optionGroups, language);
     if (!optRes.ok) {
-      setError(optRes.message);
+      openRegisterErrorModal(resolveOwnerProductRegisterError(optRes.message, mode, t));
       scrollToOptionsBlock();
       setSaving(false);
       return;
@@ -466,7 +480,7 @@ export function OwnerProductForm({
       (s) => (s.type === "file" && s.file) || (s.type === "url" && !!s.url?.trim())
     );
     if (!hasProductImage) {
-      setError(t("business_phase7_359"));
+      openRegisterErrorModal(resolveOwnerProductRegisterError(t("business_phase7_359"), mode, t));
       setFormTab("basic");
       setSaving(false);
       return;
@@ -525,7 +539,9 @@ export function OwnerProductForm({
         } else if (s.type === "url" && s.url?.trim()) {
           resolvedUrls.push(s.url.trim());
         } else {
-          setError(t("business_phase7_360"));
+          openRegisterErrorModal(
+            resolveOwnerProductRegisterError(t("business_phase7_360"), mode, t)
+          );
           return;
         }
       }
@@ -536,7 +552,7 @@ export function OwnerProductForm({
       }
       const thumbnail_url = resolvedUrls[repIdx] ?? "";
       if (!thumbnail_url) {
-        setError(t("business_phase7_361"));
+        openRegisterErrorModal(resolveOwnerProductRegisterError(t("business_phase7_361"), mode, t));
         return;
       }
       const repDims = uploadedDimsByUrl.get(thumbnail_url);
@@ -569,26 +585,8 @@ export function OwnerProductForm({
         });
         const json = await res.json();
         if (!json?.ok) {
-          setError(
-            json?.error === "sales_not_approved"
-              ? t("business_phase7_362")
-              : json?.error === "migration_pending"
-                ? t("business_phase7_363")
-                : json?.error === "menu_sections_required"
-                  ? t("business_phase7_364")
-                  : json?.error === "menu_section_id_required"
-                    ? t("business_phase7_358")
-                    : json?.error === "invalid_menu_section_id"
-                      ? t("business_phase7_365")
-                      : json?.error === "thumbnail_required"
-                        ? t("business_phase7_366")
-                        : json?.error === "detail_image_overlaps_thumbnail" &&
-                            typeof json?.message === "string"
-                          ? json.message
-                          : json?.error === "invalid_options_json" && typeof json?.message === "string"
-                            ? json.message
-                            : json?.error ?? t("business_phase7_367")
-          );
+          const errPayload = resolveOwnerProductRegisterError(json, mode, t);
+          openRegisterErrorModal(errPayload);
           if (json?.error === "invalid_options_json") scrollToOptionsBlock();
           if (
             json?.error === "menu_sections_required" ||
@@ -610,24 +608,8 @@ export function OwnerProductForm({
         });
         const json = await res.json();
         if (!json?.ok) {
-          setError(
-            json?.error === "migration_pending"
-              ? t("business_phase7_363")
-              : json?.error === "menu_sections_required"
-                ? t("business_phase7_364")
-                : json?.error === "menu_section_id_required"
-                  ? t("business_phase7_358")
-                  : json?.error === "invalid_menu_section_id"
-                    ? t("business_phase7_365")
-                    : json?.error === "thumbnail_required"
-                      ? t("business_phase7_366")
-                      : json?.error === "detail_image_overlaps_thumbnail" &&
-                          typeof json?.message === "string"
-                        ? json.message
-                        : json?.error === "invalid_options_json" && typeof json?.message === "string"
-                          ? json.message
-                          : json?.error ?? t("business_phase7_368")
-          );
+          const errPayload = resolveOwnerProductRegisterError(json, mode, t);
+          openRegisterErrorModal(errPayload);
           if (json?.error === "invalid_options_json") scrollToOptionsBlock();
           if (
             json?.error === "menu_sections_required" ||
@@ -643,7 +625,8 @@ export function OwnerProductForm({
       }
       router.push(`/stores/owner/products?storeId=${encodeURIComponent(storeId)}`);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "network_error");
+      const msg = err instanceof Error ? err.message : "network_error";
+      openRegisterErrorModal(resolveOwnerProductRegisterError(msg, mode, t));
     } finally {
       setUploading(false);
       setSaving(false);
@@ -793,7 +776,15 @@ export function OwnerProductForm({
                   representativeSlotId={representativeSlotId}
                   onRepresentativeChange={setRepresentativeSlotId}
                   disabled={saving || deleting || uploading}
-                  onClientError={setError}
+                  onClientError={(message) => {
+                    if (!message) {
+                      setRegisterErrorModal(null);
+                      return;
+                    }
+                    openRegisterErrorModal(
+                      resolveOwnerProductRegisterError(message, mode, t)
+                    );
+                  }}
                 />
                 <div>
                   <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_156")}</label>
@@ -1118,6 +1109,29 @@ export function OwnerProductForm({
             categoryStripRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
             menuSectionSelectRef.current?.focus();
           });
+        }}
+      />
+      <OwnerStoreAdminConfirmModal
+        open={registerErrorModal != null}
+        titleId="owner-product-register-error-title"
+        title={registerErrorModal?.title ?? ""}
+        description={registerErrorModal?.description ?? ""}
+        cancelLabel={t("common_cancel")}
+        confirmLabel={
+          registerErrorModal?.kind === "owner_recommended_limit"
+            ? t("business_phase7_492")
+            : t("common_confirm")
+        }
+        confirmTone="primary"
+        onCancel={() => setRegisterErrorModal(null)}
+        onConfirm={() => {
+          if (registerErrorModal?.kind === "owner_recommended_limit") {
+            setValues((v) => ({
+              ...v,
+              is_owner_recommended: false,
+            }));
+          }
+          setRegisterErrorModal(null);
         }}
       />
     </div>
