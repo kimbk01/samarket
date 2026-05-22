@@ -45,7 +45,7 @@
 
 ## API 재분류
 
-- **A Boot**: `GET /api/me/profile?mode=minimal` (≈ lite 컬럼)
+- **A Boot**: `GET /api/me/profile?lite=1` (lite 컬럼·region 포함)
 - **B Surface**: `bootstrap?tier=critical`, 홈/스토어 surface API
 - **C Background**: hub-badge, home-sync, trade-chat-list-meta, `profile mode=full`
 - **D Detail**: room full, trade/store/order detail

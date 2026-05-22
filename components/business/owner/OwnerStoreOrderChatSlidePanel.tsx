@@ -8,6 +8,7 @@ import { OwnerOrderChatSlideHostProvider } from "@/components/business/owner/Own
 import { OwnerStoreOrderModalSellerToolbar } from "@/components/business/owner/OwnerStoreOrderModalSellerToolbar";
 import type { OwnerStoreOrderListRow } from "@/lib/business/owner-store-order-list-row-bridge";
 import { ownerOrderStatusLabelKo } from "@/lib/stores/owner-mobile-ui-tokens";
+import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-order-delivery-address-display";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import {
   OWNER_ORDER_CHAT_SLIDE_BACKDROP_Z_CLASS,
@@ -181,7 +182,12 @@ export function OwnerStoreOrderChatSlidePanel({
                   {order ? ownerOrderStatusLabelKo(order.order_status) : "주문 상태 확인중"}
                 </p>
                 <p className="mt-1 line-clamp-1 text-[12px] leading-[1.35] text-white/80">
-                  {order?.delivery_address_summary || "주소 정보 확인중"}
+                  {order ?
+                      formatStoreOrderDeliveryAddressPlain({
+                        summary: order.delivery_address_summary,
+                        detail: order.delivery_address_detail,
+                      }) || "주소 정보 확인중"
+                    : "주소 정보 확인중"}
                 </p>
               </div>
               {order ? (

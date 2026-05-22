@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
-import type { StoreRow } from "@/lib/stores/db-store-mapper";
+import { fetchApprovedStoresByIdMap } from "@/lib/addresses/fetch-approved-stores-map";
 import { MySubpageHeader } from "@/components/my/MySubpageHeader";
 import { AddressRowCard } from "@/components/addresses/AddressRowCard";
 import { AddressEditorSheet } from "@/components/addresses/AddressEditorSheet";
@@ -180,21 +180,8 @@ export function AddressManagementClient({ embedded = false }: { embedded?: boole
     }
     let cancelled = false;
     void (async () => {
-      try {
-        const res = await fetch("/api/me/stores", { credentials: "include" });
-        const j = (await res.json()) as { ok?: boolean; stores?: StoreRow[] };
-        if (!res.ok || !j.ok || !Array.isArray(j.stores)) return;
-        const m = new Map<string, string>();
-        for (const store of j.stores) {
-          if (store.approval_status !== "approved") continue;
-          const id = store.id.trim();
-          const name = (store.store_name ?? "").trim();
-          if (id) m.set(id, name || id);
-        }
-        if (!cancelled) setApprovedStoresById(m);
-      } catch {
-        if (!cancelled) setApprovedStoresById(new Map());
-      }
+      const m = await fetchApprovedStoresByIdMap();
+      if (!cancelled) setApprovedStoresById(m);
     })();
     return () => {
       cancelled = true;

@@ -57,6 +57,30 @@ export function logAuthHotPathBreakdown(
   if (process.env.NODE_ENV !== "development") return;
   // eslint-disable-next-line no-console -- auth hot path lock
   console.info("[auth-hot-path-breakdown]", JSON.stringify(row));
+  // eslint-disable-next-line no-console -- deep breakdown (registry/sync/cookie/dedupe)
+  console.info(
+    "[auth-hot-path-deep]",
+    JSON.stringify({
+      route: row.route,
+      phase: row.phase,
+      auth_total_ms: row.auth_total_ms,
+      auth_cache_hit: row.auth_cache_hit,
+      auth_cache_lookup_ms: row.auth_cache_lookup_ms,
+      auth_singleflight_hit: row.auth_singleflight_hit,
+      auth_registry_ms: row.auth_registry_ms,
+      auth_profile_sync_ms: row.auth_profile_sync_ms,
+      auth_cookie_parse_ms: row.auth_cookie_parse_ms,
+      auth_supabase_ms: row.auth_supabase_ms,
+      auth_validate_ms: row.auth_validate_ms,
+      auth_user_fetch_ms: row.auth_user_fetch_ms,
+      auth_payload_ms: row.auth_payload_ms,
+      auth_db_round_trips: row.auth_db_round_trips,
+      auth_ttl_remaining_ms: row.auth_ttl_remaining_ms,
+      auth_same_session_hit: row.auth_same_session_hit,
+      auth_source: row.auth_source,
+      dedupe: row.auth_singleflight_hit ? "singleflight" : row.auth_cache_hit ? "cache" : "cold",
+    })
+  );
 }
 
 /**

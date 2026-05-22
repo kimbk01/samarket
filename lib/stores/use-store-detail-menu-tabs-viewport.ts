@@ -42,7 +42,8 @@ type AnchorKind = "none" | "estimate" | "refine";
 export function useStoreDetailMenuTabsViewport(args: {
   pathname: string | null;
   decodedSlug: string;
-  summaryLoading: boolean;
+  /** true 면 탭 앵커 보류 — 목록 seed·캐시 shell 이 있으면 false 로 두어 메뉴 탭을 summary 완료 전에도 준비 */
+  blockMenuTabsAnchor: boolean;
   menusLoading: boolean;
   menuTabsMeasurable: boolean;
   menuStickyMeasureRef: RefObject<HTMLDivElement | null>;
@@ -50,7 +51,7 @@ export function useStoreDetailMenuTabsViewport(args: {
   const {
     pathname,
     decodedSlug,
-    summaryLoading,
+    blockMenuTabsAnchor,
     menusLoading,
     menuTabsMeasurable,
     menuStickyMeasureRef,
@@ -95,11 +96,11 @@ export function useStoreDetailMenuTabsViewport(args: {
   );
 
   useLayoutEffect(() => {
-    if (!isMenuRoot || summaryLoading || !slugKey) return;
+    if (!isMenuRoot || blockMenuTabsAnchor || !slugKey) return;
     applyMenuTabsAnchor(false);
   }, [
     isMenuRoot,
-    summaryLoading,
+    blockMenuTabsAnchor,
     slugKey,
     pathname,
     menusLoading,

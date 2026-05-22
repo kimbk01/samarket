@@ -22,6 +22,10 @@ import { usePullToRefreshAtDocumentTop } from "@/lib/ui/use-pull-to-refresh-docu
 import { useOwnerHubRuntime } from "@/components/business/owner/OwnerHubRuntimeProvider";
 import { useOwnerHubBadgeBreakdownWhenEnabled } from "@/lib/chats/use-owner-hub-badge-total";
 import {
+  markOwnerDashboardFirstShellPaint,
+  scheduleOwnerDashboardAfterFirstPaint,
+} from "@/lib/business/owner-dashboard-waterfall";
+import {
   OwnerOperationsDashboard,
   parseOpsSnapshotFromCountsJson,
   useOwnerOpsPulse,
@@ -148,14 +152,24 @@ export function BusinessAdminDashboard({
     });
   }, [subscribeOrdersRefresh, row.id]);
 
+  useLayoutEffect(() => {
+    markOwnerDashboardFirstShellPaint();
+  }, []);
+
   useEffect(() => {
     const peekOps = peekOwnerStoreOpsSnapshotFromHubCache(row.id);
-    setOpsSnapshot(peekOps);
-    setOpsLoaded(peekOps != null);
-    setSnapshotUpdatedAt(peekOps ? new Date() : null);
-    setFetchFailed(false);
-    setOpsRefreshing(false);
-    void loadDashboardRef.current?.({ silent: true });
+    if (peekOps) {
+      setOpsSnapshot(peekOps);
+      setOpsLoaded(true);
+      setSnapshotUpdatedAt(new Date());
+      setFetchFailed(false);
+      setOpsRefreshing(false);
+    } else {
+      setOpsLoaded(false);
+    }
+    scheduleOwnerDashboardAfterFirstPaint(() => {
+      void loadDashboardRef.current?.({ silent: true });
+    });
   }, [row.id]);
 
   useEffect(() => {
@@ -214,7 +228,7 @@ export function BusinessAdminDashboard({
         <OwnerOperationsDashboard
           row={row}
           snapshot={opsSnapshot}
-          loading={!opsLoaded}
+          loading={!opsSnapshot}
           offline={offline || fetchFailed}
           stale={fetchFailed && opsSnapshot != null}
           orderChatUnread={orderChatUnread}

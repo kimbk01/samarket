@@ -39,14 +39,24 @@ function summarizeClientJournal(j) {
 
   return [
     {
-      route: "/api/me/profile?mode=minimal",
-      calls: count((u) => u.includes("mode=minimal")),
-      before_fp: beforeFp((u) => u.includes("mode=minimal")),
+      route: "/api/me/profile?lite=1",
+      calls: count((u) => u.includes("lite=1") || u.includes("mode=minimal")),
+      before_fp: beforeFp((u) => u.includes("lite=1") || u.includes("mode=minimal")),
     },
     {
-      route: "/api/me/profile?mode=full",
-      calls: count((u) => u.includes("mode=full") || (u.includes("/api/me/profile") && !u.includes("mode=minimal"))),
-      before_fp: beforeFp((u) => u.includes("mode=full") || (u.includes("/api/me/profile") && !u.includes("mode=minimal"))),
+      route: "/api/me/profile (full)",
+      calls: count(
+        (u) =>
+          u.includes("/api/me/profile") &&
+          !u.includes("lite=1") &&
+          !u.includes("mode=minimal")
+      ),
+      before_fp: beforeFp(
+        (u) =>
+          u.includes("/api/me/profile") &&
+          !u.includes("lite=1") &&
+          !u.includes("mode=minimal")
+      ),
     },
     {
       route: "/api/auth/session",

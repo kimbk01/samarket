@@ -149,7 +149,11 @@ export async function proxy(request: NextRequest) {
   }
 
   if (!requestHasSupabaseAuthCookies(request)) {
-    return redirectToLogin(request);
+    const loginRedirect = redirectToLogin(request);
+    if (/^\/stores\/[^/]+\/cart\/?$/.test(pathname)) {
+      loginRedirect.headers.set("x-samarket-cart-auth-required", "1");
+    }
+    return loginRedirect;
   }
 
   let response = NextResponse.next({ request });

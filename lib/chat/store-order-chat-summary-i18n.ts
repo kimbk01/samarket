@@ -2,6 +2,7 @@ import type { AppLanguageCode } from "@/lib/i18n/config";
 import { DEFAULT_APP_LANGUAGE } from "@/lib/i18n/config";
 import { translate, type MessageKey } from "@/lib/i18n/messages";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-order-delivery-address-display";
 import type { StoreOrderSummaryInput } from "@/lib/chat/store-order-chat-summary-body";
 
 function ocT(lang: AppLanguageCode, key: MessageKey, vars?: Record<string, string | number>): string {
@@ -81,12 +82,13 @@ export function buildStoreOrderSummaryBodyI18n(
   parts.push(ocT(lang, "store_oc_summary_total", { amount: formatMoneyPhp(input.totalPhp) }));
   parts.push("");
 
-  const addrSum = input.addressSummary?.trim();
-  const addrDet = input.addressDetail?.trim();
-  if (addrSum || addrDet) {
+  const deliveryAddr = formatStoreOrderDeliveryAddressPlain({
+    summary: input.addressSummary,
+    detail: input.addressDetail,
+  });
+  if (deliveryAddr) {
     parts.push(ocT(lang, "store_oc_summary_address_header"));
-    if (addrSum) parts.push(`  ${addrSum}`);
-    if (addrDet) parts.push(`  ${addrDet}`);
+    parts.push(`  ${deliveryAddr}`);
     parts.push("");
   }
 

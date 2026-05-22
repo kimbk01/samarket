@@ -1,3 +1,4 @@
+import { formatStoreOrderDeliveryAddressMultiline } from "@/lib/addresses/store-order-delivery-address-display";
 import { mapApiOrderToOwnerOrder, type ApiStoreOrderRow } from "./map-api-order-to-owner";
 import type { OwnerOrder, OwnerOrderStatus } from "./types";
 import { formatStoreOrderCheckoutEtaSummary } from "@/lib/stores/format-store-order-checkout-display";
@@ -149,12 +150,13 @@ export function mergeRealtimeRecordIntoOwnerOrder(
   const dad =
     record.delivery_address_detail != null ? String(record.delivery_address_detail) : null;
   if (das != null || dad != null) {
-    const s = (das ?? "").trim();
-    const d = (dad ?? "").trim();
-    const formatted =
-      s && d ? `${s}\n${d}` : s || d || null;
-    if (formatted !== prev.delivery_address) {
-      next.delivery_address = formatted;
+    const formatted = formatStoreOrderDeliveryAddressMultiline({
+      summary: das,
+      detail: dad,
+    });
+    const nextAddr = formatted === "—" ? null : formatted;
+    if (nextAddr !== prev.delivery_address) {
+      next.delivery_address = nextAddr;
       changed = true;
     }
   }

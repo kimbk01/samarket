@@ -1,6 +1,11 @@
 import { readCachedMeAddressList } from "@/lib/addresses/address-list-client-cache";
 import type { StoreCommerceCartBucket } from "@/lib/stores/store-commerce-cart-types";
-import { peekStorePublicCache, type StoreApiJsonResponse } from "@/lib/stores/store-delivery-api-client";
+import { parseStoreSummaryPayload } from "@/lib/stores/store-detail-split-types";
+import {
+  peekStorePublicCache,
+  peekStoreSummaryPublicCache,
+  type StoreApiJsonResponse,
+} from "@/lib/stores/store-delivery-api-client";
 import { peekMeProfileCached } from "@/lib/profile/fetch-me-profile-deduped";
 import { resolveProfilePhoneDb09 } from "@/lib/profile/resolve-profile-phone";
 import type { ProfileRow } from "@/lib/profile/types";
@@ -74,6 +79,8 @@ export function parseStoreCartHeadFromPublicJson(
 }
 
 export function peekStoreCartHeadFromPublicCache(storeSlug: string): StoreCartHead | null {
+  const fromSummary = peekStoreCartHeadFromSummaryCache(storeSlug);
+  if (fromSummary) return fromSummary;
   const hit: StoreApiJsonResponse | null = peekStorePublicCache(storeSlug);
   if (!hit || hit.status !== 200) return null;
   const j = hit.json as {
@@ -83,6 +90,17 @@ export function peekStoreCartHeadFromPublicCache(storeSlug: string): StoreCartHe
   };
   if (!j?.ok || !j.store) return null;
   return parseStoreCartHeadFromPublicJson(storeSlug, j.store, j.meta);
+}
+
+/** 상세 `/summary` prewarm·캐시 — monolith GET 없이 카트 헤더 즉시 표시 */
+export function peekStoreCartHeadFromSummaryCache(storeSlug: string): StoreCartHead | null {
+  const hit = peekStoreSummaryPublicCache(storeSlug);
+  if (!hit || hit.status !== 200) return null;
+  const parsed = parseStoreSummaryPayload(hit.json);
+  if (!parsed.ok || !parsed.store?.id) return null;
+  const s = parsed.store as Record<string, unknown>;
+  const meta = parsed.meta as Record<string, unknown> | undefined;
+  return parseStoreCartHeadFromPublicJson(storeSlug, s, meta);
 }
 
 export function readProfilePhoneDigitsFromMeProfileCache(): string {

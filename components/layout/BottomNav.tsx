@@ -1126,7 +1126,16 @@ export function BottomNav({
             itemClassName={groupEdgeClass}
             pathname={pathname}
             switcherOpen={deliveryDomainSwitcherOpen}
-            onToggleSwitcher={() => setDeliveryDomainSwitcherOpen((open) => !open)}
+            onToggleSwitcher={() => {
+              setDeliveryDomainSwitcherOpen((open) => {
+                const next = !open;
+                if (next && typeof document !== "undefined") {
+                  const active = document.activeElement;
+                  if (active instanceof HTMLElement) active.blur();
+                }
+                return next;
+              });
+            }}
             onNavigationIntent={markBottomNavIntent}
             beginMenuNavigation={beginBottomNavNavigation}
             guardBeforeNavigate={guardNav}

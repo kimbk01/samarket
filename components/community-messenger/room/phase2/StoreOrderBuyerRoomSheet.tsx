@@ -17,6 +17,7 @@ import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-crite
 import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
 import { isDeliveryFulfillment } from "@/lib/stores/order-status-transitions";
 import type { StoreOrderChatCardView } from "@/lib/store-order-chat/build-store-order-chat-card-view";
+import { StoreOrderDeliveryAddressDisplay } from "@/components/addresses/StoreOrderDeliveryAddressDisplay";
 import { StoreOrderReceiptCard } from "@/components/community-messenger/room/phase2/StoreOrderReceiptCard";
 import { VoiceCallIcon } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import {
@@ -395,7 +396,8 @@ function BuyerOrderDetailBody({
             </span>
           </li>
         ) : null}
-        {order.fulfillment_type !== "pickup" && order.delivery_address_summary ? (
+        {order.fulfillment_type !== "pickup" &&
+        (order.delivery_address_summary?.trim() || order.delivery_address_detail?.trim()) ? (
           <li className="flex gap-2">
             <span className="shrink-0 rounded-[4px] bg-[#EAF6FB] px-1.5 py-0.5 text-[11px] font-bold text-[#1C8DB8]">
               배달
@@ -404,16 +406,13 @@ function BuyerOrderDetailBody({
               <span className="block sam-text-helper font-bold text-[#6B7280]">
                 배달 주소
               </span>
-              <span className="mt-0.5 block">{order.delivery_address_summary}</span>
+              <StoreOrderDeliveryAddressDisplay
+                className="mt-0.5"
+                summary={order.delivery_address_summary}
+                detail={order.delivery_address_detail}
+                showDetailLabel={false}
+              />
             </span>
-          </li>
-        ) : null}
-        {order.fulfillment_type !== "pickup" && order.delivery_address_detail ? (
-          <li className="flex gap-2">
-            <span className="shrink-0 rounded-[4px] bg-[#EAF6FB] px-1.5 py-0.5 text-[11px] font-bold text-[#1C8DB8]">
-              상세
-            </span>
-            <span className="min-w-0">{order.delivery_address_detail}</span>
           </li>
         ) : null}
         {phoneDisplay ? (

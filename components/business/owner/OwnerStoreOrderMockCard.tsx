@@ -18,6 +18,7 @@ import { formatMoneyPhp } from "@/lib/utils/format";
 import { formatPhMobileDisplay, parsePhMobileInput, telHrefFromLoosePhPhone } from "@/lib/utils/ph-mobile";
 import { BUYER_PUBLIC_LABEL_FALLBACK } from "@/lib/stores/buyer-public-label";
 import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
+import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-order-delivery-address-display";
 import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
 
 const FULFILL_LABEL: Record<string, string> = {
@@ -58,9 +59,10 @@ export function OwnerStoreOrderMockCard({
   const phoneDisplay =
     phoneRaw && phoneDigits.length === 11 ? formatPhMobileDisplay(phoneDigits) : phoneRaw;
   const phoneTel = phoneRaw ? telHrefFromLoosePhPhone(phoneRaw) : null;
-  const address = [order.delivery_address_summary?.trim(), order.delivery_address_detail?.trim()]
-    .filter(Boolean)
-    .join(" ");
+  const address = formatStoreOrderDeliveryAddressPlain({
+    summary: order.delivery_address_summary,
+    detail: order.delivery_address_detail,
+  });
   const menuSummary = summarizeMenu(order.items);
   const nextAction = resolveOwnerNextOrderAction(order.order_status, order.fulfillment_type);
   const [busy, setBusy] = useState<string | null>(null);

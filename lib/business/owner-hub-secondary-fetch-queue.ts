@@ -103,6 +103,8 @@ export const OWNER_HUB_SECONDARY_AFTER_MS = {
   notificationSettings: 5_000,
   addressGate: 5_200,
   messengerCallSound: 5_600,
+  /** orders list + settlements — 첫 paint 비차단 */
+  prefetchOrdersSettlements: 6_000,
 } as const;
 
 /** 매장 운영 화면이면 `afterMs` 뒤 직렬 큐, 아니면 즉시 */

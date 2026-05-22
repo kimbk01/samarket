@@ -1,4 +1,5 @@
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
+import { formatPhAddressCardOneLine } from "@/lib/addresses/ph-address-display";
 import { formatPhDetailThenStreetFromParts } from "@/lib/stores/store-location-label";
 import { getLocationLabelIfValid, REGIONS } from "@/lib/products/form-options";
 
@@ -367,6 +368,21 @@ export type CheckoutDeliveryPayload = {
 };
 
 export function toCheckoutDeliveryPayload(a: UserAddressDTO): CheckoutDeliveryPayload {
+  const isPh = (a.countryCode ?? "PH").trim().toUpperCase() === "PH";
+  let summary_line: string;
+  let address_detail: string;
+
+  if (isPh) {
+    const ph = formatPhAddressCardOneLine(a);
+    summary_line = ph.streetBody || buildTradePublicLine(a);
+    address_detail = ph.gatePrefix || a.detailAddress?.trim() || "";
+  } else {
+    summary_line = buildAddressManagementListPrimaryLine(a);
+    const main = summary_line.trim();
+    address_detail =
+      buildAddressListDetailLine(a, main) || a.detailAddress?.trim() || a.unitFloorRoom?.trim() || "";
+  }
+
   return {
     user_address_id: a.id,
     place_id: a.placeId,
@@ -374,8 +390,8 @@ export function toCheckoutDeliveryPayload(a: UserAddressDTO): CheckoutDeliveryPa
     phone: a.phoneNumber,
     app_region_id: a.appRegionId,
     app_city_id: a.appCityId,
-    summary_line: buildTradePublicLine(a),
-    address_detail: a.detailAddress?.trim() || buildDeliveryDetailLines(a),
+    summary_line,
+    address_detail,
     delivery_note: a.deliveryNote,
     latitude: a.latitude,
     longitude: a.longitude,

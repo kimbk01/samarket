@@ -1,3 +1,4 @@
+import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-order-delivery-address-display";
 import {
   formatBuyerPaymentDisplay,
   normalizeCheckoutPaymentMethodId,
@@ -85,10 +86,11 @@ function buildAddressLines(input: StoreOrderChatCardInput, fulfillmentType: stri
     return input.storePickupAddressLines.filter(Boolean);
   }
   const order = input.order;
-  return [
-    text(order.delivery_address_summary) || text(order.delivery_formatted_address),
-    text(order.delivery_address_detail) || text(order.delivery_detail_address),
-  ].filter(Boolean);
+  const plain = formatStoreOrderDeliveryAddressPlain({
+    summary: text(order.delivery_address_summary) || text(order.delivery_formatted_address),
+    detail: text(order.delivery_address_detail) || text(order.delivery_detail_address),
+  });
+  return plain ? [plain] : [];
 }
 
 export function buildStoreOrderChatCardView(input: StoreOrderChatCardInput): StoreOrderChatCardView {

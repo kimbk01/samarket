@@ -21,6 +21,7 @@ import {
   parsePhMobileInput,
   telHrefFromPhDb09,
 } from "@/lib/utils/ph-mobile";
+import { StoreOrderDeliveryAddressDisplay } from "@/components/addresses/StoreOrderDeliveryAddressDisplay";
 import { StoreCommerceOrderTimeline } from "@/components/stores/StoreCommerceOrderTimeline";
 import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
 import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
@@ -849,12 +850,13 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
                 </Link>
               : null}
             </div>
-          ) : order.delivery_address_summary?.trim() ? (
-            <div className="mt-1.5 space-y-1 text-sm leading-relaxed text-sam-fg">
-              <p>{order.delivery_address_summary.trim()}</p>
-              {order.delivery_address_detail?.trim() ? (
-                <p className="sam-text-body-secondary text-sam-muted">{order.delivery_address_detail.trim()}</p>
-              ) : null}
+          ) : order.delivery_address_summary?.trim() || order.delivery_address_detail?.trim() ? (
+            <div className="mt-1.5 text-sm leading-relaxed text-sam-fg">
+              <StoreOrderDeliveryAddressDisplay
+                summary={order.delivery_address_summary}
+                detail={order.delivery_address_detail}
+                showDetailLabel={false}
+              />
               {(() => {
                 const line = formatStoreOrderCheckoutEtaSummary({
                   checkout_eta_minutes: order.checkout_eta_minutes,

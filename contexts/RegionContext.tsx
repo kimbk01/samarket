@@ -21,7 +21,11 @@ import { userRegionFromProfileSlice } from "@/lib/regions/profile-to-user-region
 import { getRegionName } from "@/lib/regions/region-utils";
 import { fetchMeProfileDeduped, ME_PROFILE_CACHE_INVALIDATED_EVENT } from "@/lib/profile/fetch-me-profile-deduped";
 import { isStoreOwnerAdminPathname } from "@/lib/business/owner-hub-path";
-import { peekAppBootProfile } from "@/lib/app-boot/app-boot-store";
+import {
+  getAppBootSnapshot,
+  isAppBootReady,
+  peekAppBootProfile,
+} from "@/lib/app-boot/app-boot-store";
 import { APP_BOOT_READY_EVENT, APP_BOOT_PROFILE_UPDATED_EVENT } from "@/lib/app-boot/app-boot-types";
 import {
   cancelScheduledWhenBrowserIdle,
@@ -88,12 +92,16 @@ export function RegionProvider({ children }: { children: React.ReactNode }) {
 
   const refreshProfileLocation = useCallback(async () => {
     try {
+      if (getAppBootSnapshot().status === "anonymous") {
+        setProfileSourcedRegion(null);
+        return;
+      }
       const boot = peekAppBootProfile();
       if (boot) {
         applyProfileSlice(boot as unknown as Record<string, unknown>);
         return;
       }
-      /** 매장 운영 — boot minimal 만 사용, `profile?mode=full` 왕복 금지 */
+      /** 매장 운영 — boot lite 만 사용, `profile?mode=full` 왕복 금지 */
       if (isStoreOwnerAdminPathname()) {
         return;
       }
@@ -119,26 +127,62 @@ export function RegionProvider({ children }: { children: React.ReactNode }) {
       applyProfileSlice(boot as unknown as Record<string, unknown>);
       return;
     }
-    /** 허브 첫 페인트 — boot minimal·`APP_BOOT_READY` 전에 profile full 금지 */
+    /** 허브 첫 페인트 — `APP_BOOT_READY` 전에 profile full 금지 */
     if (isStoreOwnerAdminPathname()) {
       return;
     }
-    const idleId = scheduleWhenBrowserIdle(() => {
-      void refreshProfileLocation();
-    }, 0);
-    return () => cancelScheduledWhenBrowserIdle(idleId);
+    let idleId: number | null = null;
+    const scheduleRegionSync = () => {
+      const bootNow = peekAppBootProfile();
+      if (bootNow) {
+        applyProfileSlice(bootNow as unknown as Record<string, unknown>);
+        return;
+      }
+      if (getAppBootSnapshot().status === "anonymous") return;
+      idleId = scheduleWhenBrowserIdle(() => {
+        void refreshProfileLocation();
+      }, 0);
+    };
+    if (isAppBootReady()) {
+      scheduleRegionSync();
+    } else {
+      const onBootReady = () => {
+        window.removeEventListener(APP_BOOT_READY_EVENT, onBootReady);
+        scheduleRegionSync();
+      };
+      window.addEventListener(APP_BOOT_READY_EVENT, onBootReady);
+      return () => {
+        window.removeEventListener(APP_BOOT_READY_EVENT, onBootReady);
+        if (idleId != null) cancelScheduledWhenBrowserIdle(idleId);
+      };
+    }
+    return () => {
+      if (idleId != null) cancelScheduledWhenBrowserIdle(idleId);
+    };
   }, [userId, refreshProfileLocation, applyProfileSlice]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const onBoot = () => void refreshProfileLocation();
+    const onBoot = () => {
+      if (getAppBootSnapshot().status === "anonymous") {
+        setProfileSourcedRegion(null);
+        return;
+      }
+      const boot = peekAppBootProfile();
+      if (boot) {
+        applyProfileSlice(boot as unknown as Record<string, unknown>);
+        return;
+      }
+      if (isStoreOwnerAdminPathname()) return;
+      void refreshProfileLocation();
+    };
     window.addEventListener(APP_BOOT_READY_EVENT, onBoot);
     window.addEventListener(APP_BOOT_PROFILE_UPDATED_EVENT, onBoot);
     return () => {
       window.removeEventListener(APP_BOOT_READY_EVENT, onBoot);
       window.removeEventListener(APP_BOOT_PROFILE_UPDATED_EVENT, onBoot);
     };
-  }, [refreshProfileLocation]);
+  }, [refreshProfileLocation, applyProfileSlice]);
 
   /** 프로필 캐시 무효화(저장·아바타·세션) — 단일 이벤트로 지역 상태 동기화 */
   useEffect(() => {

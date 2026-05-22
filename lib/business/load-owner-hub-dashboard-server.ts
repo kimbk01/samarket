@@ -2,6 +2,7 @@ import { cache } from "react";
 import type { TimelineOrder } from "@/components/business/admin/dashboard/BusinessDashboardOrderTimeline";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { fetchOwnerStoreOrderCounts } from "@/lib/stores/fetch-owner-store-order-counts";
+import type { OwnerStoreOpsSnapshot } from "@/lib/stores/owner-store-ops-snapshot";
 import { getCachedStoreIfOwner } from "@/lib/stores/owner-store-ownership-cache";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
@@ -13,6 +14,8 @@ export type OwnerHubDashboardPack = {
     refund_requested_count: number;
     pending_delivery_count: number;
   };
+  /** RSC 1회 조회 — 클라 `order-counts` cold 왕복·첫 paint block 완화용 시드 */
+  opsSnapshotSeed?: OwnerStoreOpsSnapshot;
 };
 
 /**
@@ -42,6 +45,7 @@ export const loadOwnerHubDashboardPackServer = cache(
         refund_requested_count: counts.refund_requested_count,
         pending_delivery_count: counts.pending_delivery_count,
       },
+      opsSnapshotSeed: counts,
     };
   }
 );

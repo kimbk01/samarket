@@ -5,6 +5,7 @@ import { enableOwnerHubBadgeBackgroundHydration } from "@/lib/chats/owner-hub-ba
 import { mergeAppBootProfileFull } from "@/lib/app-boot/app-boot-store";
 import { fetchMeProfileFullBackground } from "@/lib/profile/fetch-me-profile-deduped";
 import type { ProfileRow } from "@/lib/profile/types";
+import { scheduleStartupApiDeferred } from "@/lib/http/startup-api-scheduler";
 
 let backgroundArmId = 0;
 let backgroundCancel: (() => void) | null = null;
@@ -56,17 +57,31 @@ export function scheduleAppBootBackgroundHydration(): void {
     const onStoreOwnerHub = isStoreOwnerHubPathname();
 
     if (!onStoreOwnerHub) {
-      void fetchMeProfileFullBackground("app_boot_background")
-        .then(({ status, json }) => {
-          const data = json as { ok?: boolean; profile?: ProfileRow } | null;
-          if (status === 200 && data?.ok && data.profile) {
-            mergeAppBootProfileFull(data.profile);
-          }
-        })
-        .catch(() => {});
+      scheduleStartupApiDeferred(
+        "profile-full",
+        () => {
+          if (armId !== backgroundArmId) return;
+          void fetchMeProfileFullBackground("app_boot_background")
+            .then(({ status, json }) => {
+              const data = json as { ok?: boolean; profile?: ProfileRow } | null;
+              if (status === 200 && data?.ok && data.profile) {
+                mergeAppBootProfileFull(data.profile);
+              }
+            })
+            .catch(() => {});
+        },
+        { delayMs: 80 }
+      );
     }
 
-    enableOwnerHubBadgeBackgroundHydration();
+    scheduleStartupApiDeferred(
+      "hub-badge",
+      () => {
+        if (armId !== backgroundArmId) return;
+        enableOwnerHubBadgeBackgroundHydration();
+      },
+      { delayMs: 220 }
+    );
   });
 }
 

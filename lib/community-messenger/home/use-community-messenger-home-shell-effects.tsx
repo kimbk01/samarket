@@ -18,6 +18,7 @@ import {
 import {
   fetchMeNotificationSettingsSnapshot,
 } from "@/lib/me/fetch-me-notification-settings-client";
+import { scheduleStartupApiDeferred } from "@/lib/http/startup-api-scheduler";
 import {
   messengerSectionLabel,
   resolveMessengerChatFilters,
@@ -244,26 +245,33 @@ export function useCommunityMessengerHomeShellEffects({
 
   useEffect(() => {
     let cancelled = false;
-    void (async () => {
-      try {
-        const snapshot = await fetchMeNotificationSettingsSnapshot();
-        if (!cancelled && snapshot?.ok && snapshot.settings) {
-          setNotificationSettings((prev) => ({
-            ...prev,
-            trade_chat_enabled: snapshot.settings?.trade_chat_enabled !== false,
-            community_chat_enabled: snapshot.settings?.community_chat_enabled !== false,
-            order_enabled: snapshot.settings?.order_enabled !== false,
-            store_enabled: snapshot.settings?.store_enabled !== false,
-            sound_enabled: snapshot.settings?.sound_enabled !== false,
-            vibration_enabled: snapshot.settings?.vibration_enabled !== false,
-          }));
-        }
-      } catch {
-        /* ignore */
-      }
-    })();
+    const cancelSchedule = scheduleStartupApiDeferred(
+      "notification-settings-messenger-home",
+      () => {
+        void (async () => {
+          try {
+            const snapshot = await fetchMeNotificationSettingsSnapshot();
+            if (!cancelled && snapshot?.ok && snapshot.settings) {
+              setNotificationSettings((prev) => ({
+                ...prev,
+                trade_chat_enabled: snapshot.settings?.trade_chat_enabled !== false,
+                community_chat_enabled: snapshot.settings?.community_chat_enabled !== false,
+                order_enabled: snapshot.settings?.order_enabled !== false,
+                store_enabled: snapshot.settings?.store_enabled !== false,
+                sound_enabled: snapshot.settings?.sound_enabled !== false,
+                vibration_enabled: snapshot.settings?.vibration_enabled !== false,
+              }));
+            }
+          } catch {
+            /* ignore */
+          }
+        })();
+      },
+      { delayMs: 150 }
+    );
     return () => {
       cancelled = true;
+      cancelSchedule();
     };
   }, [setNotificationSettings]);
 

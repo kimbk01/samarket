@@ -152,6 +152,60 @@ export function estimateMonitoringEventPayloadBytes(e: MessengerMonitoringEvent)
   return n;
 }
 
+/** dev memory-watch — in-process store 강제 trim (이벤트 누적·RSS 압력) */
+export function pruneMessengerMonitoringStoreDev(): {
+  eventsRemoved: number;
+  subscriptionLogRemoved: number;
+  alertsRemoved: number;
+} {
+  if (process.env.NODE_ENV !== "development") {
+    return { eventsRemoved: 0, subscriptionLogRemoved: 0, alertsRemoved: 0 };
+  }
+  const s = getMessengerMonitoringStoreRoot();
+  const d = s.storeDiagnostics ?? createMessengerMonitoringStoreDiagnostics();
+  const maxEvents = (() => {
+    const raw = Number(process.env.SAMARKET_MONITORING_MAX_EVENTS_DEV);
+    return Number.isFinite(raw) && raw >= 24 ? Math.floor(raw) : 32;
+  })();
+  const maxSub = 16;
+  const maxAlerts = 4;
+
+  let eventsRemoved = 0;
+  if (s.events.length > maxEvents) {
+    eventsRemoved = s.events.length - maxEvents;
+    s.events.splice(0, eventsRemoved);
+    d.eventsTrimmedTotal += eventsRemoved;
+    d.lastEventsPruneRemoved = eventsRemoved;
+    d.lastPruneTriggered = true;
+  }
+
+  let subscriptionLogRemoved = 0;
+  while (s.subscriptionEventLog.length > maxSub) {
+    s.subscriptionEventLog.shift();
+    subscriptionLogRemoved += 1;
+    d.subscriptionLogTrimmedTotal += 1;
+    d.lastPruneTriggered = true;
+  }
+
+  let alertsRemoved = 0;
+  if (s.alerts.length > maxAlerts) {
+    alertsRemoved = s.alerts.length - maxAlerts;
+    s.alerts.splice(0, alertsRemoved);
+    d.alertsTrimmedTotal += alertsRemoved;
+    d.lastPruneTriggered = true;
+  }
+
+  trimMessengerMonitoringMapOldest(s.aggregates, 8);
+  trimMessengerMonitoringMapOldest(s.clientAggregates, 8);
+  trimMessengerMonitoringMapOldest(s.apiByRoute, MAX_API_ROUTES);
+  trimMessengerMonitoringMapOldest(s.outcomes, 12);
+  trimMessengerMonitoringSessionSet(s.callSessionsOpened);
+  trimMessengerMonitoringSessionSet(s.callSessionsWithReconnect);
+  trimMessengerMonitoringMapOldest(s.lastFailureRatioAlertTs, 32);
+
+  return { eventsRemoved, subscriptionLogRemoved, alertsRemoved };
+}
+
 export function getMessengerMonitoringStoreFootprint(): MessengerMonitoringStoreFootprint {
   const s = getMessengerMonitoringStoreRoot();
   const d = s.storeDiagnostics ?? createMessengerMonitoringStoreDiagnostics();

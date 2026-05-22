@@ -1,6 +1,10 @@
 #!/usr/bin/env node
 /**
  * Owner dashboard API — hub badge / order-counts / notifications 3-run + gate report.
+ *
+ * 측정 전용 dev 와 함께 사용: `npm run dev:measure` → (2× `[dev-memory-growth-diagnosis]`) → 본 스크립트.
+ * API 판정은 터미널 `wall_ms` 가 아니라 `[perf-real-api-cost].actual_handler_ms` 기준.
+ * @see docs/performance/dev-measurement-runbook.md
  * @see docs/owner-dashboard-api-perf-lock.md
  */
 import fs from "node:fs";

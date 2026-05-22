@@ -14,7 +14,8 @@ import {
   slicePopularMenuProducts,
   sortStoreDetailProductCardsForDisplay,
 } from "@/lib/stores/group-store-products-by-menu";
-import { queryStorePopularMenuStats } from "@/lib/stores/query-store-popular-menu-stats";
+import { loadStoreCommerceMetaCached } from "@/lib/stores/load-store-commerce-meta-cached";
+import { queryStorePopularMenuStatsCached } from "@/lib/stores/store-popular-menu-stats-cache";
 
 const STORE_PRODUCTS_MENUS_SELECT_WITH_HAS_OPTIONS =
   "id, title, summary, price, discount_price, discount_percent, stock_qty, track_inventory, min_order_qty, max_order_qty, product_status, thumbnail_url, pickup_available, local_delivery_available, shipping_available, menu_section_id, item_type, is_featured, is_owner_recommended, is_representative, sort_order, has_options, store_menu_sections ( id, name, sort_order, is_hidden )";
@@ -62,8 +63,15 @@ export type StoreMenusCatalogBody = {
 };
 
 export type FetchStoreMenusCatalogResult =
-  | { ok: true; body: StoreMenusCatalogBody; marks: DeliveryMenusApiPhaseMarks; queryCount: number }
-  | { ok: false; status: number; body: Record<string, unknown>; marks: DeliveryMenusApiPhaseMarks; queryCount: number };
+  | { ok: true; body: StoreMenusCatalogBody; marks: DeliveryMenusApiPhaseMarks; queryCount: number; dbMs: number }
+  | {
+      ok: false;
+      status: number;
+      body: Record<string, unknown>;
+      marks: DeliveryMenusApiPhaseMarks;
+      queryCount: number;
+      dbMs: number;
+    };
 
 async function fetchStoreProductsForMenus(
   sb: SupabaseClient,
@@ -119,6 +127,7 @@ export async function fetchStoreMenusCatalog(
 
   if (storeRes.ok === false) {
     marks.storeDone = performance.now();
+    const dbMs = Math.round(marks.storeDone - startedAt);
     if (storeRes.reason === "db_error") {
       return {
         ok: false,
@@ -126,6 +135,7 @@ export async function fetchStoreMenusCatalog(
         body: { ok: false, error: storeRes.message },
         marks,
         queryCount,
+        dbMs,
       };
     }
     return {
@@ -144,6 +154,7 @@ export async function fetchStoreMenusCatalog(
       },
       marks,
       queryCount,
+      dbMs,
     };
   }
 
@@ -159,9 +170,9 @@ export async function fetchStoreMenusCatalog(
     menu_sold_out_bottom: menuSoldOutBottom,
   };
 
-  const metaPromise = loadStoreCommerceMeta(sb, storeId, viewerId);
+  const metaPromise = loadStoreCommerceMetaCached(sb, storeId, viewerId);
   const productsPromise = fetchStoreProductsForMenus(sb, storeId);
-  const popularPromise = queryStorePopularMenuStats(
+  const popularPromise = queryStorePopularMenuStatsCached(
     sb,
     storeId,
     commerce.popularMenuWindowDays,
@@ -202,6 +213,9 @@ export async function fetchStoreMenusCatalog(
     recommendedProductIds = buildRecommendedStripProductIds(popularProductIds, cards, stripCap);
   }
 
+  marks.payloadDone = performance.now();
+  const dbMs = Math.round(marks.payloadDone - startedAt);
+
   return {
     ok: true,
     body: {
@@ -230,5 +244,6 @@ export async function fetchStoreMenusCatalog(
     },
     marks,
     queryCount,
+    dbMs,
   };
 }

@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
+import { resolveRouteMemoryCacheBypass } from "@/lib/http/route-cache-bypass";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import {
   buildDeliveryMenusApiBreakdown,
   logDeliveryMenusApiBreakdown,
 } from "@/lib/stores/delivery-menus-api-breakdown";
 import { fetchStoreMenusCatalog, type StoreMenusCatalogBody } from "@/lib/stores/fetch-store-menus-catalog";
+import { storePublicApiPerfHeaders } from "@/lib/stores/store-public-api-perf-headers";
 import {
   readStoreMenusPublicServerCache,
   runStoreMenusPublicServerSingleFlight,
@@ -33,7 +35,7 @@ function responseStatusForMenusBody(body: StoreMenusCatalogBody & { error?: stri
 }
 
 export async function GET(
-  _req: Request,
+  req: Request,
   context: { params: Promise<{ slug: string }> }
 ) {
   const startedAt = performance.now();
@@ -43,21 +45,39 @@ export async function GET(
     return NextResponse.json({ ok: false, error: "missing_slug" }, { status: 400 });
   }
 
-  const cached = readStoreMenusPublicServerCache(decoded);
-  if (cached) {
-    const bodyText = JSON.stringify(cached);
-    logDeliveryMenusApiBreakdown(
-      buildDeliveryMenusApiBreakdown({
-        slug: decoded,
-        startedAt,
-        marks: { authDone: startedAt, storeDone: startedAt, payloadDone: performance.now() },
-        payloadBuildMs: 0,
-        responseSizeBytes: new TextEncoder().encode(bodyText).length,
-        queryCount: 0,
-        cacheHit: true,
-      })
-    );
-    return NextResponse.json(cached, { status: responseStatusForMenusBody(cached as StoreMenusCatalogBody) });
+  const cacheBypass = resolveRouteMemoryCacheBypass(new URL(req.url).searchParams);
+  const perfHeaders = (opts: {
+    cache_hit: 0 | 1;
+    db_execution_ms: number;
+    query_count: number;
+  }) =>
+    storePublicApiPerfHeaders({
+      startedAt,
+      bypass: cacheBypass.bypass,
+      bypass_reason: cacheBypass.reason,
+      ...opts,
+    });
+
+  if (!cacheBypass.bypass) {
+    const cached = readStoreMenusPublicServerCache(decoded);
+    if (cached) {
+      const bodyText = JSON.stringify(cached);
+      logDeliveryMenusApiBreakdown(
+        buildDeliveryMenusApiBreakdown({
+          slug: decoded,
+          startedAt,
+          marks: { authDone: startedAt, storeDone: startedAt, payloadDone: performance.now() },
+          payloadBuildMs: 0,
+          responseSizeBytes: new TextEncoder().encode(bodyText).length,
+          queryCount: 0,
+          cacheHit: true,
+        })
+      );
+      return NextResponse.json(cached, {
+        status: responseStatusForMenusBody(cached as StoreMenusCatalogBody),
+        headers: perfHeaders({ cache_hit: 1, db_execution_ms: 0, query_count: 0 }),
+      });
+    }
   }
 
   const sb = tryGetSupabaseForStores();
@@ -66,17 +86,29 @@ export async function GET(
   }
 
   try {
+    let coldDbMs = 0;
+    let coldQueryCount = 0;
+
     const payload = await runStoreMenusPublicServerSingleFlight(decoded, async () => {
-      const memHit = readStoreMenusPublicServerCache(decoded);
-      if (memHit) return { body: memHit, status: responseStatusForMenusBody(memHit as StoreMenusCatalogBody) };
+      if (!cacheBypass.bypass) {
+        const memHit = readStoreMenusPublicServerCache(decoded);
+        if (memHit) {
+          return { body: memHit, status: responseStatusForMenusBody(memHit as StoreMenusCatalogBody) };
+        }
+      }
 
       const result = await fetchStoreMenusCatalog(sb, decoded, startedAt);
+      coldDbMs = result.dbMs;
+      coldQueryCount = result.queryCount;
+
       if (!result.ok) {
         return { body: result.body, status: result.status };
       }
 
       const payloadStart = performance.now();
-      writeStoreMenusPublicServerCache(decoded, result.body);
+      if (!cacheBypass.bypass) {
+        writeStoreMenusPublicServerCache(decoded, result.body);
+      }
       result.marks.payloadDone = performance.now();
       const bodyText = JSON.stringify(result.body);
       logDeliveryMenusApiBreakdown(
@@ -94,7 +126,14 @@ export async function GET(
       return { body: result.body, status: 200 };
     });
 
-    return NextResponse.json(payload.body, { status: payload.status });
+    return NextResponse.json(payload.body, {
+      status: payload.status,
+      headers: perfHeaders({
+        cache_hit: 0,
+        db_execution_ms: coldDbMs,
+        query_count: coldQueryCount,
+      }),
+    });
   } catch (e) {
     console.error("[api/stores/slug/menus]", e);
     return NextResponse.json(

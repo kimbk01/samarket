@@ -7,6 +7,8 @@ import { formatBrowseStoreRowLabels } from "@/lib/stores/browse-store-row-labels
 
 import { useRouter } from "next/navigation";
 import { memo, useCallback, useMemo } from "react";
+import { StoreBrowseFeaturedMenuSkeleton } from "@/components/stores/browse/StoreBrowseFeaturedMenuSkeleton";
+import type { BrowseFeaturedMenuHydrationPhase } from "@/lib/stores/use-browse-featured-items-hydration";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -47,6 +49,7 @@ type StoreFeaturedCardItem = {
 };
 
 export type StoreRowCardData = {
+  storeId?: string;
   slug: string;
   nameKo: string;
   tagline: string | null;
@@ -175,6 +178,7 @@ export function homeFeedToRowCard(s: StoreHomeFeedItem): StoreRowCardData {
     : s.tagline;
   const rb = s.regionLabel?.trim().slice(0, 14) ?? null;
   return {
+    storeId: s.id,
     slug: s.slug,
     nameKo: s.nameKo,
     tagline: s.tagline,
@@ -222,6 +226,7 @@ export function browseItemToRowCard(s: BrowseStoreListItem): StoreRowCardData {
   const cat = `${s.primaryNameKo} · ${s.subNameKo}`;
   const rb = s.regionLabel?.trim().slice(0, 14) ?? null;
   return {
+    storeId: s.id,
     slug: s.slug,
     nameKo: s.nameKo,
     tagline: s.tagline,
@@ -267,15 +272,32 @@ function StoreDeliveryRowCardInner({
   data,
   locale,
   deliveryRideTimeSource = "google",
+  featuredMenuHydration = "idle",
+  browseStoreId,
+  registerBrowseListItem,
 }: {
   data: StoreRowCardData;
   /** `memo`가 언어 변경 시 행을 다시 그리도록 — `useI18n().language` 와 동일 값 */
   locale: AppLanguageCode;
   deliveryRideTimeSource?: string;
+  featuredMenuHydration?: BrowseFeaturedMenuHydrationPhase;
+  /** browse deferred featured hydrate — 안정 콜백(매 렌더 ref 신규 생성 방지) */
+  browseStoreId?: string;
+  registerBrowseListItem?: (storeId: string, node: HTMLElement | null) => void;
 }) {
   const { t } = useI18n();
   const router = useRouter();
   const viewportRef = useDeliveryStoreDetailViewportPrefetch(data.slug);
+  const setListItemRef = useCallback(
+    (node: HTMLElement | null) => {
+      viewportRef(node);
+      const sid = browseStoreId ?? data.storeId;
+      if (sid && registerBrowseListItem) {
+        registerBrowseListItem(sid, node);
+      }
+    },
+    [viewportRef, browseStoreId, data.storeId, registerBrowseListItem]
+  );
   const prefetchStoreDetail = useCallback(
     (
       source: Parameters<typeof deliveryStoreDetailPrefetch>[2],
@@ -336,6 +358,7 @@ function StoreDeliveryRowCardInner({
       deliveryFeeUi === t("store_free_delivery_applied"));
   const hasDiscountHint = data.isFeatured;
 
+  const showFeaturedSkeleton = featuredMenuHydration === "loading" && data.featuredItems.length === 0;
   const featuredMenuImages = data.featuredItems
     .filter((x) => typeof x.imageUrl === "string" && x.imageUrl.trim().length > 0)
     .slice(0, 6);
@@ -421,14 +444,16 @@ function StoreDeliveryRowCardInner({
 
   return (
     <li
-      ref={viewportRef}
+      ref={setListItemRef}
       className="list-none border-b border-[var(--delivery-border-light)] bg-[var(--delivery-bg-card)] px-4 py-[14px]"
       onPointerEnter={onRowPointerWarm}
       onFocus={onRowPointerWarm}
     >
       <div>
-        <div className="relative">
-          {featuredMenuImages.length > 0 ? (
+        <div className="relative min-h-[116px]">
+          {showFeaturedSkeleton ? (
+            <StoreBrowseFeaturedMenuSkeleton />
+          ) : featuredMenuImages.length > 0 ? (
             <div
               className={[
                 "flex snap-x snap-mandatory gap-1 overflow-x-auto overscroll-x-contain",
@@ -446,7 +471,7 @@ function StoreDeliveryRowCardInner({
                     aria-label={t("store_row_menu_view_aria", { store: data.nameKo, item: item.name })}
                     className={[
                       "relative shrink-0 snap-start overflow-hidden rounded-[10px] bg-[#F3F4F6] text-left dark:bg-[#2B2D30]",
-                      "w-[calc((100%-8px)/3)] aspect-square",
+                      "w-[calc((100%-8px)/3)] h-[116px]",
                       "transition-[transform,opacity] duration-120 active:scale-[0.98] active:opacity-90",
                     ].join(" ")}
                     onPointerEnter={() => warmFeaturedMenuNavigation(item.productId, "pointer_enter")}
@@ -474,7 +499,7 @@ function StoreDeliveryRowCardInner({
                 aria-label={t("store_row_store_more_aria", { store: data.nameKo })}
                 className={[
                   "flex shrink-0 snap-start items-center justify-center rounded-[10px] bg-[#F7F7F7] text-[#111]",
-                  "w-[calc((100%-8px)/3)] aspect-square",
+                  "w-[calc((100%-8px)/3)] h-[116px]",
                   "transition-[transform,opacity,background-color] duration-120 active:scale-[0.98] active:bg-[#ECEFF3] dark:bg-[#2A2C2E] dark:text-[#E4E6EB] dark:active:bg-[#34373A]",
                 ].join(" ")}
                 onClick={() => navigateToStore("see_more")}
@@ -657,6 +682,9 @@ export const StoreDeliveryRowCard = memo(
   (prev, next) =>
     prev.locale === next.locale &&
     prev.deliveryRideTimeSource === next.deliveryRideTimeSource &&
+    prev.featuredMenuHydration === next.featuredMenuHydration &&
+    prev.browseStoreId === next.browseStoreId &&
+    prev.registerBrowseListItem === next.registerBrowseListItem &&
     storeRowCardDataEqual(prev.data, next.data)
 );
 

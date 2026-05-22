@@ -2,12 +2,15 @@
 
 import type { ModifierSelectionsWire } from "@/lib/stores/modifiers/types";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { markStoreDetailMenuTabsLanding } from "@/lib/dibay/store-detail-nav-intent";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { scrollAppShellForStoreCheckoutConfirm } from "@/lib/stores/store-cart-checkout-scroll";
-import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { fetchDeliveryRideTimeSourceDeduped } from "@/lib/app/delivery-ride-time-source-client";
+import { dibayCartFlowV2Log, dibayCartFlowWorstStage } from "@/lib/dibay/dibay-cart-flow-v2";
+import { fetchMeCheckoutContactDeduped, peekMeCheckoutContactCached } from "@/lib/me/fetch-me-checkout-contact-deduped";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { useStoreCommerceCart } from "@/contexts/StoreCommerceCartContext";
 import {
@@ -37,14 +40,14 @@ import {
 import {
   parseStoreCartHeadFromPublicJson,
   peekStoreCartHeadFromPublicCache,
+  peekStoreCartHeadFromSummaryCache,
   readStoreCartCheckoutCachePaint,
   scheduleStoreCartIdleTask,
   storeCartHeadFromCommerceBucket,
 } from "@/lib/stores/store-cart-checkout-perf";
-import { StoreCartClearConfirmDialog } from "@/components/stores/cart/StoreCartClearConfirmDialog";
+import { parseStoreSummaryPayload } from "@/lib/stores/store-detail-split-types";
 import { StoreCartCheckoutActionBar } from "@/components/stores/cart/StoreCommerceCartCheckoutActionBar";
 import { StoreCommerceCartPageShell } from "@/components/stores/cart/StoreCommerceCartPageShell";
-import { StoreCheckoutSubmitConfirmDialog } from "@/components/stores/cart/StoreCheckoutSubmitConfirmDialog";
 import { StoreBaeminCartFulfillmentHint } from "@/components/stores/cart/baemin/StoreBaeminCartFulfillmentHint";
 import { StoreBaeminCartOrderSummaryCard } from "@/components/stores/cart/baemin/StoreBaeminCartOrderSummaryCard";
 import { StoreBaeminCartStoreBlock } from "@/components/stores/cart/baemin/StoreBaeminCartStoreBlock";
@@ -119,7 +122,12 @@ import { formatStorePickupAddressLines } from "@/lib/stores/store-location-label
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
 import { getUserAddressDesignationPlainText } from "@/components/addresses/UserAddressDesignationTitle";
 import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
-import { StoreCartCheckoutAddressRowBody } from "@/components/stores/cart/StoreCartCheckoutAddressRowBody";
+import {
+  markCartHydrationExpensiveEffectsDone,
+  markCartHydrationStage,
+  noteCartHydrationRender,
+} from "@/lib/stores/cart-hydration-breakdown";
+import { cartRenderAudit } from "@/lib/stores/cart-render-audit";
 import {
   isCheckoutDeliveryGeoReady,
   resolveCheckoutDeliveryGeoFromUserAddress,
@@ -129,6 +137,8 @@ import {
   fetchMeAddressesListSingleFlight,
   writeCachedMeAddressList,
 } from "@/lib/addresses/address-list-client-cache";
+import { formatStoreOrderDeliveryAddressMultiline } from "@/lib/addresses/store-order-delivery-address-display";
+import { fetchApprovedStoresByIdMap } from "@/lib/addresses/fetch-approved-stores-map";
 
 type Fulfillment = "pickup" | "local_delivery" | "shipping";
 
@@ -172,23 +182,66 @@ function readInitialBuyerPhoneFromProfileCache(): string {
   return parsePhMobileInput(resolveProfilePhoneDb09(json.profile) ?? "");
 }
 
+const StoreCartCheckoutAddressRowBodyLazy = dynamic(
+  () =>
+    import("@/components/stores/cart/StoreCartCheckoutAddressRowBody").then((m) => ({
+      default: m.StoreCartCheckoutAddressRowBody,
+    })),
+  {
+    ssr: false,
+    loading: () => (
+      <p className="mt-1 sam-text-helper leading-snug text-sam-muted">주소 정보 표시 중…</p>
+    ),
+  }
+);
+
+const StoreCartClearConfirmDialog = dynamic(
+  () =>
+    import("@/components/stores/cart/StoreCartClearConfirmDialog").then((m) => ({
+      default: m.StoreCartClearConfirmDialog,
+    })),
+  { ssr: false }
+);
+
+const StoreCheckoutSubmitConfirmDialog = dynamic(
+  () =>
+    import("@/components/stores/cart/StoreCheckoutSubmitConfirmDialog").then((m) => ({
+      default: m.StoreCheckoutSubmitConfirmDialog,
+    })),
+  { ssr: false }
+);
+
 export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }) {
   const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
+  const cartFlowMountT0Ref = useRef(
+    typeof performance !== "undefined" ? performance.now() : 0
+  );
+  const cartHydrationFirstRenderRef = useRef(false);
+  const cartFlowShellLoggedRef = useRef(false);
+  const cartFlowDeferredLoggedRef = useRef(false);
   const cart = useStoreCommerceCart();
   const { patchBucketMeta } = cart;
-  const [store, setStore] = useState<StoreHead | null>(() =>
-    typeof window === "undefined" ? null : peekStoreCartHeadFromPublicCache(storeSlug)
-  );
+  const [store, setStore] = useState<StoreHead | null>(() => {
+    if (typeof window === "undefined") return null;
+    return (
+      peekStoreCartHeadFromSummaryCache(storeSlug) ?? peekStoreCartHeadFromPublicCache(storeSlug)
+    );
+  });
   const [storeLoadFailed, setStoreLoadFailed] = useState(false);
   /** 첫 매장 fetch 완료 전에는 !store 만으로 오류 처리하면 안 됨(스티키 헤더와 본문 불일치) */
   const [storeLoading, setStoreLoading] = useState(() =>
-    typeof window === "undefined" ? true : !peekStoreCartHeadFromPublicCache(storeSlug)
+    typeof window === "undefined"
+      ? true
+      : !(
+          peekStoreCartHeadFromSummaryCache(storeSlug) ??
+          peekStoreCartHeadFromPublicCache(storeSlug)
+        )
   );
   const [fulfillment, setFulfillment] = useState<Fulfillment>("local_delivery");
   const [buyerNote, setBuyerNote] = useState("");
-  const [buyerPhone, setBuyerPhone] = useState(readInitialBuyerPhoneFromProfileCache);
+  const [buyerPhone, setBuyerPhone] = useState("");
   const profilePhoneDigitsRef = useRef("");
   const [busy, setBusy] = useState(false);
   /** 동일 주문 시도 내 재전송·더블탭 멱등 키 (checkout 입력 변경 시 초기화) */
@@ -202,20 +255,15 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const deliveryEtaPreviewAbortRef = useRef<AbortController | null>(null);
   const [hoursTick, setHoursTick] = useState(0);
   const [profileSnap, setProfileSnap] = useState<ProfileContactSnap | null>(null);
-  const [checkoutContactReady, setCheckoutContactReady] = useState(() => {
-    if (typeof window === "undefined") return false;
-    const paint = readStoreCartCheckoutCachePaint();
-    return Boolean(paint.cachedAddresses?.length || paint.profileDigits);
-  });
+  const [checkoutContactReady, setCheckoutContactReady] = useState(false);
   const checkoutContactFetchGenRef = useRef(0);
   const checkoutFooterRef = useRef<HTMLDivElement>(null);
   /** 배송지 라디오 — 사용자가 직접 고른 뒤에는 자동 대표 주소 보정하지 않음 */
   const userPickedDeliveryAddressRef = useRef(false);
 
-  const [savedAddresses, setSavedAddresses] = useState<UserAddressDTO[]>(() => {
-    if (typeof window === "undefined") return [];
-    return readStoreCartCheckoutCachePaint().cachedAddresses ?? [];
-  });
+  /** 승인 매장 id → 표시명 — `shop` 주소 카드·장바구니 배송지와 주소 관리 동일 */
+  const [approvedStoresById, setApprovedStoresById] = useState<ReadonlyMap<string, string>>(() => new Map());
+  const [savedAddresses, setSavedAddresses] = useState<UserAddressDTO[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<string | null>(null);
   const [addressBookHydrated, setAddressBookHydrated] = useState(false);
   const [legacyLsNoticeCount, setLegacyLsNoticeCount] = useState(0);
@@ -229,6 +277,33 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     orderSummaryLabel: string;
     requestLabel: string;
   } | null>(null);
+
+  useLayoutEffect(() => {
+    if (!cartHydrationFirstRenderRef.current) {
+      cartHydrationFirstRenderRef.current = true;
+      markCartHydrationStage("first_render_ms");
+      noteCartHydrationRender(false);
+    } else {
+      noteCartHydrationRender(true);
+    }
+    cartRenderAudit("StoreCommerceCartPageClient", {
+      reason: "render",
+      context_changed: true,
+    });
+  });
+
+  useEffect(() => {
+    scheduleStoreCartIdleTask(() => {
+      const digits = readInitialBuyerPhoneFromProfileCache();
+      if (digits) {
+        profilePhoneDigitsRef.current = digits;
+        setBuyerPhone((prev) => prev || digits);
+      }
+      const paint = readStoreCartCheckoutCachePaint();
+      if (paint.cachedAddresses?.length) setSavedAddresses(paint.cachedAddresses);
+      if (paint.cachedAddresses?.length || paint.profileDigits) setCheckoutContactReady(true);
+    });
+  }, []);
 
   useEffect(() => {
     scheduleStoreCartIdleTask(() => {
@@ -246,14 +321,37 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   const loadStore = useCallback(
     async (opts?: { silent?: boolean }) => {
       const silent = !!opts?.silent;
+      const summaryT0 = performance.now();
       try {
-        const { json } = await fetchStorePublicBySlugDeduped(storeSlug);
+        const sumRes = await fetchStoreSummaryDeduped(storeSlug);
+        const summaryMs = Math.round(performance.now() - summaryT0);
+        const parsed = parseStoreSummaryPayload(sumRes.json);
+        if (sumRes.status === 200 && parsed.ok && parsed.store?.id) {
+          setStoreLoadFailed(false);
+          const head = parseStoreCartHeadFromPublicJson(
+            storeSlug,
+            parsed.store as Record<string, unknown>,
+            parsed.meta as Record<string, unknown> | undefined
+          );
+          setStore(head);
+          patchBucketMeta(head.id, { storeSlug: head.slug, storeName: head.store_name });
+          dibayCartFlowV2Log({
+            slug: storeSlug,
+            store_summary_fetch_ms: summaryMs,
+            cache_hit: peekStoreCartHeadFromSummaryCache(storeSlug) ? 1 : 0,
+            ...dibayCartFlowWorstStage({ store_summary: summaryMs }),
+          });
+          return;
+        }
+        const pubT0 = performance.now();
+        const { json, status } = await fetchStorePublicBySlugDeduped(storeSlug);
+        const pubMs = Math.round(performance.now() - pubT0);
         const j = json as {
           ok?: boolean;
           store?: Record<string, unknown>;
           meta?: Record<string, unknown>;
         };
-        if (!j?.ok || !j.store) {
+        if (status !== 200 || !j?.ok || !j.store) {
           if (!silent) {
             setStoreLoadFailed(true);
             setStore(null);
@@ -268,6 +366,11 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         );
         setStore(head);
         patchBucketMeta(head.id, { storeSlug: head.slug, storeName: head.store_name });
+        dibayCartFlowV2Log({
+          slug: storeSlug,
+          store_summary_fetch_ms: summaryMs,
+          ...dibayCartFlowWorstStage({ store_summary: summaryMs, store_public: pubMs }),
+        });
       } catch {
         if (!silent) {
           setStoreLoadFailed(true);
@@ -282,7 +385,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
   useEffect(() => {
     setStoreLoadFailed(false);
-    const cached = peekStoreCartHeadFromPublicCache(storeSlug);
+    const cached =
+      peekStoreCartHeadFromSummaryCache(storeSlug) ?? peekStoreCartHeadFromPublicCache(storeSlug);
     if (cached) {
       setStore(cached);
       setStoreLoading(false);
@@ -320,13 +424,45 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
   const otherBuckets = activeStoreId ? cart.otherBucketsExcluding(activeStoreId) : [];
 
+  /** API store head 전 — cart bucket 메타로 pass1 shell·CTA 즉시 (hydration marker 비차단) */
+  const displayStore = useMemo((): StoreHead | null => {
+    if (store) return store;
+    if (!cartBucket) return null;
+    return storeCartHeadFromCommerceBucket(cartBucket);
+  }, [store, cartBucket]);
+
+  const commerceStore = store ?? displayStore;
+
+  /** 측정·빈 장바구니 포함 — `cart.hydrated` 와 동일. pass1 은 `displayStore` 로 store API 대기 생략 */
+  const cartShellHydrationReady = cart.hydrated;
+
+  useLayoutEffect(() => {
+    if (!cart.hydrated || lines.length === 0) return;
+    markCartHydrationStage("totals_ready_ms");
+  }, [cart.hydrated, lines.length, subtotalPhp]);
+
+  useLayoutEffect(() => {
+    if (!cartShellHydrationReady || lines.length === 0 || !displayStore) return;
+    markCartHydrationStage("first_button_interactive_ms");
+  }, [cartShellHydrationReady, lines.length, displayStore?.id]);
+
   const checkoutShellLoggedRef = useRef(false);
   useLayoutEffect(() => {
-    if (!cart.hydrated || lines.length === 0 || checkoutShellLoggedRef.current) return;
+    if (!cart.hydrated || checkoutShellLoggedRef.current) return;
     checkoutShellLoggedRef.current = true;
     const navT0 = getStoreCommerceCheckoutNavigationMark();
     const ms =
       navT0 > 0 && typeof performance !== "undefined" ? Math.max(0, performance.now() - navT0) : 0;
+    const shellMs = Math.round(performance.now() - cartFlowMountT0Ref.current);
+    if (!cartFlowShellLoggedRef.current) {
+      cartFlowShellLoggedRef.current = true;
+      dibayCartFlowV2Log({
+        slug: storeSlug,
+        cart_shell_visible_ms: shellMs,
+        cart_items_apply_ms: ms > 0 ? ms : shellMs,
+      });
+    }
+    if (lines.length === 0) return;
     deliveryTraceCheckoutShellMs(storeSlug, ms);
     deliveryPerfTraceLog(DELIVERY_PERF_TAG_CHECKOUT_SHELL, {
       event: "pass1_cart_lines_visible",
@@ -415,12 +551,16 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   }, [cart.hydrated, store?.id, lines.length, router]);
 
   useEffect(() => {
-    const { entries } = loadDeliveryAddressBook();
-    if (entries.length > 0) {
-      setLegacyLsNoticeCount(entries.length);
-      clearDeliveryAddressBookStorage();
-    }
-    setAddressBookHydrated(true);
+    scheduleStoreCartIdleTask(() => {
+      markCartHydrationStage("addresses_deferred_scheduled_ms");
+      const { entries } = loadDeliveryAddressBook();
+      if (entries.length > 0) {
+        setLegacyLsNoticeCount(entries.length);
+        clearDeliveryAddressBookStorage();
+      }
+      setAddressBookHydrated(true);
+      markCartHydrationExpensiveEffectsDone();
+    });
   }, []);
 
   useEffect(() => {
@@ -463,6 +603,38 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     const detailLine = profileSnap.addressDetail.trim() || null;
     return { primaryLines, detailLine };
   }, [profileSnap, profileLinkedAddressRow]);
+
+  const linkedStoreIdsForCart = useMemo(() => {
+    const ids = new Set<string>();
+    for (const a of savedAddresses) {
+      if (a.labelType !== "shop") continue;
+      const id = a.linkedStoreId?.trim();
+      if (id) ids.add(id);
+    }
+    const pl = profileLinkedAddressRow;
+    if (pl?.labelType === "shop") {
+      const id = pl.linkedStoreId?.trim();
+      if (id) ids.add(id);
+    }
+    return Array.from(ids);
+  }, [savedAddresses, profileLinkedAddressRow]);
+
+  useEffect(() => {
+    if (linkedStoreIdsForCart.length === 0) {
+      setApprovedStoresById(new Map());
+      return;
+    }
+    let cancelled = false;
+    scheduleStoreCartIdleTask(() => {
+      void (async () => {
+        const m = await fetchApprovedStoresByIdMap();
+        if (!cancelled) setApprovedStoresById(m);
+      })();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [linkedStoreIdsForCart]);
 
   const resolvedCheckoutGeo = useMemo(() => {
     const savedId = parseUserAddressIdFromDeliverySelection(selectedAddressId);
@@ -578,11 +750,15 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     let cancelled = false;
     scheduleStoreCartIdleTask(() => {
       void (async () => {
+        const rideT0 = performance.now();
         try {
-          const res = await fetch("/api/app/delivery-ride-time-source", { cache: "no-store" });
-          const j = (await res.json().catch(() => ({}))) as { ok?: boolean; source?: unknown };
+          const source = await fetchDeliveryRideTimeSourceDeduped();
           if (cancelled) return;
-          setGlobalRideTimeSource(j.source === "google" ? "google" : "store");
+          setGlobalRideTimeSource(source);
+          dibayCartFlowV2Log({
+            slug: storeSlug,
+            ride_time_fetch_ms: Math.round(performance.now() - rideT0),
+          });
         } catch {
           if (!cancelled) setGlobalRideTimeSource("store");
         }
@@ -662,6 +838,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
   const bootstrapCheckoutIdentity = useCallback(async () => {
     const gen = ++checkoutContactFetchGenRef.current;
+    const deferredT0 = performance.now();
     const cachePaint = readStoreCartCheckoutCachePaint();
     if (cachePaint.cachedAddresses?.length) {
       setSavedAddresses(cachePaint.cachedAddresses);
@@ -671,15 +848,30 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       applyCheckoutBuyerPhone({ checkoutContactPhone: cachePaint.profileDigits });
       setCheckoutContactReady(true);
     }
+    let contactPack: { status: number; json: unknown; ms: number; cached: boolean } | undefined;
+    let addressRes:
+      | ({ ok: boolean; rows: UserAddressDTO[]; ms: number } & Record<string, unknown>)
+      | undefined;
     try {
       const profilePeek = peekMeProfileCached();
-      const [contactRes, profileRes, addressRes] = await Promise.all([
-        runSingleFlight("me:checkout-contact:get", () =>
-          fetch("/api/me/checkout-contact", { credentials: "include" })
-        ),
+      const contactCached = !!peekMeCheckoutContactCached();
+      const contactT0 = performance.now();
+      const addressesT0 = performance.now();
+      const [contactOut, profileRes, addressOut] = await Promise.all([
+        fetchMeCheckoutContactDeduped().then((r) => ({
+          status: r.status,
+          json: r.json,
+          ms: Math.round(performance.now() - contactT0),
+          cached: contactCached,
+        })),
         profilePeek ? Promise.resolve(profilePeek) : fetchMeProfileDeduped(),
-        fetchMeAddressesListSingleFlight(),
+        fetchMeAddressesListSingleFlight().then((r) => ({
+          ...r,
+          ms: Math.round(performance.now() - addressesT0),
+        })),
       ]);
+      contactPack = contactOut;
+      addressRes = addressOut;
 
       if (gen !== checkoutContactFetchGenRef.current) return;
 
@@ -697,7 +889,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       }
       profilePhoneDigitsRef.current = profileDigits;
 
-      const json = (await contactRes.json()) as {
+      const json = contactPack.json as {
         ok?: boolean;
         contact_phone?: string | null;
         profile_phone?: string | null;
@@ -771,9 +963,28 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     } catch {
       if (gen === checkoutContactFetchGenRef.current) setProfileSnap(null);
     } finally {
-      if (gen === checkoutContactFetchGenRef.current) setCheckoutContactReady(true);
+      if (gen === checkoutContactFetchGenRef.current) {
+        setCheckoutContactReady(true);
+        if (!cartFlowDeferredLoggedRef.current) {
+          cartFlowDeferredLoggedRef.current = true;
+          const deferredMs = Math.round(performance.now() - deferredT0);
+          dibayCartFlowV2Log({
+            slug: storeSlug,
+            deferred_ready_ms: deferredMs,
+            checkout_contact_fetch_ms: contactPack?.ms ?? null,
+            addresses_fetch_ms: addressRes?.ms ?? null,
+            cache_hit: contactPack?.cached ? 1 : 0,
+            singleflight_hit: contactPack?.cached ? 1 : 0,
+            query_count: 2,
+            ...dibayCartFlowWorstStage({
+              checkout_contact: contactPack?.ms,
+              addresses: addressRes?.ms,
+            }),
+          });
+        }
+      }
     }
-  }, [applyCheckoutBuyerPhone]);
+  }, [applyCheckoutBuyerPhone, storeSlug]);
 
   useEffect(() => {
     if (!checkoutContactReady || !needsAddressAndPhone) return;
@@ -792,10 +1003,13 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     applyCheckoutBuyerPhone,
   ]);
 
-  /** 결제 폼이 보일 때만 연락처·주소 부트스트랩(빈 장바구니 3-way fetch 방지) */
+  /** 결제 폼이 보일 때만 연락처·주소 — idle/deferred(첫 cart shell 비차단) */
   useEffect(() => {
     if (!cart.hydrated || lines.length === 0) return;
-    void bootstrapCheckoutIdentity();
+    scheduleStoreCartIdleTask(() => {
+      markCartHydrationStage("checkout_deferred_scheduled_ms");
+      void bootstrapCheckoutIdentity();
+    });
   }, [cart.hydrated, lines.length, bootstrapCheckoutIdentity]);
 
   useLayoutEffect(() => {
@@ -906,9 +1120,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     showFreeDeliveryProgress && subtotalPhp >= freeDeliveryThresholdPhp!;
 
   const frontCommerce = useMemo(() => {
-    if (!store) return null;
-    return resolveStoreFrontCommerceState(store.business_hours_json, store.is_open);
-  }, [store, hoursTick]);
+    if (!commerceStore) return null;
+    return resolveStoreFrontCommerceState(commerceStore.business_hours_json, commerceStore.is_open);
+  }, [commerceStore, hoursTick]);
 
   const ownerOrderBlocked = store?.can_order_store === false;
   const ownerOrderBlockedMessage = store?.owner_block_message ?? OWN_STORE_ORDER_BLOCK_MESSAGE;
@@ -1068,7 +1282,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         ? `${formatPhMobileDisplayPlus63(phoneDigits)} (입력 미완성)`
         : "(미입력)";
     const addrDisp =
-      [summaryForSubmit, addressDetail.trim()].filter(Boolean).join("\n") || "(미입력)";
+      formatStoreOrderDeliveryAddressMultiline({
+        summary: summaryForSubmit,
+        detail: addressDetail.trim(),
+      }) || "(미입력)";
     const payLabel =
       checkoutPaymentOptions.find((o) => o.id === selectedPaymentMethod)?.label ?? selectedPaymentMethod;
     const grandForConfirm =
@@ -1260,15 +1477,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     );
   }
 
-  if (storeLoading && !store && lines.length > 0) {
+  if ((storeLoadFailed || !displayStore) && lines.length === 0) {
     return (
-      <div className="min-h-[40vh] px-4 py-12 text-center sam-text-body text-sam-muted">{t("common_loading")}</div>
-    );
-  }
-
-  if ((storeLoadFailed || !store) && lines.length === 0) {
-    return (
-      <StoreCommerceCartPageShell>
+      <StoreCommerceCartPageShell hydrationMeasured={cartShellHydrationReady}>
         <p className="px-4 py-12 text-center text-sm text-sam-muted">{t("common_store_info_load_failed")}</p>
         <div className="px-4 text-center">
           <Link href="/stores" className="text-sm font-medium text-signature">
@@ -1281,7 +1492,10 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
   if (lines.length === 0) {
     return (
-      <StoreCommerceCartPageShell header={<StoreBaeminCartTopBar onBack={() => router.back()} />}>
+      <StoreCommerceCartPageShell
+        header={<StoreBaeminCartTopBar onBack={() => router.back()} />}
+        hydrationMeasured={cartShellHydrationReady}
+      >
         <div className="px-4 py-10">
           <div className="text-center">
             <p className="sam-text-body-lg font-semibold text-sam-fg">장바구니가 비어 있어요</p>
@@ -1351,11 +1565,13 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     );
   }
 
-  if (!store) {
+  if (!displayStore) {
     return (
       <div className="min-h-[40vh] px-4 py-12 text-center sam-text-body text-sam-muted">{t("common_loading")}</div>
     );
   }
+
+  const shellStore = displayStore;
 
   const fulfillmentOptions: { value: Fulfillment; label: string }[] = [];
   if (deliveryFulfillmentMode) {
@@ -1396,6 +1612,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
   return (
     <StoreCommerceCartPageShell
       header={<StoreBaeminCartTopBar onBack={() => router.back()} />}
+      hydrationMeasured={cartShellHydrationReady}
       footer={
         <StoreCartCheckoutActionBar
           ref={checkoutFooterRef}
@@ -1413,7 +1630,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     >
 
       <StoreBaeminCartStoreBlock
-        store={store}
+        store={shellStore}
         lines={lines}
         busy={busy}
         noneLabel={t("common_none")}
@@ -1452,12 +1669,12 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
       <StoreCartClearConfirmDialog
         open={clearCartConfirmOpen}
-        storeName={store.store_name}
+        storeName={shellStore.store_name}
         busy={busy}
         onCancel={() => setClearCartConfirmOpen(false)}
         onConfirm={() => {
           setClearCartConfirmOpen(false);
-          cart.clearStoreCart(store.id);
+          if (activeStoreId) cart.clearStoreCart(activeStoreId);
         }}
       />
 
@@ -1682,8 +1899,14 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                       }
                     />
                     <div className="min-w-0 flex-1">
-                      <StoreCartCheckoutAddressRowBody
+                      <StoreCartCheckoutAddressRowBodyLazy
                         row={profileLinkedAddressRow}
+                        linkedSamarketStoreDisplayName={
+                          profileLinkedAddressRow?.labelType === "shop" &&
+                          profileLinkedAddressRow.linkedStoreId?.trim()
+                            ? approvedStoresById.get(profileLinkedAddressRow.linkedStoreId.trim()) ?? null
+                            : null
+                        }
                         profileFallback={profileAddressFallbackParts}
                         emptyFallback="마이페이지에 저장된 배달 주소가 없습니다. 프로필에서 입력하거나 주소 관리에서 저장 주소를 추가하세요."
                       />
@@ -1721,7 +1944,15 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                           aria-label={`${getUserAddressDesignationPlainText(a)}, 저장 주소 ${idx + 1} 선택`}
                         />
                         <div className="min-w-0 flex-1">
-                          <StoreCartCheckoutAddressRowBody row={a} emptyFallback="—" />
+                          <StoreCartCheckoutAddressRowBodyLazy
+                            row={a}
+                            linkedSamarketStoreDisplayName={
+                              a.labelType === "shop" && a.linkedStoreId?.trim()
+                                ? approvedStoresById.get(a.linkedStoreId.trim()) ?? null
+                                : null
+                            }
+                            emptyFallback="—"
+                          />
                         </div>
                       </div>
                     </li>

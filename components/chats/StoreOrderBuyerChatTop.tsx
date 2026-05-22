@@ -13,6 +13,7 @@ import {
 import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import { StoreOrderDeliveryAddressDisplay } from "@/components/addresses/StoreOrderDeliveryAddressDisplay";
 
 export type StoreOrderBuyerOrderPayload = {
   order_no?: string;
@@ -207,7 +208,8 @@ export function StoreOrderBuyerChatTop({
                 </span>
               </li>
             : null}
-            {order.fulfillment_type !== "pickup" && order.delivery_address_summary ?
+            {order.fulfillment_type !== "pickup" &&
+            (order.delivery_address_summary?.trim() || order.delivery_address_detail?.trim()) ?
               <li className="flex gap-2">
                 <span className="shrink-0" aria-hidden>
                   🗺️
@@ -216,17 +218,12 @@ export function StoreOrderBuyerChatTop({
                   <span className="block sam-text-helper font-semibold text-muted">
                     {t("store_delivery_address_heading")}
                   </span>
-                  <span className="mt-0.5 block">{order.delivery_address_summary}</span>
-                </span>
-              </li>
-            : null}
-            {order.fulfillment_type !== "pickup" && order.delivery_address_detail ?
-              <li className="flex gap-2">
-                <span className="shrink-0" aria-hidden>
-                  ✏️
-                </span>
-                <span className="min-w-0">
-                  {t("store_address_detail_line", { detail: order.delivery_address_detail })}
+                  <StoreOrderDeliveryAddressDisplay
+                    className="mt-0.5"
+                    summary={order.delivery_address_summary}
+                    detail={order.delivery_address_detail}
+                    showDetailLabel={false}
+                  />
                 </span>
               </li>
             : null}

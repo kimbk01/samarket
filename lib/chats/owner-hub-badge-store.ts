@@ -21,6 +21,11 @@ import {
 } from "@/lib/chats/owner-hub-badge-types";
 
 import { isStoreOwnerAdminPathname } from "@/lib/business/owner-hub-path";
+import { OWNER_DASHBOARD_API_PRIORITY } from "@/lib/business/owner-dashboard-api-priority";
+import {
+  trackOwnerDashboardApiDone,
+  trackOwnerDashboardApiStart,
+} from "@/lib/business/owner-dashboard-waterfall";
 
 import {
 
@@ -108,7 +113,7 @@ const MIN_REPEAT_PLAIN_FETCH_GAP_MS = 5_000;
 
 /** 서버 `OWNER_HUB_BADGE_TTL_MS` 와 동일 — 첫 페인트 이후 idle 조회 시 cache_hit 유도 */
 
-const CLIENT_HUB_BADGE_RESPONSE_TTL_MS = 5_000;
+const CLIENT_HUB_BADGE_RESPONSE_TTL_MS = 12_000;
 
 
 
@@ -633,6 +638,13 @@ function fetchOwnerHubBadgeLeaderNetwork(force: boolean, opts?: FetchOwnerHubBad
 
 
 
+  const hubCacheHit = !force && peekClientHubBadgeResponseCache() != null ? 1 : 0;
+  trackOwnerDashboardApiStart("hub_badge", {
+    priority: OWNER_DASHBOARD_API_PRIORITY.hub_badge,
+    cache_hit: hubCacheHit,
+  });
+  const wfT0 = Date.now();
+
   return runSingleFlight(HUB_BADGE_FLIGHT_KEY, async (): Promise<boolean> => {
 
     try {
@@ -677,6 +689,12 @@ function fetchOwnerHubBadgeLeaderNetwork(force: boolean, opts?: FetchOwnerHubBad
 
       if (!force) lastPlainFetchCompletedAt = lastFetchCompletedAt;
 
+      trackOwnerDashboardApiDone("hub_badge", {
+        priority: OWNER_DASHBOARD_API_PRIORITY.hub_badge,
+        cache_hit: hubCacheHit,
+        client_duration_ms: Date.now() - wfT0,
+      });
+
       return res.ok;
 
     } catch {
@@ -686,6 +704,12 @@ function fetchOwnerHubBadgeLeaderNetwork(force: boolean, opts?: FetchOwnerHubBad
       broadcastOwnerHubBadgeSnapshot(null);
 
       lastFetchCompletedAt = Date.now();
+
+      trackOwnerDashboardApiDone("hub_badge", {
+        priority: OWNER_DASHBOARD_API_PRIORITY.hub_badge,
+        cache_hit: hubCacheHit,
+        client_duration_ms: Date.now() - wfT0,
+      });
 
       return false;
 

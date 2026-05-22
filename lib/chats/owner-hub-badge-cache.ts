@@ -8,11 +8,12 @@ import { invalidateCommunityMessengerUnreadTotalCache } from "@/lib/community-me
 import { invalidateHubStoreOrderUnreadMemory } from "@/lib/community-messenger/hub-store-order-unread-memory-cache";
 import { invalidateHubStoreAttentionMemory } from "@/lib/stores/hub-store-attention-memory-cache";
 import { invalidateOwnerHubStoreLookupCache } from "@/lib/chats/owner-hub-store-lookup-cache";
+import { logRouteCacheHit, logRouteCacheMiss } from "@/lib/http/route-cache-log";
 import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
 
 /** 짧은 서버 캐시 — 클라이언트 폴링·다중 탭과 겹쳐도 한 번 계산으로 흡수. 클라 최소 간격은 `lib/chats/owner-hub-badge-store.ts` `MIN_FETCH_GAP_MS` 와 맞춤 */
 /** warm 요청 5~30ms 목표 — 무효화·cmFresh·클라 `MIN_FETCH_GAP_MS` 와 함께 조정 */
-const HUB_BADGE_TTL_MS = 5_000;
+const HUB_BADGE_TTL_MS = 12_000;
 
 export type OwnerHubBadgePayload = {
   ok: true;
@@ -91,9 +92,10 @@ export async function getCachedOwnerHubBadge(
   const now = Date.now();
   const cached = hubBadgeCache.get(cacheKey);
   if (cached && cached.expiresAt > now) {
-    console.log("[hub-badge-cache-hit]", {
+    logRouteCacheHit("/api/me/store-owner-hub-badge", {
+      cache_hit: 1,
       route_cache_key: hubBadgeFlightKey(cacheKey),
-      userId: cacheKey,
+      user_id: cacheKey,
       ttl_remaining_ms: cached.expiresAt - now,
     });
     return cached.value;
@@ -101,9 +103,9 @@ export async function getCachedOwnerHubBadge(
 
   pruneExpiredHubBadgeCache(now);
 
-  console.log("[hub-badge-cache-miss]", {
+  logRouteCacheMiss("/api/me/store-owner-hub-badge", {
     route_cache_key: hubBadgeFlightKey(cacheKey),
-    userId: cacheKey,
+    user_id: cacheKey,
   });
   return runSingleFlight(hubBadgeFlightKey(cacheKey), async () => {
     const again = hubBadgeCache.get(cacheKey);

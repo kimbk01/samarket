@@ -63,9 +63,16 @@ import {
   fetchStoreNoticesDeduped,
   fetchStorePublicBySlugDeduped,
   fetchStoreSummaryDeduped,
+  peekStoreMenusPublicCache,
+  peekStoreSummaryPublicCache,
   primeStorePublicCache,
   type StoreApiJsonResponse,
 } from "@/lib/stores/store-delivery-api-client";
+import {
+  dibayStoreDetailFlowPayloadKb,
+  dibayStoreDetailFlowV2Log,
+  dibayStoreDetailFlowWorstStage,
+} from "@/lib/dibay/dibay-store-detail-flow-v2";
 import type { StoreBannerPublicRow, StoreNoticePublicRow } from "@/lib/stores/store-banners-notices-public";
 import {
   getStorePublicInitialSnapshot,
@@ -263,6 +270,7 @@ export function StoreDetailPublic({
   const detailPhase2MountT0Ref = useRef<number | null>(null);
   const phase2FirstProductsLoggedRef = useRef(false);
   const phase2MenuSectionsLoggedRef = useRef(false);
+  const detailFlowShellLoggedRef = useRef(false);
   const storeIdRef = useRef<string | null>(null);
   const storeRef = useRef(store);
   const productsRef = useRef(products);
@@ -333,6 +341,14 @@ export function StoreDetailPublic({
         source: hasListSeed ? "list_seed_sync" : "store_state",
         seed_saved: hasListSeed,
       });
+      if (!detailFlowShellLoggedRef.current && detailPhase2MountT0Ref.current != null) {
+        detailFlowShellLoggedRef.current = true;
+        dibayStoreDetailFlowV2Log({
+          slug: decodedSlug,
+          shell_visible_ms: Math.round(performance.now() - detailPhase2MountT0Ref.current),
+          cache_hit: hasListSeed || peekStoreSummaryPublicCache(decodedSlug) ? 1 : 0,
+        });
+      }
     }
   }, [decodedSlug, listSeedForPaint, store]);
 
@@ -410,6 +426,12 @@ export function StoreDetailPublic({
       const sid = storeRef.current?.id;
       const storeId = sid && !isStoreDetailListSeedId(sid) ? sid : slugKey;
       dibayPerfOnStoreMenuVisible({ slug: slugKey, storeId });
+      if (detailPhase2MountT0Ref.current != null) {
+        dibayStoreDetailFlowV2Log({
+          slug: slugKey,
+          first_menu_card_visible_ms: Math.round(performance.now() - detailPhase2MountT0Ref.current),
+        });
+      }
       deliveryPerfTraceLog(DELIVERY_PERF_TAG_MENU_PASS, {
         event: "pass2_menu_viewport_visible",
         slug: slugKey,
@@ -753,14 +775,24 @@ export function StoreDetailPublic({
       })
       .catch(() => false);
 
+    const summaryHadCache = !!peekStoreSummaryPublicCache(slug);
+    const menusHadCache = !!peekStoreMenusPublicCache(slug);
+    const summaryFetchT0 = performance.now();
+    const summaryFetchPromise = fetchStoreSummaryDeduped(slug);
     dibayDeliveryDetailPhase2Log("summary_fetch_start", {
       slug: startedSlugDecode,
+      parallel_with_menus: true,
       ...dibayDeliveryDetailPhase2SinceMountOrNav(mountT0),
     });
-    const sumRes = await fetchStoreSummaryDeduped(slug);
+    const [sumRes, menusReady] = await Promise.all([
+      summaryFetchPromise,
+      menusApplyPromise,
+    ]);
+    const summaryFetchMs = Math.round(performance.now() - summaryFetchT0);
     dibayDeliveryDetailPhase2Log("summary_fetch_end", {
       slug: startedSlugDecode,
       status: sumRes.status,
+      summary_fetch_ms: summaryFetchMs,
       ...dibayDeliveryDetailPhase2SinceMountOrNav(mountT0),
     });
 
@@ -830,11 +862,22 @@ export function StoreDetailPublic({
         /* empty banners/notices */
       });
 
-    const menusReady = await menusApplyPromise;
     dibayDeliveryDetailPhase2Log("menus_apply_await_settled", {
       slug: startedSlugDecode,
       menus_ready: menusReady,
       ...dibayDeliveryDetailPhase2SinceMountOrNav(mountT0),
+    });
+    dibayStoreDetailFlowV2Log({
+      slug: startedSlugDecode,
+      summary_fetch_ms: summaryFetchMs,
+      menus_fetch_ms: null,
+      cache_hit: summaryHadCache || menusHadCache ? 1 : 0,
+      singleflight_hit: summaryHadCache || menusHadCache ? 1 : 0,
+      payload_kb: dibayStoreDetailFlowPayloadKb(sumRes.json),
+      fetch_path: "loadSplitDetail",
+      ...dibayStoreDetailFlowWorstStage({
+        summary_fetch: summaryFetchMs,
+      }),
     });
     if (menusReady) {
       /* menusLoading 은 core 적용 직후 해제됨 */
@@ -852,10 +895,6 @@ export function StoreDetailPublic({
         setPopularMenuCards([]);
         setProductRowsById({});
       }
-    }
-    if (menusReady) {
-      /* menusLoading 은 core 적용 직후 해제됨 */
-    } else {
       setMenusLoading(false);
     }
   }, [
@@ -902,14 +941,21 @@ export function StoreDetailPublic({
       })
       .catch(() => false);
 
+    const summaryFetchT0 = performance.now();
+    const summaryFetchPromise = fetchStoreSummaryDeduped(slug);
     dibayDeliveryDetailPhase2Log("summary_fetch_start_silent", {
       slug: startedSlugDecode,
+      parallel_with_menus: true,
       ...dibayDeliveryDetailPhase2SinceMountOrNav(mountT0),
     });
-    const sumRes = await fetchStoreSummaryDeduped(slug);
+    const [sumRes, menusReady] = await Promise.all([
+      summaryFetchPromise,
+      menusApplyPromise,
+    ]);
     dibayDeliveryDetailPhase2Log("summary_fetch_end_silent", {
       slug: startedSlugDecode,
       status: sumRes.status,
+      summary_fetch_ms: Math.round(performance.now() - summaryFetchT0),
       ...dibayDeliveryDetailPhase2SinceMountOrNav(mountT0),
     });
 
@@ -949,7 +995,6 @@ export function StoreDetailPublic({
         /* empty */
       });
 
-    const menusReady = await menusApplyPromise;
     if (menusReady) {
       return;
     }
@@ -1198,10 +1243,11 @@ export function StoreDetailPublic({
   }, [summaryLoading, menusLoading, store?.id, menuQuery, menuSearchOpen]);
 
   const storeMenuRootActive = isStoreSlugOrderMenuRoot(pathname ?? "", decodedSlug);
+  const blockMenuTabsAnchor = summaryLoading && !storeForPaint;
   const { menuTabsViewportReady } = useStoreDetailMenuTabsViewport({
     pathname,
     decodedSlug,
-    summaryLoading,
+    blockMenuTabsAnchor,
     menusLoading,
     menuTabsMeasurable: storeMenuRootActive && !menusLoading && menuSectionsFiltered.length > 0,
     menuStickyMeasureRef,

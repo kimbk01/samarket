@@ -125,7 +125,10 @@ no-store 게이트 측정: `OWNER_DASHBOARD_GATE_NO_HUB=1` + hub 없는 계정(�
 | 태그 | 용도 |
 |------|------|
 | `[owner-dashboard-perf-v2]` | route·cache·`order_counts_via`·`db_round_trips`·breakdown ms |
-| `[order-counts-cold-breakdown]` | cold stage·`rpc_wall_ms` |
+| `[order-counts-cold-breakdown]` | cold `auth_ms`·`rpc_wall_ms`·`rpc_parse_ms`·`cache_set_ms`·`payload_build_ms`·`rpc_rtt_limited`·`cold_bottleneck_cause` |
+| `npm run measure:order-counts-cold-rpc` | cold 1 + warm 2 전용 측정 (`dev:measure` 필요) |
+| `[hub-cold-client-wall-breakdown]` | cold client wall vs `server_actual_handler_ms` · cm_unread/store_lookup |
+| `npm run measure:hub-cold-client-wall` | hub cold 1 + warm 2 (`x-samarket-hub-badge-measure`) |
 | `[hub-badge-breakdown]` | no-hub·`unread_parts_ms` |
 | `[owner-store-ops-dashboard-snapshot-rpc-hit]` | snapshot 경로 |
 | `[owner-dashboard-perf-v2] structural regression` | 구조 FAIL |

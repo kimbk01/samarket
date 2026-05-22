@@ -1,3 +1,4 @@
+import { formatStoreOrderDeliveryAddressMultiline } from "@/lib/addresses/store-order-delivery-address-display";
 import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
 import { formatPhMobileDisplay, parsePhMobileInput, telHrefFromPhDb09 } from "@/lib/utils/ph-mobile";
 import { formatStoreOrderCheckoutEtaSummary } from "@/lib/stores/format-store-order-checkout-display";
@@ -42,11 +43,8 @@ function formatDeliveryAddressForOwner(
   summary: string | null | undefined,
   detail: string | null | undefined
 ): string | null {
-  const s = (summary ?? "").trim();
-  const d = (detail ?? "").trim();
-  if (!s && !d) return null;
-  if (s && d) return `${s}\n${d}`;
-  return s || d;
+  const plain = formatStoreOrderDeliveryAddressMultiline({ summary, detail });
+  return plain === "—" ? null : plain;
 }
 
 function fulfillmentToOrderType(ft: string): OwnerOrderType {

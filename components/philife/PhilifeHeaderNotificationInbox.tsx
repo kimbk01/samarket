@@ -19,6 +19,7 @@ import {
   fetchMeNotificationSettingsSnapshot,
   invalidateMeNotificationSettingsGetFlight,
 } from "@/lib/me/fetch-me-notification-settings-client";
+import { scheduleStartupApiDeferred } from "@/lib/http/startup-api-scheduler";
 import {
   fetchMeNotificationsListDeduped,
   invalidateMeNotificationsListDedupedCache,
@@ -140,7 +141,10 @@ export function PhilifeHeaderNotificationInbox() {
   }, []);
 
   useEffect(() => {
-    void loadSound();
+    const cancel = scheduleStartupApiDeferred("notification-settings-philife-inbox", () => {
+      void loadSound();
+    }, { delayMs: 120 });
+    return cancel;
   }, [loadSound]);
 
   useEffect(() => {

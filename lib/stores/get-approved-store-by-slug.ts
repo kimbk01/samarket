@@ -27,6 +27,10 @@ export const STORE_SELECT_SUMMARY =
 /** `/menus`·`reviews-summary` 등 store id 만 필요할 때 */
 export const STORE_SELECT_ID_SLUG_GATE = "id, slug, approval_status, is_visible";
 
+/** `generateMetadata`·OG — 최소 컬럼만 (집계·메뉴 없음) */
+export const STORE_SELECT_SEO =
+  "store_name, slug, description, region, city, district, profile_image_url, approval_status, is_visible";
+
 /** `GET /api/stores/[slug]/menus` — 공개 store 블록 + 품절 정렬 플래그 */
 export const STORE_SELECT_MENUS_STORE =
   "id, slug, store_name, approval_status, is_visible, menu_sold_out_bottom";

@@ -1,3 +1,4 @@
+import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-order-delivery-address-display";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { orderLineOptionsSummary } from "@/lib/stores/product-line-options";
 import { orderStatusLabelForSummary } from "@/lib/store-order-chat/store-order-summary-timeline";
@@ -51,11 +52,12 @@ export function formatStoreOrderSummaryForChatMessage(
         : orderStatusLabelForSummary(order.order_status);
     lines.push(`상태: ${labeled}`);
   }
-  if (order.delivery_address_summary?.trim()) {
-    lines.push(`배달지역: ${order.delivery_address_summary.trim()}`);
-  }
-  if (order.delivery_address_detail?.trim()) {
-    lines.push(`상세주소: ${order.delivery_address_detail.trim()}`);
+  const deliveryAddr = formatStoreOrderDeliveryAddressPlain({
+    summary: order.delivery_address_summary,
+    detail: order.delivery_address_detail,
+  });
+  if (deliveryAddr) {
+    lines.push(`배달 주소: ${deliveryAddr}`);
   }
   if (order.buyer_phone?.trim()) {
     lines.push(`연락처: ${order.buyer_phone.trim()}`);

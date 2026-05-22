@@ -3,6 +3,7 @@
 import { useLayoutEffect } from "react";
 import { usePathname } from "next/navigation";
 import { enterOwnerHubSecondaryFetchSchedule, leaveOwnerHubSecondaryFetchSchedule } from "@/lib/business/owner-hub-secondary-fetch-queue";
+import { OwnerDashboardWaterfallMount } from "@/components/business/owner/OwnerDashboardWaterfallMount";
 import { StoreBusinessGuard } from "@/components/business/StoreBusinessGuard";
 import { BusinessAdminShell } from "@/components/business/admin/BusinessAdminShell";
 import { OwnerHubRuntimeProvider } from "@/components/business/owner/OwnerHubRuntimeProvider";
@@ -40,6 +41,7 @@ export function StoresOwnerLayoutClient({
   if (isHub) {
     return (
       <OwnerHubRuntimeProvider initialStores={initialStores}>
+        <OwnerDashboardWaterfallMount />
         <BusinessAdminShell entry="hub" initialStores={initialStores}>
           {children}
         </BusinessAdminShell>

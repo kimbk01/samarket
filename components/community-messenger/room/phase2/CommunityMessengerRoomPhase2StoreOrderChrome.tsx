@@ -14,6 +14,7 @@ import {
   messengerDeliveryProgressFillRatio,
   messengerDeliveryProgressSteps,
 } from "@/lib/store-order-chat/messenger-delivery-progress";
+import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-order-delivery-address-display";
 import { formatMoneyPhp } from "@/lib/utils/format";
 
 type Props = {
@@ -226,7 +227,10 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
         }
         addressLine={
           snapshot?.orderCard?.addressLines?.[0] ??
-          snapshot?.buyerOrder?.delivery_address_summary ??
+          formatStoreOrderDeliveryAddressPlain({
+            summary: snapshot?.buyerOrder?.delivery_address_summary,
+            detail: snapshot?.buyerOrder?.delivery_address_detail,
+          }) ??
           ""
         }
       />

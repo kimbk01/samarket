@@ -30,3 +30,27 @@ export function runSingleFlight<T>(key: string, factory: () => Promise<T>): Prom
   flights.set(key, p);
   return p;
 }
+
+/** dev memory diagnosis — 진행 중 single-flight 키 수 */
+export function getSingleFlightInflightCount(): number {
+  return flights.size;
+}
+
+/**
+ * dev — Map 상한 초과 시 오래된 키부터 제거(완료 후에도 남는 stuck 항목 완화).
+ * 진행 중 Promise 는 유지하되 초과분만 eviction.
+ */
+export function pruneSingleFlightDev(): number {
+  if (process.env.NODE_ENV !== "development") return 0;
+  const max = (() => {
+    const raw = Number(process.env.SAMARKET_DEV_SINGLEFLIGHT_MAX_KEYS);
+    return Number.isFinite(raw) && raw >= 32 ? Math.floor(raw) : 128;
+  })();
+  if (flights.size <= max) return 0;
+  const overflow = flights.size - max;
+  const keys = [...flights.keys()];
+  for (let i = 0; i < overflow; i += 1) {
+    flights.delete(keys[i]!);
+  }
+  return overflow;
+}

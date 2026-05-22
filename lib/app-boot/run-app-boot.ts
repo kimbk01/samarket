@@ -17,12 +17,23 @@ import {
   setAppBootProfile,
 } from "@/lib/app-boot/app-boot-store";
 import { scheduleAppBootBackgroundHydration } from "@/lib/app-boot/schedule-app-boot-background";
+import { logStartupApiPlan } from "@/lib/http/startup-api-scheduler";
 import { primeMeProfileDedupedFromBoot } from "@/lib/profile/fetch-me-profile-deduped";
 import { bumpAppWidePerf, recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
 
 let bootInFlight: Promise<void> | null = null;
 
 async function runAppBootOnce(): Promise<void> {
+  logStartupApiPlan({
+    blocking: ["/api/me/profile?lite=1"],
+    deferred: [
+      "/api/me/profile?mode=full",
+      "/api/me/store-owner-hub-badge",
+      "/api/me/notification-settings",
+      "/api/stores/browse",
+      "/api/philife/neighborhood-feed",
+    ],
+  });
   bumpAppWidePerf("app_bootstrap_start");
   const t0 = performance.now();
   setAppBootLoading();

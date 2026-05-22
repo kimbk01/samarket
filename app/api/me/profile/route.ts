@@ -34,6 +34,7 @@ import {
   setProfileResponseCache,
 } from "@/lib/profile/profile-response-cache";
 import { jsonError } from "@/lib/http/api-route";
+import { shouldBypassRouteMemoryCache } from "@/lib/http/route-cache-bypass";
 import { logRoutePerf } from "@/lib/http/route-perf-log";
 export const dynamic = "force-dynamic";
 
@@ -416,6 +417,7 @@ export async function GET(request: NextRequest) {
     return jsonError("로그인이 필요합니다.", 401, { authenticated: false });
   }
   const userId = cookieAuth.userId;
+  const bypassRouteCache = shouldBypassRouteMemoryCache(request.nextUrl.searchParams);
 
   const quota0 = devPerfNow();
   const ensureRl = await enforceProfileEnsureQuota(userId);
@@ -423,7 +425,9 @@ export async function GET(request: NextRequest) {
   if (!ensureRl.ok) return ensureRl.response;
 
   const tProdPeek0 = devPerfNow();
-  const prodProfilePeek = peekProfileResponseCache(userId, mode);
+  const prodProfilePeek = bypassRouteCache
+    ? ({ hit: false as const, reason: "miss" as const, cache_key: `${userId}\0${mode}` })
+    : peekProfileResponseCache(userId, mode);
   const prod_profile_response_cache_lookup_ms = Math.round(devPerfNow() - tProdPeek0);
 
   if (prodProfilePeek.hit) {
@@ -541,9 +545,19 @@ export async function GET(request: NextRequest) {
   }
 
   const tRespPeek0 = devPerfNow();
-  const responseCachePeek = peekMeProfileGetResponseCacheDetailed(userId, mode);
+  const responseCachePeek = bypassRouteCache
+    ? ({
+        hit: false as const,
+        reason: "miss" as const,
+        cache_key: `${userId.trim()}\0${mode}`,
+      })
+    : peekMeProfileGetResponseCacheDetailed(userId, mode);
   const profile_response_cache_lookup_ms = Math.round(devPerfNow() - tRespPeek0);
-  const profileResponseCacheBypassReason = responseCachePeek.hit ? "" : responseCachePeek.reason;
+  const profileResponseCacheBypassReason = bypassRouteCache
+    ? "bypass_query"
+    : responseCachePeek.hit
+      ? ""
+      : responseCachePeek.reason;
   const profileResponseCacheKey = responseCachePeek.cache_key;
 
   if (responseCachePeek.hit) {
@@ -660,7 +674,8 @@ export async function GET(request: NextRequest) {
     return res;
   }
 
-  const cached = mode === "lite" ? undefined : peekMeProfileGetRouteCache(userId);
+  const cached =
+    bypassRouteCache || mode === "lite" ? undefined : peekMeProfileGetRouteCache(userId);
   if (cached !== undefined) {
     const body = { ok: true, profile: cached };
     let json_payload_serialize_probe_ms = 0;

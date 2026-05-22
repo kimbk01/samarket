@@ -6,7 +6,7 @@
 
 | 필드 | 값 |
 |------|-----|
-| Last updated | 2026-05-19 (배달 카트 DS4 · 시트 seed/menus/checkout idle 계약 검증 추가) |
+| Last updated | 2026-05-21 (DEV-STAB-1 — dev:measure + measurement runbook) |
 | Owner | (선택) |
 
 ---
@@ -55,6 +55,61 @@
 ---
 
 ## 진행 중 트랙
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 이름 | **DEV-STAB-1** DIBAY dev 측정 환경 안정화 (메모리 → auth → owner dashboard → cache-hit) |
+| **트랙 상태** | **완료** (dev:measure 분리) |
+| 이번 원인 1개 | dev heap 4.3GiB+ / 30s +227MiB — **in-process cache ≪ heap** → Next dev compile/HMR graph 가 측정 오염 |
+| 이번 조치 | `npm run dev:measure` · `scripts/dev-measure.cjs` · `[dev-memory-growth-diagnosis]` HMR/cache 분리·memory_guard · `docs/performance/dev-measurement-runbook.md` · API 판정 `actual_handler_ms` 고정 |
+| 측정 명령 | `npm run dev:measure` → `[dev-memory-growth-diagnosis]` 2회 → `npm run measure:owner-dashboard-api` — [dev-measurement-runbook.md](./performance/dev-measurement-runbook.md) |
+| 완료 기준(1차) | 일반 `dev` 유지 + measure dev env 자동 적용 + 진단 로그가 HMR vs in-process 분리 + **API는 actual_handler_ms 만 판정** (qqqq warm auth/order/notifications 이미 통과 → API 수정 금지) |
+| 다음 원인(예정) | **C** owner dashboard waterfall |
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 이름 | **B** hub cold client wall |
+| **트랙 상태** | **완료 — 서버 cm_unread 병목 판정** |
+| 이번 원인 1개 | cold **server ~935ms** · **cm_unread_ms ~686** · client wall ~1039와 근접 → **900ms는 서버 handler+linked RTT**(compile 2회차는 dev 과부하) |
+| 이번 조치 | `[hub-cold-client-wall-breakdown]` · `x-samarket-hub-badge-measure` invalidate · `measure:hub-cold-client-wall` |
+| 측정 | cold client 1039 / server 935 / warm2 76ms (qqqq, dev:measure) |
+| 완료 기준 | warm ≤30 ✓(2nd warm) · 병목 `cm_unread_query` ✓ · cold 300ms ✗ → RTT·cm_unread 서버 한계 |
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 이름 | **C** owner dashboard waterfall |
+| **트랙 상태** | **완료** |
+| 이번 원인 1개 | mount 시 `order-counts` await + `orders_list`/`settlements` 즉시 fetch 가 첫 shell 을 막음 |
+| 이번 조치 | `[owner-dashboard-waterfall]` · RSC ops seed · paint 후 order-counts · orders/settlements background 6s |
+| 측정 | `npm run measure:owner-dashboard-waterfall` |
+| 완료 기준 | `first_paint_blocking:false` on deferred APIs · shell skeleton before cold network |
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 이름 | **D** hub cm_unread 서버 병목 only |
+| **트랙 상태** | **완료 — PostgREST RTT 2-hop 한계 판정** |
+| 이번 원인 1개 | cold cm_unread **직렬 2 RTT** (counter row read ~236ms + RPC ~218ms) · transport **~98%** of RPC wall · JS aggregation/join **0** |
+| 이번 조치 | `[cm-unread-deep-breakdown]` · sync aggregate upsert → **deferred** · cm_unread single-flight · `measure:cm-unread-cold` |
+| 측정 | `npm run dev:measure` + `npm run measure:cm-unread-cold` (qqqq) — cm_unread **~462ms** (B 대비 ~686↓) · hub handler **~763–813ms** · warm handler **~18ms** |
+| 완료 기준 | warm ≤30 ✓ · 병목 `postgrest_transport`+`counter_row_read` ✓ · cm_unread cold 400ms ✗ → **linked RTT·2-hop** (SQL/semantics 변경 없음) |
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 이름 | **E** prod_same_region 실측 검증 only |
+| **트랙 상태** | **준비 완료 — 측정 인프라** (배포 URL·동일 리전에서 실행 필요) |
+| 이번 원인 1개 | linked dev cold 700~800ms = **PostgREST transport** (앱 CPU/aggregation 아님) |
+| 이번 조치 | `[prod-region-context]` · `SAMARKET_PROD_PERF_MEASURE=1` prod 로그 게이트 · `measure:prod-same-region` · `start:prod-measure` · runbook |
+| 측정 | `npm run build` → `start:prod-measure` 또는 Vercel + `SAMARKET_BASE_URL=… npm run measure:prod-same-region` |
+| 완료 기준 | prod hub cold ≤400 · order-counts cold ≤120 · warm ≤30 · same_region true → **운영 가능** 판정 |
+
+| 항목 | 내용 |
+|------|------|
+| 트랙 이름 | **A** order-counts cold RPC (관측·cold path only) |
+| **트랙 상태** | **완료 — RTT 한계 판정** |
+| 이번 원인 1개 | cold `rpc_wall_ms` ~220–236ms — `rpc_parse_ms`·`cache_set_ms`·`payload_build_ms` ≈ 0 → **PostgREST linked RTT** (DB hint 5ms) |
+| 이번 조치 | `[order-counts-cold-breakdown]` 확장 · `primeStoreOrderCountsCache` · stores Supabase singleton · `measure:order-counts-cold-rpc` |
+| 측정 | `npm run dev:measure` + `npm run measure:order-counts-cold-rpc` (qqqq) — cold 236ms / warm 17–23ms |
+| 완료 기준 | warm ≤30 ✓ · 병목 1개 `postgrest_rtt` ✓ · cold 100ms ✗ → SQL/구조 변경 없이 **RTT 분리 판정** |
 
 | 항목 | 내용 |
 |------|------|

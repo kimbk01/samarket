@@ -1,4 +1,5 @@
 import { randomBytes } from "crypto";
+import { formatStoreOrderDeliveryAddressMultiline } from "@/lib/addresses/store-order-delivery-address-display";
 import { NextRequest, NextResponse } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { appendAuditLog } from "@/lib/audit/append-audit-log";
@@ -723,8 +724,11 @@ export async function POST(req: NextRequest) {
     console.error("[POST store-orders] ensure order chat", e);
   }
 
-  const composedAddress =
-    [delivery_address_summary, delivery_address_detail].filter(Boolean).join("\n") || null;
+  const composedPlain = formatStoreOrderDeliveryAddressMultiline({
+    summary: delivery_address_summary,
+    detail: delivery_address_detail,
+  });
+  const composedAddress = composedPlain === "—" ? null : composedPlain;
   const profilePatch: { contact_phone?: string; contact_address?: string } = {};
   if (buyer_phone_norm) profilePatch.contact_phone = buyer_phone_norm;
   if (composedAddress) profilePatch.contact_address = composedAddress;

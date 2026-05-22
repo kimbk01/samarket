@@ -1,12 +1,12 @@
 /**
- * App Boot Layer — `GET /api/me/profile?mode=minimal` 단일 비행.
+ * App Boot Layer — `GET /api/me/profile?lite=1` 단일 비행 (서버 `profileSelectMode: lite`).
  */
 import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-flight";
 import type { MeProfileGetResult } from "@/lib/profile/fetch-me-profile-deduped";
 import { recordBootVerifyFetch } from "@/lib/app-boot/client-boot-request-journal";
 
 const BOOT_MINIMAL_FLIGHT = "app-boot:profile:minimal" as const;
-const BOOT_MINIMAL_TTL_MS = 12_000;
+const BOOT_MINIMAL_TTL_MS = 4_000;
 
 let cached: { expiresAt: number; value: MeProfileGetResult } | null = null;
 
@@ -30,8 +30,8 @@ export function fetchAppBootProfileMinimal(): Promise<MeProfileGetResult> {
     return Promise.resolve(cached.value);
   }
   return runSingleFlight(BOOT_MINIMAL_FLIGHT, () => {
-    recordBootVerifyFetch("/api/me/profile?mode=minimal", "app_boot_minimal");
-    return fetch("/api/me/profile?mode=minimal", {
+    recordBootVerifyFetch("/api/me/profile?lite=1", "app_boot_minimal");
+    return fetch("/api/me/profile?lite=1", {
       credentials: "include",
       cache: "no-store",
       headers: {

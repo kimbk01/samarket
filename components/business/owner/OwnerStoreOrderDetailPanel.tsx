@@ -17,6 +17,7 @@ import {
 } from "@/lib/stores/owner-mobile-ui-tokens";
 import { ownerOrderStatusLabel } from "@/lib/stores/owner-order-ui-labels";
 import type { OwnerOrderStatus } from "@/lib/store-owner/types";
+import { formatStoreOrderDeliveryAddressMultiline } from "@/lib/addresses/store-order-delivery-address-display";
 import { formatAppDateTime } from "@/lib/i18n/locale-for-app-language";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
@@ -54,9 +55,10 @@ export function OwnerStoreOrderDetailPanel({
     typeof order.buyer_public_label === "string" && order.buyer_public_label.trim()
       ? order.buyer_public_label.trim()
       : BUYER_PUBLIC_LABEL_FALLBACK;
-  const address = [order.delivery_address_summary?.trim(), order.delivery_address_detail?.trim()]
-    .filter(Boolean)
-    .join("\n");
+  const address = formatStoreOrderDeliveryAddressMultiline({
+    summary: order.delivery_address_summary,
+    detail: order.delivery_address_detail,
+  });
   const prepMin =
     order.estimated_prep_minutes != null && Number(order.estimated_prep_minutes) > 0
       ? t("store_owner_prep_about_minutes", {

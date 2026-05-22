@@ -1,5 +1,6 @@
 "use client";
 
+import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-order-delivery-address-display";
 import type { AdminDeliveryOrder } from "@/lib/admin/delivery-orders-admin/types";
 import { formatKstDatetimeLong } from "@/lib/datetime/format-kst-datetime";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -100,7 +101,12 @@ export function OrderDetailCard({ order }: { order: AdminDeliveryOrder }) {
       {order.orderType === "delivery" ? (
         <div className="sm:col-span-2">
           <dt className="text-sam-muted">{t("admin_do_detail_dt_address")}</dt>
-          <dd>{order.addressSummary}</dd>
+          <dd>
+            {formatStoreOrderDeliveryAddressPlain({
+              summary: order.addressSummary,
+              detail: order.addressDetail,
+            }) || "—"}
+          </dd>
         </div>
       ) : (
         <div>

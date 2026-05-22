@@ -1,3 +1,5 @@
+import { logRouteCacheHit, logRouteCacheMiss } from "@/lib/http/route-cache-log";
+
 /** GET /api/stores/browse - response cache (primary/sub/region/city/district/geo/page/limit) */
 const TTL_MS = 45_000;
 
@@ -30,10 +32,17 @@ export function browseListCacheKey(parts: {
 
 export function peekStoresBrowseCache(cacheKey: string): unknown | null {
   const row = cache.get(cacheKey);
-  if (!row || row.expiresAt <= Date.now()) {
+  const now = Date.now();
+  if (!row || row.expiresAt <= now) {
     if (row) cache.delete(cacheKey);
+    logRouteCacheMiss("/api/stores/browse", { cache_key: cacheKey, reason: row ? "ttl_expired" : "miss" });
     return null;
   }
+  logRouteCacheHit("/api/stores/browse", {
+    cache_hit: 1,
+    cache_key: cacheKey,
+    ttl_remaining_ms: row.expiresAt - now,
+  });
   return row.body;
 }
 

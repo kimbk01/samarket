@@ -7,6 +7,7 @@ import { OwnerStoreOrderChatSlidePanel } from "@/components/business/owner/Owner
 import { OwnerStoreOrderMockCard } from "@/components/business/owner/OwnerStoreOrderMockCard";
 import { useRegisterOwnerMobileAdminHeaderTrailing } from "@/components/business/owner/OwnerMobileAdminHeaderTrailingContext";
 import { OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
+import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-order-delivery-address-display";
 import type { OwnerStoreOrderListRow } from "@/lib/business/owner-store-order-list-row-bridge";
 import {
   orderMatchesStoreTab,
@@ -95,7 +96,10 @@ export function OwnerStoreOrdersMobileBody({
           o.order_no,
           o.buyer_public_label,
           o.buyer_phone,
-          o.delivery_address_summary,
+          formatStoreOrderDeliveryAddressPlain({
+            summary: o.delivery_address_summary,
+            detail: o.delivery_address_detail,
+          }),
         ]
           .filter(Boolean)
           .join(" ")

@@ -1,31 +1,27 @@
-import { Suspense } from "react";
-import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { StoreCartEntrySwitch } from "@/components/stores/StoreCartEntrySwitch";
-import { fetchStorePublicInitialOnServer } from "@/lib/stores/fetch-store-public-server";
+import {
+  STORE_CART_PAGE_PERF_SCRIPT_ID,
+  buildStoreCartPageServerPerfPayload,
+} from "@/lib/stores/store-cart-page-server-perf";
 
-export default function StoreCartPage({ params }: { params: Promise<{ slug: string }> }) {
-  return (
-    <Suspense fallback={<MainFeedRouteLoading rows={4} />}>
-      <StoreCartPageBody params={params} />
-    </Suspense>
-  );
-}
-
-async function StoreCartPageBody({ params }: { params: Promise<{ slug: string }> }) {
+export default async function StoreCartPage({ params }: { params: Promise<{ slug: string }> }) {
+  const rscT0 = performance.now();
   const { slug } = await params;
-  const safe = typeof slug === "string" ? slug : "";
-  const raw = await fetchStorePublicInitialOnServer(safe);
-  const j = raw?.json as { ok?: boolean; store?: unknown } | undefined;
-  const verified = raw?.status === 200 && !!j?.ok && !!j?.store;
-  const initialApiForPrime = raw != null ? { status: raw.status, json: raw.json } : null;
+  const safe = typeof slug === "string" ? slug.trim() : "";
+  const perf = buildStoreCartPageServerPerfPayload(safe, performance.now() - rscT0);
+
+  const perfJson = JSON.stringify(perf);
   return (
-    <div className="flex min-h-0 flex-1 flex-col px-0 py-0">
-      <StoreCartEntrySwitch
-        key={safe}
-        storeSlug={safe}
-        initialVerifiedReal={verified}
-        initialApiForPrime={initialApiForPrime}
+    <>
+      <script
+        type="application/json"
+        id={STORE_CART_PAGE_PERF_SCRIPT_ID}
+        dangerouslySetInnerHTML={{ __html: perfJson }}
       />
-    </div>
+      <meta name="samarket-cart-page-perf" content={perfJson} />
+      <div className="flex min-h-0 flex-1 flex-col px-0 py-0">
+        <StoreCartEntrySwitch storeSlug={safe} />
+      </div>
+    </>
   );
 }

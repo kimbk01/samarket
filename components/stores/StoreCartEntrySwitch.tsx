@@ -1,7 +1,9 @@
 "use client";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { markCartHydrationPageMount } from "@/lib/stores/cart-hydration-breakdown";
+import { cartRenderAudit } from "@/lib/stores/cart-render-audit";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { StoreCommerceCartPageClient } from "@/components/stores/StoreCommerceCartPageClient";
 import { StoreCommerceCartEntryFallback } from "@/components/stores/StoreCommerceCartEntryFallback";
@@ -12,7 +14,6 @@ import {
 } from "@/lib/stores/store-delivery-api-client";
 
 type EntryState =
-  | { kind: "load" }
   | { kind: "real" }
   | { kind: "fallback"; hint: "network" | "missing" | "api" };
 
@@ -32,9 +33,16 @@ export function StoreCartEntrySwitch({
     [storeSlug]
   );
 
-  const [state, setState] = useState<EntryState>(() =>
-    initialVerifiedReal ? { kind: "real" } : { kind: "load" }
-  );
+  const mountMarkedRef = useRef(false);
+  useLayoutEffect(() => {
+    if (mountMarkedRef.current) return;
+    mountMarkedRef.current = true;
+    markCartHydrationPageMount();
+    cartRenderAudit("StoreCartEntrySwitch", { reason: "mount" });
+  }, []);
+
+  /** 첫 페인트: 로딩 전체 화면 대신 클라 cart shell — 백그라운드 detect 만 fallback 갱신 */
+  const [state, setState] = useState<EntryState>(() => ({ kind: "real" }));
   const isSameEntryState = (a: EntryState, b: EntryState): boolean => {
     if (a.kind !== b.kind) return false;
     if (a.kind === "fallback" && b.kind === "fallback") return a.hint === b.hint;
@@ -44,9 +52,7 @@ export function StoreCartEntrySwitch({
   const detect = useCallback(
     async (opts?: { silent?: boolean }) => {
       const silent = !!opts?.silent;
-      if (!silent) {
-        setState((prev) => (isSameEntryState(prev, { kind: "load" }) ? prev : { kind: "load" }));
-      }
+      /* silent 백그라운드 검증 — 첫 cart shell 은 항상 real 유지 */
       try {
         const { json: raw } = await fetchStorePublicBySlugDeduped(normalizedSlug);
         const json = raw as { ok?: boolean; store?: unknown };
@@ -85,18 +91,12 @@ export function StoreCartEntrySwitch({
   }, [normalizedSlug, initialApiForPrime]);
 
   useEffect(() => {
-    /** 서버에서 이미 검증·캐시 primed — 마운트 시 중복 GET 생략(체감 속도) */
-    if (initialVerifiedReal) return;
-    void detect();
-  }, [detect, initialVerifiedReal]);
+    if (initialApiForPrime?.status === 200) return;
+    void detect({ silent: true });
+  }, [detect, initialApiForPrime?.status]);
 
   useRefetchOnPageShowRestore(() => void detect({ silent: true }));
 
-  if (state.kind === "load") {
-    return (
-      <div className="min-h-[40vh] px-4 py-12 text-center sam-text-body text-sam-muted">{t("common_loading")}</div>
-    );
-  }
   if (state.kind === "real") {
     return <StoreCommerceCartPageClient storeSlug={normalizedSlug} />;
   }

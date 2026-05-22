@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-/** GET /api/stores/browse - category/topics slice (5min TTL, key primary+sub) */
-export const STORES_BROWSE_TAXONOMY_CACHE_TTL_MS = 5 * 60_000;
+/** GET /api/stores/browse - category/topics slice (10min TTL, key primary+sub) */
+export const STORES_BROWSE_TAXONOMY_CACHE_TTL_MS = 10 * 60_000;
 
 export type BrowseTaxonomyTopic = {
   id: string;

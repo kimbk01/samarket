@@ -9,6 +9,7 @@ import {
   PaymentStatusBadge,
   SettlementStatusBadge,
 } from "./DeliveryOrderBadges";
+import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-order-delivery-address-display";
 import { formatMoneyPhp } from "@/lib/utils/format";
 import { formatKstDatetimeLong } from "@/lib/datetime/format-kst-datetime";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -34,8 +35,11 @@ export function OrderTable({ rows, selection }: { rows: AdminDeliveryOrder[]; se
 
   const fulfillmentSummary = (o: AdminDeliveryOrder): string => {
     if (o.orderType === "delivery") {
-      const parts = [o.addressSummary, o.addressDetail].filter((x) => x && String(x).trim());
-      return parts.length ? parts.join(" · ") : t("admin_do_no_address");
+      const plain = formatStoreOrderDeliveryAddressPlain({
+        summary: o.addressSummary,
+        detail: o.addressDetail,
+      });
+      return plain || t("admin_do_no_address");
     }
     return o.pickupNote?.trim() ? t("admin_do_pickup_memo", { note: o.pickupNote }) : t("admin_do_pickup");
   };

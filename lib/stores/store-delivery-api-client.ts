@@ -380,6 +380,21 @@ export async function fetchStoresTaxonomyDeduped(): Promise<StoreApiJsonResponse
   });
 }
 
+const STORES_BROWSE_CLIENT_CACHE_TTL_MS = 45_000;
+const storesBrowseClientCache = new Map<
+  string,
+  { expiresAt: number; value: StoreApiJsonResponse }
+>();
+
+function browseQueryBypassesCache(qs: string): boolean {
+  try {
+    const sp = new URLSearchParams(qs.startsWith("?") ? qs.slice(1) : qs);
+    return sp.get("fresh") === "1" || sp.get("bypassCache") === "1";
+  } catch {
+    return false;
+  }
+}
+
 /** GET /api/stores/browse?… */
 export async function fetchStoresBrowseDeduped(
   queryString: string,
@@ -387,14 +402,35 @@ export async function fetchStoresBrowseDeduped(
 ): Promise<StoreApiJsonResponse> {
   const qs = queryString.trim().replace(/^\?/, "");
   const lang = opts?.language ?? "en";
-  return runSingleFlight(`stores:api:browse:${lang}:${qs}`, async () => {
+  const flightKey = `stores:api:browse:${lang}:${qs}`;
+  const bypass = browseQueryBypassesCache(qs);
+  if (!bypass) {
+    const hit = storesBrowseClientCache.get(flightKey);
+    if (hit && hit.expiresAt > Date.now()) {
+      return hit.value;
+    }
+  }
+  return runSingleFlight(flightKey, async () => {
+    if (!bypass) {
+      const again = storesBrowseClientCache.get(flightKey);
+      if (again && again.expiresAt > Date.now()) {
+        return again.value;
+      }
+    }
     const { storesApiAcceptLanguageHeader } = await import("@/lib/i18n/language-preference");
     const res = await fetch(`/api/stores/browse?${qs}`, {
       cache: "no-store",
       headers: storesApiAcceptLanguageHeader(lang),
     });
     const json = await res.json().catch(() => ({}));
-    return { status: res.status, json };
+    const value: StoreApiJsonResponse = { status: res.status, json };
+    if (!bypass && (res.ok || res.status === 401 || res.status === 403)) {
+      storesBrowseClientCache.set(flightKey, {
+        value,
+        expiresAt: Date.now() + STORES_BROWSE_CLIENT_CACHE_TTL_MS,
+      });
+    }
+    return value;
   });
 }
 

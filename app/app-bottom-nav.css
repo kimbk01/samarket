@@ -379,6 +379,12 @@
   z-index: 3;
 }
 
+/** 다이얼 열림·탭 후 — 푸른 focus-visible 링 제거(홈 허브만) */
+.app-bottom-nav-shell--delivery .app-bottom-nav-item--delivery-hub:focus,
+.app-bottom-nav-shell--delivery .app-bottom-nav-item--delivery-hub:focus-visible {
+  outline: none;
+}
+
 .app-bottom-nav-item--delivery-hub .app-bottom-nav-icon-slot--delivery-home {
   /** 탭 셀 top = 탭바 상단선 — `top` 음수로 위 40% / 아래 60% 겹침을 고정 */
   position: absolute;

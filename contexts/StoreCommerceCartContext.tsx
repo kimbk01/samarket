@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -37,6 +38,7 @@ import {
 import { getRuntimeAppLanguage } from "@/lib/i18n/runtime-app-language";
 import { translate } from "@/lib/i18n/messages";
 import { showCommerceCartPolicyToast } from "@/lib/stores/store-detail-toast-ui-store";
+import { markCartHydrationStage } from "@/lib/stores/cart-hydration-breakdown";
 import { publishCommerceCartSnapshot } from "@/lib/stores/store-commerce-cart-snapshot-bus";
 import { publishDeliveryCartPatch } from "@/lib/dibay/delivery-cart-patch-bus";
 import {
@@ -144,10 +146,24 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
   const [hydrated, setHydrated] = useState(false);
   const [snapshot, setSnapshot] = useState<StoreCommerceCartSnapshotV2 | null>(null);
   const snapshotRef = useRef<StoreCommerceCartSnapshotV2 | null>(null);
+  const storageSyncDoneRef = useRef(false);
 
   useEffect(() => {
     snapshotRef.current = snapshot;
   }, [snapshot]);
+
+  useLayoutEffect(() => {
+    if (storageSyncDoneRef.current) return;
+    storageSyncDoneRef.current = true;
+    const loaded = readCommerceCartFromStorage();
+    if (loaded.expired) {
+      showCommerceCartPolicyToast(translate(getRuntimeAppLanguage(), "store_cart_expired_toast"));
+    }
+    setSnapshot(loaded.expired ? null : loaded.snapshot);
+    setHydrated(true);
+    markCartHydrationStage("provider_ready_ms");
+    markCartHydrationStage("cart_state_ready_ms");
+  }, []);
 
   const applyExternalSnapshot = useCallback((incoming: StoreCommerceCartSnapshotV2 | null) => {
     setSnapshot((current) => {
@@ -160,15 +176,6 @@ export function StoreCommerceCartProvider({ children }: { children: React.ReactN
       }
       return incoming;
     });
-  }, []);
-
-  useEffect(() => {
-    const loaded = readCommerceCartFromStorage();
-    if (loaded.expired) {
-      showCommerceCartPolicyToast(translate(getRuntimeAppLanguage(), "store_cart_expired_toast"));
-    }
-    setSnapshot(loaded.snapshot);
-    setHydrated(true);
   }, []);
 
   useEffect(() => {

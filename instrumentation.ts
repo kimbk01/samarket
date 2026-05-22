@@ -15,6 +15,8 @@ export async function register() {
 
   const { registerDevMemoryWatch } = await import("./lib/dev/instrumentation-dev-memory-watch");
   registerDevMemoryWatch();
-  const { logDevModuleGraphProbe } = await import("./lib/dev/dev-module-graph-probe");
-  logDevModuleGraphProbe("instrumentation-register");
+  if (process.env.SAMARKET_DEV_MEASURE_MODE?.trim() !== "1") {
+    const { logDevModuleGraphProbe } = await import("./lib/dev/dev-module-graph-probe");
+    logDevModuleGraphProbe("instrumentation-register");
+  }
 }

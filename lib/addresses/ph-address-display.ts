@@ -189,71 +189,14 @@ export function formatPhDeliveryListPrimaryLine(row: UserAddressDTO): string {
   return head || admin || "—";
 }
 
-/** 장바구니 배송지 카드 — 본문(일반) / 상세(굵게) / 부가 줄 분리 */
+/** @deprecated 장바구니는 `StoreCartCheckoutAddressRowBody` + `formatPhAddressCardOneLine` 사용 */
 export type CheckoutAddressBodyParts = {
   primaryLines: string[];
   detailLine: string | null;
   extraLines: string[];
 };
 
-export function splitCheckoutAddressBodyParts(row: UserAddressDTO): CheckoutAddressBodyParts {
-  if (!isPhRow(row)) {
-    const main = stripCountryFromAddressDisplayLine(
-      buildAddressManagementListPrimaryLine(row),
-      row.countryName,
-    );
-    const detail = buildAddressListDetailLine(row, main);
-    const primaryLines = main && main !== "—" ? [main] : [];
-    return { primaryLines, detailLine: detail, extraLines: [] };
-  }
-
-  const primaryLines: string[] = [];
-  const street = formatPhDeliveryStreetSummary(row);
-  if (street) primaryLines.push(dedupePhCommaDuplicateHead(street));
-  const admin = formatPhDeliveryAdminLine(row);
-  if (admin) primaryLines.push(admin);
-
-  const streetLower = street.toLowerCase();
-  const detailParts = [row.detailAddress, row.unitFloorRoom]
-    .map((x) => x?.trim())
-    .filter((x): x is string => !!x);
-  let detailJoined = detailParts.join(" · ");
-  if (detailJoined) {
-    const dl = detailJoined.toLowerCase();
-    if (streetLower.startsWith(dl) || streetLower === dl) detailJoined = "";
-  }
-
-  const extraLines: string[] = [];
-  if (row.landmark?.trim()) extraLines.push(`Near: ${row.landmark.trim()}`);
-  if (row.deliveryNote?.trim()) extraLines.push(`Delivery note: ${row.deliveryNote.trim()}`);
-
-  return {
-    primaryLines,
-    detailLine: detailJoined || null,
-    extraLines,
-  };
-}
-
-/** 체크아웃·확인 모달용 여러 줄(원문 `formatted_address` 전체 덤프 지양) */
+/** 체크아웃·확인 모달용 — `formatPhAddressCardOneLinePlain` 과 동일 한 줄 */
 export function formatPhDeliveryBlockForCheckout(row: UserAddressDTO): string {
-  if (!isPhRow(row)) {
-    const legacy = [row.roadAddress ?? row.formattedAddress, row.detailAddress ?? row.unitFloorRoom]
-      .map((x) => x?.trim())
-      .filter(Boolean) as string[];
-    return legacy.join("\n");
-  }
-  const lines: string[] = [];
-  const street = formatPhDeliveryStreetSummary(row);
-  if (street) lines.push(dedupePhCommaDuplicateHead(street));
-  const admin = formatPhDeliveryAdminLine(row);
-  if (admin) lines.push(admin);
-  const detail = [row.detailAddress, row.unitFloorRoom].map((x) => x?.trim()).filter(Boolean).join(" · ");
-  if (detail) {
-    const sl = street.toLowerCase();
-    const dl = detail.toLowerCase();
-    if (!sl.startsWith(dl) && sl !== dl) lines.push(detail);
-  }
-  if (row.landmark?.trim()) lines.push(`Near: ${row.landmark.trim()}`);
-  if (row.deliveryNote?.trim()) lines.push(`Delivery note: ${row.deliveryNote.trim()}`);
-  return lines.join("\n") || "—";
+  return formatPhAddressCardOneLinePlain(row);
 }

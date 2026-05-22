@@ -43,6 +43,7 @@ import {
   buildOwnerDashboardPerfV2,
   logOwnerDashboardPerfV2,
 } from "@/lib/stores/owner-dashboard-perf-v2";
+import { shouldBypassRouteMemoryCache } from "@/lib/http/route-cache-bypass";
 import { observeCmUnreadAggregateOnHubRouteCacheHit } from "@/lib/community-messenger/cm-unread-room-count-aggregate";
 import { invalidateCommunityMessengerUnreadTotalCache } from "@/lib/community-messenger/community-messenger-unread-total";
 import {
@@ -146,8 +147,11 @@ export async function GET(request: Request) {
 
   const cacheLookup0 = devPerfNow();
   const requestDedupeKey = ownerHubBadgeRouteCacheKey(userId);
-  const ttlCacheHit = !bypassShortCache && peekOwnerHubBadgeCacheHit(userId);
-  const inFlightBefore = !bypassShortCache && !ttlCacheHit && peekOwnerHubBadgeInflight(userId);
+  const bypassMemoryCache = shouldBypassRouteMemoryCache(url.searchParams) || hubBadgeBypass;
+  const ttlCacheHit =
+    !bypassShortCache && !bypassMemoryCache && peekOwnerHubBadgeCacheHit(userId);
+  const inFlightBefore =
+    !bypassShortCache && !bypassMemoryCache && !ttlCacheHit && peekOwnerHubBadgeInflight(userId);
   const cache_lookup_ms = Math.round(devPerfNow() - cacheLookup0);
   const build0 = devPerfNow();
   let payload: Awaited<ReturnType<typeof buildOwnerHubBadgePayloadWithMeta>>["payload"];

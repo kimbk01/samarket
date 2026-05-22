@@ -36,10 +36,37 @@ export function isClientProdPerfLogEnabled(): boolean {
   return process.env.NEXT_PUBLIC_SAMARKET_PROD_PERF_MEASURE === "1";
 }
 
+/** Vercel `VERCEL_REGION` code ↔ AWS / Supabase infrastructure region */
+const REGION_EQUIVALENCE_GROUPS: readonly string[][] = [
+  ["bom1", "ap-south-1"],
+  ["iad1", "us-east-1"],
+  ["icn1", "ap-northeast-2"],
+  ["sin1", "ap-southeast-1"],
+  ["hnd1", "ap-northeast-1"],
+  ["sfo1", "us-west-1"],
+  ["pdx1", "us-west-2"],
+  ["cdg1", "eu-west-3"],
+  ["fra1", "eu-central-1"],
+  ["lhr1", "eu-west-2"],
+];
+
+function regionEquivalenceKey(region: string): string {
+  const k = region.trim().toLowerCase();
+  for (const group of REGION_EQUIVALENCE_GROUPS) {
+    if (group.some((alias) => alias === k)) return group[0];
+  }
+  return k;
+}
+
+function regionsAreEquivalent(a: string | null, b: string | null): boolean {
+  if (!a || !b) return false;
+  return regionEquivalenceKey(a) === regionEquivalenceKey(b);
+}
+
 function inferSupabaseRegionFromUrl(url: string | undefined): string | null {
   if (!url?.trim()) return null;
   const u = url.trim().toLowerCase();
-  const pooler = /aws-0-([a-z0-9-]+)\.pooler\.supabase\.com/.exec(u);
+  const pooler = /aws-\d+-([a-z0-9-]+)\.pooler\.supabase\.com/.exec(u);
   if (pooler?.[1]) return pooler[1];
   const host = /https:\/\/([^.]+)\.supabase\.co/.exec(u);
   if (!host) return null;
@@ -67,9 +94,7 @@ export function buildProdRegionContext(opts?: {
 
   const client_region = opts?.client_region?.trim() || process.env.SAMARKET_CLIENT_REGION?.trim() || null;
 
-  const same_region = Boolean(
-    vercel_region && supabase_region && vercel_region.toLowerCase() === supabase_region.toLowerCase()
-  );
+  const same_region = regionsAreEquivalent(vercel_region, supabase_region);
 
   const edge_or_node: ProdRegionContext["edge_or_node"] =
     opts?.runtime === "edge" ? "edge" : opts?.runtime === "nodejs" ? "nodejs" : "unknown";
@@ -113,19 +138,28 @@ export function logProdRegionContextOnce(
   return ctx;
 }
 
-/** 원격 `measure:prod-same-region` — Vercel 로그 없이 응답 헤더로 handler·cache 전달 */
+/** 원격 measure — Vercel 로그 없이 응답 헤더로 handler·cache·region 전달 */
 export function buildPerfMeasureResponseHeaders(metrics: {
   actual_handler_ms: number;
   cache_hit?: 0 | 1;
   transport_ms?: number;
   db_execution_ms?: number;
+  query_count?: number;
+  cache_bypass?: 0 | 1;
+  cache_bypass_reason?: string | null;
 }): Record<string, string> {
   if (!isProdPerfMeasureEnabled()) return {};
+  const regionCtx = buildProdRegionContext({ runtime: "nodejs" });
   const h: Record<string, string> = {
     "x-samarket-actual-handler-ms": String(Math.round(metrics.actual_handler_ms)),
   };
   if (metrics.cache_hit != null) h["x-samarket-cache-hit"] = String(metrics.cache_hit);
   if (metrics.transport_ms != null) h["x-samarket-transport-ms"] = String(Math.round(metrics.transport_ms));
   if (metrics.db_execution_ms != null) h["x-samarket-db-execution-ms"] = String(Math.round(metrics.db_execution_ms));
+  if (metrics.query_count != null) h["x-samarket-query-count"] = String(Math.round(metrics.query_count));
+  if (metrics.cache_bypass != null) h["x-samarket-cache-bypass"] = String(metrics.cache_bypass);
+  if (metrics.cache_bypass_reason) h["x-samarket-cache-bypass-reason"] = metrics.cache_bypass_reason;
+  if (regionCtx.vercel_region) h["x-samarket-region"] = regionCtx.vercel_region;
+  h["x-samarket-same-region"] = regionCtx.same_region ? "1" : "0";
   return h;
 }

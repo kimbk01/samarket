@@ -9,7 +9,7 @@ export type MeProfileGetResult = {
   json: unknown;
 };
 
-const TTL_MS = 12_000;
+const TTL_MS = 4_000;
 const FLIGHT_KEY_FULL = "me:profile:get:full" as const;
 
 let cachedFull: { expiresAt: number; value: MeProfileGetResult } | null = null;

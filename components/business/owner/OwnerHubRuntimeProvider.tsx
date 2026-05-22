@@ -35,6 +35,7 @@ import {
   invalidateOwnerHubDashboardOrdersCache,
   peekOwnerHubDashboardOrdersCache,
 } from "@/lib/stores/owner-hub-dashboard-orders-cache";
+import { scheduleOwnerDashboardAfterFirstPaint } from "@/lib/business/owner-dashboard-waterfall";
 
 type OwnerHubRuntimeValue = {
   stores: StoreRow[] | null;
@@ -221,7 +222,9 @@ export function OwnerHubRuntimeProvider({
       prevPendingDeliveryRef.current = peek.pending_delivery_count;
     } else {
       prevPendingDeliveryRef.current = null;
-      void refreshOrderAttention();
+      scheduleOwnerDashboardAfterFirstPaint(() => {
+        void refreshOrderAttention();
+      });
     }
     const id = window.setInterval(() => {
       if (typeof document !== "undefined" && document.visibilityState === "visible") {

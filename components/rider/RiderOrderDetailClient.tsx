@@ -3,6 +3,7 @@ import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-order-delivery-address-display";
 import { Sam } from "@/lib/ui/sam-component-classes";
 
 type DetailPayload = {
@@ -200,7 +201,14 @@ export function RiderOrderDetailClient(props: { orderId: string }) {
         </div>
         <div className="flex justify-between gap-2">
           <span className="text-sam-muted shrink-0">{t("ui_rider_delivery_address")}</span>
-          <span className="text-right text-sam-fg text-xs">{String(ord.delivery_address_summary ?? "—")}</span>
+          <span className="text-right text-sam-fg text-xs">
+            {formatStoreOrderDeliveryAddressPlain({
+              summary:
+                typeof ord.delivery_address_summary === "string" ? ord.delivery_address_summary : null,
+              detail:
+                typeof ord.delivery_address_detail === "string" ? ord.delivery_address_detail : null,
+            }) || "—"}
+          </span>
         </div>
         <dl className="pt-2 border-t border-sam-border space-y-1 text-xs text-sam-muted">
           <div className="flex justify-between">

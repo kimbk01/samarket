@@ -9,6 +9,7 @@ import { forgetSingleFlight, runSingleFlight } from "@/lib/http/run-single-fligh
 export const ME_NOTIFICATION_SETTINGS_GET_FLIGHT = "me:notification-settings:get";
 const ME_NOTIFICATION_SETTINGS_SNAPSHOT_FLIGHT = "me:notification-settings:snapshot";
 const ME_NOTIFICATION_SETTINGS_SNAPSHOT_TTL_MS = 20_000;
+const ME_NOTIFICATION_SETTINGS_SESSION_KEY = "sam:me:notification-settings:v1";
 
 export type MeNotificationSettingsSnapshot = {
   ok: boolean;
@@ -39,6 +40,28 @@ let cachedSnapshot:
     }
   | null = null;
 
+function readNotificationSettingsSessionCache(): MeNotificationSettingsSnapshot | null {
+  if (typeof sessionStorage === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(ME_NOTIFICATION_SETTINGS_SESSION_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as MeNotificationSettingsSnapshot;
+    if (typeof parsed?.status !== "number") return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeNotificationSettingsSessionCache(value: MeNotificationSettingsSnapshot): void {
+  if (typeof sessionStorage === "undefined") return;
+  try {
+    sessionStorage.setItem(ME_NOTIFICATION_SETTINGS_SESSION_KEY, JSON.stringify(value));
+  } catch {
+    /* ignore quota */
+  }
+}
+
 function cloneSnapshot(value: MeNotificationSettingsSnapshot): MeNotificationSettingsSnapshot {
   return {
     ok: value.ok,
@@ -60,6 +83,17 @@ export async function fetchMeNotificationSettingsSnapshot(
   if (opts?.force) {
     cachedSnapshot = null;
     forgetSingleFlight(ME_NOTIFICATION_SETTINGS_SNAPSHOT_FLIGHT);
+    if (typeof sessionStorage !== "undefined") {
+      try {
+        sessionStorage.removeItem(ME_NOTIFICATION_SETTINGS_SESSION_KEY);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+  const sessionHit = !opts?.force ? readNotificationSettingsSessionCache() : null;
+  if (sessionHit) {
+    return cloneSnapshot(sessionHit);
   }
   const now = Date.now();
   if (cachedSnapshot && cachedSnapshot.expiresAt > now) {
@@ -86,6 +120,7 @@ export async function fetchMeNotificationSettingsSnapshot(
         value,
         expiresAt: Date.now() + ME_NOTIFICATION_SETTINGS_SNAPSHOT_TTL_MS,
       };
+      writeNotificationSettingsSessionCache(value);
       return value;
     });
     return cloneSnapshot(snapshot);
@@ -99,4 +134,11 @@ export function invalidateMeNotificationSettingsGetFlight(): void {
   forgetSingleFlight(ME_NOTIFICATION_SETTINGS_GET_FLIGHT);
   forgetSingleFlight(ME_NOTIFICATION_SETTINGS_SNAPSHOT_FLIGHT);
   cachedSnapshot = null;
+  if (typeof sessionStorage !== "undefined") {
+    try {
+      sessionStorage.removeItem(ME_NOTIFICATION_SETTINGS_SESSION_KEY);
+    } catch {
+      /* ignore */
+    }
+  }
 }

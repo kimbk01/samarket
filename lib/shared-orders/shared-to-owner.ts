@@ -1,3 +1,4 @@
+import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-order-delivery-address-display";
 import type { BuyerCancelRequest, OwnerOrder, OwnerOrderItem, OwnerOrderLog, OwnerOrderStatus } from "@/lib/store-owner/types";
 import { telHrefFromLoosePhPhone } from "@/lib/utils/ph-mobile";
 import type { SharedOrder, SharedOrderLog } from "./types";
@@ -32,7 +33,11 @@ function itemToOwner(it: SharedOrder["items"][0]): OwnerOrderItem {
 }
 
 export function sharedOrderToOwner(o: SharedOrder): OwnerOrder {
-  const addr = o.delivery_address_summary?.trim() ? o.delivery_address_summary.trim() : null;
+  const addr =
+    formatStoreOrderDeliveryAddressPlain({
+      summary: o.delivery_address_summary,
+      detail: o.delivery_address_detail,
+    }) || null;
 
   const buyerCancel: BuyerCancelRequest | null =
     o.order_status === "cancel_requested" && o.cancel_request_status === "pending"

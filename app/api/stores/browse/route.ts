@@ -8,12 +8,24 @@ import { formatStoreLocationLine } from "@/lib/stores/store-location-label";
 import { buildBrowseStoreCommerceSnapshot } from "@/lib/stores/browse-store-commerce-snapshot";
 import { formatBrowseStoreRowLabels } from "@/lib/stores/browse-store-row-labels";
 import { parseCommerceExtrasFromHoursJson } from "@/lib/stores/store-commerce-extras";
-import { loadDeliveryRideTimeSource } from "@/lib/delivery/delivery-ops-settings";
+import {
+  loadDeliveryRideTimeSource,
+  peekDeliveryRideTimeSource,
+  type DeliveryRideTimeSource,
+} from "@/lib/delivery/delivery-ops-settings";
 import { isSameDeliveryAddressForList } from "@/lib/stores/store-list-delivery-origin";
 import { resolveBrowseRouteOrigin } from "@/lib/stores/browse-route-origin";
-import { logBrowsePerfSteps } from "@/lib/stores/browse-perf-steps-log";
-import { mapFirstStoreBannerImageByStoreId } from "@/lib/stores/pick-store-hero-banner-image";
+import {
+  logBrowsePerfSteps,
+  logBrowsePerfStepsV2,
+  resolveBrowsePerfWorstStage,
+} from "@/lib/stores/browse-perf-steps-log";
 import { loadBrowseTaxonomySlice } from "@/lib/stores/stores-browse-taxonomy-cache";
+import {
+  resolveRouteMemoryCacheBypass,
+  type RouteCacheBypassReason,
+} from "@/lib/http/route-cache-bypass";
+import { storePublicApiPerfHeaders } from "@/lib/stores/store-public-api-perf-headers";
 import { browseListCacheKey, peekStoresBrowseCache, setStoresBrowseCache } from "@/lib/stores/stores-browse-response-cache";
 import { devPerfNow } from "@/lib/dev/dev-api-perf-log";
 import { logRoutePerf } from "@/lib/http/route-perf-log";
@@ -49,26 +61,6 @@ type StoreBrowseRow = {
   store_topics: { slug: string; name: string } | null;
 };
 
-type ProductMini = {
-  id: string;
-  store_id: string;
-  title: string;
-  price: number;
-  thumbnail_url: string | null;
-  is_featured: boolean | null;
-  sort_order: number | null;
-};
-
-type BannerMini = {
-  store_id: string;
-  id: string;
-  image_url: string;
-  sort_order: number | null;
-  is_active: boolean | null;
-  start_at: string | null;
-  end_at: string | null;
-};
-
 type RelOne = { slug: string; name: string };
 
 /** PostgREST 임베드가 객체 또는 단일행 배열로 올 수 있음 */
@@ -79,8 +71,6 @@ function embedOne(v: RelOne | RelOne[] | null | undefined): RelOne | null {
 
 const BROWSE_STORE_LIMIT = 60;
 const BROWSE_STORE_FETCH_CAP = 120;
-const BROWSE_FEATURED_ITEMS_MAX = 3;
-
 function buildBrowseStoresOrFilter(
   categoryId: string,
   resolvedTopicId: string | null,
@@ -106,6 +96,15 @@ function logBrowseRoutePerf(args: {
   dbRelatedMs: number;
   transformMs: number;
   resultCount: number;
+  v2?: {
+    base_query_ms: number;
+    category_query_ms: number;
+    product_preview_query_ms: number;
+    review_summary_query_ms: number;
+    distance_sort_ms: number;
+    query_count: number;
+    selected_columns: string;
+  };
 }): void {
   const totalMs = Math.round(devPerfNow() - args.tRoute0);
   const dbTotalMs = args.dbBaseMs + args.dbRelatedMs;
@@ -129,6 +128,34 @@ function logBrowseRoutePerf(args: {
     transform_ms: Math.round(args.transformMs),
     total_ms: totalMs,
     result_count: args.resultCount,
+  });
+  const v2 = args.v2;
+  if (!v2) return;
+  const stages = {
+    base_query: v2.base_query_ms,
+    category_query: v2.category_query_ms,
+    product_preview: v2.product_preview_query_ms,
+    distance_sort: v2.distance_sort_ms,
+    transform: args.transformMs,
+  };
+  const { worst_stage, worst_stage_ms } = resolveBrowsePerfWorstStage(stages);
+  logBrowsePerfStepsV2({
+    request_key: args.cacheKey,
+    cache_hit: args.cacheHit,
+    taxonomy_cache_hit: args.taxonomyCacheHit ?? false,
+    db_base_ms: Math.round(args.dbBaseMs),
+    db_related_ms: Math.round(args.dbRelatedMs),
+    base_query_ms: Math.round(v2.base_query_ms),
+    category_query_ms: Math.round(v2.category_query_ms),
+    product_preview_query_ms: Math.round(v2.product_preview_query_ms),
+    review_summary_query_ms: Math.round(v2.review_summary_query_ms),
+    distance_sort_ms: Math.round(v2.distance_sort_ms),
+    transform_ms: Math.round(args.transformMs),
+    query_count: v2.query_count,
+    result_count: args.resultCount,
+    selected_columns: v2.selected_columns,
+    worst_stage,
+    worst_stage_ms,
   });
 }
 
@@ -166,12 +193,12 @@ function sanitizeForIlikeFragment(s: string): string {
   return s.replace(/\\/g, "").replace(/%/g, "").replace(/_/g, "").trim();
 }
 
+/** browse 카드·정렬·commerce 스냅샷에 필요한 컬럼만 (description·배너·전체 products 제외) */
 const STORE_ROW_BROWSE_FIELDS = `
         id,
         store_category_id,
         store_name,
         slug,
-        description,
         region,
         city,
         district,
@@ -189,6 +216,9 @@ const STORE_ROW_BROWSE_FIELDS = `
         business_hours_json,
         business_type`;
 
+const BROWSE_STORE_ROW_SELECTED_COLUMNS =
+  "id,store_category_id,store_name,slug,region,city,district,profile_image_url,is_open,rating_avg,review_count,delivery_available,pickup_available,visit_available,reservation_available,is_featured,lat,lng,business_hours_json,business_type";
+
 function mapBrowseEmbedRows(raw: unknown[]): StoreBrowseRow[] {
   return (raw ?? []).map((row) => {
     const o = row as StoreBrowseRow & { store_topics?: RelOne | RelOne[] };
@@ -205,10 +235,32 @@ function mapBrowseEmbedRows(raw: unknown[]): StoreBrowseRow[] {
  * ?district= — 같은 구/동 우선 정렬(districtRank)
  * ?user_lat= & ?user_lng= — 거리 보조 정렬
  */
+function browseJsonHeaders(opts: {
+  tRoute0: number;
+  cache_hit: 0 | 1;
+  db_execution_ms: number;
+  query_count: number;
+  bypass: boolean;
+  bypass_reason: RouteCacheBypassReason | null;
+}): Record<string, string> {
+  return {
+    "Cache-Control": STORE_BROWSE_HTTP_CACHE_CONTROL,
+    ...storePublicApiPerfHeaders({
+      actual_handler_ms: Math.round(devPerfNow() - opts.tRoute0),
+      cache_hit: opts.cache_hit,
+      db_execution_ms: opts.db_execution_ms,
+      query_count: opts.query_count,
+      bypass: opts.bypass,
+      bypass_reason: opts.bypass_reason,
+    }),
+  };
+}
+
 export async function GET(req: Request) {
   const tRoute0 = devPerfNow();
   const uiLang = detectAcceptLanguageAppLanguage(req.headers.get("accept-language"));
   const { searchParams } = new URL(req.url);
+  const cacheBypass = resolveRouteMemoryCacheBypass(searchParams);
   const primary = (searchParams.get("primary") ?? "").trim().toLowerCase();
   const subRaw = (searchParams.get("sub") ?? "").trim().toLowerCase();
   /** 세부 주제 미선택·「전체」 — 해당 1차 업종만 필터 (세부는 제한하지 않음). 예약 slug: `all` */
@@ -242,7 +294,7 @@ export async function GET(req: Request) {
     uiLang,
   });
 
-  const cachedBrowse = peekStoresBrowseCache(browseCacheKey);
+  const cachedBrowse = cacheBypass.bypass ? null : peekStoresBrowseCache(browseCacheKey);
   if (cachedBrowse != null) {
     const cachedCount = Array.isArray((cachedBrowse as { stores?: unknown }).stores)
       ? (cachedBrowse as { stores: unknown[] }).stores.length
@@ -257,7 +309,19 @@ export async function GET(req: Request) {
       transformMs: 0,
       resultCount: cachedCount,
     });
-    return NextResponse.json(cachedBrowse, { headers: { "Cache-Control": STORE_BROWSE_HTTP_CACHE_CONTROL } });
+    return NextResponse.json(
+      cachedBrowse,
+      {
+        headers: browseJsonHeaders({
+          tRoute0,
+          cache_hit: 1,
+          db_execution_ms: 0,
+          query_count: 0,
+          bypass: cacheBypass.bypass,
+          bypass_reason: cacheBypass.reason,
+        }),
+      }
+    );
   }
 
   const supabase = tryGetSupabaseForStores();
@@ -273,15 +337,24 @@ export async function GET(req: Request) {
   }
 
   try {
-    /** Overlap ride-time admin_settings fetch with taxonomy+stores (db_base) */
-    const rideSourcePromise = loadDeliveryRideTimeSource(supabase);
+    const ridePeek = peekDeliveryRideTimeSource();
+    /** 목록 cold — admin_settings await 생략(peek miss 시 `store`). 다음 요청에서 TTL 히트. */
+    const deliveryRideTimeSource: DeliveryRideTimeSource = ridePeek ?? "store";
+    if (ridePeek == null) {
+      void loadDeliveryRideTimeSource(supabase).catch(() => {});
+    }
+    let queryCount = 0;
     const dbBase0 = devPerfNow();
     let taxonomyCacheHit = false;
+    let categoryQueryMs = 0;
     let taxonomySlice;
     try {
+      const tax0 = devPerfNow();
       const tax = await loadBrowseTaxonomySlice(supabase, primary, subRaw, wantsAllSubs);
+      categoryQueryMs = devPerfNow() - tax0;
       taxonomySlice = tax.slice;
       taxonomyCacheHit = tax.cacheHit;
+      if (!taxonomyCacheHit) queryCount += 1;
     } catch (taxErr) {
       console.error("[api/stores/browse] taxonomy", taxErr);
       return NextResponse.json(
@@ -382,6 +455,7 @@ export async function GET(req: Request) {
 
     const storesOr = buildBrowseStoresOrFilter(categoryId, resolvedTopicId, wantsAllSubs, orphanOrParts);
 
+    const baseQuery0 = devPerfNow();
     const { data: storeRowsRaw, error: storesErr } = await supabase
       .from("stores")
       .select(storeSelect)
@@ -389,6 +463,8 @@ export async function GET(req: Request) {
       .eq("is_visible", true)
       .or(storesOr)
       .limit(BROWSE_STORE_FETCH_CAP);
+    const baseQueryMs = devPerfNow() - baseQuery0;
+    queryCount += 1;
 
     if (storesErr) {
       console.error("[api/stores/browse] stores", storesErr);
@@ -434,8 +510,7 @@ export async function GET(req: Request) {
       rows.push(o);
     }
 
-    const dbBaseMs = devPerfNow() - dbBase0;
-
+    const distanceSort0 = devPerfNow();
     const stableSlug = (a: StoreBrowseRow, b: StoreBrowseRow) =>
       String(a.slug ?? "").localeCompare(String(b.slug ?? ""));
 
@@ -480,78 +555,19 @@ export async function GET(req: Request) {
     }
 
     rows = rows.slice(0, BROWSE_STORE_LIMIT);
+    const distanceSortMs = devPerfNow() - distanceSort0;
+    const dbBaseMs = devPerfNow() - dbBase0;
 
     if (process.env.NODE_ENV === "development" && userLat != null && userLng != null && rows.length > 0) {
       devLogRoutesSkipped("list_screen_disabled", "api/stores/browse");
     }
 
-    const ids = rows.map((r) => r.id);
-    const featuredByStore = new Map<string, { productId: string; name: string; price: number; imageUrl: string | null }[]>();
-
+    /**
+     * cold 1회차 — `featuredItems: []` 고정. 메뉴 미리보기는
+     * `GET /api/stores/browse-featured-items` deferred hydrate 전용 (query_count·db_related 0 유지).
+     */
+    const productPreviewQueryMs = 0;
     const dbRelated0 = devPerfNow();
-    const [deliveryRideTimeSource, productsRes, bannersRes] = await Promise.all([
-      rideSourcePromise,
-      ids.length > 0 ?
-        supabase
-          .from("store_products")
-          .select("id, store_id, title, price, thumbnail_url, is_featured, sort_order")
-          .in("store_id", ids)
-          .eq("product_status", "active")
-          .order("is_featured", { ascending: false })
-          .order("sort_order", { ascending: true })
-          .limit(Math.min(ids.length * BROWSE_FEATURED_ITEMS_MAX, 360))
-      : Promise.resolve({ data: [] as ProductMini[], error: null }),
-      ids.length > 0 ?
-        supabase
-          .from("store_banners")
-          .select("store_id, id, image_url, sort_order, is_active, start_at, end_at")
-          .in("store_id", ids)
-          .order("sort_order", { ascending: true })
-          .order("id", { ascending: true })
-      : Promise.resolve({ data: [] as BannerMini[], error: null }),
-    ]);
-
-    const heroBannerByStore = mapFirstStoreBannerImageByStoreId(
-      ((bannersRes.data ?? []) as BannerMini[]).map((b) => ({
-        store_id: String(b.store_id),
-        id: String(b.id),
-        image_url: String(b.image_url ?? ""),
-        sort_order: b.sort_order,
-        is_active: b.is_active === false ? false : undefined,
-        start_at: b.start_at,
-        end_at: b.end_at,
-      }))
-    );
-
-    const { data: prods, error: pErr } = productsRes;
-    if (pErr) {
-      console.error("[api/stores/browse] products", pErr);
-    } else {
-      const list = (prods ?? []) as ProductMini[];
-      const grouped = new Map<string, ProductMini[]>();
-      for (const p of list) {
-        const arr = grouped.get(p.store_id) ?? [];
-        arr.push(p);
-        grouped.set(p.store_id, arr);
-      }
-      for (const [storeId, arr] of grouped) {
-        const sorted = [...arr].sort((a, b) => {
-          const f = Number(!!b.is_featured) - Number(!!a.is_featured);
-          if (f !== 0) return f;
-          return (a.sort_order ?? 0) - (b.sort_order ?? 0);
-        });
-        featuredByStore.set(
-          storeId,
-          sorted.slice(0, BROWSE_FEATURED_ITEMS_MAX).map((x) => ({
-            productId: String(x.id),
-            name: x.title,
-            price: Number(x.price),
-            imageUrl: x.thumbnail_url?.trim() || null,
-          }))
-        );
-      }
-    }
-
     const dbRelatedMs = devPerfNow() - dbRelated0;
     const transform0 = devPerfNow();
 
@@ -601,7 +617,7 @@ export async function GET(req: Request) {
         id: r.id,
         slug: r.slug,
         nameKo: r.store_name,
-        tagline: r.description,
+        tagline: null,
         primarySlug: primary,
         subSlug: wantsAllSubs ? "all" : (top?.slug ?? legacy?.subSlugGuess ?? subRaw),
         primaryNameKo: primaryNameKoFallback,
@@ -616,9 +632,9 @@ export async function GET(req: Request) {
         pickupAvailable: r.pickup_available !== false,
         visitAvailable: r.visit_available !== false,
         reservationAvailable: r.reservation_available !== false,
-        featuredItems: featuredByStore.get(r.id) ?? [],
+        featuredItems: [],
         profileImageUrl: r.profile_image_url,
-        heroBannerImageUrl: heroBannerByStore.get(r.id) ?? null,
+        heroBannerImageUrl: null,
         isFeatured: !!r.is_featured,
         estPrepLabel: extras.estPrepLabel,
         prepMinutes: extras.prepMinutes,
@@ -663,8 +679,29 @@ export async function GET(req: Request) {
       dbRelatedMs,
       transformMs,
       resultCount: stores.length,
+      v2: {
+        base_query_ms: baseQueryMs,
+        category_query_ms: categoryQueryMs,
+        product_preview_query_ms: productPreviewQueryMs,
+        review_summary_query_ms: 0,
+        distance_sort_ms: distanceSortMs,
+        query_count: queryCount,
+        selected_columns: BROWSE_STORE_ROW_SELECTED_COLUMNS,
+      },
     });
-    return NextResponse.json(responseBody, { headers: { "Cache-Control": STORE_BROWSE_HTTP_CACHE_CONTROL } });
+    return NextResponse.json(
+      responseBody,
+      {
+        headers: browseJsonHeaders({
+          tRoute0,
+          cache_hit: 0,
+          db_execution_ms: Math.round(dbBaseMs + dbRelatedMs),
+          query_count: queryCount,
+          bypass: cacheBypass.bypass,
+          bypass_reason: cacheBypass.reason,
+        }),
+      }
+    );
   } catch (e) {
     console.error("[api/stores/browse]", e);
     return NextResponse.json(

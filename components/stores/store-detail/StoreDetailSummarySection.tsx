@@ -10,6 +10,7 @@ import type { StorePublicFulfillmentMode } from "@/components/stores/StoreDetail
 import type { StoreDeliveryMeta } from "@/lib/stores/store-detail-meta";
 import type { CommerceExtrasFromHours } from "@/lib/stores/store-commerce-extras";
 import type { StoreDetailDirectionsTarget } from "@/lib/stores/google-maps-store-links";
+import { fetchMeCheckoutContactDeduped } from "@/lib/me/fetch-me-checkout-contact-deduped";
 import { fetchStoreDeliveryEtaDeduped } from "@/lib/stores/store-delivery-api-client";
 import { StoreHeader } from "@/components/stores/detail/StoreHeader";
 import { StoreNoticeBar } from "@/components/stores/detail/StoreNoticeBar";
@@ -140,8 +141,8 @@ export function StoreDetailSummarySection({
 
     void (async () => {
       try {
-        const cr = await fetch("/api/me/checkout-contact", { credentials: "include", cache: "no-store" });
-        const cj = (await cr.json().catch(() => ({}))) as {
+        const { json: cjRaw } = await fetchMeCheckoutContactDeduped();
+        const cj = cjRaw as {
           ok?: boolean;
           default_delivery?: { user_address_id?: string | null } | null;
         };
