@@ -64,7 +64,11 @@ import {
   peekOwnerOrdersAttentionBridge,
   subscribeOwnerOrdersAttentionBridge,
 } from "@/lib/business/owner-orders-attention-bridge";
-import { pushStoreOwnerMainBottomNavSuppressed } from "@/lib/business/store-owner-main-bottom-nav-suppress";
+import {
+  getStoreOwnerMainBottomNavSuppressed,
+  pushStoreOwnerMainBottomNavSuppressed,
+  subscribeStoreOwnerMainBottomNavSuppressed,
+} from "@/lib/business/store-owner-main-bottom-nav-suppress";
 import { useIsMobileViewport } from "@/hooks/use-is-mobile-viewport";
 import { ChevronRight, MapPin } from "lucide-react";
 import {
@@ -151,6 +155,17 @@ export function BusinessAdminShell({
     return p === "/stores/owner/products" || p === "/my/business/products";
   }, [pathname]);
 
+  const isOwnerMenuCategoriesRoute = useMemo(() => {
+    const p = pathname.split("?")[0]?.replace(/\/+$/, "") ?? "";
+    return p === "/stores/owner/menu-categories" || p === "/my/business/menu-categories";
+  }, [pathname]);
+
+  const storeOwnerFlyoutSuppressesOwnerMobileBottomNav = useSyncExternalStore(
+    subscribeStoreOwnerMainBottomNavSuppressed,
+    getStoreOwnerMainBottomNavSuppressed,
+    () => false
+  );
+
   /** 상품 등록·편집: 본문 스크롤 + 하단 액션 분리를 위해 main 열 높이를 뷰포트에 맞춘다 */
   const isOwnerStoreProductComposerRoute = useMemo(() => {
     const p = pathname.split("?")[0]?.replace(/\/+$/, "") ?? "";
@@ -167,11 +182,18 @@ export function BusinessAdminShell({
 
   useOwnerMobileStackViewportLock(isOwnerMobileStackViewport);
 
-  /** 상품 작성·목록 허브: 하단 고정 UI 없음 — main 과패딩으로 짜투리 공간이 생기지 않게 */
+  /** 상품 작성·목록 허브·카테고리 편집: 하단 고정 UI 없음 — main 과패딩으로 짜투리 공간이 생기지 않게 */
   const ownerMainBottomPadForChildren = useMemo(() => {
     if (isOwnerStoreProductComposerRoute || isOwnerStoreProductsHubRoute) return "pb-0";
+    if (isOwnerMenuCategoriesRoute && storeOwnerFlyoutSuppressesOwnerMobileBottomNav) return "pb-0";
     return ownerMainBottomPad;
-  }, [isOwnerStoreProductComposerRoute, isOwnerStoreProductsHubRoute, ownerMainBottomPad]);
+  }, [
+    isOwnerStoreProductComposerRoute,
+    isOwnerStoreProductsHubRoute,
+    isOwnerMenuCategoriesRoute,
+    storeOwnerFlyoutSuppressesOwnerMobileBottomNav,
+    ownerMainBottomPad,
+  ]);
 
   const reloadStores = useCallback(async () => {
     try {
@@ -871,7 +893,10 @@ export function BusinessAdminShell({
             >
               <OwnerStackPageSlideShell>{children}</OwnerStackPageSlideShell>
             </main>
-            {isOwnerMobileStackViewport && selectedRow && !ownerOrderOverlayOpen ?
+            {isOwnerMobileStackViewport &&
+            selectedRow &&
+            !ownerOrderOverlayOpen &&
+            !storeOwnerFlyoutSuppressesOwnerMobileBottomNav ?
               <OwnerMobileBottomNav
                 storeId={selectedRow.id}
                 storeSlug={selectedRow.slug}

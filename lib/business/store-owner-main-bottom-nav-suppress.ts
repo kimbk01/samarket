@@ -1,6 +1,6 @@
 /**
- * `BusinessAdminShell` 일시 UI(햄버거·주문 상세) ↔ `ConditionalAppShell` 메인 BottomNav.
- * pathname 만으로 표현할 수 없는 상태를 단일 채널로 전달한다.
+ * `BusinessAdminShell` 일시 UI ↔ `ConditionalAppShell` 메인 BottomNav·`OwnerMobileBottomNav`.
+ * pathname 만으로 표현할 수 없는 상태(햄버거·주문 상세·카테고리 추가/편집 등)를 단일 채널로 전달한다.
  */
 
 let suppressCount = 0;

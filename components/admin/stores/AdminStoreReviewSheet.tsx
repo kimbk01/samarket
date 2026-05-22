@@ -80,6 +80,14 @@ export function AdminStoreReviewSheet(props: AdminStoreReviewSheetProps) {
                   ? window.prompt(t("admin_stores_prompt_reason"), "")?.trim() ?? ""
                   : "";
                 if (needsReason && !reason) return;
+                if (action === "set_store_visible_on") {
+                  props.onRunAction?.("set_store_visible", { enabled: true });
+                  return;
+                }
+                if (action === "set_store_visible_off") {
+                  props.onRunAction?.("set_store_visible", { enabled: false });
+                  return;
+                }
                 props.onRunAction?.(action, reason ? { reason } : undefined);
               }}
               disabled={Boolean(props.actionBusy || props.identityActionBusy)}
@@ -97,6 +105,12 @@ export function AdminStoreReviewSheet(props: AdminStoreReviewSheetProps) {
                 <option value="reject_sales">{t("admin_stores_action_reject_sales")}</option>
                 <option value="suspend_sales">{t("admin_stores_action_suspend_sales")}</option>
               </optgroup>
+              {props.store?.approval_status === "approved" ? (
+                <optgroup label={t("admin_stores_review_group_visibility")}>
+                  <option value="set_store_visible_on">{t("admin_stores_action_visible_on")}</option>
+                  <option value="set_store_visible_off">{t("admin_stores_action_visible_off")}</option>
+                </optgroup>
+              ) : null}
             </select>
           </div>
         </div>

@@ -18,6 +18,7 @@ describe("composeDeliveryBottomNavDisplayTabs", () => {
       "delivery-order-chat",
       "delivery-my",
     ]);
+    expect(tabs.find((t) => t.id === "delivery-my")?.href).toBe("/mypage");
   });
 });
 

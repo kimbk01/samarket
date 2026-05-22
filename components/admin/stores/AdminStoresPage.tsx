@@ -143,7 +143,7 @@ export function AdminStoresPage() {
     };
   }, [load]);
 
-  const runAction = async (storeId: string, body: Record<string, unknown>) => {
+  const runAction = async (storeId: string, body: Record<string, unknown>): Promise<boolean> => {
     setBusyId(storeId);
     setError(null);
     try {
@@ -156,11 +156,13 @@ export function AdminStoresPage() {
       const json = await res.json();
       if (!json?.ok) {
         setError(json?.error ?? `action_failed_${res.status}`);
-        return;
+        return false;
       }
       await load();
+      return true;
     } catch {
       setError("network_error");
+      return false;
     } finally {
       setBusyId(null);
     }
@@ -197,7 +199,7 @@ export function AdminStoresPage() {
           onClose={() => setSheetStore(null)}
           onRunAction={(action, payload) => {
             const id = sheetStore.id;
-            void runAction(id, {
+            return runAction(id, {
               action,
               ...(payload?.reason ? { reason: payload.reason } : {}),
               ...(payload?.enabled !== undefined ? { enabled: payload.enabled } : {}),
@@ -345,16 +347,33 @@ export function AdminStoresPage() {
                           {approvalLabel(r.approval_status)}
                         </span>
                       </td>
-                      <td className="px-3 py-2 align-top">
-                        <span
-                          className={`inline-flex items-center rounded-full border px-2 py-0.5 sam-text-xxs font-bold ${
-                            r.is_visible
-                              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                              : "border-sam-border bg-sam-app text-sam-muted"
-                          }`}
-                        >
-                          {r.is_visible ? "Y" : "N"}
-                        </span>
+                      <td className="px-3 py-2 align-top" onClick={(e) => e.stopPropagation()}>
+                        {r.approval_status === "approved" ? (
+                          <select
+                            value={r.is_visible ? "y" : "n"}
+                            disabled={busyId === r.id}
+                            aria-label={t("admin_stores_th_visible")}
+                            className="rounded-ui-rect border border-sam-border bg-sam-app px-2 py-1 sam-text-xxs font-bold text-sam-fg disabled:opacity-50"
+                            onChange={(e) => {
+                              const next = e.target.value === "y";
+                              if (next === r.is_visible) return;
+                              void runAction(r.id, { action: "set_store_visible", enabled: next });
+                            }}
+                          >
+                            <option value="y">{t("admin_stores_visible_y")}</option>
+                            <option value="n">{t("admin_stores_visible_n")}</option>
+                          </select>
+                        ) : (
+                          <span
+                            className={`inline-flex items-center rounded-full border px-2 py-0.5 sam-text-xxs font-bold ${
+                              r.is_visible
+                                ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                                : "border-sam-border bg-sam-app text-sam-muted"
+                            }`}
+                          >
+                            {r.is_visible ? "Y" : "N"}
+                          </span>
+                        )}
                       </td>
                       <td className="px-3 py-2 align-top font-mono sam-text-xxs text-sam-fg break-all">
                         {ownerHandle}

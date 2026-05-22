@@ -23,6 +23,9 @@ type ProductRow = {
 const PRODUCT_SELECT =
   "id, store_id, title, price, thumbnail_url, is_featured, sort_order, is_owner_recommended";
 
+/** Supabase `.limit` — 배치 32매장 × 매장 6슬롯 이론상한 (분배 손실 여유) */
+const BROWSE_FEATURED_ITEMS_QUERY_ROW_CAP = 512;
+
 function badgeForRow(row: ProductRow): string | null {
   if (row.is_featured) return "featured";
   if (row.is_owner_recommended) return "recommended";
@@ -84,7 +87,7 @@ export type LoadBrowseFeaturedBatchResult = {
 };
 
 /**
- * storeId 배치 — 캐시 미스만 DB (featured 1회 + 부족 매장 fill 1회, store당 최대 2).
+ * storeId 배치 — 캐시 미스만 DB (featured 1회 + 부족 매장 fill 1회, store당 최대 6).
  */
 export async function loadBrowseFeaturedItemsBatch(
   sb: SupabaseClient,
@@ -124,7 +127,7 @@ export async function loadBrowseFeaturedItemsBatch(
 
   const featuredLimit = Math.min(
     misses.length * BROWSE_FEATURED_ITEMS_PER_STORE_MAX,
-    128
+    BROWSE_FEATURED_ITEMS_QUERY_ROW_CAP
   );
   const featuredRes = await sb
     .from("store_products")
@@ -142,7 +145,10 @@ export async function loadBrowseFeaturedItemsBatch(
 
   const needFill = storesNeedingFill(misses, grouped);
   if (needFill.length > 0) {
-    const fillLimit = Math.min(needFill.length * BROWSE_FEATURED_ITEMS_PER_STORE_MAX * 2, 128);
+    const fillLimit = Math.min(
+      needFill.length * BROWSE_FEATURED_ITEMS_PER_STORE_MAX * 2,
+      BROWSE_FEATURED_ITEMS_QUERY_ROW_CAP
+    );
     const fillRes = await sb
       .from("store_products")
       .select(PRODUCT_SELECT)

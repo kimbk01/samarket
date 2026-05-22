@@ -33,9 +33,10 @@ function isDeliveryCartBottomNavActive(pathname: string | null): boolean {
   return isDeliveryCartBottomNavPath(pathname);
 }
 
+/** 거래 하단 「내정보」(`/mypage`) 와 동일 — 주문내역 탭 전용 경로만 제외 */
 function isDeliveryMyBottomNavActive(pathname: string | null): boolean {
-  const p = pathOnly(pathname);
-  return p === "/mypage/section/store" || p.startsWith("/mypage/section/store/");
+  if (isDeliveryOrderHistoryBottomNavPath(pathname)) return false;
+  return isBottomNavTabActive(pathname, "/mypage");
 }
 
 /** 배달 홈(`/stores`·검색·browse) — 하단 「홈」 탭·다이얼 「배달」 칩 활성/재탭 스크롤 판정 */

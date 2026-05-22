@@ -11,6 +11,7 @@ import {
   type AdminStoreReviewRow,
   formatAdminStoreAddressOneLine,
 } from "@/components/admin/stores/admin-store-review-model";
+import { AdminStoreVisibleToggle } from "@/components/admin/stores/AdminStoreVisibleToggle";
 import {
   parseFiniteLatitude,
   parseFiniteLongitude,
@@ -104,7 +105,10 @@ function Field({ label, value }: { label: string; value: ReactNode }) {
 export type AdminStoreReviewPanelProps = {
   store: AdminStoreReviewRow | null;
   onClose?: () => void;
-  onRunAction?: (action: string, payload?: { reason?: string; enabled?: boolean; store_name?: string }) => void;
+  onRunAction?: (
+    action: string,
+    payload?: { reason?: string; enabled?: boolean; store_name?: string }
+  ) => void | boolean | Promise<void | boolean>;
   actionBusy?: boolean;
   onSetOwnerIdentityEditable?: (enabled: boolean) => void;
   identityActionBusy?: boolean;
@@ -189,11 +193,22 @@ export function AdminStoreReviewPanel({
 
       <div className="space-y-4 p-4">
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-3 shadow-sm">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-3">
             <span className="rounded-full bg-sam-ink px-2.5 py-0.5 sam-text-xxs font-bold text-white">
               {statusLabel}
             </span>
-            {store.is_visible ? (
+            {store.approval_status === "approved" && onRunAction ? (
+              <AdminStoreVisibleToggle
+                isVisible={store.is_visible}
+                disabled={busy}
+                onSetVisible={async (next) => {
+                  const result = await Promise.resolve(
+                    onRunAction("set_store_visible", { enabled: next })
+                  );
+                  return result !== false;
+                }}
+              />
+            ) : store.is_visible ? (
               <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 sam-text-xxs font-bold text-emerald-800">
                 {t("admin_stores_visible_y")}
               </span>

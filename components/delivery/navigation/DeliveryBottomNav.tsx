@@ -17,9 +17,7 @@ const BRAND_TEAL = "#1C8DB8";
 
 function resolveEffectiveHref(item: DeliveryBottomNavItem, ownerStore: { id: string; slug: string } | null): string {
   /**
-   * 배달(스토어) 전용 하단 탭의 "내정보"는 배달 전용 섹션으로 진입.
-   * - default payload: { icon_key: "user", href: "/mypage", label: "내정보" }
-   * - DB 커스텀에서도 icon_key/href/label 조합으로 최대한 안전하게 매칭한다.
+   * 배달 전용 하단 「내정보」— 통합 BottomNav 와 동일하게 `/mypage` 허브.
    */
   const href = String(item.href ?? "").trim();
   const label = String(item.label ?? "").trim();
@@ -27,9 +25,11 @@ function resolveEffectiveHref(item: DeliveryBottomNavItem, ownerStore: { id: str
     item.icon_key === "user" ||
     href === "/mypage" ||
     href.startsWith("/mypage?") ||
+    href === "/mypage/section/store" ||
+    href.startsWith("/mypage/section/store") ||
     label === "내정보"
   ) {
-    return "/mypage/section/store";
+    return "/mypage";
   }
 
   if (!item.requires_store_id) return item.href;

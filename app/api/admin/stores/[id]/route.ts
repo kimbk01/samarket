@@ -19,6 +19,7 @@ type PatchBody = {
  * 관리자 매장·판매권한 조치
  * action: approve_store | reject_store | request_revision | suspend_store | resume_store
  *         | set_owner_identity_editable (body.enabled: boolean)
+ *         | set_store_visible (body.enabled: boolean — 승인 매장만)
  *         | approve_sales | reject_sales | suspend_sales
  */
 export async function PATCH(
@@ -120,6 +121,22 @@ export async function PATCH(
     if (idErr) {
       console.error("[admin/stores PATCH identity flag]", idErr);
       return NextResponse.json({ ok: false, error: idErr.message }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "set_store_visible") {
+    if (store.approval_status !== "approved") {
+      return NextResponse.json(
+        { ok: false, error: "store_not_approved_for_visibility" },
+        { status: 400 }
+      );
+    }
+    const visible = Boolean(body.enabled);
+    const { error: visErr } = await sb.from("stores").update({ is_visible: visible }).eq("id", id);
+    if (visErr) {
+      console.error("[admin/stores PATCH is_visible]", visErr);
+      return NextResponse.json({ ok: false, error: visErr.message }, { status: 500 });
     }
     return NextResponse.json({ ok: true });
   }

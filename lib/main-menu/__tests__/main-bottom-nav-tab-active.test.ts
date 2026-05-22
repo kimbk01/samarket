@@ -8,6 +8,7 @@ describe("isMainBottomNavDisplayTabActive (delivery 5탭)", () => {
   const orders = tabs.find((t) => t.id === "delivery-orders")!;
   const cart = tabs.find((t) => t.id === "delivery-cart")!;
   const home = tabs.find((t) => t.id === "delivery-home-hub")!;
+  const my = tabs.find((t) => t.id === "delivery-my")!;
 
   it("주문내역 — /orders·/mypage/store-orders", () => {
     expect(isMainBottomNavDisplayTabActive("/orders", orders, { secondaryRail: "stores" })).toBe(true);
@@ -30,6 +31,13 @@ describe("isMainBottomNavDisplayTabActive (delivery 5탭)", () => {
     expect(isMainBottomNavDisplayTabActive("/stores", home, { secondaryRail: "stores" })).toBe(true);
     expect(isMainBottomNavDisplayTabActive("/stores/search", home, { secondaryRail: "stores" })).toBe(true);
     expect(isMainBottomNavDisplayTabActive("/stores/cart", home, { secondaryRail: "stores" })).toBe(false);
+  });
+
+  it("내정보 — /mypage 허브(거래와 동일), 주문내역 탭 경로 제외", () => {
+    expect(isMainBottomNavDisplayTabActive("/mypage", my, { secondaryRail: "stores" })).toBe(true);
+    expect(isMainBottomNavDisplayTabActive("/mypage/settings", my, { secondaryRail: "stores" })).toBe(true);
+    expect(isMainBottomNavDisplayTabActive("/mypage/store-orders", my, { secondaryRail: "stores" })).toBe(false);
+    expect(isMainBottomNavDisplayTabActive("/orders", my, { secondaryRail: "stores" })).toBe(false);
   });
 
   it("거래 6탭 레일에서는 delivery 탭 id 미사용", () => {

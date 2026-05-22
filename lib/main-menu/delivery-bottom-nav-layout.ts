@@ -109,7 +109,7 @@ export function composeDeliveryBottomNavDisplayTabs(ownerStoreId?: string | null
     },
     {
       id: "delivery-my",
-      href: "/mypage/section/store",
+      href: "/mypage",
       label: "My Page",
       labelKey: "nav_bottom_my",
       icon: "my",

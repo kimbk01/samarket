@@ -14,9 +14,14 @@ import {
   composeDeliveryBottomNavDisplayTabs,
   isDeliveryBottomNavRail,
   isDeliveryConsumerBottomNavSurface,
+  isDeliveryOrderHistoryBottomNavPath,
   normalizeDeliveryBottomNavPath,
 } from "@/lib/main-menu/delivery-bottom-nav-layout";
 import { resolveDeliveryOrderHistoryHref } from "@/lib/stores/delivery-order-history-nav";
+import {
+  mypageBottomNavOriginToSecondaryRail,
+  readStoredMypageBottomNavOrigin,
+} from "@/lib/main-menu/mypage-bottom-nav-origin";
 import type { MessageKey } from "@/lib/i18n/messages";
 
 /** 하단 좌측 고정 3탭 — 커뮤니티 · 거래 · 배달 */
@@ -127,6 +132,9 @@ export function resolveMainBottomNavSecondaryRailKind(
   if (domain === "philife") return "philife";
 
   if (domain === "my") {
+    if (isDeliveryOrderHistoryBottomNavPath(p)) {
+      return "stores";
+    }
     if (p === "/mypage/section/store" || p.startsWith("/mypage/section/store/")) {
       return "stores";
     }
@@ -140,7 +148,10 @@ export function resolveMainBottomNavSecondaryRailKind(
     ) {
       return "trade";
     }
-    return "philife";
+    if (p === "/mypage/community-posts" || p.startsWith("/mypage/community-posts/")) {
+      return "philife";
+    }
+    return mypageBottomNavOriginToSecondaryRail(readStoredMypageBottomNavOrigin());
   }
 
   return "trade";

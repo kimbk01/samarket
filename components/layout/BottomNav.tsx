@@ -67,7 +67,9 @@ import {
   DELIVERY_BOTTOM_NAV_LABEL_CLASS,
   isDeliveryBottomNavRail,
   isDeliveryBottomNavTabId,
+  isDeliveryConsumerBottomNavSurface,
 } from "@/lib/main-menu/delivery-bottom-nav-layout";
+import { writeStoredMypageBottomNavOrigin } from "@/lib/main-menu/mypage-bottom-nav-origin";
 import { DeliveryDomainSwitcherOverlay } from "@/components/delivery/navigation/DeliveryDomainSwitcherOverlay";
 import { runDeliveryHomeHubShortTap } from "@/lib/delivery/delivery-home-hub-navigation";
 import { useMessengerLongPress } from "@/lib/community-messenger/use-messenger-long-press";
@@ -805,6 +807,22 @@ export function BottomNav({
   const pathnameForPrefetchRef = useRef<string | null>(pathname ?? null);
   useLayoutEffect(() => {
     pathnameForPrefetchRef.current = pathname ?? null;
+  }, [pathname]);
+
+  /** `/mypage` 레일 — 직전 배달·거래·커뮤니티 셸을 sessionStorage 로 복원 */
+  useEffect(() => {
+    const p = (pathname ?? "").split("?")[0]?.trim().replace(/\/+$/, "") || "/";
+    if (isDeliveryConsumerBottomNavSurface(p) || p === "/stores" || p.startsWith("/stores/")) {
+      writeStoredMypageBottomNavOrigin("delivery");
+      return;
+    }
+    if (p === "/market" || p.startsWith("/market/")) {
+      writeStoredMypageBottomNavOrigin("trade");
+      return;
+    }
+    if (p === "/philife" || p.startsWith("/philife/") || p === "/community" || p.startsWith("/community/")) {
+      writeStoredMypageBottomNavOrigin("community");
+    }
   }, [pathname]);
   const bottomNavPrefetchDomain = useMemo(
     () => mainBottomNavPrefetchTriggerKey(pathname ?? null),

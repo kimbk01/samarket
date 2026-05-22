@@ -1,12 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { OwnerStoreAdminConfirmModal } from "@/components/business/owner/OwnerStoreAdminConfirmModal";
-import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
-import { BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS } from "@/lib/main-menu/bottom-nav-config";
+import { pushStoreOwnerMainBottomNavSuppressed } from "@/lib/business/store-owner-main-bottom-nav-suppress";
 import { Sam } from "@/lib/ui/sam-component-classes";
 import { StoreMenuCategorySortableList } from "@/components/business/owner/StoreMenuCategorySortableList";
 import { useBusinessAdminStore } from "@/components/business/admin/business-admin-store-context";
@@ -37,16 +35,8 @@ export function OwnerMenuCategoriesClient({
   rscBootstrapError?: string;
 }) {
   const { t } = useI18n();
-  const pathname = usePathname() ?? "";
-  /** `ConditionalAppShell` 과 동일한 하단 탭 노출 여부 — 고정 액션 바 오프셋에만 사용 */
-  const { showBottomNav } = useMemo(
-    () => resolveConditionalAppShellFlags(pathname || null, false),
-    [pathname]
-  );
-  /** 본문이 `fixed` 액션 바·(선택) 메인 하단 탭에 가리지 않도록 */
-  const editScrollBottomPaddingClass = showBottomNav
-    ? "pb-[calc(8.75rem+env(safe-area-inset-bottom,0px))]"
-    : "pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]";
+  /** 본문이 고정 저장·취소 바에 가리지 않도록 */
+  const editScrollBottomPaddingClass = "pb-[calc(5.5rem+env(safe-area-inset-bottom,0px))]";
   const [sections, setSections] = useState<Section[]>(() =>
     (initialSections ?? []).map((s) => ({
       id: s.id,
@@ -68,6 +58,13 @@ export function OwnerMenuCategoriesClient({
     return rscBootstrapError;
   });
   const [screen, setScreen] = useState<"list" | "edit">("list");
+
+  /** 카테고리 추가·편집 — `BusinessAdminShell` 오너 하단 탭 숨김(저장·취소 바만) */
+  useEffect(() => {
+    if (screen !== "edit") return;
+    return pushStoreOwnerMainBottomNavSuppressed();
+  }, [screen]);
+
   const [editingId, setEditingId] = useState<string | "new" | null>(null);
   const [editorTab, setEditorTab] = useState<EditorTab>("basic");
   const [name, setName] = useState("");
@@ -344,13 +341,11 @@ export function OwnerMenuCategoriesClient({
   };
 
   if (screen === "edit") {
-    const bottomActionBarPositionClass = showBottomNav
-      ? BOTTOM_NAV_FIX_OFFSET_ABOVE_BOTTOM_CLASS
-      : "bottom-0";
-
     return (
       <>
-        <div className={`min-h-[100dvh] bg-sam-app ${editScrollBottomPaddingClass}`}>
+        <div
+          className={`flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain bg-sam-app ${editScrollBottomPaddingClass}`}
+        >
           <nav className="sam-tabs" aria-label={t("business_phase7_304")}>
             <button
               type="button"
@@ -449,7 +444,7 @@ export function OwnerMenuCategoriesClient({
           <div
             role="toolbar"
             aria-label={t("business_phase7_303")}
-            className={`pointer-events-auto fixed inset-x-0 z-[120] border-t border-sam-border bg-sam-surface shadow-[0_-4px_12px_rgba(0,0,0,0.08)] ${bottomActionBarPositionClass} lg:left-[260px]`}
+            className="pointer-events-auto fixed inset-x-0 bottom-0 z-[120] border-t border-sam-border bg-sam-surface shadow-[0_-4px_12px_rgba(0,0,0,0.08)] lg:left-[260px]"
           >
             <div className="mx-auto flex w-full max-w-6xl gap-2 px-2 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] sm:px-2">
               <button

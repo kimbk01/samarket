@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { memo, useCallback, useMemo } from "react";
 import { StoreBrowseFeaturedMenuSkeleton } from "@/components/stores/browse/StoreBrowseFeaturedMenuSkeleton";
 import type { BrowseFeaturedMenuHydrationPhase } from "@/lib/stores/use-browse-featured-items-hydration";
+import { BROWSE_FEATURED_ITEMS_PER_STORE_MAX } from "@/lib/stores/browse-featured-items-types";
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -361,7 +362,7 @@ function StoreDeliveryRowCardInner({
   const showFeaturedSkeleton = featuredMenuHydration === "loading" && data.featuredItems.length === 0;
   const featuredMenuImages = data.featuredItems
     .filter((x) => typeof x.imageUrl === "string" && x.imageUrl.trim().length > 0)
-    .slice(0, 6);
+    .slice(0, BROWSE_FEATURED_ITEMS_PER_STORE_MAX);
   /** 서비스 형태(DB 플래그)와 배달비·프로모 뱃지를 분리 — 배달 방식(유료/무료적용/착불)과 무관하게 노출 */
   const serviceBadgeClass =
     "bg-[#F3F4F6] text-[#4B5563] dark:bg-[#2A2C2E] dark:text-[#B8C0CA]";
