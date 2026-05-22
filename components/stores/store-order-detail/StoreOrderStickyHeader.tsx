@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { StoreDetailBackLink } from "@/components/stores/StoreDetailBackRow";
+import { AppTier1HeaderRow } from "@/components/layout/AppTier1HeaderRow";
+import { APP_TIER1_HEADER_ICON_BTN_CLASS, APP_TIER1_HEADER_ROW_WRAP_CLASS } from "@/lib/layout/app-tier1-header";
 import {
   STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME,
   STORE_COMMERCE_CART_COUNT_BADGE_ON_HERO_GLASS_CLASSNAME,
@@ -12,14 +14,10 @@ import {
 } from "@/components/stores/StoreCommerceCartStrokeIcon";
 import { openStoreCartPreview } from "@/lib/stores/store-cart-preview-ui-store";
 import { useStoreCommerceCartHeaderBadgeCount } from "@/lib/stores/use-store-commerce-cart-selector";
-import { DELIVERY_STORE_STICKY_TITLE_CLASS } from "@/lib/design/delivery-chrome";
-
-const iconBtn =
-  "flex h-10 w-10 shrink-0 items-center justify-center rounded-full transition-colors duration-[180ms] active:scale-[0.96]";
 
 /** 히어로 이미지 위에서 보이는 반투명 글래스 버튼(매장·상품 상세) */
 export const STORE_ORDER_HERO_GLASS_ICON_BTN =
-  "flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/40 bg-black/40 text-white shadow-[0_2px_8px_rgba(0,0,0,0.28)] backdrop-blur-sm transition-[background-color,transform,border-color,box-shadow] duration-[180ms] active:scale-[0.96] active:border-white/55 active:bg-black/55";
+  `${APP_TIER1_HEADER_ICON_BTN_CLASS} border border-white/40 bg-black/40 text-white shadow-[0_2px_8px_rgba(0,0,0,0.28)] backdrop-blur-sm active:scale-[0.96] active:border-white/55 active:bg-black/55`;
 
 export function StoreOrderStickyHeader({
   elevated,
@@ -82,16 +80,16 @@ export function StoreOrderStickyHeader({
 
   const glassOverlay = heroGlassOverlayButtons && !elevated;
   const backBtnClass = elevated
-    ? "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-neutral-900 hover:bg-black/[0.06] active:bg-black/[0.08]"
+    ? `${APP_TIER1_HEADER_ICON_BTN_CLASS} text-neutral-900 hover:bg-black/[0.06]`
     : glassOverlay
       ? STORE_ORDER_HERO_GLASS_ICON_BTN
-      : "flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white drop-shadow hover:bg-white/15 active:bg-white/25";
+      : `${APP_TIER1_HEADER_ICON_BTN_CLASS} text-white drop-shadow hover:bg-white/15`;
   const actionBtnClass = (extra = "") =>
     elevated
-      ? `${iconBtn} text-neutral-900 ${extra}`.trim()
+      ? `${APP_TIER1_HEADER_ICON_BTN_CLASS} text-neutral-900 ${extra}`.trim()
       : glassOverlay
         ? `${STORE_ORDER_HERO_GLASS_ICON_BTN} ${extra}`.trim()
-        : `${iconBtn} text-white drop-shadow-sm ${extra}`.trim();
+        : `${APP_TIER1_HEADER_ICON_BTN_CLASS} text-white drop-shadow-sm ${extra}`.trim();
 
   const header = (
     <header
@@ -101,81 +99,78 @@ export function StoreOrderStickyHeader({
           : "border-b border-transparent bg-transparent"
       }`}
     >
-      <div className="delivery-ui mx-auto flex h-[length:var(--delivery-header-h)] min-h-[length:var(--delivery-header-h)] w-full max-w-[42rem] items-center gap-1 px-[length:var(--delivery-page-x)]">
-        <StoreDetailBackLink fallbackHref={fallbackHref} className={backBtnClass} />
-        <div
-          className="min-w-0 flex-1 text-center transition-opacity duration-[180ms] ease-out"
-          style={{ opacity: elevated ? 1 : 0 }}
-          aria-hidden={!elevated}
-        >
-          <p className={DELIVERY_STORE_STICKY_TITLE_CLASS}>{storeName}</p>
-        </div>
-        <div className={`flex shrink-0 items-center ${glassOverlay ? "gap-1.5" : "gap-0.5"}`}>
-          <button
-            type="button"
-            className={actionBtnClass()}
-            aria-label={t("store_menu_search_aria")}
-            onClick={onMenuSearchFocus}
-          >
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-              <circle cx="11" cy="11" r="7" />
-              <path strokeLinecap="round" d="M20 20l-3.5-3.5" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            className={actionBtnClass()}
-            aria-label={t("common_share")}
-            onClick={onShareClick}
-          >
-            {/* Baemin-like share glyph: arrow up from box */}
-            <svg
-              width="21"
-              height="21"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              aria-hidden
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v10" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M8 6l4-4 4 4" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M7 11h10" opacity="0" />
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M5 11v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9"
-              />
-            </svg>
-          </button>
-          <Link
-            href={cartHref}
-            onClick={onCartPress}
-            className={actionBtnClass("relative")}
-            aria-label={
-              cartLineKindCount > 0
-                ? `${t("store_cart_preview_aria")}, ${cartLineKindCount}종`
-                : t("store_cart_preview_aria")
-            }
-          >
-            <StoreCommerceCartStrokeIcon className="h-[21px] w-[21px]" />
-            {cartLineKindCount > 0 ? (
-              <span
-                className={
-                  glassOverlay
-                    ? STORE_COMMERCE_CART_COUNT_BADGE_ON_HERO_GLASS_CLASSNAME
-                    : `absolute -right-0.5 -top-0.5 z-[1] ${STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME}`
+      <div
+        className={`delivery-ui mx-auto w-full max-w-[42rem] ${APP_TIER1_HEADER_ROW_WRAP_CLASS}`}
+      >
+        <AppTier1HeaderRow
+          title={storeName}
+          titleHidden={!elevated}
+          leading={<StoreDetailBackLink fallbackHref={fallbackHref} className={backBtnClass} />}
+          trailing={
+            <>
+              <button
+                type="button"
+                className={actionBtnClass()}
+                aria-label={t("store_menu_search_aria")}
+                onClick={onMenuSearchFocus}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                  <circle cx="11" cy="11" r="7" />
+                  <path strokeLinecap="round" d="M20 20l-3.5-3.5" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                className={actionBtnClass()}
+                aria-label={t("common_share")}
+                onClick={onShareClick}
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  aria-hidden
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v10" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M8 6l4-4 4 4" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7 11h10" opacity="0" />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M5 11v9a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-9"
+                  />
+                </svg>
+              </button>
+              <Link
+                href={cartHref}
+                onClick={onCartPress}
+                className={actionBtnClass("relative")}
+                aria-label={
+                  cartLineKindCount > 0
+                    ? `${t("store_cart_preview_aria")}, ${cartLineKindCount}종`
+                    : t("store_cart_preview_aria")
                 }
               >
-                {cartLineKindCount > 99 ? "99+" : cartLineKindCount}
-              </span>
-            ) : null}
-          </Link>
-        </div>
+                <StoreCommerceCartStrokeIcon />
+                {cartLineKindCount > 0 ? (
+                  <span
+                    className={
+                      glassOverlay
+                        ? STORE_COMMERCE_CART_COUNT_BADGE_ON_HERO_GLASS_CLASSNAME
+                        : `absolute -right-0.5 -top-0.5 z-[1] ${STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME}`
+                    }
+                  >
+                    {cartLineKindCount > 99 ? "99+" : cartLineKindCount}
+                  </span>
+                ) : null}
+              </Link>
+            </>
+          }
+        />
       </div>
     </header>
   );
 
-  // Portal: 상위 레이아웃에 transform/스크롤 컨테이너가 있어도 viewport 상단 고정 유지
   return portalToBody ? createPortal(header, document.body) : header;
 }

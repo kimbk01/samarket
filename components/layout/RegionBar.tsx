@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useMemo } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -20,7 +19,6 @@ import { resolveMainTier1Subpage } from "@/lib/layout/resolve-main-tier1";
 import { resolveTier1BarLabel } from "@/lib/layout/resolve-tier1-bar-label";
 import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
-import { Tier1ExplorationTitleRow } from "@/components/layout/Tier1ExplorationTitleRow";
 import { PhilifeHeaderComposeButton } from "@/components/philife/PhilifeHeaderComposeButton";
 import { PhilifeHeaderMessengerButton } from "@/components/philife/PhilifeHeaderMessengerButton";
 import { PhilifeHeaderAddressMenuButton } from "@/components/philife/PhilifeHeaderAddressMenuButton";
@@ -32,8 +30,20 @@ import {
   BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY,
   BOTTOM_NAV_TRADE_TAB_LABEL_KEY,
 } from "@/lib/main-menu/bottom-nav-config";
+import { AppTier1HeaderRow } from "@/components/layout/AppTier1HeaderRow";
+import { AppTier1HeaderTitleCluster } from "@/components/layout/AppTier1HeaderTitleCluster";
 import { DeliveryTier1Header } from "@/components/stores/chrome/DeliveryTier1Header";
 import { StoresRootTier1HeaderActions } from "@/components/stores/StoresRootTier1HeaderActions";
+import {
+  DELIVERY_CONSUMER_HEADER_BAR_CLASS,
+  DELIVERY_TIER1_HEADER_INNER_CLASS,
+  isDeliveryConsumerPath,
+} from "@/lib/design/delivery-chrome";
+import {
+  APP_TIER1_HEADER_BAR_CLASS,
+  APP_TIER1_HEADER_ICON_BTN_CLASS,
+  APP_TIER1_HEADER_ROW_WRAP_CLASS,
+} from "@/lib/layout/app-tier1-header";
 import type { ReactNode } from "react";
 
 function UnifiedTier1Shell({ children }: { children: ReactNode }) {
@@ -188,65 +198,49 @@ export function RegionBar({
       <span className="truncate sam-text-page-title">dibaY</span>
     );
 
-  const right =
-    o?.rightSlot != null ? (
-      <div className="flex min-w-[44px] shrink-0 items-center justify-end self-stretch">{o.rightSlot}</div>
-    ) : showHub ? (
-      <div className="flex shrink-0 items-center self-stretch">
-        <MyHubHeaderActions />
-      </div>
-    ) : (
-      <div className="h-9 w-9 shrink-0 self-center" aria-hidden />
+  const tier1BackClass = `${APP_TIER1_HEADER_ICON_BTN_CLASS} !h-[length:var(--delivery-header-action)] !min-h-0 !w-[length:var(--delivery-header-action)] !min-w-0`;
+
+  const leading =
+    o?.leftSlot != null ? (
+      o.leftSlot
+    ) : hideBack ? undefined : (
+      <AppBackButton
+        preferHistoryBack={preferHistoryBack}
+        backHref={backHref}
+        ariaLabel={ariaLabel}
+        className={tier1BackClass}
+      />
     );
 
-  const alignTitleStart = o?.alignTier1TitleStart === true;
-  const titleColClass = alignTitleStart
-    ? "flex min-h-0 min-w-0 flex-1 flex-col justify-center self-stretch overflow-hidden pl-0 pr-1 text-left"
-    : "flex min-h-0 min-w-0 flex-1 flex-col justify-center self-stretch overflow-hidden px-1 text-center";
-  const h1Class = alignTitleStart
-    ? "flex min-w-0 w-full flex-col items-start justify-center overflow-hidden text-sam-fg"
-    : "flex min-w-0 w-full flex-col items-center justify-center overflow-hidden text-sam-fg";
-  const tier1RowGapClass = alignTitleStart ? "gap-0.5" : "gap-2";
+  const titleCore =
+    centerFromExtras != null && typeof centerFromExtras !== "string" ? (
+      centerFromExtras
+    ) : (
+      <span className="truncate sam-text-page-title">{stringTitle ?? "dibaY"}</span>
+    );
+
+  const titleNode = (
+    <AppTier1HeaderTitleCluster title={titleCore} subtitle={subtitle} subtitleHref={subtitleHref} />
+  );
+
+  const trailing =
+    o?.rightSlot != null ? o.rightSlot : showHub ? <MyHubHeaderActions /> : null;
+
+  const barClass = isDeliveryConsumerPath(pathNoQuery)
+    ? `delivery-ui ${DELIVERY_CONSUMER_HEADER_BAR_CLASS}`
+    : APP_TIER1_HEADER_BAR_CLASS;
+
+  const innerClass = isDeliveryConsumerPath(pathNoQuery)
+    ? DELIVERY_TIER1_HEADER_INNER_CLASS
+    : APP_MAIN_HEADER_INNER_CLASS;
 
   return (
-    <UnifiedTier1Shell>
-      <div
-        className={`flex h-[length:var(--sam-header-row-height)] min-h-[length:var(--sam-header-row-height)] min-w-0 items-center ${tier1RowGapClass} overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}
-      >
-        <div
-          className={
-            o?.leftSlot != null
-              ? "flex w-auto min-w-[44px] max-w-[min(200px,50vw)] shrink-0 items-center justify-start self-stretch"
-              : "flex w-[44px] shrink-0 items-center justify-start self-stretch"
-          }
-        >
-          {o?.leftSlot != null ? (
-            o.leftSlot
-          ) : hideBack ? (
-            <div className="h-9 w-9 shrink-0" aria-hidden />
-          ) : (
-            <AppBackButton preferHistoryBack={preferHistoryBack} backHref={backHref} ariaLabel={ariaLabel} />
-          )}
+    <header className={`w-full min-w-0 max-w-full shrink-0 overflow-x-hidden ${barClass}`}>
+      <div className={innerClass}>
+        <div className={APP_TIER1_HEADER_ROW_WRAP_CLASS}>
+          <AppTier1HeaderRow title={titleNode} leading={leading} trailing={trailing} />
         </div>
-        <div className={titleColClass}>
-          <h1 className={h1Class}>
-            {centerNode}
-            {subtitle ? (
-              subtitleHref ? (
-                <Link
-                  href={subtitleHref}
-                  className="mt-0.5 block truncate sam-text-xxs leading-tight text-sam-muted hover:text-sam-fg hover:underline"
-                >
-                  {subtitle}
-                </Link>
-              ) : (
-                <p className="truncate sam-text-xxs leading-tight text-sam-muted">{subtitle}</p>
-              )
-            ) : null}
-          </h1>
-        </div>
-        {right}
       </div>
-    </UnifiedTier1Shell>
+    </header>
   );
 }

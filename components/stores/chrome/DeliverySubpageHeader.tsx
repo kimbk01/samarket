@@ -2,14 +2,13 @@
 
 import type { ReactNode } from "react";
 import {
-  DELIVERY_SUBPAGE_HEADER_ACTION_BTN_CLASS,
-  DELIVERY_SUBPAGE_HEADER_BACK_BTN_CLASS,
+  DELIVERY_CONSUMER_HEADER_ICON_BTN_CLASS,
+  DELIVERY_CONSUMER_HEADER_ROW_CLASS,
   DELIVERY_SUBPAGE_HEADER_INNER_CLASS,
-  DELIVERY_SUBPAGE_HEADER_ROW_CLASS,
   DELIVERY_SUBPAGE_HEADER_SHELL_CLASS,
-  DELIVERY_SUBPAGE_HEADER_TITLE_CLASS,
 } from "@/lib/design/delivery-chrome";
 import { APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
+import { DeliveryConsumerHeaderRow } from "@/components/stores/chrome/DeliveryConsumerHeaderRow";
 
 export function DeliverySubpageHeader({
   title,
@@ -24,23 +23,31 @@ export function DeliverySubpageHeader({
   trailing?: ReactNode;
 }) {
   return (
-    <header className={`delivery-ui ${APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS} ${DELIVERY_SUBPAGE_HEADER_SHELL_CLASS}`}>
+    <header
+      className={`delivery-ui ${APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS} ${DELIVERY_SUBPAGE_HEADER_SHELL_CLASS}`}
+    >
       <div className={DELIVERY_SUBPAGE_HEADER_INNER_CLASS}>
-        <div className={DELIVERY_SUBPAGE_HEADER_ROW_CLASS}>
-          <button
-            type="button"
-            onClick={onBack}
-            aria-label={backLabel}
-            className={DELIVERY_SUBPAGE_HEADER_BACK_BTN_CLASS}
-          >
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 18l-6-6 6-6" />
-            </svg>
-          </button>
-          <h1 className={DELIVERY_SUBPAGE_HEADER_TITLE_CLASS}>{title}</h1>
-          {trailing ?? (
-            <span className={`${DELIVERY_SUBPAGE_HEADER_ACTION_BTN_CLASS} pointer-events-none opacity-0`} aria-hidden />
-          )}
+        <div className={DELIVERY_CONSUMER_HEADER_ROW_CLASS}>
+          <DeliveryConsumerHeaderRow
+            title={title}
+            leading={
+              <button
+                type="button"
+                onClick={onBack}
+                aria-label={backLabel}
+                className={DELIVERY_CONSUMER_HEADER_ICON_BTN_CLASS}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 18l-6-6 6-6" />
+                </svg>
+              </button>
+            }
+            trailing={
+              trailing ?? (
+                <span className={`${DELIVERY_CONSUMER_HEADER_ICON_BTN_CLASS} pointer-events-none opacity-0`} aria-hidden />
+              )
+            }
+          />
         </div>
       </div>
     </header>

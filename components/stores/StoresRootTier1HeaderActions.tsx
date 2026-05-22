@@ -51,18 +51,18 @@ export function StoresRootTier1HeaderActions() {
   return (
     <>
       {hubBlockedModal}
-      <div className="inline-flex h-full shrink-0 items-center gap-0 [&>*+*]:-ml-1">
+      <>
         <Link
           href={cartHref}
           prefetch={false}
-          className="sam-header-action relative h-10 w-10 shrink-0 text-sam-fg"
+          className="sam-tier1-header__icon-btn relative text-[color:var(--delivery-text-main)]"
           aria-label={
             cartLineKindCount > 0
               ? t("nav_cart_aria")
               : t("store_delivery_dial_cart")
           }
         >
-          <StoreCommerceCartStrokeIcon className="h-6 w-6" />
+          <StoreCommerceCartStrokeIcon />
           {cartLineKindCount > 0 ? (
             <span className={HEADER_BADGE_CLASS} aria-hidden>
               {cartLineKindCount > 99 ? "99+" : cartLineKindCount}
@@ -72,16 +72,16 @@ export function StoresRootTier1HeaderActions() {
         <Link
           href={orderHistoryHref}
           prefetch={false}
-          className="sam-header-action h-10 w-10 shrink-0 text-sam-fg"
+          className="sam-tier1-header__icon-btn text-[color:var(--delivery-text-main)]"
           aria-label={t("store_delivery_float_order_history")}
         >
-          <OrderHistoryIcon className="h-6 w-6" />
+          <OrderHistoryIcon />
         </Link>
         {opsHref ? (
           <Link
             href={opsHref}
             prefetch={false}
-            className="sam-header-action relative h-10 w-10 shrink-0 text-sam-fg"
+            className="sam-tier1-header__icon-btn relative text-[color:var(--delivery-text-main)]"
             aria-label={t("store_delivery_float_ops_center")}
             onClick={
               shouldInterceptBusinessHubHref(opsHref)
@@ -91,7 +91,7 @@ export function StoresRootTier1HeaderActions() {
                 : undefined
             }
           >
-            <StoreOpsCenterStrokeIcon className="h-6 w-6" />
+            <StoreOpsCenterStrokeIcon />
             {ownerOpsAttention > 0 ? (
               <span className={HEADER_BADGE_CLASS} aria-hidden>
                 {ownerOpsAttention > 99 ? "99+" : ownerOpsAttention}
@@ -99,7 +99,7 @@ export function StoresRootTier1HeaderActions() {
             ) : null}
           </Link>
         ) : null}
-      </div>
+      </>
     </>
   );
 }

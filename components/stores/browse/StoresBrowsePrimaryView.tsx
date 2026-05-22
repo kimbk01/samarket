@@ -135,13 +135,13 @@ function StoresBrowseCartAction() {
   const { href: cartHref, cartCount: cartLineKindCount } = useCommerceCartNavHref();
 
   return (
-    <div className="flex shrink-0 items-center gap-0.5">
+    <>
       <Link
         href="/search"
-        className="flex h-11 w-11 items-center justify-center rounded-full text-foreground hover:bg-sam-primary-soft"
+        className="sam-tier1-header__icon-btn text-[color:var(--delivery-text-main)] hover:bg-[color:var(--delivery-bg-soft)]"
         aria-label={t("common_search")}
       >
-        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden>
           <path
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -151,17 +151,17 @@ function StoresBrowseCartAction() {
       </Link>
       <Link
         href={cartHref}
-        className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-foreground hover:bg-sam-primary-soft"
+        className="sam-tier1-header__icon-btn relative text-[color:var(--delivery-text-main)] hover:bg-[color:var(--delivery-bg-soft)]"
         aria-label={cartLineKindCount > 0 ? t("common_cart") : t("store_browse_primary_fallback")}
       >
-        <StoreCommerceCartStrokeIcon className="h-5 w-5" />
+        <StoreCommerceCartStrokeIcon />
         {cartLineKindCount > 0 ? (
           <span className={`absolute right-0.5 top-0.5 ${STORE_COMMERCE_CART_COUNT_BADGE_CLASSNAME}`}>
             {cartLineKindCount > 99 ? "99+" : cartLineKindCount}
           </span>
         ) : null}
       </Link>
-    </div>
+    </>
   );
 }
 

@@ -1446,7 +1446,7 @@ export function StoreDetailPublic({
 
   const sectionScrollMarginCss = useMemo(
     () =>
-      `calc(env(safe-area-inset-top, 0px) + 56px + ${menuStickyStackPx}px + 10px)`,
+      `calc(env(safe-area-inset-top, 0px) + var(--delivery-header-h, 48px) + ${menuStickyStackPx}px + 10px)`,
     [menuStickyStackPx]
   );
 

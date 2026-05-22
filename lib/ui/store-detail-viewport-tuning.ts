@@ -3,8 +3,8 @@
  * 기기별 차이는 여기 숫자만 조정한다.
  */
 
-/** `StoreOrderStickyHeader` 본문 h-14 */
-export const STORE_DETAIL_HEADER_BAR_PX = 56;
+/** `StoreOrderStickyHeader` — `app/delivery-tokens.css` `--delivery-header-h` 와 동일 */
+export const STORE_DETAIL_HEADER_BAR_PX = 48;
 
 /** 히어로 이미지 박스 아래 흰 요약 카드(이름·별점·픽업) 추정 높이 */
 export const STORE_DETAIL_SUMMARY_BELOW_HERO_ESTIMATE_PX = 168;

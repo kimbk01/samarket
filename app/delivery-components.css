@@ -369,6 +369,119 @@
     color: var(--delivery-badge-discount-fg);
   }
 
+  /**
+   * 앱 1단 헤더 한 줄 — 좌: 뒤로 · 제목: 좌측 20% · 우: 아이콘(크기·간격 통일)
+   * `AppTier1HeaderRow` — 거래·메신저·내정보·매장·어드민 등 (햄버거 탐색 1단 제외)
+   */
+  .sam-tier1-header__row,
+  .delivery-consumer-header__row {
+    position: relative;
+    width: 100%;
+    height: var(--delivery-header-h);
+    min-height: var(--delivery-header-h);
+  }
+
+  .sam-tier1-header__leading,
+  .delivery-consumer-header__leading {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    margin: 0;
+  }
+
+  .sam-tier1-header__leading > a,
+  .sam-tier1-header__leading > button,
+  .delivery-consumer-header__leading > a,
+  .delivery-consumer-header__leading > button {
+    min-height: 0 !important;
+    min-width: 0 !important;
+  }
+
+  .sam-tier1-header__title-slot,
+  .delivery-consumer-header__title-slot {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--delivery-header-title-anchor-from-left);
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    margin: 0;
+    max-width: calc(100% - var(--delivery-header-title-anchor-from-left) - 8.5rem);
+    pointer-events: none;
+  }
+
+  .sam-tier1-header__title,
+  .delivery-consumer-header__title {
+    display: block;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: left;
+    font-size: var(--delivery-fs-header-title);
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--sam-fg, var(--delivery-dark));
+  }
+
+  .delivery-ui .sam-tier1-header__title,
+  .delivery-ui .delivery-consumer-header__title {
+    color: var(--delivery-dark);
+  }
+
+  .sam-tier1-header__title-slot > *,
+  .delivery-consumer-header__title-slot > * {
+    pointer-events: auto;
+  }
+
+  .sam-tier1-header__actions,
+  .delivery-consumer-header__actions {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    right: 0;
+    z-index: 2;
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--delivery-header-action-gap);
+    margin: 0;
+  }
+
+  .sam-tier1-header__icon-btn,
+  .delivery-consumer-header__icon-btn {
+    display: inline-flex;
+    width: var(--delivery-header-action);
+    height: var(--delivery-header-action);
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--delivery-radius-pill);
+    border: 0;
+    background: transparent;
+    color: var(--delivery-text-main);
+    transition: background-color 120ms ease;
+  }
+
+  .sam-tier1-header__icon-btn:active,
+  .delivery-consumer-header__icon-btn:active {
+    background: var(--delivery-bg-soft);
+  }
+
+  .sam-tier1-header__icon-btn svg,
+  .delivery-consumer-header__icon-btn svg {
+    width: var(--delivery-header-icon-glyph) !important;
+    height: var(--delivery-header-icon-glyph) !important;
+    flex-shrink: 0;
+  }
+
   /** 서브페이지(장바구니 등) — 48px 바, 17px 중앙 제목 */
   .delivery-subpage-header {
     position: relative;

@@ -75,9 +75,10 @@ describe("store-detail-menu-tabs-viewport", () => {
     );
   });
 
-  it("storeDetailCategoryTabsStickyTopCss includes safe-area", async () => {
+  it("storeDetailCategoryTabsStickyTopCss includes safe-area and delivery header height token", async () => {
     const { storeDetailCategoryTabsStickyTopCss } = await import("@/lib/ui/store-detail-menu-tabs-viewport");
     expect(storeDetailCategoryTabsStickyTopCss()).toContain("safe-area-inset-top");
+    expect(storeDetailCategoryTabsStickyTopCss()).toContain("--delivery-header-h");
     expect(storeDetailCategoryTabsStickyTopCss()).toContain(String(STORE_DETAIL_HEADER_BAR_PX));
   });
 });

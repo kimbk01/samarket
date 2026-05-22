@@ -35,7 +35,7 @@ export function StoreMenuCategoryChips({
 
   const wrapPad =
     variant === "orderDetail"
-      ? "px-0 py-1.5"
+      ? "px-0 py-1"
       : plainBackground
         ? "px-0 py-0"
         : "bg-sam-surface px-4";
@@ -51,7 +51,7 @@ export function StoreMenuCategoryChips({
     "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
   const scrollCls =
     variant === "orderDetail"
-      ? `sam-i18n-chip-row flex flex-nowrap touch-pan-x gap-2 overflow-x-auto px-4 pb-2 [-webkit-overflow-scrolling:touch] ${scrollHide}`
+      ? `sam-i18n-chip-row flex flex-nowrap touch-pan-x gap-2 overflow-x-auto px-4 pb-1 [-webkit-overflow-scrolling:touch] ${scrollHide}`
       : `sam-tabs sam-tabs--scroll sam-i18n-chip-row -mx-4 ${scrollHide}`;
 
   const chipCls = (on: boolean) =>

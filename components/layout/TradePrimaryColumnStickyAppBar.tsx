@@ -2,11 +2,16 @@
 
 import type { ComponentProps, ReactNode } from "react";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
+import { AppTier1HeaderRow } from "@/components/layout/AppTier1HeaderRow";
 import { TradePrimaryAppBarShell } from "@/components/layout/TradePrimaryAppBarShell";
 import {
   APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS,
   APP_TIER1_VIEWPORT_BLEED_FROM_COLUMN_CLASS,
 } from "@/lib/ui/app-content-layout";
+import {
+  APP_TIER1_HEADER_ICON_BTN_CLASS,
+  APP_TIER1_HEADER_ROW_WRAP_CLASS,
+} from "@/lib/layout/app-tier1-header";
 
 export type TradePrimaryColumnStickyAppBarProps = {
   title: ReactNode;
@@ -37,8 +42,7 @@ export type TradePrimaryColumnStickyAppBarProps = {
 };
 
 /**
- * 메인 1단과 동일 **쉘**(`TradePrimaryAppBarShell`) + 본문 컬럼 정렬 한 줄(뒤로·제목·우측 액션).
- * 메인 1단을 대체하는 전용 헤더에 사용(`/orders`, 일부 매장 등). (`lib/layout/main-tier1.ts` 참고)
+ * 메인 1단과 동일 **쉘**(`TradePrimaryAppBarShell`) + `AppTier1HeaderRow`(뒤로·제목 20%·우측 액션).
  */
 export function TradePrimaryColumnStickyAppBar({
   title,
@@ -54,19 +58,23 @@ export function TradePrimaryColumnStickyAppBar({
   hideBackButton = false,
   shellVariant = "default",
 }: TradePrimaryColumnStickyAppBarProps) {
+  const tier1BackClass = `${APP_TIER1_HEADER_ICON_BTN_CLASS} !h-[length:var(--delivery-header-action)] !min-h-0 !w-[length:var(--delivery-header-action)] !min-w-0`;
+
   const shell = (
     <TradePrimaryAppBarShell embedded={embedded} variant={shellVariant}>
       {!hidePrimaryRow ? (
-        <div
-          className={`flex min-h-[length:var(--sam-header-row-height)] min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS}`}
-        >
-          <div className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
-            {!hideBackButton ? <AppBackButton {...backButtonProps} /> : null}
-            <h1 className="sam-app-header-title">{title}</h1>
+        <div className={APP_MAIN_HEADER_ROW_ALIGNED_TO_COLUMN_CLASS}>
+          <div className={APP_TIER1_HEADER_ROW_WRAP_CLASS}>
+            <AppTier1HeaderRow
+              title={<span className="truncate sam-text-page-title">{title}</span>}
+              leading={
+                hideBackButton ? undefined : (
+                  <AppBackButton {...backButtonProps} className={tier1BackClass} />
+                )
+              }
+              trailing={actions}
+            />
           </div>
-          {actions != null ? (
-            <div className="flex shrink-0 items-center gap-0.5">{actions}</div>
-          ) : null}
         </div>
       ) : null}
       {shellFooter}

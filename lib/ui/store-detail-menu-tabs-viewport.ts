@@ -27,10 +27,11 @@ export { readStoreDetailFixedHeaderOffsetPx } from "@/lib/ui/store-detail-viewpo
 /** CategoryStickyTabs `top` CSS — `StoreOrderStickyHeader` 와 동일 계산 */
 export function storeDetailCategoryTabsStickyTopCss(): string {
   const tabletExtra = isTabletViewport() ? STORE_DETAIL_TABLET_STICKY_TOP_EXTRA_PX : 0;
+  const headerH = `var(--delivery-header-h, ${STORE_DETAIL_HEADER_BAR_PX}px)`;
   if (tabletExtra > 0) {
-    return `calc(env(safe-area-inset-top, 0px) + ${STORE_DETAIL_HEADER_BAR_PX}px + ${tabletExtra}px)`;
+    return `calc(env(safe-area-inset-top, 0px) + ${headerH} + ${tabletExtra}px)`;
   }
-  return `calc(env(safe-area-inset-top, 0px) + ${STORE_DETAIL_HEADER_BAR_PX}px)`;
+  return `calc(env(safe-area-inset-top, 0px) + ${headerH})`;
 }
 
 function measureNoticeBarHeightPx(): number {

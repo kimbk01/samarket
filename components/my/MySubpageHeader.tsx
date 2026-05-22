@@ -10,6 +10,13 @@ import type { ManagedMySection } from "@/lib/my/managed-my-section-ctas";
 import { getManagedSectionCtas } from "@/lib/my/managed-my-section-ctas";
 import { useMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { MyHubHeaderActions } from "@/components/my/MyHubHeaderActions";
+import { AppTier1HeaderRow } from "@/components/layout/AppTier1HeaderRow";
+import { AppTier1HeaderTitleCluster } from "@/components/layout/AppTier1HeaderTitleCluster";
+import {
+  APP_TIER1_HEADER_BAR_CLASS,
+  APP_TIER1_HEADER_ICON_BTN_CLASS,
+  APP_TIER1_HEADER_ROW_WRAP_CLASS,
+} from "@/lib/layout/app-tier1-header";
 import { APP_MAIN_HEADER_INNER_CLASS } from "@/lib/ui/app-content-layout";
 
 export type MySubpageHeaderProps = {
@@ -40,7 +47,6 @@ export type MySubpageHeaderProps = {
   showHubQuickActions?: boolean;
   /**
    * false면 `RegionBar` 등이 이미 1단을 그리므로, 여기서는 stickyBelow·ctaLinks만 MainTier1Extras에 넣음.
-   * (필라이프 피드·거래 탐색과 동일 헤더 톤을 맞출 때 사용)
    */
   registerMainTier1?: boolean;
 };
@@ -119,63 +125,50 @@ export function MySubpageHeader({
   ]);
 
   if (!tier1Provider) {
-    const right =
-      rightSlot != null ? (
-        <div className="flex min-w-[44px] shrink-0 items-center justify-end">{rightSlot}</div>
-      ) : showHubQuickActions ? (
-        <MyHubHeaderActions />
+    const trailing = rightSlot != null ? rightSlot : showHubQuickActions ? <MyHubHeaderActions /> : null;
+    const tier1BackClass = `${APP_TIER1_HEADER_ICON_BTN_CLASS} !h-[length:var(--delivery-header-action)] !min-h-0 !w-[length:var(--delivery-header-action)] !min-w-0`;
+
+    const leading =
+      leftSlot ??
+      (preferHistoryBack === false && backHref != null ? (
+        <Link href={backHref} className={tier1BackClass} aria-label={resolvedAriaLabel} scroll={false}>
+          <BackChevronIcon />
+        </Link>
       ) : (
-        <div className="h-9 w-9 shrink-0" aria-hidden />
+        <button
+          type="button"
+          onClick={() => runHistoryBackWithFallback(router, backHref)}
+          className={tier1BackClass}
+          aria-label={resolvedAriaLabel}
+        >
+          <BackChevronIcon />
+        </button>
+      ));
+
+    const titleCore =
+      typeof translatedTitle === "string" ? (
+        <span className="truncate sam-text-page-title">{translatedTitle}</span>
+      ) : (
+        translatedTitle
       );
 
     return (
-      <div className="sticky top-0 z-20 w-full min-w-0 max-w-full overflow-x-hidden bg-sam-surface/95 backdrop-blur-[10px]">
-        <header className="min-w-0 overflow-x-hidden border-b border-sam-border bg-sam-surface/95">
-          <div className={`flex min-h-[length:var(--sam-header-row-height)] min-w-0 items-center gap-2 overflow-hidden ${APP_MAIN_HEADER_INNER_CLASS}`}>
-            <div className="flex w-[44px] shrink-0 justify-start">
-              {preferHistoryBack === false && backHref != null ? (
-                <Link
-                  href={backHref}
-                  className="sam-header-action h-10 w-10 text-sam-fg"
-                  aria-label={resolvedAriaLabel}
-                >
-                  <BackChevronIcon />
-                </Link>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => runHistoryBackWithFallback(router, backHref)}
-                  className="sam-header-action h-10 w-10 text-sam-fg"
-                  aria-label={resolvedAriaLabel}
-                >
-                  <BackChevronIcon />
-                </button>
-              )}
-            </div>
-            <div className="min-w-0 flex-1 overflow-hidden px-1 text-center">
-              <h1 className="flex min-w-0 w-full items-center justify-center overflow-hidden text-sam-fg">
-                {typeof translatedTitle === "string" ? (
-                  <span className="truncate sam-text-page-title">{translatedTitle}</span>
-                ) : (
-                  translatedTitle
-                )}
-              </h1>
-              {translatedSubtitle ? (
-                subtitleHref ? (
-                  <Link
-                    href={subtitleHref}
-                    className="mt-0.5 block truncate sam-text-helper leading-tight text-sam-muted hover:text-sam-fg hover:underline"
-                  >
-                    {translatedSubtitle}
-                  </Link>
-                ) : (
-                  <p className="truncate sam-text-helper leading-tight text-sam-muted">{translatedSubtitle}</p>
-                )
-              ) : null}
-            </div>
-            {right}
+      <div className={`sticky top-0 z-20 w-full min-w-0 max-w-full overflow-x-hidden ${APP_TIER1_HEADER_BAR_CLASS}`}>
+        <div className={APP_MAIN_HEADER_INNER_CLASS}>
+          <div className={APP_TIER1_HEADER_ROW_WRAP_CLASS}>
+            <AppTier1HeaderRow
+              leading={leading}
+              title={
+                <AppTier1HeaderTitleCluster
+                  title={titleCore}
+                  subtitle={translatedSubtitle}
+                  subtitleHref={subtitleHref}
+                />
+              }
+              trailing={trailing}
+            />
           </div>
-        </header>
+        </div>
       </div>
     );
   }
@@ -185,17 +178,7 @@ export function MySubpageHeader({
 
 function BackChevronIcon() {
   return (
-    <svg
-      width="22"
-      height="22"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-    >
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M15 18l-6-6 6-6" />
     </svg>
   );
