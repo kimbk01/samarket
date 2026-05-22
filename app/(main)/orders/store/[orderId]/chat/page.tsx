@@ -5,6 +5,8 @@ import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { ensureStoreOrderMessengerRoom } from "@/lib/community-messenger/store-order-chat-service";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
+import { translate } from "@/lib/i18n/messages";
 
 /** 주문 허브 매장 주문 채팅 — RSC 선로딩으로 첫 GET 제거 */
 export default function OrdersStoreOrderChatPage({
@@ -26,12 +28,13 @@ async function OrdersStoreOrderChatPageBody({
 }) {
   const { orderId: raw } = await params;
   const orderId = typeof raw === "string" ? raw.trim() : "";
+  const lang = resolveServerInitialLanguage({});
   if (!orderId) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-sam-app px-4 text-sm text-sam-muted">
-        <p>주문 ID가 없습니다.</p>
+        <p>{translate(lang, "store_order_id_required")}</p>
         <Link href="/orders" className="mt-2 font-medium text-signature underline">
-          주문 목록
+          {translate(lang, "store_orders_list_link")}
         </Link>
       </div>
     );
@@ -60,7 +63,9 @@ async function OrdersStoreOrderChatPageBody({
   if (!result.ok) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-sam-app px-4 text-center">
-        <p className="text-sm text-sam-fg">주문 채팅을 열 수 없습니다. ({result.error})</p>
+        <p className="text-sm text-sam-fg">
+          {translate(lang, "store_order_chat_open_failed_error", { error: result.error })}
+        </p>
         <Link
           href={`/orders/store/${encodeURIComponent(orderId)}`}
           className="text-sm font-medium text-signature underline"

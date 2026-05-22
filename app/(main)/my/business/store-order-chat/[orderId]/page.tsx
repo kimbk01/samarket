@@ -5,6 +5,8 @@ import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { ensureStoreOrderMessengerRoom } from "@/lib/community-messenger/store-order-chat-service";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
+import { translate } from "@/lib/i18n/messages";
 
 /** 매장 오너 주문 채팅 — 스냅샷만으로 진입(별도 owner 컨텍스트 조회 제거) */
 export default function OwnerStoreOrderChatPage({
@@ -26,12 +28,13 @@ async function OwnerStoreOrderChatPageBody({
 }) {
   const { orderId: raw } = await params;
   const orderId = typeof raw === "string" ? raw.trim() : "";
+  const lang = resolveServerInitialLanguage({});
   if (!orderId) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-3 bg-background px-4 text-center text-sm text-sam-fg">
-        <p>주문 ID가 없습니다.</p>
+        <p>{translate(lang, "store_order_id_required")}</p>
         <Link href="/stores/owner" className="font-medium text-signature underline">
-          매장 어드민
+          {translate(lang, "biz_title_default")}
         </Link>
       </div>
     );

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Bell, ChevronDown } from "lucide-react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { OwnerStoreOpsMeta } from "@/lib/stores/owner-store-ops-snapshot";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
@@ -39,6 +40,7 @@ export function OwnerDashboardHeader({
   urgentAlertCount: number;
   stores?: StoreRow[] | null;
 }) {
+  const { t } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const hubRuntime = useOwnerHubRuntime();
@@ -66,14 +68,14 @@ export function OwnerDashboardHeader({
         OWNER_MOBILE_PAGE_HEADER_SHELL_CLASS,
         OWNER_MOBILE_PAGE_HEADER_SHELL_BLEED_CLASS
       )}
-      aria-label="매장 운영 상태"
+      aria-label={t("store_owner_aria_store_ops")}
     >
       <div className={OWNER_MOBILE_PAGE_HEADER_ROW_CLASS}>
         <div className="flex min-h-0 min-w-0 flex-1 flex-col justify-center gap-0">
           <div className="flex min-w-0 items-center gap-1">
             {storeList && storeList.length > 1 ? (
               <label className="relative flex min-w-0 max-w-[55%] items-center">
-                <span className="sr-only">매장 선택</span>
+                <span className="sr-only">{t("store_owner_aria_select_store")}</span>
                 <select
                   className="max-w-full cursor-pointer appearance-none truncate border-0 bg-transparent pr-4 text-[15px] font-bold leading-tight text-[#262626] focus:outline-none"
                   value={storeId}
@@ -122,7 +124,7 @@ export function OwnerDashboardHeader({
           <button
             type="button"
             className="flex h-10 w-10 items-center justify-center rounded-full text-[#262626] hover:bg-[#F5F5F5] active:bg-[#EBEBEB]"
-            aria-label="메뉴 열기"
+            aria-label={t("store_owner_aria_open_menu")}
             onClick={() => biz?.openMobileOwnerMenu?.()}
           >
             <OwnerMenuIcon />

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { AlertCircle, RefreshCw, Siren } from "lucide-react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { OwnerStoreOpsSnapshot } from "@/lib/stores/owner-store-ops-snapshot";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import {
@@ -33,6 +34,7 @@ export function OwnerUrgentOrdersCard({
   onRefresh?: () => void;
   refreshing?: boolean;
 }) {
+  const { t } = useI18n();
   const ordersHref = buildStoreOrdersHref({ storeId, tab: "new" });
   const unconfirmed = Math.max(snapshot.pending_over_3m_count, 0);
   const cells: UrgentCell[] = [
@@ -98,15 +100,15 @@ export function OwnerUrgentOrdersCard({
           onClick={() => onRefresh?.()}
           disabled={refreshing}
           className="inline-flex items-center gap-1 text-[11px] font-medium text-gray-500 hover:text-gray-800 disabled:opacity-50"
-          aria-label="운영 데이터 새로고침"
+          aria-label={t("store_owner_dash_refresh_ops")}
         >
-          <span>업데이트 {timeLabel}</span>
+          <span>{t("store_owner_dash_updated_at", { time: timeLabel })}</span>
           <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} aria-hidden />
         </button>
       </div>
 
       {!hasUrgent ? (
-        <p className={ownerDashTypography.helper}>지금 처리할 긴급 주문이 없습니다.</p>
+        <p className={ownerDashTypography.helper}>{t("store_owner_dash_no_urgent")}</p>
       ) : (
         <div className="grid grid-cols-2 gap-2">
           {cells.map((c) => (

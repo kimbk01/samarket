@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { ChevronDown, MessageSquare, Phone } from "lucide-react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OwnerOrderAcceptSheet } from "@/components/business/owner/OwnerOrderAcceptSheet";
 import { OwnerOrderRejectSheet } from "@/components/business/owner/OwnerOrderRejectSheet";
 import type { OwnerStoreOrderListRow } from "@/lib/business/owner-store-order-list-row-bridge";
@@ -46,6 +47,7 @@ export function OwnerStoreOrderMockCard({
   onToggleExpanded: () => void;
   onOpenChat: () => void;
 }) {
+  const { t } = useI18n();
   const tone = ownerOrderStatusTone(order.order_status);
   const deliveryLike = isDeliveryFulfillment(order.fulfillment_type);
   const statusLabel = ownerOpsStatusLabel(order.order_status, order.fulfillment_type);
@@ -258,7 +260,7 @@ export function OwnerStoreOrderMockCard({
 
         {isExpanded ? (
           <div className="mt-3 space-y-3 border-t-2 border-[#1C8DB8] bg-[#F6FAFC] px-3 pb-3 pt-3">
-            <OwnerOpsSection title="주문 메뉴">
+            <OwnerOpsSection title={t("store_owner_order_menu_section")}>
               <div className="space-y-2">
                 {order.items.length > 0 ? (
                   order.items.map((it) => (
@@ -281,12 +283,12 @@ export function OwnerStoreOrderMockCard({
                     </div>
                   ))
                 ) : (
-                  <p className="text-[13px] leading-[1.35] text-[#6B7280]">메뉴 정보가 없습니다.</p>
+                  <p className="text-[13px] leading-[1.35] text-[#6B7280]">{t("store_owner_no_menu_info")}</p>
                 )}
               </div>
             </OwnerOpsSection>
 
-            <OwnerOpsSection title="요청사항">
+            <OwnerOpsSection title={t("store_request_note")}>
               <p className="text-[13px] leading-[1.45] text-[#123B4A]">
                 {order.buyer_note?.trim() || "요청사항 없음"}
               </p>
@@ -300,12 +302,16 @@ export function OwnerStoreOrderMockCard({
                   {order.checkout_eta_minutes ? ` · 예상 도착 ${order.checkout_eta_minutes}분` : ""}
                 </p>
                 {order.delivery?.delivery_status ? (
-                  <p className="text-[#1C8DB8]">라이더 상태: {deliveryStatusLabel(order.delivery.delivery_status)}</p>
+                  <p className="text-[#1C8DB8]">
+                    {t("store_owner_rider_status_line", {
+                      status: deliveryStatusLabel(order.delivery.delivery_status),
+                    })}
+                  </p>
                 ) : null}
               </div>
             </OwnerOpsSection>
 
-            <OwnerOpsSection title="결제·리뷰">
+            <OwnerOpsSection title={t("store_owner_payment_review_section")}>
               <div className="grid grid-cols-2 gap-2 text-[12px] leading-[1.35]">
                 <InfoPill label="결제" value={formatBuyerPaymentDisplay(order.buyer_payment_method, order.buyer_payment_method_detail)} />
                 <InfoPill label="금액" value={formatMoneyPhp(order.payment_amount)} />
@@ -314,11 +320,13 @@ export function OwnerStoreOrderMockCard({
               </div>
             </OwnerOpsSection>
 
-            <OwnerOpsSection title="주문 진행 채팅">
+            <OwnerOpsSection title={t("store_owner_order_progress_chat_title")}>
               <div className="rounded-[4px] border border-[#DDE5E0] bg-[#F6FAFC] p-2.5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <p className="text-[13px] font-bold leading-[1.35] text-[#123B4A]">운영형 주문 채팅</p>
+                    <p className="text-[13px] font-bold leading-[1.35] text-[#123B4A]">
+                      {t("store_owner_ops_order_chat_label")}
+                    </p>
                     <p className="mt-0.5 text-[12px] leading-[1.35] text-[#6B7280]">
                       상태 변경은 시스템 메시지로 자동 기록됩니다.
                     </p>

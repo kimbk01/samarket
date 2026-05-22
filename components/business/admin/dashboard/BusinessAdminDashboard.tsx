@@ -2,6 +2,7 @@
 
 import { Loader2 } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useSupabaseStoreOrdersRealtime } from "@/hooks/useSupabaseStoreOrdersRealtime";
 import { playDeliveryOrderAlertDebounced } from "@/lib/business/delivery-order-alert-debounce";
 import { primeStoreOrderAlertAudio } from "@/lib/business/store-order-alert-sound";
@@ -47,6 +48,7 @@ export function BusinessAdminDashboard({
   initialDashboard?: OwnerHubDashboardPack | null;
   loadRemote: () => Promise<void>;
 }) {
+  const { t } = useI18n();
   const hubRuntime = useOwnerHubRuntime();
   const badge = useOwnerHubBadgeBreakdownWhenEnabled(!hubRuntime);
   const orderChatUnread = badge.storeOrderChatUnread;
@@ -209,10 +211,10 @@ export function BusinessAdminDashboard({
             {refreshing ?
               <>
                 <Loader2 className="h-4 w-4 shrink-0 animate-spin text-sam-muted" aria-hidden />
-                <span className="sam-text-xxs font-semibold text-sam-muted">불러오는 중…</span>
+                <span className="sam-text-xxs font-semibold text-sam-muted">{t("common_loading")}</span>
               </>
             : <span className="sam-text-xxs font-semibold text-sam-fg">
-                {willReleaseRefresh ? "놓으면 새로고침" : "아래로 당겨 새로고침"}
+                {willReleaseRefresh ? t("store_owner_pull_release_refresh") : t("store_owner_pull_hint")}
               </span>}
           </div>
         </div>

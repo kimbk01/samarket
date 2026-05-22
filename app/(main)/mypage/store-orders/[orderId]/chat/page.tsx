@@ -5,6 +5,8 @@ import { MainFeedRouteLoading } from "@/components/layout/MainRouteLoading";
 import { getOptionalAuthenticatedUserId } from "@/lib/auth/get-optional-authenticated-user-id";
 import { ensureStoreOrderMessengerRoom } from "@/lib/community-messenger/store-order-chat-service";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
+import { resolveServerInitialLanguage } from "@/lib/i18n/language-preference";
+import { translate } from "@/lib/i18n/messages";
 
 /** 마이페이지 매장 주문 채팅 — RSC 선로딩 */
 export default function MypageStoreOrderChatPage({
@@ -26,12 +28,13 @@ async function MypageStoreOrderChatPageBody({
 }) {
   const { orderId: raw } = await params;
   const orderId = typeof raw === "string" ? raw.trim() : "";
+  const lang = resolveServerInitialLanguage({});
   if (!orderId) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-sam-app px-4 text-sm text-sam-muted">
-        <p>주문 ID가 없습니다.</p>
+        <p>{translate(lang, "route_order_id_missing")}</p>
         <Link href="/mypage/store-orders" className="mt-2 font-medium text-signature underline">
-          주문 목록
+          {translate(lang, "route_store_orders_back_link")}
         </Link>
       </div>
     );

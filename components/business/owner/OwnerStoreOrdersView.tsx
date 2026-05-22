@@ -13,6 +13,7 @@ import {
   type ReactNode,
   type SetStateAction,
 } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import { playDeliveryOrderAlertDebounced } from "@/lib/business/delivery-order-alert-debounce";
 import { primeStoreOrderAlertAudio } from "@/lib/business/store-order-alert-sound";
@@ -94,6 +95,7 @@ function completedAtMs(o: OrderRow): number {
 
 
 export function OwnerStoreOrdersView() {
+  const { t } = useI18n();
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -714,28 +716,30 @@ export function OwnerStoreOrdersView() {
   let body: ReactNode;
   if (state.kind === "loading") {
     body = (
-      <p className="px-3 py-8 text-center text-sm text-[#8C8C8C]">불러오는 중…</p>
+      <p className="px-3 py-8 text-center text-sm text-[#8C8C8C]">{t("store_owner_chats_loading")}</p>
     );
   } else if (state.kind === "unauth") {
     body = (
       <div className="mx-3 mt-4 rounded-lg border border-[#E8E8E8] bg-white p-6">
-        <p className="text-sm text-[#595959]">로그인 후 매장 주문을 확인할 수 있습니다.</p>
+        <p className="text-sm text-[#595959]">{t("store_owner_orders_login_hint")}</p>
         <Link
           href={loginHref}
           className="mt-3 inline-flex rounded-md bg-[#2D7FF9] px-4 py-2 font-semibold text-white"
         >
-          로그인하고 주문 보기
+          {t("store_owner_chats_login_cta")}
         </Link>
       </div>
     );
   } else if (state.kind === "config") {
-    body = <p className="px-3 py-8 text-center text-sm text-[#8C8C8C]">서버 설정을 확인해 주세요.</p>;
+    body = (
+      <p className="px-3 py-8 text-center text-sm text-[#8C8C8C]">{t("store_owner_err_server_config")}</p>
+    );
   } else if (state.kind === "no_store") {
     body = (
       <div className="mx-3 mt-4 rounded-lg border border-[#E8E8E8] bg-white p-6">
-        <p className="text-sm text-[#595959]">등록된 매장이 없습니다.</p>
+        <p className="text-sm text-[#595959]">{t("business_phase7_057")}</p>
         <Link href="/stores/owner/apply" className="mt-2 inline-block text-[#2D7FF9] font-medium">
-          매장 신청
+          {t("business_phase7_465")}
         </Link>
       </div>
     );

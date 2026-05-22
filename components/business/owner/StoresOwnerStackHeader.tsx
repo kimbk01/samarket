@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 
@@ -9,9 +10,9 @@ export function StoresOwnerStackHeader({
   backHref,
   backPreferHistory = true,
   backIntercept,
-  backAriaLabel = "이전 화면으로",
+  backAriaLabel,
   shopName,
-  hubSubtitle = "매장 운영 센터",
+  hubSubtitle,
   pageTitle,
   rightSlot,
   desktopInsetLeft = false,
@@ -34,7 +35,10 @@ export function StoresOwnerStackHeader({
   desktopInsetLeft?: boolean;
   hideTitle?: boolean;
 }) {
-  const adminTitle = pageTitle?.trim() ? pageTitle : "운영 대시보드";
+  const { t } = useI18n();
+  const resolvedBackAria = backAriaLabel ?? t("business_phase7_351");
+  const resolvedHubSubtitle = hubSubtitle ?? t("business_phase7_079");
+  const adminTitle = pageTitle?.trim() ? pageTitle : t("business_phase7_350");
 
   return (
     <BodyPortal>
@@ -46,14 +50,14 @@ export function StoresOwnerStackHeader({
         <div className="flex h-14 w-full min-w-0 items-center gap-2 pl-[max(0.75rem,env(safe-area-inset-left,0px))] pr-[max(0.75rem,env(safe-area-inset-right,0px))] sm:pl-[max(1rem,env(safe-area-inset-left,0px))] sm:pr-[max(1rem,env(safe-area-inset-right,0px))]">
           {variant === "hub" ?
             backHref ?
-              <AppBackButton backHref={backHref} ariaLabel={backAriaLabel} />
+              <AppBackButton backHref={backHref} ariaLabel={resolvedBackAria} />
             : <div className="h-10 w-10 shrink-0" aria-hidden />
           : backHref ?
             <AppBackButton
               backHref={backHref}
               interceptBack={backIntercept}
               preferHistoryBack={backPreferHistory}
-              ariaLabel={backAriaLabel}
+              ariaLabel={resolvedBackAria}
             />
           : null}
           {variant === "hub" ?
@@ -62,7 +66,7 @@ export function StoresOwnerStackHeader({
                 <div className="min-w-0 flex-1" />
               : <div className="min-w-0 flex-1">
                   <p className="truncate sam-text-body font-semibold leading-tight text-sam-fg">{shopName}</p>
-                  <p className="truncate sam-text-xxs leading-tight text-sam-muted">{hubSubtitle}</p>
+                  <p className="truncate sam-text-xxs leading-tight text-sam-muted">{resolvedHubSubtitle}</p>
                 </div>
               }
               <div className="flex shrink-0 items-center gap-1">{rightSlot}</div>

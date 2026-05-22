@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { MessageCircle } from "lucide-react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { OwnerStoreOpsSnapshot } from "@/lib/stores/owner-store-ops-snapshot";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
@@ -17,6 +18,7 @@ export function OwnerCustomerCareCard({
   snapshot: OwnerStoreOpsSnapshot;
   orderChatUnread: number;
 }) {
+  const { t } = useI18n();
   const inquiriesHref = OwnerRoutes.inquiries(storeId);
   const cells = [
     {
@@ -51,7 +53,7 @@ export function OwnerCustomerCareCard({
 
   return (
     <section className={ownerDashCardClass("space-y-3")} aria-labelledby="owner-care-title">
-      <OwnerDashSectionHeader id="owner-care-title" title="고객 응대 현황" href={inquiriesHref} />
+      <OwnerDashSectionHeader id="owner-care-title" title={t("store_owner_dash_customer_care")} href={inquiriesHref} />
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {cells.map((c) => (
           <Link

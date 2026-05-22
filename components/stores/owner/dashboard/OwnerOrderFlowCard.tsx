@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { OwnerStoreOpsSnapshot } from "@/lib/stores/owner-store-ops-snapshot";
 import { buildStoreOrdersHref } from "@/lib/business/store-orders-tab";
 import {
@@ -30,6 +31,7 @@ export function OwnerOrderFlowCard({
   storeId: string;
   snapshot: OwnerStoreOpsSnapshot;
 }) {
+  const { t } = useI18n();
   const ordersHref = buildStoreOrdersHref({ storeId });
   const counts = {
     waiting: snapshot.flow_waiting_count,
@@ -44,7 +46,7 @@ export function OwnerOrderFlowCard({
 
   return (
     <section className={ownerDashCardClass("max-md:mx-0")} aria-labelledby="owner-flow-title">
-      <OwnerDashSectionHeader id="owner-flow-title" title="주문 진행 현황" href={ordersHref} />
+      <OwnerDashSectionHeader id="owner-flow-title" title={t("store_owner_dash_order_flow")} href={ordersHref} />
       <div className="flex w-full min-w-0 items-start justify-between">
         {STEPS.map((step, idx) => {
           const count = counts[step.key];

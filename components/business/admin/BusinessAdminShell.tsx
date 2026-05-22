@@ -564,13 +564,13 @@ export function BusinessAdminShell({
     if (loadErr && (!stores || stores.length === 0)) {
       return (
         <div className="min-h-screen bg-sam-app px-4 py-8">
-          <p className="text-sm text-red-600">매장 정보를 불러오지 못했습니다. ({loadErr})</p>
+          <p className="text-sm text-red-600">{t("business_phase7_083", { v1: loadErr })}</p>
           <button
             type="button"
             className="mt-2 text-sm font-medium text-signature underline"
             onClick={() => void reloadStores()}
           >
-            다시 시도
+            {t("business_phase7_466")}
           </button>
         </div>
       );
@@ -579,7 +579,7 @@ export function BusinessAdminShell({
     if (!selectedRow) {
       return (
         <div className="min-h-screen bg-sam-app px-4 py-8">
-          <p className="text-sm text-sam-muted">매장을 불러오는 중…</p>
+          <p className="text-sm text-sam-muted">{t("business_phase7_088")}</p>
         </div>
       );
     }
@@ -593,7 +593,7 @@ export function BusinessAdminShell({
           hideTitle
           backHref="/mypage/section/store/manage"
           shopName={shopName}
-          hubSubtitle="매장 운영 센터"
+          hubSubtitle={t("business_phase7_079")}
           rightSlot={<div className="flex shrink-0 items-center gap-1">{hubPartialHeaderRight}</div>}
         />
         <main
@@ -608,7 +608,7 @@ export function BusinessAdminShell({
   if (!selectedRow) {
     return (
       <div className="min-h-screen bg-sam-app px-4 py-8">
-        <p className="text-sm text-sam-muted">매장을 불러오는 중…</p>
+        <p className="text-sm text-sam-muted">{t("business_phase7_088")}</p>
       </div>
     );
   }
@@ -619,7 +619,7 @@ export function BusinessAdminShell({
         <button
           type="button"
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
-          aria-label={isMobile ? "메뉴 열기" : "운영 메뉴 펼치기"}
+          aria-label={isMobile ? t("store_owner_aria_open_menu") : t("store_owner_expand_ops_menu")}
           onClick={() => {
             if (isMobile) setMobileMenuOpen(true);
             else setDesktopSidebarOpen(true);
@@ -640,7 +640,7 @@ export function BusinessAdminShell({
         <Link
           href={publicStoreHref}
           className="flex h-10 w-10 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
-          aria-label="고객 매장 페이지"
+          aria-label={t("business_phase7_019")}
         >
           <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path
@@ -655,7 +655,7 @@ export function BusinessAdminShell({
         <button
           type="button"
           className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
-          aria-label={isMobile ? "메뉴 열기" : "운영 메뉴 펼치기"}
+          aria-label={isMobile ? t("store_owner_aria_open_menu") : t("store_owner_expand_ops_menu")}
           onClick={() => {
             if (isMobile) setMobileMenuOpen(true);
             else setDesktopSidebarOpen(true);
@@ -678,7 +678,7 @@ export function BusinessAdminShell({
           <OwnerHubStoreAvatar profileImageUrl={selectedRow.profile_image_url} shopName={shopName} />
           <div className="min-w-0">
             <p className="truncate sam-text-body font-semibold text-sam-fg">{shopName}</p>
-            <p className="sam-text-xxs text-sam-muted">매장 운영 센터</p>
+            <p className="sam-text-xxs text-sam-muted">{t("business_phase7_079")}</p>
           </div>
         </div>
         <div className="mt-3 flex flex-nowrap items-center gap-3">
@@ -690,11 +690,11 @@ export function BusinessAdminShell({
           ) : (
             <>
               {selectedRow.is_visible === true ? (
-                <BusinessStatusBadge tone="success">공개중</BusinessStatusBadge>
+                <BusinessStatusBadge tone="success">{t("business_phase7_029")}</BusinessStatusBadge>
               ) : (
-                <BusinessStatusBadge tone="muted">비공개</BusinessStatusBadge>
+                <BusinessStatusBadge tone="muted">{t("business_phase7_132")}</BusinessStatusBadge>
               )}
-              <BusinessStatusBadge tone="warning">심사·준비</BusinessStatusBadge>
+              <BusinessStatusBadge tone="warning">{t("business_phase7_183")}</BusinessStatusBadge>
             </>
           )}
         </div>
@@ -722,7 +722,7 @@ export function BusinessAdminShell({
             setMobileMenuOpen(false);
           }}
         >
-          ← 내 정보(홈)
+          {t("store_owner_my_home_link")}
         </Link>
       </div>
     </div>
@@ -755,7 +755,7 @@ export function BusinessAdminShell({
       <div
         role="button"
         tabIndex={mobileMenuOpen ? 0 : -1}
-        aria-label="메뉴 닫기"
+        aria-label={t("business_phase7_090")}
         aria-hidden={!mobileMenuOpen}
         className={`fixed inset-0 z-[1002] m-0 min-h-[100dvh] min-h-[100svh] w-full max-w-[100vw] touch-none border-0 bg-black/45 p-0 transition-opacity duration-[270ms] ease-out [overscroll-behavior:none] md:hidden ${
           mobileMenuOpen ?
@@ -790,7 +790,7 @@ export function BusinessAdminShell({
             <button
               type="button"
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
-              aria-label="메뉴 닫기"
+              aria-label={t("business_phase7_090")}
               onClick={() => setMobileMenuOpen(false)}
             >
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -802,7 +802,7 @@ export function BusinessAdminShell({
             <button
               type="button"
               className="flex h-10 w-10 items-center justify-center rounded-full text-sam-fg hover:bg-sam-surface-muted"
-              aria-label="운영 메뉴 접기"
+              aria-label={t("business_phase7_224")}
               onClick={() => setDesktopSidebarOpen(false)}
             >
               <ChevronRight className="h-5 w-5" strokeWidth={2} aria-hidden />

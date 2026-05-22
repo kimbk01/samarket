@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { resolveOwnerNextOrderAction } from "@/lib/business/owner-order-stepper-transition";
 import { labelForOwnerTransition } from "@/lib/stores/store-order-process-criteria";
 import { patchOwnerOrderStatusRemote } from "@/lib/store-owner/owner-order-remote";
@@ -25,6 +26,7 @@ export function OwnerOrderActionPanel({
   layout?: "default" | "detail";
   onAfterAction?: () => void | Promise<void>;
 }) {
+  const { t } = useI18n();
   const [toast, setToast] = useState<string | null>(null);
   const [rejectOpen, setRejectOpen] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -80,7 +82,7 @@ export function OwnerOrderActionPanel({
 
       {order.buyer_cancel_request ? (
         <div className="rounded-ui-rect border border-amber-200 bg-amber-50 px-3 py-2 text-sm">
-          <p className="font-semibold text-amber-950">고객 취소 요청</p>
+          <p className="font-semibold text-amber-950">{t("business_phase7_022")}</p>
           <p className="mt-1 text-xs text-amber-900">{order.buyer_cancel_request.reason}</p>
         </div>
       ) : null}

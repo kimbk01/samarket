@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { OwnerStoreOpsSnapshot } from "@/lib/stores/owner-store-ops-snapshot";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { OwnerDashSectionHeader } from "./OwnerDashSectionHeader";
@@ -13,6 +14,7 @@ export function OwnerInventoryIssueCard({
   storeId: string;
   snapshot: OwnerStoreOpsSnapshot;
 }) {
+  const { t } = useI18n();
   const productsBase = OwnerRoutes.products(storeId);
   const cells = [
     {
@@ -47,7 +49,7 @@ export function OwnerInventoryIssueCard({
 
   return (
     <section className={ownerDashCardClass()} aria-labelledby="owner-inventory-title">
-      <OwnerDashSectionHeader id="owner-inventory-title" title="운영 이슈" href={productsBase} />
+      <OwnerDashSectionHeader id="owner-inventory-title" title={t("store_owner_dash_inventory_issues")} href={productsBase} />
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {cells.map((c) => (
           <Link

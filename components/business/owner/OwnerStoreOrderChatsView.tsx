@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { MessageCircle } from "lucide-react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { OWNER_MOBILE_BOTTOM_NAV_PAD_CLASS } from "@/lib/stores/owner-mobile-ui-tokens";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 
@@ -40,6 +41,7 @@ function formatListTime(iso: string): string {
 }
 
 export function OwnerStoreOrderChatsView() {
+  const { t } = useI18n();
   const searchParams = useSearchParams();
   const storeId = searchParams.get("storeId")?.trim() ?? "";
   const [state, setState] = useState<ViewState>({ kind: "loading" });
@@ -133,8 +135,8 @@ export function OwnerStoreOrderChatsView() {
         {state.chats.length === 0 ?
           <li className="flex flex-col items-center justify-center gap-2 rounded-[4px] bg-white px-4 py-12 text-center">
             <MessageCircle className="h-10 w-10 text-[#D9D9D9]" strokeWidth={1.5} aria-hidden />
-            <p className="text-[14px] font-medium text-[#262626]">주문 채팅이 없습니다</p>
-            <p className="text-[12px] text-[#8C8C8C]">주문이 들어오면 채팅방이 여기에 표시됩니다.</p>
+            <p className="text-[14px] font-medium text-[#262626]">{t("store_owner_chats_empty_title")}</p>
+            <p className="text-[12px] text-[#8C8C8C]">{t("store_owner_chats_empty_hint")}</p>
           </li>
         : state.chats.map((c) => (
             <li key={c.order_id}>
@@ -154,7 +156,9 @@ export function OwnerStoreOrderChatsView() {
                       {formatListTime(c.last_message_at)}
                     </span>
                   </div>
-                  <p className="mt-0.5 truncate text-[12px] text-[#8C8C8C]">주문 {c.order_no}</p>
+                  <p className="mt-0.5 truncate text-[12px] text-[#8C8C8C]">
+                    {t("store_owner_order_line_short", { no: c.order_no })}
+                  </p>
                   <div className="mt-1 flex items-center justify-between gap-2">
                     <p className="min-w-0 flex-1 truncate text-[13px] text-[#595959]">
                       {c.last_message_preview}

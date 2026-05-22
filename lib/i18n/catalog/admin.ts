@@ -4770,7 +4770,6 @@ export const adminMessages = {
     ...adminSettingsMessages["zh-CN"],
     ...adminBoardsMessages["zh-CN"],
     ...adminMenusMessages["zh-CN"],
-    ...adminBusinessMessages["zh-CN"],
     ...adminCategoriesMessages["zh-CN"],
     ...adminReleaseMessages["zh-CN"],
     ...adminOpsDocsMessages["zh-CN"],

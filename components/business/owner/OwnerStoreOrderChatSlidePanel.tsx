@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { ChevronLeft } from "lucide-react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import { OwnerOrderChatSlideHostProvider } from "@/components/business/owner/OwnerOrderChatSlideHostContext";
 import { OwnerStoreOrderModalSellerToolbar } from "@/components/business/owner/OwnerStoreOrderModalSellerToolbar";
@@ -41,6 +42,7 @@ export function OwnerStoreOrderChatSlidePanel({
   storeName: string;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const [phase, setPhase] = useState<SlidePhase>("enter-from-right");
   const [roomId, setRoomId] = useState<string | null>(() => {
     const rid = order?.community_messenger_room_id?.trim();
@@ -141,13 +143,13 @@ export function OwnerStoreOrderChatSlidePanel({
             transitionDuration: `${OWNER_ORDER_CHAT_SLIDE_MS}ms`,
             transitionTimingFunction: OWNER_ORDER_CHAT_SLIDE_EASING,
           }}
-          aria-label="주문 관리로 돌아가기"
+          aria-label={t("store_owner_aria_back_orders")}
           onClick={requestClose}
         />
         <aside
           role="dialog"
           aria-modal="true"
-          aria-label="주문 채팅"
+          aria-label={t("store_owner_aria_order_chat")}
           className={`flex h-[100dvh] max-h-[100dvh] min-h-0 flex-col border-l border-[#DDE5E0] bg-white shadow-2xl ${OWNER_ORDER_CHAT_SLIDE_WIDTH_CLASS} ${OWNER_ORDER_CHAT_SLIDE_PANEL_Z_CLASS} pt-[env(safe-area-inset-top,0px)]`}
           style={{
             transform: panelOpen ? "translate3d(0, 0, 0)" : "translate3d(100%, 0, 0)",
@@ -160,14 +162,16 @@ export function OwnerStoreOrderChatSlidePanel({
               type="button"
               onClick={requestClose}
               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-[#123B4A] hover:bg-[#EAF6FB]"
-              aria-label="주문 관리로 나가기"
+              aria-label={t("store_owner_aria_exit_orders")}
             >
               <ChevronLeft className="h-5 w-5" aria-hidden />
             </button>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[15px] font-bold leading-[1.35] text-[#123B4A]">주문 진행 채팅</p>
+              <p className="truncate text-[15px] font-bold leading-[1.35] text-[#123B4A]">
+                {t("store_owner_order_progress_chat_title")}
+              </p>
               <p className="truncate text-[12px] leading-[1.35] text-[#6B7280]">
-                {order?.order_no ?? "주문"} · {storeName}
+                {order?.order_no ?? t("store_owner_order_fallback")} · {storeName}
               </p>
             </div>
           </header>
@@ -218,7 +222,7 @@ export function OwnerStoreOrderChatSlidePanel({
 
           <div className="relative min-h-0 flex-1 overflow-hidden bg-[#f6f6f6]">
             {roomLoading ?
-              <p className="px-4 py-8 text-center text-[14px] text-[#8C8C8C]">채팅방 연결 중…</p>
+              <p className="px-4 py-8 text-center text-[14px] text-[#8C8C8C]">{t("store_owner_chat_connecting")}</p>
             : roomErr ?
               <div className="px-4 py-8 text-center">
                 <p className="text-[14px] text-[#FF4D4F]">{roomErr}</p>

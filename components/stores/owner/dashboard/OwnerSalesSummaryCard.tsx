@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { OwnerStoreOpsSnapshot } from "@/lib/stores/owner-store-ops-snapshot";
 import { cancelRatePercent, salesDeltaPercent } from "@/lib/stores/owner-store-ops-snapshot";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
@@ -21,6 +22,7 @@ export function OwnerSalesSummaryCard({
   storeId: string;
   snapshot: OwnerStoreOpsSnapshot;
 }) {
+  const { t } = useI18n();
   const salesDelta = salesDeltaPercent(
     snapshot.today_completed_sales_amount,
     snapshot.yesterday_completed_sales_amount
@@ -55,7 +57,7 @@ export function OwnerSalesSummaryCard({
     <section className={ownerDashCardClass()} aria-labelledby="owner-sales-title">
       <OwnerDashSectionHeader
         id="owner-sales-title"
-        title="오늘 운영 요약"
+        title={t("store_owner_dash_today_summary")}
         href={settlementsHref}
         linkLabel="상세 보기"
       />

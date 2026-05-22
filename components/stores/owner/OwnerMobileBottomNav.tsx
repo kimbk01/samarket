@@ -25,6 +25,8 @@ import {
   isOwnerBottomNavTabActive,
   type OwnerBottomNavTabId,
 } from "@/lib/stores/owner-bottom-nav-active";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
 import {
   OWNER_MOBILE_BOTTOM_NAV_ACCENT,
   OWNER_MOBILE_BOTTOM_NAV_ACCENT_SHADOW,
@@ -36,26 +38,26 @@ const BOTTOM_NAV_ITEM_TOUCH_CLASS =
 
 const OWNER_NAV_ITEMS: Array<{
   id: OwnerBottomNavTabId;
-  label: string;
+  labelKey: MessageKey;
   icon: typeof LayoutGrid;
   href: (storeId: string, storeSlug?: string | null) => string;
 }> = [
   {
     id: "home",
-    label: "홈",
+    labelKey: "store_owner_bottom_nav_home",
     icon: Home,
     href: (id, slug) => resolveOwnerStoreConsumerHomeHref(id, slug),
   },
-  { id: "dashboard", label: "대시보드", icon: LayoutGrid, href: (id) => OwnerRoutes.hub(id) },
+  { id: "dashboard", labelKey: "store_owner_bottom_nav_dashboard", icon: LayoutGrid, href: (id) => OwnerRoutes.hub(id) },
   {
     id: "order-chat",
-    label: "주문채팅",
+    labelKey: "store_owner_bottom_nav_order_chat",
     icon: MessageCircle,
     href: (id) => OwnerRoutes.orderChats(id),
   },
-  { id: "orders", label: "주문관리", icon: ClipboardList, href: (id) => OwnerRoutes.orders(id) },
-  { id: "menu", label: "메뉴관리", icon: UtensilsCrossed, href: (id) => OwnerRoutes.menu(id) },
-  { id: "settings", label: "매장설정", icon: Settings, href: (id) => OwnerRoutes.settings(id) },
+  { id: "orders", labelKey: "store_owner_bottom_nav_orders", icon: ClipboardList, href: (id) => OwnerRoutes.orders(id) },
+  { id: "menu", labelKey: "store_owner_bottom_nav_menu", icon: UtensilsCrossed, href: (id) => OwnerRoutes.menu(id) },
+  { id: "settings", labelKey: "store_owner_bottom_nav_settings", icon: Settings, href: (id) => OwnerRoutes.settings(id) },
 ];
 
 function cn(...parts: Array<string | false | null | undefined>): string {
@@ -77,6 +79,7 @@ export function OwnerMobileBottomNav({
   chatBadge?: number;
   scrollHideEnabled?: boolean;
 }) {
+  const { t } = useI18n();
   const pathname = usePathname() ?? "";
   const searchParams = useSearchParams();
   const hiddenByScroll = useBottomNavScrollHide(scrollHideEnabled);
@@ -125,7 +128,7 @@ export function OwnerMobileBottomNav({
       className={cn(outerClass, OWNER_MOBILE_BOTTOM_NAV_ROOT_CLASS)}
       style={navStyle}
       data-biz="1"
-      aria-label="매장 운영 메뉴"
+      aria-label={t("store_ops_menu_aria")}
     >
       <div className={`${BOTTOM_NAV_SHELL.innerBarClassName} ${BOTTOM_NAV_SHELL.heightClass}`}>
         <div className="app-bottom-nav-grid owner-mobile-bottom-nav-grid">
@@ -141,7 +144,7 @@ export function OwnerMobileBottomNav({
                 prefetch={false}
                 scroll={false}
                 data-active={active ? "true" : "false"}
-                aria-label={a.label}
+                aria-label={t(a.labelKey)}
                 aria-current={active ? "page" : undefined}
                 className={cn("app-bottom-nav-item group", BOTTOM_NAV_ITEM_TOUCH_CLASS)}
                 onClick={() => {
@@ -164,7 +167,7 @@ export function OwnerMobileBottomNav({
                     : null}
                   </span>
                 </div>
-                <span className="app-bottom-nav-label">{a.label}</span>
+                <span className="app-bottom-nav-label">{t(a.labelKey)}</span>
               </Link>
             );
           })}
