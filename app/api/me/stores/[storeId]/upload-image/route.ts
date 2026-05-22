@@ -1,6 +1,5 @@
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import sharp from "sharp";
 import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
@@ -9,11 +8,18 @@ import {
   OWNER_PRODUCT_IMAGE_ALLOWED_MIMES,
   OWNER_PRODUCT_IMAGE_MAX_BYTES,
 } from "@/lib/stores/owner-product-images";
+import { processOwnerProductImageBuffer } from "@/lib/stores/owner-product-image-upload.server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** 매장 소유자 + 승인된 매장만. multipart file → 공개 URL (DB 미갱신). JPG→WebP 선호. */
+const DIMENSION_ERROR_MESSAGES: Record<string, string> = {
+  image_dimension_too_large:
+    "이미지 가로·세로는 각 8192px 이하여야 합니다. 512×512 이상의 고해상도도 업로드할 수 있습니다.",
+  image_dimension_invalid: "이미지 크기를 확인할 수 없습니다. 다른 파일로 시도해 주세요.",
+};
+
+/** 매장 소유자 + 승인된 매장만. multipart file → 공개 URL (DB 미갱신). 512×512 이상 포함 고해상도 허용. */
 export async function POST(
   req: NextRequest,
   context: { params: Promise<{ storeId: string }> }
@@ -71,27 +77,34 @@ export async function POST(
     return NextResponse.json({ ok: false, error: "invalid_type" }, { status: 400 });
   }
 
-  let buf = Buffer.from(await file.arrayBuffer());
-  let contentType = mime;
-  let ext = "webp";
-  if (mime === "image/jpeg") {
-    try {
-      const webpBuf = await sharp(buf).rotate().webp({ quality: 86 }).toBuffer();
-      buf = Buffer.from(webpBuf);
-      contentType = "image/webp";
-      ext = "webp";
-    } catch (e) {
-      console.error("[upload-image] sharp webp", e);
-      contentType = "image/jpeg";
-      ext = "jpg";
+  const rawBuf = Buffer.from(await file.arrayBuffer());
+  let processed;
+  try {
+    processed = await processOwnerProductImageBuffer(rawBuf, mime);
+  } catch (e) {
+    const code = e instanceof Error ? e.message : "upload_failed";
+    if (code === "invalid_type") {
+      return NextResponse.json({ ok: false, error: "invalid_type" }, { status: 400 });
     }
+    if (code in DIMENSION_ERROR_MESSAGES) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: code,
+          message: DIMENSION_ERROR_MESSAGES[code],
+        },
+        { status: 400 }
+      );
+    }
+    console.error("[upload-image] process", e);
+    return NextResponse.json({ ok: false, error: "upload_failed" }, { status: 500 });
   }
 
-  const path = `${sid}/${randomUUID()}.${ext}`;
+  const path = `${sid}/${randomUUID()}.${processed.ext}`;
 
   const { error: upErr } = await sb.storage
     .from("store-product-images")
-    .upload(path, buf, { contentType, upsert: false });
+    .upload(path, processed.buf, { contentType: processed.contentType, upsert: false });
 
   if (upErr) {
     console.error("[upload-image]", upErr);
@@ -122,5 +135,11 @@ export async function POST(
     data: { publicUrl },
   } = sb.storage.from("store-product-images").getPublicUrl(path);
 
-  return NextResponse.json({ ok: true, url: publicUrl, path });
+  return NextResponse.json({
+    ok: true,
+    url: publicUrl,
+    path,
+    width: processed.width,
+    height: processed.height,
+  });
 }

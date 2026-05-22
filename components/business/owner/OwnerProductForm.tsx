@@ -25,10 +25,8 @@ import {
 import { parseMediaUrlsJson } from "@/lib/stores/parse-media-urls-json";
 import { OWNER_PRODUCT_DETAIL_IMAGE_MAX, newOwnerProductImageSlotId } from "@/lib/stores/owner-product-images";
 import { validateProductOptionGroups } from "@/lib/stores/owner-product-options-validate";
-import {
-  readImageFileDimensions,
-  uploadStoreOwnerProductImage,
-} from "@/lib/stores/upload-store-product-image-client";
+import { uploadStoreOwnerProductImage } from "@/lib/stores/upload-store-product-image-client";
+import { validateOwnerProductImagePixelDimensions } from "@/lib/stores/owner-product-images";
 import {
   OwnerProductImagesBlock,
   type OwnerProductImageSlot,
@@ -507,9 +505,23 @@ export function OwnerProductForm({
     setUploading(true);
     try {
       const resolvedUrls: string[] = [];
+      const uploadedDimsByUrl = new Map<string, { width: number; height: number }>();
       for (const s of imageSlots) {
         if (s.type === "file" && s.file) {
-          resolvedUrls.push(await uploadStoreOwnerProductImage(storeId, s.file));
+          const uploaded = await uploadStoreOwnerProductImage(storeId, s.file);
+          resolvedUrls.push(uploaded.url);
+          if (uploaded.width != null && uploaded.height != null) {
+            const dimCheck = validateOwnerProductImagePixelDimensions(
+              uploaded.width,
+              uploaded.height
+            );
+            if (dimCheck.ok) {
+              uploadedDimsByUrl.set(uploaded.url, {
+                width: uploaded.width,
+                height: uploaded.height,
+              });
+            }
+          }
         } else if (s.type === "url" && s.url?.trim()) {
           resolvedUrls.push(s.url.trim());
         } else {
@@ -527,25 +539,14 @@ export function OwnerProductForm({
         setError(t("business_phase7_361"));
         return;
       }
-      const repSlot = imageSlots[repIdx];
-      let thumbnail_width: number | undefined;
-      let thumbnail_height: number | undefined;
-      if (repSlot?.type === "file" && repSlot.file) {
-        const dims = await readImageFileDimensions(repSlot.file);
-        if (dims) {
-          thumbnail_width = dims.width;
-          thumbnail_height = dims.height;
-        }
-      }
+      const repDims = uploadedDimsByUrl.get(thumbnail_url);
       const images_json = imageSlots
         .map((_, i) => i)
         .filter((i) => i !== repIdx)
         .map((i) => resolvedUrls[i]!);
       const dimPayload =
-        repSlot?.type === "file" &&
-        thumbnail_width != null &&
-        thumbnail_height != null
-          ? ({ thumbnail_width, thumbnail_height } as const)
+        repDims != null
+          ? ({ thumbnail_width: repDims.width, thumbnail_height: repDims.height } as const)
           : ({} as { thumbnail_width?: number; thumbnail_height?: number });
       const imagePayload = {
         thumbnail_url,

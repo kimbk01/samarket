@@ -22,10 +22,21 @@ export function newOwnerProductImageSlotId(): string {
 /** 매장 상품 이미지 업로드 상한(바이트) — 오너 폼·upload-image·서버 검증과 동일하게 유지 */
 export const OWNER_PRODUCT_IMAGE_MAX_BYTES = 10 * 1024 * 1024;
 
-/** 오너 폼「이미지 추가」버튼에 표시하는 권장 문구(전체 문자열) */
-export const OWNER_PRODUCT_IMAGE_ADD_BUTTON_LABEL = "이미지 추가 ( 권장512 X 512 10MB이하)";
+/** UI 권장 정사각 크기 — 최소 요구는 아님 */
+export const OWNER_PRODUCT_IMAGE_RECOMMENDED_EDGE_PX = 512;
 
-export const OWNER_PRODUCT_IMAGE_ALLOWED_MIMES = new Set(["image/jpeg", "image/webp"]);
+/** 클라·API 픽셀 검증 상한(한 변) — 512×512 이상·이하 모두 허용, 초과만 거절 */
+export const OWNER_PRODUCT_IMAGE_MAX_EDGE_PX = 8192;
+
+/** Storage 파이프라인: 긴 변이 이 값보다 클 때만 축소(withoutEnlargement → 512+ 원본 유지) */
+export const OWNER_PRODUCT_IMAGE_STORE_MAX_EDGE_PX = 4096;
+
+export const OWNER_PRODUCT_IMAGE_ALLOWED_MIMES = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+]);
 
 function normalizeUrl(u: string): string {
   return u.trim();
@@ -68,7 +79,31 @@ export function normalizeOwnerProductDetailImageUrls(
 export type ThumbnailDimensions = { width: number; height: number };
 
 function dimOk(n: unknown): n is number {
-  return typeof n === "number" && Number.isFinite(n) && n > 0 && n <= 8192 && Math.floor(n) === n;
+  return (
+    typeof n === "number" &&
+    Number.isFinite(n) &&
+    n > 0 &&
+    n <= OWNER_PRODUCT_IMAGE_MAX_EDGE_PX &&
+    Math.floor(n) === n
+  );
+}
+
+export type OwnerProductImageDimensionError = "image_dimension_too_large" | "image_dimension_invalid";
+
+/** 클라이언트·서버 공용 — 픽셀 상한만 검사(512×512 이상 허용) */
+export function validateOwnerProductImagePixelDimensions(
+  width: number,
+  height: number
+): { ok: true } | { ok: false; error: OwnerProductImageDimensionError } {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width < 1 || height < 1) {
+    return { ok: false, error: "image_dimension_invalid" };
+  }
+  const w = Math.floor(width);
+  const h = Math.floor(height);
+  if (w > OWNER_PRODUCT_IMAGE_MAX_EDGE_PX || h > OWNER_PRODUCT_IMAGE_MAX_EDGE_PX) {
+    return { ok: false, error: "image_dimension_too_large" };
+  }
+  return { ok: true };
 }
 
 export function parseThumbnailDimensions(
@@ -96,7 +131,7 @@ export function validateOwnerProductImageFileForUpload(file: File): { ok: true }
   }
   const mime = (file.type || "").toLowerCase();
   if (!OWNER_PRODUCT_IMAGE_ALLOWED_MIMES.has(mime)) {
-    return { ok: false, message: "이미지는 JPG 또는 WebP만 사용할 수 있습니다." };
+    return { ok: false, message: "이미지는 JPG, PNG 또는 WebP만 사용할 수 있습니다." };
   }
   return { ok: true };
 }

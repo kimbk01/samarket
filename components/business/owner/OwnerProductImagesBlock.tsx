@@ -18,13 +18,16 @@ import {
   useSortable,
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { Camera } from "lucide-react";
 import { memo, useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   newOwnerProductImageSlotId,
-  OWNER_PRODUCT_IMAGE_ADD_BUTTON_LABEL,
+  OWNER_PRODUCT_IMAGE_MAX_EDGE_PX,
   OWNER_PRODUCT_IMAGE_SLOTS_MAX,
   validateOwnerProductImageFileForUpload,
+  validateOwnerProductImagePixelDimensions,
 } from "@/lib/stores/owner-product-images";
+import { readImageFileDimensions } from "@/lib/stores/upload-store-product-image-client";
 import { OWNER_STORE_PROFILE_FIELD_LABEL_CLASS } from "@/lib/business/owner-store-stack";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
@@ -40,6 +43,34 @@ function newSlotId() {
 }
 
 const LONG_PRESS_MS = 480;
+
+/** `OwnerMobileAdminHeader` Bell·메뉴 아이콘과 동일 stroke 라인 카메라 */
+const OWNER_PRODUCT_IMAGE_ADD_CAMERA_ICON_CLASS = "h-5 w-5 shrink-0 text-[#262626]";
+
+function OwnerProductImageAddTrigger({
+  fileInputId,
+  disabled,
+  ariaLabel,
+  hint,
+}: {
+  fileInputId: string;
+  disabled: boolean;
+  ariaLabel: string;
+  hint: string;
+}) {
+  return (
+    <label
+      htmlFor={fileInputId}
+      aria-label={ariaLabel}
+      className={`flex min-h-11 w-full cursor-pointer flex-row items-center justify-center gap-1.5 rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2.5 active:bg-sam-app ${
+        disabled ? "pointer-events-none opacity-40" : ""
+      }`}
+    >
+      <Camera className={OWNER_PRODUCT_IMAGE_ADD_CAMERA_ICON_CLASS} strokeWidth={2} aria-hidden />
+      <span className="sam-text-xxs font-medium leading-none text-[#8C8C8C]">{hint}</span>
+    </label>
+  );
+}
 
 /** 본문 `px-2` 상쇄 → 카드 내 가로 꽉 참 */
 const bleedFullWidth = "-mx-2 w-[calc(100%+1rem)]";
@@ -324,21 +355,43 @@ export function OwnerProductImagesBlock({
       e.target.value = "";
       onClientError(null);
       if (list.length === 0) return;
-      onSlotsChange((prev) => {
-        const next = [...prev];
+      void (async () => {
+        const accepted: File[] = [];
         for (const file of list) {
-          if (next.length >= OWNER_PRODUCT_IMAGE_SLOTS_MAX) break;
+          if (accepted.length + slots.length >= OWNER_PRODUCT_IMAGE_SLOTS_MAX) break;
           const v = validateOwnerProductImageFileForUpload(file);
           if (!v.ok) {
             onClientError(v.message);
-            return prev;
+            return;
           }
-          next.push({ id: newSlotId(), type: "file", file });
+          const dims = await readImageFileDimensions(file);
+          if (!dims) {
+            onClientError(t("business_phase7_487"));
+            return;
+          }
+          const dimCheck = validateOwnerProductImagePixelDimensions(dims.width, dims.height);
+          if (!dimCheck.ok) {
+            onClientError(
+              dimCheck.error === "image_dimension_too_large"
+                ? t("business_phase7_488", { v1: OWNER_PRODUCT_IMAGE_MAX_EDGE_PX })
+                : t("business_phase7_487")
+            );
+            return;
+          }
+          accepted.push(file);
         }
-        return next;
-      });
+        if (accepted.length === 0) return;
+        onSlotsChange((prev) => {
+          const next = [...prev];
+          for (const file of accepted) {
+            if (next.length >= OWNER_PRODUCT_IMAGE_SLOTS_MAX) break;
+            next.push({ id: newSlotId(), type: "file", file });
+          }
+          return next;
+        });
+      })();
     },
-    [onClientError, onSlotsChange]
+    [onClientError, onSlotsChange, slots.length, t]
   );
 
   const removeSlot = useCallback(
@@ -357,34 +410,25 @@ export function OwnerProductImagesBlock({
     <div className="flex flex-col gap-1">
       <label className={`${OWNER_STORE_PROFILE_FIELD_LABEL_CLASS} mb-0`}>{t("business_phase7_153")}</label>
 
-      <label
-        htmlFor={fileInputId}
-        className={`flex min-h-10 w-full cursor-pointer items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-2 py-2 text-center sam-text-body-secondary font-semibold text-sam-fg active:bg-sam-app ${
-          addDisabled ? "pointer-events-none opacity-40" : ""
-        }`}
-      >
-        {OWNER_PRODUCT_IMAGE_ADD_BUTTON_LABEL}
+      <div className="relative">
+        <OwnerProductImageAddTrigger
+          fileInputId={fileInputId}
+          disabled={addDisabled}
+          ariaLabel={t("business_phase7_308")}
+          hint={t("business_phase7_489")}
+        />
         <input
           id={fileInputId}
           type="file"
-          accept="image/jpeg,image/webp"
+          accept="image/jpeg,image/png,image/webp"
           multiple
-          className="hidden"
+          className="sr-only"
           disabled={addDisabled}
           onChange={onPickFiles}
         />
-      </label>
+      </div>
 
-      {slots.length === 0 ? (
-        <label
-          htmlFor={fileInputId}
-          className={`flex aspect-[5/3] max-h-36 w-full cursor-pointer flex-col items-center justify-center rounded-ui-rect border border-dashed border-sam-border-soft bg-sam-surface-muted/40 ${
-            addDisabled ? "pointer-events-none opacity-40" : ""
-          }`}
-        >
-          <span className="sam-text-body-secondary text-sam-muted">{t("business_phase7_308")}</span>
-        </label>
-      ) : (
+      {slots.length > 0 ? (
         <>
           <div
             className={`${bleedFullWidth} overflow-hidden rounded-none border-y border-sam-border-soft bg-sam-surface`}
@@ -431,7 +475,7 @@ export function OwnerProductImagesBlock({
             </DndContext>
           </div>
         </>
-      )}
+      ) : null}
     </div>
   );
 }

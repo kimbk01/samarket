@@ -489,6 +489,9 @@ export const businessMessages = {
     business_phase7_484: "내 매장",
     business_phase7_485: "배너 이미지를 업로드해 주세요.",
     business_phase7_486: "{v1} · {v2} · 정렬 {v3}",
+    business_phase7_487: "이미지 크기를 읽을 수 없습니다. 다른 파일로 시도해 주세요.",
+    business_phase7_488: "이미지는 가로·세로 각 {v1}px 이하여야 합니다. (512×512 이상 업로드 가능)",
+    business_phase7_489: "권장 512×512",
   },
   en: {
     business_phase7_001: ")만 저장됩니다.",
@@ -985,5 +988,8 @@ export const businessMessages = {
     business_phase7_484: "My store",
     business_phase7_485: "Upload a banner image.",
     business_phase7_486: "{v1} · {v2} · sort {v3}",
+    business_phase7_487: "Could not read image size. Try another file.",
+    business_phase7_488: "Each side must be {v1}px or less. (512×512 and larger uploads are supported)",
+    business_phase7_489: "Recommended 512×512",
   },
 } as const;
