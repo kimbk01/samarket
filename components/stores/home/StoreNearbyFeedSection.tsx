@@ -17,6 +17,7 @@ import {
   StoreDeliveryRowCard,
   homeFeedToRowCard,
 } from "@/components/stores/home/StoreDeliveryRowCard";
+import { StoreDeliveryListLoading } from "@/components/stores/StoreDeliveryListLoading";
 import {
   StoreVerticalDiscoveryCard,
   homeFeedItemToVerticalModel,
@@ -74,23 +75,6 @@ function SectionBlock({
   );
 }
 
-function RowSkeletonList() {
-  return (
-    <ul className="space-y-2">
-      {[0, 1, 2, 3].map((k) => (
-        <li key={k} className={`flex gap-2 p-3 ${FB.card}`}>
-          <div className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-[#E4E6EB] dark:bg-[#3A3B3C]" />
-          <div className="flex flex-1 flex-col gap-2 py-0.5">
-            <div className="h-4 w-3/5 animate-pulse rounded bg-[#E4E6EB] dark:bg-[#3A3B3C]" />
-            <div className="h-3 w-full animate-pulse rounded bg-sam-surface-muted dark:bg-[#3A3B3C]" />
-            <div className="h-3 w-4/5 animate-pulse rounded bg-sam-surface-muted dark:bg-[#3A3B3C]" />
-          </div>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 const spotRailScroll =
   "flex gap-3 overflow-x-auto pb-1 pt-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
@@ -104,9 +88,21 @@ export function StoreNearbyFeedSection({
   externalSearchQ: string;
 }) {
   const { t, language } = useI18n();
-  const [stores, setStores] = useState<StoreHomeFeedItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [meta, setMeta] = useState<{ source?: string } | null>(null);
+  const [stores, setStores] = useState<StoreHomeFeedItem[]>(() => {
+    if (typeof window === "undefined") return [];
+    const snap = readStoreHomeFeedClientCache("");
+    return snap.entry?.stores ?? [];
+  });
+  const [loading, setLoading] = useState(() => {
+    if (typeof window === "undefined") return true;
+    const snap = readStoreHomeFeedClientCache("");
+    return !snap.entry;
+  });
+  const [meta, setMeta] = useState<{ source?: string } | null>(() => {
+    if (typeof window === "undefined") return null;
+    const snap = readStoreHomeFeedClientCache("");
+    return snap.entry?.meta ?? null;
+  });
   const requestIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -230,7 +226,7 @@ export function StoreNearbyFeedSection({
       </div>
 
       {loading ?
-        <RowSkeletonList />
+        <StoreDeliveryListLoading />
       : stores.length === 0 ?
         <div className={`border border-dashed px-4 py-8 text-center ${FB.cardFlat} ${FB.hairline}`}>
           <p className={FB.body}>{t("store_no_registered_stores")}</p>

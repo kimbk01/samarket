@@ -3,6 +3,8 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 import { refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged } from "@/lib/stores/sync-store-orders-checkout-geo";
 import { clearStoreHomeFeedServerCache } from "@/lib/stores/store-home-feed-server-cache";
+import { invalidateStorePublicCachesForSlug } from "@/lib/stores/store-public-cache-invalidate";
+import { sanitizeBusinessHoursJsonForPersistence } from "@/lib/stores/serialize-store-business-hours-json";
 import { getStoreIfOwner } from "@/lib/stores/owner-product-gate";
 import { normalizePhMobileDb, PH_LOCAL_MOBILE_RULE_MESSAGE_KO } from "@/lib/utils/ph-mobile";
 import { normalizeStoreAddressPh } from "@/lib/stores/normalize-store-address-ph";
@@ -300,7 +302,7 @@ export async function PATCH(
       body.business_hours_json !== null &&
       !Array.isArray(body.business_hours_json)
     ) {
-      patch.business_hours_json = body.business_hours_json;
+      patch.business_hours_json = sanitizeBusinessHoursJsonForPersistence(body.business_hours_json);
     } else {
       return NextResponse.json({ ok: false, error: "invalid_business_hours_json" }, { status: 400 });
     }
@@ -412,6 +414,9 @@ export async function PATCH(
   }
 
   clearStoreHomeFeedServerCache();
+
+  const publicSlug = typeof updated.slug === "string" ? updated.slug.trim() : "";
+  if (publicSlug) invalidateStorePublicCachesForSlug(publicSlug);
 
   if ("lat" in patch || "lng" in patch) {
     const store_orders_checkout_geo_sync = await refreshStoreOrdersCheckoutGeoAfterStoreLocationChanged(

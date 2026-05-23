@@ -10,6 +10,7 @@ import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { OwnerRoutes } from "@/lib/business/owner-routes";
 import { resolveOwnerStoreNotificationsHref } from "@/lib/business/owner-store-notifications-route";
 import { useBusinessAdminStore } from "@/components/business/admin/business-admin-store-context";
+import { openOwnerMobileOpsMenu } from "@/lib/business/owner-mobile-ops-menu-bridge";
 import { useOwnerHubRuntime } from "@/components/business/owner/OwnerHubRuntimeProvider";
 import { useOwnerMobileAdminHeaderTrailing } from "@/components/business/owner/OwnerMobileAdminHeaderTrailingContext";
 import { BodyPortal } from "@/components/layout/BodyPortal";
@@ -71,6 +72,11 @@ export function OwnerMobileAdminHeader({
   const hubRuntime = useOwnerHubRuntime();
   const biz = useBusinessAdminStore();
   const trailingCtx = useOwnerMobileAdminHeaderTrailing();
+
+  const onOpenOpsMenu = () => {
+    if (openOwnerMobileOpsMenu()) return;
+    biz?.openMobileOwnerMenu?.();
+  };
   const storeList = stores ?? hubRuntime?.stores ?? null;
   const notificationsHref =
     resolveOwnerStoreNotificationsHref({ slug: storeSlug }) ?? OwnerRoutes.settings(storeId);
@@ -187,9 +193,10 @@ export function OwnerMobileAdminHeader({
           </Link>
           <button
             type="button"
-            className={HEADER_ICON_BTN_CLASS}
+            className={`relative z-10 ${HEADER_ICON_BTN_CLASS}`}
             aria-label={t("store_owner_aria_open_menu")}
-            onClick={() => biz?.openMobileOwnerMenu?.()}
+            aria-haspopup="dialog"
+            onClick={onOpenOpsMenu}
           >
             <OwnerMenuIcon />
           </button>

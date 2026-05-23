@@ -42,10 +42,13 @@ import {
 } from "@/lib/stores/payment-methods-config";
 import {
   normalizeHHMM,
+  readAutoBusinessHoursEnabled,
   readAutoHoursFormFields,
   readBreakHoursFormFields,
   STORE_AUTO_TIMEZONE_OPTIONS,
 } from "@/lib/stores/store-auto-hours";
+import { applyAutoBusinessHoursToRecord } from "@/lib/stores/serialize-store-business-hours-json";
+import { invalidateStorePublicCachesForSlug } from "@/lib/stores/store-public-cache-invalidate";
 import { TumblerTimePickerDialog } from "@/components/ui/TumblerTimePickerDialog";
 import { BodyPortal } from "@/components/layout/BodyPortal";
 import {
@@ -139,6 +142,7 @@ export type OwnerStoreProfileFormValues = {
   pickupAvailable: boolean;
   hoursNote: string;
   /** 매장 창 영업시간 — business_hours_json.auto_business_hours */
+  autoBusinessHoursEnabled: boolean;
   autoHoursTz: string;
   autoHoursOpen: string;
   autoHoursClose: string;
@@ -229,6 +233,7 @@ function rowToFormValues(row: StoreRow): OwnerStoreProfileFormValues {
     menuSoldOutBottom: row.menu_sold_out_bottom === true,
     pickupAvailable: row.pickup_available !== false,
     ...readAutoHoursFormFields(row.business_hours_json),
+    autoBusinessHoursEnabled: readAutoBusinessHoursEnabled(row.business_hours_json),
     breakHoursEnabled: breakOn,
     breakHoursStart: br.breakHoursStart,
     breakHoursEnd: br.breakHoursEnd,
@@ -369,15 +374,12 @@ function buildBusinessHoursJson(
     if (dc) prev.delivery_courier_label = dc;
   }
 
-  const tz = (values.autoHoursTz || "Asia/Manila").trim() || "Asia/Manila";
-  const o = normalizeHHMM(values.autoHoursOpen.trim());
-  const c = normalizeHHMM(values.autoHoursClose.trim());
-  if (o && c && o !== c) {
-    prev.auto_business_hours = { enabled: true, timezone: tz, open: o, close: c };
-    prev.weekdays = `매일 ${o}–${c} (${tz})`;
-  } else {
-    prev.auto_business_hours = { enabled: false };
-  }
+  applyAutoBusinessHoursToRecord(prev, {
+    autoBusinessHoursEnabled: values.autoBusinessHoursEnabled,
+    autoHoursTz: values.autoHoursTz,
+    autoHoursOpen: values.autoHoursOpen,
+    autoHoursClose: values.autoHoursClose,
+  });
 
   return prev;
 }
@@ -416,7 +418,7 @@ function patchErrorToUserMessage(code: string): string | null {
 
 export function OwnerStoreProfileForm({
   storeId,
-  storeSlug: _storeSlug,
+  storeSlug,
   row,
   onSaved,
   onServiceDraftChange,
@@ -559,11 +561,11 @@ export function OwnerStoreProfileForm({
         setError(`갤러리 이미지는 최대 ${GALLERY_MAX}장까지입니다.`);
         return false;
       }
-      {
+      if (values.autoBusinessHoursEnabled) {
         const o = normalizeHHMM(values.autoHoursOpen.trim());
         const c = normalizeHHMM(values.autoHoursClose.trim());
         if (!o || !c || o === c) {
-          setError("매장 창 영업시간: 시작·종료를 HH:mm(예: 09:00, 22:00)로 입력해 주세요.");
+          setError("자동 영업/마감을 켠 경우 시작·종료를 HH:mm(예: 09:00, 22:00)로 입력해 주세요.");
           return false;
         }
       }
@@ -618,6 +620,7 @@ export function OwnerStoreProfileForm({
           );
           return false;
         }
+        invalidateStorePublicCachesForSlug(storeSlug);
         onSaved();
         return true;
       } catch {
@@ -753,6 +756,25 @@ export function OwnerStoreProfileForm({
 
       <OwnerStoreAdminDashSection title={t("business_phase7_086")}>
         <div className={OWNER_STORE_PROFILE_INNER_PANEL_CLASS}>
+          <label className="flex cursor-pointer items-start gap-2 rounded-ui-rect border border-sam-border-soft bg-sam-app/40 px-3 py-2.5">
+            <input
+              type="checkbox"
+              checked={values.autoBusinessHoursEnabled}
+              onChange={(e) =>
+                setValues((v) => ({ ...v, autoBusinessHoursEnabled: e.target.checked }))
+              }
+              className="mt-0.5 h-4 w-4 shrink-0 rounded border-sam-border text-signature"
+            />
+            <span className="min-w-0">
+              <span className="block text-[13px] font-semibold text-sam-fg">
+                {t("business_phase7_auto_hours_schedule_enabled")}
+              </span>
+              <span className="mt-0.5 block sam-text-helper text-sam-muted">
+                {t("business_phase7_auto_hours_schedule_hint")}
+              </span>
+            </span>
+          </label>
+
           <div>
             <label className={OWNER_STORE_PROFILE_FIELD_LABEL_CLASS}>{t("business_phase7_328")}</label>
             <select

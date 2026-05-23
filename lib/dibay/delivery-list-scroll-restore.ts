@@ -12,6 +12,11 @@ import {
   DELIVERY_PERF_TAG_LIST_SCROLL_RESTORE_MS,
   DELIVERY_PERF_TAG_LIST_SCROLL_SAVE,
 } from "@/lib/dibay/delivery-perf-trace";
+import {
+  getMainAppScrollRoot,
+  getMainAppScrollTop,
+  setMainAppScrollTop,
+} from "@/lib/layout/main-app-scroll-root";
 
 const KEY_PREFIX_SCROLL = "dibay:delivery-list-scroll:";
 const KEY_POPSTATE_PENDING = "dibay:delivery-list-scroll-popstate-pending";
@@ -88,10 +93,7 @@ export function saveDeliveryListScrollBeforeStoreNavigation(routeKey?: string): 
   const key = (routeKey ?? getCurrentDeliveryListScrollRouteKey()).trim();
   if (!isDeliveryListScrollRoute(key)) return;
 
-  const y = Math.max(
-    0,
-    Math.round(window.scrollY || document.documentElement.scrollTop || 0)
-  );
+  const y = Math.max(0, Math.round(getMainAppScrollTop()));
   try {
     sessionStorage.setItem(
       scrollStorageKey(key),
@@ -163,10 +165,10 @@ export function restoreDeliveryListScrollY(
   let attempts = 0;
 
   const tryOnce = () => {
-    const doc = document.documentElement;
-    const maxScroll = Math.max(0, (doc?.scrollHeight ?? 0) - window.innerHeight);
+    const root = getMainAppScrollRoot();
+    const maxScroll = Math.max(0, root.scrollHeight - root.clientHeight);
     const y = Math.min(targetY, maxScroll);
-    window.scrollTo({ top: y, left: 0, behavior: "instant" });
+    setMainAppScrollTop(y, { behavior: "auto", scrollRoot: root });
     attempts += 1;
     if (attempts < maxAttempts && y < targetY && maxScroll < targetY - 8) {
       requestAnimationFrame(tryOnce);

@@ -4,10 +4,14 @@ import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { CallProvider } from "@/app/_providers/CallProvider";
 import { resolveSuppressIncomingCallOverlay } from "@/lib/layout/conditional-app-shell-flags";
+import { importWithChunkRetry } from "@/lib/next/import-with-chunk-retry";
+import { IncomingCallOverlayChunkBoundary } from "@/components/layout/providers/IncomingCallOverlayChunkBoundary";
 
 const IncomingCallOverlay = dynamic(
   () =>
-    import("@/components/community-messenger/IncomingCallOverlay").then((mod) => mod.IncomingCallOverlay),
+    importWithChunkRetry(() =>
+      import("@/components/community-messenger/IncomingCallOverlay").then((mod) => mod.IncomingCallOverlay)
+    ),
   { ssr: false }
 );
 
@@ -21,7 +25,11 @@ export function CallIncomingChrome() {
 
   return (
     <CallProvider>
-      {suppressOverlay ? null : <IncomingCallOverlay />}
+      {suppressOverlay ? null : (
+        <IncomingCallOverlayChunkBoundary>
+          <IncomingCallOverlay />
+        </IncomingCallOverlayChunkBoundary>
+      )}
     </CallProvider>
   );
 }

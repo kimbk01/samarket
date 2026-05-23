@@ -1552,11 +1552,15 @@ export const adminMessages = {
       "이 화면에서 저장하면 DB에 반영되며 모든 사용자에게 동일하게 적용됩니다.",
     admin_stores_app_taxonomy_title: "업종 관리",
     admin_stores_app_taxonomy_desc:
-      "DB에 있는 업종(1차)·세부 주제(2차)를 수정/숨김 처리합니다. 숨김 처리(is_active=false) 시 /stores 에서 노출되지 않습니다.",
+      "DB에 있는 업종(1차)·세부 주제(2차)를 수정/숨김 처리합니다. 숨김 처리(is_active=false) 시 /stores 에서 노출되지 않습니다. 카테고리 아이콘은 「이미지 추가/변경」으로만 바꿉니다(「수정」 저장은 이름·정렬만).",
+    admin_stores_app_taxonomy_seed_help:
+      "「초기 업종 목록 넣기」는 DB가 비었을 때 식당·마트 등 기본 행만 한 번 채웁니다. 이미 있는 업종·이미지는 덮어쓰지 않습니다. 평소에는 1차/2차 추가·이미지 업로드만 사용하세요.",
     admin_stores_app_taxonomy_primary: "1차 업종",
-    admin_stores_app_taxonomy_primary_hint: "행 단위로 이름/정렬 수정, 숨김(삭제)할 수 있어요.",
+    admin_stores_app_taxonomy_primary_hint:
+      "이름·정렬은 「수정」→저장, 아이콘은 왼쪽 미리보기·「이미지 추가/변경」으로 바꿉니다. /stores 대분류 탭에 반영됩니다.",
     admin_stores_app_taxonomy_secondary: "2차 업종",
-    admin_stores_app_taxonomy_secondary_hint: "1차를 선택하면 해당 2차 목록이 나옵니다. 행 단위로 수정/숨김할 수 있어요.",
+    admin_stores_app_taxonomy_secondary_hint:
+      "1차를 선택하면 2차 목록이 나옵니다. 아이콘은 「이미지 추가/변경」, 이름·정렬은 「수정」입니다. /stores 세부 칩에 반영됩니다.",
     admin_stores_app_taxonomy_ph_name: "이름 (한국어)",
 
     admin_stores_app_taxonomy_ph_name_en: "이름 (English)",
@@ -1569,8 +1573,8 @@ export const adminMessages = {
     admin_stores_app_taxonomy_th_actions: "작업",
     admin_stores_app_taxonomy_empty_category: "업종이 없습니다.",
     admin_stores_app_taxonomy_empty_topic: "하위 업종이 없습니다.",
-    admin_stores_app_taxonomy_seed: "기본 업종 생성(시드)",
-    admin_stores_app_taxonomy_seed_topic: "기본 2차 업종 생성(시드)",
+    admin_stores_app_taxonomy_seed: "초기 업종 목록 넣기",
+    admin_stores_app_taxonomy_seed_topic: "초기 2차 업종 넣기",
     admin_stores_app_taxonomy_seeding: "생성 중…",
     admin_stores_app_taxonomy_add_primary: "1차 추가",
     admin_stores_app_taxonomy_add_secondary: "2차 추가",
@@ -1581,12 +1585,13 @@ export const adminMessages = {
     admin_stores_app_taxonomy_add_image: "이미지 추가",
     admin_stores_app_taxonomy_confirm_hide: "숨김 처리할까요? (/stores에서 사라짐)",
     admin_stores_app_taxonomy_confirm_show: "다시 노출할까요?",
-    admin_stores_app_taxonomy_confirm_seed: "기본 업종/세부 주제를 DB에 생성합니다. 계속할까요?",
+    admin_stores_app_taxonomy_confirm_seed:
+      "앱 기본 업종(식당·마트 등)과 세부 주제 행을 DB에 넣습니다. 이미 있는 slug는 건너뜁니다. 계속할까요?",
     admin_stores_app_taxonomy_msg_saved: "저장했습니다. /stores 에 반영됩니다.",
     admin_stores_app_taxonomy_msg_created: "생성했습니다. /stores 에 반영됩니다.",
     admin_stores_app_taxonomy_msg_applied: "반영했습니다. /stores 에 반영됩니다.",
     admin_stores_app_taxonomy_msg_image: "이미지를 저장했습니다. /stores 에 반영됩니다.",
-    admin_stores_app_taxonomy_msg_seed: "기본 업종을 생성했습니다. (1차 {categories} / 2차 {topics})",
+    admin_stores_app_taxonomy_msg_seed: "초기 업종을 넣었습니다. (1차 후보 {categories}건 / 2차 후보 {topics}건 — 기존 slug는 유지)",
     admin_stores_app_taxonomy_err_upload: "이미지 업로드에 실패했습니다.",
     admin_stores_app_taxonomy_err_seed: "시드 생성에 실패했습니다.",
     admin_stores_app_taxonomy_err_create: "생성에 실패했습니다.",
@@ -3135,11 +3140,16 @@ export const adminMessages = {
     admin_stores_app_integration_review_desc: "— Separate DB flow; not auto-synced with this screen",
     admin_stores_app_integration_save_hint: "Saving here updates DB for all users.",
     admin_stores_app_taxonomy_title: "Category management",
-    admin_stores_app_taxonomy_desc: "Edit or hide categories (primary) and topics (secondary). is_active=false hides on /stores.",
+    admin_stores_app_taxonomy_desc:
+      "Edit or hide categories (primary) and topics (secondary). is_active=false hides on /stores. Icons change only via Add/Change image (Edit saves name/sort).",
+    admin_stores_app_taxonomy_seed_help:
+      "“Seed initial list” fills default rows only when the DB is empty. Existing rows and images are not overwritten. Use add/upload for day-to-day changes.",
     admin_stores_app_taxonomy_primary: "Primary category",
-    admin_stores_app_taxonomy_primary_hint: "Edit name/sort per row; hide (soft delete).",
+    admin_stores_app_taxonomy_primary_hint:
+      "Edit → Save for name/sort; use Add/Change image for the icon (shown on /stores primary tabs).",
     admin_stores_app_taxonomy_secondary: "Secondary category",
-    admin_stores_app_taxonomy_secondary_hint: "Pick primary to list secondary rows; edit or hide per row.",
+    admin_stores_app_taxonomy_secondary_hint:
+      "Pick primary to list topics. Add/Change image for icons; Edit for name/sort (/stores sub chips).",
     admin_stores_app_taxonomy_ph_name: "Name (Korean)",
 
     admin_stores_app_taxonomy_ph_name_en: "Name (English)",
@@ -3153,8 +3163,8 @@ export const adminMessages = {
     admin_stores_app_taxonomy_th_actions: "Actions",
     admin_stores_app_taxonomy_empty_category: "No categories.",
     admin_stores_app_taxonomy_empty_topic: "No subcategories.",
-    admin_stores_app_taxonomy_seed: "Seed default categories",
-    admin_stores_app_taxonomy_seed_topic: "Seed default subcategories",
+    admin_stores_app_taxonomy_seed: "Seed initial categories",
+    admin_stores_app_taxonomy_seed_topic: "Seed initial subcategories",
     admin_stores_app_taxonomy_seeding: "Seeding…",
     admin_stores_app_taxonomy_add_primary: "Add primary",
     admin_stores_app_taxonomy_add_secondary: "Add secondary",

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import { invalidateMeStoresListDedupedCache } from "@/lib/me/fetch-me-stores-deduped";
+import { invalidateStorePublicCachesForSlug } from "@/lib/stores/store-public-cache-invalidate";
 import { StoreOpsOnOffSwitch } from "@/components/business/admin/StoreOpsOnOffSwitch";
 import { parsePostgresBool } from "@/lib/community-feed/parse-postgres-bool";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -50,6 +51,8 @@ export function BusinessAdminOpenToggle({
           return false;
         }
         invalidateMeStoresListDedupedCache();
+        const slug = String(row.slug ?? "").trim();
+        if (slug) invalidateStorePublicCachesForSlug(slug);
         await Promise.resolve(onUpdated());
         return true;
       } catch {
@@ -59,7 +62,7 @@ export function BusinessAdminOpenToggle({
         setBusy(false);
       }
     },
-    [isOpen, onUpdated, row.id]
+    [isOpen, onUpdated, row.id, row.slug]
   );
 
   return (

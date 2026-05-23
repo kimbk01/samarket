@@ -1,19 +1,16 @@
+import {
+  invalidateStoreDetailScrollRootCache,
+  setStoreDetailScrollTop,
+} from "@/lib/ui/store-detail-scroll-root";
+
 /**
- * 메인 앱 셸(`ConditionalAppShell`의 `<main>` + 문서 뷰포트) 스크롤을 최상단으로 맞춤.
+ * 메인 앱 셸(`ConditionalAppShell`의 `<main>` + 문서 fallback) 스크롤을 최상단으로 맞춤.
  * 하단 탭 전환 시 `next/link` `scroll={false}` 때문에 이전 탭 스크롤이 남지 않도록 한다.
  */
 export function scrollAppShellToTop(): void {
   if (typeof document === "undefined") return;
-  const mainEl = document.querySelector("main");
-  try {
-    mainEl?.scrollTo?.({ top: 0, behavior: "auto" });
-  } catch {
-    try {
-      mainEl?.scrollTo?.(0, 0);
-    } catch {
-      /* noop */
-    }
-  }
+  invalidateStoreDetailScrollRootCache();
+  setStoreDetailScrollTop(0, { behavior: "auto" });
   try {
     window.scrollTo({ top: 0, behavior: "auto" });
   } catch {

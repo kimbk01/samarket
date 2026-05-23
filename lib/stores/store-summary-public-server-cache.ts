@@ -32,6 +32,10 @@ export function runStoreSummaryPublicServerSingleFlight<T>(
   return runSingleFlight(`store-summary-api:slug:${cacheKey(slug)}`, factory);
 }
 
+export function invalidateStoreSummaryPublicServerCache(slug: string): void {
+  cache.delete(cacheKey(slug));
+}
+
 export function resetStoreSummaryPublicServerCacheForTests(): void {
   cache.clear();
 }

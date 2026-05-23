@@ -63,7 +63,7 @@ export function AppRouteTransition({ children, overlay, contentStretchClass = "m
   return (
     <div
       ref={hostRef}
-      className={`${contentStretchClass} relative isolate overflow-x-hidden`}
+      className={`${contentStretchClass} relative isolate overflow-x-clip`}
       onAnimationEnd={(e) => {
         if (e.target !== e.currentTarget) return;
         stripTransitionClasses(hostRef.current);

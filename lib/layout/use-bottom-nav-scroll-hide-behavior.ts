@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { isTradeFloatingMenuSurface } from "@/lib/layout/mobile-top-tier1-rules";
+import { getMainAppScrollTop } from "@/lib/layout/main-app-scroll-root";
+import { subscribeAppShellScroll } from "@/lib/layout/subscribe-app-shell-scroll";
 
 /** 마지막 스크롤 이후 이 시간이 지나면 (탭이 접혀 있을 때) 다시 펼침 */
 export const BOTTOM_NAV_REVEAL_AFTER_SCROLL_IDLE_MS = 1800;
@@ -53,7 +55,8 @@ export function useBottomNavScrollHide(enabled: boolean): boolean {
       setHidden(false);
       return;
     }
-    lastYRef.current = readScrollTopFromScrollTarget(document.scrollingElement);
+    lastYRef.current =
+      typeof document !== "undefined" ? getMainAppScrollTop() : readScrollTopFromScrollTarget(document.scrollingElement);
 
     const clearIdleReveal = () => {
       if (idleRevealTimerRef.current != null) {
@@ -81,9 +84,9 @@ export function useBottomNavScrollHide(enabled: boolean): boolean {
       }, BOTTOM_NAV_REVEAL_AFTER_SCROLL_IDLE_MS);
     };
 
-    document.addEventListener("scroll", onScroll, { passive: true, capture: true });
+    const unsubScroll = subscribeAppShellScroll(onScroll, { passive: true });
     return () => {
-      document.removeEventListener("scroll", onScroll, true);
+      unsubScroll();
       clearIdleReveal();
     };
   }, [enabled]);

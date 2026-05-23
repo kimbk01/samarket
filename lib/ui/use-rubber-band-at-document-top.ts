@@ -1,6 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  getMainAppScrollRoot,
+  getMainAppScrollTop,
+} from "@/lib/layout/main-app-scroll-root";
+import { subscribeAppShellScroll } from "@/lib/layout/subscribe-app-shell-scroll";
 
 export type RubberBandAtDocumentTopOptions = {
   /**
@@ -42,7 +47,7 @@ export function useRubberBandAtDocumentTop(
   const blockNativeViewportOverscroll = Boolean(options?.blockNativeViewportOverscroll);
 
   useEffect(() => {
-    const scrollTop = () => window.scrollY || document.documentElement.scrollTop || 0;
+    const scrollTop = () => getMainAppScrollTop();
 
     const onScroll = () => {
       if (scrollTop() > 14) {
@@ -96,16 +101,19 @@ export function useRubberBandAtDocumentTop(
       touchStartXRef.current = null;
     };
 
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("wheel", onWheel, { passive: true });
+    const unsubScroll = subscribeAppShellScroll(onScroll, { passive: true });
+    const scrollRoot =
+      typeof document !== "undefined" ? getMainAppScrollRoot() : null;
+    const wheelTarget = scrollRoot ?? window;
+    wheelTarget.addEventListener("wheel", onWheel, { passive: true });
     window.addEventListener("touchstart", onTouchStart, { passive: true });
     window.addEventListener("touchmove", onTouchMove, { passive: !blockNativeViewportOverscroll });
     window.addEventListener("touchend", endTouch);
     window.addEventListener("touchcancel", endTouch);
 
     return () => {
-      window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("wheel", onWheel);
+      unsubScroll();
+      wheelTarget.removeEventListener("wheel", onWheel);
       window.removeEventListener("touchstart", onTouchStart);
       window.removeEventListener("touchmove", onTouchMove);
       window.removeEventListener("touchend", endTouch);

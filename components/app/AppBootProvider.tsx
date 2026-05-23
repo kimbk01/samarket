@@ -12,6 +12,7 @@ import { markBootVerifyFirstPaint } from "@/lib/app-boot/client-boot-request-jou
 import { ensureAppBoot } from "@/lib/app-boot/run-app-boot";
 import { invalidateMeProfileDedupedCache } from "@/lib/profile/fetch-me-profile-deduped";
 import { clearAuthSessionClientCache } from "@/lib/auth/fetch-auth-session-client";
+import { clearChunkReloadSessionFlag } from "@/lib/next/import-with-chunk-retry";
 
 const AppBootContext = createContext<AppBootState | null>(null);
 
@@ -27,6 +28,7 @@ export function AppBootProvider({ children }: { children: ReactNode }) {
   const boot = useSyncExternalStore(subscribeAppBoot, getAppBootSnapshot, getAppBootSnapshot);
 
   useEffect(() => {
+    clearChunkReloadSessionFlag();
     if (typeof requestAnimationFrame === "function") {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => markBootVerifyFirstPaint());

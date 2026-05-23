@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import dynamic from "next/dynamic";
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { StoreCommerceCartRuntimeBoundary } from "@/components/layout/providers/StoreCommerceCartRuntimeBoundary";
 import { bumpAppWidePerf, recordAppWidePhaseLastMs } from "@/lib/runtime/samarket-runtime-debug";
@@ -35,6 +35,7 @@ import { LatestMenuNavigationProvider } from "@/contexts/LatestMenuNavigationCon
 import { MainBottomNavTabsProvider } from "@/contexts/MainBottomNavTabsContext";
 import { DiBaYNotificationOnboardingGate } from "@/components/notifications/DiBaYNotificationOnboardingGate";
 import { DevicePermissionUiHost } from "@/components/permissions/DevicePermissionUiHost";
+import { MAIN_SHELL_VIEWPORT_LOCK_CLASS } from "@/lib/layout/main-shell-viewport";
 
 const GlobalIncomingFriendRequestHost = dynamic(
   () =>
@@ -60,6 +61,7 @@ const TradeWriteBottomSheetLazy = dynamic(
 
 const INFO_HUB_PANEL_PUSH_WIDTH = "min(88vw, 30rem)";
 const INFO_HUB_PANEL_PUSH_TRANSITION = "transform 580ms cubic-bezier(0.2, 0.65, 0.25, 1)";
+const MAIN_SHELL_VIEWPORT_LOCK_HTML_CLASS = "sam-main-shell-viewport-lock";
 
 function AppWideRuntimePerfHooks() {
   const bootstrapRafRef = useRef<{ a: number; b: number }>({ a: 0, b: 0 });
@@ -137,6 +139,12 @@ export function MainAppProviderTree({
   initialMainBottomNavItems?: BottomNavItemConfig[] | null;
   initialTradeTabCategories?: CategoryWithSettings[] | null;
 }) {
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    root.classList.add(MAIN_SHELL_VIEWPORT_LOCK_HTML_CLASS);
+    return () => root.classList.remove(MAIN_SHELL_VIEWPORT_LOCK_HTML_CLASS);
+  }, []);
+
   return (
     <RegionProvider>
       <MypageInfoHubPanelProvider>
@@ -164,8 +172,9 @@ export function MainAppProviderTree({
                             <MainTier1ChromeProvider>
                               <TradePresenceActivityProvider>
                                 <MainShellPushLayer>
-                                  <div className="flex w-full min-w-0 min-h-0 flex-1 flex-col">
+                                  <div className={MAIN_SHELL_VIEWPORT_LOCK_CLASS}>
                                     <AppStickyHeader />
+                                    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
                                     <PhilifeMessengerFromHeaderStack>
                                       <TradeHistoryFromHeaderStack>
                                         <ConditionalAppShell
@@ -176,6 +185,7 @@ export function MainAppProviderTree({
                                         </ConditionalAppShell>
                                       </TradeHistoryFromHeaderStack>
                                     </PhilifeMessengerFromHeaderStack>
+                                    </div>
                                   </div>
                                 </MainShellPushLayer>
                                 <TradeChatEntryCreatingOverlay />

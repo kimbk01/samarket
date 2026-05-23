@@ -46,6 +46,7 @@ import {
   storeCartHeadFromCommerceBucket,
 } from "@/lib/stores/store-cart-checkout-perf";
 import { parseStoreSummaryPayload } from "@/lib/stores/store-detail-split-types";
+import { useStorePublicSlugCacheInvalidation } from "@/lib/stores/use-store-public-slug-cache-invalidation";
 import { StoreCartCheckoutActionBar } from "@/components/stores/cart/StoreCommerceCartCheckoutActionBar";
 import { StoreCommerceCartPageShell } from "@/components/stores/cart/StoreCommerceCartPageShell";
 import { useStoreCartBack } from "@/components/stores/cart/use-store-cart-back";
@@ -398,6 +399,11 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       void loadStore();
     }
   }, [loadStore, storeSlug]);
+
+  const reloadStoreAfterOwnerMutation = useCallback(() => {
+    void loadStore({ silent: true });
+  }, [loadStore]);
+  useStorePublicSlugCacheInvalidation(storeSlug, reloadStoreAfterOwnerMutation);
 
   /** 수량 변경 등 snapshot 갱신 시 API 재호출 없이 카트 메타만 보강 */
   useEffect(() => {

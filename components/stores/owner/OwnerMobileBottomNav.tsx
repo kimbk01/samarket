@@ -296,6 +296,8 @@ export function OwnerMobileBottomNav({
       open={domainSwitcherOpen}
       onClose={closeDomainSwitcher}
       includeOpsCenter={false}
+      beginMenuNavigation={() => {}}
+      onNavigationIntent={() => {}}
     />
   );
 

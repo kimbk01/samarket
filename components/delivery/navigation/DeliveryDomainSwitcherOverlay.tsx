@@ -9,6 +9,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from "react";
@@ -31,6 +32,8 @@ import {
 import { resolveDeliveryDialIconComponent } from "@/lib/delivery/delivery-domain-switcher-icons";
 import { mainBottomNavMessengerTabHref } from "@/lib/community-messenger/messenger-entry-origin";
 import { runDeliveryDialItemNavigation } from "@/lib/delivery/delivery-dial-item-navigation";
+import { prewarmDeliveryDomainDialTargets } from "@/lib/delivery/prewarm-delivery-domain-dial";
+import { useRegionOptional } from "@/contexts/RegionContext";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
 import {
   clientHasVerifiedContactForInteractive,
@@ -41,20 +44,24 @@ import { useStoreBusinessHubEntryModal } from "@/hooks/use-store-business-hub-en
 import { shouldInterceptBusinessHubHref } from "@/lib/stores/store-business-hub-nav-intercept";
 import { useOwnerLitePreferredStoreRow } from "@/lib/stores/use-owner-lite-store";
 import { triggerMobileSelectionFeedback } from "@/lib/ui/light-tap-feedback";
+import { markBottomNavRouteIntentForBackgroundWarm } from "@/lib/navigation/mark-bottom-nav-route-intent";
+import { navPerfMarkBottomNavClickStart } from "@/lib/navigation/nav-perf-browser";
 
 const DIAL_EASE = "cubic-bezier(0.25, 0.9, 0.35, 1)";
 const DIAL_NAV_ICON_CLASS = "app-bottom-nav-icon-svg";
-const DIAL_SELECT_FLASH_MS = 100;
-
 export function DeliveryDomainSwitcherOverlay({
   open,
   onClose,
   includeOpsCenter = true,
+  beginMenuNavigation,
+  onNavigationIntent,
 }: {
   open: boolean;
   onClose: () => void;
   /** 오너 어드민 하단 홈 다이얼 — 운영센터 칩 제외 */
   includeOpsCenter?: boolean;
+  beginMenuNavigation: (href: string) => void;
+  onNavigationIntent: (tabId: string) => void;
 }) {
   const { safeT, t } = useI18n();
   const router = useRouter();
@@ -65,6 +72,8 @@ export function DeliveryDomainSwitcherOverlay({
   const { goBusinessHubOrModal, hubBlockedModal } = useStoreBusinessHubEntryModal("확인", {
     eager: false,
   });
+  const regionCtx = useRegionOptional();
+  const primaryRegion = regionCtx?.primaryRegion ?? null;
 
   const slots = useMemo(
     () => composeDeliveryDomainSwitcherSlots(ownerStoreId, { includeOpsCenter }),
@@ -93,10 +102,10 @@ export function DeliveryDomainSwitcherOverlay({
   const [rotatorDeg, setRotatorDeg] = useState(0);
   const [rotatorAnimating, setRotatorAnimating] = useState(false);
   const [pressedTabId, setPressedTabId] = useState<string | null>(null);
-  const [selectedTabId, setSelectedTabId] = useState<string | null>(null);
+  const pressedTabIdRef = useRef<string | null>(null);
+  const lastChipSelectRef = useRef<{ tabId: string; at: number } | null>(null);
 
   const closeTimerRef = useRef<number | null>(null);
-  const selectTimerRef = useRef<number | null>(null);
   const snapTimerRef = useRef<number | null>(null);
   const prevOpenRef = useRef(false);
   const rotatorDegRef = useRef(0);
@@ -108,7 +117,8 @@ export function DeliveryDomainSwitcherOverlay({
   });
 
   rotatorDegRef.current = rotatorDeg;
-  const interactionReady = entered && !rotatorAnimating && open;
+  /** 열림 직후·애니 중에도 칩 탭 가능 — `mounted` 는 layout effect 로 open 과 동기 */
+  const interactionReady = open && portalReady;
 
   const clearTimer = useCallback((ref: { current: number | null }) => {
     if (ref.current != null) {
@@ -119,16 +129,25 @@ export function DeliveryDomainSwitcherOverlay({
 
   const clearAllTimers = useCallback(() => {
     clearTimer(closeTimerRef);
-    clearTimer(selectTimerRef);
     clearTimer(snapTimerRef);
   }, [clearTimer]);
 
   const resetInteractionState = useCallback(() => {
     setPressedTabId(null);
-    setSelectedTabId(null);
+    pressedTabIdRef.current = null;
+    lastChipSelectRef.current = null;
     selectingRef.current = false;
     dragRef.current.pointerId = null;
   }, []);
+
+  const clearPress = useCallback(() => {
+    setPressedTabId(null);
+    pressedTabIdRef.current = null;
+  }, []);
+
+  useLayoutEffect(() => {
+    if (open) setMounted(true);
+  }, [open]);
 
   useEffect(() => {
     setPortalReady(true);
@@ -181,6 +200,20 @@ export function DeliveryDomainSwitcherOverlay({
   useEffect(() => {
     return () => clearAllTimers();
   }, [clearAllTimers]);
+
+  useLayoutEffect(() => {
+    if (!open) return;
+    prewarmDeliveryDomainDialTargets(slots, {
+      primaryRegion,
+      prefetch: (href) => {
+        try {
+          router.prefetch(href);
+        } catch {
+          /* noop */
+        }
+      },
+    });
+  }, [open, slots, primaryRegion, router]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -247,7 +280,6 @@ export function DeliveryDomainSwitcherOverlay({
 
   const onItemNavigate = useCallback(
     (tab: BottomNavItemConfig) => {
-      selectingRef.current = false;
       const href = resolveHref(tab);
       if (href.includes("/community-messenger")) {
         const user = getCurrentUser();
@@ -256,38 +288,60 @@ export function DeliveryDomainSwitcherOverlay({
           return;
         }
       }
+      const navClickT0 = performance.now();
+      markBottomNavRouteIntentForBackgroundWarm();
+      navPerfMarkBottomNavClickStart(navClickT0);
       runDeliveryDialItemNavigation({
         tab,
         href,
         pathname,
         onClose,
         guardBeforeNavigate,
+        beginMenuNavigation,
+        onNavigationIntent,
         push: (h) => router.push(h),
         goBusinessHubOrModal,
         shouldInterceptBusinessHubHref,
+        prefetch: (h) => {
+          try {
+            router.prefetch(h);
+          } catch {
+            /* noop */
+          }
+        },
       });
     },
-    [guardBeforeNavigate, goBusinessHubOrModal, onClose, pathname, resolveHref, router]
+    [
+      beginMenuNavigation,
+      guardBeforeNavigate,
+      goBusinessHubOrModal,
+      onClose,
+      onNavigationIntent,
+      pathname,
+      resolveHref,
+      router,
+    ]
   );
 
   const runItemSelect = useCallback(
     (tab: BottomNavItemConfig) => {
       if (!interactionReady || selectingRef.current) return;
-      selectingRef.current = true;
-      triggerMobileSelectionFeedback();
-      setPressedTabId(null);
-      setSelectedTabId(tab.id);
-      clearTimer(selectTimerRef);
-      selectTimerRef.current = window.setTimeout(() => {
-        selectTimerRef.current = null;
-        setSelectedTabId(null);
-        onItemNavigate(tab);
-      }, DIAL_SELECT_FLASH_MS);
-    },
-    [clearTimer, interactionReady, onItemNavigate]
-  );
+      const now = performance.now();
+      const prev = lastChipSelectRef.current;
+      if (prev && prev.tabId === tab.id && now - prev.at < 80) return;
+      lastChipSelectRef.current = { tabId: tab.id, at: now };
 
-  const clearPress = useCallback(() => setPressedTabId(null), []);
+      selectingRef.current = true;
+      try {
+        triggerMobileSelectionFeedback();
+        setPressedTabId(null);
+        onItemNavigate(tab);
+      } finally {
+        selectingRef.current = false;
+      }
+    },
+    [interactionReady, onItemNavigate]
+  );
 
   const renderDialHit = useCallback(
     (
@@ -300,19 +354,29 @@ export function DeliveryDomainSwitcherOverlay({
         "delivery-domain-switcher-hit",
         `delivery-domain-switcher-hit--${tab.id}`,
         pressedTabId === tab.id ? "delivery-domain-switcher-hit--pressed" : "",
-        selectedTabId === tab.id ? "delivery-domain-switcher-hit--selected" : "",
       ]
         .filter(Boolean)
         .join(" ");
+      const activateChip = () => runItemSelect(tab);
       const hitPointer = {
         onPointerDown: (e: ReactPointerEvent<HTMLElement>) => {
           if (!interactionReady) return;
           e.stopPropagation();
+          pressedTabIdRef.current = tab.id;
           setPressedTabId(tab.id);
         },
-        onPointerUp: clearPress,
+        onPointerUp: (e: ReactPointerEvent<HTMLElement>) => {
+          e.stopPropagation();
+          if (pressedTabIdRef.current === tab.id) activateChip();
+          clearPress();
+        },
         onPointerLeave: clearPress,
         onPointerCancel: clearPress,
+      };
+      const keyActivate = (e: ReactKeyboardEvent<HTMLElement>) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        activateChip();
       };
 
       if (tab.id === "stores") {
@@ -322,7 +386,8 @@ export function DeliveryDomainSwitcherOverlay({
             className={hitClass}
             aria-label={label}
             {...hitPointer}
-            onClick={() => runItemSelect(tab)}
+            onKeyDown={keyActivate}
+            onClick={(e) => e.preventDefault()}
           >
             {chip}
           </button>
@@ -336,16 +401,14 @@ export function DeliveryDomainSwitcherOverlay({
           className={hitClass}
           aria-label={label}
           {...hitPointer}
-          onClick={(e) => {
-            e.preventDefault();
-            runItemSelect(tab);
-          }}
+          onKeyDown={keyActivate}
+          onClick={(e) => e.preventDefault()}
         >
           {chip}
         </Link>
       );
     },
-    [clearPress, interactionReady, pressedTabId, runItemSelect, selectedTabId]
+    [clearPress, interactionReady, pressedTabId, runItemSelect]
   );
 
   const dialNodes = useMemo(() => {

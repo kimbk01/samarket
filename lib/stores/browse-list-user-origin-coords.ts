@@ -72,9 +72,8 @@ export async function tryCoordsFromMeProfile(): Promise<BrowseListUserOriginCoor
  * (HTTPS 에서 GPS 를 먼저 쓰면 기기 위치 편차로 km/분이 갈라질 수 있음)
  */
 export async function resolveBrowseListUserOriginCoords(): Promise<BrowseListUserOriginCoords | null> {
-  const a = await tryCoordsFromAddressDefaults();
+  const [a, p] = await Promise.all([tryCoordsFromAddressDefaults(), tryCoordsFromMeProfile()]);
   if (a) return a;
-  const p = await tryCoordsFromMeProfile();
   if (p) return p;
   const g = await tryBrowserGeolocation();
   if (g) return g;

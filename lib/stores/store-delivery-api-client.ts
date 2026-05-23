@@ -2,7 +2,7 @@
  * 배달·매장(스토어 커머스) 클라이언트 API — 동일 URL 동시 요청 합류(runSingleFlight).
  * 컴포넌트에 `fetch("/api/stores/...")` 를 흩뿌리지 않고 한곳에서 유지한다.
  */
-import { getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
+import { forgetSingleFlight, getSingleFlightPromise, runSingleFlight } from "@/lib/http/run-single-flight";
 
 const STORE_PUBLIC_CACHE_TTL_MS = 15_000;
 const storePublicCache = new Map<string, { expiresAt: number; value: StoreApiJsonResponse }>();
@@ -395,6 +395,50 @@ function browseQueryBypassesCache(qs: string): boolean {
   }
 }
 
+export type StoresBrowseClientCacheSnapshot = {
+  rows: import("@/lib/stores/browse-api-types").BrowseStoreListItem[];
+  source: "supabase" | "supabase_unconfigured" | null;
+};
+
+function parseStoresBrowseClientCacheJson(json: unknown): StoresBrowseClientCacheSnapshot | null {
+  const j = json as {
+    ok?: boolean;
+    stores?: unknown;
+    meta?: { source?: string };
+  };
+  const src = j?.meta?.source;
+  const okSources = src === "supabase" || src === "supabase_unconfigured";
+  if (!j?.ok || !Array.isArray(j.stores) || !okSources) return null;
+  return {
+    rows: j.stores as StoresBrowseClientCacheSnapshot["rows"],
+    source: src as StoresBrowseClientCacheSnapshot["source"],
+  };
+}
+
+/** browse 마운트 직전 동기 적용 — prewarm·재진입 단일비행 캐시 */
+export function peekStoresBrowseClientCache(
+  queryString: string,
+  opts?: { language?: import("@/lib/i18n/config").AppLanguageCode }
+): StoresBrowseClientCacheSnapshot | null {
+  const qs = queryString.trim().replace(/^\?/, "");
+  const lang = opts?.language ?? "en";
+  const flightKey = `stores:api:browse:${lang}:${qs}`;
+  const hit = storesBrowseClientCache.get(flightKey);
+  if (!hit || hit.expiresAt <= Date.now()) return null;
+  return parseStoresBrowseClientCacheJson(hit.value.json);
+}
+
+/** `/stores` 업종 그리드·browse 진입 pointerdown — 첫 목록 GET 단일비행 합류 */
+export function prewarmStoresBrowseListClient(
+  queryString: string,
+  opts?: { language?: import("@/lib/i18n/config").AppLanguageCode }
+): void {
+  if (typeof window === "undefined") return;
+  void fetchStoresBrowseDeduped(queryString, opts).catch(() => {
+    /* prewarm 실패는 마운트 fetch 가 이어감 */
+  });
+}
+
 /** GET /api/stores/browse?… */
 export async function fetchStoresBrowseDeduped(
   queryString: string,
@@ -639,6 +683,27 @@ export async function fetchMeStoreOrdersHubSummaryDeduped(
     return value;
   });
   return withAbortSignal(flight, opts.signal);
+}
+
+/**
+ * slug 공개 GET 클라이언트 Map + in-flight — 영업시간·is_open 저장 직후 stale 방지.
+ * 서버 45s 캐시는 `invalidateStorePublicCachesForSlug` 가 별도 처리.
+ */
+export function purgeStoreSlugPublicClientCaches(slug: string): void {
+  const s = trimSlug(slug);
+  if (!s) return;
+  storePublicCache.delete(s);
+  storeSummaryPublicCache.delete(s);
+  storeMenusPublicCache.delete(s);
+  storeReviewsSummaryCache.delete(s);
+  storeBannersPublicCache.delete(s);
+  storeNoticesPublicCache.delete(s);
+  forgetSingleFlight(`stores:api:summary:${s}`);
+  forgetSingleFlight(`stores:api:menus:${s}`);
+  forgetSingleFlight(`stores:api:public:${s}`);
+  forgetSingleFlight(`stores:api:reviews-summary:${s}`);
+  forgetSingleFlight(`stores:api:banners:${s}`);
+  forgetSingleFlight(`stores:api:notices:${s}`);
 }
 
 export function invalidateStoreBannersPublicCache(slug: string): void {

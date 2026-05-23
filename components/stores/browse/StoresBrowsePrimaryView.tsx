@@ -46,9 +46,19 @@ import {
   storeRowCardDataEqual,
   type StoreRowCardData,
 } from "@/components/stores/home/StoreDeliveryRowCard";
-import { fetchStoresBrowseDeduped, fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
+import { StoreDeliveryListLoading } from "@/components/stores/StoreDeliveryListLoading";
+import {
+  fetchStoresBrowseDeduped,
+  fetchStoresTaxonomyDeduped,
+  peekStoresBrowseClientCache,
+} from "@/lib/stores/store-delivery-api-client";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 import { storeSecondaryBrowseIconPath } from "@/lib/stores/store-secondary-browse-icons";
+import {
+  resolveStoreTaxonomyImageSrc,
+  storeTaxonomyUploadedImageUrl,
+} from "@/lib/stores/store-taxonomy-image-src";
+import { StoreTaxonomyThumb } from "@/components/stores/StoreTaxonomyThumb";
 import { resolveBrowseListUserOriginCoords } from "@/lib/stores/browse-list-user-origin-coords";
 import { ME_PROFILE_CACHE_INVALIDATED_EVENT } from "@/lib/profile/fetch-me-profile-deduped";
 import { SAMARKET_ADDRESSES_UPDATED_EVENT } from "@/components/addresses/MandatoryAddressGate";
@@ -200,8 +210,6 @@ export function StoresBrowsePrimaryView({
   const [listSort, setListSort] = useState<StoreBrowseSortId>("default");
   /** browse `user_lat`/`user_lng` — 주소 기본→프로필→GPS 순으로 matrix ETA·직선 거리 */
   const [browseUserGeo, setBrowseUserGeo] = useState<{ lat: number; lng: number } | null>(null);
-  /** hard reload 시 geo 없음→있음으로 browse GET 이 2번 나가지 않도록, 기준점 해석 후 1회만 목록 fetch */
-  const [browseOriginResolved, setBrowseOriginResolved] = useState(false);
   const [deliveryRideTimeSource, setDeliveryRideTimeSource] = useState("google");
 
   useEffect(() => {
@@ -214,7 +222,6 @@ export function StoresBrowsePrimaryView({
         const c = await resolveBrowseListUserOriginCoords();
         if (cancelled || my !== seq) return;
         setBrowseUserGeo(c);
-        setBrowseOriginResolved(true);
       })();
     };
     run();
@@ -428,6 +435,14 @@ export function StoresBrowsePrimaryView({
       ].join("|"),
     [primarySlug, activeSub, primaryRegion?.regionId, primaryRegion?.cityId, primaryRegion?.barangay, browseUserGeo]
   );
+
+  /** prewarm·pointerdown 은 geo 없는 키 — 마운트 직후 동기 peek 폴백 */
+  const browseQuerySuffixWithoutGeo = useMemo(() => {
+    const sp = new URLSearchParams(browseQuerySuffix);
+    sp.delete("user_lat");
+    sp.delete("user_lng");
+    return sp.toString();
+  }, [browseQuerySuffix]);
   const prevBrowseListContextKeyRef = useRef<string | null>(null);
   const browseHadListForContextRef = useRef(false);
   const remoteCacheRef = useRef<
@@ -477,8 +492,21 @@ export function StoresBrowsePrimaryView({
     [browseQuerySuffix, browseListContextKey, language]
   );
 
+  useLayoutEffect(() => {
+    const fromRef = remoteCacheRef.current.get(browseListContextKey);
+    const fromClient =
+      peekStoresBrowseClientCache(browseQuerySuffix, { language }) ??
+      peekStoresBrowseClientCache(browseQuerySuffixWithoutGeo, { language });
+    const cached = fromRef ?? fromClient;
+    if (!cached) return;
+    setRemoteRows(cached.rows);
+    setFeedSource(cached.source);
+    setRemoteLoading(false);
+    browseHadListForContextRef.current = true;
+    remoteCacheRef.current.set(browseListContextKey, cached);
+  }, [browseListContextKey, browseQuerySuffix, browseQuerySuffixWithoutGeo, language]);
+
   useEffect(() => {
-    if (!browseOriginResolved) return;
     const ctxChanged = prevBrowseListContextKeyRef.current !== browseListContextKey;
     if (ctxChanged) {
       prevBrowseListContextKeyRef.current = browseListContextKey;
@@ -493,7 +521,7 @@ export function StoresBrowsePrimaryView({
     }
     const silent = !!cached || browseHadListForContextRef.current;
     void loadRemote({ silent });
-  }, [loadRemote, browseListContextKey, browseOriginResolved]);
+  }, [loadRemote, browseListContextKey]);
 
   useEffect(() => {
     setListSort("default");
@@ -556,7 +584,7 @@ export function StoresBrowsePrimaryView({
 
   const browseSubtitle = useMemo(() => {
     if (!primary || subs.length === 0) return "";
-    if (!listLoaded && remoteLoading) return t("store_browse_loading_list");
+    if (!listLoaded && remoteLoading) return "";
     if (feedSource === "supabase_unconfigured") {
       return t("store_browse_list_preparing");
     }
@@ -588,7 +616,18 @@ export function StoresBrowsePrimaryView({
             >
               {(() => {
               const isRestaurant = primarySlug.trim().toLowerCase() === "restaurant";
-              const allIconSrc = isRestaurant ? "/icons/food/icon_0_0.png" : storeSecondaryBrowseIconPath(primarySlug, 0);
+              const categoryImageUrl = (() => {
+                if (!taxonomy?.categories.length) return "";
+                const pk = primarySlug.trim().toLowerCase();
+                const c = taxonomy.categories.find(
+                  (x) => String(x.slug ?? "").trim().toLowerCase() === pk
+                );
+                return storeTaxonomyUploadedImageUrl(c?.image_url);
+              })();
+              const allIconSrc = resolveStoreTaxonomyImageSrc(
+                categoryImageUrl,
+                isRestaurant ? "/icons/food/icon_0_0.png" : storeSecondaryBrowseIconPath(primarySlug, 0)
+              );
 
               const baseItemClass = `${STORE_BROWSE_SUB_CHIP_BUTTON}`;
               const activeClass = "text-sam-fg dark:text-[#E4E6EB]";
@@ -600,17 +639,16 @@ export function StoresBrowsePrimaryView({
                 on,
                 label,
                 iconSrc,
-                subValue,
+                iconIsUploaded,
               }: {
                 href: string;
                 on: boolean;
                 label: string;
                 iconSrc: string | null;
-                subValue: string;
+                iconIsUploaded: boolean;
               }) => (
                 <button
                   type="button"
-                  data-sub={subValue}
                   aria-current={on ? "page" : undefined}
                   onClick={() => {
                     if (on) return;
@@ -625,20 +663,14 @@ export function StoresBrowsePrimaryView({
                   }}
                   className={`${baseItemClass} ${on ? activeClass : idleClass}`}
                 >
-                  <span className="flex h-10 w-10 items-center justify-center" aria-hidden>
-                    {iconSrc ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={iconSrc}
-                        alt=""
-                        aria-hidden
-                        className={`h-10 w-10 object-contain ${on ? "opacity-100" : "opacity-90"}`}
-                        loading="lazy"
-                      />
-                    ) : (
-                      <span className="h-10 w-10 rounded-full bg-sam-surface-muted" aria-hidden />
-                    )}
-                  </span>
+                  {iconSrc ? (
+                    <StoreTaxonomyThumb src={iconSrc} isUploaded={iconIsUploaded} dimmed={!on} />
+                  ) : (
+                    <span
+                      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-ui-rect bg-sam-surface-muted"
+                      aria-hidden
+                    />
+                  )}
                   <span className={STORE_BROWSE_SUB_CHIP_LABEL}>{label}</span>
                   <span
                     className="mt-1 h-1 w-10 rounded-full"
@@ -655,7 +687,7 @@ export function StoresBrowsePrimaryView({
                     on={allSubChipActive}
                     label={safeT("store_browse_food_all")}
                     iconSrc={allIconSrc}
-                    subValue="all"
+                    iconIsUploaded={!!categoryImageUrl}
                   />
                   {subs.map((s, idx) => {
                     const on = activeSub !== "all" && activeSub === s.slug;
@@ -665,11 +697,14 @@ export function StoresBrowsePrimaryView({
                       String((s as { nameKo?: string; name?: string }).nameKo ?? (s as { name?: string }).name ?? "").trim(),
                       (s as { name_en?: string | null }).name_en,
                     );
-                    const uploaded = typeof (s as any).imageUrl === "string" ? String((s as any).imageUrl).trim() : "";
-                    const iconSrc =
+                    const uploaded = typeof s.imageUrl === "string" ? s.imageUrl.trim() : "";
+                    const slugKey = String(s.slug ?? "").trim().toLowerCase();
+                    const iconSrc = resolveStoreTaxonomyImageSrc(
+                      uploaded,
                       isRestaurant ?
-                        (RESTAURANT_SUB_ICON[String(s.slug ?? "").trim().toLowerCase()] ?? null)
-                      : (uploaded || storeSecondaryBrowseIconPath(primarySlug, idx + 1));
+                        (RESTAURANT_SUB_ICON[slugKey] ?? null)
+                      : storeSecondaryBrowseIconPath(primarySlug, idx + 1)
+                    );
                     return (
                       <Item
                         key={s.id}
@@ -677,7 +712,7 @@ export function StoresBrowsePrimaryView({
                         on={on}
                         label={label}
                         iconSrc={iconSrc}
-                        subValue={s.slug}
+                        iconIsUploaded={!!uploaded}
                       />
                     );
                   })}
@@ -689,11 +724,16 @@ export function StoresBrowsePrimaryView({
           <div className="h-px bg-sam-border dark:bg-[#3E4042]" aria-hidden />
         </div>
         <div className={`${APP_MAIN_COLUMN_CLASS} ${PHILIFE_FEED_INSET_X_CLASS} pb-2 pt-2`}>
+          {browseSubtitle ?
+            <p className="pb-1.5 sam-text-xxs leading-snug text-sam-muted dark:text-sam-meta" role="status">
+              {browseSubtitle}
+            </p>
+          : null}
           <StoreListFilters sort={listSort} onSortChange={setListSort} hasGeo={hasGeo} />
         </div>
       </div>
     ),
-    [browseSubtitle, subs, primarySlug, listSort, hasGeo, allSubChipActive, matchedTopicSlug]
+    [browseSubtitle, subs, primarySlug, listSort, hasGeo, allSubChipActive, matchedTopicSlug, language, t, safeT, router]
   );
 
   useLayoutEffect(() => {
@@ -750,7 +790,7 @@ export function StoresBrowsePrimaryView({
     <div className="min-h-[50vh] bg-sam-app pb-8 dark:bg-[#18191A]">
       <section className={`${APP_MAIN_COLUMN_CLASS} ${PHILIFE_FEED_INSET_X_CLASS} space-y-4 pt-2`}>
         {remoteLoading && !listLoaded ?
-          <p className="py-4 text-center text-sm text-sam-muted">{t("store_verifying_live_link")}</p>
+          <StoreDeliveryListLoading />
         : null}
         {useRemoteList ?
           <ul className="space-y-2">

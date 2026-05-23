@@ -27,7 +27,6 @@ import { StoreCategoryExploreSection } from "@/components/stores/home/StoreCateg
 import { StoreNearbyFeedSection } from "@/components/stores/home/StoreNearbyFeedSection";
 import { StorePromoHeroBanner } from "@/components/stores/home/StorePromoHeroBanner";
 import { StoreHubMyZoneSection } from "@/components/stores/home/StoreHubMyZoneSection";
-import { StoreMyBusinessHubBanner } from "@/components/stores/home/StoreMyBusinessHubBanner";
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
 import {
   fetchMeStoreOrdersHubSummaryDeduped,
@@ -127,7 +126,7 @@ export function StoresHub() {
       resolveBuyerHubFromJson(cachedHubSnapshot.value.status, cachedHubSnapshot.value.json)
     : null;
   const { primaryRegion } = useRegion();
-  const { ownerStore, ownerStores, loading: ownerStoresLoading } = useOwnerLiteStore();
+  const { ownerStore } = useOwnerLiteStore();
   const ownerHubBreakdown = useOwnerHubBadgeBreakdown();
   const [buyerOrderSummary, setBuyerOrderSummary] = useState<StoreOrderDashboardBuyerState>(
     () => initialHub?.buyerState ?? { kind: "loading" }
@@ -203,8 +202,6 @@ export function StoresHub() {
 
   return (
     <div className={`min-h-[50vh] space-y-3 ${FB.canvas}`}>
-      <StoreMyBusinessHubBanner loading={ownerStoresLoading} ownerStores={ownerStores} />
-
       <StoreCategoryExploreSection headerTrailing={ownerQuickLink} />
 
       <StorePromoHeroBanner />

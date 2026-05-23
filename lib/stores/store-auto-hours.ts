@@ -1,4 +1,12 @@
+/**
+ * CONTRACT — 공개 매장 영업·주문 가능 (`resolveStoreFrontOpen` / `resolveStoreFrontCommerceState`)
+ * DO NOT: `auto_business_hours.enabled` 만 보고 스케줄 적용(반드시 `schedule_enforced === true`).
+ * DO NOT: 오너 폼·PATCH 에서 `applyAutoBusinessHoursToRecord` / `sanitizeBusinessHoursJsonForPersistence` 우회.
+ * DO NOT: 저장 후 summary/public 클라 캐시만 두고 stale `business_hours_json` 노출 — `invalidateStorePublicCachesForSlug`.
+ * 직렬화 단일 경로: `@/lib/stores/serialize-store-business-hours-json`.
+ */
 import { coerceBusinessHoursRecord } from "@/lib/stores/coerce-business-hours-json";
+import { STORE_AUTO_SCHEDULE_ENFORCED_KEY } from "@/lib/stores/serialize-store-business-hours-json";
 
 export type AutoBusinessHoursConfig = {
   enabled: true;
@@ -44,12 +52,24 @@ export function getClockMinutesInTimeZone(date: Date, timeZone: string): number 
   }
 }
 
+/** DB `is_open` — null/미설정은 영업 중(기존 `!== false` 계약) */
+export function isStoreDbOpenForCommerce(dbIsOpen: boolean | null | undefined): boolean {
+  return dbIsOpen !== false;
+}
+
+/** 오너 폼 체크박스·운영 라벨 — 공개에 스케줄이 실제 적용 중일 때만 true */
+export function readAutoBusinessHoursEnabled(json: unknown): boolean {
+  return readAutoBusinessHoursConfig(json) != null;
+}
+
 export function readAutoBusinessHoursConfig(json: unknown): AutoBusinessHoursConfig | null {
   const o = coerceBusinessHoursRecord(json);
   const a = o.auto_business_hours;
   if (!a || typeof a !== "object" || Array.isArray(a)) return null;
   const rec = a as Record<string, unknown>;
   if (rec.enabled !== true) return null;
+  /** legacy: 예전 폼이 시각만 넣어도 enabled:true 로 저장 → 공개 마감 오판 방지 */
+  if (rec[STORE_AUTO_SCHEDULE_ENFORCED_KEY] !== true) return null;
   const tz =
     typeof rec.timezone === "string" && rec.timezone.trim()
       ? rec.timezone.trim()
@@ -136,7 +156,7 @@ export function resolveStoreFrontCommerceState(
   const breakRangeLabel = breakIv ? `${breakIv.start}–${breakIv.end}` : "";
   const tz = readStoreFrontTimeZone(businessHoursJson);
   const autoCfg = readAutoBusinessHoursConfig(businessHoursJson);
-  const dbOk = dbIsOpen !== false;
+  const dbOk = isStoreDbOpenForCommerce(dbIsOpen);
 
   const withinSchedule = autoCfg ? isNowWithinAutoSchedule(autoCfg, now) : true;
   const inBreak =
@@ -177,15 +197,14 @@ export function readAutoHoursFormFields(raw: unknown): {
   const a = o.auto_business_hours;
   if (a && typeof a === "object" && !Array.isArray(a)) {
     const r = a as Record<string, unknown>;
-    if (r.enabled === true) {
-      return {
-        autoHoursTz:
-          typeof r.timezone === "string" && r.timezone.trim()
-            ? r.timezone.trim()
-            : "Asia/Manila",
-        autoHoursOpen: typeof r.open === "string" ? r.open : "09:00",
-        autoHoursClose: typeof r.close === "string" ? r.close : "22:00",
-      };
+    const tz =
+      typeof r.timezone === "string" && r.timezone.trim() ? r.timezone.trim() : "Asia/Manila";
+    const open =
+      typeof r.open === "string" ? normalizeHHMM(r.open) ?? "09:00" : "09:00";
+    const close =
+      typeof r.close === "string" ? normalizeHHMM(r.close) ?? "22:00" : "22:00";
+    if (open && close && open !== close) {
+      return { autoHoursTz: tz, autoHoursOpen: open, autoHoursClose: close };
     }
   }
   const wd =

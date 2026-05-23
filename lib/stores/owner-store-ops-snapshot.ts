@@ -86,7 +86,7 @@ function formatHoursLabel(raw: unknown): string | null {
   const auto = o.auto_business_hours;
   if (!auto || typeof auto !== "object") return null;
   const a = auto as Record<string, unknown>;
-  if (a.enabled !== true) return null;
+  if (a.enabled !== true || a.schedule_enforced !== true) return null; // serialize 계약과 동기
   const open = typeof a.open === "string" ? a.open.trim() : "";
   const close = typeof a.close === "string" ? a.close.trim() : "";
   if (!open || !close) return null;
@@ -99,7 +99,7 @@ export function buildStoreOpsMetaFromRow(row: {
 }): OwnerStoreOpsMeta {
   const extras = parseCommerceExtrasFromHoursJson(row.business_hours_json);
   return {
-    is_open: row.is_open === true,
+    is_open: row.is_open !== false,
     prep_minutes: extras.prepMinutes,
     hours_label: formatHoursLabel(row.business_hours_json),
   };

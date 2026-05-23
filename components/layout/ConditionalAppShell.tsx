@@ -20,6 +20,12 @@ import {
   type MainBottomNavPrefetchDomain,
 } from "@/lib/main-menu/main-bottom-nav-prefetch-domain";
 import { scrollAppShellToTopAfterShellNavigation } from "@/lib/layout/scroll-app-shell-to-top";
+import {
+  APP_SHELL_FILL_VIEWPORT_CLASS,
+  MAIN_COLUMN_SCROLL_CLASS,
+  resolvesMainScrollInMainColumn,
+} from "@/lib/layout/main-shell-viewport";
+import { invalidateMainAppScrollRootCache } from "@/lib/layout/main-app-scroll-root";
 import { logDevSafeModeProbeOnce } from "@/lib/dev/is-dev-safe-mode";
 import {
   getStoreOwnerMainBottomNavSuppressed,
@@ -70,6 +76,9 @@ export function ConditionalAppShell({
   useLayoutEffect(() => {
     logDevSafeModeProbeOnce("client");
   }, []);
+  useLayoutEffect(() => {
+    invalidateMainAppScrollRootCache();
+  }, [pathname]);
   /** 하단 탭 전환(커뮤니티↔거래↔배달↔내정보 등) 시 별도 도메인으로 바뀌면 본문 스크롤 위치가 남지 않게 한다 */
   const prevBottomNavPrefetchDomainRef = useRef<MainBottomNavPrefetchDomain | null>(null);
   useLayoutEffect(() => {
@@ -114,6 +123,11 @@ export function ConditionalAppShell({
     showBottomNavEffective && resolveBottomNavScrollHideEnabled(pathNoQuery, headerMessengerFromPhilife);
   const bottomNavHiddenByScroll = useBottomNavScrollHide(Boolean(bottomNavScrollHideEnabled));
   const heroMenuSurface = f.isStoreOrderHeroMenuSurface;
+  const mainScrollInMainColumn = resolvesMainScrollInMainColumn({
+    isChatRoomDetail: f.isChatRoomDetail,
+    isStoreOwnerAdminRoute: f.isStoreOwnerAdminRoute,
+    isMainColumnViewportLocked: f.isMainColumnViewportLocked,
+  });
   /** 네이티브 오버스크롤이 비추는 문서 루트 배경 — `globals.css` 의 `.sam-store-order-hero-doc-root` */
   useLayoutEffect(() => {
     const cls = "sam-store-order-hero-doc-root";
@@ -132,19 +146,24 @@ export function ConditionalAppShell({
      * 메신저 방 분기(`f.isChatRoomDetail`)는 `useChatViewportResize` 가 셸 높이를 별도로 책임.
      */
     <div
-      className={`${f.appShellRootClass} app-shell min-h-dvh bg-sam-app`}
+      className={`${f.appShellRootClass} app-shell w-full min-w-0 ${
+        mainScrollInMainColumn ? `${APP_SHELL_FILL_VIEWPORT_CLASS} bg-sam-app` : "min-h-dvh bg-sam-app"
+      }`}
     >
       {f.mountPhilifeWarmPrefetch ? <PhilifeFeedWarmPrefetch /> : null}
       <MessagingGlobalChrome regionBarInLayout={regionBarInLayout} />
       <CommunityMessengerRoomOpeningOverlayHost />
       <WebConnectivityBanner />
-      {f.showRegionBar && <RegionBar />}
+      {/* regionBarInLayout=true 이면 f.showRegionBar 는 항상 false — AppStickyHeader 와 이중 렌더 방지 */}
+      {f.showRegionBar ? <RegionBar /> : null}
       {f.showOwnerLiteStoreBar ? <OwnerLiteStoreBarLazy /> : null}
       <main
-        className={`${mainBottomClassLive} min-w-0 overflow-x-hidden ${heroMenuSurface ? "bg-transparent" : "bg-sam-app"} ${
+        className={`${mainBottomClassLive} min-w-0 ${heroMenuSurface ? "bg-transparent" : "bg-sam-app"} ${
           f.isMainColumnViewportLocked || f.isStoreOwnerAdminRoute
-            ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-y-hidden"
-            : ""
+            ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-hidden"
+            : mainScrollInMainColumn
+              ? MAIN_COLUMN_SCROLL_CLASS
+              : "overflow-x-hidden"
         }`}
       >
         <div

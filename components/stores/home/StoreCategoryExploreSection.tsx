@@ -2,7 +2,11 @@
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 import Link from "next/link";
-import { useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useState, type ReactNode } from "react";
+import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
+import { PHILIFE_FEED_INSET_X_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { APP_MAIN_COLUMN_CLASS } from "@/lib/ui/app-content-layout";
 import {
   listBrowsePrimaryIndustries,
   listBrowseSubIndustries,
@@ -10,7 +14,7 @@ import {
 import { useBrowseIndustryDatasetVersion } from "@/lib/stores/browse-mock/use-browse-industry-dataset-version";
 import { storesBrowsePath, storesBrowsePrimaryPath } from "@/components/stores/browse/stores-browse-paths";
 import { FB } from "@/components/stores/store-facebook-feed-tokens";
-import { fetchStoresTaxonomyDeduped } from "@/lib/stores/store-delivery-api-client";
+import { fetchStoresTaxonomyDeduped, prewarmStoresBrowseListClient } from "@/lib/stores/store-delivery-api-client";
 import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 import { storeSecondaryBrowseIconPath } from "@/lib/stores/store-secondary-browse-icons";
 import {
@@ -19,14 +23,16 @@ import {
   resolveStoreTopicLabel,
 } from "@/lib/i18n/store-browse-label-i18n";
 import {
+  resolveStoreTaxonomyImageSrc,
+  storeTaxonomyUploadedImageUrl,
+} from "@/lib/stores/store-taxonomy-image-src";
+import { StoreTaxonomyThumb } from "@/components/stores/StoreTaxonomyThumb";
+import {
   STORE_BROWSE_PRIMARY_TABLIST,
   STORE_BROWSE_PRIMARY_TAB_BUTTON,
-  STORE_BROWSE_PRIMARY_TAB_ICON,
   STORE_BROWSE_PRIMARY_TAB_LABEL,
   STORE_BROWSE_SECTION_TITLE,
   STORE_BROWSE_SUB_CARD,
-  STORE_BROWSE_SUB_CARD_ICON,
-  STORE_BROWSE_SUB_CARD_ICON_WRAP,
   STORE_BROWSE_SUB_CARD_LABEL,
 } from "@/components/stores/store-browse-category-ui";
 
@@ -67,6 +73,9 @@ export function StoreCategoryExploreSection({
   headerTrailing?: ReactNode;
 }) {
   const { t, safeT, language } = useI18n();
+  const pathname = usePathname() ?? "";
+  const isStoresHubRoot = pathname === "/stores" || pathname === "/stores/";
+  const setMainTier1Extras = useSetMainTier1ExtrasOptional();
   const industryVersion = useBrowseIndustryDatasetVersion();
   const [taxonomy, setTaxonomy] = useState<{
     categories: StoreTaxonomyCategory[];
@@ -116,6 +125,18 @@ export function StoreCategoryExploreSection({
   }, [pickedSlug, primaries]);
 
   const activePrimary = primaries.find((p) => p.slug === activeSlug) as any;
+
+  const prewarmBrowseForSlug = useCallback(
+    (subSlug?: string | null) => {
+      const q = new URLSearchParams();
+      q.set("primary", activeSlug.trim().toLowerCase());
+      const sub = (subSlug ?? "all").trim().toLowerCase();
+      q.set("sub", sub || "all");
+      prewarmStoresBrowseListClient(q.toString(), { language });
+    },
+    [activeSlug, language]
+  );
+
   const subs = useMemo(() => {
     if (!activePrimary) return [];
     // DB taxonomy가 없으면 목업 subs로 폴백
@@ -127,78 +148,115 @@ export function StoreCategoryExploreSection({
       .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
   }, [taxonomy, activePrimary, activeSlug, industryVersion]);
   const isRestaurant = activeSlug === "restaurant";
-  const secondaryBrowseAllIconSrc = !isRestaurant ? storeSecondaryBrowseIconPath(activeSlug, 0) : null;
+  const activeCategoryImageUrl = storeTaxonomyUploadedImageUrl(
+    (activePrimary as StoreTaxonomyCategory | undefined)?.image_url
+  );
+  const topicImageBySlug = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const s of subs) {
+      const u = storeTaxonomyUploadedImageUrl((s as StoreTaxonomyTopic).image_url);
+      if (u) m.set(String(s.slug ?? "").trim().toLowerCase(), u);
+    }
+    return m;
+  }, [subs]);
+  const secondaryBrowseAllIconSrc = resolveStoreTaxonomyImageSrc(
+    activeCategoryImageUrl,
+    !isRestaurant ? storeSecondaryBrowseIconPath(activeSlug, 0) : isRestaurant ? "/icons/food/icon_0_0.png" : null
+  );
+
+  const primaryIndustryTablist = useMemo(
+    () => (
+      <div
+        role="tablist"
+        aria-label={t("store_primary_industry_aria")}
+        className={STORE_BROWSE_PRIMARY_TABLIST}
+      >
+        {primaries.map((p) => {
+          const on = p.slug === activeSlug;
+          const uploaded = storeTaxonomyUploadedImageUrl((p as StoreTaxonomyCategory).image_url);
+          const icon = resolveStoreTaxonomyImageSrc(uploaded, PRIMARY_CATEGORY_ICONS[p.slug] ?? null) ?? "";
+          const iconIsUploaded = !!uploaded;
+          return (
+            <button
+              key={p.id}
+              type="button"
+              role="tab"
+              aria-selected={on}
+              onClick={() => setPickedSlug((prev) => (prev === p.slug ? prev : p.slug))}
+              className={`${STORE_BROWSE_PRIMARY_TAB_BUTTON} ${
+                on ? "text-sam-fg dark:text-[#E4E6EB]" : "text-sam-muted dark:text-[#B0B3B8]"
+              }`}
+            >
+              {icon ? (
+                <StoreTaxonomyThumb src={icon} isUploaded={iconIsUploaded} dimmed={!on} />
+              ) : (
+                <span className="text-xl leading-none opacity-80" aria-hidden>
+                  {p.slug === "restaurant"
+                    ? "🍽️"
+                    : p.slug === "mart"
+                      ? "🛒"
+                      : p.slug === "hardware"
+                        ? "🔧"
+                        : p.slug === "pet"
+                          ? "🐾"
+                          : p.slug === "cafe"
+                            ? "☕"
+                            : p.slug === "beauty"
+                              ? "💇"
+                              : p.slug === "academy"
+                                ? "📚"
+                                : p.slug === "life"
+                                  ? "🧹"
+                                  : "🏷️"}
+                </span>
+              )}
+              <span className={STORE_BROWSE_PRIMARY_TAB_LABEL}>
+                {resolveStorePrimaryIndustryLabel(
+                  language,
+                  p.slug,
+                  String((p as { nameKo?: string; name?: string }).nameKo ?? (p as { name?: string }).name ?? ""),
+                  (p as { name_en?: string | null; name?: string }).name_en,
+                )}
+              </span>
+              <span
+                className="mt-1 h-1 w-10 rounded-full"
+                style={{ backgroundColor: on ? "var(--delivery-primary)" : "transparent" }}
+                aria-hidden
+              />
+            </button>
+          );
+        })}
+      </div>
+    ),
+    [activeSlug, language, primaries, t]
+  );
+
+  const storesHubStickyBelow = useMemo(
+    () => (
+      <div className="border-b border-sam-border bg-[color:var(--delivery-header-bar-bg)] dark:border-[#3E4042]">
+        <div className="bg-[color:var(--delivery-header-bar-bg)] dark:bg-[#242526]">
+          <div className={`${APP_MAIN_COLUMN_CLASS} ${PHILIFE_FEED_INSET_X_CLASS} pb-1 pt-0.5`}>
+            {primaryIndustryTablist}
+          </div>
+        </div>
+      </div>
+    ),
+    [primaryIndustryTablist]
+  );
+
+  useLayoutEffect(() => {
+    if (!setMainTier1Extras || !isStoresHubRoot) return;
+    setMainTier1Extras({ stickyBelow: storesHubStickyBelow });
+    return () => setMainTier1Extras(null);
+  }, [isStoresHubRoot, setMainTier1Extras, storesHubStickyBelow]);
 
   return (
-    <section id="store-industry-explore" className="scroll-mt-4">
+    <section
+      id="store-industry-explore"
+      className={isStoresHubRoot ? "scroll-mt-[calc(var(--sam-header-row-height)+4.5rem)]" : "scroll-mt-4"}
+    >
       <div className={`overflow-hidden rounded-sam-md border border-sam-border bg-sam-surface shadow-sam-elevated dark:border-[#3E4042] dark:bg-[#242526] dark:shadow-none dark:ring-1 dark:ring-sam-surface/[0.08]`}>
-        <div
-          role="tablist"
-          aria-label={t("store_primary_industry_aria")}
-          className={STORE_BROWSE_PRIMARY_TABLIST}
-        >
-          {primaries.map((p) => {
-            const on = p.slug === activeSlug;
-            const icon = PRIMARY_CATEGORY_ICONS[p.slug] ?? "";
-            return (
-              <button
-                key={p.id}
-                type="button"
-                role="tab"
-                aria-selected={on}
-                onClick={() => setPickedSlug((prev) => (prev === p.slug ? prev : p.slug))}
-                className={`${STORE_BROWSE_PRIMARY_TAB_BUTTON} ${
-                  on ? "text-sam-fg dark:text-[#E4E6EB]" : "text-sam-muted dark:text-[#B0B3B8]"
-                }`}
-              >
-                {icon ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={icon}
-                    alt=""
-                    aria-hidden
-                    className={`${STORE_BROWSE_PRIMARY_TAB_ICON} ${on ? "opacity-100" : "opacity-90"}`}
-                    loading="lazy"
-                  />
-                ) : (
-                  <span className="text-xl leading-none opacity-80" aria-hidden>
-                    {/* DB taxonomy에는 symbol이 없으므로 slug 기반 최소 fallback */}
-                    {p.slug === "restaurant"
-                      ? "🍽️"
-                      : p.slug === "mart"
-                        ? "🛒"
-                        : p.slug === "hardware"
-                          ? "🔧"
-                          : p.slug === "pet"
-                            ? "🐾"
-                            : p.slug === "cafe"
-                              ? "☕"
-                              : p.slug === "beauty"
-                                ? "💇"
-                                : p.slug === "academy"
-                                  ? "📚"
-                                  : p.slug === "life"
-                                    ? "🧹"
-                                    : "🏷️"}
-                  </span>
-                )}
-                <span className={STORE_BROWSE_PRIMARY_TAB_LABEL}>
-                  {resolveStorePrimaryIndustryLabel(
-                    language,
-                    p.slug,
-                    String((p as { nameKo?: string; name?: string }).nameKo ?? (p as { name?: string }).name ?? ""),
-                    (p as { name_en?: string | null; name?: string }).name_en,
-                  )}
-                </span>
-                <span
-                  className="mt-1 h-1 w-10 rounded-full"
-                  style={{ backgroundColor: on ? "var(--delivery-primary)" : "transparent" }}
-                  aria-hidden
-                />
-              </button>
-            );
-          })}
-        </div>
+        {!isStoresHubRoot ? primaryIndustryTablist : null}
 
         <div className={`flex items-center justify-between gap-2 px-4 py-3 ${FB.hairline} border-b border-sam-border dark:border-[#3E4042]`}>
           <p className={`min-w-0 sam-text-body-secondary ${FB.meta}`}>
@@ -215,6 +273,7 @@ export function StoreCategoryExploreSection({
           <Link
             href={storesBrowsePrimaryPath(activeSlug)}
             className={`shrink-0 sam-text-body-secondary font-semibold ${FB.link}`}
+            onPointerDown={() => prewarmBrowseForSlug(null)}
           >
             {t("store_browse_view_all")}
           </Link>
@@ -229,21 +288,18 @@ export function StoreCategoryExploreSection({
               const label = resolveStoreFoodSubtopicLabel(language, cat.subSlug, "");
               const href =
                 !cat.subSlug ? storesBrowsePrimaryPath(activeSlug) : storesBrowsePath(activeSlug, cat.subSlug);
+              const topicUploaded =
+                cat.subSlug ? topicImageBySlug.get(cat.subSlug.trim().toLowerCase()) ?? "" : activeCategoryImageUrl;
+              const src = resolveStoreTaxonomyImageSrc(topicUploaded, cat.icon) ?? cat.icon;
+              const srcIsUploaded = !!topicUploaded;
               return (
                 <Link
-                  key={cat.icon}
+                  key={cat.subSlug ?? "all"}
                   href={href}
                   className={STORE_BROWSE_SUB_CARD}
+                  onPointerDown={() => prewarmBrowseForSlug(cat.subSlug ?? null)}
                 >
-                  <span className={STORE_BROWSE_SUB_CARD_ICON_WRAP}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={cat.icon}
-                      alt={label}
-                      className={STORE_BROWSE_SUB_CARD_ICON}
-                      loading="lazy"
-                    />
-                  </span>
+                  <StoreTaxonomyThumb src={src} alt={label} isUploaded={srcIsUploaded} />
                   <span className={STORE_BROWSE_SUB_CARD_LABEL}>{label}</span>
                 </Link>
               );
@@ -254,18 +310,13 @@ export function StoreCategoryExploreSection({
             <Link
               href={storesBrowsePrimaryPath(activeSlug)}
               className={STORE_BROWSE_SUB_CARD}
+              onPointerDown={() => prewarmBrowseForSlug(null)}
             >
               {secondaryBrowseAllIconSrc ? (
-                <span className={STORE_BROWSE_SUB_CARD_ICON_WRAP}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={secondaryBrowseAllIconSrc}
-                    alt=""
-                    aria-hidden
-                    className={STORE_BROWSE_SUB_CARD_ICON}
-                    loading="lazy"
-                  />
-                </span>
+                <StoreTaxonomyThumb
+                  src={secondaryBrowseAllIconSrc}
+                  isUploaded={!!activeCategoryImageUrl}
+                />
               ) : null}
               <span className="block w-full truncate text-center text-[10px] font-semibold leading-[1.2] text-sam-muted dark:text-[#B0B3B8]">
                 {t("store_collect_view")}
@@ -275,8 +326,8 @@ export function StoreCategoryExploreSection({
               </span>
             </Link>
             {subs.map((s, idx) => {
-              const uploaded = typeof (s as any).image_url === "string" ? String((s as any).image_url).trim() : "";
-              const src = uploaded || storeSecondaryBrowseIconPath(activeSlug, idx + 1);
+              const uploaded = storeTaxonomyUploadedImageUrl((s as StoreTaxonomyTopic).image_url);
+              const src = resolveStoreTaxonomyImageSrc(uploaded, storeSecondaryBrowseIconPath(activeSlug, idx + 1));
               const label = resolveStoreTopicLabel(
                 language,
                 s.slug,
@@ -288,18 +339,9 @@ export function StoreCategoryExploreSection({
                   key={s.id}
                   href={storesBrowsePath(activeSlug, s.slug)}
                   className={STORE_BROWSE_SUB_CARD}
+                  onPointerDown={() => prewarmBrowseForSlug(s.slug)}
                 >
-                  {src ? (
-                    <span className={STORE_BROWSE_SUB_CARD_ICON_WRAP}>
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={src}
-                        alt={label}
-                        className={`${STORE_BROWSE_SUB_CARD_ICON} ${uploaded ? "object-cover rounded-ui-rect" : "object-contain"}`}
-                        loading="lazy"
-                      />
-                    </span>
-                  ) : null}
+                  {src ? <StoreTaxonomyThumb src={src} alt={label} isUploaded={!!uploaded} /> : null}
                   <span className={STORE_BROWSE_SUB_CARD_LABEL}>{label}</span>
                 </Link>
               );

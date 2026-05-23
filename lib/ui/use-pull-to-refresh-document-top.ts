@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { getMainAppScrollTop } from "@/lib/layout/main-app-scroll-root";
+import { subscribeAppShellScroll } from "@/lib/layout/subscribe-app-shell-scroll";
 
 const DEFAULT_THRESHOLD_PX = 52;
 
 function scrollTopY(): number {
-  return window.scrollY || document.documentElement.scrollTop || 0;
+  return getMainAppScrollTop();
 }
 
 /**
@@ -108,11 +110,20 @@ export function usePullToRefreshAtDocumentTop(
       setPullPx(0);
     };
 
+    const unsubScroll = subscribeAppShellScroll(() => {
+      if (scrollTopY() > 2) {
+        removeMove();
+        pullRef.current = 0;
+        setPullPx(0);
+      }
+    });
+
     window.addEventListener("touchstart", onStart, { passive: true });
     window.addEventListener("touchend", onEnd);
     window.addEventListener("touchcancel", onEnd);
 
     return () => {
+      unsubScroll();
       removeMove();
       window.removeEventListener("touchstart", onStart);
       window.removeEventListener("touchend", onEnd);

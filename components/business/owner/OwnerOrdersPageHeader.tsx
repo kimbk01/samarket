@@ -6,6 +6,7 @@ import { Bell, Filter, Search } from "lucide-react";
 import { AppBackButton } from "@/components/navigation/AppBackButton";
 import { resolveOwnerStoreNotificationsHref } from "@/lib/business/owner-store-notifications-route";
 import { useBusinessAdminStore } from "@/components/business/admin/business-admin-store-context";
+import { openOwnerMobileOpsMenu } from "@/lib/business/owner-mobile-ops-menu-bridge";
 import type { StoreRow } from "@/lib/stores/db-store-mapper";
 import {
   OWNER_MOBILE_PAGE_HEADER_ACTIONS_CLASS,
@@ -38,6 +39,10 @@ export function OwnerOrdersPageHeader({
 }) {
   const { t } = useI18n();
   const biz = useBusinessAdminStore();
+  const onOpenOpsMenu = () => {
+    if (openOwnerMobileOpsMenu()) return;
+    biz?.openMobileOwnerMenu?.();
+  };
   const notificationsHref =
     resolveOwnerStoreNotificationsHref(storeRow) ??
     `/stores/owner/settings?storeId=${encodeURIComponent(storeRow?.id ?? "")}`;
@@ -90,9 +95,10 @@ export function OwnerOrdersPageHeader({
           </Link>
           <button
             type="button"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#262626] hover:bg-[#F5F5F5]"
+            className="relative z-10 flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[#262626] hover:bg-[#F5F5F5] active:bg-[#EBEBEB]"
             aria-label={t("store_owner_aria_open_menu")}
-            onClick={() => biz?.openMobileOwnerMenu?.()}
+            aria-haspopup="dialog"
+            onClick={onOpenOpsMenu}
           >
             <OwnerMenuIcon />
           </button>

@@ -1,11 +1,19 @@
 /**
- * 매장 상세 스크롤 컨테이너 — `ConditionalAppShell` `<main>` vs 문서 스크롤 단일 판별.
+ * 앱 본문 스크롤 루트 — `ConditionalAppShell` `<main>` vs 문서 스크롤 단일 판별.
+ * (매장 상세·배달 허브·필라이프·거래 피드 등 메인 셸 공통)
  */
 
-function isScrollable(el: HTMLElement): boolean {
-  if (el.scrollHeight <= el.clientHeight + 1) return false;
+function overflowYAllowsScroll(el: HTMLElement): boolean {
   const oy = getComputedStyle(el).overflowY;
   return oy === "auto" || oy === "scroll" || oy === "overlay";
+}
+
+function isScrollable(el: HTMLElement): boolean {
+  if (el.tagName === "MAIN" && overflowYAllowsScroll(el)) {
+    return true;
+  }
+  if (el.scrollHeight <= el.clientHeight + 1) return false;
+  return overflowYAllowsScroll(el);
 }
 
 export function isDocumentScrollRoot(root: HTMLElement): boolean {
@@ -18,7 +26,7 @@ export function invalidateStoreDetailScrollRootCache(): void {
   cachedScrollRoot = null;
 }
 
-/** 앱 본문이 실제로 스크롤되는 요소 */
+/** 앱 본문이 실제로 스크롤되는 요소 (`<main>` 우선) */
 export function getStoreDetailAppScrollRoot(): HTMLElement {
   if (typeof document === "undefined") {
     throw new Error("getStoreDetailAppScrollRoot requires document");

@@ -68,6 +68,7 @@ import {
   primeStorePublicCache,
   type StoreApiJsonResponse,
 } from "@/lib/stores/store-delivery-api-client";
+import { useStorePublicSlugCacheInvalidation } from "@/lib/stores/use-store-public-slug-cache-invalidation";
 import {
   dibayStoreDetailFlowPayloadKb,
   dibayStoreDetailFlowV2Log,
@@ -571,7 +572,24 @@ export function StoreDetailPublic({
     }
     setRecentOrderCountMeta(Number(sumParsed.meta?.recent_order_count) || 0);
     setDbOff(false);
-  }, []);
+  }, [decodedSlug]);
+
+  const reloadSummaryAfterOwnerMutation = useCallback(async () => {
+    const slug = decodedSlug;
+    if (!slug) return;
+    try {
+      const sumRes = await fetchStoreSummaryDeduped(slug);
+      if (decodeSlugSegment(latestSlugPropRef.current) !== slug) return;
+      const sumParsed = parseStoreSummaryPayload(sumRes.json);
+      if (sumRes.status === 200 && sumParsed.ok && sumParsed.store) {
+        applySummaryPayload(sumParsed);
+      }
+    } catch {
+      /* owner invalidate refetch — UI 유지 */
+    }
+  }, [decodedSlug, applySummaryPayload]);
+
+  useStorePublicSlugCacheInvalidation(decodedSlug, reloadSummaryAfterOwnerMutation);
 
   const applyMenusPayloadCore = useCallback(
     (menuParsed: StoreMenusPayload) => {

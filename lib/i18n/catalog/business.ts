@@ -86,6 +86,10 @@ export const businessMessages = {
     business_phase7_084: "매장 정보와 메뉴를 점검한 뒤 공유하면 첫 주문을 더 빨리 받을 수 있습니다.",
     business_phase7_085: "매장 주문 채팅은 메신저 배달 채팅함으로 통합되었습니다. ({v1})",
     business_phase7_086: "매장 창 영업시간 (현지 시각)",
+    business_phase7_auto_hours_schedule_enabled:
+      "이 시간에 맞춰 자동 영업/마감 (끄면 영업 중 스위치·임시무만 적용)",
+    business_phase7_auto_hours_schedule_hint:
+      "자동을 끄고 저장하면 /stores 에서 영업시간 밖에도 주문 가능합니다(임시 휴무·영업 끄기는 그대로 적용).",
     business_phase7_087: "매장 ID",
     business_phase7_088: "매장을 불러오는 중…",
     business_phase7_089: "먼저 1차를 선택",
@@ -585,6 +589,10 @@ export const businessMessages = {
     business_phase7_084: "매장 정보와 메뉴를 점검한 뒤 공유하면 첫 주문을 더 빨리 받을 수 있습니다.",
     business_phase7_085: "매장 주문 채팅은 메신저 배달 채팅함으로 통합되었습니다. ({v1})",
     business_phase7_086: "매장 창 영업시간 (현지 시각)",
+    business_phase7_auto_hours_schedule_enabled:
+      "이 시간에 맞춰 자동 영업/마감 (끄면 영업 중 스위치·임시무만 적용)",
+    business_phase7_auto_hours_schedule_hint:
+      "자동을 끄고 저장하면 /stores 에서 영업시간 밖에도 주문 가능합니다(임시 휴무·영업 끄기는 그대로 적용).",
     business_phase7_087: "매장 ID",
     business_phase7_088: "매장을 불러오는 중…",
     business_phase7_089: "먼저 1차를 선택",

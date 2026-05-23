@@ -1,3 +1,9 @@
+import {
+  getMainAppScrollRoot,
+  getMainAppScrollTop,
+  setMainAppScrollTop,
+} from "@/lib/layout/main-app-scroll-root";
+
 /** 매장 상세 카테고리 보드 — `pinFocusedProductInMenuSections` 후 해당 행 하이라이트·스크롤 */
 export const STORE_MENU_PRODUCT_DOM_ID_PREFIX = "store-menu-product-";
 
@@ -23,9 +29,11 @@ export function scrollStoreMenuProductIntoView(
   const el = document.getElementById(storeMenuProductDomId(productId));
   if (!el) return false;
   const stickyBottom = Number.isFinite(stickyBottomPx) ? stickyBottomPx : 120;
+  const scrollRoot = getMainAppScrollRoot();
+  const rootRect = scrollRoot.getBoundingClientRect();
   const top = el.getBoundingClientRect().top;
-  const y = window.scrollY + (top - stickyBottom - 10);
-  window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
+  const y = getMainAppScrollTop(scrollRoot) + (top - rootRect.top - stickyBottom - 10);
+  setMainAppScrollTop(Math.max(0, y), { behavior: "smooth", scrollRoot });
   el.classList.add(...FOCUS_RING_CLASSES);
   window.setTimeout(() => {
     el.classList.remove(...FOCUS_RING_CLASSES);

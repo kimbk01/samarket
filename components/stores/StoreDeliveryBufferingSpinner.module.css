@@ -1,0 +1,62 @@
+.container {
+  position: relative;
+  width: 2.75rem;
+  height: 2.75rem;
+}
+
+.dot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0.4rem;
+  height: 0.4rem;
+  margin-left: -0.2rem;
+  margin-top: -0.2rem;
+  border-radius: 9999px;
+  background-color: #b0b3b8;
+  transform: rotate(var(--deg)) translateY(-1.05rem) scale(0.5);
+  animation: deliveryBufferDot 1.15s linear infinite;
+  animation-delay: var(--delay);
+}
+
+@keyframes deliveryBufferDot {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: rotate(var(--deg)) translateY(-1.05rem) scale(0.45);
+    background-color: #ced0d4;
+  }
+  10% {
+    opacity: 1;
+    transform: rotate(var(--deg)) translateY(-1.05rem) scale(1);
+    background-color: #050505;
+  }
+  22% {
+    opacity: 0.45;
+    transform: rotate(var(--deg)) translateY(-1.05rem) scale(0.65);
+    background-color: #65676b;
+  }
+}
+
+:global(html.dark) .container .dot {
+  animation-name: deliveryBufferDotDark;
+}
+
+@keyframes deliveryBufferDotDark {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: rotate(var(--deg)) translateY(-1.05rem) scale(0.45);
+    background-color: #5f6062;
+  }
+  10% {
+    opacity: 1;
+    transform: rotate(var(--deg)) translateY(-1.05rem) scale(1);
+    background-color: #e4e6eb;
+  }
+  22% {
+    opacity: 0.5;
+    transform: rotate(var(--deg)) translateY(-1.05rem) scale(0.65);
+    background-color: #b0b3b8;
+  }
+}

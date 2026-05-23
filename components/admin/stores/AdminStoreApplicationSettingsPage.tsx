@@ -20,6 +20,47 @@ function slugifyLoose(raw: string): string {
   return t.replace(/-+/g, "-").replace(/^-|-$/g, "");
 }
 
+/** 1·2차 업종 행 — 카테고리 아이콘은 파일 업로드만 변경(「수정」 저장과 분리) */
+function TaxonomyRowImageUploadLabel({
+  kind,
+  rowId,
+  imageUrl,
+  isUploading,
+  disabled,
+  onPickFile,
+  labelUploading,
+  labelChange,
+  labelAdd,
+}: {
+  kind: "category" | "topic";
+  rowId: string;
+  imageUrl?: string | null;
+  isUploading: boolean;
+  disabled?: boolean;
+  onPickFile: (kind: "category" | "topic", id: string, file: File) => void;
+  labelUploading: string;
+  labelChange: string;
+  labelAdd: string;
+}) {
+  return (
+    <label className="sam-text-helper font-semibold text-sam-muted underline">
+      <input
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="sr-only"
+        disabled={disabled || isUploading}
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = "";
+          if (!f) return;
+          onPickFile(kind, rowId, f);
+        }}
+      />
+      {isUploading ? labelUploading : imageUrl ? labelChange : labelAdd}
+    </label>
+  );
+}
+
 export function AdminStoreApplicationSettingsPage() {
   const { t } = useI18n();
   const searchParams = useSearchParams();
@@ -240,6 +281,23 @@ export function AdminStoreApplicationSettingsPage() {
         if (!res.ok || !j?.ok) {
           window.alert(j.message ?? j.error ?? t("admin_stores_app_taxonomy_err_upload"));
           return;
+        }
+        const nextUrl = typeof j.url === "string" && j.url.trim() ? j.url.trim() : "";
+        if (nextUrl) {
+          setTaxonomy((prev) => {
+            if (!prev) return prev;
+            if (kind === "category") {
+              return {
+                ...prev,
+                categories: prev.categories.map((c) => (c.id === id ? { ...c, image_url: nextUrl } : c)),
+              };
+            }
+            return {
+              ...prev,
+              topics: prev.topics.map((row) => (row.id === id ? { ...row, image_url: nextUrl } : row)),
+            };
+          });
+          clearStoresTaxonomyClientCache();
         }
         setMsg(t("admin_stores_app_taxonomy_msg_image"));
         window.setTimeout(() => setMsg(null), 4000);
@@ -674,6 +732,7 @@ export function AdminStoreApplicationSettingsPage() {
               <div>
                 <h2 className="sam-text-body font-semibold text-sam-fg">{t("admin_stores_app_taxonomy_title")}</h2>
                 <p className="mt-1 sam-text-helper text-sam-muted">{t("admin_stores_app_taxonomy_desc")}</p>
+                <p className="mt-1 sam-text-helper text-sam-muted">{t("admin_stores_app_taxonomy_seed_help")}</p>
               </div>
               <button type="button" onClick={() => void reloadTaxonomy()} className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-semibold text-sam-fg">
                 {t("admin_stores_fee_refresh")}
@@ -819,8 +878,19 @@ export function AdminStoreApplicationSettingsPage() {
                             </div>
 
                             <div className="shrink-0">
+                              <div className="flex flex-wrap items-center justify-end gap-2">
+                                <TaxonomyRowImageUploadLabel
+                                  kind="category"
+                                  rowId={c.id}
+                                  imageUrl={c.image_url}
+                                  isUploading={isUploading}
+                                  onPickFile={(k, id, f) => void uploadTaxonomyImage(k, id, f)}
+                                  labelUploading={t("admin_stores_app_taxonomy_uploading")}
+                                  labelChange={t("admin_stores_app_taxonomy_change_image")}
+                                  labelAdd={t("admin_stores_app_taxonomy_add_image")}
+                                />
                               {isEditing ? (
-                                <div className="flex items-center gap-2">
+                                <>
                                   <button type="button" onClick={() => void saveCategory()} className="sam-text-helper font-semibold text-signature underline">
                                     {t("common_save")}
                                   </button>
@@ -834,28 +904,9 @@ export function AdminStoreApplicationSettingsPage() {
                                   >
                                     {t("common_cancel")}
                                   </button>
-                                </div>
+                                </>
                               ) : (
-                                <div className="flex items-center gap-2">
-                                  <label className="sam-text-helper font-semibold text-sam-muted underline">
-                                    <input
-                                      type="file"
-                                      accept="image/jpeg,image/png,image/webp"
-                                      className="sr-only"
-                                      disabled={isUploading}
-                                      onChange={(e) => {
-                                        const f = e.target.files?.[0];
-                                        e.target.value = "";
-                                        if (!f) return;
-                                        void uploadTaxonomyImage("category", c.id, f);
-                                      }}
-                                    />
-                                    {isUploading
-                                      ? t("admin_stores_app_taxonomy_uploading")
-                                      : c.image_url
-                                        ? t("admin_stores_app_taxonomy_change_image")
-                                        : t("admin_stores_app_taxonomy_add_image")}
-                                  </label>
+                                <>
                                   <button
                                     type="button"
                                     onClick={() => {
@@ -886,8 +937,9 @@ export function AdminStoreApplicationSettingsPage() {
                                   >
                                     {c.is_active ? t("common_delete") : t("admin_stores_app_taxonomy_restore")}
                                   </button>
-                                </div>
+                                </>
                               )}
+                              </div>
                             </div>
                           </div>
                         </li>
@@ -1054,8 +1106,19 @@ export function AdminStoreApplicationSettingsPage() {
                                 )}
                               </div>
                               <div className="shrink-0">
+                                <div className="flex flex-wrap items-center justify-end gap-2">
+                                  <TaxonomyRowImageUploadLabel
+                                    kind="topic"
+                                    rowId={topicRow.id}
+                                    imageUrl={topicRow.image_url}
+                                    isUploading={isUploading}
+                                    onPickFile={(k, id, f) => void uploadTaxonomyImage(k, id, f)}
+                                    labelUploading={t("admin_stores_app_taxonomy_uploading")}
+                                    labelChange={t("admin_stores_app_taxonomy_change_image")}
+                                    labelAdd={t("admin_stores_app_taxonomy_add_image")}
+                                  />
                                 {isEditing ? (
-                                  <div className="flex items-center gap-2">
+                                  <>
                                     <button type="button" onClick={() => void saveTopic()} className="sam-text-helper font-semibold text-signature underline">
                                       {t("common_save")}
                                     </button>
@@ -1069,28 +1132,9 @@ export function AdminStoreApplicationSettingsPage() {
                                     >
                                       {t("common_cancel")}
                                     </button>
-                                  </div>
+                                  </>
                                 ) : (
-                                  <div className="flex items-center gap-2">
-                                    <label className="sam-text-helper font-semibold text-sam-muted underline">
-                                      <input
-                                        type="file"
-                                        accept="image/jpeg,image/png,image/webp"
-                                        className="sr-only"
-                                        disabled={isUploading}
-                                        onChange={(e) => {
-                                          const f = e.target.files?.[0];
-                                          e.target.value = "";
-                                          if (!f) return;
-                                          void uploadTaxonomyImage("topic", topicRow.id, f);
-                                        }}
-                                      />
-                                      {isUploading
-                                        ? t("admin_stores_app_taxonomy_uploading")
-                                        : topicRow.image_url
-                                          ? t("admin_stores_app_taxonomy_change_image")
-                                          : t("admin_stores_app_taxonomy_add_image")}
-                                    </label>
+                                  <>
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -1121,8 +1165,9 @@ export function AdminStoreApplicationSettingsPage() {
                                     >
                                       {topicRow.is_active ? t("common_delete") : t("admin_stores_app_taxonomy_restore")}
                                     </button>
-                                  </div>
+                                  </>
                                 )}
+                                </div>
                               </div>
                             </div>
                           </li>

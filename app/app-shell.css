@@ -13,6 +13,17 @@
  *   는 후방호환을 위해 그대로 둔다. 신규 화면은 이 파일 토큰/유틸을 우선한다.
  */
 
+/**
+ * `(main)` 메인 셸 — `MainAppProviderTree` 가 토글.
+ * 문서(body) 세로 스크롤을 막고 `<main>` 단일 스크롤과 이중 스크롤·헤더 밀림을 방지한다.
+ */
+html.sam-main-shell-viewport-lock,
+html.sam-main-shell-viewport-lock body {
+  overflow: hidden;
+  height: 100%;
+  max-height: 100%;
+}
+
 :root {
   /** 동적 뷰포트(키보드/주소창 변동 반영). 미지원 시 `--app-height-fallback` 사용 */
   --app-height: 100dvh;

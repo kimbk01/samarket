@@ -34,7 +34,7 @@ export function AppStickyHeader() {
   const extras = extrasOpt?.extras ?? null;
   const hideRegionBar = !topTier1RuleSet.showRegionBar;
 
-  /** 빈 `sticky z-20` 래퍼는 아래 본문 스티키(채팅 허브 등)와 쌓임이 꼬여 가릴 수 있음 */
+  /** 본문 스크롤은 `<main>` 단일 컬럼(`main-shell-viewport.ts`) — 여기는 뷰포트 상단 고정 블록 */
   if (hideRegionBar) return null;
 
   const ctaLinks = extras?.ctaLinks ?? [];
@@ -48,7 +48,7 @@ export function AppStickyHeader() {
        * `pt-[env(safe-area-inset-top,0px)]`: iOS PWA / `viewport-fit=cover` 에서 노치·상태바 영역 회피.
        * 일반 브라우저(env() = 0)에서는 영향 없음. 동일 의미를 가진 공통 토큰: `--safe-top` (`app/app-shell.css`).
        */
-      className={`sticky top-0 z-20 w-full min-w-0 max-w-full overflow-x-hidden pt-[env(safe-area-inset-top,0px)] ${
+      className={`relative z-20 w-full min-w-0 max-w-full shrink-0 overflow-x-clip pt-[env(safe-area-inset-top,0px)] ${
         deliveryChrome
           ? "delivery-ui bg-[color:var(--delivery-header-bar-bg)]"
           : "bg-sam-surface/95 backdrop-blur-[10px]"

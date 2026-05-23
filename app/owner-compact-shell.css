@@ -130,3 +130,107 @@ body[data-owner-compact-shell] .owner-store-admin-footer-bar {
   padding-left: var(--owner-shell-pad-left, max(0.5rem, env(safe-area-inset-left, 0px)));
   padding-right: var(--owner-shell-pad-right, max(0.5rem, env(safe-area-inset-right, 0px)));
 }
+
+/**
+ * 운영 메뉴 드로어(햄버거) — `OwnerMobileOpsMenuDrawer` 전용.
+ * CONTRACT: Tailwind `max-[1024px]:translate-x-0` 등 동적 접두는 빌드 누락 시 패널이 화면 밖에 남고 스크림만 보임.
+ */
+@media (max-width: 1024px) {
+  .owner-ops-drawer-scrim {
+    position: fixed;
+    inset: 0;
+    z-index: 1002;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    width: 100%;
+    max-width: 100vw;
+    min-height: 100dvh;
+    min-height: 100svh;
+    background: rgb(0 0 0 / 0.45);
+    transition: opacity 270ms ease-out;
+    touch-action: none;
+    overscroll-behavior: none;
+  }
+
+  .owner-ops-drawer-scrim[data-open="false"] {
+    opacity: 0;
+    pointer-events: none;
+    cursor: default;
+  }
+
+  .owner-ops-drawer-scrim[data-open="true"] {
+    opacity: 1;
+    pointer-events: auto;
+    cursor: pointer;
+  }
+
+  .owner-ops-drawer-panel {
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1003;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    width: min(280px, 88vw);
+    max-width: 88vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    overflow: hidden;
+    border-left: 1px solid var(--biz-card-border, #e7eaef);
+    background-color: var(--biz-card-bg, #ffffff);
+    color: var(--biz-text, #1f2937);
+    transition: transform 270ms ease-out;
+    transform: translate3d(100%, 0, 0);
+    will-change: transform;
+  }
+
+  .owner-ops-drawer-panel[data-open="true"] {
+    transform: translate3d(0, 0, 0);
+    pointer-events: auto;
+  }
+
+  .owner-ops-drawer-panel[data-open="false"] {
+    pointer-events: none;
+  }
+}
+
+@media (min-width: 1025px) {
+  [data-owner-ops-drawer-root] {
+    display: none !important;
+  }
+
+  .owner-ops-desktop-sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 0;
+    flex-shrink: 0;
+    height: 100vh;
+    overflow: hidden;
+    border-left: 1px solid var(--biz-card-border, #e7eaef);
+    background-color: var(--biz-card-bg, #ffffff);
+    transition: width 200ms ease-out;
+  }
+
+  .owner-ops-desktop-sidebar[data-open="true"] {
+    width: 260px;
+  }
+
+  .owner-ops-desktop-sidebar[data-open="false"] {
+    width: 0;
+    min-width: 0;
+    border-color: transparent;
+  }
+
+  .owner-ops-desktop-sidebar-collapse {
+    display: flex;
+  }
+}
+
+@media (max-width: 1024px) {
+  .owner-ops-desktop-sidebar {
+    display: none !important;
+  }
+}

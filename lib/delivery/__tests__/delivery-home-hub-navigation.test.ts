@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
-import { runDeliveryHomeHubShortTap } from "@/lib/delivery/delivery-home-hub-navigation";
+import { runDeliveryHomeHubLongPress } from "@/lib/delivery/delivery-home-hub-navigation";
 
-describe("runDeliveryHomeHubShortTap", () => {
+describe("runDeliveryHomeHubLongPress", () => {
   it("배달 홈이 아니면 /stores 로 push", () => {
     const push = vi.fn();
     const beginMenuNavigation = vi.fn();
     const onNavigationIntent = vi.fn();
     const onCloseSwitcher = vi.fn();
 
-    const ok = runDeliveryHomeHubShortTap({
+    const ok = runDeliveryHomeHubLongPress({
       pathname: "/community-messenger/delivery-chats",
       currentSearch: "",
       switcherOpen: false,
@@ -30,7 +30,7 @@ describe("runDeliveryHomeHubShortTap", () => {
     const push = vi.fn();
     const beginMenuNavigation = vi.fn();
 
-    runDeliveryHomeHubShortTap({
+    runDeliveryHomeHubLongPress({
       pathname: "/stores",
       currentSearch: "",
       switcherOpen: false,
@@ -47,7 +47,7 @@ describe("runDeliveryHomeHubShortTap", () => {
 
   it("다이얼 열림 상태에서 탭하면 먼저 닫기", () => {
     const onCloseSwitcher = vi.fn();
-    runDeliveryHomeHubShortTap({
+    runDeliveryHomeHubLongPress({
       pathname: "/orders",
       currentSearch: "",
       switcherOpen: true,

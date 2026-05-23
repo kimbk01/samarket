@@ -35,6 +35,7 @@
     "verify:store-cart-sheet-contract": "node scripts/verify-store-cart-sheet-contract.cjs",
     "verify:store-payment-cod-label-contract": "node scripts/verify-store-payment-cod-label-contract.cjs",
     "verify:store-cart-hooks-contract": "node scripts/verify-store-cart-hooks-contract.cjs",
+    "verify:store-auto-hours-contract": "node scripts/verify-store-auto-hours-contract.cjs",
     "verify:thumbnail-contract": "node scripts/verify-samarket-thumbnail-contract.cjs",
     "verify:store-delivery-featured-thumbnails-contract": "node scripts/verify-store-delivery-featured-thumbnails-contract.cjs",
     "check:bundle": "node scripts/check-bundle-budgets.mjs",

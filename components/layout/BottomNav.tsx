@@ -11,6 +11,7 @@ import {
   useState,
   type KeyboardEvent,
   type MouseEvent,
+  type PointerEvent,
 } from "react";
 import { createPortal } from "react-dom";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -72,7 +73,16 @@ import {
 } from "@/lib/main-menu/delivery-bottom-nav-layout";
 import { writeStoredMypageBottomNavOrigin } from "@/lib/main-menu/mypage-bottom-nav-origin";
 import { DeliveryDomainSwitcherOverlay } from "@/components/delivery/navigation/DeliveryDomainSwitcherOverlay";
-import { runDeliveryHomeHubShortTap } from "@/lib/delivery/delivery-home-hub-navigation";
+import {
+  DELIVERY_HOME_HUB_LONG_PRESS_MS,
+  runDeliveryHomeHubLongPress,
+} from "@/lib/delivery/delivery-home-hub-navigation";
+import { shouldToggleDeliveryDialOnHomePointerUp } from "@/lib/delivery/delivery-home-hub-gesture";
+import { prewarmConsumerDeliveryDomainDial } from "@/lib/delivery/prewarm-delivery-domain-dial";
+import {
+  markBottomNavRouteIntentForBackgroundWarm,
+  remainingBottomNavBackgroundPrefetchQuietMs,
+} from "@/lib/navigation/mark-bottom-nav-route-intent";
 import { MAIN_BOTTOM_NAV_TAB_ICONS } from "@/components/main-menu/MainBottomNavTabIcons";
 import { useCommerceCartNavHref } from "@/components/layout/use-commerce-cart-nav-href";
 import { isMainBottomNavDisplayTabActive } from "@/lib/main-menu/main-bottom-nav-tab-active";
@@ -94,7 +104,7 @@ import {
   navPerfMarkBottomNavClickStart,
   navPerfSetOptimisticTotalMs,
 } from "@/lib/navigation/nav-perf-browser";
-import { useRegion } from "@/contexts/RegionContext";
+import { useRegion, useRegionOptional } from "@/contexts/RegionContext";
 import { triggerLightTapFeedback } from "@/lib/ui/light-tap-feedback";
 
 /** 매장 운영 허브 — cross-tab RSC·taxonomy·philife prewarm 금지 (`pickMainBottomNavPrefetchHrefs` 와 동일) */
@@ -138,26 +148,6 @@ function shouldBottomNavTapScrollOnlyNoNavigate(
 
 const BOTTOM_NAV_ITEM_TOUCH_CLASS =
   "touch-manipulation select-none [-webkit-tap-highlight-color:transparent]";
-
-declare global {
-  interface Window {
-    __samarketLastBottomNavRouteIntentAt?: number;
-  }
-}
-
-function markBottomNavRouteIntentForBackgroundWarm(): void {
-  if (typeof window === "undefined" || typeof performance === "undefined") return;
-  window.__samarketLastBottomNavRouteIntentAt = performance.now();
-}
-
-const BOTTOM_NAV_BACKGROUND_PREFETCH_QUIET_MS = 2_500;
-
-function remainingBottomNavBackgroundPrefetchQuietMs(): number {
-  if (typeof window === "undefined" || typeof performance === "undefined") return 0;
-  const last = window.__samarketLastBottomNavRouteIntentAt;
-  if (typeof last !== "number" || !Number.isFinite(last)) return 0;
-  return Math.max(0, BOTTOM_NAV_BACKGROUND_PREFETCH_QUIET_MS - (performance.now() - last));
-}
 
 const BottomNavHubBadgeDot = memo(function BottomNavHubBadgeDot({ count }: { count: number }) {
   if (count <= 0) return null;
@@ -455,6 +445,7 @@ const BottomNavTabDeliveryHomeHub = memo(function BottomNavTabDeliveryHomeHub({
   const { safeT } = useI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const primaryRegion = useRegionOptional()?.primaryRegion ?? null;
   const navSearch = searchParams.toString();
   const tabLabel = tab.labelKey ? safeT(tab.labelKey) : tab.label;
   const Icon = TAB_ICONS.home;
@@ -471,12 +462,19 @@ const BottomNavTabDeliveryHomeHub = memo(function BottomNavTabDeliveryHomeHub({
     .filter(Boolean)
     .join(" ");
 
-  const onHubClick = useCallback(() => {
-    if (hubPathActive) {
-      onToggleSwitcher();
-      return;
+  const longPressFiredRef = useRef(false);
+  const longPressTimerRef = useRef<number | null>(null);
+
+  const clearLongPressTimer = useCallback(() => {
+    if (longPressTimerRef.current != null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
     }
-    runDeliveryHomeHubShortTap({
+  }, []);
+
+  const runLongPressHome = useCallback(() => {
+    longPressFiredRef.current = true;
+    runDeliveryHomeHubLongPress({
       pathname,
       currentSearch: navSearch,
       href: tab.href,
@@ -492,7 +490,6 @@ const BottomNavTabDeliveryHomeHub = memo(function BottomNavTabDeliveryHomeHub({
   }, [
     beginMenuNavigation,
     guardBeforeNavigate,
-    hubPathActive,
     navSearch,
     onNavigationIntent,
     onToggleSwitcher,
@@ -501,6 +498,49 @@ const BottomNavTabDeliveryHomeHub = memo(function BottomNavTabDeliveryHomeHub({
     switcherOpen,
     tab.href,
   ]);
+
+  const onHubPointerDown = useCallback(
+    (e: PointerEvent<HTMLButtonElement>) => {
+      if (e.button !== 0) return;
+      longPressFiredRef.current = false;
+      clearLongPressTimer();
+      longPressTimerRef.current = window.setTimeout(() => {
+        longPressTimerRef.current = null;
+        runLongPressHome();
+      }, DELIVERY_HOME_HUB_LONG_PRESS_MS);
+      try {
+        prewarmBottomNavTapHrefResolvingStoresRegion(tab.href, primaryRegion);
+      } catch {
+        /* noop */
+      }
+    },
+    [clearLongPressTimer, primaryRegion, runLongPressHome, tab.href]
+  );
+
+  const onHubPointerUp = useCallback(() => {
+    clearLongPressTimer();
+    const fired = longPressFiredRef.current;
+    longPressFiredRef.current = false;
+    if (shouldToggleDeliveryDialOnHomePointerUp(fired)) {
+      onToggleSwitcher();
+    }
+  }, [clearLongPressTimer, onToggleSwitcher]);
+
+  const onHubKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLButtonElement>) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
+      onToggleSwitcher();
+    },
+    [onToggleSwitcher]
+  );
+
+  const onHubPointerCancel = useCallback(() => {
+    clearLongPressTimer();
+    longPressFiredRef.current = false;
+  }, [clearLongPressTimer]);
+
+  useEffect(() => () => clearLongPressTimer(), [clearLongPressTimer]);
 
   return (
     <button
@@ -511,7 +551,12 @@ const BottomNavTabDeliveryHomeHub = memo(function BottomNavTabDeliveryHomeHub({
       aria-label={tabLabel}
       aria-expanded={switcherOpen}
       aria-haspopup="dialog"
-      onClick={onHubClick}
+      onPointerDown={onHubPointerDown}
+      onPointerUp={onHubPointerUp}
+      onPointerCancel={onHubPointerCancel}
+      onPointerLeave={onHubPointerCancel}
+      onKeyDown={onHubKeyDown}
+      onClick={(e) => e.preventDefault()}
     >
       <div className="app-bottom-nav-icon-slot app-bottom-nav-icon-slot--delivery-home">
         <span
@@ -1107,6 +1152,17 @@ export function BottomNav({
     setDeliveryDomainSwitcherOpen(false);
   }, []);
 
+  const prewarmDialOnOpen = useCallback(() => {
+    try {
+      prewarmConsumerDeliveryDomainDial(ownerStoreRow?.id, {
+        primaryRegion: primaryRegionRef.current ?? primaryRegion,
+        prefetch: (href) => routerRef.current.prefetch(href),
+      });
+    } catch {
+      /* noop */
+    }
+  }, [ownerStoreRow?.id, primaryRegion]);
+
   const renderBottomNavTab = useCallback(
     (tab: BottomNavItemConfig, tabIndex: number) => {
       const groupEdgeClass = isDeliveryNavMode
@@ -1142,9 +1198,12 @@ export function BottomNav({
             onToggleSwitcher={() => {
               setDeliveryDomainSwitcherOpen((open) => {
                 const next = !open;
-                if (next && typeof document !== "undefined") {
-                  const active = document.activeElement;
-                  if (active instanceof HTMLElement) active.blur();
+                if (next) {
+                  if (typeof document !== "undefined") {
+                    const active = document.activeElement;
+                    if (active instanceof HTMLElement) active.blur();
+                  }
+                  prewarmDialOnOpen();
                 }
                 return next;
               });
@@ -1217,6 +1276,7 @@ export function BottomNav({
       isDeliveryNavMode,
       deliveryDomainSwitcherOpen,
       closeDomainSwitcher,
+      prewarmDialOnOpen,
     ]
   );
 
@@ -1242,6 +1302,8 @@ export function BottomNav({
       <DeliveryDomainSwitcherOverlay
         open={deliveryDomainSwitcherOpen}
         onClose={() => setDeliveryDomainSwitcherOpen(false)}
+        beginMenuNavigation={beginBottomNavNavigation}
+        onNavigationIntent={markBottomNavIntent}
       />
     ) : null;
 

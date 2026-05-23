@@ -3,8 +3,9 @@
  *
  * - 의미: 앱 전역 최상단 바 — 모바일 탐색형 화면에서만 쓰는 동네 선택 · 검색 · 알림 · 햄버거 메뉴(`RegionBar`).
  * - 단일 구현: `components/layout/RegionBar.tsx` (시각 껍데기: `TradePrimaryAppBarShell`)
- * - 공통 삽입: `app/(main)/layout.tsx` → `<AppStickyHeader />` 안에서만 기본 렌더.
- * - 중복 방지: `ConditionalAppShell`에 `regionBarInLayout`를 넘기면 여기서는 `RegionBar`를 다시 그리지 않음.
+ * - 공통 삽입: `app/(main)/layout.tsx` → `<AppStickyHeader />` 안에서만 기본 렌더(스크롤 밖 고정).
+ * - 중복 방지: `ConditionalAppShell`에 `regionBarInLayout`를 넘기면 `showRegionBar`가 false — `RegionBar` 이중 마운트 금지.
+ * - 본문 스크롤: `lib/layout/main-shell-viewport.ts` · `lib/layout/main-app-scroll-root.ts` (`<main>` 단일 컬럼).
  *
  * 일부 화면(내정보, 상품 상세, 채팅방, 검색, 주문 허브, 매장 등)은 `AppStickyHeader`에서 메인 1단을 숨기고
  * 전용 앱바를 씀 — 동작이 달라 별 컴포넌트이나, 배경·토큰은 가능한 `TradePrimaryAppBarShell`을 공유.
