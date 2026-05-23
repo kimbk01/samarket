@@ -34,7 +34,7 @@ export function AppStickyHeader() {
   const extras = extrasOpt?.extras ?? null;
   const hideRegionBar = !topTier1RuleSet.showRegionBar;
 
-  /** 본문 스크롤은 `<main>` 단일 컬럼(`main-shell-viewport.ts`) — 여기는 뷰포트 상단 고정 블록 */
+  /** 허브·피드: `MainHubScrollColumn` 헤더 슬롯 — 스크롤 밖 `shrink-0` (상단·업종 탭 항상 노출) */
   if (hideRegionBar) return null;
 
   const ctaLinks = extras?.ctaLinks ?? [];

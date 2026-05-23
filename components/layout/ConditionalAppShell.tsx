@@ -21,10 +21,15 @@ import {
 } from "@/lib/main-menu/main-bottom-nav-prefetch-domain";
 import { scrollAppShellToTopAfterShellNavigation } from "@/lib/layout/scroll-app-shell-to-top";
 import {
-  APP_SHELL_FILL_VIEWPORT_CLASS,
+  buildMainShellInnerRootClass,
   MAIN_COLUMN_SCROLL_CLASS,
   resolvesMainScrollInMainColumn,
 } from "@/lib/layout/main-shell-viewport";
+import {
+  MAIN_HUB_SCROLL_SHELL_ROOT_CLASS,
+  resolvesMainHubScrollColumn,
+} from "@/lib/layout/main-hub-scroll-column";
+import { MainHubScrollColumn } from "./MainHubScrollColumn";
 import { invalidateMainAppScrollRootCache } from "@/lib/layout/main-app-scroll-root";
 import { logDevSafeModeProbeOnce } from "@/lib/dev/is-dev-safe-mode";
 import {
@@ -33,6 +38,7 @@ import {
 } from "@/lib/business/store-owner-main-bottom-nav-suppress";
 import { MessagingGlobalChrome } from "@/components/layout/providers/MessagingGlobalChrome";
 import { CommunityMessengerRoomOpeningOverlayHost } from "@/components/community-messenger/room/CommunityMessengerRoomOpeningOverlayHost";
+import { AppStickyHeader } from "./AppStickyHeader";
 import { RegionBar } from "./RegionBar";
 import { BottomNav } from "./BottomNav";
 import { MainShellTabContentTransition } from "./MainShellTabContentTransition";
@@ -139,50 +145,59 @@ export function ConditionalAppShell({
     root.classList.add(cls);
     return () => root.classList.remove(cls);
   }, [heroMenuSurface]);
-  return (
-    /**
-     * `app-shell` (`app/app-shell.css`): `min-height: var(--app-height)` + flex column + overflow-x: clip.
-     * `min-h-dvh` 는 호환을 위해 같이 둔다 — 동일 의미라 우선 순위 충돌 없음.
-     * 메신저 방 분기(`f.isChatRoomDetail`)는 `useChatViewportResize` 가 셸 높이를 별도로 책임.
-     */
+  const mainShellInnerRootClass = mainScrollInMainColumn
+    ? buildMainShellInnerRootClass({ heroMenuSurface })
+    : `${f.appShellRootClass} min-h-dvh bg-sam-app`;
+  const hubScrollColumn = resolvesMainHubScrollColumn({
+    regionBarInLayout,
+    mainScrollInMainColumn,
+    isChatRoomDetail: f.isChatRoomDetail,
+  });
+  const mainSurfaceClass = `${mainBottomClassLive} min-w-0 ${heroMenuSurface ? "bg-transparent" : "bg-sam-app"}`;
+  const mainBodyLockedClass =
+    f.isMainColumnViewportLocked || f.isStoreOwnerAdminRoute
+      ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-hidden"
+      : mainScrollInMainColumn
+        ? MAIN_COLUMN_SCROLL_CLASS
+        : "overflow-x-hidden";
+  const mainColumnInner = (
     <div
-      className={`${f.appShellRootClass} app-shell w-full min-w-0 ${
-        mainScrollInMainColumn ? `${APP_SHELL_FILL_VIEWPORT_CLASS} bg-sam-app` : "min-h-dvh bg-sam-app"
+      className={`${APP_MAIN_COLUMN_CLASS} ${
+        f.isMainColumnViewportLocked ? " flex min-h-0 min-w-0 flex-1 flex-col" : ""
       }`}
+    >
+      <MainShellTabContentTransition
+        initialNavItems={initialMainBottomNavItems}
+        contentStretchClass={
+          f.isMainColumnViewportLocked || f.isStoreOwnerAdminRoute
+            ? "flex h-full min-h-0 min-w-0 flex-1 flex-col"
+            : "min-w-0"
+        }
+      >
+        {children}
+      </MainShellTabContentTransition>
+    </div>
+  );
+  return (
+    /** 허브: `MainHubScrollColumn` + `app-shell.css` `.main-hub-scroll-*` — 1단 고정·본문 단일 스크롤 */
+    <div
+      className={`app-shell w-full min-w-0 ${
+        hubScrollColumn ? MAIN_HUB_SCROLL_SHELL_ROOT_CLASS : mainShellInnerRootClass
+      } ${hubScrollColumn && !heroMenuSurface ? "bg-sam-app" : ""}`}
     >
       {f.mountPhilifeWarmPrefetch ? <PhilifeFeedWarmPrefetch /> : null}
       <MessagingGlobalChrome regionBarInLayout={regionBarInLayout} />
       <CommunityMessengerRoomOpeningOverlayHost />
       <WebConnectivityBanner />
-      {/* regionBarInLayout=true 이면 f.showRegionBar 는 항상 false — AppStickyHeader 와 이중 렌더 방지 */}
       {f.showRegionBar ? <RegionBar /> : null}
       {f.showOwnerLiteStoreBar ? <OwnerLiteStoreBarLazy /> : null}
-      <main
-        className={`${mainBottomClassLive} min-w-0 ${heroMenuSurface ? "bg-transparent" : "bg-sam-app"} ${
-          f.isMainColumnViewportLocked || f.isStoreOwnerAdminRoute
-            ? "flex min-h-0 min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-hidden"
-            : mainScrollInMainColumn
-              ? MAIN_COLUMN_SCROLL_CLASS
-              : "overflow-x-hidden"
-        }`}
-      >
-        <div
-          className={`${APP_MAIN_COLUMN_CLASS} ${
-            f.isMainColumnViewportLocked ? " flex min-h-0 min-w-0 flex-1 flex-col" : ""
-          }`}
-        >
-          <MainShellTabContentTransition
-            initialNavItems={initialMainBottomNavItems}
-            contentStretchClass={
-              f.isMainColumnViewportLocked || f.isStoreOwnerAdminRoute
-                ? "flex h-full min-h-0 min-w-0 flex-1 flex-col"
-                : "min-w-0"
-            }
-          >
-            {children}
-          </MainShellTabContentTransition>
-        </div>
-      </main>
+      {hubScrollColumn ? (
+        <MainHubScrollColumn header={<AppStickyHeader />} mainClassName={mainSurfaceClass}>
+          {mainColumnInner}
+        </MainHubScrollColumn>
+      ) : (
+        <main className={`${mainSurfaceClass} ${mainBodyLockedClass}`}>{mainColumnInner}</main>
+      )}
       {showBottomNavEffective ? (
         <Suspense
           fallback={

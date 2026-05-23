@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { StoresHub } from "@/components/stores/StoresHub";
-import { PHILIFE_FEED_INSET_X_CLASS } from "@/lib/philife/philife-flat-ui-classes";
+import { DeliveryTheme } from "@/lib/design/delivery-theme";
 
 export const metadata: Metadata = {
   title: "매장",
@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 export default function StoresPage() {
   return (
-    <div className={`${PHILIFE_FEED_INSET_X_CLASS} bg-sam-app py-3 dark:bg-[#18191A]`}>
+    <div className={`delivery-ui ${DeliveryTheme.page} min-h-0`}>
       <Suspense fallback={null}>
         <StoresHub />
       </Suspense>

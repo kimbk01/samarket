@@ -107,7 +107,7 @@ export function HorizontalDragScroll({ children, className = "", style, ...rest 
     <div
       ref={ref}
       style={mergedStyle}
-      className={`cursor-grab touch-pan-x overscroll-x-contain active:cursor-grabbing select-none [&_a]:select-none ${className}`}
+      className={`cursor-grab overscroll-x-contain active:cursor-grabbing select-none [-webkit-overflow-scrolling:touch] [&_a]:select-none ${className}`}
       {...rest}
     >
       {children}

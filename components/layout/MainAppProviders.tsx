@@ -24,7 +24,7 @@ export function MainAppProviders({
   children: ReactNode;
   initialMainBottomNavItems?: BottomNavItemConfig[] | null;
   /**
-   * RSC `(main)/layout` — `queryTradeHomeRootCategories` 와 동일 열. `<AppStickyHeader />` 가
+   * RSC `(main)/layout` — `queryTradeHomeRootCategories` 와 동일 열. `AppStickyHeader` 는 `ConditionalAppShell` `<main>` sticky.
    * `children`보다 먼저 그려지므로, 동기 프라임(`TradeTabCategoriesServerPrime`)으로 클라 2nd 페치 대기를 제거.
    */
   initialTradeTabCategories?: CategoryWithSettings[] | null;

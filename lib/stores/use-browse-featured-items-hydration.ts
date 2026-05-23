@@ -8,6 +8,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { logBrowseCardHydration } from "@/lib/stores/browse-featured-items-perf-log";
+import { BROWSE_FEATURED_ITEMS_BATCH_STORE_CAP } from "@/lib/stores/browse-featured-items-types";
 import {
   fetchBrowseFeaturedItemsBatch,
   peekBrowseFeaturedItemsClient,
@@ -24,7 +25,7 @@ const FLUSH_DEBOUNCE_MS = 48;
 
 export function useBrowseFeaturedItemsHydration(
   stores: StoreRef[],
-  opts?: { enabled?: boolean }
+  opts?: { enabled?: boolean; /** 뷰포트 밖(가로 레일) 카드 — 즉시 featured batch */ eagerStoreIds?: readonly string[] }
 ): {
   hydratedByStoreId: ReadonlyMap<string, BrowseFeaturedCardItem[]>;
   hydrationEpoch: number;
@@ -43,10 +44,18 @@ export function useBrowseFeaturedItemsHydration(
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const batchGenRef = useRef(0);
   const [hydrationEpoch, setHydrationEpoch] = useState(0);
+  const [hydratedByStoreId, setHydratedByStoreId] = useState<Map<string, BrowseFeaturedCardItem[]>>(
+    () => new Map()
+  );
+
+  const syncHydratedSnapshot = useCallback(() => {
+    setHydratedByStoreId(new Map(hydratedRef.current));
+  }, []);
 
   const bumpEpoch = useCallback(() => {
+    syncHydratedSnapshot();
     setHydrationEpoch((n) => n + 1);
-  }, []);
+  }, [syncHydratedSnapshot]);
 
   const applyHydrated = useCallback(
     (map: Map<string, BrowseFeaturedCardItem[]>, gen: number) => {
@@ -86,27 +95,35 @@ export function useBrowseFeaturedItemsHydration(
     if (want.length === 0) return;
 
     bumpEpoch();
+    const chunks: string[][] = [];
+    for (let i = 0; i < want.length; i += BROWSE_FEATURED_ITEMS_BATCH_STORE_CAP) {
+      chunks.push(want.slice(i, i + BROWSE_FEATURED_ITEMS_BATCH_STORE_CAP));
+    }
     const gen = batchGenRef.current;
-    void fetchBrowseFeaturedItemsBatch(want)
-      .then(({ byStoreId, cacheHits }) => {
-        applyHydrated(byStoreId, gen);
+    void (async () => {
+      let cacheHits = 0;
+      try {
+        for (const chunk of chunks) {
+          if (gen !== batchGenRef.current) return;
+          const { byStoreId, cacheHits: hits } = await fetchBrowseFeaturedItemsBatch(chunk);
+          cacheHits += hits;
+          applyHydrated(byStoreId, gen);
+        }
         logBrowseCardHydration({
           visible_cards: visibleRef.current.size,
           hydrated_cards: want.length,
           skipped_cards: Math.max(0, visibleRef.current.size - want.length),
           cache_hits: cacheHits + clientHits,
         });
-      })
-      .catch(() => {
+      } catch {
         if (gen !== batchGenRef.current) return;
+        const failMap = new Map<string, BrowseFeaturedCardItem[]>();
         for (const id of want) {
-          hydratedRef.current.set(id, []);
-          phaseRef.current.set(id, "done");
-          resolvedRef.current.add(id);
-          inflightRef.current.delete(id);
+          failMap.set(id, []);
         }
-        bumpEpoch();
-      });
+        applyHydrated(failMap, gen);
+      }
+    })();
   }, [applyHydrated, bumpEpoch, enabled]);
 
   const scheduleFlush = useCallback(() => {
@@ -141,6 +158,32 @@ export function useBrowseFeaturedItemsHydration(
   useEffect(() => {
     resetHydrationState();
   }, [storesKey, enabled, resetHydrationState]);
+
+  const eagerKey = (opts?.eagerStoreIds ?? []).join(",");
+  useEffect(() => {
+    if (!enabled || !eagerKey) return;
+    let touched = false;
+    for (const raw of opts?.eagerStoreIds ?? []) {
+      const id = raw.trim();
+      if (!id) continue;
+      visibleRef.current.add(id);
+      if (resolvedRef.current.has(id) || inflightRef.current.has(id)) continue;
+      if (peekBrowseFeaturedItemsClient(id) !== undefined) {
+        const hit = peekBrowseFeaturedItemsClient(id)!;
+        hydratedRef.current.set(id, hit);
+        phaseRef.current.set(id, "done");
+        resolvedRef.current.add(id);
+        touched = true;
+        continue;
+      }
+      phaseRef.current.set(id, "loading");
+      touched = true;
+    }
+    if (touched) {
+      bumpEpoch();
+      flushVisibleBatch();
+    }
+  }, [bumpEpoch, eagerKey, enabled, flushVisibleBatch, opts?.eagerStoreIds]);
 
   useEffect(() => {
     if (!enabled || typeof window === "undefined") return;
@@ -205,7 +248,7 @@ export function useBrowseFeaturedItemsHydration(
   }, []);
 
   return {
-    hydratedByStoreId: hydratedRef.current,
+    hydratedByStoreId,
     hydrationEpoch,
     getPhase,
     registerListItem,

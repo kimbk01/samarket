@@ -8,8 +8,11 @@ export const STORE_TAXONOMY_THUMB_PX = 40;
 export const STORE_TAXONOMY_THUMB_FRAME =
   "relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden";
 
-export function storeTaxonomyThumbImgClass(isUploaded: boolean): string {
-  return isUploaded
-    ? "block h-full w-full max-h-10 max-w-10 border-0 object-cover"
-    : "block h-full w-full max-h-10 max-w-10 border-0 object-contain";
+export function storeTaxonomyThumbImgClass(
+  isUploaded: boolean,
+  size: "tab" | "fill" = "tab"
+): string {
+  const dim =
+    size === "fill" ? "block h-full w-full border-0" : "block h-full w-full max-h-10 max-w-10 border-0";
+  return isUploaded ? `${dim} object-cover` : `${dim} object-contain`;
 }

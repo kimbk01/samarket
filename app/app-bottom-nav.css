@@ -334,7 +334,7 @@
   /** 홈 라벨만 — 다른 4탭 baseline 육안 정렬 */
   --delivery-tab-label-hub-bottom-offset: 1pt;
   --delivery-tab-icon-slot-height: 28px;
-  --delivery-tab-label-inactive: #888888;
+  --delivery-tab-label-inactive: #999999;
   --delivery-tab-label-active: var(--delivery-primary, #006241);
   --delivery-tab-label-hub-active: var(--delivery-primary, #006241);
 }

@@ -26,14 +26,12 @@ import { MyHubHeaderActions, MyHubHeaderInfoHubTrigger } from "@/components/my/M
 import { PhilifeHeaderNotificationInbox } from "@/components/philife/PhilifeHeaderNotificationInbox";
 import { TradeHeaderComposeButton } from "@/components/trade/TradeHeaderComposeButton";
 import {
-  BOTTOM_NAV_DELIVERY_TAB_LABEL_KEY,
   BOTTOM_NAV_PHILIFE_TAB_LABEL_KEY,
   BOTTOM_NAV_TRADE_TAB_LABEL_KEY,
 } from "@/lib/main-menu/bottom-nav-config";
 import { AppTier1HeaderRow } from "@/components/layout/AppTier1HeaderRow";
 import { AppTier1HeaderTitleCluster } from "@/components/layout/AppTier1HeaderTitleCluster";
-import { DeliveryTier1Header } from "@/components/stores/chrome/DeliveryTier1Header";
-import { StoresRootTier1HeaderActions } from "@/components/stores/StoresRootTier1HeaderActions";
+import { StoresHomeHeaderChrome } from "@/components/stores/home/hub/StoresHomeHeaderChrome";
 import {
   DELIVERY_CONSUMER_HEADER_BAR_CLASS,
   DELIVERY_TIER1_HEADER_INNER_CLASS,
@@ -138,13 +136,7 @@ export function RegionBar({
   }
 
   if (pathNoQuery === "/stores") {
-    const segmentTitle = t(BOTTOM_NAV_DELIVERY_TAB_LABEL_KEY);
-    return (
-      <DeliveryTier1Header
-        title={segmentTitle}
-        trailing={<StoresRootTier1HeaderActions />}
-      />
-    );
+    return <StoresHomeHeaderChrome />;
   }
 
   const base = tier1Subpage;

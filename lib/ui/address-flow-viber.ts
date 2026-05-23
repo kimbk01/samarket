@@ -25,6 +25,10 @@ export const ADDR_ROW_TITLE = "sam-text-body font-semibold text-signature/95";
 
 export const ADDR_BODY = "leading-snug text-sam-muted";
 
+/** 내정보·주소 관리 목록 — designation / default 뱃지 공통 */
+export const ADDR_LIST_BADGE_BASE =
+  "inline-flex shrink-0 items-center rounded-[4px] border px-2 py-0.5 text-[10px] font-bold leading-snug";
+
 export const ADDR_SEARCH_WRAP =
   "flex w-full items-center gap-2 rounded-ui-rect border border-sam-primary-border/70 bg-white px-3 py-2 shadow-sm";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
@@ -15,10 +15,14 @@ export function AdminStoreApplicationSettingsPage() {
   const searchParams = useSearchParams();
   const menu = (searchParams.get("menu") ?? "").trim().toLowerCase();
   const activeMenu: "alerts" | "stores" = menu === "stores" ? "stores" : "alerts";
+  /** 탭 전환 시 언마운트하지 않고 hidden — 업종 목록·선택·썸네일 유지 */
+  const [storesPanelMounted, setStoresPanelMounted] = useState(activeMenu === "stores");
 
   const [msg, setMsg] = useState<string | null>(null);
+  const msgTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [riderLocationEnabled, setRiderLocationEnabled] = useState(false);
   const [riderLocationLoading, setRiderLocationLoading] = useState(false);
+  const [deliverySettingsReady, setDeliverySettingsReady] = useState(false);
   const [riderLocationSaving, setRiderLocationSaving] = useState(false);
   const [riderLocationError, setRiderLocationError] = useState<string | null>(null);
   const [rideTimeSourceSaved, setRideTimeSourceSaved] = useState<"store" | "google">("store");
@@ -32,8 +36,22 @@ export function AdminStoreApplicationSettingsPage() {
   );
 
   const showMessage = useCallback((text: string) => {
+    if (msgTimerRef.current != null) clearTimeout(msgTimerRef.current);
     setMsg(text);
-    window.setTimeout(() => setMsg(null), 4000);
+    msgTimerRef.current = setTimeout(() => {
+      msgTimerRef.current = null;
+      setMsg(null);
+    }, 4000);
+  }, []);
+
+  useEffect(() => {
+    if (activeMenu === "stores") setStoresPanelMounted(true);
+  }, [activeMenu]);
+
+  useEffect(() => {
+    return () => {
+      if (msgTimerRef.current != null) clearTimeout(msgTimerRef.current);
+    };
   }, []);
 
   const loadRiderLocationSetting = useCallback(async () => {
@@ -60,6 +78,7 @@ export function AdminStoreApplicationSettingsPage() {
       setRiderLocationError("network_error");
     } finally {
       setRiderLocationLoading(false);
+      setDeliverySettingsReady(true);
     }
   }, []);
 
@@ -221,14 +240,14 @@ export function AdminStoreApplicationSettingsPage() {
         </>
       ) : null}
 
-      {activeMenu === "stores" ? (
-        <>
+      {storesPanelMounted ? (
+        <div className={activeMenu === "stores" ? undefined : "hidden"} aria-hidden={activeMenu !== "stores"}>
           <section className="mt-6 rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
             <h2 className="sam-text-body font-semibold text-sam-fg">{t("admin_stores_app_ride_time_title")}</h2>
             {rideTimeSourceError ? (
               <p className="mt-2 sam-text-body-secondary text-red-700">({rideTimeSourceError})</p>
             ) : null}
-            <fieldset className="mt-3 space-y-2" disabled={riderLocationLoading || rideTimeSourceSaving}>
+            <fieldset className="mt-3 space-y-2" disabled={!deliverySettingsReady || rideTimeSourceSaving}>
               <legend className="sr-only">{t("admin_stores_app_ride_time_legend")}</legend>
               <label className="flex cursor-pointer items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
                 <input
@@ -237,7 +256,7 @@ export function AdminStoreApplicationSettingsPage() {
                   checked={rideTimeSourceDraft === "store"}
                   onChange={() => setRideTimeSourceDraft("store")}
                 />
-                <span className="font-semibold text-sam-fg">{t("admin_stores_app_ride_time_store")}</span>
+                  <span className="font-semibold text-sam-fg">{t("admin_stores_app_ride_time_store")}</span>
               </label>
               <label className="flex cursor-pointer items-center gap-2 rounded-ui-rect border border-sam-border bg-sam-app px-3 py-2">
                 <input
@@ -246,7 +265,7 @@ export function AdminStoreApplicationSettingsPage() {
                   checked={rideTimeSourceDraft === "google"}
                   onChange={() => setRideTimeSourceDraft("google")}
                 />
-                <span className="font-semibold text-sam-fg">{t("admin_stores_app_ride_time_google")}</span>
+                  <span className="font-semibold text-sam-fg">{t("admin_stores_app_ride_time_google")}</span>
               </label>
             </fieldset>
             <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -270,7 +289,7 @@ export function AdminStoreApplicationSettingsPage() {
           </section>
 
           <AdminStoreTaxonomyManager onMessage={showMessage} />
-        </>
+        </div>
       ) : null}
     </div>
   );

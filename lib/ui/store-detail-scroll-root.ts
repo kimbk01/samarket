@@ -26,10 +26,14 @@ export function invalidateStoreDetailScrollRootCache(): void {
   cachedScrollRoot = null;
 }
 
-/** 앱 본문이 실제로 스크롤되는 요소 (`<main>` 우선) */
+/** 앱 본문이 실제로 스크롤되는 요소 (허브 `[data-main-hub-scroll-body]` · `<main>` 우선) */
 export function getStoreDetailAppScrollRoot(): HTMLElement {
   if (typeof document === "undefined") {
     throw new Error("getStoreDetailAppScrollRoot requires document");
+  }
+  const hubMain = document.querySelector("[data-main-hub-scroll-body]");
+  if (hubMain instanceof HTMLElement && isScrollable(hubMain)) {
+    return hubMain;
   }
   const main = document.querySelector("main");
   if (main instanceof HTMLElement && isScrollable(main)) {

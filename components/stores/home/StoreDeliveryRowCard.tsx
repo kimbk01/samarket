@@ -16,6 +16,7 @@ import { BROWSE_FEATURED_ITEMS_PER_STORE_MAX } from "@/lib/stores/browse-feature
 import type { StoreHomeFeedItem } from "@/lib/stores/store-home-feed-types";
 import type { BrowseStoreListItem } from "@/lib/stores/browse-api-types";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { resolveStoreProductMediaUrl } from "@/lib/media/resolve-store-product-media-url";
 import { dibayPerfRecordStoreCardNavigationIntent } from "@/lib/dibay/delivery-flow-perf";
 import { StoreProductThumbnail } from "@/components/stores/common/StoreProductThumbnail";
 import {
@@ -363,10 +364,29 @@ function StoreDeliveryRowCardInner({
       deliveryFeeUi === t("store_free_delivery_applied"));
   const hasDiscountHint = data.isFeatured;
 
-  const showFeaturedSkeleton = featuredMenuHydration === "loading" && data.featuredItems.length === 0;
   const featuredMenuImages = data.featuredItems
     .filter((x) => typeof x.imageUrl === "string" && x.imageUrl.trim().length > 0)
     .slice(0, BROWSE_FEATURED_ITEMS_PER_STORE_MAX);
+
+  const profileHeroUrl = resolveStoreProductMediaUrl(data.profileImageUrl) ?? data.profileImageUrl?.trim() ?? null;
+  /** 스켈레톤은 실제 fetch 중(`loading`)일 때만 — `idle`·프로필 fallback 은 즉시 표시 */
+  const showFeaturedMenuSkeleton =
+    featuredMenuHydration === "loading" && featuredMenuImages.length === 0 && !profileHeroUrl;
+
+  type FeaturedTile = StoreFeaturedCardItem & { kind?: "menu" | "profile" };
+  const featuredMenuTiles: FeaturedTile[] =
+    featuredMenuImages.length > 0 ? featuredMenuImages.map((x) => ({ ...x, kind: "menu" as const }))
+    : profileHeroUrl ?
+      [
+        {
+          productId: "__store_profile__",
+          name: data.nameKo,
+          price: 0,
+          imageUrl: profileHeroUrl,
+          kind: "profile" as const,
+        },
+      ]
+    : [];
   /** 서비스 형태(DB 플래그)와 배달비·프로모 뱃지를 분리 — 배달 방식(유료/무료적용/착불)과 무관하게 노출 */
   const serviceBadgeClass =
     "bg-[#F3F4F6] text-[#4B5563] dark:bg-[#2A2C2E] dark:text-[#B8C0CA]";
@@ -456,9 +476,9 @@ function StoreDeliveryRowCardInner({
     >
       <div>
         <div className="relative min-h-[116px]">
-          {showFeaturedSkeleton ? (
+          {showFeaturedMenuSkeleton ? (
             <StoreBrowseFeaturedMenuSkeleton />
-          ) : featuredMenuImages.length > 0 ? (
+          ) : featuredMenuTiles.length > 0 ? (
             <div
               className={[
                 "flex snap-x snap-mandatory gap-1 overflow-x-auto overscroll-x-contain",
@@ -467,22 +487,35 @@ function StoreDeliveryRowCardInner({
               style={{ WebkitOverflowScrolling: "touch" }}
               aria-label={t("store_featured_menu_image_aria")}
             >
-              {featuredMenuImages.map((item) => {
-                const price = priceLabel(item.price);
+              {featuredMenuTiles.map((item) => {
+                const isProfile = item.kind === "profile";
+                const price = isProfile ? null : priceLabel(item.price);
                 return (
                   <button
                     key={item.productId}
                     type="button"
-                    aria-label={t("store_row_menu_view_aria", { store: data.nameKo, item: item.name })}
+                    aria-label={
+                      isProfile ?
+                        t("store_row_store_more_aria", { store: data.nameKo })
+                      : t("store_row_menu_view_aria", { store: data.nameKo, item: item.name })
+                    }
                     className={[
                       "relative shrink-0 snap-start overflow-hidden rounded-[10px] bg-[#F3F4F6] text-left dark:bg-[#2B2D30]",
-                      "w-[calc((100%-8px)/3)] h-[116px]",
+                      isProfile ? "w-full h-[116px]" : "w-[calc((100%-8px)/3)] h-[116px]",
                       "transition-[transform,opacity] duration-120 active:scale-[0.98] active:opacity-90",
                     ].join(" ")}
-                    onPointerEnter={() => warmFeaturedMenuNavigation(item.productId, "pointer_enter")}
-                    onPointerDown={() => warmFeaturedMenuNavigation(item.productId, "pointer_down")}
-                    onTouchStart={() => warmFeaturedMenuNavigation(item.productId, "touch_start")}
-                    onClick={() => navigateToStore("featured_menu", item.productId)}
+                    onPointerEnter={
+                      isProfile ? undefined : () => warmFeaturedMenuNavigation(item.productId, "pointer_enter")
+                    }
+                    onPointerDown={
+                      isProfile ? undefined : () => warmFeaturedMenuNavigation(item.productId, "pointer_down")
+                    }
+                    onTouchStart={
+                      isProfile ? undefined : () => warmFeaturedMenuNavigation(item.productId, "touch_start")
+                    }
+                    onClick={() =>
+                      navigateToStore(isProfile ? "card" : "featured_menu", isProfile ? undefined : item.productId)
+                    }
                   >
                     <StoreProductThumbnail
                       src={(item.imageUrl as string) || ""}
@@ -490,15 +523,18 @@ function StoreDeliveryRowCardInner({
                       roundedClassName="rounded-[10px]"
                       className="h-full w-full"
                     />
-                    <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-2 pb-1.5 pt-8">
-                      <p className="line-clamp-1 text-[11.5px] font-semibold leading-snug text-white">
-                        {item.name}
-                      </p>
-                      <p className="line-clamp-1 text-[12.5px] font-bold leading-snug text-white">{price}</p>
-                    </div>
+                    {!isProfile && price ?
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent px-2 pb-1.5 pt-8">
+                        <p className="line-clamp-1 text-[11.5px] font-semibold leading-snug text-white">
+                          {item.name}
+                        </p>
+                        <p className="line-clamp-1 text-[12.5px] font-bold leading-snug text-white">{price}</p>
+                      </div>
+                    : null}
                   </button>
                 );
               })}
+              {featuredMenuImages.length > 0 ?
               <button
                 type="button"
                 aria-label={t("store_row_store_more_aria", { store: data.nameKo })}
@@ -524,6 +560,7 @@ function StoreDeliveryRowCardInner({
                   </span>
                 </div>
               </button>
+              : null}
             </div>
           ) : (
             <button

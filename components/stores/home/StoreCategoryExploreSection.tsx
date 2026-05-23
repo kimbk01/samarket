@@ -244,8 +244,9 @@ export function StoreCategoryExploreSection({
     [primaryIndustryTablist]
   );
 
+  /** `/stores` 홈은 `StoresHomeHub` 가 LocationBar+SearchCta 만 stickyBelow 등록 — 업종 탭 금지 */
   useLayoutEffect(() => {
-    if (!setMainTier1Extras || !isStoresHubRoot) return;
+    if (!setMainTier1Extras || isStoresHubRoot) return;
     setMainTier1Extras({ stickyBelow: storesHubStickyBelow });
     return () => setMainTier1Extras(null);
   }, [isStoresHubRoot, setMainTier1Extras, storesHubStickyBelow]);

@@ -351,6 +351,13 @@ export function isStoresTaxonomyClientCacheFresh(): boolean {
   return !!hit && hit.expiresAt > Date.now();
 }
 
+/** 동기 peek — 홈 카테고리 마운트 시 mock·정적 아이콘 FOUC 방지 */
+export function peekStoresTaxonomyClientCache(): StoreApiJsonResponse | null {
+  const hit = storeTaxonomyPublicCache.get(STORE_TAXONOMY_PUBLIC_CACHE_KEY);
+  if (!hit || hit.expiresAt <= Date.now()) return null;
+  return { status: hit.value.status, json: hit.value.json };
+}
+
 /** 어드민이 공개 taxonomy 를 바꾼 직후 등 — 다음 `fetchStoresTaxonomyDeduped` 가 네트워크를 탄다 */
 export function clearStoresTaxonomyClientCache(): void {
   storeTaxonomyPublicCache.delete(STORE_TAXONOMY_PUBLIC_CACHE_KEY);

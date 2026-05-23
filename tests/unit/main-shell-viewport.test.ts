@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
+import { resolveConditionalAppShellFlags } from "@/lib/layout/conditional-app-shell-flags";
 import {
   APP_SHELL_FILL_VIEWPORT_CLASS,
   MAIN_COLUMN_SCROLL_CLASS,
   MAIN_SHELL_VIEWPORT_LOCK_CLASS,
+  buildMainShellInnerRootClass,
   resolvesMainScrollInMainColumn,
 } from "@/lib/layout/main-shell-viewport";
 
@@ -49,5 +51,28 @@ describe("main-shell-viewport", () => {
   it("main scroll class includes overflow-y-auto", () => {
     expect(MAIN_COLUMN_SCROLL_CLASS).toMatch(/overflow-y-auto/);
     expect(APP_SHELL_FILL_VIEWPORT_CLASS).toMatch(/overflow-hidden/);
+  });
+
+  it("inner root for hub scroll avoids min-h-[100dvh]", () => {
+    const cls = buildMainShellInnerRootClass();
+    expect(cls).toMatch(/min-h-0/);
+    expect(cls).toMatch(/flex-1/);
+    expect(cls).not.toMatch(/100dvh/);
+    expect(buildMainShellInnerRootClass({ heroMenuSurface: true })).not.toMatch(/bg-sam-app/);
+  });
+});
+
+describe("stores hub scroll contract", () => {
+  it("/stores uses main column scroll with tier1 in layout", () => {
+    const f = resolveConditionalAppShellFlags("/stores", true);
+    expect(
+      resolvesMainScrollInMainColumn({
+        isChatRoomDetail: f.isChatRoomDetail,
+        isStoreOwnerAdminRoute: f.isStoreOwnerAdminRoute,
+        isMainColumnViewportLocked: f.isMainColumnViewportLocked,
+      })
+    ).toBe(true);
+    expect(f.showRegionBar).toBe(false);
+    expect(f.isChatRoomDetail).toBe(false);
   });
 });

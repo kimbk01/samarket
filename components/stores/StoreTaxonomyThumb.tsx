@@ -12,6 +12,7 @@ export function StoreTaxonomyThumb({
   isUploaded,
   dimmed,
   frameClassName = "",
+  imgSize = "tab",
 }: {
   src: string;
   alt?: string;
@@ -19,6 +20,8 @@ export function StoreTaxonomyThumb({
   isUploaded: boolean;
   dimmed?: boolean;
   frameClassName?: string;
+  /** `fill` — 홈 1차 업종 그리드 등 큰 프레임 */
+  imgSize?: "tab" | "fill";
 }) {
   return (
     <span
@@ -31,7 +34,7 @@ export function StoreTaxonomyThumb({
       <img
         src={src}
         alt={alt}
-        className={storeTaxonomyThumbImgClass(isUploaded)}
+        className={storeTaxonomyThumbImgClass(isUploaded, imgSize)}
         loading="lazy"
         decoding="async"
       />

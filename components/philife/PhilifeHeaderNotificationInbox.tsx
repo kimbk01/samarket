@@ -35,6 +35,10 @@ import { countUnread } from "@/lib/notifications/aggregate-inbox-summaries";
 import { primeNotificationSoundAudio } from "@/lib/notifications/play-notification-sound";
 import { APP_MAIN_GUTTER_X_CLASS } from "@/lib/ui/app-content-layout";
 import { Tier1HeaderBellGlyph, Tier1HeaderBellMutedGlyph } from "@/lib/ui/tier1-header-glyphs";
+import {
+  STORES_HOME_HEADER_ICON_BTN_CLASS,
+  STORES_HOME_HEADER_NOTIF_BADGE_CLASS,
+} from "@/lib/design/stores-home-header-chrome";
 
 type Row = {
   id: string;
@@ -68,7 +72,12 @@ function SettingsGearIcon() {
 /**
  * `/philife` 1단 우측 종: 상단·아래로 요약(채팅 방 단위 묶음) + 상단 설정 + 하단 인앱음/전체보기
  */
-export function PhilifeHeaderNotificationInbox() {
+export function PhilifeHeaderNotificationInbox({
+  tone = "default",
+}: {
+  /** 녹색 배달 홈 헤더 — 흰 아이콘·delivery 뱃지 */
+  tone?: "default" | "onPrimary";
+}) {
   const router = useRouter();
   const { t, language } = useI18n();
   const panelId = useId();
@@ -405,7 +414,11 @@ export function PhilifeHeaderNotificationInbox() {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="sam-header-action relative h-10 w-10 shrink-0 text-sam-fg transition-[transform,background-color,opacity] duration-300 ease-out active:duration-100 active:scale-[0.88] active:bg-sam-surface-muted active:opacity-85"
+        className={
+          tone === "onPrimary"
+            ? STORES_HOME_HEADER_ICON_BTN_CLASS
+            : "sam-header-action relative h-10 w-10 shrink-0 text-sam-fg transition-[transform,background-color,opacity] duration-300 ease-out active:duration-100 active:scale-[0.88] active:bg-sam-surface-muted active:opacity-85"
+        }
         aria-haspopup="dialog"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
@@ -415,7 +428,14 @@ export function PhilifeHeaderNotificationInbox() {
           <BellGlyph muted={soundLoaded && !soundOn} />
         </span>
         {totalUnread > 0 ? (
-          <span className="absolute right-0.5 top-0.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-sam-primary px-0.5 text-[9px] font-bold leading-none text-sam-on-primary">
+          <span
+            className={
+              tone === "onPrimary"
+                ? STORES_HOME_HEADER_NOTIF_BADGE_CLASS
+                : "absolute right-0.5 top-0.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-sam-primary px-0.5 text-[9px] font-bold leading-none text-sam-on-primary"
+            }
+            aria-hidden
+          >
             {totalUnread > 99 ? "99+" : totalUnread}
           </span>
         ) : null}

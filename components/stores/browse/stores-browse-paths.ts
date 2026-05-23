@@ -12,6 +12,20 @@ export function storesBrowsePath(primarySlug: string, subSlug: string): string {
   return `/stores/browse/${encodeURIComponent(primarySlug)}?${q.toString()}`;
 }
 
+/** browse URL — `sort` 쿼리는 StoresBrowsePrimaryView 초기 정렬 */
+export function storesBrowsePathWithSort(
+  primarySlug: string,
+  opts?: { sub?: string; sort?: import("@/components/stores/browse/StoreListFilters").StoreBrowseSortId }
+): string {
+  const slug = primarySlug.trim().toLowerCase() || "restaurant";
+  const sub = (opts?.sub ?? "all").trim().toLowerCase() || "all";
+  const q = new URLSearchParams();
+  q.set("sub", sub);
+  const sort = opts?.sort;
+  if (sort && sort !== "default") q.set("sort", sort);
+  return `/stores/browse/${encodeURIComponent(slug)}?${q.toString()}`;
+}
+
 /** 칩 클릭 시 optimistic/perf `sub` — href 와 반드시 같은 topic slug(또는 ALL) */
 export function storesBrowseNavSubSlug(topicSlug: string): string {
   const s = topicSlug.trim();

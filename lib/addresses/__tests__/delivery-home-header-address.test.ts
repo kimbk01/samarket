@@ -1,0 +1,131 @@
+import { describe, expect, it } from "vitest";
+import {
+  buildDeliveryHomeHeaderAddressLine,
+  pickDeliveryHomeHeaderAddress,
+  resolveDeliveryHomeHeaderDisplayLine,
+} from "@/lib/addresses/delivery-home-header-address";
+import type { UserAddressDTO } from "@/lib/addresses/user-address-types";
+
+function addr(partial: Partial<UserAddressDTO> & { id: string }): UserAddressDTO {
+  return {
+    id: partial.id,
+    userId: "u1",
+    labelType: "home",
+    linkedStoreId: null,
+    nickname: null,
+    recipientName: null,
+    phoneNumber: null,
+    countryCode: "PH",
+    countryName: "Philippines",
+    province: partial.province ?? "Metro Manila",
+    cityMunicipality: partial.cityMunicipality ?? "Manila",
+    barangay: partial.barangay ?? null,
+    district: partial.district ?? null,
+    streetAddress: partial.streetAddress ?? null,
+    buildingName: partial.buildingName ?? null,
+    unitFloorRoom: partial.unitFloorRoom ?? null,
+    landmark: null,
+    latitude: null,
+    longitude: null,
+    placeId: partial.placeId ?? null,
+    formattedAddress: partial.formattedAddress ?? null,
+    roadAddress: partial.roadAddress ?? null,
+    detailAddress: partial.detailAddress ?? null,
+    deliveryNote: null,
+    fullAddress: partial.fullAddress ?? null,
+    neighborhoodName: partial.neighborhoodName ?? null,
+    appRegionId: null,
+    appCityId: null,
+    useForLife: true,
+    useForTrade: false,
+    useForDelivery: true,
+    isDefaultMaster: true,
+    isDefaultLife: false,
+    isDefaultTrade: false,
+    isDefaultDelivery: false,
+    isActive: true,
+    sortOrder: 0,
+    lastUsedAt: null,
+    createdAt: "",
+    updatedAt: "",
+  };
+}
+
+describe("buildDeliveryHomeHeaderAddressLine", () => {
+  it("prefers neighborhood + user detail (not Google road)", () => {
+    const line = buildDeliveryHomeHeaderAddressLine(
+      addr({
+        id: "a1",
+        neighborhoodName: "Malate",
+        streetAddress: "2847-2 Mabini St",
+        roadAddress: "123 Long Google Formatted Ave, Manila, Philippines",
+      })
+    );
+    expect(line).toBe("Malate 2847-2 Mabini St");
+    expect(line).not.toContain("Google");
+  });
+
+  it("ignores Google formattedAddress when user detail exists", () => {
+    const line = buildDeliveryHomeHeaderAddressLine(
+      addr({
+        id: "a2",
+        barangay: "복대동",
+        buildingName: "2847-2",
+        formattedAddress: "Some Google Place, Quezon City, Metro Manila, Philippines",
+        fullAddress: "Some Google Place, Quezon City, Metro Manila, Philippines",
+      })
+    );
+    expect(line).toBe("복대동 2847-2");
+  });
+
+  it("does not fall back to Google-only roadAddress", () => {
+    const line = buildDeliveryHomeHeaderAddressLine(
+      addr({
+        id: "a3",
+        roadAddress: "123 Google Road, Manila",
+        formattedAddress: "123 Google Road, Manila, Philippines",
+      })
+    );
+    expect(line).toBeNull();
+  });
+
+  it("returns null when no address id", () => {
+    expect(buildDeliveryHomeHeaderAddressLine(null)).toBeNull();
+    expect(buildDeliveryHomeHeaderAddressLine(addr({ id: "" }))).toBeNull();
+  });
+
+  it("joins multiple user detail fields", () => {
+    const line = buildDeliveryHomeHeaderAddressLine(
+      addr({
+        id: "a4",
+        neighborhoodName: "Malate",
+        buildingName: "Green Residences",
+        unitFloorRoom: "Unit 12B",
+      })
+    );
+    expect(line).toContain("Malate");
+    expect(line).toContain("Green Residences");
+    expect(line).toContain("Unit 12B");
+  });
+});
+
+describe("resolveDeliveryHomeHeaderDisplayLine", () => {
+  it("falls back to detailAddress when neighborhood detail is empty", () => {
+    const line = resolveDeliveryHomeHeaderDisplayLine(
+      addr({
+        id: "a5",
+        detailAddress: "1003 - COD",
+        formattedAddress: "Google only line, Manila, Philippines",
+      })
+    );
+    expect(line).toBe("1003 - COD");
+  });
+});
+
+describe("pickDeliveryHomeHeaderAddress", () => {
+  it("prefers delivery default over master", () => {
+    const delivery = addr({ id: "d1", neighborhoodName: "A", buildingName: "1" });
+    const master = addr({ id: "m1", neighborhoodName: "B", buildingName: "2" });
+    expect(pickDeliveryHomeHeaderAddress({ delivery, master, life: null, trade: null })?.id).toBe("d1");
+  });
+});

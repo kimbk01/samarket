@@ -1,3 +1,4 @@
+import { resolveStoreProductMediaUrl } from "@/lib/media/resolve-store-product-media-url";
 import { buildFeaturedMenuPreviewLine } from "@/lib/stores/browse-featured-items-types";
 import type { BrowseFeaturedCardItem } from "@/lib/stores/browse-featured-items-types";
 import type { StoreRowCardData } from "@/components/stores/home/StoreDeliveryRowCard";
@@ -21,7 +22,10 @@ export function mergeFeaturedHydrationIntoStoreRowCard(
   if (hydrated === undefined) return base;
   return {
     ...base,
-    featuredItems: hydrated,
+    featuredItems: hydrated.map((x) => ({
+      ...x,
+      imageUrl: resolveStoreProductMediaUrl(x.imageUrl) ?? x.imageUrl,
+    })),
     menuPreview: buildFeaturedMenuPreviewLine(hydrated) ?? base.menuPreview,
   };
 }

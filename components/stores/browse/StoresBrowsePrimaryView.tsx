@@ -72,6 +72,7 @@ import {
   resolveStorePrimaryIndustryLabel,
   resolveStoreTopicLabel,
 } from "@/lib/i18n/store-browse-label-i18n";
+import { parseStoreBrowseSortParam } from "@/lib/stores/stores-home-section-browse-hrefs";
 import {
   STORE_BROWSE_SUB_CHIP_BUTTON,
   STORE_BROWSE_SUB_CHIP_LABEL,
@@ -213,7 +214,9 @@ export function StoresBrowsePrimaryView({
   const [remoteRows, setRemoteRows] = useState<BrowseStoreListItem[] | undefined>(undefined);
   const [feedSource, setFeedSource] = useState<BrowseFeedMetaSource>(null);
   const [remoteLoading, setRemoteLoading] = useState(true);
-  const [listSort, setListSort] = useState<StoreBrowseSortId>("default");
+  const [listSort, setListSort] = useState<StoreBrowseSortId>(() =>
+    parseStoreBrowseSortParam(searchParams?.get("sort"))
+  );
   /** browse `user_lat`/`user_lng` — 주소 기본→프로필→GPS 순으로 matrix ETA·직선 거리 */
   const [browseUserGeo, setBrowseUserGeo] = useState<{ lat: number; lng: number } | null>(null);
   const [deliveryRideTimeSource, setDeliveryRideTimeSource] = useState("google");
@@ -327,6 +330,10 @@ export function StoresBrowsePrimaryView({
     const hit = subs.find((s) => s.slug.toLowerCase() === p);
     return hit ? hit.slug : null;
   }, [trimmedBrowseSubParam, subs]);
+
+  useEffect(() => {
+    setListSort(parseStoreBrowseSortParam(searchParams?.get("sort")));
+  }, [searchParams]);
 
   useEffect(() => {
     // URL/searchParams가 확정되면 optimistic 상태를 해제

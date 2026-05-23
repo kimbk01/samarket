@@ -1,12 +1,20 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type {
   StoreTaxonomyCategory,
   StoreTaxonomySubtopic,
   StoreTaxonomyTopic,
 } from "@/lib/stores/store-taxonomy-types";
+import {
+  mergeAdminTaxonomyState,
+  patchRowImageInState,
+  upsertCategoryInState,
+  upsertSubtopicInState,
+  upsertTopicInState,
+  type AdminTaxonomyState,
+} from "@/lib/stores/admin-store-taxonomy-state";
 import { clearStoresTaxonomyClientCache } from "@/lib/stores/store-delivery-api-client";
 import { slugifyStoreTaxonomyLoose } from "@/lib/stores/store-taxonomy-slug";
 
@@ -29,16 +37,24 @@ type TaxonomyRowBase = {
   is_active?: boolean;
 };
 
-function TaxonomyThumb({ imageUrl, labelNone }: { imageUrl?: string | null; labelNone: string }) {
+const TaxonomyThumb = memo(function TaxonomyThumb({
+  imageUrl,
+  labelNone,
+}: {
+  imageUrl?: string | null;
+  labelNone: string;
+}) {
   if (imageUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
+        key={imageUrl}
         src={imageUrl}
         alt=""
         aria-hidden
         className="h-10 w-10 shrink-0 rounded-ui-rect border border-sam-border object-cover"
-        loading="lazy"
+        loading="eager"
+        decoding="async"
       />
     );
   }
@@ -47,7 +63,7 @@ function TaxonomyThumb({ imageUrl, labelNone }: { imageUrl?: string | null; labe
       {labelNone}
     </div>
   );
-}
+});
 
 function TaxonomyColumn<T extends TaxonomyRowBase>({
   title,
@@ -146,7 +162,7 @@ function TaxonomyColumn<T extends TaxonomyRowBase>({
             const uploadKey = `${uploadKeyPrefix}:${row.id}`;
             const isUploading = uploadingKey === uploadKey;
 
-            const rowShellClass = `w-full px-3 py-2 text-left transition ${
+            const rowShellClass = `w-full px-3 py-2 text-left ${
               selectable && isSelected ? "bg-sam-primary-soft/60" : selectable ? "hover:bg-sam-app" : ""
             }`;
 
@@ -314,15 +330,16 @@ export function AdminStoreTaxonomyManager({
   onMessage: (text: string) => void;
 }) {
   const { t } = useI18n();
-  const [taxonomy, setTaxonomy] = useState<{
-    categories: StoreTaxonomyCategory[];
-    topics: StoreTaxonomyTopic[];
-    subtopics: StoreTaxonomySubtopic[];
-  } | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [taxonomy, setTaxonomy] = useState<AdminTaxonomyState | null>(null);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const reloadInFlightRef = useRef(false);
+  const hasTaxonomyDataRef = useRef(false);
+  const reloadAbortRef = useRef<AbortController | null>(null);
   const [seeding, setSeeding] = useState(false);
   const [pickedCategoryId, setPickedCategoryId] = useState("");
-  const [pickedTopicId, setPickedTopicId] = useState("");
+  /** null = 해당 1차의 첫 2차 자동 선택 */
+  const [manualTopicId, setManualTopicId] = useState<string | null>(null);
   const [editingKind, setEditingKind] = useState<TaxonomyKind | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingDraft, setEditingDraft] = useState<RowDraft | null>(null);
@@ -335,42 +352,70 @@ export function AdminStoreTaxonomyManager({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [subtopicsTableMissing, setSubtopicsTableMissing] = useState(false);
 
-  const reloadTaxonomy = useCallback(async () => {
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const res = await fetch("/api/admin/stores/taxonomy", { cache: "no-store", credentials: "include" });
-      const j = (await res.json().catch(() => ({}))) as {
-        ok?: boolean;
-        error?: string;
-        categories?: unknown;
-        topics?: unknown;
-        subtopics?: unknown;
-        meta?: { subtopics_table?: string };
-      };
-      if (!res.ok || !j?.ok || !Array.isArray(j.categories) || !Array.isArray(j.topics)) {
-        setLoadError(typeof j?.error === "string" ? j.error : `HTTP ${res.status}`);
-        return;
-      }
-      const categories = j.categories as StoreTaxonomyCategory[];
-      const topics = j.topics as StoreTaxonomyTopic[];
-      const subtopics = Array.isArray(j.subtopics) ? (j.subtopics as StoreTaxonomySubtopic[]) : [];
-      setTaxonomy({ categories, topics, subtopics });
-      setSubtopicsTableMissing(j.meta?.subtopics_table === "missing");
-      clearStoresTaxonomyClientCache();
+  const applyServerTaxonomy = useCallback(
+    (payload: AdminTaxonomyState, meta?: { subtopics_table?: string }) => {
+      setTaxonomy((prev) => mergeAdminTaxonomyState(prev, payload));
+      setSubtopicsTableMissing(meta?.subtopics_table === "missing");
       setPickedCategoryId((prev) => {
-        if (prev && categories.some((c) => c.id === prev)) return prev;
-        return categories[0]?.id ?? "";
+        if (prev && payload.categories.some((c) => c.id === prev)) return prev;
+        return payload.categories[0]?.id ?? "";
       });
-    } catch {
-      setLoadError("network_error");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      hasTaxonomyDataRef.current = payload.categories.length > 0;
+    },
+    []
+  );
+
+  const reloadTaxonomy = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      if (reloadInFlightRef.current) reloadAbortRef.current?.abort();
+      reloadInFlightRef.current = true;
+      const silent = opts?.silent === true || hasTaxonomyDataRef.current;
+      if (!silent) setRefreshing(true);
+      setLoadError(null);
+      reloadAbortRef.current?.abort();
+      const ac = new AbortController();
+      reloadAbortRef.current = ac;
+      try {
+        const res = await fetch("/api/admin/stores/taxonomy", {
+          cache: "no-store",
+          credentials: "include",
+          signal: ac.signal,
+        });
+        const j = (await res.json().catch(() => ({}))) as {
+          ok?: boolean;
+          error?: string;
+          categories?: unknown;
+          topics?: unknown;
+          subtopics?: unknown;
+          meta?: { subtopics_table?: string };
+        };
+        if (ac.signal.aborted) return;
+        if (!res.ok || !j?.ok || !Array.isArray(j.categories) || !Array.isArray(j.topics)) {
+          setLoadError(typeof j?.error === "string" ? j.error : `HTTP ${res.status}`);
+          return;
+        }
+        const payload: AdminTaxonomyState = {
+          categories: j.categories as StoreTaxonomyCategory[],
+          topics: j.topics as StoreTaxonomyTopic[],
+          subtopics: Array.isArray(j.subtopics) ? (j.subtopics as StoreTaxonomySubtopic[]) : [],
+        };
+        applyServerTaxonomy(payload, j.meta);
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        setLoadError("network_error");
+      } finally {
+        if (reloadAbortRef.current === ac) reloadAbortRef.current = null;
+        reloadInFlightRef.current = false;
+        setInitialLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [applyServerTaxonomy]
+  );
 
   useEffect(() => {
     void reloadTaxonomy();
+    return () => reloadAbortRef.current?.abort();
   }, [reloadTaxonomy]);
 
   const categories = taxonomy?.categories ?? [];
@@ -385,24 +430,18 @@ export function AdminStoreTaxonomyManager({
     [topics, pickedCategoryId]
   );
 
+  const activeTopicId = useMemo(() => {
+    if (manualTopicId && topicsForCategory.some((t) => t.id === manualTopicId)) return manualTopicId;
+    return topicsForCategory[0]?.id ?? "";
+  }, [manualTopicId, topicsForCategory]);
+
   const subtopicsForTopic = useMemo(
     () =>
       subtopics
-        .filter((row) => row.store_topic_id === pickedTopicId)
+        .filter((row) => row.store_topic_id === activeTopicId)
         .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0)),
-    [subtopics, pickedTopicId]
+    [subtopics, activeTopicId]
   );
-
-  useEffect(() => {
-    if (!pickedCategoryId && categories[0]?.id) setPickedCategoryId(categories[0].id);
-  }, [categories, pickedCategoryId]);
-
-  useEffect(() => {
-    const first = topicsForCategory[0]?.id ?? "";
-    if (!pickedTopicId || !topicsForCategory.some((t) => t.id === pickedTopicId)) {
-      setPickedTopicId(first);
-    }
-  }, [topicsForCategory, pickedTopicId]);
 
   const cancelEdit = useCallback(() => {
     setEditingKind(null);
@@ -445,6 +484,14 @@ export function AdminStoreTaxonomyManager({
           window.alert(j.message ?? j.error ?? t("admin_stores_app_taxonomy_err_upload"));
           return false;
         }
+        const url = typeof j.url === "string" ? j.url.trim() : "";
+        if (url) {
+          setTaxonomy((prev) => {
+            if (!prev) return prev;
+            return patchRowImageInState(prev, kind, id, url);
+          });
+          clearStoresTaxonomyClientCache();
+        }
         return true;
       } catch {
         window.alert("network_error");
@@ -464,10 +511,24 @@ export function AdminStoreTaxonomyManager({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kind, id, patch }),
       });
-      const j = (await res.json().catch(() => ({}))) as { ok?: boolean; error?: string };
+      const j = (await res.json().catch(() => ({}))) as {
+        ok?: boolean;
+        error?: string;
+        row?: StoreTaxonomyCategory | StoreTaxonomyTopic | StoreTaxonomySubtopic;
+      };
       if (!res.ok || !j.ok) {
         window.alert(j.error ?? t("admin_stores_app_taxonomy_err_save"));
         return false;
+      }
+      const row = j.row;
+      if (row && typeof row === "object" && "id" in row) {
+        setTaxonomy((prev) => {
+          if (!prev) return prev;
+          if (kind === "category") return upsertCategoryInState(prev, row as StoreTaxonomyCategory);
+          if (kind === "topic") return upsertTopicInState(prev, row as StoreTaxonomyTopic);
+          return upsertSubtopicInState(prev, row as StoreTaxonomySubtopic);
+        });
+        clearStoresTaxonomyClientCache();
       }
       return true;
     },
@@ -492,30 +553,18 @@ export function AdminStoreTaxonomyManager({
       if (!ok) return;
       onMessage(t("admin_stores_app_taxonomy_msg_saved"));
       cancelEdit();
-      await reloadTaxonomy();
     } finally {
       setRowSaving(false);
     }
-  }, [
-    editingKind,
-    editingId,
-    editingDraft,
-    uploadImage,
-    patchRow,
-    t,
-    onMessage,
-    cancelEdit,
-    reloadTaxonomy,
-  ]);
+  }, [editingKind, editingId, editingDraft, uploadImage, patchRow, t, onMessage, cancelEdit]);
 
   const toggleActive = useCallback(
     async (kind: TaxonomyKind, id: string, nextActive: boolean) => {
       const ok = await patchRow(kind, id, { is_active: nextActive });
       if (!ok) return;
       onMessage(t("admin_stores_app_taxonomy_msg_applied"));
-      await reloadTaxonomy();
     },
-    [patchRow, t, onMessage, reloadTaxonomy]
+    [patchRow, t, onMessage]
   );
 
   const seedDefaults = useCallback(async () => {
@@ -544,7 +593,8 @@ export function AdminStoreTaxonomyManager({
           topics: j.seeded?.topics ?? 0,
         })
       );
-      await reloadTaxonomy();
+      await reloadTaxonomy({ silent: true });
+      clearStoresTaxonomyClientCache();
     } finally {
       setSeeding(false);
     }
@@ -562,7 +612,7 @@ export function AdminStoreTaxonomyManager({
         ok?: boolean;
         error?: string;
         message?: string;
-        row?: { id?: string };
+        row?: StoreTaxonomyCategory | StoreTaxonomyTopic | StoreTaxonomySubtopic;
       };
       if (!res.ok || !j.ok) {
         const err = j.error ?? "";
@@ -574,11 +624,20 @@ export function AdminStoreTaxonomyManager({
         return null;
       }
       onMessage(t("admin_stores_app_taxonomy_msg_created"));
-      const newId = typeof j.row?.id === "string" ? j.row.id : null;
-      await reloadTaxonomy();
-      return newId;
+      const row = j.row;
+      if (row && typeof row === "object" && "id" in row) {
+        setTaxonomy((prev) => {
+          const base = prev ?? { categories: [], topics: [], subtopics: [] };
+          if (kind === "category") return upsertCategoryInState(base, row as StoreTaxonomyCategory);
+          if (kind === "topic") return upsertTopicInState(base, row as StoreTaxonomyTopic);
+          return upsertSubtopicInState(base, row as StoreTaxonomySubtopic);
+        });
+        clearStoresTaxonomyClientCache();
+        hasTaxonomyDataRef.current = true;
+      }
+      return typeof row?.id === "string" ? row.id : null;
     },
-    [t, onMessage, reloadTaxonomy]
+    [t, onMessage]
   );
 
   const editingColumnKind: TaxonomyKind | null =
@@ -593,10 +652,11 @@ export function AdminStoreTaxonomyManager({
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => void reloadTaxonomy()}
-            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-semibold text-sam-fg"
+            onClick={() => void reloadTaxonomy({ silent: true })}
+            disabled={refreshing}
+            className="rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body-secondary font-semibold text-sam-fg disabled:opacity-50"
           >
-            {t("admin_stores_fee_refresh")}
+            {refreshing ? t("common_loading") : t("admin_stores_fee_refresh")}
           </button>
           <button
             type="button"
@@ -623,12 +683,11 @@ export function AdminStoreTaxonomyManager({
           selectedId={pickedCategoryId}
           onSelect={(id) => {
             setPickedCategoryId(id);
+            setManualTopicId(null);
             cancelEdit();
           }}
-          loading={loading}
+          loading={initialLoading}
           emptyLabel={t("admin_stores_app_taxonomy_empty_category")}
-          seedLabel={t("admin_stores_app_taxonomy_seed")}
-          onSeed={() => void seedDefaults()}
           seeding={seeding}
           addLabels={{
             name: t("admin_stores_app_taxonomy_ph_name"),
@@ -670,12 +729,12 @@ export function AdminStoreTaxonomyManager({
         <TaxonomyColumn
           title={t("admin_stores_app_taxonomy_tier2")}
           rows={topicsForCategory}
-          selectedId={pickedTopicId}
+          selectedId={activeTopicId}
           onSelect={(id) => {
-            setPickedTopicId(id);
+            setManualTopicId(id);
             cancelEdit();
           }}
-          loading={loading}
+          loading={initialLoading}
           emptyLabel={t("admin_stores_app_taxonomy_empty_topic")}
           addLabels={{
             name: t("admin_stores_app_taxonomy_ph_name"),
@@ -698,7 +757,7 @@ export function AdminStoreTaxonomyManager({
               sort_order,
             }).then((id) => {
               setNewTopic({ name: "", nameEn: "", slug: "" });
-              if (id) setPickedTopicId(id);
+              if (id) setManualTopicId(id);
             });
           }}
           addDisabled={!pickedCategoryId || !newTopic.name.trim()}
@@ -721,7 +780,7 @@ export function AdminStoreTaxonomyManager({
           selectedId=""
           onSelect={() => {}}
           selectable={false}
-          loading={loading}
+          loading={initialLoading}
           emptyLabel={t("admin_stores_app_taxonomy_empty_subtopic")}
           addLabels={{
             name: t("admin_stores_app_taxonomy_ph_name"),
@@ -734,17 +793,17 @@ export function AdminStoreTaxonomyManager({
           onAdd={() => {
             const name = newSubtopic.name.trim();
             const slug = slugifyStoreTaxonomyLoose(newSubtopic.slug || name);
-            if (!pickedTopicId || !name || !slug) return;
+            if (!activeTopicId || !name || !slug) return;
             const sort_order = subtopicsForTopic.reduce((m, r) => Math.max(m, r.sort_order ?? 0), 0) + 10;
             void createRow("subtopic", {
-              store_topic_id: pickedTopicId,
+              store_topic_id: activeTopicId,
               name,
               name_en: newSubtopic.nameEn.trim() || null,
               slug,
               sort_order,
             }).then(() => setNewSubtopic({ name: "", nameEn: "", slug: "" }));
           }}
-          addDisabled={!pickedTopicId || !newSubtopic.name.trim()}
+          addDisabled={!activeTopicId || !newSubtopic.name.trim()}
           editingId={editingColumnKind === "subtopic" ? editingId : null}
           editingDraft={editingColumnKind === "subtopic" ? editingDraft : null}
           onStartEdit={(row) => startEdit("subtopic", row)}

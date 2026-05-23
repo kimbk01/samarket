@@ -11,7 +11,6 @@ import { AuthComplianceRedirect } from "@/components/auth/AuthComplianceRedirect
 import { MandatoryAddressGate } from "@/components/addresses/MandatoryAddressGate";
 import { PhoneVerificationRequiredDialog } from "@/components/auth/PhoneVerificationRequiredDialog";
 import { ConditionalAppShell } from "@/components/layout/ConditionalAppShell";
-import { AppStickyHeader } from "@/components/layout/AppStickyHeader";
 import { OwnerHubBadgeRuntime } from "@/components/layout/OwnerHubBadgeRuntime";
 import { MainTier1ChromeProvider } from "@/components/layout/MainTier1ChromeProvider";
 import { MypageInfoHubPanelProvider, useMypageInfoHubPanel } from "@/contexts/MypageInfoHubPanelContext";
@@ -115,7 +114,7 @@ function MainShellPushLayer({ children }: { children: ReactNode }) {
   return (
     <div
       data-main-shell-root
-      className="min-h-0 w-full"
+      className="flex min-h-0 min-w-0 w-full flex-1 flex-col"
       style={pushStyle}
     >
       {children}
@@ -173,7 +172,6 @@ export function MainAppProviderTree({
                               <TradePresenceActivityProvider>
                                 <MainShellPushLayer>
                                   <div className={MAIN_SHELL_VIEWPORT_LOCK_CLASS}>
-                                    <AppStickyHeader />
                                     <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
                                     <PhilifeMessengerFromHeaderStack>
                                       <TradeHistoryFromHeaderStack>

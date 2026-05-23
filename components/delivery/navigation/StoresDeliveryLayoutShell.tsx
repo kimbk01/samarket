@@ -42,7 +42,7 @@ export function StoresDeliveryLayoutShell({
   }, [pathname]);
 
   return (
-    <div className="sam-domain-shell delivery-ui delivery-page min-h-full">
+    <div className="sam-domain-shell delivery-ui delivery-page min-h-0 w-full min-w-0">
       {children}
       <StoreDetailTransitionShellPortal />
     </div>

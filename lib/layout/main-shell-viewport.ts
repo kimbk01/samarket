@@ -1,6 +1,5 @@
 /**
- * 메인 앱 셸 뷰포트 — 헤더(`AppStickyHeader`)는 고정 높이, 본문은 `<main>` 만 스크롤.
- * 문서(body) 스크롤 + 헤더 `sticky` 조합은 flex 자식에서 빈번히 깨져 배달 허브 상단이 밀린다.
+ * 메인 앱 셸 뷰포트 — 허브·피드는 `main-hub-scroll-column.ts` (1단 고정 + `<main>` 단일 스크롤).
  */
 
 /** `MainAppProviderTree` — 앱 전체 높이를 뷰포트에 맞춤 */
@@ -25,3 +24,11 @@ export const MAIN_COLUMN_SCROLL_CLASS =
 
 export const APP_SHELL_FILL_VIEWPORT_CLASS =
   "flex min-h-0 flex-1 flex-col overflow-hidden";
+
+/**
+ * `AppStickyHeader` 아래 남은 높이만 채움 — `min-h-[100dvh]` 와 병행 금지(헤더+본문 > 뷰포트 → 스크롤 불가).
+ */
+export function buildMainShellInnerRootClass(opts?: { heroMenuSurface?: boolean }): string {
+  const bg = opts?.heroMenuSurface ? "" : " bg-sam-app";
+  return `${APP_SHELL_FILL_VIEWPORT_CLASS} min-w-0 max-w-full overflow-x-clip${bg}`;
+}

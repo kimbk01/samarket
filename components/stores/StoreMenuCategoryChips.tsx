@@ -6,7 +6,7 @@ import { DeliveryTheme } from "@/lib/design/delivery-theme";
 
 /**
  * 매장 메뉴 구역(배민식) — 가로 스크롤 카테고리 칩, 클릭 시 해당 섹션으로 스크롤.
- * 모바일: 터치 스와이프·모멘텀 스크롤(`HorizontalDragScroll` + touch-pan-x).
+ * 모바일: 터치 스와이프·모멘텀 스크롤(`HorizontalDragScroll` + overflow-x-auto).
  */
 export function StoreMenuCategoryChips({
   sections,
@@ -51,7 +51,7 @@ export function StoreMenuCategoryChips({
     "[-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
   const scrollCls =
     variant === "orderDetail"
-      ? `sam-i18n-chip-row flex flex-nowrap touch-pan-x gap-2 overflow-x-auto px-4 pb-1 [-webkit-overflow-scrolling:touch] ${scrollHide}`
+      ? `sam-i18n-chip-row flex flex-nowrap gap-2 overflow-x-auto px-4 pb-1 [-webkit-overflow-scrolling:touch] ${scrollHide}`
       : `sam-tabs sam-tabs--scroll sam-i18n-chip-row -mx-4 ${scrollHide}`;
 
   const chipCls = (on: boolean) =>

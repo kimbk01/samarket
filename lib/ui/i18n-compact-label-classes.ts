@@ -4,7 +4,7 @@
  */
 
 export const I18N_COMPACT_TABLIST_SCROLL =
-  "flex snap-x snap-mandatory gap-0 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] touch-pan-x [&::-webkit-scrollbar]:hidden";
+  "flex snap-x snap-mandatory gap-0 overflow-x-auto overscroll-x-contain [-ms-overflow-style:none] [scrollbar-width:none] [-webkit-overflow-scrolling:touch] [&::-webkit-scrollbar]:hidden";
 
 export const I18N_COMPACT_TAB_BUTTON =
   "flex min-w-[52px] max-w-[68px] w-[60px] shrink-0 snap-start flex-col items-center justify-center gap-0.5 rounded-ui-rect px-0.5 py-1.5 text-center";

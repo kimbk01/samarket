@@ -2,6 +2,7 @@
 
 import { runSingleFlight } from "@/lib/http/run-single-flight";
 import {
+  BROWSE_FEATURED_ITEMS_BATCH_STORE_CAP,
   mapFeaturedDtoToCardItems,
   type BrowseFeaturedCardItem,
   type BrowseFeaturedItemsByStoreDto,
@@ -18,6 +19,14 @@ function sortedFlightKey(storeIds: string[]): string {
   return [...storeIds].sort().join(",");
 }
 
+function chunkStoreIds(storeIds: string[], cap: number): string[][] {
+  const out: string[][] = [];
+  for (let i = 0; i < storeIds.length; i += cap) {
+    out.push(storeIds.slice(i, i + cap));
+  }
+  return out;
+}
+
 function peekClientFeatured(storeId: string): BrowseFeaturedCardItem[] | undefined {
   const row = memoryByStoreId.get(storeId);
   if (!row || row.expiresAt <= Date.now()) {
@@ -31,6 +40,38 @@ function setClientFeatured(storeId: string, items: BrowseFeaturedCardItem[]): vo
   memoryByStoreId.set(storeId, { expiresAt: Date.now() + CLIENT_TTL_MS, items });
 }
 
+async function fetchBrowseFeaturedItemsChunk(
+  storeIds: string[]
+): Promise<Map<string, BrowseFeaturedCardItem[]>> {
+  const stillMiss = [...new Set(storeIds.map((id) => id.trim()).filter(Boolean))];
+  const map = new Map<string, BrowseFeaturedCardItem[]>();
+  if (stillMiss.length === 0) return map;
+
+  const qs = new URLSearchParams({ storeIds: stillMiss.join(",") });
+  const res = await fetch(`/api/stores/browse-featured-items?${qs.toString()}`, {
+    credentials: "include",
+    cache: "no-store",
+    headers: { "x-samarket-surface": "browse_deferred" },
+  });
+  const json = (await res.json().catch(() => ({}))) as {
+    ok?: boolean;
+    items?: Record<string, BrowseFeaturedItemsByStoreDto>;
+  };
+  /** DO NOT cache empty featured items on fetch failure — 30s poison causes stuck placeholders. */
+  if (!res.ok || !json?.ok || !json.items) {
+    for (const id of stillMiss) {
+      map.set(id, []);
+    }
+    return map;
+  }
+  for (const id of stillMiss) {
+    const items = mapFeaturedDtoToCardItems(json.items[id]?.featuredItems);
+    setClientFeatured(id, items);
+    map.set(id, items);
+  }
+  return map;
+}
+
 export type FetchBrowseFeaturedBatchResult = {
   byStoreId: Map<string, BrowseFeaturedCardItem[]>;
   cacheHits: number;
@@ -38,6 +79,7 @@ export type FetchBrowseFeaturedBatchResult = {
 
 /**
  * 배치 1회 — 동일 storeId 집합 singleflight + storeId별 30s 메모리 캐시.
+ * API 상한(32매장) 초과 시 청크 분할 fetch.
  */
 export async function fetchBrowseFeaturedItemsBatch(
   storeIds: string[]
@@ -76,27 +118,11 @@ export async function fetchBrowseFeaturedItemsBatch(
     if (stillMiss.length === 0) {
       return map;
     }
-    const qs = new URLSearchParams({ storeIds: stillMiss.join(",") });
-    const res = await fetch(`/api/stores/browse-featured-items?${qs.toString()}`, {
-      credentials: "include",
-      cache: "no-store",
-      headers: { "x-samarket-surface": "browse_deferred" },
-    });
-    const json = (await res.json().catch(() => ({}))) as {
-      ok?: boolean;
-      items?: Record<string, BrowseFeaturedItemsByStoreDto>;
-    };
-    /** DO NOT cache empty featured items on fetch failure — 30s poison causes stuck placeholders. */
-    if (!res.ok || !json?.ok || !json.items) {
-      for (const id of stillMiss) {
-        map.set(id, []);
+    for (const chunk of chunkStoreIds(stillMiss, BROWSE_FEATURED_ITEMS_BATCH_STORE_CAP)) {
+      const part = await fetchBrowseFeaturedItemsChunk(chunk);
+      for (const [id, items] of part) {
+        map.set(id, items);
       }
-      return map;
-    }
-    for (const id of stillMiss) {
-      const items = mapFeaturedDtoToCardItems(json.items[id]?.featuredItems);
-      setClientFeatured(id, items);
-      map.set(id, items);
     }
     return map;
   });

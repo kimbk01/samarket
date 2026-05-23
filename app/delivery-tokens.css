@@ -19,7 +19,7 @@
   --delivery-primary: #006241;
   --delivery-primary-hover: #005235;
   --delivery-primary-active: #00452d;
-  --delivery-primary-soft: #edf7f2;
+  --delivery-primary-soft: #d4e9e2;
   --delivery-primary-border: color-mix(in srgb, var(--delivery-primary) 22%, #ffffff);
   --delivery-dark: #1e3932;
 
@@ -39,12 +39,14 @@
 
   --delivery-success: #1f9d55;
   --delivery-danger: #e74c3c;
-  --delivery-warning: #ffb020;
+  --delivery-warning: #ff6b00;
+
+  --delivery-badge-green: #00754a;
 
   --delivery-fs-page-title: 22px;
   --delivery-fs-header-title: 17px;
   --delivery-fs-modal-title: 22px;
-  --delivery-fs-section-title: 18px;
+  --delivery-fs-section-title: 16px;
   --delivery-fs-card-title: 17px;
   --delivery-fs-body: 14px;
   --delivery-fs-sub: 13px;
@@ -66,7 +68,7 @@
   --delivery-lh-address: 1.5;
 
   --delivery-page-x: 16px;
-  --delivery-section-gap: 24px;
+  --delivery-section-gap: 16px;
   --delivery-card-pad: 16px;
   --delivery-row-gap: 12px;
   --delivery-text-gap: 8px;
@@ -130,7 +132,14 @@
   --delivery-menu-card-min-h: 124px;
   --delivery-menu-plus-size: 44px;
   --delivery-sticky-tab-h: 36px;
-  --delivery-home-category-icon: 56px;
+  --delivery-home-header-bg: var(--delivery-primary);
+  --delivery-home-search-bg: #ffffff;
+  --delivery-home-search-h: 36px;
+
+  --delivery-home-category-icon: 45px;
+  --delivery-home-category-label-fs: 11px;
+  --delivery-home-subcategory-icon: 64px;
+  --delivery-home-subcategory-gap: 4px;
 
   --store-commerce-action-cart-checkout-min-h: 4.5rem;
   --store-commerce-action-cart-checkout-plane-pt: 0.5rem;
