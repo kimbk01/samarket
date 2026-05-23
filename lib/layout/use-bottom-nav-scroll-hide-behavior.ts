@@ -55,8 +55,7 @@ export function useBottomNavScrollHide(enabled: boolean): boolean {
       setHidden(false);
       return;
     }
-    lastYRef.current =
-      typeof document !== "undefined" ? getMainAppScrollTop() : readScrollTopFromScrollTarget(document.scrollingElement);
+    lastYRef.current = getMainAppScrollTop();
 
     const clearIdleReveal = () => {
       if (idleRevealTimerRef.current != null) {

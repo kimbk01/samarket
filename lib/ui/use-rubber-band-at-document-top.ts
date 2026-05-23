@@ -56,10 +56,11 @@ export function useRubberBandAtDocumentTop(
       }
     };
 
-    const onWheel = (e: WheelEvent) => {
+    const onWheel: EventListener = (evt) => {
+      if (!(evt instanceof WheelEvent)) return;
       if (scrollTop() > 4) return;
-      if (e.deltaY >= 0) return;
-      const add = Math.min(18, -e.deltaY * 0.07);
+      if (evt.deltaY >= 0) return;
+      const add = Math.min(18, -evt.deltaY * 0.07);
       stretchRef.current = Math.min(maxStretchPx, stretchRef.current + add);
       setStretch(stretchRef.current);
       scheduleDecay();
@@ -102,9 +103,8 @@ export function useRubberBandAtDocumentTop(
     };
 
     const unsubScroll = subscribeAppShellScroll(onScroll, { passive: true });
-    const scrollRoot =
-      typeof document !== "undefined" ? getMainAppScrollRoot() : null;
-    const wheelTarget = scrollRoot ?? window;
+    const scrollRoot = getMainAppScrollRoot();
+    const wheelTarget: EventTarget = scrollRoot ?? window;
     wheelTarget.addEventListener("wheel", onWheel, { passive: true });
     window.addEventListener("touchstart", onTouchStart, { passive: true });
     window.addEventListener("touchmove", onTouchMove, { passive: !blockNativeViewportOverscroll });

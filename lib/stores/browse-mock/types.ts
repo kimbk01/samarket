@@ -20,4 +20,7 @@ export interface BrowseSubIndustry {
   nameKo: string;
   primarySlug: string;
   sortOrder: number;
+  /** DB store_topics.image_url (어드민 업로드) */
+  imageUrl?: string | null;
+  name_en?: string | null;
 }

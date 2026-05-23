@@ -34,9 +34,15 @@ import {
   listBrowsePrimaryIndustries,
   listBrowseSubIndustries,
 } from "@/lib/stores/browse-mock/queries";
+import type { BrowseSubIndustry } from "@/lib/stores/browse-mock/types";
 import { useBrowseIndustryDatasetVersion } from "@/lib/stores/browse-mock/use-browse-industry-dataset-version";
 import { StoreListFilters, type StoreBrowseSortId } from "./StoreListFilters";
-import { storesBrowsePath, storesBrowsePrimaryPath } from "./stores-browse-paths";
+import {
+  STORES_BROWSE_SUB_ALL,
+  storesBrowseNavSubSlug,
+  storesBrowsePath,
+  storesBrowsePrimaryPath,
+} from "./stores-browse-paths";
 import {
   STORE_CATEGORY_PILL_SCROLL,
 } from "@/components/stores/store-category-pill-styles";
@@ -274,7 +280,7 @@ export function StoresBrowsePrimaryView({
     };
   }, [primarySlug, taxonomy, industryVersion]);
 
-  const subs = useMemo(() => {
+  const subs = useMemo((): BrowseSubIndustry[] => {
     if (!taxonomy || taxonomy.categories.length === 0) return listBrowseSubIndustries(primarySlug);
     const pk = primarySlug.trim().toLowerCase();
     const c = taxonomy.categories.find((x) => String(x.slug ?? "").trim().toLowerCase() === pk);
@@ -283,14 +289,7 @@ export function StoresBrowsePrimaryView({
       .filter((t) => t.store_category_id === c.id)
       .sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
     const seenSlug = new Set<string>();
-    const out: {
-      id: string;
-      slug: string;
-      nameKo: string;
-      primarySlug: string;
-      sortOrder: number;
-      imageUrl?: string | null;
-    }[] = [];
+    const out: BrowseSubIndustry[] = [];
     for (const t of sorted) {
       const sk = String(t.slug ?? "").trim().toLowerCase();
       if (!sk || seenSlug.has(sk)) continue;
@@ -301,7 +300,8 @@ export function StoresBrowsePrimaryView({
         nameKo: t.name,
         primarySlug,
         sortOrder: t.sort_order,
-        imageUrl: typeof (t as any).image_url === "string" ? String((t as any).image_url).trim() || null : null,
+        imageUrl: storeTaxonomyUploadedImageUrl(t.image_url) || null,
+        name_en: t.name_en ?? null,
       });
     }
     return out;
@@ -323,7 +323,7 @@ export function StoresBrowsePrimaryView({
   /** taxonomy 에 없는·비정상 sub 쿼리는 목록은 전체로 맞추고 칩도 「전체」와 일치시킴 */
   const matchedTopicSlug = useMemo(() => {
     const p = trimmedBrowseSubParam;
-    if (!p || p === "all") return null;
+    if (!p || p === STORES_BROWSE_SUB_ALL) return null;
     const hit = subs.find((s) => s.slug.toLowerCase() === p);
     return hit ? hit.slug : null;
   }, [trimmedBrowseSubParam, subs]);
@@ -333,9 +333,9 @@ export function StoresBrowsePrimaryView({
     setOptimisticSub(null);
   }, [matchedTopicSlug, primarySlug]);
 
-  const activeSub = optimisticSub ?? (matchedTopicSlug ?? "all");
+  const activeSub = optimisticSub ?? (matchedTopicSlug ?? STORES_BROWSE_SUB_ALL);
 
-  const allSubChipActive = activeSub === "all";
+  const allSubChipActive = activeSub === STORES_BROWSE_SUB_ALL;
 
   useEffect(() => {
     // 탭 클릭 직후 "선택 표시"까지의 지연(대략 1~2 frame) 계측
@@ -384,7 +384,10 @@ export function StoresBrowsePrimaryView({
     // 뒤로가기(popstate) 복귀 계측
     const onPop = () => {
       const sp = searchParams?.get("sub");
-      const sub = typeof sp === "string" && sp.trim() ? sp.trim().toLowerCase() : "all";
+      const sub =
+        typeof sp === "string" && sp.trim()
+          ? storesBrowseNavSubSlug(sp.trim().toLowerCase())
+          : STORES_BROWSE_SUB_ALL;
       lastNavPerfRef.current = { sub, t0: performance.now(), kind: "pop" };
     };
     window.addEventListener("popstate", onPop);
@@ -636,12 +639,15 @@ export function StoresBrowsePrimaryView({
 
               const Item = ({
                 href,
+                navSubSlug,
                 on,
                 label,
                 iconSrc,
                 iconIsUploaded,
               }: {
                 href: string;
+                /** optimistic·perf·activeSub 와 동일한 sub 식별자 */
+                navSubSlug: string;
                 on: boolean;
                 label: string;
                 iconSrc: string | null;
@@ -652,10 +658,11 @@ export function StoresBrowsePrimaryView({
                   aria-current={on ? "page" : undefined}
                   onClick={() => {
                     if (on) return;
+                    const sub = storesBrowseNavSubSlug(navSubSlug);
                     const t0 = performance.now();
-                    lastTapPerfRef.current = { sub: subValue, t0 };
-                    lastNavPerfRef.current = { sub: subValue, t0, kind: "tap" };
-                    setOptimisticSub(subValue);
+                    lastTapPerfRef.current = { sub, t0 };
+                    lastNavPerfRef.current = { sub, t0, kind: "tap" };
+                    setOptimisticSub(sub);
                     startTransition(() => {
                       // 뒤로가기 복귀 경로를 유지하기 위해 replace 대신 push
                       router.push(href, { scroll: false });
@@ -684,20 +691,21 @@ export function StoresBrowsePrimaryView({
                 <>
                   <Item
                     href={storesBrowsePrimaryPath(primarySlug)}
+                    navSubSlug={STORES_BROWSE_SUB_ALL}
                     on={allSubChipActive}
                     label={safeT("store_browse_food_all")}
                     iconSrc={allIconSrc}
                     iconIsUploaded={!!categoryImageUrl}
                   />
                   {subs.map((s, idx) => {
-                    const on = activeSub !== "all" && activeSub === s.slug;
+                    const on = activeSub !== STORES_BROWSE_SUB_ALL && activeSub === s.slug;
                     const label = resolveStoreTopicLabel(
                       language,
                       s.slug,
-                      String((s as { nameKo?: string; name?: string }).nameKo ?? (s as { name?: string }).name ?? "").trim(),
-                      (s as { name_en?: string | null }).name_en,
+                      String(s.nameKo ?? "").trim(),
+                      s.name_en,
                     );
-                    const uploaded = typeof s.imageUrl === "string" ? s.imageUrl.trim() : "";
+                    const uploaded = storeTaxonomyUploadedImageUrl(s.imageUrl);
                     const slugKey = String(s.slug ?? "").trim().toLowerCase();
                     const iconSrc = resolveStoreTaxonomyImageSrc(
                       uploaded,
@@ -709,6 +717,7 @@ export function StoresBrowsePrimaryView({
                       <Item
                         key={s.id}
                         href={storesBrowsePath(primarySlug, s.slug)}
+                        navSubSlug={s.slug}
                         on={on}
                         label={label}
                         iconSrc={iconSrc}
