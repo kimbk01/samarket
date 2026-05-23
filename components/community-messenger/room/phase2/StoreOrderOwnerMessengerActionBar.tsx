@@ -1,6 +1,10 @@
 "use client";
 
 import type { CSSProperties } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
+
+type StoreOrderI18nT = (key: MessageKey, vars?: Record<string, string | number>) => string;
 import { OwnerStoreOrderDeliveryActionsAside } from "@/components/business/owner/OwnerStoreOrderDeliveryActions";
 import type { OwnerDeliveryOrderRef } from "@/components/business/owner/OwnerStoreOrderDeliveryActions";
 import {
@@ -30,6 +34,7 @@ export function StoreOrderOwnerMessengerActionBar({
   onUpdated,
   onOpenOrderPanel,
 }: Props) {
+  const { t } = useI18n();
   const statusLabel = BUYER_ORDER_STATUS_LABEL[order.order_status] ?? order.order_status;
   const showActions = ownerOrderHasTransitionButtons(order);
   const nextAction = resolveOwnerNextOrderAction(order.order_status, order.fulfillment_type);
@@ -53,18 +58,22 @@ export function StoreOrderOwnerMessengerActionBar({
         <div className="min-w-0">
           <p className="sam-text-xxs text-[color:var(--cm-room-primary)]">
             {statusLabel}
-            {nextAction ? <span className="text-[color:var(--cm-room-text-muted)]"> → 다음: {nextAction.label}</span> : null}
+            {nextAction ? (
+              <span className="text-[color:var(--cm-room-text-muted)]">
+                {t("store_messenger_owner_next_label", { label: nextAction.label })}
+              </span>
+            ) : null}
           </p>
         </div>
       </div>
 
       {showActions ? (
         <div className="space-y-2 px-3 py-2.5">
-          <OwnerProgressRail order={order} />
+          <OwnerProgressRail t={t} order={order} />
           <p className="sam-text-xxs font-semibold text-[color:var(--cm-room-text)]">
             {order.order_status === "pending"
-              ? "주문 접수 여부를 선택하세요."
-              : "아래 버튼으로 다음 진행 상황을 입력하세요."}
+              ? t("store_messenger_owner_accept_prompt")
+              : t("store_messenger_owner_progress_prompt")}
           </p>
           <div className="[&_[data-owner-delivery-actions]_button]:min-h-[48px] [&_[data-owner-delivery-actions]_button]:flex-1 [&_[data-owner-delivery-actions]_button]:text-[15px]">
           <div data-owner-delivery-actions>
@@ -81,19 +90,19 @@ export function StoreOrderOwnerMessengerActionBar({
         </div>
       ) : (
         <p className="px-3 py-2.5 sam-text-xxs text-[color:var(--cm-room-text-muted)]">
-          이 단계에서는 채팅에서 상태를 바꿀 수 없습니다.
+          {t("store_messenger_owner_status_locked")}
         </p>
       )}
     </div>
   );
 }
 
-function OwnerProgressRail({ order }: { order: OwnerDeliveryOrderRef }) {
+function OwnerProgressRail({ t, order }: { t: StoreOrderI18nT; order: OwnerDeliveryOrderRef }) {
   const deliveryLike = isDeliveryFulfillment(order.fulfillment_type);
   const labels = deliveryLike ? TIMELINE_DELIVERY_STEPS : TIMELINE_PICKUP_STEPS;
   const states = buyerDetailSixStepStates(order.fulfillment_type, order.order_status);
   return (
-    <div className="grid grid-cols-4 gap-1.5" aria-label="주문 진행 단계">
+    <div className="grid grid-cols-4 gap-1.5" aria-label={t("store_order_timeline_aria")}>
       {labels.map((label, idx) => {
         const state = states[idx] ?? "upcoming";
         return (

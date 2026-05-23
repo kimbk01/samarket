@@ -67,7 +67,7 @@ export const StoreCartCheckoutActionBar = forwardRef<HTMLElement, Props>(
     const hint = pickFooterHint({ disabledReason, minOrderLine, promoLine });
 
     return (
-      <section ref={ref} className="delivery-ui shrink-0 w-full min-w-0" aria-label="주문 접수">
+      <section ref={ref} className="delivery-ui shrink-0 w-full min-w-0" aria-label={t("store_checkout_submit")}>
         <StoreCommerceBottomActionShell
           variant="cart-checkout"
           inline

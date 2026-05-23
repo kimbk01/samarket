@@ -341,6 +341,12 @@ export const mypageComponentsMessages = {
     mypage_comp_order_prog_delivery_confirmed: "배달 완료 확인이 접수되었습니다.",
     mypage_comp_order_prog_receiver_hint: "수령 확인: {hint}",
 
+    mypage_comp_order_complete_review_heading: "주문 완료 리뷰",
+    mypage_comp_order_review_after_complete: "주문 완료 후 리뷰를 남길 수 있습니다.",
+    mypage_comp_order_review_submitted: "리뷰 작성이 완료되었습니다.",
+    mypage_comp_order_review_prompt_write: "주문이 완료되었습니다. 리뷰를 작성해 주세요.",
+    mypage_comp_order_review_checking: "리뷰 상태를 확인 중입니다.",
+
     // Payment status labels (paymentMethodLabel)
     mypage_comp_pay_method_paid: "배달 주문 · 결제 완료(현장·직접 정산)",
     mypage_comp_pay_method_pending: "결제 대기",
@@ -419,6 +425,19 @@ export const mypageComponentsMessages = {
     mypage_comp_order_chat_revisit: "주문 채팅 다시 보기",
     mypage_comp_order_complete_review_prompt:
       "주문이 완료되었습니다. 필요하면 채팅 내용을 다시 확인한 뒤 후기를 남겨 주세요.",
+    mypage_comp_delivery_review_heading: "배달 평가 · 리뷰",
+    mypage_comp_delivery_review_submit_prompt:
+      "주문이 완료되었어요. 매장에 별점과 후기를 남겨 주세요. 사장님이 댓글로 답변할 수 있어요.",
+    mypage_comp_store_review_write_star_cta: "★ 별점 리뷰 작성하기",
+    mypage_comp_back_to_order_list: "주문 목록으로",
+    mypage_comp_my_review_label: "내가 남긴 리뷰",
+    mypage_comp_review_private_list_hint:
+      "비공개 리뷰로 등록되었어요. 다른 고객용 매장 리뷰 목록에는 보이지 않을 수 있습니다.",
+    mypage_comp_review_public_list_hint: "매장 리뷰 목록에 노출될 수 있어요.",
+    mypage_comp_owner_reply_pending: "아직 사장님 댓글이 없어요. 답변이 오면 여기에 표시됩니다.",
+    mypage_comp_view_store_reviews: "매장 리뷰 보기",
+    mypage_comp_review_feature_unavailable: "리뷰 기능을 불러오지 못했어요. 잠시 후 다시 확인해 주세요.",
+    mypage_comp_review_status_unknown: "리뷰 상태를 확인할 수 없어요.",
     mypage_comp_order_chat_view: "주문 채팅 보기",
     mypage_comp_write_review: "리뷰 작성하기",
     mypage_comp_review_unavailable: "리뷰를 등록할 수 없습니다. (DB 미적용이거나 일시 오류일 수 있습니다.)",
@@ -1014,6 +1033,12 @@ export const mypageComponentsMessages = {
     mypage_comp_order_prog_delivery_confirmed: "Delivery completion was recorded.",
     mypage_comp_order_prog_receiver_hint: "Handoff note: {hint}",
 
+    mypage_comp_order_complete_review_heading: "Order review",
+    mypage_comp_order_review_after_complete: "You can leave a review after the order is completed.",
+    mypage_comp_order_review_submitted: "Your review has been submitted.",
+    mypage_comp_order_review_prompt_write: "Order completed. Please leave a review.",
+    mypage_comp_order_review_checking: "Checking review status…",
+
     mypage_comp_pay_method_paid: "Delivery order · paid (settle with the store directly)",
     mypage_comp_pay_method_pending: "Payment pending",
     mypage_comp_pay_method_failed: "Payment failed",
@@ -1091,6 +1116,19 @@ export const mypageComponentsMessages = {
     mypage_comp_order_chat_revisit: "Open order chat again",
     mypage_comp_order_complete_review_prompt:
       "Order completed. Review the chat if needed, then leave a review.",
+    mypage_comp_delivery_review_heading: "Delivery rating · Review",
+    mypage_comp_delivery_review_submit_prompt:
+      "Your order is complete. Leave a star rating and review — the owner may reply in comments.",
+    mypage_comp_store_review_write_star_cta: "★ Write a star review",
+    mypage_comp_back_to_order_list: "Back to order list",
+    mypage_comp_my_review_label: "My review",
+    mypage_comp_review_private_list_hint:
+      "Posted as a private review. It may not appear on the store’s public review list.",
+    mypage_comp_review_public_list_hint: "It may appear on the store’s review list.",
+    mypage_comp_owner_reply_pending: "No owner reply yet. It will show here when they respond.",
+    mypage_comp_view_store_reviews: "View store reviews",
+    mypage_comp_review_feature_unavailable: "Could not load reviews. Please try again shortly.",
+    mypage_comp_review_status_unknown: "Could not verify review status.",
     mypage_comp_order_chat_view: "Open order chat",
     mypage_comp_write_review: "Write a review",
     mypage_comp_review_unavailable: "Reviews aren’t available right now. (schema or temporary error)",

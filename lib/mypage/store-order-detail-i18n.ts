@@ -1,6 +1,16 @@
 import type { MessageKey } from "@/lib/i18n/messages";
+import { formatCheckoutRouteKmFromMeters } from "@/lib/stores/format-store-order-checkout-display";
+import { formatMoneyPhp } from "@/lib/utils/format";
 
 export type MypageT = (key: MessageKey, vars?: Record<string, string | number>) => string;
+
+export function buyerFulfillmentLabel(fulfillmentType: string, t: MypageT): string {
+  if (fulfillmentType === "pickup") return t("common_pickup_label");
+  if (fulfillmentType === "local_delivery" || fulfillmentType === "shipping") {
+    return t("store_delivery_tab");
+  }
+  return fulfillmentType;
+}
 
 export function storeOrderEventLabels(t: MypageT): Record<string, string> {
   return {
@@ -98,7 +108,7 @@ type OrderProgressInput = {
 export function buyerStoreOrderProgressCopy(
   t: MypageT,
   order: OrderProgressInput,
-  orderLabels: Record<string, string>,
+  orderStatusLabel: (status: string) => string,
   prepClock: string | null,
 ): { headline: string; lines: string[] } {
   const n = Math.max(0, Math.floor(Number(order.estimated_prep_minutes) || 0));
@@ -152,11 +162,65 @@ export function buyerStoreOrderProgressCopy(
       }
       if (deliveryLine) lines.push(deliveryLine);
       return {
-        headline: orderLabels[order.order_status] ?? order.order_status,
+        headline: orderStatusLabel(order.order_status),
         lines,
       };
     }
   }
+}
+
+export function buyerReviewProcessLabel(
+  t: MypageT,
+  args: {
+    orderStatus: string;
+    review: unknown;
+    canSubmitReview: boolean;
+  },
+): { label: string; tone: "done" | "action" | "muted" } {
+  if (args.orderStatus !== "completed") {
+    return { label: t("mypage_comp_order_review_after_complete"), tone: "muted" };
+  }
+  if (args.review) {
+    return { label: t("mypage_comp_order_review_submitted"), tone: "done" };
+  }
+  if (args.canSubmitReview) {
+    return { label: t("mypage_comp_order_review_prompt_write"), tone: "action" };
+  }
+  return { label: t("mypage_comp_order_review_checking"), tone: "muted" };
+}
+
+export function formatStoreOrderCheckoutEtaSummaryI18n(
+  t: MypageT,
+  args: {
+    checkout_eta_minutes?: number | null;
+    checkout_route_distance_meters?: number | null;
+  },
+): string | null {
+  const eta = args.checkout_eta_minutes;
+  const dist = formatCheckoutRouteKmFromMeters(args.checkout_route_distance_meters);
+  const etaOk = eta != null && Number.isFinite(eta) && eta > 0;
+  if (etaOk && dist) {
+    return t("mypage_comp_checkout_eta_minutes_distance", { minutes: Math.round(eta), distance: dist });
+  }
+  if (etaOk) return t("mypage_comp_checkout_eta_minutes_only", { minutes: Math.round(eta) });
+  if (dist) return t("mypage_comp_checkout_route_distance_only", { distance: dist });
+  return null;
+}
+
+export function lineDiscountDisplayI18n(
+  t: MypageT,
+  priceSnapshot: number,
+  qty: number,
+  subtotal: number,
+): string {
+  const dash = t("mypage_comp_placeholder_dash");
+  const gross = Math.round(priceSnapshot) * qty;
+  const st = Math.round(subtotal);
+  if (gross <= 0) return dash;
+  if (st >= gross) return dash;
+  const off = gross - st;
+  const pct = Math.round((off / gross) * 1000) / 10;
+  return t("mypage_comp_line_discount_pct", { pct, amount: formatMoneyPhp(off) });
 }
 
 export function paymentMethodLabel(t: MypageT, paymentStatus: string): string {

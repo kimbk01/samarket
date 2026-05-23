@@ -45,12 +45,12 @@ export function StoreBaeminCartOrderSummaryCard(props: {
   return (
     <section className={`${BAEMIN_CART_SECTION_CARD_CLASS} overflow-hidden`}>
       <dl className="space-y-2.5 px-4 py-4 text-[14px]">
-        <Row label="총상품금액" value={formatMoneyPhp(subtotalPhp)} />
+        <Row label={t("store_items_subtotal")} value={formatMoneyPhp(subtotalPhp)} />
         {discountAmountPhp > 0 ? (
           <Row
             label={
               <>
-                할인금액
+                {t("store_discount_amount")}
                 {discountPercentOverall > 0 ? (
                   <span className="ml-1 text-[12px] font-normal text-[#AAA]">({discountPercentOverall}%)</span>
                 ) : null}
@@ -61,14 +61,14 @@ export function StoreBaeminCartOrderSummaryCard(props: {
           />
         ) : null}
         <Row
-          label="예상배달비"
+          label={t("store_estimated_delivery_fee")}
           value={fulfillmentIsDelivery ? deliveryFeeLabel : formatMoneyPhp(0)}
           valueAlign="right"
         />
       </dl>
       <div className="mx-4 border-t border-dashed border-[#E8E8E8] pt-3 pb-4">
         <div className="flex items-end justify-between gap-3">
-          <span className="text-[15px] font-bold text-[#111]">결제예정금액</span>
+          <span className="text-[15px] font-bold text-[#111]">{t("store_payment_due")}</span>
           <span className="text-[20px] font-extrabold leading-none tabular-nums text-[#E74C3C]">
             {formatMoneyPhp(displayGrand)}
           </span>

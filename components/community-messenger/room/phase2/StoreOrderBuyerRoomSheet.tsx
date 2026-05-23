@@ -3,6 +3,10 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
+
+type StoreOrderI18nT = (key: MessageKey, vars?: Record<string, string | number>) => string;
 import type {
   StoreOrderBuyerItemPayload,
   StoreOrderBuyerOrderPayload,
@@ -66,6 +70,7 @@ export function StoreOrderBuyerRoomSheet({
   voiceCallDisabled = false,
   sheetVariant = "bottom_sheet",
 }: Props) {
+  const { t } = useI18n();
   const peekDrawer = sheetVariant === "peek";
   const [mounted, setMounted] = useState(false);
   const [statusBannerVisible, setStatusBannerVisible] = useState(true);
@@ -148,6 +153,7 @@ export function StoreOrderBuyerRoomSheet({
         aria-hidden={!open}
       />
       <BuyerOrderDrawerShell
+        t={t}
         open={open}
         peekDrawer={peekDrawer}
         onClose={() => onOpenChange(false)}
@@ -156,6 +162,7 @@ export function StoreOrderBuyerRoomSheet({
       >
         <div className="shrink-0 border-b border-[color:var(--cm-room-divider)] px-3 py-2.5">
           <BuyerOrderDrawerActions
+            t={t}
             peekDrawer={peekDrawer}
             canCancel={canCancel}
             cancelBusy={cancelBusy}
@@ -166,6 +173,7 @@ export function StoreOrderBuyerRoomSheet({
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 py-3">
           <BuyerOrderDetailBody
+            t={t}
             orderLoading={orderLoading}
             orderError={orderError}
             order={order}
@@ -185,6 +193,7 @@ export function StoreOrderBuyerRoomSheet({
 }
 
 function BuyerOrderDrawerShell({
+  t,
   open,
   peekDrawer,
   onClose,
@@ -192,6 +201,7 @@ function BuyerOrderDrawerShell({
   voiceCallDisabled,
   children,
 }: {
+  t: StoreOrderI18nT;
   open: boolean;
   peekDrawer: boolean;
   onClose: () => void;
@@ -218,6 +228,7 @@ function BuyerOrderDrawerShell({
       aria-labelledby="store-order-phase2-drawer-title"
     >
       <BuyerOrderDrawerHeader
+        t={t}
         onClose={onClose}
         onVoiceCall={onVoiceCall}
         voiceCallDisabled={voiceCallDisabled}
@@ -229,11 +240,13 @@ function BuyerOrderDrawerShell({
 }
 
 function BuyerOrderDrawerHeader({
+  t,
   onClose,
   onVoiceCall,
   voiceCallDisabled,
   peekDrawer,
 }: {
+  t: StoreOrderI18nT;
   onClose: () => void;
   onVoiceCall: () => void;
   voiceCallDisabled: boolean;
@@ -250,14 +263,14 @@ function BuyerOrderDrawerHeader({
         id="store-order-phase2-drawer-title"
         className="min-w-0 flex-1 text-[17px] font-bold leading-[var(--delivery-lh-card-title)] text-[color:var(--delivery-dark)]"
       >
-        주문 진행 상황
+        {t("store_messenger_progress_drawer_title")}
       </h2>
       <button
         type="button"
         onClick={onVoiceCall}
         disabled={voiceCallDisabled}
         className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--delivery-radius)] text-[color:var(--delivery-primary)] transition hover:bg-[color:var(--delivery-primary-soft)] disabled:opacity-35"
-        aria-label="음성 통화"
+        aria-label={t("cm_ui_voice_call")}
       >
         <VoiceCallIcon className="h-5 w-5" />
       </button>
@@ -265,7 +278,7 @@ function BuyerOrderDrawerHeader({
         type="button"
         onClick={onClose}
         className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-[var(--delivery-radius)] text-[color:var(--delivery-dark)] hover:bg-[color:var(--delivery-primary-soft)]"
-        aria-label="닫기"
+        aria-label={t("common_close")}
       >
         ×
       </button>
@@ -274,6 +287,7 @@ function BuyerOrderDrawerHeader({
 }
 
 function BuyerOrderDrawerActions({
+  t,
   peekDrawer,
   canCancel,
   cancelBusy,
@@ -281,6 +295,7 @@ function BuyerOrderDrawerActions({
   orderId,
   onNavigate,
 }: {
+  t: StoreOrderI18nT;
   peekDrawer: boolean;
   canCancel: boolean;
   cancelBusy: boolean;
@@ -297,11 +312,11 @@ function BuyerOrderDrawerActions({
           onClick={onCancel}
           className="inline-flex h-10 w-full items-center justify-center rounded-[4px] border border-red-200/90 px-3 sam-text-body font-bold text-red-600 transition active:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {cancelBusy ? "처리 중…" : "주문취소"}
+          {cancelBusy ? t("common_processing") : t("store_order_cancel_btn")}
         </button>
         {!canCancel ? (
           <p className="mt-1.5 sam-text-xxs leading-snug text-[#6B7280]">
-            매장이 주문을 접수한 뒤에는 여기서 취소할 수 없습니다.
+            {t("mypage_comp_orders_cancel_err_short")}
           </p>
         ) : null}
       </div>
@@ -316,20 +331,21 @@ function BuyerOrderDrawerActions({
         onClick={onCancel}
         className="inline-flex h-9 shrink-0 items-center justify-center rounded-[4px] border border-red-200/90 px-3.5 sam-text-body text-red-600 disabled:opacity-40"
       >
-        주문취소
+        {t("store_order_cancel_btn")}
       </button>
       <Link
         href={`/mypage/store-orders/${encodeURIComponent(orderId)}`}
         onClick={onNavigate}
         className="inline-flex h-9 shrink-0 items-center justify-center rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] px-3.5 text-[14px] font-semibold text-[color:var(--delivery-primary)]"
       >
-        주문상세
+        {t("store_order_view_detail_btn")}
       </Link>
     </div>
   );
 }
 
 function BuyerOrderDetailBody({
+  t,
   orderLoading,
   orderError,
   order,
@@ -341,6 +357,7 @@ function BuyerOrderDetailBody({
   phoneDisplay,
   phoneHref,
 }: {
+  t: StoreOrderI18nT;
   orderLoading: boolean;
   orderError: string | null;
   order: StoreOrderBuyerOrderPayload | null;
@@ -353,7 +370,7 @@ function BuyerOrderDetailBody({
   phoneHref: string | null;
 }) {
   if (orderLoading) {
-    return <p className="text-center sam-text-body text-[color:var(--cm-room-text-muted)]">주문 정보 불러오는 중…</p>;
+    return <p className="text-center sam-text-body text-[color:var(--cm-room-text-muted)]">{t("store_order_info_loading")}</p>;
   }
   if (orderError) {
     return <p className="text-center sam-text-body text-red-600">{orderError}</p>;
@@ -361,13 +378,14 @@ function BuyerOrderDetailBody({
   if (!order) {
     return (
       <p className="text-center sam-text-body text-[color:var(--cm-room-text-muted)]">
-        주문 정보를 불러올 수 없습니다.
+        {t("store_order_info_unavailable")}
       </p>
     );
   }
   return (
     <div className="space-y-3">
       <BuyerOpsStatusCard
+        t={t}
         order={order}
         statusLabel={statusLabel}
         visible={statusBannerVisible}
@@ -382,11 +400,11 @@ function BuyerOrderDetailBody({
         order.store_pickup_address_lines.length > 0 ? (
           <li className="flex gap-2">
             <span className="shrink-0 rounded-[var(--delivery-radius)] bg-[color:var(--delivery-primary-soft)] px-1.5 py-0.5 text-[11px] font-bold text-[color:var(--delivery-primary)]">
-              픽업
+              {t("store_pickup_tab")}
             </span>
             <span className="min-w-0">
               <span className="block sam-text-helper font-bold text-[#6B7280]">
-                매장 주소
+                {t("store_messenger_store_address_label")}
               </span>
               {order.store_pickup_address_lines.map((line, i) => (
                 <span key={i} className="mt-0.5 block">
@@ -400,11 +418,11 @@ function BuyerOrderDetailBody({
         (order.delivery_address_summary?.trim() || order.delivery_address_detail?.trim()) ? (
           <li className="flex gap-2">
             <span className="shrink-0 rounded-[var(--delivery-radius)] bg-[color:var(--delivery-primary-soft)] px-1.5 py-0.5 text-[11px] font-bold text-[color:var(--delivery-primary)]">
-              배달
+              {t("store_delivery_tab")}
             </span>
             <span className="min-w-0">
               <span className="block sam-text-helper font-bold text-[#6B7280]">
-                배달 주소
+                {t("store_delivery_address_heading")}
               </span>
               <StoreOrderDeliveryAddressDisplay
                 className="mt-0.5"
@@ -418,7 +436,7 @@ function BuyerOrderDetailBody({
         {phoneDisplay ? (
           <li className="flex gap-2">
             <span className="shrink-0 rounded-[var(--delivery-radius)] bg-[color:var(--delivery-primary-soft)] px-1.5 py-0.5 text-[11px] font-bold text-[color:var(--delivery-primary)]">
-              전화
+              {t("store_label_contact")}
             </span>
             {phoneHref != null ? (
               <a href={phoneHref} className="min-w-0 font-bold text-[color:var(--delivery-primary)] underline">
@@ -435,7 +453,7 @@ function BuyerOrderDetailBody({
           return (
             <li key={idx} className="flex gap-2">
               <span className="shrink-0 rounded-[var(--delivery-radius)] bg-[color:var(--delivery-primary-soft)] px-1.5 py-0.5 text-[11px] font-bold text-[color:var(--delivery-primary)]">
-                메뉴
+                {t("store_menu_label")}
               </span>
               <span className="min-w-0">
                 {titleLine} {formatMoneyPhp(it.price_snapshot)} × {it.qty}
@@ -447,13 +465,15 @@ function BuyerOrderDetailBody({
         order.delivery_fee_amount != null &&
         Number(order.delivery_fee_amount) > 0 ? (
           <li className="pl-7 sam-text-body-secondary text-[#6B7280]">
-            배달비 : {formatMoneyPhp(order.delivery_fee_amount)}
+            {t("store_delivery_fee_line", { amount: formatMoneyPhp(order.delivery_fee_amount) })}
           </li>
         ) : null}
-        <li className="pl-7 font-semibold">주문 금액 합계 : {formatMoneyPhp(order.payment_amount)}</li>
+        <li className="pl-7 font-semibold">
+          {t("store_order_payment_total_line", { amount: formatMoneyPhp(order.payment_amount) })}
+        </li>
         {order.buyer_note?.trim() ? (
           <li className="flex gap-2 border-t border-[#DDE5E0] pt-2.5">
-            <span className="shrink-0 text-[12px] font-bold text-[color:var(--delivery-primary)]">요청</span>
+            <span className="shrink-0 text-[12px] font-bold text-[color:var(--delivery-primary)]">{t("store_request_label")}</span>
             <span className="min-w-0">{order.buyer_note.trim()}</span>
           </li>
         ) : null}
@@ -465,26 +485,33 @@ function BuyerOrderDetailBody({
 }
 
 function BuyerOpsStatusCard({
+  t,
   order,
   statusLabel,
   visible,
   onDismiss,
 }: {
+  t: StoreOrderI18nT;
   order: StoreOrderBuyerOrderPayload;
   statusLabel: string;
   visible: boolean;
   onDismiss: () => void;
 }) {
-  const steps = buyerChatFlowSteps(order.fulfillment_type ?? "pickup");
+  const steps = buyerChatFlowSteps(order.fulfillment_type ?? "pickup", t);
   const current = buyerChatCurrentStep(order.order_status, order.fulfillment_type ?? "pickup");
   return (
     <section className="rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-[color:var(--delivery-primary)] p-3 text-white">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-[11px] font-semibold leading-[1.35] text-white/75">{order.order_no ?? "주문"}</p>
-          <p className="mt-0.5 text-[15px] font-bold leading-[1.35]">{statusLabel || "주문 진행중"}</p>
+          <p className="text-[11px] font-semibold leading-[1.35] text-white/75">
+            {order.order_no ?? t("store_owner_order_fallback")}
+          </p>
+          <p className="mt-0.5 text-[15px] font-bold leading-[1.35]">{statusLabel || t("store_messenger_order_in_progress")}</p>
           <p className="mt-1 text-[12px] leading-[1.35] text-white/75">
-            {order.fulfillment_type === "pickup" ? "픽업 주문" : "배달 주문"} · {formatMoneyPhp(order.payment_amount)}
+            {order.fulfillment_type === "pickup"
+              ? t("store_owner_order_type_pickup")
+              : t("store_owner_order_type_delivery")}{" "}
+            · {formatMoneyPhp(order.payment_amount)}
           </p>
         </div>
         {visible ? (
@@ -492,7 +519,7 @@ function BuyerOpsStatusCard({
           type="button"
           onClick={onDismiss}
           className="rounded-[4px] px-2 py-1 text-[12px] font-bold text-white/80 hover:bg-white/10"
-          aria-label="주문 상태 요약 접기"
+          aria-label={t("store_status_banner_dismiss_aria")}
         >
           ×
         </button>
@@ -521,10 +548,24 @@ function BuyerOpsStatusCard({
   );
 }
 
-function buyerChatFlowSteps(fulfillmentType: string): string[] {
+function buyerChatFlowSteps(fulfillmentType: string, t: StoreOrderI18nT): string[] {
   return isDeliveryFulfillment(fulfillmentType)
-    ? ["신규", "접수", "조리", "배달준비", "배달중", "주소근처", "완료"]
-    : ["신규", "접수", "조리", "픽업준비", "수령완료"];
+    ? [
+        t("store_messenger_buyer_step_new"),
+        t("store_messenger_buyer_step_accepted"),
+        t("store_messenger_buyer_step_preparing"),
+        t("store_messenger_buyer_step_delivery_ready"),
+        t("store_messenger_buyer_step_delivering"),
+        t("store_messenger_buyer_step_near_address"),
+        t("store_messenger_buyer_step_completed"),
+      ]
+    : [
+        t("store_messenger_buyer_step_new"),
+        t("store_messenger_buyer_step_accepted"),
+        t("store_messenger_buyer_step_preparing"),
+        t("store_messenger_buyer_step_pickup_ready"),
+        t("store_messenger_buyer_step_pickup_done"),
+      ];
 }
 
 function buyerChatCurrentStep(status: string, fulfillmentType: string): number {

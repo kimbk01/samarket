@@ -327,7 +327,9 @@ function MyStoreOrderCard({
 
             <div className={`mt-3 border-t ${FB_DIVIDER} pt-3`}>
               <div className="flex items-center justify-between gap-2">
-                <span className={`sam-text-body-secondary font-medium sm:text-sm ${FB_MUTED}`}>결제 금액</span>
+                <span className={`sam-text-body-secondary font-medium sm:text-sm ${FB_MUTED}`}>
+                  {t("mypage_comp_order_payment_amount_label")}
+                </span>
                 <span className={`sam-text-body font-semibold tabular-nums sm:text-base ${FB_BODY}`}>
                   {formatMoneyPhp(o.payment_amount)}
                 </span>
@@ -466,6 +468,7 @@ export function MyStoreOrdersView({
   embedded?: boolean;
   suppressTier1Sync?: boolean;
 }) {
+  const { t } = useI18n();
   const pathname = usePathname();
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
   const [tab, setTab] = useState<MemberOrderTab>("all");
@@ -554,7 +557,7 @@ export function MyStoreOrdersView({
 
   const requestCancelPending = useCallback(
     async (orderId: string) => {
-      if (!confirm("주문을 취소할까요? 매장이 아직 접수하지 않은 경우에만 가능합니다.")) return;
+      if (!confirm(t("mypage_comp_orders_list_confirm_cancel"))) return;
       setCancelBusyId(orderId);
       try {
         const { status, json } = await patchMeStoreOrder(orderId, { cancel: true });
@@ -563,28 +566,28 @@ export function MyStoreOrdersView({
           const code = typeof j?.error === "string" ? j.error : "cancel_failed";
           const msg =
             code === "cannot_cancel_after_accepted"
-              ? "매장이 접수한 뒤에는 여기서 취소할 수 없습니다."
-              : `취소에 실패했습니다. (${code})`;
+              ? t("mypage_comp_orders_cancel_err_short")
+              : t("mypage_comp_cancel_failed_code", { code });
           setToast(msg);
           setTimeout(() => setToast(null), 3200);
           return;
         }
-        setToast("주문이 취소되었어요.");
+        setToast(t("mypage_comp_orders_cancel_success"));
         setTimeout(() => setToast(null), 2800);
         await load({ silent: true });
       } catch {
-        setToast("네트워크 오류가 발생했습니다.");
+        setToast(t("mypage_comp_network_error"));
         setTimeout(() => setToast(null), 2800);
       } finally {
         setCancelBusyId(null);
       }
     },
-    [load]
+    [load, t]
   );
 
   const requestHideOrder = useCallback(
     async (orderId: string) => {
-      if (!confirm("이 주문 내역을 내 목록에서 삭제할까요? 매장/관리자 화면에는 유지됩니다.")) return;
+      if (!confirm(t("mypage_comp_orders_list_confirm_hide"))) return;
       setDeleteBusyId(orderId);
       try {
         const { status, json } = await deleteMeStoreOrder(orderId);
@@ -593,23 +596,23 @@ export function MyStoreOrdersView({
           const code = typeof j?.error === "string" ? j.error : "hide_failed";
           const msg =
             code === "buyer_hide_schema_missing"
-              ? "서버 설정이 아직 적용되지 않아 삭제를 처리할 수 없습니다."
-              : `삭제에 실패했습니다. (${code})`;
+              ? t("mypage_comp_orders_hide_schema_missing")
+              : t("mypage_comp_orders_hide_failed", { code });
           setToast(msg);
           setTimeout(() => setToast(null), 3200);
           return;
         }
-        setToast("주문 내역을 삭제했어요.");
+        setToast(t("mypage_comp_orders_hide_success"));
         setTimeout(() => setToast(null), 2400);
         await load({ silent: true });
       } catch {
-        setToast("네트워크 오류가 발생했습니다.");
+        setToast(t("mypage_comp_network_error"));
         setTimeout(() => setToast(null), 2800);
       } finally {
         setDeleteBusyId(null);
       }
     },
-    [load]
+    [load, t]
   );
 
   return (
@@ -637,7 +640,7 @@ export function MyStoreOrdersView({
           <div
             className={`mb-3 rounded-ui-rect bg-sam-surface px-4 py-10 text-center text-sm ${FB_MUTED} shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-sam-surface/[0.08]`}
           >
-            불러오는 중…
+            {t("mypage_comp_loading_short")}
           </div>
         ) : null}
 
@@ -645,12 +648,12 @@ export function MyStoreOrdersView({
           <div
             className={`rounded-ui-rect border ${FB_DIVIDER} bg-sam-surface px-4 py-4 text-center sam-text-body text-amber-900 dark:bg-[#242526] dark:text-amber-200`}
           >
-            <p>로그인 후 매장 주문 내역과 주문 채팅을 확인할 수 있습니다.</p>
+            <p>{t("mypage_comp_orders_list_login_prompt")}</p>
             <Link
               href={loginHref}
               className="mt-3 inline-flex rounded-ui-rect bg-signature px-4 py-2.5 sam-text-body font-semibold text-white"
             >
-              로그인하고 주문 보기
+              {t("mypage_comp_orders_list_login_cta")}
             </Link>
           </div>
         ) : null}
@@ -661,16 +664,18 @@ export function MyStoreOrdersView({
           >
             {state.message === "supabase_unconfigured" ? (
               <p className={`sam-text-body text-amber-800 dark:text-amber-200`}>
-                서버에 Supabase(매장 주문) 설정이 없어 목록을 불러올 수 없습니다.
+                {t("mypage_comp_orders_supabase_unconfigured")}
               </p>
             ) : null}
-            <p className={`sam-text-body text-[#F02849]`}>불러오지 못했습니다. ({state.message})</p>
+            <p className={`sam-text-body text-[#F02849]`}>
+              {t("mypage_comp_orders_list_load_failed")} ({state.message})
+            </p>
             <button
               type="button"
               onClick={() => void load()}
               className="sam-text-body font-semibold text-signature hover:underline"
             >
-              다시 시도
+              {t("common_retry")}
             </button>
           </div>
         ) : null}
@@ -694,12 +699,12 @@ export function MyStoreOrdersView({
               <div
                 className={`rounded-ui-rect bg-sam-surface px-4 py-8 text-center text-sm ${FB_MUTED} shadow-[0_1px_2px_rgba(0,0,0,0.06)] ring-1 ring-black/[0.06] dark:bg-[#242526] dark:ring-sam-surface/[0.08]`}
               >
-                <p className={FB_BODY}>아직 매장 주문이 없습니다.</p>
+                <p className={FB_BODY}>{t("mypage_comp_orders_list_empty")}</p>
                 <Link
                   href="/stores"
                   className="mt-4 inline-block rounded-ui-rect bg-signature px-4 py-2.5 text-sm font-semibold text-white hover:opacity-95"
                 >
-                  매장 둘러보기
+                  {t("mypage_comp_browse_stores")}
                 </Link>
               </div>
             ) : (

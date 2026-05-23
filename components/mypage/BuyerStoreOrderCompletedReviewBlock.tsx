@@ -1,13 +1,22 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { STORE_ORDER_BRAND } from "@/components/stores/store-order-detail/store-order-brand";
 import type { BuyerStoreOrderReviewSummary } from "@/lib/stores/buyer-store-order-review-meta";
 
-function StarRatingRow({ rating, sizeClass = "sam-text-body" }: { rating: number; sizeClass?: string }) {
+function StarRatingRow({
+  rating,
+  sizeClass = "sam-text-body",
+  ratingAria,
+}: {
+  rating: number;
+  sizeClass?: string;
+  ratingAria: string;
+}) {
   const r = Math.min(5, Math.max(0, Math.floor(Number(rating) || 0)));
   return (
-    <span className={`inline-flex leading-none text-amber-500 ${sizeClass}`} aria-label={`별점 ${r}점`}>
+    <span className={`inline-flex leading-none text-amber-500 ${sizeClass}`} aria-label={ratingAria}>
       {"★".repeat(r)}
       <span className="text-sam-meta">{"☆".repeat(5 - r)}</span>
     </span>
@@ -40,8 +49,10 @@ export function BuyerStoreOrderCompletedReviewBlock({
   chatHref,
   orderChatDisabled = false,
 }: Props) {
+  const { t, language } = useI18n();
   const compact = variant === "list";
   const ownerReply = review?.owner_reply_content?.trim() ?? "";
+  const dateLocale = language === "en" ? "en-US" : "ko-KR";
 
   const primaryReviewCta = (
     <Link
@@ -52,7 +63,7 @@ export function BuyerStoreOrderCompletedReviewBlock({
           : "inline-flex min-h-12 w-full items-center justify-center rounded-ui-rect bg-amber-500 px-3 py-3 text-center text-sm font-bold text-white shadow-sm"
       }
     >
-      ★ 별점 리뷰 작성하기
+      {t("mypage_comp_store_review_write_star_cta")}
     </Link>
   );
 
@@ -65,7 +76,7 @@ export function BuyerStoreOrderCompletedReviewBlock({
           : "delivery-ui inline-flex min-h-11 flex-1 items-center justify-center rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-primary-soft)] px-3 py-2.5 text-sm font-bold text-[color:var(--delivery-primary)]"
       }
     >
-      주문 목록으로
+      {t("mypage_comp_back_to_order_list")}
     </Link>
   );
 
@@ -77,13 +88,11 @@ export function BuyerStoreOrderCompletedReviewBlock({
           : "mt-4 rounded-ui-rect border border-[#DDE5E0] bg-[#F6FAFC] px-3 py-3"
       }
     >
-      <p className="text-[12px] font-bold leading-[1.35] text-[#123B4A]">배달 평가 · 리뷰</p>
+      <p className="text-[12px] font-bold leading-[1.35] text-[#123B4A]">{t("mypage_comp_delivery_review_heading")}</p>
 
       {canSubmitReview ? (
         <div className="mt-2 space-y-2">
-          <p className="text-[13px] leading-[1.45] text-[#6B7280]">
-            주문이 완료되었어요. 매장에 별점과 후기를 남겨 주세요. 사장님이 댓글로 답변할 수 있어요.
-          </p>
+          <p className="text-[13px] leading-[1.45] text-[#6B7280]">{t("mypage_comp_delivery_review_submit_prompt")}</p>
           <div className={`flex gap-2 ${compact ? "flex-col sm:flex-row" : "flex-col sm:flex-row"}`}>
             {primaryReviewCta}
             {listCta}
@@ -93,7 +102,7 @@ export function BuyerStoreOrderCompletedReviewBlock({
               href={chatHref}
               className="delivery-ui block text-center text-[13px] font-semibold text-[color:var(--delivery-primary)] underline underline-offset-2"
             >
-              주문 채팅 다시 보기
+              {t("mypage_comp_order_chat_revisit")}
             </Link>
           ) : null}
         </div>
@@ -101,17 +110,21 @@ export function BuyerStoreOrderCompletedReviewBlock({
         <div className="mt-2 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             {review.rating > 0 ? (
-              <StarRatingRow rating={review.rating} sizeClass={compact ? "text-base" : "sam-text-section-title"} />
+              <StarRatingRow
+                rating={review.rating}
+                sizeClass={compact ? "text-base" : "sam-text-section-title"}
+                ratingAria={t("mypage_comp_store_review_rating_aria", { n: review.rating })}
+              />
             ) : null}
-            <span className="text-[12px] font-semibold text-[#123B4A]">내가 남긴 리뷰</span>
+            <span className="text-[12px] font-semibold text-[#123B4A]">{t("mypage_comp_my_review_label")}</span>
           </div>
           {review.content ? (
             <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-[#123B4A]">{review.content}</p>
           ) : null}
           <p className="text-[12px] leading-snug text-[#6B7280]">
             {review.visible_to_public === false
-              ? "비공개 리뷰로 등록되었어요. 다른 고객용 매장 리뷰 목록에는 보이지 않을 수 있습니다."
-              : "매장 리뷰 목록에 노출될 수 있어요."}
+              ? t("mypage_comp_review_private_list_hint")
+              : t("mypage_comp_review_public_list_hint")}
           </p>
           {ownerReply ? (
             <div
@@ -119,7 +132,7 @@ export function BuyerStoreOrderCompletedReviewBlock({
               style={{ backgroundColor: STORE_ORDER_BRAND.frameGray }}
             >
               <p className="text-[12px] font-bold" style={{ color: STORE_ORDER_BRAND.title }}>
-                사장님 댓글
+                {t("store_owner_reply")}
               </p>
               <p
                 className="mt-1 whitespace-pre-wrap text-[13px] leading-snug"
@@ -129,13 +142,13 @@ export function BuyerStoreOrderCompletedReviewBlock({
               </p>
               {review.owner_reply_created_at ? (
                 <p className="mt-1 text-right text-[12px] tabular-nums" style={{ color: STORE_ORDER_BRAND.muted }}>
-                  {new Date(review.owner_reply_created_at).toLocaleDateString("ko-KR")}
+                  {new Date(review.owner_reply_created_at).toLocaleDateString(dateLocale)}
                 </p>
               ) : null}
             </div>
           ) : (
             <p className="rounded-[4px] border border-dashed border-[#DDE5E0] bg-white px-3 py-2 text-[12px] text-[#6B7280]">
-              아직 사장님 댓글이 없어요. 답변이 오면 여기에 표시됩니다.
+              {t("mypage_comp_owner_reply_pending")}
             </p>
           )}
           <div className={`flex gap-2 ${compact ? "flex-col sm:flex-row" : "flex-row flex-wrap"}`}>
@@ -149,7 +162,7 @@ export function BuyerStoreOrderCompletedReviewBlock({
                     : "delivery-ui inline-flex min-h-11 flex-1 items-center justify-center rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-primary-soft)] px-3 py-2.5 text-sm font-bold text-[color:var(--delivery-primary)]"
                 }
               >
-                매장 리뷰 보기
+                {t("mypage_comp_view_store_reviews")}
               </Link>
             ) : null}
           </div>
@@ -158,8 +171,8 @@ export function BuyerStoreOrderCompletedReviewBlock({
         <div className="mt-2 space-y-2">
           <p className="text-[13px] text-[#6B7280]">
             {reviewStatus === "unavailable"
-              ? "리뷰 기능을 불러오지 못했어요. 잠시 후 다시 확인해 주세요."
-              : "리뷰 상태를 확인할 수 없어요."}
+              ? t("mypage_comp_review_feature_unavailable")
+              : t("mypage_comp_review_status_unknown")}
           </p>
           {listCta}
         </div>

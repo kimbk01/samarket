@@ -38,23 +38,5 @@ export const adminOperationsHubMessages = {
     admin_ops_hub_chat_backend_p2:
       "If readonly/related columns fail, verify Supabase migrations for is_readonly and related_* on general chat.",
   },
-  "zh-CN": {
-    admin_ops_hub_page_title: "运营中枢",
-    admin_ops_hub_card_quick_links: "快捷跳转",
-    admin_ops_hub_card_chat_backend: "聊天操作（后端）",
-    admin_ops_hub_link_chats: "聊天管理",
-    admin_ops_hub_link_chats_desc: "交易·社区·商户房间与处置",
-    admin_ops_hub_link_reports: "举报",
-    admin_ops_hub_link_reports_desc: "聊天与帖子举报审核",
-    admin_ops_hub_link_posts: "帖子",
-    admin_ops_hub_link_posts_desc: "社区内容检查",
-    admin_ops_hub_link_comments: "评论",
-    admin_ops_hub_link_comments_desc: "评论咨询与恶意评论",
-    admin_ops_hub_link_users: "会员",
-    admin_ops_hub_link_users_desc: "账号与处罚联动",
-    admin_ops_hub_chat_backend_p1:
-      "管理端聊天详情的按钮走 POST /api/admin/chat/rooms/[id]/action。用 product_chats ID 打开也会作用于关联的 chat_rooms。",
-    admin_ops_hub_chat_backend_p2:
-      "只读或关联列报错时，请确认 Supabase 是否已应用 is_readonly、related_* 等扩展迁移。",
-  },
+  
 };

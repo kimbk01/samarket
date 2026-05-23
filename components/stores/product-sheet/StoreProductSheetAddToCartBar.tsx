@@ -4,6 +4,7 @@ import {
   STORE_COMMERCE_CART_COUNT_BADGE_ON_PRIMARY_CLASSNAME,
   StoreCommerceCartStrokeIcon,
 } from "@/components/stores/StoreCommerceCartStrokeIcon";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { StoreCommerceBottomActionShell } from "@/components/stores/commerce/StoreCommerceBottomActionShell";
 import {
   STORE_COMMERCE_ACTION_CAPTION_CLASS,
@@ -32,6 +33,7 @@ export function StoreProductSheetAddToCartBar({
   errorMessage?: string | null;
   onAdd: () => void;
 }) {
+  const { t } = useI18n();
   const { totalQty: cartQtyTotal, hydrated: cartHydrated } = useStoreCommerceCartBucketStats(storeId);
 
   const badgeQty = cartHydrated && cartQtyTotal > 0 ? cartQtyTotal : 0;
@@ -49,7 +51,7 @@ export function StoreProductSheetAddToCartBar({
       <div className={storeCommerceActionRowClass("sheet-add")}>
         <div className="min-w-0 flex-1 py-0.5">
           <p className={STORE_COMMERCE_ACTION_SHEET_PRICE_CLASS}>{selectionPriceLabel}</p>
-          <p className={`mt-1.5 ${STORE_COMMERCE_ACTION_CAPTION_CLASS}`}>메뉴·옵션 합계</p>
+          <p className={`mt-1.5 ${STORE_COMMERCE_ACTION_CAPTION_CLASS}`}>{t("store_cart_menu_options_total")}</p>
         </div>
         <button
           type="button"
@@ -58,8 +60,15 @@ export function StoreProductSheetAddToCartBar({
           className={`max-w-[min(100%,13.5rem)] ${storeCommerceActionBtnClass(disabled)}`}
           aria-label={
             badgeQty > 0
-              ? `${label}, 카트 ${badgeQty}개, 메뉴·옵션 합계 ${selectionPriceLabel}`
-              : `${label}, 메뉴·옵션 합계 ${selectionPriceLabel}`
+              ? t("store_product_sheet_add_aria", {
+                  label,
+                  count: String(badgeQty),
+                  amount: selectionPriceLabel,
+                })
+              : t("store_product_sheet_add_aria_no_cart", {
+                  label,
+                  amount: selectionPriceLabel,
+                })
           }
         >
           <span className="relative flex h-[22px] w-[22px] shrink-0 items-center justify-center">

@@ -184,6 +184,13 @@ function readInitialBuyerPhoneFromProfileCache(): string {
   return parsePhMobileInput(resolveProfilePhoneDb09(json.profile) ?? "");
 }
 
+function StoreCartAddressRowLoading() {
+  const { t } = useI18n();
+  return (
+    <p className="mt-1 sam-text-helper leading-snug text-sam-muted">{t("store_cart_address_row_loading")}</p>
+  );
+}
+
 const StoreCartCheckoutAddressRowBodyLazy = dynamic(
   () =>
     import("@/components/stores/cart/StoreCartCheckoutAddressRowBody").then((m) => ({
@@ -191,9 +198,7 @@ const StoreCartCheckoutAddressRowBodyLazy = dynamic(
     })),
   {
     ssr: false,
-    loading: () => (
-      <p className="mt-1 sam-text-helper leading-snug text-sam-muted">주소 정보 표시 중…</p>
-    ),
+    loading: () => <StoreCartAddressRowLoading />,
   }
 );
 
@@ -1169,13 +1174,13 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
     if (fulfillment !== "local_delivery") return formatMoneyPhp(0);
     if (commerce.deliveryFeeMode === "courier") {
       const label = commerce.deliveryCourierLabel?.trim();
-      return label ? `착불 · ${label}` : "착불";
+      return label ? t("store_cod_with_partner", { label }) : t("store_cod_label");
     }
     if (commerce.deliveryFeeMode === "self_free_promo") {
       return (
         <span className="inline-flex flex-col items-end gap-0.5">
           <span className="inline-flex flex-wrap items-center justify-end gap-1.5">
-            <span className="text-[13px] font-semibold text-[#2563EB]">배달비 무료 적용 중</span>
+            <span className="text-[13px] font-semibold text-[#2563EB]">{t("store_free_delivery_applied")}</span>
             {commerce.deliveryFeeStrikeReferencePhp != null &&
             commerce.deliveryFeeStrikeReferencePhp > 0 ? (
               <span className="text-[13px] font-medium text-[#999] line-through">
@@ -1188,7 +1193,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       );
     }
     return formatMoneyPhp(deliveryFeeForCheckout);
-  }, [commerce, deliveryFeeForCheckout, fulfillment]);
+  }, [commerce, deliveryFeeForCheckout, fulfillment, t]);
 
   const openProductSheet = useCallback(
     (productId: string, editCartLine?: StoreCommerceCartLine) => {
@@ -1507,8 +1512,8 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
       >
         <div className="px-4 py-10">
           <div className="text-center">
-            <p className="sam-text-body-lg font-semibold text-sam-fg">장바구니가 비어 있어요</p>
-            <p className="mt-1 sam-text-body text-sam-muted">먹고 싶은 가게를 찾아보세요</p>
+            <p className="sam-text-body-lg font-semibold text-sam-fg">{t("store_cart_empty")}</p>
+            <p className="mt-1 sam-text-body text-sam-muted">{t("store_cart_empty_hint")}</p>
           </div>
           {otherBuckets.length > 0 ? (
             <div className="mt-4 rounded border border-amber-200 bg-amber-50 px-3 py-3 sam-text-body-secondary leading-relaxed text-amber-950">
@@ -1709,7 +1714,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         <div className={BAEMIN_CART_CHECKOUT_INNER_CLASS}>
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:gap-3">
           <div className="min-w-0 sm:max-w-[8.5rem] sm:shrink-0">
-            <p className="sam-text-body font-medium text-sam-muted">수령 방식</p>
+            <p className="sam-text-body font-medium text-sam-muted">{t("store_fulfillment_mode")}</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {fulfillmentOptions.map((o) => (
                 <button
@@ -1748,12 +1753,12 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             className={`min-w-0 flex-1 ${BAEMIN_CART_CHECKOUT_SECTION_DIVIDER_CLASS} sm:border-t-0 sm:border-l sm:border-[var(--delivery-border-section)] sm:pt-0 sm:pl-4`}
           >
             <p className="sam-text-body font-medium text-sam-muted">
-              결제 방법 <span className="text-red-600">*</span>
+              {t("store_payment_method_required")} <span className="text-red-600">*</span>
             </p>
             <div
               className="mt-2 flex flex-nowrap gap-2 overflow-x-auto pb-0.5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
               role="radiogroup"
-              aria-label="결제 방법"
+              aria-label={t("store_payment_method_aria")}
             >
               {checkoutPaymentOptions.map((opt) => (
                 <label
@@ -1782,7 +1787,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
 
         {fulfillment === "pickup" && offerPickup && storePickupLines.length > 0 ? (
           <div className="rounded-ui-rect border border-sky-100 bg-sky-50/90 px-3 py-2.5">
-            <p className="sam-text-helper font-semibold text-sky-950">픽업 장소 (매장 주소)</p>
+            <p className="sam-text-helper font-semibold text-sky-950">{t("store_pickup_location")}</p>
             <p className="mt-1 sam-text-xxs leading-snug text-sky-900/85">
               이 주소에서 수령합니다. 배달을 고르면 아래에 입력하는 주소가 배달지로 전달됩니다.
             </p>
@@ -1814,9 +1819,9 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         >
           <div className={needsAddressAndPhone ? "min-w-0 sm:max-w-[13rem] sm:shrink-0" : undefined}>
             <p className="sam-text-body font-medium text-sam-muted">
-              연락처
+              {t("store_contact_optional")}
               {fulfillment === "pickup" ? (
-                <span className="font-normal text-sam-meta"> (선택)</span>
+                <span className="font-normal text-sam-meta"> {t("store_optional_paren")}</span>
               ) : (
                 <span className="text-red-600"> *</span>
               )}
@@ -1832,7 +1837,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                   disabled={busy}
                   placeholder={PH_LOCAL_09_PLACEHOLDER}
                   className="w-full max-w-[16rem] rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-2 sam-text-body tabular-nums text-sam-fg"
-                  aria-label="주문 연락처"
+                  aria-label={t("store_order_contact_aria")}
                 />
                 <p className="sam-text-xxs leading-snug text-sam-muted">
                   프로필에 저장된 번호가 없으면 여기에 입력하거나{" "}
@@ -1859,7 +1864,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
             <ul className={BAEMIN_CART_ADDRESS_LIST_CLASS}>
               {!checkoutContactReady ? (
                 <li className={`${BAEMIN_CART_ADDRESS_ROW_CLASS} bg-[#FAFAFA]`}>
-                  <p className="sam-text-helper text-sam-muted">배달 주소 정보를 불러오는 중입니다…</p>
+                  <p className="sam-text-helper text-sam-muted">{t("store_delivery_address_loading")}</p>
                 </li>
               ) : null}
               {checkoutContactReady && !profileSnap && savedAddresses.length === 0 ? (
@@ -1996,18 +2001,16 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                 {globalRideTimeSource === "store" ? (
                   storeModeStaticEtaLabel && storeModeStaticEtaLabel.trim() ? (
                     <p className="sam-text-xxs font-semibold leading-snug text-sam-fg">
-                      예상 도착(참고): {storeModeStaticEtaLabel}
-                      <span className="ml-1 font-normal text-sam-muted">매장 입력·조리 안내 기준</span>
+                      {t("store_cart_eta_ref", { label: storeModeStaticEtaLabel })}
+                      <span className="ml-1 font-normal text-sam-muted">{t("store_prep_time_store_basis")}</span>
                     </p>
                   ) : (
-                    <p className="sam-text-xxs leading-snug text-sam-muted">
-                      매장 설정에서 수기 배달 시간을 입력하면 여기에 표시됩니다.
-                    </p>
+                    <p className="sam-text-xxs leading-snug text-sam-muted">{t("store_cart_eta_manual_hint")}</p>
                   )
                 ) : deliveryEtaLabel ? (
                   <p className="sam-text-xxs font-semibold leading-snug text-sam-fg">
-                    예상 도착(참고): {deliveryEtaLabel}
-                    <span className="ml-1 font-normal text-sam-muted">오토바이 경로 기준</span>
+                    {t("store_cart_eta_ref", { label: deliveryEtaLabel })}
+                    <span className="ml-1 font-normal text-sam-muted">{t("store_route_motorcycle_basis")}</span>
                   </p>
                 ) : (
                   <button
@@ -2016,7 +2019,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
                     onClick={() => void loadDeliveryEtaPreview()}
                     className="sam-text-xxs font-semibold leading-snug text-sam-fg underline decoration-sam-muted underline-offset-2 disabled:opacity-50"
                   >
-                    예상 도착(참고) 확인
+                    {t("store_cart_eta_confirm")}
                   </button>
                 )}
               </div>
@@ -2026,7 +2029,7 @@ export function StoreCommerceCartPageClient({ storeSlug }: { storeSlug: string }
         </div>
         <div className={BAEMIN_CART_CHECKOUT_SECTION_DIVIDER_CLASS}>
           <label htmlFor="cart-buyer-note" className="sam-text-body font-medium text-sam-muted">
-            요청 사항 (선택)
+            {t("store_request_optional_label")}
           </label>
           <textarea
             id="cart-buyer-note"

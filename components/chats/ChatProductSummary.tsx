@@ -134,7 +134,7 @@ export function ChatProductSummary({
               <span>{CURRENCY_SYMBOLS.KRW}</span>
             </div>
               ) : (
-                <span className="sam-text-xxs text-sam-meta" aria-hidden>이미지</span>
+                <span className="sam-text-xxs text-sam-meta" aria-hidden>{t("common_image")}</span>
               )
             }
           />

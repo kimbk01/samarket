@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { CommerceCartHubHeaderRight } from "@/components/layout/CommerceCartHubHeaderRight";
 import { useSetMainTier1ExtrasOptional } from "@/contexts/MainTier1ExtrasContext";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
@@ -23,7 +24,7 @@ import {
 } from "@/lib/utils/ph-mobile";
 import { StoreOrderDeliveryAddressDisplay } from "@/components/addresses/StoreOrderDeliveryAddressDisplay";
 import { StoreCommerceOrderTimeline } from "@/components/stores/StoreCommerceOrderTimeline";
-import { BUYER_ORDER_STATUS_LABEL } from "@/lib/stores/store-order-process-criteria";
+import { buyerOrderStatusLabel } from "@/lib/stores/buyer-order-status-labels";
 import { formatBuyerPaymentDisplay } from "@/lib/stores/payment-methods-config";
 import type { CompletedOrderReorderPayload } from "@/lib/stores/apply-completed-order-to-commerce-cart";
 import { StoreOrderReorderAgainButton } from "@/components/mypage/StoreOrderReorderAgainButton";
@@ -43,7 +44,16 @@ import {
 } from "@/lib/stores/store-order-detail-seed-cache";
 import { useSupabaseStoreOrderRowRealtime } from "@/hooks/useSupabaseStoreOrderRowRealtime";
 import { useSupabaseStoreOrderDeliveriesRealtime } from "@/hooks/useSupabaseStoreOrderDeliveriesRealtime";
-import { formatStoreOrderCheckoutEtaSummary } from "@/lib/stores/format-store-order-checkout-display";
+import {
+  buyerFulfillmentLabel,
+  buyerReviewProcessLabel,
+  buyerStoreOrderProgressCopy,
+  formatStoreOrderCheckoutEtaSummaryI18n,
+  lineDiscountDisplayI18n,
+  paymentMethodLabel,
+  storeOrderEventActorLabel,
+  storeOrderEventLabels,
+} from "@/lib/mypage/store-order-detail-i18n";
 import {
   dibayPerfMaybeEmitCustomerStatusAfterOwner,
   dibayPerfOnOrderDetailVisible,
@@ -71,42 +81,6 @@ type StoreOrderEventPublic = {
   created_at: string;
   metadata?: Record<string, unknown> | null;
 };
-
-const STORE_ORDER_EVENT_LABEL_KO: Record<string, string> = {
-  order_created: "주문 생성",
-  order_accepted: "매장 접수",
-  order_rejected: "접수 거절",
-  order_preparing: "준비(조리)중",
-  order_ready: "준비(조리)중",
-  order_delivering: "배달중",
-  order_completed: "배달완료",
-  order_cancelled: "취소",
-  refund_requested: "환불 요청",
-  refund_approved: "환불 처리",
-  refund_rejected: "환불 거절",
-  system_note: "안내",
-  delivery_status_changed: "배달 진행",
-  order_payment_completed_buyer: "결제 완료",
-  order_payment_completed_owner: "매장 결제 확인",
-  order_payment_failed_buyer: "결제 실패",
-};
-
-function storeOrderEventActorLabelKo(role: string): string {
-  switch (role) {
-    case "buyer":
-      return "구매자";
-    case "owner":
-      return "매장";
-    case "rider":
-      return "라이더";
-    case "admin":
-      return "운영";
-    case "system":
-      return "시스템";
-    default:
-      return role;
-  }
-}
 
 type OrderDetail = {
   id: string;
@@ -159,142 +133,21 @@ type OrderDetail = {
   checkout_route_distance_meters?: number | null;
 };
 
-
-const FULFILL_LABEL: Record<string, string> = {
-  pickup: "포장 픽업",
-  local_delivery: "배달",
-  shipping: "배달",
-};
-
-const ORDER_LABEL: Record<string, string> = { ...BUYER_ORDER_STATUS_LABEL };
-
-function formatPrepClockKo(iso: string | null | undefined): string | null {
+function formatPrepClock(iso: string | null | undefined, locale: string): string | null {
   const s = typeof iso === "string" ? iso.trim() : "";
   if (!s) return null;
-  const t = new Date(s).getTime();
-  if (!Number.isFinite(t)) return null;
-  return new Date(t).toLocaleTimeString("ko-KR", {
+  const ms = new Date(s).getTime();
+  if (!Number.isFinite(ms)) return null;
+  return new Date(ms).toLocaleTimeString(locale, {
     hour: "2-digit",
     minute: "2-digit",
     hour12: false,
   });
 }
 
-function buyerStoreOrderProgressCopy(order: OrderDetail): { headline: string; lines: string[] } {
-  const clock = formatPrepClockKo(order.estimated_ready_at);
-  const n = Math.max(0, Math.floor(Number(order.estimated_prep_minutes) || 0));
-  const d = order.delivery;
-  const deliveryLine = (() => {
-    const s = d?.delivery_status?.trim?.() ? String(d.delivery_status).trim() : "";
-    if (!s) return null;
-    switch (s) {
-      case "waiting_rider":
-        return "배차 대기중";
-      case "rider_assigned":
-        return "라이더 배정됨";
-      case "pickup_in_progress":
-        return "픽업 진행중";
-      case "delivering":
-        return "배달중";
-      case "delivered":
-        return "배달 완료";
-      case "delivery_failed":
-        return "배송 실패(운영 확인중)";
-      default:
-        return `배송 상태: ${s}`;
-    }
-  })();
-
-  switch (order.order_status) {
-    case "pending":
-      return {
-        headline: "매장 접수 대기중",
-        lines: ["매장에서 주문을 확인하면 진행 안내를 바로 보여 드릴게요."],
-      };
-    case "accepted":
-      return {
-        headline: "매장이 주문을 확인했습니다",
-        lines: [
-          n > 0 ? `예상 준비시간: 약 ${n}분` : "예상 준비시간은 매장 안내를 참고해 주세요.",
-          clock ? `예상 준비완료: ${clock}` : "",
-        ].filter(Boolean),
-      };
-    case "preparing":
-      return {
-        headline: "준비(조리)중",
-        lines: clock ? [`예상 준비완료 ${clock}`] : ["매장에서 준비 중입니다."],
-      };
-    case "delivering":
-      return {
-        headline: "배달중",
-        lines:
-          [
-            deliveryLine,
-            typeof d?.customer_arrived_at === "string" && d.customer_arrived_at.trim()
-              ? "라이더가 배달지에 도착했습니다."
-              : null,
-            order.delivery_courier_label?.trim() ? `배달 정보: ${order.delivery_courier_label.trim()}` : null,
-          ].filter((x): x is string => typeof x === "string" && x.length > 0),
-      };
-    default: {
-      const lines: string[] = [];
-      if (order.order_status === "completed" && order.delivery?.delivery_status === "delivered") {
-        const dc =
-          typeof order.delivery.delivered_confirmed_at === "string" && order.delivery.delivered_confirmed_at.trim();
-        if (dc) lines.push("배달 완료 확인이 접수되었습니다.");
-        const hint =
-          typeof order.delivery.delivered_receiver_hint === "string" &&
-          order.delivery.delivered_receiver_hint.trim();
-        if (hint) lines.push(`수령 확인: ${hint}`);
-      }
-      if (deliveryLine) lines.push(deliveryLine);
-      return {
-        headline: ORDER_LABEL[order.order_status] ?? order.order_status,
-        lines,
-      };
-    }
-  }
-}
-
-function paymentMethodLabel(paymentStatus: string): string {
-  switch (paymentStatus) {
-    case "paid":
-      return "배달 주문 · 결제 완료(현장·직접 정산)";
-    case "pending":
-      return "결제 대기";
-    case "failed":
-      return "결제 실패";
-    case "cancelled":
-      return "결제 취소";
-    case "refunded":
-      return "환불 처리됨";
-    default:
-      return paymentStatus;
-  }
-}
-
-function buyerReviewProcessLabel(args: {
-  orderStatus: string;
-  review: BuyerStoreOrderReviewSummary | null;
-  canSubmitReview: boolean;
-}): { label: string; tone: "done" | "action" | "muted" } {
-  if (args.orderStatus !== "completed") return { label: "주문 완료 후 리뷰를 남길 수 있습니다.", tone: "muted" };
-  if (args.review) return { label: "리뷰 작성이 완료되었습니다.", tone: "done" };
-  if (args.canSubmitReview) return { label: "주문이 완료되었습니다. 리뷰를 작성해 주세요.", tone: "action" };
-  return { label: "리뷰 상태를 확인 중입니다.", tone: "muted" };
-}
-
-function lineDiscountDisplay(priceSnapshot: number, qty: number, subtotal: number): string {
-  const gross = Math.round(priceSnapshot) * qty;
-  const st = Math.round(subtotal);
-  if (gross <= 0) return "—";
-  if (st >= gross) return "—";
-  const off = gross - st;
-  const pct = Math.round((off / gross) * 1000) / 10;
-  return `${pct}% (−${formatMoneyPhp(off)})`;
-}
-
 export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: boolean }) {
+  const { t, language } = useI18n();
+  const dateLocale = language === "ko" ? "ko-KR" : "en-PH";
   const params = useParams();
   const router = useRouter();
   const setMainTier1Extras = useSetMainTier1ExtrasOptional();
@@ -478,15 +331,15 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
         const code = typeof j.error === "string" ? j.error : "refund_request_failed";
         setRefundErr(
           code === "cannot_request_refund"
-            ? "이 단계에서는 환불 요청을 할 수 없습니다. (완료된 주문은 고객센터로 문의해 주세요.)"
-            : `요청에 실패했습니다. (${code})`
+            ? t("mypage_comp_refund_err_cannot")
+            : t("mypage_comp_request_failed_code", { code })
         );
         return;
       }
       await load();
       router.refresh();
     } catch {
-      setRefundErr("네트워크 오류가 발생했습니다.");
+      setRefundErr(t("mypage_comp_network_error"));
     } finally {
       setRefundBusy(false);
     }
@@ -503,22 +356,22 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
         const code = typeof j.error === "string" ? j.error : "cancel_failed";
         setCancelErr(
           code === "cannot_cancel_after_accepted"
-            ? "매장이 접수한 뒤에는 여기서 취소할 수 없습니다. 매장에 문의해 주세요."
-            : `취소에 실패했습니다. (${code})`
+            ? t("mypage_comp_cancel_err_after_accepted")
+            : t("mypage_comp_cancel_failed_code", { code })
         );
         return;
       }
       await load();
       router.refresh();
     } catch {
-      setCancelErr("네트워크 오류가 발생했습니다.");
+      setCancelErr(t("mypage_comp_network_error"));
     } finally {
       setCancelBusy(false);
     }
   }
 
   if (state.kind === "loading") {
-    return <p className="text-sm text-sam-muted">불러오는 중…</p>;
+    return <p className="text-sm text-sam-muted">{t("mypage_comp_loading_short")}</p>;
   }
   if (state.kind === "seed") {
     const seed = state.seed;
@@ -526,29 +379,33 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
       <div className="space-y-4">
         <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
           <div className="flex flex-wrap justify-between gap-2">
-            <p className="sam-text-body font-semibold text-sam-fg">{seed.store_name || "매장"}</p>
+            <p className="sam-text-body font-semibold text-sam-fg">
+              {seed.store_name || t("mypage_comp_store_fallback_name")}
+            </p>
             <span className="text-xs text-sam-meta">{seed.order_no}</span>
           </div>
           <p className="mt-3 sam-text-helper text-sam-fg">
-            {ORDER_LABEL[seed.order_status] ?? seed.order_status} · 결제 금액{" "}
+            {buyerOrderStatusLabel(seed.order_status, language)} · {t("mypage_comp_order_payment_amount_label")}{" "}
             <span className="font-semibold">{formatMoneyPhp(seed.payment_amount)}</span>
             {seed.total_amount !== seed.payment_amount ? (
               <span className="text-sam-muted">
                 {" "}
-                (합계 {formatMoneyPhp(seed.total_amount)})
+                {t("mypage_comp_order_total_in_parens", { amount: formatMoneyPhp(seed.total_amount) })}
               </span>
             ) : null}
           </p>
           <p className="mt-2 sam-text-xxs text-sam-muted">
-            주문일 {new Date(seed.created_at).toLocaleString("ko-KR")}
+            {t("mypage_comp_order_date_line", {
+              datetime: new Date(seed.created_at).toLocaleString(dateLocale),
+            })}
           </p>
-          <p className="mt-4 sam-text-helper text-sam-muted">주문 정보를 불러오는 중…</p>
+          <p className="mt-4 sam-text-helper text-sam-muted">{t("mypage_comp_order_loading_detail")}</p>
           <button
             type="button"
             onClick={() => void load()}
             className="mt-3 text-sm text-signature underline"
           >
-            다시 시도
+            {t("mypage_comp_retry")}
           </button>
         </div>
       </div>
@@ -557,12 +414,12 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
   if (state.kind === "unauth") {
     return (
       <div className="space-y-3 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 text-sm text-sam-muted shadow-sm">
-        <p>로그인 후 주문 상세와 매장 채팅을 계속 확인할 수 있습니다.</p>
+        <p>{t("mypage_comp_order_unauth_prompt")}</p>
         <Link
           href="/login"
           className="inline-flex rounded-ui-rect bg-signature px-4 py-2 font-semibold text-white"
         >
-          로그인하고 주문 이어보기
+          {t("mypage_comp_order_login_continue")}
         </Link>
       </div>
     );
@@ -570,9 +427,9 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
   if (state.kind === "not_found") {
     return (
       <div className="space-y-3 text-sm text-sam-muted">
-        <p>주문을 찾을 수 없습니다.</p>
+        <p>{t("mypage_comp_order_not_found")}</p>
         <Link href={listHref} className="text-signature underline">
-          목록으로
+          {t("mypage_comp_back_to_list")}
         </Link>
       </div>
     );
@@ -580,13 +437,13 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
   if (state.kind === "error") {
     return (
       <div className="space-y-2">
-        <p className="text-sm text-red-600">({state.message})</p>
+        <p className="text-sm text-red-600">{t("mypage_comp_error_wrapped", { message: state.message })}</p>
         <button
           type="button"
           onClick={() => void load()}
           className="text-sm text-signature underline"
         >
-          다시 시도
+          {t("mypage_comp_retry")}
         </button>
       </div>
     );
@@ -625,38 +482,45 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
   const orderChatDisabled = isStoreOrderChatDisabledForBuyer(order.order_status);
   const payDisplay = formatBuyerPaymentDisplay(order.buyer_payment_method, order.buyer_payment_method_detail);
   const chatHref = `${orderBase}/chat`;
-  const buyerProg = buyerStoreOrderProgressCopy(order);
-  const reviewProcess = buyerReviewProcessLabel({
+  const orderStatusLabel = (status: string) => buyerOrderStatusLabel(status, language);
+  const eventLabels = storeOrderEventLabels(t);
+  const prepClock = formatPrepClock(order.estimated_ready_at, dateLocale);
+  const buyerProg = buyerStoreOrderProgressCopy(t, order, orderStatusLabel, prepClock);
+  const reviewProcess = buyerReviewProcessLabel(t, {
     orderStatus: order.order_status,
     review,
     canSubmitReview: can_submit_review,
   });
+  const fulfillLabel = buyerFulfillmentLabel(order.fulfillment_type, t);
+  const dash = t("mypage_comp_placeholder_dash");
 
   return (
     <div className="space-y-4">
       <div className="rounded-[4px] border border-[#DDE5E0] bg-white p-4 shadow-sm">
         <div className="flex flex-wrap justify-between gap-2">
           <p className="sam-text-body font-bold text-[#123B4A]">
-            {order.store_name || "매장"}
+            {order.store_name || t("mypage_comp_store_fallback_name")}
           </p>
           <span className="text-xs font-semibold text-[#6B7280]">{order.order_no}</span>
         </div>
         <div className="delivery-ui mt-3 rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-[color:var(--delivery-primary)] px-3 py-3 text-white">
           {order.admin_locked === true ? (
             <p className="mb-3 rounded-ui-rect border border-violet-200 bg-violet-50 px-3 py-2 sam-text-helper leading-snug text-violet-950">
-              이 주문은 플랫폼 운영에서 일시적으로 보호 중입니다. 취소·환불 요청 변경은 운영 정책에 따라 처리됩니다.
+              {t("mypage_comp_admin_locked_notice")}
             </p>
           ) : null}
           {order.needs_admin_attention === true || (order.sla_warning_level ?? "").trim() ? (
             <p className="mb-3 rounded-ui-rect border border-rose-200 bg-rose-50 px-3 py-2 sam-text-helper leading-snug text-rose-950">
-              배달 진행이 지연되고 있어요. 운영에서 확인 중입니다.
+              {t("mypage_comp_sla_delay_notice")}
               {order.sla_warning_reason?.trim() ? (
-                <span className="ml-1 text-sam-muted">(사유: {order.sla_warning_reason.trim()})</span>
+                <span className="ml-1 text-sam-muted">
+                  {t("mypage_comp_sla_reason_suffix", { reason: order.sla_warning_reason.trim() })}
+                </span>
               ) : null}
             </p>
           ) : null}
           <p className="sam-text-xxs font-semibold uppercase tracking-[0.08em] text-white/75">
-            현재 주문 상태
+            {t("mypage_comp_order_current_status_heading")}
           </p>
           <p className="mt-1 sam-text-page-title font-bold text-white">{buyerProg.headline}</p>
           {buyerProg.lines.length ? (
@@ -667,12 +531,12 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
             </ul>
           ) : null}
           <p className="mt-2 sam-text-helper leading-relaxed text-white/75">
-            표준 단계: {ORDER_LABEL[order.order_status] ?? order.order_status} · 결제{" "}
-            {paymentMethodLabel(order.payment_status)}
+            {t("mypage_comp_order_standard_step", {
+              status: orderStatusLabel(order.order_status),
+              payment: paymentMethodLabel(t, order.payment_status),
+            })}
           </p>
-          <p className="mt-1 sam-text-xxs leading-relaxed text-white/70">
-            주문 채팅은 매장과 소통용이며, 취소·환불 처리 상태는 이 화면에서 확인하세요.
-          </p>
+          <p className="mt-1 sam-text-xxs leading-relaxed text-white/70">{t("mypage_comp_order_chat_notice")}</p>
         </div>
         <div
           className={`mt-3 rounded-[4px] border px-3 py-3 ${
@@ -683,20 +547,20 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
                 : "border-[#DDE5E0] bg-[#f6f6f6] text-[#6B7280]"
           }`}
         >
-          <p className="text-[12px] font-bold leading-[1.35]">주문 완료 리뷰</p>
+          <p className="text-[12px] font-bold leading-[1.35]">{t("mypage_comp_order_complete_review_heading")}</p>
           <p className="mt-1 text-[13px] font-semibold leading-[1.45]">{reviewProcess.label}</p>
         </div>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           {orderChatDisabled ? (
             <span className="inline-flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-app px-3 py-3 text-sm font-medium text-sam-meta">
-              주문 채팅 불가
+              {t("mypage_comp_order_chat_disabled")}
             </span>
           ) : (
             <Link
               href={chatHref}
               className="delivery-ui inline-flex items-center justify-center rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-primary-soft)] px-3 py-3 text-sm font-bold text-[color:var(--delivery-primary)] shadow-none"
             >
-              주문 진행 채팅
+              {t("store_owner_order_progress_chat_title")}
             </Link>
           )}
           {order.store_slug ? (
@@ -704,14 +568,14 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
               href={`/stores/${encodeURIComponent(order.store_slug)}`}
               className="inline-flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-sm font-medium text-sam-fg"
             >
-              매장 보기
+              {t("mypage_comp_view_store")}
             </Link>
           ) : (
             <Link
               href={listHref}
               className="inline-flex items-center justify-center rounded-ui-rect border border-sam-border bg-sam-surface px-3 py-3 text-sm font-medium text-sam-fg"
             >
-              주문 목록 보기
+              {t("mypage_comp_view_order_list")}
             </Link>
           )}
         </div>
@@ -734,42 +598,45 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
           </div>
         ) : null}
         <p className="mt-2 text-xs text-sam-muted">
-          {FULFILL_LABEL[order.fulfillment_type] ?? order.fulfillment_type}
+          {fulfillLabel}
           {" · "}
-          {ORDER_LABEL[order.order_status] ?? order.order_status}
+          {orderStatusLabel(order.order_status)}
         </p>
         {(order.order_status === "ready_for_pickup" ||
           order.order_status === "delivering" ||
           order.order_status === "arrived") &&
         order.auto_complete_at ? (
           <p className="mt-2 sam-text-xxs text-sam-muted">
-            아래 시각이 지나면 주문이 자동으로 &quot;완료&quot; 처리될 수 있습니다.{" "}
-            <span className="font-medium text-sam-fg">
-              {new Date(order.auto_complete_at).toLocaleString("ko-KR")}
-            </span>
+            {t("mypage_comp_auto_complete_notice", {
+              datetime: new Date(order.auto_complete_at).toLocaleString(dateLocale),
+            })}
           </p>
         ) : null}
         {storeOrderAwaitingFirstPayment(order) ? (
-          <p className="mt-3 sam-text-xxs text-sam-muted">
-            매장이 접수하기 전이면 아래에서 주문을 취소할 수 있습니다. 금액 정산은 매장과 직접 하시면 됩니다.
+          <p className="mt-3 sam-text-xxs text-sam-muted">{t("mypage_comp_cancel_before_accept_hint")}</p>
+        ) : null}
+        {payDisplay !== dash ? (
+          <p className="mt-2 text-sm font-medium text-sam-fg">
+            {t("mypage_comp_payment_method_label", { method: payDisplay })}
           </p>
         ) : null}
-        {payDisplay !== "—" ? (
-          <p className="mt-2 text-sm font-medium text-sam-fg">결제 방법: {payDisplay}</p>
-        ) : null}
         {order.buyer_note ? (
-          <p className="mt-2 text-sm text-sam-fg">요청 사항: {order.buyer_note}</p>
+          <p className="mt-2 text-sm text-sam-fg">
+            {t("mypage_comp_buyer_note_label", { note: order.buyer_note })}
+          </p>
         ) : null}
         <p className="mt-2 sam-text-xxs text-sam-meta">
-          주문일 {new Date(order.created_at).toLocaleString("ko-KR")}
+          {t("mypage_comp_order_date_line", {
+            datetime: new Date(order.created_at).toLocaleString(dateLocale),
+          })}
         </p>
       </div>
 
       <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
-        <h2 className="text-sm font-semibold text-sam-fg">진행 단계</h2>
+        <h2 className="text-sm font-semibold text-sam-fg">{t("mypage_comp_timeline_section")}</h2>
         {order.order_status === "pending" ? (
           <p className="mt-2 rounded-ui-rect bg-signature/5 px-3 py-2 sam-text-helper text-sam-fg">
-            매장에서 주문을 확인·접수하면 채팅과 알림으로 다음 단계를 알려드려요.
+            {t("mypage_comp_timeline_pending_notice")}
           </p>
         ) : null}
         <div className="mt-4">
@@ -781,7 +648,9 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
         </div>
         {orderEvents && orderEvents.length > 0 ? (
           <div className="mt-6 border-t border-sam-border-soft pt-4">
-            <h3 className="text-xs font-semibold uppercase tracking-wide text-sam-meta">주문 기록</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-sam-meta">
+              {t("mypage_comp_order_history_heading")}
+            </h3>
             <ul className="mt-2 space-y-2">
               {orderEvents.map((ev) => {
                 const meta =
@@ -798,17 +667,20 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
                 >
                   <div className="flex flex-wrap justify-between gap-1">
                     <span className="font-medium">
-                      {STORE_ORDER_EVENT_LABEL_KO[ev.event_type] ?? ev.event_type}
-                      {autoCompleteCron ? " · 자동 구매확정" : ""}
+                      {eventLabels[ev.event_type] ?? ev.event_type}
+                      {autoCompleteCron ? t("mypage_comp_event_auto_confirm_suffix") : ""}
                     </span>
                     <span className="text-sam-meta">
-                      {new Date(ev.created_at).toLocaleString("ko-KR")}
+                      {new Date(ev.created_at).toLocaleString(dateLocale)}
                     </span>
                   </div>
                   <p className="mt-1 text-sam-meta">
-                    {storeOrderEventActorLabelKo(ev.actor_role)}
+                    {storeOrderEventActorLabel(t, ev.actor_role)}
                     {ev.from_status || ev.to_status
-                      ? ` · ${ev.from_status ?? "—"} → ${ev.to_status ?? "—"}`
+                      ? ` · ${t("mypage_comp_order_event_status_arrow", {
+                          from: ev.from_status ?? dash,
+                          to: ev.to_status ?? dash,
+                        })}`
                       : ""}
                   </p>
                   {ev.message?.trim() ? (
@@ -823,15 +695,17 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
       </div>
 
       <div className="rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
-        <h2 className="sam-text-body font-bold text-sam-fg">주문 상품</h2>
+        <h2 className="sam-text-body font-bold text-sam-fg">{t("mypage_comp_order_items_heading")}</h2>
 
         <div className="mt-4">
           <h3 className="sam-text-xxs font-semibold text-sam-muted">
-            {order.fulfillment_type === "pickup" ? "픽업 장소 (매장 주소)" : "배달 받을 주소"}
+            {order.fulfillment_type === "pickup"
+              ? t("mypage_comp_address_pickup_heading")
+              : t("mypage_comp_address_delivery_heading")}
           </h3>
           {order.fulfillment_type === "pickup" ? (
             <div className="mt-1.5 space-y-1 text-sm leading-relaxed text-sam-fg">
-              <p className="sam-text-body-secondary text-sam-muted">포장 픽업 · 아래 매장에서 수령하세요.</p>
+              <p className="sam-text-body-secondary text-sam-muted">{t("mypage_comp_pickup_instruction")}</p>
               {order.store_pickup_address_lines && order.store_pickup_address_lines.length > 0 ? (
                 order.store_pickup_address_lines.map((line, i) => (
                   <p key={i} className={i === 0 ? "font-medium text-sam-fg" : "sam-text-body-secondary text-sam-fg"}>
@@ -839,14 +713,14 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
                   </p>
                 ))
               ) : (
-                <p className="text-amber-800">매장 주소가 아직 등록되지 않았습니다. 채팅으로 매장에 확인해 주세요.</p>
+                <p className="text-amber-800">{t("mypage_comp_store_address_missing")}</p>
               )}
               {order.store_slug ?
                 <Link
                   href={`/stores/${encodeURIComponent(order.store_slug)}/info`}
                   className="mt-2 inline-block sam-text-body-secondary font-medium text-signature underline"
                 >
-                  매장 정보 보기
+                  {t("mypage_comp_view_store_info")}
                 </Link>
               : null}
             </div>
@@ -858,14 +732,14 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
                 showDetailLabel={false}
               />
               {(() => {
-                const line = formatStoreOrderCheckoutEtaSummary({
+                const line = formatStoreOrderCheckoutEtaSummaryI18n(t, {
                   checkout_eta_minutes: order.checkout_eta_minutes,
                   checkout_route_distance_meters: order.checkout_route_distance_meters,
                 });
                 return line ?
                     <p
                       className="mt-2 sam-text-body-secondary text-sam-muted"
-                      title="주소·매장 위치 변경 시 자동 갱신된 참고 값입니다."
+                      title={t("mypage_comp_checkout_eta_title")}
                     >
                       {line}
                     </p>
@@ -873,12 +747,12 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
               })()}
             </div>
           ) : (
-            <p className="mt-1.5 text-sm text-amber-800">등록된 배달 주소가 없습니다.</p>
+            <p className="mt-1.5 text-sm text-amber-800">{t("mypage_comp_delivery_address_missing")}</p>
           )}
         </div>
 
         <div className="mt-4 border-t border-sam-border-soft pt-4">
-          <h3 className="sam-text-xxs font-semibold text-sam-muted">주문자 연락처</h3>
+          <h3 className="sam-text-xxs font-semibold text-sam-muted">{t("mypage_comp_buyer_contact_heading")}</h3>
           {order.buyer_phone?.trim() ? (
             <p className="mt-1.5 text-sm text-sam-fg">
               {(() => {
@@ -893,16 +767,18 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
                   <span className="font-mono">{label}</span>
                 );
               })()}
-              <span className="ml-1 sam-text-xxs font-normal text-sam-meta">· 전화 문의</span>
+              <span className="ml-1 sam-text-xxs font-normal text-sam-meta">
+                {t("mypage_comp_phone_inquiry_suffix")}
+              </span>
             </p>
           ) : (
-            <p className="mt-1.5 text-sm text-sam-muted">등록된 연락처가 없습니다.</p>
+            <p className="mt-1.5 text-sm text-sam-muted">{t("mypage_comp_buyer_phone_missing")}</p>
           )}
         </div>
 
         <div className="mt-4 border-t border-sam-border-soft pt-4">
-          <h3 className="sam-text-xxs font-semibold text-sam-muted">주문 품목</h3>
-          <p className="mt-1 sam-text-xxs text-sam-meta">이름 · 수량 · 단가 / 할인율 · 항목 합계</p>
+          <h3 className="sam-text-xxs font-semibold text-sam-muted">{t("mypage_comp_order_lines_heading")}</h3>
+          <p className="mt-1 sam-text-xxs text-sam-meta">{t("mypage_comp_order_lines_legend")}</p>
           <ul className="mt-3 space-y-3 text-sm text-sam-fg">
             {items.map((it) => {
               const optSum = orderLineOptionsSummary(it.options_snapshot_json);
@@ -910,7 +786,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
               const ps = Number(it.price_snapshot) || 0;
               const q = Number(it.qty) || 0;
               const st = Number(it.subtotal) || 0;
-              const disc = lineDiscountDisplay(ps, q, st);
+              const disc = lineDiscountDisplayI18n(t, ps, q, st);
               return (
                 <li key={it.id} className="rounded-ui-rect bg-sam-app/80 px-3 py-2.5 ring-1 ring-sam-border-soft">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -933,15 +809,16 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
                   ) : null}
                   <div className="mt-2 grid gap-1 sam-text-helper text-sam-muted sm:grid-cols-2">
                     <span>
-                      단가 <span className="font-medium text-sam-fg">{formatMoneyPhp(ps)}</span>
+                      {t("mypage_comp_unit_price")}{" "}
+                      <span className="font-medium text-sam-fg">{formatMoneyPhp(ps)}</span>
                     </span>
                     <span>
-                      할인율{" "}
+                      {t("mypage_comp_discount_rate")}{" "}
                       <span className="font-medium text-sam-fg">{disc}</span>
                     </span>
                   </div>
                   <div className="mt-2 flex justify-between border-t border-sam-border/80 pt-2 text-sm">
-                    <span className="text-sam-muted">항목 합계</span>
+                    <span className="text-sam-muted">{t("mypage_comp_line_subtotal")}</span>
                     <span className="font-semibold text-sam-fg">{formatMoneyPhp(st)}</span>
                   </div>
                 </li>
@@ -974,41 +851,43 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
         </div>
 
         <div className="mt-4 border-t border-sam-border-soft pt-4">
-          <h3 className="sam-text-xxs font-semibold text-sam-muted">금액</h3>
+          <h3 className="sam-text-xxs font-semibold text-sam-muted">{t("mypage_comp_amount_section")}</h3>
           <div className="mt-2 space-y-1.5 text-sm">
             <div className="flex justify-between gap-3 text-sam-fg">
-              <span>상품 소계</span>
+              <span>{t("mypage_comp_items_subtotal")}</span>
               <span className="font-medium text-sam-fg">{formatMoneyPhp(itemsSumPhp)}</span>
             </div>
             {Math.round(Number(order.discount_amount) || 0) > 0 ? (
               <div className="flex justify-between gap-3 text-sam-fg">
-                <span>주문 할인</span>
+                <span>{t("mypage_comp_order_discount")}</span>
                 <span className="font-medium text-red-600">
                   −{formatMoneyPhp(Math.round(Number(order.discount_amount) || 0))}
                 </span>
               </div>
             ) : null}
             <div className="flex justify-between gap-3 text-sam-fg">
-              <span>배달비</span>
+              <span>{t("mypage_comp_delivery_fee")}</span>
               <span className="font-medium text-sam-fg">
-                {deliveryFeePhp > 0 ? formatMoneyPhp(deliveryFeePhp) : "₱0"}
+                {deliveryFeePhp > 0 ? formatMoneyPhp(deliveryFeePhp) : t("mypage_comp_currency_zero")}
               </span>
             </div>
             {order.delivery_courier_label?.trim() && deliveryFeePhp > 0 ? (
               <p className="sam-text-xxs leading-snug text-sam-muted">
-                배달 업체(안내): {order.delivery_courier_label.trim()} · 안내 목적이며 청구 금액과 다를 수 있음
+                {t("mypage_comp_courier_hint", { label: order.delivery_courier_label.trim() })}
               </p>
             ) : null}
             <div className="flex justify-between gap-3 border-t border-sam-border pt-2 text-base font-bold text-sam-fg">
-              <span>총액</span>
+              <span>{t("mypage_comp_grand_total")}</span>
               <span>{formatMoneyPhp(order.payment_amount)}</span>
             </div>
           </div>
         </div>
 
         <div className="mt-4 border-t border-sam-border-soft pt-4">
-          <h3 className="sam-text-xxs font-semibold text-sam-muted">결제 방법</h3>
-          <p className="mt-1.5 text-sm leading-relaxed text-sam-fg">{paymentMethodLabel(order.payment_status)}</p>
+          <h3 className="sam-text-xxs font-semibold text-sam-muted">{t("mypage_comp_payment_method_section")}</h3>
+          <p className="mt-1.5 text-sm leading-relaxed text-sam-fg">
+            {paymentMethodLabel(t, order.payment_status)}
+          </p>
         </div>
       </div>
 
@@ -1023,29 +902,23 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
 
       {refundPending ? (
         <div className="rounded-ui-rect border border-blue-100 bg-blue-50/80 p-4">
-          <p className="text-sm text-blue-950">
-            환불 요청이 접수되었습니다. 매장·운영 확인 후 처리됩니다. 실제 금액 반환은 매장과 직접 조율하면
-            됩니다.
-          </p>
+          <p className="text-sm text-blue-950">{t("mypage_comp_refund_pending_notice")}</p>
         </div>
       ) : null}
 
       {canRefundRequest ? (
         <div className="rounded-ui-rect border border-sam-border bg-sam-surface p-4 shadow-sm">
-          <h3 className="text-sm font-semibold text-sam-fg">환불 요청</h3>
-          <p className="mt-1 sam-text-helper text-sam-muted">
-            매장이 이미 접수한 주문입니다. 환불이 필요하면 아래에서 요청해 주세요. 승인 시 재고는 자동으로
-            되돌아갑니다.
-          </p>
+          <h3 className="text-sm font-semibold text-sam-fg">{t("mypage_comp_refund_section_title")}</h3>
+          <p className="mt-1 sam-text-helper text-sam-muted">{t("mypage_comp_refund_section_body")}</p>
           <label className="mt-3 block sam-text-helper text-sam-muted">
-            사유 (선택, 최대 500자)
+            {t("mypage_comp_refund_reason_label")}
             <textarea
               className="mt-1 w-full rounded-ui-rect border border-sam-border px-3 py-2 text-sm text-sam-fg"
               rows={3}
               maxLength={500}
               value={refundReason}
               onChange={(ev) => setRefundReason(ev.target.value)}
-              placeholder="예: 단순 변심, 배송 지연 등"
+              placeholder={t("mypage_comp_refund_reason_placeholder")}
             />
           </label>
           {refundErr ? <p className="mt-2 text-sm text-red-600">{refundErr}</p> : null}
@@ -1055,16 +928,14 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
             onClick={() => void requestRefund()}
             className="mt-3 w-full rounded-ui-rect border border-sam-border bg-sam-app py-2.5 text-sm font-medium text-sam-fg disabled:opacity-50"
           >
-            {refundBusy ? "처리 중…" : "환불 요청하기"}
+            {refundBusy ? t("mypage_comp_processing") : t("mypage_comp_refund_submit")}
           </button>
         </div>
       ) : null}
 
       {canBuyerCancel ? (
         <div className="rounded-ui-rect border border-amber-100 bg-amber-50/80 p-4">
-          <p className="text-sm text-amber-950">
-            매장이 아직 접수하지 않았다면 주문을 취소할 수 있습니다. 취소 시 상품 재고가 되돌아갑니다.
-          </p>
+          <p className="text-sm text-amber-950">{t("mypage_comp_cancel_allowed_notice")}</p>
           {cancelErr ? <p className="mt-2 text-sm text-red-600">{cancelErr}</p> : null}
           <button
             type="button"
@@ -1072,7 +943,7 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
             onClick={() => void cancelOrder()}
             className="mt-3 w-full rounded-ui-rect border border-red-200 bg-sam-surface py-2.5 text-sm font-medium text-red-700 disabled:opacity-50"
           >
-            {cancelBusy ? "처리 중…" : "주문 취소"}
+            {cancelBusy ? t("mypage_comp_processing") : t("mypage_comp_cancel_order")}
           </button>
         </div>
       ) : null}
@@ -1080,11 +951,11 @@ export function MyStoreOrderDetailView({ ordersHub = false }: { ordersHub?: bool
       <div className="space-y-2">
         {!orderChatDisabled ? (
           <Link href={chatHref} className="block text-center text-sm text-signature underline">
-            주문 채팅으로 이동
+            {t("mypage_comp_order_chat_nav")}
           </Link>
         ) : null}
         <Link href={listHref} className="block text-center text-sm text-signature underline">
-          목록으로 돌아가기
+          {t("mypage_comp_back_to_list_full")}
         </Link>
       </div>
     </div>

@@ -372,6 +372,33 @@ export const storeCommerceUiMessages = {
 
     store_order_timeline_aria: "주문 진행 단계",
 
+    store_order_timeline_buyer_desc:
+      "주문접수부터 배달완료(또는 픽업완료)까지 4단계로 보여 드립니다. 매장에서 상태를 바꾸면 갱신되고 채팅에도 안내가 올라갑니다.",
+
+    store_order_chat_buyer_hint:
+      "주문 상태는 위 진행 상태에서 확인하고, 요청 사항이나 조율이 필요할 때만 채팅을 이용해 주세요.",
+
+    store_open_store_inquiry: "매장 문의 열기",
+
+    store_open_order_progress_chat: "주문 진행 채팅 열기",
+
+    store_manage_in_my_orders: "내 주문 상세에서 관리하기",
+
+    store_order_wrong_store: "이 매장의 주문이 아닙니다.",
+
+    store_back_to_store_short: "← 매장",
+
+    store_cart_address_row_loading: "주소 정보 표시 중…",
+
+    store_cart_menu_options_total: "메뉴·옵션 합계",
+
+    store_product_sheet_add_aria:
+      "{label}, 카트 {count}개, 메뉴·옵션 합계 {amount}",
+
+    store_product_sheet_add_aria_no_cart: "{label}, 메뉴·옵션 합계 {amount}",
+
+    store_cod_with_partner: "착불 · {label}",
+
     store_min_order_short: "최소주문",
 
     store_est_prep_short: "예상 조리",
@@ -1061,6 +1088,59 @@ export const storeCommerceUiMessages = {
     store_messenger_order_title: "{store} · 주문 {orderNo}",
     store_messenger_list_order_no: "주문번호 {orderNo}",
     store_messenger_delivery_order_title: "배달 주문",
+    store_messenger_progress_drawer_title: "주문 진행 상황",
+    store_messenger_chrome_order_btn: "주문",
+    store_messenger_chrome_history_btn: "내역",
+    store_messenger_order_in_progress: "주문 진행중",
+    store_messenger_cancel_failed: "취소에 실패했습니다.",
+    store_messenger_store_address_label: "매장 주소",
+    store_messenger_receipt_order_delivery: "배달주문",
+    store_messenger_receipt_order_pickup: "포장·픽업주문",
+    store_messenger_receipt_order_line: "주문 {orderNo}",
+    store_messenger_receipt_items_heading: "주문 품목",
+    store_messenger_receipt_col_item: "품목",
+    store_messenger_receipt_col_option: "옵션",
+    store_messenger_receipt_col_qty: "수량",
+    store_messenger_receipt_col_amount: "금액",
+    store_messenger_receipt_no_items: "품목 정보가 없습니다.",
+    store_messenger_receipt_payment_total: "결제금액",
+    store_messenger_receipt_payment_method: "결제방법",
+    store_messenger_receipt_prep_time: "예상 준비 시간",
+    store_messenger_receipt_prep_minutes: "약 {minutes}분",
+    store_messenger_timeline_in_progress: "진행중",
+    store_messenger_timeline_scheduled: "예정",
+    store_messenger_owner_next_label: " → 다음: {label}",
+    store_messenger_owner_accept_prompt: "주문 접수 여부를 선택하세요.",
+    store_messenger_owner_progress_prompt: "아래 버튼으로 다음 진행 상황을 입력하세요.",
+    store_messenger_owner_status_locked: "이 단계에서는 채팅에서 상태를 바꿀 수 없습니다.",
+    store_messenger_buyer_step_new: "신규",
+    store_messenger_buyer_step_accepted: "접수",
+    store_messenger_buyer_step_preparing: "조리",
+    store_messenger_buyer_step_delivery_ready: "배달준비",
+    store_messenger_buyer_step_delivering: "배달중",
+    store_messenger_buyer_step_near_address: "주소근처",
+    store_messenger_buyer_step_completed: "완료",
+    store_messenger_buyer_step_pickup_ready: "픽업준비",
+    store_messenger_buyer_step_pickup_done: "수령완료",
+    store_messenger_progress_step_new_order: "신규주문",
+    store_messenger_progress_step_accepted: "주문접수",
+    store_messenger_progress_step_preparing: "조리중",
+    store_messenger_progress_step_delivery_ready: "배달준비",
+    store_messenger_progress_step_delivering: "배달중",
+    store_messenger_progress_step_near_address: "주소근처",
+    store_messenger_progress_step_done: "완료",
+    store_messenger_progress_step_pickup_ready: "픽업준비",
+    store_messenger_progress_step_pickup_done: "수령완료",
+    store_search_chip_chicken: "치킨",
+    store_search_chip_pizza: "피자",
+    store_search_chip_korean: "한식",
+    store_search_chip_bunsik: "분식",
+    store_search_chip_cafe: "카페",
+    store_search_chip_lunchbox: "도시락",
+    store_search_chip_mart: "마트",
+    store_search_chip_jokbal: "족발",
+    store_search_chip_latenight: "야식",
+    store_search_chip_free_delivery: "무료배달",
     store_biz_my_store_fallback: "내 매장",
     store_biz_order_chat_modal_body:
       "배달·매장 주문 대화는 `/community-messenger/delivery-chats`와 메신저 방에서 이어집니다.",
@@ -1567,6 +1647,33 @@ export const storeCommerceUiMessages = {
     store_total: "Total",
 
     store_order_timeline_aria: "Order progress steps",
+
+    store_order_timeline_buyer_desc:
+      "Four steps from order placed to delivery (or pickup) complete. Updates when the store changes status and posts to chat.",
+
+    store_order_chat_buyer_hint:
+      "Check order status in Progress above. Use chat only when you need to request something or coordinate.",
+
+    store_open_store_inquiry: "Open store inquiry",
+
+    store_open_order_progress_chat: "Open order progress chat",
+
+    store_manage_in_my_orders: "Manage in My Orders",
+
+    store_order_wrong_store: "This order does not belong to this store.",
+
+    store_back_to_store_short: "← Store",
+
+    store_cart_address_row_loading: "Loading address…",
+
+    store_cart_menu_options_total: "Menu & options total",
+
+    store_product_sheet_add_aria:
+      "{label}, cart {count}, menu & options total {amount}",
+
+    store_product_sheet_add_aria_no_cart: "{label}, menu & options total {amount}",
+
+    store_cod_with_partner: "COD · {label}",
 
     store_min_order_short: "Min. order",
 
@@ -2257,6 +2364,59 @@ export const storeCommerceUiMessages = {
     store_messenger_order_title: "{store} · Order {orderNo}",
     store_messenger_list_order_no: "Order no. {orderNo}",
     store_messenger_delivery_order_title: "Delivery order",
+    store_messenger_progress_drawer_title: "Order progress",
+    store_messenger_chrome_order_btn: "Order",
+    store_messenger_chrome_history_btn: "History",
+    store_messenger_order_in_progress: "Order in progress",
+    store_messenger_cancel_failed: "Could not cancel the order.",
+    store_messenger_store_address_label: "Store address",
+    store_messenger_receipt_order_delivery: "Delivery order",
+    store_messenger_receipt_order_pickup: "Pickup order",
+    store_messenger_receipt_order_line: "Order {orderNo}",
+    store_messenger_receipt_items_heading: "Order items",
+    store_messenger_receipt_col_item: "Item",
+    store_messenger_receipt_col_option: "Options",
+    store_messenger_receipt_col_qty: "Qty",
+    store_messenger_receipt_col_amount: "Amount",
+    store_messenger_receipt_no_items: "No item details available.",
+    store_messenger_receipt_payment_total: "Payment total",
+    store_messenger_receipt_payment_method: "Payment method",
+    store_messenger_receipt_prep_time: "Estimated prep time",
+    store_messenger_receipt_prep_minutes: "About {minutes} min",
+    store_messenger_timeline_in_progress: "In progress",
+    store_messenger_timeline_scheduled: "Scheduled",
+    store_messenger_owner_next_label: " → Next: {label}",
+    store_messenger_owner_accept_prompt: "Choose whether to accept this order.",
+    store_messenger_owner_progress_prompt: "Use the buttons below to update order progress.",
+    store_messenger_owner_status_locked: "Order status cannot be changed from chat at this stage.",
+    store_messenger_buyer_step_new: "New",
+    store_messenger_buyer_step_accepted: "Accepted",
+    store_messenger_buyer_step_preparing: "Preparing",
+    store_messenger_buyer_step_delivery_ready: "Ready to deliver",
+    store_messenger_buyer_step_delivering: "Delivering",
+    store_messenger_buyer_step_near_address: "Near address",
+    store_messenger_buyer_step_completed: "Done",
+    store_messenger_buyer_step_pickup_ready: "Ready for pickup",
+    store_messenger_buyer_step_pickup_done: "Picked up",
+    store_messenger_progress_step_new_order: "New order",
+    store_messenger_progress_step_accepted: "Accepted",
+    store_messenger_progress_step_preparing: "Preparing",
+    store_messenger_progress_step_delivery_ready: "Ready to deliver",
+    store_messenger_progress_step_delivering: "Delivering",
+    store_messenger_progress_step_near_address: "Near address",
+    store_messenger_progress_step_done: "Complete",
+    store_messenger_progress_step_pickup_ready: "Ready for pickup",
+    store_messenger_progress_step_pickup_done: "Picked up",
+    store_search_chip_chicken: "Chicken",
+    store_search_chip_pizza: "Pizza",
+    store_search_chip_korean: "Korean",
+    store_search_chip_bunsik: "Snacks",
+    store_search_chip_cafe: "Cafe",
+    store_search_chip_lunchbox: "Lunch box",
+    store_search_chip_mart: "Mart",
+    store_search_chip_jokbal: "Jokbal",
+    store_search_chip_latenight: "Late night",
+    store_search_chip_free_delivery: "Free delivery",
     store_biz_my_store_fallback: "My store",
     store_biz_order_chat_modal_body:
       "Delivery and store order chats continue in the Messenger delivery inbox.",

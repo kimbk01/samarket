@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { HistoryBackTextLink } from "@/components/navigation/HistoryBackTextLink";
 import { useCallback, useLayoutEffect, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { useRefetchOnPageShowRestore } from "@/lib/ui/use-refetch-on-page-show";
 import { StoreCommerceOrderTimeline } from "@/components/stores/StoreCommerceOrderTimeline";
 import { formatMoneyPhp } from "@/lib/utils/format";
@@ -48,13 +49,16 @@ type OrderDetail = {
   community_messenger_room_id?: string | null;
 };
 
-const ORDER_LABEL: Record<string, string> = { ...BUYER_ORDER_STATUS_LABEL };
-
-const FULFILL_LABEL: Record<string, string> = {
-  pickup: "포장 픽업",
-  local_delivery: "배달",
-  shipping: "배달",
-};
+function buyerFulfillmentLabel(
+  fulfillmentType: string,
+  t: ReturnType<typeof useI18n>["t"]
+): string {
+  if (fulfillmentType === "pickup") return t("common_pickup_label");
+  if (fulfillmentType === "local_delivery" || fulfillmentType === "shipping") {
+    return t("store_delivery_tab");
+  }
+  return fulfillmentType;
+}
 
 export function StoreCommerceOrderDetailClient({
   storeSlug,
@@ -63,6 +67,7 @@ export function StoreCommerceOrderDetailClient({
   storeSlug: string;
   orderId: string;
 }) {
+  const { t } = useI18n();
   const [state, setState] = useState<
     | { kind: "loading" }
     | { kind: "error"; message: string }
@@ -77,28 +82,28 @@ export function StoreCommerceOrderDetailClient({
     try {
       const { status, json } = await fetchMeStoreOrderDetailDeduped(orderId);
       if (status === 401) {
-        if (!silent) setState({ kind: "error", message: "로그인이 필요합니다." });
+        if (!silent) setState({ kind: "error", message: t("common_login_required") });
         return;
       }
       if (status === 404) {
-        if (!silent) setState({ kind: "error", message: "주문을 찾을 수 없습니다." });
+        if (!silent) setState({ kind: "error", message: t("mypage_comp_order_not_found") });
         return;
       }
       const j = json as { ok?: boolean; order?: OrderDetail; items?: ItemRow[] };
       if (!j?.ok || !j.order) {
-        if (!silent) setState({ kind: "error", message: "주문을 불러올 수 없습니다." });
+        if (!silent) setState({ kind: "error", message: t("store_order_info_unavailable") });
         return;
       }
       const ord = j.order as OrderDetail;
       if (ord.store_slug && ord.store_slug !== storeSlug) {
-        if (!silent) setState({ kind: "error", message: "이 매장의 주문이 아닙니다." });
+        if (!silent) setState({ kind: "error", message: t("store_order_wrong_store") });
         return;
       }
       setState({ kind: "ok", order: ord, items: j.items ?? [] });
     } catch {
-      if (!silent) setState({ kind: "error", message: "네트워크 오류가 발생했습니다." });
+      if (!silent) setState({ kind: "error", message: t("common_network_error") });
     }
-  }, [orderId, storeSlug]);
+  }, [orderId, storeSlug, t]);
 
   useLayoutEffect(() => {
     void load();
@@ -107,14 +112,14 @@ export function StoreCommerceOrderDetailClient({
   useRefetchOnPageShowRestore(() => void load({ silent: true }));
 
   if (state.kind === "loading") {
-    return <p className="px-4 py-8 text-center text-sm text-sam-muted">불러오는 중…</p>;
+    return <p className="px-4 py-8 text-center text-sm text-sam-muted">{t("common_loading")}</p>;
   }
   if (state.kind === "error") {
     return (
       <div className="px-4 py-12 text-center">
         <p className="text-sm text-sam-muted">{state.message}</p>
         <Link href={`/stores/${encodeURIComponent(storeSlug)}`} className="mt-4 inline-block text-sm text-signature">
-          매장으로
+          {t("store_back_to_store_aria")}
         </Link>
       </div>
     );
@@ -124,6 +129,8 @@ export function StoreCommerceOrderDetailClient({
   const df = Number(order.delivery_fee_amount) || 0;
   const sub = Math.max(0, order.payment_amount - df);
   const orderChatDisabled = isStoreOrderChatDisabledForBuyer(order.order_status);
+  const statusLabel = BUYER_ORDER_STATUS_LABEL[order.order_status] ?? order.order_status;
+  const fulfillmentLabel = buyerFulfillmentLabel(order.fulfillment_type, t);
 
   return (
     <div className="min-h-screen bg-sam-app px-4 py-4 pb-12">
@@ -131,24 +138,20 @@ export function StoreCommerceOrderDetailClient({
         <HistoryBackTextLink
           fallbackHref={`/stores/${encodeURIComponent(storeSlug)}`}
           className="text-sm text-signature"
-          aria-label="매장으로"
+          aria-label={t("store_back_to_store_aria")}
         >
-          ← 매장
+          {t("store_back_to_store_short")}
         </HistoryBackTextLink>
       </div>
-      <h1 className="text-lg font-bold text-sam-fg">주문 상세</h1>
+      <h1 className="text-lg font-bold text-sam-fg">{t("store_order_detail_title")}</h1>
       <p className="mt-1 font-mono text-sm text-sam-muted">{order.order_no}</p>
       <p className="mt-1 text-xs text-sam-muted">
-        상태: {ORDER_LABEL[order.order_status] ?? order.order_status} ·{" "}
-        {FULFILL_LABEL[order.fulfillment_type] ?? order.fulfillment_type}
+        {t("store_order_status_line", { status: statusLabel, fulfillment: fulfillmentLabel })}
       </p>
 
       <section className="mt-4 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
-        <h2 className="text-sm font-bold text-sam-fg">진행 상태</h2>
-        <p className="mt-1 text-xs text-sam-muted">
-          주문접수부터 배달완료(또는 픽업완료)까지 4단계로 보여 드립니다. 매장에서
-          상태를 바꾸면 갱신되고 채팅에도 안내가 올라갑니다.
-        </p>
+        <h2 className="text-sm font-bold text-sam-fg">{t("store_progress_status")}</h2>
+        <p className="mt-1 text-xs text-sam-muted">{t("store_order_timeline_buyer_desc")}</p>
         <div className="mt-4">
           <StoreCommerceOrderTimeline
             variant="buyer_detail"
@@ -159,23 +162,21 @@ export function StoreCommerceOrderDetailClient({
       </section>
 
       <section className="mt-4 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
-        <h2 className="text-sm font-bold text-sam-fg">주문 진행 채팅</h2>
-        <p className="mt-1 text-xs leading-relaxed text-sam-muted">
-          주문 상태는 위 진행 상태에서 확인하고, 요청 사항이나 조율이 필요할 때만 채팅을 이용해 주세요.
-        </p>
+        <h2 className="text-sm font-bold text-sam-fg">{t("store_owner_order_progress_chat_title")}</h2>
+        <p className="mt-1 text-xs leading-relaxed text-sam-muted">{t("store_order_chat_buyer_hint")}</p>
         {orderChatDisabled ? (
           <span
             className="mt-3 block w-full cursor-not-allowed rounded-ui-rect border border-sam-border bg-sam-surface-muted py-3 text-center text-sm font-semibold text-sam-meta"
             aria-disabled
           >
-            매장 문의 열기
+            {t("store_open_store_inquiry")}
           </span>
         ) : (
           <Link
             href={`/my/store-orders/${encodeURIComponent(order.id)}/chat`}
             className="delivery-ui mt-3 block w-full rounded-[var(--delivery-radius)] border border-[color:var(--delivery-primary)] bg-[color:var(--delivery-primary-soft)] py-3 text-center text-sm font-bold text-[color:var(--delivery-primary)]"
           >
-            주문 진행 채팅 열기
+            {t("store_open_order_progress_chat")}
           </Link>
         )}
         {order.community_messenger_room_id ? (
@@ -199,21 +200,21 @@ export function StoreCommerceOrderDetailClient({
       </section>
 
       <section className="mt-4 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
-        <h2 className="text-sm font-bold text-sam-fg">주문 정보</h2>
+        <h2 className="text-sm font-bold text-sam-fg">{t("store_order_info")}</h2>
         <dl className="mt-2 space-y-1 text-sm">
           <div className="flex justify-between">
-            <dt className="text-sam-muted">업체</dt>
+            <dt className="text-sam-muted">{t("store_order_vendor")}</dt>
             <dd>{order.store_name}</dd>
           </div>
           {order.buyer_note ? (
             <div>
-              <dt className="text-sam-muted">요청</dt>
+              <dt className="text-sam-muted">{t("store_request_label")}</dt>
               <dd className="text-sam-fg">{order.buyer_note}</dd>
             </div>
           ) : null}
           {order.buyer_phone ? (
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <dt className="text-sam-muted">연락처</dt>
+              <dt className="text-sam-muted">{t("store_contact_optional")}</dt>
               <dd>
                 {(() => {
                   const d = parsePhMobileInput(order.buyer_phone ?? "");
@@ -234,7 +235,7 @@ export function StoreCommerceOrderDetailClient({
       </section>
 
       <section className="mt-4 rounded-ui-rect border border-sam-border-soft bg-sam-surface p-4 shadow-sm">
-        <h2 className="text-sm font-bold text-sam-fg">메뉴</h2>
+        <h2 className="text-sm font-bold text-sam-fg">{t("store_menu_section")}</h2>
         <ul className="mt-2 space-y-2 text-sm">
           {items.map((it) => (
             <li key={it.id} className="flex gap-3 border-b border-sam-border-soft pb-2 last:border-0">
@@ -252,15 +253,15 @@ export function StoreCommerceOrderDetailClient({
         </ul>
         <div className="mt-3 space-y-1 border-t border-sam-border-soft pt-3 text-sm">
           <div className="flex justify-between">
-            <span className="text-sam-muted">상품</span>
+            <span className="text-sam-muted">{t("store_product_label")}</span>
             <span>{formatMoneyPhp(sub)}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-sam-muted">배달비</span>
+            <span className="text-sam-muted">{t("store_delivery_fee")}</span>
             <span>{formatMoneyPhp(df)}</span>
           </div>
           <div className="flex justify-between font-bold">
-            <span>합계</span>
+            <span>{t("store_total")}</span>
             <span>{formatMoneyPhp(order.payment_amount)}</span>
           </div>
         </div>
@@ -270,7 +271,7 @@ export function StoreCommerceOrderDetailClient({
         href={`/my/store-orders/${encodeURIComponent(order.id)}`}
         className="mt-4 block text-center text-sm text-signature underline"
       >
-        내 주문 상세에서 관리하기
+        {t("store_manage_in_my_orders")}
       </Link>
     </div>
   );

@@ -1,6 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
+import type { MessageKey } from "@/lib/i18n/messages";
+
+type StoreOrderI18nT = (key: MessageKey, vars?: Record<string, string | number>) => string;
 import { StoreOrderSellerOrderPanel } from "@/components/chats/StoreOrderSellerOrderPanel";
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { StoreOrderBuyerRoomSheet } from "@/components/community-messenger/room/phase2/StoreOrderBuyerRoomSheet";
@@ -26,6 +30,7 @@ type Props = {
  * 주문 스냅샷·상세 drawer 는 `StoreOrderDeliveryRoomProvider` 단일 소스.
  */
 export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }: Props) {
+  const { t } = useI18n();
   const vm = useMessengerRoomPhase2View();
   const {
     snapshot,
@@ -44,7 +49,7 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const statusLabel = meta?.stepLabel?.trim() || null;
-  const headline = meta?.headline?.trim() || "매장 주문";
+  const headline = meta?.headline?.trim() || t("store_messenger_order_fallback");
 
   const isSeller = participantLooksSeller || Boolean(snapshot?.ownerOrder);
   const displayHeadline =
@@ -67,7 +72,7 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
 
   const handleCancel = useCallback(async () => {
     if (!storeOrderId || !snapshot?.buyerOrder) return;
-    if (typeof window !== "undefined" && !window.confirm("주문을 취소할까요?")) return;
+    if (typeof window !== "undefined" && !window.confirm(t("chats_store_order_cancel_confirm"))) return;
     setCancelBusy(true);
     try {
       const { status, json: raw } = await patchMeStoreOrder(storeOrderId, { cancel: true });
@@ -77,8 +82,8 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
         if (typeof window !== "undefined") {
           window.alert(
             code === "cannot_cancel_after_accepted"
-              ? "매장이 접수한 뒤에는 여기서 취소할 수 없습니다."
-              : "취소에 실패했습니다."
+              ? t("mypage_comp_orders_cancel_err_short")
+              : t("store_messenger_cancel_failed")
           );
         }
         return;
@@ -86,11 +91,11 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
       await refresh();
       onRoomReload();
     } catch {
-      if (typeof window !== "undefined") window.alert("네트워크 오류");
+      if (typeof window !== "undefined") window.alert(t("store_owner_err_network"));
     } finally {
       setCancelBusy(false);
     }
-  }, [storeOrderId, snapshot?.buyerOrder, refresh, onRoomReload]);
+  }, [storeOrderId, snapshot?.buyerOrder, refresh, onRoomReload, t]);
 
   const sendMatchAck = useCallback(async () => {
     try {
@@ -165,7 +170,7 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
         <div
           className="shrink-0 border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-surface-muted)] px-3 py-2"
           role="region"
-          aria-label="주문 정보"
+          aria-label={t("store_order_info")}
         >
           <div className="flex min-w-0 items-center justify-between gap-2">
             <p className="min-w-0 truncate sam-text-helper text-[color:var(--cm-room-text)]">
@@ -180,7 +185,7 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
               onClick={openOrderDetailDrawer}
               className="shrink-0 rounded-ui-rect border border-[color:var(--cm-room-primary)]/40 bg-[color:var(--cm-room-primary-soft)] px-2 py-1 sam-text-xxs font-semibold text-[color:var(--cm-room-primary)]"
             >
-              {isSeller ? "주문" : "내역"}
+              {isSeller ? t("store_messenger_chrome_order_btn") : t("store_messenger_chrome_history_btn")}
             </button>
           </div>
         </div>
@@ -193,6 +198,7 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
   return (
     <>
       <DeliveryChromeStrip
+        t={t}
         orderNo={
           snapshot?.orderCard?.orderNo ??
           snapshot?.buyerOrder?.order_no ??
@@ -240,7 +246,26 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
   );
 }
 
+const MESSENGER_DELIVERY_PROGRESS_STEP_KEYS = [
+  "store_messenger_progress_step_new_order",
+  "store_messenger_progress_step_accepted",
+  "store_messenger_progress_step_preparing",
+  "store_messenger_progress_step_delivery_ready",
+  "store_messenger_progress_step_delivering",
+  "store_messenger_progress_step_near_address",
+  "store_messenger_progress_step_done",
+] as const satisfies readonly MessageKey[];
+
+const MESSENGER_PICKUP_PROGRESS_STEP_KEYS = [
+  "store_messenger_progress_step_new_order",
+  "store_messenger_progress_step_accepted",
+  "store_messenger_progress_step_preparing",
+  "store_messenger_progress_step_pickup_ready",
+  "store_messenger_progress_step_pickup_done",
+] as const satisfies readonly MessageKey[];
+
 function DeliveryChromeStrip({
+  t,
   orderNo,
   storeName,
   statusLabel,
@@ -250,6 +275,7 @@ function DeliveryChromeStrip({
   paymentAmount,
   addressLine,
 }: {
+  t: StoreOrderI18nT;
   orderNo: string;
   storeName: string;
   statusLabel: string;
@@ -262,6 +288,10 @@ function DeliveryChromeStrip({
   const statusKey = (orderStatus ?? "").trim() || "pending";
   const ft = fulfillmentType.trim() || (deliveryLike ? "local_delivery" : "pickup");
   const deliverySteps = [...messengerDeliveryProgressSteps(ft)];
+  const stepKeys = deliveryLike ? MESSENGER_DELIVERY_PROGRESS_STEP_KEYS : MESSENGER_PICKUP_PROGRESS_STEP_KEYS;
+  const localizedSteps = deliverySteps.map((step, idx) =>
+    stepKeys[idx] ? t(stepKeys[idx]!) : step
+  );
   const currentStep = messengerDeliveryProgressCurrentStep(statusKey, ft);
   const fillRatio = messengerDeliveryProgressFillRatio(statusKey, ft);
   const paymentLabel =
@@ -274,7 +304,7 @@ function DeliveryChromeStrip({
       data-store-order-delivery-chrome
       className="shrink-0 border-t border-[#DDE5E0] bg-[#f6f6f6] px-3 py-2.5 shadow-none"
       role="region"
-      aria-label="주문 정보"
+      aria-label={t("store_order_info")}
     >
       <div className="rounded-[4px] border border-[#DDE5E0] bg-white p-2.5 shadow-none">
         <div className="mb-2 flex items-start justify-between gap-2">
@@ -283,7 +313,7 @@ function DeliveryChromeStrip({
               {orderNo}
             </p>
             <p className="mt-0.5 truncate text-[13px] font-bold leading-[1.35] text-[#123B4A]">
-              {storeName || "주문 진행"}
+              {storeName || t("store_messenger_order_in_progress")}
             </p>
             {addressLine?.trim() ? (
               <p className="mt-0.5 line-clamp-1 text-[11px] leading-[1.35] text-[#6B7280]">
@@ -293,24 +323,31 @@ function DeliveryChromeStrip({
           </div>
           <div className="shrink-0 text-right">
             <span className="delivery-ui inline-flex rounded-[var(--delivery-radius)] bg-[color:var(--delivery-primary)] px-2 py-0.5 text-[11px] font-bold leading-[1.35] text-white">
-              {statusLabel || "진행중"}
+              {statusLabel || t("common_in_progress")}
             </span>
             {paymentLabel ? (
               <p className="mt-1 text-[12px] font-bold leading-[1.35] text-[#123B4A]">{paymentLabel}</p>
             ) : null}
           </div>
         </div>
-        <DeliveryOrderProgressRail steps={deliverySteps} currentStep={currentStep} fillRatio={fillRatio} />
+        <DeliveryOrderProgressRail
+          t={t}
+          steps={localizedSteps}
+          currentStep={currentStep}
+          fillRatio={fillRatio}
+        />
       </div>
     </div>
   );
 }
 
 function DeliveryOrderProgressRail({
+  t,
   steps,
   currentStep,
   fillRatio,
 }: {
+  t: StoreOrderI18nT;
   steps: string[];
   currentStep: number;
   fillRatio: number;
@@ -318,7 +355,7 @@ function DeliveryOrderProgressRail({
   const fillWidthPercent = Math.max(0, Math.min(100, fillRatio * 100));
 
   return (
-    <div className="sam-delivery-order-progress space-y-1.5" aria-label="주문 진행 단계">
+    <div className="sam-delivery-order-progress space-y-1.5" aria-label={t("store_order_timeline_aria")}>
       <div className="sam-delivery-order-progress__track">
         <div
           className="sam-delivery-order-progress__fill-clip"

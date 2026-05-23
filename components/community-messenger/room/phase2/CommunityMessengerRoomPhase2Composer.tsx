@@ -1,5 +1,6 @@
 "use client";
 
+import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import Link from "next/link";
 import { ArrowUp, Mic, Plus, Trash2 } from "lucide-react";
 import {
@@ -135,6 +136,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
   const composerRenderPassStartRef = useRef(typeof performance !== "undefined" ? performance.now() : 0);
   composerRenderPassStartRef.current = typeof performance !== "undefined" ? performance.now() : 0;
   if (cmPolishAnalysisEnabled()) bumpCmPolishComposerRender();
+  const { t } = useI18n();
   const lastComposerPerfLogRef = useRef(0);
   const vm = useMessengerRoomPhase2ComposerView();
   const {
@@ -376,7 +378,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
               onClick={() => {
                 void focusTimelineMessage(replyToMessage.id);
               }}
-              aria-label="답장 대상 메시지로 이동"
+              aria-label={t("cm_ui_go_to_reply_target_message")}
             >
               <p className="sam-text-xxs font-bold leading-snug text-[color:var(--cm-room-primary)]">
                 {formatReplyQuoteKakaoHeader(replyToMessage.senderLabel)}
@@ -449,7 +451,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
                 data-cm-line-plus-btn
                 onClick={() => vm.setActiveSheet("attach")}
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-transparent text-[#1f2937] transition hover:bg-black/[0.06] active:bg-black/[0.08]"
-                aria-label="첨부 메뉴"
+                aria-label={t("cm_ui_attachment_menu")}
               >
                 <Plus className="h-[21px] w-[21px]" strokeWidth={2} />
               </button>
@@ -553,11 +555,11 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
                       ? "bg-[color:var(--cm-room-primary-soft)] text-[color:var(--cm-room-primary)] ring-2 ring-[color:var(--cm-room-primary)]/45"
                       : "bg-transparent text-[#1f2937] hover:bg-black/[0.06] active:bg-black/[0.08]"
                   }`}
-                  aria-label="음성 메시지 — 길게 눌러 녹음, 왼쪽으로 밀어 취소, 위로 밀어 잠금"
+                  aria-label={t("cm_ui_voice_message_recording_guide")}
                   title={
                     draft.trim()
-                      ? "글자를 지우면 음성 녹음을 사용할 수 있습니다"
-                      : "길게 눌러 녹음 · 손 떼면 전송 · 왼쪽 밀면 취소 · 위로 밀면 잠금"
+                      ? t("cm_ui_clear_text_for_voice_recording")
+                      : t("cm_ui_hold_record_send_slide_cancel_lock")
                   }
                 >
                   <Mic className="h-5 w-5" strokeWidth={2} />
@@ -571,13 +573,13 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
                 </span>
                 <div className="flex min-w-0 flex-1 items-center gap-1.5">
                   <VoiceRecordingLiveWaveform peaks={vm.voiceLivePreviewBars} />
-                  <span className="shrink-0 text-center sam-text-xxs font-medium leading-tight text-sam-fg">잠금 녹음 중</span>
+                  <span className="shrink-0 text-center sam-text-xxs font-medium leading-tight text-sam-fg">{t("cm_ui_locked_recording")}</span>
                 </div>
                 <button
                   type="button"
                   onClick={() => void vm.finalizeVoiceRecording(false)}
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-sam-border bg-sam-surface text-sam-muted shadow-none"
-                  aria-label="녹음 삭제"
+                  aria-label={t("cm_ui_delete_recording")}
                 >
                   <Trash2 className="h-4 w-4" strokeWidth={2} />
                 </button>
@@ -585,7 +587,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
                   type="button"
                   onClick={() => void vm.finalizeVoiceRecording(true)}
                   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-sam-primary text-sam-on-primary shadow-none"
-                  aria-label="음성 전송"
+                  aria-label={t("cm_ui_send_voice")}
                 >
                   <ArrowUp className="h-4 w-4 text-sam-on-primary" strokeWidth={2.25} />
                 </button>
@@ -625,7 +627,7 @@ export const CommunityMessengerRoomPhase2Composer = memo(function CommunityMesse
                   vm.busy === "delete-message"
                 }
                 className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[color:var(--cm-room-primary)] text-white shadow-none transition active:scale-[0.98] disabled:bg-[color:var(--cm-room-primary-disabled)] disabled:text-white"
-                aria-label="전송"
+                aria-label={t("common_send")}
               >
                 <ArrowUp className="h-5 w-5" strokeWidth={2.25} />
               </button>

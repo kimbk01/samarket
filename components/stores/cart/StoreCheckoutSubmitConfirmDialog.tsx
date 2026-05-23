@@ -43,7 +43,7 @@ export function StoreCheckoutSubmitConfirmDialog({
             {busy ? t("store_checkout_submitting") : t("store_checkout_submit")}
           </button>
           <button type="button" onClick={onCancel} disabled={busy} className={CART_POPUP_BTN_GHOST}>
-            취소
+            {t("common_cancel")}
           </button>
         </>
       }

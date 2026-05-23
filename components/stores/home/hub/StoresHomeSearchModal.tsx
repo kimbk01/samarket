@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
@@ -19,17 +19,17 @@ import {
   useDeliveryStoreSearch,
 } from "@/hooks/use-delivery-store-search";
 
-const FALLBACK_RECOMMENDED = [
-  "치킨",
-  "피자",
-  "한식",
-  "분식",
-  "카페",
-  "도시락",
-  "마트",
-  "족발",
-  "야식",
-  "무료배달",
+const FALLBACK_RECOMMENDED_KEYS = [
+  "store_search_chip_chicken",
+  "store_search_chip_pizza",
+  "store_search_chip_korean",
+  "store_search_chip_bunsik",
+  "store_search_chip_cafe",
+  "store_search_chip_lunchbox",
+  "store_search_chip_mart",
+  "store_search_chip_jokbal",
+  "store_search_chip_latenight",
+  "store_search_chip_free_delivery",
 ] as const;
 
 function SearchIcon({ className }: { className?: string }) {
@@ -59,6 +59,10 @@ export function StoresHomeSearchModal({
   const inputRef = useRef<HTMLInputElement>(null);
   const [domReady, setDomReady] = useState(false);
   const search = useDeliveryStoreSearch();
+  const fallbackRecommended = useMemo(
+    () => FALLBACK_RECOMMENDED_KEYS.map((key) => t(key)),
+    [t]
+  );
   const { reset, submit, pickKeyword, debouncedQ, showResults, loading, stores, menus, resultCount, q, setQ } =
     search;
 
@@ -176,8 +180,8 @@ export function StoresHomeSearchModal({
         {!showResults ?
           <div className="space-y-5">
             <RecentSearchChips onPick={pickKeyword} />
-            <PopularSearchList keywords={[...FALLBACK_RECOMMENDED]} onPick={pickKeyword} />
-            <RecommendedSearchChips keywords={[...FALLBACK_RECOMMENDED]} onPick={pickKeyword} />
+            <PopularSearchList keywords={fallbackRecommended} onPick={pickKeyword} />
+            <RecommendedSearchChips keywords={fallbackRecommended} onPick={pickKeyword} />
           </div>
         : <DeliverySearchResults
             q={debouncedQ}
