@@ -44,8 +44,8 @@ async function removePreviousIfOwned(
 }
 
 /**
- * POST multipart: kind=category|topic, id, file
- * → Storage 업로드 후 store_categories/store_topics.image_url 갱신
+ * POST multipart: kind=category|topic|subtopic, id, file
+ * → Storage 업로드 후 store_categories/store_topics/store_subtopics.image_url 갱신
  */
 export async function POST(req: NextRequest) {
   if (!(await isRouteAdmin())) {
@@ -62,7 +62,8 @@ export async function POST(req: NextRequest) {
   }
 
   const kindRaw = form.get("kind");
-  const kind = kindRaw === "category" || kindRaw === "topic" ? kindRaw : null;
+  const kind =
+    kindRaw === "category" || kindRaw === "topic" || kindRaw === "subtopic" ? kindRaw : null;
   const idRaw = form.get("id");
   const id = typeof idRaw === "string" ? idRaw.trim() : "";
   if (!kind || !id) {
@@ -113,7 +114,8 @@ export async function POST(req: NextRequest) {
     data: { publicUrl },
   } = sb.storage.from(BUCKET).getPublicUrl(path);
 
-  const table = kind === "category" ? "store_categories" : "store_topics";
+  const table =
+    kind === "category" ? "store_categories" : kind === "topic" ? "store_topics" : "store_subtopics";
   const { data: prevRow } = await sb.from(table).select("image_url").eq("id", id).maybeSingle();
   const prevUrl = (prevRow as { image_url?: string | null } | null)?.image_url ?? null;
 

@@ -1,136 +1,86 @@
 import { NextResponse } from "next/server";
-import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
-import type { StoreTaxonomyCategory, StoreTaxonomyTopic } from "@/lib/stores/store-taxonomy-types";
 import { createRequestId, SAMARKET_REQUEST_ID_HEADER } from "@/lib/http/request-id";
+import { loadStoreTaxonomyRows } from "@/lib/stores/load-store-taxonomy-rows";
+import { tryGetSupabaseForStores } from "@/lib/stores/try-supabase-stores";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * 매장 오너 폼용: 활성 업종(store_categories) + 세부 주제(store_topics) 읽기 전용.
+ * 매장 오너 폼·/stores 홈: 활성 업종 1·2·3차 읽기 전용.
  * 서비스 롤 — 로그인 없이 호출 가능(마스터 데이터만).
  */
 export async function GET(request: Request) {
   const headersIn = new Headers(request.headers);
   const requestId = headersIn.get(SAMARKET_REQUEST_ID_HEADER)?.trim() || createRequestId();
+  const jsonHeaders = { [SAMARKET_REQUEST_ID_HEADER]: requestId };
+
   const sb = tryGetSupabaseForStores();
   if (!sb) {
-    return NextResponse.json({
-      ok: true,
-      categories: [] as StoreTaxonomyCategory[],
-      topics: [] as StoreTaxonomyTopic[],
-      meta: {
-        source: "supabase_unconfigured" as const,
-        store_topics_table: "unknown" as const,
-        category_count: 0,
-        topic_count: 0,
+    return NextResponse.json(
+      {
+        ok: true,
+        categories: [],
+        topics: [],
+        subtopics: [],
+        meta: {
+          source: "supabase_unconfigured" as const,
+          store_topics_table: "unknown" as const,
+          store_subtopics_table: "unknown" as const,
+          category_count: 0,
+          topic_count: 0,
+          subtopic_count: 0,
+        },
       },
-    }, { headers: { [SAMARKET_REQUEST_ID_HEADER]: requestId } });
+      { headers: jsonHeaders }
+    );
   }
 
   try {
-    // CONTRACT: categories / topics 는 서로 독립 — 직렬 await 는 벽시계 RTT 2배.
-    // 병렬 조회로 `/stores` 첫 페인트에서 taxonomy 가 slowest 가 되는 구간을 줄인다.
-    const catSelectAttempts = [
-      "id, name, name_en, slug, sort_order, image_url",
-      "id, name, slug, sort_order, image_url",
-    ] as const;
-    const topicSelectAttempts = [
-      "id, store_category_id, name, name_en, slug, sort_order, image_url",
-      "id, store_category_id, name, slug, sort_order, image_url",
-    ] as const;
-
-    let categories: StoreTaxonomyCategory[] | null = null;
-    let cErr: { message: string } | null = null;
-    for (const sel of catSelectAttempts) {
-      const r = await sb
-        .from("store_categories")
-        .select(sel)
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true });
-      if (!r.error && Array.isArray(r.data)) {
-        categories = r.data as unknown as StoreTaxonomyCategory[];
-        cErr = null;
-        break;
-      }
-      cErr = r.error;
-    }
-
-    let topics: StoreTaxonomyTopic[] | null = null;
-    let tErr: { message: string } | null = null;
-    for (const sel of topicSelectAttempts) {
-      const r = await sb
-        .from("store_topics")
-        .select(sel)
-        .eq("is_active", true)
-        .order("sort_order", { ascending: true });
-      if (!r.error && Array.isArray(r.data)) {
-        topics = r.data as unknown as StoreTaxonomyTopic[];
-        tErr = null;
-        break;
-      }
-      tErr = r.error;
-    }
-
-    const catResult = { data: categories, error: cErr };
-    const topicResult = { data: topics, error: tErr };
-
-    if (cErr) {
-      console.error("[GET /api/stores/taxonomy] categories", cErr);
+    const loaded = await loadStoreTaxonomyRows(sb, { activeOnly: true });
+    return NextResponse.json(
+      {
+        ok: true,
+        categories: loaded.categories,
+        topics: loaded.topics,
+        subtopics: loaded.subtopics,
+        meta: {
+          source: "supabase" as const,
+          store_topics_table: "ok" as const,
+          store_subtopics_table: loaded.subtopicsTableMissing ? ("missing" as const) : ("ok" as const),
+          category_count: loaded.categories.length,
+          topic_count: loaded.topics.length,
+          subtopic_count: loaded.subtopics.length,
+        },
+      },
+      { headers: jsonHeaders }
+    );
+  } catch (e) {
+    const message = e instanceof Error ? e.message : "unknown";
+    const missingTopics = /store_topics|42P01/i.test(message);
+    console.error("[GET /api/stores/taxonomy]", e);
+    if (missingTopics) {
       return NextResponse.json(
-        { ok: false, error: cErr.message, categories: [], topics: [] },
-        { status: 500 }
-      );
-    }
-
-    const catList = (categories ?? []) as StoreTaxonomyCategory[];
-
-    if (tErr) {
-      const msg = String(tErr.message ?? "");
-      const missing = msg.includes("store_topics") || (tErr as { code?: string }).code === "42P01";
-      if (missing) {
-        return NextResponse.json({
+        {
           ok: true,
-          categories: catList,
-          topics: [] as StoreTaxonomyTopic[],
+          categories: [],
+          topics: [],
+          subtopics: [],
           meta: {
             source: "supabase" as const,
             store_topics_table: "missing" as const,
-            category_count: catList.length,
+            store_subtopics_table: "unknown" as const,
+            category_count: 0,
             topic_count: 0,
+            subtopic_count: 0,
           },
-        }, { headers: { [SAMARKET_REQUEST_ID_HEADER]: requestId } });
-      }
-      console.error("[GET /api/stores/taxonomy] topics", tErr);
-      return NextResponse.json(
-        { ok: false, error: tErr.message, categories: catList, topics: [] },
-        { status: 500, headers: { [SAMARKET_REQUEST_ID_HEADER]: requestId } }
+        },
+        { headers: jsonHeaders }
       );
     }
-
-    const topicList = (topics ?? []) as StoreTaxonomyTopic[];
-
-    return NextResponse.json({
-      ok: true,
-      categories: catList,
-      topics: topicList,
-      meta: {
-        source: "supabase" as const,
-        store_topics_table: "ok" as const,
-        category_count: catList.length,
-        topic_count: topicList.length,
-      },
-    }, { headers: { [SAMARKET_REQUEST_ID_HEADER]: requestId } });
-  } catch (e) {
-    console.error("[GET /api/stores/taxonomy]", e);
     return NextResponse.json(
-      {
-        ok: false,
-        error: e instanceof Error ? e.message : "unknown",
-        categories: [],
-        topics: [],
-      },
-      { status: 500, headers: { [SAMARKET_REQUEST_ID_HEADER]: requestId } }
+      { ok: false, error: message, categories: [], topics: [], subtopics: [] },
+      { status: 500, headers: jsonHeaders }
     );
   }
 }

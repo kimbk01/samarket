@@ -23,3 +23,22 @@ export type StoreTaxonomyTopic = {
   /** 관리자 화면에서는 전체(숨김 포함) 조회 시 포함될 수 있음 */
   is_active?: boolean;
 };
+
+/** 3차 업종 — store_topics 하위 */
+export type StoreTaxonomySubtopic = {
+  id: string;
+  store_topic_id: string;
+  name: string;
+  name_en?: string | null;
+  slug: string;
+  sort_order: number;
+  image_url?: string | null;
+  is_active?: boolean;
+};
+
+/** GET /api/stores/taxonomy · /api/admin/stores/taxonomy 공통 페이로드 */
+export type StoreTaxonomyPayload = {
+  categories: StoreTaxonomyCategory[];
+  topics: StoreTaxonomyTopic[];
+  subtopics: StoreTaxonomySubtopic[];
+};

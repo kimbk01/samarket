@@ -415,7 +415,8 @@ export async function PATCH(
 
   clearStoreHomeFeedServerCache();
 
-  const publicSlug = typeof updated.slug === "string" ? updated.slug.trim() : "";
+  const slugRaw = (updated as unknown as { slug?: string }).slug;
+  const publicSlug = typeof slugRaw === "string" ? slugRaw.trim() : "";
   if (publicSlug) invalidateStorePublicCachesForSlug(publicSlug);
 
   if ("lat" in patch || "lng" in patch) {

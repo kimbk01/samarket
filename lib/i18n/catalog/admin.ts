@@ -1556,6 +1556,17 @@ export const adminMessages = {
     admin_stores_app_taxonomy_seed_help:
       "「초기 업종 목록 넣기」는 DB가 비었을 때 식당·마트 등 기본 행만 한 번 채웁니다. 이미 있는 업종·이미지는 덮어쓰지 않습니다. 평소에는 1차/2차 추가·이미지 업로드만 사용하세요.",
     admin_stores_app_taxonomy_primary: "1차 업종",
+    admin_stores_app_taxonomy_tier1: "1차 업종",
+    admin_stores_app_taxonomy_tier2: "2차 업종",
+    admin_stores_app_taxonomy_tier3: "3차 업종",
+    admin_stores_app_taxonomy_add_tier1: "1차 추가",
+    admin_stores_app_taxonomy_add_tier2: "2차 추가",
+    admin_stores_app_taxonomy_add_tier3: "3차 추가",
+    admin_stores_app_taxonomy_empty_subtopic: "3차 업종이 없습니다.",
+    admin_stores_app_taxonomy_err_subtopics_migration:
+      "3차 업종 테이블(store_subtopics)이 없습니다. Supabase 마이그레이션 20260523130000_store_subtopics.sql 을 적용해 주세요.",
+    admin_stores_app_taxonomy_subtopics_migration:
+      "3차 업종 DB 테이블이 아직 없습니다. Supabase에 store_subtopics 마이그레이션을 적용하면 3차 추가·수정이 가능합니다.",
     admin_stores_app_taxonomy_primary_hint:
       "이름·정렬은 「수정」→저장, 아이콘은 왼쪽 미리보기·「이미지 추가/변경」으로 바꿉니다. /stores 대분류 탭에 반영됩니다.",
     admin_stores_app_taxonomy_secondary: "2차 업종",
@@ -3145,6 +3156,17 @@ export const adminMessages = {
     admin_stores_app_taxonomy_seed_help:
       "“Seed initial list” fills default rows only when the DB is empty. Existing rows and images are not overwritten. Use add/upload for day-to-day changes.",
     admin_stores_app_taxonomy_primary: "Primary category",
+    admin_stores_app_taxonomy_tier1: "Tier 1",
+    admin_stores_app_taxonomy_tier2: "Tier 2",
+    admin_stores_app_taxonomy_tier3: "Tier 3",
+    admin_stores_app_taxonomy_add_tier1: "Add tier 1",
+    admin_stores_app_taxonomy_add_tier2: "Add tier 2",
+    admin_stores_app_taxonomy_add_tier3: "Add tier 3",
+    admin_stores_app_taxonomy_empty_subtopic: "No tier-3 items.",
+    admin_stores_app_taxonomy_err_subtopics_migration:
+      "Tier-3 table (store_subtopics) is missing. Apply migration 20260523130000_store_subtopics.sql on Supabase.",
+    admin_stores_app_taxonomy_subtopics_migration:
+      "Tier-3 DB table is not applied yet. Run the store_subtopics migration on Supabase to enable tier-3 CRUD.",
     admin_stores_app_taxonomy_primary_hint:
       "Edit → Save for name/sort; use Add/Change image for the icon (shown on /stores primary tabs).",
     admin_stores_app_taxonomy_secondary: "Secondary category",
