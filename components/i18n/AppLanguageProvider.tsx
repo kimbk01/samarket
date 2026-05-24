@@ -99,9 +99,11 @@ export function AppLanguageProvider({
     () => parseExplicitAppLanguage(initialLanguage) ?? getBrowserLanguage()
   );
 
-  useEffect(() => {
-    setRuntimeAppLanguage(language);
-  }, [language]);
+  /**
+   * `translateCmUi` 등 React 밖 i18n은 `getRuntimeAppLanguage()`를 본다.
+   * useEffect만 쓰면 SSR·하이드레이션 첫 페인트에서 모듈 기본값(en)과 context(ko)가 갈라진다.
+   */
+  setRuntimeAppLanguage(language);
   const [languagePreference, setLanguagePreferenceState] = useState<StoredPreferredLanguage>(null);
 
   const applyResolvedLanguage = useCallback(

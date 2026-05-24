@@ -3,8 +3,9 @@ import { getRouteUserId } from "@/lib/auth/get-route-user-id";
 import {
   getApprovedStoreBySlug,
   STORE_SELECT_SUMMARY,
+  type StoreCommerceMeta,
 } from "@/lib/stores/get-approved-store-by-slug";
-import { loadStorePublicMetaBundleCached } from "@/lib/stores/load-store-commerce-meta-cached";
+import { peekStoreCommerceMetaCached, resolveStoreOrderabilityCached } from "@/lib/stores/load-store-commerce-meta-cached";
 
 export type StoreSummaryPublicBody = {
   ok: boolean;
@@ -22,7 +23,8 @@ export type FetchStoreSummaryPublicResult = {
 };
 
 /**
- * GET /api/stores/:slug/summary 본문 — store 조회와 auth 병렬, meta bundle 캐시/singleflight.
+ * GET /api/stores/:slug/summary 본문 — hero·영업 상태 중심.
+ * 찜/주문 집계는 캐시 hit 시만 포함(없으면 0 — `/menus` 병렬 응답이 보강).
  */
 export async function fetchStoreSummaryPublic(
   sb: SupabaseClient,
@@ -59,13 +61,35 @@ export async function fetchStoreSummaryPublic(
 
   const store = storeRes.store;
   const storeId = String(store.id ?? "");
-  const { meta, orderability } = await loadStorePublicMetaBundleCached(
-    sb,
-    storeId,
-    viewerId,
-    store.owner_user_id
-  );
-  queryCount += 4;
+
+  const cachedMeta = peekStoreCommerceMetaCached(storeId, viewerId);
+  const canSellP = sb
+    .from("store_sales_permissions")
+    .select("allowed_to_sell, sales_status")
+    .eq("store_id", storeId)
+    .maybeSingle();
+  queryCount += 1;
+
+  const orderabilityP = resolveStoreOrderabilityCached(sb, viewerId, store.owner_user_id);
+  const viewerIsOwner =
+    Boolean(viewerId?.trim()) &&
+    String(store.owner_user_id ?? "").trim().length > 0 &&
+    String(store.owner_user_id ?? "").trim() === viewerId!.trim();
+  if (viewerIsOwner) queryCount += 1;
+
+  const [permRes, orderability] = await Promise.all([canSellP, orderabilityP]);
+  const perm = permRes.data;
+  const canSell = !!perm && perm.allowed_to_sell === true && perm.sales_status === "approved";
+
+  const meta: StoreCommerceMeta = {
+    ...(cachedMeta ?? {
+      favoriteCount: 0,
+      recentOrderCount: 0,
+      viewerFavorited: false,
+      canSell: false,
+    }),
+    canSell,
+  };
 
   const publicStore = { ...store };
   delete (publicStore as { owner_user_id?: unknown }).owner_user_id;
@@ -87,6 +111,6 @@ export async function fetchStoreSummaryPublic(
     status: 200,
     queryCount,
     dbMs,
-    cacheHit: false,
+    cacheHit: Boolean(cachedMeta),
   };
 }

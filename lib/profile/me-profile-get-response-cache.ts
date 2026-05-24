@@ -5,7 +5,7 @@
 import { logRouteCacheHit, logRouteCacheMiss } from "@/lib/http/route-cache-log";
 import type { ProfileRow } from "@/lib/profile/types";
 
-const TTL_MS = 4_000;
+const TTL_MS = 15_000;
 
 const cache = new Map<string, { profile: ProfileRow; storedAt: number }>();
 

@@ -53,6 +53,23 @@ export type TradeRoomContext = {
   viewerRole: "seller" | "buyer";
 };
 
+export type DeliveryStoreMenuSummary = {
+  storeName: string;
+  statusLabel?: string | null;
+  addressLine?: string | null;
+};
+
+/** 점세개 상단 프로필 — 배달 주문 방에서 peer 대신 매장/주문자 단일 소스 */
+export type ChatRoomMenuProfileOverride = {
+  nickname: string;
+  avatarUrl?: string | null;
+  avatarShape?: "circle" | "store_rect";
+  /** 매장 프로필이면 매너 배터리 숨김 */
+  hideMannerBattery?: boolean;
+  mannerScore?: number;
+  buyerTrustPercent?: number | null;
+};
+
 export type ChatRoomMoreMenuProps = {
   roomType: RoomType;
   relation: Relation;
@@ -60,6 +77,11 @@ export type ChatRoomMoreMenuProps = {
   isMuted: boolean;
   isArchived: boolean;
   tradeContext?: TradeRoomContext;
+  /** 배달·주문: 매장 요약(구매자 점세개) */
+  deliveryStoreSummary?: DeliveryStoreMenuSummary;
+  menuProfile?: ChatRoomMenuProfileOverride;
+  /** 배달·주문 방 — 영상 통화 메뉴 숨김 */
+  hideVideoCall?: boolean;
   /** 거래: `trade_chat_call_policy === voice_and_video` 일 때만 true */
   tradeVideoCallEnabled?: boolean;
   disableVoiceCall?: boolean;
@@ -137,6 +159,9 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
     isMuted,
     isArchived,
     tradeContext,
+    deliveryStoreSummary,
+    menuProfile,
+    hideVideoCall = false,
     tradeVideoCallEnabled = false,
     disableVoiceCall = false,
     disableVideoCall = false,
@@ -169,24 +194,34 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
     roomType === "direct" || (roomType === "trade" && Boolean(tradeContext?.product.allow_call));
 
   const showVideo =
-    roomType === "direct" || (roomType === "trade" && Boolean(tradeContext?.product.allow_call) && tradeVideoCallEnabled);
+    !hideVideoCall &&
+    (roomType === "direct" || (roomType === "trade" && Boolean(tradeContext?.product.allow_call) && tradeVideoCallEnabled));
+
+  const profileNickname = menuProfile?.nickname?.trim() || otherUser.nickname;
+  const profileAvatarUrl = menuProfile?.avatarUrl ?? otherUser.avatarUrl;
+  const profileMannerScore = menuProfile?.mannerScore ?? otherUser.mannerScore;
+  const profileAvatarRounded =
+    menuProfile?.avatarShape === "store_rect" ? "rounded-ui-rect" : "rounded-full";
+  const showMannerBattery = !menuProfile?.hideMannerBattery;
 
   return (
-    <div className="flex flex-col pb-[env(safe-area-inset-bottom,0px)]">
+    <div className="delivery-ui flex flex-col pb-[env(safe-area-inset-bottom,0px)]">
       <div className="border-b border-[color:var(--cm-room-divider)] px-3 py-3">
         <div className="flex items-center gap-3">
-          <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-full bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]">
-            {otherUser.avatarUrl ? (
+          <div
+            className={`relative h-12 w-12 shrink-0 overflow-hidden ${profileAvatarRounded} bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]`}
+          >
+            {profileAvatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={otherUser.avatarUrl} alt="" className="h-full w-full object-cover" />
+              <img src={profileAvatarUrl} alt="" className="h-full w-full object-cover" />
             ) : (
               <div className="flex h-full w-full items-center justify-center sam-text-body-secondary font-semibold text-[color:var(--cm-room-primary)]">
-                {otherUser.nickname.trim().slice(0, 1) || "?"}
+                {profileNickname.trim().slice(0, 1) || "?"}
               </div>
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate font-semibold text-[color:var(--cm-room-text)]">{otherUser.nickname}</p>
+            <p className="truncate font-semibold text-[color:var(--cm-room-text)]">{profileNickname}</p>
             <div className="mt-0.5 flex items-center gap-1.5 sam-text-xxs text-[color:var(--cm-room-text-muted)]">
               <span
                 className={`inline-block h-2 w-2 shrink-0 rounded-full ${peerPresenceStatusDotClass(
@@ -197,24 +232,50 @@ export function ChatRoomMoreMenu(props: ChatRoomMoreMenuProps) {
               />
               <span>{presenceLine}</span>
             </div>
-            <div className="mt-2 flex items-center gap-2">
-              <div className="h-1.5 max-w-[120px] flex-1 overflow-hidden rounded-full bg-black/10" aria-hidden>
-                <div
-                  className={`h-full rounded-full ${mannerFillClass(otherUser.mannerScore)}`}
-                  style={{ width: `${Math.max(0, Math.min(100, otherUser.mannerScore))}%` }}
-                />
+            {showMannerBattery ? (
+              <div className="mt-2 flex items-center gap-2">
+                <div className="h-1.5 max-w-[120px] flex-1 overflow-hidden rounded-full bg-black/10" aria-hidden>
+                  <div
+                    className={`h-full rounded-full ${mannerFillClass(profileMannerScore)}`}
+                    style={{ width: `${Math.max(0, Math.min(100, profileMannerScore))}%` }}
+                  />
+                </div>
+                <span
+                  className={`rounded px-1.5 py-0.5 sam-text-xxs font-semibold ${mannerAccentClass(
+                    profileMannerScore
+                  )}`}
+                >
+                  {mannerTemperatureLabel(profileMannerScore)}
+                </span>
               </div>
-              <span
-                className={`rounded px-1.5 py-0.5 sam-text-xxs font-semibold ${mannerAccentClass(
-                  otherUser.mannerScore
-                )}`}
-              >
-                {mannerTemperatureLabel(otherUser.mannerScore)}
-              </span>
-            </div>
+            ) : menuProfile?.buyerTrustPercent != null ? (
+              <p className="mt-1 sam-text-xxs font-semibold text-[color:var(--delivery-primary)]">
+                신뢰 {menuProfile.buyerTrustPercent}%
+              </p>
+            ) : null}
           </div>
         </div>
       </div>
+
+      {deliveryStoreSummary ? (
+        <div className="border-b border-[color:var(--cm-room-divider)] px-3 py-2.5">
+          <div className="rounded-[var(--delivery-radius)] border border-[color:var(--delivery-chat-chrome-border)] bg-[color:var(--delivery-chat-chrome-surface)] p-2.5">
+            <p className="truncate text-[13px] font-bold text-[color:var(--delivery-dark)]">
+              {deliveryStoreSummary.storeName}
+            </p>
+            {deliveryStoreSummary.statusLabel?.trim() ? (
+              <p className="mt-1 text-[11px] font-semibold text-[color:var(--delivery-primary)]">
+                {deliveryStoreSummary.statusLabel.trim()}
+              </p>
+            ) : null}
+            {deliveryStoreSummary.addressLine?.trim() ? (
+              <p className="mt-0.5 line-clamp-2 text-[11px] leading-[1.35] text-[color:var(--delivery-mocha)]">
+                {deliveryStoreSummary.addressLine.trim()}
+              </p>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {roomType === "trade" && tradeContext ? (
         <div className="border-b border-[color:var(--cm-room-divider)] px-3 py-2.5">

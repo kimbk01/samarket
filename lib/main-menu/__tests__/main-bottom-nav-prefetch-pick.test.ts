@@ -31,18 +31,22 @@ describe("isBottomNavTabActive", () => {
 });
 
 describe("resolveActiveMainBottomNavTabIndex", () => {
-  it("6탭 분할(좌 3 + 우 3) — 도메인별 활성 인덱스", () => {
+  it("커뮤니티 5탭 — 도메인별 활성 인덱스", () => {
     const philifeTabs = composeMainBottomNavDisplayTabs("/philife", BOTTOM_NAV_ITEMS);
-    expect(resolveActiveMainBottomNavTabIndex("/philife", philifeTabs)).toBe(0);
-    expect(resolveActiveMainBottomNavTabIndex("/philife/x", philifeTabs)).toBe(0);
-    expect(resolveActiveMainBottomNavTabIndex("/mypage/community-posts", philifeTabs)).toBe(3);
-    expect(resolveActiveMainBottomNavTabIndex("/community-messenger", philifeTabs)).toBe(4);
-    expect(resolveActiveMainBottomNavTabIndex("/mypage", philifeTabs)).toBe(5);
+    expect(resolveActiveMainBottomNavTabIndex("/philife", philifeTabs)).toBe(2);
+    expect(resolveActiveMainBottomNavTabIndex("/philife/x", philifeTabs)).toBe(2);
+    expect(resolveActiveMainBottomNavTabIndex("/community-messenger", philifeTabs)).toBe(3);
+    expect(resolveActiveMainBottomNavTabIndex("/mypage", philifeTabs)).toBe(4);
+    expect(resolveActiveMainBottomNavTabIndex("/market", philifeTabs)).toBe(0);
+    expect(resolveActiveMainBottomNavTabIndex("/stores", philifeTabs)).toBe(1);
 
     const tradeTabs = composeMainBottomNavDisplayTabs("/market", BOTTOM_NAV_ITEMS);
-    expect(resolveActiveMainBottomNavTabIndex("/market", tradeTabs)).toBe(1);
-    expect(resolveActiveMainBottomNavTabIndex("/mypage/trade", tradeTabs)).toBe(3);
-    expect(resolveActiveMainBottomNavTabIndex("/community-messenger/trade-chats", tradeTabs)).toBe(4);
+    expect(resolveActiveMainBottomNavTabIndex("/market", tradeTabs)).toBe(2);
+    expect(resolveActiveMainBottomNavTabIndex("/market/jobs", tradeTabs)).toBe(2);
+    expect(resolveActiveMainBottomNavTabIndex("/mypage/trade", tradeTabs)).toBe(0);
+    expect(resolveActiveMainBottomNavTabIndex("/mypage/trade/favorites", tradeTabs)).toBe(1);
+    expect(resolveActiveMainBottomNavTabIndex("/community-messenger/trade-chats", tradeTabs)).toBe(3);
+    expect(resolveActiveMainBottomNavTabIndex("/mypage", tradeTabs)).toBe(4);
 
     const deliveryTabs = composeMainBottomNavDisplayTabs("/stores", BOTTOM_NAV_ITEMS);
     expect(resolveActiveMainBottomNavTabIndex("/stores", deliveryTabs)).toBe(2);
@@ -66,10 +70,10 @@ describe("pickMainBottomNavPrefetchHrefs", () => {
     expect(hrefs.length).toBeLessThanOrEqual(MAIN_BOTTOM_NAV_PREFETCH_MAX);
   });
 
-  it("거래 표면에서는 거래·마켓 href 제외", () => {
+  it("거래 표면 idle 후보 — 활성 홈(/market) 제외", () => {
     const tradeTabs = composeMainBottomNavDisplayTabs("/market/list", BOTTOM_NAV_ITEMS);
     const hrefs = pickMainBottomNavPrefetchHrefs("/market/list", tradeTabs);
-    expect(hrefs).not.toContain("/market");
+    expect(hrefs).not.toContain("/market/jobs");
     expect(hrefs.length).toBeLessThanOrEqual(MAIN_BOTTOM_NAV_PREFETCH_MAX);
   });
 

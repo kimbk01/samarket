@@ -13904,21 +13904,23 @@ export async function listCommunityMessengerRoomMessagesBefore(input: {
   const raw = (rows ?? []) as MessageRow[];
   const hasMore = raw.length > pageLimit;
   const ascRows = raw.slice(0, pageLimit).reverse();
-  const rx = await fetchCommunityMessengerReactionAggregatesForMessages(
-    sb as SupabaseLike,
-    ascRows.map((r) => r.id),
-    input.userId,
-    { authorUserIdByMessageId: communityMessengerAuthorUserIdByMessageIdForReactions(ascRows) }
-  );
-  const hidden = await fetchCommunityMessengerHiddenMessageIdsForUser(
-    sb as SupabaseLike,
-    input.userId,
-    ascRows.map((r) => r.id)
-  );
+  const ascMessageIds = ascRows.map((r) => r.id);
+  const senderIdsPre = dedupeIds(ascRows.map((r) => trimText(r.sender_id)).filter(Boolean));
+  const [rx, hidden, profilePack] = await Promise.all([
+    fetchCommunityMessengerReactionAggregatesForMessages(
+      sb as SupabaseLike,
+      ascMessageIds,
+      input.userId,
+      { authorUserIdByMessageId: communityMessengerAuthorUserIdByMessageIdForReactions(ascRows) }
+    ),
+    fetchCommunityMessengerHiddenMessageIdsForUser(sb as SupabaseLike, input.userId, ascMessageIds),
+    hydrateProfilesLabelsOnlyWithMap(input.userId, senderIdsPre, {
+      includeSelf: true,
+      bootstrapLiteFirstPaint: true,
+    }),
+  ]);
   const visibleRows = ascRows.filter((r) => !hidden.has(r.id));
-  const senderIds = dedupeIds(visibleRows.map((r) => trimText(r.sender_id)).filter(Boolean));
-  const profiles = await hydrateProfiles(input.userId, senderIds, { includeSelf: true });
-  const profileById = new Map(profiles.map((p) => [p.id, p]));
+  const profileById = new Map(profilePack.members.map((m) => [m.id, m]));
   const messages = visibleRows.map((row) =>
     mapCommunityMessengerDbMessageRowToMessage({
       row,
@@ -13931,11 +13933,21 @@ export async function listCommunityMessengerRoomMessagesBefore(input: {
 }
 
 /** `afterMessageId` 보다 새 메시지만 (증분 동기·탭 복귀 갭 메우기). 전체 목록 전송 회피 */
+export type CommunityMessengerMessagesAfterPerf = {
+  messages_fetch_ms?: number;
+  reactions_ms?: number;
+  hidden_ms?: number;
+  profiles_ms?: number;
+  payload_ms?: number;
+};
+
 export async function listCommunityMessengerRoomMessagesAfter(input: {
   userId: string;
   roomId: string;
   afterMessageId: string;
   limit?: number;
+  /** Route Handler dev breakdown — HTTP 응답에 포함되지 않음 */
+  _perf?: CommunityMessengerMessagesAfterPerf;
 }): Promise<
   { ok: true; messages: CommunityMessengerMessage[]; hasMore: boolean } | { ok: false; error: string }
 > {
@@ -14019,12 +14031,15 @@ export async function listCommunityMessengerRoomMessagesAfter(input: {
   ]);
   if (anchorHiddenAfter.has(afterMessageId)) return { ok: false, error: "not_found" };
 
+  const tRpc0 = typeof performance !== "undefined" ? performance.now() : 0;
   const { data: rpcRows, error: rpcErr } = await (sb as any).rpc("community_messenger_room_messages_after", {
     p_user_id: input.userId,
     p_room_id: roomId,
     p_after_message_id: afterMessageId,
     p_limit: pageLimit + 1,
   });
+  const rpcMs = typeof performance !== "undefined" ? Math.round(performance.now() - tRpc0) : 0;
+  if (input._perf) input._perf.messages_fetch_ms = rpcMs;
   if (rpcErr) {
     if (isMissingTableError(rpcErr) || String(rpcErr.message ?? "").includes("function") || String(rpcErr.code ?? "") === "42883") {
       return { ok: false, error: "migration_required" };
@@ -14034,21 +14049,39 @@ export async function listCommunityMessengerRoomMessagesAfter(input: {
   const raw = ((rpcRows ?? []) as MessageRow[]).slice();
   const hasMore = raw.length > pageLimit;
   const pageRows = raw.slice(0, pageLimit);
-  const rx = await fetchCommunityMessengerReactionAggregatesForMessages(
-    sb as SupabaseLike,
-    pageRows.map((r) => r.id),
-    input.userId,
-    { authorUserIdByMessageId: communityMessengerAuthorUserIdByMessageIdForReactions(pageRows) }
-  );
-  const hidden = await fetchCommunityMessengerHiddenMessageIdsForUser(
-    sb as SupabaseLike,
-    input.userId,
-    pageRows.map((r) => r.id)
-  );
+  const pageMessageIds = pageRows.map((r) => r.id);
+  const senderIdsPre = dedupeIds(pageRows.map((r) => trimText(r.sender_id)).filter(Boolean));
+  const [rx, hidden, profilePack] = await Promise.all([
+    (async () => {
+      const t0 = typeof performance !== "undefined" ? performance.now() : 0;
+      const out = await fetchCommunityMessengerReactionAggregatesForMessages(
+        sb as SupabaseLike,
+        pageMessageIds,
+        input.userId,
+        { authorUserIdByMessageId: communityMessengerAuthorUserIdByMessageIdForReactions(pageRows) }
+      );
+      if (input._perf) input._perf.reactions_ms = Math.round((typeof performance !== "undefined" ? performance.now() : 0) - t0);
+      return out;
+    })(),
+    (async () => {
+      const t0 = typeof performance !== "undefined" ? performance.now() : 0;
+      const out = await fetchCommunityMessengerHiddenMessageIdsForUser(sb as SupabaseLike, input.userId, pageMessageIds);
+      if (input._perf) input._perf.hidden_ms = Math.round((typeof performance !== "undefined" ? performance.now() : 0) - t0);
+      return out;
+    })(),
+    (async () => {
+      const t0 = typeof performance !== "undefined" ? performance.now() : 0;
+      const out = await hydrateProfilesLabelsOnlyWithMap(input.userId, senderIdsPre, {
+        includeSelf: true,
+        bootstrapLiteFirstPaint: true,
+      });
+      if (input._perf) input._perf.profiles_ms = Math.round((typeof performance !== "undefined" ? performance.now() : 0) - t0);
+      return out;
+    })(),
+  ]);
+  const tPayload0 = typeof performance !== "undefined" ? performance.now() : 0;
   const visibleRows = pageRows.filter((r) => !hidden.has(r.id));
-  const senderIds = dedupeIds(visibleRows.map((r) => trimText(r.sender_id)).filter(Boolean));
-  const profiles = await hydrateProfiles(input.userId, senderIds, { includeSelf: true });
-  const profileById = new Map(profiles.map((p) => [p.id, p]));
+  const profileById = new Map(profilePack.members.map((m) => [m.id, m]));
   const messages = visibleRows.map((row) =>
     mapCommunityMessengerDbMessageRowToMessage({
       row,
@@ -14057,6 +14090,7 @@ export async function listCommunityMessengerRoomMessagesAfter(input: {
       reactions: rx.get(row.id),
     })
   );
+  if (input._perf) input._perf.payload_ms = Math.round((typeof performance !== "undefined" ? performance.now() : 0) - tPayload0);
   return { ok: true, messages, hasMore };
 }
 

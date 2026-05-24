@@ -3,15 +3,23 @@
  * 셸 클래스: `Sam.headerAction` (`sam-header-action`, 둥근 사각 히트 + 호버 시 서피스만).
  * 글리프·배지·압궉 문자열만 여기서 공유.
  *
+ * 수치 단일 소스: `app/delivery-tokens.css` `--delivery-header-action`(40px) ·
+ * `--delivery-header-icon-glyph`(22px) · `--delivery-header-action-gap`(4px).
+ * CSS: `app/delivery-components.css` `.sam-tier1-header-icon-cluster`
+ *
  * @see `PhilifeHeaderMessengerButton`, `PhilifeHeaderNotificationInbox`
  */
 export const SAM_TIER1_HEADER_ICON_HIT_PX = 40 as const;
 
+/** 40×40 히트 — 배달 1단 우측과 동일 */
+export const SAM_TIER1_HEADER_ICON_HIT_CLASS =
+  "h-[length:var(--delivery-header-action)] w-[length:var(--delivery-header-action)]" as const;
+
 /**
- * 거래 1단 우측·필라이프 메신저 버튼과 동일 시각 무게 — `h-6 w-6`
- * (`TradeHeaderComposeButton` Plus, `PhilifeHeaderMessengerButton` 말풍선).
+ * 배달 1단 우측 글리프 — 22px (`--delivery-header-icon-glyph`).
  */
-export const SAM_TIER1_HEADER_ICON_GLYPH_CLASS = "h-6 w-6" as const;
+export const SAM_TIER1_HEADER_ICON_GLYPH_CLASS =
+  "h-[length:var(--delivery-header-icon-glyph)] w-[length:var(--delivery-header-icon-glyph)]" as const;
 
 /** 좁은 헤더·보조 아이콘용 (스토어 검색 등) */
 export const SAM_TIER1_HEADER_ICON_GLYPH_SM_CLASS = "h-5 w-5" as const;
@@ -33,9 +41,10 @@ export const samTier1HeaderIconBadge =
 export const samTier1HeaderRightColumn =
   "flex h-full min-h-0 w-[160px] shrink-0 flex-none items-center justify-end self-stretch pl-0 -mr-1" as const;
 
-/** 아이콘 버튼 나열 — 인접 `-ml-1` 로 거래 홈과 동일 간격 */
-export const samTier1HeaderIconCluster =
-  "inline-flex h-full max-w-full shrink-0 items-center justify-end gap-0 [&>*+*]:-ml-1" as const;
+/** 커뮤니티·거래·내정보 1단 우측 아이콘 나열 — 배달 `gap: var(--delivery-header-action-gap)` 와 동일 */
+export const SAM_TIER1_HEADER_ICON_CLUSTER_CLASS = "sam-tier1-header-icon-cluster" as const;
+
+export const samTier1HeaderIconCluster = SAM_TIER1_HEADER_ICON_CLUSTER_CLASS;
 
 export type SamTier1HeaderIconHitPx = typeof SAM_TIER1_HEADER_ICON_HIT_PX;
 export type SamTier1HeaderIconGlyphClass =

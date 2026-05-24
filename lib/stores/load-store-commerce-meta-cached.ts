@@ -25,6 +25,16 @@ function orderKey(viewerUserId: string | null, ownerUserId: unknown): string {
   return `${viewerUserId?.trim() || "__anon__"}|${String(ownerUserId ?? "").trim()}`;
 }
 
+export function peekStoreCommerceMetaCached(
+  storeId: string,
+  viewerUserId: string | null
+): StoreCommerceMeta | null {
+  const k = metaKey(storeId, viewerUserId);
+  const hit = metaCache.get(k);
+  if (hit && hit.expiresAt > Date.now()) return hit.value;
+  return null;
+}
+
 export async function loadStoreCommerceMetaCached(
   sb: SupabaseClient,
   storeId: string,

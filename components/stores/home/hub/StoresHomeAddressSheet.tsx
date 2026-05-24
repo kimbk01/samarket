@@ -203,6 +203,7 @@ export function StoresHomeAddressSheet({
                       <AddressListRowBody
                         row={row}
                         showDefaultDeliveryBadge
+                        preferFullAddressLine
                         addressMainClassName="text-[color:var(--delivery-text-main)]"
                       />
                     </span>

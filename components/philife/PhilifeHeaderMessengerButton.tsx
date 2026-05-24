@@ -19,6 +19,7 @@ import {
   inferMessengerEntryOriginFromPath,
   mainBottomNavMessengerTabHref,
 } from "@/lib/community-messenger/messenger-entry-origin";
+import { SAM_TIER1_HEADER_ICON_GLYPH_CLASS } from "@/lib/ui/tier1-header-icon";
 
 /**
  * 필라이프·거래 홈·마켓 1단: **푸시 스택**으로 `section=chats` 메신저(하단 탭 **전체 경로**와 별개 UX).
@@ -62,7 +63,7 @@ export function PhilifeHeaderMessengerButton() {
           className="sam-header-action relative h-10 w-10 shrink-0 text-sam-fg transition-[transform,background-color,opacity] duration-300 ease-out active:duration-100 active:scale-[0.88] active:bg-sam-surface-muted active:opacity-85"
           aria-label={label}
         >
-          <BottomNavMessengerChatIcon className="h-6 w-6" />
+          <BottomNavMessengerChatIcon className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS} />
           {unread > 0 ? (
             <span className="absolute right-0.5 top-0.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-sam-primary px-0.5 text-[9px] font-bold leading-none text-sam-on-primary">
               {unread > 99 ? "99+" : unread}
@@ -92,7 +93,7 @@ export function PhilifeHeaderMessengerButton() {
           }
         }}
       >
-        <BottomNavMessengerChatIcon className="h-6 w-6" />
+        <BottomNavMessengerChatIcon className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS} />
         {unread > 0 ? (
           <span className="absolute right-0.5 top-0.5 flex h-[16px] min-w-[16px] items-center justify-center rounded-full bg-sam-primary px-0.5 text-[9px] font-bold leading-none text-sam-on-primary">
             {unread > 99 ? "99+" : unread}

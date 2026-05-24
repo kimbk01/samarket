@@ -1,18 +1,13 @@
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
-import { mainBottomNavMessengerTabHref } from "@/lib/community-messenger/messenger-entry-origin";
 import { prewarmBottomNavTapTargetClientCache } from "@/lib/main-menu/bottom-nav-tap-prewarm-data";
 import {
   composeDeliveryDomainSwitcherSlots,
   type ComposeDeliveryDomainSwitcherSlotsOptions,
 } from "@/lib/delivery/delivery-domain-switcher-slots";
 import type { DeliveryDomainSwitcherSlot } from "@/lib/delivery/delivery-domain-switcher-slots";
-import { storeHomeFeedSuffixFromUserPrimaryRegion } from "@/lib/main-menu/bottom-nav-prewarm-href";
+import { prewarmBottomNavTapHrefResolvingStoresRegion } from "@/lib/main-menu/bottom-nav-prewarm-href";
+import { resolveDeliveryDomainDialItemHref, type HomeHubDomainDialContext } from "@/lib/delivery/resolve-delivery-domain-dial-item-href";
 import type { UserRegion } from "@/lib/regions/types";
-
-function resolveDialHref(tab: BottomNavItemConfig): string {
-  if (tab.id === "chat") return mainBottomNavMessengerTabHref("delivery");
-  return tab.href;
-}
 
 /**
  * 다이얼이 열릴 때 칩 목적지 RSC·클라 캐시를 미리 데운다.
@@ -23,16 +18,16 @@ export function prewarmDeliveryDomainDialTargets(
   opts?: {
     primaryRegion?: UserRegion | null;
     prefetch?: (href: string) => void;
+    dialContext?: HomeHubDomainDialContext;
   }
 ): void {
   if (typeof window === "undefined") return;
-  const suffix = storeHomeFeedSuffixFromUserPrimaryRegion(opts?.primaryRegion ?? null);
-  const suffixes = suffix ? [suffix] : [];
   const seen = new Set<string>();
+  const dialContext = opts?.dialContext ?? "delivery";
 
   for (const slot of slots) {
     if (slot.kind !== "action") continue;
-    const href = resolveDialHref(slot.tab).trim();
+    const href = resolveDeliveryDomainDialItemHref(slot.tab, dialContext).trim();
     if (!href || seen.has(href)) continue;
     seen.add(href);
     try {
@@ -41,7 +36,11 @@ export function prewarmDeliveryDomainDialTargets(
       /* noop */
     }
     try {
-      prewarmBottomNavTapTargetClientCache(href, { storeHomeFeedSuffixes: suffixes });
+      if (slot.tab.id === "stores") {
+        prewarmBottomNavTapHrefResolvingStoresRegion(href, opts?.primaryRegion ?? null);
+      } else {
+        prewarmBottomNavTapTargetClientCache(href);
+      }
     } catch {
       /* noop */
     }
@@ -55,6 +54,7 @@ export function prewarmConsumerDeliveryDomainDial(
     primaryRegion?: UserRegion | null;
     prefetch?: (href: string) => void;
     slotOptions?: ComposeDeliveryDomainSwitcherSlotsOptions;
+    dialContext?: HomeHubDomainDialContext;
   }
 ): void {
   prewarmDeliveryDomainDialTargets(

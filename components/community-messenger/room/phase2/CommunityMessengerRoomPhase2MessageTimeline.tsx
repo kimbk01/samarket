@@ -21,6 +21,7 @@ import {
 import { useMessengerRoomPhase2View } from "@/components/community-messenger/room/phase2/messenger-room-phase2-view-context";
 import { MessengerTimelineVirtualRow } from "@/components/community-messenger/room/phase2/MessengerTimelineVirtualRow";
 import { MessengerRoomNewMessagesBelowChip } from "@/components/community-messenger/room/MessengerRoomNewMessagesBelowChip";
+import { StoreDeliveryBufferingSpinner } from "@/components/stores/StoreDeliveryBufferingSpinner";
 import { MessengerImageLightbox } from "@/components/community-messenger/room/MessengerImageLightbox";
 import {
   messengerRoomReadBlockKeyImageLightbox,
@@ -67,6 +68,13 @@ import {
   shouldSkipCmRoomSubtreeSurfaceAttach,
 } from "@/lib/community-messenger/room/cm-room-subtree-stability";
 
+import { MESSENGER_TIMELINE_VIRTUAL_ESTIMATE_PX } from "@/lib/community-messenger/room/messenger-room-ui-constants";
+import {
+  resolveUseDirectMessengerTimelineLayout,
+  scheduleMessengerScrollToBottomAfterRowsPainted,
+} from "@/lib/community-messenger/room/messenger-timeline-layout-mode";
+import { useDeliveryRoomMessageSenderLabel } from "@/lib/store-order-chat/use-delivery-room-message-sender-label";
+
 const CM_ROOM_ENTRY_INITIAL_VIEWPORT_ROWS = 10;
 
 function selectTimelineVirtualRows<T extends { index: number }>(items: T[], hydrationPass: number): T[] {
@@ -75,6 +83,22 @@ function selectTimelineVirtualRows<T extends { index: number }>(items: T[], hydr
   const cap = CM_ROOM_ENTRY_INITIAL_VIEWPORT_ROWS;
   if (items.length <= cap) return items;
   return items.slice(-cap);
+}
+
+/** virtualizer scroll root 미부착 시 tail 행 — DO NOT: 주문·배달 방 단독 렌더 경로로 쓰지 말 것(resolveUseDirectMessengerTimelineLayout 우선). */
+function buildTimelineFallbackVirtualRows(
+  messageCount: number,
+  hydrationPass: number
+): Array<{ index: number; start: number }> {
+  if (messageCount <= 0) return [];
+  if (hydrationPass < 2) return [];
+  const cap = hydrationPass >= 3 ? messageCount : Math.min(messageCount, CM_ROOM_ENTRY_INITIAL_VIEWPORT_ROWS);
+  const startIndex = Math.max(0, messageCount - cap);
+  const rows: Array<{ index: number; start: number }> = [];
+  for (let i = startIndex; i < messageCount; i += 1) {
+    rows.push({ index: i, start: (i - startIndex) * MESSENGER_TIMELINE_VIRTUAL_ESTIMATE_PX });
+  }
+  return rows;
 }
 
 function messengerTimelineCalendarDayKey(iso: string): string {
@@ -91,11 +115,15 @@ function messengerTimelineDayDividerLabel(iso: string): string {
 
 export const CommunityMessengerRoomPhase2MessageTimeline = memo(function CommunityMessengerRoomPhase2MessageTimeline() {
   const vm = useMessengerRoomPhase2View();
+  const resolveMessageSenderLabel = useDeliveryRoomMessageSenderLabel(vm);
   const hydrationPass = useCmRoomPhase2HydrationPass();
   const viewportPaintRecordedRef = useRef(false);
   const pass2FirstRowProbeAttachedRef = useRef(false);
   const viewportIoRef = useRef<IntersectionObserver | null>(null);
   const hasTradeDock = Boolean(vm.showMessengerTradeProcessDock);
+  const hasStoreOrderDock = Boolean(vm.showMessengerStoreOrderDock);
+  /** 거래 도크는 타임라인 안; 배달 주문 chrome·composer는 스크롤 밖 — 과한 하단 패딩 금지. */
+  const timelineTailPaddingClass = hasTradeDock ? "pb-1.5" : hasStoreOrderDock ? "pb-3" : "pb-[76px]";
   const timelineRenderStartRef = useRef(typeof performance !== "undefined" ? performance.now() : 0);
   timelineRenderStartRef.current = typeof performance !== "undefined" ? performance.now() : 0;
   const prevListSigRef = useRef<{ msgLen: number; unread: number; readId: string } | null>(null);
@@ -188,8 +216,20 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
   const shouldRecoverEmptyTimeline = useMemo(() => {
     const hasLastMessageHint = Boolean(vm.snapshot.room.lastMessage?.trim());
     const snapshotHasMessages = vm.snapshot.messages.length > 0;
-    return !vm.loading && (hasLastMessageHint || snapshotHasMessages) && vm.roomMessages.length === 0;
-  }, [vm.loading, vm.roomMessages.length, vm.snapshot.messages.length, vm.snapshot.room.lastMessage]);
+    const liveHasMessages = vm.roomMessages.length > 0;
+    const displayEmpty = vm.displayRoomMessages.length === 0;
+  return (
+      !vm.loading &&
+      displayEmpty &&
+      (hasLastMessageHint || snapshotHasMessages || liveHasMessages)
+    );
+  }, [
+    vm.displayRoomMessages.length,
+    vm.loading,
+    vm.roomMessages.length,
+    vm.snapshot.messages.length,
+    vm.snapshot.room.lastMessage,
+  ]);
 
   useEffect(() => {
     if (!shouldRecoverEmptyTimeline) {
@@ -425,10 +465,73 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
     });
   }, [onScroll]);
 
+  const virtualItemsForLayout = vm.chatVirtualizer.getVirtualItems();
+  const virtualizerHasMeasuredRange =
+    virtualItemsForLayout.length > 0 || vm.chatVirtualizer.getTotalSize() > 0;
+
+  const useDirectTimelineLayout = resolveUseDirectMessengerTimelineLayout({
+    hydrationPass,
+    displayMessageCount: vm.displayRoomMessages.length,
+    hasStoreOrderDock,
+    virtualizerHasMeasuredRange,
+  });
+
   /** 가상 행 map 직전: 동일 sender `members.find` 반복을 줄이기 위한 아바타 캐시. cluster 간격 ms 는 가시 행에서만 `item`/`prev`로 계산한다. */
-  const cappedVirtualRows = useMemo(
-    () => selectTimelineVirtualRows(vm.chatVirtualizer.getVirtualItems(), hydrationPass),
-    [vm.chatVirtualizer, hydrationPass, vm.displayRoomMessages.length]
+  const cappedVirtualRows = useMemo(() => {
+    if (useDirectTimelineLayout) return [];
+    const virtualItems = vm.chatVirtualizer.getVirtualItems();
+    const selected = selectTimelineVirtualRows(virtualItems, hydrationPass);
+    if (selected.length > 0) return selected;
+    if (vm.displayRoomMessages.length <= 0) return [];
+    return buildTimelineFallbackVirtualRows(vm.displayRoomMessages.length, hydrationPass);
+  }, [useDirectTimelineLayout, vm.chatVirtualizer, hydrationPass, vm.displayRoomMessages.length]);
+
+  const timelineContentHeight = useMemo(() => {
+    if (useDirectTimelineLayout) return 0;
+    const total = vm.chatVirtualizer.getTotalSize();
+    if (total > 0) return total;
+    if (vm.displayRoomMessages.length <= 0) return 0;
+    return cappedVirtualRows.length * MESSENGER_TIMELINE_VIRTUAL_ESTIMATE_PX;
+  }, [
+    cappedVirtualRows.length,
+    useDirectTimelineLayout,
+    vm.chatVirtualizer,
+    vm.displayRoomMessages.length,
+  ]);
+
+  const timelineRows = useDirectTimelineLayout
+    ? vm.displayRoomMessages.map((_, index) => ({ index, start: 0 }))
+    : cappedVirtualRows;
+
+  const lastDisplayMessageId =
+    vm.displayRoomMessages[vm.displayRoomMessages.length - 1]?.id ?? "";
+
+  /** 배달·주문 direct: 진입 스크롤 단일 소유( reader room_entry_initial 과 중복 금지 — phase1 defer 플래그). */
+  useLayoutEffect(() => {
+    if (!useDirectTimelineLayout || !hasStoreOrderDock || hydrationPass < 2) return;
+    return scheduleMessengerScrollToBottomAfterRowsPainted({
+      roomId: vm.streamRoomId,
+      messagesViewportRef: vm.messagesViewportRef,
+      scroll: vm.scrollMessengerToBottom,
+      reason: "timeline_delivery_direct_paint",
+    });
+  }, [
+    hasStoreOrderDock,
+    hydrationPass,
+    lastDisplayMessageId,
+    useDirectTimelineLayout,
+    vm.displayRoomMessages.length,
+    vm.messagesViewportRef,
+    vm.scrollMessengerToBottom,
+    vm.streamRoomId,
+  ]);
+
+  const attachMessagesViewportRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      vm.messagesViewportRef.current = node;
+      vm.notifyTimelineViewportMounted(Boolean(node));
+    },
+    [vm.messagesViewportRef, vm.notifyTimelineViewportMounted]
   );
 
   const attachPass2FirstRowProbe = useCallback(
@@ -607,21 +710,21 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       <div
-        ref={vm.messagesViewportRef}
+        ref={attachMessagesViewportRef}
         data-cm-line-timeline
         data-cm-message-viewport=""
         className="relative min-h-0 flex-1 overflow-y-auto overscroll-y-contain bg-[color:var(--cm-room-chat-bg)]"
         style={{
           scrollPaddingBottom: hasTradeDock
             ? "var(--cm-timeline-trade-anchor-padding, 6px)"
-            : "var(--chat-composer-height, 0px)",
+            : hasStoreOrderDock
+              ? "0px"
+              : "var(--chat-composer-height, 0px)",
         }}
         onScroll={scheduleScroll}
       >
         <main
-          className={`mx-auto w-full max-w-[760px] space-y-2.5 px-3 py-3 sm:px-4 ${
-            hasTradeDock ? "pb-1.5" : "pb-[76px]"
-          }`}
+          className={`mx-auto w-full max-w-[760px] space-y-2.5 px-3 py-3 sm:px-4 ${timelineTailPaddingClass}`}
         >
           {!communityMessengerRoomIsGloballyUsable(vm.snapshot.room) ? (
             <div className="rounded-[12px] border border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-header-bg)] px-3 py-2.5 sam-text-helper leading-snug text-[color:var(--cm-room-text)]">
@@ -680,8 +783,15 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
             </div>
           ) : null}
           {vm.displayRoomMessages.length ? (
-            <div className="relative w-full" style={{ height: vm.chatVirtualizer.getTotalSize() }}>
-              {cappedVirtualRows.map((virtualRow, cappedMapIndex) => {
+            <div
+              className="relative w-full"
+              style={
+                useDirectTimelineLayout || timelineContentHeight <= 0
+                  ? undefined
+                  : { height: timelineContentHeight }
+              }
+            >
+              {timelineRows.map((virtualRow, cappedMapIndex) => {
                 const index = virtualRow.index;
                 const item = vm.displayRoomMessages[index];
                 if (!item) return null;
@@ -780,13 +890,18 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                     item={item}
                     virtualStart={virtualRow.start}
                     virtualIndex={virtualRow.index}
+                    directLayout={useDirectTimelineLayout}
                     measureElement={
-                      cappedMapIndex === 0
-                        ? (el) => {
-                            measureWithScrollTrace(el);
-                            attachPass2FirstRowProbe(el);
-                          }
-                        : measureWithScrollTrace
+                      useDirectTimelineLayout
+                        ? cappedMapIndex === 0
+                          ? attachPass2FirstRowProbe
+                          : () => undefined
+                        : cappedMapIndex === 0
+                          ? (el) => {
+                              measureWithScrollTrace(el);
+                              attachPass2FirstRowProbe(el);
+                            }
+                          : measureWithScrollTrace
                     }
                     rowPaddingTopClass={rowPaddingTopClass}
                     showPeerName={showPeerName}
@@ -817,7 +932,7 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
                         : vm.tt(formatRoomCallStatus(item.callStatus))
                     }
                     stubBusy={stubBusy}
-                    senderLabelDisplay={vm.tt(item.senderLabel)}
+                    senderLabelDisplay={resolveMessageSenderLabel(item)}
                     onOpenImageLightbox={onOpenImageLightbox}
                     onReactionRosterOpen={onReactionRosterOpen}
                     setMessageActionItem={vm.setMessageActionItem}
@@ -832,10 +947,12 @@ export const CommunityMessengerRoomPhase2MessageTimeline = memo(function Communi
               })}
             </div>
           ) : vm.snapshot.clientShellPlaceholder ? (
-            <div className="space-y-3 px-6 py-10" aria-busy="true" aria-label={vm.t("cm_ui_loading_conversation")}>
-              <div className="h-3 w-[72%] max-w-sm animate-pulse rounded-full bg-[color:var(--cm-room-divider)]" />
-              <div className="h-3 w-[88%] max-w-md animate-pulse rounded-full bg-[color:var(--cm-room-divider)]" />
-              <div className="h-3 w-[56%] max-w-xs animate-pulse rounded-full bg-[color:var(--cm-room-divider)]" />
+            <div
+              className="flex min-h-[40vh] flex-col items-center justify-center py-16"
+              aria-busy="true"
+              aria-label={vm.t("chats_spinner_loading_aria")}
+            >
+              <StoreDeliveryBufferingSpinner />
             </div>
           ) : (
             <div className="px-4 py-12 text-center sam-text-body-secondary text-[color:var(--cm-room-text-muted)]">

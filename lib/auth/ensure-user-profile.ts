@@ -307,6 +307,46 @@ async function persistProviderIdentityIfMissing(
     .then(() => undefined, () => undefined);
 }
 
+/** GET /api/me/profile — 동일 userId·identity 에서 duplicate 탐지 DB 왕복 재실행 억제 */
+const AUTH_ROW_CHECK_CACHE_TTL_MS = 60_000;
+const authRowCheckCache = new Map<
+  string,
+  { expiresAt: number; duplicateWarning: boolean; duplicateCandidates: string[] }
+>();
+
+function authRowCheckCacheKey(user: User, identity: IdentityHit): string {
+  const email = pickStr(user.email)?.toLowerCase() ?? "";
+  return `${user.id}\0${identity.provider ?? ""}\0${identity.providerUserId ?? ""}\0${email}`;
+}
+
+function peekAuthRowCheckCache(
+  user: User,
+  identity: IdentityHit
+): { duplicateWarning: boolean; duplicateCandidates: string[] } | null {
+  const row = authRowCheckCache.get(authRowCheckCacheKey(user, identity));
+  if (!row || row.expiresAt <= Date.now()) {
+    if (row) authRowCheckCache.delete(authRowCheckCacheKey(user, identity));
+    return null;
+  }
+  return {
+    duplicateWarning: row.duplicateWarning,
+    duplicateCandidates: row.duplicateCandidates,
+  };
+}
+
+function setAuthRowCheckCache(
+  user: User,
+  identity: IdentityHit,
+  duplicateWarning: boolean,
+  duplicateCandidates: string[]
+): void {
+  authRowCheckCache.set(authRowCheckCacheKey(user, identity), {
+    expiresAt: Date.now() + AUTH_ROW_CHECK_CACHE_TTL_MS,
+    duplicateWarning,
+    duplicateCandidates,
+  });
+}
+
 function bumpAttempt(metrics: EnsureUserProfileMetrics | undefined) {
   if (!metrics) return;
   metrics.ensure_profile_attempt_count += 1;
@@ -367,46 +407,16 @@ async function ensureUserProfileCore(
     metrics.ensure_profile_existing_check_ms += Math.round(devPerfNow() - tExisting0);
   }
 
-  let duplicateWarning = false;
-  let duplicateCandidates: string[] = [];
-  /** 2~3) provider+provider_user_id / email 검사 — 다른 id 의 행이 있으면 자동 연결 금지 → 경고. */
-  const tAuth0 = devPerfNow();
-  bumpAttempt(metrics);
-  markRead(metrics);
-  const providerCandidates = await findCandidateIdsByProviderPair(
-    sb,
-    identity.provider,
-    identity.providerUserId
-  );
-  for (const cid of providerCandidates) {
-    if (cid && cid !== user.id) {
-      duplicateWarning = true;
-      duplicateCandidates.push(cid);
-    }
-  }
-  if (!existingId && pickStr(user.email)) {
-    bumpAttempt(metrics);
-    markRead(metrics);
-    const emailCandidates = await findCandidateIdsByEmail(sb, user.email ?? null);
-    for (const cid of emailCandidates) {
-      if (cid && cid !== user.id) {
-        duplicateWarning = true;
-        duplicateCandidates.push(cid);
-      }
-    }
-  }
-  duplicateCandidates = Array.from(new Set(duplicateCandidates));
-  if (metrics) {
-    metrics.ensure_profile_auth_row_check_ms += Math.round(devPerfNow() - tAuth0);
-  }
-
-  /** GET /api/me/profile: 이미 정상 행을 읽었으면 heavy ensure 생략 */
+  /** GET /api/me/profile: 이미 정상 행을 읽었으면 duplicate·heavy ensure 생략 */
   if (
     existingId &&
     options?.existingProfileRow &&
     options.existingProfileRow.id === user.id &&
     meProfileEnsureFastPathEligible(options.existingProfileRow, user)
   ) {
+    if (metrics) {
+      metrics.ensure_profile_auth_row_check_ms = 0;
+    }
     const row = options.existingProfileRow;
     const needsProviderPersist =
       Boolean(identity.provider && identity.providerUserId) && !providerIdentityFullyMatchesRow(row, identity);
@@ -432,9 +442,47 @@ async function ensureUserProfileCore(
       profile: { id: user.id },
       created: false,
       linked: true,
-      duplicateWarning: duplicateWarning || undefined,
-      duplicateCandidates: duplicateWarning ? duplicateCandidates : undefined,
     };
+  }
+
+  let duplicateWarning = false;
+  let duplicateCandidates: string[] = [];
+  /** 2~3) provider+provider_user_id / email 검사 — 다른 id 의 행이 있으면 자동 연결 금지 → 경고. */
+  const tAuth0 = devPerfNow();
+  const cachedDup = peekAuthRowCheckCache(user, identity);
+  if (cachedDup) {
+    duplicateWarning = cachedDup.duplicateWarning;
+    duplicateCandidates = cachedDup.duplicateCandidates;
+  } else {
+    bumpAttempt(metrics);
+    markRead(metrics);
+    const providerCandidates = await findCandidateIdsByProviderPair(
+      sb,
+      identity.provider,
+      identity.providerUserId
+    );
+    for (const cid of providerCandidates) {
+      if (cid && cid !== user.id) {
+        duplicateWarning = true;
+        duplicateCandidates.push(cid);
+      }
+    }
+    if (!existingId && pickStr(user.email)) {
+      bumpAttempt(metrics);
+      markRead(metrics);
+      const emailCandidates = await findCandidateIdsByEmail(sb, user.email ?? null);
+      for (const cid of emailCandidates) {
+        if (cid && cid !== user.id) {
+          duplicateWarning = true;
+          duplicateCandidates.push(cid);
+        }
+      }
+    }
+    duplicateCandidates = Array.from(new Set(duplicateCandidates));
+    setAuthRowCheckCache(user, identity, duplicateWarning, duplicateCandidates);
+  }
+  if (metrics) {
+    metrics.ensure_profile_auth_row_check_ms += Math.round(devPerfNow() - tAuth0);
   }
 
   if (existingId) {

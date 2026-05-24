@@ -5,6 +5,7 @@ import type { CommunityMessengerProfileLite } from "@/lib/community-messenger/ty
 import {
   buyerNicknameForOwnerHeader,
   resolveDeliveryPeerUserId,
+  resolveDeliveryStoreDisplayName,
   resolveStoreOrderDeliveryHeaderMode,
   type StoreOrderDeliveryHeaderMode,
 } from "@/lib/store-order-chat/messenger-delivery-room-header";
@@ -16,13 +17,6 @@ import {
 } from "@/lib/trust/manner-battery";
 import { clampTrustScore } from "@/lib/trust/trust-score-core";
 import type { PublicSellerProfileDTO } from "@/lib/users/map-profile-to-public-seller";
-
-function storeNameFromDeliveryHeadline(headline: string | undefined): string | null {
-  const h = headline?.trim();
-  if (!h) return null;
-  const sep = h.indexOf(" · ");
-  return sep > 0 ? h.slice(0, sep).trim() || null : h;
-}
 
 export type StoreOrderDeliveryMessengerHeaderModel = {
   mode: StoreOrderDeliveryHeaderMode;
@@ -143,11 +137,13 @@ export function useStoreOrderDeliveryMessengerHeader(
     input.roomAvatarUrl?.trim() ||
     null;
 
-  const storeDisplayName =
-    storeOrderSnap?.orderCard?.storeName?.trim() ||
-    storeNameFromDeliveryHeadline(input.deliveryHeadline) ||
-    input.roomTitle.trim() ||
-    "매장";
+  const storeDisplayName = resolveDeliveryStoreDisplayName({
+    orderCardStoreName: storeOrderSnap?.orderCard?.storeName,
+    deliveryHeadline: input.deliveryHeadline,
+    roomTitle: input.roomTitle,
+    storeId: input.storeId,
+    storeSlug: storeOrderSnap?.storeSlug,
+  });
 
   const storeAvatarUrl =
     storeOrderSnap?.storeProfileImageUrl?.trim() || input.thumbnailUrl?.trim() || null;

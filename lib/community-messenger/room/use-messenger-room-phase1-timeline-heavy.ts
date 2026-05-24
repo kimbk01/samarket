@@ -9,6 +9,7 @@ import {
 } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { useMessengerRoomDerivedMessageLists } from "@/lib/community-messenger/room/use-messenger-room-derived-message-lists";
 import { useMessengerRoomTradeDockScrollAnchor } from "@/lib/community-messenger/room/use-messenger-room-trade-dock-scroll-anchor";
+import { useMessengerRoomStoreOrderDockScrollAnchor } from "@/lib/community-messenger/room/use-messenger-room-store-order-dock-scroll-anchor";
 
 type RoomMsg = CommunityMessengerMessage & { pending?: boolean };
 
@@ -32,6 +33,7 @@ export function useMessengerRoomPhase1TimelineHeavy({
   roomSearchQuery,
   messagesViewportRef,
   tradeDockScrollAnchorEnabled,
+  storeOrderDockScrollAnchorEnabled,
   messageEndRef,
   stickToBottomRef,
 }: {
@@ -40,6 +42,7 @@ export function useMessengerRoomPhase1TimelineHeavy({
   roomSearchQuery: string;
   messagesViewportRef: RefObject<HTMLDivElement | null>;
   tradeDockScrollAnchorEnabled: boolean;
+  storeOrderDockScrollAnchorEnabled: boolean;
   messageEndRef: RefObject<HTMLDivElement | null>;
   stickToBottomRef: MutableRefObject<boolean>;
 }): MessengerRoomPhase1TimelineHeavyBundle {
@@ -56,6 +59,15 @@ export function useMessengerRoomPhase1TimelineHeavy({
 
   useMessengerRoomTradeDockScrollAnchor({
     enabled: tradeDockScrollAnchorEnabled,
+    messagesViewportRef,
+    messageEndRef,
+    virtualizer: chatVirtualizer,
+    messageCount: displayRoomMessages.length,
+    stickToBottomRef,
+  });
+
+  useMessengerRoomStoreOrderDockScrollAnchor({
+    enabled: storeOrderDockScrollAnchorEnabled,
     messagesViewportRef,
     messageEndRef,
     virtualizer: chatVirtualizer,

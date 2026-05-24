@@ -13,12 +13,18 @@ import {
 import { scheduleStartupApiDeferred } from "@/lib/http/startup-api-scheduler";
 import { primeNotificationSoundAudio } from "@/lib/notifications/play-notification-sound";
 
-const HUB_TRAILING_ROW_CLASS = "flex w-[88px] shrink-0 items-center justify-end gap-0.5";
+import {
+  samTier1HeaderIconCluster,
+  SAM_TIER1_HEADER_ICON_GLYPH_CLASS,
+  SAM_TIER1_HEADER_ICON_HIT_CLASS,
+} from "@/lib/ui/tier1-header-icon";
+
+const HUB_TRAILING_ROW_CLASS = `${samTier1HeaderIconCluster} w-[88px]`;
 
 function HamburgerMenuIcon() {
   return (
     <svg
-      className="block h-5 w-5 align-middle"
+      className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -36,7 +42,7 @@ function HubHeaderSettingsHamburgerFallback() {
   return (
     <Link
       href={buildMypageInfoHubHref()}
-      className="sam-header-action flex h-10 w-10 items-center justify-center text-sam-fg"
+      className={`sam-header-action flex ${SAM_TIER1_HEADER_ICON_HIT_CLASS} items-center justify-center text-sam-fg`}
       aria-label={t("hub_settings_aria")}
     >
       <HamburgerMenuIcon />
@@ -55,7 +61,7 @@ export function MyHubHeaderInfoHubTrigger() {
     <button
       type="button"
       onClick={openInfoHub}
-      className="sam-header-action flex h-10 w-10 items-center justify-center text-sam-fg"
+      className={`sam-header-action flex ${SAM_TIER1_HEADER_ICON_HIT_CLASS} items-center justify-center text-sam-fg`}
       aria-label={t("hub_settings_aria")}
     >
       <HamburgerMenuIcon />

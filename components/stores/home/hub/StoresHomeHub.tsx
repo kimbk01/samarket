@@ -116,7 +116,7 @@ export function StoresHomeHub({
 
   const hydrationStores = useMemo(() => stores.map((s) => ({ id: s.id, slug: s.slug })), [stores]);
   const eagerStoreIds = useMemo(() => stores.map((s) => s.id).filter(Boolean), [stores]);
-  const { hydratedByStoreId, getPhase, registerListItem, hydrationEpoch } = useBrowseFeaturedItemsHydration(
+  const { hydratedByStoreId, getPhase, registerListItem } = useBrowseFeaturedItemsHydration(
     hydrationStores,
     { enabled: stores.length > 0, eagerStoreIds }
   );
@@ -152,7 +152,7 @@ export function StoresHomeHub({
               actionHref={STORES_HOME_SECTION_BROWSE.orderNow()}
               actionLabel={t("store_browse_view_all")}
             >
-              <div className={STORES_HOME_RAIL_SCROLL} key={hydrationEpoch}>
+              <div className={STORES_HOME_RAIL_SCROLL}>
                 {fastFood.map((entry) => {
                   const img = resolveFoodCardImage(entry, hydratedByStoreId.get(entry.storeId));
                   return (
@@ -215,7 +215,6 @@ export function StoresHomeHub({
             hydratedByStoreId={hydratedByStoreId}
             getPhase={getPhase}
             registerListItem={registerListItem}
-            hydrationEpoch={hydrationEpoch}
           />
         </>
       }

@@ -22,6 +22,7 @@ import {
   logCmScrollAnalysis,
   resetCmScrollAnalysisSession,
 } from "@/lib/community-messenger/monitoring/cm-scroll-analysis";
+import { scheduleMessengerScrollToBottomAfterRowsPainted } from "@/lib/community-messenger/room/messenger-timeline-layout-mode";
 
 /**
  * @see docs/community-messenger-mobile-room-viewport.md
@@ -36,6 +37,8 @@ export function useMessengerRoomReaderScrollBottom({
   messagesViewportRef,
   messageEndRef,
   roomMessages,
+  /** 배달·주문 direct 타임라인이 진입 스크롤 소유 — room_entry_initial 중복 방지 */
+  deferEntryScrollToDeliveryDirectTimeline = false,
 }: {
   roomId: string;
   activeSheet:
@@ -54,6 +57,7 @@ export function useMessengerRoomReaderScrollBottom({
   messagesViewportRef: RefObject<HTMLDivElement | null>;
   messageEndRef: RefObject<HTMLDivElement | null>;
   roomMessages: Array<CommunityMessengerMessage & { pending?: boolean }>;
+  deferEntryScrollToDeliveryDirectTimeline?: boolean;
 }): {
   scrollMessengerToBottom: (opts?: { reason?: string }) => void;
   updateStickToBottomFromScroll: () => void;
@@ -188,6 +192,25 @@ export function useMessengerRoomReaderScrollBottom({
       ready: true,
     };
   }, [roomId]);
+
+  /** 방 진입(일반·거래 virtualized): 말풍선 DOM 후 스크롤. 배달·주문은 timeline_delivery_direct_paint 가 소유. */
+  useLayoutEffect(() => {
+    if (deferEntryScrollToDeliveryDirectTimeline || roomMessages.length <= 0) return;
+    return scheduleMessengerScrollToBottomAfterRowsPainted({
+      roomId,
+      messagesViewportRef,
+      scroll: scrollMessengerToBottom,
+      reason: "room_entry_initial",
+      stickToBottomRef,
+    });
+  }, [
+    deferEntryScrollToDeliveryDirectTimeline,
+    roomId,
+    roomMessages.length,
+    scrollMessengerToBottom,
+    messagesViewportRef,
+    stickToBottomRef,
+  ]);
 
   useEffect(() => {
     const last = roomMessages[roomMessages.length - 1];

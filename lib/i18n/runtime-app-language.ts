@@ -2,6 +2,7 @@
  * AppLanguageProvider가 갱신하는 런타임 UI 언어.
  * React 밖(유틸·cmUi 등)에서 `t`/`useI18n` 대신 `translateText`가 필요할 때만 사용한다.
  * cookie/local/browser 직접 읽기 금지 — Provider state와 동기화된 값만 쓴다.
+ * Provider는 렌더마다 `setRuntimeAppLanguage(language)`로 SSR·하이드레이션과 맞춘다.
  */
 import { APP_LANGUAGE_CHANGED_EVENT, FALLBACK_APP_LANGUAGE, type AppLanguageCode } from "./config";
 

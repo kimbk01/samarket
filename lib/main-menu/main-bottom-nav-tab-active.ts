@@ -10,18 +10,15 @@ import {
   isDeliveryOrderHistoryBottomNavPath,
   normalizeDeliveryBottomNavPath,
 } from "@/lib/main-menu/delivery-bottom-nav-layout";
+import { isPhilifeHomeHubBottomNavActive } from "@/lib/main-menu/philife-bottom-nav-layout";
+import {
+  isTradeFavoritesBottomNavPath,
+  isTradeHistoryBottomNavPath,
+  isTradeHomeHubBottomNavActive,
+} from "@/lib/main-menu/trade-bottom-nav-layout";
 
 function pathOnly(pathname: string | null): string {
   return normalizeDeliveryBottomNavPath(pathname);
-}
-
-function isTradeHistoryBottomNavActive(pathname: string | null): boolean {
-  const p = pathOnly(pathname);
-  if (p === "/mypage/trade/chat" || p.startsWith("/mypage/trade/chat/")) return false;
-  if (p === "/mypage/trade" || p.startsWith("/mypage/trade/")) return true;
-  if (p === "/mypage/purchases" || p.startsWith("/mypage/purchases/")) return true;
-  if (p === "/mypage/sales" || p.startsWith("/mypage/sales/")) return true;
-  return false;
 }
 
 function isPhilifeMyPostsBottomNavActive(pathname: string | null): boolean {
@@ -36,6 +33,13 @@ function isDeliveryCartBottomNavActive(pathname: string | null): boolean {
 /** 거래 하단 「내정보」(`/mypage`) 와 동일 — 주문내역 탭 전용 경로만 제외 */
 function isDeliveryMyBottomNavActive(pathname: string | null): boolean {
   if (isDeliveryOrderHistoryBottomNavPath(pathname)) return false;
+  return isBottomNavTabActive(pathname, "/mypage");
+}
+
+/** 거래 하단 「내정보」 — 내역·찜 전용 경로 제외 */
+function isTradeMyBottomNavActive(pathname: string | null): boolean {
+  if (isTradeHistoryBottomNavPath(pathname)) return false;
+  if (isTradeFavoritesBottomNavPath(pathname)) return false;
   return isBottomNavTabActive(pathname, "/mypage");
 }
 
@@ -86,10 +90,30 @@ export function isMainBottomNavDisplayTabActive(
   if (tab.id === "chat" && options?.secondaryRail) {
     return isMessengerBottomNavChatTabActive(pathname, options.searchParams, options.secondaryRail);
   }
-  if (tab.id === "delivery-order-chat") {
-    return isMessengerBottomNavChatTabActive(pathname, options?.searchParams, "stores");
+  if (tab.id === "delivery-order-chat" || tab.id === "philife-messenger" || tab.id === "trade-order-chat") {
+    return isMessengerBottomNavChatTabActive(
+      pathname,
+      options?.searchParams,
+      tab.id === "philife-messenger" ? "philife" : tab.id === "trade-order-chat" ? "trade" : "stores"
+    );
   }
   switch (tab.id) {
+    case "trade-history":
+      return isTradeHistoryBottomNavPath(pathname);
+    case "trade-favorites":
+      return isTradeFavoritesBottomNavPath(pathname);
+    case "trade-home-hub":
+      return isTradeHomeHubBottomNavActive(pathname);
+    case "trade-my":
+      return isTradeMyBottomNavActive(pathname);
+    case "philife-trade":
+      return isBottomNavTabActive(pathname, "/market");
+    case "philife-delivery":
+      return isBottomNavTabActive(pathname, "/stores");
+    case "philife-home-hub":
+      return isPhilifeHomeHubBottomNavActive(pathname);
+    case "philife-my":
+      return isBottomNavTabActive(pathname, "/mypage");
     case "delivery-orders":
       return isDeliveryOrderHistoryBottomNavPath(pathname);
     case "delivery-cart":
@@ -98,8 +122,6 @@ export function isMainBottomNavDisplayTabActive(
       return isDeliveryHomeHubBottomNavActive(pathname);
     case "delivery-my":
       return isDeliveryMyBottomNavActive(pathname);
-    case "trade-history":
-      return isTradeHistoryBottomNavActive(pathname);
     case "philife-my-posts":
       return isPhilifeMyPostsBottomNavActive(pathname);
     default:

@@ -47,10 +47,11 @@ import {
 } from "@/lib/community-messenger/types";
 import { communityMessengerRoomMembersPath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import { buildClientShellPlaceholderSnapshot } from "@/lib/community-messenger/room/client-shell-placeholder-snapshot";
+import { pickAuthoritativeMessengerRoomSnapshot } from "@/lib/community-messenger/room/messenger-room-initial-snapshot-authority";
 import {
   peekRoomSnapshot,
   primeHotRoomSnapshot,
-  seedRoomSnapshotFromSummary,
+  primeRoomSnapshot,
 } from "@/lib/community-messenger/room-snapshot-cache";
 import { CM_CLUSTER_GAP_MS } from "@/lib/community-messenger/room/messenger-room-ui-constants";
 import { cmReadUiLog } from "@/lib/community-messenger/read/cm-read-ui-log";
@@ -68,6 +69,7 @@ import {
 import { clearCmRoomForegroundBootstrapLock } from "@/lib/community-messenger/room/cm-room-bootstrap-lock";
 import { useMessengerRoomUrlSyncEffects } from "@/lib/community-messenger/room/use-messenger-room-url-sync-effects";
 import { CM_ROOM_EMPTY_VIRTUALIZER_STUB } from "@/lib/community-messenger/room/cm-room-empty-virtualizer-stub";
+import { collapseDuplicateStoreOrderSummaryMessages } from "@/lib/store-order-chat/collapse-duplicate-order-summaries";
 import type { MessengerRoomPhase1TimelineHeavyBundle } from "@/lib/community-messenger/room/use-messenger-room-phase1-timeline-heavy";
 import type { ChatRoom } from "@/lib/types/chat";
 import { useNotificationSurfaceCommunityMessengerRoom } from "@/lib/ui/use-notification-surface-explicit-chat-rooms";
@@ -94,7 +96,6 @@ import {
   resetCmRoomEntryTraceSession,
 } from "@/lib/community-messenger/room/cm-room-entry-instrumentation";
 import { beginCmRoomEntryPriorityMode, endCmRoomEntryPriorityMode } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
-import { scheduleCmRoomPass2IdleExpand } from "@/lib/community-messenger/room/cm-room-pass-scheduler";
 import { consumeCommunityMessengerRoomNavTap } from "@/lib/community-messenger/room-nav-timing";
 import { isDevSafeMode } from "@/lib/dev/is-dev-safe-mode";
 import { acquireCommunityMessengerReadAckBroadcast } from "@/lib/community-messenger/realtime/cm-read-ack-broadcast-client";
@@ -109,6 +110,7 @@ import {
 import { useMessengerRoomRemoteCatchup } from "@/lib/community-messenger/room/use-messenger-room-remote-catchup";
 import { useMessengerRoomLoadOlderMessagesFetch } from "@/lib/community-messenger/room/use-messenger-room-load-older-messages-fetch";
 import { useMessengerRoomLoadOlderMessagesIntersection } from "@/lib/community-messenger/room/use-messenger-room-load-older-messages-intersection";
+import { useMessengerRoomEagerOlderHistoryHydration } from "@/lib/community-messenger/room/use-messenger-room-eager-older-history-hydration";
 import { useMessengerRoomReaderScrollBottom } from "@/lib/community-messenger/room/use-messenger-room-reader-scroll-bottom";
 import { useMessengerRoomTradeDockScrollAnchor } from "@/lib/community-messenger/room/use-messenger-room-trade-dock-scroll-anchor";
 import { useMessengerRoomReaderScrollRoomLifecycle } from "@/lib/community-messenger/room/use-messenger-room-reader-scroll-room-lifecycle";
@@ -166,18 +168,11 @@ function resolveMessengerRoomInitialSnapshot(
   initialViewerId: string,
   initialServerSnapshot: CommunityMessengerRoomSnapshot | null
 ): CommunityMessengerRoomSnapshot | null {
-  const viewer = initialViewerId.trim();
-  const listPrimed = peekRoomSnapshot(roomId, viewer || undefined);
-  if (listPrimed) return listPrimed;
-  if (viewer) {
-    const messages = getMessengerRealtimeRoomMessages(roomId);
-    if (messages.length > 0) {
-      const latest = messages[messages.length - 1] ?? null;
-      const seeded = peekRoomSnapshot(roomId, viewer);
-      if (seeded) return seeded;
-    }
-  }
-  return initialServerSnapshot ?? null;
+  return pickAuthoritativeMessengerRoomSnapshot({
+    roomId,
+    viewerUserId: initialViewerId,
+    serverSnapshot: initialServerSnapshot,
+  });
 }
 
 export type MessengerRoomClientPhase1Props = {
@@ -288,6 +283,27 @@ export function useMessengerRoomClientPhase1({
     noteR2M11Phase1SeedReady(rid);
     noteR2M11BPhase1SeedReady(rid);
   }, [roomId, snapshot?.room.id]);
+
+  /** dynamic import·슬라이드·BootstrapGate — props 시드가 placeholder 보다 풍부하면 즉시 승격(빈 타임라인 포함) */
+  useLayoutEffect(() => {
+    const seeded = initialServerSnapshot;
+    if (!seeded || seeded.clientShellPlaceholder) return;
+    const msgCount = seeded.messages?.length ?? 0;
+    const rid = String(seeded.room.id ?? roomId ?? "").trim();
+    if (rid) {
+      primeRoomSnapshot(rid, seeded);
+    }
+    setSnapshot((prev) => {
+      if (!prev || prev.clientShellPlaceholder) return seeded;
+      if (msgCount > 0 && (prev.messages?.length ?? 0) >= msgCount) return prev;
+      return seeded;
+    });
+    setRoomMessages((prev) => {
+      if (msgCount <= 0) return prev;
+      if (prev.length >= msgCount) return prev;
+      return seeded.messages;
+    });
+  }, [initialServerSnapshot, roomId]);
 
   useEffect(() => {
     const id = streamRoomId.trim();
@@ -416,7 +432,9 @@ export function useMessengerRoomClientPhase1({
   const [loading, setLoading] = useState(false);
   /** 초기 부트스트랩(HTTP) 완료 후에만 Realtime 구독 — 마운트 시 중복 요청·구독 레이스 완화 */
   const [roomReadyForRealtime, setRoomReadyForRealtime] = useState(false);
-  /** R2-M8: composer 선커밋 후 idle에 timeline virtualizer·파생 목록 마운트 */
+  /** R2-M8: viewport DOM 부착 후에만 virtualizer·파생 목록 마운트 (scroll root 없이 getVirtualItems()=[] 방지) */
+  const [timelineViewportMounted, setTimelineViewportMounted] = useState(false);
+  const [timelineVirtualizerGeneration, setTimelineVirtualizerGeneration] = useState(0);
   const [timelineHeavyLive, setTimelineHeavyLive] = useState(false);
   const [timelineHeavyBundle, setTimelineHeavyBundle] = useState<MessengerRoomPhase1TimelineHeavyBundle | null>(
     null
@@ -425,13 +443,26 @@ export function useMessengerRoomClientPhase1({
     setTimelineHeavyBundle(bundle);
   }, []);
 
+  const notifyTimelineViewportMounted = useCallback((mounted: boolean) => {
+    setTimelineViewportMounted(mounted);
+    if (mounted) {
+      setTimelineVirtualizerGeneration((g) => g + 1);
+    }
+  }, []);
+
   useLayoutEffect(() => {
     const rid = roomId.trim();
     if (!rid) return;
+    setTimelineViewportMounted(false);
     setTimelineHeavyLive(false);
     setTimelineHeavyBundle(null);
-    return scheduleCmRoomPass2IdleExpand(() => setTimelineHeavyLive(true), 120);
   }, [roomId]);
+
+  /** scroll root(`messagesViewportRef`)가 Phase2 타임라인에 붙은 뒤에만 heavy virtualizer를 켠다. */
+  useLayoutEffect(() => {
+    if (!timelineViewportMounted) return;
+    setTimelineHeavyLive(true);
+  }, [timelineViewportMounted, timelineVirtualizerGeneration]);
 
   useEffect(() => {
     const viewerId = snapshot?.viewerUserId?.trim() || initialServerSnapshot?.viewerUserId?.trim() || "";
@@ -1161,21 +1192,32 @@ export function useMessengerRoomClientPhase1({
     recordRouteEntryMetric("messenger_room_entry", "messages_state_commit_count", messagesStateCommitCountRef.current);
   }, [roomMessages]);
 
-  const { oldestLoadedMessageId, loadOlderMessages } = useMessengerRoomLoadOlderMessagesFetch({
+  const { oldestLoadedMessageId, loadOlderMessages, hydrateFullOlderMessageHistory } =
+    useMessengerRoomLoadOlderMessagesFetch({
     roomId,
     snapshot,
     snapshotRef,
     roomMessages,
+    roomMessagesRef,
     setRoomMessages,
     messagesViewportRef,
     olderMessagesExhaustedRef,
     loadOlderMessagesRef,
     hasMoreOlderMessages,
+    hasMoreOlderMessagesRef,
     setHasMoreOlderMessages,
     loadingOlderMessages,
     setLoadingOlderMessages,
   });
   hasMoreOlderMessagesRef.current = hasMoreOlderMessages;
+
+  useMessengerRoomEagerOlderHistoryHydration({
+    roomId,
+    snapshot,
+    roomMessageCount: roomMessages.length,
+    timelineViewportMounted,
+    hydrateFullOlderMessageHistory,
+  });
 
   useMessengerRoomLoadOlderMessagesIntersection({
     roomId,
@@ -1283,7 +1325,17 @@ export function useMessengerRoomClientPhase1({
   const messageSearchResults = timelineHeavyBundle?.messageSearchResults ?? [];
   const mediaGalleryMessages = timelineHeavyBundle?.mediaGalleryMessages ?? [];
   const linkThreadMessages = timelineHeavyBundle?.linkThreadMessages ?? [];
-  const displayRoomMessages = timelineHeavyBundle?.displayRoomMessages ?? [];
+  const displayRoomMessagesBootstrap = useMemo(
+    () =>
+      collapseDuplicateStoreOrderSummaryMessages(
+        roomMessages.filter(
+          (m) => !(m.messageType === "call_stub" && hiddenCallStubIds.has(m.id))
+        )
+      ),
+    [hiddenCallStubIds, roomMessages]
+  );
+  const displayRoomMessages =
+    timelineHeavyBundle?.displayRoomMessages ?? displayRoomMessagesBootstrap;
   const fileMessages = timelineHeavyBundle?.fileMessages ?? [];
   const managementEventMessages = timelineHeavyBundle?.managementEventMessages ?? [];
   const photoMessageCount = timelineHeavyBundle?.photoMessageCount ?? 0;
@@ -1292,15 +1344,6 @@ export function useMessengerRoomClientPhase1({
   const linkMessageCount = timelineHeavyBundle?.linkMessageCount ?? 0;
   const chatVirtualizer = timelineHeavyBundle?.chatVirtualizer ?? CM_ROOM_EMPTY_VIRTUALIZER_STUB;
 
-  const { scrollMessengerToBottom, updateStickToBottomFromScroll } = useMessengerRoomReaderScrollBottom({
-    roomId,
-    activeSheet,
-    stickToBottomRef,
-    messagesViewportRef,
-    messageEndRef,
-    roomMessages,
-  });
-
   const tradeDockScrollAnchorEnabled = useMemo(() => {
     const room = snapshot?.room;
     const meta = room?.contextMeta;
@@ -1308,6 +1351,24 @@ export function useMessengerRoomClientPhase1({
     const pcid = typeof meta.productChatId === "string" ? meta.productChatId.trim() : "";
     return pcid.length > 0;
   }, [snapshot?.room]);
+
+  const storeOrderDockScrollAnchorEnabled = useMemo(() => {
+    const room = snapshot?.room;
+    const meta = room?.contextMeta;
+    if (!room || room.roomType !== "direct" || !meta || meta.kind !== "delivery") return false;
+    const orderId = typeof meta.storeOrderId === "string" ? meta.storeOrderId.trim() : "";
+    return orderId.length > 0;
+  }, [snapshot?.room]);
+
+  const { scrollMessengerToBottom, updateStickToBottomFromScroll } = useMessengerRoomReaderScrollBottom({
+    roomId,
+    activeSheet,
+    stickToBottomRef,
+    messagesViewportRef,
+    messageEndRef,
+    roomMessages,
+    deferEntryScrollToDeliveryDirectTimeline: storeOrderDockScrollAnchorEnabled,
+  });
 
   useEffect(() => {
     urlDeepLinkMessageHandledRef.current = "";
@@ -1440,6 +1501,8 @@ export function useMessengerRoomClientPhase1({
   }, [friendsLoaded]);
   return {
   timelineHeavyLive,
+  timelineVirtualizerGeneration,
+  notifyTimelineViewportMounted,
   onTimelineHeavyReady,
   timelineHeavyHostInput: {
     roomMessages,
@@ -1447,6 +1510,7 @@ export function useMessengerRoomClientPhase1({
     roomSearchQuery,
     messagesViewportRef,
     tradeDockScrollAnchorEnabled,
+    storeOrderDockScrollAnchorEnabled,
     messageEndRef,
     stickToBottomRef,
   },

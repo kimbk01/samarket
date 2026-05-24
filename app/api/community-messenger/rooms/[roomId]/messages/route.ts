@@ -1,4 +1,6 @@
 import { NextRequest } from "next/server";
+import type { CommunityMessengerMessagesAfterPerf } from "@/lib/community-messenger/service";
+import { ensureApiRouteAuthGate } from "@/lib/auth/ensure-api-route-auth-gate";
 import { requireAuthenticatedUserId } from "@/lib/auth/api-session";
 import { requirePhoneVerified, validateActiveSession } from "@/lib/auth/server-guards";
 import {
@@ -9,6 +11,7 @@ import {
   parseJsonBody,
 } from "@/lib/http/api-route";
 import { runSingleFlight } from "@/lib/http/run-single-flight";
+import { logRoutePerf } from "@/lib/http/route-perf-log";
 import { pruneByAtMaxAgeAndMaxSize } from "@/lib/http/memory-map-prune";
 
 export const runtime = "nodejs";
@@ -23,10 +26,13 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ roomId: string }> }
 ) {
-  const auth = await requireAuthenticatedUserId();
-  if (!auth.ok) return auth.response;
-  const session = await validateActiveSession(auth.userId);
-  if (!session.ok) return session.response;
+  const wall0 = performance.now();
+  const authGate = await ensureApiRouteAuthGate();
+  if (!authGate.ok) return authGate.response;
+  const auth = { ok: true as const, userId: authGate.userId };
+  const auth_ms = authGate.auth_ms;
+  const auth_cache_hit = authGate.auth_cache_hit;
+  const auth_source = authGate.auth_source;
 
   const rateLimit = await enforceRateLimit({
     key: `community-messenger:message-page:${getRateLimitKey(req, auth.userId)}`,
@@ -60,6 +66,7 @@ export async function GET(
 
   if (after) {
     const cm = await import("@/lib/community-messenger/service");
+    const afterPerf: CommunityMessengerMessagesAfterPerf = {};
     const afterKey = `community-messenger:messages:after:${auth.userId}:${canonicalRoomId}:${after}:${
       Number.isFinite(limit) ? String(limit) : "default"
     }`;
@@ -69,6 +76,7 @@ export async function GET(
         roomId: canonicalRoomId,
         afterMessageId: after,
         limit: Number.isFinite(limit) ? limit : undefined,
+        _perf: afterPerf,
       })
     );
     if (!result.ok) {
@@ -85,6 +93,22 @@ export async function GET(
       return jsonError("새 메시지를 불러오지 못했습니다.", 400, { code: result.error });
     }
     recordMessengerApiTiming("GET .../messages?after", Math.round(performance.now() - t0), 200);
+    if (process.env.NODE_ENV === "development") {
+      logRoutePerf({
+        route: "GET /api/community-messenger/rooms/[roomId]/messages?after",
+        total_ms: Math.round(performance.now() - wall0),
+        auth_ms,
+        auth_cache_hit,
+        auth_source,
+        permission_query_ms: canon.permission_query_ms,
+        membership_cache_hit: canon.membership_cache_hit,
+        messages_fetch_ms: afterPerf.messages_fetch_ms ?? 0,
+        reactions_ms: afterPerf.reactions_ms ?? 0,
+        hidden_ms: afterPerf.hidden_ms ?? 0,
+        profiles_ms: afterPerf.profiles_ms ?? 0,
+        payload_ms: afterPerf.payload_ms ?? 0,
+      });
+    }
     return jsonOk({ messages: result.messages, hasMore: result.hasMore, mode: "after" as const });
   }
 
@@ -114,6 +138,17 @@ export async function GET(
     return jsonError("이전 메시지를 불러오지 못했습니다.", 400, { code: result.error });
   }
   recordMessengerApiTiming("GET .../messages?before", Math.round(performance.now() - t0), 200);
+    if (process.env.NODE_ENV === "development") {
+      logRoutePerf({
+        route: "GET /api/community-messenger/rooms/[roomId]/messages?before",
+        total_ms: Math.round(performance.now() - wall0),
+        auth_ms,
+        auth_cache_hit,
+        auth_source,
+        permission_query_ms: canon.permission_query_ms,
+        membership_cache_hit: canon.membership_cache_hit,
+      });
+    }
   return jsonOk({ messages: result.messages, hasMore: result.hasMore, mode: "before" as const });
 }
 

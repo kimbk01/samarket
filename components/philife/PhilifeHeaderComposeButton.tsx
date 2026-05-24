@@ -8,6 +8,7 @@ import { buildPhilifeComposeHref } from "@/lib/philife/compose-href";
 import { philifeAppPaths } from "@/lib/philife/paths";
 import { usePhilifeWriteSheet } from "@/contexts/PhilifeWriteSheetContext";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
+import { SAM_TIER1_HEADER_ICON_GLYPH_CLASS } from "@/lib/ui/tier1-header-icon";
 
 /**
  * `/philife` 1단 헤더 — 페이스북형 **둥근 사각형 +** 글쓰기(기존 하단 FAB 대체).
@@ -77,7 +78,7 @@ function PhilifeHeaderComposeButtonInner() {
 function PlusInSquareIcon() {
   return (
     <svg
-      className="h-6 w-6"
+      className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"

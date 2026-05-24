@@ -51,6 +51,8 @@ export type MessengerTimelineVirtualRowProps = {
   item: TimelineViberBubbleMessage;
   virtualStart: number;
   virtualIndex: number;
+  /** virtualizer 미부착·주문 슬라이드 등 — absolute/translate 없이 normal flow */
+  directLayout?: boolean;
   measureElement: (el: HTMLElement | null) => void;
   rowPaddingTopClass: string;
   showPeerName: boolean;
@@ -136,6 +138,7 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
   item,
   virtualStart,
   virtualIndex,
+  directLayout = false,
   measureElement,
   rowPaddingTopClass,
   showPeerName,
@@ -389,16 +392,14 @@ export const MessengerTimelineVirtualRow = memo(function MessengerTimelineVirtua
       ref={measureElement}
       data-cm-timeline-message-row=""
       id={`cm-room-msg-${item.id}`}
-      className={`absolute left-0 top-0 flex w-full flex-col scroll-mt-24 ${rowPaddingTopClass} pb-1 ${
+      className={`${directLayout ? "relative" : "absolute left-0 top-0"} flex w-full flex-col scroll-mt-24 ${rowPaddingTopClass} pb-1 ${
         item.messageType === "system" ? "items-center" : ""
       } ${
         timelineHighlightMessageId === item.id
           ? "relative z-[2] rounded-[16px] outline outline-2 -outline-offset-[3px] outline-[color:var(--cm-room-primary)]"
           : ""
       }`}
-      style={{
-        transform: `translateY(${virtualStart}px)`,
-      }}
+      style={directLayout ? undefined : { transform: `translateY(${virtualStart}px)` }}
     >
       {dayDividerLabel ? (
         <div className="flex w-full justify-center pb-2 pt-0.5">
@@ -508,13 +509,13 @@ function StoreOrderOpsSystemRow({
         }
       : lineKind === "delivery"
         ? {
-            wrap: "border-[#BDE7F4] bg-[#EAF6FB] text-[#123B4A]",
-            badge: "bg-[#1C8DB8] text-white",
+            wrap: "delivery-ui border-[color:var(--delivery-primary-border)] bg-[color:var(--delivery-primary-soft)] text-[color:var(--delivery-dark)]",
+            badge: "bg-[color:var(--delivery-primary)] text-white",
             label: opsStatusLabel(statusLabel),
           }
         : {
-            wrap: "border-[#DDE5E0] bg-white text-[#123B4A]",
-            badge: "bg-[#EAF6FB] text-[#1C8DB8]",
+            wrap: "delivery-ui border-[color:var(--delivery-chat-chrome-border)] bg-[color:var(--delivery-bg-card)] text-[color:var(--delivery-dark)]",
+            badge: "bg-[color:var(--delivery-primary-soft)] text-[color:var(--delivery-primary)]",
             label: opsStatusLabel(statusLabel),
           };
   return (

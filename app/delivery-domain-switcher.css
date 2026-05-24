@@ -21,6 +21,17 @@
   --delivery-dial-label-border: var(--sam-border, #e2e5ea);
   --delivery-dial-label-fg: var(--sam-fg, #1a1d21);
   --delivery-dial-shadow: var(--sam-shadow-card, 0 4px 14px rgba(15, 23, 42, 0.12));
+
+  /** 다이얼 도메인 칩 — 커뮤니티·거래·배달 구분 */
+  --dial-domain-community: #6366f1;
+  --dial-domain-community-soft: #eef2ff;
+  --dial-domain-community-border: color-mix(in srgb, var(--dial-domain-community) 26%, #ffffff);
+  --dial-domain-trade: var(--sam-primary, #1c8db8);
+  --dial-domain-trade-soft: var(--sam-primary-soft, #e6f4f9);
+  --dial-domain-trade-border: var(--sam-primary-border, color-mix(in srgb, var(--dial-domain-trade) 22%, #ffffff));
+  --dial-domain-delivery: var(--delivery-primary, #006241);
+  --dial-domain-delivery-soft: var(--delivery-primary-soft, #d4e9e2);
+  --dial-domain-delivery-border: var(--delivery-primary-border, color-mix(in srgb, var(--dial-domain-delivery) 22%, #ffffff));
 }
 
 /** 딤만 — 전 화면 단색(그라데이션·backdrop-blur 없음). 탭바는 z-index 1255 로 위에 덮음 */
@@ -86,7 +97,7 @@
   bottom: 0;
   transform: translateX(-50%);
   transform-origin: 50% 100%;
-  pointer-events: none;
+  pointer-events: auto;
   will-change: transform;
 }
 
@@ -103,12 +114,9 @@
   height: calc(var(--dial-radius, 96px) + 4.5rem);
   transform: translateX(-50%);
   touch-action: none;
+  /** 칩(`z-index: 2`) 탭을 가로채지 않음 — 스와이프는 rotator에서 빈 영역만 처리 */
   pointer-events: none;
   background: transparent;
-}
-
-.delivery-domain-switcher-swipe-surface--active {
-  pointer-events: auto;
 }
 
 .delivery-domain-switcher-item {
@@ -144,6 +152,8 @@
 }
 
 .delivery-domain-switcher-hit {
+  position: relative;
+  z-index: 2;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -156,6 +166,7 @@
   color: inherit;
   text-decoration: none;
   cursor: pointer;
+  pointer-events: auto;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
 }
@@ -204,18 +215,72 @@
   text-align: center;
 }
 
-/** 현재 도메인(배달) — 홈 버튼과 동일 레드 톤 */
+/** 커뮤니티 — 인디고 톤 */
+.delivery-domain-switcher-hit--community .delivery-domain-switcher-chip-disk {
+  border-color: var(--dial-domain-community-border);
+  background: var(--dial-domain-community-soft);
+  color: var(--dial-domain-community);
+}
+
+.delivery-domain-switcher-hit--community .delivery-domain-switcher-chip-label {
+  color: var(--dial-domain-community);
+  border-color: var(--dial-domain-community-border);
+  background: #fff;
+}
+
+/** 거래 — 시그니처 블루 */
+.delivery-domain-switcher-hit--home .delivery-domain-switcher-chip-disk {
+  border-color: var(--dial-domain-trade-border);
+  background: var(--dial-domain-trade-soft);
+  color: var(--dial-domain-trade);
+}
+
+.delivery-domain-switcher-hit--home .delivery-domain-switcher-chip-label {
+  color: var(--dial-domain-trade);
+  border-color: var(--dial-domain-trade-border);
+  background: #fff;
+}
+
+/** 배달 — 그린 */
 .delivery-domain-switcher-hit--stores .delivery-domain-switcher-chip-disk {
-  border-color: #fff;
-  background: var(--sam-danger, #d45252);
-  color: #fff;
-  box-shadow: 0 4px 14px rgba(212, 82, 82, 0.38);
+  border-color: var(--dial-domain-delivery-border);
+  background: var(--dial-domain-delivery-soft);
+  color: var(--dial-domain-delivery);
 }
 
 .delivery-domain-switcher-hit--stores .delivery-domain-switcher-chip-label {
-  color: var(--sam-danger, #d45252);
-  border-color: color-mix(in srgb, var(--sam-danger, #d45252) 28%, #ffffff);
+  color: var(--dial-domain-delivery);
+  border-color: var(--dial-domain-delivery-border);
   background: #fff;
+}
+
+/** 현재 레일 강조 — 거래 레일: 거래 칩 · 배달 레일: 배달 칩 */
+.delivery-domain-switcher-hit--current.delivery-domain-switcher-hit--home .delivery-domain-switcher-chip-disk {
+  border-color: #fff;
+  background: var(--dial-domain-trade);
+  color: #fff;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--dial-domain-trade) 38%, transparent);
+}
+
+.delivery-domain-switcher-hit--current.delivery-domain-switcher-hit--home .delivery-domain-switcher-chip-label {
+  color: var(--dial-domain-trade);
+  border-color: color-mix(in srgb, var(--dial-domain-trade) 28%, #ffffff);
+  background: #fff;
+  font-weight: 600;
+}
+
+.delivery-domain-switcher-hit--current.delivery-domain-switcher-hit--stores .delivery-domain-switcher-chip-disk {
+  border-color: #fff;
+  background: var(--dial-domain-delivery);
+  color: #fff;
+  box-shadow: 0 4px 14px color-mix(in srgb, var(--dial-domain-delivery) 38%, transparent);
+}
+
+.delivery-domain-switcher-hit--current.delivery-domain-switcher-hit--stores .delivery-domain-switcher-chip-label {
+  color: var(--dial-domain-delivery);
+  border-color: color-mix(in srgb, var(--dial-domain-delivery) 28%, #ffffff);
+  background: #fff;
+  font-weight: 600;
 }
 
 .delivery-domain-switcher-hit--delivery-ops-center .delivery-domain-switcher-chip-disk {
@@ -242,26 +307,6 @@
 
 .delivery-domain-switcher-hit--pressed .delivery-domain-switcher-chip-label {
   transform: scale(0.96);
-}
-
-.delivery-domain-switcher-hit--selected .delivery-domain-switcher-chip-disk {
-  transform: scale(1.06);
-  border-color: var(--sam-primary, #1c8db8);
-  background: var(--sam-primary, #1c8db8);
-  color: #fff;
-  box-shadow: 0 6px 16px rgba(28, 141, 184, 0.35);
-}
-
-.delivery-domain-switcher-hit--selected.delivery-domain-switcher-hit--stores .delivery-domain-switcher-chip-disk {
-  background: var(--sam-danger, #d45252);
-  border-color: #fff;
-  box-shadow: 0 6px 16px rgba(212, 82, 82, 0.42);
-}
-
-.delivery-domain-switcher-hit--selected .delivery-domain-switcher-chip-label {
-  border-color: var(--sam-primary, #1c8db8);
-  color: var(--sam-primary, #1c8db8);
-  font-weight: 600;
 }
 
 .delivery-domain-switcher-hit:focus,

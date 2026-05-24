@@ -1,7 +1,7 @@
 "use client";
 
 import type { MessengerMainSection } from "@/lib/community-messenger/messenger-ia";
-import { messengerSectionLabel } from "@/lib/community-messenger/messenger-ia";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { HorizontalDragScroll } from "@/components/community/HorizontalDragScroll";
 import {
   APP_MAIN_GUTTER_NEG_X_CLASS,
@@ -12,6 +12,13 @@ import { I18N_COMPACT_CHIP_LABEL } from "@/lib/ui/i18n-compact-label-classes";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 
 const SECTIONS: MessengerMainSection[] = ["friends", "chats", "open_chat", "archive"];
+
+const SECTION_LABEL_KEYS: Record<MessengerMainSection, MessageKey> = {
+  friends: "cm_ia_section_friends",
+  chats: "cm_ia_section_chats",
+  open_chat: "cm_ia_section_open_chat",
+  archive: "cm_ia_section_archive",
+};
 
 export type MessengerTabsProps = {
   value: MessengerMainSection;
@@ -44,7 +51,7 @@ export function MessengerTabs({ value, onChange }: MessengerTabsProps) {
                 onClick={() => onChange(id)}
                 className={active ? Sam.tabs.tabActive : Sam.tabs.tab}
               >
-                <span className={I18N_COMPACT_CHIP_LABEL}>{messengerSectionLabel(id)}</span>
+                <span className={I18N_COMPACT_CHIP_LABEL}>{t(SECTION_LABEL_KEYS[id])}</span>
               </button>
             );
           })}

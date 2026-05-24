@@ -10,6 +10,7 @@ import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-
 import { TRADE_CHAT_SURFACE } from "@/lib/chats/surfaces/trade-chat-surface";
 import { useTradeHeaderTradeHistoryStack } from "@/contexts/TradeHeaderTradeHistoryStackContext";
 import { prefetchTradeHubHistorySnapshots } from "@/lib/mypage/trade-history-client";
+import { SAM_TIER1_HEADER_ICON_GLYPH_CLASS } from "@/lib/ui/tier1-header-icon";
 
 /**
  * 거래 1단 헤더 `+` — 글쓰기(시트)·거래 채팅·거래 내역 드롭다운.
@@ -166,7 +167,7 @@ function ActionRow({
 function PlusInSquareIcon() {
   return (
     <svg
-      className="h-6 w-6"
+      className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"

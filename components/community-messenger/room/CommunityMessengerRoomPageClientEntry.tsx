@@ -4,7 +4,7 @@
 
 import { notFound, useParams } from "next/navigation";
 
-import { CommunityMessengerRoomClient } from "@/components/community-messenger/CommunityMessengerRoomClient";
+import { CommunityMessengerRoomBootstrapGate } from "@/components/community-messenger/room/CommunityMessengerRoomBootstrapGate";
 
 import { MessengerRoomE2eSnapshotDiagTradeOverlay } from "@/components/community-messenger/room/MessengerRoomE2eSnapshotDiagTradeOverlay";
 
@@ -84,16 +84,9 @@ export function CommunityMessengerRoomPageClientEntry() {
 
       <MessengerRoomRouteEntryMountProbe stage="page" />
 
-      <CommunityMessengerRoomClient
-
-        key={rid}
-
+      <CommunityMessengerRoomBootstrapGate
         roomId={rid}
-
-        initialServerSnapshot={null}
-
         initialViewerUserId={viewerUserId ?? undefined}
-
       />
 
     </>

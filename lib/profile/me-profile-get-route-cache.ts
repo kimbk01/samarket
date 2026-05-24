@@ -1,10 +1,10 @@
 /**
- * GET /api/me/profile — 짧은 메모리 캐시 (TTL 4s, userId 키, dev·prod 공통).
+ * GET /api/me/profile — 짧은 메모리 캐시 (TTL 15s, userId 키, dev·prod 공통).
  */
 import { logRouteCacheHit, logRouteCacheMiss } from "@/lib/http/route-cache-log";
 import type { ProfileRow } from "@/lib/profile/types";
 
-const TTL_MS = 4_000;
+const TTL_MS = 15_000;
 const cache = new Map<string, { expiresAt: number; profile: ProfileRow | null }>();
 
 export function peekMeProfileGetRouteCache(userId: string): ProfileRow | null | undefined {

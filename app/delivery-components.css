@@ -482,6 +482,50 @@
     flex-shrink: 0;
   }
 
+  /**
+   * 커뮤니티·거래·내정보 1단 우측 — 배달 `.delivery-consumer-header__actions` 와 동일
+   * 히트(40px) · 글리프(22px) · 간격(4px). 레이아웃·기능은 각 도메인 컴포넌트 유지.
+   */
+  .sam-tier1-header-icon-cluster {
+    display: inline-flex;
+    flex-shrink: 0;
+    max-width: 100%;
+    height: 100%;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--delivery-header-action-gap);
+  }
+
+  .sam-tier1-header-icon-cluster .sam-header-action,
+  .sam-tier1-header-icon-cluster .sam-tier1-header__icon-btn,
+  .sam-tier1-header-icon-cluster .delivery-consumer-header__icon-btn,
+  .sam-tier1-header-icon-cluster > .inline-flex > .sam-header-action,
+  .sam-tier1-header-icon-cluster > .inline-flex > a.sam-header-action,
+  .sam-tier1-header-icon-cluster > .relative > button {
+    display: inline-flex;
+    width: var(--delivery-header-action);
+    height: var(--delivery-header-action);
+    min-width: var(--delivery-header-action);
+    min-height: var(--delivery-header-action);
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .sam-tier1-header-icon-cluster svg {
+    width: var(--delivery-header-icon-glyph) !important;
+    height: var(--delivery-header-icon-glyph) !important;
+    flex-shrink: 0;
+  }
+
+  .sam-tier1-header-icon-cluster > .relative {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: var(--delivery-header-action);
+  }
+
   /** 서브페이지(장바구니 등) — 48px 바, 17px 중앙 제목 */
   .delivery-subpage-header {
     position: relative;

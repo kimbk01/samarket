@@ -24,12 +24,17 @@ import { useCommunityMessengerPeerPresence } from "@/lib/community-messenger/rea
 import { showMessengerSnackbar } from "@/lib/community-messenger/stores/messenger-snackbar-store";
 import {
   ChatRoomMoreMenu,
+  type ChatRoomMenuProfileOverride,
+  type DeliveryStoreMenuSummary,
   type OtherUserProfile,
   type Product,
   type Relation,
   type RoomType,
   type TradeRoomContext,
 } from "@/components/community-messenger/room/phase2/ChatRoomMoreMenu";
+import { useStoreOrderDeliveryMessengerHeader } from "@/lib/store-order-chat/use-store-order-delivery-messenger-header";
+import { useStoreOrderDeliveryRoomOptional } from "@/components/community-messenger/room/phase2/store-order-delivery-room-context";
+import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-order-delivery-address-display";
 
 function mapSellerListingToProductStatus(
   raw: unknown,
@@ -115,6 +120,28 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
     [vm.snapshot.members, peerUserId]
   );
 
+  const deliveryMeta = vm.snapshot.room.contextMeta as CommunityMessengerRoomContextMetaV1 | null | undefined;
+  const storeOrderId =
+    deliveryMeta?.kind === "delivery" && typeof deliveryMeta.storeOrderId === "string"
+      ? deliveryMeta.storeOrderId.trim()
+      : "";
+  const isDeliveryRoom = deliveryMeta?.kind === "delivery" && storeOrderId.length > 0;
+
+  const deliveryRoomSnap = useStoreOrderDeliveryRoomOptional();
+  const deliveryHeaderModel = useStoreOrderDeliveryMessengerHeader({
+    isDeliveryRoom,
+    deliveryHeadline: deliveryMeta?.kind === "delivery" ? deliveryMeta.headline : undefined,
+    storeOrderId,
+    storeId: vm.storeIdForDock,
+    myRole: vm.snapshot.myRole,
+    roomTitle: vm.snapshot.room.title,
+    roomAvatarUrl: vm.snapshot.room.avatarUrl,
+    peerUserId: vm.snapshot.room.peerUserId ?? "",
+    viewerUserId: vm.snapshot.viewerUserId ?? "",
+    members: vm.snapshot.members,
+    thumbnailUrl: deliveryMeta?.kind === "delivery" ? (deliveryMeta.thumbnailUrl ?? null) : null,
+  });
+
   const roomType: RoomType = useMemo(() => {
     const ctx = vm.snapshot.room.contextMeta as CommunityMessengerRoomContextMetaV1 | null | undefined;
     if (ctx?.kind === "trade" && typeof ctx.productChatId === "string" && ctx.productChatId.trim()) return "trade";
@@ -177,6 +204,47 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
     return tradeChatCallPolicyAllowsVideo(policy);
   }, [roomType, vm.snapshot.tradeChatRoomDetail]);
 
+  const deliveryMenuProfile = useMemo((): ChatRoomMenuProfileOverride | undefined => {
+    if (!isDeliveryRoom || deliveryHeaderModel.mode === "none" || deliveryHeaderModel.mode === "generic_delivery") {
+      return undefined;
+    }
+    return {
+      nickname: deliveryHeaderModel.title,
+      avatarUrl: deliveryHeaderModel.avatarUrl,
+      avatarShape: deliveryHeaderModel.avatarRounded === "store_rect" ? "store_rect" : "circle",
+      hideMannerBattery: deliveryHeaderModel.mode === "buyer_store",
+      mannerScore,
+      buyerTrustPercent: deliveryHeaderModel.buyerTrustPercent,
+    };
+  }, [deliveryHeaderModel, isDeliveryRoom, mannerScore]);
+
+  const deliveryStoreSummary = useMemo((): DeliveryStoreMenuSummary | undefined => {
+    if (!isDeliveryRoom || deliveryHeaderModel.mode !== "buyer_store") return undefined;
+    const snap = deliveryRoomSnap?.snapshot;
+    const addressLine =
+      snap?.orderCard?.addressLines?.[0] ??
+      formatStoreOrderDeliveryAddressPlain({
+        summary: snap?.buyerOrder?.delivery_address_summary,
+        detail: snap?.buyerOrder?.delivery_address_detail,
+      }) ??
+      null;
+    return {
+      storeName: deliveryHeaderModel.title,
+      statusLabel:
+        snap?.orderCard?.statusLabel ??
+        deliveryMeta?.stepLabel ??
+        snap?.buyerOrder?.order_status ??
+        null,
+      addressLine,
+    };
+  }, [
+    deliveryHeaderModel.mode,
+    deliveryHeaderModel.title,
+    deliveryMeta?.stepLabel,
+    deliveryRoomSnap?.snapshot,
+    isDeliveryRoom,
+  ]);
+
   const onFriendRequest = useCallback(async () => {
     if (!peerUserId) return;
     if (peerProfile?.blocked) {
@@ -206,6 +274,9 @@ export function CommunityMessengerRoomPhase2OneToOneDotMenu({ vm }: { vm: Messen
       roomType={roomType}
       relation={relation}
       otherUser={otherUser}
+      menuProfile={deliveryMenuProfile}
+      deliveryStoreSummary={deliveryStoreSummary}
+      hideVideoCall={isDeliveryRoom}
       isMuted={Boolean(vm.snapshot.room.isMuted)}
       isArchived={Boolean(vm.snapshot.room.isArchivedByViewer)}
       tradeContext={tradeContext}

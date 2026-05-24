@@ -9,120 +9,94 @@ const storesTab: BottomNavItemConfig = {
   icon: "stores",
 };
 
+function dialArgs(overrides: Partial<Parameters<typeof runDeliveryDialItemNavigation>[0]> = {}) {
+  return {
+    tab: storesTab,
+    pathname: "/community-messenger/delivery-chats",
+    currentSearch: "from=delivery",
+    onClose: vi.fn(),
+    guardBeforeNavigate: () => true,
+    beginMenuNavigation: vi.fn(),
+    onNavigationIntent: vi.fn(),
+    push: vi.fn(),
+    replace: vi.fn(),
+    goBusinessHubOrModal: vi.fn(),
+    shouldInterceptBusinessHubHref: () => false,
+    ...overrides,
+  };
+}
+
 describe("runDeliveryDialItemNavigation", () => {
   it("stores — 주문채팅 목록에서 배달 홈으로 push", () => {
     const push = vi.fn();
     const onClose = vi.fn();
 
-    const beginMenuNavigation = vi.fn();
-    const onNavigationIntent = vi.fn();
-    const ok = runDeliveryDialItemNavigation({
-      tab: storesTab,
-      href: "/stores",
-      pathname: "/community-messenger/delivery-chats",
-      onClose,
-      guardBeforeNavigate: () => true,
-      beginMenuNavigation,
-      onNavigationIntent,
-      push,
-      goBusinessHubOrModal: vi.fn(),
-      shouldInterceptBusinessHubHref: () => false,
-    });
+    const ok = runDeliveryDialItemNavigation(dialArgs({ push, onClose }));
 
     expect(ok).toBe(true);
     expect(onClose).toHaveBeenCalled();
-    expect(beginMenuNavigation).toHaveBeenCalledWith("/stores");
-    expect(onNavigationIntent).toHaveBeenCalledWith("stores");
     expect(push).toHaveBeenCalledWith("/stores");
   });
 
-  it("stores — 이미 /stores 이면 push 없음", () => {
-    const push = vi.fn();
+  it("navigate 후 onClose", () => {
+    const order: string[] = [];
+    const push = vi.fn(() => order.push("push"));
+    const onClose = vi.fn(() => order.push("close"));
 
-    runDeliveryDialItemNavigation({
-      tab: storesTab,
-      href: "/stores",
-      pathname: "/stores",
-      onClose: vi.fn(),
-      guardBeforeNavigate: () => true,
-      beginMenuNavigation: vi.fn(),
-      onNavigationIntent: vi.fn(),
-      push,
-      goBusinessHubOrModal: vi.fn(),
-      shouldInterceptBusinessHubHref: () => false,
-    });
+    runDeliveryDialItemNavigation(dialArgs({ push, onClose }));
 
-    expect(push).not.toHaveBeenCalled();
+    expect(order).toEqual(["push", "close"]);
   });
 
-  it("guard 실패 시 push·onClose 없음", () => {
+  it("stores — tab.href 오염과 무관하게 /stores", () => {
+    const push = vi.fn();
+    const polluted: BottomNavItemConfig = {
+      ...storesTab,
+      href: "/community-messenger/delivery-chats?from=delivery",
+    };
+
+    runDeliveryDialItemNavigation(dialArgs({ tab: polluted, push }));
+
+    expect(push).toHaveBeenCalledWith("/stores");
+  });
+
+  it("stores — 이미 /stores 이면 push 없음·onClose", () => {
     const push = vi.fn();
     const onClose = vi.fn();
-    const ok = runDeliveryDialItemNavigation({
-      tab: storesTab,
-      href: "/stores",
-      pathname: "/orders",
-      onClose,
-      guardBeforeNavigate: () => false,
-      beginMenuNavigation: vi.fn(),
-      onNavigationIntent: vi.fn(),
-      push,
-      goBusinessHubOrModal: vi.fn(),
-      shouldInterceptBusinessHubHref: () => false,
-    });
+
+    runDeliveryDialItemNavigation(dialArgs({ pathname: "/stores", currentSearch: "", push, onClose }));
+
+    expect(push).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it("guard 실패 시 blocked", () => {
+    const push = vi.fn();
+    const onClose = vi.fn();
+    const ok = runDeliveryDialItemNavigation(
+      dialArgs({
+        pathname: "/orders",
+        push,
+        onClose,
+        guardBeforeNavigate: () => false,
+      })
+    );
     expect(ok).toBe(false);
     expect(onClose).not.toHaveBeenCalled();
     expect(push).not.toHaveBeenCalled();
   });
 
-  it("prefetch 호출 후 push", () => {
-    const push = vi.fn();
-    const prefetch = vi.fn();
-    const tab: BottomNavItemConfig = {
-      id: "community",
-      href: "/philife",
-      label: "Community",
-      icon: "community",
-    };
-    runDeliveryDialItemNavigation({
-      tab,
-      href: "/philife",
-      pathname: "/stores",
-      onClose: vi.fn(),
-      guardBeforeNavigate: () => true,
-      beginMenuNavigation: vi.fn(),
-      onNavigationIntent: vi.fn(),
-      push,
-      prefetch,
-      goBusinessHubOrModal: vi.fn(),
-      shouldInterceptBusinessHubHref: () => false,
-    });
-    expect(prefetch).toHaveBeenCalledWith("/philife");
-    expect(push).toHaveBeenCalledWith("/philife");
-  });
-
-  it("community — /philife 로 push", () => {
+  it("chat — 배달 레일 주문채팅 href", () => {
     const push = vi.fn();
     const tab: BottomNavItemConfig = {
-      id: "community",
-      href: "/philife",
-      label: "Community",
-      icon: "community",
+      id: "chat",
+      href: "/community-messenger?section=chats",
+      label: "Messenger",
+      icon: "chat",
     };
 
-    runDeliveryDialItemNavigation({
-      tab,
-      href: "/philife",
-      pathname: "/stores",
-      onClose: vi.fn(),
-      guardBeforeNavigate: () => true,
-      beginMenuNavigation: vi.fn(),
-      onNavigationIntent: vi.fn(),
-      push,
-      goBusinessHubOrModal: vi.fn(),
-      shouldInterceptBusinessHubHref: () => false,
-    });
+    runDeliveryDialItemNavigation(dialArgs({ tab, push }));
 
-    expect(push).toHaveBeenCalledWith("/philife");
+    expect(push).toHaveBeenCalledWith("/community-messenger/delivery-chats?from=delivery");
   });
 });

@@ -12,7 +12,7 @@ import {
 import { mergeRoomMessages } from "@/components/community-messenger/room/community-messenger-room-helpers";
 import { communityMessengerRoomResourcePath } from "@/lib/community-messenger/messenger-room-bootstrap";
 import {
-  COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT,
+  COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT,
   type CommunityMessengerMessage,
   type CommunityMessengerRoomSnapshot,
 } from "@/lib/community-messenger/types";
@@ -28,15 +28,29 @@ export type UseMessengerRoomLoadOlderMessagesFetchArgs = {
   snapshot: CommunityMessengerRoomSnapshot | null;
   snapshotRef: MutableRefObject<CommunityMessengerRoomSnapshot | null>;
   roomMessages: Array<CommunityMessengerMessage & { pending?: boolean }>;
+  roomMessagesRef: MutableRefObject<Array<CommunityMessengerMessage & { pending?: boolean }>>;
   setRoomMessages: Dispatch<SetStateAction<Array<CommunityMessengerMessage & { pending?: boolean }>>>;
   messagesViewportRef: MutableRefObject<HTMLDivElement | null>;
   olderMessagesExhaustedRef: MutableRefObject<boolean>;
   loadOlderMessagesRef: MutableRefObject<() => void>;
   hasMoreOlderMessages: boolean;
+  hasMoreOlderMessagesRef: MutableRefObject<boolean>;
   setHasMoreOlderMessages: Dispatch<SetStateAction<boolean>>;
   loadingOlderMessages: boolean;
   setLoadingOlderMessages: Dispatch<SetStateAction<boolean>>;
 };
+
+function oldestPersistedMessageId(
+  messages: Array<CommunityMessengerMessage & { pending?: boolean }>
+): string | null {
+  for (const m of messages) {
+    if (m.pending) continue;
+    const rid = String(m.id ?? "").trim();
+    if (!rid || rid.startsWith("pending:") || !isUuidLikeString(rid)) continue;
+    return rid;
+  }
+  return null;
+}
 
 /**
  * 이전 메시지 페이지 fetch·병합·스크롤 높이 보정·paging 상태.
@@ -47,17 +61,20 @@ export function useMessengerRoomLoadOlderMessagesFetch({
   snapshot,
   snapshotRef,
   roomMessages,
+  roomMessagesRef,
   setRoomMessages,
   messagesViewportRef,
   olderMessagesExhaustedRef,
   loadOlderMessagesRef,
   hasMoreOlderMessages,
+  hasMoreOlderMessagesRef,
   setHasMoreOlderMessages,
   loadingOlderMessages,
   setLoadingOlderMessages,
 }: UseMessengerRoomLoadOlderMessagesFetchArgs): {
   oldestLoadedMessageId: string | null;
   loadOlderMessages: () => Promise<void>;
+  hydrateFullOlderMessageHistory: () => Promise<boolean>;
 } {
   const inFlightBeforeIdRef = useRef<string | null>(null);
   const inFlightPromiseRef = useRef<Promise<void> | null>(null);
@@ -83,24 +100,19 @@ export function useMessengerRoomLoadOlderMessagesFetch({
           ? serverFlag
           : typeof lim === "number" && lim > 0
             ? snapshot.messages.length >= lim
-            : snapshot.messages.length >= COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_SEED_MESSAGE_LIMIT;
+            : snapshot.messages.length >= COMMUNITY_MESSENGER_ROOM_BOOTSTRAP_MESSAGE_LIMIT;
       setHasMoreOlderMessages(next);
     }
   }, [roomId, snapshot]);
 
-  const oldestLoadedMessageId = useMemo(() => {
-    for (const m of roomMessages) {
-      if (m.pending) continue;
-      const rid = String(m.id ?? "").trim();
-      if (!rid || rid.startsWith("pending:") || !isUuidLikeString(rid)) continue;
-      return rid;
-    }
-    return null;
-  }, [roomMessages]);
+  const oldestLoadedMessageId = useMemo(
+    () => oldestPersistedMessageId(roomMessages),
+    [roomMessages]
+  );
 
   const loadOlderMessages = useCallback(async () => {
-    if (loadingOlderMessages || !hasMoreOlderMessages || olderMessagesExhaustedRef.current) return;
-    const beforeId = oldestLoadedMessageId;
+    if (loadingOlderMessages || !hasMoreOlderMessagesRef.current || olderMessagesExhaustedRef.current) return;
+    const beforeId = oldestPersistedMessageId(roomMessagesRef.current);
     if (!beforeId) return;
     if (inFlightPromiseRef.current && inFlightBeforeIdRef.current === beforeId) {
       return inFlightPromiseRef.current;
@@ -176,11 +188,36 @@ export function useMessengerRoomLoadOlderMessagesFetch({
     });
     inFlightPromiseRef.current = inFlightPromise;
     return inFlightPromise;
-  }, [roomId, oldestLoadedMessageId, loadingOlderMessages, hasMoreOlderMessages]);
+  }, [roomId, loadingOlderMessages]);
+
+  const hydrateFullOlderMessageHistory = useCallback(async (): Promise<boolean> => {
+    if (olderMessagesExhaustedRef.current || !hasMoreOlderMessagesRef.current) return false;
+    let loadedAny = false;
+    let pages = 0;
+    const maxPages = 48;
+    while (pages < maxPages && !olderMessagesExhaustedRef.current && hasMoreOlderMessagesRef.current) {
+      const beforeId = oldestPersistedMessageId(roomMessagesRef.current);
+      if (!beforeId) break;
+      const prevCount = roomMessagesRef.current.length;
+      const inFlight = inFlightPromiseRef.current;
+      if (inFlight) {
+        await inFlight;
+      } else {
+        await loadOlderMessages();
+      }
+      pages += 1;
+      if (roomMessagesRef.current.length > prevCount) loadedAny = true;
+      if (roomMessagesRef.current.length <= prevCount && olderMessagesExhaustedRef.current) break;
+      await new Promise<void>((resolve) => {
+        window.requestAnimationFrame(() => resolve());
+      });
+    }
+    return loadedAny;
+  }, [loadOlderMessages]);
 
   loadOlderMessagesRef.current = () => {
     void loadOlderMessages();
   };
 
-  return { oldestLoadedMessageId, loadOlderMessages };
+  return { oldestLoadedMessageId, loadOlderMessages, hydrateFullOlderMessageHistory };
 }

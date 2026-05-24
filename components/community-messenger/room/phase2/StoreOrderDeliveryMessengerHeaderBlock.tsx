@@ -11,12 +11,19 @@ type Props = {
   model: StoreOrderDeliveryMessengerHeaderModel;
   presenceState: CommunityMessengerPresenceState | null;
   showPresence: boolean;
+  /** 접속·입력 중 등 — delivery 헤더에서도 subtitle 유지 */
+  subtitle?: string | null;
 };
 
 /**
  * 배달 주문 메신저 헤더 — 아바타·제목·배터리 영역 (오버플로 방지 고정 레이아웃).
  */
-export function StoreOrderDeliveryMessengerHeaderBlock({ model, presenceState, showPresence }: Props) {
+export function StoreOrderDeliveryMessengerHeaderBlock({
+  model,
+  presenceState,
+  showPresence,
+  subtitle,
+}: Props) {
   if (model.mode === "none" || !model.showAvatar) return null;
 
   const initial = model.title.trim().slice(0, 1).toUpperCase() || "?";
@@ -42,7 +49,12 @@ export function StoreOrderDeliveryMessengerHeaderBlock({ model, presenceState, s
       </div>
 
       <div className="flex min-h-9 min-w-0 flex-1 flex-col justify-center self-center overflow-hidden leading-tight">
-        <p className="truncate text-[15px] font-semibold leading-tight text-[#111827]">{model.title}</p>
+        <p className="truncate text-[15px] font-semibold leading-tight text-[color:var(--cm-room-text)]">
+          {model.title}
+        </p>
+        {subtitle?.trim() ? (
+          <p className="truncate sam-text-xxs leading-tight text-[color:var(--cm-room-text-muted)]">{subtitle}</p>
+        ) : null}
       </div>
 
       {showBattery ? (

@@ -14,7 +14,12 @@ import {
   runMeProfileReadPipeline,
   type MeProfilePipelinePerf,
 } from "@/lib/profile/me-profile-read-pipeline";
-import { peekMeProfileGetRouteCache, setMeProfileGetRouteCache } from "@/lib/profile/me-profile-get-route-cache";
+import {
+  clearMeProfileGetRouteCache,
+  ME_PROFILE_GET_ROUTE_CACHE_TTL_MS,
+  peekMeProfileGetRouteCache,
+  setMeProfileGetRouteCache,
+} from "@/lib/profile/me-profile-get-route-cache";
 import {
   clearMeProfileResponseCachesForUser,
   ME_PROFILE_RESPONSE_CACHE_TTL_MS,
@@ -26,7 +31,6 @@ import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
 import { normalizeAppLanguage, normalizeLanguagePreferenceForStorage } from "@/lib/i18n/config";
 import { isValidPhilippinesMobilePhone, normalizePhilippinesPhoneNumber } from "@/lib/phone/philippines-phone";
 import { enforceProfileEnsureQuota } from "@/lib/security/rate-limit-presets";
-import { clearMeProfileGetRouteCache } from "@/lib/profile/me-profile-get-route-cache";
 import {
   clearProfileResponseCacheForUser,
   peekProfileResponseCache,
@@ -49,7 +53,7 @@ type MeProfilePipelineFlight = {
   pipelineStepMs: MeProfilePipelinePerf;
 };
 const ME_PROFILE_PIPELINE_INFLIGHT = new Map<string, Promise<MeProfilePipelineFlight>>();
-const PROFILE_ROUTE_PIPELINE_COALESCE_MS = 1500;
+const PROFILE_ROUTE_PIPELINE_COALESCE_MS = ME_PROFILE_GET_ROUTE_CACHE_TTL_MS;
 
 function buildProfilePipelineStepsJson(perf: MeProfilePipelinePerf): string {
   return JSON.stringify({

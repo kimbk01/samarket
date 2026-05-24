@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { writeThroughStoreOrderEventsReadCache } from "@/lib/stores/store-order-events-read-cache";
 
 export type StoreOrderActorRole = "buyer" | "owner" | "rider" | "admin" | "system";
 
@@ -217,6 +218,7 @@ export async function createStoreOrderEvent(
   const { data, error } = await sb.from("store_order_events").insert(insertRow).select("*").maybeSingle();
 
   if (!error && data?.id) {
+    writeThroughStoreOrderEventsReadCache(orderId, data as StoreOrderEventRow);
     return { ok: true, row: data as StoreOrderEventRow, inserted: true };
   }
 

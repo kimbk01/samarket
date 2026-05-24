@@ -23,6 +23,7 @@ import { PhilifeHeaderComposeButton } from "@/components/philife/PhilifeHeaderCo
 import { PhilifeHeaderMessengerButton } from "@/components/philife/PhilifeHeaderMessengerButton";
 import { PhilifeHeaderAddressMenuButton } from "@/components/philife/PhilifeHeaderAddressMenuButton";
 import { MyHubHeaderActions, MyHubHeaderInfoHubTrigger } from "@/components/my/MyHubHeaderActions";
+import { samTier1HeaderIconCluster, samTier1HeaderRightColumn } from "@/lib/ui/tier1-header-icon";
 import { PhilifeHeaderNotificationInbox } from "@/components/philife/PhilifeHeaderNotificationInbox";
 import { TradeHeaderComposeButton } from "@/components/trade/TradeHeaderComposeButton";
 import {
@@ -104,8 +105,8 @@ export function RegionBar({
               <div className="flex h-full min-h-0 min-w-0 flex-1 items-center overflow-hidden pr-1 text-left ml-[length:1pt]">
                 {tier1TitleOnly}
               </div>
-              <div className="ml-auto flex h-full w-[160px] shrink-0 flex-none items-center justify-end pl-0 -mr-1">
-                <div className="inline-flex h-full shrink-0 items-center gap-0 [&>*+*]:-ml-1">
+              <div className={samTier1HeaderRightColumn}>
+                <div className={samTier1HeaderIconCluster}>
                   <PhilifeHeaderComposeButton />
                   <PhilifeHeaderNotificationInbox />
                   <PhilifeHeaderMessengerButton />
@@ -121,8 +122,8 @@ export function RegionBar({
               <div className="flex h-full min-h-0 min-w-0 flex-1 items-center overflow-hidden pr-1 text-left ml-[length:1pt]">
                 {tier1TitleOnly}
               </div>
-              <div className="ml-auto flex h-full w-[160px] shrink-0 flex-none items-center justify-end pl-0 -mr-1">
-                <div className="inline-flex h-full shrink-0 items-center gap-0 [&>*+*]:-ml-1">
+              <div className={samTier1HeaderRightColumn}>
+                <div className={samTier1HeaderIconCluster}>
                   <TradeHeaderComposeButton />
                   <PhilifeHeaderNotificationInbox />
                   <PhilifeHeaderMessengerButton />

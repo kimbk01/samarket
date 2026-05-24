@@ -17,6 +17,14 @@ import {
   isDeliveryOrderHistoryBottomNavPath,
   normalizeDeliveryBottomNavPath,
 } from "@/lib/main-menu/delivery-bottom-nav-layout";
+import {
+  composePhilifeBottomNavDisplayTabs,
+  isPhilifeBottomNavRail,
+} from "@/lib/main-menu/philife-bottom-nav-layout";
+import {
+  composeTradeBottomNavDisplayTabs,
+  isTradeBottomNavRail,
+} from "@/lib/main-menu/trade-bottom-nav-layout";
 import { resolveDeliveryOrderHistoryHref } from "@/lib/stores/delivery-order-history-nav";
 import {
   mypageBottomNavOriginToSecondaryRail,
@@ -157,7 +165,7 @@ export function resolveMainBottomNavSecondaryRailKind(
   return "trade";
 }
 
-/** 하단 표시 탭 — 배달 레일: 5탭 전용, 그 외 6탭(좌 3 + 우 3) */
+/** 하단 표시 탭 — 배달·커뮤니티: 5탭, 거래: 6탭, 그 외 6탭 분할(레거시) */
 export function composeMainBottomNavDisplayTabs(
   pathname: string | null,
   sourceTabs: readonly BottomNavItemConfig[],
@@ -167,6 +175,12 @@ export function composeMainBottomNavDisplayTabs(
   const rail = resolveMainBottomNavSecondaryRailKind(pathname, searchParams);
   if (isDeliveryBottomNavRail(rail)) {
     return composeDeliveryBottomNavDisplayTabs(ownerStoreId);
+  }
+  if (isPhilifeBottomNavRail(rail)) {
+    return composePhilifeBottomNavDisplayTabs();
+  }
+  if (isTradeBottomNavRail(rail)) {
+    return composeTradeBottomNavDisplayTabs();
   }
   const primary = pickPrimaryTabs(sourceTabs);
   const secondary = secondaryTabsForRail(rail);

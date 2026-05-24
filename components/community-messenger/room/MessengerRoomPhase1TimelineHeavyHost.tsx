@@ -16,6 +16,7 @@ type Props = {
   roomSearchQuery: string;
   messagesViewportRef: RefObject<HTMLDivElement | null>;
   tradeDockScrollAnchorEnabled: boolean;
+  storeOrderDockScrollAnchorEnabled: boolean;
   messageEndRef: RefObject<HTMLDivElement | null>;
   stickToBottomRef: MutableRefObject<boolean>;
   onReady: (bundle: MessengerRoomPhase1TimelineHeavyBundle) => void;

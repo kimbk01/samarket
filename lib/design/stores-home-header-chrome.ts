@@ -13,5 +13,6 @@ export const STORES_HOME_HEADER_BADGE_CLASS =
 export const STORES_HOME_HEADER_NOTIF_BADGE_CLASS =
   "absolute -right-0.5 -top-0.5 flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-white px-1 text-[10px] font-bold leading-none text-[color:var(--delivery-primary)] ring-2 ring-[color:var(--delivery-home-header-bg)]";
 
-export const STORES_HOME_HEADER_ACTIONS_CLUSTER =
-  "flex shrink-0 items-center gap-[var(--delivery-header-action-gap)]";
+import { SAM_TIER1_HEADER_ICON_CLUSTER_CLASS } from "@/lib/ui/tier1-header-icon";
+
+export const STORES_HOME_HEADER_ACTIONS_CLUSTER = SAM_TIER1_HEADER_ICON_CLUSTER_CLASS;

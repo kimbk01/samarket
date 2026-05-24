@@ -22,22 +22,56 @@ import { noteCmRoomPass1HeaderMs } from "@/lib/community-messenger/room/cm-room-
 import { useCmRoomPhase2HydrationPass } from "@/lib/community-messenger/room/cm-room-phase2-hydration-context";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import { translate } from "@/lib/i18n/messages";
+import { useOwnerOrderChatSlideHost } from "@/components/business/owner/OwnerOrderChatSlideHostContext";
+import { useStoreOrderDeliveryMessengerHeader } from "@/lib/store-order-chat/use-store-order-delivery-messenger-header";
+import { StoreOrderDeliveryMessengerHeaderBlock } from "@/components/community-messenger/room/phase2/StoreOrderDeliveryMessengerHeaderBlock";
 
 export const CommunityMessengerRoomPhase2Header = memo(function CommunityMessengerRoomPhase2Header() {
   const { t } = useI18n();
   const vm = useMessengerRoomPhase2HeaderView();
   const hydrationPass = useCmRoomPhase2HydrationPass();
+  const ownerSlideHost = useOwnerOrderChatSlideHost();
   useLayoutEffect(() => {
     noteCmRoomPass1HeaderMs();
   }, [vm.snapshot.room.id]);
   const searchParams = useMessengerRoomUrlSearchParams();
   const requestAnimatedBack = useMessengerRoomAnimatedBack();
   const bindPresenceAndTyping = hydrationPass >= 2;
+
+  const deliveryMeta = vm.snapshot.room.contextMeta as CommunityMessengerRoomContextMetaV1 | null | undefined;
+  const storeOrderId =
+    deliveryMeta?.kind === "delivery" && typeof deliveryMeta.storeOrderId === "string"
+      ? deliveryMeta.storeOrderId.trim()
+      : "";
+  const storeId =
+    deliveryMeta?.kind === "delivery" && typeof deliveryMeta.storeId === "string"
+      ? deliveryMeta.storeId.trim()
+      : "";
+  const isDeliveryRoom = deliveryMeta?.kind === "delivery" && storeOrderId.length > 0;
+
+  const deliveryHeaderModel = useStoreOrderDeliveryMessengerHeader({
+    isDeliveryRoom,
+    deliveryHeadline: deliveryMeta?.kind === "delivery" ? deliveryMeta.headline : undefined,
+    storeOrderId,
+    storeId,
+    myRole: vm.snapshot.myRole,
+    roomTitle: vm.snapshot.room.title,
+    roomAvatarUrl: vm.snapshot.room.avatarUrl,
+    peerUserId: vm.snapshot.room.peerUserId ?? "",
+    viewerUserId: vm.snapshot.viewerUserId ?? "",
+    members: vm.snapshot.members,
+    thumbnailUrl:
+      deliveryMeta?.kind === "delivery" ? (deliveryMeta.thumbnailUrl ?? null) : null,
+  });
+
+  const useDeliveryHeaderBlock =
+    isDeliveryRoom && deliveryHeaderModel.mode !== "none" && deliveryHeaderModel.showAvatar;
+
   const peerPresence = useCommunityMessengerPeerPresence(
     bindPresenceAndTyping ? vm.snapshot.room.peerUserId ?? null : null,
     bindPresenceAndTyping ? (vm.snapshot.peerPresence ?? null) : null
   );
-  /** 1:1 은 0/1, 그룹·오픈은 동시에 입력 중인 다른 참가자 수 */
+
   const typingPeerCount = useMessengerTypingStore((state) => {
     if (!bindPresenceAndTyping) return 0;
     const roomId = vm.snapshot.room.id.trim().toLowerCase();
@@ -58,6 +92,7 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
     }
     return n;
   });
+
   const statusLine = useMemo(() => {
     if (vm.snapshot.room.roomType !== "direct") {
       if (typingPeerCount >= 2) return t("cm_ui_typing_multiple", { count: typingPeerCount });
@@ -71,7 +106,6 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
     return vm.roomHeaderStatus;
   }, [peerPresence, t, typingPeerCount, vm.roomHeaderStatus, vm.snapshot.room.roomType]);
 
-  /** 상대방 역할 — `ctx.roleLabel` 은 조회자(나) 기준이므로 헤더에 붙일 땐 반대로 표시 */
   const peerTradeRoleLabel = useMemo(() => {
     const ctx = vm.snapshot.room.contextMeta as CommunityMessengerRoomContextMetaV1 | null | undefined;
     if (ctx?.kind !== "trade") return null;
@@ -90,89 +124,113 @@ export const CommunityMessengerRoomPhase2Header = memo(function CommunityMesseng
     return null;
   }, [t, vm.snapshot.room.contextMeta, vm.snapshot.tradeChatRoomDetail, vm.snapshot.viewerUserId]);
 
+  const handleBack = () => {
+    if (ownerSlideHost?.closeSlide) {
+      ownerSlideHost.closeSlide();
+      return;
+    }
+    if (requestAnimatedBack) {
+      requestAnimatedBack();
+      return;
+    }
+    markCommunityMessengerHomeReturn();
+    if (vm.snapshot.room.roomType === "open_group") {
+      vm.router.replace(SAMARKET_ROUTES.chat.messengerMeetingsHub, { scroll: false });
+      return;
+    }
+    const plan = resolveMessengerRoomBackNavigation({
+      roomId: vm.snapshot.room.id,
+      searchParams,
+    });
+    runMessengerRoomBackNavigation(vm.router, plan);
+  };
+
+  const showDeliveryPresence =
+    useDeliveryHeaderBlock &&
+    deliveryHeaderModel.showPresence &&
+    bindPresenceAndTyping &&
+    vm.snapshot.room.roomType === "direct" &&
+    peerPresence;
+
   return (
-    <>
-      <MessengerHeader>
-        <div className="flex items-stretch gap-1.5">
-          <button
-            type="button"
-            onClick={() => {
-              if (requestAnimatedBack) {
-                requestAnimatedBack();
-                return;
-              }
-              markCommunityMessengerHomeReturn();
-              if (vm.snapshot.room.roomType === "open_group") {
-                vm.router.replace(SAMARKET_ROUTES.chat.messengerMeetingsHub, { scroll: false });
-                return;
-              }
-              const plan = resolveMessengerRoomBackNavigation({
-                roomId: vm.snapshot.room.id,
-                searchParams,
-              });
-              runMessengerRoomBackNavigation(vm.router, plan);
-            }}
-            className="flex h-9 w-9 shrink-0 items-center justify-center self-center rounded-full text-[color:var(--cm-room-text)] transition active:bg-[color:var(--cm-room-primary-soft)]"
-            aria-label={vm.t("tier1_back")}
-          >
-            <BackIcon className="h-[18px] w-[18px]" />
-          </button>
-          <div className="relative h-9 w-9 shrink-0 self-center">
-            <div className="h-full w-full overflow-hidden rounded-full bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]">
-              {vm.snapshot.room.avatarUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={vm.snapshot.room.avatarUrl} alt="" className="h-full w-full object-cover" />
-              ) : (
-                <div className="flex h-full w-full items-center justify-center sam-text-body-secondary font-semibold text-[color:var(--cm-room-primary)]">
-                  {vm.snapshot.room.title.trim().slice(0, 1).toUpperCase() || "?"}
-                </div>
-              )}
+    <MessengerHeader>
+      <div className="flex items-stretch gap-1.5">
+        <button
+          type="button"
+          onClick={handleBack}
+          className="flex h-9 w-9 shrink-0 items-center justify-center self-center rounded-full text-[color:var(--cm-room-text)] transition active:bg-[color:var(--cm-room-primary-soft)]"
+          aria-label={vm.t("tier1_back")}
+        >
+          <BackIcon className="h-[18px] w-[18px]" />
+        </button>
+
+        {useDeliveryHeaderBlock ? (
+          <StoreOrderDeliveryMessengerHeaderBlock
+            model={deliveryHeaderModel}
+            presenceState={showDeliveryPresence ? peerPresence.state : null}
+            showPresence={Boolean(showDeliveryPresence)}
+            subtitle={statusLine}
+          />
+        ) : (
+          <>
+            <div className="relative h-9 w-9 shrink-0 self-center">
+              <div className="h-full w-full overflow-hidden rounded-full bg-[color:var(--cm-room-primary-soft)] ring-1 ring-[color:var(--cm-room-divider)]">
+                {vm.snapshot.room.avatarUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={vm.snapshot.room.avatarUrl} alt="" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center sam-text-body-secondary font-semibold text-[color:var(--cm-room-primary)]">
+                    {vm.snapshot.room.title.trim().slice(0, 1).toUpperCase() || "?"}
+                  </div>
+                )}
+              </div>
+              {bindPresenceAndTyping && vm.snapshot.room.roomType === "direct" && peerPresence ? (
+                <CommunityMessengerPresenceDot state={peerPresence.state} />
+              ) : null}
             </div>
-            {bindPresenceAndTyping && vm.snapshot.room.roomType === "direct" && peerPresence ? (
-              <CommunityMessengerPresenceDot state={peerPresence.state} />
-            ) : null}
-          </div>
-          <div className="flex min-h-9 min-w-0 flex-1 flex-col justify-center self-center gap-0 leading-tight">
-            {peerTradeRoleLabel ? (
-              <p className="truncate sam-text-xxs text-[color:var(--cm-room-text-muted)]">
-                <span className="inline-block -translate-y-[1pt] font-semibold leading-snug text-[color:var(--cm-room-text)] sam-text-helper">
+            <div className="flex min-h-9 min-w-0 flex-1 flex-col justify-center self-center gap-0 leading-tight">
+              {peerTradeRoleLabel ? (
+                <p className="truncate sam-text-xxs text-[color:var(--cm-room-text-muted)]">
+                  <span className="inline-block -translate-y-[1pt] font-semibold leading-snug text-[color:var(--cm-room-text)] sam-text-helper">
+                    {vm.snapshot.room.title}
+                  </span>
+                  <span aria-hidden> | </span>
+                  <span>{peerTradeRoleLabel}</span>
+                </p>
+              ) : (
+                <p className="-translate-y-[1pt] truncate sam-text-body font-semibold leading-tight text-[color:var(--cm-room-text)]">
                   {vm.snapshot.room.title}
-                </span>
-                <span aria-hidden> | </span>
-                <span>{peerTradeRoleLabel}</span>
-              </p>
-            ) : (
-              <p className="-translate-y-[1pt] truncate sam-text-body font-semibold leading-tight text-[color:var(--cm-room-text)]">
-                {vm.snapshot.room.title}
-              </p>
-            )}
-            <p className="truncate sam-text-xxs leading-tight text-[color:var(--cm-room-text-muted)]">{statusLine}</p>
-          </div>
-          <div className="flex shrink-0 items-center gap-0 self-center">
-            {vm.isGroupRoom ? (
-              <button
-                type="button"
-                onClick={() => {
-                  vm.setRoomSearchQuery("");
-                  vm.setActiveSheet("search");
-                }}
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text-muted)] transition active:bg-[color:var(--cm-room-primary-soft)]"
-                aria-label={vm.t("cm_ui_search_in_chat")}
-              >
-                <Search className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
-              </button>
-            ) : null}
+                </p>
+              )}
+              <p className="truncate sam-text-xxs leading-tight text-[color:var(--cm-room-text-muted)]">{statusLine}</p>
+            </div>
+          </>
+        )}
+
+        <div className="flex shrink-0 items-center gap-0 self-center">
+          {vm.isGroupRoom ? (
             <button
               type="button"
-              onClick={() => vm.setActiveSheet("menu")}
+              onClick={() => {
+                vm.setRoomSearchQuery("");
+                vm.setActiveSheet("search");
+              }}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text-muted)] transition active:bg-[color:var(--cm-room-primary-soft)]"
-              aria-label={vm.t("nav_messenger_room_menu")}
+              aria-label={vm.t("cm_ui_search_in_chat")}
             >
-              <MoreIcon className="h-[18px] w-[18px]" />
+              <Search className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden />
             </button>
-          </div>
+          ) : null}
+          <button
+            type="button"
+            onClick={() => vm.setActiveSheet("menu")}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[color:var(--cm-room-text-muted)] transition active:bg-[color:var(--cm-room-primary-soft)]"
+            aria-label={vm.t("nav_messenger_room_menu")}
+          >
+            <MoreIcon className="h-[18px] w-[18px]" />
+          </button>
         </div>
-      </MessengerHeader>
-    </>
+      </div>
+    </MessengerHeader>
   );
 });

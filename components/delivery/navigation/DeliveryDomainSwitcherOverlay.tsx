@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import {
   useCallback,
   useEffect,
@@ -14,7 +13,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { BottomNavItemConfig } from "@/lib/main-menu/bottom-nav-config";
 import { composeDeliveryDomainSwitcherSlots } from "@/lib/delivery/delivery-domain-switcher-slots";
@@ -30,8 +29,15 @@ import {
   snapDeliveryDialRotationDeg,
 } from "@/lib/delivery/delivery-domain-switcher-arc";
 import { resolveDeliveryDialIconComponent } from "@/lib/delivery/delivery-domain-switcher-icons";
-import { mainBottomNavMessengerTabHref } from "@/lib/community-messenger/messenger-entry-origin";
+import { resolveDeliveryDomainDialItemHref, type HomeHubDomainDialContext } from "@/lib/delivery/resolve-delivery-domain-dial-item-href";
 import { runDeliveryDialItemNavigation } from "@/lib/delivery/delivery-dial-item-navigation";
+import {
+  DELIVERY_DIAL_CHIP_HIT_CLASS,
+  DELIVERY_DIAL_CHIP_HIT_CURRENT_MODIFIER,
+  DELIVERY_DIAL_CHIP_HIT_SELECTOR,
+  isDeliveryDialChipInteractionReady,
+} from "@/lib/delivery/delivery-dial-chip-contract";
+import { resolveHomeHubDialEmphasizedTabId } from "@/lib/delivery/delivery-domain-dial-emphasis";
 import { prewarmDeliveryDomainDialTargets } from "@/lib/delivery/prewarm-delivery-domain-dial";
 import { useRegionOptional } from "@/contexts/RegionContext";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
@@ -53,6 +59,7 @@ export function DeliveryDomainSwitcherOverlay({
   open,
   onClose,
   includeOpsCenter = true,
+  dialContext = "delivery",
   beginMenuNavigation,
   onNavigationIntent,
 }: {
@@ -60,12 +67,16 @@ export function DeliveryDomainSwitcherOverlay({
   onClose: () => void;
   /** 오너 어드민 하단 홈 다이얼 — 운영센터 칩 제외 */
   includeOpsCenter?: boolean;
+  /** 거래 레일 홈 다이얼 — 메신저 칩 `from=trade` */
+  dialContext?: HomeHubDomainDialContext;
   beginMenuNavigation: (href: string) => void;
   onNavigationIntent: (tabId: string) => void;
 }) {
   const { safeT, t } = useI18n();
   const router = useRouter();
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const navSearch = searchParams.toString();
   const { guardBeforeNavigate } = useInlineWriteSheetNavigationGuard();
   const ownerStore = useOwnerLitePreferredStoreRow();
   const ownerStoreId = ownerStore?.id?.trim() ?? "";
@@ -102,7 +113,6 @@ export function DeliveryDomainSwitcherOverlay({
   const [rotatorDeg, setRotatorDeg] = useState(0);
   const [rotatorAnimating, setRotatorAnimating] = useState(false);
   const [pressedTabId, setPressedTabId] = useState<string | null>(null);
-  const pressedTabIdRef = useRef<string | null>(null);
   const lastChipSelectRef = useRef<{ tabId: string; at: number } | null>(null);
 
   const closeTimerRef = useRef<number | null>(null);
@@ -117,8 +127,8 @@ export function DeliveryDomainSwitcherOverlay({
   });
 
   rotatorDegRef.current = rotatorDeg;
-  /** 열림 직후·애니 중에도 칩 탭 가능 — `mounted` 는 layout effect 로 open 과 동기 */
-  const interactionReady = open && portalReady;
+  /** 칩 탭 — CSS `--open`(entered)과 동기. 열림 애니 전에는 pointer-events:none */
+  const interactionReady = isDeliveryDialChipInteractionReady(open, portalReady, entered);
 
   const clearTimer = useCallback((ref: { current: number | null }) => {
     if (ref.current != null) {
@@ -134,15 +144,9 @@ export function DeliveryDomainSwitcherOverlay({
 
   const resetInteractionState = useCallback(() => {
     setPressedTabId(null);
-    pressedTabIdRef.current = null;
     lastChipSelectRef.current = null;
     selectingRef.current = false;
     dragRef.current.pointerId = null;
-  }, []);
-
-  const clearPress = useCallback(() => {
-    setPressedTabId(null);
-    pressedTabIdRef.current = null;
   }, []);
 
   useLayoutEffect(() => {
@@ -205,6 +209,7 @@ export function DeliveryDomainSwitcherOverlay({
     if (!open) return;
     prewarmDeliveryDomainDialTargets(slots, {
       primaryRegion,
+      dialContext,
       prefetch: (href) => {
         try {
           router.prefetch(href);
@@ -213,7 +218,7 @@ export function DeliveryDomainSwitcherOverlay({
         }
       },
     });
-  }, [open, slots, primaryRegion, router]);
+  }, [open, slots, primaryRegion, router, dialContext]);
 
   useEffect(() => {
     if (!mounted) return;
@@ -224,11 +229,10 @@ export function DeliveryDomainSwitcherOverlay({
     return () => window.removeEventListener("keydown", onKey);
   }, [mounted, onClose]);
 
-  const resolveHref = useCallback((tab: BottomNavItemConfig) => {
-    if (tab.id === "chat") return mainBottomNavMessengerTabHref("delivery");
-    if (tab.id === "delivery-ops-center") return tab.href;
-    return tab.href;
-  }, []);
+  const resolveHref = useCallback(
+    (tab: BottomNavItemConfig) => resolveDeliveryDomainDialItemHref(tab, dialContext),
+    [dialContext]
+  );
 
   const finishSwipe = useCallback(
     (nextRot: number) => {
@@ -248,6 +252,8 @@ export function DeliveryDomainSwitcherOverlay({
   const onSwipePointerDown = useCallback(
     (e: ReactPointerEvent<HTMLDivElement>) => {
       if (!interactionReady || selectingRef.current) return;
+      const target = e.target;
+      if (target instanceof Element && target.closest(DELIVERY_DIAL_CHIP_HIT_SELECTOR)) return;
       dragRef.current = { pointerId: e.pointerId, startX: e.clientX, startRot: rotatorDegRef.current };
       setRotatorAnimating(false);
       e.currentTarget.setPointerCapture(e.pointerId);
@@ -293,13 +299,14 @@ export function DeliveryDomainSwitcherOverlay({
       navPerfMarkBottomNavClickStart(navClickT0);
       runDeliveryDialItemNavigation({
         tab,
-        href,
         pathname,
+        currentSearch: navSearch,
         onClose,
         guardBeforeNavigate,
         beginMenuNavigation,
         onNavigationIntent,
         push: (h) => router.push(h),
+        replace: (h) => router.replace(h),
         goBusinessHubOrModal,
         shouldInterceptBusinessHubHref,
         prefetch: (h) => {
@@ -309,6 +316,7 @@ export function DeliveryDomainSwitcherOverlay({
             /* noop */
           }
         },
+        dialContext,
       });
     },
     [
@@ -320,6 +328,8 @@ export function DeliveryDomainSwitcherOverlay({
       pathname,
       resolveHref,
       router,
+      navSearch,
+      dialContext,
     ]
   );
 
@@ -343,17 +353,22 @@ export function DeliveryDomainSwitcherOverlay({
     [interactionReady, onItemNavigate]
   );
 
+  const emphasizedTabId = useMemo(
+    () => resolveHomeHubDialEmphasizedTabId(dialContext),
+    [dialContext]
+  );
+
   const renderDialHit = useCallback(
     (
       tab: BottomNavItemConfig,
       label: string,
-      href: string,
       chip: ReactNode
     ) => {
       const hitClass = [
-        "delivery-domain-switcher-hit",
-        `delivery-domain-switcher-hit--${tab.id}`,
-        pressedTabId === tab.id ? "delivery-domain-switcher-hit--pressed" : "",
+        DELIVERY_DIAL_CHIP_HIT_CLASS,
+        `${DELIVERY_DIAL_CHIP_HIT_CLASS}--${tab.id}`,
+        tab.id === emphasizedTabId ? DELIVERY_DIAL_CHIP_HIT_CURRENT_MODIFIER : "",
+        pressedTabId === tab.id ? `${DELIVERY_DIAL_CHIP_HIT_CLASS}--pressed` : "",
       ]
         .filter(Boolean)
         .join(" ");
@@ -362,16 +377,14 @@ export function DeliveryDomainSwitcherOverlay({
         onPointerDown: (e: ReactPointerEvent<HTMLElement>) => {
           if (!interactionReady) return;
           e.stopPropagation();
-          pressedTabIdRef.current = tab.id;
           setPressedTabId(tab.id);
         },
         onPointerUp: (e: ReactPointerEvent<HTMLElement>) => {
           e.stopPropagation();
-          if (pressedTabIdRef.current === tab.id) activateChip();
-          clearPress();
+          setPressedTabId(null);
         },
-        onPointerLeave: clearPress,
-        onPointerCancel: clearPress,
+        onPointerCancel: () => setPressedTabId(null),
+        onPointerLeave: () => setPressedTabId(null),
       };
       const keyActivate = (e: ReactKeyboardEvent<HTMLElement>) => {
         if (e.key !== "Enter" && e.key !== " ") return;
@@ -379,36 +392,25 @@ export function DeliveryDomainSwitcherOverlay({
         activateChip();
       };
 
-      if (tab.id === "stores") {
-        return (
-          <button
-            type="button"
-            className={hitClass}
-            aria-label={label}
-            {...hitPointer}
-            onKeyDown={keyActivate}
-            onClick={(e) => e.preventDefault()}
-          >
-            {chip}
-          </button>
-        );
-      }
-
       return (
-        <Link
-          href={href}
-          prefetch={false}
+        <button
+          type="button"
           className={hitClass}
           aria-label={label}
           {...hitPointer}
           onKeyDown={keyActivate}
-          onClick={(e) => e.preventDefault()}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!interactionReady) return;
+            activateChip();
+          }}
         >
           {chip}
-        </Link>
+        </button>
       );
     },
-    [clearPress, interactionReady, pressedTabId, runItemSelect]
+    [emphasizedTabId, interactionReady, pressedTabId, runItemSelect]
   );
 
   const dialNodes = useMemo(() => {
@@ -437,7 +439,6 @@ export function DeliveryDomainSwitcherOverlay({
 
       const { tab, dialIcon } = slot;
       const label = tab.labelKey ? safeT(tab.labelKey) : tab.label;
-      const href = resolveHref(tab);
       const Icon = resolveDeliveryDialIconComponent(dialIcon);
       const chip = (
         <>
@@ -454,11 +455,11 @@ export function DeliveryDomainSwitcherOverlay({
           className={`delivery-domain-switcher-item ${entered ? "delivery-domain-switcher-item--open" : "delivery-domain-switcher-item--closed"}`}
           style={itemStyle}
         >
-          {renderDialHit(tab, label, href, chip)}
+          {renderDialHit(tab, label, chip)}
         </div>
       );
     });
-  }, [dialRadiusPx, entered, renderDialHit, resolveHref, safeT, slotCount, slots]);
+  }, [dialRadiusPx, entered, renderDialHit, safeT, slotCount, slots]);
 
   const anchorStyle = {
     "--dial-radius": `${dialRadiusPx}px`,
@@ -487,20 +488,12 @@ export function DeliveryDomainSwitcherOverlay({
               transform: `translateX(-50%) rotate(${rotatorDeg}deg)`,
               transition: rotatorAnimating ? `transform ${DELIVERY_DIAL_ANIM_MS}ms ${DIAL_EASE}` : undefined,
             }}
+            onPointerDown={onSwipePointerDown}
+            onPointerMove={onSwipePointerMove}
+            onPointerUp={onSwipePointerUp}
+            onPointerCancel={onSwipePointerUp}
           >
-            <div
-              className={[
-                "delivery-domain-switcher-swipe-surface",
-                interactionReady ? "delivery-domain-switcher-swipe-surface--active" : "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              aria-hidden
-              onPointerDown={onSwipePointerDown}
-              onPointerMove={onSwipePointerMove}
-              onPointerUp={onSwipePointerUp}
-              onPointerCancel={onSwipePointerUp}
-            />
+            <div className="delivery-domain-switcher-swipe-surface" aria-hidden />
             {dialNodes}
           </div>
         </div>

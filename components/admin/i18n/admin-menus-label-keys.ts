@@ -10,6 +10,7 @@ export const BOTTOM_NAV_ICON_LABEL_KEYS: Record<BottomNavIconKey, MessageKey> = 
   my: "admin_menu_icon_my",
   orders: "admin_menu_icon_orders",
   cart: "admin_menu_icon_orders",
+  favorites: "admin_menu_icon_orders",
 };
 
 export const BOTTOM_NAV_SAVE_ERROR_KEYS: Record<string, MessageKey> = {

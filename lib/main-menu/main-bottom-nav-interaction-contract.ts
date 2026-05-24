@@ -1,0 +1,21 @@
+/**
+ * CONTRACT — 하단 탭·배달 다이얼 상호작용 (제품 3규칙).
+ *
+ * 1. **모든 일반 하단 탭** (주문내역·장바구니·주문채팅·내정보·분할탭 community/home/stores 등)
+ *    → 탭 선택 즉시 `commitMainBottomNavRoute` (push/replace). 이미 동일 URL이면 맨 위 스크롤.
+ *
+ * 2. **다이얼 있는 배달 5탭 셸** (`isDeliveryBottomNavRail`)
+ *    - **홈 짧은 탭** → 도메인 다이얼 열기/닫기 (`runDeliveryHomeHubShortTap`) — 이동 없음
+ *    - **다이얼 칩** → `runDeliveryDialItemNavigation` → `commitMainBottomNavRoute` 즉시 이동
+ *
+ * 3. **배달 홈 롱프레스** → 해당 도메인 실홈 `/stores` (`runDeliveryHomeHubLongPress`)
+ *
+ * DO NOT: 홈 짧은 탭으로 `/stores` push · 다이얼 칩 Link+preventDefault · 탭 Link 기본 navigation만 의존.
+ * verify: `npm run verify:delivery-dial-navigation-contract`
+ */
+export const MAIN_BOTTOM_NAV_INTERACTION_CONTRACT_VERSION = 1 as const;
+
+/** 배달 소비자 5탭 + `DeliveryDomainSwitcherOverlay` 가 붙는 레일 */
+export function isMainBottomNavDeliveryDialShell(rail: string): boolean {
+  return rail === "stores";
+}

@@ -6,8 +6,15 @@
 
 :root {
   --delivery-bg: #f6f6f6;
+  --delivery-latte: #f2f0eb;
+  --delivery-mocha: #4a3728;
   --delivery-bg-main: var(--delivery-bg);
   --delivery-bg-card: #ffffff;
+  --delivery-chat-bg: var(--delivery-latte);
+  --delivery-chat-header-bg: var(--delivery-bg-card);
+  --delivery-chat-chrome-bg: var(--delivery-bg);
+  --delivery-chat-chrome-surface: var(--delivery-bg-card);
+  --delivery-chat-chrome-border: var(--delivery-border);
   --delivery-card: #ffffff;
   --delivery-bg-soft: #eef1ef;
   --delivery-bg-muted: #e8ecea;

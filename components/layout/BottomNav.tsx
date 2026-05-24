@@ -47,7 +47,7 @@ import {
 } from "@/lib/runtime/next-js-dev-client";
 import { prewarmBottomNavTapTargetClientCache } from "@/lib/main-menu/bottom-nav-tap-prewarm-data";
 import { prewarmBottomNavTapHrefResolvingStoresRegion } from "@/lib/main-menu/bottom-nav-prewarm-href";
-import { shouldDeferUnreadBadgeRepaint } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
+import { commitMainBottomNavRoute, mainBottomNavRouteUsesReplace } from "@/lib/main-menu/main-bottom-nav-route-commit";
 import { isCommunityMessengerRoomPathname } from "@/lib/layout/conditional-app-shell-flags";
 import { bumpMessengerRenderPerf, samarketRuntimeDebugLog } from "@/lib/runtime/samarket-runtime-debug";
 import { scheduleWarmMessengerListBootstrapClient } from "@/lib/community-messenger/warm-messenger-list-bootstrap-client-loader";
@@ -71,13 +71,28 @@ import {
   isDeliveryBottomNavTabId,
   isDeliveryConsumerBottomNavSurface,
 } from "@/lib/main-menu/delivery-bottom-nav-layout";
+import {
+  isPhilifeBottomNavRail,
+  isPhilifeBottomNavTabId,
+  PHILIFE_BOTTOM_NAV_LABEL_CLASS,
+} from "@/lib/main-menu/philife-bottom-nav-layout";
+import {
+  isTradeBottomNavRail,
+  isTradeBottomNavTabId,
+  TRADE_BOTTOM_NAV_LABEL_CLASS,
+} from "@/lib/main-menu/trade-bottom-nav-layout";
+import {
+  TRADE_HOME_HUB_LONG_PRESS_MS,
+  runTradeHomeHubLongPress,
+  runTradeHomeHubShortTap,
+} from "@/lib/trade/trade-home-hub-navigation";
 import { writeStoredMypageBottomNavOrigin } from "@/lib/main-menu/mypage-bottom-nav-origin";
 import { DeliveryDomainSwitcherOverlay } from "@/components/delivery/navigation/DeliveryDomainSwitcherOverlay";
 import {
   DELIVERY_HOME_HUB_LONG_PRESS_MS,
   runDeliveryHomeHubLongPress,
+  runDeliveryHomeHubShortTap,
 } from "@/lib/delivery/delivery-home-hub-navigation";
-import { shouldToggleDeliveryDialOnHomePointerUp } from "@/lib/delivery/delivery-home-hub-gesture";
 import { prewarmConsumerDeliveryDomainDial } from "@/lib/delivery/prewarm-delivery-domain-dial";
 import {
   markBottomNavRouteIntentForBackgroundWarm,
@@ -88,8 +103,6 @@ import { useCommerceCartNavHref } from "@/components/layout/use-commerce-cart-na
 import { isMainBottomNavDisplayTabActive } from "@/lib/main-menu/main-bottom-nav-tab-active";
 import {
   bottomNavMessengerHrefWithOrigin,
-  parseMessengerEntryOrigin,
-  persistMessengerEntryOrigin,
 } from "@/lib/community-messenger/messenger-entry-origin";
 import { resolveDeliveryOrderHistoryHref } from "@/lib/stores/delivery-order-history-nav";
 import { getCurrentUser } from "@/lib/auth/get-current-user";
@@ -98,12 +111,8 @@ import {
   openPhoneVerificationRequiredDialog,
 } from "@/lib/auth/phone-verification-gate-client";
 import { useInlineWriteSheetNavigationGuard } from "@/lib/navigation/use-inline-write-sheet-navigation-guard";
-import { scrollAppShellToTop } from "@/lib/layout/scroll-app-shell-to-top";
 import { useLatestMenuNavigation } from "@/contexts/LatestMenuNavigationContext";
-import {
-  navPerfMarkBottomNavClickStart,
-  navPerfSetOptimisticTotalMs,
-} from "@/lib/navigation/nav-perf-browser";
+import { shouldDeferUnreadBadgeRepaint } from "@/lib/community-messenger/room/cm-room-entry-priority-mode";
 import { useRegion, useRegionOptional } from "@/contexts/RegionContext";
 import { triggerLightTapFeedback } from "@/lib/ui/light-tap-feedback";
 
@@ -111,39 +120,6 @@ import { triggerLightTapFeedback } from "@/lib/ui/light-tap-feedback";
 function shouldSkipBottomNavBackgroundPrefetch(pathname: string | null): boolean {
   const domain: MainBottomNavPrefetchDomain = mainBottomNavPrefetchTriggerKey(pathname);
   return domain === "store_owner" || isMainBottomNavMessengerShellPathname(pathname);
-}
-
-/** `/market` 에서만 push — 그 외 탭 간 이동은 replace(히스토리 누적·뒤로가기 꼬임 완화) */
-function mainTabLinkUsesReplace(pathname: string | null, targetHref: string): boolean {
-  if (!pathname) return true;
-  if (pathname === "/market" && targetHref !== "/market") return false;
-  return true;
-}
-
-/**
- * 하단 탭 재탭 시 `preventDefault` 로 스크롤만 할지.
- * - 경로가 링크와 **정확히 같을 때만** 쿼리까지 비교한다 (`/community-messenger` + section=friends → chats 링크는 네비게이션).
- * - `/mypage/section/...` 처럼 탭 루트의 **접두 경로**에만 있을 때는 링크가 루트로 이동하도록 `false`.
- */
-function shouldBottomNavTapScrollOnlyNoNavigate(
-  pathname: string | null,
-  currentSearchNoQuestion: string,
-  tabHref: string
-): boolean {
-  if (!isBottomNavTabActive(pathname, tabHref)) return false;
-  const p = (pathname ?? "").split("?")[0]?.trim() ?? "";
-  const raw = tabHref.trim();
-  const qIdx = raw.indexOf("?");
-  const targetPath = (qIdx >= 0 ? raw.slice(0, qIdx) : raw).trim();
-  if (p !== targetPath) return false;
-  if (qIdx < 0) return true;
-  const targetParams = new URLSearchParams(raw.slice(qIdx + 1));
-  if ([...targetParams.keys()].length === 0) return true;
-  const cur = new URLSearchParams(currentSearchNoQuestion);
-  for (const key of targetParams.keys()) {
-    if (cur.get(key) !== targetParams.get(key)) return false;
-  }
-  return true;
 }
 
 const BOTTOM_NAV_ITEM_TOUCH_CLASS =
@@ -175,68 +151,38 @@ function runBottomNavTabClick(
     beginMenuNavigation: (href: string) => void;
     onNavigationIntent: (tabId: string) => void;
     guardBeforeNavigate: (nextHref?: string) => boolean;
-    router: Pick<ReturnType<typeof useRouter>, "prefetch">;
-    /** stores 탭 등 — `prewarmBottomNavTapTargetClientCache` 대신 */
+    router: Pick<ReturnType<typeof useRouter>, "prefetch" | "push" | "replace">;
     onPrewarm?: () => void;
-    /** 배달 도메인 다이얼 열림 시 탭 탭으로 닫기 */
     onCloseDomainSwitcher?: () => void;
   }
 ): void {
-  const {
-    pathname,
-    navSearch,
-    href,
-    tabId,
-    isActive,
-    beginMenuNavigation,
-    onNavigationIntent,
-    guardBeforeNavigate,
-    router,
-    onPrewarm,
-    onCloseDomainSwitcher,
-  } = opts;
-
-  onCloseDomainSwitcher?.();
-
-  if (shouldBottomNavTapScrollOnlyNoNavigate(pathname, navSearch, href)) {
-    e.preventDefault();
-    scrollAppShellToTop();
-    return;
-  }
-  if (!guardBeforeNavigate(href)) {
-    e.preventDefault();
-    return;
-  }
-
-  const navClickT0 = performance.now();
-  markBottomNavRouteIntentForBackgroundWarm();
-  navPerfMarkBottomNavClickStart(navClickT0);
-  beginMenuNavigation(href);
-  onNavigationIntent(tabId);
-  if (tabId === "chat" || tabId === "delivery-order-chat") {
-    try {
-      const u = new URL(href, "https://samarket.local");
-      const o = parseMessengerEntryOrigin(u.searchParams.get("from"));
-      if (o) persistMessengerEntryOrigin(o);
-    } catch {
-      /* noop */
-    }
-  }
-  navPerfSetOptimisticTotalMs(performance.now() - navClickT0);
-
-  if (!isActive) {
-    try {
-      void router.prefetch(href);
-    } catch {
-      /* noop */
-    }
-    try {
-      if (onPrewarm) onPrewarm();
-      else prewarmBottomNavTapTargetClientCache(href);
-    } catch {
-      /* noop */
-    }
-  }
+  e.preventDefault();
+  commitMainBottomNavRoute({
+    pathname: opts.pathname,
+    currentSearch: opts.navSearch,
+    href: opts.href,
+    tabId: opts.tabId,
+    prefetchWhenInactive: !opts.isActive,
+    beginMenuNavigation: opts.beginMenuNavigation,
+    onNavigationIntent: opts.onNavigationIntent,
+    guardBeforeNavigate: opts.guardBeforeNavigate,
+    push: (href) => opts.router.push(href),
+    replace: (href) => opts.router.replace(href),
+    prefetch: (href) => {
+      try {
+        void opts.router.prefetch(href);
+      } catch {
+        /* noop */
+      }
+    },
+    onPrewarm: opts.onPrewarm,
+    onCloseDomainSwitcher: opts.onCloseDomainSwitcher,
+    persistMessengerOriginFromHref:
+      opts.tabId === "chat" ||
+      opts.tabId === "delivery-order-chat" ||
+      opts.tabId === "philife-messenger" ||
+      opts.tabId === "trade-order-chat",
+  });
 }
 
 const BottomNavTabStandard = memo(function BottomNavTabStandard({
@@ -283,7 +229,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
     if (tab.id === "delivery-orders") {
       return resolveDeliveryOrderHistoryHref(ownerStore?.id);
     }
-    if (tab.id === "chat") {
+    if (tab.id === "chat" || tab.id === "philife-messenger" || tab.id === "trade-order-chat") {
       return bottomNavMessengerHrefWithOrigin(tab.href, pathname, searchParams);
     }
     return tab.href;
@@ -293,7 +239,9 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
     "app-bottom-nav-item group",
     BOTTOM_NAV_ITEM_TOUCH_CLASS,
     itemClassName,
-    tab.id === "my" || tab.id === "delivery-my" ? "app-bottom-nav-item--my-menu" : "",
+    tab.id === "my" || tab.id === "delivery-my" || tab.id === "philife-my" || tab.id === "trade-my"
+      ? "app-bottom-nav-item--my-menu"
+      : "",
     hasOwnerStore && !isActive ? "opacity-95" : "",
   ]
     .filter(Boolean)
@@ -316,8 +264,14 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
       </div>
       <span
         className={
-          isDeliveryBottomNavTabId(tab.id)
-            ? DELIVERY_BOTTOM_NAV_LABEL_CLASS
+          isDeliveryBottomNavTabId(tab.id) ||
+          isPhilifeBottomNavTabId(tab.id) ||
+          isTradeBottomNavTabId(tab.id)
+            ? isTradeBottomNavTabId(tab.id)
+              ? TRADE_BOTTOM_NAV_LABEL_CLASS
+              : isPhilifeBottomNavTabId(tab.id)
+                ? PHILIFE_BOTTOM_NAV_LABEL_CLASS
+                : DELIVERY_BOTTOM_NAV_LABEL_CLASS
             : `app-bottom-nav-label ${tab.labelFontFamilyClass ?? ""}`
         }
         suppressHydrationWarning
@@ -331,7 +285,7 @@ const BottomNavTabStandard = memo(function BottomNavTabStandard({
     <Link
       href={effectiveHref}
       prefetch={shouldEnableNextLinkPrefetchOnMainNav() && !isMainBottomNavMessengerShellPathname(pathname)}
-      replace={mainTabLinkUsesReplace(pathname ?? null, effectiveHref)}
+      replace={mainBottomNavRouteUsesReplace(pathname ?? null, effectiveHref)}
       scroll={false}
       className={className}
       data-active={isActive ? "true" : "false"}
@@ -486,9 +440,43 @@ const BottomNavTabDeliveryHomeHub = memo(function BottomNavTabDeliveryHomeHub({
       beginMenuNavigation,
       onNavigationIntent,
       push: (href) => router.push(href),
+      replace: (href) => router.replace(href),
     });
   }, [
     beginMenuNavigation,
+    guardBeforeNavigate,
+    navSearch,
+    onNavigationIntent,
+    onToggleSwitcher,
+    pathname,
+    router,
+    switcherOpen,
+    tab.href,
+  ]);
+
+  const onHubPointerUp = useCallback(() => {
+    clearLongPressTimer();
+    const longPressFired = longPressFiredRef.current;
+    longPressFiredRef.current = false;
+    runDeliveryHomeHubShortTap({
+      pathname,
+      currentSearch: navSearch,
+      href: tab.href,
+      switcherOpen,
+      onCloseSwitcher: () => {
+        if (switcherOpen) onToggleSwitcher();
+      },
+      guardBeforeNavigate,
+      beginMenuNavigation,
+      onNavigationIntent,
+      push: (href) => router.push(href),
+      replace: (href) => router.replace(href),
+      longPressFired,
+      onToggleSwitcher,
+    });
+  }, [
+    beginMenuNavigation,
+    clearLongPressTimer,
     guardBeforeNavigate,
     navSearch,
     onNavigationIntent,
@@ -517,22 +505,39 @@ const BottomNavTabDeliveryHomeHub = memo(function BottomNavTabDeliveryHomeHub({
     [clearLongPressTimer, primaryRegion, runLongPressHome, tab.href]
   );
 
-  const onHubPointerUp = useCallback(() => {
-    clearLongPressTimer();
-    const fired = longPressFiredRef.current;
-    longPressFiredRef.current = false;
-    if (shouldToggleDeliveryDialOnHomePointerUp(fired)) {
-      onToggleSwitcher();
-    }
-  }, [clearLongPressTimer, onToggleSwitcher]);
-
   const onHubKeyDown = useCallback(
     (e: KeyboardEvent<HTMLButtonElement>) => {
       if (e.key !== "Enter" && e.key !== " ") return;
       e.preventDefault();
-      onToggleSwitcher();
+      longPressFiredRef.current = false;
+      runDeliveryHomeHubShortTap({
+        pathname,
+        currentSearch: navSearch,
+        href: tab.href,
+        switcherOpen,
+        onCloseSwitcher: () => {
+          if (switcherOpen) onToggleSwitcher();
+        },
+        guardBeforeNavigate,
+        beginMenuNavigation,
+        onNavigationIntent,
+        push: (href) => router.push(href),
+        replace: (href) => router.replace(href),
+        longPressFired: false,
+        onToggleSwitcher,
+      });
     },
-    [onToggleSwitcher]
+    [
+      beginMenuNavigation,
+      guardBeforeNavigate,
+      navSearch,
+      onNavigationIntent,
+      onToggleSwitcher,
+      pathname,
+      router,
+      switcherOpen,
+      tab.href,
+    ]
   );
 
   const onHubPointerCancel = useCallback(() => {
@@ -571,6 +576,328 @@ const BottomNavTabDeliveryHomeHub = memo(function BottomNavTabDeliveryHomeHub({
         </span>
       </div>
       <span className={DELIVERY_BOTTOM_NAV_LABEL_CLASS} suppressHydrationWarning>
+        {tabLabel}
+      </span>
+    </button>
+  );
+});
+
+/** 커뮤니티 5탭 가운데 홈 — `/philife` 즉시 이동(동일 경로면 스크롤) */
+const BottomNavTabPhilifeHomeHub = memo(function BottomNavTabPhilifeHomeHub({
+  tab,
+  itemClassName = "",
+  pathname,
+  navSearch,
+  pendingActiveTabId,
+  onNavigationIntent,
+  beginMenuNavigation,
+  guardBeforeNavigate,
+}: {
+  tab: BottomNavItemConfig;
+  itemClassName?: string;
+  pathname: string | null;
+  navSearch: string;
+  pendingActiveTabId: string | null;
+  onNavigationIntent: (tabId: string) => void;
+  beginMenuNavigation: (href: string) => void;
+  guardBeforeNavigate: (nextHref?: string) => boolean;
+}) {
+  const { safeT } = useI18n();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const secondaryRail = useMemo(
+    () => resolveMainBottomNavSecondaryRailKind(pathname, searchParams),
+    [pathname, searchParams]
+  );
+  const isActive =
+    pendingActiveTabId != null
+      ? tab.id === pendingActiveTabId
+      : isMainBottomNavDisplayTabActive(pathname, tab, { searchParams, secondaryRail });
+  const tabLabel = tab.labelKey ? safeT(tab.labelKey) : tab.label;
+  const Icon = TAB_ICONS[tab.icon];
+  const className = [
+    "app-bottom-nav-item group app-bottom-nav-item--delivery-hub",
+    BOTTOM_NAV_ITEM_TOUCH_CLASS,
+    itemClassName,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const commitHubNav = useCallback(
+    (e: BottomNavActivateEvent) => {
+      runBottomNavTabClick(e, {
+        pathname,
+        navSearch,
+        href: tab.href,
+        tabId: tab.id,
+        isActive,
+        beginMenuNavigation,
+        onNavigationIntent,
+        guardBeforeNavigate,
+        router,
+      });
+    },
+    [
+      beginMenuNavigation,
+      guardBeforeNavigate,
+      isActive,
+      navSearch,
+      onNavigationIntent,
+      pathname,
+      router,
+      tab.href,
+      tab.id,
+    ]
+  );
+
+  return (
+    <button
+      type="button"
+      className={className}
+      data-active={isActive ? "true" : "false"}
+      aria-label={tabLabel}
+      aria-current={isActive ? "page" : undefined}
+      onPointerDown={(e) => {
+        if (e.button !== 0) return;
+        triggerLightTapFeedback(e);
+        if (!isActive) {
+          markBottomNavRouteIntentForBackgroundWarm();
+          try {
+            void router.prefetch(tab.href);
+          } catch {
+            /* noop */
+          }
+          try {
+            prewarmBottomNavTapTargetClientCache(tab.href);
+          } catch {
+            /* noop */
+          }
+        }
+      }}
+      onClick={commitHubNav}
+      onKeyDown={(e: KeyboardEvent<HTMLButtonElement>) => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        e.preventDefault();
+        commitHubNav(e);
+      }}
+    >
+      <div className="app-bottom-nav-icon-slot app-bottom-nav-icon-slot--delivery-home">
+        <span
+          className={[
+            "app-bottom-nav-delivery-home-orbit",
+            isActive ? "app-bottom-nav-delivery-home-orbit--active" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
+          <Icon className="app-bottom-nav-delivery-home-icon" aria-hidden />
+        </span>
+      </div>
+      <span className={PHILIFE_BOTTOM_NAV_LABEL_CLASS} suppressHydrationWarning>
+        {tabLabel}
+      </span>
+    </button>
+  );
+});
+
+const BottomNavTabTradeHomeHub = memo(function BottomNavTabTradeHomeHub({
+  tab,
+  itemClassName = "",
+  pathname,
+  switcherOpen,
+  onToggleSwitcher,
+  onNavigationIntent,
+  beginMenuNavigation,
+  guardBeforeNavigate,
+}: {
+  tab: BottomNavItemConfig;
+  itemClassName?: string;
+  pathname: string | null;
+  switcherOpen: boolean;
+  onToggleSwitcher: () => void;
+  onNavigationIntent: (tabId: string) => void;
+  beginMenuNavigation: (href: string) => void;
+  guardBeforeNavigate: (nextHref?: string) => boolean;
+}) {
+  const { safeT } = useI18n();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const navSearch = searchParams.toString();
+  const tabLabel = tab.labelKey ? safeT(tab.labelKey) : tab.label;
+  const Icon = TAB_ICONS.home;
+  const hubPathActive = isMainBottomNavDisplayTabActive(pathname, tab, {
+    searchParams,
+    secondaryRail: "trade",
+  });
+  const isActive = switcherOpen || hubPathActive;
+  const className = [
+    "app-bottom-nav-item group app-bottom-nav-item--delivery-hub",
+    BOTTOM_NAV_ITEM_TOUCH_CLASS,
+    itemClassName,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  const longPressFiredRef = useRef(false);
+  const longPressTimerRef = useRef<number | null>(null);
+
+  const clearLongPressTimer = useCallback(() => {
+    if (longPressTimerRef.current != null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  }, []);
+
+  const runLongPressHome = useCallback(() => {
+    longPressFiredRef.current = true;
+    runTradeHomeHubLongPress({
+      pathname,
+      currentSearch: navSearch,
+      href: tab.href,
+      switcherOpen,
+      onCloseSwitcher: () => {
+        if (switcherOpen) onToggleSwitcher();
+      },
+      guardBeforeNavigate,
+      beginMenuNavigation,
+      onNavigationIntent,
+      push: (href) => router.push(href),
+      replace: (href) => router.replace(href),
+    });
+  }, [
+    beginMenuNavigation,
+    guardBeforeNavigate,
+    navSearch,
+    onNavigationIntent,
+    onToggleSwitcher,
+    pathname,
+    router,
+    switcherOpen,
+    tab.href,
+  ]);
+
+  const onHubPointerUp = useCallback(() => {
+    clearLongPressTimer();
+    const longPressFired = longPressFiredRef.current;
+    longPressFiredRef.current = false;
+    runTradeHomeHubShortTap({
+      pathname,
+      currentSearch: navSearch,
+      href: tab.href,
+      switcherOpen,
+      onCloseSwitcher: () => {
+        if (switcherOpen) onToggleSwitcher();
+      },
+      guardBeforeNavigate,
+      beginMenuNavigation,
+      onNavigationIntent,
+      push: (href) => router.push(href),
+      replace: (href) => router.replace(href),
+      longPressFired,
+      onToggleSwitcher,
+    });
+  }, [
+    beginMenuNavigation,
+    clearLongPressTimer,
+    guardBeforeNavigate,
+    navSearch,
+    onNavigationIntent,
+    onToggleSwitcher,
+    pathname,
+    router,
+    switcherOpen,
+    tab.href,
+  ]);
+
+  const onHubPointerDown = useCallback(
+    (e: PointerEvent<HTMLButtonElement>) => {
+      if (e.button !== 0) return;
+      longPressFiredRef.current = false;
+      clearLongPressTimer();
+      longPressTimerRef.current = window.setTimeout(() => {
+        longPressTimerRef.current = null;
+        runLongPressHome();
+      }, TRADE_HOME_HUB_LONG_PRESS_MS);
+      try {
+        prewarmBottomNavTapTargetClientCache(tab.href);
+      } catch {
+        /* noop */
+      }
+    },
+    [clearLongPressTimer, runLongPressHome, tab.href]
+  );
+
+  const onHubKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLButtonElement>) => {
+      if (e.key !== "Enter" && e.key !== " ") return;
+      e.preventDefault();
+      longPressFiredRef.current = false;
+      runTradeHomeHubShortTap({
+        pathname,
+        currentSearch: navSearch,
+        href: tab.href,
+        switcherOpen,
+        onCloseSwitcher: () => {
+          if (switcherOpen) onToggleSwitcher();
+        },
+        guardBeforeNavigate,
+        beginMenuNavigation,
+        onNavigationIntent,
+        push: (href) => router.push(href),
+        replace: (href) => router.replace(href),
+        longPressFired: false,
+        onToggleSwitcher,
+      });
+    },
+    [
+      beginMenuNavigation,
+      guardBeforeNavigate,
+      navSearch,
+      onNavigationIntent,
+      onToggleSwitcher,
+      pathname,
+      router,
+      switcherOpen,
+      tab.href,
+    ]
+  );
+
+  const onHubPointerCancel = useCallback(() => {
+    clearLongPressTimer();
+    longPressFiredRef.current = false;
+  }, [clearLongPressTimer]);
+
+  useEffect(() => () => clearLongPressTimer(), [clearLongPressTimer]);
+
+  return (
+    <button
+      type="button"
+      className={className}
+      data-active={isActive ? "true" : "false"}
+      data-switcher-open={switcherOpen ? "true" : "false"}
+      aria-label={tabLabel}
+      aria-expanded={switcherOpen}
+      aria-haspopup="dialog"
+      onPointerDown={onHubPointerDown}
+      onPointerUp={onHubPointerUp}
+      onPointerCancel={onHubPointerCancel}
+      onPointerLeave={onHubPointerCancel}
+      onKeyDown={onHubKeyDown}
+      onClick={(e) => e.preventDefault()}
+    >
+      <div className="app-bottom-nav-icon-slot app-bottom-nav-icon-slot--delivery-home">
+        <span
+          className={[
+            "app-bottom-nav-delivery-home-orbit",
+            isActive ? "app-bottom-nav-delivery-home-orbit--active" : "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+        >
+          <Icon className="app-bottom-nav-delivery-home-icon" aria-hidden />
+        </span>
+      </div>
+      <span className={TRADE_BOTTOM_NAV_LABEL_CLASS} suppressHydrationWarning>
         {tabLabel}
       </span>
     </button>
@@ -619,7 +946,7 @@ const BottomNavTabDeliveryCart = memo(function BottomNavTabDeliveryCart({
     <Link
       href={effectiveHref}
       prefetch={shouldEnableNextLinkPrefetchOnMainNav() && !isMainBottomNavMessengerShellPathname(pathname)}
-      replace={mainTabLinkUsesReplace(pathname ?? null, effectiveHref)}
+      replace={mainBottomNavRouteUsesReplace(pathname ?? null, effectiveHref)}
       scroll={false}
       className={className}
       data-active={isActive ? "true" : "false"}
@@ -731,7 +1058,7 @@ const BottomNavTabStores = memo(function BottomNavTabStores({
     <Link
       href={tab.href}
       prefetch={shouldEnableNextLinkPrefetchOnMainNav() && !isMainBottomNavMessengerShellPathname(pathname)}
-      replace={mainTabLinkUsesReplace(pathname ?? null, tab.href)}
+      replace={mainBottomNavRouteUsesReplace(pathname ?? null, tab.href)}
       scroll={false}
       className={className}
       data-active={isActive ? "true" : "false"}
@@ -899,6 +1226,11 @@ export function BottomNav({
     [pathname, searchParams]
   );
   const isDeliveryNavMode = isDeliveryBottomNavRail(secondaryRail);
+  const isTradeNavMode = isTradeBottomNavRail(secondaryRail);
+  const isGridBottomNavMode =
+    isDeliveryBottomNavRail(secondaryRail) ||
+    isPhilifeBottomNavRail(secondaryRail) ||
+    isTradeBottomNavRail(secondaryRail);
   const displayTabs = useMemo(
     () => composeMainBottomNavDisplayTabs(pathname ?? null, tabs, searchParams, ownerStoreRow?.id),
     [pathname, tabs, searchParams, ownerStoreRow?.id]
@@ -1134,7 +1466,8 @@ export function BottomNav({
     (pathname?.startsWith("/my/business") ?? false);
 
   const scrollHideSuppressed =
-    deliveryDomainSwitcherOpen && extraOuterClassName.includes(BOTTOM_NAV_SCROLL_HIDDEN_CLASS);
+    deliveryDomainSwitcherOpen &&
+    extraOuterClassName.includes(BOTTOM_NAV_SCROLL_HIDDEN_CLASS);
   const effectiveOuterExtra = scrollHideSuppressed
     ? extraOuterClassName.replace(BOTTOM_NAV_SCROLL_HIDDEN_CLASS, "app-bottom-nav-shell--scroll-visible").trim()
     : extraOuterClassName;
@@ -1144,6 +1477,7 @@ export function BottomNav({
     bodyPortal || effectiveOuterExtra.length > 0 ? BOTTOM_NAV_OUTER_MOTION : "",
     effectiveOuterExtra,
     isDeliveryNavMode && deliveryDomainSwitcherOpen ? "app-bottom-nav-shell--switcher-open" : "",
+    isTradeNavMode && deliveryDomainSwitcherOpen ? "app-bottom-nav-shell--switcher-open" : "",
   ]
     .filter(Boolean)
     .join(" ");
@@ -1152,11 +1486,13 @@ export function BottomNav({
     setDeliveryDomainSwitcherOpen(false);
   }, []);
 
-  const prewarmDialOnOpen = useCallback(() => {
+  const prewarmDialOnOpen = useCallback(
+    (dialContext: "delivery" | "trade" = "delivery") => {
     try {
       prewarmConsumerDeliveryDomainDial(ownerStoreRow?.id, {
         primaryRegion: primaryRegionRef.current ?? primaryRegion,
         prefetch: (href) => routerRef.current.prefetch(href),
+        dialContext,
       });
     } catch {
       /* noop */
@@ -1165,7 +1501,7 @@ export function BottomNav({
 
   const renderBottomNavTab = useCallback(
     (tab: BottomNavItemConfig, tabIndex: number) => {
-      const groupEdgeClass = isDeliveryNavMode
+      const groupEdgeClass = isGridBottomNavMode
         ? ""
         : tabIndex === 2
           ? "app-bottom-nav-item--group-gap-after"
@@ -1174,7 +1510,10 @@ export function BottomNav({
             : "";
       const guardNav = () => {
         const targetHref =
-          tab.id === "chat" || tab.id === "delivery-order-chat"
+          tab.id === "chat" ||
+          tab.id === "delivery-order-chat" ||
+          tab.id === "philife-messenger" ||
+          tab.id === "trade-order-chat"
             ? bottomNavMessengerHrefWithOrigin(tab.href, pathname, searchParams)
             : tab.id === "delivery-orders"
               ? resolveDeliveryOrderHistoryHref(ownerStoreRow?.id)
@@ -1187,6 +1526,53 @@ export function BottomNav({
         openPhoneVerificationRequiredDialog({ next: targetHref });
         return false;
       };
+      if (tab.id === "philife-home-hub") {
+        return (
+          <BottomNavTabPhilifeHomeHub
+            key={tab.id}
+            tab={tab}
+            itemClassName={groupEdgeClass}
+            pathname={pathname}
+            navSearch={navSearch}
+            pendingActiveTabId={pendingActiveTabId}
+            onNavigationIntent={markBottomNavIntent}
+            beginMenuNavigation={beginBottomNavNavigation}
+            guardBeforeNavigate={guardNav}
+          />
+        );
+      }
+      if (tab.id === "trade-home-hub") {
+        return (
+          <BottomNavTabTradeHomeHub
+            key={tab.id}
+            tab={tab}
+            itemClassName={groupEdgeClass}
+            pathname={pathname}
+            switcherOpen={deliveryDomainSwitcherOpen}
+            onToggleSwitcher={() => {
+              setDeliveryDomainSwitcherOpen((open) => {
+                const next = !open;
+                if (next) {
+                  if (typeof document !== "undefined") {
+                    const active = document.activeElement;
+                    if (active instanceof HTMLElement) active.blur();
+                  }
+                  prewarmDialOnOpen("trade");
+                }
+                return next;
+              });
+            }}
+            onNavigationIntent={markBottomNavIntent}
+            beginMenuNavigation={beginBottomNavNavigation}
+            guardBeforeNavigate={guardNav}
+          />
+        );
+      }
+      const closeSwitcherOnNav =
+        (isDeliveryNavMode || isTradeNavMode) && deliveryDomainSwitcherOpen
+          ? closeDomainSwitcher
+          : undefined;
+
       if (tab.id === "delivery-home-hub") {
         return (
           <BottomNavTabDeliveryHomeHub
@@ -1203,7 +1589,7 @@ export function BottomNav({
                     const active = document.activeElement;
                     if (active instanceof HTMLElement) active.blur();
                   }
-                  prewarmDialOnOpen();
+                  prewarmDialOnOpen("delivery");
                 }
                 return next;
               });
@@ -1214,9 +1600,6 @@ export function BottomNav({
           />
         );
       }
-      const closeSwitcherOnNav =
-        isDeliveryNavMode && deliveryDomainSwitcherOpen ? closeDomainSwitcher : undefined;
-
       if (tab.id === "delivery-cart") {
         return (
           <BottomNavTabDeliveryCart
@@ -1233,7 +1616,7 @@ export function BottomNav({
           />
         );
       }
-      if (tab.icon === "stores" && !isDeliveryNavMode) {
+      if (tab.icon === "stores" && !isGridBottomNavMode) {
         return (
           <BottomNavTabStores
             key={tab.id}
@@ -1274,17 +1657,24 @@ export function BottomNav({
       beginBottomNavNavigation,
       guardBeforeNavigate,
       isDeliveryNavMode,
+      isTradeNavMode,
+      isGridBottomNavMode,
       deliveryDomainSwitcherOpen,
       closeDomainSwitcher,
       prewarmDialOnOpen,
     ]
   );
 
-  const navGridClass = isDeliveryNavMode ? "app-bottom-nav-grid" : "app-bottom-nav-split";
+  const navGridClass = isGridBottomNavMode ? "app-bottom-nav-grid" : "app-bottom-nav-split";
 
   const nav = (
     <nav
-      className={[outerClass, isDeliveryNavMode ? "app-bottom-nav-shell--delivery" : ""].filter(Boolean).join(" ")}
+      className={[
+        outerClass,
+        isGridBottomNavMode ? "app-bottom-nav-shell--delivery" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       aria-label={t("nav_bottom_bar_aria")}
     >
       <div className={`${BOTTOM_NAV_SHELL.innerBarClassName} ${BOTTOM_NAV_SHELL.heightClass}`}>
@@ -1298,10 +1688,11 @@ export function BottomNav({
   if (hideBottomNavShell) return null;
 
   const switcherOverlay =
-    isDeliveryNavMode ? (
+    isDeliveryNavMode || isTradeNavMode ? (
       <DeliveryDomainSwitcherOverlay
         open={deliveryDomainSwitcherOpen}
-        onClose={() => setDeliveryDomainSwitcherOpen(false)}
+        onClose={closeDomainSwitcher}
+        dialContext={isTradeNavMode ? "trade" : "delivery"}
         beginMenuNavigation={beginBottomNavNavigation}
         onNavigationIntent={markBottomNavIntent}
       />

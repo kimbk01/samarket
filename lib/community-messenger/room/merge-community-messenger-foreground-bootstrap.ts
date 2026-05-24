@@ -54,6 +54,8 @@ export function mergeCommunityMessengerForegroundBootstrapIntoSnapshot(
   const messages =
     nextMessages.length > 0 ? mergeMessageLists(prevMessages, nextMessages) : prevMessages;
   const members = mergeMembers(prev.members, next.members);
+  const prevCount = prevMessages.length;
+  const nextCount = nextMessages.length;
   return {
     ...roomCore,
     viewerUserId: next.viewerUserId || prev.viewerUserId,
@@ -63,7 +65,10 @@ export function mergeCommunityMessengerForegroundBootstrapIntoSnapshot(
     readReceipt: next.readReceipt ?? prev.readReceipt,
     peerPresence: next.peerPresence ?? prev.peerPresence,
     activeCall: next.activeCall ?? prev.activeCall,
-    hasMoreOlderMessages: next.hasMoreOlderMessages ?? prev.hasMoreOlderMessages,
+    hasMoreOlderMessages:
+      prevCount > nextCount && prevCount > 0
+        ? prev.hasMoreOlderMessages
+        : (next.hasMoreOlderMessages ?? prev.hasMoreOlderMessages),
     membersDeferred: next.membersDeferred ?? prev.membersDeferred,
     bootstrapEnrichmentPending:
       next.bootstrapEnrichmentPending ?? prev.bootstrapEnrichmentPending,

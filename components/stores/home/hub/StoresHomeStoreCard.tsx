@@ -46,20 +46,18 @@ export function StoresHomeStoreCardList({
   hydratedByStoreId,
   getPhase,
   registerListItem,
-  hydrationEpoch,
 }: {
   stores: StoreHomeFeedItem[];
   hydratedByStoreId: ReadonlyMap<string, BrowseFeaturedCardItem[]>;
   getPhase: (storeId: string) => BrowseFeaturedMenuHydrationPhase;
   registerListItem: (storeId: string, node: HTMLElement | null) => void;
-  hydrationEpoch: number;
 }) {
   const { language } = useI18n();
   return (
     <ul className="space-y-2">
       {stores.map((s) => (
         <StoresHomeStoreCard
-          key={`${s.id}-${hydrationEpoch}`}
+          key={s.id}
           store={s}
           locale={language}
           hydrated={hydratedByStoreId.get(s.id)}

@@ -170,23 +170,25 @@ export async function fetchStoreMenusCatalog(
     menu_sold_out_bottom: menuSoldOutBottom,
   };
 
-  const metaPromise = loadStoreCommerceMetaCached(sb, storeId, viewerId);
-  const productsPromise = fetchStoreProductsForMenus(sb, storeId);
+  const metaPromise = loadStoreCommerceMetaCached(sb, storeId, viewerId).then((value) => {
+    marks.metaDone = performance.now();
+    return value;
+  });
+  const productsPromise = fetchStoreProductsForMenus(sb, storeId).then((value) => {
+    marks.productsDone = performance.now();
+    return value;
+  });
   const popularPromise = queryStorePopularMenuStatsCached(
     sb,
     storeId,
     commerce.popularMenuWindowDays,
     commerce.popularMenuTopN
-  );
+  ).then((value) => {
+    marks.popularDone = performance.now();
+    return value;
+  });
 
-  const [meta, productsPack, popularStats] = await Promise.all([
-    metaPromise,
-    productsPromise,
-    popularPromise,
-  ]);
-  marks.metaDone = performance.now();
-  marks.productsDone = performance.now();
-  marks.popularDone = performance.now();
+  const [meta, productsPack, popularStats] = await Promise.all([metaPromise, productsPromise, popularPromise]);
   queryCount += 3 + productsPack.queryCount;
 
   let products: unknown[] = [];

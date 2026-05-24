@@ -951,7 +951,7 @@
     height: 6px;
     overflow: hidden;
     border-radius: 999px;
-    background: #e5e7eb;
+    background: color-mix(in srgb, var(--delivery-primary) 12%, var(--delivery-bg-muted));
   }
 
   [data-cm-room][data-delivery-viewer-role] .sam-delivery-order-progress__fill-clip {
@@ -968,7 +968,7 @@
     width: 100%;
     height: 100%;
     border-radius: 999px;
-    background: #1C8DB8;
+    background: var(--delivery-primary);
     transform: scaleX(0);
     transform-origin: left center;
     animation: sam-delivery-order-progress-fill-loop 3.2s linear infinite;

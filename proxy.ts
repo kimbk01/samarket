@@ -3,6 +3,13 @@ import { type NextRequest, NextResponse } from "next/server";
 import { isAdminRequireAuthEnabled } from "@/lib/auth/admin-policy";
 import { sanitizeNextPath } from "@/lib/auth/safe-next-path";
 import { cookieSecureFromNextRequest } from "@/lib/auth/cookie-secure-flag";
+import {
+  peekProxyAuthSessionCache,
+  proxyAuthCookieFingerprint,
+  runProxyAuthResolveSingleFlight,
+  setProxyAuthSessionCache,
+} from "@/lib/auth/proxy-auth-session-cache";
+import { resolveProxyAuthFromSupabase } from "@/lib/auth/resolve-proxy-auth-from-supabase";
 import { requireSupabaseEnv } from "@/lib/env/runtime";
 import { devPerfNow, logDevApiPerf } from "@/lib/dev/dev-api-perf-log";
 
@@ -193,13 +200,13 @@ export async function proxy(request: NextRequest) {
    */
   try {
     const gu0 = devPerfNow();
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser();
-    proxyAuthMs = devPerfNow() - gu0;
+    const authFp = proxyAuthCookieFingerprint(request);
+    let proxyAuthCacheHit = 0;
+    let userId = peekProxyAuthSessionCache(authFp);
 
-    if (user?.id) {
+    if (userId) {
+      proxyAuthCacheHit = 1;
+      proxyAuthMs = devPerfNow() - gu0;
       if (shouldLogProxyPerf) {
         logDevApiPerf(
           "proxy.ts",
@@ -207,13 +214,20 @@ export async function proxy(request: NextRequest) {
             auth_session_ms: Math.round(proxyAuthMs),
             total_route_ms: Math.round(devPerfNow() - tProxy0),
           },
-          { pathname }
+          { pathname, auth_cache_hit: proxyAuthCacheHit }
         );
       }
       return finalizeOwnerDocResponse(response, pathname);
     }
 
-    if (!error) {
+    const resolved = await runProxyAuthResolveSingleFlight(authFp, () =>
+      resolveProxyAuthFromSupabase(supabase)
+    );
+    proxyAuthMs = devPerfNow() - gu0;
+    userId = resolved.userId;
+
+    if (userId) {
+      setProxyAuthSessionCache(authFp, userId);
       if (shouldLogProxyPerf) {
         logDevApiPerf(
           "proxy.ts",
@@ -221,7 +235,21 @@ export async function proxy(request: NextRequest) {
             auth_session_ms: Math.round(proxyAuthMs),
             total_route_ms: Math.round(devPerfNow() - tProxy0),
           },
-          { pathname, redirect_login: 1 }
+          { pathname, auth_cache_hit: proxyAuthCacheHit }
+        );
+      }
+      return finalizeOwnerDocResponse(response, pathname);
+    }
+
+    if (!resolved.transientError) {
+      if (shouldLogProxyPerf) {
+        logDevApiPerf(
+          "proxy.ts",
+          {
+            auth_session_ms: Math.round(proxyAuthMs),
+            total_route_ms: Math.round(devPerfNow() - tProxy0),
+          },
+          { pathname, redirect_login: 1, auth_cache_hit: proxyAuthCacheHit }
         );
       }
       return redirectToLogin(request);
@@ -234,7 +262,7 @@ export async function proxy(request: NextRequest) {
           auth_session_ms: Math.round(proxyAuthMs),
           total_route_ms: Math.round(devPerfNow() - tProxy0),
         },
-        { pathname, fail_open: 1 }
+        { pathname, fail_open: 1, auth_cache_hit: proxyAuthCacheHit }
       );
     }
     return finalizeOwnerDocResponse(response, pathname);

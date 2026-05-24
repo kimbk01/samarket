@@ -116,9 +116,13 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
   /** ??DOM ??붙�? ?�에�?vv 변??구독 ??�??�레?�에 ref 미�?착으�??�이 빠�???경우 방�? @see docs/community-messenger-mobile-room-viewport.md */
   const [chatShellMounted, setChatShellMounted] = useState(false);
   const roomIdStable = String(room.snapshot.room.id ?? "").trim();
-  const [hydrationPass, setHydrationPass] = useState<CmRoomPhase2HydrationPass>(() =>
-    getCmRoomSubtreeHydrationPass(roomIdStable) as CmRoomPhase2HydrationPass
-  );
+  const [hydrationPass, setHydrationPass] = useState<CmRoomPhase2HydrationPass>(() => {
+    const persisted = getCmRoomSubtreeHydrationPass(roomIdStable);
+    if (persisted >= 3) return persisted as CmRoomPhase2HydrationPass;
+    if ((room.snapshot.messages?.length ?? 0) > 0) return 3;
+    if (persisted >= 2) return persisted as CmRoomPhase2HydrationPass;
+    return persisted as CmRoomPhase2HydrationPass;
+  });
   const setMessengerShellRef = useCallback((node: HTMLDivElement | null) => {
     rootRef.current = node;
     setChatShellMounted(Boolean(node));
@@ -145,6 +149,15 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
       });
     }
     const persisted = bumpCmRoomHydrationPassFromPersisted(rid, hydrationPass);
+    if (persisted >= 3) {
+      setHydrationPass(persisted as CmRoomPhase2HydrationPass);
+      return;
+    }
+    if ((room.snapshot.messages?.length ?? 0) > 0) {
+      setHydrationPass(3);
+      setCmRoomSubtreeHydrationPass(rid, 3);
+      return;
+    }
     if (persisted >= 2) {
       setHydrationPass(persisted as CmRoomPhase2HydrationPass);
       return;
@@ -154,7 +167,7 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
       setHydrationPass(2);
       setCmRoomSubtreeHydrationPass(rid, 2);
     });
-  }, [hydrationPass, roomIdStable]);
+  }, [hydrationPass, roomIdStable, room.snapshot.messages.length]);
 
   useEffect(() => {
     if (hydrationPass < 2) return;
@@ -445,7 +458,7 @@ const CommunityMessengerRoomClientPhase2Main = memo(function CommunityMessengerR
           data-cm-room-hydration-pass={hydrationPass}
           data-trade-viewer-role={tradeViewerRole ?? undefined}
           data-delivery-viewer-role={deliveryViewerRole ?? undefined}
-          className="flex min-h-0 flex-1 flex-col overflow-hidden bg-[color:var(--cm-room-page-bg)] text-[color:var(--cm-room-text)]"
+          className={`flex min-h-0 flex-1 flex-col overflow-hidden bg-[color:var(--cm-room-page-bg)] text-[color:var(--cm-room-text)]${storeOrderDeliveryRoomEnabled ? " delivery-ui" : ""}`}
           style={
             narrowViewport
               ? ({

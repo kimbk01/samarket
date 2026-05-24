@@ -46,12 +46,21 @@ export async function resolveStoreOrderability(
     };
   }
 
-  const [viewerIsAdmin] = await Promise.all([loadViewerAdminFlag(sb, viewerId)]);
   const viewerIsOwner = ownerId.length > 0 && ownerId === viewerId;
-  const blocked = viewerIsOwner && !viewerIsAdmin;
+  if (!viewerIsOwner) {
+    return {
+      viewer_is_owner: false,
+      viewer_is_admin: false,
+      can_order_store: true,
+      owner_block_message: null,
+    };
+  }
+
+  const viewerIsAdmin = await loadViewerAdminFlag(sb, viewerId);
+  const blocked = !viewerIsAdmin;
 
   return {
-    viewer_is_owner: viewerIsOwner,
+    viewer_is_owner: true,
     viewer_is_admin: viewerIsAdmin,
     can_order_store: !blocked,
     owner_block_message: blocked ? OWN_STORE_ORDER_BLOCK_MESSAGE : null,

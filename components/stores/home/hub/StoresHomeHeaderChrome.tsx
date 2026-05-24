@@ -35,6 +35,21 @@ function SearchIcon() {
   );
 }
 
+function MapPinIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M12 21s-6.5-5.7-6.5-11A6.5 6.5 0 1118.5 10c0 5.3-6.5 11-6.5 11z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="10" r="2.5" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
 /**
  * CONTRACT — `/stores` 배민형 고정 헤더.
  * DO NOT: `store_address_manage_link` 를 버튼 라벨로 — `resolveDeliveryHomeHeaderButtonLabel` 만.
@@ -59,6 +74,7 @@ export function StoresHomeHeaderChrome() {
               aria-expanded={addressOpen}
               onClick={() => setAddressOpen(true)}
             >
+              <MapPinIcon className="h-4 w-4 shrink-0 opacity-95" />
               <span className="truncate text-[16px] font-bold leading-tight">{headerLine}</span>
               <ChevronDownIcon className="h-3 w-3 shrink-0 opacity-90" />
             </button>

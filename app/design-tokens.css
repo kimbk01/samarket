@@ -320,18 +320,23 @@
   --cm-room-header-bg: color-mix(in srgb, var(--sam-info) 7%, var(--messenger-surface));
 }
 
-[data-cm-room][data-delivery-viewer-role="seller"] {
-  --cm-room-page-bg: #eef5fb;
-  --cm-room-header-bg: #ffffff;
-  --cm-room-delivery-chrome-bg: #ffffff;
-  --cm-room-chat-bg: #eef5fb;
-}
-
+[data-cm-room][data-delivery-viewer-role="seller"],
 [data-cm-room][data-delivery-viewer-role="buyer"] {
-  --cm-room-page-bg: #eef5fb;
-  --cm-room-header-bg: #ffffff;
-  --cm-room-delivery-chrome-bg: #ffffff;
-  --cm-room-chat-bg: #eef5fb;
+  --cm-room-primary: var(--delivery-primary);
+  --cm-room-primary-hover: var(--delivery-primary-hover);
+  --cm-room-primary-active: var(--delivery-primary-active);
+  --cm-room-primary-soft: var(--delivery-primary-soft);
+  --cm-room-primary-disabled: color-mix(in srgb, var(--delivery-primary) 35%, #ffffff);
+  --cm-room-page-bg: var(--delivery-chat-bg);
+  --cm-room-header-bg: var(--delivery-chat-header-bg);
+  --cm-room-delivery-chrome-bg: var(--delivery-chat-chrome-bg);
+  --cm-room-chat-bg: var(--delivery-chat-bg);
+  --cm-room-bg: var(--delivery-chat-bg);
+  --cm-room-text: var(--delivery-dark);
+  --cm-room-text-muted: var(--delivery-mocha);
+  --cm-room-divider: var(--delivery-chat-chrome-border);
+  --cm-room-bubble-outgoing: var(--delivery-primary);
+  --cm-room-bubble-outgoing-fg: #ffffff;
 }
 
 /**

@@ -21,6 +21,7 @@ import {
   neighborhoodLocationLabelFromRegion,
   neighborhoodLocationMetaFromRegion,
 } from "@/lib/neighborhood/location-key";
+import { SAM_TIER1_HEADER_ICON_GLYPH_CLASS } from "@/lib/ui/tier1-header-icon";
 
 export function PhilifeHeaderAddressMenuButton({
   panelPlacement = "anchor",
@@ -249,7 +250,7 @@ export function PhilifeHeaderAddressMenuButton({
         aria-expanded={open}
         onClick={toggleMenu}
       >
-        <svg className="h-6 w-6 scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} aria-hidden>
+        <svg className={SAM_TIER1_HEADER_ICON_GLYPH_CLASS} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2} aria-hidden>
           <path
             strokeLinecap="round"
             strokeLinejoin="round"

@@ -402,11 +402,8 @@ export function OwnerStoreOrderDeliveryActionsChatToolbar({
     if (order.order_status === "refunded") {
       return <p className="sam-text-xxs leading-snug text-sam-muted">{t("business_phase7_331")}</p>;
     }
-    if (!showTransitionButtons) {
-      return <p className="sam-text-xxs leading-snug text-sam-meta">{t("business_phase7_231")}</p>;
-    }
     return null;
-  }, [order.order_status, showTransitionButtons, t]);
+  }, [order.order_status, t]);
 
   return (
     <>
@@ -417,9 +414,6 @@ export function OwnerStoreOrderDeliveryActionsChatToolbar({
           </p>
           <p className="shrink-0 sam-text-helper font-medium text-[#555]">{statusLabel}</p>
         </div>
-        <p className="mb-2 sam-text-xxs leading-snug text-muted">
-          배달·접수 처리는 여기서 진행하고, 주문 전문·채팅 전송은 우측 ⋯에서 확인하세요.
-        </p>
         {noticeEl}
         {err ? (
           <p className="mt-1.5 sam-text-xxs leading-snug text-red-600 [overflow-wrap:anywhere]">{err}</p>

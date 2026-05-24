@@ -20,6 +20,8 @@ import {
 import {
   mergeMessageIntoRoomSnapshotCache,
   patchRoomSummaryInSnapshotCache,
+  primeHotRoomSnapshot,
+  primeRoomSnapshot,
   seedRoomSnapshotFromSummary,
 } from "@/lib/community-messenger/room-snapshot-cache";
 import {
@@ -231,11 +233,8 @@ export const useMessengerRealtimeStore = create<MessengerRealtimeState>((set, ge
       lastReadByRoomId = pr.lastReadByRoomId;
       const viewer = snapshot.viewerUserId?.trim() || state.viewerUserId;
       if (viewer) {
-        seedRoomSnapshotFromSummary({
-          room: snapshot.room,
-          viewerUserId: viewer,
-          message: snapshot.messages?.[snapshot.messages.length - 1] ?? null,
-        });
+        primeRoomSnapshot(rid, snapshot);
+        primeHotRoomSnapshot(rid, snapshot);
       }
       return {
         viewerUserId: viewer,

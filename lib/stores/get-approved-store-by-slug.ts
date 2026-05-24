@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { runSingleFlight } from "@/lib/http/run-single-flight";
 
 /** 90일 최근 주문 건수 집계용 — `/api/stores/[slug]` 와 동일 */
 export const RECENT_ORDER_STATUSES = [
@@ -44,6 +45,16 @@ export type ApprovedStoreLookupResult =
   | { ok: false; reason: "not_found" }
   | { ok: false; reason: "db_error"; message: string };
 
+const APPROVED_STORE_SLUG_CACHE_TTL_MS = 30_000;
+const approvedStoreSlugCache = new Map<
+  string,
+  { expiresAt: number; result: ApprovedStoreLookupResult }
+>();
+
+function approvedStoreSlugCacheKey(decodedSlug: string, selectColumns: string): string {
+  return `${decodedSlug.trim().toLowerCase()}\0${selectColumns}`;
+}
+
 /**
  * 승인·공개 매장만 slug 로 조회. `approval_status` / `is_visible` 은 select 에 포함되어 있어야 함.
  */
@@ -52,22 +63,44 @@ export async function getApprovedStoreBySlug(
   decodedSlug: string,
   selectColumns: string
 ): Promise<ApprovedStoreLookupResult> {
-  const { data: store, error: storeErr } = await sb
-    .from("stores")
-    .select(selectColumns)
-    .eq("slug", decodedSlug)
-    .maybeSingle();
+  const cacheKey = approvedStoreSlugCacheKey(decodedSlug, selectColumns);
+  const hit = approvedStoreSlugCache.get(cacheKey);
+  if (hit && hit.expiresAt > Date.now()) return hit.result;
 
-  if (storeErr) {
-    return { ok: false, reason: "db_error", message: storeErr.message };
-  }
+  return runSingleFlight(`approved-store-slug:${cacheKey}`, async () => {
+    const again = approvedStoreSlugCache.get(cacheKey);
+    if (again && again.expiresAt > Date.now()) return again.result;
 
-  const row = store as Record<string, unknown> | null;
-  if (!row || row.approval_status !== "approved" || row.is_visible !== true) {
-    return { ok: false, reason: "not_found" };
-  }
+    const { data: store, error: storeErr } = await sb
+      .from("stores")
+      .select(selectColumns)
+      .eq("slug", decodedSlug)
+      .maybeSingle();
 
-  return { ok: true, store: row };
+    let result: ApprovedStoreLookupResult;
+    if (storeErr) {
+      result = { ok: false, reason: "db_error", message: storeErr.message };
+    } else {
+      const row = store as Record<string, unknown> | null;
+      if (!row || row.approval_status !== "approved" || row.is_visible !== true) {
+        result = { ok: false, reason: "not_found" };
+      } else {
+        result = { ok: true, store: row };
+      }
+    }
+
+    if (result.ok === true || result.reason === "not_found") {
+      approvedStoreSlugCache.set(cacheKey, {
+        expiresAt: Date.now() + APPROVED_STORE_SLUG_CACHE_TTL_MS,
+        result,
+      });
+    }
+    return result;
+  });
+}
+
+export function resetApprovedStoreSlugCacheForTests(): void {
+  approvedStoreSlugCache.clear();
 }
 
 export type StoreCommerceMeta = {

@@ -73,9 +73,9 @@ describe("composeMainBottomNavDisplayTabs (delivery rail)", () => {
     }
   });
 
-  it("/market — 기존 6탭 유지", () => {
+  it("/market — 기존 6탭 분할 아닌 거래 5탭", () => {
     const tabs = composeMainBottomNavDisplayTabs("/market", BOTTOM_NAV_ITEMS, null);
-    expect(tabs).toHaveLength(6);
-    expect(tabs[0]?.id).toBe("community");
+    expect(tabs).toHaveLength(5);
+    expect(tabs[0]?.id).toBe("trade-history");
   });
 });

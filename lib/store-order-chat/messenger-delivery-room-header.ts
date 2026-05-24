@@ -35,6 +35,77 @@ export function buyerNicknameForOwnerHeader(
   return "주문자";
 }
 
+const STORE_ORDER_ROOM_UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+/** 매장 slug·storeId·room id 가 닉네임/제목으로 노출되는 것 방지 */
+export function isStoreTechnicalIdentifier(
+  label: string | null | undefined,
+  ids?: { storeId?: string | null; storeSlug?: string | null }
+): boolean {
+  const t = label?.trim() ?? "";
+  if (!t) return true;
+  if (STORE_ORDER_ROOM_UUID_RE.test(t)) return true;
+  const sid = ids?.storeId?.trim().toLowerCase();
+  if (sid && t.toLowerCase() === sid) return true;
+  const slug = ids?.storeSlug?.trim().toLowerCase();
+  if (slug && t.toLowerCase() === slug) return true;
+  return false;
+}
+
+export function storeNameFromDeliveryHeadline(headline: string | undefined): string | null {
+  const h = headline?.trim();
+  if (!h) return null;
+  const sep = h.indexOf(" · ");
+  return sep > 0 ? h.slice(0, sep).trim() || null : h;
+}
+
+/** 구매자 헤더·점세개·하단 카드 — 매장명 단일 소스(실 ID·slug 폴백 금지) */
+export function resolveDeliveryStoreDisplayName(input: {
+  orderCardStoreName?: string | null;
+  deliveryHeadline?: string | null;
+  roomTitle?: string | null;
+  storeId?: string | null;
+  storeSlug?: string | null;
+}): string {
+  const ids = { storeId: input.storeId, storeSlug: input.storeSlug };
+  const fromCard = input.orderCardStoreName?.trim();
+  if (fromCard && !isStoreTechnicalIdentifier(fromCard, ids)) return fromCard;
+
+  const fromHeadline = storeNameFromDeliveryHeadline(input.deliveryHeadline ?? undefined);
+  if (fromHeadline && !isStoreTechnicalIdentifier(fromHeadline, ids)) return fromHeadline;
+
+  const fromTitleHeadline = storeNameFromDeliveryHeadline(input.roomTitle ?? undefined);
+  if (fromTitleHeadline && !isStoreTechnicalIdentifier(fromTitleHeadline, ids)) return fromTitleHeadline;
+
+  const title = input.roomTitle?.trim();
+  if (title && !isStoreTechnicalIdentifier(title, ids) && title.includes(" · ")) {
+    const head = storeNameFromDeliveryHeadline(title);
+    if (head && !isStoreTechnicalIdentifier(head, ids)) return head;
+  }
+
+  return "매장";
+}
+
+/** 하단 주문 카드 1줄 제목 — 매장=주문자, 구매자=매장 */
+export function resolveDeliveryChromePrimaryLabel(input: {
+  isSeller: boolean;
+  storeOrderSnap: StoreOrderRoomSnapshot | null;
+  peerProfileLabel: string | null | undefined;
+  roomTitle: string;
+  deliveryHeadline: string | undefined;
+}): string {
+  if (input.isSeller) {
+    return buyerNicknameForOwnerHeader(input.peerProfileLabel, input.roomTitle);
+  }
+  return resolveDeliveryStoreDisplayName({
+    orderCardStoreName: input.storeOrderSnap?.orderCard?.storeName,
+    deliveryHeadline: input.deliveryHeadline,
+    roomTitle: input.roomTitle,
+    storeSlug: input.storeOrderSnap?.storeSlug,
+  });
+}
+
 export function resolveDeliveryPeerUserId(input: {
   peerUserId: string;
   viewerUserId: string;

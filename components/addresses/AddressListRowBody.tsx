@@ -24,6 +24,7 @@ export function AddressListRowBody({
   showDefaultDeliveryBadge = false,
   showTapRepresentative = false,
   addressMainClassName,
+  preferFullAddressLine = false,
 }: {
   row: UserAddressDTO;
   approvedStoresById?: ReadonlyMap<string, string>;
@@ -33,6 +34,8 @@ export function AddressListRowBody({
   showTapRepresentative?: boolean;
   /** 배달 시트 등 — 본문 주소 색 오버라이드 */
   addressMainClassName?: string;
+  /** 배달 홈 주소 시트 — 카드 한 줄 대신 주소관리 전체 한 줄 */
+  preferFullAddressLine?: boolean;
 }) {
   const { t } = useI18n();
   const isPh = (row.countryCode ?? "PH").trim().toUpperCase() === "PH";
@@ -56,7 +59,9 @@ export function AddressListRowBody({
         buildAddressManagementListPrimaryLine(row),
         row.countryName,
       );
-  const detailLine = isPh ? null : buildAddressListDetailLine(row, sub);
+  const detailLine =
+    preferFullAddressLine ? null : isPh ? null : buildAddressListDetailLine(row, sub);
+  const fullAddressLine = preferFullAddressLine ? buildAddressManagementListPrimaryLine(row) : null;
 
   const designationPlain = getUserAddressDesignationPlainText(row, {
     linkedSamarketStoreDisplayName: samarketStoreDisplayName || null,
@@ -125,8 +130,10 @@ export function AddressListRowBody({
 
       <div className={`mt-1.5 flex gap-2 ${ADDR_LIST_ADDRESS_TEXT}`}>
         <AddressKindHeadPin kind={headKind} className="pt-0.5" />
-        <div className={`min-w-0 flex-1 ${mainTextClass}`}>
-          {isPh && phOne ?
+        <div className={`min-w-0 flex-1 break-words ${mainTextClass}`}>
+          {preferFullAddressLine ?
+            fullAddressLine || "—"
+          : isPh && phOne ?
             <>
               {phOne.gatePrefix ?
                 <strong className="font-bold text-sam-fg">{phOne.gatePrefix}</strong>

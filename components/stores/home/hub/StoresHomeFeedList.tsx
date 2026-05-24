@@ -37,7 +37,6 @@ export function StoresHomeFeedList({
   hydratedByStoreId,
   getPhase,
   registerListItem,
-  hydrationEpoch,
 }: {
   sections: StoresHomeFeedSections;
   loading: boolean;
@@ -46,7 +45,6 @@ export function StoresHomeFeedList({
   hydratedByStoreId: ReadonlyMap<string, BrowseFeaturedCardItem[]>;
   getPhase: (storeId: string) => BrowseFeaturedMenuHydrationPhase;
   registerListItem: (storeId: string, node: HTMLElement | null) => void;
-  hydrationEpoch: number;
 }) {
   const { t } = useI18n();
   if (loading) return null;
@@ -81,7 +79,6 @@ export function StoresHomeFeedList({
               hydratedByStoreId={hydratedByStoreId}
               getPhase={getPhase}
               registerListItem={registerListItem}
-              hydrationEpoch={hydrationEpoch}
             />
           </StoresHomeSectionShell>
         );

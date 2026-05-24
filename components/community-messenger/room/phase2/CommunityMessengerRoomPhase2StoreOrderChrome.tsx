@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useI18n } from "@/components/i18n/AppLanguageProvider";
 import type { MessageKey } from "@/lib/i18n/messages";
 
@@ -20,6 +20,11 @@ import {
 } from "@/lib/store-order-chat/messenger-delivery-progress";
 import { formatStoreOrderDeliveryAddressPlain } from "@/lib/addresses/store-order-delivery-address-display";
 import { formatMoneyPhp } from "@/lib/utils/format";
+import { scheduleMessengerScrollToBottomAfterRowsPainted } from "@/lib/community-messenger/room/messenger-timeline-layout-mode";
+import {
+  resolveDeliveryChromePrimaryLabel,
+  resolveDeliveryPeerUserId,
+} from "@/lib/store-order-chat/messenger-delivery-room-header";
 
 type Props = {
   keyboardCompact: boolean;
@@ -49,11 +54,33 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const statusLabel = meta?.stepLabel?.trim() || null;
-  const headline = meta?.headline?.trim() || t("store_messenger_order_fallback");
 
   const isSeller = participantLooksSeller || Boolean(snapshot?.ownerOrder);
-  const displayHeadline =
-    snapshot?.orderCard?.storeName || headline.replace(/\s*[·|]\s*주문\s+\S+.*/u, "").trim();
+
+  const deliveryPeerUserId = useMemo(
+    () =>
+      resolveDeliveryPeerUserId({
+        peerUserId: vm.snapshot.room.peerUserId ?? "",
+        viewerUserId: vm.snapshot.viewerUserId ?? "",
+        memberIds: vm.snapshot.members.map((m) => m.id),
+      }),
+    [vm.snapshot.members, vm.snapshot.room.peerUserId, vm.snapshot.viewerUserId]
+  );
+  const peerProfileLabel = useMemo(
+    () => vm.snapshot.members.find((m) => m.id.trim() === deliveryPeerUserId)?.label ?? null,
+    [deliveryPeerUserId, vm.snapshot.members]
+  );
+  const chromePrimaryLabel = useMemo(
+    () =>
+      resolveDeliveryChromePrimaryLabel({
+        isSeller,
+        storeOrderSnap: snapshot,
+        peerProfileLabel,
+        roomTitle: vm.snapshot.room.title,
+        deliveryHeadline: meta?.kind === "delivery" ? meta.headline : undefined,
+      }),
+    [isSeller, meta, peerProfileLabel, snapshot, vm.snapshot.room.title]
+  );
 
   const postChatText = useCallback(
     async (text: string): Promise<{ ok: true } | { ok: false; error?: string }> => {
@@ -110,11 +137,16 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
     setDetailDrawerOpen(true);
   }, [setDetailDrawerOpen]);
 
+  /** 키보드로 chrome 1줄 접힐 때만 스크롤 — 진입·상태 변경은 timeline_delivery_direct_paint·dock ResizeObserver 가 담당 */
   useEffect(() => {
-    if (!isSeller || keyboardCompact) return;
-    const id = window.requestAnimationFrame(() => vm.scrollMessengerToBottom());
-    return () => window.cancelAnimationFrame(id);
-  }, [isSeller, keyboardCompact, snapshot?.ownerOrder?.order_status, vm]);
+    if (!keyboardCompact) return;
+    return scheduleMessengerScrollToBottomAfterRowsPainted({
+      roomId: vm.streamRoomId,
+      messagesViewportRef: vm.messagesViewportRef,
+      scroll: vm.scrollMessengerToBottom,
+      reason: "store_order_chrome_keyboard_compact",
+    });
+  }, [keyboardCompact, vm.messagesViewportRef, vm.scrollMessengerToBottom, vm.streamRoomId]);
 
   const buyerCanCancel =
     !!snapshot?.buyerOrder &&
@@ -168,22 +200,22 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
     return (
       <>
         <div
-          className="shrink-0 border-t border-[color:var(--cm-room-divider)] bg-[color:var(--cm-room-surface-muted)] px-3 py-2"
+          className="delivery-ui shrink-0 border-t border-[color:var(--delivery-chat-chrome-border)] bg-[color:var(--delivery-chat-chrome-bg)] px-3 py-2"
           role="region"
           aria-label={t("store_order_info")}
         >
           <div className="flex min-w-0 items-center justify-between gap-2">
-            <p className="min-w-0 truncate sam-text-helper text-[color:var(--cm-room-text)]">
+            <p className="min-w-0 truncate sam-text-helper text-[color:var(--delivery-dark)]">
               {statusLabel ? (
-                <span className="font-semibold text-[color:var(--cm-room-primary)]">{statusLabel}</span>
+                <span className="font-semibold text-[color:var(--delivery-primary)]">{statusLabel}</span>
               ) : (
-                displayHeadline
+                chromePrimaryLabel
               )}
             </p>
             <button
               type="button"
               onClick={openOrderDetailDrawer}
-              className="shrink-0 rounded-ui-rect border border-[color:var(--cm-room-primary)]/40 bg-[color:var(--cm-room-primary-soft)] px-2 py-1 sam-text-xxs font-semibold text-[color:var(--cm-room-primary)]"
+              className="shrink-0 rounded-ui-rect border border-[color:var(--delivery-primary-border)] bg-[color:var(--delivery-primary-soft)] px-2 py-1 sam-text-xxs font-semibold text-[color:var(--delivery-primary)]"
             >
               {isSeller ? t("store_messenger_chrome_order_btn") : t("store_messenger_chrome_history_btn")}
             </button>
@@ -205,7 +237,7 @@ export function CommunityMessengerRoomPhase2StoreOrderChrome({ keyboardCompact }
           snapshot?.orderNo ??
           storeOrderId
         }
-        storeName={displayHeadline}
+        primaryLabel={chromePrimaryLabel}
         statusLabel={
           snapshot?.orderCard?.statusLabel ??
           statusLabel ??
@@ -267,7 +299,7 @@ const MESSENGER_PICKUP_PROGRESS_STEP_KEYS = [
 function DeliveryChromeStrip({
   t,
   orderNo,
-  storeName,
+  primaryLabel,
   statusLabel,
   orderStatus,
   deliveryLike,
@@ -277,7 +309,7 @@ function DeliveryChromeStrip({
 }: {
   t: StoreOrderI18nT;
   orderNo: string;
-  storeName: string;
+  primaryLabel: string;
   statusLabel: string;
   orderStatus: string | null;
   deliveryLike: boolean;
@@ -302,21 +334,21 @@ function DeliveryChromeStrip({
   return (
     <div
       data-store-order-delivery-chrome
-      className="shrink-0 border-t border-[#DDE5E0] bg-[#f6f6f6] px-3 py-2.5 shadow-none"
+      className="delivery-ui shrink-0 border-t border-[color:var(--delivery-chat-chrome-border)] bg-[color:var(--delivery-chat-chrome-bg)] px-3 py-2.5"
       role="region"
       aria-label={t("store_order_info")}
     >
-      <div className="rounded-[4px] border border-[#DDE5E0] bg-white p-2.5 shadow-none">
+      <div className="rounded-[var(--delivery-radius)] border border-[color:var(--delivery-border)] bg-[color:var(--delivery-bg-card)] p-2.5 shadow-[0_2px_8px_rgba(30,57,50,0.06)]">
         <div className="mb-2 flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <p className="truncate text-[11px] font-semibold leading-[1.35] text-[#6B7280]">
+            <p className="truncate text-[11px] font-semibold leading-[1.35] text-[color:var(--delivery-text-muted)]">
               {orderNo}
             </p>
-            <p className="mt-0.5 truncate text-[13px] font-bold leading-[1.35] text-[#123B4A]">
-              {storeName || t("store_messenger_order_in_progress")}
+            <p className="mt-0.5 truncate text-[13px] font-bold leading-[1.35] text-[color:var(--delivery-dark)]">
+              {primaryLabel || t("store_messenger_order_in_progress")}
             </p>
             {addressLine?.trim() ? (
-              <p className="mt-0.5 line-clamp-1 text-[11px] leading-[1.35] text-[#6B7280]">
+              <p className="mt-0.5 line-clamp-1 text-[11px] leading-[1.35] text-[color:var(--delivery-mocha)]">
                 {addressLine.trim()}
               </p>
             ) : null}
@@ -326,7 +358,9 @@ function DeliveryChromeStrip({
               {statusLabel || t("common_in_progress")}
             </span>
             {paymentLabel ? (
-              <p className="mt-1 text-[12px] font-bold leading-[1.35] text-[#123B4A]">{paymentLabel}</p>
+              <p className="mt-1 text-[12px] font-bold leading-[1.35] text-[color:var(--delivery-dark)]">
+                {paymentLabel}
+              </p>
             ) : null}
           </div>
         </div>
@@ -372,10 +406,10 @@ function DeliveryOrderProgressRail({
         {steps.map((step, idx) => {
           const tone =
             idx < currentStep
-              ? "text-[#123B4A]"
+              ? "text-[color:var(--delivery-dark)]"
               : idx === currentStep
                 ? "font-bold text-[color:var(--delivery-primary)]"
-                : "text-[#D1D5DB]";
+                : "text-[color:var(--delivery-text-disabled)]";
           return (
             <span key={step} className={`block truncate ${tone}`}>
               {step}

@@ -394,7 +394,7 @@ function BuyerOrderDetailBody({
       {orderCard ? <StoreOrderReceiptCard view={orderCard} viewer="buyer" /> : null}
       {!orderCard ? (
         <div className="relative overflow-hidden rounded-[4px] border border-[#DDE5E0] bg-white px-3.5 py-3.5">
-          <ul className="space-y-2.5 sam-text-body text-[#123B4A]">
+          <ul className="delivery-ui space-y-2.5 sam-text-body text-[color:var(--delivery-dark)]">
         {order.fulfillment_type === "pickup" &&
         order.store_pickup_address_lines &&
         order.store_pickup_address_lines.length > 0 ? (
