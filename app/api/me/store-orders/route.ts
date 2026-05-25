@@ -33,9 +33,7 @@ import { invalidateOwnerHubBadgeCache } from "@/lib/chats/owner-hub-badge-cache"
 import { invalidateStoreOrderCountsCache } from "@/lib/stores/store-order-counts-cache";
 import { invalidateStoreOrderDetailSnapshot } from "@/lib/stores/store-order-detail-snapshot-cache";
 import { invalidateBuyerStoreOrdersListSnapshot } from "@/lib/stores/buyer-store-orders-list-snapshot-cache";
-import { buildBuyerStoreOrdersListLegacy } from "@/lib/stores/fetch-buyer-store-orders-list-legacy";
 import {
-  logLegacyBuyerStoreOrdersListHotpath,
   tryLoadBuyerStoreOrdersListFromSnapshot,
 } from "@/lib/stores/buyer-store-orders-list-snapshot";
 import { persistStoreOrderItemOptions } from "@/lib/stores/persist-store-order-item-options";
@@ -179,7 +177,6 @@ export async function GET(req: NextRequest) {
     req.nextUrl.searchParams.get("buyerOrdersListBypass") === "1" &&
     process.env.NODE_ENV === "development";
 
-  const wall0 = performance.now();
   const snap = await tryLoadBuyerStoreOrdersListFromSnapshot(
     sb as SupabaseClient<any>,
     buyerId,
@@ -196,23 +193,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: snap.error }, { status: snap.status });
   }
 
-  const legacy = await buildBuyerStoreOrdersListLegacy(
-    sb as SupabaseClient<any>,
-    buyerId,
-    rowLimit
+  return NextResponse.json(
+    { ok: false, error: "snapshot_unavailable" },
+    { status: 503 }
   );
-  if (!legacy.ok) {
-    return NextResponse.json({ ok: false, error: legacy.error }, { status: legacy.status });
-  }
-
-  logLegacyBuyerStoreOrdersListHotpath({
-    totalMs: performance.now() - wall0,
-    dbMs: legacy.result.dbMs,
-    ordersFetchMs: legacy.result.ordersFetchMs,
-    wave2Ms: legacy.result.wave2Ms,
-  });
-
-  return NextResponse.json(legacy.result.body);
 }
 
 type PostBody = {
